@@ -30,6 +30,13 @@ governing permissions and limitations under the License.
 
 #define BUILD_GAMES
 
+// Meshtastic integration. When MESHTASTIC_PHY is defined, the real SX1276
+// Meshtastic radio driver (mesh_phy.*) owns the LoRa chip, and the legacy
+// WiPhone RadioHead LoRa messaging is disabled (one radio can't run both).
+// Comment this out to fall back to the stubbed Meshtastic service and keep
+// the old WiPhone LoRa messaging behavior.
+#define MESHTASTIC_PHY
+
 #define IF_LOG(level)                       if (ARDUHAL_LOG_LEVEL >= ESP_LOG_ ## level || LOG_LOCAL_LEVEL >= ESP_LOG_ ## level)
 #define LOG_MEM_STATUS printf("Free Memory: %d\r\n", ESP.getFreeHeap())
 

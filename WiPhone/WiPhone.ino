@@ -38,6 +38,8 @@ governing permissions and limitations under the License.
 #include "lora.h"
 #include "esp_ota_ops.h"
 #include "Test.h"
+#include "meshtastic_service.h"
+#include "src/assets/pop_sound.h"
 
 static bool been_in_verify = false;
 
@@ -56,7 +58,8 @@ static Ota ota("");
 GUI gui;
 uint32_t chipId = 0;
 
-#ifdef LORA_MESSAGING
+// Legacy WiPhone RadioHead LoRa is disabled when the Meshtastic PHY owns the radio.
+#if defined(LORA_MESSAGING) && !defined(MESHTASTIC_PHY)
 static Lora lora;
 #endif
 
@@ -629,6 +632,17 @@ void setup() {
   // Mounter internal filesystem
   if (SPIFFS.begin()) {
     log_d("SPI filesystem mounted");
+    // Install/refresh the Meshtastic notification "pop" sound (embedded in
+    // firmware so no SPIFFS re-flash is needed). Rewritten on each boot so
+    // firmware updates to the sample always take effect.
+    {
+      File pf = SPIFFS.open("/pop.pcm", "w");
+      if (pf) {
+        pf.write(pop_pcm, sizeof(pop_pcm));
+        pf.close();
+        log_d("Installed /pop.pcm (%u bytes)", (unsigned)sizeof(pop_pcm));
+      }
+    }
   } else {
     log_d("SPI filesystem mount FAILED");
   }
@@ -909,9 +923,12 @@ void setup() {
   ntpClock.startUpdates();
 
   // Setup for LoRa messaging
-#ifdef LORA_MESSAGING
+#if defined(LORA_MESSAGING) && !defined(MESHTASTIC_PHY)
   lora.setup();
 #endif
+
+  // Meshtastic background service (owns the LoRa radio when MESHTASTIC_PHY is set)
+  meshService.setup();
 
   log_d("WiPhone, firmware date = " __DATE__);
 
@@ -968,6 +985,26 @@ bool lastTurnOff = true;
 
 uint32_t last_lora_send = 0;
 
+// Meshtastic new-message popup banner
+#define MESH_POPUP_MS 2500u
+static bool     meshPopupActive = false;
+static uint32_t meshPopupShownMs = 0;
+
+// Triple-tap the top-right (Back) button to sleep the screen manually.
+#define BACK_TRIPLE_TAP_MS 700u
+static uint32_t backTapTimes[3] = {0, 0, 0};
+
+// Quiet "pop" sound on a new Meshtastic message (one-shot). The PCM player
+// loops, so we stop it by timer after it has played through once.
+#define MESH_POP_MS 280u
+static bool     meshPopPlaying = false;
+static uint32_t meshPopStartMs = 0;
+
+// Short silent vibration on a new Meshtastic message.
+#define MESH_VIBRO_MS 180u
+static bool     meshVibroActive = false;
+static uint32_t meshVibroStartMs = 0;
+
 void loop() {
   while (1) {
     uint32_t now = millis();
@@ -1023,6 +1060,21 @@ void loop() {
         lastKeys[k] = lastKeys[k - 1];
       }
       lastKeys[0] = keyPressed;
+
+      // Triple-tap the top-right (Back) button to sleep the screen. Only tracked
+      // while the screen is awake, so a wake-up tap doesn't count.
+      if (keyPressed == WIPHONE_KEY_BACK && gui.state.screenBrightness > 0) {
+        backTapTimes[0] = backTapTimes[1];
+        backTapTimes[1] = backTapTimes[2];
+        backTapTimes[2] = now;
+        if (backTapTimes[0] && (now - backTapTimes[0]) <= BACK_TRIPLE_TAP_MS) {
+          backTapTimes[0] = backTapTimes[1] = backTapTimes[2] = 0;
+          gui.sleepScreen();
+          continue;                       // swallow this 3rd Back (don't navigate)
+        }
+      } else if (keyPressed != WIPHONE_KEY_BACK) {
+        backTapTimes[0] = backTapTimes[1] = backTapTimes[2] = 0;
+      }
 
       if (!anyPressed && gui.state.inputType == InputType::AlphaNum) {
         msLastKeyInput = now;
@@ -1815,7 +1867,7 @@ void loop() {
       gui.state.sipRegistered = false;
     }
 
-#ifdef LORA_MESSAGING
+#if defined(LORA_MESSAGING) && !defined(MESHTASTIC_PHY)
     if (lora.loop()) {
       log_d("Received LoRa message");
       appEventResult res = gui.processEvent(now, NEW_MESSAGE_EVENT);
@@ -1834,6 +1886,66 @@ void loop() {
       }
     }
 #endif
+
+    // Meshtastic background service tick (non-blocking). If a new message
+    // arrived, notify the GUI so an open Channel view refreshes live, raise the
+    // status-bar unread flag, and show a brief popup banner on any screen.
+    if (meshService.loop()) {
+      log_d("Received Meshtastic message");
+      gui.state.meshUnread = true;
+      gui.processEvent(now, NEW_MESSAGE_EVENT);   // let an open Mesh view rebuild
+      // Full repaint so the unread icon shows immediately on any screen.
+      gui.redrawScreen(true, true, true);
+      const MeshMessage* nm = meshService.getMessage(0);   // newest = the arrival
+      if (nm) {
+        const MeshNode* n = meshService.findNode(nm->from);
+        char title[32];
+        snprintf(title, sizeof(title), "Mesh: %s", n ? n->name : "new message");
+        gui.showMeshPopup(title, nm->text);                // drawn on top of app
+        meshPopupActive = true;
+        meshPopupShownMs = now;
+      }
+      // Quiet notification "pop" — play unless we're in an active call/ringtone.
+      if (gui.state.sipState != CallState::Call && !gui.state.ringing && !meshPopPlaying) {
+        bool played = audio->playPop(&SPIFFS);
+        log_e("Mesh pop: played=%d", played);
+        if (played) {
+          meshPopPlaying = true;
+          meshPopStartMs = now;
+        }
+      }
+      // Short silent buzz too (skip if the ringtone owns the motor).
+      if (!gui.state.ringing) {
+        allDigitalWrite(VIBRO_MOTOR_CONTROL, HIGH);
+        meshVibroActive = true;
+        meshVibroStartMs = now;
+        log_e("Mesh vibro: on");
+      }
+    }
+
+    // Stop the notification vibration after its brief pulse.
+    if (meshVibroActive && elapsedMillis(now, meshVibroStartMs, MESH_VIBRO_MS)) {
+      allDigitalWrite(VIBRO_MOTOR_CONTROL, LOW);
+      meshVibroActive = false;
+    }
+
+    // One-shot pop: the PCM player loops, so stop it by timer once it has
+    // played through. Use ceasePlayback (NOT shutdown) — shutdown()'s codec
+    // power-down on the shared I2C bus disrupts the vibro motor extender.
+    if (meshPopPlaying) {
+      if (gui.state.sipState == CallState::Call || gui.state.ringing) {
+        meshPopPlaying = false;
+      } else if (elapsedMillis(now, meshPopStartMs, MESH_POP_MS)) {
+        audio->ceasePlayback();
+        meshPopPlaying = false;
+      }
+    }
+
+    // Auto-dismiss the mesh popup: repaint the screen to erase it after a moment.
+    if (meshPopupActive && elapsedMillis(now, meshPopupShownMs, MESH_POPUP_MS)) {
+      meshPopupActive = false;
+      gui.redrawScreen(true, true, true, true);
+    }
 
 //    if (gui.state.ledPleaseTurnOn) {
 //      allDigitalWrite(EXTENDER_PIN_B2, HIGH);

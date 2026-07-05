@@ -16,6 +16,7 @@ governing permissions and limitations under the License.
 #include "tinySIP.h"
 #include "ota.h"
 #include "Test.h"
+#include "app_meshtastic.h"
 
 // Static images
 #include "src/assets/image.h"
@@ -236,6 +237,18 @@ void GUI::frameToSerial() {
       }
       printf("\r\n");
     }
+  }
+}
+
+void GUI::sleepScreen() {
+  // Manual screen-off. Mirrors the auto SCREEN_SLEEP_EVENT: brightness 0 marks
+  // the screen as sleeping, so the existing wake-on-keypress logic revives it
+  // (and consumes that first key). Locks too, if keyboard locking is enabled.
+  log_d("Manual screen sleep");
+  lcdLedOnOff(false);
+  state.screenBrightness = 0;
+  if (state.locking) {
+    state.locked = true;
   }
 }
 
@@ -1400,6 +1413,9 @@ void GUI::enterApp(ActionID_t app) {
     break;
   case GUI_APP_MESSAGES:
     runningApp = new MessagesApp(*screen, state, flash, header, footer);
+    break;
+  case GUI_APP_MESHTASTIC:
+    runningApp = new MeshtasticApp(*screen, state, header, footer);
     break;
   case GUI_APP_SIP_ACCOUNTS:
     runningApp = new SipAccountsApp(*screen, state, flash, header, footer);
@@ -11644,11 +11660,34 @@ uint16_t GUI::drawSipIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x,
 }
 
 uint16_t GUI::drawMessageIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y) {
-  if (controlState.unreadMessages) {
+  if (controlState.unreadMessages || controlState.meshUnread) {
     lcd.drawImage(icon_incoming_message_w, sizeof(icon_incoming_message_w), x, y);
     return 19;      // TODO: hardcoded width
   }
   return 0;
+}
+
+// Brief overlay banner shown when a new Meshtastic message arrives (any screen).
+// Drawn directly to the physical LCD, on top of the current app; the main loop
+// repaints the screen after a short delay to erase it.
+void GUI::showMeshPopup(const char* title, const char* body) {
+  const int16_t x = 6;
+  const int16_t w = lcd.width() - 12;
+  const int16_t y = 26;
+  const int16_t h = 48;
+
+  lcd.fillRoundRect(x, y, w, h, 6, WP_ACCENT_1);
+  lcd.drawRoundRect(x, y, w, h, 6, WHITE);
+  lcd.setTextColor(WHITE, WP_ACCENT_1);
+  lcd.setTextDatum(TL_DATUM);
+
+  lcd.setTextFont(fonts[AKROBAT_BOLD_18]);
+  lcd.drawString(title ? title : "New message", x + 8, y + 6);
+
+  char preview[42];
+  strlcpy(preview, body ? body : "", sizeof(preview));
+  lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
+  lcd.drawString(preview, x + 8, y + 26);
 }
 
 void GUI::drawOtaUpdate() {

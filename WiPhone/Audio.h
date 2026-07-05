@@ -126,6 +126,7 @@ public:
   bool playFile(fs::FS *fs, const char* path);
   bool playRecord();
   bool playRingtone(fs::FS *fs);
+  bool playPop(fs::FS *fs);        // short quiet notification sound (/pop.pcm)
   bool rewind() {
     return this->playFile(this->playbackFS, this->playbackFilename.c_str());
   }

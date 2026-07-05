@@ -500,6 +500,26 @@ bool Audio::playRingtone(fs::FS *fs) {
   return this->playFile(fs, "/ringtone.pcm");
 }
 
+// Short one-shot notification sound (raw 16-bit mono 8kHz PCM). Forced out the
+// loudspeaker at max level so it's audible as a notification regardless of the
+// headphone-detect state; the sample amplitude controls how loud the pop is.
+bool Audio::playPop(fs::FS *fs) {
+  this->ceasePlayback();
+  this->playback = Playback::LocalPcm;
+  this->setDataChannels(1);
+  this->setBitsPerSample(16);
+  this->setSampleRate(8000);
+  this->setMonoOutput(true);
+  this->setHeadphones(false);                       // force speaker path (not headphones)
+  this->chooseSpeaker(true);                        // loudspeaker (not the tiny earpiece)
+  this->setVolumes(Audio::MaxVolume, Audio::MaxVolume, Audio::MaxLoudspeakerVolume);
+
+  if (!this->turnOn()) {
+    return false;
+  }
+  return this->playFile(fs, "/pop.pcm");
+}
+
 /* Description:
  *     decode chunk of audio and play it
  */

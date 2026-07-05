@@ -259,7 +259,8 @@ public:
   uint16_t vibroNextDelayMs;          // next time delay before toggling the vibration motor state
 
   // Messages
-  bool unreadMessages = false;        // are there any unread messages?
+  bool unreadMessages = false;        // are there any unread SIP messages?
+  bool meshUnread = false;            // unread Meshtastic message(s) (until checked)
   MessagesArray outgoingMessages;     // Messages to be sent via TinySIP class
   MessagesArray outgoingLoraMessages;
 
@@ -358,6 +359,9 @@ typedef enum ActionID : uint16_t {
   GUI_APP_MESSAGES,
   GUI_APP_VIEW_MESSAGE,
   GUI_APP_CREATE_MESSAGE,
+
+  // Meshtastic
+  GUI_APP_MESHTASTIC,
 
   // Tools
   GUI_APP_NOTEPAD,
@@ -2360,6 +2364,7 @@ public:
   bool inCall(); // are we in a call? used to determine when to disable entering lock screen or when to easily exit it
   void frameToSerial();     // "screenshot": print current frame to serial (requires exernal PSRAM)
   void toggleScreen();
+  void sleepScreen();       // manually turn the screen off (wakes on next keypress)
   void setAudio(Audio* pAudio) {
     this->audio = pAudio;
   };
@@ -2378,6 +2383,7 @@ public:
   static uint16_t drawWifiIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y);
   static uint16_t drawSipIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y);
   static uint16_t drawMessageIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y);
+  void showMeshPopup(const char* title, const char* body);
   void drawPowerOff();
 
   ControlState state;
@@ -2387,16 +2393,17 @@ public:
 
 
 protected:
-  GUIMenuItemIcons menuIcons[6] PROGMEM = {
+  GUIMenuItemIcons menuIcons[7] PROGMEM = {
     { 2,    icon_Phonebook_w, sizeof (icon_Phonebook_w), icon_Phonebook_b, sizeof (icon_Phonebook_b) },
     { 20,   icon_Messages_w, sizeof (icon_Messages_w), icon_Messages_b, sizeof (icon_Messages_b) },
+    { 39,   icon_Meshtastic_w, sizeof (icon_Meshtastic_w), icon_Meshtastic_b, sizeof (icon_Meshtastic_b) },
     { 3,    icon_Tools_w, sizeof (icon_Tools_w), icon_Tools_b, sizeof (icon_Tools_b) },
     { 4,    icon_Games_w, sizeof (icon_Games_w), icon_Games_b, sizeof (icon_Games_b) },
     { 13,   icon_Reboot_w, sizeof (icon_Reboot_w), icon_Reboot_b, sizeof (icon_Reboot_b) },
     { 5,    icon_Settings_w, sizeof (icon_Settings_w), icon_Settings_b, sizeof (icon_Settings_b) },
   };
 
-  GUIMenuItem menu[38] PROGMEM = {  // increment size by one to add a new app
+  GUIMenuItem menu[39] PROGMEM = {  // increment size by one to add a new app
 
     // TODO: button names can be removed
 
@@ -2408,6 +2415,7 @@ protected:
     // TODO: call log (icons: Call_log_b/Call_log_w)
     { 2, 1, "Phonebook", "", "", GUI_APP_PHONEBOOK },
     { 20, 1, "Messages", "", "", GUI_APP_MESSAGES },
+    { 39, 1, "Meshtastic", "", "", GUI_APP_MESHTASTIC },
     { 3, 1, "Tools", "Select", "Back", GUI_ACTION_SUBMENU },
     { 4, 1, "Games", "Select", "Back", GUI_ACTION_SUBMENU },
     { 5, 1, "Settings", "Select", "Back", GUI_ACTION_SUBMENU },
