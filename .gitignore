@@ -10,3 +10,6 @@ backups/
 # Python
 *.pyc
 __pycache__/
+
+# Personal notes (keep local, not on GitHub)
+NOTES.md
