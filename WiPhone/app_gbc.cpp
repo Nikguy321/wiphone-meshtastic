@@ -1,12 +1,17 @@
 /*
- * app_gbc.cpp — WiPhone Game Boy Color emulator (Phase 3: playable, single-task)
+ * app_gbc.cpp — WiPhone Game Boy Color emulator (Phase 6: dual-core overlap, diagnostic)
  *
- * One task (core 0) emulates and blits each frame. Entering the app turns off
- * WiFi and stops the main loop's mesh/LoRa polling ("gaming mode") so the
- * emulator has the CPU and the shared SPI bus to itself; exiting restores them.
+ * Two tasks + two framebuffers overlap emulation with the screen push:
+ *   - emuThread (core 1): poll keypad, emulate+render into the back buffer, hand
+ *     it to the blit task, switch buffers. Never touches the LCD or SD.
+ *   - blitTask: owns ALL LCD and SD. Pushes finished frames while the emulator
+ *     renders the next; when paused, runs the menu + save/load here too so the two
+ *     cores never hit the shared SPI bus at the same time.
  *
- * (A double-buffered two-core overlap for higher framerate is planned, but is
- * kept out until it's proven — this single-task path is the reliable baseline.)
+ * Both tasks are left unpinned (pinning to core 1 starved them) and the core
+ * watchdogs are disabled while playing (the two tasks saturate both cores). The
+ * emulator paces to 60fps and only renders frames the blit can show, so game
+ * speed and input stay correct (and authentic) even when the display can't keep up.
  */
 
 #include "app_gbc.h"
@@ -15,6 +20,7 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "WiFi.h"
 #include "SD.h"
 #include "gnuboy/gnuboy.h"
@@ -29,7 +35,6 @@ extern volatile uint32_t gGbcKeyLatch;
 
 #define GBC_EMU_SAMPLERATE   32768
 #define GBC_EMU_AUDIO_LEN    2048   // int16 samples in the (unused) audio sink buffer
-#define GBC_FRAMESKIP        2      // emulate every frame, draw every Nth
 
 // Pause-menu items and pending actions.
 #define GBC_MENU_RESUME  0
@@ -42,8 +47,7 @@ extern volatile uint32_t gGbcKeyLatch;
 #define GBC_ACT_SAVE     1
 #define GBC_ACT_LOAD     2
 
-// Fill mode: nearest-neighbor 1.5x upscale of 160x144 -> 240x216 (fills the
-// screen width, keeps aspect ratio, black bars top/bottom).
+// Fill mode: nearest-neighbor 1.5x upscale of 160x144 -> 240x216.
 #define GBC_FILL_W  240
 #define GBC_FILL_H  216
 
@@ -53,30 +57,58 @@ extern volatile uint32_t gGbcKeyLatch;
 #define GBC_ERR_LOAD    -4
 #define GBC_ERR_TASK    -9
 
-// gnuboy uses global state and gb_hw_init() has no matching free, so the core
-// and framebuffer are set up once per boot and reused across launches.
+// gnuboy uses global state and gb_hw_init() has no matching free, so the core and
+// framebuffers are set up once per boot and reused across launches.
 static bool      s_gnuboyInited = false;
-static uint16_t* s_emuFb    = NULL;   // 160x144 RGB565 big-endian framebuffer (PSRAM)
-static uint16_t* s_scaledFb = NULL;   // 240x216 upscale target (PSRAM), for Fill mode
-static uint16_t  s_xmap[GBC_FILL_W];  // precomputed nearest-neighbor column map
+static uint16_t* s_emuFb[2] = { NULL, NULL };  // double buffer, RGB565 big-endian (PSRAM)
+static uint16_t* s_scaledFb = NULL;            // 240x216 upscale target (PSRAM), for Fill
+static uint16_t  s_xmap[GBC_FILL_W];           // precomputed nearest-neighbor column map
 static int16_t*  s_emuAudio = NULL;
 static uint8_t*  s_emuRom   = NULL;
+
+// Per-launch task handoff.
+static SemaphoreHandle_t s_blitGo   = NULL;   // emu -> blit: buffer s_blitIdx is ready
+static TaskHandle_t      s_blitTask = NULL;
+static volatile int      s_blitIdx = 0;
+static volatile bool     s_blitBusy = false;  // true while the blit task is pushing a frame
+static volatile bool     s_running = false;
+static volatile bool     s_blitExited = false;
+static volatile bool     s_emuExited = false;
 
 GbcApp::GbcApp(LCD& disp, ControlState& state) : ThreadedApp(disp, state) {
   log_d("create GbcApp");
 
-  // Enter "gaming mode": stop mesh/LoRa polling (frees the shared SPI bus) and
-  // turn WiFi off (frees the high-priority WiFi tasks). BT is released in setup.
+  // Enter "gaming mode": stop mesh/LoRa polling and turn WiFi off. BT in setup.
   gGbcActive = true;
   WiFi.disconnect(true, false);
   WiFi.mode(WIFI_OFF);
 
+  // The two emulator tasks saturate both cores, so the idle tasks can't pet the
+  // task watchdog -> disable the core WDTs while playing (re-enabled on exit).
+  disableCore0WDT();
+  disableCore1WDT();
+
   if (!setupEmulator()) {
     return;   // initErr set; redrawScreen() shows the error, END/Back exits
   }
-  BaseType_t st = xTaskCreatePinnedToCore(&GbcApp::emuThread, "gbc", 8192, this,
-                                          tskIDLE_PRIORITY + 2, &xHandle, 0);
-  if (st != pdPASS) {
+
+  s_blitGo   = xSemaphoreCreateBinary();
+  s_running    = true;
+  s_blitBusy   = false;
+  s_blitExited = false;
+  s_emuExited  = false;
+  if (!s_blitGo) {
+    initErr = GBC_ERR_ALLOC;
+    return;
+  }
+  // Leave both tasks UNPINNED (like DigitalRainApp, which blits fine): the SMP
+  // scheduler runs the two ready high-priority tasks on the two cores, giving the
+  // overlap, without the core-1 starvation seen when pinning there.
+  BaseType_t e = xTaskCreate(&GbcApp::emuThread, "gbc", 8192, this,
+                             tskIDLE_PRIORITY + 2, &xHandle);
+  BaseType_t b = xTaskCreate(&GbcApp::blitTask, "gbcblit", 8192, this,
+                             tskIDLE_PRIORITY + 2, &s_blitTask);
+  if (b != pdPASS || e != pdPASS) {
     xHandle = NULL;
     initErr = GBC_ERR_TASK;
   }
@@ -84,10 +116,24 @@ GbcApp::GbcApp(LCD& disp, ControlState& state) : ThreadedApp(disp, state) {
 
 GbcApp::~GbcApp() {
   log_d("destroy GbcApp");
-  // ~ThreadedApp() deletes the task.
-  lcd.setSwapBytes(false);   // leave the UI's expected default
+  s_running = false;
+  if (s_blitGo) {
+    xSemaphoreGive(s_blitGo);   // wake the blit task if it's waiting
+  }
+  // Wait for both loops to exit (they then park in a delay loop), so neither is
+  // mid-SPI/SD when we delete it, then free both explicitly.
+  for (int i = 0; i < 60 && !(s_emuExited && s_blitExited); i++) {
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+  if (xHandle)    { vTaskDelete(xHandle);    xHandle = NULL; }
+  if (s_blitTask) { vTaskDelete(s_blitTask); s_blitTask = NULL; }
+  if (s_blitGo)   { vSemaphoreDelete(s_blitGo); s_blitGo = NULL; }
 
-  // Leave gaming mode: resume mesh polling and bring WiFi back up.
+  lcd.setSwapBytes(false);
+
+  enableCore0WDT();
+  enableCore1WDT();
+
   gGbcActive = false;
   WiFi.mode(WIFI_STA);
   WiFi.reconnect();
@@ -156,7 +202,6 @@ bool GbcApp::setupEmulator() {
     reclaimInternalRam();
   }
 
-  // Pick a ROM: an SD-card .gb/.gbc if present, else the embedded game.
   const uint8_t* romData = NULL;
   size_t romSize = 0;
   char path[96];
@@ -191,25 +236,23 @@ bool GbcApp::setupEmulator() {
     snprintf(romName, sizeof(romName), "uCity(flash)");
   }
 
-  // One-time gnuboy setup + framebuffer allocation.
   if (!s_gnuboyInited) {
     s_emuAudio = (int16_t*)malloc(GBC_EMU_AUDIO_LEN * sizeof(int16_t));
     size_t fbBytes = (size_t)GBC_SCREEN_W * GBC_SCREEN_H * sizeof(uint16_t);
-    s_emuFb = (uint16_t*)ps_malloc(fbBytes);
+    s_emuFb[0] = (uint16_t*)ps_malloc(fbBytes);
+    s_emuFb[1] = (uint16_t*)ps_malloc(fbBytes);
     s_scaledFb = (uint16_t*)ps_malloc((size_t)GBC_FILL_W * GBC_FILL_H * sizeof(uint16_t));
-    if (!s_emuFb || !s_scaledFb || !s_emuAudio) {
+    if (!s_emuFb[0] || !s_emuFb[1] || !s_scaledFb || !s_emuAudio) {
       initErr = GBC_ERR_ALLOC;
       return false;
     }
-    for (int ox = 0; ox < GBC_FILL_W; ox++) {   // nearest-neighbor column map
+    for (int ox = 0; ox < GBC_FILL_W; ox++) {
       s_xmap[ox] = (uint16_t)((ox * GBC_SCREEN_W) / GBC_FILL_W);
     }
-    // RGB565 big-endian matches the panel byte order (no per-pixel swap on blit).
     if (gnuboy_init(GBC_EMU_SAMPLERATE, GB_AUDIO_STEREO_S16, GB_PIXEL_565_BE, NULL, NULL) < 0) {
       initErr = GBC_ERR_INIT;
       return false;
     }
-    gnuboy_set_framebuffer(s_emuFb);
     gnuboy_set_soundbuffer(s_emuAudio, GBC_EMU_AUDIO_LEN);
     s_gnuboyInited = true;
   } else {
@@ -225,8 +268,6 @@ bool GbcApp::setupEmulator() {
 }
 
 int GbcApp::readPad() {
-  // Held state OR any press latched since the last poll (then clear the latch),
-  // so a quick tap that came and went between frames still registers for a frame.
   uint32_t ks = keypadState | gGbcKeyLatch;
   gGbcKeyLatch = 0;
   int pad = 0;
@@ -242,15 +283,15 @@ int GbcApp::readPad() {
 }
 
 void GbcApp::blitBuffer(int idx) {
+  const uint16_t* fb = s_emuFb[idx];
   if (!scaled) {
     const int xoff = (lcd.width()  - GBC_SCREEN_W) / 2;
     const int yoff = (lcd.height() - GBC_SCREEN_H) / 2;
-    lcd.pushImage(xoff, yoff, GBC_SCREEN_W, GBC_SCREEN_H, s_emuFb);
+    lcd.pushImage(xoff, yoff, GBC_SCREEN_W, GBC_SCREEN_H, (uint16_t*)fb);
     return;
   }
-  // Fill mode: nearest-neighbor upscale into s_scaledFb, then one push.
   for (int oy = 0; oy < GBC_FILL_H; oy++) {
-    const uint16_t* src = s_emuFb + ((oy * GBC_SCREEN_H) / GBC_FILL_H) * GBC_SCREEN_W;
+    const uint16_t* src = fb + ((oy * GBC_SCREEN_H) / GBC_FILL_H) * GBC_SCREEN_W;
     uint16_t* dst = s_scaledFb + oy * GBC_FILL_W;
     for (int ox = 0; ox < GBC_FILL_W; ox++) {
       dst[ox] = src[s_xmap[ox]];
@@ -259,10 +300,6 @@ void GbcApp::blitBuffer(int idx) {
   const int xoff = (lcd.width()  - GBC_FILL_W) / 2;
   const int yoff = (lcd.height() - GBC_FILL_H) / 2;
   lcd.pushImage(xoff, yoff, GBC_FILL_W, GBC_FILL_H, s_scaledFb);
-}
-
-void GbcApp::blitTask(void* pvParam) {
-  (void)pvParam;   // unused in the single-task baseline
 }
 
 // Build "/sd/gbc/<rom>.state" from a sanitized ROM name.
@@ -308,15 +345,15 @@ void GbcApp::drawPauseMenu() {
   }
 }
 
-void GbcApp::emuThread(void* pvParam) {
+// Core 0: owns the LCD and SD. Pushes finished frames; when paused, runs the
+// menu and save/load here (so SD and LCD never contend on the SPI bus).
+void GbcApp::blitTask(void* pvParam) {
   GbcApp* app = (GbcApp*)pvParam;
+  app->lcd.setSwapBytes(false);
   app->lcd.fillScreen(BLACK);
-  app->lcd.setSwapBytes(false);   // framebuffer is already big-endian
-  uint32_t frame = 0;
-  while (1) {                     // stopped by vTaskDelete() from ~ThreadedApp
+
+  while (s_running) {
     if (app->paused) {
-      // Perform any requested save/load here (same task as the LCD, so SD and
-      // TFT never hit the shared SPI bus at the same time).
       if (app->pendingAction == GBC_ACT_SAVE) {
         SD.mkdir("/gbc");
         char path[80];
@@ -331,7 +368,7 @@ void GbcApp::emuThread(void* pvParam) {
         int r = gnuboy_load_state(path);
         app->pendingAction = GBC_ACT_NONE;
         if (r == 0) {
-          app->paused = false;    // resume into the loaded state
+          app->paused = false;
         } else {
           snprintf(app->statusMsg, sizeof(app->statusMsg), "No save found");
           app->menuDirty = true;
@@ -341,42 +378,83 @@ void GbcApp::emuThread(void* pvParam) {
         app->drawPauseMenu();
         app->menuDirty = false;
       }
-      gGbcKeyLatch = 0;   // don't let menu-nav presses spill into the game on resume
+      s_blitBusy = false;
+      gGbcKeyLatch = 0;
       vTaskDelay(pdMS_TO_TICKS(20));
       continue;
     }
 
-    if (app->needsClear) {        // a Screen mode switch: wipe leftover borders
-      app->lcd.fillScreen(BLACK);
-      app->needsClear = false;
+    // Running: push the latest rendered frame the emulator handed us.
+    if (xSemaphoreTake(s_blitGo, pdMS_TO_TICKS(30)) == pdTRUE) {
+      if (!s_running) {
+        break;
+      }
+      if (app->needsClear) {
+        app->lcd.fillScreen(BLACK);
+        app->needsClear = false;
+      }
+      app->blitBuffer(s_blitIdx);
+      s_blitBusy = false;
+    }
+  }
+  s_blitExited = true;
+  for (;;) {
+    vTaskDelay(portMAX_DELAY);   // park until the destructor deletes us
+  }
+}
+
+// Emulate at a steady ~60fps (correct game speed + responsive input). Render only
+// the frames the blit task can actually show; when the blit is busy, keep
+// emulating (no render) so the game never slows down — display frames just drop.
+void GbcApp::emuThread(void* pvParam) {
+  GbcApp* app = (GbcApp*)pvParam;
+  int emuBuf = 0;
+  uint32_t start = millis();
+  uint32_t frames = 0;
+  while (s_running) {
+    if (app->paused) {
+      vTaskDelay(pdMS_TO_TICKS(20));
+      start = millis();           // reset the pacing baseline for resume
+      frames = 0;
+      continue;
     }
     gnuboy_set_pad(app->readPad());
-    frame++;
-    bool draw = (frame % GBC_FRAMESKIP) == 0;
-    gnuboy_run(draw);
-    if (draw) {
-      app->blitBuffer(0);
+    bool willDraw = !s_blitBusy;                 // only render if the blit is free
+    gnuboy_set_framebuffer(s_emuFb[emuBuf]);
+    gnuboy_run(willDraw);
+    frames++;
+    if (willDraw) {
+      s_blitIdx = emuBuf;
+      s_blitBusy = true;
+      xSemaphoreGive(s_blitGo);
+      emuBuf = 1 - emuBuf;        // render the next frame into the other buffer
     }
-    vTaskDelay(1);                // yield so core 0's watchdog/idle and IPC run
+    // Pace to 60 emulated fps; always yield a little for the main loop's keypad.
+    uint32_t target = start + (uint32_t)((uint64_t)frames * 1000 / 60);
+    int32_t ahead = (int32_t)(target - millis());
+    vTaskDelay(ahead > 1 ? pdMS_TO_TICKS(ahead) : 1);
+  }
+  s_emuExited = true;
+  for (;;) {
+    vTaskDelay(portMAX_DELAY);
   }
 }
 
 appEventResult GbcApp::processEvent(EventType event) {
   if (initErr) {
-    return LOGIC_BUTTON_BACK(event) ? EXIT_APP : DO_NOTHING;  // error screen
+    return LOGIC_BUTTON_BACK(event) ? EXIT_APP : DO_NOTHING;
   }
 
   if (!paused) {
-    if (event == WIPHONE_KEY_END) {     // hang-up opens the pause menu
+    if (event == WIPHONE_KEY_END) {
       statusMsg[0] = 0;
       menuSel = GBC_MENU_RESUME;
       menuDirty = true;
       paused = true;
     }
-    return DO_NOTHING;                  // all other keys are read as gamepad input
+    return DO_NOTHING;
   }
 
-  // Paused: drive the menu.
   switch (event) {
     case WIPHONE_KEY_UP:
       menuSel = (menuSel + GBC_MENU_COUNT - 1) % GBC_MENU_COUNT;
@@ -386,7 +464,7 @@ appEventResult GbcApp::processEvent(EventType event) {
       menuSel = (menuSel + 1) % GBC_MENU_COUNT;
       menuDirty = true;
       break;
-    case WIPHONE_KEY_END:               // hang-up again = resume
+    case WIPHONE_KEY_END:
       paused = false;
       break;
     case WIPHONE_KEY_OK:
@@ -394,7 +472,7 @@ appEventResult GbcApp::processEvent(EventType event) {
         case GBC_MENU_RESUME: paused = false;               break;
         case GBC_MENU_SAVE:   pendingAction = GBC_ACT_SAVE;  break;
         case GBC_MENU_LOAD:   pendingAction = GBC_ACT_LOAD;  break;
-        case GBC_MENU_SCREEN: scaled = !scaled;             // toggle, stay in menu
+        case GBC_MENU_SCREEN: scaled = !scaled;
                               needsClear = true;
                               menuDirty = true;              break;
         case GBC_MENU_QUIT:   return EXIT_APP;
@@ -408,7 +486,7 @@ appEventResult GbcApp::processEvent(EventType event) {
 
 void GbcApp::redrawScreen(bool redrawAll) {
   if (!initErr) {
-    return;                            // the emulator task owns the screen
+    return;                            // the emulator tasks own the screen
   }
   SmoothFont* font = fonts[OPENSANS_COND_BOLD_20];
   lcd.fillScreen(BLACK);
