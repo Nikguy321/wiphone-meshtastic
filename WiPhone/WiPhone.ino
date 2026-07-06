@@ -188,6 +188,13 @@ void headphoneServiceInterrupt() {
 
 volatile uint8_t keypadToRead = 0;
 uint32_t keypadState = 0;        // 32-bit mask for current state of buttons
+// True while the Game Boy emulator app is running. The main loop then skips the
+// mesh/LoRa polling so the emulator has the SPI bus and CPU to itself.
+volatile bool gGbcActive = false;
+// Sticky "pressed since last read" mask for the emulator. Set on every key-down
+// here (the main loop sees every press); the emulator ORs it into the held state
+// and clears it each frame, so a fast tap isn't missed between its slow polls.
+volatile uint32_t gGbcKeyLatch = 0;
 RingBuffer<char> keypadBuff(KEYBOARD_BUFFER_LENGTH);        // TODO: maybe used cbuf.h from ESP32 stack?
 
 void IRAM_ATTR keyboardInterrupt() {
@@ -353,6 +360,7 @@ void keyboardRead() {
     if (key & SN7326_PRESSED) {
       if (!(keypadState & mask)) {
         keypadState |= mask;
+        gGbcKeyLatch |= mask;   // remember the press for the emulator's next poll
         newState |= mask;
         //Serial.print(c); Serial.println(" pressed");
 
@@ -1868,7 +1876,7 @@ void loop() {
     }
 
 #if defined(LORA_MESSAGING) && !defined(MESHTASTIC_PHY)
-    if (lora.loop()) {
+    if (!gGbcActive && lora.loop()) {
       log_d("Received LoRa message");
       appEventResult res = gui.processEvent(now, NEW_MESSAGE_EVENT);
       gui.redrawScreen(res & REDRAW_HEADER, res & REDRAW_FOOTER, res & REDRAW_SCREEN);
@@ -1890,7 +1898,7 @@ void loop() {
     // Meshtastic background service tick (non-blocking). If a new message
     // arrived, notify the GUI so an open Channel view refreshes live, raise the
     // status-bar unread flag, and show a brief popup banner on any screen.
-    if (meshService.loop()) {
+    if (!gGbcActive && meshService.loop()) {
       log_d("Received Meshtastic message");
       gui.state.meshUnread = true;
       gui.processEvent(now, NEW_MESSAGE_EVENT);   // let an open Mesh view rebuild

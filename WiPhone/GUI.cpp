@@ -17,6 +17,7 @@ governing permissions and limitations under the License.
 #include "ota.h"
 #include "Test.h"
 #include "app_meshtastic.h"
+#include "app_gbc.h"
 
 // Static images
 #include "src/assets/image.h"
@@ -1148,8 +1149,11 @@ void GUI::redrawScreen(bool redrawHeader, bool redrawFooter, bool redrawScreen, 
         if (bgImage && bgImage->isCreated() && screen->isSprite()) {
           bgImage->cloneDataInto((TFT_eSprite*) screen);
         } else {
-          // Clear menu area
-          screen->fillRect(0, header->height(), lcd.width(), lcd.height()-footer->height()-footer->height(), THEME_BG);
+          // Clear the whole screen (header and footer are repainted on top just
+          // below). Clearing only the middle band left a strip uncleared (the
+          // old code subtracted footer height twice instead of header+footer),
+          // so a full-screen app's leftover pixels bled through on return.
+          screen->fillRect(0, 0, lcd.width(), lcd.height(), THEME_BG);
         }
         ((GUIWidget*)header)->redraw(*screen);
         ((GUIWidget*)footer)->redraw(*screen);
@@ -1428,6 +1432,9 @@ void GUI::enterApp(ActionID_t app) {
     break;
   case GUI_APP_DIGITAL_RAIN:
     runningApp = new DigitalRainApp(lcd, state);
+    break;
+  case GUI_APP_GBC:
+    runningApp = new GbcApp(lcd, state);
     break;
   case GUI_APP_UART_PASS:
     runningApp = new UartPassthroughApp(lcd, state, header, footer);
