@@ -1,3 +1,8 @@
+// Hot emulator core: build at -O2 regardless of the project-wide -Os. The
+// interpreter/scanline/mixer loops gain far more from speed opts than icache
+// pressure costs (measured well below full speed at -Os on CGB games).
+#pragma GCC optimize("O2")
+
 #include <string.h>
 #include <stdlib.h>
 #include "esp_heap_caps.h"
@@ -172,7 +177,7 @@ static void hw_hdma(byte c)
 	R_HDMA5 = 0xFF;
 }
 
-void gb_hw_hdma_cont(void)
+IRAM_ATTR void gb_hw_hdma_cont(void)
 {
 	size_t src = (R_HDMA1 << 8) | (R_HDMA2 & 0xF0);
 	size_t dst = 0x8000 | ((R_HDMA3 & 0x1F) << 8) | (R_HDMA4 & 0xF0);
@@ -304,7 +309,7 @@ void gb_hw_vblank(void)
  * gb_hw_updatemap is called whenever bank changes or other operations
  * make the old maps potentially invalid.
  */
-void gb_hw_updatemap(void)
+IRAM_ATTR void gb_hw_updatemap(void)
 {
 	int rombank = cart.rombank & (cart.romsize - 1);
 
@@ -483,7 +488,7 @@ static inline void mbc_write(unsigned a, byte b)
  * called when the write map contains a NULL for the requested address
  * region, it accepts writes to any address.
  */
-void gb_hw_write(unsigned a, byte b)
+IRAM_ATTR void gb_hw_write(unsigned a, byte b)
 {
 	MESSAGE_DEBUG("write to 0x%04X: 0x%02X\n", a, b);
 
@@ -675,7 +680,7 @@ void gb_hw_write(unsigned a, byte b)
  * with the read map, but it's still necessary for the final messy
  * region.
  */
-byte gb_hw_read(unsigned a)
+IRAM_ATTR byte gb_hw_read(unsigned a)
 {
 	MESSAGE_DEBUG("read %04x\n", a);
 

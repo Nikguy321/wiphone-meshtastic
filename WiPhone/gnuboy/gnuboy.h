@@ -13,9 +13,10 @@ extern "C" {
 #define LOG_PRINTF(level, x...) rg_system_log(RG_LOG_PRINTF, NULL, x)
 #else
 #define LOG_PRINTF(level, x...) printf(x)
-#ifndef IRAM_ATTR
-#define IRAM_ATTR
-#endif
+// Real IRAM_ATTR (the old empty fallback silently discarded IRAM placement).
+// WiPhone has ~9.6KB of free IRAM: enough for the memory-bus and scanline hot
+// paths below, NOT for the 14KB gb_cpu_emulate (see cpu.c).
+#include "esp_attr.h"
 #endif
 
 #define MESSAGE_ERROR(x, ...) LOG_PRINTF(1, "!! %s: " x, __func__, ## __VA_ARGS__)
@@ -121,6 +122,7 @@ void gnuboy_set_pad(int);
 
 void gnuboy_set_framebuffer(void *buffer);
 void gnuboy_set_soundbuffer(void *buffer, size_t length);
+size_t gnuboy_get_audio_count(void);   // int16 samples the last gnuboy_run() produced
 
 void gnuboy_get_time(int *day, int *hour, int *minute, int *second);
 void gnuboy_set_time(int day, int hour, int minute, int second);

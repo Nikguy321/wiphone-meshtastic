@@ -1,3 +1,8 @@
+// Hot emulator core: build at -O2 regardless of the project-wide -Os. The
+// interpreter/scanline/mixer loops gain far more from speed opts than icache
+// pressure costs (measured well below full speed at -Os on CGB games).
+#pragma GCC optimize("O2")
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -630,7 +635,7 @@ static inline void sync_palette(void)
 	sprites on the line and probably other factors. States 1, 2 and 3
 	do not require precise sub-line CPU-LCDC sync, but state 0 might do.
 */
-static inline void lcd_renderline()
+static inline IRAM_ATTR void lcd_renderline()
 {
 	if (!host.video.enabled || !host.video.buffer)
 		return;
@@ -704,7 +709,7 @@ static inline void lcd_renderline()
 	}
 }
 
-void gb_lcd_emulate(int cycles)
+IRAM_ATTR void gb_lcd_emulate(int cycles)
 {
 	CYCLES -= cycles;
 

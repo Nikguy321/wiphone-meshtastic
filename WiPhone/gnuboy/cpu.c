@@ -1,3 +1,8 @@
+// Hot emulator core: build at -O2 regardless of the project-wide -Os. The
+// interpreter/scanline/mixer loops gain far more from speed opts than icache
+// pressure costs (measured well below full speed at -Os on CGB games).
+#pragma GCC optimize("O2")
+
 #include "gnuboy.h"
 #include "hw.h"
 #include "lcd.h"
@@ -293,7 +298,9 @@ static inline int exec_cb(void)
 	Might emulate up to cycles+(11) time units (longest op takes 12
 	cycles in single-speed mode)
 */
-IRAM_ATTR int gb_cpu_emulate(int cycles)
+// NOT IRAM_ATTR on WiPhone: compiled ~14KB, larger than the free IRAM.
+// The bus/scanline helpers it calls are in IRAM instead (hw.c, lcd.c).
+int gb_cpu_emulate(int cycles)
 {
 	int clen, temp;
 	int remaining = cycles;

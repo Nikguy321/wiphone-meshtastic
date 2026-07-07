@@ -24,18 +24,26 @@
 #include "freertos/semphr.h"
 #include "WiFi.h"
 #include "SD.h"
+#include "driver/i2s.h"
+#include "Audio.h"
 #include "gnuboy/gnuboy.h"
 #include "gbc_test_rom.h"   // embedded public-domain ROM (flash) used when no SD ROM
 
 // Global held-button mask, updated by the main loop's keypad scanner.
 extern uint32_t keypadState;
+// The phone's shared audio subsystem (I2S + codec + amp). We borrow it during play.
+extern Audio* audio;
 // When true, the main loop stops polling the mesh/LoRa radio (frees the SPI bus).
 extern volatile bool gGbcActive;
 // Sticky press mask so fast taps between the emulator's frame-rate polls survive.
 extern volatile uint32_t gGbcKeyLatch;
 
-#define GBC_EMU_SAMPLERATE   32768
-#define GBC_EMU_AUDIO_LEN    2048   // int16 samples in the (unused) audio sink buffer
+// 32000 to match what Audio::start() configures the codec for; the emulator's APU
+// output is fed straight to the phone's I2S at this rate.
+#define GBC_EMU_SAMPLERATE   32000
+#define GBC_EMU_AUDIO_LEN    2048   // int16 samples in the emulator's audio buffer
+// In-game volume step (F1/F2). Codec volume is in dB-ish units (see Audio.h).
+#define GBC_VOL_STEP         3
 
 // Pause-menu items and pending actions.
 #define GBC_MENU_RESUME  0
@@ -62,7 +70,6 @@ extern volatile uint32_t gGbcKeyLatch;
 // framebuffers are set up once per boot and reused across launches.
 static bool      s_gnuboyInited = false;
 static uint16_t* s_emuFb[2] = { NULL, NULL };  // double buffer, RGB565 big-endian (PSRAM)
-static uint16_t* s_scaledFb = NULL;            // 240x216 upscale target (PSRAM), for Fill
 static uint16_t  s_xmap[GBC_FILL_W];           // precomputed nearest-neighbor column map
 static int16_t*  s_emuAudio = NULL;
 static uint8_t*  s_emuRom   = NULL;
@@ -129,6 +136,13 @@ void GbcApp::startGame() {
 
   if (!setupEmulator(roms[romSel])) {
     return;   // initErr set; redrawScreen() shows the error
+  }
+
+  // Borrow the phone's audio path for the emulator's APU output. Best-effort:
+  // if it won't start, the game just runs silent (never block gameplay on it).
+  if (audio) {
+    audio->setSampleRate(GBC_EMU_SAMPLERATE);
+    soundOn = audio->start();
   }
 
   s_blitGo     = xSemaphoreCreateBinary();
@@ -204,6 +218,11 @@ GbcApp::~GbcApp() {
   // semaphore / loaded a ROM before bailing).
   if (s_blitGo) { vSemaphoreDelete(s_blitGo); s_blitGo = NULL; }
   gbcUnloadRom();
+
+  if (soundOn && audio) {   // hand the audio path back to the phone
+    audio->shutdown();
+    soundOn = false;
+  }
 
   if (enteredGaming) {   // restore what gaming mode turned off
     enableCore0WDT();
@@ -322,8 +341,7 @@ bool GbcApp::setupEmulator(const Rom& rom) {
     size_t fbBytes = (size_t)GBC_SCREEN_W * GBC_SCREEN_H * sizeof(uint16_t);
     s_emuFb[0] = (uint16_t*)ps_malloc(fbBytes);
     s_emuFb[1] = (uint16_t*)ps_malloc(fbBytes);
-    s_scaledFb = (uint16_t*)ps_malloc((size_t)GBC_FILL_W * GBC_FILL_H * sizeof(uint16_t));
-    if (!s_emuFb[0] || !s_emuFb[1] || !s_scaledFb || !s_emuAudio) {
+    if (!s_emuFb[0] || !s_emuFb[1] || !s_emuAudio) {
       dbgWhere = 1;
       dbgFreeInt = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
       dbgLargest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
@@ -368,21 +386,39 @@ int GbcApp::readPad() {
 void GbcApp::blitBuffer(int idx) {
   const uint16_t* fb = s_emuFb[idx];
   if (!scaled) {
+    // 1:1, but bounce rows through internal RAM in 6-row chunks: pushImage
+    // straight from the PSRAM framebuffer CPU-feeds the SPI with per-pixel PSRAM
+    // reads that thrash the cache BOTH cores share (measured: direct-PSRAM 1:1
+    // ran at 75% game speed while the row-buffered Fill ran at 96%).
+    uint16_t rowbuf[GBC_SCREEN_W * 6];   // 1.9KB on the blit task's stack
     const int xoff = (lcd.width()  - GBC_SCREEN_W) / 2;
     const int yoff = (lcd.height() - GBC_SCREEN_H) / 2;
-    lcd.pushImage(xoff, yoff, GBC_SCREEN_W, GBC_SCREEN_H, (uint16_t*)fb);
+    for (int y = 0; y < GBC_SCREEN_H; y += 6) {   // 144 rows = 24 whole chunks
+      memcpy(rowbuf, fb + y * GBC_SCREEN_W, sizeof(rowbuf));
+      lcd.pushImage(xoff, yoff + y, GBC_SCREEN_W, 6, rowbuf);
+    }
     return;
   }
-  for (int oy = 0; oy < GBC_FILL_H; oy++) {
-    const uint16_t* src = fb + ((oy * GBC_SCREEN_H) / GBC_FILL_H) * GBC_SCREEN_W;
-    uint16_t* dst = s_scaledFb + oy * GBC_FILL_W;
-    for (int ox = 0; ox < GBC_FILL_W; ox++) {
-      dst[ox] = src[s_xmap[ox]];
-    }
-  }
+  // Scale row-by-row through a small buffer on this task's stack (internal RAM)
+  // instead of a full-frame PSRAM scale buffer. The old triple PSRAM round-trip
+  // (read fb, write 101KB, read it back for SPI) thrashed the cache BOTH cores
+  // share and audibly slowed emulation on the other core. The 1.5x row map
+  // repeats every 3rd output row, so a third of the rows reuse the previous scale.
+  uint16_t rowbuf[GBC_FILL_W];   // 480 bytes
   const int xoff = (lcd.width()  - GBC_FILL_W) / 2;
   const int yoff = (lcd.height() - GBC_FILL_H) / 2;
-  lcd.pushImage(xoff, yoff, GBC_FILL_W, GBC_FILL_H, s_scaledFb);
+  int prevSy = -1;
+  for (int oy = 0; oy < GBC_FILL_H; oy++) {
+    int sy = (oy * GBC_SCREEN_H) / GBC_FILL_H;
+    if (sy != prevSy) {
+      const uint16_t* src = fb + sy * GBC_SCREEN_W;
+      for (int ox = 0; ox < GBC_FILL_W; ox++) {
+        rowbuf[ox] = src[s_xmap[ox]];
+      }
+      prevSy = sy;
+    }
+    lcd.pushImage(xoff, yoff + oy, GBC_FILL_W, 1, rowbuf);
+  }
 }
 
 // Build "/sd/gbc/<rom>.state" from a sanitized ROM name.
@@ -397,6 +433,18 @@ void GbcApp::buildStatePath(char* out, size_t n) {
   }
   clean[j] = 0;
   snprintf(out, n, "/sd/gbc/%s.state", clean);
+}
+
+// F1/F2 during play: nudge the codec volume. setVolumes() clamps each output to
+// its own valid range, so stepping all three together is safe (the codec applies
+// whichever one is active: loudspeaker / earpiece / headphones).
+void GbcApp::adjustVolume(int delta) {
+  if (!audio) {
+    return;
+  }
+  int8_t ear, hp, loud;
+  audio->getVolumes(ear, hp, loud);
+  audio->setVolumes(ear + delta, hp + delta, loud + delta);
 }
 
 void GbcApp::drawPicker() {
@@ -453,6 +501,12 @@ void GbcApp::drawPauseMenu() {
   lcd.setTextDatum(TL_DATUM);
   lcd.setTextColor(TFT_WHITE, TFT_DARKGREY);
   lcd.drawString("PAUSED", bx + 14, by + 10);
+  if (speedPct > 0) {              // measured game speed (100 = full speed)
+    char spd[12];
+    snprintf(spd, sizeof(spd), "%d%%", speedPct);
+    lcd.setTextColor(speedPct >= 97 ? TFT_GREENYELLOW : TFT_ORANGE, TFT_DARKGREY);
+    lcd.drawString(spd, bx + bw - 52, by + 10);
+  }
 
   const char* items[GBC_MENU_COUNT] = {
     "Resume", "Save state", "Load state", scaled ? "Screen: Fill" : "Screen: 1:1", "Quit"
@@ -542,11 +596,15 @@ void GbcApp::emuThread(void* pvParam) {
   int emuBuf = 0;
   uint32_t start = millis();
   uint32_t frames = 0;
+  uint32_t winStart = start;      // rolling 1s window for the speed readout
+  uint32_t winFrames = 0;
   while (s_running) {
     if (app->paused) {
       vTaskDelay(pdMS_TO_TICKS(20));
       start = millis();           // reset the pacing baseline for resume
       frames = 0;
+      winStart = start;
+      winFrames = 0;
       continue;
     }
     gnuboy_set_pad(app->readPad());
@@ -554,16 +612,37 @@ void GbcApp::emuThread(void* pvParam) {
     gnuboy_set_framebuffer(s_emuFb[emuBuf]);
     gnuboy_run(willDraw);
     frames++;
+    winFrames++;
+    uint32_t winMs = millis() - winStart;
+    if (winMs >= 1000) {          // GB runs 59.73 fps; ~60 emulated frames/s = 100%
+      app->speedPct = (int)(winFrames * 100 * 1000 / 60 / winMs);
+      winFrames = 0;
+      winStart = millis();
+    }
     if (willDraw) {
       s_blitIdx = emuBuf;
       s_blitBusy = true;
       xSemaphoreGive(s_blitGo);
       emuBuf = 1 - emuBuf;        // render the next frame into the other buffer
     }
-    // Pace to 60 emulated fps; always yield a little for the main loop's keypad.
-    uint32_t target = start + (uint32_t)((uint64_t)frames * 1000 / 60);
-    int32_t ahead = (int32_t)(target - millis());
-    vTaskDelay(ahead > 1 ? pdMS_TO_TICKS(ahead) : 1);
+    // Pacing. With sound on, the audio DMA is the master clock: the blocking
+    // i2s_write only accepts this frame's samples as the DAC drains at 32kHz, so
+    // the emulator locks to the audio rate with zero drift. (Pacing by millis()
+    // while writing non-blocking produced ~0.5% clock skew — the DMA slowly
+    // filled and dropped a whole frame of audio every few seconds: "choppy".)
+    if (app->soundOn) {
+      size_t n = gnuboy_get_audio_count();       // int16 count (stereo interleaved)
+      if (n) {
+        size_t wrote;
+        i2s_write(I2S_NUM_0, s_emuAudio, n * sizeof(int16_t), &wrote, pdMS_TO_TICKS(100));
+      }
+      vTaskDelay(1);     // always yield a little for the main loop's keypad scan
+    } else {
+      // Silent: pace to 60 emulated fps by the wall clock.
+      uint32_t target = start + (uint32_t)((uint64_t)frames * 1000 / 60);
+      int32_t ahead = (int32_t)(target - millis());
+      vTaskDelay(ahead > 1 ? pdMS_TO_TICKS(ahead) : 1);
+    }
   }
   s_emuExited = true;
   for (;;) {
@@ -622,6 +701,10 @@ appEventResult GbcApp::processEvent(EventType event) {
       menuSel = GBC_MENU_RESUME;
       menuDirty = true;
       paused = true;
+    } else if (event == WIPHONE_KEY_F1) {   // top user button: volume up
+      adjustVolume(+GBC_VOL_STEP);
+    } else if (event == WIPHONE_KEY_F2) {   // second user button: volume down
+      adjustVolume(-GBC_VOL_STEP);
     }
     return DO_NOTHING;
   }

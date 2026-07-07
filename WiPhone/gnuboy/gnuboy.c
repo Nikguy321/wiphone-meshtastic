@@ -1,3 +1,8 @@
+// Hot emulator core: build at -O2 regardless of the project-wide -Os. The
+// interpreter/scanline/mixer loops gain far more from speed opts than icache
+// pressure costs (measured well below full speed at -Os on CGB games).
+#pragma GCC optimize("O2")
+
 #include <stdlib.h>
 #include <string.h>
 #include "esp_heap_caps.h"
@@ -57,6 +62,15 @@ void gnuboy_set_soundbuffer(void *buffer, size_t length)
 {
 	GB.audio.buffer = buffer;
 	GB.audio.len = length;
+}
+
+
+// Number of int16 samples the last gnuboy_run() wrote into the sound buffer
+// (stereo = interleaved L,R, so this is 2x the frame count). Reset to 0 at the
+// start of each run. The host reads this to feed I2S.
+size_t gnuboy_get_audio_count(void)
+{
+	return GB.audio.pos;
 }
 
 

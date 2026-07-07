@@ -188,6 +188,10 @@ void headphoneServiceInterrupt() {
 
 volatile uint8_t keypadToRead = 0;
 uint32_t keypadState = 0;        // 32-bit mask for current state of buttons
+// Per-key timestamp of the last "pressed" report. The SN7326 re-reports held
+// keys about every 1s (LONGPRESS_EN), so during gameplay a key that misses two
+// heartbeats is a lost release event and gets cleared (see keypadStaleSweep).
+static uint32_t keyLastSeenMs[32];
 // True while the Game Boy emulator app is running. The main loop then skips the
 // mesh/LoRa polling so the emulator has the SPI bus and CPU to itself.
 volatile bool gGbcActive = false;
@@ -358,10 +362,13 @@ void keyboardRead() {
 
     // Decode "pressed/released" bit
     if (key & SN7326_PRESSED) {
+      newState |= mask;         // reported (still) pressed — count it even if already known
+      if (mask) {
+        keyLastSeenMs[__builtin_ctz(mask)] = millis();   // heartbeat for the stale sweep
+      }
       if (!(keypadState & mask)) {
         keypadState |= mask;
         gGbcKeyLatch |= mask;   // remember the press for the emulator's next poll
-        newState |= mask;
         //Serial.print(c); Serial.println(" pressed");
 
         // Process key if there is still space left in the key buffer
@@ -461,8 +468,12 @@ void keyboardRead() {
   } while (key & SN7326_MORE);       // decode "more" bit
   keypadToRead = 0;
 
-  // Some buttons were "released" silently
-  if (newState < keypadState) {
+  // Some buttons were "released" silently.
+  // NOT during gameplay: this batch only lists keys with NEW events, so pressing
+  // (or releasing) button A while HOLDING right produced a batch without "right"
+  // and wiped the held key -> held-direction games went run/stop/run. Releases
+  // do arrive as real events above, so the held mask stays correct without this.
+  if (!gGbcActive && newState < keypadState) {
     keypadState = newState;
   }
 }
@@ -1019,6 +1030,19 @@ void loop() {
   while (1) {
     uint32_t now = millis();
     gbcXferHandleClient();
+
+    // Gaming failsafe: drop "held" keys whose release event was lost. The SN7326
+    // re-reports genuinely held keys ~every 1s (long-press detect), so a key not
+    // heard from in 2.5s (two missed heartbeats) is stuck, not held. Game-mode
+    // only: the phone UI keeps the original wipe heuristic in keypadReadInt().
+    if (gGbcActive && keypadState) {
+      for (uint32_t st = keypadState; st; st &= st - 1) {
+        int b = __builtin_ctz(st);
+        if (now - keyLastSeenMs[b] > 2500) {
+          keypadState &= ~(1u << b);
+        }
+      }
+    }
     // DEBUG
     //uint32_t loopTime = micros();
     //if (!msProfileStart) msProfileStart = loopTime;

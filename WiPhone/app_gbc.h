@@ -63,6 +63,9 @@ protected:
   bool confirmDelete = false;    // picker is asking to confirm a delete
   bool playing = false;          // false = picker on screen, true = game running
   bool enteredGaming = false;    // did we turn WiFi/mesh off? (restore on exit)
+  bool soundOn = false;          // did we start the audio codec? (feed I2S + restore)
+
+  void adjustVolume(int delta);  // F1/F2 in-game volume up/down
 
   int  initErr = 0;              // 0 = ok, <0 = setup error code
   char romName[40] = {0};
@@ -78,6 +81,7 @@ protected:
   volatile int  pendingAction = 0;   // 0 none, 1 save, 2 load
   volatile bool scaled = false;      // false = crisp 1:1, true = 1.5x fill-width
   volatile bool needsClear = false;  // clear the screen once (after a mode switch)
+  volatile int  speedPct = 0;        // measured game speed, % of real time (100 = full)
   char statusMsg[24] = {0};
 };
 

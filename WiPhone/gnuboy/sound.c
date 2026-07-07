@@ -1,3 +1,8 @@
+// Hot emulator core: build at -O2 regardless of the project-wide -Os. The
+// interpreter/scanline/mixer loops gain far more from speed opts than icache
+// pressure costs (measured well below full speed at -Os on CGB games).
+#pragma GCC optimize("O2")
+
 #include <string.h>
 #include <stdlib.h>
 #include "gnuboy.h"
