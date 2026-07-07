@@ -1013,9 +1013,12 @@ static uint32_t meshPopStartMs = 0;
 static bool     meshVibroActive = false;
 static uint32_t meshVibroStartMs = 0;
 
+extern void gbcXferHandleClient();   // ROM-transfer web server pump (no-op when off)
+
 void loop() {
   while (1) {
     uint32_t now = millis();
+    gbcXferHandleClient();
     // DEBUG
     //uint32_t loopTime = micros();
     //if (!msProfileStart) msProfileStart = loopTime;

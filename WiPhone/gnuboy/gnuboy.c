@@ -295,12 +295,10 @@ int gnuboy_load_rom(const byte *data, size_t size)
 		cart.ramsize = 1;
 	}
 
-	// Cart SRAM can be up to 128KB (e.g. MBC5 games) which won't fit fragmented
-	// internal RAM; prefer internal, fall back to PSRAM. (calloc-style zeroed.)
+	// Cart SRAM can be up to 128KB (MBC5 games). Keep it in PSRAM so it never
+	// eats the scarce internal RAM the emulator's task stacks + WRAM/VRAM need.
 	size_t ramBytes = (size_t)cart.ramsize * 0x2000;
-	cart.rambanks = heap_caps_malloc(ramBytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-	if (!cart.rambanks)
-		cart.rambanks = heap_caps_malloc(ramBytes, MALLOC_CAP_SPIRAM);
+	cart.rambanks = heap_caps_malloc(ramBytes, MALLOC_CAP_SPIRAM);
 	if (cart.rambanks)
 		memset(cart.rambanks, 0, ramBytes);
 	cart.rombanks = calloc(cart.romsize, sizeof(byte *));

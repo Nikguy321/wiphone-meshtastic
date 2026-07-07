@@ -65,6 +65,20 @@ static uint16_t* s_scaledFb = NULL;            // 240x216 upscale target (PSRAM)
 static uint16_t  s_xmap[GBC_FILL_W];           // precomputed nearest-neighbor column map
 static int16_t*  s_emuAudio = NULL;
 static uint8_t*  s_emuRom   = NULL;
+static bool      s_romLoaded = false;   // gnuboy currently holds a loaded ROM
+
+// Release the current ROM: gnuboy's references first, then the PSRAM buffer they
+// point into. Idempotent, so it's safe on exit and before loading a new ROM.
+static void gbcUnloadRom() {
+  if (s_romLoaded) {
+    gnuboy_free_rom();
+    s_romLoaded = false;
+  }
+  if (s_emuRom) {
+    free(s_emuRom);
+    s_emuRom = NULL;
+  }
+}
 
 // Per-launch task handoff.
 static SemaphoreHandle_t s_blitGo   = NULL;   // emu -> blit: buffer s_blitIdx is ready
@@ -75,24 +89,37 @@ static volatile bool     s_running = false;
 static volatile bool     s_blitExited = false;
 static volatile bool     s_emuExited = false;
 
+// Task stacks/TCBs allocated once and reused every game (xTaskCreateStatic), so
+// launching a game never allocates — deleting an unpinned task defers its stack
+// free to the (starved) idle task, which otherwise runs the phone out of RAM
+// after one game ("could not start task").
+#define GBC_TASK_STACK_WORDS 2048   // 8KB per stack (StackType_t is 4 bytes)
+static StaticTask_t s_emuTcb;
+static StaticTask_t s_blitTcb;
+static StackType_t  s_emuStack[GBC_TASK_STACK_WORDS];
+static StackType_t  s_blitStack[GBC_TASK_STACK_WORDS];
+
 GbcApp::GbcApp(LCD& disp, ControlState& state) : ThreadedApp(disp, state) {
   log_d("create GbcApp");
+  scanRoms();               // build the picker list; the game starts on selection
+}
 
-  // Enter "gaming mode": stop mesh/LoRa polling and turn WiFi off. BT in setup.
+// Enter gaming mode and launch the selected ROM on the two emulator tasks.
+void GbcApp::startGame() {
+  // Gaming mode: stop mesh/LoRa polling, turn WiFi off (frees CPU + the SPI bus),
+  // and disable the core watchdogs (the two tasks saturate both cores).
   gGbcActive = true;
+  enteredGaming = true;
   WiFi.disconnect(true, false);
   WiFi.mode(WIFI_OFF);
-
-  // The two emulator tasks saturate both cores, so the idle tasks can't pet the
-  // task watchdog -> disable the core WDTs while playing (re-enabled on exit).
   disableCore0WDT();
   disableCore1WDT();
 
-  if (!setupEmulator()) {
-    return;   // initErr set; redrawScreen() shows the error, END/Back exits
+  if (!setupEmulator(roms[romSel])) {
+    return;   // initErr set; redrawScreen() shows the error
   }
 
-  s_blitGo   = xSemaphoreCreateBinary();
+  s_blitGo     = xSemaphoreCreateBinary();
   s_running    = true;
   s_blitBusy   = false;
   s_blitExited = false;
@@ -101,42 +128,61 @@ GbcApp::GbcApp(LCD& disp, ControlState& state) : ThreadedApp(disp, state) {
     initErr = GBC_ERR_ALLOC;
     return;
   }
-  // Leave both tasks UNPINNED (like DigitalRainApp, which blits fine): the SMP
-  // scheduler runs the two ready high-priority tasks on the two cores, giving the
-  // overlap, without the core-1 starvation seen when pinning there.
-  BaseType_t e = xTaskCreate(&GbcApp::emuThread, "gbc", 8192, this,
-                             tskIDLE_PRIORITY + 2, &xHandle);
-  BaseType_t b = xTaskCreate(&GbcApp::blitTask, "gbcblit", 8192, this,
-                             tskIDLE_PRIORITY + 2, &s_blitTask);
-  if (b != pdPASS || e != pdPASS) {
-    xHandle = NULL;
-    initErr = GBC_ERR_TASK;
+  // Static stacks (reused every game) and UNPINNED (like DigitalRainApp): the SMP
+  // scheduler runs the two ready high-priority tasks on the two cores.
+  xHandle = xTaskCreateStatic(&GbcApp::emuThread, "gbc", GBC_TASK_STACK_WORDS, this,
+                              tskIDLE_PRIORITY + 2, s_emuStack, &s_emuTcb);
+  s_blitTask = xTaskCreateStatic(&GbcApp::blitTask, "gbcblit", GBC_TASK_STACK_WORDS, this,
+                                 tskIDLE_PRIORITY + 2, s_blitStack, &s_blitTcb);
+  if (xHandle && s_blitTask) {
+    playing = true;
+    return;
   }
+  // Shouldn't happen with static allocation, but stay safe.
+  s_running = false;
+  if (s_blitGo) {
+    xSemaphoreGive(s_blitGo);
+  }
+  vTaskDelay(pdMS_TO_TICKS(40));
+  if (xHandle)    { vTaskDelete(xHandle); }
+  if (s_blitTask) { vTaskDelete(s_blitTask); }
+  xHandle = NULL;
+  s_blitTask = NULL;
+  initErr = GBC_ERR_TASK;
 }
 
 GbcApp::~GbcApp() {
   log_d("destroy GbcApp");
-  s_running = false;
-  if (s_blitGo) {
-    xSemaphoreGive(s_blitGo);   // wake the blit task if it's waiting
+  if (playing) {
+    s_running = false;
+    if (s_blitGo) {
+      xSemaphoreGive(s_blitGo);   // wake the blit task if it's waiting
+    }
+    // Wait for both loops to exit, then a bit more so each task actually reaches
+    // its parked vTaskDelay() (blocked). Deleting a *blocked* task frees its stack
+    // immediately; deleting a still-running one only defers the free to idle,
+    // which would leave no RAM for the next game ("could not start task").
+    for (int i = 0; i < 60 && !(s_emuExited && s_blitExited); i++) {
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    vTaskDelay(pdMS_TO_TICKS(30));
+    if (xHandle)    { vTaskDelete(xHandle);    xHandle = NULL; }
+    if (s_blitTask) { vTaskDelete(s_blitTask); s_blitTask = NULL; }
+    lcd.setSwapBytes(false);
+    vTaskDelay(pdMS_TO_TICKS(30));   // let the idle task reclaim any deferred frees
   }
-  // Wait for both loops to exit (they then park in a delay loop), so neither is
-  // mid-SPI/SD when we delete it, then free both explicitly.
-  for (int i = 0; i < 60 && !(s_emuExited && s_blitExited); i++) {
-    vTaskDelay(pdMS_TO_TICKS(10));
+  // Always release these (also covers a failed startGame that created the
+  // semaphore / loaded a ROM before bailing).
+  if (s_blitGo) { vSemaphoreDelete(s_blitGo); s_blitGo = NULL; }
+  gbcUnloadRom();
+
+  if (enteredGaming) {   // restore what gaming mode turned off
+    enableCore0WDT();
+    enableCore1WDT();
+    gGbcActive = false;
+    WiFi.mode(WIFI_STA);
+    WiFi.reconnect();
   }
-  if (xHandle)    { vTaskDelete(xHandle);    xHandle = NULL; }
-  if (s_blitTask) { vTaskDelete(s_blitTask); s_blitTask = NULL; }
-  if (s_blitGo)   { vSemaphoreDelete(s_blitGo); s_blitGo = NULL; }
-
-  lcd.setSwapBytes(false);
-
-  enableCore0WDT();
-  enableCore1WDT();
-
-  gGbcActive = false;
-  WiFi.mode(WIFI_STA);
-  WiFi.reconnect();
 }
 
 // Free the internal RAM the Bluetooth controller reserves (~60KB; BT is unused).
@@ -165,9 +211,16 @@ static bool hasRomExt(const char* name) {
   return (strcmp(ext, ".gb") == 0 || strcmp(ext, ".gbc") == 0);
 }
 
-bool GbcApp::findRom(char* pathOut, size_t pathLen, char* nameOut, size_t nameLen) {
+void GbcApp::scanRoms() {
+  romCount = 0;
+  // The built-in game is always available (works with no SD card).
+  snprintf(roms[romCount].name, sizeof(roms[0].name), "uCity (built-in)");
+  roms[romCount].path[0] = 0;
+  roms[romCount].embedded = true;
+  romCount++;
+
   const char* dirs[] = { "/roms", "/" };
-  for (int d = 0; d < 2; d++) {
+  for (int d = 0; d < 2 && romCount < GBC_MAX_ROMS; d++) {
     File dir = SD.open(dirs[d]);
     if (!dir) {
       continue;
@@ -177,42 +230,37 @@ bool GbcApp::findRom(char* pathOut, size_t pathLen, char* nameOut, size_t nameLe
       continue;
     }
     File f;
-    while ((f = dir.openNextFile())) {
+    while (romCount < GBC_MAX_ROMS && (f = dir.openNextFile())) {
       if (!f.isDirectory()) {
         const char* nm = f.name();
         const char* slash = strrchr(nm, '/');
         const char* base = slash ? slash + 1 : nm;
         if (hasRomExt(base)) {
-          snprintf(pathOut, pathLen, "%s", nm);
-          snprintf(nameOut, nameLen, "%s", base);
-          f.close();
-          dir.close();
-          return true;
+          snprintf(roms[romCount].name, sizeof(roms[0].name), "%s", base);
+          snprintf(roms[romCount].path, sizeof(roms[0].path), "%s", nm);
+          roms[romCount].embedded = false;
+          romCount++;
         }
       }
       f.close();
     }
     dir.close();
   }
-  return false;
 }
 
-bool GbcApp::setupEmulator() {
+bool GbcApp::setupEmulator(const Rom& rom) {
+  gbcUnloadRom();                    // free whatever was loaded before (clean slate)
+
   if (!s_gnuboyInited) {
     reclaimInternalRam();
   }
 
   const uint8_t* romData = NULL;
   size_t romSize = 0;
-  char path[96];
-  if (findRom(path, sizeof(path), romName, sizeof(romName))) {
-    File f = SD.open(path);
+  if (!rom.embedded) {
+    File f = SD.open(rom.path);
     if (f) {
       romSize = f.size();
-      if (s_emuRom) {
-        free(s_emuRom);
-        s_emuRom = NULL;
-      }
       s_emuRom = (uint8_t*)ps_malloc(romSize);
       if (s_emuRom) {
         size_t rd = 0;
@@ -225,15 +273,19 @@ bool GbcApp::setupEmulator() {
         }
         if (rd == romSize) {
           romData = s_emuRom;
+        } else {                     // truncated read -> discard
+          free(s_emuRom);
+          s_emuRom = NULL;
         }
       }
       f.close();
     }
+    snprintf(romName, sizeof(romName), "%s", rom.name);
   }
-  if (!romData) {
+  if (!romData) {                    // built-in, or the SD read failed
     romData = gbc_test_rom;
     romSize = gbc_test_rom_len;
-    snprintf(romName, sizeof(romName), "uCity(flash)");
+    snprintf(romName, sizeof(romName), "uCity");
   }
 
   if (!s_gnuboyInited) {
@@ -255,14 +307,13 @@ bool GbcApp::setupEmulator() {
     }
     gnuboy_set_soundbuffer(s_emuAudio, GBC_EMU_AUDIO_LEN);
     s_gnuboyInited = true;
-  } else {
-    gnuboy_free_rom();
   }
 
   if (gnuboy_load_rom(romData, romSize) < 0) {
     initErr = GBC_ERR_LOAD;
     return false;
   }
+  s_romLoaded = true;
   gnuboy_reset(true);
   return true;
 }
@@ -314,6 +365,49 @@ void GbcApp::buildStatePath(char* out, size_t n) {
   }
   clean[j] = 0;
   snprintf(out, n, "/sd/gbc/%s.state", clean);
+}
+
+void GbcApp::drawPicker() {
+  SmoothFont* font = fonts[OPENSANS_COND_BOLD_20];
+  lcd.fillScreen(BLACK);
+  lcd.setTextFont(font);
+  lcd.setTextDatum(TL_DATUM);
+  lcd.setTextColor(TFT_GREENYELLOW, BLACK);
+  lcd.drawString("Select a game", 8, 8);
+
+  const int lh = font->height() + 8;
+  const int top = 40;
+  int visible = (lcd.height() - top - 26) / lh;
+  if (visible < 1) {
+    visible = 1;
+  }
+  if (romSel < romTop) {
+    romTop = romSel;
+  }
+  if (romSel >= romTop + visible) {
+    romTop = romSel - visible + 1;
+  }
+
+  int y = top;
+  for (int i = romTop; i < romCount && i < romTop + visible; i++) {
+    bool sel = (i == romSel);
+    lcd.setTextColor(sel ? TFT_YELLOW : TFT_WHITE, BLACK);
+    lcd.drawString(sel ? ">" : " ", 8, y);
+    char line[30];
+    snprintf(line, sizeof(line), "%s", roms[i].name);   // truncate long names to fit
+    lcd.drawString(line, 28, y);
+    y += lh;
+  }
+
+  if (confirmDelete) {
+    lcd.setTextColor(TFT_RED, BLACK);
+    lcd.drawString("Delete this ROM?", 8, lcd.height() - 46);
+    lcd.setTextColor(TFT_DARKGREY, BLACK);
+    lcd.drawString("OK: delete   any: cancel", 8, lcd.height() - 22);
+  } else {
+    lcd.setTextColor(TFT_DARKGREY, BLACK);
+    lcd.drawString("OK play  Back del  End exit", 8, lcd.height() - 22);
+  }
 }
 
 void GbcApp::drawPauseMenu() {
@@ -445,6 +539,46 @@ appEventResult GbcApp::processEvent(EventType event) {
     return LOGIC_BUTTON_BACK(event) ? EXIT_APP : DO_NOTHING;
   }
 
+  if (!playing) {
+    // ROM picker.
+    if (confirmDelete) {
+      if (!IS_KEYBOARD(event)) {
+        return DO_NOTHING;                      // ignore background ticks so the prompt stays up
+      }
+      if (event == WIPHONE_KEY_OK) {            // OK confirms; any other key cancels
+        if (!roms[romSel].embedded) {
+          SD.remove(roms[romSel].path);
+        }
+        scanRoms();
+        if (romSel >= romCount) { romSel = romCount - 1; }
+        if (romSel < 0) { romSel = 0; }
+      }
+      confirmDelete = false;
+      return REDRAW_SCREEN;
+    }
+    switch (event) {
+      case WIPHONE_KEY_UP:
+        if (romSel > 0) { romSel--; }
+        return REDRAW_SCREEN;
+      case WIPHONE_KEY_DOWN:
+        if (romSel < romCount - 1) { romSel++; }
+        return REDRAW_SCREEN;
+      case WIPHONE_KEY_OK:
+        startGame();
+        return initErr ? REDRAW_SCREEN : DO_NOTHING;   // tasks own the screen once playing
+      case WIPHONE_KEY_BACK:                    // top-right button: delete an SD ROM
+        if (!roms[romSel].embedded) {
+          confirmDelete = true;
+          return REDRAW_SCREEN;
+        }
+        return DO_NOTHING;
+      case WIPHONE_KEY_END:
+        return EXIT_APP;
+      default:
+        return DO_NOTHING;
+    }
+  }
+
   if (!paused) {
     if (event == WIPHONE_KEY_END) {
       statusMsg[0] = 0;
@@ -486,7 +620,10 @@ appEventResult GbcApp::processEvent(EventType event) {
 
 void GbcApp::redrawScreen(bool redrawAll) {
   if (!initErr) {
-    return;                            // the emulator tasks own the screen
+    if (!playing) {
+      drawPicker();                    // picker is on screen until a game starts
+    }
+    return;                            // once playing, the emulator tasks own the screen
   }
   SmoothFont* font = fonts[OPENSANS_COND_BOLD_20];
   lcd.fillScreen(BLACK);

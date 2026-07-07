@@ -1,15 +1,14 @@
 /*
- * app_gbc.h — WiPhone Game Boy Color emulator (Phase 3: playable)
+ * app_gbc.h — WiPhone Game Boy Color emulator
  *
- * Runs the gnuboy core in its own FreeRTOS task: each frame it polls the held
- * keypad state, emulates one Game Boy frame, and blits the 160x144 image
- * centered on the screen. The main loop keeps running (so the keypad keeps
- * being scanned) while the game plays. Hang-up (END) quits back to the menu.
+ * On launch the app shows a ROM picker (the built-in game plus any .gb/.gbc on
+ * the SD card). Selecting one enters "gaming mode" (WiFi/mesh off) and runs the
+ * gnuboy core across both cores. Hang-up (END) opens an in-game pause menu.
  *
- * Current input map (tell me to change any of these):
+ * Input map:
  *   D-pad -> D-pad     F4 (bottom-right key) -> A     F3 (above it) -> B
  *   BACK (top-right) -> Start            SELECT (top-left) -> Select
- *   END (hang-up) -> quit
+ *   END (hang-up) -> pause menu / picker back
  */
 
 #ifndef APP_GBC_H
@@ -19,6 +18,7 @@
 
 #define GBC_SCREEN_W 160
 #define GBC_SCREEN_H 144
+#define GBC_MAX_ROMS 48
 
 class GbcApp : public ThreadedApp {
 public:
@@ -32,23 +32,42 @@ public:
   void redrawScreen(bool redrawAll=false);
 
 protected:
-  static void emuThread(void* pvParam);   // core 0: emulate + render into the back buffer
-  static void blitTask(void* pvParam);    // core 1: push the finished buffer to the screen
+  static void emuThread(void* pvParam);   // emulate + render into the back buffer
+  static void blitTask(void* pvParam);    // push the finished buffer to the screen
 
-  bool findRom(char* pathOut, size_t pathLen, char* nameOut, size_t nameLen);
+  // A selectable ROM: either the built-in game or a file on the SD card.
+  struct Rom {
+    char name[40];
+    char path[100];
+    bool embedded;
+  };
+
+  void scanRoms();               // build the picker list (built-in + SD /roms and root)
+  void drawPicker();
+  void startGame();              // enter gaming mode and launch the selected ROM
+
   void reclaimInternalRam();     // free the (unused) BT controller RAM for the emulator
-  bool setupEmulator();          // reclaim + gnuboy init + load ROM; false on failure
+  bool setupEmulator(const Rom& rom);   // gnuboy init + load the chosen ROM
   int  readPad();                // map the held keypad state to a gb_pad bitmask
   void blitBuffer(int idx);      // push framebuffer[idx] to the screen, centered
 
-  // Pause menu (hang-up during play): Resume / Save / Load / Quit.
+  // Pause menu (hang-up during play): Resume / Save / Load / Screen / Quit.
   void drawPauseMenu();
   void buildStatePath(char* out, size_t n);
+
+  // Picker state (main thread only).
+  Rom  roms[GBC_MAX_ROMS];
+  int  romCount = 0;
+  int  romSel = 0;
+  int  romTop = 0;               // first visible row (scrolling)
+  bool confirmDelete = false;    // picker is asking to confirm a delete
+  bool playing = false;          // false = picker on screen, true = game running
+  bool enteredGaming = false;    // did we turn WiFi/mesh off? (restore on exit)
 
   int  initErr = 0;              // 0 = ok, <0 = setup error code
   char romName[40] = {0};
 
-  // Shared between processEvent (core 1) and emuThread (core 0).
+  // Shared between processEvent and the emulator tasks.
   volatile bool paused = false;
   volatile int  menuSel = 0;
   volatile bool menuDirty = false;
