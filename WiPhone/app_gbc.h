@@ -66,6 +66,10 @@ protected:
 
   int  initErr = 0;              // 0 = ok, <0 = setup error code
   char romName[40] = {0};
+  // Diagnostics captured at an allocation failure, shown on the error screen.
+  size_t dbgFreeInt = 0;         // free internal RAM
+  size_t dbgLargest = 0;         // largest free internal block
+  int    dbgWhere = 0;           // 1 = setupEmulator allocs, 2 = task stacks
 
   // Shared between processEvent and the emulator tasks.
   volatile bool paused = false;

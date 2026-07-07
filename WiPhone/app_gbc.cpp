@@ -18,6 +18,7 @@
 #include "esp_heap_caps.h"
 #include "esp_bt.h"
 #include <string.h>
+#include <errno.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -93,11 +94,22 @@ static volatile bool     s_emuExited = false;
 // launching a game never allocates — deleting an unpinned task defers its stack
 // free to the (starved) idle task, which otherwise runs the phone out of RAM
 // after one game ("could not start task").
-#define GBC_TASK_STACK_WORDS 2048   // 8KB per stack (StackType_t is 4 bytes)
+// NOTE: StackType_t is 1 byte on ESP-IDF FreeRTOS, so these are sizes in BYTES.
+// After gnuboy_init claims WRAM/VRAM, free internal RAM is ~32KB with a largest
+// contiguous block of ~9.6KB (measured on-device) — so only ONE 8KB block exists.
+// The blit task gets it: it runs the deep fopen->FATFS->SD save/load path that
+// overflowed the old 2KB stacks and rebooted the phone. The emulator loop is
+// shallow (it ran indefinitely on 2KB without crashing), so 4KB is a 2x margin.
+#define GBC_EMU_STACK_BYTES   4096
+#define GBC_BLIT_STACK_BYTES  8192
 static StaticTask_t s_emuTcb;
 static StaticTask_t s_blitTcb;
-static StackType_t  s_emuStack[GBC_TASK_STACK_WORDS];
-static StackType_t  s_blitStack[GBC_TASK_STACK_WORDS];
+// Stacks live in internal RAM but are allocated from the heap on the FIRST launch
+// (after gaming mode has freed WiFi + the ~60KB BT RAM) and reused forever, never
+// freed. Keeping them out of BSS matters: ~20KB of permanent static internal RAM
+// starves the boot-time WiFi/BT allocations and boot-loops this RAM-tight board.
+static StackType_t* s_emuStack  = NULL;
+static StackType_t* s_blitStack = NULL;
 
 GbcApp::GbcApp(LCD& disp, ControlState& state) : ThreadedApp(disp, state) {
   log_d("create GbcApp");
@@ -128,11 +140,28 @@ void GbcApp::startGame() {
     initErr = GBC_ERR_ALLOC;
     return;
   }
+  // Allocate the task stacks once, now that gaming mode has freed the RAM (WiFi off,
+  // BT reclaimed). Reused every game and never freed, so this runs only once.
+  // Blit stack FIRST: it needs the single largest free block (see above), and
+  // carving the emu stack out first could split it.
+  if (!s_blitStack) {
+    s_blitStack = (StackType_t*)heap_caps_malloc(GBC_BLIT_STACK_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  }
+  if (!s_emuStack) {
+    s_emuStack = (StackType_t*)heap_caps_malloc(GBC_EMU_STACK_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  }
+  if (!s_emuStack || !s_blitStack) {
+    dbgWhere = 2;
+    dbgFreeInt = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    dbgLargest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+    initErr = GBC_ERR_ALLOC;
+    return;
+  }
   // Static stacks (reused every game) and UNPINNED (like DigitalRainApp): the SMP
   // scheduler runs the two ready high-priority tasks on the two cores.
-  xHandle = xTaskCreateStatic(&GbcApp::emuThread, "gbc", GBC_TASK_STACK_WORDS, this,
+  xHandle = xTaskCreateStatic(&GbcApp::emuThread, "gbc", GBC_EMU_STACK_BYTES, this,
                               tskIDLE_PRIORITY + 2, s_emuStack, &s_emuTcb);
-  s_blitTask = xTaskCreateStatic(&GbcApp::blitTask, "gbcblit", GBC_TASK_STACK_WORDS, this,
+  s_blitTask = xTaskCreateStatic(&GbcApp::blitTask, "gbcblit", GBC_BLIT_STACK_BYTES, this,
                                  tskIDLE_PRIORITY + 2, s_blitStack, &s_blitTcb);
   if (xHandle && s_blitTask) {
     playing = true;
@@ -295,6 +324,9 @@ bool GbcApp::setupEmulator(const Rom& rom) {
     s_emuFb[1] = (uint16_t*)ps_malloc(fbBytes);
     s_scaledFb = (uint16_t*)ps_malloc((size_t)GBC_FILL_W * GBC_FILL_H * sizeof(uint16_t));
     if (!s_emuFb[0] || !s_emuFb[1] || !s_scaledFb || !s_emuAudio) {
+      dbgWhere = 1;
+      dbgFreeInt = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+      dbgLargest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
       initErr = GBC_ERR_ALLOC;
       return false;
     }
@@ -452,8 +484,13 @@ void GbcApp::blitTask(void* pvParam) {
         SD.mkdir("/gbc");
         char path[80];
         app->buildStatePath(path, sizeof(path));
+        errno = 0;
         int r = gnuboy_save_state(path);
-        snprintf(app->statusMsg, sizeof(app->statusMsg), r == 0 ? "Saved" : "Save failed");
+        if (r == 0) {
+          snprintf(app->statusMsg, sizeof(app->statusMsg), "Saved");
+        } else {   // r=-1 file open/write failed (errno says why), r=-2 buffer alloc failed
+          snprintf(app->statusMsg, sizeof(app->statusMsg), "Save fail %d e%d", r, errno);
+        }
         app->pendingAction = GBC_ACT_NONE;
         app->menuDirty = true;
       } else if (app->pendingAction == GBC_ACT_LOAD) {
@@ -643,5 +680,15 @@ void GbcApp::redrawScreen(bool redrawAll) {
   }
   lcd.drawString(msg, 6, 40);
   lcd.setTextColor(WHITE, BLACK);
-  lcd.drawString("Back/hang-up to exit", 6, 40 + font->height() + 6);
+  int y = 40 + font->height() + 6;
+  if (initErr == GBC_ERR_ALLOC && dbgWhere) {
+    char line[48];
+    snprintf(line, sizeof(line), "where:%d free:%u", dbgWhere, (unsigned)dbgFreeInt);
+    lcd.drawString(line, 6, y);
+    y += font->height() + 6;
+    snprintf(line, sizeof(line), "largest:%u", (unsigned)dbgLargest);
+    lcd.drawString(line, 6, y);
+    y += font->height() + 6;
+  }
+  lcd.drawString("Back/hang-up to exit", 6, y);
 }

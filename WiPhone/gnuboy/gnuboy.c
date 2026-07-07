@@ -778,7 +778,12 @@ static int do_save_load(const char *file, bool save)
 		END
 	};
 
-	byte *buf = calloc(1, 4096);
+	// Header staging block. Prefer PSRAM: at save time internal RAM is fully
+	// committed (task stacks, WRAM/VRAM), so a plain calloc here fails and every
+	// save reports -2. PSRAM is safe with fwrite/fread — the Arduino SD layer is
+	// polled SPI (CPU-driven), not DMA, so buffer location doesn't matter.
+	byte *buf = heap_caps_calloc(1, 4096, MALLOC_CAP_SPIRAM);
+	if (!buf) buf = calloc(1, 4096);
 	if (!buf) return -2;
 
 	uint32_t (*header)[2] = (uint32_t (*)[2])buf;
