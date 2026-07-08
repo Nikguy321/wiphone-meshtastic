@@ -397,7 +397,6 @@ typedef enum ActionID : uint16_t {
   GUI_APP_HILL_CHESS,
   GUI_APP_ACKMAN,
   GUI_APP_GBC,
-  GUI_APP_GBC_XFER,
 
 } ActionID_t;
 
@@ -2459,7 +2458,6 @@ protected:
     { 29, 4, "King of the Hill", "", "", GUI_APP_HILL_CHESS },
 #endif
     { 40, 4, "Game Boy", "Select", "Back", GUI_APP_GBC },
-    { 41, 4, "Transfer ROMs", "Select", "Back", GUI_APP_GBC_XFER },
 
     // Settings (5)
     { 11, 5, "SIP accounts", "", "", GUI_APP_SIP_ACCOUNTS },

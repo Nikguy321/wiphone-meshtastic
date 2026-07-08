@@ -18,7 +18,6 @@ governing permissions and limitations under the License.
 #include "Test.h"
 #include "app_meshtastic.h"
 #include "app_gbc.h"
-#include "app_gbc_xfer.h"
 
 // Static images
 #include "src/assets/image.h"
@@ -1436,9 +1435,6 @@ void GUI::enterApp(ActionID_t app) {
     break;
   case GUI_APP_GBC:
     runningApp = new GbcApp(lcd, state);
-    break;
-  case GUI_APP_GBC_XFER:
-    runningApp = new GbcXferApp(lcd, state);
     break;
   case GUI_APP_UART_PASS:
     runningApp = new UartPassthroughApp(lcd, state, header, footer);

@@ -1,8 +1,18 @@
 /*
- * app_gbc_xfer.cpp — WiPhone "Transfer ROMs" screen (see app_gbc_xfer.h).
+ * app_gbc_xfer.cpp — Game Boy ROM transfer web server (see app_gbc_xfer.h).
+ *
+ * Robustness notes (learned on hardware):
+ * - WebServer::handleClient() processes an entire POST synchronously in the
+ *   main loop, so a big upload keeps the loop busy for many seconds. The idle
+ *   task starves and the task watchdog reboots the phone. The upload/download
+ *   handlers therefore delay(1) periodically to feed it.
+ * - The upload page sends files ONE PER REQUEST, sequentially. One giant
+ *   multipart POST with several ROMs maximized the blocking window (reboots)
+ *   and gave no per-file feedback (browser looked frozen).
  */
 
 #include "app_gbc_xfer.h"
+#include "Arduino.h"
 #include "WiFi.h"
 #include "WebServer.h"
 #include "ESPmDNS.h"
@@ -10,11 +20,12 @@
 #include "WiFiClientSecure.h"
 #include "SD.h"
 
-// The web server (file-scope so the C-style handlers can reach it). Pumped from
-// the main loop via gbcXferHandleClient(). Only one Transfer screen at a time.
-static WebServer*        s_server = NULL;
-static File              s_uploadFile;
-static volatile int      s_romsAdded = 0;   // uploads + downloads this session (for status)
+static WebServer*   s_server = NULL;
+static File         s_uploadFile;
+static volatile int s_romsAdded = 0;    // uploads + downloads this session (for status)
+static bool         s_on = false;
+static bool         s_usingAP = false;  // true if we had to bring up our own hotspot
+static char         s_addr[40] = {0};   // shown address (IP of STA or AP)
 
 void gbcXferHandleClient() {
   if (s_server) {
@@ -22,8 +33,14 @@ void gbcXferHandleClient() {
   }
 }
 
+bool        gbcXferOn()        { return s_on; }
+bool        gbcXferUsingAP()   { return s_usingAP; }
+const char* gbcXferAddr()      { return s_addr; }
+int         gbcXferRomsAdded() { return s_romsAdded; }
+
 // The page served to the computer's browser: drag-and-drop / file-pick upload
-// plus a "download from URL" box. Kept small and dependency-free.
+// plus a "download from URL" box. Kept small and dependency-free. Files are
+// uploaded one per request, sequentially, with progress text per file.
 static const char PAGE[] =
   "<!doctype html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
   "<title>WiPhone ROMs</title><style>"
@@ -33,20 +50,35 @@ static const char PAGE[] =
   "button{padding:9px 16px;margin-top:8px;border:0;border-radius:6px;background:#2a7;color:#fff;font-size:15px}"
   "</style></head><body>"
   "<h1>WiPhone — Add Game Boy ROMs</h1>"
-  "<h2>1. Drag &amp; drop a ROM</h2>"
+  "<h2>1. Drag &amp; drop ROMs</h2>"
   "<form id=f method=POST action=/upload enctype=multipart/form-data>"
-  "<div id=drop>Drop a .gb / .gbc file here, or <input type=file name=rom accept='.gb,.gbc' multiple></div>"
+  "<div id=drop>Drop .gb / .gbc files here, or <input type=file name=rom accept='.gb,.gbc' multiple></div>"
   "<button type=submit>Upload</button></form>"
   "<h2>2. …or paste a download link</h2>"
   "<form method=POST action=/fetch>"
   "<input type=text name=url placeholder='https://... direct link to a .gb/.gbc file'>"
   "<button type=submit>Download to phone</button></form>"
   "<p style='color:#888;margin-top:30px'>ROMs are saved to /roms and show up in the Game Boy game list.</p>"
-  "<script>var d=document.getElementById('drop'),f=document.getElementById('f');"
+  "<script>"
+  "var d=document.getElementById('drop'),f=document.getElementById('f'),inp=f.querySelector('input[type=file]');"
+  "function sendAll(files){"
+  "if(!files||!files.length){d.textContent='No files chosen.';return;}"
+  "var i=0;"
+  "function next(){"
+  "if(i>=files.length){d.textContent='Done! '+files.length+' ROM(s) on your phone.';return;}"
+  "var file=files[i];"
+  "d.textContent='Uploading '+(i+1)+' of '+files.length+': '+file.name;"
+  "var fd=new FormData();fd.append('rom',file);"
+  "fetch('/upload',{method:'POST',body:fd}).then(function(r){"
+  "if(!r.ok)throw 0;i++;setTimeout(next,400);"   // breather: let the phone housekeep between files
+  "}).catch(function(){d.textContent='Failed on '+file.name+' — try again.';});"
+  "}"
+  "next();"
+  "}"
   "['dragenter','dragover'].forEach(function(e){d.addEventListener(e,function(ev){ev.preventDefault();d.classList.add('over')})});"
   "['dragleave','drop'].forEach(function(e){d.addEventListener(e,function(ev){ev.preventDefault();d.classList.remove('over')})});"
-  "d.addEventListener('drop',function(ev){var fd=new FormData();for(var i=0;i<ev.dataTransfer.files.length;i++)fd.append('rom',ev.dataTransfer.files[i]);"
-  "d.textContent='Uploading...';fetch('/upload',{method:'POST',body:fd}).then(function(){d.textContent='Done! It is on your phone.'})});"
+  "d.addEventListener('drop',function(ev){sendAll(ev.dataTransfer.files)});"
+  "f.addEventListener('submit',function(ev){ev.preventDefault();sendAll(inp.files)});"
   "</script></body></html>";
 
 static void handleRoot() {
@@ -67,12 +99,23 @@ static void handleUpload() {
   } else if (up.status == UPLOAD_FILE_WRITE) {
     if (s_uploadFile) {
       s_uploadFile.write(up.buf, up.currentSize);
+      // Let the idle task run so the task watchdog doesn't reboot the phone:
+      // handleClient() blocks the main loop for this entire upload.
+      static uint8_t chunks = 0;
+      if (++chunks >= 4) {
+        chunks = 0;
+        delay(1);
+      }
     }
   } else if (up.status == UPLOAD_FILE_END) {
     if (s_uploadFile) {
       s_uploadFile.flush();         // commit size/data before it can be read
       s_uploadFile.close();
       s_romsAdded++;
+    }
+  } else if (up.status == UPLOAD_FILE_ABORTED) {
+    if (s_uploadFile) {
+      s_uploadFile.close();         // partial file stays; re-upload overwrites it
     }
   }
 }
@@ -103,6 +146,7 @@ static bool downloadTo(const String& url, const String& path) {
     WiFiClient* stream = http.getStreamPtr();
     int len = http.getSize();
     uint8_t buf[1024];
+    uint32_t written = 0;
     uint32_t idle = millis();
     while (http.connected()) {
       size_t avail = stream->available();
@@ -111,6 +155,11 @@ static bool downloadTo(const String& url, const String& path) {
         if (r > 0) {
           f.write(buf, r);
           idle = millis();
+          written += r;
+          if (written >= 32768) {   // feed the idle task/watchdog on long downloads
+            written = 0;
+            delay(1);
+          }
           if (len > 0) {
             len -= r;
             if (len <= 0) {
@@ -162,29 +211,24 @@ static void handleFetch() {
                     : "<p>Download failed (check the link is a direct file link). <a href=/>back</a></p>");
 }
 
-GbcXferApp::GbcXferApp(LCD& disp, ControlState& state) : WiPhoneApp(disp, state) {
-  log_d("create GbcXferApp");
-}
-
-GbcXferApp::~GbcXferApp() {
-  log_d("destroy GbcXferApp");
-  if (serverOn) {
-    stopServer();
+void gbcXferStart() {
+  if (s_on) {
+    return;
   }
-}
-
-void GbcXferApp::startServer() {
   s_romsAdded = 0;
 
   // Use the joined WiFi network if we have one; otherwise host our own hotspot.
   if (WiFi.status() == WL_CONNECTED) {
-    usingAP = false;
-    snprintf(addr, sizeof(addr), "%s", WiFi.localIP().toString().c_str());
+    s_usingAP = false;
+    snprintf(s_addr, sizeof(s_addr), "%s", WiFi.localIP().toString().c_str());
   } else {
-    usingAP = true;
+    s_usingAP = true;
     WiFi.mode(WIFI_AP);
-    WiFi.softAP("WiPhone-ROMs");
-    snprintf(addr, sizeof(addr), "%s", WiFi.softAPIP().toString().c_str());
+    if (WiFi.softAP("WiPhone-ROMs")) {
+      snprintf(s_addr, sizeof(s_addr), "%s", WiFi.softAPIP().toString().c_str());
+    } else {
+      snprintf(s_addr, sizeof(s_addr), "AP FAILED");   // surfaced on the phone screen
+    }
   }
 
   MDNS.begin("wiphone");   // http://wiphone.local
@@ -199,10 +243,13 @@ void GbcXferApp::startServer() {
   s_server->on("/fetch", HTTP_POST, handleFetch);
   s_server->begin();
 
-  serverOn = true;   // gbcXferHandleClient() (main loop) now pumps it
+  s_on = true;   // gbcXferHandleClient() (main loop) now pumps it
 }
 
-void GbcXferApp::stopServer() {
+void gbcXferStop() {
+  if (!s_on) {
+    return;
+  }
   if (s_uploadFile) {
     s_uploadFile.close();   // don't leave a dangling handle from an aborted upload
   }
@@ -212,75 +259,10 @@ void GbcXferApp::stopServer() {
     s_server = NULL;
   }
   MDNS.end();
-  if (usingAP) {
+  if (s_usingAP) {
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
-    usingAP = false;
+    s_usingAP = false;
   }
-  serverOn = false;
-}
-
-appEventResult GbcXferApp::processEvent(EventType event) {
-  if (LOGIC_BUTTON_OK(event)) {
-    if (serverOn) {
-      stopServer();
-    } else {
-      startServer();
-    }
-    return REDRAW_SCREEN;
-  }
-  if (LOGIC_BUTTON_BACK(event)) {
-    return EXIT_APP;
-  }
-  return DO_NOTHING;
-}
-
-void GbcXferApp::redrawScreen(bool redrawAll) {
-  SmoothFont* font = fonts[OPENSANS_COND_BOLD_20];
-  lcd.fillScreen(BLACK);
-  lcd.setTextFont(font);
-  lcd.setTextDatum(TL_DATUM);
-  int lh = font->height() + 4;
-  int y = 8;
-
-  lcd.setTextColor(TFT_GREENYELLOW, BLACK);
-  lcd.drawString("Transfer ROMs", 8, y);
-  y += lh + 4;
-
-  lcd.setTextColor(TFT_WHITE, BLACK);
-  if (!serverOn) {
-    lcd.drawString("Put Game Boy ROMs on the", 8, y); y += lh;
-    lcd.drawString("SD card from a computer:", 8, y); y += lh + 4;
-    lcd.drawString("1. Connect phone to WiFi", 8, y); y += lh;
-    lcd.drawString("2. Press OK to start", 8, y); y += lh;
-    lcd.drawString("3. On your computer open", 8, y); y += lh;
-    lcd.setTextColor(TFT_YELLOW, BLACK);
-    lcd.drawString("   wiphone.local", 8, y); y += lh;
-    lcd.setTextColor(TFT_WHITE, BLACK);
-    lcd.drawString("4. Drag a ROM or paste a", 8, y); y += lh;
-    lcd.drawString("   link. Done!", 8, y); y += lh + 8;
-    lcd.setTextColor(TFT_DARKGREY, BLACK);
-    lcd.drawString("OK: start   Back: exit", 8, lcd.height() - 24);
-  } else {
-    lcd.setTextColor(TFT_GREEN, BLACK);
-    lcd.drawString("Server ON", 8, y); y += lh + 4;
-    lcd.setTextColor(TFT_WHITE, BLACK);
-    lcd.drawString("On your computer, open:", 8, y); y += lh;
-    lcd.setTextColor(TFT_YELLOW, BLACK);
-    lcd.drawString("  wiphone.local", 8, y); y += lh;
-    char line[40];
-    snprintf(line, sizeof(line), "  or http://%s", addr);
-    lcd.drawString(line, 8, y); y += lh + 4;
-    lcd.setTextColor(TFT_WHITE, BLACK);
-    if (usingAP) {
-      lcd.drawString("(join WiFi 'WiPhone-ROMs'", 8, y); y += lh;
-      lcd.drawString(" first, no password)", 8, y); y += lh + 4;
-    } else {
-      lcd.drawString("(same WiFi as the phone)", 8, y); y += lh + 4;
-    }
-    snprintf(line, sizeof(line), "ROMs added: %d", s_romsAdded);
-    lcd.drawString(line, 8, y); y += lh;
-    lcd.setTextColor(TFT_DARKGREY, BLACK);
-    lcd.drawString("OK: stop   Back: exit", 8, lcd.height() - 24);
-  }
+  s_on = false;
 }

@@ -1025,6 +1025,7 @@ static bool     meshVibroActive = false;
 static uint32_t meshVibroStartMs = 0;
 
 extern void gbcXferHandleClient();   // ROM-transfer web server pump (no-op when off)
+extern bool gbcXferOn();             // true while the transfer server is running
 
 void loop() {
   while (1) {
@@ -1130,7 +1131,9 @@ void loop() {
       if (keyPressed == WIPHONE_KEY_F4) {
       }
 
-      if (keyPressed == WIPHONE_KEY_END) {
+      if (keyPressed == WIPHONE_KEY_END && !gGbcActive) {
+        // During a Game Boy session END is the pause-menu button; don't also
+        // poke the SIP state machine (it popped call UI over the game / froze).
         gui.state.setSipState(CallState::HangUp);
       }
 
@@ -1273,8 +1276,11 @@ void loop() {
       keypadLedsOn = false;
     }
 
-    // Connect to WiFi
-    if (wifiState.doReconnect() && !wifiState.isConnected() && elapsedMillis(now, msLastWifiRetry, WIFI_RETRY_PERIOD_MS) && !wifiState.userDisabled()) {
+    // Connect to WiFi — but never while the ROM transfer server is up: it may be
+    // in softAP mode, and starting an STA connection mid-association mangles the
+    // WiFi driver state and panics the chip (crashed exactly when a computer
+    // joined the WiPhone-ROMs hotspot).
+    if (!gbcXferOn() && wifiState.doReconnect() && !wifiState.isConnected() && elapsedMillis(now, msLastWifiRetry, WIFI_RETRY_PERIOD_MS) && !wifiState.userDisabled()) {
       if (wifiState.connectToPreferred()) {
         log_d("Connecting to WiFi");
       } else {

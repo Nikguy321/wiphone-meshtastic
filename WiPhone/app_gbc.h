@@ -44,6 +44,8 @@ protected:
 
   void scanRoms();               // build the picker list (built-in + SD /roms and root)
   void drawPicker();
+  void drawXfer();               // "Transfer ROMs" screen (WiFi upload server)
+  void drawHelp();               // scrollable help/instructions screen
   void startGame();              // enter gaming mode and launch the selected ROM
 
   void reclaimInternalRam();     // free the (unused) BT controller RAM for the emulator
@@ -55,7 +57,14 @@ protected:
   void drawPauseMenu();
   void buildStatePath(char* out, size_t n);
 
-  // Picker state (main thread only).
+  // Picker state (main thread only). The list shows the ROMs plus two action
+  // rows appended after them: "Transfer ROMs" and "Help".
+  enum UiMode { UI_PICKER, UI_XFER, UI_HELP };
+  UiMode uiMode = UI_PICKER;
+  int  helpTop = 0;              // first visible help line (scrolling)
+  uint32_t xferDrawMs = 0;       // last live-refresh of the transfer screen
+  bool xferClean = false;        // transfer screen background already drawn
+                                 // (live refreshes skip the black fill: no flicker)
   Rom  roms[GBC_MAX_ROMS];
   int  romCount = 0;
   int  romSel = 0;
@@ -63,7 +72,8 @@ protected:
   bool confirmDelete = false;    // picker is asking to confirm a delete
   bool playing = false;          // false = picker on screen, true = game running
   bool enteredGaming = false;    // did we turn WiFi/mesh off? (restore on exit)
-  bool soundOn = false;          // did we start the audio codec? (feed I2S + restore)
+  volatile bool soundOn = false; // did we start the audio codec? (feed I2S + restore)
+  int  audioStarve = 0;          // consecutive under-written I2S frames (emu thread only)
 
   void adjustVolume(int delta);  // F1/F2 in-game volume up/down
 

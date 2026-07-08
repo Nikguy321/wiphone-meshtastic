@@ -16,6 +16,7 @@
 
 #include "app_gbc.h"
 #include "esp_heap_caps.h"
+#include "esp_system.h"     // esp_reset_reason (transfer-screen diagnostics)
 #include "esp_bt.h"
 #include <string.h>
 #include <errno.h>
@@ -28,6 +29,7 @@
 #include "Audio.h"
 #include "gnuboy/gnuboy.h"
 #include "gbc_test_rom.h"   // embedded public-domain ROM (flash) used when no SD ROM
+#include "app_gbc_xfer.h"   // ROM transfer web server (UI lives on our Transfer screen)
 
 // Global held-button mask, updated by the main loop's keypad scanner.
 extern uint32_t keypadState;
@@ -38,12 +40,19 @@ extern volatile bool gGbcActive;
 // Sticky press mask so fast taps between the emulator's frame-rate polls survive.
 extern volatile uint32_t gGbcKeyLatch;
 
-// 32000 to match what Audio::start() configures the codec for; the emulator's APU
-// output is fed straight to the phone's I2S at this rate.
-#define GBC_EMU_SAMPLERATE   32000
+// The I2S/codec runs at 32000. The emulator's APU rate is chosen slightly HIGHER
+// on purpose: gnuboy rounds its internal step to (1<<21)/rate = 65, producing
+// 32264 samples per emulated second — a ~0.8% surplus over the DAC. That keeps
+// the DMA buffer full, so the blocking i2s_write paces the game to the DAC
+// (continuous audio, ~99% speed) instead of slowly draining into underruns.
+#define GBC_I2S_RATE         32000
+#define GBC_EMU_SAMPLERATE   32264
 #define GBC_EMU_AUDIO_LEN    2048   // int16 samples in the emulator's audio buffer
 // In-game volume step (F1/F2). Codec volume is in dB-ish units (see Audio.h).
 #define GBC_VOL_STEP         3
+
+// Picker rows 0..GBC_PICKER_ACTIONS-1 are actions (Transfer, Help); ROMs follow.
+#define GBC_PICKER_ACTIONS 2
 
 // Pause-menu items and pending actions.
 #define GBC_MENU_RESUME  0
@@ -88,6 +97,13 @@ static void gbcUnloadRom() {
   }
 }
 
+// Free everything the emulator keeps resident (gnuboy WRAM/VRAM, task stacks,
+// audio buffer, framebuffers, loaded ROM). Once a game has run, the phone idles
+// at ~10KB free internal RAM — the WiFi/web stack then panics (OOM) trying to
+// serve the ROM transfer page, so the transfer screen calls this first. The
+// next game launch re-allocates and re-inits everything from scratch.
+static void gbcReleaseEmulator();
+
 // Per-launch task handoff.
 static SemaphoreHandle_t s_blitGo   = NULL;   // emu -> blit: buffer s_blitIdx is ready
 static TaskHandle_t      s_blitTask = NULL;
@@ -118,9 +134,23 @@ static StaticTask_t s_blitTcb;
 static StackType_t* s_emuStack  = NULL;
 static StackType_t* s_blitStack = NULL;
 
+static void gbcReleaseEmulator() {
+  gbcUnloadRom();
+  if (s_gnuboyInited) {
+    gnuboy_deinit();
+    s_gnuboyInited = false;
+  }
+  if (s_emuAudio)  { free(s_emuAudio);  s_emuAudio  = NULL; }
+  if (s_emuFb[0])  { free(s_emuFb[0]);  s_emuFb[0]  = NULL; }
+  if (s_emuFb[1])  { free(s_emuFb[1]);  s_emuFb[1]  = NULL; }
+  if (s_emuStack)  { free(s_emuStack);  s_emuStack  = NULL; }
+  if (s_blitStack) { free(s_blitStack); s_blitStack = NULL; }
+}
+
 GbcApp::GbcApp(LCD& disp, ControlState& state) : ThreadedApp(disp, state) {
   log_d("create GbcApp");
   scanRoms();               // build the picker list; the game starts on selection
+  romSel = GBC_PICKER_ACTIONS;   // land on the first game, not the action rows
 }
 
 // Enter gaming mode and launch the selected ROM on the two emulator tasks.
@@ -134,15 +164,16 @@ void GbcApp::startGame() {
   disableCore0WDT();
   disableCore1WDT();
 
-  if (!setupEmulator(roms[romSel])) {
+  if (!setupEmulator(roms[romSel - GBC_PICKER_ACTIONS])) {
     return;   // initErr set; redrawScreen() shows the error
   }
 
   // Borrow the phone's audio path for the emulator's APU output. Best-effort:
   // if it won't start, the game just runs silent (never block gameplay on it).
   if (audio) {
-    audio->setSampleRate(GBC_EMU_SAMPLERATE);
+    audio->setSampleRate(GBC_I2S_RATE);
     soundOn = audio->start();
+    audioStarve = 0;
   }
 
   s_blitGo     = xSemaphoreCreateBinary();
@@ -223,6 +254,7 @@ GbcApp::~GbcApp() {
     audio->shutdown();
     soundOn = false;
   }
+  gbcXferStop();            // in case the app dies while the transfer screen is up
 
   if (enteredGaming) {   // restore what gaming mode turned off
     enableCore0WDT();
@@ -455,6 +487,9 @@ void GbcApp::drawPicker() {
   lcd.setTextColor(TFT_GREENYELLOW, BLACK);
   lcd.drawString("Select a game", 8, 8);
 
+  // Rows 0 and 1 are the "Transfer ROMs" / "Help" actions (always on top, no
+  // scrolling past a long game list to reach them); ROM i is at row i + 2.
+  const int total = romCount + 2;
   const int lh = font->height() + 8;
   const int top = 40;
   int visible = (lcd.height() - top - 26) / lh;
@@ -469,13 +504,18 @@ void GbcApp::drawPicker() {
   }
 
   int y = top;
-  for (int i = romTop; i < romCount && i < romTop + visible; i++) {
+  for (int i = romTop; i < total && i < romTop + visible; i++) {
     bool sel = (i == romSel);
     lcd.setTextColor(sel ? TFT_YELLOW : TFT_WHITE, BLACK);
     lcd.drawString(sel ? ">" : " ", 8, y);
-    char line[30];
-    snprintf(line, sizeof(line), "%s", roms[i].name);   // truncate long names to fit
-    lcd.drawString(line, 28, y);
+    if (i >= GBC_PICKER_ACTIONS) {
+      char line[30];
+      snprintf(line, sizeof(line), "%s", roms[i - GBC_PICKER_ACTIONS].name);   // truncate to fit
+      lcd.drawString(line, 28, y);
+    } else {                       // action rows, tinted to stand apart from games
+      lcd.setTextColor(sel ? TFT_YELLOW : TFT_CYAN, BLACK);
+      lcd.drawString(i == 0 ? "Transfer ROMs..." : "Help...", 28, y);
+    }
     y += lh;
   }
 
@@ -488,6 +528,142 @@ void GbcApp::drawPicker() {
     lcd.setTextColor(TFT_DARKGREY, BLACK);
     lcd.drawString("OK play  Back del  End exit", 8, lcd.height() - 22);
   }
+}
+
+// "Transfer ROMs" screen: instructions when the server is off, address +
+// live "ROMs added" count while it's on. The server itself is app_gbc_xfer.cpp.
+void GbcApp::drawXfer() {
+  SmoothFont* font = fonts[OPENSANS_COND_BOLD_20];
+  if (!xferClean) {              // full clear only on entry/layout change; the
+    lcd.fillScreen(BLACK);       // 1Hz live refresh just overdraws the text
+    xferClean = true;            // in place (a full clear flashed black visibly)
+  }
+  lcd.setTextFont(font);
+  lcd.setTextDatum(TL_DATUM);
+  int lh = font->height() + 4;
+  int y = 8;
+
+  lcd.setTextColor(TFT_GREENYELLOW, BLACK);
+  lcd.drawString("Transfer ROMs", 8, y);
+  y += lh + 4;
+
+  lcd.setTextColor(TFT_WHITE, BLACK);
+  if (!gbcXferOn()) {
+    lcd.drawString("Put Game Boy ROMs on the", 8, y); y += lh;
+    lcd.drawString("SD card from a computer:", 8, y); y += lh + 4;
+    lcd.drawString("1. Connect phone to WiFi", 8, y); y += lh;
+    lcd.drawString("2. Press OK to start", 8, y); y += lh;
+    lcd.drawString("3. On your computer open", 8, y); y += lh;
+    lcd.setTextColor(TFT_YELLOW, BLACK);
+    lcd.drawString("   wiphone.local", 8, y); y += lh;
+    lcd.setTextColor(TFT_WHITE, BLACK);
+    lcd.drawString("4. Drag ROMs in or paste", 8, y); y += lh;
+    lcd.drawString("   a link. Done!", 8, y); y += lh + 8;
+    lcd.setTextColor(TFT_DARKGREY, BLACK);
+    lcd.drawString("OK: start   Back: games", 8, lcd.height() - 24);
+  } else {
+    lcd.setTextColor(TFT_GREEN, BLACK);
+    lcd.drawString("Server ON", 8, y); y += lh + 4;
+    lcd.setTextColor(TFT_WHITE, BLACK);
+    lcd.drawString("On your computer, open:", 8, y); y += lh;
+    lcd.setTextColor(TFT_YELLOW, BLACK);
+    lcd.drawString("  wiphone.local", 8, y); y += lh;
+    char line[40];
+    snprintf(line, sizeof(line), "  or http://%s", gbcXferAddr());
+    lcd.drawString(line, 8, y); y += lh + 4;
+    lcd.setTextColor(TFT_WHITE, BLACK);
+    if (gbcXferUsingAP()) {
+      lcd.drawString("(join WiFi 'WiPhone-ROMs'", 8, y); y += lh;
+      lcd.drawString(" first, no password)", 8, y); y += lh + 4;
+    } else {
+      lcd.drawString("(same WiFi as the phone)", 8, y); y += lh + 4;
+    }
+    snprintf(line, sizeof(line), "ROMs added: %d   ", gbcXferRomsAdded());   // pad: drawn in place
+    lcd.drawString(line, 8, y); y += lh;
+
+    // Diagnostics (refreshed ~1Hz): free heap, its low-water mark, last reset
+    // reason (6=task WDT, 4=panic, 9=brownout, 1=power on), WiFi status. Drawn
+    // in the text flow — a fixed bottom position collided with the key hints.
+    char diag[56];
+    snprintf(diag, sizeof(diag), "mem %u min %u rst %d wf %d   ",   // pad: drawn in place
+             (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(),
+             (int)esp_reset_reason(), (int)WiFi.status());
+    lcd.setTextColor(TFT_DARKGREY, BLACK);
+    lcd.drawString(diag, 8, y);
+
+    lcd.setTextColor(TFT_DARKGREY, BLACK);
+    lcd.drawString("OK: stop   Back: games", 8, lcd.height() - 24);
+  }
+}
+
+// Help lines. NULL-string entries render as section headers (green).
+static const char* const s_helpLines[] = {
+  "@CONTROLS (in game)",
+  "D-pad: move",
+  "Bottom right key: A",
+  "Key above it: B",
+  "Back (top right): Start",
+  "Select (top left): Select",
+  "Top 2 right keys: volume",
+  "End (hang up): pause",
+  "@PAUSE MENU",
+  "Save state: bookmark the",
+  " game exactly as it is",
+  "Load state: jump back to",
+  " the saved bookmark",
+  "Screen 1:1 or Fill: size",
+  "Number = game speed %",
+  "Quit: back to the phone",
+  "@ADDING GAMES",
+  "Pick 'Transfer ROMs...'",
+  "in the game list, then",
+  "follow the steps shown.",
+  "Files ending .gb / .gbc",
+  "land in the game list.",
+  "Back key deletes a game",
+  "(asks first).",
+  "@GOOD TO KNOW",
+  "WiFi + calls are off",
+  "while a game runs; quit",
+  "the game to reconnect.",
+  "Save states live on the",
+  "SD card, one per game.",
+  "Built-in game: uCity by",
+  "AntonioND (GPL).",
+};
+static const int s_helpCount = sizeof(s_helpLines) / sizeof(s_helpLines[0]);
+
+void GbcApp::drawHelp() {
+  SmoothFont* font = fonts[OPENSANS_COND_BOLD_20];
+  lcd.fillScreen(BLACK);
+  lcd.setTextFont(font);
+  lcd.setTextDatum(TL_DATUM);
+  const int lh = font->height() + 4;
+  const int top = 40;
+  const int visible = (lcd.height() - top - 26) / lh;
+
+  lcd.setTextColor(TFT_GREENYELLOW, BLACK);
+  lcd.drawString("Game Boy help", 8, 8);
+  if (helpTop > s_helpCount - visible) {
+    helpTop = s_helpCount - visible;
+  }
+  if (helpTop < 0) {
+    helpTop = 0;
+  }
+  int y = top;
+  for (int i = helpTop; i < s_helpCount && i < helpTop + visible; i++) {
+    const char* ln = s_helpLines[i];
+    if (ln[0] == '@') {           // section header
+      lcd.setTextColor(TFT_GREEN, BLACK);
+      lcd.drawString(ln + 1, 8, y);
+    } else {
+      lcd.setTextColor(TFT_WHITE, BLACK);
+      lcd.drawString(ln, 8, y);
+    }
+    y += lh;
+  }
+  lcd.setTextColor(TFT_DARKGREY, BLACK);
+  lcd.drawString("Up/Down scroll   Back: games", 8, lcd.height() - 22);
 }
 
 void GbcApp::drawPauseMenu() {
@@ -625,24 +801,33 @@ void GbcApp::emuThread(void* pvParam) {
       xSemaphoreGive(s_blitGo);
       emuBuf = 1 - emuBuf;        // render the next frame into the other buffer
     }
-    // Pacing. With sound on, the audio DMA is the master clock: the blocking
-    // i2s_write only accepts this frame's samples as the DAC drains at 32kHz, so
-    // the emulator locks to the audio rate with zero drift. (Pacing by millis()
-    // while writing non-blocking produced ~0.5% clock skew — the DMA slowly
-    // filled and dropped a whole frame of audio every few seconds: "choppy".)
+    // Audio: push this frame's APU samples. Bounded wait: with the DMA full
+    // (game ahead of the DAC) the write blocks ~one frame and becomes the de
+    // facto clock, locked to the DAC with zero drift. If I2S misbehaves (wrong
+    // rate after some phone sound reconfigured it, etc.) the timeout caps the
+    // damage and the starve counter turns sound off entirely — silence beats
+    // slow-motion (audio was throttling games to 13% before this guard).
     if (app->soundOn) {
       size_t n = gnuboy_get_audio_count();       // int16 count (stereo interleaved)
       if (n) {
-        size_t wrote;
-        i2s_write(I2S_NUM_0, s_emuAudio, n * sizeof(int16_t), &wrote, pdMS_TO_TICKS(100));
+        size_t want = n * sizeof(int16_t);
+        size_t wrote = 0;
+        i2s_write(I2S_NUM_0, s_emuAudio, want, &wrote, pdMS_TO_TICKS(25));
+        if (wrote < want) {
+          if (++app->audioStarve >= 60) {        // a full second of failed writes
+            app->soundOn = false;
+          }
+        } else {
+          app->audioStarve = 0;
+        }
       }
-      vTaskDelay(1);     // always yield a little for the main loop's keypad scan
-    } else {
-      // Silent: pace to 60 emulated fps by the wall clock.
-      uint32_t target = start + (uint32_t)((uint64_t)frames * 1000 / 60);
-      int32_t ahead = (int32_t)(target - millis());
-      vTaskDelay(ahead > 1 ? pdMS_TO_TICKS(ahead) : 1);
     }
+    // Wall-clock floor: never run faster than 60fps. When the blocking write
+    // above already paced this frame, we're at/behind schedule and this is a
+    // no-op; it always yields at least one tick for the main loop's keypad.
+    uint32_t target = start + (uint32_t)((uint64_t)frames * 1000 / 60);
+    int32_t ahead = (int32_t)(target - millis());
+    vTaskDelay(ahead > 1 ? pdMS_TO_TICKS(ahead) : 1);
   }
   s_emuExited = true;
   for (;;) {
@@ -656,18 +841,72 @@ appEventResult GbcApp::processEvent(EventType event) {
   }
 
   if (!playing) {
-    // ROM picker.
+    if (uiMode == UI_XFER) {
+      // Transfer ROMs screen. OK toggles the server; Back returns to the list
+      // (rescanning it so anything just uploaded appears immediately).
+      if (LOGIC_BUTTON_OK(event)) {
+        if (gbcXferOn()) {
+          gbcXferStop();
+        } else {
+          gbcXferStart();
+        }
+        xferClean = false;        // layout changes: repaint from scratch
+        return REDRAW_SCREEN;
+      }
+      if (LOGIC_BUTTON_BACK(event)) {
+        gbcXferStop();
+        scanRoms();
+        if (romSel >= romCount + GBC_PICKER_ACTIONS) {
+          romSel = romCount + GBC_PICKER_ACTIONS - 1;
+        }
+        uiMode = UI_PICKER;
+        return REDRAW_SCREEN;
+      }
+      if (!IS_KEYBOARD(event) && gbcXferOn()) {
+        // Live "ROMs added"/heap refresh — but at most once a second. Background
+        // events can arrive much faster than 1Hz, and redrawing the whole screen
+        // per event kept the main loop busy on SPI instead of pumping the web
+        // server (the page then never loaded).
+        uint32_t nowMs = millis();
+        if (nowMs - xferDrawMs >= 1000) {
+          xferDrawMs = nowMs;
+          return REDRAW_SCREEN;
+        }
+      }
+      return DO_NOTHING;
+    }
+
+    if (uiMode == UI_HELP) {
+      switch (event) {
+        case WIPHONE_KEY_UP:
+          helpTop--;                            // drawHelp clamps
+          return REDRAW_SCREEN;
+        case WIPHONE_KEY_DOWN:
+          helpTop++;
+          return REDRAW_SCREEN;
+        case WIPHONE_KEY_BACK:
+        case WIPHONE_KEY_END:
+          uiMode = UI_PICKER;
+          return REDRAW_SCREEN;
+        default:
+          return DO_NOTHING;
+      }
+    }
+
+    // ROM picker: rows 0/1 are Transfer/Help, ROM i sits at row i + 2.
     if (confirmDelete) {
       if (!IS_KEYBOARD(event)) {
         return DO_NOTHING;                      // ignore background ticks so the prompt stays up
       }
       if (event == WIPHONE_KEY_OK) {            // OK confirms; any other key cancels
-        if (!roms[romSel].embedded) {
-          SD.remove(roms[romSel].path);
+        int r = romSel - GBC_PICKER_ACTIONS;
+        if (r >= 0 && r < romCount && !roms[r].embedded) {
+          SD.remove(roms[r].path);
         }
         scanRoms();
-        if (romSel >= romCount) { romSel = romCount - 1; }
-        if (romSel < 0) { romSel = 0; }
+        if (romSel >= romCount + GBC_PICKER_ACTIONS) {
+          romSel = romCount + GBC_PICKER_ACTIONS - 1;
+        }
       }
       confirmDelete = false;
       return REDRAW_SCREEN;
@@ -677,13 +916,29 @@ appEventResult GbcApp::processEvent(EventType event) {
         if (romSel > 0) { romSel--; }
         return REDRAW_SCREEN;
       case WIPHONE_KEY_DOWN:
-        if (romSel < romCount - 1) { romSel++; }
+        if (romSel < romCount + GBC_PICKER_ACTIONS - 1) { romSel++; }
         return REDRAW_SCREEN;
       case WIPHONE_KEY_OK:
+        if (romSel == 0) {                      // "Transfer ROMs..."
+          // Give the WiFi/web stack RAM to breathe: drop anything a previous
+          // game left resident AND the unused BT controller's ~60KB reserve.
+          // The phone idles at ~9KB free internal — the web server's TCP
+          // buffers starve mid-page at that level (white half-loaded page).
+          gbcReleaseEmulator();
+          reclaimInternalRam();
+          uiMode = UI_XFER;
+          xferClean = false;                    // full screen draw on entry
+          return REDRAW_SCREEN;
+        }
+        if (romSel == 1) {                      // "Help..."
+          uiMode = UI_HELP;
+          helpTop = 0;
+          return REDRAW_SCREEN;
+        }
         startGame();
         return initErr ? REDRAW_SCREEN : DO_NOTHING;   // tasks own the screen once playing
       case WIPHONE_KEY_BACK:                    // top-right button: delete an SD ROM
-        if (!roms[romSel].embedded) {
+        if (romSel >= GBC_PICKER_ACTIONS && !roms[romSel - GBC_PICKER_ACTIONS].embedded) {
           confirmDelete = true;
           return REDRAW_SCREEN;
         }
@@ -740,8 +995,14 @@ appEventResult GbcApp::processEvent(EventType event) {
 
 void GbcApp::redrawScreen(bool redrawAll) {
   if (!initErr) {
-    if (!playing) {
-      drawPicker();                    // picker is on screen until a game starts
+    if (!playing) {                    // picker/transfer/help until a game starts
+      if (uiMode == UI_XFER) {
+        drawXfer();
+      } else if (uiMode == UI_HELP) {
+        drawHelp();
+      } else {
+        drawPicker();
+      }
     }
     return;                            // once playing, the emulator tasks own the screen
   }

@@ -65,6 +65,19 @@ void gnuboy_set_soundbuffer(void *buffer, size_t length)
 }
 
 
+// Free what gb_hw_init() allocated (WRAM/VRAM — everything else in the core is
+// static state). The host may call gnuboy_init() again later to start fresh.
+// Exists so the WiPhone can hand ~50KB of internal RAM back to the WiFi/web
+// stack while the ROM transfer screen runs.
+void gnuboy_deinit(void)
+{
+	free(hw.vbanks);
+	hw.vbanks = NULL;
+	free(hw.rambanks);
+	hw.rambanks = NULL;
+}
+
+
 // Number of int16 samples the last gnuboy_run() wrote into the sound buffer
 // (stereo = interleaved L,R, so this is 2x the frame count). Reset to 0 at the
 // start of each run. The host reads this to feed I2S.
