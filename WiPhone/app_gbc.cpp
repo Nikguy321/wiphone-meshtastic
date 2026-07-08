@@ -53,6 +53,9 @@ extern volatile uint32_t gGbcKeyLatch;
 
 // Picker rows 0..GBC_PICKER_ACTIONS-1 are actions (Transfer, Help); ROMs follow.
 #define GBC_PICKER_ACTIONS 2
+// Names longer than this scroll (marquee) while selected. ~What fits from x=28
+// in the condensed bold-20 font on the 240px screen.
+#define GBC_PICKER_VIS_CHARS 18
 
 // Pause-menu items and pending actions.
 #define GBC_MENU_RESUME  0
@@ -151,6 +154,9 @@ GbcApp::GbcApp(LCD& disp, ControlState& state) : ThreadedApp(disp, state) {
   log_d("create GbcApp");
   scanRoms();               // build the picker list; the game starts on selection
   romSel = GBC_PICKER_ACTIONS;   // land on the first game, not the action rows
+  // ~4Hz APP_TIMER_EVENT drives the picker's marquee for long ROM names (the
+  // GUI saves/restores the previous period around this app's lifetime).
+  controlState.msAppTimerEventPeriod = 250;
 }
 
 // Enter gaming mode and launch the selected ROM on the two emulator tasks.
@@ -479,6 +485,34 @@ void GbcApp::adjustVolume(int delta) {
   audio->setVolumes(ear + delta, hp + delta, loud + delta);
 }
 
+// Fill out[0..outLen-2] with the marquee window of name at scroll: the name
+// cycles with a 3-space gap ("LONG NAME   LONG NAME..."), one char per tick.
+static void gbcMarqueeWindow(const char* name, int scroll, char* out, int outLen) {
+  int n = (int)strlen(name);
+  int cycle = n + 3;
+  int pos = scroll % cycle;
+  for (int i = 0; i < outLen - 1; i++) {
+    int p = (pos + i) % cycle;
+    out[i] = (p < n) ? name[p] : ' ';
+  }
+  out[outLen - 1] = 0;
+}
+
+// Repaint only the selected row's text: called on each APP_TIMER_EVENT tick to
+// advance the marquee without a full drawPicker (a full redraw flashes black).
+void GbcApp::drawPickerRow() {
+  SmoothFont* font = fonts[OPENSANS_COND_BOLD_20];
+  const int lh = font->height() + 8;
+  const int y = 40 + (romSel - romTop) * lh;
+  char line[GBC_PICKER_VIS_CHARS + 1];
+  gbcMarqueeWindow(roms[romSel - GBC_PICKER_ACTIONS].name, selScroll, line, sizeof(line));
+  lcd.fillRect(28, y, lcd.width() - 28, font->height(), BLACK);
+  lcd.setTextFont(font);
+  lcd.setTextDatum(TL_DATUM);
+  lcd.setTextColor(TFT_YELLOW, BLACK);
+  lcd.drawString(line, 28, y);
+}
+
 void GbcApp::drawPicker() {
   SmoothFont* font = fonts[OPENSANS_COND_BOLD_20];
   lcd.fillScreen(BLACK);
@@ -509,8 +543,13 @@ void GbcApp::drawPicker() {
     lcd.setTextColor(sel ? TFT_YELLOW : TFT_WHITE, BLACK);
     lcd.drawString(sel ? ">" : " ", 8, y);
     if (i >= GBC_PICKER_ACTIONS) {
-      char line[30];
-      snprintf(line, sizeof(line), "%s", roms[i - GBC_PICKER_ACTIONS].name);   // truncate to fit
+      const char* nm = roms[i - GBC_PICKER_ACTIONS].name;
+      char line[GBC_PICKER_VIS_CHARS + 1];
+      if (sel && (int)strlen(nm) > GBC_PICKER_VIS_CHARS) {
+        gbcMarqueeWindow(nm, selScroll, line, sizeof(line));   // scrolling window
+      } else {
+        snprintf(line, sizeof(line), "%s", nm);                // truncate to fit
+      }
       lcd.drawString(line, 28, y);
     } else {                       // action rows, tinted to stand apart from games
       lcd.setTextColor(sel ? TFT_YELLOW : TFT_CYAN, BLACK);
@@ -911,12 +950,24 @@ appEventResult GbcApp::processEvent(EventType event) {
       confirmDelete = false;
       return REDRAW_SCREEN;
     }
+    if (!IS_KEYBOARD(event)) {
+      // Timer tick: advance the marquee if the selected game's name is too
+      // long to fit, repainting only that row (full redraws flash black).
+      if (romSel >= GBC_PICKER_ACTIONS &&
+          (int)strlen(roms[romSel - GBC_PICKER_ACTIONS].name) > GBC_PICKER_VIS_CHARS) {
+        selScroll++;
+        drawPickerRow();
+      }
+      return DO_NOTHING;
+    }
     switch (event) {
       case WIPHONE_KEY_UP:
         if (romSel > 0) { romSel--; }
+        selScroll = 0;
         return REDRAW_SCREEN;
       case WIPHONE_KEY_DOWN:
         if (romSel < romCount + GBC_PICKER_ACTIONS - 1) { romSel++; }
+        selScroll = 0;
         return REDRAW_SCREEN;
       case WIPHONE_KEY_OK:
         if (romSel == 0) {                      // "Transfer ROMs..."

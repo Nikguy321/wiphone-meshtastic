@@ -44,6 +44,7 @@ protected:
 
   void scanRoms();               // build the picker list (built-in + SD /roms and root)
   void drawPicker();
+  void drawPickerRow();          // repaint just the selected row (marquee tick)
   void drawXfer();               // "Transfer ROMs" screen (WiFi upload server)
   void drawHelp();               // scrollable help/instructions screen
   void startGame();              // enter gaming mode and launch the selected ROM
@@ -69,6 +70,7 @@ protected:
   int  romCount = 0;
   int  romSel = 0;
   int  romTop = 0;               // first visible row (scrolling)
+  int  selScroll = 0;            // marquee offset (chars) for a long selected name
   bool confirmDelete = false;    // picker is asking to confirm a delete
   bool playing = false;          // false = picker on screen, true = game running
   bool enteredGaming = false;    // did we turn WiFi/mesh off? (restore on exit)
