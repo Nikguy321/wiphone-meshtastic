@@ -262,6 +262,118 @@ bool Networks::connectToPreferred(void) {
   return connectTo(prefSsidDyn);
 }
 
+// ===================================================== WIFI AUTO-SWITCH =====================================================
+// Scans in the background (async, keeps the current association) and hops to
+// the strongest saved network. Driven by autoSwitchTick() from the main loop.
+
+#define AUTO_SCAN_PERIOD_MS   600000u   // background scan every 10 min (battery)
+#define AUTO_SWITCH_MARGIN_DB 10        // hop only if this much stronger than current
+
+bool Networks::autoSwitchEnabled(void) {
+  if (_autoSwitch < 0) {                // lazy-load once; cached afterwards
+    _autoSwitch = 1;                    // default: enabled
+    ini.unload();
+    if ((ini.load() || ini.restore()) && !ini.isEmpty()) {
+      const char* v = ini[0]["autosw"];
+      if (v != NULL && !strcmp(v, "0")) {
+        _autoSwitch = 0;
+      }
+    }
+  }
+  return _autoSwitch == 1;
+}
+
+void Networks::setAutoSwitch(bool enabled) {
+  _autoSwitch = enabled ? 1 : 0;
+  ini.unload();
+  if (ini.load() || ini.restore()) {
+    ini[0]["autosw"] = enabled ? "1" : "0";
+    ini.store();
+  }
+}
+
+void Networks::autoSwitchTick(bool screenOn) {
+  bool wake = screenOn && !_prevScreenOn;
+  _prevScreenOn = screenOn;
+
+  if (_userDisabled || !reconnect || !autoSwitchEnabled()) {
+    return;                             // same gates as the reconnect loop honors
+  }
+
+  if (_scanning) {                      // poll the async scan
+    int n = WiFi.scanComplete();
+    if (n == WIFI_SCAN_RUNNING) {
+      return;
+    }
+    _scanning = false;
+    if (n > 0) {
+      autoSwitchEvaluate(n);
+    }
+    WiFi.scanDelete();
+    return;
+  }
+
+  uint32_t now = millis();
+  bool due = (now - _msLastScan >= AUTO_SCAN_PERIOD_MS);
+  if (wake && !connected) {
+    due = true;                         // screen woke with no WiFi: scan right away
+  }
+  if (!due) {
+    return;
+  }
+  _msLastScan = now;
+  WiFi.scanNetworks(true /*async*/);    // does not drop the current association
+  _scanning = true;
+}
+
+void Networks::autoSwitchEvaluate(int n) {
+  ini.unload();
+  if (!(ini.load() || ini.restore()) || ini.isEmpty()) {
+    return;
+  }
+
+  int bestRssi = -127;
+  String bestSsid;
+  for (int i = 0; i < n; i++) {
+    String ssid = WiFi.SSID(i);
+    int rssi = WiFi.RSSI(i);
+    if (ssid.length() == 0 || rssi <= bestRssi) {
+      continue;
+    }
+    int idx = ini.query("s", ssid.c_str());
+    if (idx < 0 || !ini[idx].hasKey("p")) {
+      continue;                         // not one of our saved networks
+    }
+    const char* dis = ini[idx]["disabled"];
+    if (dis != NULL && !strcmp(dis, "true")) {
+      continue;                         // user explicitly disconnected this one
+    }
+    bestRssi = rssi;
+    bestSsid = ssid;
+  }
+  if (bestSsid.length() == 0) {
+    return;                             // nothing saved in range
+  }
+
+  if (connected && wifiSsidDyn != NULL && bestSsid.equals(wifiSsidDyn)) {
+    return;                             // already on the best network
+  }
+  if (connected && bestRssi < WiFi.RSSI() + AUTO_SWITCH_MARGIN_DB) {
+    return;                             // not enough gain to justify the hop
+  }
+
+  log_d("auto-switch to '%s' (%d dBm)", bestSsid.c_str(), bestRssi);
+  // Make it the preferred network so the existing 20s reconnect loop pulls
+  // toward the same place instead of fighting the switch.
+  int i = ini.query("s", bestSsid.c_str());
+  if (i >= 0 && ini.setUniqueFlag(i, "m")) {
+    ini.store();
+  }
+  freeNull((void **) &prefSsidDyn);
+  prefSsidDyn = strdup(bestSsid.c_str());
+  connectTo(bestSsid.c_str());
+}
+
 bool Networks::scan(void) {
   // used as a reference only
   WiFi.mode(WIFI_STA);

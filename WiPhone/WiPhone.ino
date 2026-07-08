@@ -1289,6 +1289,14 @@ void loop() {
       msLastWifiRetry = now;        // TODO: encapsulate into WiFiState
     }
 
+    // WiFi auto-switch: background scan for the strongest saved network
+    // (Networks.cpp). Runs only when the phone is at rest: no game, no ROM
+    // transfer server, no call activity (a scan mid-call would glitch audio).
+    if (!gGbcActive && !gbcXferOn() &&
+        (gui.state.sipState == CallState::NotInited || gui.state.sipState == CallState::Idle)) {
+      wifiState.autoSwitchTick(gui.state.screenBrightness > 0);
+    }
+
 #ifdef USE_VIRTUAL_KEYBOARD
     if (udpKeypad == NULL && wifiState.isConnected()) {
       log_d("Setting a connection");

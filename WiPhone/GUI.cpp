@@ -1484,6 +1484,9 @@ void GUI::enterApp(ActionID_t app) {
     runningApp = new LedMicApp(audio, *screen, state, header, footer);
     break;
 #endif
+  case GUI_APP_WIFI_AUTOSWITCH:
+    runningApp = new WifiAutoSwitchApp(*screen, state, header, footer);
+    break;
   case GUI_APP_EDITWIFI:
     runningApp = new EditNetworkApp(*screen, state, NULL, header, footer);
     break;
@@ -5004,6 +5007,63 @@ void CallApp::redrawScreen(bool redrawAll) {
   screenInited = true;
 }
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - -  WifiAutoSwitch app  - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+WifiAutoSwitchApp::WifiAutoSwitchApp(LCD& lcd, ControlState& state, HeaderWidget* header, FooterWidget* footer)
+  : WindowedApp(lcd, state, header, footer), FocusableApp(1) {
+  log_d("WifiAutoSwitchApp");
+
+  header->setTitle("WiFi auto-switch");
+  footer->setButtons(NULL, "Back");
+
+  clearRect = new RectWidget(0, header->height(), lcd.width(), lcd.height() - header->height() - footer->height(), WP_COLOR_1);
+
+  uint16_t yOff = header->height() + 8;
+  captionLabel = new LabelWidget(0, yOff, lcd.width(), 25, "Auto-connect to the strongest", WP_COLOR_0, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
+  yOff += captionLabel->height();
+  hintLabel = new LabelWidget(0, yOff, lcd.width(), 25, "saved network (scans ~10 min)", WP_COLOR_0, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
+  yOff += hintLabel->height() + 8;
+
+  choice = new ChoiceWidget(0, yOff, lcd.width(), 35);
+  choice->addChoice("ON");
+  choice->addChoice("OFF");
+  choice->setValue(wifiState.autoSwitchEnabled() ? 0 : 1);
+
+  addFocusableWidget(choice);
+  setFocus(choice);
+  screenInited = false;
+}
+
+WifiAutoSwitchApp::~WifiAutoSwitchApp() {
+  log_d("destroy WifiAutoSwitchApp");
+  delete clearRect;
+  delete captionLabel;
+  delete hintLabel;
+  delete choice;
+}
+
+appEventResult WifiAutoSwitchApp::processEvent(EventType event) {
+  if (LOGIC_BUTTON_BACK(event)) {
+    return EXIT_APP;
+  }
+  choice->processEvent(event);          // left/right cycles ON/OFF
+  bool enabled = (choice->getValue() == 0);
+  if (enabled != wifiState.autoSwitchEnabled()) {
+    wifiState.setAutoSwitch(enabled);   // persists to networks.ini
+  }
+  return REDRAW_SCREEN;
+}
+
+void WifiAutoSwitchApp::redrawScreen(bool redrawAll) {
+  if (!screenInited || redrawAll) {
+    ((GUIWidget*) clearRect)->redraw(lcd);
+    ((GUIWidget*) captionLabel)->redraw(lcd);
+    ((GUIWidget*) hintLabel)->redraw(lcd);
+  }
+  ((GUIWidget*) choice)->redraw(lcd);
+  screenInited = true;
+}
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  EditNetwork app  - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 EditNetworkApp::EditNetworkApp(LCD& lcd, ControlState& state, const char* SSID, HeaderWidget* header, FooterWidget* footer)
@@ -5125,7 +5185,8 @@ EditNetworkApp::EditNetworkApp(LCD& lcd, ControlState& state, const char* SSID, 
   if (wifiOnOff != NULL) {
     addFocusableWidget(wifiOnOff);
   }
-  
+
+  lastWifiOnOff = wifiOnOff->getValue();
   setFocus(ssidInput);
   screenInited = false;
 }
@@ -5290,72 +5351,37 @@ appEventResult EditNetworkApp::processEvent(EventType event) {
   }
 
   
-  if (wifiOnOff != NULL) {
-      log_e("wifiOnOff: %d", wifiOnOff->getValue());
-      esp_err_t err;
-      switch (wifiOnOff->getValue()) {
-      case 0: // wifi ON
-        wifiOn = true;
-        err = esp_wifi_start();
-        if(err != ESP_OK) {
-          log_e("WIFI cann't be started");
-        } else {
-          log_d("WIFI will Start");
-          
-          connectedNetwork = false;
-          
-          if(ssidInput->getText() != NULL){
-            if (wifiState.connectTo(ssidInput->getText())) {
-              log_d("connecting: %s", ssidInput->getText());
-
-              int i = ini.query("s", ssidInput->getText());                   // "s" for "SSID"
-              if (i >= 0 && ini.setUniqueFlag(i, "m") && ini.store()) {       // "m" for "main" (preferred network)
-                log_d("set as preferred network");
-              }
-
-              log_d("waiting for connectionEvent");
-              for (uint8_t j=0; j<50 && !wifiState.isConnectionEvent(); j++) {
-                delay(100);
-              }
-
-              if (wifiState.isConnectionEvent()) {
-                log_d("connection event happened");
-                delay(100);
-                connectionButton->setText("Disconnect");
-              } else {
-                log_d("connection timeout");
-              }
-
-            } else {
-              log_d("could not connect: %s", ssidInput->getText());
-            }
+  // Apply the WIFI-ON/OFF toggle ONLY when its value actually changes. This
+  // block used to run on EVERY event (key or background tick): with the toggle
+  // at ON it disconnected + reconnected WiFi and blocked 5s waiting, per event
+  // — which is why this screen froze and ate all input. It also dereferenced
+  // connectionButton, which is NULL for unknown networks.
+  if (wifiOnOff != NULL && wifiOnOff->getValue() != lastWifiOnOff) {
+    lastWifiOnOff = wifiOnOff->getValue();
+    if (lastWifiOnOff == 0) {           // WIFI-ON
+      wifiOn = true;
+      if (esp_wifi_start() != ESP_OK) {
+        log_e("WIFI can't be started");
+      } else if (ssidInput->getText() != NULL && ssidInput->getText()[0]) {
+        // Reconnect asynchronously; the main loop's reconnect/auto-switch
+        // logic takes it from here (no blocking waits in the UI).
+        if (wifiState.connectTo(ssidInput->getText())) {
+          log_d("connecting: %s", ssidInput->getText());
+          if (connectionButton != NULL) {
+            connectionButton->setText("Connecting");
           }
         }
-        break;
-      case 1: // wifi OFF
-        wifiOn = false;
-        err = esp_wifi_stop();
-        if(err != ESP_OK) {
-          log_e("WIFI cann't be stopped");
-        } else {
-          log_d("WIFI will be stopped");
-          connectedNetwork = true;
-          if (connectedNetwork) {
-          log_d("disconnecting");
-          
-          wifiState.disable();
-          }
-    
-        }
-        break;
-      default:
-        log_e("Unknown UDP-SIP - TCP-SIP selection: %d", wifiOnOff->getValue());
-        
+      }
+    } else {                            // WIFI-OFF
+      wifiOn = false;
+      log_d("disconnecting, WiFi off");
+      wifiState.disable();
+      connectedNetwork = false;
+      if (connectionButton != NULL) {
+        connectionButton->setText("Connect");
       }
     }
-
-  
-  
+  }
 
   return quit ? EXIT_APP : REDRAW_ALL;
 }
@@ -11748,6 +11774,41 @@ void HeaderWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, ui
     char buff[6];
     sprintf(buff, "%02d:%02d", ntpClock.getHour(), ntpClock.getMinute());
     lcd.drawString(buff, screenOffX+windowWidth-xOff-3, screenOffY+windowHeight/2);
+  }
+
+  // - Current WiFi network name: small grey text between the title and the
+  //   clock, right-aligned. Too-long names shorten to "start.X" (a single dot
+  //   plus the LAST character) until they fit; skipped if there's no room.
+  if (wifiState.isConnected() && wifiState.ssid() != NULL && wifiState.ssid()[0]) {
+    lcd.setTextFont(fonts[AKROBAT_BOLD_18]);      // measure neighbors in THEIR font
+    uint16_t leftBound = screenOffX + 8 + (title ? lcd.textWidth(title) : 0) + 10;
+    uint16_t rightBound = screenOffX + windowWidth - xOff - 3;
+    if (ntpClock.isTimeKnown()) {
+      rightBound -= lcd.textWidth("00:00") + 8;
+    }
+    lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
+    if (rightBound > leftBound + 24) {
+      uint16_t avail = rightBound - leftBound;
+      const char* ssid = wifiState.ssid();
+      char name[44];
+      snprintf(name, sizeof(name), "%s", ssid);
+      if (lcd.textWidth(name) > avail) {
+        int len = strlen(name);
+        bool fits = false;
+        for (int keep = len - 2; keep >= 1 && !fits; keep--) {
+          snprintf(name, sizeof(name), "%.*s.%c", keep, ssid, ssid[len - 1]);
+          fits = lcd.textWidth(name) <= avail;
+        }
+        if (!fits) {
+          name[0] = 0;                            // hopeless: draw nothing
+        }
+      }
+      if (name[0]) {
+        lcd.setTextColor(TFT_LIGHTGREY, WP_COLOR_0);
+        lcd.setTextDatum(MR_DATUM);
+        lcd.drawString(name, rightBound, screenOffY + windowHeight / 2);
+      }
+    }
   }
 }
 

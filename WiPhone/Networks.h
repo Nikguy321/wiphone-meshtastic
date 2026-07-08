@@ -76,6 +76,14 @@ public:
   void disable(void);
   bool scan(void);
 
+  // WiFi auto-switch: periodically scan (async) for the strongest SAVED network
+  // and hop to it. Runs from the main loop via autoSwitchTick(); a scan fires
+  // immediately when the screen wakes with no connection. User-toggleable
+  // (Settings -> WiFi auto-switch), persisted in networks.ini.
+  bool autoSwitchEnabled(void);
+  void setAutoSwitch(bool enabled);
+  void autoSwitchTick(bool screenOn);
+
   // Properties
   const char* ssid() {
     return wifiSsidDyn;
@@ -95,9 +103,17 @@ public:
   bool mdnsOk;                // MDNS service is operational
 
 protected:
+  void autoSwitchEvaluate(int n);   // pick the strongest saved network from a scan
+
   char* prefSsidDyn;
   char* wifiSsidDyn;    // current (or last) WiFi network
   char* wifiPassDyn;
+
+  // Auto-switch state
+  int8_t   _autoSwitch = -1;        // -1 = not loaded from ini yet
+  bool     _scanning = false;       // an async scan is in flight
+  bool     _prevScreenOn = true;    // for the wake-up edge
+  uint32_t _msLastScan = 0;
 
   bool _userDisabled;
   bool reconnect;             // should it try to reconnect when disconnected? TODO: save this in configs somehow

@@ -397,6 +397,7 @@ typedef enum ActionID : uint16_t {
   GUI_APP_HILL_CHESS,
   GUI_APP_ACKMAN,
   GUI_APP_GBC,
+  GUI_APP_WIFI_AUTOSWITCH,
 
 } ActionID_t;
 
@@ -2241,12 +2242,34 @@ protected:
   ButtonWidget* forgetButton;
   ButtonWidget* connectionButton;   // Connect / Disconnect
   ChoiceWidget* wifiOnOff;
+  ChoiceWidget::ChoiceValue lastWifiOnOff;   // act only when the toggle CHANGES
 
   bool screenInited;
   bool standAloneApp;
 
   bool knownNetwork;        // if yes -> show "Forget", "Connect/Disconnect"
   bool connectedNetwork;    // if yes -> show "Disconnect"
+};
+
+// Settings -> WiFi auto-switch: a single ON/OFF toggle for the background
+// scan-and-hop-to-strongest-saved-network behavior (Networks::autoSwitchTick).
+class WifiAutoSwitchApp : public WindowedApp, FocusableApp {
+public:
+  WifiAutoSwitchApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer);
+  virtual ~WifiAutoSwitchApp();
+
+  ActionID_t getId() {
+    return GUI_APP_WIFI_AUTOSWITCH;
+  };
+  appEventResult processEvent(EventType event);
+  void redrawScreen(bool redrawAll=false);
+
+protected:
+  RectWidget* clearRect;
+  LabelWidget* captionLabel;
+  LabelWidget* hintLabel;
+  ChoiceWidget* choice;
+  bool screenInited;
 };
 
 class NetworksApp : public WindowedApp {
@@ -2462,6 +2485,7 @@ protected:
     // Settings (5)
     { 11, 5, "SIP accounts", "", "", GUI_APP_SIP_ACCOUNTS },
     { 12, 5, "Edit current network", "", "", GUI_APP_EDITWIFI },
+    { 42, 5, "WiFi auto-switch", "", "", GUI_APP_WIFI_AUTOSWITCH },
     { 15, 5, "Scan WiFi networks", "", "", GUI_APP_NETWORKS },
     { 30, 5, "Audio settings", "", "", GUI_APP_AUDIO_CONFIG },
     { 33, 5, "Screen config", "", "", GUI_APP_SCREEN_CONFIG },
