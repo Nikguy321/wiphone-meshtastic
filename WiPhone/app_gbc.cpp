@@ -76,6 +76,8 @@ extern volatile uint32_t gGbcKeyLatch;
 #define GBC_ERR_ALLOC   -2
 #define GBC_ERR_INIT    -3
 #define GBC_ERR_LOAD    -4
+#define GBC_ERR_ROMBIG  -5   // ROM larger than the largest free PSRAM block
+#define GBC_ERR_READ    -6   // SD open/read failed
 #define GBC_ERR_TASK    -9
 
 // gnuboy uses global state and gb_hw_init() has no matching free, so the core and
@@ -341,34 +343,51 @@ bool GbcApp::setupEmulator(const Rom& rom) {
     reclaimInternalRam();
   }
 
+  // Load the ROM. Failures are REAL errors now — this used to silently fall
+  // back to the built-in game, so a too-big ROM (e.g. 4MB Tomb Raider, which
+  // can never fit a contiguous PSRAM block) just launched uCity with no clue.
   const uint8_t* romData = NULL;
   size_t romSize = 0;
   if (!rom.embedded) {
-    File f = SD.open(rom.path);
-    if (f) {
-      romSize = f.size();
-      s_emuRom = (uint8_t*)ps_malloc(romSize);
-      if (s_emuRom) {
-        size_t rd = 0;
-        while (rd < romSize) {
-          int n = f.read(s_emuRom + rd, romSize - rd);
-          if (n <= 0) {
-            break;
-          }
-          rd += n;
-        }
-        if (rd == romSize) {
-          romData = s_emuRom;
-        } else {                     // truncated read -> discard
-          free(s_emuRom);
-          s_emuRom = NULL;
-        }
-      }
-      f.close();
-    }
     snprintf(romName, sizeof(romName), "%s", rom.name);
-  }
-  if (!romData) {                    // built-in, or the SD read failed
+    File f = SD.open(rom.path);
+    if (!f) {
+      initErr = GBC_ERR_READ;
+      return false;
+    }
+    romSize = f.size();
+    size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+    if (romSize + 65536 > largest) {           // keep some PSRAM headroom
+      f.close();
+      dbgWhere = 3;                            // error screen shows both sizes
+      dbgFreeInt = romSize;
+      dbgLargest = largest;
+      initErr = GBC_ERR_ROMBIG;
+      return false;
+    }
+    s_emuRom = (uint8_t*)ps_malloc(romSize);
+    if (!s_emuRom) {
+      f.close();
+      initErr = GBC_ERR_ALLOC;
+      return false;
+    }
+    size_t rd = 0;
+    while (rd < romSize) {
+      int n = f.read(s_emuRom + rd, romSize - rd);
+      if (n <= 0) {
+        break;
+      }
+      rd += n;
+    }
+    f.close();
+    if (rd != romSize) {                       // truncated read -> discard
+      free(s_emuRom);
+      s_emuRom = NULL;
+      initErr = GBC_ERR_READ;
+      return false;
+    }
+    romData = s_emuRom;
+  } else {
     romData = gbc_test_rom;
     romSize = gbc_test_rom_len;
     snprintf(romName, sizeof(romName), "uCity");
@@ -813,6 +832,8 @@ void GbcApp::emuThread(void* pvParam) {
   uint32_t frames = 0;
   uint32_t winStart = start;      // rolling 1s window for the speed readout
   uint32_t winFrames = 0;
+  int skip = 1;                   // adaptive frameskip: render every skip-th frame
+  int skipPhase = 0;              // (heavy games: drop DISPLAY frames, not game speed)
   while (s_running) {
     if (app->paused) {
       vTaskDelay(pdMS_TO_TICKS(20));
@@ -823,7 +844,14 @@ void GbcApp::emuThread(void* pvParam) {
       continue;
     }
     gnuboy_set_pad(app->readPad());
-    bool willDraw = !s_blitBusy;                 // only render if the blit is free
+    // Render only when the blit is free AND the frameskip phase comes up.
+    // Scanline rendering runs on this core, so skipping it is the single
+    // biggest relief for heavy games — the game logic stays at full speed
+    // and only the display rate drops.
+    bool willDraw = !s_blitBusy && (++skipPhase >= skip);
+    if (willDraw) {
+      skipPhase = 0;
+    }
     gnuboy_set_framebuffer(s_emuFb[emuBuf]);
     gnuboy_run(willDraw);
     frames++;
@@ -833,6 +861,14 @@ void GbcApp::emuThread(void* pvParam) {
       app->speedPct = (int)(winFrames * 100 * 1000 / 60 / winMs);
       winFrames = 0;
       winStart = millis();
+      // Adapt the frameskip to hold 100% game speed: falling behind -> skip
+      // more display frames (up to 2/3 dropped); comfortably at speed -> claw
+      // display smoothness back.
+      if (app->speedPct < 96 && skip < 3) {
+        skip++;
+      } else if (app->speedPct >= 99 && skip > 1) {
+        skip--;
+      }
     }
     if (willDraw) {
       s_blitIdx = emuBuf;
@@ -951,10 +987,15 @@ appEventResult GbcApp::processEvent(EventType event) {
       return REDRAW_SCREEN;
     }
     if (!IS_KEYBOARD(event)) {
-      // Timer tick: advance the marquee if the selected game's name is too
-      // long to fit, repainting only that row (full redraws flash black).
-      if (romSel >= GBC_PICKER_ACTIONS &&
+      // Advance the marquee if the selected game's name is too long to fit,
+      // repainting only that row (full redraws flash black). Time-based, NOT
+      // per-event: background events can arrive far faster than the 250ms app
+      // timer (WiFi/SIP activity), which once spun the scroll unreadably fast.
+      uint32_t nowMs = millis();
+      if (nowMs - marqueeMs >= 250 &&
+          romSel >= GBC_PICKER_ACTIONS &&
           (int)strlen(roms[romSel - GBC_PICKER_ACTIONS].name) > GBC_PICKER_VIS_CHARS) {
+        marqueeMs = nowMs;
         selScroll++;
         drawPickerRow();
       }
@@ -1070,13 +1111,17 @@ void GbcApp::redrawScreen(bool redrawAll) {
     msg = "gnuboy init failed";
   } else if (initErr == GBC_ERR_LOAD) {
     msg = "bad ROM";
+  } else if (initErr == GBC_ERR_ROMBIG) {
+    msg = "ROM too big for RAM";
+  } else if (initErr == GBC_ERR_READ) {
+    msg = "SD read failed";
   } else if (initErr == GBC_ERR_TASK) {
     msg = "could not start task";
   }
   lcd.drawString(msg, 6, 40);
   lcd.setTextColor(WHITE, BLACK);
   int y = 40 + font->height() + 6;
-  if (initErr == GBC_ERR_ALLOC && dbgWhere) {
+  if ((initErr == GBC_ERR_ALLOC || initErr == GBC_ERR_ROMBIG) && dbgWhere) {
     char line[48];
     snprintf(line, sizeof(line), "where:%d free:%u", dbgWhere, (unsigned)dbgFreeInt);
     lcd.drawString(line, 6, y);

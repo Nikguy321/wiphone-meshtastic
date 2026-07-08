@@ -71,6 +71,7 @@ protected:
   int  romSel = 0;
   int  romTop = 0;               // first visible row (scrolling)
   int  selScroll = 0;            // marquee offset (chars) for a long selected name
+  uint32_t marqueeMs = 0;        // last marquee step (time-based: events can storm)
   bool confirmDelete = false;    // picker is asking to confirm a delete
   bool playing = false;          // false = picker on screen, true = game running
   bool enteredGaming = false;    // did we turn WiFi/mesh off? (restore on exit)
