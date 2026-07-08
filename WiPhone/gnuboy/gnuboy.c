@@ -19,6 +19,18 @@
 
 #define BANK_SIZE 0x4000
 
+// Host-provided lock around SD reads. The WiPhone shares one SPI bus between
+// the SD card and the LCD (driven from different tasks), so streaming a ROM
+// bank must never overlap an LCD push.
+static void (*io_lock)(void) = NULL;
+static void (*io_unlock)(void) = NULL;
+
+void gnuboy_set_io_lock(void (*lock)(void), void (*unlock)(void))
+{
+	io_lock = lock;
+	io_unlock = unlock;
+}
+
 
 // Note: Eventually we'll just pass a gb_host_t to init...
 // But for now assume it's been configured before we were alled!
@@ -207,7 +219,7 @@ void gnuboy_load_bank(int bank)
 	const size_t OFFSET = bank * BANK_SIZE;
 
 	if (!cart.rombanks[bank])
-		cart.rombanks[bank] = malloc(BANK_SIZE);
+		cart.rombanks[bank] = heap_caps_malloc(BANK_SIZE, MALLOC_CAP_SPIRAM);   // PSRAM: internal RAM is scarce
 
 	if (!cart.romFile)
 		return;
@@ -215,8 +227,11 @@ void gnuboy_load_bank(int bank)
 	MESSAGE_INFO("loading bank %d.\n", bank);
 	while (!cart.rombanks[bank])
 	{
-		int i = rand() & 0xFF;
-		if (cart.rombanks[i])
+		// Reclaim a random resident bank. Never bank 0 (permanently mapped at
+		// 0x0000) or the active switchable bank; index within romsize (the
+		// upstream `rand() & 0xFF` read out of bounds for carts < 256 banks).
+		int i = rand() % cart.romsize;
+		if (i != 0 && i != cart.rombank && cart.rombanks[i])
 		{
 			MESSAGE_INFO("reclaiming bank %d.\n", i);
 			cart.rombanks[bank] = cart.rombanks[i];
@@ -225,13 +240,16 @@ void gnuboy_load_bank(int bank)
 		}
 	}
 
-	// Load the 16K page
-	if (fseek(cart.romFile, OFFSET, SEEK_SET) != 0
-		|| !fread(cart.rombanks[bank], BANK_SIZE, 1, cart.romFile))
+	// Load the 16K page (serialized against the LCD's use of the SPI bus)
+	if (io_lock) io_lock();
+	bool ok = (fseek(cart.romFile, OFFSET, SEEK_SET) == 0
+		&& fread(cart.rombanks[bank], BANK_SIZE, 1, cart.romFile) == 1);
+	if (io_unlock) io_unlock();
+	if (!ok)
 	{
-		MESSAGE_WARN("ROM bank loading failed\n");
-		if (!feof(cart.romFile))
-			abort(); // This indicates an SD Card failure
+		// Don't abort() (upstream did): one bad read shouldn't reboot a phone.
+		MESSAGE_ERROR("ROM bank %d load failed\n", bank);
+		memset(cart.rombanks[bank], 0xFF, BANK_SIZE);
 	}
 }
 
@@ -480,6 +498,13 @@ int gnuboy_load_rom_file(const char *file)
 	MESSAGE_INFO("Preloading the first %d banks\n", preload);
 	for (int i = 0; i < preload; i++)
 	{
+		// Leave PSRAM headroom for the framebuffers/cart SRAM/host: whatever
+		// isn't preloaded gets faulted in on demand during play.
+		if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) < 512 * 1024)
+		{
+			MESSAGE_INFO("preload stopped at %d banks (PSRAM low)\n", i);
+			break;
+		}
 		gnuboy_load_bank(i);
 	}
 

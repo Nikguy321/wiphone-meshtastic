@@ -109,6 +109,21 @@ static void gbcUnloadRom() {
 // next game launch re-allocates and re-inits everything from scratch.
 static void gbcReleaseEmulator();
 
+// Serializes the SD card (ROM bank streaming, from the emu task) against the
+// LCD (blit task) — they share one SPI bus. Created once, never deleted.
+static SemaphoreHandle_t s_spiBusLock = NULL;
+
+static void gbcSpiLock() {
+  if (s_spiBusLock) {
+    xSemaphoreTake(s_spiBusLock, portMAX_DELAY);
+  }
+}
+static void gbcSpiUnlock() {
+  if (s_spiBusLock) {
+    xSemaphoreGive(s_spiBusLock);
+  }
+}
+
 // Per-launch task handoff.
 static SemaphoreHandle_t s_blitGo   = NULL;   // emu -> blit: buffer s_blitIdx is ready
 static TaskHandle_t      s_blitTask = NULL;
@@ -167,10 +182,31 @@ void GbcApp::startGame() {
   // and disable the core watchdogs (the two tasks saturate both cores).
   gGbcActive = true;
   enteredGaming = true;
+  WiFi.scanDelete();          // drop any lingering auto-switch scan results
   WiFi.disconnect(true, false);
   WiFi.mode(WIFI_OFF);
   disableCore0WDT();
   disableCore1WDT();
+  reclaimInternalRam();       // idempotent; frees the BT RAM on the first launch
+
+  // Allocate the task stacks FIRST, while internal RAM is at its emptiest and
+  // least fragmented (WiFi/BT just freed, gnuboy hasn't claimed WRAM/VRAM yet,
+  // the ROM loader hasn't touched the heap). Allocating them last failed with
+  // "largest block 6.6KB" once background WiFi scans fragmented the heap.
+  // Blit stack first: it needs the largest contiguous block.
+  if (!s_blitStack) {
+    s_blitStack = (StackType_t*)heap_caps_malloc(GBC_BLIT_STACK_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  }
+  if (!s_emuStack) {
+    s_emuStack = (StackType_t*)heap_caps_malloc(GBC_EMU_STACK_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  }
+  if (!s_emuStack || !s_blitStack) {
+    dbgWhere = 2;
+    dbgFreeInt = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    dbgLargest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+    initErr = GBC_ERR_ALLOC;
+    return;
+  }
 
   if (!setupEmulator(roms[romSel - GBC_PICKER_ACTIONS])) {
     return;   // initErr set; redrawScreen() shows the error
@@ -190,23 +226,6 @@ void GbcApp::startGame() {
   s_blitExited = false;
   s_emuExited  = false;
   if (!s_blitGo) {
-    initErr = GBC_ERR_ALLOC;
-    return;
-  }
-  // Allocate the task stacks once, now that gaming mode has freed the RAM (WiFi off,
-  // BT reclaimed). Reused every game and never freed, so this runs only once.
-  // Blit stack FIRST: it needs the single largest free block (see above), and
-  // carving the emu stack out first could split it.
-  if (!s_blitStack) {
-    s_blitStack = (StackType_t*)heap_caps_malloc(GBC_BLIT_STACK_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-  }
-  if (!s_emuStack) {
-    s_emuStack = (StackType_t*)heap_caps_malloc(GBC_EMU_STACK_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-  }
-  if (!s_emuStack || !s_blitStack) {
-    dbgWhere = 2;
-    dbgFreeInt = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
-    dbgLargest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
     initErr = GBC_ERR_ALLOC;
     return;
   }
@@ -338,16 +357,16 @@ void GbcApp::scanRoms() {
 
 bool GbcApp::setupEmulator(const Rom& rom) {
   gbcUnloadRom();                    // free whatever was loaded before (clean slate)
+  // (BT RAM reclaim happens in startGame, before the stacks are allocated.)
 
-  if (!s_gnuboyInited) {
-    reclaimInternalRam();
-  }
-
-  // Load the ROM. Failures are REAL errors now — this used to silently fall
-  // back to the built-in game, so a too-big ROM (e.g. 4MB Tomb Raider, which
-  // can never fit a contiguous PSRAM block) just launched uCity with no clue.
+  // Load the ROM. Small ROMs are held whole in PSRAM (fast, hitchless); ROMs
+  // too big for one contiguous PSRAM block (e.g. 4MB carts) are streamed from
+  // the SD card instead: gnuboy preloads what fits and faults the remaining
+  // 16KB banks in on demand (serialized with the LCD via s_spiBusLock).
   const uint8_t* romData = NULL;
   size_t romSize = 0;
+  bool streamRom = false;
+  char streamPath[120];
   if (!rom.embedded) {
     snprintf(romName, sizeof(romName), "%s", rom.name);
     File f = SD.open(rom.path);
@@ -359,34 +378,32 @@ bool GbcApp::setupEmulator(const Rom& rom) {
     size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
     if (romSize + 65536 > largest) {           // keep some PSRAM headroom
       f.close();
-      dbgWhere = 3;                            // error screen shows both sizes
-      dbgFreeInt = romSize;
-      dbgLargest = largest;
-      initErr = GBC_ERR_ROMBIG;
-      return false;
-    }
-    s_emuRom = (uint8_t*)ps_malloc(romSize);
-    if (!s_emuRom) {
-      f.close();
-      initErr = GBC_ERR_ALLOC;
-      return false;
-    }
-    size_t rd = 0;
-    while (rd < romSize) {
-      int n = f.read(s_emuRom + rd, romSize - rd);
-      if (n <= 0) {
-        break;
+      streamRom = true;
+      snprintf(streamPath, sizeof(streamPath), "/sd%s", rom.path);   // POSIX path for fopen
+    } else {
+      s_emuRom = (uint8_t*)ps_malloc(romSize);
+      if (!s_emuRom) {
+        f.close();
+        initErr = GBC_ERR_ALLOC;
+        return false;
       }
-      rd += n;
+      size_t rd = 0;
+      while (rd < romSize) {
+        int n = f.read(s_emuRom + rd, romSize - rd);
+        if (n <= 0) {
+          break;
+        }
+        rd += n;
+      }
+      f.close();
+      if (rd != romSize) {                     // truncated read -> discard
+        free(s_emuRom);
+        s_emuRom = NULL;
+        initErr = GBC_ERR_READ;
+        return false;
+      }
+      romData = s_emuRom;
     }
-    f.close();
-    if (rd != romSize) {                       // truncated read -> discard
-      free(s_emuRom);
-      s_emuRom = NULL;
-      initErr = GBC_ERR_READ;
-      return false;
-    }
-    romData = s_emuRom;
   } else {
     romData = gbc_test_rom;
     romSize = gbc_test_rom_len;
@@ -413,10 +430,28 @@ bool GbcApp::setupEmulator(const Rom& rom) {
       return false;
     }
     gnuboy_set_soundbuffer(s_emuAudio, GBC_EMU_AUDIO_LEN);
+    if (!s_spiBusLock) {
+      s_spiBusLock = xSemaphoreCreateMutex();
+    }
+    gnuboy_set_io_lock(gbcSpiLock, gbcSpiUnlock);
     s_gnuboyInited = true;
   }
 
-  if (gnuboy_load_rom(romData, romSize) < 0) {
+  if (streamRom) {
+    // Preloading a couple MB from SD takes a few seconds; say so.
+    SmoothFont* font = fonts[OPENSANS_COND_BOLD_20];
+    lcd.fillScreen(BLACK);
+    lcd.setTextFont(font);
+    lcd.setTextDatum(TL_DATUM);
+    lcd.setTextColor(TFT_GREENYELLOW, BLACK);
+    lcd.drawString("Loading big ROM...", 8, 8);
+    lcd.setTextColor(TFT_WHITE, BLACK);
+    lcd.drawString("(a few seconds)", 8, 8 + font->height() + 6);
+    if (gnuboy_load_rom_file(streamPath) < 0) {
+      initErr = GBC_ERR_LOAD;
+      return false;
+    }
+  } else if (gnuboy_load_rom(romData, romSize) < 0) {
     initErr = GBC_ERR_LOAD;
     return false;
   }
@@ -808,11 +843,13 @@ void GbcApp::blitTask(void* pvParam) {
       if (!s_running) {
         break;
       }
+      gbcSpiLock();               // never overlap an SD bank read (same SPI bus)
       if (app->needsClear) {
         app->lcd.fillScreen(BLACK);
         app->needsClear = false;
       }
       app->blitBuffer(s_blitIdx);
+      gbcSpiUnlock();
       s_blitBusy = false;
     }
   }

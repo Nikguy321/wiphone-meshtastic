@@ -124,6 +124,7 @@ void gnuboy_set_pad(int);
 void gnuboy_set_framebuffer(void *buffer);
 void gnuboy_set_soundbuffer(void *buffer, size_t length);
 size_t gnuboy_get_audio_count(void);   // int16 samples the last gnuboy_run() produced
+void gnuboy_set_io_lock(void (*lock)(void), void (*unlock)(void));   // guards SD bank reads
 
 void gnuboy_get_time(int *day, int *hour, int *minute, int *second);
 void gnuboy_set_time(int day, int hour, int minute, int second);
