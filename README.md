@@ -1,18 +1,46 @@
-# WiPhone Meshtastic Firmware
+# WiPhone Meshtastic + Game Boy Firmware
 
-Turns the **[WiPhone](https://www.wiphone.io/)** (an open-source ESP32 cell phone)
-into a two-way **[Meshtastic](https://meshtastic.org/)** radio node — while keeping
-all of its normal phone / SIP / menu features intact.
+Custom firmware for the **[WiPhone](https://www.wiphone.io/)** (an open-source
+ESP32 cell phone) that adds:
 
-The WiPhone already has a LoRa radio (Semtech SX1276); this firmware drives it to
-speak Meshtastic's on-air protocol, so it can send and receive encrypted text with
-standard Meshtastic devices — no phone, app, or internet required.
+- a two-way **[Meshtastic](https://meshtastic.org/)** radio node (the WiPhone's
+  built-in LoRa radio speaks Meshtastic's on-air protocol — encrypted text with
+  standard Meshtastic devices, no phone, app, or internet required),
+- a full-speed **Game Boy / Game Boy Color emulator** with sound, save states,
+  and drag-and-drop ROM upload over WiFi,
+- and phone quality-of-life fixes (WiFi auto-switching, input reliability).
 
+All of the WiPhone's normal phone / SIP / menu features stay intact.
 Built with **PlatformIO** (the stock WiPhone firmware is Arduino-IDE only).
+See [CHANGELOG.md](CHANGELOG.md) for what's new.
 
 ---
 
-## Features
+## Game Boy Color emulator
+
+Main menu → **Games → Game Boy**. Based on the retro-go fork of gnuboy, tuned
+until real Game Boy Color games run at full speed on the phone.
+
+- **Full speed with sound** — even heavy GBC titles. Sound plays through the
+  phone's speaker; the **top two side keys** are volume up/down in-game.
+- **Save states** — bookmark any game exactly where you are (pause → Save
+  state), one slot per game, stored on the SD card.
+- **Get games in over WiFi** — pick **Transfer ROMs...** in the game list: the
+  phone becomes a tiny website (`wiphone.local`); drag `.gb`/`.gbc` files onto
+  it from any computer. Multiple files at once, per-file progress. Falls back
+  to hosting its own hotspot when not on WiFi.
+- **Big carts work** — 4 MB ROMs stream from the SD card on demand.
+- **Two screen modes** — crisp 1:1 or 1.5× Fill, toggled from the pause menu,
+  which also shows the measured game speed %.
+- **In-app help** — the **Help...** row documents the controls and everything
+  else a new user needs.
+
+Controls: D-pad moves, bottom-right side key = **A**, the key above it = **B**,
+Back = **Start**, Select = **Select**, End (hang-up) = **pause menu**.
+
+---
+
+## Meshtastic features
 
 - **Two-way Meshtastic text messaging** on the default LongFast channel (US),
   AES-encrypted and interoperable with regular Meshtastic nodes.
@@ -33,6 +61,19 @@ Built with **PlatformIO** (the stock WiPhone firmware is Arduino-IDE only).
 
 The normal WiPhone experience (phone calls, SIP, contacts, games, settings) is
 untouched.
+
+---
+
+## Phone improvements
+
+- **WiFi auto-switch** — the phone quietly scans in the background and hops to
+  the strongest *saved* network (with hysteresis, so it doesn't ping-pong);
+  waking the screen with no connection triggers an immediate scan+connect.
+  Toggle under **Settings → WiFi auto-switch**.
+- The **status bar shows the connected WiFi network's name**.
+- Fixed the **"Edit current network"** screen freezing on input.
+- **Keypad reliability** — fixes for missed taps, stuck buttons, and held keys
+  releasing at random (I2C error retry + a 40 ms hardware key heartbeat).
 
 ---
 
