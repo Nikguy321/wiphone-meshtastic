@@ -214,15 +214,24 @@ void keyboardRead() {
   uint32_t mask;
   uint32_t newState = 0;
   char c;
+  keypadToRead = 0;           // claim BEFORE reading: an event arriving mid-read
+                              // re-raises the flag and gets serviced next pass
   do {
     key = 0;
     sn7326_err_t err = keypad.readKey(key);
-    if (err) {
-      log_d("keypad err code=%d", err);
-    }
     if (err == SN7326_ERROR_BUSY) {
       log_d("i2c reset");
       keypad.reset();         // this seems to resolve rare event of complete hanging
+    }
+    if (err) {
+      // Do NOT decode the garbage byte (key==0 decodes as a CALL release) and
+      // do NOT abandon whatever is still in the chip's FIFO: the chip auto-
+      // clears its INT line, so a dropped event never announces itself again —
+      // that was a missed tap, or a button stuck down until the next press.
+      // Leave the flag set so the next loop pass retries the read.
+      log_d("keypad err code=%d", err);
+      keypadToRead = 1;
+      break;
     }
 
     // Decode lower 6 bits for character
@@ -466,7 +475,6 @@ void keyboardRead() {
       }
     }
   } while (key & SN7326_MORE);       // decode "more" bit
-  keypadToRead = 0;
 
   // Some buttons were "released" silently.
   // NOT during gameplay: this batch only lists keys with NEW events, so pressing
@@ -1032,14 +1040,16 @@ void loop() {
     uint32_t now = millis();
     gbcXferHandleClient();
 
-    // Gaming failsafe: drop "held" keys whose release event was lost. The SN7326
-    // re-reports genuinely held keys ~every 1s (long-press detect), so a key not
-    // heard from in 2.5s (two missed heartbeats) is stuck, not held. Game-mode
-    // only: the phone UI keeps the original wipe heuristic in keypadReadInt().
+    // Gaming failsafe: drop "held" keys whose release event was lost. The
+    // SN7326 now re-reports held keys every ~40ms (LONGPRESS_DELAY(1) in
+    // SN7326.h) — a hardware "still pushed" heartbeat — so a key silent for
+    // 350ms (~8 missed heartbeats) is stuck, not held: un-stick it. Game-mode
+    // only. If holds ever break rhythmically at ~350ms, the chip's re-report
+    // isn't periodic at this setting — revert to DELAY(2) here and 5200ms.
     if (gGbcActive && keypadState) {
       for (uint32_t st = keypadState; st; st &= st - 1) {
         int b = __builtin_ctz(st);
-        if (now - keyLastSeenMs[b] > 2500) {
+        if (now - keyLastSeenMs[b] > 350) {
           keypadState &= ~(1u << b);
         }
       }
@@ -1072,8 +1082,19 @@ void loop() {
     // Check if interrupt occured
     uint8_t toRead = keypadToRead;
 
+    // During gameplay, also drain the keypad FIFO periodically WITHOUT an
+    // interrupt: the chip auto-clears its INT line after 10ms, so an event
+    // arriving mid-service (or lost to an I2C error) can sit in the FIFO with
+    // no edge left to announce it — a missed tap, or a button stuck down
+    // until the next keypress. Reading an empty FIFO is a no-op.
+    static uint32_t msLastKeyDrain = 0;
+    if (!toRead && gGbcActive && elapsedMillis(now, msLastKeyDrain, 150)) {
+      toRead = 1;
+    }
+
     // Read all the keys to buffer
     if (toRead) {
+      msLastKeyDrain = now;
       keyboardRead();
     }
 #ifdef USE_VIRTUAL_KEYBOARD

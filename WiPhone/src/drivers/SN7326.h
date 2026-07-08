@@ -72,7 +72,11 @@ public:
     //writeReg(SN7326_REG_CONFIG, 0xFF );   // longpress VERY VERY slow
     //return writeReg(SN7326_REG_CONFIG, SN7326_AUTO_CLEAR_5MS(0) | SN7326_INPUT_FILTER_EN | SN7326_DEBOUNCE_TIME_NORMAL | SN7326_LONGPRESS_EN | SN7326_LONGPRESS_DELAY(2));  // sometimes freezes
     //return writeReg(SN7326_REG_CONFIG, SN7326_AUTO_CLEAR_5MS(2) | SN7326_INPUT_FILTER_EN | SN7326_DEBOUNCE_TIME_NORMAL | SN7326_LONGPRESS_EN | SN7326_LONGPRESS_DELAY(2));
-    return writeReg(SN7326_REG_CONFIG, SN7326_AUTO_CLEAR_5MS(2) | SN7326_INPUT_FILTER_EN | SN7326_LONGPRESS_EN | SN7326_LONGPRESS_DELAY(2));   // double debounce time
+    // LONGPRESS_DELAY(1) = 40ms: held keys re-report ~25x/s, giving the firmware
+    // a continuous hardware "still pushed" heartbeat (the chip has no readable
+    // key-state register). Lets the gaming stale-key sweep clear a lost release
+    // within ~350ms instead of seconds. Was (2) = 1-2s. Double debounce kept.
+    return writeReg(SN7326_REG_CONFIG, SN7326_AUTO_CLEAR_5MS(2) | SN7326_INPUT_FILTER_EN | SN7326_LONGPRESS_EN | SN7326_LONGPRESS_DELAY(1));
   }
 
   inline sn7326_err_t readKey(unsigned char &b) __attribute__((always_inline)) {
