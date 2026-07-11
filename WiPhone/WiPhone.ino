@@ -189,9 +189,20 @@ void headphoneServiceInterrupt() {
 volatile uint8_t keypadToRead = 0;
 uint32_t keypadState = 0;        // 32-bit mask for current state of buttons
 // Per-key timestamp of the last "pressed" report. The SN7326 re-reports held
-// keys about every 1s (LONGPRESS_EN), so during gameplay a key that misses two
-// heartbeats is a lost release event and gets cleared (see keypadStaleSweep).
+// keys about every 40ms (LONGPRESS_EN), so during gameplay a key that misses
+// its heartbeats is a lost release event and gets cleared (stale sweep below).
 static uint32_t keyLastSeenMs[32];
+// Per-key timestamp of the last release, for UI debouncing: a "new press"
+// within 75ms of the same key's release is switch bounce (or a stale hold
+// re-report), not a human double-tap — humans can't re-tap under ~100ms.
+static uint32_t keyLastUpMs[32];
+// Keys the UI considers held down. UI key events are strictly edge-triggered
+// off THIS mask: one event per physical press, no matter how long it's held
+// and no matter what the chip re-reports meanwhile. Only a real release event
+// (or 350ms of heartbeat silence = lost release) re-arms the key. This is
+// deliberately separate from keypadState, which other heuristics may clear
+// mid-hold (that's what double-clicked and auto-repeated the menus).
+static uint32_t uiKeyDown = 0;
 // True while the Game Boy emulator app is running. The main loop then skips the
 // mesh/LoRa polling so the emulator has the SPI bus and CPU to itself.
 volatile bool gGbcActive = false;
@@ -380,8 +391,18 @@ void keyboardRead() {
         gGbcKeyLatch |= mask;   // remember the press for the emulator's next poll
         //Serial.print(c); Serial.println(" pressed");
 
+        // UI events are edge-triggered: fire only if this key wasn't already
+        // considered down (uiKeyDown re-arms on a real release), and not
+        // within 75ms of its own release (contact bounce). This kills menu
+        // double-clicks and hold-to-autoscroll. UI-only: the keypadState and
+        // latch updates above are untouched, so game input is unchanged.
+        bool uiSuppress = mask == 0 ||
+                          (uiKeyDown & mask) ||
+                          (millis() - keyLastUpMs[__builtin_ctz(mask)] < 40);
+        uiKeyDown |= mask;
+
         // Process key if there is still space left in the key buffer
-        if (!keypadBuff.full()) {
+        if (!keypadBuff.full() && !uiSuppress) {
           switch (mask) {
           case WIPHONE_KEY_MASK_0:
             c = '0';
@@ -469,8 +490,10 @@ void keyboardRead() {
         }
       }
     } else {
-      if (keypadState & mask) {
+      if (mask) {   // unconditional: the state bit may have been cleared mid-hold
         keypadState &= ~mask;
+        uiKeyDown &= ~mask;                            // re-arm the UI edge
+        keyLastUpMs[__builtin_ctz(mask)] = millis();   // for the UI debounce window
         //Serial.print(c); Serial.println(" released");
       }
     }
@@ -1018,8 +1041,11 @@ static bool     meshPopupActive = false;
 static uint32_t meshPopupShownMs = 0;
 
 // Triple-tap the top-right (Back) button to sleep the screen manually.
-#define BACK_TRIPLE_TAP_MS 700u
-static uint32_t backTapTimes[3] = {0, 0, 0};
+// Rolling gaps: 3 taps in a row with <= this much between CONSECUTIVE taps
+// (the old all-3-within-700ms window was nearly impossible to hit).
+#define BACK_TAP_GAP_MS 500u
+static uint32_t msLastBackTap = 0;
+static uint8_t  backTapCount = 0;
 
 // Quiet "pop" sound on a new Meshtastic message (one-shot). The PCM player
 // loops, so we stop it by timer after it has played through once.
@@ -1040,16 +1066,18 @@ void loop() {
     uint32_t now = millis();
     gbcXferHandleClient();
 
-    // Gaming failsafe: drop "held" keys whose release event was lost. The
-    // SN7326 now re-reports held keys every ~40ms (LONGPRESS_DELAY(1) in
-    // SN7326.h) — a hardware "still pushed" heartbeat — so a key silent for
-    // 350ms (~8 missed heartbeats) is stuck, not held: un-stick it. Game-mode
-    // only. If holds ever break rhythmically at ~350ms, the chip's re-report
-    // isn't periodic at this setting — revert to DELAY(2) here and 5200ms.
-    if (gGbcActive && keypadState) {
-      for (uint32_t st = keypadState; st; st &= st - 1) {
-        int b = __builtin_ctz(st);
-        if (now - keyLastSeenMs[b] > 350) {
+    // Stale-held-key sweep, driven by the SN7326's ~40ms held-key re-reports
+    // (LONGPRESS_DELAY(1)): a key silent for 350ms lost its release event.
+    // - uiKeyDown: always (re-arms the UI edge-trigger so the key isn't dead)
+    // - keypadState (game input): game mode only, as before
+    // If holds ever break rhythmically at ~350ms, the chip's re-report isn't
+    // periodic at this setting — revert to DELAY(2) and 5200ms here.
+    uint32_t swept = uiKeyDown | (gGbcActive ? keypadState : 0);
+    for (uint32_t st = swept; st; st &= st - 1) {
+      int b = __builtin_ctz(st);
+      if (now - keyLastSeenMs[b] > 350) {
+        uiKeyDown &= ~(1u << b);
+        if (gGbcActive) {
           keypadState &= ~(1u << b);
         }
       }
@@ -1121,16 +1149,15 @@ void loop() {
       // Triple-tap the top-right (Back) button to sleep the screen. Only tracked
       // while the screen is awake, so a wake-up tap doesn't count.
       if (keyPressed == WIPHONE_KEY_BACK && gui.state.screenBrightness > 0) {
-        backTapTimes[0] = backTapTimes[1];
-        backTapTimes[1] = backTapTimes[2];
-        backTapTimes[2] = now;
-        if (backTapTimes[0] && (now - backTapTimes[0]) <= BACK_TRIPLE_TAP_MS) {
-          backTapTimes[0] = backTapTimes[1] = backTapTimes[2] = 0;
+        backTapCount = (now - msLastBackTap <= BACK_TAP_GAP_MS) ? backTapCount + 1 : 1;
+        msLastBackTap = now;
+        if (backTapCount >= 3) {
+          backTapCount = 0;
           gui.sleepScreen();
           continue;                       // swallow this 3rd Back (don't navigate)
         }
       } else if (keyPressed != WIPHONE_KEY_BACK) {
-        backTapTimes[0] = backTapTimes[1] = backTapTimes[2] = 0;
+        backTapCount = 0;
       }
 
       if (!anyPressed && gui.state.inputType == InputType::AlphaNum) {
@@ -1297,11 +1324,12 @@ void loop() {
       keypadLedsOn = false;
     }
 
-    // Connect to WiFi — but never while the ROM transfer server is up: it may be
-    // in softAP mode, and starting an STA connection mid-association mangles the
-    // WiFi driver state and panics the chip (crashed exactly when a computer
-    // joined the WiPhone-ROMs hotspot).
-    if (!gbcXferOn() && wifiState.doReconnect() && !wifiState.isConnected() && elapsedMillis(now, msLastWifiRetry, WIFI_RETRY_PERIOD_MS) && !wifiState.userDisabled()) {
+    // Connect to WiFi — but never while the ROM transfer server is up (it may
+    // be in softAP mode; an STA connect mid-association panics the chip) and
+    // never while an auto-switch scan is in flight: connectToWiFi() hard-cycles
+    // the radio (disconnect(true) + begin), which aborted every scan and made
+    // the auto-switcher look completely dead.
+    if (!gbcXferOn() && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && elapsedMillis(now, msLastWifiRetry, WIFI_RETRY_PERIOD_MS) && !wifiState.userDisabled()) {
       if (wifiState.connectToPreferred()) {
         log_d("Connecting to WiFi");
       } else {
@@ -1311,11 +1339,19 @@ void loop() {
     }
 
     // WiFi auto-switch: background scan for the strongest saved network
-    // (Networks.cpp). Runs only when the phone is at rest: no game, no ROM
-    // transfer server, no call activity (a scan mid-call would glitch audio).
-    if (!gGbcActive && !gbcXferOn() &&
-        (gui.state.sipState == CallState::NotInited || gui.state.sipState == CallState::Idle)) {
-      wifiState.autoSwitchTick(gui.state.screenBrightness > 0);
+    // (Networks.cpp). Runs whenever the phone isn't gaming / serving ROMs /
+    // in CALL activity (a scan mid-call would glitch audio). NOTE: an earlier
+    // allowlist of NotInited|Idle silently stopped all ticks once SIP left
+    // Idle after connecting — block only genuine call-flow states.
+    {
+      CallState cs = gui.state.sipState;
+      bool callBusy = (cs == CallState::InvitingCallee || cs == CallState::InvitedCallee ||
+                       cs == CallState::RemoteRinging  || cs == CallState::Call ||
+                       cs == CallState::HangUp         || cs == CallState::HangingUp ||
+                       cs == CallState::Accept         || cs == CallState::BeingInvited);
+      if (!gGbcActive && !gbcXferOn() && !callBusy) {
+        wifiState.autoSwitchTick(gui.state.screenBrightness > 0);
+      }
     }
 
 #ifdef USE_VIRTUAL_KEYBOARD

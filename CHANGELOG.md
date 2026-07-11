@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-07-09 — Reliable menu input, forgiving screen-off, working WiFi auto-switch
+
+### Input
+- **Menus register one press per press.** Buttons no longer double-fire, and
+  holding the d-pad no longer auto-scrolls the menu — UI key events are now
+  strictly edge-triggered (one event per physical press, re-armed only by a
+  real release). The Game Boy emulator's input path is untouched.
+- **Triple-tap-to-sleep is easy now** — three taps of the top-right button
+  with up to ½ second between them (was a near-impossible fixed 0.7 s window
+  for all three).
+
+### WiFi
+- **Auto-switch actually works.** It reliably scans and connects to the
+  strongest saved network now (previously it could sit disconnected
+  indefinitely). It also scans more often while disconnected (every 2 minutes)
+  so it finds a network without waiting.
+
 ## 2026-07-07 — Game Boy polish, big-ROM support, WiFi auto-switch, input reliability
 
 ### Game Boy emulator

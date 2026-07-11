@@ -83,6 +83,9 @@ public:
   bool autoSwitchEnabled(void);
   void setAutoSwitch(bool enabled);
   void autoSwitchTick(bool screenOn);
+  bool scanBusy(void) {          // a scan is in flight or starting: hold off reconnect
+    return _scanning || _scanPending;   // (connectToWiFi hard-cycles WiFi, killing scans)
+  }
 
   // Properties
   const char* ssid() {
@@ -112,6 +115,8 @@ protected:
   // Auto-switch state
   int8_t   _autoSwitch = -1;        // -1 = not loaded from ini yet
   bool     _scanning = false;       // an async scan is in flight
+  bool     _scanPending = false;    // scan requested; keep retrying start briefly
+  uint32_t _msScanPendingSince = 0;
   bool     _prevScreenOn = true;    // for the wake-up edge
   uint32_t _msLastScan = 0;
 

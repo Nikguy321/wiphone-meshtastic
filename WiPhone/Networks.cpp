@@ -266,7 +266,9 @@ bool Networks::connectToPreferred(void) {
 // Scans in the background (async, keeps the current association) and hops to
 // the strongest saved network. Driven by autoSwitchTick() from the main loop.
 
-#define AUTO_SCAN_PERIOD_MS   600000u   // background scan every 10 min (battery)
+#define AUTO_SCAN_PERIOD_MS      600000u  // scan every 10 min while connected (battery)
+#define AUTO_SCAN_DISC_PERIOD_MS 120000u  // every 2 min while disconnected (nothing to lose)
+#define AUTO_SCAN_RETRY_MS       30000u   // re-try soon after a failed/aborted scan
 #define AUTO_SWITCH_MARGIN_DB 10        // hop only if this much stronger than current
 
 bool Networks::autoSwitchEnabled(void) {
@@ -296,9 +298,21 @@ void Networks::autoSwitchTick(bool screenOn) {
   bool wake = screenOn && !_prevScreenOn;
   _prevScreenOn = screenOn;
 
+  // Diagnostic heartbeat (log_e = visible over serial @500000): the state of
+  // every gate, every 15s. Cheap, and this feature has failed silently twice.
+  static uint32_t dbgMs = 0;
+  if (millis() - dbgMs > 15000) {
+    dbgMs = millis();
+    log_e("[autosw] ud=%d rec=%d en=%d conn=%d scanning=%d sinceScan=%lus",
+          (int)_userDisabled, (int)reconnect, (int)autoSwitchEnabled(),
+          (int)connected, (int)_scanning, (unsigned long)((millis() - _msLastScan) / 1000));
+  }
+
   if (_userDisabled || !reconnect || !autoSwitchEnabled()) {
     return;                             // same gates as the reconnect loop honors
   }
+
+  uint32_t now = millis();
 
   if (_scanning) {                      // poll the async scan
     int n = WiFi.scanComplete();
@@ -306,24 +320,57 @@ void Networks::autoSwitchTick(bool screenOn) {
       return;
     }
     _scanning = false;
+    log_e("[autosw] scan done: n=%d", n);
     if (n > 0) {
       autoSwitchEvaluate(n);
+    } else {
+      // Failed or empty — commonly a reconnect attempt cycled WiFi and killed
+      // the scan before scanBusy() gating existed to prevent it, or the radio
+      // was mid-connect. Try again soon, not in 10 minutes.
+      _msLastScan = now - AUTO_SCAN_PERIOD_MS + AUTO_SCAN_RETRY_MS;
     }
     WiFi.scanDelete();
     return;
   }
 
-  uint32_t now = millis();
-  bool due = (now - _msLastScan >= AUTO_SCAN_PERIOD_MS);
-  if (wake && !connected) {
-    due = true;                         // screen woke with no WiFi: scan right away
+  if (!_scanPending) {
+    bool due = (now - _msLastScan >= (connected ? AUTO_SCAN_PERIOD_MS : AUTO_SCAN_DISC_PERIOD_MS));
+    if (wake && !connected) {
+      due = true;                       // screen woke with no WiFi: scan right away
+    }
+    if (!due) {
+      return;
+    }
+    _msLastScan = now;
+    _scanPending = true;                // scanBusy() now holds the reconnect loop off
+    _msScanPendingSince = now;
+    if (!connected) {
+      // The Arduino WiFi driver auto-reconnects on "AP not found", so with the
+      // preferred network absent the radio is perpetually mid-connect and scan
+      // starts get rejected — the auto-switcher looked completely dead. A plain
+      // disconnect stops that cycle (its disconnect reason is one the driver
+      // does NOT auto-reconnect from) and frees the radio to scan.
+      WiFi.disconnect();
+      return;                           // give the driver a tick to settle; start next pass
+    }
   }
-  if (!due) {
+
+  // Start (or keep trying to start) the scan. The disconnect above settles
+  // asynchronously, so the first attempts can be rejected — retrying every
+  // tick for a few seconds beats losing a 30s-backoff race against the radio
+  // (that race is why a 5-minute wait once produced zero completed scans).
+  int16_t r = WiFi.scanNetworks(true /*async*/);   // keeps an existing association
+  if (r != WIFI_SCAN_FAILED) {
+    log_e("[autosw] scan started (wifi status %d)", (int)WiFi.status());
+    _scanPending = false;
+    _scanning = true;
     return;
   }
-  _msLastScan = now;
-  WiFi.scanNetworks(true /*async*/);    // does not drop the current association
-  _scanning = true;
+  if (now - _msScanPendingSince > 5000) {
+    log_e("[autosw] scan start kept failing (wifi status %d)", (int)WiFi.status());
+    _scanPending = false;               // give up; normal backoff retries soon
+    _msLastScan = now - AUTO_SCAN_PERIOD_MS + AUTO_SCAN_RETRY_MS;
+  }
 }
 
 void Networks::autoSwitchEvaluate(int n) {
@@ -341,10 +388,15 @@ void Networks::autoSwitchEvaluate(int n) {
       continue;
     }
     int idx = ini.query("s", ssid.c_str());
+    const char* dis = NULL;
+    if (idx >= 0) {
+      dis = ini[idx]["disabled"];
+    }
+    log_e("[autosw] seen '%s' %ddBm saved=%d dis=%s", ssid.c_str(), rssi,
+          (int)(idx >= 0 && ini[idx].hasKey("p")), dis ? dis : "-");
     if (idx < 0 || !ini[idx].hasKey("p")) {
       continue;                         // not one of our saved networks
     }
-    const char* dis = ini[idx]["disabled"];
     if (dis != NULL && !strcmp(dis, "true")) {
       continue;                         // user explicitly disconnected this one
     }
@@ -352,7 +404,8 @@ void Networks::autoSwitchEvaluate(int n) {
     bestSsid = ssid;
   }
   if (bestSsid.length() == 0) {
-    return;                             // nothing saved in range
+    log_e("[autosw] no saved network in range");
+    return;
   }
 
   if (connected && wifiSsidDyn != NULL && bestSsid.equals(wifiSsidDyn)) {
@@ -362,7 +415,7 @@ void Networks::autoSwitchEvaluate(int n) {
     return;                             // not enough gain to justify the hop
   }
 
-  log_d("auto-switch to '%s' (%d dBm)", bestSsid.c_str(), bestRssi);
+  log_e("[autosw] switching to '%s' (%d dBm)", bestSsid.c_str(), bestRssi);
   // Make it the preferred network so the existing 20s reconnect loop pulls
   // toward the same place instead of fighting the switch.
   int i = ini.query("s", bestSsid.c_str());
