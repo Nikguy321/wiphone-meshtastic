@@ -13,17 +13,15 @@ with the host compiler under ASan+UBSan — no PlatformIO, no ESP32, no phone at
 
 ---
 
-## ▶ PICK UP HERE — the reader is built and UNFLASHED
+## ▶ PICK UP HERE — the reader is FLASHED and waiting on Nick's eyes
 
-**There is a Books entry in the main menu now** and everything under it works as far as a host
-compiler can tell. What has never happened: any of it running on the phone. Nobody has seen a
-page of text on that screen.
+**Menu > Books exists on the phone.** Flashed 2026-08-11 at 230400 (hash verified), booted
+clean: `Booting...` → `Booted`, no panic, no watchdog, and no radio line between them — which on
+this firmware is how "SX1276 detected" looks, because only failures print.
 
-### The one blocking step: flash it
-`pio run` is green (**RAM 27.4%, flash 31.3%**) but the build has not been written to the phone.
-That needs the USB cable — as of 2026-08-11 no serial device was present on the Mac
-(`ls /dev/cu.usbserial-*` empty). See [[wiphone-flashing]]; ⚠ this unit's adapter **fails above
-230400 baud**, so drive esptool directly rather than `pio run -t upload`.
+⚠ **What is verified is that it BOOTS, not that it READS.** Nobody has looked at the screen. The
+whole reading path — SD scan, epubOpen on a 5 MB file, pagination, the position store — has only
+ever run on a Mac. Expect first contact to find something.
 
 ### The test book is ALREADY ON THE SD CARD
 `Ghosts_of_Timkovichi.epub` (5,060,061 bytes) was pushed over WiFi on 2026-08-11 and sits at
@@ -39,7 +37,9 @@ match means the 5 MB arrived byte-for-byte.
 ### What to check first, in this order
 1. **Menu > Books lists the book.** If the library is empty, the SD scan or the card is the
    problem, not the reader.
-2. **Open it.** Expect the title page. 90 chapters, real titles from the NCX ("Prologue",
+2. **Open it.** Give it a few seconds: opening reads the zip directory of 230 entries, the OPF,
+   the NCX, and fingerprints 128 KB. Expect the Title Page — spine 0 is a coverless-text cover
+   and is skipped deliberately. 90 chapters, real titles from the NCX ("Prologue",
    "1. Monkeys with ’Mechs"), ~11 lines a page, ~34 characters a line at the small size.
 3. **Page down and back up.** Nothing should be skipped or repeated at a boundary — that was a
    real bug, found by paging a real chapter backwards on the host, and it is now pinned.
@@ -166,7 +166,7 @@ passcode there.
 
 ## Waiting on Nick
 
-- **Flash the build and read a chapter.** Nothing above the host tests has ever run.
+- **Read a chapter.** It is flashed; nobody has looked at the screen.
 - Put the same book files on both devices — WiPhone SD `/books`, COVEY `/home/covey/books`.
   Byte-identical copies. `Ghosts_of_Timkovichi.epub` is on the WiPhone (in `/roms`); COVEY does
   not have it yet, and sync needs both.
