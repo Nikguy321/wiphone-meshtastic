@@ -8,7 +8,7 @@ Read this first to resume. One command tells you the codebase is healthy:
 ./tests/run_tests.sh
 ```
 
-Expect **657 assertions, 0 failures** across four suites. It compiles the phone's own sources
+Expect **671 assertions, 0 failures** across five suites. It compiles the phone's own sources
 with the host compiler under ASan+UBSan — no PlatformIO, no ESP32, no phone attached.
 
 ---
@@ -82,19 +82,37 @@ draw, and the reader says so on the picture rather than showing black.
 4. **Close the book, reopen it.** It must land on the same page. That is the whole feature.
 5. **Leave it sitting on a page for two minutes.** The screen must not sleep.
 
-### Then: sync
-- **Mesh wiring** — divert `CBS1 ` before it reaches Chats using `bookSyncIsSyncText()` (checked
-  BEFORE the mac, deliberately: a packet signed with someone else's passcode is still not a chat
-  message). Find the `booksync` channel **by name** and send with `sendChannelMessage(hash, text)`.
-  ⚠ **Never fall back to the primary channel** — a position broadcast on LongFast is readable by
-  every node in range.
-- **A confirm card, never an automatic jump** (D-089): clock skew makes "newest wins" dangerous.
-  `bookSyncSuspectClock()` is there to flag it.
-- **Park late packets** for the next time that book is opened. COVEY does this because a LoRa round
-  trip does not fit inside its 15 s sync window, and it listens continuously. That is what makes
-  "sync now, pick it up later" work.
-- **Passcode + device name storage** — planned for NVS under the existing `wpmesh` namespace (same
-  place as the mesh node name), with an edit screen under **My node**. Not yet built.
+### ⚠ SYNC IS BUILT BUT HAS NEVER BEEN ON AIR (2026-08-11, commit 595e838)
+COVEY was at home, case open and unpowered, so not one packet has crossed between the two
+devices. What IS proven is 34 host assertions against real COVEY-generated packets: parking,
+matching, newest-wins, and that every wrong-passcode and tampered vector is diverted out of
+Chats and never matches.
+
+**To test it, in this order:**
+1. Put the SAME book file on COVEY (`/home/covey/books`). Byte-identical — that makes all
+   three ids agree at once. `Ghosts_of_Timkovichi.epub` is on the WiPhone only.
+2. Change COVEY's `booksync_pw` off its `"nnnn"` placeholder and type the same into
+   **Books > menu > Sync settings > Passcode**. That screen also says whether the `booksync`
+   CHANNEL exists — two separate secrets, both silent when wrong.
+3. Import COVEY's `booksync` channel invite (DM the link, then **Apply link** in Meshtastic).
+4. Read on one, "Sync my place", open the book on the other. The confirm card should offer
+   the other device's position.
+
+⚠ Every failure here is silent on both devices. If nothing happens, check in this order:
+channel present → passcode identical → the two books share an id (Book info shows them).
+
+### Then: the rest of sync
+All four of the pieces below are BUILT (mesh divert, send by channel name, the confirm card,
+the parking spot, passcode/device name in NVS) — see the note above for what is still unproven.
+What is genuinely left:
+
+- **Greyscale JPEG.** 33 of the 45 pictures in the test book are 1-component JPEGs and the
+  ESP32's ROM TJpgDec (`rom/tjpgd.h`, R0.01c) decodes 3-component only. TJpgDec R0.02+ handles
+  greyscale, so the fix is vendoring ~1000 lines of ChaN's decoder and renaming its symbols to
+  avoid colliding with the ROM ones. The reader already says "greyscale JPEG, not supported"
+  rather than showing a black box.
+- **Sending on a schedule** rather than only on demand, if that turns out to be wanted.
+- **A second device to test any of it against.**
 
 ---
 
