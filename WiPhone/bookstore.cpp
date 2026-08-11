@@ -16,6 +16,30 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* ⚠ The whole-file buffer comes from PSRAM on the phone.
+ *
+ * It is BOOKSTORE_BLOB_MAX — 16 KB — and the WiPhone's INTERNAL heap runs at about 15 KB free
+ * with a book open, its largest single block around 12 KB. A plain malloc of 16 KB therefore
+ * FAILS, and both load() and save() then return false without a word: the reading position
+ * could never be written to the card and could never be read back.
+ *
+ * The symptom was a place that survived closing and reopening a book — the store was still in
+ * RAM — and was gone after a power cycle, with Book info reporting "none saved". Nothing in
+ * the store's own logic was wrong, which is why the host tests were all green throughout.
+ *
+ * The host build keeps plain malloc; that is also what lets this file be tested off-device. */
+#if defined(ARDUINO)
+#include "Arduino.h"
+static void* bsAlloc(size_t n) {
+  void* p = ps_malloc(n);
+  return p ? p : malloc(n);
+}
+#else
+static void* bsAlloc(size_t n) {
+  return malloc(n);
+}
+#endif
+
 void BookStore::init() {
   count = 0;
   dirty = false;
@@ -234,7 +258,7 @@ bool BookStore::load(BookStoreIo* io) {
   if (!io || !io->load) {
     return false;
   }
-  char* blob = (char*)malloc(BOOKSTORE_BLOB_MAX);
+  char* blob = (char*)bsAlloc(BOOKSTORE_BLOB_MAX);
   if (!blob) {
     return false;
   }
@@ -248,7 +272,7 @@ bool BookStore::save(BookStoreIo* io) {
   if (!io || !io->store) {
     return false;
   }
-  char* blob = (char*)malloc(BOOKSTORE_BLOB_MAX);
+  char* blob = (char*)bsAlloc(BOOKSTORE_BLOB_MAX);
   if (!blob) {
     return false;
   }
