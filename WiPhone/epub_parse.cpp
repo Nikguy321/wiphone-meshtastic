@@ -864,6 +864,160 @@ static void stemOf(const char* displayName, char* out, size_t cap) {
   out[n] = '\0';
 }
 
+// Give spine item `href` (resolved against `here`) the title `label`, if it has none yet.
+static void navApply(EpubBook* b, const char* here, const char* href, const char* label) {
+  if (!href[0] || !label[0]) {
+    return;
+  }
+  char full[EPUB_NAME_MAX];
+  epubNormPath(here, href, full, sizeof(full));    // also drops the "#aid_75" fragment
+  for (int i = 0; i < b->nSpine; i++) {
+    if (!b->spine[i].title[0] && strcmp(b->spine[i].name, full) == 0) {
+      snprintf(b->spine[i].title, EPUB_CH_TITLE_MAX, "%s", label);
+      return;
+    }
+  }
+}
+
+/* Chapter titles from the EPUB3 nav document or the EPUB2 NCX — COVEY's _nav_titles.
+ *
+ * Optional, and every failure here is swallowed: a missing or broken table of contents must
+ * never stop a book opening. Without it every chapter is "Chapter N", which is usable for a
+ * novel and useless for the 90-item book this was written against.
+ *
+ * ⚠ One deliberate difference from COVEY: for an NCX navPoint it takes the FIRST <text>
+ * element (the navLabel) rather than concatenating every descendant's text. They agree on a
+ * flat table of contents; on a nested one COVEY's outer entries come out as their own label
+ * with all their children's labels run together. Titles never travel over the wire — only the
+ * spine index does — so the two devices are free to differ here. */
+static void navTitles(EpubBook* b, EpubSource* src, const OpfItem* items, int nItems) {
+  uint8_t* doc = NULL;
+  for (int k = 0; k < nItems; k++) {
+    const char* href = items[k].href;
+    const char* slash = strrchr(href, '/');
+    const char* base = slash ? slash + 1 : href;
+    char low[EPUB_NAME_MAX];
+    size_t bl = strlen(base);
+    if (bl >= sizeof(low)) {
+      continue;
+    }
+    for (size_t i = 0; i <= bl; i++) {
+      char c = base[i];
+      low[i] = (c >= 'A' && c <= 'Z') ? (char)(c + 32) : c;
+    }
+    bool isNcx = bl > 4 && strcmp(low + bl - 4, ".ncx") == 0;
+    if (!isNcx && !strstr(low, "nav")) {
+      continue;
+    }
+
+    ZipEntry ze;
+    if (!zipFind(src, href, &ze)) {
+      continue;
+    }
+    if (!doc) {
+      doc = (uint8_t*)ebAlloc(EPUB_MAX_DOC);
+      if (!doc) {
+        return;
+      }
+    }
+    int n = zipRead(src, &ze, doc, EPUB_MAX_DOC);
+    if (n <= 0) {
+      continue;
+    }
+
+    char here[EPUB_NAME_MAX] = {0};
+    if (slash) {
+      size_t hl = (size_t)(slash - href);
+      memcpy(here, href, hl);
+      here[hl] = '\0';
+    }
+
+    const char* p = (const char*)doc;
+    size_t len = (size_t)n;
+    size_t i = 0;
+    char pendLabel[EPUB_CH_TITLE_MAX] = {0};      // NCX: navLabel awaiting its <content>
+    char aHref[EPUB_NAME_MAX] = {0};              // nav: <a href> awaiting its text
+    bool inA = false;
+    while (i < len) {
+      if (p[i] != '<') {
+        i++;
+        continue;
+      }
+      if (i + 3 < len && p[i + 1] == '!' && p[i + 2] == '-' && p[i + 3] == '-') {
+        size_t j = i + 4;
+        while (j + 2 < len && !(p[j] == '-' && p[j + 1] == '-' && p[j + 2] == '>')) {
+          j++;
+        }
+        i = (j + 3 < len) ? j + 3 : len;
+        continue;
+      }
+      bool closing = (i + 1 < len && p[i + 1] == '/');
+      size_t ns = i + (closing ? 2 : 1);
+      size_t j = ns;
+      while (j < len && p[j] != '>' && p[j] != ' ' && p[j] != '\t' && p[j] != '\n' &&
+             p[j] != '\r' && p[j] != '/') {
+        j++;
+      }
+      char name[32];
+      tagLocalName(p + ns, j - ns, name, sizeof(name));
+      size_t as = j;
+      while (j < len && p[j] != '>') {
+        if (p[j] == '"' || p[j] == '\'') {
+          char q = p[j++];
+          while (j < len && p[j] != q) {
+            j++;
+          }
+        }
+        j++;
+      }
+      size_t ae = j;
+      size_t textStart = j + 1;
+      size_t textEnd = textStart;
+      while (textEnd < len && p[textEnd] != '<') {
+        textEnd++;
+      }
+
+      if (!closing && strcmp(name, "navPoint") == 0) {
+        pendLabel[0] = '\0';                       // a new entry: forget the last one
+      } else if (!closing && strcmp(name, "text") == 0 && !pendLabel[0]) {
+        collapseCut(p + textStart, textEnd - textStart, pendLabel, sizeof(pendLabel), 80);
+      } else if (!closing && strcmp(name, "content") == 0) {
+        char srcAttr[EPUB_NAME_MAX];
+        if (tagAttr(p + as, ae - as, "src", srcAttr, sizeof(srcAttr))) {
+          navApply(b, here, srcAttr, pendLabel);
+          pendLabel[0] = '\0';
+        }
+      } else if (!closing && strcmp(name, "a") == 0) {
+        // EPUB3 nav. The label is usually the text right here; when it is wrapped in a
+        // <span> the run is empty, so hold the href until something before </a> has text.
+        if (tagAttr(p + as, ae - as, "href", aHref, sizeof(aHref))) {
+          inA = true;
+          char label[EPUB_CH_TITLE_MAX];
+          collapseCut(p + textStart, textEnd - textStart, label, sizeof(label), 80);
+          if (label[0]) {
+            navApply(b, here, aHref, label);
+            inA = false;
+            aHref[0] = '\0';
+          }
+        }
+      } else if (inA && closing && strcmp(name, "a") == 0) {
+        inA = false;
+        aHref[0] = '\0';
+      } else if (inA && !closing && textEnd > textStart) {
+        char label[EPUB_CH_TITLE_MAX];
+        collapseCut(p + textStart, textEnd - textStart, label, sizeof(label), 80);
+        if (label[0]) {
+          navApply(b, here, aHref, label);
+          inA = false;
+          aHref[0] = '\0';
+        }
+      }
+      i = ae < len ? ae + 1 : len;
+    }
+  }
+  ebFree(doc);
+}
+
 EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool isTextFile) {
   memset(b, 0, sizeof(*b));
   b->src = src;
@@ -1067,6 +1221,7 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
     b->spine[b->nSpine].title[0] = '\0';
     b->nSpine++;
   }
+  navTitles(b, src, items, nItems);      // must run before the manifest is freed
   ebFree(items);
   ebFree(spineIds);
 

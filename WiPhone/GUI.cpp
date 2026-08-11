@@ -18,6 +18,7 @@ governing permissions and limitations under the License.
 #include "Test.h"
 #include "app_meshtastic.h"
 #include "app_gbc.h"
+#include "app_books.h"
 
 // Static images
 #include "src/assets/image.h"
@@ -1313,7 +1314,9 @@ void GUI::enterMenu(uint16_t ID) {
                             "**EMPTY**", fonts[AKROBAT_EXTRABOLD_22], N_MENU_ITEMS, 8, false);
   mainMenu->setStyle(MenuWidget::DEFAULT_STYLE, WHITE, NONE, BLACK, WHITE);    // note: regular background color ignored
   for(i=0; i<sizeof(menu)/sizeof(GUIMenuItem); i++) {
-    if (menu[i].parent == menu[menuIndex].ID) {
+    // A title-less row is a zero-filled tail entry (see the size warning on menu[]), not a
+    // menu item: adding it would hand a NULL to MenuOptionIconned.
+    if (menu[i].parent == menu[menuIndex].ID && menu[i].title && menu[i].title[0]) {
       j = findMenuIcons(menu[i].ID);
       if (j<0) {
         option = new MenuOptionIconned(menu[i].ID, 1, menu[i].title);
@@ -1338,7 +1341,7 @@ void GUI::enterMenu(uint16_t ID) {
 
   // Calculate size of the menu
   for (i=0; i<sizeof(menu)/sizeof(GUIMenuItem); i++) {
-    if (menu[i].parent == menu[menuIndex].ID) {
+    if (menu[i].parent == menu[menuIndex].ID && menu[i].title && menu[i].title[0]) {
       curMenuSize++;
     }
   }
@@ -1422,6 +1425,9 @@ void GUI::enterApp(ActionID_t app) {
     break;
   case GUI_APP_MESHTASTIC:
     runningApp = new MeshtasticApp(*screen, state, header, footer);
+    break;
+  case GUI_APP_BOOKS:
+    runningApp = new BooksApp(*screen, state, header, footer);
     break;
   case GUI_APP_SIP_ACCOUNTS:
     runningApp = new SipAccountsApp(*screen, state, flash, header, footer);

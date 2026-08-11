@@ -363,6 +363,9 @@ typedef enum ActionID : uint16_t {
   // Meshtastic
   GUI_APP_MESHTASTIC,
 
+  // Reading
+  GUI_APP_BOOKS,
+
   // Tools
   GUI_APP_NOTEPAD,
   GUI_APP_UDP,
@@ -2504,6 +2507,11 @@ protected:
     { 5,    icon_Settings_w, sizeof (icon_Settings_w), icon_Settings_b, sizeof (icon_Settings_b) },
   };
 
+  /* ⚠ The size must EXACTLY match the number of entries that survive the #ifdefs below, and
+   * it cannot be omitted because this is a non-static member. Too many is a compile error;
+   * too FEW is silent — the tail zero-fills into entries with ID 0, parent 0 and a NULL
+   * title, which then appear as children of the Clock menu. It was one short before Books was
+   * added. enterMenu() now skips title-less rows so a miscount stays cosmetic. */
   GUIMenuItem menu[39] PROGMEM = {  // increment size by one to add a new app
 
     // TODO: button names can be removed
@@ -2517,6 +2525,7 @@ protected:
     { 2, 1, "Phonebook", "", "", GUI_APP_PHONEBOOK },
     { 20, 1, "Messages", "", "", GUI_APP_MESSAGES },
     { 39, 1, "Meshtastic", "", "", GUI_APP_MESHTASTIC },
+    { 41, 1, "Books", "Select", "Back", GUI_APP_BOOKS },
     { 3, 1, "Tools", "Select", "Back", GUI_ACTION_SUBMENU },
     { 4, 1, "Games", "Select", "Back", GUI_ACTION_SUBMENU },
     { 5, 1, "Settings", "Select", "Back", GUI_ACTION_SUBMENU },

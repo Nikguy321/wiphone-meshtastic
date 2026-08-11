@@ -1,0 +1,140 @@
+/*
+ * app_books.h — the WiPhone e-reader.
+ *
+ * The screen on top of the machinery that was already built and proven: epub_parse (what a
+ * book says), book_layout (where the pages break), bookstore (where you were), booksync (how
+ * COVEY hears about it). This file owns only what a person sees and presses.
+ *
+ * Library -> open -> paged, word-wrapped text. Position is (spine, offset) and is written to
+ * the SD card, so it survives the phone dying with no warning — which it can, at any instant,
+ * because the power rail is held by a software latch.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════
+ * WHY THE SCREEN TIMEOUT IS CHANGED WHILE A BOOK IS OPEN
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *
+ * The phone dims after 20 s and sleeps after 30 s of no key press. A page takes longer than
+ * that to read, so the default settings turn the screen off mid-sentence, every page. While a
+ * book is open the reader stretches both timeouts and restores the user's own values on the
+ * way out (including from the destructor, so an unexpected teardown cannot leave the phone
+ * with a five-minute screen timeout).
+ */
+
+#ifndef APP_BOOKS_H
+#define APP_BOOKS_H
+
+#include "GUI.h"
+#include "SD.h"
+#include "epub_parse.h"
+#include "book_layout.h"
+#include "bookstore.h"
+
+#define BOOKS_MAX        48       // books listed from the SD card
+#define BOOKS_HIST       48       // remembered page starts: exact back-paging while reading
+#define BOOKS_DIR        "/books"
+#define BOOKS_POS_FILE   "/books/positions.cbs"
+
+class BooksApp : public WindowedApp {
+public:
+  BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer);
+  virtual ~BooksApp();
+
+  ActionID_t getId() {
+    return GUI_APP_BOOKS;
+  };
+  appEventResult processEvent(EventType event);
+  void redrawScreen(bool redrawAll=false);
+
+protected:
+  typedef enum {
+    BOOKS_LIB,        // the library list
+    BOOKS_MANAGE,     // delete a book you have finished with
+    BOOKS_XFER,       // "Add books over WiFi" (the shared transfer server)
+    BOOKS_HELP,
+    BOOKS_READ,       // a page of the book
+    BOOKS_MENU,       // the menu over a page: chapters, text size, info, close
+    BOOKS_TOC,        // chapter list
+    BOOKS_INFO,       // title / ids / fingerprint — what sync matches on
+  } BooksState_t;
+
+  // A file the library found. Metadata is NOT read here: opening 90 spine items to draw a
+  // list would make the library take seconds to appear.
+  struct BookFile {
+    char name[64];               // basename, shown in the list
+    char path[104];              // full SD path
+    bool isTxt;
+  };
+
+  BooksState_t appState;
+  MenuWidget*  menu;             // the active list, when a state has one
+
+  // ---- library
+  BookFile books[BOOKS_MAX];
+  int      bookCount;
+  int      pendingDelete;        // index of the book a second OK would delete, or -1
+  bool     xferClean;            // transfer screen already painted (live refresh skips the fill)
+  int      helpTop;
+  char     libNote[96];          // a message shown as a row in the library (e.g. open failed)
+  /* ⚠ HeaderWidget::setTitle KEEPS THE POINTER — it does not copy the string. So the book's
+   * title has to live somewhere that outlives the call; a local buffer leaves the header
+   * pointing at a dead stack frame. */
+  char     headerTitle[64];
+
+  // ---- the open book
+  bool      isOpen;
+  File      file;
+  EpubSource src;
+  EpubBook  book;
+  int       openIdx;             // index into books[]
+  char*     chapText;            // PSRAM: the current chapter, flattened to text
+  size_t    chapLen;
+  int       chapCap;             // what we actually managed to allocate
+  int       spine;
+  uint32_t  pageStart;
+  uint32_t  hist[BOOKS_HIST];    // page starts behind us, for exact back-paging
+  int       histN;
+  int       fontIdx;             // index into BODY_FONTS
+  int       turnsSinceSave;
+
+  // ---- position store
+  BookStore*  store;
+  BookStoreIo storeIo;
+  char        ids[BOOKSYNC_MAX_IDS][BOOKSYNC_ID_MAX];
+  int         nIds;
+
+  // ---- screen timeout, borrowed while reading
+  bool     timeoutsHeld;
+  uint32_t savedDimMs;
+  uint32_t savedSleepMs;
+  void holdScreenAwake(bool hold);
+
+  void freeWidgets();
+  void enterState(BooksState_t state);
+  MenuWidget* newMenu(const char* emptyMessage, SmoothFont* font, uint8_t perScreen);
+
+  void scanBooks();
+  void buildLibrary();
+  void buildManage();
+  void buildMenu();
+  void buildToc();
+
+  bool openBook(int idx);
+  void closeBook(bool save);
+  bool loadChapter(int i);       // pull spine item i into chapText
+  void savePosition(bool flush);
+  double fractionHere() const;
+
+  // Paging. nextPage()/prevPage() step chapters at the ends of one.
+  int  pageLines() const;        // rows of body text that fit
+  int  pageWidth() const;
+  void nextPage();
+  void prevPage();
+  void gotoOffset(uint32_t off, bool clearHistory);
+
+  void drawPage();
+  void drawHelp();
+  void drawXfer();
+  void drawInfo();
+};
+
+#endif // APP_BOOKS_H
