@@ -9,6 +9,8 @@
 #include "meshtastic_service.h"
 #include "config.h"            // MESHTASTIC_PHY toggle
 #include <Preferences.h>      // NVS-backed node name persistence
+#include "booksync_inbox.h"   // book-sync packets are diverted out of the chat list
+#include "clock.h"            // ntpClock, for when a parked packet arrived
 #include <SPIFFS.h>           // node + message history persistence
 
 // Debounce persistence writes so a burst of traffic doesn't hammer flash.
@@ -490,6 +492,25 @@ bool MeshtasticService::loop() {
         size_t nt = plLen < sizeof(text) - 1 ? plLen : sizeof(text) - 1;
         memcpy(text, pl, nt);
         text[nt] = '\0';
+
+        /* Book-sync traffic is not a message. Park it for the reader and say nothing.
+         *
+         * ⚠ Recognised by PREFIX, deliberately before any attempt to check its signature —
+         * exactly as COVEY does. This path has no business knowing the booksync passcode, and
+         * a packet signed with somebody else's is still not a chat message: showing
+         * "CBS1 MFRGG..." in the list would be worse than dropping it. Verification happens
+         * in the reader, which is the only part that holds the key.
+         *
+         * Returning false rather than true keeps the new-message chime, vibration and unread
+         * badge out of it: nothing arrived that a person needs to read. */
+        if (bookSyncIsSyncText(text)) {
+          bookSyncInboxPush(text, hdr.sender,
+                            ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0);
+          log_i("Mesh booksync packet from 0x%08X (%u parked)",
+                hdr.sender, (unsigned)bookSyncInboxCount());
+          return false;
+        }
+
         storeMessage(hdr.sender, toInternal, hdr.channelHash, text, false);   // real text!
         log_i("Mesh TEXT from 0x%08X on ch '%s': %s", hdr.sender, ch->name, text);
         return true;                       // signal the UI to refresh

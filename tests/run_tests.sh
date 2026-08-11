@@ -31,6 +31,7 @@ for src in tests/test_*.cpp; do
     test_epub)     deps=(WiPhone/epub_parse.cpp WiPhone/book_hash.cpp); extra=(-lz) ;;
     test_bookstore) deps=(WiPhone/bookstore.cpp WiPhone/booksync.cpp WiPhone/book_hash.cpp) ;;
     test_layout)   deps=(WiPhone/book_layout.cpp) ;;
+    test_inbox)    deps=(WiPhone/booksync_inbox.cpp WiPhone/booksync.cpp WiPhone/book_hash.cpp) ;;
     *)             deps=() ;;
   esac
   echo "building $name"

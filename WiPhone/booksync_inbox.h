@@ -1,0 +1,70 @@
+/*
+ * booksync_inbox.h — where a position from another device waits until you open the book.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════
+ * WHY A PARKING SPOT EXISTS AT ALL
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *
+ * A LoRa round trip does not fit inside the moment you press "Sync". COVEY solves this by
+ * listening continuously and keeping late arrivals for later (`app._book_pending` — D-089),
+ * and this is the same idea: the radio takes whatever turns up, whenever it turns up, and the
+ * reader looks in here when it opens a book. Without it, "sync now, pick it up later" is not
+ * possible and the feature only works if both devices are awake, in the same app, at the same
+ * second.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════
+ * THE PACKET IS STORED RAW, AND VERIFIED LATER
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *
+ * ⚠ Deliberate: the mesh service must not need the booksync passcode. It runs in the radio
+ * path and knows nothing about books, so it recognises a sync packet by its PREFIX only —
+ * bookSyncIsSyncText(), checked BEFORE the mac, exactly as COVEY does. That ordering matters:
+ * a packet signed with somebody else's passcode is still not a chat message, and dumping
+ * "CBS1 MFRGG..." into the Chats list would be worse than dropping it.
+ *
+ * Verification happens in bookSyncInboxFindFor(), called by the reader, which is the only
+ * part that holds the key. A packet that fails the mac is simply never matched.
+ *
+ * This module is plain C++ with no Arduino headers, so the matching logic — the part that can
+ * silently do nothing — is exercised by the host tests.
+ */
+#ifndef BOOKSYNC_INBOX_H
+#define BOOKSYNC_INBOX_H
+
+#include "booksync.h"
+
+/* Four is enough for the traffic this ever sees: one position per book per sync, from a
+ * couple of devices. It is a static buffer, and internal RAM on this phone is measured in
+ * kilobytes — see the heap note in app_books.h. */
+#define BOOKSYNC_INBOX_MAX 4
+
+struct BookSyncInboxItem {
+  char     text[BOOKSYNC_MESH_TEXT_MAX];   // the packet exactly as received
+  uint32_t from;                           // sender node number, for showing who
+  uint32_t rxUnix;                         // when we heard it (0 if the clock is unknown)
+};
+
+void bookSyncInboxInit();
+
+/* Park a packet. Returns false if it is not a sync packet at all. The oldest entry is evicted
+ * when full, and a packet identical to one already parked replaces it rather than stacking —
+ * a resend is the same news, not more of it. */
+bool bookSyncInboxPush(const char* text, uint32_t from, uint32_t rxUnix);
+
+int  bookSyncInboxCount();
+const BookSyncInboxItem* bookSyncInboxGet(int i);
+void bookSyncInboxRemove(int i);
+
+/* The newest parked position that VERIFIES under `key` and is about the book with these ids.
+ *
+ * Returns its index and fills `out`/`fromOut`, or -1. Newest by the sender's own turnedAt,
+ * because that is the reading event being described — not by when the packet happened to
+ * arrive, which says more about radio conditions than about the reader.
+ *
+ * Nothing is removed: the reader decides whether to take the jump, and a position it declines
+ * should not evaporate. Call bookSyncInboxRemove() once it has been acted on.
+ */
+int bookSyncInboxFindFor(const uint8_t key[32], const char* const* ids, int nIds,
+                         BookSyncRecord* out, uint32_t* fromOut);
+
+#endif // BOOKSYNC_INBOX_H

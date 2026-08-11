@@ -8,9 +8,12 @@
 
 #include "app_books.h"
 #include "app_gbc_xfer.h"
+#include "meshtastic_service.h"
 #include "clock.h"
 #include "Arduino.h"
 #include "SD.h"
+#include <Preferences.h>
+#include <strings.h>              // strcasecmp, for finding the channel by name
 
 // Library-list rows that come before the books themselves. Keys are 1-based below these.
 #define BOOKS_ROW_ADD      1
@@ -25,6 +28,13 @@
 #define BOOKS_MENU_SIZE    3
 #define BOOKS_MENU_INFO    4
 #define BOOKS_MENU_CLOSE   5
+#define BOOKS_MENU_SYNC    6
+#define BOOKS_MENU_PENDING 7
+#define BOOKS_MENU_SYNCSET 8
+
+// Sync settings rows
+#define BOOKS_SET_PASS     1
+#define BOOKS_SET_DEV      2
 
 #define BOOKS_MARGIN       6         // left/right page margin, pixels
 /* Page turns between SD writes of the position. Every turn would mean a 16 KB whole-file
@@ -227,6 +237,8 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   log_d("create BooksApp");
   appState = BOOKS_LIB;
   menu = NULL;
+  textArea = NULL;
+  editingPass = false;
   bookCount = 0;
   pendingDelete = -1;
   xferClean = false;
@@ -247,6 +259,11 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   nIds = 0;
   nImages = 0;
   viewImage = -1;
+  pendingIdx = -1;
+  pendingFrom = 0;
+  pendingClock = false;
+  syncNote[0] = '\0';
+  memset(&pending, 0, sizeof(pending));
   memset(pageImageKey, 0, sizeof(pageImageKey));
 
   timeoutsHeld = false;
@@ -268,6 +285,8 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
     store->load(&storeIo);
   }
 
+  loadSyncSettings();
+  bookSyncInboxInit();
   BOOKS_HEAP("ctor");
   scanBooks();
   BOOKS_HEAP("scanned");
@@ -295,6 +314,26 @@ void BooksApp::freeWidgets() {
     delete menu;
     menu = NULL;
   }
+  if (textArea) {
+    delete textArea;
+    textArea = NULL;
+  }
+}
+
+// One line of typing, for the passcode or this device's name.
+void BooksApp::buildSyncEdit() {
+  const int16_t pad = 4;
+  textArea = new MultilineTextWidget(0, header->height(), lcd.width(),
+                                     lcd.height() - header->height() - footer->height(),
+                                     editingPass ? "Shared passcode" : "Name for this device",
+                                     controlState,
+                                     editingPass ? sizeof(syncPass) - 1 : sizeof(syncDev) - 1,
+                                     fonts[OPENSANS_COND_BOLD_20], InputType::AlphaNum,
+                                     pad, pad);
+  textArea->setColors(WP_COLOR_1, WP_COLOR_0);
+  textArea->setText(editingPass ? syncPass : syncDev);
+  textArea->setFocus(true);
+  controlState.setInputState(InputType::AlphaNum);
 }
 
 MenuWidget* BooksApp::newMenu(const char* emptyMessage, SmoothFont* font, uint8_t perScreen) {
@@ -572,6 +611,7 @@ bool BooksApp::openBook(int idx) {
   }
   gotoOffset(startOff, true);
   turnsSinceSave = 0;
+  checkForPending();   // a position may have arrived while this book was shut
   BOOKS_HEAP("open:done");
   return true;
 }
@@ -730,6 +770,129 @@ void BooksApp::savePosition(bool flush) {
     store->saveIfDirty(&storeIo);
     turnsSinceSave = 0;
   }
+}
+
+// ---------------------------------------------------------------- sync
+
+/* The passcode and this device's name live in NVS under `wpmesh`, the namespace the mesh
+ * service already owns for the node name and hop limit — same radio, same settings drawer. */
+void BooksApp::loadSyncSettings() {
+  Preferences p;
+  syncPass[0] = '\0';
+  syncDev[0] = '\0';
+  if (p.begin("wpmesh", true)) {
+    p.getString("bspw", syncPass, sizeof(syncPass));
+    p.getString("bsdev", syncDev, sizeof(syncDev));
+    p.end();
+  }
+  if (!syncDev[0]) {
+    // Default to the mesh node name, which is already something the user chose.
+    const char* n = meshService.getMyLongName();
+    snprintf(syncDev, sizeof(syncDev), "%s", (n && n[0]) ? n : "WiPhone");
+  }
+}
+
+void BooksApp::saveSyncSettings() {
+  Preferences p;
+  if (p.begin("wpmesh", false)) {
+    p.putString("bspw", syncPass);
+    p.putString("bsdev", syncDev);
+    p.end();
+  }
+}
+
+/* Broadcast where I am, on the `booksync` channel.
+ *
+ * ⚠ Found BY NAME, and there is NO fallback to the primary channel. That is not caution for
+ * its own sake: a reading position on LongFast is readable by every node in range, and the
+ * failure would be invisible — the packet would send happily and look like success. Better to
+ * refuse and say why. */
+bool BooksApp::sendMyPlace() {
+  syncNote[0] = '\0';
+  if (!isOpen || nIds <= 0) {
+    snprintf(syncNote, sizeof(syncNote), "No book open");
+    return false;
+  }
+
+  const MeshChannel* ch = NULL;
+  int n = meshService.getChannelCount();
+  for (int i = 0; i < n; i++) {
+    const MeshChannel* c = meshService.getChannel(i);
+    if (c && strcasecmp(c->name, "booksync") == 0) {
+      ch = c;
+      break;
+    }
+  }
+  if (!ch) {
+    snprintf(syncNote, sizeof(syncNote), "No 'booksync' channel - import it first");
+    return false;
+  }
+
+  const char* idp[BOOKSYNC_MAX_IDS];
+  for (int i = 0; i < nIds; i++) {
+    idp[i] = ids[i];
+  }
+  uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0;
+
+  BookSyncRecord r;
+  bookSyncMakeRecord(&r, idp, nIds, (uint32_t)spine, pageStart, fractionHere(),
+                     now, syncDev, NULL);
+  uint8_t key[32];
+  bookSyncDeriveKey(syncPass, key);
+
+  char text[BOOKSYNC_MESH_TEXT_MAX];
+  if (!bookSyncPackMesh(&r, key, text, sizeof(text))) {
+    snprintf(syncNote, sizeof(syncNote), "Could not build the packet");
+    return false;
+  }
+  bool ok = meshService.sendChannelMessage(ch->hash, text);
+  snprintf(syncNote, sizeof(syncNote), ok ? "Sent: ch %d, %d%%" : "Radio would not send",
+           spine + 1, (int)(fractionHere() * 100.0 + 0.5));
+  return ok;
+}
+
+/* Anything parked for the book that is open? Called on opening one and on returning to the
+ * page, because a LoRa round trip does not fit inside the moment you press Sync. */
+void BooksApp::checkForPending() {
+  pendingIdx = -1;
+  if (!isOpen || nIds <= 0) {
+    return;
+  }
+  const char* idp[BOOKSYNC_MAX_IDS];
+  for (int i = 0; i < nIds; i++) {
+    idp[i] = ids[i];
+  }
+  uint8_t key[32];
+  bookSyncDeriveKey(syncPass, key);
+  pendingIdx = bookSyncInboxFindFor(key, idp, nIds, &pending, &pendingFrom);
+  if (pendingIdx >= 0) {
+    uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0;
+    pendingClock = now && bookSyncSuspectClock(&pending, now);
+  }
+}
+
+/* Take the jump. Uses the FRACTION rather than the raw offset, because the two devices do not
+ * agree on offsets to the byte: COVEY counts characters where this counts bytes, and the two
+ * extractors keep slightly different amounts of markup. epubLocate turns a whole-book fraction
+ * back into a position here, which is what makes a jump from COVEY land somewhere sane. */
+void BooksApp::applyPending() {
+  if (pendingIdx < 0 || !isOpen) {
+    return;
+  }
+  int sp = spine;
+  uint32_t off = 0;
+  epubLocate(&book, pending.fraction, &sp, &off);
+  if (sp < 0 || sp >= book.nSpine) {
+    sp = 0;
+    off = 0;
+  }
+  if (sp != spine) {
+    loadChapter(sp);
+  }
+  gotoOffset(off, true);
+  savePosition(true);
+  bookSyncInboxRemove(pendingIdx);
+  pendingIdx = -1;
 }
 
 // ---------------------------------------------------------------- paging
@@ -1134,6 +1297,54 @@ void BooksApp::drawPicture() {
   lcd.drawString(cap, BOOKS_MARGIN, bottom - capH);
 }
 
+/* Somebody else's place in this book, offered.
+ *
+ * ⚠ Offered, never taken. D-089 is explicit about this and the reason is clock skew: these
+ * devices routinely have no NTP, so "newest wins" can silently throw away the reading you
+ * actually did in favour of a stale packet with a confident timestamp. A person can see at a
+ * glance whether 43% is ahead of where they are; an algorithm comparing two unreliable clocks
+ * cannot. The suspect-clock line exists for exactly the case where the timestamp is nonsense.
+ */
+void BooksApp::drawSyncCard() {
+  SmoothFont* f = fonts[AKROBAT_BOLD_18];
+  SmoothFont* sf = fonts[AKROBAT_BOLD_16];
+  const int top = header->height();
+  const int bottom = (int)lcd.height() - (int)footer->height();
+  const int lh = f->height() + 2;
+
+  lcd.fillRect(0, top, lcd.width(), bottom - top, BLACK);
+  if (pendingIdx < 0) {
+    return;
+  }
+  lcd.setTextFont(f);
+  lcd.setTextDatum(TL_DATUM);
+  int y = top + 4;
+
+  char l[96];
+  lcd.setTextColor(TFT_GREENYELLOW, BLACK);
+  snprintf(l, sizeof(l), "%s says:", pending.dev[0] ? pending.dev : "Another device");
+  lcd.drawString(l, BOOKS_MARGIN, y); y += lh + 2;
+
+  lcd.setTextColor(WHITE, BLACK);
+  int theirPct = (int)(pending.fraction * 100.0 + 0.5);
+  snprintf(l, sizeof(l), "they are at %d%%", theirPct);
+  lcd.drawString(l, BOOKS_MARGIN, y); y += lh;
+  snprintf(l, sizeof(l), "you are at %d%%", (int)(fractionHere() * 100.0 + 0.5));
+  lcd.drawString(l, BOOKS_MARGIN, y); y += lh + 6;
+
+  lcd.setTextFont(sf);
+  if (pendingClock) {
+    // Flagged rather than refused, exactly as COVEY does: the position may still be the one
+    // you want, but its timestamp cannot be trusted to decide that for you.
+    lcd.setTextColor(TFT_ORANGE, BLACK);
+    lcd.drawString("(their clock looks wrong)", BOOKS_MARGIN, y);
+    y += sf->height() + 4;
+  }
+  lcd.setTextColor(TFT_DARKGREY, BLACK);
+  lcd.drawString("OK: go there", BOOKS_MARGIN, y); y += sf->height() + 2;
+  lcd.drawString("Back: stay where I am", BOOKS_MARGIN, y);
+}
+
 // ---------------------------------------------------------------- states
 
 void BooksApp::buildMenu() {
@@ -1145,8 +1356,18 @@ void BooksApp::buildMenu() {
   static const char* SIZES[] = { "small", "medium", "large" };
   snprintf(l, sizeof(l), "Text size: %s", SIZES[fontIdx % BODY_FONT_COUNT]);
   menu->addOption(l, BOOKS_MENU_SIZE, 1);
+  menu->addOption("Sync my place", BOOKS_MENU_SYNC, 1);
+  if (pendingIdx >= 0) {
+    snprintf(l, sizeof(l), "Go to %s's place (%d%%)",
+             pending.dev[0] ? pending.dev : "their", (int)(pending.fraction * 100.0 + 0.5));
+    menu->addOption(l, BOOKS_MENU_PENDING, 1);
+  }
+  menu->addOption("Sync settings...", BOOKS_MENU_SYNCSET, 1);
   menu->addOption("Book info", BOOKS_MENU_INFO, 1);
   menu->addOption("Close book", BOOKS_MENU_CLOSE, 1);
+  if (syncNote[0]) {
+    menu->addOption(syncNote, 0, 1);       // what the last send did, good or bad
+  }
 }
 
 void BooksApp::buildToc() {
@@ -1251,7 +1472,48 @@ void BooksApp::enterState(BooksState_t state) {
     header->setTitle("Picture");
     footer->setButtons("", "Back");
     break;
+  case BOOKS_SYNCCARD:
+    header->setTitle("Sync");
+    footer->setButtons("Go there", "Stay");
+    break;
+  case BOOKS_SYNCSET:
+    header->setTitle("Sync settings");
+    footer->setButtons("Select", "Back");
+    buildSyncSettings();
+    break;
+  case BOOKS_SYNCEDIT:
+    header->setTitle(editingPass ? "Passcode" : "Device name");
+    footer->setButtons("Save", "Cancel");
+    buildSyncEdit();
+    break;
   }
+}
+
+/* The two secrets and the name that travels with a position. The passcode is shown in full
+ * on purpose: it has to be typed identically into COVEY, and hiding it behind asterisks makes
+ * "the two do not match" — a failure that is completely silent on the wire — impossible to
+ * diagnose by looking. */
+void BooksApp::buildSyncSettings() {
+  menu = newMenu(NULL, fonts[AKROBAT_BOLD_18], 8);
+  char l[80];
+  snprintf(l, sizeof(l), "Passcode: %s", syncPass[0] ? syncPass : "(none)");
+  menu->addOption(l, BOOKS_SET_PASS, 1);
+  snprintf(l, sizeof(l), "This device: %s", syncDev);
+  menu->addOption(l, BOOKS_SET_DEV, 1);
+
+  // Whether the transport even exists. Without the channel there is nowhere legal to send.
+  bool haveCh = false;
+  int n = meshService.getChannelCount();
+  for (int i = 0; i < n; i++) {
+    const MeshChannel* c = meshService.getChannel(i);
+    if (c && strcasecmp(c->name, "booksync") == 0) {
+      haveCh = true;
+    }
+  }
+  menu->addOption(haveCh ? "Channel 'booksync': found"
+                         : "Channel 'booksync': MISSING", 0, 1);
+  snprintf(l, sizeof(l), "Parked positions: %d", bookSyncInboxCount());
+  menu->addOption(l, 0, 1);
 }
 
 appEventResult BooksApp::processEvent(EventType event) {
@@ -1438,6 +1700,21 @@ appEventResult BooksApp::processEvent(EventType event) {
         menu->select(BOOKS_MENU_SIZE);
         return REDRAW_SCREEN;
       }
+      case BOOKS_MENU_SYNC:
+        sendMyPlace();
+        freeWidgets();
+        buildMenu();
+        menu->select(BOOKS_MENU_SYNC);
+        return REDRAW_SCREEN;
+      case BOOKS_MENU_PENDING:
+        if (pendingIdx >= 0) {
+          enterState(BOOKS_SYNCCARD);
+          return REDRAW_ALL;
+        }
+        return REDRAW_SCREEN;
+      case BOOKS_MENU_SYNCSET:
+        enterState(BOOKS_SYNCSET);
+        return REDRAW_ALL;
       case BOOKS_MENU_INFO:
         enterState(BOOKS_INFO);
         return REDRAW_ALL;
@@ -1482,6 +1759,65 @@ appEventResult BooksApp::processEvent(EventType event) {
       return REDRAW_ALL;
     }
     return DO_NOTHING;
+
+  case BOOKS_SYNCCARD:
+    if (LOGIC_BUTTON_OK(event)) {
+      applyPending();                    // only ever from a deliberate press
+      enterState(BOOKS_READ);
+      return REDRAW_ALL;
+    }
+    if (LOGIC_BUTTON_BACK(event)) {
+      /* Staying put drops the offer rather than leaving it to ask again on every page —
+       * a prompt you have already declined is nagging, not syncing. */
+      if (pendingIdx >= 0) {
+        bookSyncInboxRemove(pendingIdx);
+        pendingIdx = -1;
+      }
+      enterState(BOOKS_READ);
+      return REDRAW_ALL;
+    }
+    return DO_NOTHING;
+
+  case BOOKS_SYNCSET:
+    if (LOGIC_BUTTON_BACK(event)) {
+      enterState(isOpen ? BOOKS_MENU : BOOKS_LIB);
+      return REDRAW_ALL;
+    }
+    menu->processEvent(event);
+    if (LOGIC_BUTTON_OK(event)) {
+      MenuOption::keyType sel = menu->currentKey();
+      if (sel == BOOKS_SET_PASS || sel == BOOKS_SET_DEV) {
+        editingPass = (sel == BOOKS_SET_PASS);
+        enterState(BOOKS_SYNCEDIT);
+        return REDRAW_ALL;
+      }
+    }
+    return REDRAW_SCREEN;
+
+  case BOOKS_SYNCEDIT:
+    if (event == WIPHONE_KEY_END) {        // cancel (Back is backspace in a text field)
+      enterState(BOOKS_SYNCSET);
+      return REDRAW_ALL;
+    }
+    if (LOGIC_BUTTON_OK(event)) {
+      const char* t = textArea ? textArea->getText() : NULL;
+      if (t) {
+        if (editingPass) {
+          snprintf(syncPass, sizeof(syncPass), "%s", t);
+        } else if (t[0]) {
+          snprintf(syncDev, sizeof(syncDev), "%s", t);
+        }
+        saveSyncSettings();
+        checkForPending();     // a new passcode may make a parked packet verify
+      }
+      enterState(BOOKS_SYNCSET);
+      return REDRAW_ALL;
+    }
+    if (IS_KEYBOARD(event) && textArea) {
+      textArea->processEvent(event);
+      return REDRAW_SCREEN;
+    }
+    return DO_NOTHING;
   }
 
   return DO_NOTHING;
@@ -1503,6 +1839,14 @@ void BooksApp::redrawScreen(bool redrawAll) {
     break;
   case BOOKS_PICTURE:
     drawPicture();
+    break;
+  case BOOKS_SYNCCARD:
+    drawSyncCard();
+    break;
+  case BOOKS_SYNCEDIT:
+    if (textArea) {
+      ((GUIWidget*)textArea)->redraw(lcd);
+    }
     break;
   default:
     if (menu) {

@@ -28,6 +28,7 @@
 #include "epub_parse.h"
 #include "book_layout.h"
 #include "bookstore.h"
+#include "booksync_inbox.h"
 
 #define BOOKS_MAX        48       // books listed from the SD card
 #define BOOKS_HIST       48       // remembered page starts: exact back-paging while reading
@@ -56,6 +57,9 @@ protected:
     BOOKS_TOC,        // chapter list
     BOOKS_INFO,       // title / ids / fingerprint — what sync matches on
     BOOKS_PICTURE,    // one picture, full screen
+    BOOKS_SYNCCARD,   // "COVEY is at 43% — go there?" — never taken automatically
+    BOOKS_SYNCSET,    // the shared passcode and this device's name
+    BOOKS_SYNCEDIT,   // typing one of those two
   } BooksState_t;
 
   // A file the library found. Metadata is NOT read here: opening 90 spine items to draw a
@@ -68,6 +72,8 @@ protected:
 
   BooksState_t appState;
   MenuWidget*  menu;             // the active list, when a state has one
+  MultilineTextWidget* textArea; // the editor, when typing a passcode or device name
+  bool         editingPass;      // which of the two BOOKS_SYNCEDIT is editing
 
   /* ---- library
    *
@@ -129,6 +135,20 @@ protected:
   uint32_t openedSpine;
   int      openedPct;
 
+  /* ---- sync
+   *
+   * Two secrets, not one: the `booksync` Meshtastic CHANNEL carries the packet (its PSK is
+   * the transport, imported like any other channel), and the PASSCODE below is the HMAC key
+   * that says the position is really from you. Both must match COVEY's or nothing happens —
+   * silently, on both devices, by design. */
+  char     syncPass[24];         // the shared booksync passcode, in NVS
+  char     syncDev[20];          // what this device calls itself in a position
+  BookSyncRecord pending;        // a parked position that matches the open book
+  uint32_t pendingFrom;          // which node sent it
+  int      pendingIdx;           // its slot in the inbox, or -1 for none
+  bool     pendingClock;         // its clock looks wrong (see bookSyncSuspectClock)
+  char     syncNote[64];         // result of the last send, shown in the menu
+
   // ---- screen timeout, borrowed while reading
   bool     timeoutsHeld;
   uint32_t savedDimMs;
@@ -146,6 +166,8 @@ protected:
   void buildManage();
   void buildMenu();
   void buildToc();
+  void buildSyncSettings();
+  void buildSyncEdit();
 
   bool openBook(int idx);
   void closeBook(bool save);
@@ -165,6 +187,13 @@ protected:
   void drawXfer();
   void drawInfo();
   void drawPicture();            // the full-screen view
+  void drawSyncCard();           // the confirm card for an incoming position
+
+  void loadSyncSettings();
+  void saveSyncSettings();
+  bool sendMyPlace();            // broadcast where I am on the booksync channel
+  void checkForPending();        // is a parked position about the open book?
+  void applyPending();           // take the jump, once confirmed
 
   void loadChapterImages();      // sizes and row heights for the current chapter
   int  imageRows(int i) const;   // rows of text height picture i occupies inline
