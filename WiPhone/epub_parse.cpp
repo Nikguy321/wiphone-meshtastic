@@ -54,7 +54,12 @@ static uint32_t rd32(const uint8_t* p) {
 }
 
 // ---------------------------------------------------------------- inflate
-static int rawInflate(const uint8_t* src, size_t srcLen, uint8_t* dst, size_t dstCap) {
+/* `partial` accepts a short result instead of failing. Both backends already produce the
+ * bytes; they simply refuse to report them unless the whole stream finished. That is right
+ * for a chapter — a half-inflated chapter is corruption — and wrong for peeking at the header
+ * of a 1 MB cover image just to learn how big it is. */
+static int rawInflateEx(const uint8_t* src, size_t srcLen, uint8_t* dst, size_t dstCap,
+                        bool partial) {
 #if defined(ARDUINO)
   // The ROM build of miniz has no allocator, so tinfl_decompress() is used directly and the
   // decompressor state (~11 KB) is heap-allocated rather than put on a task stack.
@@ -67,7 +72,10 @@ static int rawInflate(const uint8_t* src, size_t srcLen, uint8_t* dst, size_t ds
   tinfl_status st = tinfl_decompress(d, src, &inLen, dst, dst, &outLen,
                                      TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF);
   ebFree(d);
-  return (st == TINFL_STATUS_DONE) ? (int)outLen : -1;
+  if (st == TINFL_STATUS_DONE) {
+    return (int)outLen;
+  }
+  return (partial && outLen > 0) ? (int)outLen : -1;
 #else
   z_stream zs;
   memset(&zs, 0, sizeof(zs));
@@ -81,8 +89,15 @@ static int rawInflate(const uint8_t* src, size_t srcLen, uint8_t* dst, size_t ds
   int r = inflate(&zs, Z_FINISH);
   size_t got = zs.total_out;
   inflateEnd(&zs);
-  return (r == Z_STREAM_END) ? (int)got : -1;
+  if (r == Z_STREAM_END) {
+    return (int)got;
+  }
+  return (partial && got > 0) ? (int)got : -1;
 #endif
+}
+
+static int rawInflate(const uint8_t* src, size_t srcLen, uint8_t* dst, size_t dstCap) {
+  return rawInflateEx(src, srcLen, dst, dstCap, false);
 }
 
 // ---------------------------------------------------------------- zip
@@ -210,6 +225,39 @@ static int zipRead(EpubSource* s, const ZipEntry* e, uint8_t* dst, size_t dstCap
   int out = -1;
   if (srcRead(s, dataOff, comp, e->compSize) == e->compSize) {
     out = rawInflate(comp, e->compSize, dst, dstCap);
+  }
+  ebFree(comp);
+  return out;
+}
+
+/* The first `dstCap` bytes of an entry, however big the entry is. Only a PREFIX of the
+ * compressed data is read, so peeking at a 1 MB cover's header costs a few KB either side
+ * rather than two megabytes of buffers. */
+static int zipReadPrefix(EpubSource* s, const ZipEntry* e, uint8_t* dst, size_t dstCap) {
+  uint8_t lh[30];
+  if (srcRead(s, e->localOff, lh, 30) != 30 || rd32(lh) != 0x04034b50) {
+    return -1;
+  }
+  uint64_t dataOff = e->localOff + 30 + rd16(lh + 26) + rd16(lh + 28);
+  if (e->method == 0) {
+    size_t want = e->uncompSize < dstCap ? e->uncompSize : dstCap;
+    size_t got = srcRead(s, dataOff, dst, want);
+    return (int)got;
+  }
+  if (e->method != 8) {
+    return -1;
+  }
+  size_t want = dstCap + 1024;                 // slack: deflate can expand a little
+  if (want > e->compSize) {
+    want = e->compSize;
+  }
+  uint8_t* comp = (uint8_t*)ebAlloc(want ? want : 1);
+  if (!comp) {
+    return -1;
+  }
+  int out = -1;
+  if (srcRead(s, dataOff, comp, want) == want) {
+    out = rawInflateEx(comp, want, dst, dstCap, true);
   }
   ebFree(comp);
   return out;
@@ -669,7 +717,13 @@ static void toFlush(TextOut* t) {
   t->buf[t->len] = '\0';
 }
 
-size_t epubExtractText(const char* html, size_t htmlLen, char* out, size_t cap) {
+/* The extractor. `baseDir`/`imgs` are optional: when given, every <img src> is recorded with
+ * the output length committed at that point. Passing them changes the produced TEXT by
+ * nothing at all — `img` is neither a BLOCK_TAG nor a DROP_TAG, so it emits no characters and
+ * forces no break, and the capture only reads a counter. That invariant is the whole reason
+ * pictures could be added without moving a single reading position. */
+static size_t extractTextImpl(const char* html, size_t htmlLen, char* out, size_t cap,
+                              const char* baseDir, EpubImage* imgs, int maxImgs, int* nImgs) {
   if (cap < 4) {
     return 0;
   }
@@ -725,6 +779,7 @@ size_t epubExtractText(const char* html, size_t htmlLen, char* out, size_t cap) 
     }
     char name[32];
     tagLocalName(html + ns, j - ns, name, sizeof(name));
+    size_t attrStart = j;
     while (j < htmlLen && html[j] != '>') {         // skip attributes, honouring quotes
       if (html[j] == '"' || html[j] == '\'') {
         char q = html[j++];
@@ -748,11 +803,30 @@ size_t epubExtractText(const char* html, size_t htmlLen, char* out, size_t cap) 
     if (!skip && inList(BLOCK_TAGS, sizeof(BLOCK_TAGS) / sizeof(BLOCK_TAGS[0]), name)) {
       toFlush(&t);                                  // flush on BOTH open and close, as COVEY
     }
+    /* A picture. Recorded, never rendered into the text — see the note on this function.
+     * Deliberately after the DROP check, so an <image> inside a dropped <svg> is ignored for
+     * the same reason its text is. `t.len` excludes anything still pending, so an image in
+     * the middle of a paragraph anchors to the START of that paragraph; in a real book they
+     * sit between paragraphs, where this is exact. */
+    if (!skip && !closing && imgs && nImgs && *nImgs < maxImgs && strcmp(name, "img") == 0) {
+      char href[EPUB_NAME_MAX];
+      if (tagAttr(html + attrStart, j - attrStart, "src", href, sizeof(href)) && href[0]) {
+        EpubImage* im = &imgs[*nImgs];
+        im->off = (uint32_t)t.len;
+        im->w = im->h = 0;
+        epubNormPath(baseDir, href, im->name, EPUB_NAME_MAX);
+        (*nImgs)++;
+      }
+    }
     i = next;
   }
   toFlush(&t);
   ebFree(pend);
   return t.len;
+}
+
+size_t epubExtractText(const char* html, size_t htmlLen, char* out, size_t cap) {
+  return extractTextImpl(html, htmlLen, out, cap, NULL, NULL, 0, NULL);
 }
 
 // ---------------------------------------------------------------- OPF
@@ -1263,6 +1337,14 @@ const char* epubStatusText(EpubStatus s) {
 
 // ---------------------------------------------------------------- chapters
 size_t epubChapterText(EpubBook* b, int i, char* buf, size_t cap) {
+  return epubChapterTextImages(b, i, buf, cap, NULL, 0, NULL);
+}
+
+size_t epubChapterTextImages(EpubBook* b, int i, char* buf, size_t cap,
+                             EpubImage* imgs, int maxImgs, int* nImgs) {
+  if (nImgs) {
+    *nImgs = 0;
+  }
   if (i < 0 || i >= b->nSpine || cap < 2) {
     return 0;
   }
@@ -1345,13 +1427,109 @@ size_t epubChapterText(EpubBook* b, int i, char* buf, size_t cap) {
   int n = zipRead(b->src, &e, raw, EPUB_MAX_DOC);
   size_t out = 0;
   if (n > 0) {
-    out = epubExtractText((const char*)raw, (size_t)n, buf, cap);
+    // An <img src> is relative to the CHAPTER's directory, not the OPF's and not the root.
+    char here[EPUB_NAME_MAX] = {0};
+    const char* slash = strrchr(b->spine[i].name, '/');
+    if (slash) {
+      size_t hl = (size_t)(slash - b->spine[i].name);
+      memcpy(here, b->spine[i].name, hl);
+      here[hl] = '\0';
+    }
+    out = extractTextImpl((const char*)raw, (size_t)n, buf, cap, here, imgs, maxImgs, nImgs);
   } else {
     snprintf(buf, cap, "[chapter unreadable]");
     out = strlen(buf);
   }
   ebFree(raw);
   return out;
+}
+
+size_t epubEntrySize(EpubBook* b, const char* name) {
+  ZipEntry e;
+  if (!b || !name || !name[0] || !zipFind(b->src, name, &e)) {
+    return 0;
+  }
+  return e.uncompSize;
+}
+
+size_t epubReadEntry(EpubBook* b, const char* name, void* buf, size_t cap) {
+  ZipEntry e;
+  if (!b || !name || !name[0] || !zipFind(b->src, name, &e)) {
+    return 0;
+  }
+  int n = zipRead(b->src, &e, (uint8_t*)buf, cap);
+  return n > 0 ? (size_t)n : 0;
+}
+
+size_t epubReadEntryPrefix(EpubBook* b, const char* name, void* buf, size_t cap) {
+  ZipEntry e;
+  if (!b || !name || !name[0] || !zipFind(b->src, name, &e)) {
+    return 0;
+  }
+  int n = zipReadPrefix(b->src, &e, (uint8_t*)buf, cap);
+  return n > 0 ? (size_t)n : 0;
+}
+
+bool epubImageSize(const void* data, size_t len, uint16_t* w, uint16_t* h) {
+  const uint8_t* p = (const uint8_t*)data;
+  if (!p || len < 24) {
+    return false;
+  }
+  // PNG: an IHDR chunk always comes first, at a fixed offset.
+  static const uint8_t PNG_SIG[8] = { 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n' };
+  if (memcmp(p, PNG_SIG, 8) == 0 && memcmp(p + 12, "IHDR", 4) == 0) {
+    uint32_t pw = ((uint32_t)p[16] << 24) | ((uint32_t)p[17] << 16) |
+                  ((uint32_t)p[18] << 8) | p[19];
+    uint32_t ph = ((uint32_t)p[20] << 24) | ((uint32_t)p[21] << 16) |
+                  ((uint32_t)p[22] << 8) | p[23];
+    if (!pw || !ph || pw > 0xFFFF || ph > 0xFFFF) {
+      return false;
+    }
+    *w = (uint16_t)pw;
+    *h = (uint16_t)ph;
+    return true;
+  }
+  // JPEG: walk the marker segments to a start-of-frame, which carries the dimensions.
+  if (!(p[0] == 0xFF && p[1] == 0xD8)) {
+    return false;
+  }
+  size_t i = 2;
+  while (i + 3 < len) {
+    if (p[i] != 0xFF) {
+      i++;                                  // fill byte or padding: resync
+      continue;
+    }
+    uint8_t m = p[i + 1];
+    if (m == 0xFF) {
+      i++;
+      continue;
+    }
+    if (m == 0xD8 || m == 0x01 || (m >= 0xD0 && m <= 0xD7)) {
+      i += 2;                               // standalone markers carry no length
+      continue;
+    }
+    if (m == 0xDA || m == 0xD9) {
+      break;                                // start of scan / end: no frame header found
+    }
+    if (i + 3 >= len) {
+      break;
+    }
+    size_t seg = ((size_t)p[i + 2] << 8) | p[i + 3];
+    // SOF0..SOF15, except the DHT/JPG/DAC markers that share the range.
+    if (m >= 0xC0 && m <= 0xCF && m != 0xC4 && m != 0xC8 && m != 0xCC) {
+      if (i + 9 >= len) {
+        break;
+      }
+      *h = (uint16_t)(((uint16_t)p[i + 5] << 8) | p[i + 6]);
+      *w = (uint16_t)(((uint16_t)p[i + 7] << 8) | p[i + 8]);
+      return (*w != 0 && *h != 0);
+    }
+    if (seg < 2) {
+      break;
+    }
+    i += 2 + seg;
+  }
+  return false;
 }
 
 size_t epubChapterLen(EpubBook* b, int i) {

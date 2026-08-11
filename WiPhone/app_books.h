@@ -55,6 +55,7 @@ protected:
     BOOKS_MENU,       // the menu over a page: chapters, text size, info, close
     BOOKS_TOC,        // chapter list
     BOOKS_INFO,       // title / ids / fingerprint — what sync matches on
+    BOOKS_PICTURE,    // one picture, full screen
   } BooksState_t;
 
   // A file the library found. Metadata is NOT read here: opening 90 spine items to draw a
@@ -90,6 +91,16 @@ protected:
   size_t    chapLen;
   int       chapCap;             // what we actually managed to allocate
   int       spine;
+
+  /* Pictures in the current chapter. Sizes come from the file HEADERS at chapter load (a few
+   * KB each, not the whole image), because the layout must know how many rows to reserve
+   * before anything is drawn. The image DATA is only read while it is being drawn — a 1 MB
+   * cover does not get to sit in RAM all session. */
+  EpubImage    images[EPUB_MAX_IMAGES];
+  BookImageBox imgBoxes[EPUB_MAX_IMAGES];    // the same, in the units the layout wants
+  int          nImages;
+  int          viewImage;                    // index shown full-screen, or -1
+  uint8_t      pageImageKey[EPUB_MAX_IMAGES];  // number key that opens image i, 0 = not on this page
   uint32_t  pageStart;
   uint32_t  hist[BOOKS_HIST];    // page starts behind us, for exact back-paging
   int       histN;
@@ -136,6 +147,11 @@ protected:
   void drawHelp();
   void drawXfer();
   void drawInfo();
+  void drawPicture();            // the full-screen view
+
+  void loadChapterImages();      // sizes and row heights for the current chapter
+  int  imageRows(int i) const;   // rows of text height picture i occupies inline
+  bool drawOneImage(int i, int x, int y, uint16_t boxW, uint16_t boxH);
 };
 
 #endif // APP_BOOKS_H

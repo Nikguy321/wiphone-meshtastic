@@ -479,6 +479,140 @@ static void testEveryBoundaryOfAChapter() {
   }
 }
 
+/* Pictures in the flow. The failure that matters here is not a misplaced picture — it is a
+ * page that cannot advance, because the caller reads next <= start as "end of chapter" and
+ * the reader then sits on one page for ever. */
+static void testImages() {
+  group("pictures take rows out of the page");
+
+  const char* t =
+    "The Ghost Dogs made planetfall at dusk.\n\n"
+    "Nothing moved in the treeline for a long while, and then everything did at once.\n\n"
+    "Sergeant Vidal counted three heat blooms, then four, then stopped counting.\n\n"
+    "Afterwards nobody could agree on how long it had taken at all.\n";
+  size_t len = strlen(t);
+  const int w = 20 * CHARW, ml = 6;
+
+  // One picture at the top, one in the middle.
+  BookImageBox imgs[2] = { { 0, 3 }, { 130, 2 } };
+  BookPage pg;
+  bookLayoutPageImages(t, len, 0, w, ml, &MEASURE, imgs, 2, &pg);
+
+  ok(pg.nLines > 0 && pg.lines[0].image == 0, "the picture at offset 0 opens the page");
+  eqU32(pg.lines[0].rows, 3, "and takes its three rows");
+  int rows = 0;
+  for (int i = 0; i < pg.nLines; i++) {
+    rows += pg.lines[i].rows;
+  }
+  ok(rows <= ml, "the page never exceeds its row budget");
+  ok(pg.next > pg.start, "and it still advances");
+
+  // Every picture appears exactly once across the whole chapter, and none is lost.
+  int seen[2] = { 0, 0 };
+  uint32_t at = 0;
+  for (int guard = 0; guard < 200; guard++) {
+    bookLayoutPageImages(t, len, at, w, ml, &MEASURE, imgs, 2, &pg);
+    int r = 0;
+    for (int i = 0; i < pg.nLines; i++) {
+      r += pg.lines[i].rows;
+      if (pg.lines[i].image >= 0) {
+        seen[pg.lines[i].image]++;
+      }
+    }
+    ok(r <= ml, "every page stays inside its budget");
+    if (pg.next >= len || pg.next <= at) {
+      break;
+    }
+    at = pg.next;
+  }
+  eqU32(seen[0], 1, "picture 0 shown exactly once");
+  eqU32(seen[1], 1, "picture 1 shown exactly once");
+
+  /* A picture taller than the page. It must still be shown, and the page MUST advance —
+   * capping it at maxLines-1 rows is what guarantees room for a line of text. */
+  BookImageBox huge[1] = { { 0, 99 } };
+  bookLayoutPageImages(t, len, 0, w, ml, &MEASURE, huge, 1, &pg);
+  ok(pg.nLines >= 2 && pg.lines[0].image == 0, "an oversized picture is still shown");
+  eqU32(pg.lines[0].rows, (unsigned long)(ml - 1), "clamped to leave one row");
+  ok(pg.next > pg.start, "and the page can still be turned");
+
+  // Same, with one line per page: the degenerate geometry must not deadlock either.
+  bookLayoutPageImages(t, len, 0, w, 1, &MEASURE, huge, 1, &pg);
+  ok(pg.next > pg.start, "one-line pages advance even with a picture");
+
+  // Page-back over a chapter with pictures strands nothing.
+  uint32_t starts[64];
+  int n = 0;
+  at = 0;
+  while (n < 64) {
+    starts[n++] = at;
+    bookLayoutPageImages(t, len, at, w, ml, &MEASURE, imgs, 2, &pg);
+    if (pg.next >= len || pg.next <= at) {
+      break;
+    }
+    at = pg.next;
+  }
+  ok(n >= 3, "the sample runs to several pages");
+  int stranded = 0;
+  for (int i = n - 1; i > 0; i--) {
+    uint32_t back = bookLayoutPrevPageImages(t, len, starts[i], w, ml, &MEASURE, imgs, 2);
+    bookLayoutPageImages(t, starts[i], back, w, ml, &MEASURE, imgs, 2, &pg);
+    for (uint32_t k = pg.next; k < starts[i]; k++) {
+      if (t[k] != ' ' && t[k] != '\n') {
+        stranded++;
+        break;
+      }
+    }
+  }
+  ok(stranded == 0, "paging back past pictures strands no text");
+
+  /* A picture too tall for the space LEFT on its page. It moves to the next one — and the
+   * page it moved off must end at or before its offset, or it is lost for good: the next
+   * page skips anything behind its own start, and nothing is logged.
+   *
+   * This is the shape that a real chapter hit and five synthetic cases missed: a heading, a
+   * gap, another heading, then a 264x264 illustration nine rows tall. */
+  {
+    const char* ch = "PROLOGUE\n\nGHOSTS WHO SELL MEMORIES\n\nTHE RUINS OF GREYWALK\n\n"
+                     "Old Tom Frost sat atop a hunk of ferrocrete in a ruined street.\n";
+    size_t clen = strlen(ch);
+    BookImageBox big[1] = { { 34, 9 } };      // right after the second heading
+    int found = 0, dup = 0;
+    uint32_t a = 0;
+    uint32_t prevNext = 0;
+    for (int guard = 0; guard < 100; guard++) {
+      BookPage p2;
+      bookLayoutPageImages(ch, clen, a, 22 * CHARW, 11, &MEASURE, big, 1, &p2);
+      int r = 0;
+      for (int i = 0; i < p2.nLines; i++) {
+        r += p2.lines[i].rows;
+        if (p2.lines[i].image == 0) {
+          found++;
+          if (found > 1) {
+            dup++;
+          }
+        }
+      }
+      ok(r <= 11, "budget respected on every page");
+      prevNext = p2.next;
+      if (p2.next >= clen || p2.next <= a) {
+        break;
+      }
+      a = p2.next;
+    }
+    ok(found == 1, "a picture that does not fit moves to the next page instead of vanishing");
+    ok(dup == 0, "and is not shown twice");
+    ok(prevNext >= clen, "the chapter still reaches its end");
+  }
+
+  // Passing no pictures must be identical to the plain call.
+  BookPage a, b;
+  bookLayoutPage(t, len, 0, w, ml, &MEASURE, &a);
+  bookLayoutPageImages(t, len, 0, w, ml, &MEASURE, NULL, 0, &b);
+  ok(a.start == b.start && a.next == b.next && a.nLines == b.nLines,
+     "no pictures means exactly the old behaviour");
+}
+
 static void testSnap() {
   group("snap moves back to the start of a word");
 
@@ -532,6 +666,7 @@ int main() {
   testUtf8();
   testPrevPage();
   testEveryBoundaryOfAChapter();
+  testImages();
   testSnap();
   testDegenerate();
 

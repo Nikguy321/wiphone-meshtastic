@@ -1043,11 +1043,30 @@ namespace display {
       void* bitmap,   /* Bitmap data to be output */
       JRECT* rect     /* Rectangular region to output */
   );
+  extern int16_t jpgOffX, jpgOffY;		// where the decoded image lands (was always 0,0)
+
   /* Load JPG from memory buffer into a sprite or screen */
   int load_jpg (
       const unsigned char *img,     /* Pointer to the working buffer (must be 4-byte aligned) */
       UINT imgSize,   /* Size of the working buffer (must be power of 2) */
 	  TFT_eSPI* screen
+  );
+
+  /* Load a JPG at (x,y), scaled down to fit inside boxW x boxH.
+   *
+   * The original always drew at 0,0 and fitted the whole screen — right for a splash, useless
+   * for a picture sitting between two paragraphs. tjpgd can only halve, so the result fits
+   * the box but rarely fills it; outW/outH report what was actually drawn, so a caller can
+   * centre it. Returns 0 if the image cannot be decoded — this decoder handles baseline JPEG
+   * only, not progressive or greyscale.
+   */
+  int load_jpg_at (
+      const unsigned char *img,
+      UINT imgSize,
+      TFT_eSPI* screen,
+      int16_t x, int16_t y,
+      uint16_t boxW, uint16_t boxH,
+      uint16_t* outW, uint16_t* outH
   );
 #endif
 };

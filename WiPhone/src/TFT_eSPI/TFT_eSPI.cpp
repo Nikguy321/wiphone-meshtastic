@@ -7999,6 +7999,8 @@ const unsigned char* display::jpgImg = NULL;
 unsigned char* display::jpgDecodeBuff = NULL;
 int display::jpgPos = 0;
 int display::jpgSize = 0;
+int16_t display::jpgOffX = 0;
+int16_t display::jpgOffY = 0;
 
 static UINT display::tjd_input (
     JDEC* jd,       /* Decompression object */
@@ -8050,8 +8052,10 @@ static UINT display::tjd_output (
 //  DEBUG0(", T: "); DEBUG0(rect->top);
 //  DEBUG0(", B: "); DEBUG0(rect->bottom);
 
-  // Display
-  display::jpgReceiver->setWindow(rect->left, rect->top, rect->right, rect->bottom);
+  // Display. The offset is what lets a decoded image land somewhere other than the top-left
+  // corner (the old "TODO: account for x and y"); it is 0,0 for every original caller.
+  display::jpgReceiver->setWindow(rect->left  + display::jpgOffX, rect->top    + display::jpgOffY,
+                                  rect->right + display::jpgOffX, rect->bottom + display::jpgOffY);
   unsigned char* b = (unsigned char*) bitmap;
 
 //  DEBUG0(", C: "); DEBUG0(color, HEX);
@@ -8070,8 +8074,54 @@ static UINT display::tjd_output (
   return 1;   /* Continue to decompression */
 }
 
+int display::load_jpg_at (
+    const unsigned char *img,
+    UINT imgSize,
+    TFT_eSPI* screen,
+    int16_t x, int16_t y,
+    uint16_t boxW, uint16_t boxH,
+    uint16_t* outW, uint16_t* outH
+)
+{
+    if (!screen || !boxW || !boxH) return 0;
+
+    if (!display::jpgDecodeBuff) {
+        display::jpgDecodeBuff = (unsigned char*) malloc(JPG_BUFF_SIZE);
+        if (!display::jpgDecodeBuff) return 0;
+    }
+
+    display::jpgImg = img;
+    display::jpgSize = imgSize;
+    display::jpgPos = 0;
+    display::jpgReceiver = screen;
+
+    JDEC jd;
+    JRESULT rc = jd_prepare(&jd, display::tjd_input, (void*) display::jpgDecodeBuff, JPG_BUFF_SIZE, 0);
+    if (rc != JDR_OK) {
+        log_e("ERROR: prepare = %d%s", rc, rc == JDR_FMT3 ? " (progressive or greyscale JPG?)" : "");
+        return 0;
+    }
+
+    /* tjpgd only halves, so this finds the largest of 1, 1/2, 1/4, 1/8 that fits the box.
+     * An image smaller than the box is left at 1:1 rather than blown up. */
+    BYTE scale;
+    for (scale = 0; scale < 3; scale++) {
+        if ((jd.width >> scale) <= boxW && (jd.height >> scale) <= boxH) break;
+    }
+    uint16_t w = jd.width >> scale, h = jd.height >> scale;
+    if (outW) *outW = w;
+    if (outH) *outH = h;
+
+    display::jpgOffX = x;
+    display::jpgOffY = y;
+    rc = jd_decomp(&jd, display::tjd_output, scale);
+    display::jpgOffX = 0;                   // never leave a global armed for the next caller
+    display::jpgOffY = 0;
+    return (rc == JDR_OK) ? 1 : 0;
+}
+
 int display::load_jpg (
-    const unsigned char *img,     
+    const unsigned char *img,
     UINT imgSize,
     TFT_eSPI* screen
 )

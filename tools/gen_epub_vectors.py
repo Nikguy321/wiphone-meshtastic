@@ -54,12 +54,27 @@ CONTAINER = ('<?xml version="1.0"?>\n'
              '</rootfiles></container>')
 
 
-def chapter(title, paras):
+def chapter(title, paras, extra=""):
     body = "".join("<p>%s</p>" % p for p in paras)
     return ('<?xml version="1.0" encoding="utf-8"?>\n'
             '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>%s</title>'
-            '<style>p{color:red}</style></head><body><h1>%s</h1>%s'
-            '<script>var x = "not reading text";</script></body></html>' % (title, title, body))
+            '<style>p{color:red}</style></head><body><h1>%s</h1>%s%s'
+            '<script>var x = "not reading text";</script></body></html>'
+            % (title, title, extra, body))
+
+
+def tiny_jpeg(w, h):
+    """A structurally valid JPEG header with known dimensions.
+
+    Only epubImageSize() reads this, and it walks marker segments to the SOF — so an APP0
+    segment sits in front of the SOF deliberately, to prove the walk skips it rather than
+    assuming the frame header comes first.
+    """
+    return (b"\xff\xd8"                                          # SOI
+            b"\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"   # APP0
+            + b"\xff\xc0\x00\x11\x08" + bytes([h >> 8, h & 0xFF, w >> 8, w & 0xFF])
+            + b"\x03\x01\x11\x00\x02\x11\x01\x03\x11\x01"        # SOF0 components
+            + b"\xff\xd9")                                       # EOI
 
 
 def build_epub3_nav(path):
@@ -123,7 +138,13 @@ def build_epub2_subdir(path):
         z.writestr("META-INF/container.xml", CONTAINER % "OEBPS/content.opf")
         z.writestr("OEBPS/content.opf", opf)
         z.writestr("OEBPS/toc.ncx", ncx)
-        z.writestr("OEBPS/text/one.xhtml", chapter("One", ["Down in a subdirectory."]))
+        # An <img> whose src is relative to the CHAPTER's directory (OEBPS/text/), not the
+        # OPF's and not the root — the same trap as the manifest hrefs, one level deeper.
+        # It must also add exactly nothing to the extracted text, which is what the
+        # regenerated-from-COVEY vectors below prove.
+        z.writestr("OEBPS/img/pic.jpg", tiny_jpeg(40, 30))
+        z.writestr("OEBPS/text/one.xhtml",
+                   chapter("One", ["Down in a subdirectory."], '<img src="../img/pic.jpg"/>'))
         z.writestr("OEBPS/text/two.xhtml", chapter("Two", ["And the second one too."]))
 
 

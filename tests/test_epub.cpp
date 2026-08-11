@@ -31,6 +31,15 @@ static void ok(bool cond, const char* what) {
   }
 }
 
+static void eqU32(unsigned long got, unsigned long want, const char* what) {
+  if (got == want) {
+    g_pass++;
+    return;
+  }
+  g_fail++;
+  printf("  \033[31mFAIL\033[0m %s :: %s  want=%lu got=%lu\n", g_group, what, want, got);
+}
+
 static void eqStr(const char* got, const char* want, const char* what) {
   if (got && want && strcmp(got, want) == 0) {
     g_pass++;
@@ -141,6 +150,45 @@ static void testBooks() {
         char t[EPUB_CH_TITLE_MAX];
         epubChapterTitle(&b, k, t, sizeof(t));
         eqStr(t, v->chapTitle[k], v->label);
+      }
+    }
+
+    /* Pictures. WiPhone-only — COVEY has no screen concept of them — so these are behaviour
+     * assertions, not interop vectors. The invariant that IS interop-critical is checked for
+     * every fixture right below: asking for the images must not change the text by one byte,
+     * because a reading position is a byte offset into it. */
+    {
+      char plain[8192], withImgs[8192];
+      size_t lp = epubChapterText(&b, 0, plain, sizeof(plain));
+      EpubImage imgs[EPUB_MAX_IMAGES];
+      int nImgs = -1;
+      size_t li = epubChapterTextImages(&b, 0, withImgs, sizeof(withImgs),
+                                        imgs, EPUB_MAX_IMAGES, &nImgs);
+      char what[96];
+      snprintf(what, sizeof(what), "%s: capturing images leaves the text byte-identical",
+               v->label);
+      ok(lp == li && memcmp(plain, withImgs, lp) == 0, what);
+
+      if (strcmp(v->label, "epub2_subdir") == 0) {
+        eqU32((unsigned long)nImgs, 1, "epub2_subdir: one picture in chapter 1");
+        if (nImgs == 1) {
+          // "../img/pic.jpg" from OEBPS/text/ resolves up a level, not to the zip root.
+          eqStr(imgs[0].name, "OEBPS/img/pic.jpg", "picture src resolves against the chapter");
+          // The <h1> before it has already been committed ("One"), the <p> after it has not.
+          eqU32(imgs[0].off, 3, "and it anchors between the heading and the paragraph");
+
+          uint8_t hdr[512];
+          size_t got = epubReadEntryPrefix(&b, imgs[0].name, hdr, sizeof(hdr));
+          ok(got > 0, "the picture can be read out of the zip");
+          uint16_t iw = 0, ih = 0;
+          ok(epubImageSize(hdr, got, &iw, &ih), "its header parses");
+          eqU32(iw, 40, "picture width");
+          eqU32(ih, 30, "picture height");
+        }
+      } else {
+        char none[80];
+        snprintf(none, sizeof(none), "%s: no pictures reported", v->label);
+        ok(nImgs == 0, none);
       }
     }
 
@@ -274,12 +322,60 @@ static void testBadInput() {
   remove(empty);
 }
 
+/* epubImageSize on its own. It walks JPEG marker segments rather than assuming the frame
+ * header comes first, which is the part that is easy to get subtly wrong — and a wrong size
+ * means an inline picture reserves the wrong number of rows on the page. */
+static void testImageSize() {
+  group("picture dimensions from a file header");
+  uint16_t w = 0, h = 0;
+
+  // JPEG with an APP0 segment in front of the SOF0, as every real JFIF file has.
+  const uint8_t jpg[] = {
+    0xFF, 0xD8,
+    0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F', 0, 1, 1, 0, 0, 1, 0, 1, 0, 0,
+    0xFF, 0xC0, 0x00, 0x11, 0x08, 0x02, 0x58, 0x01, 0x90, 3, 1, 0x11, 0, 2, 0x11, 1, 3, 0x11, 1,
+    0xFF, 0xD9
+  };
+  ok(epubImageSize(jpg, sizeof(jpg), &w, &h), "a JFIF header parses");
+  eqU32(w, 400, "jpeg width comes from the SOF, not the APP0");
+  eqU32(h, 600, "jpeg height");
+
+  // Progressive JPEGs use SOF2; the dimensions live in the same place.
+  uint8_t prog[sizeof(jpg)];
+  memcpy(prog, jpg, sizeof(jpg));
+  prog[21] = 0xC2;
+  w = h = 0;
+  ok(epubImageSize(prog, sizeof(prog), &w, &h) && w == 400, "SOF2 (progressive) too");
+
+  // 0xC4 is a Huffman table, NOT a frame — mistaking it gives garbage dimensions.
+  uint8_t dht[sizeof(jpg)];
+  memcpy(dht, jpg, sizeof(dht));
+  dht[21] = 0xC4;
+  w = h = 0;
+  ok(!epubImageSize(dht, sizeof(dht), &w, &h), "a DHT in the SOF range is not a frame");
+
+  const uint8_t png[] = {
+    0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n',
+    0, 0, 0, 13, 'I', 'H', 'D', 'R',
+    0, 0, 0x01, 0x2C, 0, 0, 0x00, 0xC8, 8, 6, 0, 0, 0
+  };
+  w = h = 0;
+  ok(epubImageSize(png, sizeof(png), &w, &h), "a PNG header parses");
+  eqU32(w, 300, "png width");
+  eqU32(h, 200, "png height");
+
+  const uint8_t junk[32] = { 0 };
+  ok(!epubImageSize(junk, sizeof(junk), &w, &h), "neither: refused");
+  ok(!epubImageSize(jpg, 4, &w, &h), "truncated: refused, not read off the end");
+}
+
 int main() {
   printf("\033[1mepub — WiPhone <-> COVEY parser agreement\033[0m\n");
   testSlug();
   testNorm();
   testHtml();
   testBooks();
+  testImageSize();
   testFingerprint();
   testFractionLocate();
   testBadInput();

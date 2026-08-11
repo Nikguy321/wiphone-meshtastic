@@ -101,6 +101,41 @@ int epubIds(const EpubBook* b, char out[3][EPUB_ID_MAX]);
 // Never fails loudly: an unreadable chapter yields a short placeholder, as on COVEY.
 size_t epubChapterText(EpubBook* b, int i, char* buf, size_t cap);
 
+#define EPUB_MAX_IMAGES  12       // pictures reported per chapter
+
+/* A picture in a chapter, and where it belongs in the reading flow.
+ *
+ * ⚠ `off` is a byte offset into the EXTRACTED TEXT, and finding it changes that text by
+ * exactly nothing. `img` is neither a block tag nor a dropped one in COVEY's extractor or in
+ * this one, so it emits no characters and forces no paragraph break; the offset is simply the
+ * output length already committed when the tag was passed. That matters more than it looks:
+ * a reading position IS a byte offset into this text, so an extractor that moved by even one
+ * byte would silently shift every position after the first picture — and COVEY, which has no
+ * pictures at all, would still have to agree with us byte for byte. */
+struct EpubImage {
+  uint32_t off;                   // byte offset into the chapter's extracted text
+  char     name[EPUB_NAME_MAX];   // zip entry, resolved against the chapter's own directory
+  uint16_t w, h;                  // pixels, filled in by the caller via epubImageSize()
+};
+
+/* epubChapterText, plus the chapter's pictures in reading order. Pass imgs=NULL for exactly
+ * the old behaviour. `nImgs` is capped at `maxImgs`; the text is never affected by either. */
+size_t epubChapterTextImages(EpubBook* b, int i, char* buf, size_t cap,
+                             EpubImage* imgs, int maxImgs, int* nImgs);
+
+// Read a whole zip member (a picture) into `buf`. Returns the byte count, or 0.
+size_t epubReadEntry(EpubBook* b, const char* name, void* buf, size_t cap);
+
+/* Just the first `cap` bytes of a member — enough for epubImageSize(). Only a prefix of the
+ * compressed data is touched, so sizing a 1 MB cover costs kilobytes, not megabytes. */
+size_t epubReadEntryPrefix(EpubBook* b, const char* name, void* buf, size_t cap);
+
+// Uncompressed size of a zip member without reading it — for sizing a buffer.
+size_t epubEntrySize(EpubBook* b, const char* name);
+
+// Pixel size from a JPEG or PNG header. False if it is neither, or is truncated.
+bool epubImageSize(const void* data, size_t len, uint16_t* w, uint16_t* h);
+
 // Length of a chapter's extracted text without keeping it — for fraction()/locate().
 size_t epubChapterLen(EpubBook* b, int i);
 

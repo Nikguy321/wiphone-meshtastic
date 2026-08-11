@@ -217,6 +217,9 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   fontIdx = 0;
   turnsSinceSave = 0;
   nIds = 0;
+  nImages = 0;
+  viewImage = -1;
+  memset(pageImageKey, 0, sizeof(pageImageKey));
 
   timeoutsHeld = false;
   savedDimMs = state.dimAfterMs;
@@ -529,10 +532,92 @@ bool BooksApp::loadChapter(int i) {
     return false;
   }
   spine = i;
-  chapLen = epubChapterText(&book, i, chapText, chapCap);
+  nImages = 0;
+  chapLen = epubChapterTextImages(&book, i, chapText, chapCap,
+                                  images, EPUB_MAX_IMAGES, &nImages);
+  loadChapterImages();
   pageStart = 0;
   histN = 0;
   return true;
+}
+
+/* Read each picture's dimensions and work out how many rows of text it will occupy.
+ *
+ * Only the file HEADER is read — epubReadEntryPrefix touches a few KB whatever the picture
+ * weighs, so a 1453x1920 cover costs the same as a 176x176 ornament. The scale mirrors what
+ * the decoder will actually do (tjpgd only halves), so the rows reserved here and the pixels
+ * drawn later cannot disagree. */
+void BooksApp::loadChapterImages() {
+  const int boxW = pageWidth();
+  const int lh = fonts[BODY_FONTS[fontIdx]]->height() + 2;
+  const int maxRows = pageLines() - 1 > 0 ? pageLines() - 1 : 1;
+
+  for (int i = 0; i < nImages; i++) {
+    uint8_t hdr[1024];
+    size_t got = epubReadEntryPrefix(&book, images[i].name, hdr, sizeof(hdr));
+    uint16_t w = 0, h = 0;
+    if (!got || !epubImageSize(hdr, got, &w, &h) || !w || !h) {
+      images[i].w = images[i].h = 0;          // unreadable: reserve one row for the caption
+      imgBoxes[i].off = images[i].off;
+      imgBoxes[i].rows = 1;
+      continue;
+    }
+    images[i].w = w;
+    images[i].h = h;
+
+    int dh = h;
+    for (int s = 0; s < 3 && (w >> s) > boxW; s++) {
+      dh = h >> (s + 1);                      // the same halving load_jpg_at will pick
+    }
+    int rows = (dh + lh - 1) / lh + 1;        // +1 for the "[1] press 1" caption row
+    if (rows < 2) {
+      rows = 2;
+    }
+    if (rows > maxRows) {
+      rows = maxRows;
+    }
+    imgBoxes[i].off = images[i].off;
+    imgBoxes[i].rows = (uint16_t)rows;
+  }
+}
+
+int BooksApp::imageRows(int i) const {
+  return (i >= 0 && i < nImages) ? imgBoxes[i].rows : 1;
+}
+
+/* Decode a picture straight from the zip into the given box. The compressed bytes go to
+ * PSRAM for the length of the draw and no longer: chapters have one or two pictures, but the
+ * cover alone is a megabyte and holding them all would cost more than it buys. */
+bool BooksApp::drawOneImage(int i, int x, int y, uint16_t boxW, uint16_t boxH) {
+  if (i < 0 || i >= nImages || !isOpen) {
+    return false;
+  }
+  size_t sz = epubEntrySize(&book, images[i].name);
+  if (!sz) {
+    return false;
+  }
+  uint8_t* data = (uint8_t*)ps_malloc(sz);
+  if (!data) {
+    return false;
+  }
+  bool ok = false;
+  if (epubReadEntry(&book, images[i].name, data, sz) == sz) {
+    uint16_t ow = 0, oh = 0;
+    // Centre it: tjpgd can only halve, so a picture rarely fills its box exactly.
+    uint16_t pw = images[i].w ? images[i].w : boxW;
+    uint16_t ph = images[i].h ? images[i].h : boxH;
+    int scale = 0;
+    while (scale < 3 && ((pw >> scale) > boxW || (ph >> scale) > boxH)) {
+      scale++;
+    }
+    int cx = x + (boxW - (pw >> scale)) / 2;
+    if (cx < x) {
+      cx = x;
+    }
+    ok = display::load_jpg_at(data, sz, &lcd, (int16_t)cx, (int16_t)y, boxW, boxH, &ow, &oh) != 0;
+  }
+  free(data);
+  return ok;
 }
 
 /* 0.0-1.0 through the whole book. Deliberately NOT epubFraction(): that re-extracts the
@@ -602,7 +687,8 @@ void BooksApp::nextPage() {
   SmoothFont* f = fonts[BODY_FONTS[fontIdx]];
   BookMeasure m = { f, fontMeasure };
   BookPage pg;
-  bookLayoutPage(chapText, chapLen, pageStart, pageWidth(), pageLines(), &m, &pg);
+  bookLayoutPageImages(chapText, chapLen, pageStart, pageWidth(), pageLines(), &m,
+                       imgBoxes, nImages, &pg);
 
   if (pg.next >= chapLen || pg.next <= pg.start) {
     if (spine + 1 < book.nSpine) {          // fall into the next chapter
@@ -641,15 +727,16 @@ void BooksApp::prevPage() {
       loadChapter(spine - 1);
       SmoothFont* f = fonts[BODY_FONTS[fontIdx]];
       BookMeasure m = { f, fontMeasure };
-      pageStart = bookLayoutPrevPage(chapText, chapLen, (uint32_t)chapLen,
-                                     pageWidth(), pageLines(), &m);
+      pageStart = bookLayoutPrevPageImages(chapText, chapLen, (uint32_t)chapLen,
+                                           pageWidth(), pageLines(), &m, imgBoxes, nImages);
       savePosition(true);
     }
     return;
   }
   SmoothFont* f = fonts[BODY_FONTS[fontIdx]];
   BookMeasure m = { f, fontMeasure };
-  pageStart = bookLayoutPrevPage(chapText, chapLen, pageStart, pageWidth(), pageLines(), &m);
+  pageStart = bookLayoutPrevPageImages(chapText, chapLen, pageStart, pageWidth(), pageLines(),
+                                       &m, imgBoxes, nImages);
   savePosition(false);
 }
 
@@ -668,19 +755,49 @@ void BooksApp::drawPage() {
 
   BookMeasure m = { f, fontMeasure };
   BookPage pg;
-  bookLayoutPage(chapText, chapLen, pageStart, pageWidth(), pageLines(), &m, &pg);
+  bookLayoutPageImages(chapText, chapLen, pageStart, pageWidth(), pageLines(), &m,
+                       imgBoxes, nImages, &pg);
 
   lcd.setTextFont(f);
   lcd.setTextDatum(TL_DATUM);
   lcd.setTextColor(WHITE, BLACK);
   int y = top + 2;
   char line[448];                        // room for substitutions, which can lengthen a run
+  int shown = 0;                         // pictures on this page, numbered from 1
+  for (int i = 0; i < nImages; i++) {
+    pageImageKey[i] = 0;
+  }
   for (int i = 0; i < pg.nLines; i++) {
-    if (!pg.lines[i].blank) {
+    int rows = pg.lines[i].rows ? pg.lines[i].rows : 1;
+    if (pg.lines[i].image >= 0) {
+      int k = pg.lines[i].image;
+      int boxH = rows * lh - lh;         // the last row belongs to the caption
+      if (boxH < lh) {
+        boxH = lh;
+      }
+      bool drew = drawOneImage(k, BOOKS_MARGIN, y, (uint16_t)pageWidth(), (uint16_t)boxH);
+      shown++;
+      if (k < EPUB_MAX_IMAGES) {
+        pageImageKey[k] = shown;         // pressing this number opens it full-screen
+      }
+      // A caption under it, so the way to enlarge is visible rather than folklore.
+      SmoothFont* cf = fonts[AKROBAT_BOLD_16];
+      lcd.setTextFont(cf);
+      lcd.setTextColor(drew ? TFT_DARKGREY : TFT_ORANGE, BLACK);
+      char cap[64];
+      if (drew) {
+        snprintf(cap, sizeof(cap), "[%d] press %d to enlarge", shown, shown);
+      } else {
+        snprintf(cap, sizeof(cap), "[picture %d could not be shown]", shown);
+      }
+      lcd.drawString(cap, BOOKS_MARGIN, y + boxH);
+      lcd.setTextFont(f);
+      lcd.setTextColor(WHITE, BLACK);
+    } else if (!pg.lines[i].blank) {
       bookRenderRun(f, chapText + pg.lines[i].off, pg.lines[i].len, line, sizeof(line));
       lcd.drawString(line, BOOKS_MARGIN, y);
     }
-    y += lh;
+    y += rows * lh;
   }
 
   if (pg.nLines == 0) {
@@ -713,6 +830,12 @@ static const char* const s_helpLines[] = {
   "OK: menu (chapters, text",
   " size, book info)",
   "Back: close the book",
+  "@PICTURES",
+  "A picture in the text is",
+  "captioned [1], [2]...",
+  "Press that number to see",
+  "it full screen; any key",
+  "goes back to the page.",
   "@YOUR PLACE IS KEPT",
   "Closing a book saves",
   "where you were, and it",
@@ -866,6 +989,39 @@ void BooksApp::drawInfo() {
   lcd.drawFitString(l, lcd.width() - 2 * BOOKS_MARGIN, BOOKS_MARGIN, y);
 }
 
+/* One picture, as big as the panel allows. Worth its own screen: inline it competes with a
+ * page of text for an already small display, and some of these are maps. */
+void BooksApp::drawPicture() {
+  const int top = header->height();
+  const int bottom = (int)lcd.height() - (int)footer->height();
+  lcd.fillRect(0, top, lcd.width(), bottom - top, BLACK);
+  if (viewImage < 0 || viewImage >= nImages) {
+    return;
+  }
+
+  SmoothFont* sf = fonts[AKROBAT_BOLD_16];
+  const int capH = sf->height() + 2;
+  const int boxH = bottom - top - capH - 2;
+
+  bool drew = drawOneImage(viewImage, 0, top + 1, lcd.width(), (uint16_t)boxH);
+
+  lcd.setTextFont(sf);
+  lcd.setTextDatum(TL_DATUM);
+  char cap[64];
+  if (drew) {
+    lcd.setTextColor(TFT_DARKGREY, BLACK);
+    snprintf(cap, sizeof(cap), "%u x %u", (unsigned)images[viewImage].w,
+             (unsigned)images[viewImage].h);
+  } else {
+    /* Say WHY rather than showing a black rectangle. This decoder is baseline-JPEG only —
+     * a progressive or greyscale JPEG, or a PNG, will not draw, and that is a property of
+     * the file, not a fault the reader can fix. */
+    lcd.setTextColor(TFT_ORANGE, BLACK);
+    snprintf(cap, sizeof(cap), "cannot show this picture (not a baseline JPEG?)");
+  }
+  lcd.drawString(cap, BOOKS_MARGIN, bottom - capH);
+}
+
 // ---------------------------------------------------------------- states
 
 void BooksApp::buildMenu() {
@@ -971,6 +1127,10 @@ void BooksApp::enterState(BooksState_t state) {
     break;
   case BOOKS_INFO:
     header->setTitle("Book info");
+    footer->setButtons("", "Back");
+    break;
+  case BOOKS_PICTURE:
+    header->setTitle("Picture");
     footer->setButtons("", "Back");
     break;
   }
@@ -1101,6 +1261,18 @@ appEventResult BooksApp::processEvent(EventType event) {
       prevPage();
       return REDRAW_SCREEN;
     }
+    // A number key opens the picture captioned with that number on this page.
+    if (event >= '1' && event <= '9') {
+      int want = event - '0';
+      for (int i = 0; i < nImages && i < EPUB_MAX_IMAGES; i++) {
+        if (pageImageKey[i] == want) {
+          viewImage = i;
+          enterState(BOOKS_PICTURE);
+          return REDRAW_ALL;
+        }
+      }
+      return DO_NOTHING;
+    }
     return DO_NOTHING;
 
   case BOOKS_MENU:
@@ -1165,6 +1337,14 @@ appEventResult BooksApp::processEvent(EventType event) {
       return REDRAW_ALL;
     }
     return DO_NOTHING;
+
+  case BOOKS_PICTURE:
+    if (LOGIC_BUTTON_BACK(event) || LOGIC_BUTTON_OK(event)) {
+      viewImage = -1;
+      enterState(BOOKS_READ);            // straight back to the page it came from
+      return REDRAW_ALL;
+    }
+    return DO_NOTHING;
   }
 
   return DO_NOTHING;
@@ -1183,6 +1363,9 @@ void BooksApp::redrawScreen(bool redrawAll) {
     break;
   case BOOKS_INFO:
     drawInfo();
+    break;
+  case BOOKS_PICTURE:
+    drawPicture();
     break;
   default:
     if (menu) {

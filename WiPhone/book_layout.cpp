@@ -33,6 +33,12 @@ static size_t blCharLen(const char* text, size_t p, size_t limit) {
 
 void bookLayoutPage(const char* text, size_t textLen, uint32_t start,
                     int widthPx, int maxLines, const BookMeasure* m, BookPage* out) {
+  bookLayoutPageImages(text, textLen, start, widthPx, maxLines, m, NULL, 0, out);
+}
+
+void bookLayoutPageImages(const char* text, size_t textLen, uint32_t start,
+                          int widthPx, int maxLines, const BookMeasure* m,
+                          const BookImageBox* imgs, int nImgs, BookPage* out) {
   if (maxLines > BOOK_MAX_LINES) {
     maxLines = BOOK_MAX_LINES;
   }
@@ -53,8 +59,80 @@ void bookLayoutPage(const char* text, size_t textLen, uint32_t start,
   out->start = (uint32_t)p;
   out->nLines = 0;
 
+  /* Pictures on this page are those at or after where the page was ASKED to begin — not
+   * after out->start, which the white-space skip above may have moved forward. A picture
+   * sitting on a paragraph gap would otherwise fall in the crack between the two and never
+   * be shown at all. */
+  const uint32_t askedFrom = (start > textLen) ? (uint32_t)textLen : start;
+  int ii = 0;
+  while (imgs && ii < nImgs && imgs[ii].off < askedFrom) {
+    ii++;
+  }
+  /* ⚠ A picture is never allowed the WHOLE page. If it were, a page could hold the picture
+   * and no text, `next` would not advance past `start`, and the reader would sit on that page
+   * for ever — the caller reads next <= start as "end of chapter". Capping at maxLines-1
+   * guarantees room for at least one line of text and kills the whole class of problem. It
+   * costs one row of height; the number keys open the picture full-screen anyway. */
+  const int imgRowCap = maxLines > 1 ? maxLines - 1 : 1;
+
+  int rowsUsed = 0;
   bool lastWasBlank = false;
-  while (out->nLines < maxLines && p < textLen) {
+  /* The loop runs while there is budget left OR nothing has been consumed yet. That second
+   * clause is the anti-deadlock rule: a page MUST advance past its own start, or the caller
+   * — which reads next <= start as "end of chapter" — parks the reader on it for ever. It
+   * only ever fires in the degenerate case of a picture on a one-row page. */
+  while (p < textLen && (rowsUsed < maxLines || p == (size_t)out->start)) {
+    // Any picture we have now reached, before the text that follows it.
+    bool pageFull = false;
+    if (rowsUsed < maxLines) {
+      while (imgs && ii < nImgs && imgs[ii].off <= (uint32_t)p && out->nLines < BOOK_MAX_LINES) {
+        int rows = imgs[ii].rows < 1 ? 1 : imgs[ii].rows;
+        if (rows > imgRowCap) {
+          rows = imgRowCap;
+        }
+        if (rowsUsed + rows > maxLines) {
+          pageFull = true;            // it belongs on the next page, which starts here
+          break;
+        }
+        out->lines[out->nLines].off = imgs[ii].off;
+        out->lines[out->nLines].len = 0;
+        out->lines[out->nLines].blank = false;
+        out->lines[out->nLines].image = (int8_t)ii;
+        out->lines[out->nLines].rows = (uint16_t)rows;
+        out->nLines++;
+        rowsUsed += rows;
+        lastWasBlank = false;
+        ii++;
+      }
+    }
+    if (pageFull) {
+      /* The picture does not fit, so it opens the NEXT page — which means this page has to
+       * end at or before its offset. Ending past it loses it entirely: the next page would
+       * skip anything behind its own start, and the picture would vanish with nothing
+       * logged. (A 264x264 illustration disappeared exactly this way, found by laying out a
+       * real chapter rather than by any of the synthetic tests.) */
+      const uint32_t want = imgs[ii].off;
+      while (out->nLines > 0) {
+        BookLine* last = &out->lines[out->nLines - 1];
+        if (last->image >= 0 || (uint32_t)(last->off + last->len) <= want) {
+          break;
+        }
+        rowsUsed -= last->rows ? last->rows : 1;   // its text straddles the picture: re-lay it
+        p = last->off;
+        out->nLines--;
+      }
+      if (p > (size_t)want) {
+        p = want;
+      }
+      break;
+    }
+    if (out->nLines >= BOOK_MAX_LINES) {
+      break;
+    }
+    if (rowsUsed >= maxLines && p > (size_t)out->start) {
+      break;                          // full, and we have advanced: a clean page end
+    }
+
     const size_t lineStart = p;
 
     size_t nl = lineStart;                    // hard stop at the newline
@@ -119,7 +197,10 @@ void bookLayoutPage(const char* text, size_t textLen, uint32_t start,
       out->lines[out->nLines].off = (uint32_t)lineStart;
       out->lines[out->nLines].len = 0;
       out->lines[out->nLines].blank = true;
+      out->lines[out->nLines].image = -1;
+      out->lines[out->nLines].rows = 1;
       out->nLines++;
+      rowsUsed++;
       lastWasBlank = true;
       p = nextStart;
       continue;
@@ -128,7 +209,10 @@ void bookLayoutPage(const char* text, size_t textLen, uint32_t start,
     out->lines[out->nLines].off = (uint32_t)lineStart;
     out->lines[out->nLines].len = (uint16_t)(lineEnd - lineStart);
     out->lines[out->nLines].blank = false;
+    out->lines[out->nLines].image = -1;
+    out->lines[out->nLines].rows = 1;
     out->nLines++;
+    rowsUsed++;
     lastWasBlank = false;
     p = nextStart;
   }
@@ -142,6 +226,12 @@ void bookLayoutPage(const char* text, size_t textLen, uint32_t start,
 
 uint32_t bookLayoutPrevPage(const char* text, size_t textLen, uint32_t before,
                             int widthPx, int maxLines, const BookMeasure* m) {
+  return bookLayoutPrevPageImages(text, textLen, before, widthPx, maxLines, m, NULL, 0);
+}
+
+uint32_t bookLayoutPrevPageImages(const char* text, size_t textLen, uint32_t before,
+                                  int widthPx, int maxLines, const BookMeasure* m,
+                                  const BookImageBox* imgs, int nImgs) {
   if (before == 0) {
     return 0;
   }
@@ -179,6 +269,7 @@ uint32_t bookLayoutPrevPage(const char* text, size_t textLen, uint32_t before,
    * Lines are the unit that survives an arbitrary starting point. */
   const int ringSize = BOOK_MAX_LINES + 1;
   uint32_t ring[BOOK_MAX_LINES + 1];
+  uint16_t ringRows[BOOK_MAX_LINES + 1];      // a picture is several rows tall, not one
   uint32_t cand = 0;
   int total = 0;
 
@@ -206,9 +297,10 @@ uint32_t bookLayoutPrevPage(const char* text, size_t textLen, uint32_t before,
     uint32_t at = cand;
     BookPage pg;
     for (int guard = 0; guard < 64; guard++) {
-      bookLayoutPage(text, before, at, widthPx, maxLines, m, &pg);
+      bookLayoutPageImages(text, before, at, widthPx, maxLines, m, imgs, nImgs, &pg);
       for (int i = 0; i < pg.nLines; i++) {
         ring[total % ringSize] = pg.lines[i].off;
+        ringRows[total % ringSize] = pg.lines[i].rows ? pg.lines[i].rows : 1;
         total++;
       }
       if (pg.next >= before || pg.next <= at) {
@@ -235,15 +327,22 @@ uint32_t bookLayoutPrevPage(const char* text, size_t textLen, uint32_t before,
    * of text stranded between the two pages. Caught by paging a real book backwards — 3 of 72
    * boundaries dropped a word. So verify, and step forward a line at a time until the page
    * actually reaches `before`. Two or three extra layouts, on a key press. */
-  int first = (total > maxLines) ? total - maxLines : 0;
-  if (total - first > ringSize) {
-    first = total - ringSize;
+  // Count back a page's worth of ROWS, not of lines — a picture is several rows tall.
+  int first = total;
+  int rows = 0;
+  while (first > 0 && total - first < ringSize - 1) {
+    int r = ringRows[(first - 1) % ringSize];
+    if (rows + r > maxLines) {
+      break;
+    }
+    rows += r;
+    first--;
   }
   uint32_t best = ring[first % ringSize];
   for (int i = first; i < total; i++) {
     uint32_t start = ring[i % ringSize];
     BookPage check;
-    bookLayoutPage(text, before, start, widthPx, maxLines, m, &check);
+    bookLayoutPageImages(text, before, start, widthPx, maxLines, m, imgs, nImgs, &check);
     if (check.next >= before) {
       return start;                 // this page reaches where we came from: nothing stranded
     }
