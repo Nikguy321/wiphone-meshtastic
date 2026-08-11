@@ -400,6 +400,15 @@ bool BooksApp::openBook(int idx) {
     closeBook(false);
     return false;
   }
+  /* Skip past chapters with no text. A cover page is a spine item made entirely of an image,
+   * so opening this book landed on "(this chapter has no text)" — a reader that looks broken
+   * on the first screen. There is no position to lose inside an empty chapter. */
+  while (chapLen == 0 && spine + 1 < book.nSpine) {
+    if (!loadChapter(spine + 1)) {
+      break;
+    }
+    startOff = 0;
+  }
   gotoOffset(startOff, true);
   turnsSinceSave = 0;
   return true;
