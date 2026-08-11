@@ -512,6 +512,12 @@ public:
     return false;
   }
 
+  /* Does this text field currently hold anything? Overridden by TextInputAbstract.
+   * See textEntryFocused() for why an EMPTY field must not suppress triple-tap. */
+  virtual bool textEntryHasContent() {
+    return false;
+  }
+
   void setFocus(bool focus) {
     this->focused = focus;
     this->updated = true;
@@ -524,23 +530,35 @@ public:
     }
   }
 
-  /* Is a text field focused right now?
+  /* Is the user actually MID-EDIT in a text field right now?
    *
-   * Used by the triple-tap-to-sleep handler in WiPhone.ino: inside a text field the Back
-   * key is BACKSPACE, so three quick corrections would otherwise put the phone to sleep
-   * mid-word.
+   * Used by the triple-tap-to-sleep handler in WiPhone.ino: inside a text field the Back key
+   * is BACKSPACE, so three quick corrections must not put the phone to sleep mid-word.
    *
-   * Deliberately a pointer to the live widget rather than a bool flag: a flag left stuck
-   * true by a screen that tore down while focused would disable triple-tap for the rest of
-   * the session, which is a worse bug than the one this fixes. The destructor above clears
-   * it, so the state cannot outlive the widget.
+   * ⚠ Note what this deliberately does NOT ask: "does a text field have focus?". That was
+   * the first rule and it was wrong — FocusableApp::setFocus() focuses whatever widget a
+   * screen lands on, and plenty of screens land on a text field, so triple-tap became
+   * near-impossible on exactly the screens people try it from. "Focused" is not "typing".
    *
-   * ControlState::inputType is NOT usable for this — it is a MODE (Numeric/AlphaNum/IPv4)
-   * set ad-hoc by a handful of callers (see the "TODO: automate changing InputType
-   * relevantly" notes in GUI.cpp) and it persists across screens, so it reads as "typing"
-   * on screens with no text field at all. */
+   * The rule is that Back must have something to delete. An EMPTY field is not an edit in
+   * progress: there is nothing to backspace, so the tap can only have been meant as a
+   * triple-tap and it is let through.
+   *
+   * Also re-checks getFocus() rather than trusting the pointer alone, so a widget defocused
+   * by some path that bypassed setFocus() cannot wedge this on.
+   *
+   * Held as a pointer to the live widget rather than a bool: a flag left stuck true by a
+   * screen torn down while focused would disable triple-tap for the whole session, which is
+   * worse than the bug being fixed. The destructor above clears it, so the state cannot
+   * outlive the widget.
+   *
+   * ControlState::inputType is NOT usable for any of this — it is a MODE (Numeric/AlphaNum/
+   * IPv4) set ad-hoc by a handful of callers (see the "TODO: automate changing InputType
+   * relevantly" notes in GUI.cpp) and it persists across screens. */
   static bool textEntryFocused() {
-    return s_textFocus != NULL;
+    return s_textFocus != NULL
+           && s_textFocus->getFocus()
+           && s_textFocus->textEntryHasContent();
   }
 
 protected:
@@ -833,6 +851,14 @@ public:
   // FocusableWidget::textEntryFocused().
   bool isTextEntry() {
     return true;
+  }
+
+  // Only a NON-EMPTY field counts as an edit in progress; with nothing to backspace, a Back
+  // tap cannot have been a correction. getText() is pure virtual here and always resolves to
+  // the concrete widget, which is safe because this is only reached from the key loop.
+  bool textEntryHasContent() {
+    const char* t = this->getText();
+    return t != NULL && t[0] != '\0';
   }
 
   TextInputAbstract(uint16_t xPos, uint16_t yPos, uint16_t width, uint16_t height,

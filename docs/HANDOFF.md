@@ -141,6 +141,30 @@ radio is fine**; only failure prints.
 
 ---
 
+## Recently fixed — don't re-break this one
+
+**Triple-tap-to-sleep is suppressed while editing text**, because the top-right Back key is
+BACKSPACE inside a field and three quick corrections were sleeping the phone mid-message.
+
+⚠ The rule is **"the focused text field is NON-EMPTY"**, not "a text field has focus". The
+first attempt used focus alone and made triple-tap *near-impossible*: `FocusableApp::setFocus()`
+focuses whatever widget a screen lands on, and plenty of screens land on a text field, so every
+Back press there reset the counter. **Focused is not typing.** An empty field has nothing to
+backspace, so the tap can only have been meant as a triple-tap and is let through.
+
+Also worth knowing for any future work in this area:
+- `setFocus` is **pure virtual in `AbstractWidget`** and `TextInputAbstract` overrides it. A hook
+  added to `FocusableWidget::setFocus` alone will never run for text widgets — that cost a
+  build-and-flash cycle. `TextInputAbstract::setFocus` now delegates to the base instead of
+  duplicating its two assignments.
+- The tracker is a **pointer to the live widget**, cleared by `~FocusableWidget`, not a bool. A
+  flag stuck true would disable triple-tap for the whole session.
+- `ControlState::inputType` is unusable as a "typing" signal — a MODE, set ad-hoc, persists
+  across screens.
+
+Timing (`BACK_TAP_GAP_MS`, 500 ms between consecutive taps) was deliberately left alone so the
+rule change could be judged on its own. Confirmed good on hardware 2026-08-10.
+
 ## Also open
 
 - **Stretch goal:** [`woods-backplate.md`](woods-backplate.md) — RFM95W + GPS + 915 MHz whip +
