@@ -77,6 +77,9 @@ GUI::~GUI() {
 }
 
 void GUI::cleanAppDynamic() {
+  // An app's widgets die here, so no pointer to one may outlive this call. See
+  // FocusableWidget::clearTextFocus() for what a stale one costs.
+  FocusableWidget::clearTextFocus();
   if (runningApp!=NULL) {
     delete runningApp;
     runningApp = NULL;
@@ -931,6 +934,7 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
         ActionID_t appID = runningApp->getId();
         // Running app exited
         log_d("deleting app");
+        FocusableWidget::clearTextFocus();   // its widgets are about to go: see clearTextFocus
         delete runningApp;
         runningApp = NULL;
 

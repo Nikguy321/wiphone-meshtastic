@@ -1148,6 +1148,18 @@ void loop() {
 
       // Triple-tap the top-right (Back) button to sleep the screen. Only tracked
       // while the screen is awake, so a wake-up tap doesn't count.
+      // Diagnostic for "triple-tap works once, then not again" — comment out when settled.
+      // Prints on EVERY Back press, including the ones the gate below rejects, because which
+      // gate is rejecting them is the whole question.
+#define BACK_TAP_DEBUG
+#ifdef BACK_TAP_DEBUG
+      if (keyPressed == WIPHONE_KEY_BACK) {
+        log_e("backtap: cnt=%u gap=%lu bright=%u locked=%d textentry=%d unlock1=%u",
+              (unsigned)backTapCount, (unsigned long)(now - msLastBackTap),
+              (unsigned)gui.state.screenBrightness, (int)gui.state.locked,
+              (int)FocusableWidget::textEntryFocused(), (unsigned)gui.state.unlockButton1);
+      }
+#endif
       if (keyPressed == WIPHONE_KEY_BACK && gui.state.screenBrightness > 0) {
         if (FocusableWidget::textEntryFocused()) {
           // In a text field Back is BACKSPACE. Correcting three letters quickly is

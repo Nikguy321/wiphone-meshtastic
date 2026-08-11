@@ -564,6 +564,21 @@ public:
            && s_textFocus->textEntryHasContent();
   }
 
+  /* Forget whatever text field was focused. Called when an app is torn down.
+   *
+   * ⚠ The destructor clears this pointer only for the widget that IS the current focus, and
+   * only if that destructor actually runs. Anything that frees a widget by another path
+   * leaves s_textFocus dangling — and then textEntryFocused() calls two virtuals on freed
+   * memory, which does not crash so much as answer unpredictably. Answer "true" once and
+   * triple-tap-to-sleep is dead for the rest of the power-on, because every Back press resets
+   * the count: exactly the reported symptom of "it sleeps once and then never again".
+   *
+   * An app boundary is where widgets die, so clearing here bounds the lifetime of this
+   * pointer to the app that set it, whatever happens inside. */
+  static void clearTextFocus() {
+    s_textFocus = NULL;
+  }
+
 protected:
   // The text-entry widget that currently has focus, or NULL. Defined in GUI.cpp.
   static FocusableWidget* s_textFocus;
