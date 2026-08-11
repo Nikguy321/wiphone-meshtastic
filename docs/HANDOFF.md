@@ -1,6 +1,6 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-11 · **Next up:** flash it, read a chapter, then wire up sync.
+**Last updated:** 2026-08-11 · **Next up:** get sync on air against COVEY, then greyscale JPEG.
 
 Read this first to resume. One command tells you the codebase is healthy:
 
@@ -13,15 +13,15 @@ with the host compiler under ASan+UBSan — no PlatformIO, no ESP32, no phone at
 
 ---
 
-## ▶ PICK UP HERE — the reader is FLASHED and waiting on Nick's eyes
+## ▶ PICK UP HERE — the reader WORKS; sync has never been on air
 
-**Menu > Books exists on the phone.** Flashed 2026-08-11 at 230400 (hash verified), booted
-clean: `Booting...` → `Booted`, no panic, no watchdog, and no radio line between them — which on
-this firmware is how "SX1276 detected" looks, because only failures print.
+📖 **Nick has read a real bought book on this phone**, with pictures inline and his place
+surviving a power cycle. Menu > Books. Flash at 230400 (hash verified).
 
-⚠ **What is verified is that it BOOTS, not that it READS.** Nobody has looked at the screen. The
-whole reading path — SD scan, epubOpen on a 5 MB file, pagination, the position store — has only
-ever run on a Mac. Expect first contact to find something.
+**The one big thing left is proving sync against COVEY**, which needs COVEY powered — see the
+sync section below for the order to check things in. After that, greyscale JPEG.
+
+Still not confirmed by eye: paging BACK a page, and the Select+Back sleep chord.
 
 ### The test book is ALREADY ON THE SD CARD
 `Ghosts_of_Timkovichi.epub` (5,060,061 bytes) was pushed over WiFi on 2026-08-11 and sits at
