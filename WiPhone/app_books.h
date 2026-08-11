@@ -107,6 +107,7 @@ protected:
   EpubImage*    images;                      // PSRAM, for the reason above
   BookImageBox* imgBoxes;                    // the same, in the units the layout wants
   int          nImages;
+  bool         imgGrey[EPUB_MAX_IMAGES];     // greyscale JPEG: the ROM decoder refuses these
   int          viewImage;                    // index shown full-screen, or -1
   uint8_t      pageImageKey[EPUB_MAX_IMAGES];  // number key that opens image i, 0 = not on this page
   uint32_t  pageStart;
@@ -120,6 +121,13 @@ protected:
   BookStoreIo storeIo;
   char        ids[BOOKSYNC_MAX_IDS][BOOKSYNC_ID_MAX];
   int         nIds;
+
+  /* What was on the SD card when this book was opened. Captured at open, before anything is
+   * written, so it is literally the stored position — which is what makes "did my place
+   * survive the reboot?" answerable on the device instead of on faith. Shown in Book info. */
+  bool     openedFromSaved;
+  uint32_t openedSpine;
+  int      openedPct;
 
   // ---- screen timeout, borrowed while reading
   bool     timeoutsHeld;

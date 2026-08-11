@@ -136,6 +136,14 @@ size_t epubEntrySize(EpubBook* b, const char* name);
 // Pixel size from a JPEG or PNG header. False if it is neither, or is truncated.
 bool epubImageSize(const void* data, size_t len, uint16_t* w, uint16_t* h);
 
+/* The same, plus how many colour components the JPEG has (0 for a PNG).
+ *
+ * ⚠ Worth knowing because **1 means greyscale, and the ESP32's ROM TJpgDec refuses those** —
+ * it decodes 3-component YCbCr only. In the book this was written against, 33 of 45 pictures
+ * are greyscale, so "cannot show this picture" is the common case and not the odd one. A
+ * caller that knows the component count can say WHY instead of showing a blank box. */
+bool epubImageInfo(const void* data, size_t len, uint16_t* w, uint16_t* h, uint8_t* comps);
+
 // Length of a chapter's extracted text without keeping it — for fraction()/locate().
 size_t epubChapterLen(EpubBook* b, int i);
 

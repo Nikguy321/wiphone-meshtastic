@@ -1471,6 +1471,13 @@ size_t epubReadEntryPrefix(EpubBook* b, const char* name, void* buf, size_t cap)
 }
 
 bool epubImageSize(const void* data, size_t len, uint16_t* w, uint16_t* h) {
+  return epubImageInfo(data, len, w, h, NULL);
+}
+
+bool epubImageInfo(const void* data, size_t len, uint16_t* w, uint16_t* h, uint8_t* comps) {
+  if (comps) {
+    *comps = 0;
+  }
   const uint8_t* p = (const uint8_t*)data;
   if (!p || len < 24) {
     return false;
@@ -1522,6 +1529,9 @@ bool epubImageSize(const void* data, size_t len, uint16_t* w, uint16_t* h) {
       }
       *h = (uint16_t)(((uint16_t)p[i + 5] << 8) | p[i + 6]);
       *w = (uint16_t)(((uint16_t)p[i + 7] << 8) | p[i + 8]);
+      if (comps) {
+        *comps = p[i + 9];              // 1 = greyscale (the ROM decoder will refuse it)
+      }
       return (*w != 0 && *h != 0);
     }
     if (seg < 2) {

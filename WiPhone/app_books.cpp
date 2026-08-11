@@ -26,7 +26,10 @@
 #define BOOKS_MENU_CLOSE   5
 
 #define BOOKS_MARGIN       6         // left/right page margin, pixels
-#define BOOKS_SAVE_EVERY   10        // page turns between SD writes of the position
+/* Page turns between SD writes of the position. Every turn would mean a 16 KB whole-file
+ * write per page; never would mean a flat battery costs your place. Four is roughly a minute
+ * of reading, and the position is also flushed on the menu, a chapter change and closing. */
+#define BOOKS_SAVE_EVERY   4
 
 // Body faces, smallest first. All the phone has are bold faces (see the font note in the
 // COVEY/WiPhone handoffs) — this is a size choice, not a weight one.
@@ -507,6 +510,9 @@ bool BooksApp::openBook(int idx) {
   // Where were we? A stored position wins; otherwise the top of the book.
   int startSpine = 0;
   uint32_t startOff = 0;
+  openedFromSaved = false;
+  openedSpine = 0;
+  openedPct = 0;
   if (store) {
     const char* idp[BOOKSYNC_MAX_IDS];
     for (int i = 0; i < nIds; i++) {
@@ -519,6 +525,11 @@ bool BooksApp::openBook(int idx) {
       if (startSpine < 0 || startSpine >= book.nSpine) {
         startSpine = 0;
         startOff = 0;
+      } else {
+        // Nothing has been written yet this session, so this IS what was on the card.
+        openedFromSaved = true;
+        openedSpine = pos.spine;
+        openedPct = (int)(pos.fraction * 100.0 + 0.5);
       }
     }
   }
@@ -599,6 +610,11 @@ void BooksApp::loadChapterImages() {
     uint8_t hdr[1024];
     size_t got = epubReadEntryPrefix(&book, images[i].name, hdr, sizeof(hdr));
     uint16_t w = 0, h = 0;
+    uint8_t comps = 0;
+    imgGrey[i] = false;
+    if (got && epubImageInfo(hdr, got, &w, &h, &comps) && comps == 1) {
+      imgGrey[i] = true;               // greyscale: the ROM decoder will not touch it
+    }
     if (!got || !epubImageSize(hdr, got, &w, &h) || !w || !h) {
       images[i].w = images[i].h = 0;          // unreadable: reserve one row for the caption
       imgBoxes[i].off = images[i].off;
@@ -828,9 +844,12 @@ void BooksApp::drawPage() {
       SmoothFont* cf = fonts[AKROBAT_BOLD_16];
       lcd.setTextFont(cf);
       lcd.setTextColor(drew ? TFT_DARKGREY : TFT_ORANGE, BLACK);
-      char cap[64];
+      char cap[72];
       if (drew) {
         snprintf(cap, sizeof(cap), "[%d] press %d to enlarge", shown, shown);
+      } else if (imgGrey[k]) {
+        // Say which limitation it is. This is the COMMON case in a real book, not the odd one.
+        snprintf(cap, sizeof(cap), "[picture: greyscale JPEG, not supported]");
       } else {
         snprintf(cap, sizeof(cap), "[picture %d could not be shown]", shown);
       }
@@ -1018,6 +1037,28 @@ void BooksApp::drawInfo() {
   snprintf(l, sizeof(l), "%d chapters, %s", book.nSpine, book.isText ? "plain text" : "EPUB");
   lcd.drawString(l, BOOKS_MARGIN, y); y += lh;
   snprintf(l, sizeof(l), "chapter %d: %u chars", spine + 1, (unsigned)chapLen);
+  lcd.drawString(l, BOOKS_MARGIN, y); y += lh;
+  if (nImages > 0) {
+    snprintf(l, sizeof(l), "%d picture%s here", nImages, nImages == 1 ? "" : "s");
+    lcd.drawString(l, BOOKS_MARGIN, y); y += lh;
+  }
+  y += 4;
+
+  /* Where the SD card said you were when this book was opened. On screen rather than in a
+   * log, because "did my place survive the reboot?" is a question worth being able to answer
+   * without a serial cable. */
+  lcd.setTextColor(TFT_DARKGREY, BLACK);
+  lcd.drawString("Your place", BOOKS_MARGIN, y); y += lh;
+  lcd.setTextColor(openedFromSaved ? TFT_GREEN : TFT_ORANGE, BLACK);
+  if (openedFromSaved) {
+    snprintf(l, sizeof(l), "opened from saved: ch %u, %d%%",
+             (unsigned)(openedSpine + 1), openedPct);
+  } else {
+    snprintf(l, sizeof(l), "opened at the start (none saved)");
+  }
+  lcd.drawString(l, BOOKS_MARGIN, y); y += lh;
+  lcd.setTextColor(WHITE, BLACK);
+  snprintf(l, sizeof(l), "now: ch %d, %d%%", spine + 1, (int)(fractionHere() * 100.0 + 0.5));
   lcd.drawString(l, BOOKS_MARGIN, y); y += lh + 4;
 
   lcd.setTextColor(TFT_DARKGREY, BLACK);
@@ -1057,11 +1098,15 @@ void BooksApp::drawPicture() {
     snprintf(cap, sizeof(cap), "%u x %u", (unsigned)images[viewImage].w,
              (unsigned)images[viewImage].h);
   } else {
-    /* Say WHY rather than showing a black rectangle. This decoder is baseline-JPEG only —
-     * a progressive or greyscale JPEG, or a PNG, will not draw, and that is a property of
-     * the file, not a fault the reader can fix. */
+    /* Say WHY rather than showing a black rectangle. The ESP32's ROM TJpgDec decodes
+     * 3-component baseline JPEG only — greyscale and progressive files are refused, and that
+     * is a property of the decoder in silicon, not a fault the reader can fix. */
     lcd.setTextColor(TFT_ORANGE, BLACK);
-    snprintf(cap, sizeof(cap), "cannot show this picture (not a baseline JPEG?)");
+    if (imgGrey[viewImage]) {
+      snprintf(cap, sizeof(cap), "greyscale JPEG - the ROM decoder cannot read it");
+    } else {
+      snprintf(cap, sizeof(cap), "cannot show this picture (not a baseline JPEG?)");
+    }
   }
   lcd.drawString(cap, BOOKS_MARGIN, bottom - capH);
 }
@@ -1156,6 +1201,12 @@ void BooksApp::enterState(BooksState_t state) {
     break;
   case BOOKS_READ:
     holdScreenAwake(true);
+    /* ⚠ Force Numeric. `ControlState::inputType` is a MODE that persists across screens, and
+     * the Meshtastic app leaves it on AlphaNum after composing — in which case the GUI runs
+     * every key through the multi-tap decoder and pressing 2 yields 'a', not '2'. The number
+     * keys that open a picture would then work or not depending on which app you had used
+     * earlier, which is the worst kind of bug to be told about. */
+    controlState.setInputState(InputType::Numeric);
     setHeaderToBookTitle();
     footer->setButtons("Menu", "Close");
     break;
@@ -1294,6 +1345,7 @@ appEventResult BooksApp::processEvent(EventType event) {
       return REDRAW_ALL;
     }
     if (LOGIC_BUTTON_OK(event)) {
+      savePosition(true);            // a natural pause: commit the place to the card
       enterState(BOOKS_MENU);
       return REDRAW_ALL;
     }
