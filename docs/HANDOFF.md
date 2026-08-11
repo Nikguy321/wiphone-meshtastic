@@ -8,7 +8,7 @@ Read this first to resume. One command tells you the codebase is healthy:
 ./tests/run_tests.sh
 ```
 
-Expect **601 assertions, 0 failures** across four suites. It compiles the phone's own sources
+Expect **608 assertions, 0 failures** across four suites. It compiles the phone's own sources
 with the host compiler under ASan+UBSan — no PlatformIO, no ESP32, no phone attached.
 
 ---
@@ -91,11 +91,16 @@ synced jump is confirmed rather than taken silently.
 of the two lessons that keep it alive on hardware. `xferStart()` stops and restarts if another
 app asks for a different folder. If you add a third uploader, add a config — do not add a server.
 
-### Not covered by the interop vectors
-Chapter titles from the nav/NCX are **new here and not in the generated vectors** — the fixtures
-have no table of contents. They were verified against the real book instead. Titles are local
-(only the spine INDEX travels), so a difference from COVEY is cosmetic, and one is deliberate:
-for a nested NCX this takes the entry's own label where COVEY concatenates its children's too.
+### Chapter titles are now in the vectors too
+`gen_epub_vectors.py` emits `chapter_title()` per spine item, so the nav/NCX reading is checked
+against COVEY's output rather than a second reading of the fixture — `epub3-nav.epub` covers the
+EPUB3 form and `epub2-subdir.epub` the EPUB2 NCX. ⚠ Regenerating the vectors also REBUILDS the
+fixture zips, so their `fp:` fingerprints change; that is expected, and the vectors and fixtures
+must be committed together.
+
+One difference from COVEY is deliberate: for a nested NCX this takes the entry's own label where
+COVEY concatenates its children's too. They agree on a flat table of contents, which is what the
+fixtures and the test book have. Titles never travel — only the spine INDEX does.
 
 ---
 
@@ -105,7 +110,7 @@ for a nested NCX this takes the entry's own label where COVEY concatenates its c
 |---|---|
 | `book_hash.{h,cpp}` | SHA-256, SHA-1, HMAC, base32, UTF-8 truncation |
 | `booksync.{h,cpp}` | full wire protocol — **320 assertions** |
-| `epub_parse.{h,cpp}` | zip, inflate, OPF, spine, XHTML→text, ids, fraction/locate, nav/NCX titles — **134** |
+| `epub_parse.{h,cpp}` | zip, inflate, OPF, spine, XHTML→text, ids, fraction/locate, nav/NCX titles — **141** |
 | `bookstore.{h,cpp}` | reading positions — **57** |
 | `book_layout.{h,cpp}` | pages, wrapping, page-back — **90** |
 | `html_entities.h` | 2125 entities, generated |

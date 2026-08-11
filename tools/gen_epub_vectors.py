@@ -248,6 +248,9 @@ def main():
     w("  const char* title; const char* author; const char* identifier;")
     w("  const char* ids[3]; int nIds;")
     w("  const char* spine[16]; int nSpine;")
+    # chapter_title() per spine item, so the WiPhone's nav/NCX reading is checked against
+    # COVEY's output rather than against a second reading of the fixture.
+    w("  const char* chapTitle[16];")
     w("  const char* chapter0;")
     w("  double fractionMid; int locateSpine;")
     w("} EpBookVec;")
@@ -273,6 +276,8 @@ def main():
         w("    %s, %s, %s," % (c_str(book.title), c_str(book.author), c_str(book.identifier)))
         w("    { %s }, %d," % (", ".join(c_str(i) for i in ids), len(ids)))
         w("    { %s }, %d," % (", ".join(c_str(s) for s in spine), len(spine)))
+        titles = [book.chapter_title(i) for i in range(len(spine))]
+        w("    { %s }," % ", ".join(c_str(t) for t in titles))
         w("    %s, %r, %d }," % (c_str(ch0), frac, loc_sp))
         book.close()
     w("};")

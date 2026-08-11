@@ -59,34 +59,40 @@ typedef struct {
   const char* title; const char* author; const char* identifier;
   const char* ids[3]; int nIds;
   const char* spine[16]; int nSpine;
+  const char* chapTitle[16];
   const char* chapter0;
   double fractionMid; int locateSpine;
 } EpBookVec;
 static const EpBookVec EP_BOOK_VECS[] = {
   { "epub3_nav", "epub3-nav.epub", "epub3-nav.epub", 0,
     "The Long & Winding Road", "Ada Lovelace", "urn:uuid:12345678-ABCD",
-    { "id:urn-uuid-12345678-abcd", "ta:the-long-winding-road-ada-lovelace", "fp:a7105aa83e66f4b8" }, 3,
+    { "id:urn-uuid-12345678-abcd", "ta:the-long-winding-road-ada-lovelace", "fp:15c2fbb9bece75ce" }, 3,
     { "ch1.xhtml", "ch2.xhtml" }, 2,
+    { "Opening", "The Middle" },
     "Opening\n\nIt was a bright cold day.\n\nThe clocks were striking & thirteen.", 0.25, 1 },
   { "epub2_subdir", "epub2-subdir.epub", "epub2-subdir.epub", 0,
     "Deep In A Folder", "Grace Hopper", "isbn:9780000000001",
-    { "id:isbn-9780000000001", "ta:deep-in-a-folder-grace-hopper", "fp:672a1d9581069710" }, 3,
+    { "id:isbn-9780000000001", "ta:deep-in-a-folder-grace-hopper", "fp:f221b7a543a08aea" }, 3,
     { "OEBPS/text/one.xhtml", "OEBPS/text/two.xhtml" }, 2,
+    { "Chapter One", "Chapter Two" },
     "One\n\nDown in a subdirectory.", 0.25, 1 },
   { "empty_spine", "empty-spine.epub", "empty-spine.epub", 0,
     "No Spine At All", "", "",
-    { "ta:no-spine-at-all", "fp:92d9178405220ef2" }, 2,
+    { "ta:no-spine-at-all", "fp:f20ce8ee9a8d296a" }, 2,
     { "only.xhtml" }, 1,
+    { "Chapter 1" },
     "Only\n\nThe one and only chapter.", 0.4838709677419355, 0 },
   { "no_metadata", "no-metadata.epub", "no-metadata.epub", 0,
     "no-metadata", "", "",
-    { "ta:no-metadata", "fp:38b3d61b6e974f19" }, 2,
+    { "ta:no-metadata", "fp:25024515d8425f7b" }, 2,
     { "c.xhtml" }, 1,
+    { "Chapter 1" },
     "C\n\nAnonymous book.", 0.5, 0 },
   { "plain_txt", "my-notes.txt", "my-notes.txt", 1,
     "my-notes", "", "",
     { "ta:my-notes", "fp:6c5ac77702fc000e" }, 2,
     { "my-notes.txt" }, 1,
+    { "my-notes" },
     "First paragraph of the notes.\n\nSecond paragraph here.", 0.49056603773584906, 0 },
 };
 static const int EP_BOOK_VEC_N = 5;

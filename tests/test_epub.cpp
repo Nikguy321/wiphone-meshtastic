@@ -134,6 +134,13 @@ static void testBooks() {
       g_pass++;
       for (int k = 0; k < v->nSpine; k++) {
         eqStr(b.spine[k].name, v->spine[k], v->label);
+        /* Chapter titles, from the EPUB3 nav document or the EPUB2 NCX. Cosmetic on the wire
+         * — only the spine INDEX travels — but the two devices should still call a chapter
+         * the same thing, and without this a 90-chapter book is a list of "Chapter N".
+         * The fixtures cover both forms: epub3-nav.epub and epub2-subdir.epub. */
+        char t[EPUB_CH_TITLE_MAX];
+        epubChapterTitle(&b, k, t, sizeof(t));
+        eqStr(t, v->chapTitle[k], v->label);
       }
     }
 
