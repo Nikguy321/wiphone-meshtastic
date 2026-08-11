@@ -1040,12 +1040,28 @@ uint32_t last_lora_send = 0;
 static bool     meshPopupActive = false;
 static uint32_t meshPopupShownMs = 0;
 
-// Triple-tap the top-right (Back) button to sleep the screen manually.
-// Rolling gaps: 3 taps in a row with <= this much between CONSECUTIVE taps
-// (the old all-3-within-700ms window was nearly impossible to hit).
-#define BACK_TAP_GAP_MS 500u
-static uint32_t msLastBackTap = 0;
-static uint8_t  backTapCount = 0;
+/* HOLD the two top corner keys — Select (top left) + Back (top right) — for two seconds to
+ * sleep the screen.
+ *
+ * This replaces triple-tapping Back, which was tried twice and failed on hardware both times.
+ * A repeated tap on a key that ALSO means "go back" is a bad gesture on this phone: the gap
+ * has to stay tight or backing out of three nested screens sleeps the phone by accident, and
+ * tight means the gesture itself is unreliable — measured at about six presses to register
+ * three. It also depended on a "is the user typing?" test that could be poisoned by a stale
+ * widget pointer and kill the feature for an entire power-on.
+ *
+ * A two-key chord has none of that. It cannot be produced by ordinary navigation, so the hold
+ * can be long and forgiving; there is no window to miss; and it needs no guess about whether
+ * a text field is being edited, because Back alone never triggers it. Nick's suggestion, and
+ * the right one.
+ *
+ * Built on uiKeyDown, the held-key bitmask the keypad service already maintains (the SN7326
+ * re-reports held keys about every 40 ms, and a stale-key sweep clears anything silent for
+ * 350 ms), so this needs no new input plumbing. */
+#define SLEEP_CHORD_MS   2000u
+#define SLEEP_CHORD_MASK (WIPHONE_KEY_MASK_BACK | WIPHONE_KEY_MASK_SELECT)
+static uint32_t msChordStart = 0;      // when both corners went down, 0 = not held
+static bool     chordFired = false;    // one sleep per hold, not one every loop
 
 // Quiet "pop" sound on a new Meshtastic message (one-shot). The PCM player
 // loops, so we stop it by timer after it has played through once.
@@ -1082,6 +1098,30 @@ void loop() {
         }
       }
     }
+
+    /* Sleep the screen on Select + Back held together for two seconds. See the note by
+     * SLEEP_CHORD_MS. Checked here, right after the stale-key sweep, so it reads a held-key
+     * mask that is already up to date; nothing else in the loop has to know about it.
+     *
+     * Deliberately does NOT swallow the keys. Both are edge-triggered, so their presses were
+     * dispatched the moment they went down and cannot be taken back — Back will have
+     * navigated once. That is a fair price for a gesture that works every time, and the
+     * screen going off is its own confirmation. */
+    if ((uiKeyDown & SLEEP_CHORD_MASK) == SLEEP_CHORD_MASK) {
+      if (!msChordStart) {
+        msChordStart = now;
+        chordFired = false;
+      } else if (!chordFired && now - msChordStart >= SLEEP_CHORD_MS) {
+        chordFired = true;               // one sleep per hold, however long it is held
+        if (gui.state.screenBrightness > 0) {
+          gui.sleepScreen();
+        }
+      }
+    } else {
+      msChordStart = 0;
+      chordFired = false;
+    }
+
     // DEBUG
     //uint32_t loopTime = micros();
     //if (!msProfileStart) msProfileStart = loopTime;
@@ -1148,38 +1188,6 @@ void loop() {
 
       // Triple-tap the top-right (Back) button to sleep the screen. Only tracked
       // while the screen is awake, so a wake-up tap doesn't count.
-      // Diagnostic for "triple-tap works once, then not again" — comment out when settled.
-      // Prints on EVERY Back press, including the ones the gate below rejects, because which
-      // gate is rejecting them is the whole question.
-#define BACK_TAP_DEBUG
-#ifdef BACK_TAP_DEBUG
-      if (keyPressed == WIPHONE_KEY_BACK) {
-        log_e("backtap: cnt=%u gap=%lu bright=%u locked=%d textentry=%d unlock1=%u",
-              (unsigned)backTapCount, (unsigned long)(now - msLastBackTap),
-              (unsigned)gui.state.screenBrightness, (int)gui.state.locked,
-              (int)FocusableWidget::textEntryFocused(), (unsigned)gui.state.unlockButton1);
-      }
-#endif
-      if (keyPressed == WIPHONE_KEY_BACK && gui.state.screenBrightness > 0) {
-        if (FocusableWidget::textEntryFocused()) {
-          // In a text field Back is BACKSPACE. Correcting three letters quickly is
-          // ordinary typing, not a request to sleep the phone mid-word. Reset rather
-          // than merely skip, so a burst of backspaces cannot leave a partial count
-          // for a later, unrelated tap to complete.
-          backTapCount = 0;
-        } else {
-          backTapCount = (now - msLastBackTap <= BACK_TAP_GAP_MS) ? backTapCount + 1 : 1;
-          msLastBackTap = now;
-          if (backTapCount >= 3) {
-            backTapCount = 0;
-            gui.sleepScreen();
-            continue;                     // swallow this 3rd Back (don't navigate)
-          }
-        }
-      } else if (keyPressed != WIPHONE_KEY_BACK) {
-        backTapCount = 0;
-      }
-
       if (!anyPressed && gui.state.inputType == InputType::AlphaNum) {
         msLastKeyInput = now;
       }
