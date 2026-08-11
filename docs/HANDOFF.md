@@ -44,6 +44,25 @@ Nick read a page of the real book. Two things it found, both fixed and flashed:
   paints the clock and icons over the title's right-hand end. Every other app gets away with
   it by having a short title; a book title ran straight under the clock.
 
+### ⚠ THE INTERNAL HEAP IS ~16 KB, AND THAT IS THE WHOLE FIRMWARE'S MARGIN
+Opening a book rebooted the phone a minute or two later. The symptom named the wrong culprit:
+`phy_init: failed to allocate memory for RF calibration data` + `abort()` — the WiFi PHY, on
+its periodic auto-switch re-scan, failing to get ~2 KB of **internal** RAM. Nothing in the
+backtrace pointed at the reader, and the obvious theory (the new picture decoding) was wrong.
+
+Measured with the heap probe in `app_books.cpp` (compiled out behind `BOOKS_HEAP_DEBUG` —
+uncomment it before theorising about memory here):
+
+| | free | largest block | psram |
+|---|---|---|---|
+| before | 5,112 | 3,084 | 3.6 MB |
+| after | 15,436 | 12,252 | 3.6 MB |
+
+`new BooksApp` was taking 11 KB of internal heap, 8 KB of it a plain array of 48 filenames.
+PSRAM was never the constraint. **Anything in an app that is more than a few hundred bytes
+belongs in `ps_malloc`.** Watch `largest` as much as `free`: this was a fragmentation failure
+as much as a volume one.
+
 ### Pictures (2026-08-11)
 Inline, captioned `[1] press 1 to enlarge`, and full-screen on that number key. Read the two
 bugs in commit fab0502 before touching the layout: a picture too tall for the space left on a
