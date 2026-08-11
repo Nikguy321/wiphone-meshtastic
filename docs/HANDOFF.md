@@ -8,7 +8,9 @@ Read this first to resume. One command tells you the codebase is healthy:
 ./tests/run_tests.sh
 ```
 
-Expect **671 assertions, 0 failures** across five suites. It compiles the phone's own sources
+Expect **693 assertions, 0 failures** across six suites.
+⚠ The JPEG suite needs fixtures from the bought book (gitignored): run
+`tools/gen_jpeg_fixtures.sh <book.epub>` or it skips itself and says so. It compiles the phone's own sources
 with the host compiler under ASan+UBSan — no PlatformIO, no ESP32, no phone attached.
 
 ---
@@ -106,13 +108,21 @@ All four of the pieces below are BUILT (mesh divert, send by channel name, the c
 the parking spot, passcode/device name in NVS) — see the note above for what is still unproven.
 What is genuinely left:
 
-- **Greyscale JPEG.** 33 of the 45 pictures in the test book are 1-component JPEGs and the
-  ESP32's ROM TJpgDec (`rom/tjpgd.h`, R0.01c) decodes 3-component only. TJpgDec R0.02+ handles
-  greyscale, so the fix is vendoring ~1000 lines of ChaN's decoder and renaming its symbols to
-  avoid colliding with the ROM ones. The reader already says "greyscale JPEG, not supported"
-  rather than showing a black box.
 - **Sending on a schedule** rather than only on demand, if that turns out to be wanted.
 - **A second device to test any of it against.**
+
+### Greyscale pictures — DONE (2026-08-11, commit dc910cf), unseen on screen
+`jpeg_grey.{h,cpp}` is our own baseline greyscale decoder. It exists because the ESP32's
+TJpgDec is in ROM, does 3-component YCbCr only, and **33 of the 45 pictures in this book are
+1-component**. Proven on the phone first (`load_jpg_at=0`), then written, then checked pixel
+for pixel against KNOWN pixels (a quality-100 round trip of a checkerboard: mean error 0.001)
+and cross-checked against macOS `sips` on the book's own art.
+
+⚠ If a book image ever disagrees with sips by a mean of ~1 with outliers around 33, that is
+NOT a bug — it is sips smoothing a low-quality JPEG, which the ground-truth fixture exists to
+prove. Check truth.jpg before suspecting the decoder.
+
+What is still unsupported and now genuinely out of reach: progressive JPEG and PNG.
 
 ---
 
