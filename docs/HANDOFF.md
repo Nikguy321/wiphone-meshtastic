@@ -1,6 +1,6 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-10 · **Next up:** the e-reader UI (`app_books.*`).
+**Last updated:** 2026-08-11 · **Next up:** flash it, read a chapter, then wire up sync.
 
 Read this first to resume. One command tells you the codebase is healthy:
 
@@ -8,55 +8,94 @@ Read this first to resume. One command tells you the codebase is healthy:
 ./tests/run_tests.sh
 ```
 
-Expect **511 assertions, 0 failures** across three suites. It compiles the phone's own sources
+Expect **601 assertions, 0 failures** across four suites. It compiles the phone's own sources
 with the host compiler under ASan+UBSan — no PlatformIO, no ESP32, no phone attached.
 
 ---
 
-## ▶ PICK UP HERE — build the reader
+## ▶ PICK UP HERE — the reader is built and UNFLASHED
 
-Everything *below* the waterline of the e-reader is built and proven. Nothing above it exists.
-**There is no Books entry in the menu yet**; flashing today's `main` shows no new feature.
+**There is a Books entry in the main menu now** and everything under it works as far as a host
+compiler can tell. What has never happened: any of it running on the phone. Nobody has seen a
+page of text on that screen.
 
-Write `WiPhone/app_books.{h,cpp}` — a `WindowedApp`, closest existing model is
-`app_meshtastic.cpp`. Wiring points, already located:
+### The one blocking step: flash it
+`pio run` is green (**RAM 27.4%, flash 31.3%**) but the build has not been written to the phone.
+That needs the USB cable — as of 2026-08-11 no serial device was present on the Mac
+(`ls /dev/cu.usbserial-*` empty). See [[wiphone-flashing]]; ⚠ this unit's adapter **fails above
+230400 baud**, so drive esptool directly rather than `pio run -t upload`.
 
-| What | Where |
-|---|---|
-| App id enum | `GUI.h` — next to `GUI_APP_GBC` |
-| Menu row | `GUI.h` — the `menu[]` table, next to `{ 40, 4, "Game Boy", ... }` |
-| Dispatch | `GUI.cpp` — `enterApp`, next to `case GUI_APP_GBC:` |
+### The test book is ALREADY ON THE SD CARD
+`Ghosts_of_Timkovichi.epub` (5,060,061 bytes) was pushed over WiFi on 2026-08-11 and sits at
+**`/roms/Ghosts_of_Timkovichi.epub`** — not `/books`. That is not a mistake to correct: the only
+uploader the phone was running at the time was the Game Boy one, whose server has **no extension
+filter at all** (the `accept=` attribute is a browser hint). The Books app scans `/roms` and the
+card root as well as `/books` for exactly this reason, and **Manage** can move it.
 
-**Do reading first, sync second.** Library list off SD `/books` → open → word-wrapped paged text
-→ position saved through `BookStore`. Get Nick reading a real book on the phone before adding the
-Sync action and the confirm card. It is the first piece in this feature that cannot be verified
-from here — he has to look at it — so put something on screen early rather than landing the whole
-thing at once.
+**Proof it is the right file:** open it and check **Book info** shows `fp:2f6a8bc9d41ee898`. That
+fingerprint is sha1(size + first 64 KB + last 64 KB), computed independently on the Mac, so a
+match means the 5 MB arrived byte-for-byte.
 
-### The API is already there
-```
-epubOpen / epubChapterText / epubFraction / epubLocate   epub_parse.h
-BookStore::get / put / saveIfDirty                       bookstore.h
-bookSyncPackMesh / bookSyncUnpackMesh / bookSyncIsSyncText   booksync.h
-```
+### What to check first, in this order
+1. **Menu > Books lists the book.** If the library is empty, the SD scan or the card is the
+   problem, not the reader.
+2. **Open it.** Expect the title page. 90 chapters, real titles from the NCX ("Prologue",
+   "1. Monkeys with ’Mechs"), ~11 lines a page, ~34 characters a line at the small size.
+3. **Page down and back up.** Nothing should be skipped or repeated at a boundary — that was a
+   real bug, found by paging a real chapter backwards on the host, and it is now pinned.
+4. **Close the book, reopen it.** It must land on the same page. That is the whole feature.
+5. **Leave it sitting on a page for two minutes.** The screen must not sleep.
 
-### Still to do after the reader
-- **Position store on SD** — `BookStore` is written and tested; it needs a `BookStoreIo` backed by
-  SD (`load` + atomic `store` via temp-then-rename). The stdio one in `tests/test_bookstore.cpp`
-  is the model.
-- **Book uploader** — clone `app_gbc_xfer.cpp` (268 lines), `/roms` → `/books`. Keep its two
-  hard-won lessons: `delay(1)` inside big POSTs or the task watchdog reboots the phone, and one
-  file per request.
+### Then: sync
 - **Mesh wiring** — divert `CBS1 ` before it reaches Chats using `bookSyncIsSyncText()` (checked
   BEFORE the mac, deliberately: a packet signed with someone else's passcode is still not a chat
   message). Find the `booksync` channel **by name** and send with `sendChannelMessage(hash, text)`.
   ⚠ **Never fall back to the primary channel** — a position broadcast on LongFast is readable by
   every node in range.
+- **A confirm card, never an automatic jump** (D-089): clock skew makes "newest wins" dangerous.
+  `bookSyncSuspectClock()` is there to flag it.
 - **Park late packets** for the next time that book is opened. COVEY does this because a LoRa round
   trip does not fit inside its 15 s sync window, and it listens continuously. That is what makes
   "sync now, pick it up later" work.
 - **Passcode + device name storage** — planned for NVS under the existing `wpmesh` namespace (same
   place as the mesh node name), with an edit screen under **My node**. Not yet built.
+
+---
+
+## What the reader does, and the three things worth knowing before changing it
+
+`app_books.{h,cpp}` is a `WindowedApp`: library → reader → menu (chapters / text size / book info
+/ close), plus **Add books over WiFi** and **Manage** (delete, asks first). The library scans
+`/books`, `/roms` and `/`.
+
+**1. Pagination is a separate, testable module.** `book_layout.{h,cpp}` takes the text and a
+width-measuring CALLBACK, so wrapping, paragraph gaps, UTF-8 and page-back are all exercised on a
+Mac with a fixed-width stub. The phone supplies `SmoothFont::textWidth`. Keep it that way: the
+only thing left in the app is drawing the lines it hands back.
+
+⚠ **What page-back promises is CONTINUITY, not identity.** Greedy wrapping restarted at a
+different offset can stay permanently out of phase, so a cold page-back may reflow the lines.
+What it guarantees is that the page ENDS where the current one begins and is a full page. Exact
+back-paging through pages you just read comes from the app's own history stack, not from
+re-deriving them. Do not "fix" this by asserting identity — the algorithm cannot keep that
+promise, and an earlier version of the test asserted it and passed only by luck.
+
+**2. Position is (spine, byte offset) and text size does not move it.** Changing the font
+reflows the page and keeps your place, which is the same property that lets COVEY understand a
+position from here. ⚠ The offset is a BYTE offset into the extracted text; COVEY counts
+CHARACTERS. They agree for ASCII and drift on curly quotes and em dashes — pre-existing,
+documented in `epub_parse.h`, and absorbed by the whole-book fraction. It is one more reason a
+synced jump is confirmed rather than taken silently.
+
+**3. The transfer server is SHARED, not copied.** One `XferConfig` per app, one port 80, one copy
+of the two lessons that keep it alive on hardware. `xferStart()` stops and restarts if another
+app asks for a different folder. If you add a third uploader, add a config — do not add a server.
+
+### Not covered by the interop vectors
+Chapter titles from the nav/NCX are **new here and not in the generated vectors** — the fixtures
+have no table of contents. They were verified against the real book instead. Titles are local
+(only the spine INDEX travels), so a difference from COVEY is cosmetic, and one is deliberate:
+for a nested NCX this takes the entry's own label where COVEY concatenates its children's too.
 
 ---
 
@@ -66,9 +105,12 @@ bookSyncPackMesh / bookSyncUnpackMesh / bookSyncIsSyncText   booksync.h
 |---|---|
 | `book_hash.{h,cpp}` | SHA-256, SHA-1, HMAC, base32, UTF-8 truncation |
 | `booksync.{h,cpp}` | full wire protocol — **320 assertions** |
-| `epub_parse.{h,cpp}` | zip, inflate, OPF, spine, XHTML→text, ids, fraction/locate — **134** |
+| `epub_parse.{h,cpp}` | zip, inflate, OPF, spine, XHTML→text, ids, fraction/locate, nav/NCX titles — **134** |
 | `bookstore.{h,cpp}` | reading positions — **57** |
+| `book_layout.{h,cpp}` | pages, wrapping, page-back — **90** |
 | `html_entities.h` | 2125 entities, generated |
+| `app_books.{h,cpp}` | the reader. Compiles and runs nowhere yet — see PICK UP HERE |
+| `app_gbc_xfer.{h,cpp}` | the shared upload server, one `XferConfig` per app |
 
 Crypto is self-contained rather than mbedtls **on purpose**: the host tests have to exercise the
 code that actually ships, and an mbedtls backend would mean testing one implementation and
@@ -119,8 +161,10 @@ passcode there.
 
 ## Waiting on Nick
 
+- **Flash the build and read a chapter.** Nothing above the host tests has ever run.
 - Put the same book files on both devices — WiPhone SD `/books`, COVEY `/home/covey/books`.
-  Byte-identical copies.
+  Byte-identical copies. `Ghosts_of_Timkovichi.epub` is on the WiPhone (in `/roms`); COVEY does
+  not have it yet, and sync needs both.
 - Import COVEY's `booksync` channel invite onto the WiPhone (DM the link, then **Apply link**).
   Never broadcast it — it carries the channel PSK.
 - Change COVEY's booksync passcode from its `"nnnn"` placeholder, and match it on the WiPhone.
