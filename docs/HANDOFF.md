@@ -8,7 +8,7 @@ Read this first to resume. One command tells you the codebase is healthy:
 ./tests/run_tests.sh
 ```
 
-Expect **608 assertions, 0 failures** across four suites. It compiles the phone's own sources
+Expect **657 assertions, 0 failures** across four suites. It compiles the phone's own sources
 with the host compiler under ASan+UBSan — no PlatformIO, no ESP32, no phone attached.
 
 ---
@@ -33,6 +33,23 @@ card root as well as `/books` for exactly this reason, and **Manage** can move i
 **Proof it is the right file:** open it and check **Book info** shows `fp:2f6a8bc9d41ee898`. That
 fingerprint is sha1(size + first 64 KB + last 64 KB), computed independently on the Mac, so a
 match means the 5 MB arrived byte-for-byte.
+
+### Confirmed by eye on 2026-08-11
+Nick read a page of the real book. Two things it found, both fixed and flashed:
+- **Akrobat has no typographic punctuation** and its `.notdef` is a narrow bar, so "Arc-Royal’s"
+  read as "Arc-Royalls" — a missing glyph that looks like a letter, not like damage.
+  `bookRenderRun()` substitutes only what the font cannot draw (it asks, via
+  `getUnicodeIndex`) and feeds BOTH measuring and drawing. ⚠ It must never touch `chapText`.
+- **`HeaderWidget::setTitle` keeps the pointer and `redraw` applies no width limit**, then
+  paints the clock and icons over the title's right-hand end. Every other app gets away with
+  it by having a short title; a book title ran straight under the clock.
+
+### Pictures (2026-08-11)
+Inline, captioned `[1] press 1 to enlarge`, and full-screen on that number key. Read the two
+bugs in commit fab0502 before touching the layout: a picture too tall for the space left on a
+page was silently LOST, and a picture on a one-row page could stop the page advancing at all.
+⚠ The decoder is **baseline JPEG only** — a progressive or greyscale JPEG, or a PNG, will not
+draw, and the reader says so on the picture rather than showing black.
 
 ### What to check first, in this order
 1. **Menu > Books lists the book.** If the library is empty, the SD scan or the card is the
@@ -110,9 +127,9 @@ fixtures and the test book have. Titles never travel — only the spine INDEX do
 |---|---|
 | `book_hash.{h,cpp}` | SHA-256, SHA-1, HMAC, base32, UTF-8 truncation |
 | `booksync.{h,cpp}` | full wire protocol — **320 assertions** |
-| `epub_parse.{h,cpp}` | zip, inflate, OPF, spine, XHTML→text, ids, fraction/locate, nav/NCX titles — **141** |
+| `epub_parse.{h,cpp}` | zip, inflate, OPF, spine, XHTML→text, ids, fraction/locate, nav/NCX titles, pictures — **167** |
 | `bookstore.{h,cpp}` | reading positions — **57** |
-| `book_layout.{h,cpp}` | pages, wrapping, page-back — **90** |
+| `book_layout.{h,cpp}` | pages, wrapping, page-back, picture rows — **113** |
 | `html_entities.h` | 2125 entities, generated |
 | `app_books.{h,cpp}` | the reader. Compiles and runs nowhere yet — see PICK UP HERE |
 | `app_gbc_xfer.{h,cpp}` | the shared upload server, one `XferConfig` per app |
