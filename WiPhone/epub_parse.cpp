@@ -290,9 +290,14 @@ size_t epubNormPath(const char* base, const char* href, char* out, size_t cap) {
       *p = '/';
     }
   }
-  // normpath: collapse "//", drop ".", resolve "..".
-  const char* seg[64];
-  size_t segLen[64];
+  /* normpath: collapse "//", drop ".", resolve "..".
+   *
+   * 24 segments, not 64, because this frame is the largest in the whole book path and it sits
+   * at the bottom of the deepest chain: epubOpen -> navTitles -> here measured 4,472 bytes of
+   * an 8 KB task stack. A zip path with 24 directories deep does not exist; two 64-entry
+   * arrays did, and cost a kilobyte for nothing. */
+  const char* seg[24];
+  size_t segLen[24];
   int nSeg = 0;
   char* p = joined;
   while (*p) {
@@ -316,7 +321,7 @@ size_t epubNormPath(const char* base, const char* href, char* out, size_t cap) {
       }
       continue;
     }
-    if (nSeg < 64) {
+    if (nSeg < (int)(sizeof(seg) / sizeof(seg[0]))) {
       seg[nSeg] = s;
       segLen[nSeg] = len;
       nSeg++;
