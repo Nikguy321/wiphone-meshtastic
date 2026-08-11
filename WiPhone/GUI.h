@@ -2497,10 +2497,11 @@ public:
 
 
 protected:
-  GUIMenuItemIcons menuIcons[7] PROGMEM = {
+  GUIMenuItemIcons menuIcons[8] PROGMEM = {
     { 2,    icon_Phonebook_w, sizeof (icon_Phonebook_w), icon_Phonebook_b, sizeof (icon_Phonebook_b) },
     { 20,   icon_Messages_w, sizeof (icon_Messages_w), icon_Messages_b, sizeof (icon_Messages_b) },
     { 39,   icon_Meshtastic_w, sizeof (icon_Meshtastic_w), icon_Meshtastic_b, sizeof (icon_Meshtastic_b) },
+    { 41,   icon_Books_w, sizeof (icon_Books_w), icon_Books_b, sizeof (icon_Books_b) },
     { 3,    icon_Tools_w, sizeof (icon_Tools_w), icon_Tools_b, sizeof (icon_Tools_b) },
     { 4,    icon_Games_w, sizeof (icon_Games_w), icon_Games_b, sizeof (icon_Games_b) },
     { 13,   icon_Reboot_w, sizeof (icon_Reboot_w), icon_Reboot_b, sizeof (icon_Reboot_b) },

@@ -141,6 +141,7 @@ protected:
   MenuWidget* newMenu(const char* emptyMessage, SmoothFont* font, uint8_t perScreen);
 
   void scanBooks();
+  bool isStray(int i) const;     // a book living outside /books (e.g. via the ROM uploader)
   void buildLibrary();
   void buildManage();
   void buildMenu();

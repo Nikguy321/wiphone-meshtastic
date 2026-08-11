@@ -16,6 +16,7 @@
 #define BOOKS_ROW_ADD      1
 #define BOOKS_ROW_MANAGE   2
 #define BOOKS_ROW_HELP     3
+#define BOOKS_ROW_TIDY     4         // "Move N books into /books"
 #define BOOKS_ROW_FIRST    10        // book i has key BOOKS_ROW_FIRST + i
 
 // Reader menu rows
@@ -449,11 +450,33 @@ void BooksApp::buildLibrary() {
   }
 }
 
+// True for a book that is not in /books — it arrived through the ROM uploader or by hand.
+bool BooksApp::isStray(int i) const {
+  return i >= 0 && i < bookCount &&
+         strncmp(books[i].path, BOOKS_DIR "/", strlen(BOOKS_DIR) + 1) != 0;
+}
+
 void BooksApp::buildManage() {
   menu = newMenu("No books on the SD card", fonts[AKROBAT_BOLD_18], 9);
   char line[96];
+
+  /* New books land in /books; these got here another way — most likely through the Game Boy
+   * ROM uploader, which was the only one that existed before this app and filters nothing.
+   * Offered as one explicit action rather than done silently on startup: moving someone's
+   * files without asking is not the reader's business. */
+  int stray = 0;
   for (int i = 0; i < bookCount; i++) {
-    bool inBooks = strncmp(books[i].path, BOOKS_DIR "/", strlen(BOOKS_DIR) + 1) == 0;
+    if (isStray(i)) {
+      stray++;
+    }
+  }
+  if (stray > 0) {
+    snprintf(line, sizeof(line), "Move %d book%s into /books", stray, stray == 1 ? "" : "s");
+    menu->addOption(line, BOOKS_ROW_TIDY, 1);
+  }
+
+  for (int i = 0; i < bookCount; i++) {
+    bool inBooks = !isStray(i);
     if (pendingDelete == i) {
       snprintf(line, sizeof(line), "Delete %s? (confirm)", books[i].name);
     } else if (inBooks) {
@@ -1280,6 +1303,24 @@ appEventResult BooksApp::processEvent(EventType event) {
     menu->processEvent(event);
     if (LOGIC_BUTTON_OK(event)) {
       MenuOption::keyType sel = menu->currentKey();
+      if (sel == BOOKS_ROW_TIDY) {
+        SD.mkdir(BOOKS_DIR);
+        for (int i = 0; i < bookCount; i++) {
+          if (!isStray(i)) {
+            continue;
+          }
+          char dest[128];
+          snprintf(dest, sizeof(dest), "%s/%s", BOOKS_DIR, books[i].name);
+          if (!SD.exists(dest)) {          // never overwrite a book already there
+            SD.rename(books[i].path, dest);
+          }
+        }
+        pendingDelete = -1;
+        scanBooks();
+        freeWidgets();
+        buildManage();
+        return REDRAW_SCREEN;
+      }
       int idx = (int)sel - BOOKS_ROW_FIRST;
       if (idx >= 0 && idx < bookCount) {
         if (pendingDelete == idx) {

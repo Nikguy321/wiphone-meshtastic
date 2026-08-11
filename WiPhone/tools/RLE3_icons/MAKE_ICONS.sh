@@ -45,6 +45,12 @@ declare -a array=(
 	"Messages_b" "Messages_w"
 	"Settings_b" "Settings_w"
 	"Phonebook_b" "Phonebook_w"
+	"Books_b" "Books_w"
+	# ⚠ THIS SCRIPT REWRITES icons.h FROM THIS LIST, so anything live but missing here is
+	# silently deleted by running it. Meshtastic_b/w are exactly that: in icons.h, used by
+	# the main menu, and with NO source PNG in this directory. Do not run this script until
+	# that art exists. Books_b/w are drawn by make_books_icon.py, which writes its own .rle3
+	# and .h as well — RLE3.py needs cv2 + numpy, which are not installed.
         # Big icons for the Messages app
 	"Inbox_b" "Inbox_w"
 	"Outbox_b" "Outbox_w"
