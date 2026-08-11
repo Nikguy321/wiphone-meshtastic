@@ -710,6 +710,43 @@ int BooksApp::imageRows(int i) const {
 /* Decode a picture straight from the zip into the given box. The compressed bytes go to
  * PSRAM for the length of the draw and no longer: chapters have one or two pictures, but the
  * cover alone is a megabyte and holding them all would cost more than it buys. */
+/* Where a greyscale picture goes on screen, and how much it shrinks on the way.
+ *
+ * jpeg_grey streams eight rows at a time rather than handing back a framebuffer — the cover
+ * of this book is 1453x1920 and a full one would be 5 MB — so scaling happens here, by
+ * sampling every Nth row and column. Nearest-neighbour deliberately: on a 240px panel showing
+ * line art, averaging blurs exactly the thing that makes it readable. */
+struct GreyBlit {
+  LCD*     lcd;
+  int      x, y;
+  int      scale;
+  uint16_t outW, outH;
+};
+
+static void greyBlitRows(void* ctx, int y0, int rows, const uint8_t* band, int width) {
+  GreyBlit* g = (GreyBlit*)ctx;
+  uint16_t line[240];
+  const int cap = (int)(sizeof(line) / sizeof(line[0]));
+  for (int r = 0; r < rows; r++) {
+    int sy = y0 + r;
+    if (sy % g->scale) {
+      continue;                              // this source row is not one we sample
+    }
+    int dy = sy / g->scale;
+    if (dy >= g->outH) {
+      break;
+    }
+    const uint8_t* src = band + (size_t)r * width;
+    int n = g->outW < cap ? g->outW : cap;
+    for (int dx = 0; dx < n; dx++) {
+      int sx = dx * g->scale;
+      uint8_t v = (sx < width) ? src[sx] : 0;
+      line[dx] = g->lcd->color565(v, v, v);
+    }
+    g->lcd->pushImage(g->x, g->y + dy, n, 1, line);
+  }
+}
+
 bool BooksApp::drawOneImage(int i, int x, int y, uint16_t boxW, uint16_t boxH) {
   if (i < 0 || i >= nImages || !isOpen) {
     return false;
@@ -724,19 +761,45 @@ bool BooksApp::drawOneImage(int i, int x, int y, uint16_t boxW, uint16_t boxH) {
   }
   bool ok = false;
   if (epubReadEntry(&book, images[i].name, data, sz) == sz) {
-    uint16_t ow = 0, oh = 0;
-    // Centre it: tjpgd can only halve, so a picture rarely fills its box exactly.
     uint16_t pw = images[i].w ? images[i].w : boxW;
     uint16_t ph = images[i].h ? images[i].h : boxH;
-    int scale = 0;
-    while (scale < 3 && ((pw >> scale) > boxW || (ph >> scale) > boxH)) {
-      scale++;
+
+    if (jpegGreyIsGreyBaseline(data, sz)) {
+      /* Greyscale: our own decoder, because the ESP32's is in ROM and does 3-component
+       * YCbCr only. Not an edge case — 33 of the 45 pictures in this book are greyscale.
+       * Unlike tjpgd this scales by any integer, not just halves, so it fills the box more
+       * closely. */
+      GreyBlit g;
+      g.lcd = &lcd;
+      g.scale = 1;
+      while ((pw + g.scale - 1) / g.scale > boxW || (ph + g.scale - 1) / g.scale > boxH) {
+        g.scale++;
+        if (g.scale > 32) {
+          break;
+        }
+      }
+      g.outW = (uint16_t)((pw + g.scale - 1) / g.scale);
+      g.outH = (uint16_t)((ph + g.scale - 1) / g.scale);
+      g.x = x + (boxW - g.outW) / 2;
+      if (g.x < x) {
+        g.x = x;
+      }
+      g.y = y;
+      uint16_t dw = 0, dh = 0;
+      ok = jpegGreyDecode(data, sz, greyBlitRows, &g, &dw, &dh) == JPEG_GREY_OK;
+    } else {
+      uint16_t ow = 0, oh = 0;
+      // Colour: the ROM decoder. It only halves, so a picture rarely fills its box exactly.
+      int scale = 0;
+      while (scale < 3 && ((pw >> scale) > boxW || (ph >> scale) > boxH)) {
+        scale++;
+      }
+      int cx = x + (boxW - (pw >> scale)) / 2;
+      if (cx < x) {
+        cx = x;
+      }
+      ok = display::load_jpg_at(data, sz, &lcd, (int16_t)cx, (int16_t)y, boxW, boxH, &ow, &oh) != 0;
     }
-    int cx = x + (boxW - (pw >> scale)) / 2;
-    if (cx < x) {
-      cx = x;
-    }
-    ok = display::load_jpg_at(data, sz, &lcd, (int16_t)cx, (int16_t)y, boxW, boxH, &ow, &oh) != 0;
   }
   free(data);
   BOOKS_HEAP("image:drawn");
@@ -1033,9 +1096,6 @@ void BooksApp::drawPage() {
       char cap[72];
       if (drew) {
         snprintf(cap, sizeof(cap), "[%d] press %d to enlarge", shown, shown);
-      } else if (imgGrey[k]) {
-        // Say which limitation it is. This is the COMMON case in a real book, not the odd one.
-        snprintf(cap, sizeof(cap), "[picture: greyscale JPEG, not supported]");
       } else {
         snprintf(cap, sizeof(cap), "[picture %d could not be shown]", shown);
       }
@@ -1287,12 +1347,10 @@ void BooksApp::drawPicture() {
     /* Say WHY rather than showing a black rectangle. The ESP32's ROM TJpgDec decodes
      * 3-component baseline JPEG only — greyscale and progressive files are refused, and that
      * is a property of the decoder in silicon, not a fault the reader can fix. */
+    /* Greyscale is handled by jpeg_grey now, so what is left here is genuinely out of reach:
+     * a progressive JPEG, or a PNG, neither of which either decoder reads. */
     lcd.setTextColor(TFT_ORANGE, BLACK);
-    if (imgGrey[viewImage]) {
-      snprintf(cap, sizeof(cap), "greyscale JPEG - the ROM decoder cannot read it");
-    } else {
-      snprintf(cap, sizeof(cap), "cannot show this picture (not a baseline JPEG?)");
-    }
+    snprintf(cap, sizeof(cap), "cannot show this one (progressive JPEG or PNG?)");
   }
   lcd.drawString(cap, BOOKS_MARGIN, bottom - capH);
 }

@@ -29,6 +29,7 @@
 #include "book_layout.h"
 #include "bookstore.h"
 #include "booksync_inbox.h"
+#include "jpeg_grey.h"
 
 #define BOOKS_MAX        48       // books listed from the SD card
 #define BOOKS_HIST       48       // remembered page starts: exact back-paging while reading
