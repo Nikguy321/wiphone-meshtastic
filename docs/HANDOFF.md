@@ -1,6 +1,7 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-11 · **Next up:** get sync on air against COVEY, then greyscale JPEG.
+**Last updated:** 2026-08-11 · **Next up:** get sync on air against COVEY. That is the only
+thing left that needs the other device.
 
 Read this first to resume. One command tells you the codebase is healthy:
 
@@ -8,22 +9,25 @@ Read this first to resume. One command tells you the codebase is healthy:
 ./tests/run_tests.sh
 ```
 
-Expect **693 assertions, 0 failures** across six suites.
-⚠ The JPEG suite needs fixtures from the bought book (gitignored): run
-`tools/gen_jpeg_fixtures.sh <book.epub>` or it skips itself and says so. It compiles the phone's own sources
+Expect **693 assertions, 0 failures** across six suites. It compiles the phone's own sources
 with the host compiler under ASan+UBSan — no PlatformIO, no ESP32, no phone attached.
+⚠ The JPEG suite needs fixtures from the bought book (gitignored): run
+`tools/gen_jpeg_fixtures.sh <book.epub>` or it skips itself and says so.
 
 ---
 
-## ▶ PICK UP HERE — the reader WORKS; sync has never been on air
+## ▶ PICK UP HERE — the reader is DONE and confirmed; sync has never been on air
 
-📖 **Nick has read a real bought book on this phone**, with pictures inline and his place
-surviving a power cycle. Menu > Books. Flash at 230400 (hash verified).
+📖 **Nick read a real bought book on this phone on 2026-08-11 and confirmed it working**:
+prose, chapter titles, pictures inline, and his place surviving a power cycle. Menu > Books.
+Flash at 230400 (hash verified). That was the goal, and it is met.
 
-**The one big thing left is proving sync against COVEY**, which needs COVEY powered — see the
-sync section below for the order to check things in. After that, greyscale JPEG.
+**The one thing left needs the other device: proving book sync on air against COVEY.** Every
+piece is written and host-tested; not one packet has crossed. The order to check things in is
+in the sync section below — and every failure mode there is silent on both devices, so follow
+it rather than guessing.
 
-Still not confirmed by eye: paging BACK a page, and the Select+Back sleep chord.
+Nothing else is outstanding. Everything below this line is context for whoever picks it up.
 
 ### The test book is ALREADY ON THE SD CARD
 `Ghosts_of_Timkovichi.epub` (5,060,061 bytes) was pushed over WiFi on 2026-08-11 and sits at
@@ -65,14 +69,14 @@ PSRAM was never the constraint. **Anything in an app that is more than a few hun
 belongs in `ps_malloc`.** Watch `largest` as much as `free`: this was a fragmentation failure
 as much as a volume one.
 
-### Pictures (2026-08-11)
+### Pictures (2026-08-11) — including greyscale, via our own decoder
 Inline, captioned `[1] press 1 to enlarge`, and full-screen on that number key. Read the two
 bugs in commit fab0502 before touching the layout: a picture too tall for the space left on a
 page was silently LOST, and a picture on a one-row page could stop the page advancing at all.
-⚠ The decoder is **baseline JPEG only** — a progressive or greyscale JPEG, or a PNG, will not
-draw, and the reader says so on the picture rather than showing black.
+Colour goes through the ROM decoder; greyscale through `jpeg_grey` (see below), which is most
+of them. Still out of reach and honestly reported on the picture: progressive JPEG, and PNG.
 
-### What to check first, in this order
+### If something regresses, check in this order
 1. **Menu > Books lists the book.** If the library is empty, the SD scan or the card is the
    problem, not the reader.
 2. **Open it.** Give it a few seconds: opening reads the zip directory of 230 entries, the OPF,
