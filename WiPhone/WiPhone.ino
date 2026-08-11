@@ -1149,12 +1149,20 @@ void loop() {
       // Triple-tap the top-right (Back) button to sleep the screen. Only tracked
       // while the screen is awake, so a wake-up tap doesn't count.
       if (keyPressed == WIPHONE_KEY_BACK && gui.state.screenBrightness > 0) {
-        backTapCount = (now - msLastBackTap <= BACK_TAP_GAP_MS) ? backTapCount + 1 : 1;
-        msLastBackTap = now;
-        if (backTapCount >= 3) {
+        if (FocusableWidget::textEntryFocused()) {
+          // In a text field Back is BACKSPACE. Correcting three letters quickly is
+          // ordinary typing, not a request to sleep the phone mid-word. Reset rather
+          // than merely skip, so a burst of backspaces cannot leave a partial count
+          // for a later, unrelated tap to complete.
           backTapCount = 0;
-          gui.sleepScreen();
-          continue;                       // swallow this 3rd Back (don't navigate)
+        } else {
+          backTapCount = (now - msLastBackTap <= BACK_TAP_GAP_MS) ? backTapCount + 1 : 1;
+          msLastBackTap = now;
+          if (backTapCount >= 3) {
+            backTapCount = 0;
+            gui.sleepScreen();
+            continue;                     // swallow this 3rd Back (don't navigate)
+          }
         }
       } else if (keyPressed != WIPHONE_KEY_BACK) {
         backTapCount = 0;

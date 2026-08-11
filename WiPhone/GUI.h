@@ -496,13 +496,58 @@ public:
     this->focused = false;
     this->active = true;
   }
+  virtual ~FocusableWidget() {
+    // Never leave the tracker pointing at a freed widget — see s_textFocus.
+    if (s_textFocus == this) {
+      s_textFocus = NULL;
+    }
+  }
   bool focusable()  {
     return true;
   }
+
+  /* True for widgets where typing goes INTO the widget — text fields and the like.
+   * Overridden by TextInputAbstract; everything else answers false. */
+  virtual bool isTextEntry() {
+    return false;
+  }
+
   void setFocus(bool focus) {
     this->focused = focus;
     this->updated = true;
+    if (this->isTextEntry()) {
+      if (focus) {
+        s_textFocus = this;
+      } else if (s_textFocus == this) {
+        s_textFocus = NULL;
+      }
+    }
   }
+
+  /* Is a text field focused right now?
+   *
+   * Used by the triple-tap-to-sleep handler in WiPhone.ino: inside a text field the Back
+   * key is BACKSPACE, so three quick corrections would otherwise put the phone to sleep
+   * mid-word.
+   *
+   * Deliberately a pointer to the live widget rather than a bool flag: a flag left stuck
+   * true by a screen that tore down while focused would disable triple-tap for the rest of
+   * the session, which is a worse bug than the one this fixes. The destructor above clears
+   * it, so the state cannot outlive the widget.
+   *
+   * ControlState::inputType is NOT usable for this — it is a MODE (Numeric/AlphaNum/IPv4)
+   * set ad-hoc by a handful of callers (see the "TODO: automate changing InputType
+   * relevantly" notes in GUI.cpp) and it persists across screens, so it reads as "typing"
+   * on screens with no text field at all. */
+  static bool textEntryFocused() {
+    return s_textFocus != NULL;
+  }
+
+protected:
+  // The text-entry widget that currently has focus, or NULL. Defined in GUI.cpp.
+  static FocusableWidget* s_textFocus;
+
+public:
   bool getFocus()   {
     return this->focused;
   }
@@ -784,6 +829,12 @@ public:
 
 class TextInputAbstract : public FocusableWidget {
 public:
+  // Typing goes into this widget, so Back means backspace here — see
+  // FocusableWidget::textEntryFocused().
+  bool isTextEntry() {
+    return true;
+  }
+
   TextInputAbstract(uint16_t xPos, uint16_t yPos, uint16_t width, uint16_t height,
                     ControlState& state,
                     SmoothFont* font=NULL, uint32_t maxInputSize=64000, InputType typ=InputType::Numeric);

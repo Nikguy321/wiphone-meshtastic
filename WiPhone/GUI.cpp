@@ -376,6 +376,8 @@ bool ControlState::loadSipAccount() {
   return foundAccount;
 }
 
+FocusableWidget* FocusableWidget::s_textFocus = NULL;
+
 void ControlState::setInputState(InputType newInputType) {
   inputType = newInputType;
   inputCurKey = 0;
@@ -10540,8 +10542,14 @@ TextInputAbstract::TextInputAbstract(uint16_t xPos, uint16_t yPos, uint16_t widt
 
 void TextInputAbstract::setFocus(bool focus) {
   controlState.setInputState(inputType);
-  this->focused = focus;
-  this->updated = true;
+  /* Delegate the focus bookkeeping instead of repeating it.
+   *
+   * This used to assign this->focused and this->updated directly, which is byte-for-byte
+   * what the base does — and that duplication silently defeated the first attempt at
+   * suppressing triple-tap-to-sleep inside text fields: setFocus is pure-virtual in
+   * AbstractWidget, so this override meant FocusableWidget::setFocus never ran for the one
+   * class of widget that needed it, and backspacing a message still slept the phone. */
+  FocusableWidget::setFocus(focus);
 };
 
 void TextInputAbstract::drawCursor(LCD &lcd, uint16_t posX, uint16_t posY, uint16_t charHeight, uint16_t color) {
