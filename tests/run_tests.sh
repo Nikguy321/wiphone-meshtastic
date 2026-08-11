@@ -29,6 +29,7 @@ for src in tests/test_*.cpp; do
   case "$name" in
     test_booksync) deps=(WiPhone/booksync.cpp WiPhone/book_hash.cpp) ;;
     test_epub)     deps=(WiPhone/epub_parse.cpp WiPhone/book_hash.cpp); extra=(-lz) ;;
+    test_bookstore) deps=(WiPhone/bookstore.cpp WiPhone/booksync.cpp WiPhone/book_hash.cpp) ;;
     *)             deps=() ;;
   esac
   echo "building $name"
