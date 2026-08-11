@@ -69,8 +69,16 @@ protected:
   BooksState_t appState;
   MenuWidget*  menu;             // the active list, when a state has one
 
-  // ---- library
-  BookFile books[BOOKS_MAX];
+  /* ---- library
+   *
+   * ⚠ In PSRAM, not inline in the object. `new BooksApp` comes off the INTERNAL heap, and on
+   * this phone that heap runs at about 16 KB free with WiFi and SIP up — measured, not
+   * guessed. An 8 KB array of filenames sitting in it took the margin below what the WiFi
+   * PHY needs to allocate its RF calibration data on a periodic re-scan, and phy_init calls
+   * abort() when that fails: the phone rebooted a minute or two after a book was opened,
+   * pointing at nothing in particular. Anything here that is more than a few hundred bytes
+   * belongs in PSRAM, where there are megabytes spare. */
+  BookFile* books;
   int      bookCount;
   int      pendingDelete;        // index of the book a second OK would delete, or -1
   bool     xferClean;            // transfer screen already painted (live refresh skips the fill)
@@ -96,8 +104,8 @@ protected:
    * KB each, not the whole image), because the layout must know how many rows to reserve
    * before anything is drawn. The image DATA is only read while it is being drawn — a 1 MB
    * cover does not get to sit in RAM all session. */
-  EpubImage    images[EPUB_MAX_IMAGES];
-  BookImageBox imgBoxes[EPUB_MAX_IMAGES];    // the same, in the units the layout wants
+  EpubImage*    images;                      // PSRAM, for the reason above
+  BookImageBox* imgBoxes;                    // the same, in the units the layout wants
   int          nImages;
   int          viewImage;                    // index shown full-screen, or -1
   uint8_t      pageImageKey[EPUB_MAX_IMAGES];  // number key that opens image i, 0 = not on this page

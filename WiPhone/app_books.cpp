@@ -192,6 +192,30 @@ static int fontMeasure(void* ctx, const char* s, size_t len) {
   return (int)f->textWidth(tmp);
 }
 
+/* Heap probe — uncomment to bring it back.
+ *
+ * `log_e` is the only level compiled into this firmware, so a diagnostic has to shout. This
+ * one earned its place: the reader was rebooting the phone a minute or two after a book was
+ * opened, and the visible symptom was `phy_init: failed to allocate memory for RF calibration
+ * data` — the WiFi PHY, not the reader, and nothing in the backtrace pointed here. What it
+ * showed was that the INTERNAL heap runs at about 16 KB free on this phone with WiFi and SIP
+ * up, and that an 8 KB array inside `new BooksApp` took the margin below what a periodic
+ * WiFi re-scan needs. PSRAM was never the constraint: 3.6 MB free throughout.
+ *
+ * Measure before believing any theory about memory here, and watch `largest` as much as
+ * `heap` — the failure was a fragmentation one as much as a volume one. */
+//#define BOOKS_HEAP_DEBUG
+
+#ifdef BOOKS_HEAP_DEBUG
+#define BOOKS_HEAP(tag)                                                            \
+  log_e("books/%s: heap=%u min=%u largest=%u psram=%u", (tag),                     \
+        (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(),               \
+        (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),           \
+        (unsigned)ESP.getFreePsram())
+#else
+#define BOOKS_HEAP(tag)  do { } while (0)
+#endif
+
 // ---------------------------------------------------------------- lifecycle
 
 BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer)
@@ -229,17 +253,20 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   storeIo.load = posLoad;
   storeIo.store = posStore;
 
-  // The store is ~11 KB of BookPos; internal RAM is the scarce one on this phone.
-  store = (BookStore*)ps_malloc(sizeof(BookStore));
-  if (!store) {
-    store = (BookStore*)malloc(sizeof(BookStore));
-  }
+  /* Everything sizeable goes to PSRAM. `new BooksApp` itself is internal-heap memory, and on
+   * this phone that heap sits at roughly 16 KB free — see the note in app_books.h. */
+  books    = (BookFile*)ps_malloc(sizeof(BookFile) * BOOKS_MAX);
+  images   = (EpubImage*)ps_malloc(sizeof(EpubImage) * EPUB_MAX_IMAGES);
+  imgBoxes = (BookImageBox*)ps_malloc(sizeof(BookImageBox) * EPUB_MAX_IMAGES);
+  store    = (BookStore*)ps_malloc(sizeof(BookStore));
   if (store) {
     store->init();
     store->load(&storeIo);
   }
 
+  BOOKS_HEAP("ctor");
   scanBooks();
+  BOOKS_HEAP("scanned");
   enterState(BOOKS_LIB);
 }
 
@@ -248,10 +275,14 @@ BooksApp::~BooksApp() {
   closeBook(true);
   xferStop();                    // in case the app dies with the transfer screen up
   holdScreenAwake(false);        // never leave the user's screen timeout stretched
-  if (store) {
-    free(store);
-    store = NULL;
-  }
+  free(store);
+  free(books);
+  free(images);
+  free(imgBoxes);
+  store = NULL;
+  books = NULL;
+  images = NULL;
+  imgBoxes = NULL;
   freeWidgets();
 }
 
@@ -341,6 +372,9 @@ static bool nameAfter(const char* a, const char* b) {
  * uploader that existed before this app) still shows up. "Move to /books" is in Manage. */
 void BooksApp::scanBooks() {
   bookCount = 0;
+  if (!books) {
+    return;                     // no PSRAM for the library: the list stays empty, not wrong
+  }
   const char* dirs[] = { BOOKS_DIR, "/roms", "/" };
   for (int d = 0; d < 3 && bookCount < BOOKS_MAX; d++) {
     File dir = SD.open(dirs[d]);
@@ -437,6 +471,7 @@ bool BooksApp::openBook(int idx) {
     return false;
   }
 
+  BOOKS_HEAP("open:enter");
   file = SD.open(books[idx].path, FILE_READ);
   if (!file) {
     return false;
@@ -449,6 +484,7 @@ bool BooksApp::openBook(int idx) {
     file.close();
     return false;
   }
+  BOOKS_HEAP("open:parsed");
 
   // One chapter buffer for the session. PSRAM: 512 KB of internal RAM does not exist here.
   chapCap = EPUB_MAX_DOC;
@@ -502,6 +538,7 @@ bool BooksApp::openBook(int idx) {
   }
   gotoOffset(startOff, true);
   turnsSinceSave = 0;
+  BOOKS_HEAP("open:done");
   return true;
 }
 
@@ -534,8 +571,10 @@ bool BooksApp::loadChapter(int i) {
   spine = i;
   nImages = 0;
   chapLen = epubChapterTextImages(&book, i, chapText, chapCap,
-                                  images, EPUB_MAX_IMAGES, &nImages);
+                                  images, images ? EPUB_MAX_IMAGES : 0, &nImages);
+  BOOKS_HEAP("chapter:text");
   loadChapterImages();
+  BOOKS_HEAP("chapter:images");
   pageStart = 0;
   histN = 0;
   return true;
@@ -548,6 +587,10 @@ bool BooksApp::loadChapter(int i) {
  * the decoder will actually do (tjpgd only halves), so the rows reserved here and the pixels
  * drawn later cannot disagree. */
 void BooksApp::loadChapterImages() {
+  if (!images || !imgBoxes) {
+    nImages = 0;
+    return;
+  }
   const int boxW = pageWidth();
   const int lh = fonts[BODY_FONTS[fontIdx]]->height() + 2;
   const int maxRows = pageLines() - 1 > 0 ? pageLines() - 1 : 1;
@@ -617,6 +660,7 @@ bool BooksApp::drawOneImage(int i, int x, int y, uint16_t boxW, uint16_t boxH) {
     ok = display::load_jpg_at(data, sz, &lcd, (int16_t)cx, (int16_t)y, boxW, boxH, &ow, &oh) != 0;
   }
   free(data);
+  BOOKS_HEAP("image:drawn");
   return ok;
 }
 
