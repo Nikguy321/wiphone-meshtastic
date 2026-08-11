@@ -89,18 +89,106 @@ static bool posStore(void* ctx, const char* buf, size_t len) {
   return SD.rename(tmp, BOOKS_POS_FILE);
 }
 
-// ---------------------------------------------------------------- measuring text
+// ---------------------------------------------------------------- drawable text
+
+/* Characters the phone's fonts do not have, mapped to something they do.
+ *
+ * A published EPUB is full of typographic punctuation and Akrobat has none of it. Its .notdef
+ * glyph is a narrow vertical bar, so on the first real page ever shown on this phone
+ * "Arc-Royal’s duke" read as "Arc-Royalls duke" — not obviously a missing glyph at all, which
+ * is what makes it worth fixing rather than tolerating.
+ *
+ * ⚠ This is a RENDERING substitution and must never touch `chapText`. A reading position is a
+ * byte offset into that buffer, and rewriting it would move every offset after the first curly
+ * quote — silently, and further with every paragraph. */
+struct GlyphSub { uint16_t cp; const char* ascii; };
+static const GlyphSub GLYPH_SUBS[] = {
+  { 0x2018, "'" },  { 0x2019, "'" },  { 0x201A, "," },  { 0x201B, "'" },
+  { 0x201C, "\"" }, { 0x201D, "\"" }, { 0x201E, "\"" }, { 0x2032, "'" }, { 0x2033, "\"" },
+  { 0x2010, "-" },  { 0x2011, "-" },  { 0x2012, "-" },  { 0x2013, "-" },
+  { 0x2014, "-" },  { 0x2015, "-" },  { 0x2026, "..." },
+  // Every space Python's str.split() treats as white space, so a line never breaks oddly.
+  { 0x00A0, " " },  { 0x1680, " " },  { 0x2002, " " },  { 0x2003, " " }, { 0x2004, " " },
+  { 0x2005, " " },  { 0x2006, " " },  { 0x2007, " " },  { 0x2008, " " }, { 0x2009, " " },
+  { 0x200A, " " },  { 0x202F, " " },  { 0x205F, " " },  { 0x3000, " " },
+  { 0x00AD, "" },   { 0x200B, "" },   { 0x200C, "" },   { 0x200D, "" },  { 0xFEFF, "" },
+  { 0x2022, "*" },  { 0x00B7, "." },  { 0x2039, "<" },  { 0x203A, ">" },
+  { 0x00AB, "\"" }, { 0x00BB, "\"" }, { 0x2122, "(TM)" }, { 0x00A9, "(c)" }, { 0x00AE, "(R)" },
+  { 0x00E0, "a" },  { 0x00E1, "a" },  { 0x00E2, "a" },  { 0x00E4, "a" }, { 0x00E5, "a" },
+  { 0x00E8, "e" },  { 0x00E9, "e" },  { 0x00EA, "e" },  { 0x00EB, "e" },
+  { 0x00EC, "i" },  { 0x00ED, "i" },  { 0x00EE, "i" },  { 0x00EF, "i" },
+  { 0x00F2, "o" },  { 0x00F3, "o" },  { 0x00F4, "o" },  { 0x00F6, "o" }, { 0x00F8, "o" },
+  { 0x00F9, "u" },  { 0x00FA, "u" },  { 0x00FB, "u" },  { 0x00FC, "u" },
+  { 0x00F1, "n" },  { 0x00E7, "c" },  { 0x00DF, "ss" },
+  { 0x00C0, "A" },  { 0x00C4, "A" },  { 0x00C8, "E" },  { 0x00C9, "E" },
+  { 0x00D6, "O" },  { 0x00DC, "U" },  { 0x00D1, "N" },  { 0x00C7, "C" },
+};
+#define GLYPH_SUB_COUNT ((int)(sizeof(GLYPH_SUBS) / sizeof(GLYPH_SUBS[0])))
+
+/* Copy a UTF-8 run, replacing anything `f` cannot draw. The font is ASKED rather than assumed,
+ * so a face that does have curly quotes keeps them. Used for BOTH measuring and drawing —
+ * measure one string and draw another and the line breaks drift. */
+static size_t bookRenderRun(SmoothFont* f, const char* s, size_t len, char* out, size_t cap) {
+  size_t o = 0, i = 0;
+  while (i < len && o + 5 < cap) {
+    unsigned char c = (unsigned char)s[i];
+    size_t clen = 1;
+    uint32_t cp = c;
+    if ((c & 0xE0) == 0xC0) {
+      clen = 2;
+      cp = c & 0x1Fu;
+    } else if ((c & 0xF0) == 0xE0) {
+      clen = 3;
+      cp = c & 0x0Fu;
+    } else if ((c & 0xF8) == 0xF0) {
+      clen = 4;
+      cp = c & 0x07u;
+    }
+    if (i + clen > len) {
+      clen = 1;
+      cp = c;
+    }
+    for (size_t k = 1; k < clen; k++) {
+      cp = (cp << 6) | ((unsigned char)s[i + k] & 0x3Fu);
+    }
+
+    if (cp < 0x80) {
+      out[o++] = (char)cp;
+      i += clen;
+      continue;
+    }
+    uint16_t gi = 0;
+    if (cp <= 0xFFFF && f && f->getUnicodeIndex((uint16_t)cp, &gi)) {
+      memcpy(out + o, s + i, clen);          // the font has it: leave it alone
+      o += clen;
+      i += clen;
+      continue;
+    }
+    const char* rep = "?";                   // visible, rather than silently dropped
+    for (int k = 0; k < GLYPH_SUB_COUNT; k++) {
+      if (GLYPH_SUBS[k].cp == cp) {
+        rep = GLYPH_SUBS[k].ascii;
+        break;
+      }
+    }
+    size_t rl = strlen(rep);
+    if (o + rl >= cap) {
+      break;
+    }
+    memcpy(out + o, rep, rl);
+    o += rl;
+    i += clen;
+  }
+  out[o] = '\0';
+  return o;
+}
 
 /* Width of one run of UTF-8, for book_layout. book_layout measures a character at a time and
  * sums, which is exactly how SmoothFont works internally, so this stays cheap. */
 static int fontMeasure(void* ctx, const char* s, size_t len) {
   SmoothFont* f = (SmoothFont*)ctx;
-  char tmp[80];
-  if (len > sizeof(tmp) - 1) {
-    len = sizeof(tmp) - 1;
-  }
-  memcpy(tmp, s, len);
-  tmp[len] = '\0';
+  char tmp[96];
+  bookRenderRun(f, s, len, tmp, sizeof(tmp));   // measure what will actually be drawn
   return (int)f->textWidth(tmp);
 }
 
@@ -586,15 +674,10 @@ void BooksApp::drawPage() {
   lcd.setTextDatum(TL_DATUM);
   lcd.setTextColor(WHITE, BLACK);
   int y = top + 2;
-  char line[320];
+  char line[448];                        // room for substitutions, which can lengthen a run
   for (int i = 0; i < pg.nLines; i++) {
     if (!pg.lines[i].blank) {
-      size_t n = pg.lines[i].len;
-      if (n > sizeof(line) - 1) {
-        n = sizeof(line) - 1;
-      }
-      memcpy(line, chapText + pg.lines[i].off, n);
-      line[n] = '\0';
+      bookRenderRun(f, chapText + pg.lines[i].off, pg.lines[i].len, line, sizeof(line));
       lcd.drawString(line, BOOKS_MARGIN, y);
     }
     y += lh;
@@ -753,12 +836,14 @@ void BooksApp::drawInfo() {
     return;
   }
 
-  char l[96];
+  char l[96], shown[EPUB_META_MAX + 64];
   lcd.setTextColor(TFT_GREENYELLOW, BLACK);
-  lcd.drawFitString(book.title, lcd.width() - 2 * BOOKS_MARGIN, BOOKS_MARGIN, y); y += lh;
+  bookRenderRun(font, book.title, strlen(book.title), shown, sizeof(shown));
+  lcd.drawFitString(shown, lcd.width() - 2 * BOOKS_MARGIN, BOOKS_MARGIN, y); y += lh;
   if (book.author[0]) {
     lcd.setTextColor(WHITE, BLACK);
-    lcd.drawFitString(book.author, lcd.width() - 2 * BOOKS_MARGIN, BOOKS_MARGIN, y);
+    bookRenderRun(font, book.author, strlen(book.author), shown, sizeof(shown));
+    lcd.drawFitString(shown, lcd.width() - 2 * BOOKS_MARGIN, BOOKS_MARGIN, y);
   }
   y += lh + 4;
 
@@ -801,12 +886,44 @@ void BooksApp::buildToc() {
   if (!isOpen) {
     return;
   }
-  char l[96], t[EPUB_CH_TITLE_MAX];
+  SmoothFont* mf = fonts[AKROBAT_BOLD_16];       // the face this menu draws in
+  char l[128], t[EPUB_CH_TITLE_MAX], shown[EPUB_CH_TITLE_MAX + 32];
   for (int i = 0; i < book.nSpine; i++) {
-    snprintf(l, sizeof(l), "%s%s", i == spine ? "> " : "", epubChapterTitle(&book, i, t, sizeof(t)));
+    epubChapterTitle(&book, i, t, sizeof(t));
+    bookRenderRun(mf, t, strlen(t), shown, sizeof(shown));   // "Monkeys with ’Mechs"
+    snprintf(l, sizeof(l), "%s%s", i == spine ? "> " : "", shown);
     menu->addOption(l, (MenuOption::keyType)(i + 1), 1);
   }
   menu->select((MenuOption::keyType)(spine + 1));
+}
+
+/* Put the book's title in the header, cut to fit.
+ *
+ * ⚠ `HeaderWidget::redraw` draws the title with a plain `drawString` and NO width limit, then
+ * paints the battery, WiFi and message icons and the clock over the right-hand end of it.
+ * Every other app gets away with that by having a short title; a book title does not, and
+ * "BattleTech: Ghosts of Timkovichi: (A Ghost Dogs Story)" ran straight under the clock. */
+void BooksApp::setHeaderToBookTitle() {
+  const char* src = (isOpen && book.title[0]) ? book.title : "Reading";
+  SmoothFont* hf = fonts[AKROBAT_BOLD_18];       // the face the header draws in
+
+  char shown[sizeof(headerTitle)];
+  bookRenderRun(hf, src, strlen(src), shown, sizeof(shown));
+
+  // 8px left margin, and roughly this much reserved on the right for clock + icons.
+  const int budget = (int)lcd.width() - 8 - 104;
+  if ((int)hf->textWidth(shown) > budget && budget > 0) {
+    int16_t fit = hf->fitTextLength(shown, (uint16_t)(budget - (int)hf->textWidth("..")));
+    if (fit < 1) {
+      fit = 1;
+    }
+    if ((size_t)fit < strlen(shown)) {
+      shown[fit] = '\0';
+      strncat(shown, "..", sizeof(shown) - strlen(shown) - 1);
+    }
+  }
+  snprintf(headerTitle, sizeof(headerTitle), "%s", shown);
+  header->setTitle(headerTitle);                 // the header keeps this pointer
 }
 
 void BooksApp::enterState(BooksState_t state) {
@@ -839,9 +956,7 @@ void BooksApp::enterState(BooksState_t state) {
     break;
   case BOOKS_READ:
     holdScreenAwake(true);
-    snprintf(headerTitle, sizeof(headerTitle), "%s",
-             (isOpen && book.title[0]) ? book.title : "Reading");
-    header->setTitle(headerTitle);       // the header keeps this pointer: see app_books.h
+    setHeaderToBookTitle();
     footer->setButtons("Menu", "Close");
     break;
   case BOOKS_MENU:

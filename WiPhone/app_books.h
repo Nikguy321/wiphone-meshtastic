@@ -110,6 +110,7 @@ protected:
 
   void freeWidgets();
   void enterState(BooksState_t state);
+  void setHeaderToBookTitle();   // substituted and cut to fit around the clock and icons
   MenuWidget* newMenu(const char* emptyMessage, SmoothFont* font, uint8_t perScreen);
 
   void scanBooks();
