@@ -3,6 +3,17 @@
 **Status: DESIGN NOTES ONLY. Nothing built, nothing ordered, no firmware written.**
 Captured 2026-08-10 so the reasoning is not lost. Diagram: [`woods-backplate.svg`](woods-backplate.svg).
 
+> **Revised 2026-08-11 against WiPhone's own published pinout, which settles two of the three
+> "measure this first" items and kills one architecture outright.**
+> - **The 5 V pogo pin is USB VBUS and reads 0 V on battery** — measure-item #1 is ANSWERED, and
+>   the answer is the bad one. **The GPS moves to 3.3 V** (the M100 Mini takes 3.3–5 V, so this
+>   costs nothing).
+> - **You CAN feed power in through the 5 V pin** — that is how the official Mega Battery Pack
+>   works, and it is the right architecture for this plate. (An earlier revision of this doc said
+>   the opposite; the Mega disproves it. See *The battery* below.)
+> - **The phone's 3.3 V pin is a MIC5219 rated 150–200 mA**, and RFM95W TX + GPS ≈ 150 mA. Give
+>   the plate **its own regulator**; measure-item #2 is answered by the datasheet, not the scope.
+
 A fatter, higher-capacity backplate for time in the woods: the LoRa radio, a GPS, a real
 915 MHz whip on an SMA bulkhead, and an expanded battery — on a screw-terminal plate instead
 of the stock LoRa one.
@@ -65,40 +76,114 @@ Meshtastic PHY polls — **if the PHY is ever changed to be interrupt-driven, th
 | RFM95W DIO0 | — | **deliberately omitted**, see above |
 | GPS TX → ESP32 RX | GPIO 38 | input-only pin; the GPS must have this one |
 | GPS RX ← ESP32 TX | GPIO 32 | |
-| RFM95W power | 3.3 V | |
-| GPS power | 5 V | ⚠ see below |
-| External battery | VB+ / GND | ⚠ see below |
+| RFM95W power | **backplate 3.3 V** | not the phone's 3.3 V pin — see below |
+| GPS power | **backplate 3.3 V** | ⚠ **not** the 5 V pin; it is dead on battery |
+| External battery | VBAT / GND | ⚠ see below |
 
-No level shifters: the ESP32, the RFM95W and the GPS UART are all 3.3 V logic. The GPS takes 5 V
-on its power pin only.
+No level shifters: the ESP32, the RFM95W and the GPS UART are all 3.3 V logic.
 
-## Measure these three things before committing to a PCB
+## Give the plate its own 3.3 V regulator
 
-1. **Is the header's 5 V live on BATTERY, or only when USB is plugged in?** This one could sink the
-   whole idea — a USB-only 5 V rail means the GPS is dead exactly when you are in the woods, which
-   is the entire point of it. Fallbacks: feed the M100 from 3.3 V (confirm its regulator accepts
-   it) or boost from VB+.
-2. **Can the 3.3 V rail take RFM95W TX peaks?** ~120 mA at +20 dBm. Scope the rail mid-transmit.
-3. **Does the screw-terminal plate break out all ten signals?** MISO, MOSI, SCK, CS, 38, 32, 5 V,
-   3.3 V, GND, VB+. Count them before designing around them.
+The header's 3.3 V pin is the output of a **MIC5219-3.3BM5**, which WiPhone documents as
+"designed for 150 mA to 200 mA output current applications". The RFM95W pulls **120 mA** transmitting
+at +20 dBm and the M100 another ~30 mA — about 150 mA together, i.e. the whole budget, before the
+phone's own daughterboard needs anything. Put an LDO or buck on the plate, fed from VBAT, sized for
+≥ 250 mA.
 
-## 🔴 The battery, and why the safe option is not the obvious one
+⚠ **Gate its EN pin off the phone's 3.3 V pin.** Otherwise the plate's rail is live while the phone
+is off and back-powers the ESP32 through its GPIO clamp diodes. One wire, and it removes a whole
+class of problem.
+
+⚠ `ENABLE_DAUGHTER_33V` (SX1509 pin 4) exists in `Hardware.h` but the only line that writes it —
+`WiPhone.ino:1222` — is **commented out**, so firmware never asserts it. The stock LoRa plate works
+regardless, so the daughterboard 3.3 V is evidently not gated by it. Confirm with a meter before
+relying on that pin as an EN source.
+
+## Measure these before committing to a PCB
+
+1. ~~Is the header's 5 V live on battery?~~ **ANSWERED — no.** WiPhone's docs: "around 4.5 to 5 VDC
+   when the device is plugged into the USB port and **0 when not connected to a USB source**." The
+   GPS therefore runs from 3.3 V. The M100 Mini accepts 3.3–5 V, so this is free.
+2. ~~Can the 3.3 V rail take RFM95W TX peaks?~~ **ANSWERED — not comfortably.** MIC5219, 150–200 mA.
+   Own regulator, as above.
+3. **Does the screw-terminal plate break out all ten signals?** The published Header Breakout lists
+   5V, VBAT, 3.3V, GND, DB_RXD(38), DB_TXD(32), MISO(12), MOSI(13), CLK(14), CS(27), I2C and D0–D5 —
+   so on paper yes. Count them on the physical plate anyway.
+4. **The one genuinely open RF question: R1/R2/R6/R7/R11 on the stock v2.0 plate.** Still unmeasured;
+   R6 sits in the RF path and "0 Ω link" is the obvious read, not a verified one.
+
+## 🔴 The battery — and the one thing that does NOT work
 
 **Paralleling two packs at unequal charge is what destroyed both packs' protection FETs in July
 2026** and caused the whole no-boot saga. Voltage-matching before every connection works, but it is
-a ritual that has to be performed correctly *every single time*, forever.
+a ritual that has to be performed correctly *every single time*, forever. So the goal is an
+architecture that does not parallel cells at all.
 
-**Preferred architecture — do not hard-parallel the cells at all:**
+### ✅ The 5 V pogo pin is an input, and the tap is behind the protection
 
-    external pack → boost to 5 V → the phone's own charge input
+WiPhone's own **Mega Battery Pack** settles this. It
 
-The onboard charger IC then manages the internal cell exactly as it would from a power bank. No
-cell paralleling, no matched-voltage step, no shared-protection failure mode, and it can be
-hot-plugged in the field. Costs a small boost module and some efficiency.
+> "acts exactly like an external power bank, but you don't need a cable since it's connected
+> **through the daughterboard headers**"
 
-**If hard-paralleling onto VB+ anyway:** match within ~50 mV before connecting, every time; both
-packs 1S and same chemistry, each with its own protection board; a polyfuse in the external leg;
-and a connector rather than solder so the packs can be split for charging.
+and it is built on an **IP5306** whose output is a **5 V 2.4 A boost**. The 5 V pin is the only
+header pin that can take a 5 V boost, so the pack drives it — and the phone charges from it.
+
+That fixes the topology. The fuse, the reverse-protection diode and the current limiter sit between
+the **USB connector** and an internal 5 V node; the pogo pin and the charger both hang off that node:
+
+    USB ─[1 A fuse]─[rev-prot diode]─[limiter]─┬─→ 5 V pogo pin
+                                               └─→ charger IC
+
+Every documented fact fits this and only this:
+
+| doc says | because |
+|---|---|
+| "0 when not connected to a USB source" | nothing else drives the node — until a pack does |
+| "only recommend… <100mA", "drops below 4V at higher current" | that describes **drawing** current out, back across the fuse/diode/limiter |
+| "drop at reverse voltage protection diode and current limiter" | those parts are upstream of the tap, not between the tap and the charger |
+| the Mega pushes 2.4 A in through the headers | **pushing** in bypasses all three and goes straight to the charger |
+
+⚠ This is inferred from the vendor's wording plus the existence of the Mega, not read off a
+schematic. **The 60-second confirmation, plate off:** no USB attached, feed the 5 V pin from a bench
+supply at 5 V with a 200 mA limit and watch for charging current. Do it before ordering.
+
+### What happens if you plug USB in while the pack is running
+
+**Nothing bad, and the diode is precisely why.** The host's VBUS only reaches the node after the
+fuse, diode and limiter — call it ~4.6–4.7 V. Your pack sits directly on the node at 5.0–5.2 V, so
+**the pack wins**: the diode is reverse-biased and no current can flow back into the host port,
+which is the job that diode exists to do. D+/D− are untouched, so serial and flashing behave
+normally. If the pack sags below ~4.6 V the host quietly takes over. Neither case is a fault.
+
+Cosmetic only: `BATTERY_PPR_PIN` (GPIO 37) reads "USB present" whenever the pack is on, so the
+charge icon blinks continuously.
+
+### How to build it
+
+**A — ✅ copy the Mega: an IP5306 module, boost output → the header's 5 V pin.**
+Same SoC, and a one-part answer to "mini charging circuit + tiny 5 V booster with its own USB-in":
+2.1 A charger, 5 V 2.4 A boost, its own Micro-B input, USB-A out, four charge LEDs, key ON/OFF. Pair
+it with IP3005A-class cell protection as the Mega does, plus a fuse in the external leg. The phone's
+charger then manages the internal cell normally — no cell paralleling, no matched-voltage ritual,
+hot-pluggable in the field, **and the USB port stays free.**
+
+⚠ **IP5306 no-load shutdown.** Most modules cut the boost when the load falls below ~45–100 mA. If
+the phone ever idles under that, the pack drops out mid-use. Check the variant before committing —
+some expose it as a register or strap setting; a small bleed resistor is the crude fallback.
+
+⚠ **Pass-through is not documented.** Whether the phone's own USB can charge the *pack* depends on
+the IP5306's VIN sitting on that same node. Plausible, untested, and worth confirming on the bench
+rather than designing around.
+
+**B — ⚠ fallback if the 5 V route disappoints: buck/boost to a current-limited ~4.15 V CV → VBAT.**
+Safe *because* it is both voltage- and current-limited, which is exactly what raw paralleling
+lacks — it cannot dump an unlimited fault current into a low cell. But it bypasses the phone's
+charger and will confuse the CW2015 gauge.
+
+**C — 🛑 hard-parallel onto VBAT.** The July 2026 failure. If done anyway: match within ~50 mV
+before every connection; both packs 1S, same chemistry, each with its own PCM; a polyfuse in the
+external leg; a connector rather than solder so the packs can be split for charging.
 
 **A bigger pack charges slower, not harder.** Charge current is fixed by the phone's charger.
 
@@ -115,14 +200,19 @@ known-good FPC antenna to swap against, which is a far better diagnostic than CO
 
 ## Minimum extra parts
 
+📦 **The orderable version of this list, with live stock and links, is in
+[`woods-backplate-bom.md`](woods-backplate-bom.md)** — two vendors, Adafruit + Amazon.
+
 - 1 × u.FL / IPEX MHF jack
 - 1 × u.FL → SMA bulkhead pigtail
 - 1 × 915 MHz SMA whip
-- 2 × 100 nF (RFM95W 3.3 V, GPS 5 V)
+- **1 × 3.3 V LDO or buck, ≥ 250 mA, with an EN pin** (the plate's own rail)
+- 2 × 100 nF (RFM95W 3.3 V, GPS 3.3 V)
 - 1 × 10 µF (RFM95W 3.3 V bulk)
-- 1 × 47–100 µF (GPS 5 V bulk)
+- 1 × 22–47 µF (GPS 3.3 V bulk)
 - 1 × polyfuse + connector (external battery leg)
 - optional 10 kΩ pull-up on RESET
+- **for the battery half: 1 × IP5306 module** (charger + boost + USB-in), per route A above
 
 Note v2.0 gets away with a **single** capacitor because the module carries its own decoupling; the
 above is deliberately more conservative than the reference.
@@ -131,3 +221,19 @@ above is deliberately more conservative than the reference.
 
 Nothing reads the GPS today. A UART on GPIO 38/32 plus an NMEA parser would be new work, as would
 anything that puts a position on the mesh. Out of scope until the plate exists.
+
+## Sources for the 2026-08-11 power findings
+
+Every quoted claim about the pogo header comes from WiPhone's own published documentation, not from
+measurement on this unit. Re-check anything load-bearing with a meter before it costs money.
+
+- 5 V / VBAT / 3.3 V pin descriptions, the 1 A fuse, the reverse-voltage protection diode and the
+  <100 mA recommendation — [Technical Details](https://wiphone.io/docs/WiPhone/latest/technical_manual/hardware/technical_details.html)
+- The screw-terminal plate's full signal list — [Header Breakout](https://www.wiphone.io/docs/Header_Breakout/latest/Header%20Breakout.html)
+- The official extended-battery daughterboard — its IP5306 (2.1 A charger + 5 V 2.4 A boost),
+  IP3005A protection, 4000 mAh cell, and the load-bearing sentence that it "acts exactly like an
+  external power bank, but you don't need a cable since it's connected through the daughterboard
+  headers" — [Mega Battery Pack](https://www.wiphone.io/docs/Mega/latest/)
+- Daughterboard pin/GPIO mapping — [Daughter Board Design Guide](https://wiphone.io/docs/WiPhone/latest/technical_manual/hardware/daughter_board_design_guide.html)
+- RFM95W 120 mA TX @ +20 dBm, 1.8–3.7 V supply — [HopeRF RFM95W datasheet](https://cdn.sparkfun.com/assets/a/9/6/1/0/RFM95W-V2.0.pdf)
+- M100 Mini accepts 3.3–5 V — [HGLRC M100 Mini](https://docs.cirkitdesigner.com/component/92368671-8460-49b7-a4e5-704d83ce4aa4/hglrc-m100-mini-gps)
