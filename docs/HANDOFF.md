@@ -16,7 +16,38 @@ with the host compiler under ASan+UBSan — no PlatformIO, no ESP32, no phone at
 
 ---
 
-## ▶ PICK UP HERE — the reader is DONE and confirmed; sync has never been on air
+## ▶ PICK UP HERE — two things, and both need YOUR hands
+
+### 🎵 1. A music player is BUILT AND FLASHED, and nobody has pressed play
+**Menu > Music.** MP3 and WAV, stereo through the headphone jack, shuffle/repeat, its own
+WiFi uploader, and playback that keeps going when you leave the screen. Flashed and booting
+cleanly on the phone as of 2026-08-11.
+
+**What it needs from you, in this order:**
+1. **Music > Add music over WiFi > OK**, then drag `.mp3` files in from a browser. Nothing is
+   on the card yet — that is the only reason playback is unproven.
+2. **Open a track and listen.** This is the first time audio will have come out of this
+   feature. Effects to watch for: stutter (decode not keeping up), wrong speed (a format
+   misread), silence (the codec path).
+3. **Plug headphones in** — stereo follows the jack, mono into the earpiece otherwise.
+
+⚠ **Decode timing from PSRAM is UNMEASURED.** A frame is 26 ms of audio and the main loop
+also draws the screen and services WiFi. If it stutters, the fix is designed for but not
+built: a PSRAM ring buffer ahead of I2S so decode runs ahead of playback. Do not reach for a
+second task on core 0 first — the buffer is the cheaper answer and does not put a thread
+near the I2S the SIP path also uses.
+
+**What IS proven:** a real 44.1 kHz stereo MP3 decodes correctly on the host with the
+shipping decoder (200 frames, no errors), and on the phone the decoder costs **48 bytes of
+internal heap** — everything else is in PSRAM, measured, largest block unmoved. That was the
+risky part and it is settled. See `docs/MUSIC.md`.
+
+### 📖 2. Book sync has still never been on air
+Unchanged and still the only thing needing COVEY. Everything below applies.
+
+---
+
+## The reader is DONE and confirmed; sync has never been on air
 
 📖 **Nick read a real bought book on this phone on 2026-08-11 and confirmed it working**:
 prose, chapter titles, pictures inline, and his place surviving a power cycle. Menu > Books.
