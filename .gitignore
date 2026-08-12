@@ -17,3 +17,7 @@ NOTES.md
 # JPEG test fixtures are extracted from a BOUGHT book and this repo is public.
 # Regenerate with tools/gen_jpeg_fixtures.sh <book.epub>.
 tests/fixtures/jpeg/
+
+# MP3 decoder fixture is a slice of a real track and this repo is public.
+# Regenerate with tools/gen_mp3_fixtures.sh <file.mp3>.
+tests/fixtures/mp3/
