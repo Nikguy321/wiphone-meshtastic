@@ -36,6 +36,8 @@ governing permissions and limitations under the License.
 #include "Networks.h"
 #include "helpers.h"
 #include "RTPacket.h"
+#include "mp3_stream.h"
+#include "wav_reader.h"
 
 #define AUDIO_INLINE inline __attribute__((always_inline))
 
@@ -121,6 +123,31 @@ public:
   }
   bool error() {
     return this->err != WM8750_ERROR_OK;
+  }
+
+  /* ── Music ──────────────────────────────────────────────────────────────────────
+   * Plays an MP3 or a WAV from the card. Unlike playFile(), which loops forever
+   * because it was written for a ringtone, this one ENDS — musicEnded() is what lets
+   * a playlist advance.
+   *
+   * Output follows the headphone jack: stereo when something is plugged in, mono into
+   * the earpiece otherwise. The I2S rate is set from the file, which the APLL makes
+   * exact rather than approximate.
+   *
+   * ⚠ Do not call during a call. Music and RTP are both Playback modes and there is one
+   * I2S peripheral; the caller stops music when a call arrives. */
+  bool playMusic(fs::FS *fs, const char* path, bool stereo);
+  void stopMusic();
+  bool musicPlaying() const {
+    return this->playback == Playback::LocalMp3 || this->playback == Playback::LocalWav;
+  }
+  /* True once the file is finished AND the last decoded samples have been pushed out,
+   * so a track is not cut off a fraction of a second early. */
+  bool musicEnded() const {
+    return this->musicEof && this->playDecFramesLeft == 0;
+  }
+  const char* musicError() const {
+    return this->musicProblem;
   }
 
   bool playFile(fs::FS *fs, const char* path);
@@ -212,7 +239,18 @@ protected:
 protected:
 
   // What to play in DAC (speaker & headphones)?
-  enum class Playback { Nothing, RtpStream, LocalMp3, Record, LocalPcm };
+  enum class Playback { Nothing, RtpStream, LocalMp3, Record, LocalPcm, LocalWav };
+
+  /* ── Music state ────────────────────────────────────────────────────────────────
+   * The decoder is a POINTER, allocated on first use, and its buffers live in PSRAM.
+   * This object is global; 4 KB of input buffer plus 29 KB of decoder state sitting in
+   * it would take the internal heap the WiFi PHY needs. See helix_memory.c. */
+  Mp3Stream*  mp3 = nullptr;
+  WavConverter wavConv;
+  WavInfo      wavInfo;
+  uint32_t     musicLeft = 0;        // bytes of WAV data still to read
+  bool         musicEof = false;
+  const char*  musicProblem = nullptr;
 
   bool        audioOn = false;              // I2S and audio codec are turned ON
   bool        audioLoop = true;             // do the audio processing if audio is ON?

@@ -95,7 +95,11 @@ public:
 
 private:
   void*   dec;                       // HMP3Decoder
-  uint8_t inBuf[MP3_INBUF_BYTES];
+  /* ⚠ In PSRAM, allocated in begin(), NOT an array inside the object. This class is held
+   * by the global Audio instance, and 4 KB of internal RAM there would recreate exactly
+   * the shortage that helix_memory.c exists to avoid. Anything above a few hundred bytes
+   * on this phone belongs in PSRAM. */
+  uint8_t* inBuf;
   size_t  inLen;
   bool    gotFormat;
   Mp3Info fmt;

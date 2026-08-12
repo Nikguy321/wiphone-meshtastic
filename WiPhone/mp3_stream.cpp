@@ -4,6 +4,7 @@
 
 #include "mp3_stream.h"
 #include "src/audio/helix-mp3/mp3dec.h"
+#include "src/audio/helix-mp3/utils/helix_memory.h"
 #include <string.h>
 
 // ─── ID3 ────────────────────────────────────────────────────────────────────────────
@@ -73,8 +74,7 @@ int mp3FindFrame(const uint8_t* buf, size_t len, size_t from) {
 
 // ─── the stream ─────────────────────────────────────────────────────────────────────
 
-Mp3Stream::Mp3Stream() : dec(0), inLen(0), gotFormat(false) {
-  memset(inBuf, 0, sizeof(inBuf));
+Mp3Stream::Mp3Stream() : dec(0), inBuf(0), inLen(0), gotFormat(false) {
   memset(&fmt, 0, sizeof(fmt));
 }
 
@@ -83,18 +83,32 @@ Mp3Stream::~Mp3Stream() {
 }
 
 bool Mp3Stream::begin() {
-  if (dec) {
+  if (dec && inBuf) {
     return true;
   }
-  dec = (void*)MP3InitDecoder();       // allocates via helix_malloc -> PSRAM
+  // Both from PSRAM (helix_malloc), for the reason in mp3_stream.h.
+  if (!inBuf) {
+    inBuf = (uint8_t*)helix_malloc(MP3_INBUF_BYTES);
+  }
+  if (!dec) {
+    dec = (void*)MP3InitDecoder();
+  }
+  if (!dec || !inBuf) {
+    end();                             // partial allocation is not a usable state
+    return false;
+  }
   reset();
-  return dec != 0;
+  return true;
 }
 
 void Mp3Stream::end() {
   if (dec) {
     MP3FreeDecoder((HMP3Decoder)dec);
     dec = 0;
+  }
+  if (inBuf) {
+    helix_free(inBuf);
+    inBuf = 0;
   }
   reset();
 }

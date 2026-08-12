@@ -356,6 +356,144 @@ bool Audio::playFile() {
   return true;
 }
 
+/* Open an MP3 or WAV and configure I2S from what the file actually is.
+ *
+ * ⚠ The format is decided by the CONTENT, not the extension. The uploader has no
+ * extension filter, so a .wav that is really an MP3 is an ordinary thing to meet. */
+bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo) {
+  this->stopMusic();
+  this->musicProblem = NULL;
+
+  if (!fs || !path) {
+    this->musicProblem = "No file";
+    return false;
+  }
+  this->playbackFS = fs;
+  this->playbackFilename = path;
+  this->playbackFile = fs->open(path);
+  if (!this->playbackFile) {
+    this->musicProblem = "Cannot open";
+    return false;
+  }
+
+  /* One kilobyte covers an ID3 header and every WAV header ffmpeg, sox or QuickTime
+   * emits. playEnc is reused as scratch: it is 1600 bytes, already exists, and is
+   * literally described as the undecoded-audio buffer. */
+  uint8_t* hdr = (uint8_t*)this->playEnc;
+  const size_t want = 1024;
+  int got = this->playbackFile.read(hdr, want);
+  if (got < 12) {
+    this->playbackFile.close();
+    this->musicProblem = "File too short";
+    return false;
+  }
+
+  int rate = 0, chans = 0;
+
+  if (wavParseHeader(hdr, (size_t)got, &this->wavInfo)) {
+    /* ⚠ dataBytes comes straight from the file and a WAV written to a pipe carries
+     * 0xFFFFFFFF or 0 there. Clamp to what the file actually holds, or playback runs off
+     * the end into whatever the SD driver returns. */
+    uint32_t fileSize = (uint32_t)this->playbackFile.size();
+    uint32_t avail = fileSize > this->wavInfo.dataOffset ? fileSize - this->wavInfo.dataOffset : 0;
+    if (this->wavInfo.dataBytes == 0 || this->wavInfo.dataBytes > avail) {
+      this->wavInfo.dataBytes = avail;
+    }
+    this->playbackFile.seek(this->wavInfo.dataOffset);
+    this->musicLeft = this->wavInfo.dataBytes;
+    this->wavConv.begin(this->wavInfo, this->wavInfo.sampleRate, stereo);
+    rate  = (int)this->wavInfo.sampleRate;
+    chans = stereo ? 2 : 1;
+    this->playback = Playback::LocalWav;
+
+  } else {
+    if (!this->mp3) {
+      this->mp3 = new Mp3Stream();
+    }
+    if (!this->mp3 || !this->mp3->begin()) {
+      this->playbackFile.close();
+      this->musicProblem = "No memory for MP3";
+      return false;
+    }
+    this->mp3->reset();
+    // Seek past the ID3 tag; helix would otherwise hunt for a sync word inside album art.
+    uint32_t skip = mp3Id3v2Size(hdr, (size_t)got);
+    this->playbackFile.seek(skip);
+
+    /* Decode one frame BEFORE configuring I2S. A frame header can be read out of a false
+     * sync, but a successful decode cannot — and configuring the clock from a bad header
+     * plays the whole track at the wrong speed. */
+    bool ok = false;
+    for (int tries = 0; tries < 64 && !ok; tries++) {
+      uint8_t tmp[512];
+      size_t room = this->mp3->space();
+      if (room > sizeof(tmp)) {
+        room = sizeof(tmp);
+      }
+      if (room > 0 && this->playbackFile.available()) {
+        int n = this->playbackFile.read(tmp, room);
+        if (n > 0) {
+          this->mp3->fill(tmp, (size_t)n);
+        }
+      }
+      Mp3Info info;
+      int samples = this->mp3->decode(this->playDec, &info);
+      if (samples > 0) {
+        rate  = info.sampleRate;
+        chans = stereo ? 2 : (info.channels >= 2 ? 2 : 1);
+        // Keep this first frame: throwing it away clips the start of every track.
+        this->playDecCurFrame = 0;
+        this->playDecFramesLeft = samples / (info.channels ? info.channels : 1);
+        ok = true;
+      } else if (samples == 0 && !this->playbackFile.available()) {
+        break;
+      }
+    }
+    if (!ok) {
+      this->playbackFile.close();
+      this->musicProblem = "Not playable audio";
+      return false;
+    }
+    this->playback = Playback::LocalMp3;
+  }
+
+  if (!this->turnOn()) {
+    this->playbackFile.close();
+    this->playback = Playback::Nothing;
+    this->musicProblem = "Audio would not start";
+    return false;
+  }
+
+  /* ⚠ A mono MP3 into headphones still drives two I2S channels — the decoder gives one
+   * channel and playChunk duplicates it. dataChannels describes the DECODED data;
+   * monoOut describes the wire. They are not the same thing. */
+  this->dataChannels = (this->playback == Playback::LocalMp3 && !stereo) ? 1 : chans;
+  if (this->playback == Playback::LocalWav) {
+    this->dataChannels = stereo ? 2 : 1;
+  }
+  this->setMonoOutput(!stereo);
+  this->setSampleRate(rate);
+
+  this->musicEof = false;
+  this->playEncW = 0;
+  this->playEncR = 0;
+  return true;
+}
+
+void Audio::stopMusic() {
+  if (this->musicPlaying()) {
+    if (this->playbackFile) {
+      this->playbackFile.close();
+    }
+    this->ceasePlayback();
+  }
+  this->musicEof = false;
+  this->musicLeft = 0;
+  if (this->mp3) {
+    this->mp3->reset();     // keep the 29 KB; re-allocating per track fragments PSRAM
+  }
+}
+
 void Audio::ceasePlayback() {
   if (this->playback == Playback::LocalMp3) {
     playbackFile.close();
@@ -704,6 +842,66 @@ void Audio::loop() {
       this->playChunk();
     }
 
+
+  } else if (this->playback == Playback::LocalMp3) {
+    /* One frame per pass, and only when the previous one is spent. A frame is 1152
+     * samples — 26 ms at 44.1 kHz — and playDec holds exactly one, so decoding ahead
+     * would need somewhere to put it. The DMA ring (4 x 1024) is the slack that covers
+     * a main loop busy drawing or reading the card. */
+    if (this->playDecFramesLeft == 0 && !this->musicEof) {
+      uint8_t tmp[512];
+      size_t room = this->mp3 ? this->mp3->space() : 0;
+      if (room > sizeof(tmp)) {
+        room = sizeof(tmp);
+      }
+      if (room > 0 && this->playbackFile.available()) {
+        int n = this->playbackFile.read(tmp, room);
+        if (n > 0) {
+          this->mp3->fill(tmp, (size_t)n);
+        }
+      }
+      Mp3Info info;
+      int samples = this->mp3 ? this->mp3->decode(this->playDec, &info) : 0;
+      if (samples > 0) {
+        this->playDecCurFrame = 0;
+        this->playDecFramesLeft = samples / (info.channels ? info.channels : 1);
+        this->playChunk();
+      } else if (!this->playbackFile.available() && this->mp3 && this->mp3->space() > 0) {
+        /* Nothing decoded and nothing left to read. Not an error: the tail of a file is
+         * usually a partial frame or a Lyrics/APE tag that will never decode. */
+        this->musicEof = true;
+      }
+    }
+
+  } else if (this->playback == Playback::LocalWav) {
+    if (this->playDecFramesLeft == 0 && !this->musicEof) {
+      const uint32_t fb = wavFrameBytes(this->wavInfo);
+      if (fb == 0 || this->musicLeft < fb) {
+        this->musicEof = true;
+      } else {
+        uint8_t tmp[512];
+        uint32_t want = sizeof(tmp) - (sizeof(tmp) % fb);   // whole frames only
+        if (want > this->musicLeft) {
+          want = this->musicLeft - (this->musicLeft % fb);
+        }
+        int n = want > 0 ? this->playbackFile.read(tmp, want) : 0;
+        if (n <= 0) {
+          this->musicEof = true;
+        } else {
+          this->musicLeft -= (uint32_t)n;
+          size_t srcFrames = (size_t)n / fb;
+          size_t used = 0;
+          /* playDec holds 2400 shorts: 1200 stereo frames or 2400 mono samples. */
+          size_t outCap = this->dataChannels == 2 ? 1200 : 2400;
+          size_t out = this->wavConv.feed(tmp, srcFrames, this->playDec, outCap, &used);
+          if (out > 0) {
+            this->playDecCurFrame = 0;
+            this->playDecFramesLeft = out;
+            this->playChunk();
+          }
+        }
+      }
+    }
 
   } else if (this->playback == Playback::Record) {
     if (this->playDecFramesLeft <= 0 && this->recordRaw) {
