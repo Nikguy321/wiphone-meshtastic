@@ -1395,24 +1395,34 @@ void loop() {
        *
        * ⚠ F2 is NOT handled here — it fires on RELEASE, next to the sleep chord, because
        * short-versus-held cannot be decided at the moment of the press. */
-      const bool musicKeys = !gGbcActive && musicPlayerCurrent() >= 0;
+      /* Two different tests, because two different apps claim these keys.
+       *
+       * F1/F2 (play-pause, next-prev) are claimed by nothing else, so a LOADED track is
+       * enough — that is what lets F1 restart a paused track from any screen.
+       *
+       * F3/F4 are Books' page keys, so volume only takes them while music is actually
+       * PLAYING. Read a book with music paused and paging works exactly as it always
+       * did; read one with music playing and the side buttons are volume, which is what
+       * you want when there is sound coming out. */
+      const bool musicLoaded  = !gGbcActive && musicPlayerCurrent() >= 0;
+      const bool musicSounding = musicLoaded && musicPlayerIsPlaying();
 
-      if (musicKeys && keyPressed == WIPHONE_KEY_F1) {
+      if (musicLoaded && keyPressed == WIPHONE_KEY_F1) {
         musicPlayerTogglePause();
         keyPressed = 0;
       }
 
-      if (musicKeys && keyPressed == WIPHONE_KEY_F3) {
+      if (musicSounding && keyPressed == WIPHONE_KEY_F3) {
         musicPlayerVolumeStep(+1);
         keyPressed = 0;
       }
 
-      if (musicKeys && keyPressed == WIPHONE_KEY_F4) {
+      if (musicSounding && keyPressed == WIPHONE_KEY_F4) {
         musicPlayerVolumeStep(-1);
         keyPressed = 0;
       }
 
-      if (musicKeys && keyPressed == WIPHONE_KEY_F2) {
+      if (musicLoaded && keyPressed == WIPHONE_KEY_F2) {
         keyPressed = 0;      // consumed; the action fires on release or on the hold timer
       }
 
@@ -2239,6 +2249,24 @@ void loop() {
      * runs its own tight loop and the audio peripheral is handed to the emulator. */
     if (!gGbcActive) {
       musicPlayerLoop();
+    }
+
+    /* A call wins over music, always. The codec and I2S are single-occupancy, so ringing
+     * or talking while a track plays gives you both at once and neither intelligibly.
+     *
+     * Edge-triggered on LEAVING the idle states, so it pauses once when the phone starts
+     * ringing rather than every loop for the length of the call. Nothing resumes
+     * afterwards on purpose: a phone that bursts into music the moment you hang up is
+     * worse than one you press play on. */
+    {
+      const CallState cs = gui.state.sipState;
+      const bool callBusy = !(cs == CallState::Idle || cs == CallState::NotInited ||
+                              cs == CallState::HungUp);
+      static bool wasCallBusy = false;
+      if (callBusy && !wasCallBusy) {
+        musicPlayerPause();
+      }
+      wasCallBusy = callBusy;
     }
 
     // Meshtastic background service tick (non-blocking). If a new message

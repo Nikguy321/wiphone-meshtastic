@@ -27,6 +27,7 @@
 #include "SD.h"
 #include "driver/i2s.h"
 #include "Audio.h"
+#include "music_player.h"
 #include "gnuboy/gnuboy.h"
 #include "gbc_test_rom.h"   // embedded public-domain ROM (flash) used when no SD ROM
 #include "app_gbc_xfer.h"   // ROM transfer web server (UI lives on our Transfer screen)
@@ -215,6 +216,14 @@ void GbcApp::startGame() {
   // Borrow the phone's audio path for the emulator's APU output. Best-effort:
   // if it won't start, the game just runs silent (never block gameplay on it).
   if (audio) {
+    /* ⚠ Stop the music FIRST. This emulator drives the DAC with its own i2s_write()
+     * calls, bypassing Audio's playback state machine entirely, so a track still
+     * playing would interleave its frames with the game's — and both would sound like
+     * noise. It also reconfigures the sample rate below and calls audio->shutdown() on
+     * the way out, which would leave the player pointing at a dead I2S.
+     *
+     * Paused rather than stopped, so the track is still there to resume afterwards. */
+    musicPlayerPause();
     audio->setSampleRate(GBC_I2S_RATE);
     soundOn = audio->start();
     audioStarve = 0;
