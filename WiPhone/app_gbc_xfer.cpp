@@ -22,12 +22,63 @@
 #include "HTTPClient.h"
 #include "WiFiClientSecure.h"
 #include "SD.h"
+#include "GUI.h"
 
 static WebServer*   s_server = NULL;
 static File         s_uploadFile;
 static volatile int s_filesAdded = 0;   // uploads + downloads this session (for status)
 static bool         s_on = false;
 static bool         s_usingAP = false;  // true if we had to bring up our own hotspot
+
+/* ── Keeping the screen alive while the server is up ────────────────────────────────
+ *
+ * The phone dims at 20 s and sleeps at 30 s, and dragging a 5 MB track in from a
+ * computer takes longer than that. Worse, the screen going dark mid-upload looks
+ * exactly like a crash, so people reach for the keypad — and Back stops the server.
+ *
+ * Held HERE rather than in each app's transfer screen, because there are three
+ * uploaders and this module is the one place that knows when a server is actually
+ * running. Restored by xferStop(), which every app already calls from its destructor,
+ * so an app dying with the screen up cannot leave the phone with a ten-minute timeout.
+ *
+ * ⚠ The timeouts are raised, not disabled. An upload screen left open on a forgotten
+ * phone should still eventually sleep. */
+extern GUI gui;
+
+static bool     s_heldAwake = false;
+static uint32_t s_savedDimMs = 0;
+static uint32_t s_savedSleepMs = 0;
+
+static void xferHoldAwake(bool hold) {
+  if (hold == s_heldAwake) {
+    return;
+  }
+  ControlState& cs = gui.state;
+  if (hold) {
+    s_savedDimMs = cs.dimAfterMs;
+    s_savedSleepMs = cs.sleepAfterMs;
+    if (cs.dimAfterMs < 300000) {
+      cs.dimAfterMs = 300000;      // 5 minutes
+    }
+    if (cs.sleepAfterMs < 600000) {
+      cs.sleepAfterMs = 600000;    // 10 minutes
+    }
+  } else {
+    cs.dimAfterMs = s_savedDimMs;
+    cs.sleepAfterMs = s_savedSleepMs;
+  }
+  // Queued events carry the OLD deadline; re-arm them against the new one.
+  cs.unscheduleEvent(SCREEN_DIM_EVENT);
+  cs.unscheduleEvent(SCREEN_SLEEP_EVENT);
+  uint32_t now = millis();
+  if (cs.doDimming()) {
+    cs.scheduleEvent(SCREEN_DIM_EVENT, now + cs.dimAfterMs);
+  }
+  if (cs.doSleeping()) {
+    cs.scheduleEvent(SCREEN_SLEEP_EVENT, now + cs.sleepAfterMs);
+  }
+  s_heldAwake = hold;
+}
 static char         s_addr[40] = {0};   // shown address (IP of STA or AP)
 
 static const XferConfig ROM_CFG = {
@@ -297,6 +348,7 @@ void xferStart(const XferConfig* cfg) {
   s_server->on("/fetch", HTTP_POST, handleFetch);
   s_server->begin();
 
+  xferHoldAwake(true);
   s_on = true;   // gbcXferHandleClient() (main loop) now pumps it
 }
 
@@ -304,6 +356,7 @@ void xferStop() {
   if (!s_on) {
     return;
   }
+  xferHoldAwake(false);
   if (s_uploadFile) {
     s_uploadFile.close();   // don't leave a dangling handle from an aborted upload
   }

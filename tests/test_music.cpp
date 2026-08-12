@@ -46,14 +46,20 @@ static void testFormats() {
 
   ok(musicFormatOf("song.wav") == MUSIC_FMT_WAV, ".wav");
   ok(musicFormatOf("SONG.WAV") == MUSIC_FMT_WAV, "extension is case-insensitive");
-  ok(musicFormatOf("beep.pcm") == MUSIC_FMT_PCM, ".pcm");
-  ok(musicFormatOf("beep.raw") == MUSIC_FMT_PCM, ".raw");
-  ok(musicFormatOf("song.mp3") == MUSIC_FMT_UNKNOWN, "mp3 is not claimed");
+  ok(musicFormatOf("song.mp3") == MUSIC_FMT_MP3, ".mp3");
+  ok(musicFormatOf("SONG.MP3") == MUSIC_FMT_MP3, "and case-insensitively");
+  /* Headerless captures are NOT music. The recorder writes /audio_*.pcm and they sort
+   * before everything, so listing them put an unplayable row at the top of the library —
+   * found on the device, where the first timing run tried to MP3-decode one. */
+  ok(musicFormatOf("beep.pcm") == MUSIC_FMT_UNKNOWN, ".pcm is a recording, not music");
+  ok(musicFormatOf("beep.raw") == MUSIC_FMT_UNKNOWN, ".raw likewise");
+  ok(!musicIsPlayable("/audio_230817_144844.pcm"), "a phone recording is not listed");
   ok(musicFormatOf("notes.txt") == MUSIC_FMT_UNKNOWN, "text is not audio");
   ok(musicFormatOf(NULL) == MUSIC_FMT_UNKNOWN, "null is safe");
 
   // The last dot wins, so a double extension is judged on the real one.
   ok(musicFormatOf("song.wav.txt") == MUSIC_FMT_UNKNOWN, "song.wav.txt is not audio");
+  ok(musicFormatOf("song.mp3.bak") == MUSIC_FMT_UNKNOWN, "nor song.mp3.bak");
   ok(musicFormatOf("Bad. Song.wav") == MUSIC_FMT_WAV, "a dot in the name is fine");
 
   // A dot in a DIRECTORY must not be read as the file's extension.

@@ -2543,7 +2543,7 @@ protected:
     { 20, 1, "Messages", "", "", GUI_APP_MESSAGES },
     { 39, 1, "Meshtastic", "", "", GUI_APP_MESHTASTIC },
     { 41, 1, "Books", "Select", "Back", GUI_APP_BOOKS },
-    { 41, 1, "Music", "Select", "Back", GUI_APP_MUSIC },
+    { 42, 1, "Music", "Select", "Back", GUI_APP_MUSIC },   // ⚠ ID must be UNIQUE, not just the action
     { 3, 1, "Tools", "Select", "Back", GUI_ACTION_SUBMENU },
     { 4, 1, "Games", "Select", "Back", GUI_ACTION_SUBMENU },
     { 5, 1, "Settings", "Select", "Back", GUI_ACTION_SUBMENU },

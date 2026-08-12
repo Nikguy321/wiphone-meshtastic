@@ -88,8 +88,14 @@ int musicPlayerScan() {
     snprintf(playingPath, sizeof(playingPath), "%s", s_tracks[s_loaded].path);
   }
 
+  /* Four folders, because the uploaders are interchangeable and files genuinely land in
+   * the wrong one. `accept=` is a browser hint, not a filter — the Books uploader will
+   * happily take an MP3 and put it in /books, which is exactly what happened the first
+   * time this app shipped. musicIsPlayable() is what decides, so an .epub sitting in
+   * /books never appears here. Books scans /roms for the same reason. */
   s_count = 0;
   addFrom(MUSIC_DIR);
+  addFrom("/books");
   addFrom("/roms");
   addFrom("/");
   musicSortTracks(s_tracks, s_count);

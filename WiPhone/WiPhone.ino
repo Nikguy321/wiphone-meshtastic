@@ -40,6 +40,7 @@ governing permissions and limitations under the License.
 #include "Test.h"
 #include "meshtastic_service.h"
 #include "music_player.h"
+#include "app_gbc_xfer.h"
 #include "mp3_stream.h"
 #include "src/assets/pop_sound.h"
 
@@ -1021,6 +1022,132 @@ void setup() {
     const uint32_t i2 = ESP.getFreeHeap();
     log_e("MP3probe ok=%d internal %u->%u (cost %d) largest %u->%u psram %u->%u (cost %d) after_free %u",
           (int)ok, i0, i1, (int)i0 - (int)i1, b0, b1, p0, p1, (int)p0 - (int)p1, i2);
+  }
+#endif
+
+  /* ── XFER_AUTOSTART ───────────────────────────────────────────────────────────────
+   * Brings the music uploader up at boot so a file can be pushed to the card with no key
+   * presses. Bench use only, and deliberately NOT a shipping feature: a server that opens
+   * itself every boot is an open write endpoint on whatever network the phone joins.
+   *
+   * Build with -DXFER_AUTOSTART, then from a computer on the same WiFi:
+   *   curl -F "rom=@track.mp3" http://wiphone.local/upload
+   * Then rebuild without it. */
+#ifdef XFER_AUTOSTART
+  {
+    static const XferConfig AUTO_CFG = {
+      MUSIC_DIR, "Add music", ".mp3,.wav", "tracks", "download.mp3", "WiPhone-Music"
+    };
+    /* ⚠ WAIT for the station to associate first. xferStart() falls back to bringing up
+     * its own access point when WiFi.status() != WL_CONNECTED, and at the end of setup()
+     * the association is still in progress — so starting it here without waiting TEARS
+     * DOWN the WiFi connection and puts the phone on its own AP instead. */
+    for (int i = 0; i < 120 && WiFi.status() != WL_CONNECTED; i++) {
+      delay(250);
+    }
+    log_e("XFER_AUTOSTART: wifi=%d ip=%s", (int)WiFi.status(),
+          WiFi.localIP().toString().c_str());
+    xferStart(&AUTO_CFG);
+    log_e("XFER_AUTOSTART: uploader on at %s ap=%d", xferAddr(), (int)xferUsingAP());
+  }
+#endif
+
+
+  /* ── MUSIC_SELFTEST ───────────────────────────────────────────────────────────────
+   * Times the MP3 decoder on a real file from the card. Bench build only.
+   *
+   * This answers the one question the design could not answer from the desktop: helix's
+   * state is in PSRAM, which is slower than internal RAM, and Audio::loop() decodes from
+   * the MAIN LOOP alongside the screen and WiFi. A frame is 1152 samples = 26.1 ms of
+   * audio at 44.1 kHz, so decode must stay well under that or playback stutters.
+   *
+   * Measures decode alone, with no I2S and no UI, which is the ceiling — whatever
+   * headroom shows here is the most there will ever be. */
+#ifdef MUSIC_SELFTEST
+  {
+    musicPlayerBegin();
+    const int n = musicPlayerCount();
+    log_e("SELFTEST: %d track(s) on the card", n);
+    const MusicTrack* t = NULL;
+    for (int i = 0; i < n; i++) {
+      const MusicTrack* c = musicPlayerTrack(i);
+      if (c && c->fmt == MUSIC_FMT_MP3) {
+        t = c;
+        break;
+      }
+    }
+    if (t) {
+      log_e("SELFTEST: %s  (%s)", t->name, t->path);
+      File f = SD.open(t->path);
+      if (f) {
+        Mp3Stream* ms = new Mp3Stream();
+        if (ms && ms->begin()) {
+          uint8_t hdr[16];
+          f.read(hdr, sizeof(hdr));
+          uint32_t skip = mp3Id3v2Size(hdr, sizeof(hdr));
+          f.seek(skip);
+          log_e("SELFTEST: id3 tag %u bytes", skip);
+
+          int16_t* pcm = (int16_t*)ps_malloc(MP3_MAX_FRAME_SAMPLES * sizeof(int16_t));
+          Mp3Info info;
+          memset(&info, 0, sizeof(info));
+          uint32_t frames = 0, bad = 0, usDecode = 0, usRead = 0;
+          const uint32_t t0 = millis();
+          while (frames < 400 && (millis() - t0) < 20000 && pcm) {
+            uint8_t tmp[512];
+            size_t room = ms->space();
+            if (room > sizeof(tmp)) {
+              room = sizeof(tmp);
+            }
+            if (room > 0 && f.available()) {
+              uint32_t r0 = micros();
+              int got = f.read(tmp, room);
+              usRead += micros() - r0;
+              if (got > 0) {
+                ms->fill(tmp, (size_t)got);
+              }
+            }
+            uint32_t d0 = micros();
+            int samples = ms->decode(pcm, &info);
+            usDecode += micros() - d0;
+            if (samples > 0) {
+              frames++;
+            } else if (samples < 0) {
+              bad++;
+            } else if (!f.available()) {
+              break;
+            }
+          }
+          const uint32_t wall = millis() - t0;
+          if (frames > 0) {
+            const uint32_t perFrame = usDecode / frames;
+            const uint32_t budget = (uint32_t)(1152000000ULL / (info.sampleRate ? info.sampleRate : 44100));
+            log_e("SELFTEST: %u frames %u bad, %d Hz %d ch %d kbps",
+                  frames, bad, info.sampleRate, info.channels, info.bitrate / 1000);
+            log_e("SELFTEST: decode %u us/frame, sd read %u us/frame, budget %u us -> %u%% of realtime",
+                  perFrame, usRead / frames, budget,
+                  (uint32_t)((uint64_t)(perFrame + usRead / frames) * 100 / budget));
+            log_e("SELFTEST: %u frames in %u ms wall = %u ms of audio",
+                  frames, wall, (uint32_t)((uint64_t)frames * 1152 * 1000 / (info.sampleRate ? info.sampleRate : 44100)));
+          } else {
+            log_e("SELFTEST: NO FRAMES DECODED");
+          }
+          if (pcm) {
+            free(pcm);
+          }
+        } else {
+          log_e("SELFTEST: decoder would not allocate");
+        }
+        if (ms) {
+          delete ms;
+        }
+        f.close();
+      } else {
+        log_e("SELFTEST: could not open %s", t->path);
+      }
+    }
+    log_e("SELFTEST: internal heap free %u largest %u psram %u",
+          ESP.getFreeHeap(), ESP.getMaxAllocHeap(), ESP.getFreePsram());
   }
 #endif
 

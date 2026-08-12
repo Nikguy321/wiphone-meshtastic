@@ -39,13 +39,19 @@ enum MusicRepeat {
   MUSIC_REPEAT_ONE = 2,   // the same track again
 };
 
-// What a file's extension claims it is. The header is what decides in the end
-// (musicSniff), because a renamed file is a real thing that happens over an uploader
-// with no extension filter.
+/* What a file's EXTENSION claims it is — used to decide what the library lists. What it
+ * actually IS is decided later by Audio::playMusic(), from the content, because an
+ * uploader with no extension filter means a renamed file is an ordinary thing to meet. */
+/* ⚠ Headerless .pcm/.raw are deliberately NOT here. The card carries them — the recorder
+ * writes /audio_*.pcm and the ringtones are .pcm — but they are 8/16 kHz mono telephony
+ * captures, not music, and Audio::playMusic() cannot play one: it identifies a file by
+ * CONTENT, and a headerless file looks like neither WAV nor MP3. Listing them put an
+ * unplayable row at the top of the library (they sort before everything) and the first
+ * on-device test tried to MP3-decode a phone recording. */
 enum MusicFormat {
   MUSIC_FMT_UNKNOWN = 0,
   MUSIC_FMT_WAV,
-  MUSIC_FMT_PCM,          // headerless: assumed to already be at the phone's own rate
+  MUSIC_FMT_MP3,
 };
 
 struct MusicTrack {

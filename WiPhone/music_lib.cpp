@@ -56,8 +56,8 @@ MusicFormat musicFormatOf(const char* filename) {
   if (extIs(dot, ".wav")) {
     return MUSIC_FMT_WAV;
   }
-  if (extIs(dot, ".pcm") || extIs(dot, ".raw")) {
-    return MUSIC_FMT_PCM;
+  if (extIs(dot, ".mp3")) {
+    return MUSIC_FMT_MP3;
   }
   return MUSIC_FMT_UNKNOWN;
 }
