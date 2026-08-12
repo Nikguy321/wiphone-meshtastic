@@ -61,6 +61,10 @@ const char* musicPlayerError();       // last failure, or NULL
  * for a progress line on screen, not for seeking. */
 uint32_t musicPlayerElapsed();
 
+/* Times the audio buffer ran dry on the current track — each one is an audible gap.
+ * Shown on the now-playing screen so "it crackles a bit" can become a number. */
+uint32_t musicPlayerUnderruns();
+
 /* ── Volume ─────────────────────────────────────────────────────────────────────────
  * In dB, the units the WM875x codec actually takes: -69 is mute, +6 is maximum.
  *

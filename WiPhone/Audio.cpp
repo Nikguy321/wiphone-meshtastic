@@ -489,6 +489,8 @@ bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo, uint32_t startA
   this->setSampleRate(rate);
 
   this->musicStereo = stereo;
+  this->musicUnderruns = 0;
+  this->musicWasStarved = false;
   this->musicEof = false;
   this->playEncW = 0;
   this->playEncR = 0;
@@ -971,10 +973,16 @@ void Audio::loop() {
      * Now it decodes ahead until the DMA refuses more (or the guard trips), so a stall
      * costs one gap rather than a permanent one. The guard is a bound on how long this
      * may hold the main loop, not a limit that should normally be reached. */
+    /* An underrun is the loop arriving to find NOTHING buffered and the DMA still
+     * hungry — i.e. we were late, and there was a gap. Counted on the transition so one
+     * stall is one count rather than one per pass. */
+    bool starvedNow = (this->playDecFramesLeft == 0) && !this->musicEof;
+
     for (int guard = 0; guard < 12; guard++) {
       if (this->playDecFramesLeft > 0) {
         if (!this->pushMusicChunk()) {
-          break;                       // DMA full: there is nothing to gain by decoding
+          starvedNow = false;          // DMA still had room to take: we were not late
+          break;
         }
       }
       if (this->musicEof) {
@@ -984,6 +992,10 @@ void Audio::loop() {
         break;                         // needs more input, or the file is done
       }
     }
+    if (starvedNow && !this->musicWasStarved) {
+      this->musicUnderruns++;
+    }
+    this->musicWasStarved = starvedNow;
 
   } else if (this->playback == Playback::Record) {
     if (this->playDecFramesLeft <= 0 && this->recordRaw) {

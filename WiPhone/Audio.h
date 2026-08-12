@@ -149,6 +149,9 @@ public:
   bool musicEnded() const {
     return this->musicEof && this->playDecFramesLeft == 0;
   }
+  uint32_t musicUnderrunCount() const {
+    return this->musicUnderruns;
+  }
   const char* musicError() const {
     return this->musicProblem;
   }
@@ -253,6 +256,11 @@ protected:
   WavInfo      wavInfo;
   uint32_t     musicLeft = 0;        // bytes of WAV data still to read
   bool         musicStereo = false;
+  /* How often the DMA ran completely dry while a track was playing. Each one is an
+   * audible gap. Exposed because "it crackles a bit" is not something you can act on and
+   * a count per minute is. */
+  uint32_t     musicUnderruns = 0;
+  bool         musicWasStarved = false;
   /* Pushes the decoded buffer to I2S in ONE write instead of one per sample. See the
    * comment on the definition — this is most of why music used to crackle. */
   bool pushMusicChunk();

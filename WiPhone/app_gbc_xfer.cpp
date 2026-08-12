@@ -106,45 +106,76 @@ void gbcXferStart() {
  * "download from URL" box. Kept small and dependency-free. Sent in pieces with the config's
  * words spliced in — a printf template would have to escape every '%' in the CSS, which is
  * exactly the kind of edit that breaks a page nobody re-reads. */
+/* The page served to a browser. PHONE FIRST: this device is mostly fed from a phone, and
+ * the first version was built around drag-and-drop, which does not exist on a touch
+ * screen. What was left there was a bare <input type=file> in the middle of a dashed box,
+ * easy to miss and awkward to hit.
+ *
+ * ⚠ NO `accept` ATTRIBUTE, deliberately. Android's file picker takes an extension list
+ * like ".mp3,.wav" and commonly greys out EVERY file rather than filtering to those —
+ * which looks exactly like a page that does not respond to taps. The server has never
+ * filtered by extension anyway (that is what musicIsPlayable and the parsers are for), so
+ * claiming to is worse than useless here.
+ *
+ * Sent in pieces with the config's words spliced in — a printf template would have to
+ * escape every '%' in the CSS, which is the kind of edit that breaks a page nobody
+ * re-reads. */
 static const char PAGE_1[] =
   "<!doctype html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
   "<title>WiPhone</title><style>"
-  "body{font-family:sans-serif;max-width:520px;margin:24px auto;padding:0 16px;color:#222}"
-  "h2{margin-top:28px}#drop{border:2px dashed #888;border-radius:10px;padding:30px;text-align:center;color:#666}"
-  "#drop.over{border-color:#2a7;background:#eafaf1}input[type=text]{width:100%;padding:8px;box-sizing:border-box}"
-  "button{padding:9px 16px;margin-top:8px;border:0;border-radius:6px;background:#2a7;color:#fff;font-size:15px}"
+  "body{font-family:sans-serif;max-width:520px;margin:16px auto;padding:0 16px;color:#222}"
+  "h1{font-size:20px}h2{margin-top:24px;font-size:16px}"
+  "#drop{border:2px dashed #888;border-radius:10px;padding:18px;text-align:center;color:#666}"
+  "#drop.over{border-color:#2a7;background:#eafaf1}"
+  "input[type=text]{width:100%;padding:12px;box-sizing:border-box;font-size:16px}"
+  ".btn{display:block;width:100%;padding:16px;margin-top:10px;border:0;border-radius:8px;"
+  "background:#2a7;color:#fff;font-size:17px;text-align:center;box-sizing:border-box}"
+  ".btn.alt{background:#456}"
+  "#pick{display:none}"          // the real input; the label below is what gets tapped
+  "#chosen{margin-top:10px;color:#555;font-size:14px;word-break:break-all}"
   "</style></head><body>"
   "<h1>WiPhone &mdash; ";                                     // heading
 static const char PAGE_2[] =
   "</h1>"
-  "<h2>1. Drag &amp; drop files</h2>"
   "<form id=f method=POST action=/upload enctype=multipart/form-data>"
-  "<div id=drop>Drop ";                                        // accept
-static const char PAGE_3[] =
-  " files here, or <input type=file name=rom accept='";        // accept again
-static const char PAGE_4[] =
-  "' multiple></div>"
-  "<button type=submit>Upload</button></form>"
-  "<h2>2. &hellip;or paste a download link</h2>"
+  "<input type=file id=pick name=rom multiple>"
+  "<label class=btn for=pick>Choose files&hellip;</label>"
+  "<div id=chosen>No files chosen yet.</div>"
+  "<button class='btn alt' type=submit>Upload</button>"
+  "<div id=drop style='margin-top:14px'>&hellip;or drag files here (on a computer)</div>"
+  "</form>"
+  "<h2>Or paste a download link</h2>"
   "<form method=POST action=/fetch>"
   "<input type=text name=url placeholder='https://... direct link to a file'>"
-  "<button type=submit>Download to phone</button></form>"
-  "<p style='color:#888;margin-top:30px'>Files are saved to ";  // dir
-static const char PAGE_5[] =
+  "<button class='btn alt' type=submit>Download to phone</button></form>"
+  "<p style='color:#888;margin-top:26px'>Saved to ";           // dir
+static const char PAGE_3[] =
   " on the SD card.</p>"
   "<script>"
-  "var d=document.getElementById('drop'),f=document.getElementById('f'),inp=f.querySelector('input[type=file]');"
+  "var d=document.getElementById('drop'),f=document.getElementById('f'),"
+  "inp=document.getElementById('pick'),ch=document.getElementById('chosen');"
+  "function names(fs){var a=[];for(var i=0;i<fs.length;i++)a.push(fs[i].name);return a.join(', ');}"
+  "inp.addEventListener('change',function(){"
+  "ch.textContent=inp.files.length?names(inp.files):'No files chosen yet.';});"
   "function sendAll(files){"
-  "if(!files||!files.length){d.textContent='No files chosen.';return;}"
-  "var i=0;"
+  "if(!files||!files.length){ch.textContent='No files chosen.';return;}"
+  "var i=0,tries=0;"
   "function next(){"
-  "if(i>=files.length){d.textContent='Done! '+files.length+' file(s) on your phone.';return;}"
+  "if(i>=files.length){ch.textContent='Done! '+files.length+' file(s) on your phone.';return;}"
   "var file=files[i];"
-  "d.textContent='Uploading '+(i+1)+' of '+files.length+': '+file.name;"
+  "ch.textContent='Uploading '+(i+1)+' of '+files.length+': '+file.name;"
   "var fd=new FormData();fd.append('rom',file);"
   "fetch('/upload',{method:'POST',body:fd}).then(function(r){"
-  "if(!r.ok)throw 0;i++;setTimeout(next,400);"   // breather: let the phone housekeep between files
-  "}).catch(function(){d.textContent='Failed on '+file.name+' — try again.';});"
+  "if(!r.ok)throw 0;tries=0;i++;setTimeout(next,400);"   // breather: let the phone housekeep between files
+  /* Retry rather than give up. A big file over a weak link genuinely fails part-way —
+   * measured at 39 KB/s failing where 214 KB/s succeeded, same file, minutes apart — and
+   * the upload restarts cleanly because the handler truncates the file at START. Asking
+   * a person to notice and re-tap is worse than doing it for them. */
+  "}).catch(function(){"
+  "tries++;"
+  "if(tries<4){ch.textContent='Retrying '+file.name+' ('+tries+')\u2026';setTimeout(next,1500);}"
+  "else{ch.textContent='Gave up on '+file.name+' \u2014 move closer to the router and retry.';}"
+  "});"
   "}"
   "next();"
   "}"
@@ -155,49 +186,110 @@ static const char PAGE_5[] =
   "</script></body></html>";
 
 static void handleRoot() {
+  /* ⚠ Connection: close on EVERY response, and it is not cosmetic.
+   *
+   * This server is single-client and pumped once per main-loop pass. A browser that keeps
+   * its socket open — which phone browsers do by default — occupies the one slot, and
+   * every later request just hangs. That is the "load it once, then it never loads
+   * again" this page used to do. Closing after each response gives the slot straight
+   * back. */
+  s_server->sendHeader("Connection", "close");
   s_server->setContentLength(CONTENT_LENGTH_UNKNOWN);
   s_server->send(200, "text/html", "");
   s_server->sendContent(PAGE_1);
   s_server->sendContent(s_cfg->heading);
   s_server->sendContent(PAGE_2);
-  s_server->sendContent(s_cfg->accept);
-  s_server->sendContent(PAGE_3);
-  s_server->sendContent(s_cfg->accept);
-  s_server->sendContent(PAGE_4);
   s_server->sendContent(s_cfg->dir);
-  s_server->sendContent(PAGE_5);
+  s_server->sendContent(PAGE_3);
   s_server->sendContent("");            // terminate the chunked response
 }
 
+/* Browsers ask for this unprompted, and an unanswered request holds the only client slot
+ * until it times out — the same starvation as keep-alive, from a request the user never
+ * made. 204 costs nothing and frees the slot immediately. */
+static void handleFavicon() {
+  s_server->sendHeader("Connection", "close");
+  s_server->send(204, "text/plain", "");
+}
+
+static void handleNotFound() {
+  s_server->sendHeader("Connection", "close");
+  s_server->send(404, "text/plain", "Not found");
+}
+
 // Streams an uploaded multipart file straight to the configured folder on the SD card.
+/* Uploads arrive in ~2 KB pieces and used to go straight to the card, one write each.
+ * A 6 MB track is then over three thousand small FAT writes, and the slow ones — the
+ * cluster allocations — stall the main loop long enough for the phone to stop answering
+ * the network at all. Measured mid-upload: ping to the phone went from ~4 ms to 390 ms,
+ * throughput fell from 250 KB/s to 64 KB/s, and the connection was eventually reset by
+ * the phone. That is the "loaded halfway then crashed" this used to do.
+ *
+ * So pieces are gathered in PSRAM and committed in 32 KB blocks: a couple of hundred big
+ * writes instead of thousands of small ones. PSRAM because the internal heap has no room
+ * to spare — the same rule as everything else here. */
+#define XFER_SD_BLOCK  (32 * 1024)
+static uint8_t* s_sdBuf = NULL;
+static size_t   s_sdLen = 0;
+
+static bool xferFlushBlock() {
+  if (!s_uploadFile || !s_sdBuf || s_sdLen == 0) {
+    return true;
+  }
+  const size_t wrote = s_uploadFile.write(s_sdBuf, s_sdLen);
+  const bool ok = (wrote == s_sdLen);
+  s_sdLen = 0;
+  return ok;
+}
+
 static void handleUpload() {
   HTTPUpload& up = s_server->upload();
   if (up.status == UPLOAD_FILE_START) {
     if (s_uploadFile) {
       s_uploadFile.close();         // close a handle left over from an aborted upload
     }
+    if (!s_sdBuf) {
+      s_sdBuf = (uint8_t*)ps_malloc(XFER_SD_BLOCK);
+    }
+    s_sdLen = 0;
     SD.mkdir(s_cfg->dir);
     String path = String(s_cfg->dir) + "/" + up.filename;
     SD.remove(path.c_str());        // overwrite cleanly (SD write mode appends)
     s_uploadFile = SD.open(path.c_str(), FILE_WRITE);
   } else if (up.status == UPLOAD_FILE_WRITE) {
     if (s_uploadFile) {
-      s_uploadFile.write(up.buf, up.currentSize);
-      // Let the idle task run so the task watchdog doesn't reboot the phone:
-      // handleClient() blocks the main loop for this entire upload.
-      static uint8_t chunks = 0;
-      if (++chunks >= 4) {
-        chunks = 0;
-        delay(1);
+      if (s_sdBuf) {
+        size_t off = 0;
+        while (off < up.currentSize) {
+          size_t room = XFER_SD_BLOCK - s_sdLen;
+          size_t take = up.currentSize - off;
+          if (take > room) {
+            take = room;
+          }
+          memcpy(s_sdBuf + s_sdLen, up.buf + off, take);
+          s_sdLen += take;
+          off += take;
+          if (s_sdLen == XFER_SD_BLOCK) {
+            xferFlushBlock();
+          }
+        }
+      } else {
+        s_uploadFile.write(up.buf, up.currentSize);   // no PSRAM: the old slow path
       }
+      /* Yield on EVERY piece, not every fourth. handleClient() owns the main loop for the
+       * whole upload, so this is the only chance the WiFi and TCP stacks get to run —
+       * starving them is what made the phone drop off the network mid-transfer. */
+      delay(1);
     }
   } else if (up.status == UPLOAD_FILE_END) {
     if (s_uploadFile) {
+      xferFlushBlock();             // the tail, which is almost never a whole block
       s_uploadFile.flush();         // commit size/data before it can be read
       s_uploadFile.close();
       s_filesAdded++;
     }
   } else if (up.status == UPLOAD_FILE_ABORTED) {
+    s_sdLen = 0;                    // drop the partial block rather than commit garbage
     if (s_uploadFile) {
       s_uploadFile.close();         // partial file stays; re-upload overwrites it
     }
@@ -323,6 +415,21 @@ void xferStart(const XferConfig* cfg) {
   s_filesAdded = 0;
 
   // Use the joined WiFi network if we have one; otherwise host our own hotspot.
+  /* ⚠ GIVE THE STATION A MOMENT BEFORE GIVING UP ON IT.
+   *
+   * This used to decide instantly, and deciding instantly is how opening the uploader
+   * KNOCKED THE PHONE OFF WIFI: if the radio happened to be mid-association — which it
+   * is after a boot, after a roam, or any time the link blipped — status() is not yet
+   * WL_CONNECTED, so this fell through to softAP() and tore the station connection down
+   * to host its own network. The phone then had no WiFi until something else noticed,
+   * which is exactly the "no wifi for a while afterwards" that got reported.
+   *
+   * Two seconds is long enough to cover an association already in flight and short
+   * enough not to feel like a hang when there genuinely is no network. */
+  for (int i = 0; i < 20 && WiFi.status() != WL_CONNECTED; i++) {
+    delay(100);
+  }
+
   if (WiFi.status() == WL_CONNECTED) {
     s_usingAP = false;
     snprintf(s_addr, sizeof(s_addr), "%s", WiFi.localIP().toString().c_str());
@@ -343,9 +450,12 @@ void xferStart(const XferConfig* cfg) {
   }
   s_server->on("/", HTTP_GET, handleRoot);
   s_server->on("/upload", HTTP_POST, []() {
+    s_server->sendHeader("Connection", "close");
     s_server->send(200, "text/html", "<p>Uploaded! <a href=/>back</a></p>");
   }, handleUpload);
   s_server->on("/fetch", HTTP_POST, handleFetch);
+  s_server->on("/favicon.ico", HTTP_GET, handleFavicon);
+  s_server->onNotFound(handleNotFound);
   s_server->begin();
 
   xferHoldAwake(true);
@@ -370,6 +480,11 @@ void xferStop() {
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
     s_usingAP = false;
+    /* ⚠ Setting the mode back to STA does NOT reconnect. Without this the phone sat with
+     * no WiFi until some other timer got round to noticing, which felt like the uploader
+     * had broken the network on its way out. begin() with no arguments re-uses the
+     * credentials already in the driver. */
+    WiFi.begin();
   }
   s_on = false;
 }

@@ -339,6 +339,10 @@ uint32_t musicPlayerElapsed() {
   return s_elapsedBase + (millis() - s_startedAt) / 1000;
 }
 
+uint32_t musicPlayerUnderruns() {
+  return audio ? audio->musicUnderrunCount() : 0;
+}
+
 void musicPlayerSetShuffle(bool on) {
   s_queue.setShuffle(on);
 }

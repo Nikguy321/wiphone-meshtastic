@@ -215,9 +215,11 @@ void MusicApp::drawNowPlaying() {
 
   {
     const MusicRepeat r = musicPlayerRepeat();
-    snprintf(line, sizeof(line), "%s%s",
+    const uint32_t dry = musicPlayerUnderruns();
+    snprintf(line, sizeof(line), "%s%s%s%lu",
              musicPlayerShuffle() ? "shuffle " : "",
-             r == MUSIC_REPEAT_ONE ? "repeat one" : (r == MUSIC_REPEAT_ALL ? "repeat all" : ""));
+             r == MUSIC_REPEAT_ONE ? "repeat one " : (r == MUSIC_REPEAT_ALL ? "repeat all " : ""),
+             "gaps:", (unsigned long)dry);
     lcd.setTextColor(TFT_DARKGREY, BLACK);
     lcd.fillRect(MUSIC_MARGIN, y, clearW, lh, BLACK);   // cleared even when empty
     lcd.drawString(line, MUSIC_MARGIN, y);
