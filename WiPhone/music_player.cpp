@@ -20,6 +20,9 @@ static bool        s_paused = false;     // a track is loaded but not running
 static int         s_loaded = -1;        // library index of that track, or -1
 static uint32_t    s_startedAt = 0;
 static uint32_t    s_elapsedBase = 0;    // seconds already played before the last resume
+/* Byte offset in the file where pause happened, so play-pause-play carries on instead of
+ * starting the song again. 0 = from the beginning. */
+static uint32_t    s_resumePos = 0;
 static const char* s_error = NULL;
 static bool        s_began = false;
 
@@ -187,14 +190,14 @@ static bool wantStereo() {
   return audio && audio->getHeadphones();
 }
 
-static bool startTrack(int idx) {
+static bool startTrack(int idx, uint32_t startAt = 0) {
   s_error = NULL;
   if (!audio || !s_tracks || idx < 0 || idx >= s_count) {
     s_error = "No track";
     return false;
   }
   audio->stopMusic();
-  if (!audio->playMusic(&SD, s_tracks[idx].path, wantStereo())) {
+  if (!audio->playMusic(&SD, s_tracks[idx].path, wantStereo(), startAt)) {
     s_error = audio->musicError() ? audio->musicError() : "Will not play";
     s_loaded = -1;
     s_paused = false;
@@ -204,12 +207,13 @@ static bool startTrack(int idx) {
   s_loaded = idx;
   s_paused = false;
   s_startedAt = millis();
-  s_elapsedBase = 0;
   return true;
 }
 
 bool musicPlayerPlay(int libraryIndex) {
   s_queue.startAt(libraryIndex);
+  s_resumePos = 0;
+  s_elapsedBase = 0;
   return startTrack(libraryIndex);
 }
 
@@ -221,11 +225,14 @@ void musicPlayerStop() {
   s_loaded = -1;
   s_paused = false;
   s_elapsedBase = 0;
+  s_resumePos = 0;
 }
 
 void musicPlayerPause() {
   if (audio && audio->musicPlaying()) {
     s_elapsedBase = musicPlayerElapsed();
+    /* Where to pick up from. Captured BEFORE stopMusic(), which closes the file. */
+    s_resumePos = audio->musicFilePos();
     audio->stopMusic();
     restoreCallVolume();
     s_paused = s_loaded >= 0;
@@ -234,13 +241,23 @@ void musicPlayerPause() {
 
 void musicPlayerResume() {
   if (s_paused && s_loaded >= 0) {
-    /* Restarts the track from the beginning: there is no seek, because a seek in a VBR
-     * MP3 means either an index built by reading the whole file or a guess that lands in
-     * the wrong place. Not worth it for a phone you press play on. */
-    uint32_t keep = s_elapsedBase;
-    if (startTrack(s_loaded)) {
+    /* Carry on from the byte where pause happened rather than restarting the song.
+     *
+     * This is a resume, not a seek: the offset is one we recorded ourselves while
+     * playing, so there is no need to guess a position from a timestamp — which is the
+     * hard part in a VBR MP3 and the reason a scrub bar still does not exist. The
+     * decoder resynchronises on the next frame sync, costing at most a frame or two to
+     * the bit reservoir, which is inaudible.
+     *
+     * s_elapsedBase is deliberately NOT reset, so the clock on screen keeps counting
+     * from where it was instead of jumping back to 0:00. */
+    const uint32_t at = s_resumePos;
+    if (startTrack(s_loaded, at)) {
+      s_resumePos = 0;
+    } else if (startTrack(s_loaded)) {
+      // The offset was refused for some reason; falling back to the start still plays.
+      s_resumePos = 0;
       s_elapsedBase = 0;
-      (void)keep;
     }
   }
 }
@@ -261,6 +278,8 @@ bool musicPlayerTogglePause() {
 
 void musicPlayerNext() {
   int n = s_queue.skip(1);
+  s_resumePos = 0;
+  s_elapsedBase = 0;
   if (n >= 0) {
     startTrack(n);
   } else {
@@ -271,7 +290,10 @@ void musicPlayerNext() {
 void musicPlayerPrev() {
   /* Under three seconds in, Previous means the previous track; after that it means the
    * start of this one. Every music player does this and it is missed when absent. */
-  if (musicPlayerElapsed() >= 3 && s_loaded >= 0) {
+  const bool restartThisOne = musicPlayerElapsed() >= 3 && s_loaded >= 0;
+  s_resumePos = 0;
+  s_elapsedBase = 0;
+  if (restartThisOne) {
     startTrack(s_loaded);
     return;
   }
@@ -332,6 +354,8 @@ void musicPlayerLoop() {
 
   /* End of track. advance() is the end-of-FILE step, so repeat-one replays here — which
    * is deliberately not what the Next key does. See music_lib.h. */
+  s_resumePos = 0;
+  s_elapsedBase = 0;
   int nxt = s_queue.advance();
   if (nxt < 0) {
     musicPlayerStop();           // end of the queue with repeat off

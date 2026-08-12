@@ -360,7 +360,7 @@ bool Audio::playFile() {
  *
  * ⚠ The format is decided by the CONTENT, not the extension. The uploader has no
  * extension filter, so a .wav that is really an MP3 is an ordinary thing to meet. */
-bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo) {
+bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo, uint32_t startAt) {
   this->stopMusic();
   this->musicProblem = NULL;
 
@@ -399,8 +399,16 @@ bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo) {
     if (this->wavInfo.dataBytes == 0 || this->wavInfo.dataBytes > avail) {
       this->wavInfo.dataBytes = avail;
     }
-    this->playbackFile.seek(this->wavInfo.dataOffset);
-    this->musicLeft = this->wavInfo.dataBytes;
+    uint32_t wavStart = this->wavInfo.dataOffset;
+    if (startAt > wavStart && startAt < wavStart + this->wavInfo.dataBytes) {
+      // Align to a whole frame, or the channels swap and it plays as noise.
+      const uint32_t fb = wavFrameBytes(this->wavInfo);
+      if (fb) {
+        wavStart = startAt - ((startAt - this->wavInfo.dataOffset) % fb);
+      }
+    }
+    this->playbackFile.seek(wavStart);
+    this->musicLeft = this->wavInfo.dataBytes - (wavStart - this->wavInfo.dataOffset);
     this->wavConv.begin(this->wavInfo, this->wavInfo.sampleRate, stereo);
     rate  = (int)this->wavInfo.sampleRate;
     chans = stereo ? 2 : 1;
@@ -418,6 +426,12 @@ bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo) {
     this->mp3->reset();
     // Seek past the ID3 tag; helix would otherwise hunt for a sync word inside album art.
     uint32_t skip = mp3Id3v2Size(hdr, (size_t)got);
+    /* Resuming: jump straight back to where we paused. The decoder resynchronises on the
+     * next frame sync by itself, so at worst this loses a frame or two to the bit
+     * reservoir — inaudible, and the alternative is restarting the song. */
+    if (startAt > skip && startAt < (uint32_t)this->playbackFile.size()) {
+      skip = startAt;
+    }
     this->playbackFile.seek(skip);
 
     /* Decode one frame BEFORE configuring I2S. A frame header can be read out of a false
@@ -474,10 +488,111 @@ bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo) {
   this->setMonoOutput(!stereo);
   this->setSampleRate(rate);
 
+  this->musicStereo = stereo;
   this->musicEof = false;
   this->playEncW = 0;
   this->playEncR = 0;
   return true;
+}
+
+uint32_t Audio::musicFilePos() {
+  return this->playbackFile ? (uint32_t)this->playbackFile.position() : 0;
+}
+
+/* One i2s_write for the whole decoded buffer instead of one per SAMPLE.
+ *
+ * playSample() writes 2 or 4 bytes at a time, which is fine for the 8 kHz telephony it
+ * was built for — 8000 calls a second. Music at 48 kHz stereo makes 48000, each paying
+ * the full ESP-IDF entry cost, and the jitter that adds is most of the reason music
+ * crackled. The decoded buffer is already interleaved L,R 16-bit, which is exactly the
+ * layout I2S wants, so it can go out in a single call.
+ *
+ * Returns false when the DMA would not take everything, which is the caller's signal
+ * that there is no room to decode further ahead. */
+bool Audio::pushMusicChunk() {
+  if (this->playDecFramesLeft == 0) {
+    return true;
+  }
+  const int chans = this->monoOut ? 1 : 2;
+  const size_t offset = (size_t)this->playDecCurFrame * chans;
+  const size_t bytes = (size_t)this->playDecFramesLeft * chans * sizeof(int16_t);
+
+  size_t written = 0;
+  esp_err_t err = i2s_write((i2s_port_t)i2s_num, (const char*)(this->playDec + offset),
+                            bytes, &written, 0);
+  if (err != ESP_OK) {
+    return false;
+  }
+  const uint32_t framesOut = (uint32_t)(written / (chans * sizeof(int16_t)));
+  this->playDecCurFrame += framesOut;
+  this->playDecFramesLeft -= framesOut;
+  return this->playDecFramesLeft == 0;
+}
+
+/* One frame of whichever format is playing, into playDec. Both paths leave
+ * playDecCurFrame/playDecFramesLeft set the way pushMusicChunk() expects. */
+bool Audio::fillMusicFrame() {
+  if (this->playDecFramesLeft > 0) {
+    return true;                        // still something to push
+  }
+
+  if (this->playback == Playback::LocalMp3) {
+    uint8_t tmp[512];
+    size_t room = this->mp3 ? this->mp3->space() : 0;
+    if (room > sizeof(tmp)) {
+      room = sizeof(tmp);
+    }
+    if (room > 0 && this->playbackFile.available()) {
+      int n = this->playbackFile.read(tmp, room);
+      if (n > 0) {
+        this->mp3->fill(tmp, (size_t)n);
+      }
+    }
+    Mp3Info info;
+    int samples = this->mp3 ? this->mp3->decode(this->playDec, &info) : 0;
+    if (samples > 0) {
+      this->playDecCurFrame = 0;
+      this->playDecFramesLeft = samples / (info.channels ? info.channels : 1);
+      return true;
+    }
+    if (!this->playbackFile.available() && this->mp3 && this->mp3->space() > 0) {
+      /* Nothing decoded and nothing left to read. Not an error: the tail of a file is
+       * usually a partial frame or a Lyrics/APE tag that will never decode. */
+      this->musicEof = true;
+    }
+    return false;
+  }
+
+  if (this->playback == Playback::LocalWav) {
+    const uint32_t fb = wavFrameBytes(this->wavInfo);
+    if (fb == 0 || this->musicLeft < fb) {
+      this->musicEof = true;
+      return false;
+    }
+    uint8_t tmp[512];
+    uint32_t want = sizeof(tmp) - (sizeof(tmp) % fb);      // whole frames only
+    if (want > this->musicLeft) {
+      want = this->musicLeft - (this->musicLeft % fb);
+    }
+    int n = want > 0 ? this->playbackFile.read(tmp, want) : 0;
+    if (n <= 0) {
+      this->musicEof = true;
+      return false;
+    }
+    this->musicLeft -= (uint32_t)n;
+    size_t used = 0;
+    // playDec holds 2400 shorts: 1200 stereo frames or 2400 mono samples.
+    const size_t outCap = this->dataChannels == 2 ? 1200 : 2400;
+    size_t out = this->wavConv.feed(tmp, (size_t)n / fb, this->playDec, outCap, &used);
+    if (out > 0) {
+      this->playDecCurFrame = 0;
+      this->playDecFramesLeft = out;
+      return true;
+    }
+    return false;
+  }
+
+  return false;
 }
 
 void Audio::stopMusic() {
@@ -843,63 +958,30 @@ void Audio::loop() {
     }
 
 
-  } else if (this->playback == Playback::LocalMp3) {
-    /* One frame per pass, and only when the previous one is spent. A frame is 1152
-     * samples — 26 ms at 44.1 kHz — and playDec holds exactly one, so decoding ahead
-     * would need somewhere to put it. The DMA ring (4 x 1024) is the slack that covers
-     * a main loop busy drawing or reading the card. */
-    if (this->playDecFramesLeft == 0 && !this->musicEof) {
-      uint8_t tmp[512];
-      size_t room = this->mp3 ? this->mp3->space() : 0;
-      if (room > sizeof(tmp)) {
-        room = sizeof(tmp);
-      }
-      if (room > 0 && this->playbackFile.available()) {
-        int n = this->playbackFile.read(tmp, room);
-        if (n > 0) {
-          this->mp3->fill(tmp, (size_t)n);
+  } else if (this->playback == Playback::LocalMp3 || this->playback == Playback::LocalWav) {
+    /* ── Keep the DMA fed, and be able to CATCH UP ──────────────────────────────────
+     * This used to decode exactly ONE frame per loop() call. A frame is 1152 samples —
+     * 24 ms at 48 kHz — so the most audio this could ever produce per main-loop
+     * iteration was 24 ms. The main loop also draws the screen, services WiFi, SIP and
+     * the mesh, and any iteration slower than that drained the DMA a little further with
+     * NO WAY TO RECOVER, because the next pass still only produced 24 ms. Every stall
+     * became a permanent deficit, and the result was audible as a steady crackle at any
+     * volume. Rate limiting yourself to realtime means you can never make up a gap.
+     *
+     * Now it decodes ahead until the DMA refuses more (or the guard trips), so a stall
+     * costs one gap rather than a permanent one. The guard is a bound on how long this
+     * may hold the main loop, not a limit that should normally be reached. */
+    for (int guard = 0; guard < 12; guard++) {
+      if (this->playDecFramesLeft > 0) {
+        if (!this->pushMusicChunk()) {
+          break;                       // DMA full: there is nothing to gain by decoding
         }
       }
-      Mp3Info info;
-      int samples = this->mp3 ? this->mp3->decode(this->playDec, &info) : 0;
-      if (samples > 0) {
-        this->playDecCurFrame = 0;
-        this->playDecFramesLeft = samples / (info.channels ? info.channels : 1);
-        this->playChunk();
-      } else if (!this->playbackFile.available() && this->mp3 && this->mp3->space() > 0) {
-        /* Nothing decoded and nothing left to read. Not an error: the tail of a file is
-         * usually a partial frame or a Lyrics/APE tag that will never decode. */
-        this->musicEof = true;
+      if (this->musicEof) {
+        break;
       }
-    }
-
-  } else if (this->playback == Playback::LocalWav) {
-    if (this->playDecFramesLeft == 0 && !this->musicEof) {
-      const uint32_t fb = wavFrameBytes(this->wavInfo);
-      if (fb == 0 || this->musicLeft < fb) {
-        this->musicEof = true;
-      } else {
-        uint8_t tmp[512];
-        uint32_t want = sizeof(tmp) - (sizeof(tmp) % fb);   // whole frames only
-        if (want > this->musicLeft) {
-          want = this->musicLeft - (this->musicLeft % fb);
-        }
-        int n = want > 0 ? this->playbackFile.read(tmp, want) : 0;
-        if (n <= 0) {
-          this->musicEof = true;
-        } else {
-          this->musicLeft -= (uint32_t)n;
-          size_t srcFrames = (size_t)n / fb;
-          size_t used = 0;
-          /* playDec holds 2400 shorts: 1200 stereo frames or 2400 mono samples. */
-          size_t outCap = this->dataChannels == 2 ? 1200 : 2400;
-          size_t out = this->wavConv.feed(tmp, srcFrames, this->playDec, outCap, &used);
-          if (out > 0) {
-            this->playDecCurFrame = 0;
-            this->playDecFramesLeft = out;
-            this->playChunk();
-          }
-        }
+      if (!this->fillMusicFrame()) {
+        break;                         // needs more input, or the file is done
       }
     }
 

@@ -136,7 +136,10 @@ public:
    *
    * ⚠ Do not call during a call. Music and RTP are both Playback modes and there is one
    * I2S peripheral; the caller stops music when a call arrives. */
-  bool playMusic(fs::FS *fs, const char* path, bool stereo);
+  bool playMusic(fs::FS *fs, const char* path, bool stereo, uint32_t startAt = 0);
+  /* Byte offset currently being read. Handed back to playMusic() as `startAt` to resume
+   * a paused track where it left off. */
+  uint32_t musicFilePos();
   void stopMusic();
   bool musicPlaying() const {
     return this->playback == Playback::LocalMp3 || this->playback == Playback::LocalWav;
@@ -249,6 +252,13 @@ protected:
   WavConverter wavConv;
   WavInfo      wavInfo;
   uint32_t     musicLeft = 0;        // bytes of WAV data still to read
+  bool         musicStereo = false;
+  /* Pushes the decoded buffer to I2S in ONE write instead of one per sample. See the
+   * comment on the definition — this is most of why music used to crackle. */
+  bool pushMusicChunk();
+  /* Decode ONE frame of the current file into playDec. False when it needs more
+   * input than is left, or the file has ended (musicEof is set then). */
+  bool fillMusicFrame();
   bool         musicEof = false;
   const char*  musicProblem = nullptr;
 
