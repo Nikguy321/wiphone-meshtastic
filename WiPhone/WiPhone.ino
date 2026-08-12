@@ -39,6 +39,7 @@ governing permissions and limitations under the License.
 #include "esp_ota_ops.h"
 #include "Test.h"
 #include "meshtastic_service.h"
+#include "music_player.h"
 #include "src/assets/pop_sound.h"
 
 static bool been_in_verify = false;
@@ -2020,6 +2021,17 @@ void loop() {
       }
     }
 #endif
+
+    /* Music keeps playing while you are anywhere else in the phone. Audio::loop() is
+     * already pumped from here and does the decoding; this only notices the end of a
+     * track and starts the next one, which is why it lives outside MusicApp — that app
+     * is deleted the moment you back out of its screen.
+     *
+     * ⚠ Skipped during a Game Boy session for the same reason the mesh is: that path
+     * runs its own tight loop and the audio peripheral is handed to the emulator. */
+    if (!gGbcActive) {
+      musicPlayerLoop();
+    }
 
     // Meshtastic background service tick (non-blocking). If a new message
     // arrived, notify the GUI so an open Channel view refreshes live, raise the

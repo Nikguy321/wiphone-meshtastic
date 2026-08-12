@@ -365,6 +365,7 @@ typedef enum ActionID : uint16_t {
 
   // Reading
   GUI_APP_BOOKS,
+  GUI_APP_MUSIC,
 
   // Tools
   GUI_APP_NOTEPAD,
@@ -2528,7 +2529,7 @@ protected:
    * too FEW is silent — the tail zero-fills into entries with ID 0, parent 0 and a NULL
    * title, which then appear as children of the Clock menu. It was one short before Books was
    * added. enterMenu() now skips title-less rows so a miscount stays cosmetic. */
-  GUIMenuItem menu[39] PROGMEM = {  // increment size by one to add a new app
+  GUIMenuItem menu[40] PROGMEM = {  // increment size by one to add a new app
 
     // TODO: button names can be removed
 
@@ -2542,6 +2543,7 @@ protected:
     { 20, 1, "Messages", "", "", GUI_APP_MESSAGES },
     { 39, 1, "Meshtastic", "", "", GUI_APP_MESHTASTIC },
     { 41, 1, "Books", "Select", "Back", GUI_APP_BOOKS },
+    { 41, 1, "Music", "Select", "Back", GUI_APP_MUSIC },
     { 3, 1, "Tools", "Select", "Back", GUI_ACTION_SUBMENU },
     { 4, 1, "Games", "Select", "Back", GUI_ACTION_SUBMENU },
     { 5, 1, "Settings", "Select", "Back", GUI_ACTION_SUBMENU },
