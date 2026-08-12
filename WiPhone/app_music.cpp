@@ -179,6 +179,23 @@ void MusicApp::drawNowPlaying() {
   lcd.drawString(line, MUSIC_MARGIN, y);
   y += lh + 2;
 
+  /* Volume as a bar plus the dB, because dB alone means nothing to most people and a bar
+   * alone cannot tell you how much further it goes. */
+  {
+    const int v = musicPlayerVolume();
+    const int span = MUSIC_VOL_MAX_DB - MUSIC_VOL_MIN_DB;
+    const int filled = span > 0 ? ((v - MUSIC_VOL_MIN_DB) * 10 + span / 2) / span : 0;
+    char bar[16];
+    int k = 0;
+    for (; k < 10 && k < (int)sizeof(bar) - 1; k++) {
+      bar[k] = k < filled ? '=' : '.';
+    }
+    bar[k] = '\0';
+    snprintf(line, sizeof(line), "Vol [%s] %d dB   ", bar, v);
+    lcd.drawString(line, MUSIC_MARGIN, y);
+  }
+  y += lh + 2;
+
   if (musicPlayerShuffle() || musicPlayerRepeat() != MUSIC_REPEAT_OFF) {
     const MusicRepeat r = musicPlayerRepeat();
     snprintf(line, sizeof(line), "%s%s   ",
@@ -190,10 +207,12 @@ void MusicApp::drawNowPlaying() {
   y += lh + 8;
 
   lcd.setTextColor(TFT_DARKGREY, BLACK);
-  lcd.drawString("4 prev   6 next", MUSIC_MARGIN, y);
+  lcd.drawString("Side buttons, top down:", MUSIC_MARGIN, y);
   y += lh;
-  lcd.drawString("OK play/pause", MUSIC_MARGIN, y);
+  lcd.drawString(" play/pause | next", MUSIC_MARGIN, y);
   y += lh;
+  lcd.drawString(" (hold=prev) | vol +/-", MUSIC_MARGIN, y);
+  y += lh + 2;
   lcd.drawString("Back: keeps playing", MUSIC_MARGIN, y);
 }
 

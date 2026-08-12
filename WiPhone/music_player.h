@@ -61,6 +61,25 @@ const char* musicPlayerError();       // last failure, or NULL
  * for a progress line on screen, not for seeking. */
 uint32_t musicPlayerElapsed();
 
+/* ── Volume ─────────────────────────────────────────────────────────────────────────
+ * In dB, the units the WM875x codec actually takes: -69 is mute, +6 is maximum.
+ *
+ * Kept in RAM ONLY and deliberately not written to the configs file. It survives
+ * stopping and starting playback, and resets to the default on a restart — which is what
+ * you want on a phone whose volume you can nudge with a side button by accident.
+ *
+ * ⚠ It is a SEPARATE level from the call volume. The codec has one set of registers, so
+ * playing music overwrites what calls use; the player captures the call levels the first
+ * time it takes over and puts them back when music stops. Without that, one quiet album
+ * leaves you unable to hear the next phone call. */
+#define MUSIC_VOL_DEFAULT_DB  (-18)   // starts low on purpose: this drives headphones
+#define MUSIC_VOL_STEP_DB     3
+#define MUSIC_VOL_MIN_DB      (-45)
+#define MUSIC_VOL_MAX_DB      6
+
+int  musicPlayerVolume();             // current level in dB
+void musicPlayerVolumeStep(int steps); // +1 louder, -1 quieter; clamped
+
 void        musicPlayerSetShuffle(bool on);
 bool        musicPlayerShuffle();
 void        musicPlayerSetRepeat(MusicRepeat r);

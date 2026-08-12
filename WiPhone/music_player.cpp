@@ -23,6 +23,54 @@ static uint32_t    s_elapsedBase = 0;    // seconds already played before the la
 static const char* s_error = NULL;
 static bool        s_began = false;
 
+/* Volume, in dB, RAM-only — see music_player.h. */
+static int         s_vol = MUSIC_VOL_DEFAULT_DB;
+static bool        s_volSaved = false;      // are the call levels stashed?
+static int8_t      s_savedEar = 6, s_savedHp = 6, s_savedLoud = 0;
+
+/* Take the codec over, remembering what calls were using. */
+static void applyMusicVolume() {
+  if (!audio) {
+    return;
+  }
+  if (!s_volSaved) {
+    audio->getVolumes(s_savedEar, s_savedHp, s_savedLoud);
+    s_volSaved = true;
+  }
+  const int8_t v = (int8_t)s_vol;
+  // The loudspeaker amp maxes out at 0 dB where the other two reach +6.
+  const int8_t loud = v > 0 ? 0 : v;
+  audio->setVolumes(v, v, loud);
+}
+
+/* Give the codec back at the levels the phone had before music started. Without this a
+ * quiet album leaves the next call inaudible. */
+static void restoreCallVolume() {
+  if (audio && s_volSaved) {
+    audio->setVolumes(s_savedEar, s_savedHp, s_savedLoud);
+    s_volSaved = false;
+  }
+}
+
+int musicPlayerVolume() {
+  return s_vol;
+}
+
+void musicPlayerVolumeStep(int steps) {
+  s_vol += steps * MUSIC_VOL_STEP_DB;
+  if (s_vol > MUSIC_VOL_MAX_DB) {
+    s_vol = MUSIC_VOL_MAX_DB;
+  }
+  if (s_vol < MUSIC_VOL_MIN_DB) {
+    s_vol = MUSIC_VOL_MIN_DB;
+  }
+  // Only touch the codec while we own it; otherwise this is just a remembered number.
+  if (s_volSaved) {
+    const int8_t v = (int8_t)s_vol;
+    audio->setVolumes(v, v, v > 0 ? 0 : v);
+  }
+}
+
 void musicPlayerBegin() {
   if (s_began) {
     return;
@@ -152,6 +200,7 @@ static bool startTrack(int idx) {
     s_paused = false;
     return false;
   }
+  applyMusicVolume();
   s_loaded = idx;
   s_paused = false;
   s_startedAt = millis();
@@ -168,6 +217,7 @@ void musicPlayerStop() {
   if (audio) {
     audio->stopMusic();
   }
+  restoreCallVolume();
   s_loaded = -1;
   s_paused = false;
   s_elapsedBase = 0;
@@ -177,6 +227,7 @@ void musicPlayerPause() {
   if (audio && audio->musicPlaying()) {
     s_elapsedBase = musicPlayerElapsed();
     audio->stopMusic();
+    restoreCallVolume();
     s_paused = s_loaded >= 0;
   }
 }

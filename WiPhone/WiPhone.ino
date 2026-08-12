@@ -1214,6 +1214,9 @@ static uint32_t meshPopupShownMs = 0;
  * 350 ms), so this needs no new input plumbing. */
 #define SLEEP_CHORD_MS   2000u
 #define SLEEP_CHORD_MASK (WIPHONE_KEY_MASK_BACK | WIPHONE_KEY_MASK_SELECT)
+#define MUSIC_F2_HOLD_MS 500           // past this, F2 means "previous" rather than "next"
+static uint32_t msF2Down = 0;          // when F2 went down, 0 = not held
+static bool     f2Fired = false;       // the hold already acted; ignore the release
 static uint32_t msChordStart = 0;      // when both corners went down, 0 = not held
 static bool     chordFired = false;    // one sleep per hold, not one every loop
 
@@ -1261,6 +1264,36 @@ void loop() {
      * dispatched the moment they went down and cannot be taken back — Back will have
      * navigated once. That is a fair price for a gesture that works every time, and the
      * screen going off is its own confirmation. */
+    /* ── F2: next on a tap, previous on a hold ─────────────────────────────────────
+     * Decided on RELEASE, because "short or long" is not knowable when the key goes
+     * down — firing next immediately would make every hold skip forward first.
+     *
+     * Previous is musicPlayerPrev(), which does the thing every music player does:
+     * within the first three seconds it goes to the previous track, after that it
+     * restarts the current one.
+     *
+     * Read here, right after the stale-key sweep, so uiKeyDown is already up to date. */
+    if (!gGbcActive && musicPlayerCurrent() >= 0) {
+      if (uiKeyDown & WIPHONE_KEY_MASK_F2) {
+        if (!msF2Down) {
+          msF2Down = now;
+          f2Fired = false;
+        } else if (!f2Fired && now - msF2Down >= MUSIC_F2_HOLD_MS) {
+          f2Fired = true;                  // one action per hold, however long it lasts
+          musicPlayerPrev();
+        }
+      } else {
+        if (msF2Down && !f2Fired) {
+          musicPlayerNext();               // released before the threshold: a tap
+        }
+        msF2Down = 0;
+        f2Fired = false;
+      }
+    } else {
+      msF2Down = 0;
+      f2Fired = false;
+    }
+
     if ((uiKeyDown & SLEEP_CHORD_MASK) == SLEEP_CHORD_MASK) {
       if (!msChordStart) {
         msChordStart = now;
@@ -1349,16 +1382,38 @@ void loop() {
 
       // Process key
 #ifndef STEAL_THE_USER_BUTTONS
-      if (keyPressed == WIPHONE_KEY_F1) {
+      /* ── The four user buttons are the music transport ──────────────────────────
+       * F1 play/pause · F2 next (HELD = previous) · F3 louder · F4 quieter
+       *
+       * Handled here rather than in MusicApp so they work from any screen — which is
+       * the point of playback that outlives its app. The keys are SWALLOWED when used
+       * (keyPressed = 0), otherwise the screen underneath acts on them too.
+       *
+       * ⚠ Only while a track is loaded. Books uses F3/F4 to page and the Game Boy uses
+       * F1/F2 for its own volume; taking them unconditionally would break both. With
+       * nothing loaded these fall through exactly as before.
+       *
+       * ⚠ F2 is NOT handled here — it fires on RELEASE, next to the sleep chord, because
+       * short-versus-held cannot be decided at the moment of the press. */
+      const bool musicKeys = !gGbcActive && musicPlayerCurrent() >= 0;
+
+      if (musicKeys && keyPressed == WIPHONE_KEY_F1) {
+        musicPlayerTogglePause();
+        keyPressed = 0;
       }
 
-      if (keyPressed == WIPHONE_KEY_F2) {
+      if (musicKeys && keyPressed == WIPHONE_KEY_F3) {
+        musicPlayerVolumeStep(+1);
+        keyPressed = 0;
       }
 
-      if (keyPressed == WIPHONE_KEY_F3) {
+      if (musicKeys && keyPressed == WIPHONE_KEY_F4) {
+        musicPlayerVolumeStep(-1);
+        keyPressed = 0;
       }
 
-      if (keyPressed == WIPHONE_KEY_F4) {
+      if (musicKeys && keyPressed == WIPHONE_KEY_F2) {
+        keyPressed = 0;      // consumed; the action fires on release or on the hold timer
       }
 
       if (keyPressed == WIPHONE_KEY_END && !gGbcActive) {
