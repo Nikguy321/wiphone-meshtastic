@@ -40,6 +40,7 @@ governing permissions and limitations under the License.
 #include "Test.h"
 #include "meshtastic_service.h"
 #include "music_player.h"
+#include "mp3_stream.h"
 #include "src/assets/pop_sound.h"
 
 static bool been_in_verify = false;
@@ -997,6 +998,31 @@ void setup() {
 #endif
 
   printf("\r\nBooted\r\n");
+
+  /* ── MP3_HEAP_PROBE ────────────────────────────────────────────────────────────────
+   * Allocates and frees the MP3 decoder once and reports what it cost.
+   *
+   * This checks the riskiest claim in the music player: that helix's ~29 KB lands in
+   * PSRAM and leaves the INTERNAL heap alone. If that is ever wrong the phone does not
+   * fail here — it fails minutes later when the WiFi PHY cannot get 2 KB for RF
+   * calibration and phy_init aborts, with a backtrace pointing nowhere near audio. That
+   * is a whole debugging session, so it is worth one line of proof.
+   *
+   * Off by default. Build with -DMP3_HEAP_PROBE, read at 500000 baud, then turn it off. */
+#ifdef MP3_HEAP_PROBE
+  {
+    const uint32_t i0 = ESP.getFreeHeap(), b0 = ESP.getMaxAllocHeap(), p0 = ESP.getFreePsram();
+    Mp3Stream* probe = new Mp3Stream();
+    const bool ok = probe && probe->begin();
+    const uint32_t i1 = ESP.getFreeHeap(), b1 = ESP.getMaxAllocHeap(), p1 = ESP.getFreePsram();
+    if (probe) {
+      delete probe;
+    }
+    const uint32_t i2 = ESP.getFreeHeap();
+    log_e("MP3probe ok=%d internal %u->%u (cost %d) largest %u->%u psram %u->%u (cost %d) after_free %u",
+          (int)ok, i0, i1, (int)i0 - (int)i1, b0, b1, p0, p1, (int)p0 - (int)p1, i2);
+  }
+#endif
 
   gui.state.booted = true;
 
