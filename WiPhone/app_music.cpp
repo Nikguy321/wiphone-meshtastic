@@ -165,43 +165,61 @@ void MusicApp::drawNowPlaying() {
   }
   y += lh + 6;
 
+  /* ⚠ Every line below CHANGES and is redrawn once a second over the top of itself, so
+   * each one clears its own strip first.
+   *
+   * Padding with trailing spaces does not work here and looked like corrupted glyphs on
+   * screen: the face is proportional, so a shorter string does not cover the pixels of
+   * the longer one it replaces, and a space only advances the cursor rather than
+   * painting background. "0:47" over "0:46" left fragments of the old digits standing,
+   * and the volume bar — which changes length as well as content — turned into a smear. */
   lcd.setTextColor(WHITE, BLACK);
   char line[48];
+  const int clearW = (int)lcd.width() - MUSIC_MARGIN;
+
   const uint32_t secs = musicPlayerElapsed();
-  // Trailing spaces: this is drawn in place on a 1 Hz refresh with no clear.
-  snprintf(line, sizeof(line), "%s  %lu:%02lu   ",
+  snprintf(line, sizeof(line), "%s  %lu:%02lu",
            musicPlayerIsPlaying() ? "Playing" : "Paused",
            (unsigned long)(secs / 60), (unsigned long)(secs % 60));
+  lcd.fillRect(MUSIC_MARGIN, y, clearW, lh, BLACK);
   lcd.drawString(line, MUSIC_MARGIN, y);
   y += lh + 2;
 
-  snprintf(line, sizeof(line), "Track %d of %d   ", cur + 1, musicPlayerCount());
+  snprintf(line, sizeof(line), "Track %d of %d", cur + 1, musicPlayerCount());
+  lcd.fillRect(MUSIC_MARGIN, y, clearW, lh, BLACK);
   lcd.drawString(line, MUSIC_MARGIN, y);
   y += lh + 2;
 
-  /* Volume as a bar plus the dB, because dB alone means nothing to most people and a bar
-   * alone cannot tell you how much further it goes. */
+  /* Volume as a bar plus the dB: dB alone means nothing to most people, and a bar alone
+   * cannot say how much further it goes. */
   {
     const int v = musicPlayerVolume();
     const int span = MUSIC_VOL_MAX_DB - MUSIC_VOL_MIN_DB;
-    const int filled = span > 0 ? ((v - MUSIC_VOL_MIN_DB) * 10 + span / 2) / span : 0;
-    char bar[16];
-    int k = 0;
-    for (; k < 10 && k < (int)sizeof(bar) - 1; k++) {
-      bar[k] = k < filled ? '=' : '.';
+    int filled = span > 0 ? ((v - MUSIC_VOL_MIN_DB) * 10 + span / 2) / span : 0;
+    if (filled < 0) {
+      filled = 0;
     }
-    bar[k] = '\0';
-    snprintf(line, sizeof(line), "Vol [%s] %d dB   ", bar, v);
+    if (filled > 10) {
+      filled = 10;
+    }
+    char bar[12];
+    for (int k = 0; k < 10; k++) {
+      bar[k] = k < filled ? '=' : '-';
+    }
+    bar[10] = '\0';
+    snprintf(line, sizeof(line), "Vol [%s] %d dB", bar, v);
+    lcd.fillRect(MUSIC_MARGIN, y, clearW, lh, BLACK);
     lcd.drawString(line, MUSIC_MARGIN, y);
   }
   y += lh + 2;
 
-  if (musicPlayerShuffle() || musicPlayerRepeat() != MUSIC_REPEAT_OFF) {
+  {
     const MusicRepeat r = musicPlayerRepeat();
-    snprintf(line, sizeof(line), "%s%s   ",
+    snprintf(line, sizeof(line), "%s%s",
              musicPlayerShuffle() ? "shuffle " : "",
              r == MUSIC_REPEAT_ONE ? "repeat one" : (r == MUSIC_REPEAT_ALL ? "repeat all" : ""));
     lcd.setTextColor(TFT_DARKGREY, BLACK);
+    lcd.fillRect(MUSIC_MARGIN, y, clearW, lh, BLACK);   // cleared even when empty
     lcd.drawString(line, MUSIC_MARGIN, y);
   }
   y += lh + 8;

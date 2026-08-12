@@ -30,6 +30,8 @@ static bool        s_began = false;
 static int         s_vol = MUSIC_VOL_DEFAULT_DB;
 static bool        s_volSaved = false;      // are the call levels stashed?
 static int8_t      s_savedEar = 6, s_savedHp = 6, s_savedLoud = 0;
+static bool        s_savedLoudspeaker = false;   // which speaker calls were using
+static bool        s_lastHeadphones = false;     // to notice the jack changing mid-track
 
 /* Take the codec over, remembering what calls were using. */
 static void applyMusicVolume() {
@@ -38,7 +40,16 @@ static void applyMusicVolume() {
   }
   if (!s_volSaved) {
     audio->getVolumes(s_savedEar, s_savedHp, s_savedLoud);
+    s_savedLoudspeaker = audio->isLoudspeaker();
     s_volSaved = true;
+  }
+  /* ⚠ With nothing in the jack, music belongs on the LOUDSPEAKER.
+   * The default is the earpiece — correct for a phone call, where you are holding it to
+   * your head, and useless for music, which is why it sounded so quiet. chooseSpeaker()
+   * switches the codec's output path to DAC_LOUDSPEAKER and turns on the separate
+   * amplifier IC. Restored on stop, so the next call still goes to the earpiece. */
+  if (!audio->getHeadphones()) {
+    audio->chooseSpeaker(true);
   }
   const int8_t v = (int8_t)s_vol;
   // The loudspeaker amp maxes out at 0 dB where the other two reach +6.
@@ -51,6 +62,7 @@ static void applyMusicVolume() {
 static void restoreCallVolume() {
   if (audio && s_volSaved) {
     audio->setVolumes(s_savedEar, s_savedHp, s_savedLoud);
+    audio->chooseSpeaker(s_savedLoudspeaker);
     s_volSaved = false;
   }
 }
@@ -204,6 +216,7 @@ static bool startTrack(int idx, uint32_t startAt = 0) {
     return false;
   }
   applyMusicVolume();
+  s_lastHeadphones = wantStereo();
   s_loaded = idx;
   s_paused = false;
   s_startedAt = millis();
@@ -347,6 +360,19 @@ void musicPlayerLoop() {
   }
   if (!audio->musicPlaying()) {
     return;                      // stopped by something else (a call, an error)
+  }
+
+  /* The headphone jack changed while playing. Both things that follow from it — stereo
+   * versus mono, and headphones versus loudspeaker — are set when the track is opened,
+   * so the track is reopened AT ITS CURRENT POSITION rather than restarted. That is the
+   * same resume path pause/play uses, which is what makes this cheap. */
+  if (audio->getHeadphones() != s_lastHeadphones) {
+    const uint32_t at = audio->musicFilePos();
+    const uint32_t played = musicPlayerElapsed();
+    if (startTrack(s_loaded, at)) {
+      s_elapsedBase = played;    // keep the clock, do not reset it to 0:00
+    }
+    return;
   }
   if (!audio->musicEnded()) {
     return;
