@@ -1,7 +1,11 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-14 · **Version 0.9.1, pushed and flashed.**
-**Next up:** two open questions, both waiting on the phone being *used*, not on more code.
+**Last updated:** 2026-08-14 · **`main` is pushed and clean at `d48e540`+.**
+⚠ **The phone runs a DEV BUILD that reports 0.9.1** — flashed twice over USB without a version
+bump, so the reported version no longer identifies what is installed. See below.
+**Next up:** ONE measurement, then a release. The crackle needs a `gaps:N` reading before
+anyone writes a line of code, and the plan Nick set is to **fold that fix into 0.9.2 and
+install it over the air** — which would also be the first OTA this phone has ever done.
 
 Read this first to resume. One command tells you the codebase is healthy:
 
@@ -157,15 +161,42 @@ of audio — so any main-loop iteration slower than that drained the DMA with **
 up**, because the next pass still only produced 24 ms. Something rate-limited to realtime
 cannot make up a gap. It now decodes ahead until the DMA refuses more.
 
-⚠ **A residual glitch remains and is NOT diagnosed.** The now-playing screen shows `gaps:N`,
-counting times the buffer ran dry. **If that climbs while you hear it, it is starvation and
-worth chasing. If it stays at 0, the cause is elsewhere** — look at the decoder resyncing or
-the SD read, not the buffer. Do not add a ring buffer on a hunch; decode has ~74% headroom
-(measured: 5103 µs/frame against a 24000 µs budget).
+⚠ **A residual glitch remains and is NOT diagnosed. THIS IS THE NEXT THING TO DO, and it is a
+measurement, not a code change.** Nick, 2026-08-14: *"lets do this later"* — so it is queued,
+with everything needed to act on it below.
+
+**▶ THE READING THAT DECIDES IT.** Play a track on headphones; the now-playing screen shows
+**`gaps:N`** in dark grey, on the line under the `Vol [====------]` bar. Note it, listen until
+you hear the crackle, note it again.
+- **`gaps` CLIMBS as you hear it** → real starvation. And since the DMA already holds ~93 ms
+  (below), the cause is something blocking the main loop for longer than that — findable
+  without touching buffer sizes.
+- **`gaps` STAYS AT 0** → the buffer is not involved and **the ring buffer sketched in
+  `mp3_stream.h` would be wasted work.** Look at the decoder resyncing, the SD read, or the
+  output stage instead.
+
+Do not add a ring buffer on a hunch; decode has ~74% headroom (measured: 5103 µs/frame against
+a 24000 µs budget).
+
+🔴 **AND THE OBVIOUS FIX WOULD MAKE THE RESTART BUG WORSE — check this before reaching for it.**
+I2S is `dma_buf_count = 4`, `dma_buf_len = 1024` ≈ **93 ms** at 44.1 kHz, and the decode-ahead
+loop can produce up to 12 frames (~313 ms) in one pass, so it can already refill that buffer
+several times over. Those buffers are also roughly **16 KB of internal, DMA-capable RAM — the
+exact resource that is running out and panicking the phone** (§1). **Enlarging them trades the
+crackle for the restart.** The two open bugs pull in opposite directions; that is why the
+`gaps` reading has to come first.
 
 ### 📖 4. Book sync has still never been on air
 Unchanged, and still the only thing that needs COVEY. Everything in the reader section below
 applies.
+
+⚠ **Checked twice on 2026-08-14: `covey.local` does NOT resolve** — COVEY was not on the network
+either time, while the WiPhone was (`192.168.158.33`, both on `NickH-wifi`). So this stayed
+blocked all session. **Check it first next time; it is one `ping` and it decides whether this
+item is even available.** ⚠ Note the COVEY side of the docs has carried a stale line saying the
+WiPhone has no e-reader — **it has had a working one since 2026-08-11**, and COVEY's half is
+finished and waiting, so the only genuinely missing piece is the two devices being powered on
+the same network at the same time.
 
 ---
 
@@ -200,13 +231,29 @@ button once the phone is on WiFi. Fixing it means deferring that check until WL_
 ⚠ **OTA has never actually installed anything.** `app1` has never been written on this phone.
 The first over-the-air install is the risky one; recovery is the usual serial reflash.
 
-⚠ **THE PHONE IS RUNNING A DEV BUILD THAT CALLS ITSELF 0.9.1 (2026-08-14).** The `/log?tail=`
-change was flashed over USB without bumping `FIRMWARE_VERSION`, so the firmware on the phone is
-NOT the `ota/firmware.bin` committed as 0.9.1. Nothing breaks — the version is only used to
-decide whether an update is offered — but **do not trust the reported version to identify what
-is on the phone until this is reconciled.** Either cut 0.9.2 with `tools/publish_ota.sh 0.9.2`
-(which bumps the constant and stages `ota/` together, the whole point of that script) or
-reflash the released build.
+⚠ **THE PHONE IS RUNNING A DEV BUILD THAT CALLS ITSELF 0.9.1 (2026-08-14).** Two USB flashes —
+`/log?tail=` and the menu-ID fix — both without bumping `FIRMWARE_VERSION`, so the firmware
+installed is NOT the `ota/firmware.bin` committed as 0.9.1. Nothing breaks (the version only
+decides whether an update is offered) but **do not trust the reported version to identify what
+is on the phone.**
+
+### ▶ THE AGREED NEXT RELEASE — Nick's plan, 2026-08-14
+Get the `gaps:N` reading → fix the crackle → **cut 0.9.2 and install it OVER THE AIR.** That
+single release also clears the version skew above and would be **the first OTA this phone has
+ever performed.**
+
+⚠ **Nick asked whether he could OTA at the level he is already on. He cannot** — `publish_ota.sh`
+bumps `FIRMWARE_VERSION` and stages `ota/` **together** precisely because a manifest equal to
+the installed version is indistinguishable from a broken update check. The phone reports 0.9.1,
+so the OTA must be **0.9.2 or higher** to be offered at all.
+
+```bash
+tools/publish_ota.sh 0.9.2
+git add -A && git commit -m "Release 0.9.2" && git push     # for a public repo, pushing IS releasing
+```
+✅ **The risk is much lower than it was:** the USB adapter is connected
+(`/dev/cu.usbserial-025A3EAF`), so recovery from a failed first OTA is a ~55 s reflash rather
+than a problem. Do not attempt the first OTA with no cable to hand.
 
 ---
 
