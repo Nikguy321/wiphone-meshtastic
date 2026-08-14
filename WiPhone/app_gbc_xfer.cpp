@@ -223,7 +223,35 @@ static void handleLog() {
     s_server->send(404, "text/plain", "no /health.log yet");
     return;
   }
-  s_server->setContentLength(f.size());
+
+  /* ?tail=N hands back only the LAST N bytes. Without it, read the whole file.
+   *
+   * Whole-file reads truncate in transit often enough that pulling 20 KB took thirty-odd
+   * requests on 2026-08-14, and each attempt is a fresh TCP connection parsed through this
+   * server's Strings. Internal heap is the one thing this phone has none of, so the reading
+   * of the log was a real part of what the log was measuring: `largest` oscillated between
+   * 3,084 and 6,660 bytes while that was going on, and the phone panicked during it.
+   *
+   * A truncated response also loses the END of the file — which is exactly where the reset
+   * reason of the run that just died is written, so the one thing worth reading is the first
+   * thing lost. The tail is both smaller and the part actually wanted.
+   *
+   * ⚠ Content-Length is taken AFTER the resync below, never from f.size(). A length that
+   * disagrees with the body by one byte leaves the client waiting for a remainder that is
+   * never sent. */
+  const size_t total = f.size();
+  if (s_server->hasArg("tail")) {
+    const long want = s_server->arg("tail").toInt();
+    if (want > 0 && (size_t)want < total) {
+      f.seek(total - (size_t)want);
+      /* Landing `want` bytes from the end lands mid-line almost every time. Step over the
+       * remainder of it so the response starts on a whole line and stays parseable. */
+      while (f.available() && f.read() != '\n') {
+      }
+    }
+  }
+
+  s_server->setContentLength(total - (size_t)f.position());
   s_server->send(200, "text/plain", "");
   uint8_t buf[512];
   while (f.available()) {
