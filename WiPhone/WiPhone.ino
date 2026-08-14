@@ -839,6 +839,21 @@ void setup() {
 #endif
 
 
+  /* ── WHY DID IT RESTART? ──────────────────────────────────────────────────────────
+   * The chip records this across a reboot and it is the difference between guessing and
+   * knowing. The ones that matter here:
+   *   1  POWERON    the switch, or the battery was pulled
+   *   3  SW         esp_restart() -- our own reboot menu item
+   *   4  PANIC      a crash: null deref, abort(), assert
+   *   5  INT_WDT    an interrupt watchdog -- something blocked with interrupts off
+   *   6  TASK_WDT   a task watchdog -- the main loop stopped feeding it
+   *   7  WDT        other watchdog
+   *   9  BROWNOUT   THE SUPPLY SAGGED. Not software at all -- a tired battery under a
+   *                 WiFi transmit peak does this, and it looks exactly like a crash.
+   *  10  RTC/SDIO
+   * Printed with log_e so it survives into the field log, where log_d does not. */
+  log_e("BOOT: reset_reason=%d heap=%u psram=%u",
+        (int)esp_reset_reason(), ESP.getFreeHeap(), ESP.getFreePsram());
   printf("\r\nBooting...\r\n");
 
   uint8_t mac[6];
@@ -1693,6 +1708,28 @@ void loop() {
 #endif
       gui.state.battCharged = digitalRead(BATTERY_CHARGING_STATUS_PIN) == HIGH ? true : false;
 
+      /* ── HEALTH LINE ────────────────────────────────────────────────────────────
+       * One line a minute, at log_e so it is visible in the field. It answers both of
+       * the questions that keep coming up, over time rather than in a snapshot:
+       *
+       *   heap/min   a LEAK shows as `min` sliding down over hours. A steady min with
+       *              occasional dips is just normal churn.
+       *   largest    fragmentation: `free` can look healthy while the biggest single
+       *              block is too small for the WiFi PHY, which is how this phone
+       *              rebooted over a book.
+       *   soc/v      the drain rate, which is the only honest way to tell whether a
+       *              power change actually helped.
+       *   up         minutes since boot -- an unplanned restart resets it. */
+      static uint32_t s_minHeapEver = 0xFFFFFFFF;
+      const uint32_t fh = ESP.getFreeHeap();
+      if (fh < s_minHeapEver) {
+        s_minHeapEver = fh;
+      }
+      log_e("HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% v=%.2f chg=%d wifi=%d",
+            (unsigned long)(now / 60000), fh, s_minHeapEver, ESP.getMaxAllocHeap(),
+            ESP.getFreePsram(), (int)round(soc), v,
+            (int)gui.state.battCharged, (int)WiFi.status());
+
       log_d("Voltage/SOC = %.2f/%d%%", v, (int) round(soc));
       log_d("SD card = %d", gui.state.cardPresent);
       log_d("Charged = %d", gui.state.battCharged);
@@ -2415,7 +2452,20 @@ void loop() {
     // Theoretically, gives time for modem sleep? Allows to consume less power?
     //delay(1);   // sleep for 1 millisecond
     //vTaskDelay(1);    // sleep for a single tick: allows context switch
-    taskYIELD();      // force context switch
+    /* ── LET THE CPU ACTUALLY IDLE ────────────────────────────────────────────────
+     * This was taskYIELD(), which hands over to any ready task and comes straight back
+     * — the main loop spun flat out at 240 MHz forever, even with the screen off and
+     * nothing happening. The CPU never got to sleep, which is most of why the battery
+     * went nowhere.
+     *
+     * vTaskDelay(1) blocks for one tick instead, so the FreeRTOS idle task runs and
+     * executes the Xtensa `waiti` instruction, halting the core until the next interrupt.
+     *
+     * ⚠ One TICK, not one millisecond of dead time in anything that matters. Audio
+     * decodes ahead in ~24 ms frames, RTP packets are 20 ms, and the keypad is
+     * interrupt-driven, so none of them notice. The Game Boy runs its own inner loop and
+     * never reaches this line. */
+    vTaskDelay(1);
 
     //esp_sleep_enable_timer_wakeup(1000000); // 0.001 s
     //int ret = esp_light_sleep_start();

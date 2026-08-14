@@ -91,6 +91,23 @@ void connectToWiFi(const char* ssid, const char* pwd) {
     log_e("failed to limit transmit power: %d", rv);
   }
 
+  /* ── WiFi MODEM SLEEP ─────────────────────────────────────────────────────────────
+   * The radio was running with power save OFF, meaning the receiver stayed powered
+   * continuously — tens of milliamps, forever, on a phone that spends most of its life
+   * in a pocket doing nothing. MIN_MODEM parks the radio between the access point's DTIM
+   * beacons and wakes for each one.
+   *
+   * ⚠ It still receives everything. Broadcast and buffered traffic is delivered at the
+   * DTIM interval (typically 100–300 ms), so an incoming SIP INVITE or a page load is
+   * delayed by up to that, not lost. That is the right trade for a phone; MAX_MODEM
+   * would save more and can miss beacons, which is not.
+   *
+   * Set after begin() on purpose: the driver resets the power-save mode when the station
+   * starts, so setting it earlier is silently undone. */
+  if ((rv = esp_wifi_set_ps(WIFI_PS_MIN_MODEM)) != ESP_OK) {
+    log_e("failed to enable wifi modem sleep: %d", rv);
+  }
+
   log_d("Waiting for connection...");
 }
 
