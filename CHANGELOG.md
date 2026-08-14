@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — a menu fix, and reading the health log without disturbing it
+
+- **Settings > WiFi auto-switch works again.** It was showing the Music icon, and
+  choosing it opened the Music player instead of the toggle. The two entries had been
+  given the same internal ID, and the menu picks the first match — so the WiFi row was
+  quietly standing in for Music. Renumbered, and the phone now checks for repeated IDs
+  when it starts, because the same mistake had already shipped once before as "Music
+  opens Books" and nothing was watching for it.
+
+- **`/log?tail=N` returns just the last N bytes of the health log.** Pulling the whole
+  file kept truncating, and a truncated response loses the *end* — which is where the
+  reason for the last restart is written. Retrying was worse than the problem: thirty
+  fetches, each its own connection, on a phone whose scarce resource is internal RAM.
+  One request now gets the part that matters. The response always starts on a whole
+  line.
+
 ## 2026-08-14 — Music player, e-reader, real battery life, and working firmware updates
 
 The biggest release so far. Two whole new apps, a serious pass on power, and the

@@ -211,6 +211,33 @@ void GUI::init(void (*lcdOnOffCallback)(bool)) {
     }
   }
 
+  /* ⚠ A DUPLICATE MENU ID IS SILENT, AND HAS SHIPPED TWICE.
+   *
+   * findMenu() matches on ID alone — it never looks at `parent` — and returns the FIRST row
+   * that matches. So a second row reusing an ID is not an error: it is simply shadowed. Its
+   * icon comes from the wrong entry and selecting it launches the wrong app, while the menu
+   * still looks entirely normal.
+   *
+   * That shipped once as "Music opening Books", was fixed by moving Music to ID 42 — which
+   * the WiFi auto-switch row already held — and so shipped again as "WiFi auto-switch opens
+   * Music", with a music note drawn beside it (Nick, 2026-08-14). A comment saying the IDs
+   * must be unique was added the first time and did not prevent the second. Hence a check.
+   *
+   * O(n²) over ~40 rows, once, at boot. It costs nothing and it says the ID out loud. */
+  for (unsigned a = 0; a < sizeof(menu) / sizeof(GUIMenuItem); a++) {
+    if (!menu[a].title || !menu[a].title[0]) {
+      continue;                     // zero-filled tail; see the note on the array's size
+    }
+    for (unsigned b = a + 1; b < sizeof(menu) / sizeof(GUIMenuItem); b++) {
+      if (menu[b].title && menu[b].title[0] && menu[a].ID == menu[b].ID) {
+        log_e("MENU: DUPLICATE ID %u - \"%s\" (parent %d) shadows \"%s\" (parent %d); "
+              "the second is unreachable and draws the first's icon",
+              (unsigned)menu[a].ID, menu[a].title, (int)menu[a].parent,
+              menu[b].title, (int)menu[b].parent);
+      }
+    }
+  }
+
   // Enter menu
   enterMenu(1);       // start in Main menu
 #ifdef DIAGNOSTICS_ONLY

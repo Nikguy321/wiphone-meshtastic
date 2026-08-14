@@ -2590,7 +2590,10 @@ protected:
     // Settings (5)
     { 11, 5, "SIP accounts", "", "", GUI_APP_SIP_ACCOUNTS },
     { 12, 5, "Edit current network", "", "", GUI_APP_EDITWIFI },
-    { 42, 5, "WiFi auto-switch", "", "", GUI_APP_WIFI_AUTOSWITCH },
+    /* ⚠ 43, not 42. This row and "Music" both had ID 42, and findMenu() matches on ID ALONE
+     * with no regard for `parent` and returns the FIRST hit — so Settings drew Music's icon
+     * here and selecting it opened the Music app. See the duplicate-ID check in GUI::init(). */
+    { 43, 5, "WiFi auto-switch", "", "", GUI_APP_WIFI_AUTOSWITCH },
     { 15, 5, "Scan WiFi networks", "", "", GUI_APP_NETWORKS },
     { 30, 5, "Audio settings", "", "", GUI_APP_AUDIO_CONFIG },
     { 33, 5, "Screen config", "", "", GUI_APP_SCREEN_CONFIG },

@@ -19,12 +19,84 @@ no ESP32, no phone attached.
 
 ## ▶ PICK UP HERE
 
-### 🔎 1. Why does the phone restart on its own? — INSTRUMENTED, not yet caught
-Nick reports occasional spontaneous restarts. Nothing has been diagnosed yet, and the point
-of the last session was to make it *answerable* rather than to guess.
+### 🔎 1. Why does the phone restart? — **CAUGHT. It is a PANIC, and the heap fragments.**
+**2026-08-14: the first crash was captured in `/health.log`.** `BOOT reset_reason=4` — a
+PANIC. That rules out the other three outright: **not brownout (9), not the watchdog (6),
+not power (1).** The battery was never below 3.99 V and never charging across 173 samples,
+so the tired-cell theory is dead too.
 
-**The phone now records why it rebooted.** `BOOT: reset_reason=N` at boot, and the number is
-the whole answer:
+**Fragmentation is confirmed, and it is a RATCHET.** From the 112-minute run, which is the
+cleanest evidence because nothing unusual was happening to it:
+
+| up | free heap | largest block | |
+|---|---|---|---|
+| 0 min | 19,148 | **15,508** | idle, screen off |
+| 9 min | 15,164 | 11,836 | screen on |
+| 33 min | 11,836 | 7,216 | screen on |
+| 34–101 min | ~11,700 | **7,216** | screen off — flat for 68 minutes |
+| 104 min | 9,104 | 5,296 | screen on |
+| 106 min | **16,996** | **6,260** | screen off |
+
+**At 106 minutes free heap is back to 16,996 — near the 19,148 it started with — while
+`largest` is 6,260 against a starting 15,508 and never recovers.** Free heap returning while
+the largest block does not is the fingerprint of fragmentation rather than a leak, and it
+steps down on every screen-on episode and holds. `min` heap slid 19,148 → 9,104 in that run.
+
+**The run that panicked died at `largest=4512`**, having fallen 15,432 → 11,504 → 7,064 →
+4,512 over its final three minutes.
+
+⚠ **THE INSTRUMENT WAS PART OF WHAT IT MEASURED, and that is not a footnote.** The panic
+happened while the log was being pulled over HTTP — ~30 whole-file fetches, each a fresh TCP
+connection through the `WebServer`'s String parser, because a 20 KB response kept truncating.
+`largest` oscillated 3,084 ↔ 6,660 throughout. **So the captured crash was probably provoked,
+and it is NOT proof that Nick's occasional spontaneous restarts are the same event.** What it
+does establish is the mechanism class — PANIC via internal-heap exhaustion — and the 112-minute
+run above fragments the same way with nobody near it. This is the same trap as the
+"Stop the instrument distorting the measurement it takes" commit. Fixed, below.
+
+✅ **`/log?tail=N` now exists** so the next measurement costs ONE request instead of thirty:
+```bash
+curl "http://wiphone.local/log?tail=2000"     # with any upload screen open
+```
+It seeks to N bytes from the end and steps forward over the partial line it lands in, so the
+response always starts on a whole line. ⚠ `Content-Length` is computed AFTER that resync, never
+from `f.size()` — a length that disagrees with the body by one byte hangs the client. No `tail`
+argument still sends the whole file. **`app_gbc_xfer.cpp` includes Arduino so it is not
+host-testable; this was verified live against the phone instead** (`tail=2000` → header 1918,
+body 1918, starting on a whole line).
+
+⚠ **`tail` does not cure the truncation, it makes a SMALL read likely to succeed.** Measured on
+the phone: ~1.5 KB succeeded 2/2, 3 KB 2/3, 6 KB 0/1, the whole 21 KB file 0/1. Failures land on
+512-byte boundaries (1024, 15872), so it is the transfer dying, not the arithmetic.
+**Ask for ~1500–3000 bytes, and check `Content-Length` equals the bytes you received** — that
+comparison is the only reliable way to know you got it all.
+
+### 💡 READING THE LOG IS THE BIGGEST SINGLE CONSUMER OF WHAT THE LOG MEASURES
+Measured 2026-08-14 on a fresh boot, one minute per row:
+
+| up | largest free block | |
+|---|---|---|
+| 1 min | 15,456 | idle, screen off |
+| 2 min | 12,980 | idle |
+| 3 min | **7,480** | the uploader screen opens — **−5,500** |
+| 4 min | **4,808** | eight `?tail=` fetches — **−2,672** |
+
+So the uploader app plus the `WebServer` costs ~5.5 KB of contiguous internal RAM, and **each
+HTTP request permanently costs a further ~340 bytes that never comes back.** Thirty requests is
+~10 KB, which is precisely what takes a healthy 15.5 KB start down to the 4,512 the phone
+panicked at. ⚠ **One sample, so treat ~340 B/request as approximate** — but the shape is not in
+doubt, and it means the honest way to read this log is: **one tail request, then close the
+screen.** Do not leave the uploader open and poll it.
+
+**What is still open:** naming what takes the ~13 KB of *internal* heap when an app opens. The
+22.6 KB of PSRAM that goes with it is already accounted for and is **healthy** — it is exactly
+`BooksApp`'s four arrays (`books` 8,112 + `store` 11,912 + `images` 2,400 + `imgBoxes` 96 =
+22,520, plus 21 bytes × 4 of allocator header = 22,604 observed). That is the earlier
+ps_malloc fix working as designed; PSRAM has 3.6 MB spare and is not the problem.
+
+---
+
+**The reset-reason table, for reading any future log:**
 
 | | |
 |---|---|
@@ -37,22 +109,26 @@ the whole answer:
 exactly like a crash from the outside, and chasing it as a memory leak would be chasing the
 wrong thing.
 
-**The leading hypothesis is FRAGMENTATION, from real data.** Over a 102-minute run the
-low-water heap was flat — `min` moved *16 bytes* in 45 minutes, so there is no leak — but
-the **largest free block fell from 15.5 KB to 6.7 KB** as apps were opened. The documented
-failure on this phone is the WiFi PHY failing to get ~2 KB of *contiguous* internal RAM for
-RF calibration, at which point `phy_init` calls `abort()`. Free heap looks fine; the largest
-block is what runs out. That would show up as **reset_reason=4**.
+**The mechanism, now measured rather than assumed.** The documented failure on this phone is
+the WiFi PHY failing to get ~2 KB of *contiguous* internal RAM for RF calibration, at which
+point `phy_init` calls `abort()` — and an `abort()` is **reset_reason=4**, which is what was
+captured. Free heap looks fine while the largest block is what runs out.
 
-**Where to look:** `/health.log` on the card. A line a minute, and it survives both the
-reboot and being unplugged — the reset reason of the run that died sits at the top of the
-next run's entries.
+⚠ **`min` being flat does NOT mean the heap is safe, and an earlier version of this doc leaned
+on that.** It is flat *while idle* — 84 bytes over 67 idle minutes in the run above — and it
+steps down hard every time an app opens. Watch **`largest`**, not `min` and not `free`. The
+three disagree, and only `largest` predicts the crash.
+
+**Where to look:** `/health.log` on the card. A line a minute; it survives both the reboot and
+being unplugged, so the reset reason of the run that died sits at the top of the next run's
+entries.
 
 ```bash
-curl http://wiphone.local/log        # with any upload screen open
+curl "http://wiphone.local/log?tail=6000"     # with any upload screen open
 ```
-⚠ Expect to retry: with modem sleep on and the CPU at 80 MHz the link is slow (ping ~1 s)
-and the transfer often truncates. Take the largest response.
+⚠ **Use `?tail=`.** A whole-file fetch truncates — with modem sleep on and the CPU at 80 MHz
+the link is slow — and truncation costs you the END of the file, which is exactly where the
+reset reason lives. Retrying instead is what made the reading of the log a cause of the crash.
 
 ### 🔋 2. Battery: ~10 hours measured. Is that good enough?
 Measured on the device, steady state with the first 30 minutes discarded (surface charge):
@@ -123,6 +199,14 @@ button once the phone is on WiFi. Fixing it means deferring that check until WL_
 
 ⚠ **OTA has never actually installed anything.** `app1` has never been written on this phone.
 The first over-the-air install is the risky one; recovery is the usual serial reflash.
+
+⚠ **THE PHONE IS RUNNING A DEV BUILD THAT CALLS ITSELF 0.9.1 (2026-08-14).** The `/log?tail=`
+change was flashed over USB without bumping `FIRMWARE_VERSION`, so the firmware on the phone is
+NOT the `ota/firmware.bin` committed as 0.9.1. Nothing breaks — the version is only used to
+decide whether an update is offered — but **do not trust the reported version to identify what
+is on the phone until this is reconciled.** Either cut 0.9.2 with `tools/publish_ota.sh 0.9.2`
+(which bumps the constant and stages `ota/` together, the whole point of that script) or
+reflash the released build.
 
 ---
 
@@ -375,6 +459,32 @@ Full command in the `wiphone-flashing` memory. Factory backup at
 radio is fine**; only failure prints.
 
 ---
+
+## Recently fixed — don't re-break these
+
+### 🔁 DUPLICATE MENU IDs ARE SILENT, AND HAVE NOW SHIPPED TWICE (2026-08-14)
+Nick: Settings > **WiFi auto-switch** was drawn with the **Music icon**, and selecting it
+**opened the Music player**. Both symptoms, one cause: `"Music"` (parent 1) and
+`"WiFi auto-switch"` (parent 5) both had **ID 42**.
+
+**`findMenu()` matches on ID ALONE — it never looks at `parent`** — and returns the FIRST row
+it finds. Music sits earlier in `menu[]`, so it shadowed the WiFi row completely: `enterMenu(5)`
+built the Settings row and asked `findMenuIcons(42)`, which gave Music's icon, and on OK
+`findMenu(42)` walked from the top and returned Music, so `enterApp(GUI_APP_MUSIC)` ran.
+
+⚠ **This is the SECOND time.** Commit `3629566` is literally titled *"Fix Music opening Books"* —
+the same failure — and it was fixed by moving Music to 42, **which `7abb47f` had already given to
+WiFi auto-switch.** The fix relocated the collision instead of removing it. A comment reading
+*"⚠ ID must be UNIQUE, not just the action"* was added at that time and did not prevent the
+recurrence, so **there is now a real check**: `GUI::init()` walks the table at boot and logs
+`MENU: DUPLICATE ID <n> - "A" shadows "B"` at `log_e`. Silence there is the pass condition.
+
+WiFi auto-switch is now **43**. Music keeps 42 because `menuIcons[]` is keyed to it. **The only
+duplicate in the whole table was 42** — verified by extracting the real table and running the
+same O(n²) pass over it, which reproduces the bug on the committed HEAD and reports clean after.
+⚠ **Free IDs are 25 and 44+.** 25 is a gap inside a used range and may have been retired; prefer
+counting up from the top. Nothing persists a menu ID (`curMenuId` is runtime-only), so
+renumbering needs no migration.
 
 ## Recently fixed — don't re-break this one
 
