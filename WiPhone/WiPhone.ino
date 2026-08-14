@@ -1229,6 +1229,30 @@ static uint32_t meshPopupShownMs = 0;
  * 350 ms), so this needs no new input plumbing. */
 #define SLEEP_CHORD_MS   2000u
 #define SLEEP_CHORD_MASK (WIPHONE_KEY_MASK_BACK | WIPHONE_KEY_MASK_SELECT)
+/* Is a CALL actually happening?
+ *
+ * ⚠ Listed positively, and that matters. Both callers used to ask "is the state something
+ * other than Idle/NotInited/HungUp", which sounds equivalent and is not: with no SIP proxy
+ * reachable the phone rests in CallState::Error (12) FOREVER, so "not idle" was
+ * permanently true. That silently broke two things — the CPU never dropped out of 240 MHz,
+ * and the music-pauses-for-a-call edge had already fired at boot so it could never fire
+ * for a real call. Error, Decline and HungUp are not calls; these eight are. */
+static bool sipCallActive() {
+  switch (gui.state.sipState) {
+    case CallState::InvitingCallee:
+    case CallState::InvitedCallee:
+    case CallState::RemoteRinging:
+    case CallState::Call:
+    case CallState::HangUp:
+    case CallState::HangingUp:
+    case CallState::BeingInvited:
+    case CallState::Accept:
+      return true;
+    default:
+      return false;
+  }
+}
+
 #define MUSIC_F2_HOLD_MS 500           // past this, F2 means "previous" rather than "next"
 static uint32_t msF2Down = 0;          // when F2 went down, 0 = not held
 static bool     f2Fired = false;       // the hold already acted; ignore the release
@@ -1725,10 +1749,12 @@ void loop() {
       if (fh < s_minHeapEver) {
         s_minHeapEver = fh;
       }
-      log_e("HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% v=%.2f chg=%d wifi=%d",
+      log_e("HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% v=%.2f chg=%d wifi=%d cpu=%luMHz scr=%d sip=%d",
             (unsigned long)(now / 60000), fh, s_minHeapEver, ESP.getMaxAllocHeap(),
             ESP.getFreePsram(), (int)round(soc), v,
-            (int)gui.state.battCharged, (int)WiFi.status());
+            (int)gui.state.battCharged, (int)WiFi.status(),
+            (unsigned long)getCpuFrequencyMhz(),
+            (int)gui.state.screenBrightness, (int)gui.state.sipState);
 
       log_d("Voltage/SOC = %.2f/%d%%", v, (int) round(soc));
       log_d("SD card = %d", gui.state.cardPresent);
@@ -2296,9 +2322,7 @@ void loop() {
      * afterwards on purpose: a phone that bursts into music the moment you hang up is
      * worse than one you press play on. */
     {
-      const CallState cs = gui.state.sipState;
-      const bool callBusy = !(cs == CallState::Idle || cs == CallState::NotInited ||
-                              cs == CallState::HungUp);
+      const bool callBusy = sipCallActive();
       static bool wasCallBusy = false;
       if (callBusy && !wasCallBusy) {
         musicPlayerPause();
@@ -2452,6 +2476,39 @@ void loop() {
     // Theoretically, gives time for modem sleep? Allows to consume less power?
     //delay(1);   // sleep for 1 millisecond
     //vTaskDelay(1);    // sleep for a single tick: allows context switch
+    /* ── RUN SLOW WHEN NOBODY IS WATCHING ─────────────────────────────────────────
+     * The chip is pinned at 240 MHz by platformio.ini because the Game Boy needs it, and
+     * it stayed there in a pocket with the screen off. At 80 MHz the core draws roughly
+     * half as much, and the phone spends most of its life doing nothing but listening.
+     *
+     * Full speed whenever anything would notice:
+     *   - the screen is on (someone is looking, and redraws should feel instant)
+     *   - music is playing (the decoder has headroom at 240 and less of it at 80)
+     *   - a call is up (RTP is a hard 20 ms deadline)
+     *   - the Game Boy is running (the reason 240 was pinned in the first place)
+     *   - an upload is in progress (throughput is already marginal on a weak link)
+     *
+     * ⚠ 80 is the floor, not lower: WiFi needs at least 80 MHz to work at all. And the
+     * switch only happens on a CHANGE — calling this every pass would be its own drain.
+     *
+     * ⚠ Not applied while the radio or I2S are mid-transfer by design: everything in the
+     * "full speed" list above covers those cases, so the frequency only ever moves when
+     * the phone is genuinely idle. */
+    {
+      const bool busy = (gui.state.screenBrightness > 0) ||
+                        gGbcActive ||
+                        xferOn() ||
+                        musicPlayerIsPlaying() ||
+                        sipCallActive();
+      const uint32_t wantMhz = busy ? 240 : 80;
+      static uint32_t curMhz = 240;
+      if (wantMhz != curMhz) {
+        setCpuFrequencyMhz(wantMhz);
+        curMhz = wantMhz;
+        log_e("CPU %luMHz (%s)", (unsigned long)wantMhz, busy ? "busy" : "idle");
+      }
+    }
+
     /* ── LET THE CPU ACTUALLY IDLE ────────────────────────────────────────────────
      * This was taskYIELD(), which hands over to any ready task and comes straight back
      * — the main loop spun flat out at 240 MHz forever, even with the screen off and
