@@ -1,7 +1,7 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-11 · **Next up:** get sync on air against COVEY. That is the only
-thing left that needs the other device.
+**Last updated:** 2026-08-14 · **Version 0.9.1, pushed and flashed.**
+**Next up:** two open questions, both waiting on the phone being *used*, not on more code.
 
 Read this first to resume. One command tells you the codebase is healthy:
 
@@ -9,41 +9,120 @@ Read this first to resume. One command tells you the codebase is healthy:
 ./tests/run_tests.sh
 ```
 
-Expect **693 assertions, 0 failures** across six suites. It compiles the phone's own sources
-with the host compiler under ASan+UBSan — no PlatformIO, no ESP32, no phone attached.
-⚠ The JPEG suite needs fixtures from the bought book (gitignored): run
-`tools/gen_jpeg_fixtures.sh <book.epub>` or it skips itself and says so.
+Expect **841 assertions, 0 failures** across eight suites. It compiles the phone's own
+sources — including the real MP3 decoder — with the host compiler under ASan, no PlatformIO,
+no ESP32, no phone attached.
+⚠ Two suites need gitignored fixtures or they skip themselves and say so:
+`tools/gen_jpeg_fixtures.sh <book.epub>` and `tools/gen_mp3_fixtures.sh <file.mp3>`.
 
 ---
 
-## ▶ PICK UP HERE — two things, and both need YOUR hands
+## ▶ PICK UP HERE
 
-### 🎵 1. A music player is BUILT AND FLASHED, and nobody has pressed play
-**Menu > Music.** MP3 and WAV, stereo through the headphone jack, shuffle/repeat, its own
-WiFi uploader, and playback that keeps going when you leave the screen. Flashed and booting
-cleanly on the phone as of 2026-08-11.
+### 🔎 1. Why does the phone restart on its own? — INSTRUMENTED, not yet caught
+Nick reports occasional spontaneous restarts. Nothing has been diagnosed yet, and the point
+of the last session was to make it *answerable* rather than to guess.
 
-**What it needs from you, in this order:**
-1. **Music > Add music over WiFi > OK**, then drag `.mp3` files in from a browser. Nothing is
-   on the card yet — that is the only reason playback is unproven.
-2. **Open a track and listen.** This is the first time audio will have come out of this
-   feature. Effects to watch for: stutter (decode not keeping up), wrong speed (a format
-   misread), silence (the codec path).
-3. **Plug headphones in** — stereo follows the jack, mono into the earpiece otherwise.
+**The phone now records why it rebooted.** `BOOT: reset_reason=N` at boot, and the number is
+the whole answer:
 
-⚠ **Decode timing from PSRAM is UNMEASURED.** A frame is 26 ms of audio and the main loop
-also draws the screen and services WiFi. If it stutters, the fix is designed for but not
-built: a PSRAM ring buffer ahead of I2S so decode runs ahead of playback. Do not reach for a
-second task on core 0 first — the buffer is the cheaper answer and does not put a thread
-near the I2S the SIP path also uses.
+| | |
+|---|---|
+| **1** POWERON | the switch, a flash, or the power was interrupted |
+| **4** PANIC | a crash — null deref, `abort()`, assert |
+| **6** TASK_WDT | the main loop stopped feeding the watchdog |
+| **9** BROWNOUT | **the supply sagged** — not software at all |
 
-**What IS proven:** a real 44.1 kHz stereo MP3 decodes correctly on the host with the
-shipping decoder (200 frames, no errors), and on the phone the decoder costs **48 bytes of
-internal heap** — everything else is in PSRAM, measured, largest block unmoved. That was the
-risky part and it is settled. See `docs/MUSIC.md`.
+⚠ **Read the number before theorising.** A tired cell under a WiFi transmit peak (9) looks
+exactly like a crash from the outside, and chasing it as a memory leak would be chasing the
+wrong thing.
 
-### 📖 2. Book sync has still never been on air
-Unchanged and still the only thing needing COVEY. Everything below applies.
+**The leading hypothesis is FRAGMENTATION, from real data.** Over a 102-minute run the
+low-water heap was flat — `min` moved *16 bytes* in 45 minutes, so there is no leak — but
+the **largest free block fell from 15.5 KB to 6.7 KB** as apps were opened. The documented
+failure on this phone is the WiFi PHY failing to get ~2 KB of *contiguous* internal RAM for
+RF calibration, at which point `phy_init` calls `abort()`. Free heap looks fine; the largest
+block is what runs out. That would show up as **reset_reason=4**.
+
+**Where to look:** `/health.log` on the card. A line a minute, and it survives both the
+reboot and being unplugged — the reset reason of the run that died sits at the top of the
+next run's entries.
+
+```bash
+curl http://wiphone.local/log        # with any upload screen open
+```
+⚠ Expect to retry: with modem sleep on and the CPU at 80 MHz the link is slow (ping ~1 s)
+and the transfer often truncates. Take the largest response.
+
+### 🔋 2. Battery: ~10 hours measured. Is that good enough?
+Measured on the device, steady state with the first 30 minutes discarded (surface charge):
+
+```
+94% -> 82% over 1.20 h  =>  10.0 %/h  =>  ~10 h from full
+CPU at 80 MHz for 93% of the run, tracking screen state exactly (0 disagreements/103 samples)
+```
+
+⚠ **There is no before-measurement**, so the improvement factor is unknown. ~10 h is simply
+the number to beat.
+
+**Already done, and audited — do not redo these:** the main loop no longer spins (it was
+`taskYIELD()` at 240 MHz forever), the CPU drops to 80 MHz when idle, WiFi modem sleep is on,
+and disconnected WiFi scanning backs off. Bluetooth was already off, the keyboard backlight
+already off, the screen already dims and sleeps.
+**Left on purpose:** the LoRa radio sits in continuous RX (~10–12 mA). That is the cost of
+hearing the mesh at all.
+
+### 🎵 3. Music works and has been heard. One thing is still open.
+Nick, on headphones: *"sounds alright... a little crackly, but ok"*, and after the fix
+*"a bit better, but the songs don't quite skip, but almost."*
+
+The big cause was found and fixed: `Audio::loop()` decoded exactly ONE frame per call — 24 ms
+of audio — so any main-loop iteration slower than that drained the DMA with **no way to catch
+up**, because the next pass still only produced 24 ms. Something rate-limited to realtime
+cannot make up a gap. It now decodes ahead until the DMA refuses more.
+
+⚠ **A residual glitch remains and is NOT diagnosed.** The now-playing screen shows `gaps:N`,
+counting times the buffer ran dry. **If that climbs while you hear it, it is starvation and
+worth chasing. If it stays at 0, the cause is elsewhere** — look at the decoder resyncing or
+the SD read, not the buffer. Do not add a ring buffer on a hunch; decode has ~74% headroom
+(measured: 5103 µs/frame against a 24000 µs budget).
+
+### 📖 4. Book sync has still never been on air
+Unchanged, and still the only thing that needs COVEY. Everything in the reader section below
+applies.
+
+---
+
+## ⬆️ Firmware updates now come from this repo
+
+**Settings > Firmware settings.** The URL box fills itself in; nothing needs typing.
+
+It never was a dead link — **the pinned certificate expired 2021-04-18**. `/wiphone.pem` in
+the factory SPIFFS is the *leaf* for wiphone.io, not a root CA, and it beat everything else,
+so every check failed the TLS handshake regardless of the URL. The built-in CA is now ISRG
+Root X1 (valid to 2035) and `/wiphone.pem` is ignored; an explicit `/user.pem` still overrides.
+
+**To publish a release:**
+```bash
+tools/publish_ota.sh 0.9.2      # builds, stages ota/, bumps FIRMWARE_VERSION together
+git add -A && git commit -m "Release 0.9.2" && git push
+```
+For a public repo, **pushing is releasing** — the phone reads straight from `main`.
+
+⚠ **raw.githubusercontent.com, never a github.com release URL.** The manifest is fetched by a
+hand-rolled socket in `loadIniFile()` with **no redirect handling**; a release asset answers
+302 and would look like an empty file. Cost: ~2 MB of repo growth per release.
+
+⚠ A `serverIni` saved in `/user_ota.ini` BEATS the compiled-in default — that is what a user
+override is for. A stored `wiphone.io` URL is now treated as "no preference" so the new
+default wins; anything else you type will stick.
+
+⚠ **The boot-time auto-check runs before WiFi has associated** and always fails with
+`DNS Failed`. Pre-existing, harmless, and it did the same with wiphone.io. Use the **Check**
+button once the phone is on WiFi. Fixing it means deferring that check until WL_CONNECTED.
+
+⚠ **OTA has never actually installed anything.** `app1` has never been written on this phone.
+The first over-the-air install is the risky one; recovery is the usual serial reflash.
 
 ---
 
@@ -61,7 +140,9 @@ it rather than guessing.
 Nothing else is outstanding. Everything below this line is context for whoever picks it up.
 
 ### The test book is ALREADY ON THE SD CARD
-`Ghosts_of_Timkovichi.epub` (5,060,061 bytes) was pushed over WiFi on 2026-08-11 and sits at
+`Ghosts_of_Timkovichi.epub` (**5,059,833 bytes** — the 5,060,061 written here before was
+wrong; the FINGERPRINT is what proves a copy, and it feeds on the size so a match settles it)
+was pushed over WiFi on 2026-08-11 and sits at
 **`/roms/Ghosts_of_Timkovichi.epub`** — not `/books`. That is not a mistake to correct: the only
 uploader the phone was running at the time was the Game Boy one, whose server has **no extension
 filter at all** (the `accept=` attribute is a browser hint). The Books app scans `/roms` and the
@@ -214,7 +295,13 @@ fixtures and the test book have. Titles never travel — only the spine INDEX do
 | `book_layout.{h,cpp}` | pages, wrapping, page-back, picture rows — **113** |
 | `html_entities.h` | 2125 entities, generated |
 | `app_books.{h,cpp}` | the reader. Compiles and runs nowhere yet — see PICK UP HERE |
-| `app_gbc_xfer.{h,cpp}` | the shared upload server, one `XferConfig` per app |
+| `app_gbc_xfer.{h,cpp}` | the shared upload server, one `XferConfig` per app — now four |
+| `music_lib.{h,cpp}` | track list + play order — **96 assertions** with wav_reader |
+| `wav_reader.{h,cpp}` | WAV headers, downmix, resample | ″ |
+| `mp3_stream.{h,cpp}` | ID3 skip, frame sync, feeding helix — **32**, decodes a real track |
+| `src/audio/helix-mp3/` | vendored MP3 decoder (RPSL) + our PSRAM allocator |
+| `music_player.{h,cpp}` | library, queue, volume — outlives its app on purpose |
+| `app_music.{h,cpp}` | the screen. See `docs/MUSIC.md` |
 
 Crypto is self-contained rather than mbedtls **on purpose**: the host tests have to exercise the
 code that actually ships, and an mbedtls backend would mean testing one implementation and
