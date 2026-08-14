@@ -351,7 +351,20 @@ void Networks::autoSwitchTick(bool screenOn) {
   }
 
   if (!_scanPending) {
-    bool due = (now - _msLastScan >= (connected ? AUTO_SCAN_PERIOD_MS : AUTO_SCAN_DISC_PERIOD_MS));
+    /* ⚠ Back off when there is plainly nothing to join. Disconnected, this scanned every
+     * two minutes forever, and a scan lights up the radio for a few hundred milliseconds
+     * — so a phone carried out of range all afternoon paid for thirty scans an hour to
+     * learn the same thing thirty times.
+     *
+     * The first few stay at two minutes, which covers the common case of stepping briefly
+     * out of range and wanting a quick rejoin. Only a sustained absence (roughly ten
+     * minutes of failures) eases to five, and the counter resets the moment anything
+     * connects, so coming home is still prompt. */
+    uint32_t discPeriod = AUTO_SCAN_DISC_PERIOD_MS;
+    if (_discScans >= 5) {
+      discPeriod = 300000u;             // 5 min once it is clearly not a brief blip
+    }
+    bool due = (now - _msLastScan >= (connected ? AUTO_SCAN_PERIOD_MS : discPeriod));
     if (wake && !connected) {
       due = true;                       // screen woke with no WiFi: scan right away
     }
@@ -359,6 +372,11 @@ void Networks::autoSwitchTick(bool screenOn) {
       return;
     }
     _msLastScan = now;
+    if (connected) {
+      _discScans = 0;                   // on a network: forget the dry spell
+    } else if (_discScans < 1000) {
+      _discScans++;
+    }
     _scanPending = true;                // scanBusy() now holds the reconnect loop off
     _msScanPendingSince = now;
     if (!connected) {

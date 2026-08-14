@@ -1807,7 +1807,17 @@ void loop() {
                (unsigned long)getCpuFrequencyMhz(),
                (int)gui.state.screenBrightness, (int)gui.state.sipState);
       log_e("%s", hl);
-      healthLogLine(hl);
+
+      /* ⚠ The CARD gets a line a minute, not one every fifteen seconds like the console.
+       * The battery poll runs at 15 s (BATTERY_CHECK_PERIOD_MS) and hanging the SD write
+       * off it meant 240 open-write-close cycles an hour — measurable drain from the very
+       * instrument meant to measure drain. Serial is free, so it keeps the faster rate;
+       * the card does not. */
+      static uint32_t s_lastCardLog = 0;
+      if (s_lastCardLog == 0 || now - s_lastCardLog >= 60000u) {
+        s_lastCardLog = now;
+        healthLogLine(hl);
+      }
 
       log_d("Voltage/SOC = %.2f/%d%%", v, (int) round(soc));
       log_d("SD card = %d", gui.state.cardPresent);

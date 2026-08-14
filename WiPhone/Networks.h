@@ -119,6 +119,9 @@ protected:
   uint32_t _msScanPendingSince = 0;
   bool     _prevScreenOn = true;    // for the wake-up edge
   uint32_t _msLastScan = 0;
+  /* Consecutive scans run while disconnected. Used to stretch the scan interval when
+   * there is clearly nothing in range — see autoSwitchTick(). Reset on any connect. */
+  uint32_t _discScans = 0;
 
   bool _userDisabled;
   bool reconnect;             // should it try to reconnect when disconnected? TODO: save this in configs somehow
