@@ -120,6 +120,17 @@ static int compVersions ( const char * version1, const char * version2 ) {
 }
 
 
+/* Is this a saved URL pointing at the old, dead update server?
+ *
+ * ⚠ Needed because a stored serverIni BEATS the compiled-in default, by design — that is
+ * how a user override is meant to work. But the phone has been carrying wiphone.io in
+ * /user_ota.ini since before that host stopped serving manifests, so without this the new
+ * default would never be used and the URL box would keep showing the dead link no matter
+ * what the firmware says. Treated as "no preference" rather than as a choice. */
+static bool isDeadUpdateUrl(const char* url) {
+  return url && strstr(url, "wiphone.io") != NULL;
+}
+
 static bool loadRootCACert(char *certBuf, size_t certBufSz) {
   char fname[500] = {0};
 
@@ -179,7 +190,7 @@ Ota::Ota(std::string inifile) : inifileLocation_(inifile), fwVersion_(""), fwUrl
 
   const char* l = otaIni[0].getValueSafe("serverIni", "0");
 
-  if (strlen(l) > 3) {
+  if (strlen(l) > 3 && !isDeadUpdateUrl(l)) {
     iniLocation_ = std::string(l);
   }
 }
@@ -524,10 +535,12 @@ bool Ota::loadIniFile() {
 
   log_d("Ini location read from file: [%s]", l);
 
-  if (strlen(l) > 4) {
+  if (strlen(l) > 4 && !isDeadUpdateUrl(l)) {
     log_d("Setting initfileLocation");
     inifileLocation_ = std::string(l);
     iniLocation_ = inifileLocation_;
+  } else if (isDeadUpdateUrl(l)) {
+    log_i("Ignoring stored wiphone.io update URL; using built-in default");
   }
 
 

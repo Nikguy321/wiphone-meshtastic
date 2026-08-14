@@ -26,7 +26,7 @@ governing permissions and limitations under the License.
 //#define STEAL_THE_USER_BUTTONS      // this will switch between 2 different sets of definitions for the user button functions
 #endif
 
-#define FIRMWARE_VERSION "0.8.30"
+#define FIRMWARE_VERSION "0.9.0"
 
 #define BUILD_GAMES
 

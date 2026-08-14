@@ -8,7 +8,13 @@ ESP32 cell phone) that adds:
   standard Meshtastic devices, no phone, app, or internet required),
 - a full-speed **Game Boy / Game Boy Color emulator** with sound, save states,
   and drag-and-drop ROM upload over WiFi,
-- and phone quality-of-life fixes (WiFi auto-switching, input reliability).
+- a **music player** (MP3 and WAV, stereo, hardware transport buttons, plays on
+  while you use the rest of the phone),
+- an **e-reader** (EPUB and text, pictures inline, your place saved, and
+  position sync to another device over LoRa),
+- **over-the-air firmware updates** from this repo,
+- and phone quality-of-life fixes (real battery life, WiFi auto-switching,
+  input reliability).
 
 All of the WiPhone's normal phone / SIP / menu features stay intact.
 Built with **PlatformIO** (the stock WiPhone firmware is Arduino-IDE only).
@@ -39,6 +45,37 @@ Controls: D-pad moves, bottom-right side key = **A**, the key above it = **B**,
 Back = **Start**, Select = **Select**, End (hang-up) = **pause menu**.
 
 ---
+
+## Music player
+
+- **MP3 and WAV straight from the SD card** — nothing to convert. Menu > Music.
+- **Stereo** through the headphone jack, loudspeaker otherwise, and it follows
+  the jack live: unplug mid-song and it carries on out of the speaker from the
+  same spot.
+- **The four side buttons are the transport**, top to bottom: play/pause,
+  next (**hold** = previous), volume up, volume down. Hold-for-previous does the
+  usual thing — back a track within 3 seconds, restart the current one after.
+- **Keeps playing when you leave the screen.** Read a book or check the mesh
+  with music going; tracks advance on their own.
+- Shuffle, repeat (off / all / one), and its own WiFi uploader.
+- Volume starts low and is separate from the call volume, so a quiet album can
+  never leave you unable to hear the next call.
+
+Decoding is the **Helix MP3 decoder** (RealNetworks, RPSL — vendored under
+`WiPhone/src/audio/helix-mp3/`), with its ~29 KB of working memory placed in PSRAM, because the
+internal heap on this phone has nothing like that spare. Measured on the device:
+about a quarter of realtime at 48 kHz stereo, so there is plenty of headroom.
+
+## E-reader
+
+- **EPUB and plain text** from the card, with **pictures inline**. Menu > Books.
+- **Your place is saved** and survives the phone losing power without warning.
+- Position is **(chapter, character offset)**, never a page number — so it still
+  means something after you change the font size, and on a different device.
+- **Greyscale JPEGs decode**, which the ESP32's built-in decoder cannot do at
+  all (it handles 3-component colour only, and most book art is 1-component).
+- **Book sync over LoRa** — share your reading position with another device on a
+  private channel. Jumps are confirmed, never taken silently.
 
 ## Meshtastic features
 
@@ -74,8 +111,37 @@ untouched.
 - Fixed the **"Edit current network"** screen freezing on input.
 - **Keypad reliability** — fixes for missed taps, stuck buttons, and held keys
   releasing at random (I2C error retry + a 40 ms hardware key heartbeat).
+- **Real battery life.** The main loop used to spin flat out at 240 MHz forever
+  with the screen off; it now sleeps between passes, drops the CPU to 80 MHz
+  when nothing is happening, and lets the WiFi receiver park between beacons.
+  Full speed returns instantly for the screen, music, a call, the emulator or an
+  upload.
+- **The phone records why it restarted** — crash, watchdog, brownout or a normal
+  power-on — plus a health line every minute (memory, battery, CPU speed) to
+  `/health.log` on the card. Readable over WiFi at `http://wiphone.local/log`
+  with an upload screen open, so it survives being unplugged and rebooted.
+- **File transfers work from a phone.** The upload page had been built around
+  drag-and-drop; it now has a proper file button, stops wedging after one page
+  load, retries a failed upload, keeps the screen awake while transferring, and
+  no longer knocks the phone off WiFi when it opens.
 
 ---
+
+## Firmware updates over the air
+
+**Settings > Firmware settings** checks this repo and installs a newer build.
+
+The phone reads `ota/wiphone-ota.ini` from `main`, compares its `version` against
+the running firmware, and offers the update only if it is higher.
+
+To publish one:
+
+```bash
+tools/publish_ota.sh 0.9.1     # builds, stages ota/, bumps the version
+git add -A && git commit -m "Release 0.9.1" && git push
+```
+
+For a public repo, pushing *is* releasing — the phone reads straight from `main`.
 
 ## Applying a channel setup link
 

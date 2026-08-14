@@ -1,5 +1,91 @@
 # Changelog
 
+## 2026-08-14 — Music player, e-reader, real battery life, and working firmware updates
+
+The biggest release so far. Two whole new apps, a serious pass on power, and the
+over-the-air updater brought back from the dead and pointed at this repo.
+
+### 🎵 Music player (new)
+- **Plays MP3 and WAV straight from the SD card** — no converting anything.
+  Menu > Music. Stereo through the headphone jack, mono to the loudspeaker
+  otherwise, and it follows the jack live: unplug mid-song and it carries on out
+  of the speaker from the same place.
+- **The four side buttons are the transport**, from the top: play/pause, next
+  (**hold** for previous), volume up, volume down. Holding "previous" behaves
+  like any music player — within 3 seconds it goes back a track, after that it
+  restarts the current one.
+- **Playback keeps going when you leave the screen.** Read a book or check the
+  mesh with music playing; tracks advance on their own.
+- Shuffle and repeat (off / all / one), a library scanned from `/music`,
+  `/books`, `/roms` and the card root, and its **own WiFi uploader**.
+- **Volume starts low** (−18 dB) and is remembered until the phone restarts. It
+  is deliberately separate from the call volume, so a quiet album can never
+  leave you unable to hear the next phone call.
+- Pausing and playing **resumes where you were** rather than restarting.
+
+### 📖 E-reader (new)
+- **Reads EPUB and plain text from the card**, with pictures inline. Menu >
+  Books.
+- **Your place is saved** and survives the phone losing power at any instant.
+  Position is stored as (chapter, character offset), not a page number, so it
+  still means something after a font-size change — and on a different device.
+- **Greyscale JPEGs decode**, which the ESP32's built-in decoder cannot do
+  (it is 3-component only, and most book art is 1-component).
+- **Book sync over LoRa** — share your reading position with another device on a
+  private channel. Jumps are confirmed, never taken silently.
+
+### 🔋 Battery life
+- **The phone now idles.** The main loop used to spin flat out at 240 MHz
+  forever, screen off, doing nothing. It now sleeps between passes.
+- **The CPU drops to 80 MHz when nothing is happening** and returns to 240 the
+  moment the screen comes on, music plays, a call starts, the emulator runs or
+  an upload begins.
+- **WiFi modem sleep is on.** The receiver used to stay powered continuously;
+  it now parks between beacons. Nothing is missed — buffered traffic still
+  arrives, a fraction of a second later.
+- **Scanning backs off when there is nothing to join.** Out of range, it used to
+  scan every 2 minutes forever; now it eases to 5 after a sustained absence, and
+  snaps back the moment anything connects.
+
+### 🛠 Diagnostics
+- **The phone records why it restarted.** The reset reason (crash, watchdog,
+  brownout, or a normal power-on) is logged at boot, which turns "it rebooted
+  again" into a specific answer.
+- **A health line every minute** — free memory, the lowest it has ever been,
+  largest free block, battery, CPU speed — written to `/health.log` on the card
+  so it survives both a reboot and being unplugged.
+- **Read it over WiFi** at `http://wiphone.local/log` with an upload screen open.
+
+### 📤 File transfers
+- **The upload page works on a phone now.** It was built around drag-and-drop,
+  which does not exist on a touch screen; there is a proper "Choose files"
+  button, and the file picker no longer greys everything out.
+- **It stops after one page load — fixed.** The server kept the single
+  connection slot occupied, so nothing loaded again until it was restarted.
+- **Opening an uploader no longer knocks the phone off WiFi.** If the radio was
+  still associating it would tear the connection down and host its own network
+  instead; and on the way out it never reconnected.
+- **Uploads are faster and retry themselves** — a weak link no longer means
+  starting over by hand.
+- **The screen stays awake while a server is running**, so a long transfer does
+  not go dark halfway and look like a crash.
+
+### ⬆️ Firmware updates over the air
+- **Settings > Firmware settings works again**, and now points at this repo.
+- It was not a dead link: the certificate the phone pinned **expired in April
+  2021**, so every check failed the TLS handshake regardless of the URL. It now
+  trusts a proper root certificate (valid to 2035) instead of a pinned leaf.
+- Releases are published from `ota/` in this repo; `tools/publish_ota.sh` builds
+  the binary, writes the manifest and bumps the version together.
+
+### Known issues
+- **Slight crackle in music playback.** Much improved — the decoder used to be
+  rate-limited so it could never catch up after any interruption — but not
+  entirely gone. The now-playing screen shows a `gaps:` counter to help pin it
+  down.
+- **No seeking within a track**, and no track/artist tags: the library lists
+  filenames.
+
 ## 2026-07-09 — Reliable menu input, forgiving screen-off, working WiFi auto-switch
 
 ### Input
