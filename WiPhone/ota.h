@@ -22,8 +22,15 @@ governing permissions and limitations under the License.
 #include <string>
 
 #define OTA_UPDATE_CHECK_INTERVAL 60*1000*60
-#define DEFAULT_INI_HOST "wiphone.io"
-#define DEFAULT_INI_LOC "/static/releases/firmware/WiPhone-phone.ini"
+/* Updates come from Nick's own repo now — wiphone.io's manifest is long gone.
+ *
+ * ⚠ raw.githubusercontent.com specifically, NOT a github.com release URL. The manifest
+ * is fetched with a hand-rolled socket in loadIniFile() that reads one response and has
+ * no redirect handling at all; release-asset URLs answer 302 and would silently look
+ * like an empty file. raw serves 200 directly. The firmware BINARY goes through
+ * httpUpdate, which does follow redirects, but keeping both on raw avoids the trap. */
+#define DEFAULT_INI_HOST "raw.githubusercontent.com"
+#define DEFAULT_INI_LOC "/Nikguy321/wiphone-meshtastic/main/ota/wiphone-ota.ini"
 
 class Ota {
 public:
