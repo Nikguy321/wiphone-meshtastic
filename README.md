@@ -124,6 +124,7 @@ untouched.
   drag-and-drop; it now has a proper file button, stops wedging after one page
   load, retries a failed upload, keeps the screen awake while transferring, and
   no longer knocks the phone off WiFi when it opens.
+  - Sleep the screen by holding top left and top right buttons (may require a couple tries).
 
 ---
 
