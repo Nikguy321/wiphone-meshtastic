@@ -206,6 +206,10 @@ static uint32_t keyLastUpMs[32];
 // deliberately separate from keypadState, which other heuristics may clear
 // mid-hold (that's what double-clicked and auto-repeated the menus).
 static uint32_t uiKeyDown = 0;
+/* The boot banner, held until the first health tick can commit it. ⚠ It cannot be written
+ * when it is produced: setup() logs the reset reason before the card is known good, so
+ * writing there would silently drop the one line that explains a restart. */
+static char bootLine[120] = {0};
 // True while the Game Boy emulator app is running. The main loop then skips the
 // mesh/LoRa polling so the emulator has the SPI bus and CPU to itself.
 volatile bool gGbcActive = false;
@@ -854,6 +858,8 @@ void setup() {
    * Printed with log_e so it survives into the field log, where log_d does not. */
   log_e("BOOT: reset_reason=%d heap=%u psram=%u",
         (int)esp_reset_reason(), ESP.getFreeHeap(), ESP.getFreePsram());
+  snprintf(bootLine, sizeof(bootLine), "BOOT reset_reason=%d heap=%u psram=%u",
+           (int)esp_reset_reason(), ESP.getFreeHeap(), ESP.getFreePsram());
   printf("\r\nBooting...\r\n");
 
   uint8_t mac[6];
@@ -1237,6 +1243,49 @@ static uint32_t meshPopupShownMs = 0;
  * permanently true. That silently broke two things — the CPU never dropped out of 240 MHz,
  * and the music-pauses-for-a-call edge had already fired at boot so it could never fire
  * for a real call. Error, Decline and HungUp are not calls; these eight are. */
+/* ── THE BLACK BOX ──────────────────────────────────────────────────────────────────
+ * Appends a line to /health.log on the card.
+ *
+ * Serial is no good for the two questions actually being asked. Measuring battery drain
+ * needs the phone UNPLUGGED — plugged in it just charges — and an unplanned restart
+ * happens when nobody is watching a terminal. So the log has to outlive both the cable
+ * and the reboot, which means the card.
+ *
+ * Read it back with the uploader screen open: http://wiphone.local/log
+ *
+ * ⚠ Capped and wrapped rather than left to grow. A line a minute is ~90 KB a month, which
+ * is nothing on the card, but a file that grows without limit is a slow leak of the one
+ * resource the music library also needs. At the cap it starts again with a marker, so the
+ * most recent hours always survive. */
+#define HEALTH_LOG_PATH "/health.log"
+#define HEALTH_LOG_MAX  (96 * 1024)
+
+static void healthLogLine(const char* line) {
+  if (!gui.state.cardPresent) {
+    return;
+  }
+  File f = SD.open(HEALTH_LOG_PATH, FILE_APPEND);
+  if (!f) {
+    return;
+  }
+  if (bootLine[0]) {
+    f.println("");
+    f.println(bootLine);      // why the last run ended, written once the card is up
+    bootLine[0] = '\0';
+  }
+  if (f.size() > HEALTH_LOG_MAX) {
+    f.close();
+    SD.remove(HEALTH_LOG_PATH);
+    f = SD.open(HEALTH_LOG_PATH, FILE_APPEND);
+    if (!f) {
+      return;
+    }
+    f.println("--- wrapped ---");
+  }
+  f.println(line);
+  f.close();
+}
+
 static bool sipCallActive() {
   switch (gui.state.sipState) {
     case CallState::InvitingCallee:
@@ -1749,12 +1798,16 @@ void loop() {
       if (fh < s_minHeapEver) {
         s_minHeapEver = fh;
       }
-      log_e("HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% v=%.2f chg=%d wifi=%d cpu=%luMHz scr=%d sip=%d",
-            (unsigned long)(now / 60000), fh, s_minHeapEver, ESP.getMaxAllocHeap(),
-            ESP.getFreePsram(), (int)round(soc), v,
-            (int)gui.state.battCharged, (int)WiFi.status(),
-            (unsigned long)getCpuFrequencyMhz(),
-            (int)gui.state.screenBrightness, (int)gui.state.sipState);
+      char hl[200];
+      snprintf(hl, sizeof(hl),
+               "HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% v=%.2f chg=%d wifi=%d cpu=%luMHz scr=%d sip=%d",
+               (unsigned long)(now / 60000), fh, s_minHeapEver, ESP.getMaxAllocHeap(),
+               ESP.getFreePsram(), (int)round(soc), v,
+               (int)gui.state.battCharged, (int)WiFi.status(),
+               (unsigned long)getCpuFrequencyMhz(),
+               (int)gui.state.screenBrightness, (int)gui.state.sipState);
+      log_e("%s", hl);
+      healthLogLine(hl);
 
       log_d("Voltage/SOC = %.2f/%d%%", v, (int) round(soc));
       log_d("SD card = %d", gui.state.cardPresent);

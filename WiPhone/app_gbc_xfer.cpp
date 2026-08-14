@@ -212,6 +212,31 @@ static void handleFavicon() {
   s_server->send(204, "text/plain", "");
 }
 
+/* Hands back /health.log so the phone can be run on BATTERY for hours — the only way to
+ * measure drain — and read afterwards without a cable. Also survives a reboot, which is
+ * the point for chasing an unexplained restart: the reset reason of the run that died is
+ * sitting at the top of the next run's entries. */
+static void handleLog() {
+  s_server->sendHeader("Connection", "close");
+  File f = SD.open("/health.log");
+  if (!f) {
+    s_server->send(404, "text/plain", "no /health.log yet");
+    return;
+  }
+  s_server->setContentLength(f.size());
+  s_server->send(200, "text/plain", "");
+  uint8_t buf[512];
+  while (f.available()) {
+    const size_t n = f.read(buf, sizeof(buf));
+    if (n == 0) {
+      break;
+    }
+    s_server->client().write(buf, n);
+    delay(1);                 // the same yield the upload path needs, for the same reason
+  }
+  f.close();
+}
+
 static void handleNotFound() {
   s_server->sendHeader("Connection", "close");
   s_server->send(404, "text/plain", "Not found");
@@ -455,6 +480,7 @@ void xferStart(const XferConfig* cfg) {
   }, handleUpload);
   s_server->on("/fetch", HTTP_POST, handleFetch);
   s_server->on("/favicon.ico", HTTP_GET, handleFavicon);
+  s_server->on("/log", HTTP_GET, handleLog);
   s_server->onNotFound(handleNotFound);
   s_server->begin();
 
