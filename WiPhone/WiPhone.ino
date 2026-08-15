@@ -2438,11 +2438,20 @@ void loop() {
     // One-shot pop: the PCM player loops, so stop it by timer once it has
     // played through. Use ceasePlayback (NOT shutdown) — shutdown()'s codec
     // power-down on the shared I2C bus disrupts the vibro motor extender.
+    /* ⚠ audio->restore() IS NOT OPTIONAL — see Audio::preserve() for the whole story.
+     * playPop() reconfigures six output parameters and this teardown used to put none of
+     * them back, so one mesh notification left the phone at 8 kHz, mono, loudspeaker-forced
+     * and at full volume permanently. That made music play mono out of the loudspeaker with
+     * headphones in, and it is the same monoOut=true that paces the Game Boy at 50%.
+     * Restoring is correct in BOTH exits below: it puts back the pre-pop state, and a call
+     * starting will then configure whatever it needs on top. */
     if (meshPopPlaying) {
       if (gui.state.sipState == CallState::Call || gui.state.ringing) {
+        audio->restore();
         meshPopPlaying = false;
       } else if (elapsedMillis(now, meshPopStartMs, MESH_POP_MS)) {
         audio->ceasePlayback();
+        audio->restore();
         meshPopPlaying = false;
       }
     }

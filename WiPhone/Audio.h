@@ -190,7 +190,9 @@ public:
   void setMicAvg(uint32_t mic);
   uint32_t getMicAvg();
 
-  // TODO
+  /* Snapshot / put back the whole output configuration around a one-shot sound.
+   * These were declared here with a "TODO" from the beginning and never implemented, which
+   * is why every notification pop has been leaking device state. Implemented 2026-08-15. */
   void preserve();        // remember current configs to restore playback later
   void restore();         // restore preserved state
 
@@ -287,6 +289,19 @@ protected:
   uint8_t     bps = 16;                     // bitsPerSample
   uint8_t     dataChannels = 2;             // number of channels in the MP3 file; used by playChunk
   bool        monoOut = false;              // does I2S driver expect one (left only) or two channels (right and left)?
+
+  /* Snapshot taken by preserve() and put back by restore(). See the comment on those in
+   * Audio.cpp: a one-shot sound reconfigures the whole device and used to leave it that way. */
+  bool        presValid = false;
+  int         presSampleRate = 0;
+  uint8_t     presBps = 16;
+  uint8_t     presDataChannels = 2;
+  bool        presMonoOut = false;
+  bool        presHeadphones = false;
+  bool        presLoudspeaker = false;
+  int8_t      presEarpieceVol = 0;
+  int8_t      presHeadphonesVol = 0;
+  int8_t      presLoudspeakerVol = 0;
 
   // Local playback file
   fs::FS*     playbackFS;                   // filesystem

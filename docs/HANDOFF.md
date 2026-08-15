@@ -327,6 +327,60 @@ the same network at the same time.
 
 ---
 
+## 🔊 THE SHARED-AUDIO-STATE AUDIT (2026-08-15) — 12 findings, 1 fixed, 9 latent
+
+Nick asked for an audit after two bugs in one day turned out to share a root cause. **18
+candidates, 12 survived independent adversarial refutation.** The pattern hunted was:
+*component A writes shared state, component B reads it without setting it, so B's behaviour
+depends on what A did last.*
+
+### 🎯 The headline is a CORRECTION: the music player is not the main offender
+**`Audio::playPop()` is, and it predates music.** It runs on every Meshtastic notification and
+sets **six** parameters — `setDataChannels(1)`, `setBitsPerSample(16)`, `setSampleRate(8000)`,
+`setMonoOutput(true)`, `setHeadphones(false)`, `chooseSpeaker(true)`,
+`setVolumes(Max, Max, MaxLoudspeaker)` — and the teardown at `WiPhone.ino` called only
+`ceasePlayback()`, **restoring none of them.** One mesh message left the phone at 8 kHz, mono,
+loudspeaker-forced, full volume, permanently.
+
+⚠ **That means a mesh notification was almost certainly the REAL cause of the Game Boy 50%
+bug**, not the music player — `monoOut = true` is the whole mechanism, and a mesh message is far
+more frequent than a music session. The `app_gbc.cpp` fix immunises the emulator; this fixes the
+source.
+
+✅ **FIXED 2026-08-15 by implementing `Audio::preserve()` / `Audio::restore()`** — which were
+**declared in `Audio.h` from the very beginning under a bare `// TODO` and never implemented.**
+The original authors saw this need and every one-shot sound since has leaked device state.
+⚠ **`restore()` reinstalls the I2S driver AT MOST ONCE and only if something differs** —
+`configureI2S()` reallocates ~16 KB of internal DMA buffers, and fragmenting internal heap is
+what causes the panics, so putting values back through the individual setters would have cost
+several reinstalls per notification and been worse than the bug.
+⚠ **`playback` is deliberately NOT restored** (ceasePlayback closes the file). **A pop still
+stops the current track — that is a separate, unfixed issue.**
+
+### ⏸ NINE FINDINGS ARE REAL BUT UNREACHABLE — do not spend time until SIP works
+**Every one of them needs a completed SIP call, and this phone has never made one.** Measured:
+**`sip=12` (`CallState::Error`) in 49 of 50 health samples** — with no proxy reachable the phone
+rests in Error forever. Fix these *before* SIP is ever made to work:
+
+| | what |
+|---|---|
+| 🔴 **Live mic RTP leak** | Call teardown never clears `microphoneOn` / `microphoneStreamOut` / `rtpRemoteIP` / `rtpRemotePort`, and `audioOn` is the **only** gate. Anything that turns audio back on — music, **or a mesh pop, which needs no user action at all** — resumes encoding the live microphone and sending RTP to whoever you last called. `microphoneOn` is written exactly ONCE in the whole tree (`= true`); there is no `= false` anywhere and no `rtp.stop()`. |
+| 🔴 **`micEnc[1600]` overflow** | `packetSizeSamples()` is computed from `sampleRate`/`dataChannels`. With music's 44.1 kHz stereo left behind, a G.711 call overruns the buffer by ~164 bytes, landing on the `WiFiUDP rtp` object's socket fd and tx_buffer pointer. |
+| 🟠 **Ringtone at music volume** (×4 findings, one root cause) | `startRingtone()` takes `Audio::playback` away from music **before** `musicPlayerPause()` checks `audio->musicPlaying()`, so `restoreCallVolume()` is skipped. The phone rings 18–45 dB quiet and the call stays there. |
+| 🟠 **F1 during a call** | The transport keys were guarded for the emulator and for Books but **not for a live call**. F1 starts a track, steals `Audio::playback` from `RtpStream`, and reinstalls I2S at 44.1 kHz underneath the call. |
+| 🟡 **Settings > Audio corruption** (×2) | Opening that screen while music plays persists the **music** volume into `/configs.ini` as the call volume, surviving reboot; and saving a volume there while music plays is silently reverted by music's stale snapshot. |
+
+### 🟢 Cosmetic, worth knowing
+**Diagnostics keypad self-test can never register F1/F2** (and F3/F4 while playing) once a track
+is loaded — the transport consumes them first, so the four side-button squares stay grey and
+read as **dead hardware**. `WiPhone.ino:1495-1515` vs `GUI.cpp:8473-8567`.
+
+### The general lesson
+**`Audio` is a device-wide singleton with no ownership discipline.** Every consumer should set
+what it needs rather than inherit, and anything that borrows the device for a one-shot should
+`preserve()` / `restore()` around it. The `app_gbc.cpp` fix and this one are the same fix applied
+at two different levels.
+
 ## ⬆️ Firmware updates now come from this repo
 
 **Settings > Firmware settings.** The URL box fills itself in; nothing needs typing.

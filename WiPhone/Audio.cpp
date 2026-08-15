@@ -758,7 +758,77 @@ bool Audio::playRingtone(fs::FS *fs) {
 // Short one-shot notification sound (raw 16-bit mono 8kHz PCM). Forced out the
 // loudspeaker at max level so it's audible as a notification regardless of the
 // headphone-detect state; the sample amplitude controls how loud the pop is.
+/* ── SNAPSHOT AND PUT BACK THE OUTPUT CONFIGURATION ───────────────────────────────────
+ * Declared in Audio.h from the beginning with a bare "TODO" and never implemented — which
+ * is why one-shot sounds have been permanently reconfiguring the device.
+ *
+ * playPop() sets SIX parameters (channels, bits, rate, mono, headphones, speaker, volumes)
+ * and the pop teardown in WiPhone.ino only called ceasePlayback(), restoring none of them.
+ * So a single Meshtastic notification left the phone at 8 kHz, mono, loudspeaker-forced and
+ * at maximum volume, for good. Two measured consequences:
+ *   - music afterwards played MONO OUT OF THE LOUDSPEAKER with headphones plugged in,
+ *     because music_player's wantStereo() reads audio->getHeadphones();
+ *   - monoOut = true is exactly what paces the Game Boy at 50% (it is clocked by a blocking
+ *     i2s_write, so a mono sink drains at half rate — see app_gbc.cpp). A mesh message was a
+ *     far more frequent trigger for that than the music player ever was.
+ *
+ * ⚠ configureI2S() UNINSTALLS AND REINSTALLS THE I2S DRIVER, which reallocates ~16 KB of
+ * internal DMA buffers. Internal heap is this phone's scarcest resource and fragmenting it is
+ * what causes the reset_reason=4 panics, so restore() does that AT MOST ONCE and only when
+ * something actually differs. Putting the values back through the individual setters would
+ * have cost several reinstalls per notification — worse than the bug being fixed.
+ *
+ * ⚠ `playback` is deliberately NOT preserved. ceasePlayback() closes the playing file, so
+ * restoring the enum would point the decoder at a dead handle. A pop still stops the current
+ * track; that is a separate issue and is NOT fixed here. */
+void Audio::preserve() {
+  if (this->presValid) {
+    return;         // already holding a snapshot — do not overwrite it with the pop's own state
+  }
+  this->presSampleRate     = this->sampleRate;
+  this->presBps            = this->bps;
+  this->presDataChannels   = this->dataChannels;
+  this->presMonoOut        = this->monoOut;
+  this->presHeadphones     = this->headphones;
+  this->presLoudspeaker    = this->loudspeaker;
+  this->presEarpieceVol    = this->earpieceVol;
+  this->presHeadphonesVol  = this->headphonesVol;
+  this->presLoudspeakerVol = this->loudspeakerVol;
+  this->presValid = true;
+}
+
+void Audio::restore() {
+  if (!this->presValid) {
+    return;
+  }
+  this->presValid = false;
+
+  const bool monoChanged = (this->monoOut != this->presMonoOut);
+  const bool needI2S = monoChanged ||
+                       (this->sampleRate != this->presSampleRate) ||
+                       (this->bps        != this->presBps);
+
+  this->sampleRate   = this->presSampleRate;
+  this->bps          = this->presBps;
+  this->dataChannels = this->presDataChannels;
+  this->monoOut      = this->presMonoOut;
+
+  if (needI2S) {
+    this->configureI2S();                       // exactly one reinstall, and only if needed
+  }
+  if (monoChanged) {
+    codec.setAudioPath(!this->monoOut);         // mirrors what setMonoOutput() would have done
+  }
+  /* Speaker routing before volume: setVolumes() picks earpiece-vs-headphones off
+   * this->headphones, so it has to see the restored value. Both setters below already
+   * no-op when unchanged. */
+  this->setHeadphones(this->presHeadphones);
+  this->chooseSpeaker(this->presLoudspeaker);
+  this->setVolumes(this->presEarpieceVol, this->presHeadphonesVol, this->presLoudspeakerVol);
+}
+
 bool Audio::playPop(fs::FS *fs) {
+  this->preserve();          // ⚠ BEFORE anything below changes it
   this->ceasePlayback();
   this->playback = Playback::LocalPcm;
   this->setDataChannels(1);
@@ -770,9 +840,14 @@ bool Audio::playPop(fs::FS *fs) {
   this->setVolumes(Audio::MaxVolume, Audio::MaxVolume, Audio::MaxLoudspeakerVolume);
 
   if (!this->turnOn()) {
+    this->restore();      // nothing will call restore() for us if the pop never starts
     return false;
   }
-  return this->playFile(fs, "/pop.pcm");
+  if (!this->playFile(fs, "/pop.pcm")) {
+    this->restore();      // ditto: the caller only arms the teardown when we return true
+    return false;
+  }
+  return true;
 }
 
 /* Description:

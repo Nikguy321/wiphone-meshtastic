@@ -7,6 +7,20 @@ fixed, a settings screen that had been quietly broken works again, the Game Boy
 runs at full speed again, and the tools for reading what the phone was doing no
 longer make the problem worse.
 
+### 🔊 Notification sounds stop hijacking the speaker
+
+- **A Meshtastic notification used to permanently change your audio settings.** The
+  little "pop" reconfigures the speaker to play itself — mono, loudspeaker, full
+  volume, low quality — and then never put any of it back. So one message left the
+  phone that way for good: music afterwards played in mono out of the loudspeaker
+  even with headphones plugged in, and the Game Boy dropped to half speed, because
+  the emulator takes its timing from the speaker.
+  Notification sounds now put everything back exactly as they found it. This was
+  most likely the real cause of the half-speed games — a message arrives far more
+  often than anyone opens the music player.
+- ⚠ Still true: a notification stops whatever track is playing. That is a separate
+  problem and is not fixed yet.
+
 ### 🎮 Game Boy back to full speed
 
 - **Games were running at half speed.** The emulator deliberately lets the audio
