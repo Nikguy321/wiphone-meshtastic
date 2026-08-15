@@ -345,17 +345,36 @@ speed readout reads as "the CPU is too slow" and here it meant the opposite.** T
 `app_gbc.cpp:927` already warned about *"wrong rate after some phone sound reconfigured it"* —
 audio had throttled games to 13% once before.
 
-### 📖 5. Book sync has still never been on air
-Unchanged, and still the only thing that needs COVEY. Everything in the reader section below
-applies.
+### 🎉 5. BOOK SYNC WORKS ON AIR — PROVED 2026-08-15. **Nick: *"works! thanks"***
+**The oldest open item in this feature is CLOSED.** A reading position crossed from the WiPhone
+to COVEY over LoRa, between two real devices, for the first time. Everything before this was
+host tests against generated vectors; this is the real thing.
 
-⚠ **Checked twice on 2026-08-14: `covey.local` does NOT resolve** — COVEY was not on the network
-either time, while the WiPhone was (`192.168.158.33`, both on `NickH-wifi`). So this stayed
-blocked all session. **Check it first next time; it is one `ping` and it decides whether this
-item is even available.** ⚠ Note the COVEY side of the docs has carried a stale line saying the
-WiPhone has no e-reader — **it has had a working one since 2026-08-11**, and COVEY's half is
-finished and waiting, so the only genuinely missing piece is the two devices being powered on
-the same network at the same time.
+**🔑 THE TRAP THAT MADE IT LOOK BROKEN — and it will catch the next person too:**
+Nick tapped **Sync my place** and reported *"the covey got nothing"*. **Nothing was supposed to
+happen.** A LoRa round trip does not fit in the 15 s sync window, so the receiver **parks** the
+record and offers it **only when you next OPEN THAT BOOK**. There is no notification, no toast,
+no badge — the receiving device looks completely inert until you open the book. Opening it
+produced the confirm card immediately, and it had almost certainly worked the first time.
+**If sync "does nothing", OPEN THE BOOK ON THE RECEIVER before debugging anything.**
+
+⚠ **The parked record is RAM-ONLY.** A `covey-ui` restart discards it silently — which happened
+during this very debug, when the radio check restarted the service. Re-send after any restart
+before concluding it failed.
+
+**The verified-good configuration, for reference when it next misbehaves:**
+
+| | |
+|---|---|
+| channel | `booksync`, **index 3** on COVEY's radio |
+| PSK | `f2b880151f9b560c6a43068cbef9edb4` — 16 bytes, **byte-identical to the stored invite** |
+| passcode | `1111` on **both** devices (`booksync_pw` in COVEY's `/root/.covey/prefs.json`) |
+| book | `Ghosts_of_Timkovichi.epub`, **5,059,833 bytes on both** — same size, so the ids agree |
+
+⚠ **An invite STORED in prefs and an invite APPLIED to the radio are different states.** Checking
+the radio needs `covey-ui` stopped to free the serial port:
+`sudo systemctl stop covey-ui; meshtastic --port /dev/ttyACM1 --info; sudo systemctl start covey-ui`
+— **always restart it**, it is easy to leave the device UI-less.
 
 ---
 
@@ -470,7 +489,7 @@ than a problem. Do not attempt the first OTA with no cable to hand.
 
 ---
 
-## The reader is DONE and confirmed; sync has never been on air
+## The reader is DONE and confirmed, and sync is now PROVED ON AIR (2026-08-15)
 
 📖 **Nick read a real bought book on this phone on 2026-08-11 and confirmed it working**:
 prose, chapter titles, pictures inline, and his place surviving a power cycle. Menu > Books.
@@ -544,11 +563,13 @@ of them. Still out of reach and honestly reported on the picture: progressive JP
 4. **Close the book, reopen it.** It must land on the same page. That is the whole feature.
 5. **Leave it sitting on a page for two minutes.** The screen must not sleep.
 
-### ⚠ SYNC IS BUILT BUT HAS NEVER BEEN ON AIR (2026-08-11, commit 595e838)
-COVEY was at home, case open and unpowered, so not one packet has crossed between the two
-devices. What IS proven is 34 host assertions against real COVEY-generated packets: parking,
-matching, newest-wins, and that every wrong-passcode and tampered vector is diverted out of
-Chats and never matches.
+### ✅ SYNC IS PROVED ON AIR (2026-08-15) — built 2026-08-11, commit 595e838
+A position crossed from the WiPhone to COVEY over LoRa on 2026-08-15. Nick: ***"works!"***
+Before that, what was proven was 34 host assertions against real COVEY-generated packets:
+parking, matching, newest-wins, and that every wrong-passcode and tampered vector is diverted
+out of Chats and never matches. **Those held up on real hardware, first time, with no code
+changes** — the only thing that ever went wrong was knowing where to look for the result.
+See the trap in **PICK UP HERE §5**: the receiver shows nothing until you open the book.
 
 **To test it, in this order:**
 1. Put the SAME book file on COVEY (`/home/covey/books`). Byte-identical — that makes all

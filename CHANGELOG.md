@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased — stability, and Game Boy speed
+## Unreleased — book sync works, stability, and Game Boy speed
+
+### 📖 Reading position sync works between devices
+
+- **Your place in a book now travels over the mesh, for real.** Read on the phone,
+  tap *Sync my place*, and the other device offers to jump to where you got to.
+  This had been built and tested against recorded data for months but had never
+  been tried between two actual devices until now.
+- ⚠ **Worth knowing, because it looks broken the first time:** the receiving
+  device shows nothing at all when the position arrives. Radio messages are slow,
+  so it is saved quietly and offered **the next time you open that book**. If sync
+  seems to do nothing, open the book on the other device before assuming it failed.
+
+## Stability, and Game Boy speed
 
 A day spent on the phone restarting by itself. The cause is now identified and
 fixed, a settings screen that had been quietly broken works again, the Game Boy
