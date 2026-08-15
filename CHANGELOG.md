@@ -1,31 +1,53 @@
 # Changelog
 
-## Unreleased — the random restarts, a menu fix, and reading the health log safely
+## Unreleased — stability
 
-- **Found what is most likely behind the spontaneous restarts.** Every time the phone
-  tried to join WiFi it registered another copy of its network event handler, and
-  never removed any of them. Out of range it retries every 20 seconds, so a drive with
-  no signal stacked up hundreds of copies — and the moment signal came back, all of
-  them ran, each one tearing down and rebuilding the same network buffers. That
-  churn breaks the phone's small pool of memory into unusable fragments until
-  something eventually cannot get the contiguous space it needs, and it reboots.
-  Registered once now instead of every attempt.
-  **This is a strong candidate rather than a proven cure** — the proof is a long
-  run with several signal drops and no restart.
+A day spent on the phone restarting by itself. The cause is now identified and
+fixed, a settings screen that had been quietly broken works again, and the tools
+for reading what the phone was doing no longer make the problem worse.
+
+### 🔁 The random restarts
+
+- **The likely cause is fixed.** Every time the phone tried to join WiFi it
+  registered another copy of its network event handler, and never removed any of
+  them. Out of range it retries every 20 seconds, so a drive with no signal
+  stacked up hundreds of copies — one measured journey was 143 minutes without
+  service, which is around 430. The moment signal came back, **all** of them ran
+  at once, each tearing down and rebuilding the same network buffers. That churn
+  breaks the phone's small pool of working memory into fragments until something
+  eventually cannot find the unbroken space it needs, and the phone reboots.
+  It is registered once now, when the phone starts, instead of on every attempt.
+
+- **The phone can now say why it restarted, and it has been answered.** Four
+  restarts were captured and every one of them was a crash — not a flat battery,
+  not a stall, not the power being interrupted. The battery never dropped below
+  3.99 V across the whole record, which rules that out entirely.
+
+- ⚠ **This is a strong candidate, not a proven cure.** The proof is time: several
+  days of normal use, with the phone going in and out of signal, and no restart.
+  Worth keeping an eye on rather than assuming it is done.
+
+### 🧭 Settings
 
 - **Settings > WiFi auto-switch works again.** It was showing the Music icon, and
-  choosing it opened the Music player instead of the toggle. The two entries had been
-  given the same internal ID, and the menu picks the first match — so the WiFi row was
-  quietly standing in for Music. Renumbered, and the phone now checks for repeated IDs
-  when it starts, because the same mistake had already shipped once before as "Music
-  opens Books" and nothing was watching for it.
+  choosing it opened the Music player instead of the toggle — so the screen was
+  effectively unreachable. The two entries had been given the same internal ID and
+  the menu picks the first match, so the WiFi row was standing in for Music.
+  Renumbered.
 
-- **`/log?tail=N` returns just the last N bytes of the health log.** Pulling the whole
-  file kept truncating, and a truncated response loses the *end* — which is where the
-  reason for the last restart is written. Retrying was worse than the problem: thirty
-  fetches, each its own connection, on a phone whose scarce resource is internal RAM.
-  One request now gets the part that matters. The response always starts on a whole
-  line.
+- **The phone now checks its own menu for repeated IDs when it starts.** The same
+  mistake had already shipped once before, as "Music opens Books", and was fixed
+  in a way that moved the clash rather than removing it. Nothing was watching for
+  it, so now something is.
+
+### 🩺 Diagnostics
+
+- **The health log can be read without disturbing what it measures.** Pulling the
+  whole file kept truncating, and a truncated read loses the *end* — which is
+  exactly where the reason for the last restart is written. Retrying was worse
+  than the problem: around thirty fetches, each its own connection, on a phone
+  whose scarcest resource is the memory all of that consumes. It can now hand back
+  just the most recent part, so one request gets what matters.
 
 ## 2026-08-14 — Music player, e-reader, real battery life, and working firmware updates
 

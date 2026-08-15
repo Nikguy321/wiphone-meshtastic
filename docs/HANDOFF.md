@@ -3,9 +3,20 @@
 **Last updated:** 2026-08-14 · **`main` is pushed and clean at `d48e540`+.**
 ⚠ **The phone runs a DEV BUILD that reports 0.9.1** — flashed twice over USB without a version
 bump, so the reported version no longer identifies what is installed. See below.
-**Next up:** ONE measurement, then a release. The crackle needs a `gaps:N` reading before
-anyone writes a line of code, and the plan Nick set is to **fold that fix into 0.9.2 and
-install it over the air** — which would also be the first OTA this phone has ever done.
+**Next up (Nick, 2026-08-14: *"I will work the music crackling test tomorrow and keep an eye out
+for crashes"*):**
+1. **The one-press crackle test** — §3. Music playing, Back to the library list, screen still
+   lit. One press decides between a software fix and an electrical cause.
+2. **Watch for another `reset_reason=4`.** The restart fix is flashed but **unproven** — proof
+   is days of normal use, in and out of signal, with no panic. Read it with
+   `curl "http://<phone-ip>/log?tail=2000"`.
+3. Then **fold the crackle fix into 0.9.2 and install it over the air** — the plan Nick set,
+   and it would be the first OTA this phone has ever done.
+
+⚠ **`wiphone.local` mDNS went stale once on 2026-08-14 when the phone changed networks** (it was
+`192.168.158.33` on the hotspot, then `192.168.1.57` on SmithWifi). It pinged but port 80 refused.
+**Resolve it first** — `dscacheutil -q host -a name wiphone.local` — and use the raw IP if in
+doubt; that fixed it immediately.
 
 Read this first to resume. One command tells you the codebase is healthy:
 
@@ -211,18 +222,48 @@ cannot make up a gap. It now decodes ahead until the DMA refuses more.
 measurement, not a code change.** Nick, 2026-08-14: *"lets do this later"* — so it is queued,
 with everything needed to act on it below.
 
-**▶ THE READING THAT DECIDES IT.** Play a track on headphones; the now-playing screen shows
-**`gaps:N`** in dark grey, on the line under the `Vol [====------]` bar. Note it, listen until
-you hear the crackle, note it again.
-- **`gaps` CLIMBS as you hear it** → real starvation. And since the DMA already holds ~93 ms
-  (below), the cause is something blocking the main loop for longer than that — findable
-  without touching buffer sizes.
-- **`gaps` STAYS AT 0** → the buffer is not involved and **the ring buffer sketched in
-  `mp3_stream.h` would be wasted work.** Look at the decoder resyncing, the SD read, or the
-  output stage instead.
+### ✅ MEASURED BY NICK 2026-08-14 — two facts, and they point the same way
+1. **`gaps` never left ZERO**, through general crackle on headphones.
+2. 🔑 **"when I let the screen sleep the music cleared up almost perfectly."**
 
-Do not add a ring buffer on a hunch; decode has ~74% headroom (measured: 5103 µs/frame against
-a 24000 µs budget).
+⚠ **FIRST, A CORRECTION: `gaps:0` IS MUCH WEAKER EVIDENCE THAN THIS DOC USED TO CLAIM.** Read
+what it actually counts (`Audio.cpp`, the `starvedNow` logic): it only increments if the loop
+arrives with the decode buffer empty **and** the DMA then accepts 12 consecutive frames without
+filling. The DMA holds ~4,096 frames — about 3.5 MP3 frames — so it fills after ~4 iterations
+and clears the flag. **It therefore only ever catches a drought of roughly 313 ms.** A DMA that
+empties for 5 ms is invisible to it, and 5 ms of silence is an audible click. **So `gaps:0`
+rules out catastrophic starvation, NOT starvation.** The old "if it stays at 0 the cause is
+elsewhere" was wrong and cost nothing only because Nick reported the screen fact too.
+
+**▶ LEADING HYPOTHESIS: TFT/SD SPI BUS CONTENTION.** Verified from the pin definitions, not
+guessed:
+
+| | pins | speed |
+|---|---|---|
+| TFT (`src/TFT_eSPI/User_Setup.h`) | SCLK 18, MOSI 23, MISO 19, **CS 5** | 40 MHz |
+| SD (`WiPhone.ino:760`, `Hardware.h:110`) | **same bus**, **CS 2** | 15 MHz |
+
+`SD.begin(SD_CARD_CS_PIN, SPI, ...)` puts the card on the very `SPI` object the display uses —
+those are the ESP32 VSPI defaults. `SUPPORT_TRANSACTIONS` is force-defined on ESP32
+(`TFT_eSPI.cpp:36`), so the bus is properly mutexed: **no corruption, but strict serialisation —
+while the screen draws, an SD read waits.** And the now-playing screen sets
+`msAppTimerEventPeriod = 1000` (`app_music.cpp:305`), so it wakes and redraws every second.
+Screen asleep → no TFT traffic → the card is uncontended → clean. That is Nick's observation
+exactly, and it explains `gaps:0` at the same time, because these stalls are milliseconds.
+
+**▶ THE ONE-PRESS TEST THAT SETTLES IT (do this first, tomorrow).**
+Play a track, then **press Back to the Music library list and leave the screen LIT.** Playback
+continues by design (the player outlives its app).
+- **Crackle CLEARS with the screen still on** → contention, and it is software-fixable. This
+  also rules out the backlight electrically **and** rules out CPU frequency, since both are
+  unchanged on a static lit screen. That is what makes one button press decisive.
+- **Crackle PERSISTS** → electrical coupling from the display/backlight into the audio path,
+  and no amount of code will help.
+
+If it is contention, the fix direction is **shrinking what the once-a-second redraw does**, or
+topping up the I2S buffer around it — **not** a ring buffer and **not** bigger DMA buffers (see
+the red warning below). Do not add a ring buffer on a hunch; decode has ~74% headroom (measured:
+5103 µs/frame against a 24000 µs budget).
 
 🔴 **AND THE OBVIOUS FIX WOULD MAKE THE RESTART BUG WORSE — check this before reaching for it.**
 I2S is `dma_buf_count = 4`, `dma_buf_len = 1024` ≈ **93 ms** at 44.1 kHz, and the decode-ahead
