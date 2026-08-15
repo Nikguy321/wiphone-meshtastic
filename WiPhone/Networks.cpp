@@ -79,8 +79,33 @@ void connectToWiFi(const char* ssid, const char* pwd) {
   // delete old config
   WiFi.disconnect(true);
   wifiState.setConnected(false, false);
-  //register event handler
-  WiFi.onEvent(processWiFiEvent);
+
+  /* ⚠ THE EVENT HANDLER IS REGISTERED ONCE, IN Networks::init() — NOT HERE.
+   *
+   * This used to call WiFi.onEvent(processWiFiEvent) on every attempt, and
+   * WiFiGenericClass::onEvent only ever does cbEventList.push_back() — it does not
+   * deduplicate, and removeEvent() is never called anywhere in this firmware. So the
+   * list grew by one entry per connect attempt and NEVER shrank except at reboot.
+   *
+   * That matters because connectToWiFi() is the RETRY: WiPhone.ino:1667 calls it every
+   * WIFI_RETRY_PERIOD_MS (20 s) for as long as there is no network. Out of range for the
+   * length of a car journey — 143 minutes, measured — that is roughly 430 registrations.
+   *
+   * Then the moment WiFi comes back, ONE SYSTEM_EVENT_STA_GOT_IP runs processWiFiEvent
+   * N times, and this handler is not free: each pass does delay(100) plus udp.begin() and
+   * udpRtcp.begin(), and WiFiUDP::begin() calls stop() (delete[] tx_buffer) then
+   * `new char[1460]`. At N=430 that is ~43 s of blocking delay and ~1,720 alloc/free
+   * cycles of 1,460 INTERNAL bytes, from one reconnect.
+   *
+   * ⚠ There is no malloc→PSRAM auto-diversion in this build to soften that: the framework
+   * sdkconfig.h defines CONFIG_SPIRAM_USE_CAPS_ALLOC and NOT CONFIG_SPIRAM_USE_MALLOC, so
+   * plain new/malloc is internal at EVERY size. (docs/MUSIC.md's "threshold is 16 KB" is
+   * wrong for this build — there is no threshold, only heap_caps_malloc reaches PSRAM.)
+   *
+   * This is the best candidate found for the measured signature of the reset_reason=4
+   * panics: free heap recovers while the LARGEST FREE BLOCK never does, and it degrades
+   * on WiFi events rather than with uptime. The registry growth is monotonic, which is
+   * exactly the "never recovers" part. */
 
   //Initiate connection
   WiFi.begin(ssid, pwd);
@@ -153,6 +178,16 @@ Networks::~Networks() {
 }
 
 void Networks::init() {
+  /* Register the WiFi event handler EXACTLY ONCE, for the life of the boot. It used to be
+   * done inside connectToWiFi(), i.e. on every retry — see the long note there for why that
+   * was the most likely cause of the reset_reason=4 panics. Guarded as well as moved, so
+   * that a second call to init() cannot quietly reintroduce the bug. */
+  static bool s_eventHandlerRegistered = false;
+  if (!s_eventHandlerRegistered) {
+    s_eventHandlerRegistered = true;
+    WiFi.onEvent(processWiFiEvent);
+  }
+
   // Reset WiFi (these are needed for proper scanning!!!)
   WiFi.mode(WIFI_STA);
   log_v("Free memory after wifi mode: %d", ESP.getFreeHeap());

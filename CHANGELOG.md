@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased — a menu fix, and reading the health log without disturbing it
+## Unreleased — the random restarts, a menu fix, and reading the health log safely
+
+- **Found what is most likely behind the spontaneous restarts.** Every time the phone
+  tried to join WiFi it registered another copy of its network event handler, and
+  never removed any of them. Out of range it retries every 20 seconds, so a drive with
+  no signal stacked up hundreds of copies — and the moment signal came back, all of
+  them ran, each one tearing down and rebuilding the same network buffers. That
+  churn breaks the phone's small pool of memory into unusable fragments until
+  something eventually cannot get the contiguous space it needs, and it reboots.
+  Registered once now instead of every attempt.
+  **This is a strong candidate rather than a proven cure** — the proof is a long
+  run with several signal drops and no restart.
 
 - **Settings > WiFi auto-switch works again.** It was showing the Music icon, and
   choosing it opened the Music player instead of the toggle. The two entries had been

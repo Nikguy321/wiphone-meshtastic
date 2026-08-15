@@ -92,6 +92,52 @@ panicked at. ⚠ **One sample, so treat ~340 B/request as approximate** — but 
 doubt, and it means the honest way to read this log is: **one tail request, then close the
 screen.** Do not leave the uploader open and poll it.
 
+### 🎯 THE LIKELY ROOT CAUSE, FOUND AND FIXED 2026-08-14 — but PROOF IS TIME WITHOUT A PANIC
+**`connectToWiFi()` re-registered the WiFi event handler on EVERY attempt.**
+`WiFi.onEvent()` only ever does `cbEventList.push_back()` — **it does not deduplicate, and
+`removeEvent()` is called nowhere in this firmware** (verified: zero matches). So the handler
+list grew by one entry per connect attempt and never shrank except at reboot.
+
+**That is the retry path.** `WiPhone.ino:1667` calls it every `WIFI_RETRY_PERIOD_MS` = **20 s**
+for as long as there is no network. Nick's **car journey** shows exactly this: the log has
+`wifi=1` (WL_NO_SSID_AVAIL) held for the whole run, **143 minutes out of range ≈ 430
+registrations.**
+
+Then one `SYSTEM_EVENT_STA_GOT_IP` runs `processWiFiEvent` **N times**, and that handler is not
+free — each pass does `delay(100)` plus `udp.begin()` and `udpRtcp.begin()`, and
+`WiFiUDP::begin()` does `stop()` (`delete[] tx_buffer`) then **`new char[1460]`**. At N=430 that
+is ~43 s of blocking delay and **~1,720 alloc/free cycles of 1,460 internal bytes from a single
+reconnect.** The `std::vector` also doubles as it grows, leaving a trail of holes.
+
+⚠ **AND THERE IS NO malloc→PSRAM AUTO-DIVERSION IN THIS BUILD.** The framework `sdkconfig.h`
+defines `CONFIG_SPIRAM_USE_CAPS_ALLOC` and **not** `CONFIG_SPIRAM_USE_MALLOC`, so plain
+`new`/`malloc` is **internal at every size** — only `heap_caps_malloc(..., MALLOC_CAP_SPIRAM)` /
+`ps_malloc` reach PSRAM. **`docs/MUSIC.md`'s "the threshold is 16 KB" is wrong for this build:
+there is no threshold.** Anything that says otherwise should be corrected, not relied on.
+
+**Why this fits the measured signature:** the growth is **monotonic and never recovers**, which
+is the "free heap recovers but `largest` never does" fingerprint exactly; and it is driven by
+**WiFi events, not uptime**, which is why a 55-minute idle run with stable WiFi held at
+`largest=27,164` while the car run collapsed.
+
+**The fix:** `WiFi.onEvent(processWiFiEvent)` moved out of `connectToWiFi()` into
+`Networks::init()` behind a `static bool` latch, so it registers exactly once per boot.
+`wifiState.init()` (WiPhone.ino:904) runs before the first `connectToPreferred()` (:916), so the
+handler is in place in time. ✅ **Verified on hardware: `[autosw] conn=1` in the boot log, and
+that flag is set ONLY from inside `processWiFiEvent` on GOT_IP — so the handler still fires.**
+
+⚠ **CONFIDENCE: this is the best-supported candidate, NOT a proven cure.** Four panics were
+captured (`largest` at death: 4,512 / 4,092 / 8,848 / 3,084 — note it is *not* a fixed
+threshold, consistent with a probabilistic allocation failure). **The only proof is a long run
+across several WiFi drops with no panic.** Check `/health.log` for `reset_reason=4`.
+
+⚠ **A SMALLER INSTANCE OF THE SAME BUG IS LEFT IN ON PURPOSE.** `ESPmDNS`'s
+`MDNSResponder::begin()` also calls `WiFi.onEvent()`, and `app_gbc_xfer.cpp:499`
+`MDNS.begin("wiphone")` runs on every `xferStart()` while `MDNS.end()` does not remove the
+handler — so one permanent entry per uploader session. It was **not** fixed because `MDNS.end()`
+is paired with it and breaking that kills `wiphone.local`, which is how the log is read at all.
+One per uploader session is negligible beside 430 per car journey.
+
 **What is still open:** naming what takes the ~13 KB of *internal* heap when an app opens. The
 22.6 KB of PSRAM that goes with it is already accounted for and is **healthy** — it is exactly
 `BooksApp`'s four arrays (`books` 8,112 + `store` 11,912 + `images` 2,400 + `imgBoxes` 96 =
