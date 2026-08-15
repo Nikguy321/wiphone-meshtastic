@@ -8,10 +8,16 @@
   tap *Sync my place*, and the other device offers to jump to where you got to.
   This had been built and tested against recorded data for months but had never
   been tried between two actual devices until now.
+- **It works both ways** — phone to COVEY and COVEY to phone.
+- **Only the device you are reading on needs the tap.** Tapping *Sync my place*
+  sends your position out; the other device picks it up on its own, whatever it
+  happens to be doing. You do not have to tap on both.
 - ⚠ **Worth knowing, because it looks broken the first time:** the receiving
   device shows nothing at all when the position arrives. Radio messages are slow,
   so it is saved quietly and offered **the next time you open that book**. If sync
   seems to do nothing, open the book on the other device before assuming it failed.
+- **Books > menu > Sync settings** tells you what is going on: whether the shared
+  channel exists, and how many positions are waiting to be picked up.
 
 ## Stability, and Game Boy speed
 

@@ -362,6 +362,32 @@ produced the confirm card immediately, and it had almost certainly worked the fi
 during this very debug, when the radio check restarted the service. Re-send after any restart
 before concluding it failed.
 
+### ✅ BOTH DIRECTIONS PROVED. **You do NOT need to tap Sync on both devices.**
+COVEY → WiPhone was confirmed straight after (Nick: *"it does work! thanks"*), so it is
+bidirectional on real hardware.
+
+⚠ **The "tap Sync on the other device" prompt is NOT a requirement, and it reads like one.**
+There is no request/response in this protocol (D-089): tapping *Sync my place* **broadcasts your
+own position**, and the receiver parks it with **no tap at all**. Tapping on both is only for the
+two-way case where you want each device to learn the other's and converge. **For a one-way push,
+only the sender taps** — Nick reasonably read the prompt as "you must tap both".
+
+**The receiver is always listening, whatever app is open:** `meshtastic_service.cpp:507` calls
+`bookSyncInboxPush()` from the radio receive path, and `app_books.cpp:930` calls
+`bookSyncInboxFindFor()` when a book is opened. Nothing needs to be on screen for a packet to be
+kept.
+
+### 🔎 THE DIAGNOSTIC SCREEN — **Books > menu > Sync settings**
+Built for exactly this and worth reaching for FIRST, because it answers both failure modes:
+```
+Channel 'booksync': found        <- or MISSING (app_books.cpp:1571)
+Parked positions: N              <- N>0 means a record arrived and is waiting (app_books.cpp:1573)
+```
+⚠ **`Parked positions` is the ONLY visibility you get.** The line logged when a sync packet
+arrives (`meshtastic_service.cpp:509`) is a **`log_i`, and only `log_e` is compiled into this
+build** — so a packet landing prints *nothing at all* on serial. Do not read serial silence as
+"it never arrived"; read the counter.
+
 **The verified-good configuration, for reference when it next misbehaves:**
 
 | | |
