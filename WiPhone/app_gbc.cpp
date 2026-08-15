@@ -225,6 +225,35 @@ void GbcApp::startGame() {
      * Paused rather than stopped, so the track is still there to resume afterwards. */
     musicPlayerPause();
     audio->setSampleRate(GBC_I2S_RATE);
+
+    /* ⚠ SET THE CHANNEL FORMAT TOO, DO NOT INHERIT IT — THIS IS A 2x SPEED BUG.
+     *
+     * gnuboy_get_audio_count() returns a STEREO INTERLEAVED int16 count, and the blocking
+     * i2s_write below is deliberately "the de facto clock" for the whole emulator. So the
+     * game's speed is set by how fast the DAC drains, which means the I2S CHANNEL FORMAT
+     * is a timing parameter, not a cosmetic one.
+     *
+     * setSampleRate() only calls i2s_set_sample_rates(); it does NOT touch
+     * channel_format, which configureI2S() derives from Audio::monoOut. This code used to
+     * set the rate and inherit whatever monoOut some earlier user of the audio path had
+     * left behind. Audio::monoOut defaults to false, so for a long time it was stereo by
+     * luck and the game ran at 100%.
+     *
+     * Then the music player started following the headphone jack (stereo on headphones,
+     * mono to the loudspeaker) and began leaving monoOut = true. With
+     * I2S_CHANNEL_FMT_ONLY_LEFT the DAC consumes 32000 x 1 x 2 = 64,000 B/s while the
+     * emulator produces 32264 x 2 x 2 = 129,056 B/s, so the write blocks for twice as
+     * long and the game is paced at 50.4%. Nick measured 50% on Metroid II.
+     *
+     * ⚠ Frameskip CANNOT rescue this and will hide the cause: the adaptive skip below
+     * only drops DISPLAY frames, so at 50% it just pins itself at maximum skip while the
+     * game stays in slow motion. Do not read a maxed-out skip as "the CPU is too slow".
+     *
+     * Forcing false restores exactly the configuration this ran at when it was at 100%.
+     * Every other consumer (music, calls) sets what it needs on the way in, so there is
+     * nothing to restore on the way out. */
+    audio->setMonoOutput(false);
+
     soundOn = audio->start();
     audioStarve = 0;
   }

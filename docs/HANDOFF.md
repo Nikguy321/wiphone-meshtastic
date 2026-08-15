@@ -273,7 +273,47 @@ exact resource that is running out and panicking the phone** (§1). **Enlarging 
 crackle for the restart.** The two open bugs pull in opposite directions; that is why the
 `gaps` reading has to come first.
 
-### 📖 4. Book sync has still never been on air
+### 🎮 4. Game Boy ran at 50% — FIXED, needs one look to confirm
+Nick, 2026-08-14: *"my Metroid II game (probably all the games) is running at 50%"*, and he
+remembered older work that shut off WiFi and mesh during play. **Those optimisations are all
+still present and were not the problem** (`app_gbc.cpp:187-188` kills WiFi; the main loop gates
+`lora.loop()` and `meshService.loop()` on `!gGbcActive`). **It was not CPU speed either** —
+`gGbcActive` is in the 240 MHz "busy" list, and `CONFIG_FREERTOS_HZ` is 1000 so the main loop's
+`vTaskDelay(1)` is 1 ms, not 10.
+
+**🔑 THE EMULATOR IS PACED BY ITS AUDIO, SO THE I2S CHANNEL FORMAT IS A TIMING PARAMETER.**
+The design header says it outright: the blocking `i2s_write` is *"the de facto clock, locked to
+the DAC with zero drift"*. `gnuboy_get_audio_count()` returns a **stereo interleaved** int16
+count.
+
+`app_gbc.cpp` set the RATE and inherited the FORMAT — `setSampleRate()` only calls
+`i2s_set_sample_rates()` and never touches `channel_format`, which `configureI2S()` derives from
+`Audio::monoOut`. `monoOut` defaults to false, so for a long time it was stereo **by luck**.
+Then the music player began following the headphone jack (stereo on headphones, mono to the
+loudspeaker) and started leaving `monoOut = true`. The arithmetic:
+
+| | bytes/second |
+|---|---|
+| emulator produces | 32264 × 2ch × 2B = **129,056** |
+| DAC consumes, **stereo** | 32000 × 2 × 2 = 128,000 (the documented 0.8% surplus) |
+| DAC consumes, **mono** | 32000 × 1 × 2 = **64,000** |
+
+Half the sink, so the write blocks twice as long: **50.4%**. Nick measured 50%.
+
+**Fix:** `audio->setMonoOutput(false)` alongside the rate, so it is set rather than inherited.
+Flashed 2026-08-14. ⚠ **Confirm two things in-game:** the pause menu's speed readout should be
+**green ≥97%** (it is drawn orange below that, `app_gbc.cpp:811-814`), **and game sound should
+still work** — forcing stereo also flips `codec.setAudioPath(!mono)`, which is the known-good
+historical state but has not been heard by ear since the change.
+
+⚠ **THE TRAP THAT MAKES THIS LOOK LIKE A CPU PROBLEM:** the adaptive frameskip
+(`app_gbc.cpp:942`) only drops **display** frames. It cannot speed up a game paced by audio, so
+at 50% it simply pins itself at maximum skip and stays there. **A maxed-out skip plus an orange
+speed readout reads as "the CPU is too slow" and here it meant the opposite.** The comment at
+`app_gbc.cpp:927` already warned about *"wrong rate after some phone sound reconfigured it"* —
+audio had throttled games to 13% once before.
+
+### 📖 5. Book sync has still never been on air
 Unchanged, and still the only thing that needs COVEY. Everything in the reader section below
 applies.
 

@@ -1,10 +1,28 @@
 # Changelog
 
-## Unreleased — stability
+## Unreleased — stability, and Game Boy speed
 
 A day spent on the phone restarting by itself. The cause is now identified and
-fixed, a settings screen that had been quietly broken works again, and the tools
-for reading what the phone was doing no longer make the problem worse.
+fixed, a settings screen that had been quietly broken works again, the Game Boy
+runs at full speed again, and the tools for reading what the phone was doing no
+longer make the problem worse.
+
+### 🎮 Game Boy back to full speed
+
+- **Games were running at half speed.** The emulator deliberately lets the audio
+  hardware set its pace — it hands over a frame of sound and waits for the
+  speaker to be ready for more, which keeps the game locked to real time with no
+  drift. But it only ever told the audio hardware *what rate* to play at, never
+  whether the sound was stereo, and it quietly relied on whatever the last thing
+  to use the speaker had left behind.
+  Once the music player started switching between stereo and mono to follow the
+  headphone jack, the Game Boy could inherit mono — and then the hardware drained
+  its sound at exactly half the expected rate, so the game waited twice as long
+  for every frame and ran at half speed. It now sets both, and never inherits.
+- ⚠ Note for the future: the on-screen speed readout going orange, and the
+  emulator dropping display frames to compensate, both look like "the processor
+  is too slow". Neither was. Skipping frames cannot fix a game that is being
+  paced by sound.
 
 ### 🔁 The random restarts
 
