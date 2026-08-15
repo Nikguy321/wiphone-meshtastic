@@ -180,9 +180,41 @@ on that.** It is flat *while idle* — 84 bytes over 67 idle minutes in the run 
 steps down hard every time an app opens. Watch **`largest`**, not `min` and not `free`. The
 three disagree, and only `largest` predicts the crash.
 
+### ✅ FIRST REAL EVIDENCE THE FIX WORKS (2026-08-15, Nick out of the house)
+An 85-minute run, **`wifi=1` (WL_NO_SSID_AVAIL — out of range) for essentially all of it**,
+which is the exact state that killed it in the car. Out of range, `WiPhone.ino:1667` retries
+every `WIFI_RETRY_PERIOD_MS` (20 s), so that window is **roughly 250 connect attempts** — each
+of which used to append a handler that was never removed, with the vector doubling as it grew.
+
+| up | largest | wifi |
+|---|---|---|
+| 29 min | 24,632 | 1 |
+| 45 min | 24,632 | 1 |
+| 61 min | 24,632 | 1 |
+| 77 min | 24,632 | 1 |
+| 85 min | **24,632** | 6 |
+
+**Not one byte of movement in 85 minutes, at nearly 3× the headroom the car run had** (which sat
+pinned at 8,848 and panicked at 143 min). ⚠ **HONEST LIMIT: the phone never ASSOCIATED in that
+window.** This validates the half where registrations accumulate on retries. It does **not** yet
+exercise the amplification half — one `GOT_IP` running the handler N times and churning the
+1,460-byte UDP buffers — which needs a successful rejoin after a long time out of range.
+
 **Where to look:** `/health.log` on the card. A line a minute; it survives both the reboot and
 being unplugged, so the reset reason of the run that died sits at the top of the next run's
 entries.
+
+⚠ **THE LOG USED TO DESTROY ITS OWN EVIDENCE, AND IT COST US ONE (fixed 2026-08-15).** At the
+96 KB cap it called `SD.remove()` on the whole file. On 2026-08-15 the phone rebooted while Nick
+was out, the log hit the cap 29 minutes later, and **the `BOOT reset_reason=` line for that
+reboot was deleted before anyone could read it** — the one number the investigation turns on.
+`healthLogTrim()` now copies the last **32 KB** (~4 hours) forward and swaps the file in, so
+there is always recent history. Streamed in a 512-byte stack buffer — a 32 KB allocation here
+would be self-defeating on this phone. Falls back to deleting if the copy fails, because an
+unbounded log is worse than a lost one. Also fixed the ordering: the size check now runs
+**before** the boot line is written, so a boot line can no longer be destroyed by the very call
+that wrote it. ⚠ **The trim path does not execute until the log next reaches 96 KB (~12 h at a
+line a minute), so it has NOT been exercised on hardware yet.**
 
 ```bash
 curl "http://wiphone.local/log?tail=6000"     # with any upload screen open

@@ -55,9 +55,17 @@ longer make the problem worse.
   not a stall, not the power being interrupted. The battery never dropped below
   3.99 V across the whole record, which rules that out entirely.
 
-- ⚠ **This is a strong candidate, not a proven cure.** The proof is time: several
-  days of normal use, with the phone going in and out of signal, and no restart.
-  Worth keeping an eye on rather than assuming it is done.
+- **First real evidence it worked.** An 85-minute stretch out of signal — the same
+  condition that caused a restart in the car — with the phone's free-memory figure
+  not moving by a single byte, at nearly three times the headroom the failing run
+  had. Still not a complete proof: the phone never rejoined a network in that
+  window, which is the other half of the problem.
+
+- **The health log no longer throws away its own evidence.** It kept a fixed
+  amount of history and, when full, deleted all of it and started again. That is
+  exactly what happened during a restart nobody was watching: the record of *why*
+  it restarted was erased half an hour later, before it could be read. It now
+  keeps the most recent few hours instead.
 
 ### 🧭 Settings
 

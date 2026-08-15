@@ -1258,7 +1258,69 @@ static uint32_t meshPopupShownMs = 0;
  * resource the music library also needs. At the cap it starts again with a marker, so the
  * most recent hours always survive. */
 #define HEALTH_LOG_PATH "/health.log"
+#define HEALTH_LOG_TMP  "/health.tmp"
 #define HEALTH_LOG_MAX  (96 * 1024)
+#define HEALTH_LOG_KEEP (32 * 1024)   // ~250 lines, ~4 hours, retained across a trim
+
+/* ── KEEP THE NEWEST HISTORY, NOT NONE OF IT ──────────────────────────────────────────
+ * This used to hit the cap and SD.remove() the whole file. That threw away the most
+ * recent hours at the exact moment they mattered: on 2026-08-15 the phone rebooted while
+ * Nick was out, the log wrapped 29 minutes later, and the BOOT reset_reason= line for
+ * that reboot — the one number the whole restart investigation turns on — was destroyed
+ * before anyone could read it.
+ *
+ * Now it copies the last HEALTH_LOG_KEEP bytes forward and swaps the file in, so there
+ * is always several hours of history no matter when you get to it.
+ *
+ * ⚠ Streamed in a 512-byte stack buffer, never loaded whole: internal heap is this
+ * phone's scarcest resource and a 32 KB allocation here would be self-defeating.
+ * ⚠ Runs roughly twice a day (64 KB of growth at ~130 bytes a line), so the one-off cost
+ * of copying 32 KB is not worth optimising further.
+ * Returns false if anything went wrong, and the caller then falls back to deleting —
+ * an unbounded log is worse than a lost one. */
+static bool healthLogTrim() {
+  File in = SD.open(HEALTH_LOG_PATH, FILE_READ);
+  if (!in) {
+    return false;
+  }
+  const size_t total = in.size();
+  if (total <= HEALTH_LOG_KEEP) {
+    in.close();
+    return true;                    // nothing to do
+  }
+  in.seek(total - HEALTH_LOG_KEEP);
+  while (in.available() && in.read() != '\n') {
+    ;                               // step over the partial line we landed in
+  }
+
+  SD.remove(HEALTH_LOG_TMP);        // a temp left by an interrupted trim
+  File out = SD.open(HEALTH_LOG_TMP, FILE_WRITE);
+  if (!out) {
+    in.close();
+    return false;
+  }
+  out.println("--- trimmed: older entries dropped, newest kept ---");
+  uint8_t buf[512];
+  bool ok = true;
+  while (in.available()) {
+    const size_t n = in.read(buf, sizeof(buf));
+    if (n == 0) {
+      break;
+    }
+    if (out.write(buf, n) != n) {
+      ok = false;                   // card full or write error: keep the original
+      break;
+    }
+  }
+  in.close();
+  out.close();
+  if (!ok) {
+    SD.remove(HEALTH_LOG_TMP);
+    return false;
+  }
+  SD.remove(HEALTH_LOG_PATH);
+  return SD.rename(HEALTH_LOG_TMP, HEALTH_LOG_PATH);
+}
 
 static void healthLogLine(const char* line) {
   if (!gui.state.cardPresent) {
@@ -1268,19 +1330,25 @@ static void healthLogLine(const char* line) {
   if (!f) {
     return;
   }
-  if (bootLine[0]) {
-    f.println("");
-    f.println(bootLine);      // why the last run ended, written once the card is up
-    bootLine[0] = '\0';
-  }
+
+  /* ⚠ Trim BEFORE writing the boot line, not after. The size check used to sit below it,
+   * so a boot line could be written and then immediately destroyed by the very same call
+   * that wrote it — losing the reset reason on exactly the boot that followed a long run. */
   if (f.size() > HEALTH_LOG_MAX) {
     f.close();
-    SD.remove(HEALTH_LOG_PATH);
+    if (!healthLogTrim()) {
+      SD.remove(HEALTH_LOG_PATH);   // last resort; never let it grow without bound
+    }
     f = SD.open(HEALTH_LOG_PATH, FILE_APPEND);
     if (!f) {
       return;
     }
-    f.println("--- wrapped ---");
+  }
+
+  if (bootLine[0]) {
+    f.println("");
+    f.println(bootLine);      // why the last run ended, written once the card is up
+    bootLine[0] = '\0';
   }
   f.println(line);
   f.close();
