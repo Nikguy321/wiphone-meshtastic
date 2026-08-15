@@ -1422,8 +1422,47 @@ bool GUI::inCall() {
   return !(state.sipState == CallState::NotInited || state.sipState == CallState::Idle || state.sipState == CallState::Error );
 }
 
+/* ── WHICH APP FRAGMENTS THE INTERNAL HEAP? ───────────────────────────────────────────
+ * Measured 2026-08-15: `largest` is DEAD FLAT while the screen is off — 12,156 bytes for
+ * 78 minutes, then 7,380 for 36 minutes — and takes a permanent step down on every
+ * screen-on episode, never recovering. It reached 3,084 and the phone panicked
+ * (reset_reason=4) at 157 minutes, with wifi=3 the whole run, so this is a second cause
+ * entirely separate from the WiFi handler leak that was fixed earlier.
+ *
+ * Every app is `new`d here, and this build has NO malloc->PSRAM diversion
+ * (CONFIG_SPIRAM_USE_CAPS_ALLOC without CONFIG_SPIRAM_USE_MALLOC), so every app object and
+ * every widget it owns is INTERNAL heap. Rather than guess across thirty app classes, this
+ * makes the phone name the one that costs contiguous space.
+ *
+ * The number that matters is the LAST one: if `largest` does not come back after the app is
+ * torn down again, that app fragmented the heap rather than merely using it.
+ *
+ * Writes to health.log as well as serial, so it is readable over WiFi without a cable.
+ * One line per app switch — infrequent, and the log now keeps its newest 32 KB. */
+extern void healthLogLine(const char* line);
+
+static void appHeapProbe(int id, uint32_t heapBefore, uint32_t largestBefore) {
+  const uint32_t heapAfter = ESP.getFreeHeap();
+  const uint32_t largestAfter = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+  char line[150];
+  snprintf(line, sizeof(line),
+           "APP id=%d heap %lu->%lu largest %lu->%lu (%+ld)",
+           id,
+           (unsigned long)heapBefore, (unsigned long)heapAfter,
+           (unsigned long)largestBefore, (unsigned long)largestAfter,
+           (long)largestAfter - (long)largestBefore);
+  log_e("%s", line);
+  healthLogLine(line);
+}
+
 void GUI::enterApp(ActionID_t app) {
   log_d("entering app");
+
+  /* Spans cleanAppDynamic() as well as the construction below, so the number reported is
+   * the NET cost of switching to this app — which is the figure that actually predicts the
+   * crash. */
+  const uint32_t probeHeap0 = ESP.getFreeHeap();
+  const uint32_t probeLargest0 = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
 
   // Free dynamic memory
   cleanAppDynamic();
@@ -1569,6 +1608,8 @@ void GUI::enterApp(ActionID_t app) {
   // Set current app
   curApp = app;
   log_d("entered app: %d", curApp);
+
+  appHeapProbe((int)app, probeHeap0, probeLargest0);
 }
 
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # #  APPEARANCE HELPERS  # # # # # # # # # # # # # # # # # # # # # # # # # # # #

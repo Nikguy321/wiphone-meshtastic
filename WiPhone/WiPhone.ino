@@ -1322,7 +1322,9 @@ static bool healthLogTrim() {
   return SD.rename(HEALTH_LOG_TMP, HEALTH_LOG_PATH);
 }
 
-static void healthLogLine(const char* line) {
+/* Not static: GUI.cpp's app-open heap probe writes here too, so the culprit lands in the
+ * same durable log everything else is read from. */
+void healthLogLine(const char* line) {
   if (!gui.state.cardPresent) {
     return;
   }
