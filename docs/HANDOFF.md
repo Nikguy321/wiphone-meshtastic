@@ -1,22 +1,79 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-14 · **`main` is pushed and clean at `d48e540`+.**
-⚠ **The phone runs a DEV BUILD that reports 0.9.1** — flashed twice over USB without a version
-bump, so the reported version no longer identifies what is installed. See below.
-**Next up (Nick, 2026-08-14: *"I will work the music crackling test tomorrow and keep an eye out
-for crashes"*):**
-1. **The one-press crackle test** — §3. Music playing, Back to the library list, screen still
-   lit. One press decides between a software fix and an electrical cause.
-2. **Watch for another `reset_reason=4`.** The restart fix is flashed but **unproven** — proof
-   is days of normal use, in and out of signal, with no panic. Read it with
-   `curl "http://<phone-ip>/log?tail=2000"`.
-3. Then **fold the crackle fix into 0.9.2 and install it over the air** — the plan Nick set,
-   and it would be the first OTA this phone has ever done.
+**Last updated:** 2026-08-15 · **`main` pushed and clean at `6ec323a`. Phone flashed with it
+over USB. Tests 841/841.** Version reports **0.9.2** and that is genuinely what is installed.
 
-⚠ **`wiphone.local` mDNS went stale once on 2026-08-14 when the phone changed networks** (it was
-`192.168.158.33` on the hotspot, then `192.168.1.57` on SmithWifi). It pinged but port 80 refused.
-**Resolve it first** — `dscacheutil -q host -a name wiphone.local` — and use the raw IP if in
-doubt; that fixed it immediately.
+## ▶ WHERE TO PICK UP (2026-08-15)
+
+**Nick's stated priorities, in his words: STABILITY and BATTERY LIFE on the WiPhone.** The
+audio crackle is explicitly **dropped** — *"Covey does music, so worst case it's just not great
+on the wiphone and I live with it."* Do not spend time on it.
+
+1. **Use the phone normally and watch for another `reset_reason=4`.** Two independent causes
+   were found and fixed today, both measured; a third is possible. **Silence is the result we
+   want and it needs stating out loud** — a few days of normal use, across signal drops and
+   Books sessions, with no restart, is the proof. Read the log with
+   `curl "http://<phone-ip>/log?tail=2000"` (an upload screen must be open), **or over USB,
+   which needs no server and no shared network.**
+2. **Node names should fill in on their own** now the node table evicts instead of freezing.
+   Stock firmware beacons every 3 h, so give it hours, not minutes.
+3. **Nothing else is queued.** Everything below is reference.
+
+### 🔑 THE ONE TOOL THAT MADE TODAY WORK — use it before theorising
+`GUI::enterApp()` carries an **app-open heap probe** that writes to `health.log` *and* serial:
+```
+APP id=16398 heap 15772->12492 largest 12284->9216 (-3068)     <- Books, before the fix
+APP id=16398 heap 15732->15316 largest 12208->12068 (-140)     <- after
+```
+It named the culprit on the first crash after being added, then **validated its own fix in the
+same log file** with starting conditions 76 bytes apart. App ids are `GUI_BASE_APP (16384) +
+ordinal`: **16388** CLOCK · **16389** SPLASH · **16392** PHONEBOOK · **16394** MESSAGES ·
+**16397** MESHTASTIC · **16398** BOOKS · **16399** MUSIC · **16406** DIAGNOSTICS ·
+**16409** NETWORKS · **16410** AUDIO_CONFIG · **16426** GBC.
+
+⚠ **`largest` is the number that predicts the crash.** `free` and `min` disagree with it and
+neither predicts anything. `min` is flat while idle and steps down only on events.
+
+### ⚠ THE BUG CLASS THAT PRODUCED FOUR OF TODAY'S SEVEN FAULTS
+**Component A writes shared state; component B reads it without setting it, so B's behaviour
+depends on what A did last.** The menu ID collision, the Game Boy's I2S channel format, the
+notification pop's device config, and the CPU gate's shared SIP predicate were all this.
+**Every consumer must set what it needs. Anything borrowing the audio device for a one-shot
+must `preserve()`/`restore()` around it.** When fixing one caller of a shared predicate, add a
+new predicate rather than editing the shared one.
+
+### ⚠ WHERE I WAS WRONG TODAY — recorded so it is not re-trusted
+- **OTA was never "ready but for a version bump".** The transport cannot work at all — see the
+  memory-wall section. I said otherwise before testing it.
+- **The WiFi scan screen was NOT a missing `scanDelete()`.** The framework frees results
+  itself. Right fix (5 s tick), wrong reason.
+- **`gaps:0` does NOT rule out audio starvation** — only *severe* starvation. A 5 ms dropout is
+  invisible to that counter and plainly audible.
+- **The mesh frequency was NOT mismatched.** `djb2("LongFast") % 104 = slot 19 = 906.875 MHz`,
+  exactly what is hardcoded. I had a tidy theory involving COVEY's 2.7.26 upgrade; it was wrong.
+
+⚠ **`wiphone.local` mDNS goes stale when the phone changes network** (seen at
+`192.168.158.33` on the hotspot, then `192.168.1.57` on SmithWifi). It pings but port 80
+refuses. **Resolve first** — `dscacheutil -q host -a name wiphone.local` — and use the raw IP
+if in doubt.
+
+---
+
+## ✅ WHAT SHIPPED 2026-08-15 (all measured, all on hardware)
+
+| | |
+|---|---|
+| **Restarts** | WiFi event handler re-registered on **every** connect retry — ~430 copies per car journey, each multiplying a 1,460-byte UDP churn on reconnect. Registered once now. |
+| **Restarts** | **Opening Books cost ~3 KB of contiguous internal heap, every time.** `BooksApp::operator new` → PSRAM. −3,068 → −140, validated by the probe. |
+| **Restarts** | Notification pops permanently reconfigured the audio device (6 parameters, none restored). `Audio::preserve()`/`restore()` implemented — they had been declared under a bare `// TODO` since the beginning. |
+| **Restarts** | `configureI2S()` reinstalled the driver — and its ~16 KB of internal DMA buffers — to change nothing. |
+| **Restarts** | The WiFi scan screen rebuilt its whole menu every second (and asked for 750 ms **per channel**, so a scan could never finish). Now 5 s. |
+| **Battery** | **CPU pinned at 240 MHz for 19+ min, screen off, out of range**, because `sipCallActive()` counts `HangUp` — a teardown state the phone can rest in forever with no proxy. Separate `sipNeedsFullSpeed()` for the CPU gate. |
+| **Game Boy** | Ran at **50%** because it set the I2S sample rate but **inherited** the channel format. Paced by a blocking `i2s_write`, a mono sink drains at half rate. Arithmetic matched to the decimal. |
+| **Menus** | Settings > WiFi auto-switch showed the Music icon and **opened Music** — duplicate menu ID. Now checked at boot. |
+| **Diagnostics** | `/log?tail=N`; the health log **keeps its newest 32 KB** instead of deleting everything; the app-open probe. |
+| **Book sync** | **Proved on air, both directions.** |
+| **Mesh** | Periodic NodeInfo, replies to `want_response`, editable short name, node table evicts instead of freezing. |
 
 Read this first to resume. One command tells you the codebase is healthy:
 
