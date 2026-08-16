@@ -293,6 +293,43 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   enterState(BOOKS_LIB);
 }
 
+/* ── THE APP OBJECT ITSELF GOES TO PSRAM ──────────────────────────────────────────────
+ * MEASURED, not guessed. The app-open heap probe in GUI::enterApp() named this app on real
+ * hardware, twice, on two separate runs that each panicked within a couple of minutes:
+ *
+ *   APP id=16398 (BOOKS)  largest 8,596 -> 5,732  (-2,864)   ... then PANIC at 3,084
+ *   APP id=16398 (BOOKS)  largest 12,284 -> 9,216 (-3,068)
+ *
+ * Every other app measured +0. Books was the only one with a real cost.
+ *
+ * The reason is that ~3 KB of this class is fixed members, and `new` puts all of it on the
+ * INTERNAL heap — this build has no malloc->PSRAM diversion at any size
+ * (CONFIG_SPIRAM_USE_CAPS_ALLOC without CONFIG_SPIRAM_USE_MALLOC), so size alone never saves
+ * you. `EpubBook book` alone is 1,584 bytes by value; add `BookSyncRecord pending` (~250),
+ * ids[3][72] (216), hist[48] (192), the three sync strings (108), libNote+headerTitle (160)
+ * and the base classes, and it lands almost exactly on the measured figures.
+ *
+ * ⚠ An earlier fix moved this app's ARRAYS to PSRAM (books/store/images/imgBoxes, 22,520
+ * bytes) and stopped there, leaving the object itself internal. That is why the phone kept
+ * panicking after opening a book even though the arrays were "already fixed".
+ *
+ * Overriding operator new for the class moves the entire object in one step, rather than
+ * converting a dozen members to pointers and touching every use of them. PSRAM has ~3.6 MB
+ * spare and this is a UI app: nothing here is DMA'd, touched from an ISR, or hot enough for
+ * the slower access to matter.
+ *
+ * ⚠ Falls back to internal heap if PSRAM is exhausted — refusing to open Books would be worse
+ * than opening it the old way. `free()` on ESP-IDF is region-agnostic, so one delete serves
+ * both. */
+void* BooksApp::operator new(size_t n) {
+  void* p = ps_malloc(n);
+  return p ? p : malloc(n);
+}
+
+void BooksApp::operator delete(void* p) {
+  free(p);
+}
+
 BooksApp::~BooksApp() {
   log_d("destroy BooksApp");
   closeBook(true);

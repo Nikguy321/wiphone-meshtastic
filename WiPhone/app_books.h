@@ -38,6 +38,12 @@
 
 class BooksApp : public WindowedApp {
 public:
+  /* ⚠ THE WHOLE OBJECT LIVES IN PSRAM. See the note on these in app_books.cpp — measured on
+   * hardware, `new BooksApp` was a single ~3 KB INTERNAL allocation and it is what fragmented
+   * the heap into the reset_reason=4 panics. Do not remove these without re-reading that note. */
+  static void* operator new(size_t n);
+  static void  operator delete(void* p);
+
   BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer);
   virtual ~BooksApp();
 

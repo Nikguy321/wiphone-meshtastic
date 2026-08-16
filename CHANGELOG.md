@@ -59,6 +59,16 @@ longer make the problem worse.
 
 ### 🔁 The random restarts
 
+- **Opening Books was quietly eating the phone's working memory.** Every time you
+  opened it, about 3 KB of the phone's small pool of contiguous memory went and
+  did not come back — and after enough opens, the next thing that needed a
+  contiguous block could not get one and the phone restarted. It now lives in the
+  large memory the phone has plenty of. Measured before and after: the cost of
+  opening Books fell from about 3,000 bytes to 140.
+- ⚠ Note for anyone reading older notes: Books' big *lists* were moved out of the
+  scarce memory a while ago, but the app itself was left behind. "Books was fixed"
+  was only half true, and the remaining half is what kept causing restarts.
+
 - **The likely cause is fixed.** Every time the phone tried to join WiFi it
   registered another copy of its network event handler, and never removed any of
   them. Out of range it retries every 20 seconds, so a drive with no signal

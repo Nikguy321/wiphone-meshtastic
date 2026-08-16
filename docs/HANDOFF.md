@@ -180,6 +180,45 @@ on that.** It is flat *while idle* — 84 bytes over 67 idle minutes in the run 
 steps down hard every time an app opens. Watch **`largest`**, not `min` and not `free`. The
 three disagree, and only `largest` predicts the crash.
 
+### 🎯 THE SECOND CAUSE, FOUND AND FIXED 2026-08-15: **opening Books cost ~3 KB, every time**
+**Nick's hypothesis was that the crashes were WiFi retrying while off-network. The data says
+no.** Second run of the car session: **`wifi=1` (out of range) for 16 straight minutes**, retrying
+every 20 s and auto-scanning every 2 min, with `largest` flat at ~15,000 — oscillating a few
+hundred bytes and never ratcheting. **The off-network path is clean; that is the WiFi handler fix
+holding.**
+
+**The app-open probe named the culprit on its first crash.** Every other app measured `+0`;
+Books measured, on two separate runs that each panicked within two minutes of it:
+```
+APP id=16398 (BOOKS)  largest  8,596 ->  5,732  (-2,864)   ... then 4,692, 3,084, PANIC
+APP id=16398 (BOOKS)  largest 12,284 ->  9,216  (-3,068)
+```
+**Cause:** `new BooksApp` is a single ~3 KB **internal** allocation. `EpubBook book` alone is
+**1,584 bytes by value** (measured on the host), plus `BookSyncRecord pending` ~250,
+`ids[3][72]` 216, `hist[48]` 192, the sync strings 108, `libNote`+`headerTitle` 160, and the base
+classes — landing right on the measured figures.
+
+⚠ **AN EARLIER FIX MOVED THIS APP'S ARRAYS TO PSRAM (22,520 bytes) AND STOPPED THERE, LEAVING
+THE OBJECT ITSELF INTERNAL.** That is why the phone kept panicking after opening a book even
+though the arrays were "already fixed". Do not read "Books was fixed" as meaning all of it was.
+
+**Fix:** `BooksApp::operator new` → `ps_malloc`, moving the whole object in one step instead of
+converting a dozen members to pointers. Falls back to internal if PSRAM is exhausted; `free()`
+is region-agnostic on ESP-IDF so one delete serves both.
+
+✅ **VALIDATED BY THE SAME PROBE, before and after in one log file:**
+```
+before:  APP id=16398  largest 12,284 -> 9,216   (-3,068)
+after:   APP id=16398  largest 12,208 -> 12,068    (-140)
+```
+Starting conditions **within 76 bytes**, so it is like-for-like. **95% reduction.** The residual
+−140 is the widgets, which are separate `new`s registered in `registeredWidgets`.
+
+⚠ **STILL OPEN, smaller:** `largest` fell **17,480 → 13,312 while the NETWORKS screen was open**
+— the manual *Scan WiFi networks* page, which is NOT the background auto-switch scan (the flat
+16 minutes above exonerates that one). Likely a missing `WiFi.scanDelete()`. Chase it after
+confirming Books.
+
 ### ✅ FIRST REAL EVIDENCE THE FIX WORKS (2026-08-15, Nick out of the house)
 An 85-minute run, **`wifi=1` (WL_NO_SSID_AVAIL — out of range) for essentially all of it**,
 which is the exact state that killed it in the car. Out of range, `WiPhone.ino:1667` retries
