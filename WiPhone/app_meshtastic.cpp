@@ -120,7 +120,9 @@ void MeshtasticApp::enterState(MeshAppState_t state) {
     break;
   case MESH_COMPOSE:
     header->setTitle(threadIsChannel ? "New message" : "Direct message");
-    footer->setButtons("Send", "Cancel");
+    // "Clear", not "Cancel": the key under this label is BACK, which is backspace inside a
+    // text field. Cancel is END, the button below it. See the WIPHONE_KEY_END cases below.
+    footer->setButtons("Send", "Clear");
     buildCompose();
     break;
   case MESH_VIEWMSG:
@@ -135,12 +137,12 @@ void MeshtasticApp::enterState(MeshAppState_t state) {
     break;
   case MESH_EDITNAME:
     header->setTitle("Edit name");
-    footer->setButtons("Save", "Cancel");
+    footer->setButtons("Save", "Clear");        // Back is backspace here; END cancels
     buildEditName();
     break;
   case MESH_EDITSHORT:
     header->setTitle("Short name");
-    footer->setButtons("Save", "Cancel");
+    footer->setButtons("Save", "Clear");        // Back is backspace here; END cancels
     buildEditShortName();
     break;
   }

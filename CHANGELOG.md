@@ -1,5 +1,48 @@
 # Changelog
 
+## Unreleased — typing, and honest buttons
+
+### ⌨️ Typing the same letter twice no longer means waiting
+
+- **The middle of the D-pad now means "yes, that letter".** Typing `AZAZ` was
+  always quick, because moving to a different key finishes the letter you were
+  on. Typing `AAA` was not: pressing `2` again cycles `a → b → c`, so the only
+  way to get a second `a` was to stop and wait two seconds. Now you press the
+  key, press OK, and it is committed — as fast as your thumbs go, the way old
+  phones worked.
+- **The two-second wait still works exactly as before.** OK is an extra way to
+  finish a letter, not a replacement, so nothing you already do stops working.
+- **Sending is unchanged.** The top-left **Send** key and the green call key
+  still finish the letter you are on *and* send, in one press. Only the middle
+  of the D-pad changed, and only while a letter is waiting.
+
+### 🏷️ The button under "Cancel" never cancelled
+
+- **Four screens labelled a button "Cancel" when it actually deletes a
+  character** — writing a message, editing your node name or short name, and the
+  book sync settings. The key under that label is backspace; cancelling is the
+  key *below* it. They now say **Clear**, which is what the rest of the phone
+  already called it.
+
+### 🔌 Firmware updates: honest instructions instead of a broken button
+
+- **Settings > Firmware update** used to offer a Check button that could only
+  ever fail. It now shows **step-by-step instructions for updating over USB**,
+  on the phone's own screen, so you can read them while holding the phone —
+  scroll with up/down, jump a page with left/right.
+- **Why the old one could not work:** the phone cannot open a secure connection
+  at all. It needs about 33 KB of fast memory to do so and has about 19 KB in
+  total. That is a hardware limit, not an expired certificate or a stale link,
+  and no amount of retrying was ever going to fix it.
+- **The phone also stopped trying at every startup.** It had been attempting that
+  same impossible connection on every single boot — quietly, with nothing on
+  screen to say so — and the attempt costs both time and the scarce memory the
+  phone then goes on to need. Measured on the device afterwards: the largest
+  block of free fast memory at startup went from about 14.4 KB to about 15.9 KB,
+  which is the number that decides whether the phone stays up.
+- The new screen costs the phone **less** memory than the settings form it
+  replaced, and does not allocate anything to display its text.
+
 ## 0.9.2 — book sync works, stability, and Game Boy speed
 
 ⚠ **Known limitation: over-the-air updates do not work on this phone**, and the

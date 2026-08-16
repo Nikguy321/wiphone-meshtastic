@@ -668,7 +668,22 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
     } else {
       // non-printable button pressed
       state.inputCurKey = 0;    // no button is active
-      r2 = key;
+
+      /* OK COMMITS THE HIGHLIGHTED CANDIDATE AND IS CONSUMED DOING IT.
+       * Pressing the same button twice cycles the candidate instead of committing it, so
+       * without this "aaa" costs two full KEYPAD_IDLE_MS waits. OK is the old-phone answer:
+       * tap, OK, tap, OK, as fast as the fingers go. The timeout still commits on its own —
+       * this is an ADDITIONAL way to commit, not a replacement.
+       *
+       * r1 is non-zero here only when the block above just committed a character, which is
+       * exactly when the footer is showing the candidate strip. With nothing pending r1 is 0,
+       * so OK falls through to the app unchanged and every screen that uses it to send/save
+       * behaves as before. Only WIPHONE_KEY_OK is taken: CALL and SELECT are also
+       * LOGIC_BUTTON_OK on this keyboard and still fire outright, so CALL remains a one-press
+       * "send now" even with a letter pending. */
+      if (key != WIPHONE_KEY_OK || !r1) {
+        r2 = key;
+      }
     }
   }
   if (!r1) {
@@ -1826,213 +1841,197 @@ appEventResult ThreadedApp::processEvent(EventType event) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Ota app  - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+/* The page. '#' at the start of a line marks a heading; it is not printed.
+ *
+ * Every command here was checked against this repo before being written down: the README's
+ * flashing section and platformio.ini. Note there is NO --upload-speed option on `pio run`
+ * (checked with `pio run --help`) — a slow adapter needs platformio.ini edited, so that is
+ * what the text says. Anyone reading this is standing at a computer with a broken phone; do
+ * not make them debug an invented flag. */
+const char* const OtaApp::helpText[] = {
+  "#Updates over the air: OFF",
+  "",
+  "This build cannot install",
+  "updates over the air, and it",
+  "never could. The secure",
+  "download needs about 33 KB of",
+  "free internal memory; the",
+  "phone has about 19 KB in",
+  "total. The connection can",
+  "never open. It is a memory",
+  "limit, not a broken link.",
+  "",
+  "Update over USB instead. It",
+  "takes about five minutes.",
+  "",
+  "#What you need",
+  "",
+  "A computer, a USB cable, and",
+  "Python 3 installed.",
+  "",
+  "#1. Install PlatformIO",
+  "",
+  "  pip3 install -U platformio",
+  "",
+  "#2. Get the firmware",
+  "",
+  "On the computer, open:",
+  "",
+  "  github.com/Nikguy321/",
+  "    wiphone-meshtastic",
+  "",
+  "Use the green Code button to",
+  "download or clone it, then",
+  "open a terminal in that",
+  "folder.",
+  "",
+  "#3. Plug the phone in",
+  "",
+  "Connect it by USB. Windows",
+  "and Linux may need the",
+  "Silicon Labs CP210x driver.",
+  "macOS already has it.",
+  "",
+  "#4. Flash it",
+  "",
+  "  pio run -t upload",
+  "",
+  "That builds and installs the",
+  "firmware. The phone reboots",
+  "on its own when it is done.",
+  "",
+  "#5. First time only",
+  "",
+  "On a phone that has never had",
+  "this firmware, also send the",
+  "support files (fonts, sounds,",
+  "settings):",
+  "",
+  "  pio run -t uploadfs",
+  "",
+  "#If the upload fails",
+  "",
+  "Some USB adapters cannot hold",
+  "full speed. Open platformio",
+  ".ini, change upload_speed to",
+  "230400, and try again.",
+  "",
+  "If no port is found, run",
+  "pio device list and add",
+  "--upload-port <your-port>.",
+  "",
+  "#More",
+  "",
+  "The README on the GitHub page",
+  "above has the long version,",
+  "and CHANGELOG.md lists what",
+  "changed in each release.",
+  "",
+};
+const int OtaApp::helpLines = sizeof(OtaApp::helpText) / sizeof(OtaApp::helpText[0]);
+
 OtaApp::OtaApp(LCD& lcd, ControlState& state, HeaderWidget* header, FooterWidget* footer) :
-  WindowedApp(lcd, state, header, footer), FocusableApp(2), updateAvailable(false), manualUpdateRequested(false), manualCheckRequested(false), installBtnAdded(false) {
-  log_d("OtaAPP constructor");
+  WindowedApp(lcd, state, header, footer) {
+  log_d("OtaApp constructor");
 
-  Ota ota("");
+  /* ⚠ SET WHAT THIS SCREEN NEEDS, do not inherit it. msAppTimerEventPeriod is device-wide and
+   * apps routinely leave their own value in it (the Game Boy leaves 250 ms, others 25 ms). A
+   * page of static text needs no timer at all, and inheriting someone else's would wake the
+   * CPU for nothing — this is the shared-state bug class that produced four faults in one day. */
+  controlState.msAppTimerEventPeriod = 0;
 
-  controlState.msAppTimerEventLast = millis();
-  controlState.msAppTimerEventPeriod = 500;
-
-  // Create and arrange widgets
   header->setTitle("Firmware Update");
-  footer->setButtons("Save", "Clear");
+  footer->setButtons("", "Back");
 
-  clearRect = new RectWidget(0, header->height(), lcd.width(), lcd.height() - header->height() - footer->height(), WP_COLOR_1);
+  bodyTop = header->height();
+  bodyHeight = lcd.height() - header->height() - footer->height();
 
-  // State caption in the middle
-  const uint16_t spacing = 4;
-  uint16_t yOff = header->height() + 26;
-
-  urlLabel = new LabelWidget(0, yOff, lcd.width(), 25, "URL:", WP_ACCENT_1, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
-  yOff += urlLabel->height();
-
-  url = new TextInputWidget(0, yOff, lcd.width(), 35, controlState, 100, fonts[AKROBAT_BOLD_20], InputType::AlphaNum, 8);
-
-  url->setText(ota.getIniUrl());
-  yOff += url->height();
-
-  autoLabel = new LabelWidget(0, yOff, lcd.width(), 25, "Auto Update:", WP_ACCENT_1, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
-  yOff += autoLabel->height();
-
-  autoUpdate = new ChoiceWidget(0, yOff, lcd.width(), 35);
-  autoUpdate->addChoice("Yes");
-  autoUpdate->addChoice("No");
-  yOff += autoUpdate->height();
-
-  if (ota.autoUpdateEnabled()) {
-    autoUpdate->setValue(0);
-  } else {
-    autoUpdate->setValue(1);
+  const int lh = fonts[AKROBAT_BOLD_16]->height();
+  visibleLines = lh > 0 ? bodyHeight / lh : 1;
+  if (visibleLines < 1) {
+    visibleLines = 1;
   }
-
-  char device_version[400] = {0};
-  snprintf(device_version, sizeof(device_version), "Dev: %s  Srv: ", FIRMWARE_VERSION);
-
-  deviceVersion = new LabelWidget(0, yOff, lcd.width(), 25, device_version, WP_ACCENT_1, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
-  yOff += deviceVersion->height();
-
-  lastInstall = new LabelWidget(0, yOff, lcd.width(), 25, "", WP_ACCENT_1, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
-  yOff += lastInstall->height();
-
-  checkForUpdates = new ButtonWidget(0, yOff, "Check");
-  reset = new ButtonWidget(60, yOff, "Reset");
-  installUpdates = new ButtonWidget(120, yOff, "Install");
-
-  setDataFromOtaFile(ota);
-
-  addFocusableWidget(url);
-  addFocusableWidget(autoUpdate);
-  addFocusableWidget(checkForUpdates);
-  addFocusableWidget(reset);
-  addFocusableWidget(installUpdates);
-
-  if (ota.updateExists(false)) {
-    installBtnAdded = true;
-  }
-
-  setFocus(url);
-}
-
-void OtaApp::setDataFromOtaFile(Ota &o, bool errorAsUpdate) {
-  char last_install[400] = {0};
-  const char* error_code = o.getLastErrorCode();
-  const char* error_string = o.getLastErrorString();
-
-  if (errorAsUpdate && (strcmp(error_code, "") == 0 || strcmp(error_code, "0") == 0)) {
-    if (o.updateExists(false)) {
-      snprintf(last_install, sizeof(last_install), "Update available");
-    } else {
-      snprintf(last_install, sizeof(last_install), "No Updates");
-    }
-  } else {
-    if (strcmp(error_code, "") == 0 || strcmp(error_code, "0") == 0) {
-      snprintf(last_install, sizeof(last_install), "No error", FIRMWARE_VERSION);
-    } else {
-      snprintf(last_install, sizeof(last_install), "Error: %s - %s", error_code, error_string);
-    }
-  }
-
-
-  lastInstall->setText(last_install);
-
-  char device_version[400] = {0};
-  snprintf(device_version, sizeof(device_version), "Dev: %s  Srv: %s", FIRMWARE_VERSION, o.getServerVersion());
-  deviceVersion->setText(device_version);
 }
 
 OtaApp::~OtaApp() {
-  delete urlLabel;
-  delete url;
-  delete autoLabel;
-  delete autoUpdate;
-  delete deviceVersion;
-  delete lastInstall;
-  delete checkForUpdates;
-  delete reset;
-  delete installUpdates;
+  // Nothing to free: the page is string literals in flash and the rest is plain ints.
 }
+
 appEventResult OtaApp::processEvent(EventType event) {
-  appEventResult res = DO_NOTHING;
-  FocusableWidget* focusedWidget = getFocused();
+  const int maxFirst = (helpLines > visibleLines) ? (helpLines - visibleLines) : 0;
+  const int before = firstLine;
 
-  if (manualUpdateRequested) {
-    Ota o("");
-    o.setUserRequestedUpdate(true);
-    o.reset();
-    ESP.restart();
-  }
-
-  if (manualCheckRequested) {
-    manualCheckRequested = false;
-    bool updates = true;
-    Ota o("");
-    if (o.updateExists(true)) {
-      if (!installBtnAdded) {
-        addFocusableWidget(installUpdates);
-        installBtnAdded = true;
-      }
-    }
-
-    setDataFromOtaFile(o, updates);
-    res |= REDRAW_SCREEN;
-    log_d("Returning from ota check");
-    return res;
-  }
-
-  if (focusedWidget != checkForUpdates) {
-    footer->setButtons("Save", "Clear");
-    res |= REDRAW_SCREEN;
-  }
-
-  if (event == WIPHONE_KEY_END) {     // the button below BACK, which, it turn, is used as backspace
+  if (LOGIC_BUTTON_BACK(event)) {
+    // No text field on this screen, so Back is free to mean Back (it is backspace elsewhere).
     return EXIT_APP;
-  } else if (event == WIPHONE_KEY_UP || event == WIPHONE_KEY_DOWN) {
-    nextFocus(event == WIPHONE_KEY_DOWN);
-  } else if (event == WIPHONE_KEY_OK && focusedWidget == checkForUpdates) {
-    manualCheckRequested = true;
-    lastInstall->setText("Checking...");
-    res |= REDRAW_SCREEN;
-  } else if (event == WIPHONE_KEY_OK && focusedWidget == reset) {
-    Ota o("");
-    o.resetIni();
-    url->setText(o.getIniUrl());
-    if (o.autoUpdateEnabled()) {
-      autoUpdate->setValue(0);
-    } else {
-      autoUpdate->setValue(1);
-    }
-    res |= REDRAW_SCREEN;
-  } else if (event == WIPHONE_KEY_OK && focusedWidget == installUpdates) {
-    manualUpdateRequested = true;
-    lastInstall->setText("Restarting...");
-    res |= REDRAW_SCREEN;
-  } else if (LOGIC_BUTTON_OK(event)) {
-
-    // Save the current settings
-    Ota o("");
-    o.ensureUserVersion();
-    o.setIniUrl(url->getText());
-
-    switch (autoUpdate->getValue()) {
-    case 0: // yes
-      o.saveAutoUpdate(true);
-      break;
-    case 1: // no
-      o.saveAutoUpdate(false);
-      break;
-    }
-
-    return EXIT_APP;
+  } else if (event == WIPHONE_KEY_DOWN) {
+    firstLine++;
+  } else if (event == WIPHONE_KEY_UP) {
+    firstLine--;
+  } else if (event == WIPHONE_KEY_RIGHT) {
+    firstLine += visibleLines;          // page down
+  } else if (event == WIPHONE_KEY_LEFT) {
+    firstLine -= visibleLines;          // page up
   } else {
-    ((GUIWidget*) getFocused())->processEvent(event);
-    res |= REDRAW_SCREEN;
+    return DO_NOTHING;
   }
 
-  return res;
+  if (firstLine > maxFirst) {
+    firstLine = maxFirst;
+  }
+  if (firstLine < 0) {
+    firstLine = 0;
+  }
+
+  return firstLine != before ? REDRAW_SCREEN : DO_NOTHING;
 }
 
 void OtaApp::redrawScreen(bool redrawAll) {
-  log_d("Redraw screen");
-  //if (!screenInited || redrawAll) {
-  log_d("redraw all");
-  // Initialize screen
-  ((GUIWidget*) clearRect)->redraw(lcd);
+  SmoothFont* font = fonts[AKROBAT_BOLD_16];
+  const int lh = font->height();
+  const uint16_t sideMargin = 8;
+  const uint16_t barWidth = 3;
 
-  ((GUIWidget*) urlLabel)->redraw(lcd);
-  ((GUIWidget*) url)->redraw(lcd);
-  ((GUIWidget*) autoLabel)->redraw(lcd);
-  ((GUIWidget*) autoUpdate)->redraw(lcd);
-  ((GUIWidget*) deviceVersion)->redraw(lcd);
-  ((GUIWidget*) lastInstall)->redraw(lcd);
-  ((GUIWidget*) checkForUpdates)->redraw(lcd);
-  ((GUIWidget*) reset)->redraw(lcd);
+  lcd.fillRect(0, bodyTop, lcd.width(), bodyHeight, WP_COLOR_1);
 
-  if (installBtnAdded) {
-    ((GUIWidget*) installUpdates)->redraw(lcd);
+  lcd.setTextFont(font);
+  lcd.setTextDatum(TL_DATUM);
+
+  for (int row = 0; row < visibleLines; row++) {
+    const int i = firstLine + row;
+    if (i >= helpLines) {
+      break;
+    }
+    const char* line = helpText[i];
+
+    // A leading '#' marks a heading: drawn in the accent colour, marker not printed.
+    colorType color = WP_COLOR_0;
+    if (line[0] == '#') {
+      color = WP_ACCENT_1;
+      line++;
+    }
+    if (!line[0]) {
+      continue;     // blank spacer line: the fillRect above already cleared it
+    }
+
+    lcd.setTextColor(color, WP_COLOR_1);
+    lcd.drawString(line, sideMargin, bodyTop + row * lh);
   }
-  screenInited = true;
+
+  // Scrollbar, so it is obvious there is more below. Rectangles only — no glyph needed.
+  if (helpLines > visibleLines) {
+    const uint16_t x = lcd.width() - barWidth - 2;
+    const int maxFirst = helpLines - visibleLines;
+
+    uint16_t thumb = (uint16_t)((uint32_t)bodyHeight * visibleLines / helpLines);
+    if (thumb < 10) {
+      thumb = 10;
+    }
+    const uint16_t y = bodyTop + (uint16_t)((uint32_t)(bodyHeight - thumb) * firstLine / maxFirst);
+
+    lcd.fillRect(x, bodyTop, barWidth, bodyHeight, WP_DISAB_1);
+    lcd.fillRect(x, y, barWidth, thumb, WP_ACCENT_1);
+  }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  MyApp demo app  - - - - - - - - - - - - - - - - - - - - - - - - - - - -

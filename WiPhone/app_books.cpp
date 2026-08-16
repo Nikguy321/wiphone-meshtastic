@@ -1578,7 +1578,7 @@ void BooksApp::enterState(BooksState_t state) {
     break;
   case BOOKS_SYNCEDIT:
     header->setTitle(editingPass ? "Passcode" : "Device name");
-    footer->setButtons("Save", "Cancel");
+    footer->setButtons("Save", "Clear");        // Back is backspace here; END cancels
     buildSyncEdit();
     break;
   }

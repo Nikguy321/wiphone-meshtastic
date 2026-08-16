@@ -21,6 +21,23 @@ governing permissions and limitations under the License.
 #include <Update.h>
 #include <string>
 
+/* 🛑 OTA IS DISABLED AT SOURCE, AND THIS IS THE SWITCH.
+ *
+ * The transport cannot work on this build. The TLS handshake needs ~33 KB of internal heap
+ * (mbedTLS allocates a 16 KB IN buffer AND a 16 KB OUT buffer per CONFIG_MBEDTLS_SSL_MAX_
+ * CONTENT_LEN, and CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC is NOT set, so none of it may come from
+ * PSRAM) while this phone has ~19 KB of internal heap in TOTAL and ~14.9 KB contiguous on a
+ * fresh boot. It fails inside client->connect() before one byte of HTTP — the `-301` error
+ * and the `start_ssl_client: -1` line that has been in every boot log all along.
+ *
+ * ⚠ Why a hard gate and not just "turn auto-update off": autoUpdateEnabled() DEFAULTS TO TRUE
+ * (it returns false only if the ini explicitly says "no"), and the screen that used to set it
+ * is gone. Without this, every boot spends its time on a handshake that cannot succeed.
+ *
+ * Set to 1 only when the TRANSPORT actually changes — a plain-HTTP mirror, or a TLS stack that
+ * can allocate from PSRAM. Turning it back on without that just restores the failure. */
+#define OTA_TRANSPORT_AVAILABLE   0
+
 #define OTA_UPDATE_CHECK_INTERVAL 60*1000*60
 /* Updates come from Nick's own repo now — wiphone.io's manifest is long gone.
  *

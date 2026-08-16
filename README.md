@@ -12,7 +12,6 @@ ESP32 cell phone) that adds:
   while you use the rest of the phone),
 - an **e-reader** (EPUB and text, pictures inline, your place saved, and
   position sync to another device over LoRa),
-- **over-the-air firmware updates** from this repo,
 - and phone quality-of-life fixes (real battery life, WiFi auto-switching,
   input reliability).
 
@@ -128,21 +127,37 @@ untouched.
 
 ---
 
-## Firmware updates over the air
+## Firmware updates
 
-**Settings > Firmware settings** checks this repo and installs a newer build.
+**Updates are installed over USB.** See [Flashing](#flashing-beginner-friendly)
+below — it is the same `pio run -t upload` you used the first time, and it keeps
+your settings, books, ROMs and messages.
 
-The phone reads `ota/wiphone-ota.ini` from `main`, compares its `version` against
-the running firmware, and offers the update only if it is higher.
+**Settings > Firmware update** on the phone shows those steps on the screen, so
+you can read them with the phone in your hand.
 
-To publish one:
+### Why there is no over-the-air update
 
-```bash
-tools/publish_ota.sh 0.9.1     # builds, stages ota/, bumps the version
-git add -A && git commit -m "Release 0.9.1" && git push
-```
+The phone cannot open an HTTPS connection, so it can never download an update by
+itself. This is a memory limit, not a broken link or an expired certificate:
 
-For a public repo, pushing *is* releasing — the phone reads straight from `main`.
+| | |
+|---|---|
+| mbedTLS needs (`CONFIG_MBEDTLS_SSL_MAX_CONTENT_LEN` 16384, in **and** out buffers) | **~33 KB** |
+| may any of it come from PSRAM? (`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC`) | **no, not set** |
+| free internal heap on this phone | **~19 KB** |
+| largest contiguous internal block, fresh boot | **~14.9 KB** |
+
+The TLS handshake fails in `client->connect()` before a single byte of HTTP.
+It is not close, and it is not fragmentation — there is not enough internal heap
+even on a perfectly clean boot. The OTA controls have been removed rather than
+left to report an error every time, and the boot-time update check is compiled
+out entirely (`OTA_TRANSPORT_AVAILABLE` in `WiPhone/ota.h`) so the phone no
+longer spends part of every startup on a connection that cannot open.
+
+Changing this means changing the **transport** — a plain-HTTP mirror, or a TLS
+stack that can allocate from PSRAM — not the URL. The code is still there and
+still builds; flip `OTA_TRANSPORT_AVAILABLE` to `1` once the transport is real.
 
 ## Applying a channel setup link
 

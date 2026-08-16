@@ -1287,7 +1287,23 @@ protected:
   TaskHandle_t xHandle;
 };
 
-class OtaApp : public WindowedApp, FocusableApp {
+/* Firmware update screen — a scrollable page of USB flashing instructions.
+ *
+ * ⚠ THE OTA CONTROLS ARE GONE ON PURPOSE. OTA cannot work on this build and it is not a URL,
+ * a certificate or a fragmentation problem: the TLS handshake needs ~33 KB of internal heap
+ * (mbedTLS allocates a ~16 KB IN buffer AND a ~16 KB OUT buffer, and
+ * CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC is NOT set, so none of it may come from PSRAM) while this
+ * phone has ~19 KB of internal heap in total and ~14.9 KB contiguous on a FRESH boot. It fails
+ * at client->connect() before one byte of HTTP — that is the `-301` error and the
+ * `start_ssl_client: -1` line in every boot log. Leaving a Check button that can only ever
+ * report an error is worse than saying so plainly, so the screen explains USB instead.
+ *
+ * The text is a static array of string literals, so it lives in flash and costs ZERO heap to
+ * display. That is deliberate: this phone's crashes are internal-heap FRAGMENTATION, and the
+ * obvious MultilineTextWidget approach strdup()s one row per line on every open — dozens of
+ * small internal allocations for a page that never changes. Drawing straight from flash also
+ * makes this screen cheaper than the OTA form it replaces, which built nine widgets. */
+class OtaApp : public WindowedApp {
 public:
   OtaApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer);
   virtual ~OtaApp();
@@ -1298,31 +1314,15 @@ public:
   void redrawScreen(bool redrawAll=false);
 
 protected:
+  /* The page itself. A leading '#' marks a heading and is not printed — see redrawScreen().
+   * Keep lines short enough for AKROBAT_BOLD_16 at this screen width; there is no wrapping. */
+  static const char* const helpText[];
+  static const int helpLines;
 
-  void setDataFromOtaFile(Ota &o,bool errorAsUpdate=false);
-
-  bool screenInited = false;
-
-  // WIDGETS
-  RectWidget* clearRect;
-
-  LabelWidget*  urlLabel;
-  LabelWidget*  autoLabel;
-
-  TextInputWidget* url;
-  ChoiceWidget* autoUpdate;
-
-  LabelWidget* deviceVersion;
-  LabelWidget* lastInstall;
-
-  ButtonWidget* checkForUpdates;
-  ButtonWidget* reset;
-  ButtonWidget* installUpdates;
-
-  bool updateAvailable;
-  bool manualUpdateRequested;
-  bool manualCheckRequested;
-  bool installBtnAdded;
+  int firstLine   = 0;    // index of the topmost visible line
+  int visibleLines = 1;   // how many fit between header and footer
+  uint16_t bodyTop = 0;
+  uint16_t bodyHeight = 0;
 };
 
 class MyApp : public WindowedApp, FocusableApp {
@@ -2598,7 +2598,7 @@ protected:
     { 30, 5, "Audio settings", "", "", GUI_APP_AUDIO_CONFIG },
     { 33, 5, "Screen config", "", "", GUI_APP_SCREEN_CONFIG },
     { 32, 5, "Time offset", "", "", GUI_APP_TIME_CONFIG },
-    {37, 5, "Firmware settings", "", "", GUI_APP_OTA}
+    {37, 5, "Firmware update", "", "", GUI_APP_OTA}   // now a USB how-to; OTA cannot work (see OtaApp)
   };
 
   const char* alphNum[11] = {

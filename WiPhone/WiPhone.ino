@@ -921,15 +921,21 @@ void setup() {
     }
   }
 
+#if OTA_TRANSPORT_AVAILABLE
+  /* ⚠ updateExists() is the NETWORK call — it is what opens the TLS connection. It must stay
+   * to the RIGHT of the cheap local predicates, because && short-circuits left to right. It
+   * used to sit to their LEFT, so the handshake ran on every boot whatever the settings said,
+   * and autoUpdateEnabled() defaults to true so the gate would not have saved it either. */
   if (!ota.hasJustUpdated() && ota.userRequestedUpdate()) {
     gui.drawOtaUpdate();
     ota.doUpdate();
-  } else if (!ota.hasJustUpdated() && ota.updateExists() && (ota.autoUpdateEnabled() || ota.userRequestedUpdate())) {
+  } else if (!ota.hasJustUpdated() && (ota.autoUpdateEnabled() || ota.userRequestedUpdate()) && ota.updateExists()) {
     gui.drawOtaUpdate();
     ota.doUpdate();
   }
 
   ota.setUserRequestedUpdate(false);
+#endif // OTA_TRANSPORT_AVAILABLE
 
   static Audio audio_local(true, I2S_BCK_PIN, I2S_WS_PIN, I2S_MOSI_PIN, I2S_MISO_PIN);
   audio = &audio_local;
