@@ -1,23 +1,55 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-15 · **`main` pushed and clean at `6ec323a`. Phone flashed with it
-over USB. Tests 841/841.** Version reports **0.9.2** and that is genuinely what is installed.
+**Last updated:** 2026-08-16 · **`main` pushed and clean at `bdca077`. Phone flashed with it
+over USB and booted clean (`reset_reason=1`). Tests 841/841.** Version still reports **0.9.2**;
+the CHANGELOG's top section is **"Unreleased"** — bump `FIRMWARE_VERSION` when you release.
 
-## ▶ WHERE TO PICK UP (2026-08-15)
+## ▶ WHERE TO PICK UP (2026-08-16)
 
 **Nick's stated priorities, in his words: STABILITY and BATTERY LIFE on the WiPhone.** The
 audio crackle is explicitly **dropped** — *"Covey does music, so worst case it's just not great
 on the wiphone and I live with it."* Do not spend time on it.
 
-1. **Use the phone normally and watch for another `reset_reason=4`.** Two independent causes
-   were found and fixed today, both measured; a third is possible. **Silence is the result we
-   want and it needs stating out loud** — a few days of normal use, across signal drops and
+### ✅ Shipped 2026-08-16 — typing, honest labels, and OTA switched off at source
+
+**Nothing here is queued work; it is all done, flashed and pushed.** Listed because three of
+the four are behaviour changes you will notice in the hand.
+
+| | |
+|---|---|
+| **Typing** | **The D-pad centre now commits the highlighted multi-tap letter and is consumed doing it** ([`GUI.cpp`](../WiPhone/GUI.cpp), `alphanumericInputEvent`). `AAA` is tap-OK-tap-OK instead of two 2 s waits. The timeout is UNCHANGED — OK is an extra way to commit, not a replacement. Only `WIPHONE_KEY_OK` is taken, so **CALL and the top-left Send still commit AND send in one press**. ⚠ On mesh compose, sending after typing is now two OK presses (commit, then send) or one CALL. |
+| **Labels** | Four screens said **"Cancel"** on a key that is **backspace** (mesh compose, edit name, short name, book sync editor). Now **"Clear"**, matching what GUI.cpp already used everywhere. Cancel is **END**, the key below Back. |
+| **OTA screen** | **Settings > Firmware update** is now a scrollable USB how-to, not a form. Up/down = line, left/right = page, Back exits. Text is string literals drawn from flash: **zero heap**, deliberately — `MultilineTextWidget` would `strdup` a row per line on every open. **896 B less static RAM, 2.5 KB less flash** than the form it replaced. |
+| **OTA at boot** | **The every-boot TLS attempt is gone.** Gated on **`OTA_TRANSPORT_AVAILABLE` (0) in `WiPhone/ota.h`** — flip to 1 only when the TRANSPORT changes. `start_ssl_client: -1` no longer appears in the boot log. |
+
+⚠ **Two traps worth keeping, found while doing this:**
+- **`ota.updateExists()` is the NETWORK call** and it sat to the **LEFT** of the cheap local
+  predicates, so `&&` short-circuiting never protected it. Fixed underneath the gate for
+  whenever OTA is real again.
+- **`autoUpdateEnabled()` DEFAULTS TO TRUE** — it returns false only if the ini literally says
+  `"no"`. So "just turn auto-update off" was never a fix, and is now impossible anyway because
+  the screen that set it is gone. That is why the gate is a compile-time switch, not a setting.
+
+📊 **Measured either side of the OTA-at-boot change:** fresh-boot `largest` went **14,388 →
+15,860**. ⚠ **One sample each and NOT under identical conditions** (the second was screen-on at
+240 MHz, which normally makes `largest` worse) — the direction is trustworthy, the exact number
+is not.
+
+### ▶ THE ACTUAL OPEN ITEMS
+
+1. **Try the new typing behaviour and say whether it feels right.** Built and flashed but
+   **never used by a human** — the host tests do not cover `GUI.cpp` (it needs Arduino), so
+   thumbs are the only verification. The open question is whether two OK presses to send on
+   mesh compose is annoying in practice.
+2. **Use the phone normally and watch for another `reset_reason=4`.** Two independent causes
+   were found and fixed 2026-08-15, both measured; a third is possible. **Silence is the result
+   we want and it needs stating out loud** — a few days of normal use, across signal drops and
    Books sessions, with no restart, is the proof. Read the log with
    `curl "http://<phone-ip>/log?tail=2000"` (an upload screen must be open), **or over USB,
    which needs no server and no shared network.**
-2. **Node names should fill in on their own** now the node table evicts instead of freezing.
+3. **Node names should fill in on their own** now the node table evicts instead of freezing.
    Stock firmware beacons every 3 h, so give it hours, not minutes.
-3. **Nothing else is queued.** Everything below is reference.
+4. **Nothing else is queued.** Everything below is reference.
 
 ### 🔑 THE ONE TOOL THAT MADE TODAY WORK — use it before theorising
 `GUI::enterApp()` carries an **app-open heap probe** that writes to `health.log` *and* serial:
@@ -635,6 +667,15 @@ the expired-pinned-cert fix. **That fix was real and necessary but it was never 
 story** — the phone still cannot open the connection. So "**OTA has never actually installed
 anything**" was never about caution or bad luck: **it has never been able to.** Do not re-plan
 around OTA until the transport is changed.
+
+✅ **ACTED ON 2026-08-16.** The UI is gone (Settings > Firmware update is now a USB how-to) and
+the boot-time attempt is **compiled out** behind `OTA_TRANSPORT_AVAILABLE` in `WiPhone/ota.h`.
+`start_ssl_client: -1` no longer appears in the boot log. **Flip that macro to 1 only when the
+transport itself changes** — the download code is intact and still builds, so it is one line
+when there is something for it to talk to. ⚠ Two things learned doing it: `ota.updateExists()`
+is the network call and it sat to the **LEFT** of the cheap predicates so `&&` never guarded it
+(fixed underneath the macro), and **`autoUpdateEnabled()` defaults to TRUE**, so turning
+auto-update "off" was never going to stop the attempt.
 
 **Options, ranked:**
 1. **USB.** 55 s, hash-verified, ~10 times in one day without a hitch. This is the working path.
