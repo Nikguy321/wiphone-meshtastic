@@ -37,10 +37,35 @@ is not.
 
 ### ▶ THE ACTUAL OPEN ITEMS
 
-1. **Try the new typing behaviour and say whether it feels right.** Built and flashed but
-   **never used by a human** — the host tests do not cover `GUI.cpp` (it needs Arduino), so
-   thumbs are the only verification. The open question is whether two OK presses to send on
-   mesh compose is annoying in practice.
+1. 🔜 **NEXT UP, AGREED WITH NICK 2026-08-16: move the cursor with LEFT/RIGHT while typing.**
+   *"I want to be able to use the right and left arrow pads to scroll a cursor through the
+   message I wrote so I can backspace and re-add letters in case of typos... right now I'd
+   have to backspace everything to fix a wrong letter at the beginning."* Wanted on Meshtastic
+   compose **and everywhere else text is typed**. He is out of usage as of this writing and
+   will say **"go for it"** to start.
+
+   **Already scouted, so do not re-derive it:**
+   - **`MultilineTextWidget::processEvent` has ZERO references to `WIPHONE_KEY_LEFT`/`RIGHT`.**
+     That is the whole bug. It is the widget behind mesh compose, edit name, short name and
+     the SIP message body — so none of them can move a cursor.
+   - **The single-line fields already work.** `TextInputWidget`/`PasswordInputWidget` handle
+     LEFT/RIGHT via `TextInputBase::shiftCursor()`. `MultilineTextWidget` has `cursorToStart()`
+     and `revealCursor()` but **no `shiftCursor`** — that is the thing to write.
+   - It already tracks `cursRow` + `cursOffset` (the backspace branch walks them), so the work
+     is moving across and BETWEEN rows: left at column 0 goes to the end of the previous row,
+     right at end-of-row goes to column 0 of the next.
+   - ⚠ **The text is stored as WRAPPED ROWS (`rowsDyn`), not one string.** Inserting in the
+     middle has to reflow, and the existing backspace already handles the row-join case —
+     read it first, it is the model to copy.
+   - **No key conflict:** `MESH_COMPOSE` forwards every `IS_KEYBOARD` event to the text area
+     and the widget currently ignores LEFT/RIGHT, so they do nothing today. LEFT/RIGHT are
+     non-printable, so the multi-tap machine commits any pending letter and passes them
+     through — moving the cursor will land the pending letter first, which is what you want.
+
+   ✅ **Confirmed working by Nick 2026-08-16** and now closed: the OK-commits-a-letter typing
+   change (*"typing seems to work a lot better"*), the **Firmware update** USB how-to page, and
+   the four **Clear** labels. All three were verified by hand on the device, which is the only
+   verification available — the host suites cannot reach `GUI.cpp`.
 2. **Use the phone normally and watch for another `reset_reason=4`.** Two independent causes
    were found and fixed 2026-08-15, both measured; a third is possible. **Silence is the result
    we want and it needs stating out loud** — a few days of normal use, across signal drops and
