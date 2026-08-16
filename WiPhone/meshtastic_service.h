@@ -22,6 +22,17 @@
 #define MESH_MAX_NODES       32      // known-node database size
 #define MESH_TEXT_LEN       234      // max text payload (Meshtastic on-air max ~233)
 #define MESH_NAME_LEN        24      // node long/short name buffer
+#define MESH_SHORT_NAME_MAX   4      // Meshtastic short name: 4 characters, by convention
+
+/* How often we re-announce our own NodeInfo. Matches stock firmware's
+ * node_info_broadcast_secs default of 3 hours, so this phone behaves like the radios
+ * around it. Discovery is passive: without this, anything that boots or clears its node
+ * DB after us never learns our name. */
+#define MESH_NODEINFO_PERIOD_MS     (3UL * 60UL * 60UL * 1000UL)
+/* Minimum gap between NodeInfo replies to want_response requests. One "ask everyone to
+ * announce" reaches every node at once; answering instantly every time collides on air and
+ * wastes the channel. Real firmware damps these deliberately. */
+#define MESH_NODEINFO_REPLY_MIN_MS  (60UL * 1000UL)
 #define MESH_MAX_CHANNELS     8      // channels we can monitor at once
 #define MESH_KEY_LEN         32      // max channel key length (AES-256)
 
@@ -100,6 +111,10 @@ public:
   const char* getMyLongName()  const { return myLongName; }
   const char* getMyShortName() const { return myShortName; }
   void setMyName(const char* longName);      // persist (NVS) + re-announce
+  /* Set the 4-char short name other radios show. Persisted, and it STOPS the short name
+   * following the long one. Pass NULL or "" to go back to deriving it. */
+  void setMyShortName(const char* shortName);
+  bool isShortNameCustom() const { return shortNameCustom; }
   void announceNodeInfo(bool wantResponse);  // broadcast our NodeInfo now
 
   // Hop limit for packets we originate (1..7). Persisted in NVS.
@@ -150,7 +165,14 @@ private:
   uint32_t       myNodeNum;
   char           myLongName[MESH_NAME_LEN];   // editable, persisted in NVS
   char           myShortName[8];              // up to 4 chars (Meshtastic)
+  bool           shortNameCustom;             // user set it: do NOT re-derive from long
   uint8_t        myHopLimit;                  // hop limit for originated packets
+
+  /* NodeInfo beaconing. Discovery on a LoRa mesh is PASSIVE — a node is learned only when
+   * it transmits — so a node that never re-announces is invisible to anything that arrives
+   * after it. See the periodic block in loop(). */
+  uint32_t       nextNodeInfoMs;              // when the next periodic announce is due
+  uint32_t       lastNodeInfoTxMs;            // damps replies to want_response requests
 
   void loadMyName();                          // load from NVS or derive default
   void deriveShortName();                     // short = first chars of long

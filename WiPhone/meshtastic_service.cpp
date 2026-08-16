@@ -37,11 +37,20 @@ static uint8_t s_hopLimit = 3;
 // (portnum, varint) and, via the out params, field 2 (payload bytes). The
 // payload meaning depends on portnum: UTF-8 text for TEXT_MESSAGE, a nested
 // User protobuf for NODEINFO, etc. Bounds-checked against `dlen`.
+/* ⚠ `wantRespOut` is optional and may be NULL. It carries Data field 3, want_response —
+ * how every other Meshtastic node asks "tell me who you are". This was previously only ever
+ * SET on the send side and never read on receive, so the phone asked the question and never
+ * answered it: it appeared on other radios as a bare node number with no name until it
+ * happened to announce on its own. See the reply in the NODEINFO branch of the receive path. */
 static int meshParseData(const uint8_t* data, size_t dlen,
-                         const uint8_t** payloadOut, size_t* payloadLenOut) {
+                         const uint8_t** payloadOut, size_t* payloadLenOut,
+                         bool* wantRespOut = NULL) {
   int portnum = -1;
   const uint8_t* payload = NULL;
   size_t payloadLen = 0;
+  if (wantRespOut) {
+    *wantRespOut = false;
+  }
   size_t i = 0;
   while (i < dlen) {
     uint8_t tag = data[i++];
@@ -51,7 +60,11 @@ static int meshParseData(const uint8_t* data, size_t dlen,
       uint32_t v = 0; int shift = 0;
       while (i < dlen && (data[i] & 0x80)) { v |= (uint32_t)(data[i] & 0x7f) << shift; shift += 7; i++; }
       if (i < dlen) { v |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
-      if (field == 1) portnum = (int)v;
+      if (field == 1) {
+        portnum = (int)v;
+      } else if (field == 3 && wantRespOut) {
+        *wantRespOut = (v != 0);
+      }
     } else if (wire == 2) {                // length-delimited
       uint32_t l = 0; int shift = 0;
       while (i < dlen && (data[i] & 0x80)) { l |= (uint32_t)(data[i] & 0x7f) << shift; shift += 7; i++; }
@@ -221,6 +234,9 @@ MeshtasticService::MeshtasticService()
   memset(rebroadcast, 0, sizeof(rebroadcast));
   myLongName[0] = '\0';
   myShortName[0] = '\0';
+  shortNameCustom = false;
+  nextNodeInfoMs = 0;
+  lastNodeInfoTxMs = 0;
 }
 
 // Conversation id for a message: 0 = broadcast (Main Channel), else the DM peer.
@@ -261,6 +277,7 @@ void MeshtasticService::loadMyName() {
   Preferences prefs;
   prefs.begin("wpmesh", true);                 // read-only
   String ln = prefs.getString("lname", "");
+  String sn = prefs.getString("sname", "");
   myHopLimit = (uint8_t)prefs.getUChar("hoplim", 3);
   prefs.end();
   if (ln.length() > 0) {
@@ -272,7 +289,43 @@ void MeshtasticService::loadMyName() {
     myHopLimit = 3;
   }
   s_hopLimit = myHopLimit;
-  deriveShortName();
+
+  /* An explicitly chosen short name wins and must NOT be overwritten by deriveShortName()
+   * the next time the long name changes — that is the whole point of setting one. */
+  if (sn.length() > 0) {
+    shortNameCustom = true;
+    strlcpy(myShortName, sn.c_str(), sizeof(myShortName));
+  } else {
+    shortNameCustom = false;
+    deriveShortName();
+  }
+}
+
+void MeshtasticService::setMyShortName(const char* shortName) {
+  Preferences prefs;
+  prefs.begin("wpmesh", false);                // read-write
+
+  if (!shortName || !shortName[0]) {
+    // Empty means "go back to following the long name".
+    shortNameCustom = false;
+    prefs.remove("sname");
+    deriveShortName();
+  } else {
+    /* Meshtastic short names are 4 characters by convention — that is what other clients
+     * lay out for in their node lists. Trim rather than refuse, so a long entry still does
+     * something sensible instead of silently failing. */
+    char buf[MESH_SHORT_NAME_MAX + 1];
+    strlcpy(buf, shortName, sizeof(buf));
+    shortNameCustom = true;
+    strlcpy(myShortName, buf, sizeof(myShortName));
+    prefs.putString("sname", myShortName);
+  }
+  prefs.end();
+
+  lastNodeInfoTxMs = millis();
+  announceNodeInfo(true);                      // let the mesh learn the new short name
+  log_i("Mesh short name is now '%s' (%s)", myShortName,
+        shortNameCustom ? "custom" : "derived from long name");
 }
 
 void MeshtasticService::setHopLimit(uint8_t hops) {
@@ -292,13 +345,16 @@ void MeshtasticService::setMyName(const char* longName) {
     return;
   }
   strlcpy(myLongName, longName, sizeof(myLongName));
-  deriveShortName();
+  if (!shortNameCustom) {
+    deriveShortName();     // only when the user has not chosen one; theirs must survive
+  }
 
   Preferences prefs;
   prefs.begin("wpmesh", false);                // read-write
   prefs.putString("lname", myLongName);
   prefs.end();
 
+  lastNodeInfoTxMs = millis();
   announceNodeInfo(true);                       // let the mesh learn the new name
   log_i("Mesh node renamed to '%s' (%s)", myLongName, myShortName);
 }
@@ -417,6 +473,33 @@ bool MeshtasticService::loop() {
   }
 
 #ifdef MESHTASTIC_PHY
+  /* ── RE-ANNOUNCE ON A TIMER, LIKE EVERY OTHER NODE ────────────────────────────────
+   * The phone used to announce its NodeInfo exactly three times ever: once at boot, once
+   * when the name was edited, and once if you pressed the button in the Meshtastic app.
+   * Discovery on a LoRa mesh is PASSIVE — a node is learned only when it transmits
+   * something you can hear — so any radio that booted, cleared its node DB, or came into
+   * range AFTER our boot announce would list the phone as a bare node number with no name,
+   * possibly forever.
+   *
+   * Stock firmware re-announces every node_info_broadcast_secs, which defaults to 3 hours;
+   * MESH_NODEINFO_PERIOD_MS matches that so the phone behaves like the devices around it.
+   *
+   * ⚠ wantResponse=FALSE. A periodic beacon that also demanded everyone else reply would
+   * turn one node's housekeeping into a mesh-wide storm every three hours.
+   *
+   * The first one fires a period after boot, since setup() already announced. */
+  if (radioState == MESH_RADIO_READY && channelCount > 0) {
+    const uint32_t now = millis();
+    if (nextNodeInfoMs == 0) {
+      nextNodeInfoMs = now + MESH_NODEINFO_PERIOD_MS;
+    } else if ((int32_t)(now - nextNodeInfoMs) >= 0) {
+      nextNodeInfoMs = now + MESH_NODEINFO_PERIOD_MS;
+      lastNodeInfoTxMs = now;
+      announceNodeInfo(false);
+      log_i("Mesh: periodic NodeInfo as '%s' (%s)", myLongName, myShortName);
+    }
+  }
+
   // Flood routing: send at most one due rebroadcast per tick (send blocks).
   for (int i = 0; i < 4; i++) {
     if (rebroadcast[i].active && (int32_t)(millis() - rebroadcast[i].dueMs) >= 0) {
@@ -485,7 +568,8 @@ bool MeshtasticService::loop() {
     if (meshCryptCtr(ch->key, ch->keyLen, hdr.sender, hdr.packetId, buf + MESH_HEADER_LEN, payloadLen, dec)) {
       const uint8_t* pl = NULL;
       size_t plLen = 0;
-      int portnum = meshParseData(dec, payloadLen, &pl, &plLen);
+      bool wantResp = false;
+      int portnum = meshParseData(dec, payloadLen, &pl, &plLen, &wantResp);
 
       if (portnum == MESH_PORT_TEXT_MESSAGE && pl && plLen) {
         char text[MESH_TEXT_LEN];
@@ -521,6 +605,33 @@ bool MeshtasticService::loop() {
         if (meshParseUserName(pl, plLen, name, sizeof(name))) {
           upsertNode(hdr.sender, name);
           log_i("Mesh NodeInfo 0x%08X: %s", hdr.sender, name);
+        }
+
+        /* ── ANSWER WHEN SOMEBODY ASKS WHO WE ARE ────────────────────────────────────
+         * want_response is how the rest of the mesh requests a NodeInfo: the Meshtastic
+         * app's node-refresh, COVEY's "Ask info" and "Ask all to announce", and a stock
+         * node meeting an unknown neighbour all set it. The phone never read the flag, so
+         * it never replied, and on other radios it showed as a bare node number with no
+         * name until it next announced on its own.
+         *
+         * ⚠ Reply with wantResponse=FALSE. Answering a request with another request is how
+         * two nodes ping-pong forever and flood a shared channel.
+         *
+         * ⚠ Rate-limited. A single "ask everyone to announce" reaches every node in range
+         * at once, and if they all answer immediately they collide and the airtime is
+         * wasted. Real firmware damps these on purpose (COVEY measured one reply in 100 s
+         * from a whole mesh). One reply per MESH_NODEINFO_REPLY_MIN_MS is plenty to be
+         * discoverable without being a bad citizen. */
+        if (wantResp) {
+          const uint32_t now = millis();
+          if (lastNodeInfoTxMs == 0 || (now - lastNodeInfoTxMs) > MESH_NODEINFO_REPLY_MIN_MS) {
+            lastNodeInfoTxMs = now;
+            announceNodeInfo(false);
+            log_i("Mesh NodeInfo requested by 0x%08X - answered as '%s' (%s)",
+                  hdr.sender, myLongName, myShortName);
+          } else {
+            log_i("Mesh NodeInfo requested by 0x%08X - damped (replied recently)", hdr.sender);
+          }
         }
 
       } else {

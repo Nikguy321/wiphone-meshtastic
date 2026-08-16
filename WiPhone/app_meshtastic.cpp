@@ -19,6 +19,7 @@
 #define MESH_MYNODE_EDIT       1
 #define MESH_MYNODE_REQUEST    2
 #define MESH_MYNODE_HOPLIMIT   7
+#define MESH_MYNODE_EDITSHORT  8      // ⚠ keys must be UNIQUE; 3 and 4 are the info rows
 #define MESH_MYNODE_CLEARMSGS  5
 #define MESH_MYNODE_CLEARNODES 6
 
@@ -136,6 +137,11 @@ void MeshtasticApp::enterState(MeshAppState_t state) {
     header->setTitle("Edit name");
     footer->setButtons("Save", "Cancel");
     buildEditName();
+    break;
+  case MESH_EDITSHORT:
+    header->setTitle("Short name");
+    footer->setButtons("Save", "Cancel");
+    buildEditShortName();
     break;
   }
 }
@@ -299,11 +305,17 @@ void MeshtasticApp::buildMyNode() {
   menu = newMenu(NULL);
   char line[48];
   menu->addOption("Edit name", MESH_MYNODE_EDIT, 1);
+  menu->addOption("Edit short name", MESH_MYNODE_EDITSHORT, 1);
   menu->addOption("Request node info", MESH_MYNODE_REQUEST, 1);
   snprintf(line, sizeof(line), "Hop limit: %u (tap to change)", meshService.getHopLimit());
   menu->addOption(line, MESH_MYNODE_HOPLIMIT, 1);
   snprintf(line, sizeof(line), "Name: %s", meshService.getMyLongName());
   menu->addOption(line, 3, 1);
+  /* Show whether the short name is the user's or follows the long name — otherwise there is
+   * no way to tell why it changed by itself after a rename. */
+  snprintf(line, sizeof(line), "Short: %s%s", meshService.getMyShortName(),
+           meshService.isShortNameCustom() ? "" : " (auto)");
+  menu->addOption(line, 9, 1);
   snprintf(line, sizeof(line), "Node: !%08x", meshService.getMyNodeNum());
   menu->addOption(line, 4, 1);
   // Destructive: require a second press to confirm.
@@ -321,6 +333,24 @@ void MeshtasticApp::buildEditName() {
                                      fonts[OPENSANS_COND_BOLD_20], InputType::AlphaNum, padding, padding);
   textArea->setColors(WP_COLOR_1, WP_COLOR_0);  // white text on black (theme)
   textArea->setText(meshService.getMyLongName());
+  textArea->setFocus(true);
+  controlState.setInputState(InputType::AlphaNum);
+}
+
+/* The 4-character name other radios put in their node lists. Kept separate from the long
+ * name because Meshtastic sends both and clients lay out for four characters. Clearing the
+ * field and saving puts it back to following the long name. */
+void MeshtasticApp::buildEditShortName() {
+  const int16_t padding = 4;
+  textArea = new MultilineTextWidget(0, header->height(), lcd.width(),
+                                     lcd.height() - header->height() - footer->height(),
+                                     "4 chars, blank = auto", controlState, MESH_SHORT_NAME_MAX,
+                                     fonts[OPENSANS_COND_BOLD_20], InputType::AlphaNum, padding, padding);
+  textArea->setColors(WP_COLOR_1, WP_COLOR_0);
+  /* Only prefill a name the user chose. Prefilling a derived one would silently turn it into
+   * a custom one the moment they pressed Save, and then it would stop following the long
+   * name without them ever asking for that. */
+  textArea->setText(meshService.isShortNameCustom() ? meshService.getMyShortName() : "");
   textArea->setFocus(true);
   controlState.setInputState(InputType::AlphaNum);
 }
@@ -472,6 +502,10 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
     menu->processEvent(event);
     if (LOGIC_BUTTON_OK(event)) {
       MenuOption::keyType sel = menu->currentKey();
+      if (sel == MESH_MYNODE_EDITSHORT) {
+        enterState(MESH_EDITSHORT);
+        return REDRAW_ALL;
+      }
       if (sel == MESH_MYNODE_EDIT) {
         enterState(MESH_EDITNAME);
         return REDRAW_ALL;
@@ -513,6 +547,25 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
       if (name && name[0]) {
         meshService.setMyName(name);
       }
+      enterState(MESH_MYNODE);
+      return REDRAW_ALL;
+    }
+    if (IS_KEYBOARD(event) && textArea) {
+      textArea->processEvent(event);
+      return REDRAW_SCREEN;
+    }
+    return DO_NOTHING;
+
+  case MESH_EDITSHORT:
+    if (event == WIPHONE_KEY_END) {            // cancel (Back is backspace)
+      enterState(MESH_MYNODE);
+      return REDRAW_ALL;
+    }
+    if (LOGIC_BUTTON_OK(event)) {              // save
+      /* ⚠ An EMPTY field is meaningful here and must be passed through, unlike Edit name
+       * which ignores it: it means "go back to deriving the short name from the long one".
+       * Rejecting it would leave no way to undo a custom short name. */
+      meshService.setMyShortName(textArea ? textArea->getText() : NULL);
       enterState(MESH_MYNODE);
       return REDRAW_ALL;
     }
@@ -577,7 +630,8 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
 }
 
 void MeshtasticApp::redrawScreen(bool redrawAll) {
-  if (appState == MESH_COMPOSE || appState == MESH_VIEWMSG || appState == MESH_EDITNAME) {
+  if (appState == MESH_COMPOSE || appState == MESH_VIEWMSG || appState == MESH_EDITNAME ||
+      appState == MESH_EDITSHORT) {
     if (textArea) {
       ((GUIWidget*)textArea)->redraw(lcd);
     }

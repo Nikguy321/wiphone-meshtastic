@@ -37,6 +37,7 @@ protected:
     MESH_VIEWMSG,
     MESH_MYNODE,
     MESH_EDITNAME,
+    MESH_EDITSHORT,     // the 4-character short name other radios display
   } MeshAppState_t;
 
   MeshAppState_t appState;
@@ -72,6 +73,7 @@ protected:
   void buildViewMessage(int msgIndex);
   void buildMyNode();
   void buildEditName();
+  void buildEditShortName();
 };
 
 #endif // APP_MESHTASTIC_H
