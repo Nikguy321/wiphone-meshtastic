@@ -57,6 +57,15 @@ longer make the problem worse.
   is too slow". Neither was. Skipping frames cannot fix a game that is being
   paced by sound.
 
+### 🔋 Battery
+
+- **The phone could get stuck running flat out, on battery, with the screen off.**
+  If a call ended while there was no signal, it waited forever for a confirmation
+  that could never arrive — and while it waited, it treated itself as being on a
+  call and never slowed the processor down. Caught in a car log: nineteen straight
+  minutes at full speed, screen off, out of range. That is roughly double the
+  idle drain, in exactly the situation where battery matters most.
+
 ### 🔁 The random restarts
 
 - **Opening Books was quietly eating the phone's working memory.** Every time you

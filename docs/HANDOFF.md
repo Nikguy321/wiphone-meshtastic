@@ -262,6 +262,29 @@ curl "http://wiphone.local/log?tail=6000"     # with any upload screen open
 the link is slow — and truncation costs you the END of the file, which is exactly where the
 reset reason lives. Retrying instead is what made the reading of the log a cause of the crash.
 
+### 🔋 THE CPU STUCK AT 240 MHz IN A DEAD SIP STATE — found and fixed 2026-08-15
+**Measured from the car log:** the phone sat at **`sip=6` (`CallState::HangUp`)** with the
+**screen off** and **no network (`wifi=1`)** for **19+ consecutive minutes**, holding the CPU at
+**240 MHz** the whole time. At 80 MHz the core draws roughly half as much, so this was about
+**double the idle current — out of range, in a car, on battery.**
+
+`sipCallActive()` counts `HangUp` as a call. But `HangUp` and `HangingUp` are **teardown**:
+HangUp's own comment says it "can be triggered from any other state", and HangingUp is "waiting
+for confirmation of BYE/CANCEL, resending" — **with no proxy reachable that confirmation never
+arrives and the phone rests there indefinitely.** Neither has an audio session to protect.
+
+⚠ **THIS IS THE SAME TRAP THE REPO ALREADY HIT AND WROTE UP.** The earlier one was the phone
+resting in `CallState::Error` (12) forever while a "not idle" test called it active; the fix
+replaced exclusion with a **positive list of eight states**. Correct as far as it went — **but
+two of those eight can also stick.** A positive list is not automatically safe; ask of each
+member "can the phone rest here forever?"
+
+**Fix:** a separate `sipNeedsFullSpeed()` for the CPU gate — the six states with a live or
+imminent audio session. ⚠ **Deliberately NOT an edit to `sipCallActive()`**, which also gates
+music-pauses-for-a-call; quietly changing a shared predicate to fix one caller is the exact bug
+class that produced three separate faults in this codebase on the same day. Verified on
+hardware: `CPU 80MHz (idle)` with the screen off.
+
 ### 🔋 2. Battery: ~10 hours measured. Is that good enough?
 Measured on the device, steady state with the first 30 minutes discarded (surface charge):
 

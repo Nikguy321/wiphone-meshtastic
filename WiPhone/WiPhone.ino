@@ -1356,6 +1356,41 @@ void healthLogLine(const char* line) {
   f.close();
 }
 
+/* ── "DOES ANYTHING NEED 240 MHz" IS NOT THE SAME QUESTION AS "IS A CALL UP" ──────────
+ * MEASURED 2026-08-15, from the car log: the phone sat at `sip=6` (CallState::HangUp) with
+ * the screen off and no network (`wifi=1`) for 19+ consecutive minutes, and the CPU stayed
+ * at 240 MHz the whole time because sipCallActive() counts HangUp as a call. At 80 MHz the
+ * core draws roughly half as much, so this was about double the idle current — while out of
+ * range in a car, which is exactly when the battery matters most.
+ *
+ * HangUp and HangingUp are TEARDOWN states. HangUp's own comment says it "can be triggered
+ * from any other state", and HangingUp is "waiting for confirmation of BYE/CANCEL,
+ * resending" — with no proxy reachable that confirmation never comes and the phone rests
+ * there indefinitely. Neither has an audio session to protect.
+ *
+ * ⚠ This is the SAME TRAP the repo already hit once and wrote up: the phone resting forever
+ * in a state that the "is a call happening" test counts as active. That fix replaced an
+ * exclusion test with a positive list of eight states — correct as far as it went, but two
+ * of those eight can also stick.
+ *
+ * ⚠ DELIBERATELY A SEPARATE PREDICATE, not an edit to sipCallActive(). That one ALSO gates
+ * music-pauses-for-a-call, and quietly changing a shared predicate to fix an unrelated
+ * caller is the exact bug class that produced three separate faults in this codebase today.
+ * The CPU gate asks its own question. */
+static bool sipNeedsFullSpeed() {
+  switch (gui.state.sipState) {
+    case CallState::InvitingCallee:
+    case CallState::InvitedCallee:
+    case CallState::RemoteRinging:
+    case CallState::Call:
+    case CallState::BeingInvited:
+    case CallState::Accept:
+      return true;                 // a live or imminent audio session
+    default:
+      return false;                // includes HangUp/HangingUp: teardown, and they stick
+  }
+}
+
 static bool sipCallActive() {
   switch (gui.state.sipState) {
     case CallState::InvitingCallee:
@@ -2641,7 +2676,7 @@ void loop() {
                         gGbcActive ||
                         xferOn() ||
                         musicPlayerIsPlaying() ||
-                        sipCallActive();
+                        sipNeedsFullSpeed();   // NOT sipCallActive() — see the note on it
       const uint32_t wantMhz = busy ? 240 : 80;
       static uint32_t curMhz = 240;
       if (wantMhz != curMhz) {
