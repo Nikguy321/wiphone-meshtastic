@@ -361,9 +361,24 @@ void MeshtasticService::setMyName(const char* longName) {
 
 void MeshtasticService::announceNodeInfo(bool wantResponse) {
 #ifdef MESHTASTIC_PHY
-  if (radioState == MESH_RADIO_READY && channelCount > 0) {
-    meshTxNodeInfo(myNodeNum, myLongName, myShortName, wantResponse, &channels[0]);
+  /* ⚠ log_e ON PURPOSE, not log_i. Only log_e is compiled into this build, so an log_i here
+   * is invisible — which is precisely why "does this phone announce itself?" went unanswered
+   * for so long. COVEY holds 80 nodes and none of them is this phone, so every fact below is
+   * needed to tell "never transmitted" from "transmitted and ignored". */
+  if (radioState != MESH_RADIO_READY) {
+    log_e("MESH ANNOUNCE SKIPPED: radio not ready (state=%d)", (int)radioState);
+    return;
   }
+  if (channelCount <= 0) {
+    log_e("MESH ANNOUNCE SKIPPED: no channels configured");
+    return;
+  }
+  const bool ok = meshTxNodeInfo(myNodeNum, myLongName, myShortName, wantResponse, &channels[0]);
+  log_e("MESH ANNOUNCE %s: node=!%08x '%s' (%s) ch='%s' hash=0x%02X keyLen=%u wantResp=%d",
+        ok ? "SENT" : "FAILED", (unsigned)myNodeNum, myLongName, myShortName,
+        channels[0].name, channels[0].hash, (unsigned)channels[0].keyLen, (int)wantResponse);
+#else
+  (void)wantResponse;
 #endif
 }
 
@@ -446,8 +461,32 @@ void MeshtasticService::setup() {
 
 #ifdef MESHTASTIC_PHY
   // Real radio: bring up the SX1276 in Meshtastic LongFast RX mode.
+  /* ⚠ Identity banner at log_e so it actually appears — only log_e is compiled in.
+   * ⚠ myNodeNum comes from the LEGACY WiPhone `chipId`, which is built from just THREE MAC
+   * bytes (WiPhone.ino: `for(i=0; i<17; i+=8)`), so it is a 24-bit value and always prints
+   * as !00xxxxxx. Every one of the 80 nodes in COVEY's database has a non-zero top byte,
+   * because stock firmware uses the full 4-byte MAC tail. Whether that is merely unusual or
+   * is why nothing lists this phone is UNPROVEN — but it is the first thing to check against
+   * a receiving node, and it cannot be checked without printing it. */
+  log_e("MESH IDENTITY: node=!%08x (%u-bit) long='%s' short='%s' hop=%u",
+        (unsigned)myNodeNum, myNodeNum > 0xFFFFFF ? 32 : 24,
+        myLongName, myShortName, (unsigned)myHopLimit);
+  /* Does this phone HEAR the mesh? The node DB is restored from SPIFFS just above, so a
+   * healthy count here means RX has been working and the radio parameters match the mesh
+   * exactly — which would leave the packet CONTENT as the only reason nothing lists us.
+   * A count of 1 (just ourselves) would mean the radio never hears anything either. */
+  log_e("MESH DB: %d nodes, %d messages stored", nodeCount, msgCount);
+  for (int i = 0; i < nodeCount && i < 6; i++) {
+    log_e("MESH DB node[%d]: !%08x '%s'", i, (unsigned)nodes[i].nodeNum, nodes[i].name);
+  }
+  for (int i = 0; i < channelCount; i++) {
+    log_e("MESH CHANNEL[%d]: '%s' hash=0x%02X keyLen=%u", i, channels[i].name,
+          channels[i].hash, (unsigned)channels[i].keyLen);
+  }
+
   if (meshPhy.begin()) {
     radioState = MESH_RADIO_READY;
+    log_e("MESH RADIO READY: %lu Hz", (unsigned long)meshPhy.getFrequencyHz());
     log_i("MeshtasticService: radio READY, node=0x%08X (%s), ch=%s, freq=%lu",
           myNodeNum, myLongName, channelName, (unsigned long)meshPhy.getFrequencyHz());
     // Announce ourselves and solicit other nodes' NodeInfo so names populate.
@@ -570,6 +609,13 @@ bool MeshtasticService::loop() {
       size_t plLen = 0;
       bool wantResp = false;
       int portnum = meshParseData(dec, payloadLen, &pl, &plLen, &wantResp);
+
+      /* (A per-packet log_e lived here on 2026-08-15 and answered its question: port 4
+       * NodeInfo packets DO arrive and DO decrypt — `from=!33646708 port=4 payload=44B
+       * wantResp=1 ch=0x08`. So names were never missing because NodeInfo was unheard; they
+       * were missing because the node table was full and dropped every new node. Removed
+       * again rather than left in: it fires on every packet, and log_e is the only level
+       * compiled in, so it would bury the boot log forever.) */
 
       if (portnum == MESH_PORT_TEXT_MESSAGE && pl && plLen) {
         char text[MESH_TEXT_LEN];
@@ -737,10 +783,51 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
       return &nodes[i];   // plain "heard" updates don't trigger a save
     }
   }
-  // New node.
+  /* ── TABLE FULL: EVICT THE LEAST-RECENTLY-HEARD, DO NOT DROP THE NEW ONE ──────────
+   * This used to `return NULL` with a comment promising an eviction policy later, which
+   * meant the node list froze permanently at the first 32 nodes ever heard and every node
+   * discovered afterwards was silently discarded — including its NodeInfo, so names could
+   * never be learned for anyone new.
+   *
+   * Measured 2026-08-15: the phone held exactly 32/32 nodes, all but its own stored under
+   * a bare hex id, while the mesh around it had EIGHTY. The list was not just incomplete,
+   * it was stuck.
+   *
+   * Evicting rather than growing the array is deliberate: `nodes[]` is a fixed member of a
+   * long-lived object, so raising MESH_MAX_NODES costs internal RAM permanently, and
+   * internal RAM is what panics this phone. A 32-entry most-recently-heard window is more
+   * useful than a frozen 32-entry oldest-heard one, at identical cost.
+   *
+   * ⚠ Never evict ourselves — we are in this table too (setup() upserts myNodeNum), and
+   * losing our own entry would take our own name out of the UI.
+   * ⚠ Signed difference for the comparison so it stays correct across millis() wraparound. */
   if (nodeCount >= MESH_MAX_NODES) {
-    return NULL;      // table full; eviction policy added later
+    int oldest = -1;
+    for (int i = 0; i < nodeCount; i++) {
+      if (nodes[i].nodeNum == myNodeNum) {
+        continue;
+      }
+      if (oldest < 0 ||
+          (int32_t)(nodes[i].lastHeardMs - nodes[oldest].lastHeardMs) < 0) {
+        oldest = i;
+      }
+    }
+    if (oldest < 0) {
+      return NULL;                    // table is nothing but ourselves: nothing to evict
+    }
+    MeshNode& ev = nodes[oldest];
+    ev.nodeNum = nodeNum;
+    ev.lastHeardMs = millis();
+    ev.snr = 0;
+    if (name && name[0]) {
+      strlcpy(ev.name, name, sizeof(ev.name));
+    } else {
+      snprintf(ev.name, sizeof(ev.name), "!%08x", nodeNum);
+    }
+    dbDirty = true;
+    return &ev;
   }
+
   MeshNode& n = nodes[nodeCount];
   n.nodeNum = nodeNum;
   n.lastHeardMs = millis();
