@@ -108,9 +108,37 @@ Audio::Audio(bool stereoOut, int BCLK, int LRC, int DOUT, int DIN) : playbackFS(
  *       - this->monoOut
  */
 void Audio::configureI2S() {
-  // TODO: does it create pop noise? if so - reduce number of calls
-  //i2s configuration
-  i2s_driver_uninstall(i2s_num);
+  /* ── DO NOT REINSTALL THE DRIVER TO CHANGE NOTHING ────────────────────────────────────
+   * The TODO that used to sit here ("does it create pop noise? if so - reduce number of
+   * calls") was asking for this, and there is a second, larger reason to do it.
+   *
+   * Every call uninstalls and reinstalls the driver, which frees and reallocates
+   * dma_buf_count(4) x dma_buf_len(1024) x 2ch x 2B = ~16 KB of INTERNAL, DMA-capable RAM.
+   * Internal contiguous RAM is the resource whose exhaustion panics this phone, and callers
+   * arrive in clusters: starting a track sets rate, channels and mono in sequence, so one
+   * play could churn 16 KB several times over. Measured on hardware: starting music dropped
+   * the largest free block 15,648 -> 8,200, and the MusicApp object itself accounted for
+   * only 224 of that.
+   *
+   * So: install only when the driver is not installed, or when something it depends on has
+   * actually changed. Callers can keep calling this as "make I2S match my settings" — which
+   * is what every one of them means — without paying for a teardown each time.
+   *
+   * ⚠ Safe to cache because NOTHING ELSE installs or uninstalls the driver: start() uses
+   * i2s_start() and shutdown() uses i2s_stop(), neither of which uninstalls. Verified by
+   * grep over the whole tree. If that ever stops being true, this cache goes stale and the
+   * symptom is silence, so re-check it before adding an uninstall anywhere else. */
+  if (this->i2sInstalled &&
+      this->i2sRate == this->sampleRate &&
+      this->i2sBps  == this->bps &&
+      this->i2sMono == this->monoOut) {
+    return;
+  }
+
+  if (this->i2sInstalled) {
+    i2s_driver_uninstall(i2s_num);
+    this->i2sInstalled = false;
+  }
   i2s_config_t i2s_config = {
     .mode = static_cast<i2s_mode_t> (I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_RX ),
     .sample_rate = this->sampleRate,
@@ -125,7 +153,12 @@ void Audio::configureI2S() {
     .fixed_mclk=-1
   };
   log_d("Audio::Audio: before driver install %d", ESP.getFreeHeap());
-  i2s_driver_install((i2s_port_t)i2s_num, &i2s_config, 0, NULL);
+  if (i2s_driver_install((i2s_port_t)i2s_num, &i2s_config, 0, NULL) == ESP_OK) {
+    this->i2sInstalled = true;
+    this->i2sRate = this->sampleRate;
+    this->i2sBps  = this->bps;
+    this->i2sMono = this->monoOut;
+  }
   log_d("Audio::Audio: after driver install %d", ESP.getFreeHeap());
   this->report();
 }

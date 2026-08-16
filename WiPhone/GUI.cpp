@@ -5952,9 +5952,19 @@ NetworksApp::NetworksApp(LCD& lcd, ControlState& state, HeaderWidget* header, Fo
   menu = NULL;
   editNetwork = NULL;
 
-  // Subscribe to app timer event
+  /* ⚠ 5 s, not 1 s. Every one of these ticks DELETES AND REBUILDS the whole MenuWidget and
+   * kicks a fresh WiFi scan, and both come out of the internal heap. Measured on hardware:
+   * `largest` fell 17,480 -> 13,312 while this screen was open. It is churn rather than a
+   * leak — scanNetworks() frees the previous results itself (WiFiScan.cpp:68), so an earlier
+   * guess that a scanDelete() was missing here was WRONG — but repeatedly freeing and
+   * reallocating a MenuWidget and a scan-result array is exactly what fragments this phone
+   * into a reset_reason=4 panic.
+   *
+   * 1000 ms was never achievable anyway: the rescan below asks for **750 ms per channel**, so
+   * a scan cannot possibly finish between ticks. Nothing is lost by asking less often — WiFi
+   * networks do not appear and vanish within a second — and the list flickers less. */
   controlState.msAppTimerEventLast = millis();
-  controlState.msAppTimerEventPeriod = 1000;
+  controlState.msAppTimerEventPeriod = 5000;
 
   // Start ASYNC scan
   log_v("scanning");

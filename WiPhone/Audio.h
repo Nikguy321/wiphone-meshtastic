@@ -290,6 +290,14 @@ protected:
   uint8_t     dataChannels = 2;             // number of channels in the MP3 file; used by playChunk
   bool        monoOut = false;              // does I2S driver expect one (left only) or two channels (right and left)?
 
+  /* What the I2S driver is CURRENTLY installed with, so configureI2S() can skip a reinstall
+   * that would change nothing. See the note on it in Audio.cpp — each reinstall reallocates
+   * ~16 KB of internal DMA memory, and internal RAM is what this phone runs out of. */
+  bool        i2sInstalled = false;
+  int         i2sRate = 0;
+  uint8_t     i2sBps = 0;
+  bool        i2sMono = false;
+
   /* Snapshot taken by preserve() and put back by restore(). See the comment on those in
    * Audio.cpp: a one-shot sound reconfigures the whole device and used to leave it that way. */
   bool        presValid = false;
