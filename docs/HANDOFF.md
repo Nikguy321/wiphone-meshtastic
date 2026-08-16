@@ -548,8 +548,52 @@ default wins; anything else you type will stick.
 `DNS Failed`. Pre-existing, harmless, and it did the same with wiphone.io. Use the **Check**
 button once the phone is on WiFi. Fixing it means deferring that check until WL_CONNECTED.
 
-⚠ **OTA has never actually installed anything.** `app1` has never been written on this phone.
-The first over-the-air install is the risky one; recovery is the usual serial reflash.
+## 🛑 OTA CANNOT WORK ON THIS BUILD — IT IS A MEMORY WALL, NOT A URL OR A CERTIFICATE
+**Established 2026-08-15 by actually trying it.** Nick pressed **Check** on a correctly
+published 0.9.2 and got:
+```
+Dev: 0.9.1   Srv: 0
+Error: -301 - Can't connect to ser[ver]
+```
+`-301` is set at **`ota.cpp:585`** when **`client->connect(hname, 443)`** fails. That is the
+**TLS handshake**, before a single byte of HTTP. The URL was right, the manifest was live, and
+the binary served was byte-identical to the build — all verified from the Mac.
+
+**The arithmetic, from the framework's own `sdkconfig.h`:**
+
+| | |
+|---|---|
+| `CONFIG_MBEDTLS_SSL_MAX_CONTENT_LEN` | **16384** — a ~16 KB IN buffer **and** a ~16 KB OUT buffer, so **~33 KB** |
+| `CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC` | **not set** — so none of it may come from PSRAM |
+| phone's free internal heap | **~19 KB total** |
+| phone's largest contiguous block, **fresh boot** | **~14,900 bytes** |
+
+**It is not close, and it is not a fragmentation problem — there is not enough internal heap
+even when perfectly clean.** The handshake cannot succeed on this build, ever. That `[E]
+WiFiClientSecure.cpp: start_ssl_client: -1` line in every boot log is this, and it has been
+there all along.
+
+⚠ **THIS CORRECTS THIS DOCUMENT.** The section below says the update page "works again" after
+the expired-pinned-cert fix. **That fix was real and necessary but it was never the whole
+story** — the phone still cannot open the connection. So "**OTA has never actually installed
+anything**" was never about caution or bad luck: **it has never been able to.** Do not re-plan
+around OTA until the transport is changed.
+
+**Options, ranked:**
+1. **USB.** 55 s, hash-verified, ~10 times in one day without a hitch. This is the working path.
+2. **Add plain-HTTP support** and serve `firmware.bin` off the LAN — avoids TLS entirely. Port
+   **443 is hardcoded at `ota.cpp:585`** and `https://` is assumed in four places
+   (`ota.cpp:187, 207, 241, 260`). A real change, but the only one that could work without
+   touching the framework.
+3. **Rebuild arduino-esp32** with a smaller `MBEDTLS_SSL_MAX_CONTENT_LEN` or
+   `MBEDTLS_EXTERNAL_MEM_ALLOC`. Correct in principle; PlatformIO ships precompiled libs, so
+   this is a serious undertaking.
+
+✅ **0.9.2 is published and verified live regardless** — manifest and binary both served from
+`raw.githubusercontent.com`, binary byte-identical to the build. If the transport is ever fixed,
+the release is already sitting there. **0.9.2 was installed over USB.**
+
+⚠ `app1` has still never been written on this phone.
 
 ⚠ **THE PHONE IS RUNNING A DEV BUILD THAT CALLS ITSELF 0.9.1 (2026-08-14).** Two USB flashes —
 `/log?tail=` and the menu-ID fix — both without bumping `FIRMWARE_VERSION`, so the firmware

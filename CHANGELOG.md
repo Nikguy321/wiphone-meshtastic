@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased — book sync works, stability, and Game Boy speed
+## 0.9.2 — book sync works, stability, and Game Boy speed
+
+⚠ **Known limitation: over-the-air updates do not work on this phone**, and the
+reason turns out to be memory rather than anything to do with the link. A secure
+connection needs about 33 KB of the phone's scarce fast memory and there is only
+about 19 KB of it, so the connection can never be opened. Install over USB. An
+earlier note claiming the updater was working again was only half right — the
+expired certificate it fixed was a real problem, but not the one stopping it.
 
 ### 📖 Reading position sync works between devices
 
