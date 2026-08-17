@@ -30,6 +30,7 @@ governing permissions and limitations under the License.
 #include "Audio.h"
 #include "FairyMax.h"
 #include "ota.h"
+#include "sip_threads.h"   // MessagesApp groups the store into conversations
 #include "driver/uart.h"
 #include "soc/uart_struct.h"
 
@@ -1557,33 +1558,35 @@ protected:
   static const bool INCOMING = true;
   static const bool SENT = false;
 
+  /* CHATS / THREAD, not INBOX / OUTBOX.
+   *
+   * The old states were the STORAGE LAYOUT showing through the UI: `Messages` keeps two flat
+   * direction-segregated lists, and the app drew exactly that. Nobody thinks about texting
+   * that way — a conversation is one person with both halves interleaved — and the
+   * Meshtastic app on this same phone already worked the sensible way, which made the split
+   * doubly strange. The grouping lives in sip_threads.h; this app is only the screens. */
   typedef enum {
-    MAIN,
-    INBOX,
-    OUTBOX,
+    CHATS,          // one row per correspondent, newest first
+    THREAD,         // one correspondent, both directions in time order
     COMPOSING,
   } MessagesState_t;
 
-  MenuWidget* mainMenu = NULL;
-  MenuWidget* inboxMenu = NULL;
-  MenuWidget* sentMenu = NULL;
+  MenuWidget* chatsMenu = NULL;
+  MenuWidget* threadMenu = NULL;
   Storage& flash;
   WiPhoneApp* subApp = NULL;            // can be CreateMessageApp or ViewMessageApp
 
-  MessagesState_t appState = MAIN;
+  MessagesState_t appState = CHATS;
   void enterState(MessagesState_t state);
 
-  int32_t inboxOffset = -1;
-  int32_t inboxSelected = -1;
+  int32_t chatSelected = 0;                       // row index in the chats list
+  char    threadPeer[SIP_THREAD_URI_MAX] = {0};   // whose thread is open (digits or raw id)
+  char    threadUri[SIP_THREAD_URI_MAX]  = {0};   // full URI to reply to — see note below
 
-  int32_t sentOffset = -1;
-  int32_t sentSelected = -1;
-
-  void createMainMenu();
-  void createLoadMessageMenu(bool incoming, int32_t offset, MenuOption::keyType selectKey);
-
-  MenuOption::keyType encodeMessageOffset(int32_t offset);
-  int32_t decodeMessageOffset(MenuOption::keyType key);
+  void buildChats();
+  void buildThread();
+  void openThread(const char* peer, const char* uri);
+  void markThreadRead();
 };
 
 class ViewMessageApp : public WindowedApp {

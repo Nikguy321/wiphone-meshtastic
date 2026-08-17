@@ -1,0 +1,211 @@
+#include "sip_threads.h"
+#include "Storage.h"
+#include "config.h"
+
+#include <Arduino.h>
+#include <string.h>
+#include <stdlib.h>
+
+static SipThread     s_threads[SIP_THREADS_MAX];
+static int           s_threadCount = 0;
+static bool          s_truncated   = false;
+
+static SipThreadMsg  s_msgs[SIP_THREAD_MSGS_MAX];
+static int           s_msgCount = 0;
+static char*         s_textPool = NULL;      // PSRAM: all of a thread's text, one block
+static size_t        s_textUsed = 0;
+static const size_t  TEXT_POOL_BYTES = SIP_THREAD_MSGS_MAX * (SMS_MIRROR_TEXT_MAX + 8);
+
+int  sipThreadsCount()            { return s_threadCount; }
+int  sipThreadMsgCount()          { return s_msgCount; }
+bool sipThreadsTruncated()        { return s_truncated; }
+
+const SipThread* sipThreadAt(int i) {
+  return (i >= 0 && i < s_threadCount) ? &s_threads[i] : NULL;
+}
+
+const SipThreadMsg* sipThreadMsgAt(int i) {
+  return (i >= 0 && i < s_msgCount) ? &s_msgs[i] : NULL;
+}
+
+void sipThreadsRelease() {
+  if (s_textPool) {
+    free(s_textPool);
+    s_textPool = NULL;
+  }
+  s_textUsed = 0;
+  s_msgCount = 0;
+}
+
+/* The identity of a correspondent, for grouping.
+ *
+ * Digits where there are any, and the raw string otherwise — a LoRa peer is a hex chip id
+ * with no phone number in it, and reducing every one of those to "" would collapse them all
+ * into a single nameless thread. */
+static void identityOf(const char* uri, char* out, size_t cap) {
+  if (smsMirrorDigits(uri, out, cap)) {
+    return;
+  }
+  snprintf(out, cap, "%s", uri ? uri : "");
+}
+
+// ---------------------------------------------------------------- the list
+static int findThread(const char* id) {
+  for (int i = 0; i < s_threadCount; i++) {
+    if (!strcmp(s_threads[i].peer, id)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/* Fold one direction's newest messages into the thread table. */
+static void scanDirection(Messages& msgs, bool incoming) {
+  const int32_t total = incoming ? msgs.inboxTotalSize() : msgs.sentTotalSize();
+  if (total <= 0) {
+    return;
+  }
+  int32_t depth = total < SIP_THREADS_SCAN ? total : SIP_THREADS_SCAN;
+  if (depth < total) {
+    s_truncated = true;
+  }
+
+  msgs.preload(incoming, -1, depth);
+  for (auto it = msgs.iteratorCount(-1, depth); it.valid(); ++it) {
+    MessageData& m = *it;
+
+    char id[SMS_MIRROR_PEER_MAX];
+    identityOf(m.getOtherUri(), id, sizeof(id));
+    if (!id[0]) {
+      continue;
+    }
+
+    int idx = findThread(id);
+    if (idx < 0) {
+      if (s_threadCount >= SIP_THREADS_MAX) {
+        s_truncated = true;
+        continue;                       // table full: say so rather than silently drop
+      }
+      idx = s_threadCount++;
+      memset(&s_threads[idx], 0, sizeof(s_threads[idx]));
+      snprintf(s_threads[idx].peer, sizeof(s_threads[idx].peer), "%s", id);
+    }
+
+    SipThread& t = s_threads[idx];
+    t.count++;
+    if (incoming && !m.isRead()) {
+      t.unread++;
+    }
+    const uint32_t when = (uint32_t)m.getTime();
+    if (when >= t.lastTime) {
+      t.lastTime = when;
+      // The URI to reply to comes from the NEWEST message, so it follows the correspondent
+      // if their spelling ever changes — and it is a full URI, which is what
+      // TinySIP::sendMessage() needs (it uses the address verbatim; a bare number
+      // silently fails to send).
+      snprintf(t.uri, sizeof(t.uri), "%s", m.getOtherUri());
+    }
+  }
+}
+
+static int threadCompare(const void* a, const void* b) {
+  const SipThread* x = (const SipThread*)a;
+  const SipThread* y = (const SipThread*)b;
+  if (x->lastTime == y->lastTime) {
+    return 0;
+  }
+  return (x->lastTime > y->lastTime) ? -1 : 1;    // newest first
+}
+
+int sipThreadsBuild(Messages& msgs) {
+  s_threadCount = 0;
+  s_truncated = false;
+  if (!msgs.isLoaded()) {
+    return 0;
+  }
+  scanDirection(msgs, true);
+  scanDirection(msgs, false);
+  msgs.clearPreloaded();                          // leave the shared cache as we found it
+  qsort(s_threads, s_threadCount, sizeof(s_threads[0]), threadCompare);
+  return s_threadCount;
+}
+
+// ---------------------------------------------------------------- one thread
+static void addMsg(MessageData& m, bool incoming) {
+  if (s_msgCount >= SIP_THREAD_MSGS_MAX || !s_textPool) {
+    return;
+  }
+  const char* text = m.getMessageText();
+  size_t len = strlen(text);
+  if (s_textUsed + len + 1 > TEXT_POOL_BYTES) {
+    return;                                       // pool full; the cap already bounds this
+  }
+  char* dst = s_textPool + s_textUsed;
+  memcpy(dst, text, len);
+  dst[len] = '\0';
+  s_textUsed += len + 1;
+
+  SipThreadMsg& e = s_msgs[s_msgCount++];
+  e.time = (uint32_t)m.getTime();
+  e.incoming = incoming;
+  e.unread = incoming && !m.isRead();
+  e.text = dst;
+}
+
+static void collect(Messages& msgs, bool incoming, const char* wantId) {
+  const int32_t total = incoming ? msgs.inboxTotalSize() : msgs.sentTotalSize();
+  if (total <= 0) {
+    return;
+  }
+  int32_t depth = total < SIP_THREADS_SCAN ? total : SIP_THREADS_SCAN;
+
+  msgs.preload(incoming, -1, depth);
+  for (auto it = msgs.iteratorCount(-1, depth); it.valid(); ++it) {
+    MessageData& m = *it;
+    char id[SMS_MIRROR_PEER_MAX];
+    identityOf(m.getOtherUri(), id, sizeof(id));
+    if (strcmp(id, wantId)) {
+      continue;
+    }
+    addMsg(m, incoming);
+  }
+}
+
+static int msgCompare(const void* a, const void* b) {
+  const SipThreadMsg* x = (const SipThreadMsg*)a;
+  const SipThreadMsg* y = (const SipThreadMsg*)b;
+  if (x->time == y->time) {
+    return 0;
+  }
+  return (x->time < y->time) ? -1 : 1;            // oldest first: reading order
+}
+
+int sipThreadOpen(Messages& msgs, const char* peerOrUri) {
+  sipThreadsRelease();
+  if (!msgs.isLoaded() || !peerOrUri) {
+    return 0;
+  }
+
+  /* One PSRAM block for every message's text, rather than a malloc per message.
+   * ⚠ PSRAM deliberately: ~7 KB of internal heap is a third of the largest contiguous block
+   * on this phone, and this is exactly the kind of allocation that made the WiFi PHY abort
+   * once already. */
+  s_textPool = (char*)ps_malloc(TEXT_POOL_BYTES);
+  if (!s_textPool) {
+    log_e("sip_threads: no PSRAM for %u bytes", (unsigned)TEXT_POOL_BYTES);
+    return 0;
+  }
+  s_textUsed = 0;
+
+  char want[SMS_MIRROR_PEER_MAX];
+  identityOf(peerOrUri, want, sizeof(want));
+  if (!want[0]) {
+    return 0;
+  }
+
+  collect(msgs, true, want);
+  collect(msgs, false, want);
+  msgs.clearPreloaded();
+  qsort(s_msgs, s_msgCount, sizeof(s_msgs[0]), msgCompare);
+  return s_msgCount;
+}
