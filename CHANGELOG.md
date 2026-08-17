@@ -1,5 +1,57 @@
 # Changelog
 
+## Unreleased — texting looks like texting, and two devices share one number
+
+### 💬 Messages are conversations now, not an inbox and an outbox
+
+- **One row per person, newest first.** Open it and you see the whole exchange in order,
+  oldest at the top, with `You:` on the ones you sent. Replying is one press — it
+  already knows who you are replying to.
+- The old **Inbox / Sent** split is gone. It was never how anyone thinks about texting;
+  it was just how the messages happened to be filed on the card.
+- **Unread counts sit on the row**, and opening a conversation clears it.
+- The same person is one conversation however their number is written — with the country
+  code, without it, punctuated, or as a full address.
+- ⚠ The list shows your **recent** conversations, not every message you have ever had.
+  Someone you have not texted in a very long time may not appear.
+
+### 📨 Texts sent from another device show up here too
+
+If you run a second device on the same phone number — this was built for COVEY, a
+Raspberry Pi handheld — the texts it sends now appear on the phone as well, so the two
+do not drift apart.
+
+- **Two ways in, and they cover different gaps.** Over **WiFi** you get the full history,
+  including texts that arrived while the phone was off. Over the **radio** (LoRa) you get
+  new texts anywhere in range, no WiFi needed. Running both is fine — the phone
+  recognises a text it already has and will not show it twice.
+- **Setup:** put a two-line `smsmirror.txt` on the SD card — the other device's address
+  on the first line, its shared token on the second. Upload it with the same WiFi upload
+  page you use for ROMs and books. Nothing happens until that file exists, and the phone
+  says so on the serial log rather than sitting there silently.
+- ⚠ **Give it its own mesh channel** rather than reusing one. A channel invite contains
+  the key, so sharing it hands over everything else on that channel too.
+- ⚠ **The WiFi side is unencrypted**, because this phone cannot do HTTPS at all (see
+  below). The token stops a stray browser, not somebody watching the same network. On a
+  network you do not trust, turn the WiFi side off and let the radio carry it — the radio
+  side *is* encrypted.
+
+### 🔌 A serial console, for the things you can otherwise only reach by tapping the screen
+
+Plug in USB, open a terminal at 500000 baud and type `?`. You can start and stop the WiFi
+upload page, ask the phone to fetch texts right now, and check what it thinks its state
+is — useful when the phone is on a bench and you are not holding it. No password:
+whoever has the cable has the phone.
+
+### ℹ️ Why the phone cannot fetch its own texts from the provider
+
+The obvious design would be for the phone to talk to the provider directly. It cannot,
+and it is worth writing down so nobody spends a day rediscovering it: a secure connection
+wants about 33 KB of a particular kind of memory, and the whole phone has about 31 KB of
+it. No setting changes that, and the usual workaround for small devices does not exist in
+the version of the encryption library this build is stuck on. It is the same wall that
+stops over-the-air firmware updates working.
+
 ## Unreleased — it makes phone calls now
 
 ### ☎️ Calls and texts work, on a real phone number

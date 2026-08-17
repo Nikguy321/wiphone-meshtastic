@@ -100,6 +100,59 @@ untouched.
 
 ---
 
+## Texting
+
+- **Conversations, not an inbox and an outbox.** Messages opens on a list of
+  people, newest first, with unread counts on the row. Open one to see the whole
+  exchange in order, oldest at the top, `You:` on the ones you sent. Reply is one
+  press and already knows the address.
+- **One person is one conversation**, however the number is written — with the
+  country code, without it, punctuated, or as a full SIP address.
+- ⚠ The list covers your **recent** conversations, not the entire history. Someone
+  you have not texted in a long time may not be shown.
+- ⚠ **Put the full address in the phonebook** — `15551234567@yourserver`, not just
+  the number. Calling fills the server in for you; texting does not, so a bare
+  number calls fine and silently fails to text.
+
+### Sharing a number with a second device
+
+If another device uses the same phone number, the texts it sends can be mirrored
+here so the two do not drift apart. Built for COVEY, a Raspberry Pi handheld, but
+the wire format is plain text and easy to speak.
+
+- **Over WiFi** you get the full history, including anything that arrived while the
+  phone was off. **Over LoRa** you get new texts anywhere in radio range with no
+  WiFi at all. Run both — a text already held is recognised and not shown twice.
+- **Setup:** a two-line `smsmirror.txt` on the SD card — the other device's address,
+  then its shared token. Upload it with the usual WiFi upload page (the phone also
+  looks in `/roms`, which is where that page writes). No file means the feature is
+  off, and the phone says so on serial instead of failing quietly.
+- ⚠ **Use a dedicated mesh channel.** An invite link contains the channel key, so
+  sharing it gives away everything else on that channel.
+- ⚠ **The WiFi side is cleartext** — this phone cannot do HTTPS at all
+  ([why](#why-there-is-no-over-the-air-update)). The token stops a stray browser, not
+  someone watching the network. Turn it off on networks you do not trust; the LoRa
+  side is encrypted by the channel key.
+
+---
+
+## Serial console
+
+Plug in USB, open a terminal at **500000 baud**, type `?`:
+
+| command | does |
+|---|---|
+| `up on` / `up off` | start / stop the WiFi upload page |
+| `up` | show the address to browse to |
+| `sync` | fetch mirrored texts right now |
+| `mirror` | mirror status |
+
+For the things that otherwise need the touchscreen — handy when the phone is on a
+bench rather than in your hand. **No authentication:** whoever holds the cable holds
+the phone.
+
+---
+
 ## Phone improvements
 
 - **WiFi auto-switch** — the phone quietly scans in the background and hops to
