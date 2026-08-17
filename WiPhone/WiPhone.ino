@@ -1474,6 +1474,40 @@ void loop() {
     uint32_t now = millis();
     gbcXferHandleClient();
 
+    /* 🔎 RATCHET WATCHPOINT — name the MOMENT `largest` steps down.
+     *
+     * `largest` is the number that predicts the abort; free and min disagree with it and
+     * predict nothing. It steps down permanently rather than drifting, so catching the step
+     * — and what the phone was doing at that instant — is the whole game. The HEALTH line
+     * samples every 15 s, far too coarse: it says the block shrank somewhere in the last
+     * quarter minute but never says during what.
+     *
+     * Polled at 250 ms, and prints ONLY on a real drop, so an idle phone logs nothing. The
+     * high-water mark follows recoveries upward so the next genuine dip still registers.
+     *
+     * ⚠ heap_caps_get_largest_free_block() walks the free list, so this is not free. It is a
+     * DIAGNOSTIC: delete it, or raise DROP_THRESH, once the ratchet is understood. This is the
+     * same trap as the health log itself — an instrument that consumes what it measures. */
+    {
+      const uint32_t DROP_THRESH = 512;
+      static uint32_t s_lastLargestCheck = 0;
+      static uint32_t s_largestHigh = 0;
+      if (elapsedMillis(now, s_lastLargestCheck, 250)) {
+        s_lastLargestCheck = now;
+        const uint32_t lg = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+        if (s_largestHigh == 0 || lg > s_largestHigh) {
+          s_largestHigh = lg;
+        } else if (lg + DROP_THRESH < s_largestHigh) {
+          log_e("DROP largest %u->%u (-%u) app=%d sip=%d wifi=%d scr=%d cpu=%luMHz up=%lus",
+                (unsigned)s_largestHigh, (unsigned)lg, (unsigned)(s_largestHigh - lg),
+                (int)gui.currentAppId(), (int)gui.state.sipState, (int)WiFi.status(),
+                (int)gui.state.screenBrightness, (unsigned long)getCpuFrequencyMhz(),
+                (unsigned long)(now / 1000));
+          s_largestHigh = lg;
+        }
+      }
+    }
+
     // Stale-held-key sweep, driven by the SN7326's ~40ms held-key re-reports
     // (LONGPRESS_DELAY(1)): a key silent for 350ms lost its release event.
     // - uiKeyDown: always (re-arms the UI edge-trigger so the key isn't dead)

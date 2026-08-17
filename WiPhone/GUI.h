@@ -2536,6 +2536,13 @@ public:
     return runningApp != NULL && runningApp->getId() == id;
   }
 
+  /* Diagnostics only: whatever is on screen, as a plain int so it can be printed. Returns the
+   * running app's id, or the GUI's own curApp when no app object exists (menu, clock). Not
+   * ActionID_t because that enum has no "none" member. */
+  int16_t currentAppId() {
+    return runningApp != NULL ? (int16_t)runningApp->getId() : curApp;
+  }
+
   void setDumpRegion() {
     lcd.setWindow(TFT_WIDTH, TFT_HEIGHT, TFT_WIDTH+1, TFT_HEIGHT+1);
   };

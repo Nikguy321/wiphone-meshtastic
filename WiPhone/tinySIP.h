@@ -393,7 +393,37 @@ public:
       return 0;
     }*/
     //log_d("available...");
-    udpParsePacketSafe(*this);      // NOT WiFiUDP::parsePacket() - see helpers.h
+
+    /* 🛑 RATE-LIMITED ON PURPOSE. THIS WAS THE HEAP FRAGMENTATION ENGINE.
+     *
+     * WiFiUDP::parsePacket() does `new char[1460]` BEFORE it knows whether a packet is even
+     * waiting, then frees it again on the empty path:
+     *
+     *     char * buf = new char[1460];
+     *     if ((len = recvfrom(..., MSG_DONTWAIT, ...)) == -1) { delete[] buf; return 0; }
+     *
+     * TinySIP::checkCall() calls this from the main loop, so with an account registered the
+     * phone took and released a 1,460-byte internal block THOUSANDS of times a second,
+     * interleaved with every other allocation on the device.
+     *
+     * Measured 2026-08-16 with the ratchet watchpoint — idle, screen OFF, CPU at 80 MHz:
+     * `largest` fell 27,884 -> 22,492 while FREE heap never moved off 31,056. Free heap
+     * holding steady while the largest block collapses is the fingerprint of FRAGMENTATION
+     * rather than a leak, and it is why `largest` slid all day and never recovered.
+     *
+     * SIP does not need millisecond latency. 50 ms is 20 Hz — quicker than any human or any
+     * SIP timer cares about — and cuts the churn by three orders of magnitude.
+     *
+     * ⚠ Rate-limiting the POLL does not delay data already received. parsePacket() returns 0
+     * immediately when rx_buffer is populated, and WiFiUDP::available() below reports buffered
+     * bytes regardless, so a packet that has landed is still read on the very next call. */
+    static uint32_t s_lastPoll = 0;
+    const uint32_t nowMs = millis();
+    if (s_lastPoll == 0 || (uint32_t)(nowMs - s_lastPoll) >= 50) {
+      s_lastPoll = nowMs;
+      udpParsePacketSafe(*this);    // NOT WiFiUDP::parsePacket() - see helpers.h
+    }
+
     int len = WiFiUDP::available();
     if(len <= 0) {
       return 0;
