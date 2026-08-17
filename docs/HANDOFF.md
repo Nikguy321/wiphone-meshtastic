@@ -236,6 +236,41 @@ is not.
 
 ### ▶ THE ACTUAL OPEN ITEMS
 
+0. 🆕 **COVEY NOW TEXTS FROM THE SAME NUMBER, AND THIS PHONE CANNOT SEE WHAT IT SENDS.**
+   Added 2026-08-17 from the COVEY side, at Nick's request; he will implement here on his
+   next usage reset.
+
+   **What COVEY does, and why it does not touch this phone.** COVEY does **NOT** register
+   SIP. It uses the VoIP.ms **REST API** (`https://voip.ms/api/v1/rest.php`, `getSMS` /
+   `sendSMS`) with the account email + an API password, IP allow-list opened to `0.0.0.0`.
+   That was deliberate: VoIP.ms overwrites a registration when the same sub-account is used
+   twice, so registering COVEY as `565611_nikguy` would have **taken the registration off
+   this phone** and killed its inbound calls and texts. Nothing in the portal changed —
+   the DID still routes SMS to this sub-account, and this phone's SIP is untouched.
+
+   **The gap to close here.** `getSMS` returns the ACCOUNT's history, so COVEY sees both
+   directions including everything this phone sends and receives. Nothing pushes COVEY's
+   outbound to this phone, so **a text sent from COVEY never appears in this phone's
+   threads.** The fix is for the WiPhone to poll the same `getSMS` and merge, which pairs
+   naturally with item 1 below — the conversation-style rewrite has to touch the storage
+   layer anyway, and merging a second source is much cheaper to design in now than to
+   retrofit afterwards.
+
+   ⚠ **THREE THINGS MEASURED ON COVEY THAT WILL BITE HERE TOO — do not re-derive them:**
+   - **`type=0` is SENT and `type=1` is RECEIVED**, the opposite of what the name suggests.
+     Established against messages whose origin was known independently (the "test fr" /
+     "om covey 2" pair typed on COVEY, and a text sent from this phone, are both type=0;
+     every reply from the mobile is type=1). Getting it backwards makes the unread count
+     permanently zero and draws received texts as if you sent them.
+   - **`limit` returns the OLDEST messages, not the newest.** A limit-only query silently
+     stops returning new messages once history outgrows it, while still answering
+     `"status":"success"`. Bound the query with a `from`/`to` date window instead.
+   - **VoIP.ms answers HTTP 403 to a request with no User-Agent header** (Python's default
+     `Python-urllib/3.x` is refused outright), before the API is reached, so there is no
+     status string to explain it. Send some User-Agent.
+   - Timestamps did not reconcile to any single offset on COVEY; it orders by message id
+     and clamps display times so nothing shows in the future. Expect the same.
+
 1. 🔜 **NEXT UP, AGREED WITH NICK 2026-08-17: make the SIP texting app CONVERSATION-STYLE**,
    the way the Meshtastic app already is, instead of the current inbox/outbox split.
 
