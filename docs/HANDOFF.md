@@ -107,9 +107,10 @@ splits a record in half on a line-oriented transport and takes the next record d
 
 ### 🔑 WHY A NEW CHANNEL AND NOT `booksync` — this is a security finding, not a preference
 🛑 **The `booksync` channel's PSK is published on the public internet.**
-`docs/HANDOFF.md:819` commits `f2b880151f9b560c6a43068cbef9edb4` and `:820` commits the
-`1111` passcode, in `Nikguy321/wiphone-meshtastic`, **which is public** (confirmed: an
-unauthenticated GitHub API request returns 200). Anyone who reads the repo can decrypt that
+this doc committed the booksync channel's PSK **and** its passcode in plaintext, in
+`Nikguy321/wiphone-meshtastic`, **which is public** (confirmed: an unauthenticated GitHub
+API request returns 200). ✅ **Both are redacted as of 2026-08-17** — but they are still in
+the git HISTORY, so the old key must be treated as compromised until it is rotated. Anyone who reads the repo can decrypt that
 channel. Tolerable for reading positions; **not** somewhere to put the content of texts.
 **That PSK and passcode should be rotated and scrubbed regardless of this feature.**
 
@@ -929,8 +930,8 @@ build** — so a packet landing prints *nothing at all* on serial. Do not read s
 | | |
 |---|---|
 | channel | `booksync`, **index 3** on COVEY's radio |
-| PSK | `f2b880151f9b560c6a43068cbef9edb4` — 16 bytes, **byte-identical to the stored invite** |
-| passcode | `1111` on **both** devices (`booksync_pw` in COVEY's `/root/.covey/prefs.json`) |
+| PSK | **[redacted — this repo is public]** 16 bytes, verified **byte-identical to the stored invite**. Read it off the radio: `meshtastic --port /dev/ttyACM1 --info`, channel index 3. |
+| passcode | **[redacted]** — the same on **both** devices; read it from `booksync_pw` in COVEY's `/root/.covey/prefs.json`. It is short and was never rotated after being published; low stakes (it guards page positions only), but do not reuse it for anything else. |
 | book | `Ghosts_of_Timkovichi.epub`, **5,059,833 bytes on both** — same size, so the ids agree |
 
 ⚠ **An invite STORED in prefs and an invite APPLIED to the radio are different states.** Checking
