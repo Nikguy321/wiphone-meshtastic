@@ -11871,12 +11871,42 @@ uint16_t GUI::drawSipIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x,
   return 0;
 }
 
+/* Status bar unread indicator — one glyph per message TYPE.
+ *
+ *   WHITE  = unread SIP text        (controlState.unreadMessages)
+ *   GREEN  = unread Meshtastic text (controlState.meshUnread)
+ *   BOTH   = green with the white one overlapping it
+ *
+ * Because it reads straight off the two unread flags, checking one kind updates the icon by
+ * itself: clear the mesh thread and the pair collapses to the plain white envelope, so the bar
+ * says what is STILL waiting rather than merely that something is.
+ *
+ * Both glyphs are the same 18x17 RLE3 image; the green one is generated from the white one by
+ * recolouring its palette (see icons.h). The return value is the width consumed, which the
+ * header uses to place what it draws next — so the overlapped pair must report its real width. */
 uint16_t GUI::drawMessageIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y) {
-  if (controlState.unreadMessages || controlState.meshUnread) {
-    lcd.drawImage(icon_incoming_message_w, sizeof(icon_incoming_message_w), x, y);
-    return 19;      // TODO: hardcoded width
+  const bool sip  = controlState.unreadMessages;
+  const bool mesh = controlState.meshUnread;
+  if (!sip && !mesh) {
+    return 0;
   }
-  return 0;
+
+  const uint16_t iconW   = 19;      // TODO: hardcoded width, as before
+  const uint16_t overlap = 7;       // how far the white one sits over the green one
+
+  if (sip && mesh) {
+    // Green first, then white on top and offset right, so both stay readable.
+    lcd.drawImage(icon_incoming_message_g, sizeof(icon_incoming_message_g), x, y);
+    lcd.drawImage(icon_incoming_message_w, sizeof(icon_incoming_message_w), x + overlap, y);
+    return iconW + overlap;
+  }
+
+  if (mesh) {
+    lcd.drawImage(icon_incoming_message_g, sizeof(icon_incoming_message_g), x, y);
+  } else {
+    lcd.drawImage(icon_incoming_message_w, sizeof(icon_incoming_message_w), x, y);
+  }
+  return iconW;
 }
 
 // Brief overlay banner shown when a new Meshtastic message arrives (any screen).
