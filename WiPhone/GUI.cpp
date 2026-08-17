@@ -8442,14 +8442,27 @@ appEventResult DiagnosticsApp::processEvent(EventType event) {
       if (controlState.booted && controlState.codecInited) {
         //if (!audio->isOn()) {
         if ( !audioOn ) {
-          // if we are in DIAGNOSTICS_ONLY mode, the audio object doesn't get set up/get passed in/function correctly and we need to create it again. it's unclear why
+#ifdef DIAGNOSTICS_ONLY
+          /* 🛑 12,604 BYTES OF INTERNAL DRAM — and until 2026-08-16 this was compiled into
+           * EVERY build, including production, where it can never run.
+           *
+           * The workaround itself is fine and stays for the mode it was written for: in
+           * DIAGNOSTICS_ONLY builds the global audio object isn't wired up, so this screen
+           * makes its own. But `static` means the compiler reserves the object's BSS
+           * unconditionally, whether or not the branch is reachable — and sizeof(Audio) is
+           * 0x313c. `xtensa-esp32-elf-nm --size-sort` showed TWO 12,604-byte Audio objects in
+           * the image: setup()'s, which is the real one, and this one.
+           *
+           * This phone has ~20 KB of free internal heap with WiFi and SIP up, which is what
+           * every crash today has come down to. Handing 12.6 KB of it to an object that
+           * production can never reach was most of the reason the margin was so thin.
+           *
+           * ⚠ It also reassigned the GLOBAL `audio` pointer, so in a production build merely
+           * opening Diagnostics would have swapped the whole phone's audio device to a second
+           * instance — the shared-state bug class that has bitten this codebase repeatedly. */
           static Audio audio_local(true, I2S_BCK_PIN, I2S_WS_PIN, I2S_MOSI_PIN, I2S_MISO_PIN);
           audio = &audio_local;
-
-          //audio->setVolumes(speakerVol, headphonesVol, loudspeakerVol);
-          //audio->setVolumes(0, 0, 0);
-          //audio->chooseSpeaker(true);
-          //gui.setAudio(audio);
+#endif // DIAGNOSTICS_ONLY
 
           audio->shutdown();
 
