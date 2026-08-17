@@ -70,5 +70,17 @@ int smsMirrorIngestLine(const char* line) {
    * next NEW_MESSAGE_EVENT, which is the same path a delete already uses. */
   gui.flash.messages.clearPreloaded();
 
+  /* Raise the SIP unread badge here, because the transports deliberately do NOT raise their
+   * own. `unreadMessages` is event-driven, not polled — it is refreshed by reloadMessages()
+   * and after reading a message, and nowhere else — so without this line an incoming
+   * mirrored text would sit in the store with nothing on screen to say it had arrived.
+   *
+   * ⚠ Only INCOMING messages carry the unread flag ("u" is set by saveMessage only when
+   * incoming), so a text mirrored back from something Nick sent on COVEY lights nothing.
+   * That is the intended behaviour: he already knows about it. */
+  if (r > 0) {
+    gui.state.unreadMessages = gui.flash.messages.hasUnread();
+  }
+
   return r;
 }

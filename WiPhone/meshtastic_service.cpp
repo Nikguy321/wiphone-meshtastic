@@ -664,7 +664,20 @@ bool MeshtasticService::loop() {
            * Dial it back to log_i once this path is trusted on hardware. */
           log_e("SMSMIRROR rx from 0x%08X: %s", hdr.sender,
                 r > 0 ? "STORED" : (r == 0 ? "duplicate, ignored" : "REFUSED"));
-          return r > 0;
+
+          /* ⚠ FALSE, like book-sync — and this reverses what it first did.
+           *
+           * Returning true raised the MESH new-message signal: chime, vibration and the
+           * green mesh bubble. That was wrong, and using it made the mistake obvious. A
+           * mirrored record is not news arriving on the mesh, it is a copy of something
+           * that already happened somewhere else — usually a text NICK HIMSELF just sent
+           * from COVEY. Chiming at someone to tell them they sent a message is noise.
+           *
+           * The right badge is still raised, just not from here: smsMirrorIngestLine()
+           * refreshes `unreadMessages`, so a genuinely INCOMING mirrored text lights the
+           * white SIP icon (the correct one — the message is in the SIP store, not the mesh
+           * one), and an outgoing one lights nothing at all. */
+          return false;
         }
 
         storeMessage(hdr.sender, toInternal, hdr.channelHash, text, false);   // real text!
