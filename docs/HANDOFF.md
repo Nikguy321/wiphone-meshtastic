@@ -38,12 +38,27 @@ while FREE heap sat perfectly still.
 
 | | before | after |
 |---|---|---|
-| `largest` after 2 min | ratcheted to **22,492**, stuck | **27,692**, recovers from every dip |
-| free heap | 31,056 (never moved) | 31,320 (never moves) |
+| shape | **continuous** ratchet, step after step | **one** early step, then flat |
+| 2 min | 22,492 and still falling | 27,836 |
+| 11 min | (by 28 min: **3,168**, then panic) | **22,588 — unchanged for ten minutes** |
+| free heap | 31,056 (never moved) | 31,040 (never moves) |
+| `reset_reason=4` | every 1–3 min | **none in an 11-minute soak** |
 
-⚠ **NOT claimed:** that this explains restarts recorded *before* SIP existed. Nothing else polls
-UDP continuously — `USE_VIRTUAL_KEYBOARD` is commented out, NTP polls only inside a request
-window — so those had a different cause and remain unexplained.
+⚠ **BE PRECISE ABOUT WHAT WAS FIXED.** An earlier version of this section claimed "not one
+permanent step down". **That was wrong** — it came from a 4-minute window that happened not to
+contain the event. There IS still a single discrete step of about 5 KB, roughly 90 seconds in,
+after which `largest` sits perfectly still. What the fix removed is the CONTINUOUS churn: the
+repeated ~1,712-byte dips now recover in full instead of stranding space each time.
+
+🔎 **STILL OPEN — the one remaining step.** ~5 KB, once, around 90 s, and then nothing. Free heap
+barely moves across it (−576) while `largest` loses 5,248, so it still smells of fragmentation
+rather than a plain allocation. Not urgent: it settles at ~22,500 against an abort threshold of
+1,460–3,168, and it does not recur. The watchpoint will name it — the drop line prints the app,
+sip state, wifi state and uptime at the instant it happens.
+
+⚠ **NOT claimed:** that any of this explains restarts recorded *before* SIP existed. Nothing else
+polls UDP continuously — `USE_VIRTUAL_KEYBOARD` is commented out, NTP polls only inside a
+request window — so those had a different cause and remain unexplained.
 
 ### 🔑 THE TOOL THAT FOUND IT — use it before theorising
 A **ratchet watchpoint** at the top of `loop()` in `WiPhone.ino` samples `largest` every 250 ms
