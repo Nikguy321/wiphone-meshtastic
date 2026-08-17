@@ -655,8 +655,15 @@ bool MeshtasticService::loop() {
          * arrived, so the caller's new-message signal is exactly right. */
         if (smsMirrorIsMirrorLine(text)) {
           int r = smsMirrorIngestLine(text);
-          log_i("Mesh SMS mirror from 0x%08X: %s",
-                hdr.sender, r > 0 ? "stored" : (r == 0 ? "already had it" : "refused"));
+          /* ⚠ log_e, NOT log_i, and on the SUCCESS path too. Only log_e is compiled into
+           * this build, so an log_i here would make a working mirror and a broken one look
+           * identical on serial — which is precisely the trap that made book sync look dead
+           * for a whole session. This is the ONLY evidence that a mirrored text arrived:
+           * nothing is drawn, nothing chimes, and the message lands in the SIP store rather
+           * than anywhere the mesh app shows.
+           * Dial it back to log_i once this path is trusted on hardware. */
+          log_e("SMSMIRROR rx from 0x%08X: %s", hdr.sender,
+                r > 0 ? "STORED" : (r == 0 ? "duplicate, ignored" : "REFUSED"));
           return r > 0;
         }
 
