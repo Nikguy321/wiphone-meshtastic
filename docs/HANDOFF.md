@@ -121,13 +121,18 @@ The new channel also cost no firmware work — the mesh layer is already generic
    🛑 **THE INVITE URL IS NOT WRITTEN DOWN HERE, AND MUST NOT BE.** A Meshtastic invite
    carries the channel PSK inside its base64 fragment, so pasting one into this file would
    publish the key — which is precisely the mistake that makes the `booksync` channel
-   worthless (see above). **Generate it on demand from COVEY instead**, where the radio's own
-   copy of the channel is the source of truth:
-   ```python
-   app.mesh.channel_url("smsmirror")     # covey_ui/mesh_meshtastic.py
-   ```
-   ⚠ **Verify it is APPLIED TO THE RADIO, not merely stored** — that distinction is what
-   made book sync look broken for a whole session.
+   worthless (see above). **It travels device to device instead**, and COVEY gained the
+   button for it on 2026-08-17:
+
+   | on | do |
+   |---|---|
+   | **COVEY** | open the **`smsmirror`** chat → the **dots** → **Share channel link** → tap this phone in the node list. It sends the invite as a **DM** (never a broadcast — the link *is* the key). |
+   | **this phone** | **Menu > Meshtastic**, open that message, press **OK** — `app_meshtastic.cpp` `MESH_VIEWMSG` calls `applyChannelUrl()`. |
+
+   ✅ **The pass is the phone answering `Applied: 1 channel(s) added.`** That message is the
+   only confirmation you get, and it is worth waiting for: it distinguishes an invite that
+   was **APPLIED TO THE RADIO** from one merely sitting in a chat thread. That exact
+   distinction is what made book sync look broken for a whole session.
 2. **The LAN poller does not exist yet**, and ⚠ **it must NOT be a blocking `HTTPClient`
    GET.** The UI is one task; a 2.5 s call every 60 s is the 5-second-freeze bug rebuilt on
    purpose. It needs a **state machine over `WiFiClient` driven from the main loop** — a
