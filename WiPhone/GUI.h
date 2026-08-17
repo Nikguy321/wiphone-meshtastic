@@ -299,10 +299,22 @@ public:
   bool sleeping = true;               // is sleeping enabled?
   uint32_t sleepAfterMs = 30000;      // after what time after key press to turn off the screen (should be higher than dimAfterMs)
 
+  /* ⚠⚠ TEMPORARY DIAGNOSTIC BUILD — SCREEN_ALWAYS_ON_TEST in config.h ⚠⚠
+   *
+   * Forces the screen to stay awake and undimmed so the "largest ratchets down only while the
+   * screen is on" behaviour can be reproduced UNATTENDED. This is an experiment, not a
+   * feature: it defeats the sleep timeout, so it burns battery and pins the CPU high.
+   * DELETE THIS AND THE #define ONCE THE RATCHET IS CHARACTERISED. */
   bool doDimming() {
+#ifdef SCREEN_ALWAYS_ON_TEST
+    return false;
+#endif
     return this->dimming && this->dimAfterMs > 0 && this->dimAfterMs <= 86400000;
   }
   bool doSleeping() {
+#ifdef SCREEN_ALWAYS_ON_TEST
+    return false;
+#endif
     return this->sleeping && this->sleepAfterMs > 0 && this->sleepAfterMs <= 86400000;
   }
 
@@ -2515,6 +2527,15 @@ public:
   ~GUI();
 
   void init(void (*lcdOnOffCallback)(bool));
+
+  /* Is this particular app on screen right now? Asked rather than returning an id, because
+   * ActionID_t is an enum with no "none" member and inventing one would be a worse trade than
+   * this. The main loop uses it to decide whether SIP may poll: the Game Boy commits internal
+   * RAM that SIP also needs. See sipMayPoll() in WiPhone.ino. */
+  bool isAppRunning(ActionID_t id) {
+    return runningApp != NULL && runningApp->getId() == id;
+  }
+
   void setDumpRegion() {
     lcd.setWindow(TFT_WIDTH, TFT_HEIGHT, TFT_WIDTH+1, TFT_HEIGHT+1);
   };

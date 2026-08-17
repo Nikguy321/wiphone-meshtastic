@@ -26,6 +26,18 @@ governing permissions and limitations under the License.
 //#define STEAL_THE_USER_BUTTONS      // this will switch between 2 different sets of definitions for the user button functions
 #endif
 
+/* Diagnostic switch, normally OFF. Defining SCREEN_ALWAYS_ON_TEST forces doDimming() and
+ * doSleeping() (GUI.h) to false, so the screen never dims or sleeps and the screen-on heap
+ * behaviour can be soaked with nobody holding the phone.
+ *
+ * Used 2026-08-16 to establish that screen-on ALONE does not ratchet the heap: 8.6 minutes
+ * awake with SIP registered drifted `largest` by only -1,792 bytes and never panicked. That
+ * pointed away from the redraw loop and toward app-switching, and away from a blanket change
+ * to TFT_eSprite's allocator that would have cost the emulator frame rate for nothing.
+ *
+ * Leave it OFF: it defeats the sleep timeout and pins the CPU high.
+//#define SCREEN_ALWAYS_ON_TEST */
+
 #define FIRMWARE_VERSION "0.9.2"
 
 #define BUILD_GAMES

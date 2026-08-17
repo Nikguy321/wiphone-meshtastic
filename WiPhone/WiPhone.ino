@@ -1383,6 +1383,42 @@ void healthLogLine(const char* line) {
  * music-pauses-for-a-call, and quietly changing a shared predicate to fix an unrelated
  * caller is the exact bug class that produced three separate faults in this codebase today.
  * The CPU gate asks its own question. */
+/* May SIP poll the network this pass?
+ *
+ * ⚠ A NEW predicate on purpose. sipNeedsFullSpeed() and sipCallActive() already exist and mean
+ * different things, and this codebase has been bitten repeatedly by one caller quietly editing
+ * a shared predicate another caller depended on. Every consumer states what it needs.
+ *
+ * WHY: the Game Boy commits 16 KB of INTERNAL RAM that cannot be relocated — an 8,192-byte
+ * blit task stack, a 4,096-byte emulator task stack and a 4,096-byte audio buffer. FreeRTOS
+ * stacks physically cannot run from PSRAM on the ESP32, so unlike the ROM and both
+ * framebuffers (already correctly in PSRAM) none of this can move. Meanwhile every SIP poll
+ * calls WiFiUDP::parsePacket(), which wants 1,460 CONTIGUOUS bytes from that same pool. With
+ * ~26 KB free, the emulator takes 16 and the two of them fight over what is left.
+ *
+ * So while the emulator is on screen, SIP stops polling entirely: no UDP reads, no re-REGISTER.
+ * Registration lapses after its 60 s expiry and re-establishes when the game exits. The cost is
+ * missed calls during a game — the trade the phone's owner explicitly asked for.
+ *
+ * ⚠ A LIVE CALL OUTRANKS THE EMULATOR. If audio is already flowing, dropping it because the
+ * games menu got opened would be worse than the memory pressure it saves. */
+static bool sipMayPoll() {
+  switch (gui.state.sipState) {
+    case CallState::InvitingCallee:
+    case CallState::InvitedCallee:
+    case CallState::RemoteRinging:
+    case CallState::Call:
+    case CallState::BeingInvited:
+    case CallState::Accept:
+    case CallState::HangUp:
+    case CallState::HangingUp:
+      return true;                 // mid-call or mid-teardown: keep servicing it
+    default:
+      break;
+  }
+  return !gui.isAppRunning(GUI_APP_GBC);
+}
+
 static bool sipNeedsFullSpeed() {
   switch (gui.state.sipState) {
     case CallState::InvitingCallee:
@@ -2081,7 +2117,7 @@ void loop() {
     }
     //    This is the "user-agent core", something that binds together SIP library, GUI, audio interfaces and message storage.
     //    It implements transitions between different call states.
-    if (gui.state.hasSipAccount() && wifiState.isConnected()) {
+    if (gui.state.hasSipAccount() && wifiState.isConnected() && sipMayPoll()) {
       if( wifiTerminateSip == TERMINATE_OK ) {
         gui.state.sipState == CallState::NotInited;
         wifiTerminateSip = 0x0;
