@@ -138,8 +138,80 @@ void connectToWiFi(const char* ssid, const char* pwd) {
 
 // Inspired by: https://github.com/nkolban/esp32-snippets/blob/master/cpp_utils/WiFi.cpp
 // Alternative way: use dns_gethostbyname. See: https://gist.github.com/MakerAsia/37d2659310484bdbba9d38558e2c3cdb
+/* 🛑 THIS BLOCKS THE MAIN LOOP, AND THE UI IS SINGLE-THREADED.
+ *
+ * Everything the user sees runs on the same task, so every millisecond spent in here is a
+ * millisecond the screen is frozen. Reached from SIP connect (tinySIP.cpp), from RTP setup
+ * DURING a call (WiPhone.ino) and from NTP (clock.cpp).
+ *
+ * Reported symptom that led here: "sometimes when clicking menus the phone will freeze for
+ * like 5 seconds". Two blocking calls in series were doing it:
+ *
+ *   1. An mDNS query with a 500 ms timeout, run for EVERY name — including public ones like
+ *      `seattle1.voip.ms` and `pool.ntp.org`. mDNS only ever answers for `.local` hosts, so
+ *      that half second was guaranteed wasted every single time. The overnight log is full of
+ *      `seattle1.voip.ms not found on local network`; that line IS the wasted 500 ms.
+ *   2. lwip_gethostbyname(), which retries internally and can block for SEVERAL SECONDS when a
+ *      DNS server is slow or unreachable. `errno=210: unable to resolve "pool.ntp.org"` in the
+ *      same log is that, and NTP keeps retrying it.
+ *
+ * So: only ask mDNS about names it could possibly answer for, and cache what DNS returns so a
+ * reconnect does not pay for it twice.
+ *
+ * ⚠ `.local` answers are deliberately NOT cached. mDNS names move with the network — the
+ * documented `wiphone.local` staleness trap is exactly that — so they must stay live. Only
+ * public DNS answers are cached, and only for TTL_MS. */
 IPAddress resolveDomain(const char* hostName) {
-  if (wifiState.mdnsOk) {
+  if (hostName == NULL || !hostName[0]) {
+    return IPAddress((uint32_t)0);
+  }
+
+  /* mDNS can only answer for single-label names and `.local`. Anything else is a public name,
+   * and asking mDNS about it is a guaranteed half second of nothing. */
+  const char* dot = strchr(hostName, '.');
+  const bool couldBeLocal = (dot == NULL) || (strcasecmp(dot, ".local") == 0);
+
+  /* ⚠ FAILURES ARE CACHED TOO, and that half matters more than the successes.
+   *
+   * Measured on the device 2026-08-17: `pool.ntp.org` failed to resolve SEVEN times in two
+   * minutes, because NTP retries on TIME_UPDATE_RETRY_DELAY_MS (500 ms) and every retry is a
+   * fresh blocking lwip_gethostbyname(). On a network where that name does not resolve — a
+   * work WiFi with restrictive DNS, say — the phone spends whole seconds inside this function,
+   * over and over, with the UI frozen because it is all one task.
+   *
+   * A negative entry makes a failing name cost NOTHING until NEG_TTL_MS has passed, no matter
+   * how eagerly the caller retries. That is the general fix: it protects against any caller
+   * hammering any name that will not resolve, not just this one. Kept much shorter than the
+   * positive TTL so a genuinely transient DNS outage recovers quickly. */
+  static const int      RESOLVE_CACHE_N = 6;
+  static const uint32_t TTL_MS     = 10u * 60u * 1000u;    // 10 min for a good answer
+  static const uint32_t NEG_TTL_MS = 60u * 1000u;          // 1 min for a failure
+  struct CacheEntry {
+    char     host[64];
+    uint32_t addr;        // 0 == negative entry (this name did not resolve)
+    uint32_t at;          // 0 == slot never used
+  };
+  static CacheEntry s_cache[RESOLVE_CACHE_N] = {};
+  static uint8_t    s_next = 0;
+  const uint32_t    nowMs = millis() | 1u;                 // never 0, so `at` marks "used"
+
+  if (!couldBeLocal) {
+    for (int i = 0; i < RESOLVE_CACHE_N; i++) {
+      if (!s_cache[i].at || strcmp(s_cache[i].host, hostName)) {
+        continue;
+      }
+      const uint32_t age = (uint32_t)(nowMs - s_cache[i].at);
+      if (s_cache[i].addr && age < TTL_MS) {
+        return IPAddress(s_cache[i].addr);                 // known good: no blocking call
+      }
+      if (!s_cache[i].addr && age < NEG_TTL_MS) {
+        return IPAddress((uint32_t)0);                     // known bad: fail instantly
+      }
+      break;                                                // stale — fall through and re-look
+    }
+  }
+
+  if (wifiState.mdnsOk && couldBeLocal) {
     IPAddress addr = mdnsResponder.queryHost(hostName, 500);
     if (addr) { // where is the class definition of IPAddress? Need to know if this is a valid way to test if addr is set.
       log_i("resolved: %s -> %d.%d.%d.%d", hostName, addr[3], addr[2], addr[1], addr[0]);
@@ -157,6 +229,24 @@ IPAddress resolveDomain(const char* hostName) {
   } else {
     retAddr = 0;
     log_e("errno=%d: unable to resolve \"%s\"", h_errno, hostName);
+  }
+
+  /* Record the outcome either way — a failure is exactly what we must remember. */
+  if (!couldBeLocal && strlen(hostName) < sizeof(s_cache[0].host)) {
+    int slot = -1;
+    for (int i = 0; i < RESOLVE_CACHE_N; i++) {       // reuse this name's slot if it has one
+      if (s_cache[i].at && !strcmp(s_cache[i].host, hostName)) {
+        slot = i;
+        break;
+      }
+    }
+    if (slot < 0) {
+      slot = s_next;
+      s_next = (s_next + 1) % RESOLVE_CACHE_N;
+    }
+    strlcpy(s_cache[slot].host, hostName, sizeof(s_cache[0].host));
+    s_cache[slot].addr = (uint32_t)retAddr;           // 0 here means "known bad"
+    s_cache[slot].at   = nowMs;
   }
   return IPAddress(retAddr);
 }
