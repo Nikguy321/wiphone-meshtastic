@@ -38,23 +38,44 @@ while FREE heap sat perfectly still.
 
 | | before | after |
 |---|---|---|
-| shape | **continuous** ratchet, step after step | **one** early step, then flat |
+| shape | **continuous** ratchet, step after step | two early steps, then a **plateau** |
 | 2 min | 22,492 and still falling | 27,836 |
-| 11 min | (by 28 min: **3,168**, then panic) | **22,588 — unchanged for ten minutes** |
-| free heap | 31,056 (never moved) | 31,040 (never moves) |
-| `reset_reason=4` | every 1–3 min | **none in an 11-minute soak** |
+| 28 min | **3,168**, then panic | 20,528 |
+| free heap | 31,056 (never moved) | ~31,000 (never moves) |
+| `reset_reason=4` | **every 1–3 min** | **none** |
 
-⚠ **BE PRECISE ABOUT WHAT WAS FIXED.** An earlier version of this section claimed "not one
-permanent step down". **That was wrong** — it came from a 4-minute window that happened not to
-contain the event. There IS still a single discrete step of about 5 KB, roughly 90 seconds in,
-after which `largest` sits perfectly still. What the fix removed is the CONTINUOUS churn: the
-repeated ~1,712-byte dips now recover in full instead of stranding space each time.
+### ✅ PROVEN OVERNIGHT, 2026-08-16→17 — 5.4 HOURS, ZERO PANICS
 
-🔎 **STILL OPEN — the one remaining step.** ~5 KB, once, around 90 s, and then nothing. Free heap
-barely moves across it (−576) while `largest` loses 5,248, so it still smells of fragmentation
-rather than a plain allocation. Not urgent: it settles at ~22,500 against an abort threshold of
-1,460–3,168, and it does not recur. The watchpoint will name it — the drop line prints the app,
-sip state, wifi state and uptime at the instant it happens.
+Idle, screen off, SIP registered, on USB power. `largest` sampled from the health log:
+
+```
+up=  0min  27,988
+up= 24min  20,528
+up= 78min  20,528
+up=160min  20,528
+up=241min  20,528
+up=295min  20,528     <- four and a half hours without moving
+up=322min  20,084
+```
+
+**It PLATEAUS.** Two steps in the first half hour, then it settles and stays. This was the open
+question — whether the remaining drift was a slow slide toward death — and the answer is no.
+**1,330 heap dips over the night, `reset_reason=4` count: ZERO.**
+
+The dip histogram is the mechanism, confirmed: **991 of the 1,330 drops are exactly −1,712** —
+the `parsePacket` buffer taken and handed straight back, every one recovering in full. That is
+the same churn as before, now happening at 20 Hz instead of ~20 kHz.
+
+⚠ **Two corrections this section has already needed, kept as a warning against short windows.**
+It once claimed "the ratchet is gone" (from a 4-minute sample) and later "one discrete step,
+then flat" (from 11 minutes). The truth needed six hours: **two** early steps, then a genuine
+plateau. **Do not characterise heap behaviour on this phone from anything under an hour.**
+
+🔎 **STILL OPEN, LOW PRIORITY — the two early steps.** ~5 KB then ~2 KB, both inside the first
+half hour, never recurring. Free heap barely moves across them, so they still look like
+fragmentation rather than plain allocation. Not urgent: the plateau at ~20,500 sits against an
+abort threshold of 1,460–3,168. The watchpoint prints app / sip / wifi / screen / uptime at the
+instant of each drop, so whoever picks this up starts with the context already logged.
 
 ⚠ **NOT claimed:** that any of this explains restarts recorded *before* SIP existed. Nothing else
 polls UDP continuously — `USE_VIRTUAL_KEYBOARD` is commented out, NTP polls only inside a
