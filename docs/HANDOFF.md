@@ -1,14 +1,111 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-16 · **`main` pushed and clean at `bdca077`. Phone flashed with it
-over USB and booted clean (`reset_reason=1`). Tests 841/841.** Version still reports **0.9.2**;
-the CHANGELOG's top section is **"Unreleased"** — bump `FIRMWARE_VERSION` when you release.
+**Last updated:** 2026-08-16 (late) · **`main` pushed and clean at `7992b63`. Phone flashed and
+booted clean. Tests 841/841.** Version still reports **0.9.2**; the CHANGELOG's top section is
+**"Unreleased"** — bump `FIRMWARE_VERSION` when you release.
+
+---
+
+## 🛑 THE RESTART MYSTERY IS SOLVED. READ THIS BEFORE ANYTHING ELSE.
+
+**`WiFiUDP::parsePacket()` was both the abort AND the fragmentation.** One function, two
+separate failure modes, and between them they account for everything chased for weeks.
+
+```cpp
+char * buf = new char[1460];                    // EVERY call, before it knows if data exists
+if(!buf){ return 0; }                           // DEAD CODE: new[] throws, never returns null
+if ((len = recvfrom(..., MSG_DONTWAIT, ...)) == -1) { delete[] buf; return 0; }
+```
+
+**Fault 1 — the abort.** `new[]` throws `std::bad_alloc` on failure. Nothing catches it, so it
+becomes `std::terminate()` → `abort()` → **`reset_reason=4`**. The framework's own null-check
+never fires because it was written with `malloc` semantics. Proven by decoding the panic
+backtrace against `firmware.elf`:
+
+```
+loop -> TinySIP::checkCall -> UDP_SIPConnection::available -> WiFiUDP::parsePacket
+     -> operator new[] -> __cxa_throw -> std::terminate -> abort
+```
+
+**Fault 2 — the ratchet.** It allocates 1,460 bytes *before* checking whether a packet is
+waiting — the overwhelmingly common case — then frees it. `TinySIP::checkCall()` drove that
+from the main loop **thousands of times a second**. An allocator running flat out, doing
+nothing, chopping the heap to pieces. This is why `largest` slid all day and never recovered
+while FREE heap sat perfectly still.
+
+**Both fixed.** `udpParsePacketSafe()` in `helpers.h` fronts all six call sites (guard + catch);
+`UDP_SIPConnection::available()` polls at **50 ms**. Measured either side, idle, screen off:
+
+| | before | after |
+|---|---|---|
+| `largest` after 2 min | ratcheted to **22,492**, stuck | **27,692**, recovers from every dip |
+| free heap | 31,056 (never moved) | 31,320 (never moves) |
+
+⚠ **NOT claimed:** that this explains restarts recorded *before* SIP existed. Nothing else polls
+UDP continuously — `USE_VIRTUAL_KEYBOARD` is commented out, NTP polls only inside a request
+window — so those had a different cause and remain unexplained.
+
+### 🔑 THE TOOL THAT FOUND IT — use it before theorising
+A **ratchet watchpoint** at the top of `loop()` in `WiPhone.ino` samples `largest` every 250 ms
+and logs ONLY real drops, with context:
+
+```
+DROP largest 27884->22492 (-5392) app=16388 sip=1 wifi=3 scr=0 cpu=80MHz up=109s
+```
+
+It found the cause on its first run. The 15 s HEALTH line was far too coarse — it says memory
+vanished sometime in the last quarter minute, never during what. **Silent on an idle phone.**
+Costs a free-list walk 4×/second; delete it or raise `DROP_THRESH` once this is well trusted.
+
+### 💡 THE LESSON, recorded because it cost hours
+**The ESP32 prints a backtrace on panic and I spent half a day on heap arithmetic before
+reading it.** `addr2line` against `.pio/build/wiphone/firmware.elf` named the exact function in
+two minutes. **Read the crash before theorising about the crash.**
+
+```bash
+xtensa-esp32-elf-addr2line -pfiaC -e .pio/build/wiphone/firmware.elf 0x... 0x...
+```
+
+---
 
 ## ▶ WHERE TO PICK UP (2026-08-16)
 
 **Nick's stated priorities, in his words: STABILITY and BATTERY LIFE on the WiPhone.** The
 audio crackle is explicitly **dropped** — *"Covey does music, so worst case it's just not great
 on the wiphone and I live with it."* Do not spend time on it.
+
+### 🧠 THE MEMORY PICTURE — where the internal heap actually went
+
+Free internal heap went from **~9,964 to ~31,300** in one day, and `largest` from ~8,136 to
+~27,700. Three finds, all located with `xtensa-esp32-elf-nm --size-sort -S firmware.elf`
+(addresses starting `3ffc…` are internal DRAM; `3f4…` is flash and irrelevant):
+
+| what | recovered | how |
+|---|---|---|
+| **A phantom second `Audio` object** | **12,616 B** | `DiagnosticsApp::processEvent()` held a `static Audio` — 12,604 B of BSS — as a workaround for `DIAGNOSTICS_ONLY` builds. `config.h` defines `WIPHONE_PRODUCTION`, so that mode is **off** and the branch can never run, but `static` reserves the memory unconditionally. Now `#ifdef`-guarded. It also reassigned the **global** `audio` pointer, so opening Diagnostics in production would have swapped the phone's audio device. |
+| **All widgets → PSRAM** | ~4,200 B per screen | `operator new` on `AbstractWidget`, the root of the hierarchy, covers all ~163 widget allocations in one place. Settings > SIP accounts went **−4,236 → +0** per open. ⚠ Moving just the app OBJECT (the BooksApp trick) recovered only 460 of those bytes — the object was never the cost, its dozen widgets were. |
+| **The UDP poll churn** | the ratchet itself | see the section above |
+
+**What is left in internal DRAM, and why it stays:** `setup()::audio_local` (12,604 B — the real
+one), the global `sip` (5,364 B), WiFi's `g_cnxMgr`, `meshService`. ⚠ **The `Audio` object should
+NOT be moved to PSRAM** — it is I2S/DMA-adjacent and timing-critical.
+
+⚠ **The Game Boy owns 16 KB of internal RAM that CANNOT be moved:** an 8,192-byte blit task
+stack, a 4,096-byte emulator stack, and a 4,096-byte audio buffer. **FreeRTOS stacks physically
+cannot run from PSRAM on the ESP32.** The ROM and both framebuffers are already correctly in
+PSRAM. This is why **`sipMayPoll()` stops SIP polling while the emulator is on screen** — they
+compete for memory neither can give up. A live call outranks the emulator.
+
+### ⚠ A DEFECT LEFT DELIBERATELY UNFIXED
+`TFT_eSprite::esp32Calloc()` tries **`calloc()` first and PSRAM only as a fallback** — backwards
+on a device with 3.6 MB of PSRAM and ~28 KB of internal heap. It is real, and it is **not**
+fixed, because a 14-minute soak with the screen forced permanently awake (`SCREEN_ALWAYS_ON_TEST`
+in `config.h`, left in place but off) showed **screen-on alone does not ratchet the heap**:
+`largest` drifted −1,792 and then sat flat. The sprite sites are the Ackman game and the design
+demo, neither of which gets used. Flipping the priority would slow every sprite write and cost
+the emulator frame rate to fix something that is not happening. **If evidence ever points back
+here, use a size threshold — big allocations to PSRAM, small hot ones internal — not a blanket
+flip.**
 
 ### ✅ Shipped 2026-08-16 — typing, honest labels, and OTA switched off at source
 
@@ -37,35 +134,24 @@ is not.
 
 ### ▶ THE ACTUAL OPEN ITEMS
 
-1. 🔜 **NEXT UP, AGREED WITH NICK 2026-08-16: move the cursor with LEFT/RIGHT while typing.**
-   *"I want to be able to use the right and left arrow pads to scroll a cursor through the
-   message I wrote so I can backspace and re-add letters in case of typos... right now I'd
-   have to backspace everything to fix a wrong letter at the beginning."* Wanted on Meshtastic
-   compose **and everywhere else text is typed**. He is out of usage as of this writing and
-   will say **"go for it"** to start.
+1. 📞 **MAKE THE FIRST REAL CALL AND TEXT.** A VoIP.ms account is live and the phone
+   **registers** (`sip=1` = `CallState::Idle` in every health line since). Number is
+   **425-320-0782** (Everett WA), sub-account **`565611_nikguy`**, POP **`seattle.voip.ms`**,
+   UDP-SIP. Test target is Nick's own phone, **425-760-4281**.
+   - **Phonebook entry that works for BOTH call and text:** SIP URI field =
+     `14257604281@seattle.voip.ms`. Calls auto-append the server for a bare number
+     (`ControlState::setRemoteNameUri`), but `TinySIP::sendMessage()` uses the address
+     VERBATIM — so a bare number would call fine and fail to text. Store the full URI.
+   - ⚠ **NOTHING BELOW HAS EVER BEEN EXERCISED BY A REAL CALL.** The mic-leak teardown and the
+     `micEnc` bound are both unproven in anger. **Watch the SECOND call as much as the first** —
+     the teardown clears state that setup re-arms, so a mistake there gives you one good call
+     and then silence.
+   - VoIP.ms settings that matter: **Encrypted SIP Traffic OFF** (this phone cannot do TLS —
+     same memory wall as OTA), auth = **user/password** (SIP SMS requires it), codecs
+     **G.711U only** (the firmware implements only PCMU/PCMA/G.722 — G.729a connects and gives
+     you silence), DTMF **RFC2833**, E911 off, and the DID's POP must match the registration
+     server.
 
-   **Already scouted, so do not re-derive it:**
-   - **`MultilineTextWidget::processEvent` has ZERO references to `WIPHONE_KEY_LEFT`/`RIGHT`.**
-     That is the whole bug. It is the widget behind mesh compose, edit name, short name and
-     the SIP message body — so none of them can move a cursor.
-   - **The single-line fields already work.** `TextInputWidget`/`PasswordInputWidget` handle
-     LEFT/RIGHT via `TextInputBase::shiftCursor()`. `MultilineTextWidget` has `cursorToStart()`
-     and `revealCursor()` but **no `shiftCursor`** — that is the thing to write.
-   - It already tracks `cursRow` + `cursOffset` (the backspace branch walks them), so the work
-     is moving across and BETWEEN rows: left at column 0 goes to the end of the previous row,
-     right at end-of-row goes to column 0 of the next.
-   - ⚠ **The text is stored as WRAPPED ROWS (`rowsDyn`), not one string.** Inserting in the
-     middle has to reflow, and the existing backspace already handles the row-join case —
-     read it first, it is the model to copy.
-   - **No key conflict:** `MESH_COMPOSE` forwards every `IS_KEYBOARD` event to the text area
-     and the widget currently ignores LEFT/RIGHT, so they do nothing today. LEFT/RIGHT are
-     non-printable, so the multi-tap machine commits any pending letter and passes them
-     through — moving the cursor will land the pending letter first, which is what you want.
-
-   ✅ **Confirmed working by Nick 2026-08-16** and now closed: the OK-commits-a-letter typing
-   change (*"typing seems to work a lot better"*), the **Firmware update** USB how-to page, and
-   the four **Clear** labels. All three were verified by hand on the device, which is the only
-   verification available — the host suites cannot reach `GUI.cpp`.
 2. **Use the phone normally and watch for another `reset_reason=4`.** Two independent causes
    were found and fixed 2026-08-15, both measured; a third is possible. **Silence is the result
    we want and it needs stating out loud** — a few days of normal use, across signal drops and
@@ -74,7 +160,21 @@ is not.
    which needs no server and no shared network.**
 3. **Node names should fill in on their own** now the node table evicts instead of freezing.
    Stock firmware beacons every 3 h, so give it hours, not minutes.
-4. **Nothing else is queued.** Everything below is reference.
+4. ✅ **CLOSED, confirmed by hand on the device 2026-08-16:** the OK-commits-a-letter typing
+   change (*"typing seems to work a lot better"*), the **Firmware update** USB how-to page, the
+   four **Clear** labels, and the **cursor now being visible** while typing.
+
+   ⚠ **A CORRECTION WORTH KEEPING.** This document previously said
+   *"`MultilineTextWidget::processEvent` has ZERO references to `WIPHONE_KEY_LEFT`/`RIGHT`"*
+   and queued writing cursor movement. **That was wrong.** It handles both, and always has —
+   the scouting grep used a 160-line window and the handler sits ~190 lines into the function.
+   The real bug was that **the cursor was drawn with a hardcoded `WP_COLOR_0` (black) on screens
+   whose theme sets a BLACK background** — mesh compose, both name editors, Books. Movement
+   worked the whole time; there was no way to see where the cursor was. All five `drawCursor`
+   sites now use `fgColor`, which is right by construction and identical on light screens.
+   **Lesson: bound your grep window, and confirm "missing" before building on it.**
+
+5. **Nothing else is queued.** Everything below is reference.
 
 ### 🔑 THE ONE TOOL THAT MADE TODAY WORK — use it before theorising
 `GUI::enterApp()` carries an **app-open heap probe** that writes to `health.log` *and* serial:
