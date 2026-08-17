@@ -1,8 +1,74 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-16 (late) · **`main` pushed and clean at `7992b63`. Phone flashed and
+**Last updated:** 2026-08-17 · **`main` pushed and clean at `17b43e0`. Phone flashed with it and
 booted clean. Tests 841/841.** Version still reports **0.9.2**; the CHANGELOG's top section is
 **"Unreleased"** — bump `FIRMWARE_VERSION` when you release.
+
+---
+
+## ☎️ THE PHONE IS A PHONE NOW (2026-08-17)
+
+**Calls and texts work, both directions, on a real number.** Proven on hardware against Nick's
+own mobile.
+
+| | |
+|---|---|
+| **Number** | **425-320-0782** (Everett WA), VoIP.ms |
+| **Sub-account** | `565611_nikguy` · POP **`seattle1.voip.ms`** · UDP-SIP · G.711U only |
+| **Outbound call** | ✅ works, audio described as "ok" |
+| **Outbound text** | ✅ arrives with the right caller ID |
+| **Inbound call** | ✅ rings (and vibrates) |
+| **Inbound text** | ✅ arrives |
+
+🔑 **WHAT MADE INBOUND WORK — it was never the firmware.** The DID was still routed to
+`[main account]` while the phone registers as the SUB-account, so inbound calls hit an account
+with nothing registered on it (**busy signal**) and inbound SMS had nowhere to go (**silence**).
+Fixed entirely in the portal: **DID Numbers → Manage DIDs → edit the DID → route SIP/IAX to
+`565611_nikguy`, set POP to Seattle 1, enable SMS and point its delivery at the same
+sub-account.** Outbound worked all along because it uses the sub-account's own registration.
+
+⚠ **Phonebook entry that works for BOTH calling and texting:** put the FULL URI in the SIP URI
+field — `14257604281@seattle1.voip.ms`. Calling auto-appends the server for a bare number
+(`ControlState::setRemoteNameUri`), but **`TinySIP::sendMessage()` uses the address verbatim**,
+so a bare number calls fine and silently fails to text.
+
+⚠ **Read the POP hostname off the portal, never infer it.** "Seattle 1" is literally
+`seattle1.voip.ms`, NOT the unnumbered `seattle.voip.ms`. That guess cost a correction.
+
+⚠ **Do not add G.722** to the sub-account's codecs. VoIP.ms does not support it between
+different POPs, and the firmware only implements PCMU / PCMA / G.722 anyway — G.729a would
+connect and give you silence.
+
+### Also shipped 2026-08-17
+
+| | |
+|---|---|
+| **The 5-second freezes** | Blocking DNS on the main loop — see the section below. Fixed. |
+| **Ringer mode** | **Settings > Audio** now has Ring + vibrate / **Vibrate only** / Silent, persisted and loaded at boot. Asked for after a very loud ring at work. |
+| **Message icons** | Status bar now says WHICH kind of message waits: **white = SIP**, **green = Meshtastic**, overlapping pair = both. Collapses as you read each kind. ⚠ The white/green mapping was ASSUMED, not specified — swapping is two lines in `GUI::drawMessageIcon()`. |
+
+---
+
+## 🧊 THE 5-SECOND UI FREEZES WERE BLOCKING DNS
+
+**A freeze that recovers is not a crash** — a crash reboots. This was the main loop blocked, and
+since the whole UI is one task, blocked means frozen. `resolveDomain()` in `Networks.cpp` is
+reached from SIP connect, from **RTP setup during a call**, and from NTP, and it had two blocking
+calls in series:
+
+1. **A 500 ms mDNS query run for EVERY name**, including public ones. mDNS only answers for
+   `.local`, so that half second was guaranteed waste. Every `X not found on local network` line
+   in an old log IS that wasted half second.
+2. **`lwip_gethostbyname()`**, which retries internally and blocks for SECONDS when DNS is slow
+   or unreachable — and **NTP retries every 500 ms** (`TIME_UPDATE_RETRY_DELAY_MS`). Measured:
+   `pool.ntp.org` failed to resolve **seven times in two minutes** on a work WiFi.
+
+Fixed by asking mDNS only about names it could answer for, and caching results — **including
+failures**, which is the half that matters, since a negative entry makes an unresolvable name
+free for `NEG_TTL_MS` no matter how eagerly the caller retries. Measured after: **7 failures per
+2 min → 1 per 3 min**, zero wasted mDNS lookups. ⚠ `.local` answers are deliberately NOT cached
+(the `wiphone.local` staleness trap). Cleared while there: the WiFi auto-switch scan is already
+async and was innocent.
 
 ---
 
@@ -170,47 +236,55 @@ is not.
 
 ### ▶ THE ACTUAL OPEN ITEMS
 
-1. 📞 **MAKE THE FIRST REAL CALL AND TEXT.** A VoIP.ms account is live and the phone
-   **registers** (`sip=1` = `CallState::Idle` in every health line since). Number is
-   **425-320-0782** (Everett WA), sub-account **`565611_nikguy`**, POP **`seattle1.voip.ms`** (⚠ the portal's "Seattle 1" is `seattle1`, NOT the unnumbered
-   `seattle.voip.ms` — that guess was wrong and cost a correction; read the hostname off the
-   portal, never infer it),
-   UDP-SIP. Test target is Nick's own phone, **425-760-4281**.
-   - **Phonebook entry that works for BOTH call and text:** SIP URI field =
-     `14257604281@seattle1.voip.ms`. Calls auto-append the server for a bare number
-     (`ControlState::setRemoteNameUri`), but `TinySIP::sendMessage()` uses the address
-     VERBATIM — so a bare number would call fine and fail to text. Store the full URI.
-   - ⚠ **NOTHING BELOW HAS EVER BEEN EXERCISED BY A REAL CALL.** The mic-leak teardown and the
-     `micEnc` bound are both unproven in anger. **Watch the SECOND call as much as the first** —
-     the teardown clears state that setup re-arms, so a mistake there gives you one good call
-     and then silence.
-   - VoIP.ms settings that matter: **Encrypted SIP Traffic OFF** (this phone cannot do TLS —
-     same memory wall as OTA), auth = **user/password** (SIP SMS requires it), codecs
-     **G.711U only** (the firmware implements only PCMU/PCMA/G.722 — G.729a connects and gives
-     you silence), DTMF **RFC2833**, E911 off, and the DID's POP must match the registration
-     server.
+1. 🔜 **NEXT UP, AGREED WITH NICK 2026-08-17: make the SIP texting app CONVERSATION-STYLE**,
+   the way the Meshtastic app already is, instead of the current inbox/outbox split.
 
-2. **Use the phone normally and watch for another `reset_reason=4`.** Two independent causes
-   were found and fixed 2026-08-15, both measured; a third is possible. **Silence is the result
-   we want and it needs stating out loud** — a few days of normal use, across signal drops and
-   Books sessions, with no restart, is the proof. Read the log with
-   `curl "http://<phone-ip>/log?tail=2000"` (an upload screen must be open), **or over USB,
-   which needs no server and no shared network.**
-3. **Node names should fill in on their own** now the node table evicts instead of freezing.
+   **Scouted, so do not re-derive it:**
+   - **`MessagesApp` (GUI.h) is built around the split**: states `MAIN / INBOX / OUTBOX /
+     COMPOSING`, separate `inboxMenu` and `sentMenu`, and separate `inboxOffset/inboxSelected`
+     and `sentOffset/sentSelected`. Nine methods in GUI.cpp, plus `ViewMessageApp` (5) and
+     `CreateMessageApp` (11) hanging off it.
+   - **`MeshtasticApp` is the working template to copy** — `MESH_CHATS` lists conversations,
+     `MESH_THREAD` shows one correspondent with both directions interleaved, `MESH_COMPOSE`
+     writes into it. Same widget vocabulary, same app skeleton.
+   - ⚠ **The storage layer is the real work, not the UI.** `flash.messages` is queried as two
+     flat lists (incoming / sent). Threading needs a grouping pass by correspondent, and the
+     SIP URI is the natural key — but check how `Storage::messages` stores and sorts before
+     assuming it can group cheaply on a phone with ~20 KB of internal heap.
+   - Widgets are all PSRAM-backed now (`AbstractWidget::operator new`), so building a few more
+     menus costs contiguous internal RAM roughly nothing — the app-open probe will confirm.
+
+2. 👀 **WATCH FOR CRASHES IN NORMAL USE.** This is the standing task and the only real proof.
+   ✅ **Overnight 2026-08-16→17: 5.4 hours idle, SIP registered, ZERO `reset_reason=4`.** But
+   that was idle. A day of real use — menus, Books, the Game Boy, calls — is the test that has
+   not been run. ⚠ **Check the reason before assuming:** `4` is the abort that was fixed;
+   `1` is power-on class and a completely different investigation.
+
+3. 🔎 **ONE UNEXPLAINED PANIC, 2026-08-17.** The phone panicked once while STARTING an outbound
+   call, then the next attempt worked and it has not recurred. Strong suspicion, unproven: a
+   call changes the sample rate, which makes `configureI2S()` reinstall the driver, and that
+   reallocates **~16 KB of internal DMA-capable RAM** (`dma_buf_count(4) x dma_buf_len(1024) x
+   2ch x 2B`) against a plateau of ~20 KB. **No backtrace was captured**, so this is a theory.
+   If it happens again, get the backtrace before touching anything — see the lesson below.
+
+4. **Node names should fill in on their own** now the node table evicts instead of freezing.
    Stock firmware beacons every 3 h, so give it hours, not minutes.
-4. ✅ **CLOSED, confirmed by hand on the device 2026-08-16:** the OK-commits-a-letter typing
-   change (*"typing seems to work a lot better"*), the **Firmware update** USB how-to page, the
-   four **Clear** labels, and the **cursor now being visible** while typing.
 
-   ⚠ **A CORRECTION WORTH KEEPING.** This document previously said
-   *"`MultilineTextWidget::processEvent` has ZERO references to `WIPHONE_KEY_LEFT`/`RIGHT`"*
-   and queued writing cursor movement. **That was wrong.** It handles both, and always has —
-   the scouting grep used a 160-line window and the handler sits ~190 lines into the function.
-   The real bug was that **the cursor was drawn with a hardcoded `WP_COLOR_0` (black) on screens
-   whose theme sets a BLACK background** — mesh compose, both name editors, Books. Movement
-   worked the whole time; there was no way to see where the cursor was. All five `drawCursor`
-   sites now use `fgColor`, which is right by construction and identical on light screens.
-   **Lesson: bound your grep window, and confirm "missing" before building on it.**
+5. ✅ **CLOSED, all confirmed by hand on the device.** OK-commits-a-letter typing (*"typing
+   seems to work a lot better"*), the **Firmware update** USB how-to page, the four **Clear**
+   labels, the **visible cursor**, the **ringer mode**, and **calls and texts in both
+   directions** on a real number.
+
+   ⚠ **TWO CORRECTIONS WORTH KEEPING, because both came from trusting a short look.**
+   - This doc once said *"`MultilineTextWidget::processEvent` has ZERO references to
+     `WIPHONE_KEY_LEFT`/`RIGHT`"* and queued writing cursor movement. **Wrong.** It handles
+     both and always has — the scouting grep used a 160-line window and the handler sits ~190
+     lines into the function. The real bug was the cursor being drawn in hardcoded
+     `WP_COLOR_0` (black) on screens whose theme sets a BLACK background, so movement worked
+     all along and was simply invisible. **Bound your grep window; confirm "missing" before
+     building on it.**
+   - The POP hostname was inferred as `seattle.voip.ms` from VoIP.ms running seattle/2/3.
+     It is `seattle1.voip.ms`. **Read it off the portal.**
 
 5. **Nothing else is queued.** Everything below is reference.
 

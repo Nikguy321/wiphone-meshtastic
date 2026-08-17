@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased — it makes phone calls now
+
+### ☎️ Calls and texts work, on a real phone number
+
+- **The phone can call and text ordinary phone numbers, both directions.** A VoIP.ms
+  number, over WiFi. Calling out, texting out, ringing on the way in, and texts
+  arriving — all confirmed on real hardware against a real mobile.
+- ⚠ If inbound calls give a **busy signal** and inbound texts never arrive while
+  outbound works fine, the number is routed to the wrong account at the provider,
+  not broken on the phone. Point the DID at the sub-account the phone registers as.
+- **Put the full address in the phonebook** — `15551234567@yourserver` — not just the
+  number. Calling fills in the server for you; texting does not, so a bare number
+  calls fine and silently fails to text.
+
+### 🔕 A ringer you can silence
+
+- **Settings > Audio → Ringer:** Ring + vibrate, **Vibrate only**, or Silent. The phone
+  always vibrated on an incoming call; now you can keep the buzz and drop the noise.
+  Remembered across reboots, and applied from the moment the phone starts rather than
+  the first time you visit the settings screen.
+
+### 📬 The status bar says what kind of message is waiting
+
+- **A white envelope means a text; a green one means a Meshtastic message.** Both
+  waiting shows them overlapping. Read one and the icon collapses to whichever kind is
+  still unread, so it tells you what is left rather than just "something arrived".
+
+### 🧊 The phone stopped freezing for seconds at a time
+
+- **Those five-second freezes while clicking around were not crashes** — the phone was
+  stuck waiting on a network name lookup, and everything on screen shares one thread.
+  It was asking the local network about internet addresses it could never answer for,
+  half a second each time, and retrying a failing lookup twice a second. It now skips
+  the pointless question and remembers failures instead of repeating them.
+
 ## Unreleased — typing, and honest buttons
 
 ### ⌨️ Typing the same letter twice no longer means waiting
