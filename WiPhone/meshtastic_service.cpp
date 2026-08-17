@@ -10,6 +10,7 @@
 #include "config.h"            // MESHTASTIC_PHY toggle
 #include <Preferences.h>      // NVS-backed node name persistence
 #include "booksync_inbox.h"   // book-sync packets are diverted out of the chat list
+#include "sms_mirror_rx.h"    // ...and so are texts mirrored from COVEY
 #include "clock.h"            // ntpClock, for when a parked packet arrived
 #include <SPIFFS.h>           // node + message history persistence
 
@@ -638,6 +639,44 @@ bool MeshtasticService::loop() {
                             ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0);
           log_i("Mesh booksync packet from 0x%08X (%u parked)",
                 hdr.sender, (unsigned)bookSyncInboxCount());
+          return false;
+        }
+
+        /* A text message mirrored from COVEY. Same treatment as book-sync and for the same
+         * reason: nobody sent this to you as a mesh message, so it has no business in the
+         * Chats list. It goes straight into the SIP message store instead.
+         *
+         * ⚠ Recognised by PREFIX, before anything else. A packet that merely claims to be
+         * one is dropped, not displayed — showing "CSM1 109970452 4257604281 i ..." as a
+         * chat message would be worse than losing it.
+         *
+         * Returns TRUE, unlike book-sync, and that difference is the point: a book position
+         * is machine traffic a person never reads, but this IS a text message that has just
+         * arrived, so the caller's new-message signal is exactly right. */
+        if (smsMirrorIsMirrorLine(text)) {
+          int r = smsMirrorIngestLine(text);
+          /* ⚠ log_e, NOT log_i, and on the SUCCESS path too. Only log_e is compiled into
+           * this build, so an log_i here would make a working mirror and a broken one look
+           * identical on serial — which is precisely the trap that made book sync look dead
+           * for a whole session. This is the ONLY evidence that a mirrored text arrived:
+           * nothing is drawn, nothing chimes, and the message lands in the SIP store rather
+           * than anywhere the mesh app shows.
+           * Dial it back to log_i once this path is trusted on hardware. */
+          log_e("SMSMIRROR rx from 0x%08X: %s", hdr.sender,
+                r > 0 ? "STORED" : (r == 0 ? "duplicate, ignored" : "REFUSED"));
+
+          /* ⚠ FALSE, like book-sync — and this reverses what it first did.
+           *
+           * Returning true raised the MESH new-message signal: chime, vibration and the
+           * green mesh bubble. That was wrong, and using it made the mistake obvious. A
+           * mirrored record is not news arriving on the mesh, it is a copy of something
+           * that already happened somewhere else — usually a text NICK HIMSELF just sent
+           * from COVEY. Chiming at someone to tell them they sent a message is noise.
+           *
+           * The right badge is still raised, just not from here: smsMirrorIngestLine()
+           * refreshes `unreadMessages`, so a genuinely INCOMING mirrored text lights the
+           * white SIP icon (the correct one — the message is in the SIP store, not the mesh
+           * one), and an outgoing one lights nothing at all. */
           return false;
         }
 

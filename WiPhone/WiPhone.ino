@@ -41,6 +41,8 @@ governing permissions and limitations under the License.
 #include "meshtastic_service.h"
 #include "music_player.h"
 #include "app_gbc_xfer.h"
+#include "sms_mirror_poll.h"   // pulls mirrored texts from COVEY over the LAN
+#include "serial_cmd.h"        // debug console on USB serial (uploader on/off, mirror sync)
 #include "mp3_stream.h"
 #include "src/assets/pop_sound.h"
 
@@ -1484,6 +1486,18 @@ void loop() {
   while (1) {
     uint32_t now = millis();
     gbcXferHandleClient();
+    serialCmdLoop();       // USB console: `?` for help. Costs nothing when nothing is typed.
+
+    /* Pull mirrored texts from COVEY over the LAN — one bounded step per pass, never a
+     * blocking request. See sms_mirror_poll.h: the UI is one task, so a blocking GET here is
+     * not "slow", it is the 5-second freeze bug rebuilt on purpose.
+     *
+     * ⚠ Called UNCONDITIONALLY, with sipMayPoll() passed IN. Wrapping the call in that gate
+     * instead looked equivalent and was not: while the Games app is open the gate is false,
+     * so the poller could not read a config file that had just been uploaded — and reported
+     * nothing about it, because the reporting was inside the skipped call. The socket is the
+     * only part that needs gating. */
+    smsMirrorPollLoop(sipMayPoll());
 
     /* 🔎 RATCHET WATCHPOINT — name the MOMENT `largest` steps down.
      *

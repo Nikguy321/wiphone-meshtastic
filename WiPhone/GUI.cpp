@@ -6574,46 +6574,88 @@ MessagesApp::MessagesApp(LCD& lcd, ControlState& state, Storage& flash, HeaderWi
     flash.messages.load(ntpClock.isTimeKnown() ? ntpClock.getExactUnixTime() : 0);
   }
 
-  // Generate main menu
-  this->createMainMenu();
-
-  inboxMenu = NULL;
-  sentMenu = NULL;
-
+  chatsMenu = NULL;
+  threadMenu = NULL;
   subApp = NULL;
 
-  enterState(MAIN);
+  this->buildChats();
+  enterState(CHATS);
 }
 
 MessagesApp::~MessagesApp() {
   log_d("destroy MessagesApp");
 
-  if(mainMenu) {
-    delete mainMenu;
+  if (chatsMenu) {
+    delete chatsMenu;
   }
-  if(inboxMenu) {
-    delete inboxMenu;
+  if (threadMenu) {
+    delete threadMenu;
   }
-  if(sentMenu) {
-    delete sentMenu;
-  }
-
-  if(subApp) {
+  if (subApp) {
     delete subApp;
   }
+  // The open thread holds a PSRAM block for its text; nothing else will free it.
+  sipThreadsRelease();
 }
 
 void MessagesApp::enterState(MessagesState_t state) {
   log_i("enterState %d", (int)state);
-  if (state == MAIN) {
+  if (state == CHATS) {
     header->setTitle("Messages");
-  } else if (state == INBOX) {
-    header->setTitle("Inbox");
-  } else if (state == OUTBOX) {
-    header->setTitle("Outbox");
+    footer->setButtons("Open", "Back");
+  } else if (state == THREAD) {
+    // The correspondent is the title: in a thread, who you are talking to is the context.
+    header->setTitle(threadPeer[0] ? threadPeer : "Messages");
+    footer->setButtons("Reply", "Back");
   }
-  footer->setButtons("Select", "Back");
   appState = state;
+}
+
+/* Mark every unread INCOMING message in the open thread as read.
+ *
+ * ⚠ Each setRead() locates the message in its partition and rewrites the file, so this is a
+ * handful of SD writes — bounded by how many were unread, which is small in practice.
+ * Done on OPEN rather than per-message, because a conversation view shows the messages; there
+ * is no separate "I read this one" moment to hang it on. */
+void MessagesApp::markThreadRead() {
+  if (!threadPeer[0] || !flash.messages.isLoaded()) {
+    return;
+  }
+  const int32_t total = flash.messages.inboxTotalSize();
+  if (total <= 0) {
+    return;
+  }
+  int32_t depth = total < SIP_THREADS_SCAN ? total : SIP_THREADS_SCAN;
+  flash.messages.preload(INCOMING, -1, depth);
+
+  bool any = false;
+  for (auto it = flash.messages.iteratorCount(-1, depth); it.valid(); ++it) {
+    MessageData& m = *it;
+    if (m.isRead()) {
+      continue;
+    }
+    char id[SMS_MIRROR_PEER_MAX];
+    if (!smsMirrorDigits(m.getOtherUri(), id, sizeof(id))) {
+      snprintf(id, sizeof(id), "%s", m.getOtherUri());
+    }
+    if (strcmp(id, threadPeer)) {
+      continue;
+    }
+    flash.messages.setRead(m);
+    any = true;
+  }
+  flash.messages.clearPreloaded();
+  if (any) {
+    controlState.unreadMessages = flash.messages.hasUnread();
+  }
+}
+
+void MessagesApp::openThread(const char* peer, const char* uri) {
+  snprintf(threadPeer, sizeof(threadPeer), "%s", peer ? peer : "");
+  snprintf(threadUri, sizeof(threadUri), "%s", uri ? uri : "");
+  this->markThreadRead();
+  this->buildThread();
+  enterState(THREAD);
 }
 
 appEventResult MessagesApp::processEvent(EventType event) {
@@ -6623,39 +6665,26 @@ appEventResult MessagesApp::processEvent(EventType event) {
 
   if (event == NEW_MESSAGE_EVENT) {
 
-    // Update messages count in the main menu (we destroy and create entire menu for that)
-    this->createMainMenu();
-    if (appState == MAIN) {
-      res |= REDRAW_SCREEN;
+    /* Rebuild whichever list is on screen. Both are snapshots (see sip_threads.h), so a new
+     * message does not appear until one is rebuilt — this is that moment. */
+    this->buildChats();
+    if (appState == THREAD) {
+      this->buildThread();
     }
+    res |= REDRAW_ALL;
 
-    // Update INBOX screen if it is the current screen
-    if (appState == INBOX) {
-      // New message arrived: redraw inbox
-      this->createLoadMessageMenu(INCOMING, inboxOffset, 0);
-      res |= REDRAW_SCREEN;
-    }
-
-    // We assume that header will be redrawn by GUI class for this event, so we don't do res |= REDRAW_HEADER here
+    // We assume that header will be redrawn by GUI class for this event.
 
   } else if (subApp) {
     if ((res = subApp->processEvent(event)) & EXIT_APP) {
-      if (appState == COMPOSING) {
-        this->createMainMenu();       // update main menu to show new sent messages count
-        enterState(MAIN);
-      } else {
-        // If message was deleted, reload menus
-        if ((res & REDRAW_ALL) == REDRAW_ALL) {       // special signal to reload the messages
-          // Clear message cache
-          flash.messages.clearPreloaded();
-          // Create menus
-          int32_t offset = ((ViewMessageApp*)subApp)->messageOffset;        // TODO: use it for preserving the visible offset
-          this->createLoadMessageMenu(appState==INBOX ? INCOMING : SENT, -1, 0);
-          this->createMainMenu();
-        }
-        // After viewing message `appState` stays the same, just need to change Title and Header widgets
-        enterState(appState);
+      /* Whatever the sub-app did — sent a message, deleted one — the snapshots are now
+       * stale. Rebuilding both is cheap next to being wrong. */
+      flash.messages.clearPreloaded();
+      this->buildChats();
+      if (appState == THREAD) {
+        this->buildThread();
       }
+      enterState(appState == COMPOSING ? CHATS : appState);
 
       delete subApp;
       subApp = NULL;
@@ -6663,116 +6692,49 @@ appEventResult MessagesApp::processEvent(EventType event) {
       res = REDRAW_ALL;
     }
 
-  } else if (appState == MAIN) {
+  } else if (appState == CHATS) {
 
     if (LOGIC_BUTTON_BACK(event)) {
       return EXIT_APP;
     }
 
-    mainMenu->processEvent(event);
+    chatsMenu->processEvent(event);
 
     if (LOGIC_BUTTON_OK(event)) {
-      MenuOption::keyType sel = mainMenu->readChosen();
-      switch (sel) {
-      case 1:
-        enterState(INBOX);
-        break;
-      case 2:
-        enterState(OUTBOX);
-        break;
-      case 3:
-        enterState(COMPOSING);
-        break;
-      default:
-        log_e("unknown key");
-        break;
-      }
-      res |= REDRAW_ALL;
-      if (appState == INBOX) {
-        // Initialize
-        this->createLoadMessageMenu(INCOMING, inboxOffset, 0);
-      } else if (appState == OUTBOX) {
-        this->createLoadMessageMenu(SENT, sentOffset, 0);
-      } else if (appState == COMPOSING) {
+      MenuOption::keyType sel = chatsMenu->readChosen();
+      if (sel == 1) {
+        // New message: no correspondent yet, so the composer asks for one.
+        appState = COMPOSING;
         subApp = new CreateMessageApp(lcd, controlState, flash, header, footer);
-      }
-    }
-
-  } else if ((appState == INBOX || appState == OUTBOX) && (event == WIPHONE_KEY_UP || event == WIPHONE_KEY_DOWN)) {
-
-    // This is a bit hackish way to allow displaying potentially unlimited number of messages without lags. The idea is simple:
-    //   More messages get preloaded from the files when user attempts to go past currently displayed N_MENU_ITEMS (5) messages.
-
-    MenuWidget* box = (appState == INBOX) ? inboxMenu : sentMenu;
-
-    if (event == WIPHONE_KEY_DOWN && box->isSelectedLast()) {
-
-      // Load next messages
-
-      if (box->size() == N_MENU_ITEMS) {
-        MenuOption::keyType selectedKey = box->currentKey();
-        int32_t messageOffset = this->decodeMessageOffset(selectedKey);
-        if (-messageOffset >= N_MENU_ITEMS) {      // negative messageOffset expected here
-          int32_t newMessageOffset = messageOffset + N_MENU_ITEMS - 2;
-          this->createLoadMessageMenu(appState == INBOX, newMessageOffset, selectedKey);
-          box = (appState == INBOX) ? inboxMenu : sentMenu;
-          if (!box->isSelectedLast()) {
-            box->processEvent(event);
-          }
-          res |= REDRAW_ALL;
+      } else if (sel >= 2) {
+        const SipThread* t = sipThreadAt((int)sel - 2);
+        if (t) {
+          chatSelected = (int32_t)sel - 2;
+          this->openThread(t->peer, t->uri);
         }
       }
+      res |= REDRAW_ALL;
+    }
 
-    } else if (event == WIPHONE_KEY_UP && box->isSelectedFirst()) {
+  } else if (appState == THREAD) {
 
-      // Load previous messages
-
-      MenuOption::keyType selectedKey = box->currentKey();
-      int32_t messageOffset = this->decodeMessageOffset(selectedKey);
-      if (messageOffset < -1) {      // negative messageOffset expected here
-        int32_t newMessageOffset = messageOffset + 1;
-        this->createLoadMessageMenu(appState == INBOX, newMessageOffset, selectedKey);
-        box = (appState == INBOX) ? inboxMenu : sentMenu;
-        box->processEvent(event);
-        res |= REDRAW_ALL;
-      }
-
+    if (LOGIC_BUTTON_BACK(event)) {
+      /* Back goes to the chats list, and the list is rebuilt on the way: this thread's
+       * unread count just went to zero, and a stale badge is exactly the kind of small lie
+       * that makes a phone feel broken. */
+      sipThreadsRelease();
+      this->buildChats();
+      enterState(CHATS);
+      res |= REDRAW_ALL;
+    } else if (LOGIC_BUTTON_OK(event)) {
+      // Reply, pre-addressed. threadUri is a FULL URI on purpose — TinySIP::sendMessage()
+      // uses the address verbatim, so a bare number would call fine and silently not text.
+      appState = COMPOSING;
+      subApp = new CreateMessageApp(lcd, controlState, flash, header, footer,
+                                    threadUri[0] ? threadUri : threadPeer);
+      res |= REDRAW_ALL;
     } else {
-
-      box->processEvent(event);
-      res |= REDRAW_ALL;
-
-    }
-
-  } else if (appState == INBOX) {
-
-    if (LOGIC_BUTTON_BACK(event)) {
-      enterState(MAIN);
-      res |= REDRAW_ALL;
-    } else if (LOGIC_BUTTON_OK(event)) {
-      // View message
-      inboxMenu->processEvent(event);
-      MenuOption::keyType selectedKey = inboxMenu->readChosen();
-      int32_t messageOffset = this->decodeMessageOffset(selectedKey);
-      subApp = new ViewMessageApp(messageOffset, lcd, controlState, flash, header, footer);
-      // Reload this menu   TODO: fix offset, selected message will be on top of now, that's not intuitive
-      this->createLoadMessageMenu(appState == INBOX, messageOffset, selectedKey);
-      res |= REDRAW_ALL;
-    }
-
-  } else if (appState == OUTBOX) {
-
-    if (LOGIC_BUTTON_BACK(event)) {
-      enterState(MAIN);
-      res |= REDRAW_ALL;
-    } else if (LOGIC_BUTTON_OK(event)) {
-      // View message
-      sentMenu->processEvent(event);
-      MenuOption::keyType selectedKey = sentMenu->readChosen();
-      int32_t messageOffset = this->decodeMessageOffset(selectedKey);
-      subApp = new ViewMessageApp(messageOffset, lcd, controlState, flash, header, footer);
-      // Reload this menu   TODO: fix offset, selected message will be on top of now, that's not intuitive
-      this->createLoadMessageMenu(appState == INBOX, messageOffset, selectedKey);
+      threadMenu->processEvent(event);
       res |= REDRAW_ALL;
     }
 
@@ -6781,109 +6743,86 @@ appEventResult MessagesApp::processEvent(EventType event) {
   return res;
 }
 
-MenuOption::keyType MessagesApp::encodeMessageOffset(int32_t offset) {
-  MenuOption::keyType key = abs(offset);    // clear normal minus bit
-  if (key >= 0x40000000) {
-    log_e("message offset too big");
+/* One row per correspondent, newest first, with "New Message" pinned at the top.
+ *
+ * Key 1 is New Message; a thread at index i is key i + 2. Nothing persists these, so the
+ * numbering is free to change — but it must stay in step with processEvent(). */
+void MessagesApp::buildChats() {
+  MenuOption::keyType keep = chatsMenu ? chatsMenu->currentKey() : 0;
+  if (chatsMenu) {
+    delete chatsMenu;
   }
-  if (offset < 0) {
-    key |= 0x40000000;  // set unsigned minus bit
-  } else {
-    offset += 1;  // offset 0 -> key 1 (for non-negative offsets)
-  }
-  return key;
-}
 
-/* Description:
- *     this is a mess.
- */
-int32_t MessagesApp::decodeMessageOffset(MenuOption::keyType key) {
-  int32_t offset = key & 0xBFFFFFFF;        // clear "unsigned minus" bit (bit 30)
-  if (key & 0x40000000) {
-    offset = -offset;  // set normal minus bit (bit 31) if "unsigned minus" (bit 30) was set
-  } else {
-    offset -= 1;  // key 1 -> offset 0 (for non-negative offsets)
-  }
-  return offset;
-}
+  chatsMenu = new MenuWidget(0, header->height(), lcd.width(),
+                             lcd.height() - header->height() - footer->height(),
+                             "No messages yet", fonts[AKROBAT_EXTRABOLD_22], N_MENU_ITEMS, 8);
+  chatsMenu->setStyle(MenuWidget::DEFAULT_STYLE,   BLACK, GRAY_85, GRAY_95, WP_ACCENT_1);
+  chatsMenu->setStyle(MenuWidget::ALTERNATE_STYLE, BLACK, WHITE,   WHITE,   WP_ACCENT_S);
 
-void MessagesApp::createMainMenu() {
-  MenuOption::keyType selectedKey = 3;
-  if (mainMenu) {
-    MenuOption::keyType curKey = mainMenu->currentKey();
-    if (curKey) {
-      selectedKey = curKey;
+  chatsMenu->addOption("New Message", NULL, 1, 1,
+                       icon_Write_b, sizeof(icon_Write_b),
+                       icon_Write_w, sizeof(icon_Write_w));
+
+  const int n = sipThreadsBuild(flash.messages);
+  for (int i = 0; i < n; i++) {
+    const SipThread* t = sipThreadAt(i);
+    if (!t) {
+      continue;
     }
-    delete mainMenu;
-  }
-
-  mainMenu = new MenuWidget(0, header->height(), lcd.width(), lcd.height() - header->height() - footer->height(), NULL, fonts[AKROBAT_EXTRABOLD_22], N_MENU_ITEMS, 8);
-  mainMenu->setStyle(MenuWidget::DEFAULT_STYLE, BLACK, WHITE, WHITE, WP_ACCENT_1);
-
-  mainMenu->addOption("New Message", NULL, 3, 1, icon_Write_b, sizeof(icon_Write_b), icon_Write_w, sizeof(icon_Write_w));
-  char str[25];
-  str[0] = '\0';
-  if (flash.messages.isLoaded()) {
-    int32_t n = flash.messages.inboxTotalSize();
-    if (n>0) {
-      snprintf(str, sizeof(str), "%d Messages", n);
+    char sub[40];
+    if (t->unread) {
+      snprintf(sub, sizeof(sub), "%u unread of %u", (unsigned)t->unread, (unsigned)t->count);
     } else {
-      snprintf(str, sizeof(str), "No messages");
+      snprintf(sub, sizeof(sub), "%u message%s", (unsigned)t->count, t->count == 1 ? "" : "s");
     }
-  }
-  mainMenu->addOption("Inbox", str, 1, 1, icon_Inbox_b, sizeof(icon_Inbox_b), icon_Inbox_w, sizeof(icon_Inbox_w));
-  if (flash.messages.isLoaded()) {
-    int32_t n = flash.messages.sentTotalSize();
-    if (n>0) {
-      snprintf(str, sizeof(str), "%d Messages", n);
-    } else {
-      snprintf(str, sizeof(str), "No messages");
-    }
-  }
-  mainMenu->addOption("Sent", str, 2, 1, icon_Outbox_b, sizeof(icon_Outbox_b), icon_Outbox_w, sizeof(icon_Outbox_w));
-
-  if (selectedKey) {
-    mainMenu->select(selectedKey);
-  }
-}
-
-void MessagesApp::createLoadMessageMenu(bool incoming, int32_t offset, MenuOption::keyType selectKey) {
-  log_i("createLoadMessageMenu: %d %d", offset, N_MENU_ITEMS);
-
-  // Create new menu widget
-  MenuWidget* menu = new MenuWidget(0, header->height(), lcd.width(), lcd.height() - header->height() - footer->height(),
-                                    incoming ? "Inbox is empty" : "No sent messages",
-                                    fonts[AKROBAT_EXTRABOLD_22], N_MENU_ITEMS, 8);
-  menu->setStyle(MenuWidget::DEFAULT_STYLE,   BLACK, GRAY_85, GRAY_95, WP_ACCENT_1);    // Read messages & sent
-  menu->setStyle(MenuWidget::ALTERNATE_STYLE, BLACK, WHITE, WHITE, WP_ACCENT_S);        // Unread messages
-
-  if (incoming) {
-    if (inboxMenu) {
-      delete inboxMenu;
-    }
-    inboxMenu = menu;
-  } else {
-    if (sentMenu) {
-      delete sentMenu;
-    }
-    sentMenu = menu;
-  }
-
-  // Pre-load messages in the database
-  flash.messages.preload(incoming, offset, N_MENU_ITEMS);
-
-  // Display the messages
-  MenuOptionIconnedTimed* option;
-  for (auto it = flash.messages.iteratorCount(offset, N_MENU_ITEMS); it.valid(); ++it) {
-    log_i("Looping over messages");
-    MenuOption::keyType key = this->encodeMessageOffset((int32_t)it);
-    option = new MenuOptionIconnedTimed(key, it->isRead() ? MenuWidget::DEFAULT_STYLE : MenuWidget::ALTERNATE_STYLE, it->getOtherUri(), it->getMessageText(), it->getTime());
+    MenuOptionIconnedTimed* option = new MenuOptionIconnedTimed(
+      (MenuOption::keyType)(i + 2),
+      t->unread ? MenuWidget::ALTERNATE_STYLE : MenuWidget::DEFAULT_STYLE,
+      t->peer, sub, t->lastTime);
     if (option) {
-      menu->addOption(option);
+      chatsMenu->addOption(option);
     }
   }
-  if (selectKey) {
-    menu->select(selectKey);
+
+  if (keep) {
+    chatsMenu->select(keep);
+  }
+}
+
+/* One correspondent, both directions, oldest at the top so it reads like a conversation. */
+void MessagesApp::buildThread() {
+  if (threadMenu) {
+    delete threadMenu;
+    threadMenu = NULL;
+  }
+
+  threadMenu = new MenuWidget(0, header->height(), lcd.width(),
+                              lcd.height() - header->height() - footer->height(),
+                              "No messages", fonts[AKROBAT_EXTRABOLD_22], N_MENU_ITEMS, 8);
+  threadMenu->setStyle(MenuWidget::DEFAULT_STYLE,   BLACK, GRAY_85, GRAY_95, WP_ACCENT_1);
+  threadMenu->setStyle(MenuWidget::ALTERNATE_STYLE, BLACK, WHITE,   WHITE,   WP_ACCENT_S);
+
+  const int n = sipThreadOpen(flash.messages, threadPeer);
+  for (int i = 0; i < n; i++) {
+    const SipThreadMsg* m = sipThreadMsgAt(i);
+    if (!m) {
+      continue;
+    }
+    /* "You:" on the ones you sent. A thread has to say who said what, and a prefix does it
+     * in the space available — this list is one line per message, with no room for the
+     * bubble alignment a big screen would use. */
+    MenuOptionIconnedTimed* option = new MenuOptionIconnedTimed(
+      (MenuOption::keyType)(i + 1),
+      m->unread ? MenuWidget::ALTERNATE_STYLE : MenuWidget::DEFAULT_STYLE,
+      m->incoming ? m->text : "You:", m->incoming ? "" : m->text, m->time);
+    if (option) {
+      threadMenu->addOption(option);
+    }
+  }
+
+  // Land on the newest message: that is what you came to read.
+  if (n > 0) {
+    threadMenu->select((MenuOption::keyType)n);
   }
 }
 
@@ -6895,12 +6834,10 @@ void MessagesApp::redrawScreen(bool redrawAll) {
     return;
   }
 
-  if (appState == MAIN) {
-    ((GUIWidget*)mainMenu)->redraw(lcd);
-  } else if (appState == INBOX) {
-    ((GUIWidget*)inboxMenu)->redraw(lcd);
-  } else if (appState == OUTBOX) {
-    ((GUIWidget*)sentMenu)->redraw(lcd);
+  if (appState == CHATS && chatsMenu) {
+    ((GUIWidget*)chatsMenu)->redraw(lcd);
+  } else if (appState == THREAD && threadMenu) {
+    ((GUIWidget*)threadMenu)->redraw(lcd);
   }
 }
 
