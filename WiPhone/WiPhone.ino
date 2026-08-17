@@ -113,12 +113,23 @@ void audio_test() {
  */
 void startRingtone() {
 
-  // Start audio
-  audio->start();
+  /* Ringer mode, from Settings > Audio (persisted, loaded at boot by GUI::loadSettings).
+   * The motor is driven below regardless of the tone, so "vibrate only" is simply not
+   * starting the audio at all — which also avoids turning the codec on for nothing. */
+  const uint8_t mode = gui.state.ringerMode;
+  const bool playTone = (mode == ControlState::RINGER_RING_AND_VIBRATE);
+  const bool doVibrate = (mode != ControlState::RINGER_SILENT);
 
-  // Start playing ringtone
-  if (!audio->playRingtone(&SPIFFS)) {
-    log_d("ERROR: could not play file in SPIFFS");
+  if (playTone) {
+    // Start audio
+    audio->start();
+
+    // Start playing ringtone
+    if (!audio->playRingtone(&SPIFFS)) {
+      log_d("ERROR: could not play file in SPIFFS");
+    }
+  } else {
+    log_d("ringer: tone suppressed (mode %d)", (int)mode);
   }
 
   // Initialize vibrating
@@ -2656,9 +2667,15 @@ void loop() {
 
     if (gui.state.ringing && gui.state.sipState != CallState::Call) {
 
+      /* ⚠ Both blocks below must respect the ringer mode. isEof() answers TRUE when nothing is
+       * playing, so in vibrate-only mode the rewind branch would fire every pass, permanently
+       * resetting the vibro state machine and leaving the motor dead — the exact opposite of
+       * what "vibrate only" is for. */
+      const bool tonePlaying = (gui.state.ringerMode == ControlState::RINGER_RING_AND_VIBRATE);
+
       // Check if end of ringtone was reached
 
-      if (audio->isEof()) {
+      if (tonePlaying && audio->isEof()) {
 
         // Rewind the ringtone file
         audio->rewind();
@@ -2674,7 +2691,8 @@ void loop() {
 
       // Control vibro motor
 
-      if (elapsedMillis(now, gui.state.vibroToggledMs, gui.state.vibroNextDelayMs)) {
+      if (gui.state.ringerMode != ControlState::RINGER_SILENT &&
+          elapsedMillis(now, gui.state.vibroToggledMs, gui.state.vibroNextDelayMs)) {
 
         gui.state.vibroToggledMs = now;
         gui.state.vibroOn = !gui.state.vibroOn;

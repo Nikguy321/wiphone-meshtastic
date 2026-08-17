@@ -249,6 +249,15 @@ public:
   void setSipState(CallState state);
   void setSipReason(const char* text);
 
+  /* Ringer mode — what the phone does when a call comes in.
+   * 0 = ring + vibrate (default), 1 = vibrate only, 2 = silent.
+   * Persisted in the "audio" section of Storage::ConfigsFile as "ringer_mode", loaded at boot
+   * by GUI::loadSettings() so it applies before Settings > Audio is ever opened. */
+  static const uint8_t RINGER_RING_AND_VIBRATE = 0;
+  static const uint8_t RINGER_VIBRATE_ONLY     = 1;
+  static const uint8_t RINGER_SILENT           = 2;
+  uint8_t ringerMode = RINGER_RING_AND_VIBRATE;
+
   // Ringtone & ringtone vibration
   bool ringing = false;
   bool vibroOn = false;               // is vibration motor ON?
@@ -2053,6 +2062,7 @@ protected:
   static const constexpr char* headphonesVolField = "headphones_vol";
   static const constexpr char* earpieceVolField = "speaker_vol";
   static const constexpr char* loudspeakerVolField = "loudspeaker_vol";
+  static const constexpr char* ringerModeField = "ringer_mode";
 
   Audio* audio;
   CriticalFile ini;
@@ -2060,6 +2070,8 @@ protected:
   // Widgets
   LabelWidget* labels[3];
   IntegerSliderWidget* sliders[3];
+  LabelWidget*  ringerLabel = NULL;
+  ChoiceWidget* ringerChoice = NULL;
 
   bool screenInited = false;
 };

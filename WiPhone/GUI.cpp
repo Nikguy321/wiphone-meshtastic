@@ -134,6 +134,17 @@ bool GUI::addWidget(GUIWidget* w) {
 
 void GUI::loadSettings() {
   state.loadSipAccount();
+
+  /* ⚠ Load the ringer mode HERE, at boot. AudioConfigApp reads it too, but only when that
+   * screen is opened — so without this the phone would ring at full volume until the user
+   * happened to visit Settings > Audio, which defeats the point of the setting entirely. */
+  {
+    CriticalFile cfg(Storage::ConfigsFile);
+    if ((cfg.load() || cfg.restore()) && !cfg.isEmpty() && cfg.hasSection("audio")) {
+      state.ringerMode = (uint8_t) cfg["audio"].getIntValueSafe("ringer_mode", state.ringerMode);
+      log_d("ringer mode = %d", (int)state.ringerMode);
+    }
+  }
   log_d("fromName  = %s", state.fromNameDyn);
   log_d("fromUri   = %s", state.fromUriDyn);
   log_d("proxyPass = %s", state.proxyPassDyn);
@@ -2930,6 +2941,19 @@ AudioConfigApp::AudioConfigApp(Audio* audio, LCD& lcd, ControlState& state, Head
   addLabelSlider(yOff, labels[1], sliders[1], "Headphones volume:", Audio::MuteVolume, Audio::MaxVolume, "dB");
   yOff += 4;
   addLabelSlider(yOff, labels[0], sliders[0], "Ear speaker volume:", Audio::MuteVolume, Audio::MaxVolume, "dB");
+  yOff += 6;
+
+  /* Ringer mode. The phone ALREADY vibrates on an incoming call — startRingtone() drives the
+   * motor and reads its timing from /ringtone.ini — so "vibrate only" just means not playing
+   * the tone. Requested after a very loud ring at work. */
+  ringerLabel = new LabelWidget(0, yOff, lcd.width(), 25, "Ringer:", WP_ACCENT_1, WP_COLOR_1,
+                                fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
+  yOff += ringerLabel->height();
+  ringerChoice = new ChoiceWidget(0, yOff, lcd.width(), 35);
+  ringerChoice->addChoice("Ring + vibrate");
+  ringerChoice->addChoice("Vibrate only");
+  ringerChoice->addChoice("Silent");
+  yOff += ringerChoice->height();
 
   // Load preferences
   int8_t earpieceVol, headphonesVol, loudspeakerVol;
@@ -2945,6 +2969,7 @@ AudioConfigApp::AudioConfigApp(Audio* audio, LCD& lcd, ControlState& state, Head
         earpieceVol = ini["audio"].getIntValueSafe(earpieceVolField, earpieceVol);
         headphonesVol = ini["audio"].getIntValueSafe(headphonesVolField, headphonesVol);
         loudspeakerVol = ini["audio"].getIntValueSafe(loudspeakerVolField, loudspeakerVol);
+        controlState.ringerMode = (uint8_t) ini["audio"].getIntValueSafe(ringerModeField, controlState.ringerMode);
       }
     //}
      else {
@@ -2973,6 +2998,10 @@ AudioConfigApp::AudioConfigApp(Audio* audio, LCD& lcd, ControlState& state, Head
   addFocusableWidget(sliders[1]);
   addFocusableWidget(sliders[0]);
 
+  if (ringerChoice != NULL) {
+    ringerChoice->setValue(controlState.ringerMode);
+    addFocusableWidget(ringerChoice);
+  }
   setFocus(sliders[2]);
 }
 
@@ -3005,6 +3034,10 @@ appEventResult AudioConfigApp::processEvent(EventType event) {
     ini["audio"][earpieceVolField] = speakerVol;
     ini["audio"][headphonesVolField] = headphonesVol;
     ini["audio"][loudspeakerVolField] = loudspeakerVol;
+    if (ringerChoice != NULL) {
+      controlState.ringerMode = (uint8_t) ringerChoice->getValue();
+      ini["audio"][ringerModeField] = (int) controlState.ringerMode;
+    }
     ini.store();
     audio->setVolumes(speakerVol, headphonesVol, loudspeakerVol);
   }
@@ -3038,11 +3071,17 @@ void AudioConfigApp::redrawScreen(bool redrawAll) {
     for(uint16_t i=0; i<sizeof(labels)/sizeof(LabelWidget*); i++) {
       ((GUIWidget*) labels[i])->redraw(lcd);
     }
+    if (ringerLabel != NULL) {
+      ((GUIWidget*) ringerLabel)->redraw(lcd);
+    }
   }
 
   // Redraw input widgets
   for(uint16_t i=0; i<sizeof(sliders)/sizeof(IntegerSliderWidget*); i++) {
     ((GUIWidget*) sliders[i])->refresh(lcd, redrawAll);
+  }
+  if (ringerChoice != NULL) {
+    ((GUIWidget*) ringerChoice)->redraw(lcd);
   }
 
   screenInited = true;
