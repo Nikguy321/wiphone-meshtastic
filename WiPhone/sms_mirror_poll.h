@@ -65,13 +65,23 @@
  * successfully loaded yet. Returns true if a usable host and token are configured. */
 bool smsMirrorPollConfigured();
 
-/* One bounded step of the poll. Call from the main loop.
+/* One bounded step of the poll. Call from the main loop, unconditionally.
  *
- * Does nothing at all unless configured, WiFi is up, and the interval has elapsed. Returns
- * the number of NEW texts stored on this call (almost always 0 — a whole poll is spread
- * over many calls, and only the pass that reads a record's last byte can return non-zero).
+ * `mayUseNetwork` is the caller's "is now a sensible time to open a socket" answer — pass
+ * sipMayPoll(), which is false while the Game Boy owns its 16 KB of unmovable internal RAM.
+ *
+ * ⚠ THE GATE IS A PARAMETER, AND IT IS CHECKED HERE RATHER THAN AT THE CALL SITE, because
+ * gating the whole call hid a bug worth not repeating: reading the config file and reporting
+ * status are not network work, and skipping them while the Games app happened to be open
+ * meant the poller could not even notice a config that had just been uploaded — and said
+ * nothing, because the code that would have said something was skipped too. Only the socket
+ * needs gating; knowing what is configured never does.
+ *
+ * Returns the number of NEW texts stored on this call (almost always 0 — a whole poll is
+ * spread over many calls, and only the pass that reads a record's last byte can be
+ * non-zero).
  */
-int smsMirrorPollLoop();
+int smsMirrorPollLoop(bool mayUseNetwork);
 
 /* Ask for a poll on the next loop, ignoring the interval. For a "sync now" action. */
 void smsMirrorPollRequestNow();

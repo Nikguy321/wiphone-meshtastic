@@ -55,6 +55,10 @@ static uint16_t    s_lineLen   = 0;
 static bool        s_lineOverflow = false;
 static const char* s_status    = "idle";
 static bool        s_forceNow  = false;
+/* Per-POLL totals, not per-call. One poll is spread over many main-loop passes, so the
+ * summary at the end has to accumulate somewhere that survives between them. */
+static int         s_lines     = 0;          // records seen in this poll
+static int         s_added     = 0;          // ...of which were new
 
 // ---------------------------------------------------------------- config
 static void trimEol(char* s) {
@@ -134,11 +138,31 @@ const char* smsMirrorPollStatus() {
 }
 
 // ---------------------------------------------------------------- helpers
-static void finish(const char* why, bool ok) {
+static void finish(const char* why, bool ok, int added, int lines) {
   s_client.stop();
   s_state = PS_IDLE;
-  s_status = why;
+  s_status = ok ? "idle" : why;
   s_nextPollMs = millis() + (ok ? POLL_INTERVAL_MS : RETRY_INTERVAL_MS);
+
+  /* ⚠ SAY SOMETHING. Both outcomes were silent in the first version, and that made a
+   * working poll and a broken one indistinguishable — the same trap this feature keeps
+   * setting for itself, and the reason the mesh hook logs at log_e too.
+   *
+   * A FAILURE always prints: it is rare, and it is the thing someone is looking for.
+   * A SUCCESS prints only when it did something, plus once for the first one ever, so a
+   * healthy phone is not writing a line every two minutes forever. */
+  static bool s_everSucceeded = false;
+  if (!ok) {
+    log_e("SMSMIRROR poll failed: %s (retry in %us)", why,
+          (unsigned)(RETRY_INTERVAL_MS / 1000));
+  } else if (added > 0 || !s_everSucceeded) {
+    log_e("SMSMIRROR poll ok: %d new of %d record(s), since=%lld",
+          added, lines, (long long)s_sinceId);
+  }
+  if (ok) {
+    s_everSucceeded = true;
+  }
+
   if (!ok) {
     /* Re-resolve next time. A connection that failed is the best evidence available that a
      * cached address has gone stale — COVEY moves between SmithWifi and NickH-wifi and comes
@@ -184,9 +208,11 @@ static int ingestLine() {
      * nothing anywhere to explain it. */
     log_e("SMSMIRROR poll: over-long line dropped (%u bytes)", (unsigned)s_lineLen);
   } else if (smsMirrorIsMirrorLine(s_line)) {
+    s_lines++;
     int r = smsMirrorIngestLine(s_line);
     if (r > 0) {
       added = 1;
+      s_added++;
     }
     SmsMirrorRecord rec;
     if (smsMirrorUnpack(s_line, &rec) && rec.id > s_sinceId) {
@@ -199,9 +225,14 @@ static int ingestLine() {
 }
 
 // ---------------------------------------------------------------- the step
-int smsMirrorPollLoop() {
+int smsMirrorPollLoop(bool mayUseNetwork) {
+  // Config and status FIRST, before the gate — see the header for why. Noticing that a
+  // config file has appeared is not network work and must not be skipped with it.
   if (!loadConfig()) {
     return 0;
+  }
+  if (!mayUseNetwork && s_state == PS_IDLE) {
+    return 0;                       // nothing in flight: just do not start anything
   }
   const uint32_t now = millis();
 
@@ -218,7 +249,7 @@ int smsMirrorPollLoop() {
     }
     s_forceNow = false;
     if (!resolveHost()) {
-      finish("host not found", false);
+      finish("host not found", false, 0, 0);
       return 0;
     }
     s_state = PS_CONNECT;
@@ -230,7 +261,7 @@ int smsMirrorPollLoop() {
     /* The one call here that can block, bounded to CONNECT_TIMEOUT_MS. On a LAN a real
      * COVEY answers in single-digit milliseconds; the timeout only bites when it is off. */
     if (!s_client.connect(s_hostIp, s_port, CONNECT_TIMEOUT_MS)) {
-      finish("no answer from COVEY", false);
+      finish("no answer from COVEY", false, 0, 0);
       return 0;
     }
     char req[320];
@@ -242,12 +273,14 @@ int smsMirrorPollLoop() {
                      "\r\n",
                      (long long)s_sinceId, s_host, "X-Covey-Token", s_token);
     if (w <= 0 || (size_t)w >= sizeof(req)) {
-      finish("request too long", false);
+      finish("request too long", false, 0, 0);
       return 0;
     }
     s_client.print(req);
     s_state = PS_HEADERS;
     s_status = "reading";
+    s_lines = 0;                    // per-POLL totals for the summary in finish()
+    s_added = 0;
     s_deadlineMs = now + READ_TIMEOUT_MS;
     s_lineLen = 0;
     s_lineOverflow = false;
@@ -256,7 +289,7 @@ int smsMirrorPollLoop() {
 
   // --- PS_HEADERS / PS_BODY: consume at most READ_BUDGET bytes this pass.
   if ((int32_t)(now - s_deadlineMs) >= 0) {
-    finish("timed out", false);
+    finish("timed out", false, s_added, s_lines);
     return 0;
   }
 
@@ -280,7 +313,7 @@ int smsMirrorPollLoop() {
             /* 403 is the token being wrong, and it is worth saying plainly: every other
              * failure mode here looks the same from the outside. */
             log_e("SMSMIRROR poll: %s", s_line);
-            finish(strstr(s_line, " 403") ? "rejected: bad token" : "COVEY refused", false);
+            finish(strstr(s_line, " 403") ? "rejected: bad token" : "COVEY refused", false, 0, 0);
             return added;
           }
         }
@@ -302,7 +335,7 @@ int smsMirrorPollLoop() {
     if (s_state == PS_BODY && s_lineLen) {
       added += ingestLine();       // a final line with no trailing newline
     }
-    finish("idle", true);
+    finish("idle", true, s_added, s_lines);
   }
   return added;
 }
