@@ -3454,7 +3454,7 @@ appEventResult MotorDriverApp::processEvent(EventType event) {
   if (event == APP_TIMER_EVENT) {
 
     Direction newDir = direction;
-    if (udp->parsePacket()>0) {
+    if (udpParsePacketSafe(*udp)>0) {
       char buff[100];
       int cb = udp->read(buff, sizeof(buff)-1);
       if (cb>0) {
@@ -3569,7 +3569,7 @@ appEventResult PinControlApp::processEvent(EventType event) {
   if (event == APP_TIMER_EVENT) {
 
     // Check for incoming commands
-    if (udp->parsePacket()>0) {
+    if (udpParsePacketSafe(*udp)>0) {
       char buff[100];
       int cb = udp->read(buff, sizeof(buff)-1);
       if (cb>0) {
@@ -4215,6 +4215,28 @@ void PhonebookApp::redrawScreen(bool redrawAll) {
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Sip Accounts app  - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+/* Widgets go to PSRAM — see the long note on AbstractWidget in GUI.h for why this is at the
+ * root of the hierarchy rather than per-app. */
+void* AbstractWidget::operator new(size_t n) {
+  void* p = ps_malloc(n);
+  return p ? p : malloc(n);
+}
+
+void AbstractWidget::operator delete(void* p) {
+  free(p);
+}
+
+/* See the note in GUI.h: measured at −4,236 bytes of contiguous internal heap per open, which
+ * panicked the phone twice within minutes of the first SIP account being configured. */
+void* SipAccountsApp::operator new(size_t n) {
+  void* p = ps_malloc(n);
+  return p ? p : malloc(n);
+}
+
+void SipAccountsApp::operator delete(void* p) {
+  free(p);
+}
 
 SipAccountsApp::SipAccountsApp(LCD& lcd, ControlState& state, Storage& flash, HeaderWidget* header, FooterWidget* footer)
   : WindowedApp(lcd, state, header, footer), FocusableApp(4), ini(filename) {
@@ -11098,8 +11120,8 @@ bool MultilineTextWidget::processEvent(EventType event) {
     if (event == WIPHONE_KEY_UP) {
       if (cursRow>0) {
         cursRow--;
-        if (cursOffset>strlen(rowsDyn[cursRow])) {
-          cursOffset = strlen(rowsDyn[cursRow]);  // TODO: remember from what column the cursor started moving
+        if (cursOffset>rowLen(cursRow)) {
+          cursOffset = rowLen(cursRow);  // TODO: remember from what column the cursor started moving
         }
         revealCursor();
       }
@@ -11108,8 +11130,8 @@ bool MultilineTextWidget::processEvent(EventType event) {
         cursRow++;
         if (emptyRow(cursRow)) {
           cursOffset = 0;
-        } else if (cursOffset>strlen(rowsDyn[cursRow])) {
-          cursOffset = strlen(rowsDyn[cursRow]);
+        } else if (cursOffset>rowLen(cursRow)) {
+          cursOffset = rowLen(cursRow);
         }
         revealCursor();
       }
@@ -11119,7 +11141,7 @@ bool MultilineTextWidget::processEvent(EventType event) {
         cursOffset--;
       } else if (cursRow>0) {
         cursRow--;
-        cursOffset = strlen(rowsDyn[cursRow]);
+        cursOffset = rowLen(cursRow);
         revealCursor();
       }
     } else if (event == WIPHONE_KEY_RIGHT) {
@@ -11127,7 +11149,7 @@ bool MultilineTextWidget::processEvent(EventType event) {
       log_d("cursor right");
       if (notEmptyRow(cursRow)) {
         // TODO: this can be optimized
-        if (cursOffset<strlen(rowsDyn[cursRow]) + (newLineRow(cursRow) ? -1 : 0)) {
+        if (cursOffset<rowLen(cursRow) + (newLineRow(cursRow) ? -1 : 0)) {
           log_d("next character");
           // Next character in current row
           cursOffset++;
@@ -11214,7 +11236,13 @@ void MultilineTextWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenO
           curPosX = lcd.textWidth(rowsDyn[i]);
         }
       }
-      drawCursor(lcd, screenOffX + xPadding + curPosX, screenOffY + yOff, widgetFont->height(), WP_COLOR_0);
+      /* ⚠ fgColor, NOT a hardcoded WP_COLOR_0. The cursor used to be drawn black whatever the
+       * widget's theme was, so on every screen that sets a DARK background — mesh compose, the
+       * name editors, Books — it was black on black and simply could not be seen. Moving it
+       * with left/right worked all along; there was no way to tell. Drawing it in the text
+       * colour is right by construction: the text is legible against this background, so the
+       * cursor is too. On light screens fgColor IS WP_COLOR_0, so nothing there changes. */
+      drawCursor(lcd, screenOffX + xPadding + curPosX, screenOffY + yOff, widgetFont->height(), fgColor);
     }
 
     yOff += widgetFont->height();
@@ -11384,14 +11412,14 @@ void TextInputWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY,
         if (cursorOffset - textOffset <=  fit) {
           dup[cursorOffset - textOffset] = '\0';
           curPosX = lcd.textWidth(dup);
-          drawCursor(lcd, screenOffX + curPosX + xPad, screenOffY + (windowHeight-widgetFont->height())/2, widgetFont->height(), WP_COLOR_0);
+          drawCursor(lcd, screenOffX + curPosX + xPad, screenOffY + (windowHeight-widgetFont->height())/2, widgetFont->height(), fgColor);
         }
       }
       free(dup);
     }
   } else {
     if (focused) {
-      drawCursor(lcd, screenOffX+xPad+1, screenOffY+(windowHeight-widgetFont->height())/2, widgetFont->height(), WP_COLOR_0);
+      drawCursor(lcd, screenOffX+xPad+1, screenOffY+(windowHeight-widgetFont->height())/2, widgetFont->height(), fgColor);
     }
   }
 }
@@ -11602,7 +11630,7 @@ void PasswordInputWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenO
         if (cursorOffset - textOffset <=  fit) {
           dup[cursorOffset - textOffset] = '\0';
           curPosX = lcd.textWidth(dup);
-          drawCursor(lcd, screenOffX + curPosX + xPad, screenOffY+(windowHeight-widgetFont->height())/2, widgetFont->height(), WP_COLOR_0);
+          drawCursor(lcd, screenOffX + curPosX + xPad, screenOffY+(windowHeight-widgetFont->height())/2, widgetFont->height(), fgColor);
         }
       }
       free(dup);
@@ -11610,7 +11638,7 @@ void PasswordInputWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenO
   } else {
     // Empty input -> draw only cursor if necessary
     if (focused) {
-      drawCursor(lcd, screenOffX+xPad+1, screenOffY+(windowHeight-widgetFont->height())/2, widgetFont->height(), WP_COLOR_0);
+      drawCursor(lcd, screenOffX+xPad+1, screenOffY+(windowHeight-widgetFont->height())/2, widgetFont->height(), fgColor);
     }
   }
 }

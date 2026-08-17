@@ -393,7 +393,7 @@ public:
       return 0;
     }*/
     //log_d("available...");
-    WiFiUDP::parsePacket();
+    udpParsePacketSafe(*this);      // NOT WiFiUDP::parsePacket() - see helpers.h
     int len = WiFiUDP::available();
     if(len <= 0) {
       return 0;

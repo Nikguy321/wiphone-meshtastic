@@ -17,8 +17,52 @@ governing permissions and limitations under the License.
 
 #include <random>
 #include <cstddef>
+#include <new>
+#include <WiFiUdp.h>
+#include <esp_heap_caps.h>
 #include "src/digcalc.h"
 #include "src/MurmurHash3_32.h"
+
+/* 🛑 NEVER CALL WiFiUDP::parsePacket() DIRECTLY. Use this instead.
+ *
+ * parsePacket() allocates a 1,460-byte buffer with `new char[1460]` on EVERY call, from the
+ * INTERNAL heap, and the framework's own guard immediately underneath it:
+ *
+ *     char * buf = new char[1460];
+ *     if(!buf){ return 0; }            <-- DEAD CODE
+ *
+ * never fires, because `new[]` THROWS on failure rather than returning null. Nothing catches
+ * it, so the throw becomes std::terminate() -> abort() -> reset_reason=4. The framework author
+ * wrote a graceful bail-out using malloc semantics and got a device-killing abort instead.
+ *
+ * This phone has ~20 KB of internal heap in total, so 1,460 CONTIGUOUS bytes is a real ask. It
+ * went unnoticed while nothing polled UDP often; the moment a SIP account was registered,
+ * TinySIP::checkCall() began polling it from the main loop and the phone panicked every one to
+ * three minutes. Proven on hardware 2026-08-16 by decoding the panic backtrace:
+ *
+ *     loop -> TinySIP::checkCall -> UDP_SIPConnection::available -> WiFiUDP::parsePacket
+ *          -> operator new[] -> __cxa_throw -> std::terminate -> abort
+ *
+ * Two layers, because either alone is insufficient:
+ *   1. Refuse to call it when the largest internal block cannot comfortably hold the buffer.
+ *      This is what prevents the abort in practice.
+ *   2. Catch std::bad_alloc anyway — WiFi runs on the other core and can take the memory
+ *      between our check and the allocation. Rare, but it is precisely the race that would
+ *      otherwise kill the device at random.
+ *
+ * The cost of refusing is ONE dropped packet. UDP is unreliable by definition and every caller
+ * here re-polls, so it is re-read next pass or retransmitted by the far end. */
+inline int udpParsePacketSafe(UDP& udp) {
+  // 1,460 for the buffer, plus headroom for the cbuf parsePacket() allocates when data arrives.
+  if (heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL) < 1460 + 512) {
+    return 0;
+  }
+  try {
+    return udp.parsePacket();
+  } catch (const std::bad_alloc&) {
+    return 0;         // lost the race with the other core: drop the packet, keep the phone
+  }
+}
 
 uint32_t rotate5(uint32_t x);                                   // rotate by a prime number of bits
 uint32_t hash_murmur(const char *str);                          // simple hash function for C-strings. Uses MurmurHash by Austin Appleby. Only 35% slower than DJB2 on ESP32, 27% slower than SDBM.

@@ -277,6 +277,32 @@ bool Audio::shutdown() {
   this->ceaseRecording();
   this->ceasePlayback();
 
+  /* 🛑 END THE RTP SESSION HERE, not just the audio device.
+   *
+   * Every path that ends a call comes through shutdown(): local hang-up, remote BYE, WiFi lost
+   * mid-call, and the RTP-silence timeout (see WiPhone.ino). Until 2026-08-16 not one of them
+   * cleared any of the state below. `microphoneOn` was set true by turnMicOn() and **never set
+   * false anywhere in the codebase**; `microphoneStreamOut` was cleared only in the
+   * constructor; `rtpRemotePort`/`rtpRemoteIP` kept the last caller's address indefinitely.
+   *
+   * The send gate in the audio loop is `microphoneOn && bps==16`, then
+   * `microphoneStreamOut && rtpRemotePort` — and nothing else. `audioOn` merely decides whether
+   * the loop runs at all. So the next thing to bring audio back up resumed streaming the
+   * MICROPHONE to whoever called last, and a mesh notification pop is enough to do it. With a
+   * public DID on this phone that is a hot mic aimed at the last stranger who dialled.
+   *
+   * Clearing here is safe because setup always re-arms explicitly — openRtpConnection(),
+   * sendRtpStreamFromMic() and playRtpStream() are always issued together.
+   *
+   * The socket is closed as well, and that part is not optional: with rtpRemotePort back to 0
+   * the receive filter ("from the expected port, OR no port set at all") would accept RTP from
+   * anywhere on the network. */
+  this->microphoneOn = false;
+  this->microphoneStreamOut = false;
+  this->rtpRemotePort = 0;
+  this->rtpRemoteIP = IPAddress();
+  this->rtp.stop();
+
   // Tun off the amp
   //if (!allDigitalWrite(AMPLIFIER_SHUTDOWN, LOW)) succ = false;
   amplifierEnable(0);
@@ -980,7 +1006,20 @@ void Audio::loop() {
 
           // Compress PCM to G.722 (640 bytes to 160 bytes) or to G.711 (320 bytes to 160 bytes)
           int bytes = 0;
-          if (rtpPayloadType == Audio::G722_RTP_PAYLOAD) {
+
+          /* ⚠ micEnc is a FIXED 1600-byte buffer and the G.711 compressors take a SAMPLE COUNT,
+           * not a destination length — they write one byte per sample and cannot be told to
+           * stop. packetSizeWords comes from packetSizeSamples(20), which scales with the
+           * NEGOTIATED sample rate, so the only thing that has ever kept this in bounds is that
+           * rate staying sane: 8 kHz gives 160 bytes, 16 kHz gives 320, and the arithmetic just
+           * keeps going from there. Drop the packet instead of running off the end of the
+           * buffer. micRawR still advances below, so the pipeline does not stall — we lose 20 ms
+           * of audio rather than corrupting whatever follows micEnc in memory.
+           * (G.722 emits half a byte per sample, so this bound covers it too.) */
+          if (packetSizeWords > sizeof(this->micEnc)) {
+            log_e("mic packet too large for micEnc: %u samples > %u bytes - dropped",
+                  (unsigned) packetSizeWords, (unsigned) sizeof(this->micEnc));
+          } else if (rtpPayloadType == Audio::G722_RTP_PAYLOAD) {
             bytes = g722_encode(g722Encoder, (const int16_t*) this->micRaw, packetSizeWords, (uint8_t*) this->micEnc);
           } else if (rtpPayloadType == Audio::ALAW_RTP_PAYLOAD) {
             alaw_compress(packetSizeWords, (const int16_t*) this->micRaw, (uint8_t*) this->micEnc);
@@ -1145,7 +1184,7 @@ void Audio::loop() {
         rtp.flush();
       };
 
-      int32_t len = rtp.parsePacket();
+      int32_t len = udpParsePacketSafe(rtp);
 
       if (len == 0) {
         uint32_t tmpSilentAudio = millis();

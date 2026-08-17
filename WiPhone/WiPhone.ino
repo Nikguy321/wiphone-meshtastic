@@ -518,7 +518,7 @@ void keyboardRead() {
 
 #ifdef USE_VIRTUAL_KEYBOARD
 void keyboardUdpRead() {
-  if (udpKeypad && udpKeypad->parsePacket() > 0) {
+  if (udpKeypad && udpParsePacketSafe(*udpKeypad) > 0) {
     char buff[1000];
     int cb = udpKeypad->read(buff, sizeof(buff) - 1);
     buff[cb] = 0;

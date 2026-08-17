@@ -53,7 +53,7 @@ void Clock::thread(void *pvParam) {
 //     Initially written for cooperative multitasking, it either sends an NTP request and exits or checks for NTP response and exits.
 bool Clock::update(const uint32_t& nowMillis) {
   // Check if previous request is still valid, if not - send a new one
-  if (sentRequest && udpTime->parsePacket()<=0 && elapsedMillis(nowMillis, sentMillis, NTP_REQUEST_VALID_MS)) {
+  if (sentRequest && udpParsePacketSafe(*udpTime)<=0 && elapsedMillis(nowMillis, sentMillis, NTP_REQUEST_VALID_MS)) {
     sentRequest = false;  // declare old request invalid
   }
 

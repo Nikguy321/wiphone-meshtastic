@@ -429,6 +429,29 @@ class AbstractWidget {
 public:
   virtual bool processEvent(EventType event) = 0;         // return true if the event was relevant (processed); false - if ignored
   virtual void redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, uint16_t windowWidth, uint16_t windowHeight) = 0;
+
+  /* 🛑 EVERY WIDGET ON THIS PHONE ALLOCATES FROM PSRAM. This is the root of the widget
+   * hierarchy, so one definition here covers all ~163 widget allocations in the codebase —
+   * every one of which is a plain `new`, with none on the stack or held by value.
+   *
+   * WHY: the internal heap is ~20 KB TOTAL and widgets are what each screen spends it on.
+   * Measured 2026-08-16, opening Settings > SIP accounts cost −4,236 bytes of CONTIGUOUS
+   * internal heap and panicked the phone twice (`reset_reason=4`, `largest` at 3,168 and
+   * 4,532). Moving just the app OBJECT to PSRAM — the fix that worked for BooksApp —
+   * recovered only 460 of those bytes, because that screen's dozen widgets were never the
+   * object. Fixing it per-app would mean repeating that everywhere; the widgets are the
+   * common denominator, so this is the place.
+   *
+   * SAFE BECAUSE: widgets are UI state read by the CPU during redraw. Nothing here is DMA'd,
+   * touched from an ISR, or on the emulator's hot path — the Game Boy renders through its own
+   * buffers, not through widgets. PSRAM is slower per access and irrelevant at UI rates, and
+   * there is ~3.6 MB of it spare against ~20 KB of internal heap.
+   *
+   * ⚠ Falls back to internal heap when PSRAM is unavailable or exhausted, which also covers
+   * any widget built before PSRAM is initialised. free() on ESP-IDF is region-agnostic, so a
+   * single operator delete serves both. Revert by deleting these two functions. */
+  static void* operator new(size_t n);
+  static void operator delete(void* p);
 };
 
 // Base widget class with position and size data
@@ -981,6 +1004,14 @@ protected:
 
   bool allocateMore(int minSize=0);
   void revealCursor();
+
+  /* Length of a row, NULL-safe. The cursor-movement code steps onto rows it has not tested,
+   * and an unused slot is a NULL pointer (allocateMore() memsets new slots to 0), not an
+   * empty string — so a bare strlen(rowsDyn[row]) there is a crash waiting for the right
+   * text. Everything below that walks rows for the cursor goes through this. */
+  size_t rowLen(int row) {
+    return (row >= 0 && row < maxRows && rowsDyn[row]) ? strlen(rowsDyn[row]) : 0;
+  };
 
   bool emptyRow(int row) {
     return row < 0 || row >= maxRows || !rowsDyn[row] || !rowsDyn[row][0];
@@ -2264,6 +2295,19 @@ class SipAccountsApp : public WindowedApp, FocusableApp {
 public:
   SipAccountsApp(LCD& disp, ControlState& state, Storage& flash, HeaderWidget* header, FooterWidget* footer);
   virtual ~SipAccountsApp();
+
+  /* ⚠ THIS OBJECT LIVES IN PSRAM. Measured on the phone 2026-08-16, this app cost
+   * −4,236 and −4,248 bytes of CONTIGUOUS INTERNAL HEAP per open — worse than the Books
+   * app ever did (−3,068), and the two panics that followed were `reset_reason=4` with
+   * `largest` down at 3,168. It was never noticed before because nobody had a SIP account
+   * to configure, so the screen had essentially never been opened.
+   *
+   * Same one-step fix as BooksApp: override operator new rather than converting a dozen
+   * members to pointers. Nothing here is DMA'd or touched from an ISR, and PSRAM has ~3.6 MB
+   * spare. Falls back to internal heap if PSRAM is exhausted, and free() on ESP-IDF is
+   * region-agnostic so one delete serves both. */
+  static void* operator new(size_t n);
+  static void operator delete(void* p);
   ActionID_t getId() {
     return GUI_APP_SIP_ACCOUNTS;
   };
