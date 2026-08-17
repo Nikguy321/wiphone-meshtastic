@@ -41,6 +41,7 @@ governing permissions and limitations under the License.
 #include "meshtastic_service.h"
 #include "music_player.h"
 #include "app_gbc_xfer.h"
+#include "sms_mirror_poll.h"   // pulls mirrored texts from COVEY over the LAN
 #include "mp3_stream.h"
 #include "src/assets/pop_sound.h"
 
@@ -1484,6 +1485,18 @@ void loop() {
   while (1) {
     uint32_t now = millis();
     gbcXferHandleClient();
+
+    /* Pull mirrored texts from COVEY over the LAN — one bounded step per pass, never a
+     * blocking request. See sms_mirror_poll.h: the UI is one task, so a blocking GET here is
+     * not "slow", it is the 5-second freeze bug rebuilt on purpose.
+     *
+     * ⚠ Gated on sipMayPoll() for exactly the reason SIP is: while the Game Boy is on
+     * screen it owns 16 KB of internal RAM that cannot move to PSRAM, and a socket plus its
+     * buffers is the last thing that contest needs. The LAN path is pure catch-up — the
+     * radio carries anything time-sensitive — so pausing it during a game costs nothing. */
+    if (sipMayPoll()) {
+      smsMirrorPollLoop();
+    }
 
     /* 🔎 RATCHET WATCHPOINT — name the MOMENT `largest` steps down.
      *
