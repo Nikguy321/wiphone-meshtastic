@@ -172,10 +172,12 @@ is not.
 
 1. 📞 **MAKE THE FIRST REAL CALL AND TEXT.** A VoIP.ms account is live and the phone
    **registers** (`sip=1` = `CallState::Idle` in every health line since). Number is
-   **425-320-0782** (Everett WA), sub-account **`565611_nikguy`**, POP **`seattle.voip.ms`**,
+   **425-320-0782** (Everett WA), sub-account **`565611_nikguy`**, POP **`seattle1.voip.ms`** (⚠ the portal's "Seattle 1" is `seattle1`, NOT the unnumbered
+   `seattle.voip.ms` — that guess was wrong and cost a correction; read the hostname off the
+   portal, never infer it),
    UDP-SIP. Test target is Nick's own phone, **425-760-4281**.
    - **Phonebook entry that works for BOTH call and text:** SIP URI field =
-     `14257604281@seattle.voip.ms`. Calls auto-append the server for a bare number
+     `14257604281@seattle1.voip.ms`. Calls auto-append the server for a bare number
      (`ControlState::setRemoteNameUri`), but `TinySIP::sendMessage()` uses the address
      VERBATIM — so a bare number would call fine and fail to text. Store the full URI.
    - ⚠ **NOTHING BELOW HAS EVER BEEN EXERCISED BY A REAL CALL.** The mic-leak teardown and the
