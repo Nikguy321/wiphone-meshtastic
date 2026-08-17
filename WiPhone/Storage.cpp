@@ -16,6 +16,7 @@ governing permissions and limitations under the License.
 #include "Storage.h"
 #include "config.h"
 #include "helpers.h"
+#include "sms_mirror.h"   // ingestMirrored(): the CSM1 record and smsMirrorDigits()
 
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # #  PHONEBOOK CLASS  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -702,7 +703,8 @@ bool Messages::loadPartition(IniFile& ini, int32_t part) {
  *     hash of the message text (or message data).
  */
 Messages::hash_t Messages::saveMessage(const char* text, const char* fromUri, const char* toUri,
-                                       bool incoming, unsigned long time, unsigned long ackTime) {
+                                       bool incoming, unsigned long time, unsigned long ackTime,
+                                       int64_t voipId) {
   log_v("saving message to %s, time = %d, d = %c", toUri ? toUri : "nil", time, incoming ? 'i' : 'o');
 
   if (!time) {
@@ -792,6 +794,13 @@ Messages::hash_t Messages::saveMessage(const char* text, const char* fromUri, co
   if (ackTime) {
     ini[-1].putValueFullHex("a", ackTime);
   }
+  if (voipId) {
+    // VoIP.ms message id — decimal, not hex, so it reads the same here as in COVEY's store
+    // and in a CSM1 line. Absent on anything this phone sent or received itself.
+    char vid[24];
+    snprintf(vid, sizeof(vid), "%lld", (long long)voipId);
+    ini[-1]["v"] = vid;
+  }
   if (io) {
     ini[-1]["d"] = incoming ? "i" : "o";
   }
@@ -860,6 +869,96 @@ Messages::hash_t Messages::saveMessage(const char* text, const char* fromUri, co
     log_e("failed to save appended partition");
   }
   return 0;
+}
+
+int Messages::ingestMirrored(const struct SmsMirrorRecord& rec, const char* ownUri,
+                             const char* peerUri, int scanDepth) {
+  if (!this->loaded || !rec.peer[0]) {
+    return -1;
+  }
+
+  // A mirrored record's direction is COVEY's: `out` means the ACCOUNT sent it, which from
+  // this phone's point of view is a sent message, whoever typed it.
+  const bool incoming = !rec.out;
+
+  char vidStr[24];
+  snprintf(vidStr, sizeof(vidStr), "%lld", (long long)rec.id);
+
+  int32_t total = this->countAll(incoming);
+  int32_t depth = (total < (int32_t)scanDepth) ? total : (int32_t)scanDepth;
+
+  /* Walk newest-first, but remember the OLDEST unclaimed match rather than the first one
+   * found. Two identical texts to the same person ("ok", twice) are two real messages, and
+   * they arrive from COVEY in id order — so pairing each against the oldest candidate still
+   * free is what keeps them lined up. Taking the newest would pair both to the same one. */
+  int32_t adoptOffset = 0;              // 0 = none; offsets from preload() are negative
+  bool haveById = false;
+
+  if (depth > 0) {
+    this->preload(incoming, -1, depth);
+    for (auto it = this->iteratorCount(-1, depth); it.valid(); ++it) {
+      MessageData& m = *it;
+
+      const char* v = m.getValueSafe("v", "");
+      if (v[0]) {
+        if (!strcmp(v, vidStr)) {
+          haveById = true;
+          break;                        // exact: this record is already in the store
+        }
+        continue;                       // carries a different id, so it is not our pair
+      }
+
+      // No id: a candidate for the phone's own copy of this same text.
+      char peerDigits[SMS_MIRROR_PEER_MAX];
+      if (!smsMirrorDigits(m.getOtherUri(), peerDigits, sizeof(peerDigits))) {
+        continue;
+      }
+      if (strcmp(peerDigits, rec.peer)) {
+        continue;
+      }
+      if (strncmp(m.getMessageText(), rec.text, SMS_MIRROR_TEXT_MAX)) {
+        continue;
+      }
+      adoptOffset = (int32_t)it;        // keep going: a later iteration finds an older one
+    }
+  }
+
+  if (haveById) {
+    return 0;
+  }
+
+  if (adoptOffset) {
+    /* The phone already has this text; it simply did not know VoIP.ms's name for it. Write
+     * the id onto the message we have, so the next mirror of the same text is caught by the
+     * cheap exact check above instead of being paired again. */
+    int32_t idx = abs(adoptOffset - preloadedRangeStart);
+    if (idx >= 0 && idx < preloaded.size() && preloaded[idx]) {
+      MessageData& mine = *preloaded[idx];
+      mine["v"] = vidStr;               // the in-RAM copy, so a redraw agrees with the file
+
+      IniFile& ini = part1;
+      int32_t key = 0;
+      if (this->findMessage(mine, ini, key) && key > 0) {
+        ini[key]["v"] = vidStr;
+        if (!ini.store()) {
+          log_e("failed to store adopted VoIP id");
+        }
+      } else {
+        /* Not fatal, and deliberately not an error return: the message IS in the store and
+         * the user sees it exactly once, which is the whole point. The cost is that the
+         * next mirror of this text pairs by text again instead of by id. */
+        log_e("could not locate own copy to stamp id %s", vidStr);
+      }
+    }
+    return 0;
+  }
+
+  // Genuinely new. Store it the same way a SIP message is stored, so nothing downstream
+  // needs to know it came from COVEY.
+  const char* fromUri = incoming ? peerUri : ownUri;
+  const char* toUri   = incoming ? ownUri  : peerUri;
+  this->saveMessage(rec.text, fromUri, toUri, incoming, rec.ts, 0, rec.id);
+  return 1;
 }
 
 bool Messages::findMessage(MessageData& msg, IniFile& part, int32_t& section) {

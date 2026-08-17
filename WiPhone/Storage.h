@@ -281,8 +281,48 @@ public:
   int32_t preload(bool incoming, int32_t offset, int32_t count);       // this method accepts negative offsets (in Python style)
 
   // Modification interfaces
+  /* `voipId` is the VoIP.ms message id, stored under "v", and 0 means "none" — which is the
+   * case for every message the phone itself sends or receives over SIP or LoRa. It exists
+   * so a text mirrored from COVEY can be recognised as one already held; see
+   * ingestMirrored() and WiPhone/sms_mirror.h. */
   hash_t saveMessage(const char* text, const char* fromUri, const char* toUri,
-                     bool incoming, unsigned long time, unsigned long ackTime=0);
+                     bool incoming, unsigned long time, unsigned long ackTime=0,
+                     int64_t voipId=0);
+
+  /* Fold one text mirrored from COVEY into this store.
+   *
+   * COVEY holds the whole account history (it reads the VoIP.ms REST API, which this phone
+   * cannot do — it has no working TLS) and relays it here over the LAN and over LoRa. Both
+   * transports carry the same record and both may deliver the same one, so this has to be
+   * idempotent.
+   *
+   *   returns  1  stored a new message
+   *            0  already had it — either by id, or paired with the phone's own copy
+   *           -1  refused (database not loaded, or a record with no correspondent)
+   *
+   * ⚠ TWO KINDS OF DUPLICATE, and only the first is easy. A record we have already ingested
+   * carries the same VoIP.ms id, so it is caught exactly. But a text this phone sent or
+   * received ITSELF over SIP has no id at all, and COVEY will mirror it back because
+   * `getSMS` returns the whole account's history. That copy is paired by correspondent +
+   * direction + exact text, and the id is then written onto the message we already had, so
+   * the pairing only ever has to happen once.
+   *
+   * ⚠ TIME IS NOT PART OF THE PAIRING. VoIP.ms dates do not reconcile to any single offset —
+   * COVEY measured them landing up to an HOUR in the future — so any window tight enough to
+   * discriminate would reject genuine matches.
+   *
+   * ⚠ THE SCAN IS BOUNDED to the newest `scanDepth` messages in the record's own direction,
+   * because an unbounded scan means loading every partition on a phone with ~20 KB of
+   * contiguous internal heap. The consequence, stated plainly: if a mirrored text pairs with
+   * a copy OLDER than that window, it is stored twice. That needs a burst of more than
+   * `scanDepth` messages between COVEY sending and the phone hearing it, which is far
+   * outside normal use — but it is a real limit, not an impossible one.
+   *
+   * ⚠ Disturbs the preloaded cache. Callers showing a message list must clearPreloaded()
+   * and rebuild after a batch, exactly as the delete path already does.
+   */
+  int ingestMirrored(const struct SmsMirrorRecord& rec, const char* ownUri,
+                     const char* peerUri, int scanDepth=60);
   bool deleteMessage(MessageData&);
   bool deleteMessage(int32_t messageOffset);
   void setRead(MessageData&);

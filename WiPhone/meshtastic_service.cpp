@@ -10,6 +10,7 @@
 #include "config.h"            // MESHTASTIC_PHY toggle
 #include <Preferences.h>      // NVS-backed node name persistence
 #include "booksync_inbox.h"   // book-sync packets are diverted out of the chat list
+#include "sms_mirror_rx.h"    // ...and so are texts mirrored from COVEY
 #include "clock.h"            // ntpClock, for when a parked packet arrived
 #include <SPIFFS.h>           // node + message history persistence
 
@@ -639,6 +640,24 @@ bool MeshtasticService::loop() {
           log_i("Mesh booksync packet from 0x%08X (%u parked)",
                 hdr.sender, (unsigned)bookSyncInboxCount());
           return false;
+        }
+
+        /* A text message mirrored from COVEY. Same treatment as book-sync and for the same
+         * reason: nobody sent this to you as a mesh message, so it has no business in the
+         * Chats list. It goes straight into the SIP message store instead.
+         *
+         * ⚠ Recognised by PREFIX, before anything else. A packet that merely claims to be
+         * one is dropped, not displayed — showing "CSM1 109970452 4257604281 i ..." as a
+         * chat message would be worse than losing it.
+         *
+         * Returns TRUE, unlike book-sync, and that difference is the point: a book position
+         * is machine traffic a person never reads, but this IS a text message that has just
+         * arrived, so the caller's new-message signal is exactly right. */
+        if (smsMirrorIsMirrorLine(text)) {
+          int r = smsMirrorIngestLine(text);
+          log_i("Mesh SMS mirror from 0x%08X: %s",
+                hdr.sender, r > 0 ? "stored" : (r == 0 ? "already had it" : "refused"));
+          return r > 0;
         }
 
         storeMessage(hdr.sender, toInternal, hdr.channelHash, text, false);   // real text!

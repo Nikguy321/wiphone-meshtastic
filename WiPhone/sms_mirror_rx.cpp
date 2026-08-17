@@ -1,0 +1,74 @@
+#include "sms_mirror_rx.h"
+#include "sms_mirror.h"
+#include "GUI.h"
+#include "config.h"
+
+#include <string.h>
+#include <stdio.h>
+
+extern GUI gui;
+
+bool smsMirrorIsMirrorLine(const char* text) {
+  return smsMirrorIsMirrorText(text);
+}
+
+/* Build the correspondent's URI in the form THIS PHONE would build it.
+ *
+ * ⚠ This matters more than it looks. `TinySIP::sendMessage()` uses the address VERBATIM —
+ * unlike calling, which auto-appends the server for a bare number — so a stored correspondent
+ * of "4257604281" would call fine and silently fail to text. That trap is already written up
+ * in the handoff, and storing a bare number here would walk straight back into it.
+ *
+ * The host comes from the phone's own account rather than from anything COVEY sent, because
+ * COVEY reaches VoIP.ms over a REST API and has no SIP host to offer. `565611_nikguy@
+ * seattle1.voip.ms` therefore yields `14257604281@seattle1.voip.ms`, which is exactly the
+ * phonebook form that is known to work for both calling and texting.
+ */
+static bool buildPeerUri(const char* digits, const char* ownUri, char* out, size_t cap) {
+  const char* at = ownUri ? strchr(ownUri, '@') : NULL;
+  if (!at || !at[1] || !digits || !digits[0]) {
+    return false;
+  }
+  // A 10-digit NANP number is dialled with a leading 1 on this account; anything else is
+  // passed through as-is rather than guessed at.
+  int w = (strlen(digits) == 10)
+          ? snprintf(out, cap, "1%s%s", digits, at)
+          : snprintf(out, cap, "%s%s", digits, at);
+  return w > 0 && (size_t)w < cap;
+}
+
+int smsMirrorIngestLine(const char* line) {
+  SmsMirrorRecord rec;
+  if (!smsMirrorUnpack(line, &rec)) {
+    return -1;
+  }
+
+  const char* ownUri = gui.state.fromUriDyn;
+  if (!ownUri || !*ownUri) {
+    /* No SIP account: refuse rather than invent a host. Storing under a made-up URI would
+     * put the thread somewhere a reply could never reach, and it would not merge with the
+     * real thread once an account was configured. */
+    log_e("SMS mirror: no SIP account, refusing record %lld", (long long)rec.id);
+    return -1;
+  }
+
+  char peerUri[128];
+  if (!buildPeerUri(rec.peer, ownUri, peerUri, sizeof(peerUri))) {
+    log_e("SMS mirror: cannot build a peer URI from '%s'", rec.peer);
+    return -1;
+  }
+
+  if (!gui.flash.messages.isLoaded()) {
+    gui.flash.messages.load(ntpClock.isTimeKnown() ? ntpClock.getExactUnixTime() : 0);
+  }
+
+  int r = gui.flash.messages.ingestMirrored(rec, ownUri, peerUri);
+
+  /* ⚠ The preloaded cache has been disturbed by the scan inside ingestMirrored(). Clearing
+   * it here rather than leaving it to the caller keeps the two transports from having to
+   * remember: a Messages screen that is open rebuilds its menu from a clean cache on its
+   * next NEW_MESSAGE_EVENT, which is the same path a delete already uses. */
+  gui.flash.messages.clearPreloaded();
+
+  return r;
+}

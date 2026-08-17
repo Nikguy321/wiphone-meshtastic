@@ -46,6 +46,7 @@ for src in tests/test_*.cpp; do
     test_inbox)    deps=(WiPhone/booksync_inbox.cpp WiPhone/booksync.cpp WiPhone/book_hash.cpp) ;;
     test_jpeg)     deps=(WiPhone/jpeg_grey.cpp) ;;
     test_music)    deps=(WiPhone/music_lib.cpp WiPhone/wav_reader.cpp) ;;
+    test_sms_mirror) deps=(WiPhone/sms_mirror.cpp) ;;
     # Compiles the REAL helix decoder so a pass proves the bytes that ship are the bytes
     # that decode. helix is C and is listed in csrc, not deps — see CFLAGS above.
     test_mp3)      deps=(WiPhone/mp3_stream.cpp)
