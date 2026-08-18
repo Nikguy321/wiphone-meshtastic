@@ -63,33 +63,20 @@
 
 /* How much of a conversation gets RENDERED, in characters.
  *
- * ⚠ A character budget, not a message count, because MultilineTextWidget allocates a buffer
- * per wrapped ROW from internal heap: the cost is total text, and forty short messages are
- * cheaper than four long ones. THREAD_TEXT_BUDGET is what gets composed; THREAD_TEXT_MAX is
- * the buffer it is composed into and must stay comfortably larger. Newest messages win, and
- * the view says out loud when older ones were left out. */
-/* 🛑 KEPT SMALL BECAUSE THIS IS WHAT WAS CRASHING THE PHONE.
+ * ⚠ A character budget, not a message count: MultilineTextWidget allocates a buffer per
+ * wrapped ROW from internal heap, so the cost is total text — forty short messages are
+ * cheaper than four long ones. Newest messages win and the view says out loud when older
+ * ones were left out.
  *
- * MultilineTextWidget allocates a buffer PER WRAPPED ROW from INTERNAL heap, and doubles a
- * pointer array as it goes (10 -> 20 -> 40 -> ...). At 1800 characters that is ~80 small
- * internal allocations for one screen — and internal fragmentation, not exhaustion, is what
- * kills this phone. Measured on hardware 2026-08-17, opening a thread:
- *
- *     DROP largest 17488->5856 (-11632)      <- one step, and 5,856 is near the abort floor
- *
- * That is the crash Nick hit twice opening a conversation. Every other user of this widget
- * passes at most a couple of hundred characters; the thread view was feeding it eight times
- * more than anything else ever had.
- *
- * 600 puts it back in the same class as the compose box (~24 rows). The cost is honest and
- * visible: fewer messages fit, and the view SAYS "N older messages not shown".
- *
- * ⚠ THIS IS MITIGATION, NOT THE CURE. The real fix is for MultilineTextWidget's rows to come
- * from PSRAM (3.6 MB spare) instead of internal heap — `rowsDyn`, the per-row reallocs, and
- * `retTextDyn` in GUI.cpp. That helps compose and the message viewer too. It was not done in
- * the same change because it touches a widget the whole UI depends on. */
-#define THREAD_TEXT_BUDGET    600
-#define THREAD_TEXT_MAX      1000
+ * ⚠ THIS WAS CUT TO 600 ON A WRONG DIAGNOSIS AND IS NOW BACK. `largest` really was
+ * collapsing when a thread opened, but the cause was `Messages::preload()` deep-copying 120
+ * INI sections at once, not these rows — see the paging in sip_threads.cpp and the abort
+ * backtrace in the log. Cutting this hid nothing and cost readability. If thread rendering
+ * ever DOES look like the memory culprit again, measure before cutting: the app-open probe
+ * in GUI::enterApp() prints `largest` either side of opening the screen.
+ */
+#define THREAD_TEXT_BUDGET   1800
+#define THREAD_TEXT_MAX      2600
 
 struct SipThread {
   char     peer[SMS_MIRROR_PEER_MAX];   // digits — the identity used for grouping

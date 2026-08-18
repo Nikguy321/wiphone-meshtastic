@@ -1503,12 +1503,13 @@ static void notifyMessageArrived(uint32_t now, uint8_t mode) {
   /* `mode` is this KIND of arrival's own setting from Settings > Notifications — a text and
    * a mesh message are separately configurable, because muting one used to mute the other.
    *
-   * ⚠ INSTRUMENTED AT log_e ON PURPOSE (only log_e is compiled in). "It did not vibrate" has
-   * now been reported three times and guessed at three times; every branch that can swallow
-   * the notification says so, so the next arrival names the one that did. Take these out once
-   * the path is trusted. */
+   * ⚠ ONE log_e SURVIVES, DELIBERATELY. "It did not vibrate" was reported three times and
+   * guessed at three times; the line that settled it was this path saying what it chose and
+   * why. It fires once per arrival, which is rare enough to be worth keeping — and `mode`
+   * is the answer to the most common report, since VIBRATE_ONLY looks exactly like a broken
+   * chirp. */
   if (mode == ControlState::RINGER_SILENT) {
-    log_e("NOTIFY: mode=SILENT -> nothing (badge only)");
+    log_e("NOTIFY: silent (mode=%d) - badge only", (int)mode);
     return;
   }
   const bool callBusy = (gui.state.sipState == CallState::Call);
@@ -1517,12 +1518,8 @@ static void notifyMessageArrived(uint32_t now, uint8_t mode) {
      * restarting it mid-play is how the audio device gets left in the wrong mode (see
      * Audio::preserve()). A burst therefore gets one sound and one long buzz, which is the
      * right shape: you do not want five chirps, but you do want to feel every arrival. */
-    if (callBusy || gui.state.ringing || meshPopPlaying) {
-      log_e("NOTIFY: pop SKIPPED (call=%d ringing=%d already=%d)",
-            (int)callBusy, (int)gui.state.ringing, (int)meshPopPlaying);
-    } else {
+    if (!(callBusy || gui.state.ringing || meshPopPlaying)) {
       const bool played = audio->playPop(&SPIFFS, gui.state.notifyVolume);
-      log_e("NOTIFY: pop played=%d vol=%d", (int)played, (int)gui.state.notifyVolume);
       if (played) {
         meshPopPlaying = true;
         meshPopStartMs = now;
@@ -1537,15 +1534,11 @@ static void notifyMessageArrived(uint32_t now, uint8_t mode) {
    * the log agreed — buzz, SKIPPED, buzz. Restarting the pulse is also what the original
    * code did before the guard was added, and it degrades the right way: a burst of texts
    * becomes one longer buzz rather than one short buzz and silence. */
-  if (gui.state.ringing) {
-    log_e("NOTIFY: buzz SKIPPED (a ringtone owns the motor)");
-  } else {
+  if (!gui.state.ringing) {
     allDigitalWrite(VIBRO_MOTOR_CONTROL, HIGH);
-    const bool extending = meshVibroActive;
     meshVibroActive = true;
     meshVibroStartMs = now;              // re-arm, so back-to-back arrivals keep it buzzing
-    log_e("NOTIFY: buzz %s for %u ms (mode=%d)",
-          extending ? "EXTENDED" : "ON", (unsigned)MESH_VIBRO_MS, (int)mode);
+    log_e("NOTIFY: buzz %u ms (mode=%d)", (unsigned)MESH_VIBRO_MS, (int)mode);
   }
 }
 
@@ -2618,7 +2611,6 @@ void loop() {
         // Pass event to GUI
         appEventResult res = gui.processEvent(now, NEW_MESSAGE_EVENT);
         gui.redrawScreen(res & REDRAW_HEADER, res & REDRAW_FOOTER, res & REDRAW_SCREEN);
-        log_e("NOTIFY: SIP text arrived, sipMode=%d", (int)gui.state.notifySipMode);
         notifyMessageArrived(now, gui.state.notifySipMode);   // a text arriving is news
       }
     } else {
