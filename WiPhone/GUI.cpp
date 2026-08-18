@@ -7068,10 +7068,22 @@ appEventResult CreateMessageApp::processEvent(EventType event) {
 
     if (this->getFocused() == addr) {       // TextInputWidget has focus
 
-      // Select the receiver address
+      // Select the receiver address. The D-pad centre is fine here — opening the phonebook
+      // is not something you have to take back.
 
       subApp = new PhonebookApp(NULL, lcd, lcd, controlState, flash, header, footer, true);
       res |= REDRAW_ALL;
+
+    } else if (!LOGIC_BUTTON_SEND(event)) {
+
+      /* ⚠ THE D-PAD CENTRE MUST NOT SEND. On the message body it is a TYPING key — it
+       * commits the highlighted multi-tap letter — so the press after your last letter was
+       * sending the message half-written. Reported by Nick 2026-08-17.
+       *
+       * Swallowed rather than passed on: a centre press that reaches here had no pending
+       * letter left to commit, so there is nothing to do. Send is the top-left soft key,
+       * or CALL. */
+      return DO_NOTHING;
 
     } else {
 

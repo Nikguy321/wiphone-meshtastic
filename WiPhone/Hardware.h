@@ -194,10 +194,29 @@ extern DRV8833 motorDriver;
 // This is used for >=21-button keyboard
 #define LOGIC_BUTTON_OK(x)      (x==WIPHONE_KEY_OK || x==WIPHONE_KEY_CALL || x==WIPHONE_KEY_SELECT)
 #define LOGIC_BUTTON_BACK(x)    (x==WIPHONE_KEY_BACK || x==WIPHONE_KEY_END)
+/* LOGIC_BUTTON_OK MINUS THE D-PAD CENTRE — for the actions you cannot take back.
+ *
+ * The D-pad centre does double duty while typing: it commits the highlighted multi-tap
+ * letter, so `AAA` is tap-OK-tap-OK instead of two 2 s waits. But it was also an OK, so on a
+ * compose screen the press after the last letter SENT the message. Reported by Nick
+ * 2026-08-17: "I keep sending incomplete messages."
+ *
+ * ⚠ A SEPARATE PREDICATE, NOT AN EDIT TO LOGIC_BUTTON_OK. The D-pad centre has to keep being
+ * OK everywhere else — it is how a menu row gets picked. Narrowing the shared macro to suit
+ * one caller is the bug class that produced four of the seven faults in the 2026-08-15
+ * audit, and the rule that came out of it is that every consumer declares what IT needs.
+ *
+ * Use this for SEND. Leave LOGIC_BUTTON_OK for select, confirm and save. */
+#define LOGIC_BUTTON_SEND(x)    (x==WIPHONE_KEY_CALL || x==WIPHONE_KEY_SELECT)
 #else
 // This is used for 16-button keyboard
 #define LOGIC_BUTTON_OK(x)    (x==WIPHONE_KEY_OK)
 #define LOGIC_BUTTON_BACK(x)  (x==WIPHONE_KEY_BACK)
+/* ⚠ On the 16-button keyboard OK is the ONLY confirm key — there is no CALL and no top-left
+ * soft key to move sending onto. So here SEND and OK are deliberately identical, and the
+ * double-duty problem above is unavoidable rather than unfixed. Do not "correct" this to
+ * match the branch above: it would leave that build with no way to send at all. */
+#define LOGIC_BUTTON_SEND(x)  (x==WIPHONE_KEY_OK)
 #endif
 
 /* =========== HELPERS ========= */

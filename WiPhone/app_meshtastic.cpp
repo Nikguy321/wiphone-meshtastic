@@ -582,7 +582,11 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
       enterState(returnState);
       return REDRAW_ALL;
     }
-    if (LOGIC_BUTTON_OK(event)) {          // send
+    /* ⚠ SEND, not OK — the D-pad centre must never send from here.
+     * On this screen the centre is a TYPING key: it commits the highlighted multi-tap
+     * letter. It was also an OK, so the press after your last letter posted the message
+     * half-written. Send is the top-left soft key, or CALL. */
+    if (LOGIC_BUTTON_SEND(event)) {
       const char* msg = textArea ? textArea->getText() : NULL;
       if (msg && msg[0]) {
         if (threadIsChannel) {
@@ -594,6 +598,11 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
         return REDRAW_ALL;
       }
       return DO_NOTHING;                    // nothing typed yet; stay in Compose
+    }
+    if (event == WIPHONE_KEY_OK) {
+      /* Swallow it. A centre press reaching here had no pending letter left to commit, so
+       * there is nothing to do — and it must not fall through to anything else. */
+      return DO_NOTHING;
     }
     if (IS_KEYBOARD(event) && textArea) {
       textArea->processEvent(event);
