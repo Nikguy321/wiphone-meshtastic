@@ -6,6 +6,11 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* How many messages are held in RAM at once while scanning. Each one is a deep-copied INI
+ * section, so this is the number that decides whether the scan fits — not SIP_THREADS_SCAN,
+ * which only says how far back to look. Ten is roughly what one menu page already costs. */
+static const int32_t SCAN_PAGE = 10;
+
 static SipThread     s_threads[SIP_THREADS_MAX];
 static int           s_threadCount = 0;
 static bool          s_truncated   = false;
@@ -70,8 +75,21 @@ static void scanDirection(Messages& msgs, bool incoming) {
     s_truncated = true;
   }
 
-  msgs.preload(incoming, -1, depth);
-  for (auto it = msgs.iteratorCount(-1, depth); it.valid(); ++it) {
+  /* ⚠ PAGED, AND THIS IS THE CRASH FIX. `preload()` DEEP-COPIES each message's INI section
+   * into internal RAM, so asking for 120 at once meant 120 live section copies — and
+   * `NanoIni::Section::deepCopy` allocates with `operator new`, which THROWS on failure.
+   * Nothing catches it, so it goes std::terminate -> abort -> reset_reason=4. Decoded from
+   * a real backtrace 2026-08-17; it is the same bug class as the WiFiUDP::parsePacket abort
+   * already written up in the handoff.
+   *
+   * Clearing between pages is what bounds the peak: SCAN_PAGE sections live at a time
+   * instead of the whole window. The scan still covers the same depth. */
+  for (int32_t done = 0; done < depth; done += SCAN_PAGE) {
+    const int32_t cnt = (depth - done < SCAN_PAGE) ? (depth - done) : SCAN_PAGE;
+    const int32_t off = -1 - done;
+    msgs.clearPreloaded();
+    msgs.preload(incoming, off, cnt);
+    for (auto it = msgs.iteratorCount(off, cnt); it.valid(); ++it) {
     MessageData& m = *it;
 
     char id[SMS_MIRROR_PEER_MAX];
@@ -105,7 +123,9 @@ static void scanDirection(Messages& msgs, bool incoming) {
       // silently fails to send).
       snprintf(t.uri, sizeof(t.uri), "%s", m.getOtherUri());
     }
+    }
   }
+  msgs.clearPreloaded();
 }
 
 static int threadCompare(const void* a, const void* b) {
@@ -136,6 +156,13 @@ static void addMsg(MessageData& m, bool incoming) {
     return;
   }
   const char* text = m.getMessageText();
+  if (!text) {
+    /* ⚠ getMessageText() can return the c_str() of an EMPTY std::string member, and every
+     * caller in this file assumed non-NULL. Cheap to check, and a NULL here would be exactly
+     * the data-dependent crash one particular conversation would produce. */
+    log_e("THREAD: message with NULL text, skipped");
+    return;
+  }
   size_t len = strlen(text);
   if (s_textUsed + len + 1 > TEXT_POOL_BYTES) {
     return;                                       // pool full; the cap already bounds this
@@ -159,16 +186,23 @@ static void collect(Messages& msgs, bool incoming, const char* wantId) {
   }
   int32_t depth = total < SIP_THREADS_SCAN ? total : SIP_THREADS_SCAN;
 
-  msgs.preload(incoming, -1, depth);
-  for (auto it = msgs.iteratorCount(-1, depth); it.valid(); ++it) {
-    MessageData& m = *it;
-    char id[SMS_MIRROR_PEER_MAX];
-    identityOf(m.getOtherUri(), id, sizeof(id));
-    if (strcmp(id, wantId)) {
-      continue;
+  // Paged for the same reason as scanDirection() above — see the note there.
+  for (int32_t done = 0; done < depth; done += SCAN_PAGE) {
+    const int32_t cnt = (depth - done < SCAN_PAGE) ? (depth - done) : SCAN_PAGE;
+    const int32_t off = -1 - done;
+    msgs.clearPreloaded();
+    msgs.preload(incoming, off, cnt);
+    for (auto it = msgs.iteratorCount(off, cnt); it.valid(); ++it) {
+      MessageData& m = *it;
+      char id[SMS_MIRROR_PEER_MAX];
+      identityOf(m.getOtherUri(), id, sizeof(id));
+      if (strcmp(id, wantId)) {
+        continue;
+      }
+      addMsg(m, incoming);
     }
-    addMsg(m, incoming);
   }
+  msgs.clearPreloaded();
 }
 
 static int msgCompare(const void* a, const void* b) {

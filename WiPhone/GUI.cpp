@@ -6923,6 +6923,11 @@ void MessagesApp::buildChats() {
  * When older messages are cut, the top of the view says so rather than pretending the
  * conversation starts there. */
 void MessagesApp::buildThread() {
+  /* ⚠ STEP-BY-STEP AT log_e, TEMPORARILY. This path has crashed the phone repeatedly on one
+   * SPECIFIC conversation and three attempts to catch a backtrace have failed. A trace that
+   * simply stops tells us the step it died on even when the panic dump is lost, which is the
+   * cheaper way to localise it. Remove once the fault is found. */
+  log_e("THREAD: build begin, peer='%s'", threadPeer);
   if (threadText) {
     delete threadText;
     threadText = NULL;
@@ -6936,7 +6941,9 @@ void MessagesApp::buildThread() {
                                        padding, padding);
   threadText->setColors(WP_COLOR_1, WP_COLOR_0);       // white on black, matching the theme
 
+  log_e("THREAD: widget made, opening store");
   const int n = sipThreadOpen(flash.messages, threadPeer);
+  log_e("THREAD: store gave %d message(s)", n);
   if (n <= 0) {
     threadText->cursorToStart();
     threadText->setFocus(true);
@@ -6957,6 +6964,7 @@ void MessagesApp::buildThread() {
     first--;
   }
 
+  log_e("THREAD: rendering from index %d of %d", first, n);
   char* buf = (char*)ps_malloc(THREAD_TEXT_MAX);
   if (!buf) {
     log_e("MessagesApp: no PSRAM for the thread text");
@@ -6989,8 +6997,10 @@ void MessagesApp::buildThread() {
                   (i + 1 < n) ? "\n" : "");
   }
 
+  log_e("THREAD: composed %u chars, setting text", (unsigned)w);
   threadText->setText(buf);
   free(buf);
+  log_e("THREAD: text set, done");
   /* ⚠ END, not start, and FOCUS. Two separate bugs Nick hit at once: the thread opened at the
    * oldest message, and up/down did nothing. The widget scrolls by moving its cursor, and it
    * only takes cursor keys when focused — so without setFocus() a long conversation was
