@@ -95,9 +95,19 @@
 
 #define SMS_MIRROR_PREFIX     "CSM1"
 #define SMS_MIRROR_PEER_MAX   20      // 10 digits and room for a mis-typed one
-#define SMS_MIRROR_TEXT_MAX   161     // 160 characters + NUL; VoIP.ms rejects longer
+/* ⚠ 320, NOT 160, and the difference is inbound vs outbound.
+ *
+ * VoIP.ms rejects a SEND longer than 160 (`sms_toolong`), and COVEY splits before sending —
+ * so anything this phone originates is 160. But a text somebody sends YOU can arrive as a
+ * CONCATENATED SMS, which the network reassembles and `getSMS` returns as ONE record well
+ * over 160 characters. Sizing this to the send limit meant an inbound long text was silently
+ * cut, with the cut invisible: the parse succeeds, the message just quietly loses its end.
+ *
+ * Long records will not fit a LoRa packet, and that is fine and already handled — the mesh
+ * sender skips what does not fit and the LAN path, which has no packet budget, carries it. */
+#define SMS_MIRROR_TEXT_MAX   321     // 320 characters + NUL; see above
 #define SMS_MIRROR_MESH_MAX   208     // longest line we will send ON AIR, plus slack
-#define SMS_MIRROR_LINE_MAX   400     // longest line we can BUILD: every character escaped
+#define SMS_MIRROR_LINE_MAX   720     // longest line we can BUILD: every character escaped
 
 struct SmsMirrorRecord {
   int64_t  id;                        // VoIP.ms message id — the dedup key
@@ -118,6 +128,10 @@ struct SmsMirrorRecord {
  *
  * Returns the number of digits written (0 on a NULL or digitless input).
  */
+/* How many records have arrived too long for their buffer since boot. Non-zero means some
+ * message is missing its tail — see smsMirrorUnpack(). */
+extern unsigned smsMirrorTruncations;
+
 size_t smsMirrorDigits(const char* s, char* out, size_t cap);
 
 // True if `text` is a mirror packet. Prefix only — cheap, and checked before anything else.

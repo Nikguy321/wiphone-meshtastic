@@ -11,6 +11,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Bumped whenever a message did not fit its buffer. Exposed rather than logged from here:
+ * this file is host-testable and has no logger, and the ingest side is where a count belongs
+ * anyway — one line saying "3 messages arrived truncated" beats three identical warnings. */
+unsigned smsMirrorTruncations = 0;
+
 // Bounded strlen. The records come off a radio and out of a socket; nothing here may
 // assume a NUL is where it should be.
 static size_t smLen(const char* s, size_t cap) {
@@ -107,9 +112,11 @@ static size_t smEscape(const char* in, size_t inLen, char* out, size_t cap) {
 /* Lenient by design: an unknown escape keeps BOTH characters rather than dropping them.
  * A sender we do not understand should cost us one odd-looking message, not a silently
  * mangled one. */
-static void smUnescape(const char* in, char* out, size_t cap) {
+// Returns false if the output did not fit — the caller must not let that pass unremarked.
+static bool smUnescape(const char* in, char* out, size_t cap) {
   size_t w = 0;
-  for (const char* p = in; *p && w + 1 < cap; p++) {
+  const char* p = in;
+  for (; *p && w + 1 < cap; p++) {
     if (*p != '\\') {
       out[w++] = *p;
       continue;
@@ -128,7 +135,9 @@ static void smUnescape(const char* in, char* out, size_t cap) {
       out[w++] = '\\';                  // unknown escape: keep the backslash verbatim
     }
   }
+  const bool fit = (*p == '\0');     // stopped at the end of the input, not at the buffer
   out[w] = '\0';
+  return fit;
 }
 
 // ---------------------------------------------------------------- pack
@@ -284,7 +293,13 @@ bool smsMirrorUnpack(const char* line, SmsMirrorRecord* out) {
   memcpy(rawText, p, rl);
   rawText[rl] = '\0';
 
-  smUnescape(rawText, out->text, sizeof(out->text));
+  /* ⚠ TRUNCATION MUST NOT BE SILENT. Unescaping into a fixed buffer cuts, and a cut message
+   * parses perfectly — the record looks fine and simply loses its tail. That is exactly the
+   * kind of quiet wrong this feature keeps having to defend against. The record is still
+   * returned: a message missing its end beats no message at all. */
+  if (!smUnescape(rawText, out->text, sizeof(out->text))) {
+    smsMirrorTruncations++;
+  }
   return true;
 }
 

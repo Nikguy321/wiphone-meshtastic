@@ -168,6 +168,14 @@ static void finish(const char* why, bool ok, int added, int lines) {
      * cached address has gone stale — COVEY moves between SmithWifi and NickH-wifi and comes
      * back on a different subnet. */
     s_hostResolvedAt = 0;
+
+    /* ⚠ AND RE-READ THE CONFIG FILE. Once it loaded successfully, loadConfig() short-
+     * circuited forever — so editing smsmirror.txt to point at COVEY's new address did
+     * NOTHING until the phone was rebooted, and the poller went on dialling a dead IP while
+     * the fix sat unread on the card. A failure is precisely the moment the stored address
+     * is most likely to be the thing that is wrong, so that is when it is worth re-reading.
+     * The 30 s throttle in loadConfig() keeps this from touching the SD card in a loop. */
+    s_loaded = false;
   }
 }
 

@@ -196,7 +196,11 @@ static void testMultiLine() {
 static void testFits() {
   group("the worst realistic record still fits a packet");
 
-  char text[SMS_MIRROR_TEXT_MAX];
+  /* ⚠ 160 EXPLICITLY, not SMS_MIRROR_TEXT_MAX. Those used to be the same number and are not
+   * any more, and conflating them is what this asserts against: 160 is the SEND limit (what
+   * VoIP.ms accepts and what must fit a LoRa packet), while the buffer is twice that because
+   * an inbound CONCATENATED SMS arrives as one longer record. */
+  char text[161];
   memset(text, 'W', sizeof(text) - 1);
   text[sizeof(text) - 1] = '\0';
   ok(strlen(text) == 160, "a maximum-length SMS is 160 characters");
@@ -210,6 +214,23 @@ static void testFits() {
   SmsMirrorRecord got;
   ok(smsMirrorUnpack(line, &got), "unpacks");
   eqStr(got.text, text, "all 160 characters survive");
+
+  /* A CONCATENATED inbound text is longer than anything we could send, and must survive:
+   * it does not fit a packet (the mesh sender skips it) but the LAN path carries it whole.
+   * Truncating it instead would parse perfectly and quietly lose the end of the message. */
+  char concat[SMS_MIRROR_TEXT_MAX];
+  memset(concat, 'C', sizeof(concat) - 1);
+  concat[sizeof(concat) - 1] = '\0';
+  ok(strlen(concat) == 320, "an inbound concatenated SMS can be 320 characters");
+  SmsMirrorRecord longIn = rec(5, "4257604281", false, 7, concat);
+  char meshOnly[SMS_MIRROR_MESH_MAX];
+  ok(!smsMirrorPack(&longIn, meshOnly, sizeof(meshOnly)),
+     "...which will not fit a LoRa packet");
+  ok(smsMirrorPack(&longIn, line, sizeof(line)), "...but does fit the LAN buffer");
+  unsigned truncBefore = smsMirrorTruncations;
+  ok(smsMirrorUnpack(line, &got), "...and unpacks");
+  eqStr(got.text, concat, "...with all 320 characters intact");
+  ok(smsMirrorTruncations == truncBefore, "...and nothing was counted as truncated");
 
   /* Escaping can push a record past the radio's budget. It must FAIL rather than
    * truncate: a truncated copy would not match the phone's own copy of the same text and

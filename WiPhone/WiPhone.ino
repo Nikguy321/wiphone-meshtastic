@@ -1501,23 +1501,51 @@ void smsMirrorNotifyArrival() {
 
 static void notifyMessageArrived(uint32_t now, uint8_t mode) {
   /* `mode` is this KIND of arrival's own setting from Settings > Notifications — a text and
-   * a mesh message are separately configurable, because muting one used to mute the other. */
+   * a mesh message are separately configurable, because muting one used to mute the other.
+   *
+   * ⚠ INSTRUMENTED AT log_e ON PURPOSE (only log_e is compiled in). "It did not vibrate" has
+   * now been reported three times and guessed at three times; every branch that can swallow
+   * the notification says so, so the next arrival names the one that did. Take these out once
+   * the path is trusted. */
   if (mode == ControlState::RINGER_SILENT) {
-    return;                      // no tone, no buzz; the unread badge still goes up
+    log_e("NOTIFY: mode=SILENT -> nothing (badge only)");
+    return;
   }
-  // Never over a call or a ringtone — those own the speaker and the motor.
-  if (mode == ControlState::RINGER_RING_AND_VIBRATE &&
-      gui.state.sipState != CallState::Call && !gui.state.ringing && !meshPopPlaying) {
-    if (audio->playPop(&SPIFFS, gui.state.notifyVolume)) {
-      meshPopPlaying = true;
-      meshPopStartMs = now;
+  const bool callBusy = (gui.state.sipState == CallState::Call);
+  if (mode == ControlState::RINGER_RING_AND_VIBRATE) {
+    /* The pop is genuinely one-at-a-time — it is a PCM file playing through the codec, and
+     * restarting it mid-play is how the audio device gets left in the wrong mode (see
+     * Audio::preserve()). A burst therefore gets one sound and one long buzz, which is the
+     * right shape: you do not want five chirps, but you do want to feel every arrival. */
+    if (callBusy || gui.state.ringing || meshPopPlaying) {
+      log_e("NOTIFY: pop SKIPPED (call=%d ringing=%d already=%d)",
+            (int)callBusy, (int)gui.state.ringing, (int)meshPopPlaying);
+    } else {
+      const bool played = audio->playPop(&SPIFFS, gui.state.notifyVolume);
+      log_e("NOTIFY: pop played=%d vol=%d", (int)played, (int)gui.state.notifyVolume);
+      if (played) {
+        meshPopPlaying = true;
+        meshPopStartMs = now;
+      }
     }
   }
-  // "Vibrate only" still buzzes — that is the whole difference from Silent.
-  if (!gui.state.ringing && !meshVibroActive) {
+  /* "Vibrate only" still buzzes — that is the whole difference from Silent.
+   *
+   * ⚠ A SECOND MESSAGE RE-ARMS THE TIMER; IT DOES NOT GET SKIPPED. Guarding this on
+   * `!meshVibroActive` silently ate any notification that landed inside the previous 180 ms
+   * pulse, which is exactly what Nick saw: "only heard one buzz out of 3 sent texts", and
+   * the log agreed — buzz, SKIPPED, buzz. Restarting the pulse is also what the original
+   * code did before the guard was added, and it degrades the right way: a burst of texts
+   * becomes one longer buzz rather than one short buzz and silence. */
+  if (gui.state.ringing) {
+    log_e("NOTIFY: buzz SKIPPED (a ringtone owns the motor)");
+  } else {
     allDigitalWrite(VIBRO_MOTOR_CONTROL, HIGH);
+    const bool extending = meshVibroActive;
     meshVibroActive = true;
-    meshVibroStartMs = now;
+    meshVibroStartMs = now;              // re-arm, so back-to-back arrivals keep it buzzing
+    log_e("NOTIFY: buzz %s for %u ms (mode=%d)",
+          extending ? "EXTENDED" : "ON", (unsigned)MESH_VIBRO_MS, (int)mode);
   }
 }
 
@@ -2590,6 +2618,7 @@ void loop() {
         // Pass event to GUI
         appEventResult res = gui.processEvent(now, NEW_MESSAGE_EVENT);
         gui.redrawScreen(res & REDRAW_HEADER, res & REDRAW_FOOTER, res & REDRAW_SCREEN);
+        log_e("NOTIFY: SIP text arrived, sipMode=%d", (int)gui.state.notifySipMode);
         notifyMessageArrived(now, gui.state.notifySipMode);   // a text arriving is news
       }
     } else {
