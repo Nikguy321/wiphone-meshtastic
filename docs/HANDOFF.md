@@ -1,13 +1,16 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-17 · **Tests 1,026/1,026 across nine suites.** Version still reports
+**Last updated:** 2026-08-18 · **Tests 1,032/1,032 across nine suites.** Version still reports
 **0.9.2**; the CHANGELOG's top section is **"Unreleased"** — bump `FIRMWARE_VERSION` when you
 release.
 
-⚠ **THE WORKING TREE IS DIRTY AND NOTHING BELOW IS COMMITTED.** The SMS-mirror work
-(`sms_mirror.*`, `sms_mirror_rx.*`, `Storage.*`, `meshtastic_service.cpp`, the tests and the
-vector generator) is written and builds but is **not committed and not flashed** — the phone
-is still running `17b43e0`. COVEY's half **is** deployed and live.
+✅ **`main` is committed and PUSHED, and the phone is flashed with it.** SMS mirroring works
+over both transports, texting is conversation-style, and the abort that made opening a
+conversation reboot the phone is fixed (see below).
+
+🛑 **FOUR FAULTS ARE OPEN from a day of real use — read "PICK UP HERE" next.** None has been
+reproduced on a bench; the section says which are grounded in code that was read and which
+still need a measurement.
 
 ---
 
@@ -51,6 +54,156 @@ connect and give you silence.
 | **The 5-second freezes** | Blocking DNS on the main loop — see the section below. Fixed. |
 | **Ringer mode** | **Settings > Audio** now has Ring + vibrate / **Vibrate only** / Silent, persisted and loaded at boot. Asked for after a very loud ring at work. |
 | **Message icons** | Status bar now says WHICH kind of message waits: **white = SIP**, **green = Meshtastic**, overlapping pair = both. Collapses as you read each kind. ⚠ The white/green mapping was ASSUMED, not specified — swapping is two lines in `GUI::drawMessageIcon()`. |
+
+---
+
+## ▶ PICK UP HERE (2026-08-18) — FOUR OPEN FAULTS, AUDITED
+
+Reported after a day of real use. **Nothing here has been reproduced on a bench.** Every claim
+below was read out of the code and then attacked by a second reader; **7 of 12 candidate causes
+were REFUTED and are not listed.** What follows survived that. Order matters: fault 1 gates the
+others, and several fixes interact.
+
+⚠ **Do the MEASUREMENTS before the fixes.** Each fault below names a check that takes under a
+minute and needs no reflash. Four theories were wrong before the last backtrace arrived.
+
+---
+
+### 1. 🔴 COVEY RECEIVES NOTHING (sending works) — fix COVEY first
+COVEY is the source the phone mirrors from. Full write-up in **COVEY's** `notes/HANDOFF.md`;
+the short version is that the failure is **invisible by construction** (`Poller.error` is only
+drawn when there are ZERO conversations), and the two live suspects are a **12 s read timeout
+against a ~10 s API call** and **`fetch()`'s date window computed from a clock on a board with
+no RTC**. One tap settles it: **SIP Settings > Test Connection**.
+
+---
+
+### 2. 🟠 A NEW TEXT LANDS MID-THREAD — cause found, and it is NOT what it looks like
+
+🔑 **`saveMessage` stores `0xFFFFFFFF` as the "unknown time" sentinel** (`Storage.cpp:710-712`,
+`if (!time) { time--; }`). That is the **MAXIMUM uint32**, so a message with unknown time sorts
+as **the newest message in the thread forever**, and every text that arrives afterwards is
+placed *above* it — i.e. in the middle. The sentinel was chosen so partition sorting stayed
+correct; it is actively wrong as a display order.
+
+⚠ **The phone stores unknown time far more often than you would think.** `everUpdated` is a RAM
+flag, so **time is unknown after EVERY reboot until NTP answers** — and stays unknown for a
+whole session on any network where NTP is blocked. **Fault 4 manufactures those windows**, and
+VoIP.ms pushes queued SMS immediately after REGISTER, i.e. precisely into them.
+
+**MEASUREMENT — free, no reflash, no serial:**
+- **Status bar has no `HH:MM`** → the clock is unknown → everything stored this session is
+  getting the sentinel. Confirmed on the spot.
+- **In the thread, a message drawn with only a name and NO ` · <time>`** → its stored time is in
+  the future, i.e. it is a sentinel. `Clock::dateTimeAgo` writes an empty string for any
+  future timestamp (`clock.cpp:373-375`), and the header omits the separator when `ago` is
+  empty — so the bug hides the very value that identifies it.
+
+**Also true, and worth fixing in the same pass:**
+- **`msgCompare` returns 0 for equal timestamps and `qsort` is not stable** — so any block of
+  messages sharing a timestamp (the common case) comes out in **arbitrary order that can differ
+  between two openings of the same thread**. Needs a deterministic tiebreaker.
+- The material for one is already stored and free: `saveMessage` writes the VoIP.ms id under
+  `"v"`, but `SipThreadMsg` does not carry it and `addMsg` never reads it.
+- 🛑 **Do NOT switch to an id-only sort.** A text received over SIP that COVEY has not yet
+  mirrored has **no id at all**, as does every locally-composed send until adoption — an
+  id-only key dumps all of them to one end. Time-with-id-tiebreak, or fix the sentinel.
+- ⚠ **`buildThread`'s character budget walks backward BY SORT ORDER**, so once the order is
+  wrong the genuinely newest text can be pushed behind "*… N older messages not shown*" and
+  **vanish from the screen entirely.** Expect that as a second symptom; it is a consequence,
+  not a separate bug.
+
+---
+
+### 3. 🟠 NO VIBRATION ON AN INCOMING TEXT — a whole transport is silent
+
+🔑 **The LAN (HTTP) mirror stores an incoming text and announces NOTHING** — no vibration, no
+pop, and no `NEW_MESSAGE_EVENT`. It is the only delivery path in the firmware with no
+notification at all. The LoRa mirror got one (`meshtastic_service.cpp:682-684`); the LAN poller
+never did.
+
+🔑 **And it poisons the other path:** ingest dedups by VoIP.ms id, so **whichever transport
+lands a text first wins** — and because LAN is the silent one, a LAN-first delivery
+**permanently suppresses the LoRa copy's notification.** That fits the report exactly.
+
+**Fix:** in `sms_mirror_poll.cpp::ingestLine()`, take `bool inbound` from
+`smsMirrorIngestLine(line, &inbound)` and call `smsMirrorNotifyArrival()` when `r > 0 &&
+inbound`, mirroring the mesh path. Raise `NEW_MESSAGE_EVENT` there too.
+
+⚠ **Confirm from the log you already have before changing anything** — both lines are `log_e`:
+`SMSMIRROR poll ok: N new of M` with **N > 0** and **no `NOTIFY: buzz` in the same second** is
+the proof.
+
+⚠ **The motor block is gated on `!gui.state.ringing`, and the one log line that would prove it
+ran is INSIDE that gate.** Any path leaving `ringing` latched kills every later notification
+with no trace. Add an `else` that logs `NOTIFY: suppressed (ringing)`.
+
+⚠ **`NOTIFY: buzz` proves the DECISION, never the motor.** The write goes through the I2C
+extender and cannot report failure. **A/B that settles it:** set Text messages to *Vibrate
+only* and send one. Buzzes there but not in *Sound + vibrate* → the pop's I2C traffic is
+disturbing the extender; fix by driving the motor **before** `playPop`.
+
+---
+
+### 4. 🟠 REBOOTS WHILE SCROLLING / OPENING CONVERSATIONS — my paging fix missed the bulk
+
+🛑 **`SCAN_PAGE = 10` bounds only the `preloaded` DEEP COPIES. The partition FILES those copies
+are read out of are still loaded WHOLE**, and every INI section and key-value in them is a
+separate `operator new` from the **internal** heap. At `PARTITION_SIZE = 100` that is roughly
+**700 live internal blocks per partition**. Paging bounded the wrong thing.
+
+Ranked, all read-and-certain unless noted:
+
+1. **Whole-partition parse** (above). Measure first — the existing `appHeapProbe()` already
+   spans it: it runs at the end of `enterApp()`, and `MessagesApp`'s constructor does
+   `buildChats()` → `sipThreadsBuild()` → `preload()` → `loadPartition()`. **Reboot, open
+   Messages, read `largest` either side in `health.log`.** No code change needed to measure.
+2. **`preload()` parses a SECOND partition it never reads**, on every page after the first: the
+   `break` for "only one partition needed" sits *inside* the branch that loads part1, so a
+   cached part1 falls through and loads part2 unconditionally. **Doubles item 1 for every page.**
+   (`Storage.cpp:674` also reads the partition number off the wrong object while you are there.)
+3. 🔑 **`MultilineTextWidget::redraw()` calls `strdup()` twice unchecked and dereferences the
+   result on the next line** (`GUI.cpp:11416`, `:11430`). In the thread view nearly every row
+   ends in `\n`, so this runs **up to 13 times per redraw — on every scroll keypress.** This is
+   **the only finding whose trigger is literally "while scrolling"**, which is what Nick
+   reported. Guard both, or drop the allocations (one wants to omit a trailing character, the
+   other wants a prefix width — a length-limited `textWidth` does both).
+4. **`setText()` ignores `allocateMore()`'s return value** and writes `rowsDyn[cursRow]`
+   regardless; when the pointer realloc fails, `cursRow == maxRows` and the store goes **4 bytes
+   past the end of the block.** An OOM becomes **silent heap corruption** — which is exactly why
+   such a reboot would produce no decodable backtrace.
+5. *(inference)* The per-row `strndup` load: ~90–115 small internal allocations per thread open
+   plus a 10→20→40→80→160 realloc ladder. ⚠ **If item 1 shows the partitions are the bulk, LEAVE
+   `THREAD_TEXT_BUDGET` ALONE** — it was already cut once on a wrong diagnosis and restored, and
+   cutting it again would repeat that mistake. The right fix is a **PSRAM row allocator**.
+6. *(inference)* An inbound burst multiplies all of the above: each `NEW_MESSAGE_EVENT` rebuilds
+   both the chats menu and the thread widget, each rebuild re-runs four 120-deep scans. **Fixing
+   fault 1 will make fault 4 fire harder.** Coalesce with a dirty flag.
+
+**Ruled out**, so nobody spends a fix there: `getText()`'s large malloc and `appendText()`'s
+unchecked malloc are real defects but unreachable from opening or scrolling a conversation.
+
+---
+
+### Found in passing — small, unrelated, worth doing
+- 🔊 **`ChoiceWidget` logs at `log_e` on every left/right keypress** (`GUI.cpp:10776/10778/
+  10788/10794`, including one that just prints `MESUT`). `log_e` is the only level compiled in,
+  so leftover debug spam is flooding the field log. **Delete.**
+- **`MessageData::getAckTime()` reads `"t"` instead of `"a"`** — returns the message time, not
+  the ack time. Dormant (nothing calls it), one character to fix, a live trap for whoever adds
+  delivery receipts.
+- **Neither the LAN poll nor the LoRa mirror raises `NEW_MESSAGE_EVENT`**, so a mirrored text
+  arriving while a thread is open is invisible until you back out and re-enter — and then it
+  appears at whatever position the sort key gives it, which **reads as "it appeared in the
+  middle"**. This muddies fault 2's report; fix it with fault 3.
+
+### The tool for 3 and 4
+```bash
+python3 /tmp/panicwatch.py        # logs every byte, decodes any Backtrace via addr2line
+```
+⚠ **It owns the serial port. Do not open a second monitor** — that killed the previous version
+twice, taking the dump with it. Send console commands by writing a line to `/tmp/wiphone.cmd`
+(`up on`, `up off`, `sync`, `mirror`).
 
 ---
 
