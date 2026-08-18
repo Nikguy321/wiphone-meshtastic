@@ -544,13 +544,18 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
       enterState(MESH_MYNODE);
       return REDRAW_ALL;
     }
-    if (LOGIC_BUTTON_OK(event)) {              // save
+    // Save is the "Save" soft key, not the D-pad centre — the centre is committing multi-tap
+    // letters while you type here, exactly as on the compose screen.
+    if (LOGIC_BUTTON_SEND(event)) {            // save
       const char* name = textArea ? textArea->getText() : NULL;
       if (name && name[0]) {
         meshService.setMyName(name);
       }
       enterState(MESH_MYNODE);
       return REDRAW_ALL;
+    }
+    if (event == WIPHONE_KEY_OK) {
+      return DO_NOTHING;                       // nothing left to commit; do not save either
     }
     if (IS_KEYBOARD(event) && textArea) {
       textArea->processEvent(event);
@@ -563,13 +568,17 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
       enterState(MESH_MYNODE);
       return REDRAW_ALL;
     }
-    if (LOGIC_BUTTON_OK(event)) {              // save
+    // Save is the "Save" soft key, not the D-pad centre — see MESH_EDITNAME above.
+    if (LOGIC_BUTTON_SEND(event)) {            // save
       /* ⚠ An EMPTY field is meaningful here and must be passed through, unlike Edit name
        * which ignores it: it means "go back to deriving the short name from the long one".
        * Rejecting it would leave no way to undo a custom short name. */
       meshService.setMyShortName(textArea ? textArea->getText() : NULL);
       enterState(MESH_MYNODE);
       return REDRAW_ALL;
+    }
+    if (event == WIPHONE_KEY_OK) {
+      return DO_NOTHING;                       // nothing left to commit; do not save either
     }
     if (IS_KEYBOARD(event) && textArea) {
       textArea->processEvent(event);
