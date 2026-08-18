@@ -8,6 +8,20 @@
 
 extern GUI gui;
 
+/* Latched by smsMirrorIngestLine, taken by the main loop — see the note in the header. */
+static bool s_newStored  = false;
+static bool s_newInbound = false;
+
+bool smsMirrorTakeNews(bool* inbound) {
+  const bool stored = s_newStored;
+  if (inbound) {
+    *inbound = s_newInbound;
+  }
+  s_newStored = false;
+  s_newInbound = false;
+  return stored;
+}
+
 bool smsMirrorIsMirrorLine(const char* text) {
   return smsMirrorIsMirrorText(text);
 }
@@ -85,6 +99,11 @@ int smsMirrorIngestLine(const char* line, bool* wasIncoming) {
     gui.state.unreadMessages = gui.flash.messages.hasUnread();
     if (wasIncoming) {
       *wasIncoming = !rec.out;      // `out` is COVEY's view: the ACCOUNT sent it
+    }
+    /* Latch for the main loop's announcer — whichever transport this line rode in on. */
+    s_newStored = true;
+    if (!rec.out) {
+      s_newInbound = true;
     }
   }
 

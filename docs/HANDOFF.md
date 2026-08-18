@@ -1,16 +1,76 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-18 · **Tests 1,032/1,032 across nine suites.** Version still reports
-**0.9.2**; the CHANGELOG's top section is **"Unreleased"** — bump `FIRMWARE_VERSION` when you
-release.
+**Last updated:** 2026-08-18 (evening) · **Version 0.9.3, flashed.** All host suites green.
 
-✅ **`main` is committed and PUSHED, and the phone is flashed with it.** SMS mirroring works
-over both transports, texting is conversation-style, and the abort that made opening a
-conversation reboot the phone is fixed (see below).
+🎉 **ALL FOUR OPEN FAULTS ARE FIXED AND THE FIX IS ON THE PHONE.** The evening session
+below closed everything the morning audit left open — read "WHAT 0.9.3 CHANGED" first.
+The morning's fault write-ups are kept beneath it because their reasoning is still the
+best map of these subsystems.
 
-🛑 **FOUR FAULTS ARE OPEN from a day of real use — read "PICK UP HERE" next.** None has been
-reproduced on a bench; the section says which are grounded in code that was read and which
-still need a measurement.
+## ✅ WHAT 0.9.3 CHANGED (2026-08-18 evening) — all deployed, most verified on hardware
+
+**Fault 1 (COVEY receives nothing) — fixed, and the real mechanism was NEITHER suspect.**
+The 45 s timeout was deployed and the poller STILL saw nothing new. 🔑 **`getSMS` applies
+a DEFAULT `limit` of 50 and keeps the OLDEST 50 of the date window** — the day the window
+outgrew 50 messages, polls "succeeded" with the newest silently absent. Plus the server
+stamps dates in the ACCOUNT's timezone (~3 h ahead), so an evening text is dated tomorrow
+and a same-day `to=` missed it. Fixed in COVEY's `siptext.py` (`limit=9999`, `to`+1 day).
+**Proven end to end: Nick's mobile → VoIP.ms → COVEY poller → LAN mirror → this phone's
+store (`poll ok: 2 new`, `since=110050232`).**
+
+**Fault 2 (texts land mid-thread) — fixed at both layers.**
+- **A sentinel-repair pass in `Messages::load()`**: when the clock is known, partitions
+  whose index `t2 == ffffffff` get their unknown-time messages stamped with distinct
+  ascending times ending at the sync moment (arrival order preserved — `reorderLast`
+  files equal keys in arrival order), then the partition re-sorts and t1/t2 recompute.
+  ✅ **Fired on hardware first boot: "MSG: repaired 6 unknown-time message(s) in
+  partition 2"** — six real messages un-pinned from "newest forever".
+- **`msgCompare` never returns 0 now**: ties break on the VoIP.ms id when both carry one
+  (which also puts COVEY's clamp-stamped catch-up bursts in true order), then on
+  insertion sequence. `threadCompare` ties break on peer. Two openings of one thread can
+  no longer disagree.
+- `getAckTime()` reads `"a"` (was `"t"`).
+
+**Fault 3 (no vibration on incoming text) — fixed structurally.**
+`smsMirrorIngestLine()` latches news flags; the MAIN LOOP is the single announcer for
+BOTH transports (`smsMirrorTakeNews()`): immediate buzz for an inbound arrival (Text
+messages setting), NEW_MESSAGE_EVENT coalesced to ≥700 ms so a burst is a handful of
+snapshot rebuilds, not one per record. The old notify inside meshService.loop() is gone
+(it would double-buzz). The motor now fires BEFORE the pop (kills the I2C-disturbance
+theory outright), and a latched-`ringing` suppression logs itself.
+⚠ **The buzz is the one thing NOT yet verified on hardware** — it needs a genuinely
+inbound text arriving via the mirror. Ask Nick to text the number and listen.
+
+**Fault 4 (reboots opening/scrolling conversations) — every ranked cause closed.**
+- 🔑 **NanoIni `Section`/`KeyValue` objects now allocate in PSRAM** (operator new, the
+  AbstractWidget pattern; MessageData inherits it). The whole-partition parse — ~700
+  internal blocks per file — now costs internal heap nothing. This was confirmed live
+  first: the LAN mirror's catch-up burst aborted the phone mid-ingest
+  (`NanoIni::parse → loadPartition → preload → ingestMirrored`, reset_reason=4, decoded
+  by the watcher) minutes after COVEY's fix made the mirror flow again.
+- **`preload()` break fix**: a cached part1 no longer drags part2 into RAM for a window
+  that fits in one partition (the break sat inside the reload branch); part2's partition
+  number is read off part2 (was part1).
+- **`MultilineTextWidget::redraw()` allocates nothing** — the two unchecked per-redraw
+  strdups (up to 13×/scroll keypress) are in-place char swaps now.
+- **`setText()` checks `allocateMore()`** and truncates instead of writing 4 bytes past
+  the row-pointer block on OOM; `appendText()` checks its malloc; thread rows and the
+  row-pointer array live in PSRAM (`extStrndup`/`extRealloc`).
+- **The LAN poller persists its `since=` high-water mark** to `/roms/smsmirror.since`,
+  so a reboot no longer re-fetches and re-ingests the entire account history into the
+  most fragile minutes of boot. Delete the file to force a full resync on purpose.
+
+**Housekeeping:** ChoiceWidget's per-keypress `log_e` spam (incl. "MESUT") deleted;
+`FIRMWARE_VERSION` 0.9.2 → 0.9.3; CHANGELOG released section written.
+
+**Verification state:** clean boot, mesh radio + all 5 channels up, SIP registered,
+sentinel repair fired, heap `largest` ~24 KB and recovering post-boot. Still to watch:
+the buzz on a real inbound, thread order by eye, and a long soak (the honest window is
+hours — see "do not characterise heap behaviour from anything under an hour").
+
+---
+
+## 🗂 THE MORNING AUDIT (kept for the reasoning; every fault below is FIXED as of 0.9.3)
 
 ---
 

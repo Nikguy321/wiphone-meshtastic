@@ -36,4 +36,19 @@ int smsMirrorIngestLine(const char* line, bool* wasIncoming = 0);
  * malformed or hostile packet is dropped rather than displayed. */
 bool smsMirrorIsMirrorLine(const char* text);
 
+/* The announcement handshake with the main loop — ONE place for BOTH transports.
+ *
+ * smsMirrorIngestLine() latches these whenever it stores something new; the main loop takes
+ * them once per pass and does the announcing (buzz for an inbound arrival, NEW_MESSAGE_EVENT
+ * so an open Messages screen rebuilds). The flags exist because the two transports used to
+ * disagree: the LoRa path notified from inside meshService.loop() and the LAN path notified
+ * NOWHERE — an arriving text stored silently, and because ingest dedups by id, a LAN-first
+ * delivery permanently suppressed the LoRa copy's buzz too. Latching at the single ingest
+ * point makes silence structurally impossible for any transport that ever calls it.
+ *
+ * Returns true if anything new was stored since the last take; *inbound is set true if at
+ * least one of those was a text somebody sent YOU (the only kind worth a buzz). Both reset
+ * on read. */
+bool smsMirrorTakeNews(bool* inbound);
+
 #endif // SMS_MIRROR_RX_H

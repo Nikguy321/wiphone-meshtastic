@@ -132,7 +132,7 @@ static int threadCompare(const void* a, const void* b) {
   const SipThread* x = (const SipThread*)a;
   const SipThread* y = (const SipThread*)b;
   if (x->lastTime == y->lastTime) {
-    return 0;
+    return strcmp(x->peer, y->peer);              // deterministic under an unstable qsort
   }
   return (x->lastTime > y->lastTime) ? -1 : 1;    // newest first
 }
@@ -177,6 +177,8 @@ static void addMsg(MessageData& m, bool incoming) {
   e.incoming = incoming;
   e.unread = incoming && !m.isRead();
   e.text = dst;
+  e.vid = strtoll(m.getValueSafe("v", "0"), NULL, 10);   // 0 = never met the mirror
+  e.seq = (uint16_t)(s_msgCount - 1);
 }
 
 static void collect(Messages& msgs, bool incoming, const char* wantId) {
@@ -208,10 +210,16 @@ static void collect(Messages& msgs, bool incoming, const char* wantId) {
 static int msgCompare(const void* a, const void* b) {
   const SipThreadMsg* x = (const SipThreadMsg*)a;
   const SipThreadMsg* y = (const SipThreadMsg*)b;
-  if (x->time == y->time) {
-    return 0;
+  if (x->time != y->time) {
+    return (x->time < y->time) ? -1 : 1;          // oldest first: reading order
   }
-  return (x->time < y->time) ? -1 : 1;            // oldest first: reading order
+  /* Equal times: the VoIP.ms id recovers true order when both sides carry one — see the
+   * note on SipThreadMsg. Otherwise fall to the insertion number, which never ties, so
+   * this comparator never returns 0 and an unstable qsort cannot shuffle the thread. */
+  if (x->vid && y->vid && x->vid != y->vid) {
+    return (x->vid < y->vid) ? -1 : 1;
+  }
+  return (x->seq < y->seq) ? -1 : 1;
 }
 
 int sipThreadOpen(Messages& msgs, const char* peerOrUri) {

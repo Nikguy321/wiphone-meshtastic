@@ -11,6 +11,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>   // strtoll, for the persisted since-id
 
 // ---------------------------------------------------------------- tuning
 static const uint32_t POLL_INTERVAL_MS   = 120000;   // 2 min: LoRa carries anything urgent
@@ -18,7 +19,15 @@ static const uint32_t RETRY_INTERVAL_MS  = 300000;   // 5 min after a failure, s
                                                      // is simply off does not cost a
                                                      // connect() attempt every two minutes
 static const uint32_t CONNECT_TIMEOUT_MS = 600;      // the ONLY call here that can block
-static const uint32_t READ_TIMEOUT_MS    = 8000;     // whole-response budget once connected
+/* ⚠ A STALL timeout, not a whole-response budget — measured into that distinction on
+ * 2026-08-18. The first-ever poll (since=0) pulls the entire mirrored history, and each
+ * record's ingest runs a dedup scan that re-parses partition files; 61 records took
+ * longer than 8 s of wall clock and a whole-response deadline declared a healthy,
+ * progressing catch-up "timed out" — over and over, 5 minutes apart. The deadline now
+ * re-arms whenever bytes arrive and ingest progresses; 8 s of genuine silence still
+ * kills the connection, and TOTAL_BUDGET_MS below caps a server that will not shut up. */
+static const uint32_t READ_TIMEOUT_MS    = 8000;     // max silence once connected
+static const uint32_t TOTAL_BUDGET_MS    = 120000;   // absolute cap per poll, stall or not
 static const uint32_t HOST_CACHE_MS      = 600000;   // 10 min; re-resolved sooner on failure
 static const int      READ_BUDGET        = 512;      // bytes consumed per main-loop pass
 
@@ -28,6 +37,16 @@ static const int      READ_BUDGET        = 512;      // bytes consumed per main-
  * because it is where someone editing the card on a computer would naturally put it. */
 static const char* CONFIG_FILES[] = { "/smsmirror.txt", "/roms/smsmirror.txt" };
 static const int   CONFIG_FILE_N  = 2;
+
+/* ⚠ THE HIGH-WATER MARK IS PERSISTED, and a decoded backtrace is why. `s_sinceId` was
+ * RAM-only, so every boot polled `since=0` and COVEY served its ENTIRE store — and every
+ * record ran the full ingest scan (paged partition loads, dedup against the newest 60) just
+ * to conclude "duplicate". That storm lands in the first minutes after boot, exactly when
+ * the heap is at its most fragile, and on 2026-08-18 it aborted the phone mid-ingest:
+ * NanoIni::parse -> loadPartition -> preload -> ingestMirrored -> ingestLine, reset_reason=4.
+ * One small SD file turns the boot poll back into an increment.
+ * Delete the file to force a full resync — that is the documented recovery, not a bug. */
+static const char* SINCE_FILE = "/roms/smsmirror.since";
 
 // ---------------------------------------------------------------- state
 enum PollState {
@@ -47,6 +66,7 @@ static PollState   s_state     = PS_IDLE;
 static WiFiClient  s_client;
 static uint32_t    s_nextPollMs   = 0;
 static uint32_t    s_deadlineMs   = 0;
+static uint32_t    s_pollStartMs  = 0;
 static uint32_t    s_hostResolvedAt = 0;
 static IPAddress   s_hostIp((uint32_t)0);
 static int64_t     s_sinceId   = 0;          // high-water VoIP.ms id
@@ -117,6 +137,21 @@ static bool loadConfig() {
     s_status = "off (host or token missing)";
     return false;
   }
+
+  /* Restore the high-water id, once per (re)load. A failed parse or a missing file just
+   * means since=0 — a full, deduped resync, which is slow but never wrong. */
+  File sf = SD.open(SINCE_FILE, FILE_READ);
+  if (sf) {
+    char buf[24] = {0};
+    size_t n = sf.readBytes(buf, sizeof(buf) - 1);
+    buf[n] = '\0';
+    sf.close();
+    long long v = strtoll(buf, NULL, 10);
+    if (v > 0 && v > s_sinceId) {
+      s_sinceId = v;
+    }
+  }
+
   s_loaded = true;
   s_status = "idle";
   /* ⚠ The token is never logged, here or anywhere. It is the only thing standing between the
@@ -161,6 +196,22 @@ static void finish(const char* why, bool ok, int added, int lines) {
   }
   if (ok) {
     s_everSucceeded = true;
+
+    /* Persist the mark when it moved — see SINCE_FILE. Written only on a successful poll
+     * that actually advanced, so a phone hearing nothing new never touches the card. */
+    static int64_t s_persistedSinceId = 0;
+    if (s_sinceId > s_persistedSinceId) {
+      File sf = SD.open(SINCE_FILE, FILE_WRITE);
+      if (sf) {
+        char buf[24];
+        int w = snprintf(buf, sizeof(buf), "%lld", (long long)s_sinceId);
+        if (w > 0) {
+          sf.write((const uint8_t*)buf, (size_t)w);
+        }
+        sf.close();
+        s_persistedSinceId = s_sinceId;
+      }
+    }
   }
 
   if (!ok) {
@@ -290,6 +341,7 @@ int smsMirrorPollLoop(bool mayUseNetwork) {
     s_lines = 0;                    // per-POLL totals for the summary in finish()
     s_added = 0;
     s_deadlineMs = now + READ_TIMEOUT_MS;
+    s_pollStartMs = now;
     s_lineLen = 0;
     s_lineOverflow = false;
     return 0;
@@ -298,6 +350,10 @@ int smsMirrorPollLoop(bool mayUseNetwork) {
   // --- PS_HEADERS / PS_BODY: consume at most READ_BUDGET bytes this pass.
   if ((int32_t)(now - s_deadlineMs) >= 0) {
     finish("timed out", false, s_added, s_lines);
+    return 0;
+  }
+  if ((uint32_t)(now - s_pollStartMs) > TOTAL_BUDGET_MS) {
+    finish("poll exceeded total budget", false, s_added, s_lines);
     return 0;
   }
 
@@ -337,6 +393,10 @@ int smsMirrorPollLoop(bool mayUseNetwork) {
     } else {
       s_lineOverflow = true;       // keep draining to the newline; drop the record
     }
+  }
+
+  if (budget < READ_BUDGET) {
+    s_deadlineMs = now + READ_TIMEOUT_MS;    // bytes arrived: re-arm the stall deadline
   }
 
   if (!s_client.connected() && !s_client.available()) {

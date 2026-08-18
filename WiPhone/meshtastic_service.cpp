@@ -12,7 +12,6 @@
 #include "booksync_inbox.h"   // book-sync packets are diverted out of the chat list
 #include "sms_mirror_rx.h"    // ...and so are texts mirrored from COVEY
 
-extern void smsMirrorNotifyArrival();   // WiPhone.ino: the pop + buzz for an arriving text
 #include "clock.h"            // ntpClock, for when a parked packet arrived
 #include <SPIFFS.h>           // node + message history persistence
 
@@ -656,8 +655,7 @@ bool MeshtasticService::loop() {
          * is machine traffic a person never reads, but this IS a text message that has just
          * arrived, so the caller's new-message signal is exactly right. */
         if (smsMirrorIsMirrorLine(text)) {
-          bool inbound = false;
-          int r = smsMirrorIngestLine(text, &inbound);
+          int r = smsMirrorIngestLine(text);
           /* ⚠ log_e, NOT log_i, and on the SUCCESS path too. Only log_e is compiled into
            * this build, so an log_i here would make a working mirror and a broken one look
            * identical on serial — which is precisely the trap that made book sync look dead
@@ -668,20 +666,16 @@ bool MeshtasticService::loop() {
           log_e("SMSMIRROR rx from 0x%08X: %s", hdr.sender,
                 r > 0 ? "STORED" : (r == 0 ? "duplicate, ignored" : "REFUSED"));
 
-          /* ⚠ ANNOUNCE A NEW INCOMING TEXT, and stay silent for everything else.
+          /* ⚠ THE ANNOUNCING MOVED — do not put a notify call back here.
            *
-           * Returning false unconditionally was right about the noise — a mirrored copy of a
-           * text you SENT from COVEY is not news, and a duplicate is not news — and wrong
-           * about the rest: for a text somebody sends YOU, the radio is often the path it
-           * arrives on first, so silencing the mirror silenced real arrivals. Nick: "no
-           * vibrate on sip receive most of the time."
-           *
-           * ⚠ Uses the TEXT MESSAGES setting, not the Meshtastic one. What arrived is a
-           * text; the radio is only how it got here. Settings > Notifications separates the
-           * two precisely so that distinction can be honoured. */
-          if (r > 0 && inbound) {
-            smsMirrorNotifyArrival();
-          }
+           * smsMirrorIngestLine() latches arrival news and the MAIN LOOP takes it once per
+           * pass (smsMirrorTakeNews) and does the buzz + NEW_MESSAGE_EVENT — one announcer
+           * for BOTH transports. That is the fix for "no vibrate on sip receive most of the
+           * time": the LAN path stored texts with no notification at all, and because
+           * ingest dedups by id, a LAN-first delivery permanently suppressed this path's
+           * buzz too. Announcing from here as well would buzz an inbound LoRa arrival
+           * twice. The buzz still uses the TEXT MESSAGES setting, not the Meshtastic one —
+           * what arrived is a text; the radio is only how it got here. */
 
           /* ⚠ FALSE, like book-sync — and this reverses what it first did.
            *

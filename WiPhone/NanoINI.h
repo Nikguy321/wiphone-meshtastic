@@ -73,6 +73,15 @@ public:
   KeyValue(const char* line, size_t lineLength);
   ~KeyValue();
 
+  /* The OBJECTS go to PSRAM, like AbstractWidget's. The strings were always external
+   * (extStrdup/extStrndup below), but every `new KeyValue` itself was an internal-heap
+   * block — and a 100-message partition parse makes ~700 of them at once, which is the
+   * allocation storm behind the reset_reason=4 aborts when a conversation opens or a
+   * mirrored burst is ingested. Nothing here is DMA'd or touched from an ISR, and free()
+   * on ESP-IDF is region-agnostic, so one delete serves both regions. */
+  static void* operator new(size_t n);
+  static void operator delete(void* p);
+
   // Access
   size_t length() const;
   const char* key() const;
@@ -101,6 +110,12 @@ public:
   Section(const char* ss, size_t sectionLength, int pos);
   Section(Section& other);    // deep copy
   ~Section();
+
+  /* Same PSRAM placement as KeyValue, and it matters twice over: MessageData derives from
+   * Section, so `new MessageData(...)` in Messages::preload() — the deep copies that
+   * decoded backtraces have twice caught aborting the phone — inherits this too. */
+  static void* operator new(size_t n);
+  static void operator delete(void* p);
 
   // Access
   size_t nValues();

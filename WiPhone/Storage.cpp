@@ -339,7 +339,7 @@ unsigned long MessageData::getTime() {
 
 unsigned long MessageData::getAckTime() {
   if (!this->ackTime) {
-    this->ackTime = this->getHexValueSafe("t", 1);  // 1 - to avoid repeating unhexing
+    this->ackTime = this->getHexValueSafe("a", 1);  // "a" is the ack time; "t" is the message time
   }
   return this->ackTime;
 }
@@ -484,6 +484,73 @@ bool Messages::load(uint32_t unixTime) {
       indexUpdated = true;
     }
   }
+  /* ⚠ REPAIR THE UNKNOWN-TIME SENTINELS, now that the clock is known.
+   *
+   * saveMessage() stores 0xFFFFFFFF for a message whose arrival time was unknown — every
+   * text that lands between boot and the first NTP answer. The sentinel keeps partition
+   * SELECTION correct (an unknown time must count as newest), but as a DISPLAY order it is
+   * actively wrong: maximum uint32 sorts as the newest message in the thread FOREVER, so
+   * everything arriving later draws above it — "a new text lands mid-thread".
+   *
+   * This runs only when `unixTime` is real, which in practice is the reloadMessages() call
+   * the main loop already makes on the FIRST NTP sync of a session. It is cheap to target:
+   * saveMessage() maintains the index's per-partition t2 as a running max, so a partition
+   * contains a sentinel if and only if its t2 IS the sentinel.
+   *
+   * Order among the repaired: within a partition, equal "ffffffff" keys sit in ARRIVAL
+   * order (reorderLast() inserts a new section after its equals), so stamping ascending
+   * times in file order preserves the order the texts actually arrived in. The stamps are
+   * DISTINCT so no downstream sort ever has to break this tie again. The time shown is the
+   * sync moment rather than the true arrival — the honest best available on a board with
+   * no RTC, and hours closer than "pinned newest forever". */
+  if (unixTime) {
+    for (auto ipart = index.iterator(1); ipart.valid(); ++ipart) {
+      if (strcasecmp(ipart->getValueSafe("t2", ""), "ffffffff")) {
+        continue;                        // running max isn't the sentinel: none inside
+      }
+      IniFile ini;
+      if (!this->loadPartition(ini, ipart->getIntValueSafe("p", -1)) || ini.nSections() < 2) {
+        continue;
+      }
+      int32_t k = 0;
+      for (auto im = ini.iterator(1); im.valid(); ++im) {
+        if (!strcasecmp(im->getValueSafe("t", ""), "ffffffff")) {
+          k++;
+        }
+      }
+      if (k > 0) {
+        uint32_t stamp = unixTime - (uint32_t)(k - 1);    // oldest arrival, earliest stamp
+        for (auto im = ini.iterator(1); im.valid(); ++im) {
+          if (!strcasecmp(im->getValueSafe("t", ""), "ffffffff")) {
+            im->putValueFullHex("t", stamp++);
+          }
+        }
+        ini.sortFrom(1, Storage::messageCompare);         // newest-first again, truly this time
+        // Recompute the partition's time range from what is now actually in it
+        const char* t1 = NULL;
+        const char* t2 = NULL;
+        for (auto im = ini.iterator(1); im.valid(); ++im) {
+          const char* t = im->getValueSafe("t", NULL);
+          if (!t) {
+            continue;
+          }
+          t1 = (!t1 || strncasecmp(t, t1, 8) < 0) ? t : t1;
+          t2 = (!t2 || strncasecmp(t, t2, 8) > 0) ? t : t2;
+        }
+        if (t1 && t2) {
+          ini[0]["t1"] = t1;
+          ini[0]["t2"] = t2;
+          (*ipart)["t1"] = t1;
+          (*ipart)["t2"] = t2;
+        }
+        ini.store();
+        indexUpdated = true;
+        log_e("MSG: repaired %d unknown-time message(s) in partition %s",
+              (int)k, ipart->getValueSafe("p", "?"));
+      }
+    }
+  }
+
   if (indexUpdated || removePart) {
     if (removePart) {
       for (int32_t i = 1; i < index.nSections();) {       // traverse all partitions
@@ -629,10 +696,15 @@ int32_t Messages::preload(bool incoming, int32_t offset, int32_t count) {
         this->loadPartition(this->part1, partn);
         // If we reloaded first partition, second partition must be also irrelevand if it's loaded
         part2.unload();
-        if (skip + count <= n) {
-          log_v("only one partition needed");
-          break;   // no need to load next partition
-        }
+      }
+      /* ⚠ OUTSIDE the reload branch, deliberately. This break used to live inside the
+       * `else if` above, so whenever part1 was already CACHED the loop fell through and
+       * loaded part2 unconditionally — a whole second partition parsed on every page after
+       * the first, for a window that fits entirely in part1. Whether one partition is
+       * enough depends on skip and count, not on how part1 got here. */
+      if (skip + count <= n) {
+        log_v("only one partition needed");
+        break;   // no need to load next partition
       }
     } else if (firstPartFound) {
       // Second partition directly follows first partition (if it is non-empty)
@@ -671,7 +743,7 @@ int32_t Messages::preload(bool incoming, int32_t offset, int32_t count) {
     cnt++;
   }
   if (part2.isLoaded() && cnt < count) {
-    partn = part1[0].getIntValueSafe("p", -1);
+    partn = part2[0].getIntValueSafe("p", -1);   // was read off part1 — wrong object
     log_d("loading from part2");
     for (auto im = part2.iterator(1); im.valid() && cnt < count; ++im) {
       // WARNING: repeating code from above

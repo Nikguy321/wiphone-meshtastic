@@ -91,6 +91,17 @@ struct SipThreadMsg {
   bool        incoming;
   bool        unread;
   const char* text;                     // PSRAM, owned by this module
+  /* The sort tiebreakers. `vid` is the VoIP.ms message id ("v" in the store, 0 when the
+   * message never met COVEY's mirror), assigned monotonically by VoIP.ms — so at EQUAL
+   * times it recovers true order, including for a catch-up burst COVEY stamped with one
+   * clamped fetch-moment timestamp. `seq` is the insertion number, so the comparator can
+   * always return a nonzero answer: msgCompare used to return 0 for equal times, and
+   * qsort is not stable, so a block of same-timestamp messages could legally come out in
+   * a different order on two openings of the same thread.
+   * ⚠ vid is a TIEBREAKER only, never the primary key: a text the mirror has not touched
+   * has no id at all, and an id-primary sort would dump all of those to one end. */
+  int64_t     vid;
+  uint16_t    seq;
 };
 
 class Messages;

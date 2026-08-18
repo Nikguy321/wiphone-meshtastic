@@ -23,6 +23,33 @@ namespace NanoIni {
 
 // ------------------------------------------------------ KeyValue class ------------------------------------------------------
 
+/* See the note in NanoINI.h: the object headers were the last part of a parsed INI still
+ * living in internal RAM, and a partition parse makes hundreds of them in one call. */
+void* KeyValue::operator new(size_t n) {
+#ifdef ESP32
+  void* p = ps_malloc(n);
+  return p ? p : malloc(n);
+#else
+  return malloc(n);
+#endif
+}
+
+void KeyValue::operator delete(void* p) {
+  free(p);
+}
+
+void* Section::operator new(size_t n) {
+#ifdef ESP32
+  void* p = ps_malloc(n);
+  return p ? p : malloc(n);
+#else
+  return malloc(n);
+#endif
+}
+
+void Section::operator delete(void* p) {
+  free(p);
+}
 
 KeyValue::KeyValue()
   : keyDyn(nullptr), valueDyn(nullptr)
@@ -32,10 +59,14 @@ KeyValue::KeyValue(const char* key, const char* value) : KeyValue() {
   if (key!=nullptr) {
     keyDyn = extStrdup(key);
   }
-  _escape(keyDyn);
+  if (keyDyn!=nullptr) {              // NULL when key was NULL — or when the dup failed
+    _escape(keyDyn);
+  }
   if (value!=nullptr) {
     valueDyn = extStrdup(value);
-    _escape(valueDyn);
+    if (valueDyn!=nullptr) {
+      _escape(valueDyn);
+    }
   }
 }
 
@@ -88,7 +119,9 @@ const char* KeyValue::operator=(const char* newValue) {
 
   if (newValue != nullptr) {
     valueDyn = extStrdup(newValue);
-    _escape(valueDyn);
+    if (valueDyn != nullptr) {        // extStrdup returns NULL on total OOM
+      _escape(valueDyn);
+    }
   }
 
   return valueDyn;
@@ -449,7 +482,9 @@ void Section::deepCopy(Section& other) {
 
   // Copy title
   if (other.title()) {
-    titleDyn = strdup(other.title());
+    // extStrdup, not strdup: every other title/key/value in this file is external, and this
+    // one stray strdup put a deep-copied section's title back on the internal heap.
+    titleDyn = extStrdup(other.title());
   }
 
   // Copy all keyValues

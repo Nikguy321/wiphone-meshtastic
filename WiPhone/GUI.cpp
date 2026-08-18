@@ -10773,9 +10773,10 @@ void ChoiceWidget::setValue(ChoiceValue val) {
 }
 
 bool ChoiceWidget::processEvent(EventType event) {
-  log_e("choicewidget pointer this: %p", this);
+  /* No logging here on purpose: log_e is the only level compiled in, and this fires on
+   * every left/right keypress — leftover debug spam ("MESUT") was flooding the one log
+   * that has to stay readable in the field. */
   if (!this->choices.size()) {
-    log_e("MESUT %d", __LINE__);
     return false;  // no choices
   }
   if (event == WIPHONE_KEY_LEFT || event == WIPHONE_KEY_RIGHT) {
@@ -10785,13 +10786,11 @@ bool ChoiceWidget::processEvent(EventType event) {
       } else {
         this->curChoice = this->choices.size()-1;
       }
-      log_e("MESUT %d choice: %d", __LINE__, this->curChoice);
     } else {
       this->curChoice++;
       if (this->curChoice >= this->choices.size()) {
         this->curChoice = 0;
       }
-      log_e("MESUT %d choice: %d", __LINE__, this->curChoice);
     }
     return (this->updated = true);
   }
@@ -10987,7 +10986,10 @@ bool MultilineTextWidget::allocateMore(int minSize) {    // items
   // Reallocate (if still makes sense)
   if (rows > maxRows) {
     log_v("realloc, rows=%d", rows);
-    char **p = (char**) realloc(rowsDyn, rows*sizeof(char*));
+    // extRealloc: the row-pointer block belongs in PSRAM with the rows themselves — it is
+    // only ever walked by the CPU, and every internal-heap byte here is one the SIP stack
+    // and the emulator cannot have.
+    char **p = (char**) extRealloc(rowsDyn, rows*sizeof(char*));
     if (p!=NULL) {
       memset(p + maxRows, 0, sizeof(char*)*(rows - maxRows));
       log_v("inited, new rows=%d", rows - maxRows);
@@ -11009,7 +11011,12 @@ void MultilineTextWidget::appendText(const char* str) {
   int otextLen = strlen(t);
   int bufferLen = ntextLen + otextLen + 1;
 
-  char* buffer = (char*)malloc(bufferLen);
+  char* buffer = (char*)extMalloc(bufferLen);
+  if (!buffer) {
+    log_e("appendText: no memory for %d bytes, append dropped", bufferLen);
+    return;                              // the old text is still intact; losing the append
+                                         // beats memset(NULL) taking the phone down
+  }
   memset(buffer, 0x00, bufferLen);
 
   strlcpy(buffer, t, bufferLen);
@@ -11036,12 +11043,33 @@ void MultilineTextWidget::setText(const char* str) {
   while (p < e) {
     cursRow++;
     if (cursRow>=maxRows) {
-      allocateMore();
+      /* ⚠ CHECKED. allocateMore() can fail (realloc NULL, or maxInputSize reached), and
+       * this loop used to write rowsDyn[cursRow] regardless — with cursRow == maxRows that
+       * store lands 4 bytes past the end of the pointer block, so an out-of-memory moment
+       * became silent heap corruption and a reboot with no decodable backtrace. Truncating
+       * the text is the honest degradation: everything fitted so far still draws. */
+      if (!allocateMore()) {
+        log_e("setText: no room for row %d, text truncated", cursRow);
+        cursRow--;
+        fit = 0;      // skip the trailing-newline special case: it indexes by `fit`, which
+                      // belongs to the row that never got allocated
+        break;
+      }
     }
     fit = widgetFont->fitWordsLength(p, horizontalSpace);
     if (fit) {
-      rowsDyn[cursRow] = strndup(p, fit);
-      //log_i("fitted: %s (len=%d) on line %d", rowsDyn[cursRow], fit, cursRow);
+      /* extStrndup, not strndup: a thread view holds ~90-115 of these rows at once, and
+       * they were all coming out of the ~20 KB contiguous internal heap the SIP stack and
+       * the emulator fight over. PSRAM has 3.6 MB spare; the rows are only read by
+       * drawString. free() is region-agnostic, so the existing freeNull teardown and the
+       * typing paths' plain-malloc rows coexist with these safely. */
+      rowsDyn[cursRow] = extStrndup(p, fit);
+      if (!rowsDyn[cursRow]) {
+        log_e("setText: row alloc failed, text truncated");
+        cursRow--;
+        fit = 0;      // same reason as the allocateMore failure above
+        break;
+      }
       p += fit;
     } else {
       log_e("could not fit text");      // TODO: break a word into head and tail
@@ -11059,10 +11087,9 @@ void MultilineTextWidget::setText(const char* str) {
   } else if (cursRow<0) {
     // Special case for no text
     cursRow = 0;
-    if (cursRow>=maxRows) {
-      allocateMore();
+    if ((cursRow < maxRows || allocateMore()) && (rowsDyn[cursRow] = extStrdup("")) == NULL) {
+      log_e("setText: empty-row alloc failed");
     }
-    rowsDyn[cursRow] = strdup("");
   }
   revealCursor();
   this->updated = true;
@@ -11413,10 +11440,15 @@ void MultilineTextWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenO
         if (len && rowsDyn[i][len-1] != '\n') {
           lcd.drawString(rowsDyn[i], screenOffX + xPadding, screenOffY + yOff);
         } else {
-          char *dup = strdup(rowsDyn[i]);
-          dup[len-1] = '\0';
-          lcd.drawString(dup, screenOffX + xPadding, screenOffY + yOff);
-          free(dup);
+          /* In-place trim, NOT strdup. This ran up to 13 times per redraw — on every
+           * scroll keypress in a thread view — and the strdup was both an internal-heap
+           * churn at the worst possible moment and an UNCHECKED one: dup[len-1] on a NULL
+           * return is a crash whose trigger is literally "while scrolling". The row is our
+           * own mutable buffer, so blank the newline, draw, put it back. Zero allocations,
+           * no failure path at all. */
+          rowsDyn[i][len-1] = '\0';
+          lcd.drawString(rowsDyn[i], screenOffX + xPadding, screenOffY + yOff);
+          rowsDyn[i][len-1] = '\n';
         }
       }
     }
@@ -11427,10 +11459,13 @@ void MultilineTextWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenO
       if (i < maxRows && rowsDyn[i] && rowsDyn[i][0]) {
         // If there is text in this row -> calculate cursor offset
         if (cursOffset < strlen(rowsDyn[i])) {
-          char* dup = strdup(rowsDyn[i]);
-          dup[cursOffset] = 0;
-          curPosX = lcd.textWidth(dup);
-          free(dup);
+          /* Same in-place trick as the newline trim above: a prefix width needs the string
+           * terminated at the cursor, not a heap copy of it (the old strdup here was also
+           * dereferenced unchecked). */
+          const char saved = rowsDyn[i][cursOffset];
+          rowsDyn[i][cursOffset] = '\0';
+          curPosX = lcd.textWidth(rowsDyn[i]);
+          rowsDyn[i][cursOffset] = saved;
         } else {
           curPosX = lcd.textWidth(rowsDyn[i]);
         }

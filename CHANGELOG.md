@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.9.3 — the day-of-real-use fixes: order, buzz, and the reboots
+
+### 🧾 A conversation reads in the order it happened
+
+- **Texts stored before the phone knew the time no longer pin themselves to the bottom
+  forever.** A message arriving between power-on and the first clock sync used to be
+  stamped "unknown", which sorted as *newest for all time* — so everything after it
+  landed above it, i.e. in the middle of the thread. Now, the moment the clock syncs,
+  those messages are stamped with the sync time and fall into place. Their shown time can
+  be a little late (the phone has no clock chip to do better); their order is right.
+- **Two openings of the same conversation now always show the same order.** Messages
+  sharing a timestamp were previously ordered by coin toss. Ties now break on the
+  provider's own message number when there is one, and deterministically otherwise —
+  which also keeps a burst of catch-up texts from COVEY in their true order.
+
+### 📳 Every arriving text announces itself
+
+- **Texts arriving over WiFi from COVEY buzzed nothing and drew nothing** — they simply
+  appeared in the store, and worse, they *claimed* the text so the radio copy stayed
+  silent too. Both transports now announce through one shared path: buzz for a text
+  somebody sent you, silence for mirrored copies of your own, and an open conversation
+  refreshes on screen instead of waiting for you to back out and re-enter.
+- The buzz now fires **before** the chirp, so if the chirp's wiring ever interferes with
+  the vibration motor again, it loses that race instead of winning it.
+
+### 🧯 The reboots while scrolling or opening conversations
+
+All of the found causes are fixed, and the biggest is structural:
+
+- **Parsed message files now live in the big memory bank (PSRAM), not the small one.**
+  Opening a conversation parses message files into hundreds of little objects; they all
+  came out of the ~20 KB pool the WiFi/phone stack needs to breathe, and a decoded crash
+  backtrace caught exactly that running out. Those objects now go to the 3.6 MB bank.
+- **A cached page no longer drags a second message file into memory for nothing**, and a
+  long-standing accounting slip (the second file reporting the first file's number) is
+  fixed with it.
+- **Scrolling a conversation no longer allocates at all** — the redraw made up to 13
+  little text copies per keypress, unchecked, and a failed one crashed the phone with the
+  trigger "while scrolling". It now draws in place.
+- **Running out of room while laying out text truncates the text** instead of writing
+  past the end of a block — an out-of-memory moment used to become silent corruption and
+  a reboot with no readable crash record.
+- **After a reboot, the phone no longer re-downloads and re-checks the entire mirrored
+  history from COVEY.** It remembers where it left off on the SD card. (Delete
+  `/roms/smsmirror.since` to force a full resync on purpose.)
+
+### 🔇 Housekeeping
+
+- Deleted leftover debug spam that wrote to the field log on every settings keypress.
+- Fixed a dormant accessor that returned a message's time when asked for its delivery
+  time.
+
 ## Unreleased — texting looks like texting, and two devices share one number
 
 ### 💬 Messages are conversations now, not an inbox and an outbox

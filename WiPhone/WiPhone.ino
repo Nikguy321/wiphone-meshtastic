@@ -42,6 +42,7 @@ governing permissions and limitations under the License.
 #include "music_player.h"
 #include "app_gbc_xfer.h"
 #include "sms_mirror_poll.h"   // pulls mirrored texts from COVEY over the LAN
+#include "sms_mirror_rx.h"     // smsMirrorTakeNews: the mirror's arrival announcements
 #include "serial_cmd.h"        // debug console on USB serial (uploader on/off, mirror sync)
 #include "mp3_stream.h"
 #include "src/assets/pop_sound.h"
@@ -1513,20 +1514,14 @@ static void notifyMessageArrived(uint32_t now, uint8_t mode) {
     return;
   }
   const bool callBusy = (gui.state.sipState == CallState::Call);
-  if (mode == ControlState::RINGER_RING_AND_VIBRATE) {
-    /* The pop is genuinely one-at-a-time — it is a PCM file playing through the codec, and
-     * restarting it mid-play is how the audio device gets left in the wrong mode (see
-     * Audio::preserve()). A burst therefore gets one sound and one long buzz, which is the
-     * right shape: you do not want five chirps, but you do want to feel every arrival. */
-    if (!(callBusy || gui.state.ringing || meshPopPlaying)) {
-      const bool played = audio->playPop(&SPIFFS, gui.state.notifyVolume);
-      if (played) {
-        meshPopPlaying = true;
-        meshPopStartMs = now;
-      }
-    }
-  }
-  /* "Vibrate only" still buzzes — that is the whole difference from Silent.
+  /* THE MOTOR GOES FIRST, before the pop — deliberately reordered. The buzz is a plain
+   * GPIO write through the I2C extender; the pop reconfigures and drives the audio codec.
+   * If the pop's I2C traffic can ever disturb the extender (the standing suspicion behind
+   * "it chirped but never buzzed"), buzzing first removes that whole failure class instead
+   * of measuring it. Costs nothing: the pulse runs ~180 ms and the pop starts within a
+   * millisecond of it either way.
+   *
+   * "Vibrate only" still buzzes — that is the whole difference from Silent.
    *
    * ⚠ A SECOND MESSAGE RE-ARMS THE TIMER; IT DOES NOT GET SKIPPED. Guarding this on
    * `!meshVibroActive` silently ate any notification that landed inside the previous 180 ms
@@ -1539,6 +1534,25 @@ static void notifyMessageArrived(uint32_t now, uint8_t mode) {
     meshVibroActive = true;
     meshVibroStartMs = now;              // re-arm, so back-to-back arrivals keep it buzzing
     log_e("NOTIFY: buzz %u ms (mode=%d)", (unsigned)MESH_VIBRO_MS, (int)mode);
+  } else {
+    /* ⚠ SAY SO. The one log line proving this path ran used to sit INSIDE the gate, so a
+     * `ringing` flag left latched by any teardown path would kill every later buzz with no
+     * trace at all — indistinguishable from the motor being broken. If this line ever shows
+     * while the phone is plainly not ringing, the latched flag is the fault to chase. */
+    log_e("NOTIFY: suppressed (ringing latched)");
+  }
+  if (mode == ControlState::RINGER_RING_AND_VIBRATE) {
+    /* The pop is genuinely one-at-a-time — it is a PCM file playing through the codec, and
+     * restarting it mid-play is how the audio device gets left in the wrong mode (see
+     * Audio::preserve()). A burst therefore gets one sound and one long buzz, which is the
+     * right shape: you do not want five chirps, but you do want to feel every arrival. */
+    if (!(callBusy || gui.state.ringing || meshPopPlaying)) {
+      const bool played = audio->playPop(&SPIFFS, gui.state.notifyVolume);
+      if (played) {
+        meshPopPlaying = true;
+        meshPopStartMs = now;
+      }
+    }
   }
 }
 
@@ -1562,6 +1576,35 @@ void loop() {
      * nothing about it, because the reporting was inside the skipped call. The socket is the
      * only part that needs gating. */
     smsMirrorPollLoop(sipMayPoll());
+
+    /* THE MIRROR'S ANNOUNCER — one place, both transports. smsMirrorIngestLine() latches
+     * news whenever it stores a text (whether the line rode in over LoRa or the LAN poll
+     * above), and this takes it. The split serves two different urgencies:
+     *   - the BUZZ is immediate: feeling the arrival late is the same as not feeling it;
+     *   - the UI EVENT is coalesced (~700 ms): each NEW_MESSAGE_EVENT makes an open
+     *     Messages screen rebuild its snapshots — four 120-deep paged scans — so a
+     *     catch-up burst of records must become a handful of rebuilds, not one per text.
+     * Before this, the LAN path announced NOTHING (no buzz, no event — a text stored in
+     * silence), and a mirrored text arriving while a thread was open stayed invisible
+     * until you backed out and re-entered — at which point the sort dropped it mid-list,
+     * muddying the ordering bug's report. */
+    {
+      static bool     s_mirrorUiPending = false;
+      static uint32_t s_mirrorUiLastMs  = 0;
+      bool inbound = false;
+      if (smsMirrorTakeNews(&inbound)) {
+        s_mirrorUiPending = true;
+        if (inbound) {
+          smsMirrorNotifyArrival();
+        }
+      }
+      if (s_mirrorUiPending && elapsedMillis(now, s_mirrorUiLastMs, 700)) {
+        s_mirrorUiLastMs = now;
+        s_mirrorUiPending = false;
+        appEventResult res = gui.processEvent(now, NEW_MESSAGE_EVENT);
+        gui.redrawScreen(res & REDRAW_HEADER, res & REDRAW_FOOTER, res & REDRAW_SCREEN);
+      }
+    }
 
     /* 🔎 RATCHET WATCHPOINT — name the MOMENT `largest` steps down.
      *
