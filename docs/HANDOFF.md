@@ -69,12 +69,14 @@ minute and needs no reflash. Four theories were wrong before the last backtrace 
 
 ---
 
-### 1. 🔴 COVEY RECEIVES NOTHING (sending works) — fix COVEY first
-COVEY is the source the phone mirrors from. Full write-up in **COVEY's** `notes/HANDOFF.md`;
-the short version is that the failure is **invisible by construction** (`Poller.error` is only
-drawn when there are ZERO conversations), and the two live suspects are a **12 s read timeout
-against a ~10 s API call** and **`fetch()`'s date window computed from a clock on a board with
-no RTC**. One tap settles it: **SIP Settings > Test Connection**.
+### 1. ✅ COVEY RECEIVES NOTHING — CONFIRMED and the fix is STAGED (2026-08-18)
+Nick ran **Test Connection from the device**: *"VoIP.ms did not answer in time"* — the read
+path timing out at its 12 s default while sends succeed at 45 s. Fix is committed on COVEY's
+`main` (read timeout 45 s, an always-visible poll-status strip, a `busy` watchdog), **not yet
+deployed** — deploy steps and verify order are in COVEY's `notes/HANDOFF.md`.
+⚠ **When it deploys, the mirror starts flowing again — expect fault 4 to fire harder under
+the inbound burst, and expect ordering strangeness from the catch-up poll (the `_parse_ts`
+clamp stamps old messages with the fetch moment). Neither is new; do not re-diagnose.**
 
 ---
 
