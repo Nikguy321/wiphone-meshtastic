@@ -54,6 +54,53 @@ connect and give you silence.
 
 ---
 
+## 🛑 THE CONVERSATION-VIEW ABORT — FOUND, FIXED, AND WORTH READING FIRST
+
+**Opening a conversation rebooted the phone.** Four rounds of theorising got it wrong; the
+decoded backtrace got it in two minutes. **Read the crash before theorising about the crash**
+— this doc already said that, and it was right again.
+
+```
+operator new -> __cxa_allocate_exception -> std::terminate -> abort   (reset_reason=4)
+  NanoIni::Section::deepCopy / addKeyValue
+  MessageData::MessageData
+  Messages::preload
+  <caller>
+```
+
+🔑 **`Messages::preload(dir, offset, count)` DEEP-COPIES each message's INI section into
+INTERNAL RAM.** Asking for a large window means that many live section copies, and the
+allocation behind them is `operator new`, which **THROWS** on failure. Nothing catches it, so
+it becomes `terminate()` → `abort()`. **Same bug class as the `WiFiUDP::parsePacket` abort
+written up further down this file.**
+
+⚠ **THE WHOLE-WINDOW FORM IS A TRAP: it works on a small store and aborts on a big one**, so
+it survives every test and dies in use. That is why it presented as "one specific conversation
+crashes" — it depends on how much is stored in that DIRECTION, not on the thread.
+
+✅ **All three callers are paged now** — 10 sections live at a time with `clearPreloaded()`
+between pages, same depth covered:
+`sip_threads.cpp` `scanDirection()` + `collect()`, and `GUI.cpp` `MessagesApp::markThreadRead()`.
+**If you add a fourth `preload()` caller, PAGE IT.** `grep -n "\.preload(" WiPhone/*.cpp`.
+
+⚠ **The cost is a visible pause opening a conversation** — 12 passes instead of 1, three times
+over (chats list, thread, mark-read). `SCAN_PAGE` could rise, but **measure `largest` at a few
+page sizes before picking a number**; 120 aborted and 10 is safe, and nobody has found the
+edge between them.
+
+⚠ **A wrong diagnosis shipped on the way** and has been reverted: `THREAD_TEXT_BUDGET` was cut
+1800 → 600 blaming `MultilineTextWidget`'s per-row internal allocations. `largest` really was
+collapsing, but the cause was the deep copies above. **It is back at 1800.** If thread
+rendering ever does look like the culprit, the app-open probe in `GUI::enterApp()` prints
+`largest` either side of opening the screen — measure, do not assume.
+
+🔑 **THE TOOL THAT ENDED IT.** A serial watcher that logs every byte and runs `addr2line`
+against `firmware.elf` the instant `Backtrace:` appears. ⚠ **The first version DIED whenever
+anything else opened the port — and took the dump with it, twice.** It reconnects on any error
+now, and commands go through a file (`/tmp/wiphone.cmd`) so nothing ever opens a second handle.
+
+---
+
 ## 📨 SMS MIRRORING FROM COVEY (2026-08-17) — COVEY'S HALF IS LIVE, THE PHONE'S IS HALF-BUILT
 
 **The plan in item 0 below could not be built as written, and the reason is worth reading
