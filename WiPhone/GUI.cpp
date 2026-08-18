@@ -6575,7 +6575,7 @@ MessagesApp::MessagesApp(LCD& lcd, ControlState& state, Storage& flash, HeaderWi
   }
 
   chatsMenu = NULL;
-  threadMenu = NULL;
+  threadText = NULL;
   subApp = NULL;
 
   this->buildChats();
@@ -6588,8 +6588,8 @@ MessagesApp::~MessagesApp() {
   if (chatsMenu) {
     delete chatsMenu;
   }
-  if (threadMenu) {
-    delete threadMenu;
+  if (threadText) {
+    delete threadText;
   }
   if (subApp) {
     delete subApp;
@@ -6733,8 +6733,10 @@ appEventResult MessagesApp::processEvent(EventType event) {
       subApp = new CreateMessageApp(lcd, controlState, flash, header, footer,
                                     threadUri[0] ? threadUri : threadPeer);
       res |= REDRAW_ALL;
-    } else {
-      threadMenu->processEvent(event);
+    } else if (threadText && (event == WIPHONE_KEY_UP || event == WIPHONE_KEY_DOWN)) {
+      /* Scroll the conversation. Only up/down are forwarded: the widget is a text INPUT and
+       * would happily let you type into a received message otherwise. */
+      threadText->processEvent(event);
       res |= REDRAW_ALL;
     }
 
@@ -6789,41 +6791,91 @@ void MessagesApp::buildChats() {
   }
 }
 
-/* One correspondent, both directions, oldest at the top so it reads like a conversation. */
+/* One correspondent, both directions, oldest at the top — as WRAPPED TEXT you can read.
+ *
+ * Every message is a "who + when" line followed by its full body, wrapped by the widget:
+ *
+ *     You  ·  2 min ago
+ *     on my way, be there in ten
+ *
+ *     4257604281  ·  1 min ago
+ *     see you there
+ *
+ * ⚠ BOUNDED BY CHARACTERS, NOT BY MESSAGE COUNT, and it is the newest that survive.
+ * MultilineTextWidget allocates a buffer per wrapped ROW from internal heap, so what costs
+ * memory here is total text, not how many messages it came in. A budget in characters is
+ * therefore the honest limit; a message cap would let forty long texts blow past it.
+ * When older messages are cut, the top of the view says so rather than pretending the
+ * conversation starts there. */
 void MessagesApp::buildThread() {
-  if (threadMenu) {
-    delete threadMenu;
-    threadMenu = NULL;
+  if (threadText) {
+    delete threadText;
+    threadText = NULL;
   }
 
-  threadMenu = new MenuWidget(0, header->height(), lcd.width(),
-                              lcd.height() - header->height() - footer->height(),
-                              "No messages", fonts[AKROBAT_EXTRABOLD_22], N_MENU_ITEMS, 8);
-  threadMenu->setStyle(MenuWidget::DEFAULT_STYLE,   BLACK, GRAY_85, GRAY_95, WP_ACCENT_1);
-  threadMenu->setStyle(MenuWidget::ALTERNATE_STYLE, BLACK, WHITE,   WHITE,   WP_ACCENT_S);
+  const int16_t padding = 4;
+  threadText = new MultilineTextWidget(0, header->height(), lcd.width(),
+                                       lcd.height() - header->height() - footer->height(),
+                                       "No messages yet", controlState, THREAD_TEXT_MAX,
+                                       fonts[OPENSANS_COND_BOLD_20], InputType::AlphaNum,
+                                       padding, padding);
+  threadText->setColors(WP_COLOR_1, WP_COLOR_0);       // white on black, matching the theme
 
   const int n = sipThreadOpen(flash.messages, threadPeer);
-  for (int i = 0; i < n; i++) {
+  if (n <= 0) {
+    threadText->cursorToStart();
+    return;
+  }
+
+  /* Walk BACKWARD from the newest, taking messages until the budget is spent, so the part
+   * you can read is the part you just received rather than the oldest thing in the store. */
+  int first = n;
+  size_t used = 0;
+  while (first > 0) {
+    const SipThreadMsg* m = sipThreadMsgAt(first - 1);
+    size_t cost = (m && m->text ? strlen(m->text) : 0) + 48;   // + the "who · when" line
+    if (used + cost > THREAD_TEXT_BUDGET && first < n) {
+      break;                          // always keep at least the newest, however long it is
+    }
+    used += cost;
+    first--;
+  }
+
+  char* buf = (char*)ps_malloc(THREAD_TEXT_MAX);
+  if (!buf) {
+    log_e("MessagesApp: no PSRAM for the thread text");
+    threadText->cursorToStart();
+    return;
+  }
+  size_t w = 0;
+  buf[0] = '\0';
+
+  if (first > 0) {
+    w += snprintf(buf + w, THREAD_TEXT_MAX - w, "... %d older message%s not shown\n\n",
+                  first, first == 1 ? "" : "s");
+  }
+
+  for (int i = first; i < n && w < THREAD_TEXT_MAX - 1; i++) {
     const SipThreadMsg* m = sipThreadMsgAt(i);
     if (!m) {
       continue;
     }
-    /* "You:" on the ones you sent. A thread has to say who said what, and a prefix does it
-     * in the space available — this list is one line per message, with no room for the
-     * bubble alignment a big screen would use. */
-    MenuOptionIconnedTimed* option = new MenuOptionIconnedTimed(
-      (MenuOption::keyType)(i + 1),
-      m->unread ? MenuWidget::ALTERNATE_STYLE : MenuWidget::DEFAULT_STYLE,
-      m->incoming ? m->text : "You:", m->incoming ? "" : m->text, m->time);
-    if (option) {
-      threadMenu->addOption(option);
+    char ago[24];
+    ago[0] = '\0';
+    if (m->time) {
+      ntpClock.dateTimeAgo(m->time, ago);
     }
+    // "You" on the ones you sent. Who said what has to be unambiguous before anything else.
+    w += snprintf(buf + w, THREAD_TEXT_MAX - w, "%s%s%s\n%s\n%s",
+                  m->incoming ? threadPeer : "You",
+                  ago[0] ? "  ·  " : "", ago,
+                  m->text ? m->text : "",
+                  (i + 1 < n) ? "\n" : "");
   }
 
-  // Land on the newest message: that is what you came to read.
-  if (n > 0) {
-    threadMenu->select((MenuOption::keyType)n);
-  }
+  threadText->setText(buf);
+  free(buf);
+  threadText->cursorToStart();
 }
 
 void MessagesApp::redrawScreen(bool redrawAll) {
@@ -6836,8 +6888,8 @@ void MessagesApp::redrawScreen(bool redrawAll) {
 
   if (appState == CHATS && chatsMenu) {
     ((GUIWidget*)chatsMenu)->redraw(lcd);
-  } else if (appState == THREAD && threadMenu) {
-    ((GUIWidget*)threadMenu)->redraw(lcd);
+  } else if (appState == THREAD && threadText) {
+    ((GUIWidget*)threadText)->redraw(lcd);
   }
 }
 

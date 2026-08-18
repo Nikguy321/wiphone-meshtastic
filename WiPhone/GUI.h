@@ -1572,7 +1572,17 @@ protected:
   } MessagesState_t;
 
   MenuWidget* chatsMenu = NULL;
-  MenuWidget* threadMenu = NULL;
+  /* The thread is WRAPPED TEXT, not a menu of rows.
+   *
+   * It was a MenuWidget — one line per message — and that turned out to be useless for the
+   * thing you open a conversation to do: read it. A row shows the first few words and there
+   * was nowhere to go for the rest, because OK is Reply. Nick, 2026-08-17: "there's no way to
+   * view the full message that was sent to me."
+   *
+   * ⚠ The trade: a text area allocates a row buffer per WRAPPED LINE out of internal heap
+   * (`rowsDyn`), which is why buildThread() bounds how much of the conversation it renders
+   * rather than pouring all forty messages in. */
+  MultilineTextWidget* threadText = NULL;
   Storage& flash;
   WiPhoneApp* subApp = NULL;            // can be CreateMessageApp or ViewMessageApp
 

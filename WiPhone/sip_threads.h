@@ -61,6 +61,16 @@
 #define SIP_THREADS_SCAN      120    // newest messages read per direction
 #define SIP_THREAD_URI_MAX     64
 
+/* How much of a conversation gets RENDERED, in characters.
+ *
+ * ⚠ A character budget, not a message count, because MultilineTextWidget allocates a buffer
+ * per wrapped ROW from internal heap: the cost is total text, and forty short messages are
+ * cheaper than four long ones. THREAD_TEXT_BUDGET is what gets composed; THREAD_TEXT_MAX is
+ * the buffer it is composed into and must stay comfortably larger. Newest messages win, and
+ * the view says out loud when older ones were left out. */
+#define THREAD_TEXT_BUDGET   1800
+#define THREAD_TEXT_MAX      2600
+
 struct SipThread {
   char     peer[SMS_MIRROR_PEER_MAX];   // digits — the identity used for grouping
   char     uri[SIP_THREAD_URI_MAX];     // a full URI to reply to (from the newest message)
