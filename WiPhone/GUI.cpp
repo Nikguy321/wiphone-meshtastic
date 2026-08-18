@@ -6741,23 +6741,37 @@ void MessagesApp::markThreadRead() {
     return;
   }
   int32_t depth = total < SIP_THREADS_SCAN ? total : SIP_THREADS_SCAN;
-  flash.messages.preload(INCOMING, -1, depth);
 
+  /* ⚠ PAGED, for the same reason sip_threads.cpp's scans are — and this was the call site
+   * that still crashed after those were fixed. `preload()` DEEP-COPIES each message's INI
+   * section into internal RAM; asking for 120 at once meant 120 live copies, and the
+   * allocation behind them (`operator new`) THROWS on failure, which nothing catches:
+   * terminate() -> abort() -> reset_reason=4. Decoded from a real backtrace, twice.
+   *
+   * ⚠ IF YOU ADD ANOTHER preload() CALLER, PAGE IT. The whole-window form is a trap: it
+   * works on a small store and aborts on a big one, so it survives testing and dies in use. */
+  const int32_t PAGE = 10;
   bool any = false;
-  for (auto it = flash.messages.iteratorCount(-1, depth); it.valid(); ++it) {
-    MessageData& m = *it;
-    if (m.isRead()) {
-      continue;
+  for (int32_t done = 0; done < depth; done += PAGE) {
+    const int32_t cnt = (depth - done < PAGE) ? (depth - done) : PAGE;
+    const int32_t off = -1 - done;
+    flash.messages.clearPreloaded();
+    flash.messages.preload(INCOMING, off, cnt);
+    for (auto it = flash.messages.iteratorCount(off, cnt); it.valid(); ++it) {
+      MessageData& m = *it;
+      if (m.isRead()) {
+        continue;
+      }
+      char id[SMS_MIRROR_PEER_MAX];
+      if (!smsMirrorDigits(m.getOtherUri(), id, sizeof(id))) {
+        snprintf(id, sizeof(id), "%s", m.getOtherUri());
+      }
+      if (strcmp(id, threadPeer)) {
+        continue;
+      }
+      flash.messages.setRead(m);
+      any = true;
     }
-    char id[SMS_MIRROR_PEER_MAX];
-    if (!smsMirrorDigits(m.getOtherUri(), id, sizeof(id))) {
-      snprintf(id, sizeof(id), "%s", m.getOtherUri());
-    }
-    if (strcmp(id, threadPeer)) {
-      continue;
-    }
-    flash.messages.setRead(m);
-    any = true;
   }
   flash.messages.clearPreloaded();
   if (any) {
