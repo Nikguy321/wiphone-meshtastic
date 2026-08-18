@@ -259,6 +259,24 @@ public:
   static const uint8_t RINGER_SILENT           = 2;
   uint8_t ringerMode = RINGER_RING_AND_VIBRATE;
 
+  /* The same three-way choice, per KIND of arrival. Calls reuse `ringerMode` above rather
+   * than getting a fourth field, so the setting somebody already chose carries over and
+   * there is exactly one source of truth for "what do calls do".
+   *
+   * ⚠ These exist because muting one kind used to mute another. Texts never announced
+   * themselves at all — only mesh messages did — and texts arriving over the COVEY mirror
+   * chirped only as a side effect of riding the mesh path. Silencing the mirror therefore
+   * silenced real texts too. Notifications now belong to the ARRIVAL, and each kind carries
+   * its own answer. */
+  uint8_t notifySipMode  = RINGER_RING_AND_VIBRATE;   // an incoming text message
+  uint8_t notifyMeshMode = RINGER_RING_AND_VIBRATE;   // an incoming Meshtastic message
+
+  /* Volume of the notification pop ONLY. Separate from the three call/media volumes in
+   * Settings > Audio: a notification that is comfortable is not the same loudness as a
+   * ringtone you need to hear from another room. Audio::MuteVolume silences the tone while
+   * leaving vibration alone, which is what "Vibrate only" already does more explicitly. */
+  int8_t  notifyVolume = 0;                           // dB; 0 = the codec's reference level
+
   // Ringtone & ringtone vibration
   bool ringing = false;
   bool vibroOn = false;               // is vibration motor ON?
@@ -403,6 +421,7 @@ typedef enum ActionID : uint16_t {
   GUI_APP_EDITWIFI,
   GUI_APP_NETWORKS,
   GUI_APP_AUDIO_CONFIG,
+  GUI_APP_NOTIFY_CONFIG,
   GUI_APP_WIFI_CONFIG,
   GUI_APP_TIME_CONFIG,
   GUI_APP_SCREEN_CONFIG,
@@ -2087,8 +2106,47 @@ protected:
   // Widgets
   LabelWidget* labels[3];
   IntegerSliderWidget* sliders[3];
-  LabelWidget*  ringerLabel = NULL;
-  ChoiceWidget* ringerChoice = NULL;
+  /* ⚠ The Ringer row moved to Settings > Notifications (NotifyConfigApp), which now owns
+   * `ringer_mode` and shows it beside the same choice for texts and mesh messages. This
+   * screen keeps `ringerModeField` only to READ the file; it no longer writes it. */
+
+  bool screenInited = false;
+};
+
+/* Settings > Notifications — what each KIND of arrival does.
+ *
+ * Calls, text messages and Meshtastic messages each get the same three-way choice, plus one
+ * volume for the notification pop. Calls deliberately read and write the SAME stored value
+ * the old Settings > Audio "Ringer" row used, so nobody's existing choice is lost and there
+ * is only ever one answer to "what do calls do" — that row has been removed from Audio.
+ */
+class NotifyConfigApp : public WindowedApp, FocusableApp {
+public:
+  NotifyConfigApp(Audio* audio, LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer);
+  virtual ~NotifyConfigApp();
+  ActionID_t getId() {
+    return GUI_APP_NOTIFY_CONFIG;
+  };
+  appEventResult processEvent(EventType event);
+  void redrawScreen(bool redrawAll=false);
+
+protected:
+  static const constexpr char* ringerModeField = "ringer_mode";      // shared with Audio's old row
+  static const constexpr char* sipModeField    = "notify_sip_mode";
+  static const constexpr char* meshModeField   = "notify_mesh_mode";
+  static const constexpr char* notifyVolField  = "notify_vol";
+
+  Audio* audio;
+  CriticalFile ini;
+
+  LabelWidget*  callLabel = NULL;
+  ChoiceWidget* callChoice = NULL;
+  LabelWidget*  sipLabel = NULL;
+  ChoiceWidget* sipChoice = NULL;
+  LabelWidget*  meshLabel = NULL;
+  ChoiceWidget* meshChoice = NULL;
+  LabelWidget*  volLabel = NULL;
+  IntegerSliderWidget* volSlider = NULL;
 
   bool screenInited = false;
 };
@@ -2631,7 +2689,7 @@ protected:
    * too FEW is silent — the tail zero-fills into entries with ID 0, parent 0 and a NULL
    * title, which then appear as children of the Clock menu. It was one short before Books was
    * added. enterMenu() now skips title-less rows so a miscount stays cosmetic. */
-  GUIMenuItem menu[40] PROGMEM = {  // increment size by one to add a new app
+  GUIMenuItem menu[41] PROGMEM = {  // increment size by one to add a new app
 
     // TODO: button names can be removed
 
@@ -2697,6 +2755,11 @@ protected:
     { 43, 5, "WiFi auto-switch", "", "", GUI_APP_WIFI_AUTOSWITCH },
     { 15, 5, "Scan WiFi networks", "", "", GUI_APP_NETWORKS },
     { 30, 5, "Audio settings", "", "", GUI_APP_AUDIO_CONFIG },
+    /* ⚠ 44 because 0-43 are taken. 8 and 25 are gaps in the numbering and the notes say to
+     * count UP rather than fill them — a retired id may still be sitting in something that
+     * was not renumbered with it. A duplicate here is SILENT (findMenu matches on id alone
+     * and returns the first hit); GUI::init()'s boot check is what catches it. */
+    { 44, 5, "Notifications", "", "", GUI_APP_NOTIFY_CONFIG },
     { 33, 5, "Screen config", "", "", GUI_APP_SCREEN_CONFIG },
     { 32, 5, "Time offset", "", "", GUI_APP_TIME_CONFIG },
     {37, 5, "Firmware update", "", "", GUI_APP_OTA}   // now a USB how-to; OTA cannot work (see OtaApp)

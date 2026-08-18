@@ -141,8 +141,12 @@ void GUI::loadSettings() {
   {
     CriticalFile cfg(Storage::ConfigsFile);
     if ((cfg.load() || cfg.restore()) && !cfg.isEmpty() && cfg.hasSection("audio")) {
-      state.ringerMode = (uint8_t) cfg["audio"].getIntValueSafe("ringer_mode", state.ringerMode);
-      log_d("ringer mode = %d", (int)state.ringerMode);
+      state.ringerMode    = (uint8_t) cfg["audio"].getIntValueSafe("ringer_mode", state.ringerMode);
+      state.notifySipMode = (uint8_t) cfg["audio"].getIntValueSafe("notify_sip_mode", state.notifySipMode);
+      state.notifyMeshMode= (uint8_t) cfg["audio"].getIntValueSafe("notify_mesh_mode", state.notifyMeshMode);
+      state.notifyVolume  = (int8_t)  cfg["audio"].getIntValueSafe("notify_vol", state.notifyVolume);
+      log_d("notify: call=%d sip=%d mesh=%d vol=%d", (int)state.ringerMode,
+            (int)state.notifySipMode, (int)state.notifyMeshMode, (int)state.notifyVolume);
     }
   }
   log_d("fromName  = %s", state.fromNameDyn);
@@ -1613,6 +1617,9 @@ void GUI::enterApp(ActionID_t app) {
   case GUI_APP_AUDIO_CONFIG:
     runningApp = new AudioConfigApp(audio, *screen, state, header, footer);
     break;
+  case GUI_APP_NOTIFY_CONFIG:
+    runningApp = new NotifyConfigApp(audio, *screen, state, header, footer);
+    break;
   case GUI_APP_PARCEL:
     runningApp = new ParcelApp(*screen, state, flash, header, footer);
     break;
@@ -2943,17 +2950,10 @@ AudioConfigApp::AudioConfigApp(Audio* audio, LCD& lcd, ControlState& state, Head
   addLabelSlider(yOff, labels[0], sliders[0], "Ear speaker volume:", Audio::MuteVolume, Audio::MaxVolume, "dB");
   yOff += 6;
 
-  /* Ringer mode. The phone ALREADY vibrates on an incoming call — startRingtone() drives the
-   * motor and reads its timing from /ringtone.ini — so "vibrate only" just means not playing
-   * the tone. Requested after a very loud ring at work. */
-  ringerLabel = new LabelWidget(0, yOff, lcd.width(), 25, "Ringer:", WP_ACCENT_1, WP_COLOR_1,
-                                fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
-  yOff += ringerLabel->height();
-  ringerChoice = new ChoiceWidget(0, yOff, lcd.width(), 35);
-  ringerChoice->addChoice("Ring + vibrate");
-  ringerChoice->addChoice("Vibrate only");
-  ringerChoice->addChoice("Silent");
-  yOff += ringerChoice->height();
+  /* ⚠ The Ringer row MOVED to Settings > Notifications, where it sits beside the same
+   * choice for texts and mesh messages. It reads and writes the same stored `ringer_mode`,
+   * so nothing was lost — but two screens editing one value is how they drift apart, so
+   * this one no longer draws it. */
 
   // Load preferences
   int8_t earpieceVol, headphonesVol, loudspeakerVol;
@@ -2998,10 +2998,6 @@ AudioConfigApp::AudioConfigApp(Audio* audio, LCD& lcd, ControlState& state, Head
   addFocusableWidget(sliders[1]);
   addFocusableWidget(sliders[0]);
 
-  if (ringerChoice != NULL) {
-    ringerChoice->setValue(controlState.ringerMode);
-    addFocusableWidget(ringerChoice);
-  }
   setFocus(sliders[2]);
 }
 
@@ -3034,10 +3030,9 @@ appEventResult AudioConfigApp::processEvent(EventType event) {
     ini["audio"][earpieceVolField] = speakerVol;
     ini["audio"][headphonesVolField] = headphonesVol;
     ini["audio"][loudspeakerVolField] = loudspeakerVol;
-    if (ringerChoice != NULL) {
-      controlState.ringerMode = (uint8_t) ringerChoice->getValue();
-      ini["audio"][ringerModeField] = (int) controlState.ringerMode;
-    }
+    /* ⚠ ringer_mode is NOT written here any more — Settings > Notifications owns it. This
+     * screen still READS it above (harmless, and it keeps the file's shape documented in one
+     * place), but two writers of one value is exactly how the two screens would disagree. */
     ini.store();
     audio->setVolumes(speakerVol, headphonesVol, loudspeakerVol);
   }
@@ -3071,19 +3066,139 @@ void AudioConfigApp::redrawScreen(bool redrawAll) {
     for(uint16_t i=0; i<sizeof(labels)/sizeof(LabelWidget*); i++) {
       ((GUIWidget*) labels[i])->redraw(lcd);
     }
-    if (ringerLabel != NULL) {
-      ((GUIWidget*) ringerLabel)->redraw(lcd);
-    }
   }
 
   // Redraw input widgets
   for(uint16_t i=0; i<sizeof(sliders)/sizeof(IntegerSliderWidget*); i++) {
     ((GUIWidget*) sliders[i])->refresh(lcd, redrawAll);
   }
-  if (ringerChoice != NULL) {
-    ((GUIWidget*) ringerChoice)->redraw(lcd);
+
+  screenInited = true;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Notification config app  - - - - - - - - - - - - - - - - - - - - - - -
+
+/* Settings > Notifications. One row per KIND of arrival, plus the pop's own volume.
+ *
+ * Why per-kind: muting one thing used to mute another. Texts never announced themselves at
+ * all — only mesh messages did — and a text arriving over the COVEY mirror chirped only
+ * because it rode the mesh path. Silencing the mirror silenced real texts with it. Splitting
+ * the choice three ways is what makes "quiet mesh, audible texts" expressible at all.
+ */
+NotifyConfigApp::NotifyConfigApp(Audio* audio, LCD& lcd, ControlState& state, HeaderWidget* header, FooterWidget* footer)
+  : WindowedApp(lcd, state, header, footer), FocusableApp(4), audio(audio), ini(Storage::ConfigsFile) {
+  log_d("create NotifyConfigApp");
+
+  header->setTitle("Notifications");
+  footer->setButtons("Save", "Back");
+
+  uint16_t yOff = header->height() + 5;
+
+  /* The same three words on every row, deliberately. A row that said "Ring + vibrate" and
+   * another that said "Sound + buzz" would read as two different mechanisms when they are
+   * one. "Vibrate only" means the motor still pulses and the tone does not play. */
+  struct { const char* text; LabelWidget** lab; ChoiceWidget** ch; } rows[3] = {
+    { "Calls:",          &callLabel, &callChoice },
+    { "Text messages:",  &sipLabel,  &sipChoice  },
+    { "Meshtastic:",     &meshLabel, &meshChoice },
+  };
+  for (int i = 0; i < 3; i++) {
+    *rows[i].lab = new LabelWidget(0, yOff, lcd.width(), 25, rows[i].text, WP_ACCENT_1, WP_COLOR_1,
+                                   fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
+    yOff += (*rows[i].lab)->height();
+    *rows[i].ch = new ChoiceWidget(0, yOff, lcd.width(), 35);
+    (*rows[i].ch)->addChoice("Sound + vibrate");
+    (*rows[i].ch)->addChoice("Vibrate only");
+    (*rows[i].ch)->addChoice("Silent");
+    yOff += (*rows[i].ch)->height() + 4;
   }
 
+  addLabelSlider(yOff, volLabel, volSlider, "Notification volume:",
+                 Audio::MuteVolume, Audio::MaxVolume, "dB");
+
+  /* Read what is already stored. GUI::loadSettings() has read these at boot too — this is
+   * the screen catching up with the live values, not a second source of truth. */
+  if ((ini.load() || ini.restore()) && !ini.isEmpty() && ini.hasSection("audio")) {
+    controlState.ringerMode     = (uint8_t) ini["audio"].getIntValueSafe(ringerModeField, controlState.ringerMode);
+    controlState.notifySipMode  = (uint8_t) ini["audio"].getIntValueSafe(sipModeField, controlState.notifySipMode);
+    controlState.notifyMeshMode = (uint8_t) ini["audio"].getIntValueSafe(meshModeField, controlState.notifyMeshMode);
+    controlState.notifyVolume   = (int8_t)  ini["audio"].getIntValueSafe(notifyVolField, controlState.notifyVolume);
+  }
+
+  callChoice->setValue(controlState.ringerMode);
+  sipChoice->setValue(controlState.notifySipMode);
+  meshChoice->setValue(controlState.notifyMeshMode);
+  volSlider->setValue(controlState.notifyVolume);
+
+  addFocusableWidget(callChoice);
+  addFocusableWidget(sipChoice);
+  addFocusableWidget(meshChoice);
+  addFocusableWidget(volSlider);
+  setFocus(callChoice);
+}
+
+NotifyConfigApp::~NotifyConfigApp() {
+  log_d("destroy NotifyConfigApp");
+  ini.backup();
+  delete callLabel;
+  delete callChoice;
+  delete sipLabel;
+  delete sipChoice;
+  delete meshLabel;
+  delete meshChoice;
+  delete volLabel;
+  delete volSlider;
+}
+
+appEventResult NotifyConfigApp::processEvent(EventType event) {
+  log_d("processEvent NotifyConfigApp: %04x", event);
+  appEventResult res = REDRAW_SCREEN;
+
+  if (event == WIPHONE_KEY_SELECT) {
+    // Save. The live ControlState is updated FIRST so the very next arrival obeys the new
+    // setting even if the file write were to fail.
+    controlState.ringerMode     = (uint8_t) callChoice->getValue();
+    controlState.notifySipMode  = (uint8_t) sipChoice->getValue();
+    controlState.notifyMeshMode = (uint8_t) meshChoice->getValue();
+    controlState.notifyVolume   = (int8_t)  volSlider->getValue();
+
+    if (!ini.hasSection("audio")) {
+      ini.addSection("audio");
+    }
+    ini["audio"][ringerModeField] = (int) controlState.ringerMode;
+    ini["audio"][sipModeField]    = (int) controlState.notifySipMode;
+    ini["audio"][meshModeField]   = (int) controlState.notifyMeshMode;
+    ini["audio"][notifyVolField]  = (int) controlState.notifyVolume;
+    ini.store();
+  }
+
+  if (event == WIPHONE_KEY_END || event == WIPHONE_KEY_BACK || event == WIPHONE_KEY_SELECT) {
+    return EXIT_APP;
+  }
+
+  if (event == WIPHONE_KEY_DOWN || event == WIPHONE_KEY_UP) {
+    nextFocus(event == WIPHONE_KEY_DOWN);
+  } else {
+    ((GUIWidget*) getFocused())->processEvent(event);
+  }
+  return res;
+}
+
+void NotifyConfigApp::redrawScreen(bool redrawAll) {
+  if (!screenInited) {
+    redrawAll = true;
+  }
+  if (redrawAll) {
+    lcd.fillRect(0, header->height(), lcd.width(), lcd.height() - header->height() - footer->height(), WP_COLOR_1);
+    ((GUIWidget*) callLabel)->redraw(lcd);
+    ((GUIWidget*) sipLabel)->redraw(lcd);
+    ((GUIWidget*) meshLabel)->redraw(lcd);
+    ((GUIWidget*) volLabel)->redraw(lcd);
+  }
+  ((GUIWidget*) callChoice)->refresh(lcd, redrawAll);
+  ((GUIWidget*) sipChoice)->refresh(lcd, redrawAll);
+  ((GUIWidget*) meshChoice)->refresh(lcd, redrawAll);
+  ((GUIWidget*) volSlider)->refresh(lcd, redrawAll);
   screenInited = true;
 }
 

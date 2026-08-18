@@ -886,7 +886,7 @@ void Audio::restore() {
   this->setVolumes(this->presEarpieceVol, this->presHeadphonesVol, this->presLoudspeakerVol);
 }
 
-bool Audio::playPop(fs::FS *fs) {
+bool Audio::playPop(fs::FS *fs, int8_t vol) {
   this->preserve();          // ⚠ BEFORE anything below changes it
   this->ceasePlayback();
   this->playback = Playback::LocalPcm;
@@ -896,7 +896,14 @@ bool Audio::playPop(fs::FS *fs) {
   this->setMonoOutput(true);
   this->setHeadphones(false);                       // force speaker path (not headphones)
   this->chooseSpeaker(true);                        // loudspeaker (not the tiny earpiece)
-  this->setVolumes(Audio::MaxVolume, Audio::MaxVolume, Audio::MaxLoudspeakerVolume);
+  /* ⚠ The loudspeaker level is the caller's, not a constant. This line used to force
+   * maximum on every notification regardless of any setting, which is exactly why a mesh
+   * chirp was as loud as the phone could make it. preserve()/restore() around this call
+   * still puts the previous six parameters back — see Audio::preserve(). */
+  if (vol > Audio::MaxLoudspeakerVolume) {
+    vol = Audio::MaxLoudspeakerVolume;
+  }
+  this->setVolumes(Audio::MaxVolume, Audio::MaxVolume, vol);
 
   if (!this->turnOn()) {
     this->restore();      // nothing will call restore() for us if the pop never starts

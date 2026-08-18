@@ -159,7 +159,13 @@ public:
   bool playFile(fs::FS *fs, const char* path);
   bool playRecord();
   bool playRingtone(fs::FS *fs);
-  bool playPop(fs::FS *fs);        // short quiet notification sound (/pop.pcm)
+  /* Short notification sound (/pop.pcm).
+   *
+   * `vol` is the LOUDSPEAKER level in dB; it used to be hardwired to maximum, which is why
+   * a mesh message announced itself at the same volume whatever the phone's settings said.
+   * Settings > Notifications owns this now. MaxVolume keeps the old behaviour for any caller
+   * that does not care. */
+  bool playPop(fs::FS *fs, int8_t vol = Audio::MaxLoudspeakerVolume);
   bool rewind() {
     return this->playFile(this->playbackFS, this->playbackFilename.c_str());
   }

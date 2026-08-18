@@ -1491,14 +1491,21 @@ static uint32_t meshVibroStartMs = 0;
  *
  * So the announcement now belongs to the ARRIVAL, not to the transport that carried it.
  * Both callers share this, and the teardown timers below already service either one. */
-static void notifyMessageArrived(uint32_t now) {
+static void notifyMessageArrived(uint32_t now, uint8_t mode) {
+  /* `mode` is this KIND of arrival's own setting from Settings > Notifications — a text and
+   * a mesh message are separately configurable, because muting one used to mute the other. */
+  if (mode == ControlState::RINGER_SILENT) {
+    return;                      // no tone, no buzz; the unread badge still goes up
+  }
   // Never over a call or a ringtone — those own the speaker and the motor.
-  if (gui.state.sipState != CallState::Call && !gui.state.ringing && !meshPopPlaying) {
-    if (audio->playPop(&SPIFFS)) {
+  if (mode == ControlState::RINGER_RING_AND_VIBRATE &&
+      gui.state.sipState != CallState::Call && !gui.state.ringing && !meshPopPlaying) {
+    if (audio->playPop(&SPIFFS, gui.state.notifyVolume)) {
       meshPopPlaying = true;
       meshPopStartMs = now;
     }
   }
+  // "Vibrate only" still buzzes — that is the whole difference from Silent.
   if (!gui.state.ringing && !meshVibroActive) {
     allDigitalWrite(VIBRO_MOTOR_CONTROL, HIGH);
     meshVibroActive = true;
@@ -2575,7 +2582,7 @@ void loop() {
         // Pass event to GUI
         appEventResult res = gui.processEvent(now, NEW_MESSAGE_EVENT);
         gui.redrawScreen(res & REDRAW_HEADER, res & REDRAW_FOOTER, res & REDRAW_SCREEN);
-        notifyMessageArrived(now);   // a text arriving is news; say so
+        notifyMessageArrived(now, gui.state.notifySipMode);   // a text arriving is news
       }
     } else {
       gui.state.sipRegistered = false;
@@ -2646,7 +2653,7 @@ void loop() {
         meshPopupActive = true;
         meshPopupShownMs = now;
       }
-      notifyMessageArrived(now);   // same pop + buzz an incoming text gets
+      notifyMessageArrived(now, gui.state.notifyMeshMode);
     }
 
     // Stop the notification vibration after its brief pulse.
