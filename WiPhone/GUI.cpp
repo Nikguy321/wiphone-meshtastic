@@ -6824,6 +6824,7 @@ void MessagesApp::buildThread() {
   const int n = sipThreadOpen(flash.messages, threadPeer);
   if (n <= 0) {
     threadText->cursorToStart();
+    threadText->setFocus(true);
     return;
   }
 
@@ -6875,7 +6876,12 @@ void MessagesApp::buildThread() {
 
   threadText->setText(buf);
   free(buf);
-  threadText->cursorToStart();
+  /* ⚠ END, not start, and FOCUS. Two separate bugs Nick hit at once: the thread opened at the
+   * oldest message, and up/down did nothing. The widget scrolls by moving its cursor, and it
+   * only takes cursor keys when focused — so without setFocus() a long conversation was
+   * frozen at the top with no way down. */
+  threadText->cursorToEnd();
+  threadText->setFocus(true);
 }
 
 void MessagesApp::redrawScreen(bool redrawAll) {
@@ -10936,6 +10942,17 @@ void MultilineTextWidget::setText(const char* str) {
 void MultilineTextWidget::cursorToStart() {
   cursRow = 0;
   cursOffset = 0;
+  revealCursor();
+}
+
+void MultilineTextWidget::cursorToEnd() {
+  cursRow = 0;
+  for (int i = 0; i < maxRows; i++) {
+    if (rowsDyn[i] && rowsDyn[i][0]) {
+      cursRow = i;
+    }
+  }
+  cursOffset = rowLen(cursRow);
   revealCursor();
 }
 

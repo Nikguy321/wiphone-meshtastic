@@ -998,6 +998,10 @@ public:
     centering = p;
   };
   void cursorToStart();
+  /* Jump to the LAST row. A conversation has to open on the newest message — landing at the
+   * top of a long thread means scrolling past everything you have already read to reach the
+   * one you opened it for. */
+  void cursorToEnd();
 
   /* TextInputAbstract virtuals */
   void setText(const char* str);

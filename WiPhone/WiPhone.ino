@@ -1479,6 +1479,34 @@ static uint32_t meshPopStartMs = 0;
 static bool     meshVibroActive = false;
 static uint32_t meshVibroStartMs = 0;
 
+/* The brief "you have a message" pop + buzz.
+ *
+ * ⚠ SHARED BY THE MESH AND SIP PATHS, and that is the whole point of it existing.
+ * An incoming SIP TEXT never announced itself — only mesh messages did. That went unnoticed
+ * while texts were reaching the phone through the LoRa mirror, because those arrive on the
+ * MESH path and chirped as a side effect. Silencing the mirror (which is right: a mirrored
+ * copy of a text you already have is not news) therefore took the notification away from
+ * real incoming texts too, and Nick noticed immediately: "I seem to have lost the vibration
+ * for notifications, and the chirp."
+ *
+ * So the announcement now belongs to the ARRIVAL, not to the transport that carried it.
+ * Both callers share this, and the teardown timers below already service either one. */
+static void notifyMessageArrived(uint32_t now) {
+  // Never over a call or a ringtone — those own the speaker and the motor.
+  if (gui.state.sipState != CallState::Call && !gui.state.ringing && !meshPopPlaying) {
+    if (audio->playPop(&SPIFFS)) {
+      meshPopPlaying = true;
+      meshPopStartMs = now;
+    }
+  }
+  if (!gui.state.ringing && !meshVibroActive) {
+    allDigitalWrite(VIBRO_MOTOR_CONTROL, HIGH);
+    meshVibroActive = true;
+    meshVibroStartMs = now;
+  }
+}
+
+
 extern void gbcXferHandleClient();   // ROM-transfer web server pump (no-op when off)
 extern bool gbcXferOn();             // true while the transfer server is running
 
@@ -2547,6 +2575,7 @@ void loop() {
         // Pass event to GUI
         appEventResult res = gui.processEvent(now, NEW_MESSAGE_EVENT);
         gui.redrawScreen(res & REDRAW_HEADER, res & REDRAW_FOOTER, res & REDRAW_SCREEN);
+        notifyMessageArrived(now);   // a text arriving is news; say so
       }
     } else {
       gui.state.sipRegistered = false;
@@ -2617,22 +2646,7 @@ void loop() {
         meshPopupActive = true;
         meshPopupShownMs = now;
       }
-      // Quiet notification "pop" — play unless we're in an active call/ringtone.
-      if (gui.state.sipState != CallState::Call && !gui.state.ringing && !meshPopPlaying) {
-        bool played = audio->playPop(&SPIFFS);
-        log_e("Mesh pop: played=%d", played);
-        if (played) {
-          meshPopPlaying = true;
-          meshPopStartMs = now;
-        }
-      }
-      // Short silent buzz too (skip if the ringtone owns the motor).
-      if (!gui.state.ringing) {
-        allDigitalWrite(VIBRO_MOTOR_CONTROL, HIGH);
-        meshVibroActive = true;
-        meshVibroStartMs = now;
-        log_e("Mesh vibro: on");
-      }
+      notifyMessageArrived(now);   // same pop + buzz an incoming text gets
     }
 
     // Stop the notification vibration after its brief pulse.
