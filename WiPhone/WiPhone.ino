@@ -1491,6 +1491,14 @@ static uint32_t meshVibroStartMs = 0;
  *
  * So the announcement now belongs to the ARRIVAL, not to the transport that carried it.
  * Both callers share this, and the teardown timers below already service either one. */
+static void notifyMessageArrived(uint32_t now, uint8_t mode);
+
+/* The mirror's way in. Non-static so meshtastic_service.cpp and the LAN poller can reach it
+ * without either of them needing to know about ringer modes or the vibro motor. */
+void smsMirrorNotifyArrival() {
+  notifyMessageArrived(millis(), gui.state.notifySipMode);
+}
+
 static void notifyMessageArrived(uint32_t now, uint8_t mode) {
   /* `mode` is this KIND of arrival's own setting from Settings > Notifications — a text and
    * a mesh message are separately configurable, because muting one used to mute the other. */

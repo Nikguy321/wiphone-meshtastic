@@ -37,7 +37,10 @@ static bool buildPeerUri(const char* digits, const char* ownUri, char* out, size
   return w > 0 && (size_t)w < cap;
 }
 
-int smsMirrorIngestLine(const char* line) {
+int smsMirrorIngestLine(const char* line, bool* wasIncoming) {
+  if (wasIncoming) {
+    *wasIncoming = false;
+  }
   SmsMirrorRecord rec;
   if (!smsMirrorUnpack(line, &rec)) {
     return -1;
@@ -80,6 +83,9 @@ int smsMirrorIngestLine(const char* line) {
    * That is the intended behaviour: he already knows about it. */
   if (r > 0) {
     gui.state.unreadMessages = gui.flash.messages.hasUnread();
+    if (wasIncoming) {
+      *wasIncoming = !rec.out;      // `out` is COVEY's view: the ACCOUNT sent it
+    }
   }
 
   return r;

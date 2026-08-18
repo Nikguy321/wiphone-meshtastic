@@ -21,11 +21,16 @@
  *            0  we already had it (by VoIP.ms id, or paired with the phone's own copy)
  *           -1  the line was not a usable record, or there is no SIP account to file it under
  *
+ * `wasIncoming`, when given, says whether that new message was one you RECEIVED. Callers need
+ * it to decide whether to announce: a mirrored copy of a text you sent from COVEY is not news,
+ * and a duplicate is not news either — but a text somebody sent you, arriving here first over
+ * the radio, is exactly as much news as one arriving over SIP.
+ *
  * ⚠ NEEDS A SIP ACCOUNT, and refuses without one. A mirrored text has to be stored against a
  * correspondent URI the phone would itself produce, or replying to it would build a different
  * address and the conversation would split in two. The account supplies the host half.
  */
-int smsMirrorIngestLine(const char* line);
+int smsMirrorIngestLine(const char* line, bool* wasIncoming = 0);
 
 /* True if `text` is mirror traffic — checked by prefix, before anything else, so that a
  * malformed or hostile packet is dropped rather than displayed. */
