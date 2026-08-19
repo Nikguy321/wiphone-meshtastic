@@ -15,6 +15,8 @@
 #ifndef SMS_MIRROR_RX_H
 #define SMS_MIRROR_RX_H
 
+#include <stddef.h>   // size_t, for sipCompleteAddress
+
 /* Fold one CSM1 line into the SIP message store.
  *
  *   returns  1  a new text was stored
@@ -50,5 +52,21 @@ bool smsMirrorIsMirrorLine(const char* text);
  * least one of those was a text somebody sent YOU (the only kind worth a buzz). Both reset
  * on read. */
 bool smsMirrorTakeNews(bool* inbound);
+
+/* Complete a BARE PHONE NUMBER into a full SIP address using the phone's OWN account.
+ *
+ *   "4257604281"              -> "14257604281@seattle1.voip.ms"   (host from YOUR account)
+ *   "alice@sip.example.com"   -> untouched (returns false)
+ *   "LORA:00449040" / letters -> untouched (returns false)
+ *
+ * Returns true only when it wrote a completed address into `out`. This is what lets the
+ * phonebook and the composer accept a plain number: TinySIP::sendMessage() uses addresses
+ * VERBATIM, so a bare number used to call fine and silently fail to text. Adaptive by
+ * construction, with no setting to configure: the suffix is whatever host the user's own
+ * SIP account registered with, so a different provider gets ITS host appended — and any
+ * input that is not purely digits passes through untouched, which is how non-number SIP
+ * services keep working. Number formatting reuses buildPeerUri(), the mirror's measured
+ * known-good form, so texting, calling and thread grouping can never disagree. */
+bool sipCompleteAddress(const char* input, char* out, size_t cap);
 
 #endif // SMS_MIRROR_RX_H

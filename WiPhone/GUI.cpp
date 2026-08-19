@@ -20,6 +20,7 @@ governing permissions and limitations under the License.
 #include "app_gbc.h"
 #include "app_books.h"
 #include "app_files.h"
+#include "sms_mirror_rx.h"   // sipCompleteAddress: bare number -> full SIP URI
 #include "app_music.h"
 
 // Static images
@@ -4308,6 +4309,17 @@ appEventResult PhonebookApp::processEvent(EventType event) {
       flash.phonebook.addSection();
       flash.phonebook[-1]["n"] = dispNameInput->getText();
 
+      /* A contact typed as a bare number is completed from the phone's own account before
+       * the sip: normalisation below — ten-tap typing "@seattle1.voip.ms" per contact was
+       * the whole complaint, and a stored bare number would call fine but silently fail
+       * to text (sendMessage uses addresses verbatim). */
+      {
+        char completedAddr[128];
+        if (sipCompleteAddress(sipUriInput->getText(), completedAddr, sizeof(completedAddr))) {
+          sipUriInput->setText(completedAddr);
+        }
+      }
+
       //check whether uri starts with "sips:" or "SIPS:" or "SIP:" which cannot be called (tested)
       if(strncmp(sipUriInput->getText(), "sips:", 4) == 0 || strncmp(sipUriInput->getText(), "SIPS:", 4) == 0 || strncmp(sipUriInput->getText(), "SIP:", 4) == 0) {
         //TODO display error popup which says we do not support it.
@@ -7458,6 +7470,13 @@ appEventResult CreateMessageApp::processEvent(EventType event) {
       // Collect message data
       const char* fromUri  = controlState.fromUriDyn;
       const char* toUri    = addr->getText();
+      /* A bare typed number becomes a full SIP address from the phone's own account —
+       * before classification, so "4257604281" counts as SIP rather than falling through
+       * to the LoRa branch. Anything with '@', letters or a LORA: prefix is untouched. */
+      char completedAddr[128];
+      if (sipCompleteAddress(toUri, completedAddr, sizeof(completedAddr))) {
+        toUri = completedAddr;
+      }
       const char* message  = text->getText();
       bool        incoming = false;
       char loraAddress[100] = {0};

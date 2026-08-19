@@ -13,6 +13,8 @@ extern GUI gui;
 static bool s_newStored  = false;
 static bool s_newInbound = false;
 
+static bool buildPeerUri(const char* digits, const char* ownUri, char* out, size_t cap);
+
 bool smsMirrorTakeNews(bool* inbound) {
   const bool stored = s_newStored;
   if (inbound) {
@@ -25,6 +27,22 @@ bool smsMirrorTakeNews(bool* inbound) {
 
 bool smsMirrorIsMirrorLine(const char* text) {
   return smsMirrorIsMirrorText(text);
+}
+
+bool sipCompleteAddress(const char* input, char* out, size_t cap) {
+  if (!input || !input[0] || strchr(input, '@')) {
+    return false;                     // empty, or already a full address: not ours to touch
+  }
+  for (const char* p = input; *p; p++) {
+    if (*p < '0' || *p > '9') {
+      return false;                   // letters, ':', '+': some other kind of address
+    }
+  }
+  const char* ownUri = gui.state.fromUriDyn;
+  if (!ownUri || !*ownUri) {
+    return false;                     // no SIP account: nothing to complete WITH
+  }
+  return buildPeerUri(input, ownUri, out, cap);
 }
 
 /* Build the correspondent's URI in the form THIS PHONE would build it.
