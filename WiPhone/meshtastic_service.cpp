@@ -651,9 +651,9 @@ bool MeshtasticService::loop() {
          * one is dropped, not displayed — showing "CSM1 109970452 4257604281 i ..." as a
          * chat message would be worse than losing it.
          *
-         * Returns TRUE, unlike book-sync, and that difference is the point: a book position
-         * is machine traffic a person never reads, but this IS a text message that has just
-         * arrived, so the caller's new-message signal is exactly right. */
+         * Returns FALSE, like book-sync: a mirrored record must not raise the MESH
+         * new-message signal (see the long note at the bottom of this block). The SIP-side
+         * announcing happens in the main loop via smsMirrorTakeNews(). */
         if (smsMirrorIsMirrorLine(text)) {
           int r = smsMirrorIngestLine(text);
           /* ⚠ log_e, NOT log_i, and on the SUCCESS path too. Only log_e is compiled into

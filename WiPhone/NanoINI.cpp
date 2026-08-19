@@ -25,13 +25,29 @@ namespace NanoIni {
 
 /* See the note in NanoINI.h: the object headers were the last part of a parsed INI still
  * living in internal RAM, and a partition parse makes hundreds of them in one call. */
-void* KeyValue::operator new(size_t n) {
+/* ⚠ These are the THROWING form of operator new, so they must never return NULL — the
+ * compiler omits the null check at every `new KeyValue(...)` site and would run the
+ * constructor on a null `this`. This build has no exceptions, so on total exhaustion
+ * (PSRAM AND internal both empty) the honest move is the same one the stock allocator
+ * makes: abort. That is a defined, decodable reset_reason=4 instead of a silent
+ * null-write — and with 3.6 MB of PSRAM in front of it, effectively unreachable. */
+static void* psObjectAlloc(size_t n) {
 #ifdef ESP32
   void* p = ps_malloc(n);
-  return p ? p : malloc(n);
+  if (!p) {
+    p = malloc(n);
+  }
 #else
-  return malloc(n);
+  void* p = malloc(n);
 #endif
+  if (!p) {
+    abort();
+  }
+  return p;
+}
+
+void* KeyValue::operator new(size_t n) {
+  return psObjectAlloc(n);
 }
 
 void KeyValue::operator delete(void* p) {
@@ -39,12 +55,7 @@ void KeyValue::operator delete(void* p) {
 }
 
 void* Section::operator new(size_t n) {
-#ifdef ESP32
-  void* p = ps_malloc(n);
-  return p ? p : malloc(n);
-#else
-  return malloc(n);
-#endif
+  return psObjectAlloc(n);
 }
 
 void Section::operator delete(void* p) {

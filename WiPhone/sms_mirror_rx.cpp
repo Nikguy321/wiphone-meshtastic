@@ -2,6 +2,7 @@
 #include "sms_mirror.h"
 #include "GUI.h"
 #include "config.h"
+#include "clock.h"     // ntpClock: the buzz is gated on the record being RECENT
 
 #include <string.h>
 #include <stdio.h>
@@ -100,10 +101,24 @@ int smsMirrorIngestLine(const char* line, bool* wasIncoming) {
     if (wasIncoming) {
       *wasIncoming = !rec.out;      // `out` is COVEY's view: the ACCOUNT sent it
     }
-    /* Latch for the main loop's announcer — whichever transport this line rode in on. */
+    /* Latch for the main loop's announcer — whichever transport this line rode in on.
+     *
+     * ⚠ The BUZZ latch additionally requires the record to be RECENT. A full resync
+     * (first boot with an empty store, or a deleted since-file) stores hours or days of
+     * old inbound texts in one poll, and each would otherwise latch a buzz — the motor
+     * running continuously for the length of the catch-up, announcing history. Ten
+     * minutes of slack covers every real transport delay (LoRa store-and-forward, a poll
+     * gap, COVEY catching up after ITS fix) without letting an archive vibrate. When the
+     * clock is not yet known the buzz wins over silence: a wrongly silent real arrival
+     * is the exact fault this feature exists to fix. The UI latch is unconditional —
+     * the screen should refresh whatever the age. */
     s_newStored = true;
     if (!rec.out) {
-      s_newInbound = true;
+      const bool recent = !ntpClock.isTimeKnown() || rec.ts == 0 ||
+                          (int64_t)ntpClock.getExactUnixTime() - (int64_t)rec.ts < 600;
+      if (recent) {
+        s_newInbound = true;
+      }
     }
   }
 

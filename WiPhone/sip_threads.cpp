@@ -213,10 +213,20 @@ static int msgCompare(const void* a, const void* b) {
   if (x->time != y->time) {
     return (x->time < y->time) ? -1 : 1;          // oldest first: reading order
   }
-  /* Equal times: the VoIP.ms id recovers true order when both sides carry one — see the
-   * note on SipThreadMsg. Otherwise fall to the insertion number, which never ties, so
-   * this comparator never returns 0 and an unstable qsort cannot shuffle the thread. */
-  if (x->vid && y->vid && x->vid != y->vid) {
+  /* Equal times: strictly lexicographic on (has-a-vid, vid, seq), and the SHAPE matters
+   * as much as the keys. An earlier draft applied the vid rule only when both sides had
+   * one and fell to seq otherwise — which is intransitive across a mixed block (A>C by
+   * vid, C>B by seq, B>A by seq), and an inconsistent comparator makes qsort's output
+   * unspecified: the exact nondeterminism this comparator exists to remove. Grouping
+   * vid-bearing messages first, then by vid (true provider order — this is also what
+   * puts a COVEY catch-up burst stamped with one clamped timestamp back in order), then
+   * by seq, is a total order: never 0, never cyclic. */
+  const bool xv = (x->vid != 0);
+  const bool yv = (y->vid != 0);
+  if (xv != yv) {
+    return xv ? -1 : 1;                           // vid-bearing group first, uniformly
+  }
+  if (xv && x->vid != y->vid) {
     return (x->vid < y->vid) ? -1 : 1;
   }
   return (x->seq < y->seq) ? -1 : 1;

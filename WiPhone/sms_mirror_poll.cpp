@@ -201,6 +201,10 @@ static void finish(const char* why, bool ok, int added, int lines) {
      * that actually advanced, so a phone hearing nothing new never touches the card. */
     static int64_t s_persistedSinceId = 0;
     if (s_sinceId > s_persistedSinceId) {
+      /* ⚠ arduino-esp32 1.0.6 does NOT create parent directories on open-for-write, so on
+       * a card prepared on a computer (config at the root, /roms never made by the
+       * uploader) the persist would fail silently forever. mkdir is idempotent here. */
+      SD.mkdir("/roms");
       File sf = SD.open(SINCE_FILE, FILE_WRITE);
       if (sf) {
         char buf[24];
@@ -210,6 +214,13 @@ static void finish(const char* why, bool ok, int added, int lines) {
         }
         sf.close();
         s_persistedSinceId = s_sinceId;
+      } else {
+        static bool s_warnedOnce = false;
+        if (!s_warnedOnce) {
+          s_warnedOnce = true;
+          log_e("SMSMIRROR: cannot write %s - since-id not persisting (full resync every boot)",
+                SINCE_FILE);
+        }
       }
     }
   }
@@ -273,9 +284,18 @@ static int ingestLine() {
       added = 1;
       s_added++;
     }
-    SmsMirrorRecord rec;
-    if (smsMirrorUnpack(s_line, &rec) && rec.id > s_sinceId) {
-      s_sinceId = rec.id;
+    /* ⚠ THE MARK ADVANCES ONLY PAST RECORDS THE STORE ACCEPTED (stored, r>0, or already
+     * had, r==0). A REFUSED record (r<0: no SIP account yet, an unbuildable peer URI, the
+     * message db failing to load) must NOT be skipped: with the mark persisted to SD, one
+     * refusal would become PERMANENT silent loss of that text — before persistence, a
+     * reboot's since=0 refetch quietly healed exactly this case, and the fix must not
+     * remove that healing. A refused record is re-served next poll and deduped once
+     * whatever refused it is fixed. */
+    if (r >= 0) {
+      SmsMirrorRecord rec;
+      if (smsMirrorUnpack(s_line, &rec) && rec.id > s_sinceId) {
+        s_sinceId = rec.id;
+      }
     }
   }
   s_lineLen = 0;

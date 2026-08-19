@@ -504,6 +504,12 @@ bool Messages::load(uint32_t unixTime) {
    * sync moment rather than the true arrival — the honest best available on a board with
    * no RTC, and hours closer than "pinned newest forever". */
   if (unixTime) {
+    /* One descending band of stamps across ALL repaired partitions. Incoming and outgoing
+     * live in separate partitions, and giving each its own band ending at unixTime would
+     * hand the same stamps out twice — a boot-era exchange (received, replied) could then
+     * interleave wrongly forever. Bands are assigned in index-scan order: arbitrary across
+     * directions (nothing on disk records the true interleave), but distinct and stable. */
+    uint32_t bandEnd = unixTime;
     for (auto ipart = index.iterator(1); ipart.valid(); ++ipart) {
       if (strcasecmp(ipart->getValueSafe("t2", ""), "ffffffff")) {
         continue;                        // running max isn't the sentinel: none inside
@@ -519,13 +525,20 @@ bool Messages::load(uint32_t unixTime) {
         }
       }
       if (k > 0) {
-        uint32_t stamp = unixTime - (uint32_t)(k - 1);    // oldest arrival, earliest stamp
+        uint32_t stamp = bandEnd - (uint32_t)(k - 1);     // oldest arrival, earliest stamp
         for (auto im = ini.iterator(1); im.valid(); ++im) {
           if (!strcasecmp(im->getValueSafe("t", ""), "ffffffff")) {
             im->putValueFullHex("t", stamp++);
           }
         }
-        ini.sortFrom(1, Storage::messageCompare);         // newest-first again, truly this time
+        bandEnd -= (uint32_t)k;                           // next partition: older band
+        /* ⚠ This re-sort is qsort under messageCompare, which still ties on equal times —
+         * a one-time shuffle of any equal-time NON-sentinel pair in this partition is
+         * accepted here: their on-disk order was arbitrary to begin with, the shuffle
+         * happens once, and display order is decided by sip_threads' deterministic
+         * comparator, not file order. The repaired stamps themselves are distinct, so the
+         * sentinels land exactly where they should regardless of stability. */
+        ini.sortFrom(1, Storage::messageCompare);
         // Recompute the partition's time range from what is now actually in it
         const char* t1 = NULL;
         const char* t2 = NULL;
@@ -540,13 +553,45 @@ bool Messages::load(uint32_t unixTime) {
         if (t1 && t2) {
           ini[0]["t1"] = t1;
           ini[0]["t2"] = t2;
+        }
+        /* ⚠ THE INDEX FOLLOWS THE FILE, never leads it. If the partition write fails
+         * (full SPIFFS, pulled card), updating the index's t2 anyway would clear the
+         * one flag that makes this repair run — the sentinels would stay on disk and
+         * never be repaired again. Leave t2 at ffffffff so the next load retries. */
+        if (ini.store()) {
+          if (t1 && t2) {
+            (*ipart)["t1"] = t1;
+            (*ipart)["t2"] = t2;
+            indexUpdated = true;
+          }
+          log_e("MSG: repaired %d unknown-time message(s) in partition %s",
+                (int)k, ipart->getValueSafe("p", "?"));
+        } else {
+          log_e("MSG: repair of partition %s did NOT store - will retry next load",
+                ipart->getValueSafe("p", "?"));
+        }
+      } else {
+        /* No sentinels in the file but the index says ffffffff: the index is stale (for
+         * example, power was lost between the partition store and the index store on a
+         * previous repair). Heal it here, or this partition gets re-parsed on every load
+         * forever. The file itself is fine — only the index range needs recomputing. */
+        const char* t1 = NULL;
+        const char* t2 = NULL;
+        for (auto im = ini.iterator(1); im.valid(); ++im) {
+          const char* t = im->getValueSafe("t", NULL);
+          if (!t) {
+            continue;
+          }
+          t1 = (!t1 || strncasecmp(t, t1, 8) < 0) ? t : t1;
+          t2 = (!t2 || strncasecmp(t, t2, 8) > 0) ? t : t2;
+        }
+        if (t1 && t2) {
           (*ipart)["t1"] = t1;
           (*ipart)["t2"] = t2;
+          indexUpdated = true;
+          log_e("MSG: healed stale sentinel range on partition %s",
+                ipart->getValueSafe("p", "?"));
         }
-        ini.store();
-        indexUpdated = true;
-        log_e("MSG: repaired %d unknown-time message(s) in partition %s",
-              (int)k, ipart->getValueSafe("p", "?"));
       }
     }
   }
