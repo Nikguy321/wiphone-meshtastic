@@ -1,7 +1,17 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-19 · **Version 0.9.4+, flashed and verified.** All host suites
-green; both repos pushed.
+**Last updated:** 2026-08-19 (night) · **Version 0.9.5 — released, flashed, and LIVE on
+the web flasher.** All host suites green; both repos pushed.
+
+## ✅ 0.9.5 (2026-08-19): the erase-recovery release
+The web flasher is live and DATA-SAFE (esptool-js direct; erase only as an explicit
+option — see docs/webflasher-plan.md for the incident that forced that). Files app,
+number completion (sipCompleteAddress — sees through sip:/+ prefixes; needs the ACTIVE
+account), serial toolbox (chan/chans/sip/bookpage), reader margin fix, booksync PSK
+ROTATED (passcode 2222 both sides; the leaked key is dead), book sync re-verified
+end-to-end by Nick, missed calls + phonebook confirm. 🔑 Field lesson worth keeping:
+"texting dead + completion dead + mirror refusing" = ONE cause, no active SIP account —
+the `sip` serial command prints it in one line.
 
 ## ✅ 2026-08-19 (day): reader fix proven, Files app, web flasher, courtesies
 
