@@ -197,12 +197,30 @@ static size_t bookRenderRun(SmoothFont* f, const char* s, size_t len, char* out,
   return o;
 }
 
-/* Width of one run of UTF-8, for book_layout. book_layout measures a character at a time and
- * sums, which is exactly how SmoothFont works internally, so this stays cheap. */
+/* Width of one run of UTF-8, for book_layout.
+ *
+ * ⚠ ADVANCE-CORRECTED, and the correction is the fix for "characters cut off at the
+ * margins" (Nick's photo, 2026-08-18; cornered by the `bookpage` probe). SmoothFont::
+ * textWidth bills every glyph its full x-advance EXCEPT THE LAST, which gets only its ink
+ * width (gdX+gWidth) — and book_layout calls this measure ONE CHARACTER AT A TIME, so
+ * every character was "the last": the summed widths under-counted ~0.4 px per glyph. Over
+ * a 40-character line that is ~15 px, the layouter packed one or two characters too many
+ * into the 228 px budget (bookpage measured finished lines at 236-245 px), and the draw
+ * clamped the overflowing line leftward — beheading its first character on screen while
+ * the layout, measured on the host, was provably lossless.
+ *
+ * The sentinel space makes every real glyph non-final (billed its advance), then the
+ * space's own width is subtracted. This errs a hair WIDE on a line's true final glyph,
+ * which can only break a line one character early — never clip. */
 static int fontMeasure(void* ctx, const char* s, size_t len) {
   SmoothFont* f = (SmoothFont*)ctx;
   char tmp[96];
-  bookRenderRun(f, s, len, tmp, sizeof(tmp));   // measure what will actually be drawn
+  size_t l = bookRenderRun(f, s, len, tmp, sizeof(tmp));   // measure what will be drawn
+  if (l + 1 < sizeof(tmp)) {
+    tmp[l] = ' ';
+    tmp[l + 1] = '\0';
+    return (int)(f->textWidth(tmp) - f->textWidth(" "));
+  }
   return (int)f->textWidth(tmp);
 }
 
