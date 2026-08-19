@@ -1,7 +1,63 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-19 (night) · **Version 0.9.5 — released, flashed, and LIVE on
-the web flasher.** All host suites green; both repos pushed.
+**Last updated:** 2026-08-19 (later) · **Version 0.9.6 — PKC built, flashed, phone-side
+verified; ON-AIR INTEROP WITH THE RAK PENDING.** All 10 host suites green (new:
+test_pki). ⚠ The web flasher still serves 0.9.5 ON PURPOSE — soak 0.9.6 first.
+
+## 🔐 0.9.6 (2026-08-19): Meshtastic PKC — DMs can work again. What was DONE and what is NOT YET PROVEN.
+
+**Why:** Meshtastic 2.5+ requires public-key crypto for DMs BOTH WAYS — the RAK refuses
+to send to a keyless phone (`PKI_SEND_FAIL_PUBLIC_KEY`, the 2026-08-19 finding), and —
+new finding, from reading 2.7's Router.cpp — it also silently DROPS the legacy
+channel-encrypted text DMs this phone was SENDING ("Rejecting legacy DM"). So 0.9.5 DMs
+were dead in both directions and only the RAK→phone direction was known.
+
+**The scheme** (every fact verified against meshtastic/firmware master source
+2026-08-19, files in CryptoEngine.cpp / Router.cpp / mesh.proto — not from docs):
+- session key = SHA-256(X25519(my priv, peer pub)); AES-256-CCM (L=2, M=8, no AAD).
+- 13-byte nonce: packetId u32 LE | extraNonce | fromNode | 0x00. Frame:
+  ciphertext | tag(8) | extraNonce(4). On-air channel-hash byte = 0x00.
+- Keys travel in NodeInfo (User field 8), TOFU. **Stock NEVER overwrites a stored
+  key** — hence the phone's keypair is PERMANENT (NVS `wpmesh/pkipriv`): if it is ever
+  lost (chip erase!), every peer must delete/re-learn this node or DMs die SILENTLY.
+- ACKs (Routing{error_reason} + request_id) are CHANNEL-encrypted on the primary even
+  for PKI DMs — stock excludes ROUTING from PKC. The phone now ACKs DMs it accepts and
+  re-ACKs retransmissions (dupes of ids in `recentAckIds`).
+
+**Where the code lives:** `mesh_pki.{h,cpp}` (self-contained crypto; vendored
+curve25519-donna + tiny-AES-c under `WiPhone/src/crypto/` — provenance headers in each
+file), integration in meshtastic_service.{h,cpp}, serial commands in serial_cmd.cpp.
+`tests/test_pki.cpp` + `tests/vectors_pki.h` (regen: `tools/gen_pki_vectors.py`, needs
+`pip install cryptography`) prove byte-identical frames against Python both directions.
+
+**RAM (Nick asked):** +1,688 B static measured (84,020 → 85,708), ZERO heap. The X25519
+derive costs ~3 KB transient STACK, so it only ever runs at superloop depth: RX
+key-learn warms a 2-entry session-key cache; a GUI-depth DM with a cold cache is QUEUED
+one loop tick (`pendingDm`), never derived inline. On-hardware floor after boot (which
+includes one derive): 3,020 B free (`pki` prints it live).
+
+**Verified on hardware tonight:** boots clean, heap unchanged, node DB migrated v1→v2
+(names kept, `MESH DB: 8 nodes`), keypair generated + persisted, announce carries the
+key (`MESH ANNOUNCE SENT ... pki=in packet`), `pki` command works.
+
+**⚠ NOT YET PROVEN — the next session's first job:**
+1. The RAK hasn't been heard announcing its key yet (phone shows every node NO KEY; keys
+   arrive with each node's next NodeInfo — ≤3 h periodic, or `announce` then wait a
+   minute for the damped reply; a serial-log Monitor was watching when this session
+   ended). ⚠ Stock also suppresses NodeInfo replies to nodes heard <12 h ago, so the
+   periodic broadcast may be the realistic path.
+2. Then: `dm !<raknode> test` from serial → expect `MESH DM ACK ... err=0` in the log =
+   RAK decrypted us (it only ACKs what it decodes). That single line is phone→RAK proof.
+3. Then Nick DMs the phone from COVEY: expect `MESH PKI DM from !...` + text in Chats +
+   ✓ on COVEY. That's RAK→phone proof — and closes "Meshtastic 2.7 refuses ALL DMs".
+4. After soak: rebuild webflasher (`tools/make_webflasher.sh` + publish) so the page
+   serves 0.9.6.
+
+**Honest limitations, on purpose:** phone-originated DMs don't set want_ack (no
+retransmit machinery — ACKs are logged, not shown in UI); DM to a keyless node still
+goes legacy (works for pre-2.5 peers, dropped by 2.5+, log_e says so); a >220-char DM is
+refused (PKI overhead + the 255 B LoRa frame — stock refuses the same length). A
+mismatch-flagged key needs "Clear nodes" (Meshtastic app) or nothing changes.
 
 ## ✅ 0.9.5 (2026-08-19): the erase-recovery release
 The web flasher is live and DATA-SAFE (esptool-js direct; erase only as an explicit

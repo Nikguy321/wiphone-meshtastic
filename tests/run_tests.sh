@@ -47,6 +47,11 @@ for src in tests/test_*.cpp; do
     test_jpeg)     deps=(WiPhone/jpeg_grey.cpp) ;;
     test_music)    deps=(WiPhone/music_lib.cpp WiPhone/wav_reader.cpp) ;;
     test_sms_mirror) deps=(WiPhone/sms_mirror.cpp) ;;
+    # The PKC DM crypto: the shipping mesh_pki.cpp plus the vendored donna and
+    # tiny-AES beneath it (C, so csrc), against vectors from Python cryptography
+    # playing the RAK's side of the exchange.
+    test_pki)      deps=(WiPhone/mesh_pki.cpp WiPhone/book_hash.cpp)
+                   csrc=(WiPhone/src/crypto/curve25519_donna.c WiPhone/src/crypto/tiny_aes.c) ;;
     # Compiles the REAL helix decoder so a pass proves the bytes that ship are the bytes
     # that decode. helix is C and is listed in csrc, not deps — see CFLAGS above.
     test_mp3)      deps=(WiPhone/mp3_stream.cpp)

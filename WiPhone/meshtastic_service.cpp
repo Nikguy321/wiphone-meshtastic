@@ -8,6 +8,7 @@
 
 #include "meshtastic_service.h"
 #include "config.h"            // MESHTASTIC_PHY toggle
+#include "mesh_pki.h"          // PKC keypair/derive (portable — used in stub builds too)
 #include <Preferences.h>      // NVS-backed node name persistence
 #include "booksync_inbox.h"   // book-sync packets are diverted out of the chat list
 #include "sms_mirror_rx.h"    // ...and so are texts mirrored from COVEY
@@ -30,6 +31,7 @@ static uint8_t s_hopLimit = 3;
 
 // Meshtastic PortNum values we care about (from the Data protobuf).
 #define MESH_PORT_TEXT_MESSAGE  1
+#define MESH_PORT_ROUTING       5   // ACK/NAK carrier: Routing{error_reason}
 #define MESH_PORT_NODEINFO      4
 
 // Default hop limit for packets we originate (Meshtastic default is 3).
@@ -44,14 +46,20 @@ static uint8_t s_hopLimit = 3;
  * SET on the send side and never read on receive, so the phone asked the question and never
  * answered it: it appeared on other radios as a bare node number with no name until it
  * happened to announce on its own. See the reply in the NODEINFO branch of the receive path. */
+/* `requestIdOut` (optional) carries Data field 6, request_id — on a ROUTING packet it
+ * names the packet an ACK/NAK is answering, which is the phone's only proof of DM
+ * delivery. */
 static int meshParseData(const uint8_t* data, size_t dlen,
                          const uint8_t** payloadOut, size_t* payloadLenOut,
-                         bool* wantRespOut = NULL) {
+                         bool* wantRespOut = NULL, uint32_t* requestIdOut = NULL) {
   int portnum = -1;
   const uint8_t* payload = NULL;
   size_t payloadLen = 0;
   if (wantRespOut) {
     *wantRespOut = false;
+  }
+  if (requestIdOut) {
+    *requestIdOut = 0;
   }
   size_t i = 0;
   while (i < dlen) {
@@ -73,7 +81,13 @@ static int meshParseData(const uint8_t* data, size_t dlen,
       if (i < dlen) { l |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
       if (field == 2) { payload = data + i; payloadLen = l; }
       i += l;
-    } else if (wire == 5) { i += 4; }
+    } else if (wire == 5) {                // fixed32
+      if (field == 6 && requestIdOut && i + 4 <= dlen) {
+        *requestIdOut = (uint32_t)data[i] | ((uint32_t)data[i + 1] << 8) |
+                        ((uint32_t)data[i + 2] << 16) | ((uint32_t)data[i + 3] << 24);
+      }
+      i += 4;
+    }
     else if (wire == 1) { i += 8; }
     else break;
   }
@@ -89,9 +103,16 @@ static int meshParseData(const uint8_t* data, size_t dlen,
 // Extract a display name from a Meshtastic User protobuf (the NODEINFO payload):
 // prefer long_name (field 2), fall back to short_name (field 3). Returns true if
 // a non-empty name was copied into `out` (null-terminated).
-static bool meshParseUserName(const uint8_t* data, size_t dlen, char* out, size_t outCap) {
+// `pubKeyOut`/`hasKeyOut` (optional) receive field 8, public_key — the node's
+// X25519 key, ONLY when it is exactly 32 bytes (stock strips it for ham/licensed
+// operators, so absence is normal).
+static bool meshParseUserName(const uint8_t* data, size_t dlen, char* out, size_t outCap,
+                              uint8_t* pubKeyOut = NULL, bool* hasKeyOut = NULL) {
   const uint8_t* longName = NULL;  size_t longLen = 0;
   const uint8_t* shortName = NULL; size_t shortLen = 0;
+  if (hasKeyOut) {
+    *hasKeyOut = false;
+  }
   size_t i = 0;
   while (i < dlen) {
     uint8_t tag = data[i++];
@@ -103,6 +124,11 @@ static bool meshParseUserName(const uint8_t* data, size_t dlen, char* out, size_
       if (i < dlen) { l |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
       if (field == 2)      { longName = data + i;  longLen = l; }
       else if (field == 3) { shortName = data + i; shortLen = l; }
+      else if (field == 8 && l == MESH_PKI_KEY_LEN && pubKeyOut && hasKeyOut &&
+               i + MESH_PKI_KEY_LEN <= dlen) {
+        memcpy(pubKeyOut, data + i, MESH_PKI_KEY_LEN);
+        *hasKeyOut = true;
+      }
       i += l;
     } else if (wire == 0) {
       while (i < dlen && (data[i] & 0x80)) i++;
@@ -142,12 +168,13 @@ static size_t pbString(uint8_t* out, int field, const char* s) {
   return pbBytes(out, field, (const uint8_t*)s, strlen(s));
 }
 
-// Build a Data protobuf { portnum, payload, [want_response] } and transmit it as
-// an encrypted Meshtastic packet on the given channel (key + hash).
-static bool meshTxData(uint32_t sender, uint32_t dest, int portnum,
-                       const uint8_t* payload, size_t payloadLen, bool wantResponse,
-                       const uint8_t* key, uint8_t keyLen, uint8_t channelHash) {
-  uint8_t data[8 + MESH_PHY_MAX_PAYLOAD];
+// Serialize a Data protobuf: { portnum, payload, [want_response], [request_id],
+// bitfield }. The bitfield (field 9, added in Meshtastic 2.5) mirrors stock's
+// Router: bit0 = ok-to-MQTT (we say no — private mesh), bit1 = want_response.
+// request_id (field 6, fixed32) is nonzero only on ACK/NAK Routing replies.
+static size_t meshBuildData(uint8_t* data, int portnum,
+                            const uint8_t* payload, size_t payloadLen,
+                            bool wantResponse, uint32_t requestId) {
   size_t d = 0;
   data[d++] = 0x08;                          // field 1 portnum (varint)
   data[d++] = (uint8_t)portnum;
@@ -156,31 +183,108 @@ static bool meshTxData(uint32_t sender, uint32_t dest, int portnum,
     data[d++] = 0x18;                        // field 3 want_response (varint)
     data[d++] = 0x01;
   }
+  if (requestId != 0) {
+    data[d++] = 0x35;                        // field 6 request_id (fixed32)
+    data[d++] = (uint8_t)(requestId >> 0);
+    data[d++] = (uint8_t)(requestId >> 8);
+    data[d++] = (uint8_t)(requestId >> 16);
+    data[d++] = (uint8_t)(requestId >> 24);
+  }
+  data[d++] = 0x48;                          // field 9 bitfield (varint)
+  data[d++] = wantResponse ? 0x02 : 0x00;
+  return d;
+}
 
+static void meshFillHeader(MeshPacketHeader* hdr, uint32_t sender, uint32_t dest,
+                           uint32_t packetId, uint8_t channelHash) {
+  hdr->dest        = dest;
+  hdr->sender      = sender;
+  hdr->packetId    = packetId;
+  hdr->flags       = (s_hopLimit & MESH_FLAGS_HOP_LIMIT_MASK) |
+                     (s_hopLimit << MESH_FLAGS_HOP_START_SHIFT);
+  hdr->channelHash = channelHash;
+  hdr->nextHop     = 0;
+  hdr->relayNode   = (uint8_t)(sender & 0xFF);   // originator is the first relay
+
+}
+
+static uint32_t meshNewPacketId() {
   uint32_t packetId = esp_random();
-  if (packetId == 0) {
-    packetId = 1;
+  return packetId == 0 ? 1 : packetId;
+}
+
+// Build a Data protobuf and transmit it as a CHANNEL-encrypted (AES-CTR)
+// Meshtastic packet — broadcasts, and the pre-PKC "legacy" DM form.
+static bool meshTxData(uint32_t sender, uint32_t dest, int portnum,
+                       const uint8_t* payload, size_t payloadLen, bool wantResponse,
+                       const uint8_t* key, uint8_t keyLen, uint8_t channelHash,
+                       uint32_t requestId = 0) {
+  uint8_t data[24 + MESH_PHY_MAX_PAYLOAD];
+  size_t d = meshBuildData(data, portnum, payload, payloadLen, wantResponse, requestId);
+
+  size_t pktLen = MESH_HEADER_LEN + d;
+  if (pktLen > 255) {
+    /* The PHY takes a uint8_t length: 256 would WRAP TO ZERO and "send"
+     * nothing. Reachable with a maximum-length text — refuse honestly. */
+    log_e("MESH TX REFUSED: %uB exceeds the 255B LoRa frame", (unsigned)pktLen);
+    return false;
   }
 
+  uint32_t packetId = meshNewPacketId();
   MeshPacketHeader hdr;
-  hdr.dest        = dest;
-  hdr.sender      = sender;
-  hdr.packetId    = packetId;
-  hdr.flags       = (s_hopLimit & MESH_FLAGS_HOP_LIMIT_MASK) |
-                    (s_hopLimit << MESH_FLAGS_HOP_START_SHIFT);
-  hdr.channelHash = channelHash;
-  hdr.nextHop     = 0;
-  hdr.relayNode   = (uint8_t)(sender & 0xFF);   // originator is the first relay
+  meshFillHeader(&hdr, sender, dest, packetId, channelHash);
 
-  uint8_t pkt[MESH_HEADER_LEN + 8 + MESH_PHY_MAX_PAYLOAD];
+  uint8_t pkt[MESH_HEADER_LEN + 24 + MESH_PHY_MAX_PAYLOAD];
   memcpy(pkt, &hdr, MESH_HEADER_LEN);
   if (!meshCryptCtr(key, keyLen, sender, packetId, data, d, pkt + MESH_HEADER_LEN)) {
     return false;
   }
-  size_t pktLen = MESH_HEADER_LEN + d;
   log_i("Mesh TX port=%d to 0x%08X ch=0x%02X id=0x%08X (%uB)",
         portnum, dest, channelHash, packetId, (unsigned)pktLen);
   return meshPhy.send(pkt, (uint8_t)pktLen);
+}
+
+// Build a Data protobuf and transmit it PKI-encrypted (AES-256-CCM under the
+// X25519-derived key) — how 2.5+ nodes require every DM. On the air the
+// channel-hash byte is 0x00, the frame grows by MESH_PKI_OVERHEAD (12B), and
+// the receiver finds us by trying its known keys against the CCM tag.
+static bool meshTxDataPki(uint32_t sender, uint32_t dest, int portnum,
+                          const uint8_t* payload, size_t payloadLen,
+                          const uint8_t sessionKey[MESH_PKI_KEY_LEN],
+                          uint32_t requestId = 0) {
+  uint8_t data[24 + MESH_PHY_MAX_PAYLOAD];
+  size_t d = meshBuildData(data, portnum, payload, payloadLen, false, requestId);
+
+  size_t pktLen = MESH_HEADER_LEN + d + MESH_PKI_OVERHEAD;
+  if (pktLen > 255) {
+    log_e("MESH PKI TX REFUSED: %uB exceeds the 255B LoRa frame", (unsigned)pktLen);
+    return false;
+  }
+
+  uint32_t packetId = meshNewPacketId();
+  MeshPacketHeader hdr;
+  meshFillHeader(&hdr, sender, dest, packetId, 0x00);    // hash 0 = PKI on the air
+
+  uint8_t pkt[MESH_HEADER_LEN + 24 + MESH_PHY_MAX_PAYLOAD + MESH_PKI_OVERHEAD];
+  memcpy(pkt, &hdr, MESH_HEADER_LEN);
+  uint32_t extraNonce = esp_random();
+  if (meshPkiEncrypt(sessionKey, sender, packetId, extraNonce,
+                     data, d, pkt + MESH_HEADER_LEN) == 0) {
+    return false;
+  }
+  log_i("Mesh PKI TX port=%d to 0x%08X id=0x%08X (%uB)",
+        portnum, dest, packetId, (unsigned)pktLen);
+  return meshPhy.send(pkt, (uint8_t)pktLen);
+}
+
+// ACK a DM: Data{portnum=ROUTING, payload=Routing{error_reason=NONE}, request_id}.
+// CHANNEL-encrypted on the primary channel even for PKI DMs — stock excludes
+// ROUTING from PKC (Router.cpp) and sends ACKs with the channel-index-0 key.
+static bool meshTxAck(uint32_t sender, uint32_t dest, uint32_t requestId,
+                      const MeshChannel* ch) {
+  static const uint8_t ackNone[2] = { 0x18, 0x00 };   // Routing{error_reason=NONE}
+  return meshTxData(sender, dest, MESH_PORT_ROUTING, ackNone, sizeof(ackNone), false,
+                    ch->key, ch->keyLen, ch->hash, requestId);
 }
 
 static bool meshTxText(uint32_t sender, uint32_t dest, const char* text,
@@ -193,21 +297,27 @@ static bool meshTxText(uint32_t sender, uint32_t dest, const char* text,
                     false, ch->key, ch->keyLen, ch->hash);
 }
 
-// Broadcast our NodeInfo: a User protobuf { id, long_name, short_name }.
-// wantResponse solicits other nodes to reply with their own NodeInfo.
+// Broadcast our NodeInfo: a User protobuf { id, long_name, short_name,
+// public_key }. wantResponse solicits other nodes to reply with their own.
+// The public key (field 8) is the whole reason 2.5+ nodes will DM us at all:
+// without it every DM from a stock node dies with PKI_SEND_FAIL_PUBLIC_KEY.
 static bool meshTxNodeInfo(uint32_t sender, const char* longName, const char* shortName,
-                           bool wantResponse, const MeshChannel* ch) {
+                           bool wantResponse, const MeshChannel* ch,
+                           const uint8_t* pkiPub) {
   if (!ch) {
     return false;
   }
   char id[12];
   snprintf(id, sizeof(id), "!%08x", sender);
 
-  uint8_t user[96];
+  uint8_t user[128];
   size_t u = 0;
   u += pbString(user + u, 1, id);            // field 1 id
   u += pbString(user + u, 2, longName);      // field 2 long_name
   u += pbString(user + u, 3, shortName);     // field 3 short_name
+  if (pkiPub) {
+    u += pbBytes(user + u, 8, pkiPub, MESH_PKI_KEY_LEN);   // field 8 public_key
+  }
 
   return meshTxData(sender, MESH_ADDR_BROADCAST_ONAIR, MESH_PORT_NODEINFO,
                     user, u, wantResponse, ch->key, ch->keyLen, ch->hash);
@@ -239,6 +349,121 @@ MeshtasticService::MeshtasticService()
   shortNameCustom = false;
   nextNodeInfoMs = 0;
   lastNodeInfoTxMs = 0;
+  memset(myPkiPriv, 0, sizeof(myPkiPriv));
+  memset(myPkiPub, 0, sizeof(myPkiPub));
+  pkiReady = false;
+  pkiCacheClear();
+  memset(pendingDm, 0, sizeof(pendingDm));
+  memset(recentAckIds, 0, sizeof(recentAckIds));
+  recentAckPos = 0;
+}
+
+/* ── PKC key management ─────────────────────────────────────────────────────────────
+ * The identity keypair lives in NVS next to the node name. It is generated ONCE and
+ * must then be treated as PERMANENT: every peer stores our public key on first hearing
+ * it and stock firmware NEVER overwrites a stored key — if this phone's key changes
+ * (chip erase, NVS wipe), peers keep encrypting to the DEAD key and every DM fails,
+ * silently, both ways, until the phone's node entry is deleted on each peer.
+ * The serial `pki` command prints the key so that state can at least be SEEN. */
+void MeshtasticService::loadOrCreatePkiKeys() {
+  Preferences prefs;
+  prefs.begin("wpmesh", false);
+  size_t got = prefs.getBytes("pkipriv", myPkiPriv, sizeof(myPkiPriv));
+
+  uint8_t acc = 0;
+  for (size_t i = 0; i < sizeof(myPkiPriv); i++) {
+    acc |= myPkiPriv[i];
+  }
+  if (got != sizeof(myPkiPriv) || acc == 0) {
+    // First boot (or wiped NVS): make a keypair. esp_random is the RF-seeded HWRNG.
+    for (int i = 0; i < 8; i++) {
+      uint32_t r = esp_random();
+      memcpy(myPkiPriv + i * 4, &r, 4);
+    }
+    meshPkiClampPrivate(myPkiPriv);
+    prefs.putBytes("pkipriv", myPkiPriv, sizeof(myPkiPriv));
+    log_e("MESH PKI: NEW keypair generated - peers that stored an old key for "
+          "!%08x must delete this node to DM again", (unsigned)myNodeNum);
+  }
+
+  /* The public key is always recomputed from the private one (~tens of ms, boot
+   * only) — the stored copy exists purely so `pki` can spot NVS corruption. */
+  meshPkiPublicKey(myPkiPub, myPkiPriv);
+  uint8_t storedPub[MESH_PKI_KEY_LEN];
+  if (prefs.getBytes("pkipub", storedPub, sizeof(storedPub)) != sizeof(storedPub) ||
+      memcmp(storedPub, myPkiPub, sizeof(storedPub)) != 0) {
+    prefs.putBytes("pkipub", myPkiPub, sizeof(myPkiPub));
+  }
+  prefs.end();
+  pkiReady = true;
+}
+
+bool MeshtasticService::pkiKeyCached(uint32_t nodeNum, uint8_t keyOut[MESH_KEY_LEN]) const {
+  for (int i = 0; i < 2; i++) {
+    if (pkiCache[i].node == nodeNum && nodeNum != 0) {
+      memcpy(keyOut, pkiCache[i].key, MESH_KEY_LEN);
+      return true;
+    }
+  }
+  return false;
+}
+
+/* Derive (or fetch) the AES session key for a node. ⚠ SUPERLOOP DEPTH ONLY on a
+ * cache miss: the X25519 underneath costs ~3 KB of transient stack. GUI-depth
+ * callers must use pkiKeyCached() and queue on a miss (sendDirectMessage does). */
+bool MeshtasticService::pkiKeyForNode(const MeshNode* n, uint8_t keyOut[MESH_KEY_LEN]) {
+  if (!n || !(n->pkiFlags & MESH_NODE_HAS_KEY) || !pkiReady) {
+    return false;
+  }
+  if (pkiKeyCached(n->nodeNum, keyOut)) {
+    return true;
+  }
+  if (!meshPkiDeriveKey(myPkiPriv, n->pubKey, keyOut)) {
+    log_e("MESH PKI: key derive FAILED for !%08x (weak/zero key)", (unsigned)n->nodeNum);
+    return false;
+  }
+  PkiCacheEntry& slot = pkiCache[pkiCacheNext];
+  pkiCacheNext = (uint8_t)((pkiCacheNext + 1) % 2);
+  slot.node = n->nodeNum;
+  memcpy(slot.key, keyOut, MESH_KEY_LEN);
+  return true;
+}
+
+/* Trust-on-first-use, matching stock: the FIRST key heard for a node sticks; a
+ * later different key is flagged and ignored (a real re-key on the peer needs
+ * "Clear nodes" here — the flag is visible in the serial `pki` command). */
+void MeshtasticService::pkiLearnKey(MeshNode* n, const uint8_t* key) {
+  if (!n || !key) {
+    return;
+  }
+  if (n->pkiFlags & MESH_NODE_HAS_KEY) {
+    if (memcmp(n->pubKey, key, MESH_KEY_LEN) != 0 &&
+        !(n->pkiFlags & MESH_NODE_KEY_MISMATCH)) {
+      n->pkiFlags |= MESH_NODE_KEY_MISMATCH;
+      dbDirty = true;
+      log_e("MESH PKI: !%08x announced a DIFFERENT key - KEPT the first one. "
+            "If the node really re-keyed, Clear nodes to trust the new key.",
+            (unsigned)n->nodeNum);
+    }
+    return;
+  }
+  memcpy(n->pubKey, key, MESH_KEY_LEN);
+  n->pkiFlags |= MESH_NODE_HAS_KEY;
+  dbDirty = true;
+  /* A cached session key may exist from a PREVIOUS life of this node number
+   * (evicted from the table, came back re-keyed): the fresh learn must not
+   * leave a derive from the old pubkey answering for the new one. */
+  for (int i = 0; i < 2; i++) {
+    if (pkiCache[i].node == n->nodeNum) {
+      memset(&pkiCache[i], 0, sizeof(pkiCache[i]));
+    }
+  }
+  log_e("MESH PKI: learned key for !%08x (%02x%02x%02x%02x...) - DMs unlocked",
+        (unsigned)n->nodeNum, key[0], key[1], key[2], key[3]);
+  /* Called from the RX path (superloop depth): warm the cache now so the
+   * user's first DM back is a cache hit even from GUI depth. */
+  uint8_t k[MESH_KEY_LEN];
+  (void)pkiKeyForNode(n, k);
 }
 
 // Conversation id for a message: 0 = broadcast (Main Channel), else the DM peer.
@@ -375,10 +600,12 @@ void MeshtasticService::announceNodeInfo(bool wantResponse) {
     log_e("MESH ANNOUNCE SKIPPED: no channels configured");
     return;
   }
-  const bool ok = meshTxNodeInfo(myNodeNum, myLongName, myShortName, wantResponse, &channels[0]);
-  log_e("MESH ANNOUNCE %s: node=!%08x '%s' (%s) ch='%s' hash=0x%02X keyLen=%u wantResp=%d",
+  const bool ok = meshTxNodeInfo(myNodeNum, myLongName, myShortName, wantResponse, &channels[0],
+                                 pkiReady ? myPkiPub : NULL);
+  log_e("MESH ANNOUNCE %s: node=!%08x '%s' (%s) ch='%s' hash=0x%02X keyLen=%u wantResp=%d pki=%s",
         ok ? "SENT" : "FAILED", (unsigned)myNodeNum, myLongName, myShortName,
-        channels[0].name, channels[0].hash, (unsigned)channels[0].keyLen, (int)wantResponse);
+        channels[0].name, channels[0].hash, (unsigned)channels[0].keyLen, (int)wantResponse,
+        pkiReady ? "in packet" : "MISSING");
 #else
   (void)wantResponse;
 #endif
@@ -395,6 +622,10 @@ void MeshtasticService::clearNodes() {
   nodeCount = 0;
   memset(nodes, 0, sizeof(nodes));
   upsertNode(myNodeNum, myLongName);          // keep this node in the list
+  /* Cached session keys are derived from the stored pubkeys that were just
+   * wiped — a stale entry here would keep "trusting" a key the user explicitly
+   * cleared (this is the re-TOFU path after a peer re-keys). */
+  pkiCacheClear();
   dbDirty = true;
   saveDb();
   log_i("Mesh: node DB cleared");
@@ -451,6 +682,9 @@ void MeshtasticService::setup() {
   // Load our editable node name (from NVS, or a default derived from the id).
   loadMyName();
 
+  // PKC identity: load or mint the X25519 keypair (NVS). Announced in NodeInfo.
+  loadOrCreatePkiKeys();
+
   // Channels: start with LongFast, then restore any saved custom channels.
   initDefaultChannel();
   loadChannels();
@@ -461,6 +695,21 @@ void MeshtasticService::setup() {
   // Always register ourselves as a node, under our own name.
   upsertNode(myNodeNum, myLongName);
 
+  /* Pre-warm the session-key cache for the most-recently-heard keyed nodes so
+   * the first DM after boot is a cache hit even from GUI depth (the derive
+   * needs ~3 KB of stack and belongs here, where the stack is shallow). */
+  {
+    int warmed = 0;
+    uint8_t k[MESH_KEY_LEN];
+    for (int i = 0; i < nodeCount && warmed < 2; i++) {
+      if ((nodes[i].pkiFlags & MESH_NODE_HAS_KEY) && nodes[i].nodeNum != myNodeNum) {
+        if (pkiKeyForNode(&nodes[i], k)) {
+          warmed++;
+        }
+      }
+    }
+  }
+
 #ifdef MESHTASTIC_PHY
   // Real radio: bring up the SX1276 in Meshtastic LongFast RX mode.
   /* ⚠ Identity banner at log_e so it actually appears — only log_e is compiled in.
@@ -470,9 +719,10 @@ void MeshtasticService::setup() {
    * because stock firmware uses the full 4-byte MAC tail. Whether that is merely unusual or
    * is why nothing lists this phone is UNPROVEN — but it is the first thing to check against
    * a receiving node, and it cannot be checked without printing it. */
-  log_e("MESH IDENTITY: node=!%08x (%u-bit) long='%s' short='%s' hop=%u",
+  log_e("MESH IDENTITY: node=!%08x (%u-bit) long='%s' short='%s' hop=%u pki=%02x%02x%02x%02x...",
         (unsigned)myNodeNum, myNodeNum > 0xFFFFFF ? 32 : 24,
-        myLongName, myShortName, (unsigned)myHopLimit);
+        myLongName, myShortName, (unsigned)myHopLimit,
+        myPkiPub[0], myPkiPub[1], myPkiPub[2], myPkiPub[3]);
   /* Does this phone HEAR the mesh? The node DB is restored from SPIFFS just above, so a
    * healthy count here means RX has been working and the radio parameters match the mesh
    * exactly — which would leave the packet CONTENT as the only reason nothing lists us.
@@ -541,6 +791,28 @@ bool MeshtasticService::loop() {
     }
   }
 
+  /* Drain DMs that sendDirectMessage queued because their session key wasn't
+   * cached (GUI depth cannot run the ~3 KB-stack X25519 derive; here it can).
+   * One per tick; the local echo already happened at queue time. */
+  for (int i = 0; i < 2; i++) {
+    if (pendingDm[i].active) {
+      pendingDm[i].active = false;
+      const MeshNode* peer = findNode(pendingDm[i].dest);
+      uint8_t skey[MESH_KEY_LEN];
+      if (peer && pkiKeyForNode(peer, skey)) {
+        if (!meshTxDataPki(myNodeNum, pendingDm[i].dest, MESH_PORT_TEXT_MESSAGE,
+                           (const uint8_t*)pendingDm[i].text,
+                           strlen(pendingDm[i].text), skey)) {
+          log_e("MESH DM to !%08x: queued PKI send FAILED", (unsigned)pendingDm[i].dest);
+        }
+      } else {
+        log_e("MESH DM to !%08x: key derive failed - message NOT sent",
+              (unsigned)pendingDm[i].dest);
+      }
+      break;
+    }
+  }
+
   // Flood routing: send at most one due rebroadcast per tick (send blocks).
   for (int i = 0; i < 4; i++) {
     if (rebroadcast[i].active && (int32_t)(millis() - rebroadcast[i].dueMs) >= 0) {
@@ -571,6 +843,20 @@ bool MeshtasticService::loop() {
   }
   // Drop duplicate rebroadcasts of the same packet (mesh flooding).
   if (seenPacketId(hdr.packetId)) {
+    /* ...but a REPEATED want-ack DM we already stored means our ACK was lost
+     * and the sender is retrying: ACK again (stock does — ReliableRouter),
+     * without re-storing. Only ids in recentAckIds — i.e. DMs we actually
+     * accepted — are answered; anything else stays dropped. */
+    if (hdr.dest == myNodeNum && (hdr.flags & MESH_FLAGS_WANT_ACK) && channelCount > 0) {
+      for (int i = 0; i < 8; i++) {
+        if (recentAckIds[i] == hdr.packetId && hdr.packetId != 0) {
+          meshTxAck(myNodeNum, hdr.sender, hdr.packetId, &channels[0]);
+          log_e("MESH DM: re-ACKed id=0x%08x for !%08x (first ACK likely lost)",
+                (unsigned)hdr.packetId, (unsigned)hdr.sender);
+          break;
+        }
+      }
+    }
     return false;
   }
 
@@ -603,6 +889,85 @@ bool MeshtasticService::loop() {
   // Find a configured channel matching this packet's channel hash.
   const MeshChannel* ch = findChannelByHash(hdr.channelHash);
 
+  /* ── PKI DM? ─────────────────────────────────────────────────────────────────────
+   * A PKC packet is a DM to us with channel-hash 0x00 (stock zeroes the byte on the
+   * air — Router.cpp). Try the sender's session key FIRST: the CCM tag makes a wrong
+   * guess fail loudly-to-us and invisibly-on-air, so on failure we simply fall
+   * through to the channel path (hash 0x00 could in principle be a real channel).
+   * This is how a 2.5+ node's DM reaches this phone at all — its firmware refuses
+   * to send the legacy channel-encrypted form. */
+  if (hdr.dest == myNodeNum && hdr.channelHash == 0x00 &&
+      payloadLen > MESH_PKI_OVERHEAD && n && (n->pkiFlags & MESH_NODE_HAS_KEY)) {
+    uint8_t skey[MESH_KEY_LEN];
+    if (pkiKeyForNode(n, skey)) {           // superloop depth: derive allowed here
+      uint8_t dec[MESH_PHY_MAX_PAYLOAD];
+      size_t decLen = 0;
+      if (meshPkiDecrypt(skey, hdr.sender, hdr.packetId,
+                         buf + MESH_HEADER_LEN, payloadLen, dec, &decLen)) {
+        const uint8_t* pl = NULL;
+        size_t plLen = 0;
+        bool wantResp = false;
+        uint32_t reqId = 0;
+        int portnum = meshParseData(dec, decLen, &pl, &plLen, &wantResp, &reqId);
+
+        if (portnum == MESH_PORT_TEXT_MESSAGE && pl && plLen) {
+          char text[MESH_TEXT_LEN];
+          size_t nt = plLen < sizeof(text) - 1 ? plLen : sizeof(text) - 1;
+          memcpy(text, pl, nt);
+          text[nt] = '\0';
+
+          /* ACK first — delivery is true regardless of what the text turns out
+           * to be. Remember the id so a retransmission is re-ACKed, not re-stored. */
+          if (hdr.flags & MESH_FLAGS_WANT_ACK) {
+            recentAckIds[recentAckPos] = hdr.packetId;
+            recentAckPos = (uint8_t)((recentAckPos + 1) % 8);
+            if (channelCount > 0) {
+              meshTxAck(myNodeNum, hdr.sender, hdr.packetId, &channels[0]);
+            }
+          }
+
+          /* Same diversion policy as the channel path below, same reasons:
+           * recognised-by-prefix service traffic is not a chat message. */
+          if (bookSyncIsSyncText(text)) {
+            bookSyncInboxPush(text, hdr.sender,
+                              ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0);
+            return false;
+          }
+          if (smsMirrorIsMirrorLine(text)) {
+            int r = smsMirrorIngestLine(text);
+            log_e("SMSMIRROR rx (PKI DM) from 0x%08X: %s", hdr.sender,
+                  r > 0 ? "STORED" : (r == 0 ? "duplicate, ignored" : "REFUSED"));
+            return false;
+          }
+
+          storeMessage(hdr.sender, toInternal, 0x00, text, false);
+          /* log_e: the only compiled-in level, and the first PKI DM ever heard is
+           * exactly the moment that must be visible on serial. */
+          log_e("MESH PKI DM from !%08x id=0x%08x (%uB)%s", (unsigned)hdr.sender,
+                (unsigned)hdr.packetId, (unsigned)plLen,
+                (hdr.flags & MESH_FLAGS_WANT_ACK) ? " ACKed" : "");
+          return true;                       // signal the UI to refresh
+
+        } else if (portnum == MESH_PORT_ROUTING) {
+          /* An ACK/NAK that was itself PKI-encrypted (stock normally sends these
+           * on the channel — but be ready for either). error_reason is field 3
+           * of the Routing payload. */
+          uint32_t err = 0;
+          if (pl && plLen >= 2 && pl[0] == 0x18) {
+            err = pl[1];
+          }
+          log_e("MESH DM %s (PKI) from !%08x for id=0x%08x err=%u",
+                err == 0 ? "ACK" : "NAK", (unsigned)hdr.sender, (unsigned)reqId, (unsigned)err);
+          return false;
+        } else if (portnum >= 0) {
+          log_i("Mesh PKI pkt from 0x%08X port=%d (%uB)", hdr.sender, portnum, (unsigned)decLen);
+          return false;
+        }
+      }
+      // Auth failed: not PKI (or stale keys) — fall through to the channel path.
+    }
+  }
+
   if (payloadLen > 0 && ch) {
     // Known channel: decrypt with its key (AES-128 or AES-256) and decode.
     uint8_t dec[MESH_PHY_MAX_PAYLOAD];
@@ -610,7 +975,8 @@ bool MeshtasticService::loop() {
       const uint8_t* pl = NULL;
       size_t plLen = 0;
       bool wantResp = false;
-      int portnum = meshParseData(dec, payloadLen, &pl, &plLen, &wantResp);
+      uint32_t chReqId = 0;
+      int portnum = meshParseData(dec, payloadLen, &pl, &plLen, &wantResp, &chReqId);
 
       /* (A per-packet log_e lived here on 2026-08-15 and answered its question: port 4
        * NodeInfo packets DO arrive and DO decrypt — `from=!33646708 port=4 payload=44B
@@ -692,16 +1058,46 @@ bool MeshtasticService::loop() {
           return false;
         }
 
+        /* A DM that arrived channel-encrypted (a pre-2.5 sender — 2.5+ nodes
+         * refuse to send this form). Accept it (unlike stock, which drops
+         * "legacy DMs": our channels are private, the phishing argument doesn't
+         * apply) and ACK it if asked, so the sender's UI shows delivery. */
+        if (hdr.dest == myNodeNum && (hdr.flags & MESH_FLAGS_WANT_ACK)) {
+          recentAckIds[recentAckPos] = hdr.packetId;
+          recentAckPos = (uint8_t)((recentAckPos + 1) % 8);
+          if (channelCount > 0) {
+            meshTxAck(myNodeNum, hdr.sender, hdr.packetId, &channels[0]);
+          }
+        }
+
         storeMessage(hdr.sender, toInternal, hdr.channelHash, text, false);   // real text!
         log_i("Mesh TEXT from 0x%08X on ch '%s': %s", hdr.sender, ch->name, text);
         return true;                       // signal the UI to refresh
 
+      } else if (portnum == MESH_PORT_ROUTING && hdr.dest == myNodeNum) {
+        /* ACK/NAK for a DM we sent — stock sends these channel-encrypted even
+         * for PKI DMs (ROUTING is excluded from PKC). The only proof of
+         * delivery this phone gets, so it goes to the compiled-in log level. */
+        uint32_t err = 0;
+        if (pl && plLen >= 2 && pl[0] == 0x18) {
+          err = pl[1];
+        }
+        log_e("MESH DM %s from !%08x for id=0x%08x err=%u",
+              err == 0 ? "ACK" : "NAK", (unsigned)hdr.sender, (unsigned)chReqId, (unsigned)err);
+
       } else if (portnum == MESH_PORT_NODEINFO && pl && plLen) {
-        // Learn the sender's friendly name for the Chats/Nodes lists.
+        // Learn the sender's friendly name — and their PKC public key (User
+        // field 8), which is what unlocks DMs to them.
         char name[MESH_NAME_LEN];
-        if (meshParseUserName(pl, plLen, name, sizeof(name))) {
-          upsertNode(hdr.sender, name);
+        uint8_t peerKey[MESH_KEY_LEN];
+        bool hasKey = false;
+        MeshNode* infoNode = n;
+        if (meshParseUserName(pl, plLen, name, sizeof(name), peerKey, &hasKey)) {
+          infoNode = upsertNode(hdr.sender, name);
           log_i("Mesh NodeInfo 0x%08X: %s", hdr.sender, name);
+        }
+        if (hasKey && infoNode) {
+          pkiLearnKey(infoNode, peerKey);   // TOFU; superloop depth (derive OK)
         }
 
         /* ── ANSWER WHEN SOMEBODY ASKS WHO WE ARE ────────────────────────────────────
@@ -896,7 +1292,17 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
 
 #define MESH_DB_PATH      "/meshdb.bin"
 #define MESH_DB_MAGIC     0x314D5057u   // "WPM1"
-#define MESH_DB_VERSION   1
+#define MESH_DB_VERSION   2             // v2: MeshNode grew pubKey + pkiFlags
+
+/* The v1 on-flash MeshNode, byte-exact, so a 0.9.5 database migrates instead of
+ * being discarded (node names + message history are worth keeping — and the
+ * struct-size header check would otherwise throw the whole file away). */
+typedef struct {
+  uint32_t nodeNum;
+  char     name[MESH_NAME_LEN];
+  uint32_t lastHeardMs;
+  int16_t  snr;
+} MeshNodeV1;
 
 void MeshtasticService::saveDb() {
   File f = SPIFFS.open(MESH_DB_PATH, "w");
@@ -942,8 +1348,10 @@ void MeshtasticService::loadDb() {
   f.read((uint8_t*)&ver, 2);
   f.read((uint8_t*)&ns, 2);
   f.read((uint8_t*)&ms, 2);
-  // Struct-layout guard: ignore stale data written by a different build.
-  if (ver != MESH_DB_VERSION || ns != sizeof(MeshNode) || ms != sizeof(MeshMessage)) {
+  // Struct-layout guard: ignore stale data written by a different build —
+  // EXCEPT the known v1 layout, which is migrated (nodes gain empty key fields).
+  const bool v1 = (ver == 1 && ns == sizeof(MeshNodeV1) && ms == sizeof(MeshMessage));
+  if (!v1 && (ver != MESH_DB_VERSION || ns != sizeof(MeshNode) || ms != sizeof(MeshMessage))) {
     f.close();
     return;
   }
@@ -955,8 +1363,22 @@ void MeshtasticService::loadDb() {
   nodeCount = 0;
   for (int i = 0; i < nc; i++) {
     MeshNode n;
-    if (f.read((uint8_t*)&n, sizeof(n)) != sizeof(n)) break;
+    if (v1) {
+      MeshNodeV1 o;
+      if (f.read((uint8_t*)&o, sizeof(o)) != sizeof(o)) break;
+      memset(&n, 0, sizeof(n));            // pubKey empty, pkiFlags 0: keys re-learn
+      n.nodeNum     = o.nodeNum;
+      memcpy(n.name, o.name, sizeof(n.name));
+      n.lastHeardMs = o.lastHeardMs;
+      n.snr         = o.snr;
+    } else {
+      if (f.read((uint8_t*)&n, sizeof(n)) != sizeof(n)) break;
+    }
     nodes[nodeCount++] = n;
+  }
+  if (v1) {
+    dbDirty = true;                        // rewrite as v2 on the next debounce
+    log_e("MESH DB: migrated %d node(s) from v1 (keys will re-learn from NodeInfo)", nodeCount);
   }
 
   int32_t mc = 0;
@@ -1246,9 +1668,42 @@ bool MeshtasticService::sendDirectMessage(uint32_t destNode, const char* text) {
   }
   const MeshChannel* ch = &channels[0];              // DMs go on the primary channel
 #ifdef MESHTASTIC_PHY
+  /* PKC first: a 2.5+ peer DROPS the legacy channel-encrypted DM form on
+   * receive ("Rejecting legacy DM"), so when we know the peer's key we MUST
+   * send PKI. This runs at GUI depth, where the ~3 KB X25519 derive is not
+   * allowed — so: cache hit sends now; known key but cold cache QUEUES for
+   * loop() (goes out next tick, imperceptible); no key falls back to legacy,
+   * which only a pre-2.5 peer will accept. */
+  const MeshNode* peer = findNode(destNode);
+  if (peer && (peer->pkiFlags & MESH_NODE_HAS_KEY) && pkiReady) {
+    uint8_t skey[MESH_KEY_LEN];
+    if (pkiKeyCached(destNode, skey)) {
+      bool ok = meshTxDataPki(myNodeNum, destNode, MESH_PORT_TEXT_MESSAGE,
+                              (const uint8_t*)text, strlen(text), skey);
+      if (ok) {
+        storeMessage(myNodeNum, destNode, 0x00, text, true);
+      }
+      return ok;
+    }
+    for (int i = 0; i < 2; i++) {
+      if (!pendingDm[i].active) {
+        pendingDm[i].dest = destNode;
+        strlcpy(pendingDm[i].text, text, sizeof(pendingDm[i].text));
+        pendingDm[i].active = true;
+        storeMessage(myNodeNum, destNode, 0x00, text, true);   // echo now; TX next tick
+        return true;
+      }
+    }
+    return false;                                    // queue full — refuse honestly
+  }
   bool ok = meshTxText(myNodeNum, destNode, text, ch);
   if (ok) {
     storeMessage(myNodeNum, destNode, ch->hash, text, true);
+    /* Visible on serial because a modern peer will NEVER show this message —
+     * its firmware refuses legacy DMs. The fix is hearing their NodeInfo
+     * (running `pki` shows who has keys). */
+    log_e("MESH DM to !%08x sent LEGACY (no key known) - a 2.5+ node will drop it",
+          (unsigned)destNode);
   }
   return ok;
 #else

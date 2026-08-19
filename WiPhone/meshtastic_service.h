@@ -58,11 +58,24 @@ typedef struct {
   char     text[MESH_TEXT_LEN];
 } MeshMessage;
 
+// MeshNode.pkiFlags bits.
+#define MESH_NODE_HAS_KEY       0x01   // pubKey holds this node's X25519 key
+#define MESH_NODE_KEY_MISMATCH  0x02   // a LATER NodeInfo carried a DIFFERENT key
+                                       // (kept the first one — trust-on-first-use,
+                                       // like stock; Clear nodes re-learns)
+
 typedef struct {
   uint32_t nodeNum;                 // node number (0 = empty slot)
   char     name[MESH_NAME_LEN];     // display name
   uint32_t lastHeardMs;             // millis() of last packet (0 = unknown)
   int16_t  snr;                     // last SNR (x1, stub for now)
+  /* PKC: the node's X25519 public key, learned from its NodeInfo (User field 8).
+   * Appended at the END so existing readers keep their offsets; saveDb/loadDb
+   * migrate the v1 on-flash layout. The derived AES key is deliberately NOT
+   * stored here: it lives in a tiny LRU (see pkiCache) so 32 nodes don't cost
+   * another kilobyte of internal RAM — RAM is what panics this phone. */
+  uint8_t  pubKey[MESH_KEY_LEN];
+  uint8_t  pkiFlags;                // MESH_NODE_HAS_KEY | MESH_NODE_KEY_MISMATCH
 } MeshNode;
 
 typedef struct {
@@ -121,6 +134,12 @@ public:
   uint8_t getHopLimit() const { return myHopLimit; }
   void    setHopLimit(uint8_t hops);
 
+  // ---- PKC (Meshtastic 2.5+ DM crypto — see mesh_pki.h) --------------------
+  // Our X25519 identity. Generated once, persisted in NVS; announced in every
+  // NodeInfo so 2.5+ nodes will DM us (they refuse without it).
+  bool           pkiIsReady()   const { return pkiReady; }
+  const uint8_t* pkiPublicKey() const { return myPkiPub; }
+
   // Maintenance (persisted immediately).
   void clearMessages();                      // wipe all stored messages
   void clearNodes();                         // wipe node DB (keeps this node)
@@ -173,6 +192,42 @@ private:
    * after it. See the periodic block in loop(). */
   uint32_t       nextNodeInfoMs;              // when the next periodic announce is due
   uint32_t       lastNodeInfoTxMs;            // damps replies to want_response requests
+
+  // ---- PKC state -----------------------------------------------------------
+  uint8_t  myPkiPriv[MESH_KEY_LEN];           // X25519 private key (NVS "pkipriv")
+  uint8_t  myPkiPub[MESH_KEY_LEN];            // matching public key (announced)
+  bool     pkiReady;                          // keypair loaded/generated OK
+
+  /* Derived-AES-key cache, 2 entries. One X25519 derive costs ~3 KB of
+   * TRANSIENT stack and tens of ms, so it is only ever run at SUPERLOOP depth
+   * (RX key-learn, boot pre-warm, the pending-DM drain in loop()) — never from
+   * GUI code. sendDirectMessage at GUI depth uses cache hits only and QUEUES
+   * on a miss. Two entries cover the real fleet (COVEY + one more). */
+  struct PkiCacheEntry {
+    uint32_t node;                            // 0 = empty
+    uint8_t  key[MESH_KEY_LEN];               // SHA-256(X25519 shared secret)
+  };
+  PkiCacheEntry pkiCache[2];
+  uint8_t       pkiCacheNext;                 // round-robin victim
+  void loadOrCreatePkiKeys();                 // NVS load, or generate + store
+  bool pkiKeyForNode(const MeshNode* n, uint8_t keyOut[MESH_KEY_LEN]);  // derive (superloop only!)
+  bool pkiKeyCached(uint32_t nodeNum, uint8_t keyOut[MESH_KEY_LEN]) const;
+  void pkiCacheClear() { memset(pkiCache, 0, sizeof(pkiCache)); pkiCacheNext = 0; }
+  void pkiLearnKey(MeshNode* n, const uint8_t* key);   // TOFU store + eager derive
+
+  /* DMs queued because their AES key wasn't cached at send time (GUI depth).
+   * Drained by loop() one per tick: derive there, send, local-echo. */
+  struct PendingDm {
+    uint32_t dest;
+    char     text[MESH_TEXT_LEN];
+    bool     active;
+  };
+  PendingDm pendingDm[2];
+
+  // Packet ids of DMs we stored and ACKed: a retransmission of one of these is
+  // re-ACKed (our ACK may have been lost) but never re-stored.
+  uint32_t recentAckIds[8];
+  uint8_t  recentAckPos;
 
   void loadMyName();                          // load from NVS or derive default
   void deriveShortName();                     // short = first chars of long

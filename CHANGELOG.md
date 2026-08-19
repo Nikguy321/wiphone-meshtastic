@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.9.6 — direct messages work again: the phone speaks Meshtastic's DM crypto
+
+### 🔐 PKC — the fix for "the RAK refuses every DM to this phone"
+
+Modern Meshtastic (2.5+) requires public-key cryptography for direct messages, in **both
+directions**: a stock node refuses to *send* a DM to a phone with no known public key
+(`PKI_SEND_FAIL_PUBLIC_KEY`), and silently *drops* the old channel-encrypted DM form on
+receive ("Rejecting legacy DM"). Channels never noticed; DMs were dead both ways.
+
+This release implements the whole scheme, verified line-by-line against the 2.7 firmware
+source: an X25519 identity keypair (generated once, kept in NVS), the public key riding
+in every NodeInfo broadcast, peers' keys learned from theirs (trust-on-first-use, like
+stock — a changed key is flagged, never silently swapped), and DMs encrypted with
+AES-256-CCM under the SHA-256 of the shared secret. Incoming DMs are ACKed — including
+re-ACKing retransmissions — so the sender's app shows ✓ delivered instead of timing out.
+DMs to a node whose key hasn't been heard yet still go out the legacy way (a pre-2.5
+device will take them) with a loud serial note that a modern node won't.
+
+The crypto is self-contained and host-tested against Python's `cryptography` playing the
+stock-firmware side — byte-for-byte frames both directions (`tests/test_pki.cpp`), the
+same philosophy as the book-sync hashes. RAM cost: +1.7 KB static, **zero heap**; the
+X25519 math runs only at superloop depth where its 3 KB of stack is safe.
+
+### 🔧 For the toolbox
+
+- `pki` — our key (base64, comparable against COVEY's node list), every node's key
+  state, mismatch flags, and the loop task's stack headroom.
+- `announce` — broadcast NodeInfo now, asking hearers to answer with theirs (the fast
+  way to swap keys with the RAK after this update).
+- `dm <!node> <text>` — send a DM from the cable; the peer's ACK in the serial log is
+  end-to-end proof its firmware decrypted us.
+- Fixed while in there: a maximum-length message could build a 256-byte frame whose
+  length wrapped to 0 in the radio call (sent nothing, claimed success). Now refused
+  with a log line.
+
 ## 0.9.5 — install from a browser, browse your files, type just the number
 
 ### 🔌 Install and update from a browser

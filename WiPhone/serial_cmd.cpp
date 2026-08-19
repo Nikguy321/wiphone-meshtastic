@@ -10,6 +10,7 @@
 #include <driver/uart.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>     // strtoul, the `dm` command's node number
 #include <string.h>
 #include <strings.h>
 
@@ -56,7 +57,60 @@ static void help() {
       "  mirror     mirror poller state\n"
       "  bookpage   dump the open reader page's layout + rendering\n"
       "  chan <url> apply a Meshtastic channel invite URL\n"
-      "  chans      list the channels this phone has\n\n");
+      "  chans      list the channels this phone has\n"
+      "  pki        DM crypto state: our key, who has keys, stack headroom\n"
+      "  announce   broadcast NodeInfo now, asking others to answer with theirs\n"
+      "  dm <!node> <text>  send a direct message (PKI when the key is known)\n\n");
+}
+
+/* Base64 (std alphabet, padded) — how the Meshtastic apps display public keys,
+ * so Nick can eyeball-compare against what COVEY shows for this phone. */
+static void b64enc(const uint8_t* in, int len, char* out, int outCap) {
+  static const char T[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  int o = 0;
+  for (int i = 0; i < len && o + 5 < outCap; i += 3) {
+    uint32_t v = (uint32_t)in[i] << 16;
+    if (i + 1 < len) v |= (uint32_t)in[i + 1] << 8;
+    if (i + 2 < len) v |= in[i + 2];
+    out[o++] = T[(v >> 18) & 63];
+    out[o++] = T[(v >> 12) & 63];
+    out[o++] = (i + 1 < len) ? T[(v >> 6) & 63] : '=';
+    out[o++] = (i + 2 < len) ? T[v & 63] : '=';
+  }
+  out[o] = '\0';
+}
+
+/* `pki` — everything needed to see WHY a DM does or does not flow, in one paste:
+ * our announced key (compare against COVEY's node list), each node's key state
+ * (no key = DMs to them go legacy and 2.5+ nodes drop them), MISMATCH flags
+ * (somebody re-keyed; Clear nodes to re-trust), and the loop task's stack
+ * high-water mark (the X25519 derive is the deepest stack user we added). */
+static void reportPki() {
+  char b64[48];
+  if (!meshService.pkiIsReady()) {
+    say("pki: NOT READY - no keypair (NVS trouble?)\n");
+    return;
+  }
+  b64enc(meshService.pkiPublicKey(), 32, b64, sizeof(b64));
+  say("pki: our key %s\n", b64);
+  int keyed = 0;
+  for (int i = 0; i < meshService.getNodeCount(); i++) {
+    const MeshNode* n = meshService.getNode(i);
+    if (!n || n->nodeNum == meshService.getMyNodeNum()) {
+      continue;
+    }
+    if (n->pkiFlags & MESH_NODE_HAS_KEY) {
+      keyed++;
+      b64enc(n->pubKey, 32, b64, sizeof(b64));
+      say("  !%08x '%s' key %s%s\n", (unsigned)n->nodeNum, n->name, b64,
+          (n->pkiFlags & MESH_NODE_KEY_MISMATCH) ? "  [MISMATCH SEEN - Clear nodes to re-trust]" : "");
+    } else {
+      say("  !%08x '%s' NO KEY - their DMs to us fail, ours to them go legacy\n",
+          (unsigned)n->nodeNum, n->name);
+    }
+  }
+  say("pki: %d node(s) with keys | loop-task stack floor %u bytes free\n",
+      keyed, (unsigned)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t)));
 }
 
 static void reportUploader() {
@@ -153,6 +207,45 @@ static void run(char* line) {
         (uri && uri[0]) ? ")" : " - open SIP accounts and SELECT one",
         gui.state.sipRegistered ? "yes" : "no",
         (WiFi.status() == WL_CONNECTED) ? "up" : "DOWN");
+    return;
+  }
+  if (!strcasecmp(line, "pki")) {
+    reportPki();
+    return;
+  }
+  /* `announce` — one NodeInfo broadcast with want_response. The fast path for key
+   * exchange: our packet carries our public key, and every hearer is asked to answer
+   * with its own NodeInfo — which carries THEIR key. (Replies are damped by stock
+   * firmware; give it a minute, then run `pki` to see what was learned.) */
+  if (!strcasecmp(line, "announce")) {
+    meshService.announceNodeInfo(true);
+    say("announce: sent (watch for MESH ANNOUNCE above; `pki` in a minute to see keys)\n");
+    return;
+  }
+  /* `dm !62b8d2fd hello` — send a direct message from the cable. Exists so PKC can be
+   * proven end to end without touching the screen: the ACK the peer sends back (it only
+   * ACKs what it DECODED) appears in this log as `MESH DM ACK ... err=0`. */
+  if (!strncasecmp(line, "dm ", 3)) {
+    const char* p = line + 3;
+    while (*p == ' ') p++;
+    if (*p == '!') p++;
+    char* end = NULL;
+    uint32_t node = (uint32_t)strtoul(p, &end, 16);
+    if (node == 0 || !end || *end != ' ') {
+      say("dm: usage dm <!nodehex> <text>\n");
+      return;
+    }
+    while (*end == ' ') end++;
+    if (!*end) {
+      say("dm: empty message\n");
+      return;
+    }
+    const MeshNode* peer = meshService.findNode(node);
+    bool pki = peer && (peer->pkiFlags & MESH_NODE_HAS_KEY);
+    bool ok = meshService.sendDirectMessage(node, end);
+    say("dm: %s to !%08x (%s) - watch for 'MESH DM ACK ... err=0' = delivered\n",
+        ok ? "sent" : "REFUSED", (unsigned)node,
+        pki ? "PKI" : "LEGACY - no key, 2.5+ nodes drop it");
     return;
   }
   if (!strcasecmp(line, "chans")) {
