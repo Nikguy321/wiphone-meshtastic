@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WiPhone Firmware Installer</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 40px 16px; background: #0d121e; color: #e8eef7;
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; justify-content: center;
+  }
+  main { max-width: 620px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  .ver { color: #4ade80; font-weight: 600; margin-bottom: 24px; }
+  .card {
+    background: #182030; border-radius: 14px; padding: 20px 22px; margin: 14px 0;
+  }
+  .card h2 { font-size: 17px; margin: 0 0 8px; color: #9db0c9; }
+  ol { margin: 8px 0 0; padding-left: 22px; }
+  li { margin: 6px 0; }
+  code { background: #0d121e; border-radius: 6px; padding: 1px 6px; }
+  .muted { color: #8b98ad; font-size: 14px; }
+  esp-web-install-button { --esp-tools-button-color: #fff;
+    --esp-tools-button-background-color: #15803d; }
+  .install { text-align: center; padding: 26px 22px; }
+  a { color: #60b3ff; }
+</style>
+<script type="module"
+  src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+</head>
+<body>
+<main>
+  <h1>WiPhone Firmware Installer</h1>
+  <div class="ver" id="ver">Loading version…</div>
+
+  <div class="card install">
+    <p>Plug the WiPhone into this computer with a USB cable, then:</p>
+    <esp-web-install-button manifest="manifest.json">
+      <span slot="unsupported">
+        This browser cannot flash devices — use <b>Chrome</b> or <b>Edge</b> on a computer.
+      </span>
+    </esp-web-install-button>
+    <p class="muted">Pick the serial port that appears when you plug the phone in
+      (usually <code>CP210x</code>, <code>CH340</code> or <code>usbserial</code>).</p>
+  </div>
+
+  <div class="card">
+    <h2>If the phone doesn't show up</h2>
+    <ol>
+      <li>Use a USB cable that carries <b>data</b> — many charging cables don't.</li>
+      <li>Close anything else using the serial port (serial monitors, IDEs).</li>
+      <li>On Windows, install the
+        <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a>
+        or <a href="https://www.wch-ic.com/downloads/CH341SER_ZIP.html">CH340</a> driver,
+        then replug.</li>
+      <li>Keep the phone powered on while flashing.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>What this does</h2>
+    <p class="muted">Your browser talks to the phone over USB (Web Serial) and writes the
+      firmware directly — nothing to install, no Python, no command line. Settings, the
+      phonebook and messages on the SD card are not touched. The page must stay open until
+      it says it finished.</p>
+  </div>
+</main>
+<script>
+  fetch('manifest.json').then(r => r.json()).then(m => {
+    document.getElementById('ver').textContent =
+      'Latest version: ' + m.version + ' — installs in about a minute';
+  }).catch(() => {
+    document.getElementById('ver').textContent = '';
+  });
+</script>
+</body>
+</html>
