@@ -216,4 +216,13 @@ protected:
  * LAYOUT (wrong line offsets) or by the RENDER (right offsets, wrong pixels). */
 void booksDebugDumpPage();
 
+/* Shared with FilesApp's text viewer, so the two can never disagree about rendering:
+ * bookRenderRun substitutes codepoints the font lacks; fontMeasure is the ADVANCE-
+ * CORRECTED width (see the long note at its definition — the correction is what fixed
+ * "characters cut off at the margins", and a second, uncorrected measure would
+ * reintroduce that bug in the new viewer). */
+class SmoothFont;
+size_t bookRenderRun(SmoothFont* f, const char* s, size_t len, char* out, size_t cap);
+int    fontMeasure(void* ctx, const char* s, size_t len);
+
 #endif // APP_BOOKS_H

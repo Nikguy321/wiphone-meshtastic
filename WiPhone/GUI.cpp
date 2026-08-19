@@ -19,6 +19,7 @@ governing permissions and limitations under the License.
 #include "app_meshtastic.h"
 #include "app_gbc.h"
 #include "app_books.h"
+#include "app_files.h"
 #include "app_music.h"
 
 // Static images
@@ -1532,6 +1533,9 @@ void GUI::enterApp(ActionID_t app) {
     break;
   case GUI_APP_BOOKS:
     runningApp = new BooksApp(*screen, state, header, footer);
+    break;
+  case GUI_APP_FILES:
+    runningApp = new FilesApp(*screen, state, header, footer);
     break;
   case GUI_APP_MUSIC:
     runningApp = new MusicApp(*screen, state, header, footer);

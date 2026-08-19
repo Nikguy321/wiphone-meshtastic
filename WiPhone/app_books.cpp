@@ -142,7 +142,8 @@ static const GlyphSub GLYPH_SUBS[] = {
 /* Copy a UTF-8 run, replacing anything `f` cannot draw. The font is ASKED rather than assumed,
  * so a face that does have curly quotes keeps them. Used for BOTH measuring and drawing —
  * measure one string and draw another and the line breaks drift. */
-static size_t bookRenderRun(SmoothFont* f, const char* s, size_t len, char* out, size_t cap) {
+/* Non-static: shared with FilesApp's text viewer (see app_books.h). */
+size_t bookRenderRun(SmoothFont* f, const char* s, size_t len, char* out, size_t cap) {
   size_t o = 0, i = 0;
   while (i < len && o + 5 < cap) {
     unsigned char c = (unsigned char)s[i];
@@ -212,7 +213,7 @@ static size_t bookRenderRun(SmoothFont* f, const char* s, size_t len, char* out,
  * The sentinel space makes every real glyph non-final (billed its advance), then the
  * space's own width is subtracted. This errs a hair WIDE on a line's true final glyph,
  * which can only break a line one character early — never clip. */
-static int fontMeasure(void* ctx, const char* s, size_t len) {
+int fontMeasure(void* ctx, const char* s, size_t len) {
   SmoothFont* f = (SmoothFont*)ctx;
   char tmp[96];
   size_t l = bookRenderRun(f, s, len, tmp, sizeof(tmp));   // measure what will be drawn
