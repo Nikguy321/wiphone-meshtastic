@@ -2356,7 +2356,8 @@ protected:
     VIEWING,
     EDITING,
     CALLING,
-    OPTIONS
+    OPTIONS,
+    CONFIRM_DELETE      // Delete asks first: one OK used to erase and persist a contact
   } PhonebookAppState_t;
   PhonebookAppState_t appState;
   MenuOption::keyType currentKey;                           // current address key/ID (editing. viewing)
@@ -2380,6 +2381,7 @@ protected:
 
   // OPTIONS
   OptionsMenuWidget* options;
+  OptionsMenuWidget* confirmDelete;   // CONFIRM_DELETE's two-row menu, Cancel first
 
   // Adding / Editing
   RectWidget* clearRect;

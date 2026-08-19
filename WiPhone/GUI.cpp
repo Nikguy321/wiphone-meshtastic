@@ -570,12 +570,53 @@ void showCallState(CallState state) {
   }
 }
 
+/* MISSED CALLS — observed here because every call transition passes through this one
+ * function, so no call-flow logic is touched anywhere. An incoming ring arms the tracker;
+ * reaching Call disarms it (answered); returning to rest while still armed is a miss.
+ * Statics + accessors, no heap. The clock shows it; opening the dialer or the phonebook
+ * clears it (see enterApp) — you looked, so it stops nagging. */
+static char s_missedName[64] = {0};   // room for a full SIP URI, not just a nickname
+static int  s_missedCount = 0;
+static bool s_ringArmed = false;
+
+int missedCallCount() {
+  return s_missedCount;
+}
+
+const char* missedCallName() {
+  return s_missedName;
+}
+
+void missedCallsClear() {
+  s_missedCount = 0;
+  s_missedName[0] = '\0';
+}
+
 void ControlState::setSipState(CallState newState) {
   log_d("CALL STATE TRANSITION: ");
   showCallState(sipState);
   log_d(" -> ");
   showCallState(newState);
   log_d("");
+
+  if (newState == CallState::BeingInvited) {
+    s_ringArmed = true;
+  } else if (newState == CallState::Call || newState == CallState::Accept ||
+             newState == CallState::Decline) {
+    /* Answered, accepted, or DECLINED - all mean the user saw the ring and acted.
+     * A declined call nagging as "missed" would train people to ignore the nag. */
+    s_ringArmed = false;
+  } else if (s_ringArmed &&
+             (newState == CallState::Idle || newState == CallState::HungUp)) {
+    s_ringArmed = false;
+    s_missedCount++;
+    // The remote's display name, or their URI when there is none. Captured NOW, before
+    // the next call overwrites the shared state.
+    const char* who = (calleeNameDyn && calleeNameDyn[0]) ? calleeNameDyn
+                      : (calleeUriDyn ? calleeUriDyn : "");
+    snprintf(s_missedName, sizeof(s_missedName), "%s", who);
+  }
+
   sipState = newState;
 }
 
@@ -1491,6 +1532,10 @@ static void appHeapProbe(int id, uint32_t heapBefore, uint32_t largestBefore) {
 
 void GUI::enterApp(ActionID_t app) {
   log_d("entering app");
+
+  if (app == GUI_APP_DIALING || app == GUI_APP_PHONEBOOK) {
+    missedCallsClear();          // you went where calling back happens: the nag is done
+  }
 
   /* Spans cleanAppDynamic() as well as the construction below, so the number reported is
    * the NET cost of switching to this app — which is the figure that actually predicts the
@@ -3800,6 +3845,7 @@ PhonebookApp::PhonebookApp(Audio* audio, LCD& lcd, LCD& hardDisp, ControlState& 
   // Menu widgets
   menu    = NULL;
   options = NULL;
+  confirmDelete = NULL;
 
   // VIEWING widgets
   const int16_t pad =  8;
@@ -3874,6 +3920,9 @@ PhonebookApp::~PhonebookApp() {
   if (options) {
     delete options;
   }
+  if (confirmDelete) {
+    delete confirmDelete;
+  }
 
   // ADDING / EDITING
   delete clearRect;
@@ -3941,6 +3990,29 @@ appEventResult PhonebookApp::changeState(PhonebookAppState_t newState) {
 
     // Change settings
     header->setTitle("Options");
+    footer->setButtons(NULL, "Back");
+
+  } else if (newState == CONFIRM_DELETE) {
+
+    // Deactivate / Activate
+    deactivateFocusable();
+    /* Rebuilt EVERY time, not lazily reused: the widget remembers its highlight, so after
+     * one real delete the next confirm would open with "Delete this contact" already
+     * selected - a single hasty OK erasing a contact is the exact thing this state exists
+     * to prevent (review caught it). Two options cost nothing to rebuild. */
+    if (confirmDelete) {
+      delete confirmDelete;
+    }
+    confirmDelete = new OptionsMenuWidget(0, header->height(), lcd.width(),
+                                          lcd.height()-header->height()-footer->height());
+    if (confirmDelete) {
+      confirmDelete->addOption("Cancel", 0x201);            // first: a hasty OK is harmless
+      confirmDelete->addOption("Delete this contact", 0x202);
+      confirmDelete->activate();
+      setFocus(confirmDelete);
+    }
+
+    header->setTitle("Delete contact?");
     footer->setButtons(NULL, "Back");
 
   } else if (newState == CALLING) {
@@ -4144,12 +4216,9 @@ appEventResult PhonebookApp::processEvent(EventType event) {
           // "Edit" option selected
           res |= changeState(EDITING);
         } else if (sel==0x102) {
-          // "Delete" option selected
-          if (flash.phonebook.removeSection(currentKey)) {
-            flash.phonebook.store();
-          }
-          createLoadMenu();
-          res |= changeState(SELECTING);
+          // "Delete" option selected — ask first. One OK here used to erase the contact
+          // AND persist it to flash, no confirmation, no undo, right under "Edit".
+          res |= changeState(CONFIRM_DELETE);
         } else if (sel==0x103) {
           // "Call" option selected
           this->becomeCaller();
@@ -4159,6 +4228,25 @@ appEventResult PhonebookApp::processEvent(EventType event) {
           this->sendMessage();
           res |= REDRAW_ALL;
         }
+      }
+    }
+
+  } else if (appState == CONFIRM_DELETE) {
+
+    res |= REDRAW_SCREEN;
+    if (LOGIC_BUTTON_BACK(event)) {
+      res |= changeState(VIEWING);
+    } else {
+      confirmDelete->processEvent(event);
+      MenuOption::keyType sel = confirmDelete->readChosen();
+      if (sel == 0x202) {
+        if (flash.phonebook.removeSection(currentKey)) {
+          flash.phonebook.store();
+        }
+        createLoadMenu();
+        res |= changeState(SELECTING);
+      } else if (sel == 0x201) {
+        res |= changeState(VIEWING);
       }
     }
 
@@ -4345,14 +4433,16 @@ void PhonebookApp::redrawScreen(bool redrawAll) {
   if (messageApp!=NULL) {
     messageApp->redrawScreen(redrawAll);
 
-  } else if (appState==SELECTING || appState==OPTIONS) {
+  } else if (appState==SELECTING || appState==OPTIONS || appState==CONFIRM_DELETE) {
     if (!screenInited || redrawAll) {
       ((GUIWidget*) rect)->redraw(lcd);
     }
     if (appState==SELECTING) {
       ((GUIWidget*) menu)->redraw(lcd);
-    } else {
+    } else if (appState==OPTIONS) {
       ((GUIWidget*) options)->redraw(lcd);
+    } else {
+      ((GUIWidget*) confirmDelete)->redraw(lcd);
     }
   } else if (appState==CALLING) {
 
@@ -6660,6 +6750,25 @@ void ClockApp::redrawScreen(bool redrawAll) {
     IconRle3 *iconObj = new IconRle3(icon_lock, sizeof(icon_lock));
     lcd.drawImage(*iconObj, cx-iconObj->width()/2, yOff);
     delete iconObj;
+  }
+
+  /* A missed call announces itself where eyes actually land, and stays until you act:
+   * opening the dialer or the phonebook clears it (see enterApp). Amber, BELOW the lock
+   * icon's row (review caught the first draft painting the icon over the name on a locked
+   * phone - the normal state a call gets missed in), fitted so a long URI cannot run off
+   * both screen edges, and the ambient font is untouched by the time yOff was advanced. */
+  if (missedCallCount() > 0) {
+    char mline[96];
+    if (missedCallCount() == 1) {
+      snprintf(mline, sizeof(mline), "Missed call: %s", missedCallName());
+    } else {
+      snprintf(mline, sizeof(mline), "%d missed calls (last: %s)",
+               missedCallCount(), missedCallName());
+    }
+    lcd.setTextFont(fonts[AKROBAT_BOLD_20]);
+    lcd.setTextColor(TFT_ORANGE, BLACK);
+    lcd.drawFitString(mline, lcd.width() - 12, cx, yOff + 64);
+    lcd.setTextColor(WHITE, BLACK);
   }
 
   // Print center button text
