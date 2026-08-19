@@ -1,6 +1,53 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-18 (evening) · **Version 0.9.3, flashed.** All host suites green.
+**Last updated:** 2026-08-19 (early) · **Version 0.9.4, flashed and verified.** All host
+suites green; both repos pushed.
+
+## ✅ 0.9.4 — THE AUDIT RELEASE (2026-08-19). What changed and what to know.
+
+A 38-agent read-only audit produced 30 verified findings (the full list with change specs
+is committed at `docs/audit-2026-08-18-confirmed.json`); the high-value low-risk set is
+implemented, adversarially re-reviewed (which caught a major defect in the first draft of
+the WiFi backoff — see below), built, flashed, and boot-verified. The CHANGELOG's 0.9.4
+section is the user-facing summary. Engineer's notes:
+
+- **tinySIP hardening**: vsnprintf in Connection::print/printf; header-count cap. ⚠ A
+  >100-header message is REJECTED WHOLE (the comment says so honestly now).
+- **findMessage**: `IniFile*&` out-param — the old `IniFile&` "reseating" shallow-copied
+  part2 over part1 (aliased Sections, latent double free). Three call sites bind
+  `IniFile& ini = *part` inside the found-guard.
+- **WiFi out-of-range backoff** (WiPhone.ino, reconnect block): 5×20 s then 180 s, radio
+  quiesced 30 s after each eased attempt, instant retry on screen wake (10 s spacing).
+  🔑 **The quiesce consults `lastWifiConnectAttemptMs()`** (stamped inside connectToWiFi,
+  i.e. by EVERY join path) — the first draft disconnected joins the auto-switcher or the
+  user had just started; the review caught it. Do not "simplify" that check away.
+- **Mesh SPI poll** rate-limited to 10 ms (RX_DONE latches; packets are >100 ms on air).
+- **Idle tick**: vTaskDelay(5) when the CPU-gate predicate says idle AND
+  `smsMirrorPollBusy()` is false (a mid-transfer poll keeps the 1 ms tick).
+- **QoL**: Reboot is a confirm submenu (menu[42] — the count must match the rows);
+  redial via `controlState.lastDialed` (OK on empty dialer prefills, second OK calls);
+  battery % on the clock (transparency-bracketed — opaque smooth-font cells paint black
+  boxes over the wallpaper); `#` on the clock opens Messages when the envelope shows
+  (`ENTER_MESSAGES_APP` 0x20); Reply returns to the THREAD via `returnState`.
+
+## 🔎 OPEN: the e-reader "characters cut off at margins" report (photo, 2026-08-18)
+
+Nick's photo shows page 16/90 of the BattleTech book with the first characters of two
+continued-paragraph lines missing ("**c**alled", "his **h**ead"). **The layout engine is
+exonerated**: a host probe ran the real epub_parse + book_layout over the real book — all
+90 chapters, proportional measure — and every non-whitespace byte lands in exactly one
+line (structurally, the only byte nextStart can skip is a space). The source bytes are
+clean plain ASCII. So the loss happens ON DEVICE between layout and pixels — real font
+metrics or the render path, where host tests cannot reach.
+
+**▶ The instrument is already flashed: serial command `bookpage`** dumps the open reader
+page — per line: text offset, byte length, measured px, first raw byte, rendered string.
+**Next time the reader is open on a damaged page** (the position is saved, so opening the
+book lands right there), run it via the watcher: `echo bookpage > /tmp/wiphone.cmd`, read
+the serial log. If a line's `off` skips the missing char → device-side layout/measure; if
+`off` is right but the rendered string lacks it → bookRenderRun/drawString. One paste
+settles it. (Probe plumbing: `booksDebugDumpPage()` in app_books.cpp via a live-instance
+pointer; prints a hint if no book is open.)
 
 🎉 **ALL FOUR OPEN FAULTS ARE FIXED AND THE FIX IS ON THE PHONE.** The evening session
 below closed everything the morning audit left open — read "WHAT 0.9.3 CHANGED" first.
