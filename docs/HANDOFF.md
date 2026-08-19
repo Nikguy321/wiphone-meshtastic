@@ -1,7 +1,7 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-19 (later) · **Version 0.9.6 — PKC built, flashed, phone-side
-verified; ON-AIR INTEROP WITH THE RAK PENDING.** All 10 host suites green (new:
+**Last updated:** 2026-08-19 (afternoon) · **Version 0.9.6 — PKC PROVEN ON AIR, BOTH
+DIRECTIONS, against the real RAK on Meshtastic 2.7.** All 10 host suites green (new:
 test_pki). ⚠ The web flasher still serves 0.9.5 ON PURPOSE — soak 0.9.6 first.
 
 ## 🔐 0.9.6 (2026-08-19): Meshtastic PKC — DMs can work again. What was DONE and what is NOT YET PROVEN.
@@ -40,18 +40,23 @@ includes one derive): 3,020 B free (`pki` prints it live).
 (names kept, `MESH DB: 8 nodes`), keypair generated + persisted, announce carries the
 key (`MESH ANNOUNCE SENT ... pki=in packet`), `pki` command works.
 
-**⚠ NOT YET PROVEN — the next session's first job:**
-1. The RAK hasn't been heard announcing its key yet (phone shows every node NO KEY; keys
-   arrive with each node's next NodeInfo — ≤3 h periodic, or `announce` then wait a
-   minute for the damped reply; a serial-log Monitor was watching when this session
-   ended). ⚠ Stock also suppresses NodeInfo replies to nodes heard <12 h ago, so the
-   periodic broadcast may be the realistic path.
-2. Then: `dm !<raknode> test` from serial → expect `MESH DM ACK ... err=0` in the log =
-   RAK decrypted us (it only ACKs what it decodes). That single line is phone→RAK proof.
-3. Then Nick DMs the phone from COVEY: expect `MESH PKI DM from !...` + text in Chats +
-   ✓ on COVEY. That's RAK→phone proof — and closes "Meshtastic 2.7 refuses ALL DMs".
-4. After soak: rebuild webflasher (`tools/make_webflasher.sh` + publish) so the page
-   serves 0.9.6.
+**🎉 PROVEN ON AIR, BOTH DIRECTIONS (2026-08-19 ~12:00, real hardware, no simulation):**
+1. The RAK's key arrived with its periodic NodeInfo (~90 min after flash): phone shows
+   `!62b8d2fd 'Nick H New Device' key HepOEI6R...`. ⚠ Lesson: the RAK does NOT answer
+   `announce` want_response requests (stock suppresses replies to recently-heard nodes) —
+   the ≤3 h periodic broadcast is the realistic key-exchange path after a fresh flash.
+2. **Phone→RAK:** serial `dm !62b8d2fd <text>` was decrypted by the 2.7 RAK, displayed
+   in COVEY's Messages, and persisted (verified in `/root/.covey/messages.json` over
+   SSH — note covey-ui runs as ROOT, so its state is under /root/.covey, not ~covey).
+3. **RAK→phone:** Nick saw it pop and replied "works!" FROM COVEY — the phone logged
+   `MESH PKI DM from !62b8d2fd id=0x07b69a66 (6B) ACKed`, stored it in Chats, and its
+   ACK closes the loop on COVEY's side. "Meshtastic 2.7 refuses ALL DMs" is CLOSED.
+4. Follow-up flashed the same hour: phone-originated DMs now set want_ack, so the RAK's
+   `MESH DM ACK ... err=0` line is per-message delivery proof for OUR sends too (the
+   first test send got no ACK purely because want_ack was 0 — by design, now changed).
+
+**Still open:** after soak, rebuild the webflasher (`tools/make_webflasher.sh` +
+publish) so the page serves 0.9.6.
 
 **Honest limitations, on purpose:** phone-originated DMs don't set want_ack (no
 retransmit machinery — ACKs are logged, not shown in UI); DM to a keyless node still

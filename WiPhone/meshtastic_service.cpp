@@ -251,7 +251,7 @@ static bool meshTxData(uint32_t sender, uint32_t dest, int portnum,
 static bool meshTxDataPki(uint32_t sender, uint32_t dest, int portnum,
                           const uint8_t* payload, size_t payloadLen,
                           const uint8_t sessionKey[MESH_PKI_KEY_LEN],
-                          uint32_t requestId = 0) {
+                          uint32_t requestId = 0, bool wantAck = false) {
   uint8_t data[24 + MESH_PHY_MAX_PAYLOAD];
   size_t d = meshBuildData(data, portnum, payload, payloadLen, false, requestId);
 
@@ -264,6 +264,12 @@ static bool meshTxDataPki(uint32_t sender, uint32_t dest, int portnum,
   uint32_t packetId = meshNewPacketId();
   MeshPacketHeader hdr;
   meshFillHeader(&hdr, sender, dest, packetId, 0x00);    // hash 0 = PKI on the air
+  /* want_ack asks the peer for a Routing ACK. No retransmit machinery here, but
+   * the ACK line in the serial log (`MESH DM ACK ... err=0`) is per-message
+   * proof of delivery, and it is how the 2026-08-19 interop was verified. */
+  if (wantAck) {
+    hdr.flags |= MESH_FLAGS_WANT_ACK;
+  }
 
   uint8_t pkt[MESH_HEADER_LEN + 24 + MESH_PHY_MAX_PAYLOAD + MESH_PKI_OVERHEAD];
   memcpy(pkt, &hdr, MESH_HEADER_LEN);
@@ -802,7 +808,7 @@ bool MeshtasticService::loop() {
       if (peer && pkiKeyForNode(peer, skey)) {
         if (!meshTxDataPki(myNodeNum, pendingDm[i].dest, MESH_PORT_TEXT_MESSAGE,
                            (const uint8_t*)pendingDm[i].text,
-                           strlen(pendingDm[i].text), skey)) {
+                           strlen(pendingDm[i].text), skey, 0, true)) {
           log_e("MESH DM to !%08x: queued PKI send FAILED", (unsigned)pendingDm[i].dest);
         }
       } else {
@@ -1679,7 +1685,7 @@ bool MeshtasticService::sendDirectMessage(uint32_t destNode, const char* text) {
     uint8_t skey[MESH_KEY_LEN];
     if (pkiKeyCached(destNode, skey)) {
       bool ok = meshTxDataPki(myNodeNum, destNode, MESH_PORT_TEXT_MESSAGE,
-                              (const uint8_t*)text, strlen(text), skey);
+                              (const uint8_t*)text, strlen(text), skey, 0, true);
       if (ok) {
         storeMessage(myNodeNum, destNode, 0x00, text, true);
       }
