@@ -1982,13 +1982,74 @@ void loop() {
     // never while an auto-switch scan is in flight: connectToWiFi() hard-cycles
     // the radio (disconnect(true) + begin), which aborted every scan and made
     // the auto-switcher look completely dead.
-    if (!gbcXferOn() && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && elapsedMillis(now, msLastWifiRetry, WIFI_RETRY_PERIOD_MS) && !wifiState.userDisabled()) {
-      if (wifiState.connectToPreferred()) {
-        log_d("Connecting to WiFi");
-      } else {
-        log_d("Not connecting to WiFi");
+    //
+    // ⚠ WITH BACKOFF, mirroring the scanner's _discScans pattern: a hard radio cycle
+    // every 20 s forever — plus the driver's own perpetual auto-reconnect between our
+    // attempts — kept the radio actively probing/associating for a whole out-of-range
+    // day, which is exactly the September hunt. The first five retries stay at 20 s
+    // (stepping briefly out of range still rejoins fast); a sustained absence eases to
+    // 3 min; the counter resets the moment anything connects; and a screen wake retries
+    // immediately, so pulling the phone out of a pocket is never the slow path. While
+    // eased, a plain WiFi.disconnect() 30 s after each failed attempt quiesces the
+    // driver's auto-reconnect loop (the same move autoSwitchTick already makes), so the
+    // radio genuinely rests between attempts instead of chewing mid-association.
+    {
+      static uint32_t s_wifiRetryFails = 0;
+      static uint32_t s_wifiQuiesceAtMs = 0;
+      static bool     s_prevScreenOnWifi = true;
+      const bool screenOnNow = gui.state.screenBrightness > 0;
+      const bool wokeNow = screenOnNow && !s_prevScreenOnWifi;
+      s_prevScreenOnWifi = screenOnNow;
+
+      if (wifiState.isConnected()) {
+        s_wifiRetryFails = 0;
+        s_wifiQuiesceAtMs = 0;
       }
-      msLastWifiRetry = now;        // TODO: encapsulate into WiFiState
+
+      uint32_t retryMs = WIFI_RETRY_PERIOD_MS;
+      if (s_wifiRetryFails >= 5) {
+        retryMs = 180000u;              // clearly not a brief blip: ease off the radio
+      }
+      bool due = elapsedMillis(now, msLastWifiRetry, retryMs);
+      if (wokeNow && !wifiState.isConnected() && !wifiState.userDisabled() &&
+          (uint32_t)(now - lastWifiConnectAttemptMs()) >= 10000u) {
+        /* Someone just picked the phone up: try NOW — unless a join started in the last
+         * ten seconds, in which case hard-cycling the radio would abort an association
+         * that was about to succeed and make the wake path SLOWER, not faster. */
+        due = true;
+      }
+
+      if (!gbcXferOn() && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && due && !wifiState.userDisabled()) {
+        if (wifiState.connectToPreferred()) {
+          log_d("Connecting to WiFi");
+        } else {
+          log_d("Not connecting to WiFi");
+        }
+        msLastWifiRetry = now;        // TODO: encapsulate into WiFiState
+        if (s_wifiRetryFails < 1000) {
+          s_wifiRetryFails++;
+        }
+        if (s_wifiRetryFails >= 5) {
+          s_wifiQuiesceAtMs = now + 30000u;   // 30 s is every chance to associate
+        }
+      }
+
+      if (s_wifiQuiesceAtMs && (int32_t)(now - s_wifiQuiesceAtMs) >= 0 &&
+          !wifiState.isConnected() && !wifiState.scanBusy() && !gbcXferOn()) {
+        /* ⚠ Only quiesce an attempt that is OURS and STALE. connectToWiFi() is also
+         * called by the auto-switcher and by a manual join in the networks app, and a
+         * deadline armed 30 s ago knows nothing about them — disconnecting here would
+         * abort a join that started milliseconds earlier (mid-DHCP still reads as "not
+         * connected"). Any attempt younger than 30 s pushes the deadline out instead. */
+        const uint32_t lastAttempt = lastWifiConnectAttemptMs();
+        if ((uint32_t)(now - lastAttempt) < 30000u) {
+          s_wifiQuiesceAtMs = lastAttempt + 30000u;
+        } else {
+          s_wifiQuiesceAtMs = 0;
+          WiFi.disconnect();            // reason the driver does NOT auto-reconnect from
+          log_e("[wifi] eased retry: radio quiesced until the next attempt");
+        }
+      }
     }
 
     // WiFi auto-switch: background scan for the strongest saved network
@@ -2877,6 +2938,7 @@ void loop() {
      * ⚠ Not applied while the radio or I2S are mid-transfer by design: everything in the
      * "full speed" list above covers those cases, so the frequency only ever moves when
      * the phone is genuinely idle. */
+    bool idleTickStretch = false;
     {
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
@@ -2890,6 +2952,11 @@ void loop() {
         curMhz = wantMhz;
         log_e("CPU %luMHz (%s)", (unsigned long)wantMhz, busy ? "busy" : "idle");
       }
+      /* The same predicate decides the TICK below — plus one extra gate: while the LAN
+       * mirror poll is mid-transfer its state machine advances one bounded step per pass,
+       * so stretching the tick then would slow a live download 5x for no saving worth
+       * having. */
+      idleTickStretch = !busy && !smsMirrorPollBusy();
     }
 
     /* ── LET THE CPU ACTUALLY IDLE ────────────────────────────────────────────────
@@ -2904,8 +2971,16 @@ void loop() {
      * ⚠ One TICK, not one millisecond of dead time in anything that matters. Audio
      * decodes ahead in ~24 ms frames, RTP packets are 20 ms, and the keypad is
      * interrupt-driven, so none of them notice. The Game Boy runs its own inner loop and
-     * never reaches this line. */
-    vTaskDelay(1);
+     * never reaches this line.
+     *
+     * FIVE ticks when the phone is verifiably idle (same predicate as the CPU-MHz gate,
+     * plus the mirror poll being between transfers): every pass still runs SIP socket
+     * checks, the mesh poll gate, and a dozen timer compares, so 1,000 passes a second
+     * kept the core awake 10-30% of idle time doing nothing. At 5 ms the worst added
+     * latency is 4 ms — on keypad wake (interrupt-latched), on a LoRa packet that spent
+     * >100 ms on air, on sockets that already ride network jitter. Nothing a person or a
+     * protocol can perceive, for roughly a fifth of the idle wakeups. */
+    vTaskDelay(idleTickStretch ? 5 : 1);
 
     //esp_sleep_enable_timer_wakeup(1000000); // 0.001 s
     //int ret = esp_light_sleep_start();

@@ -65,6 +65,11 @@
  * successfully loaded yet. Returns true if a usable host and token are configured. */
 bool smsMirrorPollConfigured();
 
+/* True while a poll is mid-transfer (connected / reading). The main loop keeps its 1 ms
+ * tick during that window so the one-step-per-pass state machine drains at full speed;
+ * between polls the tick stretches to 5 ms — see the loop tail in WiPhone.ino. */
+bool smsMirrorPollBusy();
+
 /* One bounded step of the poll. Call from the main loop, unconditionally.
  *
  * `mayUseNetwork` is the caller's "is now a sensible time to open a socket" answer — pass

@@ -190,6 +190,8 @@ protected:
   void gotoOffset(uint32_t off, bool clearHistory);
 
   void drawPage();
+  void debugDumpPage();          // serial `bookpage`: print this page's layout + rendering
+  friend void booksDebugDumpPage();
   void drawHelp();
   void drawXfer();
   void drawInfo();
@@ -206,5 +208,12 @@ protected:
   int  imageRows(int i) const;   // rows of text height picture i occupies inline
   bool drawOneImage(int i, int x, int y, uint16_t boxW, uint16_t boxH);
 };
+
+/* Serial `bookpage`: dump the CURRENT reader page — every line's text offset, byte length,
+ * measured pixel width and rendered string — to the log. Needs the reader open (it reads
+ * the live BooksApp); prints a hint otherwise. Added to corner the "characters cut off at
+ * the margins" report: it shows in one paste whether a missing character was lost by the
+ * LAYOUT (wrong line offsets) or by the RENDER (right offsets, wrong pixels). */
+void booksDebugDumpPage();
 
 #endif // APP_BOOKS_H

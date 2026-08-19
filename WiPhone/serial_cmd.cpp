@@ -1,6 +1,7 @@
 #include "serial_cmd.h"
 #include "app_gbc_xfer.h"
 #include "sms_mirror_poll.h"
+#include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
 
 #include <Arduino.h>
 #include <driver/uart.h>
@@ -46,7 +47,8 @@ static void help() {
       "  up off     stop the uploader\n"
       "  up         where to point a browser\n"
       "  sync       poll COVEY for mirrored texts now\n"
-      "  mirror     mirror poller state\n\n");
+      "  mirror     mirror poller state\n"
+      "  bookpage   dump the open reader page's layout + rendering\n\n");
 }
 
 static void reportUploader() {
@@ -108,6 +110,10 @@ static void run(char* line) {
   if (!strcasecmp(line, "mirror")) {
     say("mirror: %s (%sconfigured)\n", smsMirrorPollStatus(),
         smsMirrorPollConfigured() ? "" : "not ");
+    return;
+  }
+  if (!strcasecmp(line, "bookpage")) {
+    booksDebugDumpPage();
     return;
   }
 

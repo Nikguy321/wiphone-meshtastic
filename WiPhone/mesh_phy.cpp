@@ -170,6 +170,19 @@ bool MeshPhy::poll(uint8_t* buf, uint16_t maxLen, uint8_t* outLen, int16_t* rssi
   if (!ready) {
     return false;
   }
+  /* ⚠ RATE-LIMITED to every 10 ms. This is called from the main loop at ~1 kHz, and the
+   * IRQ read below goes over BIT-BANGED SPI (~64 GPIO ops + per-bit delays) — one register
+   * read per millisecond kept the core measurably busy at idle for nothing: at SF11/250k
+   * the 16-symbol preamble alone is ~131 ms on air, RX_DONE LATCHES until cleared, and TX
+   * polls its own flags synchronously — so a 10 ms cadence cannot lose a packet and adds
+   * at most 10 ms of RX latency. DIO0 gating would be cheaper still, but that pin's wiring
+   * has never been verified on hardware; do not switch without measuring it first. */
+  static uint32_t s_lastPollMs = 0;
+  const uint32_t nowMs = millis();
+  if ((uint32_t)(nowMs - s_lastPollMs) < 10) {
+    return false;
+  }
+  s_lastPollMs = nowMs;
   uint8_t irq = readReg(REG_IRQ_FLAGS);
   if (!(irq & IRQ_RX_DONE_MASK)) {
     return false;                        // nothing received

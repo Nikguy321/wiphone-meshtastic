@@ -1007,6 +1007,9 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
           if (runningApp) {
             runningApp->processEvent(event);
           }
+        } else if (appRes & ENTER_MESSAGES_APP) {
+          log_d("MESSAGES (envelope shortcut)");
+          enterApp(GUI_APP_MESSAGES);
         } else {
           log_d("MENU, event = %x", event);
           enterApp(GUI_APP_MENU);
@@ -2577,10 +2580,19 @@ appEventResult DialingApp::processEvent(EventType event) {
     }
     return res;
   } else if (LOGIC_BUTTON_OK(event)) {
+    if (textArea->getText()[0] == '\0' && controlState.lastDialed[0] != '\0') {
+      /* OK on an EMPTY dialer = redial prefill. The number appears for review; the next
+       * OK places the call. Two presses on purpose — a one-press instant redial would
+       * make pocket OKs call people. */
+      textArea->setText(controlState.lastDialed);
+      return REDRAW_SCREEN;
+    }
     if (controlState.isCallPossible()) {
       // Make a call
       log_d("CALLING %s", textArea->getText());
 
+      snprintf(controlState.lastDialed, sizeof(controlState.lastDialed), "%s",
+               textArea->getText());
       controlState.setRemoteNameUri("Dialed number", textArea->getText());
       controlState.setSipReason("");
       controlState.setSipState(CallState::InvitingCallee);
@@ -4247,6 +4259,8 @@ void PhonebookApp::becomeCaller() {
   // Load callee address from flash
   if (currentKey > 0 && currentKey < flash.phonebook.nSections() && *flash.phonebook[currentKey].getValueSafe("s","")!='\0') {
     // Kick-start a call
+    snprintf(controlState.lastDialed, sizeof(controlState.lastDialed), "%s",
+             (const char*)flash.phonebook[currentKey]["s"]);   // redial covers phonebook calls too
     controlState.setRemoteNameUri(flash.phonebook[currentKey].getValueSafe("n",""),
                                   flash.phonebook[currentKey]["s"]);
     controlState.setSipReason("");
@@ -5079,8 +5093,11 @@ appEventResult CallApp::processEvent(EventType event) {
 
   } else if (event == WIPHONE_KEY_UP || event == WIPHONE_KEY_DOWN) {
 
+    /* Seeded from the live driver FIRST: with the INI missing (fresh flash, corrupt file)
+     * or any single key absent, these used to stay UNINITIALIZED and then be passed as the
+     * getIntValueSafe defaults — the in-call volume keys started from stack garbage. */
     int8_t earpieceVol, headphonesVol, loudspeakerVol;
-    //audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
+    audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
     if ((ini.load() ) && !ini.isEmpty()) {
       if (ini.hasSection("audio")) {
           log_d("getting audio info");
@@ -5108,6 +5125,14 @@ appEventResult CallApp::processEvent(EventType event) {
     char buff[50];
 
  
+    /* Apply FIRST, then persist what the driver actually accepted. Storing the raw ±6 sums
+     * meant a held key grew the stored numbers without bound (int8 wrap and all) while the
+     * driver clamped silently — the file and the hardware disagreed a little more with
+     * every press. The readback below is the clamped truth. */
+    audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);
+    audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
+    log_d("New Volumes are earspkr %d headphone %d loudspkr %d", earpieceVol,headphonesVol,loudspeakerVol );
+
     if (!ini.hasSection("audio")) {
         ini.addSection("audio");
       }
@@ -5118,9 +5143,6 @@ appEventResult CallApp::processEvent(EventType event) {
       log_d("new audio settings are saved");
     }
     ini.unload();
-    audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);
-    audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
-    log_d("New Volumes are earspkr %d headphone %d loudspkr %d", earpieceVol,headphonesVol,loudspeakerVol );
     
     if (earpieceVol == -69){
       precentage = 0x0;
@@ -6556,6 +6578,12 @@ appEventResult ClockApp::processEvent(EventType event) {
     // Redraw screen only if message icon is not shown yet, but a new message was received
     return REDRAW_SCREEN;
   }
+  if (event == '#' && (controlState.unreadMessages || controlState.meshUnread)) {
+    /* The envelope is showing and # is not a digit anyone starts a number with: one press
+     * from the clock straight to Messages, instead of Menu > WiPhone > Messages. Sits
+     * below the locked guard like the dial shortcut, so a pocket cannot trigger it. */
+    return EXIT_APP | ENTER_MESSAGES_APP;
+  }
   if (event >= '0' && event <='9' || event == '*' || event == '#') {
     return EXIT_APP | ENTER_DIAL_APP;
   }
@@ -6578,7 +6606,24 @@ void ClockApp::redrawScreen(bool redrawAll) {
   GUI::drawWifiIcon(lcd, controlState, 3, 5);
   auto w = GUI::drawSipIcon(lcd, controlState, 24, 5);
   messageIconShown = GUI::drawMessageIcon(lcd, controlState, 26 + w, 5) > 0;
-  GUI::drawBatteryIcon(lcd, controlState, -1, lcd.width()-3, 7);
+  {
+    /* The number next to the icon, on the clock only. Five coarse icon levels meant "will
+     * it last the evening?" had no answer anywhere in the normal UI — the exact question
+     * a day in the field keeps asking. */
+    uint16_t bw = GUI::drawBatteryIcon(lcd, controlState, -1, lcd.width()-3, 7);
+    if (bw > 0 && controlState.battVoltage > 0) {
+      char soc[8];
+      snprintf(soc, sizeof(soc), "%d%%", (int)(controlState.battSoc + 0.5f));
+      lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
+      lcd.setTextDatum(TR_DATUM);
+      lcd.setTextColor(WHITE, BLACK);
+      // Transparent glyphs, like the clock text below: opaque smooth-font cells would
+      // paint a black box over the wallpaper this screen draws behind everything.
+      lcd.setSmoothTransparency(true);
+      lcd.drawString(soc, lcd.width() - 3 - bw - 4, 7);
+      lcd.setSmoothTransparency(false);
+    }
+  }
 
   // Print clock and date
   uint16_t yOff = 158;
@@ -6810,10 +6855,13 @@ appEventResult MessagesApp::processEvent(EventType event) {
        * stale. Rebuilding both is cheap next to being wrong. */
       flash.messages.clearPreloaded();
       this->buildChats();
-      if (appState == THREAD) {
+      /* returnState, not appState: while the composer is up appState is COMPOSING, so the
+       * old `appState == THREAD` test could never be true here and the thread was never
+       * rebuilt on the way back — which is also why Reply exited to the chats list. */
+      if (appState == THREAD || (appState == COMPOSING && returnState == THREAD)) {
         this->buildThread();
       }
-      enterState(appState == COMPOSING ? CHATS : appState);
+      enterState(appState == COMPOSING ? returnState : appState);
 
       delete subApp;
       subApp = NULL;
@@ -6833,6 +6881,7 @@ appEventResult MessagesApp::processEvent(EventType event) {
       MenuOption::keyType sel = chatsMenu->readChosen();
       if (sel == 1) {
         // New message: no correspondent yet, so the composer asks for one.
+        returnState = CHATS;
         appState = COMPOSING;
         subApp = new CreateMessageApp(lcd, controlState, flash, header, footer);
       } else if (sel >= 2) {
@@ -6858,6 +6907,7 @@ appEventResult MessagesApp::processEvent(EventType event) {
     } else if (LOGIC_BUTTON_OK(event)) {
       // Reply, pre-addressed. threadUri is a FULL URI on purpose — TinySIP::sendMessage()
       // uses the address verbatim, so a bare number would call fine and silently not text.
+      returnState = THREAD;             // replying belongs to the conversation you were in
       appState = COMPOSING;
       subApp = new CreateMessageApp(lcd, controlState, flash, header, footer,
                                     threadUri[0] ? threadUri : threadPeer);
@@ -11641,7 +11691,7 @@ void TextInputWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY,
     if (this->focused) {
       uint16_t  curPosX = 0;
       char* dup = strdup(inputStringDyn + textOffset);
-      if (fit<=strlen(dup)) {   // sanity check
+      if (dup && fit<=strlen(dup)) {   // sanity check (and strdup can return NULL: strlen(NULL) crashes)
         dup[fit] = '\0';
         if (cursorOffset - textOffset <=  fit) {
           dup[cursorOffset - textOffset] = '\0';
@@ -11859,7 +11909,7 @@ void PasswordInputWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenO
     if (this->focused) {
       uint16_t  curPosX = 0;
       char* dup = strdup(outputStringDyn + textOffset);
-      if (fit<=strlen(dup)) {   // sanity check
+      if (dup && fit<=strlen(dup)) {   // sanity check (and strdup can return NULL: strlen(NULL) crashes)
         dup[fit] = '\0';
         if (cursorOffset - textOffset <=  fit) {
           dup[cursorOffset - textOffset] = '\0';

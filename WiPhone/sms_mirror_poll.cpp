@@ -164,6 +164,10 @@ bool smsMirrorPollConfigured() {
   return loadConfig();
 }
 
+bool smsMirrorPollBusy() {
+  return s_state != PS_IDLE;
+}
+
 void smsMirrorPollRequestNow() {
   s_forceNow = true;
 }
@@ -379,11 +383,13 @@ int smsMirrorPollLoop(bool mayUseNetwork) {
 
   int added = 0;
   int budget = READ_BUDGET;
+  int consumed = 0;                    // actual bytes taken this pass — see the re-arm below
   while (budget-- > 0 && s_client.available()) {
     int c = s_client.read();
     if (c < 0) {
       break;
     }
+    consumed++;
     if (c == '\r') {
       continue;                    // CRLF: the LF does the work
     }
@@ -415,8 +421,12 @@ int smsMirrorPollLoop(bool mayUseNetwork) {
     }
   }
 
-  if (budget < READ_BUDGET) {
-    s_deadlineMs = now + READ_TIMEOUT_MS;    // bytes arrived: re-arm the stall deadline
+  /* ⚠ `consumed`, not `budget < READ_BUDGET`: the loop's `budget--` decrements before the
+   * available() check, so budget was always below READ_BUDGET even on a zero-byte pass and
+   * the stall deadline re-armed forever — only the 120 s total cap ever fired. Caught by
+   * the adversarial review the same evening it shipped. */
+  if (consumed > 0) {
+    s_deadlineMs = now + READ_TIMEOUT_MS;    // bytes actually arrived: re-arm the deadline
   }
 
   if (!s_client.connected() && !s_client.available()) {

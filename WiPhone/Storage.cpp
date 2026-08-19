@@ -1053,11 +1053,11 @@ int Messages::ingestMirrored(const struct SmsMirrorRecord& rec, const char* ownU
       MessageData& mine = *preloaded[idx];
       mine["v"] = vidStr;               // the in-RAM copy, so a redraw agrees with the file
 
-      IniFile& ini = part1;
+      IniFile* part = NULL;
       int32_t key = 0;
-      if (this->findMessage(mine, ini, key) && key > 0) {
-        ini[key]["v"] = vidStr;
-        if (!ini.store()) {
+      if (this->findMessage(mine, part, key) && key > 0) {
+        (*part)[key]["v"] = vidStr;
+        if (!part->store()) {
           log_e("failed to store adopted VoIP id");
         }
       } else {
@@ -1078,7 +1078,7 @@ int Messages::ingestMirrored(const struct SmsMirrorRecord& rec, const char* ownU
   return 1;
 }
 
-bool Messages::findMessage(MessageData& msg, IniFile& part, int32_t& section) {
+bool Messages::findMessage(MessageData& msg, IniFile*& part, int32_t& section) {
   log_i("<-- Messages");
 
   // Check if messages has all the necessary fields
@@ -1091,21 +1091,26 @@ bool Messages::findMessage(MessageData& msg, IniFile& part, int32_t& section) {
   int partn = msg.getIntValueSafe("p", -1);
   log_v("looking for partition: %d", partn);
 
-  // Ensure the message partition is loaded
-  part = part1;
-  if (!part.isLoaded() || part.isEmpty() || part[0].getIntValueSafe("p", -2) != partn) {
-    part = part2;
-    if (!part.isLoaded() || part.isEmpty() || part[0].getIntValueSafe("p", -2) != partn) {
+  /* ⚠ POINTER selection, not object assignment. This took `IniFile& part` and did
+   * `part = part2;` meaning "switch to the other partition" — but a C++ reference cannot
+   * be reseated, so that line invoked the default copy-assignment and SHALLOW-COPIED
+   * part2's Section pointers into part1: two owners for every section in the partition,
+   * a double free waiting at the next unload, and part1's own sections leaked. It stayed
+   * latent only because it needed both caches loaded and mismatched at once. */
+  part = &part1;
+  if (!part->isLoaded() || part->isEmpty() || (*part)[0].getIntValueSafe("p", -2) != partn) {
+    part = &part2;
+    if (!part->isLoaded() || part->isEmpty() || (*part)[0].getIntValueSafe("p", -2) != partn) {
       log_v("loading partition %d", partn);
-      part = part1;
-      this->loadPartition(part, partn);
+      part = &part1;
+      this->loadPartition(*part, partn);
     }
   }
 
   // Find the actual message in the partition by time ("t") and text ("m")
-  if (part.isLoaded() && !part.isEmpty()) {
+  if (part->isLoaded() && !part->isEmpty()) {
     const char* field = msg.hasKey("m") ? "m" : "b";
-    section = part.query("t", msg["t"], field, msg[field]);
+    section = part->query("t", msg["t"], field, msg[field]);
     return section > 0;
   }
   log_e("not found");
@@ -1138,13 +1143,14 @@ bool Messages::deleteMessage(MessageData& msg) {
   msg.show();
 
   // Find message
-  IniFile& ini = part1;
+  IniFile* part = NULL;
   int key = 0;
-  bool found = this->findMessage(msg, ini, key);
+  bool found = this->findMessage(msg, part, key);
   log_v("found == %d", found);
 
   // Remove message and update index
   if (found && key > 0) {
+    IniFile& ini = *part;              // whichever cache actually holds the partition
 
     // Remove message section from the partition
     ini.removeSection(key);
@@ -1225,12 +1231,13 @@ void Messages::setRead(MessageData& msg) {
   msg.setRead();
 
   // Find message
-  IniFile& ini = part1;
+  IniFile* part = NULL;
   int key = 0;
-  bool found = this->findMessage(msg, ini, key);
+  bool found = this->findMessage(msg, part, key);
 
   // Change unread ("u") fields
   if (found && key > 0) {
+    IniFile& ini = *part;              // whichever cache actually holds the partition
     // Remove unread flag from the message
     ini[key].remove("u");
 
@@ -1255,7 +1262,10 @@ void Messages::setRead(MessageData& msg) {
     // - unread counter of the index
     int globalUnread = index[0].getIntValueSafe("u", unread+1) - 1;
     if (globalUnread) {
-      index[0]["u"] = unread;
+      // globalUnread, NOT the per-partition remainder: writing `unread` here set the
+      // database-wide counter to one partition's count, so with unread texts spread
+      // across partitions the badge under-counted after any single message was read.
+      index[0]["u"] = globalUnread;
     } else {
       index[0].remove("u");
     }

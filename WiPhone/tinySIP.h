@@ -238,13 +238,17 @@ public:
   virtual int printf(const char *format, ...)=0;*/
 
 
+  /* ⚠ vsnprintf, never vsprintf: parts of what lands in this buffer are remote-influenced
+   * (URIs, display names, header values echoed into requests), and 500 bytes on the stack
+   * with no bound was a remote-assisted stack smash waiting for a long enough name. A
+   * truncated SIP line fails a transaction; an overflowed stack fails the whole phone. */
   int print(const char *format, ...) {
     va_list aptr;
     char buffer[500] = {0};
     int ret;
 
     va_start(aptr, format);
-    ret = vsprintf(buffer, format, aptr);
+    ret = vsnprintf(buffer, sizeof(buffer), format, aptr);
     va_end(aptr);
     write((uint8_t *)buffer, strlen(buffer));
 
@@ -261,7 +265,7 @@ public:
     int ret;
 
     va_start(aptr, format);
-    ret = vsprintf(buffer, format, aptr);
+    ret = vsnprintf(buffer, sizeof(buffer), format, aptr);
     va_end(aptr);
     write((uint8_t *)buffer, strlen(buffer));
 

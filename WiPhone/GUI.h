@@ -153,6 +153,7 @@ typedef uint8_t appEventResult;
 #define REDRAW_HEADER   0x02
 #define REDRAW_FOOTER   0x04
 #define ENTER_DIAL_APP  0x08      // 0x88 - exit and enter DialApp (to be returned by ClockApp and MenuApp)
+#define ENTER_MESSAGES_APP 0x20   // exit and open Messages (ClockApp: # while the envelope shows)
 #define LOCK_UNLOCK     0x10      // one of two events: screen locked or screen unlocked
 #define EXIT_APP        0x80
 #define REDRAW_ALL    (REDRAW_SCREEN | REDRAW_HEADER | REDRAW_FOOTER)         // TODO: change these into more appropriate types
@@ -245,6 +246,11 @@ public:
   char* calleeNameDyn;
   char* calleeUriDyn;
   char* lastReasonDyn;
+  /* The last number/URI a call was started to, RAM-only. The dialer opens empty and this
+   * phone kept the number nowhere — redialing meant retyping it. OK on an empty dialer
+   * prefills from here (one more OK actually calls). Fixed buffer, not Dyn: 70 chars holds
+   * any full SIP URI this phone can dial and never touches the heap mid-call-setup. */
+  char lastDialed[71] = {0};
 
   void setRemoteNameUri(const char* dispName, const char* uri);
   void setSipState(CallState state);
@@ -1610,6 +1616,10 @@ protected:
   WiPhoneApp* subApp = NULL;            // can be CreateMessageApp or ViewMessageApp
 
   MessagesState_t appState = CHATS;
+  /* Where the composer RETURNS to. Reply used to dump you at the chats list because the
+   * exit branch could only guess: appState was already COMPOSING by then, so it mapped
+   * everything to CHATS. Set at the two compose sites instead. */
+  MessagesState_t returnState = CHATS;
   void enterState(MessagesState_t state);
 
   int32_t chatSelected = 0;                       // row index in the chats list
@@ -2689,7 +2699,7 @@ protected:
    * too FEW is silent — the tail zero-fills into entries with ID 0, parent 0 and a NULL
    * title, which then appear as children of the Clock menu. It was one short before Books was
    * added. enterMenu() now skips title-less rows so a miscount stays cosmetic. */
-  GUIMenuItem menu[41] PROGMEM = {  // increment size by one to add a new app
+  GUIMenuItem menu[42] PROGMEM = {  // increment size by one to add a new app
 
     // TODO: button names can be removed
 
@@ -2707,7 +2717,11 @@ protected:
     { 3, 1, "Tools", "Select", "Back", GUI_ACTION_SUBMENU },
     { 4, 1, "Games", "Select", "Back", GUI_ACTION_SUBMENU },
     { 5, 1, "Settings", "Select", "Back", GUI_ACTION_SUBMENU },
-    { 13, 1, "Reboot", "", "", GUI_ACTION_RESTART },
+    /* ⚠ A SUBMENU, not the action: Reboot sat one mis-press below Settings and called
+     * ESP.restart() on OK with no confirmation — all RAM state gone for a slip of the
+     * thumb. The child row is the actual restart. */
+    { 13, 1, "Reboot", "Select", "Back", GUI_ACTION_SUBMENU },
+    { 45, 13, "Yes, reboot now", "", "", GUI_ACTION_RESTART },
 
     // Tools (3)
     { 31, 3, "Audio recorder", "", "", GUI_APP_RECORDER },

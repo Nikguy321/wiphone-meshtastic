@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.9.4 — the audit release: hardening, battery, and small courtesies
+
+### 🛡 Hardening (from a 38-agent audit of the whole codebase)
+
+- **Two remotely-reachable memory-safety holes in the phone stack are closed**: a SIP
+  message could overflow a stack buffer via long names/URIs, and a peer sending more than
+  100 headers wrote past an array. Both now bounded.
+- **A latent double-free in message storage is defused** (partition cache switching
+  shallow-copied one cache over another).
+- The unread-messages counter no longer under-counts after reading a message when unread
+  texts span storage partitions.
+- In-call volume keys no longer start from uninitialized memory on a fresh flash, and
+  what gets saved is what the hardware actually accepted.
+- The mirror poll's stall timeout actually fires now (its re-arm condition was always
+  true), and typing-screen redraws survive an out-of-memory strdup.
+
+### 🔋 Battery, for days in the field
+
+- **Out of Wi-Fi range, the radio finally rests.** The phone used to hard-cycle the Wi-Fi
+  radio every 20 seconds all day when no network was in range — with the driver
+  re-probing in between. After five quick retries it now eases to one attempt every
+  3 minutes with the radio quiesced in between; picking the phone up or coming home
+  reconnects immediately.
+- The LoRa radio's status register is read every 10 ms instead of ~1000 times a second
+  (it was bit-banged SPI each pass); nothing can be missed — packets take >100 ms on air.
+- When truly idle (screen off, no call, no music, no transfer), the main loop ticks at
+  5 ms instead of 1 ms — a fifth of the wakeups, imperceptible latency.
+
+### 📱 Small courtesies
+
+- **Reboot asks first** (it was a one-press menu item next to Settings).
+- **Redial**: OK on an empty dialer brings back the last number you called (from the
+  dialer or the phonebook); OK again calls it.
+- **Battery percentage** next to the icon on the clock screen.
+- **# on the clock opens Messages** when the envelope icon is showing.
+- **Replying to a text returns you to that conversation**, not the conversations list.
+- Serial console gains `bookpage` — dumps the open reader page's layout for diagnosing
+  rendering reports.
+
 ## 0.9.3 — the day-of-real-use fixes: order, buzz, and the reboots
 
 ### 🧾 A conversation reads in the order it happened

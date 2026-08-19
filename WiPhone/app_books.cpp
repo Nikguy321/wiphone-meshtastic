@@ -232,9 +232,14 @@ static int fontMeasure(void* ctx, const char* s, size_t len) {
 
 // ---------------------------------------------------------------- lifecycle
 
+/* The live instance, for the serial `bookpage` probe. One reader exists at a time (apps are
+ * created on entry and deleted on exit), so a plain pointer is enough. */
+static BooksApp* s_liveBooksApp = NULL;
+
 BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer)
   : WindowedApp(disp, state, header, footer) {
   log_d("create BooksApp");
+  s_liveBooksApp = this;
   appState = BOOKS_LIB;
   menu = NULL;
   textArea = NULL;
@@ -332,6 +337,9 @@ void BooksApp::operator delete(void* p) {
 
 BooksApp::~BooksApp() {
   log_d("destroy BooksApp");
+  if (s_liveBooksApp == this) {
+    s_liveBooksApp = NULL;
+  }
   closeBook(true);
   xferStop();                    // in case the app dies with the transfer screen up
   holdScreenAwake(false);        // never leave the user's screen timeout stretched
@@ -1203,6 +1211,49 @@ static const char* const s_helpLines[] = {
   "(it asks first).",
 };
 static const int s_helpCount = (int)(sizeof(s_helpLines) / sizeof(s_helpLines[0]));
+
+void BooksApp::debugDumpPage() {
+  if (!isOpen || !chapText) {
+    log_e("BOOKPAGE: no book open");
+    return;
+  }
+  SmoothFont* f = fonts[BODY_FONTS[fontIdx]];
+  BookMeasure m = { f, fontMeasure };
+  BookPage pg;
+  bookLayoutPageImages(chapText, chapLen, pageStart, pageWidth(), pageLines(), &m,
+                       imgBoxes, nImages, &pg);
+  log_e("BOOKPAGE: spine=%d pageStart=%lu next=%lu width=%dpx lines=%d font=%d",
+        spine, (unsigned long)pageStart, (unsigned long)pg.next, pageWidth(),
+        (int)pg.nLines, fontIdx);
+  char line[448];
+  for (int i = 0; i < pg.nLines; i++) {
+    if (pg.lines[i].blank) {
+      log_e("BOOKPAGE %02d: (blank)", i);
+      continue;
+    }
+    if (pg.lines[i].image >= 0) {
+      log_e("BOOKPAGE %02d: (image %d, rows=%d)", i, pg.lines[i].image, (int)pg.lines[i].rows);
+      continue;
+    }
+    const uint32_t off = pg.lines[i].off;
+    const uint16_t len = pg.lines[i].len;
+    bookRenderRun(f, chapText + off, len, line, sizeof(line));
+    if (strlen(line) > 120) {
+      line[120] = '\0';                        // log lines have a budget; the head is the evidence
+    }
+    log_e("BOOKPAGE %02d: off=%lu len=%u w=%dpx raw0=%02x rend0=%02x |%s|",
+          i, (unsigned long)off, (unsigned)len, (int)f->textWidth(line),
+          (unsigned char)chapText[off], (unsigned char)line[0], line);
+  }
+}
+
+void booksDebugDumpPage() {
+  if (s_liveBooksApp) {
+    s_liveBooksApp->debugDumpPage();
+  } else {
+    log_e("BOOKPAGE: open the reader first (Books > a book), then run this again");
+  }
+}
 
 void BooksApp::drawHelp() {
   SmoothFont* font = fonts[AKROBAT_BOLD_18];

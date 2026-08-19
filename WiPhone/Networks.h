@@ -36,6 +36,11 @@ extern WiFiUDP udp;
 extern WiFiUDP udpRtcp;
 
 extern void connectToWiFi(const char* ssid, const char* pwd);
+
+/* millis() of the last connectToWiFi() from ANY path — the periodic retry, the
+ * auto-switcher, or a manual join in the networks app. The reconnect backoff's radio
+ * quiesce consults this so it never disconnects an association it did not start. */
+uint32_t lastWifiConnectAttemptMs();
 extern IPAddress resolveDomain(const char* hostName);
 
 // Class to save/load WiFi networks data from Flash

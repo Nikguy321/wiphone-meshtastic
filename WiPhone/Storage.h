@@ -352,7 +352,7 @@ protected:
 
   int32_t countAll(bool incoming);
   bool loadPartition(IniFile& part, int num);
-  bool findMessage(MessageData& data, IniFile& part, int32_t& section);
+  bool findMessage(MessageData& data, IniFile*& part, int32_t& section);   // part: OUT, points at part1 or part2
 };
 
 class Storage : public Preferences {

@@ -2384,6 +2384,18 @@ int TinySIP::parseAllHeaders(char* s) {
 
         //log_d("Header found: %c ", *s);
 
+        /* ⚠ CAPPED. respHeaderName is MAX_HEADER_CNT slots and nothing stopped a peer from
+         * sending more — header 101 wrote one pointer past the array, into whatever lives
+         * after it in the object. Any SIP peer controls its own header count, so this was
+         * remotely reachable memory corruption.
+         * ⚠ A message over the cap is REJECTED WHOLE: the break lands in the !crlf error
+         * path below, so the parse returns an error and the message is dropped. That is
+         * deliberate honesty over cleverness — no legitimate SIP message carries a hundred
+         * headers, and a peer that does is not one to half-trust with a partial parse. */
+        if (respHeaderCnt >= MAX_HEADER_CNT) {
+          break;
+        }
+
         // Header found
         *(s-2) = '\0';   // replace CR with NUL for previous header
         respHeaderName[respHeaderCnt++] = s;

@@ -70,9 +70,17 @@ void processWiFiEvent(WiFiEvent_t event) {
   }
 }
 
+static uint32_t s_msLastConnectAttempt = 0;
+
+uint32_t lastWifiConnectAttemptMs() {
+  return s_msLastConnectAttempt;
+}
+
 void connectToWiFi(const char* ssid, const char* pwd) {
 
   // TODO: do not connect while scanning for networks
+
+  s_msLastConnectAttempt = millis();   // every join path stamps this — see Networks.h
 
   log_d("Connecting to network: %s", ssid);
 
