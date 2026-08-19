@@ -63,6 +63,26 @@ inbound text arriving via the mirror. Ask Nick to text the number and listen.
 **Housekeeping:** ChoiceWidget's per-keypress `log_e` spam (incl. "MESUT") deleted;
 `FIRMWARE_VERSION` 0.9.2 → 0.9.3; CHANGELOG released section written.
 
+**The adversarial review round (same evening) — a 20-agent multi-lens review of the diff
+confirmed 14 findings, and three were regressions in the fixes themselves. All fixed,
+rebuilt, reflashed (`260e39b`). The ones worth remembering:**
+- 🛑 **Persisting the since-id would have made refused records PERMANENT silent loss** —
+  the mark advanced even when ingest returned -1 (no SIP account, unbuildable URI, db
+  load failure), and the RAM-only mark's reboot-refetch was the thing quietly healing
+  that. The mark now advances only past accepted records. **The general lesson: before
+  persisting any high-water mark, ask what the old full-rescan was silently repairing.**
+- The sentinel repair now lets **the index follow the file**: a failed partition store no
+  longer clears the ffffffff flag that makes the repair run; a stale flag (power loss
+  between the two stores) heals on the next load.
+- `msgCompare`'s both-have-vids tiebreak was **intransitive** across mixed vid/no-vid
+  equal-time blocks — UB for qsort, the exact nondeterminism it was written to remove.
+  Now strictly lexicographic on (has-vid, vid, seq).
+- The buzz latch is gated on the record being **recent** (10 min, clock known) so a
+  full resync of a fresh store does not run the motor for the whole catch-up.
+- The mirror poll's read deadline is a **stall** timeout (re-armed on progress, 120 s
+  absolute cap): the first-ever catch-up processed 61 records slower than the old 8 s
+  whole-response budget and was being declared "timed out" while healthy.
+
 **Verification state:** clean boot, mesh radio + all 5 channels up, SIP registered,
 sentinel repair fired, heap `largest` ~24 KB and recovering post-boot. Still to watch:
 the buzz on a real inbound, thread order by eye, and a long soak (the honest window is
