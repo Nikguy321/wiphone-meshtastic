@@ -1,8 +1,14 @@
 # The web flasher, and how updates get discovered — plan and feasibility
 
-**Status: prototype BUILT and committed (`webflasher/`), not yet published.** Everything
-below is analyzed against this codebase's known walls; nothing here re-plans around the
-OTA/TLS wall.
+**Status: 🎉 LIVE at https://nikguy321.github.io/wiphone-meshtastic/ (2026-08-19).**
+Serving 0.9.4; page title, manifest and all four parts verified over HTTPS. Publishing a
+new version is two commands: `tools/make_webflasher.sh && tools/publish_webflasher.sh`
+(the second recreates `gh-pages` as a single orphan commit — binary history never
+accumulates). The phone's Settings > Firmware update screen leads with the page.
+⚠ Awaiting the first real browser flash (Nick), then it is shareable.
+
+Everything below is analyzed against this codebase's known walls; nothing here re-plans
+around the OTA/TLS wall.
 
 ## 1. The flasher itself — feasible, prototype done
 
