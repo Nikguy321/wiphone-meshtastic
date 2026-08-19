@@ -440,14 +440,24 @@ void Networks::autoSwitchTick(bool screenOn) {
   bool wake = screenOn && !_prevScreenOn;
   _prevScreenOn = screenOn;
 
-  // Diagnostic heartbeat (log_e = visible over serial @500000): the state of
-  // every gate, every 15s. Cheap, and this feature has failed silently twice.
-  static uint32_t dbgMs = 0;
-  if (millis() - dbgMs > 15000) {
-    dbgMs = millis();
-    log_e("[autosw] ud=%d rec=%d en=%d conn=%d scanning=%d sinceScan=%lus",
-          (int)_userDisabled, (int)reconnect, (int)autoSwitchEnabled(),
-          (int)connected, (int)_scanning, (unsigned long)((millis() - _msLastScan) / 1000));
+  // Diagnostic line (log_e = visible over serial @500000) — ON STATE CHANGE, not on a
+  // timer. The 15 s heartbeat wrote ~5,700 identical lines a day into the field log and
+  // buried the lines that matter; the states it reports change a handful of times a day.
+  // The feature has failed silently twice, so the line itself stays — every transition of
+  // any gate still prints, which is what the heartbeat was really for.
+  {
+    static uint32_t s_lastState = 0xFFFFFFFF;
+    const uint32_t state = ((uint32_t)_userDisabled)
+                         | ((uint32_t)reconnect          << 1)
+                         | ((uint32_t)autoSwitchEnabled() << 2)
+                         | ((uint32_t)connected          << 3)
+                         | ((uint32_t)_scanning          << 4);
+    if (state != s_lastState) {
+      s_lastState = state;
+      log_e("[autosw] ud=%d rec=%d en=%d conn=%d scanning=%d sinceScan=%lus",
+            (int)_userDisabled, (int)reconnect, (int)autoSwitchEnabled(),
+            (int)connected, (int)_scanning, (unsigned long)((millis() - _msLastScan) / 1000));
+    }
   }
 
   if (_userDisabled || !reconnect || !autoSwitchEnabled()) {

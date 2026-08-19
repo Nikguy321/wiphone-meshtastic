@@ -1621,10 +1621,15 @@ void loop() {
      * DIAGNOSTIC: delete it, or raise DROP_THRESH, once the ratchet is understood. This is the
      * same trap as the health log itself — an instrument that consumes what it measures. */
     {
-      const uint32_t DROP_THRESH = 512;
+      /* Downshifted 250 ms → 2 s and 512 → 1024 B now the ratchet is understood and 0.9.3
+       * has soaked: the free-list walk four times a second was itself a measurable cost
+       * (the handoff's own instruction was to delete it or raise the threshold once
+       * trusted). At 2 s it still names the moment of any real step within the window the
+       * HEALTH line could never resolve, for an eighth of the walks. */
+      const uint32_t DROP_THRESH = 1024;
       static uint32_t s_lastLargestCheck = 0;
       static uint32_t s_largestHigh = 0;
-      if (elapsedMillis(now, s_lastLargestCheck, 250)) {
+      if (elapsedMillis(now, s_lastLargestCheck, 2000)) {
         s_lastLargestCheck = now;
         const uint32_t lg = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
         if (s_largestHigh == 0 || lg > s_largestHigh) {
