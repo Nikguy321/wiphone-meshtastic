@@ -1,6 +1,27 @@
 # The web flasher, and how updates get discovered — plan and feasibility
 
-**Status: 🎉 LIVE at https://nikguy321.github.io/wiphone-meshtastic/ (2026-08-19).**
+**Status: 🎉 LIVE at https://nikguy321.github.io/wiphone-meshtastic/ (2026-08-19),
+now driving esptool-js DIRECTLY — see the erase incident below before touching this.**
+
+## ⚠ THE ERASE INCIDENT (2026-08-19) — why this page does not use ESP Web Tools
+
+The first field test wiped the tester's phone: WiFi networks, SIP account, contacts,
+message history — everything in SPIFFS. Two separate bugs:
+1. The raw SDK bootloader's header says 4MB; `pio upload` patches it to 16MB on the wire.
+   The verbatim-writing browser installed a 4MB-believing bootloader that rejected the
+   16MB partition table and reset-looped. Fixed: `make_webflasher.sh` ships ONE
+   `merge_bin` image — esptool applies its own header patching.
+2. **ESP Web Tools erases the whole chip on any "new installation", and with no Improv
+   serial in this firmware EVERY install is a "new installation".** `new_install_prompt_
+   erase: false` means erase WITHOUT ASKING (verified against their docs). Fixed: the
+   page now drives **esptool-js directly** — Install/Update never erases, and a factory
+   reset exists only as an explicit, confirm-guarded advanced option. Owner's rule:
+   the flasher must never clear user data unless explicitly chosen.
+
+Recovery notes that worked: `pio run -t uploadfs` restores the SPIFFS baseline (fonts,
+sounds, default configs); deleting `/roms/smsmirror.since` (Files app) makes the COVEY
+mirror re-serve the whole SMS history, rebuilding the message store; WiFi/SIP/contacts
+are re-entered by hand (SIP password lives in the VoIP.ms portal).
 Serving 0.9.4; page title, manifest and all four parts verified over HTTPS. Publishing a
 new version is two commands: `tools/make_webflasher.sh && tools/publish_webflasher.sh`
 (the second recreates `gh-pages` as a single orphan commit — binary history never

@@ -14,21 +14,27 @@
   main { max-width: 620px; }
   h1 { font-size: 28px; margin: 0 0 4px; }
   .ver { color: #4ade80; font-weight: 600; margin-bottom: 24px; }
-  .card {
-    background: #182030; border-radius: 14px; padding: 20px 22px; margin: 14px 0;
-  }
+  .card { background: #182030; border-radius: 14px; padding: 20px 22px; margin: 14px 0; }
   .card h2 { font-size: 17px; margin: 0 0 8px; color: #9db0c9; }
   ol { margin: 8px 0 0; padding-left: 22px; }
   li { margin: 6px 0; }
   code { background: #0d121e; border-radius: 6px; padding: 1px 6px; }
   .muted { color: #8b98ad; font-size: 14px; }
-  esp-web-install-button { --esp-tools-button-color: #fff;
-    --esp-tools-button-background-color: #15803d; }
   .install { text-align: center; padding: 26px 22px; }
+  button {
+    font: 600 17px system-ui; color: #fff; background: #15803d; border: 0;
+    border-radius: 10px; padding: 12px 26px; cursor: pointer;
+  }
+  button:disabled { background: #3a4456; cursor: default; }
+  button.danger { background: #7f1d1d; font-size: 14px; padding: 9px 18px; }
+  #status { margin-top: 14px; min-height: 22px; font-size: 15px; }
+  #bar { height: 8px; background: #0d121e; border-radius: 4px; margin-top: 10px;
+         overflow: hidden; display: none; }
+  #fill { height: 100%; width: 0%; background: #4ade80; transition: width .2s; }
   a { color: #60b3ff; }
+  details { margin-top: 18px; }
+  summary { cursor: pointer; color: #8b98ad; font-size: 14px; }
 </style>
-<script type="module"
-  src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 </head>
 <body>
 <main>
@@ -37,18 +43,23 @@
 
   <div class="card install">
     <p>Plug the WiPhone into this computer with a USB cable, then:</p>
-    <esp-web-install-button manifest="manifest.json">
-      <span slot="unsupported">
-        This browser cannot flash devices — use <b>Chrome</b> or <b>Edge</b> on a computer.
-      </span>
-    </esp-web-install-button>
-    <p class="muted">Pick the serial port that appears when you plug the phone in
-      (usually <code>CP210x</code>, <code>CH340</code> or <code>usbserial</code>).</p>
+    <button id="install">Install / Update</button>
+    <div id="status"></div>
+    <div id="bar"><div id="fill"></div></div>
+    <p class="muted"><b>Your data stays.</b> Updating never touches saved WiFi networks,
+      SIP accounts, contacts, messages, or anything on the SD card.</p>
+    <details>
+      <summary>Advanced: factory reset install (erases ALL data)</summary>
+      <p class="muted">This wipes every setting, contact and message on the phone before
+        installing — only for a phone you want factory-fresh. It will ask you to confirm.</p>
+      <button class="danger" id="erase">Erase everything and install</button>
+    </details>
   </div>
 
   <div class="card">
     <h2>If the phone doesn't show up</h2>
     <ol>
+      <li>Use <b>Chrome</b> or <b>Edge</b> on a computer — other browsers cannot flash.</li>
       <li>Use a USB cable that carries <b>data</b> — many charging cables don't.</li>
       <li>Close anything else using the serial port (serial monitors, IDEs).
         An error like <code>Failed to execute 'open' on 'SerialPort'</code> means
@@ -57,25 +68,113 @@
         <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a>
         or <a href="https://www.wch-ic.com/downloads/CH341SER_ZIP.html">CH340</a> driver,
         then replug.</li>
-      <li>Keep the phone powered on while flashing.</li>
+      <li>Keep the phone powered on while flashing, and keep this page open until it
+        says it finished.</li>
     </ol>
   </div>
 
   <div class="card">
     <h2>What this does</h2>
     <p class="muted">Your browser talks to the phone over USB (Web Serial) and writes the
-      firmware directly — nothing to install, no Python, no command line. Settings, the
-      phonebook and messages on the SD card are not touched. The page must stay open until
-      it says it finished.</p>
+      firmware directly — nothing to install, no Python, no command line. The phone
+      reboots itself when it finishes.</p>
   </div>
 </main>
-<script>
-  fetch('manifest.json').then(r => r.json()).then(m => {
-    document.getElementById('ver').textContent =
-      'Latest version: ' + m.version + ' — installs in about a minute';
-  }).catch(() => {
-    document.getElementById('ver').textContent = '';
-  });
+
+<script type="module">
+/* Direct esptool-js, NOT ESP Web Tools — a deliberate choice with a story. ESP Web Tools
+ * treats any device it cannot identify over Improv serial as a "new installation" and,
+ * with new_install_prompt_erase unset/false, ERASES THE WHOLE CHIP without asking. The
+ * WiPhone speaks no Improv, so every flash was a silent factory reset — the first field
+ * test lost the tester's WiFi networks, SIP account, contacts and message history.
+ * Driving esptool-js ourselves means erase happens exactly when the user explicitly
+ * chooses it below, and never otherwise. */
+import { ESPLoader, Transport } from "https://unpkg.com/esptool-js@0.4.5/bundle.js";
+
+const $ = (id) => document.getElementById(id);
+let manifest = null;
+
+fetch("manifest.json").then(r => r.json()).then(m => {
+  manifest = m;
+  $("ver").textContent = "Latest version: " + m.version + " — installs in about a minute";
+}).catch(() => { $("ver").textContent = "Could not load version info"; });
+
+function status(t) { $("status").textContent = t; }
+function progress(pct) {
+  $("bar").style.display = "block";
+  $("fill").style.width = pct + "%";
+}
+
+async function fetchBinary(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error("could not download " + path);
+  const buf = new Uint8Array(await r.arrayBuffer());
+  let s = "";
+  const CH = 8192;                       // esptool-js wants a binary string
+  for (let i = 0; i < buf.length; i += CH) {
+    s += String.fromCharCode.apply(null, buf.subarray(i, i + CH));
+  }
+  return s;
+}
+
+async function flash(eraseFirst) {
+  const btns = [$("install"), $("erase")];
+  btns.forEach(b => b.disabled = true);
+  let transport = null;
+  try {
+    if (!manifest) throw new Error("version info did not load - refresh the page");
+    status("Pick the phone's serial port in the dialog…");
+    const port = await navigator.serial.requestPort();
+    transport = new Transport(port, true);
+    const loader = new ESPLoader({ transport, baudrate: 460800, romBaudrate: 115200 });
+    status("Connecting to the phone…");
+    await loader.main();
+
+    if (eraseFirst) {
+      status("Erasing all data (this takes a while)…");
+      await loader.eraseFlash();
+    }
+
+    const part = manifest.builds[0].parts[0];
+    status("Downloading firmware…");
+    const data = await fetchBinary(part.path);
+
+    status("Installing… keep this page open");
+    await loader.writeFlash({
+      fileArray: [{ data, address: part.offset }],
+      flashSize: "keep", flashMode: "keep", flashFreq: "keep",
+      eraseAll: false, compress: true,
+      reportProgress: (idx, written, total) =>
+        progress(Math.round(written / total * 100)),
+    });
+
+    status("Done - rebooting the phone…");
+    await loader.after();                // hard reset into the new firmware
+    status("✅ Installed " + manifest.version + ". The phone is restarting - unplug it "
+           + "whenever you like.");
+  } catch (e) {
+    const msg = String(e && e.message || e);
+    if (msg.includes("No port selected")) {
+      status("No port was chosen. Plug the phone in and try again.");
+    } else if (msg.includes("open") && msg.includes("SerialPort")) {
+      status("The port is held by another program (a serial monitor or IDE). Close it, "
+             + "replug the cable, and try again.");
+    } else {
+      status("Failed: " + msg + " - unplug, replug, and try again.");
+    }
+  } finally {
+    try { if (transport) await transport.disconnect(); } catch (_) {}
+    btns.forEach(b => b.disabled = false);
+  }
+}
+
+$("install").onclick = () => flash(false);
+$("erase").onclick = () => {
+  if (confirm("This ERASES every setting, contact and message on the phone and installs "
+              + "fresh. There is no undo. Continue?")) {
+    flash(true);
+  }
+};
 </script>
 </body>
 </html>
