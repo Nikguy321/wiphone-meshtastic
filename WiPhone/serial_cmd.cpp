@@ -2,6 +2,7 @@
 #include "app_gbc_xfer.h"
 #include "sms_mirror_poll.h"
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
+#include "meshtastic_service.h"   // applyChannelUrl, the `chan` command
 
 #include <Arduino.h>
 #include <driver/uart.h>
@@ -26,8 +27,11 @@
  */
 static const uart_port_t PORT = UART_NUM_0;
 
-static char     s_buf[48];
-static uint8_t  s_len = 0;
+/* 512, not 48: `chan <url>` carries a Meshtastic invite URL, and a complete four-channel
+ * invite runs ~370 characters. Truncated input is not run (see below), so a small buffer
+ * would make the one command this console exists to save you with silently impossible. */
+static char     s_buf[512];
+static uint16_t s_len = 0;
 
 static void say(const char* fmt, ...) {
   char out[192];
@@ -48,7 +52,9 @@ static void help() {
       "  up         where to point a browser\n"
       "  sync       poll COVEY for mirrored texts now\n"
       "  mirror     mirror poller state\n"
-      "  bookpage   dump the open reader page's layout + rendering\n\n");
+      "  bookpage   dump the open reader page's layout + rendering\n"
+      "  chan <url> apply a Meshtastic channel invite URL\n"
+      "  chans      list the channels this phone has\n\n");
 }
 
 static void reportUploader() {
@@ -114,6 +120,31 @@ static void run(char* line) {
   }
   if (!strcasecmp(line, "bookpage")) {
     booksDebugDumpPage();
+    return;
+  }
+
+  /* `chan <url>` — apply a channel invite straight over the cable. Born of a real jam:
+   * a chip erase cost the phone its channels, and re-sharing them over the mesh was
+   * impossible — the RAK's 2.7 firmware NAKs every DM to this phone with
+   * PKI_SEND_FAIL_PUBLIC_KEY (the phone implements no PKC), and an invite broadcast on
+   * the primary channel would hand the PSK to everyone in RF range. Serial has neither
+   * problem: private by cable, works when the mesh is exactly the broken part. */
+  if (!strncasecmp(line, "chan ", 5)) {
+    const char* url = line + 5;
+    while (*url == ' ') {
+      url++;
+    }
+    int added = meshService.applyChannelUrl(url);
+    say("chan: %d channel(s) added\n", added);
+    return;
+  }
+  if (!strcasecmp(line, "chans")) {
+    for (int i = 0; i < meshService.getChannelCount(); i++) {
+      const MeshChannel* c = meshService.getChannel(i);
+      if (c) {
+        say("  [%d] '%s' keyLen=%d\n", i, c->name, (int)c->keyLen);
+      }
+    }
     return;
   }
 
