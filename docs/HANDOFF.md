@@ -1,7 +1,32 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-19 (early) · **Version 0.9.4, flashed and verified.** All host
-suites green; both repos pushed.
+**Last updated:** 2026-08-19 · **Version 0.9.4+, flashed and verified.** All host suites
+green; both repos pushed.
+
+## ✅ 2026-08-19 (day): reader fix proven, Files app, web flasher, courtesies
+
+- **The e-reader margin bug is FIXED and confirmed by Nick** ("works well"). Mechanism:
+  SmoothFont::textWidth bills the LAST glyph ink-only; the layouter measured one char at a
+  time so EVERY char was "last" → lines packed 1-2 chars over budget → the draw clamped
+  them left, beheading the first character. `fontMeasure` (app_books.cpp) now bills every
+  glyph its advance via a sentinel space. ⚠ Any NEW measure must reuse it (exported in
+  app_books.h) — a second naive measure reintroduces the bug.
+- **Files app** (Menu > Tools > Files): browse/view/upload-anywhere + clipboard Copy/Move
+  with mark-never-breaks-the-file semantics (rename-else-copy-verify-then-delete, refuse
+  overwrite, partial dst removed on failure), delete behind Cancel-first confirm. The
+  `bookpage` serial probe cornered the reader bug on its first use.
+- **Web flasher**: `webflasher/` prototype (ESP Web Tools, the t-ui pattern) + staging
+  script + `docs/webflasher-plan.md`. 🛑 NOT published yet — go-live steps in the plan.
+  🔑 Update discovery: the PAGE is the check; the phone-side idea from Nick's notes cannot
+  be a GitHub poll (TLS wall) and must NOT lean on COVEY (only Nick has one — his call,
+  2026-08-19). Planned instead: an offline build-age nudge once the URL is live.
+- **Phonebook Delete asks first** (confirm menu REBUILT each entry — a reused widget
+  remembered its highlight and would have recreated the one-press erase; review catch).
+- **Missed calls** show amber on the clock, observed purely inside setSipState (ring arms;
+  Call/Accept/DECLINE disarm — declined-counts-as-missed was a review catch too); cleared
+  by opening the dialer or phonebook.
+- Still open on the wishlist: Files icon + main-menu promotion, COVEY wallpaper, the
+  build-age nudge + Firmware-update screen text at flasher go-live.
 
 ## ✅ 0.9.4 — THE AUDIT RELEASE (2026-08-19). What changed and what to know.
 
