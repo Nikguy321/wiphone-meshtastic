@@ -21,6 +21,19 @@ See [CHANGELOG.md](CHANGELOG.md) for what's new.
 
 ---
 
+## 🔌 Install it from your browser — no tools needed
+
+### ➡ **[nikguy321.github.io/wiphone-meshtastic](https://nikguy321.github.io/wiphone-meshtastic/)** ⬅
+
+Plug the WiPhone into a computer with a USB cable, open the link in **Chrome or
+Edge**, click **Install**, and pick the serial port that appears. About a
+minute; the phone reboots itself when done. Nothing to install on the computer
+— no Python, no command line. (Prefer doing it by hand? The PlatformIO route
+below still works, and the phone's own **Settings → Firmware update** screen
+carries both sets of instructions.)
+
+---
+
 ## Game Boy Color emulator
 
 Main menu → **Games → Game Boy**. Based on the retro-go fork of gnuboy, tuned
