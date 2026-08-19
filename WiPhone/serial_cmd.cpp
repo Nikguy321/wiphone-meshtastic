@@ -3,6 +3,8 @@
 #include "sms_mirror_poll.h"
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
 #include "meshtastic_service.h"   // applyChannelUrl, the `chan` command
+#include "GUI.h"                  // gui.state, the `sip` command
+#include <WiFi.h>
 
 #include <Arduino.h>
 #include <driver/uart.h>
@@ -136,6 +138,21 @@ static void run(char* line) {
     }
     int added = meshService.applyChannelUrl(url);
     say("chan: %d channel(s) added\n", added);
+    return;
+  }
+  /* `sip` — is an account actually LOADED and registered? Added while chasing "typing a
+   * number doesn't complete": the completion (and the mirror, and texting) all hang off
+   * the ACTIVE account's URI, and an account that was typed into the list but never
+   * SELECTED is invisible to all of them. This prints the truth in one line. */
+  if (!strcasecmp(line, "sip")) {
+    extern GUI gui;
+    const char* uri = gui.state.fromUriDyn;
+    say("sip: account %s%s%s | registered: %s | wifi: %s\n",
+        (uri && uri[0]) ? "LOADED (" : "NOT LOADED",
+        (uri && uri[0]) ? uri : "",
+        (uri && uri[0]) ? ")" : " - open SIP accounts and SELECT one",
+        gui.state.sipRegistered ? "yes" : "no",
+        (WiFi.status() == WL_CONNECTED) ? "up" : "DOWN");
     return;
   }
   if (!strcasecmp(line, "chans")) {

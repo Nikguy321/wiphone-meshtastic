@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.9.5 — install from a browser, browse your files, type just the number
+
+### 🔌 Install and update from a browser
+
+**[nikguy321.github.io/wiphone-meshtastic](https://nikguy321.github.io/wiphone-meshtastic/)** —
+plug the phone into a computer, open the link in Chrome or Edge, click **Install**, pick
+the port. About a minute; nothing to install on the computer. **Updating never touches
+your data** — settings, contacts, messages and the SD card all stay; a full factory-reset
+install exists only as a clearly-marked advanced option that asks first. The phone's own
+**Settings → Firmware update** screen now leads with this route.
+
+### 🗂 A file browser (Menu → Tools → Files)
+
+Browse the whole SD card. Press OK on a file for **Open / Copy / Move / Delete** —
+copy and move use a paste-where-you-land clipboard that survives leaving the app, never
+overwrites, and can never damage the original (a move only completes after the copy is
+verified). Text files open in a pager that wraps like the e-reader. **Upload into this
+folder** turns the WiFi upload page toward wherever you're standing — the whole card is
+now reachable over WiFi, not just ROMs and books.
+
+### ☎️ Type just the number
+
+New contact or new text: type `4257604281` and the phone completes it to a full SIP
+address using **your own account's server** — so it adapts to any provider with nothing
+to configure. Addresses with `@` or letters pass through untouched. Also understands a
+leading `+` and entries older versions saved as bare numbers.
+
+### 📖 Reader fix
+
+Some lines lost their first character at the margin (a font measure/render disagreement).
+Fixed at the root; wrapping is now exact.
+
+### 🔧 For the toolbox
+
+Serial console additions: `chan <url>` applies a Meshtastic channel invite over the cable
+(the mesh can't deliver invites to this phone — modern Meshtastic requires public-key
+crypto for DMs that this firmware doesn't implement), `chans` lists channels, `sip`
+answers "why is texting dead" in one line, `bookpage` dumps the open reader page.
+
 ## 0.9.4 — the audit release: hardening, battery, and small courtesies
 
 ### 🛡 Hardening (from a 38-agent audit of the whole codebase)
