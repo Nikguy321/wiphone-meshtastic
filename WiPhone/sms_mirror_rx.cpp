@@ -30,19 +30,33 @@ bool smsMirrorIsMirrorLine(const char* text) {
 }
 
 bool sipCompleteAddress(const char* input, char* out, size_t cap) {
-  if (!input || !input[0] || strchr(input, '@')) {
+  if (!input || !input[0]) {
+    return false;
+  }
+  /* See through what earlier layers wrap a number in: the phonebook's save normaliser
+   * prefixes "sip:" (so a contact stored as a bare number reads "sip:4257604281" — a
+   * hostless URI that calls nothing and texts nothing), and people type numbers with a
+   * leading '+'. Both still mean "this is a phone number, finish it for me". */
+  const char* core = input;
+  if (!strncasecmp(core, "sip:", 4)) {
+    core += 4;
+  }
+  if (*core == '+') {
+    core++;
+  }
+  if (!*core || strchr(core, '@')) {
     return false;                     // empty, or already a full address: not ours to touch
   }
-  for (const char* p = input; *p; p++) {
+  for (const char* p = core; *p; p++) {
     if (*p < '0' || *p > '9') {
-      return false;                   // letters, ':', '+': some other kind of address
+      return false;                   // letters or punctuation: some other kind of address
     }
   }
   const char* ownUri = gui.state.fromUriDyn;
   if (!ownUri || !*ownUri) {
     return false;                     // no SIP account: nothing to complete WITH
   }
-  return buildPeerUri(input, ownUri, out, cap);
+  return buildPeerUri(core, ownUri, out, cap);
 }
 
 /* Build the correspondent's URI in the form THIS PHONE would build it.

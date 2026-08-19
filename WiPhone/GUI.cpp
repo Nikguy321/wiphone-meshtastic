@@ -3891,7 +3891,7 @@ PhonebookApp::PhonebookApp(Audio* audio, LCD& lcd, LCD& hardDisp, ControlState& 
   // ADDING / EDITING widgets
   yOff = header->height();
   addLabelInput(yOff, dispNameLabel, dispNameInput, "Name:", 100);
-  addLabelInput(yOff, sipUriLabel, sipUriInput, "SIP URI:", 100);
+  addLabelInput(yOff, sipUriLabel, sipUriInput, "SIP URI or number:", 100);
   addLabelInput(yOff, loraLabel, loraInput, "LoRa address:", 100);
 
   clearRect = new RectWidget(0, yOff, lcd.width(), lcd.height() - yOff - footer->height(), WP_COLOR_1);
