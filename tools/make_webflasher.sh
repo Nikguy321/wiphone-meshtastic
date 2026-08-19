@@ -22,10 +22,15 @@ VER=$(sed -n 's/#define FIRMWARE_VERSION "\(.*\)"/\1/p' WiPhone/config.h)
 [ -n "$VER" ] || { echo "cannot read FIRMWARE_VERSION"; exit 1; }
 [ -f "$BUILD/firmware.bin" ] || { echo "no build - run pio run first"; exit 1; }
 
-cp "$FRAMEWORK/tools/sdk/bin/bootloader_dio_80m.bin" "$OUT/bootloader.bin"
-cp "$BUILD/partitions.bin"                           "$OUT/partitions.bin"
-cp "$FRAMEWORK/tools/partitions/boot_app0.bin"       "$OUT/boot_app0.bin"
-cp "$BUILD/firmware.bin"                             "$OUT/firmware.bin"
+# ⚠ ONE MERGED IMAGE, patched by esptool itself — not the four raw parts. This is the
+# lesson of the first field test (black screen, boot loop): `pio upload` runs esptool
+# with --flash_size detect, which PATCHES THE BOOTLOADER HEADER on the wire to 16MB; the
+# raw SDK bootloader says 4MB, and a 4MB-believing bootloader rejects the 16MB partition
+# layout and reset-loops. merge_bin applies exactly the same header patching (and fixes
+# the appended hash), so the browser writes what the cable would have written.
+ESPTOOL=$(ls -d "$HOME/.platformio/packages/tool-esptoolpy"*/esptool.py | head -1)
+python3 "$ESPTOOL" --chip esp32 merge_bin   --flash_mode dio --flash_freq 80m --flash_size 16MB   -o "$OUT/wiphone-merged.bin"   0x1000 "$FRAMEWORK/tools/sdk/bin/bootloader_dio_80m.bin"   0x8000 "$BUILD/partitions.bin"   0xe000 "$FRAMEWORK/tools/partitions/boot_app0.bin"   0x10000 "$BUILD/firmware.bin"
+rm -f "$OUT/bootloader.bin" "$OUT/partitions.bin" "$OUT/boot_app0.bin" "$OUT/firmware.bin"
 
 cat > "$OUT/manifest.json" <<EOF
 {
@@ -36,10 +41,7 @@ cat > "$OUT/manifest.json" <<EOF
     {
       "chipFamily": "ESP32",
       "parts": [
-        { "path": "bootloader.bin", "offset": 4096 },
-        { "path": "partitions.bin", "offset": 32768 },
-        { "path": "boot_app0.bin", "offset": 57344 },
-        { "path": "firmware.bin", "offset": 65536 }
+        { "path": "wiphone-merged.bin", "offset": 0 }
       ]
     }
   ]

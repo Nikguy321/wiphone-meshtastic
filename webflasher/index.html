@@ -50,7 +50,9 @@
     <h2>If the phone doesn't show up</h2>
     <ol>
       <li>Use a USB cable that carries <b>data</b> — many charging cables don't.</li>
-      <li>Close anything else using the serial port (serial monitors, IDEs).</li>
+      <li>Close anything else using the serial port (serial monitors, IDEs).
+        An error like <code>Failed to execute 'open' on 'SerialPort'</code> means
+        another program is holding the port right now.</li>
       <li>On Windows, install the
         <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a>
         or <a href="https://www.wch-ic.com/downloads/CH341SER_ZIP.html">CH340</a> driver,

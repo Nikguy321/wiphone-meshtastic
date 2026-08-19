@@ -11,7 +11,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 [ -f webflasher/manifest.json ] || { echo "no stage - run tools/make_webflasher.sh"; exit 1; }
-[ webflasher/firmware.bin -nt .pio/build/wiphone/firmware.bin ] || \
+[ webflasher/wiphone-merged.bin -nt .pio/build/wiphone/firmware.bin ] || \
   [ ! -f .pio/build/wiphone/firmware.bin ] || {
     echo "stage is OLDER than the build - run tools/make_webflasher.sh"; exit 1; }
 
@@ -19,9 +19,7 @@ VER=$(python3 -c "import json;print(json.load(open('webflasher/manifest.json'))[
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-cp webflasher/index.html webflasher/manifest.json \
-   webflasher/bootloader.bin webflasher/partitions.bin \
-   webflasher/boot_app0.bin webflasher/firmware.bin "$TMP/"
+cp webflasher/index.html webflasher/manifest.json webflasher/wiphone-merged.bin "$TMP/"
 touch "$TMP/.nojekyll"
 
 git -C "$TMP" init -q -b gh-pages
