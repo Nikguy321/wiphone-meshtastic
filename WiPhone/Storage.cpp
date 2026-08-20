@@ -1365,6 +1365,54 @@ int32_t Messages::recountUnread(bool repair, char* fromOut, size_t fromCap) {
   return total;
 }
 
+int32_t Messages::markAllRead() {
+  if (!this->loaded || !index.isLoaded()) {
+    return -1;
+  }
+  int32_t cleared = 0;
+  bool indexChanged = false;
+
+  for (size_t s = 1; s < index.nSections(); s++) {
+    if (strcmp(index[s].getValueSafe("d", ""), "i") != 0) {
+      continue;
+    }
+    int partn = index[s].getIntValueSafe("p", -1);
+    if (partn < 0) {
+      continue;
+    }
+    IniFile part;                        // local, not part1/part2 — see recountUnread
+    if (!loadPartition(part, partn)) {
+      continue;
+    }
+    int32_t inPart = 0;
+    for (size_t k = 1; k < part.nSections(); k++) {
+      if (part[k].hasKey("u")) {
+        part[k].remove("u");
+        inPart++;
+      }
+    }
+    if (inPart > 0 || part[0].hasKey("u")) {
+      part[0].remove("u");
+      part.store();
+      cleared += inPart;
+    }
+    if (index[s].hasKey("u")) {
+      index[s].remove("u");
+      indexChanged = true;
+    }
+  }
+  if (index[0].hasKey("u")) {
+    index[0].remove("u");
+    indexChanged = true;
+  }
+  if (indexChanged) {
+    index.store();
+  }
+  /* The preloaded copies may still carry "u" — they are stale now. Callers
+   * showing a list must clearPreloaded() and rebuild, same as the delete path. */
+  return cleared;
+}
+
 void Messages::setSent(MessageData& msg) {
   // TODO
 }

@@ -333,8 +333,10 @@ void MeshtasticApp::buildPlaces() {
 
 void MeshtasticApp::buildPlaceOpts() {
   menu = newMenu(NULL);
-  menu->addOption("Measure distances from here", MESH_KEY_SETREF, 1);
-  menu->addOption("I'm here (tell the mesh)", MESH_KEY_IMHERE, 1);
+  // Short on purpose: the first version's labels ran off the 240px screen
+  // ("...distances from h|"). Field report, 2026-08-19.
+  menu->addOption("Measure from here", MESH_KEY_SETREF, 1);
+  menu->addOption("I'm here (announce)", MESH_KEY_IMHERE, 1);
 }
 
 void MeshtasticApp::buildStatus() {
@@ -539,6 +541,12 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
       const MeshWaypoint* w = meshService.findWaypoint(selectedWaypointId);
       if (w && menu->currentKey() == MESH_KEY_SETREF) {
         meshService.setReferenceId(w->id);
+        /* Jump straight to WHERE THE ANSWER IS. The first version returned to
+         * Places with a subtle [ref] tag, and the field report was "nothing
+         * happened anywhere?" — the distances were sitting in Nodes, unvisited.
+         * Show the payoff, don't make the user hunt for it. */
+        enterState(MESH_NODES);
+        return REDRAW_ALL;
       } else if (w && menu->currentKey() == MESH_KEY_IMHERE) {
         /* Declare the phone AT this waypoint: persists, and broadcasts one
          * Position so COVEY's map shows this phone. The declaration is a

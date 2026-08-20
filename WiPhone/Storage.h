@@ -340,6 +340,13 @@ public:
    * why findMessage takes a pointer out-param. Bounded by partition count. */
   int32_t recountUnread(bool repair, char* fromOut = NULL, size_t fromCap = 0);
 
+  /* Mark EVERY incoming message read, at any depth, thread or no thread.
+   * Exists for exactly one situation: unread flags belonging to a conversation
+   * that no longer has a row in the UI (deleted thread, wiped-then-remirrored
+   * history) — there is nothing left to open, so markThreadRead can never
+   * reach them and the white icon burns forever. Returns how many it cleared. */
+  int32_t markAllRead();
+
   void setSent(MessageData&);
   void setDelivered(const char* fromUri, const char* toUri, unsigned long time, hash_t hash);
 

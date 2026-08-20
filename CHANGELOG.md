@@ -27,9 +27,17 @@ counters when they disagree, and names a thread that still holds unread.
 
 - `pos` — every waypoint, every node fix with age and distance, your pin, the
   reference. The whole picture in one paste.
-- `unread` — see above.
+- `unread` — see above; `unread clear` marks EVERYTHING read, for flags orphaned by a
+  deleted conversation (nothing left to open = nothing else could ever clear them).
 - Fixed: serial `?` help was silently truncated at 192 bytes — every command added
   since `chan` was invisible in the one place a stranded user looks.
+
+### 🥾 First field test, same day
+
+The whole chain worked on air — waypoint received ("vashon"), reference set, COVEY
+placed at "3.2km E of vashon" — but the UI hid the payoff: "Measure from here" now
+jumps straight to the Nodes list where the distances live (the first field report was
+"nothing happened anywhere?"), and the place-menu labels no longer run off the screen.
 
 ### 🛡 From the adversarial review (before this ever shipped)
 

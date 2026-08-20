@@ -70,6 +70,7 @@ static void help() {
     "  dm <!node> <text>  send a direct message (PKI when the key is known)",
     "  pos        positions: waypoints, node fixes, our pin, the reference",
     "  unread     recount unread texts, repair the counter, name the threads",
+    "  unread clear  mark EVERYTHING read (orphaned threads included)",
     "",
   };
   for (size_t i = 0; i < sizeof(LINES) / sizeof(LINES[0]); i++) {
@@ -289,6 +290,23 @@ static void run(char* line) {
    * message records themselves, repairs the three derived counters when they
    * disagree (drift keeps the icon lit with nothing to read), and NAMES a
    * thread that still holds unread so there is somewhere to go. */
+  /* `unread clear` — mark EVERYTHING read. The one honest lever when unread
+   * flags belong to a conversation that no longer exists on the phone (wiped
+   * thread, remirrored history): there is no thread to open, so nothing else
+   * can ever clear them. The user is asserting "I have seen everything". */
+  if (!strcasecmp(line, "unread clear")) {
+    extern GUI gui;
+    int32_t n = gui.flash.messages.markAllRead();
+    if (n < 0) {
+      say("unread: message store not loaded\n");
+      return;
+    }
+    gui.flash.messages.clearPreloaded();
+    gui.state.unreadMessages = gui.flash.messages.hasUnread();
+    say("unread: cleared %d - icon %s\n", (int)n,
+        gui.state.unreadMessages ? "STILL LIT (report this)" : "off");
+    return;
+  }
   if (!strcasecmp(line, "unread")) {
     extern GUI gui;
     char from[64];
