@@ -12336,8 +12336,19 @@ void GUI::showMeshPopup(const char* title, const char* body) {
   lcd.setTextFont(fonts[AKROBAT_BOLD_18]);
   guiDrawEllipsized(lcd, title ? title : "New message", inner, x + 8, y + 6);
 
+  /* The body is RAW text off the air, and a real message can contain newlines
+   * or other control bytes. This is a one-line banner drawn with drawString,
+   * which has no notion of them — they come out as stray glyphs. Flatten to
+   * spaces so the preview reads as the one line it is. */
+  char flat[64];
+  strlcpy(flat, body ? body : "", sizeof(flat));
+  for (char* p = flat; *p; p++) {
+    if ((unsigned char)*p < 0x20) {
+      *p = ' ';
+    }
+  }
   lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
-  guiDrawEllipsized(lcd, body ? body : "", inner, x + 8, y + 26);
+  guiDrawEllipsized(lcd, flat, inner, x + 8, y + 26);
 }
 
 void GUI::drawOtaUpdate() {

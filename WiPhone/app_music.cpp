@@ -146,7 +146,27 @@ void MusicApp::drawNowPlaying() {
   char l1[MUSIC_NAME_MAX], l2[MUSIC_NAME_MAX];
   const char* nm = t->name;
   const size_t len = strlen(nm);
-  const size_t cut = 24;
+  /* Break where the line actually RUNS OUT, measured in pixels, not at a fixed
+   * 24 characters. With a character count the first line could be ellipsized
+   * down to ~20 glyphs while the second still resumed at 24 — the characters
+   * between the two were shown nowhere at all. */
+  const uint16_t lineW = lcd.width() - 2 * MUSIC_MARGIN;
+  lcd.setTextFont(fonts[AKROBAT_BOLD_18]);
+  size_t cut = 0;
+  {
+    char probe[MUSIC_NAME_MAX];
+    for (size_t k = 1; k < len && k < sizeof(probe); k++) {
+      memcpy(probe, nm, k);
+      probe[k] = '\0';
+      if (lcd.textWidth(probe) > lineW) {
+        break;
+      }
+      cut = k;
+    }
+    if (cut == 0) {
+      cut = 1;
+    }
+  }
   if (len <= cut) {
     snprintf(l1, sizeof(l1), "%s", nm);
     l2[0] = '\0';
