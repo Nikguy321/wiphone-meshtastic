@@ -88,7 +88,13 @@ static void reportPos() {
   int32_t refLat = 0, refLon = 0;
   char refName[20] = "";
   bool haveRef = meshService.resolveReference(&refLat, &refLon, refName, sizeof(refName));
-  say("pos: reference = %s\n", haveRef ? refName : "NONE (no waypoints heard, no pin set)");
+  /* Name the TRUE missing piece: printing "no waypoints heard" directly above a listed
+   * waypoint misleads — with waypoints in the DB the fix is CHOOSING one (2026-08-20). */
+  say("pos: reference = %s\n",
+      haveRef ? refName
+      : meshService.getWaypointCount() > 0
+          ? "NONE - waypoints heard but none chosen (Places > pick > set reference)"
+          : "NONE (no waypoints heard, no pin set)");
 
   for (int i = 0; i < meshService.getWaypointCount(); i++) {
     const MeshWaypoint* w = meshService.getWaypoint(i);

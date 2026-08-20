@@ -496,11 +496,17 @@ unchecked malloc are real defects but unreachable from opening or scrolling a co
 
 ### The tool for 3 and 4
 ```bash
-python3 /tmp/panicwatch.py        # logs every byte, decodes any Backtrace via addr2line
+python3 tools/panicwatch.py       # logs every byte, decodes any Backtrace via addr2line
 ```
+(now repo-tracked; the `/tmp/panicwatch.py` copy this doc used to point at survives no reboot)
 ⚠ **It owns the serial port. Do not open a second monitor** — that killed the previous version
 twice, taking the dump with it. Send console commands by writing a line to `/tmp/wiphone.cmd`
 (`up on`, `up off`, `sync`, `mirror`).
+⚠ **The FIRST bytes of a write after idle get mangled** — with the phone idling (DFS, 80 MHz)
+`pos` once arrived as 40 chars of junk while a command 3 s later was clean (2026-08-20). The
+watcher now types a sacrificial newline + 250 ms pause before every command, so `printf
+'cmd\n' > /tmp/wiphone.cmd` is reliable as-is (the old leading-`\n` trick in the command file
+never survived the watcher's `strip()`).
 
 ---
 
