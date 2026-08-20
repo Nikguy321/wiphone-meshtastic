@@ -1,8 +1,38 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-20 (overnight) · **0.9.7 line: positions/places field-tested,
-text overflow purged, sun module in.** 12 host suites green (new: test_pos, test_pki,
-test_sun). ⚠ The web flasher still serves 0.9.5 ON PURPOSE — soak first.
+**Last updated:** 2026-08-20 (day) · **0.9.7 line: positions/places field-tested,
+text overflow purged, sun module in.** 13 host suites green (new: test_nmea).
+⚠ The web flasher still serves 0.9.5; **the 0.9.7 bundle is STAGED in webflasher/
+awaiting Nick's explicit "publish"** (he called the soak "probably ok" — get the word,
+then `tools/publish_webflasher.sh`).
+
+## ☀️ 2026-08-20 (day, Nick at work) — GPS half written, wiring sheet, rf_check's first run
+
+- **The woods backplate is GO**: parts in hand, bench checks tonight. The build sheet is
+  `docs/woods-backplate-wiring.svg` — leg-by-leg, every pad named, W1–W19 run list, the
+  before-first-power checklist (5V-accepts-charge test, TLV EN pull-up measure via
+  R1-divider: R_pu = 4.7k×(VIN−V_EN)/V_EN, pass = V_EN < 0.4 V). RFM95W pads verified
+  against the HopeRF DS Figure 2 itself. Docs reconciled: the buck feeds from the
+  PowerBoost's 5.2 V, NOT VBAT (BOM superseded the .md; both now agree).
+- **The GPS firmware half is IN and dormant** (commit fe96b66, NOT flashed — soak): nmea
+  reader on the stock USER_SERIAL UART2 (GPIO 38/32 @ 9600 = the plate's exact wiring),
+  fix < 2 min old slots into resolveReference between chosen waypoint and pin. After
+  assembly: `gps on` once over serial, then `gps` for bytes/sentences/fix (bytes up +
+  sentences 0 = wrong baud). **No auto-broadcast, on purpose** — announcing stays manual.
+- **Morning incident closed**: dropping a pin crashed covey-ui AND the service stayed dead
+  (xinit exits 0 → Restart=on-failure blind). Fixed + regression-proven + unit now
+  Restart=always, crash-restart proven live. COVEY repo D-110. 'test pin' heard by the
+  phone on air; **'vashon' still needs a re-save on COVEY.** `sun` proven live at the pin.
+- **rf_check.py ran on hardware for the first time** (remote, covey-ui auto-restored):
+  config 8/8 vs baseline (drift RETIRED), and it was counting the RAK's OWN packets as
+  receptions — one printed DIRECT — now filtered (COVEY commit 03f9bc9). Zero external
+  packets corroborated by the phone: the mesh was genuinely quiet. Side-by-side vs the
+  spare RAK remains the September test.
+- **Serial bridge hardened**: panicwatch now repo-tracked (`tools/panicwatch.py`) + types a
+  wake newline first — first bytes after DFS idle arrive mangled (`pos` arrived as 40
+  chars of junk). Plain `printf 'cmd\n' > /tmp/wiphone.cmd` is reliable now.
+- Diagnostic truth-telling: `pos` no longer says "no waypoints heard" above a listed
+  waypoint (says "none CHOSEN"); reference stays a deliberate choice (Places > pick).
 
 ## 🌙 The overnight block (Nick asleep; everything below flashed + verified + pushed)
 
