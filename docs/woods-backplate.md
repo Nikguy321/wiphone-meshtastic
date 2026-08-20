@@ -1,6 +1,6 @@
 # Stretch goal — the "woods" backplate
 
-**Status: DESIGN NOTES ONLY. Nothing built, nothing ordered, no firmware written.**
+**Status: parts IN HAND (2026-08-20), bench checks next, nothing soldered. Firmware: WRITTEN, ships dormant — see the firmware section.**
 Captured 2026-08-10 so the reasoning is not lost. Diagrams: [`woods-backplate.svg`](woods-backplate.svg)
 (the gist) and **[`woods-backplate-wiring.svg`](woods-backplate-wiring.svg) — the leg-by-leg build
 sheet** (every pad, every cap leg, numbered wire run list, print A3; RFM95W pads verified against

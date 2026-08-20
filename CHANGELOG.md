@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased (2026-08-20, day) — the phone grows a GPS ear, asleep until the plate exists
+
+- **The woods backplate's GPS half is in the firmware**: `nmea.{h,cpp}` reads RMC/GGA
+  (checksum-strict, junk-tolerant — wake garbage before '$' is the expected steady
+  state on this UART) into the mesh's own fixed-point coordinates, over the stock
+  USER_SERIAL UART2 on GPIO 38/32 @ 9600 — the exact pins and baud the plate wires.
+  A fix fresh within 2 min becomes the reference between a chosen waypoint and the
+  manual pin, so `sun`, node distances and Places run from the phone's own position.
+  **Dormant until serial `gps on`** (persists); `gps` prints the counters that
+  diagnose a bench (bytes up + sentences 0 = wrong baud). No automatic position
+  broadcasts — going on the air stays the manual I'm-here act. 39 new host checks
+  against Python-computed vectors; +944 B static, zero heap. Not yet flashed.
+- **`pos` names the true missing piece** when waypoints are heard but none chosen
+  (it used to claim "no waypoints heard" directly above a listed waypoint).
+- **panicwatch is repo-tracked** (`tools/panicwatch.py`) and types a wake newline
+  before every command — the first bytes after DFS idle arrive mangled, which cost
+  a garbled `pos` this morning; the old leading-`\n` ritual never survived strip().
+
 ## 0.9.7 (continued, overnight 08-19→20) — lists that wrap, text that fits, places that expire, and the sun
 
 - **Places live and die like they do on the mesh**: deleting a pin on COVEY now removes
