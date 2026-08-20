@@ -36,6 +36,13 @@ then `tools/publish_webflasher.sh`).
   chars of junk). Plain `printf 'cmd\n' > /tmp/wiphone.cmd` is reliable now.
 - Diagnostic truth-telling: `pos` no longer says "no waypoints heard" above a listed
   waypoint (says "none CHOSEN"); reference stays a deliberate choice (Places > pick).
+- **📋 QUEUED for the GPS firmware release (Nick, 2026-08-20): publish the complete woods
+  backplate build guide on GitHub** — the repo is PUBLIC (verified: private=false, Pages
+  live), so the docs are already visible; what's owed is the FINISHED guide: Nick's
+  measured values folded in (TLV EN pull-up, the 5V charge-in result, terminal count),
+  the wiring sheet + BOM + firmware setup (`gps on` / My node toggle) linked from the
+  README as a build-this page. **Timing: AFTER Nick meters and assembles** — measured
+  numbers, not predictions, go in the public guide.
 
 ## 🌙 The overnight block (Nick asleep; everything below flashed + verified + pushed)
 
