@@ -106,7 +106,8 @@ about a quarter of realtime at 48 kHz stereo, so there is plenty of headroom.
 - **Persistent** message history and channels across reboots.
 - **Low-power green/black UI theme** for the Meshtastic app, and a Meshtastic
   icon on the main menu.
-- **Handy extras** — triple-tap the top-right button to turn the screen off.
+- **Handy extras** — hold Select + Back together for two seconds to turn the
+  screen off (replaces the old triple-tap, which fired while typing).
 
 The normal WiPhone experience (phone calls, SIP, contacts, games, settings) is
 untouched.
