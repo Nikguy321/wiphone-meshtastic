@@ -2,6 +2,17 @@
 
 ## Unreleased (2026-08-20, day) — the phone grows a GPS ear, asleep until the plate exists
 
+- **The upload server can no longer strangle the network stack** — the true anatomy of
+  "the page locked up", measured live: an upload burst (worst with aborted connections)
+  pins 12-15 KB of internal RAM in dead TCP control blocks for minutes, the largest
+  free block collapses toward 3 KB, lwIP starts refusing connections, the listener
+  dies, and finally the stack goes mute — not even ping answers — while WiFi still
+  shows connected. A LOW-HEAP CIRCUIT BREAKER now pauses the server (listener closed,
+  nothing lost, honest log line) when the largest internal block drops under 12 KB and
+  resumes on its own at 20 KB. Proven on hardware: a stress burst tripped it cleanly —
+  instant refusals instead of hangs, phone alive throughout. Per-upload heap telemetry
+  (one log line per file) turns future leak-hunting into arithmetic: today's measured
+  slope is ~350-400 B lost per upload plus the transient churn.
 - **An upload no longer strands the phone off WiFi** — the reconnect machinery (and the
   auto-switcher) were disabled whenever the transfer server ran, guarding a real softAP
   crash. But the guard also fired in plain STA mode, where it protects nothing: a

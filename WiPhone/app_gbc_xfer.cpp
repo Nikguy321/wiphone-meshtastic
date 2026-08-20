@@ -87,7 +87,36 @@ static const XferConfig ROM_CFG = {
 static const XferConfig* s_cfg = &ROM_CFG;
 
 void gbcXferHandleClient() {
-  if (s_server) {
+  if (!s_server) {
+    return;
+  }
+  /* ── LOW-HEAP CIRCUIT BREAKER ──────────────────────────────────────────────
+   * Measured 2026-08-20: back-to-back uploads ground the largest internal block
+   * from 13 KB to 3.3 KB, at which point lwIP could not allocate for NEW
+   * connections — first the listener died (instant connection-refused), then
+   * the whole stack went mute (not even ping answered). The browser reads that
+   * as "the page locked up", and 3 KB is the altitude where this firmware's
+   * historic operator-new abort lives. The server now pauses ITSELF while
+   * memory is tight instead of dragging the network stack (and then the whole
+   * phone) down with it: the listener closes, nothing else is lost, and it
+   * comes back on its own when heap recovers. Hysteresis so it cannot flap. */
+  static bool     s_paused = false;
+  static uint32_t s_lastFlipMs = 0;
+  const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  const uint32_t now = millis();
+  if (!s_paused && largest < 12288 && (uint32_t)(now - s_lastFlipMs) > 3000) {
+    s_paused = true;
+    s_lastFlipMs = now;
+    s_server->stop();
+    log_e("XFER: PAUSED - internal largest %u < 12K; uploads resume when memory recovers",
+          (unsigned)largest);
+  } else if (s_paused && largest >= 20480 && (uint32_t)(now - s_lastFlipMs) > 3000) {
+    s_paused = false;
+    s_lastFlipMs = now;
+    s_server->begin();
+    log_e("XFER: RESUMED - internal largest %u", (unsigned)largest);
+  }
+  if (!s_paused) {
     s_server->handleClient();
   }
 }
@@ -340,8 +369,18 @@ static void handleUpload() {
       s_uploadFile.flush();         // commit size/data before it can be read
       s_uploadFile.close();
       s_filesAdded++;
+      /* One line per file: the leak-hunting instrument. If these numbers walk
+       * down across a session, something in the request path is not giving
+       * memory back — measured, not guessed. */
+      log_e("XFER: '%s' done (file %d this session)  heap=%u largest=%u",
+            up.filename.c_str(), s_filesAdded,
+            (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+            (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
     }
   } else if (up.status == UPLOAD_FILE_ABORTED) {
+    log_e("XFER: '%s' ABORTED  heap=%u largest=%u", up.filename.c_str(),
+          (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+          (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
     s_sdLen = 0;                    // drop the partial block rather than commit garbage
     if (s_uploadFile) {
       s_uploadFile.close();         // partial file stays; re-upload overwrites it
