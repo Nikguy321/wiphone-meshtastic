@@ -23,6 +23,9 @@ governing permissions and limitations under the License.
 #include "sms_mirror_rx.h"   // sipCompleteAddress: bare number -> full SIP URI
 #include "app_music.h"
 
+// Defined further down, used by the Messages screens above it.
+static const char* sipDisplayLabel(const char* peer, const char* uri);
+
 // Static images
 #include "src/assets/image.h"
 #include "src/assets/image_256.h"
@@ -6911,9 +6914,7 @@ void MessagesApp::enterState(MessagesState_t state) {
      * identityOf() truncated to 19 chars — show the FULL uri there instead and
      * let the header ellipsize it honestly. (Widening the identity itself
      * would cost static RAM in the thread table and the mirror record.) */
-    const bool digits = threadPeer[0] && strspn(threadPeer, "0123456789") == strlen(threadPeer);
-    const char* label = digits ? threadPeer
-                               : (threadUri[0] ? threadUri : threadPeer);
+    const char* label = sipDisplayLabel(threadPeer, threadUri);
     header->setTitle(label[0] ? label : "Messages");
     footer->setButtons("Reply", "Back");
   }
@@ -7117,9 +7118,7 @@ void MessagesApp::buildChats() {
      * number (the nice label) but for a long SIP address it is a bounded,
      * hash-suffixed grouping key that nobody should ever read. `uri` is the
      * real thing, and the row ellipsizes it honestly. */
-    const bool peerIsDigits = t->peer[0] &&
-                              strspn(t->peer, "0123456789") == strlen(t->peer);
-    const char* label = (peerIsDigits || !t->uri[0]) ? t->peer : t->uri;
+    const char* label = sipDisplayLabel(t->peer, t->uri);
     MenuOptionIconnedTimed* option = new MenuOptionIconnedTimed(
       (MenuOption::keyType)(i + 2),
       t->unread ? MenuWidget::ALTERNATE_STYLE : MenuWidget::DEFAULT_STYLE,
@@ -7211,7 +7210,7 @@ void MessagesApp::buildThread() {
     }
     // "You" on the ones you sent. Who said what has to be unambiguous before anything else.
     w += snprintf(buf + w, THREAD_TEXT_MAX - w, "%s%s%s\n%s\n%s",
-                  m->incoming ? threadPeer : "You",
+                  m->incoming ? sipDisplayLabel(threadPeer, threadUri) : "You",
                   ago[0] ? "  ·  " : "", ago,
                   m->text ? m->text : "",
                   (i + 1 < n) ? "\n" : "");
@@ -12821,6 +12820,20 @@ MenuOption::MenuOption(MenuOption::keyType pId, uint16_t pStyle, const char* tit
  *
  * Cost: a textWidth() per trimmed char, only on strings that actually overflow,
  * only on redraws (keypress-driven) — nothing here runs per frame. */
+/* The human label for a SIP correspondent.
+ *
+ * `peer` is the GROUPING IDENTITY (sipThreadIdentity): bare digits for a phone
+ * number — the nice form — but for a long address it is a bounded, hash-suffixed
+ * key like "sip:alice.wo#hxafym" that nobody should ever be shown. In that case
+ * the full `uri` is the truth, and the draw site ellipsizes it honestly. */
+static const char* sipDisplayLabel(const char* peer, const char* uri) {
+  const bool digits = peer && peer[0] && strspn(peer, "0123456789") == strlen(peer);
+  if (digits || !uri || !uri[0]) {
+    return (peer && peer[0]) ? peer : (uri ? uri : "");
+  }
+  return uri;
+}
+
 uint16_t guiDrawEllipsized(LCD &lcd, const char* s, uint16_t maxW, int16_t x, int16_t y) {
   if (!s || !*s) {
     return 0;
@@ -12994,17 +13007,19 @@ void MenuOptionIconnedTimed::redraw(LCD &lcd, uint16_t screenOffX, uint16_t scre
   lcd.setTextFont(fonts[AKROBAT_BOLD_18]);
   lcd.setTextDatum(MR_DATUM);
   uint16_t dateWidth = lcd.drawString(ago, windowWidth - rightOffset, screenOffY + (windowHeight-fonts[AKROBAT_BOLD_16]->height())/2);
-  // - Name
+  /* - Name. ⚠ THIS CLASS HAS ITS OWN DRAW PATH — ellipsizing MenuOption and
+   *   MenuOptionIconned does NOT cover the chats list, which is built from
+   *   MenuOptionIconnedTimed. Missing that is how the chats rows kept a hard
+   *   cut while every other list had "..". */
   lcd.setTextFont(font);
   lcd.setTextDatum(ML_DATUM);
-  lcd.drawFitString(titleDyn, windowWidth - leftOffset - iconOffset - rightOffset - dateWidth, screenOffX + leftOffset + iconOffset, screenOffY + (windowHeight-fonts[AKROBAT_BOLD_16]->height())/2);
+  guiDrawEllipsized(lcd, titleDyn, windowWidth - leftOffset - iconOffset - rightOffset - dateWidth, screenOffX + leftOffset + iconOffset, screenOffY + (windowHeight-fonts[AKROBAT_BOLD_16]->height())/2);
   // - Subtitle (message text)
   if (subTitleDyn != NULL) {
     lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
     lcd.setTextColor(selected ? textColor : WP_DISAB_0, bgColor);
-    //lcd.drawString(subTitleDyn, screenOffX + leftOffset + iconOffset, screenOffY + font->height() + (windowHeight-font->height())/2);
     uint16_t allotted = windowWidth - iconOffset - leftOffset;
-    lcd.drawFitString(subTitleDyn, allotted, screenOffX + iconOffset + leftOffset, screenOffY + font->height() + (windowHeight-font->height())/2);
+    guiDrawEllipsized(lcd, subTitleDyn, allotted, screenOffX + iconOffset + leftOffset, screenOffY + font->height() + (windowHeight-font->height())/2);
   }
 }
 

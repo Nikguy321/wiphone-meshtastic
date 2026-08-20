@@ -338,18 +338,22 @@ void MeshtasticApp::buildNodes() {
       /* Age BEFORE the reference name: the name is the part that varies in
        * length, so trailing it pushed "(old)"/"(4m)" — the freshness, which is
        * what makes the distance trustworthy — off the end first. */
+      /* ASCII separators only. "·" is U+00B7 — it appears in this codebase's
+       * COMMENTS, never in drawn text, and nothing proves the Akrobat fonts
+       * carry the glyph; a missing one renders as a hollow box. Also "min"
+       * rather than "m", which would sit next to a distance ending in "m". */
       if (n->posHeardMs == 1) {          // restored from flash: age unknown
-        snprintf(line, sizeof(line), "%s %s · old · of %s", dist,
+        snprintf(line, sizeof(line), "%s %s of %s, age unknown", dist,
                  meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)), refName);
       } else {
-        snprintf(line, sizeof(line), "%s %s · %um · of %s", dist,
-                 meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)),
-                 (unsigned)((millis() - n->posHeardMs) / 60000u), refName);
+        snprintf(line, sizeof(line), "%s %s of %s, %u min ago", dist,
+                 meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)), refName,
+                 (unsigned)((millis() - n->posHeardMs) / 60000u));
       }
       menu->addOption(n->name, line, (MenuOption::keyType)(i + 1), 1);
     } else {
       snprintf(line, sizeof(line), "!%08x%s", n->nodeNum,
-               n->posHeardMs != 0 ? "" : " · no position heard");
+               n->posHeardMs != 0 ? "" : " - no position heard");
       menu->addOption(n->name, line, (MenuOption::keyType)(i + 1), 1);
     }
   }

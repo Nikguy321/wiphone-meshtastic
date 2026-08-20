@@ -684,10 +684,14 @@ void FilesApp::drawXfer() {
   lcd.setTextColor(WHITE, BLACK);
   int y = top + 4;
   char line[96];
-  /* The destination folder is the whole point of this line, and a real path
-   * runs off the panel — ellipsized so what survives is at least honest. */
-  snprintf(line, sizeof(line), "Uploading into %s", curPath);
-  guiDrawEllipsized(lcd, line, lcd.width() - 2 * FILES_MARGIN, FILES_MARGIN, y); y += lh + 4;
+  /* Two lines, and the PATH gets one to itself. As a single line the ellipsis
+   * ate the tail — which is the destination folder, the only thing this line
+   * exists to tell you ("Uploading into /Books/BattleTech Gh.." says nothing
+   * about where the file lands). The label is fixed and short; the path is the
+   * variable part, so it is what gets the room. */
+  const uint16_t pathW = lcd.width() - 2 * FILES_MARGIN;
+  lcd.drawString("Uploading into:", FILES_MARGIN, y); y += lh;
+  guiDrawEllipsized(lcd, curPath, pathW, FILES_MARGIN, y); y += lh + 4;
   if (xferOn()) {
     lcd.drawString("On your computer, open:", FILES_MARGIN, y); y += lh;
     snprintf(line, sizeof(line), "  http://%s/", xferAddr());

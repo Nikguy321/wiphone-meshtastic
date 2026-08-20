@@ -138,7 +138,12 @@ void MusicApp::drawNowPlaying() {
   /* The title over two lines. Track names are long and the header would run under the
    * clock — the same trap the reader hit, and the reason HeaderWidget is not used here. */
   lcd.setTextColor(TFT_YELLOW, BLACK);
-  char l1[32], l2[32];
+  /* ⚠ The buffers hold the WHOLE remainder, so the only truncation is the
+   * ellipsizer's — and it says so with "..". They used to be 32 bytes with the
+   * second line capped at 24 chars, which silently dropped everything past
+   * ~48 characters: "Creedence Clearwater Revival - Have You Ever Seen the
+   * Rain" showed the artist and lost the song. */
+  char l1[MUSIC_NAME_MAX], l2[MUSIC_NAME_MAX];
   const char* nm = t->name;
   const size_t len = strlen(nm);
   const size_t cut = 24;
@@ -156,7 +161,8 @@ void MusicApp::drawNowPlaying() {
       }
     }
     snprintf(l1, sizeof(l1), "%.*s", (int)br, nm);
-    snprintf(l2, sizeof(l2), "%.*s", (int)(len - br > 24 ? 24 : len - br), nm + br);
+    // The WHOLE remainder — the ellipsizer below decides what fits, and marks it.
+    snprintf(l2, sizeof(l2), "%s", nm + br);
   }
   /* Ellipsized, not silently cut: the two 24-char halves dropped everything
    * past ~48 characters of a track name with no sign anything was missing —
