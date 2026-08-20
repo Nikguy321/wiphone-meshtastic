@@ -179,13 +179,24 @@ public:
    * unread icon. (The book-sync 'receiver shows nothing' lesson, D-089.) */
   bool takePlacesNews() { bool n = placesNews; placesNews = false; return n; }
 
-  /* Which place distances are measured FROM: a waypoint id, or 0 = the pin.
-   * Persisted. resolveReference() gives the coords + a display name, false if
-   * neither the chosen waypoint nor a pin exists yet. */
+  /* Which place distances are measured FROM: a waypoint id, or 0 = automatic
+   * (a live GPS fix when one is fresh, else the pin). Persisted.
+   * resolveReference() gives the coords + a display name, false if none exist. */
   uint32_t getReferenceId() const { return refWaypointId; }
   void     setReferenceId(uint32_t id);
   bool     resolveReference(int32_t* latI, int32_t* lonI,
                             char* name, size_t nameCap) const;
+
+  /* ---- The woods backplate's GPS (nmea.h) ----------------------------------
+   * A LIVE fix (fresh within 2 min) slots into resolveReference between the
+   * chosen waypoint and the manual pin: "where am I NOW" beats a pin set hours
+   * ago, but an explicit waypoint choice still beats both. It NEVER touches
+   * announce — putting this phone's position on the air stays a deliberate act
+   * (the COVEY public-LongFast lesson). */
+  void gpsUpdate(bool valid, int32_t latI, int32_t lonI, int sats, int hdopX10);
+  bool getGpsFix(int32_t* latI, int32_t* lonI, uint32_t* ageMs,
+                 int* sats, int* hdopX10) const;
+  bool gpsEverFixed() const { return gpsFixMs != 0; }
 
   // Maintenance (persisted immediately).
   void clearMessages();                      // wipe all stored messages
@@ -286,6 +297,9 @@ private:
   bool         placesNews;                // latched: positions/waypoints changed
   bool         lastAnnounceOk;            // last announceMyPosition() transmitted
   uint32_t     nextWpSweepMs;             // next local waypoint-expiry sweep
+  int32_t      gpsLatI, gpsLonI;          // last VALID GPS fix (1e-7 deg)
+  uint32_t     gpsFixMs;                  // millis() of that fix; 0 = never
+  int          gpsSats, gpsHdopX10;       // -1 = unknown
   void upsertWaypoint(uint32_t id, int32_t latI, int32_t lonI,
                       uint32_t expire, uint32_t lockedTo, const char* name);
   void loadPin();                          // NVS

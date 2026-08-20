@@ -81,6 +81,15 @@ DRV8833 motorDriver = DRV8833();
 #ifdef USER_SERIAL
 HardwareSerial userSerial(2);
 int userSerialLastSize = 0;
+/* The woods backplate's GPS rides this same UART (GPIO 38 RX / 32 TX @ 9600 —
+ * the M100's default). With gGpsNmea on, bytes feed the NMEA reader and the
+ * fix lands in meshService; off, the stock user-serial GUI path is untouched.
+ * Persisted as wpmesh/gpsen; toggled by serial `gps on|off`. Default OFF until
+ * the plate exists. */
+#include "nmea.h"
+#include <Preferences.h>
+bool       gGpsNmea = false;
+NmeaReader gGpsReader;
 #endif
 
 #ifdef USE_VIRTUAL_KEYBOARD
@@ -854,6 +863,16 @@ void setup() {
 #ifdef USER_SERIAL
   userSerial.begin(USER_SERIAL_BAUD, USER_SERIAL_CONFIG, USER_SERIAL_RX, USER_SERIAL_TX);
   //allDigitalWrite(EXTENDER_PIN_B0, HIGH);     // TODO: why do we do this?
+  {
+    Preferences p;
+    p.begin("wpmesh", true);
+    gGpsNmea = p.getBool("gpsen", false);
+    p.end();
+    if (gGpsNmea) {
+      log_e("GPS: NMEA reader ON (user UART %d/%d @ %d)",
+            USER_SERIAL_RX, USER_SERIAL_TX, USER_SERIAL_BAUD);
+    }
+  }
 #endif
 
 
@@ -2272,10 +2291,20 @@ void loop() {
     // Read what has arrived to user UART
     while (userSerial.available() > 0) {
       char ch = userSerial.read();
+      if (gGpsNmea) {
+        /* GPS mode: NMEA feeds the fix, not the GUI. A completed RMC/GGA lands
+         * in meshService, where resolveReference gives it to pos/sun/Places. */
+        if (gGpsReader.feed(ch)) {
+          const NmeaFix& fx = gGpsReader.fix();
+          meshService.gpsUpdate(fx.valid, fx.latI, fx.lonI, fx.sats, fx.hdopX10);
+        }
+        continue;
+      }
       log_d("USER SERIAL: %c", ch);
       gui.state.userSerialBuffer.put(ch);
     }
-    if (gui.state.userSerialBuffer.size() > 0 && userSerialLastSize != gui.state.userSerialBuffer.size()) {
+    if (!gGpsNmea &&
+        gui.state.userSerialBuffer.size() > 0 && userSerialLastSize != gui.state.userSerialBuffer.size()) {
       // Trigger UART event
       log_d("User serial: %s", gui.state.userSerialBuffer.getCopy());
       redrawWhat |= gui.processEvent(now, USER_SERIAL_EVENT);

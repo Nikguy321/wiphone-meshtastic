@@ -222,10 +222,22 @@ known-good FPC antenna to swap against, which is a far better diagnostic than CO
 Note v2.0 gets away with a **single** capacitor because the module carries its own decoupling; the
 above is deliberately more conservative than the reference.
 
-## Firmware not yet written
+## Firmware: written 2026-08-20, ships dormant
 
-Nothing reads the GPS today. A UART on GPIO 38/32 plus an NMEA parser would be new work, as would
-anything that puts a position on the mesh. Out of scope until the plate exists.
+The phone reads the GPS as of the post-0.9.7 tree — `nmea.{h,cpp}` (checksum-strict, junk-tolerant
+NMEA RMC/GGA → 1e-7-degree fixed point, host-proven in `tests/test_nmea.cpp` against
+Python-computed vectors) feeding `meshService.gpsUpdate()` off the existing USER_SERIAL UART2
+(GPIO 38 RX / 32 TX @ 9600 — the stock pins, the M100's default baud). A live fix (< 2 min old)
+becomes the reference between a chosen waypoint and the manual pin, so `sun`, Nodes distances and
+Places work from the phone's own position with no waypoint heard.
+
+**Dormant by default**: the reader is off until serial `gps on` (persisted in NVS); off, the stock
+user-serial GUI path is byte-for-byte untouched. `gps` prints bytes/sentences/bad-checksum/fix —
+bytes rising with zero sentences = wrong baud, the first bench question.
+
+⚠ **Deliberately NOT done: no automatic position broadcasts.** A GPS fix never goes on the air by
+itself — announcing stays the manual "I'm here" act (the COVEY public-LongFast lesson). Wiring an
+auto-broadcast interval is a decision for Nick, not a default.
 
 ## Sources for the 2026-08-11 power findings
 

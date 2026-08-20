@@ -374,6 +374,9 @@ MeshtasticService::MeshtasticService()
   placesNews = false;
   lastAnnounceOk = false;
   nextWpSweepMs = 0;
+  gpsLatI = gpsLonI = 0;
+  gpsFixMs = 0;
+  gpsSats = gpsHdopX10 = -1;
 }
 
 // ---- Positions & places -----------------------------------------------------
@@ -514,9 +517,9 @@ void MeshtasticService::setReferenceId(uint32_t id) {
   prefs.end();
 }
 
-/* The point distances are measured from. The chosen waypoint wins; the pin is
- * the fallback (and the explicit choice when refWaypointId == 0). False when
- * neither exists — the UI then simply shows no distances, honestly. */
+/* The point distances are measured from. The chosen waypoint wins; then a LIVE
+ * GPS fix (the woods plate, fresh within 2 min); then the manual pin. False
+ * when none exist — the UI then simply shows no distances, honestly. */
 bool MeshtasticService::resolveReference(int32_t* latI, int32_t* lonI,
                                          char* name, size_t nameCap) const {
   const MeshWaypoint* wp = refWaypointId ? findWaypoint(refWaypointId) : NULL;
@@ -526,6 +529,12 @@ bool MeshtasticService::resolveReference(int32_t* latI, int32_t* lonI,
     if (name) strlcpy(name, wp->name, nameCap);
     return true;
   }
+  if (gpsFixMs != 0 && (uint32_t)(millis() - gpsFixMs) < 120000UL) {
+    if (latI) *latI = gpsLatI;
+    if (lonI) *lonI = gpsLonI;
+    if (name) strlcpy(name, "GPS", nameCap);
+    return true;
+  }
   if (myPinSet) {
     if (latI) *latI = myPinLatI;
     if (lonI) *lonI = myPinLonI;
@@ -533,6 +542,59 @@ bool MeshtasticService::resolveReference(int32_t* latI, int32_t* lonI,
     return true;
   }
   return false;
+}
+
+/* Fed from the loop whenever the NMEA reader completes an RMC/GGA (nmea.h).
+ * Sats/HDOP flow even without a fix — "0 fix, 7 sats" is bench information.
+ * The first fix ever is log_e'd once: that is the moment the woods plate's
+ * GPS half is PROVEN, and it should be visible in a release build's log. */
+void MeshtasticService::gpsUpdate(bool valid, int32_t latI, int32_t lonI,
+                                  int sats, int hdopX10) {
+  if (sats >= 0) {
+    gpsSats = sats;
+  }
+  if (hdopX10 >= 0) {
+    gpsHdopX10 = hdopX10;
+  }
+  if (valid) {
+    bool first = (gpsFixMs == 0);
+    gpsLatI = latI;
+    gpsLonI = lonI;
+    gpsFixMs = millis();
+    if (gpsFixMs == 0) {
+      gpsFixMs = 1;                     // millis()==0 must not read as "never"
+    }
+    if (first) {
+      log_e("GPS: FIRST FIX %d.%05d,%d.%05d sats=%d hdop=%d.%d",
+            (int)(latI / 10000000), abs((int)((latI % 10000000) / 100)),
+            (int)(lonI / 10000000), abs((int)((lonI % 10000000) / 100)),
+            gpsSats, gpsHdopX10 >= 0 ? gpsHdopX10 / 10 : -1,
+            gpsHdopX10 >= 0 ? gpsHdopX10 % 10 : 0);
+    }
+  }
+}
+
+bool MeshtasticService::getGpsFix(int32_t* latI, int32_t* lonI, uint32_t* ageMs,
+                                  int* sats, int* hdopX10) const {
+  if (sats) {
+    *sats = gpsSats;
+  }
+  if (hdopX10) {
+    *hdopX10 = gpsHdopX10;
+  }
+  if (gpsFixMs == 0) {
+    return false;
+  }
+  if (latI) {
+    *latI = gpsLatI;
+  }
+  if (lonI) {
+    *lonI = gpsLonI;
+  }
+  if (ageMs) {
+    *ageMs = (uint32_t)(millis() - gpsFixMs);
+  }
+  return true;
 }
 
 bool MeshtasticService::announceMyPosition() {

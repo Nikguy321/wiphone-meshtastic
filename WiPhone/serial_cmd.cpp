@@ -17,6 +17,13 @@
 #include <string.h>
 #include <strings.h>
 
+#ifdef USER_SERIAL      // (Hardware.h, via GUI.h) — the `gps` command's plumbing
+#include "nmea.h"
+#include <Preferences.h>
+extern bool       gGpsNmea;      // WiPhone.ino: routes the user UART to the NMEA reader
+extern NmeaReader gGpsReader;
+#endif
+
 /* ⚠ THE IDF UART API, NOT `Serial`. THIS IS THE WHOLE REASON THE FIRST VERSION READ NOTHING.
  *
  * `setup()` configures UART0 with `uart_param_config()` + `uart_driver_install(UART_NUM_0,
@@ -71,6 +78,8 @@ static void help() {
     "  announce   broadcast NodeInfo now, asking others to answer with theirs",
     "  dm <!node> <text>  send a direct message (PKI when the key is known)",
     "  pos        positions: waypoints, node fixes, our pin, the reference",
+    "  gps        woods-plate GPS state: fix, sats, reader counters",
+    "  gps on|off route the user UART (38/32) to the NMEA reader (persists)",
     "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
     "  unread     recount unread texts, repair the counter, name the threads",
     "  unread clear  mark EVERYTHING read (orphaned threads included)",
@@ -293,6 +302,51 @@ static void run(char* line) {
   }
   if (!strcasecmp(line, "pos")) {
     reportPos();
+    return;
+  }
+  /* `gps` — the woods backplate's GPS half, dormant until `gps on`. The status
+   * line leads with the counters because they answer the first bench question:
+   * bytes rising + sentences 0 = wrong baud; both 0 = wiring; sentences rising
+   * with no fix = give the antenna sky. */
+  if (!strcasecmp(line, "gps") || !strncasecmp(line, "gps ", 4)) {
+#ifdef USER_SERIAL
+    const char* arg = line[3] ? line + 4 : "";
+    while (*arg == ' ') {
+      arg++;
+    }
+    if (!strcasecmp(arg, "on") || !strcasecmp(arg, "off")) {
+      gGpsNmea = !strcasecmp(arg, "on");
+      Preferences p;
+      p.begin("wpmesh", false);
+      p.putBool("gpsen", gGpsNmea);
+      p.end();
+      say("gps: NMEA reader %s (user UART rx=%d tx=%d @ %d)%s\n",
+          gGpsNmea ? "ON" : "OFF", USER_SERIAL_RX, USER_SERIAL_TX,
+          USER_SERIAL_BAUD, gGpsNmea ? "" : " - user-serial GUI path restored");
+      return;
+    }
+    say("gps: reader %s  bytes=%u sentences=%u badck=%u overrun=%u\n",
+        gGpsNmea ? "ON" : "OFF (gps on to start)",
+        gGpsReader.bytes(), gGpsReader.sentences(),
+        gGpsReader.badChecksum(), gGpsReader.overruns());
+    if (gGpsNmea && gGpsReader.bytes() > 200 && gGpsReader.sentences() == 0) {
+      say("gps: bytes flow but no sentences - almost certainly the WRONG BAUD\n");
+    }
+    int32_t la = 0, lo = 0;
+    uint32_t age = 0;
+    int sats = -1, hdop = -1;
+    if (meshService.getGpsFix(&la, &lo, &age, &sats, &hdop)) {
+      say("gps: fix %d.%05d,%d.%05d  age %lus  sats=%d hdop=%d.%d\n",
+          (int)(la / 10000000), abs((int)((la % 10000000) / 100)),
+          (int)(lo / 10000000), abs((int)((lo % 10000000) / 100)),
+          (unsigned long)(age / 1000), sats,
+          hdop >= 0 ? hdop / 10 : -1, hdop >= 0 ? hdop % 10 : 0);
+    } else {
+      say("gps: no fix yet (sats in view: %d)\n", sats);
+    }
+#else
+    say("gps: USER_SERIAL not compiled into this build\n");
+#endif
     return;
   }
   /* `sun` — legal light at the reference place, offline. The most-asked

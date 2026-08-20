@@ -451,9 +451,9 @@
 <text x="1204" y="1984" class="tk" font-weight="bold">Polarity double-checks:</text>
 <text x="1204" y="2000" class="tk">JST red = + — verify with a meter anyway;</text>
 <text x="1204" y="2016" class="tk">"off-white or black JST" shells vary (Adafruit's words)</text>
-<text x="1204" y="2040" class="tk" font-weight="bold">Firmware reality check:</text>
-<text x="1204" y="2056" class="tk">nothing reads the GPS yet — a NMEA parser on</text>
-<text x="1204" y="2072" class="tk">GPIO 38/32 is new work, planned after the plate exists</text>
+<text x="1204" y="2040" class="tk" font-weight="bold">Firmware: READY, dormant (2026-08-20).</text>
+<text x="1204" y="2056" class="tk">After assembly: serial `gps on` (once, persists), then</text>
+<text x="1204" y="2072" class="tk">`gps` — bytes/sentences/fix counters diagnose the bench.</text>
 
 <!-- footer -->
 <text x="40" y="2150" class="note">Junction dots mark every real connection; crossings without dots are not connected. Wire colors are nets, not insulation colors — use what you have, but label W# on flag tape.</text>
