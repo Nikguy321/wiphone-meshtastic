@@ -2,6 +2,15 @@
 
 ## Unreleased (2026-08-20, day) — the phone grows a GPS ear, asleep until the plate exists
 
+- **Sun & legal light is a SCREEN now** (Meshtastic > Sun & legal light): countdown
+  first — "LEGAL LIGHT: 13h 34m left" — then the four times, at the reference place;
+  the same almanac-verified core the serial `sun` uses. When no place is known it
+  says every way to get one, including the GPS toggle one screen away.
+- **The GPS enable is a MENU TOGGLE** (Meshtastic > My node > GPS receiver:
+  off / on (no fix yet) / on (fix)) — same flag and NVS pref as serial `gps on|off`;
+  "fix" is only claimed while the fix is FRESH. Nick's standing rule, adopted today:
+  features ship with a UI surface; serial commands are the diagnostics, not the feature.
+
 - **The woods backplate's GPS half is in the firmware**: `nmea.{h,cpp}` reads RMC/GGA
   (checksum-strict, junk-tolerant — wake garbage before '$' is the expected steady
   state on this UART) into the mesh's own fixed-point coordinates, over the stock

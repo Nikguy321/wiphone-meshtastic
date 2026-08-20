@@ -9,6 +9,13 @@
 #include "app_meshtastic.h"
 #include "meshtastic_service.h"
 #include "mesh_pos.h"           // distance/bearing for the Nodes and Places lists
+#include "clock.h"              // ntpClock, for the Sun screen
+#include "sun_times.h"          // legal light math (host-tested; the serial `sun` core)
+
+#ifdef USER_SERIAL              // the GPS toggle's plumbing (WiPhone.ino owns the flag)
+#include <Preferences.h>
+extern bool gGpsNmea;
+#endif
 
 // Main-menu option keys
 #define MESH_KEY_CHATS      1
@@ -16,6 +23,7 @@
 #define MESH_KEY_STATUS     3
 #define MESH_KEY_MYNODE     4
 #define MESH_KEY_PLACES     5
+#define MESH_KEY_SUN        6
 // Places > one waypoint:
 #define MESH_KEY_SETREF     1
 #define MESH_KEY_IMHERE     2
@@ -27,6 +35,7 @@
 #define MESH_MYNODE_EDITSHORT  8      // ⚠ keys must be UNIQUE; 3 and 4 are the info rows
 #define MESH_MYNODE_CLEARMSGS  5
 #define MESH_MYNODE_CLEARNODES 6
+#define MESH_MYNODE_GPS        10     // woods plate: route the user UART to NMEA
 
 // Thread menu: "Write" row key (kept above any message index, which is idx+1).
 #define MESH_KEY_WRITE      2000000
@@ -147,6 +156,11 @@ void MeshtasticApp::enterState(MeshAppState_t state) {
     footer->setButtons("Open", "Back");
     buildPlaces();
     break;
+  case MESH_SUN:
+    header->setTitle("Sun");
+    footer->setButtons("Refresh", "Back");
+    buildSun();
+    break;
   case MESH_PLACE_OPTS: {
     const MeshWaypoint* w = meshService.findWaypoint(selectedWaypointId);
     strlcpy(placeTitle, w ? w->name : "Place", sizeof(placeTitle));   // copy: see header note
@@ -176,6 +190,7 @@ void MeshtasticApp::buildMainMenu() {
   menu->addOption(line, MESH_KEY_NODES, 1);
   snprintf(line, sizeof(line), "Places (%d)", meshService.getWaypointCount());
   menu->addOption(line, MESH_KEY_PLACES, 1);
+  menu->addOption("Sun & legal light", MESH_KEY_SUN, 1);
   menu->addOption("Status", MESH_KEY_STATUS, 1);
   menu->addOption("My node", MESH_KEY_MYNODE, 1);
 }
@@ -386,6 +401,79 @@ void MeshtasticApp::buildPlaceOpts() {
   menu->addOption("I'm here (announce)", MESH_KEY_IMHERE, 1);
 }
 
+/* The serial `sun`, on screen: dawn/sunrise/sunset/dusk at the reference place
+ * plus the countdown a hunting day actually asks. Same math, same UTC ladder —
+ * the almanac-verified core in sun_times.cpp does the work. Static per entry;
+ * the "Refresh" soft key (OK) rebuilds, and re-entering does too. */
+void MeshtasticApp::buildSun() {
+  menu = newMenu(NULL);
+  char line[48];
+
+  if (!ntpClock.isTimeKnown()) {
+    menu->addOption("Clock not set yet", 1, 1);
+    menu->addOption("(one NTP sync on WiFi fixes it)", 2, 1);
+    return;
+  }
+  int32_t latI = 0, lonI = 0;
+  char refName[20];
+  if (!meshService.resolveReference(&latI, &lonI, refName, sizeof(refName))) {
+    /* The same guidance the serial command gives, in menu rows: every way a
+     * reference can come to exist, including the GPS toggle one screen away. */
+    menu->addOption("No place known yet", 1, 1);
+    menu->addOption("Hear a waypoint (Places),", 2, 1);
+    menu->addOption("pick one > I'm here, or", 3, 1);
+    menu->addOption("My node > GPS receiver", 4, 1);
+    return;
+  }
+  uint32_t utc = ntpClock.getExactUtcTime();
+  int tzMin = (int)(((int64_t)ntpClock.getExactUnixTime() - (int64_t)utc) / 60);
+  int y, m, d;
+  sunUnixToDate(utc, &y, &m, &d);
+  SunTimes t;
+  if (!sunTimesUtc(y, m, d, latI * 1e-7, lonI * 1e-7, &t)) {
+    menu->addOption("Computation refused", 1, 1);
+    menu->addOption("(bad coordinates?)", 2, 1);
+    return;
+  }
+
+  snprintf(line, sizeof(line), "At %s", refName);
+  menu->addOption(line, 1, 1);
+
+  /* Countdown FIRST — it is the question. The four times below are the paper
+   * almanac for planning tomorrow. Ladder unwraps exactly as the serial does. */
+  if (t.dawnMin >= 0 && t.duskMin >= 0) {
+    int nowU = (int)((utc % 86400u) / 60u);
+    int dawn = t.dawnMin;
+    int now2 = nowU + (nowU < dawn ? 1440 : 0);
+    int dusk = t.duskMin + (t.duskMin < dawn ? 1440 : 0);
+    if (now2 < dawn + 1) {
+      int dm = dawn - now2;
+      snprintf(line, sizeof(line), "First light in %dh %02dm", dm / 60, dm % 60);
+    } else if (now2 < dusk) {
+      int dm = dusk - now2;
+      snprintf(line, sizeof(line), "LEGAL LIGHT: %dh %02dm left", dm / 60, dm % 60);
+    } else {
+      strlcpy(line, "Dark now", sizeof(line));
+    }
+    menu->addOption(line, 2, 1);
+  }
+
+  struct SunRow { const char* label; int16_t utcMin; };
+  const SunRow rows[4] = { { "First light", t.dawnMin }, { "Sunrise", t.riseMin },
+                           { "Sunset", t.setMin }, { "Last light", t.duskMin } };
+  for (int i = 0; i < 4; i++) {
+    if (rows[i].utcMin < 0) {
+      snprintf(line, sizeof(line), "%s: none today", rows[i].label);
+    } else {
+      int loc = ((int)rows[i].utcMin + tzMin + 2880) % 1440;
+      snprintf(line, sizeof(line), "%s: %02d:%02d", rows[i].label, loc / 60, loc % 60);
+    }
+    menu->addOption(line, 3 + i, 1);
+  }
+  snprintf(line, sizeof(line), "Local clock UTC%+d:%02d", tzMin / 60, abs(tzMin % 60));
+  menu->addOption(line, 7, 1);
+}
+
 void MeshtasticApp::buildStatus() {
   menu = newMenu(NULL);
   char line[40];
@@ -440,6 +528,20 @@ void MeshtasticApp::buildMyNode() {
   menu->addOption("Request node info", MESH_MYNODE_REQUEST, 1);
   snprintf(line, sizeof(line), "Hop limit: %u (tap to change)", meshService.getHopLimit());
   menu->addOption(line, MESH_MYNODE_HOPLIMIT, 1);
+#ifdef USER_SERIAL
+  {
+    /* The woods plate's GPS. "on (fix)" only while the fix is FRESH — a stale
+     * fix labelled "fix" would read as "working" with the antenna unplugged. */
+    const char* gs = "off";
+    if (gGpsNmea) {
+      uint32_t age = 0;
+      gs = (meshService.getGpsFix(NULL, NULL, &age, NULL, NULL) && age < 120000UL)
+           ? "on (fix)" : "on (no fix yet)";
+    }
+    snprintf(line, sizeof(line), "GPS receiver: %s", gs);
+    menu->addOption(line, MESH_MYNODE_GPS, 1);
+  }
+#endif
   snprintf(line, sizeof(line), "Name: %s", meshService.getMyLongName());
   menu->addOption(line, 3, 1);
   /* Show whether the short name is the user's or follows the long name — otherwise there is
@@ -558,6 +660,7 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
       case MESH_KEY_PLACES: enterState(MESH_PLACES); break;
       case MESH_KEY_STATUS: enterState(MESH_STATUS); break;
       case MESH_KEY_MYNODE: enterState(MESH_MYNODE); break;
+      case MESH_KEY_SUN:    enterState(MESH_SUN);    break;
       default: return REDRAW_SCREEN;
       }
       return REDRAW_ALL;
@@ -681,6 +784,18 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
     menu->processEvent(event);
     return REDRAW_SCREEN;
 
+  case MESH_SUN:
+    if (LOGIC_BUTTON_BACK(event)) {
+      enterState(MESH_MAIN);
+      return REDRAW_ALL;
+    }
+    if (LOGIC_BUTTON_OK(event)) {      // "Refresh": recompute the countdown
+      enterState(MESH_SUN);
+      return REDRAW_ALL;
+    }
+    menu->processEvent(event);
+    return REDRAW_SCREEN;
+
   case MESH_MYNODE:
     if (LOGIC_BUTTON_BACK(event)) {
       enterState(MESH_MAIN);
@@ -718,6 +833,19 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
         else { pendingClear = 2; }
         buildMyNode();
         menu->select(MESH_MYNODE_CLEARNODES);
+#ifdef USER_SERIAL
+      } else if (sel == MESH_MYNODE_GPS) {
+        pendingClear = 0;
+        gGpsNmea = !gGpsNmea;         // same flag + pref as serial `gps on|off`
+        {
+          Preferences p;
+          p.begin("wpmesh", false);
+          p.putBool("gpsen", gGpsNmea);
+          p.end();
+        }
+        buildMyNode();
+        menu->select(MESH_MYNODE_GPS);
+#endif
       } else {
         pendingClear = 0;
       }

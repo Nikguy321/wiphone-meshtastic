@@ -14,6 +14,9 @@ then `tools/publish_webflasher.sh`).
   R1-divider: R_pu = 4.7k×(VIN−V_EN)/V_EN, pass = V_EN < 0.4 V). RFM95W pads verified
   against the HopeRF DS Figure 2 itself. Docs reconciled: the buck feeds from the
   PowerBoost's 5.2 V, NOT VBAT (BOM superseded the .md; both now agree).
+- **UI-first rule adopted (Nick):** features ship with a UI surface; serial = diagnostics.
+  Applied same-day: **Meshtastic > Sun & legal light** (countdown-first screen) and
+  **My node > GPS receiver** toggle (off / on (no fix yet) / on (fix), same NVS pref).
 - **The GPS firmware half is IN and dormant** (commit fe96b66, NOT flashed — soak): nmea
   reader on the stock USER_SERIAL UART2 (GPIO 38/32 @ 9600 = the plate's exact wiring),
   fix < 2 min old slots into resolveReference between chosen waypoint and pin. After

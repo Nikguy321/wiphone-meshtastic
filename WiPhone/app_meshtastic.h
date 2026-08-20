@@ -41,6 +41,7 @@ protected:
     MESH_EDITSHORT,     // the 4-character short name other radios display
     MESH_PLACES,        // waypoints heard from the mesh (camp, the truck, ...)
     MESH_PLACE_OPTS,    // one waypoint: set as reference / declare "I'm here"
+    MESH_SUN,           // legal light at the reference place (the serial `sun`, on screen)
   } MeshAppState_t;
 
   MeshAppState_t appState;
@@ -85,6 +86,7 @@ protected:
   void buildEditShortName();
   void buildPlaces();
   void buildPlaceOpts();
+  void buildSun();
 };
 
 #endif // APP_MESHTASTIC_H
