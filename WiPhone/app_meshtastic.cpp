@@ -241,8 +241,30 @@ void MeshtasticApp::buildChats() {
     } else {
       meshNodeLabel(chatId[j], name, sizeof(name));
     }
-    snprintf(line, sizeof(line), "%s (%d)", name, counts[j]);
-    menu->addOption(line, (MenuOption::keyType)(j + 1), 1);
+    if (counts[j] > 0) {
+      snprintf(line, sizeof(line), "%s (%d)", name, counts[j]);
+    } else {
+      strlcpy(line, name, sizeof(line));
+    }
+    /* Second line: the newest message in that chat, so the list answers "what's
+     * new" without opening anything (and long names no longer collide with it). */
+    char preview[64] = "";
+    for (int i = 0; i < total; i++) {
+      const MeshMessage* m = meshService.getMessage(i);     // 0 = newest
+      if (!m) {
+        continue;
+      }
+      bool match = chatIsChannel[j]
+                   ? (m->to == MESH_BROADCAST_ADDR && m->channelHash == (uint8_t)chatId[j])
+                   : (m->to != MESH_BROADCAST_ADDR &&
+                      ((m->from == myNode) ? m->to : m->from) == chatId[j]);
+      if (match) {
+        snprintf(preview, sizeof(preview), "%s%s",
+                 (m->flags & MESH_MSG_OUTGOING) ? "me: " : "", m->text);
+        break;
+      }
+    }
+    menu->addOption(line, preview[0] ? preview : NULL, (MenuOption::keyType)(j + 1), 1);
   }
 }
 
@@ -278,8 +300,11 @@ void MeshtasticApp::buildThread() {
       meshNodeLabel(m->from, whoBuf, sizeof(whoBuf));
       who = whoBuf;
     }
-    snprintf(line, sizeof(line), "%s: %s", who, m->text);
-    menu->addOption(line, (MenuOption::keyType)(i + 1), 1);   // key = global msg index + 1
+    /* Text on top (the thing you're scanning for), sender below in the small
+     * font. The old "who: text" single line spent its width on the name and
+     * clipped the words. Full text is still one OK away in the viewer. */
+    strlcpy(line, m->text, sizeof(line));
+    menu->addOption(line, who, (MenuOption::keyType)(i + 1), 1);   // key = global msg index + 1
   }
 }
 
@@ -293,27 +318,40 @@ void MeshtasticApp::buildNodes() {
   int32_t refLat = 0, refLon = 0;
   bool haveRef = meshService.resolveReference(&refLat, &refLon, NULL, 0);
 
+  char refName[20] = "";
+  meshService.resolveReference(NULL, NULL, refName, sizeof(refName));
+
   int count = meshService.getNodeCount();
   for (int i = 0; i < count; i++) {
     const MeshNode* n = meshService.getNode(i);
     if (!n) {
       continue;
     }
+    /* Two lines: the NAME stays whole on top, the position facts live below in
+     * the smaller font — one line held both and the 240px screen cut whichever
+     * mattered ("wrap, don't clip" — field request 2026-08-19). */
     if (haveRef && n->posHeardMs != 0 && n->nodeNum != meshService.getMyNodeNum()) {
       char dist[16];
       meshPosFmtDist(meshPosDistanceM(refLat, refLon, n->latI, n->lonI), dist, sizeof(dist));
-      snprintf(line, sizeof(line), "%s  %s %s", n->name, dist,
-               meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)));
+      if (n->posHeardMs == 1) {          // restored from flash: age unknown
+        snprintf(line, sizeof(line), "%s %s of %s (old)", dist,
+                 meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)), refName);
+      } else {
+        snprintf(line, sizeof(line), "%s %s of %s (%um)", dist,
+                 meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)), refName,
+                 (unsigned)((millis() - n->posHeardMs) / 60000u));
+      }
+      menu->addOption(n->name, line, (MenuOption::keyType)(i + 1), 1);
     } else {
-      snprintf(line, sizeof(line), "%s  (!%08x)", n->name, n->nodeNum);
+      snprintf(line, sizeof(line), "!%08x%s", n->nodeNum,
+               n->posHeardMs != 0 ? "" : " · no position heard");
+      menu->addOption(n->name, line, (MenuOption::keyType)(i + 1), 1);
     }
-    menu->addOption(line, (MenuOption::keyType)(i + 1), 1);
   }
 }
 
 void MeshtasticApp::buildPlaces() {
   menu = newMenu("No places heard yet - COVEY's map shares them");
-  char line[64];
   uint32_t refId = meshService.getReferenceId();
   int count = meshService.getWaypointCount();
   for (int i = 0; i < count; i++) {
@@ -321,13 +359,13 @@ void MeshtasticApp::buildPlaces() {
     if (!w) {
       continue;
     }
-    snprintf(line, sizeof(line), "%s%s", w->name,
-             (refId != 0 && w->id == refId) ? "  [ref]" : "");
     /* Row key = the waypoint ID, not the index: the table mutates under an open
      * menu (expiry swap-remove, LRU eviction), and a frozen index would let OK
      * set the reference to — or announce the user at — the WRONG place. An id
      * that has vanished by OK-time simply fails the lookup. (Review catch.) */
-    menu->addOption(line, (MenuOption::keyType)w->id, 1);
+    menu->addOption(w->name,
+                    (refId != 0 && w->id == refId) ? "measuring from here" : NULL,
+                    (MenuOption::keyType)w->id, 1);
   }
 }
 

@@ -38,7 +38,9 @@ typedef struct {
 bool meshPosParse(const uint8_t* pl, size_t len,
                   int32_t* latI, int32_t* lonI, uint32_t* timeOut);
 
-// Parse a Waypoint payload. True when id != 0 and both coordinates present.
+// Parse a Waypoint payload. True when id != 0; check out->hasPos — a waypoint
+// WITHOUT a position is a DELETION marker (the Meshtastic convention: absence
+// of position is the discriminator, since expire==0 means "never expires").
 bool meshWaypointParse(const uint8_t* pl, size_t len, MeshWaypointMsg* out);
 
 // Build a minimal Position payload {latitude_i, longitude_i, [time]} for the

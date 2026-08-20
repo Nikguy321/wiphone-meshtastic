@@ -1235,7 +1235,7 @@ public:
   void addOption(const char* title);
   void addOption(const char* title, MenuOption::keyType key, uint16_t style=1);
   void addOption(const char* title, const char* subTitle, MenuOption::keyType key, uint16_t style,
-                 const unsigned char* iconData, const uint16_t iconSize,
+                 const unsigned char* iconData = NULL, const uint16_t iconSize = 0,
                  const unsigned char* iconSelData = NULL, const uint16_t iconSelSize = 0);
 
   //void removeOption(MenuOption::keyType key);

@@ -373,6 +373,7 @@ MeshtasticService::MeshtasticService()
   refWaypointId = 0;
   placesNews = false;
   lastAnnounceOk = false;
+  nextWpSweepMs = 0;
 }
 
 // ---- Positions & places -----------------------------------------------------
@@ -984,6 +985,23 @@ bool MeshtasticService::loop() {
     lastSaveMs = millis();
   }
 
+  /* Places age out on their OWN clock, not only when a packet mentions them:
+   * a pin set on COVEY to die in a day dies here in a day too. Once a minute
+   * is plenty — expiries are set in hours. Needs the real clock; guessing
+   * with an unset clock could throw camp away at boot. */
+  if (ntpClock.isTimeKnown() && (int32_t)(millis() - nextWpSweepMs) >= 0) {
+    nextWpSweepMs = millis() + 60000;
+    uint32_t nowU = (uint32_t)ntpClock.getExactUnixTime();
+    for (int i = waypointCount - 1; i >= 0; i--) {
+      if (waypoints[i].expire != 0 && nowU > waypoints[i].expire) {
+        log_e("MESH WAYPOINT: '%s' expired - removed", waypoints[i].name);
+        waypoints[i] = waypoints[--waypointCount];
+        dbDirty = true;
+        placesNews = true;
+      }
+    }
+  }
+
 #ifdef MESHTASTIC_PHY
   /* ── RE-ANNOUNCE ON A TIMER, LIKE EVERY OTHER NODE ────────────────────────────────
    * The phone used to announce its NodeInfo exactly three times ever: once at boot, once
@@ -1323,21 +1341,26 @@ bool MeshtasticService::loop() {
         MeshWaypointMsg wp;
         if (meshWaypointParse(pl, plLen, &wp)) {
           /* Ownership first: a waypoint locked to a node may only be changed —
-           * or expire-deleted — by that node. Without this check, ANY holder of
-           * the channel key (or a replayed packet) could silently delete or
+           * or deleted — by that node. Without this check, ANY holder of the
+           * channel key (or a replayed packet) could silently delete or
            * relocate camp, the point every distance is measured from. */
           const MeshWaypoint* have = findWaypoint(wp.id);
           if (have && have->lockedTo != 0 && hdr.sender != have->lockedTo) {
             log_e("MESH WAYPOINT: refused change to locked '%s' from !%08x (owner !%08x)",
                   have->name, (unsigned)hdr.sender, (unsigned)have->lockedTo);
           }
-          /* An expired waypoint is a deletion. Only honored when the clock is
+          /* Deletions arrive two ways: a waypoint with NO position (the
+           * convention — deleting on COVEY's map sends exactly this), or one
+           * whose expire is already past (only honored when the clock is
            * known — dropping camp because NTP hasn't run yet would be worse
-           * than showing a stale pin. */
-          else if (wp.expire != 0 && ntpClock.isTimeKnown() &&
-                   (uint32_t)ntpClock.getExactUnixTime() > wp.expire) {
+           * than showing a stale pin). */
+          else if (!wp.hasPos ||
+                   (wp.expire != 0 && ntpClock.isTimeKnown() &&
+                    (uint32_t)ntpClock.getExactUnixTime() > wp.expire)) {
             for (int i = 0; i < waypointCount; i++) {
               if (waypoints[i].id == wp.id) {
+                log_e("MESH WAYPOINT: '%s' removed%s", waypoints[i].name,
+                      !wp.hasPos ? " (deleted by sender)" : " (expired on arrival)");
                 waypoints[i] = waypoints[--waypointCount];
                 dbDirty = true;
                 placesNews = true;

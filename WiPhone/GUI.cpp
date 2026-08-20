@@ -12769,6 +12769,38 @@ MenuOption::MenuOption(MenuOption::keyType pId, uint16_t pStyle, const char* tit
   titleDyn = title ? strdup(title) : NULL;
 };
 
+/* Draw `s` within maxW, with ".." marking anything cut off. drawFitString's hard
+ * cut reads as COMPLETE text — "Measure distances from h" looked whole on the
+ * 240px screen and the field report was that the label just said something odd
+ * (2026-08-19). ".." not "…": plain ASCII glyphs exist in every font we load.
+ * Cost: a textWidth() per trimmed char, only on rows that actually overflow,
+ * only on menu redraws (keypress-driven) — nothing here runs per-frame. */
+static void drawStringEllipsized(LCD &lcd, const char* s, uint16_t maxW, int16_t x, int16_t y) {
+  if (!s || !*s) {
+    return;
+  }
+  if (lcd.textWidth(s) <= maxW) {
+    lcd.drawString(s, x, y);
+    return;
+  }
+  char buf[96];
+  size_t n = strlen(s);
+  if (n > sizeof(buf) - 3) {
+    n = sizeof(buf) - 3;
+  }
+  while (n > 0) {
+    memcpy(buf, s, n);
+    buf[n] = '.';
+    buf[n + 1] = '.';
+    buf[n + 2] = '\0';
+    if (lcd.textWidth(buf) <= maxW) {
+      break;
+    }
+    n--;
+  }
+  lcd.drawString(buf, x, y);
+}
+
 void MenuOption::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, uint16_t windowWidth, uint16_t windowHeight,
                         uint16_t textColor, uint16_t bgColor, bool opaque, bool selected, SmoothFont* font, uint16_t leftOffset) {
   // Draw background if needed
@@ -12782,7 +12814,7 @@ void MenuOption::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, uint
   // Print text
   lcd.setTextFont(font);
   lcd.setTextColor(textColor, bgColor);
-  lcd.drawFitString(titleDyn, windowWidth - leftOffset, screenOffX + leftOffset, screenOffY + windowHeight/2);
+  drawStringEllipsized(lcd, titleDyn, windowWidth - leftOffset, screenOffX + leftOffset, screenOffY + windowHeight/2);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Menu option with icon & subtitle - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -12849,12 +12881,12 @@ void MenuOptionIconned::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOff
   uint16_t allotted = windowWidth - iconOffset - leftOffset;
   if (subTitleDyn == NULL) {
     lcd.setTextFont(font);
-    lcd.drawFitString(titleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + windowHeight/2);
+    drawStringEllipsized(lcd, titleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + windowHeight/2);
   } else {
     lcd.setTextFont(font);
-    lcd.drawFitString(titleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + (windowHeight-fonts[AKROBAT_BOLD_16]->height())/2);
+    drawStringEllipsized(lcd, titleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + (windowHeight-fonts[AKROBAT_BOLD_16]->height())/2);
     lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
-    lcd.drawFitString(subTitleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + font->height() + (windowHeight-font->height())/2);
+    drawStringEllipsized(lcd, subTitleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + font->height() + (windowHeight-font->height())/2);
   }
 }
 

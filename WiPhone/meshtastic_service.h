@@ -285,6 +285,7 @@ private:
   uint32_t     refWaypointId;             // 0 = use the pin
   bool         placesNews;                // latched: positions/waypoints changed
   bool         lastAnnounceOk;            // last announceMyPosition() transmitted
+  uint32_t     nextWpSweepMs;             // next local waypoint-expiry sweep
   void upsertWaypoint(uint32_t id, int32_t latI, int32_t lonI,
                       uint32_t expire, uint32_t lockedTo, const char* name);
   void loadPin();                          // NVS

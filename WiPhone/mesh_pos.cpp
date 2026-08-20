@@ -135,7 +135,13 @@ bool meshWaypointParse(const uint8_t* pl, size_t len, MeshWaypointMsg* out) {
   PbWalk w = { wpField, &c };
   if (!pbWalk(pl, len, &w)) return false;
   out->hasPos = c.hasLat && c.hasLon;
-  return out->id != 0 && out->hasPos;
+  /* A waypoint with an id and NO position is a DELETION — that absence is the
+   * Meshtastic convention's marker (COVEY's waypoints.is_delete: position is
+   * the discriminator, NOT expire, because expire == 0 legitimately means
+   * "never expires"). So id-only payloads are VALID and the caller branches
+   * on hasPos. Rejecting them here silently broke delete-on-COVEY ->
+   * delete-on-phone until 2026-08-19. */
+  return out->id != 0;
 }
 
 // ---------------------------------------------------------------- build

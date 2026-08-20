@@ -92,6 +92,16 @@ int main() {
     m += putF32(noId + m, 0x1d, (uint32_t)SEA_LON);
     CHECK(!meshWaypointParse(noId, m, &wp), "waypoint without id refused");
 
+    /* id + NO position = a DELETION marker (COVEY's map sends exactly this on
+     * delete — waypoints.is_delete: absence of position is the discriminator).
+     * Must PARSE (hasPos false), not be rejected: rejecting it silently broke
+     * delete-on-COVEY -> delete-on-phone. */
+    uint8_t del[8];
+    m = 0;
+    del[m++] = 0x08; del[m++] = 0x2a;                // id=42, nothing else
+    CHECK(meshWaypointParse(del, m, &wp) && wp.id == 42 && !wp.hasPos,
+          "id-only waypoint parses as a delete marker");
+
     // Oversized name is truncated, never overrun (ASan watches).
     uint8_t big[64];
     m = 0;
