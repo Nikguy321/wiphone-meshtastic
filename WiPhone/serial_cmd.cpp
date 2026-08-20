@@ -369,7 +369,9 @@ static void run(char* line) {
     return;
   }
 
-  say("? unknown command: '%s'  (try ?)\n", line);
+  // %.40s: a pasted invite URL is ~370 chars and say()'s buffer is 192, so the
+  // echo ate the "(try ?)" hint — the only useful half of this line.
+  say("? unknown command: '%.40s'  (try ?)\n", line);
 }
 
 void serialCmdLoop() {

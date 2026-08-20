@@ -241,8 +241,10 @@ void MeshtasticApp::buildChats() {
     } else {
       meshNodeLabel(chatId[j], name, sizeof(name));
     }
+    /* Unread count FIRST: trailing it, a 23-char node name ellipsized away the
+     * one thing that makes a row worth opening. */
     if (counts[j] > 0) {
-      snprintf(line, sizeof(line), "%s (%d)", name, counts[j]);
+      snprintf(line, sizeof(line), "(%d) %s", counts[j], name);
     } else {
       strlcpy(line, name, sizeof(line));
     }
@@ -333,13 +335,16 @@ void MeshtasticApp::buildNodes() {
     if (haveRef && n->posHeardMs != 0 && n->nodeNum != meshService.getMyNodeNum()) {
       char dist[16];
       meshPosFmtDist(meshPosDistanceM(refLat, refLon, n->latI, n->lonI), dist, sizeof(dist));
+      /* Age BEFORE the reference name: the name is the part that varies in
+       * length, so trailing it pushed "(old)"/"(4m)" — the freshness, which is
+       * what makes the distance trustworthy — off the end first. */
       if (n->posHeardMs == 1) {          // restored from flash: age unknown
-        snprintf(line, sizeof(line), "%s %s of %s (old)", dist,
+        snprintf(line, sizeof(line), "%s %s · old · of %s", dist,
                  meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)), refName);
       } else {
-        snprintf(line, sizeof(line), "%s %s of %s (%um)", dist,
-                 meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)), refName,
-                 (unsigned)((millis() - n->posHeardMs) / 60000u));
+        snprintf(line, sizeof(line), "%s %s · %um · of %s", dist,
+                 meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)),
+                 (unsigned)((millis() - n->posHeardMs) / 60000u), refName);
       }
       menu->addOption(n->name, line, (MenuOption::keyType)(i + 1), 1);
     } else {
@@ -401,10 +406,12 @@ void MeshtasticApp::buildStatus() {
   menu->addOption(line, 5, 1);
   {
     char refName[20];
+    // "From:" not "Distances from:" — the 16-char prefix left ~3 characters
+    // for the place name, which is the only part carrying information.
     if (meshService.resolveReference(NULL, NULL, refName, sizeof(refName))) {
-      snprintf(line, sizeof(line), "Distances from: %s", refName);
+      snprintf(line, sizeof(line), "From: %s", refName);
     } else {
-      snprintf(line, sizeof(line), "Distances from: (none)");
+      snprintf(line, sizeof(line), "From: (nowhere yet)");
     }
     menu->addOption(line, 8, 1);
     /* "set (send FAILED)" is the honest state when the pin stuck locally but

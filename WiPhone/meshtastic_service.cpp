@@ -1584,7 +1584,14 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
 
 #define MESH_DB_PATH      "/meshdb.bin"
 #define MESH_DB_MAGIC     0x314D5057u   // "WPM1"
-#define MESH_DB_VERSION   3             // v3: node position fields + waypoint tail
+/* v3: node position fields + waypoint tail. v4: MeshWaypoint gained lockedTo.
+ *
+ * ⚠ THE HEADER RECORDS EVERY STRUCT SIZE IT WRITES. v3 recorded the node and
+ * message sizes but NOT the waypoint size, so when MeshWaypoint grew a field
+ * the old tail was read with the new layout — misaligned garbage, and the
+ * stored places vanished on the next boot (measured: 'vashon' disappeared,
+ * 2026-08-19). Anything appended here needs its size in the header too. */
+#define MESH_DB_VERSION   4
 
 /* Older on-flash MeshNode layouts, byte-exact, so an existing database migrates
  * instead of being discarded (node names, keys and message history are worth
@@ -1617,8 +1624,10 @@ void MeshtasticService::saveDb() {
   uint16_t ms = (uint16_t)sizeof(MeshMessage);
   f.write((const uint8_t*)&magic, 4);
   f.write((const uint8_t*)&ver, 2);
+  uint16_t ws = (uint16_t)sizeof(MeshWaypoint);
   f.write((const uint8_t*)&ns, 2);
   f.write((const uint8_t*)&ms, 2);
+  f.write((const uint8_t*)&ws, 2);          // v4+: the tail's layout is declared too
 
   int32_t nc = nodeCount;
   f.write((const uint8_t*)&nc, sizeof(nc));
@@ -1658,12 +1667,22 @@ void MeshtasticService::loadDb() {
   f.read((uint8_t*)&ver, 2);
   f.read((uint8_t*)&ns, 2);
   f.read((uint8_t*)&ms, 2);
+  uint16_t ws = 0;
+  if (ver >= 4) {                           // v1..v3 have no waypoint-size field
+    f.read((uint8_t*)&ws, 2);
+  }
   // Struct-layout guard: ignore stale data written by a different build —
   // EXCEPT the known older layouts, which are migrated in place.
   const bool v1 = (ver == 1 && ns == sizeof(MeshNodeV1) && ms == sizeof(MeshMessage));
   const bool v2 = (ver == 2 && ns == sizeof(MeshNodeV2) && ms == sizeof(MeshMessage));
-  if (!v1 && !v2 &&
-      (ver != MESH_DB_VERSION || ns != sizeof(MeshNode) || ms != sizeof(MeshMessage))) {
+  /* v3 has today's node layout but an older, SHORTER waypoint record and no
+   * waypoint-size field. Nodes and messages migrate; its waypoint tail cannot
+   * be read with the current struct, so it is skipped and the places re-learn
+   * from the mesh (COVEY re-shares a pin when it is edited). */
+  const bool v3 = (ver == 3 && ns == sizeof(MeshNode) && ms == sizeof(MeshMessage));
+  if (!v1 && !v2 && !v3 &&
+      (ver != MESH_DB_VERSION || ns != sizeof(MeshNode) || ms != sizeof(MeshMessage) ||
+       ws != sizeof(MeshWaypoint))) {
     f.close();
     return;
   }
@@ -1697,9 +1716,10 @@ void MeshtasticService::loadDb() {
     }
     nodes[nodeCount++] = n;
   }
-  if (v1 || v2) {
-    dbDirty = true;                        // rewrite as v3 on the next debounce
-    log_e("MESH DB: migrated %d node(s) from v%d", nodeCount, v1 ? 1 : 2);
+  if (v1 || v2 || v3) {
+    dbDirty = true;                        // rewritten in the current layout on the next debounce
+    log_e("MESH DB: migrated %d node(s) from v%d%s", nodeCount, v1 ? 1 : (v2 ? 2 : 3),
+          v3 ? " (places re-learn from the mesh)" : "");
   }
 
   /* ⚠ The message COUNT is read UNCONDITIONALLY. Guarding the read behind
@@ -1726,8 +1746,9 @@ void MeshtasticService::loadDb() {
     }
   }
 
-  // v3 tail: waypoints (absent in migrated v1/v2 files — they re-learn on air).
-  if (!v1 && !v2) {
+  // v4 tail: waypoints. Skipped for every migrated layout (v1/v2 have no tail,
+  // v3's uses a shorter record) — those places re-learn from the mesh.
+  if (!v1 && !v2 && !v3) {
     int32_t wc = 0;
     if (f.read((uint8_t*)&wc, sizeof(wc)) == sizeof(wc)) {
       if (wc < 0) wc = 0;

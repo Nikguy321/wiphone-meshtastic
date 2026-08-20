@@ -6905,8 +6905,16 @@ void MessagesApp::enterState(MessagesState_t state) {
     header->setTitle("Messages");
     footer->setButtons("Open", "Back");
   } else if (state == THREAD) {
-    // The correspondent is the title: in a thread, who you are talking to is the context.
-    header->setTitle(threadPeer[0] ? threadPeer : "Messages");
+    /* The correspondent is the title: in a thread, who you are talking to is
+     * the context. For a phone number `threadPeer` (bare digits) is the nicer
+     * label; for a digit-free SIP address it is the identity string, which
+     * identityOf() truncated to 19 chars — show the FULL uri there instead and
+     * let the header ellipsize it honestly. (Widening the identity itself
+     * would cost static RAM in the thread table and the mirror record.) */
+    const bool digits = threadPeer[0] && strspn(threadPeer, "0123456789") == strlen(threadPeer);
+    const char* label = digits ? threadPeer
+                               : (threadUri[0] ? threadUri : threadPeer);
+    header->setTitle(label[0] ? label : "Messages");
     footer->setButtons("Reply", "Back");
   }
   appState = state;
@@ -6955,10 +6963,11 @@ void MessagesApp::markThreadRead() {
       if (m.isRead()) {
         continue;
       }
+      /* ONE identity rule, shared with the thread builder. This was a private
+       * copy of it; the two had to agree exactly or messages here would never
+       * match the open thread and would never be marked read. */
       char id[SMS_MIRROR_PEER_MAX];
-      if (!smsMirrorDigits(m.getOtherUri(), id, sizeof(id))) {
-        snprintf(id, sizeof(id), "%s", m.getOtherUri());
-      }
+      sipThreadIdentity(m.getOtherUri(), id, sizeof(id));
       if (strcmp(id, threadPeer)) {
         continue;
       }
@@ -7104,10 +7113,17 @@ void MessagesApp::buildChats() {
     } else {
       snprintf(sub, sizeof(sub), "%u message%s", (unsigned)t->count, t->count == 1 ? "" : "s");
     }
+    /* Show the ADDRESS, not the identity: `peer` is bare digits for a phone
+     * number (the nice label) but for a long SIP address it is a bounded,
+     * hash-suffixed grouping key that nobody should ever read. `uri` is the
+     * real thing, and the row ellipsizes it honestly. */
+    const bool peerIsDigits = t->peer[0] &&
+                              strspn(t->peer, "0123456789") == strlen(t->peer);
+    const char* label = (peerIsDigits || !t->uri[0]) ? t->peer : t->uri;
     MenuOptionIconnedTimed* option = new MenuOptionIconnedTimed(
       (MenuOption::keyType)(i + 2),
       t->unread ? MenuWidget::ALTERNATE_STYLE : MenuWidget::DEFAULT_STYLE,
-      t->peer, sub, t->lastTime);
+      label, sub, t->lastTime);
     if (option) {
       chatsMenu->addOption(option);
     }
@@ -10929,16 +10945,19 @@ void LabelWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, uin
   // Draw actual text
   lcd.setTextColor(textColor, bgColor);
   lcd.setTextFont(widgetFont);
+  /* Ellipsized rather than drawFitString's hard cut — labels carry the caller's
+   * name and SIP URI on the call screen, and a URI sheared mid-domain reads as
+   * a whole (wrong) address. guiDrawEllipsized honours the datum set below. */
   // TODO: change text direction to datum
   if (textDirection==0) {   // left to right
     lcd.setTextDatum(ML_DATUM);
-    lcd.drawFitString(textDyn, windowWidth-(xPadding*2), screenOffX+xPadding, screenOffY+windowHeight/2);
+    guiDrawEllipsized(lcd, textDyn, windowWidth-(xPadding*2), screenOffX+xPadding, screenOffY+windowHeight/2);
   } else if (textDirection==1) {      // right to left
     lcd.setTextDatum(MR_DATUM);
-    lcd.drawFitString(textDyn, windowWidth-(xPadding*2), screenOffX+windowWidth-xPadding, screenOffY+windowHeight/2);
+    guiDrawEllipsized(lcd, textDyn, windowWidth-(xPadding*2), screenOffX+windowWidth-xPadding, screenOffY+windowHeight/2);
   } else if (textDirection==2) {      // center
     lcd.setTextDatum(MC_DATUM);
-    lcd.drawFitString(textDyn, windowWidth-(xPadding*2), screenOffX + windowWidth/2, screenOffY+windowHeight/2);
+    guiDrawEllipsized(lcd, textDyn, windowWidth-(xPadding*2), screenOffX + windowWidth/2, screenOffY+windowHeight/2);
   }
   updated = false;
 };
@@ -12310,13 +12329,16 @@ void GUI::showMeshPopup(const char* title, const char* body) {
   lcd.setTextColor(WHITE, WP_ACCENT_1);
   lcd.setTextDatum(TL_DATUM);
 
+  /* Both lines ellipsized to the INSIDE of the box. They were plain
+   * drawStrings: a 23-char node name in the title, or any ordinary sentence in
+   * the body, painted straight through the border and across the screen. The
+   * body's 41-char buffer was never the real limit — ~26 chars is what fits. */
+  const uint16_t inner = w - 16;
   lcd.setTextFont(fonts[AKROBAT_BOLD_18]);
-  lcd.drawString(title ? title : "New message", x + 8, y + 6);
+  guiDrawEllipsized(lcd, title ? title : "New message", inner, x + 8, y + 6);
 
-  char preview[42];
-  strlcpy(preview, body ? body : "", sizeof(preview));
   lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
-  lcd.drawString(preview, x + 8, y + 26);
+  guiDrawEllipsized(lcd, body ? body : "", inner, x + 8, y + 26);
 }
 
 void GUI::drawOtaUpdate() {
@@ -12337,14 +12359,11 @@ void HeaderWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, ui
 
   lcd.fillRect(screenOffX, screenOffY, windowWidth+1, windowHeight, WP_COLOR_0);
 
-  // - Title
-  if (title) {
-    //log_d("header title: %s", title);
-    lcd.setTextColor(WP_ACCENT_0, WP_COLOR_0);
-    lcd.setTextFont(fonts[AKROBAT_BOLD_18]);
-    lcd.setTextDatum(ML_DATUM);
-    lcd.drawString(title, screenOffX+8, screenOffY+windowHeight/2);
-  }
+  /* ⚠ THE TITLE IS DRAWN LAST, not first — see the block after the clock.
+   * It used to be drawn here with a plain lcd.drawString, which does not clip:
+   * a long title (a file path, a SIP URI, a node name) ran the full width and
+   * the icons and clock were then painted ON TOP of it. Sizing it needs the
+   * width those right-aligned things actually consume, so it waits for them. */
 
   // - Battery state & WiFi icons
   const uint16_t space = 3;
@@ -12370,18 +12389,40 @@ void HeaderWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, ui
     char buff[6];
     sprintf(buff, "%02d:%02d", ntpClock.getHour(), ntpClock.getMinute());
     lcd.drawString(buff, screenOffX+windowWidth-xOff-3, screenOffY+windowHeight/2);
+    xOff += 3 + lcd.textWidth(buff);              // the clock is right-side furniture too
+  }
+
+  /* - Title, sized against the space the icons and clock LEFT (see the note
+   *   where it used to be drawn). titleDrawnW is what actually landed on the
+   *   screen — the SSID block below needs the real width, not strlen's idea. */
+  uint16_t titleDrawnW = 0;
+  if (title) {
+    lcd.setTextColor(WP_ACCENT_0, WP_COLOR_0);
+    lcd.setTextFont(fonts[AKROBAT_BOLD_18]);
+    lcd.setTextDatum(ML_DATUM);
+    const int16_t avail = (int16_t)windowWidth - 8 - (int16_t)xOff - 6;
+    if (avail > 0) {
+      titleDrawnW = guiDrawEllipsized(lcd, title, (uint16_t)avail,
+                                      screenOffX + 8, screenOffY + windowHeight/2);
+    }
   }
 
   // - Current WiFi network name: small grey text between the title and the
   //   clock, right-aligned. Too-long names shorten to "start.X" (a single dot
   //   plus the LAST character) until they fit; skipped if there's no room.
   if (wifiState.isConnected() && wifiState.ssid() != NULL && wifiState.ssid()[0]) {
-    lcd.setTextFont(fonts[AKROBAT_BOLD_18]);      // measure neighbors in THEIR font
-    uint16_t leftBound = screenOffX + 8 + (title ? lcd.textWidth(title) : 0) + 10;
-    uint16_t rightBound = screenOffX + windowWidth - xOff - 3;
-    if (ntpClock.isTimeKnown()) {
-      rightBound -= lcd.textWidth("00:00") + 8;
-    }
+    /* titleDrawnW, not textWidth(title): the title is ellipsized now, so its
+     * real width can be far less than the string's — measuring the string
+     * would hide the SSID behind a title that is not actually that wide.
+     * (No setTextFont needed to measure the neighbours any more: the title
+     * measured itself as it drew, and the clock's width is already in xOff.)
+     * ⚠ xOff ALREADY includes the clock, so do NOT subtract it again here. */
+    uint16_t leftBound = screenOffX + 8 + titleDrawnW + 10;
+    // Guarded subtraction: xOff is unsigned, and an underflow here would make
+    // rightBound enormous and paint the SSID straight over the icons.
+    uint16_t rightBound = ((uint32_t)xOff + 8 < (uint32_t)windowWidth)
+                          ? (uint16_t)(screenOffX + windowWidth - xOff - 8)
+                          : screenOffX;
     lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
     if (rightBound > leftBound + 24) {
       uint16_t avail = rightBound - leftBound;
@@ -12769,26 +12810,42 @@ MenuOption::MenuOption(MenuOption::keyType pId, uint16_t pStyle, const char* tit
   titleDyn = title ? strdup(title) : NULL;
 };
 
-/* Draw `s` within maxW, with ".." marking anything cut off. drawFitString's hard
- * cut reads as COMPLETE text — "Measure distances from h" looked whole on the
- * 240px screen and the field report was that the label just said something odd
- * (2026-08-19). ".." not "…": plain ASCII glyphs exist in every font we load.
- * Cost: a textWidth() per trimmed char, only on rows that actually overflow,
- * only on menu redraws (keypress-driven) — nothing here runs per-frame. */
-static void drawStringEllipsized(LCD &lcd, const char* s, uint16_t maxW, int16_t x, int16_t y) {
+/* Draw `s` within maxW, with ".." marking anything cut off; returns the width
+ * actually drawn. drawFitString's hard cut reads as COMPLETE text — "Measure
+ * distances from h" looked whole on the 240px screen and the field report was
+ * that the label just said something odd (2026-08-19). And a plain drawString
+ * does not clip AT ALL: it paints straight off the edge, or under the icons
+ * that get drawn on top of it afterwards.
+ *
+ * ".." not "…": plain ASCII glyphs exist in every font we load.
+ *
+ * Cost: a textWidth() per trimmed char, only on strings that actually overflow,
+ * only on redraws (keypress-driven) — nothing here runs per frame. */
+uint16_t guiDrawEllipsized(LCD &lcd, const char* s, uint16_t maxW, int16_t x, int16_t y) {
   if (!s || !*s) {
-    return;
+    return 0;
   }
-  if (lcd.textWidth(s) <= maxW) {
+  uint16_t full = lcd.textWidth(s);
+  if (full <= maxW) {
     lcd.drawString(s, x, y);
-    return;
+    return full;
   }
   char buf[96];
   size_t n = strlen(s);
   if (n > sizeof(buf) - 3) {
     n = sizeof(buf) - 3;
   }
+  buf[0] = '\0';
   while (n > 0) {
+    /* Never cut inside a UTF-8 sequence: a lone continuation byte (10xxxxxx)
+     * draws as a garbage glyph, and book titles and track names really do
+     * carry accents. Step back to the start of the character. */
+    while (n > 0 && ((uint8_t)s[n] & 0xC0) == 0x80) {
+      n--;
+    }
+    if (n == 0) {
+      break;
+    }
     memcpy(buf, s, n);
     buf[n] = '.';
     buf[n + 1] = '.';
@@ -12798,7 +12855,16 @@ static void drawStringEllipsized(LCD &lcd, const char* s, uint16_t maxW, int16_t
     }
     n--;
   }
+  if (n == 0) {
+    return 0;                 // not even "x.." fits: draw nothing, never overflow
+  }
   lcd.drawString(buf, x, y);
+  return lcd.textWidth(buf);
+}
+
+// Menu rows kept the old private name; one line so the call sites read the same.
+static inline void drawStringEllipsized(LCD &lcd, const char* s, uint16_t maxW, int16_t x, int16_t y) {
+  guiDrawEllipsized(lcd, s, maxW, x, y);
 }
 
 void MenuOption::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, uint16_t windowWidth, uint16_t windowHeight,

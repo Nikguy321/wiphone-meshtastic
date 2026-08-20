@@ -158,10 +158,14 @@ void MusicApp::drawNowPlaying() {
     snprintf(l1, sizeof(l1), "%.*s", (int)br, nm);
     snprintf(l2, sizeof(l2), "%.*s", (int)(len - br > 24 ? 24 : len - br), nm + br);
   }
-  lcd.drawString(l1, MUSIC_MARGIN, y);
+  /* Ellipsized, not silently cut: the two 24-char halves dropped everything
+   * past ~48 characters of a track name with no sign anything was missing —
+   * and 24 chars of this font already overruns the 240px panel. */
+  const uint16_t trackW = lcd.width() - 2 * MUSIC_MARGIN;
+  guiDrawEllipsized(lcd, l1, trackW, MUSIC_MARGIN, y);
   y += lh;
   if (l2[0]) {
-    lcd.drawString(l2, MUSIC_MARGIN, y);
+    guiDrawEllipsized(lcd, l2, trackW, MUSIC_MARGIN, y);
   }
   y += lh + 6;
 

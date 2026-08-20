@@ -1278,10 +1278,28 @@ void Messages::setRead(MessageData& msg) {
   }
 }
 
+/* Drop the cached partitions and the preloaded window.
+ *
+ * ⚠ THE BUG THIS EXISTS FOR, measured on hardware 2026-08-19: recountUnread and
+ * markAllRead write partition FILES directly (through a local IniFile), while
+ * `part1`/`part2` may still hold those same partitions in RAM with the OLD "u"
+ * flags. Any later store of a cached partition — an ingest, a setRead, a new
+ * message — then writes the stale copy back and RESURRECTS every unread flag.
+ * Symptom: `unread clear` reported "icon off", a recount agreed, and after the
+ * next reboot all 31 were back. Invalidate around every direct write. */
+void Messages::dropPartitionCaches() {
+  part1.unload();
+  part2.unload();
+  this->clearPreloaded();
+  preloadedRangeStart = 0;
+  preloadedRangeEnd = 0;
+}
+
 int32_t Messages::recountUnread(bool repair, char* fromOut, size_t fromCap) {
   if (!this->loaded || !index.isLoaded()) {
     return -1;
   }
+  dropPartitionCaches();      // read fresh, and leave nothing stale to flush
   if (fromOut && fromCap) {
     fromOut[0] = '\0';
   }
@@ -1362,6 +1380,9 @@ int32_t Messages::recountUnread(bool repair, char* fromOut, size_t fromCap) {
   if (repair && indexChanged) {
     index.store();
   }
+  if (repair) {
+    dropPartitionCaches();    // ...and nothing stale may outlive the repair
+  }
   return total;
 }
 
@@ -1369,6 +1390,7 @@ int32_t Messages::markAllRead() {
   if (!this->loaded || !index.isLoaded()) {
     return -1;
   }
+  dropPartitionCaches();
   int32_t cleared = 0;
   bool indexChanged = false;
 
@@ -1393,7 +1415,13 @@ int32_t Messages::markAllRead() {
     }
     if (inPart > 0 || part[0].hasKey("u")) {
       part[0].remove("u");
-      part.store();
+      const bool ok = part.store();
+      /* Kept: this line is the only thing that can tell a failed WRITE apart
+       * from flags being re-marked afterwards — the two look identical from
+       * the outside ("I cleared it and it came back"), and telling them apart
+       * is what solved the stale-cache bug dropPartitionCaches() now prevents. */
+      log_e("unread clear: partition %d, %d flag(s), store %s",
+            partn, (int)inPart, ok ? "OK" : "FAILED");
       cleared += inPart;
     }
     if (index[s].hasKey("u")) {
@@ -1406,10 +1434,13 @@ int32_t Messages::markAllRead() {
     indexChanged = true;
   }
   if (indexChanged) {
-    index.store();
+    const bool ok = index.store();
+    log_e("unread clear: index store %s", ok ? "OK" : "FAILED");
   }
-  /* The preloaded copies may still carry "u" — they are stale now. Callers
-   * showing a list must clearPreloaded() and rebuild, same as the delete path. */
+  /* ⚠ MUST be the last thing: part1/part2 may hold these very partitions with
+   * their "u" flags intact, and the next store of a cached partition would
+   * write them straight back over what we just cleared. */
+  dropPartitionCaches();
   return cleared;
 }
 

@@ -372,6 +372,10 @@ protected:
   bool loaded = false;
 
   int32_t countAll(bool incoming);
+  /* Invalidate the part1/part2 partition caches and the preloaded window.
+   * Required around any code that writes a partition FILE directly — see the
+   * comment on the definition; a stale cache silently undid such writes. */
+  void dropPartitionCaches();
   bool loadPartition(IniFile& part, int num);
   bool findMessage(MessageData& data, IniFile*& part, int32_t& section);   // part: OUT, points at part1 or part2
 };

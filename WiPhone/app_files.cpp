@@ -684,8 +684,10 @@ void FilesApp::drawXfer() {
   lcd.setTextColor(WHITE, BLACK);
   int y = top + 4;
   char line[96];
+  /* The destination folder is the whole point of this line, and a real path
+   * runs off the panel — ellipsized so what survives is at least honest. */
   snprintf(line, sizeof(line), "Uploading into %s", curPath);
-  lcd.drawString(line, FILES_MARGIN, y); y += lh + 4;
+  guiDrawEllipsized(lcd, line, lcd.width() - 2 * FILES_MARGIN, FILES_MARGIN, y); y += lh + 4;
   if (xferOn()) {
     lcd.drawString("On your computer, open:", FILES_MARGIN, y); y += lh;
     snprintf(line, sizeof(line), "  http://%s/", xferAddr());

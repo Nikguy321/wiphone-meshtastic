@@ -1457,9 +1457,11 @@ void BooksApp::drawPicture() {
     /* Greyscale is handled by jpeg_grey now, so what is left here is genuinely out of reach:
      * a progressive JPEG, or a PNG, neither of which either decoder reads. */
     lcd.setTextColor(TFT_ORANGE, BLACK);
-    snprintf(cap, sizeof(cap), "cannot show this one (progressive JPEG or PNG?)");
+    // Short enough to FIT: the 47-char version measured ~330-420px on a 240px
+    // panel, so the reason it named was exactly the part that fell off-screen.
+    snprintf(cap, sizeof(cap), "can't show (JPEG/PNG type)");
   }
-  lcd.drawString(cap, BOOKS_MARGIN, bottom - capH);
+  guiDrawEllipsized(lcd, cap, lcd.width() - 2 * BOOKS_MARGIN, BOOKS_MARGIN, bottom - capH);
 }
 
 /* Somebody else's place in this book, offered.

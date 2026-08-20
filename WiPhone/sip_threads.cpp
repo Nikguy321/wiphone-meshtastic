@@ -1,6 +1,7 @@
 #include "sip_threads.h"
 #include "Storage.h"
 #include "config.h"
+#include "helpers.h"          // hash_murmur, for the identity of a long address
 
 #include <Arduino.h>
 #include <string.h>
@@ -46,12 +47,56 @@ void sipThreadsRelease() {
  *
  * Digits where there are any, and the raw string otherwise — a LoRa peer is a hex chip id
  * with no phone number in it, and reducing every one of those to "" would collapse them all
- * into a single nameless thread. */
-static void identityOf(const char* uri, char* out, size_t cap) {
+ * into a single nameless thread.
+ *
+ * ⚠ The no-digits branch used to be a plain snprintf into this 20-byte buffer, i.e. the
+ * FIRST 19 CHARACTERS of the address. "sip:" eats four of those, so two correspondents at
+ * the same long host — sip:alice.wonderland@a.com and sip:alice.wonderland@b.net — produced
+ * the SAME identity, and their two conversations interleaved in ONE thread. The tail is
+ * folded into a hash instead, which tells them apart inside the same 20 bytes. This string
+ * is NOT for reading: callers display SipThread::uri, the full address.
+ *
+ * ⚠ SHARED ON PURPOSE. MessagesApp::markThreadRead derives the same identity to decide
+ * which stored messages belong to the open thread. While that logic was duplicated there,
+ * any change here would silently stop messages being marked read. */
+void sipThreadIdentity(const char* uri, char* out, size_t cap) {
+  if (cap == 0) {
+    return;
+  }
   if (smsMirrorDigits(uri, out, cap)) {
     return;
   }
-  snprintf(out, cap, "%s", uri ? uri : "");
+  if (!uri || !uri[0]) {
+    out[0] = '\0';
+    return;
+  }
+  if (strlen(uri) < cap) {
+    snprintf(out, cap, "%s", uri);          // fits whole: nothing to disambiguate
+    return;
+  }
+
+  /* Too long for the buffer: keep a readable head and fold the whole address
+   * into the tail so two long look-alikes stay apart.
+   *
+   * ⚠ LETTERS, NOT HEX. This function must be IDEMPOTENT — sipThreadOpen() is
+   * handed an identity (from SipThread::peer) and derives the identity of THAT
+   * to find the thread. smsMirrorDigits() scans for digits up to the first '@',
+   * so a hex suffix like "#a1b2c3" would be mined for "123" on the second pass:
+   * the identity would change under us and the thread would open EMPTY. With
+   * a-z there are no digits to find, the second pass hits the length test
+   * above, and the identity comes back unchanged. */
+  char sfx[7];
+  uint32_t h = hash_murmur(uri);
+  for (int i = 0; i < 6; i++) {
+    sfx[i] = (char)('a' + (h % 26));
+    h /= 26;
+  }
+  sfx[6] = '\0';
+  snprintf(out, cap, "%.*s#%s", (int)(cap > 8 ? cap - 8 : 1), uri, sfx);
+}
+
+static inline void identityOf(const char* uri, char* out, size_t cap) {
+  sipThreadIdentity(uri, out, cap);
 }
 
 // ---------------------------------------------------------------- the list

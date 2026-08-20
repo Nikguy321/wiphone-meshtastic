@@ -106,6 +106,16 @@ struct SipThreadMsg {
 
 class Messages;
 
+/* The grouping identity of a correspondent: bare digits for a phone number, else a
+ * bounded form of the address (long ones keep a head plus a hash of the whole, so two
+ * addresses sharing a long prefix do NOT collapse into one thread).
+ *
+ * ⚠ Anything deciding "does this message belong to that thread?" must use THIS, not its
+ * own copy of the rule — MessagesApp::markThreadRead had a duplicate, and a divergence
+ * there means messages silently never get marked read.
+ * ⚠ It is an identity, not a label: show SipThread::uri to a human. */
+void sipThreadIdentity(const char* uri, char* out, size_t cap);
+
 /* Rebuild the conversation list, newest-first. Returns how many threads there are. */
 int  sipThreadsBuild(Messages& msgs);
 int  sipThreadsCount();

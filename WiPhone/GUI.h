@@ -39,6 +39,14 @@ using namespace std;
 #define LCD TFT_eSPI
 extern LCD* static_lcd;      // a hack for the LCD to be usable from static callbacks
 
+/* Draw text that CANNOT overflow its space: anything cut off ends in "..", and
+ * the width actually drawn is returned. Use this instead of lcd.drawString for
+ * any string built from user/peer data — a filename, a node name, a SIP URI, a
+ * track title. Plain drawString does not clip: it paints off the screen edge or
+ * under whatever is drawn on top of it afterwards, and drawFitString's hard cut
+ * makes a truncated string look complete. (Text-overflow sweep, 2026-08-19.) */
+uint16_t guiDrawEllipsized(LCD &lcd, const char* s, uint16_t maxW, int16_t x, int16_t y);
+
 // Pixel colors
 #define WHITE       TFT_WHITE     // 0xFFFF
 #define GRAY        TFT_DARKGREY  // 0x7BEF      // 50%
