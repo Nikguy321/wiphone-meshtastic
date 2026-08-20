@@ -70,7 +70,9 @@ until real Game Boy Color games run at full speed on the phone.
   it from any computer, **or paste a download link** and the phone fetches the
   file itself. Multiple files at once, per-file progress, and a failed upload
   retries itself a few times before complaining. Falls back to hosting its own
-  hotspot (`WiPhone-ROMs`) when not on WiFi.
+  hotspot (`WiPhone-ROMs`) when not on WiFi. If `wiphone.local` won't resolve —
+  phone-hotspot networks and Android browsers often can't do mDNS — use the
+  `http://<ip>` address the phone's screen shows instead.
 - **Big carts work** — 4 MB ROMs stream from the SD card on demand.
 - **Comes with a game** — uCity (public-domain) is built into the firmware, so
   there is something to play before any SD card or upload.

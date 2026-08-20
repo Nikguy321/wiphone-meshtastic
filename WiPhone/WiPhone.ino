@@ -2038,7 +2038,13 @@ void loop() {
         due = true;
       }
 
-      if (!gbcXferOn() && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && due && !wifiState.userDisabled()) {
+      /* ⚠ Block reconnect only while the transfer server is in softAP mode — that is the
+       * mode where an STA connect mid-association panics the chip. In STA mode the server
+       * is just a socket, and GATING RECONNECT STRANDED IT: a hotspot blink mid-upload
+       * left the phone at NO_SSID with the page dead and no path back until the user
+       * stopped the server (found live, 2026-08-20 — the "books upload locked up"). */
+      const bool xferBlocksWifi = gbcXferOn() && xferUsingAP();
+      if (!xferBlocksWifi && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && due && !wifiState.userDisabled()) {
         if (wifiState.connectToPreferred()) {
           log_d("Connecting to WiFi");
         } else {
@@ -2054,7 +2060,7 @@ void loop() {
       }
 
       if (s_wifiQuiesceAtMs && (int32_t)(now - s_wifiQuiesceAtMs) >= 0 &&
-          !wifiState.isConnected() && !wifiState.scanBusy() && !gbcXferOn()) {
+          !wifiState.isConnected() && !wifiState.scanBusy() && !xferBlocksWifi) {
         /* ⚠ Only quiesce an attempt that is OURS and STALE. connectToWiFi() is also
          * called by the auto-switcher and by a manual join in the networks app, and a
          * deadline armed 30 s ago knows nothing about them — disconnecting here would
@@ -2096,7 +2102,9 @@ void loop() {
                             cs == CallState::RemoteRinging  || cs == CallState::Call ||
                             cs == CallState::Accept         || cs == CallState::BeingInvited);
       bool callBusy = audioDelicate && wifiState.isConnected();
-      if (!gGbcActive && !gbcXferOn() && !callBusy) {
+      // Same softAP-only rule as the reconnect gate above: an STA-mode transfer
+      // server must not stop the machinery that would bring its network back.
+      if (!gGbcActive && !(gbcXferOn() && xferUsingAP()) && !callBusy) {
         wifiState.autoSwitchTick(gui.state.screenBrightness > 0);
       }
     }

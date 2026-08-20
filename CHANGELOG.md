@@ -2,6 +2,16 @@
 
 ## Unreleased (2026-08-20, day) — the phone grows a GPS ear, asleep until the plate exists
 
+- **An upload no longer strands the phone off WiFi** — the reconnect machinery (and the
+  auto-switcher) were disabled whenever the transfer server ran, guarding a real softAP
+  crash. But the guard also fired in plain STA mode, where it protects nothing: a
+  one-second hotspot blink mid-upload left the phone at "SSID not available" with the
+  page dead and NO path back until the server was stopped — found live during a 4-book
+  upload that ended in a panic-reboot. The gates now block only genuine softAP mode.
+  (The panic itself did not reproduce once the stranding was fixed: four 3-5 MB EPUBs
+  uploaded back-to-back over a phone hotspot, heap steady. Its habitat — a wedged,
+  heap-starved server session — no longer exists; if it ever recurs on the bench cable,
+  the watcher will catch the backtrace.)
 - **The README tells the truth again** — a six-agent audit checked every public claim
   against the code: the phantom touchscreen, the "may require a couple tries" sleep
   gesture (it works every time; hold Select+Back 2 s), the 4-of-17 serial-command
