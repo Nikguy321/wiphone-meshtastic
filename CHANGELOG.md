@@ -12,7 +12,12 @@
   resumes on its own at 20 KB. Proven on hardware: a stress burst tripped it cleanly —
   instant refusals instead of hangs, phone alive throughout. Per-upload heap telemetry
   (one log line per file) turns future leak-hunting into arithmetic: today's measured
-  slope is ~350-400 B lost per upload plus the transient churn.
+  slope is ~350-400 B lost per upload plus the transient churn. The breaker's first cut
+  carried two bugs its own first field trip exposed: a 20 KB resume threshold that
+  steady-state fragmentation never reaches (one trip = paused forever), and pause state
+  in a function-local static that outlived server restarts. Retuned to the measured
+  band — trip 6 KB (uploads run happily at 7-8), resume 10 KB (idle recovers to 13-16)
+  — and the state resets on every server start.
 - **An upload no longer strands the phone off WiFi** — the reconnect machinery (and the
   auto-switcher) were disabled whenever the transfer server ran, guarding a real softAP
   crash. But the guard also fired in plain STA mode, where it protects nothing: a

@@ -80,6 +80,11 @@ static void xferHoldAwake(bool hold) {
   s_heldAwake = hold;
 }
 static char         s_addr[40] = {0};   // shown address (IP of STA or AP)
+/* Breaker state is per-SERVER-SESSION: xferStart() clears it, so a fresh Start
+ * (or `up on`) always begins live — the first cut kept it in a function-local
+ * static, and one trip outlived every restart. */
+static bool         s_breakerPaused = false;
+static uint32_t     s_breakerFlipMs = 0;
 
 static const XferConfig ROM_CFG = {
   "/roms", "Add Game Boy ROMs", ".gb,.gbc", "ROMs", "download.gbc", "WiPhone-ROMs"
@@ -100,23 +105,27 @@ void gbcXferHandleClient() {
    * memory is tight instead of dragging the network stack (and then the whole
    * phone) down with it: the listener closes, nothing else is lost, and it
    * comes back on its own when heap recovers. Hysteresis so it cannot flap. */
-  static bool     s_paused = false;
-  static uint32_t s_lastFlipMs = 0;
+  /* Thresholds from the 2026-08-20 measurements, not caution: sequential uploads
+   * ran HAPPILY at 7-8 KB largest; the listener only died below ~5 KB. Trip at
+   * 6 KB, resume at 10 KB — both reachable on this phone's real heap profile
+   * (steady-state largest idles at 13-16 KB; the first cut of this breaker
+   * resumed at 20 KB, which fragmentation NEVER reaches, so one trip paused the
+   * server forever). */
   const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   const uint32_t now = millis();
-  if (!s_paused && largest < 12288 && (uint32_t)(now - s_lastFlipMs) > 3000) {
-    s_paused = true;
-    s_lastFlipMs = now;
+  if (!s_breakerPaused && largest < 6144 && (uint32_t)(now - s_breakerFlipMs) > 3000) {
+    s_breakerPaused = true;
+    s_breakerFlipMs = now;
     s_server->stop();
-    log_e("XFER: PAUSED - internal largest %u < 12K; uploads resume when memory recovers",
+    log_e("XFER: PAUSED - internal largest %u < 6K; uploads resume when memory recovers",
           (unsigned)largest);
-  } else if (s_paused && largest >= 20480 && (uint32_t)(now - s_lastFlipMs) > 3000) {
-    s_paused = false;
-    s_lastFlipMs = now;
+  } else if (s_breakerPaused && largest >= 10240 && (uint32_t)(now - s_breakerFlipMs) > 3000) {
+    s_breakerPaused = false;
+    s_breakerFlipMs = now;
     s_server->begin();
     log_e("XFER: RESUMED - internal largest %u", (unsigned)largest);
   }
-  if (!s_paused) {
+  if (!s_breakerPaused) {
     s_server->handleClient();
   }
 }
@@ -494,6 +503,8 @@ static void handleFetch() {
 }
 
 void xferStart(const XferConfig* cfg) {
+  s_breakerPaused = false;              // a fresh session always starts live
+  s_breakerFlipMs = 0;
   if (!cfg) {
     cfg = &ROM_CFG;
   }
