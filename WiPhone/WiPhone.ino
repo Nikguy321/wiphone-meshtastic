@@ -2073,15 +2073,29 @@ void loop() {
 
     // WiFi auto-switch: background scan for the strongest saved network
     // (Networks.cpp). Runs whenever the phone isn't gaming / serving ROMs /
-    // in CALL activity (a scan mid-call would glitch audio). NOTE: an earlier
+    // mid-AUDIO (a scan mid-call would glitch audio). NOTE: an earlier
     // allowlist of NotInited|Idle silently stopped all ticks once SIP left
     // Idle after connecting — block only genuine call-flow states.
+    //
+    // ⚠ HangUp and HangingUp are deliberately NOT blocking states. They are
+    // TEARDOWN, and they STICK when the proxy is unreachable (the END key
+    // enters HangUp from anywhere, no call needed — ino:1857): measured
+    // 2026-08-15 (car log, 19 min at sip=6) and again 2026-08-20 (SIX HOURS
+    // at sip=6, every scan blocked while the user's saved hotspot sat in
+    // range — the deadlock: SIP waits for the network, and this guard made
+    // the network wait for SIP). sipNeedsFullSpeed() had already recorded
+    // which states are genuinely delicate; this guard now agrees.
+    //
+    // Belt and braces: with WiFi DISCONNECTED no state can be carrying audio,
+    // so there is nothing a scan could glitch — the call gate only applies
+    // while actually connected. That makes this deadlock structurally
+    // impossible for ANY stuck state, present or future.
     {
       CallState cs = gui.state.sipState;
-      bool callBusy = (cs == CallState::InvitingCallee || cs == CallState::InvitedCallee ||
-                       cs == CallState::RemoteRinging  || cs == CallState::Call ||
-                       cs == CallState::HangUp         || cs == CallState::HangingUp ||
-                       cs == CallState::Accept         || cs == CallState::BeingInvited);
+      bool audioDelicate = (cs == CallState::InvitingCallee || cs == CallState::InvitedCallee ||
+                            cs == CallState::RemoteRinging  || cs == CallState::Call ||
+                            cs == CallState::Accept         || cs == CallState::BeingInvited);
+      bool callBusy = audioDelicate && wifiState.isConnected();
       if (!gGbcActive && !gbcXferOn() && !callBusy) {
         wifiState.autoSwitchTick(gui.state.screenBrightness > 0);
       }

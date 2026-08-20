@@ -2,6 +2,16 @@
 
 ## Unreleased (2026-08-20, day) — the phone grows a GPS ear, asleep until the plate exists
 
+- **The WiFi auto-switch deadlock is fixed** — the reason the phone sat next to a saved
+  hotspot ALL DAY without joining it. The switcher's call-guard blocked on HangUp — a
+  TEARDOWN state the END key enters from anywhere, which STICKS when the proxy is
+  unreachable (its BYE can never send). So: leave home WiFi, press END once, and the
+  thing that restores the network is blocked by a state that needs the network to end.
+  Measured live: sip=6 for six hours, 7,549 host-unreachable errors, zero scans, the
+  hotspot in range and saved. The guard now blocks only the six genuinely audio-delicate
+  states — and only WHILE CONNECTED, because with WiFi down there is no audio a scan
+  could glitch: the deadlock is structurally impossible for any stuck state, ever.
+
 - **Sun & legal light is a SCREEN now** (Meshtastic > Sun & legal light): countdown
   first — "LEGAL LIGHT: 13h 34m left" — then the four times, at the reference place;
   the same almanac-verified core the serial `sun` uses. When no place is known it
