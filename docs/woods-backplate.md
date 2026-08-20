@@ -1,7 +1,10 @@
 # Stretch goal — the "woods" backplate
 
 **Status: DESIGN NOTES ONLY. Nothing built, nothing ordered, no firmware written.**
-Captured 2026-08-10 so the reasoning is not lost. Diagram: [`woods-backplate.svg`](woods-backplate.svg).
+Captured 2026-08-10 so the reasoning is not lost. Diagrams: [`woods-backplate.svg`](woods-backplate.svg)
+(the gist) and **[`woods-backplate-wiring.svg`](woods-backplate-wiring.svg) — the leg-by-leg build
+sheet** (every pad, every cap leg, numbered wire run list, print A3; RFM95W pads verified against
+HopeRF DS V2.0 Table 2 + Figure 2 on 2026-08-20). Build from the wiring sheet, not from prose.
 
 > **Revised 2026-08-11 against WiPhone's own published pinout, which settles two of the three
 > "measure this first" items and kills one architecture outright.**
@@ -87,8 +90,10 @@ No level shifters: the ESP32, the RFM95W and the GPS UART are all 3.3 V logic.
 The header's 3.3 V pin is the output of a **MIC5219-3.3BM5**, which WiPhone documents as
 "designed for 150 mA to 200 mA output current applications". The RFM95W pulls **120 mA** transmitting
 at +20 dBm and the M100 another ~30 mA — about 150 mA together, i.e. the whole budget, before the
-phone's own daughterboard needs anything. Put an LDO or buck on the plate, fed from VBAT, sized for
-≥ 250 mA.
+phone's own daughterboard needs anything. Put an LDO or buck on the plate, sized for ≥ 250 mA.
+**Feed it from the PowerBoost's 5.2 V, not VBAT** — the BOM superseded the original fed-from-VBAT
+plan here (the chosen TLV62569's 3.4 V input floor would hit dropout at the bottom of a 1S
+discharge, exactly when you are furthest from the truck).
 
 ⚠ **Gate its EN pin off the phone's 3.3 V pin.** Otherwise the plate's rail is live while the phone
 is off and back-powers the ESP32 through its GPIO clamp diodes. One wire, and it removes a whole

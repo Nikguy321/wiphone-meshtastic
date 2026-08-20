@@ -3,8 +3,10 @@
 **Compiled 2026-08-11.** Two vendors only: **Adafruit** (3 items, one order) and **Amazon**
 (everything else). Prices and stock were checked live on 2026-08-11 — re-check before ordering.
 
-Design context is in [`woods-backplate.md`](woods-backplate.md); the wiring is in
-[`woods-backplate.svg`](woods-backplate.svg). **Read the power section there before buying** — the
+Design context is in [`woods-backplate.md`](woods-backplate.md); the gist diagram is
+[`woods-backplate.svg`](woods-backplate.svg) and the **leg-by-leg build sheet is
+[`woods-backplate-wiring.svg`](woods-backplate-wiring.svg)** (every pad and cap leg, numbered
+run list — build from that). **Read the power section in the design doc before buying** — the
 architecture changed on 2026-08-11.
 
 ## Already on hand — do not re-order
