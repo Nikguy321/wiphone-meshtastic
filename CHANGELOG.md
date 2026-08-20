@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.9.7 (continued, overnight 08-19→20) — lists that wrap, text that fits, places that expire, and the sun
+
+- **Places live and die like they do on the mesh**: deleting a pin on COVEY now removes
+  it here too (the delete packet was being rejected as malformed — it never worked), and
+  a place with an expiry ages out on its own clock, not just when a packet mentions it.
+- **Long text wraps or says ".."** — the node list is two lines (name / distance+age),
+  chats preview their newest message, and every menu, header, label, popup and caption
+  in the firmware ellipsizes instead of running under the clock or off the screen
+  (a 36-agent sweep found 16 offenders; all fixed, plus the review's follow-ups).
+- **`sun`** — dawn / sunrise / sunset / dusk and a legal-light countdown for the
+  reference place, offline (NOAA math, almanac-verified). Groundwork for a clock-face
+  version.
+- Position broadcasts on COVEY can now ride a **chosen channel** (Node & Location) —
+  the public default is labeled with the truth: "LongFast — every radio can read this."
+- Fixed: two SIP addresses sharing a long prefix no longer merge into one thread;
+  `unread clear` survives reboots (a stale partition cache was resurrecting the flags).
+
 ## 0.9.7 — the phone knows where everyone is (no GPS required)
 
 ### 📍 Places and positions

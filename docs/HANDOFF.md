@@ -1,8 +1,45 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-19 (evening) · **Version 0.9.7 — positions & places, flashed
-and phone-side verified.** All 11 host suites green (new: test_pos). ⚠ The web flasher
-still serves 0.9.5 ON PURPOSE — soak first.
+**Last updated:** 2026-08-20 (overnight) · **0.9.7 line: positions/places field-tested,
+text overflow purged, sun module in.** 12 host suites green (new: test_pos, test_pki,
+test_sun). ⚠ The web flasher still serves 0.9.5 ON PURPOSE — soak first.
+
+## 🌙 The overnight block (Nick asleep; everything below flashed + verified + pushed)
+
+- **Waypoint DELETE parity was BROKEN and is fixed**: COVEY's delete is a Waypoint with
+  an id and NO position (`waypoints.is_delete` — absence of position is the marker,
+  because expire==0 means "never"); the phone's parser rejected exactly that form. Now:
+  id-only packet ⇒ delete (owner-checked); local once-a-minute expiry sweep too. ⚠ v3's
+  waypoint tail had NO size field in the DB header — DB is now **v4** (every struct size
+  recorded; v1/v2/v3 migrate, v3's places re-learn on air). Nick must RE-SAVE 'vashon'.
+- **`unread clear` survives reboots now** — Messages' part1/part2 caches were storing
+  stale "u" flags back over the direct file writes (`dropPartitionCaches()` guards every
+  such write; a kept log line separates failed-write from re-marked). ⚠ My first two
+  diagnoses (cache theory applied too narrowly, then a LOG-READING error — awk matched
+  the FIRST occurrence in a 38k-line log) were wrong before the fenced reboot test
+  proved the fix; fence your greps.
+- **Text overflow: 16 sweep findings + 7 review follow-ups, all fixed.** guiDrawEllipsized
+  everywhere (UTF-8-safe, returns drawn width); header draws title LAST sized to what
+  icons+clock leave; ⚠ MenuOptionIconnedTimed (chats list) has ITS OWN redraw — fixing
+  the other two option classes does not touch it. sipThreadIdentity() is the ONE
+  grouping rule (letters-only hash tail — hex would feed smsMirrorDigits and break
+  idempotency); sipDisplayLabel() the ONE display rule.
+- **`sun`** (serial): NOAA solar math in sun_times.{h,cpp}, 21 host checks incl. almanac
+  anchors; verified on device (Seattle 08-20: 05:39/06:12/20:13/20:47). ⚠ Times are UTC
+  minutes 0..1439 — evening events WRAP to the adjacent UTC date; unwrap for spans.
+  Clock-face UI deliberately left for Nick's daylight taste.
+- **COVEY: position broadcasts can ride a chosen channel** (Node & Location row, suite
+  41, deployed, covey-ui active). Default UNCHANGED (still public LongFast) until Nick
+  flips it — the row says "every radio can read this" so the flip is informed. The
+  on/off half already existed (Auto-broadcast off/1m/5m/15m).
+- COVEY map ruler (RUL) from earlier tonight: suite 40, deployed.
+
+**▶ MORNING CHECKLIST FOR NICK:** (1) re-save the camp waypoint on COVEY (v4 migration
+dropped it — expect it in Places in seconds); (2) flip Position channel to a private one
+if you want (Settings > Node & Location); (3) `sun` works from serial now, and lights up
+on the phone once a waypoint/pin exists; (4) the overnight soak monitor logged only my
+own reflashes. Wishlist still open: Files icon/main-menu, clock-face legal light,
+wallpapers, flasher publish after soak.
 
 ## 📍 0.9.7 (2026-08-19 evening): positions, places, and the unread-icon truth
 
