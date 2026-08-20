@@ -4,6 +4,8 @@
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
 #include "meshtastic_service.h"   // applyChannelUrl, the `chan` command
 #include "mesh_pos.h"             // distance/bearing for the `pos` command
+#include "sun_times.h"            // legal light, the `sun` command
+#include "clock.h"                // ntpClock
 #include "GUI.h"                  // gui.state, the `sip` command
 #include <WiFi.h>
 
@@ -69,6 +71,7 @@ static void help() {
     "  announce   broadcast NodeInfo now, asking others to answer with theirs",
     "  dm <!node> <text>  send a direct message (PKI when the key is known)",
     "  pos        positions: waypoints, node fixes, our pin, the reference",
+    "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
     "  unread     recount unread texts, repair the counter, name the threads",
     "  unread clear  mark EVERYTHING read (orphaned threads included)",
     "",
@@ -284,6 +287,71 @@ static void run(char* line) {
   }
   if (!strcasecmp(line, "pos")) {
     reportPos();
+    return;
+  }
+  /* `sun` — legal light at the reference place, offline. The most-asked
+   * question of a hunting day, answered from pure math + the coordinates the
+   * mesh already delivered. Times print in LOCAL clock (the tz offset is
+   * whatever the phone's clock is configured with). */
+  if (!strcasecmp(line, "sun") || !strncasecmp(line, "sun ", 4)) {
+    if (!ntpClock.isTimeKnown()) {
+      say("sun: clock not set yet (needs one NTP sync)\n");
+      return;
+    }
+    int32_t refLat, refLon;
+    char refName[20];
+    if (line[3] == ' ') {
+      // `sun 47.6062,-122.3321` — explicit coordinates, for the bench.
+      double la = 0, lo = 0;
+      if (sscanf(line + 4, "%lf,%lf", &la, &lo) != 2) {
+        say("sun: usage sun [lat,lon]\n");
+        return;
+      }
+      refLat = (int32_t)(la * 1e7);
+      refLon = (int32_t)(lo * 1e7);
+      strlcpy(refName, "given", sizeof(refName));
+    } else if (!meshService.resolveReference(&refLat, &refLon, refName, sizeof(refName))) {
+      say("sun: no place to compute for - hear a waypoint or set a pin first\n");
+      return;
+    }
+    uint32_t utc = ntpClock.getExactUtcTime();
+    int tzMin = (int)(((int64_t)ntpClock.getExactUnixTime() - (int64_t)utc) / 60);
+    int y, m, d;
+    sunUnixToDate(utc, &y, &m, &d);
+    SunTimes t;
+    if (!sunTimesUtc(y, m, d, refLat * 1e-7, refLon * 1e-7, &t)) {
+      say("sun: computation refused (bad coordinates?)\n");
+      return;
+    }
+    say("sun: %04d-%02d-%02d at '%s' (local, UTC%+d:%02d)\n", y, m, d, refName,
+        tzMin / 60, abs(tzMin % 60));
+    struct Row { const char* label; int16_t utcMin; };
+    const Row rows[4] = { { "first light", t.dawnMin }, { "sunrise", t.riseMin },
+                          { "sunset", t.setMin }, { "last light", t.duskMin } };
+    for (int i = 0; i < 4; i++) {
+      if (rows[i].utcMin < 0) {
+        say("  %-11s (does not occur today)\n", rows[i].label);
+      } else {
+        int loc = ((int)rows[i].utcMin + tzMin + 2880) % 1440;
+        say("  %-11s %02d:%02d\n", rows[i].label, loc / 60, loc % 60);
+      }
+    }
+    if (t.dawnMin >= 0 && t.duskMin >= 0) {
+      /* Countdown on an unwrapped ladder from dawn: now, then dusk after it. */
+      int nowU = (int)((utc % 86400u) / 60u);
+      int dawn = t.dawnMin;
+      int now2 = nowU + (nowU < dawn ? 1440 : 0);
+      int dusk = t.duskMin + (t.duskMin < dawn ? 1440 : 0);
+      if (now2 < dawn + 1) {
+        int dm = dawn - now2;
+        say("sun: first light in %dh %02dm\n", dm / 60, dm % 60);
+      } else if (now2 < dusk) {
+        int dm = dusk - now2;
+        say("sun: LEGAL LIGHT NOW - ends in %dh %02dm\n", dm / 60, dm % 60);
+      } else {
+        say("sun: dark - tomorrow's times shift ~1-2 min\n");
+      }
+    }
     return;
   }
   /* `unread` — why is the white message icon lit? Counts the truth from the
