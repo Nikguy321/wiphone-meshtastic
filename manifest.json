@@ -1,0 +1,13 @@
+{
+  "name": "WiPhone",
+  "version": "0.9.7",
+  "new_install_prompt_erase": false,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        { "path": "wiphone-merged.bin", "offset": 0 }
+      ]
+    }
+  ]
+}
