@@ -76,7 +76,25 @@ typedef struct {
    * another kilobyte of internal RAM — RAM is what panics this phone. */
   uint8_t  pubKey[MESH_KEY_LEN];
   uint8_t  pkiFlags;                // MESH_NODE_HAS_KEY | MESH_NODE_KEY_MISMATCH
+  /* Last heard position (port 3 broadcasts — COVEY sends one every 5 min).
+   * The phone has no GPS: it only listens. posHeardMs==0 means never heard.
+   * Appended after the v2 fields; DB migrates v1/v2 in place. */
+  int32_t  latI, lonI;              // 1e-7 degrees
+  uint32_t posHeardMs;              // millis() when the position arrived
 } MeshNode;
+
+// A waypoint shared over the mesh (port 8) — camp, the truck, a stand. The
+// reference point for every distance the UI shows.
+typedef struct {
+  uint32_t id;                      // 0 = empty slot
+  int32_t  latI, lonI;
+  uint32_t expire;                  // unix seconds, 0 = never
+  uint32_t lockedTo;                // owner node: only it may change/expire this (0 = anyone)
+  uint32_t heardMs;                 // millis() of last update (0 after a reboot restore)
+  char     name[20];                // MESH_WP_NAME_LEN
+} MeshWaypoint;
+
+#define MESH_MAX_WAYPOINTS  8
 
 typedef struct {
   char    name[MESH_NAME_LEN];      // channel name (e.g. "LongFast", "Howe group")
@@ -139,6 +157,35 @@ public:
   // NodeInfo so 2.5+ nodes will DM us (they refuse without it).
   bool           pkiIsReady()   const { return pkiReady; }
   const uint8_t* pkiPublicKey() const { return myPkiPub; }
+
+  // ---- Positions & places (see mesh_pos.h) ---------------------------------
+  int                 getWaypointCount() const;
+  const MeshWaypoint* getWaypoint(int index) const;       // NULL if out of range
+  const MeshWaypoint* findWaypoint(uint32_t id) const;
+
+  /* The phone's own position is a USER-DECLARED pin ("I'm at camp"), not a fix
+   * — there is no GPS. Setting it persists to NVS and broadcasts one Position
+   * so COVEY's map shows this phone. pinnedAtUnix is 0 when the clock was
+   * unknown at pin time. setMyPin returns the ANNOUNCE result: false means the
+   * pin stuck locally but never went on air — the UI must not imply otherwise. */
+  bool getMyPin(int32_t* latI, int32_t* lonI, uint32_t* pinnedAtUnix) const;
+  bool setMyPin(int32_t latI, int32_t lonI);              // persist + announce
+  void clearMyPin();
+  bool pinAnnounceOk() const { return lastAnnounceOk; }   // did the last announce transmit?
+
+  /* Latched "positions or places changed" signal for the UI — read-and-clear.
+   * Separate from loop()'s new-MESSAGE return on purpose: a waypoint arriving
+   * must refresh an open Places screen but must NOT buzz, pop up, or light the
+   * unread icon. (The book-sync 'receiver shows nothing' lesson, D-089.) */
+  bool takePlacesNews() { bool n = placesNews; placesNews = false; return n; }
+
+  /* Which place distances are measured FROM: a waypoint id, or 0 = the pin.
+   * Persisted. resolveReference() gives the coords + a display name, false if
+   * neither the chosen waypoint nor a pin exists yet. */
+  uint32_t getReferenceId() const { return refWaypointId; }
+  void     setReferenceId(uint32_t id);
+  bool     resolveReference(int32_t* latI, int32_t* lonI,
+                            char* name, size_t nameCap) const;
 
   // Maintenance (persisted immediately).
   void clearMessages();                      // wipe all stored messages
@@ -228,6 +275,20 @@ private:
   // re-ACKed (our ACK may have been lost) but never re-stored.
   uint32_t recentAckIds[8];
   uint8_t  recentAckPos;
+
+  // ---- Positions & places state --------------------------------------------
+  MeshWaypoint waypoints[MESH_MAX_WAYPOINTS];
+  int          waypointCount;
+  int32_t      myPinLatI, myPinLonI;      // 0/0 + myPinSet=false = no pin
+  bool         myPinSet;
+  uint32_t     myPinAtUnix;               // when pinned (0 = clock was unknown)
+  uint32_t     refWaypointId;             // 0 = use the pin
+  bool         placesNews;                // latched: positions/waypoints changed
+  bool         lastAnnounceOk;            // last announceMyPosition() transmitted
+  void upsertWaypoint(uint32_t id, int32_t latI, int32_t lonI,
+                      uint32_t expire, uint32_t lockedTo, const char* name);
+  void loadPin();                          // NVS
+  bool announceMyPosition();               // one Position broadcast (private ch preferred)
 
   void loadMyName();                          // load from NVS or derive default
   void deriveShortName();                     // short = first chars of long

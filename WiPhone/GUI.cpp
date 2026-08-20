@@ -6926,7 +6926,14 @@ void MessagesApp::markThreadRead() {
   if (total <= 0) {
     return;
   }
-  int32_t depth = total < SIP_THREADS_SCAN ? total : SIP_THREADS_SCAN;
+  /* Full depth while ANYTHING is unread, capped otherwise. The cap alone left a
+   * trap: a re-mirrored history buries its unread flags deeper than 120, so the
+   * white icon stayed lit and opening the thread could never clear it — "new
+   * message" with nothing visibly new. Scanning the whole inbox costs seconds
+   * once, only while unread exist; every later open is capped and fast again. */
+  int32_t depth = flash.messages.hasUnread()
+                  ? total
+                  : (total < SIP_THREADS_SCAN ? total : SIP_THREADS_SCAN);
 
   /* ⚠ PAGED, for the same reason sip_threads.cpp's scans are — and this was the call site
    * that still crashed after those were fixed. `preload()` DEEP-COPIES each message's INI

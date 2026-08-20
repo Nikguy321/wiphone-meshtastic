@@ -9,6 +9,7 @@
 #include "meshtastic_service.h"
 #include "config.h"            // MESHTASTIC_PHY toggle
 #include "mesh_pki.h"          // PKC keypair/derive (portable — used in stub builds too)
+#include "mesh_pos.h"          // Position/Waypoint payloads + distance math (portable)
 #include <Preferences.h>      // NVS-backed node name persistence
 #include "booksync_inbox.h"   // book-sync packets are diverted out of the chat list
 #include "sms_mirror_rx.h"    // ...and so are texts mirrored from COVEY
@@ -31,8 +32,10 @@ static uint8_t s_hopLimit = 3;
 
 // Meshtastic PortNum values we care about (from the Data protobuf).
 #define MESH_PORT_TEXT_MESSAGE  1
-#define MESH_PORT_ROUTING       5   // ACK/NAK carrier: Routing{error_reason}
+#define MESH_PORT_POSITION      3   // COVEY broadcasts one every 5 minutes
 #define MESH_PORT_NODEINFO      4
+#define MESH_PORT_ROUTING       5   // ACK/NAK carrier: Routing{error_reason}
+#define MESH_PORT_WAYPOINT      8   // camp / truck / stand pins from COVEY's map
 
 // Default hop limit for packets we originate (Meshtastic default is 3).
 #define MESH_TX_HOP_LIMIT       3
@@ -362,6 +365,215 @@ MeshtasticService::MeshtasticService()
   memset(pendingDm, 0, sizeof(pendingDm));
   memset(recentAckIds, 0, sizeof(recentAckIds));
   recentAckPos = 0;
+  memset(waypoints, 0, sizeof(waypoints));
+  waypointCount = 0;
+  myPinLatI = myPinLonI = 0;
+  myPinSet = false;
+  myPinAtUnix = 0;
+  refWaypointId = 0;
+  placesNews = false;
+  lastAnnounceOk = false;
+}
+
+// ---- Positions & places -----------------------------------------------------
+
+int MeshtasticService::getWaypointCount() const {
+  return waypointCount;
+}
+
+const MeshWaypoint* MeshtasticService::getWaypoint(int index) const {
+  if (index < 0 || index >= waypointCount) {
+    return NULL;
+  }
+  return &waypoints[index];
+}
+
+const MeshWaypoint* MeshtasticService::findWaypoint(uint32_t id) const {
+  for (int i = 0; i < waypointCount; i++) {
+    if (waypoints[i].id == id) {
+      return &waypoints[i];
+    }
+  }
+  return NULL;
+}
+
+void MeshtasticService::upsertWaypoint(uint32_t id, int32_t latI, int32_t lonI,
+                                       uint32_t expire, uint32_t lockedTo, const char* name) {
+  if (id == 0) {
+    return;
+  }
+  MeshWaypoint* slot = NULL;
+  for (int i = 0; i < waypointCount; i++) {
+    if (waypoints[i].id == id) {
+      slot = &waypoints[i];
+      break;
+    }
+  }
+  if (!slot) {
+    if (waypointCount < MESH_MAX_WAYPOINTS) {
+      slot = &waypoints[waypointCount++];
+    } else {
+      /* Full: evict the least-recently-heard (same policy as the node table).
+       * ⚠ Signed difference, like the node eviction: restored entries are
+       * rebased to heardMs=0 at load, and plain '<' would invert at the
+       * millis() wrap (the review caught both). */
+      slot = &waypoints[0];
+      for (int i = 1; i < MESH_MAX_WAYPOINTS; i++) {
+        if ((int32_t)(waypoints[i].heardMs - slot->heardMs) < 0) {
+          slot = &waypoints[i];
+        }
+      }
+    }
+    memset(slot, 0, sizeof(*slot));
+    slot->id = id;
+  }
+  slot->latI = latI;
+  slot->lonI = lonI;
+  slot->expire = expire;
+  slot->lockedTo = lockedTo;
+  slot->heardMs = millis();
+  placesNews = true;
+  if (name && name[0]) {
+    strlcpy(slot->name, name, sizeof(slot->name));
+  } else if (!slot->name[0]) {
+    snprintf(slot->name, sizeof(slot->name), "wp-%u", (unsigned)(id & 0xFFFF));
+  }
+  dbDirty = true;
+  log_e("MESH WAYPOINT: '%s' id=%u %d.%05d,%d.%05d%s", slot->name, (unsigned)id,
+        (int)(latI / 10000000), abs((int)((latI % 10000000) / 100)),
+        (int)(lonI / 10000000), abs((int)((lonI % 10000000) / 100)),
+        expire ? " (expires)" : "");
+}
+
+bool MeshtasticService::getMyPin(int32_t* latI, int32_t* lonI, uint32_t* pinnedAtUnix) const {
+  if (!myPinSet) {
+    return false;
+  }
+  if (latI) *latI = myPinLatI;
+  if (lonI) *lonI = myPinLonI;
+  if (pinnedAtUnix) *pinnedAtUnix = myPinAtUnix;
+  return true;
+}
+
+bool MeshtasticService::setMyPin(int32_t latI, int32_t lonI) {
+  myPinLatI = latI;
+  myPinLonI = lonI;
+  myPinSet = true;
+  myPinAtUnix = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0;
+  Preferences prefs;
+  prefs.begin("wpmesh", false);
+  prefs.putInt("pinlat", myPinLatI);
+  prefs.putInt("pinlon", myPinLonI);
+  prefs.putUInt("pinat", myPinAtUnix);
+  prefs.end();
+  // Mirror into our own node entry so every list treats us like any other node.
+  MeshNode* self = upsertNode(myNodeNum, NULL);
+  if (self) {
+    self->latI = latI;
+    self->lonI = lonI;
+    self->posHeardMs = millis();
+  }
+  placesNews = true;
+  return announceMyPosition();
+}
+
+void MeshtasticService::clearMyPin() {
+  myPinSet = false;
+  myPinAtUnix = 0;
+  Preferences prefs;
+  prefs.begin("wpmesh", false);
+  prefs.remove("pinlat");
+  prefs.remove("pinlon");
+  prefs.remove("pinat");
+  prefs.end();
+  MeshNode* self = upsertNode(myNodeNum, NULL);
+  if (self) {
+    self->posHeardMs = 0;
+  }
+}
+
+void MeshtasticService::loadPin() {
+  Preferences prefs;
+  prefs.begin("wpmesh", true);
+  if (prefs.isKey("pinlat") && prefs.isKey("pinlon")) {
+    myPinLatI = prefs.getInt("pinlat", 0);
+    myPinLonI = prefs.getInt("pinlon", 0);
+    myPinAtUnix = prefs.getUInt("pinat", 0);
+    myPinSet = true;
+  }
+  refWaypointId = prefs.getUInt("refwp", 0);
+  prefs.end();
+}
+
+void MeshtasticService::setReferenceId(uint32_t id) {
+  refWaypointId = id;
+  Preferences prefs;
+  prefs.begin("wpmesh", false);
+  prefs.putUInt("refwp", id);
+  prefs.end();
+}
+
+/* The point distances are measured from. The chosen waypoint wins; the pin is
+ * the fallback (and the explicit choice when refWaypointId == 0). False when
+ * neither exists — the UI then simply shows no distances, honestly. */
+bool MeshtasticService::resolveReference(int32_t* latI, int32_t* lonI,
+                                         char* name, size_t nameCap) const {
+  const MeshWaypoint* wp = refWaypointId ? findWaypoint(refWaypointId) : NULL;
+  if (wp) {
+    if (latI) *latI = wp->latI;
+    if (lonI) *lonI = wp->lonI;
+    if (name) strlcpy(name, wp->name, nameCap);
+    return true;
+  }
+  if (myPinSet) {
+    if (latI) *latI = myPinLatI;
+    if (lonI) *lonI = myPinLonI;
+    if (name) strlcpy(name, "me", nameCap);
+    return true;
+  }
+  return false;
+}
+
+bool MeshtasticService::announceMyPosition() {
+#ifdef MESHTASTIC_PHY
+  if (!myPinSet || radioState != MESH_RADIO_READY || channelCount == 0) {
+    /* log_e, because "the pin looks set but never went on air" reads as
+     * "they know where I am" when nobody does — the worst kind of silence. */
+    log_e("MESH POSITION NOT SENT: pin=%d radio=%d channels=%d",
+          (int)myPinSet, (int)radioState, channelCount);
+    lastAnnounceOk = false;
+    return false;
+  }
+  uint8_t pos[16];
+  size_t n = meshPosBuild(pos, myPinLatI, myPinLonI,
+                          ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0);
+
+  /* Prefer the first channel with a PRIVATE key. channels[0] is the stock
+   * default (LongFast, the well-known PSK): a position sent there is readable
+   * by every Meshtastic radio in RF range, which is not what a hunting party
+   * wants. Our own devices decode positions from any channel they share. */
+  const MeshChannel* ch = &channels[0];
+  bool privateCh = false;
+  for (int i = 0; i < channelCount; i++) {
+    if (channels[i].keyLen != 16 ||
+        memcmp(channels[i].key, meshDefaultKey(), 16) != 0) {
+      ch = &channels[i];
+      privateCh = true;
+      break;
+    }
+  }
+  bool ok = meshTxData(myNodeNum, MESH_ADDR_BROADCAST_ONAIR, MESH_PORT_POSITION,
+                       pos, n, false, ch->key, ch->keyLen, ch->hash);
+  log_e("MESH POSITION %s on '%s'%s: pin %d.%05d,%d.%05d", ok ? "SENT" : "FAILED",
+        ch->name, privateCh ? "" : " (PUBLIC default - no private channel!)",
+        (int)(myPinLatI / 10000000), abs((int)((myPinLatI % 10000000) / 100)),
+        (int)(myPinLonI / 10000000), abs((int)((myPinLonI % 10000000) / 100)));
+  lastAnnounceOk = ok;
+  return ok;
+#else
+  lastAnnounceOk = myPinSet;
+  return myPinSet;
+#endif
 }
 
 /* ── PKC key management ─────────────────────────────────────────────────────────────
@@ -690,6 +902,9 @@ void MeshtasticService::setup() {
 
   // PKC identity: load or mint the X25519 keypair (NVS). Announced in NodeInfo.
   loadOrCreatePkiKeys();
+
+  // The user-declared position pin + distance reference (NVS).
+  loadPin();
 
   // Channels: start with LongFast, then restore any saved custom channels.
   initDefaultChannel();
@@ -1091,6 +1306,49 @@ bool MeshtasticService::loop() {
         log_e("MESH DM %s from !%08x for id=0x%08x err=%u",
               err == 0 ? "ACK" : "NAK", (unsigned)hdr.sender, (unsigned)chReqId, (unsigned)err);
 
+      } else if (portnum == MESH_PORT_POSITION && pl && plLen) {
+        // A node told the mesh where it is (COVEY does, every 5 minutes).
+        int32_t latI, lonI;
+        if (meshPosParse(pl, plLen, &latI, &lonI, NULL) && n) {
+          n->latI = latI;
+          n->lonI = lonI;
+          n->posHeardMs = millis();
+          dbDirty = true;
+          placesNews = true;                 // refresh an open Nodes/Places view
+          log_i("Mesh POSITION 0x%08X: %d,%d", hdr.sender, latI, lonI);
+        }
+
+      } else if (portnum == MESH_PORT_WAYPOINT && pl && plLen) {
+        // A shared place (camp, the truck...) — the reference points for the UI.
+        MeshWaypointMsg wp;
+        if (meshWaypointParse(pl, plLen, &wp)) {
+          /* Ownership first: a waypoint locked to a node may only be changed —
+           * or expire-deleted — by that node. Without this check, ANY holder of
+           * the channel key (or a replayed packet) could silently delete or
+           * relocate camp, the point every distance is measured from. */
+          const MeshWaypoint* have = findWaypoint(wp.id);
+          if (have && have->lockedTo != 0 && hdr.sender != have->lockedTo) {
+            log_e("MESH WAYPOINT: refused change to locked '%s' from !%08x (owner !%08x)",
+                  have->name, (unsigned)hdr.sender, (unsigned)have->lockedTo);
+          }
+          /* An expired waypoint is a deletion. Only honored when the clock is
+           * known — dropping camp because NTP hasn't run yet would be worse
+           * than showing a stale pin. */
+          else if (wp.expire != 0 && ntpClock.isTimeKnown() &&
+                   (uint32_t)ntpClock.getExactUnixTime() > wp.expire) {
+            for (int i = 0; i < waypointCount; i++) {
+              if (waypoints[i].id == wp.id) {
+                waypoints[i] = waypoints[--waypointCount];
+                dbDirty = true;
+                placesNews = true;
+                break;
+              }
+            }
+          } else {
+            upsertWaypoint(wp.id, wp.latI, wp.lonI, wp.expire, wp.lockedTo, wp.name);
+          }
+        }
+
       } else if (portnum == MESH_PORT_NODEINFO && pl && plLen) {
         // Learn the sender's friendly name — and their PKC public key (User
         // field 8), which is what unlocks DMs to them.
@@ -1269,6 +1527,11 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
       return NULL;                    // table is nothing but ourselves: nothing to evict
     }
     MeshNode& ev = nodes[oldest];
+    /* Wipe the WHOLE slot before reuse: without this the new node inherits the
+     * evicted node's pubKey/pkiFlags (a key it never announced) and its
+     * latI/lonI/posHeardMs (a position it never transmitted — which the UI
+     * would then show as a fresh fix and saveDb would make permanent). */
+    memset(&ev, 0, sizeof(ev));
     ev.nodeNum = nodeNum;
     ev.lastHeardMs = millis();
     ev.snr = 0;
@@ -1298,17 +1561,26 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
 
 #define MESH_DB_PATH      "/meshdb.bin"
 #define MESH_DB_MAGIC     0x314D5057u   // "WPM1"
-#define MESH_DB_VERSION   2             // v2: MeshNode grew pubKey + pkiFlags
+#define MESH_DB_VERSION   3             // v3: node position fields + waypoint tail
 
-/* The v1 on-flash MeshNode, byte-exact, so a 0.9.5 database migrates instead of
- * being discarded (node names + message history are worth keeping — and the
- * struct-size header check would otherwise throw the whole file away). */
-typedef struct {
+/* Older on-flash MeshNode layouts, byte-exact, so an existing database migrates
+ * instead of being discarded (node names, keys and message history are worth
+ * keeping — the struct-size header check would otherwise throw the file away). */
+typedef struct {                        // v1: through 0.9.5
   uint32_t nodeNum;
   char     name[MESH_NAME_LEN];
   uint32_t lastHeardMs;
   int16_t  snr;
 } MeshNodeV1;
+
+typedef struct {                        // v2: 0.9.6 (PKC) — before positions
+  uint32_t nodeNum;
+  char     name[MESH_NAME_LEN];
+  uint32_t lastHeardMs;
+  int16_t  snr;
+  uint8_t  pubKey[MESH_KEY_LEN];
+  uint8_t  pkiFlags;
+} MeshNodeV2;
 
 void MeshtasticService::saveDb() {
   File f = SPIFFS.open(MESH_DB_PATH, "w");
@@ -1339,8 +1611,17 @@ void MeshtasticService::saveDb() {
       f.write((const uint8_t*)m, sizeof(MeshMessage));
     }
   }
+
+  // v3 tail: shared waypoints. Camp must survive a reboot — COVEY only
+  // rebroadcasts a waypoint when it is edited.
+  int32_t wc = waypointCount;
+  f.write((const uint8_t*)&wc, sizeof(wc));
+  for (int i = 0; i < waypointCount; i++) {
+    f.write((const uint8_t*)&waypoints[i], sizeof(MeshWaypoint));
+  }
+
   f.close();
-  log_i("mesh: saved %d nodes, %d msgs", nodeCount, msgCount);
+  log_i("mesh: saved %d nodes, %d msgs, %d waypoints", nodeCount, msgCount, waypointCount);
 }
 
 void MeshtasticService::loadDb() {
@@ -1355,9 +1636,11 @@ void MeshtasticService::loadDb() {
   f.read((uint8_t*)&ns, 2);
   f.read((uint8_t*)&ms, 2);
   // Struct-layout guard: ignore stale data written by a different build —
-  // EXCEPT the known v1 layout, which is migrated (nodes gain empty key fields).
+  // EXCEPT the known older layouts, which are migrated in place.
   const bool v1 = (ver == 1 && ns == sizeof(MeshNodeV1) && ms == sizeof(MeshMessage));
-  if (!v1 && (ver != MESH_DB_VERSION || ns != sizeof(MeshNode) || ms != sizeof(MeshMessage))) {
+  const bool v2 = (ver == 2 && ns == sizeof(MeshNodeV2) && ms == sizeof(MeshMessage));
+  if (!v1 && !v2 &&
+      (ver != MESH_DB_VERSION || ns != sizeof(MeshNode) || ms != sizeof(MeshMessage))) {
     f.close();
     return;
   }
@@ -1369,37 +1652,87 @@ void MeshtasticService::loadDb() {
   nodeCount = 0;
   for (int i = 0; i < nc; i++) {
     MeshNode n;
+    memset(&n, 0, sizeof(n));              // migrated fields start empty
     if (v1) {
       MeshNodeV1 o;
       if (f.read((uint8_t*)&o, sizeof(o)) != sizeof(o)) break;
-      memset(&n, 0, sizeof(n));            // pubKey empty, pkiFlags 0: keys re-learn
       n.nodeNum     = o.nodeNum;
       memcpy(n.name, o.name, sizeof(n.name));
       n.lastHeardMs = o.lastHeardMs;
       n.snr         = o.snr;
+    } else if (v2) {
+      MeshNodeV2 o;
+      if (f.read((uint8_t*)&o, sizeof(o)) != sizeof(o)) break;
+      n.nodeNum     = o.nodeNum;
+      memcpy(n.name, o.name, sizeof(n.name));
+      n.lastHeardMs = o.lastHeardMs;
+      n.snr         = o.snr;
+      memcpy(n.pubKey, o.pubKey, sizeof(n.pubKey));   // PKC keys SURVIVE
+      n.pkiFlags    = o.pkiFlags;
     } else {
       if (f.read((uint8_t*)&n, sizeof(n)) != sizeof(n)) break;
     }
     nodes[nodeCount++] = n;
   }
-  if (v1) {
-    dbDirty = true;                        // rewrite as v2 on the next debounce
-    log_e("MESH DB: migrated %d node(s) from v1 (keys will re-learn from NodeInfo)", nodeCount);
+  if (v1 || v2) {
+    dbDirty = true;                        // rewrite as v3 on the next debounce
+    log_e("MESH DB: migrated %d node(s) from v%d", nodeCount, v1 ? 1 : 2);
   }
 
+  /* ⚠ The message COUNT is read UNCONDITIONALLY. Guarding the read behind
+   * `messages &&` (as this once did) would leave the file cursor at the count
+   * when the buffer alloc failed — and the waypoint tail below would then parse
+   * message bytes as waypoints and re-persist the garbage as real. */
   int32_t mc = 0;
-  if (messages && f.read((uint8_t*)&mc, sizeof(mc)) == sizeof(mc)) {
+  if (f.read((uint8_t*)&mc, sizeof(mc)) == sizeof(mc)) {
     if (mc < 0) mc = 0;
-    if (mc > MESH_MSG_CAP) mc = MESH_MSG_CAP;
-    msgCount = 0;
-    for (int i = 0; i < mc; i++) {       // stored oldest -> newest
-      MeshMessage m;
-      if (f.read((uint8_t*)&m, sizeof(m)) != sizeof(m)) break;
-      messages[msgCount++] = m;
+    if (messages) {
+      int32_t take = mc > MESH_MSG_CAP ? MESH_MSG_CAP : mc;
+      msgCount = 0;
+      for (int i = 0; i < take; i++) {   // stored oldest -> newest
+        MeshMessage m;
+        if (f.read((uint8_t*)&m, sizeof(m)) != sizeof(m)) break;
+        messages[msgCount++] = m;
+      }
+      // Skip any records beyond the cap so the tail stays aligned.
+      if (mc > take && msgCount == take) {
+        f.seek(f.position() + (uint32_t)(mc - take) * sizeof(MeshMessage));
+      }
+    } else {
+      f.seek(f.position() + (uint32_t)mc * sizeof(MeshMessage));
     }
   }
+
+  // v3 tail: waypoints (absent in migrated v1/v2 files — they re-learn on air).
+  if (!v1 && !v2) {
+    int32_t wc = 0;
+    if (f.read((uint8_t*)&wc, sizeof(wc)) == sizeof(wc)) {
+      if (wc < 0) wc = 0;
+      if (wc > MESH_MAX_WAYPOINTS) wc = MESH_MAX_WAYPOINTS;
+      waypointCount = 0;
+      for (int i = 0; i < wc; i++) {
+        MeshWaypoint w;
+        if (f.read((uint8_t*)&w, sizeof(w)) != sizeof(w)) break;
+        if (w.id != 0) {
+          w.name[sizeof(w.name) - 1] = '\0';   // never trust flash to terminate
+          w.heardMs = 0;                       // a previous boot's millis() is meaningless
+          waypoints[waypointCount++] = w;      // (0 = restored: evict these first)
+        }
+      }
+    }
+  }
+
+  /* Restored node positions carry a previous boot's millis(). Rebase to the
+   * 1-tick sentinel: "position known, age unknown" — the UI says 'old' instead
+   * of computing a 71,000-minute lie. */
+  for (int i = 0; i < nodeCount; i++) {
+    if (nodes[i].posHeardMs != 0) {
+      nodes[i].posHeardMs = 1;
+    }
+  }
+
   f.close();
-  log_i("mesh: loaded %d nodes, %d msgs", nodeCount, msgCount);
+  log_i("mesh: loaded %d nodes, %d msgs, %d waypoints", nodeCount, msgCount, waypointCount);
 }
 
 void MeshtasticService::seedStubData() {

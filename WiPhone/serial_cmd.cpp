@@ -3,6 +3,7 @@
 #include "sms_mirror_poll.h"
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
 #include "meshtastic_service.h"   // applyChannelUrl, the `chan` command
+#include "mesh_pos.h"             // distance/bearing for the `pos` command
 #include "GUI.h"                  // gui.state, the `sip` command
 #include <WiFi.h>
 
@@ -47,20 +48,87 @@ static void say(const char* fmt, ...) {
   }
 }
 
+/* ⚠ One say() per line. say()'s buffer is 192 bytes and this text is ~750:
+ * a single call TRUNCATED the help mid-list, so every command added after
+ * `chan` was invisible to `?` — which is the one place a stranded user looks.
+ * (Found by the adversarial review; it had been silently cut for releases.) */
 static void help() {
-  say("\nWiPhone serial commands:\n"
-      "  ?          this help\n"
-      "  up on      start the WiFi uploader (files land in /roms)\n"
-      "  up off     stop the uploader\n"
-      "  up         where to point a browser\n"
-      "  sync       poll COVEY for mirrored texts now\n"
-      "  mirror     mirror poller state\n"
-      "  bookpage   dump the open reader page's layout + rendering\n"
-      "  chan <url> apply a Meshtastic channel invite URL\n"
-      "  chans      list the channels this phone has\n"
-      "  pki        DM crypto state: our key, who has keys, stack headroom\n"
-      "  announce   broadcast NodeInfo now, asking others to answer with theirs\n"
-      "  dm <!node> <text>  send a direct message (PKI when the key is known)\n\n");
+  static const char* LINES[] = {
+    "",
+    "WiPhone serial commands:",
+    "  ?          this help",
+    "  up on      start the WiFi uploader (files land in /roms)",
+    "  up off     stop the uploader",
+    "  up         where to point a browser",
+    "  sync       poll COVEY for mirrored texts now",
+    "  mirror     mirror poller state",
+    "  bookpage   dump the open reader page's layout + rendering",
+    "  chan <url> apply a Meshtastic channel invite URL",
+    "  chans      list the channels this phone has",
+    "  pki        DM crypto state: our key, who has keys, stack headroom",
+    "  announce   broadcast NodeInfo now, asking others to answer with theirs",
+    "  dm <!node> <text>  send a direct message (PKI when the key is known)",
+    "  pos        positions: waypoints, node fixes, our pin, the reference",
+    "  unread     recount unread texts, repair the counter, name the threads",
+    "",
+  };
+  for (size_t i = 0; i < sizeof(LINES) / sizeof(LINES[0]); i++) {
+    say("%s\n", LINES[i]);
+  }
+}
+
+/* `pos` — the whole positions picture in one paste: every waypoint heard, every
+ * node with a fix (age in minutes), our own pin, and which reference distances
+ * are measured from. The phone has no GPS — everything here was HEARD. */
+static void reportPos() {
+  int32_t refLat = 0, refLon = 0;
+  char refName[20] = "";
+  bool haveRef = meshService.resolveReference(&refLat, &refLon, refName, sizeof(refName));
+  say("pos: reference = %s\n", haveRef ? refName : "NONE (no waypoints heard, no pin set)");
+
+  for (int i = 0; i < meshService.getWaypointCount(); i++) {
+    const MeshWaypoint* w = meshService.getWaypoint(i);
+    if (!w) continue;
+    say("  wp '%s' id=%u  %d.%05d,%d.%05d%s\n", w->name, (unsigned)w->id,
+        (int)(w->latI / 10000000), abs((int)((w->latI % 10000000) / 100)),
+        (int)(w->lonI / 10000000), abs((int)((w->lonI % 10000000) / 100)),
+        w->expire ? " (expires)" : "");
+  }
+
+  uint32_t nowMs = millis();
+  for (int i = 0; i < meshService.getNodeCount(); i++) {
+    const MeshNode* n = meshService.getNode(i);
+    if (!n || n->posHeardMs == 0) continue;
+    char dist[16] = "";
+    char extra[40] = "";
+    if (haveRef) {
+      double m = meshPosDistanceM(refLat, refLon, n->latI, n->lonI);
+      meshPosFmtDist(m, dist, sizeof(dist));
+      snprintf(extra, sizeof(extra), "  %s %s of %s", dist,
+               meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)), refName);
+    }
+    char age[16];
+    if (n->posHeardMs == 1) {
+      // The restored-from-flash sentinel: the fix is real, its age is unknown.
+      snprintf(age, sizeof(age), "old");
+    } else {
+      snprintf(age, sizeof(age), "%um ago", (unsigned)((nowMs - n->posHeardMs) / 60000u));
+    }
+    say("  !%08x '%s'  %d.%05d,%d.%05d%s  (%s)\n", (unsigned)n->nodeNum, n->name,
+        (int)(n->latI / 10000000), abs((int)((n->latI % 10000000) / 100)),
+        (int)(n->lonI / 10000000), abs((int)((n->lonI % 10000000) / 100)),
+        extra, age);
+  }
+
+  int32_t pinLat, pinLon;
+  uint32_t pinAt;
+  if (meshService.getMyPin(&pinLat, &pinLon, &pinAt)) {
+    say("pos: our pin %d.%05d,%d.%05d (announced to the mesh)\n",
+        (int)(pinLat / 10000000), abs((int)((pinLat % 10000000) / 100)),
+        (int)(pinLon / 10000000), abs((int)((pinLon % 10000000) / 100)));
+  } else {
+    say("pos: no pin (Meshtastic > Places > pick one > I'm here)\n");
+  }
 }
 
 /* Base64 (std alphabet, padded) — how the Meshtastic apps display public keys,
@@ -211,6 +279,31 @@ static void run(char* line) {
   }
   if (!strcasecmp(line, "pki")) {
     reportPki();
+    return;
+  }
+  if (!strcasecmp(line, "pos")) {
+    reportPos();
+    return;
+  }
+  /* `unread` — why is the white message icon lit? Counts the truth from the
+   * message records themselves, repairs the three derived counters when they
+   * disagree (drift keeps the icon lit with nothing to read), and NAMES a
+   * thread that still holds unread so there is somewhere to go. */
+  if (!strcasecmp(line, "unread")) {
+    extern GUI gui;
+    char from[64];
+    int32_t n = gui.flash.messages.recountUnread(true, from, sizeof(from));
+    if (n < 0) {
+      say("unread: message store not loaded\n");
+      return;
+    }
+    gui.state.unreadMessages = gui.flash.messages.hasUnread();
+    say("unread: %d actually unread (counters repaired where they disagreed)\n", (int)n);
+    if (n > 0) {
+      say("unread: oldest unread is from %s - open that thread to clear it\n", from);
+    } else {
+      say("unread: icon %s\n", gui.state.unreadMessages ? "STILL LIT (report this)" : "now off");
+    }
     return;
   }
   /* `announce` — one NodeInfo broadcast with want_response. The fast path for key

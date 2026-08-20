@@ -326,6 +326,20 @@ public:
   bool deleteMessage(MessageData&);
   bool deleteMessage(int32_t messageOffset);
   void setRead(MessageData&);
+
+  /* Recount unread across EVERY incoming partition from the messages themselves
+   * (the "u" key on each record is the truth) and repair the three derived
+   * copies — partition header, index per-partition, index global — wherever
+   * they disagree. The counters have drifted before (0.9.4 fixed an under-count;
+   * an OVER-count leaves the white unread icon lit forever with nothing to
+   * read). Returns the true unread total, or -1 if the store isn't loaded.
+   * `fromOut`/`fromCap` (optional) receive the from-URI of the OLDEST unread
+   * message, so the caller can NAME the thread to open.
+   * ⚠ Loads each incoming partition once into a LOCAL IniFile (PSRAM, freed on
+   * return) — deliberately not through part1/part2, whose aliasing history is
+   * why findMessage takes a pointer out-param. Bounded by partition count. */
+  int32_t recountUnread(bool repair, char* fromOut = NULL, size_t fromCap = 0);
+
   void setSent(MessageData&);
   void setDelivered(const char* fromUri, const char* toUri, unsigned long time, hash_t hash);
 

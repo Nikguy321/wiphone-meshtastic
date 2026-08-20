@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.9.7 — the phone knows where everyone is (no GPS required)
+
+### 📍 Places and positions
+
+COVEY broadcasts its GPS position every few minutes and shares waypoints (camp, the
+truck, a stand) from its map. The phone now listens: **Meshtastic → Places** lists every
+shared waypoint, and the **Nodes** list shows each node as *"Nick H New Device — 1.4km
+NE"* measured from a reference you pick (any waypoint, or your own pin). Positions and
+places survive reboots.
+
+**"I'm here"** — open a place and declare yourself at it. The phone remembers (and
+shows distances from you), and it announces the position to the mesh once, so COVEY's
+map shows the phone. It's a statement, not a fix — the phone has no GPS; a future GPS
+module would drop into the same slot (see docs/maps-plan.md for the map-app research).
+
+### 📬 The white "new message" icon tells the truth again
+
+Re-mirrored history (like the chip-erase recovery's) arrived unread and buried itself
+deeper than the read-marking scan ever looked — the icon stayed lit with nothing visibly
+new. Opening a conversation now clears its unread messages at ANY depth, and the new
+serial `unread` command counts the truth from the records themselves, repairs the
+counters when they disagree, and names a thread that still holds unread.
+
+### 🔧 For the toolbox
+
+- `pos` — every waypoint, every node fix with age and distance, your pin, the
+  reference. The whole picture in one paste.
+- `unread` — see above.
+- Fixed: serial `?` help was silently truncated at 192 bytes — every command added
+  since `chan` was invisible in the one place a stranded user looks.
+
+### 🛡 From the adversarial review (before this ever shipped)
+
+Positions with modern fields (precision_bits) parse correctly; locked waypoints can't
+be moved or deleted by anyone but their owner; a recycled node slot no longer inherits
+the evicted node's position or crypto key; restored fixes say "old" instead of a
+71,000-minute age; a full node table can't corrupt the waypoint store when RAM is
+tight; the "I'm here" announce prefers a PRIVATE channel and says so loudly when only
+the public default exists — and if the send fails, Status says "set (send FAILED)"
+instead of letting silence read as safety.
+
 ## 0.9.6 — direct messages work again: the phone speaks Meshtastic's DM crypto
 
 ### 🔐 PKC — the fix for "the RAK refuses every DM to this phone"

@@ -1,8 +1,43 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-19 (afternoon) · **Version 0.9.6 — PKC PROVEN ON AIR, BOTH
-DIRECTIONS, against the real RAK on Meshtastic 2.7.** All 10 host suites green (new:
-test_pki). ⚠ The web flasher still serves 0.9.5 ON PURPOSE — soak 0.9.6 first.
+**Last updated:** 2026-08-19 (evening) · **Version 0.9.7 — positions & places, flashed
+and phone-side verified.** All 11 host suites green (new: test_pos). ⚠ The web flasher
+still serves 0.9.5 ON PURPOSE — soak first.
+
+## 📍 0.9.7 (2026-08-19 evening): positions, places, and the unread-icon truth
+
+**What it does:** the phone (no GPS) learns node positions (port 3) and waypoints
+(port 8) off the air; Meshtastic > Places lists them; Nodes shows "1.4km NE" from a
+chosen reference; "I'm here (tell the mesh)" pins the phone at a waypoint and announces
+one Position (on a PRIVATE channel when one exists). Serial: `pos`, `unread`. DB v3
+(v1/v2 migrate in place — verified live: "migrated 32 node(s) from v2", keys kept).
+Crypto/geometry host-proven (test_pos, python-checked vectors).
+
+**A 36-agent adversarial review ran BEFORE flash and confirmed 9 findings + resurrected
+3 whose verifiers died on a network/limit outage (⚠ lesson: a finding whose verifier
+never ran is NOT refuted — read the workflow failures list). All 12 fixed pre-release;
+the CHANGELOG's review section lists them. Standouts: protobuf tags are varints (stock
+precision_bits broke the one-byte reader), locked-waypoint ownership, node-slot
+recycling leaked position+pubkey, serial help() truncated at 192B for releases.**
+
+**Verified on hardware tonight:** boot clean, v2→v3 migration kept 32 nodes + PKC key,
+`unread` found and named the white-icon cause (31 real unread from the re-mirrored
+history, oldest in the 14257604281 thread — buried past the old 120-message read-marking
+cap; thread-open now scans full depth while unread exist), live PKC key-learns from two
+more nodes.
+
+**⚠ AWAITING (Nick's move):** he'll add/re-save a waypoint on COVEY's map — expect
+`MESH WAYPOINT: '<name>'` on serial, the place in Places, `pos` showing it. Then pick
+reference / "I'm here" and see the phone on COVEY's map. COVEY's position broadcasts
+need its GPS to have a fix before Nodes shows "COVEY 1.4km NE".
+
+**🛑 PRIVACY FINDING FOR COVEY (not fixed, Nick to decide):** the RAK's PRIMARY channel
+is the stock default LongFast (hash 0x08, well-known key — proven by ACK interop), and
+covey-ui's `sendPosition` uses channel index 0 ⇒ **COVEY broadcasts Nick's GPS position
+every 5 min readable by ANY Meshtastic radio in range.** Waypoints are safe (mapview
+picks channels deliberately). Fix = covey-ui sends positions on a private channel
+(+ the Settings toggle Nick asked about). The phone's own pin announce already prefers
+a private channel.
 
 ## 🔐 0.9.6 (2026-08-19): Meshtastic PKC — DMs can work again. What was DONE and what is NOT YET PROVEN.
 

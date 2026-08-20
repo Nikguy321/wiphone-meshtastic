@@ -8,12 +8,17 @@
 
 #include "app_meshtastic.h"
 #include "meshtastic_service.h"
+#include "mesh_pos.h"           // distance/bearing for the Nodes and Places lists
 
 // Main-menu option keys
 #define MESH_KEY_CHATS      1
 #define MESH_KEY_NODES      2
 #define MESH_KEY_STATUS     3
 #define MESH_KEY_MYNODE     4
+#define MESH_KEY_PLACES     5
+// Places > one waypoint:
+#define MESH_KEY_SETREF     1
+#define MESH_KEY_IMHERE     2
 
 // "My node" screen option keys
 #define MESH_MYNODE_EDIT       1
@@ -98,12 +103,14 @@ void MeshtasticApp::enterState(MeshAppState_t state) {
     controlState.meshUnread = (meshService.getUnreadTotal() > 0);
     if (threadIsChannel) {
       const MeshChannel* ch = meshService.findChannelByHash(threadChannelHash);
-      header->setTitle(ch ? ch->name : "Channel");
+      /* Copy, don't point: setTitle stores the pointer, and ch->name lives in a
+       * table applyChannelUrl can rewrite. (A stack local here was worse still —
+       * the header re-read a dead frame on every repaint. Review catch.) */
+      strlcpy(threadTitle, ch ? ch->name : "Channel", sizeof(threadTitle));
     } else {
-      char t[MESH_NAME_LEN];
-      meshNodeLabel(threadPeer, t, sizeof(t));
-      header->setTitle(t);
+      meshNodeLabel(threadPeer, threadTitle, sizeof(threadTitle));
     }
+    header->setTitle(threadTitle);
     footer->setButtons("Select", "Back");
     buildThread();
     break;
@@ -135,6 +142,19 @@ void MeshtasticApp::enterState(MeshAppState_t state) {
     footer->setButtons("Select", "Back");
     buildMyNode();
     break;
+  case MESH_PLACES:
+    header->setTitle("Places");
+    footer->setButtons("Open", "Back");
+    buildPlaces();
+    break;
+  case MESH_PLACE_OPTS: {
+    const MeshWaypoint* w = meshService.findWaypoint(selectedWaypointId);
+    strlcpy(placeTitle, w ? w->name : "Place", sizeof(placeTitle));   // copy: see header note
+    header->setTitle(placeTitle);
+    footer->setButtons("Select", "Back");
+    buildPlaceOpts();
+    break;
+  }
   case MESH_EDITNAME:
     header->setTitle("Edit name");
     footer->setButtons("Save", "Clear");        // Back is backspace here; END cancels
@@ -154,6 +174,8 @@ void MeshtasticApp::buildMainMenu() {
   menu->addOption("Chats", MESH_KEY_CHATS, 1);
   snprintf(line, sizeof(line), "Nodes (%d)", meshService.getNodeCount());
   menu->addOption(line, MESH_KEY_NODES, 1);
+  snprintf(line, sizeof(line), "Places (%d)", meshService.getWaypointCount());
+  menu->addOption(line, MESH_KEY_PLACES, 1);
   menu->addOption("Status", MESH_KEY_STATUS, 1);
   menu->addOption("My node", MESH_KEY_MYNODE, 1);
 }
@@ -264,15 +286,55 @@ void MeshtasticApp::buildThread() {
 void MeshtasticApp::buildNodes() {
   menu = newMenu("No nodes heard yet");
   char line[64];
+
+  /* Distances are measured from the REFERENCE — a waypoint (Places) or the
+   * user's own pin. The phone has no GPS; this is "where is everyone relative
+   * to camp", which is how the question actually gets asked in the field. */
+  int32_t refLat = 0, refLon = 0;
+  bool haveRef = meshService.resolveReference(&refLat, &refLon, NULL, 0);
+
   int count = meshService.getNodeCount();
   for (int i = 0; i < count; i++) {
     const MeshNode* n = meshService.getNode(i);
     if (!n) {
       continue;
     }
-    snprintf(line, sizeof(line), "%s  (!%08x)", n->name, n->nodeNum);
+    if (haveRef && n->posHeardMs != 0 && n->nodeNum != meshService.getMyNodeNum()) {
+      char dist[16];
+      meshPosFmtDist(meshPosDistanceM(refLat, refLon, n->latI, n->lonI), dist, sizeof(dist));
+      snprintf(line, sizeof(line), "%s  %s %s", n->name, dist,
+               meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)));
+    } else {
+      snprintf(line, sizeof(line), "%s  (!%08x)", n->name, n->nodeNum);
+    }
     menu->addOption(line, (MenuOption::keyType)(i + 1), 1);
   }
+}
+
+void MeshtasticApp::buildPlaces() {
+  menu = newMenu("No places heard yet - COVEY's map shares them");
+  char line[64];
+  uint32_t refId = meshService.getReferenceId();
+  int count = meshService.getWaypointCount();
+  for (int i = 0; i < count; i++) {
+    const MeshWaypoint* w = meshService.getWaypoint(i);
+    if (!w) {
+      continue;
+    }
+    snprintf(line, sizeof(line), "%s%s", w->name,
+             (refId != 0 && w->id == refId) ? "  [ref]" : "");
+    /* Row key = the waypoint ID, not the index: the table mutates under an open
+     * menu (expiry swap-remove, LRU eviction), and a frozen index would let OK
+     * set the reference to — or announce the user at — the WRONG place. An id
+     * that has vanished by OK-time simply fails the lookup. (Review catch.) */
+    menu->addOption(line, (MenuOption::keyType)w->id, 1);
+  }
+}
+
+void MeshtasticApp::buildPlaceOpts() {
+  menu = newMenu(NULL);
+  menu->addOption("Measure distances from here", MESH_KEY_SETREF, 1);
+  menu->addOption("I'm here (tell the mesh)", MESH_KEY_IMHERE, 1);
 }
 
 void MeshtasticApp::buildStatus() {
@@ -297,6 +359,22 @@ void MeshtasticApp::buildStatus() {
   menu->addOption(line, 4, 1);
   snprintf(line, sizeof(line), "Node: !%08x", meshService.getMyNodeNum());
   menu->addOption(line, 5, 1);
+  {
+    char refName[20];
+    if (meshService.resolveReference(NULL, NULL, refName, sizeof(refName))) {
+      snprintf(line, sizeof(line), "Distances from: %s", refName);
+    } else {
+      snprintf(line, sizeof(line), "Distances from: (none)");
+    }
+    menu->addOption(line, 8, 1);
+    /* "set (send FAILED)" is the honest state when the pin stuck locally but
+     * the announce never transmitted — otherwise it reads as "they know where
+     * I am" when nobody does. */
+    snprintf(line, sizeof(line), "My pin: %s",
+             !meshService.getMyPin(NULL, NULL, NULL) ? "not set" :
+             (meshService.pinAnnounceOk() ? "set" : "set (send FAILED)"));
+    menu->addOption(line, 9, 1);
+  }
   snprintf(line, sizeof(line), "Nodes known: %d", meshService.getNodeCount());
   menu->addOption(line, 6, 1);
   snprintf(line, sizeof(line), "Messages: %d", meshService.getMessageCount());
@@ -395,11 +473,23 @@ void MeshtasticApp::buildViewMessage(int msgIndex) {
 }
 
 appEventResult MeshtasticApp::processEvent(EventType event) {
-  // A new inbound message arrived: keep list views live.
+  /* A new inbound message OR a position/waypoint arrival: keep list views live.
+   * Without the Places/Nodes cases this reproduced the book-sync trap — the
+   * user sits on "No places heard yet" while camp has already arrived. Rebuild
+   * resets the menu selection to the top; the rows are id-keyed so at worst the
+   * highlight jumps, never the action target. */
   if (event == NEW_MESSAGE_EVENT) {
     if (appState == MESH_THREAD)      { buildThread();  return REDRAW_SCREEN; }
     else if (appState == MESH_CHATS)  { buildChats();   return REDRAW_SCREEN; }
     else if (appState == MESH_MAIN)   { buildMainMenu(); return REDRAW_SCREEN; }
+    else if (appState == MESH_NODES)  { buildNodes();   return REDRAW_SCREEN; }
+    else if (appState == MESH_PLACES) { buildPlaces();  return REDRAW_SCREEN; }
+    else if (appState == MESH_STATUS) { buildStatus();  return REDRAW_SCREEN; }
+    else if (appState == MESH_PLACE_OPTS &&
+             !meshService.findWaypoint(selectedWaypointId)) {
+      enterState(MESH_PLACES);        // the place vanished under us: back out
+      return REDRAW_ALL;
+    }
     return DO_NOTHING;
   }
 
@@ -414,10 +504,48 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
       switch (menu->currentKey()) {
       case MESH_KEY_CHATS:  enterState(MESH_CHATS);  break;
       case MESH_KEY_NODES:  enterState(MESH_NODES);  break;
+      case MESH_KEY_PLACES: enterState(MESH_PLACES); break;
       case MESH_KEY_STATUS: enterState(MESH_STATUS); break;
       case MESH_KEY_MYNODE: enterState(MESH_MYNODE); break;
       default: return REDRAW_SCREEN;
       }
+      return REDRAW_ALL;
+    }
+    return REDRAW_SCREEN;
+
+  case MESH_PLACES:
+    if (LOGIC_BUTTON_BACK(event)) {
+      enterState(MESH_MAIN);
+      return REDRAW_ALL;
+    }
+    menu->processEvent(event);
+    if (LOGIC_BUTTON_OK(event)) {
+      uint32_t id = (uint32_t)menu->currentKey();       // rows are keyed by waypoint id
+      if (meshService.findWaypoint(id)) {
+        selectedWaypointId = id;
+        enterState(MESH_PLACE_OPTS);
+        return REDRAW_ALL;
+      }
+    }
+    return REDRAW_SCREEN;
+
+  case MESH_PLACE_OPTS:
+    if (LOGIC_BUTTON_BACK(event)) {
+      enterState(MESH_PLACES);
+      return REDRAW_ALL;
+    }
+    menu->processEvent(event);
+    if (LOGIC_BUTTON_OK(event)) {
+      const MeshWaypoint* w = meshService.findWaypoint(selectedWaypointId);
+      if (w && menu->currentKey() == MESH_KEY_SETREF) {
+        meshService.setReferenceId(w->id);
+      } else if (w && menu->currentKey() == MESH_KEY_IMHERE) {
+        /* Declare the phone AT this waypoint: persists, and broadcasts one
+         * Position so COVEY's map shows this phone. The declaration is a
+         * statement by the user, not a fix — there is no GPS to argue. */
+        meshService.setMyPin(w->latI, w->lonI);
+      }
+      enterState(MESH_PLACES);            // the [ref] marker redraws
       return REDRAW_ALL;
     }
     return REDRAW_SCREEN;

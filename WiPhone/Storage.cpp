@@ -1278,6 +1278,93 @@ void Messages::setRead(MessageData& msg) {
   }
 }
 
+int32_t Messages::recountUnread(bool repair, char* fromOut, size_t fromCap) {
+  if (!this->loaded || !index.isLoaded()) {
+    return -1;
+  }
+  if (fromOut && fromCap) {
+    fromOut[0] = '\0';
+  }
+
+  int32_t total = 0;
+  bool indexChanged = false;
+
+  for (size_t s = 1; s < index.nSections(); s++) {
+    if (strcmp(index[s].getValueSafe("d", ""), "i") != 0) {
+      continue;                                   // unread lives on incoming only
+    }
+    int partn = index[s].getIntValueSafe("p", -1);
+    if (partn < 0) {
+      continue;
+    }
+
+    /* A LOCAL IniFile per partition — deliberately NOT the part1/part2 caches,
+     * whose aliasing history (the 0.9.4 shallow-copy double-free) is exactly
+     * why this walk must not reseat them. NanoIni allocates in PSRAM, so the
+     * cost here is PSRAM churn, never internal heap. */
+    IniFile part;
+    if (!loadPartition(part, partn)) {
+      log_e("unread: partition %d unreadable, skipped", partn);
+      continue;
+    }
+
+    int32_t actual = 0;
+    for (size_t k = 1; k < part.nSections(); k++) {
+      if (part[k].hasKey("u")) {
+        actual++;
+        if (fromOut && fromCap && !fromOut[0]) {
+          snprintf(fromOut, fromCap, "%s", part[k].getValueSafe("o", "?"));
+        }
+      }
+    }
+    total += actual;
+
+    // Copy 1: the partition file's own header counter.
+    int32_t claimed = part[0].getIntValueSafe("u", 0);
+    if (claimed != actual) {
+      log_e("unread: partition %d header claims %d, records hold %d%s",
+            partn, (int)claimed, (int)actual, repair ? " - repaired" : "");
+      if (repair) {
+        if (actual) {
+          part[0]["u"] = (int)actual;
+        } else {
+          part[0].remove("u");
+        }
+        part.store();
+      }
+    }
+    // Copy 2: the index's per-partition counter.
+    int32_t idxClaimed = index[s].getIntValueSafe("u", 0);
+    if (idxClaimed != actual && repair) {
+      if (actual) {
+        index[s]["u"] = (int)actual;
+      } else {
+        index[s].remove("u");
+      }
+      indexChanged = true;
+    }
+  }
+
+  // Copy 3: the global counter — the one hasUnread() and the white icon read.
+  int32_t globalClaimed = index[0].getIntValueSafe("u", 0);
+  if (globalClaimed != total) {
+    log_e("unread: index total claims %d, records hold %d%s",
+          (int)globalClaimed, (int)total, repair ? " - repaired" : "");
+    if (repair) {
+      if (total) {
+        index[0]["u"] = (int)total;
+      } else {
+        index[0].remove("u");
+      }
+      indexChanged = true;
+    }
+  }
+  if (repair && indexChanged) {
+    index.store();
+  }
+  return total;
+}
+
 void Messages::setSent(MessageData& msg) {
   // TODO
 }

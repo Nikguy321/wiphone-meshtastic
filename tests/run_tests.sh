@@ -52,6 +52,8 @@ for src in tests/test_*.cpp; do
     # playing the RAK's side of the exchange.
     test_pki)      deps=(WiPhone/mesh_pki.cpp WiPhone/book_hash.cpp)
                    csrc=(WiPhone/src/crypto/curve25519_donna.c WiPhone/src/crypto/tiny_aes.c) ;;
+    # Position/Waypoint payloads + the distance/bearing math (python-checked).
+    test_pos)      deps=(WiPhone/mesh_pos.cpp) ;;
     # Compiles the REAL helix decoder so a pass proves the bytes that ship are the bytes
     # that decode. helix is C and is listed in csrc, not deps — see CFLAGS above.
     test_mp3)      deps=(WiPhone/mp3_stream.cpp)

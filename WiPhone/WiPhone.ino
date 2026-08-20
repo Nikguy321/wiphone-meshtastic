@@ -2794,6 +2794,15 @@ void loop() {
       notifyMessageArrived(now, gui.state.notifyMeshMode);
     }
 
+    /* A position or waypoint arrived: refresh an open Places/Nodes view so the
+     * user is never sitting on "No places heard yet" after camp has already
+     * arrived — the book-sync 'receiver shows nothing' trap in new clothes.
+     * QUIET on purpose: no popup, no unread icon, no buzz — places are ambient
+     * state, not news. */
+    if (!gGbcActive && meshService.takePlacesNews()) {
+      gui.processEvent(now, NEW_MESSAGE_EVENT);
+    }
+
     // Stop the notification vibration after its brief pulse.
     if (meshVibroActive && elapsedMillis(now, meshVibroStartMs, MESH_VIBRO_MS)) {
       allDigitalWrite(VIBRO_MOTOR_CONTROL, LOW);
