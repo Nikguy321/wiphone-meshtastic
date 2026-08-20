@@ -2,6 +2,16 @@
 
 ## Unreleased (2026-08-20, day) — the phone grows a GPS ear, asleep until the plate exists
 
+- **The README tells the truth again** — a six-agent audit checked every public claim
+  against the code: the phantom touchscreen, the "may require a couple tries" sleep
+  gesture (it works every time; hold Select+Back 2 s), the 4-of-17 serial-command
+  table, phonebook advice that 0.9.5's number completion had already made obsolete,
+  and a `pio device monitor` tip that printed garbage (monitor_speed was pinned to
+  115200 — now 500000, so the plain command works). The 0.9.6/0.9.7 features the
+  README never mentioned — PKC DMs, Places, distances, Sun — are in it now, plus a
+  What's-new section that surfaces this changelog. Firmware nits the audit caught:
+  `sip` was missing from the serial `?` help, and the on-phone flashing help promised
+  "fonts, sounds" from uploadfs (it carries config files, the ringtone, the wallpaper).
 - **The WiFi auto-switch deadlock is fixed** — the reason the phone sat next to a saved
   hotspot ALL DAY without joining it. The switcher's call-guard blocked on HangUp — a
   TEARDOWN state the END key enters from anywhere, which STICKS when the proxy is

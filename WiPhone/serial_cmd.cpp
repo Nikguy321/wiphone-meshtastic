@@ -71,6 +71,7 @@ static void help() {
     "  up         where to point a browser",
     "  sync       poll COVEY for mirrored texts now",
     "  mirror     mirror poller state",
+    "  sip        SIP account state: loaded, registered, WiFi - one line",
     "  bookpage   dump the open reader page's layout + rendering",
     "  chan <url> apply a Meshtastic channel invite URL",
     "  chans      list the channels this phone has",
