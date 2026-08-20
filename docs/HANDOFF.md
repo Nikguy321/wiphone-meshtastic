@@ -8,6 +8,22 @@ then `tools/publish_webflasher.sh`).
 
 ## ☀️ 2026-08-20 (day, Nick at work) — GPS half written, wiring sheet, rf_check's first run
 
+- **🔧 THE WIFI AUTO-SWITCH DEADLOCK, found live and fixed (9ad7a36, FLASHED + PROVEN):**
+  the switcher's call-guard blocked on CallState::HangUp — a teardown state the END key
+  enters from ANY screen (ino:1857) that STICKS with no proxy (BYE can never send). Leave
+  WiFi coverage + one END press = the network-restorer blocked by a state that needs the
+  network to end. Measured: sip=6 for SIX HOURS, 7,549 EHOSTUNREACH errors, zero scans,
+  the saved hotspot in range. Guard now blocks only the six audio-delicate states AND only
+  while CONNECTED (no WiFi ⇒ no audio to glitch ⇒ never block). Proven on hardware: fresh
+  boot scanned at 2 min, joined 'NickH-wifi' by itself; END presses leave it connected.
+  ⚠ HEALTH's wifi= field is RAW WiFi.status() (1=NO_SSID_AVAIL, 3=CONNECTED,
+  6=DISCONNECTED) — it was misread as a boolean once today; don't repeat that.
+  ⚠ Follow-up question, deliberately not changed: should END enter HangUp from screens
+  with no call? It plausibly backs call-reject; the guard fix removes its teeth here.
+  ⚠ The phone now runs the post-0.9.7 build (GPS half dormant + Sun screen + GPS toggle
+  + this fix) — TONIGHT'S BENCH FLASH IS ALREADY DONE; after assembly just flip
+  My node > GPS receiver.
+
 - **The woods backplate is GO**: parts in hand, bench checks tonight. The build sheet is
   `docs/woods-backplate-wiring.svg` — leg-by-leg, every pad named, W1–W19 run list, the
   before-first-power checklist (5V-accepts-charge test, TLV EN pull-up measure via
