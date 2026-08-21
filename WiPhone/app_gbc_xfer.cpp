@@ -85,6 +85,11 @@ static char         s_addr[40] = {0};   // shown address (IP of STA or AP)
  * static, and one trip outlived every restart. */
 static bool         s_breakerPaused = false;
 static uint32_t     s_breakerFlipMs = 0;
+static uint32_t     s_breakerWaitMs = 90000;   // timed-resume fallback; doubles on quick re-trip
+static uint32_t     s_lastResumeMs  = 0;
+
+static void xferServerUp();     // create + register + begin (also the breaker's resume)
+static void xferServerDown();   // stop + delete + MDNS.end (also the breaker's pause)
 
 static const XferConfig ROM_CFG = {
   "/roms", "Add Game Boy ROMs", ".gb,.gbc", "ROMs", "download.gbc", "WiPhone-ROMs"
@@ -92,8 +97,11 @@ static const XferConfig ROM_CFG = {
 static const XferConfig* s_cfg = &ROM_CFG;
 
 void gbcXferHandleClient() {
-  if (!s_server) {
+  if (!s_on) {
     return;
+  }
+  if (!s_server && !s_breakerPaused) {
+    return;                 // not started at all
   }
   /* ── LOW-HEAP CIRCUIT BREAKER ──────────────────────────────────────────────
    * Measured 2026-08-20: back-to-back uploads ground the largest internal block
@@ -105,28 +113,47 @@ void gbcXferHandleClient() {
    * memory is tight instead of dragging the network stack (and then the whole
    * phone) down with it: the listener closes, nothing else is lost, and it
    * comes back on its own when heap recovers. Hysteresis so it cannot flap. */
-  /* Thresholds from the 2026-08-20 measurements, not caution: sequential uploads
-   * ran HAPPILY at 7-8 KB largest; the listener only died below ~5 KB. Trip at
-   * 6 KB, resume at 10 KB — both reachable on this phone's real heap profile
-   * (steady-state largest idles at 13-16 KB; the first cut of this breaker
-   * resumed at 20 KB, which fragmentation NEVER reaches, so one trip paused the
-   * server forever). */
+  /* Trip threshold from the 2026-08-20 measurements: sequential uploads ran
+   * HAPPILY at 7-8 KB largest; the listener only died below ~5 KB. Trip at 6 KB.
+   *
+   * ⚠ THE RESUME MUST NOT DEPEND ON A HEAP NUMBER ALONE. Two earlier cuts of
+   * this breaker both died of the same catch-22 in the field, the SAME DAY they
+   * were written: a paused-but-allocated server pins the largest block below
+   * whatever resume threshold was chosen, so one trip = paused forever = "the
+   * upload page works once per boot" (Nick, from the kitchen). So the pause now
+   * FREES the server outright (delete + MDNS.end — that is what lets the heap
+   * actually recover), and resume fires on heap recovery OR a timer, whichever
+   * comes first — a stranded pause is structurally impossible. A resume that
+   * re-trips within a minute doubles the wait, up to 10 min, so a genuinely
+   * starved phone breathes instead of flapping. */
   const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   const uint32_t now = millis();
-  if (!s_breakerPaused && largest < 6144 && (uint32_t)(now - s_breakerFlipMs) > 3000) {
-    s_breakerPaused = true;
-    s_breakerFlipMs = now;
-    s_server->stop();
-    log_e("XFER: PAUSED - internal largest %u < 6K; uploads resume when memory recovers",
-          (unsigned)largest);
-  } else if (s_breakerPaused && largest >= 10240 && (uint32_t)(now - s_breakerFlipMs) > 3000) {
+  if (!s_breakerPaused) {
+    if (largest < 6144 && (uint32_t)(now - s_breakerFlipMs) > 3000) {
+      s_breakerPaused = true;
+      s_breakerFlipMs = now;
+      if (s_lastResumeMs && (uint32_t)(now - s_lastResumeMs) < 60000) {
+        s_breakerWaitMs = s_breakerWaitMs < 300000 ? s_breakerWaitMs * 2 : 600000;
+      }
+      xferServerDown();
+      log_e("XFER: PAUSED (largest %u < 6K) - server freed; back on recovery or %lus",
+            (unsigned)largest, (unsigned long)(s_breakerWaitMs / 1000));
+    } else {
+      if (s_lastResumeMs && (uint32_t)(now - s_lastResumeMs) > 300000) {
+        s_breakerWaitMs = 90000;        // 5 min of stable service earns the short fuse back
+        s_lastResumeMs = 0;
+      }
+      s_server->handleClient();
+    }
+    return;
+  }
+  if ((largest >= 8192 || (uint32_t)(now - s_breakerFlipMs) >= s_breakerWaitMs) &&
+      (uint32_t)(now - s_breakerFlipMs) > 3000) {
     s_breakerPaused = false;
     s_breakerFlipMs = now;
-    s_server->begin();
-    log_e("XFER: RESUMED - internal largest %u", (unsigned)largest);
-  }
-  if (!s_breakerPaused) {
-    s_server->handleClient();
+    s_lastResumeMs = now;
+    xferServerUp();
+    log_e("XFER: RESUMED (largest %u)", (unsigned)largest);
   }
 }
 
@@ -502,6 +529,38 @@ static void handleFetch() {
                     : "<p>Download failed (check the link is a direct file link). <a href=/>back</a></p>");
 }
 
+/* Everything needed to serve: WebServer + handlers + mDNS. Factored so the
+ * breaker's pause/resume uses the exact same lifecycle as start/stop — the
+ * resume path being a lesser copy is how the first cuts went stale. */
+static void xferServerUp() {
+  MDNS.begin("wiphone");   // http://wiphone.local
+  if (!s_server) {
+    s_server = new WebServer(80);
+  }
+  s_server->on("/", HTTP_GET, handleRoot);
+  s_server->on("/upload", HTTP_POST, []() {
+    s_server->sendHeader("Connection", "close");
+    s_server->send(200, "text/html", "<p>Uploaded! <a href=/>back</a></p>");
+  }, handleUpload);
+  s_server->on("/fetch", HTTP_POST, handleFetch);
+  s_server->on("/favicon.ico", HTTP_GET, handleFavicon);
+  s_server->on("/log", HTTP_GET, handleLog);
+  s_server->onNotFound(handleNotFound);
+  s_server->begin();
+}
+
+static void xferServerDown() {
+  if (s_uploadFile) {
+    s_uploadFile.close();   // an aborted upload's handle must not dangle across the pause
+  }
+  if (s_server) {
+    s_server->stop();
+    delete s_server;        // the object itself holds internal-heap Strings; free it all
+    s_server = NULL;
+  }
+  MDNS.end();
+}
+
 void xferStart(const XferConfig* cfg) {
   s_breakerPaused = false;              // a fresh session always starts live
   s_breakerFlipMs = 0;
@@ -546,21 +605,7 @@ void xferStart(const XferConfig* cfg) {
     }
   }
 
-  MDNS.begin("wiphone");   // http://wiphone.local
-
-  if (!s_server) {
-    s_server = new WebServer(80);
-  }
-  s_server->on("/", HTTP_GET, handleRoot);
-  s_server->on("/upload", HTTP_POST, []() {
-    s_server->sendHeader("Connection", "close");
-    s_server->send(200, "text/html", "<p>Uploaded! <a href=/>back</a></p>");
-  }, handleUpload);
-  s_server->on("/fetch", HTTP_POST, handleFetch);
-  s_server->on("/favicon.ico", HTTP_GET, handleFavicon);
-  s_server->on("/log", HTTP_GET, handleLog);
-  s_server->onNotFound(handleNotFound);
-  s_server->begin();
+  xferServerUp();
 
   xferHoldAwake(true);
   s_on = true;   // gbcXferHandleClient() (main loop) now pumps it
@@ -571,15 +616,7 @@ void xferStop() {
     return;
   }
   xferHoldAwake(false);
-  if (s_uploadFile) {
-    s_uploadFile.close();   // don't leave a dangling handle from an aborted upload
-  }
-  if (s_server) {
-    s_server->stop();
-    delete s_server;
-    s_server = NULL;
-  }
-  MDNS.end();
+  xferServerDown();
   if (s_usingAP) {
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);

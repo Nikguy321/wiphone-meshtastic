@@ -17,7 +17,13 @@
   steady-state fragmentation never reaches (one trip = paused forever), and pause state
   in a function-local static that outlived server restarts. Retuned to the measured
   band — trip 6 KB (uploads run happily at 7-8), resume 10 KB (idle recovers to 13-16)
-  — and the state resets on every server start.
+  — and the state resets on every server start. The SECOND field trip (Nick's kitchen,
+  the same evening) exposed the deeper truth: ANY resume threshold can be pinned
+  unreachable by the paused server's own allocations, and the softAP fallback race
+  (2 s for a flapping association to look connected) tears down the home-WiFi link
+  each time it loses. Breaker v3 therefore FREES the server outright on pause
+  (delete + MDNS.end — the memory actually comes back) and resumes on heap recovery
+  OR a timer with re-trip backoff — a stranded pause is structurally impossible.
 - **An upload no longer strands the phone off WiFi** — the reconnect machinery (and the
   auto-switcher) were disabled whenever the transfer server ran, guarding a real softAP
   crash. But the guard also fired in plain STA mode, where it protects nothing: a
