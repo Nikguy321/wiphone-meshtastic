@@ -37,6 +37,7 @@ void        xferStart(const XferConfig* cfg);   // bring it up (join WiFi or mak
 void        xferStop();                         // stop it and drop the AP if we made one
 bool        gbcXferOn();                        // named for the extern in WiPhone.ino
 bool        xferUsingAP();                      // true if we had to bring up our own hotspot
+const XferConfig* xferBooksConfig();            // the books cfg, for serial `up on books`
 const char* xferAddr();                         // IP address to show next to wiphone.local
 const char* xferApName();                       // SSID of the hotspot, when we made one
 int         xferFilesAdded();                   // files added this session (uploads + fetches)

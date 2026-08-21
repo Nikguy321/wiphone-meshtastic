@@ -2,6 +2,20 @@
 
 ## Unreleased (2026-08-20, day) — the phone grows a GPS ear, asleep until the plate exists
 
+- **The upload heap saga, evening chapter — fast networks were the killer all along.**
+  Push-mode uploads on a fast LAN (3 ms RTT) let TCP open wide and the radio flood
+  internal heap with RX buffers faster than the SD drains: heap measured falling from
+  14 KB to 868 BYTES inside seconds — while the sluggish phone-hotspot link had been
+  masking the whole class by keeping bursts tiny. Defenses now in: mid-upload
+  BACKPRESSURE (heap tight ⇒ stop consuming the socket ⇒ TCP window closes ⇒ sender
+  stalls ⇒ radio buffers drain), and the breaker defers mid-file to it (trips only on
+  catastrophe below 3 KB; between requests the 6 KB line stands). Push uploads on fast
+  links now SURVIVE but crawl — the honest recommendation for bulk delivery is the
+  page's "paste a download link" PULL path, which lets the phone read at its own pace
+  and moved 5 MB books at full speed with heap intact, straight into /books.
+- **`up on books`** — the Books uploader is serial-startable now (bench work needs to
+  feed the reader with no hands on the phone); `?` lists it.
+
 - **The upload server can no longer strangle the network stack** — the true anatomy of
   "the page locked up", measured live: an upload burst (worst with aborted connections)
   pins 12-15 KB of internal RAM in dead TCP control blocks for minutes, the largest

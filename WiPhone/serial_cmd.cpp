@@ -225,6 +225,11 @@ static void run(char* line) {
     reportUploader();
     return;
   }
+  if (!strcasecmp(line, "up on books")) {
+    xferStart(xferBooksConfig());       // the Books uploader, no hands on the phone
+    reportUploader();
+    return;
+  }
   if (!strcasecmp(line, "up on")) {
     if (gbcXferOn()) {
       say("uploader already on\n");

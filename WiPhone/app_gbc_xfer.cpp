@@ -94,6 +94,13 @@ static void xferServerDown();   // stop + delete + MDNS.end (also the breaker's 
 static const XferConfig ROM_CFG = {
   "/roms", "Add Game Boy ROMs", ".gb,.gbc", "ROMs", "download.gbc", "WiPhone-ROMs"
 };
+/* The books uploader, startable from the serial console (`up on books`) — the
+ * bench needs to feed the reader without hands on the phone. Mirrors
+ * app_books.cpp's BOOKS_XFER_CFG (same dir, filter, AP name). */
+static const XferConfig SERIAL_BOOKS_CFG = {
+  "/books", "Add books", ".epub,.txt", "books", "download.epub", "WiPhone-Books"
+};
+const XferConfig* xferBooksConfig() { return &SERIAL_BOOKS_CFG; }
 static const XferConfig* s_cfg = &ROM_CFG;
 
 void gbcXferHandleClient() {
@@ -129,7 +136,12 @@ void gbcXferHandleClient() {
   const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   const uint32_t now = millis();
   if (!s_breakerPaused) {
-    if (largest < 6144 && (uint32_t)(now - s_breakerFlipMs) > 3000) {
+    /* Mid-upload, backpressure (handleUpload) is the governor — pausing here
+     * would abort the very transfer that is about to release the pressure, so
+     * the trip defers to it unless memory is truly catastrophic. Between
+     * requests the 6 KB line stands. */
+    const size_t tripAt = s_uploadFile ? 3072 : 6144;
+    if (largest < tripAt && (uint32_t)(now - s_breakerFlipMs) > 3000) {
       s_breakerPaused = true;
       s_breakerFlipMs = now;
       if (s_lastResumeMs && (uint32_t)(now - s_lastResumeMs) < 60000) {
@@ -375,6 +387,23 @@ static void handleUpload() {
     SD.remove(path.c_str());        // overwrite cleanly (SD write mode appends)
     s_uploadFile = SD.open(path.c_str(), FILE_WRITE);
   } else if (up.status == UPLOAD_FILE_WRITE) {
+    /* ── BACKPRESSURE: the fix for fast links ─────────────────────────────────
+     * On a fast LAN (3 ms RTT) TCP opens wide and the radio floods internal
+     * heap with RX buffers far faster than the SD drains — measured 2026-08-20
+     * evening: heap 14 KB → 868 BYTES inside three seconds of one upload,
+     * while the slow phone-hotspot link had masked the whole problem by
+     * keeping bursts tiny. Flow control, the old way: while memory is tight,
+     * STOP CONSUMING — the TCP window closes, the sender stalls, the radio's
+     * buffers drain into the socket, heap comes back, reading resumes. The
+     * cap bounds a stall against a dead client; the breaker (which now only
+     * trips mid-upload on catastrophe) remains the last line. */
+    {
+      int spins = 0;
+      while (heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 7168 &&
+             ++spins <= 600) {
+        delay(5);                       // up to ~3 s of deliberate stall
+      }
+    }
     if (s_uploadFile) {
       if (s_sdBuf) {
         size_t off = 0;
