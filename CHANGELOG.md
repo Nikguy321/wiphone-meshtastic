@@ -15,6 +15,15 @@
   (tools/gen_replay_vectors.py → tests/test_replay.cpp), down to whitespace grammar
   and uint32 bounds — 15 host suites green. Serial `replay` shows the ring, pending
   replies, and the last served request.
+- **Adversarial review caught a privacy leak before the woods did**: legacy
+  channel-encrypted DMs (a form this phone deliberately accepts, and which
+  decrypts with the CHANNEL key) were entering the replay ring, so a private
+  message could have been rebroadcast to every booksync member. Capture is now
+  broadcast-only — that dest check is what actually enforces the spec's DM
+  exclusion, since "DMs are PKC and unreadable" was never true of the legacy
+  form. Also fixed: a reboot used to hide its own losses (coverage was proxied
+  by ring fullness, and the ring is empty after exactly the event the gap flag
+  exists for) — a coverage-start stamp replaces it, verified on air.
 - **Clock lessons, encoded**: record timestamps are `getExactUtcTime()` —
   `getExactUnixTime()` is the LOCAL-shifted epoch and put the first live records
   7 hours off; and the asker pads its window generously (t2 + 600 s) because a

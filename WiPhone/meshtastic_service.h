@@ -349,6 +349,7 @@ private:
   int          replayPktNext;
   uint32_t     replayNextTxMs;
   uint8_t      replayChanHash;          // the channel the request arrived on
+  uint32_t     replayCoverFrom;         // unix secs this ring's coverage began (0 = none yet)
   uint32_t     replayServedMs;          // millis() of the last served request (0 = never)
   int          replayServedN;           // records in that reply
   void replayCapture(uint32_t sender, const MeshChannel* ch, const char* text);

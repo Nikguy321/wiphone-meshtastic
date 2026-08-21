@@ -976,6 +976,7 @@ void MeshtasticService::setup() {
   replayHead = replayCount = 0;
   replayPktCount = replayPktNext = 0;
   replayNextTxMs = 0;
+  replayCoverFrom = 0;
   replayChanHash = 0;
   replayServedMs = 0;
   replayServedN = 0;
@@ -1410,7 +1411,17 @@ bool MeshtasticService::loop() {
           }
         }
 
-        replayCapture(hdr.sender, ch, text);      // the ring remembers what COVEY may have missed
+        /* ⚠ BROADCASTS ONLY — this dest check is the ONLY thing keeping DMs
+         * out of the ring, and the spec's DM exclusion is worthless without it.
+         * A legacy channel-encrypted DM (which this phone deliberately accepts,
+         * just above) is decrypted with the CHANNEL key, so it is perfectly
+         * readable here — and replaying one would BROADCAST a private message
+         * to every booksync member. Only PKC DMs are undecryptable; the legacy
+         * form breaks the assumption the spec leaned on. (Found by adversarial
+         * review, 2026-08-21, before it ever ran in the woods.) */
+        if (toInternal == MESH_BROADCAST_ADDR) {
+          replayCapture(hdr.sender, ch, text);    // the ring remembers what COVEY may have missed
+        }
         storeMessage(hdr.sender, toInternal, hdr.channelHash, text, false);   // real text!
         log_i("Mesh TEXT from 0x%08X on ch '%s': %s", hdr.sender, ch->name, text);
         return true;                       // signal the UI to refresh
@@ -2216,6 +2227,14 @@ void MeshtasticService::replayCapture(uint32_t sender, const MeshChannel* ch, co
   if (!ntpClock.isTimeKnown()) {
     return;                     // an entry without real time can serve no window
   }
+  /* When this ring's coverage BEGAN. Stamped on the first packet heard after
+   * the clock locks — before the machine-traffic filter, because hearing
+   * anything proves we were listening. Ring fullness was the wrong proxy: the
+   * ring is empty after every reboot, which is exactly the case the gap flag
+   * exists for ("reboot clears it; the reply says so"). */
+  if (replayCoverFrom == 0) {
+    replayCoverFrom = (uint32_t)ntpClock.getExactUtcTime();
+  }
   // Machine traffic is not conversation: none of it belongs in history.
   if (bookSyncIsSyncText(text) || smsMirrorIsMirrorLine(text) || replayIsReplayText(text)) {
     return;
@@ -2287,8 +2306,12 @@ void MeshtasticService::replayHandleRequest(const MeshChannel* ch, const char* t
     curLen += (size_t)n;
     packed++;
   }
-  /* A full ring has evicted; a window reaching past its oldest entry is asking
-   * for history that no longer exists. (head == the oldest slot when full.) */
+  /* Honest coverage, two ways it can fall short: we were not listening yet
+   * (boot/NTP — the ring is EMPTY then, which fullness never catches), or the
+   * ring has since evicted (head == the oldest slot when full). */
+  if (replayCoverFrom == 0 || t1 < replayCoverFrom) {
+    gap = true;
+  }
   if (replayCount == REPLAY_RING_CAP && t1 < replayRing[replayHead].rxUnix) {
     gap = true;
   }

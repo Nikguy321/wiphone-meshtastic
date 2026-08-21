@@ -25,15 +25,25 @@ sitting in the ring; the no-RTC Pi and the phone WILL disagree).
 COVEY's half: covey_ui/replay.py (reference) + replay_glue.py + the
 _replay_tick in app.py; its HANDOFF carries D-112.
 v2 lines live in the spec: GPS-true time, LAN transport, SD-persisted ring.
-⏳ **ONE THING OWED**: an adversarial review workflow over the replay diff was
-launched and CUT by a usage limit — its findings were never collected or
-applied. The code is proven live and suite-green, but that extra pass is
-unspent; re-run it (script under the session's workflows/scripts/,
-replay-review-wf_963fee0d-85c.js) or review by hand before trusting replay in
-the woods. Likely soft spots to look at first: two COVEYs asking at once, a
-crafted RPL record on booksync (PSK-trusted by design — state the assumption),
-ring-vs-ASK_MAX interplay, and _replay_got leaking if a summary packet is lost
-on air.
+✅ **The adversarial review RAN (19 agents) and its two confirmed findings are
+FIXED + flashed + verified on air:**
+1. 🔒 **PRIVACY (high): legacy channel-encrypted DMs were entering the ring** —
+   this phone deliberately accepts that DM form, and it decrypts with the
+   CHANNEL key, so replay would have BROADCAST a private message to every
+   booksync member. The spec's "DMs are safe, they're PKC" assumption was
+   simply false for the legacy form. Ring capture is now gated on
+   `toInternal == MESH_BROADCAST_ADDR` — that check IS the DM exclusion.
+2. **Gap honesty (medium): a reboot hid its own losses.** Coverage was proxied
+   by ring FULLNESS, and the ring is empty after every reboot — the exact case
+   the flag exists for. Now a `replayCoverFrom` stamp (first packet after the
+   clock locks) is compared against t1. Verified on air: an all-time ask now
+   answers GAP where it used to claim completeness.
+⚠ Three verify agents were cut by a usage limit; their findings (skewed-window
+handling, ASK_MAX-vs-ring interplay) are UNJUDGED — the workflow can be re-run
+from the session's workflows/scripts/replay-review-wf_963fee0d-85c.js.
+⚠ Capture needs a KNOWN CLOCK: for the first minute or two after a reflash the
+phone hears traffic and rings NOTHING (correct — an unstamped record can serve
+no window, and it cost a confusing bench minute today).
 
 ## ✅ 2026-08-21 (day): the redesign LANDED — chunked protocol + raw transport
 
