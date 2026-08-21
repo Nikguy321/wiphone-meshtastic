@@ -11,6 +11,7 @@
 
 #include <Arduino.h>
 #include <driver/uart.h>
+#include <esp_heap_caps.h>   // multi_heap_info_t, the `heap` command
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>     // strtoul, the `dm` command's node number
@@ -78,6 +79,7 @@ static void help() {
     "  pki        DM crypto state: our key, who has keys, stack headroom",
     "  announce   broadcast NodeInfo now, asking others to answer with theirs",
     "  dm <!node> <text>  send a direct message (PKI when the key is known)",
+    "  heap       memory truth: internal/DMA/PSRAM free+largest+floor",
     "  pos        positions: waypoints, node fixes, our pin, the reference",
     "  gps        woods-plate GPS state: fix, sats, reader counters",
     "  gps on|off route the user UART (38/32) to the NMEA reader (persists)",
@@ -201,6 +203,30 @@ static void reportPki() {
       keyed, (unsigned)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t)));
 }
 
+/* `heap` — the memory instrument (upload-redesign brief: first deliverable).
+ * Internal and PSRAM tell different stories on this phone: WiFi RX buffers,
+ * lwIP, and every operator-new live INTERNAL-only, so "plenty of PSRAM free"
+ * is never the number that saves you. min-ever is the low-water mark since
+ * boot — if it sits far below current free, something already had a bad
+ * moment this run. DMA is the subset the radio actually allocates from. */
+static void reportHeap() {
+  multi_heap_info_t h;
+  heap_caps_get_info(&h, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  say("heap: internal free=%u largest=%u min-ever=%u  blocks used/free=%u/%u\n",
+      (unsigned)h.total_free_bytes, (unsigned)h.largest_free_block,
+      (unsigned)h.minimum_free_bytes,
+      (unsigned)h.allocated_blocks, (unsigned)h.free_blocks);
+  heap_caps_get_info(&h, MALLOC_CAP_DMA);
+  say("heap: dma      free=%u largest=%u  (the pool WiFi RX buffers draw from)\n",
+      (unsigned)h.total_free_bytes, (unsigned)h.largest_free_block);
+  heap_caps_get_info(&h, MALLOC_CAP_SPIRAM);
+  say("heap: psram    free=%u largest=%u min-ever=%u\n",
+      (unsigned)h.total_free_bytes, (unsigned)h.largest_free_block,
+      (unsigned)h.minimum_free_bytes);
+  say("heap: loop-task stack floor %u bytes free\n",
+      (unsigned)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t)));
+}
+
 static void reportUploader() {
   if (!gbcXferOn()) {
     say("uploader: off\n");
@@ -304,6 +330,10 @@ static void run(char* line) {
   }
   if (!strcasecmp(line, "pki")) {
     reportPki();
+    return;
+  }
+  if (!strcasecmp(line, "heap")) {
+    reportHeap();
     return;
   }
   if (!strcasecmp(line, "pos")) {

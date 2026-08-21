@@ -75,7 +75,10 @@ for src in tests/test_*.cpp; do
       objs+=("$o")
     done
   fi
-  "$CXX" "${FLAGS[@]}" -o "$OUT/$name" "$src" "${deps[@]}" ${objs[@]+"${objs[@]}"} ${extra[@]+"${extra[@]}"}
+  # ${deps[@]+...}: macOS bash 3.2 + set -u calls an EMPTY array unbound; the
+  # guard is the same one csrc/objs/extra already wear. First hit by test_chunk,
+  # the first header-only suite (its whole subject compiles from the .h).
+  "$CXX" "${FLAGS[@]}" -o "$OUT/$name" "$src" ${deps[@]+"${deps[@]}"} ${objs[@]+"${objs[@]}"} ${extra[@]+"${extra[@]}"}
   if ! "$OUT/$name"; then
     fail=1
   fi

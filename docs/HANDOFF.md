@@ -1,10 +1,74 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-20 (day) · **0.9.7 line: positions/places field-tested,
-text overflow purged, sun module in.** 13 host suites green (new: test_nmea).
-⚠ The web flasher still serves 0.9.5; **the 0.9.7 bundle is STAGED in webflasher/
-awaiting Nick's explicit "publish"** (he called the soak "probably ok" — get the word,
-then `tools/publish_webflasher.sh`).
+**Last updated:** 2026-08-21 (early) · **Upload redesign MID-FLIGHT — chunked protocol
+in and mock-proven, hardware demands a rawer transport.** 14 host suites green (new:
+test_chunk). The 0.9.7 flasher is PUBLISHED (gh-pages serves 0.9.7 — the stale
+"staged" note below predates the publish).
+
+## 🌅 2026-08-21: THE UPLOAD REDESIGN — where it stands, exactly
+
+**The phone RUNS the chunked build** (safe daily firmware: upload paths are inert
+until `up on`; serial `heap` command in; WiFi/SIP/mesh untouched). **NOT accepted,
+NOT done** — read this before continuing.
+
+**Done + proven:**
+- `chunk_proto.h` (verdicts/name-sanitize/hex/CRC32, host-tested), `/chunk` GET+POST
+  on the transfer server, page JS chunked sender (4 KB stop-and-wait, CRC32, resync,
+  honest retries), `tools/chunk_push.py` (bench pusher: --corrupt/--restart-at/
+  --resume/--gap all proven against the mock), serial `heap`, per-request + per-file
+  heap telemetry, chunk-aware breaker (8 s non-escalating pauses for chunk-paced
+  traffic; resume line 7168 = backpressure line).
+- **Mock-proven byte-perfect in a real browser** (scratchpad mock_phone.py): 3-file
+  batch through 15% injected failures, CRC-corrupt piece 422+recovery, mid-file
+  abandon + true resume (tail-only resend). JS crc32 == zlib == chunk_proto.h.
+- Measured (via `heap` + graded probes): request machinery transient ~10 KB; 4 KB
+  body costs nothing more, 8 KB dips 4 KB, 16 KB grinds largest to 636 B; each
+  request fragments largest ~1.6–2 KB; server recycle heals it; boot largest is a
+  stable ~19 K (the "9–10 K boots" were UPTIME fragmentation, mystery closed).
+
+**The hardware verdict that redirects the work:** two real runs (unpaced, and paced
+150 ms/piece) both died the same way — hundreds of per-piece CONNECTIONS accumulate
+TIME_WAIT pcbs (120 s tail, heap-backed) + per-request String churn, largest pinned
+~5 K, breaker flapping, client gives up. **Pacing does not save the WebServer path;
+its per-request cost is the killer.** ▶ NEXT: a raw single-connection chunk endpoint
+(one TCP connection per file/session, raw bodies read incrementally at OUR pace into
+the PSRAM block — in-flight bounded by TCP window 5744 + stop-and-wait, so the flood
+is impossible by construction; CORS-simple so the page can use it cross-port;
+WebServer `/chunk` stays as the fallback). Sketch: non-blocking state machine pumped
+from the main loop, 2 s dead-client deadline, piece cap 32 K.
+
+**Review findings OPEN (a 14-agent adversarial review ran; its verify stage was cut
+by a usage limit — findings are triaged, unfixed unless noted):**
+1. 🔑 **CONFIRMED from vfs_api.cpp: `File::size()` on an OPEN written file stats the
+   PATH — FatFS dir entry updates only on sync/close — so held arithmetic undercounts
+   between flushes.** Fix: track durable bytes in RAM; trust size() only at (re)open
+   and on closed files. (Applies to the raw server design too.)
+2. `/fetch` can TRUNCATE the open batch file via a second FIL (name collision incl.
+   the `download.epub` default) → add `chunkFinalize()` at top of handleFetch.
+3. Telemetry floors/pieces init only at off==0 → resumed files log garbage floors;
+   pieces double-count on 507 (increment precedes flush verdict).
+4. Page JS: (a) give-up on one file ABANDONS the rest of the batch (fail() never
+   advances); (b) permanent 4xx retried 24×; (c) fetch-less JS browsers get a dead
+   page (unconditional preventDefault kills the native-form fallback); (d) SD-fail
+   loop: acks between 507s reset tries so a dying card cycles forever (needs a
+   no-progress stall counter); (e) zero-byte files skipped but counted as delivered.
+5. Fixed already: stale s_chunkSawPiece verdict after an aborted POST.
+
+**Traps (cost real time):**
+- ⚠ **Flashing REQUIRES panicwatch STOPPED** — it eats esptool's sync replies; one
+  attempt left the phone sitting in download mode. pkill panicwatch → pio upload →
+  restart panicwatch.
+- ⚠ A vanished client mid-POST on the LEGACY /upload path can wedge the main loop
+  INDEFINITELY (flooded RX window keeps the FIN out; parser spins on connected()).
+  Chunked pieces are smaller than the TCP window precisely so this cannot happen.
+- ⚠ piece_*.bin probe clutter sits in /books (Books list won't show .bin; harmless).
+- Book 2 was left TRUNCATED by the failed runs and was re-pulled + verified 3060655
+  on 2026-08-21 morning. The corpus books live on COVEY /home/covey/books/.
+
+**Acceptance bar unchanged** (docs/upload-redesign-brief.md): three consecutive
+4-book batches over the fast LAN at full speed, zero breaker trips, internal-heap
+floor never below 10 KB, then a REAL mobile browser. Then update README's upload
+claims (add `heap` to its serial table too) + CHANGELOG.
 
 ## 🌙 2026-08-20 (evening) — the upload saga: fast networks were the killer all along
 
