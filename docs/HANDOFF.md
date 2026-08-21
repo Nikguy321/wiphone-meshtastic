@@ -1,10 +1,30 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-21 (day, at work) · **UPLOAD REDESIGN DONE AND
-ACCEPTANCE-TESTED ON HARDWARE** (3 × 4-book batches, 12/12 byte-verified, zero
-breaker events, zero panics). 14 host suites green (new: test_chunk). The 0.9.7
-flasher is PUBLISHED (gh-pages serves 0.9.7 — the stale "staged" note below
-predates the publish).
+**Last updated:** 2026-08-21 (afternoon, at work) · **UPLOAD REDESIGN
+ACCEPTED + MESH HISTORY REPLAY LIVE, both proven on hardware.** 15 host suites
+green (new: test_chunk, test_replay). The 0.9.7 flasher is PUBLISHED (gh-pages
+serves 0.9.7 — the stale "staged" note below predates the publish).
+
+## ✅ 2026-08-21 (afternoon): MESH HISTORY REPLAY — the phone is COVEY's memory now
+
+**docs/replay-spec.md is the contract; CHANGELOG has the narrative.** The phone
+rings the last 64 channel texts it hears/sends (PSRAM ~13 KB, internal RAM
+untouched); COVEY asks `RPL?` on booksync after a blind window (lent radio /
+powered off) and gets records back — original UTC timestamps, oldest first, one
+packet per 3 s, honest gap marker. **Proven live in the exact bag scenario:**
+two messages sent through COVEY's own radio while covey-ui slept came back on
+wake AS OUTGOING in its Howe-group history, timestamps within seconds of truth.
+Wire format pinned both ways by generated vectors (tools/gen_replay_vectors.py
+→ tests/vectors_replay.h; regenerate whenever covey_ui/replay.py changes).
+Serial `replay` = ring/pending/last-served. Machine-prefix rule extended: RPL*
+never reaches chat on either device (unknown-prefix fallthrough IS chat).
+🔑 Clock traps now encoded in the spec: `getExactUtcTime()` not
+`getExactUnixTime()` (local-shifted epoch — cost 7 h on the first live run),
+and the asker pads t2 by +600 s (a tight window served 0 records with both
+sitting in the ring; the no-RTC Pi and the phone WILL disagree).
+COVEY's half: covey_ui/replay.py (reference) + replay_glue.py + the
+_replay_tick in app.py; its HANDOFF carries D-112.
+v2 lines live in the spec: GPS-true time, LAN transport, SD-persisted ring.
 
 ## ✅ 2026-08-21 (day): the redesign LANDED — chunked protocol + raw transport
 

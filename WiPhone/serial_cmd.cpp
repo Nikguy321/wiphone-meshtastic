@@ -80,6 +80,7 @@ static void help() {
     "  announce   broadcast NodeInfo now, asking others to answer with theirs",
     "  dm <!node> <text>  send a direct message (PKI when the key is known)",
     "  heap       memory truth: internal/DMA/PSRAM free+largest+floor",
+    "  replay     history-replay state: ring occupancy, pending tx, last served",
     "  pos        positions: waypoints, node fixes, our pin, the reference",
     "  gps        woods-plate GPS state: fix, sats, reader counters",
     "  gps on|off route the user UART (38/32) to the NMEA reader (persists)",
@@ -334,6 +335,21 @@ static void run(char* line) {
   }
   if (!strcasecmp(line, "heap")) {
     reportHeap();
+    return;
+  }
+  /* `replay` — the mesh-history replay's whole state in one line (the feature
+   * is otherwise invisible on this phone, which is the point: it exists so
+   * COVEY can ask what it missed — docs/replay-spec.md). */
+  if (!strcasecmp(line, "replay")) {
+    if (meshService.replayLastServedMs()) {
+      say("replay: ring %d heard | pending tx %d pkt(s) | last served %d rec(s) %lus ago\n",
+          meshService.replayRingCount(), meshService.replayPendingPackets(),
+          meshService.replayLastServedN(),
+          (unsigned long)((millis() - meshService.replayLastServedMs()) / 1000));
+    } else {
+      say("replay: ring %d heard | pending tx %d pkt(s) | never served a request\n",
+          meshService.replayRingCount(), meshService.replayPendingPackets());
+    }
     return;
   }
   if (!strcasecmp(line, "pos")) {

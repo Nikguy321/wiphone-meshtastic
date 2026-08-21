@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased (2026-08-21, later) — the phone becomes COVEY's memory: mesh history replay
+
+- **New: mesh history replay** (docs/replay-spec.md). The phone keeps a ring of the
+  last 64 channel texts it hears or sends (PSRAM, ~13 KB — internal RAM untouched);
+  when COVEY regains its radio after a blind window (lent to the phone app, or
+  powered off in a bag) it asks `RPL?` on the booksync channel and the phone replays
+  compacted records — original timestamps, oldest first, one packet per 3 s so a
+  reply never storms the band, closing with an honest gap marker when history has
+  already fallen off the ring. Proven live end-to-end: two messages sent through
+  COVEY's own radio while covey-ui slept came back on wake and rendered as OUTGOING
+  in its history, timestamps within seconds of truth.
+- The wire format is pinned to COVEY's reference implementation by generated vectors
+  (tools/gen_replay_vectors.py → tests/test_replay.cpp), down to whitespace grammar
+  and uint32 bounds — 15 host suites green. Serial `replay` shows the ring, pending
+  replies, and the last served request.
+- **Clock lessons, encoded**: record timestamps are `getExactUtcTime()` —
+  `getExactUnixTime()` is the LOCAL-shifted epoch and put the first live records
+  7 hours off; and the asker pads its window generously (t2 + 600 s) because a
+  no-RTC Pi and a drifting phone disagree — a tight window silently served 0
+  records with both sitting in the ring. Dedup makes generosity free.
+
 ## Unreleased (2026-08-21) — uploads redesigned: chunked, checksummed, resumable, and finally fast-network-proof
 
 - **The upload architecture is new.** Files travel as CRC32-checked pieces, one in

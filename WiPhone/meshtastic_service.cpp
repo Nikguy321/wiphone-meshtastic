@@ -9,7 +9,16 @@
 #include "meshtastic_service.h"
 #include "config.h"            // MESHTASTIC_PHY toggle
 #include "mesh_pki.h"          // PKC keypair/derive (portable — used in stub builds too)
-#include "mesh_pos.h"          // Position/Waypoint payloads + distance math (portable)
+#include "mesh_pos.h"
+#include "replay_proto.h"   // mesh history replay (docs/replay-spec.md)
+
+/* Replay sizing. The ring and the reply slab live in PSRAM: 64×~184 B + 24×256 B
+ * ≈ 18 KB of the 3.6 MB pool — deliberately NOTHING from internal heap, which
+ * this phone measures in single-digit KB on a bad day. */
+#define REPLAY_RING_CAP   64
+#define REPLAY_MAX_PKTS   24
+#define REPLAY_PKT_STRIDE 256
+#define REPLAY_TX_GAP_MS  3000          // Position/Waypoint payloads + distance math (portable)
 #include <Preferences.h>      // NVS-backed node name persistence
 #include "booksync_inbox.h"   // book-sync packets are diverted out of the chat list
 #include "sms_mirror_rx.h"    // ...and so are texts mirrored from COVEY
@@ -960,6 +969,21 @@ void MeshtasticService::setup() {
     log_e("MeshtasticService: message buffer alloc FAILED");
   }
 
+  // Replay ring + reply slab — PSRAM only, no internal fallback: history
+  // replay is a luxury and must never compete with SIP/WiFi for real RAM.
+  replayRing = (ReplayHeard*)ps_malloc((size_t)REPLAY_RING_CAP * sizeof(ReplayHeard));
+  replayPkts = (char*)ps_malloc((size_t)REPLAY_MAX_PKTS * REPLAY_PKT_STRIDE);
+  replayHead = replayCount = 0;
+  replayPktCount = replayPktNext = 0;
+  replayNextTxMs = 0;
+  replayChanHash = 0;
+  replayServedMs = 0;
+  replayServedN = 0;
+  if (!replayRing || !replayPkts) {
+    log_e("MeshtasticService: replay buffers alloc FAILED - replay inert");
+    replayRing = NULL;                 // both or neither; keeps the checks single
+  }
+
   // Load our editable node name (from NVS, or a default derived from the id).
   loadMyName();
 
@@ -1122,6 +1146,8 @@ bool MeshtasticService::loop() {
       break;
     }
   }
+
+  replayPump();   // drip one queued replay packet per gap (airtime politeness)
 
   uint8_t buf[MESH_PHY_MAX_PAYLOAD];
   uint8_t len = 0;
@@ -1359,6 +1385,19 @@ bool MeshtasticService::loop() {
           return false;
         }
 
+        /* Replay-protocol traffic (RPL? / RPL / RPL.) — machine lines, never
+         * chat. Without this filter every replayed record would land in the
+         * Chats list of THIS phone, chiming (the unknown-prefix fallthrough is
+         * chat — measured lesson from the booksync era). Only a REQUEST on the
+         * sync channel acts; records/summaries we hear are someone else's
+         * conversation with COVEY and are dropped silently. */
+        if (replayIsReplayText(text)) {
+          if (ch && strcasecmp(ch->name, "booksync") == 0) {
+            replayHandleRequest(ch, text);
+          }
+          return false;
+        }
+
         /* A DM that arrived channel-encrypted (a pre-2.5 sender — 2.5+ nodes
          * refuse to send this form). Accept it (unlike stock, which drops
          * "legacy DMs": our channels are private, the phishing argument doesn't
@@ -1371,6 +1410,7 @@ bool MeshtasticService::loop() {
           }
         }
 
+        replayCapture(hdr.sender, ch, text);      // the ring remembers what COVEY may have missed
         storeMessage(hdr.sender, toInternal, hdr.channelHash, text, false);   // real text!
         log_i("Mesh TEXT from 0x%08X on ch '%s': %s", hdr.sender, ch->name, text);
         return true;                       // signal the UI to refresh
@@ -2097,6 +2137,7 @@ bool MeshtasticService::sendChannelMessage(uint8_t channelHash, const char* text
 #ifdef MESHTASTIC_PHY
   bool ok = meshTxText(myNodeNum, MESH_ADDR_BROADCAST_ONAIR, text, ch);
   if (ok) {
+    replayCapture(myNodeNum, ch, text);   // our own sends are history COVEY may have missed
     storeMessage(myNodeNum, MESH_BROADCAST_ADDR, channelHash, text, true);   // show it locally
   }
   return ok;
@@ -2156,4 +2197,141 @@ bool MeshtasticService::sendDirectMessage(uint32_t destNode, const char* text) {
   log_i("Mesh TX (stub) DM to 0x%08X: %s", destNode, text);
   return true;
 #endif
+}
+
+/* ── Mesh history replay (docs/replay-spec.md) ──────────────────────────────
+ *
+ * The phone remembers the channel texts it hears (and sends); COVEY, blind
+ * while its radio is lent or off, asks `RPL?` on the booksync channel and the
+ * ring answers — original timestamps, oldest first, one packet per
+ * REPLAY_TX_GAP_MS so a reply never storms the band. The wire format lives in
+ * replay_proto.{h,cpp}, pinned byte-for-byte to COVEY's replay.py by
+ * tests/test_replay.cpp. DMs never enter the ring: the spec's honest rule is
+ * that replay recovers what any channel member could already read. */
+
+void MeshtasticService::replayCapture(uint32_t sender, const MeshChannel* ch, const char* text) {
+  if (!replayRing || !ch || !text || !text[0]) {
+    return;
+  }
+  if (!ntpClock.isTimeKnown()) {
+    return;                     // an entry without real time can serve no window
+  }
+  // Machine traffic is not conversation: none of it belongs in history.
+  if (bookSyncIsSyncText(text) || smsMirrorIsMirrorLine(text) || replayIsReplayText(text)) {
+    return;
+  }
+  ReplayHeard* e = &replayRing[replayHead];
+  /* getExactUTCTime, emphatically not getExactUnixTime: the latter is the
+   * LOCAL-shifted epoch (sun.cpp derives the tz offset from their difference),
+   * and stamping it here put every replayed record 7 hours off — measured on
+   * the first live content exchange, as record ts vs the Pi's clock. */
+  e->rxUnix = (uint32_t)ntpClock.getExactUtcTime();
+  e->sender = sender;
+  strlcpy(e->chan, ch->name, sizeof(e->chan));
+  strlcpy(e->text, text, sizeof(e->text));
+  replayHead = (replayHead + 1) % REPLAY_RING_CAP;
+  if (replayCount < REPLAY_RING_CAP) {
+    replayCount++;
+  }
+}
+
+int MeshtasticService::replayPendingPackets() const {
+  return replayPktCount - replayPktNext;
+}
+
+void MeshtasticService::replayHandleRequest(const MeshChannel* ch, const char* text) {
+  if (!replayRing || !ch) {
+    return;
+  }
+  uint32_t t1, t2;
+  int maxn;
+  if (!replayParseRequest(text, &t1, &t2, &maxn)) {
+    return;                     // records/summaries we overhear land here too: not ours
+  }
+  // Build the whole reply now; a fresh request restarts the queue (latest wins).
+  replayPktCount = replayPktNext = 0;
+  replayChanHash = ch->hash;
+  int packed = 0;
+  bool gap = false;
+  char line[REPLAY_PKT_STRIDE];
+  char* cur = NULL;
+  size_t curLen = 0;
+  for (int i = 0; i < replayCount; i++) {
+    const ReplayHeard* e =
+        &replayRing[(replayHead - replayCount + i + 2 * REPLAY_RING_CAP) % REPLAY_RING_CAP];
+    if (e->rxUnix < t1 || e->rxUnix > t2) {
+      continue;
+    }
+    if (packed >= maxn) {
+      gap = true;               // max clipped the window: say so, don't pretend
+      continue;
+    }
+    const int n = replayFormatRecord(line, sizeof(line), e->rxUnix, e->sender, e->chan, e->text);
+    if (n < 0) {
+      continue;
+    }
+    if (!cur || curLen + 1 + (size_t)n > REPLAY_PACKET_BUDGET) {
+      if (replayPktCount >= REPLAY_MAX_PKTS - 1) {    // one slot stays reserved for the summary
+        gap = true;
+        break;
+      }
+      cur = replayPkts + (size_t)replayPktCount * REPLAY_PKT_STRIDE;
+      cur[0] = '\0';
+      curLen = 0;
+      replayPktCount++;
+    }
+    if (curLen) {
+      cur[curLen++] = '\n';
+    }
+    memcpy(cur + curLen, line, (size_t)n + 1);
+    curLen += (size_t)n;
+    packed++;
+  }
+  /* A full ring has evicted; a window reaching past its oldest entry is asking
+   * for history that no longer exists. (head == the oldest slot when full.) */
+  if (replayCount == REPLAY_RING_CAP && t1 < replayRing[replayHead].rxUnix) {
+    gap = true;
+  }
+  char sum[32];
+  const int sn = replayFormatSummary(sum, sizeof(sum), packed, gap);
+  if (sn > 0) {
+    if (cur && curLen + 1 + (size_t)sn <= REPLAY_PACKET_BUDGET) {
+      cur[curLen++] = '\n';
+      memcpy(cur + curLen, sum, (size_t)sn + 1);
+      curLen += (size_t)sn;
+    } else if (replayPktCount < REPLAY_MAX_PKTS) {
+      memcpy(replayPkts + (size_t)replayPktCount * REPLAY_PKT_STRIDE, sum, (size_t)sn + 1);
+      replayPktCount++;
+    }
+  }
+  replayNextTxMs = millis();    // first packet leaves on the next loop pass
+  replayServedMs = millis();
+  replayServedN = packed;
+  /* log_e on purpose: only log_e is compiled into this build, and a served
+   * replay is rare enough to deserve its one line of serial evidence. */
+  log_e("REPLAY: [%u..%u] max %d -> %d record(s) in %d packet(s)%s",
+        (unsigned)t1, (unsigned)t2, maxn, packed, replayPktCount, gap ? " GAP" : "");
+}
+
+void MeshtasticService::replayPump() {
+  if (!replayRing || replayPktNext >= replayPktCount) {
+    return;
+  }
+  const uint32_t now = millis();
+  if ((int32_t)(now - replayNextTxMs) < 0) {
+    return;
+  }
+  const MeshChannel* ch = findChannelByHash(replayChanHash);
+  if (!ch) {                    // the channel vanished mid-reply (chan edit): drop the rest
+    replayPktCount = replayPktNext = 0;
+    return;
+  }
+#ifdef MESHTASTIC_PHY
+  /* QUIET tx — meshTxText directly, never sendChannelMessage: protocol
+   * traffic must not local-echo into this phone's own chat list. */
+  meshTxText(myNodeNum, MESH_ADDR_BROADCAST_ONAIR,
+             replayPkts + (size_t)replayPktNext * REPLAY_PKT_STRIDE, ch);
+#endif
+  replayPktNext++;
+  replayNextTxMs = now + REPLAY_TX_GAP_MS;
 }

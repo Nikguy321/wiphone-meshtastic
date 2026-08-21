@@ -58,6 +58,9 @@ for src in tests/test_*.cpp; do
     test_nmea)     deps=(WiPhone/nmea.cpp) ;;
     # Sunrise/sunset/civil twilight (NOAA method) — almanac anchors + geometry.
     test_sun)      deps=(WiPhone/sun_times.cpp) ;;
+    # The mesh-history replay wire format vs vectors generated from COVEY's
+    # replay.py (regenerate with tools/gen_replay_vectors.py after changes).
+    test_replay)   deps=(WiPhone/replay_proto.cpp) ;;
     # Compiles the REAL helix decoder so a pass proves the bytes that ship are the bytes
     # that decode. helix is C and is listed in csrc, not deps — see CFLAGS above.
     test_mp3)      deps=(WiPhone/mp3_stream.cpp)

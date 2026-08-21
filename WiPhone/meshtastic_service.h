@@ -138,6 +138,14 @@ public:
   bool sendChannelMessage(uint8_t channelHash, const char* text);
   bool sendDirectMessage(uint32_t destNode, const char* text);
 
+  // ---- Mesh history replay (docs/replay-spec.md) ---------------------------
+  // This phone remembers the channel texts it hears; COVEY, blind while its
+  // radio is lent, asks `RPL?` on the booksync channel and gets them back.
+  int      replayRingCount() const   { return replayCount; }
+  int      replayPendingPackets() const;
+  uint32_t replayLastServedMs() const { return replayServedMs; }
+  int      replayLastServedN() const  { return replayServedN; }
+
   // ---- This node's identity ------------------------------------------------
   const char* getMyLongName()  const { return myLongName; }
   const char* getMyShortName() const { return myShortName; }
@@ -321,6 +329,31 @@ private:
   // Recently-seen packet ids, to drop mesh rebroadcasts of the same packet.
   uint32_t recentPktIds[16];
   int      recentPktPos;
+
+  // ---- Mesh history replay state (docs/replay-spec.md) ---------------------
+  /* The ring lives in PSRAM (setup(); ~12 KB) — NOT internal heap, which this
+   * phone has none of to spare. NULL = allocation failed = feature inert. */
+  struct ReplayHeard {
+    uint32_t rxUnix;                    // WiPhone clock when heard (never 0 in ring)
+    uint32_t sender;
+    char     chan[16];                  // channel NAME (names travel; indexes differ)
+    char     text[160];
+  };
+  ReplayHeard* replayRing;
+  int          replayHead;              // next write slot
+  int          replayCount;
+  /* Reply packets, built at request time, dripped one per REPLAY_TX_GAP_MS —
+   * LoRa airtime politeness. A new request restarts the queue (latest wins). */
+  char*        replayPkts;              // PSRAM slab: REPLAY_MAX_PKTS × REPLAY_PKT_STRIDE
+  int          replayPktCount;
+  int          replayPktNext;
+  uint32_t     replayNextTxMs;
+  uint8_t      replayChanHash;          // the channel the request arrived on
+  uint32_t     replayServedMs;          // millis() of the last served request (0 = never)
+  int          replayServedN;           // records in that reply
+  void replayCapture(uint32_t sender, const MeshChannel* ch, const char* text);
+  void replayHandleRequest(const MeshChannel* ch, const char* text);
+  void replayPump();
 
   bool     dbDirty;                 // unsaved changes pending
   uint32_t lastSaveMs;              // last persistence write (millis)
