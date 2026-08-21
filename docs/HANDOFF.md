@@ -6,6 +6,32 @@ text overflow purged, sun module in.** 13 host suites green (new: test_nmea).
 awaiting Nick's explicit "publish"** (he called the soak "probably ok" — get the word,
 then `tools/publish_webflasher.sh`).
 
+## 🌙 2026-08-20 (evening) — the upload saga: fast networks were the killer all along
+
+**The bug Nick reported as "books upload locked up + panic" unraveled into a 5-act play,
+every act measured on hardware.** (1) The STA reconnect gate stranded WiFi during server
+sessions — fixed (softAP-only gates). (2) lwIP starvation killed the listener then the
+whole stack — circuit breaker added. (3) Breakers v1/v2 both died of resume-threshold
+catch-22s (a paused-but-allocated server pins largest below ANY threshold) — v3 frees the
+server outright on pause + timer-backed resume. (4) THE REAL ANATOMY: fast links (home
+LAN 3 ms RTT; the crash-day phone-to-phone hotspot link) let TCP flood internal heap with
+radio RX buffers faster than SD drains — heap measured 14 KB → 868 B in seconds; the slow
+work-hotspot uplink had been accidental flow control all along. v4 = mid-upload
+BACKPRESSURE (stop consuming ⇒ window closes ⇒ sender stalls) + breaker defers mid-file
+(trips only < 3 KB during transfers). Push now SURVIVES but crawls on fast LANs.
+(5) **THE ANSWER IS PULL**: /fetch ("paste a download link") lets the phone read at its
+own pace — 5 MB books at FULL SPEED, heap intact. Serial `up on books` added so the bench
+can start the Books uploader hands-free; delivery ran: Mac python http.server + POST
+/fetch per book, straight into /books.
+
+⚠ Bench follow-ups queued: per-request heap anatomy of the push path (why transients run
+7-15 KB); breaker v5 lessons — a timer-resume into sub-threshold heap flaps in 3 s
+slivers, and a pause landing right after handleFetch can eat the HTTP response after the
+download already succeeded (harmless but reads as failure); WiPhone power button does NOT
+reboot (screen-off only — a "restart" over serial is esptool --after hard_reset read_mac).
+⚠ smsmirror.txt shows as a "book" in the Books list (config file in the .txt-books net) —
+filter queued.
+
 ## ☀️ 2026-08-20 (day, Nick at work) — GPS half written, wiring sheet, rf_check's first run
 
 - **🔧 THE WIFI AUTO-SWITCH DEADLOCK, found live and fixed (9ad7a36, FLASHED + PROVEN):**
