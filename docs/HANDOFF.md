@@ -25,6 +25,15 @@ sitting in the ring; the no-RTC Pi and the phone WILL disagree).
 COVEY's half: covey_ui/replay.py (reference) + replay_glue.py + the
 _replay_tick in app.py; its HANDOFF carries D-112.
 v2 lines live in the spec: GPS-true time, LAN transport, SD-persisted ring.
+⏳ **ONE THING OWED**: an adversarial review workflow over the replay diff was
+launched and CUT by a usage limit — its findings were never collected or
+applied. The code is proven live and suite-green, but that extra pass is
+unspent; re-run it (script under the session's workflows/scripts/,
+replay-review-wf_963fee0d-85c.js) or review by hand before trusting replay in
+the woods. Likely soft spots to look at first: two COVEYs asking at once, a
+crafted RPL record on booksync (PSK-trusted by design — state the assumption),
+ring-vs-ASK_MAX interplay, and _replay_got leaking if a summary packet is lost
+on air.
 
 ## ✅ 2026-08-21 (day): the redesign LANDED — chunked protocol + raw transport
 
