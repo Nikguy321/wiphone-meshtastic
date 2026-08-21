@@ -11,6 +11,7 @@
 #include "mesh_pki.h"          // PKC keypair/derive (portable — used in stub builds too)
 #include "mesh_pos.h"
 #include "replay_proto.h"   // mesh history replay (docs/replay-spec.md)
+#include "neighbor_info.h"  // NeighborInfo (portnum 71) encoding
 
 /* Replay sizing. The ring and the reply slab live in PSRAM: 64×~184 B + 24×256 B
  * ≈ 18 KB of the 3.6 MB pool — deliberately NOTHING from internal heap, which
@@ -973,6 +974,18 @@ void MeshtasticService::setup() {
   // replay is a luxury and must never compete with SIP/WiFi for real RAM.
   replayRing = (ReplayHeard*)ps_malloc((size_t)REPLAY_RING_CAP * sizeof(ReplayHeard));
   replayPkts = (char*)ps_malloc((size_t)REPLAY_MAX_PKTS * REPLAY_PKT_STRIDE);
+  nbrCount = 0;
+  nbrNextTxMs = 0;
+  nbrPendingMask = 0;
+  nbrDripMs = 0;
+  nbrLastTxMs = 0;
+  nbrLastTxCount = 0;
+  {
+    Preferences p;
+    p.begin("wpmesh", true);
+    nbrIntervalSecs = p.getULong("nbrint", 0);   // 0 = off, the default
+    p.end();
+  }
   replayHead = replayCount = 0;
   replayPktCount = replayPktNext = 0;
   replayNextTxMs = 0;
@@ -1117,6 +1130,45 @@ bool MeshtasticService::loop() {
     }
   }
 
+  /* Neighbour announce, if switched on. Same shape as the NodeInfo beacon
+   * above: one packet, no want_response — asking every hearer to answer would
+   * turn a map update into a storm. */
+  if (radioState == MESH_RADIO_READY && nbrIntervalSecs > 0 && channelCount > 0) {
+    const uint32_t now = millis();
+    if (nbrNextTxMs == 0) {
+      nbrNextTxMs = now + nbrIntervalSecs * 1000UL;   // first one a full period in
+    } else if ((int32_t)(now - nbrNextTxMs) >= 0) {
+      nbrNextTxMs = now + nbrIntervalSecs * 1000UL;
+      /* Arm EVERY private channel — Nick runs more than one ('Howe group' and
+       * a hunt group), and each has its own membership, so each needs the map.
+       * Never the primary: index 0 is stock LongFast with the public key. */
+      nbrPendingMask = 0;
+      for (int i = 1; i < channelCount && i < 8; i++) {
+        if (channels[i].keyLen > 0 && !channelIsMachine(&channels[i])) {
+          nbrPendingMask |= (uint8_t)(1u << i);
+        }
+      }
+      if (nbrPendingMask == 0) {
+        log_e("NEIGHBOR: no private channel - not announcing (the primary is public)");
+      }
+      nbrDripMs = now;
+    }
+    /* ONE channel per pass, spaced: meshPhy.send() BLOCKS, and a LongFast
+     * packet is most of a second on air. Three back-to-back sends would stall
+     * the superloop long enough to matter (the task watchdog is not
+     * theoretical on this phone). */
+    if (nbrPendingMask && (int32_t)(now - nbrDripMs) >= 0) {
+      for (int i = 1; i < channelCount && i < 8; i++) {
+        if (nbrPendingMask & (1u << i)) {
+          nbrPendingMask &= (uint8_t)~(1u << i);
+          announceNeighborsOn(&channels[i]);
+          break;
+        }
+      }
+      nbrDripMs = now + 2000;
+    }
+  }
+
   /* Drain DMs that sendDirectMessage queued because their session key wasn't
    * cached (GUI depth cannot run the ~3 KB-stack X25519 derive; here it can).
    * One per tick; the local echo already happened at queue time. */
@@ -1192,6 +1244,17 @@ bool MeshtasticService::loop() {
   MeshNode* n = upsertNode(hdr.sender, NULL);
   if (n) {
     n->snr = snr;
+  }
+  /* Direct earshot = the packet reached us with NO relay: hop_start (what the
+   * sender set) still equals hop_limit (what is left). A node we only hear
+   * through a repeater is NOT a neighbour, and claiming otherwise would draw
+   * an edge on Nick's mesh map that does not exist. hop_start == 0 means the
+   * sender never set it (pre-2.x): unknowable, so not counted. */
+  {
+    const uint8_t hopStart = (uint8_t)((hdr.flags & MESH_FLAGS_HOP_START_MASK)
+                                       >> MESH_FLAGS_HOP_START_SHIFT);
+    const uint8_t hopLimit = (uint8_t)(hdr.flags & MESH_FLAGS_HOP_LIMIT_MASK);
+    neighborHeard(hdr.sender, snr, hopStart != 0 && hopStart == hopLimit);
   }
 
   // CLIENT role: relay (flood-route) packets not addressed only to us, if they
@@ -2357,4 +2420,166 @@ void MeshtasticService::replayPump() {
 #endif
   replayPktNext++;
   replayNextTxMs = now + REPLAY_TX_GAP_MS;
+}
+
+/* ── Neighbour info (portnum 71) ────────────────────────────────────────────
+ *
+ * Nick's ask: a toggle, because knowing who hears whom is how you build a mesh
+ * map while hunting. Two halves — remember who reaches us with no relay, and
+ * (when switched on) say so on a private channel.
+ *
+ * OFF BY DEFAULT and long-interval by design: this is pure airtime spend on a
+ * band shared with everyone else's traffic, and the stock module's own docs put
+ * its floor at four hours. */
+
+void MeshtasticService::neighborHeard(uint32_t node, int8_t snr, bool direct) {
+  if (node == 0 || node == myNodeNum) {
+    return;
+  }
+  const uint32_t now = millis();
+  for (int i = 0; i < nbrCount; i++) {
+    if (nbr[i].nodeNum == node) {
+      if (direct) {
+        nbr[i].snr = snr;
+        nbr[i].heardMs = now;
+      }
+      /* A node heard only via a relay does NOT refresh the entry and never
+       * creates one: it is not a neighbour, and an edge drawn to it would be
+       * a road on the map that does not exist. */
+      return;
+    }
+  }
+  if (!direct) {
+    return;
+  }
+  if (nbrCount < (int)(sizeof(nbr) / sizeof(nbr[0]))) {
+    nbr[nbrCount].nodeNum = node;
+    nbr[nbrCount].snr = snr;
+    nbr[nbrCount].heardMs = now;
+    nbrCount++;
+    return;
+  }
+  // Full: evict the stalest, which is the one least likely to still be in earshot.
+  int oldest = 0;
+  for (int i = 1; i < nbrCount; i++) {
+    if ((int32_t)(nbr[i].heardMs - nbr[oldest].heardMs) < 0) {
+      oldest = i;
+    }
+  }
+  nbr[oldest].nodeNum = node;
+  nbr[oldest].snr = snr;
+  nbr[oldest].heardMs = now;
+}
+
+bool MeshtasticService::getDirectNeighbor(int i, uint32_t* node, int* snr, uint32_t* ageMs) const {
+  if (i < 0 || i >= nbrCount) {
+    return false;
+  }
+  if (node) {
+    *node = nbr[i].nodeNum;
+  }
+  if (snr) {
+    *snr = nbr[i].snr;
+  }
+  if (ageMs) {
+    *ageMs = millis() - nbr[i].heardMs;
+  }
+  return true;
+}
+
+/* Where a neighbour announce goes: the first PRIVATE channel, never the
+ * primary. The primary here is stock LongFast with the public key, and
+ * broadcasting our mesh topology in the clear tells any stranger with a radio
+ * exactly who is out here and how well they hear each other. (Stock firmware
+ * reaches the same conclusion from the other end: its module refuses to
+ * transmit over LoRa on a default-key channel at all.) */
+/* `booksync` and `smsmirror` carry MACHINE traffic between these two devices
+ * and have no human audience: a neighbour map broadcast there is airtime spent
+ * where nobody is looking. Nick's answer when asked was "howe and hunt group
+ * and so on" — the channels people are actually on. */
+bool MeshtasticService::channelIsMachine(const MeshChannel* ch) const {
+  return ch && (strcasecmp(ch->name, "booksync") == 0 ||
+                strcasecmp(ch->name, "smsmirror") == 0);
+}
+
+const MeshChannel* MeshtasticService::neighborChannel() const {
+  for (int i = 1; i < channelCount; i++) {
+    if (channels[i].keyLen > 0 && !channelIsMachine(&channels[i])) {
+      return &channels[i];
+    }
+  }
+  return NULL;
+}
+
+const char* MeshtasticService::neighborChannelName() const {
+  const MeshChannel* ch = neighborChannel();
+  return ch ? ch->name : NULL;
+}
+
+bool MeshtasticService::announceNeighborsOn(const MeshChannel* ch) {
+  if (!ch) {
+    return false;
+  }
+  /* Only neighbours heard recently enough to still mean something. An hour of
+   * silence from a node in the woods means it moved, slept, or died; claiming
+   * it as an edge would be a guess dressed as a measurement. */
+  NeighborEntry list[16];
+  int n = 0;
+  const uint32_t now = millis();
+  const int cap = neighborInfoCapacity(MESH_TEXT_LEN - 8, myNodeNum, nbrIntervalSecs);
+  for (int i = 0; i < nbrCount && n < cap && n < (int)(sizeof(list) / sizeof(list[0])); i++) {
+    if ((uint32_t)(now - nbr[i].heardMs) > 3600000UL) {
+      continue;
+    }
+    list[n].nodeNum = nbr[i].nodeNum;
+    list[n].snr = (float)nbr[i].snr;
+    n++;
+  }
+  uint8_t payload[MESH_TEXT_LEN];
+  const int len = neighborInfoEncode(payload, sizeof(payload), myNodeNum, nbrIntervalSecs,
+                                     list, n);
+  if (len < 0) {
+    log_e("NEIGHBOR: encode failed (%d neighbours)", n);
+    return false;
+  }
+#ifdef MESHTASTIC_PHY
+  /* wantResponse FALSE: a map update that also demanded every hearer answer
+   * would turn one node's housekeeping into a mesh-wide storm — the same rule
+   * the periodic NodeInfo beacon follows. */
+  const bool ok = meshTxData(myNodeNum, MESH_ADDR_BROADCAST_ONAIR, MESH_PORT_NEIGHBORINFO,
+                             payload, (size_t)len, false, ch->key, ch->keyLen, ch->hash);
+#else
+  const bool ok = true;
+#endif
+  nbrLastTxMs = millis();
+  nbrLastTxCount = n;
+  log_e("NEIGHBOR: announced %d neighbour(s) on '%s' (%d bytes)%s",
+        n, ch->name, len, ok ? "" : " - TX FAILED");
+  return ok;
+}
+
+/* Announce on EVERY private channel right now, blocking. Only the bench calls
+ * this (serial `nbr now`); the scheduled path drips one channel per pass
+ * instead, because three LongFast sends back to back stall the superloop. */
+int MeshtasticService::announceNeighborsNow() {
+  int sent = 0;
+  for (int i = 1; i < channelCount && i < 8; i++) {
+    if (channels[i].keyLen > 0 && !channelIsMachine(&channels[i])) {
+      if (announceNeighborsOn(&channels[i])) {
+        sent++;
+      }
+      delay(50);
+    }
+  }
+  return sent;
+}
+
+void MeshtasticService::setNeighborInterval(uint32_t secs) {
+  nbrIntervalSecs = secs;
+  nbrNextTxMs = 0;              // re-arm: a fresh choice waits a full period
+  Preferences p;
+  p.begin("wpmesh", false);
+  p.putULong("nbrint", secs);
+  p.end();
+  log_i("Mesh: neighbour announce %s (%lus)", secs ? "ON" : "OFF", (unsigned long)secs);
 }

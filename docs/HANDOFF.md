@@ -5,6 +5,31 @@ ACCEPTED + MESH HISTORY REPLAY LIVE, both proven on hardware.** 15 host suites
 green (new: test_chunk, test_replay). The 0.9.7 flasher is PUBLISHED (gh-pages
 serves 0.9.7 — the stale "staged" note below predates the publish).
 
+## ✅ 2026-08-21 (afternoon): NEIGHBOUR INFO — who hears whom, on both devices
+
+Nick's ask, for building a mesh map while hunting. **Phone side:** a RAM table of
+nodes heard with NO relay (hop_start == hop_limit; hop_start absent = unknown,
+never counted — a relayed node is not a neighbour and an edge to it would be a
+road that does not exist), announced as a real Meshtastic NeighborInfo packet
+(portnum 71) on the PRIVATE channels only — never the public primary, and never
+booksync/smsmirror (machine channels, nobody reading). **My node > Neighbor
+info** cycles off / 1h / 4h; serial `nbr` lists the table, `nbr on|4h|off|now`
+drives it. The encoder is hand-rolled protobuf pinned BYTE-FOR-BYTE to the real
+runtime's output (tools/gen_neighbor_vectors.py → tests/test_neighbor.cpp);
+proto3 default-elision is part of that contract (emitting `snr=0` where the
+reference emits nothing cost 5 bytes and byte-equality).
+🔑 **MEASURED, and it decides the whole feature: the RAK forwards port-71
+packets to its clients ONLY while its own NeighborInfo module is enabled.**
+Module off → the phone announced twice and COVEY saw nothing; module on →
+`[nbr] !00449040 hears 1 node(s): !62b8d2fd` immediately. So COVEY's toggle is
+not about its own broadcasting, it is the switch that lets COVEY (and the
+Android app) see anyone's neighbours at all.
+⚠ The RAK's own module has a documented 4-hour floor and will not transmit over
+LoRa on a default-key channel (COVEY's primary is stock LongFast) — so COVEY
+contributes its local view, and the PHONE is what actually puts neighbour data
+on the air. That inverts Nick's expectation ("covey more often") and is worth
+saying out loud.
+
 ## ✅ 2026-08-21 (afternoon): MESH HISTORY REPLAY — the phone is COVEY's memory now
 
 **docs/replay-spec.md is the contract; CHANGELOG has the narrative.** The phone

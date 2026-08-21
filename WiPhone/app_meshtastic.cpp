@@ -36,6 +36,7 @@ extern bool gGpsNmea;
 #define MESH_MYNODE_CLEARMSGS  5
 #define MESH_MYNODE_CLEARNODES 6
 #define MESH_MYNODE_GPS        10     // woods plate: route the user UART to NMEA
+#define MESH_MYNODE_NEIGHBOR   11     // neighbour-info announce: off / 1h / 4h
 
 // Thread menu: "Write" row key (kept above any message index, which is idx+1).
 #define MESH_KEY_WRITE      2000000
@@ -542,6 +543,23 @@ void MeshtasticApp::buildMyNode() {
     menu->addOption(line, MESH_MYNODE_GPS, 1);
   }
 #endif
+  /* Neighbour announce (portnum 71): who we hear DIRECTLY, told to the private
+   * channels so a who-hears-whom map can be built. Names the channel it will
+   * use, because "on" with no private channel to send on would be a lie. */
+  {
+    const uint32_t iv = meshService.getNeighborInterval();
+    const char* chn = meshService.neighborChannelName();
+    if (iv == 0) {
+      snprintf(line, sizeof(line), "Neighbor info: off");
+    } else if (!chn) {
+      snprintf(line, sizeof(line), "Neighbor info: %luh - NO PRIVATE CHANNEL",
+               (unsigned long)(iv / 3600));
+    } else {
+      snprintf(line, sizeof(line), "Neighbor info: every %luh (%d heard)",
+               (unsigned long)(iv / 3600), meshService.getDirectNeighborCount());
+    }
+    menu->addOption(line, MESH_MYNODE_NEIGHBOR, 1);
+  }
   snprintf(line, sizeof(line), "Name: %s", meshService.getMyLongName());
   menu->addOption(line, 3, 1);
   /* Show whether the short name is the user's or follows the long name — otherwise there is
@@ -846,6 +864,16 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
         buildMyNode();
         menu->select(MESH_MYNODE_GPS);
 #endif
+      } else if (sel == MESH_MYNODE_NEIGHBOR) {
+        pendingClear = 0;
+        /* off -> 1h -> 4h -> off. One hour is the useful one for a hunting day
+         * (a four-hour cadence gives about three updates between dawn and
+         * dusk); four matches what the stock module's own docs call its floor,
+         * for anyone who would rather be quieter on the band. */
+        const uint32_t iv = meshService.getNeighborInterval();
+        meshService.setNeighborInterval(iv == 0 ? 3600 : (iv == 3600 ? 14400 : 0));
+        buildMyNode();
+        menu->select(MESH_MYNODE_NEIGHBOR);
       } else {
         pendingClear = 0;
       }

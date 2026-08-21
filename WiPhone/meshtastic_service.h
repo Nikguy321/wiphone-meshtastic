@@ -138,6 +138,18 @@ public:
   bool sendChannelMessage(uint8_t channelHash, const char* text);
   bool sendDirectMessage(uint32_t destNode, const char* text);
 
+  // ---- Neighbour info (portnum 71) -----------------------------------------
+  /* Who we hear DIRECTLY, and (optionally) telling the mesh about it so a
+   * who-hears-whom map can be drawn. Off by default: it is airtime. */
+  uint32_t getNeighborInterval() const { return nbrIntervalSecs; }   // 0 = off
+  void     setNeighborInterval(uint32_t secs);                       // persists (NVS)
+  int      getDirectNeighborCount() const { return nbrCount; }
+  bool     getDirectNeighbor(int i, uint32_t* node, int* snr, uint32_t* ageMs) const;
+  uint32_t lastNeighborTxMs() const { return nbrLastTxMs; }
+  int      lastNeighborTxCount() const { return nbrLastTxCount; }
+  const char* neighborChannelName() const;   // NULL = no private channel to send on
+  int      announceNeighborsNow();           // announce on every private channel; count sent
+
   // ---- Mesh history replay (docs/replay-spec.md) ---------------------------
   // This phone remembers the channel texts it hears; COVEY, blind while its
   // radio is lent, asks `RPL?` on the booksync channel and gets them back.
@@ -329,6 +341,29 @@ private:
   // Recently-seen packet ids, to drop mesh rebroadcasts of the same packet.
   uint32_t recentPktIds[16];
   int      recentPktPos;
+
+  // ---- Neighbour info state -------------------------------------------------
+  /* DELIBERATELY NOT PERSISTED and deliberately not part of MeshNode: who is
+   * within direct earshot is a LIVE property (it changes as you walk), and
+   * adding a field to MeshNode would force a node-DB migration for data that
+   * is stale the moment it is restored. */
+  struct DirectNeighbor {
+    uint32_t nodeNum;
+    uint32_t heardMs;
+    int8_t   snr;
+  };
+  DirectNeighbor nbr[16];
+  int            nbrCount;
+  uint32_t       nbrIntervalSecs;    // 0 = off (NVS "nbrint")
+  uint32_t       nbrNextTxMs;
+  uint8_t        nbrPendingMask;    // channels still to announce this cycle (bit = index)
+  uint32_t       nbrDripMs;         // next send in the current cycle
+  uint32_t       nbrLastTxMs;        // millis() of the last announce (0 = never)
+  int            nbrLastTxCount;     // neighbours in it
+  void neighborHeard(uint32_t node, int8_t snr, bool direct);
+  bool announceNeighborsOn(const MeshChannel* ch);
+  const MeshChannel* neighborChannel() const;
+  bool channelIsMachine(const MeshChannel* ch) const;
 
   // ---- Mesh history replay state (docs/replay-spec.md) ---------------------
   /* The ring lives in PSRAM (setup(); ~12 KB) — NOT internal heap, which this

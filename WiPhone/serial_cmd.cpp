@@ -81,6 +81,8 @@ static void help() {
     "  dm <!node> <text>  send a direct message (PKI when the key is known)",
     "  heap       memory truth: internal/DMA/PSRAM free+largest+floor",
     "  replay     history-replay state: ring occupancy, pending tx, last served",
+    "  nbr        neighbours heard DIRECTLY + announce state (My node > Neighbor info)",
+    "  nbr on|4h|off|now  set the announce cadence (1h/4h) or announce right now",
     "  pos        positions: waypoints, node fixes, our pin, the reference",
     "  gps        woods-plate GPS state: fix, sats, reader counters",
     "  gps on|off route the user UART (38/32) to the NMEA reader (persists)",
@@ -340,6 +342,57 @@ static void run(char* line) {
   /* `replay` — the mesh-history replay's whole state in one line (the feature
    * is otherwise invisible on this phone, which is the point: it exists so
    * COVEY can ask what it missed — docs/replay-spec.md). */
+  /* `nbr` — who is in DIRECT earshot, with signal and age. The map-building
+   * diagnostic: a node listed here is one hop away, and anything NOT listed we
+   * only ever heard through a relay. */
+  /* `nbr on|4h|off` mirrors the My node > Neighbor info row (same pref), and
+   * `nbr now` forces one announce — the bench cannot wait an hour to find out
+   * whether the packet is well formed. */
+  if (!strncasecmp(line, "nbr ", 4)) {
+    const char* arg = line + 4;
+    while (*arg == ' ') arg++;
+    if (!strcasecmp(arg, "on") || !strcasecmp(arg, "1h")) {
+      meshService.setNeighborInterval(3600);
+      say("nbr: announcing every 1h\n");
+    } else if (!strcasecmp(arg, "4h")) {
+      meshService.setNeighborInterval(14400);
+      say("nbr: announcing every 4h\n");
+    } else if (!strcasecmp(arg, "off")) {
+      meshService.setNeighborInterval(0);
+      say("nbr: announcing OFF\n");
+    } else if (!strcasecmp(arg, "now")) {
+      const int n = meshService.announceNeighborsNow();
+      say("nbr: announced on %d private channel(s)%s\n", n,
+          n ? "" : " - none configured, nothing sent");
+    } else {
+      say("nbr: usage nbr on|4h|off|now\n");
+    }
+    return;
+  }
+  if (!strcasecmp(line, "nbr")) {
+    const uint32_t iv = meshService.getNeighborInterval();
+    const char* chn = meshService.neighborChannelName();
+    say("nbr: announce %s%s | channel %s | %d direct neighbour(s)\n",
+        iv ? "every " : "OFF", iv ? (iv == 3600 ? "1h" : "4h") : "",
+        chn ? chn : "NONE (primary is public - nothing sent)",
+        meshService.getDirectNeighborCount());
+    for (int i = 0; i < meshService.getDirectNeighborCount(); i++) {
+      uint32_t node = 0, age = 0;
+      int snr = 0;
+      if (meshService.getDirectNeighbor(i, &node, &snr, &age)) {
+        say("  !%08x  snr %d dB  heard %lum ago\n", (unsigned)node, snr,
+            (unsigned long)(age / 60000UL));
+      }
+    }
+    if (meshService.lastNeighborTxMs()) {
+      say("nbr: last announce %lum ago, %d neighbour(s) in it\n",
+          (unsigned long)((millis() - meshService.lastNeighborTxMs()) / 60000UL),
+          meshService.lastNeighborTxCount());
+    } else {
+      say("nbr: never announced yet\n");
+    }
+    return;
+  }
   if (!strcasecmp(line, "replay")) {
     if (meshService.replayLastServedMs()) {
       say("replay: ring %d heard | pending tx %d pkt(s) | last served %d rec(s) %lus ago\n",

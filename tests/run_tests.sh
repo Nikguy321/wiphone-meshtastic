@@ -61,6 +61,9 @@ for src in tests/test_*.cpp; do
     # The mesh-history replay wire format vs vectors generated from COVEY's
     # replay.py (regenerate with tools/gen_replay_vectors.py after changes).
     test_replay)   deps=(WiPhone/replay_proto.cpp) ;;
+    # NeighborInfo encoding vs the real protobuf runtime's bytes
+    # (regenerate with tools/gen_neighbor_vectors.py).
+    test_neighbor) deps=(WiPhone/neighbor_info.cpp) ;;
     # Compiles the REAL helix decoder so a pass proves the bytes that ship are the bytes
     # that decode. helix is C and is listed in csrc, not deps — see CFLAGS above.
     test_mp3)      deps=(WiPhone/mp3_stream.cpp)
