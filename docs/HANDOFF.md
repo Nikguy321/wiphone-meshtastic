@@ -8,6 +8,10 @@ then `tools/publish_webflasher.sh`).
 
 ## 🌙 2026-08-20 (evening) — the upload saga: fast networks were the killer all along
 
+> **▶ NEXT SESSION STARTS HERE: `docs/upload-redesign-brief.md` — Nick approved the
+> token spend for the chunked stop-and-wait redesign. The brief is the cold-start
+> document: measured anatomy, agreed design, scouted traps, test corpus, acceptance bar.**
+
 **The bug Nick reported as "books upload locked up + panic" unraveled into a 5-act play,
 every act measured on hardware.** (1) The STA reconnect gate stranded WiFi during server
 sessions — fixed (softAP-only gates). (2) lwIP starvation killed the listener then the
