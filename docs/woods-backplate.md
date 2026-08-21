@@ -99,10 +99,18 @@ discharge, exactly when you are furthest from the truck).
 is off and back-powers the ESP32 through its GPIO clamp diodes. One wire, and it removes a whole
 class of problem.
 
+✅ **MEASURED (Nick, 2026-08-21):** the header's 3.3 V pin reads **3.3 V with the phone ON and
+0 V with the phone OFF**. Two things follow, both load-bearing:
+1. **The EN gating above works.** The pin is a true phone-power-state signal, so tying the
+   TLV62569's EN to it really does collapse the plate's rail when the phone sleeps — the plate
+   cannot quietly drain the pack overnight.
+2. **`ENABLE_DAUGHTER_33V` is not gating this rail** (open question 3 below, answered): the rail
+   simply follows phone power, with no firmware assertion involved.
+
 ⚠ `ENABLE_DAUGHTER_33V` (SX1509 pin 4) exists in `Hardware.h` but the only line that writes it —
 `WiPhone.ino:1222` — is **commented out**, so firmware never asserts it. The stock LoRa plate works
-regardless, so the daughterboard 3.3 V is evidently not gated by it. Confirm with a meter before
-relying on that pin as an EN source.
+regardless, so the daughterboard 3.3 V is evidently not gated by it. ✅ Confirmed with a meter
+2026-08-21 (see above): safe to rely on that pin as an EN source.
 
 ## Measure these before committing to a PCB
 
@@ -149,9 +157,13 @@ Every documented fact fits this and only this:
 | "drop at reverse voltage protection diode and current limiter" | those parts are upstream of the tap, not between the tap and the charger |
 | the Mega pushes 2.4 A in through the headers | **pushing** in bypasses all three and goes straight to the charger |
 
-⚠ This is inferred from the vendor's wording plus the existence of the Mega, not read off a
-schematic. **The 60-second confirmation, plate off:** no USB attached, feed the 5 V pin from a bench
-supply at 5 V with a 200 mA limit and watch for charging current. Do it before ordering.
+✅ **MEASURED AND CONFIRMED (Nick, 2026-08-21, bench):** with no USB attached, 5.0 V fed to the
+5 V pogo pin at a 200 mA limit, **the phone charges.** The topology above is no longer an
+inference — the pogo pin reaches the charger, and the PowerBoost will charge the phone in the
+woods exactly as the plate assumes.
+
+(The original wording, kept because it is why the test existed: "This is inferred from the
+vendor's wording plus the existence of the Mega, not read off a schematic.")
 
 ### What happens if you plug USB in while the pack is running
 
