@@ -92,6 +92,8 @@ static uint32_t     s_lastChunkMs   = 0;       // when a /chunk piece last arriv
 
 static void xferServerUp();     // create + register + begin (also the breaker's resume)
 static void xferServerDown();   // stop + delete + MDNS.end (also the breaker's pause)
+static void rawXferPump();      // the raw port-8081 transport, pumped every pass
+static void rawAbort();         // drop any in-flight raw request (transport preemption)
 
 static const XferConfig ROM_CFG = {
   "/roms", "Add Game Boy ROMs", ".gb,.gbc", "ROMs", "download.gbc", "WiPhone-ROMs"
@@ -109,6 +111,11 @@ void gbcXferHandleClient() {
   if (!s_on) {
     return;
   }
+  /* The raw transport rides ABOVE the breaker: its per-request heap cost is
+   * zero (static header buffer, bodies straight to PSRAM, one long-lived
+   * connection), so pausing it with the WebServer would only punish the one
+   * client that cannot cause the pressure. */
+  rawXferPump();
   if (!s_server && !s_breakerPaused) {
     return;                 // not started at all
   }
@@ -142,8 +149,16 @@ void gbcXferHandleClient() {
      * would abort the very transfer that is about to release the pressure, so
      * the trip defers to it unless memory is truly catastrophic. Between
      * requests the 6 KB line stands. */
+    /* While the raw transport is mid-batch the breaker does NOT trip at all.
+     * MEASURED (first 4-book raw batch): dips during streaming are the driver's
+     * bounded working set; pausing the IDLE port-80 server relieved nothing,
+     * and every down/up cycle (MDNS.end/begin + server delete/new inside tight
+     * heap) leaked — the per-file floors stair-stepped 3328 → 1536 → 1032 →
+     * 616 across one batch, tracking the cycle count, and recovered the moment
+     * cycling stopped. The stock trip rules resume 30 s after the last piece. */
+    const bool chunkPacedNow = (uint32_t)(now - s_lastChunkMs) < 30000;
     const size_t tripAt = s_uploadFile ? 3072 : 6144;
-    if (largest < tripAt && (uint32_t)(now - s_breakerFlipMs) > 3000) {
+    if (!chunkPacedNow && largest < tripAt && (uint32_t)(now - s_breakerFlipMs) > 3000) {
       /* Every trip is now a RECYCLE-THEN-SETTLE, not an instant judgment.
        * MEASURED 2026-08-20 (first chunked hardware run): judging recovery
        * synchronously undersells it — lwIP frees pcbs from its own thread, so
@@ -260,67 +275,99 @@ static const char PAGE_3[] =
   "function names(fs){var a=[];for(var i=0;i<fs.length;i++)a.push(fs[i].name);return a.join(', ');}"
   "inp.addEventListener('change',function(){"
   "ch.textContent=inp.files.length?names(inp.files):'No files chosen yet.';});"
-  /* THE CHUNKED SENDER (2026-08-20 redesign). One 4 KB piece per request, each
-   * awaiting the phone's ack before the next departs \u2014 the sender can never hand
-   * the radio more than one piece's burst, which is what keeps the phone's
-   * internal heap alive on a fast LAN (see the /chunk handler's notes). Every
-   * piece carries a CRC32 the server verifies before committing; a failed or
-   * refused piece retries with backoff, resyncing to the server's held-byte
-   * count, so a dropped connection or a breaker recycle costs one piece, not the
-   * file. The old whole-file /upload stays for no-JS browsers and curl. */
-  // CRC32 (IEEE) \u2014 must agree with chunk_proto.h's, or every piece is refused.
+  /* THE CHUNKED SENDER (2026-08-20/21 redesign). One piece per request, each
+   * awaiting the phone's ack before the next departs; every piece carries a
+   * CRC32 the server verifies before committing, and a failed piece resyncs to
+   * the server's held-byte count — so a dropped connection, a breaker pause, or
+   * a reboot costs pieces, never files. On load the page probes the RAW port
+   * (8081): one long-lived connection, raw text/plain bodies (CORS-simple),
+   * 8 KB pieces — the fast path. No raw port answering ⇒ same-origin multipart
+   * /chunk at 4 KB — the compatible path. Browsers with JS but no fetch() keep
+   * the native form POST to /upload (nothing is preventDefault'ed for them);
+   * curl keeps /upload too. */
+  // CRC32 (IEEE) — must agree with chunk_proto.h's, or every piece is refused.
   "var CT=null;"
   "function crct(){if(CT)return CT;CT=[];for(var n=0;n<256;n++){var c=n;"
   "for(var k=0;k<8;k++)c=(c&1)?(3988292384^(c>>>1)):(c>>>1);CT[n]=c;}return CT;}"
   "function crc32(u){var t=crct(),c=4294967295;"
   "for(var i=0;i<u.length;i++)c=t[(c^u[i])&255]^(c>>>8);return(c^4294967295)>>>0;}"
   "function hex8(v){var s=v.toString(16);while(s.length<8)s='0'+s;return s;}"
-  // 4096 is measured, not guessed: a 4 KB burst costs the phone's heap nothing,
-  // 8 KB dips it 4 KB further, 16 KB grinds the largest free block to 636 bytes.
-  "var PIECE=4096;"
+  // Piece sizes are measured, not guessed: 4 KB costs the WebServer path
+  // nothing; the raw path's in-flight is window-bounded so 8 KB is free there.
+  "var PIECE=4096,BASE='',probed=false;"
+  "var RAWB='http://'+location.hostname+':8081';"
+  "function probe(cb){"
+  "if(probed){cb();return;}"
+  "var done=false,t=setTimeout(function(){if(!done){done=true;probed=true;cb();}},1500);"
+  "fetch(RAWB+'/chunk?name=probe.bin',{cache:'no-store'}).then(function(r){"
+  "if(!done){done=true;probed=true;clearTimeout(t);if(r.ok){BASE=RAWB;PIECE=16384;}cb();}"
+  "}).catch(function(){if(!done){done=true;probed=true;clearTimeout(t);cb();}});"
+  "}"
   "function sendAll(files){"
   "if(!files||!files.length){ch.textContent='No files chosen.';return;}"
-  "var fi=0;"
+  "var fi=0,sent=0,failed=[],skipped=0;"
+  "probe(function(){nextFile();});"
+  "function finish(){"
+  "var m='Done! '+sent+' file(s) on your phone.';"
+  "if(skipped)m+=' ('+skipped+' empty file(s) skipped)';"
+  "if(failed.length)m='Sent '+sent+' — FAILED: '+failed.join(', ');"
+  "ch.textContent=m;}"
   "function nextFile(){"
-  "if(fi>=files.length){ch.textContent='Done! '+files.length+' file(s) on your phone.';return;}"
-  "var file=files[fi],off=0,tries=0;"
-  "if(!file.size){fi++;nextFile();return;}"
+  "if(fi>=files.length){finish();return;}"
+  "var file=files[fi],off=0,tries=0,lastSync=-1,stalls=0;"
+  "if(!file.size){skipped++;fi++;nextFile();return;}"
   "function stat(x){ch.textContent='Uploading '+(fi+1)+' of '+files.length+': '+file.name+"
-  "' \u2014 '+Math.floor(off*100/file.size)+'%'+(x||'');}"
+  "' — '+Math.floor(off*100/file.size)+'%'+(x||'');}"
+  // A file that gives up does NOT sink the batch: note it, move on.
+  "function giveUp(why){failed.push(file.name+(why?' ('+why+')':''));fi++;setTimeout(nextFile,300);}"
   "function fail(){tries++;"
-  "if(tries>24){ch.textContent='Gave up on '+file.name+' \u2014 is the phone still on the network?';return;}"
+  "if(tries>24){giveUp('unreachable');return;}"
   "stat(' (retry '+tries+')');setTimeout(resync,Math.min(500*tries,5000));}"
-  // Resync: ask the phone how much it holds, continue from there. This is
-  // what makes retries idempotent and a mid-file reboot resumable.
-  "function resync(){fetch('/chunk?name='+encodeURIComponent(file.name),{cache:'no-store'})"
+  // Resync = ask the phone how much it holds, continue from there. A resync
+  // that never advances (a dying SD acks buffered pieces, then loses them)
+  // trips the stall counter instead of cycling forever.
+  "function resync(){fetch(BASE+'/chunk?name='+encodeURIComponent(file.name),{cache:'no-store'})"
   ".then(function(r){return r.text();}).then(function(t){"
-  "var n=parseInt(t,10);if(n>=0&&n<=file.size)off=n;piece();})"
+  "var n=parseInt(t,10);"
+  "if(n>=0&&n<=file.size){"
+  "if(n<=lastSync){stalls++;if(stalls>5){giveUp('no progress — SD trouble?');return;}}"
+  "else{stalls=0;}"
+  "lastSync=n;off=n;}"
+  "piece();})"
   ".catch(fail);}"
   "function piece(){"
-  "if(off>=file.size){fi++;setTimeout(nextFile,300);return;}"
+  "if(off>=file.size){sent++;fi++;setTimeout(nextFile,300);return;}"
   "var end=Math.min(off+PIECE,file.size),fr=new FileReader();"
   "fr.onerror=fail;"
   "fr.onload=function(){"
-  "var u=new Uint8Array(fr.result),fd=new FormData();"
-  "fd.append('p',new Blob([u]),'p');"
-  "fetch('/chunk?name='+encodeURIComponent(file.name)+'&off='+off+'&crc='+hex8(crc32(u))+"
-  "'&last='+(end>=file.size?1:0),{method:'POST',body:fd})"
+  "var u=new Uint8Array(fr.result);"
+  "var url=BASE+'/chunk?name='+encodeURIComponent(file.name)+'&off='+off+'&crc='+hex8(crc32(u))+"
+  "'&last='+(end>=file.size?1:0);"
+  "var opts;"
+  "if(BASE){opts={method:'POST',body:new Blob([u],{type:'text/plain'})};}"
+  "else{var fd=new FormData();fd.append('p',new Blob([u]),'p');opts={method:'POST',body:fd};}"
+  "fetch(url,opts)"
   ".then(function(r){return r.text().then(function(t){return{ok:r.ok,c:r.status,t:t};});})"
   ".then(function(res){"
   "var m=res.t.match(/(\\d+)/),n=m?parseInt(m[1],10):-1;"
   "if(res.ok){tries=0;off=(n>off&&n<=file.size)?n:end;stat('');piece();}"
   "else if(res.c==409&&n>=0&&n<=file.size){off=n;tries++;"
-  "if(tries>24){fail();}else{setTimeout(piece,150);}}"
+  "if(tries>24){giveUp('kept resyncing');}else{setTimeout(piece,150);}}"
+  "else if(res.c==400||res.c==413||res.c==404){giveUp('refused: '+res.t);}"
   "else{fail();}})"
   ".catch(fail);};"
   "fr.readAsArrayBuffer(file.slice(off,end));}"
   "stat('');piece();}"
-  "nextFile();"
   "}"
+  /* fetch()-less JS browsers never enter the chunked path: no preventDefault,
+   * so the form's native POST /upload still works — the fallback the first
+   * version of this sender silently killed. */
+  "if(window.fetch){"
   "['dragenter','dragover'].forEach(function(e){d.addEventListener(e,function(ev){ev.preventDefault();d.classList.add('over')})});"
   "['dragleave','drop'].forEach(function(e){d.addEventListener(e,function(ev){ev.preventDefault();d.classList.remove('over')})});"
   "d.addEventListener('drop',function(ev){sendAll(ev.dataTransfer.files)});"
   "f.addEventListener('submit',function(ev){ev.preventDefault();sendAll(inp.files)});"
+  "}"
   "</script></body></html>";
 
 static void handleRoot() {
@@ -454,10 +501,17 @@ static size_t s_reqFloor    = 0;   // lowest largest seen during this request
  * card, never lost EXCEPT to a reboot; the client's resync (`GET /chunk`) covers
  * that. The buffer belongs to whichever path has a file open — the two STARTs
  * finalize each other, so the paths cannot interleave mid-file. */
-#define CHUNK_PIECE_MAX  8192     // server-enforced piece cap (page sends 4096)
-#define CHUNK_FLUSH_AT   24576    // flush when this full: always ≥ one piece of room left
+#define CHUNK_PIECE_MAX  8192     // WebServer-path cap (its page sends 4096)
+#define CHUNK_FLUSH_AT   16384    // flush when this full: always one RAW piece of room left
 static File     s_chunkFile;                // open across the pieces of one file
 static char     s_chunkName[64] = {0};      // sanitized name of that file
+/* ⚠ Durable bytes are COUNTED here, never stat'd. CONFIRMED in this core's
+ * vfs_api.cpp: File::size() after a write stats the PATH, and FatFS updates a
+ * file's directory entry only on sync/close — so size() on the open handle
+ * reports the size as of the last flush, not the truth. The one moment size()
+ * is trustworthy is right after open (the file was closed then, and close
+ * syncs). So: read it once at open, then count. */
+static size_t   s_chunkDurable = 0;         // bytes on the card through the open handle
 static uint32_t s_chunkCrc = 0;             // running CRC of the arriving piece
 static uint32_t s_chunkWantCrc = 0;         // the CRC the client claims
 static size_t   s_chunkPieceLen = 0;        // bytes of the current piece gathered
@@ -480,13 +534,66 @@ static bool chunkFlush() {
   }
   const size_t wrote = s_chunkFile.write(s_sdBuf, s_sdLen);
   const bool ok = (wrote == s_sdLen);
+  s_chunkDurable += wrote;      // count what actually landed, even on a short write
   s_sdLen = 0;
+  if (ok) {
+    /* f_sync per block: the directory entry stays honest (a crash costs at
+     * most one block of resend) and it is one sync per 24 KB, not per piece. */
+    s_chunkFile.flush();
+  }
   return ok;
 }
 
-/* Close out the open chunk file (breaker recycle, server stop, path switch, or
- * batch end). Buffered bytes are flushed first — that is what makes an ack mean
- * "will survive a teardown". A partial file stays on the card; resume finds it. */
+/* Commit one CRC-verified piece of `len` bytes sitting at s_sdBuf[s_sdLen..].
+ * The ONE commit path, shared by both transports (WebServer /chunk and the raw
+ * port), so the flush policy, the counters, and the reply arithmetic cannot
+ * drift apart. Returns the HTTP code; writes the reply text. */
+static void chunkFinalize();
+static int chunkCommit(size_t len, bool last, char* reply, size_t replyCap) {
+  s_sdLen += len;                     // the piece is now buffered file data
+  bool ok = true;
+  if (last || s_sdLen >= CHUNK_FLUSH_AT) {
+    ok = chunkFlush();
+  }
+  if (!ok) {
+    /* The card refused the write. Fall back to durable truth: close out,
+     * answer 507; the client resyncs and re-sends what the card lost. */
+    log_e("XFER: chunk SD write FAILED ('%s') - answering 507", s_chunkName);
+    chunkFinalize();
+    strlcpy(reply, "sd", replyCap);
+    return 507;
+  }
+  s_chunkPieces++;                    // counted only past the failure exit: no double-count on a 507 retry
+  if (last) {
+    s_filesAdded++;
+    log_e("XFER: '%s' chunked done (file %d this session) size=%u pieces=%u "
+          "file-floor: largest=%u free=%u",
+          s_chunkName, s_filesAdded, (unsigned)s_chunkDurable, (unsigned)s_chunkPieces,
+          (unsigned)s_fileFloorLargest, (unsigned)s_fileFloorFree);
+    s_chunkFile.close();              // close syncs the dir entry; size() is honest again
+    s_chunkName[0] = '\0';
+  }
+  snprintf(reply, replyCap, "ok %u", (unsigned)(s_chunkDurable + s_sdLen));
+  return 200;
+}
+
+/* Make every acked byte durable WITHOUT closing the batch: flush the buffered
+ * block and sync. This is what a breaker pause wants — the FIRST hardware run
+ * of the raw transport showed pauses calling full finalize and chopping one
+ * 374-piece book into ~17 open/close segments for no benefit (the raw client
+ * was not going down; only the port-80 server was). */
+static void chunkPersist() {
+  if (s_chunkFile) {
+    if (!chunkFlush()) {
+      log_e("XFER: chunk flush FAILED at persist ('%s') - client will resync", s_chunkName);
+    }
+    s_chunkFile.flush();
+  }
+}
+
+/* Close out the open chunk file (server stop, path switch, or batch end).
+ * Buffered bytes are flushed first — that is what makes an ack mean "will
+ * survive a teardown". A partial file stays on the card; resume finds it. */
 static void chunkFinalize() {
   if (s_chunkFile) {
     if (!chunkFlush()) {
@@ -499,6 +606,50 @@ static void chunkFinalize() {
   s_sdLen = 0;
   s_chunkPieceLen = 0;
   s_chunkGather = false;
+}
+
+/* Open (or keep) the batch file for `name` with the client claiming offset
+ * `off` — the ONE file-lifecycle path, shared by both transports. off==0 is a
+ * deliberate fresh start and truncates. False = reply already decided. */
+static bool chunkOpenFor(const char* name, size_t off, int* code, char* reply, size_t replyCap) {
+  if (!s_sdBuf) {
+    s_sdBuf = (uint8_t*)ps_malloc(XFER_SD_BLOCK);
+    if (!s_sdBuf) {
+      *code = 507;
+      strlcpy(reply, "no mem", replyCap);
+      return false;
+    }
+  }
+  if (!s_chunkFile || strcmp(name, s_chunkName) || off == 0) {
+    chunkFinalize();
+    strlcpy(s_chunkName, name, sizeof(s_chunkName));
+    String path = String(s_cfg->dir) + "/" + name;
+    if (off == 0) {
+      SD.mkdir(s_cfg->dir);
+      SD.remove(path.c_str());
+    }
+    /* FILE_APPEND, emphatically not FILE_WRITE: in this core FILE_WRITE is
+     * "w", which TRUNCATES an existing file — reopening a partial file to
+     * resume it would silently discard every byte already uploaded. Append
+     * mode creates-if-missing and positions at the end. */
+    s_chunkFile = SD.open(path.c_str(), FILE_APPEND);
+    if (!s_chunkFile) {
+      s_chunkName[0] = '\0';
+      *code = 507;
+      strlcpy(reply, "sd open", replyCap);
+      return false;
+    }
+    /* size() is trustworthy HERE and only here — the file was closed until a
+     * moment ago (close syncs the dir entry). From now on, count. */
+    s_chunkDurable = (off == 0) ? 0 : (size_t)s_chunkFile.size();
+    /* Per-SEGMENT telemetry, initialized at EVERY open — a file resumed at
+     * off>0 used to inherit floors of 0 (or the previous file's), and the
+     * acceptance bar would have been read off garbage. */
+    s_chunkPieces = 0;
+    s_fileFloorLargest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    s_fileFloorFree = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  }
+  return true;
 }
 
 static bool xferFlushBlock() {
@@ -524,7 +675,7 @@ static void handleChunkGet() {
   }
   size_t held;
   if (s_chunkFile && !strcmp(name, s_chunkName)) {
-    held = (size_t)s_chunkFile.size() + s_sdLen;
+    held = s_chunkDurable + s_sdLen;   // counted, not stat'd — size() lies while open
   } else {
     File f = SD.open((String(s_cfg->dir) + "/" + name).c_str());
     held = f ? (size_t)f.size() : 0;
@@ -552,6 +703,7 @@ static void handleChunkData() {
     strlcpy(s_chunkReply, "err", sizeof(s_chunkReply));
     s_reqLargest0 = s_reqFloor =
         heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    rawAbort();                     // a WebServer piece takes the shared buffer; raw resyncs
     if (s_uploadFile) {
       s_uploadFile.close();         // a dangling legacy upload must not share the buffer
       s_sdLen = 0;
@@ -569,42 +721,10 @@ static void handleChunkData() {
     }
     s_chunkOff = (size_t)strtoul(s_server->arg("off").c_str(), NULL, 10);
     s_chunkLast = (s_server->arg("last") == "1");
-    if (!s_sdBuf) {
-      s_sdBuf = (uint8_t*)ps_malloc(XFER_SD_BLOCK);
-      if (!s_sdBuf) {
-        s_chunkCode = 507;
-        strlcpy(s_chunkReply, "no mem", sizeof(s_chunkReply));
-        return;
-      }
+    if (!chunkOpenFor(name, s_chunkOff, &s_chunkCode, s_chunkReply, sizeof(s_chunkReply))) {
+      return;
     }
-    /* A new name, or off==0 (a deliberate fresh start): (re)open. off==0
-     * truncates — re-uploading a finished book is how the corpus tests run. */
-    if (!s_chunkFile || strcmp(name, s_chunkName) || s_chunkOff == 0) {
-      chunkFinalize();
-      strlcpy(s_chunkName, name, sizeof(s_chunkName));
-      String path = String(s_cfg->dir) + "/" + name;
-      if (s_chunkOff == 0) {
-        SD.mkdir(s_cfg->dir);
-        SD.remove(path.c_str());
-        s_chunkPieces = 0;
-        s_fileFloorLargest = s_reqLargest0;
-        s_fileFloorFree = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-      }
-      /* FILE_APPEND, emphatically not FILE_WRITE: in this core FILE_WRITE is
-       * "w", which TRUNCATES an existing file — reopening a partial file to
-       * resume it would silently discard every byte already uploaded. Append
-       * mode creates-if-missing, positions at the end, and size() tells the
-       * truth, which is exactly the held-bytes contract. (The legacy path gets
-       * away with FILE_WRITE because it remove()s first, every time.) */
-      s_chunkFile = SD.open(path.c_str(), FILE_APPEND);
-      if (!s_chunkFile) {
-        s_chunkName[0] = '\0';
-        s_chunkCode = 507;
-        strlcpy(s_chunkReply, "sd open", sizeof(s_chunkReply));
-        return;
-      }
-    }
-    s_chunkHeld = (size_t)s_chunkFile.size() + s_sdLen;
+    s_chunkHeld = s_chunkDurable + s_sdLen;
     /* Only a piece at the boundary gathers; the rest is judged at END, when
      * the length is known (a duplicate resend acks, anything else resyncs). */
     if (s_chunkOff == s_chunkHeld) {
@@ -649,39 +769,9 @@ static void handleChunkData() {
         s_chunkPieceLen = 0;        // drop the piece; buffered committed bytes stand
         return;
       }
-      s_sdLen += s_chunkPieceLen;   // the piece is now buffered file data
+      const size_t pieceLen = s_chunkPieceLen;
       s_chunkPieceLen = 0;
-      s_chunkPieces++;
-      bool ok = true;
-      size_t finalSz = 0;
-      if (s_chunkLast) {
-        ok = chunkFlush();
-        if (ok) {
-          s_chunkFile.flush();
-          finalSz = (size_t)s_chunkFile.size();
-          s_filesAdded++;
-          log_e("XFER: '%s' chunked done (file %d this session) size=%u pieces=%u "
-                "file-floor: largest=%u free=%u",
-                s_chunkName, s_filesAdded, (unsigned)finalSz, (unsigned)s_chunkPieces,
-                (unsigned)s_fileFloorLargest, (unsigned)s_fileFloorFree);
-          s_chunkFile.close();
-          s_chunkName[0] = '\0';
-        }
-      } else if (s_sdLen >= CHUNK_FLUSH_AT) {
-        ok = chunkFlush();
-      }
-      if (!ok) {
-        /* The card refused the write. Fall back to durable truth: close out,
-         * answer 507; the client resyncs and re-sends what the card lost. */
-        log_e("XFER: chunk SD write FAILED ('%s') - answering 507", s_chunkName);
-        chunkFinalize();
-        s_chunkCode = 507;
-        strlcpy(s_chunkReply, "sd", sizeof(s_chunkReply));
-        return;
-      }
-      const size_t held = s_chunkFile ? (size_t)s_chunkFile.size() + s_sdLen : finalSz;
-      s_chunkCode = 200;
-      snprintf(s_chunkReply, sizeof(s_chunkReply), "ok %u", (unsigned)held);
+      s_chunkCode = chunkCommit(pieceLen, s_chunkLast, s_chunkReply, sizeof(s_chunkReply));
       return;
     }
     /* Not gathered: judge the piece now that its length is known. */
@@ -723,11 +813,371 @@ static void handleChunkDone() {
   s_server->send(s_chunkCode, "text/plain", s_chunkReply);
 }
 
+/* ── THE RAW TRANSPORT (port 8081) — why a second server exists at all ────────────────
+ *
+ * MEASURED 2026-08-20/21 on hardware: the framework WebServer costs ~10 KB of
+ * internal-heap transient and ~1.6-2 KB of fragmentation PER REQUEST, and every
+ * request is its own TCP connection (the library hardcodes Connection: close)
+ * whose TIME_WAIT pcb haunts the heap for 120 s. At one 4 KB piece per request a
+ * book is hundreds of requests, and two real runs — unpaced AND paced to 150 ms —
+ * both ground the largest block to ~5 K and died flapping. Pacing does not fix a
+ * per-request cost.
+ *
+ * So the chunk protocol gets a transport built for it: ONE TCP connection carries
+ * the whole batch (keep-alive), requests are parsed by a ~150-line incremental
+ * state machine pumped from the main loop (never blocks: reads only what is
+ * available, with a deadline for dead clients), bodies are RAW bytes read straight
+ * into the PSRAM block at OUR pace. In-flight data is bounded by the TCP window
+ * (5,744 B) AND by stop-and-wait, so the RX flood that started all this is
+ * impossible by construction, and per-request heap cost is ZERO — no Strings, no
+ * HTTPUpload, no new connections. The verdicts, the store, and the commit path are
+ * the same chunk_proto.h + chunkOpenFor/chunkCommit the WebServer path uses; that
+ * path stays as the fallback (and the page probes 8081 and falls back by itself).
+ *
+ * CORS: the page lives on port 80, so 8081 is cross-origin. Pieces are sent as
+ * text/plain (a CORS-simple request — no preflight in any browser that matters)
+ * and every reply carries Access-Control-Allow-Origin: *; OPTIONS is answered
+ * anyway for the browsers that ask first. */
+#define RAW_PORT       8081
+#define RAW_PIECE_MAX  16384     /* fits the shared block: flush-at 16 KB leaves 16 KB of room.
+                                  * Piece size is pure round-trip amortization — in-flight
+                                  * bytes are bounded by the TCP window (5,744) no matter the
+                                  * piece, so bigger pieces cost the heap nothing (measured:
+                                  * 5744-vs-8192 scaled with size, not segment alignment). */
+#define RAW_HDR_CAP    768
+static WiFiServer* s_rawSrv = NULL;
+static WiFiClient  s_rawCli;
+static char        s_rawHdr[RAW_HDR_CAP];
+static size_t      s_rawHdrLen = 0;
+static bool        s_rawBody = false;      // reading a POST body (vs. headers)
+static uint32_t    s_rawRxMs = 0;          // last-byte time, for the dead-client deadline
+static bool        s_rawGather = false;    // commit this body (vs. consume-and-reply)
+static bool        s_rawLast = false;
+static size_t      s_rawOff = 0, s_rawCLen = 0, s_rawGot = 0;
+static uint32_t    s_rawWantCrc = 0, s_rawCrc = 0;
+static int         s_rawCode = 0;          // pre-decided verdict for consume mode
+static char        s_rawReply[32];
+
+static void rawReset() {
+  s_rawHdrLen = 0;
+  s_rawBody = false;
+  s_rawGather = false;
+  s_rawGot = 0;
+}
+
+/* Abort any in-flight raw request (a WebServer transfer is taking the shared
+ * buffer, or the client went quiet). Committed/buffered bytes stand — the
+ * client's resync picks up from held truth. */
+static void rawAbort() {
+  if (s_rawCli) {
+    s_rawCli.stop();
+  }
+  rawReset();
+}
+
+/* `key=value` out of an &-separated query, URL-decoded. False if absent. */
+static bool rawQueryArg(const char* q, const char* key, char* out, size_t cap) {
+  const size_t klen = strlen(key);
+  while (q && *q) {
+    const char* eq = strchr(q, '=');
+    const char* amp = strchr(q, '&');
+    if (!eq || (amp && eq > amp)) {
+      q = amp ? amp + 1 : NULL;
+      continue;
+    }
+    if ((size_t)(eq - q) == klen && !strncmp(q, key, klen)) {
+      const char* v = eq + 1;
+      const char* end = amp ? amp : v + strlen(v);
+      size_t o = 0;
+      while (v < end && o + 1 < cap) {
+        char c = *v++;
+        if (c == '+') {
+          c = ' ';
+        } else if (c == '%' && v + 1 < end && isxdigit((int)v[0]) && isxdigit((int)v[1])) {
+          char hx[3] = { v[0], v[1], 0 };
+          c = (char)strtoul(hx, NULL, 16);
+          v += 2;
+        }
+        out[o++] = c;
+      }
+      out[o] = '\0';
+      return true;
+    }
+    q = amp ? amp + 1 : NULL;
+  }
+  return false;
+}
+
+static void rawReply(int code, const char* body) {
+  const char* st = code == 200 ? "OK" : code == 204 ? "No Content"
+                 : code == 400 ? "Bad Request" : code == 404 ? "Not Found"
+                 : code == 409 ? "Conflict" : code == 413 ? "Payload Too Large"
+                 : code == 422 ? "Unprocessable Entity" : "Insufficient Storage";
+  char h[192];
+  const int bl = (int)strlen(body);
+  const int n = snprintf(h, sizeof(h),
+                         "HTTP/1.1 %d %s\r\nContent-Type: text/plain\r\n"
+                         "Content-Length: %d\r\nAccess-Control-Allow-Origin: *\r\n\r\n",
+                         code, st, bl);
+  s_rawCli.write((const uint8_t*)h, (size_t)n);
+  if (bl > 0) {
+    s_rawCli.write((const uint8_t*)body, (size_t)bl);
+  }
+}
+
+/* Headers are complete: decide everything decidable now. Raw bodies mean the
+ * piece length is known BEFORE the body arrives (Content-Length), so the
+ * verdict is made here and the body is either gathered or drained. */
+static void rawOnRequest() {
+  s_rawHdr[s_rawHdrLen] = '\0';
+  char method[8] = {0}, target[320] = {0};
+  if (sscanf(s_rawHdr, "%7s %319s", method, target) != 2) {
+    rawAbort();
+    return;
+  }
+  // Content-Length, case-insensitively, without strcasestr.
+  s_rawCLen = 0;
+  for (const char* p = s_rawHdr; (p = strchr(p, '\n')) != NULL; p++) {
+    if (!strncasecmp(p + 1, "content-length:", 15)) {
+      s_rawCLen = (size_t)strtoul(p + 16, NULL, 10);
+      break;
+    }
+  }
+  if (!strcmp(method, "OPTIONS")) {
+    char h[224];
+    const int n = snprintf(h, sizeof(h),
+                           "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\n"
+                           "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+                           "Access-Control-Allow-Headers: content-type\r\nContent-Length: 0\r\n\r\n");
+    s_rawCli.write((const uint8_t*)h, (size_t)n);
+    rawReset();
+    return;
+  }
+  char* qs = strchr(target, '?');
+  if (qs) {
+    *qs++ = '\0';
+  }
+  if (strcmp(target, "/chunk") != 0) {
+    rawReply(404, "nf");
+    rawReset();
+    return;
+  }
+  char rawNameArg[96] = {0};
+  char name[sizeof(s_chunkName)];
+  rawQueryArg(qs, "name", rawNameArg, sizeof(rawNameArg));
+  if (!chunkSafeName(rawNameArg, name, sizeof(name))) {
+    rawReply(400, "bad name");
+    rawReset();
+    return;
+  }
+  if (!strcmp(method, "GET")) {
+    size_t held;
+    if (s_chunkFile && !strcmp(name, s_chunkName)) {
+      held = s_chunkDurable + s_sdLen;
+    } else {
+      File f = SD.open((String(s_cfg->dir) + "/" + name).c_str());
+      held = f ? (size_t)f.size() : 0;
+      if (f) {
+        f.close();
+      }
+    }
+    char out[16];
+    snprintf(out, sizeof(out), "%u", (unsigned)held);
+    rawReply(200, out);
+    rawReset();
+    return;
+  }
+  if (strcmp(method, "POST") != 0) {
+    rawReply(404, "nf");
+    rawReset();
+    return;
+  }
+  char argbuf[16];
+  if (!rawQueryArg(qs, "crc", argbuf, sizeof(argbuf)) || !chunkParseHex32(argbuf, &s_rawWantCrc)) {
+    rawReply(400, "bad crc");
+    rawAbort();               // a body may be in flight; the stream is not worth resyncing
+    return;
+  }
+  s_rawOff = rawQueryArg(qs, "off", argbuf, sizeof(argbuf)) ? (size_t)strtoul(argbuf, NULL, 10) : 0;
+  s_rawLast = rawQueryArg(qs, "last", argbuf, sizeof(argbuf)) && !strcmp(argbuf, "1");
+  if (s_rawCLen == 0) {
+    rawReply(400, "empty");
+    rawReset();
+    return;
+  }
+  if (s_rawCLen > RAW_PIECE_MAX) {
+    rawReply(413, "too big");
+    rawAbort();               // cannot drain an oversized body at loop pace
+    return;
+  }
+  int code = 500;
+  char reply[32] = "err";
+  if (!chunkOpenFor(name, s_rawOff, &code, reply, sizeof(reply))) {
+    strlcpy(s_rawReply, reply, sizeof(s_rawReply));
+    s_rawCode = code;
+    s_rawGather = false;      // drain the body, then deliver the bad news
+    s_rawBody = true;
+    return;
+  }
+  s_lastChunkMs = millis();
+  const size_t held = s_chunkDurable + s_sdLen;
+  switch (chunkDecide(held, s_rawOff, s_rawCLen)) {
+    case CHUNK_APPEND:
+      s_rawGather = true;
+      s_rawCrc = chunkCrc32Init();
+      break;
+    case CHUNK_DUPLICATE:
+      s_rawGather = false;
+      s_rawCode = 200;
+      snprintf(s_rawReply, sizeof(s_rawReply), "ok %u", (unsigned)held);
+      break;
+    default:
+      s_rawGather = false;
+      s_rawCode = 409;
+      snprintf(s_rawReply, sizeof(s_rawReply), "have %u", (unsigned)held);
+      break;
+  }
+  s_rawGot = 0;
+  s_rawBody = true;
+}
+
+static void rawXferPump() {
+  if (!s_rawSrv) {
+    return;
+  }
+  /* Most-recent-wins accept, but never preempt a client mid-request: a page
+   * reload or a second tool run takes over an IDLE held connection. */
+  if (s_rawSrv->hasClient()) {
+    if (!s_rawCli || !s_rawCli.connected() || (!s_rawBody && s_rawHdrLen == 0)) {
+      if (s_rawCli) {
+        s_rawCli.stop();
+      }
+      s_rawCli = s_rawSrv->available();
+      s_rawCli.setNoDelay(true);
+      rawReset();
+      s_rawRxMs = millis();
+    }
+  }
+  if (!s_rawCli || (!s_rawCli.connected() && !s_rawCli.available())) {
+    if (s_rawBody || s_rawHdrLen) {
+      rawReset();             // client died mid-request; committed bytes stand
+    }
+    return;
+  }
+  if ((s_rawBody || s_rawHdrLen) && (uint32_t)(millis() - s_rawRxMs) > 4000) {
+    rawAbort();               // mid-request silence: a dead client must not hold the port
+    return;
+  }
+  if (!s_rawBody) {
+    while (s_rawCli.available()) {
+      if (s_rawHdrLen >= RAW_HDR_CAP - 1) {
+        rawAbort();
+        return;
+      }
+      const int c = s_rawCli.read();
+      if (c < 0) {
+        break;
+      }
+      s_rawHdr[s_rawHdrLen++] = (char)c;
+      s_rawRxMs = millis();
+      if (s_rawHdrLen >= 4 && !memcmp(s_rawHdr + s_rawHdrLen - 4, "\r\n\r\n", 4)) {
+        rawOnRequest();
+        break;
+      }
+    }
+  }
+  if (s_rawBody) {
+    /* Drain with a ~20 ms budget instead of one available() sweep per pass.
+     * MEASURED: at loop pace (~10 ms/pass) a piece needed several passes, the
+     * book ran at 56 KB/s, and driver RX buffers pooled behind the slow reader
+     * (free-heap floor 6 K). Emptying the driver promptly raises the floor AND
+     * the rate; the main loop already tolerates longer SD stalls than 20 ms. */
+    const uint32_t budget0 = millis();
+    while (s_rawGot < s_rawCLen && (uint32_t)(millis() - budget0) < 20) {
+      if (!s_rawCli.available()) {
+        if (!s_rawCli.connected()) {
+          break;
+        }
+        delay(1);               // mid-piece lull: give the stack a beat, keep the budget
+        continue;
+      }
+      int n;
+      if (s_rawGather) {
+        size_t want = s_rawCLen - s_rawGot;
+        if (want > 1436) {
+          want = 1436;
+        }
+        n = s_rawCli.read(s_sdBuf + s_sdLen + s_rawGot, want);
+        if (n <= 0) {
+          break;
+        }
+        s_rawCrc = chunkCrc32Update(s_rawCrc, s_sdBuf + s_sdLen + s_rawGot, (size_t)n);
+      } else {
+        uint8_t scratch[256];
+        size_t want = s_rawCLen - s_rawGot;
+        if (want > sizeof(scratch)) {
+          want = sizeof(scratch);
+        }
+        n = s_rawCli.read(scratch, want);
+        if (n <= 0) {
+          break;
+        }
+      }
+      s_rawGot += (size_t)n;
+      s_rawRxMs = millis();
+    }
+    {
+      // The acceptance bar reads these floors; the raw path samples once per pump.
+      const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+      const size_t freeb = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+      if (largest < s_fileFloorLargest) {
+        s_fileFloorLargest = largest;
+      }
+      if (freeb < s_fileFloorFree) {
+        s_fileFloorFree = freeb;
+      }
+    }
+    if (s_rawGot >= s_rawCLen) {
+      if (s_rawGather) {
+        if (chunkCrc32Final(s_rawCrc) != s_rawWantCrc) {
+          rawReply(422, "crc");         // piece dropped; buffered committed bytes stand
+        } else {
+          char reply[32];
+          const int code = chunkCommit(s_rawCLen, s_rawLast, reply, sizeof(reply));
+          rawReply(code, reply);
+        }
+      } else {
+        rawReply(s_rawCode, s_rawReply);
+      }
+      rawReset();
+    }
+  }
+}
+
+static void rawXferUp() {
+  if (!s_rawSrv) {
+    s_rawSrv = new WiFiServer(RAW_PORT);
+    s_rawSrv->begin();
+    s_rawSrv->setNoDelay(true);
+  }
+}
+
+static void rawXferDown() {
+  rawAbort();
+  s_rawCli = WiFiClient();
+  if (s_rawSrv) {
+    s_rawSrv->end();
+    delete s_rawSrv;
+    s_rawSrv = NULL;
+  }
+}
+
 static void handleUpload() {
   HTTPUpload& up = s_server->upload();
   if (up.status == UPLOAD_FILE_START) {
     s_reqLargest0 = s_reqFloor =
         heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    rawAbort();                     // the legacy path preempts an in-flight raw piece too
     if (s_chunkFile) {
       chunkFinalize();              // the legacy path is taking the shared buffer
     }
@@ -893,6 +1343,11 @@ static bool nameAccepted(const String& lowName, const char* accept) {
 }
 
 static void handleFetch() {
+  /* A fetch whose derived filename collides with the OPEN batch file (the
+   * `download.epub` default makes this likelier than it sounds) would open a
+   * second FIL on it and truncate under the live append handle — cross-linked
+   * FAT clusters. Same rule as handleUpload: the batch yields first. */
+  chunkFinalize();
   String url = s_server->arg("url");
   if (url.length() < 8) {
     s_server->send(400, "text/html", "<p>Bad URL. <a href=/>back</a></p>");
@@ -946,7 +1401,8 @@ static void xferServerUp() {
 }
 
 static void xferServerDown() {
-  chunkFinalize();          // buffered chunk bytes flush to the card; the ack contract holds
+  chunkPersist();           // acked bytes become durable; the batch file STAYS OPEN
+                            // (the raw transport rides through this teardown)
   if (s_uploadFile) {
     s_uploadFile.close();   // an aborted upload's handle must not dangle across the pause
   }
@@ -1004,6 +1460,7 @@ void xferStart(const XferConfig* cfg) {
   }
 
   xferServerUp();
+  rawXferUp();
 
   xferHoldAwake(true);
   s_on = true;   // gbcXferHandleClient() (main loop) now pumps it
@@ -1014,6 +1471,8 @@ void xferStop() {
     return;
   }
   xferHoldAwake(false);
+  rawXferDown();
+  chunkFinalize();          // a real stop DOES close the batch (persist alone is for pauses)
   xferServerDown();
   if (s_usingAP) {
     WiFi.softAPdisconnect(true);

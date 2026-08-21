@@ -68,9 +68,12 @@ until real Game Boy Color games run at full speed on the phone.
 - **Get games in over WiFi** — pick **Transfer ROMs...** in the game list: the
   phone becomes a tiny website (`wiphone.local`); drag `.gb`/`.gbc` files onto
   it from any computer, **or paste a download link** and the phone fetches the
-  file itself. Multiple files at once, per-file progress, and a failed upload
-  retries itself a few times before complaining. Falls back to hosting its own
-  hotspot (`WiPhone-ROMs`) when not on WiFi. If `wiphone.local` won't resolve —
+  file itself. Uploads travel as small CRC-checked pieces, one in flight at a
+  time, so a fast network cannot flood the phone's memory and a dropped
+  connection resumes where it left off instead of starting over. Multiple files
+  at once, per-file progress, and honest retries before complaining. Falls back
+  to hosting its own hotspot (`WiPhone-ROMs`) when not on WiFi. If
+  `wiphone.local` won't resolve —
   phone-hotspot networks and Android browsers often can't do mDNS — use the
   `http://<ip>` address the phone's screen shows instead.
 - **Big carts work** — 4 MB ROMs stream from the SD card on demand.
@@ -231,6 +234,7 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | command | does |
 |---|---|
 | `up on` / `up off` / `up` | start / stop the WiFi upload page; show its address |
+| `heap` | memory truth: internal/DMA/PSRAM free + largest + floor since boot |
 | `sync` / `mirror` | fetch mirrored texts now; mirror status |
 | `sip` | SIP account state — loaded, registered, WiFi — in one line |
 | `chan <url>` / `chans` | apply a Meshtastic channel invite link; list channels |

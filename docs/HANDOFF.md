@@ -1,9 +1,74 @@
 # WiPhone — session handoff
 
-**Last updated:** 2026-08-21 (early) · **Upload redesign MID-FLIGHT — chunked protocol
-in and mock-proven, hardware demands a rawer transport.** 14 host suites green (new:
-test_chunk). The 0.9.7 flasher is PUBLISHED (gh-pages serves 0.9.7 — the stale
-"staged" note below predates the publish).
+**Last updated:** 2026-08-21 (day, at work) · **UPLOAD REDESIGN DONE AND
+ACCEPTANCE-TESTED ON HARDWARE** (3 × 4-book batches, 12/12 byte-verified, zero
+breaker events, zero panics). 14 host suites green (new: test_chunk). The 0.9.7
+flasher is PUBLISHED (gh-pages serves 0.9.7 — the stale "staged" note below
+predates the publish).
+
+## ✅ 2026-08-21 (day): the redesign LANDED — chunked protocol + raw transport
+
+**What shipped (see CHANGELOG for the narrative):** chunk_proto.h (verdicts, name
+safety, CRC32 — host-tested), `/chunk` on the WebServer (multipart fallback, 4 KB
+pieces), **the raw transport on port 8081** (one TCP connection per batch, raw
+text/plain bodies read incrementally by a non-blocking state machine in the main
+loop, CORS-simple so the page fetches cross-port, 16 KB pieces), the page JS
+(probes 8081 → falls back; batch survives per-file failure; native form kept for
+fetch-less browsers), durable-bytes-in-RAM (File::size() lies on open files),
+chunkPersist-not-finalize on breaker pauses, no breaker trips at all mid-batch
+(cycling inside tight heap LEAKED — floors stair-stepped 3328→616 until removed),
+serial `heap`, per-file floor telemetry, tools/chunk_push.py (both transports +
+fault injection).
+
+**Acceptance vs the brief's bar:**
+- ✅ 3 consecutive 4-book batches over the fast link *(the phone-to-phone hotspot —
+  the original crash-day link)*, all 12 files byte-verified, **zero** breaker
+  events, **zero** panics; 66–97 KB/s, ROUND-TRIP-BOUND on that link (home LAN
+  should be several× faster; piece size is the lever, in-flight is window-bound).
+- ⚠ **"floor never below 10 KB free" is UNMET AS WRITTEN and appears unmeetable on
+  this stack**: worst sampled per-file floor 1,384 free (allocator min-ever 144 B).
+  These are sub-millisecond WiFi-task burst allocations during ANY sustained RX —
+  invisible to sampling, non-fatal by design (failed RX alloc = dropped frame =
+  TCP retransmit), and ~90 MB of hardware transfers today crossed them without a
+  single crash. Nick decides whether the bar moves or more mitigation is wanted.
+- ⏳ **Real-mobile-browser run still owed**: Nick's Android on NickH-wifi opening
+  http://<phone-ip>/ and uploading any file (a photo works) — 2 minutes, closes
+  the bar's last clause. The page JS itself is proven in a real engine against a
+  faithful mock (15 % injected failures, CRC corruption, resume) and both
+  transports are proven against the real phone via chunk_push.py.
+
+**Traps for whoever touches this next:**
+- ⚠ Flashing REQUIRES panicwatch STOPPED (it eats esptool sync; one attempt left
+  the phone in download mode). `pkill -f panicwatch` → `pio run -t upload` →
+  restart it.
+- ⚠ `pieces=` in the done-line telemetry is per-SEGMENT (resets when the batch
+  file reopens after a connection drop) — not per-file. The floors are per-segment
+  too. sent==size in chunk_push output is the honest per-file check.
+- ⚠ The legacy whole-file `/upload` can still wedge the main loop if its client
+  vanishes mid-POST (framework parser + flooded RX window). Chunked pieces dodge
+  this by being smaller than the TCP window. `/upload` stays for curl + no-JS.
+- The `.bin` probe clutter in /books from graded testing is invisible to the
+  Books list; harmless.
+
+## 📻 COVEY BT investigation (same day, for the COVEY repo's record too)
+
+Nick: RAK invisible to the Android Meshtastic app. Radio config verified
+bluetooth.enabled=True, mode 1, pin 123456 (covey-ui stopped/queried/restarted).
+Mac holds a stale `AdaDFU` pairing (DFU-mode identity from the failed BLE-OTA era;
+cannot explain app-mode invisibility; blueutil not installed, removal parked).
+Android bonds wiped by Nick + Meshtastic app device list cleared — STILL invisible
+⇒ the RAK is likely NOT ADVERTISING. Leading theory: covey-ui holds the serial
+phone-API 24/7 and nRF52 Meshtastic suppresses BLE while the serial API is in use
+(would also date "when it used to work" to before the always-on UI / the 08-14
+2.7.26+bootloader reflash, which also wiped bonds). **Decisive 30 s test ready:
+stop covey-ui, Nick scans from the app, restart.** Related: outgoing messages sent
+from the Android app never appeared in COVEY's UI — investigated, mechanism
+narrowed (meshtastic lib discards own-node carbon copies with from==0 BEFORE
+publish — but COVEY's journal shows ZERO such drops, so more likely the firmware
+never cc'd the serial session at all); definitive answer needs the phone connected,
+i.e. blocked on the BT fix. Full agent report should be re-run if lost; key files:
+covey_ui/mesh_meshtastic.py:720 (_on_receive), :1004 (send_text local echo),
+meshtastic lib mesh_interface.py:1574 (the own-packet drop).
 
 ## 🌅 2026-08-21: THE UPLOAD REDESIGN — where it stands, exactly
 

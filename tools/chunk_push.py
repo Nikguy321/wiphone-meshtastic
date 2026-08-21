@@ -22,9 +22,62 @@ re-verified.
 Exit 0 only if every file lands with the server holding exactly len(file) bytes.
 """
 import sys, os, time, zlib, argparse
+import http.client
 from urllib.request import Request, urlopen
 from urllib.parse import quote
 from urllib.error import URLError, HTTPError
+
+class RawSession:
+    """One keep-alive connection to the raw port (8081) — the fast path.
+
+    The raw transport exists because per-piece CONNECTIONS were measured to be
+    what kills the phone (TIME_WAIT pcbs + ~10 KB request machinery each); one
+    long-lived connection carries the whole batch. Any error drops the
+    connection; the caller resyncs and this object reconnects lazily."""
+    def __init__(self, host, port=8081):
+        self.host, self.port, self.conn = host, port, None
+    def _c(self):
+        if self.conn is None:
+            self.conn = http.client.HTTPConnection(self.host, self.port, timeout=15)
+        return self.conn
+    def drop(self):
+        try:
+            if self.conn:
+                self.conn.close()
+        finally:
+            self.conn = None
+    def get_held(self, name):
+        c = self._c()
+        try:
+            c.request('GET', '/chunk?name=' + quote(name))
+            r = c.getresponse()
+            body = r.read().decode()
+        except Exception:
+            self.drop()
+            raise
+        if r.status != 200:
+            raise OSError('held probe: HTTP %d %s' % (r.status, body.strip()))
+        return int(body.strip())
+    def post(self, name, off, data, last, crc_hex):
+        c = self._c()
+        try:
+            c.request('POST', '/chunk?name=%s&off=%d&crc=%s&last=%d'
+                      % (quote(name), off, crc_hex, 1 if last else 0),
+                      body=data, headers={'Content-Type': 'text/plain'})
+            r = c.getresponse()
+            return r.status, r.read().decode(errors='replace')
+        except Exception:
+            self.drop()
+            raise
+
+def probe_raw(host):
+    try:
+        s = RawSession(host)
+        s.conn = http.client.HTTPConnection(host, s.port, timeout=2)
+        s.get_held('probe.bin')
+        return s
+    except Exception:
+        return None
 
 def held(base, name, timeout=10):
     with urlopen(Request(base + '/chunk?name=' + quote(name)), timeout=timeout) as r:
@@ -45,14 +98,16 @@ def post_piece(base, name, off, data, last, crc_hex, timeout=15):
     except HTTPError as e:
         return e.code, e.read().decode(errors='replace')
 
-def push(base, path, piece, corrupt_at=None, restart_at=None, resume=False, gap=0.0):
+def push(base, path, piece, corrupt_at=None, restart_at=None, resume=False, gap=0.0, raw=None):
     name = os.path.basename(path)
     data = open(path, 'rb').read()
     total = len(data)
     off, tries, sent, t0 = 0, 0, 0, time.time()
+    def ask_held():
+        return raw.get_held(name) if raw else held(base, name)
     if resume:
         try:
-            off = min(held(base, name), total)
+            off = min(ask_held(), total)
         except Exception as e:
             print('  resume query failed (%s), starting from 0' % e)
         if off:
@@ -72,7 +127,10 @@ def push(base, path, piece, corrupt_at=None, restart_at=None, resume=False, gap=
             crc ^= 0xDEADBEEF
             print('  [inject] piece %d sent with a wrong CRC' % n)
         try:
-            code, text = post_piece(base, name, off, buf, end >= total, '%08x' % crc)
+            if raw:
+                code, text = raw.post(name, off, buf, end >= total, '%08x' % crc)
+            else:
+                code, text = post_piece(base, name, off, buf, end >= total, '%08x' % crc)
         except (URLError, OSError) as e:
             tries += 1
             if tries > 24:
@@ -80,7 +138,7 @@ def push(base, path, piece, corrupt_at=None, restart_at=None, resume=False, gap=
                 return False
             time.sleep(min(0.5 * tries, 5.0))
             try:
-                off = min(held(base, name), total)
+                off = min(ask_held(), total)
             except Exception:
                 pass
             continue
@@ -107,7 +165,7 @@ def push(base, path, piece, corrupt_at=None, restart_at=None, resume=False, gap=
                 return False
             time.sleep(min(0.5 * tries, 5.0))
     dt = time.time() - t0
-    final = held(base, name)
+    final = ask_held()
     okmark = 'OK' if final == total else 'SIZE MISMATCH (server %d != %d)' % (final, total)
     print('  %s: %d bytes in %.1fs (%.0f KB/s, sent %d) - %s'
           % (name, total, dt, total / dt / 1024 if dt else 0, sent, okmark))
@@ -117,7 +175,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('base', help='http://<phone-ip>')
     ap.add_argument('files', nargs='+')
-    ap.add_argument('--piece', type=int, default=4096)
+    ap.add_argument('--piece', type=int, default=None,
+                    help='piece bytes (default: 16384 on the raw port, 4096 on fallback)')
     ap.add_argument('--corrupt', type=int, default=None, metavar='N',
                     help='send piece N with a wrong CRC once (server must 422, push must recover)')
     ap.add_argument('--restart-at', type=int, default=None, metavar='N',
@@ -128,9 +187,13 @@ def main():
                     help='sleep between pieces (rate experiments)')
     a = ap.parse_args()
     base = a.base.rstrip('/')
+    host = base.split('://')[-1].split('/')[0].split(':')[0]
+    raw = probe_raw(host)
+    piece = a.piece or (16384 if raw else 4096)
+    print('transport: %s, piece %d' % ('raw :8081 (one connection)' if raw else 'fallback /chunk', piece))
     ok = True
     for p in a.files:
-        r = push(base, p, a.piece, a.corrupt, a.restart_at, a.resume, a.gap)
+        r = push(base, p, piece, a.corrupt, a.restart_at, a.resume, a.gap, raw)
         if r is None:      # deliberate mid-file stop
             return 0
         ok = ok and r

@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased (2026-08-21) — uploads redesigned: chunked, checksummed, resumable, and finally fast-network-proof
+
+- **The upload architecture is new.** Files travel as CRC32-checked pieces, one in
+  flight at a time, each acknowledged before the next departs — so a fast network can
+  no longer flood internal heap with radio RX buffers (the measured 14 KB → 868 B
+  collapse), and a dropped connection, breaker pause, or reboot costs pieces, never
+  files: the client asks `GET /chunk` how many bytes the card holds and continues from
+  there. Two transports serve the same protocol: a **raw single-connection port
+  (8081)** — one TCP connection per batch, bodies read incrementally at the phone's
+  own pace, zero per-request heap cost — and the original web server's `/chunk` as
+  the multipart fallback the page probes for automatically. Piece size is measured,
+  not guessed (16 KB raw / 4 KB fallback; in-flight bytes stay bounded by the 5.7 KB
+  TCP window either way). **Acceptance: three consecutive 4-book batches (~52 MB) over
+  the fast phone-to-phone hotspot, 12/12 byte-verified, zero breaker events, zero
+  panics, 66–97 KB/s (round-trip-bound on that link).**
+- **The heap has an instrument now**: serial `heap` prints internal/DMA/PSRAM free,
+  largest block, and the boot-long floor; the upload path logs per-file heap floors.
+  First fruit: the "some boots have less memory" mystery was uptime fragmentation,
+  not boot luck.
+- **Truths this work surfaced, now encoded**: `File::size()` on an open FatFS file
+  reads the stale directory entry (durable bytes are counted in RAM instead); the
+  legacy whole-file POST parser can wedge the main loop if its client vanishes
+  (chunked pieces are smaller than the TCP window precisely so that cannot happen);
+  breaker teardown cycles inside tight heap leak (pauses no longer fire mid-batch,
+  and they persist-without-closing the batch file); the page declares its charset
+  (mojibake), keeps the native form fallback for fetch-less browsers, skips
+  empty files honestly, and one failed file no longer sinks the rest of the batch.
+- **Bench tools**: `tools/chunk_push.py` speaks the whole protocol (both transports,
+  `--corrupt`, `--restart-at`, `--resume`, `--gap`, piece-size experiments);
+  `tests/test_chunk.cpp` pins the protocol core (verdicts, name safety, CRC vectors).
+  ⚠ Flashing now requires panicwatch stopped first — it eats esptool's sync replies.
+
 ## Unreleased (2026-08-20, day) — the phone grows a GPS ear, asleep until the plate exists
 
 - **The upload heap saga, evening chapter — fast networks were the killer all along.**
