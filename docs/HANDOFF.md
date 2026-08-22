@@ -6,7 +6,40 @@ green (new: test_chunk, test_replay). The 0.9.7 flasher is PUBLISHED (gh-pages
 serves 0.9.7 — the stale "staged" note below predates the publish).
 
 
-## 🔧 ▶ BENCH STATE, 2026-08-22 (evening) — MOUNTED, EVERYTHING PROVEN, ONE REWORK OWED
+## ✅ BENCH STATE, 2026-08-22 (final) — REWORK DONE, WHOLE FEATURE PROVEN ON AIR
+
+**R3–R7 are SOLDERED and every close passed the same day:**
+- **Phantom power is dead**: pack out + phone alive → no GPS LED (the rail that floated at
+  2.54 V now collapses; the meter probe at C2 is optional — the LED and the Error behaviour
+  below are the evidence that matters).
+- **The screen tells the truth**: both supplies out → mesh screen **Error** within 5 s
+  (witnessed by Nick); power back → **`MESH RADIO RECOVERED — reconfigured, announcing`** in
+  the serial log within 10 s, and the boot-style announce went out on air (captured). Radio,
+  GPS (8-sat fix through R6), SPI through R3–R5, health check 0 false alarms — all verified
+  post-rework, firmware 2d3f85c FLASHED.
+- 🔑 **DISCOVERY: USB is a second legitimate supply for the plate.** The phone's 5 V node
+  (~4.6–4.7 V on USB) reaches the header 5 V terminal, and the TLV runs from 3.4 V — so a USB
+  power bank keeps radio + GPS fully alive with NO woods pack. Ran for hours in exactly this
+  state (pack out, USB in) with zero drama — which also soaks the review's
+  PowerBoost-back-feed worry (formal current probe into the PB 5 V pad remains optional).
+  Consequence: the LOST/RECOVERED test CANNOT run over USB serial — both supplies must be out.
+
+**PLATE SWAP RULES (stock LoRa plate ↔ woods plate), both directions safe anytime:**
+1. **Swap COLD** — phone fully off, always (driven SPI into an unpowered radio otherwise).
+2. **BT2.0 out whenever the woods plate is off the phone** — the PowerBoost keeps boosting and
+   the loose 5 V terminal is hot; the 3.3 V rail is safe (EN pulled low by R1) but 5 V is not.
+3. Optional: `gps off` before living on the stock plate (spares a future bench session the
+   "bytes=0 = wiring?" confusion). Firmware needs NO change — radio config rebuilds at boot,
+   mesh identity lives in the phone, and the health check simply never fires on a plate whose
+   rail cannot die independently.
+
+**Next: Nick designs the shell/case.** Constraints already known: BT2.0 reachable (it IS the
+off switch) · PowerBoost micro-USB cutout (the pack's charger) · case should leave NO room to
+populate the JST (paralleled packs, July 2026) · pigtail strain relief where it crosses the
+pack + u.FL clicked-not-resting · antenna/SMA bulkhead placement · GPS antenna sky view ·
+PowerBoost LED visible if possible (it is a useful power-state tell).
+
+## 🔧 (superseded 2026-08-22 evening — rework was owed, now done; kept for the record)
 
 **Physical state right now:** the plate is **MOUNTED and fully proven on air** — phone charges
 from the pack, plate rail gates correctly, **GPS has a live fix (9 sats, HDOP 1.1, 115200 — NOT
