@@ -6,12 +6,55 @@ green (new: test_chunk, test_replay). The 0.9.7 flasher is PUBLISHED (gh-pages
 serves 0.9.7 — the stale "staged" note below predates the publish).
 
 
-## 🔧 ▶ BENCH STATE, 2026-08-22 — PLATE WIRED AND POWERED CLEAN, NOT YET MOUNTED
+## 🔧 ▶ BENCH STATE, 2026-08-22 (evening) — MOUNTED, EVERYTHING PROVEN, ONE REWORK OWED
 
-**Physical state right now:** the woods backplate is **fully wired per W1–W19**, has been
-**powered on both a bench supply and the LiPo with all readings in spec** (see FIRST POWER DONE
-below), and is still sitting **off the phone**. Next physical act is the COLD MOUNT — read that
-section before the plate touches the header.
+**Physical state right now:** the plate is **MOUNTED and fully proven on air** — phone charges
+from the pack, plate rail gates correctly, **GPS has a live fix (9 sats, HDOP 1.1, 115200 — NOT
+9600, see below)**, and the radio TXed an announce and learned a PKI key back through the new
+coax/SMA path. The phone runs the health-check firmware (2d3f85c).
+
+### ⚠ OWED: the R3–R7 resistor rework (parts chosen, sheet updated, NOT yet soldered)
+**Why (measured):** pack disconnected + phone alive = the phone's driven pins back-feed the plate
+through ESD clamps. Plate 3.3 V floated at **2.54 V** (one diode under 3.3), the 5 V node at
+**2.18 V** (backwards through the TLV's high-side body diode). An RFM95W runs at 2.5 V: it
+answered REG_VERSION, the mesh screen said **READY**, RX worked, **TX was silently impossible**,
+and the GPS LED blinked on a plate with no battery. Nick reproduced the READY lie on screen,
+including across a reboot.
+**The fix (wiring sheet rev 2026-08-22 has every position):**
+- **R3–R6, 4× 1 kΩ series** in the phone-driven lines only: W14 MOSI, W15 SCK, W16 NSS,
+  W18 GPS-RX. W13 MISO / W17 GPS-TX stay plain wire (plate-driven; EN gate covers them).
+- **R7, 10 kΩ, RFM NSS pad 5 → PLATE 3.3 V — REQUIRED** (adversarial-review find): GPIO 27
+  floats during every ESP32 reset; NSS drifting low lets the radio drive MISO = **GPIO 12 =
+  MTDI, the flash-voltage boot strap** → phone fails to boot. The stock v2.2 plate fits this
+  exact pull-up (its R2 100 k). Referenced to the PLATE rail so it adds no phantom feed.
+**After soldering, two closes:** (1) repeat the pack-out probe at C2 — expect **well under 1 V**
+(the review rates the collapse threshold computed-not-proven; this measurement closes it);
+(2) with the pack out ≥5 s the phone's mesh screen must now say **Error**, and ≤10 s after
+plugging back in it must say Ready again (announce fires — that's the firmware below).
+**Also owed from review (UNCERTAIN, 2 min):** pack out, phone on USB, plate mounted — measure
+current into the PowerBoost 5 V pad / voltage at its BAT pad. Expect ~0 (TPS61090 output body
+diode blocks); sustained current = back-feed into the boost, wants a Schottky in W4.
+
+### ✅ Firmware: the radio must keep proving it exists (2d3f85c, flash OWED — port was unplugged)
+`MeshPhy::healthCheck()` = REG_VERSION **plus** REG_OP_MODE (version alone is a liar twice over:
+phantom power, and a reconnected pack answering 0x12 from POR defaults — present, deaf, mute).
+Service checks every 5 s → `MESH_RADIO_ERROR` loudly; every 10 s in ERROR it re-runs the FULL
+register config (`begin()` is now a shell over `reinit()`) so a swapped pack rejoins in ≤10 s
+with a boot-style announce, no reboot. Boot probe hardened with a SLEEP-readback second opinion
+(floating MISO can't fake two registers). ⚠ Detection is only honest once R3–R6 are in.
+
+### ✅ GPS: **115200, NOT 9600** — and COVEY's repo knew (its gps.py, D-062)
+The M100 was alive all along; 9600 was COVEY's D-033 PLAN number, never amended after the
+implementation moved. Scanned on hardware: only 115200 produces sentences. New serial tools:
+**`gps baud <n>`** (persists, wpmesh/gpsbaud, retunes live) and **`gps raw`** (hex+ASCII — tells
+wrong-baud from UBX-binary). Default now 115200 (`GPS_SERIAL_BAUD_DEFAULT`). Both repos'
+docs corrected; the lesson is written into Hardware.h: **when two repos share a part, the working
+code is the authority, not the decision that proposed it.**
+
+### If the pack dies in the field (until the rework is soldered)
+The phone itself is fine (5 V pin goes to 0 = the shipped state), but the plate half-lives on
+phantom power and the screen LIES about Ready. Field rule for now: pack dead → `gps off` + power
+the phone off, or pull the plate. After the rework: the screen tells the truth by itself.
 
 *(Superseded, kept for the reasoning:)* the first-power sequence below exists because a reversed
 cell or a solder bridge is unrecoverable on the PowerBoost, and both are cheap to rule out while
