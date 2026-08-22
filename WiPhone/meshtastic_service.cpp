@@ -1128,10 +1128,21 @@ bool MeshtasticService::loop() {
         }
       } else if (radioState == MESH_RADIO_ERROR) {
         nextHealthMs = nowH + 10000;
-        if (meshPhy.reinit()) {
+        /* Retry FAST forever (two register reads), but log the failure only on
+         * the first attempt and then every 5 minutes. A phone with no plate
+         * fitted fails this every 10 s for as long as it is switched on, and
+         * an error line per 10 s buries every other diagnostic in the log —
+         * measured on the bench the day this shipped. Rationing the log keeps
+         * the field recovery instant AND the log readable. */
+        static uint32_t failCount = 0;
+        const bool speak = (failCount % 30) == 0;
+        if (meshPhy.reinit(speak)) {
+          failCount = 0;
           radioState = MESH_RADIO_READY;
           log_e("MESH RADIO RECOVERED - reconfigured, announcing");
           announceNodeInfo(true);   // same ask-the-mesh announce as boot
+        } else {
+          failCount++;
         }
       } else {
         nextHealthMs = nowH + 10000;

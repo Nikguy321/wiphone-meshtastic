@@ -160,13 +160,16 @@ bool MeshPhy::healthCheck() {
   return false;
 }
 
-bool MeshPhy::reinit() {
+bool MeshPhy::reinit(bool logFailure) {
   // Probe the chip: must be in SLEEP to switch to LoRa mode.
   writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);
   delay(10);
   uint8_t ver = readReg(REG_VERSION);
   if (ver != SX1276_VERSION) {
-    log_e("MeshPhy: SX1276 not found (REG_VERSION=0x%02X, expected 0x12)", ver);
+    if (logFailure) {
+      log_e("MeshPhy: SX1276 not found (REG_VERSION=0x%02X, expected 0x12)%s", ver,
+            ver == 0x00 ? " - no plate fitted, or its rail is dead" : "");
+    }
     ready = false;
     return false;
   }
@@ -175,7 +178,9 @@ bool MeshPhy::reinit() {
    * happened to produce 0x12 above will not also produce 0x80 here. */
   uint8_t op = readReg(REG_OP_MODE);
   if (op != (MODE_LONG_RANGE_MODE | MODE_SLEEP)) {
-    log_e("MeshPhy: probe readback wrong (op=0x%02X, wrote 0x80) - floating bus?", op);
+    if (logFailure) {
+      log_e("MeshPhy: probe readback wrong (op=0x%02X, wrote 0x80) - floating bus?", op);
+    }
     ready = false;
     return false;
   }

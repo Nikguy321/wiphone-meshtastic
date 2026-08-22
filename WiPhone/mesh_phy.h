@@ -68,8 +68,14 @@ public:
 
   /* Full re-init for a radio that died and came back (pack reconnected in the
    * field). Re-runs the begin() register sequence on the already-built SPI.
-   * Safe to call repeatedly; returns the new ready state. */
-  bool reinit();
+   * Safe to call repeatedly; returns the new ready state.
+   *
+   * `logFailure` exists because a phone with NO daughterboard at all is a
+   * legitimate configuration (stock WiPhone, or ours between plate swaps) and
+   * it fails this call every single time, forever. The retry itself is two
+   * register reads and stays fast so a swapped pack recovers in seconds — it
+   * is only the LOG that needs rationing. Success is always logged. */
+  bool reinit(bool logFailure = true);
 
   uint32_t getFrequencyHz() const { return freqHz; }
 

@@ -8,13 +8,37 @@ losing a few bytes beats losing the backtrace.
 ⚠ NOTHING ELSE MAY OPEN THIS PORT while this runs. Route commands through /tmp/wiphone.cmd
 instead: write a line to that file and this process types it for you.
 """
-import serial, time, subprocess, re, os
+import serial, time, subprocess, re, os, sys, glob
 
-LOG  = '/tmp/wiphone-serial.log'
-CMD  = '/tmp/wiphone.cmd'
 ELF  = '/Users/nickhowe/wiphone/.pio/build/wiphone/firmware.elf'
 A2L  = '/Users/nickhowe/.platformio/packages/toolchain-xtensa32/bin/xtensa-esp32-elf-addr2line'
-PORT = '/dev/cu.usbserial-025A3EAF'
+
+# THERE ARE TWO PHONES NOW (2026-08-22). Phone 1 is 025A3EAF, phone 2 is 025A3F65 —
+# adjacent serials from the same batch, so read them carefully. Pass a port (or a bare
+# serial-number fragment) as argv[1]; with no argument, take the only usbserial device
+# present, and refuse to guess when two are plugged in. The log and cmd files are named
+# per port so two watchers can run side by side without eating each other's commands.
+def _pick_port(arg):
+    if arg and arg.startswith('/dev/'):
+        return arg
+    cands = sorted(glob.glob('/dev/cu.usbserial-*'))
+    if arg:
+        m = [c for c in cands if arg.lower() in c.lower()]
+        if len(m) == 1:
+            return m[0]
+        raise SystemExit('no unique port matching %r in %s' % (arg, cands))
+    if len(cands) == 1:
+        return cands[0]
+    raise SystemExit('need a port argument — found %s' % (cands or 'none'))
+
+PORT = _pick_port(sys.argv[1] if len(sys.argv) > 1 else None)
+_tag = PORT.rsplit('-', 1)[-1]
+LOG  = '/tmp/wiphone-serial-%s.log' % _tag
+CMD  = '/tmp/wiphone-%s.cmd' % _tag
+# Phone 1 keeps the historic paths, so every note and script that says
+# /tmp/wiphone.cmd still works.
+if _tag == '025A3EAF':
+    LOG, CMD = '/tmp/wiphone-serial.log', '/tmp/wiphone.cmd'
 
 f = open(LOG, 'a', buffering=1)
 def note(msg):
