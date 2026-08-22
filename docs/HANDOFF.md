@@ -29,7 +29,16 @@ phone 2 was on the cable.** Flash phone 1 and the duplicates should stop.
 dropped Call-ID: duplicates carrying DIFFERENT Call-IDs mean VoIP.ms is re-pushing the queued
 text as a FRESH transaction after each REGISTER (we re-register every 60 s), which is a
 different fault needing a content+time-window guard instead of a transaction-identity one.
-⚠ **No workaround available while COVEY is off** — un-registering SIP would mean no texts at
+✅ **COVEY shows ONE copy of each text (measured same evening, COVEY powered back on).** It reads
+the account history over the REST API, so VoIP.ms holds exactly ONE stored message — which rules
+out every upstream explanation (DID delivering to two destinations, `getSMS` window overlap,
+account-level duplication) and pins the fault to repeated SIP DELIVERY of that single message.
+✅ **WORKAROUND, now that COVEY is on:** phone → SIP Accounts → **Unmake primary**. The phone
+stops registering (no SIP delivery, no duplicates) and still receives, because COVEY mirrors to
+it over the radio. Cost: no outbound calls/texts from the phone until it is made primary again.
+⚠ Turning COVEY on ALONE does not fix it — a mirror record adopts ONE matching copy, so with two
+already stored you still see two.
+⚠ **No workaround while COVEY is off** — un-registering SIP would mean no texts at
 all. With COVEY ON, un-registering the phone (SIP Accounts → Unmake primary) would give single
 copies via the mesh mirror.
 
