@@ -29,6 +29,26 @@ phone 2 was on the cable.** Flash phone 1 and the duplicates should stop.
 dropped Call-ID: duplicates carrying DIFFERENT Call-IDs mean VoIP.ms is re-pushing the queued
 text as a FRESH transaction after each REGISTER (we re-register every 60 s), which is a
 different fault needing a content+time-window guard instead of a transaction-identity one.
+🔑 **TRIPLICATE MEASURED (Android → the SIP number): 3 copies on the WiPhone, 1 on COVEY.**
+The COUNT is the evidence: a fixed 2 would mean two delivery PATHS, but a varying 2–3 is the
+signature of RETRANSMISSION (VoIP.ms retries at ~500 ms, 1 s, 2 s…), with the phone storing
+however many landed. Combined with COVEY's single copy, the diagnosis is settled: one message
+upstream, delivered repeatedly over SIP, stored every time.
+
+✅ **PHONE 2 EXONERATED** (Nick asked directly, four independent grounds):
+1. **The WiPhone NEVER transmits mirror records** — `smsMirrorPack()` is called nowhere in
+   firmware (only its own .cpp/.h and the host test). The SMS mirror is one-way, COVEY → phone.
+2. Phone 2 has **no SIP account** (measured: `account NOT LOADED, registered: no`).
+3. It was 30 miles away — far outside handheld LoRa, no relay chain.
+4. COVEY was OFF during the doubling, so no mesh path was live at all.
+📎 **The two-way sync Nick remembered is real but is TWO features carrying DIFFERENT traffic:**
+SMS mirror (COVEY → phone, CSM1 on `smsmirror`) carries **SIP texts**; mesh history replay
+(phone → COVEY, `RPL?` on `booksync`, D-112) carries **mesh channel texts**. Neither can
+duplicate a SIP text.
+
+✅ **Phone 2 FLASHED with the fix 2026-08-22** (it has no SIP account yet, but will).
+⚠ **Phone 1 STILL UNFLASHED** — it is out of town with Nick; flash when he is home.
+
 ✅ **COVEY shows ONE copy of each text (measured same evening, COVEY powered back on).** It reads
 the account history over the REST API, so VoIP.ms holds exactly ONE stored message — which rules
 out every upstream explanation (DID delivering to two destinations, `getSMS` window overlap,
