@@ -111,7 +111,7 @@ seller. All were present and Prime-eligible on 2026-08-11.
 | 5 | **u.FL / IPEX SMT receptacles** | `U.FL IPEX SMT receptacle connector PCB mount` — optional, see below | ~$8 |
 | 6 | **Ceramic capacitor assortment** | `ceramic capacitor assortment kit` — you need 2 × 100 nF, 1 × 10 µF, 1 × 22–47 µF | ~$12 |
 | 7 | **Resistor assortment** | need 1 × 4.7 kΩ (the EN pull-down) and optionally 1 × 10 kΩ (RFM RESET pull-up) | ~$10 |
-| 8 | **Polyfuse, ~1 A hold** | `PPTC resettable fuse 1A assortment` — one in the external battery leg | ~$8 |
+| 8 | **Polyfuse, 2 A hold** ⚠ **not 1 A** | `PPTC resettable fuse 2A` — sits in the CELL POSITIVE leg (W1/W2), which carries full boost INPUT current: 1 A out at 5.2 V is ~1.6 A in from a 3.7 V cell and ~1.9 A as it sags to 3.3 V. A 1 A-hold part creeps up in resistance below its ~2 A trip, so it nuisance-trips on a transmit-while-charging. Prefer the LOWEST-resistance 2 A part available — the PowerBoost cuts out near 3.0 V in, so every milliohm here costs runtime. Corrected 2026-08-21 | ~$8 |
 | 9 | **JST-PH 2-pin pigtails** | so the pack can be split off for separate charging | ~$8 |
 | 10 | **Silicone hookup wire, 26–30 AWG** | thin and flexible — it has to survive the case closing | ~$15 |
 

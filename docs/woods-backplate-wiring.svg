@@ -425,7 +425,7 @@
 <text x="844" y="1876" class="tk" font-weight="bold">R1  4.7 kΩ</text><text x="844" y="1892" class="tk">TLV EN pad ↔ GND</text>
 <text x="844" y="1916" class="tk" font-weight="bold">R2  10 kΩ (optional)</text><text x="844" y="1932" class="tk">RFM pad 6 RESET ↔ 3V3_PLATE</text>
 <text x="844" y="1948" class="note">stock plate leaves RESET floating; fine to omit</text>
-<text x="844" y="1976" class="tk" font-weight="bold">F1  polyfuse ~1 A hold</text>
+<text x="844" y="1976" class="tk" font-weight="bold">F1  polyfuse 2 A hold (NOT 1 A - see BOM)</text>
 <text x="844" y="1992" class="tk">in the pack's + leg, before the JST</text>
 <text x="844" y="2020" class="tk" font-weight="bold">Not fitted, on purpose:</text>
 <text x="844" y="2036" class="tk">DIO0–DIO5 wires · VBAT terminal ·</text>
