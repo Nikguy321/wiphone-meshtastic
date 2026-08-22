@@ -2114,6 +2114,25 @@ TinySIP::StateFlags_t TinySIP::checkCall(uint32_t msNow) {
                * exist precisely because the server did not hear an ack; going quiet on
                * the second one guarantees five more. */
               int sendErr = sendResponse(NULL, *tcpReply, OK_200, "OK");
+              /* ⚠ DIAGNOSTIC, added 2026-08-22 with the retransmit guard, and the guard only
+               * HIDES the symptom — this line is for finding the cause.
+               *
+               * Retransmissions mean the server never matched our ack. Two candidates and
+               * this tells them apart:
+               *   * NAT — the ack leaves the right socket for the right box, but Nick's
+               *     ANDROID HOTSPOT (symmetric) remaps it to a port VoIP.ms never saw.
+               *     Then dst here equals the registrar and there is nothing to fix on the
+               *     phone; it is the network, and the guard is the right answer.
+               *   * WRONG BOX — getConnection(false) falls back to tcpProxy when a request
+               *     carries no Record-Route and no Contact, which is exactly an inbound
+               *     MESSAGE. If VoIP.ms sent it from a DIFFERENT cluster node than the
+               *     registrar we are acking the wrong address, which is a real bug with a
+               *     real fix (reply to the top Via's received/rport per RFC 3261 18.2.2).
+               * Compare dst below against the node the MESSAGE arrived from. */
+              log_e("SIP MESSAGE ack -> dst %s:%u from localPort %u (udp=%d) Call-ID %s",
+                    tcpReply->remoteIP().toString().c_str(), (unsigned)tcpReply->remotePort(),
+                    (unsigned)tcpReply->localPort(), (int)tcpReply->isUdp(),
+                    respCallId ? respCallId : "?");
               if (sendErr!=TINY_SIP_OK) {
                 log_e("send response error: %d", sendErr);
                 return sendErr;
