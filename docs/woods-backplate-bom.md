@@ -82,6 +82,22 @@ phone is switched off but the pack is still on):
 confirm the pull-up before trusting the divider** — if it is much stiffer than 100 kΩ, drop the
 4.7 kΩ accordingly.
 
+✅ **MEASURED ON THE BENCH (Nick, 2026-08-21) — the divider is confirmed, no guessing left:**
+
+| measurement | value | means |
+|---|---|---|
+| EN→VIN, module unpowered | **99.9 kΩ** | the internal pull-up, measured directly rather than derived — and within 0.1% of the assumed 100 kΩ |
+| EN, powered, no pull-down | **4.95 V** | EN floats to VIN: without gating the plate's rail would be permanently ON |
+| EN with the 4.7 kΩ fitted | **0.22 V** | ✅ PASS — the TLV's guaranteed-off (V_IL) limit is 0.4 V, so there is 45% margin |
+
+At the PowerBoost's 5.2 V the same divider gives 0.234 V, still well off. Phone ON drives EN to
+3.3 V (guaranteed-on above 1.2 V) and costs the phone 0.7 mA through the 4.7 kΩ.
+
+🔑 **Fit the 4.7 kΩ even though the phone's 3.3 V pin measures 0 V when off.** That reading was
+taken with a ~10 MΩ meter, which cannot tell "actively pulled to ground" from "floating near
+zero"; the resistor makes the LDO's undocumented off-state impedance irrelevant. Depending on it
+instead would be trusting a number nobody published.
+
 ---
 
 ## Order 2 — Amazon
