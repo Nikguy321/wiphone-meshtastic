@@ -132,8 +132,8 @@
 
 <!-- ===================== v2 RATIONALE ===================== -->
 <g>
-  <rect x="40" y="1010" width="292" height="286" class="warn"/>
-  <text x="52" y="1034" class="tt">v2 — WHY VBAT FEEDS THE RAIL</text>
+  <rect x="40" y="1010" width="292" height="296" class="warn"/>
+  <text x="52" y="1034" class="tt">v2 — VBAT FEEDS THE RAIL</text>
   <text x="52" y="1056" class="tk">Measured 2026-08-22: when the external pack</text>
   <text x="52" y="1072" class="tk">dies, radio and GPS die with it — and the</text>
   <text x="52" y="1088" class="tk">phone can outlive them by hours.</text>
@@ -145,7 +145,7 @@
   <text x="52" y="1200" class="tk">pack alive → 5.2 V wins, the phone's cell is</text>
   <text x="52" y="1216" class="tk">untouched (v1 behaviour, kept). Pack dead →</text>
   <text x="52" y="1232" class="tk">VBAT takes over. No logic, no firmware.</text>
-  <text x="52" y="1256" class="tw">D2's REVERSE BLOCKING is safety-critical:</text>
+  <text x="52" y="1256" class="tw">D2's REVERSE BLOCKING is critical:</text>
   <text x="52" y="1272" class="tk">it stops 4.9 V back-feeding VBAT and</text>
   <text x="52" y="1288" class="tk">uncontrolled-charging the phone's cell.</text>
 </g>
@@ -168,7 +168,7 @@
   <text x="776" y="427" class="pin" font-weight="bold">NSS</text>
   <circle cx="760" cy="458" r="8" fill="#fff" stroke="#1e8a5a" stroke-width="2"/><text x="742" y="451" class="pinno">6</text>
   <text x="776" y="463" class="pin">RESET</text><text x="838" y="463" class="ts">NC (or R2 10k→3V3)</text>
-  <circle cx="760" cy="494" r="8" fill="#fff" stroke="#1e8a5a" stroke-width="2"/><text x="736" y="487" class="pinno">7</text>
+  <circle cx="760" cy="494" r="8" fill="#fff" stroke="#1e8a5a" stroke-width="2"/><text x="742" y="487" class="pinno">7</text>
   <text x="776" y="499" class="pin">DIO5</text><text x="826" y="499" class="nc">✗ NC</text>
   <circle cx="760" cy="530" r="8" fill="#fff" stroke="#1e8a5a" stroke-width="2"/><text x="742" y="523" class="pinno">8</text>
   <text x="776" y="535" class="pin">GND</text><text x="820" y="535" class="ts">ok empty (gnd = pad 10)</text>
@@ -193,7 +193,7 @@
   <text x="1012" y="535" class="pin" font-weight="bold">ANT</text>
 </g>
 <text x="764" y="560" class="note">module carries its own decoupling — C1/C2 are belt-and-braces</text>
-<text x="764" y="576" class="tw">R7 10 kΩ: pad 5 NSS ↔ pad 13 3.3V — REQUIRED (stock plate fits one too)</text>
+<text x="764" y="576" class="tw">R7 10 kΩ: NSS ↔ 3V3_PLATE — REQUIRED (drawn below)</text>
 
 <!-- DIO0 warning callout -->
 <rect x="1130" y="210" width="466" height="118" class="warn"/>
@@ -205,6 +205,18 @@
 <text x="1144" y="316" class="tk">If you see a wire on pad 14, it is WRONG. Cross-check before power.</text>
 <path d="M1130 300 L1082 344" stroke="#b03030" stroke-width="2" fill="none" marker-end="url(#arr)"/>
 <defs><marker id="arr" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#b03030"/></marker></defs>
+
+<!-- R7 (v2, REQUIRED): NSS pull-up to the PLATE rail, drawn like every other part.
+     Tapped chip-side of R5 so it holds the RFM's own NSS pin, and referenced to
+     3V3_PLATE so it adds no phantom feed when the pack dies. -->
+<g>
+  <circle cx="730" cy="422" r="4" fill="#2b5fa8"/>
+  <polyline class="leg" points="730,422 730,620 1185,620"/>
+  <rect x="880" y="612" width="56" height="16" fill="#fff" stroke="#111" stroke-width="1.8"/>
+  <text x="884" y="624" class="tk">R7 10k</text>
+  <circle cx="1185" cy="620" r="4" fill="#e07b00"/>
+  <text x="944" y="608" class="ts">NSS ↔ 3V3_PLATE — REQUIRED (boot strap)</text>
+</g>
 
 <!-- ===================== SPI wires W13-W16 ===================== -->
 <g>
@@ -256,7 +268,7 @@
   <circle cx="760" cy="1180" r="8" fill="#fff" stroke="#c47a1a" stroke-width="2"/>
   <text x="776" y="1185" class="pin" font-weight="bold">RX</text><text x="812" y="1185" class="ts">GPS listens ← DB_TXD (G32)</text>
 </g>
-<text x="774" y="1214" class="note">module takes 3.3–5 V, all-3.3 V logic — no level shifters anywhere on this plate</text>
+<text x="774" y="1206" class="note">module takes 3.3–5 V · all-3.3 V logic, no level shifters</text>
 
 <!-- UART wires W17, W18 (crossed on purpose) -->
 <g>
@@ -352,9 +364,9 @@
 <!-- polyfuse -->
 <g>
   <polyline class="wbat" points="258,1392 320,1392"/>
-  <rect x="320" y="1380" width="54" height="24" fill="#fff" stroke="#111" stroke-width="2"/>
-  <text x="326" y="1397" class="tk">F1 3 A GF300</text>
-  <polyline class="wbat" points="374,1392 440,1392"/>
+  <rect x="320" y="1380" width="78" height="24" fill="#fff" stroke="#111" stroke-width="2"/>
+  <text x="324" y="1397" class="ts">F1 3 A GF300</text>
+  <polyline class="wbat" points="398,1392 440,1392"/>
   <text x="290" y="1364" class="ts">polyfuse in the JST + leg</text>
   <rect x="282" y="1404" width="30" height="16" rx="3" fill="#8b1a1a"/><text x="287" y="1416" class="wtag">W1</text>
   <rect x="394" y="1404" width="30" height="16" rx="3" fill="#8b1a1a"/><text x="399" y="1416" class="wtag">W2</text>
@@ -385,7 +397,6 @@
 <text x="894" y="1361" class="ts">ORDERED 2026-08-22 · 2–5.5 V in · 26×18 mm</text>
 <circle cx="920" cy="1320" r="8" fill="#fff" stroke="#6b3fa0" stroke-width="2"/><text x="904" y="1310" class="pin" font-weight="bold">VIN</text>
 <circle cx="980" cy="1320" r="8" fill="#fff" stroke="#6b3fa0" stroke-width="2"/><text x="962" y="1310" class="pin" font-weight="bold">GND</text>
-<circle cx="1040" cy="1320" r="8" fill="#fff" stroke="#7d3fbf" stroke-width="2.5"/><text x="1028" y="1310" class="pin" font-weight="bold">EN</text>
 <circle cx="1100" cy="1320" r="8" fill="#fff" stroke="#e07b00" stroke-width="2.5"/><text x="1080" y="1310" class="pin" font-weight="bold">OUT</text>
 <circle cx="1140" cy="1320" r="8" fill="#fff" stroke="#6b3fa0" stroke-width="2"/><text x="1130" y="1310" class="pin">PS</text>
 <text x="894" y="1386" class="tw">v2: fed from BOTH sources via D1/D2</text>
@@ -399,6 +410,7 @@
 <text x="894" y="1506" class="tk">holds it LOW when the phone is off.</text>
 <text x="894" y="1520" class="tw">⚠ PS pad: LOW = power-save at idle</text>
 <text x="894" y="1534" class="note">⚠ set the 3V3 jumper — it ships selectable</text>
+<circle cx="1040" cy="1540" r="8" fill="#fff" stroke="#7d3fbf" stroke-width="2.5"/><text x="1000" y="1558" class="pin" font-weight="bold">EN</text>
 
 <!-- power wires -->
 <!-- W4: PB 5V -> header 5V ; lane x=336 -->
@@ -419,8 +431,8 @@
 <text x="566" y="328" class="tk">D2 ▶|</text>
 <rect x="390" y="314" width="34" height="17" rx="3" fill="#8b1a1a"/><text x="396" y="327" class="wtag">W20</text>
 <circle cx="740" cy="1240" r="4.5" fill="#8b1a1a"/>
-<text x="596" y="1216" class="tw">OR node</text>
-<text x="596" y="1202" class="ts">higher source wins</text>
+<text x="470" y="1200" class="tw">OR node</text>
+<text x="470" y="1186" class="ts">higher source wins</text>
 <!-- W7: PB GND -> TLV GND -->
 <polyline class="wgnd" points="620,1312 620,1258 980,1258 980,1312"/>
 <rect x="740" y="1262" width="30" height="16" rx="3" fill="#444"/><text x="745" y="1274" class="wtag">W7</text>
@@ -443,7 +455,7 @@
 <circle cx="740" cy="1215" r="4" fill="#444"/>
 <rect x="700" y="1150" width="34" height="17" rx="3" fill="#444"/><text x="706" y="1163" class="wtag">W11</text>
 <!-- W12: EN sense: header 3.3V -> TLV EN -->
-<polyline class="wen" points="291,362 360,362 360,1580 1040,1580 1040,1328"/>
+<polyline class="wen" points="291,362 360,362 360,1330 270,1330 270,1580 1040,1580 1040,1548"/>
 <rect x="378" y="1560" width="34" height="17" rx="3" fill="#7d3fbf"/><text x="384" y="1573" class="wtag">W12</text>
 <!-- R1 from EN wire node to GND -->
 <circle cx="1040" cy="1560" r="4" fill="#7d3fbf"/>
