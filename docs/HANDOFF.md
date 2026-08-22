@@ -5,6 +5,63 @@ ACCEPTED + MESH HISTORY REPLAY LIVE, both proven on hardware.** 15 host suites
 green (new: test_chunk, test_replay). The 0.9.7 flasher is PUBLISHED (gh-pages
 serves 0.9.7 — the stale "staged" note below predates the publish).
 
+
+## 🔧 ▶ BENCH STATE, 2026-08-21 evening — PLATE WIRED, NOT MOUNTED, NO CELL CONNECTED
+
+**Physical state right now:** the woods backplate is **fully wired per W1–W19** and is sitting
+**off the phone**. **No LiPo is plugged in.** Nothing has ever been powered. Do not skip to
+mounting it — the first-power sequence below exists because a reversed cell or a solder bridge
+is unrecoverable on the PowerBoost, and both are cheap to rule out while the plate is loose.
+
+### As-built deviations from the BOM (all deliberate, all recorded)
+- **F1 = GF300** (16 V, 3 A radial PPTC) in the **cell POSITIVE** leg, not the 1 A the BOM
+  originally specified. The 1 A was undersized: that leg carries boost INPUT current, ~1.6 A at
+  a fresh cell and ~1.75 A once it sags to 3.3 V, and PPTC hold derates ~0.85× at 40 °C.
+- **BT2.0 pigtail into the PowerBoost's BAT/GND PADS**, not the JST. The pads are wired in
+  parallel with the JST, so this is electrically identical. ⚠ **THE JST MUST STAY EMPTY** —
+  a pack on both inputs is paralleled cells, which is exactly what destroyed both packs'
+  protection FETs in July 2026.
+- Battery leg is 20–22 AWG (BT2.0 stock). The 26–30 AWG in the BOM is for signal/3.3 V runs
+  only; it is NOT adequate for the cell leg.
+
+### ✅ Everything measured today (the build guide's owed numbers — all pass)
+| measurement | result | meaning |
+|---|---|---|
+| 5 V header fed at 5.0 V / 200 mA limit, no USB | **phone charges** | the pack-drives-phone-through-the-header topology is now MEASURED, not inferred |
+| header 3.3 V pin | **3.3 V phone ON / 0 V OFF** | a true power-state signal, so the TLV EN gating works; also proves `ENABLE_DAUGHTER_33V` does not gate this rail |
+| TLV62569 EN→VIN, unpowered | **99.9 kΩ** | the internal pull-up, measured directly (within 0.1% of the assumed 100 k) |
+| EN powered, no pull-down | **4.95 V** | without gating the plate's rail would be permanently ON |
+| EN with the 4.7 kΩ fitted | **0.22 V** | ✅ PASS vs the 0.4 V guaranteed-off limit; 0.234 V at the PowerBoost's 5.2 V |
+
+### ✅ The stock LoRa plate's resistors — CLOSED, and the plate is a v2.2 (not v2.0)
+Vendor design files found and saved to **`~/Downloads/wiphone-lora-v2.1/`** (schematic PDF +
+rendered PNG, BOM .xlsx, Eagle .sch/.brd). Published on wiphone.io, NOT GitHub. Authoritative:
+- **R1 = R2 = 100 kΩ** pull-ups (RESET and NSS to 3.3 V). Nick measured 98.9 k and 52 k — the
+  52 k is an in-circuit parallel-path artifact, not a different part.
+- **R6 = 0 Ω**, the series element of an otherwise-unpopulated pi network (**C2, C3 = DNP**).
+  Netlist: `ANT = {R6.2, C3.2, U1.ANT}`, `N$9 = {R6.1, C2.2, J1.SIGNAL}`.
+  ⇒ **the stock RF path is module ANT → 0 Ω link → U.FL. No matching, no filter, no PA.**
+  So soldering coax straight from `ANA` to the SMA pigtail is what the factory does minus one
+  joint — the "one genuinely open RF question" is closed.
+- **R7 and R11 DO NOT EXIST** (nor R3/R4/R5 — the numbering simply has gaps).
+
+### ▶ FIRST-POWER SEQUENCE — do these in order, plate still OFF the phone
+1. **Meter BT2.0 polarity with a DMM. Do not trust wire colour.** Confirm pack + reaches the
+   PowerBoost BAT pad. Reverse-connecting a LiPo here is not recoverable.
+2. **Confirm the JST is empty.**
+3. 🔑 **First power from a BENCH SUPPLY, not the cell** — 3.8 V, **300 mA limit**, into
+   BAT+/GND (the PowerBoost cannot tell it from a cell, and a LiPo cannot be current-limited).
+   Expect: quiescent draw only; **5 V rail ≈ 5.2 V**; and — the interesting one —
+   **the plate's 3.3 V rail should read 0 V**, because EN is gated off the phone's 3.3 V pin
+   and no phone is attached. A live 3.3 V rail here means the EN gate is miswired.
+4. Only when 3 is clean: swap the bench supply for the LiPo, re-check the same three readings.
+5. Then mount on the phone and verify, in order: phone charges · plate 3.3 V comes up with the
+   phone · `gps on` then `gps` shows bytes+sentences (bytes rising with sentences 0 = wrong
+   baud) · radio still transmits (serial `nbr now`, or watch a mesh send).
+
+⚠ **The PowerBoost will not run at all without a cell (or bench supply) on BAT** — a dark board
+with nothing attached is expected, not a fault.
+
 ## ✅ 2026-08-21 (afternoon): NEIGHBOUR INFO — who hears whom, on both devices
 
 Nick's ask, for building a mesh map while hunting. **Phone side:** a RAM table of
