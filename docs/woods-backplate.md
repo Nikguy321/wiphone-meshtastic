@@ -273,6 +273,22 @@ known-good FPC antenna to swap against, which is a far better diagnostic than CO
 - 1 × 10 µF (RFM95W 3.3 V bulk)
 - 1 × 22–47 µF (GPS 3.3 V bulk)
 - 1 × polyfuse + connector (external battery leg)
+- **4 × 1 kΩ series resistors (R3–R6)** in the phone-driven lines — W14 MOSI, W15 SCK, W16 NSS,
+  W18 GPS-RX. ⚠ Added 2026-08-22 after a measurement, not a guess: with the pack dead and the
+  phone alive, the phone's driven pins back-fed the plate through ESD clamp diodes — the 3.3 V
+  rail floated at **2.54 V** (one diode below 3.3), the 5 V node at 2.18 V (backwards through the
+  TLV). An RFM95W runs at 2.5 V: it answered its version probe, the mesh screen said READY, RX
+  worked — and TX was silently impossible (120 mA through clamp diodes is not a thing). 1 kΩ caps
+  each clamp path at ~2 mA so the rail collapses, the clamps carry no meaningful DC, and a firmware
+  re-probe can tell the truth. MISO (W13) and GPS-TX (W17) get **none** — they are plate-driven,
+  and the EN gate means the plate is never powered while the phone is off. SPI timing is untouched:
+  the bit-bang runs ~15 µs/bit against ~20 ns of added RC.
+- **1 × 10 kΩ NSS pull-up (R7), RFM pad 5 → the plate's 3.3 V rail — REQUIRED** (added
+  2026-08-22, adversarial review finding). GPIO 27 floats during every ESP32 reset; if NSS drifts
+  low the radio drives MISO — and MISO is GPIO 12 = **MTDI, the flash-voltage boot strap**. MISO
+  high at reset release sets VDD_SDIO to 1.8 V and the phone fails to boot. The stock v2.2 LoRa
+  plate fits exactly this part (its R2, 100 k to 3.3 V) — the vendor knew. Referenced to the
+  PLATE rail on purpose: when the pack is dead the rail is dead, so R7 adds no phantom feed.
 - optional 10 kΩ pull-up on RESET
 - **for the battery half: 1 × IP5306 module** (charger + boost + USB-in), per route A above
 

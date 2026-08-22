@@ -2,6 +2,9 @@
 <!-- ============================================================================
   WOODS BACKPLATE - LEG-BY-LEG WIRING SHEET (companion to woods-backplate.svg gist)
   Every pad drawn, every wire numbered (W#), every unused pad crossed out.
+  2026-08-22: R3-R6 added (4x 1 kOhm, series, phone-driven lines only) after the
+  phantom-power measurement: pack dead + phone alive back-fed the plate through
+  ESD clamps to 2.54 V - enough to run the RFM95W and fake a healthy radio.
   Sources verified 2026-08-20:
     RFM95W pads: HopeRF RFM95W-V2.0 datasheet Table 2 (p.11) + Figure 2 (p.10)
     Terminals:   WiPhone Header Breakout official doc
@@ -42,7 +45,7 @@
 
 <!-- ===================== TITLE BLOCK ===================== -->
 <text x="24" y="34" class="tt" font-size="21">WiPhone woods backplate — WIRING SHEET (every leg, every pad)</text>
-<text x="24" y="56" class="note">Rev 2026-08-20 · companion to woods-backplate.svg (the gist) · architecture per woods-backplate.md + BOM 2026-08-11 (PowerBoost feeds the buck — NOT VBAT)</text>
+<text x="24" y="56" class="note">Rev 2026-08-22 (R3–R7 added) · pads verified 2026-08-20 · companion to woods-backplate.svg (the gist) · architecture per woods-backplate.md + BOM 2026-08-11 (PowerBoost feeds the buck — NOT VBAT)</text>
 <text x="24" y="72" class="note">RFM95W pads verified against HopeRF datasheet V2.0 Table 2 + Figure 2 · terminal names verified against WiPhone's Header Breakout doc · Adafruit pad names from product/learn pages</text>
 
 <!-- legend -->
@@ -165,6 +168,7 @@
   <text x="1012" y="535" class="pin" font-weight="bold">ANT</text>
 </g>
 <text x="764" y="560" class="note">module carries its own decoupling — C1/C2 are belt-and-braces</text>
+<text x="764" y="576" class="tw">R7 10 kΩ: pad 5 NSS ↔ pad 13 3.3V — REQUIRED (stock plate fits one too)</text>
 
 <!-- DIO0 warning callout -->
 <rect x="1130" y="210" width="466" height="118" class="warn"/>
@@ -187,9 +191,30 @@
   <rect x="380" y="541" width="34" height="17" rx="3" fill="#2b5fa8"/><text x="386" y="554" class="wtag">W14</text>
   <rect x="380" y="579" width="34" height="17" rx="3" fill="#2b5fa8"/><text x="386" y="592" class="wtag">W15</text>
   <rect x="380" y="617" width="34" height="17" rx="3" fill="#2b5fa8"/><text x="386" y="630" class="wtag">W16</text>
+  <!-- R3-R5: 1 kOhm IN the three phone-driven SPI lines (added 2026-08-22).
+       W13 MISO gets NONE - the RFM drives it, and the EN gate means the plate
+       is never powered while the phone is off, so that direction has no
+       phantom case. -->
+  <rect x="470" y="545" width="40" height="14" class="box"/><text x="516" y="548" class="ts">R3 1 kΩ</text>
+  <rect x="470" y="583" width="40" height="14" class="box"/><text x="516" y="586" class="ts">R4 1 kΩ</text>
+  <rect x="470" y="621" width="40" height="14" class="box"/><text x="516" y="624" class="ts">R5 1 kΩ</text>
   <text x="372" y="662" class="ts">SPI copies NAMES side to side —</text>
   <text x="372" y="678" class="ts">MISO→MISO, MOSI→MOSI. No crossing.</text>
   <text x="372" y="694" class="ts">Only the UART below crosses.</text>
+</g>
+
+<!-- ===================== WHY R3-R6 EXIST ===================== -->
+<g>
+  <rect x="372" y="706" width="300" height="164" class="warn"/>
+  <text x="384" y="728" class="tw">WHY R3–R6 EXIST — measured 2026-08-22</text>
+  <text x="384" y="748" class="tk">Pack dead + phone alive = the phone's driven</text>
+  <text x="384" y="764" class="tk">pins back-feed the plate through ESD clamps:</text>
+  <text x="384" y="780" class="tk">3V3_PLATE floated at 2.54 V (a diode under 3.3),</text>
+  <text x="384" y="796" class="tk">the 5 V node at 2.18 V (backwards via the TLV).</text>
+  <text x="384" y="812" class="tk">An RFM95W runs at 2.5 V — it answered its</text>
+  <text x="384" y="828" class="tk">version probe, the phone said READY, RX worked,</text>
+  <text x="384" y="844" class="tk">TX silently impossible. 1 kΩ caps each clamp at</text>
+  <text x="384" y="860" class="tk">~2 mA, the rail collapses, absence reads honest.</text>
 </g>
 
 <!-- ===================== GPS (M100 Mini) ===================== -->
@@ -214,10 +239,12 @@
   <polyline class="wuart" points="291,476 680,476 680,1180 752,1180"/>
   <rect x="380" y="427" width="34" height="17" rx="3" fill="#0f8b8b"/><text x="386" y="440" class="wtag">W17</text>
   <rect x="380" y="465" width="34" height="17" rx="3" fill="#0f8b8b"/><text x="386" y="478" class="wtag">W18</text>
-  <rect x="410" y="880" width="250" height="66" class="warn"/>
+  <rect x="470" y="469" width="40" height="14" class="box"/><text x="516" y="472" class="ts">R6 1 kΩ</text>
+  <rect x="410" y="880" width="250" height="84" class="warn"/>
   <text x="424" y="900" class="tw">UART CROSSES. SPI DOES NOT.</text>
-  <text x="424" y="917" class="tk">W17: GPS TX → DB_RXD (38)</text>
-  <text x="424" y="933" class="tk">W18: GPS RX → DB_TXD (32)</text>
+  <text x="424" y="917" class="tk">W17: GPS TX → DB_RXD (38) — no R</text>
+  <text x="424" y="933" class="tk">W18: GPS RX ← DB_TXD (32) — R6 1 kΩ</text>
+  <text x="424" y="950" class="tk">R6 in the PHONE-driven line only</text>
 </g>
 
 <!-- GPS decoupling C3/C4 -->
@@ -301,7 +328,7 @@
 <g>
   <polyline class="wbat" points="258,1392 320,1392"/>
   <rect x="320" y="1380" width="54" height="24" fill="#fff" stroke="#111" stroke-width="2"/>
-  <text x="326" y="1397" class="tk">F1 ~1 A</text>
+  <text x="326" y="1397" class="tk">F1 3 A GF300</text>
   <polyline class="wbat" points="374,1392 440,1392"/>
   <text x="290" y="1364" class="ts">polyfuse in the JST + leg</text>
   <rect x="282" y="1404" width="30" height="16" rx="3" fill="#8b1a1a"/><text x="287" y="1416" class="wtag">W1</text>
@@ -406,16 +433,18 @@
 <text x="54" y="1902" class="tk">W10  TLV pad 3V3 (tap W8)               GPS pad "5V"                       3V3_PLATE</text>
 <text x="54" y="1922" class="tk">W11  GND bus (tap W9)                   GPS pad GND                        GND</text>
 <text x="54" y="1942" class="tk">W12  Header terminal 3.3V               TLV pad EN   (+ R1 4.7k EN→GND)    EN sense</text>
-<text x="54" y="1962" class="tk">W13  Header DB_SPI_MISO (GPIO 12)       RFM95W pad 2   (MISO)              SPI</text>
-<text x="54" y="1982" class="tk">W14  Header DB_SPI_MOSI (GPIO 13)       RFM95W pad 3   (MOSI)              SPI</text>
-<text x="54" y="2002" class="tk">W15  Header DB_SPI_CLK  (GPIO 14)       RFM95W pad 4   (SCK)               SPI</text>
-<text x="54" y="2022" class="tk">W16  Header DB_SPI_CS   (GPIO 27)       RFM95W pad 5   (NSS)               SPI</text>
-<text x="54" y="2042" class="tk">W17  GPS pad TX                         Header DB_RXD  (GPIO 38)           UART ⚠ crosses</text>
-<text x="54" y="2062" class="tk">W18  GPS pad RX                         Header DB_TXD  (GPIO 32)           UART ⚠ crosses</text>
+<text x="54" y="1962" class="tk">W13  Header DB_SPI_MISO (GPIO 12)       RFM95W pad 2   (MISO)              SPI · no R</text>
+<text x="54" y="1982" class="tk">W14  Header DB_SPI_MOSI (GPIO 13)       —R3 1 kΩ—  RFM95W pad 3  (MOSI)    SPI</text>
+<text x="54" y="2002" class="tk">W15  Header DB_SPI_CLK  (GPIO 14)       —R4 1 kΩ—  RFM95W pad 4  (SCK)     SPI</text>
+<text x="54" y="2022" class="tk">W16  Header DB_SPI_CS   (GPIO 27)       —R5 1 kΩ—  RFM95W pad 5  (NSS)     SPI</text>
+<text x="54" y="2042" class="tk">W17  GPS pad TX                         Header DB_RXD  (GPIO 38)           UART ⚠ crosses · no R</text>
+<text x="54" y="2062" class="tk">W18  GPS pad RX                         —R6 1 kΩ—  Header DB_TXD (GPIO 32) UART ⚠ crosses</text>
 <text x="54" y="2082" class="tk">W19  RFM95W pad 9 ANT (coax center;     u.FL/851 → SMA panel → whip        RF · ≤5 mm</text>
 <text x="97" y="2100" class="tk">braid → pad 10)</text>
+<text x="54" y="2124" class="tk" font-weight="bold">+ R7 10 kΩ RFM pad 5 NSS ↔ pad 13 3.3V — not a wire to the phone, but tick it here: without it a phone RESET</text>
+<text x="76" y="2140" class="tk" font-weight="bold">with the plate powered can strap GPIO 12 (MTDI) high and the phone fails to boot</text>
 
-<rect x="830" y="1640" width="330" height="475" class="box"/>
+<rect x="830" y="1640" width="330" height="505" class="box"/>
 <text x="844" y="1666" class="tt">Small parts — where each leg goes</text>
 <text x="844" y="1694" class="tk" font-weight="bold">C1  100 nF</text><text x="844" y="1710" class="tk">RFM pad 13 ↔ RFM pad 10 (short!)</text>
 <text x="844" y="1734" class="tk" font-weight="bold">C2  10 µF</text><text x="844" y="1750" class="tk">RFM pad 13 ↔ RFM pad 10</text>
@@ -424,13 +453,18 @@
 <text x="844" y="1848" class="note">all ceramic — NO polarity to get wrong</text>
 <text x="844" y="1876" class="tk" font-weight="bold">R1  4.7 kΩ</text><text x="844" y="1892" class="tk">TLV EN pad ↔ GND</text>
 <text x="844" y="1916" class="tk" font-weight="bold">R2  10 kΩ (optional)</text><text x="844" y="1932" class="tk">RFM pad 6 RESET ↔ 3V3_PLATE</text>
-<text x="844" y="1948" class="note">stock plate leaves RESET floating; fine to omit</text>
-<text x="844" y="1976" class="tk" font-weight="bold">F1  polyfuse 3 A hold - GF300 (NOT 1 A - see BOM)</text>
-<text x="844" y="1992" class="tk">in the pack's + leg, before the JST</text>
-<text x="844" y="2020" class="tk" font-weight="bold">Not fitted, on purpose:</text>
-<text x="844" y="2036" class="tk">DIO0–DIO5 wires · VBAT terminal ·</text>
-<text x="844" y="2052" class="tk">PB EN/LBO/BAT/USB pads · USB-A jack ·</text>
-<text x="844" y="2068" class="tk">level shifters (all-3.3 V logic)</text>
+<text x="844" y="1946" class="note">stock plate leaves RESET floating; fine to omit</text>
+<text x="844" y="1968" class="tk" font-weight="bold">R3–R6  4× 1 kΩ  (series, IN the wire)</text>
+<text x="844" y="1984" class="tk">W14 MOSI · W15 SCK · W16 NSS · W18 GPS-RX</text>
+<text x="844" y="2000" class="tk">(the phone-driven lines; W13 &amp; W17 get none)</text>
+<text x="844" y="2022" class="tk" font-weight="bold">R7  10 kΩ  — REQUIRED (added 2026-08-22)</text>
+<text x="844" y="2038" class="tk">RFM pad 5 NSS ↔ 3V3_PLATE — holds NSS up while the</text>
+<text x="844" y="2054" class="tk">phone resets; GPIO 12 is a boot strap (MTDI)</text>
+<text x="844" y="2074" class="tk" font-weight="bold">F1  polyfuse 3 A hold - GF300 (NOT 1 A - see BOM)</text>
+<text x="844" y="2090" class="tk">in the pack's + leg, before the JST</text>
+<text x="844" y="2110" class="tk" font-weight="bold">Not fitted, on purpose:</text>
+<text x="844" y="2124" class="ts">DIO0–DIO5 wires · VBAT terminal · PB EN/LBO/BAT/USB</text>
+<text x="844" y="2136" class="ts">pads · USB-A jack · level shifters (all-3.3 V logic)</text>
 
 <rect x="1190" y="1640" width="406" height="475" class="chk"/>
 <text x="1204" y="1666" class="tt">BEFORE FIRST POWER — in order</text>
@@ -456,6 +490,6 @@
 <text x="1204" y="2072" class="tk">`gps` — bytes/sentences/fix counters diagnose the bench.</text>
 
 <!-- footer -->
-<text x="40" y="2150" class="note">Junction dots mark every real connection; crossings without dots are not connected. Wire colors are nets, not insulation colors — use what you have, but label W# on flag tape.</text>
-<text x="40" y="2166" class="note">Print A3 portrait. Sources: HopeRF RFM95W-V2.0 DS (pads), WiPhone Header Breakout doc (terminals), Adafruit 2465/4711 (pads), woods-backplate.md + -bom.md (architecture, 2026-08-11).</text>
+<text x="40" y="2162" class="note">Junction dots mark every real connection; crossings without dots are not connected. Wire colors are nets, not insulation colors — use what you have, but label W# on flag tape.</text>
+<text x="40" y="2178" class="note">Print A3 portrait. Sources: HopeRF RFM95W-V2.0 DS (pads), WiPhone Header Breakout doc (terminals), Adafruit 2465/4711 (pads), woods-backplate.md + -bom.md (architecture, 2026-08-11).</text>
 </svg>
