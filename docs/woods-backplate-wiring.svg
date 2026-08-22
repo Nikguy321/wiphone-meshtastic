@@ -382,21 +382,23 @@
 <!-- buck-boost (v2, replaces the TLV62569 buck) -->
 <rect x="880" y="1320" width="280" height="220" class="pwr"/>
 <text x="894" y="1344" class="tt">TPS63020 buck-boost</text>
-<text x="894" y="1361" class="ts">3.3 V · in 2–5.5 V · EN + PS pads · 26×18 mm</text>
+<text x="894" y="1361" class="ts">ORDERED 2026-08-22 · 2–5.5 V in · 26×18 mm</text>
 <circle cx="920" cy="1320" r="8" fill="#fff" stroke="#6b3fa0" stroke-width="2"/><text x="904" y="1310" class="pin" font-weight="bold">VIN</text>
 <circle cx="980" cy="1320" r="8" fill="#fff" stroke="#6b3fa0" stroke-width="2"/><text x="962" y="1310" class="pin" font-weight="bold">GND</text>
 <circle cx="1040" cy="1320" r="8" fill="#fff" stroke="#7d3fbf" stroke-width="2.5"/><text x="1028" y="1310" class="pin" font-weight="bold">EN</text>
 <circle cx="1100" cy="1320" r="8" fill="#fff" stroke="#e07b00" stroke-width="2.5"/><text x="1080" y="1310" class="pin" font-weight="bold">OUT</text>
+<circle cx="1140" cy="1320" r="8" fill="#fff" stroke="#6b3fa0" stroke-width="2"/><text x="1130" y="1310" class="pin">PS</text>
 <text x="894" y="1386" class="tw">v2: fed from BOTH sources via D1/D2</text>
+<text x="894" y="1373" class="note">pads drawn by NET — go by the module's silk</text>
 <text x="894" y="1402" class="ts">pack 5.2 V wins while it lives;</text>
 <text x="894" y="1418" class="ts">VBAT takes over when it dies.</text>
 <text x="894" y="1438" class="ts">A BUCK-BOOST is required: a buck</text>
 <text x="894" y="1454" class="ts">(v1's TLV) drops out at 3.4 V in.</text>
 <text x="894" y="1476" class="tk" font-weight="bold">EN gate — UNCHANGED from v1:</text>
-<text x="894" y="1492" class="tk">phone 3.3V → EN (W12, sense only)</text>
-<text x="894" y="1506" class="tk">R1 4.7 kΩ EN→GND holds it LOW when</text>
-<text x="894" y="1520" class="tk">the phone is off → neither cell drains.</text>
-<text x="894" y="1534" class="note">⚠ set its 3V3 solder jumper (ships selectable)</text>
+<text x="894" y="1492" class="tk">phone 3.3V → EN (W12); R1 4.7 kΩ EN→GND</text>
+<text x="894" y="1506" class="tk">holds it LOW when the phone is off.</text>
+<text x="894" y="1520" class="tw">⚠ PS pad: LOW = power-save at idle</text>
+<text x="894" y="1534" class="note">⚠ set the 3V3 jumper — it ships selectable</text>
 
 <!-- power wires -->
 <!-- W4: PB 5V -> header 5V ; lane x=336 -->

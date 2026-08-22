@@ -26,13 +26,20 @@ PowerBoost stays: it still charges the phone through W4, still charges its own p
 microUSB, and phone-USB still reaches the plate through D1 (measured today). Deleting the
 PowerBoost would delete the external pack; that is NOT what v2 does.
 
-**PARTS — not ordered yet. Nick has the diodes.**
-- Fast: **TPS63020 module**, Amazon B0H3KQ1VXJ (DWEII 6-pack, ~$12.99, Prime next-day). 26×18 mm.
-  Board photos confirm **EN and PS are broken out** and 3V3/4V2/5V are solder-selectable —
-  ⚠ **set the 3V3 jumper**. Listing mentions an output LED; find and remove it if fitted.
-- Smaller/cleaner: **Pololu S9V11E2F3** (#5712, $4.95, 57 in stock). 10.9 × 16.5 × 4.1 mm,
-  <0.2 mA quiescent, 2–16 V in (3 V startup). Ships from Las Vegas, so not next-day.
-  ⚠ **1.2 mm TALLER than the Adafruit TLV breakout** (4.1 vs 2.9 mm) — matters for the case.
+**PARTS — ✅ ORDERED 2026-08-22. Nick has the diodes.**
+- ✅ **TPS63020 module, Amazon B0H3KQ1VXJ** (DWEII 6-pack). 26 × 18 mm, 2–5.5 V in.
+  Pads per the board photos: **VIN · GND · PS · EN** one edge, **OUT · GND** the other,
+  **3V3 / 4V2 / 5V solder-selectable**.
+  ⚠ **SET THE 3V3 JUMPER** before wiring — it does not ship set for this job.
+  ⚠ **PS is power-save select — tie it LOW** (pulse-skipping at idle; the plate idles ~45 mA).
+    Do not leave it floating. Check what the module ties it to before assuming.
+  ⚠ **EN thresholds are tighter than the TLV's** (V_IL 0.4 V, V_IH 1.2 V vs the Pololu's 0.7 V),
+    so checklist item 4 — phone off, EN must read < 0.4 V — is now load-bearing. Our measured
+    0.22 V divider still passes, with less headroom than v1 had.
+  ⚠ 6 pieces: bench one (3V3 jumper + EN behaviour) BEFORE it goes on the plate.
+  ⚠ **26 × 18 mm and ~4 mm tall** — bigger than the TLV breakout. Case impact.
+- Alternative if height/size ever bites: **Pololu S9V11E2F3** (#5712, $4.95, 10.9 × 16.5 × 4.1 mm,
+  <0.2 mA quiescent, 100 kΩ EN pull-up matching the old TLV's).
 - D1/D2: 1N5819 / SS14 / BAT54 (Nick has these).
 
 **⚠ TWO CHECKS OWED BEFORE THE REWORK:**
