@@ -133,9 +133,25 @@ The header's 3.3 V pin is the output of a **MIC5219-3.3BM5**, which WiPhone docu
 "designed for 150 mA to 200 mA output current applications". The RFM95W pulls **120 mA** transmitting
 at +20 dBm and the M100 another ~30 mA — about 150 mA together, i.e. the whole budget, before the
 phone's own daughterboard needs anything. Put an LDO or buck on the plate, sized for ≥ 250 mA.
-**Feed it from the PowerBoost's 5.2 V, not VBAT** — the BOM superseded the original fed-from-VBAT
-plan here (the chosen TLV62569's 3.4 V input floor would hit dropout at the bottom of a 1S
-discharge, exactly when you are furthest from the truck).
+**v2 (2026-08-22): feed it from BOTH — the PowerBoost's 5.2 V *and* the phone's VBAT, OR'd
+through two Schottkys into a BUCK-BOOST.** Pack alive, 5.2 V wins and the phone's cell is
+untouched; pack dead, VBAT takes over and the radio and GPS keep working. This is the direct
+answer to the failure found on the bench today: the plate's radio lives on the external pack and
+the phone can outlive it by hours.
+
+*(v1, superseded, kept because the reasoning still matters:)* "Feed it from the PowerBoost's
+5.2 V, not VBAT — the chosen TLV62569's 3.4 V input floor would hit dropout at the bottom of a 1S
+discharge, exactly when you are furthest from the truck." **That objection was about the PART,
+not the idea.** A buck cannot make 3.3 V from a 3.4 V input; a buck-boost has no such floor, so
+swapping the regulator dissolves it.
+
+⚠ **v2 removes NO charging path.** The PowerBoost stays exactly where it is: it still charges the
+phone through W4 (the measured Mega-style 5 V push), still charges its own pack over its own
+microUSB, and phone-USB still reaches the plate through D1. The only thing that changed is that
+the regulator now has a second source to fall back on.
+
+⚠ **D2's reverse blocking is safety-critical** — it is what stops the pack's 4.9 V from
+back-feeding VBAT and uncontrolled-charging the phone's cell. Meter the band before power.
 
 ⚠ **Gate its EN pin off the phone's 3.3 V pin.** Otherwise the plate's rail is live while the phone
 is off and back-powers the ESP32 through its GPIO clamp diodes. One wire, and it removes a whole
@@ -268,7 +284,12 @@ known-good FPC antenna to swap against, which is a far better diagnostic than CO
 - 1 × u.FL / IPEX MHF jack
 - 1 × u.FL → SMA bulkhead pigtail
 - 1 × 915 MHz SMA whip
-- **1 × 3.3 V LDO or buck, ≥ 250 mA, with an EN pin** (the plate's own rail)
+- **1 × 3.3 V BUCK-BOOST, ≥ 250 mA, with an EN pin** (the plate's own rail) — ⚠ **buck-boost, not
+  a buck**: v2 feeds it from VBAT as well as the pack, and a 1S cell ends at 3.0 V. Fitted choice:
+  a TPS63020 module (2–5.5 V in, EN + PS pads, 26 × 18 mm) or Pololu S9V11E2F3 (10.9 × 16.5 mm,
+  <0.2 mA quiescent, 100 kΩ EN pull-up that matches the old TLV's, so R1/W12 carry over unchanged).
+- **2 × Schottky diodes (D1, D2)** — 1N5819 / SS14 / BAT54. D1 in the PowerBoost 5 V leg (W6),
+  D2 in the VBAT leg (W20), both cathodes to the regulator's VIN.
 - 2 × 100 nF (RFM95W 3.3 V, GPS 3.3 V)
 - 1 × 10 µF (RFM95W 3.3 V bulk)
 - 1 × 22–47 µF (GPS 3.3 V bulk)

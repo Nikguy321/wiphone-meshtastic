@@ -66,6 +66,11 @@ charging hard. It current-limits rather than failing, but do not add more 5 V lo
 Input 3.4–5.5 V, output 3.3 V at up to 1.2 A, 90–95% efficient, **15.2 × 10.0 × 2.9 mm**. Adafruit:
 "There's also an ENable pin, tie it low to shut down the output completely."
 
+⚠ **SUPERSEDED BY v2 (2026-08-22): this part is a BUCK and v2 needs a BUCK-BOOST.** The rail is
+now OR'd from the PowerBoost's 5.2 V *and* the phone's VBAT so a dead pack cannot kill the radio,
+and a 1S cell ends at 3.0 V — below this part's floor. Replace with a TPS63020 module or a Pololu
+S9V11E2F3, and add 2 Schottkys (D1/D2). The note below is why v1 chose as it did:
+
 **Feed it from the PowerBoost's 5.2 V, not from VBAT.** Its input minimum is 3.4 V, so straight off
 a 1S cell it would be in dropout by the bottom of the discharge — exactly when you are furthest
 from the truck.
