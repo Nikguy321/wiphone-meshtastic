@@ -45,8 +45,38 @@ Read off a photo of the real board, so treat placement as certain and **values a
 | — | FPC antenna on 3M 300LSE + coax to J5 | stock antenna |
 | — | "PCB Slot" cutout | cable exit for an external antenna |
 
-✅ **RESOLVED 2026-08-21 by photographing Nick's actual plate (a v2.2, NOT the v2.0 this doc
-assumed).** The stock RF route is: module `ANA` → PCB trace → a **C2 / R6 / C3 pi-network
+✅ **RESOLVED 2026-08-21 — first from Nick's photo, then CONFIRMED against WiPhone's own published
+design files** (they are on wiphone.io, not GitHub; the ESP32-WiPhone org has firmware and connector
+footprints only). Authoritative values, from the Eagle netlist + the official BOM, cross-checked
+against the schematic PDF:
+
+| ref | published value | note |
+|---|---|---|
+| R1 | **100 kΩ** 0603 5% | pull-up, U1 `!RESET` → 3.3 V (Nick measured 98.9 kΩ ✅) |
+| R2 | **100 kΩ** 0603 5% | pull-up, U1 `NSS` → 3.3 V (Nick's 52 kΩ is an in-circuit parallel path, not a different part) |
+| R6 | **0 Ω** 0603 | series link, the ONLY thing between radio and connector |
+| C2, C3 | **DNP** | the shunt pads of the pi footprint, deliberately unpopulated |
+| C1 | 100 nF | decoupling |
+| J1 | U.FL | ⚠ the stock plate has **no SMA at all** |
+
+🔑 **The netlist settles the RF question outright**: `ANT = {R6.2, C3.2, U1.ANT}` and
+`N$9 = {R6.1, C2.2, J1.SIGNAL}`. The path is RFM95W ANT → 0 Ω → U.FL. **No matching network, no
+filter, no PA.** So soldering coax straight from `ANA` to the SMA pigtail is not a compromise —
+it is what the factory board does with one less joint. (It also means that on a stock plate, a
+missing or cold-reflowed R6 disconnects the antenna completely.)
+
+⚠ The published schematic is **v2.1**; WiPhone documents v2.0–v2.2 but publishes drawings for
+v2.1 only. Nick's board is a **v2.2** and matches the v2.1 parts list as far as the photo shows.
+⚠ The 868 MHz and 915 MHz products serve byte-identical design files — one board, U1 differs.
+
+Sources (design files also copied to `~/Downloads/wiphone-lora-v2.1/` — deliberately NOT committed
+here, they are WiPhone's to distribute):
+- https://wiphone.io/docs/LoRa/latest/LoRa.html — docs page linking all three files
+- `EagleDesignFiles.rar` → `LoRa_DB-v2.1.sch` / `.brd` (Eagle 9.5.2 XML) — the authoritative netlist
+- `20200824LoRa_v2.1.xlsx` — official BOM ("Resistor 0R 0603 qty 1 = R6")
+- `LoRa_DB-v2.1-sch.pdf` — schematic, dated 2020-08-24
+
+(Originally resolved by photographing Nick's actual plate, a v2.2, NOT the v2.0 this doc assumed.) The stock RF route is: module `ANA` → PCB trace → a **C2 / R6 / C3 pi-network
 footprint** → **J1, a u.FL jack** → pigtail. R6 is the series position of a tuning network that
 exists to compensate a PCB TRACE.
 
