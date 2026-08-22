@@ -6,12 +6,16 @@ green (new: test_chunk, test_replay). The 0.9.7 flasher is PUBLISHED (gh-pages
 serves 0.9.7 — the stale "staged" note below predates the publish).
 
 
-## 🔧 ▶ BENCH STATE, 2026-08-21 evening — PLATE WIRED, NOT MOUNTED, NO CELL CONNECTED
+## 🔧 ▶ BENCH STATE, 2026-08-22 — PLATE WIRED AND POWERED CLEAN, NOT YET MOUNTED
 
-**Physical state right now:** the woods backplate is **fully wired per W1–W19** and is sitting
-**off the phone**. **No LiPo is plugged in.** Nothing has ever been powered. Do not skip to
-mounting it — the first-power sequence below exists because a reversed cell or a solder bridge
-is unrecoverable on the PowerBoost, and both are cheap to rule out while the plate is loose.
+**Physical state right now:** the woods backplate is **fully wired per W1–W19**, has been
+**powered on both a bench supply and the LiPo with all readings in spec** (see FIRST POWER DONE
+below), and is still sitting **off the phone**. Next physical act is the COLD MOUNT — read that
+section before the plate touches the header.
+
+*(Superseded, kept for the reasoning:)* the first-power sequence below exists because a reversed
+cell or a solder bridge is unrecoverable on the PowerBoost, and both are cheap to rule out while
+the plate is loose.
 
 ### As-built deviations from the BOM (all deliberate, all recorded)
 - **F1 = GF300** (16 V, 3 A radial PPTC) in the **cell POSITIVE** leg, not the 1 A the BOM
@@ -44,6 +48,34 @@ rendered PNG, BOM .xlsx, Eagle .sch/.brd). Published on wiphone.io, NOT GitHub. 
   So soldering coax straight from `ANA` to the SMA pigtail is what the factory does minus one
   joint — the "one genuinely open RF question" is closed.
 - **R7 and R11 DO NOT EXIST** (nor R3/R4/R5 — the numbering simply has gaps).
+
+### ✅ FIRST POWER DONE — steps 1–4 PASSED, 2026-08-22 (bench supply AND LiPo)
+
+| measurement | result | meaning |
+|---|---|---|
+| 5 V rail (PowerBoost out) | **5.15 V** | boost running; PowerBoost-typical, in spec |
+| header 3.3 V pin → GND, no phone | **0.22 V** | 🔑 this pin IS the EN node (W12). The divider predicts 5.15 × 4.7 k/(4.7 k + 99.9 k) = **0.231 V**, so 0.22 V is a three-way pass at once: W12 continuous, R1 fitted and correct (missing R1 → ~5.15 V and a permanently-live plate), internal pull-up intact. Well under the 0.4 V guaranteed-off limit. **Far easier to probe as built than the TLV EN pad — use this pin.** |
+| plate 3.3 V rail (across C2 and C4) | **0 V** | ✅ THE key check — the EN gate really does collapse the plate rail with no phone attached |
+| repeat on the LiPo (step 4) | **same three readings** | no bench-supply artifact |
+
+⚠ **The PowerBoost's LED is on continuously and that is CORRECT** — the 1000C's green
+power-good LED lights whenever the boost is enabled (the yellow/red charge LEDs only mean
+anything when its own micro-USB is fed). It is already inside the measured few-mA quiescent.
+
+### ▶ MOUNTING (step 5) — mate it COLD, and here is why
+**Phone fully shut down (not asleep — the header 3.3 V pin reading 0 V is the proof) AND the
+pack unplugged at the BT2.0 before the plate touches the header.** Then: seat squarely and fully
+home → plug the pack back in (phone should begin charging while still off) → power the phone on.
+Two independent reasons, both about the mate itself:
+- **The mesh is live**, so the ESP32 is actively driving SPI (GPIO 12/13/14/27) at 3.3 V. Hot-mated,
+  those lines land on an RFM95W whose rail is still down (EN does not rise until the header's 3.3 V
+  pin makes contact) and the drive current goes through the RFM's ESD clamps to find its rail.
+- **Ten contacts mate in an arbitrary order** by hand. With the pack live, W4 presents 5.2 V at the
+  header's 5 V pin, which must not make before GND.
+
+🔋 **The BT2.0 unplug is the real off switch, not the phone's power button.** The EN gate stops the
+PLATE RAIL draining the pack when the phone is off, but the 5 V boost keeps feeding the phone's
+charger regardless — that is the intended power-bank behaviour, and it is the overnight drain path.
 
 ### ▶ FIRST-POWER SEQUENCE — do these in order, plate still OFF the phone
 1. **Meter BT2.0 polarity with a DMM. Do not trust wire colour.** Confirm pack + reaches the
