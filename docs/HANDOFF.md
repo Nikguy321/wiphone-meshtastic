@@ -6,6 +6,45 @@ green (new: test_chunk, test_replay). The 0.9.7 flasher is PUBLISHED (gh-pages
 serves 0.9.7 — the stale "staged" note below predates the publish).
 
 
+## 📐 v2 DESIGNED 2026-08-22 (not yet built) — DUAL-SOURCED RAIL, PARTS NOT ORDERED
+
+**Nick's idea, and it is right:** power the plate from the phone's own VBAT so the radio and GPS
+survive a dead external pack. v1 rejected VBAT, but **that objection was about the PART**: a
+TLV62569 is a BUCK with a 3.4 V input floor and a 1S cell ends at 3.0 V. A **buck-boost** has no
+floor, so the objection dissolves with the regulator swap.
+
+**Shipped design (wiring sheet rev v2, commit 4879c5f):** D1 and D2 Schottky-OR the PowerBoost's
+5.2 V and the header's VBAT into one buck-boost. Pack alive → 5.2 V wins, phone's cell untouched
+(v1 behaviour kept). Pack dead → VBAT takes over. No logic, no firmware. New wire **W20**
+(header VBAT → D2 → the OR node); **W6 gains D1**; W7/W8/W10/W12 keep their nets and just land on
+the new module. **EN gate carries over unchanged** — a TPS63020 module and the Pololu S9V11E2F3
+both behave like the TLV there, and the S9V11E2F3's 100 kΩ EN pull-up matches the TLV's 99.9 kΩ
+exactly, so R1 (4.7 k) + W12 keep their measured margin.
+
+🔑 **v2 REMOVES NO CHARGING PATH — Nick asked, and the answer is written into the sheet.** The
+PowerBoost stays: it still charges the phone through W4, still charges its own pack over its own
+microUSB, and phone-USB still reaches the plate through D1 (measured today). Deleting the
+PowerBoost would delete the external pack; that is NOT what v2 does.
+
+**PARTS — not ordered yet. Nick has the diodes.**
+- Fast: **TPS63020 module**, Amazon B0H3KQ1VXJ (DWEII 6-pack, ~$12.99, Prime next-day). 26×18 mm.
+  Board photos confirm **EN and PS are broken out** and 3V3/4V2/5V are solder-selectable —
+  ⚠ **set the 3V3 jumper**. Listing mentions an output LED; find and remove it if fitted.
+- Smaller/cleaner: **Pololu S9V11E2F3** (#5712, $4.95, 57 in stock). 10.9 × 16.5 × 4.1 mm,
+  <0.2 mA quiescent, 2–16 V in (3 V startup). Ships from Las Vegas, so not next-day.
+  ⚠ **1.2 mm TALLER than the Adafruit TLV breakout** (4.1 vs 2.9 mm) — matters for the case.
+- D1/D2: 1N5819 / SS14 / BAT54 (Nick has these).
+
+**⚠ TWO CHECKS OWED BEFORE THE REWORK:**
+1. **Meter header VBAT → GND.** It must read the phone's own cell (3.7–4.2 V) and TRACK it as the
+   phone discharges. **That pin has never carried current on this plate** — v1 left it empty.
+2. **Meter D1 and D2 band orientation — cathodes toward VIN.** D2 backwards = 4.9 V back-charging
+   the phone's cell.
+
+**Known tradeoff, accepted:** energy reaching the plate via the phone (pack → boost → charger →
+cell → buck-boost) lands ~66% efficient vs ~83% direct, and with the pack dead the plate draws
+~45 mA continuous off the phone's own cell. That is the price of the radio not dying.
+
 ## ✅ BENCH STATE, 2026-08-22 (final) — REWORK DONE, WHOLE FEATURE PROVEN ON AIR
 
 **R3–R7 are SOLDERED and every close passed the same day:**
