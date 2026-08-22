@@ -864,6 +864,32 @@ protected:
   RouteSet  respRouteSet;
 
   uint16_t  respCSeq;
+
+  /* ── INBOUND MESSAGE RETRANSMIT GUARD ──────────────────────────────────────────
+   * A UDP MESSAGE whose 200 OK never gets back to the server is RETRANSMITTED by
+   * that server - RFC 3261 timer E/F, up to seven times over ~32 s - and every
+   * copy is the same text. Nothing downstream de-duplicates: the receive path
+   * calls saveMessage() directly, so each retransmission became another message
+   * in the thread. Measured in the field 2026-08-22, out of town, with COVEY
+   * powered OFF, which rules the SMS mirror out entirely.
+   *
+   * Why the ack can go unmatched even though we DO send it (RFC 3428, p.5): on a
+   * symmetric NAT the reply leaves by a different mapped port than the request
+   * arrived on, so the server never pairs it to the transaction and keeps
+   * retrying. That is a property of the network, not of this phone, so the phone
+   * has to tolerate it.
+   *
+   * Call-ID + CSeq is the RFC-correct identity of a retransmission and it is
+   * exactly what a genuine second text does NOT share: send "ok" twice and you
+   * get two Call-IDs. So this can never merge two real messages - which matters,
+   * because people really do send the same word twice.
+   *
+   * We still answer 200 OK to a repeat. Staying silent is what caused the storm. */
+  static const int MSG_SEEN_MAX = 8;
+  char*     seenMsgCallId[MSG_SEEN_MAX];
+  uint16_t  seenMsgCSeq[MSG_SEEN_MAX];
+  int       seenMsgNext;
+  bool      messageAlreadySeen(const char* callId, uint16_t cseq);
   char*     respCSeqMethod;
 
   // Synonyms

@@ -1336,6 +1336,31 @@ int TinySIP::requestMessage(Connection& tcp) {
 // - respCallId - sendHeaderCallId()
 // - respCSeq, respCSeqMethod - sendHeaderCSeq()
 // - sdpSessionId, sdpSessionId, localAudioPort, rtpPayloads, localRtcpPort, rtpMaps  - sdpBody()
+/* Has this exact MESSAGE transaction already been stored? Records it if not.
+ *
+ * A tiny linear ring: eight entries is far more than the ~7 retransmissions one
+ * transaction can produce, and a burst of eight DIFFERENT texts inside one retransmit
+ * window is not a thing that happens. A Call-ID we cannot read is treated as never-seen,
+ * because dropping a text we failed to identify is worse than storing two.
+ */
+bool TinySIP::messageAlreadySeen(const char* callId, uint16_t cseq) {
+  if (!callId || !*callId) {
+    return false;
+  }
+  for (int i = 0; i < MSG_SEEN_MAX; i++) {
+    if (seenMsgCallId[i] && seenMsgCSeq[i] == cseq && !strcmp(seenMsgCallId[i], callId)) {
+      return true;
+    }
+  }
+  if (seenMsgCallId[seenMsgNext]) {
+    free(seenMsgCallId[seenMsgNext]);
+  }
+  seenMsgCallId[seenMsgNext] = strdup(callId);
+  seenMsgCSeq[seenMsgNext] = cseq;
+  seenMsgNext = (seenMsgNext + 1) % MSG_SEEN_MAX;
+  return false;
+}
+
 int TinySIP::sendResponse(Dialog* diag, Connection& tcp, uint16_t code, const char* reason, bool sendSdp) {
   if (!tcp.connected()) {
     return TINY_SIP_ERR;
@@ -2085,14 +2110,23 @@ TinySIP::StateFlags_t TinySIP::checkCall(uint32_t msNow) {
             if (respType==TINY_SIP_METHOD_MESSAGE) {
               Connection* tcpReply = getConnection(false);
               log_v("--- 200 OK for MESSAGE ---");
+              /* ⚠ ACK FIRST, AND ACK EVERY COPY INCLUDING REPEATS. The retransmissions
+               * exist precisely because the server did not hear an ack; going quiet on
+               * the second one guarantees five more. */
               int sendErr = sendResponse(NULL, *tcpReply, OK_200, "OK");
               if (sendErr!=TINY_SIP_OK) {
                 log_e("send response error: %d", sendErr);
                 return sendErr;
               }
 
-              // Save message to be processed by checkMessage
-              textMessages.add(new TextMessage(respBody, respFromAddrSpec, respToAddrSpec, msNow));
+              // Store ONCE. See the retransmit-guard note in tinySIP.h.
+              if (messageAlreadySeen(respCallId, respCSeq)) {
+                log_e("SIP MESSAGE retransmit dropped (Call-ID %s CSeq %u) - acked, not stored",
+                      respCallId ? respCallId : "?", (unsigned)respCSeq);
+              } else {
+                // Save message to be processed by checkMessage
+                textMessages.add(new TextMessage(respBody, respFromAddrSpec, respToAddrSpec, msNow));
+              }
             }
 
 
