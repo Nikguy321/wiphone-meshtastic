@@ -161,6 +161,23 @@ extern SX1509 gpioExtender;
 #define USER_SERIAL_TX                  32
 #define USER_SERIAL_BAUD          9600
 #define USER_SERIAL_CONFIG        SERIAL_8N1
+
+/* The woods plate's GPS runs the SAME UART at its own rate, and 9600 is NOT it.
+ * MEASURED on the bench 2026-08-22, by scanning: 9600 → 0 sentences, 38400 → 0,
+ * 57600 → 1, 19200 → 0, 230400 → 0, **115200 → 991 sentences and a live fix**.
+ * HGLRC ships the M100 Mini at 115200 whatever u-blox's own module default is.
+ *
+ * ⚠ COVEY ALREADY KNEW. Same GPS, same part number, and its firmware has run it
+ * at 115200 since D-062 measured 8.6 KB/s of NMEA off it (covey_ui/gps.py). The
+ * 9600 here was copied from COVEY's D-033, which recorded the PLAN and was never
+ * amended when the implementation moved. The lesson is cheap and general: when
+ * two repos share a part, the working code is the authority, not the decision
+ * that proposed it — one grep of the sister repo would have skipped this scan.
+ *
+ * This is only the DEFAULT; serial `gps baud <n>` overrides it and persists
+ * (wpmesh/gpsbaud), and it applies only while the NMEA reader is on — the
+ * user-serial GUI path keeps USER_SERIAL_BAUD. */
+#define GPS_SERIAL_BAUD_DEFAULT   115200
 #define USER_SERIAL_BUFFER_SIZE   2048
 #endif
 /* =========== LED BOARD ========= */

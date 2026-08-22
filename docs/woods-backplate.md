@@ -284,7 +284,12 @@ above is deliberately more conservative than the reference.
 The phone reads the GPS as of the post-0.9.7 tree — `nmea.{h,cpp}` (checksum-strict, junk-tolerant
 NMEA RMC/GGA → 1e-7-degree fixed point, host-proven in `tests/test_nmea.cpp` against
 Python-computed vectors) feeding `meshService.gpsUpdate()` off the existing USER_SERIAL UART2
-(GPIO 38 RX / 32 TX @ 9600 — the stock pins, the M100's default baud). A live fix (< 2 min old)
+(GPIO 38 RX / 32 TX @ **115200** — the stock pins, and the module's real rate:
+✅ MEASURED 2026-08-22 by scanning 9600/19200/38400/57600/115200/230400, of which only 115200
+produced sentences. The 9600 originally written here was copied from COVEY's D-033, which
+recorded the plan; COVEY's own `covey_ui/gps.py` has run this same module at 115200 since D-062.
+`gps baud <n>` retunes it live and persists, so a different module needs no reflash.)
+A live fix (< 2 min old)
 becomes the reference between a chosen waypoint and the manual pin, so `sun`, Nodes distances and
 Places work from the phone's own position with no waypoint heard.
 

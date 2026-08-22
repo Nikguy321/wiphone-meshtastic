@@ -22,7 +22,10 @@
 #include "nmea.h"
 #include <Preferences.h>
 extern bool       gGpsNmea;      // WiPhone.ino: routes the user UART to the NMEA reader
+extern uint32_t   gGpsBaud;      // ...at THIS rate; USER_SERIAL_BAUD is the GUI path's
 extern NmeaReader gGpsReader;
+extern void       gpsApplyBaud(bool gpsOn);            // WiPhone.ino owns the UART object
+extern int        gpsRawSnapshot(uint8_t* out, int cap);
 #endif
 
 /* ⚠ THE IDF UART API, NOT `Serial`. THIS IS THE WHOLE REASON THE FIRST VERSION READ NOTHING.
@@ -86,6 +89,8 @@ static void help() {
     "  pos        positions: waypoints, node fixes, our pin, the reference",
     "  gps        woods-plate GPS state: fix, sats, reader counters",
     "  gps on|off route the user UART (38/32) to the NMEA reader (persists)",
+    "  gps baud <n>  GPS baud, persists (38400 = u-blox M10 default; 9600 is M8-era)",
+    "  gps raw    hex+ASCII of the last bytes off the wire - tells wrong-baud from binary",
     "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
     "  unread     recount unread texts, repair the counter, name the threads",
     "  unread clear  mark EVERYTHING read (orphaned threads included)",
@@ -425,17 +430,78 @@ static void run(char* line) {
       p.begin("wpmesh", false);
       p.putBool("gpsen", gGpsNmea);
       p.end();
-      say("gps: NMEA reader %s (user UART rx=%d tx=%d @ %d)%s\n",
+      gpsApplyBaud(gGpsNmea);      // the two consumers do NOT share a baud
+      gGpsReader.reset();          // counters answer "since when", so start clean
+      say("gps: NMEA reader %s (user UART rx=%d tx=%d @ %u)%s\n",
           gGpsNmea ? "ON" : "OFF", USER_SERIAL_RX, USER_SERIAL_TX,
-          USER_SERIAL_BAUD, gGpsNmea ? "" : " - user-serial GUI path restored");
+          (unsigned)(gGpsNmea ? gGpsBaud : USER_SERIAL_BAUD),
+          gGpsNmea ? "" : " - user-serial GUI path restored");
       return;
     }
-    say("gps: reader %s  bytes=%u sentences=%u badck=%u overrun=%u\n",
+    /* `gps baud <n>` — the bench's answer to a wrong-rate module, without a
+     * reflash per guess. Persisted, and applied to the live port only while the
+     * reader owns it. */
+    if (!strncasecmp(arg, "baud", 4)) {
+      const char* n = arg + 4;
+      while (*n == ' ') {
+        n++;
+      }
+      if (!*n) {
+        say("gps: baud %u (default %u)\n", (unsigned)gGpsBaud,
+            (unsigned)GPS_SERIAL_BAUD_DEFAULT);
+        return;
+      }
+      uint32_t b = strtoul(n, NULL, 10);
+      if (b < 1200 || b > 921600) {
+        say("gps: baud out of range (1200..921600)\n");
+        return;
+      }
+      gGpsBaud = b;
+      Preferences p;
+      p.begin("wpmesh", false);
+      p.putUInt("gpsbaud", gGpsBaud);
+      p.end();
+      if (gGpsNmea) {
+        gpsApplyBaud(true);
+        gGpsReader.reset();
+      }
+      say("gps: baud %u%s\n", (unsigned)gGpsBaud,
+          gGpsNmea ? " - applied, counters reset" : " - saved (reader is off)");
+      return;
+    }
+    /* `gps raw` — bytes climbing with sentences at 0 has TWO causes and the
+     * status line cannot tell them apart. These bytes can: readable ASCII means
+     * the baud is right and something else is wrong, `b5 62` means the module is
+     * talking UBX binary, and unreadable non-UBX means the rate is still off. */
+    if (!strcasecmp(arg, "raw")) {
+      uint8_t buf[64];
+      int n = gpsRawSnapshot(buf, sizeof(buf));
+      if (!n) {
+        say("gps: no bytes seen%s\n", gGpsNmea ? "" : " (reader is off)");
+        return;
+      }
+      say("gps: last %d bytes @ %u baud\n", n, (unsigned)gGpsBaud);
+      for (int i = 0; i < n; i += 16) {
+        char hex[3 * 16 + 1], asc[17];
+        int m = (n - i < 16) ? n - i : 16;
+        for (int j = 0; j < m; j++) {
+          snprintf(hex + 3 * j, 4, "%02x ", buf[i + j]);
+          asc[j] = (buf[i + j] >= 0x20 && buf[i + j] < 0x7f) ? (char)buf[i + j] : '.';
+        }
+        hex[3 * m] = 0;
+        asc[m] = 0;
+        say("  %-48s |%s|\n", hex, asc);
+      }
+      return;
+    }
+    say("gps: reader %s @ %u  bytes=%u sentences=%u badck=%u overrun=%u\n",
         gGpsNmea ? "ON" : "OFF (gps on to start)",
+        (unsigned)(gGpsNmea ? gGpsBaud : USER_SERIAL_BAUD),
         gGpsReader.bytes(), gGpsReader.sentences(),
         gGpsReader.badChecksum(), gGpsReader.overruns());
     if (gGpsNmea && gGpsReader.bytes() > 200 && gGpsReader.sentences() == 0) {
-      say("gps: bytes flow but no sentences - almost certainly the WRONG BAUD\n");
+      say("gps: bytes flow, no sentences - wrong baud, or a module talking binary.\n");
+      say("gps: `gps raw` decides it; `gps baud 9600|38400|57600|115200` retunes.\n");
     }
     int32_t la = 0, lo = 0;
     uint32_t age = 0;

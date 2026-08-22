@@ -81,15 +81,47 @@ DRV8833 motorDriver = DRV8833();
 #ifdef USER_SERIAL
 HardwareSerial userSerial(2);
 int userSerialLastSize = 0;
-/* The woods backplate's GPS rides this same UART (GPIO 38 RX / 32 TX @ 9600 —
- * the M100's default). With gGpsNmea on, bytes feed the NMEA reader and the
- * fix lands in meshService; off, the stock user-serial GUI path is untouched.
- * Persisted as wpmesh/gpsen; toggled by serial `gps on|off`. Default OFF until
- * the plate exists. */
+/* The woods backplate's GPS rides this same UART (GPIO 38 RX / 32 TX) but NOT
+ * at the same baud: the GUI path is USER_SERIAL_BAUD, the GPS is gGpsBaud
+ * (GPS_SERIAL_BAUD_DEFAULT = 115200, MEASURED — see Hardware.h for why 9600 was
+ * wrong and why COVEY's own gps.py had the answer all along). With gGpsNmea on, bytes feed the NMEA reader and the
+ * fix lands in meshService; off, the stock user-serial GUI path is untouched,
+ * baud included. Persisted as wpmesh/gpsen + wpmesh/gpsbaud; toggled by serial
+ * `gps on|off`, retuned by `gps baud <n>`. Default OFF until the plate exists. */
 #include "nmea.h"
 #include <Preferences.h>
 bool       gGpsNmea = false;
+uint32_t   gGpsBaud = GPS_SERIAL_BAUD_DEFAULT;
 NmeaReader gGpsReader;
+
+/* The last raw bytes off the wire, for serial `gps raw`. A wrong baud and a
+ * module talking binary produce the SAME symptom (bytes climb, sentences stay
+ * 0), and only looking at the bytes tells them apart: readable ASCII means the
+ * baud is right, 0xB5 0x62 framing means it is speaking UBX, and neither means
+ * the rate is still wrong. 64 bytes is under a single NMEA sentence and costs
+ * nothing to keep. */
+static uint8_t  gGpsRawBuf[64];
+static uint8_t  gGpsRawHead = 0;
+static uint32_t gGpsRawSeen = 0;
+
+/* Retune the shared UART. Called by `gps on|off`, `gps baud`, the My node
+ * toggle, and boot — every path that changes which consumer owns the port. */
+void gpsApplyBaud(bool gpsOn) {
+  userSerial.updateBaudRate(gpsOn ? gGpsBaud : USER_SERIAL_BAUD);
+}
+
+/* Copy the ring out oldest-first. Returns how many bytes landed in `out`. */
+int gpsRawSnapshot(uint8_t* out, int cap) {
+  int n = (int)(gGpsRawSeen < sizeof(gGpsRawBuf) ? gGpsRawSeen : sizeof(gGpsRawBuf));
+  if (n > cap) {
+    n = cap;
+  }
+  int start = (int)(gGpsRawHead + sizeof(gGpsRawBuf) - n) % (int)sizeof(gGpsRawBuf);
+  for (int i = 0; i < n; i++) {
+    out[i] = gGpsRawBuf[(start + i) % (int)sizeof(gGpsRawBuf)];
+  }
+  return n;
+}
 #endif
 
 #ifdef USE_VIRTUAL_KEYBOARD
@@ -861,17 +893,23 @@ void setup() {
 //  log_d("Power management: %d", (int) err);
 
 #ifdef USER_SERIAL
-  userSerial.begin(USER_SERIAL_BAUD, USER_SERIAL_CONFIG, USER_SERIAL_RX, USER_SERIAL_TX);
   //allDigitalWrite(EXTENDER_PIN_B0, HIGH);     // TODO: why do we do this?
   {
     Preferences p;
     p.begin("wpmesh", true);
     gGpsNmea = p.getBool("gpsen", false);
+    gGpsBaud = p.getUInt("gpsbaud", GPS_SERIAL_BAUD_DEFAULT);
     p.end();
-    if (gGpsNmea) {
-      log_e("GPS: NMEA reader ON (user UART %d/%d @ %d)",
-            USER_SERIAL_RX, USER_SERIAL_TX, USER_SERIAL_BAUD);
-    }
+  }
+  /* Open at the rate the CURRENT owner needs. Opening at USER_SERIAL_BAUD and
+   * retuning afterwards would work too, but it puts a burst of garbage in the
+   * reader's counters on every boot — and those counters are the bench's first
+   * diagnostic, so they start clean. */
+  userSerial.begin(gGpsNmea ? gGpsBaud : USER_SERIAL_BAUD, USER_SERIAL_CONFIG,
+                   USER_SERIAL_RX, USER_SERIAL_TX);
+  if (gGpsNmea) {
+    log_e("GPS: NMEA reader ON (user UART %d/%d @ %u)",
+          USER_SERIAL_RX, USER_SERIAL_TX, (unsigned)gGpsBaud);
   }
 #endif
 
@@ -2316,6 +2354,9 @@ void loop() {
       if (gGpsNmea) {
         /* GPS mode: NMEA feeds the fix, not the GUI. A completed RMC/GGA lands
          * in meshService, where resolveReference gives it to pos/sun/Places. */
+        gGpsRawBuf[gGpsRawHead] = (uint8_t)ch;      // for `gps raw`
+        gGpsRawHead = (gGpsRawHead + 1) % sizeof(gGpsRawBuf);
+        gGpsRawSeen++;
         if (gGpsReader.feed(ch)) {
           const NmeaFix& fx = gGpsReader.fix();
           meshService.gpsUpdate(fx.valid, fx.latI, fx.lonI, fx.sats, fx.hdopX10);

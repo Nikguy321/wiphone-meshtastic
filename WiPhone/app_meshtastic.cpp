@@ -15,6 +15,7 @@
 #ifdef USER_SERIAL              // the GPS toggle's plumbing (WiPhone.ino owns the flag)
 #include <Preferences.h>
 extern bool gGpsNmea;
+extern void gpsApplyBaud(bool gpsOn);   // WiPhone.ino: the GPS and the GUI path differ in baud
 #endif
 
 // Main-menu option keys
@@ -861,6 +862,9 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
           p.putBool("gpsen", gGpsNmea);
           p.end();
         }
+        gpsApplyBaud(gGpsNmea);       // ...and the same UART retune, or the GUI
+                                      // toggle would leave the port at the other
+                                      // consumer's rate and read nothing
         buildMyNode();
         menu->select(MESH_MYNODE_GPS);
 #endif
