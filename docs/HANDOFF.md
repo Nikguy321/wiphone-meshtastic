@@ -6,6 +6,33 @@ green (new: test_chunk, test_replay). The 0.9.7 flasher is PUBLISHED (gh-pages
 serves 0.9.7 — the stale "staged" note below predates the publish).
 
 
+## 📨 2026-08-22 (evening, Nick out of town): DUPLICATE TEXTS — FIXED IN SOURCE, ⚠ NOT FLASHED
+
+**Symptom:** every inbound text arriving twice or more on the WiPhone.
+🔑 **COVEY was POWERED OFF, which rules the SMS mirror out entirely** — both copies came in
+over SIP. And the SIP receive path had **no de-duplication of any kind**: `tinySIP.cpp` called
+`textMessages.add()` for whatever arrived.
+
+**Mechanism:** a UDP MESSAGE whose 200 OK does not reach the server is RETRANSMITTED by that
+server (RFC 3261 timer E/F, ~7 times over ~32 s). We *do* ack correctly per RFC 3428 — the ack
+most likely goes UNMATCHED because a symmetric NAT on an unfamiliar network maps the reply to a
+different port than the request arrived on. Network property; the phone must tolerate it.
+
+**Fix (commit d3462a5):** de-dup on **Call-ID + CSeq** — the RFC identity of a retransmission,
+and exactly what a genuine second text does NOT share (send "ok" twice → two Call-IDs), so it
+can never merge two real messages. 8-entry ring. **Still acks every copy** — going quiet on the
+second guarantees five more.
+
+⚠ **NOT FLASHED — the affected phone (phone 1, adapter `025A3EAF`) was out of town and only
+phone 2 was on the cable.** Flash phone 1 and the duplicates should stop.
+⚠ **The fix is also an instrument.** If duplicates SURVIVE it, the new log line names the
+dropped Call-ID: duplicates carrying DIFFERENT Call-IDs mean VoIP.ms is re-pushing the queued
+text as a FRESH transaction after each REGISTER (we re-register every 60 s), which is a
+different fault needing a content+time-window guard instead of a transaction-identity one.
+⚠ **No workaround available while COVEY is off** — un-registering SIP would mean no texts at
+all. With COVEY ON, un-registering the phone (SIP Accounts → Unmake primary) would give single
+copies via the mesh mirror.
+
 ## 📐 v2 DESIGNED 2026-08-22 (not yet built) — DUAL-SOURCED RAIL, PARTS NOT ORDERED
 
 **Nick's idea, and it is right:** power the plate from the phone's own VBAT so the radio and GPS
