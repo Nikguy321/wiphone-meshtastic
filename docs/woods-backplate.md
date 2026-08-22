@@ -39,12 +39,24 @@ Read off a photo of the real board, so treat placement as certain and **values a
 | U1 | RFM95W (marked RF96) | the radio |
 | **J5** | **IPEX MHF / u.FL jack** | the antenna connector the module lacks |
 | C1 | one capacitor | supply decoupling / bulk |
-| R1, R2 | pair below the module | SPI series damping, or a NSS/RESET pull-up |
+| R1, R2 | pair beside the module's DIGITAL pins | ✅ MEASURED 2026-08-21: **~98.9 kΩ / ~52 kΩ** — pull-ups, NOT series damping (that would be tens of ohms) and NOT in the RF path. In-circuit readings, so "about 100 k and about 51 k" |
 | R6 | sits between the module and J5 | in or beside the **RF path** — most likely a 0 Ω link |
-| R7, R11 | pair by the antenna slot | 0 Ω build options / pull-ups |
+| ~~R7, R11~~ | — | ✅ **DO NOT EXIST on v2.2** (Nick's board, photographed 2026-08-21). They came from a v2.0 assumption; nothing to copy |
 | — | FPC antenna on 3M 300LSE + coax to J5 | stock antenna |
 | — | "PCB Slot" cutout | cable exit for an external antenna |
 
+✅ **RESOLVED 2026-08-21 by photographing Nick's actual plate (a v2.2, NOT the v2.0 this doc
+assumed).** The stock RF route is: module `ANA` → PCB trace → a **C2 / R6 / C3 pi-network
+footprint** → **J1, a u.FL jack** → pigtail. R6 is the series position of a tuning network that
+exists to compensate a PCB TRACE.
+
+🔑 **Which makes R6 moot for this build.** The plate here solders coax straight from `ANA` to the
+SMA pigtail (BOM option b): the coax IS the 50 Ω path, by construction, with no trace to tune and
+no network to copy. The "one genuinely open RF question" below is therefore answered by being
+irrelevant, not by a value — the only thing that matters is keeping that joint short and the braid
+well grounded.
+
+(Original warning kept, because it is why the question was asked:)
 ⚠ **The resistor VALUES have not been established.** They are unmarked 0402/0603. R6's placement
 makes "0 Ω RF link" the obvious read, and obvious is not verified — a non-zero series part in a
 50 Ω path would be a matching component that must be copied exactly. Get the v2.0 schematic
@@ -122,7 +134,10 @@ regardless, so the daughterboard 3.3 V is evidently not gated by it. ✅ Confirm
 3. **Does the screw-terminal plate break out all ten signals?** The published Header Breakout lists
    5V, VBAT, 3.3V, GND, DB_RXD(38), DB_TXD(32), MISO(12), MOSI(13), CLK(14), CS(27), I2C and D0–D5 —
    so on paper yes. Count them on the physical plate anyway.
-4. **The one genuinely open RF question: R1/R2/R6/R7/R11 on the stock v2.0 plate.** Still unmeasured;
+4. ~~**The one genuinely open RF question: R1/R2/R6/R7/R11 on the stock v2.0 plate.**~~ ✅ **CLOSED
+   2026-08-21** — see the resolved block above: the board is a v2.2, R7/R11 do not exist, R1/R2 are
+   ~99 k/~52 k digital pull-ups, and R6 belongs to a trace-tuning network this build does not have.
+   (Original text:) Still unmeasured;
    R6 sits in the RF path and "0 Ω link" is the obvious read, not a verified one.
 
 ## 🔴 The battery — and the one thing that does NOT work
