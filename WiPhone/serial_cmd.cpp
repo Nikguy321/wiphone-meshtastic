@@ -89,7 +89,7 @@ static void help() {
     "  pos        positions: waypoints, node fixes, our pin, the reference",
     "  gps        woods-plate GPS state: fix, sats, reader counters",
     "  gps on|off route the user UART (38/32) to the NMEA reader (persists)",
-    "  gps baud <n>  GPS baud, persists (38400 = u-blox M10 default; 9600 is M8-era)",
+    "  gps baud <n>  GPS baud, persists (115200 = the M100 Mini, measured; not 9600)",
     "  gps raw    hex+ASCII of the last bytes off the wire - tells wrong-baud from binary",
     "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
     "  unread     recount unread texts, repair the counter, name the threads",

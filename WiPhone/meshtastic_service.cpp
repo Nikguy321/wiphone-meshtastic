@@ -1103,6 +1103,42 @@ bool MeshtasticService::loop() {
   }
 
 #ifdef MESHTASTIC_PHY
+  /* ── IS THE RADIO STILL THERE? (woods plate, 2026-08-22) ─────────────────────────
+   * The plate's radio lives on the EXTERNAL pack, and the phone can outlive it by
+   * hours. Measured failure: with the pack dead the phone's own driven pins phantom-
+   * powered the RFM95W through its ESD clamps (rail floated at 2.54 V) - the chip
+   * answered its version probe, this state machine said READY, and every "sent"
+   * message went into a radio that could never transmit. R3-R6 (1 k series) make the
+   * rail collapse instead; this check makes the firmware notice and SAY so.
+   *
+   * healthCheck() is version + op-mode, not version alone: a radio whose pack came
+   * BACK answers 0x12 from POR defaults (FSK standby, LoRa bit clear) - present,
+   * deaf, and mute. Op-mode catches it, and the reinit path below re-runs the whole
+   * config so a swapped pack recovers in <=10 s with no reboot. Costs two register
+   * reads (~240 us of bit-bang) every 5 s. */
+  {
+    static uint32_t nextHealthMs = 0;
+    const uint32_t nowH = millis();
+    if ((int32_t)(nowH - nextHealthMs) >= 0) {
+      if (radioState == MESH_RADIO_READY) {
+        nextHealthMs = nowH + 5000;
+        if (!meshPhy.healthCheck()) {
+          radioState = MESH_RADIO_ERROR;
+          log_e("MESH RADIO LOST (pack dead or radio reset) - sends will refuse honestly");
+        }
+      } else if (radioState == MESH_RADIO_ERROR) {
+        nextHealthMs = nowH + 10000;
+        if (meshPhy.reinit()) {
+          radioState = MESH_RADIO_READY;
+          log_e("MESH RADIO RECOVERED - reconfigured, announcing");
+          announceNodeInfo(true);   // same ask-the-mesh announce as boot
+        }
+      } else {
+        nextHealthMs = nowH + 10000;
+      }
+    }
+  }
+
   /* ── RE-ANNOUNCE ON A TIMER, LIKE EVERY OTHER NODE ────────────────────────────────
    * The phone used to announce its NodeInfo exactly three times ever: once at boot, once
    * when the name was edited, and once if you pressed the button in the Meshtastic app.

@@ -56,6 +56,21 @@ public:
   // to RX-continuous). Used by later steps for Meshtastic TX.
   bool send(const uint8_t* data, uint8_t len);
 
+  /* Is the radio still the radio we configured? Reads REG_VERSION (0x12) and
+   * REG_OP_MODE (LoRa bit + RX-continuous, the only mode we idle in). Two
+   * registers with two different expected values — a floating MISO cannot pass
+   * both by accident, and a chip that lost power and came back in POR defaults
+   * (FSK standby, LoRa bit clear) fails the second even though it would pass a
+   * bare version probe. That distinction is the whole point: version-only says
+   * "present", present-and-misconfigured is DEAF AND MUTE. Cheap: two register
+   * reads over the bit-bang, ~240 us. Call it only between transactions. */
+  bool healthCheck();
+
+  /* Full re-init for a radio that died and came back (pack reconnected in the
+   * field). Re-runs the begin() register sequence on the already-built SPI.
+   * Safe to call repeatedly; returns the new ready state. */
+  bool reinit();
+
   uint32_t getFrequencyHz() const { return freqHz; }
 
 private:

@@ -137,12 +137,45 @@ bool MeshPhy::begin() {
 
   // RST is not wired on this board (RFM95_RST == -1); rely on register config.
 
+  return reinit();
+}
+
+bool MeshPhy::healthCheck() {
+  if (!ready) {
+    return false;
+  }
+  uint8_t ver = readReg(REG_VERSION);
+  uint8_t op  = readReg(REG_OP_MODE);
+  if (ver == SX1276_VERSION && op == (MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS)) {
+    return true;
+  }
+  /* The radio is gone (woods pack died - with R3-R6 fitted the rail collapses
+   * and nothing answers) or it lost power and rebooted into POR defaults (pack
+   * reconnected: version still answers 0x12 but the mode is FSK standby - a
+   * bare version probe would call that healthy while it hears and says
+   * nothing). Either way: stop trusting it, stop driving it. */
+  log_e("MeshPhy: health FAILED (ver=0x%02X op=0x%02X) - radio gone or reset", ver, op);
+  ready = false;
+  inRx = false;
+  return false;
+}
+
+bool MeshPhy::reinit() {
   // Probe the chip: must be in SLEEP to switch to LoRa mode.
   writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);
   delay(10);
   uint8_t ver = readReg(REG_VERSION);
   if (ver != SX1276_VERSION) {
     log_e("MeshPhy: SX1276 not found (REG_VERSION=0x%02X, expected 0x12)", ver);
+    ready = false;
+    return false;
+  }
+  /* Second opinion on a different register with a different expected value: we
+   * just wrote SLEEP+LoRa, so a real chip reads it back. A floating MISO that
+   * happened to produce 0x12 above will not also produce 0x80 here. */
+  uint8_t op = readReg(REG_OP_MODE);
+  if (op != (MODE_LONG_RANGE_MODE | MODE_SLEEP)) {
+    log_e("MeshPhy: probe readback wrong (op=0x%02X, wrote 0x80) - floating bus?", op);
     ready = false;
     return false;
   }
