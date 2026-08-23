@@ -132,7 +132,7 @@
 
 <!-- ===================== v2 RATIONALE ===================== -->
 <g>
-  <rect x="40" y="1010" width="292" height="296" class="warn"/>
+  <rect x="40" y="1010" width="262" height="296" class="warn"/>
   <text x="52" y="1034" class="tt">v2 — VBAT FEEDS THE RAIL</text>
   <text x="52" y="1056" class="tk">Measured 2026-08-22: when the external pack</text>
   <text x="52" y="1072" class="tk">dies, radio and GPS die with it — and the</text>
@@ -255,25 +255,25 @@
 </g>
 
 <!-- ===================== GPS (M100 Mini) ===================== -->
-<rect x="760" y="1000" width="310" height="190" class="gps"/>
-<text x="774" y="1026" class="tt">HGLRC M100 Mini GPS</text>
-<text x="774" y="1043" class="ts">4 pads — order as printed on YOUR module's silk</text>
+<rect x="790" y="1000" width="310" height="190" class="gps"/>
+<text x="804" y="1026" class="tt">HGLRC M100 Mini GPS</text>
+<text x="804" y="1043" class="ts">4 pads — order as printed on YOUR module's silk</text>
 <g>
-  <circle cx="760" cy="1072" r="8" fill="#fff" stroke="#c47a1a" stroke-width="2"/>
-  <text x="776" y="1077" class="pin" font-weight="bold">GND</text>
-  <circle cx="760" cy="1108" r="8" fill="#fff" stroke="#c47a1a" stroke-width="2"/>
-  <text x="776" y="1113" class="pin" font-weight="bold">5V</text><text x="812" y="1113" class="tw">← gets 3V3_PLATE (silk lies)</text>
-  <circle cx="760" cy="1144" r="8" fill="#fff" stroke="#c47a1a" stroke-width="2"/>
-  <text x="776" y="1149" class="pin" font-weight="bold">TX</text><text x="812" y="1149" class="ts">GPS talks → DB_RXD (G38)</text>
-  <circle cx="760" cy="1180" r="8" fill="#fff" stroke="#c47a1a" stroke-width="2"/>
-  <text x="776" y="1185" class="pin" font-weight="bold">RX</text><text x="812" y="1185" class="ts">GPS listens ← DB_TXD (G32)</text>
+  <circle cx="790" cy="1072" r="8" fill="#fff" stroke="#c47a1a" stroke-width="2"/>
+  <text x="806" y="1077" class="pin" font-weight="bold">GND</text>
+  <circle cx="790" cy="1108" r="8" fill="#fff" stroke="#c47a1a" stroke-width="2"/>
+  <text x="806" y="1113" class="pin" font-weight="bold">5V</text><text x="842" y="1113" class="tw">← gets 3V3_PLATE (silk lies)</text>
+  <circle cx="790" cy="1144" r="8" fill="#fff" stroke="#c47a1a" stroke-width="2"/>
+  <text x="806" y="1149" class="pin" font-weight="bold">TX</text><text x="842" y="1149" class="ts">GPS talks → DB_RXD (G38)</text>
+  <circle cx="790" cy="1180" r="8" fill="#fff" stroke="#c47a1a" stroke-width="2"/>
+  <text x="806" y="1185" class="pin" font-weight="bold">RX</text><text x="842" y="1185" class="ts">GPS listens ← DB_TXD (G32)</text>
 </g>
-<text x="774" y="1206" class="note">module takes 3.3–5 V · all-3.3 V logic, no level shifters</text>
+<text x="804" y="1206" class="note">module takes 3.3–5 V · all-3.3 V logic, no level shifters</text>
 
 <!-- UART wires W17, W18 (crossed on purpose) -->
 <g>
-  <polyline class="wuart" points="291,438 700,438 700,1144 752,1144"/>
-  <polyline class="wuart" points="291,476 680,476 680,1180 752,1180"/>
+  <polyline class="wuart" points="291,438 700,438 700,1144 782,1144"/>
+  <polyline class="wuart" points="291,476 680,476 680,1180 782,1180"/>
   <rect x="380" y="427" width="34" height="17" rx="3" fill="#0f8b8b"/><text x="386" y="440" class="wtag">W17</text>
   <rect x="380" y="465" width="34" height="17" rx="3" fill="#0f8b8b"/><text x="386" y="478" class="wtag">W18</text>
   <rect x="470" y="469" width="40" height="14" class="box"/><text x="516" y="472" class="ts">R6 1 kΩ</text>
@@ -286,8 +286,8 @@
 
 <!-- GPS decoupling C3/C4 -->
 <g>
-  <line x1="752" y1="1072" x2="560" y2="1072" class="leg"/>
-  <line x1="752" y1="1108" x2="560" y2="1108" class="leg"/>
+  <line x1="782" y1="1072" x2="560" y2="1072" class="leg"/>
+  <line x1="782" y1="1108" x2="560" y2="1108" class="leg"/>
   <!-- C3 100n -->
   <line x1="618" y1="1072" x2="618" y2="1083" class="leg"/><line x1="610" y1="1083" x2="626" y2="1083" stroke="#111" stroke-width="2"/>
   <line x1="610" y1="1090" x2="626" y2="1090" stroke="#111" stroke-width="2"/><line x1="618" y1="1090" x2="618" y2="1108" class="leg"/>
@@ -319,7 +319,8 @@
 <text x="1214" y="686" class="tw">NEVER key up with no antenna fitted — it kills the PA.</text>
 <text x="1214" y="704" class="tw">Make the u.FL CLICK. A resting u.FL is COVEY's</text>
 <text x="1214" y="720" class="tw">deafness suspect. Strain-relieve at the battery edge.</text>
-<text x="1214" y="744" class="note">stock v2.0's R6 in this path is unmeasured — this plate uses plain coax, no series part</text>
+<text x="1214" y="738" class="note">stock v2.0's R6 in this path is unmeasured —</text>
+<text x="1214" y="752" class="note">this plate uses plain coax, no series part</text>
 <!-- coax wire -->
 <polyline class="wrf" points="1078,530 1160,530 1160,560 1200,560"/>
 <rect x="1104" y="503" width="34" height="17" rx="3" fill="#1e8a5a"/><text x="1110" y="516" class="wtag">W19</text>
@@ -386,10 +387,11 @@
 <circle cx="620" cy="1320" r="8" fill="#fff" stroke="#6b3fa0" stroke-width="2"/><text x="602" y="1310" class="pin" font-weight="bold">GND</text>
 <circle cx="680" cy="1320" r="8" fill="#fff" stroke="#6b3fa0" stroke-width="2"/><text x="670" y="1310" class="pin">EN</text><text x="664" y="1294" class="nc">✗</text>
 <circle cx="730" cy="1320" r="8" fill="#fff" stroke="#6b3fa0" stroke-width="2"/><text x="716" y="1310" class="pin">LBO</text><text x="740" y="1294" class="nc">✗</text>
-<text x="454" y="1470" class="ts">EN option later: panel switch EN→GND = pack off (flashing kill switch)</text>
-<text x="454" y="1488" class="ts">microUSB jack = the pack's own charge-in · <tspan class="tw">do NOT solder the loose USB-A jack</tspan></text>
-<text x="454" y="1506" class="tw">⚠ Will not run without a LiPo attached — not optional.</text>
-<text x="454" y="1524" class="ts">BAT + USB pads also unused (✗) — battery arrives via the JST only</text>
+<text x="454" y="1468" class="ts">EN option later: panel switch EN→GND = pack off</text>
+<text x="454" y="1483" class="ts">microUSB jack = the pack's own charge-in</text>
+<text x="454" y="1498" class="ts"><tspan class="tw">do NOT solder the loose USB-A jack</tspan></text>
+<text x="454" y="1513" class="tw">⚠ Will not run without a LiPo attached — not optional.</text>
+<text x="454" y="1528" class="ts">BAT + USB pads also unused (✗) — via JST only</text>
 
 <!-- buck-boost (v2, replaces the TLV62569 buck) -->
 <rect x="880" y="1320" width="280" height="220" class="pwr"/>
@@ -442,7 +444,7 @@
 <line x1="1150" y1="386" x2="1078" y2="386" class="w33"/>
 <rect x="1191" y="800" width="30" height="16" rx="3" fill="#e07b00"/><text x="1196" y="812" class="wtag">W8</text>
 <!-- W10 branch to GPS pwr -->
-<polyline class="w33" points="1185,966 720,966 720,1108 752,1108"/>
+<polyline class="w33" points="1185,966 720,966 720,1108 782,1108"/>
 <circle cx="1185" cy="966" r="4" fill="#e07b00"/>
 <rect x="900" y="944" width="34" height="17" rx="3" fill="#e07b00"/><text x="906" y="957" class="wtag">W10</text>
 <!-- W9: GND to RFM pad10 ; lane x=1165 via y=1215 -->
@@ -451,9 +453,9 @@
 <circle cx="620" cy="1258" r="4" fill="#444"/>
 <rect x="1171" y="820" width="30" height="16" rx="3" fill="#444"/><text x="1176" y="832" class="wtag">W9</text>
 <!-- W11: GND to GPS gnd, branch from W9 run -->
-<polyline class="wgnd" points="740,1215 740,1072 752,1072"/>
-<circle cx="740" cy="1215" r="4" fill="#444"/>
-<rect x="700" y="1150" width="34" height="17" rx="3" fill="#444"/><text x="706" y="1163" class="wtag">W11</text>
+<polyline class="wgnd" points="770,1215 770,1072 782,1072"/>
+<circle cx="770" cy="1215" r="4" fill="#444"/>
+<rect x="726" y="1150" width="34" height="17" rx="3" fill="#444"/><text x="732" y="1163" class="wtag">W11</text>
 <!-- W12: EN sense: header 3.3V -> TLV EN -->
 <polyline class="wen" points="291,362 360,362 360,1330 270,1330 270,1580 1040,1580 1040,1548"/>
 <rect x="378" y="1560" width="34" height="17" rx="3" fill="#7d3fbf"/><text x="384" y="1573" class="wtag">W12</text>
