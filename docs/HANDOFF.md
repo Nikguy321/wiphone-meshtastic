@@ -72,6 +72,35 @@ It had nothing left to save anyway (`swept` = 0 once releases are attributed pro
 clear way to do harm. ⚠ **Anything keyed on a held-key gap must sit well above 109 ms with room for
 jitter, and below the 350 ms sweep to be worth having. Re-measure before trusting any number here.**
 
+### ⚠ ONE REGRESSION THE FIX ITSELF CREATED — fixed, but know the shape of it
+
+The first cut of the code-0 attribution set `mask = held`, i.e. it blamed the release on EVERY
+key believed down. Release one of two held keys and **both** were marked up, so the key still
+under a finger left `uiKeyDown` and its next ~109 ms heartbeat read as a brand-new press — a
+**phantom keypress**. It reached the Select+Back sleep chord (lift one finger early and the other
+key fires; a spurious Back navigates if the chord had not yet completed), rolling two-key typing,
+and the Game Boy (releasing A while holding RIGHT drops RIGHT for ~109 ms — `app_gbc.cpp` reads
+`keypadState` directly and the `newState < keypadState` repair is skipped in game mode).
+
+**Attribution now requires EXACTLY ONE key down** (`(held & (held - 1)) == 0`). With two or more
+down the chip has said something was released and not what, and there is no honest way to pick —
+so it does not: the byte stays decoded as CALL as it always was, and the sweep tidies up. Counted
+as `relamb`.
+
+🔑 **Worth remembering how it was caught: an adversarial source review, not the trace.** It needs
+TWO KEYS AT ONCE, and every hardware trace taken that night was single-key. The trace found what
+reading could not; the review found what tracing could not. ⚠ That same review refuted 19 of its
+own 24 findings, several because they cited line numbers from a tree being edited underneath them
+— **do not run a source review against a tree you are actively changing.**
+
+### ⚠ KEY_BOUNCE_MS WAS NEVER ACTUALLY IN THE PATH UNTIL NOW
+
+While every release went to CALL, the bounce window was armed on the wrong key — so the 40 ms it
+had carried since it was written had **never been tested against real typing**. Attributing
+releases correctly armed it for the first time, putting an untested 40 ms directly in the path of
+fast same-key tapping, which is exactly the tentap case. **Now 25 ms**: measured bounces are 6 ms
+and 13 ms, and no human re-taps inside 80 ms.
+
 ### Still standing, and worth keeping
 
 - The UI press edge is `uiKeyDown` ALONE. It used to be nested inside the `keypadState` edge,
