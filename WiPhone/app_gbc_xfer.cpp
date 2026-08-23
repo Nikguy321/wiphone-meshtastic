@@ -29,6 +29,29 @@ static WebServer*   s_server = NULL;
 static File         s_uploadFile;
 static volatile int s_filesAdded = 0;   // uploads + downloads this session (for status)
 static bool         s_on = false;
+
+/* ── IDLE AUTO-STOP ────────────────────────────────────────────────────────────────
+ * The transfer server is a term in the DFS busy predicate (WiPhone.ino), so while it
+ * is up the CPU is PINNED at 240 MHz and the idle tick runs 5x faster - roughly
+ * DOUBLE idle current - and it also stretches the screen sleep timeout to 10 minutes.
+ * Nothing ever released that. There was no idle timeout, no client-gone timeout, no
+ * WiFi-loss timeout: it stayed on until something called xferStop().
+ *
+ * That was survivable while the ONLY way to start it was a transfer SCREEN, because
+ * every such screen calls xferStop() from its destructor - the server could not
+ * outlive its owner. `up on` / `up on books` (serial_cmd.cpp) start it HEADLESS, with
+ * no owner at all, and nothing to press Back on.
+ *
+ * MEASURED, in /tmp/wiphone-serial.log on the affected phone: `up on books`, last file
+ * landed at up=14min, then 328 consecutive health samples reading cpu=240MHz with
+ * scr=0 until up=92min. Eighty-two minutes at double idle draw with the screen off,
+ * ended only because `up off` was typed by hand.
+ *
+ * So it now stops itself. The window is generous on purpose - this is a safety net for
+ * a FORGOTTEN server, not a policy on slow uploads - and any traffic at all defers it,
+ * so a browser sitting on the page between files is never cut off mid-batch. */
+#define XFER_IDLE_STOP_MS   (10UL * 60UL * 1000UL)
+static uint32_t     s_lastActivityMs = 0;      // any client traffic; 0 = never started
 static bool         s_usingAP = false;  // true if we had to bring up our own hotspot
 
 /* ── Keeping the screen alive while the server is up ────────────────────────────────
@@ -109,6 +132,14 @@ static const XferConfig* s_cfg = &ROM_CFG;
 
 void gbcXferHandleClient() {
   if (!s_on) {
+    return;
+  }
+  /* Forgotten-server watchdog. Checked before the pumps so a server that has already
+   * gone quiet costs one comparison rather than a full poll. */
+  if (s_lastActivityMs && (uint32_t)(millis() - s_lastActivityMs) > XFER_IDLE_STOP_MS) {
+    log_e("XFER: idle %lu min with no client - stopping itself (it was pinning 240 MHz)",
+          (unsigned long)(XFER_IDLE_STOP_MS / 60000UL));
+    xferStop();
     return;
   }
   /* The raw transport rides ABOVE the breaker: its per-request heap cost is
@@ -699,6 +730,7 @@ static void handleChunkData() {
     s_chunkGather = false;
     s_chunkPieceLen = 0;
     s_lastChunkMs = millis();
+    s_lastActivityMs = millis();
     s_chunkCode = 500;
     strlcpy(s_chunkReply, "err", sizeof(s_chunkReply));
     s_reqLargest0 = s_reqFloor =
@@ -1020,6 +1052,7 @@ static void rawOnRequest() {
     return;
   }
   s_lastChunkMs = millis();
+  s_lastActivityMs = millis();
   const size_t held = s_chunkDurable + s_sdLen;
   switch (chunkDecide(held, s_rawOff, s_rawCLen)) {
     case CHUNK_APPEND:
@@ -1056,6 +1089,7 @@ static void rawXferPump() {
       s_rawCli.setNoDelay(true);
       rawReset();
       s_rawRxMs = millis();
+      s_lastActivityMs = millis();
     }
   }
   if (!s_rawCli || (!s_rawCli.connected() && !s_rawCli.available())) {
@@ -1080,6 +1114,7 @@ static void rawXferPump() {
       }
       s_rawHdr[s_rawHdrLen++] = (char)c;
       s_rawRxMs = millis();
+      s_lastActivityMs = millis();
       if (s_rawHdrLen >= 4 && !memcmp(s_rawHdr + s_rawHdrLen - 4, "\r\n\r\n", 4)) {
         rawOnRequest();
         break;
@@ -1125,6 +1160,7 @@ static void rawXferPump() {
       }
       s_rawGot += (size_t)n;
       s_rawRxMs = millis();
+      s_lastActivityMs = millis();
     }
     {
       // The acceptance bar reads these floors; the raw path samples once per pump.
@@ -1463,6 +1499,7 @@ void xferStart(const XferConfig* cfg) {
   rawXferUp();
 
   xferHoldAwake(true);
+  s_lastActivityMs = millis();   // a server nobody ever visits still ages out
   s_on = true;   // gbcXferHandleClient() (main loop) now pumps it
 }
 
