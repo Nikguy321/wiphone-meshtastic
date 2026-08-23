@@ -1135,12 +1135,12 @@ bool MeshtasticService::loop() {
          * Ten seconds for the first two minutes covers every real pack swap; after
          * that a minute is plenty, and a fitted plate still recovers inside one. */
         nextHealthMs = nowH + (failCount < 12 ? 10000 : 60000);
-        /* Retry FAST forever (two register reads), but log the failure only on
-         * the first attempt and then every 5 minutes. A phone with no plate
-         * fitted fails this every 10 s for as long as it is switched on, and
-         * an error line per 10 s buries every other diagnostic in the log —
-         * measured on the bench the day this shipped. Rationing the log keeps
-         * the field recovery instant AND the log readable. */
+        /* Log the failure on the first attempt and then every 30th. A phone with
+         * no plate fitted fails this for as long as it is switched on, and an
+         * error line per retry buries every other diagnostic in the log —
+         * measured on the bench the day this shipped. With the backoff above,
+         * every 30th works out at roughly half-hourly once it has settled, which
+         * is the right cadence for "still no radio" while recovery stays fast. */
         const bool speak = (failCount % 30) == 0;
         if (meshPhy.reinit(speak)) {
           failCount = 0;
