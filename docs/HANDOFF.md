@@ -6,6 +6,45 @@ green (new: test_chunk, test_replay). The 0.9.7 flasher is PUBLISHED (gh-pages
 serves 0.9.7 — the stale "staged" note below predates the publish).
 
 
+## ✅ 2026-08-22 (night): EVERYTHING FLASHED AND VERIFIED — plus one change BACKED OUT
+
+**Both phones run commit 1833c4d.** Phone 1: 3+ min clean, zero panics, SIP REGISTERED.
+
+✅ **DUPLICATE TEXTS FIXED AND ROOT-CAUSED ON AIR.** A live text produced two acks with the
+IDENTICAL Call-ID and CSeq, and the second was dropped: `SIP MESSAGE retransmit dropped
+(Call-ID 0ad4f98c… CSeq 102) - acked, not stored`. Identical Call-ID = retransmission of ONE
+transaction, so the guard is the COMPLETE answer and the RFC 3261 18.2.2 "wrong box" hypothesis
+is RETIRED — the ack goes to `208.100.60.42:5060`, the same box we register to. It was always
+the network (Android hotspot, symmetric NAT).
+
+🛑 **THE 80 MHz MENU EXPERIMENT IS BACKED OUT — `UI_IDLE_DOWNCLOCK 0`.** Nick on hardware: "the
+menu is a bit laggy and doesn't pick up every button push." Missed input is a BREAK, not a tuning
+problem, so it was NOT dialled to 160 as he offered. 🔑 **The evidence contradicted the obvious
+reading:** the new "screen idle" state NEVER FIRED — zero occurrences — so menus were never
+running at 80 MHz and the lag was not the low clock. It was `cpuRaiseForUi()` calling
+`setCpuFrequencyMhz()` from INSIDE THE KEY-DRAIN LOOP; a PLL switch mid-keypad-read is how a
+keypress goes missing. **The level was never the problem, the SWITCHING was — 160 switches just as
+hard.** If revisited: raise the clock somewhere that is NOT the input path, and MEASURE the saving
+first (never quantified; the backlight likely dominates screen-on draw).
+
+⚠ **SIP REGISTRATION FLAPS ONCE PER REFRESH — CAUSE FOUND, FIX NOT SHIPPED.** `REGISTERED -> lost
+-> REGISTERED` every cycle, since the initial commit, invisible until the line was promoted to
+log_e. 🔑 NOT the period: `registration()` clears `registered` on EVERY refresh (tinySIP.cpp:1288)
+and restores it when the 200 OK lands, so the phone declares itself unregistered for one round
+trip, by construction. My first fix (refresh at 45 s) was WRONG and is REVERTED — it just moved
+the flap to every 45 s. **The real fix** is to not clear the flag while merely REFRESHING (the
+expiry check in `registrationInvalid()` already covers a failed refresh) — deliberately left for a
+session with Nick present, because it is core registration state on the phone that owns his number.
+
+✅ Also shipped and verified tonight: uploader idle auto-stop (the battery answer), NTP backoff,
+the reference-counted screen-timeout holder, `dimming=0`/`sleeping=0` shipped-config landmine,
+the ringtone surviving a WiFi drop, xferStart failing cleanly, and the mesh retry backoff.
+⚠ **Ring-init trap, worth remembering:** the patch that should have initialised the retransmit ring
+ABORTED on a failed assertion before writing the file, and reported success from the half that
+applied — shipping uninitialised members. Saved only because `TinySIP sip` is a global (BSS-zeroed);
+`Test.cpp:731` builds one on the stack. Now member-initialised in the class. **A scripted
+multi-edit must write per-edit or not at all.**
+
 ## 📨 2026-08-22 (evening, Nick out of town): DUPLICATE TEXTS — FIXED IN SOURCE, ⚠ NOT FLASHED
 
 **Symptom:** every inbound text arriving twice or more on the WiPhone.
