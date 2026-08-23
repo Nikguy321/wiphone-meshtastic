@@ -386,6 +386,43 @@ void ControlState::clearDynamicCallee() {
   calleeUriDyn  = NULL;//strdup("1@00");//NULL;
 }
 
+/* See the note in GUI.h. Returns without touching anything on an unbalanced release
+ * rather than restoring a snapshot nobody took. */
+void ControlState::holdScreenAwake(bool hold) {
+  if (hold) {
+    if (this->screenAwakeHolders++ > 0) {
+      return;                      // already stretched; a second snapshot is the bug
+    }
+    this->heldSavedDimMs = this->dimAfterMs;
+    this->heldSavedSleepMs = this->sleepAfterMs;
+    if (this->dimAfterMs < 300000) {
+      this->dimAfterMs = 300000;     // 5 minutes
+    }
+    if (this->sleepAfterMs < 600000) {
+      this->sleepAfterMs = 600000;   // 10 minutes
+    }
+  } else {
+    if (this->screenAwakeHolders == 0) {
+      return;                      // released more times than held: do no harm
+    }
+    if (--this->screenAwakeHolders > 0) {
+      return;                      // somebody else still wants the screen up
+    }
+    this->dimAfterMs = this->heldSavedDimMs;
+    this->sleepAfterMs = this->heldSavedSleepMs;
+  }
+  // Queued events carry the OLD deadline; re-arm them against the new one.
+  this->unscheduleEvent(SCREEN_DIM_EVENT);
+  this->unscheduleEvent(SCREEN_SLEEP_EVENT);
+  uint32_t now = millis();
+  if (this->doDimming()) {
+    this->scheduleEvent(SCREEN_DIM_EVENT, now + this->dimAfterMs);
+  }
+  if (this->doSleeping()) {
+    this->scheduleEvent(SCREEN_SLEEP_EVENT, now + this->sleepAfterMs);
+  }
+}
+
 bool ControlState::loadSipAccount() {
   log_d("loadSipAccount ControlState");
 

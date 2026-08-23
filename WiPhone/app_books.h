@@ -158,8 +158,6 @@ protected:
 
   // ---- screen timeout, borrowed while reading
   bool     timeoutsHeld;
-  uint32_t savedDimMs;
-  uint32_t savedSleepMs;
   void holdScreenAwake(bool hold);
 
   void freeWidgets();

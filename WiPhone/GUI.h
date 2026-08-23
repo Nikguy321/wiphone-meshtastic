@@ -341,6 +341,23 @@ public:
   bool sleeping = true;               // is sleeping enabled?
   uint32_t sleepAfterMs = 30000;      // after what time after key press to turn off the screen (should be higher than dimAfterMs)
 
+  /* ── THE ONE PLACE THAT MAY STRETCH THE SCREEN TIMEOUTS ────────────────────────
+   * Reading a book and running the transfer server both need the screen to stay up
+   * far longer than the 20 s/30 s a pocketed phone wants, and both used to do it the
+   * same way: snapshot dimAfterMs/sleepAfterMs into their OWN fields, overwrite, and
+   * write the snapshot back on release. Two independent save/restore holders over one
+   * pair of globals do not nest. Open a book, `up on books`, close the book, `up off`
+   * and the last release writes back a value captured before the other holder moved
+   * it - leaving the phone at a TEN MINUTE screen timeout for the rest of the session,
+   * silently, at full backlight. Found in the 2026-08-22 battery audit; worth a few
+   * percent of a day and invisible until you reboot.
+   * Reference-counted, one snapshot, taken on the first hold and restored by the last
+   * release. Each OWNER must still be idempotent - contribute at most one count. */
+  void holdScreenAwake(bool hold);
+  int      screenAwakeHolders = 0;
+  uint32_t heldSavedDimMs = 0;
+  uint32_t heldSavedSleepMs = 0;
+
   /* ⚠⚠ TEMPORARY DIAGNOSTIC BUILD — SCREEN_ALWAYS_ON_TEST in config.h ⚠⚠
    *
    * Forces the screen to stay awake and undimmed so the "largest ratchets down only while the

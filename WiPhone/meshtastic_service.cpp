@@ -1118,6 +1118,7 @@ bool MeshtasticService::loop() {
    * reads (~240 us of bit-bang) every 5 s. */
   {
     static uint32_t nextHealthMs = 0;
+    static uint32_t failCount = 0;      // consecutive reinit failures; paces the retry
     const uint32_t nowH = millis();
     if ((int32_t)(nowH - nextHealthMs) >= 0) {
       if (radioState == MESH_RADIO_READY) {
@@ -1127,14 +1128,19 @@ bool MeshtasticService::loop() {
           log_e("MESH RADIO LOST (pack dead or radio reset) - sends will refuse honestly");
         }
       } else if (radioState == MESH_RADIO_ERROR) {
-        nextHealthMs = nowH + 10000;
+        /* Retry fast while a swapped pack is plausible, then slow down. A phone with
+         * NO daughterboard fitted fails this forever, and reinit() blocks the shared
+         * loop task for 10 ms each time (delay() yields, so it costs no current - but
+         * it stalls audio and SIP pumping once every 10 s for the life of the boot).
+         * Ten seconds for the first two minutes covers every real pack swap; after
+         * that a minute is plenty, and a fitted plate still recovers inside one. */
+        nextHealthMs = nowH + (failCount < 12 ? 10000 : 60000);
         /* Retry FAST forever (two register reads), but log the failure only on
          * the first attempt and then every 5 minutes. A phone with no plate
          * fitted fails this every 10 s for as long as it is switched on, and
          * an error line per 10 s buries every other diagnostic in the log —
          * measured on the bench the day this shipped. Rationing the log keeps
          * the field recovery instant AND the log readable. */
-        static uint32_t failCount = 0;
         const bool speak = (failCount % 30) == 0;
         if (meshPhy.reinit(speak)) {
           failCount = 0;

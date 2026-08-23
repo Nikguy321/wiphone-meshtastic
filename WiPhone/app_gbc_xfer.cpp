@@ -70,37 +70,12 @@ static bool         s_usingAP = false;  // true if we had to bring up our own ho
 extern GUI gui;
 
 static bool     s_heldAwake = false;
-static uint32_t s_savedDimMs = 0;
-static uint32_t s_savedSleepMs = 0;
 
 static void xferHoldAwake(bool hold) {
   if (hold == s_heldAwake) {
-    return;
+    return;                     // stay idempotent: one owner, at most one count
   }
-  ControlState& cs = gui.state;
-  if (hold) {
-    s_savedDimMs = cs.dimAfterMs;
-    s_savedSleepMs = cs.sleepAfterMs;
-    if (cs.dimAfterMs < 300000) {
-      cs.dimAfterMs = 300000;      // 5 minutes
-    }
-    if (cs.sleepAfterMs < 600000) {
-      cs.sleepAfterMs = 600000;    // 10 minutes
-    }
-  } else {
-    cs.dimAfterMs = s_savedDimMs;
-    cs.sleepAfterMs = s_savedSleepMs;
-  }
-  // Queued events carry the OLD deadline; re-arm them against the new one.
-  cs.unscheduleEvent(SCREEN_DIM_EVENT);
-  cs.unscheduleEvent(SCREEN_SLEEP_EVENT);
-  uint32_t now = millis();
-  if (cs.doDimming()) {
-    cs.scheduleEvent(SCREEN_DIM_EVENT, now + cs.dimAfterMs);
-  }
-  if (cs.doSleeping()) {
-    cs.scheduleEvent(SCREEN_SLEEP_EVENT, now + cs.sleepAfterMs);
-  }
+  gui.state.holdScreenAwake(hold);
   s_heldAwake = hold;
 }
 static char         s_addr[40] = {0};   // shown address (IP of STA or AP)
@@ -1492,6 +1467,13 @@ void xferStart(const XferConfig* cfg) {
       snprintf(s_addr, sizeof(s_addr), "%s", WiFi.softAPIP().toString().c_str());
     } else {
       snprintf(s_addr, sizeof(s_addr), "AP FAILED");   // surfaced on the phone screen
+      /* ⚠ FAIL CLEANLY RATHER THAN ACQUIRE. This used to fall through and take the
+       * hold anyway: no AP, no client possible, and yet the CPU pinned at 240 MHz and
+       * the screen timeouts stretched, with the only evidence a small "AP FAILED" on
+       * a screen the serial path does not even show. A server that cannot serve must
+       * not cost anything. */
+      log_e("XFER: softAP failed - not starting (nothing would be able to connect)");
+      return;
     }
   }
 

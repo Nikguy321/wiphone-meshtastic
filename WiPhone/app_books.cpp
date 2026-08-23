@@ -290,9 +290,7 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   memset(&pending, 0, sizeof(pending));
   memset(pageImageKey, 0, sizeof(pageImageKey));
 
-  timeoutsHeld = false;
-  savedDimMs = state.dimAfterMs;
-  savedSleepMs = state.sleepAfterMs;
+  timeoutsHeld = false;   // the snapshot now lives in ControlState's counted holder
 
   storeIo.ctx = NULL;
   storeIo.load = posLoad;
@@ -412,31 +410,9 @@ MenuWidget* BooksApp::newMenu(const char* emptyMessage, SmoothFont* font, uint8_
  * both open while a book is up and put the user's own values back afterwards. */
 void BooksApp::holdScreenAwake(bool hold) {
   if (hold == timeoutsHeld) {
-    return;
+    return;                     // stay idempotent: one owner, at most one count
   }
-  if (hold) {
-    savedDimMs = controlState.dimAfterMs;
-    savedSleepMs = controlState.sleepAfterMs;
-    if (controlState.dimAfterMs < 300000) {
-      controlState.dimAfterMs = 300000;      // 5 minutes
-    }
-    if (controlState.sleepAfterMs < 600000) {
-      controlState.sleepAfterMs = 600000;    // 10 minutes
-    }
-  } else {
-    controlState.dimAfterMs = savedDimMs;
-    controlState.sleepAfterMs = savedSleepMs;
-  }
-  // The already-queued events carry the OLD deadline; re-arm them against the new one.
-  controlState.unscheduleEvent(SCREEN_DIM_EVENT);
-  controlState.unscheduleEvent(SCREEN_SLEEP_EVENT);
-  uint32_t now = millis();
-  if (controlState.doDimming()) {
-    controlState.scheduleEvent(SCREEN_DIM_EVENT, now + controlState.dimAfterMs);
-  }
-  if (controlState.doSleeping()) {
-    controlState.scheduleEvent(SCREEN_SLEEP_EVENT, now + controlState.sleepAfterMs);
-  }
+  controlState.holdScreenAwake(hold);
   timeoutsHeld = hold;
 }
 
