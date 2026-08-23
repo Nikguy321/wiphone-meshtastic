@@ -1239,7 +1239,14 @@ SmoothFont* FontCollection::operator[](FontIndex_t index) {
 
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # #  DRAWING  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+/* Set by every redraw and read by the CPU-frequency gate in WiPhone.ino. A lit screen
+ * that is merely BEING STARED AT does not need 240 MHz; a lit screen that is being
+ * redrawn does. Every redraw in the firmware funnels through this one function, so one
+ * stamp here covers all twelve call sites and anything added later. */
+volatile uint32_t gUiWorkMs = 0;
+
 void GUI::redrawScreen(bool redrawHeader, bool redrawFooter, bool redrawScreen, bool redrawAll) {
+  gUiWorkMs = millis();
   //log_v("GUI: %d %d %d %d", redrawHeader, redrawFooter, redrawScreen, redrawAll);
   if (!redrawHeader && !redrawFooter && !redrawScreen && !redrawAll) {
     log_d("nothing to redraw");

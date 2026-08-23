@@ -1039,10 +1039,17 @@ void setup() {
         // Load screen dimming & sleeping config
         if (ini.hasSection("screen")) {
           gui.state.brightLevel = ini["screen"].getIntValueSafe("bright_level", 100);
-          gui.state.dimming = ini["screen"].getIntValueSafe("dimming", 0) > 0;
+          /* ⚠ DEFAULT ON. These two fallbacks used to be 0, which disagreed with the
+           * missing-SECTION branch a dozen lines below (it defaults both TRUE) and with
+           * every expectation of a phone. A config that simply lacks the key got a screen
+           * that never dims and never sleeps - full backlight until the battery is flat,
+           * silently. The shipped data/configs.ini had the same two zeros, so any
+           * `pio run -t uploadfs` handed a device that state. Found in the 2026-08-22
+           * battery audit. Both are now ON, matching the else-branch. */
+          gui.state.dimming = ini["screen"].getIntValueSafe("dimming", 1) > 0;
           gui.state.dimLevel = ini["screen"].getIntValueSafe("dim_level", 15);
           gui.state.dimAfterMs = ini["screen"].getIntValueSafe("dim_after_s", 20)*1000;
-          gui.state.sleeping = ini["screen"].getIntValueSafe("sleeping", 0) > 0;
+          gui.state.sleeping = ini["screen"].getIntValueSafe("sleeping", 1) > 0;
           gui.state.sleepAfterMs = ini["screen"].getIntValueSafe("sleep_after_s", 30)*1000;
           gui.state.screenBrightness = gui.state.brightLevel-1; // Forces the new brightness setting to be applied
           gui.processEvent(0, 0); // Need to call gui event loop so brightness settings are applied
@@ -1617,6 +1624,27 @@ static void notifyMessageArrived(uint32_t now, uint8_t mode) {
 extern void gbcXferHandleClient();   // ROM-transfer web server pump (no-op when off)
 extern bool gbcXferOn();             // true while the transfer server is running
 
+/* ── RAISE THE CLOCK BEFORE THE WORK, NEVER AFTER ─────────────────────────────────
+ * The frequency gate lives at the BOTTOM of loop(), which is correct for deciding to
+ * come DOWN but useless for going UP: a keypress is dispatched and the screen repainted
+ * hundreds of lines earlier, so the one frame a person actually perceives would render
+ * at the low clock and the boost would arrive after it was needed. Moving the gate is
+ * NOT the fix - it would invert the wake path, which deliberately repaints before the
+ * gate is reached.
+ *
+ * So the gate keeps its place and its down-path, and this raise-only helper runs at the
+ * moment a key is dequeued. It shares gCpuCurMhz with the gate, so the two can never
+ * disagree about what the hardware is doing. Raising only: nothing here can ever put the
+ * phone into a lower state than the gate chose. */
+static uint32_t gCpuCurMhz = 240;
+
+static void cpuRaiseForUi() {
+  if (gCpuCurMhz != 240) {
+    setCpuFrequencyMhz(240);
+    gCpuCurMhz = 240;
+  }
+}
+
 void loop() {
   while (1) {
     uint32_t now = millis();
@@ -1825,6 +1853,9 @@ void loop() {
     while (!keypadBuff.empty()) {
       // Retrieve button from buffer safely
       keyPressed = keypadBuff.get();
+      if (keyPressed) {
+        cpuRaiseForUi();     // before processEvent/redraw, not after — see the helper
+      }
 
 
       // Process key
@@ -2394,6 +2425,11 @@ void loop() {
         audio->setVolumes(restoreSpeakerVol, restoreHeadphonesVol, restoreLoudspeakerVol);
 
         sip.wifiTerminateCall();  // wifi is disconnected but need to destroy this dialogue
+        /* ⚠ A call that was still RINGING when WiFi dropped left the ringtone playing:
+         * every other teardown path calls stopRingtone(), this one never did, so the
+         * speaker kept announcing a call that no longer existed until something else
+         * happened to stop it. Audio, motor and full-speed CPU, indefinitely. */
+        stopRingtone();
         gui.exitCall();
         
         gui.state.setSipState(CallState::HungUp);
@@ -3041,17 +3077,51 @@ void loop() {
      * the phone is genuinely idle. */
     bool idleTickStretch = false;
     {
+      /* ── TWO PREDICATES, NOT ONE ──────────────────────────────────────────────
+       * `busy` used to decide BOTH the CPU frequency AND the idle tick below, and that
+       * coupling is a trap: loosening it to save power under a lit screen would also
+       * hand a lit screen the 5 ms tick, slowing every pump in the loop. They are
+       * separated here deliberately. `busy` keeps its ORIGINAL meaning and remains the
+       * ONLY input to the tick. Do not re-merge them.
+       *
+       * The frequency question is different from the tick question: a lit screen that is
+       * merely being STARED AT does not need 240 MHz, while one being redrawn does. On
+       * this hardware that is a safe distinction to make, because a redraw is bus-bound,
+       * not CPU-bound - the whole 153,600-byte frame goes out over a 40 MHz SPI that does
+       * NOT scale with the core clock (in this core `calculateApb()` returns a flat
+       * 80 MHz for any CPU frequency >= 80, so an 80<->240 move reprograms no peripheral
+       * at all). ⚠ Never target below 80 MHz: there the clock source becomes the XTAL,
+       * APB really does follow, and every SPI divider in the phone silently goes wrong.
+       *
+       * UI_WORK_HOLD_MS is a transition-rate knob, NOT a responsiveness one: the wake
+       * path already repaints the screen before this gate is reached, and any keypress
+       * raises the clock on the pass that handles it, so the frame a person actually
+       * perceives is never the slow one. Set UI_IDLE_DOWNCLOCK to 0 to restore the
+       * previous behaviour exactly. */
+#define UI_IDLE_DOWNCLOCK   1
+#define UI_WORK_HOLD_MS     2000
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
                         xferOn() ||
                         musicPlayerIsPlaying() ||
                         sipNeedsFullSpeed();   // NOT sipCallActive() — see the note on it
-      const uint32_t wantMhz = busy ? 240 : 80;
-      static uint32_t curMhz = 240;
-      if (wantMhz != curMhz) {
+      /* Anything with a deadline stays at 240 REGARDLESS of the screen: the emulator, the
+       * transfer server, audio playback and a live SIP session. Only the screen term is
+       * relaxed, and only while nothing is being drawn. */
+      const bool hardBusy = gGbcActive || xferOn() || musicPlayerIsPlaying() || sipNeedsFullSpeed();
+      extern volatile uint32_t gUiWorkMs;      // GUI.cpp: stamped by every redraw
+      const bool uiWorking = (uint32_t)(millis() - gUiWorkMs) < UI_WORK_HOLD_MS;
+#if UI_IDLE_DOWNCLOCK
+      const bool wantFull = hardBusy || (gui.state.screenBrightness > 0 && uiWorking);
+#else
+      const bool wantFull = busy;
+#endif
+      const uint32_t wantMhz = wantFull ? 240 : 80;
+      if (wantMhz != gCpuCurMhz) {
         setCpuFrequencyMhz(wantMhz);
-        curMhz = wantMhz;
-        log_e("CPU %luMHz (%s)", (unsigned long)wantMhz, busy ? "busy" : "idle");
+        gCpuCurMhz = wantMhz;
+        log_e("CPU %luMHz (%s)", (unsigned long)wantMhz,
+              hardBusy ? "busy" : (gui.state.screenBrightness > 0 ? "screen idle" : "idle"));
       }
       /* The same predicate decides the TICK below — plus one extra gate: while the LAN
        * mirror poll is mid-transfer its state machine advances one bounded step per pass,
