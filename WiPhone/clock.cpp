@@ -38,10 +38,42 @@ void Clock::thread(void *pvParam) {
   Clock* clck = (Clock*) pvParam;
 
   clck->udpTime->begin(NTP_DEFAULT_LOCAL_PORT);
+  /* ── BACK OFF WHEN THERE IS NO CLOCK TO BE HAD ─────────────────────────────────
+   * This is the vendor's own "TODO: increase delay, if there is no Internet", and it
+   * matters more than it looks. On a network where NTP simply never answers - a
+   * hotspot or captive portal blocking UDP 123, which is exactly where Nick is as I
+   * write this - the unbacked-off loop woke this task TWICE A SECOND FOREVER and
+   * re-sent a packet every 2.5 s (NTP_REQUEST_VALID_MS). That is ~24 radio
+   * wake-and-transmits a minute, indefinitely, against SIP's ~2. It never gives up
+   * because there is nothing to give up on.
+   *
+   * The fast 500 ms poll is still right at first: it is how the REPLY gets picked up
+   * promptly on a working network, where the whole exchange finishes in well under a
+   * second. So keep it for the first ~10 s (≈4 sends), then double out to a one-minute
+   * ceiling. A working network is unaffected; a dead one costs ~1 wake a minute instead
+   * of 120. Recovery stays bounded: when the network returns, the clock is at most a
+   * minute behind, which every consumer of it already tolerates (the mesh replay
+   * capture, booksync stamps and the buzz-recency gate all handle an unknown clock). */
+  uint32_t fails = 0;
   while (1) {
-    // TODO: increase delay, if there is no Internet
     bool updated = clck->update(millis());
-    uint32_t delayMs = updated ? TIME_UPDATE_DELAY_MS : TIME_UPDATE_RETRY_DELAY_MS;
+    uint32_t delayMs;
+    if (updated) {
+      fails = 0;
+      delayMs = TIME_UPDATE_DELAY_MS;
+    } else {
+      if (fails < 1000) {
+        fails++;
+      }
+      delayMs = TIME_UPDATE_RETRY_DELAY_MS;                 // 500 ms: catching the reply
+      if (fails > 20) {                                     // ~10 s of honest trying
+        const uint32_t steps = (fails - 20) / 10;           // double every ~10 more tries
+        delayMs = TIME_UPDATE_RETRY_DELAY_MS << (steps < 7 ? steps : 7);
+        if (delayMs > 60000u) {
+          delayMs = 60000u;
+        }
+      }
+    }
     vTaskDelay(delayMs / portTICK_PERIOD_MS);
   }
 
