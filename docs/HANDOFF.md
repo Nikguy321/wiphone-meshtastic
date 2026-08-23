@@ -52,10 +52,25 @@ empty FIFO reads back as 0x00 as well, and the only thing separating "nothing to
   filter). Written for a FIFO backlog that measurement says never happens; its counter never
   moved. It is precisely what would let that 6 ms bounce through. Now counts only, never exempts.
 
-⚠ **ALSO MEASURED AND CONTRARY TO WHAT THE CODE ASSUMES: THERE ARE NO 40 ms HEARTBEATS.** The
-trace shows nothing at all between a press and its release, so `LONGPRESS_DELAY(1)` is not
-producing the "still pushed" re-report that the stale sweep and every gap test are built on.
-**Anything reasoning from held-key heartbeats is reasoning from something that is not happening.**
+⚠ **ALSO MEASURED: THE HELD-KEY HEARTBEAT IS ~109 ms, NOT THE 40 ms THE CODE ASSUMES.**
+`SN7326.h`'s `LONGPRESS_DELAY(1)` comment claims 40 ms; the trace says otherwise:
+
+```
++567ms 0x60 P    * pressed
++109ms 0x60 P    * pressed AGAIN, no release in between   <- a heartbeat, not a keypress
+```
+
+Short taps (~110-140 ms) usually end before the first re-report, which is why an early trace
+looked as though there were no heartbeats at all — **that reading was wrong and is corrected here.**
+
+🛑 **THIS COST A REAL BUG.** A "stale hold" rescue keyed on 100 ms — chosen from the 40 ms claim —
+sat BELOW the true interval, so every heartbeat of a slightly-long press was promoted into a second
+keypress. Nick found it instantly: *"push OK then push the star key to unlock, it immediately
+thinks I'm trying to type the star key in the dialer"* — the unlock swallowed the real press and
+the heartbeat 109 ms later went through to the dialer. **The rescue now counts and does nothing.**
+It had nothing left to save anyway (`swept` = 0 once releases are attributed properly) and one
+clear way to do harm. ⚠ **Anything keyed on a held-key gap must sit well above 109 ms with room for
+jitter, and below the 350 ms sweep to be worth having. Re-measure before trusting any number here.**
 
 ### Still standing, and worth keeping
 

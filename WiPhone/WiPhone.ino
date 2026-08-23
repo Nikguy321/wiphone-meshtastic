@@ -293,8 +293,12 @@ static uint32_t uiKeyDown = 0;
  */
 #define KEYPAD_POLL_MS       40u     // one chip heartbeat
 #define KEYPAD_POLL_TAIL_MS  1000u   // keep polling this long after the last event
-// A 'pressed' report older than this since the key was last seen cannot be a hold
-// continuing (the chip re-reports every 40ms) — it is a re-press whose release was lost.
+/* Threshold for "this press is too old to be a hold continuing".
+ * ⚠ MEASURED: the chip re-reports a held key about every 109 ms, NOT the 40 ms the
+ * LONGPRESS_DELAY(1) comment in SN7326.h claims. 100 ms was therefore BELOW the real
+ * heartbeat interval and every heartbeat read as a fresh press. Kept only as a counter
+ * now (see the note at its use), but if anything ever acts on it again it must sit well
+ * above 109 ms with room for jitter — and below the 350 ms sweep to be worth anything. */
 #define KEY_HOLD_GAP_MS      100u
 // (named ...Activity, not ...Event: GUI has its own msLastKeypadEvent member for the
 // screen-dimming timer and the two are not the same clock.)
@@ -704,8 +708,23 @@ void keyboardRead(bool polled) {
          * looked recently, we say nothing and let the sweep handle it as before. */
         const bool watching = sinceLastRead <= 120;
         if (mask && (uiKeyDown & mask) && sinceSeen > KEY_HOLD_GAP_MS && watching) {
-          uiKeyDown   &= ~mask;    // the hold is over; let the press below be a press
-          keypadState &= ~mask;
+          /* ⚠ COUNTS ONLY — IT USED TO ACT, AND ACTING WAS A BUG. Nick, on hardware:
+           * "push OK then push the star key to unlock, it immediately thinks I'm trying to
+           * type the star key in the dialer". The trace showed why:
+           *
+           *     +567ms 0x60 P   * pressed   <- unlocks, correctly swallowed
+           *     +109ms 0x60 P   * pressed AGAIN, with no release in between
+           *
+           * That second report is the chip re-reporting a HELD key, and the interval is
+           * ~109 ms — just past the 100 ms threshold this test used. So every heartbeat
+           * of a slightly-long press was being promoted into a second keypress.
+           *
+           * The rescue existed to save a press whose release had been lost. Since releases
+           * are attributed correctly (see the code-0 note above) they are not being lost —
+           * `swept` sits at 0 — so this has nothing left to save and one clear way to do
+           * harm. The 350 ms sweep remains the backstop, and it is safely clear of the
+           * heartbeat. Do not re-arm this without re-measuring the heartbeat interval;
+           * anything below it turns a hold into a burst of keypresses. */
           kcGapRescued++;
         }
 
