@@ -610,7 +610,19 @@ public:
   // Timings
   static const uint32_t PING_PERIOD_MS = 58761u;        // 58.8 s     // TODO: use random, according to Page 20 of RFC 5626
   static const uint32_t PING_TIMEOUT_MS = 10000u;       // 10s; RFC 5626: "If a pong is not received within 10 seconds after sending a ping .. / .. then the client MUST treat the flow as / failed."
-  static const uint32_t REGISTER_PERIOD_MS = 60000;   //modified to one minute // 3.29 m     // TODO: do registration retries (every minute if failed)
+  /* ⚠ REFRESH BEFORE EXPIRY, NOT AT IT. This was 60000 against a 60 s expiry, so
+   * registrationInvalid() (which measures REGISTER_EXPIRATION_S from msLastRegistered)
+   * declared the registration dead at the exact moment the refresh was due. The phone
+   * flapped REGISTERED -> lost -> REGISTERED every single minute, forever, since the
+   * initial commit - invisible because the log line was log_d, which is not compiled
+   * into this build. Seen on the bench 2026-08-22 the moment it was promoted to log_e.
+   * Each flap fires REGISTRATION_UPDATE_EVENT -> a redraw -> and, under the CPU gate,
+   * a 240 MHz boost every minute for nothing.
+   * 45 s refreshes comfortably inside the 60 s window. The ON-AIR Expires header is
+   * untouched, so a dead phone's binding at the registrar still clears in <=60 s, which
+   * is what makes the SIP-account handover between phones fast. The cost is one extra
+   * REGISTER every three minutes. */
+  static const uint32_t REGISTER_PERIOD_MS = 45000;   // refresh at 45 s, expire at 60 s
   static const uint32_t REGISTER_EXPIRATION_S = 60;    //modified to one minute // 15 min (in seconds)
   static const uint32_t STALE_CONNECTION_MS = 10000;    // 10 seconds
   static const uint32_t T1_MS = 500u;                   // 500 ms; RFC 3261, Section 17: "The default value for T1 is 500 ms"
