@@ -863,8 +863,16 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
       state.scheduleEvent(SCREEN_SLEEP_EVENT, now + state.sleepAfterMs);
     }
 
-    // Decode button
-    if (state.inputType!=InputType::Numeric) {
+    /* Decode button.
+     * ⚠ `event` may be ZERO here: IS_KEYBOARD() is `event <= 0x7f`, so 0 enters this block,
+     * and several things above deliberately zero it — the unlock, a screen-off wake, and
+     * the music transport keys the main loop swallows (`keyPressed = 0`) when a track is
+     * loaded. Passing 0 to alphanumericInputEvent() is not harmless: it is not the active
+     * key, so the "different button" branch runs and COMMITS the pending multi-tap letter.
+     * Nudge the volume while half-way through cycling to a letter and the letter lands
+     * early. Everything else above still runs on a swallowed key on purpose — the screen
+     * timeout should be reset by a volume press. */
+    if (state.inputType!=InputType::Numeric && event) {
       alphanumericInputEvent(event, event, keyNext);
       res |= REDRAW_FOOTER;
     }

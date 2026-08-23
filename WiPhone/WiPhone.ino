@@ -261,7 +261,13 @@ static uint32_t keyLastSeenMs[32];
  * That is the missed-tap bug (2026-08-22); see releasedThisBatch below, which is the
  * exemption that fixes it. */
 static uint32_t keyLastUpMs[32];
-#define KEY_BOUNCE_MS  40u
+/* ⚠ 40 ms UNTIL 2026-08-22, AND IT HAD NEVER ACTUALLY BEEN TESTED. While every release was
+ * being applied to CALL this window was armed on the wrong key, so it did nothing for the
+ * key being typed; attributing releases correctly armed it FOR THE FIRST TIME. 40 ms was
+ * therefore an untested number sitting directly in the path of fast same-key tapping —
+ * which is precisely the tentap case. Measured bounces are 6 ms and 13 ms, and no human
+ * re-taps a key inside 80 ms, so 25 ms clears the real bounce with margin either side. */
+#define KEY_BOUNCE_MS  25u
 // Keys the UI considers held down. UI key events are strictly edge-triggered
 // off THIS mask: one event per physical press, no matter how long it's held
 // and no matter what the chip re-reports meanwhile. Only a real release event
@@ -317,6 +323,7 @@ static uint32_t kcBuffFull      = 0;   // presses dropped because keypadBuff had
 static uint32_t kcI2cErr        = 0;   // failed reads (each one retries next pass)
 static uint32_t kcEmptyPolls    = 0;   // polls that found nothing — the cost of the fix
 static uint32_t kcReleaseFixed  = 0;   // releases the chip reported as key 0, re-attributed
+static uint32_t kcRelAmbiguous  = 0;   // ...and the ones left alone because 2+ keys were down
 
 /* ── RAW EVENT TRACE ──────────────────────────────────────────────────────────────────
  * The counters say WHAT is going wrong; this says what the CHIP actually sent, which is
@@ -379,8 +386,9 @@ int keypadTrace(char* out, int cap) {
 
 int keypadHealth(char* out, int cap) {
   return snprintf(out, cap,
-                  "relfix=%lu killed=%lu gapfix=%lu gapmiss=%lu swept=%lu drained=%lu rescued=%lu full=%lu err=%lu empty=%lu",
-                  (unsigned long)kcReleaseFixed, (unsigned long)kcBounceKilled,
+                  "relfix=%lu relamb=%lu killed=%lu gapfix=%lu gapmiss=%lu swept=%lu drained=%lu rescued=%lu full=%lu err=%lu empty=%lu",
+                  (unsigned long)kcReleaseFixed, (unsigned long)kcRelAmbiguous,
+                  (unsigned long)kcBounceKilled,
                   (unsigned long)kcGapRescued,   (unsigned long)kcGapMissed,
                   (unsigned long)kcStaleSwept,   (unsigned long)kcPollDrained,
                   (unsigned long)kcBatchRescued, (unsigned long)kcBuffFull,
@@ -652,9 +660,33 @@ void keyboardRead(bool polled) {
      * interrupt fires only when an event really happened. A polled 0x00 is still nothing. */
     if (!polled && !(key & SN7326_PRESSED) && (key & B111111) == 0) {
       const uint32_t held = uiKeyDown | keypadState;
-      if (held && !(held & WIPHONE_KEY_MASK_CALL)) {
-        mask = held;              // may be several bits; the release branch handles that
+      /* ⚠ EXACTLY ONE KEY DOWN, OR WE DO NOT GUESS. `held & (held - 1)` clears the lowest
+       * set bit, so this is the "single bit" test.
+       *
+       * The first version attributed the release to ALL held keys, on the reasoning that
+       * the release branch could clear a multi-bit mask. It can — and that was the bug:
+       * releasing ONE of two held keys marked BOTH of them up, so the key still under a
+       * finger was no longer in uiKeyDown, and its next ~109 ms heartbeat arrived looking
+       * like a brand-new press. That is a PHANTOM KEYPRESS, and it reaches:
+       *   - the Select+Back sleep chord — lift one finger a moment before the other and
+       *     the other key fires; if the chord had not yet reached SLEEP_CHORD_MS the
+       *     screen is still awake and a spurious Back navigates,
+       *   - rolling two-key typing (pressing 4 before releasing 3) — duplicate character,
+       *   - the Game Boy, where releasing A while holding RIGHT drops RIGHT out of
+       *     keypadState for ~109 ms (app_gbc.cpp reads that mask directly, and the
+       *     newState<keypadState repair below is skipped in game mode).
+       *
+       * With two or more keys down the chip has told us something was released and not
+       * what, and there is no honest way to pick. So don't: leave it decoded as CALL,
+       * exactly as it always was, and let the 350 ms sweep tidy up. That is no worse than
+       * the behaviour this whole fix replaced, and it is a great deal better than firing a
+       * keypress nobody made. Single-key use — menus, dialling, typing — is unaffected,
+       * which is where every reported symptom lived. */
+      if (held && !(held & WIPHONE_KEY_MASK_CALL) && (held & (held - 1)) == 0) {
+        mask = held;
         kcReleaseFixed++;
+      } else if (held & (held - 1)) {
+        kcRelAmbiguous++;       // 2+ keys down: deliberately not guessed
       }
     }
 
