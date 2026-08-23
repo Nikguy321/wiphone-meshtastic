@@ -1690,8 +1690,20 @@ static uint32_t meshPopupShownMs = 0;
  * most recent hours always survive. */
 #define HEALTH_LOG_PATH "/health.log"
 #define HEALTH_LOG_TMP  "/health.tmp"
-#define HEALTH_LOG_MAX  (96 * 1024)
-#define HEALTH_LOG_KEEP (32 * 1024)   // ~250 lines, ~4 hours, retained across a trim
+/* ⚠ RAISED 2026-08-23, 96K/32K -> 256K/128K, because 4 hours was not enough history to
+ * answer the question this log exists for. Nick spent a day out with the phone on battery —
+ * the first real on-battery discharge run there has ever been — and at the old settings the
+ * retained window was ~250 lines, about FOUR HOURS. A drain run plus a car charge plus the
+ * drive home does not fit in four hours, so the trim would have eaten the beginning of the
+ * very run being measured, on the next boot, silently.
+ *
+ * The cost is nothing. A line is ~130 bytes and one is written per minute: 256 KB is about
+ * 33 hours, ~2 MB a month at the cap, on a card that holds gigabytes and whose other
+ * occupant is a 5 MB book. The original 96 K was cautious about a resource that turned out
+ * not to be scarce, and the caution cost data twice — once on 2026-08-15 (the reset_reason
+ * line for a restart, wrapped 29 minutes later) and nearly again today. */
+#define HEALTH_LOG_MAX  (256 * 1024)
+#define HEALTH_LOG_KEEP (128 * 1024)  // ~1000 lines, ~16 hours, retained across a trim
 
 /* ── KEEP THE NEWEST HISTORY, NOT NONE OF IT ──────────────────────────────────────────
  * This used to hit the cap and SD.remove() the whole file. That threw away the most
@@ -1751,6 +1763,59 @@ static bool healthLogTrim() {
   }
   SD.remove(HEALTH_LOG_PATH);
   return SD.rename(HEALTH_LOG_TMP, HEALTH_LOG_PATH);
+}
+
+/* ── READ THE BLACK BOX WITHOUT ENDANGERING IT ─────────────────────────────────────────
+ * Streams /health.log to the serial console. `health` on the console; see serial_cmd.cpp.
+ *
+ * ⚠ WHY THIS EXISTS WHEN http://wiphone.local/log ALREADY SERVES THE SAME FILE: reading it
+ * over HTTP needs the WiFi uploader up, and that is precisely what this phone cannot afford
+ * when contiguous internal heap is low. Measured 2026-08-23 after a 4.7 h run: free=11448,
+ * largest=10560 — BELOW the ~16 KB baseline at which an 11 KB allocation has already
+ * aborted the WiFi PHY and rebooted the phone once. The log exists to explain restarts, so
+ * fetching it must never be the thing that causes one. It is also why the old note says
+ * "one request, then close the screen, never poll".
+ *
+ * UART allocates nothing: a 256-byte stack buffer straight into the driver. No WiFi, no
+ * sockets, no heap, and it works with the radio off and the card the only thing spinning.
+ *
+ * lastBytes = 0 dumps the whole file; otherwise the tail, rounded UP to a line boundary so
+ * the first line is never a fragment that would parse as a bad sample.
+ * Returns the file's total size, or -1 if there is no log to read. */
+int healthDump(uint32_t lastBytes) {
+  if (!gui.state.cardPresent) {
+    return -1;
+  }
+  File f = SD.open(HEALTH_LOG_PATH, FILE_READ);
+  if (!f) {
+    return -1;
+  }
+  const uint32_t total = f.size();
+  if (lastBytes && total > lastBytes) {
+    f.seek(total - lastBytes);
+    while (f.available() && f.read() != '\n') { }    // discard the partial first line
+  }
+  char buf[256];
+  while (f.available()) {
+    const int n = f.readBytes(buf, sizeof(buf));
+    if (n <= 0) {
+      break;
+    }
+    uart_write_bytes(UART_NUM_0, buf, (size_t)n);
+  }
+  f.close();
+  /* The trailer is printed HERE, by the file that owns HEALTH_LOG_MAX/KEEP, because the
+   * caller cannot know them without restating them — and a restated copy in serial_cmd.cpp
+   * went stale within the hour the cap was raised. The size matters as much as the
+   * contents: a file near the cap means the next trim is imminent and older samples are
+   * about to go, which is exactly how a discharge run gets half-eaten before it is read. */
+  const int wrote = snprintf(buf, sizeof(buf),
+                             "\n--- end · %u bytes · cap %u · trims to newest %u ---\n",
+                             (unsigned)total, (unsigned)HEALTH_LOG_MAX, (unsigned)HEALTH_LOG_KEEP);
+  if (wrote > 0) {
+    uart_write_bytes(UART_NUM_0, buf, (size_t)wrote);
+  }
+  return (int)total;
 }
 
 /* Not static: GUI.cpp's app-open heap probe writes here too, so the culprit lands in the

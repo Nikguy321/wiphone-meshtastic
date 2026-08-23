@@ -78,6 +78,8 @@ static void help() {
     "  sip        SIP account state: loaded, registered, WiFi - one line",
     "  bookpage   dump the open reader page's layout + rendering",
     "  keys       keypad health: why a press went missing (drained/rescued/swept)",
+    "  health     dump /health.log over the CABLE (battery + restart black box)",
+    "  health all dump the whole file, not just the last 24 KB",
     "  chan <url> apply a Meshtastic channel invite URL",
     "  chans      list the channels this phone has",
     "  pki        DM crypto state: our key, who has keys, stack headroom",
@@ -311,6 +313,26 @@ static void run(char* line) {
    * indistinguishable from a bad thumb, which is how the SN7326's 10ms INT pulse stayed
    * hidden behind "the menus miss the odd button" for two years. Each counter's meaning
    * is written above keypadHealth() in WiPhone.ino. */
+  /* `health` — the battery/restart black box, over the cable rather than over WiFi.
+   * See healthDump() in WiPhone.ino for why the HTTP route is the dangerous one. */
+  if (!strcasecmp(line, "health") || !strcasecmp(line, "health all")) {
+    extern int healthDump(uint32_t lastBytes);
+    /* Exact matches, not a prefix test: a mistyped argument should reach the "unknown
+     * command" reply rather than quietly dumping the whole file over the cable. */
+    const bool all = !strcasecmp(line, "health all");
+    say("--- health.log %s ---\n", all ? "whole file" : "last 24 KB");
+    const int total = healthDump(all ? 0u : 24u * 1024u);
+    if (total < 0) {
+      say("health: nothing to read - no card, or no /health.log yet\n");
+    }
+    /* ⚠ The trailer (size, cap, trim point) is printed by healthDump() itself, NOT here.
+     * The first version restated the cap as literals in this file and they were STALE the
+     * same hour — the cap was raised in WiPhone.ino and this line went on confidently
+     * reporting the old one. A diagnostic that misreports the thing it exists to report is
+     * worse than no diagnostic. Only the file that owns the constants may print them. */
+    return;
+  }
+
   if (!strcasecmp(line, "keys")) {
     extern int keypadHealth(char* out, int cap);
     char buf[200];

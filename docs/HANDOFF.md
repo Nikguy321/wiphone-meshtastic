@@ -1,5 +1,77 @@
 # WiPhone — session handoff
 
+## 🔋 2026-08-23: THE FIRST REAL ON-BATTERY RUN — ~6.4 h, NOT ~10 h
+
+Nick was out with the phone all day and asked whether the drain logs were worth reading, warning
+that he had charged it in the car. **They were, and the car charge does not spoil them** — it
+splits the day into segments, and the discharge segments can be measured on their own. What it
+does mean is that `chg=` cannot be used to find the charging periods; they were inferred from the
+voltage curve instead.
+
+### THE NUMBER
+
+**3.00 h on battery: soc 99 % → 52 %, v 4.13 → 3.80. That is 15.7 %/h, or ~6.4 h from full to
+empty.** The handoff has said **~10 h** since the power work; this is the first measurement taken
+**off** USB, and it is a third short of that claim. Treat 10 h as unproven from here on.
+
+**What it was NOT** — both ruled out by the same samples:
+- **Not the screen.** Screen was off for **177 of 181** samples.
+- **Not the CPU governor.** **177 of 181** samples were at **80 MHz**; only 4 at 240.
+
+So the draw is the radios plus baseline, with the phone sitting in a pocket doing nothing.
+
+### ⚠ LEADING SUSPECT, EXPLICITLY NOT PROVEN
+
+The phone spent **155 of 181 samples in `wifi=1` (WL_NO_SSID_AVAIL)** — i.e. away from any known
+network, hunting. `Networks.cpp` scans **every 2 min while disconnected against every 10 min while
+connected**, so being away from home is a 5× scan rate all day.
+
+**I could not separate its cost from the curve, and did not pretend to.** Voltage slope is not
+linear in SOC, so comparing a hunting block at 3.9 V against a connected block at 4.1 V measures
+the battery's chemistry, not the radio. Only one contiguous same-state block was long enough to
+fit (105 min, `wifi=1`, 80 mV/h) and there is nothing to compare it against.
+
+▶ **TO SETTLE IT, and it is a cheap experiment:** two runs of an hour each on battery, screen off,
+one with WiFi off and one hunting, starting from the same SOC. If hunting is the cause the
+difference will be obvious; if it is not, the baseline draw is the finding and the scan rate is
+exonerated. **Do not change the scan interval before measuring** — that is how the DFS experiment
+went wrong.
+
+### ✅ `chg=` IS DEFINITIVELY DEAD — now proven, not suspected
+
+It read **0 in all 807 samples**, including two unmistakable charging periods (soc climbing
+89 % → 100 %, and 53 % → 86 % during the drive home, voltage rising through both). The handoff
+called this "its own small mystery"; it is now a measured fact. **Nothing may infer charge state
+from that flag.** The voltage curve is the only honest source.
+
+### 🛠 HOW THE LOG WAS READ, AND WHY NOT OVER WIFI
+
+New serial commands: **`health`** (last 24 KB) and **`health all`**. They stream `/health.log`
+straight to UART from a 256-byte stack buffer — no WiFi, no sockets, no heap.
+
+⚠ **The obvious route, `http://wiphone.local/log`, is the dangerous one.** It needs the WiFi
+uploader up, and at the moment of reading, internal heap was **free=11448, largest=10560,
+min-ever=196** — *below* the ~16 KB baseline at which an 11 KB allocation has already aborted the
+WiFi PHY and rebooted this phone once. **The log exists to explain restarts; fetching it must not
+cause one.**
+
+### ⚠ THE LOG WAS ONE BOOT FROM BEING HALF-EATEN
+
+It measured **98,453 bytes against a 96 KB cap**. The next boot line would have trimmed it to the
+newest 32 KB (~4 h) and taken the start of the run with it — silently. The cap was raised **before**
+flashing, which is the only reason the whole run survived.
+
+**`HEALTH_LOG_MAX` 96 K → 256 K, `HEALTH_LOG_KEEP` 32 K → 128 K (~16 h).** The cost is nothing: a
+line is ~130 bytes once a minute, so the cap is ~33 h and ~2 MB a month, on a card whose other
+occupant is a 5 MB book. The old caution was about a resource that is not scarce, and it had
+already cost the reset_reason line for a restart on 2026-08-15.
+
+⚠ **And a self-inflicted one worth remembering:** the first version of the `health` trailer restated
+the cap as literals in `serial_cmd.cpp`, and they were **stale within the hour** — it confidently
+reported the old 96 K/32 K after the constants had been raised. The trailer is now printed by the
+file that owns the constants. A diagnostic that misreports the thing it exists to report is worse
+than none.
+
 ## ⌨️ 2026-08-22 (late): THE MISSED KEYPRESSES — ROOT CAUSE FOUND BY RAW TRACE
 
 Nick, same evening: *"menu scrolling still misses some inputs but not much"* and — new, and true
