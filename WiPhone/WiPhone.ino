@@ -1638,7 +1638,7 @@ extern bool gbcXferOn();             // true while the transfer server is runnin
  * phone into a lower state than the gate chose. */
 static uint32_t gCpuCurMhz = 240;
 
-static void cpuRaiseForUi() {
+__attribute__((unused)) static void cpuRaiseForUi() {
   if (gCpuCurMhz != 240) {
     setCpuFrequencyMhz(240);
     gCpuCurMhz = 240;
@@ -1853,9 +1853,11 @@ void loop() {
     while (!keypadBuff.empty()) {
       // Retrieve button from buffer safely
       keyPressed = keypadBuff.get();
+#if UI_IDLE_DOWNCLOCK
       if (keyPressed) {
-        cpuRaiseForUi();     // before processEvent/redraw, not after — see the helper
+        cpuRaiseForUi();     // ⚠ touches the input path — see UI_IDLE_DOWNCLOCK
       }
+#endif
 
 
       // Process key
@@ -3101,7 +3103,25 @@ void loop() {
        * raises the clock on the pass that handles it, so the frame a person actually
        * perceives is never the slow one. Set UI_IDLE_DOWNCLOCK to 0 to restore the
        * previous behaviour exactly. */
-#define UI_IDLE_DOWNCLOCK   1
+/* ⚠ 0 = OFF, AND IT IS OFF ON PURPOSE. Tried on hardware 2026-08-22 and BACKED OUT
+ * the same evening: Nick reported "the menu is a bit laggy and doesn't pick up every
+ * button push". Missed input is not a tuning problem, it is a break, so this does not
+ * get dialled down to 160 - it gets turned off until it can be done without touching
+ * the input path.
+ *
+ * WHAT THE EVIDENCE ACTUALLY SAID, because it was not what I expected: the new
+ * "screen idle" state NEVER FIRED - zero occurrences in the whole session, only "busy"
+ * and "idle". So the phone was never running its menus at 80 MHz, and the lag did not
+ * come from the low clock at all. It came from the other half: cpuRaiseForUi() calls
+ * setCpuFrequencyMhz() from INSIDE the key-drain loop, and a PLL switch landing in the
+ * middle of a keypad read is exactly how a keypress goes missing. The level was never
+ * the problem; the SWITCHING was, which is why 160 MHz would not have helped.
+ *
+ * If this is ever revisited: raise the clock somewhere that is not the input path, and
+ * MEASURE the saving first - it was never quantified, and the backlight probably
+ * dominates screen-on draw anyway. Trading proven input handling for an unmeasured
+ * saving was the wrong bet and this comment is here so nobody repeats it. */
+#define UI_IDLE_DOWNCLOCK   0
 #define UI_WORK_HOLD_MS     2000
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
@@ -3123,8 +3143,15 @@ void loop() {
       if (wantMhz != gCpuCurMhz) {
         setCpuFrequencyMhz(wantMhz);
         gCpuCurMhz = wantMhz;
+        /* Label the reason the ACTIVE predicate gave, not the experimental one - with
+         * UI_IDLE_DOWNCLOCK off, a lit screen goes to 240 via `busy`, and calling that
+         * "screen idle" in the log is how you mislead the next person reading it. */
         log_e("CPU %luMHz (%s)", (unsigned long)wantMhz,
+#if UI_IDLE_DOWNCLOCK
               hardBusy ? "busy" : (gui.state.screenBrightness > 0 ? "screen idle" : "idle"));
+#else
+              busy ? "busy" : "idle");
+#endif
       }
       /* The same predicate decides the TICK below — plus one extra gate: while the LAN
        * mirror poll is mid-transfer its state machine advances one bounded step per pass,

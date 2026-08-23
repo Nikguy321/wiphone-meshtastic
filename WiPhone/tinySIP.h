@@ -618,11 +618,20 @@ public:
    * into this build. Seen on the bench 2026-08-22 the moment it was promoted to log_e.
    * Each flap fires REGISTRATION_UPDATE_EVENT -> a redraw -> and, under the CPU gate,
    * a 240 MHz boost every minute for nothing.
-   * 45 s refreshes comfortably inside the 60 s window. The ON-AIR Expires header is
-   * untouched, so a dead phone's binding at the registrar still clears in <=60 s, which
-   * is what makes the SIP-account handover between phones fast. The cost is one extra
-   * REGISTER every three minutes. */
-  static const uint32_t REGISTER_PERIOD_MS = 45000;   // refresh at 45 s, expire at 60 s
+   * ⚠ MY FIRST FIX WAS WRONG AND IS REVERTED. Refreshing at 45 s did not stop the flap,
+   * it just moved it to every 45 s - because the cause is not the period at all.
+   * tinySIP.cpp:1288: registration() sets `registered = false` EVERY time it sends a
+   * REGISTER, and it goes true again when the 200 OK returns. So the phone declares
+   * itself unregistered for one round trip on every refresh, forever, by construction.
+   *
+   * THE REAL FIX, deliberately NOT shipped tonight: stop clearing the flag when merely
+   * REFRESHING an existing registration. A failed refresh is already covered - the
+   * expiry check in registrationInvalid() measures REGISTER_EXPIRATION_S from
+   * msLastRegistered and trips on its own. That is a small change to core registration
+   * state on the phone that owns Nick's number, it needs him present to verify inbound
+   * calls still land, and it was not worth guessing at while he was away. The visible
+   * cost of leaving it is a brief icon flicker and one redraw per refresh. */
+  static const uint32_t REGISTER_PERIOD_MS = 60000;   // vendor value; see the note above
   static const uint32_t REGISTER_EXPIRATION_S = 60;    //modified to one minute // 15 min (in seconds)
   static const uint32_t STALE_CONNECTION_MS = 10000;    // 10 seconds
   static const uint32_t T1_MS = 500u;                   // 500 ms; RFC 3261, Section 17: "The default value for T1 is 500 ms"
