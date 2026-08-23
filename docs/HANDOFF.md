@@ -1,5 +1,82 @@
 # WiPhone — session handoff
 
+## ▶▶ NEXT SESSION — TASK LIST (rewritten 2026-08-23 afternoon)
+
+Read this first; everything below it is narrative. Repo clean and pushed at **f85ee2c**.
+Both phones run the keypad fixes; **phone 1 also has** the health-log dump, the raised log cap
+and the WiFi toggle (phone 2 does not — it is on `483c3a6`-era firmware).
+
+### P1 — the battery experiment, set up and waiting on Nick
+
+Everything needed is built and flashed. **The point: a real on-battery run measured 15.7 %/h
+(~6.4 h), not the ~10 h this document claimed for weeks, and the phone was off any known network
+for 86 % of it. Is the WiFi hunting the cause?**
+
+- [ ] **Charge to full, then unplug with WiFi OFF for an hour** (Nick's plan). New: main menu →
+      **"WiFi: on"** → one press → **"WiFi: off"**.
+- [ ] Then `health` on serial and compare %/h against the 15.7 %/h run.
+      ⚠ **Compare like with like.** Voltage slope is NOT linear in SOC, so a block at 4.1 V and a
+      block at 3.9 V are not comparable — start both runs from the same charge.
+- [ ] ⚠ **Do NOT change the scan interval before measuring.** That is exactly how the DFS
+      experiment went wrong: a plausible fix shipped ahead of a measurement, and it cost keypresses.
+
+### P2 — needs Nick present, small, real
+
+- [ ] **SIP registration: the deeper fix, second attempt — INSTRUMENTATION FIRST, on PHONE 2.**
+      🛑 The fix WORKED (53 flaps in 31 min → 0) and was still reverted: 20 min later the phone
+      went `lost` and never came back. **The flap was load-bearing** — it hid whether refreshes
+      actually succeed. Before retrying, add two `log_e` lines: registration() being CALLED, and
+      the class of each REGISTER response. Leading suspect, unproven: `ping()` (tinySIP.cpp:1567)
+      writes `msLastPing` only *inside* `if (connected())`, so a failing ping starves
+      registration() forever. Ruled out already: `wifiTerminateCall()`, `terminateCall()`.
+- [ ] **Nick's verdict on the WiFi toggle** — it is flashed but nobody has pressed it. It logs
+      `WIFI toggled -> ON/OFF` at log_e, so the press is visible on serial.
+
+### P3 — hardware, parts in hand
+
+- [ ] **Build plate v2.** ⚠ ORDER: bench ONE TPS63020 off the plate first (set its **3V3 jumper**,
+      tie **PS LOW**); meter header **VBAT → GND** (must read the phone cell and TRACK it); meter
+      **D1/D2 band orientation, cathodes toward VIN** (D2 backwards = 4.9 V back-charging the cell).
+- [ ] **Publish the woods backplate build guide** (gated on assembly).
+      📐 The sheet was geometry-audited 2026-08-23 and there is now a **v1→v2 change sheet**
+      (`docs/woods-backplate-v1-to-v2.svg`) so the built plate need not be re-checked wire by wire.
+      The shared artifact carries both; its source is `docs/woods-backplate-artifact.html`.
+
+### P4 — setup, unblocked, quick
+
+- [ ] **Phone 2: flash it to match phone 1**, then set booksync passcode → `2222`.
+- [ ] **Phone 2 SIP**: a second free VoIP.ms sub-account + a ring group, so both phones ring.
+      ⚠ Never leave both phones primary on the SAME sub-account.
+- [ ] **The 2-minute Android-browser upload test**, owed since the upload redesign.
+
+### COVEY, for whoever picks it up
+
+- [ ] **Play-test DEEPFIELD from the Games menu** (not over SSH — different settings file, and the
+      SDL focus trap only shows on the launcher path). It is installed, rotated (`screenTurn=90`,
+      `controlTurn=0`, `detail=2`), and its d-pad and crosshair bugs are fixed. Confirm the ship
+      steers and sound reaches the speaker.
+- 📖 **`docs/37_LOVE_Games_On_COVEY.md` in the COVEY repo is the playbook** for any LÖVE game.
+      A kit for Jake is in `incoming/deepfield-covey-kit/`.
+
+### Traps worth re-reading before touching anything
+
+- ⚠ **Flashing needs panicwatch STOPPED** — `pkill -9 -f panicwatch.py` FIRST. And beware `&&`
+  chains: `grep -c` returning 0 exits non-zero and skips the pkill.
+- ⚠ **`cd` into the repo explicitly.** A build "succeeded" in the wrong directory today and esptool
+  then flashed nothing, because the shell cwd had been reset between calls.
+- ⚠ **Only `log_e` is compiled in.** A `log_d` diagnostic makes a working feature and a broken one
+  look identical.
+- ⚠ **A scripted multi-edit must write per-edit or not at all.**
+- ⚠ **Menu IDs: count UP (48+ is free), never fill the 8/25 gaps.** A duplicate is SILENT;
+  `GUI::init()`'s boot check is the only thing that catches it, and it has shipped twice.
+- ⚠ **Never restate a constant in a second file.** The `health` trailer did, and was stale within
+  the hour. Only the file that owns a constant may print it.
+- ⚠ **Reading `/health.log` over HTTP is the dangerous route** — it needs the uploader up, and heap
+  has been measured at `largest=10560`, below where an 11 KB allocation has already rebooted this
+  phone. Use `health` / `health all` on serial.
+
+
+
 ## 🔋 2026-08-23: THE FIRST REAL ON-BATTERY RUN — ~6.4 h, NOT ~10 h
 
 Nick was out with the phone all day and asked whether the drain logs were worth reading, warning
@@ -218,78 +295,6 @@ to tell "never asked" from "asked and ignored". Do it on **phone 2**, not the ph
 
 **STATE:** keypad fixes FLASHED to phone 1 (025A3EAF); SIP reverted and re-registered. 1167 host
 assertions green. Uncommitted. ⚠ **Phone 2 untouched.**
-
-## ▶▶ NEXT SESSION — TASK LIST (written 2026-08-22 night, context running out)
-
-Read this first. Everything below it is the narrative; this is what is actually OUTSTANDING.
-Both repos are clean and pushed. Both phones run wiphone **64ecc75**.
-
-### P1 — needs Nick present, small, real
-
-- [ ] **SIP registration flap: ship the deeper fix.** `registration()` clears `registered` on
-      EVERY refresh (`WiPhone/tinySIP.cpp:1288`) and restores it when the 200 OK lands, so the
-      phone declares itself unregistered for one round trip per cycle, forever. My first attempt
-      (refresh at 45 s) was WRONG and is reverted — the period is not the cause.
-      **The fix:** do not clear the flag when merely REFRESHING an existing registration; a failed
-      refresh is already covered by the expiry check in `registrationInvalid()`, which measures
-      `REGISTER_EXPIRATION_S` from `msLastRegistered`.
-      **Why it was not shipped:** core registration state on the phone that owns Nick's number.
-      **Verify with Nick present:** after the change, watch `SIP REGISTRATION ->` on serial for
-      3 min (expect ONE `REGISTERED`, no `lost`), then have someone CALL and TEXT the number and
-      confirm both land. Do not ship it without that inbound test.
-- [ ] **Confirm the menus feel right again** after the 80 MHz revert (should feel exactly like
-      they did before tonight). If they still drop keypresses, the cause is NOT the DFS work —
-      look elsewhere and say so.
-
-### P2 — hardware, parts are in hand
-
-- [ ] **Build plate v2** (buck-boost + D1/D2 dual-source rail). Sheet rev v2 has every position.
-      ⚠ ORDER OF OPERATIONS: (1) bench ONE spare TPS63020 module off the plate first — set its
-      **3V3 solder jumper** (it ships unset for us) and tie **PS LOW** (power-save at idle; never
-      floating); (2) **meter header VBAT → GND** — must read the phone cell (3.7–4.2 V) and TRACK
-      it; that pin has never carried current on this plate; (3) **meter D1/D2 band orientation,
-      cathodes toward VIN** — D2 backwards = 4.9 V back-charging the phone's cell.
-- [ ] **Publish the woods backplate build guide** (queued since 2026-08-20, gated on assembly).
-
-### P3 — setup, unblocked, quick
-
-- [ ] **Phone 2 booksync passcode** → `2222` (Books → sync settings). Channels transferred but the
-      passcode is NOT in the channel URL, so booksync between the phones cannot work until it is set.
-- [ ] **Phone 2 SIP**: create a SECOND free VoIP.ms sub-account and point the DID at a **ring
-      group** containing both, so both phones ring and a dead battery is a non-event. Sub-accounts
-      are free; only an extra DID costs. Alternative already working: the "Make primary" toggle.
-      ⚠ Never leave both phones primary on the SAME sub-account — they fight every refresh.
-- [ ] **The 2-minute Android-browser upload test**, owed since the upload redesign accepted:
-      Nick's Android on the same wifi, open `http://<phone-ip>/`, upload any file. Closes the
-      brief's last clause.
-
-### P4 — worth doing, not urgent
-
-- [ ] **Measure a REAL on-battery discharge run.** Every health sample in the logs so far was on
-      USB, so the uploader fix's saving is still unquantified. Note `chg=` reads 0 even while
-      charging — that flag never asserts, which is its own small mystery.
-- [ ] **DFS revisit (optional).** Two conditions, both non-negotiable: raise the clock somewhere
-      that is NOT the input path, and MEASURE the saving first — the backlight probably dominates
-      screen-on draw. `UI_IDLE_DOWNCLOCK` and the full reasoning are still in `WiPhone.ino`.
-
-### Traps worth re-reading before touching anything
-
-- ⚠ **Flashing needs panicwatch STOPPED** — `pkill -9 -f panicwatch.py` FIRST. And beware shell
-  `&&` chains: `grep -c` returning 0 exits non-zero and silently skips the pkill (cost a failed
-  upload tonight). panicwatch is port-aware now: `tools/panicwatch.py 025A3EAF` (phone 1) or
-  `025A3F65` (phone 2) — the two CP2104 serials differ by one character.
-- ⚠ **A scripted multi-edit must write per-edit or not at all.** One aborted on a failed assertion
-  before writing, reported success from the half that applied, and shipped uninitialised members.
-- ⚠ **Only `log_e` is compiled into this build.** A `log_d` diagnostic makes a working feature and
-  a broken one look identical. Promoting one line tonight exposed a flap present since 2023.
-
-
-
-**Last updated:** 2026-08-21 (afternoon, at work) · **UPLOAD REDESIGN
-ACCEPTED + MESH HISTORY REPLAY LIVE, both proven on hardware.** 15 host suites
-green (new: test_chunk, test_replay). The 0.9.7 flasher is PUBLISHED (gh-pages
-serves 0.9.7 — the stale "staged" note below predates the publish).
-
 
 ## ✅ 2026-08-22 (night): EVERYTHING FLASHED AND VERIFIED — plus one change BACKED OUT
 
