@@ -886,9 +886,14 @@ protected:
    *
    * We still answer 200 OK to a repeat. Staying silent is what caused the storm. */
   static const int MSG_SEEN_MAX = 8;
-  char*     seenMsgCallId[MSG_SEEN_MAX];
-  uint16_t  seenMsgCSeq[MSG_SEEN_MAX];
-  int       seenMsgNext;
+  /* ⚠ INITIALISED HERE, IN THE CLASS, ON PURPOSE. The global `TinySIP sip` in
+   * WiPhone.ino lands in BSS and would be zeroed for free - but Test.cpp:731
+   * constructs one ON THE STACK, where these would be garbage and seenMsgNext would
+   * index the array out of bounds on the first inbound text. A member-initialiser
+   * cannot be forgotten by a later constructor, which a line in the .cpp can. */
+  char*     seenMsgCallId[MSG_SEEN_MAX] = { NULL };
+  uint16_t  seenMsgCSeq[MSG_SEEN_MAX] = { 0 };
+  int       seenMsgNext = 0;
   bool      messageAlreadySeen(const char* callId, uint16_t cseq);
   char*     respCSeqMethod;
 

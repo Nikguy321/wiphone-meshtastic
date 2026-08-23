@@ -2536,7 +2536,10 @@ void loop() {
             gui.state.sipRegistered = isRegistered;
             // Allow GUI display it
             res |= gui.processEvent(now, REGISTRATION_UPDATE_EVENT);       // the app should decide whether to react to registration update
-            log_d("SIP EVENT_REGISTERED = %d", gui.state.sipRegistered);
+            /* ⚠ log_e, not log_d, and on BOTH edges — only log_e is compiled into this
+             * build, so at log_d a phone that registers and one that never does look
+             * identical on serial. Same lesson the SMS mirror learned. */
+            log_e("SIP REGISTRATION -> %s", gui.state.sipRegistered ? "REGISTERED" : "lost");
           }
           gui.redrawScreen(res & REDRAW_HEADER, res & REDRAW_FOOTER, res & REDRAW_SCREEN);
 
