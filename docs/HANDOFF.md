@@ -1,5 +1,108 @@
 # WiPhone — session handoff
 
+## ⌨️ 2026-08-22 (late): THE MISSED KEYPRESSES — ROOT CAUSE FOUND BY RAW TRACE
+
+Nick, same evening: *"menu scrolling still misses some inputs but not much"* and — new, and true
+**since the beginning** — *"tentap typing, sometimes it will miss a tap and I have to tap again
+while scrolling through letter choices."*
+
+### 🔑 THE CAUSE: THE SN7326 DOES NOT SAY WHICH KEY WAS RELEASED
+
+Measured with a raw event trace added for the purpose (`keys raw` on the serial console):
+
+```
++0ms    0x41 P    DOWN pressed
++141ms  0x00 r    ...and the release comes back as key code ZERO
++1047ms 0x54 P    OK pressed
++115ms  0x00 r    ...zero again
++455ms  0x60 P    ASTERISK pressed
++109ms  0x00 r    ...zero again
+```
+
+**Key code 0 is CALL in this keymap** (`WIPHONE_KEYBOARD` IS defined — Hardware.h:34 — so the
+`#else` MZJ map is what compiles; the stock map in the `#ifndef` branch is dead code and its
+code 0 means "1", which is a trap when reading this switch). So **every release the phone has
+ever seen was applied to CALL.** The key actually pressed never had its bit cleared, stayed
+"held", and was therefore DEAF to its own next press until the 350 ms stale sweep let go.
+A person re-taps in 150–250 ms — inside that window. That is both reported symptoms, exactly.
+
+⚠ **THE VENDOR CODE HALF-KNEW.** `newState < keypadState` is commented *"Some buttons were
+released silently"* — a workaround for this very behaviour. It re-armed `keypadState` only, so
+it worked for as long as `keypadState` was what gated a UI keypress, and stopped mattering the
+moment anything consulted `uiKeyDown` instead.
+
+⚠ **IT ALSO CAUSED THE DOUBLE PRESSES** seen mid-session: with `keyLastUpMs` stamped for CALL
+instead of the real key, the contact bounce visible in that same trace — **a re-press 6 ms after
+a release** — met a bounce filter that was watching the wrong key and sailed through as a second
+menu step.
+
+**THE FIX:** a release carrying code 0 is attributed to whatever key is actually down. That
+clears the right bit AND arms the right bounce window. ⚠ **Interrupt-driven reads only** — an
+empty FIFO reads back as 0x00 as well, and the only thing separating "nothing to report" from
+"something was released" is that an interrupt fires only when an event really happened.
+
+### 🛑 TWO THEORIES TRIED AND RETIRED BY MEASUREMENT — do not re-implement them
+
+- **A 40 ms UI poll of the FIFO.** Added on the theory that the chip's 10 ms auto-clearing INT
+  pulse was stranding events with no edge left to announce them. **The trace refuted it flatly:
+  `drained` stayed at 0 through whole sessions of menu use while `empty` climbed into the
+  hundreds.** It recovered nothing, spent I2C every 40 ms doing it, and made the 0x00 byte
+  ambiguous — which is the one thing the real fix cannot afford. Retired.
+- **A same-batch bounce exemption** (a release and re-press drained together escaping the time
+  filter). Written for a FIFO backlog that measurement says never happens; its counter never
+  moved. It is precisely what would let that 6 ms bounce through. Now counts only, never exempts.
+
+⚠ **ALSO MEASURED AND CONTRARY TO WHAT THE CODE ASSUMES: THERE ARE NO 40 ms HEARTBEATS.** The
+trace shows nothing at all between a press and its release, so `LONGPRESS_DELAY(1)` is not
+producing the "still pushed" re-report that the stale sweep and every gap test are built on.
+**Anything reasoning from held-key heartbeats is reasoning from something that is not happening.**
+
+### Still standing, and worth keeping
+
+- The UI press edge is `uiKeyDown` ALONE. It used to be nested inside the `keypadState` edge,
+  which made `keypadState` a second undocumented veto and made the comment claiming otherwise
+  false. The stale sweep now clears both masks, and skips a pass that arrives late (it runs
+  BEFORE the drain, so its premise "we would have seen a heartbeat" needs us to have been looking).
+- `SN7326.h::readReg()` no longer discards a byte it successfully read. It returned the status of
+  a **trailing zero-length write** left over from a begin/end pair wrapped around `requestFrom()`;
+  any NAK there reported failure for a key already off the wire, and the caller dropped it.
+- A press dropped for a full `keypadBuff` is no longer latched into `uiKeyDown`, so nothing is
+  needed to retry it.
+
+📊 **THE INSTRUMENT: `keys` and `keys raw`** on the serial console, plus a `KEYS` line into
+`/health.log` on the minute tick **only when a counter moves**. `relfix` counts re-attributed
+releases and should climb steadily in normal use; `killed` counts bounces correctly filtered;
+`gapfix`/`swept` should now stay near zero. **`keys raw` is the tool that solved this** — the
+counters said what was wrong, only the raw bytes said why.
+
+📶 🛑 **SIP: THE DEEPER FIX WORKED AND WAS STILL REVERTED — READ BEFORE RE-TRYING.**
+Shipped as both halves (drop `registered = false` from `registration()`; refresh at 45 s not 60 s,
+because the refresh counts from `msLastRegisterRequest` when we ASKED and expiry from
+`msLastRegistered` when the proxy ANSWERED, so a 60 s period put the 200 OK on the exact instant
+the expiry term tripped). **It did what it was meant to: 53 flaps in 31 min → 0.**
+
+⚠ **THEN THE PHONE WENT `lost` AND NEVER CAME BACK** — ~20 minutes unregistered on the phone that
+owns Nick's number, ended only by reflashing. Reverted; phone 1 is back on vendor behaviour and
+verified `registered: yes`. 🔑 **THE LESSON: THE FLAP WAS LOAD-BEARING.** Clearing and re-setting
+`registered` every 60 s meant a run of REGISTER refreshes that never got a 200 OK was INVISIBLE —
+the phone re-declared itself REGISTERED the moment any one of them worked. Remove the flap and
+the same run shows as a permanent `lost`. **The flap was hiding whether refreshes succeed.**
+
+**RULED OUT, do not re-investigate:** `wifiTerminateCall()` (tinySIP.cpp:1666) does clear the flag
+but needs a WiFi drop AND `isBusy()` — neither happened (`wifi=3`, no call); `terminateCall()`
+returns at its `!currentCall` guard before touching any flag.
+**LEADING SUSPECT, UNPROVEN:** `ping()` (tinySIP.cpp:1567) writes `msLastPing` only **inside**
+`if (tcpProxy->connected())`. A failing ping leaves the ping condition permanently true, and
+`checkCall()`'s chain is `if (ping due) ping(); else if (register due) registration();` — so
+**a failing ping starves registration() forever.**
+
+▶ **NEXT ATTEMPT NEEDS INSTRUMENTATION FIRST, NOT A RETRY.** Log at `log_e`: registration()
+actually being CALLED, and the class of each REGISTER response. Until those exist there is no way
+to tell "never asked" from "asked and ignored". Do it on **phone 2**, not the phone with the number.
+
+**STATE:** keypad fixes FLASHED to phone 1 (025A3EAF); SIP reverted and re-registered. 1167 host
+assertions green. Uncommitted. ⚠ **Phone 2 untouched.**
+
 ## ▶▶ NEXT SESSION — TASK LIST (written 2026-08-22 night, context running out)
 
 Read this first. Everything below it is the narrative; this is what is actually OUTSTANDING.

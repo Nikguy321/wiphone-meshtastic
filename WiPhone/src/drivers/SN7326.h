@@ -104,7 +104,22 @@ public:
       Wire.beginTransmission(_addr);
       if (Wire.requestFrom(_addr, (uint8_t) 1)) {
         b = Wire.read();
-        return (sn7326_err_t) Wire.endTransmission();
+        /* ⚠ THE BYTE IS IN HAND, SO THE READ SUCCEEDED — SAY SO.
+         *
+         * This used to return the status of the endTransmission() below, which is a
+         * SEPARATE, ZERO-LENGTH write left over from the begin/end pair wrapped around
+         * requestFrom(). requestFrom() is a complete transaction on its own; that trailing
+         * write addresses the chip again with nothing to say. When it NAKs — bus noise,
+         * contention with anything else on I2C — a key event that was already decoded off
+         * the wire got reported as a failure, and the caller's `if (err) break;` threw it
+         * away. The chip's FIFO had already popped it, so it was gone for good: a missed
+         * keypress, or a button left stuck down until the next one.
+         *
+         * The trailing transaction is still issued (it closes the bus the way this driver
+         * always has, and removing it is a change to bus behaviour rather than to error
+         * handling), but it can no longer invalidate a byte we successfully read. */
+        Wire.endTransmission();
+        return SN7326_ERROR_OK;
       }
       return SN7326_ERROR_REQUEST_FAILED;
     }

@@ -77,6 +77,7 @@ static void help() {
     "  mirror     mirror poller state",
     "  sip        SIP account state: loaded, registered, WiFi - one line",
     "  bookpage   dump the open reader page's layout + rendering",
+    "  keys       keypad health: why a press went missing (drained/rescued/swept)",
     "  chan <url> apply a Meshtastic channel invite URL",
     "  chans      list the channels this phone has",
     "  pki        DM crypto state: our key, who has keys, stack headroom",
@@ -303,6 +304,27 @@ static void run(char* line) {
   }
   if (!strcasecmp(line, "bookpage")) {
     booksDebugDumpPage();
+    return;
+  }
+
+  /* `keys` — why a keypress went missing. A dropped press logs nothing and is
+   * indistinguishable from a bad thumb, which is how the SN7326's 10ms INT pulse stayed
+   * hidden behind "the menus miss the odd button" for two years. Each counter's meaning
+   * is written above keypadHealth() in WiPhone.ino. */
+  if (!strcasecmp(line, "keys")) {
+    extern int keypadHealth(char* out, int cap);
+    char buf[200];
+    keypadHealth(buf, sizeof(buf));
+    say("keys: %s\n", buf);
+    return;
+  }
+  /* `keys raw` — what the CHIP actually sent, oldest first. The counters say a release
+   * went missing; only this says whether it was never emitted, mis-decoded, or stranded. */
+  if (!strcasecmp(line, "keys raw")) {
+    extern int keypadTrace(char* out, int cap);
+    char buf[1400];
+    keypadTrace(buf, sizeof(buf));
+    say("keys raw (oldest first):\n%s\n", buf);
     return;
   }
 

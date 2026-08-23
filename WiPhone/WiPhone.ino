@@ -250,10 +250,18 @@ uint32_t keypadState = 0;        // 32-bit mask for current state of buttons
 // keys about every 40ms (LONGPRESS_EN), so during gameplay a key that misses
 // its heartbeats is a lost release event and gets cleared (stale sweep below).
 static uint32_t keyLastSeenMs[32];
-// Per-key timestamp of the last release, for UI debouncing: a "new press"
-// within 75ms of the same key's release is switch bounce (or a stale hold
-// re-report), not a human double-tap — humans can't re-tap under ~100ms.
+/* Per-key timestamp of the last release, for UI debouncing: a "new press" within
+ * KEY_BOUNCE_MS of the same key's release is a stale hold re-report, not a human
+ * double-tap — humans can't re-tap under ~100ms.
+ *
+ * ⚠ THIS CLOCK IS TAKEN AT DRAIN TIME, NOT AT EVENT TIME, and the chip carries no
+ * timestamps. When several events come out of the FIFO in ONE batch they all read the
+ * same millis(), so a release and the press that follows it look SIMULTANEOUS however
+ * far apart the finger actually made them — and the press is thrown away as bounce.
+ * That is the missed-tap bug (2026-08-22); see releasedThisBatch below, which is the
+ * exemption that fixes it. */
 static uint32_t keyLastUpMs[32];
+#define KEY_BOUNCE_MS  40u
 // Keys the UI considers held down. UI key events are strictly edge-triggered
 // off THIS mask: one event per physical press, no matter how long it's held
 // and no matter what the chip re-reports meanwhile. Only a real release event
@@ -261,6 +269,119 @@ static uint32_t keyLastUpMs[32];
 // deliberately separate from keypadState, which other heuristics may clear
 // mid-hold (that's what double-clicked and auto-repeated the menus).
 static uint32_t uiKeyDown = 0;
+
+/* ── WHY THE KEYPAD IS POLLED AS WELL AS INTERRUPTED ──────────────────────────────────
+ * The SN7326's INT is a PULSE, not a level: AUTO_CLEAR_5MS(2) drops it 10 ms after it
+ * asserts whether or not anything read the FIFO. The ESP32 side is attached FALLING. So
+ * any event the chip produces while INT is ALREADY LOW adds no new edge, and the main
+ * loop is never told about it — the event just sits in the FIFO.
+ *
+ * That is not a rare alignment. A held key re-reports every 40 ms (LONGPRESS_DELAY(1)),
+ * each re-report pulsing INT low for 10 ms, so roughly ONE RELEASE IN FOUR lands inside
+ * the shadow of the heartbeat before it and is never announced. A lost release leaves
+ * uiKeyDown set, and a key whose uiKeyDown is set is DEAF — until the 350 ms stale sweep
+ * clears it. A person re-taps in 150–250 ms, which is inside that window. That is
+ * exactly what "it misses a tap and I have to tap again" is.
+ *
+ * The fix is to stop relying on the edge alone: poll the FIFO while input is in flight.
+ * Not always — polling an idle phone would cost battery for nothing — but while a key is
+ * believed down (which is precisely when a release may be stuck) and for a moment after
+ * the last activity. An idle phone still does no I2C at all.
+ *
+ * ⚠ The game path has polled at 150 ms since the emulator landed, for this same reason.
+ * The UI never did, which is why this only ever showed up as "menus miss the odd press".
+ */
+#define KEYPAD_POLL_MS       40u     // one chip heartbeat
+#define KEYPAD_POLL_TAIL_MS  1000u   // keep polling this long after the last event
+// A 'pressed' report older than this since the key was last seen cannot be a hold
+// continuing (the chip re-reports every 40ms) — it is a re-press whose release was lost.
+#define KEY_HOLD_GAP_MS      100u
+// (named ...Activity, not ...Event: GUI has its own msLastKeypadEvent member for the
+// screen-dimming timer and the two are not the same clock.)
+static uint32_t msLastKeypadActivity = 0;
+
+/* Input health counters. These exist because the bug above was invisible for two years:
+ * a dropped keypress logs nothing and looks like a bad thumb. Read them with `keys` on
+ * the serial console. What each one means is written next to where it is incremented. */
+static uint32_t kcPollDrained   = 0;   // events the poll recovered that no edge announced
+static uint32_t kcBatchRescued  = 0;   // presses saved from the same-batch bounce collapse
+static uint32_t kcBounceKilled  = 0;   // presses dropped as bounce (should be near zero)
+static uint32_t kcStaleSwept    = 0;   // holds ended by the 350ms sweep = lost releases
+static uint32_t kcGapRescued    = 0;   // presses saved from a hold that had silently ended
+static uint32_t kcGapMissed     = 0;   // ...and the ones we could not vouch for, still dropped
+static uint32_t kcBuffFull      = 0;   // presses dropped because keypadBuff had no room
+static uint32_t kcI2cErr        = 0;   // failed reads (each one retries next pass)
+static uint32_t kcEmptyPolls    = 0;   // polls that found nothing — the cost of the fix
+static uint32_t kcReleaseFixed  = 0;   // releases the chip reported as key 0, re-attributed
+
+/* ── RAW EVENT TRACE ──────────────────────────────────────────────────────────────────
+ * The counters say WHAT is going wrong; this says what the CHIP actually sent, which is
+ * the only way to settle whether a lost release was never emitted, was emitted and
+ * mis-decoded, or was stranded. Each entry is one status byte plus the gap in ms since
+ * the one before it. 64 entries is a few seconds of typing — enough to hold a whole
+ * "tap, nothing happened, tap again" and its neighbours. Read it with `keys raw`.
+ * ⚠ 'P' = the byte carried the PRESSED bit, 'r' = release, '+' = the MORE bit was set,
+ * '?' = the code decoded to no key at all (mask 0), which would be its own finding. */
+#define KEYTRACE_N 64
+static uint8_t  ktByte[KEYTRACE_N];
+static uint16_t ktGap[KEYTRACE_N];
+static uint8_t  ktFlag[KEYTRACE_N];      // bit0 polled, bit1 unknown-code
+static uint8_t  ktHead = 0;
+static uint32_t ktLastMs = 0;
+static inline void keyTrace(uint8_t b, bool polled, bool unknown, bool dropped = false) {
+  (void)dropped;
+  const uint32_t nowMs = millis();
+  uint32_t d = ktLastMs ? (nowMs - ktLastMs) : 0;
+  ktLastMs = nowMs;
+  ktByte[ktHead] = b;
+  ktGap[ktHead]  = d > 65535 ? 65535 : (uint16_t)d;
+  ktFlag[ktHead] = (polled ? 1 : 0) | (unknown ? 2 : 0) | (dropped ? 4 : 0);
+  ktHead = (ktHead + 1) % KEYTRACE_N;
+}
+
+/* One line of keypad health, for the `keys` serial command and the health log.
+ *
+ * HOW TO READ IT after a few minutes of ordinary menu use and typing:
+ *   drained>0             the INT pulse really is losing events. Theory confirmed; the
+ *                         poll is doing the job it was added for.
+ *   rescued>0             taps that the drain-time bounce test used to eat. Each one is a
+ *                         press the phone would have ignored before this build.
+ *   swept  ~0             releases are no longer being lost outright. Before the poll this
+ *                         was the count of 350ms deaf spells.
+ *   gap    ~0             no evidence of unseen re-presses left over.
+ *   killed high           the bounce window is too wide and is eating real taps — lower
+ *                         KEY_BOUNCE_MS. Near zero is normal.
+ *   full/err >0           the loop is blocking, or the I2C bus is unhappy. Both are their
+ *                         own investigation; neither should ever move. */
+/* Oldest-first dump of the raw trace. Format per entry: `+123ms 0x4B P +` */
+int keypadTrace(char* out, int cap) {
+  int n = 0;
+  for (int i = 0; i < KEYTRACE_N && n < cap - 1; i++) {
+    const uint8_t k = (ktHead + i) % KEYTRACE_N;
+    if (!ktGap[k] && !ktByte[k] && !ktFlag[k]) {
+      continue;                                   // never written
+    }
+    n += snprintf(out + n, cap - n, "%s+%ums 0x%02X %c%s%s",
+                  n ? "\n" : "", (unsigned)ktGap[k], ktByte[k],
+                  (ktByte[k] & SN7326_PRESSED) ? 'P' : 'r',
+                  (ktByte[k] & SN7326_MORE) ? " +more" : "",
+                  (ktFlag[k] & 2) ? " ?UNKNOWN" : ((ktFlag[k] & 1) ? " (poll)" : ""));
+  }
+  if (!n) {
+    n = snprintf(out, cap, "(nothing recorded - press some keys)");
+  }
+  return n;
+}
+
+int keypadHealth(char* out, int cap) {
+  return snprintf(out, cap,
+                  "relfix=%lu killed=%lu gapfix=%lu gapmiss=%lu swept=%lu drained=%lu rescued=%lu full=%lu err=%lu empty=%lu",
+                  (unsigned long)kcReleaseFixed, (unsigned long)kcBounceKilled,
+                  (unsigned long)kcGapRescued,   (unsigned long)kcGapMissed,
+                  (unsigned long)kcStaleSwept,   (unsigned long)kcPollDrained,
+                  (unsigned long)kcBatchRescued, (unsigned long)kcBuffFull,
+                  (unsigned long)kcI2cErr,       (unsigned long)kcEmptyPolls);
+}
 /* The boot banner, held until the first health tick can commit it. ⚠ It cannot be written
  * when it is produced: setup() logs the reset reason before the card is known good, so
  * writing there would silently drop the one line that explains a restart. */
@@ -282,11 +403,29 @@ void IRAM_ATTR keyboardInterrupt() {
 
 // Function that is called after interrupt occurs (not within interrupt)
 // Connect to keypad scanners via I2C and decode the keyboard events into buffer keypadBuff
-void keyboardRead() {
+//
+// `polled` = there was no interrupt; we are looking speculatively. See KEYPAD_POLL_MS.
+// It changes exactly two things: an empty FIFO must be recognised rather than decoded,
+// and anything found this way is counted, because that count is the proof the INT pulse
+// is losing events.
+void keyboardRead(bool polled) {
   uint8_t key;
   uint32_t mask;
   uint32_t newState = 0;
   char c;
+  bool firstRead = true;
+  /* How long since we last looked at the chip AT ALL. This is what makes the stale-hold
+   * test below trustworthy: a gap in a key's heartbeats only means the key came up if we
+   * were actually watching for those heartbeats. */
+  static uint32_t msPrevRead = 0;
+  const uint32_t sinceLastRead = msPrevRead ? (millis() - msPrevRead) : 0xFFFFFFFFu;
+  msPrevRead = millis();
+  /* Keys whose RELEASE was decoded earlier in THIS batch. The bounce filter is skipped
+   * for them: see the note on keyLastUpMs. A release and a press of the same key coming
+   * out of one FIFO read were separated by at least the chip's own hardware debounce
+   * (INPUT_FILTER_EN, 6ms+8ms) — the chip does not emit an event for a bounce at all —
+   * so they are two real actions, however identical their drain timestamps look. */
+  uint32_t releasedThisBatch = 0;
   keypadToRead = 0;           // claim BEFORE reading: an event arriving mid-read
                               // re-raises the flag and gets serviced next pass
   do {
@@ -297,6 +436,7 @@ void keyboardRead() {
       keypad.reset();         // this seems to resolve rare event of complete hanging
     }
     if (err) {
+      kcI2cErr++;
       // Do NOT decode the garbage byte (key==0 decodes as a CALL release) and
       // do NOT abandon whatever is still in the chip's FIFO: the chip auto-
       // clears its INT line, so a dropped event never announces itself again —
@@ -306,6 +446,42 @@ void keyboardRead() {
       keypadToRead = 1;
       break;
     }
+
+    /* ── AN EMPTY FIFO READS BACK AS 0x00, WHICH IS ALSO A REAL EVENT ────────────────
+     * 0x00 = key code 0 with the PRESSED bit clear = "CALL released". The chip gives no
+     * way to tell that apart from "nothing to report", so a speculative read of an idle
+     * chip decodes as a CALL release: it would arm the bounce filter against a genuine
+     * CALL press ~every poll, and drive the newState<keypadState reconciliation below
+     * with an empty mask, wiping held keys.
+     *
+     * The disambiguation: a release of a key that is not down is meaningless anyway. So
+     * on a POLLED read, a LEADING 0x00 with CALL not held is treated as an empty FIFO.
+     * (Leading only — after a byte with MORE set the chip is asserting there is another
+     * event, so a 0x00 there is a real CALL release and is decoded normally.)
+     *
+     * ⚠ This also fixes the game path, which has polled at 150 ms since the emulator
+     * landed and has therefore been decoding a phantom CALL release six times a second
+     * the whole time. Harmless there only by luck — CALL is not one of the eight keys
+     * readPad() maps. */
+    if (polled && firstRead && key == 0 &&
+        !((keypadState | uiKeyDown) & WIPHONE_KEY_MASK_CALL)) {
+      kcEmptyPolls++;
+      /* ⚠ TRACED BEFORE IT IS THROWN AWAY. 0x00 is ambiguous — an empty FIFO and a CALL
+       * release read identically — and on hardware EVERY key's release came back as 0x00,
+       * so this discard is either harmless or it is eating real releases. The trace has to
+       * see the bytes this branch drops or it cannot tell those two apart. */
+      keyTrace(key, true, false, true);
+      return;                 // nothing here: no decode, and nothing to reconcile
+    }
+    if (polled && firstRead) {
+      /* Reached only when a poll found a REAL event — i.e. one the interrupt never
+       * announced, because if it had, keypadToRead would have been set and this read
+       * would not have been a poll. This counter IS the evidence for the INT-pulse
+       * theory: if it stays at 0 through a session of heavy menu use, the theory is
+       * wrong and the missed presses are coming from somewhere else. */
+      kcPollDrained++;
+    }
+    firstRead = false;
 
     // Decode lower 6 bits for character
     switch (key & B111111) {
@@ -441,29 +617,139 @@ void keyboardRead() {
     default:
       mask = 0;   // unknown button detected
     }
+    keyTrace(key, polled, mask == 0);
+
+    /* ── THE CHIP DOES NOT SAY WHICH KEY WAS RELEASED ────────────────────────────────
+     * MEASURED on hardware 2026-08-22 with the raw trace, and this is the whole bug:
+     *
+     *     +0ms   0x41 P   DOWN pressed
+     *     +141ms 0x00 r   ...and the release comes back as key code ZERO
+     *     +1047ms 0x54 P  OK pressed
+     *     +115ms 0x00 r   ...zero again
+     *
+     * Key code 0 is CALL in this keymap, so every release in the phone was being applied
+     * to CALL: the key you actually pressed never had its bit cleared, and stayed "held"
+     * — and therefore DEAF to its own next press — until the 350ms stale sweep. That is
+     * the missed menu press and the missed tap while cycling letters, and it has been
+     * there since the first commit.
+     *
+     * It also explains the DOUBLE presses: because keyLastUpMs was stamped for CALL and
+     * not for the real key, the contact bounce visible in that same trace (a re-press 6ms
+     * after a release) sailed straight through a bounce filter that was watching the
+     * wrong key.
+     *
+     * ⚠ The vendor code half-knew. `newState < keypadState` below is commented "Some
+     * buttons were released silently" — a workaround for this very behaviour, which
+     * worked only for keypadState and never for uiKeyDown.
+     *
+     * A release of a key that is not down is meaningless, so attribute it to what IS
+     * down. ⚠ INTERRUPT-DRIVEN READS ONLY: an empty FIFO reads back as 0x00 too, and the
+     * only thing separating "nothing to report" from "something was released" is that an
+     * interrupt fires only when an event really happened. A polled 0x00 is still nothing. */
+    if (!polled && !(key & SN7326_PRESSED) && (key & B111111) == 0) {
+      const uint32_t held = uiKeyDown | keypadState;
+      if (held && !(held & WIPHONE_KEY_MASK_CALL)) {
+        mask = held;              // may be several bits; the release branch handles that
+        kcReleaseFixed++;
+      }
+    }
 
     // Decode "pressed/released" bit
     if (key & SN7326_PRESSED) {
       newState |= mask;         // reported (still) pressed — count it even if already known
+      uint32_t sinceSeen = 0;
       if (mask) {
-        keyLastSeenMs[__builtin_ctz(mask)] = millis();   // heartbeat for the stale sweep
+        uint8_t b = __builtin_ctz(mask);
+        sinceSeen = millis() - keyLastSeenMs[b];         // BEFORE the heartbeat is stamped
+        keyLastSeenMs[b] = millis();                     // heartbeat for the stale sweep
       }
-      if (!(keypadState & mask)) {
+      // GAME edge: keypadState and the emulator's sticky latch.
+      if (mask && !(keypadState & mask)) {
         keypadState |= mask;
         gGbcKeyLatch |= mask;   // remember the press for the emulator's next poll
         //Serial.print(c); Serial.println(" pressed");
+      }
 
-        // UI events are edge-triggered: fire only if this key wasn't already
-        // considered down (uiKeyDown re-arms on a real release), and not
-        // within 75ms of its own release (contact bounce). This kills menu
-        // double-clicks and hold-to-autoscroll. UI-only: the keypadState and
-        // latch updates above are untouched, so game input is unchanged.
-        bool uiSuppress = mask == 0 ||
-                          (uiKeyDown & mask) ||
-                          (millis() - keyLastUpMs[__builtin_ctz(mask)] < 40);
-        uiKeyDown |= mask;
+      /* ── UI edge: uiKeyDown ALONE ───────────────────────────────────────────────────
+       * ⚠ This USED TO BE NESTED INSIDE the keypadState edge above, which quietly made
+       * keypadState a second veto over every UI keypress — and the comment on uiKeyDown
+       * ("UI key events are strictly edge-triggered off THIS mask") was therefore false.
+       *
+       * That nesting is the other half of the missed-tap bug. Lose one release and
+       * keypadState keeps the bit; the stale sweep clears uiKeyDown but LEFT KEYPADSTATE
+       * SET in the UI, so the next press never even reached the UI code — the key stayed
+       * deaf until some release event for it happened to arrive. In practice that means
+       * the press after a lost release is ALWAYS swallowed and the one after it works,
+       * which is exactly "it misses a tap and I have to tap again".
+       *
+       * Held-key re-reports are still suppressed, by uiKeyDown, which is what they were
+       * always meant to be suppressed by. The sweep now clears both masks together. */
+      {
+        /* ── THE HOLD THAT ENDED WITHOUT US SEEING IT ──────────────────────────────────
+         * A held key re-reports every 40 ms, so a 'pressed' report arriving more than
+         * KEY_HOLD_GAP_MS after this key was last seen CANNOT be the continuation of a
+         * hold: the heartbeats stopped, which means the key came up and went down again
+         * and its release never reached us. Without this the press is vetoed by
+         * `uiKeyDown` and the key stays deaf until the 350 ms sweep — one whole tap
+         * thrown away. MEASURED on hardware 2026-08-22: gap=20 in a few minutes of menu
+         * use, which is precisely the "menu still skips some inputs" Nick was reporting
+         * while typing had already come right.
+         *
+         * ⚠ THIS WAS FIRST SHIPPED AS A COUNTER ONLY, and the caution was real: if the
+         * main loop stalls, heartbeats pile up in the chip and a stale gap is OUR fault,
+         * not the key's — acting on it would resurrect the menu auto-repeat that
+         * uiKeyDown exists to kill. What makes it safe now is `sinceLastRead`: while
+         * uiKeyDown is set the loop polls the chip every 40 ms, so if we have looked
+         * recently and STILL seen no heartbeat, the key really is up. If we have not
+         * looked recently, we say nothing and let the sweep handle it as before. */
+        const bool watching = sinceLastRead <= 120;
+        if (mask && (uiKeyDown & mask) && sinceSeen > KEY_HOLD_GAP_MS && watching) {
+          uiKeyDown   &= ~mask;    // the hold is over; let the press below be a press
+          keypadState &= ~mask;
+          kcGapRescued++;
+        }
 
-        // Process key if there is still space left in the key buffer
+        const bool alreadyDown = mask && (uiKeyDown & mask);
+        const bool sameBatchRetap = mask && (releasedThisBatch & mask);
+        const bool looksLikeBounce = mask &&
+                                     (millis() - keyLastUpMs[__builtin_ctz(mask)] < KEY_BOUNCE_MS);
+        bool uiSuppress = mask == 0 || alreadyDown || looksLikeBounce;
+        if (sameBatchRetap && !alreadyDown) {
+          /* ⚠ OBSERVED ONLY — it does NOT exempt the press from the bounce filter, and
+           * that is a deliberate reversal. The exemption was written for a release and a
+           * re-press draining together after being stranded in the FIFO; the raw trace
+           * then showed nothing is ever stranded (`drained` stayed 0 through whole
+           * sessions) and this counter never moved either. What the trace DID show is a
+           * genuine contact bounce — a re-press 6ms after a release — which the exemption
+           * would have waved straight through as a second menu step. Keeping the count is
+           * useful; keeping the exemption would reintroduce the double press. */
+          kcBatchRescued++;
+        }
+        if (looksLikeBounce) {
+          kcBounceKilled++;     // real bounce, or a stale hold re-report. Should be rare.
+        }
+        if (alreadyDown && sinceSeen > KEY_HOLD_GAP_MS) {
+          /* Same shape as the rescue above, but we had NOT looked recently enough to
+           * trust it, so the press is still being vetoed. If this climbs while `rescued2`
+           * stays flat, the poll is not keeping up and KEYPAD_POLL_MS wants lowering. */
+          kcGapMissed++;
+        }
+
+        /* A press with somewhere to go and nowhere to be put. The buffer holds 13 and the
+         * loop drains it every pass, so this should never move; if it does, the loop is
+         * blocking long enough to matter and THAT is the finding.
+         *
+         * It used to be dropped in silence AND latched into uiKeyDown, so nothing ever
+         * retried it — the press was simply gone. Leaving the key unlatched instead means
+         * the chip's own 40ms re-report delivers it as soon as there is room. */
+        const bool noRoom = !uiSuppress && keypadBuff.full();
+        if (noRoom) {
+          kcBuffFull++;
+        }
+        if (mask && !noRoom) {
+          uiKeyDown |= mask;
+        }
+
         if (!keypadBuff.full() && !uiSuppress) {
           switch (mask) {
           case WIPHONE_KEY_MASK_0:
@@ -555,7 +841,11 @@ void keyboardRead() {
       if (mask) {   // unconditional: the state bit may have been cleared mid-hold
         keypadState &= ~mask;
         uiKeyDown &= ~mask;                            // re-arm the UI edge
-        keyLastUpMs[__builtin_ctz(mask)] = millis();   // for the UI debounce window
+        // Loop, not ctz: an attributed code-0 release above can carry several held keys.
+        for (uint32_t m = mask; m; m &= m - 1) {
+          keyLastUpMs[__builtin_ctz(m)] = millis();    // for the UI debounce window
+        }
+        releasedThisBatch |= mask;                     // exempt a re-press in THIS batch
         //Serial.print(c); Serial.println(" released");
       }
     }
@@ -568,6 +858,12 @@ void keyboardRead() {
   // do arrive as real events above, so the held mask stays correct without this.
   if (!gGbcActive && newState < keypadState) {
     keypadState = newState;
+  }
+
+  // Something real came out of the chip. Keeps the poll alive for a moment afterwards
+  // (KEYPAD_POLL_TAIL_MS) so a stuck event has something to find it.
+  if (!firstRead) {
+    msLastKeypadActivity = millis();
   }
 }
 
@@ -1730,20 +2026,47 @@ void loop() {
       }
     }
 
-    // Stale-held-key sweep, driven by the SN7326's ~40ms held-key re-reports
-    // (LONGPRESS_DELAY(1)): a key silent for 350ms lost its release event.
-    // - uiKeyDown: always (re-arms the UI edge-trigger so the key isn't dead)
-    // - keypadState (game input): game mode only, as before
-    // If holds ever break rhythmically at ~350ms, the chip's re-report isn't
-    // periodic at this setting — revert to DELAY(2) and 5200ms here.
-    uint32_t swept = uiKeyDown | (gGbcActive ? keypadState : 0);
-    for (uint32_t st = swept; st; st &= st - 1) {
+    /* Stale-held-key sweep, driven by the SN7326's ~40ms held-key re-reports
+     * (LONGPRESS_DELAY(1)): a key silent for 350ms lost its release event.
+     * If holds ever break rhythmically at ~350ms, the chip's re-report isn't periodic at
+     * this setting — revert to DELAY(2) and 5200ms here.
+     *
+     * ⚠ BOTH MASKS, not just uiKeyDown. It used to clear keypadState in game mode only,
+     * on the belief that keypadState was game-side state — but the UI press handler was
+     * nested inside the keypadState edge, so a keypadState bit left set after a lost
+     * release vetoed every subsequent press of that key. Half-sweeping was therefore
+     * worse than not sweeping: it looked like the key had been rearmed when it had not.
+     * The UI handler no longer consults keypadState, and this now clears both, so the two
+     * masks cannot disagree about which keys are down. */
+    /* ⚠ THE SWEEP'S PREMISE IS "WE WOULD HAVE SEEN A HEARTBEAT IF THERE HAD BEEN ONE",
+     * and that is only true if we were LOOKING. This runs before the keypad drain in the
+     * same pass, so after the loop blocks — an SD write, the uploader, a WiFi call — the
+     * heartbeats of a genuinely held key are still sitting in the chip, unread, and
+     * keyLastSeenMs is stale through no fault of the key. Sweeping on that evidence
+     * releases a key the user is still holding, and the queued heartbeats then decode as
+     * a fresh press: auto-repeat, the exact fault uiKeyDown was added to kill.
+     *
+     * So skip a pass that arrives late and let the drain below refresh the timestamps
+     * first. One pass is enough — a single keyboardRead() empties the whole FIFO. */
+    static uint32_t s_lastSweepMs = 0;
+    const bool loopWasStalled = s_lastSweepMs && (now - s_lastSweepMs) > 100;
+    s_lastSweepMs = now;
+    for (uint32_t st = loopWasStalled ? 0 : (uiKeyDown | keypadState); st; st &= st - 1) {
       int b = __builtin_ctz(st);
       if (now - keyLastSeenMs[b] > 350) {
-        uiKeyDown &= ~(1u << b);
-        if (gGbcActive) {
-          keypadState &= ~(1u << b);
+        /* Every trip through here is a RELEASE THAT WAS NEVER SEEN, and the key was deaf
+         * for the whole 350ms getting here. This is the counter the keypad poll is meant
+         * to drive to zero: with the poll working, releases are recovered within ~40ms
+         * and the sweep should have almost nothing left to clean up. */
+        if (uiKeyDown & (1u << b)) {
+          kcStaleSwept++;
         }
+        uiKeyDown   &= ~(1u << b);
+        keypadState &= ~(1u << b);
+        /* Deliberately NOT stamping keyLastUpMs here. The stall guard above is what keeps
+         * a queued heartbeat from reading as a fresh press; using the bounce window for
+         * that job instead would put a 40 ms hole right where the user, having had one
+         * tap swallowed, is most likely to be tapping again. */
       }
     }
 
@@ -1828,20 +2151,39 @@ void loop() {
     // Check if interrupt occured
     uint8_t toRead = keypadToRead;
 
-    // During gameplay, also drain the keypad FIFO periodically WITHOUT an
-    // interrupt: the chip auto-clears its INT line after 10ms, so an event
-    // arriving mid-service (or lost to an I2C error) can sit in the FIFO with
-    // no edge left to announce it — a missed tap, or a button stuck down
-    // until the next keypress. Reading an empty FIFO is a no-op.
+    /* Drain the keypad FIFO periodically WITHOUT an interrupt as well. The chip's INT is
+     * a 10ms PULSE that auto-clears whether or not anyone read it, so an event arriving
+     * while INT is already low (or lost to an I2C error) sits in the FIFO with no edge
+     * left to announce it — a missed tap, or a button stuck down until the next press.
+     * See the long note by KEYPAD_POLL_MS for why one release in four is exposed to this.
+     *
+     * WHEN, not always: while a key is believed down — which is exactly when a release
+     * may be stuck — and for a second after the last event. An idle phone does no I2C
+     * here at all, so this costs nothing on the battery, which is the point.
+     *
+     * The game keeps its own unconditional 150ms cadence: it runs its own inner loop and
+     * cares about held state rather than edges. */
+    /* ⚠ THE UI POLL WAS TRIED AND IS RETIRED — MEASURED, NOT ASSUMED. It was added on the
+     * theory that the chip's 10ms INT pulse was stranding events in the FIFO; the raw
+     * trace refuted that outright, `drained` staying at 0 through whole sessions of menu
+     * use while `empty` climbed into the hundreds. So it recovered nothing and spent I2C
+     * traffic every 40ms to do it. Worse, it made things AMBIGUOUS: an empty FIFO and a
+     * release both read back as 0x00, and only an interrupt proves an event really
+     * happened — which is the discriminator the release fix now depends on.
+     * The real fault was never transport; it was that the chip does not say WHICH key
+     * came up. See the note by the code-0 release attribution above.
+     * The game keeps its own 150ms drain: it reads held state rather than edges. */
     static uint32_t msLastKeyDrain = 0;
+    bool polledRead = false;
     if (!toRead && gGbcActive && elapsedMillis(now, msLastKeyDrain, 150)) {
       toRead = 1;
+      polledRead = true;
     }
 
     // Read all the keys to buffer
     if (toRead) {
       msLastKeyDrain = now;
-      keyboardRead();
+      keyboardRead(polledRead);
     }
 #ifdef USE_VIRTUAL_KEYBOARD
     keyboardUdpRead();
@@ -2308,6 +2650,21 @@ void loop() {
       if (s_lastCardLog == 0 || now - s_lastCardLog >= 60000u) {
         s_lastCardLog = now;
         healthLogLine(hl);
+
+        /* Keypad health rides the same minute tick, but ONLY when something moved.
+         * Dropped keypresses happen while a person is holding the phone and nobody is
+         * watching a terminal, so the numbers have to reach the card; and a KEYS line
+         * every minute forever would just push the interesting hours off the end of a
+         * capped log. Silence here means the keypad had a clean minute. */
+        char kl[176];
+        int n = snprintf(kl, sizeof(kl), "KEYS ");
+        keypadHealth(kl + n, (int)sizeof(kl) - n);
+        static char s_lastKeys[176] = {0};
+        if (strcmp(kl, s_lastKeys)) {
+          strlcpy(s_lastKeys, kl, sizeof(s_lastKeys));
+          log_e("%s", kl);
+          healthLogLine(kl);
+        }
       }
 
       log_d("Voltage/SOC = %.2f/%d%%", v, (int) round(soc));
