@@ -407,6 +407,9 @@ typedef enum ActionID : uint16_t {
   GUI_ACTION_MAINMENU,
   GUI_ACTION_SUBMENU,
   GUI_ACTION_RESTART,
+  /* A menu row that DOES something and stays put, rather than opening an app. The main
+   * menu had no such thing before: every row was a submenu, an app, or a reboot. */
+  GUI_ACTION_WIFI_TOGGLE,
 
   // Specific applications
   GUI_BASE_APP = 0x4000,      // application flag
@@ -2728,7 +2731,7 @@ protected:
    * too FEW is silent — the tail zero-fills into entries with ID 0, parent 0 and a NULL
    * title, which then appear as children of the Clock menu. It was one short before Books was
    * added. enterMenu() now skips title-less rows so a miscount stays cosmetic. */
-  GUIMenuItem menu[43] PROGMEM = {  // increment size by one to add a new app
+  GUIMenuItem menu[44] PROGMEM = {  // increment size by one to add a new app
 
     // TODO: button names can be removed
 
@@ -2743,6 +2746,14 @@ protected:
     { 39, 1, "Meshtastic", "", "", GUI_APP_MESHTASTIC },
     { 41, 1, "Books", "Select", "Back", GUI_APP_BOOKS },
     { 42, 1, "Music", "Select", "Back", GUI_APP_MUSIC },   // ⚠ ID must be UNIQUE, not just the action
+    /* ⚠ 47 because 0-46 are taken. 8 and 25 are gaps and the notes say COUNT UP rather than
+     * fill them. A duplicate here is SILENT — findMenu() matches on id alone and returns the
+     * first hit — and GUI::init()'s boot check is the only thing that catches it.
+     *
+     * ⭐ ITS TITLE IS BUILT AT RUNTIME, not taken from this row: the menu shows "WiFi: on" or
+     * "WiFi: off" so the state is readable without opening anything. See the build loop in
+     * GUI.cpp. The string here is only the fallback if that special case is ever removed. */
+    { 47, 1, "WiFi", "Select", "Back", GUI_ACTION_WIFI_TOGGLE },
     { 3, 1, "Tools", "Select", "Back", GUI_ACTION_SUBMENU },
     { 4, 1, "Games", "Select", "Back", GUI_ACTION_SUBMENU },
     { 5, 1, "Settings", "Select", "Back", GUI_ACTION_SUBMENU },

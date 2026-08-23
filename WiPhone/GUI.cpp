@@ -1166,6 +1166,30 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
             }
           } else if (menu[ci].action == GUI_ACTION_RESTART) {
             ESP.restart();
+          } else if (menu[ci].action == GUI_ACTION_WIFI_TOGGLE) {
+            /* ⭐ ONE PRESS, FROM THE MAIN MENU. The same switch already existed inside the
+             * network edit form, which meant "turn WiFi off to save power" was: menu, WiFi,
+             * pick a network, edit, find the choice widget. Measured 2026-08-23, a real
+             * on-battery run came in at 15.7 %/h with the phone off any known network for
+             * 86 % of it, so reaching this quickly is a battery feature, not a convenience.
+             *
+             * ⚠ NOT PERSISTED, and that is deliberate: WiFi comes back ON after a reboot. A
+             * radio that stays off across a power cycle is a setting you can forget you set,
+             * and the failure mode is a phone that silently never connects again. */
+            wifiOn = !wifiOn;
+            if (wifiOn) {
+              if (esp_wifi_start() != ESP_OK) {
+                log_e("WIFI can't be started");
+                wifiOn = false;              // say what is true, not what was asked for
+              }
+              /* Nothing to connect to explicitly from here — the main loop's reconnect and
+               * auto-switch own that, and blocking the UI on a join is what froze the edit
+               * screen before it was fixed. */
+            } else {
+              wifiState.disable();
+            }
+            log_e("WIFI toggled -> %s (from the menu)", wifiOn ? "ON" : "OFF");
+            enterMenu(curMenuId);            // rebuild so the row relabels itself
           }
         }
         res |= REDRAW_SCREEN;
@@ -1481,10 +1505,22 @@ void GUI::enterMenu(uint16_t ID) {
     // menu item: adding it would hand a NULL to MenuOptionIconned.
     if (menu[i].parent == menu[menuIndex].ID && menu[i].title && menu[i].title[0]) {
       j = findMenuIcons(menu[i].ID);
+      /* ⭐ The WiFi row reads its own state. MenuOption strdup()s the title, so a stack buffer
+       * is enough and the label is a snapshot taken each time the menu is built — which is why
+       * the toggle below rebuilds the menu rather than trying to poke the widget. Showing the
+       * state ON the row is the whole point: the old WIFI-ON/WIFI-OFF control was real but
+       * lived inside a network's EDIT form, several screens down, and told you nothing until
+       * you got there. */
+      char wifiRowTitle[20];
+      const char* rowTitle = menu[i].title;
+      if (menu[i].action == GUI_ACTION_WIFI_TOGGLE) {
+        snprintf(wifiRowTitle, sizeof(wifiRowTitle), "WiFi: %s", wifiOn ? "on" : "off");
+        rowTitle = wifiRowTitle;
+      }
       if (j<0) {
-        option = new MenuOptionIconned(menu[i].ID, 1, menu[i].title);
+        option = new MenuOptionIconned(menu[i].ID, 1, rowTitle);
       } else {
-        option = new MenuOptionIconned(menu[i].ID, 1, menu[i].title, NULL, menuIcons[j].icon1, menuIcons[j].iconSize1, menuIcons[j].icon2, menuIcons[j].iconSize2);
+        option = new MenuOptionIconned(menu[i].ID, 1, rowTitle, NULL, menuIcons[j].icon1, menuIcons[j].iconSize1, menuIcons[j].icon2, menuIcons[j].iconSize2);
       }
       if (option && !mainMenu->addOption(option)) {
         delete option;
