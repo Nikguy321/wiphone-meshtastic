@@ -1,5 +1,46 @@
 # Changelog
 
+## Unreleased (2026-08-24, night) — the mesh database moves to the SD card, and the benchmark is why
+
+- 🔑 **BENCHMARKED BEFORE COMMITTING, because the previous recommendation in this same session
+  was wrong.** Nick asked me to look hard at whether SD was actually the right choice rather
+  than assume it. A new serial command, `bench`, writes 8 KB the same shape a real save has —
+  open, write, remove, rename — to both filesystems on this exact phone:
+
+  | | total | open | write 8 KB | remove | rename |
+  |---|---|---|---|---|---|
+  | **SPIFFS** | 2599–2845 ms | **1645 ms** | 163–809 ms | 62–324 ms | 326–639 ms |
+  | **SD** | **48–57 ms** | 10 ms | 11 ms | 15–24 ms | 12 ms |
+
+  **About fifty times faster, and consistent** — no wear-levelling spikes across three passes,
+  which was the specific risk that made SD worth measuring instead of assuming. Cheap cards are
+  notorious for unpredictable multi-hundred-ms pauses and that would simply have moved the
+  problem.
+- ⚠ **AND IT SHOWS THE EARLIER DIAGNOSIS WAS AIMED AT THE WRONG OPERATION.** `open` alone costs
+  **1.6 seconds** on SPIFFS. The write was never the bottleneck — which is exactly why batching
+  the writes did nothing and why chunking them made it worse. **Creating a file is the
+  pathological operation on this part**, and the temp-then-rename save hits it every save.
+- **Measured end to end, same three-save test, same phone:**
+
+  | | stalls over 250 ms |
+  |---|---|
+  | chunked write, SPIFFS | 31 |
+  | single write, SPIFFS | 12 |
+  | **single write, SD** | **5** |
+
+  And the survivors are no longer the save: the largest is 5049 ms at `wifi=6`, i.e. WiFi
+  association, which the stall detector will now keep catching on its own merits.
+- ⚠ **SPIFFS REMAINS THE FALLBACK AND MUST KEEP WORKING.** `meshFs()` decides per call rather
+  than caching a verdict at boot — a card can be removed, and `cardPresent` was itself lying for
+  the life of the project until earlier today. `loadDb()`/`loadFavourites()` prefer the card but
+  fall back to SPIFFS, so **a database written before this change is still found**, and the next
+  save migrates it to the card. Verified on hardware: 34 nodes, 26 messages and 3 starred nodes
+  all came back across the move.
+- **Channels stay on SPIFFS** — a few hundred bytes, written when a channel is added, which is
+  rare enough that the card being absent matters more than the speed.
+- The service takes card presence from the main loop (`setCardPresent`) the same way it takes
+  `uiIdle`, so it keeps no dependency on the UI.
+
 ## Unreleased (2026-08-24, evening) — the scrolling freeze, found and timed: it is the database save
 
 - 🔑 **Nick: "sometimes when scrolling menus, the phone will freeze for a second or two, wifi

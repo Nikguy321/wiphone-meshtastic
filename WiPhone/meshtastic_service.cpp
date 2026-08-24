@@ -26,6 +26,11 @@
 
 #include "clock.h"            // ntpClock, for when a parked packet arrived
 #include <SPIFFS.h>           // node + message history persistence
+#include <SD.h>               // ...which now lives HERE when a card is in; see meshFs()
+
+/* Mirrors MeshtasticService::cardIn so the file-scope filesystem helpers can see it without
+ * every one of them taking a `this`. Refreshed at the top of the service's loop(). */
+static bool s_meshCardIn = false;
 
 // Debounce persistence writes so a burst of traffic doesn't hammer flash.
 #define MESH_SAVE_DEBOUNCE_MS  10000
@@ -371,7 +376,7 @@ MeshtasticService::MeshtasticService()
     region("US"), channelName("LongFast"), modemPreset("LongFast"),
     myNodeNum(0), recentPktPos(0), dbDirty(false), lastSaveMs(0), initialized(false),
     nodes(NULL), nodeOrder(NULL), orderDirty(true), orderCount(0), favCount(0), favDirty(false),
-    uiIdle(true), saveBuf(NULL), saveLen(0), saveOff(0), saveActive(false) {
+    uiIdle(true), cardIn(false), saveBuf(NULL), saveLen(0), saveOff(0), saveActive(false) {
   messages = NULL;
   msgCount = 0;
   channelCount = 0;
@@ -1143,6 +1148,7 @@ bool MeshtasticService::loop() {
   /* Drain any save in flight FIRST, and unconditionally: each step is bounded (128 bytes,
    * ~20 ms) so it cannot freeze anything, and letting it finish promptly keeps the temp file's
    * lifetime short. Only STARTING a save waits for an idle moment. */
+  s_meshCardIn = cardIn;                   // keep the file-scope helpers in step
   saveDbStep();
 
   if (dbDirty && uiIdle && !saveActive && (millis() - lastSaveMs > MESH_SAVE_DEBOUNCE_MS)) {
@@ -2136,6 +2142,29 @@ struct MeshDbWriter {
   }
 };
 
+/* ── WHICH FILESYSTEM THE MESH DATABASE LIVES ON ───────────────────────────────────────────
+ * SD when a card is present, SPIFFS when it is not.
+ *
+ * BENCHMARKED ON THIS PHONE, 8 KB written the same shape a real save has (`bench` on serial):
+ *
+ *     SPIFFS   total 2599-2845 ms   [open 1645  write 163-809  rm 62-324  rename 326-639]
+ *     SD       total    48-57 ms    [open   10  write      11  rm  15-24  rename      12]
+ *
+ * **About fifty times faster, and consistent** — no wear-levelling spikes across the passes,
+ * which was the specific risk that made SD worth measuring rather than assuming.
+ * ⚠ And note WHERE the SPIFFS time goes: `open` alone is 1.6 s. The write was never the
+ * bottleneck. Creating a file is the pathological operation on this part, which the
+ * temp-then-rename save hits on every single save.
+ *
+ * ⚠ SPIFFS REMAINS THE FALLBACK AND MUST KEEP WORKING. A card can be out, and `cardPresent`
+ * was itself lying for the life of the project until 2026-08-24 — so this decides per call
+ * rather than caching a verdict taken once at boot. loadDb() prefers whichever file exists,
+ * so a database written to SPIFFS before this change is still found and is migrated to the
+ * card by the next save. */
+static fs::FS& meshFs() {
+  return s_meshCardIn ? (fs::FS&)SD : (fs::FS&)SPIFFS;
+}
+
 /* The temp file stays open across loop passes while a save drains. A file-static rather than a
  * member so meshtastic_service.h does not have to include FS.h for every one of its consumers. */
 static File s_saveFile;
@@ -2214,7 +2243,7 @@ void MeshtasticService::saveDb() {
    * a redundant SPIFFS metadata operation — and on this part those are expensive. It also
    * logged `/meshdb.tmp does not exists` on every single save, which is the normal case and
    * therefore pure noise in a log people read to find real faults. */
-  s_saveFile = SPIFFS.open(MESH_DB_TMP, "w");
+  s_saveFile = meshFs().open(MESH_DB_TMP, "w");
   if (!s_saveFile) {
     log_e("mesh: saveDb open failed");
     free(buf);
@@ -2239,7 +2268,7 @@ void MeshtasticService::saveDbStep() {
       log_e("mesh: saveDb write FAILED at %u/%u - database left as it was",
             (unsigned)saveOff, (unsigned)saveLen);
       s_saveFile.close();
-      SPIFFS.remove(MESH_DB_TMP);
+      meshFs().remove(MESH_DB_TMP);
       free(saveBuf);
       saveBuf = NULL;
       saveActive = false;
@@ -2255,8 +2284,8 @@ void MeshtasticService::saveDbStep() {
   saveBuf = NULL;
   saveActive = false;
   /* Only now does the real file change: an interrupted save leaves the OLD database intact. */
-  SPIFFS.remove(MESH_DB_PATH);
-  if (!SPIFFS.rename(MESH_DB_TMP, MESH_DB_PATH)) {
+  meshFs().remove(MESH_DB_PATH);
+  if (!meshFs().rename(MESH_DB_TMP, MESH_DB_PATH)) {
     log_e("mesh: saveDb RENAME FAILED - database left as it was");
     return;
   }
@@ -2265,7 +2294,12 @@ void MeshtasticService::saveDbStep() {
 
 void MeshtasticService::loadDb() {
   orderDirty = true;                       // freshly loaded: nothing is sorted yet
-  File f = SPIFFS.open(MESH_DB_PATH, "r");
+  /* Prefer the card, but fall back to a database written before the move — it is migrated to
+   * the card by the next save. */
+  File f = meshFs().open(MESH_DB_PATH, "r");
+  if (!f) {
+    f = SPIFFS.open(MESH_DB_PATH, "r");
+  }
   if (!f) {
     return;                             // first boot: nothing saved yet
   }
@@ -2491,7 +2525,10 @@ void MeshtasticService::applyFavouriteFlag(MeshNode* n) const {
 
 void MeshtasticService::loadFavourites() {
   favCount = 0;
-  File f = SPIFFS.open(MESH_FAV_PATH, "r");
+  File f = meshFs().open(MESH_FAV_PATH, "r");
+  if (!f) {
+    f = SPIFFS.open(MESH_FAV_PATH, "r");     // starred list from before the move
+  }
   if (!f) {
     return;                                  // never starred anything yet
   }
@@ -2522,8 +2559,8 @@ void MeshtasticService::loadFavourites() {
  * written in one go, but a reset landing mid-write would otherwise cost the whole list — and
  * unlike the node table, nothing can rebuild it. */
 void MeshtasticService::saveFavourites() {
-  SPIFFS.remove(MESH_FAV_TMP);
-  File f = SPIFFS.open(MESH_FAV_TMP, "w");
+  meshFs().remove(MESH_FAV_TMP);
+  File f = meshFs().open(MESH_FAV_TMP, "w");
   if (!f) {
     log_e("mesh: saveFavourites open failed");
     return;
@@ -2535,8 +2572,8 @@ void MeshtasticService::saveFavourites() {
     f.write((const uint8_t*)&favIds[i], 4);
   }
   f.close();
-  SPIFFS.remove(MESH_FAV_PATH);
-  if (!SPIFFS.rename(MESH_FAV_TMP, MESH_FAV_PATH)) {
+  meshFs().remove(MESH_FAV_PATH);
+  if (!meshFs().rename(MESH_FAV_TMP, MESH_FAV_PATH)) {
     log_e("mesh: saveFavourites RENAME FAILED - star list left as it was");
   }
 }

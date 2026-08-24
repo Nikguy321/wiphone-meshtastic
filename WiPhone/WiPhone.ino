@@ -2141,6 +2141,7 @@ void loop() {
      * user has stopped scrolling and a freeze there costs nothing. This is the only place that
      * can see both the keypad and the mesh service. */
     meshService.setUiIdle(gLastKeyMs == 0 || (uint32_t)(now - gLastKeyMs) > 3000);
+    meshService.setCardPresent(gui.state.cardPresent);   // the DB lives on SD when there is one
     gbcXferHandleClient();
     serialCmdLoop();       // USB console: `?` for help. Costs nothing when nothing is typed.
 

@@ -771,6 +771,69 @@ static void run(char* line) {
     say("star: !%08x is now %s\n", (unsigned)node, on ? "STARRED" : "not starred");
     return;
   }
+  /* `bench` — time the SAME database-shaped workload on SPIFFS and on the SD card, on this
+   * exact hardware, before deciding to move the database. The case for moving it rested on
+   * "/health.log lives on SD and never stalls" — but that is ~130 bytes a minute, which says
+   * nothing about an 8 KB write plus a create and a rename. And cheap SD cards run their own
+   * wear levelling, which is a well-known source of unpredictable multi-hundred-ms pauses; SD
+   * could easily just move the problem. Measure, do not reason. */
+  if (!strcasecmp(line, "bench")) {
+    extern GUI gui;
+    const size_t N = 8192;
+    uint8_t* buf = (uint8_t*)ps_malloc(N);
+    if (!buf) {
+      say("bench: no PSRAM\n");
+      return;
+    }
+    memset(buf, 0xA5, N);
+    for (int pass = 0; pass < 3; pass++) {
+      // ---- SPIFFS ----
+      uint32_t t0 = millis();
+      File f = SPIFFS.open("/bench.tmp", "w");
+      uint32_t tOpen = millis();
+      if (f) {
+        f.write(buf, N);
+        uint32_t tWrite = millis();
+        f.close();
+        SPIFFS.remove("/bench.bin");
+        uint32_t tRm = millis();
+        SPIFFS.rename("/bench.tmp", "/bench.bin");
+        say("bench spiffs[%d]: total=%ums open=%u write=%u rm=%u rename=%u\n", pass,
+            (unsigned)(millis() - t0), (unsigned)(tOpen - t0), (unsigned)(tWrite - tOpen),
+            (unsigned)(tRm - tWrite), (unsigned)(millis() - tRm));
+      } else {
+        say("bench spiffs[%d]: open FAILED\n", pass);
+      }
+      // ---- SD ----
+      if (!gui.state.cardPresent) {
+        say("bench sd[%d]: no card\n", pass);
+        continue;
+      }
+      t0 = millis();
+      File g = SD.open("/bench.tmp", FILE_WRITE);
+      uint32_t gOpen = millis();
+      if (g) {
+        g.write(buf, N);
+        uint32_t gWrite = millis();
+        g.close();
+        SD.remove("/bench.bin");
+        uint32_t gRm = millis();
+        SD.rename("/bench.tmp", "/bench.bin");
+        say("bench sd[%d]:     total=%ums open=%u write=%u rm=%u rename=%u\n", pass,
+            (unsigned)(millis() - t0), (unsigned)(gOpen - t0), (unsigned)(gWrite - gOpen),
+            (unsigned)(gRm - gWrite), (unsigned)(millis() - gRm));
+      } else {
+        say("bench sd[%d]: open FAILED\n", pass);
+      }
+    }
+    SPIFFS.remove("/bench.bin");
+    if (gui.state.cardPresent) {
+      SD.remove("/bench.bin");
+    }
+    free(buf);
+    say("bench: done (8192 bytes per pass, the shape a real save has)\n");
+    return;
+  }
   if (!strcasecmp(line, "chans")) {
     for (int i = 0; i < meshService.getChannelCount(); i++) {
       const MeshChannel* c = meshService.getChannel(i);

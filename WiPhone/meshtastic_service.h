@@ -178,6 +178,10 @@ public:
    * Nick's "freeze for a second or two and WiFi drops". The main loop calls this because it
    * is the only place that can see both the keypad and this service. */
   void               setUiIdle(bool idle) { uiIdle = idle; }
+  /* The database lives on the SD card when there is one (about fifty times faster than SPIFFS
+   * — measured; see meshFs()). Reported by the main loop rather than read from GUI here, so
+   * this service keeps no dependency on the UI. */
+  void               setCardPresent(bool present) { cardIn = present; }
 
   // ---- Channels ------------------------------------------------------------
   int                getChannelCount() const;
@@ -343,6 +347,7 @@ private:
   uint8_t   favCount;
   bool      favDirty;               // set by toggleFavourite, drained by loop()
   bool      uiIdle;                 // main loop's verdict: is nobody touching the phone?
+  bool      cardIn;                 // main loop's verdict: is an SD card seated? (see meshFs)
 
   /* ── THE DATABASE SAVE IS SPREAD ACROSS LOOP PASSES ─────────────────────────────────────
    * MEASURED 2026-08-24: SPIFFS on this part writes at about 6 KB/s, so saving the database
