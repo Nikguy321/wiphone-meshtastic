@@ -169,6 +169,9 @@ public:
   const MeshNode*    findNode(uint32_t nodeNum) const;
   bool               toggleFavourite(uint32_t nodeNum);   // returns the NEW starred state
   bool               isFavourite(uint32_t nodeNum) const;
+  /* Re-sort the node list NOW. The UI calls this when it (re)builds the Nodes screen and at
+   * no other time — see the note on getNode(). */
+  void               refreshNodeOrder();
 
   // ---- Channels ------------------------------------------------------------
   int                getChannelCount() const;
@@ -350,6 +353,7 @@ private:
    * callers hold across statements — re-sorting the array under them would dangle. */
   uint16_t*   nodeOrder;
   bool        orderDirty;
+  int         orderCount;           // nodeCount the current order was built for
   void        rebuildNodeOrder();
   int         nodeCount;
 

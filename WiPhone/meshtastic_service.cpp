@@ -370,7 +370,7 @@ MeshtasticService::MeshtasticService()
     radioState(MESH_RADIO_UNINITIALIZED),
     region("US"), channelName("LongFast"), modemPreset("LongFast"),
     myNodeNum(0), recentPktPos(0), dbDirty(false), lastSaveMs(0), initialized(false),
-    nodes(NULL), nodeOrder(NULL), orderDirty(true), favCount(0), favDirty(false) {
+    nodes(NULL), nodeOrder(NULL), orderDirty(true), orderCount(0), favCount(0), favDirty(false) {
   messages = NULL;
   msgCount = 0;
   channelCount = 0;
@@ -2310,6 +2310,11 @@ void MeshtasticService::rebuildNodeOrder() {
     nodeOrder[j + 1] = v;
   }
   orderDirty = false;
+  orderCount = nodeCount;
+}
+
+void MeshtasticService::refreshNodeOrder() {
+  rebuildNodeOrder();
 }
 
 const MeshNode* MeshtasticService::getNode(int index) const {
@@ -2319,7 +2324,15 @@ const MeshNode* MeshtasticService::getNode(int index) const {
   if (!nodeOrder) {
     return &nodes[index];                                  // alloc failed: unsorted beats none
   }
-  if (orderDirty) {
+  /* ⚠ A DIRTY ORDER IS NOT RE-SORTED HERE, AND THAT IS DELIBERATE. `index` is a row number
+   * the UI got from a list it drew earlier, and the Nodes screen uses it for hit-testing as
+   * well as drawing. Re-sorting on read means a node heard between the draw and the key press
+   * silently renumbers the rows, so `*` stars — or OK opens a DM to — the node NEXT to the
+   * highlighted one. (COVEY had the same bug in its _activate_at and it was fixed the same
+   * day.) A list that reshuffles under a finger is worse than a slightly stale one.
+   * Only a size change forces a rebuild, because then the indices genuinely are invalid.
+   * The UI re-sorts explicitly via refreshNodeOrder() when it rebuilds the screen. */
+  if (orderCount != nodeCount) {
     const_cast<MeshtasticService*>(this)->rebuildNodeOrder();
   }
   return &nodes[nodeOrder[index]];

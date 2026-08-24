@@ -365,6 +365,9 @@ static const char* meshStarName(const MeshNode* n, char* buf, size_t cap) {
 }
 
 void MeshtasticApp::buildNodes() {
+  /* Re-sort exactly here and nowhere else: this is the one moment the row numbering is
+   * allowed to change, because it is the moment the rows are drawn. See getNode(). */
+  meshService.refreshNodeOrder();
   menu = newMenu("No nodes heard yet");
   char line[64];
   char starBuf[MESH_NAME_LEN + 2];

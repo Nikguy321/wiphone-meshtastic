@@ -1297,7 +1297,16 @@ void setup() {
    * Printed with log_e so it survives into the field log, where log_d does not. */
   log_e("BOOT: reset_reason=%d heap=%u psram=%u",
         (int)esp_reset_reason(), ESP.getFreeHeap(), ESP.getFreePsram());
-  snprintf(bootLine, sizeof(bootLine), "BOOT reset_reason=%d heap=%u psram=%u",
+  /* ⚠ THE BUILD STAMP IS THE POINT OF THIS LINE, not the heap numbers.
+   * /health.log records only `up=` minutes — no wall clock, and until now nothing saying WHICH
+   * FIRMWARE wrote a sample. On 2026-08-24 that gap made a yes/no question unanswerable from
+   * four hours of data: `chg=` had just been fixed to read the right chip, the log contained a
+   * long run of chg=1 that tracked discharging perfectly, and there was NO WAY TO TELL whether
+   * those samples came from before the fix (when the flag was reading GPIO 32, a UART TX line
+   * that idles high) or after it. Both readings fit and neither could be ruled out.
+   * __DATE__/__TIME__ is the compiler's stamp, so every build is distinguishable and every run
+   * of samples can be attributed to the firmware that produced it. */
+  snprintf(bootLine, sizeof(bootLine), "BOOT reset_reason=%d heap=%u psram=%u build=" __DATE__ " " __TIME__,
            (int)esp_reset_reason(), ESP.getFreeHeap(), ESP.getFreePsram());
   printf("\r\nBooting...\r\n");
 

@@ -1,5 +1,43 @@
 # Changelog
 
+## Unreleased (2026-08-24, afternoon) — the SIP flap, the starvation under it, and two loose ends closed
+
+- 🔑 **SIP registration no longer flaps, and the reason the last attempt failed was never the
+  flap fix.** Three changes; the important one is not the obvious one.
+  1. **Ping starvation.** The caller is an if/else chain — `if (ping due) ping(); else if
+     (register due) registration();` — and `ping()` wrote `msLastPing` only INSIDE its
+     `connected()` branch. With the connection down the stamp never advanced, the ping branch
+     was taken on *every pass*, and **`registration()` was never reached again**. A phone that
+     lost its connection could not re-register itself; only a reboot recovered it. ⚠ **That is
+     the "went `lost` and never came back" of 2026-08-22, and it is reachable on its own — it
+     has been there since the initial commit.** `ping()` stamps the ATTEMPT now.
+  2. **The flap itself:** `requestRegister()` cleared `registered` on every REGISTER, so the
+     phone declared itself unregistered for one round trip per refresh, by construction. A
+     failed refresh is still covered — `registrationInvalid()` measures from `msLastRegistered`,
+     which only a 200 OK advances.
+  3. **`REGISTER_PERIOD_MS` 60000 → 45000.** ⚠ Neither 2 nor 3 works alone: with period equal
+     to expiry the expiry check tripped at the same instant the refresh fell due, which is why
+     the 45 s attempt on its own only moved the flap. The on-air `Expires` header is unchanged,
+     so a dead phone's binding still clears at the registrar within 60 s.
+- **Measured over 4 minutes on the hotspot: 6 REGISTERs, 1 REGISTERED transition, ZERO `lost`
+  events** — against 53 flaps in 31 minutes before. And the starvation fix got an unplanned live
+  test: WiFi genuinely dropped after a reset and **registration recovered on its own**, which is
+  precisely what used to need a reboot.
+  ⚠ **Still owed: confirmation that an INBOUND call lands.** That cannot be proven from the cable.
+- ⭐ **The node order is now frozen between rebuilds, and that is a correctness fix, not a
+  preference.** `getNode(index)` re-sorted on demand while `index` is a row number the UI got
+  from a list it drew earlier — and the Nodes screen uses it for hit-testing as well as drawing.
+  A node heard between the draw and the key press silently renumbered the rows, so `*` would
+  star (or OK would DM) **the node next to the highlighted one**. COVEY had the identical bug in
+  `_activate_at` and it was fixed the same day. Only a size change forces a rebuild now; the UI
+  re-sorts explicitly in `buildNodes()`, which is the one moment the numbering may change.
+- 🛠 **`/health.log` boot lines carry a build stamp** (`build=Aug 24 2026 07:51:57`). The log
+  recorded only `up=` minutes — no wall clock, nothing saying which firmware wrote a sample — and
+  that gap is the sole reason the `chg=` polarity question could not be settled from four hours
+  of data: a long run of `chg=1` tracked discharging perfectly, and there was no way to tell
+  whether those samples predated the fix, when the flag was reading a UART TX line that idles
+  high. Every build is distinguishable now, so a run of samples can be attributed.
+
 ## Unreleased (2026-08-24, midday) — the node list grows 6x and learns to be starred
 
 - **`MESH_MAX_NODES` 32 → 200, and the table moved to PSRAM.** It was a plain member array on a
