@@ -479,6 +479,7 @@ typedef enum ActionID : uint16_t {
   GUI_APP_WIFI_AUTOSWITCH,
   GUI_APP_FILES,        // ⚠ appended at the END on purpose: inserting mid-enum shifts every
                         // later app id and stales the handoff's health-log id table
+  GUI_APP_PHOTOS,       // ⚠ likewise: append, never insert
 
 } ActionID_t;
 
@@ -504,6 +505,7 @@ typedef struct GUIMenuItemIcons {
 // Widget object bearing no data about its position and size
 class AbstractWidget {
 public:
+
   virtual bool processEvent(EventType event) = 0;         // return true if the event was relevant (processed); false - if ignored
   virtual void redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, uint16_t windowWidth, uint16_t windowHeight) = 0;
 
@@ -2652,6 +2654,12 @@ protected:
 
 class GUI {
 public:
+  /* ⚠ PUBLIC because the Photos app sets and clears the wallpaper and must use THE SAME
+   * path this class's loader reads. A second copy of the string over there is exactly how
+   * the two would silently drift apart, and the symptom would be "Set as wallpaper does
+   * nothing". */
+  static constexpr const char* backgroundFile = "/background.jpg";
+  static constexpr int   backgroundFileMaxSize = 1<<20;
   GUI();
   ~GUI();
 
@@ -2731,7 +2739,7 @@ protected:
    * too FEW is silent — the tail zero-fills into entries with ID 0, parent 0 and a NULL
    * title, which then appear as children of the Clock menu. It was one short before Books was
    * added. enterMenu() now skips title-less rows so a miscount stays cosmetic. */
-  GUIMenuItem menu[44] PROGMEM = {  // increment size by one to add a new app
+  GUIMenuItem menu[45] PROGMEM = {  // increment size by one to add a new app
 
     // TODO: button names can be removed
 
@@ -2757,6 +2765,11 @@ protected:
 
     // Tools (3)
     { 46, 3, "Files", "Select", "Back", GUI_APP_FILES },
+    /* ⚠ 48 because 0-47 are taken (47 is the WiFi toggle, added the same day). 8 and 25 are
+     * gaps and the rule is COUNT UP, never fill them. A duplicate id is SILENT — findMenu()
+     * matches on id alone and returns the first hit — and GUI::init()'s boot check is the only
+     * thing that catches it. */
+    { 48, 3, "Photos", "Select", "Back", GUI_APP_PHOTOS },
     { 31, 3, "Audio recorder", "", "", GUI_APP_RECORDER },
     { 14, 3, "Scan WiFi networks", "", "", GUI_APP_NETWORKS },    // duplicate from below
     { 7, 3, "Note page", "", "Back", GUI_APP_NOTEPAD },
@@ -2901,8 +2914,6 @@ protected:
   bool addWidget(GUIWidget* w);
   void deleteWidgets();
 
-  static constexpr const char* backgroundFile = "/background.jpg";
-  static constexpr int   backgroundFileMaxSize = 1<<20;
 };
 
 class FontCollection {
