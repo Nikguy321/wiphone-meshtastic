@@ -74,21 +74,41 @@ mesh, so:
   of inverted polarity.** Do not conclude the polarity from any sample you cannot prove is
   post-fix.
 
-  - [ ] 🔑 **`/health.log` has no way to tell WHICH FIRMWARE wrote a line** — only `up=` minutes,
+  - [x] ~~**`/health.log` has no way to tell WHICH FIRMWARE wrote a line**~~ — **DONE
+        2026-08-24**: boot lines carry `build=<compiler timestamp>`, so samples are attributable.
+        The old note, kept because it explains why: — only `up=` minutes,
         no wall clock and no build marker — which is exactly why the above could not be resolved
         from four hours of data. **Stamp a boot/build line into the log** and this class of
         question becomes answerable instead of arguable.
 
-### P3 — needs Nick present, small, real
+### P3 — needs Nick present: ONE confirmation owed
 
-- [ ] **SIP registration: the deeper fix, second attempt — INSTRUMENTATION FIRST, on PHONE 2.**
-      🛑 The fix WORKED (53 flaps in 31 min → 0) and was still reverted: 20 min later the phone
-      went `lost` and never came back. **The flap was load-bearing** — it hid whether refreshes
-      actually succeed. Before retrying, add two `log_e` lines: registration() being CALLED, and
-      the class of each REGISTER response. Leading suspect, unproven: `ping()` (tinySIP.cpp:1567)
-      writes `msLastPing` only *inside* `if (connected())`, so a failing ping starves
-      registration() forever. Ruled out already: `wifiTerminateCall()`, `terminateCall()`.
-- [x] ~~Nick's verdict on the WiFi toggle~~ — used for the idle run, and now lives in Settings.
+- [ ] 🔑 **RING THE PHONE. Confirm an INBOUND call lands.** The SIP registration fix shipped
+      2026-08-24 and is measured — 6 REGISTERs over 4 minutes, 1 REGISTERED transition, **zero
+      `lost` events**, against 53 flaps in 31 minutes before — but *"an inbound call still
+      arrives"* is the one property that cannot be proven from the cable, and it is the whole
+      reason this waited for him to be present.
+
+### ✅ The SIP flap is FIXED (2026-08-24) — and the 08-22 revert was never its fault
+
+Three changes; the important one is not the obvious one.
+
+1. 🔑 **PING STARVATION — this is why registration could go `lost` and never come back.** The
+   caller is an if/else chain: `if (ping due) ping(); else if (register due) registration();`.
+   `ping()` wrote `msLastPing` only INSIDE its `connected()` branch, so with the connection down
+   the stamp never advanced, the ping branch was taken on *every pass*, and **`registration()`
+   was never reached again.** Only a reboot recovered it. ⚠ **That is the "20 minutes later the
+   phone went `lost` and never came back" of 08-22 — and it is reachable entirely on its own.
+   It has been there since the initial commit.** `ping()` stamps the ATTEMPT now.
+2. **The flap:** `requestRegister()` cleared `registered` on every REGISTER, so the phone
+   declared itself unregistered for one round trip per refresh, by construction.
+3. **`REGISTER_PERIOD_MS` 60000 → 45000.** ⚠ **Neither 2 nor 3 works alone** — with period equal
+   to expiry, the expiry check tripped at the instant the refresh fell due, which is exactly why
+   the 45 s attempt on its own only moved the flap. The on-air `Expires` header is untouched, so
+   a dead phone's binding still clears at the registrar within 60 s.
+
+Unplanned live proof of (1): WiFi genuinely dropped after a reset during testing and
+**registration recovered by itself** — precisely what used to require a reboot.
 
 ### P4 — hardware, parts in hand
 
@@ -100,7 +120,27 @@ mesh, so:
       (`docs/woods-backplate-v1-to-v2.svg`) so the built plate need not be re-checked wire by wire.
       The shared artifact carries both; its source is `docs/woods-backplate-artifact.html`.
 
-### P5 — setup, unblocked, quick
+### P5 — small and unblocked
+
+- [ ] **Tell people the `*` key exists.** Starring a node on the Nodes list is `*`, and it
+      toggles both ways — but the footer there reads "Select / Back" and nothing on screen
+      mentions it. The feature is fine; it is simply undiscoverable to anyone who did not build
+      it. A footer hint is the whole fix.
+
+### ❌ DECIDED AGAINST (2026-08-24): giving COVEY its own node superset
+
+COVEY has no node store of its own — `node_list()` reads `iface.nodes` straight from the RAK,
+so the list size is the radio firmware's compile-time cap and covey-ui cannot raise it. The only
+way to show more would be a persistent superset: every node ever seen, merged with the live list.
+
+**Nick's call, and it is the right one: leave it.** A node the radio has forgotten carries
+FROZEN data — its position, battery and hop count are from whenever it was last heard — and
+presenting that beside live nodes makes the list *less* trustworthy, not more. "The mesh you can
+see right now" is a more honest list than "everything ever heard, some of it fiction". Starring
+(shipped the same day) already solved the actual problem, which was finding your own devices in
+the noise of a public channel. **Do not re-propose this without a concrete staleness design.**
+
+### P6 — setup, unblocked, quick
 
 - [ ] **Phone 2: flash it to match phone 1**, then set booksync passcode → `2222`.
 - [ ] **Phone 2 SIP**: a second free VoIP.ms sub-account + a ring group, so both phones ring.
