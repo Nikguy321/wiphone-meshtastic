@@ -50,36 +50,25 @@ mesh, so:
       though routed NAKs do.
 - [ ] Consider whether 32 is the right cap now that this phone sits on LongFast.
 
-### P2 — the one open measurement: is `chg=` polarity inverted?
+### ✅ `chg=` IS SETTLED (2026-08-24) — it was inverted as well as mis-read
 
-- [ ] **Settle it from a LOW pack.** After the fix, `chg=` still read 0 on USB at soc=96 % with
-      voltage *rising* (4.14 → 4.15 → 4.17). Two readings fit and this cannot be separated near
-      full: the charger has legitimately tapered, **or** the polarity is inverted — charge-status
-      pins on this class of IC are typically open-drain and **active LOW while charging**, which
-      would make `== HIGH ? true : false` exactly backwards.
-      ⚠ **Do not flip it on the theory.** Run the pack down, plug in, and watch `chg=` in `health`
-      across the transition, **on post-fix firmware**. A transition in EITHER direction tells you
-      the polarity; no transition at all means the pin is floating and wants a pull-up.
+The charger IC's STAT is open-drain: LOW on the charger, released high off it. The read was
+`== HIGH`, so the flag was **inverted for the life of the project**, on top of reading the wrong
+GPIO until the same morning — which is what hid it. Measured, one boot, one build stamp:
 
-  **What the overnight look DID establish (2026-08-24):** `chg=` is **alive** — the log now
-  contains both 0 and 1, where before the fix it was 0 across all 807 samples. The read reaches
-  the right chip.
+```
+up=20  v=4.20  chg=0     on the charger
+up=21  v=4.15  chg=1     <- unplugged; voltage starts falling
+up=26  v=4.18  chg=0     <- replugged; voltage jumps back
+```
 
-  ⚠ **AND A TRAP FOR ANYONE MINING THE OLD LOG: historical `chg=1` LINES ARE NOT CHARGE STATE.**
-  Pre-fix, that flag was reading **GPIO 32 == `USER_SERIAL_TX`**, which idles **HIGH** whenever
-  the user UART is configured on it (`uart_set_pin(UART_NUM_1, USER_SERIAL_TX, …)` — i.e. the GPS
-  reader) and low otherwise. So old `chg=1` runs record *whether the UART was up*, and they
-  correlate with whatever else was happening at the time. An overnight pass found one such run
-  that tracks discharging almost perfectly and **it is very probably that confound, not evidence
-  of inverted polarity.** Do not conclude the polarity from any sample you cannot prove is
-  post-fix.
+⚠ **`chg=1` now means "ON THE CHARGER". It does NOT yet mean "current is flowing"** — plugged in
+at soc=100%/4.19 V it still reads 1, which is either a charger topping off or a pin that tracks
+USB presence. Settling that needs a run left plugged until charging genuinely terminates.
 
-  - [x] ~~**`/health.log` has no way to tell WHICH FIRMWARE wrote a line**~~ — **DONE
-        2026-08-24**: boot lines carry `build=<compiler timestamp>`, so samples are attributable.
-        The old note, kept because it explains why: — only `up=` minutes,
-        no wall clock and no build marker — which is exactly why the above could not be resolved
-        from four hours of data. **Stamp a boot/build line into the log** and this class of
-        question becomes answerable instead of arguable.
+⚠ **The old warning about mining historical `chg=` still stands** for anything written before the
+build stamp existed: pre-fix the flag was reading GPIO 32 (`USER_SERIAL_TX`, idles high), so old
+runs record whether the UART was up. Attribute samples by `build=` or do not use them.
 
 ### P3 — needs Nick present: ONE confirmation owed
 
