@@ -2117,6 +2117,21 @@ void loop() {
           log_e("LOOP STALL: %u ms in one pass (scr=%d cpu=%uMHz wifi=%d) - WiFi/keypad/screen "
                 "were all frozen for this long", (unsigned)took, (int)gui.state.screenBrightness,
                 (unsigned)(getCpuFrequencyMhz()), (int)WiFi.status());
+          /* ⚠ AND INTO /health.log, because serial only helps when somebody is watching it.
+           * The freeze this exists to catch happens while Nick is USING the phone — walking
+           * around, off the cable — and a diagnostic that only fires for a tethered developer
+           * would miss every real occurrence. Same argument as the health line itself.
+           * Rate-limited to one record a minute: a phone that stalls repeatedly must not spend
+           * its stalls writing about stalling. */
+          static uint32_t sLastStallLogMs = 0;
+          if (!sLastStallLogMs || (uint32_t)(now - sLastStallLogMs) > 60000) {
+            sLastStallLogMs = now;
+            char stallLine[96];
+            snprintf(stallLine, sizeof(stallLine), "STALL %ums scr=%d cpu=%u wifi=%d",
+                     (unsigned)took, (int)gui.state.screenBrightness,
+                     (unsigned)(getCpuFrequencyMhz()), (int)WiFi.status());
+            healthLogLine(stallLine);
+          }
         }
       }
       sLastPassMs = now;

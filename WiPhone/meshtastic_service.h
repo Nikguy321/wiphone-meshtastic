@@ -343,6 +343,24 @@ private:
   uint8_t   favCount;
   bool      favDirty;               // set by toggleFavourite, drained by loop()
   bool      uiIdle;                 // main loop's verdict: is nobody touching the phone?
+
+  /* ── THE DATABASE SAVE IS SPREAD ACROSS LOOP PASSES ─────────────────────────────────────
+   * MEASURED 2026-08-24: SPIFFS on this part writes at about 6 KB/s, so saving the database
+   * in one go blocked the superloop for ~1.5 s — and one task means the keypad, the screen and
+   * the WiFi stack all stopped with it. That is Nick's "menus freeze and WiFi drops".
+   * The cost is per-BYTE, not per-call (batching ~55 writes into 2 changed almost nothing), so
+   * the total is irreducible — but it does NOT have to be paid all at once.
+   * The image is built into PSRAM in one pass (memcpy only, no I/O), then dribbled to flash a
+   * bounded chunk per loop pass. Snapshotting first also makes the write atomic in a second
+   * sense: nodes and messages cannot change halfway through and tear the file.
+   * ⚠ A save in flight holds an open File across passes. That is fine — it writes to the TEMP
+   * file, and the rename only happens on completion, so an interrupted save leaves the old
+   * database untouched exactly as before. */
+  uint8_t*  saveBuf;                // PSRAM snapshot of the database image
+  uint32_t  saveLen, saveOff;       // image size, and how much has reached flash
+  bool      saveActive;             // (the open File itself is a static in the .cpp, so this
+                                    //  header need not drag FS.h into every consumer)
+  void      saveDbStep();           // one bounded chunk; called from loop()
   void      loadFavourites();       // from SPIFFS, into favIds
   void      saveFavourites();       // to SPIFFS, atomically
   void      applyFavouriteFlag(MeshNode* n) const;   // stamp the cached bit from favIds

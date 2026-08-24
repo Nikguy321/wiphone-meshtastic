@@ -35,6 +35,34 @@
   compiled-in level with the screen, CPU and WiFi state at the time. A freeze this rare cannot be
   caught by watching for it; it has to be caught by the phone. Costs one `millis()` compare per
   pass, and is silent until something real happens.
+- ⚠ **I RECOMMENDED CHUNKING THE WRITE ACROSS LOOP PASSES, BUILT IT, MEASURED IT, AND IT WAS
+  WORSE.** Recorded in full because the reasoning was plausible and someone will have it again.
+  The per-byte model (~6 KB/s, so 128 B ≈ 20 ms a pass) is an **average, and the average is a
+  lie here**: SPIFFS writes are quick until one crosses a block boundary and forces an ERASE,
+  and an erase is atomic and blocking however small the write that triggered it. More, smaller
+  writes means more boundary crossings. Same three-save test, same phone:
+
+  | | stalls over 250 ms |
+  |---|---|
+  | chunked, 128 B per pass | **31** |
+  | single write | **12** |
+
+  **A stall the filesystem takes in one indivisible piece cannot be chunked around.** Reverted
+  to a single write, which is at least *one* pause rather than many.
+- **What did survive from that work, and is worth keeping:** the image is now snapshotted into
+  PSRAM in one pass (memcpy, no I/O) and written from there. That makes the save atomic in a
+  second sense — nodes and messages can no longer change halfway through and tear the file —
+  and it removed the redundant `SPIFFS.remove()` that logged `/meshdb.tmp does not exists` on
+  every single save.
+- 🛠 **Stall records now also go to `/health.log`**, rate-limited to one a minute. The detector
+  was serial-only, which meant it could only ever catch a freeze while somebody was watching a
+  cable — and the freeze it exists to catch happens while the phone is being *used*. Same
+  argument as the health line itself.
+- [ ] 🔑 **THE REAL FIX IS TO STOP USING SPIFFS FOR THIS, and the evidence now points hard at
+  it.** `/health.log` lives on the SD card, appends every minute, and has never once tripped the
+  stall detector. Moving the database there is a deliberate piece of work — it needs a SPIFFS
+  fallback for a missing card, which is exactly the case the `cardPresent` bug hid for years —
+  **but it is the next thing to do, not another attempt to outsmart this filesystem.**
 - [ ] **The root cause is untouched and worth returning to.** ~6 KB/s means any future
   full-database write blocks for over a second, and at the message cap that would be minutes.
   Two real options: chunk the write across loop passes (the "one bounded step per pass" idiom

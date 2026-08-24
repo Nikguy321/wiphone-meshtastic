@@ -371,7 +371,7 @@ MeshtasticService::MeshtasticService()
     region("US"), channelName("LongFast"), modemPreset("LongFast"),
     myNodeNum(0), recentPktPos(0), dbDirty(false), lastSaveMs(0), initialized(false),
     nodes(NULL), nodeOrder(NULL), orderDirty(true), orderCount(0), favCount(0), favDirty(false),
-    uiIdle(true) {
+    uiIdle(true), saveBuf(NULL), saveLen(0), saveOff(0), saveActive(false) {
   messages = NULL;
   msgCount = 0;
   channelCount = 0;
@@ -1140,7 +1140,12 @@ bool MeshtasticService::loop() {
    * symptom was "menus freeze for a second or two AND WiFi drops". Deferring until nobody is
    * touching the phone does not make the save faster — it makes it land where it cannot be
    * felt. The data still persists within seconds of the user putting the phone down. */
-  if (dbDirty && uiIdle && (millis() - lastSaveMs > MESH_SAVE_DEBOUNCE_MS)) {
+  /* Drain any save in flight FIRST, and unconditionally: each step is bounded (128 bytes,
+   * ~20 ms) so it cannot freeze anything, and letting it finish promptly keeps the temp file's
+   * lifetime short. Only STARTING a save waits for an idle moment. */
+  saveDbStep();
+
+  if (dbDirty && uiIdle && !saveActive && (millis() - lastSaveMs > MESH_SAVE_DEBOUNCE_MS)) {
     saveDb();
     dbDirty = false;
     lastSaveMs = millis();
@@ -2131,87 +2136,129 @@ struct MeshDbWriter {
   }
 };
 
+/* The temp file stays open across loop passes while a save drains. A file-static rather than a
+ * member so meshtastic_service.h does not have to include FS.h for every one of its consumers. */
+static File s_saveFile;
+
+/* ⚠ CHUNKING WAS TRIED AT 128 BYTES AND IT MADE THINGS WORSE. MEASURED, not theorised: three
+ * saves produced **31** stalls over 250 ms, against a handful before. The per-byte model that
+ * motivated it (~6 KB/s, so 128 B ≈ 20 ms) is an AVERAGE and the average is a lie here —
+ * SPIFFS writes are quick until one crosses a block boundary and forces an ERASE, and an erase
+ * is atomic and blocking however small the write that triggered it. More, smaller writes means
+ * more boundary crossings, so more multi-hundred-ms pauses, not fewer.
+ *
+ * **A stall the filesystem takes in one indivisible piece cannot be chunked around.** So the
+ * image goes out in a single write, which is at least ONE pause instead of many, and the
+ * `uiIdle` gate on starting a save is what keeps that pause off the user's finger. The step
+ * machinery is kept because it costs nothing and is exactly the right shape for the real fix.
+ *
+ * ⚠ THE REAL FIX IS TO STOP USING SPIFFS FOR THIS. See the changelog: /health.log already lives
+ * on the SD card and appends every minute without ever tripping the stall detector. Moving the
+ * database there is a deliberate piece of work — it needs a SPIFFS fallback for a missing card
+ * — and it is the thing to do next, not another attempt at outsmarting this filesystem. */
+#define MESH_SAVE_CHUNK_BYTES  65536
+
 void MeshtasticService::saveDb() {
-  /* Timed because this is the leading suspect for the occasional 1-2 s freeze: it rewrites the
-   * ENTIRE database — nodes, every stored message, waypoints — in one blocking pass inside
-   * loop(), and SPIFFS writes are slow. With the message store at its cap that is a quarter of
-   * a megabyte, and the debounce lets it fire as often as every 10 s on a busy mesh. */
-  const uint32_t saveT0 = millis();
-  SPIFFS.remove(MESH_DB_TMP);                  // a leftover temp would make "w" append-ish
-  const uint32_t tRmTmp = millis();
-  File f = SPIFFS.open(MESH_DB_TMP, "w");
-  if (!f) {
-    log_e("mesh: saveDb open failed");
+  /* Builds the whole image in PSRAM — memcpy only, NO file I/O — and hands it to saveDbStep()
+   * to dribble out. See the note in the header for why the write is spread out at all. */
+  if (saveActive) {
+    dbDirty = true;          // a save is already draining; re-snapshot after it finishes
     return;
   }
-  MeshDbWriter w(&f, 4096);
+  const uint32_t saveT0 = millis();
+
+  const uint32_t hdrLen = 4 + 2 + 2 + 2 + 2;
+  const uint32_t need = hdrLen
+                        + 4 + (uint32_t)nodeCount * sizeof(MeshNode)
+                        + 4 + (uint32_t)msgCount * sizeof(MeshMessage)
+                        + 4 + (uint32_t)waypointCount * sizeof(MeshWaypoint);
+  uint8_t* buf = (uint8_t*)ps_malloc(need);
+  if (!buf) {
+    log_e("mesh: saveDb PSRAM snapshot failed (%u bytes) - not saving", (unsigned)need);
+    return;
+  }
+
+  uint32_t o = 0;
+  #define PUT(p, n)  do { memcpy(buf + o, (p), (n)); o += (n); } while (0)
   uint32_t magic = MESH_DB_MAGIC;
   uint16_t ver = MESH_DB_VERSION;
   uint16_t ns = (uint16_t)sizeof(MeshNode);
   uint16_t ms = (uint16_t)sizeof(MeshMessage);
-  w.put(&magic, 4);
-  w.put(&ver, 2);
   uint16_t ws = (uint16_t)sizeof(MeshWaypoint);
-  w.put(&ns, 2);
-  w.put(&ms, 2);
-  w.put(&ws, 2);          // v4+: the tail's layout is declared too
-
+  PUT(&magic, 4);
+  PUT(&ver, 2);
+  PUT(&ns, 2);
+  PUT(&ms, 2);
+  PUT(&ws, 2);
   int32_t nc = nodeCount;
-  w.put(&nc, sizeof(nc));
+  PUT(&nc, sizeof(nc));
   for (int i = 0; i < nodeCount; i++) {
-    w.put(&nodes[i], sizeof(MeshNode));
+    PUT(&nodes[i], sizeof(MeshNode));
   }
-
   int32_t mc = msgCount;
-  w.put(&mc, sizeof(mc));
-  for (int i = msgCount - 1; i >= 0; i--) {           // oldest -> newest
+  PUT(&mc, sizeof(mc));
+  for (int i = msgCount - 1; i >= 0; i--) {          // stored oldest -> newest
     const MeshMessage* m = getMessage(i);
     if (m) {
-      w.put(m, sizeof(MeshMessage));
+      PUT(m, sizeof(MeshMessage));
     }
   }
-
-  // v3 tail: shared waypoints. Camp must survive a reboot — COVEY only
-  // rebroadcasts a waypoint when it is edited.
   int32_t wc = waypointCount;
-  w.put(&wc, sizeof(wc));
+  PUT(&wc, sizeof(wc));
   for (int i = 0; i < waypointCount; i++) {
-    w.put(&waypoints[i], sizeof(MeshWaypoint));
+    PUT(&waypoints[i], sizeof(MeshWaypoint));
   }
+  #undef PUT
 
-  w.flush();
-  if (!w.ok) {
-    log_e("mesh: saveDb WRITE FAILED - database left as it was");
-    f.close();
+  /* No remove() first: "w" truncates an existing file or creates a new one, so the remove was
+   * a redundant SPIFFS metadata operation — and on this part those are expensive. It also
+   * logged `/meshdb.tmp does not exists` on every single save, which is the normal case and
+   * therefore pure noise in a log people read to find real faults. */
+  s_saveFile = SPIFFS.open(MESH_DB_TMP, "w");
+  if (!s_saveFile) {
+    log_e("mesh: saveDb open failed");
+    free(buf);
     return;
   }
-  f.close();
-  const uint32_t tWrite = millis();
-  /* Only now does the real file change. If any of the writes above failed on a full card the
-   * temp is short — but it is the TEMP that is short, and the good database is still in place
-   * until this rename succeeds. */
+  saveBuf = buf;
+  saveLen = o;
+  saveOff = 0;
+  saveActive = true;
+  log_i("mesh: save started, %u bytes snapshotted in %u ms",
+        (unsigned)saveLen, (unsigned)(millis() - saveT0));
+}
+
+void MeshtasticService::saveDbStep() {
+  if (!saveActive) {
+    return;
+  }
+  const uint32_t n = (saveLen - saveOff) < MESH_SAVE_CHUNK_BYTES
+                     ? (saveLen - saveOff) : MESH_SAVE_CHUNK_BYTES;
+  if (n) {
+    if (s_saveFile.write(saveBuf + saveOff, n) != n) {
+      log_e("mesh: saveDb write FAILED at %u/%u - database left as it was",
+            (unsigned)saveOff, (unsigned)saveLen);
+      s_saveFile.close();
+      SPIFFS.remove(MESH_DB_TMP);
+      free(saveBuf);
+      saveBuf = NULL;
+      saveActive = false;
+      return;
+    }
+    saveOff += n;
+  }
+  if (saveOff < saveLen) {
+    return;                                  // more next pass
+  }
+  s_saveFile.close();
+  free(saveBuf);
+  saveBuf = NULL;
+  saveActive = false;
+  /* Only now does the real file change: an interrupted save leaves the OLD database intact. */
   SPIFFS.remove(MESH_DB_PATH);
-  const uint32_t tRmOld = millis();
   if (!SPIFFS.rename(MESH_DB_TMP, MESH_DB_PATH)) {
     log_e("mesh: saveDb RENAME FAILED - database left as it was");
     return;
-  }
-  const uint32_t saveMs = millis() - saveT0;
-  const uint32_t saveBytes = (uint32_t)nodeCount * sizeof(MeshNode)
-                             + (uint32_t)msgCount * sizeof(MeshMessage)
-                             + (uint32_t)waypointCount * sizeof(MeshWaypoint);
-  if (saveMs > 100) {
-    /* Phase breakdown, because "SPIFFS is slow" is not actionable and the phases are not
-     * equally guilty: a bulk write is inherent, but remove/rename are METADATA operations that
-     * can trigger garbage collection, and the temp-then-rename added on 2026-08-24 for crash
-     * safety doubled how many of those there are per save. If the removes dominate, that fix
-     * bought durability at the cost of this freeze and needs a different shape. */
-    log_e("MESH saveDb: %u ms BLOCKING for %u bytes (%d nodes, %d msgs) "
-          "[rm_tmp=%u write=%u rm_old=%u rename=%u] spiffs %u/%u used - superloop stalled",
-          (unsigned)saveMs, (unsigned)saveBytes, nodeCount, msgCount,
-          (unsigned)(tRmTmp - saveT0), (unsigned)(tWrite - tRmTmp),
-          (unsigned)(tRmOld - tWrite), (unsigned)(millis() - tRmOld),
-          (unsigned)SPIFFS.usedBytes(), (unsigned)SPIFFS.totalBytes());
   }
   log_i("mesh: saved %d nodes, %d msgs, %d waypoints", nodeCount, msgCount, waypointCount);
 }
