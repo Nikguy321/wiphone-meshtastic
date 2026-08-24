@@ -332,6 +332,7 @@ private:
    * and SPIFFS is always mounted whereas a card can be absent. */
   uint32_t  favIds[MESH_MAX_FAVOURITES];
   uint8_t   favCount;
+  bool      favDirty;               // set by toggleFavourite, drained by loop()
   void      loadFavourites();       // from SPIFFS, into favIds
   void      saveFavourites();       // to SPIFFS, atomically
   void      applyFavouriteFlag(MeshNode* n) const;   // stamp the cached bit from favIds

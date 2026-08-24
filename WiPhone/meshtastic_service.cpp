@@ -370,7 +370,7 @@ MeshtasticService::MeshtasticService()
     radioState(MESH_RADIO_UNINITIALIZED),
     region("US"), channelName("LongFast"), modemPreset("LongFast"),
     myNodeNum(0), recentPktPos(0), dbDirty(false), lastSaveMs(0), initialized(false),
-    nodes(NULL), nodeOrder(NULL), orderDirty(true), favCount(0) {
+    nodes(NULL), nodeOrder(NULL), orderDirty(true), favCount(0), favDirty(false) {
   messages = NULL;
   msgCount = 0;
   channelCount = 0;
@@ -1125,6 +1125,13 @@ void MeshtasticService::setup() {
 
 bool MeshtasticService::loop() {
   // Debounced persistence of new nodes/messages (limits flash wear).
+  /* Starred IDs are tiny and are written on the very next tick rather than on the DB's
+   * debounce: the file is a few dozen bytes, and a star the user just set should survive a
+   * battery pull a second later. It is off the input path, which is the part that matters. */
+  if (favDirty) {
+    favDirty = false;
+    saveFavourites();
+  }
   if (dbDirty && (millis() - lastSaveMs > MESH_SAVE_DEBOUNCE_MS)) {
     saveDb();
     dbDirty = false;
@@ -2421,7 +2428,15 @@ bool MeshtasticService::toggleFavourite(uint32_t nodeNum) {
     }
   }
   orderDirty = true;
-  saveFavourites();                    // its own file, written now, not on the DB debounce
+  /* ⚠ DO NOT WRITE SPIFFS HERE. This is reached from the key handler on the Nodes screen, and
+   * a filesystem write on the input path is the same shape of mistake that got the 80 MHz
+   * experiment backed out — that one called setCpuFrequencyMhz() from inside the key-drain
+   * loop. Nick starred a node on 2026-08-24 and the phone panicked (health.log:
+   * `BOOT reset_reason=4`) seconds later; the star itself had already been written, which is
+   * what points at the write rather than at the bookkeeping above it.
+   * The house pattern is a dirty flag drained by loop() — the same thing dbDirty does — so
+   * the star is durable within a tick without the input path ever touching flash. */
+  favDirty = true;
   return on;
 }
 
