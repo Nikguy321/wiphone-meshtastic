@@ -2746,14 +2746,6 @@ protected:
     { 39, 1, "Meshtastic", "", "", GUI_APP_MESHTASTIC },
     { 41, 1, "Books", "Select", "Back", GUI_APP_BOOKS },
     { 42, 1, "Music", "Select", "Back", GUI_APP_MUSIC },   // ⚠ ID must be UNIQUE, not just the action
-    /* ⚠ 47 because 0-46 are taken. 8 and 25 are gaps and the notes say COUNT UP rather than
-     * fill them. A duplicate here is SILENT — findMenu() matches on id alone and returns the
-     * first hit — and GUI::init()'s boot check is the only thing that catches it.
-     *
-     * ⭐ ITS TITLE IS BUILT AT RUNTIME, not taken from this row: the menu shows "WiFi: on" or
-     * "WiFi: off" so the state is readable without opening anything. See the build loop in
-     * GUI.cpp. The string here is only the fallback if that special case is ever removed. */
-    { 47, 1, "WiFi", "Select", "Back", GUI_ACTION_WIFI_TOGGLE },
     { 3, 1, "Tools", "Select", "Back", GUI_ACTION_SUBMENU },
     { 4, 1, "Games", "Select", "Back", GUI_ACTION_SUBMENU },
     { 5, 1, "Settings", "Select", "Back", GUI_ACTION_SUBMENU },
@@ -2803,6 +2795,19 @@ protected:
 
     // Settings (5)
     { 11, 5, "SIP accounts", "", "", GUI_APP_SIP_ACCOUNTS },
+    /* ⚠ 47 because 0-46 are taken. 8 and 25 are gaps and the notes say COUNT UP rather than
+     * fill them. A duplicate here is SILENT — findMenu() matches on id alone and returns the
+     * first hit — and GUI::init()'s boot check is the only thing that catches it.
+     *
+     * ⭐ ITS TITLE IS BUILT AT RUNTIME, not taken from this row: the row shows "WiFi: on" or
+     * "WiFi: off" so the state is readable without opening anything. See the build loop in
+     * GUI.cpp. The string here is only the fallback if that special case is ever removed.
+     *
+     * Moved out of the main menu and in here at Nick's request (2026-08-23). Both the label
+     * builder and the dispatch key off `action`, never the parent, so the move is this line
+     * alone. It leads the WiFi group deliberately: the three rows under it all assume a
+     * radio that is on. */
+    { 47, 5, "WiFi", "Select", "Back", GUI_ACTION_WIFI_TOGGLE },
     { 12, 5, "Edit current network", "", "", GUI_APP_EDITWIFI },
     /* ⚠ 43, not 42. This row and "Music" both had ID 42, and findMenu() matches on ID ALONE
      * with no regard for `parent` and returns the FIRST hit — so Settings drew Music's icon

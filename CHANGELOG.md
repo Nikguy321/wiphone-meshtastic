@@ -1,5 +1,74 @@
 # Changelog
 
+## Unreleased (2026-08-24) — delivery receipts on mesh messages, and the WiFi row moves into Settings
+
+- **The WiFi toggle lives in Settings now**, leading the WiFi group, above "Edit current
+  network" / "WiFi auto-switch" / "Scan WiFi networks" — the three rows that all assume a
+  radio which is on. It spent a few hours on the main menu on 08-23 and Nick moved it. The
+  change is one table line: both the runtime label builder and the dispatch key off `action`
+  and never look at the parent, so the row can be re-homed freely. Verified after flashing —
+  `GUI::init()`'s boot check reported zero duplicate menu IDs.
+- 🔑 **Outgoing mesh messages now carry a delivery receipt**, shown on the line that already
+  said "me" in a thread: **`me - sent`**, **`me - delivered`**, **`me - in mesh`**,
+  **`me - failed`**.
+- ⚠ **THEY ARE DELIVERY RECEIPTS, NOT READ RECEIPTS, AND THE WORDING IS DELIBERATE.**
+  Meshtastic has no concept of a human having read anything — the strongest signal in the
+  protocol is that a *radio* acknowledged the packet. COVEY's UI says the same thing for the
+  same reason. Anything labelled "read" would be a claim the mesh cannot support.
+- ⚠ **`in mesh` and `delivered` are not the same claim.** A DM is acknowledged by the
+  destination node itself, so *delivered* means delivered. A broadcast is acknowledged
+  **implicitly** — hearing your own packet rebroadcast is the acknowledgement — which proves
+  the message entered the mesh and **nothing whatever about who received it**. Two words,
+  because one would have been a lie half the time.
+- **Almost none of this was new machinery.** The stack already set `want_ack` on PKI DMs,
+  already parsed `request_id` off inbound ROUTING packets, and already logged
+  `MESH DM ACK ... err=0` per message. `meshtastic_service.cpp:1570` even called it *"the
+  only proof of delivery this phone gets"* — and then dropped it on the floor. This wires
+  that existing signal to the message store and the UI.
+- 🔑 **THE RECEIPT LIVES IN SPARE BITS OF `MeshMessage.flags`, AND THAT IS THE WHOLE DESIGN.**
+  The obvious implementation adds a `uint32_t packetId` to `MeshMessage` — and `saveDb()`
+  writes `sizeof(MeshMessage)` into the header while `loadDb()` **rejects the entire file** on
+  a mismatch: nodes, messages and waypoints together. That would have silently binned the
+  message history, the node list, and "Camp" (which the waypoint code says explicitly must
+  survive a reboot) on the first boot after the update. Measured on the real phone after
+  flashing: **"MESH DB: 32 nodes, 49 messages stored"** — all still there. The packet-id
+  association instead lives in an 8-entry RAM table for the seconds between sending and the
+  ack; the resolved state persists in `flags`, exactly like `MESH_MSG_READ`.
+- ⚠ **That table is keyed on `timeMs`, NOT on the message's index.** Indices are not stable —
+  the store compacts on `removeMessageAt()`, so the per-chat and global caps can shift every
+  message down while an ack is still in flight, and the receipt would land on a stranger's
+  message. Pending entries do not survive a reboot, which is honest: an ack for a message
+  sent before a restart can no longer be attributed to it.
+- ⚠ **A DM MUST NOT TAKE THE IMPLICIT ACK, and this was caught before it shipped.** DMs flood
+  too, so we hear our own DMs rebroadcast by neighbours exactly like broadcasts. Treating that
+  as delivery would mark a DM "delivered" the moment *any* node relayed it — saying nothing
+  about whether the person it was addressed to ever got it. The implicit path is gated on
+  `hdr.dest == MESH_ADDR_BROADCAST_ONAIR`; a DM waits for the destination's own routing ACK.
+- **Broadcasts deliberately do NOT ask for an ack, and this costs nothing on the air.** Flood
+  routing rebroadcasts any packet with hops left whether or not `want_ack` is set, so the bit
+  would add no information and risks stock answering with a routing packet nobody needed. The
+  first implementation did set it; measuring what the implicit ack actually is removed the
+  cost entirely. `want_ack` remains on DMs only, where it produces a real end-to-end reply.
+- ⚠ **`meshTxData()` takes `wantAck` defaulted OFF and it must stay that way.** That function
+  also carries NodeInfo, position, neighbour info and **our own outgoing routing ACKs** —
+  asking for an ack on an ack is a loop. Only the text path opts in.
+- **A queued DM that never reaches the air now says so.** DMs whose AES key is not cached are
+  echoed into the thread at queue time and transmitted a tick later; both failure paths
+  (`queued PKI send FAILED`, `key derive failed`) previously logged and left the message
+  looking exactly like one that went out fine. They mark it failed now — which is why the
+  pending-DM record carries its message's `timeMs` across the tick.
+- **Words, not ticks, for a second reason:** the Akrobat/OpenSans faces are generated bitmap
+  glyphs and **nothing anywhere in this firmware renders a non-ASCII character**. A checkmark
+  would come out as a box, which is worse than no marker at all — COVEY hit exactly this and
+  had to draw its ticks by hand.
+- ⚠ **NOT YET PROVEN ON AIR.** Built, flashed, boots clean, menu table verified, host suites
+  green (1167 assertions) — but the phone reported **0 direct neighbours** at the time, so no
+  receipt has completed a real round trip. **What to watch when COVEY is back on:** a channel
+  message should go `me - sent` → `me - in mesh` within a second or two of any node relaying
+  it, and a DM to COVEY should reach `me - delivered` with `MESH DM ACK ... err=0` on serial at
+  the same moment. A DM that stays on `me - sent` means the ack never came back, which is
+  information rather than a bug.
+
 ## Unreleased (2026-08-23, night) — two status flags were reading the wrong silicon, and one of them is the dead `chg=`
 
 - 🔑 **`cardPresent` and `battCharged` were read with plain `digitalRead()` on GPIO-EXTENDER

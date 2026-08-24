@@ -1167,11 +1167,15 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
           } else if (menu[ci].action == GUI_ACTION_RESTART) {
             ESP.restart();
           } else if (menu[ci].action == GUI_ACTION_WIFI_TOGGLE) {
-            /* ⭐ ONE PRESS, FROM THE MAIN MENU. The same switch already existed inside the
-             * network edit form, which meant "turn WiFi off to save power" was: menu, WiFi,
-             * pick a network, edit, find the choice widget. Measured 2026-08-23, a real
-             * on-battery run came in at 15.7 %/h with the phone off any known network for
-             * 86 % of it, so reaching this quickly is a battery feature, not a convenience.
+            /* ⭐ ONE PRESS, IN SETTINGS, leading the WiFi group. The same switch already
+             * existed inside the network EDIT form, which meant "turn WiFi off to save
+             * power" was: menu, Settings, pick a network, edit, find the choice widget —
+             * and it told you nothing about the current state until you got there. It sat
+             * on the main menu for a few hours on 2026-08-23 and Nick moved it in here,
+             * which is where a radio switch belongs alongside the three rows that assume it.
+             *
+             * This dispatch and the label builder both key off `action` and never look at
+             * the parent, so the row can be re-homed by editing its table line alone.
              *
              * ⚠ NOT PERSISTED, and that is deliberate: WiFi comes back ON after a reboot. A
              * radio that stays off across a power cycle is a setting you can forget you set,
@@ -1510,7 +1514,8 @@ void GUI::enterMenu(uint16_t ID) {
        * the toggle below rebuilds the menu rather than trying to poke the widget. Showing the
        * state ON the row is the whole point: the old WIFI-ON/WIFI-OFF control was real but
        * lived inside a network's EDIT form, several screens down, and told you nothing until
-       * you got there. */
+       * you got there. ⚠ This is keyed on the ACTION, not on which menu is being built, so it
+       * follows the row wherever it is homed (it lives under Settings now). */
       char wifiRowTitle[20];
       const char* rowTitle = menu[i].title;
       if (menu[i].action == GUI_ACTION_WIFI_TOGGLE) {

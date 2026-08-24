@@ -313,8 +313,32 @@ void MeshtasticApp::buildThread() {
 
     const char* who;
     char whoBuf[MESH_NAME_LEN];
+    char meBuf[24];
     if (m->flags & MESH_MSG_OUTGOING) {
-      who = "me";
+      /* ⚠ DELIVERY receipts, NOT read receipts — the wording matters and is the whole
+       * reason these are words rather than ticks. Meshtastic has no concept of a human
+       * having read anything; the strongest signal in the protocol is that a RADIO
+       * acknowledged the packet. Saying "read" would be a claim the mesh cannot support.
+       *
+       * "in mesh" vs "delivered" is the other honest distinction. A DM is acknowledged by
+       * the destination node itself, so delivered means delivered. A broadcast is
+       * acknowledged implicitly by whoever rebroadcast it first — that proves the message
+       * got into the mesh and nothing at all about who has it.
+       *
+       * WORDS, NOT TICKS, for a second reason: the Akrobat/OpenSans faces here are built
+       * from generated bitmap glyphs and nothing anywhere in this firmware renders a
+       * non-ASCII character. A checkmark would come out as a box, which is worse than no
+       * marker — COVEY hit exactly this and had to DRAW its ticks instead. */
+      const char* mark;
+      if (m->flags & MESH_MSG_FAILED) {
+        mark = "failed";
+      } else if (m->flags & MESH_MSG_DELIVERED) {
+        mark = (m->to == MESH_BROADCAST_ADDR) ? "in mesh" : "delivered";
+      } else {
+        mark = "sent";
+      }
+      snprintf(meBuf, sizeof(meBuf), "me - %s", mark);
+      who = meBuf;
     } else {
       meshNodeLabel(m->from, whoBuf, sizeof(whoBuf));
       who = whoBuf;

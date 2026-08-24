@@ -45,9 +45,28 @@ typedef enum {
   MESH_RADIO_ERROR,
 } MeshRadioState;
 
-// MeshMessage.flags bits (kept in one byte so the struct size is stable).
+/* MeshMessage.flags bits (kept in one byte so the struct size is stable).
+ *
+ * ⚠ THE STRUCT SIZE IS LOAD-BEARING, WHICH IS WHY THE RECEIPT LIVES IN SPARE BITS HERE
+ * RATHER THAN IN A NEW FIELD. saveDb() writes sizeof(MeshMessage) into the header and
+ * loadDb() REJECTS THE WHOLE FILE if it does not match — nodes, messages AND waypoints
+ * together. Growing this struct to hold a packet id would have silently binned Nick's
+ * message history, his node list, and "Camp" (which the waypoint code explicitly says must
+ * survive a reboot) on the first boot after the update. Spare bits cost nothing and the
+ * final delivery state persists exactly like MESH_MSG_READ does. */
 #define MESH_MSG_OUTGOING  0x01     // sent from this device
 #define MESH_MSG_READ      0x02     // the user has viewed this message's thread
+/* Delivery receipt, for OUTGOING messages only. Neither bit set = sent, no acknowledgement
+ * (yet). These are DELIVERY receipts, NOT read receipts: Meshtastic has no concept of a
+ * human having read anything, and the strongest signal the protocol offers is that a radio
+ * acknowledged the packet. The UI wording says so rather than implying more. */
+#define MESH_MSG_DELIVERED 0x04     // a routing ACK came back for this message
+#define MESH_MSG_FAILED    0x08     // a routing NAK came back (no route, no key, ...)
+
+/* How many sent-but-unacknowledged messages can be tracked at once. Acks come back in
+ * seconds or never; eight is far more than a person types in that window, and the table is
+ * round-robin so a flood costs the oldest receipt rather than the newest. */
+#define MESH_ACK_PENDING   8
 
 typedef struct {
   uint32_t from;                    // sender node number
@@ -239,6 +258,33 @@ private:
   uint32_t  chatKeyOf(uint32_t from, uint32_t to) const;   // conversation id (0 = broadcast)
   void      removeMessageAt(int idx);
 
+  /* ---- Delivery receipts ---------------------------------------------------
+   * A routing ACK/NAK identifies the message it answers by PACKET ID, but a packet id has
+   * nowhere to live on MeshMessage (see the flags note above — growing the struct discards
+   * the whole database). So the association is held here, in RAM, only for the seconds
+   * between sending and the ack coming back.
+   *
+   * ⚠ IT IS KEYED ON timeMs, NOT ON THE MESSAGE'S INDEX. Indices are not stable: the store
+   * compacts on removeMessageAt(), so the per-chat and global caps can shift every message
+   * down while an ack is still in flight, and the receipt would land on somebody else's
+   * message. timeMs is millis() at store time and two texts cannot be typed in the same
+   * millisecond.
+   *
+   * Pending entries do NOT survive a reboot, and that is the honest behaviour: an ack for a
+   * message sent before a restart can no longer be attributed to it. The RESOLVED state does
+   * survive, because it lives in MeshMessage.flags, which is persisted. */
+  struct PendingAck {
+    uint32_t packetId;              // 0 = free slot
+    uint32_t msgTimeMs;             // identifies the MeshMessage this answers
+  };
+  PendingAck pendingAcks[MESH_ACK_PENDING];
+  uint8_t    pendingAckNext;        // round-robin; oldest unanswered is overwritten first
+  uint32_t   lastStoredTimeMs;      // timeMs of the message storeMessage() just appended
+
+  void      notePendingAck(uint32_t packetId, uint32_t msgTimeMs);   // after a successful TX
+  void      resolveAck(uint32_t packetId, uint8_t errorReason);   // on an inbound ROUTING
+  void      setMessageReceipt(uint32_t msgTimeMs, bool delivered); // find by timeMs, mark
+
   // Channels
   void      initDefaultChannel();   // channel 0 = LongFast
   bool      addChannel(const char* name, const uint8_t* key, uint8_t keyLen);   // merge
@@ -299,6 +345,10 @@ private:
     uint32_t dest;
     char     text[MESH_TEXT_LEN];
     bool     active;
+    /* This DM is echoed into the store at QUEUE time but does not reach the air until
+     * loop() drains it a tick later, by which point lastStoredTimeMs has moved on. Carry
+     * the identity across so the receipt still lands on the right message. */
+    uint32_t msgTimeMs;
   };
   PendingDm pendingDm[2];
 

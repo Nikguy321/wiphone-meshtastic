@@ -221,6 +221,12 @@ static void meshFillHeader(MeshPacketHeader* hdr, uint32_t sender, uint32_t dest
 
 }
 
+/* The id of the packet the last meshTx* call put on the air. A routing ACK names the message
+ * it answers by packet id, and the send functions generate that id internally — this hands it
+ * back to the caller without changing four signatures and every call site. Written on the
+ * radio path and read immediately after, both in loop()/GUI context on the same core. */
+static uint32_t s_lastTxPacketId = 0;
+
 static uint32_t meshNewPacketId() {
   uint32_t packetId = esp_random();
   return packetId == 0 ? 1 : packetId;
@@ -231,7 +237,7 @@ static uint32_t meshNewPacketId() {
 static bool meshTxData(uint32_t sender, uint32_t dest, int portnum,
                        const uint8_t* payload, size_t payloadLen, bool wantResponse,
                        const uint8_t* key, uint8_t keyLen, uint8_t channelHash,
-                       uint32_t requestId = 0) {
+                       uint32_t requestId = 0, bool wantAck = false) {
   uint8_t data[24 + MESH_PHY_MAX_PAYLOAD];
   size_t d = meshBuildData(data, portnum, payload, payloadLen, wantResponse, requestId);
 
@@ -246,6 +252,14 @@ static bool meshTxData(uint32_t sender, uint32_t dest, int portnum,
   uint32_t packetId = meshNewPacketId();
   MeshPacketHeader hdr;
   meshFillHeader(&hdr, sender, dest, packetId, channelHash);
+  /* ⚠ DEFAULTED OFF, AND IT MUST STAY THAT WAY. This function carries NodeInfo, position,
+   * neighbour info AND our own outgoing routing ACKs. Setting want_ack for everything would
+   * ask the mesh to acknowledge every beacon, and asking for an ack ON an ack is a loop.
+   * Only the text path opts in. */
+  if (wantAck) {
+    hdr.flags |= MESH_FLAGS_WANT_ACK;
+  }
+  s_lastTxPacketId = packetId;
 
   uint8_t pkt[MESH_HEADER_LEN + 24 + MESH_PHY_MAX_PAYLOAD];
   memcpy(pkt, &hdr, MESH_HEADER_LEN);
@@ -277,6 +291,7 @@ static bool meshTxDataPki(uint32_t sender, uint32_t dest, int portnum,
   uint32_t packetId = meshNewPacketId();
   MeshPacketHeader hdr;
   meshFillHeader(&hdr, sender, dest, packetId, 0x00);    // hash 0 = PKI on the air
+  s_lastTxPacketId = packetId;
   /* want_ack asks the peer for a Routing ACK. No retransmit machinery here, but
    * the ACK line in the serial log (`MESH DM ACK ... err=0`) is per-message
    * proof of delivery, and it is how the 2026-08-19 interop was verified. */
@@ -307,13 +322,13 @@ static bool meshTxAck(uint32_t sender, uint32_t dest, uint32_t requestId,
 }
 
 static bool meshTxText(uint32_t sender, uint32_t dest, const char* text,
-                       const MeshChannel* ch) {
+                       const MeshChannel* ch, bool wantAck = false) {
   size_t textLen = strlen(text);
   if (textLen == 0 || textLen > MESH_TEXT_LEN - 1 || !ch) {
     return false;
   }
   return meshTxData(sender, dest, MESH_PORT_TEXT_MESSAGE, (const uint8_t*)text, textLen,
-                    false, ch->key, ch->keyLen, ch->hash);
+                    false, ch->key, ch->keyLen, ch->hash, 0, wantAck);
 }
 
 // Broadcast our NodeInfo: a User protobuf { id, long_name, short_name,
@@ -373,6 +388,9 @@ MeshtasticService::MeshtasticService()
   pkiReady = false;
   pkiCacheClear();
   memset(pendingDm, 0, sizeof(pendingDm));
+  memset(pendingAcks, 0, sizeof(pendingAcks));
+  pendingAckNext   = 0;
+  lastStoredTimeMs = 0;
   memset(recentAckIds, 0, sizeof(recentAckIds));
   recentAckPos = 0;
   memset(waypoints, 0, sizeof(waypoints));
@@ -1235,10 +1253,16 @@ bool MeshtasticService::loop() {
                            (const uint8_t*)pendingDm[i].text,
                            strlen(pendingDm[i].text), skey, 0, true)) {
           log_e("MESH DM to !%08x: queued PKI send FAILED", (unsigned)pendingDm[i].dest);
+          /* It was echoed into the thread at queue time and never reached the air. Without
+           * this it would sit there looking exactly like a message that went out fine. */
+          setMessageReceipt(pendingDm[i].msgTimeMs, false);
+        } else {
+          notePendingAck(s_lastTxPacketId, pendingDm[i].msgTimeMs);
         }
       } else {
         log_e("MESH DM to !%08x: key derive failed - message NOT sent",
               (unsigned)pendingDm[i].dest);
+        setMessageReceipt(pendingDm[i].msgTimeMs, false);
       }
       break;
     }
@@ -1270,8 +1294,28 @@ bool MeshtasticService::loop() {
   memcpy(&hdr, buf, MESH_HEADER_LEN);
   uint8_t payloadLen = len - MESH_HEADER_LEN;
 
-  // Ignore packets we originated that the mesh rebroadcast back to us.
+  /* Ignore packets we originated that the mesh rebroadcast back to us — but READ THE
+   * RECEIPT OFF THEM FIRST.
+   *
+   * ⚠ A BROADCAST IS NEVER ACKNOWLEDGED BY A ROUTING PACKET. Meshtastic acknowledges a
+   * broadcast IMPLICITLY: hearing your own packet rebroadcast is the acknowledgement, and
+   * it proves the message entered the mesh — nothing about who received it. LoRa is
+   * half-duplex so we cannot hear our own transmission; a packet arriving with our node
+   * number on it has been through somebody else's radio by definition.
+   *
+   * This costs NOTHING on the air. Flood routing rebroadcasts any packet with hops left
+   * whether or not want_ack is set, so broadcasts deliberately do NOT ask for an ack — the
+   * bit would add no information and stock may answer it with a real routing packet. Only
+   * DMs set want_ack, where the destination itself replies and "delivered" means it. */
   if (hdr.sender == myNodeNum) {
+    /* ⚠ BROADCASTS ONLY. A DM floods too, so we hear our own DMs rebroadcast by neighbours
+     * exactly the same way — and treating that as delivery would mark a DM "delivered" the
+     * moment ANY node relayed it, which says nothing about whether the person it was
+     * addressed to ever got it. A DM has a real acknowledgement from the destination
+     * itself; it must wait for that one and only that one. */
+    if (hdr.dest == MESH_ADDR_BROADCAST_ONAIR) {
+      resolveAck(hdr.packetId, 0);
+    }
     return false;
   }
   // Drop duplicate rebroadcasts of the same packet (mesh flooding).
@@ -1402,6 +1446,7 @@ bool MeshtasticService::loop() {
           }
           log_e("MESH DM %s (PKI) from !%08x for id=0x%08x err=%u",
                 err == 0 ? "ACK" : "NAK", (unsigned)hdr.sender, (unsigned)reqId, (unsigned)err);
+          resolveAck(reqId, (uint8_t)err);   // stamp the receipt on the message it answers
           return false;
         } else if (portnum >= 0) {
           log_i("Mesh PKI pkt from 0x%08X port=%d (%uB)", hdr.sender, portnum, (unsigned)decLen);
@@ -1552,6 +1597,7 @@ bool MeshtasticService::loop() {
         }
         log_e("MESH DM %s from !%08x for id=0x%08x err=%u",
               err == 0 ? "ACK" : "NAK", (unsigned)hdr.sender, (unsigned)chReqId, (unsigned)err);
+        resolveAck(chReqId, (uint8_t)err);   // stamp the receipt on the message it answers
 
       } else if (portnum == MESH_PORT_POSITION && pl && plLen) {
         // A node told the mesh where it is (COVEY does, every 5 minutes).
@@ -1695,8 +1741,67 @@ void MeshtasticService::storeMessage(uint32_t from, uint32_t to, uint8_t channel
   // Our own sent messages are "read"; received ones start unread.
   m.flags = outgoing ? (MESH_MSG_OUTGOING | MESH_MSG_READ) : 0;
   strlcpy(m.text, text ? text : "", sizeof(m.text));
+  lastStoredTimeMs = m.timeMs;    // notePendingAck() attaches the receipt to THIS message
 
   dbDirty = true;         // new message: persist soon
+}
+
+/* Remember that the message storeMessage() just appended is waiting on an ack for
+ * `packetId`. Call it immediately after a successful send, while lastStoredTimeMs still
+ * refers to the message that was just echoed locally. */
+void MeshtasticService::notePendingAck(uint32_t packetId, uint32_t msgTimeMs) {
+  if (!packetId || !msgTimeMs) {
+    return;
+  }
+  PendingAck& slot = pendingAcks[pendingAckNext];
+  pendingAckNext = (uint8_t)((pendingAckNext + 1) % MESH_ACK_PENDING);
+  slot.packetId  = packetId;
+  slot.msgTimeMs = msgTimeMs;
+}
+
+/* A routing packet came back naming one of ours. Mark that message delivered or failed.
+ *
+ * ⚠ A CHANNEL ACK IS NOT A DM ACK, and the UI must not present them as equal. For a DM the
+ * acknowledgement comes from the destination node itself, so "delivered" means what it says.
+ * For a broadcast, Meshtastic's ack is IMPLICIT — the first node to rebroadcast counts — so
+ * it proves the message entered the mesh and nothing whatever about who received it. Both
+ * set the same bit here; buildThread() words them differently, which is where the
+ * distinction belongs. */
+void MeshtasticService::resolveAck(uint32_t packetId, uint8_t errorReason) {
+  if (!packetId || !messages) {
+    return;
+  }
+  uint32_t when = 0;
+  bool found = false;
+  for (int i = 0; i < MESH_ACK_PENDING; i++) {
+    if (pendingAcks[i].packetId == packetId) {
+      when = pendingAcks[i].msgTimeMs;
+      pendingAcks[i].packetId = 0;          // one ack per message; free the slot
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    return;                                 // not ours, already resolved, or lost to a reboot
+  }
+  setMessageReceipt(when, errorReason == 0);
+}
+
+/* Stamp one outgoing message's receipt, found by the timeMs that identifies it. Shared by
+ * the ack path and by the queued-DM drain, which knows a send failed without any packet
+ * ever reaching the air. */
+void MeshtasticService::setMessageReceipt(uint32_t msgTimeMs, bool delivered) {
+  if (!messages || !msgTimeMs) {
+    return;
+  }
+  for (int i = msgCount - 1; i >= 0; i--) {          // newest first: acks answer recent sends
+    if (messages[i].timeMs == msgTimeMs && (messages[i].flags & MESH_MSG_OUTGOING)) {
+      messages[i].flags &= (uint8_t)~(MESH_MSG_DELIVERED | MESH_MSG_FAILED);
+      messages[i].flags |= delivered ? MESH_MSG_DELIVERED : MESH_MSG_FAILED;
+      dbDirty = true;                       // the receipt persists with the message
+      return;
+    }
+  }
 }
 
 int MeshtasticService::getUnreadTotal() const {
@@ -2262,10 +2367,15 @@ bool MeshtasticService::sendChannelMessage(uint8_t channelHash, const char* text
     return false;
   }
 #ifdef MESHTASTIC_PHY
+  /* No want_ack: a broadcast's acknowledgement is implicit (see the rebroadcast hook in
+   * handleRx). Asking for one adds a header bit, no information, and a chance that stock
+   * answers with a routing packet we did not need. */
   bool ok = meshTxText(myNodeNum, MESH_ADDR_BROADCAST_ONAIR, text, ch);
+  uint32_t txId = s_lastTxPacketId;
   if (ok) {
     replayCapture(myNodeNum, ch, text);   // our own sends are history COVEY may have missed
     storeMessage(myNodeNum, MESH_BROADCAST_ADDR, channelHash, text, true);   // show it locally
+    notePendingAck(txId, lastStoredTimeMs);
   }
   return ok;
 #else
@@ -2293,8 +2403,10 @@ bool MeshtasticService::sendDirectMessage(uint32_t destNode, const char* text) {
     if (pkiKeyCached(destNode, skey)) {
       bool ok = meshTxDataPki(myNodeNum, destNode, MESH_PORT_TEXT_MESSAGE,
                               (const uint8_t*)text, strlen(text), skey, 0, true);
+      uint32_t txId = s_lastTxPacketId;
       if (ok) {
         storeMessage(myNodeNum, destNode, 0x00, text, true);
+        notePendingAck(txId, lastStoredTimeMs);
       }
       return ok;
     }
@@ -2304,14 +2416,17 @@ bool MeshtasticService::sendDirectMessage(uint32_t destNode, const char* text) {
         strlcpy(pendingDm[i].text, text, sizeof(pendingDm[i].text));
         pendingDm[i].active = true;
         storeMessage(myNodeNum, destNode, 0x00, text, true);   // echo now; TX next tick
+        pendingDm[i].msgTimeMs = lastStoredTimeMs;             // receipt follows it there
         return true;
       }
     }
     return false;                                    // queue full — refuse honestly
   }
-  bool ok = meshTxText(myNodeNum, destNode, text, ch);
+  bool ok = meshTxText(myNodeNum, destNode, text, ch, true);
+  uint32_t txId = s_lastTxPacketId;
   if (ok) {
     storeMessage(myNodeNum, destNode, ch->hash, text, true);
+    notePendingAck(txId, lastStoredTimeMs);
     /* Visible on serial because a modern peer will NEVER show this message —
      * its firmware refuses legacy DMs. The fix is hearing their NodeInfo
      * (running `pki` shows who has keys). */
