@@ -61,13 +61,36 @@
   glyphs and **nothing anywhere in this firmware renders a non-ASCII character**. A checkmark
   would come out as a box, which is worse than no marker at all — COVEY hit exactly this and
   had to draw its ticks by hand.
-- ⚠ **NOT YET PROVEN ON AIR.** Built, flashed, boots clean, menu table verified, host suites
-  green (1167 assertions) — but the phone reported **0 direct neighbours** at the time, so no
-  receipt has completed a real round trip. **What to watch when COVEY is back on:** a channel
-  message should go `me - sent` → `me - in mesh` within a second or two of any node relaying
-  it, and a DM to COVEY should reach `me - delivered` with `MESH DM ACK ... err=0` on serial at
-  the same moment. A DM that stays on `me - sent` means the ack never came back, which is
-  information rather than a bug.
+- ✅ **PROVEN ON AIR — the failure path, twice, end to end.** A DM to COVEY produced the whole
+  chain in the serial log:
+
+  ```
+  MESH DM to !62b8d2fd sent LEGACY (no key known) - a 2.5+ node will drop it
+  MESH DM NAK from !62b8d2fd for id=0x9adaa67b err=6
+  MESH RECEIPT: 'receipt test' -> failed: they could not decrypt it - key mismatch
+                                          (legacy DM to a 2.5+ node?) (err=6)
+  ```
+
+  Send → packet id tracked → inbound ROUTING matched → receipt stamped on the right message.
+  (The phone's `0 direct neighbours` reading beforehand was an empty table after a reboot, not
+  silence — COVEY was there the whole time and answered.)
+- ⚠ **The `delivered` and `in mesh` branches are NOT yet proven.** They are the same code path
+  reached with `err == 0`, and the transport underneath them is exactly what the NAK above
+  travelled on, so the risk is small — but "highly likely" is not "measured" and it should be
+  watched rather than assumed. `announce` did not draw a NodeInfo out of COVEY inside 40 s, so
+  its public key is still unknown and every DM keeps falling back to the legacy form.
+- 🔑 **AND THE FEATURE IMMEDIATELY EARNED ITSELF: DMs from this phone are NOT REACHING COVEY
+  AT ALL right now.** `pki` shows no key for `!62b8d2fd`, so they go out in the pre-2.5 legacy
+  form, which COVEY refuses to decrypt (`err=6`). That has presumably been true for a while and
+  was invisible — the message appeared in the thread and looked sent. **This is exactly the
+  class of silent failure the receipt exists to surface**, found within minutes of it existing.
+  The fix is hearing COVEY's NodeInfo; `pki` names who has keys.
+- **A plain-English reason accompanies every failure in the log**, from the same Routing.Error
+  table COVEY carries, with the raw code kept for searching. "err=6" tells nobody in a tree
+  stand whether to move, wait, or re-send. The small screen keeps the short word (`me - failed`)
+  and the log carries the sentence.
+- **Built, flashed, boots clean, menu table verified (zero duplicate IDs), 1167 host
+  assertions green.**
 
 ## Unreleased (2026-08-23, night) — two status flags were reading the wrong silicon, and one of them is the dead `chg=`
 

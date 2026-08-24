@@ -1255,14 +1255,14 @@ bool MeshtasticService::loop() {
           log_e("MESH DM to !%08x: queued PKI send FAILED", (unsigned)pendingDm[i].dest);
           /* It was echoed into the thread at queue time and never reached the air. Without
            * this it would sit there looking exactly like a message that went out fine. */
-          setMessageReceipt(pendingDm[i].msgTimeMs, false);
+          setMessageReceipt(pendingDm[i].msgTimeMs, false, 4);
         } else {
           notePendingAck(s_lastTxPacketId, pendingDm[i].msgTimeMs);
         }
       } else {
         log_e("MESH DM to !%08x: key derive failed - message NOT sent",
               (unsigned)pendingDm[i].dest);
-        setMessageReceipt(pendingDm[i].msgTimeMs, false);
+        setMessageReceipt(pendingDm[i].msgTimeMs, false, 4);
       }
       break;
     }
@@ -1784,13 +1784,35 @@ void MeshtasticService::resolveAck(uint32_t packetId, uint8_t errorReason) {
   if (!found) {
     return;                                 // not ours, already resolved, or lost to a reboot
   }
-  setMessageReceipt(when, errorReason == 0);
+  setMessageReceipt(when, errorReason == 0, errorReason);
 }
 
 /* Stamp one outgoing message's receipt, found by the timeMs that identifies it. Shared by
  * the ack path and by the queued-DM drain, which knows a send failed without any packet
  * ever reaching the air. */
-void MeshtasticService::setMessageReceipt(uint32_t msgTimeMs, bool delivered) {
+/* Meshtastic's Routing.Error in words. The raw number is kept alongside because that is what
+ * a forum post or a protobuf definition will match, but "err=6" on its own tells nobody in a
+ * tree stand whether to move, wait, or re-send. Same table COVEY carries, same reason.
+ * Only the codes this phone can actually provoke are spelled out; anything else prints raw. */
+static const char* meshRoutingReason(uint8_t err) {
+  switch (err) {
+    case 0:  return "ok";
+    case 1:  return "no route to them";
+    case 2:  return "refused by the far end";
+    case 3:  return "timed out";
+    case 4:  return "no radio interface";
+    case 5:  return "no reply after retries - out of range?";
+    case 6:  return "they could not decrypt it - key mismatch (legacy DM to a 2.5+ node?)";
+    case 7:  return "message too long";
+    case 8:  return "no reply";
+    case 9:  return "radio duty-cycle limit reached";
+    case 34: return "encryption failed";
+    case 35: return "their encryption key is unknown";
+    default: return "unknown reason";
+  }
+}
+
+void MeshtasticService::setMessageReceipt(uint32_t msgTimeMs, bool delivered, uint8_t err) {
   if (!messages || !msgTimeMs) {
     return;
   }
@@ -1799,9 +1821,20 @@ void MeshtasticService::setMessageReceipt(uint32_t msgTimeMs, bool delivered) {
       messages[i].flags &= (uint8_t)~(MESH_MSG_DELIVERED | MESH_MSG_FAILED);
       messages[i].flags |= delivered ? MESH_MSG_DELIVERED : MESH_MSG_FAILED;
       dbDirty = true;                       // the receipt persists with the message
+      /* At the compiled-in level, because this is the only way to see a receipt land
+       * without watching the screen — and a feature whose whole job is to report delivery
+       * should be able to report that it reported it. Names the state the UI will show. */
+      if (delivered) {
+        log_e("MESH RECEIPT: '%s' -> %s", messages[i].text,
+              (messages[i].to == MESH_BROADCAST_ADDR) ? "in mesh" : "delivered");
+      } else {
+        log_e("MESH RECEIPT: '%s' -> failed: %s (err=%u)", messages[i].text,
+              meshRoutingReason(err), (unsigned)err);
+      }
       return;
     }
   }
+  log_e("MESH RECEIPT: ack for a message no longer in the store (t=%u)", (unsigned)msgTimeMs);
 }
 
 int MeshtasticService::getUnreadTotal() const {

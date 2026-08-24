@@ -283,7 +283,7 @@ private:
 
   void      notePendingAck(uint32_t packetId, uint32_t msgTimeMs);   // after a successful TX
   void      resolveAck(uint32_t packetId, uint8_t errorReason);   // on an inbound ROUTING
-  void      setMessageReceipt(uint32_t msgTimeMs, bool delivered); // find by timeMs, mark
+  void      setMessageReceipt(uint32_t msgTimeMs, bool delivered, uint8_t err = 0);
 
   // Channels
   void      initDefaultChannel();   // channel 0 = LongFast
