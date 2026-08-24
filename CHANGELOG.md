@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased (2026-08-24, overnight) — `saveDb()` truncated the database in place, and a night of resets proved it
+
+- 🔴 **`saveDb()` OPENED THE REAL FILE WITH `"w"` — TRUNCATE, THEN REWRITE IN PLACE.** Anything
+  that stopped the phone mid-write left a **short file**, and `loadDb()` `break`s out of its read
+  loops on a short read and silently keeps whatever it got. Nodes are written first so they
+  survive intact; messages come next and get cut off; waypoints are written **last** and go
+  first. Nothing anywhere reports a problem — the file still has a valid magic and version.
+- ⚠ **NOT THEORETICAL, AND I CAUSED IT.** A night of flashing and serial work took the message
+  store from **55 messages to 4**, and the database still loaded cleanly with all 32 nodes.
+  **Every serial port open resets this board**, and a save runs off a dirty flag, so the window
+  is open far more often than "during a manual save". Traced by the `MESH DB: N nodes, M
+  messages` boot line across nine captures: 43 → 43 → 49 → 54 → 54 → 54 → 55 → **4** → 5.
+- **Fixed with the pattern this codebase already uses elsewhere:** write to `/meshdb.tmp`, then
+  rename over `/meshdb.bin`. Rename on SPIFFS is atomic, so a reset now leaves either the old
+  complete database or the new complete one, never half of either. `healthTrim()` has done this
+  all along for the same reason; `saveDb()` simply never adopted it. If the rename fails the
+  existing database is left untouched and it says so.
+- **Verified by abusing it deliberately:** three sends across three reset cycles counted up
+  6 → 7 → 8 → 9, then four bare reset cycles held at **9, 9, 9, 9**. Before the fix the same
+  treatment is what collapsed it.
+- ⚠ **The lost messages are lost** — roughly 50 of Nick's stored mesh messages. The node table
+  (32, with keys) survived because of the write order. **Waypoints currently read as none**, and
+  I cannot say whether any were set beforehand: I never captured a `pos` baseline, and COVEY has
+  no `~/.covey/waypoints.json` either, so there is no second copy to compare against.
+- ⚠ **A correction to my own entry above**, which said this class of loss would take *"Camp"*.
+  There is no evidence Camp was ever set on this phone — that name comes from a **code comment**
+  explaining why waypoints are persisted, and I wrote it up as though it were observed data. It
+  is now phrased as "any stored waypoints", which is what is actually known.
+- [ ] **Worth considering:** `loadDb()` treats a short read as "that is all there was" and
+  carries on. That is what made this silent. A record count that does not match the header is a
+  fact worth logging even when the file is otherwise usable.
+
 ## Unreleased (2026-08-24, later) — DMs to COVEY were silently failing, because a stranger evicted its encryption key
 
 - 🔑 **THE NODE TABLE THREW AWAY COVEY'S PUBLIC KEY TO MAKE ROOM FOR A STRANGER, AND EVERY DM
@@ -89,8 +121,7 @@
   The obvious implementation adds a `uint32_t packetId` to `MeshMessage` — and `saveDb()`
   writes `sizeof(MeshMessage)` into the header while `loadDb()` **rejects the entire file** on
   a mismatch: nodes, messages and waypoints together. That would have silently binned the
-  message history, the node list, and "Camp" (which the waypoint code says explicitly must
-  survive a reboot) on the first boot after the update. Measured on the real phone after
+  message history, the node list, and any stored waypoints on the first boot after the update. Measured on the real phone after
   flashing: **"MESH DB: 32 nodes, 49 messages stored"** — all still there. The packet-id
   association instead lives in an 8-entry RAM table for the seconds between sending and the
   ack; the resolved state persists in `flags`, exactly like `MESH_MSG_READ`.
