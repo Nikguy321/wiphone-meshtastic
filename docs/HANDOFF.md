@@ -1,34 +1,77 @@
 # WiPhone — session handoff
 
-## ▶▶ NEXT SESSION — TASK LIST (rewritten 2026-08-24, overnight)
+## ▶▶ NEXT SESSION — TASK LIST (rewritten 2026-08-24, evening)
 
-Read this first; everything below it is narrative. Repo clean at **6ad1cc2**.
-**Phone 1 is flashed with everything below and verified on air.** Phone 2 is still on
-`483c3a6`-era firmware and now lags by a lot — see P4.
+Read this first; everything below it is narrative. Repo clean at **87ddfbc**.
+**Phone 1 is flashed with everything here and verified as far as the cable allows.** Phone 2 is
+still on `483c3a6`-era firmware and now lags a very long way behind — see P5.
 
-### ✅ Closed since the last rewrite — do not redo these
+### 🔴 P1 — TWO THINGS NEED A HUMAN, AND ONE OF THEM IS UNTESTED CODE
 
-- **The battery experiment RAN.** Idle, WiFi off, screen off: **~8.6 %/h**, about 1.8× better
-  than the 15.7 %/h mixed-use figure. ⚠ **And the endpoint read of that same hour says 15.74 %/h,
-  which is wrong** — the first ~20 minutes off a charger are surface-charge relaxation, not draw.
-  Split into blocks it decays 25.3 → 12.6 → 8.6 %/h with the last two agreeing (−41 and −40 mV/h).
-  🔑 **The retired "~10 h" figure was measured correctly all along** (`HANDOFF.md` recorded it as
-  steady state with the first 30 min discarded = 10.0 %/h); it is the 15.7 %/h run that is the
-  outlier, contaminated twice over — nothing discarded, and the radio hunting for 86 % of it.
-  **Quote a rate with its conditions, never an hours figure**, until a run starts an hour after
-  unplugging and continues into the flat part of the curve.
-- **The WiFi toggle moved to Settings**, leading the WiFi group. Nick used it for the run above.
-- **Delivery receipts on mesh messages**, all three states proven on air: `me - sent`,
-  `me - delivered` (DM ACK err=0), `me - in mesh` (broadcast implicit ack), `me - failed`.
-  ⚠ **Delivery, never READ** — Meshtastic cannot report that a human read anything.
-- **`chg=` root-caused.** It read GPIO 32, not the charger: `battCharged` used plain
-  `digitalRead()` on `EXTENDER_PIN(0)` == 64, and `gpio_get_level()` masks its shift to 5 bits
-  so `>> 32` became `>> 0`. `cardPresent` was reading GPIO 33 (I2S word-select) the same way.
-  Both use `allDigitalRead()` now. Every other raw pin call in the firmware was audited: clean.
-- **`health` no longer lies for the first 15 s after boot** (`cardPresent` is seeded in `setup()`).
-- **DMs to COVEY were failing silently and now work** — see P1.
+- [ ] 🔑 **OPEN THE PHOTOS APP (Menu > Tools > Photos). NOBODY HAS EVER RUN IT.** It is new
+      today: it builds, registers, boots clean and passes the duplicate-menu-id check — but
+      **every screen in it needs a key press and serial cannot press keys.** The starring
+      feature shipped with exactly this gap the same morning and it had a real bug (a
+      filesystem write on the key path, `reset_reason=4`). Assume this one has something too.
+      First open also creates `/photos`; put a JPEG in there (Files > /photos >
+      "[ Upload into this folder ]") and try view / rename / lock / delete / set-as-wallpaper.
+- [ ] **Ring the phone and confirm an INBOUND call lands.** The SIP fix is measured (zero flaps
+      in four minutes, self-recovered from a real WiFi drop) but "a call actually arrives" is
+      the one property the cable cannot prove. It is the last thing between that fix and done.
 
-### P1 — ⚠ WATCH FOR THIS RECURRING: your own devices getting evicted
+### ✅ Closed 2026-08-24 — do not redo these
+
+- **The scrolling freeze is FIXED, and it was never the database.** `WiFi.disconnect(true)`
+  blocks **5007 ms** (`begin()` next to it: 30 ms) — the argument is `wifioff`, so it stops the
+  whole radio to reassociate. One task, so it froze keypad, screen and WiFi together. That is
+  why it was rare (needs the hotspot to blip) and why it always came "with WiFi dropping" —
+  **the drop was the trigger, not the symptom.** Fix: `WiFi.disconnect(false)`.
+- **The mesh database lives on the SD card** (`meshFs()`, SPIFFS fallback per call). Benchmarked:
+  SPIFFS 2599–2845 ms for an 8 KB save-shaped write against SD's 48–57 ms.
+- **SIP registration no longer flaps**, and the ping starvation that made the 08-22 attempt fail
+  is fixed too. **`chg=` is settled** — it was inverted as well as reading the wrong GPIO.
+- **Node list 32 → 200 in PSRAM; nodes can be starred** (`*` on the Nodes list; starred sort to
+  the top and are evicted last; the star list is its own file).
+- **NEW: Photos app** — `/photos` on SD, baseline + greyscale JPEG and BMP, with lock / rename /
+  delete / set-as-wallpaper and a restore-default. See P1: untested on the handset.
+
+### 🛠 INSTRUMENTS THAT NOW EXIST — reach for these before theorising
+
+- **`LOOP STALL`** — any superloop pass over 250 ms, logged at `log_e` **and into `/health.log`**
+  (rate-limited to one a minute) with `scr` / `cpu` / `wifi` state. Persisting it is what cracked
+  the freeze: it separated `scr=0 cpu=80` (idle, the database saves behaving) from
+  `scr=65 cpu=240 wifi=6` (screen on, phone active, WiFi down) and pointed away from storage.
+- **`TIME_STEP(name, call)`** in WiPhone.ino — times one named step and says so past 150 ms.
+  Three successive splits with it walked 5296 ms down to the single guilty argument.
+- **`bench`** (serial) — SPIFFS vs SD, 8 KB, the same shape a real save has. Re-measure rather
+  than trusting these numbers on a different card.
+- **`wifi drop`** (serial) — disconnect WITHOUT marking the radio user-disabled, so the field
+  retry path runs on demand. A bug needing someone else's access point to misbehave cannot be
+  measured otherwise.
+- **`star`**, **`send <chan> <text>`**, **`health`** — the other cable-only exercisers. Anything
+  reachable only by a thumb cannot be proven from here; that keeps being the lesson.
+- Boot lines carry **`build=<compiler timestamp>`** so a run of samples can be attributed to a
+  firmware. Without it the `chg=` question was unanswerable from four hours of data.
+
+### ⚠ THREE WRONG ANSWERS FROM TODAY, RECORDED SO THEY ARE NOT RE-RUN
+
+1. *"The freeze is the database save."* It was blocking ~1.5 s and it really is better on SD —
+   **but it was not what Nick was feeling.** The symptom named a component and the component was
+   innocent.
+2. *"Batch the ~55 small writes."* No change. The write was never the cost; SPIFFS `open` is.
+3. *"Chunk the write across loop passes."* **Worse — 31 stalls against 12.** SPIFFS is quick
+   until a write crosses a block boundary and forces an erase, and an erase is atomic however
+   small the write that triggered it. **A stall the filesystem takes in one indivisible piece
+   cannot be chunked around.**
+
+### 🖼 COVEY — NOT STARTED
+
+- [ ] **A photo viewer for COVEY**, same idea as the WiPhone's, no wallpaper half (its home is
+      tiles). Nick asked for it in the same breath as the WiPhone app; only the WiPhone half is
+      built. COVEY is a Pi running pygame, so formats are not the constraint there that they are
+      here — SDL loads PNG and JPEG without any of this argument.
+
+### P2 — ⚠ WATCH FOR THIS RECURRING: your own devices getting evicted
 
 **DMs from phone 1 to COVEY had been failing silently, for a while.** The 32-node table evicted
 strictly oldest-heard, and the slot wipe takes `pubKey`/`pkiFlags` with it — so on LongFast, a
@@ -69,14 +112,6 @@ USB presence. Settling that needs a run left plugged until charging genuinely te
 ⚠ **The old warning about mining historical `chg=` still stands** for anything written before the
 build stamp existed: pre-fix the flag was reading GPIO 32 (`USER_SERIAL_TX`, idles high), so old
 runs record whether the UART was up. Attribute samples by `build=` or do not use them.
-
-### P3 — needs Nick present: ONE confirmation owed
-
-- [ ] 🔑 **RING THE PHONE. Confirm an INBOUND call lands.** The SIP registration fix shipped
-      2026-08-24 and is measured — 6 REGISTERs over 4 minutes, 1 REGISTERED transition, **zero
-      `lost` events**, against 53 flaps in 31 minutes before — but *"an inbound call still
-      arrives"* is the one property that cannot be proven from the cable, and it is the whole
-      reason this waited for him to be present.
 
 ### ✅ The SIP flap is FIXED (2026-08-24) — and the 08-22 revert was never its fault
 
