@@ -1165,6 +1165,20 @@ void setup() {
     log_d("Card mount FAILED");
   }*/
 
+  /* ⚠ SEED cardPresent HERE, OR EVERY CARD-GATED PATH LIES FOR THE FIRST MINUTE.
+   * It is declared `false` in GUI.h and was assigned in exactly one place: the
+   * once-a-minute battery tick. So for up to BATTERY_CHECK_PERIOD_MS after every boot
+   * the phone believed it had no card. healthDump() bails on `!cardPresent`, which
+   * means `health` answered "nothing to read - no card, or no /health.log yet" WITH A
+   * PERFECTLY GOOD CARD SEATED — measured 2026-08-23, when the file it was denying held
+   * 926 samples and returned in full 80 s later. That is exactly the window in which
+   * someone plugs a phone into the cable and asks it what happened.
+   * The pin is configured by the allPinMode() above, and gpioExtender.begin() ran far
+   * earlier in setup(), so it is readable by the time we get here. */
+#if TF_CARD_DETECT_PIN >= 0
+  gui.state.cardPresent = allDigitalRead(TF_CARD_DETECT_PIN) == LOW ? true : false;
+#endif
+
 
   // Initialize keypad
   {
@@ -2724,11 +2738,37 @@ void loop() {
       }
       gui.state.battUpdated = true;
 #if TF_CARD_DETECT_PIN >= 0
-      gui.state.cardPresent = digitalRead(TF_CARD_DETECT_PIN) == LOW ? true : false;
+      /* ⚠ THESE TWO WERE PLAIN digitalRead() ON GPIO-EXTENDER PINS, WHICH READS THE
+       * WRONG CHIP ENTIRELY. Both pins live on the SX1509, not on the ESP32:
+       * TF_CARD_DETECT_PIN is EXTENDER_PIN(1) == 65 and BATTERY_CHARGING_STATUS_PIN is
+       * EXTENDER_PIN(0) == 64 (EXTENDER_FLAG is 0x40). The ESP32 has GPIO 0-39, so both
+       * were out of range — and digitalRead() does not reject them. It calls
+       * gpio_get_level(), which for pin >= 32 evaluates `(in1.data >> (pin - 32)) & 1`;
+       * the Xtensa shift masks its amount to 5 bits, so `>> 32` becomes `>> 0` and
+       * `>> 33` becomes `>> 1`. The two reads therefore returned:
+       *
+       *     battCharged  <- GPIO 32  (USER_SERIAL_TX / MotorEN)
+       *     cardPresent  <- GPIO 33  (I2S_WS_PIN, the I2S word-select clock)
+       *
+       * ⚠ THIS IS WHY `chg=` IS DEAD IN EVERY HEALTH SAMPLE. It was logged as "its own
+       * small mystery" and then as a measured fact (0 across all 807 samples of the
+       * 2026-08-23 run, through two unmistakable charging periods). The flag was never
+       * reading the charger; it was reading an idle-low pin on the wrong die.
+       *
+       * ⚠ And cardPresent read the I2S word-select line, which is idle-low — so it
+       * reported TRUE whether or not a card was seated, and would FLICKER while audio
+       * plays, since WS toggles at the sample rate and the minute tick samples it at an
+       * arbitrary phase. A card-dependent path could fail intermittently during music
+       * for reasons nothing else could explain.
+       *
+       * allDigitalRead() is the accessor that honours EXTENDER_FLAG; it has existed in
+       * Hardware.cpp all along and every other extender read in this file uses it or
+       * goes to gpioExtender directly. */
+      gui.state.cardPresent = allDigitalRead(TF_CARD_DETECT_PIN) == LOW ? true : false;
 #else
       gui.state.cardPresent = false;
 #endif
-      gui.state.battCharged = digitalRead(BATTERY_CHARGING_STATUS_PIN) == HIGH ? true : false;
+      gui.state.battCharged = allDigitalRead(BATTERY_CHARGING_STATUS_PIN) == HIGH ? true : false;
 
       /* ── HEALTH LINE ────────────────────────────────────────────────────────────
        * One line a minute, at log_e so it is visible in the field. It answers both of
@@ -2787,7 +2827,10 @@ void loop() {
       log_d("SD card = %d", gui.state.cardPresent);
       log_d("Charged = %d", gui.state.battCharged);
 #if defined(POWER_CHECK) && POWER_CHECK >= 0
-      log_d("Power button = %d", gpioExtender.digitalRead(POWER_CHECK) == LOW ? 1 : 0);
+      /* gpioExtender indexes its OWN pins, so the flag has to come off first - the
+       * working call at the top of loop() does `POWER_CHECK & ~EXTENDER_FLAG` and this
+       * one did not, so it queried extender pin 66 and logged nonsense. */
+      log_d("Power button = %d", gpioExtender.digitalRead(POWER_CHECK & ~EXTENDER_FLAG) == LOW ? 1 : 0);
 #endif
       redrawWhat |= gui.processEvent(now, BATTERY_UPDATE_EVENT);
 

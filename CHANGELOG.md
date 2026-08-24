@@ -1,5 +1,460 @@
 # Changelog
 
+## Unreleased (2026-08-23, night) — two status flags were reading the wrong silicon, and one of them is the dead `chg=`
+
+- 🔑 **`cardPresent` and `battCharged` were read with plain `digitalRead()` on GPIO-EXTENDER
+  pins, which does not reach the extender at all.** Both live on the SX1509:
+  `TF_CARD_DETECT_PIN` is `EXTENDER_PIN(1)` == **65** and `BATTERY_CHARGING_STATUS_PIN` is
+  `EXTENDER_PIN(0)` == **64** (`EXTENDER_FLAG` is `0x40`). The ESP32 has GPIO 0–39, so both
+  numbers are out of range — **and `digitalRead()` does not reject them.** It calls
+  `gpio_get_level()`, which for `pin >= 32` evaluates `(in1.data >> (pin - 32)) & 1`; the
+  Xtensa shift masks its amount to 5 bits, so `>> 32` becomes `>> 0` and `>> 33` becomes
+  `>> 1`. The two flags were therefore reading:
+
+  ```
+  battCharged  <-  GPIO 32   (USER_SERIAL_TX / MotorEN)
+  cardPresent  <-  GPIO 33   (I2S_WS_PIN, the I2S word-select clock)
+  ```
+
+- ✅ **THIS IS WHY `chg=` IS DEAD IN EVERY HEALTH SAMPLE.** It was filed as "its own small
+  mystery" and then promoted to a measured fact — 0 across all 807 samples of the 3.0 h run,
+  straight through two unmistakable charging periods. **The flag was never reading the
+  charger. It was reading an idle-low pin on the wrong die.** `allDigitalRead()` — the
+  accessor that honours `EXTENDER_FLAG` — has been sitting in `Hardware.cpp` the whole time,
+  and every other extender read in the file already used it.
+- ⚠ **`cardPresent` was reading the I2S word-select line, which is idle-low — so it reported
+  TRUE whether or not a card was seated, and would FLICKER while audio plays**, since WS
+  toggles at the sample rate and the tick samples it at an arbitrary phase. A card-dependent
+  path could fail intermittently during music for reasons nothing else could explain. Not
+  observed in the wild; recorded because it is now closed rather than waiting.
+- **`cardPresent` is also seeded once in `setup()` beside `SD.begin()`.** It is declared
+  `false` in `GUI.h` and was assigned in exactly one place — the battery tick — so for up to
+  15 s after every boot the phone believed it had no card, and `healthDump()` bails on
+  `!cardPresent`. That is what made `health` answer *"nothing to read - no card, or no
+  /health.log yet"* **with a perfectly good card seated**, in exactly the window in which
+  someone plugs a phone into the cable and asks it what happened.
+- **Verified on hardware after flashing** (app partition only, 230400 baud, hash verified):
+  `health` issued **11.3 s after boot** returned 25,745 bytes and 191 samples, where the same
+  call before the fix returned the no-card message. That also proves `allDigitalRead()` on the
+  extender works — a garbage read would have failed the dump.
+- ⚠ **`chg=` STILL READS 0, AND THAT IS NOT YET RESOLVED.** With the phone on USB at soc=96%
+  and terminal voltage *rising* (4.14 → 4.15 → 4.17 across three ticks), the flag stayed 0.
+  Two readings fit and this session cannot separate them: the pack is nearly full and the
+  charger has legitimately tapered off, **or the polarity is inverted** — charge-status
+  outputs on this class of charger IC are typically open-drain and **active LOW while
+  charging**, which would make `== HIGH ? true : false` exactly backwards. **Settle it on a
+  run that starts from a low pack**, where "charging" is unambiguous, before trusting or
+  re-inverting the flag. The read now reaches the right chip; the meaning of what it reads is
+  the open half.
+- Also fixed: a `log_d` that called `gpioExtender.digitalRead(POWER_CHECK)` without masking
+  `EXTENDER_FLAG` (the working call at the top of `loop()` does mask it), so it queried
+  extender pin 66 and logged nonsense. Cosmetic — `log_d` is not compiled into this build.
+
+## Unreleased (2026-08-23, evening) — the idle floor is real, and the first 20 minutes off a charger are a lie
+
+- **Idle drain, WiFi OFF, screen off, 80 MHz: ~8.6 %/h — about 1.8x better than the
+  15.7 %/h mixed-use figure.** One hour on phone 1, 62 once-a-minute samples recovered
+  from `/health.log` over the cable (`health all`). Off-charger window is unambiguous in
+  the log: terminal voltage steps 4.19 → 4.14 at the unplug (up=32) and 4.02 → 4.10 at
+  the replug (up=95), with `wifi=0 cpu=80 scr=0` on every sample in between.
+- **⚠ THE ENDPOINT READ SAYS 15.74 %/h AND IT IS WRONG.** Taken start-to-finish the hour
+  reads 100% → 84% = 15.74 %/h, which is *identical* to the mixed-use run and would have
+  supported the flatly false headline "turning WiFi off saves nothing". Splitting the
+  window into 20-minute blocks kills that reading:
+
+  | block | SoC | rate | voltage slope |
+  |---|---|---|---|
+  | up 33–52 | 100 → 92% | **25.3 %/h** | −188 mV/h |
+  | up 53–72 | 92 → 88% | 12.6 %/h | −41 mV/h |
+  | up 73–94 | 87 → 84% | **8.6 %/h** | −40 mV/h |
+
+  The first block is **post-charge surface-charge relaxation**, not current draw — a
+  freshly-unplugged cell sheds its surface charge fast whatever the load. The last two
+  blocks agree with each other (−41 and −40 mV/h) and that agreement is what makes them
+  the real number. **Do not start an idle-drain measurement at the instant of unplugging;
+  discard the first ~20 minutes.**
+- The same artefact inflates the 3.0 h mixed-use run that produced ~6.4 h, though a
+  20-minute contamination is diluted over three hours rather than dominating one. **~6.4 h
+  is therefore mildly pessimistic**, and the two runs are less far apart than the raw
+  numbers suggest. Neither is worth restating until a run starts an hour after unplugging.
+- **Confidence, stated honestly:** the gauge quantises to 1%, so three counts across a
+  21-minute block carries roughly ±3 %/h; the voltage slope is the firmer half of the
+  result. The 11.7 h that 8.6 %/h projects to is a *top-of-curve extrapolation* — the
+  4.02–4.05 V band is nearly the flattest part of the Li-ion curve and the back half of a
+  discharge will not be this kind. Quote the rate, not the projection.
+- **⚠ Found while fetching this: `health` lies for the first minute after every boot.**
+  `healthDump()` bails on `!gui.state.cardPresent` (WiPhone.ino:1786), but `cardPresent`
+  is initialised `false` (GUI.h:318) and only ever assigned by the once-a-minute battery
+  poll (WiPhone.ino:2727). Run `health` inside that first minute — exactly what you do
+  after plugging in a phone — and it reports `nothing to read - no card, or no
+  /health.log yet` **with a perfectly good card seated**. It reported precisely that here,
+  and the log it was denying turned out to hold all 926 samples. Waiting 80 s and asking
+  again returned the whole file. NOT FIXED: the card-detect read wants doing once in
+  `setup()` beside `SD.begin()`, not only on the minute tick.
+
+## Unreleased (2026-08-23) — the battery number gets measured instead of claimed, and the radio gets a switch
+
+- **~6.4 h on battery, not the ~10 h the handoff had been claiming since the power
+  work.** Measured over 3.00 h off USB: 99% → 52%, 4.13 → 3.80 V = 15.7 %/h. The first
+  sample ever taken off the cable, and it is a third short of the figure it replaces.
+  **10 h is unproven from here on.** Ruled out by the same samples: not the screen (off
+  for 177 of 181) and not the CPU governor (177 of 181 at 80 MHz). The draw is radios
+  plus baseline, in a pocket, doing nothing.
+- ⚠ **Leading suspect, explicitly NOT proven:** 155 of 181 samples were `wifi=1`
+  (WL_NO_SSID_AVAIL) — away from any known network, hunting, and the auto-switch scans
+  every 2 min while disconnected against 10 min while connected. The cost could not be
+  separated honestly: voltage slope is not linear in SoC, so comparing a hunting block at
+  3.9 V against a connected block at 4.1 V measures chemistry, not radio. **Do not change
+  the scan interval before measuring it.**
+- ✅ **`chg=` is definitively dead** — 0 across all 807 samples, including two unmistakable
+  charging periods (89→100%, and 53→86% on a drive home) with voltage rising through both.
+  Previously filed as "its own small mystery"; now a measured fact. **Nothing may infer
+  charge state from that flag.**
+- **New: `health` / `health all`** stream `/health.log` to UART from a 256-byte stack
+  buffer — no WiFi, no sockets, no heap. ⚠ The obvious route, `http://wiphone.local/log`,
+  is the dangerous one: it needs the uploader up, and heap at the moment of reading was
+  free=11448 largest=10560 min-ever=196 — below the ~16 KB at which an 11 KB allocation
+  has already aborted the WiFi PHY and rebooted this phone. **The log exists to explain
+  restarts; fetching it must not cause one.** ⚠ It was also one boot from being
+  half-eaten — 98,453 bytes against a 96 KB cap, so the next boot line would have trimmed
+  it to the newest 32 KB and silently taken the start of the run with it. Cap raised
+  BEFORE flashing (`HEALTH_LOG_MAX` 96 K → 256 K, `KEEP` 32 K → 128 K, ~16 h) which is the
+  only reason the run survived.
+- **WiFi on/off is one press from the main menu, and the row says which it is.** The
+  switch already existed and was real, but lived inside a *network's edit form* — menu,
+  WiFi, pick a network, edit, find the widget — and told you nothing about the current
+  state until you got there. Now the main menu reads `WiFi: on` / `WiFi: off` and one
+  press flips it. This is a battery feature, not a convenience: the experiment that would
+  settle the hunting question needs the radio switched off quickly and repeatably.
+  ⚠ **Deliberately NOT persisted** — WiFi returns ON after a reboot, because a radio that
+  stays off across a power cycle is a setting you can forget you set, and the failure mode
+  is a phone that silently never connects again. ⚠ Menu ID 47 (0–46 taken; 8 and 25 are
+  gaps and the rule is COUNT UP, not fill). A duplicate id is SILENT — `findMenu` matches
+  on id alone, first hit wins — and has shipped twice; `GUI::init()`'s boot check is the
+  only thing that catches it.
+- **The wiring sheet is audited geometrically rather than by eye**, before being shared.
+  🔑 The one Nick spotted: 143 px of W20 (VBAT) and W11 (GND) drawn on the same x=740
+  lane, y 1072–1215 — GND is stroke-3 over VBAT's 2.6, so VBAT vanished underneath it and
+  appeared to *stop* at the junction when it actually carries on to the OR node at y=1240.
+  Four more collisions found the same way. The audit is three kept scripts that decompose
+  every line into segments and report collinear overlap, with text boxes measured from a
+  real renderer's `getBBox()` because estimating glyph widths was not accurate enough to
+  trust. A v1→v2 change sheet ships with it so the plate does not have to be re-checked
+  wire by wire.
+
+## Unreleased (2026-08-22, late) — the missed keypresses, root-caused: every release the phone ever saw went to the wrong key
+
+- **THE BUG WAS PRESENT SINCE THE FIRST COMMIT.** Nick: menu scrolling "misses some
+  inputs but not much", and — new, and true all along — "tentap typing, sometimes it will
+  miss a tap and I have to tap again while scrolling through letter choices."
+- **Found by measurement, not by reading.** A raw event trace (`keys raw`, added for the
+  purpose) said what the chip actually sends:
+
+  ```
+  +0ms    0x41 P    DOWN pressed
+  +141ms  0x00 r    ...and the release comes back as key code ZERO
+  +1047ms 0x54 P    OK pressed
+  +115ms  0x00 r    ...zero again
+  ```
+
+  **Key code 0 is CALL in this keymap, so every release this phone has ever seen was
+  applied to CALL.** The key actually pressed never had its bit cleared, stayed "held",
+  and was therefore deaf to its own next press until the 350 ms stale sweep let go. A
+  person re-taps in 150–250 ms — inside that window. It produced double presses too: with
+  `keyLastUpMs` stamped for CALL instead of the real key, a real contact bounce (a
+  re-press 6 ms after a release, visible in that same trace) met a bounce filter watching
+  the wrong key. The vendor code half-knew — `newState < keypadState` is commented "Some
+  buttons were released silently" — but that re-armed `keypadState` only.
+- **A release carrying code 0 is now attributed to the key that is actually down.**
+  Interrupt-driven reads only: an empty FIFO reads back as 0x00 as well, and an interrupt
+  is the only thing proving an event happened at all. The UI press edge is `uiKeyDown`
+  ALONE — it had been nested inside the `keypadState` edge, making `keypadState` a second
+  undocumented veto, so a lost release left the key deaf even after a sweep that cleared
+  only `uiKeyDown`. `SN7326::readReg()` also stops discarding a byte it successfully read
+  (it was returning the status of a trailing zero-length write, so any NAK there reported
+  failure for a key already off the wire).
+- ⚠ **THE FIX SHIPPED A REGRESSION, AND A SOURCE REVIEW CAUGHT IT — NO TRACE COULD HAVE.**
+  Attribution used `mask = held`, which may carry several bits, and the release branch
+  handles a multi-bit mask — that was the bug. Release one of two held keys and BOTH were
+  marked up, so the key still under a finger left `uiKeyDown` and its next ~109 ms
+  heartbeat arrived looking like a **brand-new press nobody made**. Reachable three ways:
+  the Select+Back sleep chord (lift one finger early and the other key fires — a spurious
+  Back navigates if the chord had not yet reached SLEEP_CHORD_MS), rolling two-key typing
+  (duplicate letter), and the Game Boy (releasing A while holding RIGHT drops RIGHT out of
+  `keypadState` for ~109 ms, and `app_gbc.cpp` reads that mask directly). **Attribution now
+  requires EXACTLY ONE key down** (`(held & (held - 1)) == 0`); otherwise the byte stays
+  decoded as CALL exactly as it always was and the sweep tidies up — no worse than what it
+  replaced, and far better than inventing a keypress. Counted as `relamb` so the ambiguous
+  case is visible rather than assumed rare. **It needs two keys at once, and every trace so
+  far was single-key.**
+- **The held-key heartbeat is ~109 ms, not the 40 ms `SN7326.h` claims** — and a bug got
+  built on the 40. Nick: "push okay then push the star key to unlock, it immediately thinks
+  I'm trying to type the star key in the dialer." The stale-hold rescue used a 100 ms
+  threshold taken from that 40 ms comment, *below* the real interval, so every heartbeat of
+  a slightly-long press was promoted into a second keypress: the unlock swallowed the
+  genuine `*` and the heartbeat went to the dialer. The rescue now counts and does nothing —
+  with code-0 releases attributed correctly, releases stop going missing (`swept` sits at 0),
+  so it had nothing left to save and one clear way to do harm. ⚠ **Anything keyed on a
+  held-key gap must sit well above 109 ms with jitter room and below the 350 ms sweep.
+  Re-measure before trusting any number here; the datasheet comment in the driver is wrong.**
+- ⚠ **A wrong measurement of my own, corrected in the tree rather than quietly dropped:**
+  earlier the same day I recorded that there are *no* held-key heartbeats at all, because an
+  early trace showed nothing between a press and its release. Short taps (110–140 ms) simply
+  end before the first re-report. There are heartbeats; they are just slower than the driver
+  claims.
+- **`KEY_BOUNCE_MS` 40 → 25.** This window had never actually been tested: while releases
+  were going to CALL it was armed on the wrong key, so attributing them correctly armed it
+  for the first time — an untested 40 ms sitting directly in the path of fast same-key
+  tapping, which *is* the tentap case. Measured bounces are 6 ms and 13 ms and no human
+  re-taps inside 80 ms, so 25 ms clears the real bounce with margin either side.
+- **`alphanumericInputEvent()` is no longer called with `event == 0`.** `IS_KEYBOARD()` is
+  `event <= 0x7f`, so 0 enters the keyboard block, and the unlock, the screen-off wake and
+  the swallowed music transport keys all zero it deliberately. Zero is not the active key,
+  so the "different button" branch ran and **committed the pending multi-tap letter** —
+  nudge the volume mid-cycle and the letter lands early.
+- **Tried and retired by measurement, recorded so they are not re-attempted:** a 40 ms UI
+  FIFO poll (added believing the 10 ms INT pulse stranded events — `drained` stayed 0 through
+  whole sessions while `empty` ran into the hundreds), and a same-batch bounce exemption (its
+  counter never moved, and it is exactly what would let that 6 ms bounce through).
+- Instrument: `keys` and `keys raw` on the console, plus a KEYS line into `/health.log` on
+  the minute tick only when a counter moves. On hardware after the fix: `relfix` climbing,
+  `swept=0`, `killed` catching real bounces. Nick: menu scrolling "feels great", typing "way
+  way better", unlock "works it seems". 1167 host assertions green.
+
+## Unreleased (2026-08-22, night) — the 80 MHz menu experiment is backed out, and the SIP flap is named but deliberately left alive
+
+- ⚠ **THE 80 MHz MENU EXPERIMENT IS OFF, AND THE OBVIOUS READING OF WHY IS WRONG.**
+  Nick, on hardware: "the menu is a bit laggy and doesn't pick up every button push."
+  Missed input is a break, not a tuning problem, so it went OFF rather than being dialled
+  down to 160 as offered — and 160 would not have helped. **The evidence contradicts the
+  clock explanation: the new "screen idle" state NEVER FIRED**, zero occurrences across
+  the whole session, only "busy" and "idle". The phone was never actually running its
+  menus at 80 MHz. The lag came from the other half of the change: `cpuRaiseForUi()`
+  calls `setCpuFrequencyMhz()` from **inside the key-drain loop**, and a PLL switch landing
+  mid-keypad-read is exactly how a keypress goes missing. **The level was never the
+  problem, the SWITCHING was — and 160 MHz switches just as hard.**
+- `UI_IDLE_DOWNCLOCK 0` restores the previous behaviour exactly (the raise hook is compiled
+  out too, so "off" is genuinely off), with six invariants asserted mechanically rather than
+  eyeballed. The work and the reasoning stay in the tree for whoever revisits it, with the
+  two conditions written down: **raise the clock somewhere that is NOT the input path, and
+  MEASURE the saving first** — it was never quantified, and the backlight probably dominates
+  screen-on draw anyway.
+- ⚠ **SIP registration has flapped REGISTERED → lost → REGISTERED every 60 seconds since the
+  initial commit, and it is STILL FLAPPING.** `registrationInvalid()` measures
+  `REGISTER_EXPIRATION_S` (60 s) from `msLastRegistered` while `REGISTER_PERIOD_MS` refreshed
+  at exactly 60000 — so the registration was declared dead at the precise moment the refresh
+  fell due, every cycle. Nobody saw it because the only line reporting it was `log_d`, and
+  `log_d` is not compiled into this build. It costs more than a flickering icon: each flap
+  fires `REGISTRATION_UPDATE_EVENT`, which redraws, which took the clock to 240 MHz for the
+  hold window — once a minute, indefinitely, for nothing, quietly undermining the battery
+  work it shares a build with.
+- ⚠ **The 45 s refresh that was supposed to fix it was REVERTED, because it was wrong.** It
+  did not stop the flap, it moved it to every 45 s. The cause is not the period:
+  `registration()` clears `registered` on EVERY refresh (`tinySIP.cpp:1288`) and sets it back
+  when the 200 OK lands, so the phone declares itself unregistered for one round trip per
+  refresh **by construction**. The real fix is to not clear it while merely refreshing, since
+  the expiry check already covers a failed one — **deliberately not shipped**: it is core
+  registration state on the phone that owns Nick's number, it needs him present to confirm
+  inbound calls still land, and the same evening had already broken his input handling once
+  by shipping something that could not be verified. An earlier, deeper attempt worked on its
+  own terms (53 flaps in 31 min → 0) and was also reverted — 20 minutes later the phone went
+  `lost` and never came back. **The flap is load-bearing: it hides whether refreshes actually
+  succeed.**
+- **The registration line is promoted `log_d` → `log_e`.** Only `log_e` is compiled into this
+  build, so a phone that registers and one that never does looked IDENTICAL on serial — which
+  cost real time chasing a registration that turned out to be merely slow on a fresh boot.
+  It prints on both edges now. This promotion is the entire reason the once-a-minute flap was
+  discovered at all.
+- ⚠ **The retransmit ring members were NEVER INITIALISED.** The patch meant to do it aborted
+  on a failed assertion *before* writing the file, and the run reported success from the half
+  that did apply — so `seenMsgCallId`/`seenMsgCSeq`/`seenMsgNext` shipped with nothing setting
+  them while `messageAlreadySeen()` indexes the array with `seenMsgNext`. It corrupted nothing
+  **by luck**: `TinySIP sip` is a global, so it lands in BSS and the C runtime zeroes it. But
+  `Test.cpp:731` constructs one ON THE STACK, where those members are garbage and the first
+  inbound text would index out of bounds. Fixed with member initialisers in the class, which a
+  later constructor cannot forget the way a line in the .cpp can. **The lesson worth keeping: a
+  scripted multi-edit that asserts per-edit must write the file per-edit or not at all — a
+  partial apply that reports success is worse than a clean failure.**
+
+## Unreleased (2026-08-22, evening) — a five-domain battery audit: one real regression, and three bugs that had nothing to do with it
+
+- **"Battery life is a bit worse than it was, recently."** The audit found one thing both
+  recent and big enough to feel — and the phone's own health log had already recorded it
+  happening.
+- 🔑 **The upload server was pinning 240 MHz until someone remembered it.** The transfer
+  server is a term in the DFS busy predicate, so while it is up the CPU is pinned at 240 MHz,
+  the idle tick runs 5× faster, and the screen sleep timeout stretches to ten minutes —
+  roughly **double idle current**. Nothing ever released it: no idle timeout, no client-gone
+  timeout, no WiFi-loss timeout. Survivable while the only way to start it was a transfer
+  *screen*, whose destructor always calls `xferStop()`; `up on` / `up on books` start it
+  **headless**, with nothing to press Back on, and that path was two days old. **Measured, not
+  inferred:** last file landed at up=14 min, then **328 consecutive health samples at
+  cpu=240MHz with scr=0, from up=10 min to up=92 min** — 82 minutes at double idle draw with
+  the screen off, ended only because `up off` was typed by hand. Every single
+  240-MHz-with-screen-off sample in 4640 samples across 15 boots is inside that one window.
+  It now stops itself after ten idle minutes, deferred by any client traffic on either
+  transport, and the stamp is set at start so a server nobody visits still ages out.
+- **NTP backs off when there is no clock to be had** — the vendor's own
+  `// TODO: increase delay, if there is no Internet`, sitting above that loop since the
+  initial commit, and Nick was standing in it on an Android hotspot that blocks UDP 123.
+  Unbacked-off, a never-answering NTP woke the task **twice a second forever** and re-sent
+  every 2.5 s: ~24 radio wake-and-transmits a minute, indefinitely, against SIP's ~2, and it
+  never gives up because there is nothing to give up on. The fast 500 ms poll is still correct
+  at FIRST — it is how the reply gets picked up promptly on a working network — so it keeps
+  that for ~10 s, then doubles out to a one-minute ceiling. **A working network is completely
+  unaffected; a dead one costs about one wake a minute instead of 120.** This is a longstanding
+  cost, not the recent regression.
+- ⚠ **Two independent save/restore holders over one pair of globals do not nest.** Reading a
+  book and running the transfer server both stretched the screen timeouts by snapshotting
+  `dimAfterMs`/`sleepAfterMs` into their own fields. Open a book, `up on books`, close the
+  book, `up off` — and the last release writes back a value captured before the other holder
+  moved it, leaving a **ten-minute screen timeout at full backlight for the rest of the
+  session, silently, until a reboot**. Now `ControlState::holdScreenAwake()`, reference
+  counted, one snapshot on the first hold, restored by the last release; an unbalanced release
+  does nothing rather than restoring a snapshot nobody took.
+- ⚠ **`data/configs.ini` shipped `dimming=0` and `sleeping=0` with `bright_level=100`**, and
+  the missing-KEY fallbacks agreed with it — while the missing-SECTION branch twelve lines
+  below defaults BOTH TRUE. **A phone that got that image ran full backlight until flat,
+  silently**, and any `pio run -t uploadfs` would hand a device that state. All three now
+  agree: ON.
+- **The screen gate is relaxed from "lit" to "lit AND something was drawn in the last 2 s"**,
+  so a static menu no longer pays full clock for being stared at; every redraw stamps that
+  clock through one funnel in `GUI::redrawScreen` (twelve call sites), and anything with a
+  deadline — emulator, transfer server, audio, live SIP — forces 240 regardless. ⚠ **The trap
+  the obvious version falls into:** `busy` was ONE boolean feeding both the CPU frequency and
+  the 5 ms idle tick; loosen it and a lit screen also gets the slow tick, dragging every pump
+  in the loop. The predicates are separated and the tick keeps the ORIGINAL `busy` verbatim —
+  **do not re-merge them.** ⚠ **Never target below 80 MHz:** `calculateApb()` returns a flat
+  80 MHz for any CPU frequency ≥ 80, so an 80↔240 move reprograms no peripheral at all; below
+  80 the source becomes the XTAL, APB follows, and every SPI divider goes wrong.
+  *(The user-facing half of this was backed out the same night — see above.)*
+- **Also ruled OUT with numbers rather than hand-waving, so nobody re-chases them:** the DFS
+  gate itself (structurally leak-proof, one call site, level-triggered; 89% of samples idle
+  correctly at 80 MHz), the mesh health-check retry on a plateless phone (~0.1%, and it now
+  backs off from 10 s to 60 s after the first two minutes), the GPS UART left enabled with no
+  GPS (0.8 mA hard ceiling), and the duplicate-SMS storm (~0.01 mA — three orders of magnitude
+  below noticeable, correcting an earlier guess that it mattered).
+
+## Unreleased (2026-08-22, midday) — every text arriving twice, and the SIP receive path had no de-duplication at all
+
+- **Nick, out of town: every text arriving twice or more.** COVEY was POWERED OFF, which
+  rules the SMS mirror out completely — both copies came in over SIP, and the SIP receive
+  path called `saveMessage()` for whatever arrived, with no de-duplication of any kind.
+- **A UDP MESSAGE whose 200 OK does not get back to the server is retransmitted by that
+  server** (RFC 3261 timer E/F, up to seven times over ~32 s), and each copy became another
+  message in the thread. The phone acks correctly per RFC 3428; the likely reason the ack goes
+  unmatched is **a symmetric NAT on an unfamiliar network** mapping the reply to a different
+  port than the request arrived on. That is a property of the network, so the phone has to
+  tolerate it rather than fix it.
+- **De-duplicated on Call-ID + CSeq** — the RFC identity of a retransmission, and exactly what
+  a genuine second text does NOT share: send "ok" twice and you get two Call-IDs. **So this
+  cannot merge two real messages**, which matters, because people do send the same word twice.
+  Eight-entry ring, far more than one transaction's ~7 retries.
+- ⚠ **Every copy is still acked, repeats included.** Going quiet on the second one is what
+  would guarantee five more.
+- ⚠ **It is also an instrument.** If duplicates survive it, the dropped-retransmit log line
+  names the Call-ID — and duplicates carrying DIFFERENT Call-IDs would mean VoIP.ms is
+  re-pushing the queued text as a fresh transaction after each REGISTER (we re-register every
+  60 s) rather than retransmitting one. That is a different fault needing a
+  content-plus-window guard instead.
+- **The count is what proves it**: a measured triplicate, and phone 2 cleared on four
+  independent grounds. COVEY seeing exactly one copy is the load-bearing clue — it puts the
+  duplication in SIP delivery, not in the account.
+
+## Unreleased (2026-08-22, morning) — the woods plate is finished, and a radio that lied about existing is made honest
+
+- 🔑 **THE PLATE MADE A NEW FAILURE MODE POSSIBLE, AND IT WAS SILENT.** The radio lives on
+  the external pack and the phone can outlive it by hours. Measured on the bench with the pack
+  disconnected and the phone alive: **the phone's own driven pins back-fed the whole plate
+  through ESD clamp diodes.** `3V3_PLATE` floated at 2.54 V (one diode below 3.3), the 5 V
+  node at 2.18 V (backwards through the TLV's high-side body diode — the 0.36 V delta is the
+  diode saying so). An RFM95W runs at 2.5 V: **it answered its version probe, the mesh screen
+  said READY, RX worked, and TX was silently impossible.** The GPS LED blinked dimly on a plate
+  with no battery. **Silent is worse than wedged.**
+- **R3–R6 (4 × 1 kΩ, series) go in the four phone-driven lines** — W14 MOSI, W15 SCK, W16 NSS,
+  W18 GPS-RX — capping each clamp path at ~2 mA so the rail collapses and **absence reads as
+  absence**. W13 MISO and W17 GPS-TX stay plain wire: plate-driven, and the EN gate means the
+  plate is never powered while the phone is off. Timing untouched (~15 µs/bit bit-bang against
+  ~30 ns of added RC). R7 is the NSS pull-up.
+- **`MeshPhy::healthCheck()` — REG_VERSION *plus* REG_OP_MODE**, deliberately not version
+  alone: a radio whose pack comes BACK answers 0x12 from POR defaults (FSK standby, LoRa bit
+  clear) — present, deaf and mute. Op-mode catches both that and the collapsed-rail case. The
+  boot probe gets the same second opinion, a readback of the SLEEP+LoRa write, **so a floating
+  MISO cannot fake a radio by producing one lucky 0x12**. Checked every 5 s while READY,
+  dropping to `MESH_RADIO_ERROR` loudly; while ERROR it retries a full reinit every 10 s —
+  `begin()` is now a thin shell over `reinit()`, so recovery re-runs the entire register config
+  rather than trusting whatever survived. A swapped pack rejoins in ≤10 s with a boot-style
+  announce, no reboot. Cost while healthy: two bit-banged register reads (~240 µs) every 5 s.
+- **Proven on air, both halves witnessing the same hour:** Nick watched the mesh screen turn
+  Error with both supplies out, and the serial log caught RECOVERED plus the announce when
+  power returned. Plus the day's second discovery — **USB is a legitimate second supply for the
+  whole plate**: a power bank runs radio and GPS with no woods pack.
+- 🔑 **The woods GPS talks at 115200, not the 9600 written down — and COVEY knew all along.**
+  The module was fitted, powered and talking, with bytes climbing and sentences stuck at zero,
+  which is the documented wrong-baud signature. Measured by scanning: 9600 → 0 sentences,
+  38400 → 0, 57600 → 1, 19200 → 0, 230400 → 0, **115200 → 991 sentences and a live fix**. The
+  9600 was copied from COVEY's D-033, which recorded the *plan*; COVEY's own `covey_ui/gps.py`
+  has run this module at 115200 since D-062 measured 8.6 KB/s of NMEA off it. **One grep of the
+  sister repo would have replaced the whole scan**, and `Hardware.h` now says so where the next
+  person will read it. Verified: 22,773 sentences, 9 sats, HDOP 1.3, zero overruns.
+- **New: `gps baud <n>`** retunes the live port and persists, applied only while the reader owns
+  the UART (the user-serial GUI path keeps `USER_SERIAL_BAUD`), with every owner-changing path
+  now retuning — boot, `gps on|off`, and the My node toggle. **`gps raw`** dumps hex+ASCII of the
+  last 64 bytes: readable ASCII means the baud is right and something else is wrong, `b5 62`
+  means the module is speaking UBX binary, neither means the rate is still off. It ruled out UBX
+  here in one command.
+- **Wiring sheet v2: the rail is dual-sourced, so a dead pack no longer kills the radio.** D1
+  and D2 OR the PowerBoost's 5.2 V and the phone's own VBAT into a single buck-boost — pack
+  alive, 5.2 V wins and the phone's cell is untouched (v1 behaviour, kept); pack dead, VBAT
+  takes over. **No logic, no firmware, two diodes.** The part has to change with it: v1's
+  TLV62569 is a BUCK with a 3.4 V input floor and a 1S cell ends at 3.0 V, so it would drop out
+  exactly at the bottom of the discharge — **which is why the original design rejected VBAT and
+  recorded the rejection. That objection was about the part, not the idea.** Nothing removes a
+  charging path.
+- **TPS63020 ordered, and its PS pad gets a decision** rather than being left to chance: PS is
+  the power-save select, LOW gives pulse-skipping at light load which is what a plate idling
+  around 45 mA wants, **and the pin must not float**. ⚠ Two traps recorded while the part is
+  fresh: the 3V3/4V2/5V jumper ships UNSET for our purpose, and this part's EN thresholds are
+  tighter than the TLV62569's it replaces — V_IL 0.4 V against the Pololu alternative's 0.7 V.
+  The measured 0.22 V EN divider still passes, **with less headroom than v1 had**, which
+  promotes checklist item 4 from formality to load-bearing.
+- **Two phones now**, so the port gets named rather than assumed.
+
+## Unreleased (2026-08-21, evening) — first power on the plate, and a fuse that was sized for the wrong current
+
+- **First power, steps 1–4 passed:** 5 V rail 5.15 V, plate 3.3 V rail 0 V across C2 and C4,
+  identical on the bench supply and the LiPo. **The header 3.3 V pin measures 0.22 V with no
+  phone attached, and that single reading is worth more than it looks** — it IS the EN node via
+  W12, the divider predicts 0.231 V, and only a continuous W12 plus a correctly-valued R1 plus
+  an intact internal pull-up can produce it. It is also far easier to reach with a probe than
+  the TLV EN pad, so it is now the documented probe point.
+- ⚠ **Mount it cold.** The mesh is live, so the ESP32 drives SPI into an unpowered RFM95W if
+  the plate is mated hot, and ten contacts mate in an arbitrary order with 5.2 V sitting on the
+  5 V pin. ⚠ **The BT2.0 unplug, not the phone's power button, is the real off switch** — the
+  EN gate spares the plate rail, not the 5 V charge path.
+- ⚠ **The battery-leg polyfuse was undersized: 2 A hold, not 1 A** — and then **3 A**, once the
+  temperature derating was written down. Fitted as a GF300.
+- **The last open RF question closes:** it is a v2.2, and R6 tunes a trace this build does not
+  have. **R6 is 0 Ω, from WiPhone's own netlist — there is nothing in the antenna path.**
+
+## Unreleased (2026-08-21, later still) — the phone tells the mesh who it hears
+
+- **Neighbour info (portnum 71).** The phone keeps a RAM table of nodes heard with NO relay —
+  `hop_start == hop_limit`; **a missing `hop_start` is UNKNOWN, not direct**, because claiming a
+  relayed node as a neighbour would draw an edge that does not exist. Announced on the PRIVATE
+  channels only: **never the public primary, where it would hand our topology to any stranger
+  with a radio**, and never booksync/smsmirror, which carry machine traffic nobody reads.
+- My node > Neighbor info cycles off / 1 h / 4 h (1 h is the useful one for a hunting day; 4 h
+  matches what the stock module calls its floor). Serial `nbr` lists the table with signal and
+  age; `nbr on|4h|off|now` drives it, because the bench cannot wait an hour to learn whether a
+  packet is well formed.
+- **The encoder is hand-rolled protobuf pinned byte-for-byte to the real runtime's output via
+  generated vectors — which immediately earned it:** proto3 elides default-valued scalars, and
+  emitting `snr=0` where the reference emits nothing made our packet 5 bytes longer and
+  unreadable by comparison. ⚠ Multi-channel announces drip one per pass; three back-to-back
+  LongFast sends would stall the superloop into the watchdog.
+- Proven on air: COVEY logged `[nbr] !00449040 hears 1 node(s): !62b8d2fd`. 16 host suites green.
+
 ## Unreleased (2026-08-21, later) — the phone becomes COVEY's memory: mesh history replay
 
 - **New: mesh history replay** (docs/replay-spec.md). The phone keeps a ring of the
