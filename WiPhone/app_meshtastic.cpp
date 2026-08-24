@@ -351,9 +351,23 @@ void MeshtasticApp::buildThread() {
   }
 }
 
+/* ⭐ Starred nodes are marked with a leading "*", and ASCII is not a compromise here — the
+ * Akrobat faces are generated bitmap glyphs and nothing in this firmware renders a non-ASCII
+ * character, so a real star (U+2605) would come out as a hollow box. Same finding as the
+ * delivery receipts, which is why those say words rather than ticks. The "*" also names the
+ * key that toggles it. */
+static const char* meshStarName(const MeshNode* n, char* buf, size_t cap) {
+  if (!(n->pkiFlags & MESH_NODE_FAVOURITE)) {
+    return n->name;
+  }
+  snprintf(buf, cap, "*%s", n->name);
+  return buf;
+}
+
 void MeshtasticApp::buildNodes() {
   menu = newMenu("No nodes heard yet");
   char line[64];
+  char starBuf[MESH_NAME_LEN + 2];
 
   /* Distances are measured from the REFERENCE — a waypoint (Places) or the
    * user's own pin. The phone has no GPS; this is "where is everyone relative
@@ -391,11 +405,13 @@ void MeshtasticApp::buildNodes() {
                  meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)), refName,
                  (unsigned)((millis() - n->posHeardMs) / 60000u));
       }
-      menu->addOption(n->name, line, (MenuOption::keyType)(i + 1), 1);
+      menu->addOption(meshStarName(n, starBuf, sizeof(starBuf)), line,
+                      (MenuOption::keyType)(i + 1), 1);
     } else {
       snprintf(line, sizeof(line), "!%08x%s", n->nodeNum,
                n->posHeardMs != 0 ? "" : " - no position heard");
-      menu->addOption(n->name, line, (MenuOption::keyType)(i + 1), 1);
+      menu->addOption(meshStarName(n, starBuf, sizeof(starBuf)), line,
+                      (MenuOption::keyType)(i + 1), 1);
     }
   }
 }
@@ -802,6 +818,20 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
     if (LOGIC_BUTTON_BACK(event)) {
       enterState(MESH_MAIN);
       return REDRAW_ALL;
+    }
+    /* ⭐ The STAR KEY stars the node. OK is already "DM this node" and the list has no spare
+     * soft key, so this needed a plain key — and `*` naming the thing it does is the one
+     * mapping nobody has to be told twice. Starred nodes sort to the top of this list AND
+     * become the last thing evicted when the table fills, which on a public LongFast mesh is
+     * the half that actually matters. */
+    if (event == '*') {
+      MenuOption::keyType star = menu->currentKey();
+      if (star >= 1) {
+        const MeshNode* sn = meshService.getNode((int)star - 1);
+        if (sn && meshService.toggleFavourite(sn->nodeNum)) { /* starred */ }
+        buildNodes();                          // re-sorts: it may have just jumped to the top
+        return REDRAW_SCREEN;
+      }
     }
     menu->processEvent(event);
     if (LOGIC_BUTTON_OK(event)) {

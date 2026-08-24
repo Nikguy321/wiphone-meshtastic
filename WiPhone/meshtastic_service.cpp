@@ -369,12 +369,18 @@ MeshtasticService::MeshtasticService()
   : msgCount(0), nodeCount(0),
     radioState(MESH_RADIO_UNINITIALIZED),
     region("US"), channelName("LongFast"), modemPreset("LongFast"),
-    myNodeNum(0), recentPktPos(0), dbDirty(false), lastSaveMs(0), initialized(false) {
+    myNodeNum(0), recentPktPos(0), dbDirty(false), lastSaveMs(0), initialized(false),
+    nodes(NULL), nodeOrder(NULL), orderDirty(true), favCount(0) {
   messages = NULL;
   msgCount = 0;
   channelCount = 0;
   myHopLimit = 3;
-  memset(nodes, 0, sizeof(nodes));
+  /* ⚠ NO memset OF `nodes` HERE. It was `memset(nodes, 0, sizeof(nodes))` back when the
+   * table was a fixed member array, where sizeof gave the whole 32*84 bytes. `nodes` is a
+   * POINTER now, so sizeof(nodes) is 4 — and at construction time it is still NULL, which
+   * made this memset(NULL, 0, 4): a StoreProhibited panic in a GLOBAL CONSTRUCTOR, i.e. a
+   * boot loop before setup() ever ran. It compiles without a murmur. setup() allocates the
+   * table and zeroes it there; there is nothing to clear at this point. */
   memset(channels, 0, sizeof(channels));
   memset(recentPktIds, 0, sizeof(recentPktIds));
   memset(rebroadcast, 0, sizeof(rebroadcast));
@@ -929,7 +935,9 @@ void MeshtasticService::clearMessages() {
 
 void MeshtasticService::clearNodes() {
   nodeCount = 0;
-  memset(nodes, 0, sizeof(nodes));
+  if (nodes) {
+    memset(nodes, 0, (size_t)MESH_MAX_NODES * sizeof(MeshNode));   // NOT sizeof(nodes)
+  }
   upsertNode(myNodeNum, myLongName);          // keep this node in the list
   /* Cached session keys are derived from the stored pubkeys that were just
    * wiped — a stale entry here would keep "trusting" a key the user explicitly
@@ -977,6 +985,25 @@ void MeshtasticService::setup() {
   initialized = true;
 
   myNodeNum = chipId;
+
+  /* The node table moved OUT of internal RAM (it was a plain member array in BSS). Unlike the
+   * replay ring this DOES fall back to internal on a PSRAM failure: messages and replay are
+   * luxuries, but a phone with no node table cannot name a sender or DM anybody. */
+  nodes = (MeshNode*)ps_malloc((size_t)MESH_MAX_NODES * sizeof(MeshNode));
+  if (!nodes) {
+    nodes = (MeshNode*)malloc((size_t)MESH_MAX_NODES * sizeof(MeshNode));
+  }
+  nodeOrder = (uint16_t*)ps_malloc((size_t)MESH_MAX_NODES * sizeof(uint16_t));
+  if (!nodeOrder) {
+    nodeOrder = (uint16_t*)malloc((size_t)MESH_MAX_NODES * sizeof(uint16_t));
+  }
+  if (nodes) {
+    memset(nodes, 0, (size_t)MESH_MAX_NODES * sizeof(MeshNode));
+  } else {
+    log_e("MeshtasticService: NODE TABLE ALLOC FAILED");
+  }
+  nodeCount = 0;
+  orderDirty = true;
 
   // Allocate the message store in PSRAM (falls back to internal RAM if needed).
   messages = (MeshMessage*)ps_malloc((size_t)MESH_MSG_CAP * sizeof(MeshMessage));
@@ -1030,6 +1057,7 @@ void MeshtasticService::setup() {
   loadChannels();
 
   // Restore persisted nodes + message history (SPIFFS is mounted by now).
+  loadFavourites();      // before loadDb: restored nodes get their star stamped on
   loadDb();
 
   // Always register ourselves as a node, under our own name.
@@ -1877,6 +1905,7 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
   for (int i = 0; i < nodeCount; i++) {
     if (nodes[i].nodeNum == nodeNum) {
       nodes[i].lastHeardMs = millis();
+      orderDirty = true;               // "most recently heard" just changed
       if (name && name[0] && strcmp(nodes[i].name, name) != 0) {
         strlcpy(nodes[i].name, name, sizeof(nodes[i].name));
         dbDirty = true;   // name changed: persist soon
@@ -1920,34 +1949,38 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
      * ⚠ Never evict ourselves — we are in this table too (setup() upserts myNodeNum), and
      * losing our own entry would take our own name out of the UI.
      * ⚠ Signed difference for the comparison so it stays correct across millis() wraparound. */
-    int oldest = -1;                  // oldest keyless node: the preferred victim
-    int oldestAny = -1;               // oldest of all, used only if everything has a key
+    /* THREE TIERS, evicted worst-first, oldest-heard within a tier:
+     *   0  a plain stranger        — the normal victim
+     *   1  a peer whose key we know — costs working DMs to lose (see the note above)
+     *   2  ⭐ starred by Nick       — he said this node matters; the mesh does not get a vote
+     * A tier is only touched when every lower one is empty, so a table full of strangers can
+     * never push out a starred node, which is most of the point of starring. */
+    int victim[3] = { -1, -1, -1 };
     for (int i = 0; i < nodeCount; i++) {
       if (nodes[i].nodeNum == myNodeNum) {
         continue;
       }
-      if (oldestAny < 0 ||
-          (int32_t)(nodes[i].lastHeardMs - nodes[oldestAny].lastHeardMs) < 0) {
-        oldestAny = i;
+      int tier = 0;
+      if (nodes[i].pkiFlags & MESH_NODE_FAVOURITE) {
+        tier = 2;
+      } else if (nodes[i].pkiFlags & MESH_NODE_HAS_KEY) {
+        tier = 1;
       }
-      if (nodes[i].pkiFlags & MESH_NODE_HAS_KEY) {
-        continue;                     // keyed peer: spared while any keyless one remains
-      }
-      if (oldest < 0 ||
-          (int32_t)(nodes[i].lastHeardMs - nodes[oldest].lastHeardMs) < 0) {
-        oldest = i;
+      if (victim[tier] < 0 ||
+          (int32_t)(nodes[i].lastHeardMs - nodes[victim[tier]].lastHeardMs) < 0) {
+        victim[tier] = i;
       }
     }
-    if (oldest < 0) {
-      oldest = oldestAny;             // every peer is keyed — fall back to oldest-heard
-    }
+    int oldest = victim[0] >= 0 ? victim[0] : (victim[1] >= 0 ? victim[1] : victim[2]);
     if (oldest < 0) {
       return NULL;                    // table is nothing but ourselves: nothing to evict
     }
-    if (nodes[oldest].pkiFlags & MESH_NODE_HAS_KEY) {
-      log_e("MESH NODE: evicting KEYED peer !%08x '%s' - table is full of keyed nodes",
+    if (nodes[oldest].pkiFlags & (MESH_NODE_HAS_KEY | MESH_NODE_FAVOURITE)) {
+      log_e("MESH NODE: evicting %s peer !%08x '%s' - no lesser node left to drop",
+            (nodes[oldest].pkiFlags & MESH_NODE_FAVOURITE) ? "STARRED" : "KEYED",
             (unsigned)nodes[oldest].nodeNum, nodes[oldest].name);
     }
+    orderDirty = true;
     MeshNode& ev = nodes[oldest];
     /* Wipe the WHOLE slot before reuse: without this the new node inherits the
      * evicted node's pubKey/pkiFlags (a key it never announced) and its
@@ -1956,6 +1989,7 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
     memset(&ev, 0, sizeof(ev));
     ev.nodeNum = nodeNum;
     ev.lastHeardMs = millis();
+    applyFavouriteFlag(&ev);
     ev.snr = 0;
     if (name && name[0]) {
       strlcpy(ev.name, name, sizeof(ev.name));
@@ -1967,8 +2001,10 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
   }
 
   MeshNode& n = nodes[nodeCount];
+  orderDirty = true;
   n.nodeNum = nodeNum;
   n.lastHeardMs = millis();
+  applyFavouriteFlag(&n);          // a starred node that was evicted comes back starred
   n.snr = 0;
   if (name && name[0]) {
     strlcpy(n.name, name, sizeof(n.name));
@@ -1983,6 +2019,9 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
 
 #define MESH_DB_PATH      "/meshdb.bin"
 #define MESH_DB_TMP       "/meshdb.tmp"
+#define MESH_FAV_PATH     "/meshfav.bin"
+#define MESH_FAV_TMP      "/meshfav.tmp"
+#define MESH_FAV_MAGIC    0x31564146u   // "FAV1"
 #define MESH_DB_MAGIC     0x314D5057u   // "WPM1"
 /* v3: node position fields + waypoint tail. v4: MeshWaypoint gained lockedTo.
  *
@@ -2080,6 +2119,7 @@ void MeshtasticService::saveDb() {
 }
 
 void MeshtasticService::loadDb() {
+  orderDirty = true;                       // freshly loaded: nothing is sorted yet
   File f = SPIFFS.open(MESH_DB_PATH, "r");
   if (!f) {
     return;                             // first boot: nothing saved yet
@@ -2137,6 +2177,7 @@ void MeshtasticService::loadDb() {
     } else {
       if (f.read((uint8_t*)&n, sizeof(n)) != sizeof(n)) break;
     }
+    applyFavouriteFlag(&n);              // the star list outranks whatever the DB held
     nodes[nodeCount++] = n;
   }
   if (v1 || v2 || v3) {
@@ -2228,11 +2269,160 @@ int MeshtasticService::getNodeCount() const {
   return nodeCount;
 }
 
+/* Starred first, then most-recently-heard. Rebuilt lazily — the list is read far less often
+ * than it is written (every heard packet stamps lastHeardMs), so sorting on read is much the
+ * cheaper end. Insertion sort: nearly-sorted input is the normal case and 200 entries of a
+ * uint16 index is nothing. */
+void MeshtasticService::rebuildNodeOrder() {
+  if (!nodes || !nodeOrder) {
+    return;
+  }
+  for (int i = 0; i < nodeCount; i++) {
+    nodeOrder[i] = (uint16_t)i;
+  }
+  for (int i = 1; i < nodeCount; i++) {
+    uint16_t v = nodeOrder[i];
+    int j = i - 1;
+    while (j >= 0) {
+      const MeshNode& a = nodes[nodeOrder[j]];
+      const MeshNode& b = nodes[v];
+      const bool aFav = (a.pkiFlags & MESH_NODE_FAVOURITE) != 0;
+      const bool bFav = (b.pkiFlags & MESH_NODE_FAVOURITE) != 0;
+      bool bBeforeA;
+      if (aFav != bFav) {
+        bBeforeA = bFav;                                   // starred outranks everything
+      } else {
+        bBeforeA = (int32_t)(b.lastHeardMs - a.lastHeardMs) > 0;   // wrap-safe: newer first
+      }
+      if (!bBeforeA) {
+        break;
+      }
+      nodeOrder[j + 1] = nodeOrder[j];
+      j--;
+    }
+    nodeOrder[j + 1] = v;
+  }
+  orderDirty = false;
+}
+
 const MeshNode* MeshtasticService::getNode(int index) const {
-  if (index < 0 || index >= nodeCount) {
+  if (index < 0 || index >= nodeCount || !nodes) {
     return NULL;
   }
-  return &nodes[index];
+  if (!nodeOrder) {
+    return &nodes[index];                                  // alloc failed: unsorted beats none
+  }
+  if (orderDirty) {
+    const_cast<MeshtasticService*>(this)->rebuildNodeOrder();
+  }
+  return &nodes[nodeOrder[index]];
+}
+
+void MeshtasticService::applyFavouriteFlag(MeshNode* n) const {
+  if (!n) {
+    return;
+  }
+  for (int i = 0; i < favCount; i++) {
+    if (favIds[i] == n->nodeNum) {
+      n->pkiFlags |= MESH_NODE_FAVOURITE;
+      return;
+    }
+  }
+  n->pkiFlags &= (uint8_t)~MESH_NODE_FAVOURITE;
+}
+
+void MeshtasticService::loadFavourites() {
+  favCount = 0;
+  File f = SPIFFS.open(MESH_FAV_PATH, "r");
+  if (!f) {
+    return;                                  // never starred anything yet
+  }
+  uint32_t magic = 0;
+  uint8_t n = 0;
+  if (f.read((uint8_t*)&magic, 4) == 4 && magic == MESH_FAV_MAGIC &&
+      f.read(&n, 1) == 1) {
+    if (n > MESH_MAX_FAVOURITES) {
+      n = MESH_MAX_FAVOURITES;
+    }
+    for (uint8_t i = 0; i < n; i++) {
+      uint32_t id = 0;
+      if (f.read((uint8_t*)&id, 4) != 4) {
+        break;                               // short file: keep what we got
+      }
+      if (id) {
+        favIds[favCount++] = id;
+      }
+    }
+  }
+  f.close();
+  if (favCount) {
+    log_e("MESH: %d starred node(s) restored", (int)favCount);
+  }
+}
+
+/* Temp-then-rename, for the same reason saveDb now does it: this file is small enough to be
+ * written in one go, but a reset landing mid-write would otherwise cost the whole list — and
+ * unlike the node table, nothing can rebuild it. */
+void MeshtasticService::saveFavourites() {
+  SPIFFS.remove(MESH_FAV_TMP);
+  File f = SPIFFS.open(MESH_FAV_TMP, "w");
+  if (!f) {
+    log_e("mesh: saveFavourites open failed");
+    return;
+  }
+  uint32_t magic = MESH_FAV_MAGIC;
+  f.write((const uint8_t*)&magic, 4);
+  f.write((const uint8_t*)&favCount, 1);
+  for (int i = 0; i < favCount; i++) {
+    f.write((const uint8_t*)&favIds[i], 4);
+  }
+  f.close();
+  SPIFFS.remove(MESH_FAV_PATH);
+  if (!SPIFFS.rename(MESH_FAV_TMP, MESH_FAV_PATH)) {
+    log_e("mesh: saveFavourites RENAME FAILED - star list left as it was");
+  }
+}
+
+bool MeshtasticService::isFavourite(uint32_t nodeNum) const {
+  const MeshNode* n = findNode(nodeNum);
+  return n && (n->pkiFlags & MESH_NODE_FAVOURITE);
+}
+
+bool MeshtasticService::toggleFavourite(uint32_t nodeNum) {
+  int at = -1;
+  for (int i = 0; i < favCount; i++) {
+    if (favIds[i] == nodeNum) {
+      at = i;
+      break;
+    }
+  }
+  bool on;
+  if (at >= 0) {
+    for (int i = at; i < favCount - 1; i++) {
+      favIds[i] = favIds[i + 1];
+    }
+    favCount--;
+    on = false;
+  } else {
+    if (favCount >= MESH_MAX_FAVOURITES) {
+      log_e("MESH NODE: star list is full (%d) - unstar something first", MESH_MAX_FAVOURITES);
+      return false;
+    }
+    favIds[favCount++] = nodeNum;
+    on = true;
+  }
+  /* The list is the truth; the flag on the node is a cache of it. */
+  for (int i = 0; i < nodeCount; i++) {
+    if (nodes[i].nodeNum == nodeNum) {
+      applyFavouriteFlag(&nodes[i]);
+      log_e("MESH NODE: !%08x '%s' %s", (unsigned)nodeNum, nodes[i].name,
+            on ? "STARRED" : "unstarred");
+      break;
+    }
+  }
+  orderDirty = true;
+  saveFavourites();                    // its own file, written now, not on the DB debounce
+  return on;
 }
 
 const MeshNode* MeshtasticService::findNode(uint32_t nodeNum) const {

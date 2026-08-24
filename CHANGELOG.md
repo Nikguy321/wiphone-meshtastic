@@ -1,5 +1,49 @@
 # Changelog
 
+## Unreleased (2026-08-24, midday) — the node list grows 6x and learns to be starred
+
+- **`MESH_MAX_NODES` 32 → 200, and the table moved to PSRAM.** It was a plain member array on a
+  global, so it lived in BSS — **the internal RAM that actually panics this phone** — at 84 bytes
+  a node. `ps_malloc`'d now, the same treatment `messages` already had. Measured on hardware:
+  free internal heap at boot went **133,816 → 136,232**, so the bigger table costs *less* real
+  RAM than the small one did.
+- **Why 200 and not more:** PSRAM is not the constraint (3.6 MB free ≈ 44,000 nodes) and neither
+  is the database — the message store can already take that file to 242 KB against the node
+  table's 16 KB. The binding constraint is a person scrolling the list, which is what starring
+  answers. Saves are debounced and fire only on a real change, so a bigger table is not
+  proportionally more flash writes.
+- ⭐ **Starred nodes.** Press `*` on the Nodes list. They sort to the top, and **they are the last
+  thing evicted** — eviction now has three tiers (plain stranger → keyed peer → starred), each
+  only touched when every lesser tier is empty. On a public LongFast mesh full of strangers,
+  that second half is the one that matters: it is the same failure that silently killed DMs to
+  COVEY, made impossible for the nodes Nick actually cares about.
+- 🔑 **The starred IDs live in their OWN small file (`/meshfav.bin`), not just as a bit in the
+  database.** Nick asked whether they could live somewhere a power cut cannot reach. The reason
+  to do it is better than durability alone: **the node table is machine data — every entry is
+  rediscoverable by listening to the mesh. The stars are the one thing in there that is not.**
+  So they get their own file, written only when you press `*`, temp-then-renamed, instead of
+  riding inside a 250 KB blob rewritten whenever any node is heard.
+  It also makes a star **survive eviction**: the list is the truth and the flag on `MeshNode` is
+  a cache re-applied whenever a node is created, so a starred node pushed out of a full table
+  comes back starred — and immediately eviction-proof again — the moment it is heard.
+  ⚠ **SPIFFS, deliberately not the SD card**: 4 bytes per star makes size irrelevant, and SPIFFS
+  is always mounted whereas a card can be absent.
+- **New serial command `star`** — bare it lists, with a node it toggles. Same reason `send`
+  exists: a feature reachable only by a thumb on a screen cannot be proven from the cable.
+- 🔴 **THIS SHIPPED A BOOT LOOP FIRST, AND NICK FOUND IT BEFORE I DID.** The constructor still had
+  `memset(nodes, 0, sizeof(nodes))` from when `nodes` was a fixed array — where `sizeof` gave the
+  whole 2,688 bytes. Against a pointer `sizeof(nodes)` is **4**, and at construction time it is
+  still NULL, so this was `memset(NULL, 0, 4)`: **StoreProhibited inside a global constructor**,
+  panicking before `setup()` ever ran. It compiles without a warning. Decoded from the backtrace
+  with `addr2line`, which named the constructor in one pass after guessing had named nothing.
+- ⚠ **The process failure is the more useful lesson: I flashed and moved on without reading the
+  boot log.** The verification I *did* run filtered serial for expected strings, got nothing, and
+  I read "no matches" instead of "no readable output at all" — which is itself the boot-loop
+  signature, because the ROM bootloader talks at **115200** while that capture listened at
+  500000. **A flash is not finished until something confirms `Booted` and the absence of `Guru`.**
+  The check now does exactly that, and reports the readable fraction so garbage cannot look like
+  silence.
+
 ## Unreleased (2026-08-24, overnight) — `saveDb()` truncated the database in place, and a night of resets proved it
 
 - 🔴 **`saveDb()` OPENED THE REAL FILE WITH `"w"` — TRUNCATE, THEN REWRITE IN PLACE.** Anything

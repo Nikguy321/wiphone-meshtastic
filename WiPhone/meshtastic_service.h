@@ -19,7 +19,19 @@
 
 #define MESH_MSG_CAP        1000     // total message capacity (allocated in PSRAM)
 #define MESH_MAX_PER_CHAT    150     // max stored messages per conversation
-#define MESH_MAX_NODES       32      // known-node database size
+/* Known-node database size. ⚠ WAS 32, AND THE TABLE WAS A PLAIN MEMBER ARRAY — so it lived in
+ * BSS, i.e. the INTERNAL RAM that actually panics this phone, at 84 bytes a node. It is a
+ * ps_malloc'd pointer now (same treatment as `messages`), which BOTH gives back ~2.6 KB of
+ * internal RAM and makes the cap a question about PSRAM (3.6 MB free) rather than about the
+ * scarce pool. Nick, on a public LongFast mesh: "let's see how big we can grow the node list
+ * without any big detriments. I do enjoy seeing the mesh."
+ *
+ * 200 x 84 B = ~17 KB of PSRAM and the same again in the SPIFFS database (partition is 3.6 MB).
+ * Saves are debounced and only fire on a real change — a new node, a name, a learned key — not
+ * on every packet, so a bigger table does not mean proportionally more flash writes.
+ * The binding constraint at this size is not memory, it is a person scrolling the list, which
+ * is what MESH_NODE_FAVOURITE below exists to answer. */
+#define MESH_MAX_NODES      200      // known-node database size (PSRAM)
 #define MESH_TEXT_LEN       234      // max text payload (Meshtastic on-air max ~233)
 #define MESH_NAME_LEN        24      // node long/short name buffer
 #define MESH_SHORT_NAME_MAX   4      // Meshtastic short name: 4 characters, by convention
@@ -80,6 +92,17 @@ typedef struct {
 // MeshNode.pkiFlags bits.
 #define MESH_NODE_HAS_KEY       0x01   // pubKey holds this node's X25519 key
 #define MESH_NODE_KEY_MISMATCH  0x02   // a LATER NodeInfo carried a DIFFERENT key
+/* ⭐ Starred by the user. Two effects, and the second is the one that matters:
+ *   1. sorts to the TOP of the node list, ahead of everything else;
+ *   2. is NEVER evicted while any unstarred node remains — the same protection a learned
+ *      public key earns, for the same reason. A mesh of strangers should not be able to push
+ *      out the handful of nodes you actually care about. See upsertNode(). */
+#define MESH_NODE_FAVOURITE     0x04
+
+/* How many nodes can be starred. Kept small and in INTERNAL ram on purpose (128 B): this is a
+ * hand-curated list, not a mesh-sized one, and it has to be consultable the instant a node is
+ * created. */
+#define MESH_MAX_FAVOURITES     32
                                        // (kept the first one — trust-on-first-use,
                                        // like stock; Clear nodes re-learns)
 
@@ -140,10 +163,12 @@ public:
   // Mark a conversation's messages read (channel by hash, or DM by peer).
   void               markRead(bool isChannel, uint8_t channelHash, uint32_t peer);
 
-  // Nodes are ordered most-recently-heard first.
+  // Nodes come back in DISPLAY order: starred first, then most-recently-heard.
   int                getNodeCount() const;
   const MeshNode*    getNode(int index) const;      // NULL if out of range
   const MeshNode*    findNode(uint32_t nodeNum) const;
+  bool               toggleFavourite(uint32_t nodeNum);   // returns the NEW starred state
+  bool               isFavourite(uint32_t nodeNum) const;
 
   // ---- Channels ------------------------------------------------------------
   int                getChannelCount() const;
@@ -290,6 +315,26 @@ private:
   bool      addChannel(const char* name, const uint8_t* key, uint8_t keyLen);   // merge
   void      loadChannels();         // from SPIFFS
   void      saveChannels();         // to SPIFFS
+
+  /* ⭐ STARRED IDS LIVE IN THEIR OWN TINY FILE, NOT ONLY AS A BIT IN THE BIG DATABASE.
+   * The node table is machine data — every entry in it is rediscoverable by listening to the
+   * mesh. The stars are the one thing in there that is NOT: they are Nick's judgement about
+   * which nodes matter, and nothing can regenerate them. So they get their own durability,
+   * the same way channels do, instead of riding along in a ~250 KB file that is rewritten
+   * whenever any node is heard.
+   *
+   * It also means a star SURVIVES EVICTION. The list is the source of truth and the flag on
+   * MeshNode is a cache of it, re-applied whenever a node is created — so a starred node that
+   * got pushed out of a full table comes back starred (and immediately eviction-proof again)
+   * the moment it is heard from.
+   *
+   * SPIFFS, deliberately, NOT the SD card: this is 4 bytes per star, so size is irrelevant,
+   * and SPIFFS is always mounted whereas a card can be absent. */
+  uint32_t  favIds[MESH_MAX_FAVOURITES];
+  uint8_t   favCount;
+  void      loadFavourites();       // from SPIFFS, into favIds
+  void      saveFavourites();       // to SPIFFS, atomically
+  void      applyFavouriteFlag(MeshNode* n) const;   // stamp the cached bit from favIds
   MeshChannel channels[MESH_MAX_CHANNELS];
   int         channelCount;
 
@@ -298,7 +343,13 @@ private:
   MeshMessage* messages;
   int          msgCount;
 
-  MeshNode    nodes[MESH_MAX_NODES];
+  MeshNode*   nodes;                // PSRAM (see MESH_MAX_NODES); internal fallback
+  /* Display order, rebuilt lazily: starred first, then most-recently-heard. An INDEX rather
+   * than sorting `nodes` itself, because findNode()/upsertNode() hand out MeshNode* that
+   * callers hold across statements — re-sorting the array under them would dangle. */
+  uint16_t*   nodeOrder;
+  bool        orderDirty;
+  void        rebuildNodeOrder();
   int         nodeCount;
 
   MeshRadioState radioState;

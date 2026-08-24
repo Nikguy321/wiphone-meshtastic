@@ -82,6 +82,7 @@ static void help() {
     "  health all dump the whole file, not just the last 24 KB",
     "  chan <url> apply a Meshtastic channel invite URL",
     "  chans      list the channels this phone has",
+    "  star [<!node>]  list starred nodes, or toggle one (top of list, evicted last)",
     "  send <i> <text>  send a channel text (index from `chans`) - proves the broadcast receipt",
     "  pki        DM crypto state: our key, who has keys, stack headroom",
     "  announce   broadcast NodeInfo now, asking others to answer with theirs",
@@ -736,6 +737,38 @@ static void run(char* line) {
     bool ok = meshService.sendChannelMessage(c->hash, end);
     say("send: %s on [%ld] '%s' - watch for 'MESH RECEIPT: ... -> in mesh'\n",
         ok ? "sent" : "REFUSED", idx, c->name);
+    return;
+  }
+  /* `star [<!nodehex>]` — bare, it lists what is starred; with a node, it toggles. Exists for
+   * the same reason `send` does: the UI path is a key press on a screen, and a feature that
+   * can only be exercised by a thumb cannot be proven from the cable. */
+  if (!strncasecmp(line, "star", 4) && (line[4] == 0 || line[4] == ' ')) {
+    const char* p = line + 4;
+    while (*p == ' ') {
+      p++;
+    }
+    if (!*p) {
+      int shown = 0;
+      for (int i = 0; i < meshService.getNodeCount(); i++) {
+        const MeshNode* n = meshService.getNode(i);
+        if (n && (n->pkiFlags & MESH_NODE_FAVOURITE)) {
+          say("  * !%08x '%s'\n", (unsigned)n->nodeNum, n->name);
+          shown++;
+        }
+      }
+      say("star: %d starred (they sort to the top and are evicted last)\n", shown);
+      return;
+    }
+    if (*p == '!') {
+      p++;
+    }
+    uint32_t node = (uint32_t)strtoul(p, NULL, 16);
+    if (!node) {
+      say("star: usage star            (list)\n      star <!nodehex>  (toggle)\n");
+      return;
+    }
+    bool on = meshService.toggleFavourite(node);
+    say("star: !%08x is now %s\n", (unsigned)node, on ? "STARRED" : "not starred");
     return;
   }
   if (!strcasecmp(line, "chans")) {
