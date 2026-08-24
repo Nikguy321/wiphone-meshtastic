@@ -127,7 +127,12 @@ void MeshtasticApp::enterState(MeshAppState_t state) {
     break;
   }
   case MESH_NODES:
-    header->setTitle("Nodes");
+    /* The key hint rides in the TITLE because nothing else on this screen can carry it: the
+     * footer's two slots are already the OK action and Back, and `*` is neither. Starring
+     * worked from the day it shipped and was still undiscoverable — nothing anywhere told you
+     * the key existed. Kept to 13 characters; "Direct message" (14) is an existing title on
+     * this same header, so this fits with room to spare. */
+    header->setTitle("Nodes  *=star");
     footer->setButtons("Message", "Back");
     buildNodes();
     break;

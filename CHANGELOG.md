@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased (2026-08-24, later) — `chg=` settled: the flag was inverted as well as mis-read
+
+- ✅ **THE POLARITY QUESTION IS ANSWERED, AND IT TOOK FIVE MINUTES OFF THE CHARGER.** The charger
+  IC's STAT output is open-drain — it pulls the line DOWN on the charger and releases it (pull-up
+  → high) off it. The read was `== HIGH`, so the flag has been **inverted for the life of the
+  project**, on top of reading the wrong GPIO entirely until earlier today, which is what hid it.
+- **Measured, one continuous boot, one build stamp, no confound:**
+
+  ```
+  up=20  v=4.20  chg=0     on the charger
+  up=21  v=4.15  chg=1     <- unplugged; voltage starts falling
+  up=25  v=4.11  chg=1     still on battery
+  up=26  v=4.18  chg=0     <- replugged; voltage jumps back
+  ```
+
+  `chg=1` tracked **not charging** throughout, and the voltage curve says so independently of the
+  flag. This is exactly the run that could not be done overnight, and the build stamp added hours
+  earlier is what makes it attributable rather than arguable.
+- ⚠ **The overnight caution was right to hold, and so was refusing to act on it.** A 135-sample
+  run last night looked like proof of this same inversion, and it could not be separated from the
+  pre-fix confound where the flag was reading a UART TX line that idles high. It turns out to have
+  been real — **but it was not knowable then**, and the correct call was to record both readings
+  and go get a measurement that admits only one.
+- ⚠ **WHAT IS STILL NOT ESTABLISHED:** whether the line reports *charging* or merely *charger
+  present*. Post-fix, plugged in at soc=100% and 4.19 V, it still reads `chg=1` — which is either
+  a charger still topping off, or a pin that tracks USB presence rather than charge current.
+  **`chg=1` may safely be read as "on the charger". Do not yet read it as "current is flowing".**
+  Settling that needs a run left plugged until charging genuinely terminates.
+- **Also:** the Nodes screen title now reads `Nodes  *=star`. Starring worked from the day it
+  shipped and was still undiscoverable — the footer's two slots are the OK action and Back, and
+  `*` is neither, so nothing anywhere told you the key existed.
+
 ## Unreleased (2026-08-24, afternoon) — the SIP flap, the starvation under it, and two loose ends closed
 
 - 🔑 **SIP registration no longer flaps, and the reason the last attempt failed was never the

@@ -2784,7 +2784,20 @@ void loop() {
 #else
       gui.state.cardPresent = false;
 #endif
-      gui.state.battCharged = allDigitalRead(BATTERY_CHARGING_STATUS_PIN) == HIGH ? true : false;
+      /* ⚠ ACTIVE LOW. The charger IC's STAT output is open-drain: it PULLS THE LINE DOWN while
+       * charging and releases it (pull-up → high) when it is not. This read was `== HIGH`, so
+       * the flag has been inverted for the life of the project — on top of reading the wrong
+       * GPIO entirely until 2026-08-24, which is what hid it.
+       *
+       * MEASURED, one continuous boot, one build stamp, no confound (2026-08-24):
+       *     up=20  v=4.20  chg=0     on the charger
+       *     up=21  v=4.15  chg=1     <- unplugged; voltage starts falling
+       *     up=25  v=4.11  chg=1     still on battery
+       *     up=26  v=4.18  chg=0     <- replugged; voltage jumps back
+       * chg=1 tracked NOT CHARGING throughout, and the voltage curve says so independently of
+       * the flag. ⚠ Do not "correct" this back without repeating that unplug/replug run: it is
+       * the only measurement that distinguishes a tapered charger from an inverted pin. */
+      gui.state.battCharged = allDigitalRead(BATTERY_CHARGING_STATUS_PIN) == LOW ? true : false;
 
       /* ── HEALTH LINE ────────────────────────────────────────────────────────────
        * One line a minute, at log_e so it is visible in the field. It answers both of
