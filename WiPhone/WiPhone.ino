@@ -1216,12 +1216,19 @@ void setup() {
 
   // GPIOs
 
+  /* ⚠ allPinMode, NOT pinMode: BATTERY_CHARGING_STATUS_PIN is EXTENDER_PIN(0) == 64 and the
+   * ESP32 has GPIO 0-39, so plain pinMode() configured a pin that does not exist and this
+   * line did nothing at all. Benign only because the real configuration happens correctly
+   * via allPinMode() in the extender block earlier in setup() — but a line that looks like
+   * it sets up the charge-status input, and does not, is exactly how the sibling bug in the
+   * battery tick survived so long (see the note there). BATTERY_PPR_PIN is a genuine GPIO
+   * (37) and is fine either way; it goes through the same accessor for consistency. */
 #ifdef WIPHONE_INTEGRATED
-  pinMode(BATTERY_CHARGING_STATUS_PIN, INPUT);
-  pinMode(BATTERY_PPR_PIN, INPUT);
+  allPinMode(BATTERY_CHARGING_STATUS_PIN, INPUT);
+  allPinMode(BATTERY_PPR_PIN, INPUT);
 #endif // WIPHONE_INTEGRATED
 #ifdef WIPHONE_BOARD
-  pinMode(BATTERY_CHARGING_STATUS_PIN, INPUT);
+  allPinMode(BATTERY_CHARGING_STATUS_PIN, INPUT);
   //pinMode(USB_POWER_DETECT_PIN, INPUT);
 #endif // WIPHONE_BOARD
 

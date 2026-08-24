@@ -82,6 +82,7 @@ static void help() {
     "  health all dump the whole file, not just the last 24 KB",
     "  chan <url> apply a Meshtastic channel invite URL",
     "  chans      list the channels this phone has",
+    "  send <i> <text>  send a channel text (index from `chans`) - proves the broadcast receipt",
     "  pki        DM crypto state: our key, who has keys, stack headroom",
     "  announce   broadcast NodeInfo now, asking others to answer with theirs",
     "  dm <!node> <text>  send a direct message (PKI when the key is known)",
@@ -700,6 +701,41 @@ static void run(char* line) {
     say("dm: %s to !%08x (%s) - watch for 'MESH DM ACK ... err=0' = delivered\n",
         ok ? "sent" : "REFUSED", (unsigned)node,
         pki ? "PKI" : "LEGACY - no key, 2.5+ nodes drop it");
+    return;
+  }
+  /* `send <idx> <text>` — a CHANNEL text from the cable. Born of a gap in the receipt work:
+   * `dm` could prove the DM receipt end to end (`MESH DM ACK ... err=0` -> "delivered"), but
+   * the BROADCAST receipt had no way to be exercised without typing on the handset, so
+   * "in mesh" shipped as the one unproven state. A broadcast is acknowledged implicitly —
+   * hearing our own packet rebroadcast is the ack — so watch for `MESH RECEIPT: ... -> in
+   * mesh` a second or two after this, which also proves somebody out there relayed it.
+   * Index, not hash: `chans` prints the indices and a hash is not something anyone can type. */
+  if (!strncasecmp(line, "send ", 5)) {
+    const char* p = line + 5;
+    while (*p == ' ') {
+      p++;
+    }
+    char* end = NULL;
+    long idx = strtol(p, &end, 10);
+    if (!end || end == p || *end != ' ') {
+      say("send: usage send <chan-index> <text>   (see `chans`)\n");
+      return;
+    }
+    while (*end == ' ') {
+      end++;
+    }
+    if (!*end) {
+      say("send: empty message\n");
+      return;
+    }
+    const MeshChannel* c = meshService.getChannel((int)idx);
+    if (!c) {
+      say("send: no channel at index %ld (see `chans`)\n", idx);
+      return;
+    }
+    bool ok = meshService.sendChannelMessage(c->hash, end);
+    say("send: %s on [%ld] '%s' - watch for 'MESH RECEIPT: ... -> in mesh'\n",
+        ok ? "sent" : "REFUSED", idx, c->name);
     return;
   }
   if (!strcasecmp(line, "chans")) {

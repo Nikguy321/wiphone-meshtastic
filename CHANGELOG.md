@@ -39,8 +39,26 @@
   ```
 
   together with the earlier failure case (`err=6` → `failed: they could not decrypt it`).
-  ⚠ **`in mesh` — the implicit broadcast ack — is still unproven**, because there is no serial
-  command that sends a channel text and the path could not be exercised from the cable.
+- ✅ **AND `in mesh` IS PROVEN TOO — all three states are now measured, none inferred.** A new
+  serial command closed the gap: `send <chan-index> <text>` sends a channel text from the
+  cable, which `dm` could not do, and which is why "in mesh" shipped unproven a few hours
+  earlier.
+
+  ```
+  send: sent on [1] 'Howe group'
+  MESH RECEIPT: 'goodnight from the wiphone' -> in mesh
+  ```
+
+  Because the acknowledgement is implicit, that line is also proof that something out there
+  relayed the packet — the receipt and the reachability check are the same observation.
+- **Also fixed, same family as the extender-pin bug:** `setup()` called plain `pinMode()` on
+  `BATTERY_CHARGING_STATUS_PIN` (`EXTENDER_PIN(0)` == 64) in both board branches — configuring
+  a pin the ESP32 does not have, so those lines did nothing. Benign, because the real
+  configuration happens correctly through `allPinMode()` in the extender block earlier in
+  setup — but **a line that looks like it sets up the charge-status input and does not is
+  exactly how the sibling bug in the battery tick survived so long.** An audit of every raw
+  `digitalRead`/`digitalWrite`/`pinMode` call against the extender-pin list found no others:
+  the remaining ones are all genuine ESP32 GPIOs.
 
 ## Unreleased (2026-08-24) — delivery receipts on mesh messages, and the WiFi row moves into Settings
 
