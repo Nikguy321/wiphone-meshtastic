@@ -1,5 +1,47 @@
 # Changelog
 
+## Unreleased (2026-08-24, later) — DMs to COVEY were silently failing, because a stranger evicted its encryption key
+
+- 🔑 **THE NODE TABLE THREW AWAY COVEY'S PUBLIC KEY TO MAKE ROOM FOR A STRANGER, AND EVERY DM
+  TO IT HAD BEEN FAILING SILENTLY EVER SINCE.** `upsertNode()` evicted strictly oldest-heard
+  at the 32-node cap, and the slot wipe (rightly) takes `pubKey`/`pkiFlags` with it. On
+  LongFast — a public channel full of nodes we will never DM — COVEY goes quiet, loses its
+  slot to the 32nd stranger, and comes back keyless the next time it speaks. Keyless means
+  DMs fall back to the pre-2.5 legacy form, which COVEY refuses to decrypt.
+- **Measured, and the diagnosis is airtight:** the phone held COVEY as a bare `'!62b8d2fd'`
+  with NO KEY, while the docs recorded it as `'Nick H New Device'` key `HepOEI6R…`. After
+  recovery it reads `'Nick H New Device' key HepOEI6RPnBxEmLqSb8gezCVaVd0qO+3JYo1Ky2+fCM=` —
+  and `HepOEI6R` base64-decodes to `1d ea 4e 10 …`, exactly the `learned key for !62b8d2fd
+  (1dea4e10...)` the phone logged on relearning it. **The key never rotated. Eviction simply
+  binned it.**
+- **A node whose public key we know is now evicted LAST.** The scan prefers the oldest
+  *keyless* node and only falls back to oldest-overall when every peer is keyed — which
+  cannot deadlock and matches the old behaviour exactly on a table full of keyed peers. A
+  peer we can do end-to-end crypto with is worth more than the 32nd stranger heard, always.
+  Evicting a keyed peer now logs, because it should be rare enough to notice.
+- ⚠ **This was found by the delivery receipt shipped hours earlier**, which is the entire
+  argument for that feature. The failure was completely silent before: the message appeared
+  in the thread and looked sent. The receipt said `failed: they could not decrypt it - key
+  mismatch (err=6)` and pointed straight at it.
+- **Recovery, and it is worth writing down: restarting `covey-ui` makes COVEY re-announce.**
+  The phone's own `announce` (NodeInfo with want_response) drew replies from two strangers
+  across three minutes but never from COVEY — `nbr` shows **0 direct neighbours**, so COVEY is
+  multi-hop and its replies were not surviving the trip, even though routed NAKs were. A
+  `sudo systemctl restart covey-ui` on the Pi triggered its NodeInfo immediately and the phone
+  logged `MESH PKI: learned key for !62b8d2fd - DMs unlocked`. No config was written and no
+  key was injected by hand; trust-on-first-use is intact.
+- ✅ **BOTH RECEIPT BRANCHES ARE NOW PROVEN ON AIR.**
+
+  ```
+  dm: sent to !62b8d2fd (PKI)
+  MESH DM ACK from !62b8d2fd for id=0x056414bc err=0
+  MESH RECEIPT: 'hello from the wiphone' -> delivered
+  ```
+
+  together with the earlier failure case (`err=6` → `failed: they could not decrypt it`).
+  ⚠ **`in mesh` — the implicit broadcast ack — is still unproven**, because there is no serial
+  command that sends a channel text and the path could not be exercised from the cable.
+
 ## Unreleased (2026-08-24) — delivery receipts on mesh messages, and the WiFi row moves into Settings
 
 - **The WiFi toggle lives in Settings now**, leading the WiFi group, above "Edit current

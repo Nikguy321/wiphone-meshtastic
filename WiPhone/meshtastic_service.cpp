@@ -1899,14 +1899,39 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
    * internal RAM is what panics this phone. A 32-entry most-recently-heard window is more
    * useful than a frozen 32-entry oldest-heard one, at identical cost.
    *
-   * ⚠ Never evict ourselves — we are in this table too (setup() upserts myNodeNum), and
-   * losing our own entry would take our own name out of the UI.
-   * ⚠ Signed difference for the comparison so it stays correct across millis() wraparound. */
+   * (Eviction order, and why a keyed peer outranks a stranger, is documented at the loop.) */
   if (nodeCount >= MESH_MAX_NODES) {
-    int oldest = -1;
+    /* 🔑 A NODE WHOSE PUBLIC KEY WE KNOW IS EVICTED LAST, and this is not a nicety — it is
+     * the difference between DMs working and failing silently.
+     *
+     * MEASURED 2026-08-24: COVEY (!62b8d2fd) sat in this table as a bare '!62b8d2fd' with NO
+     * KEY, while the docs record it as 'Nick H New Device' with its key learned months ago.
+     * Oldest-heard eviction had thrown it out in favour of the 32nd stranger on LongFast —
+     * a public channel full of nodes we will never DM — and the memset below (rightly) took
+     * its public key with it. When COVEY next spoke it came back keyless, so every DM to it
+     * fell back to the pre-2.5 legacy form, which COVEY refuses to decrypt. The delivery
+     * receipt added the same day is what made that visible: `err=6, key mismatch`.
+     *
+     * A node we can do end-to-end crypto with is worth more than the 32nd stranger heard,
+     * always. So: evict the oldest KEYLESS node; only if every one of them has a key does
+     * this fall back to oldest-overall, which cannot deadlock and matches the old
+     * behaviour exactly on a table full of keyed peers.
+     *
+     * ⚠ Never evict ourselves — we are in this table too (setup() upserts myNodeNum), and
+     * losing our own entry would take our own name out of the UI.
+     * ⚠ Signed difference for the comparison so it stays correct across millis() wraparound. */
+    int oldest = -1;                  // oldest keyless node: the preferred victim
+    int oldestAny = -1;               // oldest of all, used only if everything has a key
     for (int i = 0; i < nodeCount; i++) {
       if (nodes[i].nodeNum == myNodeNum) {
         continue;
+      }
+      if (oldestAny < 0 ||
+          (int32_t)(nodes[i].lastHeardMs - nodes[oldestAny].lastHeardMs) < 0) {
+        oldestAny = i;
+      }
+      if (nodes[i].pkiFlags & MESH_NODE_HAS_KEY) {
+        continue;                     // keyed peer: spared while any keyless one remains
       }
       if (oldest < 0 ||
           (int32_t)(nodes[i].lastHeardMs - nodes[oldest].lastHeardMs) < 0) {
@@ -1914,7 +1939,14 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
       }
     }
     if (oldest < 0) {
+      oldest = oldestAny;             // every peer is keyed — fall back to oldest-heard
+    }
+    if (oldest < 0) {
       return NULL;                    // table is nothing but ourselves: nothing to evict
+    }
+    if (nodes[oldest].pkiFlags & MESH_NODE_HAS_KEY) {
+      log_e("MESH NODE: evicting KEYED peer !%08x '%s' - table is full of keyed nodes",
+            (unsigned)nodes[oldest].nodeNum, nodes[oldest].name);
     }
     MeshNode& ev = nodes[oldest];
     /* Wipe the WHOLE slot before reuse: without this the new node inherits the
