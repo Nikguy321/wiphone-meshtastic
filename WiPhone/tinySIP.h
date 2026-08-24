@@ -631,7 +631,14 @@ public:
    * state on the phone that owns Nick's number, it needs him present to verify inbound
    * calls still land, and it was not worth guessing at while he was away. The visible
    * cost of leaving it is a brief icon flicker and one redraw per refresh. */
-  static const uint32_t REGISTER_PERIOD_MS = 60000;   // vendor value; see the note above
+  /* 45 s against a 60 s expiry: refresh with headroom so a refresh in flight never races the
+   * expiry check. ⚠ ON ITS OWN THIS CHANGES NOTHING — it was tried alone on 2026-08-22 and
+   * merely moved the flap to every 45 s. It is the other half of not clearing `registered`
+   * in requestRegister(); both are needed and neither works without the other.
+   * The ON-AIR Expires header is deliberately left at REGISTER_EXPIRATION_S so a dead phone's
+   * binding still clears at the registrar within 60 s, which is what keeps handing the SIP
+   * account between the two phones fast. The cost is one extra REGISTER every three minutes. */
+  static const uint32_t REGISTER_PERIOD_MS = 45000;
   static const uint32_t REGISTER_EXPIRATION_S = 60;    //modified to one minute // 15 min (in seconds)
   static const uint32_t STALE_CONNECTION_MS = 10000;    // 10 seconds
   static const uint32_t T1_MS = 500u;                   // 500 ms; RFC 3261, Section 17: "The default value for T1 is 500 ms"

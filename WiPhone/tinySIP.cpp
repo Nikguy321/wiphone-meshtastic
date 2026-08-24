@@ -1285,7 +1285,20 @@ int TinySIP::requestRegister(Connection& tcp) {
 
   msLastRegisterRequest = msLastKnownTime;
   this->registrationRequested = true;
-  this->registered = false;
+  /* ⚠ DO NOT CLEAR `registered` WHEN MERELY REFRESHING. This line is the whole flap: every
+   * REGISTER declared the phone unregistered for one round trip, so it read
+   * REGISTERED -> lost -> REGISTERED once a minute, forever, since the initial commit — and
+   * each flap fired REGISTRATION_UPDATE_EVENT, a redraw, and a 240 MHz boost for nothing.
+   *
+   * A FAILED refresh is still covered, and that is what makes this safe: registrationInvalid()
+   * measures REGISTER_EXPIRATION_S from msLastRegistered, which only a 200 OK advances. Stop
+   * getting 200s and the registration goes invalid on its own within the expiry window.
+   * ⚠ It only works together with REGISTER_PERIOD_MS < REGISTER_EXPIRATION_S — see the note in
+   * tinySIP.h. With both equal at 60 s the expiry tripped at the same instant the refresh was
+   * due, so clearing or not made no difference. Neither half fixes this alone, which is why
+   * the 45 s attempt on its own did not. */
+  /* (There is deliberately no assignment here. An initial registration already has
+   * `registered == false`, and a refresh must keep the true it has.) */
   if(UDP_SIP) {
     tcp.endPacket();
   }
@@ -1547,7 +1560,11 @@ int TinySIP::declineCall() {
  *      send REGISTER request to the current server
  */
 int TinySIP::registration() {
-  log_d("TinySIP::register");
+  /* Compiled-in, because the whole reason this bug survived since the initial commit is that
+   * the only line reporting it was log_d, and log_d is not built into this firmware. If
+   * registration silently stops being CALLED, this is the line whose absence says so. */
+  log_e("SIP REGISTER -> sending (registered=%d everRegistered=%d)",
+        (int)this->registered, (int)this->everRegistered);
   if (ensureIpConnection(tcpProxy, proxyIpAddr, TINY_SIP_PORT)) {         // stale connection is checked against msLastReceived
     requestRegister(*tcpProxy);
   }
@@ -1556,6 +1573,24 @@ int TinySIP::registration() {
 
 int TinySIP::ping(uint32_t now) {
   log_d("TinySIP::ping");
+  /* 🔑 STAMP THE ATTEMPT, NOT THE SUCCESS — THIS IS WHY REGISTRATION COULD GO `lost` AND
+   * NEVER COME BACK.
+   *
+   * The caller is an if/else chain: `if (ping is due) ping(); else if (register is due)
+   * registration();`. msLastPing used to be written only INSIDE the connected() branch below,
+   * so with the connection down the stamp never advanced, `elapsedMillis(msNow, msLastPing,
+   * PING_PERIOD_MS)` stayed true on every pass, the ping branch was taken every time, and
+   * registration() WAS NEVER REACHED AGAIN. A phone that lost its connection could not
+   * re-register itself; only a reboot recovered it.
+   *
+   * That is the failure that got the last attempt at the flap fix reverted on 2026-08-22
+   * ("20 minutes later the phone went `lost` and never came back"), and it was never the
+   * flap fix's doing — this starvation is reachable on its own and has been since the
+   * beginning. Stamping the attempt means a failed ping costs one ping period, then the
+   * else-branch gets its turn and registration is retried on schedule. */
+  if (tcpProxy != NULL) {
+    tcpProxy->msLastPing = now;
+  }
   if (ensureIpConnection(tcpProxy, proxyIpAddr, TINY_SIP_PORT)) {         // stale connection is checked against msLastReceived
     if (tcpProxy->connected()) {
       TCP((*tcpProxy), TINY_SIP_CRLF TINY_SIP_CRLF);
