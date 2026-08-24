@@ -1,26 +1,67 @@
 # WiPhone — session handoff
 
-## ▶▶ NEXT SESSION — TASK LIST (rewritten 2026-08-23 afternoon)
+## ▶▶ NEXT SESSION — TASK LIST (rewritten 2026-08-24, overnight)
 
-Read this first; everything below it is narrative. Repo clean and pushed at **f85ee2c**.
-Both phones run the keypad fixes; **phone 1 also has** the health-log dump, the raised log cap
-and the WiFi toggle (phone 2 does not — it is on `483c3a6`-era firmware).
+Read this first; everything below it is narrative. Repo clean at **6ad1cc2**.
+**Phone 1 is flashed with everything below and verified on air.** Phone 2 is still on
+`483c3a6`-era firmware and now lags by a lot — see P4.
 
-### P1 — the battery experiment, set up and waiting on Nick
+### ✅ Closed since the last rewrite — do not redo these
 
-Everything needed is built and flashed. **The point: a real on-battery run measured 15.7 %/h
-(~6.4 h), not the ~10 h this document claimed for weeks, and the phone was off any known network
-for 86 % of it. Is the WiFi hunting the cause?**
+- **The battery experiment RAN.** Idle, WiFi off, screen off: **~8.6 %/h**, about 1.8× better
+  than the 15.7 %/h mixed-use figure. ⚠ **And the endpoint read of that same hour says 15.74 %/h,
+  which is wrong** — the first ~20 minutes off a charger are surface-charge relaxation, not draw.
+  Split into blocks it decays 25.3 → 12.6 → 8.6 %/h with the last two agreeing (−41 and −40 mV/h).
+  🔑 **The retired "~10 h" figure was measured correctly all along** (`HANDOFF.md` recorded it as
+  steady state with the first 30 min discarded = 10.0 %/h); it is the 15.7 %/h run that is the
+  outlier, contaminated twice over — nothing discarded, and the radio hunting for 86 % of it.
+  **Quote a rate with its conditions, never an hours figure**, until a run starts an hour after
+  unplugging and continues into the flat part of the curve.
+- **The WiFi toggle moved to Settings**, leading the WiFi group. Nick used it for the run above.
+- **Delivery receipts on mesh messages**, all three states proven on air: `me - sent`,
+  `me - delivered` (DM ACK err=0), `me - in mesh` (broadcast implicit ack), `me - failed`.
+  ⚠ **Delivery, never READ** — Meshtastic cannot report that a human read anything.
+- **`chg=` root-caused.** It read GPIO 32, not the charger: `battCharged` used plain
+  `digitalRead()` on `EXTENDER_PIN(0)` == 64, and `gpio_get_level()` masks its shift to 5 bits
+  so `>> 32` became `>> 0`. `cardPresent` was reading GPIO 33 (I2S word-select) the same way.
+  Both use `allDigitalRead()` now. Every other raw pin call in the firmware was audited: clean.
+- **`health` no longer lies for the first 15 s after boot** (`cardPresent` is seeded in `setup()`).
+- **DMs to COVEY were failing silently and now work** — see P1.
 
-- [ ] **Charge to full, then unplug with WiFi OFF for an hour** (Nick's plan). New: main menu →
-      **"WiFi: on"** → one press → **"WiFi: off"**.
-- [ ] Then `health` on serial and compare %/h against the 15.7 %/h run.
-      ⚠ **Compare like with like.** Voltage slope is NOT linear in SOC, so a block at 4.1 V and a
-      block at 3.9 V are not comparable — start both runs from the same charge.
-- [ ] ⚠ **Do NOT change the scan interval before measuring.** That is exactly how the DFS
-      experiment went wrong: a plausible fix shipped ahead of a measurement, and it cost keypresses.
+### P1 — ⚠ WATCH FOR THIS RECURRING: your own devices getting evicted
 
-### P2 — needs Nick present, small, real
+**DMs from phone 1 to COVEY had been failing silently, for a while.** The 32-node table evicted
+strictly oldest-heard, and the slot wipe takes `pubKey`/`pkiFlags` with it — so on LongFast, a
+public channel full of nodes we will never DM, COVEY lost its slot to the 32nd stranger and came
+back **keyless**. Keyless = DMs fall back to the pre-2.5 legacy form, which COVEY refuses
+(`err=6`). The message appeared in the thread and looked sent. **The delivery receipt is what
+made it visible, hours after shipping.**
+
+Fixed: a node whose public key we know is evicted **last**. But the cap is still 32 on a public
+mesh, so:
+
+- [ ] **If DMs to COVEY ever go quiet again, run `pki` FIRST.** `NO KEY` for `!62b8d2fd` is the
+      whole diagnosis.
+- [ ] 🔑 **To make COVEY re-announce its key: `ssh covey` → `sudo systemctl restart covey-ui`.**
+      It emits NodeInfo on start and phone 1 logs `MESH PKI: learned key ... DMs unlocked`.
+      ⚠ **The phone's own `announce` is NOT reliable for this** — it drew NodeInfo from two
+      strangers across three minutes and never from COVEY, because `nbr` shows **0 direct
+      neighbours**: COVEY is multi-hop, and its NodeInfo replies do not survive the trip even
+      though routed NAKs do.
+- [ ] Consider whether 32 is the right cap now that this phone sits on LongFast.
+
+### P2 — the one open measurement: is `chg=` polarity inverted?
+
+- [ ] **Settle it from a LOW pack.** After the fix, `chg=` still read 0 on USB at soc=96 % with
+      voltage *rising* (4.14 → 4.15 → 4.17). Two readings fit and this cannot be separated near
+      full: the charger has legitimately tapered, **or** the polarity is inverted — charge-status
+      pins on this class of IC are typically open-drain and **active LOW while charging**, which
+      would make `== HIGH ? true : false` exactly backwards.
+      ⚠ **Do not flip it on the theory.** Run the pack down, plug in, and watch `chg=` in `health`
+      across the transition. A transition in EITHER direction proves the pin is alive and tells
+      you the polarity; no transition at all means it is floating and wants a pull-up.
+
+### P3 — needs Nick present, small, real
 
 - [ ] **SIP registration: the deeper fix, second attempt — INSTRUMENTATION FIRST, on PHONE 2.**
       🛑 The fix WORKED (53 flaps in 31 min → 0) and was still reverted: 20 min later the phone
@@ -29,10 +70,9 @@ for 86 % of it. Is the WiFi hunting the cause?**
       the class of each REGISTER response. Leading suspect, unproven: `ping()` (tinySIP.cpp:1567)
       writes `msLastPing` only *inside* `if (connected())`, so a failing ping starves
       registration() forever. Ruled out already: `wifiTerminateCall()`, `terminateCall()`.
-- [ ] **Nick's verdict on the WiFi toggle** — it is flashed but nobody has pressed it. It logs
-      `WIFI toggled -> ON/OFF` at log_e, so the press is visible on serial.
+- [x] ~~Nick's verdict on the WiFi toggle~~ — used for the idle run, and now lives in Settings.
 
-### P3 — hardware, parts in hand
+### P4 — hardware, parts in hand
 
 - [ ] **Build plate v2.** ⚠ ORDER: bench ONE TPS63020 off the plate first (set its **3V3 jumper**,
       tie **PS LOW**); meter header **VBAT → GND** (must read the phone cell and TRACK it); meter
@@ -42,7 +82,7 @@ for 86 % of it. Is the WiFi hunting the cause?**
       (`docs/woods-backplate-v1-to-v2.svg`) so the built plate need not be re-checked wire by wire.
       The shared artifact carries both; its source is `docs/woods-backplate-artifact.html`.
 
-### P4 — setup, unblocked, quick
+### P5 — setup, unblocked, quick
 
 - [ ] **Phone 2: flash it to match phone 1**, then set booksync passcode → `2222`.
 - [ ] **Phone 2 SIP**: a second free VoIP.ms sub-account + a ring group, so both phones ring.
@@ -67,6 +107,12 @@ for 86 % of it. Is the WiFi hunting the cause?**
 - ⚠ **Only `log_e` is compiled in.** A `log_d` diagnostic makes a working feature and a broken one
   look identical.
 - ⚠ **A scripted multi-edit must write per-edit or not at all.**
+- ⚠ **`digitalRead`/`digitalWrite`/`pinMode` DO NOT REACH THE GPIO EXTENDER.** Half this board's
+  status pins are `EXTENDER_PIN(n)` == `n + 0x40` on the SX1509, which is out of the ESP32's
+  GPIO 0–39 range — and the Arduino core does not reject an out-of-range pin, it silently reads
+  a DIFFERENT one (`gpio_get_level()` masks its shift to 5 bits, so pin 64 reads GPIO 32).
+  **Always `allDigitalRead` / `allDigitalWrite` / `allPinMode`.** This cost two dead status flags
+  for the life of the project. Audited clean 2026-08-24; keep it that way.
 - ⚠ **Menu IDs: count UP (48+ is free), never fill the 8/25 gaps.** A duplicate is SILENT;
   `GUI::init()`'s boot check is the only thing that catches it, and it has shipped twice.
 - ⚠ **Never restate a constant in a second file.** The `health` trailer did, and was stale within
@@ -89,7 +135,17 @@ voltage curve instead.
 
 **3.00 h on battery: soc 99 % → 52 %, v 4.13 → 3.80. That is 15.7 %/h, or ~6.4 h from full to
 empty.** The handoff has said **~10 h** since the power work; this is the first measurement taken
-**off** USB, and it is a third short of that claim. Treat 10 h as unproven from here on.
+**off** USB.
+
+⚠ **"Treat 10 h as unproven from here on" — written here on 08-23 — WAS AN OVERCORRECTION, and
+it is this 15.7 %/h run that is the outlier.** The ~10 h figure was recorded (§ "Battery: ~10
+hours measured") as *steady state with the first 30 minutes discarded (surface charge)* =
+10.0 %/h. That is the same relaxation correction rediscovered from scratch on 08-23 evening,
+when a WiFi-off idle hour came in at **8.6 %/h** — within 1.4 %/h of the old number. This 3.0 h
+run discarded **nothing** and had the radio hunting for 86 % of it, which inflates it twice over.
+**Quote a rate with its conditions attached; stop converting either into an hours figure** until
+a run starts an hour after unplugging and continues into the flat part of the curve. No run has
+ever watched a pack go full to empty.
 
 **What it was NOT** — both ruled out by the same samples:
 - **Not the screen.** Screen was off for **177 of 181** samples.
@@ -114,12 +170,26 @@ difference will be obvious; if it is not, the baseline draw is the finding and t
 exonerated. **Do not change the scan interval before measuring** — that is how the DFS experiment
 went wrong.
 
-### ✅ `chg=` IS DEFINITIVELY DEAD — now proven, not suspected
+### ✅ `chg=` WAS DEAD BECAUSE IT READ THE WRONG CHIP — root-caused and fixed 2026-08-24
 
 It read **0 in all 807 samples**, including two unmistakable charging periods (soc climbing
-89 % → 100 %, and 53 % → 86 % during the drive home, voltage rising through both). The handoff
-called this "its own small mystery"; it is now a measured fact. **Nothing may infer charge state
-from that flag.** The voltage curve is the only honest source.
+89 % → 100 %, and 53 % → 86 % during the drive home, voltage rising through both). This document
+called it "its own small mystery", then a measured fact. **The cause turned out to be a one-line
+bug, found while chasing something else entirely.**
+
+`battCharged` used plain `digitalRead(BATTERY_CHARGING_STATUS_PIN)` — but that pin is
+`EXTENDER_PIN(0)` == **64** on the SX1509, and the ESP32 has GPIO 0–39. `digitalRead()` does not
+reject an out-of-range pin: `gpio_get_level()` evaluates `(in1.data >> (pin - 32)) & 1` and the
+Xtensa shift masks its amount to 5 bits, so `>> 32` became `>> 0`. **It was reading GPIO 32**
+(USER_SERIAL_TX / MotorEN), which idles low — hence 0, forever, through every charge.
+`cardPresent` had the identical bug and was reading **GPIO 33**, the I2S word-select clock.
+Both go through `allDigitalRead()` now.
+
+⚠ **The flag is still not trustworthy, for a different reason.** After the fix it *still* read 0
+on USB at soc=96 % with voltage rising. Either the charger had legitimately tapered near full, or
+the polarity is inverted (these STAT pins are typically open-drain, **active LOW while charging**,
+which makes `== HIGH ? true : false` backwards). **Settle it from a low pack — see P2 — and do
+not flip it on the theory.** Until then the voltage curve remains the only honest source.
 
 ### 🛠 HOW THE LOG WAS READ, AND WHY NOT OVER WIFI
 
