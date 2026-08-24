@@ -82,6 +82,7 @@ static void help() {
     "  health all dump the whole file, not just the last 24 KB",
     "  chan <url> apply a Meshtastic channel invite URL",
     "  chans      list the channels this phone has",
+    "  wifi drop  simulate a hotspot blip, to measure the reconnect path",
     "  star [<!node>]  list starred nodes, or toggle one (top of list, evicted last)",
     "  send <i> <text>  send a channel text (index from `chans`) - proves the broadcast receipt",
     "  pki        DM crypto state: our key, who has keys, stack headroom",
@@ -832,6 +833,15 @@ static void run(char* line) {
     }
     free(buf);
     say("bench: done (8192 bytes per pass, the shape a real save has)\n");
+    return;
+  }
+  /* `wifi drop` — simulate a hotspot blip: disconnect WITHOUT marking the radio user-disabled,
+   * so the main loop's retry path engages exactly as it does in the field. Exists because the
+   * 5-second freeze Nick feels while scrolling only happens on a reconnect, and a bug that
+   * needs someone else's access point to misbehave cannot be measured on demand otherwise. */
+  if (!strcasecmp(line, "wifi drop")) {
+    WiFi.disconnect();
+    say("wifi: dropped (not user-disabled) - the retry path will now run; watch for SLOW WIFI\n");
     return;
   }
   if (!strcasecmp(line, "chans")) {

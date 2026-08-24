@@ -1,5 +1,51 @@
 # Changelog
 
+## Unreleased (2026-08-24, late) — the scrolling freeze was never the database: it is `WiFi.disconnect(true)`
+
+- 🔑 **`WiFi.disconnect(true)` BLOCKS FOR 5007 ms. `WiFi.begin()` next to it takes 30.** The
+  argument is `wifioff`, so that call runs `esp_wifi_stop()` and tears the entire radio down
+  purely in order to reassociate:
+
+  ```
+  SLOW WIFI: connectToWiFi [disconnect(true)=5007 begin=30 other=0]
+  ```
+
+  One task means those five seconds froze the keypad, the screen and the WiFi stack together.
+- **This is the freeze Nick kept feeling while scrolling, and the database work never touched
+  it.** It explains every part of the report that did not fit: why it was rare (it needs the
+  hotspot to blip), why it always came with "and WiFi dropped" (**the drop was not a symptom of
+  the freeze — it was the trigger for it**), and why it survived moving the save off the input
+  path and then onto the SD card.
+- **How it was found, because the guessing had to stop.** The stall detector was made to persist
+  into `/health.log`, which showed two distinct populations: `scr=0 cpu=80` (idle — the database
+  saves, landing exactly where they were meant to) and `scr=65 cpu=240 wifi=6` (screen on, phone
+  active, WiFi already down). That second group pointed at the reconnect path rather than at
+  storage. A `TIME_STEP()` macro then named the call, and three successive splits walked it down:
+
+  | | |
+  |---|---|
+  | `connectToPreferred` | 5296 ms |
+  | → `loadPreferred` 0 ms, `connectTo` | **5296 ms** |
+  | → `loadNetworkSettings` 7 ms, `connectToWiFi` | **5037 ms** |
+  | → `begin` 30 ms, `disconnect(true)` | **5007 ms** |
+
+- **The fix is one argument: `WiFi.disconnect(false)`.** A plain disassociate is all a reconnect
+  needs — `WiFi.begin()` sets the new config regardless, so the "delete old config" comment was
+  describing work that `begin()` redoes anyway. ⚠ The genuine full cycle
+  (`WiFi.disconnect(true, true)`) is untouched where it belongs, in the hard reset.
+- **Verified both directions after the change:** a forced drop produces **no `SLOW WIFI`, no
+  `SLOW STEP` and no `LOOP STALL`** — and the phone still reconnects, with SIP re-registering on
+  its own (`registered: yes | wifi: up`). A fix that removed the freeze by breaking reconnection
+  would have been worse than the bug.
+- 🛠 **New serial command `wifi drop`** — disconnects WITHOUT marking the radio user-disabled, so
+  the field retry path runs on demand. A bug that needs somebody else's access point to
+  misbehave cannot be measured otherwise, and this one had already survived two rounds of
+  fixing the wrong thing.
+- ⚠ **A note on the two earlier rounds, kept honestly:** the database save really was blocking
+  for ~1.5 s and really is better on the SD card. It simply was not what Nick was feeling. The
+  lesson is the one the stall detector exists to enforce — **the symptom named a component, and
+  the component was innocent.**
+
 ## Unreleased (2026-08-24, night) — the mesh database moves to the SD card, and the benchmark is why
 
 - 🔑 **BENCHMARKED BEFORE COMMITTING, because the previous recommendation in this same session

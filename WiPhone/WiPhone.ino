@@ -403,6 +403,13 @@ static char bootLine[120] = {0};
  * GUI's interface for one reader. Used only to hold off the ~1.5 s mesh database save while
  * somebody is scrolling — see MeshtasticService::setUiIdle(). */
 static uint32_t gLastKeyMs = 0;
+
+/* Time one named step of the superloop and say so if it blocked. The whole-pass stall detector
+ * says THAT a pass froze; this says WHICH call did it. Added chasing the freeze Nick still felt
+ * while scrolling after the database save was moved off the input path — the persisted STALL
+ * records showed `scr=65 cpu=240 wifi=6`, i.e. screen on, phone active, WiFi already down, so
+ * the remaining culprit is somewhere in the reconnect path rather than in storage. */
+#define TIME_STEP(name, call)                                                          do {                                                                                   const uint32_t _t0 = millis();                                                       call;                                                                                const uint32_t _d = millis() - _t0;                                                  if (_d > 150) {                                                                        log_e("SLOW STEP: %s took %u ms (wifi=%d) - the whole loop waited on it",                   name, (unsigned)_d, (int)WiFi.status());                                     }                                                                                  } while (0)
 // True while the Game Boy emulator app is running. The main loop then skips the
 // mesh/LoRa polling so the emulator has the SPI bus and CPU to itself.
 volatile bool gGbcActive = false;
@@ -2659,7 +2666,9 @@ void loop() {
        * stopped the server (found live, 2026-08-20 — the "books upload locked up"). */
       const bool xferBlocksWifi = gbcXferOn() && xferUsingAP();
       if (!xferBlocksWifi && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && due && !wifiState.userDisabled()) {
-        if (wifiState.connectToPreferred()) {
+        bool _cp = false;
+        TIME_STEP("connectToPreferred", _cp = wifiState.connectToPreferred());
+        if (_cp) {
           log_d("Connecting to WiFi");
         } else {
           log_d("Not connecting to WiFi");
@@ -2685,7 +2694,7 @@ void loop() {
           s_wifiQuiesceAtMs = lastAttempt + 30000u;
         } else {
           s_wifiQuiesceAtMs = 0;
-          WiFi.disconnect();            // reason the driver does NOT auto-reconnect from
+          TIME_STEP("WiFi.disconnect(quiesce)", WiFi.disconnect());
           log_e("[wifi] eased retry: radio quiesced until the next attempt");
         }
       }
@@ -2719,7 +2728,7 @@ void loop() {
       // Same softAP-only rule as the reconnect gate above: an STA-mode transfer
       // server must not stop the machinery that would bring its network back.
       if (!gGbcActive && !(gbcXferOn() && xferUsingAP()) && !callBusy) {
-        wifiState.autoSwitchTick(gui.state.screenBrightness > 0);
+        TIME_STEP("autoSwitchTick", wifiState.autoSwitchTick(gui.state.screenBrightness > 0));
       }
     }
 

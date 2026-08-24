@@ -84,8 +84,24 @@ void connectToWiFi(const char* ssid, const char* pwd) {
 
   log_d("Connecting to network: %s", ssid);
 
-  // delete old config
-  WiFi.disconnect(true);
+  /* 🔑 `false`, NOT `true`. The argument is `wifioff`, so WiFi.disconnect(true) calls
+   * esp_wifi_stop() and tears the whole radio down just to reassociate — and MEASURED on this
+   * phone that costs **5007 ms**, against 30 ms for the WiFi.begin() that follows it:
+   *
+   *     SLOW WIFI: connectToWiFi [disconnect(true)=5007 begin=30 other=0]
+   *
+   * Everything here is one task, so those five seconds froze the keypad, the screen and the
+   * WiFi stack together. That is the freeze Nick reported while scrolling — it needed the
+   * hotspot to blip, which is why it was rare and why it always came with "and WiFi dropped":
+   * the drop was not a symptom of the freeze, it was the trigger for it.
+   *
+   * A plain disassociate is all a reconnect needs; WiFi.begin() sets the new config regardless,
+   * so "delete old config" was never doing work that begin() would not redo.
+   * ⚠ The FULL cycle still exists deliberately elsewhere (`WiFi.disconnect(true, true)` in the
+   * hard reset) — this is only the reconnect path. */
+  const uint32_t _wt0 = millis();
+  WiFi.disconnect(false);
+  const uint32_t _wtDisc = millis();
   wifiState.setConnected(false, false);
 
   /* ⚠ THE EVENT HANDLER IS REGISTERED ONCE, IN Networks::init() — NOT HERE.
@@ -116,7 +132,14 @@ void connectToWiFi(const char* ssid, const char* pwd) {
    * exactly the "never recovers" part. */
 
   //Initiate connection
+  const uint32_t _wtPre = millis();
   WiFi.begin(ssid, pwd);
+  const uint32_t _wtBegin = millis();
+  if (_wtBegin - _wt0 > 150) {
+    log_e("SLOW WIFI: connectToWiFi [disconnect=%u begin=%u other=%u]",
+          (unsigned)(_wtDisc - _wt0), (unsigned)(_wtBegin - _wtPre),
+          (unsigned)(_wtPre - _wtDisc));
+  }
 
   // Limit transmit power to 14 dBm
   int rv = 0;
@@ -377,12 +400,24 @@ void Networks::loadPreferred() {
 
 bool Networks::connectTo(const char* ssid) {
   log_d("connectTo");
+  /* Split-timed: loadNetworkSettings() reads networks.ini from SPIFFS, and SPIFFS `open` alone
+   * costs ~1.6 s on this part (measured with `bench`), while connectToWiFi() is documented as
+   * async. One of those two claims is wrong and this says which. */
+  const uint32_t t0 = millis();
   // Load password and connect to WiFi network
-  if (this->loadNetworkSettings(ssid)) {
-    connectToWiFi(wifiSsidDyn, wifiPassDyn);    // async
-    return true;
+  const bool loaded = this->loadNetworkSettings(ssid);
+  const uint32_t tIni = millis();
+  bool r = false;
+  if (loaded) {
+    connectToWiFi(wifiSsidDyn, wifiPassDyn);    // "async"
+    r = true;
   }
-  return false;
+  const uint32_t total = millis() - t0;
+  if (total > 150) {
+    log_e("SLOW WIFI: connectTo %u ms [loadNetworkSettings=%u connectToWiFi=%u]",
+          (unsigned)total, (unsigned)(tIni - t0), (unsigned)(millis() - tIni));
+  }
+  return r;
 }
 
 bool Networks::hasPreferredSsid(void) {
@@ -400,16 +435,27 @@ bool Networks::hasPreferredSsid(void) {
 
 bool Networks::connectToPreferred(void) {
   log_d("connectToPreferred");
+  /* MEASURED 2026-08-24: this call blocks the WHOLE superloop for ~5 s when the hotspot
+   * blips, which is the freeze Nick feels while scrolling. Split-timed here to say which
+   * half — the INI read (SPIFFS, and `open` alone costs 1.6 s on this part) or the join. */
+  const uint32_t t0 = millis();
   // Load name of preferred WiFi network
   // TODO: find the exact preferred network, not just find the name and then search by name
   if (prefSsidDyn==NULL) {
     this->loadPreferred();
   }
+  const uint32_t tLoad = millis();
   if (prefSsidDyn==NULL) {
     log_d("SSID NOT LOADED");
     return false;
   }
-  return connectTo(prefSsidDyn);
+  const bool r = connectTo(prefSsidDyn);
+  const uint32_t total = millis() - t0;
+  if (total > 150) {
+    log_e("SLOW WIFI: connectToPreferred %u ms [loadPreferred=%u connectTo=%u]",
+          (unsigned)total, (unsigned)(tLoad - t0), (unsigned)(millis() - tLoad));
+  }
+  return r;
 }
 
 // ===================================================== WIFI AUTO-SWITCH =====================================================
