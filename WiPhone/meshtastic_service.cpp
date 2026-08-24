@@ -370,7 +370,8 @@ MeshtasticService::MeshtasticService()
     radioState(MESH_RADIO_UNINITIALIZED),
     region("US"), channelName("LongFast"), modemPreset("LongFast"),
     myNodeNum(0), recentPktPos(0), dbDirty(false), lastSaveMs(0), initialized(false),
-    nodes(NULL), nodeOrder(NULL), orderDirty(true), orderCount(0), favCount(0), favDirty(false) {
+    nodes(NULL), nodeOrder(NULL), orderDirty(true), orderCount(0), favCount(0), favDirty(false),
+    uiIdle(true) {
   messages = NULL;
   msgCount = 0;
   channelCount = 0;
@@ -1132,7 +1133,14 @@ bool MeshtasticService::loop() {
     favDirty = false;
     saveFavourites();
   }
-  if (dbDirty && (millis() - lastSaveMs > MESH_SAVE_DEBOUNCE_MS)) {
+  /* ⚠ `uiIdle` is the third condition and it is not optional. A save blocks this task for
+   * ~1.5 s (MEASURED: 6.7 KB in ~1200 ms — SPIFFS on this part runs about 6 KB/s, and the
+   * filesystem is only 2.6% full, so it is the flash, not fragmentation). Anything that
+   * blocks here blocks the keypad, the screen and the WiFi stack together, which is why the
+   * symptom was "menus freeze for a second or two AND WiFi drops". Deferring until nobody is
+   * touching the phone does not make the save faster — it makes it land where it cannot be
+   * felt. The data still persists within seconds of the user putting the phone down. */
+  if (dbDirty && uiIdle && (millis() - lastSaveMs > MESH_SAVE_DEBOUNCE_MS)) {
     saveDb();
     dbDirty = false;
     lastSaveMs = millis();
@@ -2072,55 +2080,138 @@ typedef struct {                        // v2: 0.9.6 (PKC) — before positions
  * The same pattern is already used by healthTrim() for exactly this reason; saveDb simply
  * never adopted it. Rename on SPIFFS is atomic, so a reset now leaves either the old complete
  * database or the new complete one, never a half of either. */
+/* ── BUFFERED DB WRITER ────────────────────────────────────────────────────────────────────
+ * saveDb() writes the database as ~55 separate File::write() calls — 4 bytes for the magic,
+ * 84 per node, 248 per message. Every one of those crosses VFS into SPIFFS on its own, and
+ * MEASURED on hardware that cost 1275 ms for 6,192 bytes: about five bytes per millisecond,
+ * with the whole superloop — keypad, screen AND the WiFi stack — stopped for the duration.
+ * That is Nick's "freeze for a second or two and WiFi drops" (2026-08-24), reproduced and
+ * timed rather than guessed at.
+ *
+ * The size was never the problem; the CALL COUNT was. This batches into one PSRAM block and
+ * hands SPIFFS a few large writes instead of dozens of small ones. PSRAM because internal RAM
+ * is what panics this phone, and a save is not worth a kilobyte of it; if the allocation fails
+ * it degrades to the old unbuffered behaviour rather than not saving. */
+struct MeshDbWriter {
+  File*    f;
+  uint8_t* buf;
+  size_t   cap, len;
+  bool     ok;
+
+  MeshDbWriter(File* file, size_t capacity) : f(file), buf(NULL), cap(capacity), len(0), ok(true) {
+    buf = (uint8_t*)ps_malloc(capacity);
+  }
+  ~MeshDbWriter() {
+    flush();
+    if (buf) {
+      free(buf);
+    }
+  }
+  void flush() {
+    if (buf && len) {
+      ok = ok && (f->write(buf, len) == len);
+      len = 0;
+    }
+  }
+  void put(const void* p, size_t n) {
+    if (!buf) {                          // no PSRAM: straight through, as before
+      ok = ok && (f->write((const uint8_t*)p, n) == n);
+      return;
+    }
+    if (n > cap) {                       // never fits: flush and pass it through whole
+      flush();
+      ok = ok && (f->write((const uint8_t*)p, n) == n);
+      return;
+    }
+    if (len + n > cap) {
+      flush();
+    }
+    memcpy(buf + len, p, n);
+    len += n;
+  }
+};
+
 void MeshtasticService::saveDb() {
+  /* Timed because this is the leading suspect for the occasional 1-2 s freeze: it rewrites the
+   * ENTIRE database — nodes, every stored message, waypoints — in one blocking pass inside
+   * loop(), and SPIFFS writes are slow. With the message store at its cap that is a quarter of
+   * a megabyte, and the debounce lets it fire as often as every 10 s on a busy mesh. */
+  const uint32_t saveT0 = millis();
   SPIFFS.remove(MESH_DB_TMP);                  // a leftover temp would make "w" append-ish
+  const uint32_t tRmTmp = millis();
   File f = SPIFFS.open(MESH_DB_TMP, "w");
   if (!f) {
     log_e("mesh: saveDb open failed");
     return;
   }
+  MeshDbWriter w(&f, 4096);
   uint32_t magic = MESH_DB_MAGIC;
   uint16_t ver = MESH_DB_VERSION;
   uint16_t ns = (uint16_t)sizeof(MeshNode);
   uint16_t ms = (uint16_t)sizeof(MeshMessage);
-  f.write((const uint8_t*)&magic, 4);
-  f.write((const uint8_t*)&ver, 2);
+  w.put(&magic, 4);
+  w.put(&ver, 2);
   uint16_t ws = (uint16_t)sizeof(MeshWaypoint);
-  f.write((const uint8_t*)&ns, 2);
-  f.write((const uint8_t*)&ms, 2);
-  f.write((const uint8_t*)&ws, 2);          // v4+: the tail's layout is declared too
+  w.put(&ns, 2);
+  w.put(&ms, 2);
+  w.put(&ws, 2);          // v4+: the tail's layout is declared too
 
   int32_t nc = nodeCount;
-  f.write((const uint8_t*)&nc, sizeof(nc));
+  w.put(&nc, sizeof(nc));
   for (int i = 0; i < nodeCount; i++) {
-    f.write((const uint8_t*)&nodes[i], sizeof(MeshNode));
+    w.put(&nodes[i], sizeof(MeshNode));
   }
 
   int32_t mc = msgCount;
-  f.write((const uint8_t*)&mc, sizeof(mc));
+  w.put(&mc, sizeof(mc));
   for (int i = msgCount - 1; i >= 0; i--) {           // oldest -> newest
     const MeshMessage* m = getMessage(i);
     if (m) {
-      f.write((const uint8_t*)m, sizeof(MeshMessage));
+      w.put(m, sizeof(MeshMessage));
     }
   }
 
   // v3 tail: shared waypoints. Camp must survive a reboot — COVEY only
   // rebroadcasts a waypoint when it is edited.
   int32_t wc = waypointCount;
-  f.write((const uint8_t*)&wc, sizeof(wc));
+  w.put(&wc, sizeof(wc));
   for (int i = 0; i < waypointCount; i++) {
-    f.write((const uint8_t*)&waypoints[i], sizeof(MeshWaypoint));
+    w.put(&waypoints[i], sizeof(MeshWaypoint));
   }
 
+  w.flush();
+  if (!w.ok) {
+    log_e("mesh: saveDb WRITE FAILED - database left as it was");
+    f.close();
+    return;
+  }
   f.close();
+  const uint32_t tWrite = millis();
   /* Only now does the real file change. If any of the writes above failed on a full card the
    * temp is short — but it is the TEMP that is short, and the good database is still in place
    * until this rename succeeds. */
   SPIFFS.remove(MESH_DB_PATH);
+  const uint32_t tRmOld = millis();
   if (!SPIFFS.rename(MESH_DB_TMP, MESH_DB_PATH)) {
     log_e("mesh: saveDb RENAME FAILED - database left as it was");
     return;
+  }
+  const uint32_t saveMs = millis() - saveT0;
+  const uint32_t saveBytes = (uint32_t)nodeCount * sizeof(MeshNode)
+                             + (uint32_t)msgCount * sizeof(MeshMessage)
+                             + (uint32_t)waypointCount * sizeof(MeshWaypoint);
+  if (saveMs > 100) {
+    /* Phase breakdown, because "SPIFFS is slow" is not actionable and the phases are not
+     * equally guilty: a bulk write is inherent, but remove/rename are METADATA operations that
+     * can trigger garbage collection, and the temp-then-rename added on 2026-08-24 for crash
+     * safety doubled how many of those there are per save. If the removes dominate, that fix
+     * bought durability at the cost of this freeze and needs a different shape. */
+    log_e("MESH saveDb: %u ms BLOCKING for %u bytes (%d nodes, %d msgs) "
+          "[rm_tmp=%u write=%u rm_old=%u rename=%u] spiffs %u/%u used - superloop stalled",
+          (unsigned)saveMs, (unsigned)saveBytes, nodeCount, msgCount,
+          (unsigned)(tRmTmp - saveT0), (unsigned)(tWrite - tRmTmp),
+          (unsigned)(tRmOld - tWrite), (unsigned)(millis() - tRmOld),
+          (unsigned)SPIFFS.usedBytes(), (unsigned)SPIFFS.totalBytes());
   }
   log_i("mesh: saved %d nodes, %d msgs, %d waypoints", nodeCount, msgCount, waypointCount);
 }

@@ -398,6 +398,11 @@ int keypadHealth(char* out, int cap) {
  * when it is produced: setup() logs the reset reason before the card is known good, so
  * writing there would silently drop the one line that explains a restart. */
 static char bootLine[120] = {0};
+/* millis() of the last key actually dequeued for the UI. GUI::msLastKeypadEvent is protected
+ * and the keypad is drained here anyway, so this is stamped at the source rather than widening
+ * GUI's interface for one reader. Used only to hold off the ~1.5 s mesh database save while
+ * somebody is scrolling — see MeshtasticService::setUiIdle(). */
+static uint32_t gLastKeyMs = 0;
 // True while the Game Boy emulator app is running. The main loop then skips the
 // mesh/LoRa polling so the emulator has the SPI bus and CPU to itself.
 volatile bool gGbcActive = false;
@@ -2090,6 +2095,37 @@ __attribute__((unused)) static void cpuRaiseForUi() {
 void loop() {
   while (1) {
     uint32_t now = millis();
+    /* ── SUPERLOOP STALL DETECTOR ──────────────────────────────────────────────────────────
+     * Nick, 2026-08-24: "sometimes when scrolling menus, the phone will freeze for a second
+     * or two, wifi will drop, then it will unfreeze and WiFi comes back up." Everything in
+     * this firmware shares ONE task, so anything that blocks here blocks the keypad, the
+     * screen AND the WiFi stack together — which is exactly that symptom, and exactly what
+     * the sms-mirror comment below already warns about ("not slow, it is the 5-second freeze
+     * bug rebuilt on purpose").
+     *
+     * A freeze that rare cannot be caught by watching; it has to be caught by the phone. This
+     * measures the gap between successive passes — i.e. how long the PREVIOUS pass took — and
+     * names it at the compiled-in level so it lands in the serial log and can be correlated
+     * with whatever else was happening. Costs one millis() compare per pass.
+     * 250 ms is well above any normal pass (the idle tick is 5 ms) and well below the "second
+     * or two" being chased, so it should be silent until something real happens. */
+    {
+      static uint32_t sLastPassMs = 0;
+      if (sLastPassMs) {
+        const uint32_t took = now - sLastPassMs;
+        if (took > 250) {
+          log_e("LOOP STALL: %u ms in one pass (scr=%d cpu=%uMHz wifi=%d) - WiFi/keypad/screen "
+                "were all frozen for this long", (unsigned)took, (int)gui.state.screenBrightness,
+                (unsigned)(getCpuFrequencyMhz()), (int)WiFi.status());
+        }
+      }
+      sLastPassMs = now;
+    }
+    /* The mesh database save blocks this task for ~1.5 s, so it is held off while the phone is
+     * being used — see MeshtasticService::setUiIdle(). Three seconds after the last key, the
+     * user has stopped scrolling and a freeze there costs nothing. This is the only place that
+     * can see both the keypad and the mesh service. */
+    meshService.setUiIdle(gLastKeyMs == 0 || (uint32_t)(now - gLastKeyMs) > 3000);
     gbcXferHandleClient();
     serialCmdLoop();       // USB console: `?` for help. Costs nothing when nothing is typed.
 
@@ -2341,6 +2377,9 @@ void loop() {
     while (!keypadBuff.empty()) {
       // Retrieve button from buffer safely
       keyPressed = keypadBuff.get();
+      if (keyPressed) {
+        gLastKeyMs = millis();     // see setUiIdle() below: holds off the blocking DB save
+      }
 #if UI_IDLE_DOWNCLOCK
       if (keyPressed) {
         cpuRaiseForUi();     // ⚠ touches the input path — see UI_IDLE_DOWNCLOCK

@@ -1,5 +1,47 @@
 # Changelog
 
+## Unreleased (2026-08-24, evening) — the scrolling freeze, found and timed: it is the database save
+
+- 🔑 **Nick: "sometimes when scrolling menus, the phone will freeze for a second or two, wifi
+  will drop, then it will unfreeze and WiFi comes back up."** Reproduced and timed on the first
+  attempt:
+
+  ```
+  MESH saveDb: 1712 ms BLOCKING for 5944 bytes (34 nodes, 13 msgs)
+  LOOP STALL: 2196 ms in one pass - WiFi/keypad/screen were all frozen for this long
+  ```
+
+  **Everything in this firmware is one task**, so a blocking write stops the keypad, the screen
+  and the WiFi stack together — which is why the symptom is a freeze *and* a WiFi drop, always
+  together, always the same length. The loop's own sms-mirror comment already warned about this
+  shape ("not slow, it is the 5-second freeze bug rebuilt on purpose").
+- **Why it is only occasional:** `dbDirty` fires on real changes — a new node, a name, a learned
+  key — not on every packet, so on a quiet mesh saves are rare. It is only when one lands
+  mid-scroll that you feel all 1.5 s of it.
+- ⚠ **TWO PLAUSIBLE CAUSES WERE MEASURED AND BOTH WERE WRONG.** Recorded so nobody re-runs them:
+  - *"It is the ~55 tiny `f.write()` calls."* Batching them into one PSRAM-buffered writer moved
+    1275 ms to about 1000 ms. Real but marginal — the call count was not the bottleneck.
+  - *"SPIFFS is nearly full, so garbage collection is thrashing."* It is **2.6% full**
+    (87 KB of 3.3 MB). Not fragmentation.
+
+  What is left is the flash itself: **~6.9 KB takes ~1050 ms, about 6 KB/s.** The phase
+  breakdown is `[rm_tmp=123 write=1053 rm_old=24 rename=125]`, so the temp-then-rename added for
+  crash safety costs ~250 ms of it — real, but not the story.
+- **The fix shipped is a deferral, and it is honest about being one: the save now waits until
+  nobody is touching the phone** (three seconds after the last key). It does not make the write
+  faster — **it makes it land where it cannot be felt.** The data still persists within seconds
+  of the phone being put down, and the save is unchanged in every other respect.
+- 🛠 **A permanent superloop stall detector ships with it.** Any pass over 250 ms now logs at the
+  compiled-in level with the screen, CPU and WiFi state at the time. A freeze this rare cannot be
+  caught by watching for it; it has to be caught by the phone. Costs one `millis()` compare per
+  pass, and is silent until something real happens.
+- [ ] **The root cause is untouched and worth returning to.** ~6 KB/s means any future
+  full-database write blocks for over a second, and at the message cap that would be minutes.
+  Two real options: chunk the write across loop passes (the "one bounded step per pass" idiom
+  this codebase already uses for the SMS mirror), or move the database to the SD card, where
+  `/health.log` already lives and writes without trouble. **Do not raise `MESH_MSG_CAP` before
+  one of those is done.**
+
 ## Unreleased (2026-08-24, later) — `chg=` settled: the flag was inverted as well as mis-read
 
 - ✅ **THE POLARITY QUESTION IS ANSWERED, AND IT TOOK FIVE MINUTES OFF THE CHARGER.** The charger

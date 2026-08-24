@@ -172,6 +172,12 @@ public:
   /* Re-sort the node list NOW. The UI calls this when it (re)builds the Nodes screen and at
    * no other time — see the note on getNode(). */
   void               refreshNodeOrder();
+  /* ⚠ HOLD THE DATABASE SAVE WHILE SOMEONE IS USING THE PHONE. saveDb() blocks the superloop
+   * for ~1.5 s — measured, not estimated — and everything here is one task, so that freezes
+   * the keypad, the screen AND the WiFi stack together. Landing that mid-scroll is exactly
+   * Nick's "freeze for a second or two and WiFi drops". The main loop calls this because it
+   * is the only place that can see both the keypad and this service. */
+  void               setUiIdle(bool idle) { uiIdle = idle; }
 
   // ---- Channels ------------------------------------------------------------
   int                getChannelCount() const;
@@ -336,6 +342,7 @@ private:
   uint32_t  favIds[MESH_MAX_FAVOURITES];
   uint8_t   favCount;
   bool      favDirty;               // set by toggleFavourite, drained by loop()
+  bool      uiIdle;                 // main loop's verdict: is nobody touching the phone?
   void      loadFavourites();       // from SPIFFS, into favIds
   void      saveFavourites();       // to SPIFFS, atomically
   void      applyFavouriteFlag(MeshNode* n) const;   // stamp the cached bit from favIds
