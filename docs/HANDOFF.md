@@ -58,8 +58,26 @@ mesh, so:
       pins on this class of IC are typically open-drain and **active LOW while charging**, which
       would make `== HIGH ? true : false` exactly backwards.
       ⚠ **Do not flip it on the theory.** Run the pack down, plug in, and watch `chg=` in `health`
-      across the transition. A transition in EITHER direction proves the pin is alive and tells
-      you the polarity; no transition at all means it is floating and wants a pull-up.
+      across the transition, **on post-fix firmware**. A transition in EITHER direction tells you
+      the polarity; no transition at all means the pin is floating and wants a pull-up.
+
+  **What the overnight look DID establish (2026-08-24):** `chg=` is **alive** — the log now
+  contains both 0 and 1, where before the fix it was 0 across all 807 samples. The read reaches
+  the right chip.
+
+  ⚠ **AND A TRAP FOR ANYONE MINING THE OLD LOG: historical `chg=1` LINES ARE NOT CHARGE STATE.**
+  Pre-fix, that flag was reading **GPIO 32 == `USER_SERIAL_TX`**, which idles **HIGH** whenever
+  the user UART is configured on it (`uart_set_pin(UART_NUM_1, USER_SERIAL_TX, …)` — i.e. the GPS
+  reader) and low otherwise. So old `chg=1` runs record *whether the UART was up*, and they
+  correlate with whatever else was happening at the time. An overnight pass found one such run
+  that tracks discharging almost perfectly and **it is very probably that confound, not evidence
+  of inverted polarity.** Do not conclude the polarity from any sample you cannot prove is
+  post-fix.
+
+  - [ ] 🔑 **`/health.log` has no way to tell WHICH FIRMWARE wrote a line** — only `up=` minutes,
+        no wall clock and no build marker — which is exactly why the above could not be resolved
+        from four hours of data. **Stamp a boot/build line into the log** and this class of
+        question becomes answerable instead of arguable.
 
 ### P3 — needs Nick present, small, real
 
