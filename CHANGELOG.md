@@ -77,6 +77,28 @@
   20-minute contamination is diluted over three hours rather than dominating one. **~6.4 h
   is therefore mildly pessimistic**, and the two runs are less far apart than the raw
   numbers suggest. Neither is worth restating until a run starts an hour after unplugging.
+- 🔑 **AND THE RETIRED ~10 h FIGURE WAS MEASURED CORRECTLY ALL ALONG — it is the 15.7 %/h that
+  is the outlier.** `docs/HANDOFF.md:2142` records how it was taken: *"steady state with the
+  first 30 minutes discarded (surface charge): 94% → 82% over 1.20 h ⇒ 10.0 %/h"*. **That is the
+  same correction rediscovered from scratch tonight**, applied by whoever took that reading and
+  then forgotten. Line the three up:
+
+  | run | method | rate |
+  |---|---|---|
+  | original "~10 h" | steady state, first 30 min discarded | **10.0 %/h** |
+  | tonight, WiFi OFF | steady state, first 20 min discarded | **8.6 %/h** |
+  | 08-23 mixed use | endpoint-to-endpoint, **nothing discarded**, WiFi hunting 86% of it | 15.7 %/h |
+
+  **The two corrected runs agree with each other to within 1.4 %/h across different builds and
+  months; the uncorrected one is nearly double both.** So "10 h is unproven from here on, do not
+  requote it" — written in this changelog on 08-23 and propagated into the memories — was an
+  **overcorrection against the better-measured number**. The 15.7 %/h run is contaminated twice
+  over: no relaxation discard, and the radio hunting for 86% of it.
+- ⚠ **What that does NOT license:** the runs are not equivalent — different firmware, different
+  months, different radio states, and one is 1.2 h against another's 21 min. **Neither is a
+  full-discharge measurement, and nothing here has watched a pack go from full to empty.**
+  Quote a rate with its conditions attached, and stop converting either into an hours figure
+  until a run starts an hour after unplugging and continues into the flat part of the curve.
 - **Confidence, stated honestly:** the gauge quantises to 1%, so three counts across a
   21-minute block carries roughly ±3 %/h; the voltage slope is the firmer half of the
   result. The 11.7 h that 8.6 %/h projects to is a *top-of-curve extrapolation* — the
