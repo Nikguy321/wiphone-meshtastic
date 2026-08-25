@@ -39,6 +39,8 @@ bool        gbcXferOn();                        // named for the extern in WiPho
 bool        xferUsingAP();                      // true if we had to bring up our own hotspot
 const XferConfig* xferBooksConfig();            // the books cfg, for serial `up on books`
 const char* xferAddr();                         // IP address to show next to wiphone.local
+const char* xferStartError();                   // why the last start was refused, or NULL
+const XferConfig* xferPhotosConfig();            // /photos, for `up on photos`
 const char* xferApName();                       // SSID of the hotspot, when we made one
 int         xferFilesAdded();                   // files added this session (uploads + fetches)
 

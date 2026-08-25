@@ -707,7 +707,16 @@ void FilesApp::drawXfer() {
     lcd.drawString("Any key refreshes the count.", FILES_MARGIN, y); y += lh;
     lcd.drawString("Back stops the server.", FILES_MARGIN, y);
   } else {
+    /* ⚠ THIS USED TO SAY "Check WiFi and try again" WHATEVER THE REASON, and the
+     * commonest reason turned out not to be WiFi at all: too little contiguous
+     * heap to serve from, which sent Nick hunting the hotspot for an hour on
+     * 2026-08-25 while the radio was fine. Say the actual reason when there is one. */
+    const char* err = xferStartError();
     lcd.drawString("Server did not start.", FILES_MARGIN, y); y += lh;
-    lcd.drawString("Check WiFi and try again.", FILES_MARGIN, y);
+    if (err) {
+      guiDrawEllipsized(lcd, err, pathW, FILES_MARGIN, y);
+    } else {
+      lcd.drawString("Check WiFi and try again.", FILES_MARGIN, y);
+    }
   }
 }

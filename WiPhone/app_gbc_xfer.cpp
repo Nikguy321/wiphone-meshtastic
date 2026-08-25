@@ -82,6 +82,10 @@ static char         s_addr[40] = {0};   // shown address (IP of STA or AP)
 /* Breaker state is per-SERVER-SESSION: xferStart() clears it, so a fresh Start
  * (or `up on`) always begins live — the first cut kept it in a function-local
  * static, and one trip outlived every restart. */
+/* Why a start was refused, for the screen and the serial console. NULL = no refusal.
+ * Set by xferStart() and cleared by the next attempt, so it always describes the
+ * most recent try rather than an old one. */
+static const char*  s_startErr = NULL;
 static bool         s_breakerPaused = false;
 static uint32_t     s_breakerFlipMs = 0;
 static uint32_t     s_breakerWaitMs = 90000;   // timed-resume fallback; doubles on quick re-trip
@@ -103,6 +107,16 @@ static const XferConfig SERIAL_BOOKS_CFG = {
   "/books", "Add books", ".epub,.txt", "books", "download.epub", "WiPhone-Books"
 };
 const XferConfig* xferBooksConfig() { return &SERIAL_BOOKS_CFG; }
+/* The photos uploader, same argument as the books one: the bench needs to feed the
+ * gallery without hands on the phone, and the Files-app route needs a thumb on the
+ * folder first. ⚠ The filter is .jpg/.jpeg/.bmp because that is exactly what
+ * app_photos.cpp can DECODE (isPhotoName, app_photos.cpp:44) — PNG has no decoder
+ * in this firmware or in the ESP32 ROM, so offering it would put files on the card
+ * that the gallery then refuses with "baseline JPEG and BMP only". */
+static const XferConfig SERIAL_PHOTOS_CFG = {
+  "/photos", "Add photos", ".jpg,.jpeg,.bmp", "photos", "download.jpg", "WiPhone-Photos"
+};
+const XferConfig* xferPhotosConfig() { return &SERIAL_PHOTOS_CFG; }
 static const XferConfig* s_cfg = &ROM_CFG;
 
 void gbcXferHandleClient() {
@@ -215,6 +229,7 @@ void gbcXferHandleClient() {
 bool        gbcXferOn()      { return s_on; }
 bool        xferUsingAP()    { return s_usingAP; }
 const char* xferAddr()       { return s_addr; }
+const char* xferStartError() { return s_startErr; }
 const char* xferApName()     { return s_cfg->apName; }
 int         xferFilesAdded() { return s_filesAdded; }
 
@@ -317,13 +332,22 @@ static const char PAGE_3[] =
   "var m='Done! '+sent+' file(s) on your phone.';"
   "if(skipped)m+=' ('+skipped+' empty file(s) skipped)';"
   "if(failed.length)m='Sent '+sent+' — FAILED: '+failed.join(', ');"
+  "m+=' · '+(BASE?'fast':'compatible')+' chunked transport';"
   "ch.textContent=m;}"
   "function nextFile(){"
   "if(fi>=files.length){finish();return;}"
   "var file=files[fi],off=0,tries=0,lastSync=-1,stalls=0;"
   "if(!file.size){skipped++;fi++;nextFile();return;}"
+  /* ⚠ NAME THE TRANSPORT ON SCREEN. Both paths look identical while they run, and
+   * the difference is not cosmetic: the chunked paths cost the heap nothing, while
+   * the native form POST to /upload fragments the largest free block ~1.5 KB PER
+   * FILE and trips the breaker after about six of them. On 2026-08-25 that ambiguity
+   * cost an hour — curl was silently on /upload while the page was chunking, and
+   * nothing on either end said which was which. "fast" = raw port 8081, 16 KB
+   * pieces; "compatible" = same-origin /chunk, 4 KB. Either is safe; the form POST
+   * is the one to notice, and it cannot reach this line at all. */
   "function stat(x){ch.textContent='Uploading '+(fi+1)+' of '+files.length+': '+file.name+"
-  "' — '+Math.floor(off*100/file.size)+'%'+(x||'');}"
+  "' — '+Math.floor(off*100/file.size)+'%'+(x||'')+' ['+(BASE?'fast':'compatible')+' chunked]';}"
   // A file that gives up does NOT sink the batch: note it, move on.
   "function giveUp(why){failed.push(file.name+(why?' ('+why+')':''));fi++;setTimeout(nextFile,300);}"
   "function fail(){tries++;"
@@ -1426,6 +1450,34 @@ static void xferServerDown() {
 }
 
 void xferStart(const XferConfig* cfg) {
+  s_startErr = NULL;                    // this attempt gets its own verdict
+  /* ── REFUSE TO START WHEN THERE IS NOT ENOUGH CONTIGUOUS HEAP TO SERVE FROM ──
+   * 🔑 The breaker below trips at 6144 bytes largest-internal-block, and when it
+   * trips the listener closes — which a browser reports as "site cannot be
+   * loaded", with nothing on the phone saying why. Starting a server that is
+   * already within a few hundred bytes of that line produces exactly that: it
+   * comes up, says ON with a URL, and refuses every connection.
+   *
+   * MEASURED 2026-08-25 on phone 1: at largest=6884 the server reported ON at a
+   * valid station IP and refused three connections in a row (ConnectionRefused,
+   * 0.6 s) while ping was fine. A reboot took it to largest=19132 and the same
+   * server answered 200 immediately. Phone 2 served fine at largest=12940.
+   *
+   * ⚠ 10240 is CHOSEN, NOT MEASURED: it sits between a measured failure (6884)
+   * and a measured success (12940), with room above the 6144 trip line. If a
+   * start is ever refused on a phone that would have worked, this is the number
+   * to revisit — and the refusal says the figure so it can be argued with. */
+  {
+    const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (largest < 10240) {
+      static char why[72];
+      snprintf(why, sizeof(why), "Low memory (%u B free block) - restart the phone",
+               (unsigned)largest);
+      s_startErr = why;
+      log_e("XFER: refusing to start - largest internal block %u B, need 10240", (unsigned)largest);
+      return;
+    }
+  }
   s_breakerPaused = false;              // a fresh session always starts live
   s_breakerFlipMs = 0;
   s_breakerWaitMs = 90000;              // and with a fresh fuse — escalation is per-session
@@ -1467,6 +1519,7 @@ void xferStart(const XferConfig* cfg) {
       snprintf(s_addr, sizeof(s_addr), "%s", WiFi.softAPIP().toString().c_str());
     } else {
       snprintf(s_addr, sizeof(s_addr), "AP FAILED");   // surfaced on the phone screen
+      s_startErr = "Could not host a hotspot either";
       /* ⚠ FAIL CLEANLY RATHER THAN ACQUIRE. This used to fall through and take the
        * hold anyway: no AP, no client possible, and yet the CPU pinned at 240 MHz and
        * the screen timeouts stretched, with the only evidence a small "AP FAILED" on

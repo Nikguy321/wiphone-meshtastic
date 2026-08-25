@@ -71,6 +71,7 @@ static void help() {
     "WiPhone serial commands:",
     "  ?          this help",
     "  up on      start the WiFi uploader (files land in /roms)",
+    "  up on books|photos  same, into /books or /photos",
     "  up off     stop the uploader",
     "  up         where to point a browser",
     "  sync       poll COVEY for mirrored texts now",
@@ -302,11 +303,24 @@ static void run(char* line) {
     reportUploader();
     return;
   }
+  if (!strcasecmp(line, "up on photos")) {
+    xferStart(xferPhotosConfig());      // the gallery, same reason as books
+    if (!gbcXferOn() && xferStartError()) {
+      say("up: NOT started - %s\n", xferStartError());
+    }
+    reportUploader();
+    return;
+  }
   if (!strcasecmp(line, "up on")) {
     if (gbcXferOn()) {
       say("uploader already on\n");
     } else {
       gbcXferStart();
+      /* A refusal is not a silent no-op: the bench needs the reason as much as
+       * the screen does. See the heap guard in xferStart(). */
+      if (!gbcXferOn() && xferStartError()) {
+        say("up: NOT started - %s\n", xferStartError());
+      }
     }
     reportUploader();
     return;

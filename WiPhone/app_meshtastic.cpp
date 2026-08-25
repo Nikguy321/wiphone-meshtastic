@@ -735,16 +735,24 @@ void MeshtasticApp::buildStatus() {
      * answerable without hunting through a settings screen. */
     const uint32_t pi = meshService.getPosInterval();
     if (pi == 0) {
-      snprintf(line, sizeof(line), "Reporting: off");
+      snprintf(line, sizeof(line), "Report: off");
     } else if (meshService.posBlockedReason()) {
-      snprintf(line, sizeof(line), "Reporting: %lu min - NOT SENDING",
+      /* 281 px as "Reporting: 30 min - NOT SENDING". Status rows carry NO
+        * subtitle, so the whole state has to fit the 232 px title. */
+      snprintf(line, sizeof(line), "Report: %lum - NOT SENT",
                (unsigned long)(pi / 60));
     } else if (meshService.getPosLastTxMs() != 0 && !meshService.posLastSendOk()) {
       // Same honesty as the pin row: a failed transmit is not a delivered one.
-      snprintf(line, sizeof(line), "Reporting: %lu min to %s - send FAILED",
-               (unsigned long)(pi / 60), meshService.getPosChannelName());
+      /* ⚠ 396 px as first written TODAY — this row is where the send-failed fix
+        * landed and it pushed the line far past the edge. The channel is dropped
+        * here on purpose: when the send failed, WHICH channel it failed on is the
+        * least useful word in the sentence, and My node one screen away has it. */
+      snprintf(line, sizeof(line), "Report: %lum - FAILED",
+               (unsigned long)(pi / 60));
     } else {
-      snprintf(line, sizeof(line), "Reporting: %lu min to %s",
+      /* 279 px with "Reporting:" and " to ". Trimmed to 208 px, and the channel
+        * name stays LAST so a long one is what the ellipsis takes. */
+      snprintf(line, sizeof(line), "Report: %lum %s",
                (unsigned long)(pi / 60), meshService.getPosChannelName());
     }
     menu->addOption(line, 10, 1);
@@ -799,10 +807,18 @@ void MeshtasticApp::buildMyNode() {
     char sub[64];                     // channel names run to MESH_NAME_LEN (24)
     const uint32_t pi = meshService.getPosInterval();
     if (pi == 0) {
-      snprintf(line, sizeof(line), "Report position: off");
+      snprintf(line, sizeof(line), "Position: off");
       menu->addOption(line, MESH_MYNODE_POSINT, 1);
     } else {
-      snprintf(line, sizeof(line), "Report position: every %lu min",
+      /* ⚠ MEASURED, NOT GUESSED: the menu title gets lcd.width() - leftOffset =
+        * 240 - 8 = 232 px in Akrobat ExtraBold 22, and drawStringEllipsized cuts
+        * what will not fit. "Report position: every 30 min" is 255 px, so the
+        * ellipsis landed on the UNITS — Nick: "I can't read the units of 'report
+        * every 5....'". "Position: every 30 min" is 191 px, 41 px spare.
+        * 🔑 THE RULE THIS ROW BROKE: put the fixed part first and the variable part
+        * LAST, so the ellipsis eats a value nobody needs rather than the units
+        * that give the number meaning. */
+      snprintf(line, sizeof(line), "Position: every %lu min",
                (unsigned long)(pi / 60));
       const char* blocked = meshService.posBlockedReason();
       if (blocked) {
@@ -840,8 +856,11 @@ void MeshtasticApp::buildMyNode() {
       snprintf(line, sizeof(line), "Send to: not set");
       strlcpy(sub, "nothing is sent until you pick", sizeof(sub));
     } else if (!pc) {
-      snprintf(line, sizeof(line), "Send to: %s - GONE", pcn);
-      strlcpy(sub, "not on this phone any more", sizeof(sub));
+      /* 240 px with a real channel name — over budget, and the ellipsis ate the
+        * "- GONE" that was the entire point. The subtitle says it instead; it is a
+        * smaller font with room to spare. */
+      snprintf(line, sizeof(line), "Send to: %s", pcn);
+      strlcpy(sub, "GONE - not on this phone any more", sizeof(sub));
     } else if (meshService.channelIsPublic(pc)) {
       snprintf(line, sizeof(line), "Send to: PUBLIC %s", pc->name);
       /* Two different sentences for two different situations: one is a choice
@@ -866,12 +885,15 @@ void MeshtasticApp::buildMyNode() {
     const uint32_t iv = meshService.getNeighborInterval();
     const char* chn = meshService.neighborChannelName();
     if (iv == 0) {
-      snprintf(line, sizeof(line), "Neighbor info: off");
+      snprintf(line, sizeof(line), "Neighbor: off");
     } else if (!chn) {
-      snprintf(line, sizeof(line), "Neighbor info: %luh - NO PRIVATE CHANNEL",
+      /* ⚠ PRE-EXISTING OVERFLOW, not from the position work: 340 px, so this row
+        * has always been cut off — it just had not been looked at. 217 px now. */
+      snprintf(line, sizeof(line), "Neighbor: %luh - no channel",
                (unsigned long)(iv / 3600));
     } else {
-      snprintf(line, sizeof(line), "Neighbor info: every %luh (%d heard)",
+      // Also pre-existing: 277 px. 197 px at the worst realistic count.
+      snprintf(line, sizeof(line), "Neighbor: %luh (%d heard)",
                (unsigned long)(iv / 3600), meshService.getDirectNeighborCount());
     }
     menu->addOption(line, MESH_MYNODE_NEIGHBOR, 1);
