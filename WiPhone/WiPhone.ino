@@ -37,6 +37,7 @@ governing permissions and limitations under the License.
 #include "ota.h"
 #include "lora.h"
 #include "esp_ota_ops.h"
+#include "esp_task_wdt.h"   // DIAGNOSTIC: loop-stall watchdog, see setup()
 #include "Test.h"
 #include "meshtastic_service.h"
 #include "music_player.h"
@@ -1516,6 +1517,27 @@ void setup() {
 
 #endif
 
+  /* ── DIAGNOSTIC (2026-08-25): SUBSCRIBE THE LOOP TASK TO THE TASK WATCHDOG ────────────
+   * 🔑 Nothing has ever watched this task, which is why the GPS wedge is SILENT: the loop
+   * stops, other FreeRTOS tasks keep printing, and no watchdog notices. The existing
+   * LOOP STALL detector (see loop()) cannot see it either — that one measures the gap
+   * between two passes, so it only reports a stall the loop RECOVERED from. A stall that
+   * never ends produces nothing at all.
+   *
+   * ⚠ panic=false ON PURPOSE. A timeout then PRINTS the offending task and its backtrace
+   * and lets the phone carry on, instead of rebooting and destroying the evidence. That
+   * backtrace is the entire point of this build.
+   *
+   * ⚠ 20 s, not the 5 s default: WiFi.disconnect(true) is measured at ~5 s of blocking in
+   * this firmware (docs/HANDOFF.md), and the boot path has legitimate 951 ms passes. A
+   * threshold under those would cry wolf and teach us to ignore it.
+   *
+   * ⚠ Arduino feeds this watchdog once per loop() RETURN — and loop() here never returns,
+   * it wraps its own while(1). So the feed has to live inside that loop; it does. */
+  esp_task_wdt_init(20, false);
+  esp_task_wdt_add(NULL);            // NULL = this task = loopTask (setup runs on it)
+  log_e("WDT: loop task subscribed, 20 s, print-not-panic (diagnostic build)");
+
   printf("\r\nBooted\r\n");
 
   /* ── MP3_HEAP_PROBE ────────────────────────────────────────────────────────────────
@@ -2116,6 +2138,11 @@ extern bool gbcXferOn();             // true while the transfer server is runnin
  * phone into a lower state than the gate chose. */
 static uint32_t gCpuCurMhz = 240;
 
+/* ⚠ IF THIS IS EVER RE-ENABLED, READ THE DEADLOCK NOTE ON THE `busy` PREDICATE FIRST.
+ * A RAISE is a frequency change like any other, so it fires uart_on_apb_change() and can park
+ * the loop task forever while the plate's GPS is streaming at 115200. It is safe today only
+ * because gGpsNmea is in `busy`, which pins the clock at 240 so the `!= 240` test below is
+ * false and this never calls. That is load-bearing, not incidental. */
 __attribute__((unused)) static void cpuRaiseForUi() {
   if (gCpuCurMhz != 240) {
     setCpuFrequencyMhz(240);
@@ -2125,6 +2152,8 @@ __attribute__((unused)) static void cpuRaiseForUi() {
 
 void loop() {
   while (1) {
+    esp_task_wdt_reset();          // DIAGNOSTIC: see setup(). loop() never returns, so the
+                                   // Arduino core's own feed never runs — this is the feed.
     uint32_t now = millis();
 #ifdef USER_SERIAL
     /* The deferred GPS retune. First pass only, and deliberately HERE rather than at the
@@ -3768,15 +3797,42 @@ void loop() {
  * saving was the wrong bet and this comment is here so nobody repeats it. */
 #define UI_IDLE_DOWNCLOCK   0
 #define UI_WORK_HOLD_MS     2000
+      /* 🛑 gGpsNmea HOLDS THE CLOCK, AND IT IS NOT ABOUT PERFORMANCE — IT AVOIDS A HARD
+       * DEADLOCK IN THE ARDUINO CORE. Every HardwareSerial registers uart_on_apb_change()
+       * (esp32-hal-uart.c:225). On APB_BEFORE_CHANGE that callback disables the UART RX
+       * interrupt and then drains the hardware FIFO into the 256-byte RX queue with
+       * xQueueSend(..., 1) — a ONE-TICK BLOCK, and CONFIG_FREERTOS_HZ is 1000, so one
+       * millisecond per byte once that queue is full. The queue's only consumer is this
+       * loop, which is at that moment inside the callback, so nothing can ever free a slot.
+       *
+       * 🔑 THE ARITHMETIC IS WHAT DECIDES IT, AND 115200 IS THE WRONG SIDE OF IT:
+       *      115200 -> 11.52 bytes arrive per ms, 1 drains per ms -> +10.5/ms, never exits
+       *        9600 ->  0.96 bytes arrive per ms, 1 drains per ms -> converges, exits
+       * So with the plate's GPS streaming, ANY setCpuFrequencyMhz() call can park this task
+       * forever. MEASURED 2026-08-25: the loop stops, other tasks keep printing, CPU 1 sits
+       * in IDLE1 (it BLOCKS, it does not spin), and no watchdog fires because only core 0's
+       * idle task is checked. ⚠ And note esp32-hal-cpu.c:190-196 fires the callback on ANY
+       * frequency change, even 80<->240 where APB does not actually move — the guard there
+       * covers only the register write, not the callback.
+       *
+       * ⚠ Why it looked like "mostly on screen unlock": the wake REPAINT (~30.7 ms of SPI)
+       * runs BEFORE the clock is raised, so ~354 bytes pile into a 256-byte queue and the
+       * threshold is crossed every time. Screen-OFF is preceded by a backlight write, not a
+       * repaint — a short pass, queue not full, which is why the downclock so often survived
+       * and sent this hunt after the wrong transition.
+       *
+       * The cost is idle power while the GPS is on, and that is the right trade against a
+       * phone that stops answering its buttons. */
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
+                        gGpsNmea ||            // see the deadlock note above — NOT perf
                         xferOn() ||
                         musicPlayerIsPlaying() ||
                         sipNeedsFullSpeed();   // NOT sipCallActive() — see the note on it
       /* Anything with a deadline stays at 240 REGARDLESS of the screen: the emulator, the
        * transfer server, audio playback and a live SIP session. Only the screen term is
        * relaxed, and only while nothing is being drawn. */
-      const bool hardBusy = gGbcActive || xferOn() || musicPlayerIsPlaying() || sipNeedsFullSpeed();
+      const bool hardBusy = gGbcActive || gGpsNmea || xferOn() || musicPlayerIsPlaying() || sipNeedsFullSpeed();
       extern volatile uint32_t gUiWorkMs;      // GUI.cpp: stamped by every redraw
       const bool uiWorking = (uint32_t)(millis() - gUiWorkMs) < UI_WORK_HOLD_MS;
 #if UI_IDLE_DOWNCLOCK

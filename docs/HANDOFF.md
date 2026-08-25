@@ -38,7 +38,55 @@ counters — `gGpsReader.reset()` at the retune keeps them clean, so nothing is 
 **VERIFIED:** with the fix flashed, boots are clean, no Guru, `retuned from loop()` in the log,
 and a GPS fix arrives normally.
 
-🔴 **BUG 2 — A SECOND, DIFFERENT WEDGE — IS STILL OPEN.** With bug 1 fixed the phone boots and
+✅ **BUG 2 — THE IN-USE WEDGE — IS ALSO ROOT-CAUSED AND FIXED (2026-08-25).**
+
+🔑 **IT IS A DEADLOCK IN THE ARDUINO CORE, REACHED BY ARITHMETIC.** Every `HardwareSerial`
+registers `uart_on_apb_change()` (`esp32-hal-uart.c:225`). On `APB_BEFORE_CHANGE` that callback
+switches the UART RX interrupt OFF and drains the hardware FIFO into the 256-byte RX queue using
+`xQueueSend(..., 1)` — a **one-tick block**, and `CONFIG_FREERTOS_HZ` is 1000, so **1 ms per
+byte** once that queue is full. The queue's only consumer is the main loop, which is at that
+moment *inside the callback*. Nothing can free a slot.
+
+```
+115200 -> 11.52 bytes arrive per ms, 1 drains per ms -> +10.5/ms, exit condition UNREACHABLE
+  9600 ->  0.96 bytes arrive per ms, 1 drains per ms -> converges, exits, always has
+```
+🛑 **So ANY `setCpuFrequencyMhz()` call parks the loop task forever while the plate's GPS is
+streaming.** ⚠ And `esp32-hal-cpu.c:190-196` fires that callback on ANY frequency change, even
+80<->240 where APB does not actually move — the guard there covers only the register write.
+
+**MEASURED, and it is what finally identified it:** subscribing the loop task to the task
+watchdog (it never was — see below) reported `loopTask (CPU 1)` stalled with **`CPU 1: IDLE1`**.
+The loop **BLOCKS, it does not spin** — which killed every "the UART storm starves the loop"
+theory at once. No watchdog had ever fired because only core 0's idle task is checked.
+
+⚠ **Why it read as "mostly on screen unlock":** the wake REPAINT (~30.7 ms of SPI) runs BEFORE
+the clock is raised, so ~354 bytes pile into a 256-byte queue — over threshold every time.
+Screen-OFF is preceded by a backlight write, not a repaint, so that pass is short and usually
+survives. That is why the downclock kept surviving in tests and sent the hunt after the wrong
+transition.
+
+🔑 **THE PREDICTION THAT CONFIRMED IT, testable against logs already captured:** the wedge lands
+*between* `setCpuFrequencyMhz()` and the `CPU %luMHz` log line that follows it, so **a wedged log
+never contains that line.** Checked against 5 wedge captures: **5 of 5 have no `CPU nnnMHz` line
+at all**, while every surviving run prints one.
+
+**THE FIX:** `gGpsNmea` is now a term in the `busy` (and `hardBusy`) predicate, so the clock is
+pinned at 240 MHz whenever the GPS owns the UART and the transition never happens. Costs idle
+power while GPS is on; buys a phone that answers its buttons. **VERIFIED: 380 s with GPS enabled
+at boot, healthy throughout, where the same build died at ~40 s before.**
+
+⚠ **The SD/smsmirror lines were a RED HERRING** — they are simply what logs shortly before the
+clock gate evaluates. Good thing that was hedged rather than fixed.
+
+✅ **ALSO ADDED, AND WORTH KEEPING: the loop task is now subscribed to the task watchdog**
+(20 s, print-not-panic). It never was, which is exactly why a permanent stall was silent — and
+note the existing `LOOP STALL` detector CANNOT see this class of fault, because it measures the
+gap between two passes and so only reports a stall the loop RECOVERED from.
+
+---
+
+#### (superseded) Bug 2 as it stood before the cause was found With bug 1 fixed the phone boots and
 runs, then **silently stops ~30-40 s in, with GPS on.** ⚠ **It is a DIFFERENT SHAPE from bug 1:
 no panic, no backtrace, no reboot — the loop task simply stops** while other tasks keep
 printing. Not "interrupts off too long"; something blocks and never returns.
