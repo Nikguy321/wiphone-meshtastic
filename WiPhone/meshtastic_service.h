@@ -50,6 +50,35 @@
 
 #define MESH_BROADCAST_ADDR  0x00000000u   // "to" value for a channel broadcast
 
+/* ---- GPS freshness: TWO numbers, because they answer two questions --------
+ *
+ * MESH_GPS_FRESH_MS — "is this number still worth SHOWING?" At 1 Hz NMEA a
+ * healthy receiver refreshes every second, so 120 s is 120 consecutive missed
+ * epochs: unambiguously "not receiving", while still long enough to ride out a
+ * walk under a hemlock and long enough that a 518 ms transmit blind spot is
+ * invisible. It replaces the two hardcoded 120000UL sites that used to keep
+ * this rule (resolveReference and the My node "on (fix)" label) — they must
+ * never be able to disagree about whether the GPS is working.
+ *
+ * MESH_POS_TX_FRESH_MS — "is it worth OTHER PEOPLE'S trust?" Tighter, because
+ * showing a 90-second-old position to the person holding the phone is fine (it
+ * is their own position and they know where they are), while spending airtime
+ * to tell a hunting party where someone is, from a receiver that has missed 30
+ * straight epochs, is a guess dressed as a measurement. Skipping costs nothing:
+ * the next slot is minutes away and honest silence beats a confident wrong dot
+ * on somebody else's map. */
+#define MESH_GPS_FRESH_MS    120000UL
+#define MESH_POS_TX_FRESH_MS  30000UL
+
+/* Reference sentinel: "measure everything from THIS PHONE'S OWN GPS", chosen
+ * deliberately in Places rather than fallen into. Checked before findWaypoint(),
+ * so a waypoint can never shadow it. A real Meshtastic waypoint id is a random
+ * uint32, so the collision chance is 2^-32 and its only consequence is that one
+ * waypoint could not be picked as a reference. Also unreachable by upgrade: the
+ * only writer of `refwp` is setReferenceId() from a real waypoint id or 0, so no
+ * previously-shipped firmware can have stored this value. */
+#define MESH_REF_GPS         0xFFFFFFFFu
+
 typedef enum {
   MESH_RADIO_UNINITIALIZED = 0,
   MESH_RADIO_STUBBED,               // service running, no real PHY yet
@@ -119,8 +148,13 @@ typedef struct {
   uint8_t  pubKey[MESH_KEY_LEN];
   uint8_t  pkiFlags;                // MESH_NODE_HAS_KEY | MESH_NODE_KEY_MISMATCH
   /* Last heard position (port 3 broadcasts — COVEY sends one every 5 min).
-   * The phone has no GPS: it only listens. posHeardMs==0 means never heard.
-   * Appended after the v2 fields; DB migrates v1/v2 in place. */
+   * posHeardMs==0 means never heard. Appended after the v2 fields; DB migrates
+   * v1/v2 in place.
+   * 🛑 FOR OUR OWN ENTRY THIS IS THE MANUAL PIN AND NOTHING ELSE. The GPS does
+   * NOT mirror its fix in here, however tempting that looks: the only writers
+   * are setMyPin()/clearMyPin(), and writing it per fix would set dbDirty on
+   * every NMEA epoch and drag the ~1.5 s database save into a 1 Hz loop. The
+   * self row in Nodes reads getGpsFix() live instead. */
   int32_t  latI, lonI;              // 1e-7 degrees
   uint32_t posHeardMs;              // millis() when the position arrived
 } MeshNode;
@@ -187,6 +221,19 @@ public:
   int                getChannelCount() const;
   const MeshChannel* getChannel(int index) const;
   const MeshChannel* findChannelByHash(uint8_t hash) const;
+  /* 🔑 "Anything sent here is readable by any Meshtastic radio in range."
+   * A PROPERTY OF THE KEY, never of the name or the index. initDefaultChannel()
+   * seeds slot 0 as LongFast, but loadChannels() overwrites slot 0 from flash
+   * and addChannel() merges by NAME, so a private channel can land at index 0
+   * and a public one called 'hunt-group' can land anywhere. keyLen == 0 counts
+   * as public because an unencrypted channel is more open than LongFast, not
+   * less; a NULL channel counts as public because unknown must fail safe. */
+  bool channelIsPublic(const MeshChannel* ch) const;
+  /* 'booksync'/'smsmirror' carry traffic between these two devices and have no
+   * human audience. Public so the position picker can LABEL them — it lists
+   * them rather than hiding them, because a screen whose job is to say
+   * truthfully where your location goes must not have gaps in it. */
+  bool channelIsMachine(const MeshChannel* ch) const;
   // Parse a Meshtastic channel URL (https://meshtastic.org/e/#... or the raw
   // base64 fragment) and merge its channels in. Returns # of channels added.
   int  applyChannelUrl(const char* url);
@@ -240,11 +287,16 @@ public:
   const MeshWaypoint* getWaypoint(int index) const;       // NULL if out of range
   const MeshWaypoint* findWaypoint(uint32_t id) const;
 
-  /* The phone's own position is a USER-DECLARED pin ("I'm at camp"), not a fix
-   * — there is no GPS. Setting it persists to NVS and broadcasts one Position
-   * so COVEY's map shows this phone. pinnedAtUnix is 0 when the clock was
-   * unknown at pin time. setMyPin returns the ANNOUNCE result: false means the
-   * pin stuck locally but never went on air — the UI must not imply otherwise. */
+  /* The pin is a USER-DECLARED position ("I'm at camp") — a statement, not a
+   * measurement, and it stays that even now the plate has a GPS. Setting it
+   * persists to NVS and broadcasts one Position so COVEY's map shows this
+   * phone. pinnedAtUnix is 0 when the clock was unknown at pin time. setMyPin
+   * returns the ANNOUNCE result: false means the pin stuck locally but never
+   * went on air — the UI must not imply otherwise.
+   * 🛑 NOTHING ON THE GPS PATH WRITES THE PIN. setMyPin() does an NVS write and
+   * an unconditional announce, so "let the GPS update the pin" would mean a
+   * flash write and a transmission on every fix. The beacon reads gpsLatI/
+   * gpsLonI directly and the pin is left exactly where the user put it. */
   bool getMyPin(int32_t* latI, int32_t* lonI, uint32_t* pinnedAtUnix) const;
   bool setMyPin(int32_t latI, int32_t lonI);              // persist + announce
   void clearMyPin();
@@ -256,24 +308,87 @@ public:
    * unread icon. (The book-sync 'receiver shows nothing' lesson, D-089.) */
   bool takePlacesNews() { bool n = placesNews; placesNews = false; return n; }
 
-  /* Which place distances are measured FROM: a waypoint id, or 0 = automatic
-   * (a live GPS fix when one is fresh, else the pin). Persisted.
+  /* Which place distances are measured FROM. Three modes, persisted as `refwp`:
+   *   MESH_REF_GPS  — explicitly this phone's GPS. NEVER falls through to
+   *                   anything else: a stale fix keeps its coordinates and
+   *                   renames itself "last GPS", and no fix at all returns
+   *                   false so the UI shows no distances. A reference frame
+   *                   that moves on its own is the failure this mode exists
+   *                   to rule out.
+   *   a waypoint id — that place, always.
+   *   0 (automatic, the shipping default) — a fresh GPS fix, else the pin.
    * resolveReference() gives the coords + a display name, false if none exist. */
   uint32_t getReferenceId() const { return refWaypointId; }
   void     setReferenceId(uint32_t id);
   bool     resolveReference(int32_t* latI, int32_t* lonI,
                             char* name, size_t nameCap) const;
+  /* True when the reference is the GPS and its fix has gone stale — the Status
+   * screen wants the precise age, which resolveReference() only hints at by
+   * calling itself "last GPS". A separate accessor rather than a wider
+   * signature, because resolveReference() has seven call sites. */
+  bool     referenceIsStaleGps(uint32_t* ageMs) const;
 
   /* ---- The woods backplate's GPS (nmea.h) ----------------------------------
-   * A LIVE fix (fresh within 2 min) slots into resolveReference between the
-   * chosen waypoint and the manual pin: "where am I NOW" beats a pin set hours
-   * ago, but an explicit waypoint choice still beats both. It NEVER touches
-   * announce — putting this phone's position on the air stays a deliberate act
-   * (the COVEY public-LongFast lesson). */
+   * A LIVE fix (fresh within MESH_GPS_FRESH_MS) slots into resolveReference
+   * between the chosen waypoint and the manual pin: "where am I NOW" beats a
+   * pin set hours ago, but an explicit waypoint choice still beats both.
+   *
+   * ⚠ THIS BLOCK USED TO PROMISE "It NEVER touches announce — putting this
+   * phone's position on the air stays a deliberate act (the COVEY public-
+   * LongFast lesson)." That invariant is deliberately relaxed: Nick asked for
+   * the GPS to be able to report to the mesh. The deliberate act did not go
+   * away, it MOVED — to arming the feature (setPosInterval) and naming the
+   * channel (setPosChannelName), both default-off, both persisted, with the
+   * public channel behind a two-press confirm on screen. Nothing here can put
+   * a byte on the air that a person did not switch on and aim.
+   *
+   * setGpsEnabled() mirrors WiPhone.ino's gGpsNmea in here. Without it this
+   * service kept answering "GPS" with coordinates from a receiver that had
+   * been switched off up to two minutes earlier. It writes nothing and blocks
+   * on nothing. */
   void gpsUpdate(bool valid, int32_t latI, int32_t lonI, int sats, int hdopX10);
   bool getGpsFix(int32_t* latI, int32_t* lonI, uint32_t* ageMs,
                  int* sats, int* hdopX10) const;
   bool gpsEverFixed() const { return gpsFixMs != 0; }
+  void setGpsEnabled(bool on) { gpsEnabled = on; }
+  bool isGpsEnabled() const { return gpsEnabled; }
+
+  /* ---- Periodic GPS position beacon ---------------------------------------
+   * OFF by default, with NO channel chosen by default. Three separate things
+   * must be true before one byte goes out: the GPS receiver is on, an interval
+   * is chosen, and a channel is named. See loop()'s beacon block.
+   *
+   * setPosInterval() re-arms (posNextTxMs = 0) exactly as setNeighborInterval
+   * does, so the keypress that switches reporting on NEVER transmits — the
+   * first beacon is a full period away. For a neighbour map that is politeness;
+   * for a live location it is a privacy property. */
+  uint32_t    getPosInterval() const { return posIntervalSecs; }   // 0 = off
+  void        setPosInterval(uint32_t secs);                       // persists (NVS)
+  const char* getPosChannelName() const { return posChanName; }    // "" = unset
+  void        setPosChannelName(const char* name);                 // persists (NVS)
+  /* The chosen channel, re-resolved BY NAME every time. NULL when unset or no
+   * longer on this phone. Names travel and indexes do not (see the ReplayHeard
+   * note); a stale index would aim a live location beacon at the wrong channel
+   * the first time applyChannelUrl() rewrites the table. */
+  const MeshChannel* getPosChannel() const;
+  /* Was the chosen channel public AT THE MOMENT IT WAS CHOSEN? The one hard
+   * refusal in this feature compares that against what the channel is NOW: a
+   * channel that has since been re-keyed to the stock default would otherwise
+   * start broadcasting a person's location in the clear, months after they
+   * armed it, in complete silence. A user who deliberately confirmed LongFast
+   * has this true and is not overridden. */
+  bool        posChannelWasPublic() const { return posChanWasPublic; }
+  uint32_t    getPosLastTxMs() const { return posLastTxMs; }       // 0 = never
+  bool        posLastSendOk()  const { return posLastOk; }
+  /* Why nothing is being sent right now — NULL when reporting is actually
+   * running (or is off, which the caller can see from getPosInterval()). The
+   * string is a static literal, safe to hold. */
+  const char* posBlockedReason() const;
+  int         getPosSkipRuns() const { return posSkipRuns; }
+  /* Bench only (serial `pos now`): build and transmit one beacon immediately,
+   * ignoring the interval and the movement gate but NOT the safety rules.
+   * ⚠ BLOCKS for ~518 ms in meshPhy.send(), like every other transmit here. */
+  bool        sendGpsPositionNow();
 
   // Maintenance (persisted immediately).
   void clearMessages();                      // wipe all stored messages
@@ -456,6 +571,32 @@ private:
   int32_t      gpsLatI, gpsLonI;          // last VALID GPS fix (1e-7 deg)
   uint32_t     gpsFixMs;                  // millis() of that fix; 0 = never
   int          gpsSats, gpsHdopX10;       // -1 = unknown
+  /* Mirror of WiPhone.ino's gGpsNmea, set by setGpsEnabled() from the two
+   * places that toggle it (the My node row and serial `gps on|off`). Read here
+   * rather than extern'd because gGpsNmea is not visible in this translation
+   * unit, and because reaching into the .ino's globals from a service is how
+   * the next such flag ends up out of sync too. Seeded in setup() from the same
+   * NVS key the .ino reads, so there is no boot-order dependency between them. */
+  bool         gpsEnabled;
+
+  /* ---- Periodic position beacon state -------------------------------------
+   * ~48 bytes of BSS, no heap, nothing allocated per broadcast. */
+  uint32_t     posIntervalSecs;           // 0 = off (NVS "posint")
+  char         posChanName[MESH_NAME_LEN];// target channel NAME, "" = unset (NVS "poschan")
+  bool         posChanWasPublic;          // was it public when picked? (NVS "pospub")
+  uint32_t     posNextTxMs;               // 0 = not armed yet (wait a full period)
+  int32_t      posLastLatI, posLastLonI;  // last position actually TRANSMITTED
+  bool         posLastValid;              // ...and whether there is one
+  int          posSkipRuns;               // consecutive slots the movement gate ate
+  uint32_t     posLastTxMs;               // millis() of the last beacon (0 = never)
+  bool         posLastOk;                 // did it reach the air?
+  void loadPosSettings();                 // NVS, once, in setup()
+  /* The one place a Position payload is built and handed to the radio. Both the
+   * manual pin announce and the GPS beacon go through it, so there is exactly
+   * one set of bytes and one log line to reason about. */
+  bool sendPositionOn(int32_t latI, int32_t lonI, const MeshChannel* ch, const char* why);
+  bool sendGpsPosition();                  // the scheduled beacon (safety rules inside)
+
   void upsertWaypoint(uint32_t id, int32_t latI, int32_t lonI,
                       uint32_t expire, uint32_t lockedTo, const char* name);
   void loadPin();                          // NVS
@@ -499,7 +640,6 @@ private:
   void neighborHeard(uint32_t node, int8_t snr, bool direct);
   bool announceNeighborsOn(const MeshChannel* ch);
   const MeshChannel* neighborChannel() const;
-  bool channelIsMachine(const MeshChannel* ch) const;
 
   // ---- Mesh history replay state (docs/replay-spec.md) ---------------------
   /* The ring lives in PSRAM (setup(); ~12 KB) — NOT internal heap, which this

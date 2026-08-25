@@ -29,15 +29,38 @@ extern void gpsApplyBaud(bool gpsOn);   // WiPhone.ino: the GPS and the GUI path
 #define MESH_KEY_SETREF     1
 #define MESH_KEY_IMHERE     2
 
-// "My node" screen option keys
+/* "My node" screen option keys.
+ * ⚠ KEYS MUST BE UNIQUE WITHIN THIS MENU. The comment here used to say "3 and 4
+ * are the info rows", which went stale the day a third bare literal (9, "Short:")
+ * was added — the easiest collision on this screen to make by accident. All
+ * three are named now, so grepping this block is enough. */
 #define MESH_MYNODE_EDIT       1
 #define MESH_MYNODE_REQUEST    2
-#define MESH_MYNODE_HOPLIMIT   7
-#define MESH_MYNODE_EDITSHORT  8      // ⚠ keys must be UNIQUE; 3 and 4 are the info rows
+#define MESH_MYNODE_INFO_NAME  3      // info row, not selectable-for-action
+#define MESH_MYNODE_INFO_NODE  4      // info row
 #define MESH_MYNODE_CLEARMSGS  5
 #define MESH_MYNODE_CLEARNODES 6
+#define MESH_MYNODE_HOPLIMIT   7
+#define MESH_MYNODE_EDITSHORT  8
+#define MESH_MYNODE_INFO_SHORT 9      // info row
 #define MESH_MYNODE_GPS        10     // woods plate: route the user UART to NMEA
 #define MESH_MYNODE_NEIGHBOR   11     // neighbour-info announce: off / 1h / 4h
+#define MESH_MYNODE_POSINT     12     // position reporting: off / 15m / 5m / 30m
+#define MESH_MYNODE_POSCHAN    13     // ...and which channel it goes to
+
+/* Send-position picker rows are keyed by channel index + 1 (never 0: addOption
+ * refuses it). The clear row sits far above any possible channel index. */
+#define MESH_POSCHAN_KEY_CLEAR 1000
+
+/* Places pinned rows. All three sit ABOVE the waypoint rows, which are keyed by
+ * waypoint id, and all three are re-checked BEFORE findWaypoint() in the
+ * handler. The GPS row's key IS the reference sentinel rather than a copy of
+ * its value, so the two cannot drift apart; the others sit just below it. A
+ * real Meshtastic waypoint id is a random uint32, so a collision is 2^-32 and
+ * its only consequence is that one waypoint could not be opened from here. */
+#define MESH_PLACES_KEY_GPS    MESH_REF_GPS
+#define MESH_PLACES_KEY_AUTO   0xFFFFFFFEu
+#define MESH_PLACES_KEY_NONE   0xFFFFFFFDu   // the "no places yet" hint row; inert
 
 // Thread menu: "Write" row key (kept above any message index, which is idx+1).
 #define MESH_KEY_WRITE      2000000
@@ -54,6 +77,7 @@ MeshtasticApp::MeshtasticApp(LCD& disp, ControlState& state, HeaderWidget* heade
   threadPeer = 0;
   viewMsgIndex = -1;
   pendingClear = 0;
+  pendingPubRow = 0;
   chatCount = 0;
   enterState(MESH_MAIN);
 }
@@ -74,7 +98,34 @@ void MeshtasticApp::freeWidgets() {
   }
 }
 
+// See the note in app_meshtastic.h: in-place rebuilds used to leak every row.
+void MeshtasticApp::freeMenu() {
+  if (menu) {
+    delete menu;
+    menu = NULL;
+  }
+}
+
 MenuWidget* MeshtasticApp::newMenu(const char* emptyMessage) {
+  /* 🔑 FREE THE PREVIOUS MENU FIRST — every in-place rebuild used to leak it.
+   * freeWidgets() runs only from the destructor and enterState(), never from a
+   * build*(), so the six OK-handler rebuilds in My node and the six
+   * NEW_MESSAGE_EVENT rebuilds all dropped a whole menu on the floor. The
+   * MenuWidget is PSRAM (AbstractWidget::operator new -> ps_malloc), but
+   * MenuOption does NOT derive from AbstractWidget, so each row leaked a
+   * plain-new object plus its strdup'd title on the INTERNAL heap — the ~25 KB
+   * one, largest block ~20 KB. Estimated 600-900 bytes per press of a rebuild
+   * row (CONFIRMED by reading; UNKNOWN: not measured on hardware).
+   *
+   * It lands here rather than at the top of each build*() because every one of
+   * the eleven call sites is `menu = newMenu(...)`: one place cannot be
+   * forgotten by the twelfth. freeMenu() and not freeWidgets(), because
+   * freeWidgets() also deletes textArea — always NULL on the menu screens, but
+   * it need not stay that way.
+   *
+   * What made this urgent: "Report position" is a cycling row, four presses to
+   * get back to off, and a channel picker adds more. */
+  freeMenu();
   MenuWidget* m = new MenuWidget(0, header->height(), lcd.width(),
                                  lcd.height() - header->height() - footer->height(),
                                  emptyMessage, fonts[AKROBAT_EXTRABOLD_22], N_MENU_ITEMS, 8);
@@ -167,6 +218,16 @@ void MeshtasticApp::enterState(MeshAppState_t state) {
     header->setTitle("Sun");
     footer->setButtons("Refresh", "Back");
     buildSun();
+    break;
+  case MESH_POSCHAN:
+    pendingPubRow = 0;                  // a fresh entry never arrives pre-armed
+    /* 13 characters. The Nodes header records that 13 was measured to fit and
+     * that the 14-character "Direct message" fits "with room to spare", so this
+     * is not a gamble — and the one screen in the firmware that must not clip
+     * is the one naming where somebody's location goes. */
+    header->setTitle("Send position");
+    footer->setButtons("Choose", "Back");
+    buildPosChannel();
     break;
   case MESH_PLACE_OPTS: {
     const MeshWaypoint* w = meshService.findWaypoint(selectedWaypointId);
@@ -377,9 +438,10 @@ void MeshtasticApp::buildNodes() {
   char line[64];
   char starBuf[MESH_NAME_LEN + 2];
 
-  /* Distances are measured from the REFERENCE — a waypoint (Places) or the
-   * user's own pin. The phone has no GPS; this is "where is everyone relative
-   * to camp", which is how the question actually gets asked in the field. */
+  /* Distances are measured from the REFERENCE — a waypoint (Places), this
+   * phone's own GPS, or the user's pin. "Where is everyone relative to camp"
+   * is how the question gets asked in the field; with the plate's GPS on, "how
+   * far am I from camp" finally has an answer too (the self row below). */
   int32_t refLat = 0, refLon = 0;
   bool haveRef = meshService.resolveReference(&refLat, &refLon, NULL, 0);
 
@@ -392,10 +454,44 @@ void MeshtasticApp::buildNodes() {
     if (!n) {
       continue;
     }
+    /* ── OUR OWN ROW ──────────────────────────────────────────────────────────
+     * It used to read a bare "!a1b2c3d4", because the distance branch below
+     * excludes self. With a fix, the most useful line on this screen is how far
+     * YOU are from camp — the question the GPS newly makes answerable and the
+     * pin never could.
+     * 🛑 Read live from getGpsFix(). The fix is deliberately NOT mirrored into
+     * nodes[self].latI: that field's only writers are setMyPin()/clearMyPin(),
+     * and writing it per fix would set dbDirty on every NMEA epoch and drag the
+     * ~1.5 s database save into a 1 Hz loop. */
+    if (n->nodeNum == meshService.getMyNodeNum()) {
+      int32_t myLat = 0, myLon = 0;
+      uint32_t myAge = 0;
+      int mySats = -1;
+      if (meshService.getGpsFix(&myLat, &myLon, &myAge, &mySats, NULL) &&
+          myAge < MESH_GPS_FRESH_MS && meshService.isGpsEnabled()) {
+        const double d = haveRef ? meshPosDistanceM(refLat, refLon, myLat, myLon) : 0.0;
+        /* Testing the computed distance against 5 m catches "the reference IS
+         * my GPS" without asking which reference mode is active — it is true in
+         * explicit-GPS mode and in automatic mode with a fresh fix alike. */
+        if (!haveRef || d < 5.0) {
+          snprintf(line, sizeof(line), "here - GPS fix, %d sats", mySats);
+        } else {
+          char dist[16];
+          meshPosFmtDist(d, dist, sizeof(dist));
+          snprintf(line, sizeof(line), "%s %s of %s, GPS now", dist,
+                   meshPosCompass8(meshPosBearingDeg(refLat, refLon, myLat, myLon)), refName);
+        }
+      } else {
+        snprintf(line, sizeof(line), "!%08x", n->nodeNum);   // today's behaviour
+      }
+      menu->addOption(meshStarName(n, starBuf, sizeof(starBuf)), line,
+                      (MenuOption::keyType)(i + 1), 1);
+      continue;
+    }
     /* Two lines: the NAME stays whole on top, the position facts live below in
      * the smaller font — one line held both and the 240px screen cut whichever
      * mattered ("wrap, don't clip" — field request 2026-08-19). */
-    if (haveRef && n->posHeardMs != 0 && n->nodeNum != meshService.getMyNodeNum()) {
+    if (haveRef && n->posHeardMs != 0) {
       char dist[16];
       meshPosFmtDist(meshPosDistanceM(refLat, refLon, n->latI, n->lonI), dist, sizeof(dist));
       /* Age BEFORE the reference name: the name is the part that varies in
@@ -427,7 +523,57 @@ void MeshtasticApp::buildNodes() {
 void MeshtasticApp::buildPlaces() {
   menu = newMenu("No places heard yet - COVEY's map shares them");
   uint32_t refId = meshService.getReferenceId();
+  /* ── The two reference choices that are not places ──────────────────────────
+   * Both live here, above the waypoints, next to the places they compete with:
+   * "measure from where I am" and "measure from a place" are the same question
+   * and belong on the same screen.
+   * ⚠ These rows mean the menu is NEVER empty, so newMenu's "No places heard
+   * yet" hint can no longer fire. It is re-added as a row below rather than
+   * quietly lost — it is the only thing on this screen that says where places
+   * come from. */
+#ifdef USER_SERIAL
+  {
+    char sub[48];
+    const bool isRef = (refId == MESH_REF_GPS);
+    int32_t la = 0, lo = 0;
+    uint32_t age = 0;
+    int sats = -1;
+    const bool haveFix = meshService.getGpsFix(&la, &lo, &age, &sats, NULL);
+    /* ⚠ THE SELECTED STATE HAS TO SURVIVE THE GPS BEING OFF OR UNFIXED. These two
+     * branches used to read identically whether or not this row was the chosen
+     * reference, so the one screen that lists references marked NONE of them as
+     * selected in exactly the states where the user is most likely to be asking. */
+    if (!gGpsNmea) {
+      snprintf(sub, sizeof(sub), "GPS is off (My node)%s", isRef ? " - SELECTED" : "");
+    } else if (!haveFix) {
+      snprintf(sub, sizeof(sub), "no fix yet%s", isRef ? " - SELECTED" : "");
+    } else if (isRef && age >= MESH_GPS_FRESH_MS) {
+      /* Named "last fix" and not "fix": in this mode the frame deliberately
+       * stops moving rather than falling back to the pin, and the row has to
+       * say which of those is happening. */
+      snprintf(sub, sizeof(sub), "from here - last fix %lu min ago",
+               (unsigned long)(age / 60000UL));
+    } else if (isRef) {
+      snprintf(sub, sizeof(sub), "from here - fix %lus old", (unsigned long)(age / 1000UL));
+    } else {
+      snprintf(sub, sizeof(sub), "fix %lus old, %d sats", (unsigned long)(age / 1000UL), sats);
+    }
+    menu->addOption("Here (GPS)", sub, MESH_PLACES_KEY_GPS, 1);
+  }
+#endif
+  menu->addOption("Automatic",
+                  refId == 0 ? "measuring from here" : "GPS when fresh, else your pin",
+                  MESH_PLACES_KEY_AUTO, 1);
+
   int count = meshService.getWaypointCount();
+  if (count == 0) {
+    /* What newMenu's empty message used to say, kept as a row now that the two
+     * pinned rows above mean this menu is never empty. Pressing it does
+     * nothing: the key matches no branch in the handler, which returns
+     * REDRAW_SCREEN and leaves the screen alone. */
+    menu->addOption("No places heard yet", "COVEY's map shares them",
+                    MESH_PLACES_KEY_NONE, 1);
+  }
   for (int i = 0; i < count; i++) {
     const MeshWaypoint* w = meshService.getWaypoint(i);
     if (!w) {
@@ -526,7 +672,10 @@ void MeshtasticApp::buildSun() {
 
 void MeshtasticApp::buildStatus() {
   menu = newMenu(NULL);
-  char line[40];
+  /* 48, not 40: "Reporting: 15 min to " is 21 characters and a channel name
+   * runs to MESH_NAME_LEN (24), so the old buffer clipped the one part of that
+   * row carrying information — the channel. */
+  char line[48];
 
   const char* stateStr = "Unknown";
   switch (meshService.getRadioState()) {
@@ -551,7 +700,25 @@ void MeshtasticApp::buildStatus() {
     // "From:" not "Distances from:" — the 16-char prefix left ~3 characters
     // for the place name, which is the only part carrying information.
     if (meshService.resolveReference(NULL, NULL, refName, sizeof(refName))) {
-      snprintf(line, sizeof(line), "From: %s", refName);
+      /* The reference name already says "last GPS" when the fix has gone
+       * stale; this is where the precise age lives, because putting a number
+       * on every distance line would have meant two ages in one sentence. */
+      uint32_t staleMs = 0;
+      if (meshService.referenceIsStaleGps(&staleMs)) {
+        snprintf(line, sizeof(line), "From: %s (%lu min old)", refName,
+                 (unsigned long)(staleMs / 60000UL));
+      } else {
+        snprintf(line, sizeof(line), "From: %s", refName);
+      }
+    } else if (meshService.getReferenceId() == MESH_REF_GPS) {
+      /* ⚠ THE REFERENCE IS SET; IT SIMPLY CANNOT RESOLVE. resolveReference()
+       * returns false here on purpose (a GPS reference must never silently fall
+       * back to the pin — that is how a distance ends up measured from somewhere
+       * the user did not choose). But this is the one screen whose whole job is
+       * to answer "what am I measuring from", and "(nowhere yet)" answers the
+       * wrong question: it reads as "you never picked one". */
+      snprintf(line, sizeof(line), "From: GPS (%s)",
+               gGpsNmea ? "no fix" : "receiver off");
     } else {
       snprintf(line, sizeof(line), "From: (nowhere yet)");
     }
@@ -563,6 +730,24 @@ void MeshtasticApp::buildStatus() {
              !meshService.getMyPin(NULL, NULL, NULL) ? "not set" :
              (meshService.pinAnnounceOk() ? "set" : "set (send FAILED)"));
     menu->addOption(line, 9, 1);
+    /* Whether this phone is telling the mesh where it is, and where to. It is
+     * on Status because "am I broadcasting my location right now" should be
+     * answerable without hunting through a settings screen. */
+    const uint32_t pi = meshService.getPosInterval();
+    if (pi == 0) {
+      snprintf(line, sizeof(line), "Reporting: off");
+    } else if (meshService.posBlockedReason()) {
+      snprintf(line, sizeof(line), "Reporting: %lu min - NOT SENDING",
+               (unsigned long)(pi / 60));
+    } else if (meshService.getPosLastTxMs() != 0 && !meshService.posLastSendOk()) {
+      // Same honesty as the pin row: a failed transmit is not a delivered one.
+      snprintf(line, sizeof(line), "Reporting: %lu min to %s - send FAILED",
+               (unsigned long)(pi / 60), meshService.getPosChannelName());
+    } else {
+      snprintf(line, sizeof(line), "Reporting: %lu min to %s",
+               (unsigned long)(pi / 60), meshService.getPosChannelName());
+    }
+    menu->addOption(line, 10, 1);
   }
   snprintf(line, sizeof(line), "Nodes known: %d", meshService.getNodeCount());
   menu->addOption(line, 6, 1);
@@ -571,6 +756,11 @@ void MeshtasticApp::buildStatus() {
 }
 
 void MeshtasticApp::buildMyNode() {
+  /* The six OK handlers below rebuild this screen in place; newMenu() frees the
+   * previous menu (see the note there — it used to leak every row, and the
+   * cycling interval row added here is a row people tap repeatedly). The
+   * delete-then-rebuild is synchronous inside the handler and completes before
+   * REDRAW_SCREEN returns, so `menu` is never NULL when anything draws. */
   menu = newMenu(NULL);
   char line[48];
   menu->addOption("Edit name", MESH_MYNODE_EDIT, 1);
@@ -585,11 +775,88 @@ void MeshtasticApp::buildMyNode() {
     const char* gs = "off";
     if (gGpsNmea) {
       uint32_t age = 0;
-      gs = (meshService.getGpsFix(NULL, NULL, &age, NULL, NULL) && age < 120000UL)
+      /* MESH_GPS_FRESH_MS, not a second hardcoded 120000: this label and
+       * resolveReference()'s freshness gate must never be able to disagree
+       * about whether the receiver is working. */
+      gs = (meshService.getGpsFix(NULL, NULL, &age, NULL, NULL) && age < MESH_GPS_FRESH_MS)
            ? "on (fix)" : "on (no fix yet)";
     }
     snprintf(line, sizeof(line), "GPS receiver: %s", gs);
     menu->addOption(line, MESH_MYNODE_GPS, 1);
+  }
+  /* ── Reporting this phone's position to the mesh ────────────────────────────
+   * Shown when the GPS is on OR when reporting is armed. NOT simply "when the
+   * GPS is on": a location broadcaster that is switched on must never become
+   * invisible, and turning the receiver off must not hide the fact that the
+   * beacon is still armed and waiting. With the shipping defaults (GPS off,
+   * reporting off) My node keeps its current eleven rows and nothing changes.
+   *
+   * Two lines per row: the cadence in the large font, the honest state in the
+   * small one. The house rule from the neighbour row above — say the state AND
+   * the destination, and say the true thing when the destination does not
+   * exist — matters more here, because the thing being broadcast is a person. */
+  if (gGpsNmea || meshService.getPosInterval() != 0) {
+    char sub[64];                     // channel names run to MESH_NAME_LEN (24)
+    const uint32_t pi = meshService.getPosInterval();
+    if (pi == 0) {
+      snprintf(line, sizeof(line), "Report position: off");
+      menu->addOption(line, MESH_MYNODE_POSINT, 1);
+    } else {
+      snprintf(line, sizeof(line), "Report position: every %lu min",
+               (unsigned long)(pi / 60));
+      const char* blocked = meshService.posBlockedReason();
+      if (blocked) {
+        /* Straight from the service's single send-time gate, so the row and
+         * the radio can never disagree about why nothing is going out. */
+        strlcpy(sub, blocked, sizeof(sub));
+      } else if (meshService.getPosLastTxMs() == 0) {
+        snprintf(sub, sizeof(sub), "to %s - first send due",
+                 meshService.getPosChannelName());
+      } else if (!meshService.posLastSendOk()) {
+        /* ⚠ THE ATTEMPT IS STAMPED WHETHER OR NOT IT REACHED THE AIR, so reading
+         * only the timestamp renders a failed send as "sent 0 min ago" — which is
+         * the exact failure the pin row one screen away was already fixed for:
+         * it reads as "they know where I am" when nobody does. The bit was always
+         * here; this row just was not asking for it. */
+        snprintf(sub, sizeof(sub), "to %s - last send FAILED",
+                 meshService.getPosChannelName());
+      } else {
+        snprintf(sub, sizeof(sub), "to %s - sent %lu min ago",
+                 meshService.getPosChannelName(),
+                 (unsigned long)((millis() - meshService.getPosLastTxMs()) / 60000UL));
+      }
+      menu->addOption(line, sub, MESH_MYNODE_POSINT, 1);
+    }
+
+    /* 🔑 "PUBLIC" LEADS, AND IT IS IN THE LARGE FONT. Channel names run to 24
+     * characters on a 240px screen, so a trailing marker is exactly the part a
+     * long name pushes off the edge ("Send to: my-long-channel-nam|"). This
+     * codebase learned that once already, in buildNodes: the age goes BEFORE
+     * the reference name because the name is the variable-length part. The
+     * subtitle font is the small one, so the warning cannot live only there. */
+    const char* pcn = meshService.getPosChannelName();
+    const MeshChannel* pc = meshService.getPosChannel();
+    if (!pcn[0]) {
+      snprintf(line, sizeof(line), "Send to: not set");
+      strlcpy(sub, "nothing is sent until you pick", sizeof(sub));
+    } else if (!pc) {
+      snprintf(line, sizeof(line), "Send to: %s - GONE", pcn);
+      strlcpy(sub, "not on this phone any more", sizeof(sub));
+    } else if (meshService.channelIsPublic(pc)) {
+      snprintf(line, sizeof(line), "Send to: PUBLIC %s", pc->name);
+      /* Two different sentences for two different situations: one is a choice
+       * the user confirmed, the other is a channel that went public underneath
+       * them and is now refused. */
+      strlcpy(sub, meshService.posChannelWasPublic()
+                   ? "any radio in range can read it"
+                   : "was private when picked - REFUSED", sizeof(sub));
+    } else {
+      snprintf(line, sizeof(line), "Send to: %s", pc->name);
+      strlcpy(sub, meshService.channelIsMachine(pc)
+                   ? "private - machines only"
+                   : "private channel", sizeof(sub));
+    }
+    menu->addOption(line, sub, MESH_MYNODE_POSCHAN, 1);
   }
 #endif
   /* Neighbour announce (portnum 71): who we hear DIRECTLY, told to the private
@@ -610,19 +877,61 @@ void MeshtasticApp::buildMyNode() {
     menu->addOption(line, MESH_MYNODE_NEIGHBOR, 1);
   }
   snprintf(line, sizeof(line), "Name: %s", meshService.getMyLongName());
-  menu->addOption(line, 3, 1);
+  menu->addOption(line, MESH_MYNODE_INFO_NAME, 1);
   /* Show whether the short name is the user's or follows the long name — otherwise there is
    * no way to tell why it changed by itself after a rename. */
   snprintf(line, sizeof(line), "Short: %s%s", meshService.getMyShortName(),
            meshService.isShortNameCustom() ? "" : " (auto)");
-  menu->addOption(line, 9, 1);
+  menu->addOption(line, MESH_MYNODE_INFO_SHORT, 1);
   snprintf(line, sizeof(line), "Node: !%08x", meshService.getMyNodeNum());
-  menu->addOption(line, 4, 1);
+  menu->addOption(line, MESH_MYNODE_INFO_NODE, 1);
   // Destructive: require a second press to confirm.
   menu->addOption(pendingClear == 1 ? "Clear messages? (confirm)" : "Clear messages",
                   MESH_MYNODE_CLEARMSGS, 1);
   menu->addOption(pendingClear == 2 ? "Clear nodes? (confirm)" : "Clear nodes",
                   MESH_MYNODE_CLEARNODES, 1);
+}
+
+/* Where the GPS position beacon sends. One row per channel, plus a way back to
+ * "nowhere". The whole job of this screen is to state truthfully where a
+ * person's location goes, which drives two decisions:
+ *
+ *  - MACHINE CHANNELS ARE LISTED, NOT HIDDEN. booksync and smsmirror have no
+ *    human audience and sending there is wasted airtime — but a channel that
+ *    silently vanishes from a list like this teaches people to distrust the
+ *    list. Labelling it useless is honest; hiding it is not.
+ *
+ *  - THE ROW KEY IS THE INDEX + 1 AND THE HANDLER RE-RESOLVES IT. Same lesson
+ *    as buildPlaces, with higher stakes: applyChannelUrl() can rewrite the
+ *    table under an open menu, and a frozen index would aim a live location
+ *    beacon at whatever slid into that slot. */
+void MeshtasticApp::buildPosChannel() {
+  menu = newMenu("No channels on this phone");
+  char row[40];                       // "PUBLIC " + MESH_NAME_LEN(24) = 30
+  const char* cur = meshService.getPosChannelName();
+  const int n = meshService.getChannelCount();
+  for (int i = 0; i < n; i++) {
+    const MeshChannel* c = meshService.getChannel(i);
+    if (!c) {
+      continue;
+    }
+    const MenuOption::keyType key = (MenuOption::keyType)(i + 1);
+    if (meshService.channelIsPublic(c)) {
+      snprintf(row, sizeof(row), "PUBLIC %s", c->name);
+      menu->addOption(row,
+                      pendingPubRow == (int)key ? "PUBLIC - press again to confirm"
+                                                : "PUBLIC - any radio in range",
+                      key, 1);
+    } else if (cur[0] && strcmp(cur, c->name) == 0) {
+      menu->addOption(c->name, "private - sending here now", key, 1);
+    } else if (meshService.channelIsMachine(c)) {
+      menu->addOption(c->name, "private - machines only", key, 1);
+    } else {
+      menu->addOption(c->name, "private", key, 1);
+    }
+  }
+  menu->addOption("Clear - send nowhere", "stops reporting until you pick again",
+                  MESH_POSCHAN_KEY_CLEAR, 1);
 }
 
 void MeshtasticApp::buildEditName() {
@@ -742,6 +1051,21 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
     menu->processEvent(event);
     if (LOGIC_BUTTON_OK(event)) {
       uint32_t id = (uint32_t)menu->currentKey();       // rows are keyed by waypoint id
+      /* The two pinned rows, checked BEFORE the waypoint lookup so a waypoint
+       * can never shadow them. Both jump to Nodes rather than returning here,
+       * for the reason recorded on MESH_KEY_SETREF below: the first version
+       * returned to this screen with a subtle marker and the field report was
+       * "nothing happened anywhere?" — the payoff is in the distances. */
+      if (id == MESH_PLACES_KEY_GPS) {
+        meshService.setReferenceId(MESH_REF_GPS);
+        enterState(MESH_NODES);
+        return REDRAW_ALL;
+      }
+      if (id == MESH_PLACES_KEY_AUTO) {
+        meshService.setReferenceId(0);
+        enterState(MESH_NODES);
+        return REDRAW_ALL;
+      }
       if (meshService.findWaypoint(id)) {
         selectedWaypointId = id;
         enterState(MESH_PLACE_OPTS);
@@ -769,7 +1093,10 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
       } else if (w && menu->currentKey() == MESH_KEY_IMHERE) {
         /* Declare the phone AT this waypoint: persists, and broadcasts one
          * Position so COVEY's map shows this phone. The declaration is a
-         * statement by the user, not a fix — there is no GPS to argue. */
+         * STATEMENT by the user, not a measurement — and it stays that even
+         * now the plate has a GPS. Nothing on the GPS path writes the pin; if
+         * you want the receiver's answer instead, that is Places > Here (GPS)
+         * or My node > Report position, both one screen away. */
         meshService.setMyPin(w->latI, w->lonI);
       }
       enterState(MESH_PLACES);            // the [ref] marker redraws
@@ -877,6 +1204,47 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
     menu->processEvent(event);
     return REDRAW_SCREEN;
 
+  case MESH_POSCHAN:
+    if (LOGIC_BUTTON_BACK(event)) {
+      enterState(MESH_MYNODE);
+      return REDRAW_ALL;
+    }
+    menu->processEvent(event);
+    if (LOGIC_BUTTON_OK(event)) {
+      const MenuOption::keyType k = menu->currentKey();
+      if (k == MESH_POSCHAN_KEY_CLEAR) {
+        meshService.setPosChannelName("");
+        enterState(MESH_MYNODE);
+        return REDRAW_ALL;
+      }
+      /* Re-resolve by index NOW, never trusting the key frozen when the rows
+       * were drawn — applyChannelUrl() can have rewritten the table since. */
+      const MeshChannel* c = meshService.getChannel((int)k - 1);
+      if (!c) {
+        pendingPubRow = 0;
+        buildPosChannel();
+        return REDRAW_SCREEN;
+      }
+      /* 🔑 THE PUBLIC ROW TAKES TWO PRESSES. Same idiom as "Clear nodes",
+       * applied where "irreversible enough to mean it" means somebody's live
+       * location rather than a database. Confirming really does send there —
+       * a confirm that produced nothing would be a lie by UI, and being
+       * findable by any radio in range is a legitimate thing to want. The
+       * safety is that it costs five deliberate presses to reach and says so
+       * permanently afterwards, on two screens, in the large font. */
+      if (meshService.channelIsPublic(c) && pendingPubRow != (int)k) {
+        pendingPubRow = (int)k;
+        buildPosChannel();
+        menu->select(k);
+        return REDRAW_SCREEN;
+      }
+      pendingPubRow = 0;
+      meshService.setPosChannelName(c->name);
+      enterState(MESH_MYNODE);
+      return REDRAW_ALL;
+    }
+    return REDRAW_SCREEN;
+
   case MESH_MYNODE:
     if (LOGIC_BUTTON_BACK(event)) {
       enterState(MESH_MAIN);
@@ -927,8 +1295,40 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
         gpsApplyBaud(gGpsNmea);       // ...and the same UART retune, or the GUI
                                       // toggle would leave the port at the other
                                       // consumer's rate and read nothing
+        /* Tell the service too. Without this it kept answering "GPS" from
+         * resolveReference — with coordinates from a receiver that had just
+         * been switched off — for up to MESH_GPS_FRESH_MS. One bool, no I/O. */
+        meshService.setGpsEnabled(gGpsNmea);
         buildMyNode();
         menu->select(MESH_MYNODE_GPS);
+      } else if (sel == MESH_MYNODE_POSINT) {
+        pendingClear = 0;
+        /* off -> 15 min -> 5 min -> 30 min -> off, the neighbour row's shape:
+         * off, then the useful one, then the alternatives.
+         *
+         * 15 MINUTES IS FIRST BECAUSE IT IS MESHTASTIC'S OWN
+         * position_broadcast_secs DEFAULT (UNKNOWN: upstream knowledge, not
+         * verifiable in this tree). Matching it makes this phone's airtime
+         * footprint indistinguishable from a stock node's on a band it shares
+         * with COVEY and everything else in range — 518 ms per beacon works
+         * out at 0.058% duty, and 0.014% once the movement gate is counted.
+         * 5 min is second and matches COVEY exactly (meshtastic_service.cpp's
+         * port table records that cadence): "we are moving, keep up". 30 min
+         * is the quiet setting, 0.029%.
+         *
+         * Nothing sub-minute is offered anywhere. This is a transmission on a
+         * band everybody in range shares.
+         *
+         * setPosInterval() re-arms, so THIS KEYPRESS NEVER TRANSMITS — the
+         * first beacon is a full period away. */
+        const uint32_t pi = meshService.getPosInterval();
+        meshService.setPosInterval(pi == 0 ? 900 : (pi == 900 ? 300 : (pi == 300 ? 1800 : 0)));
+        buildMyNode();
+        menu->select(MESH_MYNODE_POSINT);
+      } else if (sel == MESH_MYNODE_POSCHAN) {
+        pendingClear = 0;
+        enterState(MESH_POSCHAN);
+        return REDRAW_ALL;
 #endif
       } else if (sel == MESH_MYNODE_NEIGHBOR) {
         pendingClear = 0;

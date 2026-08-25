@@ -68,6 +68,23 @@ int main() {
           lat == PDX_LAT && lon == PDX_LON && t == 1766000123u, "own announce round-trips");
     n = meshPosBuild(b, PDX_LAT, PDX_LON, 0);
     CHECK(n == 10 && meshPosParse(b, n, &lat, &lon, &t) && t == 0, "time omitted when unknown");
+
+    /* 🔑 THE TWO SIZES ABOVE ARE AN AIRTIME CONTRACT, not a formatting detail.
+     * 15 B payload + 6 B Data protobuf framing + 16 B MeshPacketHeader = 37 B
+     * on air, which at the LongFast registers this repo writes (SF11, BW250,
+     * CR4/5, preamble 16 — mesh_phy.cpp:114) is 518 ms of transmission. Every
+     * duty-cycle number behind the offered beacon intervals is derived from
+     * that. If either size changes, the intervals need re-justifying and this
+     * assertion is what says so. */
+
+    /* Southern hemisphere AND western longitude: both axes negative, which is
+     * the sfixed32 case most likely to be got wrong by a sign-extension slip.
+     * (Hobart is -42.88, 147.33 — one negative axis; this is Punta Arenas.) */
+    const int32_t PA_LAT = -531629000, PA_LON = -708546000;
+    n = meshPosBuild(b, PA_LAT, PA_LON, 1766000123u);
+    CHECK(n == 15 && meshPosParse(b, n, &lat, &lon, &t) &&
+          lat == PA_LAT && lon == PA_LON && t == 1766000123u,
+          "negative lat AND lon round-trip");
   }
 
   // ---- Waypoint parse -------------------------------------------------------
@@ -128,6 +145,49 @@ int main() {
     CHECK(fabs(d - 500.0) < 1.0, "500 m north");
     CHECK(meshPosBearingDeg(470000000, -1200000000, 470044966, -1200000000) == 0, "north = 0");
     CHECK(meshPosDistanceM(SEA_LAT, SEA_LON, SEA_LAT, SEA_LON) < 0.01, "zero distance to self");
+  }
+
+  /* ---- the position beacon's movement gate ---------------------------------
+   * Offsets computed independently in Python with the same haversine (the
+   * method this file already uses for the geometry block above):
+   *   99 m due north of 47.0,-120.0  = +8903 in 1e-7 deg  (measured 98.997 m)
+   *  101 m due north                 = +9083              (measured 100.998 m)
+   * The pair straddles MESH_POS_MIN_MOVE_M from both sides on purpose: an
+   * off-by-one in the comparison shows up as exactly one of them flipping. */
+  {
+    const int32_t LAT = 470000000, LON = -1200000000;
+
+    CHECK(meshPosShouldBeacon(false, 0, 0, LAT, LON, 0),
+          "first beacon after boot always transmits");
+
+    // Parked: suppressed for MESH_POS_MAX_SKIPS slots, then forced out.
+    CHECK(!meshPosShouldBeacon(true, LAT, LON, LAT, LON, 0) &&
+          !meshPosShouldBeacon(true, LAT, LON, LAT, LON, 1) &&
+          !meshPosShouldBeacon(true, LAT, LON, LAT, LON, 2),
+          "stationary phone stays quiet for three slots");
+    CHECK(meshPosShouldBeacon(true, LAT, LON, LAT, LON, MESH_POS_MAX_SKIPS),
+          "keep-alive floor: the fourth slot transmits anyway");
+
+    CHECK(!meshPosShouldBeacon(true, LAT, LON, LAT + 8903, LON, 0), "99 m does not beacon");
+    CHECK(meshPosShouldBeacon(true, LAT, LON, LAT + 9083, LON, 0), "101 m beacons");
+
+    // 5 km: transmits at every skip count, including a freshly reset one.
+    CHECK(meshPosShouldBeacon(true, LAT, LON, LAT, LON + 658550, 0) &&
+          meshPosShouldBeacon(true, LAT, LON, LAT, LON + 658550, 2),
+          "5 km beacons regardless of skip count");
+
+    /* Sign handling: a step ACROSS the antimeridian is 111 m, not 40,000 km.
+     * If meshPosDistanceM ever loses the wrap, the gate would read a two-metre
+     * shuffle at the date line as a continent-crossing move and transmit every
+     * slot — the one place this arithmetic can silently cost real airtime. */
+    CHECK(meshPosShouldBeacon(true, 0, 1799995000, 0, -1799995000, 0),
+          "antimeridian: 111 m across the line beacons");
+    CHECK(!meshPosShouldBeacon(true, 0, 1799999500, 0, -1799999500, 0),
+          "antimeridian: 11 m across the line does not");
+    // ...and across the equator, where the latitude sign flips.
+    CHECK(meshPosShouldBeacon(true, -4497, 0, 4497, 0, 0) &&
+          !meshPosShouldBeacon(true, -2000, 0, 2000, 0, 0),
+          "equator crossing: 100 m beacons, 44 m does not");
   }
 
   // ---- presentation ---------------------------------------------------------

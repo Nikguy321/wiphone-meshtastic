@@ -204,3 +204,21 @@ void meshPosFmtDist(double m, char* out, size_t cap) {
     snprintf(out, cap, "%.0fkm", m / 1000.0);
   }
 }
+
+// ---------------------------------------------------------------- beacon gate
+
+bool meshPosShouldBeacon(bool haveLast, int32_t lastLatI, int32_t lastLonI,
+                         int32_t latI, int32_t lonI, int skipRuns) {
+  /* Nothing has gone out since boot: transmit. Suppressing the FIRST beacon
+   * would leave a node that has never announced its position looking exactly
+   * like one that is switched off. */
+  if (!haveLast) {
+    return true;
+  }
+  /* The keep-alive floor, checked BEFORE the distance so it can never be
+   * out-voted: a phone parked all afternoon still says so every fourth slot. */
+  if (skipRuns >= MESH_POS_MAX_SKIPS) {
+    return true;
+  }
+  return meshPosDistanceM(lastLatI, lastLonI, latI, lonI) >= MESH_POS_MIN_MOVE_M;
+}

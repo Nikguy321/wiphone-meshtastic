@@ -92,7 +92,10 @@ static void help() {
     "  replay     history-replay state: ring occupancy, pending tx, last served",
     "  nbr        neighbours heard DIRECTLY + announce state (My node > Neighbor info)",
     "  nbr on|4h|off|now  set the announce cadence (1h/4h) or announce right now",
-    "  pos        positions: waypoints, node fixes, our pin, the reference",
+    "  pos        positions: waypoints, node fixes, our pin, the reference, our beacon",
+    "  pos every <secs>|off  GPS position reporting cadence (persists; 300s floor)",
+    "  pos now    force one beacon: obeys the channel/fix/spacing rules but NOT",
+    "             the on/off switch - it sends with reporting OFF",
     "  gps        woods-plate GPS state: fix, sats, reader counters",
     "  gps on|off route the user UART (38/32) to the NMEA reader (persists)",
     "  gps baud <n>  GPS baud, persists (115200 = the M100 Mini, measured; not 9600)",
@@ -108,8 +111,11 @@ static void help() {
 }
 
 /* `pos` — the whole positions picture in one paste: every waypoint heard, every
- * node with a fix (age in minutes), our own pin, and which reference distances
- * are measured from. The phone has no GPS — everything here was HEARD. */
+ * node with a fix (age in minutes), our own pin, which reference distances are
+ * measured from, and — since the woods plate — what this phone is telling the
+ * world about ITSELF. That last block is the one worth pasting into a bug
+ * report: it answers "is my location going out, to whom, and when did it last
+ * go" in five lines. */
 static void reportPos() {
   int32_t refLat = 0, refLon = 0;
   char refName[20] = "";
@@ -164,6 +170,32 @@ static void reportPos() {
         (int)(pinLon / 10000000), abs((int)((pinLon % 10000000) / 100)));
   } else {
     say("pos: no pin (Meshtastic > Places > pick one > I'm here)\n");
+  }
+
+  // ---- what this phone broadcasts about itself -------------------------------
+  const uint32_t pi = meshService.getPosInterval();
+  if (pi == 0) {
+    say("pos: reporting OFF (My node > Report position)\n");
+  } else {
+    const char* chn = meshService.getPosChannelName();
+    const MeshChannel* pc = meshService.getPosChannel();
+    say("pos: reporting every %lus to '%s'%s%s\n", (unsigned long)pi,
+        chn[0] ? chn : "(no channel)",
+        !chn[0] ? "" : (pc ? "" : " [GONE from this phone]"),
+        (pc && meshService.channelIsPublic(pc))
+            ? (meshService.posChannelWasPublic() ? " [PUBLIC - confirmed]"
+                                                 : " [PUBLIC - REFUSED]")
+            : "");
+    const char* why = meshService.posBlockedReason();
+    say("pos: %s\n", why ? why : "armed and clear to send");
+    if (meshService.getPosLastTxMs() == 0) {
+      say("pos: never beaconed (first send is a full interval after arming)\n");
+    } else {
+      say("pos: last beacon %lus ago, %s, %d slot(s) skipped since\n",
+          (unsigned long)((millis() - meshService.getPosLastTxMs()) / 1000UL),
+          meshService.posLastSendOk() ? "SENT" : "FAILED",
+          meshService.getPosSkipRuns());
+    }
   }
 }
 
@@ -461,6 +493,67 @@ static void run(char* line) {
     reportPos();
     return;
   }
+  if (!strncasecmp(line, "pos ", 4)) {
+    const char* arg = line + 4;
+    while (*arg == ' ') {
+      arg++;
+    }
+    if (!strncasecmp(arg, "every", 5)) {
+      const char* n = arg + 5;
+      while (*n == ' ') {
+        n++;
+      }
+      if (!strcasecmp(n, "off")) {
+        meshService.setPosInterval(0);
+        say("pos: reporting OFF\n");
+        return;
+      }
+      const uint32_t s = (uint32_t)strtoul(n, NULL, 10);
+      /* 🔑 300 s floor, RAISED FROM 60 s: the bench must not be able to persist a
+       * cadence the GUI cannot represent or undo. At 60 s this is 518 ms of air
+       * every minute — 0.86% duty, ~15x the most aggressive GUI option (300 s,
+       * 0.173%) and ~5x its default — on a band shared with COVEY and everything
+       * else in range. Worse, it SURVIVES A REBOOT in NVS while the menu renders
+       * it as "every 1 min" and collapses it to off on the next press, so the
+       * user cannot see it or fix it from the phone. 300 s is the most aggressive
+       * value the GUI itself offers; the bench does not get to invent a faster one. */
+      if (s < 300 || s > 86400) {
+        say("pos: interval out of range (300..86400 seconds, or off)\n");
+        return;
+      }
+      meshService.setPosInterval(s);
+      say("pos: reporting every %lus - first send is a full interval away\n",
+          (unsigned long)s);
+      return;
+    }
+    /* 🛑 `pos chan` IS REFUSED, DELIBERATELY. The consent that makes a location
+     * beacon safe is the two-press confirm on the picker screen, where the word
+     * PUBLIC is in the large font. A serial one-liner is not that consent, and
+     * a bench command that can silently retarget somebody's live location
+     * defeats every safeguard on the screen. Read-only here, on purpose. */
+    if (!strncasecmp(arg, "chan", 4)) {
+      say("pos: refused - choose the channel on the phone\n");
+      say("pos: Meshtastic > My node > Send to (the public channel needs two presses)\n");
+      return;
+    }
+    /* `pos now` — bench only: force one beacon regardless of the interval and
+     * the movement gate. It still obeys every SAFETY rule (receiver on, channel
+     * named, channel present, channel not silently public, fix fresh enough),
+     * because those are what the feature is for.
+     * ⚠ BLOCKS ~518 ms inside meshPhy.send(), like `nbr now` does. */
+    if (!strcasecmp(arg, "now")) {
+      const bool ok = meshService.sendGpsPositionNow();
+      say("pos: forced beacon %s%s\n", ok ? "SENT" : "NOT SENT",
+          ok ? " (37 B on air with the clock set - see the MESH POSITION log line)" : "");
+      if (!ok) {
+        const char* why = meshService.posBlockedReason();
+        say("pos: %s\n", why ? why : "radio not ready, or no channels");
+      }
+      return;
+    }
+    say("pos: usage - pos | pos every <secs>|off | pos now  (channel: on the phone)\n");
+    return;
+  }
   /* `gps` — the woods backplate's GPS half, dormant until `gps on`. The status
    * line leads with the counters because they answer the first bench question:
    * bytes rising + sentences 0 = wrong baud; both 0 = wiring; sentences rising
@@ -478,6 +571,9 @@ static void run(char* line) {
       p.putBool("gpsen", gGpsNmea);
       p.end();
       gpsApplyBaud(gGpsNmea);      // the two consumers do NOT share a baud
+      /* ...and tell the service, or resolveReference() keeps answering "GPS"
+       * with coordinates from a receiver that just stopped. One bool, no I/O. */
+      meshService.setGpsEnabled(gGpsNmea);
       gGpsReader.reset();          // counters answer "since when", so start clean
       say("gps: NMEA reader %s (user UART rx=%d tx=%d @ %u)%s\n",
           gGpsNmea ? "ON" : "OFF", USER_SERIAL_RX, USER_SERIAL_TX,

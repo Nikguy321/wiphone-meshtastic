@@ -2,10 +2,16 @@
  * mesh_pos.h — Meshtastic position & waypoint payloads, and the small geometry
  * needed to say "1.4km NE of Camp".
  *
- * The phone has NO GPS (yet): it never computes a fix, it only LISTENS —
- * COVEY broadcasts its Position every 5 minutes and shares Waypoints from its
- * map, and this file turns those payloads into distances and bearings from a
- * chosen reference point (a waypoint, or the phone's own user-declared pin).
+ * ⚠ THIS HEADER USED TO SAY "the phone has NO GPS (yet): it only LISTENS".
+ * That has been false since the woods backplate shipped — the u-blox M10 is
+ * read as NMEA by nmea.cpp and its fix reaches meshtastic_service. Both
+ * directions now meet here:
+ *   INBOUND  — COVEY broadcasts its Position every 5 minutes and shares
+ *              Waypoints from its map; this file turns those payloads into
+ *              distances and bearings from a chosen reference point (a
+ *              waypoint, this phone's own GPS, or the user-declared pin).
+ *   OUTBOUND — meshPosBuild() serves the manual "I'm here" pin announce AND
+ *              the periodic GPS position beacon (meshtastic_service.cpp).
  *
  * Wire formats verified against meshtastic/protobufs master (2026-08-19):
  *   Position (port 3): latitude_i=1 sfixed32, longitude_i=2 sfixed32,
@@ -43,8 +49,19 @@ bool meshPosParse(const uint8_t* pl, size_t len,
 // of position is the discriminator, since expire==0 means "never expires").
 bool meshWaypointParse(const uint8_t* pl, size_t len, MeshWaypointMsg* out);
 
-// Build a minimal Position payload {latitude_i, longitude_i, [time]} for the
-// phone's own "I'm here" announce. Returns bytes written (max 15).
+/* Build a minimal Position payload {latitude_i, longitude_i, [time]}. Returns
+ * bytes written: 15 with a known clock, 10 without.
+ *
+ * ⚠ TWO CALLERS WITH DIFFERENT PROVENANCE share these bytes now — the manual
+ * "I'm here" pin (a statement by the user) and the periodic GPS beacon (a
+ * measurement). The payload cannot tell them apart and neither can a receiver,
+ * so the distinction lives entirely in which caller decided to transmit. That
+ * is why the beacon's freshness gate sits in the service, not here.
+ *
+ * The 15/10 sizes are asserted by tests/test_pos.cpp on purpose: the beacon's
+ * whole airtime budget (37 B on air, 518 ms at SF11/BW250) is computed from
+ * them, so a silent change to this function invalidates the duty-cycle
+ * reasoning behind the offered intervals. */
 size_t meshPosBuild(uint8_t* out, int32_t latI, int32_t lonI, uint32_t time);
 
 // Great-circle distance in meters (haversine, R=6371km — meters-accurate at
@@ -59,5 +76,28 @@ const char* meshPosCompass8(int deg);
 
 // "850m" / "1.4km" / "23km".
 void meshPosFmtDist(double meters, char* out, size_t cap);
+
+/* ---- The position beacon's movement gate --------------------------------
+ * A stationary phone re-sending an identical position is pure waste of a
+ * shared band. A phone that goes silent for hours looks like a dead radio,
+ * and on a hunting channel "he's still on the stand" is real information.
+ * So: suppress the slot when the fix has barely moved, but never suppress
+ * more than MESH_POS_MAX_SKIPS in a row. At a 15-minute interval a parked
+ * phone therefore transmits somewhere between every 15 and every 60 minutes.
+ *
+ * 100 m matches upstream's broadcast_smart_minimum_distance.
+ * UNKNOWN: that default is upstream knowledge, not verifiable in this tree.
+ *
+ * This is the ONE piece of the beacon that is arithmetic rather than policy,
+ * so it lives in this Arduino-free file where tests/test_pos.cpp can prove it. */
+#define MESH_POS_MIN_MOVE_M   100.0
+#define MESH_POS_MAX_SKIPS    3
+
+/* True when this slot should actually transmit. `skipRuns` is how many
+ * consecutive slots have already been suppressed. haveLast == false (nothing
+ * transmitted since boot) always transmits — the first beacon is what tells
+ * the mesh this node exists. */
+bool meshPosShouldBeacon(bool haveLast, int32_t lastLatI, int32_t lastLonI,
+                         int32_t latI, int32_t lonI, int skipRuns);
 
 #endif // MESH_POS_H

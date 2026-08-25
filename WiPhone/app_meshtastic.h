@@ -42,6 +42,7 @@ protected:
     MESH_PLACES,        // waypoints heard from the mesh (camp, the truck, ...)
     MESH_PLACE_OPTS,    // one waypoint: set as reference / declare "I'm here"
     MESH_SUN,           // legal light at the reference place (the serial `sun`, on screen)
+    MESH_POSCHAN,       // which channel the GPS position beacon goes to
   } MeshAppState_t;
 
   MeshAppState_t appState;
@@ -57,6 +58,12 @@ protected:
 
   int      viewMsgIndex;            // message index shown in the View screen
   int      pendingClear;            // My node: 0 none, 1 messages, 2 nodes (confirm)
+  /* Send-position picker: the row key armed for a second press, 0 = none. The
+   * PUBLIC channel takes two presses for the same reason "Clear nodes" does —
+   * it is irreversible enough to mean it — except what is at stake here is
+   * where a person's live location goes, so one stray D-pad press must not be
+   * able to change it. */
+  int      pendingPubRow;
   uint32_t selectedWaypointId;      // Places: the waypoint whose options are open
   /* Header titles are STORED POINTERS (HeaderWidget::setTitle never copies), so
    * they must point at memory that outlives the screen — never at a stack local
@@ -71,6 +78,18 @@ protected:
   int      chatCount;
 
   void freeWidgets();
+  /* ⚠ Delete JUST the menu, for an in-place rebuild. Every build*() starts with
+   * `menu = newMenu(...)` and, until this existed, simply dropped the previous
+   * one on the floor: freeWidgets() is called only from the destructor and
+   * enterState(). MenuWidget itself is PSRAM (AbstractWidget::operator new ->
+   * ps_malloc), but MenuOption does NOT derive from AbstractWidget, so every
+   * row leaked a plain-new object plus its strdup'd title on the INTERNAL heap
+   * — the ~25 KB one with a ~20 KB largest block. Estimated 600-900 bytes per
+   * press; CONFIRMED by reading, UNKNOWN: not measured on hardware. It matters
+   * now because a cycling interval row is a row people tap repeatedly.
+   * Not freeWidgets(): that also deletes textArea, which is always NULL on the
+   * menu screens but need not stay that way. */
+  void freeMenu();
   void enterState(MeshAppState_t state);
 
   MenuWidget* newMenu(const char* emptyMessage);
@@ -87,6 +106,7 @@ protected:
   void buildPlaces();
   void buildPlaceOpts();
   void buildSun();
+  void buildPosChannel();
 };
 
 #endif // APP_MESHTASTIC_H
