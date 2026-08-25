@@ -50,9 +50,10 @@ bug fixes and why each one happened. Recent highlights:
   texting (the server part of the address fills itself in).
 - **Fixed since 0.9.7** (in the repo, riding the next release): a WiFi
   auto-switch deadlock that could leave the phone sitting next to a saved
-  hotspot without joining it; GPS/woods-backplate support (dormant until the
-  hardware exists); Sun and the GPS toggle moved into the menus — a feature
-  that only exists as a serial command is not a feature.
+  hotspot without joining it; GPS/woods-backplate support — and the plate now
+  exists, is fitted to a phone and holds a live fix, so there is a
+  [build guide](#woods-backplate); Sun and the GPS toggle moved into the menus
+  — a feature that only exists as a serial command is not a feature.
 
 ---
 
@@ -157,9 +158,10 @@ about a quarter of realtime at 48 kHz stereo, so there is plenty of headroom.
   channel over public LongFast, and admitting it honestly when the send failed).
 - **Sun & legal light** — dawn / sunrise / sunset / dusk and a countdown
   ("LEGAL LIGHT: 13h 34m left") for the reference place, computed offline.
-- **GPS-ready** — a receiver on the expansion header (build guide coming once
-  the reference build is finished) gives the phone its own live position; the
-  toggle is in My node, and everything above works without it.
+- **GPS** — a receiver on the expansion header gives the phone its own live
+  position; the toggle is in My node, and everything above works without it.
+  The receiver rides on the **[woods backplate](#woods-backplate)** — built,
+  fitted and holding a fix, with a full build guide below.
 - **Node list** with friendly names (learned from NodeInfo), an **editable node
   name** (long and 4-character short), and a **configurable hop limit**.
 - **Mesh client role** — relays/rebroadcasts other nodes' packets to extend the
@@ -177,6 +179,102 @@ about a quarter of realtime at 48 kHz stereo, so there is plenty of headroom.
 
 The normal WiPhone experience (phone calls, SIP, contacts, games, settings) is
 untouched.
+
+---
+
+## Woods backplate
+
+The stock WiPhone back cover carries a LoRa radio and a small flexible antenna.
+The **woods backplate** is a custom cover that swaps it for what you actually
+want out in the trees: the same RFM95W radio but on a **real 915 MHz whip**, a
+**GPS receiver** so the phone knows where it is (and so your position and your
+Places go out on the mesh), and a **second, bigger battery** that charges the
+phone from your pocket. It bolts onto the WiPhone's expansion header — no custom
+PCB and no reflow oven, just wire, a soldering iron and an afternoon.
+
+### ➡ **[Start here — the beginner's wiring map](https://github.com/Nikguy321/wiphone-meshtastic/blob/main/docs/woods-backplate-start-here.svg)** ⬅
+
+One page: what every part is for, what plugs into what, and the ways to hurt
+something. **Open this one first**, even if you have built things like this
+before.
+
+[![The woods backplate start-here diagram — one-page beginner's map](docs/woods-backplate-start-here.svg)](https://github.com/Nikguy321/wiphone-meshtastic/blob/main/docs/woods-backplate-start-here.svg)
+
+*(The preview above is squeezed to README width and will be unreadable on a
+phone — click it, or the link above it, to open it full size and zoomable.)*
+
+Then, when you are ready to actually build:
+
+- 🔧 **[The wiring sheet](https://github.com/Nikguy321/wiphone-meshtastic/blob/main/docs/woods-backplate-wiring.svg)** — the leg-by-leg build sheet: every pad,
+  every capacitor leg, a numbered run list and a before-first-power checklist.
+  **This is what you build from.** The map above is a map.
+- 📦 **[The full order list](https://github.com/Nikguy321/wiphone-meshtastic/blob/main/docs/woods-backplate-bom.md)** — every part with prices, links, vendors,
+  alternates and the reasoning behind each choice.
+- 📐 **[The design doc](https://github.com/Nikguy321/wiphone-meshtastic/blob/main/docs/woods-backplate.md)** — why it is wired this way, and what was measured to
+  prove it.
+
+### Three things to get right *before* you order
+
+⚠ **The pack needs its own protection board, and the diodes have a direction.**
+This is a bare LiPo cell wired next to a phone that has its own LiPo cell. Buy a
+pack with a protection PCB on it — not a naked cell. And when D2 goes in, meter
+the band before you apply power: **D2 backwards lets the pack uncontrolled-charge
+the phone's own battery**, which is the one mistake here that starts a fire.
+Never hard-parallel the two packs onto VBAT either; that destroyed both packs'
+protection FETs the last time it was tried. And **meter the JST polarity before
+you plug the pack in** — red is *usually* positive, but Adafruit themselves warn
+that the shell colours vary, and a reversed LiPo plug vents the cell.
+
+⚠ **It needs a buck-*boost*, and the order list's Adafruit table still sells you
+a buck.** Row 3 of that table (Adafruit 4711, TLV62569) is superseded — a buck
+has a 3.4 V input floor and a 1S cell ends at 3.0 V. Order the **TPS63020**
+module in the table below instead. While you are at it: **the two Schottky
+diodes have no row in the order list at all**, so buying strictly off its tables
+leaves you without them. They are in the table below.
+
+⚠ **R7, the 10 kΩ pull-up, is not optional — without it the phone may not boot.**
+The radio's chip-select pin floats during every ESP32 reset; if it drifts low the
+radio drives the MISO line, and MISO is GPIO 12, which is the flash-voltage boot
+strap. High at reset means the phone comes up dead-screen. One resistor.
+
+The wiring map and the sheet carry the rest (SMA vs RP-SMA, never keying up
+without an antenna fitted, the GPS pad whose silk screen lies, the polyfuse that
+must not be 1 A). Read them; do not build from this page.
+
+### What you have to buy
+
+| Part | Why it is there | Where |
+|---|---|---|
+| **Already on hand** — RFM95W (SX1276 915 MHz) ×2 · HGLRC M100 Mini GPS · 1S LiPo (larger, **must have its own protection PCB**) · WiPhone Header Breakout (screw terminals) | the radio, the GPS, the pack, and the plate they all bolt to | you already have these — do not re-order |
+| **SMA ↔ u.FL adapter cable, 15 cm RG178** | pigtail *and* panel-mount SMA bulkhead in one part — drill the cover for its nut | [Adafruit 851](https://www.adafruit.com/product/851) · $3.95 · ⚠ **SMA, not RP-SMA** |
+| **PowerBoost 1000C** | the entire battery half: 1 A LiPo charger + 5.2 V boost + load-share + its own microUSB in | [Adafruit 2465](https://www.adafruit.com/product/2465) · $19.95 |
+| **TPS63020 buck-boost module, 3.3 V** | the plate's own 3.3 V rail — the phone's 3.3 V pin cannot feed the radio | Amazon ASIN `B0H3KQ1VXJ` (DWEII 6-pack) · ~$13 · alt: Pololu S9V11E2F3 #5712 |
+| **2 × Schottky diodes** (1N5819 / SS14 / BAT54) | D1 + D2 OR the pack's 5.2 V and the phone's VBAT into the regulator, so a dead pack cannot kill the radio | any assortment · D2's reverse blocking is safety-critical |
+| **915 MHz whip antenna, SMA male** | the actual antenna | Amazon: `915MHz LoRa antenna SMA male 3dBi` · ~$11 · ⚠ **SMA male, not RP-SMA** |
+| **Polyfuse, 3 A hold (GF300)** | sits in the cell-positive leg, which carries full boost *input* current (~1.9 A worst case) | Amazon: `PPTC resettable fuse 3A` · ~$8 · ⚠ **not 1 A** |
+| **Resistor assortment** | 1 × 4.7 kΩ (EN pull-down) · 4 × 1 kΩ (R3–R6, anti-phantom-power) · 1 × 10 kΩ (**R7 NSS pull-up — required**) · opt. 1 × 10 kΩ (RESET) | Amazon: `resistor assortment kit` · ~$10 |
+| **Ceramic capacitor assortment** | 2 × 100 nF + 1 × 10 µF (radio) + 1 × 22–47 µF (GPS) | Amazon: `ceramic capacitor assortment kit` · ~$12 |
+| **u.FL / IPEX SMT receptacle** *(optional but recommended)* | lets you A/B the whip against the stock plate's known-good FPC antenna — the best deafness test you have | Amazon: `U.FL IPEX SMT receptacle connector PCB mount` · ~$8 |
+| **JST-PH 2-pin pigtails** | so the pack can be split off for separate charging | Amazon · ~$8 |
+| **Silicone hookup wire, 26–30 AWG** | thin and flexible — it has to survive the case closing | Amazon · ~$15 |
+
+Two vendors: Adafruit (2 items) and Amazon (everything else). The Amazon rows are
+written as **specs to match, not sellers** — those listings rotate constantly.
+Prices were live on 2026-08-11; re-check before you total it up. Full 164-line
+version, with the reasoning and the alternates, in
+**[the order list](https://github.com/Nikguy321/wiphone-meshtastic/blob/main/docs/woods-backplate-bom.md)**.
+
+### Where this stands
+
+The plate is real: one is built, fitted to a phone and proven on air — the phone
+charges from the pack, the radio TXes through the whip, and the GPS holds a live
+fix (9 satellites, HDOP 1.1). But that built plate is the **v1** rail, and the
+wiring sheet and the map above describe **v2**: the revision that adds the
+buck-boost and the two diodes so the radio and GPS keep running on the phone's
+own cell after the external pack dies. **Build v2** — it is the better design and
+the sheet is correct — but do not read the sheet as a record of something already
+tested end to end. The firmware half is done and shipping either way; the GPS is
+off until you turn it on (**My node**, or `gps on` over serial).
 
 ---
 
@@ -351,6 +449,9 @@ Made for **WiPhone** hardware:
 - ESP32-WROVER (240 MHz, PSRAM, 16 MB flash)
 - Semtech SX1276 LoRa radio (RFM95W), US 915 MHz / LongFast
 - ST7789 display, CP2104 USB-to-serial
+
+Optional add-on: the **[woods backplate](#woods-backplate)** — a custom back
+cover with a bigger battery, a GPS receiver and a real 915 MHz whip antenna.
 
 ---
 
