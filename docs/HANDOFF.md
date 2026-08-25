@@ -1,10 +1,125 @@
 # WiPhone — session handoff
 
-## ▶▶ NEXT SESSION — TASK LIST (rewritten 2026-08-24, evening)
+## ▶▶ NEXT SESSION — TASK LIST (rewritten 2026-08-24, evening; phone-2 section added 08-25)
 
 Read this first; everything below it is narrative. Repo clean at **87ddfbc**.
-**Phone 1 is flashed with everything here and verified as far as the cable allows.** Phone 2 is
-still on `483c3a6`-era firmware and now lags a very long way behind — see P5.
+**Phone 1 is flashed with everything here and verified as far as the cable allows.**
+✅ **Phone 2 was flashed to HEAD (`6c50d7d`) on 2026-08-25** — P5 is done, and it immediately
+turned up the bug below.
+
+### 🔴 P0 — PHONE 2 AND THE WOODS-PLATE GPS: ONE BUG FOUND AND FIXED, A SECOND STILL OPEN
+
+✅ **BUG 1 — THE BOOT-LOOP PANIC — IS ROOT-CAUSED AND FIXED.** 🔑 **The plate's GPS starts
+transmitting the moment it has POWER; it does not wait for the firmware.** So when `setup()`
+called `userSerial.begin(115200, ...)` it was attaching the UART RX interrupt to an ALREADY
+SATURATED line, and the ISR fired inside the attach's own critical section:
+
+```
+Guru Meditation Error: Core 1 panic'ed (Interrupt wdt timeout on CPU1)
+setup() WiPhone.ino:1289 -> HardwareSerial::begin -> uartBegin -> uartAttachRx
+   -> uartEnableInterrupt -> esp_intr_alloc -> vTaskExitCritical -> _xt_lowint1 -> _uart_isr
+```
+
+It then rebooted into `setup()` and did it again — 🛑 **a BOOT LOOP, which presents as a dark
+screen and dead buttons, i.e. exactly "it won't respond to button presses".** Reproduced on
+**2 of 3 boots** with a byte-identical backtrace. ⚠ **The second backtrace in that dump
+(`esp_pm_impl_waiti` / `prvIdleTask`, `EXCCAUSE 0x6`) is the OTHER core's idle task and is
+MEANINGLESS** — it cost an hour and nearly sent this hunt after a divide-by-zero that does not
+exist. On an INT_WDT dump, read the FIRST backtrace.
+
+**The fix (committed):** open the port at `USER_SERIAL_BAUD` always, and retune to `gGpsBaud`
+from `loop()`'s first pass. The line is still live at 9600, but interrupts arrive ~12x less
+often and that attach has always survived — it is what every `gpsen=false` boot already did.
+The retune calls `updateBaudRate()`, which never re-enters `esp_intr_alloc`, so it cannot
+reproduce the fault. 🔑 **That is also the mechanism behind the asymmetry that led here:
+toggling `gps on` by hand always worked, booting with it on did not.** The old comment at that
+call said opening at USER_SERIAL_BAUD and retuning "would work too" but dirtied the reader's
+counters — `gGpsReader.reset()` at the retune keeps them clean, so nothing is lost.
+**VERIFIED:** with the fix flashed, boots are clean, no Guru, `retuned from loop()` in the log,
+and a GPS fix arrives normally.
+
+🔴 **BUG 2 — A SECOND, DIFFERENT WEDGE — IS STILL OPEN.** With bug 1 fixed the phone boots and
+runs, then **silently stops ~30-40 s in, with GPS on.** ⚠ **It is a DIFFERENT SHAPE from bug 1:
+no panic, no backtrace, no reboot — the loop task simply stops** while other tasks keep
+printing. Not "interrupts off too long"; something blocks and never returns.
+
+Where it stops, on 3 of 3 wedges, is the last two lines logged:
+```
+[E][vfs_api.cpp:64] open(): /sd/smsmirror.txt does not exist
+[E][vfs_api.cpp:64] open(): /sd/roms/smsmirror.txt does not exist
+```
+That is `smsMirrorLoadConfig()`'s 30-second retry (`sms_mirror_poll.cpp:102`) re-reading a file
+that never exists. ⚠ **BE CAREFUL WITH THIS CLUE:** those lines come from the VFS layer, not
+from the poller (which logs only on its FIRST miss), and the loop plainly continues past them —
+so this is *where logging stops*, NOT proof that `SD.open()` is what hangs. It is always the
+SECOND retry, never the first. GPS off survives these same polls indefinitely.
+
+Next step is instrumentation, not more staring: a breadcrumb of where the loop last was that
+survives the hang (the existing `LOOP STALL` detector at `WiPhone.ino:2105` only fires if the
+loop RESUMES, so it cannot see a permanent stop), and subscribing the loop task to the task
+watchdog so a stall REBOOTS with a decodable reason instead of hanging silently.
+
+---
+
+#### Original P0 notes (kept — the symptom description and the ruled-out theories)
+
+Nick, 2026-08-25, from work: *"was working good but after I turned on the gps it wanted to lock
+up every so often mostly on screen unlock… now its screen is off and it won't respond to button
+presses."*
+
+🔑 **WHAT THE WEDGE ACTUALLY IS, MEASURED — the main loop stops while the phone stays powered.**
+It is NOT a crash-reboot and NOT a dead chip. In the wedged state:
+  * **zero `HEALTH` / `KEYS` / `DROP` lines** — those come from `loop()`, and `loop()` has stopped;
+  * `[E][Networks.cpp:262] resolveDomain()` errors **keep arriving**, because that is a separate
+    FreeRTOS task and it is still running — 🛑 **so "the phone is still printing" does NOT mean
+    the phone is alive**, and this is the trap that will fool the next person;
+  * serial commands are typed but never answered (the reader is in `loop()`);
+  * `esptool` talks to it perfectly — ⚠ **and that proves nothing**, because it resets into the
+    ROM bootloader. `ESP32-D0WDQ6-V3 rev 3, MAC 4c:eb:d6:44:93:34` was read out of a phone that
+    was, as far as the user was concerned, dead.
+  * ⚠ The `/dev/cu.usbserial-*` node proves nothing either — that is the **CP2104**, which is
+    USB-powered and enumerates whether or not the ESP32 is running.
+
+⚠ **One boot came up `reset_reason=5` = INT_WDT**, so at least one wedge ended in an interrupt
+watchdog reset — "something blocked with interrupts off". The panic dump that came with it
+decodes to `esp_pm_impl_waiti` / `prvIdleTask` and its `EXCCAUSE 0x6` is **meaningless**: an
+INT_WDT dump shows the *interrupted* context, which was the idle task. 🛑 **Do not go hunting a
+divide-by-zero. There isn't one.** (Both divisions near the GPS fix log are guarded, and
+`sats=-1 hdop=-1.0` is cosmetic — `gpsSats` only updates when a GGA supplies a count.)
+
+✅ **WORKAROUND, APPLIED AND PERSISTED: `gps off`.** Sent over serial; it writes
+`wpmesh/gpsen=false`, so it survives a reboot — confirmed by rebooting and seeing no
+`NMEA reader ON` line. The phone then ran healthily through the screen-off transition and the
+240→80 MHz downclock, `up=3min` and counting, `heap=24300 largest=21076` flat.
+
+🛑 **THE CAUSE IS NOT FOUND, AND ONE PLAUSIBLE STORY WAS TESTED AND KILLED.** The obvious
+suspect was the PLL switch: `setCpuFrequencyMhz()` 240→80 at screen-off, with GPS holding the
+shared user UART at **115200** where the GUI path uses 9600 — and `WiPhone.ino:3715` already
+records that switch breaking the *input* path on 2026-08-22 (*"The level was never the problem;
+the SWITCHING was"*). **It does not reproduce.** With GPS turned on AFTER boot, the phone sailed
+through `CPU 80MHz (idle)` at t=40.8 s and stayed healthy for 135 s. So the downclock alone is
+not it.
+
+What is left, in the order worth testing:
+  * ⚠ **GPS on AT BOOT vs toggled later** — every wedge so far booted with `gpsen=true`
+    (`userSerial.begin(gGpsBaud…)` in `setup()`); the run that survived called
+    `updateBaudRate()` on an already-begun UART. That asymmetry is real and untested.
+  * ⚠ **Plain intermittency** — Nick said "every so often". 135 s of survival proves little.
+  * ⚠ **Screen UNLOCK specifically**, which is where he saw it and which serial cannot exercise.
+    This needs a human with a thumb.
+
+⚠ **`panicwatch` was suspected and CLEARED**: the wedge began minutes after it attached, but a
+control run with panicwatch attached and GPS off gave 6 `HEALTH` lines in 100 s. The instrument
+is not the disease.
+
+- [ ] **Leave GPS off until this is understood.** Turning it back on is one serial command, and
+      it is how you reproduce the bug — do that deliberately, with `tools/panicwatch.py 025A3F65`
+      already attached, not by accident.
+- [ ] **Next capture wants the `Guru Meditation` HEADER line**, which was filtered out of the
+      first capture and is the one thing that would name the panic class outright.
+- [ ] ⚠ **Unrelated but visible throughout: `resolveDomain(): errno=210` for `pool.ntp.org` on
+      every boot.** WiFi associates (`wifi=1`) and DNS does not resolve. Not the wedge, but it is
+      the same shape as the fault Jake documented on his handheld, and the clock depends on it.
 
 ### 🔴 P1 — TWO THINGS NEED A HUMAN, AND ONE OF THEM IS UNTESTED CODE
 

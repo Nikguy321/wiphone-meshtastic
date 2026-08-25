@@ -93,6 +93,10 @@ int userSerialLastSize = 0;
 bool       gGpsNmea = false;
 uint32_t   gGpsBaud = GPS_SERIAL_BAUD_DEFAULT;
 NmeaReader gGpsReader;
+/* Set by setup() when the GPS owns the port, cleared by loop()'s first pass once the
+ * port has been retuned to gGpsBaud. See the long note at the userSerial.begin() call:
+ * the retune CANNOT happen in setup() without risking the INT_WDT panic this avoids. */
+bool       gGpsBaudPending = false;
 
 /* The last raw bytes off the wire, for serial `gps raw`. A wrong baud and a
  * module talking binary produce the SAME symptom (bytes climb, sentences stay
@@ -1281,15 +1285,35 @@ void setup() {
     gGpsBaud = p.getUInt("gpsbaud", GPS_SERIAL_BAUD_DEFAULT);
     p.end();
   }
-  /* Open at the rate the CURRENT owner needs. Opening at USER_SERIAL_BAUD and
-   * retuning afterwards would work too, but it puts a burst of garbage in the
-   * reader's counters on every boot — and those counters are the bench's first
-   * diagnostic, so they start clean. */
-  userSerial.begin(gGpsNmea ? gGpsBaud : USER_SERIAL_BAUD, USER_SERIAL_CONFIG,
+  /* 🛑 ALWAYS OPEN AT USER_SERIAL_BAUD, EVEN WHEN THE GPS OWNS THIS PORT, AND RETUNE
+   * FROM loop() INSTEAD. This used to open straight at gGpsBaud, and the comment here
+   * used to say that retuning afterwards "would work too" but dirtied the reader's
+   * counters on every boot. It does not merely dirty them — opening at 115200 here
+   * CRASHED THE PHONE, and this is the fix for it.
+   *
+   * 🔑 MEASURED, 2026-08-25, from three reproduction boots with the plate fitted:
+   *      Guru Meditation Error: Core 1 panic'ed (Interrupt wdt timeout on CPU1)
+   *      setup() -> HardwareSerial::begin -> uartBegin -> uartAttachRx
+   *             -> uartEnableInterrupt -> esp_intr_alloc -> vTaskExitCritical
+   *             -> _xt_lowint1 -> _uart_isr
+   * The woods plate's GPS starts talking the moment it has POWER; it does not wait for
+   * us. So by the time begin() installs the RX interrupt handler the line is already
+   * saturated at 115200, the ISR fires inside the attach's own critical section, and
+   * the CPU1 interrupt watchdog times out. It then reboots into setup() and does it
+   * again — a boot loop that presents as a phone with a dark screen and dead buttons.
+   *
+   * ⚠ THE RATE IS THE WHOLE POINT, not the baud being "wrong": at USER_SERIAL_BAUD the
+   * same live line still interrupts us, but ~12x less often (9600/10 vs 115200/10 bytes
+   * a second), and that attach survives — it is what every gpsen=false boot has always
+   * done. The retune afterwards calls updateBaudRate(), which does NOT re-enter
+   * esp_intr_alloc, so it cannot reproduce the fault. That asymmetry is exactly why
+   * toggling `gps on` by hand always worked while booting with it on did not.
+   *
+   * The counters still start clean: gGpsReader.reset() runs at the retune, below. */
+  userSerial.begin(USER_SERIAL_BAUD, USER_SERIAL_CONFIG,
                    USER_SERIAL_RX, USER_SERIAL_TX);
   if (gGpsNmea) {
-    log_e("GPS: NMEA reader ON (user UART %d/%d @ %u)",
-          USER_SERIAL_RX, USER_SERIAL_TX, (unsigned)gGpsBaud);
+    gGpsBaudPending = true;      // loop() finishes the job, once, on its first pass
   }
 #endif
 
@@ -2102,6 +2126,18 @@ __attribute__((unused)) static void cpuRaiseForUi() {
 void loop() {
   while (1) {
     uint32_t now = millis();
+#ifdef USER_SERIAL
+    /* The deferred GPS retune. First pass only, and deliberately HERE rather than at the
+     * end of setup(): this is the exact path that has always survived — a live 115200
+     * line meeting updateBaudRate() rather than esp_intr_alloc(). See setup(). */
+    if (gGpsBaudPending) {
+      gGpsBaudPending = false;
+      gpsApplyBaud(true);
+      gGpsReader.reset();        // the boot's worth of 9600-misframed bytes is not data
+      log_e("GPS: NMEA reader ON (user UART %d/%d @ %u) - retuned from loop()",
+            USER_SERIAL_RX, USER_SERIAL_TX, (unsigned)gGpsBaud);
+    }
+#endif
     /* ── SUPERLOOP STALL DETECTOR ──────────────────────────────────────────────────────────
      * Nick, 2026-08-24: "sometimes when scrolling menus, the phone will freeze for a second
      * or two, wifi will drop, then it will unfreeze and WiFi comes back up." Everything in
