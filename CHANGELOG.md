@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.9.15 (2026-08-25) — the clock face gets the same treatment, and the phone can name its own build
+
+- **The clock face now scrims its text**, at Nick's choice when asked. `00:00`, the date /
+  network line, a missed-call line and the softkey label each get a plate sized to the words —
+  **not a panel across the screen**, because covering the middle of the idle screen would
+  defeat the point of choosing a picture at all.
+- 🛑 **ONE PLATE FOR THE CLOCK AND THE LINE UNDER IT, NOT ONE EACH.** The date sits directly
+  beneath the clock and their bands overlap by a pixel or two — and two translucent plates over
+  the same pixel **blend twice**, painting a visibly darker stripe exactly where the eye lands.
+  Both strings are measured first, one union rect is laid down, then the text is drawn.
+  Verified by reading the screenshot back row by row: the plate is smooth from y=68 to y=182
+  with no dark seam.
+- **Measured on the photograph, not asserted:** median plate luminance behind the network line
+  is **105 → 5.47:1** against white text, and behind the softkey label **79 → 8.21:1**. Both
+  clear the 4.5:1 floor on the brightest wallpaper on the bench.
+- Incidentally simplified: the known-time and unknown-time branches used to duplicate the
+  drawing. They now build two strings and share one drawing path.
+- 🔬 **NEW: `ver` on the console** — firmware version and build timestamp of the binary actually
+  running. ⚠ It exists because **two different builds wore 0.9.14** during this session before
+  anyone noticed; `d9ed477` warned about exactly that ("a different binary must not wear
+  0.9.8's number") and the phone had no way to be asked. Now it does.
+
 ## 0.9.14 (2026-08-25) — menu text you can read on any wallpaper, and a cable that can press keys
 
 Nick, straight after the wallpaper fix landed: *"the menus have no contrast and make it
@@ -44,10 +66,9 @@ grey background so I can see the words no matter what background I pick?"*
 - **Measured, not assumed:** nine key presses navigating the menu with the scrim on produced no
   `LOOP STALL` and no panic. The blend is ~55 k pixels per menu redraw and `pushTransparent()`
   caches its blend across runs of identical background pixels.
-- ⚠ **Still open, and it is the same complaint one screen over:** the CLOCK face draws
-  `00:00` and the network line straight onto the wallpaper with no plate, and over a bright
-  photo the status line is close to unreadable. Not changed here — a grey box across the middle
-  of the idle screen is an aesthetic call, not a bug fix. See the note in the handoff.
+- ⚠ **The CLOCK face has the same complaint and was deliberately left alone here** — a grey
+  box across the middle of the idle screen is an aesthetic call, not a bug fix, so it was put
+  to Nick rather than assumed. He chose the scrim; **see 0.9.15 above.**
 
 ## 0.9.13 (2026-08-25) — "Set as wallpaper" wrote a good file that nothing ever read
 

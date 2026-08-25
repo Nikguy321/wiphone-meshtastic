@@ -235,12 +235,17 @@ tools/shot.py /dev/cu.usbserial-025A3F65 menu.png --wait 16 --cmd "key menu" --c
 ⚠ It injects into `keypadBuff`, so it is a REAL press — the wake, drain loop and each app's
 `processEvent` run unchanged. Do not add a second dispatch path.
 
-- [ ] 🔎 **THE CLOCK FACE HAS THE SAME PROBLEM AND IS NOT FIXED — ASK NICK.** `00:00` and the
-      network line are drawn straight onto the wallpaper; over a bright photo the status line
-      is close to unreadable (screenshotted). A grey plate across the middle of the idle screen
-      is an aesthetic call on the screen he looks at most, so it was NOT done unasked. The
-      alternatives are a scrim behind just those two text lines, or an outline/shadow on the
-      glyphs which keeps the picture whole.
+- [x] ✅ **THE CLOCK FACE TOO — ASKED, AND NICK CHOSE THE SCRIM (0.9.15).** `00:00`, the
+      date/network line, the missed-call line and the softkey label each get a plate sized to
+      the WORDS, not a panel across the screen. 🛑 **One union plate for the clock and the line
+      under it** — their bands overlap, and two translucent plates over the same pixel blend
+      TWICE and paint a dark seam right where the eye lands. Measured after the fact by reading
+      the screenshot back: smooth from y=68 to y=182, median plate 105 → **5.47:1** behind the
+      network line, 79 → **8.21:1** behind the softkey.
+- [ ] ⚠ **Cosmetic, pre-existing, NOT fixed:** the softkey label's font is whatever the
+      missed-call block left set — 20pt with a missed call showing, 24pt without. The scrim
+      measures from the current font so it follows either way, but the label itself changes
+      size. Its own small job.
 
 ### 🔴 P1 — TWO THINGS NEED A HUMAN, AND ONE OF THEM IS UNTESTED CODE
 

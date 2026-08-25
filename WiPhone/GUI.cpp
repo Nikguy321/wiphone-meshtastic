@@ -7118,6 +7118,31 @@ appEventResult ClockApp::processEvent(EventType event) {
 
 }
 
+/* One line of centred text on the wallpaper, with a plate sized to the words.
+ *
+ * ⚠ `bottomY` is a BC_DATUM baseline — the bottom of the text, which is how the clock face
+ * places everything. Metrics come from whatever font is currently set, so set it first. */
+static void clockScrimLine(LCD &lcd, const char* s, int16_t cx, int16_t bottomY) {
+  if (!s || !*s) {
+    return;
+  }
+  const uint16_t padX = 8, padY = 3;
+  const uint16_t fh = lcd.fontHeight();
+  uint16_t w = lcd.textWidth(s) + 2 * padX;
+  if (w > lcd.width()) {
+    w = lcd.width();
+  }
+  int16_t x = (int16_t)cx - (int16_t)(w >> 1);
+  int16_t y = bottomY - (int16_t)fh - (int16_t)padY;
+  if (x < 0) {
+    x = 0;
+  }
+  if (y < 0) {
+    y = 0;
+  }
+  guiDrawScrim(lcd, x, y, w, fh + 2 * padY);
+}
+
 void ClockApp::redrawScreen(bool redrawAll) {
   //log_i("redraw ClockApp");
 
@@ -7159,23 +7184,50 @@ void ClockApp::redrawScreen(bool redrawAll) {
   lcd.setTextColor(WHITE, BLACK);
   lcd.setSmoothTransparency(true);
 
+  /* ⚠ ONE PLATE FOR BOTH LINES, NOT ONE EACH. The date sits directly under the clock and the
+   * two bands overlap by a pixel or two — and two translucent plates over the same pixel blend
+   * TWICE, which paints a visibly darker stripe exactly where the eye is drawn. So the strings
+   * are measured first, one union rect is laid down, and only then is anything drawn.
+   *
+   * Nick asked for this after the menus (2026-08-25): the clock face draws straight onto the
+   * wallpaper, and over a bright photo "Network: waiting NTP" was close to invisible. Only the
+   * words are covered — a plate across the whole idle screen would defeat the point of picking
+   * a picture at all. */
+  char bigLine[20], subLine[40];
   if (ntpClock.isTimeKnown()) {
-    // - clock
-    lcd.setTextFont(fonts[AKROBAT_BOLD_90]);
-    char buff[20];
-    sprintf(buff, "%02d:%02d", ntpClock.getHour(), ntpClock.getMinute());
-    lcd.drawString(buff, cx, yOff);
-    // - date
-    lcd.setTextFont(fonts[AKROBAT_BOLD_24]);
-    sprintf(buff, "%d %s %d", ntpClock.getDay(), ntpClock.getMonth3(), ntpClock.getYear());
-    lcd.drawString(buff, cx, yOff+lcd.fontHeight()+3);
+    snprintf(bigLine, sizeof(bigLine), "%02d:%02d", ntpClock.getHour(), ntpClock.getMinute());
+    snprintf(subLine, sizeof(subLine), "%d %s %d", ntpClock.getDay(), ntpClock.getMonth3(), ntpClock.getYear());
   } else {
-    // - time not set message
-    lcd.setTextFont(fonts[AKROBAT_BOLD_90]);
-    lcd.drawString("00:00", cx, yOff);
-    lcd.setTextFont(fonts[AKROBAT_BOLD_24]);
-    lcd.drawString("Network: waiting NTP", cx, yOff+lcd.fontHeight()+3);
+    snprintf(bigLine, sizeof(bigLine), "00:00");
+    snprintf(subLine, sizeof(subLine), "Network: waiting NTP");
   }
+  lcd.setTextFont(fonts[AKROBAT_BOLD_90]);
+  const uint16_t clockH = lcd.fontHeight();
+  const uint16_t clockW = lcd.textWidth(bigLine);
+  lcd.setTextFont(fonts[AKROBAT_BOLD_24]);
+  const uint16_t subH = lcd.fontHeight();
+  const uint16_t subW = lcd.textWidth(subLine);
+  const uint16_t subBottom = yOff + subH + 3;
+  {
+    const uint16_t padX = 8, padY = 3;
+    uint16_t w = (clockW > subW ? clockW : subW) + 2 * padX;
+    if (w > lcd.width()) {
+      w = lcd.width();
+    }
+    int16_t x = (int16_t)cx - (int16_t)(w >> 1);
+    int16_t top = (int16_t)yOff - (int16_t)clockH - (int16_t)padY;
+    if (x < 0) {
+      x = 0;
+    }
+    if (top < 0) {
+      top = 0;
+    }
+    guiDrawScrim(lcd, x, top, w, (uint16_t)((int16_t)subBottom + (int16_t)padY - top));
+  }
+  lcd.setTextFont(fonts[AKROBAT_BOLD_90]);
+  lcd.drawString(bigLine, cx, yOff);
+  lcd.setTextFont(fonts[AKROBAT_BOLD_24]);
+  lcd.drawString(subLine, cx, subBottom);
   yOff += lcd.fontHeight()+21;
 
   // Draw lock icon
@@ -7200,6 +7252,7 @@ void ClockApp::redrawScreen(bool redrawAll) {
     }
     lcd.setTextFont(fonts[AKROBAT_BOLD_20]);
     lcd.setTextColor(TFT_ORANGE, BLACK);
+    clockScrimLine(lcd, mline, cx, yOff + 64);      // amber on a bright photo is no better off
     lcd.drawFitString(mline, lcd.width() - 12, cx, yOff + 64);
     lcd.setTextColor(WHITE, BLACK);
   }
@@ -7210,6 +7263,11 @@ void ClockApp::redrawScreen(bool redrawAll) {
     // Locked text
     msg = (controlState.unlockButton1 == WIPHONE_KEY_OK) ? "Press * to unlock" : "Locked. Press OK";
   }
+  /* The softkey label is on the wallpaper too, and fixing two of the three lines on one screen
+   * would just move the complaint. ⚠ Its FONT is whatever the block above left set — 20pt when
+   * a missed call is showing, 24pt otherwise. Pre-existing and cosmetic; measuring the scrim
+   * from the current font means this follows it either way rather than guessing. */
+  clockScrimLine(lcd, msg, cx, lcd.height()-7);
   lcd.drawString(msg, cx, lcd.height()-7);
   lcd.setSmoothTransparency(false);
   //log_v("- done");

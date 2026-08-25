@@ -109,6 +109,7 @@ static void help() {
     "  gps baud <n>  GPS baud, persists (115200 = the M100 Mini, measured; not 9600)",
     "  gps raw    hex+ASCII of the last bytes off the wire - tells wrong-baud from binary",
     "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
+    "  ver        firmware version and build time of the binary actually running",
     "  scrim [<alpha> [hex]]  the grey plate under menu text over a wallpaper (RAM only)",
     "  shot       dump the live screen as base64 (tools/shot.py turns it into a PNG)",
     "  key <names>  press keys: select/menu back ok up down left right call end f1-f4,",
@@ -977,6 +978,13 @@ static void run(char* line) {
         say("  [%d] '%s' keyLen=%d\n", i, c->name, (int)c->keyLen);
       }
     }
+    return;
+  }
+
+  /* `ver` — which binary is actually on this phone. Two builds wore 0.9.14 during the
+   * 2026-08-25 session before this existed; asking the phone is cheaper than remembering. */
+  if (!strcasecmp(line, "ver") || !strcasecmp(line, "version")) {
+    say("firmware %s, built %s %s\n", FIRMWARE_VERSION, __DATE__, __TIME__);
     return;
   }
 
