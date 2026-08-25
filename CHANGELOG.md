@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.9.14 (2026-08-25) — menu text you can read on any wallpaper, and a cable that can press keys
+
+Nick, straight after the wallpaper fix landed: *"the menus have no contrast and make it
+difficult to see the text when a picture is behind them. can the menu items have a translucent
+grey background so I can see the words no matter what background I pick?"*
+
+- 🔑 **THIS GOT WORSE THE MOMENT THE WALLPAPER STARTED WORKING, and that is not a coincidence.**
+  Until 0.9.13 every phone was showing the same near-black SPIFFS texture, which white text
+  happens to sit on perfectly. The main menu is the one menu built non-opaque — it deliberately
+  lets the wallpaper through — so the instant a real photograph got behind it, four of the five
+  rows became unreadable.
+- **Fixed with a scrim**, which is the only answer that holds for a picture the phone is not
+  allowed to know anything about: a translucent grey plate between the photo and the words.
+  A darker default wallpaper or a brighter font would both have been guesses about the image.
+- ⚠ **Tuned by screenshot and then CHECKED AS A NUMBER**, because "looks fine to me" is not the
+  property that was asked for. Grey 56 at alpha 190 lands the plate between **41.7** (over a
+  black photo) and **106.7** (over a pure white one), so white text on it measures **14.4:1 at
+  best and 5.35:1 at worst** — above the 4.5:1 accessibility floor for *every possible
+  wallpaper*, which is exactly "no matter what background I pick". 140 was tried and is still
+  washed out over a bright photo; 225 is legible but has all but deleted the picture.
+- **Only the main menu changes.** Every other menu already paints a solid background, so none
+  of them look any different.
+- 🔬 **NEW: `key` on the serial console — the cable can now press buttons.** This is the other
+  half of the gap `shot` opened in 0.9.13: a cable could already *see* the screen, but not
+  change what was on it, so anything you had to navigate to was still unverifiable. The menu
+  complaint above lives three key presses from the clock face.
+
+  ⚠ **It injects into `keypadBuff`, the real keypad buffer**, so the wake, the drain loop, the
+  easter-egg tracker and each app's own `processEvent` all run exactly as they do for a thumb.
+  It is not a simulation of a press; it *is* one, from a different source. A second dispatch
+  path would be a second thing to keep in step — and the class of bug that hides is precisely
+  the one that put an untested Photos app in a user's hand.
+
+  ```bash
+  tools/shot.py /dev/cu.usbserial-025A3F65 menu.png --wait 16 --cmd "key menu" --cmd "key down down"
+  ```
+- **NEW: `scrim [<alpha> [hex]]`** — retune the plate against a real photograph and take a
+  screenshot. ⚠ A bench knob, RAM only, deliberately not persisted: the shipped answer is
+  `THEME_SCRIM_*` in `GUI.h`, and a value that exists only in RAM cannot quietly become the
+  thing everyone is testing against. `scrim 0` is the pre-0.9.14 look, which is how the
+  before/after above was taken from a single build.
+- **Measured, not assumed:** nine key presses navigating the menu with the scrim on produced no
+  `LOOP STALL` and no panic. The blend is ~55 k pixels per menu redraw and `pushTransparent()`
+  caches its blend across runs of identical background pixels.
+- ⚠ **Still open, and it is the same complaint one screen over:** the CLOCK face draws
+  `00:00` and the network line straight onto the wallpaper with no plate, and over a bright
+  photo the status line is close to unreadable. Not changed here — a grey box across the middle
+  of the idle screen is an aesthetic call, not a bug fix. See the note in the handoff.
+
 ## 0.9.13 (2026-08-25) — "Set as wallpaper" wrote a good file that nothing ever read
 
 Nick, from the handset: *"I tried to apply a background from a photo but nothing changed, so

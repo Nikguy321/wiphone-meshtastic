@@ -3,6 +3,10 @@
 #include "sms_mirror_poll.h"
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
 #include "app_photos.h"      // photosSetWallpaper, the `wallpaper set` command
+#include "config.h"          // WIPHONE_KEY_*, the `key` command
+
+/* Defined in WiPhone.ino next to keypadBuff — see the note there on why this is a real press. */
+extern bool uiInjectKey(char c);
 #include "meshtastic_service.h"   // applyChannelUrl, the `chan` command
 #include "mesh_pos.h"             // distance/bearing for the `pos` command
 #include "sun_times.h"            // legal light, the `sun` command
@@ -105,7 +109,11 @@ static void help() {
     "  gps baud <n>  GPS baud, persists (115200 = the M100 Mini, measured; not 9600)",
     "  gps raw    hex+ASCII of the last bytes off the wire - tells wrong-baud from binary",
     "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
+    "  scrim [<alpha> [hex]]  the grey plate under menu text over a wallpaper (RAM only)",
     "  shot       dump the live screen as base64 (tools/shot.py turns it into a PNG)",
+    "  key <names>  press keys: select/menu back ok up down left right call end f1-f4,",
+    "             or a single character. `key menu`, `key down down ok`. Real presses -",
+    "             they go into the keypad buffer, so the whole UI path runs unchanged",
     "  wallpaper  what the background loader found, and why it did or did not use it",
     "  wallpaper reload|list|clear  re-read it / list /photos / drop the override",
     "  wallpaper set <name>  set /photos/<name> as the wallpaper - the SAME code the",
@@ -969,6 +977,114 @@ static void run(char* line) {
         say("  [%d] '%s' keyLen=%d\n", i, c->name, (int)c->keyLen);
       }
     }
+    return;
+  }
+
+  /* `scrim` — the translucent plate under menu text, tunable against a real photo.
+   * ⚠ RAM only. The shipped value is THEME_SCRIM_* in GUI.h; a reboot restores it. */
+  if (!strncasecmp(line, "scrim", 5) && (line[5] == '\0' || line[5] == ' ')) {
+    extern GUI gui;
+    const char* a = line + 5;
+    while (*a == ' ') {
+      a++;
+    }
+    if (*a) {
+      char* end = NULL;
+      const unsigned long alpha = strtoul(a, &end, 10);
+      if (end == a || alpha > 255) {
+        say("scrim: alpha must be 0-255 (0 = off). `scrim 190`, `scrim 190 39C7`\n");
+        return;
+      }
+      gScrimAlpha = (uint8_t)alpha;
+      while (*end == ' ') {
+        end++;
+      }
+      if (*end) {
+        gScrimColor = (uint16_t)strtoul(end, NULL, 16);
+      }
+      gui.redrawScreen(true, true, true, true);
+    }
+    say("scrim: alpha=%u color=0x%04X (shipped default %u / 0x%04X; RAM only, a reboot resets it)\n",
+        (unsigned)gScrimAlpha, (unsigned)gScrimColor,
+        (unsigned)THEME_SCRIM_ALPHA, (unsigned)THEME_SCRIM_COLOR);
+    return;
+  }
+
+  /* `key` — press keys on a phone nobody is holding.
+   *
+   * 🔑 THE COMPANION TO `shot`, AND THE OTHER HALF OF THE SAME GAP. A cable could already SEE
+   * the screen; it could not change what was on it, so every claim about a screen you have to
+   * navigate to was still unverifiable. Photos shipped to a user untested for exactly that
+   * reason, and the menu-contrast complaint that followed lives three key presses from the
+   * clock face.
+   *
+   * ⚠ It injects into keypadBuff — the real keypad buffer — so the wake, the drain loop, the
+   * easter-egg tracker and the app's own processEvent all run as they do for a thumb. It is
+   * not a simulation of a press; it IS one, from a different source. */
+  if (!strncasecmp(line, "key", 3) && (line[3] == '\0' || line[3] == ' ')) {
+    static const struct {
+      const char* name;
+      char code;
+    } NAMES[] = {
+      { "select", WIPHONE_KEY_SELECT }, { "back",  WIPHONE_KEY_BACK  },
+      { "ok",     WIPHONE_KEY_OK     }, { "up",    WIPHONE_KEY_UP    },
+      { "down",   WIPHONE_KEY_DOWN   }, { "left",  WIPHONE_KEY_LEFT  },
+      { "right",  WIPHONE_KEY_RIGHT  }, { "call",  WIPHONE_KEY_CALL  },
+      { "end",    WIPHONE_KEY_END    }, { "f1",    WIPHONE_KEY_F1    },
+      { "f2",     WIPHONE_KEY_F2     }, { "f3",    WIPHONE_KEY_F3    },
+      { "f4",     WIPHONE_KEY_F4     },
+      /* The two softkeys under the screen, by what they DO rather than by their wiring —
+       * "menu" is the word printed on the screen above the left one, and looking up which
+       * hardware key that is should not be the reader's problem. */
+      { "menu",   WIPHONE_KEY_SELECT }, { "sel",   WIPHONE_KEY_SELECT },
+    };
+    const char* p = line + 3;
+    int sent = 0, refused = 0;
+    char what[96] = "";
+    while (*p) {
+      while (*p == ' ') {
+        p++;
+      }
+      if (!*p) {
+        break;
+      }
+      char tok[16];
+      size_t n = 0;
+      while (*p && *p != ' ' && n < sizeof(tok) - 1) {
+        tok[n++] = *p++;
+      }
+      tok[n] = '\0';
+      char code = 0;
+      for (size_t i = 0; i < sizeof(NAMES) / sizeof(NAMES[0]); i++) {
+        if (!strcasecmp(tok, NAMES[i].name)) {
+          code = NAMES[i].code;
+          break;
+        }
+      }
+      /* A single character is itself — digits, * and # are what the keypad actually sends. */
+      if (!code && n == 1) {
+        code = tok[0];
+      }
+      if (!code) {
+        say("key: don't know '%s' (names: select/menu back ok up down left right call end f1-f4, or one character)\n", tok);
+        return;
+      }
+      if (uiInjectKey(code)) {
+        sent++;
+        snprintf(what + strlen(what), sizeof(what) - strlen(what), "%s%s", sent > 1 ? " " : "", tok);
+      } else {
+        refused++;
+      }
+    }
+    if (!sent && !refused) {
+      say("key: nothing to press. `key menu`, `key down down ok`, `key 5`\n");
+      return;
+    }
+    /* ⚠ The presses are QUEUED, not applied — loop() drains keypadBuff on its next pass, and
+     * a screenshot taken in the same breath would catch the OLD screen. Anything reading this
+     * must let a pass happen before it looks. tools/shot.py --cmd does. */
+    say("key: queued %d (%s)%s - drains on the next loop pass\n",
+        sent, what, refused ? ", SOME DROPPED (buffer full)" : "");
     return;
   }
 

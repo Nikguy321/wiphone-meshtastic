@@ -424,6 +424,25 @@ volatile bool gGbcActive = false;
 volatile uint32_t gGbcKeyLatch = 0;
 RingBuffer<char> keypadBuff(KEYBOARD_BUFFER_LENGTH);        // TODO: maybe used cbuf.h from ESP32 stack?
 
+/* Press a key from somewhere that is not the keypad — the `key` serial command.
+ *
+ * 🔑 IT PUSHES INTO keypadBuff, WHICH IS THE POINT. Everything downstream — the drain loop,
+ * the screen wake, the triple-tap-to-sleep tracker, the easter-egg buffer, the app's own
+ * processEvent — then runs EXACTLY as it does for a real press, because it cannot tell the
+ * difference. A second dispatch path would be a second thing to keep in step, and the class
+ * of bug it would hide is precisely the one that put an untested Photos app in a user's hand.
+ *
+ * ⚠ Same task as the keypad reader (both run inside loop()), so no locking is needed here —
+ * and none would be right anyway: RingBuffer is not reentrant.
+ * Returns false if the buffer is full, which is a real answer, not a detail to swallow. */
+bool uiInjectKey(char c) {
+  if (keypadBuff.full()) {
+    return false;
+  }
+  keypadBuff.put(c);
+  return true;
+}
+
 void IRAM_ATTR keyboardInterrupt() {
   // This function is intentionally minimal
   // (for example, adding a Serial output here produces ISR crashes)

@@ -208,6 +208,40 @@ it refused) and `wallpaper reload | list | clear | set <name>` — `set` runs **
 - [ ] ⚠ **`/photos/20260823_093939.jpg` on phone 2 is 0 bytes** — a failed upload. Photos lists
       it and cannot open it. Small, and its own job.
 
+### ✅ CLOSED 2026-08-25 — MENU CONTRAST OVER A WALLPAPER (0.9.14)
+
+Nick, right after the wallpaper fix: *"the menus have no contrast… can the menu items have a
+translucent grey background so I can see the words no matter what background I pick?"*
+**Done, both phones flashed, before/after screenshotted from one build.**
+
+🔑 **It got worse the moment the wallpaper started working.** Every phone had been showing the
+same near-black SPIFFS texture, and white text sits on that perfectly. The main menu is the ONE
+menu built non-opaque (the `false` ending its `MenuWidget` constructor, GUI.cpp) so the picture
+shows through — and a real photograph behind it made four of five rows unreadable.
+
+Fixed with a **scrim**: `guiDrawScrim()` lays a translucent grey plate under each non-selected
+row via the sprite's existing `pushTransparent()`. ⚠ **Checked as a number, not by eye** — grey
+56 at alpha 190 puts the plate between 41.7 (black photo) and 106.7 (white photo), so white
+text measures **5.35:1 at worst**, above the 4.5:1 floor for *any* wallpaper. Tune it live with
+`scrim <alpha> [hex]` (RAM only; `scrim 0` is the old look).
+
+🔬 **NEW INSTRUMENT: `key` — the cable can press buttons.** With `shot` (0.9.13) this closes the
+loop: any screen can now be reached AND seen without a thumb.
+
+```bash
+tools/shot.py /dev/cu.usbserial-025A3F65 menu.png --wait 16 --cmd "key menu" --cmd "key down down"
+```
+
+⚠ It injects into `keypadBuff`, so it is a REAL press — the wake, drain loop and each app's
+`processEvent` run unchanged. Do not add a second dispatch path.
+
+- [ ] 🔎 **THE CLOCK FACE HAS THE SAME PROBLEM AND IS NOT FIXED — ASK NICK.** `00:00` and the
+      network line are drawn straight onto the wallpaper; over a bright photo the status line
+      is close to unreadable (screenshotted). A grey plate across the middle of the idle screen
+      is an aesthetic call on the screen he looks at most, so it was NOT done unasked. The
+      alternatives are a scrim behind just those two text lines, or an outline/shadow on the
+      glyphs which keeps the picture whole.
+
 ### 🔴 P1 — TWO THINGS NEED A HUMAN, AND ONE OF THEM IS UNTESTED CODE
 
 ⚠ **The wallpaper half of this is now DONE and machine-verified** — see the block above. What

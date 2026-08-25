@@ -13293,6 +13293,17 @@ static inline void drawStringEllipsized(LCD &lcd, const char* s, uint16_t maxW, 
   guiDrawEllipsized(lcd, s, maxW, x, y);
 }
 
+uint16_t gScrimColor = THEME_SCRIM_COLOR;
+uint8_t  gScrimAlpha = THEME_SCRIM_ALPHA;
+
+void guiDrawScrim(LCD &lcd, int16_t x, int16_t y, uint16_t w, uint16_t h) {
+  if (!w || !h || !gScrimAlpha) {
+    return;                     // alpha 0 is "no scrim at all" — the pre-2026-08-25 look
+  }
+  lcd.setWindow(x, y, x + w - 1, y + h - 1);
+  lcd.pushTransparent(gScrimColor, gScrimAlpha, (int32_t)w * (int32_t)h);
+}
+
 void MenuOption::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, uint16_t windowWidth, uint16_t windowHeight,
                         uint16_t textColor, uint16_t bgColor, bool opaque, bool selected, SmoothFont* font, uint16_t leftOffset) {
   // Draw background if needed
@@ -13300,6 +13311,12 @@ void MenuOption::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, uint
     lcd.fillRect(screenOffX, screenOffY, windowWidth, windowHeight, bgColor);
     lcd.setSmoothTransparency(false);
   } else {
+    /* ⚠ NOT opaque means this row is sitting on the WALLPAPER, and white-on-anything is not
+     * a contrast guarantee. Lay a translucent grey plate first so the words have a bounded
+     * background whatever the user's picture happens to contain. See THEME_SCRIM_* in GUI.h.
+     * Transparency stays ON afterwards so the glyph edges blend into the plate rather than
+     * against a colour this row does not know. */
+    guiDrawScrim(lcd, screenOffX, screenOffY, windowWidth, windowHeight);
     lcd.setSmoothTransparency(true);
   }
 
@@ -13348,6 +13365,12 @@ void MenuOptionIconned::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOff
     lcd.fillRect(screenOffX, screenOffY, windowWidth, windowHeight, bgColor);
     lcd.setSmoothTransparency(false);
   } else {
+    /* ⚠ NOT opaque means this row is sitting on the WALLPAPER, and white-on-anything is not
+     * a contrast guarantee. Lay a translucent grey plate first so the words have a bounded
+     * background whatever the user's picture happens to contain. See THEME_SCRIM_* in GUI.h.
+     * Transparency stays ON afterwards so the glyph edges blend into the plate rather than
+     * against a colour this row does not know. */
+    guiDrawScrim(lcd, screenOffX, screenOffY, windowWidth, windowHeight);
     lcd.setSmoothTransparency(true);
   }
 
@@ -13395,6 +13418,12 @@ void MenuOptionIconnedTimed::redraw(LCD &lcd, uint16_t screenOffX, uint16_t scre
     lcd.fillRect(screenOffX, screenOffY, windowWidth, windowHeight, bgColor);
     lcd.setSmoothTransparency(false);
   } else {
+    /* ⚠ NOT opaque means this row is sitting on the WALLPAPER, and white-on-anything is not
+     * a contrast guarantee. Lay a translucent grey plate first so the words have a bounded
+     * background whatever the user's picture happens to contain. See THEME_SCRIM_* in GUI.h.
+     * Transparency stays ON afterwards so the glyph edges blend into the plate rather than
+     * against a colour this row does not know. */
+    guiDrawScrim(lcd, screenOffX, screenOffY, windowWidth, windowHeight);
     lcd.setSmoothTransparency(true);
   }
 

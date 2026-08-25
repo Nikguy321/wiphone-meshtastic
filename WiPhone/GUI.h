@@ -108,6 +108,46 @@ typedef uint16_t colorType;
 #define THEME_BG          BLACK
 #define THEME_TEXT_COLOR  WHITE
 #define THEME_CURSOR      WHITE
+
+/* ── THE SCRIM: A TRANSLUCENT PLATE UNDER TEXT THAT SITS ON THE WALLPAPER ─────────────────
+ *
+ * Nick, 2026-08-25: *"the menus have no contrast and make it difficult to see the text when a
+ * picture is behind them."* He is right, and it got worse the moment the wallpaper started
+ * working — before that every phone was showing the same near-black SPIFFS texture, which
+ * white text happens to sit on perfectly. A menu drawn over a real photograph has no such luck.
+ *
+ * ⚠ THE ANSWER IS NOT A DARKER WALLPAPER OR A BRIGHTER FONT. Both are guesses about the
+ * picture, and the whole point of choosing a wallpaper is that the phone does not get to know
+ * what is in it. A scrim is the only thing that holds for EVERY photo: put a semi-opaque grey
+ * between the picture and the words, and the text's background is bounded no matter what.
+ *
+ * Tuned by screenshot (`shot`) against a real photograph, then CHECKED AS A NUMBER, because
+ * "looks fine to me" is not the property being asked for. At alpha 190 over grey 56 the plate
+ * lands between 41.7 (black photo) and 106.7 (pure white photo), so white text on it measures
+ * **14.4:1 at best and 5.35:1 at worst** — above the 4.5:1 accessibility floor for EVERY
+ * possible wallpaper, which is precisely the "no matter what background I pick" that was
+ * asked for. 140 was tried and is still washed out over a bright photo; 225 is legible but
+ * has all but deleted the picture. 190 is the one that does both jobs.
+ *
+ * ⚠ Only the MAIN MENU is non-opaque (GUI.cpp, the `false` at the end of its MenuWidget
+ * constructor). Every other menu already paints a solid background, so none of them change.
+ */
+#define THEME_SCRIM_COLOR 0x39C7            // RGB565 grey ~56,56,56
+#define THEME_SCRIM_ALPHA 190               // 0 = invisible, 255 = solid
+
+/* Fill a rectangle with `color` blended `alpha` deep over whatever is already there.
+ * ⚠ ONLY TRANSLUCENT ON A SPRITE. TFT_eSPI::pushTransparent() cannot read the glass back, so
+ * on the direct-to-LCD fallback path (page sprite failed to allocate) this lands as a SOLID
+ * plate. That is still readable, which is the point — but it is why the effect is described
+ * as "grey plate", not "grey tint". */
+void guiDrawScrim(LCD &lcd, int16_t x, int16_t y, uint16_t w, uint16_t h);
+
+/* The live values, so `scrim <alpha> [hexcolor]` on the console can tune them against a real
+ * photograph and a screenshot. ⚠ A BENCH KNOB, NOT A SETTING — deliberately not persisted:
+ * the shipped answer is THEME_SCRIM_* above, and a value that only exists in RAM cannot
+ * quietly become the thing everyone is testing against. Reset by a reboot, on purpose. */
+extern uint16_t gScrimColor;
+extern uint8_t  gScrimAlpha;
 #define TOMATO            0xFBEF            // RGB = 100%, 50%, 50%
 #define SALAD             0x57EA            // RGB = 33%, 100%, 33%
 #define REDDISH           0xFBF5            // RGB = 100%, 50%, 70%
