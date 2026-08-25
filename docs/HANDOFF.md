@@ -169,7 +169,49 @@ is not the disease.
       every boot.** WiFi associates (`wifi=1`) and DNS does not resolve. Not the wedge, but it is
       the same shape as the fault Jake documented on his handheld, and the clock depends on it.
 
+### ✅ CLOSED 2026-08-25 — THE WALLPAPER, AND THE INSTRUMENT THAT FOUND IT (0.9.13)
+
+Nick: *"I tried to apply a background from a photo but nothing changed."* **Fixed, flashed to
+BOTH phones, and verified by screenshot.**
+
+🛑 **`gui.init()` READ THE WALLPAPER ~50 LINES BEFORE `SD.begin()` MOUNTED THE CARD.** Photos
+writes `/background.jpg` to the SD card; the loader asked an unmounted filesystem and got
+`false`, on every boot since the feature existed. The fingerprint was in every boot log —
+`[E][vfs_api.cpp:72] exists(): File system is not mounted`. 🔑 **Phone 2's card still had
+`/background.jpg` at 31,440 bytes — the exact size of `BT09.JPG`.** Nick's copy had always
+worked; nothing ever read it. ⚠ **Do NOT "fix" this by moving `SD.begin()` earlier** — it
+shares SPI with the screen and that order is deliberate. `GUI::loadWallpaper()` is called
+again *after* the mount instead.
+
+🔑 **WHY IT LOOKED LIKE NOTHING AT ALL:** a rejected override falls into the SAME path as "none
+chosen", and this phone ships a `/background.jpg` **in SPIFFS** — the dark texture everyone
+reads as the default. Something always loaded. Just never the user's picture.
+
+Also closed with it: **two different size ceilings on one photo** (viewer 2 MB, loader 1 MB —
+a photo in between viewed, said "Wallpaper set", and vanished at the next boot; both are 2 MB
+now); **setAsWallpaper() now verifies** by asking the loader and rolling back on refusal;
+**wallpapers FILL the screen** (TJpgDec only halves, so every 480x270 photo on the card was a
+240x135 band across the top — now resampled to cover, cropped to centre).
+
+🔬 **NEW INSTRUMENT, AND IT IS THE POINT: `shot` + `tools/shot.py`** — the live frame as a PNG
+on the host. **The reason Photos shipped broken is that a cable cannot press keys**, so no GUI
+claim in this repo was ever checked. Now it can be:
+
+```bash
+tools/shot.py /dev/cu.usbserial-025A3F65 out.png --wait 16 --cmd "wallpaper set BT01.JPG"
+```
+
+Plus `wallpaper` on the console (what the loader found, from where, at what pixel size, and why
+it refused) and `wallpaper reload | list | clear | set <name>` — `set` runs **the same
+`photosSetWallpaper()` the menu runs**, so the path is provable over the cable.
+
+- [ ] ⚠ **`/photos/20260823_093939.jpg` on phone 2 is 0 bytes** — a failed upload. Photos lists
+      it and cannot open it. Small, and its own job.
+
 ### 🔴 P1 — TWO THINGS NEED A HUMAN, AND ONE OF THEM IS UNTESTED CODE
+
+⚠ **The wallpaper half of this is now DONE and machine-verified** — see the block above. What
+is left below still needs a thumb, but `shot` means you can now SEE the result of every press.
 
 - [ ] 🔑 **OPEN THE PHOTOS APP (Menu > Tools > Photos). NOBODY HAS EVER RUN IT.** It is new
       today: it builds, registers, boots clean and passes the duplicate-menu-id check — but

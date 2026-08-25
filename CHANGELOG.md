@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.9.13 (2026-08-25) — "Set as wallpaper" wrote a good file that nothing ever read
+
+Nick, from the handset: *"I tried to apply a background from a photo but nothing changed, so
+there is something broken."* He was right twice over, and the second fault was hiding behind
+the first.
+
+- 🛑 **THE WALLPAPER WAS LOADED BEFORE THE SD CARD WAS MOUNTED.** `setup()` mounts SPIFFS,
+  calls `gui.init()`, and only ~50 lines LATER calls `SD.begin()` — the card shares SPI with
+  the screen and that order is deliberate. The loader lived inside `gui.init()`, so its
+  `SD.exists("/background.jpg")` asked an unmounted filesystem and got `false`, every boot,
+  forever. The Photos app writes the chosen wallpaper to the **SD card**. Nothing ever read it.
+
+  The fingerprint had been in every boot log for as long as the feature existed:
+
+  ```
+  [E][vfs_api.cpp:72] exists(): File system is not mounted
+  ```
+
+  **Proven on the hardware, not argued:** phone 2's card was still carrying
+  `/background.jpg` at **31,440 bytes — byte-for-byte the size of `BT09.JPG`**, the photo Nick
+  had picked. His copy had worked perfectly. The firmware had simply never looked.
+- 🔑 **IT WAS SILENT BECAUSE THE FALLBACK IS SHARED.** A rejected override lands in exactly
+  the same path as "no wallpaper has ever been chosen", so the screen and the log were
+  identical either way. Worse, this phone ships a `/background.jpg` **in SPIFFS** — the plain
+  dark texture everyone reads as "the default". That file loaded fine, every time, which is
+  what made "nothing changed" so convincing: something *was* being loaded, just never the
+  user's choice.
+- **Fixed:** `GUI::loadWallpaper()` is now a function with three call sites — `init()` (SPIFFS
+  only, but the sprite must hold a picture before the next line of `setup()` redraws),
+  **again after `SD.begin()`, which is the call that actually finds the file**, and from
+  Photos when the user picks one, so it appears **at once** instead of "restart to see it".
+- **`setAsWallpaper()` no longer trusts its own copy.** It asks the loader and repeats the
+  answer verbatim, rolling the override back if the loader refuses. A greyscale JPEG still
+  *views* in Photos (jpeg_grey.cpp decodes it; TJpgDec refuses greyscale outright) and still
+  cannot be a wallpaper — and now it says so instead of claiming success.
+- ⚠ **A second silent dropper, found on the way: two different size ceilings on one picture.**
+  The viewer opened up to 2 MB; the wallpaper loader capped at 1 MB and fell back with no
+  message. A photo between the two viewed perfectly, reported "Wallpaper set", and vanished at
+  the next boot. Both are 2 MB now, and Photos refuses an over-limit photo *before* copying
+  megabytes to the card.
+- 🖼 **Wallpapers now FILL the screen.** TJpgDec only halves — 1, 1/2, 1/4, 1/8 and nothing in
+  between — so every photo on the bench card (all 480x270) landed as a **240x135 band across
+  the top** with the old background showing underneath, and a 4032x3024 phone photo cannot
+  reduce past 504x378 and had its top-left corner cropped out instead. The loader now decodes
+  into a temporary PSRAM sprite at the smallest halving that still covers the screen, then
+  resamples to fill, cropping to centre. Screenshotted before and after.
+- 🔬 **NEW: `shot` on the serial console, and `tools/shot.py`** — the live frame as base64,
+  turned into a PNG on the host. **This is the instrument this repo did not have.** Every
+  screen in Photos needs a key press, a cable cannot press keys, and that is exactly how a
+  broken wallpaper reached a user untried. Everything claimed above about how the screen
+  *looks* was checked with it.
+- **NEW: `wallpaper` on the console** — what the loader found, from which filesystem, at what
+  pixel size, and why it refused. Plus `wallpaper reload | list | clear` and
+  `wallpaper set <name>`, which runs **the same `photosSetWallpaper()` the menu runs**, so the
+  whole path can be proven over a cable. A test hook that re-implements the feature proves
+  nothing; this one cannot drift.
+- ⚠ **Noticed, not fixed:** `/photos/20260823_093939.jpg` on phone 2 is **0 bytes** — a failed
+  upload that Photos still lists and cannot open.
+
 ## Unreleased (2026-08-24, late) — the scrolling freeze was never the database: it is `WiFi.disconnect(true)`
 
 - 🔑 **`WiFi.disconnect(true)` BLOCKS FOR 5007 ms. `WiFi.begin()` next to it takes 30.** The

@@ -5,6 +5,11 @@
 #include <SD.h>
 #include <SPIFFS.h>
 
+/* The one global this app needs. Setting a wallpaper is not finished when the bytes are on
+ * the card — the picture has to reach GUI's bgImage sprite, and only GUI can put it there.
+ * Asking it also lets this app REPORT what happened instead of guessing. */
+extern GUI gui;
+
 static const int  PHOTOS_MAX_ENTRIES = 200;
 static const char PHOTOS_DIR[]       = "/photos";
 static const char PHOTOS_LOCKS[]     = "/photos/.locks";
@@ -464,20 +469,42 @@ bool PhotosApp::drawCurrentPhoto() {
 
 // ---------------------------------------------------------------- actions
 
-bool PhotosApp::setAsWallpaper() {
+/* ── THE WALLPAPER COPY, AS A FREE FUNCTION, ON PURPOSE ───────────────────────────────────
+ *
+ * PhotosApp::setAsWallpaper() is four lines of glue over this. It is split out because this
+ * app CANNOT BE TESTED WITHOUT A THUMB — every screen in it needs a key press and a serial
+ * cable cannot press keys, which is exactly how "Set as wallpaper" reached Nick's hands
+ * untried. `wallpaper set <name>` on the console now runs THIS function, so the whole path
+ * (extension gate, size gate, copy, loader verify, rollback) is exercised over the cable and
+ * it is the SAME code the menu runs. A test hook that re-implements the feature proves
+ * nothing; this one cannot drift.
+ *
+ * `why` always comes back with a sentence in it, pass or fail — the caller shows it verbatim.
+ */
+bool photosSetWallpaper(const char* photoName, char* why, size_t whyLen) {
   /* ⚠ REFUSED FOR BMP, and refused LOUDLY rather than accepted and then silently ignored.
    * The wallpaper is loaded by GUI.cpp's own drawImage(), which sniffs RLE3 / I256 / JPEG —
    * it has never had a BMP path. Copying a .bmp to /background.jpg would "succeed" here and
    * then fall back to the default at the next boot, which looks exactly like a bug. */
-  if (!hasExt(entries[sel].name, ".jpg") && !hasExt(entries[sel].name, ".jpeg")) {
-    snprintf(note, sizeof(note), "Wallpaper must be a JPEG (this is a BMP)");
+  if (!hasExt(photoName, ".jpg") && !hasExt(photoName, ".jpeg")) {
+    snprintf(why, whyLen, "must be a JPEG (%s is not)", photoName);
     return false;
   }
   char src[160];
-  snprintf(src, sizeof(src), "%s/%s", PHOTOS_DIR, entries[sel].name);
+  snprintf(src, sizeof(src), "%s/%s", PHOTOS_DIR, photoName);
   File in = SD.open(src, FILE_READ);
   if (!in) {
-    snprintf(note, sizeof(note), "Could not read %s", entries[sel].name);
+    snprintf(why, whyLen, "could not read %s", photoName);
+    return false;
+  }
+  /* Refuse an over-limit photo BEFORE copying megabytes onto the card to no purpose. The
+   * viewer opens up to 2 MB and GUI::backgroundFileMaxSize is the same 2 MB, so this only
+   * fires on a photo too big for either — but the two limits were once different, and a
+   * picture that viewed and then vanished as a wallpaper is precisely that mismatch. */
+  if ((size_t) in.size() > (size_t) GUI::backgroundFileMaxSize) {
+    snprintf(why, whyLen, "too big: %u KB, limit %u KB",
+             (unsigned)((size_t) in.size() >> 10), (unsigned)(GUI::backgroundFileMaxSize >> 10));
+    in.close();
     return false;
   }
   /* COPIED, not pointed at. If the wallpaper were a reference to the photo, deleting the photo
@@ -487,26 +514,56 @@ bool PhotosApp::setAsWallpaper() {
   File out = SD.open(PHOTOS_WALLPAPER, FILE_WRITE);
   if (!out) {
     in.close();
-    snprintf(note, sizeof(note), "Could not write the wallpaper");
+    snprintf(why, whyLen, "could not open %s for writing", PHOTOS_WALLPAPER);
     return false;
   }
   uint8_t buf[512];
   size_t n;
   bool ok = true;
+  size_t written = 0;
   while ((n = in.read(buf, sizeof(buf))) > 0) {
     if (out.write(buf, n) != n) {
       ok = false;
       break;
     }
+    written += n;
   }
   in.close();
   out.close();
   if (!ok) {
     SD.remove(PHOTOS_WALLPAPER);       // never leave a half-written wallpaper behind
-    snprintf(note, sizeof(note), "Wallpaper write failed - default kept");
+    snprintf(why, whyLen, "write failed after %u bytes - default kept", (unsigned)written);
     return false;
   }
-  snprintf(note, sizeof(note), "Wallpaper set - restart to see it");
+  /* ⚠ VERIFY, DO NOT ASSUME — and this is the whole lesson of 2026-08-25. Copying the bytes
+   * is the easy half; the LOADER can still refuse them. TJpgDec rejects progressive and
+   * GREYSCALE JPEGs outright, and a greyscale photo views perfectly on the screen before
+   * this one because jpeg_grey.cpp decodes it and the wallpaper path does not. Announcing
+   * "Wallpaper set" over a file the loader will drop is exactly the silent lie this change
+   * exists to remove. So ask the loader, now, and repeat what it says.
+   *
+   * It also means the wallpaper appears AT ONCE. The old note said "restart to see it",
+   * which was true and which also made a broken feature indistinguishable from a working
+   * one until the next boot. */
+  if (!gui.loadWallpaper()) {
+    char loaderSaid[112];
+    snprintf(loaderSaid, sizeof(loaderSaid), "%s", gui.getWallpaperNote());
+    SD.remove(PHOTOS_WALLPAPER);
+    gui.loadWallpaper();               // back to the default; never leave a rejected override
+    snprintf(why, whyLen, "%s", loaderSaid);
+    return false;
+  }
+  snprintf(why, whyLen, "%s", gui.getWallpaperNote());
+  return true;
+}
+
+bool PhotosApp::setAsWallpaper() {
+  char why[112];
+  if (!photosSetWallpaper(entries[sel].name, why, sizeof(why))) {
+    snprintf(note, sizeof(note), "Not set - %s", why);
+    return false;
+  }
+  snprintf(note, sizeof(note), "Wallpaper set");
   return true;
 }
 
@@ -519,7 +576,8 @@ bool PhotosApp::restoreDefaultWallpaper() {
     return true;
   }
   if (SD.remove(PHOTOS_WALLPAPER)) {
-    snprintf(note, sizeof(note), "Default wallpaper restored - restart to see it");
+    gui.loadWallpaper();               // the fallback is compiled in, so this cannot fail
+    snprintf(note, sizeof(note), "Default wallpaper restored");
     return true;
   }
   snprintf(note, sizeof(note), "Could not remove the wallpaper override");

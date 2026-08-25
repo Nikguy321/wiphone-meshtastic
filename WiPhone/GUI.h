@@ -2659,7 +2659,22 @@ public:
    * the two would silently drift apart, and the symptom would be "Set as wallpaper does
    * nothing". */
   static constexpr const char* backgroundFile = "/background.jpg";
-  static constexpr int   backgroundFileMaxSize = 1<<20;
+  /* ⚠ 2 MB, NOT 1 MB — it must match what the Photos viewer will open (slurp() in
+   * app_photos.cpp uses 2 MB). At 1 MB a photo between the two limits VIEWED perfectly,
+   * reported "Wallpaper set", and was then dropped by this loader on the next boot with
+   * no message anywhere. Two different ceilings on the same picture is a trap; if either
+   * moves, move both. */
+  static constexpr int   backgroundFileMaxSize = 2<<20;
+
+  /* Reload /background.jpg into bgImage, or fall back to the compiled-in default.
+   * ⚠ MUST be called again after SD.begin() — see the long note on the definition; that
+   * ordering is the whole reason "Set as wallpaper" did nothing. */
+  bool loadWallpaper();
+  /* What the last loadWallpaper() actually did, in words, for `wallpaper` on the console.
+   * A silent fallback is what made this bug invisible for as long as it was. */
+  const char* getWallpaperNote() const {
+    return wallpaperNote;
+  }
   GUI();
   ~GUI();
 
@@ -2692,6 +2707,9 @@ public:
   void exitCall();
   bool inCall(); // are we in a call? used to determine when to disable entering lock screen or when to easily exit it
   void frameToSerial();     // "screenshot": print current frame to serial (requires exernal PSRAM)
+  /* The same idea, framed and base64'd so a tool can decode it — `shot` on the console.
+   * The only way to see what a screen actually looks like without holding the phone. */
+  void screenshotToSerial();
   void toggleScreen();
   void sleepScreen();       // manually turn the screen off (wakes on next keypress)
   void setAudio(Audio* pAudio) {
@@ -2855,6 +2873,7 @@ protected:
   TFT_eSPI     lcd;               // physical screen
   TFT_eSprite* page = NULL;       // full-screen sprite (if able to create) [abstraction over the `lcd`]
   TFT_eSprite* bgImage = NULL;    // full-screen sprite for backround image (if able to create)
+  char wallpaperNote[112] = "not loaded yet";   // last loadWallpaper() result, in words
   TFT_eSPI*    screen = NULL;     // the working screen object [one of the above]
 
   HeaderWidget* header;

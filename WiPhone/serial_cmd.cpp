@@ -2,11 +2,14 @@
 #include "app_gbc_xfer.h"
 #include "sms_mirror_poll.h"
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
+#include "app_photos.h"      // photosSetWallpaper, the `wallpaper set` command
 #include "meshtastic_service.h"   // applyChannelUrl, the `chan` command
 #include "mesh_pos.h"             // distance/bearing for the `pos` command
 #include "sun_times.h"            // legal light, the `sun` command
 #include "clock.h"                // ntpClock
 #include "GUI.h"                  // gui.state, the `sip` command
+#include <SD.h>                   // the `wallpaper` command reads both filesystems
+#include <SPIFFS.h>
 #include <WiFi.h>
 
 #include <Arduino.h>
@@ -102,6 +105,11 @@ static void help() {
     "  gps baud <n>  GPS baud, persists (115200 = the M100 Mini, measured; not 9600)",
     "  gps raw    hex+ASCII of the last bytes off the wire - tells wrong-baud from binary",
     "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
+    "  shot       dump the live screen as base64 (tools/shot.py turns it into a PNG)",
+    "  wallpaper  what the background loader found, and why it did or did not use it",
+    "  wallpaper reload|list|clear  re-read it / list /photos / drop the override",
+    "  wallpaper set <name>  set /photos/<name> as the wallpaper - the SAME code the",
+    "             Photos menu runs, so it can be proven over the cable",
     "  unread     recount unread texts, repair the counter, name the threads",
     "  unread clear  mark EVERYTHING read (orphaned threads included)",
     "",
@@ -961,6 +969,110 @@ static void run(char* line) {
         say("  [%d] '%s' keyLen=%d\n", i, c->name, (int)c->keyLen);
       }
     }
+    return;
+  }
+
+  /* `shot` — the live frame, base64, for tools/shot.py. See GUI::screenshotToSerial(). */
+  if (!strcasecmp(line, "shot") || !strcasecmp(line, "screenshot")) {
+    extern GUI gui;
+    gui.screenshotToSerial();
+    return;
+  }
+
+  /* `wallpaper` — the background loader, out loud, and the one way to drive Photos'
+   * wallpaper path without a thumb. It exists because the failure it reports was INVISIBLE:
+   * a rejected /background.jpg fell into the same fallback as "no wallpaper chosen", so the
+   * screen and the log looked identical either way and "Set as wallpaper does nothing" had
+   * no thread to pull (Nick, 2026-08-25). `set` runs the SAME function the menu runs — see
+   * photosSetWallpaper() — so this cannot drift away from the feature it tests. */
+  if (!strncasecmp(line, "wallpaper", 9) && (line[9] == '\0' || line[9] == ' ')) {
+    extern GUI gui;
+    const char* arg = line + 9;
+    while (*arg == ' ') {
+      arg++;
+    }
+    if (!strcasecmp(arg, "reload")) {
+      gui.loadWallpaper();
+    } else if (!strcasecmp(arg, "clear")) {
+      /* The same operation as "[ Restore default wallpaper ]": delete the override and let
+       * the compiled-in fallback surface. Nothing is copied in, so nothing can fail. */
+      if (SD.exists(GUI::backgroundFile)) {
+        say("wallpaper: removing %s from SD\n", GUI::backgroundFile);
+        SD.remove(GUI::backgroundFile);
+      } else {
+        say("wallpaper: no override on SD to remove\n");
+      }
+      gui.loadWallpaper();
+    } else if (!strcasecmp(arg, "list")) {
+      File dir = SD.open("/photos");
+      if (!dir || !dir.isDirectory()) {
+        say("wallpaper: /photos is missing on the card\n");
+      } else {
+        File f;
+        int n = 0;
+        while ((f = dir.openNextFile())) {
+          const char* nm = f.name();
+          const char* base = strrchr(nm, '/');
+          base = base ? base + 1 : nm;
+          if (base[0] && base[0] != '.' && !f.isDirectory()) {
+            say("  %-40s %u bytes\n", base, (unsigned)f.size());
+            n++;
+          }
+          f.close();
+        }
+        dir.close();
+        say("wallpaper: %d file(s) in /photos\n", n);
+      }
+      return;
+    } else if (!strncasecmp(arg, "set ", 4)) {
+      const char* name = arg + 4;
+      while (*name == ' ') {
+        name++;
+      }
+      char why[112] = "";
+      const bool ok = photosSetWallpaper(name, why, sizeof(why));
+      say("wallpaper set %s: %s - %s\n", name, ok ? "OK" : "REFUSED", why);
+    } else if (*arg) {
+      say("wallpaper: try `wallpaper`, `reload`, `list`, `set <name>`, `clear`\n");
+      return;
+    }
+
+    /* ⚠ LOADING IT IS NOT SHOWING IT, and a screenshot taken without this line will quietly
+     * show the PREVIOUS wallpaper and look like the load failed. ClockApp clones bgImage on
+     * every redraw (GUI.cpp, ClockApp::redrawScreen) — but with no NTP the clock face has no
+     * reason to redraw, so nothing repaints until something else happens. The Photos app does
+     * not need this: it returns REDRAW_ALL. The console has to ask. */
+    if (strcasecmp(arg, "list")) {
+      gui.redrawScreen(true, true, true, true);
+    }
+
+    const bool onSd = SD.exists(GUI::backgroundFile);
+    const bool onSpiffs = SPIFFS.exists(GUI::backgroundFile);
+    say("wallpaper: %s\n", gui.getWallpaperNote());
+    /* Name BOTH filesystems every time. SD is the one Photos writes and the one that was
+     * unreadable at load time; SPIFFS is the one that always worked and therefore the one
+     * that masked the fault. Printing only the winner hides exactly that asymmetry. */
+    if (onSd) {
+      File f = SD.open(GUI::backgroundFile, FILE_READ);
+      say("  SD     %s  %u bytes\n", GUI::backgroundFile, f ? (unsigned)f.size() : 0u);
+      if (f) {
+        f.close();
+      }
+    } else {
+      say("  SD     %s  absent\n", GUI::backgroundFile);
+    }
+    if (onSpiffs) {
+      File f = SPIFFS.open(GUI::backgroundFile, FILE_READ);
+      say("  SPIFFS %s  %u bytes  (SD wins when both exist)\n",
+          GUI::backgroundFile, f ? (unsigned)f.size() : 0u);
+      if (f) {
+        f.close();
+      }
+    } else {
+      say("  SPIFFS %s  absent\n", GUI::backgroundFile);
+    }
+    say("  limit  %u KB, baseline colour JPEG only (no progressive, no greyscale)\n",
+        (unsigned)(GUI::backgroundFileMaxSize >> 10));
     return;
   }
 

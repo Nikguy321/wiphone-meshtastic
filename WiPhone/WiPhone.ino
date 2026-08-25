@@ -1182,6 +1182,16 @@ void setup() {
     log_d("Card mount FAILED");
   }*/
 
+  /* ⚠ THE WALLPAPER IS LOADED HERE, AND NOT ONLY IN gui.init(), AND THE ORDER ABOVE IS WHY.
+   * gui.init() runs ~50 lines earlier — before the line above — so the SD.exists() inside it
+   * asks an UNMOUNTED filesystem and always gets false. The Photos app writes the chosen
+   * wallpaper to /background.jpg on the SD card, so until this second call existed, "Set as
+   * wallpaper" wrote a perfectly good file that nothing ever read: the phone fell back to the
+   * compiled-in default on every boot and the user saw no change and no error (Nick,
+   * 2026-08-25). Moving SD.begin() earlier is NOT the fix — it shares SPI with the screen and
+   * the comment above says that order is deliberate. Ask the phone with `wallpaper`. */
+  gui.loadWallpaper();
+
   /* ⚠ SEED cardPresent HERE, OR EVERY CARD-GATED PATH LIES FOR THE FIRST MINUTE.
    * It is declared `false` in GUI.h and was assigned in exactly one place: the
    * once-a-minute battery tick. So for up to BATTERY_CHECK_PERIOD_MS after every boot

@@ -170,6 +170,264 @@ void GUI::reloadMessages() {
   state.unreadMessages = flash.messages.hasUnread();
 }
 
+/* Pixel dimensions straight out of the JPEG header, without decoding it.
+ *
+ * Wanted because SIZE IN BYTES SAYS NOTHING ABOUT WHETHER A PHOTO WILL FIT. TJpgDec only
+ * halves — 1, 1/2, 1/4, 1/8 and no further — so a 4032x3024 phone photo reduces to 504x378
+ * and the screen is 240x320: what lands in the sprite is the TOP-LEFT CORNER of it. That is
+ * safe (TFT_eSprite::createSprite allocates one spare pixel precisely so out-of-window
+ * pushes have somewhere to go) but it is not what anyone means by "set as wallpaper", and a
+ * phone that shows a corner of your picture without saying so is the same class of fault as
+ * one that shows nothing. So: measure it, and say it.
+ *
+ * Walks the marker chain to the first SOFn. Skips SOF4/SOF12 (DHT/DAC, not frame headers).
+ */
+static bool jpegPixelSize(const uint8_t* d, size_t n, uint16_t* w, uint16_t* h) {
+  if (n < 4 || d[0] != 0xFF || d[1] != 0xD8) {
+    return false;
+  }
+  size_t i = 2;
+  while (i + 3 < n) {
+    if (d[i] != 0xFF) {
+      i++;                                  // resync: fill bytes and padding are legal here
+      continue;
+    }
+    const uint8_t m = d[i + 1];
+    if (m == 0xFF) {
+      i++;
+      continue;
+    }
+    if (m == 0xD8 || m == 0x01 || (m >= 0xD0 && m <= 0xD7)) {
+      i += 2;                               // standalone markers carry no length
+      continue;
+    }
+    if (m == 0xDA || m == 0xD9) {
+      return false;                         // scan data or end reached with no frame header
+    }
+    const size_t len = ((size_t)d[i + 2] << 8) | d[i + 3];
+    if (len < 2 || i + 2 + len > n) {
+      return false;
+    }
+    // SOF0..SOF15 are frame headers except SOF4 (DHT) and SOF12 (DAC).
+    if (m >= 0xC0 && m <= 0xCF && m != 0xC4 && m != 0xCC) {
+      if (i + 9 >= n) {
+        return false;
+      }
+      *h = ((uint16_t)d[i + 5] << 8) | d[i + 6];
+      *w = ((uint16_t)d[i + 7] << 8) | d[i + 8];
+      return *w && *h;
+    }
+    i += 2 + len;
+  }
+  return false;
+}
+
+/* ── FILLING A SCREEN WITH A PHOTO THAT IS NOT THE SHAPE OF THE SCREEN ────────────────────
+ *
+ * 🔑 MEASURED, and it is the whole reason this exists: every photo on the bench card is
+ * 480x270, and plain drawImage() put each of them on a 240x320 screen as a 240x135 BAND
+ * ACROSS THE TOP with the old background still showing underneath. The wallpaper HAD
+ * changed — the SD-ordering fix above works — and it still looked wrong. Screenshotted
+ * 2026-08-25 with `shot`, which is the only reason anybody could see it.
+ *
+ * ⚠ The cause is that TJpgDec only HALVES. Its scale factor is 1, 1/2, 1/4 or 1/8 and there
+ * is nothing in between, so "scaled to fit" lands on whatever power of two happens to be
+ * near — 480x270 becomes 240x135, and a 4032x3024 phone photo cannot be reduced past
+ * 504x378 and gets its top-left corner cropped out instead. Neither is a wallpaper.
+ *
+ * So: decode ONCE into a temporary PSRAM sprite at the smallest halving that still COVERS
+ * the screen, then resample that into the destination at an arbitrary ratio, cropping to
+ * centre. That is the ordinary "cover" rule — the picture fills the screen and the overhang
+ * is trimmed evenly from both sides, rather than letterboxed with black bars, which is what
+ * a phone wallpaper means everywhere else.
+ *
+ * ⚠ The temporary sprite is PSRAM (createSprite -> esp32Calloc -> MALLOC_CAP_SPIRAM) and is
+ * at most ~504x378x2 = 381 KB, freed before this returns. It must NEVER come out of internal
+ * RAM — that is the heap SIP and WiFi fight over, and a wallpaper is a luxury.
+ *
+ * Returns false if the file is not a measurable JPEG; the caller then falls back to plain
+ * drawImage(), which is still right for the compiled-in RLE3/I256 assets.
+ */
+static bool wallpaperFill(LCD* parent, TFT_eSprite* dst, const uint8_t* d, size_t n,
+                          uint16_t* srcW, uint16_t* srcH, bool* cropped) {
+  uint16_t iw = 0, ih = 0;
+  if (!parent || !dst || !dst->isCreated() || !jpegPixelSize(d, n, &iw, &ih)) {
+    return false;
+  }
+  *srcW = iw;
+  *srcH = ih;
+  const int DW = dst->width(), DH = dst->height();
+
+  /* Largest halving that still covers the screen in BOTH axes — decode no more pixels than
+   * the resample will actually use. Stops at 1/8 because that is tjpgd's floor. */
+  int red = 1;
+  while (red < 8 && (int)(iw / (red * 2)) >= DW && (int)(ih / (red * 2)) >= DH) {
+    red *= 2;
+  }
+  const int dw = iw / red, dh = ih / red;
+  if (dw <= 0 || dh <= 0) {
+    return false;
+  }
+
+  TFT_eSprite tmp(parent);
+  tmp.setColorDepth(16);
+  tmp.createSprite(dw, dh);
+  if (!tmp.isCreated()) {
+    log_e("wallpaper: no PSRAM for a %dx%d decode buffer", dw, dh);
+    return false;
+  }
+  uint16_t ow = 0, oh = 0;
+  const bool decoded = display::load_jpg_at(d, (UINT)n, &tmp, 0, 0, (uint16_t)dw, (uint16_t)dh, &ow, &oh) != 0;
+  if (!decoded) {
+    tmp.deleteSprite();
+    return false;
+  }
+
+  /* Cover: the larger of the two ratios, so neither axis is left short. Everything is done
+   * in the SOURCE frame — for each destination pixel, ask which source pixel it came from —
+   * because that visits every destination pixel exactly once and cannot leave gaps, which
+   * the forward mapping does as soon as it is scaling up. */
+  const float sx = (float)DW / (float)dw, sy = (float)DH / (float)dh;
+  const float scale = sx > sy ? sx : sy;
+  const float useW = (float)DW / scale, useH = (float)DH / scale;
+  const float offX = ((float)dw - useW) * 0.5f, offY = ((float)dh - useH) * 0.5f;
+  *cropped = (useW < dw - 0.5f) || (useH < dh - 0.5f);
+
+  for (int y = 0; y < DH; y++) {
+    int syi = (int)(offY + ((float)y + 0.5f) / scale);
+    if (syi < 0) {
+      syi = 0;
+    } else if (syi >= dh) {
+      syi = dh - 1;
+    }
+    for (int x = 0; x < DW; x++) {
+      int sxi = (int)(offX + ((float)x + 0.5f) / scale);
+      if (sxi < 0) {
+        sxi = 0;
+      } else if (sxi >= dw) {
+        sxi = dw - 1;
+      }
+      dst->drawPixel(x, y, tmp.readPixel(sxi, syi));
+    }
+  }
+  tmp.deleteSprite();
+  return true;
+}
+
+/* ── THE WALLPAPER LOADER, AND WHY IT IS A FUNCTION RATHER THAN A BLOCK INSIDE init() ─────
+ *
+ * 🛑 IT USED TO BE INLINE IN init(), AND SO IT COULD NEVER SEE AN SD CARD. setup() mounts
+ * SPIFFS, calls gui.init(), and only ~50 lines LATER calls SD.begin() — the card shares the
+ * SPI bus with this screen and the comment there says that order is deliberate. But the
+ * Photos app writes the chosen wallpaper to /background.jpg **on the SD card**, so the
+ * `SD.exists()` test in init() was asking an unmounted filesystem. It answered false, every
+ * time, and the phone quietly kept the compiled-in default.
+ *
+ * That is why "Set as wallpaper" appeared to do nothing — not on that boot and not on any
+ * boot after it (Nick, 2026-08-25). ⚠ The failure was SILENT because a rejected override
+ * lands in exactly the same fallback as "no wallpaper has ever been chosen": the two states
+ * were indistinguishable on screen AND in the log. Hence wallpaperNote, and `wallpaper` on
+ * the serial console — the phone can now be asked what it did.
+ *
+ * So the call sites are three, and each one is load-bearing:
+ *   init()    — SPIFFS only, by necessity, but bgImage MUST hold a picture before the very
+ *               next line of setup() calls redrawScreen().
+ *   setup()   — again, immediately after SD.begin(). This is the one that finds the file.
+ *   Photos    — when the user picks one, which is what makes it appear at once rather than
+ *               "restart to see it".
+ *
+ * ⚠ Reads with ONE exact-sized PSRAM allocation, not the old doubling LinearArray: the cap
+ * is now 2 MB to match what the Photos viewer will open, and growing to 2 MB by doubling
+ * asks PSRAM for 2 MB and 4 MB in the same instant. It also CLOSES the file, which the old
+ * block never did — that was a File handle leaked on every boot with a wallpaper set.
+ */
+bool GUI::loadWallpaper() {
+  if (!bgImage || !bgImage->isCreated()) {
+    snprintf(wallpaperNote, sizeof(wallpaperNote), "no background layer (sprite not created)");
+    return false;
+  }
+
+  const bool onSd = SD.exists(GUI::backgroundFile);
+  const bool onSpiffs = !onSd && SPIFFS.exists(GUI::backgroundFile);
+  bool succ = false;
+
+  if (onSd || onSpiffs) {
+    const char* where = onSd ? "SD" : "SPIFFS";
+    File f = onSd ? SD.open(GUI::backgroundFile, FILE_READ)
+                  : SPIFFS.open(GUI::backgroundFile, FILE_READ);
+    if (!f) {
+      snprintf(wallpaperNote, sizeof(wallpaperNote), "%s on %s will not open", GUI::backgroundFile, where);
+      log_e("wallpaper: %s", wallpaperNote);
+    } else {
+      const size_t sz = (size_t) f.size();
+      if (!sz) {
+        snprintf(wallpaperNote, sizeof(wallpaperNote), "%s on %s is empty", GUI::backgroundFile, where);
+        log_e("wallpaper: %s", wallpaperNote);
+      } else if (sz > (size_t) GUI::backgroundFileMaxSize) {
+        /* Say the NUMBER. "too big" with no figure is what sent this hunt looking at the
+         * decoder instead of at a size check. */
+        snprintf(wallpaperNote, sizeof(wallpaperNote), "%u KB on %s is over the %u KB limit",
+                 (unsigned)(sz >> 10), where, (unsigned)(GUI::backgroundFileMaxSize >> 10));
+        log_e("wallpaper: %s", wallpaperNote);
+      } else {
+        uint8_t* buf = (uint8_t*) ps_malloc(sz);
+        if (!buf) {
+          snprintf(wallpaperNote, sizeof(wallpaperNote), "no PSRAM for %u KB", (unsigned)(sz >> 10));
+          log_e("wallpaper: %s", wallpaperNote);
+        } else {
+          const size_t got = f.read(buf, sz);
+          if (got != sz) {
+            snprintf(wallpaperNote, sizeof(wallpaperNote), "short read: %u of %u bytes",
+                     (unsigned)got, (unsigned)sz);
+            log_e("wallpaper: %s", wallpaperNote);
+          } else {
+            /* Try the fitted path first — it is the one that fills the screen — and fall
+             * back to the plain decode for anything that is not a measurable JPEG. Say the
+             * PIXELS as well as the kilobytes either way: "49 KB" tells nobody why their
+             * picture is the wrong shape. */
+            uint16_t iw = 0, ih = 0;
+            bool cropped = false;
+            if (wallpaperFill(&lcd, bgImage, buf, sz, &iw, &ih, &cropped)) {
+              snprintf(wallpaperNote, sizeof(wallpaperNote), "%u KB from %s, %ux%u scaled to fill%s",
+                       (unsigned)(sz >> 10), where, (unsigned)iw, (unsigned)ih,
+                       cropped ? " (cropped to centre)" : "");
+              succ = true;
+            } else if (bgImage->drawImage(buf, (int)sz)) {
+              snprintf(wallpaperNote, sizeof(wallpaperNote), "%u KB from %s, drawn unscaled",
+                       (unsigned)(sz >> 10), where);
+              succ = true;
+            }
+            if (succ) {
+              log_d("wallpaper: %s", wallpaperNote);
+            } else {
+              /* Both paths refused it. TJpgDec rejects progressive and greyscale JPEGs
+               * outright — the e-reader met both — and drawImage() only otherwise knows
+               * RLE3 and I256. Name that, because the file is perfectly good and the user
+               * has no way to guess why their picture is not good enough. */
+              snprintf(wallpaperNote, sizeof(wallpaperNote), "%u KB from %s would not decode "
+                       "(baseline colour JPEG only)", (unsigned)(sz >> 10), where);
+              log_e("wallpaper: %s", wallpaperNote);
+            }
+          }
+          free(buf);
+        }
+      }
+      f.close();
+    }
+  } else {
+    snprintf(wallpaperNote, sizeof(wallpaperNote), "default (no %s on SD or SPIFFS)", GUI::backgroundFile);
+  }
+
+  if (!succ) {
+    bgImage->drawImage(image_i256, sizeof(image_i256));
+  }
+  /* Repaint the menu with whatever is now in the sprite. The clone at redrawScreen() is
+   * gated on !menuDrawn, so without this a wallpaper set from Photos would sit in the
+   * sprite unseen until something else happened to invalidate the menu. */
+  menuDrawn = false;
+  return succ;
+}
+
 void GUI::init(void (*lcdOnOffCallback)(bool)) {
   state.setInputState(InputType::Numeric);
 
@@ -195,41 +453,13 @@ void GUI::init(void (*lcdOnOffCallback)(bool)) {
   if (page && page->isCreated()) {
     // Store background image for future use
     bgImage->createSprite(lcd.width(), lcd.height());
-    if (bgImage->isCreated()) {
-      // Try to load background (wallpaper) image from file
-      bool succ = false;
-      if (SD.exists(GUI::backgroundFile) || SPIFFS.exists(GUI::backgroundFile)) {
-        File bgImgFile = SD.exists(GUI::backgroundFile) ? SD.open(GUI::backgroundFile) : SPIFFS.open(GUI::backgroundFile);
-
-        // Read entire image file into the external RAM, as long as it's not too big (less than 1 MB)
-        int bytes;
-        char buff[1025];
-        LinearArray<char, LA_EXTERNAL_RAM> fileContent;
-        do {
-          bytes = bgImgFile.readBytes(buff, sizeof(buff)-1);
-          if (bytes > 0) {
-            fileContent.extend(buff, bytes);  // NOTE: this creates small unnecessary overhead for small files
-          }
-        } while (bytes == sizeof(buff)-1 && fileContent.size() < GUI::backgroundFileMaxSize);
-        log_d("Read %d bytes from image file \"%s\"", fileContent.size(), GUI::backgroundFile);
-
-        // Check loaded file size
-        if (fileContent.size() < GUI::backgroundFileMaxSize) {
-          // Attempt to draw
-          if (bgImage->drawImage((uint8_t*) &fileContent[0], fileContent.size())) {
-            log_v("image file loaded");
-            succ = true;
-          } else {
-            log_e("failed to display background image");
-          }
-        }
-      }
-
-      if (!succ) {
-        log_e("image file fallback");
-        bgImage->drawImage(image_i256, sizeof(image_i256));
-      }
-    }
+    /* ⚠ THIS CALL CANNOT SEE THE SD CARD, AND THAT IS NOT A BUG HERE — IT IS WHY
+     * setup() CALLS loadWallpaper() A SECOND TIME. SD.begin() runs ~50 lines after
+     * gui.init() (deliberately: the card shares SPI with this screen), so at this
+     * point only SPIFFS can answer. The call is still needed: bgImage must hold a
+     * picture before the first redrawScreen(), which happens on the next line of
+     * setup(). See loadWallpaper(). */
+    loadWallpaper();
   }
 
   /* ⚠ A DUPLICATE MENU ID IS SILENT, AND HAS SHIPPED TWICE.
@@ -292,6 +522,81 @@ void GUI::frameToSerial() {
       printf("\r\n");
     }
   }
+}
+
+/* ── THE LIVE FRAME, OVER THE CABLE ──────────────────────────────────────────────────────
+ *
+ * base64 of the page sprite — which is what was last pushed to the glass — so a change on
+ * the SCREEN can be checked by someone who is not holding the phone.
+ *
+ * 🔑 THIS IS THE MISSING INSTRUMENT IN THIS REPO, and the wallpaper bug is what proved it.
+ * Every screen in Photos needs a key press, serial cannot press keys, and so the app reached
+ * a user untried — twice over, because the thing it got wrong (a background that never
+ * changed) is invisible to every other diagnostic the phone has. `wallpaper` can now say
+ * what the loader decided; only this can say what the user is actually looking at.
+ *
+ * ⚠ It is a DUMP, not a stream: ~205 KB of base64, about 4 s at 500000 baud, during which
+ * the loop task does nothing else. The loop watchdog is 20 s and prints rather than panics,
+ * so this is inside the budget — but do not put it on a timer.
+ *
+ * frameToSerial() above is the vendor's version and prints " 0x%04x" per pixel — 537 KB for
+ * the same frame, and no framing to tell a decoder where it starts. Kept, unused.
+ */
+void GUI::screenshotToSerial() {
+  static const char B64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  if (!page || !page->isCreated()) {
+    printf("SHOT ERROR no page sprite (direct-to-screen fallback is in use)\r\n");
+    return;
+  }
+  const int w = page->width(), h = page->height();
+  printf("SHOT BEGIN %d %d rgb565be\r\n", w, h);
+
+  char line[100];
+  int li = 0;
+  uint8_t trio[3];
+  int ti = 0;
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      const uint16_t px = page->readPixel(x, y);
+      const uint8_t two[2] = { (uint8_t)(px >> 8), (uint8_t)(px & 0xFF) };
+      for (int k = 0; k < 2; k++) {
+        trio[ti++] = two[k];
+        if (ti == 3) {
+          line[li++] = B64[trio[0] >> 2];
+          line[li++] = B64[((trio[0] & 0x03) << 4) | (trio[1] >> 4)];
+          line[li++] = B64[((trio[1] & 0x0F) << 2) | (trio[2] >> 6)];
+          line[li++] = B64[trio[2] & 0x3F];
+          ti = 0;
+          if (li >= 96) {
+            line[li] = '\0';
+            printf("%s\r\n", line);
+            li = 0;
+          }
+        }
+      }
+    }
+  }
+  /* The tail. 240x320x2 is divisible by 3, so this cannot fire on this screen — but a
+   * sprite is not required to be, and a decoder that meets a short group is better served
+   * by correct padding than by a silently truncated last pixel. */
+  if (ti) {
+    line[li++] = B64[trio[0] >> 2];
+    if (ti == 1) {
+      line[li++] = B64[(trio[0] & 0x03) << 4];
+      line[li++] = '=';
+      line[li++] = '=';
+    } else {
+      line[li++] = B64[((trio[0] & 0x03) << 4) | (trio[1] >> 4)];
+      line[li++] = B64[(trio[1] & 0x0F) << 2];
+      line[li++] = '=';
+    }
+  }
+  if (li) {
+    line[li] = '\0';
+    printf("%s\r\n", line);
+  }
+  printf("SHOT END\r\n");
+  fflush(stdout);
 }
 
 void GUI::sleepScreen() {
