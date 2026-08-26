@@ -190,6 +190,36 @@ int main() {
           "equator crossing: 100 m beacons, 44 m does not");
   }
 
+  /* ---- the fix-quality gate ------------------------------------------------
+   * 🛑 THIS RULE HAS A MEASUREMENT BEHIND IT, not a preference. On 2026-08-25 an
+   * indoor WiPhone reported `sats=3 hdop=6.4` at 47.33821,-122.16501 while the
+   * phone was actually at 47.4965,-122.3749 — about 20 km out. Three satellites
+   * is a 2D fix: it assumes an altitude, and a wrong assumption puts the error
+   * into the horizontal, which is the one number a hunting party reads. Nothing
+   * on the beacon path refused it before this gate existed. */
+  {
+    CHECK(!meshPosFixUsable(3, 64), "the measured 20 km fix (sats=3, HDOP 6.4) is refused");
+    CHECK(!meshPosFixUsable(0, -1) && !meshPosFixUsable(1, -1) && !meshPosFixUsable(2, -1),
+          "0-2 satellites cannot be a fix at all");
+    CHECK(!meshPosFixUsable(MESH_POS_MIN_SATS - 1, 10) &&
+          meshPosFixUsable(MESH_POS_MIN_SATS, 10),
+          "the satellite bar straddles MESH_POS_MIN_SATS exactly");
+    CHECK(meshPosFixUsable(9, 12), "a good open-sky fix passes");
+    CHECK(meshPosFixUsable(6, 45), "a working under-canopy fix (6 sats, HDOP 4.5) passes");
+
+    /* ⚠ UNKNOWN IS NOT FAILURE. Both fields are -1 until a GGA supplies them, and
+     * a receiver that never emits GGA must still be able to report — refusing on
+     * silence would be a different bug than the one this gate fixes. */
+    CHECK(meshPosFixUsable(-1, -1), "unknown quality is allowed, not refused");
+    CHECK(!meshPosFixUsable(-1, 250), "unknown sats + bad HDOP still refuses, on HDOP alone");
+    CHECK(meshPosFixUsable(8, -1), "good sats + unknown HDOP passes");
+
+    // The HDOP backstop, straddled from both sides.
+    CHECK(meshPosFixUsable(8, MESH_POS_MAX_HDOP_X10) &&
+          !meshPosFixUsable(8, MESH_POS_MAX_HDOP_X10 + 1),
+          "the HDOP bar straddles MESH_POS_MAX_HDOP_X10 exactly");
+  }
+
   // ---- presentation ---------------------------------------------------------
   {
     CHECK(strcmp(meshPosCompass8(0), "N") == 0 && strcmp(meshPosCompass8(359), "N") == 0 &&

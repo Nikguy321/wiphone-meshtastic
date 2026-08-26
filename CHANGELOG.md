@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.9.17 (2026-08-25) — a beacon slot is owed, not spent; and a fix has to be worth believing
+
+Nick: *"I want to make sure the GPS locations are actually reporting and being sent over the
+mesh."* They were — COVEY held a real, full-precision position from WiPhone 2 — but the last one
+was **7.7 hours old**, because the phone was indoors with zero satellites in view. Two things
+came out of looking at why.
+
+- 🔑 **THE SLOT IS NOW OWED, NOT SPENT.** The beacon interval is 300 s and
+  `MESH_POS_TX_FRESH_MS` is 30 s, and the old code sent-or-lost the slot in the same instant.
+  With a solid fix that is fine — the fix refreshes every second, so every tick sends. But
+  **under canopy, where the fix comes and goes, the odds it happens to be under 30 s old at the
+  exact instant a 5-minute tick lands are poor** — so a phone that had a perfectly good fix
+  forty seconds ago said nothing for another five minutes. That is the hunt scenario exactly.
+  Now the slot stays owed and fires the moment a fresh fix arrives.
+  ⚠ **The freshness rule is NOT relaxed** — nothing older than 30 s is ever transmitted, which
+  was the entire point of it. "At most this often" replaces "only at these instants".
+  ⚠ **One slot maximum.** `posDue` is a flag, not a counter, and the deadline keeps advancing
+  while it is set, so an hour with no sky owes exactly one beacon rather than twelve.
+  **Verified on the handset:** with no fix, `pos` reports nothing owed at t+0 and
+  `A SLOT IS OWED - it will send the moment a fresh fix arrives` after one full interval.
+- 🛑 **NEW GATE: A FIX HAS TO BE WORTH BELIEVING, and this one is measured.** On 2026-08-25 an
+  indoor WiPhone reported `sats=3 hdop=6.4` at **47.33821,-122.16501** while the phone was in
+  fact at **47.4965,-122.3749 — about 20 km away** — and nothing on the beacon path would have
+  refused it. Had that landed on a tick, COVEY's map would have shown Nick 20 km from where he
+  was, with no hint anything was wrong. **Three satellites is a 2D fix**: it solves lat/lon by
+  *assuming* an altitude, and a wrong assumption pushes the error sideways, into the one number
+  a hunting party reads. Four is the arithmetic minimum for a real 3D fix, so `MESH_POS_MIN_SATS
+  = 4` is the standard bar and not a strict one — under canopy a working receiver tracks five to
+  ten. `MESH_POS_MAX_HDOP_X10 = 100` is a backstop.
+  ⚠ **Refuses only what it positively knows is bad**: both fields are −1 until a GGA supplies
+  them, and unknown is *not* failure — refusing on silence would break any receiver that does
+  not emit GGA, a different bug than the one being fixed.
+  🔑 It lives in `mesh_pos.cpp` as the pure `meshPosFixUsable()`, beside the movement rule, so
+  `tests/test_pos.cpp` proves it — including the measured 20 km fix as a named check.
+- ⚠ **`lock_keyboard` now defaults to 1 when the key is absent**, matching the missing-*section*
+  branch that always did. Two configs that both said nothing about locking used to give opposite
+  answers. Same disagreement the 2026-08-22 battery audit found in `[screen]`, where it shipped
+  a phone that never dimmed and never slept. Not the cause of the 0.9.16 lock bug — the landmine
+  beside it.
+- **An empty photo now says it is empty.** `/photos/20260823_093939.jpg` on phone 1 is 0 bytes —
+  a died-half-way upload — and Photos said "Could not read this file", which sends the reader
+  looking for a corrupt card. It is still listed and still deletable on purpose: COVEY's gallery
+  learned the hard way that the pictures you cannot open are exactly the ones you cannot get rid
+  of.
+
+⚠ **Only WiPhone 2 has this build** — WiPhone 1 was unplugged and is still on 0.9.16. The GPS
+half is irrelevant to it, but the lock default and the empty-photo message are not (the 0-byte
+photo is on phone 1).
+
 ## 0.9.16 (2026-08-25) — the screen lock was being thrown away by the first button press
 
 Nick: *"whiphone two doesn't like its screen to lock ever (even when set to do so in screen

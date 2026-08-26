@@ -279,6 +279,40 @@ tools/shot.py /dev/cu.usbserial-025A3F65 menu.png --wait 16 --cmd "key menu" --c
       measures from the current font so it follows either way, but the label itself changes
       size. Its own small job.
 
+### ✅ CLOSED 2026-08-25 — GPS BEACONING: THE CHAIN WAS FINE, THE SLOT WAS BEING WASTED (0.9.17)
+
+Nick: *"covey isn't seeing wiphone 2 on the map."* 🔑 **Nothing was broken.** The RAK had a
+real, full-precision position from `WiPhone-Nick2` `!00449334` matching Nick's RAK and Meteor
+Pro to four decimals — **7.7 hours old**, while the node itself was heard every minute. The
+phone was indoors: `sats in view: 0`, raw NMEA showing satellites with elevation/azimuth and a
+**blank SNR** (knows where to look, hears nothing). Config was correct throughout
+(`reporting every 300s to 'hunt-group'`).
+
+Two real improvements came out of it:
+
+- 🔑 **A SLOT IS NOW OWED, NOT SPENT.** Interval 300 s vs `MESH_POS_TX_FRESH_MS` 30 s: the old
+  code sent-or-lost in one instant, so under canopy — fix coming and going — a phone that had a
+  good fix 40 s ago stayed silent for another five minutes. `posDue` holds the slot open and
+  fires on the next fresh fix. ⚠ **Freshness is NOT relaxed**; nothing older than 30 s ever goes
+  out. ⚠ One slot max — a flag, not a counter. **Proven on the handset:** nothing owed at t+0,
+  `A SLOT IS OWED` after one interval with no fix.
+- 🛑 **FIX-QUALITY GATE, and it is measured.** `sats=3 hdop=6.4` gave a position **~20 km** from
+  the phone's real location and nothing refused it. Three satellites is a **2D fix** — it assumes
+  an altitude and puts the error sideways. `MESH_POS_MIN_SATS=4` (the arithmetic minimum for 3D,
+  not a strict bar), `MESH_POS_MAX_HDOP_X10=100` as a backstop. ⚠ −1 = unknown = allowed;
+  refusing on silence would break receivers that emit no GGA. Pure `meshPosFixUsable()` in
+  `mesh_pos.cpp` with host tests, including the 20 km fix as a named check.
+
+⚠ **METHOD NOTE THAT COST A WRONG "GREEN" TODAY:** grepping `run_tests.sh` output for
+`passed|failed` matched a DIFFERENT suite's summary line while `test_pos` was reporting
+`1 FAILURE(S)`. **Check the exit code.** `bash tests/run_tests.sh >/dev/null 2>&1; echo $?`
+
+- [ ] ⚠ **WiPhone 1 is still on 0.9.16** — it was unplugged for this build. The GPS half does
+      not apply to it, but the `lock_keyboard` default and the empty-photo message do, and the
+      0-byte photo is on phone 1. Flash it next time it is on the cable.
+- [ ] 🔎 **The beacon has never been watched end-to-end with a real fix.** Take phone 2 outside,
+      then read COVEY's `pos.time` for `!00449334` and confirm it moves.
+
 ### 🔴 P1 — TWO THINGS NEED A HUMAN, AND ONE OF THEM IS UNTESTED CODE
 
 ⚠ **The wallpaper half of this is now DONE and machine-verified** — see the block above. What

@@ -208,6 +208,13 @@ static void reportPos() {
             : "");
     const char* why = meshService.posBlockedReason();
     say("pos: %s\n", why ? why : "armed and clear to send");
+    /* ⚠ "A slot is owed" is a DIFFERENT state from "blocked", and the difference is the whole
+     * point of the 2026-08-25 change: blocked says why nothing can go now, this says the phone
+     * is holding a slot open and will send the instant a fix arrives. Without this line the
+     * two are indistinguishable on the console. */
+    if (meshService.posBeaconDue()) {
+      say("pos: A SLOT IS OWED - it will send the moment a fresh fix arrives\n");
+    }
     if (meshService.getPosLastTxMs() == 0) {
       say("pos: never beaconed (first send is a full interval after arming)\n");
     } else {

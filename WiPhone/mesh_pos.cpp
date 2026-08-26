@@ -207,6 +207,16 @@ void meshPosFmtDist(double m, char* out, size_t cap) {
 
 // ---------------------------------------------------------------- beacon gate
 
+bool meshPosFixUsable(int sats, int hdopX10) {
+  if (sats >= 0 && sats < MESH_POS_MIN_SATS) {
+    return false;                 // 2D fix: the error goes sideways. See the note in the header.
+  }
+  if (hdopX10 >= 0 && hdopX10 > MESH_POS_MAX_HDOP_X10) {
+    return false;
+  }
+  return true;                    // includes "the receiver did not say" — see the header
+}
+
 bool meshPosShouldBeacon(bool haveLast, int32_t lastLatI, int32_t lastLonI,
                          int32_t latI, int32_t lonI, int skipRuns) {
   /* Nothing has gone out since boot: transmit. Suppressing the FIRST beacon

@@ -444,6 +444,7 @@ MeshtasticService::MeshtasticService()
   posSkipRuns = 0;
   posLastTxMs = 0;
   posLastOk = false;
+  posDue = false;
 }
 
 // ---- Positions & places -----------------------------------------------------
@@ -918,6 +919,30 @@ const char* MeshtasticService::posBlockedReason() const {
    * ("no fix yet" vs "last fix N min ago") and this line was contradicting it. */
   if ((uint32_t)(millis() - gpsFixMs) >= MESH_POS_TX_FRESH_MS) {
     return "fix too old - nothing sent";
+  }
+  /* ── AND IT HAS TO BE A FIX WORTH BELIEVING ───────────────────────────────────────────
+   *
+   * 🛑 MEASURED 2026-08-25, and it is why this gate exists: WiPhone 2 indoors produced
+   * `FIRST FIX 47.33821,-122.16501 sats=3 hdop=6.4` while the phone was in fact at
+   * 47.4965,-122.3749 — **about 20 km out**. Nothing here would have refused it. Had that
+   * landed on a beacon tick, COVEY's map would have shown Nick 20 km from where he was, with
+   * no hint anything was wrong. Every other rule on this path exists to avoid "a confident
+   * wrong dot on somebody else's map"; this was the hole in that argument.
+   *
+   * ⚠ THREE SATELLITES IS A 2D FIX. It solves for latitude and longitude by ASSUMING an
+   * altitude, and when that assumption is wrong the error goes into the horizontal — which is
+   * the one number a hunting party reads. Four is the arithmetic minimum for a real 3D fix,
+   * so this is the standard bar, not a strict one: under canopy a working receiver tracks
+   * five to ten.
+   *
+   * ⚠ REFUSES ONLY WHAT IT POSITIVELY KNOWS IS BAD. Both fields are -1 when the receiver has
+   * not told us (they come from GGA), and an unknown is NOT treated as a failure — refusing on
+   * silence would break any receiver that does not emit GGA, which is a different bug than the
+   * one being fixed. */
+  if (!meshPosFixUsable(gpsSats, gpsHdopX10)) {
+    return (gpsSats >= 0 && gpsSats < MESH_POS_MIN_SATS)
+               ? "2D fix only (under 4 satellites) - nothing sent"
+               : "fix too imprecise (HDOP) - nothing sent";
   }
   return NULL;
 }
@@ -1618,23 +1643,50 @@ bool MeshtasticService::loop() {
     if (posNextTxMs == 0) {
       posNextTxMs = now + posIntervalSecs * 1000UL;   // first one a full period in
     } else if ((int32_t)(now - posNextTxMs) >= 0) {
-      if ((uint32_t)(now - s_lastPhyTxMs) >= 1500u) {
-        posNextTxMs = now + posIntervalSecs * 1000UL;
-        const bool fresh = gpsEnabled && gpsFixMs != 0 &&
-                           (uint32_t)(now - gpsFixMs) < MESH_POS_TX_FRESH_MS;
-        if (fresh && !meshPosShouldBeacon(posLastValid, posLastLatI, posLastLonI,
-                                          gpsLatI, gpsLonI, posSkipRuns)) {
+      /* ⚠ THE SLOT IS NOW OWED, AND THE DEADLINE ADVANCES EITHER WAY. Whether there is a fix
+       * to send decides WHEN it goes, not WHETHER the slot happened. */
+      posNextTxMs = now + posIntervalSecs * 1000UL;
+      posDue = true;
+    }
+
+    /* ── WHY A SLOT IS OWED RATHER THAN SPENT ─────────────────────────────────────────────
+     *
+     * 🛑 THIS USED TO SEND OR LOSE THE SLOT IN THE SAME INSTANT, and the two clocks involved
+     * make that a bad bet: the interval is 300 s and MESH_POS_TX_FRESH_MS is 30 s. With a
+     * solid fix that is fine — the fix refreshes every second, so every tick sends. But under
+     * canopy, where the fix comes and goes, the odds that it happens to be under 30 s old at
+     * the exact instant a 5-minute tick lands are poor, so a phone that HAD a perfectly good
+     * fix forty seconds ago says nothing for another five minutes. That is the hunt scenario
+     * (Nick, 2026-08-25).
+     *
+     * 🔑 The freshness rule is NOT relaxed by any of this — nothing older than 30 s is ever
+     * transmitted, which was the whole point of it. What changes is that the slot waits for a
+     * fresh fix instead of being thrown away by the absence of one. "At most this often"
+     * rather than "only at these instants".
+     *
+     * ⚠ ONE SLOT MAX. `posDue` is a flag, not a counter, and the deadline keeps advancing
+     * while it is set — so an hour with no sky owes exactly one beacon, not twelve. That is
+     * the same anti-backlog rule the deadline recomputation above already follows. */
+    if (posDue && (uint32_t)(now - s_lastPhyTxMs) >= 1500u) {
+      const bool fresh = gpsEnabled && gpsFixMs != 0 &&
+                         (uint32_t)(now - gpsFixMs) < MESH_POS_TX_FRESH_MS;
+      if (fresh) {
+        if (!meshPosShouldBeacon(posLastValid, posLastLatI, posLastLonI,
+                                 gpsLatI, gpsLonI, posSkipRuns)) {
           posSkipRuns++;          // parked: this slot costs the band nothing
         } else {
           /* sendGpsPosition() re-checks EVERY safety rule itself (receiver on,
            * channel named, channel still here, channel not silently public,
-           * fix fresh enough to be worth other people's trust) — the `fresh`
-           * test above only decides whether the movement gate gets a say. */
+           * fix fresh enough and good enough to be worth other people's trust). */
           sendGpsPosition();
         }
+        /* Resolved either way. ⚠ Cleared even when sendGpsPosition() REFUSES, because the
+         * reasons it can still refuse here (channel gone, channel silently public, fix
+         * quality) are not things another pass will fix — retrying every pass would only
+         * fill the log. Freshness is the one blocker that waits, and it is handled above. */
+        posDue = false;
       }
-      /* else: something else just transmitted. Leave the deadline passed and
-       * try again next pass — a retry, not a skipped slot. */
+      /* else: still owed. Try again next pass, and every pass, until a fix arrives. */
     }
   }
 

@@ -93,10 +93,28 @@ void meshPosFmtDist(double meters, char* out, size_t cap);
 #define MESH_POS_MIN_MOVE_M   100.0
 #define MESH_POS_MAX_SKIPS    3
 
+/* ── HOW GOOD A FIX HAS TO BE BEFORE IT IS SOMEBODY ELSE'S PROBLEM ────────────────────────
+ * ⚠ THREE SATELLITES IS A 2D FIX: it solves lat/lon by ASSUMING an altitude, and a wrong
+ * assumption pushes the error SIDEWAYS — into the one number a hunting party reads. MEASURED
+ * 2026-08-25: an indoor WiPhone reported `sats=3 hdop=6.4` at 47.33821,-122.16501 while the
+ * phone was actually at 47.4965,-122.3749 — **about 20 km out**, and nothing would have
+ * refused it. Four is the arithmetic minimum for a real 3D fix, so this is the standard bar
+ * and not a strict one; under canopy a working receiver tracks five to ten. HDOP 10 is the
+ * usual "poor" boundary and is a backstop, not the main gate. */
+#define MESH_POS_MIN_SATS         4
+#define MESH_POS_MAX_HDOP_X10   100
+
 /* True when this slot should actually transmit. `skipRuns` is how many
  * consecutive slots have already been suppressed. haveLast == false (nothing
  * transmitted since boot) always transmits — the first beacon is what tells
  * the mesh this node exists. */
+/* Is this fix good enough to put on other people's maps?
+ * ⚠ REFUSES ONLY WHAT IT POSITIVELY KNOWS IS BAD: both fields are -1 when the receiver has
+ * not said (they come from GGA), and an unknown is NOT a failure — refusing on silence would
+ * break any receiver that does not emit GGA, which is a different bug than the one this fixes.
+ * Pure, so tests/test_pos.cpp can prove it. */
+bool meshPosFixUsable(int sats, int hdopX10);
+
 bool meshPosShouldBeacon(bool haveLast, int32_t lastLatI, int32_t lastLonI,
                          int32_t latI, int32_t lonI, int skipRuns);
 

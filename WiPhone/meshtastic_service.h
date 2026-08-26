@@ -70,6 +70,9 @@
 #define MESH_GPS_FRESH_MS    120000UL
 #define MESH_POS_TX_FRESH_MS  30000UL
 
+/* Fix-quality limits live in mesh_pos.h, beside the movement rule and the host tests
+ * that prove both. A second copy here is how two thresholds drift apart. */
+
 /* Reference sentinel: "measure everything from THIS PHONE'S OWN GPS", chosen
  * deliberately in Places rather than fallen into. Checked before findWaypoint(),
  * so a waypoint can never shadow it. A real Meshtastic waypoint id is a random
@@ -380,6 +383,8 @@ public:
   bool        posChannelWasPublic() const { return posChanWasPublic; }
   uint32_t    getPosLastTxMs() const { return posLastTxMs; }       // 0 = never
   bool        posLastSendOk()  const { return posLastOk; }
+  /* True when a slot has come round and is still waiting for a fix worth sending. */
+  bool        posBeaconDue()   const { return posDue; }
   /* Why nothing is being sent right now — NULL when reporting is actually
    * running (or is off, which the caller can see from getPosInterval()). The
    * string is a static literal, safe to hold. */
@@ -590,6 +595,11 @@ private:
   int          posSkipRuns;               // consecutive slots the movement gate ate
   uint32_t     posLastTxMs;               // millis() of the last beacon (0 = never)
   bool         posLastOk;                 // did it reach the air?
+  /* ⚠ THE SLOT IS OWED, NOT SPENT. Set when the interval comes round; cleared only when the
+   * beacon is actually resolved (sent, or skipped because the phone has not moved). A slot
+   * that finds no usable fix stays owed and fires the moment one arrives — see the long note
+   * at the tick. Never more than one is owed, so a long blind spell cannot burst. */
+  bool         posDue;
   void loadPosSettings();                 // NVS, once, in setup()
   /* The one place a Position payload is built and handed to the radio. Both the
    * manual pin announce and the GPS beacon go through it, so there is exactly

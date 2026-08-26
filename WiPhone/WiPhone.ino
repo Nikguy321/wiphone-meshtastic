@@ -1505,8 +1505,16 @@ void setup() {
           gui.state.sleepAfterMs = 30000;
         }
 
-        // Load keypad locking config
-        gui.state.locking = ini.hasSection("lock") ? ini["lock"].getIntValueSafe("lock_keyboard", 0) : 1;
+        /* ⚠ DEFAULT ON, AND FOR THE SAME REASON THE TWO ABOVE ARE. A missing SECTION has
+         * always defaulted this to 1 (the `: 1` below); a section that merely lacks the KEY
+         * defaulted to 0 — so two configs that both say nothing about locking gave opposite
+         * answers, and the quieter one silently shipped a phone whose screen never locked.
+         * That is exactly the disagreement found in [screen] during the 2026-08-22 battery
+         * audit, where it produced a phone that never dimmed and never slept. Same shape,
+         * same fix: the two branches now agree. (Both phones read 1 today, so this was NOT
+         * the cause of the 2026-08-25 "phone 2 never locks" — that was GUI::inCall(). This
+         * is the landmine beside it.) */
+        gui.state.locking = ini.hasSection("lock") ? ini["lock"].getIntValueSafe("lock_keyboard", 1) : 1;
       }
     }
     gui.setAudio(audio);

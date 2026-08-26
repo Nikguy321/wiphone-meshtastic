@@ -431,6 +431,21 @@ bool PhotosApp::drawCurrentPhoto() {
   char path[160];
   snprintf(path, sizeof(path), "%s/%s", PHOTOS_DIR, entries[sel].name);
 
+  /* ⚠ AN EMPTY FILE IS NOT AN UNREADABLE ONE, and saying so matters because the usual cause
+   * is an upload that died half way — /photos/20260823_093939.jpg on phone 1 is 0 bytes
+   * (found 2026-08-25). "Could not read this file" sends the reader to look for a corrupt
+   * card; "empty" tells them to upload it again. It is still LISTED and still deletable on
+   * purpose: COVEY's gallery learned the hard way that the pictures you cannot open are
+   * exactly the ones you then cannot get rid of. */
+  if (entries[sel].size == 0) {
+    lcd.setTextColor(RED, BLACK);
+    lcd.setTextFont(fonts[AKROBAT_BOLD_18]);
+    lcd.drawString("This file is empty (0 bytes)", 10, top + 10);
+    lcd.setTextColor(WHITE, BLACK);
+    lcd.drawString("the upload did not finish", 10, top + 34);
+    return false;
+  }
+
   size_t len = 0;
   uint8_t* data = slurp(path, &len, (size_t)2 * 1024 * 1024);
   if (!data) {
