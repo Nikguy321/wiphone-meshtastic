@@ -1,5 +1,67 @@
 # Changelog
 
+## 0.9.19 (2026-08-26) — the phone read the chat history from one filesystem and wrote it to the other
+
+Nick: *"after rebooting I lose the chat history in meshtastic chats on the wiphone's."* He was
+right, and the cause is not in the message code at all.
+
+- 🛑 **`meshFs()` ANSWERED "NO CARD" FOR THE WHOLE OF `setup()`.** It reads a file-static
+  (`s_meshCardIn`) that was assigned in exactly one place — `MeshtasticService::loop()` — and
+  `loadDb()` / `loadFavourites()` run in `setup()`, before any loop pass. So at load time the
+  answer was always the initial `false` and both read **SPIFFS**, while every save from the
+  first loop pass onward wrote the **SD card**. The history went into a file nothing ever
+  opened, and each boot then saved the stale RAM state back over the card.
+- ⚠ **The fallback looked like a fallback and was the same file twice.** `loadDb()` opened
+  `meshFs()` and then "fell back" to `SPIFFS` — two spellings of SPIFFS. The card's database
+  was unreachable at boot no matter what was in it.
+- **MEASURED ON BOTH HANDSETS 2026-08-26, over the cable, before anything was changed:**
+  `/meshdb.bin` on phone 1's card was **9272 bytes** and on phone 2's **6352 bytes** — about
+  26 and about 14 messages — while phone 2's chat list came up with **no messages in any of
+  its five conversations** and phone 1 showed three. The two numbers side by side are the
+  whole diagnosis, and neither was obtainable before `meshdb` existed.
+- 🛑 **AND EACH REBOOT DESTROYED A LITTLE MORE.** The save is unconditional: it writes what is
+  in RAM over the card. On phone 2, which loaded nothing, three diagnostic boots took the
+  card's database from 6352 bytes to 1704 — **20 nodes and zero messages.** Phone 2's stored
+  history is gone; it was overwritten before the cause was found. Phone 1 survived only
+  because its SPIFFS copy happened to be nearly as fresh as its card copy.
+- **Fixed** by making `setCardPresent()` the single writer of that flag and calling it from
+  `WiPhone.ino` **before** `meshService.setup()`, and by naming SD and SPIFFS explicitly in
+  both load paths so a future reordering cannot silently re-create the fault.
+- **Also fixed the same way: the starred-node list.** `loadFavourites()` had the identical
+  two-spellings-of-SPIFFS fallback, so a star set by hand was written to the card and read
+  back from flash.
+
+### How much history now survives, and why those numbers
+
+Nick asked for "a certain amount of the most recent messages of each chat… your call how many".
+
+- New `MESH_PERSIST_*` caps decide what is **written**, separately from what RAM holds:
+  **40 per conversation and 200 overall on SD**, **12 and 60 on SPIFFS**. The split is not
+  arbitrary — `bench` measures SD at 48–57 ms for an 8 KB image against SPIFFS's 2599–2845 ms,
+  about fifty times slower, and a save blocks the keypad, the screen and the WiFi stack
+  together. 200 messages is ~48 KB, a fraction of a second on a card.
+- Scrollback **within a session** is unchanged (`MESH_MAX_PER_CHAT` is still 150). These caps
+  are the floor on what a reboot gives back.
+- The rule is "newest first, per conversation", in `mesh_retain.cpp` — pure arithmetic with no
+  Arduino headers, so `tests/test_retain.cpp` exercises it on the host (15 checks, including
+  that a quiet channel is not starved by a busy one, and that a DM with node 3 is not the same
+  thread as channel 3).
+- ⚠ **The conversation key here is NOT `chatKeyOf()`**, which folds every broadcast into 0.
+  Using it would have put LongFast, hunt-group, booksync and smsmirror in one bucket sharing a
+  single allowance.
+
+### The instrument this needed, which did not exist
+
+- **`meshdb` on the console** prints which filesystem is in use, which one `loadDb()` actually
+  read at boot, what is in RAM, what the next save will keep, and **the size of `/meshdb.bin`
+  on both filesystems**. The fault was invisible from every angle without it: the normal load
+  path logged at `log_i`, which this build's log level drops, so the one line that would have
+  shown the phone reading the wrong file never reached the cable people were watching. That
+  line is now `log_e` and names the filesystem.
+- **Verified on the handset**, not just in a test: phone 1 boots with `loaded from SD at boot`
+  and 26 messages where the old build loaded 3 into LongFast; a node starred over the cable
+  survived a reboot; and `meshdb` reports the same 26 across successive reboots.
+
 ## 0.9.18 (2026-08-25) — every message the Photos app ever tried to show was silently dropped
 
 Found while deleting a file at Nick's request, which is the first time anyone had watched the

@@ -54,6 +54,8 @@ for src in tests/test_*.cpp; do
                    csrc=(WiPhone/src/crypto/curve25519_donna.c WiPhone/src/crypto/tiny_aes.c) ;;
     # Position/Waypoint payloads + the distance/bearing math (python-checked).
     test_pos)      deps=(WiPhone/mesh_pos.cpp) ;;
+    # Which chat messages survive a reboot: newest-per-conversation, capped.
+    test_retain)   deps=(WiPhone/mesh_retain.cpp) ;;
     # The woods plate's GPS: NMEA assembly, checksums, fixed-point coords.
     test_nmea)     deps=(WiPhone/nmea.cpp) ;;
     # Sunrise/sunset/civil twilight (NOAA method) — almanac anchors + geometry.

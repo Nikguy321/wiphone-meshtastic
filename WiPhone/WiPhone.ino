@@ -1537,6 +1537,13 @@ void setup() {
 #endif
 
   // Meshtastic background service (owns the LoRa radio when MESHTASTIC_PHY is set)
+  /* 🛑 THE CARD VERDICT HAS TO GO IN FIRST. setup() is where the mesh database and the
+   * starred-node list are READ, and which filesystem they are read from depends on this.
+   * It used to be told only from loop(), i.e. after the read had already happened and
+   * already answered "no card" — so both phones read a stale SPIFFS copy every boot while
+   * writing a growing one to the SD card. Nick's "after rebooting I lose the chat history"
+   * was exactly that, and it is the reason this line is above the call and not below it. */
+  meshService.setCardPresent(gui.state.cardPresent);
   meshService.setup();
 
   log_d("WiPhone, firmware date = " __DATE__);

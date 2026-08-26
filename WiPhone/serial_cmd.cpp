@@ -91,6 +91,7 @@ static void help() {
     "  health all dump the whole file, not just the last 24 KB",
     "  chan <url> apply a Meshtastic channel invite URL",
     "  chans      list the channels this phone has",
+    "  meshdb     chat history: which filesystem, what loaded, what the next save keeps",
     "  wifi drop  simulate a hotspot blip, to measure the reconnect path",
     "  star [<!node>]  list starred nodes, or toggle one (top of list, evicted last)",
     "  send <i> <text>  send a channel text (index from `chans`) - proves the broadcast receipt",
@@ -985,6 +986,44 @@ static void run(char* line) {
       const MeshChannel* c = meshService.getChannel(i);
       if (c) {
         say("  [%d] '%s' keyLen=%d\n", i, c->name, (int)c->keyLen);
+      }
+    }
+    return;
+  }
+
+  /* `meshdb` — where the chat history lives, what loaded, and what the next save will write.
+   *
+   * 🔑 EXISTS BECAUSE THE FAULT IT DIAGNOSES WAS INVISIBLE FROM EVERY ANGLE. The phone read
+   * SPIFFS at boot and wrote the SD card from the first loop pass onward, so the chat list
+   * came up empty while a perfectly good database sat on the card — and nothing on screen,
+   * on the console or in the log said which file anything had touched. Two file sizes side by
+   * side is the whole diagnosis, and neither number was obtainable before this.
+   *
+   * ⚠ The sizes are read live from BOTH filesystems every time, never cached: which one is
+   * in use is the exact thing in question. */
+  if (!strcasecmp(line, "meshdb")) {
+    const bool card = meshService.dbOnCard();
+    say("meshdb: in use %s   loaded from %s at boot\n",
+        card ? "SD" : "SPIFFS", meshService.dbLoadedFrom());
+    say("  in RAM: %d nodes, %d msgs, %d places\n",
+        meshService.getNodeCount(), meshService.getMessageCount(),
+        meshService.getWaypointCount());
+    const int keep = meshService.persistedMessageCount();
+    say("  next save writes %d of %d msgs (caps: %d per chat, %d total on %s)\n",
+        keep, meshService.getMessageCount(),
+        card ? MESH_PERSIST_PER_CHAT_SD : MESH_PERSIST_PER_CHAT_FLASH,
+        card ? MESH_PERSIST_TOTAL_SD : MESH_PERSIST_TOTAL_FLASH,
+        card ? "SD" : "SPIFFS");
+    for (int i = 0; i < 2; i++) {
+      fs::FS& f = i ? (fs::FS&)SPIFFS : (fs::FS&)SD;
+      const char* nm = i ? "SPIFFS" : "SD    ";
+      File h = f.open("/meshdb.bin", "r");
+      if (h) {
+        say("  %s /meshdb.bin  %u bytes%s\n", nm, (unsigned)h.size(),
+            (!i && card) || (i && !card) ? "   <- the one in use" : "");
+        h.close();
+      } else {
+        say("  %s /meshdb.bin  absent\n", nm);
       }
     }
     return;

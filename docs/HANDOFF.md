@@ -2,10 +2,59 @@
 
 ## ▶▶ NEXT SESSION — TASK LIST (rewritten 2026-08-24, evening; phone-2 section added 08-25)
 
-Read this first; everything below it is narrative. Repo clean at **87ddfbc**.
+Read this first; everything below it is narrative. Repo clean at **0.9.19**.
 **Phone 1 is flashed with everything here and verified as far as the cable allows.**
 ✅ **Phone 2 was flashed to HEAD (`6c50d7d`) on 2026-08-25** — P5 is done, and it immediately
 turned up the bug below.
+
+### ✅ CLOSED 2026-08-26 — THE CHAT HISTORY WENT TO THE CARD AND WAS READ BACK FROM FLASH (0.9.19)
+
+Nick: *"after rebooting I lose the chat history in meshtastic chats on the wiphone's."*
+
+🔑 **`meshFs()` ANSWERED "NO CARD" FOR THE WHOLE OF `setup()`.** It reads `s_meshCardIn`, which
+was assigned in exactly one place — `MeshtasticService::loop()` — and `loadDb()` /
+`loadFavourites()` run in `setup()`, before any loop pass. So the load always got the initial
+`false` and read **SPIFFS**, while every save from the first loop pass on wrote the **SD card**.
+⚠ And `loadDb()`'s "fallback" was `meshFs()` then `SPIFFS` — **two spellings of the same
+filesystem**, so the card's database was unreachable at boot whatever was in it.
+
+**MEASURED over the cable before anything was changed:** `/meshdb.bin` was **9272 bytes on
+phone 1's card** and **6352 on phone 2's** (~26 and ~14 messages), while phone 2's chat list
+came up with **no messages in any of its five conversations**. Two file sizes side by side were
+the whole diagnosis.
+
+🛑 **AND EACH REBOOT ATE MORE OF IT.** The save writes RAM over the card unconditionally, so a
+phone that loaded nothing saved nothing over a good file. **Phone 2's stored history is GONE** —
+three diagnostic boots took its card database from 6352 bytes to 1704 (20 nodes, zero messages)
+before the cause was found. Phone 1 survived only because its SPIFFS copy happened to be nearly
+as fresh as its card copy. Not recoverable; recorded so nobody hunts for it.
+
+**FIXED:** `setCardPresent()` is the single writer of that flag and `WiPhone.ino` calls it
+**before** `meshService.setup()`; both load paths now name SD and SPIFFS explicitly.
+**Retention is now a decision rather than an accident**, at Nick's request: `MESH_PERSIST_*` —
+**40 per chat / 200 total on SD, 12 / 60 on SPIFFS** (the split is the measured 50x speed
+difference; a save blocks keypad, screen and WiFi together). In-session scrollback is unchanged
+at 150. The rule lives in `mesh_retain.cpp`, host-tested by `tests/test_retain.cpp` (15 checks).
+
+🛠 **NEW INSTRUMENT — `meshdb` on the console.** Which filesystem is in use, which one the boot
+actually read, what is in RAM, what the next save keeps, and **the size of `/meshdb.bin` on both
+filesystems**. ⚠ The old load line was `log_i`, which this build's log level DROPS — so the one
+line that would have shown the wrong file being read never reached the cable anyone was
+watching. It is `log_e` now and names the filesystem.
+
+✅ **VERIFIED ON THE HANDSET (both flashed 2026-08-26):** phone 1 boots `loaded from SD at boot`
+with 26 msgs where the old build had 3 in LongFast; a node starred over the cable **survived a
+reboot** (the favourites file has the same fix); `meshdb` reports the same 26 across successive
+reboots.
+
+- [ ] ⚠ **STILL OWED: the round trip with a NEW message.** Everything above proves the *load*
+      path and proves a *star* surviving. Watching a freshly received text survive a reboot
+      needs one transmission on a private channel — ask Nick before putting anything on the
+      air, then: `send <i> persist-check`, wait 15 s, reopen the port, look at the thread.
+- [ ] **Phone 2 has an empty history to refill.** Its chats will stay blank until it hears
+      something; that is now expected, not a fault.
+
+---
 
 ### 🔴 P0 — PHONE 2 AND THE WOODS-PLATE GPS: ONE BUG FOUND AND FIXED, A SECOND STILL OPEN
 

@@ -19,6 +19,28 @@
 
 #define MESH_MSG_CAP        1000     // total message capacity (allocated in PSRAM)
 #define MESH_MAX_PER_CHAT    150     // max stored messages per conversation
+
+/* ── HOW MUCH CHAT HISTORY SURVIVES A REBOOT ───────────────────────────────────────────────
+ * The two caps above bound what RAM holds for this session; these bound what is WRITTEN.
+ * They are separate numbers because the two costs are nothing alike: the ring is PSRAM and
+ * practically free, while a save blocks the whole superloop — keypad, screen and WiFi stack
+ * together — for as long as the write takes.
+ *
+ * MEASURED on this phone (`bench`, 8 KB the same shape a real save has):
+ *     SD       48-57 ms
+ *     SPIFFS   2599-2845 ms      <- about FIFTY times slower
+ *
+ * So the card gets a generous slice and a card-less phone gets a small one, rather than a
+ * pause anybody can feel. At 248 bytes a message:
+ *     SD      40/chat, 200 total  ->  ~48 KB   (a fraction of a second)
+ *     SPIFFS  12/chat,  60 total  ->  ~15 KB   (the size the file already was)
+ *
+ * ⚠ These are FLOORS on what a person sees after a reboot, not on what they see while the
+ * phone is running — scrollback within a session is still MESH_MAX_PER_CHAT deep. */
+#define MESH_PERSIST_PER_CHAT_SD      40
+#define MESH_PERSIST_TOTAL_SD        200
+#define MESH_PERSIST_PER_CHAT_FLASH   12
+#define MESH_PERSIST_TOTAL_FLASH      60
 /* Known-node database size. ⚠ WAS 32, AND THE TABLE WAS A PLAIN MEMBER ARRAY — so it lived in
  * BSS, i.e. the INTERNAL RAM that actually panics this phone, at 84 bytes a node. It is a
  * ps_malloc'd pointer now (same treatment as `messages`), which BOTH gives back ~2.6 KB of
@@ -217,8 +239,23 @@ public:
   void               setUiIdle(bool idle) { uiIdle = idle; }
   /* The database lives on the SD card when there is one (about fifty times faster than SPIFFS
    * — measured; see meshFs()). Reported by the main loop rather than read from GUI here, so
-   * this service keeps no dependency on the UI. */
-  void               setCardPresent(bool present) { cardIn = present; }
+   * this service keeps no dependency on the UI.
+   *
+   * 🛑 CALL THIS BEFORE setup(), NOT ONLY FROM loop(). It is the only writer of the flag
+   * meshFs() consults, and setup() is where loadDb()/loadFavourites() run. Until 0.9.19 it
+   * was called from loop() alone, so at load time the answer was always "no card": the phone
+   * READ SPIFFS every boot while every save WROTE the card, and the whole message history
+   * went into a file nothing ever opened. Defined in the .cpp because the flag it sets is a
+   * file-static there. */
+  void               setCardPresent(bool present);
+  bool               dbOnCard() const { return cardIn; }
+  /* Which file loadDb() actually read at boot: "SD", "SPIFFS", or "none". A static literal,
+   * safe to hold. Exists because the bug above was invisible — the normal load path logged
+   * nothing at all, so a phone reading the wrong filesystem looked exactly like a phone with
+   * no history. */
+  const char*        dbLoadedFrom() const { return dbSource; }
+  /* How many messages the NEXT save will write, under the caps above. */
+  int                persistedMessageCount() const;
 
   // ---- Channels ------------------------------------------------------------
   int                getChannelCount() const;
@@ -411,8 +448,12 @@ private:
   MeshNode* upsertNode(uint32_t nodeNum, const char* name);
   void      seedStubData();         // demo node + welcome message (stub only)
   bool      seenPacketId(uint32_t id);   // dedup rebroadcasts of the same packet
-  void      saveDb();               // persist nodes + messages to SPIFFS
-  void      loadDb();               // restore nodes + messages from SPIFFS
+  void      saveDb();               // persist nodes + messages (SD when there is a card)
+  void      loadDb();               // restore nodes + messages (SD when there is a card)
+  /* Fill `keep` (one byte per message, oldest first) with the retention decision, and return
+   * how many are marked. `keep` may be NULL to just count. See mesh_retain.h. */
+  int       selectPersisted(uint8_t* keep) const;
+  const char* dbSource;             // which file loadDb() read; see dbLoadedFrom()
   uint32_t  chatKeyOf(uint32_t from, uint32_t to) const;   // conversation id (0 = broadcast)
   void      removeMessageAt(int idx);
 

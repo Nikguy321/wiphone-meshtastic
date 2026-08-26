@@ -27,6 +27,7 @@
 #include "clock.h"            // ntpClock, for when a parked packet arrived
 #include <SPIFFS.h>           // node + message history persistence
 #include <SD.h>               // ...which now lives HERE when a card is in; see meshFs()
+#include "mesh_retain.h"      // which messages are worth writing down
 
 /* Mirrors MeshtasticService::cardIn so the file-scope filesystem helpers can see it without
  * every one of them taking a `this`. Refreshed at the top of the service's loop(). */
@@ -388,7 +389,7 @@ MeshtasticService::MeshtasticService()
   : msgCount(0), nodeCount(0),
     radioState(MESH_RADIO_UNINITIALIZED),
     region("US"), channelName("LongFast"), modemPreset("LongFast"),
-    myNodeNum(0), recentPktPos(0), dbDirty(false), lastSaveMs(0), initialized(false),
+    myNodeNum(0), recentPktPos(0), dbDirty(false), dbSource("none"), lastSaveMs(0), initialized(false),
     nodes(NULL), nodeOrder(NULL), orderDirty(true), orderCount(0), favCount(0), favDirty(false),
     uiIdle(true), cardIn(false), saveBuf(NULL), saveLen(0), saveOff(0), saveActive(false) {
   messages = NULL;
@@ -1463,7 +1464,9 @@ bool MeshtasticService::loop() {
   /* Drain any save in flight FIRST, and unconditionally: each step is bounded (128 bytes,
    * ~20 ms) so it cannot freeze anything, and letting it finish promptly keeps the temp file's
    * lifetime short. Only STARTING a save waits for an idle moment. */
-  s_meshCardIn = cardIn;                   // keep the file-scope helpers in step
+  /* s_meshCardIn is set by setCardPresent(), which the main loop calls every pass AND once
+   * before setup() — it is not synced here any more. One writer: two of them was how the
+   * load path came to disagree with the save path for a day and a half. */
   saveDbStep();
 
   if (dbDirty && uiIdle && !saveActive && (millis() - lastSaveMs > MESH_SAVE_DEBOUNCE_MS)) {
@@ -2561,6 +2564,63 @@ static fs::FS& meshFs() {
   return s_meshCardIn ? (fs::FS&)SD : (fs::FS&)SPIFFS;
 }
 
+/* 🛑 THE ONLY WRITER OF s_meshCardIn, AND IT HAS TO RUN BEFORE setup().
+ *
+ * meshFs() is consulted by loadDb() and loadFavourites(), both of which run inside setup().
+ * Until 0.9.19 this flag was assigned only from loop(), so at load time it was still its
+ * initial `false` and meshFs() answered SPIFFS — while every save after the first loop pass
+ * wrote the SD card. MEASURED on both handsets 2026-08-26: /meshdb.bin on phone 1's card was
+ * 9272 bytes and on phone 2's 6352 bytes (twenty-odd messages each), and both phones booted
+ * showing an empty or years-stale chat list, because nothing ever opened those files. */
+void MeshtasticService::setCardPresent(bool present) {
+  cardIn = present;
+  s_meshCardIn = present;
+}
+
+/* Which messages the next save writes. See mesh_retain.h for the rule and
+ * MESH_PERSIST_* in the header for why the budget depends on the filesystem. */
+int MeshtasticService::selectPersisted(uint8_t* keep) const {
+  if (msgCount <= 0 || !messages) {
+    return 0;
+  }
+  const int perChat = cardIn ? MESH_PERSIST_PER_CHAT_SD : MESH_PERSIST_PER_CHAT_FLASH;
+  const int total   = cardIn ? MESH_PERSIST_TOTAL_SD    : MESH_PERSIST_TOTAL_FLASH;
+
+  /* PSRAM, not the stack: 1000 messages is 8 KB of keys and the internal heap is the one
+   * that panics this phone. If it cannot be had, say so and persist nothing rather than
+   * silently writing a set nobody chose. */
+  MeshRetainKey* keys = (MeshRetainKey*)ps_malloc((size_t)msgCount * sizeof(MeshRetainKey));
+  if (!keys) {
+    log_e("mesh: retention keys alloc failed (%d msgs)", msgCount);
+    return 0;
+  }
+  for (int i = 0; i < msgCount; i++) {
+    const bool bcast = (messages[i].to == MESH_BROADCAST_ADDR);
+    keys[i].isChannel = bcast;
+    keys[i].id = bcast ? (uint32_t)messages[i].channelHash
+                       : (messages[i].from == myNodeNum ? messages[i].to : messages[i].from);
+  }
+
+  int kept;
+  if (keep) {
+    kept = meshRetainSelect(keys, msgCount, perChat, total, MESH_RETAIN_MAX_CHATS, keep);
+  } else {
+    uint8_t* tmp = (uint8_t*)ps_malloc((size_t)msgCount);
+    if (!tmp) {
+      free(keys);
+      return 0;
+    }
+    kept = meshRetainSelect(keys, msgCount, perChat, total, MESH_RETAIN_MAX_CHATS, tmp);
+    free(tmp);
+  }
+  free(keys);
+  return kept;
+}
+
+int MeshtasticService::persistedMessageCount() const {
+  return selectPersisted(NULL);
+}
+
 /* The temp file stays open across loop passes while a save drains. A file-static rather than a
  * member so meshtastic_service.h does not have to include FS.h for every one of its consumers. */
 static File s_saveFile;
@@ -2592,14 +2652,34 @@ void MeshtasticService::saveDb() {
   }
   const uint32_t saveT0 = millis();
 
+  /* Which messages are worth writing: the newest MESH_PERSIST_PER_CHAT_* of each
+   * conversation, under MESH_PERSIST_TOTAL_*. The ring in RAM keeps more (MESH_MAX_PER_CHAT);
+   * what a reboot gives back is this. */
+  uint8_t* keep = NULL;
+  int keptCount = 0;
+  if (msgCount > 0) {
+    keep = (uint8_t*)ps_malloc((size_t)msgCount);
+    if (keep) {
+      keptCount = selectPersisted(keep);
+    } else {
+      /* No PSRAM for the mask. Degrade to writing everything rather than to writing
+       * nothing — a slow save beats a lost history. */
+      log_e("mesh: retention mask alloc failed - saving the whole ring (%d msgs)", msgCount);
+      keptCount = msgCount;
+    }
+  }
+
   const uint32_t hdrLen = 4 + 2 + 2 + 2 + 2;
   const uint32_t need = hdrLen
                         + 4 + (uint32_t)nodeCount * sizeof(MeshNode)
-                        + 4 + (uint32_t)msgCount * sizeof(MeshMessage)
+                        + 4 + (uint32_t)keptCount * sizeof(MeshMessage)
                         + 4 + (uint32_t)waypointCount * sizeof(MeshWaypoint);
   uint8_t* buf = (uint8_t*)ps_malloc(need);
   if (!buf) {
     log_e("mesh: saveDb PSRAM snapshot failed (%u bytes) - not saving", (unsigned)need);
+    if (keep) {
+      free(keep);
+    }
     return;
   }
 
@@ -2620,12 +2700,15 @@ void MeshtasticService::saveDb() {
   for (int i = 0; i < nodeCount; i++) {
     PUT(&nodes[i], sizeof(MeshNode));
   }
-  int32_t mc = msgCount;
+  int32_t mc = keptCount;
   PUT(&mc, sizeof(mc));
-  for (int i = msgCount - 1; i >= 0; i--) {          // stored oldest -> newest
-    const MeshMessage* m = getMessage(i);
-    if (m) {
-      PUT(m, sizeof(MeshMessage));
+  /* `messages` is already oldest-at-[0], so a forward walk writes them oldest -> newest,
+   * which is the order loadDb() reads. (This used to index through getMessage(), which is
+   * newest-first, and counted backwards to compensate — same bytes, one less thing to get
+   * backwards while adding a filter to it.) */
+  for (int i = 0; i < msgCount; i++) {
+    if (!keep || keep[i]) {
+      PUT(&messages[i], sizeof(MeshMessage));
     }
   }
   int32_t wc = waypointCount;
@@ -2639,6 +2722,10 @@ void MeshtasticService::saveDb() {
    * a redundant SPIFFS metadata operation — and on this part those are expensive. It also
    * logged `/meshdb.tmp does not exists` on every single save, which is the normal case and
    * therefore pure noise in a log people read to find real faults. */
+  if (keep) {
+    free(keep);
+  }
+
   s_saveFile = meshFs().open(MESH_DB_TMP, "w");
   if (!s_saveFile) {
     log_e("mesh: saveDb open failed");
@@ -2649,8 +2736,9 @@ void MeshtasticService::saveDb() {
   saveLen = o;
   saveOff = 0;
   saveActive = true;
-  log_i("mesh: save started, %u bytes snapshotted in %u ms",
-        (unsigned)saveLen, (unsigned)(millis() - saveT0));
+  log_i("mesh: save started -> %s, %u bytes (%d of %d msgs kept) snapshotted in %u ms",
+        cardIn ? "SD" : "SPIFFS", (unsigned)saveLen, keptCount, msgCount,
+        (unsigned)(millis() - saveT0));
 }
 
 void MeshtasticService::saveDbStep() {
@@ -2690,18 +2778,40 @@ void MeshtasticService::saveDbStep() {
 
 void MeshtasticService::loadDb() {
   orderDirty = true;                       // freshly loaded: nothing is sorted yet
-  /* Prefer the card, but fall back to a database written before the move — it is migrated to
-   * the card by the next save. */
-  File f = meshFs().open(MESH_DB_PATH, "r");
+  /* Prefer the card, then fall back to a database written before the move — that one is
+   * migrated to the card by the next save.
+   *
+   * ⚠ SPELLED OUT RATHER THAN meshFs(), DELIBERATELY. Both branches used to resolve to
+   * SPIFFS here, because the flag meshFs() reads was not set until the first loop pass, and
+   * this runs in setup(). The fallback looked like a fallback and was actually the same file
+   * twice, so the card's database was unreachable at boot no matter what was in it.
+   * setCardPresent() is now called before setup() as well, and naming the two filesystems
+   * here means a future reordering cannot re-create that silently. */
+  File f;
+  dbSource = "none";
+  if (cardIn) {
+    f = SD.open(MESH_DB_PATH, "r");
+    if (f) {
+      dbSource = "SD";
+    }
+  }
   if (!f) {
     f = SPIFFS.open(MESH_DB_PATH, "r");
+    if (f) {
+      dbSource = "SPIFFS";
+    }
   }
   if (!f) {
     return;                             // first boot: nothing saved yet
   }
   uint32_t magic = 0;
   uint16_t ver = 0, ns = 0, ms = 0;
-  if (f.read((uint8_t*)&magic, 4) != 4 || magic != MESH_DB_MAGIC) { f.close(); return; }
+  if (f.read((uint8_t*)&magic, 4) != 4 || magic != MESH_DB_MAGIC) {
+    log_e("MESH DB: %s/%s has a bad magic - ignored", dbSource, MESH_DB_PATH);
+    dbSource = "none";
+    f.close();
+    return;
+  }
   f.read((uint8_t*)&ver, 2);
   f.read((uint8_t*)&ns, 2);
   f.read((uint8_t*)&ms, 2);
@@ -2721,6 +2831,14 @@ void MeshtasticService::loadDb() {
   if (!v1 && !v2 && !v3 &&
       (ver != MESH_DB_VERSION || ns != sizeof(MeshNode) || ms != sizeof(MeshMessage) ||
        ws != sizeof(MeshWaypoint))) {
+    /* A layout this build cannot read. Saying so matters: this is the one path that throws
+     * away a person's whole history on purpose, and it used to do it without a word — so a
+     * struct change and a filesystem mix-up presented identically (an empty chat list). */
+    log_e("MESH DB: %s copy is v%d (node %d msg %d wp %d) and this build wants v%d "
+          "(%d/%d/%d) - history NOT loaded",
+          dbSource, (int)ver, (int)ns, (int)ms, (int)ws, MESH_DB_VERSION,
+          (int)sizeof(MeshNode), (int)sizeof(MeshMessage), (int)sizeof(MeshWaypoint));
+    dbSource = "none";
     f.close();
     return;
   }
@@ -2815,7 +2933,12 @@ void MeshtasticService::loadDb() {
   }
 
   f.close();
-  log_i("mesh: loaded %d nodes, %d msgs, %d waypoints", nodeCount, msgCount, waypointCount);
+  /* log_e, not log_i, and the filesystem is named. log_i does not survive this build's log
+   * level, so the one line that would have shown the phone reading the wrong file was
+   * invisible on the very cable people were watching. `meshdb` on the console prints the
+   * same facts on demand. */
+  log_e("MESH DB: loaded %d nodes, %d msgs, %d places from %s", nodeCount, msgCount,
+        waypointCount, dbSource);
 }
 
 void MeshtasticService::seedStubData() {
@@ -2921,7 +3044,12 @@ void MeshtasticService::applyFavouriteFlag(MeshNode* n) const {
 
 void MeshtasticService::loadFavourites() {
   favCount = 0;
-  File f = meshFs().open(MESH_FAV_PATH, "r");
+  /* Same two filesystems, named for the same reason as loadDb() — this also runs in setup()
+   * and also read SPIFFS twice while every star the user set was written to the card. */
+  File f;
+  if (cardIn) {
+    f = SD.open(MESH_FAV_PATH, "r");
+  }
   if (!f) {
     f = SPIFFS.open(MESH_FAV_PATH, "r");     // starred list from before the move
   }
