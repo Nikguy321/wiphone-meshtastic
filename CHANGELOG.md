@@ -242,10 +242,18 @@ Fixed by splitting the two outcomes, which the old code ran together:
   due-check will actually use. `currentDiscPeriod()` is now the single definition of that
   period, because the due-check and the retry scheduler disagreeing is the whole bug.
 
-⚠ **NOT VERIFIED ON HARDWARE.** The "before" number is real, but the access point came back
-before the fixed build could be watched under the same conditions, and a phone that can see an
-AP rejoins instead of staying disconnected. **To verify: attach the cable, turn the hotspot off,
-and watch 5 minutes — expect 2–3 `scan started` lines, not ~110.**
+✅ **VERIFIED ON HARDWARE 2026-08-26**, same phone, same cable, hotspot switched off by hand:
+
+| | scans while disconnected | cadence |
+|---|---|---|
+| before (0.9.20) | **114** in ~280 s | one every ~2.5 s |
+| after (0.9.26) | **3** in 420 s | one every ~2 min — the designed rate |
+
+`sinceScan` now reads `0s` after a scan completes where it read `570s` before, which is the
+stamp the whole bug was about. **About a 38x cut in radio-on time when the phone is out of
+range.** And it still comes back at once: with the hotspot restored the phone reported
+`wifi: up` and `registered: yes` on the next boot, so the slower cadence costs nothing on
+return — the reconnect loop is a separate path from the scan.
 
 ## 0.9.20 (2026-08-26) — the rest of the menus were dropping their rows too
 

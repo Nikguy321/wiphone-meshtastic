@@ -131,10 +131,11 @@ existed for was the one it never applied to. Fixed by splitting `n == 0` (out of
 backoff) from `n < 0` (aborted → retry soon), with `currentDiscPeriod()` as the single
 definition both the due-check and the retry scheduler use.
 
-- [ ] ⚠ **VERIFY THE SCAN FIX — it is the one thing here NOT proven on hardware.** The AP came
-      back before the fixed build could be watched under the same conditions, and a phone that
-      can see an AP rejoins rather than staying disconnected. **Attach the cable, turn the
-      hotspot OFF, watch 5 minutes: expect 2-3 `scan started` lines, not ~110.**
+- [x] ✅ **VERIFIED ON HARDWARE 2026-08-26** — Nick switched the hotspot off and the same phone
+      on the same cable went from **114 scans in ~280 s** (one every ~2.5 s) to **3 in 420 s**
+      (one every ~2 min, the designed rate). `sinceScan` reads `0s` after a scan now, not
+      `570s`. ~38x less radio-on time out of range, and it still rejoins at once: hotspot back
+      on -> `wifi: up`, `registered: yes` on the next boot.
 - [ ] 🔎 **Phone 1's WiFi returned 0 networks on 112 consecutive scans** while the Mac was
       associated to a 2.4 GHz AP on channel 6 in the same room. It recovered on its own later.
       Worth one look if it recurs — a scan that sees literally nothing is not the same as
