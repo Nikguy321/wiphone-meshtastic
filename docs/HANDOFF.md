@@ -62,8 +62,37 @@ LOAD-BEARING", which is an instruction not to re-apply a fix that is shipped and
 - [x] ✅ **FIXED in 0.9.26** — the music pause is idempotent now
       (`sipCallActive() && musicPlayerIsPlaying()`), so the latch cannot stick through a long
       `HangUp`. `sipCallActive()` itself was deliberately left alone.
-- [ ] 🔎 **PHONE 1 DROPS WIFI ~48 s AFTER BOOT AND CANNOT GET BACK — MEASURED TWICE, CAUSE NOT
-      PROVEN.** Nick, 2026-08-26: *"it just won't connect for some reason."* Two independent
+- [ ] 🔴 **PHONE 1 DROPS WIFI ~48 s AFTER BOOT — CAUSE NOW ESTABLISHED: THE 240->80 MHz IDLE
+      DOWNCLOCK KILLS THE ASSOCIATION.** A/B on the same phone, 2 runs each way:
+
+      | build | 80 MHz downclocks | result |
+      |---|---|---|
+      | shipped | fires at ~46 s | `wifi=3` -> CONNECTION_LOST at 49 s -> NO_SSID_AVAIL -> IDLE, **never rejoins**, every later scan `n=0` |
+      | `wantMhz` forced to 240 | 0 | **`wifi=3` held for the full 5 min with the screen ASLEEP (`scr=0`)**, SIP registered |
+
+      🔑 **The screen sleeping is NOT the trigger — the clock change is.** In the pinned runs
+      the screen slept on schedule and the association survived; the two variables were
+      separated deliberately because they coincide at ~46 s in the shipped build.
+      This is the THIRD fault on this platform from `setCpuFrequencyMhz()`, after the GPS UART
+      deadlock and the keypress-eating menu experiment. `busy` (WiPhone.ino:3894) still has no
+      WiFi term.
+
+      🛑 **DO NOT "FIX" THIS BY PINNING 240 WHILE WIFI IS UP.** Nick, 2026-08-26: *"I want to
+      have it be able to idle at 80hz … I don't want to settle on that as a solution."* The
+      experiment build was reverted the moment the measurement was taken; phone 1 is back on
+      the shipped behaviour.
+
+      ⚠ **THE OBVIOUS PROPER FIX IS NOT AVAILABLE HERE:** the IDF power manager
+      (`esp_pm_configure`, which coordinates DFS with the WiFi driver) is **not compiled into
+      this Arduino core** — `grep CONFIG_PM` over its `sdkconfig.h` returns **0 entries**, so
+      the call would answer `ESP_ERR_NOT_SUPPORTED`. Enabling it means rebuilding the IDF.
+
+      **The direction that fits the constraint is RECOVER, NOT PREVENT.** Keep the downclock;
+      detect the drop and hard re-init the radio at once. Note from the captures that a plain
+      reconnect is probably not enough — after the drop, scans return `n=0`, which looks like a
+      radio that needs `WiFi.disconnect(true)` + `begin()` rather than another association
+      attempt. If that recovers in a few seconds, the phone keeps 80 MHz idle and loses only a
+      blip. **Untested — that is the next experiment.** Nick, 2026-08-26: *"it just won't connect for some reason."* Two independent
       6-minute captures show the SAME shape: the phone joins at ~11 s, is healthy at `wifi=3`,
       and then:
       ```
