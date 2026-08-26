@@ -24,7 +24,22 @@ static const char PHOTOS_LOCKS[]     = "/photos/.locks";
  * the day one forgets, the row silently matches nothing. High positive values cannot be got
  * wrong by omission. */
 enum {
-  ROW_INERT        = 0,
+  /* 🛑 NOT 0, AND THAT IS THE WHOLE POINT. `ROW_INERT = 0` read perfectly and did nothing:
+   * MenuWidget::addOption() REFUSES a key of 0 outright — it logs "menu option key is 0" and
+   * adds no row at all. So every result message this app has ever produced was silently
+   * dropped on the way to the screen: "Deleted", "Renamed to X", "Wallpaper set",
+   * "Not set - <reason>", "X is locked - unlock it first", and the truncation warning below.
+   * Proven on the handset 2026-08-25 — a successful delete redrew the list with no message,
+   * and the log carried exactly one `[E] addOption(): menu option key is 0`.
+   *
+   * ⚠ THIS QUIETLY UNDID THE 0.9.13 WALLPAPER WORK. setAsWallpaper() was rewritten that
+   * morning to stop claiming success and report what the loader actually said — and the line
+   * it reports through is this one. It was only ever visible over the serial cable, which is
+   * exactly why the gap survived being "verified".
+   *
+   * These two keys are high enough that nothing acts on them: the list handler matches
+   * ROW_RESTORE_WALL or `k <= entryCount` (max 200), so OK on either row does nothing, which
+   * is the behaviour "inert" was reaching for in the first place. */
   ROW_ACTION       = 10000,
   ROW_RESTORE_WALL = ROW_ACTION + 1,
   ROW_OPT_WALL     = ROW_ACTION + 10,
@@ -32,6 +47,8 @@ enum {
   ROW_OPT_LOCK     = ROW_ACTION + 12,
   ROW_OPT_DELETE   = ROW_ACTION + 13,
   ROW_OPT_CANCEL   = ROW_ACTION + 14,
+  ROW_NOTE         = ROW_ACTION + 30,   // display-only rows; see the note above
+  ROW_TRUNCATED    = ROW_ACTION + 31,
   ROW_DEL_YES      = ROW_ACTION + 20,
   ROW_DEL_NO       = ROW_ACTION + 21,
 };
@@ -330,7 +347,7 @@ void PhotosApp::buildList() {
   header->setTitle(headerTitle);
 
   if (note[0]) {
-    menu->addOption(note, ROW_INERT, 1);      // what the last action did; key 0 = not selectable
+    menu->addOption(note, ROW_NOTE, 1);       // what the last action did; see ROW_NOTE
   }
   /* Offered ONLY when there is an override to remove. A button that says it will restore
    * something already in place is a button that teaches people their actions do nothing. */
@@ -353,7 +370,7 @@ void PhotosApp::buildList() {
     menu->addOption(label, (MenuOption::keyType)(i + 1), 1);
   }
   if (truncated) {
-    menu->addOption("(more than 200 photos - list truncated)", ROW_INERT, 1);
+    menu->addOption("(more than 200 photos - list truncated)", ROW_TRUNCATED, 1);
   }
 }
 

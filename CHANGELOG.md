@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.9.18 (2026-08-25) — every message the Photos app ever tried to show was silently dropped
+
+Found while deleting a file at Nick's request, which is the first time anyone had watched the
+app react to an action.
+
+- 🛑 **`ROW_INERT = 0`, AND `MenuWidget::addOption()` REFUSES A KEY OF 0.** It logs
+  `menu option key is 0` and adds no row at all. So the Photos list's result line — the one
+  thing that tells you what just happened — **has never once appeared on the screen**:
+  "Deleted", "Renamed to X", "Wallpaper set", "Not set - <reason>", "X is locked - unlock it
+  first", "Too big: N KB", and the "list truncated" warning. All of it written, none of it
+  shown. The constant read perfectly (`key 0 = not selectable`) and did the opposite of what
+  it said.
+- **Proven three ways before it was touched:** a successful delete redrew the list with no
+  message at all (screenshotted); the code path in `GUI.cpp:13253` rejects the key outright;
+  and the handset logged exactly one `[E] addOption(): menu option key is 0` at the moment the
+  list was rebuilt with a note set.
+- ⚠ **THIS QUIETLY UNDID THIS MORNING'S 0.9.13 WALLPAPER WORK.** `setAsWallpaper()` was
+  rewritten then to stop claiming success and instead report what the loader actually said —
+  and the line it reports through is this one. It was only ever visible over the serial cable,
+  **which is exactly why the gap survived being "verified"**. A fix checked through one channel
+  is not checked.
+- **Fixed** by giving the two display-only rows real keys (`ROW_NOTE`, `ROW_TRUNCATED`, both
+  `ROW_ACTION + n`). Nothing acts on them: the list handler matches `ROW_RESTORE_WALL` or
+  `k <= entryCount` (max 200), so OK on either does nothing — which is the behaviour "inert"
+  was reaching for. The widget is untouched; other menus may rely on it rejecting 0.
+  **Verified on the handset: "Wallpaper set" now renders as the first row.**
+- **Also done, at Nick's request:** the 0-byte `/photos/20260823_093939.jpg` was deleted
+  through the app's own UI — which incidentally exercised the delete confirmation for the first
+  time (`Cancel` is first and selected by default, so a mis-timed OK cannot destroy anything).
+  A before/after listing confirms exactly one file went and the other thirteen are byte-
+  identical.
+
 ## 0.9.17 (2026-08-25) — a beacon slot is owed, not spent; and a fix has to be worth believing
 
 Nick: *"I want to make sure the GPS locations are actually reporting and being sent over the

@@ -326,11 +326,25 @@ is left below still needs a thumb, but `shot` means you can now SEE the result o
       0.9.17 was verified on the real 0-byte photo: *"This file is empty (0 bytes) / the upload
       did not finish"*, with Options still reachable so it can still be deleted. **This closes
       the "nobody has ever run it" half of the item.**
-- [ ] ⚠ **STILL NOT EXERCISED: the RENAME text-entry screen and the DELETE confirmation.** Both
-      were left alone deliberately — rename needs typed input and delete destroys a file, and
-      there is no throwaway on the card except Nick's own failed upload. 🔑 They CAN now be
-      driven with `key`/`shot`; it just needs a decision about what to delete first.
-      (Original item kept below for its warning.)
+### 🛑 CLOSED 2026-08-25 — THE PHOTOS APP COULD NEVER SHOW A MESSAGE (0.9.18)
+
+`ROW_INERT = 0`, and **`MenuWidget::addOption()` refuses a key of 0** — it logs
+`menu option key is 0` and adds no row. So the list's result line has **never once appeared**:
+"Deleted", "Renamed to X", "Wallpaper set", "Not set - <reason>", "X is locked", the truncation
+warning. The constant said `key 0 = not selectable` and did the opposite.
+
+⚠ **IT QUIETLY UNDID THE SAME DAY'S 0.9.13 WALLPAPER WORK** — `setAsWallpaper()` had just been
+rewritten to report what the loader actually said, through this exact line. It was only ever
+visible over the cable, **which is why the gap survived being "verified". A fix checked through
+one channel is not checked.** Fixed with real keys (`ROW_NOTE`/`ROW_TRUNCATED`); the widget is
+untouched because other menus may rely on it rejecting 0.
+
+- [x] ✅ **DELETE CONFIRMATION EXERCISED** (2026-08-25, deleting the 0-byte photo at Nick's
+      request). `Cancel` is first and selected by default, so a mis-timed OK destroys nothing.
+      Before/after listing: exactly one file gone, the other thirteen byte-identical.
+- [ ] ⚠ **STILL NOT EXERCISED: the RENAME text-entry screen.** Both
+      Rename needs typed input through a MultilineTextWidget and nothing has driven that path.
+      🔑 It CAN now be driven with `key`/`shot`.
 - [ ] ~~🔑 **OPEN THE PHOTOS APP (Menu > Tools > Photos). NOBODY HAS EVER RUN IT.**~~ It is new
       today: it builds, registers, boots clean and passes the duplicate-menu-id check — but
       **every screen in it needs a key press and serial cannot press keys.** The starring
