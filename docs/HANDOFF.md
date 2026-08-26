@@ -7,6 +7,35 @@ Read this first; everything below it is narrative. Repo clean at **0.9.19**.
 ✅ **Phone 2 was flashed to HEAD (`6c50d7d`) on 2026-08-25** — P5 is done, and it immediately
 turned up the bug below.
 
+### ✅ CLOSED 2026-08-26 — PHOTOS RENAME: THE LAST UNDRIVEN SCREEN, AND IT HAD A HOLE (0.9.22)
+
+The one path in Photos nobody had ever reached. 0.9.18's note said to assume it had something
+wrong in it. It did.
+
+🛑 **THERE WAS NO WAY TO DELETE A CHARACTER.** `PHOTOS_RENAME` tested `LOGIC_BUTTON_BACK(event)`
+before the event could reach the text widget — and Back IS backspace. The field opens prefilled
+with the current filename, so the only possible edit was to APPEND: `BT06.JPG` → `BT06.JPGxyz`
+and nothing else. **Renaming a photo was impossible in practice.** Measured before the fix: four
+Back presses walked four screens OUT of the app; `key 7` / `key 2 2` typed `p` and `b` fine, so
+the field worked and only the erase was missing.
+
+⚠ **Photos was the SINGLE exception in the firmware.** `app_books.cpp:1944` and
+`app_meshtastic.cpp:1372/:1396/:1419` all cancel on `WIPHONE_KEY_END` and say why, with the
+convention spelled out at `app_meshtastic.cpp:198`. Fixed to match them.
+
+✅ **THE WHOLE PATH IS NOW EXERCISED ON THE HANDSET**, every step photographed, card finished
+byte-for-byte as it started: typing (`key 7`→p, `key 2 2`→b, multi-tap strip renders), `#`
+toggles case (`ABC2`), `*` opens the punctuation picker, 8× Back clears the field without
+exiting, Save with no extension is **refused on screen** ("Keep a .jpg/.jpeg/.bmp ending"),
+`BT06.JPG` → `BT06.JPEG` → **"Renamed to BT06.JPEG"** → renamed back → **"Renamed to BT06.JPG"**.
+🔑 **Both result lines are messages that could not render at all before 0.9.18** — first time
+anyone has seen a Photos rename report its own outcome.
+
+**This closes the last item on the Photos list.** ⚠ Still not driven by a thumb: nothing. The
+`key`/`shot` cable path reached every screen in the app.
+
+---
+
 ### ✅ ANSWERED 2026-08-26 — THE SIP FLAP IS FIXED, AND TWO STALE SENTENCES SAID OTHERWISE (0.9.21)
 
 Nick remembered it being fixed. **He was right, and it is now MEASURED.** 330 s of console on
@@ -79,7 +108,7 @@ one transmission: phone 1 `send 2 persist-check 0826` → `MESH RECEIPT: … -> 
 boot`, 1 msg, 1704→2032 B). The incoming direction is the one that matters — phone 2 is the
 phone that had been losing everything.
 
-✅ **BOTH PHONES ARE ON 0.9.21**, `built Aug 26 2026 08:03:20`, read back with `ver` on each
+✅ **BOTH PHONES ARE ON 0.9.22**, `built Aug 26 2026 08:03:20`, read back with `ver` on each
 port rather than assumed from a successful upload.
 
 - [ ] ⚠ **The audit that found the unswept sites lost one of its 14 readers** to an API error,
@@ -480,9 +509,8 @@ untouched because other menus may rely on it rejecting 0.
 - [x] ✅ **DELETE CONFIRMATION EXERCISED** (2026-08-25, deleting the 0-byte photo at Nick's
       request). `Cancel` is first and selected by default, so a mis-timed OK destroys nothing.
       Before/after listing: exactly one file gone, the other thirteen byte-identical.
-- [ ] ⚠ **STILL NOT EXERCISED: the RENAME text-entry screen.** Both
-      Rename needs typed input through a MultilineTextWidget and nothing has driven that path.
-      🔑 It CAN now be driven with `key`/`shot`.
+- [x] ✅ **DONE 2026-08-26 — the rename text-entry screen is fully exercised**, and it had a
+      real bug (no backspace; see the 0.9.22 block at the top). Driven with `key`/`shot`.
 - [ ] ~~🔑 **OPEN THE PHOTOS APP (Menu > Tools > Photos). NOBODY HAS EVER RUN IT.**~~ It is new
       today: it builds, registers, boots clean and passes the duplicate-menu-id check — but
       **every screen in it needs a key press and serial cannot press keys.** The starring

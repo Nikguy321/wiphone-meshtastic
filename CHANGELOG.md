@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.9.22 (2026-08-26) — the rename field had no way to delete a character
+
+The last screen in the Photos app that nobody had ever driven, driven at last — and it shipped
+with a hole, exactly as 0.9.18's note said to assume.
+
+- 🛑 **`PHOTOS_RENAME` tested `LOGIC_BUTTON_BACK(event)` BEFORE the event could reach the text
+  widget**, and on the 21-button keyboard that macro is `BACK || END` (`Hardware.h:213`). So
+  **Back never got to the field, and Back is backspace.** The screen opens prefilled with the
+  current filename, so the only edit possible was to APPEND: you could turn `BT06.JPG` into
+  `BT06.JPGxyz` and nothing else. Renaming a photo was, in practice, impossible.
+- **MEASURED on the handset before the fix:** four Back presses walked four screens *out of the
+  app* instead of deleting four characters, while `key 7` and `key 2 2` typed `p` and `b`
+  perfectly well. The field worked; only the erase was missing.
+- ⚠ **Every other text screen in this firmware already had it right and said so** —
+  `app_books.cpp:1944`, `app_meshtastic.cpp:1372/:1396/:1419`, with the convention written out
+  at `app_meshtastic.cpp:198`: *cancel is END, because Back is backspace in a text field.*
+  **Photos was the single exception in the whole firmware.** Fixed to match them rather than to
+  invent a fourth spelling — the rule at `Hardware.h:216` is that every consumer declares what
+  it needs.
+
+### The whole rename path, exercised end to end on the handset
+
+Every step photographed, and the card finished byte-for-byte as it started:
+
+| step | result |
+|---|---|
+| open Rename | field prefilled `BT06.JPG`, cursor at the end, Save/Back softkeys |
+| type | `key 7` → `p`, `key 2 2` → `b`; multi-tap candidate strip renders (`tuv8`) |
+| `#` | toggles case — strip switches to `ABC2` |
+| `*` | opens the punctuation picker (`.!?@$/+-=%^_.,;'*#`) |
+| 8× Back | erases all eight characters, placeholder "New name" returns, **screen does not exit** |
+| Save with no extension | refused, and **says so**: "Keep a .jpg/.jpeg/.bmp ending" |
+| rename to `BT06.JPEG` | **"Renamed to BT06.JPEG"**, list updates, 13 photos |
+| rename back to `BT06.JPG` | **"Renamed to BT06.JPG"**, list restored |
+
+🔑 **Both of those result lines are messages that could not render at all before 0.9.18** — they
+go through the row that `addOption(..., 0, ...)` was silently dropping. This is the first time
+anyone has seen a Photos rename report its own outcome, success or refusal.
+
 ## 0.9.21 (2026-08-26) — the SIP flap really was fixed; two things near it were not
 
 Nick: *"I think the sip flap is fixed, I remember a session a bit back about it… but let's check."*

@@ -789,7 +789,27 @@ appEventResult PhotosApp::processEvent(EventType event) {
     return REDRAW_SCREEN;
 
   case PHOTOS_RENAME:
-    if (LOGIC_BUTTON_BACK(event)) {
+    /* 🛑 CANCEL IS END, NOT BACK — BECAUSE BACK IS BACKSPACE IN A TEXT FIELD.
+     *
+     * This used to test LOGIC_BUTTON_BACK(), which on the 21-button keyboard is
+     * `BACK || END` (Hardware.h:213). Testing it here consumed Back BEFORE the event could
+     * reach textArea, so **the rename field had no way to delete a character**. It opens
+     * prefilled with the current filename, so the only possible edit was to APPEND: you
+     * could turn BT06.JPG into BT06.JPGxyz and nothing else. Renaming a photo was, in
+     * practice, impossible.
+     *
+     * ⚠ Nobody had ever driven this screen — it is the last path in this app that a thumb
+     * (or `key`/`shot`) had not reached, and it shipped like this on 2026-08-24.
+     * MEASURED on the handset 2026-08-26: four Back presses walked four screens OUT of the
+     * app instead of deleting four characters, and `key 7`/`key 2 2` typed 'p' and 'b'
+     * perfectly well — so the field worked, and only the erase was missing.
+     *
+     * Every other text screen in this firmware already had it right and said so:
+     * app_books.cpp:1944, and app_meshtastic.cpp:1372/:1396/:1419 with the convention
+     * written out at app_meshtastic.cpp:198. Photos was the single exception. This matches
+     * them rather than inventing a fourth spelling — the rule from Hardware.h:216 is that
+     * every consumer declares what IT needs. */
+    if (event == WIPHONE_KEY_END) {        // cancel (Back is backspace in a text field)
       controlState.setInputState(InputType::Numeric);
       enterState(PHOTOS_OPTIONS);
       return REDRAW_ALL;
