@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.9.26 (2026-08-26) — two more that had never run, from the same sweep
+
+### 🛑 The SIP re-init after a network-loss teardown has never once run
+
+`WiPhone.ino:3202` was `gui.state.sipState == CallState::NotInited;` — **a comparison whose
+result is discarded, where an assignment was meant.** The `if` block's only effect was clearing
+the flag on the next line, so the re-init test below it fired only when `sipState` happened to
+be `NotInited` already, or the account had changed. Present since the initial commit;
+`platformio.ini` strips `-Werror`, so GCC's unused-value warning could never fail the build.
+
+Written through `setSipState()` rather than as a raw `=`: every other transition in this
+firmware goes through it, and it owns the ring-armed and missed-call bookkeeping, which a raw
+assignment would silently bypass.
+
+⚠ **THIS TURNS ON A PATH WITH NO HISTORY, AND IT IS THE ONE CHANGE HERE THAT IS NOT PROVEN.**
+Bench it: with a real account, drop WiFi mid-call, restore it, and watch for `SIP is going to
+init` followed by registration returning rather than flapping. If it misbehaves, that one line
+is the whole change.
+
+### Music never paused for a second call
+
+The pause was edge-triggered — `if (callBusy && !wasCallBusy)` over a static. But
+`sipCallActive()` counts `HangUp` and `HangingUp` as a call, and this repo has **measured 19+
+consecutive minutes parked at `sip=6`** with the proxy unreachable. While parked there the latch
+stays true, so an incoming INVITE moves `HangUp -> BeingInvited` — also true — and **there is no
+rising edge.** The codec/I2S single-occupancy that the pause exists for was never honoured.
+
+⚠ Fixed at the caller, NOT in `sipCallActive()`: that predicate is shared, and narrowing a shared
+predicate to suit one caller is the bug class that produced four of the seven faults in the
+2026-08-15 audit. It is idempotent now — `if (sipCallActive() && musicPlayerIsPlaying())` — so it
+cannot latch and cannot repeat, and nothing resumes afterwards, as before.
+
 ## 0.9.25 (2026-08-26) — a sweep for unswept fixes, and it found five
 
 A multi-agent hunt for the two shapes that cost a working day earlier today: **a fix applied

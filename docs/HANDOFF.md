@@ -46,18 +46,26 @@ copies survived here, one headed "READ BEFORE RE-TRYING" and concluding "THE FLA
 LOAD-BEARING", which is an instruction not to re-apply a fix that is shipped and measured.
 **A fix is not done until you have grepped for its own spelling.**
 
-- [ ] ⚠ **`WiPhone.ino:3202` is `==` where `=` was meant** — `gui.state.sipState ==
-      CallState::NotInited;`, result discarded, since the initial commit, so the SIP re-init
-      after a network-loss teardown **has never run**. One character, but it turns on a path
-      with no history: bench it with a real account and a real call, with Nick present.
-- [ ] **Music never pauses for a second call.** The pause is edge-triggered on
-      `sipCallActive()`, which counts `HangUp` (measured at 19+ min here), so while parked
-      there an incoming INVITE gives no rising edge and the codec is never released. Fix is to
-      make the pause idempotent, NOT to touch `sipCallActive()`.
+- [x] ✅ **FIXED in 0.9.26** — `WiPhone.ino:3202` was `==` where `=` was meant, so the SIP
+      re-init after a network-loss teardown had **never once run** since the initial commit.
+      Written through `setSipState()`, not a raw `=`, so the ring-armed/missed-call bookkeeping
+      is not bypassed. ⚠ **STILL OWED, AND IT IS THE ONE UNPROVEN CHANGE OF THE DAY: bench it.**
+      With a real account, drop WiFi mid-call, restore, watch for `SIP is going to init` and
+      registration returning rather than flapping. If it misbehaves, that one line is the whole
+      change.
+- [x] ✅ **FIXED in 0.9.26** — the music pause is idempotent now
+      (`sipCallActive() && musicPlayerIsPlaying()`), so the latch cannot stick through a long
+      `HangUp`. `sipCallActive()` itself was deliberately left alone.
 - [ ] 🔎 **NTP did not sync today** with WiFi up — clock still "waiting NTP" after 100 s, so
       the live timezone offset could not be read back off the phone. Related to the open
       `pool.ntp.org errno=210` item.
-- [ ] **COVEY, from the same sweep:** `tests/README.md` and two handoff recipes still hand out
+- [x] ✅ **DONE — COVEY's share of the sweep is fixed, deployed and pushed** (`5ab453b`):
+      `is_protected()` was condemning every file under `/root/.covey/downloads` so **Delete and
+      Move were dead in two of the four roots**; `Prefs.save()` gained the fsync every sibling
+      already had; the ScrollList docstring still showed D-110 verbatim; the test recipes
+      swallowed every failure; "31 suites" corrected to 47. 46/47 on each machine, covey-ui
+      restarted active with NRestarts=0. Original wording:
+      ~~COVEY, from the same sweep:~~ `tests/README.md` and two handoff recipes still hand out
       a test loop with no `||`, so **every failure is swallowed** — and one of them has
       `rsync ... covey:covey-ui/` on the very next line; "31 suites" survives in three places
       (it is 47, at 46/47); `widgets.py:628`'s ScrollList docstring still shows the **D-110
@@ -166,7 +174,7 @@ one transmission: phone 1 `send 2 persist-check 0826` → `MESH RECEIPT: … -> 
 boot`, 1 msg, 1704→2032 B). The incoming direction is the one that matters — phone 2 is the
 phone that had been losing everything.
 
-✅ **BOTH PHONES ARE ON 0.9.25**, `built Aug 26 2026 08:03:20`, read back with `ver` on each
+✅ **BOTH PHONES ARE ON 0.9.26**, `built Aug 26 2026 08:03:20`, read back with `ver` on each
 port rather than assumed from a successful upload.
 
 - [ ] ⚠ **The audit that found the unswept sites lost one of its 14 readers** to an API error,

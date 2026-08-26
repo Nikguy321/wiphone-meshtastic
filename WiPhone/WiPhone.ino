@@ -3199,7 +3199,23 @@ void loop() {
     //    It implements transitions between different call states.
     if (gui.state.hasSipAccount() && wifiState.isConnected() && sipMayPoll()) {
       if( wifiTerminateSip == TERMINATE_OK ) {
-        gui.state.sipState == CallState::NotInited;
+        /* 🛑 THIS LINE WAS `gui.state.sipState == CallState::NotInited;` — A COMPARISON WHOSE
+         * RESULT WAS DISCARDED, WHERE AN ASSIGNMENT WAS MEANT. Present since the initial
+         * commit, and `platformio.ini` strips -Werror so the unused-value warning could never
+         * fail the build. The only effect of this whole block was clearing the flag below, so
+         * **the SIP re-init after a network-loss teardown has never once run in this
+         * firmware's life** — the test on the next line only fired if sipState happened to be
+         * NotInited already, or the account had changed.
+         *
+         * Written through setSipState() rather than as a raw assignment: every other
+         * transition in this firmware goes through it, and it owns the ring-armed and
+         * missed-call bookkeeping. A raw `=` would be the author's literal intent and would
+         * silently bypass all of that.
+         *
+         * ⚠ THIS TURNS ON A PATH WITH NO HISTORY. Bench it: with a real account, drop WiFi
+         * mid-call, restore it, and watch for "SIP is going to init" followed by registration
+         * returning rather than flapping. If it misbehaves, this line is the whole change. */
+        gui.state.setSipState(CallState::NotInited);
         wifiTerminateSip = 0x0;
       }
       if (gui.state.sipState == CallState::NotInited  ||  gui.state.sipAccountChanged) {
@@ -3611,17 +3627,25 @@ void loop() {
     /* A call wins over music, always. The codec and I2S are single-occupancy, so ringing
      * or talking while a track plays gives you both at once and neither intelligibly.
      *
-     * Edge-triggered on LEAVING the idle states, so it pauses once when the phone starts
-     * ringing rather than every loop for the length of the call. Nothing resumes
-     * afterwards on purpose: a phone that bursts into music the moment you hang up is
-     * worse than one you press play on. */
+     * 🛑 THIS USED TO BE EDGE-TRIGGERED AND THE LATCH COULD STICK FOR HOURS.
+     * It was `if (callBusy && !wasCallBusy)` over a static — pause once on the rising edge.
+     * But sipCallActive() counts HangUp and HangingUp as a call, and this repo has MEASURED
+     * 19+ consecutive minutes parked at sip=6 (HangUp) with the proxy unreachable. While
+     * parked there `wasCallBusy` stays true, so an incoming INVITE moves HangUp ->
+     * BeingInvited — also true — and there is NO RISING EDGE. The music never paused, and
+     * the codec/I2S single-occupancy noted above is the whole reason this exists.
+     *
+     * ⚠ The fix is here, NOT in sipCallActive(): that predicate is shared, and narrowing a
+     * shared predicate to suit one caller is the bug class that produced four of the seven
+     * faults in the 2026-08-15 audit. Made idempotent instead — musicPlayerPause() is only
+     * called when something is actually playing, so it cannot latch and cannot repeat.
+     *
+     * Nothing resumes afterwards on purpose: a phone that bursts into music the moment you
+     * hang up is worse than one you press play on. */
     {
-      const bool callBusy = sipCallActive();
-      static bool wasCallBusy = false;
-      if (callBusy && !wasCallBusy) {
+      if (sipCallActive() && musicPlayerIsPlaying()) {
         musicPlayerPause();
       }
-      wasCallBusy = callBusy;
     }
 
     // Meshtastic background service tick (non-blocking). If a new message
