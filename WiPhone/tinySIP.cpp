@@ -1733,7 +1733,23 @@ void TinySIP::rtpSilent() {
   //freeNull((void **) &regCallIdDyn);
   ////////////////////////////////
 
-  TinySIP::registered = true;
+  /* 🛑 THIS USED TO SAY `TinySIP::registered = true;` AND IT WAS SIMPLY WRONG.
+   *
+   * rtpSilent() means the OTHER PARTY'S MEDIA STREAM WENT QUIET (Audio.cpp raises
+   * RTP_SILENT_ON; WiPhone.ino:3186 calls this). That says nothing whatever about whether
+   * this phone is registered at the proxy, and a media timeout must not assert that it is.
+   * The line looks like a copy of wifiTerminateCall() just above with the boolean flipped —
+   * that one sets `registered = false` and has a reason to (the WiFi is gone).
+   *
+   * WHAT IT COST: `registered` drives `controlState.sipRegistered`, and CallApp's END/BACK
+   * handler branches on it (GUI.cpp:5575, 5592) — not registered exits the app, registered
+   * takes the hang-up path. So after an RTP silence timeout on an UNREGISTERED phone, the
+   * flag was forced true and END stopped being the one press that leaves the call screen.
+   * The blast radius was bounded only because registrationInvalid() also checks the expiry
+   * clock, so the lie corrected itself within REGISTER_EXPIRATION_S.
+   *
+   * Registration state is left alone here on purpose: this function's job is to end the
+   * call, and nothing else. */
 
   currentCall->terminated = 1;
 

@@ -7,6 +7,46 @@ Read this first; everything below it is narrative. Repo clean at **0.9.19**.
 ✅ **Phone 2 was flashed to HEAD (`6c50d7d`) on 2026-08-25** — P5 is done, and it immediately
 turned up the bug below.
 
+### ✅ ANSWERED 2026-08-26 — THE SIP FLAP IS FIXED, AND TWO STALE SENTENCES SAID OTHERWISE (0.9.21)
+
+Nick remembered it being fixed. **He was right, and it is now MEASURED.** 330 s of console on
+phone 1 (the phone that actually holds the account), WiFi up throughout: **8 REGISTERs, ONE
+`SIP REGISTRATION -> REGISTERED`, zero "lost"** — seven refreshes in a row all logging
+`registered=1`. Before `3d9f329` it read REGISTERED → lost → REGISTERED once a minute.
+
+🛑 **WHAT COST THE TIME WAS NOT THE CODE, IT WAS TWO STALE ENGLISH SENTENCES.** `tinySIP.h:624`
+still said *"THE REAL FIX, deliberately NOT shipped tonight"* — directly above a paragraph
+describing that same fix as in place — and MEMORY.md said it was "left for a session with Nick
+present". Both were written 08-22 and obsolete by 08-24. **Both corrected.** ⚠ When a fix lands,
+grep for the comment that said it had not.
+
+🛑 **`rtpSilent()` WAS SETTING `registered = true`.** It is reached when the OTHER PARTY's RTP
+goes quiet (`WiPhone.ino:3186`) and has no business touching registration — it reads like a copy
+of `wifiTerminateCall()` above it with the boolean flipped. **Cost:** `sipRegistered` gates
+CallApp's END/BACK (`GUI.cpp:5575`, `:5592`), so after an RTP timeout on an UNregistered phone,
+END stopped being the one press that leaves the call screen. Removed.
+
+🔋 **AND A BATTERY BUG FOUND WHILE WATCHING THAT CONSOLE — the WiFi scan backoff was defeated by
+its own retry line.** An empty scan set `_msLastScan = now - AUTO_SCAN_PERIOD_MS + RETRY`, which
+means "570 s ago" — correct only while CONNECTED, because disconnected the due-check compares
+against 120 s. A stamp older than the period is due IMMEDIATELY.
+**MEASURED with the AP gone: 114 scans in 280 s, one every ~2.5 s, against a design of one every
+two minutes.** ⚠ **An empty scan IS the out-of-range case**, so the one situation the backoff
+existed for was the one it never applied to. Fixed by splitting `n == 0` (out of range → normal
+backoff) from `n < 0` (aborted → retry soon), with `currentDiscPeriod()` as the single
+definition both the due-check and the retry scheduler use.
+
+- [ ] ⚠ **VERIFY THE SCAN FIX — it is the one thing here NOT proven on hardware.** The AP came
+      back before the fixed build could be watched under the same conditions, and a phone that
+      can see an AP rejoins rather than staying disconnected. **Attach the cable, turn the
+      hotspot OFF, watch 5 minutes: expect 2-3 `scan started` lines, not ~110.**
+- [ ] 🔎 **Phone 1's WiFi returned 0 networks on 112 consecutive scans** while the Mac was
+      associated to a 2.4 GHz AP on channel 6 in the same room. It recovered on its own later.
+      Worth one look if it recurs — a scan that sees literally nothing is not the same as
+      being out of range.
+
+---
+
 ### ✅ CLOSED 2026-08-26 — THE OTHER MENUS WERE DROPPING THEIR ROWS TOO (0.9.20)
 
 0.9.18 fixed `addOption(text, 0, …)` in Photos and **nobody swept for it.** Eight more sites in
@@ -39,7 +79,7 @@ one transmission: phone 1 `send 2 persist-check 0826` → `MESH RECEIPT: … -> 
 boot`, 1 msg, 1704→2032 B). The incoming direction is the one that matters — phone 2 is the
 phone that had been losing everything.
 
-✅ **BOTH PHONES ARE ON 0.9.20**, `built Aug 26 2026 08:03:20`, read back with `ver` on each
+✅ **BOTH PHONES ARE ON 0.9.21**, `built Aug 26 2026 08:03:20`, read back with `ver` on each
 port rather than assumed from a successful upload.
 
 - [ ] ⚠ **The audit that found the unswept sites lost one of its 14 readers** to an API error,

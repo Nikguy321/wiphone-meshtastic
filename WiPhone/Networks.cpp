@@ -529,11 +529,17 @@ void Networks::autoSwitchTick(bool screenOn) {
     log_e("[autosw] scan done: n=%d", n);
     if (n > 0) {
       autoSwitchEvaluate(n);
+    } else if (n == 0) {
+      /* 🛑 A COMPLETED SCAN THAT FOUND NOTHING IS THE OUT-OF-RANGE CASE, AND THE BACKOFF
+       * BELOW EXISTS FOR EXACTLY IT. This used to take the retry branch, which defeated that
+       * backoff entirely — see scheduleScanRetry(). Stamp it as an ordinary scan and let the
+       * 2-minute / 5-minute easing do its job. */
+      _msLastScan = now;
     } else {
-      // Failed or empty — commonly a reconnect attempt cycled WiFi and killed
-      // the scan before scanBusy() gating existed to prevent it, or the radio
-      // was mid-connect. Try again soon, not in 10 minutes.
-      _msLastScan = now - AUTO_SCAN_PERIOD_MS + AUTO_SCAN_RETRY_MS;
+      /* n < 0: the scan was ABORTED, not empty — commonly a reconnect attempt cycled WiFi
+       * and killed it, or the radio was mid-connect. That is a spurious failure and learned
+       * nothing, so try again soon rather than serving out a full period. */
+      scheduleScanRetry(now, connected);
     }
     WiFi.scanDelete();
     return;
@@ -549,10 +555,7 @@ void Networks::autoSwitchTick(bool screenOn) {
      * out of range and wanting a quick rejoin. Only a sustained absence (roughly ten
      * minutes of failures) eases to five, and the counter resets the moment anything
      * connects, so coming home is still prompt. */
-    uint32_t discPeriod = AUTO_SCAN_DISC_PERIOD_MS;
-    if (_discScans >= 5) {
-      discPeriod = 300000u;             // 5 min once it is clearly not a brief blip
-    }
+    const uint32_t discPeriod = currentDiscPeriod();
     bool due = (now - _msLastScan >= (connected ? AUTO_SCAN_PERIOD_MS : discPeriod));
     if (wake && !connected) {
       due = true;                       // screen woke with no WiFi: scan right away
@@ -593,8 +596,33 @@ void Networks::autoSwitchTick(bool screenOn) {
   if (now - _msScanPendingSince > 5000) {
     log_e("[autosw] scan start kept failing (wifi status %d)", (int)WiFi.status());
     _scanPending = false;               // give up; normal backoff retries soon
-    _msLastScan = now - AUTO_SCAN_PERIOD_MS + AUTO_SCAN_RETRY_MS;
+    scheduleScanRetry(now, WiFi.status() == WL_CONNECTED);
   }
+}
+
+/* The disconnected scan period in force right now: two minutes for a brief blip, easing to
+ * five once it is clearly not one. One definition, because the due-check and the retry
+ * scheduler MUST agree — they did not, and that is what broke the backoff. */
+uint32_t Networks::currentDiscPeriod() const {
+  return (_discScans >= 5) ? 300000u : AUTO_SCAN_DISC_PERIOD_MS;
+}
+
+/* Put the next scan AUTO_SCAN_RETRY_MS away, under whichever period the due-check will apply.
+ *
+ * 🛑 THIS EXISTS BECAUSE `_msLastScan = now - AUTO_SCAN_PERIOD_MS + AUTO_SCAN_RETRY_MS` IS
+ * ONLY CORRECT WHILE CONNECTED. That expression means "600 s ago, minus 30", and the
+ * due-check compares against AUTO_SCAN_PERIOD_MS *only when connected*. Disconnected it
+ * compares against 120 s (or 300 s), and a stamp 570 s in the past is already older than
+ * either — so the scan was due IMMEDIATELY and the next tick started another one.
+ *
+ * MEASURED on phone 1, 2026-08-26, with the access point gone: **114 scans in 280 seconds,
+ * one every ~2.5 s**, where the design in autoSwitchTick() says one every two minutes. Each
+ * scan lights the radio for a few hundred ms, so a phone carried out of range was burning
+ * the radio essentially continuously — the exact cost the backoff was written to avoid, in
+ * the exact situation it was written for. */
+void Networks::scheduleScanRetry(uint32_t now, bool connected) {
+  const uint32_t period = connected ? AUTO_SCAN_PERIOD_MS : currentDiscPeriod();
+  _msLastScan = (period > AUTO_SCAN_RETRY_MS) ? (now - (period - AUTO_SCAN_RETRY_MS)) : now;
 }
 
 void Networks::autoSwitchEvaluate(int n) {

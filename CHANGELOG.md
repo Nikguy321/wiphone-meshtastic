@@ -1,5 +1,80 @@
 # Changelog
 
+## 0.9.21 (2026-08-26) — the SIP flap really was fixed; two things near it were not
+
+Nick: *"I think the sip flap is fixed, I remember a session a bit back about it… but let's check."*
+**He is right, and it is now measured rather than remembered.**
+
+### The flap: measured, not inferred
+
+330 s of console on phone 1 (the phone that actually holds the account), WiFi up throughout:
+
+```
+SIP REGISTER -> sending (registered=0 everRegistered=0)     <- the initial one
+SIP REGISTRATION -> REGISTERED                              <- fired ONCE, at boot
+SIP REGISTER -> sending (registered=1 everRegistered=1)     x7 refreshes, ~41 s apart
+```
+
+**8 REGISTERs, one state change, zero "lost".** Before 3d9f329 the sequence was
+REGISTERED → lost → REGISTERED once per refresh, each one firing REGISTRATION_UPDATE_EVENT, a
+redraw and a 240 MHz boost. Both halves of that fix are present and doing their job:
+`requestRegister()` no longer clears the flag, and `REGISTER_PERIOD_MS` 45 s sits under the 60 s
+expiry.
+
+🛑 **What made this worth re-checking was not the code — it was two stale English sentences.**
+`tinySIP.h:624` still said *"THE REAL FIX, deliberately NOT shipped tonight"*, sitting directly
+above a paragraph describing that same fix as in place; and MEMORY.md said the real fix was
+"left for a session with Nick present". Both were written on 08-22 and were obsolete by 08-24.
+**They cost a session's work to disprove.** Both corrected. A comment that outlives its own
+change is worse than no comment.
+
+### 🛑 `rtpSilent()` was asserting SIP registration from a media timeout
+
+`TinySIP::rtpSilent()` — reached when the OTHER PARTY'S RTP stream goes quiet
+(`Audio.cpp` raises `RTP_SILENT_ON`, `WiPhone.ino:3186` calls it) — ended with
+`TinySIP::registered = true;`. It reads like a copy of `wifiTerminateCall()` just above it with
+the boolean flipped; that one sets `false` and has a reason to.
+
+**What it cost:** `registered` drives `controlState.sipRegistered`, and CallApp's END/BACK
+handler branches on it (`GUI.cpp:5575`, `:5592`) — not registered exits the app, registered
+takes the hang-up path. So after an RTP silence timeout on an **un**registered phone, the flag
+was forced true and END stopped being the one press that leaves the call screen. Bounded only
+because `registrationInvalid()` also checks the expiry clock, so the lie corrected itself within
+`REGISTER_EXPIRATION_S`. The assignment is gone; registration state is not this function's
+business.
+
+### 🔋 The WiFi scan backoff was defeated by its own retry line
+
+Found while watching the console for the flap, and it is a battery bug.
+
+`autoSwitchTick()` has a careful backoff — scan every 2 min while disconnected, easing to 5 min
+"once it is clearly not a brief blip", written specifically so *"a phone carried out of range
+all afternoon"* does not pay for scan after scan. An empty scan then set
+`_msLastScan = now - AUTO_SCAN_PERIOD_MS + AUTO_SCAN_RETRY_MS`.
+
+🔑 **That expression is only correct while CONNECTED.** It means "570 s ago", and the due-check
+compares against `AUTO_SCAN_PERIOD_MS` *only when connected*; disconnected it compares against
+120 s (or 300 s). A stamp 570 s in the past is already older than either, so the scan was due
+**immediately** and the next tick started another one.
+
+**MEASURED on phone 1 with the access point gone: 114 scans in 280 seconds — one every ~2.5 s,
+against a design of one every two minutes.** Each scan lights the radio for a few hundred ms.
+⚠ **And an empty scan IS the out-of-range case**, so the one situation the backoff was written
+for was the one situation it never applied to.
+
+Fixed by splitting the two outcomes, which the old code ran together:
+- `n == 0` — a completed scan that found nothing. That is out-of-range; stamp it as an ordinary
+  scan and let the 2/5-minute easing run.
+- `n < 0` — the scan was **aborted** (a reconnect cycled WiFi under it). It learned nothing, so
+  retry soon — via `scheduleScanRetry()`, which computes the stamp against whichever period the
+  due-check will actually use. `currentDiscPeriod()` is now the single definition of that
+  period, because the due-check and the retry scheduler disagreeing is the whole bug.
+
+⚠ **NOT VERIFIED ON HARDWARE.** The "before" number is real, but the access point came back
+before the fixed build could be watched under the same conditions, and a phone that can see an
+AP rejoins instead of staying disconnected. **To verify: attach the cable, turn the hotspot off,
+and watch 5 minutes — expect 2–3 `scan started` lines, not ~110.**
+
 ## 0.9.20 (2026-08-26) — the rest of the menus were dropping their rows too
 
 0.9.18 fixed `addOption(text, 0, ...)` in Photos. **It was never swept.** Eight more call sites

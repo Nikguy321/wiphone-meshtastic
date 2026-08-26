@@ -124,6 +124,8 @@ protected:
   uint32_t _msScanPendingSince = 0;
   bool     _prevScreenOn = true;    // for the wake-up edge
   uint32_t _msLastScan = 0;
+  uint32_t currentDiscPeriod() const;               // 2 min, easing to 5 — see the .cpp
+  void     scheduleScanRetry(uint32_t now, bool connected);
   /* Consecutive scans run while disconnected. Used to stretch the scan interval when
    * there is clearly nothing in range — see autoSwitchTick(). Reset on any connect. */
   uint32_t _discScans = 0;

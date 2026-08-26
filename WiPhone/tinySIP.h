@@ -624,13 +624,14 @@ public:
    * REGISTER, and it goes true again when the 200 OK returns. So the phone declares
    * itself unregistered for one round trip on every refresh, forever, by construction.
    *
-   * THE REAL FIX, deliberately NOT shipped tonight: stop clearing the flag when merely
-   * REFRESHING an existing registration. A failed refresh is already covered - the
-   * expiry check in registrationInvalid() measures REGISTER_EXPIRATION_S from
-   * msLastRegistered and trips on its own. That is a small change to core registration
-   * state on the phone that owns Nick's number, it needs him present to verify inbound
-   * calls still land, and it was not worth guessing at while he was away. The visible
-   * cost of leaving it is a brief icon flicker and one redraw per refresh. */
+   * ✅ THAT REAL FIX SHIPPED on 2026-08-24 (commit 3d9f329) — stop clearing the flag when
+   * merely REFRESHING an existing registration. See tinySIP.cpp:1288, where the assignment
+   * is now deliberately absent. A failed refresh is still covered: registrationInvalid()
+   * measures REGISTER_EXPIRATION_S from msLastRegistered, which only a 200 OK advances.
+   * ⚠ THIS PARAGRAPH USED TO SAY THE FIX WAS "deliberately NOT shipped tonight", AND IT SAID
+   * SO FOR TWO DAYS AFTER IT SHIPPED — directly above the paragraph below, which describes
+   * the same fix as being in place. It sent a later session hunting for a bug that was
+   * already fixed. A comment that outlives its own change is worse than no comment. */
   /* 45 s against a 60 s expiry: refresh with headroom so a refresh in flight never races the
    * expiry check. ⚠ ON ITS OWN THIS CHANGES NOTHING — it was tried alone on 2026-08-22 and
    * merely moved the flap to every 45 s. It is the other half of not clearing `registered`
