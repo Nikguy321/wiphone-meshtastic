@@ -318,7 +318,20 @@ Two real improvements came out of it:
 ⚠ **The wallpaper half of this is now DONE and machine-verified** — see the block above. What
 is left below still needs a thumb, but `shot` means you can now SEE the result of every press.
 
-- [ ] 🔑 **OPEN THE PHOTOS APP (Menu > Tools > Photos). NOBODY HAS EVER RUN IT.** It is new
+- [x] ✅ **THE PHOTOS APP HAS NOW BEEN RUN — 2026-08-25, over the cable, and it works.** `key` +
+      `shot` drove it end to end on phone 1 (Menu > Tools > Photos) and every screenshot is
+      clean: the **LIST** (14 files with sizes and the restore-wallpaper row), the **VIEWER**
+      (BT01.JPG renders scaled to fit, 2/14), LEFT/RIGHT walking the folder, and the **OPTIONS**
+      menu (Set as wallpaper / Lock / Rename / Delete / Cancel). The empty-file message added in
+      0.9.17 was verified on the real 0-byte photo: *"This file is empty (0 bytes) / the upload
+      did not finish"*, with Options still reachable so it can still be deleted. **This closes
+      the "nobody has ever run it" half of the item.**
+- [ ] ⚠ **STILL NOT EXERCISED: the RENAME text-entry screen and the DELETE confirmation.** Both
+      were left alone deliberately — rename needs typed input and delete destroys a file, and
+      there is no throwaway on the card except Nick's own failed upload. 🔑 They CAN now be
+      driven with `key`/`shot`; it just needs a decision about what to delete first.
+      (Original item kept below for its warning.)
+- [ ] ~~🔑 **OPEN THE PHOTOS APP (Menu > Tools > Photos). NOBODY HAS EVER RUN IT.**~~ It is new
       today: it builds, registers, boots clean and passes the duplicate-menu-id check — but
       **every screen in it needs a key press and serial cannot press keys.** The starring
       feature shipped with exactly this gap the same morning and it had a real bug (a
