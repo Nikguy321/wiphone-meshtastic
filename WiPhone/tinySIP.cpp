@@ -791,6 +791,8 @@ TinySIP::~TinySIP() {
   //SIP_DEBUG_DELAY(100);       // seems to improve stability
   clearDynamicState();
 
+  currentCall = NULL;           // it points into `dialogs`, which is about to be freed
+
   // Clean up all Dialog objects
   for (auto it = dialogs.iterator(); it.valid(); ++it)
     if (*it) {
@@ -1703,6 +1705,10 @@ int TinySIP::wifiTerminateCall() {
   ///////////////////////////////
   ///This part as same as TinySip destructor
 
+  if (currentCall) {
+    currentCall->terminated = 1;      // while it is still alive to be marked; see the note below
+  }
+
   // Clean Dialog
   for (auto it = dialogs.iterator(); it.valid(); ++it)
     if (*it) {
@@ -1717,12 +1723,33 @@ int TinySIP::wifiTerminateCall() {
   //res &= ~TinySIP::EVENT_REGISTERED;
   TinySIP::registered = false;
 
+  /* 🛑 THIS USED TO BE `currentCall->terminated = 1;` HERE — A WRITE THROUGH A FREED POINTER.
+   *
+   * `currentCall` is only ever assigned from a findCreateDialog() result (:1965, :2089), and
+   * findCreateDialog() puts every dialog it hands back into `dialogs` (:397). The loop twelve
+   * lines above deletes every one of them. So the object this dereferenced had just been freed.
+   *
+   * ⚠ AND IT DID NOT END THERE. `currentCall` was never set back to NULL anywhere in the file,
+   * and `sip` is a file-scope global (WiPhone.ino:1745) — so isBusy() (tinySIP.h:577) went on
+   * reading `currentCall->terminated`, `->confirmed` and `->early` out of freed memory on EVERY
+   * SUPERLOOP PASS, for the rest of the session. Both callers are ordinary events: a WiFi drop
+   * mid-call (WiPhone.ino:3147) and an RTP silence timeout (:3186).
+   *
+   * The sibling got this right and is the model: terminateCall() at :1610 opens with
+   * `if (!currentCall) { ... return TINY_SIP_ERR; }`.
+   *
+   * Marked terminated BEFORE the delete loop above, and the pointer is dropped here. */
+  currentCall = NULL;
+
   //this->registrationRequested = false;
-  currentCall->terminated = 1;
   return TINY_SIP_OK;
 }
 
 void TinySIP::rtpSilent() {
+  if (currentCall) {
+    currentCall->terminated = 1;      // before the delete loop, not after it
+  }
+
   // Clean Dialog
   for (auto it = dialogs.iterator(); it.valid(); ++it)
     if (*it) {
@@ -1751,8 +1778,10 @@ void TinySIP::rtpSilent() {
    * Registration state is left alone here on purpose: this function's job is to end the
    * call, and nothing else. */
 
-  currentCall->terminated = 1;
-
+  /* Same use-after-free as wifiTerminateCall() had, and the same fix — see the long note
+   * there. `terminated` is set above while the dialog is still alive; the pointer is dropped
+   * here so isBusy() cannot keep reading freed memory every pass. */
+  currentCall = NULL;
 }
 
 void TinySIP::showParsed() {

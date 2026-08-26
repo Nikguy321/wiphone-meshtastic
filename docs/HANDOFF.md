@@ -7,6 +7,64 @@ Read this first; everything below it is narrative. Repo clean at **0.9.19**.
 ✅ **Phone 2 was flashed to HEAD (`6c50d7d`) on 2026-08-25** — P5 is done, and it immediately
 turned up the bug below.
 
+### 🔴 CLOSED 2026-08-26 — A SWEEP FOR UNSWEPT FIXES FOUND FIVE (0.9.25). READ THE FIRST ONE.
+
+🛑 **EVERY TIMESTAMP THIS PHONE PUT ON THE AIR WAS EIGHT HOURS WRONG.** `getExactUnixTime()` is
+`getExactUtcTime() + timeOffsetSeconds`, and `WiPhone.ino:1479` applies `[time] zone` at boot.
+That trap was found and fixed on the REPLAY path — with a comment saying so — and **never swept
+to the other seven callers**, every one of which stamps or compares a value that meets COVEY's
+real UTC: the **GPS position beacon** (COVEY renders `time.time() - ts`, so every WiPhone
+position on its map read 8 h stale), booksync `turnedAt` ×3 (so **anything COVEY turned in the
+last ~7.9 h was painted "(their clock looks wrong)"**), waypoint expiry ×2, and the SMS-mirror
+"ten minutes of slack" which was really eight hours ten.
+⚠ **THIS IS PROBABLY THE "7.7-HOUR-OLD POSITION" OF 2026-08-25, WHICH WAS WRITTEN UP AS THE
+PHONE BEING INDOORS.** Re-read that entry before trusting it.
+
+🛑 **USE-AFTER-FREE ON TWO LIVE SIP TEARDOWN PATHS.** `wifiTerminateCall()` and `rtpSilent()`
+deleted every dialog and then wrote `currentCall->terminated = 1` through the freed pointer —
+and `currentCall` was never NULLed anywhere, so `isBusy()` kept reading freed memory **every
+superloop pass for the rest of the session**. Callers are ordinary: WiFi drop mid-call, RTP
+silence. The sibling `terminateCall()` had the guard and was not copied.
+
+🛑 **A RECEIVED MESSAGE COULD WALK OFF A 256-BYTE STACK BUFFER.** The channel-URL parser clamped
+with `i + l <= len`, which wraps in 32-bit; a `0xFFFFFFFE` length passes it. Every other
+protobuf walker here clamps by subtraction. ✅ Verified on the handset with the real payload
+(`chan Cv7___8P`): 0 channels added, channels intact, no crash.
+
+**Also fixed:** the GPS quality gate guarded only the transmit path, so a fix measured at **20 km
+wrong** was refused for the radio and then used for every distance on your own screen; Screen
+settings was a **fourth** reader of lock/dim/sleep with the old 0-defaults, and its Save
+persisted them (the lock rides on sleep); `data/configs.ini` still shipped `lock_keyboard=0`, so
+`uploadfs` handed out a phone that never locks.
+
+🔑 **AND THE SWEEP CAUGHT THIS SESSION MAKING THE SAME MISTAKE TWICE.** (1) The key-0 grep guard
+added this morning **would not have caught the bug it was written for** — it misses a named
+constant (`ROW_INERT = 0`, exactly what Photos had), a wrapped call, and the two-argument form.
+Replaced with `tests/check_menu_keys.py`, proven against all three. (2) 0.9.21 corrected the
+SIP-flap myth in `tinySIP.h` and MEMORY.md **by name and never grepped this file** — two more
+copies survived here, one headed "READ BEFORE RE-TRYING" and concluding "THE FLAP WAS
+LOAD-BEARING", which is an instruction not to re-apply a fix that is shipped and measured.
+**A fix is not done until you have grepped for its own spelling.**
+
+- [ ] ⚠ **`WiPhone.ino:3202` is `==` where `=` was meant** — `gui.state.sipState ==
+      CallState::NotInited;`, result discarded, since the initial commit, so the SIP re-init
+      after a network-loss teardown **has never run**. One character, but it turns on a path
+      with no history: bench it with a real account and a real call, with Nick present.
+- [ ] **Music never pauses for a second call.** The pause is edge-triggered on
+      `sipCallActive()`, which counts `HangUp` (measured at 19+ min here), so while parked
+      there an incoming INVITE gives no rising edge and the codec is never released. Fix is to
+      make the pause idempotent, NOT to touch `sipCallActive()`.
+- [ ] 🔎 **NTP did not sync today** with WiFi up — clock still "waiting NTP" after 100 s, so
+      the live timezone offset could not be read back off the phone. Related to the open
+      `pool.ntp.org errno=210` item.
+- [ ] **COVEY, from the same sweep:** `tests/README.md` and two handoff recipes still hand out
+      a test loop with no `||`, so **every failure is swallowed** — and one of them has
+      `rsync ... covey:covey-ui/` on the very next line; "31 suites" survives in three places
+      (it is 47, at 46/47); `widgets.py:628`'s ScrollList docstring still shows the **D-110
+      crash verbatim** (`band` where a height belongs) and is that widget's only documentation.
+
+---
+
 ### ✅ CLOSED 2026-08-26 — PHOTOS RENAME: THE LAST UNDRIVEN SCREEN, AND IT HAD A HOLE (0.9.22)
 
 The one path in Photos nobody had ever reached. 0.9.18's note said to assume it had something
@@ -108,7 +166,7 @@ one transmission: phone 1 `send 2 persist-check 0826` → `MESH RECEIPT: … -> 
 boot`, 1 msg, 1704→2032 B). The incoming direction is the one that matters — phone 2 is the
 phone that had been losing everything.
 
-✅ **BOTH PHONES ARE ON 0.9.22**, `built Aug 26 2026 08:03:20`, read back with `ver` on each
+✅ **BOTH PHONES ARE ON 0.9.25**, `built Aug 26 2026 08:03:20`, read back with `ver` on each
 port rather than assumed from a successful upload.
 
 - [ ] ⚠ **The audit that found the unswept sites lost one of its 14 readers** to an API error,
@@ -929,7 +987,13 @@ releases and should climb steadily in normal use; `killed` counts bounces correc
 `gapfix`/`swept` should now stay near zero. **`keys raw` is the tool that solved this** — the
 counters said what was wrong, only the raw bytes said why.
 
-📶 🛑 **SIP: THE DEEPER FIX WORKED AND WAS STILL REVERTED — READ BEFORE RE-TRYING.**
+📶 ✅ **SUPERSEDED 2026-08-26 — DO NOT ACT ON THIS BLOCK.** The deeper fix is SHIPPED and
+MEASURED: 8 REGISTERs, one `REGISTERED`, zero "lost" over 330 s on the phone that holds the
+account (see the 0.9.21 block at the top). 🛑 **This block's conclusion — "THE FLAP WAS
+LOAD-BEARING" — is wrong, and it is written as an instruction to a future session not to re-try
+the fix.** What actually made the 08-22 attempt fail was ping starvation, root-caused separately
+on 08-24. Kept only for that reasoning. Original heading:
+~~SIP: THE DEEPER FIX WORKED AND WAS STILL REVERTED — READ BEFORE RE-TRYING.~~
 Shipped as both halves (drop `registered = false` from `registration()`; refresh at 45 s not 60 s,
 because the refresh counts from `msLastRegisterRequest` when we ASKED and expiry from
 `msLastRegistered` when the proxy ANSWERED, so a 60 s period put the 200 OK on the exact instant
@@ -978,7 +1042,12 @@ keypress goes missing. **The level was never the problem, the SWITCHING was — 
 hard.** If revisited: raise the clock somewhere that is NOT the input path, and MEASURE the saving
 first (never quantified; the backlight likely dominates screen-on draw).
 
-⚠ **SIP REGISTRATION FLAPS ONCE PER REFRESH — CAUSE FOUND, FIX NOT SHIPPED.** `REGISTERED -> lost
+✅ **SUPERSEDED 2026-08-26: THE FIX IS SHIPPED** (3d9f329, 08-24) and measured — see the
+0.9.21 block at the top. ⚠ This paragraph said "FIX NOT SHIPPED" for two days after it shipped;
+it is the third copy of that stale claim found, after tinySIP.h:624 and MEMORY.md, and it is why
+0.9.21's sweep is itself an example of the bug it was fixing: **both of those were corrected BY
+NAME and nobody grepped this file.** Original wording:
+~~SIP REGISTRATION FLAPS ONCE PER REFRESH — CAUSE FOUND, FIX NOT SHIPPED.~~ `REGISTERED -> lost
 -> REGISTERED` every cycle, since the initial commit, invisible until the line was promoted to
 log_e. 🔑 NOT the period: `registration()` clears `registered` on EVERY refresh (tinySIP.cpp:1288)
 and restores it when the 200 OK lands, so the phone declares itself unregistered for one round

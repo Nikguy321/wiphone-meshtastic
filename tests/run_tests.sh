@@ -93,19 +93,12 @@ for src in tests/test_*.cpp; do
 done
 
 # ── SOURCE GUARD: no menu row may be added with a key of 0 ────────────────────────────────
-# MenuWidget::addOption() REFUSES a key of 0 — it logs and adds no row — so `addOption(text,
-# 0, 1)` is not "an inert row", it is no row. Photos lost every message it ever tried to show
-# that way (0.9.18) and Books/Files/Music were still doing it a day later (0.9.19), with the
-# comment `key 0 = inert` sitting next to one of them. This is a grep rather than a unit test
-# because the fault is in what the source SAYS, not in what any function returns: the wrong
-# spelling compiles, links, runs, and silently shows nothing. Use MenuWidget::addNote().
+# See tests/check_menu_keys.py. It replaced a one-line `git grep` that would NOT have caught
+# the bug it was written for: the original fault passed a NAMED CONSTANT (ROW_INERT = 0), and
+# the grep needed a literal zero on the same line as `addOption(`.
 echo "checking for menu rows with a key of 0"
-if git grep -nE 'addOption\(.*,[[:space:]]*0[[:space:]]*,' -- 'WiPhone/*.cpp' \
-     | grep -v 'iconSize\|iconSelSize' ; then
-  echo "  FAIL: the rows listed above will never appear - use addNote() for a display-only row"
+if ! python3 tests/check_menu_keys.py; then
   fail=1
-else
-  echo "  ok  no addOption(..., 0, ...) call sites"
 fi
 
 exit "$fail"

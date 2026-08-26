@@ -600,7 +600,13 @@ bool MeshtasticService::resolveReference(int32_t* latI, int32_t* lonI,
    * distance line — and a receiver that is off, or has never fixed, returns
    * false so nothing is drawn at all. */
   if (refWaypointId == MESH_REF_GPS) {
-    if (!gpsEnabled || gpsFixMs == 0) {
+    /* 🛑 THE FIX-QUALITY GATE BELONGS HERE TOO, AND FOR THE REASON WRITTEN FOUR LINES ABOVE.
+     * meshPosFixUsable() had exactly ONE production caller — the TRANSMIT path — under a
+     * measured note that a `sats=3 hdop=6.4` fix was TWENTY KILOMETRES WRONG. So the phone
+     * refused to put that fix on the air and then computed every distance and bearing on your
+     * own screen from it. "A confident wrong answer, and in the woods that is worse than no
+     * answer" is this function's own argument against what it was doing. */
+    if (!gpsEnabled || gpsFixMs == 0 || !meshPosFixUsable(gpsSats, gpsHdopX10)) {
       return false;
     }
     const uint32_t age = (uint32_t)(millis() - gpsFixMs);
@@ -623,8 +629,8 @@ bool MeshtasticService::resolveReference(int32_t* latI, int32_t* lonI,
    * upgraded phone is in. Unchanged apart from the gpsEnabled term: without it
    * this answered "GPS" for up to MESH_GPS_FRESH_MS after the receiver was
    * switched off, because nothing told the service the toggle had moved. */
-  if (gpsEnabled && gpsFixMs != 0 &&
-      (uint32_t)(millis() - gpsFixMs) < MESH_GPS_FRESH_MS) {
+  if (gpsEnabled && gpsFixMs != 0 && meshPosFixUsable(gpsSats, gpsHdopX10) &&
+      (uint32_t)(millis() - gpsFixMs) < MESH_GPS_FRESH_MS) {   // same gate; falls through to the pin
     if (latI) *latI = gpsLatI;
     if (lonI) *lonI = gpsLonI;
     if (name) strlcpy(name, "GPS", nameCap);
@@ -735,8 +741,18 @@ bool MeshtasticService::sendPositionOn(int32_t latI, int32_t lonI,
     return false;
   }
   uint8_t pos[16];
+  /* 🛑 getExactUtcTime(), NOT getExactUnixTime(). This timestamp GOES ON THE AIR — meshPosBuild
+   * writes it into Position field 4, COVEY reads it verbatim and renders `time.time() - ts`.
+   * getExactUnixTime() is the LOCAL-shifted epoch (clock.h:77 adds timeOffsetSeconds, and
+   * WiPhone.ino:1479 loads `[time] zone` at boot; the shipped config is zone=-8), so every
+   * position this phone transmitted read **EIGHT HOURS STALE on COVEY's map**.
+   * ⚠ In the woods that is the difference between "he moved twenty minutes ago" and "that fix
+   * is from this morning" — and it is the same shift as the 7.7-hour-old position that was
+   * written up on 2026-08-25 as the phone being indoors.
+   * The identical trap was found and fixed in the replay path (see the note at the
+   * getExactUtcTime() call there); it was never swept to the other senders. */
   const size_t n = meshPosBuild(pos, latI, lonI,
-                                ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0);
+                                ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0);
   /* wantResponse and wantAck both false, like every other beacon here: a
    * periodic broadcast that also demanded replies is a mesh-wide storm. */
   const bool ok = meshTxData(myNodeNum, MESH_ADDR_BROADCAST_ONAIR, MESH_PORT_POSITION,
@@ -1481,7 +1497,10 @@ bool MeshtasticService::loop() {
    * with an unset clock could throw camp away at boot. */
   if (ntpClock.isTimeKnown() && (int32_t)(millis() - nextWpSweepMs) >= 0) {
     nextWpSweepMs = millis() + 60000;
-    uint32_t nowU = (uint32_t)ntpClock.getExactUnixTime();
+    /* UTC: MeshWaypoint::expire came off the air from COVEY and is real UTC, so comparing it
+     * against the local-shifted epoch made every pin outlive its own deadline by the timezone
+     * offset — eight hours here. */
+    uint32_t nowU = (uint32_t)ntpClock.getExactUtcTime();
     for (int i = waypointCount - 1; i >= 0; i--) {
       if (waypoints[i].expire != 0 && nowU > waypoints[i].expire) {
         log_e("MESH WAYPOINT: '%s' expired - removed", waypoints[i].name);
@@ -1871,7 +1890,7 @@ bool MeshtasticService::loop() {
            * recognised-by-prefix service traffic is not a chat message. */
           if (bookSyncIsSyncText(text)) {
             bookSyncInboxPush(text, hdr.sender,
-                              ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0);
+                              ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0);
             return false;
           }
           if (smsMirrorIsMirrorLine(text)) {
@@ -1945,7 +1964,7 @@ bool MeshtasticService::loop() {
          * badge out of it: nothing arrived that a person needs to read. */
         if (bookSyncIsSyncText(text)) {
           bookSyncInboxPush(text, hdr.sender,
-                            ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0);
+                            ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0);
           log_i("Mesh booksync packet from 0x%08X (%u parked)",
                 hdr.sender, (unsigned)bookSyncInboxCount());
           return false;
@@ -2084,7 +2103,7 @@ bool MeshtasticService::loop() {
            * than showing a stale pin). */
           else if (!wp.hasPos ||
                    (wp.expire != 0 && ntpClock.isTimeKnown() &&
-                    (uint32_t)ntpClock.getExactUnixTime() > wp.expire)) {
+                    (uint32_t)ntpClock.getExactUtcTime() > wp.expire)) {   // UTC: expire is COVEY's
             for (int i = 0; i < waypointCount; i++) {
               if (waypoints[i].id == wp.id) {
                 log_e("MESH WAYPOINT: '%s' removed%s", waypoints[i].name,
@@ -3279,7 +3298,15 @@ int MeshtasticService::applyChannelUrl(const char* url) {
     if (wire == 2) {
       uint32_t l = meshPbVarint(data, len, &i);
       const uint8_t* sub = data + i;
-      size_t sublen = (i + l <= (size_t)len) ? l : ((size_t)len - i);
+      /* 🛑 CLAMP BY SUBTRACTION, NEVER BY ADDITION. This was `(i + l <= (size_t)len) ? l : ...`
+       * and `i + l` is 32-bit arithmetic that WRAPS: a length varint of 0xFFFFFFFE (the bytes
+       * FE FF FF FF 0F) with i == 8 makes `i + l` == 6, which passes `<= len`, and sublen
+       * becomes 0xFFFFFFFE — then the loop below walks off a 256-byte STACK buffer.
+       * ⚠ Reachable from a message received over the air: app_meshtastic's "Apply link" hands
+       * a message's own text straight to this function.
+       * Every other protobuf walker in this repo already clamps the safe way — mesh_pos.cpp:63
+       * is `if (l > len - i) return false;` — and this one receive-side walker missed it. */
+      size_t sublen = (l > (size_t)len - i) ? ((size_t)len - i) : (size_t)l;
       if (field == 1) {
         const uint8_t* psk = NULL; size_t pskLen = 0;
         char cname[MESH_NAME_LEN] = {0};
@@ -3288,13 +3315,14 @@ int MeshtasticService::applyChannelUrl(const char* url) {
           uint8_t st = sub[j++]; int sf = st >> 3, sw = st & 7;
           if (sw == 2) {
             size_t jj = j; uint32_t sl = meshPbVarint(sub, sublen, &jj); j = jj;
-            const uint8_t* sv = sub + j; size_t svlen = (j + sl <= sublen) ? sl : (sublen - j);
+            // Same wrap, same clamp — see the note above.
+            const uint8_t* sv = sub + j; size_t svlen = (sl > sublen - j) ? (sublen - j) : (size_t)sl;
             if (sf == 2) { psk = sv; pskLen = svlen; }
             else if (sf == 3) {
               size_t nn = svlen < MESH_NAME_LEN - 1 ? svlen : MESH_NAME_LEN - 1;
               memcpy(cname, sv, nn); cname[nn] = '\0';
             }
-            j += sl;
+            j += svlen;          // the CLAMPED length: `sl` is attacker-chosen and unbounded
           } else if (sw == 0) { size_t jj = j; meshPbVarint(sub, sublen, &jj); j = jj; }
           else if (sw == 5) j += 4; else if (sw == 1) j += 8; else break;
         }
@@ -3304,7 +3332,7 @@ int MeshtasticService::applyChannelUrl(const char* url) {
           if (addChannel(cname, psk, (uint8_t)pskLen)) added++;
         }
       }
-      i += l;
+      i += sublen;               // the CLAMPED length; `l` is attacker-chosen and may wrap
     } else if (wire == 0) { meshPbVarint(data, len, &i); }
     else if (wire == 5) i += 4; else if (wire == 1) i += 8; else break;
   }

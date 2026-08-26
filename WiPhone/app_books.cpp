@@ -867,7 +867,10 @@ void BooksApp::savePosition(bool flush) {
   for (int i = 0; i < nIds; i++) {
     idp[i] = ids[i];
   }
-  uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0;
+  /* UTC: this becomes BookSyncRecord::turnedAt, which goes on the air and is compared against
+   * COVEY's own UTC stamps. The local-shifted epoch made this phone's page look eight hours
+   * old to COVEY, and made COVEY's look eight hours in the future to this phone. */
+  uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0;
   store->put(idp, nIds, (uint32_t)spine, pageStart, fractionHere(), now);
   if (flush) {
     store->saveIfDirty(&storeIo);
@@ -935,7 +938,7 @@ bool BooksApp::sendMyPlace() {
   for (int i = 0; i < nIds; i++) {
     idp[i] = ids[i];
   }
-  uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0;
+  uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0;   // UTC: goes on the air
 
   BookSyncRecord r;
   bookSyncMakeRecord(&r, idp, nIds, (uint32_t)spine, pageStart, fractionHere(),
@@ -969,7 +972,11 @@ void BooksApp::checkForPending() {
   bookSyncDeriveKey(syncPass, key);
   pendingIdx = bookSyncInboxFindFor(key, idp, nIds, &pending, &pendingFrom);
   if (pendingIdx >= 0) {
-    uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUnixTime() : 0;
+    /* 🛑 UTC. bookSyncSuspectClock() is `r->turnedAt > nowUnix + 300`, and r->turnedAt is
+     * COVEY's real UTC — so against the local-shifted epoch, ANY record COVEY turned in the
+     * last ~7.9 hours was painted "(their clock looks wrong)". The warning was almost always
+     * about our own arithmetic. */
+    uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0;
     pendingClock = now && bookSyncSuspectClock(&pending, now);
   }
 }

@@ -1,5 +1,106 @@
 # Changelog
 
+## 0.9.25 (2026-08-26) — a sweep for unswept fixes, and it found five
+
+A multi-agent hunt for the two shapes that cost a working day earlier today: **a fix applied
+where it was noticed and never swept**, and **a comment that outlived its change**. Every
+finding below was re-verified by hand against the source before anything was touched.
+
+### 🛑 1. Every timestamp this phone put on the air was eight hours wrong
+
+`clock.h:77` — `getExactUnixTime()` is `getExactUtcTime() + timeOffsetSeconds`, and
+`WiPhone.ino:1479` loads `[time] zone` at boot and applies it (shipped config: `zone=-8`).
+So that call returns the **LOCAL-shifted** epoch.
+
+That was swept in exactly one place. `meshtastic_service.cpp` already carried the note proving
+somebody measured it — *"getExactUtcTime, emphatically not getExactUnixTime … stamping it here
+put every replayed record 7 hours off"* — on the replay path. **Seven sibling sites still used
+the shifted clock, every one of them stamping or comparing a value that meets COVEY's real UTC:**
+
+| site | what it broke |
+|---|---|
+| the **GPS position beacon** | COVEY reads the Position's `time` field verbatim and renders `time.time() - ts`. **Every WiPhone position on COVEY's map read eight hours stale.** In the woods that is "he moved twenty minutes ago" versus "that fix is from this morning." |
+| booksync `turnedAt` (×3) | `bookSyncSuspectClock()` is `turnedAt > now + 300`. Against the shifted clock, **anything COVEY turned in the last ~7.9 h was painted "(their clock looks wrong)"** — the warning was about our own arithmetic. And this phone's page looked 8 h old to COVEY. |
+| waypoint expiry (×2) | `expire` is COVEY's UTC. A pin set to die in a day died a day **and eight hours** later. |
+| SMS-mirror freshness | the comment says "Ten minutes of slack"; the arithmetic made it **eight hours ten minutes**, so a full resync buzzed for everything under 8 h. |
+
+⚠ **This is very likely the "7.7-hour-old position" written up on 2026-08-25 and explained as
+the phone being indoors.** That explanation may have been mostly this bug. Worth re-reading that
+entry before trusting it.
+Left alone deliberately, all local-only: the SIP message store's load stamp, `myPinAtUnix`
+(never transmitted), and the two places that compute the offset *on purpose*.
+
+### 🛑 2. Use-after-free on two live SIP teardown paths
+
+`wifiTerminateCall()` and `rtpSilent()` each `delete` every dialog, `dialogs.clear()`, and then
+write `currentCall->terminated = 1;` — **through a pointer into what they just freed.**
+`currentCall` is only ever assigned from a `findCreateDialog()` result, and that function puts
+every dialog it returns into `dialogs`. It was **never set back to NULL anywhere in the file**,
+and `sip` is a file-scope global — so `isBusy()` went on reading `->terminated`, `->confirmed`
+and `->early` out of freed memory **on every superloop pass, for the rest of the session.**
+Both callers are ordinary: a WiFi drop mid-call, and an RTP silence timeout.
+The sibling `terminateCall()` opens with `if (!currentCall) … return TINY_SIP_ERR;` — it got it
+right and was not copied. Now: marked terminated *before* the delete, pointer dropped after,
+and the destructor drops it too.
+
+### 🛑 3. A received message could walk off a 256-byte stack buffer
+
+The channel-URL parser clamped with `(i + l <= (size_t)len)`. That is 32-bit arithmetic and it
+**wraps**: a length varint of `0xFFFFFFFE` with `i == 8` makes `i + l == 6`, which passes, and
+the walker then runs to `0xFFFFFFFE`. Every other protobuf walker in the repo clamps by
+subtraction (`if (l > len - i)`), which cannot wrap; this one receive-side walker missed it —
+and "Apply link" hands a received message's own text straight to it.
+Fixed by clamping the safe way in both the outer and inner loops, and advancing the cursors by
+the **clamped** length. **Verified on the handset**: the actual overflow payload
+(`chan Cv7___8P`) now returns "0 channel(s) added", channels intact, no crash.
+
+### 4. The GPS quality gate guarded the radio and not your own screen
+
+`meshPosFixUsable()` had exactly one caller: the **transmit** path, under a measured note that a
+`sats=3 hdop=6.4` fix was **20 km wrong**. `resolveReference()` never called it. So the phone
+refused to put a bad fix on the air and then computed every distance and bearing **on your
+screen** from it — against its own written argument that "a confident wrong answer, in the woods,
+is worse than no answer". The gate is now on both reference branches; a bad fix falls through to
+the manual pin.
+
+### 5. Screen settings was a third reader of the lock/dim/sleep keys, with the old defaults
+
+0.9.16/0.9.17 fixed the boot reader and the shipped config and called it "all three now agree".
+**`GUI.cpp`'s Screen-settings app is a fourth party and was never swept** — seven sites falling
+back to `0` (and `dim_level` to 100 against boot's 15). Save writes the widget values back, so
+**opening Screen settings on a config missing a key and pressing Save persisted `dimming=0`,
+`sleeping=0`, `lock_keyboard=0`** — and the lock rides on sleep, so that silently took the lock
+with it. Also `data/configs.ini` still shipped `lock_keyboard=0`, so any `pio run -t uploadfs`
+handed out a phone that never locks; `INTERNAL_FLASH.txt` documents it as `1`.
+
+### 6. The guard written to stop the key-0 bug recurring missed three of its four spellings
+
+The `git grep` added this morning would **not have caught the bug it was written for**. Checked
+against the real historical lines: it misses a **named constant** (`ROW_INERT = 0`, which is
+exactly what Photos had), a **wrapped call** (the `Channel 'booksync': MISSING` row had its
+`, 0, 1);` on a continuation line), and the **two-argument form** (`style` defaults to 1).
+Replaced with `tests/check_menu_keys.py`, which joins continuations, accepts both terminators,
+and resolves an identifier key against enum/`#define`/`const` zeros in the same file. Proven
+against all three previously-missed spellings, with no false positives, tree clean.
+
+### 7. Two more copies of the SIP-flap myth, in the file 0.9.21 was written to purge
+
+0.9.21 corrected `tinySIP.h:624` and MEMORY.md **by name and never grepped `docs/HANDOFF.md`** —
+so that release is itself an instance of the bug it was fixing. Two copies survived, and the
+worse one is headed **"READ BEFORE RE-TRYING"** and concludes *"THE LESSON: THE FLAP WAS
+LOAD-BEARING"* — an instruction to a future session not to re-apply a fix that is shipped,
+measured and working. Both marked superseded.
+
+### Found and deliberately NOT shipped
+
+- **`WiPhone.ino:3202` is `gui.state.sipState == CallState::NotInited;`** — a comparison whose
+  result is discarded where an assignment was meant, present since the initial commit, so the
+  SIP re-init after a network-loss teardown **has never once run**. One character. ⚠ Changing it
+  turns on a path with no history at all, and that wants a real account and a real call to
+  bench, with Nick present.
+- **Music never pauses for a second call.** The pause is edge-triggered on `sipCallActive()`,
+  which counts `HangUp` — measured at 19+ minutes in this repo — so while parked there an
+  incoming INVITE produces no rising edge and the codec is never released.
 ## 0.9.22 (2026-08-26) — the rename field had no way to delete a character
 
 The last screen in the Photos app that nobody had ever driven, driven at last — and it shipped

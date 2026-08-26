@@ -6447,12 +6447,22 @@ ScreenConfigApp::ScreenConfigApp(LCD& lcd, ControlState& state, HeaderWidget* he
   yOff += this->errorLabel->height();
 
   // Populate form
-  lockingChoice->setValue((bool) ini["lock"].getIntValueSafe("lock_keyboard", 0));
-  dimmingChoice->setValue((bool) ini["screen"].getIntValueSafe("dimming", 0));
-  sleepingChoice->setValue((bool) ini["screen"].getIntValueSafe("sleeping", 0));
+  /* 🛑 THESE DEFAULTS ARE THE BOOT LOADER'S, AND THEY DID NOT USED TO BE.
+   *
+   * WiPhone.ino:1492/1495/1517 fall back to 1/1/1 (and dim_level to 15) for a MISSING key.
+   * This screen is a THIRD reader of the same keys and still fell back to 0/0/0 and 100 —
+   * and Save at the bottom writes the widget values back, so opening Screen settings on a
+   * config missing one of these keys and pressing Save PERSISTED dimming=0, sleeping=0,
+   * lock_keyboard=0. The lock rides on sleep (GUI.cpp:1216 sets `locked` inside
+   * SCREEN_SLEEP_EVENT), so turning sleep off silently took the lock with it.
+   * The 0.9.16/0.9.17 work fixed the boot reader and the shipped config and called it
+   * "all three now agree" — this reader was never swept. */
+  lockingChoice->setValue((bool) ini["lock"].getIntValueSafe("lock_keyboard", 1));
+  dimmingChoice->setValue((bool) ini["screen"].getIntValueSafe("dimming", 1));
+  sleepingChoice->setValue((bool) ini["screen"].getIntValueSafe("sleeping", 1));
 
   brightLevelSlider->setValue(ini["screen"].getIntValueSafe("bright_level", 100));
-  dimLevelSlider->setValue(ini["screen"].getIntValueSafe("dim_level", 100));
+  dimLevelSlider->setValue(ini["screen"].getIntValueSafe("dim_level", 15));
 
   dimAfterInput->setText(ini["screen"].getValueSafe("dim_after_s", ""));
   sleepAfterInput->setText(ini["screen"].getValueSafe("sleep_after_s", ""));
@@ -6586,11 +6596,11 @@ appEventResult ScreenConfigApp::processEvent(EventType event) {
 #endif // GPIO_EXTENDER == 1509
 
     // - restore other variables
-    controlState.dimLevel = ini["screen"].getIntValueSafe("dim_level", 100);
+    controlState.dimLevel = ini["screen"].getIntValueSafe("dim_level", 15);
     controlState.dimAfterMs = ini["screen"].getIntValueSafe("dim_after_s", 20)*1000;
     controlState.sleepAfterMs = ini["screen"].getIntValueSafe("sleep_after_s", 30)*1000;
-    controlState.dimming = (bool)ini["screen"].getIntValueSafe("dimming", 0);
-    controlState.sleeping = (bool)ini["screen"].getIntValueSafe("sleeping", 0);
+    controlState.dimming = (bool)ini["screen"].getIntValueSafe("dimming", 1);
+    controlState.sleeping = (bool)ini["screen"].getIntValueSafe("sleeping", 1);
 
     quit = true;
 

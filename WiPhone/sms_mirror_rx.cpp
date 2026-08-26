@@ -147,7 +147,10 @@ int smsMirrorIngestLine(const char* line, bool* wasIncoming) {
     s_newStored = true;
     if (!rec.out) {
       const bool recent = !ntpClock.isTimeKnown() || rec.ts == 0 ||
-                          (int64_t)ntpClock.getExactUnixTime() - (int64_t)rec.ts < 600;
+                          /* UTC: rec.ts is COVEY's real UTC stamp. Against the local-shifted
+                           * epoch the "ten minutes of slack" above was really EIGHT HOURS ten
+                           * minutes, so a full resync buzzed for everything under 8 h. */
+                          (int64_t)ntpClock.getExactUtcTime() - (int64_t)rec.ts < 600;
       if (recent) {
         s_newInbound = true;
       }
