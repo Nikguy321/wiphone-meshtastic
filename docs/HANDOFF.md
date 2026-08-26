@@ -208,6 +208,38 @@ it refused) and `wallpaper reload | list | clear | set <name>` — `set` runs **
 - [ ] ⚠ **`/photos/20260823_093939.jpg` on phone 2 is 0 bytes** — a failed upload. Photos lists
       it and cannot open it. Small, and its own job.
 
+### ✅ CLOSED 2026-08-25 — "PHONE 2 NEVER LOCKS" (0.9.16). IT WAS LOCKING; THE FIRST KEY UNDID IT
+
+Nick: *"whiphone two doesn't like its screen to lock ever… I just don't want to be accidentally
+pushing buttons while it is in a bag."* **Root-caused, fixed, both phones flashed, before/after
+proven with the same script.**
+
+🔑 **`GUI::inCall()` said "yes" for TEARDOWN.** It tested `not NotInited/Idle/Error`, which is
+true for `HangUp`, `HangingUp`, `HungUp` and `Decline`. Its one caller is the unlock path, which
+reads that as "a call is coming in, let any key answer it" and clears `locked`.
+
+🛑 **One press of END unlocks a locked phone — on BOTH phones.** END sets `HangUp` from anywhere
+with no call needed, *before* the same press reaches the unlock check. 🛑 **And with a SIP
+account, EVERY key unlocks for as long as SIP sits in teardown** — measured in this repo at 19
+min and SIX HOURS at `sip=6` when the proxy is unreachable. **That is the phone-2-vs-phone-1
+difference: phone 2 has an account (registered to voip.ms), phone 1 has none.**
+
+Fixed by making `inCall()` mean live-or-ringing, using the SAME set `sipNeedsFullSpeed()` and
+the WiFi auto-switch gate already use — ⚠ **the third guard here to need this correction**.
+Answering a ringing phone on any key still works (`BeingInvited` is in the set).
+
+⚠ **`lock` on the console is the new diagnostic** and it prints the SLEEP gate on purpose: the
+lock is not its own timer, it fires inside `SCREEN_SLEEP_EVENT`, so a phone that dims but never
+sleeps never locks either — two causes, one symptom.
+
+- [ ] ⚠ **Loaded, not fired:** `lock_keyboard` defaults to **0** when a `[lock]` section exists
+      without the key, while a missing SECTION defaults to 1 (`WiPhone.ino`). Same disagreement
+      that shipped a phone which never dimmed or slept (2026-08-22 audit). Both phones read 1
+      today, so it was not this bug — but it is a live landmine.
+- [ ] 🔎 **Not verified by machine: answering a REAL incoming call from the lock screen.** The
+      set is the same one two other guards use and `BeingInvited` is in it, but no call has been
+      placed to a locked phone. Fold this into the existing "ring the phone" task below.
+
 ### ✅ CLOSED 2026-08-25 — MENU CONTRAST OVER A WALLPAPER (0.9.14)
 
 Nick, right after the wallpaper fix: *"the menus have no contrast… can the menu items have a

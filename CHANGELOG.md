@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.9.16 (2026-08-25) — the screen lock was being thrown away by the first button press
+
+Nick: *"whiphone two doesn't like its screen to lock ever (even when set to do so in screen
+config). phone 1 works like normal… I just don't want to be accidentally pushing buttons while
+it is in a bag."*
+
+- 🔑 **THE PHONE WAS LOCKING. THE FIRST KEY PRESS WAS THROWING THE LOCK AWAY.** `GUI::inCall()`
+  answered "yes, we are in a call" for **any** SIP state that was not `NotInited`, `Idle` or
+  `Error` — which includes `HangUp`, `HangingUp`, `HungUp` and `Decline`, none of which is a
+  call. Its only caller is the unlock path, which reads it as *"a call is coming in, let any key
+  answer it"* and clears `locked` on the spot.
+- 🛑 **ONE PRESS OF END UNLOCKS A LOCKED PHONE — reproduced on BOTH phones.** END sets `HangUp`
+  from anywhere with no call needed, and it does so **before the same keypress reaches the
+  unlock check** — so the press that makes `inCall()` true is the press that gets the free
+  unlock. END is the red key. A bag presses it.
+- 🛑 **And on a phone with a SIP account, EVERY key unlocks for as long as SIP sits in
+  teardown.** Those states *stick* when the proxy is unreachable, and this repo had already
+  measured it twice: **19 minutes** (2026-08-15, car log) and **SIX HOURS** (2026-08-20) at
+  `sip=6`. Reproduced here by dropping WiFi and pressing END. **That is the whole phone-2
+  -versus-phone-1 difference: phone 2 has a SIP account loaded and registered, phone 1 has
+  none** — so phone 1 only ever had the single-END-press window, and phone 2 spent real time
+  with no working lock at all.
+- **Fixed:** `inCall()` now means a genuinely live or ringing call — `InvitingCallee`,
+  `InvitedCallee`, `RemoteRinging`, `Call`, `BeingInvited`, `Accept`. ⚠ **Answering a ringing
+  phone on any key still works**, because `BeingInvited` is in the set; that is the case the
+  shortcut existed for. What is gone is the free unlock for hanging up, having hung up, and
+  declining.
+- ⚠ **THIS IS THE THIRD GUARD IN THIS CODEBASE TO NEED THE SAME CORRECTION**, and the set used
+  is deliberately identical to the two that were already fixed — `sipNeedsFullSpeed()` ("includes
+  HangUp/HangingUp: teardown, and they stick") and the WiFi auto-switch gate. A fourth spelling
+  of "in a call" is how they drift apart.
+- **Proven before and after, on both phones, with the same script:** idle 80 s → `locked=yes`;
+  press END → **was `locked=no`, is now `locked=yes`**; `OK` then `*` → `locked=no`. The
+  legitimate two-key unlock is untouched.
+- 🔬 **NEW: `lock` on the console** — the setting, the sleep gate it depends on, the SIP state,
+  and what is actually on the card. It prints the sleep gate because **the lock is not its own
+  timer**: it fires inside `SCREEN_SLEEP_EVENT`, so a phone that dims but never sleeps never
+  locks either, and the dimming makes the timeout look like it is working. Two different causes,
+  one symptom.
+- ⚠ **Noticed while measuring, not fixed:** `lock_keyboard` defaults to **0** when a `[lock]`
+  section exists without the key, while a missing *section* defaults to 1. That is the same
+  disagreement that shipped a phone which never dimmed and never slept (2026-08-22 battery
+  audit). Both phones here have `lock_keyboard=1`, so it was not the cause — but it is still
+  loaded.
+
 ## 0.9.15 (2026-08-25) — the clock face gets the same treatment, and the phone can name its own build
 
 - **The clock face now scrims its text**, at Nick's choice when asked. `00:00`, the date /

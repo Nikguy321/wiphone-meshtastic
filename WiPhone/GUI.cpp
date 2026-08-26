@@ -1893,11 +1893,47 @@ void GUI::exitCall() {
   }
 }
 
+/* ── IS A CALL GENUINELY LIVE OR RINGING? ─────────────────────────────────────────────────
+ *
+ * 🛑 THIS ANSWERED "YES" FOR TEARDOWN, AND IT SILENTLY DISABLED THE SCREEN LOCK. Its one
+ * caller is the unlock path (processEvent), which reads it as "a call is coming in, so let any
+ * key answer it" and clears `locked` on the spot. The old test was `not NotInited/Idle/Error`,
+ * which is true for HangUp, HangingUp, HungUp and Decline as well — none of which is a call.
+ *
+ * Two consequences, both reproduced on both phones 2026-08-25:
+ *   1. **One press of END unlocks a locked phone.** END sets HangUp from anywhere with no call
+ *      needed (WiPhone.ino, in the key handler) and it does so BEFORE the same keypress reaches
+ *      this check — so the press that makes inCall() true is the press that gets the free
+ *      unlock. END is the red key, and a bag presses it.
+ *   2. **While SIP is parked in HangUp/HangingUp, EVERY key unlocks.** Those states STICK when
+ *      the proxy is unreachable — this repo has measured 19 minutes (2026-08-15) and SIX HOURS
+ *      (2026-08-20) at sip=6. A phone with a SIP account therefore spends real time with no
+ *      working lock at all, which is exactly what Nick saw: *"whiphone two doesn't like its
+ *      screen to lock ever… I just don't want to be accidentally pushing buttons while it is
+ *      in a bag."* The phone WAS locking; the first button press was throwing it away.
+ *
+ * ⚠ THIS IS THE THIRD GUARD IN THIS CODEBASE TO GET THE SAME CORRECTION, and the other two say
+ * so in their own comments: `sipNeedsFullSpeed()` ("includes HangUp/HangingUp: teardown, and
+ * they stick") and the WiFi auto-switch gate ("HangUp and HangingUp are deliberately NOT
+ * blocking states"). The set below is deliberately the SAME set those two use — a fourth
+ * spelling of "in a call" is how they drift apart.
+ *
+ * ⚠ ANSWERING A RINGING PHONE STILL WORKS ON ANY KEY: BeingInvited is in the set, and that is
+ * the case the shortcut existed for. What is no longer in it is hanging up, having hung up,
+ * and declining.
+ */
 bool GUI::inCall() {
-  log_d("SIP STATE: ");
-  showCallState(state.sipState);
-  log_d("");
-  return !(state.sipState == CallState::NotInited || state.sipState == CallState::Idle || state.sipState == CallState::Error );
+  switch (state.sipState) {
+  case CallState::InvitingCallee:
+  case CallState::InvitedCallee:
+  case CallState::RemoteRinging:
+  case CallState::Call:
+  case CallState::BeingInvited:
+  case CallState::Accept:
+    return true;               // a live or imminent audio session
+  default:
+    return false;              // idle, error, and every teardown state
+  }
 }
 
 /* ── WHICH APP FRAGMENTS THE INTERNAL HEAP? ───────────────────────────────────────────

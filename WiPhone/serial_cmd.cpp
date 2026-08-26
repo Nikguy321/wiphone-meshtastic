@@ -4,6 +4,7 @@
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
 #include "app_photos.h"      // photosSetWallpaper, the `wallpaper set` command
 #include "config.h"          // WIPHONE_KEY_*, the `key` command
+#include "Storage.h"         // CriticalFile / ConfigsFile, the `lock` command
 
 /* Defined in WiPhone.ino next to keypadBuff — see the note there on why this is a real press. */
 extern bool uiInjectKey(char c);
@@ -109,6 +110,7 @@ static void help() {
     "  gps baud <n>  GPS baud, persists (115200 = the M100 Mini, measured; not 9600)",
     "  gps raw    hex+ASCII of the last bytes off the wire - tells wrong-baud from binary",
     "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
+    "  lock       why the screen does or does not lock: setting, sleep gate, and the card",
     "  ver        firmware version and build time of the binary actually running",
     "  scrim [<alpha> [hex]]  the grey plate under menu text over a wallpaper (RAM only)",
     "  shot       dump the live screen as base64 (tools/shot.py turns it into a PNG)",
@@ -977,6 +979,62 @@ static void run(char* line) {
       if (c) {
         say("  [%d] '%s' keyLen=%d\n", i, c->name, (int)c->keyLen);
       }
+    }
+    return;
+  }
+
+  /* `lock` — why the screen does or does not lock, in one paste.
+   *
+   * 🔑 THE LOCK IS NOT ITS OWN TIMER. It happens INSIDE the SCREEN_SLEEP_EVENT branch
+   * (GUI.cpp, processEvent), so it needs BOTH `locking` and a screen that actually sleeps —
+   * `doSleeping()` is `sleeping && 0 < sleepAfterMs <= 86400000`. A phone that dims but never
+   * sleeps therefore never locks either, and the dimming makes it look like the timeout is
+   * working. That is two different reasons for one symptom, so this prints both, plus what is
+   * on the CARD as against what is in RAM — a setting that saved and a setting that loaded are
+   * not the same claim.
+   *
+   * ⚠ `lock_keyboard` DEFAULTS TO 0 WHEN THE [lock] SECTION EXISTS but the key does not, while
+   * a missing SECTION defaults to 1 (WiPhone.ino). The same disagreement in [screen] shipped a
+   * phone that never dimmed and never slept — see the 2026-08-22 battery audit. */
+  if (!strcasecmp(line, "lock")) {
+    extern GUI gui;
+    ControlState& st = gui.state;
+    say("lock: locking=%s  locked=%s  (locking is the SETTING, locked is right now)\n",
+        st.locking ? "ON" : "OFF", st.locked ? "yes" : "no");
+    say("  sleep: sleeping=%s after=%lus -> doSleeping()=%s\n",
+        st.sleeping ? "ON" : "OFF", (unsigned long)(st.sleepAfterMs / 1000),
+        st.doSleeping() ? "YES" : "NO  <-- nothing can lock without this");
+    say("  dim:   dimming=%s after=%lus level=%d  (dimming alone never locks)\n",
+        st.dimming ? "ON" : "OFF", (unsigned long)(st.dimAfterMs / 1000), (int)st.dimLevel);
+    /* ⚠ THE SIP STATE IS PART OF THE LOCK, and that is not obvious from anywhere else.
+     * While inCall() is true the unlock path clears `locked` on ANY key — so a phone parked
+     * in a teardown state has no working lock. See GUI::inCall(). */
+    say("  sip:   state=%d  inCall()=%s%s\n", (int)st.sipState,
+        gui.inCall() ? "YES" : "no",
+        gui.inCall() ? "  <-- ANY key unlocks while this is YES" : "");
+
+    CriticalFile ini(Storage::ConfigsFile);
+    if (!ini.load() && !ini.restore()) {
+      say("  card:  %s WILL NOT LOAD - the phone is running on built-in defaults\n",
+          Storage::ConfigsFile);
+      return;
+    }
+    if (!ini.hasSection("lock")) {
+      say("  card:  [lock] section ABSENT -> boot defaults locking ON\n");
+    } else {
+      const int32_t v = ini["lock"].getIntValueSafe("lock_keyboard", -1);
+      say("  card:  [lock] lock_keyboard = %s%s\n",
+          v < 0 ? "(key MISSING)" : (v ? "1" : "0"),
+          v < 0 ? "  <-- section present but key absent: boot reads this as OFF" : "");
+    }
+    if (!ini.hasSection("screen")) {
+      say("  card:  [screen] section ABSENT -> boot defaults dim+sleep ON\n");
+    } else {
+      say("  card:  [screen] sleeping=%d sleep_after_s=%d dimming=%d dim_after_s=%d\n",
+          (int)ini["screen"].getIntValueSafe("sleeping", -1),
+          (int)ini["screen"].getIntValueSafe("sleep_after_s", -1),
+          (int)ini["screen"].getIntValueSafe("dimming", -1),
+          (int)ini["screen"].getIntValueSafe("dim_after_s", -1));
     }
     return;
   }
