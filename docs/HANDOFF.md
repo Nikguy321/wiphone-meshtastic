@@ -87,6 +87,15 @@ LOAD-BEARING", which is an instruction not to re-apply a fix that is shipped and
       this Arduino core** — `grep CONFIG_PM` over its `sdkconfig.h` returns **0 entries**, so
       the call would answer `ESP_ERR_NOT_SUPPORTED`. Enabling it means rebuilding the IDF.
 
+      🔑 **NEW 2026-08-26, AND IT NARROWS THE FAULT A LOT: 160 MHz IDLE SURVIVES.** Same rig,
+      idle target changed from 80 to 160: the downclock FIRED (`CPU 160MHz`) and the
+      association **held for the full 5 minutes with the screen asleep** — 28 healthy ticks,
+      SIP registered. So it is **not "any frequency change" and not the screen** — it is 80 MHz
+      specifically. ⚠ One run only; repeat before leaning on it.
+      **That makes a 160 MHz idle a real interim** — most of the saving, no WiFi loss, one
+      constant changed — but it is NOT what Nick asked for (he wants 80), so it is recorded as
+      a fallback, not applied.
+
       **The direction that fits the constraint is RECOVER, NOT PREVENT.** Keep the downclock;
       detect the drop and hard re-init the radio at once. Note from the captures that a plain
       reconnect is probably not enough — after the drop, scans return `n=0`, which looks like a
