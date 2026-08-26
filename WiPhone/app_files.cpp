@@ -153,7 +153,7 @@ void FilesApp::buildBrowse() {
   header->setTitle(headerTitle);
 
   if (note[0]) {
-    menu->addOption(note, 0, 1);       // one-line result of the last operation; key 0 = inert
+    menu->addNote(note);               // one-line result of the last operation
   }
   if (s_clipSrc[0]) {
     char prow[96];
@@ -179,7 +179,7 @@ void FilesApp::buildBrowse() {
     menu->addOption(label, (MenuOption::keyType)(ROW_FIRST + i), 1);
   }
   if (truncated) {
-    menu->addOption("(more files not listed)", 0, 1);
+    menu->addNote("(more files not listed)");
   }
 }
 
@@ -506,6 +506,12 @@ appEventResult FilesApp::processEvent(EventType event) {
     menu->processEvent(event);
     if (LOGIC_BUTTON_OK(event)) {
       MenuOption::keyType sel = menu->readChosen();
+      /* ⚠ BEFORE the `sel >= ROW_FIRST` test below, not after: MENU_ROW_NOTE minus ROW_FIRST
+       * underflows and casts to a NEGATIVE idx, which passes `idx < entryCount` and indexes
+       * `entries` out of bounds. A display-only row does nothing. */
+      if (sel == MENU_ROW_NOTE) {
+        return REDRAW_SCREEN;
+      }
       if (sel == ROW_UPLOAD) {
         startUpload();
         return REDRAW_ALL;

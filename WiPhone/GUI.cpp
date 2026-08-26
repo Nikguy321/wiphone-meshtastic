@@ -13250,6 +13250,10 @@ void MenuWidget::addOption(const char* title) {
   this->addOption(title, options.size()+1, 1);
 }
 
+void MenuWidget::addNote(const char* title, uint16_t style) {
+  this->addOption(title, MENU_ROW_NOTE, style);
+}
+
 void MenuWidget::addOption(const char* title, MenuOption::keyType key, uint16_t style) {
   if (key) {
     MenuOption* option = new MenuOption(key, style, title);
@@ -13257,7 +13261,10 @@ void MenuWidget::addOption(const char* title, MenuOption::keyType key, uint16_t 
       delete option;
     }
   } else {
-    log_e("menu option key is 0");
+    /* Naming the fix in the message: this log line was on the phone for the whole time the
+     * Photos, Books, Files and Music result rows were silently missing, and by itself it told
+     * nobody what to do about it. */
+    log_e("menu option key is 0 - row DROPPED, not added. For a display-only row use addNote()");
   }
 }
 

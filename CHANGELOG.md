@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.9.20 (2026-08-26) — the rest of the menus were dropping their rows too
+
+0.9.18 fixed `addOption(text, 0, ...)` in Photos. **It was never swept.** Eight more call sites
+were still passing 0 in Books, Files and Music, so those rows have never once appeared:
+
+| where | what nobody has ever seen |
+|---|---|
+| `app_books.cpp:525,528` | "(no books yet - add some)", and *why* a book would not open |
+| `app_books.cpp:1512` | what the last booksync send did, good or bad |
+| `app_books.cpp:1657,1659` | "Channel 'booksync': **MISSING**", "Parked positions: N" |
+| `app_files.cpp:156,182` | the result of the last file operation; "(more files not listed)" |
+| `app_music.cpp:89,93` | "(no music yet)", and *why* a track would not decode |
+
+⚠ `app_files.cpp:156` carried the comment **`key 0 = inert`** — the exact false belief 0.9.18
+was written to kill, still sitting one file over. That is what an unswept fix looks like.
+
+- **`MenuWidget::addNote()`** now exists so there is one correct way to add a display-only row
+  and the wrong way has something to point at. The refusal message names it:
+  `menu option key is 0 - row DROPPED, not added. For a display-only row use addNote()`.
+- 🛑 **A NOTE ROW IS SELECTABLE, AND A RANGE TEST WILL EAT IT.** `MENU_ROW_NOTE` is
+  `0xFFFFFF01`, and screens that test `sel >= ROW_FIRST` compute `(int)(sel - ROW_FIRST)` —
+  which **underflows to a NEGATIVE index and sails straight through `idx < entryCount`**, then
+  reads off the front of the array. Files, Books and Music each reject `MENU_ROW_NOTE`
+  explicitly *before* their range test. This is why the note key is not simply "some number
+  above the action base".
+- **A source guard in `tests/run_tests.sh`** fails the suite on any new
+  `addOption(..., 0, ...)`. A grep and not a unit test on purpose: the wrong spelling compiles,
+  links, runs and silently shows nothing, so there is no return value to assert on.
+- **Verified on the handset**: marking a file for copy in Files now shows
+  **"Copy marked - open a folder an.."** as the first row — a line that had never rendered.
+  OK pressed on it three times: nothing happens, no crash, screen unchanged.
+
+### Chat history: the round trip that 0.9.19 still owed
+
+With Nick's go-ahead, one text on the private hunt-group channel, end to end:
+
+- phone 1 `send 2 persist-check 0826` -> `MESH RECEIPT: 'persist-check 0826' -> in mesh`;
+  msgs 26 -> 27 and `/meshdb.bin` on the card 9272 -> 9680 bytes.
+- **phone 1 rebooted: the message is still in the thread.**
+- **phone 2 received it over the air and it survived phone 2's reboot too** — `loaded from SD
+  at boot`, 1 msg, its card file 1704 -> 2032 bytes. That is the incoming direction, which is
+  the one that matters: phone 2 is the phone that had been losing everything.
+
 ## 0.9.19 (2026-08-26) — the phone read the chat history from one filesystem and wrote it to the other
 
 Nick: *"after rebooting I lose the chat history in meshtastic chats on the wiphone's."* He was

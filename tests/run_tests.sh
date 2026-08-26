@@ -92,4 +92,20 @@ for src in tests/test_*.cpp; do
   fi
 done
 
+# ── SOURCE GUARD: no menu row may be added with a key of 0 ────────────────────────────────
+# MenuWidget::addOption() REFUSES a key of 0 — it logs and adds no row — so `addOption(text,
+# 0, 1)` is not "an inert row", it is no row. Photos lost every message it ever tried to show
+# that way (0.9.18) and Books/Files/Music were still doing it a day later (0.9.19), with the
+# comment `key 0 = inert` sitting next to one of them. This is a grep rather than a unit test
+# because the fault is in what the source SAYS, not in what any function returns: the wrong
+# spelling compiles, links, runs, and silently shows nothing. Use MenuWidget::addNote().
+echo "checking for menu rows with a key of 0"
+if git grep -nE 'addOption\(.*,[[:space:]]*0[[:space:]]*,' -- 'WiPhone/*.cpp' \
+     | grep -v 'iconSize\|iconSelSize' ; then
+  echo "  FAIL: the rows listed above will never appear - use addNote() for a display-only row"
+  fail=1
+else
+  echo "  ok  no addOption(..., 0, ...) call sites"
+fi
+
 exit "$fail"

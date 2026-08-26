@@ -522,10 +522,10 @@ void BooksApp::buildLibrary() {
   }
 
   if (bookCount == 0) {
-    menu->addOption("(no books yet - add some)", 0, 1);
+    menu->addNote("(no books yet - add some)");
   }
   if (libNote[0]) {
-    menu->addOption(libNote, 0, 1);      // e.g. a book that would not open
+    menu->addNote(libNote);              // e.g. a book that would not open
   }
 }
 
@@ -1509,7 +1509,7 @@ void BooksApp::buildMenu() {
   menu->addOption("Book info", BOOKS_MENU_INFO, 1);
   menu->addOption("Close book", BOOKS_MENU_CLOSE, 1);
   if (syncNote[0]) {
-    menu->addOption(syncNote, 0, 1);       // what the last send did, good or bad
+    menu->addNote(syncNote);               // what the last send did, good or bad
   }
 }
 
@@ -1653,10 +1653,10 @@ void BooksApp::buildSyncSettings() {
       haveCh = true;
     }
   }
-  menu->addOption(haveCh ? "Channel 'booksync': found"
-                         : "Channel 'booksync': MISSING", 0, 1);
+  menu->addNote(haveCh ? "Channel 'booksync': found"
+                       : "Channel 'booksync': MISSING");
   snprintf(l, sizeof(l), "Parked positions: %d", bookSyncInboxCount());
-  menu->addOption(l, 0, 1);
+  menu->addNote(l);
 }
 
 appEventResult BooksApp::processEvent(EventType event) {
@@ -1669,6 +1669,9 @@ appEventResult BooksApp::processEvent(EventType event) {
     menu->processEvent(event);
     if (LOGIC_BUTTON_OK(event)) {
       MenuOption::keyType sel = menu->currentKey();
+      if (sel == MENU_ROW_NOTE) {          // "(no books yet)" / why a book would not open
+        return REDRAW_SCREEN;
+      }
       if (sel == BOOKS_ROW_ADD) {
         enterState(BOOKS_XFER);
         return REDRAW_ALL;

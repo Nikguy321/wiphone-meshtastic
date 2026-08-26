@@ -86,11 +86,11 @@ void MusicApp::buildLibrary() {
     }
   }
   if (n == 0) {
-    menu->addOption("(no music yet - add some)", 0, 1);
+    menu->addNote("(no music yet - add some)");
   }
   const char* err = musicPlayerError();
   if (err) {
-    menu->addOption(err, 0, 1);     // e.g. a track that would not decode
+    menu->addNote(err);             // e.g. a track that would not decode
   }
 }
 
@@ -368,6 +368,9 @@ appEventResult MusicApp::processEvent(EventType event) {
     menu->processEvent(event);
     if (LOGIC_BUTTON_OK(event)) {
       MenuOption::keyType sel = menu->currentKey();
+      if (sel == MENU_ROW_NOTE) {          // "(no music yet)" / why a track would not decode
+        return REDRAW_SCREEN;
+      }
       if (sel == MUSIC_ROW_NOW) {
         enterState(MUSIC_NOW);
         return REDRAW_ALL;

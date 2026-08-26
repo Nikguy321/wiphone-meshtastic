@@ -7,6 +7,48 @@ Read this first; everything below it is narrative. Repo clean at **0.9.19**.
 ✅ **Phone 2 was flashed to HEAD (`6c50d7d`) on 2026-08-25** — P5 is done, and it immediately
 turned up the bug below.
 
+### ✅ CLOSED 2026-08-26 — THE OTHER MENUS WERE DROPPING THEIR ROWS TOO (0.9.20)
+
+0.9.18 fixed `addOption(text, 0, …)` in Photos and **nobody swept for it.** Eight more sites in
+Books, Files and Music were still passing 0, so those rows had never once appeared: "(no books
+yet)", why a book would not open, what the last booksync send did, **"Channel 'booksync':
+MISSING"**, "Parked positions: N", the result of the last file operation, "(more files not
+listed)", "(no music yet)", and why a track would not decode.
+
+⚠ **`app_files.cpp:156` still carried the comment `key 0 = inert`** — the exact false belief
+0.9.18 was written to kill, sitting one file over from the fix. **That is what an unswept fix
+looks like, and it is the reason this entry exists.**
+
+**FIXED** with `MenuWidget::addNote()`, so there is one correct way to write a display-only row.
+The widget's refusal now names it: `menu option key is 0 - row DROPPED, not added. For a
+display-only row use addNote()`. 🛑 **`MENU_ROW_NOTE` is `0xFFFFFF01` and a range test will EAT
+it** — `(int)(sel - ROW_FIRST)` underflows to a NEGATIVE index that sails through
+`idx < entryCount` and reads off the front of the array, so Files, Books and Music each reject
+it explicitly *before* their range test. A `tests/run_tests.sh` source guard now fails the suite
+on any new `addOption(..., 0, ...)` — a grep, not a unit test, because the wrong spelling
+compiles, links, runs and shows nothing.
+
+✅ **VERIFIED ON THE HANDSET:** marking a file for copy in Files shows **"Copy marked - open a
+folder an.."** as its first row — a line that had never rendered. OK pressed on that row three
+times: nothing, no crash, screen unchanged.
+
+✅ **AND THE CHAT-HISTORY ROUND TRIP THAT 0.9.19 OWED IS NOW DONE**, with Nick's go-ahead for
+one transmission: phone 1 `send 2 persist-check 0826` → `MESH RECEIPT: … -> in mesh`, msgs
+26→27, card file 9272→9680 B; **phone 1 rebooted and the message is still in the thread**; and
+**phone 2 received it over the air and it survived phone 2's reboot too** (`loaded from SD at
+boot`, 1 msg, 1704→2032 B). The incoming direction is the one that matters — phone 2 is the
+phone that had been losing everything.
+
+✅ **BOTH PHONES ARE ON 0.9.20**, `built Aug 26 2026 08:03:20`, read back with `ver` on each
+port rather than assumed from a successful upload.
+
+- [ ] ⚠ **The audit that found the unswept sites lost one of its 14 readers** to an API error,
+      so about a quarter of the 08-25 evening transcript was never read. Treat that sweep's
+      findings as a FLOOR. The re-runnable script is
+      `.claude/…/workflows/scripts/handoff-truth-audit-wf_df33ea35-806.js`.
+
+---
+
 ### ✅ CLOSED 2026-08-26 — THE CHAT HISTORY WENT TO THE CARD AND WAS READ BACK FROM FLASH (0.9.19)
 
 Nick: *"after rebooting I lose the chat history in meshtastic chats on the wiphone's."*
@@ -270,8 +312,13 @@ reads that as "a call is coming in, let any key answer it" and clears `locked`.
 🛑 **One press of END unlocks a locked phone — on BOTH phones.** END sets `HangUp` from anywhere
 with no call needed, *before* the same press reaches the unlock check. 🛑 **And with a SIP
 account, EVERY key unlocks for as long as SIP sits in teardown** — measured in this repo at 19
-min and SIX HOURS at `sip=6` when the proxy is unreachable. **That is the phone-2-vs-phone-1
-difference: phone 2 has an account (registered to voip.ms), phone 1 has none.**
+min and SIX HOURS at `sip=6` when the proxy is unreachable. **That is the difference between the two
+phones: PHONE 1 has the account (registered to voip.ms), PHONE 2 has none.**
+⚠ **CORRECTED 2026-08-26 — this sentence had the phones the wrong way round, and line ~908 of
+this same file always had it right.** Measured over the cable, `sip` on each:
+`025A3EAF` (phone 1) → `account LOADED (sip:565611_nikguy@seattle1.voip.ms)`;
+`025A3F65` (phone 2) → `account NOT LOADED`. The mechanism above is unchanged; only the label
+on the phone was wrong.
 
 Fixed by making `inCall()` mean live-or-ringing, using the SAME set `sipNeedsFullSpeed()` and
 the WiFi auto-switch gate already use — ⚠ **the third guard here to need this correction**.
@@ -356,9 +403,11 @@ Two real improvements came out of it:
 `passed|failed` matched a DIFFERENT suite's summary line while `test_pos` was reporting
 `1 FAILURE(S)`. **Check the exit code.** `bash tests/run_tests.sh >/dev/null 2>&1; echo $?`
 
-- [ ] ⚠ **WiPhone 1 is still on 0.9.16** — it was unplugged for this build. The GPS half does
-      not apply to it, but the `lock_keyboard` default and the empty-photo message do, and the
-      0-byte photo is on phone 1. Flash it next time it is on the cable.
+- [x] ✅ **DONE — both phones are on 0.9.20** (`built Aug 26 2026 08:03:20`), read back with
+      `ver` on each port, so this is not an assumption about what was flashed. ⚠ The 0-byte
+      photo this item mentions no longer exists — it was deleted through the Photos UI on
+      2026-08-25. Original wording kept below.
+      ~~WiPhone 1 is still on 0.9.16 — it was unplugged for this build.~~
 - [ ] 🔎 **The beacon has never been watched end-to-end with a real fix.** Take phone 2 outside,
       then read COVEY's `pos.time` for `!00449334` and confirm it moves.
 
@@ -370,7 +419,7 @@ is left below still needs a thumb, but `shot` means you can now SEE the result o
 - [x] ✅ **THE PHOTOS APP HAS NOW BEEN RUN — 2026-08-25, over the cable, and it works.** `key` +
       `shot` drove it end to end on phone 1 (Menu > Tools > Photos) and every screenshot is
       clean: the **LIST** (14 files with sizes and the restore-wallpaper row), the **VIEWER**
-      (BT01.JPG renders scaled to fit, 2/14), LEFT/RIGHT walking the folder, and the **OPTIONS**
+      (BT01.JPG renders scaled to fit, 2/14), RIGHT walking the folder (⚠ only `key right` was ever sent — LEFT is a separate branch and is still unpressed), and the **OPTIONS**
       menu (Set as wallpaper / Lock / Rename / Delete / Cancel). The empty-file message added in
       0.9.17 was verified on the real 0-byte photo: *"This file is empty (0 bytes) / the upload
       did not finish"*, with Options still reachable so it can still be deleted. **This closes
@@ -418,8 +467,11 @@ untouched because other menus may rely on it rejecting 0.
   is fixed too. **`chg=` is settled** — it was inverted as well as reading the wrong GPIO.
 - **Node list 32 → 200 in PSRAM; nodes can be starred** (`*` on the Nodes list; starred sort to
   the top and are evicted last; the star list is its own file).
-- **NEW: Photos app** — `/photos` on SD, baseline + greyscale JPEG and BMP, with lock / rename /
-  delete / set-as-wallpaper and a restore-default. See P1: untested on the handset.
+- **NEW: Photos app** — `/photos` on SD, with lock / rename / delete / set-as-wallpaper and a
+  restore-default. ⚠ **CORRECTED 2026-08-26: baseline colour JPEG ONLY — not BMP, and not
+  greyscale.** `TFT_eSPI::drawImage()` sniffs `RLE3`, `I256` and `FF D8 FF` and has never had a
+  BMP path, and the ROM TJpgDec refuses greyscale and progressive JPEGs. The app has since been
+  run on the handset; see the P1 block.
 
 ### 🛠 INSTRUMENTS THAT NOW EXIST — reach for these before theorising
 
@@ -450,12 +502,15 @@ untouched because other menus may rely on it rejecting 0.
    small the write that triggered it. **A stall the filesystem takes in one indivisible piece
    cannot be chunked around.**
 
-### 🖼 COVEY — NOT STARTED
+### 🖼 COVEY — ✅ SHIPPED, and this heading was stale for two days
 
-- [ ] **A photo viewer for COVEY**, same idea as the WiPhone's, no wallpaper half (its home is
-      tiles). Nick asked for it in the same breath as the WiPhone app; only the WiPhone half is
-      built. COVEY is a Pi running pygame, so formats are not the constraint there that they are
-      here — SDL loads PNG and JPEG without any of this argument.
+- [x] ✅ **DONE — COVEY's photo viewer shipped (D-115…D-122), is deployed, and has been driven
+      on the panel twice.** It even grew past the WiPhone's version: an oversize JPEG is
+      rescued out of process by `gdk-pixbuf-thumbnailer` and labelled `shown downscaled`.
+      **Read the COVEY handoff, not this heading.** What is genuinely still open there is
+      Rename/Delete by finger, one real upload over port 8085, and the `.webp`/`.tif` listing
+      question. Original wording kept:
+      ~~A photo viewer for COVEY, same idea as the WiPhone's… only the WiPhone half is built.~~
 
 ### P2 — ⚠ WATCH FOR THIS RECURRING: your own devices getting evicted
 

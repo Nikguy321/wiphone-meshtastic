@@ -1197,6 +1197,10 @@ protected:
 
 
 // Menu option with text only. Also a base class for menu options.
+/* The key every display-only menu row carries. Far above any real row key (apps use 1..200
+ * and action bases around 10000), so it can never be mistaken for one. See MenuWidget::addNote. */
+#define MENU_ROW_NOTE  0xFFFFFF01u
+
 class MenuOption {
 public:
   typedef uint32_t keyType;
@@ -1304,6 +1308,22 @@ public:
   bool addOption(MenuOption* option);
   void addOption(const char* title);
   void addOption(const char* title, MenuOption::keyType key, uint16_t style=1);
+  /* A row that only SAYS something: a result line, a count, "(none yet)", a reason a file
+   * would not open.
+   *
+   * 🛑 THE OBVIOUS SPELLING IS A TRAP. `addOption(text, 0, 1)` looks like "a row with no
+   * action" and is instead NO ROW AT ALL — addOption() refuses a key of 0, logs
+   * `menu option key is 0` and returns. Photos lost every message it ever tried to show that
+   * way (0.9.18), and the same spelling was still live in Books, Files and Music until 0.9.19,
+   * with the comment `key 0 = inert` written next to it. This method exists so there is one
+   * correct way to do it and the wrong way has an alternative to point at.
+   *
+   * ⚠ The row IS selectable — nothing here can stop a d-pad landing on it. What makes it
+   * harmless is that MENU_ROW_NOTE matches no handler. A screen whose OK path tests a RANGE
+   * (`sel >= ROW_FIRST`) rather than exact keys must reject MENU_ROW_NOTE explicitly: the
+   * subtraction underflows and `(int)` makes it NEGATIVE, which sails through an
+   * `idx < entryCount` bounds check. Files, Books and Music each carry that guard. */
+  void addNote(const char* title, uint16_t style=1);
   void addOption(const char* title, const char* subTitle, MenuOption::keyType key, uint16_t style,
                  const unsigned char* iconData = NULL, const uint16_t iconSize = 0,
                  const unsigned char* iconSelData = NULL, const uint16_t iconSelSize = 0);
