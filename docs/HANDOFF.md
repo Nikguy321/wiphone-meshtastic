@@ -62,7 +62,34 @@ LOAD-BEARING", which is an instruction not to re-apply a fix that is shipped and
 - [x] ✅ **FIXED in 0.9.26** — the music pause is idempotent now
       (`sipCallActive() && musicPlayerIsPlaying()`), so the latch cannot stick through a long
       `HangUp`. `sipCallActive()` itself was deliberately left alone.
-- [ ] 🔎 **PHONE 1 DOES NOT ALWAYS JOIN THE HOTSPOT AT BOOT.** ⚠ **An earlier claim in this
+- [ ] 🔎 **PHONE 1 DROPS WIFI ~48 s AFTER BOOT AND CANNOT GET BACK — MEASURED TWICE, CAUSE NOT
+      PROVEN.** Nick, 2026-08-26: *"it just won't connect for some reason."* Two independent
+      6-minute captures show the SAME shape: the phone joins at ~11 s, is healthy at `wifi=3`,
+      and then:
+      ```
+      scr=55 cpu=240MHz wifi=3      <- connected, screen dimming
+      CPU 80MHz (idle)              <- the idle downclock fires (screen sleeps at 40 s)
+      scr=0  cpu=80MHz  wifi=3      <- still connected, one tick later
+      conn=0                        <- gone
+      wifi=5 (CONNECTION_LOST) up=49s   ->  wifi=1 (NO_SSID_AVAIL) up=51s  ->  wifi=0
+      ```
+      From then on every scan returns `n=0` and it never rejoins; `pool.ntp.org errno=210`
+      follows as a CONSEQUENCE, not a cause.
+      🔑 **The suspicion is the 240->80 MHz downclock**, because `busy` (WiPhone.ino:3894) has
+      terms for the screen, the emulator, GPS, transfers, music and SIP but **NO TERM FOR
+      WIFI** — and this platform has already produced one hard fault from
+      `setCpuFrequencyMhz()` (the GPS UART deadlock, which was fixed by adding `gGpsNmea` to
+      exactly this predicate).
+      🛑 **BUT THAT IS CORRELATION ONLY — 2 SAMPLES — AND THE ONE CAUSATION TEST RUN SO FAR WAS
+      INVALID.** It tried to pin 240 MHz with `up on`; the uploader never actually turned on
+      and the phone never associated in that run, so it measured nothing. Do not repeat it.
+      **THE TEST THAT WOULD SETTLE IT:** build with `wantMhz` forced to 240 (or a WiFi term
+      added to `busy`), flash phone 1, take ONE 6-minute capture, and see whether the
+      association survives past ~48 s. ⚠ Pinning 240 costs idle battery, so this is an
+      experiment to run and then decide about, not a fix to ship blind.
+      ⚠ It is INTERMITTENT — the phone connected and registered fine on other boots the same
+      afternoon, so any test needs more than one run to mean anything.
+- [ ] 🔎 **AND SEPARATELY, PHONE 1 DOES NOT ALWAYS JOIN AT BOOT.** ⚠ **An earlier claim in this
       session that "NTP never syncs" was WRONG and is withdrawn** — NTP syncs fine once the
       phone associates (proved: the clock came up and `sun` printed a correct date and
       UTC-7:00). What actually happens is that some boots come up `wifi status 1`
