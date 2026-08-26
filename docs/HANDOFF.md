@@ -17,8 +17,14 @@ real UTC: the **GPS position beacon** (COVEY renders `time.time() - ts`, so ever
 position on its map read 8 h stale), booksync `turnedAt` ×3 (so **anything COVEY turned in the
 last ~7.9 h was painted "(their clock looks wrong)"**), waypoint expiry ×2, and the SMS-mirror
 "ten minutes of slack" which was really eight hours ten.
-⚠ **THIS IS PROBABLY THE "7.7-HOUR-OLD POSITION" OF 2026-08-25, WHICH WAS WRITTEN UP AS THE
-PHONE BEING INDOORS.** Re-read that entry before trusting it.
+⚠ **THE SHIFT IS SEVEN HOURS ON THESE PHONES, NOT EIGHT.** Measured, not read off the shipped
+config: `sun 47.6062,-122.3321` → `(local, UTC-7:00)`. The shipped `data/configs.ini` says
+`zone=-8`, so a stock phone would see eight; Nick's two are on PDT and see seven.
+
+🔑 **THAT SETTLES THE "7.7-HOUR-OLD POSITION" OF 2026-08-25.** A just-taken fix would have
+arrived reading 7.0 h old. It read 7.7 — so the fix was genuinely ~42 minutes stale, which is
+what a phone indoors at `sats in view: 0` should look like. **That session was right about the
+cause and wrong about the size: ~7 of the 7.7 hours were this bug, ~42 minutes were the sky.**
 
 🛑 **USE-AFTER-FREE ON TWO LIVE SIP TEARDOWN PATHS.** `wifiTerminateCall()` and `rtpSilent()`
 deleted every dialog and then wrote `currentCall->terminated = 1` through the freed pointer —
@@ -56,9 +62,17 @@ LOAD-BEARING", which is an instruction not to re-apply a fix that is shipped and
 - [x] ✅ **FIXED in 0.9.26** — the music pause is idempotent now
       (`sipCallActive() && musicPlayerIsPlaying()`), so the latch cannot stick through a long
       `HangUp`. `sipCallActive()` itself was deliberately left alone.
-- [ ] 🔎 **NTP did not sync today** with WiFi up — clock still "waiting NTP" after 100 s, so
-      the live timezone offset could not be read back off the phone. Related to the open
-      `pool.ntp.org errno=210` item.
+- [ ] 🔎 **PHONE 1 DOES NOT ALWAYS JOIN THE HOTSPOT AT BOOT.** ⚠ **An earlier claim in this
+      session that "NTP never syncs" was WRONG and is withdrawn** — NTP syncs fine once the
+      phone associates (proved: the clock came up and `sun` printed a correct date and
+      UTC-7:00). What actually happens is that some boots come up `wifi status 1`
+      (`WL_NO_SSID_AVAIL`) with `conn=0` and never join, and then there is nothing for NTP to
+      talk to. Seen repeatedly today alongside scans returning `n=0` while this Mac was
+      associated to a 2.4 GHz AP in the same room.
+      🔑 **AND THE INSTRUMENT WAS PART OF THE ILLUSION: every port open RESETS the phone, so
+      each measurement restarted the association race from zero.** A phone left alone gets
+      there; one probed every two minutes may never. Measure this with ONE long capture, not
+      repeated short ones.
 - [x] ✅ **DONE — COVEY's share of the sweep is fixed, deployed and pushed** (`5ab453b`):
       `is_protected()` was condemning every file under `/root/.covey/downloads` so **Delete and
       Move were dead in two of the four roots**; `Prefs.save()` gained the fsync every sibling

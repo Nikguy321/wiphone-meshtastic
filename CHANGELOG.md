@@ -56,9 +56,18 @@ the shifted clock, every one of them stamping or comparing a value that meets CO
 | waypoint expiry (×2) | `expire` is COVEY's UTC. A pin set to die in a day died a day **and eight hours** later. |
 | SMS-mirror freshness | the comment says "Ten minutes of slack"; the arithmetic made it **eight hours ten minutes**, so a full resync buzzed for everything under 8 h. |
 
-⚠ **This is very likely the "7.7-hour-old position" written up on 2026-08-25 and explained as
-the phone being indoors.** That explanation may have been mostly this bug. Worth re-reading that
-entry before trusting it.
+⚠ **CORRECTED 2026-08-26, and the number matters.** The tables above said "eight hours" from
+the shipped `data/configs.ini` (`zone=-8`). **MEASURED on the live phone** — `sun 47.6062,-122.3321`
+→ `2026-08-26 at 'given' (local, UTC-7:00)` — the offset in force is **UTC−7 (PDT)**, so the real
+shift on Nick's two phones is **SEVEN hours**. A freshly-flashed phone taking the shipped config
+would see eight. Read "eight hours" above as "seven on these phones, eight on a stock one".
+
+🔑 **AND THAT SETTLES THE "7.7-HOUR-OLD POSITION" of 2026-08-25.** At a 7.0 h shift, a position
+that had *just* been taken would arrive reading 7.0 h old. It read **7.7 h** — so the fix really
+was about 42 minutes stale, which is exactly what a phone indoors with `sats in view: 0` should
+look like. **The earlier session's conclusion was right about the cause and wrong about the
+magnitude: roughly seven of those 7.7 hours were this bug, and the remaining ~42 minutes were
+the sky.** Both halves needed fixing and only one had been.
 Left alone deliberately, all local-only: the SIP message store's load stamp, `myPinAtUnix`
 (never transmitted), and the two places that compute the offset *on purpose*.
 
