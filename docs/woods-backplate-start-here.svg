@@ -212,7 +212,7 @@
 
 <!-- W5 GND: phone GND -> PowerBoost GND -->
 <polyline points="100,627 100,720 430,720 430,751" stroke="#3A3F45" stroke-width="5" fill="none" stroke-linejoin="round"/>
-<text x="112" y="713" font-size="13" fill="#3A3F45">W5 · PowerBoost GND → header GND · the ONE plate↔phone tie</text>
+<text x="98" y="713" font-size="13" fill="#3A3F45">W5 · PowerBoost GND → header GND · the ONE plate↔phone tie</text>
 
 <!-- W4 5.2V: PowerBoost 5V -> phone 5V, and on to D1 -->
 <polyline points="160,627 160,694 552,694" stroke="#B45309" stroke-width="5" fill="none" stroke-linejoin="round"/>
@@ -240,9 +240,9 @@
 <path d="M543,752 L561,752 L552,772 Z"/><line x1="541" y1="772" x2="563" y2="772"/>
 <path d="M591,752 L609,752 L600,772 Z"/><line x1="589" y1="772" x2="611" y2="772"/>
 </g>
-<text x="536" y="768" font-size="13.5" font-weight="700" text-anchor="end">D1</text>
+<text x="536" y="752" font-size="13.5" font-weight="700" text-anchor="end">D1</text>
 <text x="546" y="730" font-size="13" text-anchor="end" font-weight="700" fill="#B45309">W6</text>
-<text x="616" y="762" font-size="13.5" font-weight="700">D2</text>
+<text x="616" y="752" font-size="13.5" font-weight="700">D2</text>
 
 <text x="576" y="860" font-size="13" text-anchor="middle" font-weight="700">OR node</text>
 <text x="570" y="876" font-size="13" text-anchor="middle" fill="#55595F">higher wins</text>
@@ -291,12 +291,12 @@
 <line x1="466" y1="960" x2="738" y2="960" stroke="#B42318" stroke-width="1.5" stroke-dasharray="4 4"/>
 
 <!-- W8 / W10 the 3V3 rail -->
-<polyline points="870,840 995,840 995,390 970,390" stroke="#1D4ED8" stroke-width="5" fill="none" stroke-linejoin="round" marker-end="url(#mV33)"/>
-<polyline points="995,570 970,570" stroke="#1D4ED8" stroke-width="5" fill="none" marker-end="url(#mV33)"/>
-<circle cx="995" cy="570" r="6" fill="#1D4ED8"/>
-<text x="978" y="382" font-size="13" text-anchor="middle" font-weight="700" fill="#1D4ED8">W8</text>
-<text x="980" y="558" font-size="13" text-anchor="middle" font-weight="700" fill="#1D4ED8">W10</text>
-<text x="1014" y="700" font-size="13.5" font-weight="700" fill="#1D4ED8" transform="rotate(-90 1014 700)">3V3_PLATE rail · W8 to the radio, W10 to the GPS</text>
+<polyline points="870,840 1046,840 1046,390 970,390" stroke="#1D4ED8" stroke-width="5" fill="none" stroke-linejoin="round" marker-end="url(#mV33)"/>
+<polyline points="1046,570 970,570" stroke="#1D4ED8" stroke-width="5" fill="none" marker-end="url(#mV33)"/>
+<circle cx="1046" cy="570" r="6" fill="#1D4ED8"/>
+<text x="982" y="406" font-size="13" text-anchor="middle" font-weight="700" fill="#1D4ED8">W8</text>
+<text x="982" y="588" font-size="13" text-anchor="middle" font-weight="700" fill="#1D4ED8">W10</text>
+<text x="1058" y="700" font-size="13.5" font-weight="700" fill="#1D4ED8" transform="rotate(-90 1058 700)">3V3_PLATE rail · W8 radio · W10 GPS</text>
 
 <!-- W9 / W11 grounds at the radio and the GPS -->
 <line x1="970" y1="430" x2="970" y2="440" stroke="#3A3F45" stroke-width="3"/>
@@ -407,5 +407,37 @@
 <text x="52" y="1216" font-size="16" font-weight="700">BUILD FROM THE SHEET, NOT FROM THIS MAP  →  docs/woods-backplate-wiring.svg   ·   Order list: docs/woods-backplate-bom.md</text>
 <text x="52" y="1236" font-size="13" fill="#43474D">Design rationale: docs/woods-backplate.md   ·   What changed in v2: docs/woods-backplate-v1-to-v2.svg   ·   Authoritative pin definitions: WiPhone/Hardware.h   ·   Every run on this map is W1–W20 from the wiring sheet.</text>
 
+</g>
+
+<!-- ============ DECOUPLING CAPS — were on the wiring sheet only; drawn here too now ============ -->
+<!-- C1/C2 hang off the W8 wire (= RFM95W pad 13, 3V3) to ground = pads 13<->10 on the sheet.
+     C3/C4 hang off the W10 wire (= GPS power pad) to ground. Same junction-dot rule as the map. -->
+<g stroke="#1D4ED8" stroke-width="2.5" fill="none">
+  <line x1="1006" y1="390" x2="1006" y2="400"/><line x1="1030" y1="390" x2="1030" y2="400"/>
+  <line x1="1006" y1="570" x2="1006" y2="580"/><line x1="1030" y1="570" x2="1030" y2="580"/>
+</g>
+<g stroke="#3A3F45" stroke-width="2.5" fill="none">
+  <line x1="1006" y1="406" x2="1006" y2="416"/><line x1="1030" y1="406" x2="1030" y2="416"/>
+  <line x1="1006" y1="416" x2="1030" y2="416"/>
+  <line x1="1018" y1="416" x2="1018" y2="424"/>
+  <line x1="1006" y1="586" x2="1006" y2="596"/><line x1="1030" y1="586" x2="1030" y2="596"/>
+  <line x1="1006" y1="596" x2="1030" y2="596"/>
+  <line x1="1018" y1="596" x2="1018" y2="604"/>
+</g>
+<g stroke="#16181C" stroke-width="3" stroke-linecap="round">
+  <line x1="998" y1="400" x2="1014" y2="400"/><line x1="998" y1="406" x2="1014" y2="406"/>
+  <line x1="1022" y1="400" x2="1038" y2="400"/><line x1="1022" y1="406" x2="1038" y2="406"/>
+  <line x1="998" y1="580" x2="1014" y2="580"/><line x1="998" y1="586" x2="1014" y2="586"/>
+  <line x1="1022" y1="580" x2="1038" y2="580"/><line x1="1022" y1="586" x2="1038" y2="586"/>
+</g>
+<g stroke="#3A3F45" stroke-width="3" stroke-linecap="round">
+  <line x1="1005" y1="424" x2="1031" y2="424"/><line x1="1010" y1="430" x2="1026" y2="430"/><line x1="1015" y1="436" x2="1021" y2="436"/>
+  <line x1="1005" y1="604" x2="1031" y2="604"/><line x1="1010" y1="610" x2="1026" y2="610"/><line x1="1015" y1="616" x2="1021" y2="616"/>
+</g>
+<circle cx="1006" cy="390" r="5" fill="#1D4ED8"/><circle cx="1030" cy="390" r="5" fill="#1D4ED8"/>
+<circle cx="1006" cy="570" r="5" fill="#1D4ED8"/><circle cx="1030" cy="570" r="5" fill="#1D4ED8"/>
+<g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" text-anchor="end" fill="#16181C">
+  <text x="1038" y="356">C1 100 nF</text><text x="1038" y="371">C2 10 µF</text>
+  <text x="1038" y="541">C3 100 nF</text><text x="1038" y="556">C4 22–47 µF</text>
 </g>
 </svg>
