@@ -1,11 +1,25 @@
 # WiPhone — session handoff
 
-## ▶▶ NEXT SESSION — TASK LIST (rewritten 2026-08-24, evening; phone-2 section added 08-25)
+## ▶▶ NEXT SESSION — TASK LIST (header refreshed 2026-08-26 night)
 
-Read this first; everything below it is narrative. Repo clean at **0.9.19**.
-**Phone 1 is flashed with everything here and verified as far as the cable allows.**
-✅ **Phone 2 was flashed to HEAD (`6c50d7d`) on 2026-08-25** — P5 is done, and it immediately
-turned up the bug below.
+Read this first; everything below it is narrative.
+
+✅ **BOTH PHONES ARE ON 0.9.27**, `built Aug 26 2026 17:57:03`, read back with `ver` on each
+port rather than assumed from a successful upload. Repo clean and pushed.
+
+🔴 **THE ONE THING OWED THAT NEEDS NICK'S HANDS:** bench the SIP re-init (0.9.26). With a real
+account, **drop WiFi mid-call, restore it, and watch for `SIP is going to init`** followed by
+registration returning rather than flapping. `WiPhone.ino:3202` was `==` where `=` was meant
+since the initial commit, so that path had **never once run**; it is the only change of
+2026-08-26 not proven on hardware, and reverting it is one line.
+
+⚠ **THE DAY'S METHOD LESSON, because it cost hours: THREE TIMES THE INSTRUMENT WAS THE FAULT,
+NOT THE PHONE.** `grep` silently suppressing matches in a binary-ish capture (use `-a`);
+**every serial port open RESETS the phone**, restarting the very association race being
+measured (use ONE long capture, not repeated probes); and the **Mac entering Idle Sleep
+mid-capture**, which read exactly like a 16-minute firmware wedge (run long captures under
+`caffeinate -i -s`). And a 2-vs-2 A/B on an INTERMITTENT fault produced a confident wrong root
+cause that had to be retracted in the repo. **Count the runs before naming a cause.**
 
 ### 🔴 CLOSED 2026-08-26 — A SWEEP FOR UNSWEPT FIXES FOUND FIVE (0.9.25). READ THE FIRST ONE.
 
