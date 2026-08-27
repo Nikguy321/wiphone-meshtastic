@@ -45,7 +45,32 @@ convenient no-browser path: `python3 tools/wiphone_send.py --app books f1.epub f
 keep-alive chunks, resume, 507-with-patience, verifies held==size). `tools/chunkup.py`
 still works unchanged (:8081 is still listening).
 
-# 🔴 2026-08-27 MORNING — PHONE 1'S WIFI RADIO IS A HARDWARE FAILURE
+# 🛑 RETRACTED, SAME MORNING, BY NICK'S THUMB: THE RADIO IS FINE. READ THE CORRECTION BELOW
+# THE ORIGINAL VERDICT, WHICH FOLLOWS UNEDITED AS A SPECIMEN OF A CONFOUNDED CONTROL.
+
+**2026-08-27, ~30 min after the "hardware failure" verdict was pushed: Nick opened
+Settings > WiFi on phone 1, scanned, immediately saw the hotspot, joined it.** Minutes
+later the SAME serial `wifi scan` that had read 0/0/-2 all morning listed **6 networks,
+NickH-wifi at -59 dBm**, and SIP registered. Nothing was repaired in between.
+
+🔑 **THE REAL MECHANISM: a scan issued while the firmware's connect-RETRY loop is
+mid-attempt fails (-2) or reads empty — and phone 1 was in that state for EVERY deaf
+reading** (at work it had no joinable saved network, so the retry never stopped). Phone 2
+"as control" was ASSOCIATED, so its scans ran clean — it controlled for the air and the
+firmware but NOT for the WiFi state, which is the variable that mattered. The softAP wedge
+is most plausibly the same collision (mode switch during a connect attempt), now unproven
+either way. `wifi calreset` / `wifi restore` remain useful tools; neither was the cure
+because nothing was broken. ⚠ **`wifi restore` DID wipe the driver's remembered network**
+— harmless only because Nick re-joined by hand right after.
+
+🔴 **WHAT IS ACTUALLY WRONG, AND STILL OPEN: phone 1 would not AUTO-connect** (Nick: *"it
+just won't auto connect for some reason"*) — 78+ minutes at the desk without joining,
+then a manual join succeeded in seconds. Suspect the retry path only re-arms the driver's
+LAST network (`WiFi.begin()` no-args) instead of walking the saved-profile list — which
+also predicts the mirror-image failure at HOME tonight, now that the hotspot is the
+last-used network. Under investigation this session; see below the specimen.
+
+# ~~🔴 2026-08-27 MORNING — PHONE 1'S WIFI RADIO IS A HARDWARE FAILURE~~ (WRONG — above)
 
 **The evidence chain, every link measured at Nick's work desk with both phones side by side
 on the same air:**
