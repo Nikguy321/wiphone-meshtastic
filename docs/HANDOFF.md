@@ -63,12 +63,26 @@ either way. `wifi calreset` / `wifi restore` remain useful tools; neither was th
 because nothing was broken. ⚠ **`wifi restore` DID wipe the driver's remembered network**
 — harmless only because Nick re-joined by hand right after.
 
-🔴 **WHAT IS ACTUALLY WRONG, AND STILL OPEN: phone 1 would not AUTO-connect** (Nick: *"it
-just won't auto connect for some reason"*) — 78+ minutes at the desk without joining,
-then a manual join succeeded in seconds. Suspect the retry path only re-arms the driver's
-LAST network (`WiFi.begin()` no-args) instead of walking the saved-profile list — which
-also predicts the mirror-image failure at HOME tonight, now that the hotspot is the
-last-used network. Under investigation this session; see below the specimen.
+✅ **AND THE AUTO-CONNECT BUG IS FOUND, FIXED AND PROVEN, SAME SESSION — it was a
+ONE-WAY FLAG, and the screen that flips it is the WiFi settings screen itself.**
+`Networks::reconnect` is set true in the CONSTRUCTOR and false in
+`disconnect()`/`disable()` — and nothing anywhere ever set it back. The WiFi settings
+screen's SAVE path calls `disconnect()` (GUI.cpp:6096) before rejoining, so **editing or
+saving any network left the phone unable to auto-rejoin until reboot** — and since
+`disconnect()` is `WiFi.disconnect(true, true)`, it also turned the radio OFF and ERASED
+the driver's stored AP, which is the state my morning scans were reading as "hardware-dead"
+and which reboots alone could not fully unwind. Phone 1 is simply the phone whose networks
+get EDITED (SIP phone, most fiddled-with) — that is the whole phone-1-vs-phone-2
+difference. Not the radio, not SIP's code, not the GPS plate, not build differences.
+**Fix (Networks.cpp, connectTo): a deliberate join restores `reconnect = true`** — every
+join path (settings screen, connectToPreferred, the auto-switch hop) flows through it.
+**Proven at the work desk:** fresh boot → associated to the hotspot HANDS-FREE; then
+`wifi drop` → rejoined itself in ~2 s (`[autosw] conn=0` → `conn=1`, rec=1) — the exact
+test that failed thirty minutes earlier with rec=0. Both phones flashed.
+⚠ Two related warts, seen and deliberately NOT fixed in the same change: REMOVING a saved
+network calls `disable()` (radio full-off, GUI.cpp:6122) and the Disconnect button does
+too (:6135) — heavier than either action means. P2 candidates; touch them with the
+settings screen in hand, not blind.
 
 # ~~🔴 2026-08-27 MORNING — PHONE 1'S WIFI RADIO IS A HARDWARE FAILURE~~ (WRONG — above)
 

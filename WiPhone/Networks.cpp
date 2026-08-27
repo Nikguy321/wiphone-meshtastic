@@ -409,6 +409,17 @@ bool Networks::connectTo(const char* ssid) {
   const uint32_t tIni = millis();
   bool r = false;
   if (loaded) {
+    /* ── A DELIBERATE JOIN RESTORES THE RECONNECT FLAG (found 2026-08-27) ──────
+     * `reconnect` is set true in the constructor and false in disconnect()/disable(),
+     * and NOTHING ever set it back — so the WiFi settings screen's save path (which
+     * calls disconnect() before rejoining) left every phone that ever had a network
+     * EDITED in a state where it would never auto-rejoin again until reboot. That is
+     * the real shape of phone 1's months of "keeps losing WiFi": not the radio, not
+     * SIP, not hardware — a one-way flag, flipped by the very screen used to fix the
+     * WiFi. Every caller of connectTo() (the settings screen, connectToPreferred,
+     * the auto-switch hop) is expressing "I want to be on this network", which is
+     * exactly what reconnect means. */
+    reconnect = true;
     connectToWiFi(wifiSsidDyn, wifiPassDyn);    // "async"
     r = true;
   }
