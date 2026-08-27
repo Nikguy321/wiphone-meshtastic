@@ -1,5 +1,75 @@
 # Changelog
 
+## 0.9.28 (2026-08-27) — the upload page stops eating the phone, and WiFi rejoins by itself
+
+### 🔑 The uploader: the page moves to the raw server, and the browser stops losing
+
+The chunked transfer engine (0.9.2x era: one TCP connection, CRC-checked pieces, stop-and-wait)
+was already solid — **what was broken was everything around it.** The page, the favicon, and the
+probe still rode the framework WebServer, whose request machinery costs a **~10 KB
+internal-heap transient per connection** on a phone that idles at 12–15 KB largest with SIP up.
+Measured: TWO loads of the 829-byte page drove the largest free block 12,688 → 3,180 and
+tripped the low-heap breaker, which frees the server with escalating backoff (90 → 600 s) —
+so nearly every browser VISIT read "site cannot be loaded". No pacing fixes a per-request cost
+that starts below the danger line.
+
+So the raw server is now the front door: it listens on **:80** (and :8081 for the existing
+tools) and serves the page itself for ~zero heap, keep-alive. The WebServer moved to **:8080**
+as the legacy path — multipart `/upload` for `curl -F` and no-JS browsers, `/fetch`'s HTML
+replies, `/log` (`http://<ip>/log` 302-redirects there; use `curl -L`). Its breaker was
+reworked to match: instant trip below 3 KB stays (that is PHY-abort altitude), the 6 KB line
+now requires the pressure to HOLD for 1.5 s (a single request's transient decays in under a
+second and is not a flood), raw traffic inhibits trips entirely, and resume is
+**recovery-only at ≥ 10 KB** — the timer-resume kept re-planting a ~6 KB server into a heap
+that could not hold it, which is the measured allocate/free churn leak. mDNS now begins once
+per boot and never ends: this core's `MDNS.end()` leaks a WiFi-event-callback entry per cycle,
+and the breaker used to cycle it on every pause.
+
+**Measured after:** page loads went from 2-of-10 answered to 19–20 of 20 under deliberate
+hammering; three consecutive 4-book batches (~52 MB) landed 12-for-12 byte-verified at
+48–69 KB/s with zero breaker events, zero panics, zero wedges. New: `tools/wiphone_send.py` —
+one command from a computer, resumes partial files, retries transient SD 507s, byte-verifies
+every file. ⚠ Honest note: the test card threw three 507 write errors across twelve files
+(all recovered by retry) — watch that card.
+
+### 🔑 The first REAL-browser run caught a bug every bench tool was blind to
+
+The acceptance bar always ended with "then a real browser", and this is why: the raw-served
+page set its piece size but left `BASE=''`, so the sender's `if(BASE)` routed it into the
+MULTIPART branch — which the raw server refuses (413: multipart overhead pushes a 16 KB piece
+past the cap). Every bench pusher speaks the raw protocol directly and structurally could not
+see it. Found in the first minute of driving the page in a real Chrome over an Android
+hotspot; fixed (`RAW = BASE || window.RAWPAGE`); re-proven: 2.8 MB in three files through the
+page's own JS, byte-verified, an empty file skipped and said so.
+
+### 🛑 WiFi auto-rejoin was a ONE-WAY FLAG, and the WiFi settings screen was the finger on it
+
+`Networks::reconnect` — the flag that permits any automatic rejoining — was set true in the
+constructor, false in `disconnect()`/`disable()`, and restored **nowhere**. The settings
+screen's SAVE path calls `disconnect()` before rejoining, and that call is
+`WiFi.disconnect(true, true)`: radio OFF and the driver's stored network ERASED. So **editing
+or saving any WiFi network left that phone unable to auto-rejoin until reboot** — which is why
+phone 1 (the phone whose networks actually get edited) spent months "losing WiFi" while an
+identical phone 2 never did, and why it once sat 78 minutes next to a hotspot it could join in
+two seconds by hand. Fix: a deliberate join (`connectTo()` — the settings screen, the
+preferred-network retry, and the auto-switch hop all flow through it) restores the flag.
+Proven the same hour: fresh boot associated hands-free, and `wifi drop` rejoined itself in
+~2 s — the exact test that had just failed. ⚠ Two related warts seen and deliberately left:
+removing a network and the Disconnect button both call `disable()` (radio full-off), heavier
+than either action means.
+
+### 🛑 RETRACTED, 30 minutes after being written: "phone 1's radio is hardware-dead"
+
+The deaf readings were real — `wifi scan` 0/0/-2 on fresh boots while a neighbouring phone
+heard the hotspot at -60 dBm — but the verdict was wrong, and the flaw was the CONTROL: the
+"healthy" phone differed in WiFi STATE (associated), not just in radio, and scans issued while
+the connect-retry machinery is mid-attempt (or the radio is off — see the flag above) read
+empty or fail outright. Nick joined the hotspot from the phone's own UI in seconds; the same
+serial scan then listed six networks. The wrong verdict stands struck-through in the handoff
+as a specimen. Kept from the hunt, both useful: **`wifi calreset`** (erase the RF calibration
+in NVS, reboot, recalibrate) and **`wifi restore`** (`esp_wifi_restore()` — factory-reset the
+WiFi driver's stored state; ⚠ forgets the last-used network).
+
 ## 0.9.27 (2026-08-26) — `wifi scan`, and a retraction
 
 - 🛑 **RETRACTED: "the idle downclock is what kills the WiFi association" (commit `3535a85`).**

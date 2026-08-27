@@ -40,6 +40,18 @@ carries both sets of instructions.)
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.28** — **the WiFi uploader is finally solid**: the upload page is served
+  by the same lean single-connection engine that moves the file pieces, so
+  loading it no longer eats the phone's memory and tripping the "site cannot be
+  loaded" breaker — measured going from 2-of-10 page loads answered to 19–20 of
+  20, and ~52 MB of test batches transferred with zero incidents. Also: the
+  phone **auto-rejoins WiFi properly** (a one-way flag meant that editing any
+  saved network quietly disabled auto-reconnect until reboot — found because a
+  phone sat 78 minutes next to a hotspot it could join in seconds by hand).
+- **0.9.9 – 0.9.27** — texting with delivery receipts, a Photos app + custom
+  wallpapers, the e-reader syncing your place over the mesh, GPS/woods-backplate
+  support, the screen lock actually locking, and a long tail of
+  never-actually-ran code paths found and fixed — the changelog tells each story.
 - **0.9.7** — the phone knows where everyone is: **Places** (shared map pins),
   live **distances and bearings** in the node list, **Sun & legal light**, and
   every list that used to run off the screen now wraps or ellipsizes.
@@ -119,6 +131,31 @@ Decoding is the **Helix MP3 decoder** (RealNetworks, RPSL — vendored under
 `WiPhone/src/audio/helix-mp3/`), with its ~29 KB of working memory placed in PSRAM, because the
 internal heap on this phone has nothing like that spare. Measured on the device:
 about a quarter of realtime at 48 kHz stereo, so there is plenty of headroom.
+
+## Photos
+
+**Menu → Tools → Photos** — a viewer for `/photos` on the SD card, and the one
+place wallpaper is chosen. Rename, delete, and lock live behind the viewer; get
+pictures in over WiFi with the phone's upload page (or `up on photos` on the
+serial console).
+
+**What it can show — this hardware decodes exactly two formats:**
+
+| format | viewer | wallpaper |
+|---|---|---|
+| **JPEG, baseline** (what phone cameras produce) | ✅ | ✅ |
+| JPEG, baseline **greyscale** | ✅ | ❌ (the wallpaper loader refuses it) |
+| JPEG, **progressive** ("optimized" web/editor exports) | ❌ refused with a message | ❌ |
+| **BMP, uncompressed 24/32-bit** | ✅ | ❌ (wallpaper is JPEG-only) |
+| PNG / GIF / WebP / HEIC | — no decoder on this chip; not listed at all | — |
+
+Photos up to **2 MB** open (decoded in PSRAM, scaled to fit); the same 2 MB
+limit applies to wallpaper. In practice: pictures straight off a phone camera
+just work; if an editor saved something as progressive JPEG or PNG, re-save it
+as a plain (baseline) JPEG. Files the phone can't decode are deliberately not
+listed rather than shown as a grey rectangle — and when you set a wallpaper,
+the phone tests the real loader on the spot and repeats its verdict instead of
+claiming success.
 
 ## E-reader
 
@@ -331,8 +368,10 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 
 | command | does |
 |---|---|
-| `up on` / `up off` / `up` | start / stop the WiFi upload page; show its address |
+| `up on` / `up on books\|photos` / `up off` / `up` | start / stop the WiFi upload page (into `/roms`, `/books` or `/photos`); show its address |
 | `heap` | memory truth: internal/DMA/PSRAM free + largest + floor since boot |
+| `wifi scan` | what the radio can actually hear — deaf radio vs absent AP |
+| `wifi calreset` / `wifi restore` | erase the RF calibration / the WiFi driver's stored state, and reboot — the deaf-radio probes (⚠ `restore` forgets the last-used network) |
 | `sync` / `mirror` | fetch mirrored texts now; mirror status |
 | `sip` | SIP account state — loaded, registered, WiFi — in one line |
 | `chan <url>` / `chans` | apply a Meshtastic channel invite link; list channels |
@@ -371,13 +410,19 @@ a bench instead. **No authentication:** whoever holds the cable holds the phone.
 - **The phone records why it restarted** — crash, watchdog, brownout or a normal
   power-on — plus a health line every minute (memory, battery, CPU speed) to
   `/health.log` on the card. The log trims itself (newest ~4 hours kept), and is
-  readable over WiFi at `http://wiphone.local/log` with an upload screen open,
-  so it survives being unplugged and rebooted.
-- **File transfers work from a phone.** The upload page had been built around
-  drag-and-drop; it now has a proper file button and a paste-a-link fetch, stops
-  wedging after one page load, retries a failed upload, raises the screen
-  timeouts while the page is open (dim 5 min / sleep 10) so a long transfer
-  doesn't go dark, and no longer knocks the phone off WiFi when it opens.
+  readable over WiFi at `http://wiphone.local/log` with an upload screen open
+  (use `curl -L` — since 0.9.28 that address redirects to the legacy server on
+  port 8080), so it survives being unplugged and rebooted.
+- **File transfers work from a phone — and now reliably.** The upload page has a
+  proper file button and a paste-a-link fetch, retries failed pieces, raises the
+  screen timeouts while open (dim 5 min / sleep 10), and no longer knocks the
+  phone off WiFi. Since **0.9.28** the page itself is served by the same lean
+  single-connection engine that carries the file pieces (zero heap cost per
+  request), so visiting it can no longer trip the low-memory breaker that used
+  to answer "site cannot be loaded" — the old framework server still exists on
+  port **8080** for `curl -F` and no-JavaScript browsers. From a computer,
+  `python3 tools/wiphone_send.py --app books <files>` uploads a batch in one
+  command, resuming partial files and byte-verifying each one.
 
 ---
 
