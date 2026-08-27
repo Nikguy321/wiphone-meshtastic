@@ -1,13 +1,64 @@
 # WiPhone — session handoff
 
-## ▶▶ NEXT SESSION — TASK LIST (header refreshed 2026-08-26 night)
+## ▶▶ NEXT SESSION — TASK LIST (header refreshed 2026-08-27 midday)
 
 Read this first; everything below it is narrative.
 
-✅ **BOTH PHONES ARE ON 0.9.28** (flashed overnight 2026-08-26→27; phone 2 verified by `ver`
-after boot, phone 1 by behavior — ⚠ `ver`'s build time reads `21:47:15` on BOTH for every
-0.9.28 build because `__DATE__ __TIME__` live in serial_cmd.cpp, which later builds did not
-recompile; do not use `ver` to distinguish same-day builds). Repo clean and pushed.
+✅ **BOTH PHONES ARE ON 0.9.29** (flashed 2026-08-27 midday; identical binary from one build
+dir — ⚠ `ver` build-time still cannot distinguish same-day builds). Repo clean and pushed.
+Phone 1 associated + SIP registered at the work desk; phone 2 associated; panicwatch running
+on both under caffeinate.
+
+# 🔎 2026-08-27 MIDDAY — NICK'S IDLE-DROP REPORT IS DIAGNOSED LIVE: THE DEAF-SCAN STATE,
+# AND 0.9.29 MAKES THE PHONE CURE IT ITSELF
+
+Nick: *"wiphone 1 was idle for a while and it dropped wifi connection (wiphone 2 didn't) …
+if I go and rescan, in the past it brings it right back up, but I'm leaving it wifi
+unconnected for you to see first."* That preserved wedge was measured end to end:
+
+- 🔑 **THE WEDGE, OBSERVED LIVE (phone 2 = on-air control, associated, hearing
+  NickH-wifi at −50 dBm):** phone 1's whole rescue machinery was RUNNING — `rec=1 en=1`,
+  retry loop attempting, auto-switch scanning — but **every scan completed empty**: autosw
+  async n=0 over and over, serial blocking scan 0 and −2, screen-wake scan at 240 MHz n=0.
+  The n=0 branch honestly believes "out of range" and backs off, so the phone stays down
+  forever. The 0.9.28 reconnect-flag fix is NOT the culprit and held throughout.
+- 🔑 **THE CURE, ISOLATED: a radio off/on, nothing else.** A reboot mid-session (see trap
+  below) came up hearing 6 networks, auto-joined and SIP-registered inside a minute — same
+  radio that scanned empty seconds earlier. **And "open the WiFi screen and rescan brings
+  it back" was never the scan: `NetworksApp`'s constructor calls
+  `wifiState.disconnect()` = `WiFi.disconnect(true, true)` = radio OFF, and its first scan
+  turns it back on.** Nick's ritual was an accidental radio bounce all along. (It also
+  erases the driver's remembered AP and clears `reconnect` — see the wart below.)
+- ✅ **SHIPPED (0.9.29):** the auto-switcher counts consecutive completed-empty
+  disconnected scans (`_dryScans`) and at 2 **bounces the radio itself** before the next
+  scan — log line `[autosw] N consecutive empty scans: restarting the radio`. Plus a new
+  bench command **`wifi bounce`** (`Networks::bounceRadio()`): the cure on demand without
+  a reboot, proven live: bounce → immediate scan n=1 (NickH-wifi −36 dBm) → rejoin in
+  9 s → `SIP REGISTRATION -> REGISTERED`. Host suite exit 0. Both phones flashed.
+- 🛑 **THE BOUNCE-V1 LESSON, hit live and fixed the same hour:** calling
+  `WiFi.disconnect(true)` on an ASSOCIATED phone swallows the STA_DISCONNECTED event —
+  `Networks::connected` stays TRUE, and **both** rescue loops gate on it: the phone sat
+  half-down with no retries and no scans, and even `wifi drop` couldn't wake it (a plain
+  disconnect on an already-down driver fires no event). `bounceRadio()` therefore delivers
+  a plain disconnect FIRST (event → flag), sets `connected = false` explicitly, THEN
+  cycles the radio, then stamps the next autosw scan due immediately. **Any future code
+  that turns the radio off must tell the state layer first.**
+- ⚠ **HONEST LIMIT:** the `_dryScans >= 2` trigger cannot be fabricated at the desk (AP
+  present → scans see it), so its first live firing is UNPROVEN — the next natural
+  idle-drop is the test. panicwatch is running on both phones; grep the log for the
+  `restarting the radio` line when it happens.
+- 🔴 **NEW WART FOR THE P2 LIST (with the Remove/Disconnect pair):** opening the WiFi
+  settings screen and backing out WITHOUT joining leaves `reconnect = false` (the ctor's
+  `disconnect()`) AND the radio off AND the driver's AP erased — peeking at the network
+  list silently kills auto-rejoin until the next join or reboot. Fix it with the settings
+  screen in hand, not blind.
+- ⚠ **BENCH TRAP AMENDED:** "phone 1's adapter never resets on port open" held for DOZENS
+  of spaced opens (2026-08-26) but a RAPID close→reopen (two `shot.py` runs seconds apart)
+  DID hard-reset it (`BOOT: reset_reason=1`) and destroyed the preserved wedge state.
+  Space port opens by a few seconds, or route through the panicwatch cmd bridge.
+- 🔎 Context recovered from the log: the drop itself happened OFF the bench — the USB
+  port vanished 09:26→11:02 while phone 1 ran on battery (soc 100→79 %), so the
+  disconnect moment is unrecorded; the wedge state it came back in is what was measured.
 
 # 🌙 2026-08-26 NIGHT — THE UPLOADER IS REBUILT AND THE PAGE NO LONGER DIES (0.9.28)
 

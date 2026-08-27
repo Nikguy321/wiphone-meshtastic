@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.9.29 (2026-08-27) — the deaf-scan state is diagnosed, and the phone cures it itself
+
+Phone 1 idle-dropped WiFi and would not rejoin until a manual rescan — and the whole
+mechanism was caught live at the work desk with phone 2 as the on-air control:
+
+- 🔑 **The deaf-scan state.** After hours of disconnected retry churn the ESP32 WiFi driver
+  reaches a state where **every scan completes with zero results** — async and blocking,
+  80 and 240 MHz, screen on or off — while the twin phone hears the same AP at −50 dBm.
+  The auto-switcher believed each empty scan ("out of range") and backed off forever.
+  Nothing recovers it except a **radio off/on** — which is why "open the WiFi screen and
+  rescan" always fixed it: `NetworksApp`'s constructor calls `disconnect(true, true)`, an
+  accidental radio bounce (a reboot cures it the same way: a fresh radio heard 6 networks
+  and SIP registered inside a minute).
+- **The fix:** the auto-switcher now counts consecutive empty disconnected scans and, at
+  two, **restarts the radio itself before the next scan** (`_dryScans`, Networks.cpp) —
+  logs `[autosw] N consecutive empty scans: restarting the radio`. Deliberately without
+  `eraseap`: the driver's remembered AP is not the disease.
+- **New bench command `wifi bounce`** (`Networks::bounceRadio()`): the same cure on demand,
+  no reboot. ⚠ Its first cut called `WiFi.disconnect(true)` directly from an associated
+  phone — radio-off swallowed the STA_DISCONNECTED event, `connected` stayed true, and
+  both rescue loops sat gated: wedged half-down until a reflash. The shipped version
+  delivers a plain disconnect first (and sets the flag explicitly), then cycles the radio,
+  then makes the next auto-switch scan due immediately. Proven end to end: bounce →
+  scan n=1 at −36 dBm → rejoined in 9 s → SIP re-registered, hands-free.
+- ⚠ Honest limit: the `_dryScans` trigger itself cannot be fabricated at a desk with the
+  AP present, so its first live firing will be the next natural idle-drop — watch the
+  field log for the line above.
+
 ## 0.9.28 (2026-08-27) — the upload page stops eating the phone, and WiFi rejoins by itself
 
 ### 🔑 The uploader: the page moves to the raw server, and the browser stops losing

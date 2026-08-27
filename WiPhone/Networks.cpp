@@ -469,6 +469,27 @@ bool Networks::connectToPreferred(void) {
   return r;
 }
 
+/* Radio OFF and back to STA, with the state layer told the truth FIRST (2026-08-27).
+ * The opening plain disconnect() matters: issued while associated it delivers
+ * STA_DISCONNECTED, which is what clears `connected`. The first cut of `wifi bounce`
+ * went straight to disconnect(true) — radio off swallowed that event, `connected`
+ * stayed true, and BOTH rescue loops (retry and auto-switch) sat gated on it: an
+ * associated bench phone was wedged half-down until a reflash. Found live, same day
+ * the command was written. The explicit `connected = false` after the delay is belt
+ * and braces — recovery must not depend on event-delivery timing. Ends by making the
+ * next auto-switch scan due immediately, so the cure is followed by the look-around
+ * that uses it. Does NOT touch `reconnect`, does NOT eraseap. */
+void Networks::bounceRadio(void) {
+  WiFi.disconnect();            // event → connected=false while the radio can still say so
+  delay(400);
+  connected = false;
+  WiFi.disconnect(true /*radio OFF*/);
+  delay(300);
+  WiFi.mode(WIFI_STA);          // back up, idle
+  _dryScans = 0;
+  _msLastScan = millis() - 600000u;   // next autoSwitchTick: a scan is due NOW
+}
+
 // ===================================================== WIFI AUTO-SWITCH =====================================================
 // Scans in the background (async, keeps the current association) and hops to
 // the strongest saved network. Driven by autoSwitchTick() from the main loop.
@@ -539,12 +560,19 @@ void Networks::autoSwitchTick(bool screenOn) {
     _scanning = false;
     log_e("[autosw] scan done: n=%d", n);
     if (n > 0) {
+      _dryScans = 0;
       autoSwitchEvaluate(n);
     } else if (n == 0) {
-      /* 🛑 A COMPLETED SCAN THAT FOUND NOTHING IS THE OUT-OF-RANGE CASE, AND THE BACKOFF
-       * BELOW EXISTS FOR EXACTLY IT. This used to take the retry branch, which defeated that
-       * backoff entirely — see scheduleScanRetry(). Stamp it as an ordinary scan and let the
-       * 2-minute / 5-minute easing do its job. */
+      /* 🛑 A COMPLETED SCAN THAT FOUND NOTHING IS the out-of-range case — OR THE DEAF
+       * RADIO (2026-08-27): after hours of disconnected retry churn the driver can reach a
+       * state where scans complete empty forever while the AP is on air at -50 dBm. The two
+       * are indistinguishable from one result, so count them: out of range clears on the
+       * walk home anyway, and the deaf state gets a radio bounce at _dryScans >= 2 (below).
+       * Either way the scan is stamped as ordinary so the 2/5-minute easing does its job —
+       * taking the retry branch here used to defeat that backoff; see scheduleScanRetry(). */
+      if (!connected && _dryScans < 1000) {
+        _dryScans++;
+      }
       _msLastScan = now;
     } else {
       /* n < 0: the scan was ABORTED, not empty — commonly a reconnect attempt cycled WiFi
@@ -577,18 +605,36 @@ void Networks::autoSwitchTick(bool screenOn) {
     _msLastScan = now;
     if (connected) {
       _discScans = 0;                   // on a network: forget the dry spell
+      _dryScans = 0;
     } else if (_discScans < 1000) {
       _discScans++;
     }
     _scanPending = true;                // scanBusy() now holds the reconnect loop off
     _msScanPendingSince = now;
     if (!connected) {
-      // The Arduino WiFi driver auto-reconnects on "AP not found", so with the
-      // preferred network absent the radio is perpetually mid-connect and scan
-      // starts get rejected — the auto-switcher looked completely dead. A plain
-      // disconnect stops that cycle (its disconnect reason is one the driver
-      // does NOT auto-reconnect from) and frees the radio to scan.
-      WiFi.disconnect();
+      if (_dryScans >= 2) {
+        /* THE DEAF-RADIO RECOVERY (2026-08-27, measured on phone 1 at the work desk):
+         * two consecutive scans that completed EMPTY while the twin radio heard the AP at
+         * -50 dBm. No amount of scanning recovers from this state — screen wake at 240 MHz
+         * read n=0 too — but a radio off/on clears it instantly (a rebooted radio heard 6
+         * networks and SIP registered inside a minute). This is exactly what the user's
+         * "open the WiFi screen and rescan" ritual did by accident: NetworksApp's ctor is
+         * disconnect(true, true). Done here deliberately — WITHOUT eraseap, the driver's
+         * remembered AP is not the disease — the next scanNetworks() below re-enables STA,
+         * which is the "on" half. Counter resets so a genuinely out-of-range phone bounces
+         * at most every second round (~10 min), not every scan. */
+        log_e("[autosw] %u consecutive empty scans: restarting the radio before this one",
+              (unsigned)_dryScans);
+        _dryScans = 0;
+        WiFi.disconnect(true /*radio OFF; the scan start turns it back on*/);
+      } else {
+        // The Arduino WiFi driver auto-reconnects on "AP not found", so with the
+        // preferred network absent the radio is perpetually mid-connect and scan
+        // starts get rejected — the auto-switcher looked completely dead. A plain
+        // disconnect stops that cycle (its disconnect reason is one the driver
+        // does NOT auto-reconnect from) and frees the radio to scan.
+        WiFi.disconnect();
+      }
       return;                           // give the driver a tick to settle; start next pass
     }
   }

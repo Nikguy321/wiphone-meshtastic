@@ -75,6 +75,7 @@ public:
 
   // WiFi network staff
   bool connectToPreferred(void);
+  void bounceRadio(void);        // radio off/on + state truth + prompt rescan — see .cpp
   bool hasPreferredSsid(void);
   bool connectTo(const char* ssid);
   void disconnect(void);
@@ -129,6 +130,15 @@ protected:
   /* Consecutive scans run while disconnected. Used to stretch the scan interval when
    * there is clearly nothing in range — see autoSwitchTick(). Reset on any connect. */
   uint32_t _discScans = 0;
+  /* Consecutive scans that COMPLETED with zero results while disconnected. Distinct from
+   * _discScans (which counts rounds for the backoff): this one is the deaf-radio detector.
+   * MEASURED 2026-08-27 (phone 1, work desk): after hours of disconnected retry churn the
+   * driver enters a state where every scan completes EMPTY — async and blocking, 80 and
+   * 240 MHz, quiesced or not — while the twin phone hears the same AP at -50 dBm, and the
+   * ONLY cure is a radio off/on (which is why "open the WiFi screen and rescan" always
+   * fixed it: NetworksApp's constructor bounces the radio by accident). At 2 the
+   * auto-switcher bounces the radio itself before scanning — see autoSwitchTick(). */
+  uint32_t _dryScans = 0;
 
   bool _userDisabled;
   bool reconnect;             // should it try to reconnect when disconnected? TODO: save this in configs somehow

@@ -96,6 +96,7 @@ static void help() {
     "  meshdb     chat history: which filesystem, what loaded, what the next save keeps",
     "  wifi drop  simulate a hotspot blip, to measure the reconnect path",
     "  wifi scan  what the radio can actually hear - deaf radio vs absent AP",
+    "  wifi bounce  radio off/on without a reboot - the deaf-scan cure, keeps saved APs",
     "  wifi calreset  erase the stored RF calibration and reboot - the deaf-radio probe",
     "  star [<!node>]  list starred nodes, or toggle one (top of list, evicted last)",
     "  send <i> <text>  send a channel text (index from `chans`) - proves the broadcast receipt",
@@ -984,6 +985,22 @@ static void run(char* line) {
   if (!strcasecmp(line, "wifi drop")) {
     WiFi.disconnect();
     say("wifi: dropped (not user-disabled) - the retry path will now run; watch for SLOW WIFI\n");
+    return;
+  }
+
+  /* `wifi bounce` — radio OFF, then STA back on. THE cure for the deaf-scan state
+   * (2026-08-27): after hours of disconnected retry churn the driver can reach a state
+   * where every scan COMPLETES with 0 results while the AP is on air at -50 dBm (the twin
+   * phone as witness) — screen wake, 240 MHz, quiesced windows, nothing helps except a
+   * radio restart. "Open the WiFi screen and rescan brings it back" was this exact cycle
+   * hiding in NetworksApp's constructor (disconnect(true,true)); this command is the same
+   * medicine WITHOUT eraseap, so the driver's remembered AP survives. The retry loop and
+   * auto-switcher take it from here — with the AP in range, expect a rejoin in seconds.
+   * autoSwitchTick() now performs this on its own after 2 consecutive empty scans; this
+   * command exists so a bench session can apply and PROVE the cure without a reboot. */
+  if (!strcasecmp(line, "wifi bounce")) {
+    wifiState.bounceRadio();
+    say("wifi bounce: radio cycled off/on - retry/auto-switch take it from here\n");
     return;
   }
 
