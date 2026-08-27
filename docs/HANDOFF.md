@@ -4,8 +4,71 @@
 
 Read this first; everything below it is narrative.
 
-✅ **BOTH PHONES ARE ON 0.9.27**, `built Aug 26 2026 17:57:03`, read back with `ver` on each
-port rather than assumed from a successful upload. Repo clean and pushed.
+✅ **BOTH PHONES ARE ON 0.9.28** (flashed overnight 2026-08-26→27; phone 2 verified by `ver`
+after boot, phone 1 by behavior — ⚠ `ver`'s build time reads `21:47:15` on BOTH for every
+0.9.28 build because `__DATE__ __TIME__` live in serial_cmd.cpp, which later builds did not
+recompile; do not use `ver` to distinguish same-day builds). Repo clean and pushed.
+
+# 🌙 2026-08-26 NIGHT — THE UPLOADER IS REBUILT AND THE PAGE NO LONGER DIES (0.9.28)
+
+Nick's overnight ask: *"the wifi uploaders … are unstable and unusable (ram leaking and pages
+not wanting to load on browsers) … goal is to be able to (somehow and conveniently) upload
+files to the device without opening the case, without it panic booting or losing connection."*
+
+🔑 **ROOT CAUSE, MEASURED (docs/uploader-bench-2026-08-26.md):** the framework WebServer costs
+~10 KB of internal-heap transient per fresh CONNECTION — page bytes irrelevant; switching the
+page to `sendContent_P` moved nothing — and from the 13-15 K idle largest a SIP phone runs,
+that bottoms at 1.6-3 K: the breaker's instant tier. So nearly every browser VISIT (page +
+favicon + probe) tripped the breaker and the NEXT visitor got "site cannot be loaded": 2 of
+10 page GETs answered, with 90→360→600 s backoff. The "RAM leak" was the breaker's own
+allocate/free churn (its timer-resume replanted a ~6 KB server into a 4.5 K-largest heap
+every 90-180 s) plus ESPmDNS's genuine leak (one WiFi-event callback per begin/end cycle,
+never removed — and the breaker cycled it on every pause).
+
+**SHIPPED (0.9.28, commit 3b90a62):** the RAW single-connection pump (4ff2a18's transport)
+now listens on **:80 as well as :8081** and serves the PAGE, /favicon, /fetch (shared
+`xferFetchUrl`), and a /log redirect — keep-alive, no Strings, per-request heap ~zero. The
+WebServer lives on **:8080** for what genuinely needs it (multipart `/upload` for no-JS +
+`curl -F`, /log streaming) — its trips can no longer take the page down. The raw-served page
+skips the 8081 probe (`RAWPAGE` marker): same-origin IS the raw transport. Breaker reworked
+on the night's measurements: the 6144 trip line must hold for **1.5 s** (one request's
+transient is not the flood; **<3072 stays instant** — the PHY-abort guard); raw traffic
+inhibits trips like chunk pacing already did; resume is **recovery-only at largest ≥ 10240**
+(the same bar xferStart demands — the timer-resume was the flap). mDNS begins once per boot,
+never ends. `up` prints both URLs.
+
+✅ **PROVEN ON PHONE 1:** page 19-20/20 under a 20-GET hammer (was 2/10); **3× 4-book
+batches = 12/12 files byte-verified (~52 MB) at 48-69 KB/s, ZERO breaker events, zero
+panics, no wedge**; resumed tails 156-249 KB/s. 🛠 **NEW `tools/wiphone_send.py`** — the
+convenient no-browser path: `python3 tools/wiphone_send.py --app books f1.epub f2.epub`
+(finds the phone via the serial bridge or wiphone.local, starts `up on books` itself,
+keep-alive chunks, resume, 507-with-patience, verifies held==size). `tools/chunkup.py`
+still works unchanged (:8081 is still listening).
+
+⚠ **HONEST FINDS, ALL MEASURED, ALL OPEN:**
+- **The SD threw 507 (write failed) on 3 of 12 files** under sustained load; retries landed
+  every byte. Watch this card.
+- **After a heavy batch the internal heap stays fragmented (largest 3-5 K) for minutes**, and
+  while it lasts SIP cannot re-register (`everRegistered=0` was observed after a batch — SIP
+  had reinitialised WITHOUT the 0.9.26 `going to init` line ever printing; how it got there
+  is UNANSWERED) and one episode left the **WiFi radio DEAF** (`wifi scan: 0 networks` with
+  the AP provably on air — the Mac was associated to it). Only a reboot cured that. This is
+  very likely a big slice of Nick's historic "losing connection".
+- The remaining ~1-in-12 page-GET failure under rapid-fire curl is the single-slot takeover
+  race; real browsers (2-3 connections) should not see it. ⏳ **The real-browser acceptance
+  run is STILL OWED** — attempted overnight but blocked: the sandboxed browser refuses
+  plain-HTTP LAN pages and Chrome's extension was signed out. Nick opened the page in Chrome
+  on the morning of 08-27; whether an upload landed is in the serial log after this write.
+- 🛑 Cosmetic: the raw-served page's status line says "compatible chunked" where it should
+  say "fast" (the label keys on BASE, which is '' same-origin). One-word JS fix, not yet made.
+
+🛠 **BENCH FACTS THAT CHANGED:** on phone 1's adapter, **opening the serial port does NOT
+reset the phone** (uptime survived dozens of opens) — reset needs an explicit **RTS pulse**
+(`setDTR(False); setRTS(True); sleep(0.2); setRTS(False)` — 2 s, vs a 48 s reflash).
+⚠ panicwatch instances SURVIVE a plain `pkill -f panicwatch.py` often enough to matter, and
+a second reader on the port silently steals bytes (stale-looking logs, identical repeated
+HEALTH lines) — `kill -9` + `lsof` the port before trusting a capture. panicwatch stamps its
+log in UTC.
 
 🔴 **THE ONE THING OWED THAT NEEDS NICK'S HANDS:** bench the SIP re-init (0.9.26). With a real
 account, **drop WiFi mid-call, restore it, and watch for `SIP is going to init`** followed by
@@ -1564,8 +1627,10 @@ is impossible by construction; CORS-simple so the page can use it cross-port;
 WebServer `/chunk` stays as the fallback). Sketch: non-blocking state machine pumped
 from the main loop, 2 s dead-client deadline, piece cap 32 K.
 
-**Review findings OPEN (a 14-agent adversarial review ran; its verify stage was cut
-by a usage limit — findings are triaged, unfixed unless noted):**
+**Review findings — ✅ ALL FIVE PAGE ITEMS (4a-e) AND ITEMS 1-3 WERE FIXED IN 4ff2a18
+("The raw transport lands", same day), verified against its diff on 2026-08-26 night.
+This list stood mislabeled "OPEN" for five days — the stale-claim trap this repo keeps
+documenting. Kept for the reasoning; nothing below is owed:**
 1. 🔑 **CONFIRMED from vfs_api.cpp: `File::size()` on an OPEN written file stats the
    PATH — FatFS dir entry updates only on sync/close — so held arithmetic undercounts
    between flushes.** Fix: track durable bytes in RAM; trust size() only at (re)open

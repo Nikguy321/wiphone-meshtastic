@@ -49,3 +49,24 @@ browser trips the breaker before the first piece flies.
    breaker trips, then a real browser run.
 
 Raw serial evidence: /tmp/wiphone-serial.log (Mac-side, this session).
+
+---
+
+## RESULTS (written 2026-08-27 morning; plan above executed with one big change)
+
+The plan's step 1 assumed the raw endpoint had to be BUILT — it already existed (4ff2a18,
+:8081, acceptance-passed 08-21). What was actually broken was everything AROUND it: the
+page, favicon, and probe still rode the WebServer, whose ~10 KB/connection transient
+tripped the breaker on nearly every visit. So 0.9.28 moved the front door instead:
+
+| step | result |
+|---|---|
+| page hammer, 20 rapid GETs | 19-20/20 answered (baseline 2/10); the stragglers are the single-slot takeover race under curl rapid-fire |
+| 3× 4-book batches (~52 MB) | 12/12 byte-verified, 48-69 KB/s, ZERO breaker events, zero panics, no wedge |
+| resumed tails | 156-249 KB/s effective |
+| SD | three 507s across 12 files, all recovered by retry — watch this card |
+| post-batch tail | largest pinned 3-5 K for minutes; SIP could not re-register until heap recovered; one DEAF-RADIO episode (scan: 0 networks, AP provably on air) cured only by reboot |
+| real browser | STILL OWED (sandbox refused LAN HTTP; Chrome extension signed out; Nick opened the page 08-27 morning) |
+
+Breaker as shipped: instant trip < 3072 (PHY guard), 1.5 s sustained for the 6144 line,
+raw traffic inhibits, resume recovery-only at ≥ 10240, mDNS begins once and never ends.
