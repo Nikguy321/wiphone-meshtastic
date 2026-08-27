@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.9.30 (2026-08-27) — peeking at the WiFi list no longer kills auto-rejoin
+
+The 0.9.29 session's P2 wart, closed the same day, with two relatives found in the walk:
+
+- 🔑 **The peek wart:** `NetworksApp`'s constructor clears `reconnect` (so a background
+  rejoin cannot race the user's choice while the list is open) — but leaving WITHOUT
+  joining left it cleared, so merely LOOKING at the WiFi list silently killed auto-rejoin
+  (and the radio, and the driver's remembered AP) until the next join or reboot. The
+  destructor now restores it (`Networks::resumeReconnect()`), gated on `userDisabled()`.
+- **`disable()` says so in the LIVE flag:** every `disable()` caller is an explicit user
+  action (menu WIFI-OFF, Remove, Disconnect, edit-screen WIFI-OFF), but only
+  `loadPreferred()` ever set `_userDisabled` — from the INI, typically at boot — so a
+  mid-session Disconnect left the live flag stale-false. `disable()` sets it now;
+  a deliberate `connectTo()` clears it (the join path already writes `disabled=false`
+  to the INI in the same breath).
+- **The WIFI-ON toggles hand control back:** both ON paths only called
+  `esp_wifi_start()` and left `reconnect` false — an innocent OFF→ON cycle killed
+  auto-rejoin until a join or reboot. Both now call `resumeReconnect()`.
+- ✅ All three scenarios proven live on phone 1 over the serial bridge, no hands:
+  peek & back out → `rec` 0→1, scan, `switching to 'NickH-wifi'`, `conn=1`, SIP
+  re-registered; explicit OFF + peek + back out → stays off (wifi=255, 50 s silent);
+  OFF→ON toggle → `ud=0 rec=1`, hands-free rejoin + SIP REGISTERED.
+
 ## 0.9.29 (2026-08-27) — the deaf-scan state is diagnosed, and the phone cures it itself
 
 Phone 1 idle-dropped WiFi and would not rejoin until a manual rescan — and the whole

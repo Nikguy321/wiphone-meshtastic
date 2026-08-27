@@ -4,10 +4,37 @@
 
 Read this first; everything below it is narrative.
 
-✅ **BOTH PHONES ARE ON 0.9.29** (flashed 2026-08-27 midday; identical binary from one build
-dir — ⚠ `ver` build-time still cannot distinguish same-day builds). Repo clean and pushed.
-Phone 1 associated + SIP registered at the work desk; phone 2 associated; panicwatch running
-on both under caffeinate.
+✅ **BOTH PHONES ARE ON 0.9.30** (flashed 2026-08-27 early afternoon; identical binary from
+one build dir — ⚠ `ver` build-time still cannot distinguish same-day builds). Repo clean and
+pushed. Phone 1 associated + SIP registered at the work desk; phone 2 associated; panicwatch
+running on both under caffeinate.
+
+# ✅ 2026-08-27 EARLY AFTERNOON — THE PEEK WART IS CLOSED (0.9.30), AT NICK'S ASK
+
+The wart the 0.9.29 block below filed as P2 ("peeking at the WiFi list silently kills
+auto-rejoin") is FIXED and proven, plus two relatives found while holding the screen:
+
+- `NetworksApp`'s destructor restores auto-rejoin on the way out
+  (`Networks::resumeReconnect()`), **gated on `userDisabled()`** so an explicit
+  Disconnect/Remove/WIFI-OFF is never overruled by merely leaving the screen.
+- `disable()` now sets `_userDisabled` LIVE (before, only boot-time `loadPreferred()` ever
+  set it, so a mid-session Disconnect left the flag stale-false); a deliberate
+  `connectTo()` clears it, mirroring the 0.9.28 `reconnect` restore and the join path's
+  own `disabled=false` INI write.
+- **Both WIFI-ON toggles (Settings row and edit screen) now call `resumeReconnect()`** —
+  they used to only `esp_wifi_start()`, so an innocent OFF→ON cycle left auto-rejoin dead
+  until a join or reboot. The Settings toggle's own comment promised "the main loop's
+  reconnect and auto-switch own that" while those loops gated on the flag it never set.
+- ✅ **All three scenarios proven live on phone 1, driven entirely over the panicwatch
+  bridge** (`key` + the new bridge-shot trick: the `shot` serial command's base64 lands in
+  the panicwatch log and decodes to a PNG — no port open, no reset risk): (1) peek & back
+  out → `rec` 0→1 on exit, autosw scan, `switching to 'NickH-wifi'`, `conn=1`, SIP
+  re-registered, hands-free; (2) explicit WIFI-OFF + peek + back out → **stays off**
+  (wifi=255, 50 s of autosw silence); (3) WIFI-ON toggle → `ud=0 rec=1` at the toggle,
+  hands-free rejoin + `SIP REGISTRATION -> REGISTERED`. Host suite exit 0. Both flashed.
+- ⚠ Still deliberately NOT touched: Remove-network and the Disconnect button calling full
+  `disable()` (radio + BT off — heavier than either action means). Same P2 note as
+  before; their SEMANTICS are now at least consistent (they set the live flag).
 
 # 🔎 2026-08-27 MIDDAY — NICK'S IDLE-DROP REPORT IS DIAGNOSED LIVE: THE DEAF-SCAN STATE,
 # AND 0.9.29 MAKES THE PHONE CURE IT ITSELF
@@ -47,11 +74,10 @@ unconnected for you to see first."* That preserved wedge was measured end to end
   present → scans see it), so its first live firing is UNPROVEN — the next natural
   idle-drop is the test. panicwatch is running on both phones; grep the log for the
   `restarting the radio` line when it happens.
-- 🔴 **NEW WART FOR THE P2 LIST (with the Remove/Disconnect pair):** opening the WiFi
-  settings screen and backing out WITHOUT joining leaves `reconnect = false` (the ctor's
-  `disconnect()`) AND the radio off AND the driver's AP erased — peeking at the network
-  list silently kills auto-rejoin until the next join or reboot. Fix it with the settings
-  screen in hand, not blind.
+- ~~🔴 **NEW WART FOR THE P2 LIST:** opening the WiFi settings screen and backing out
+  WITHOUT joining leaves `reconnect = false` … peeking at the network list silently kills
+  auto-rejoin until the next join or reboot.~~ ✅ **CLOSED THE SAME DAY (0.9.30, Nick's
+  ask) — see the block above.** Kept for the record of when it was found.
 - ⚠ **BENCH TRAP AMENDED:** "phone 1's adapter never resets on port open" held for DOZENS
   of spaced opens (2026-08-26) but a RAPID close→reopen (two `shot.py` runs seconds apart)
   DID hard-reset it (`BOOT: reset_reason=1`) and destroyed the preserved wedge state.

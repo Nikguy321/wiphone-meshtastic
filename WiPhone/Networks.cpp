@@ -340,6 +340,13 @@ void Networks::disconnect() {
  */
 
 void Networks::disable() {
+  /* Every caller of disable() is an explicit user action (the menu WIFI toggle OFF, Remove
+   * network, the Disconnect button, the edit screen's WIFI-OFF) — so say so in the LIVE
+   * flag, not just the INI. Before 2026-08-27 only loadPreferred() ever set _userDisabled
+   * (from the INI, typically at boot), so a Disconnect pressed mid-session left the live
+   * flag false — and anything gating on userDisabled() was reading a stale answer. The
+   * flag is cleared by the symmetric acts: a deliberate connectTo() or resumeReconnect(). */
+  _userDisabled = true;
   disconnect();
   WiFi.mode(WIFI_OFF);
   btStop(); // we don't currently use bluetooth for anything, leave it off to save power
@@ -418,8 +425,12 @@ bool Networks::connectTo(const char* ssid) {
      * SIP, not hardware — a one-way flag, flipped by the very screen used to fix the
      * WiFi. Every caller of connectTo() (the settings screen, connectToPreferred,
      * the auto-switch hop) is expressing "I want to be on this network", which is
-     * exactly what reconnect means. */
+     * exactly what reconnect means. The same argument clears _userDisabled (added
+     * 2026-08-27 when disable() started setting it live): a deliberate join IS the user
+     * re-enabling WiFi, and the settings screen's join path writes disabled=false to the
+     * INI in the same breath — the live flag must agree with it. */
     reconnect = true;
+    _userDisabled = false;
     connectToWiFi(wifiSsidDyn, wifiPassDyn);    // "async"
     r = true;
   }
@@ -488,6 +499,15 @@ void Networks::bounceRadio(void) {
   WiFi.mode(WIFI_STA);          // back up, idle
   _dryScans = 0;
   _msLastScan = millis() - 600000u;   // next autoSwitchTick: a scan is due NOW
+}
+
+/* "Manage WiFi again": the symmetric partner of disable(), without naming a network.
+ * Called by the WIFI-ON toggles (menu and edit screen) and by NetworksApp's destructor
+ * for the peek-and-back-out case. Arms the retry loop and the auto-switcher; the actual
+ * join is theirs — blocking the UI on a join is what froze the edit screen once. */
+void Networks::resumeReconnect(void) {
+  _userDisabled = false;
+  reconnect = true;
 }
 
 // ===================================================== WIFI AUTO-SWITCH =====================================================

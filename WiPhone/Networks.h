@@ -76,6 +76,7 @@ public:
   // WiFi network staff
   bool connectToPreferred(void);
   void bounceRadio(void);        // radio off/on + state truth + prompt rescan — see .cpp
+  void resumeReconnect(void);    // "manage WiFi again": clears user-disabled, arms rejoin
   bool hasPreferredSsid(void);
   bool connectTo(const char* ssid);
   void disconnect(void);

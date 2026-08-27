@@ -1491,10 +1491,15 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
               if (esp_wifi_start() != ESP_OK) {
                 log_e("WIFI can't be started");
                 wifiOn = false;              // say what is true, not what was asked for
+              } else {
+                /* Nothing to connect to explicitly from here — the main loop's reconnect
+                 * and auto-switch own that, and blocking the UI on a join is what froze
+                 * the edit screen before it was fixed. ⚠ But those loops gate on the very
+                 * flags disable() just cleared, so hand them back (2026-08-27): without
+                 * this, an innocent OFF→ON cycle left auto-rejoin dead until a join or
+                 * reboot — the toggle's promise above was broken the day it was written. */
+                wifiState.resumeReconnect();
               }
-              /* Nothing to connect to explicitly from here — the main loop's reconnect and
-               * auto-switch own that, and blocking the UI on a join is what froze the edit
-               * screen before it was fixed. */
             } else {
               wifiState.disable();
             }
@@ -6206,13 +6211,20 @@ appEventResult EditNetworkApp::processEvent(EventType event) {
       wifiOn = true;
       if (esp_wifi_start() != ESP_OK) {
         log_e("WIFI can't be started");
-      } else if (ssidInput->getText() != NULL && ssidInput->getText()[0]) {
-        // Reconnect asynchronously; the main loop's reconnect/auto-switch
-        // logic takes it from here (no blocking waits in the UI).
-        if (wifiState.connectTo(ssidInput->getText())) {
-          log_d("connecting: %s", ssidInput->getText());
-          if (connectionButton != NULL) {
-            connectionButton->setText("Connecting");
+      } else {
+        /* ON means "managed again" (2026-08-27): with no SSID below, the retry and
+         * auto-switch loops do the joining, and they gate on the very flags disable()
+         * cleared — without this, OFF→ON here left auto-rejoin dead until a join or
+         * reboot. With an SSID, connectTo() sets the same flags; harmless prelude. */
+        wifiState.resumeReconnect();
+        if (ssidInput->getText() != NULL && ssidInput->getText()[0]) {
+          // Reconnect asynchronously; the main loop's reconnect/auto-switch
+          // logic takes it from here (no blocking waits in the UI).
+          if (wifiState.connectTo(ssidInput->getText())) {
+            log_d("connecting: %s", ssidInput->getText());
+            if (connectionButton != NULL) {
+              connectionButton->setText("Connecting");
+            }
           }
         }
       }
@@ -6753,6 +6765,17 @@ NetworksApp::~NetworksApp() {
   }
   if (editNetwork) {
     delete editNetwork;
+  }
+  /* THE PEEK WART (2026-08-27): the constructor's disconnect() clears `reconnect` so a
+   * background rejoin cannot race the user's own choice while the list is open — but
+   * leaving WITHOUT joining used to leave it cleared, so merely LOOKING at the WiFi list
+   * silently killed auto-rejoin (and the radio) until the next join or reboot. Put it
+   * back on the way out. Gated on userDisabled(): an explicit Disconnect / Remove /
+   * WIFI-OFF in this visit went through disable(), which now sets that flag live — the
+   * user said off, and backing out of the screen must not overrule them. A join needs no
+   * help here: connectTo() already restored both flags. */
+  if (!wifiState.userDisabled()) {
+    wifiState.resumeReconnect();
   }
 }
 
