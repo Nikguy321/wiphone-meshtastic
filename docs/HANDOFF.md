@@ -45,15 +45,52 @@ convenient no-browser path: `python3 tools/wiphone_send.py --app books f1.epub f
 keep-alive chunks, resume, 507-with-patience, verifies held==size). `tools/chunkup.py`
 still works unchanged (:8081 is still listening).
 
-⚠ **HONEST FINDS, ALL MEASURED, ALL OPEN:**
+# 🔴 2026-08-27 MORNING — PHONE 1'S WIFI RADIO IS A HARDWARE FAILURE
+
+**The evidence chain, every link measured at Nick's work desk with both phones side by side
+on the same air:**
+- Phone 2: `wifi scan` → 3 networks incl. NickH-wifi at **-60 dBm ch6**, associated, served
+  the uploader flawlessly. Phone 1, same desk: **0 / 0 / -2** (-2 = the scan API itself
+  failing), cannot associate, and `up on books`'s softAP fallback **wedged the chip silent**.
+- Ruled out one at a time: heap (fresh boots at largest 20-26 K, still deaf), the air
+  (phone 2), firmware (identical 0.9.28), **RF calibration** (`wifi calreset` — new serial
+  command — erased it, PHY recalibrated, still -2), **WiFi driver NVS state** (`wifi
+  restore` — new serial command, esp_wifi_restore() — still -2).
+- History fits a DEGRADING radio, not a config: weeks of "phone 1 keeps losing association"
+  (the old downclock hunt), 9-for-9 clean on a router days ago, 52 MB of batches served
+  fine last night, dead by morning.
+🛑 **RETRACTION (mine, from last night's notes): "reboot cures the deaf radio" and "heap
+fragmentation causes it" are both WRONG** — today it boots deaf with a pristine heap. The
+post-batch fragmentation tail (largest 3-5 K for minutes) was REAL and measured, but its
+blamed consequences (SIP no-register, the deaf episode) are now confounded by the dying
+radio — treat them as unattributed until phone 2 shows or doesn't show the same.
+**Consequences:** phone 1 = the SIP phone, and SIP rides WiFi → **phone 1 cannot make calls
+until the radio is fixed.** Mesh (LoRa), screen, SD, serial all fine. Hardware options are
+Nick's call: reflow/reseat or replace the ESP32 module, inspect the antenna matching
+network, or swap roles and load the SIP account on phone 2 (`data/configs.ini`).
+
+✅ **AND THE REAL-BROWSER ACCEPTANCE RUN IS CLOSED — on phone 2, over the Android hotspot
+(the original crash-day class of link), driven in Nick's actual Chrome via the extension:**
+the page loaded from the raw front door (`RAWPAGE=1`), its own JS uploaded 256 KB + 2 MB +
+512 KB **byte-verified by held-count**, a zero-byte file was skipped and said so, label
+"fast chunked transport", **zero breaker events all session**. 🔑 **The run caught a real
+bug in one shot** — the thing the bench pushers were structurally blind to: the RAWPAGE
+branch set the piece size but left `BASE=''`, so `piece()`'s `if(BASE)` routed the raw-served
+page into the MULTIPART branch, which the raw server refuses (413: multipart overhead pushes
+a 16 K piece past the cap). Fixed (`RAW = BASE||window.RAWPAGE`), reflashed, re-proven.
+⏳ Still worth one tap from Nick's Android sometime: same engine as desktop Chrome, so this
+is a formality now, not a gate.
+
+⚠ **HONEST FINDS, ALL MEASURED, STILL OPEN:**
 - **The SD threw 507 (write failed) on 3 of 12 files** under sustained load; retries landed
   every byte. Watch this card.
-- **After a heavy batch the internal heap stays fragmented (largest 3-5 K) for minutes**, and
-  while it lasts SIP cannot re-register (`everRegistered=0` was observed after a batch — SIP
-  had reinitialised WITHOUT the 0.9.26 `going to init` line ever printing; how it got there
-  is UNANSWERED) and one episode left the **WiFi radio DEAF** (`wifi scan: 0 networks` with
-  the AP provably on air — the Mac was associated to it). Only a reboot cured that. This is
-  very likely a big slice of Nick's historic "losing connection".
+- **After a heavy batch the internal heap stays fragmented (largest 3-5 K) for minutes** —
+  measured and real. ⚠ But the consequences this bullet originally blamed on it (SIP unable
+  to re-register, the deaf-radio episode, "only a reboot cured that") are **RETRACTED as
+  attributions** — see the 08-27 morning section: phone 1's radio was dying, and it confounds
+  every WiFi symptom from that night. The `everRegistered=0`-without-`going to init` puzzle
+  stands unanswered. Re-observe the fragmentation tail's effects on PHONE 2 before believing
+  any of it again.
 - The remaining ~1-in-12 page-GET failure under rapid-fire curl is the single-slot takeover
   race; real browsers (2-3 connections) should not see it. ⏳ **The real-browser acceptance
   run is STILL OWED** — attempted overnight but blocked: the sandboxed browser refuses

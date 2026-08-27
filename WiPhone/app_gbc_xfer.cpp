@@ -362,7 +362,7 @@ static const char PAGE_3[] =
   "var m='Done! '+sent+' file(s) on your phone.';"
   "if(skipped)m+=' ('+skipped+' empty file(s) skipped)';"
   "if(failed.length)m='Sent '+sent+' — FAILED: '+failed.join(', ');"
-  "m+=' · '+(BASE?'fast':'compatible')+' chunked transport';"
+  "m+=' · '+((BASE||window.RAWPAGE)?'fast':'compatible')+' chunked transport';"
   "ch.textContent=m;}"
   "function nextFile(){"
   "if(fi>=files.length){finish();return;}"
@@ -377,7 +377,7 @@ static const char PAGE_3[] =
    * pieces; "compatible" = same-origin /chunk, 4 KB. Either is safe; the form POST
    * is the one to notice, and it cannot reach this line at all. */
   "function stat(x){ch.textContent='Uploading '+(fi+1)+' of '+files.length+': '+file.name+"
-  "' — '+Math.floor(off*100/file.size)+'%'+(x||'')+' ['+(BASE?'fast':'compatible')+' chunked]';}"
+  "' — '+Math.floor(off*100/file.size)+'%'+(x||'')+' ['+((BASE||window.RAWPAGE)?'fast':'compatible')+' chunked]';}"
   // A file that gives up does NOT sink the batch: note it, move on.
   "function giveUp(why){failed.push(file.name+(why?' ('+why+')':''));fi++;setTimeout(nextFile,300);}"
   "function fail(){tries++;"
@@ -403,8 +403,15 @@ static const char PAGE_3[] =
   "var u=new Uint8Array(fr.result);"
   "var url=BASE+'/chunk?name='+encodeURIComponent(file.name)+'&off='+off+'&crc='+hex8(crc32(u))+"
   "'&last='+(end>=file.size?1:0);"
+  /* RAW covers both raw transports: cross-origin :8081 (BASE set) and a RAWPAGE
+   * served same-origin by the raw server (BASE=''). ⚠ The first cut keyed this on
+   * BASE alone, so a raw-served page fell into the multipart branch — which the
+   * raw server refuses (multipart overhead pushes a 16 K piece past the cap).
+   * Caught by the first REAL-browser run, 2026-08-27; the bench pushers all
+   * spoke Blob directly and could not see it. */
+  "var RAW=BASE||window.RAWPAGE;"
   "var opts;"
-  "if(BASE){opts={method:'POST',body:new Blob([u],{type:'text/plain'})};}"
+  "if(RAW){opts={method:'POST',body:new Blob([u],{type:'text/plain'})};}"
   "else{var fd=new FormData();fd.append('p',new Blob([u]),'p');opts={method:'POST',body:fd};}"
   "fetch(url,opts)"
   ".then(function(r){return r.text().then(function(t){return{ok:r.ok,c:r.status,t:t};});})"

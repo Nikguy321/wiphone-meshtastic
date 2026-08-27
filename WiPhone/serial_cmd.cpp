@@ -20,6 +20,8 @@ extern bool uiInjectKey(char c);
 #include <Arduino.h>
 #include <driver/uart.h>
 #include <esp_heap_caps.h>   // multi_heap_info_t, the `heap` command
+#include <esp_phy_init.h>    // esp_phy_erase_cal_data_in_nvs, `wifi calreset`
+#include <esp_wifi.h>        // esp_wifi_restore, `wifi restore`
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>     // strtoul, the `dm` command's node number
@@ -94,6 +96,7 @@ static void help() {
     "  meshdb     chat history: which filesystem, what loaded, what the next save keeps",
     "  wifi drop  simulate a hotspot blip, to measure the reconnect path",
     "  wifi scan  what the radio can actually hear - deaf radio vs absent AP",
+    "  wifi calreset  erase the stored RF calibration and reboot - the deaf-radio probe",
     "  star [<!node>]  list starred nodes, or toggle one (top of list, evicted last)",
     "  send <i> <text>  send a channel text (index from `chans`) - proves the broadcast receipt",
     "  pki        DM crypto state: our key, who has keys, stack headroom",
@@ -1009,6 +1012,39 @@ static void run(char* line) {
       }
     }
     WiFi.scanDelete();
+    return;
+  }
+
+  /* `wifi calreset` — erase the RF calibration data in NVS and reboot, forcing the PHY to
+   * recalibrate from scratch on the way up. EXISTS BECAUSE OF 2026-08-27 MORNING: phone 1
+   * booted DEAF — `wifi scan` 0/0/-2 (-2 = the scan API itself failing) on a FRESH boot
+   * with largest=26 K, while phone 2 on the same desk heard NickH-wifi at -60 dBm and was
+   * associated. Fresh heap rules out fragmentation; phone 2 rules out the air; a PCB
+   * antenna rules out a knocked cable. What survives a reboot and steers the radio is the
+   * stored calibration, so this is the probe — and if it cures a deaf radio, the cure is
+   * now one serial command instead of a working theory. ⚠ Only the "phy" NVS namespace is
+   * touched; WiFi credentials and everything else stay. Reboots when done. */
+  if (!strcasecmp(line, "wifi calreset")) {
+    const esp_err_t e = esp_phy_erase_cal_data_in_nvs();
+    say("wifi calreset: erase %s - rebooting to recalibrate\n",
+        e == ESP_OK ? "OK" : "FAILED (will still reboot; cal may simply be absent)");
+    delay(300);
+    ESP.restart();
+    return;
+  }
+
+  /* `wifi restore` — esp_wifi_restore(): wipe the WiFi DRIVER's persisted state in NVS
+   * (namespace nvs.net80211) and reboot. The step past calreset on the same 2026-08-27
+   * deaf radio: with heap, air, firmware and calibration all ruled out, the one thing
+   * left that survives reboots is the driver's own stored config. ⚠ Only the driver
+   * namespace is touched — the app's Preferences (mesh keypair, book positions) and the
+   * phone's own saved-network profiles are elsewhere and re-write driver config on the
+   * next connect. */
+  if (!strcasecmp(line, "wifi restore")) {
+    const esp_err_t e = esp_wifi_restore();
+    say("wifi restore: %s - rebooting\n", e == ESP_OK ? "OK" : "FAILED");
+    delay(300);
+    ESP.restart();
     return;
   }
   if (!strcasecmp(line, "chans")) {
