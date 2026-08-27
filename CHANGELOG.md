@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.9.27 (2026-08-26) — `wifi scan`, and a retraction
+
+- 🛑 **RETRACTED: "the idle downclock is what kills the WiFi association" (commit `3535a85`).**
+  It rested on a 2-vs-2 A/B of an intermittent fault. With the full data set the claim does not
+  survive: on a **standard router the same phone is 9 for 9 clean at 80 MHz** (eight 180-second
+  boot-and-watch trials plus one 30-minute run), the downclock firing every time and
+  `empty_scans=0` throughout. **Both failures happened on an iPhone personal hotspot**, which
+  stops advertising when it is not actively serving a client — so `scan done: n=0` meant the
+  SSID was not on the air, and the phone was right. **No CPU frequency change is being made.**
+- 🛠 **NEW: `wifi scan` on the console** — a blocking scan listing what the radio can actually
+  hear, with the RSSI and channel of each network. `n=0` has two completely different causes —
+  a deaf radio or an absent AP — and nothing on the phone could tell them apart. That ambiguity
+  is what sent a whole afternoon after the wrong suspect, so the fix is an instrument, not a
+  guess. **Verified on the handset:** `wifi scan` -> `20 network(s)`, with `SmithWifi` at
+  -60 dBm at the top of the list.
+- ⚠ **Recorded in the handoff: three times today the INSTRUMENT was the fault, not the phone.**
+  `grep` silently suppressing matches in a binary-ish capture; every serial port open RESETTING
+  the phone and restarting the very association race being measured; and the Mac entering Idle
+  Sleep mid-capture (confirmed in `pmset -g log`), which read exactly like a 16-minute firmware
+  wedge. Long captures now run under `caffeinate -i -s`.
+
 ## 0.9.26 (2026-08-26) — two more that had never run, from the same sweep
 
 ### 🛑 The SIP re-init after a network-loss teardown has never once run

@@ -93,6 +93,7 @@ static void help() {
     "  chans      list the channels this phone has",
     "  meshdb     chat history: which filesystem, what loaded, what the next save keeps",
     "  wifi drop  simulate a hotspot blip, to measure the reconnect path",
+    "  wifi scan  what the radio can actually hear - deaf radio vs absent AP",
     "  star [<!node>]  list starred nodes, or toggle one (top of list, evicted last)",
     "  send <i> <text>  send a channel text (index from `chans`) - proves the broadcast receipt",
     "  pki        DM crypto state: our key, who has keys, stack headroom",
@@ -979,6 +980,34 @@ static void run(char* line) {
   if (!strcasecmp(line, "wifi drop")) {
     WiFi.disconnect();
     say("wifi: dropped (not user-disabled) - the retry path will now run; watch for SLOW WIFI\n");
+    return;
+  }
+
+  /* `wifi scan` — a BLOCKING scan, listing what the radio can actually hear right now.
+   *
+   * 🔑 EXISTS BECAUSE ONE AFTERNOON WAS SPENT NOT KNOWING THIS. Phone 1 kept losing its
+   * association and the auto-switch log showed `scan done: n=0` over and over. There are two
+   * completely different faults behind that line — a radio that has gone deaf, or an access
+   * point that has stopped advertising — and nothing on the phone could tell them apart. The
+   * whole hunt went after the CPU downclock on that ambiguity, and the answer turned out to be
+   * the access point (an iPhone hotspot, which stops broadcasting when it is not actively
+   * serving anyone). ⚠ On a normal router the same phone is 9 for 9 clean.
+   *
+   * So: if this prints a list, the radio is fine and the SSID you want is simply not on the
+   * air. If it prints 0 while other devices in the room are associated, THEN suspect the
+   * phone. ⚠ Blocks for a couple of seconds - it is a bench command, not a loop call. */
+  if (!strcasecmp(line, "wifi scan")) {
+    const int n = WiFi.scanNetworks(false);
+    if (n <= 0) {
+      say("wifi scan: %d networks - the radio hears NOTHING. If other devices are associated\n"
+          "           in this room, that points at the phone; otherwise the AP is not on air.\n", n);
+    } else {
+      say("wifi scan: %d network(s) - the radio is fine; check whether YOUR ssid is listed\n", n);
+      for (int i = 0; i < n && i < 20; i++) {
+        say("  %-32s %d dBm ch%d\n", WiFi.SSID(i).c_str(), (int)WiFi.RSSI(i), (int)WiFi.channel(i));
+      }
+    }
+    WiFi.scanDelete();
     return;
   }
   if (!strcasecmp(line, "chans")) {

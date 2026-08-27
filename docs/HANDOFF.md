@@ -62,71 +62,41 @@ LOAD-BEARING", which is an instruction not to re-apply a fix that is shipped and
 - [x] ✅ **FIXED in 0.9.26** — the music pause is idempotent now
       (`sipCallActive() && musicPlayerIsPlaying()`), so the latch cannot stick through a long
       `HangUp`. `sipCallActive()` itself was deliberately left alone.
-- [ ] 🔴 **PHONE 1 DROPS WIFI ~48 s AFTER BOOT — CAUSE NOW ESTABLISHED: THE 240->80 MHz IDLE
-      DOWNCLOCK KILLS THE ASSOCIATION.** A/B on the same phone, 2 runs each way:
+- [x] ✅ **CLOSED 2026-08-26 — THE WIFI DROPS WERE THE ACCESS POINT, NOT THE PHONE. THE
+      DOWNCLOCK IS EXONERATED.**
 
-      | build | 80 MHz downclocks | result |
-      |---|---|---|
-      | shipped | fires at ~46 s | `wifi=3` -> CONNECTION_LOST at 49 s -> NO_SSID_AVAIL -> IDLE, **never rejoins**, every later scan `n=0` |
-      | `wantMhz` forced to 240 | 0 | **`wifi=3` held for the full 5 min with the screen ASLEEP (`scr=0`)**, SIP registered |
+      🛑 **AN EARLIER COMMIT TODAY (`3535a85`) CLAIMED "the idle downclock is what kills the
+      WiFi association". THAT WAS WRONG AND IS WITHDRAWN.** It rested on a 2-vs-2 A/B of an
+      INTERMITTENT fault, which is exactly how a small sample lies.
 
-      🔑 **The screen sleeping is NOT the trigger — the clock change is.** In the pinned runs
-      the screen slept on schedule and the association survived; the two variables were
-      separated deliberately because they coincide at ~46 s in the shipped build.
-      This is the THIRD fault on this platform from `setCpuFrequencyMhz()`, after the GPS UART
-      deadlock and the keypress-eating menu experiment. `busy` (WiPhone.ino:3894) still has no
-      WiFi term.
+      **What the full data set says.** All the failures happened while the phone was on an
+      **iPhone personal hotspot**; everything after Nick got home was on a **standard router**:
 
-      🛑 **DO NOT "FIX" THIS BY PINNING 240 WHILE WIFI IS UP.** Nick, 2026-08-26: *"I want to
-      have it be able to idle at 80hz … I don't want to settle on that as a solution."* The
-      experiment build was reverted the moment the measurement was taken; phone 1 is back on
-      the shipped behaviour.
+      | AP | idle clock | runs | result |
+      |---|---|---|---|
+      | hotspot | 80 MHz | 2 | both dropped ~48 s in, then `scan done: n=0` forever |
+      | router | 80 MHz | **9** (8 x 180 s trials + one 30 min) | **9 OK, downclock fired every time, `empty_scans=0`** |
+      | hotspot/router | 160 / 240 MHz | 3 | OK — but every one of these was AFTER conditions changed, so they prove nothing about the clock |
 
-      ⚠ **THE OBVIOUS PROPER FIX IS NOT AVAILABLE HERE:** the IDF power manager
-      (`esp_pm_configure`, which coordinates DFS with the WiFi driver) is **not compiled into
-      this Arduino core** — `grep CONFIG_PM` over its `sdkconfig.h` returns **0 entries**, so
-      the call would answer `ESP_ERR_NOT_SUPPORTED`. Enabling it means rebuilding the IDF.
+      🔑 **An iPhone hotspot stops advertising when it is not actively serving a client**, and an
+      incoming call disrupts it — Nick had one mid-session. So `n=0` meant *the SSID was not on
+      the air*, and the phone was behaving correctly. The "wedged radio" reading was the
+      investigator's, not the phone's.
 
-      🔑 **NEW 2026-08-26, AND IT NARROWS THE FAULT A LOT: 160 MHz IDLE SURVIVES.** Same rig,
-      idle target changed from 80 to 160: the downclock FIRED (`CPU 160MHz`) and the
-      association **held for the full 5 minutes with the screen asleep** — 28 healthy ticks,
-      SIP registered. So it is **not "any frequency change" and not the screen** — it is 80 MHz
-      specifically. ⚠ One run only; repeat before leaning on it.
-      **That makes a 160 MHz idle a real interim** — most of the saving, no WiFi loss, one
-      constant changed — but it is NOT what Nick asked for (he wants 80), so it is recorded as
-      a fallback, not applied.
+      **DO NOT change the CPU idle frequency on this evidence.** 160 MHz was proposed and then
+      withdrawn; the shipped 80 MHz idle is fine and is what Nick wants.
 
-      **The direction that fits the constraint is RECOVER, NOT PREVENT.** Keep the downclock;
-      detect the drop and hard re-init the radio at once. Note from the captures that a plain
-      reconnect is probably not enough — after the drop, scans return `n=0`, which looks like a
-      radio that needs `WiFi.disconnect(true)` + `begin()` rather than another association
-      attempt. If that recovers in a few seconds, the phone keeps 80 MHz idle and loses only a
-      blip. **Untested — that is the next experiment.** Nick, 2026-08-26: *"it just won't connect for some reason."* Two independent
-      6-minute captures show the SAME shape: the phone joins at ~11 s, is healthy at `wifi=3`,
-      and then:
-      ```
-      scr=55 cpu=240MHz wifi=3      <- connected, screen dimming
-      CPU 80MHz (idle)              <- the idle downclock fires (screen sleeps at 40 s)
-      scr=0  cpu=80MHz  wifi=3      <- still connected, one tick later
-      conn=0                        <- gone
-      wifi=5 (CONNECTION_LOST) up=49s   ->  wifi=1 (NO_SSID_AVAIL) up=51s  ->  wifi=0
-      ```
-      From then on every scan returns `n=0` and it never rejoins; `pool.ntp.org errno=210`
-      follows as a CONSEQUENCE, not a cause.
-      🔑 **The suspicion is the 240->80 MHz downclock**, because `busy` (WiPhone.ino:3894) has
-      terms for the screen, the emulator, GPS, transfers, music and SIP but **NO TERM FOR
-      WIFI** — and this platform has already produced one hard fault from
-      `setCpuFrequencyMhz()` (the GPS UART deadlock, which was fixed by adding `gGpsNmea` to
-      exactly this predicate).
-      🛑 **BUT THAT IS CORRELATION ONLY — 2 SAMPLES — AND THE ONE CAUSATION TEST RUN SO FAR WAS
-      INVALID.** It tried to pin 240 MHz with `up on`; the uploader never actually turned on
-      and the phone never associated in that run, so it measured nothing. Do not repeat it.
-      **THE TEST THAT WOULD SETTLE IT:** build with `wantMhz` forced to 240 (or a WiFi term
-      added to `busy`), flash phone 1, take ONE 6-minute capture, and see whether the
-      association survives past ~48 s. ⚠ Pinning 240 costs idle battery, so this is an
-      experiment to run and then decide about, not a fix to ship blind.
-      ⚠ It is INTERMITTENT — the phone connected and registered fine on other boots the same
-      afternoon, so any test needs more than one run to mean anything.
+      🛠 **`wifi scan` NOW EXISTS ON THE CONSOLE**, and it is the whole lesson made permanent: a
+      blocking scan that lists what the radio can hear. `scan done: n=0` has two completely
+      different causes — a deaf radio or an absent AP — and nothing on the phone could tell them
+      apart, which is what sent an afternoon after the wrong suspect.
+
+      ⚠ **THREE separate times today the INSTRUMENT was the fault, not the phone:** `grep`
+      silently suppressing matches in a binary-ish capture; every port open RESETTING the phone
+      and restarting the association race being measured; and **the Mac going to Idle Sleep
+      mid-capture** (16:36:16 -> 16:53:21 in `pmset -g log`), which read exactly like a 16-minute
+      firmware wedge. **Run long captures under `caffeinate -i -s`.**
+
 - [ ] 🔎 **AND SEPARATELY, PHONE 1 DOES NOT ALWAYS JOIN AT BOOT.** ⚠ **An earlier claim in this
       session that "NTP never syncs" was WRONG and is withdrawn** — NTP syncs fine once the
       phone associates (proved: the clock came up and `sun` printed a correct date and
