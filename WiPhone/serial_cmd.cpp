@@ -309,6 +309,7 @@ static void reportUploader() {
   }
   say("uploader: ON  http://%s/  (or http://wiphone.local/)%s\n",
       xferAddr(), xferUsingAP() ? "  [own hotspot]" : "");
+  say("          legacy (no-JS / curl -F / log): http://%s:8080/\n", xferAddr());
   say("          hotspot SSID if used: %s   files added: %d\n",
       xferApName(), xferFilesAdded());
 }

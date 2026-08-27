@@ -88,14 +88,15 @@ static char         s_addr[40] = {0};   // shown address (IP of STA or AP)
 static const char*  s_startErr = NULL;
 static bool         s_breakerPaused = false;
 static uint32_t     s_breakerFlipMs = 0;
-static uint32_t     s_breakerWaitMs = 90000;   // timed-resume fallback; doubles on quick re-trip
-static uint32_t     s_lastResumeMs  = 0;
 static uint32_t     s_lastChunkMs   = 0;       // when a /chunk piece last arrived (breaker pacing)
+static uint32_t     s_lastRawMs     = 0;       // when the raw pump last served ANYTHING (breaker pacing)
+static uint32_t     s_lowSinceMs    = 0;       // largest has been under the trip line since (0 = it isn't)
 
 static void xferServerUp();     // create + register + begin (also the breaker's resume)
-static void xferServerDown();   // stop + delete + MDNS.end (also the breaker's pause)
-static void rawXferPump();      // the raw port-8081 transport, pumped every pass
+static void xferServerDown();   // stop + delete (also the breaker's pause; mDNS stays up)
+static void rawXferPump();      // the raw transport (:80 + :8081), pumped every pass
 static void rawAbort();         // drop any in-flight raw request (transport preemption)
+static bool xferFetchUrl(const char* urlIn);   // the shared pull path (raw + legacy)
 
 static const XferConfig ROM_CFG = {
   "/roms", "Add Game Boy ROMs", ".gb,.gbc", "ROMs", "download.gbc", "WiPhone-ROMs"
@@ -157,8 +158,8 @@ void gbcXferHandleClient() {
    * were written: a paused-but-allocated server pins the largest block below
    * whatever resume threshold was chosen, so one trip = paused forever = "the
    * upload page works once per boot" (Nick, from the kitchen). So the pause now
-   * FREES the server outright (delete + MDNS.end — that is what lets the heap
-   * actually recover), and resume fires on heap recovery OR a timer, whichever
+   * FREES the server outright (delete — that is what lets the heap actually
+   * recover; mDNS stays up, see xferServerUp), and resume fires on heap recovery OR a timer, whichever
    * comes first — a stranded pause is structurally impossible. A resume that
    * re-trips within a minute doubles the wait, up to 10 min, so a genuinely
    * starved phone breathes instead of flapping. */
@@ -176,9 +177,36 @@ void gbcXferHandleClient() {
      * heap) leaked — the per-file floors stair-stepped 3328 → 1536 → 1032 →
      * 616 across one batch, tracking the cycle count, and recovered the moment
      * cycling stopped. The stock trip rules resume 30 s after the last piece. */
-    const bool chunkPacedNow = (uint32_t)(now - s_lastChunkMs) < 30000;
+    const bool chunkPacedNow = (uint32_t)(now - s_lastChunkMs) < 30000 ||
+                               (uint32_t)(now - s_lastRawMs) < 5000;
+    /* ^ raw traffic of ANY kind inhibits the trip, not just chunk pieces.
+     * MEASURED 2026-08-26 after the page moved to the raw pump: 20 rapid page
+     * GETs dipped largest to 188 B in sub-ms bursts (send-buffer pbufs of 2-3
+     * back-to-back connections coexisting) and the breaker cycled the IDLE
+     * legacy server four times for it — the exact down/up-inside-tight-heap
+     * churn the mid-batch rule below was written against, relieving nothing
+     * because the WebServer wasn't serving anything. Raw pressure is bounded
+     * by construction; the breaker's job is the WebServer's own traffic. */
     const size_t tripAt = s_uploadFile ? 3072 : 6144;
-    if (!chunkPacedNow && largest < tripAt && (uint32_t)(now - s_breakerFlipMs) > 3000) {
+    /* ── TRIP ON SUSTAINED PRESSURE, NOT ON ONE REQUEST'S TRANSIENT ──────────
+     * MEASURED 2026-08-26 (docs/uploader-bench-2026-08-26.md): a SINGLE 829-byte
+     * page GET dips largest from ~12 K to 3-4 K for well under a second — the
+     * WebServer's own request transient — and the old instant judgment read
+     * that as the flood, paused, and served Nick "site cannot be loaded" on
+     * nearly every browser visit (2 of 10 rapid GETs answered; backoff 90 →
+     * 360 → 600 s). The 2026-08-20 flood this breaker was built for pins
+     * largest DOWN for many seconds, so: the 6144 line now has to hold for
+     * 1.5 s of consecutive passes before it counts. Below 3072 — the altitude
+     * of the historic operator-new/PHY aborts — the trip stays INSTANT, so the
+     * panic guard is exactly as strong as before. */
+    if (largest >= tripAt) {
+      s_lowSinceMs = 0;
+    } else if (!s_lowSinceMs) {
+      s_lowSinceMs = now;
+    }
+    const bool tripNow = largest < 3072 ||
+                         (s_lowSinceMs && (uint32_t)(now - s_lowSinceMs) > 1500);
+    if (!chunkPacedNow && tripNow && (uint32_t)(now - s_breakerFlipMs) > 3000) {
       /* Every trip is now a RECYCLE-THEN-SETTLE, not an instant judgment.
        * MEASURED 2026-08-20 (first chunked hardware run): judging recovery
        * synchronously undersells it — lwIP frees pcbs from its own thread, so
@@ -196,31 +224,28 @@ void gbcXferHandleClient() {
       xferServerDown();
       s_breakerPaused = true;
       s_breakerFlipMs = now;
-      const bool chunkPaced = (uint32_t)(now - s_lastChunkMs) < 30000;
-      if (chunkPaced) {
-        s_breakerWaitMs = 8000;
-      } else if (s_lastResumeMs && (uint32_t)(now - s_lastResumeMs) < 60000) {
-        s_breakerWaitMs = s_breakerWaitMs < 300000 ? s_breakerWaitMs * 2 : 600000;
-      }
-      log_e("XFER: PAUSED (largest %u%s) - settling; back on recovery or %lus",
-            (unsigned)largest, chunkPaced ? ", chunk-paced" : "",
-            (unsigned long)(s_breakerWaitMs / 1000));
+      s_lowSinceMs = 0;
+      log_e("XFER: PAUSED (largest %u) - legacy server freed; back when largest >= 10240",
+            (unsigned)largest);
     } else {
-      if (s_lastResumeMs && (uint32_t)(now - s_lastResumeMs) > 300000) {
-        s_breakerWaitMs = 90000;        // 5 min of stable service earns the short fuse back
-        s_lastResumeMs = 0;
-      }
       s_server->handleClient();
     }
     return;
   }
-  /* 7168, the same line backpressure holds — resuming at 8192 once refused a
-   * resume at 8172, which is the kind of margin nobody meant to write. */
-  if ((largest >= 7168 || (uint32_t)(now - s_breakerFlipMs) >= s_breakerWaitMs) &&
-      (uint32_t)(now - s_breakerFlipMs) > 3000) {
+  /* ── RESUME ON RECOVERY, NEVER ON A TIMER (changed 0.9.28) ────────────────
+   * The timer-resume existed to escape v1/v2's catch-22, where the PAUSED
+   * server's own allocation pinned largest below any threshold. Pause has
+   * freed the server outright since v3, so heap-driven resume cannot
+   * deadlock — and MEASURED tonight, the timer became the fault instead: it
+   * re-planted a ~6 KB WebServer into a 4.5 K-largest heap every 90-180 s,
+   * where the sustained rule promptly re-paused it. Allocate/free churn
+   * inside tight heap is the documented leak, and the page no longer needs
+   * this server anyway (the raw pump serves it). 10240 is the same bar
+   * xferStart() demands to start serving at all — one number, one meaning:
+   * the framework server LIVES here or it does not run. */
+  if (largest >= 10240 && (uint32_t)(now - s_breakerFlipMs) > 3000) {
     s_breakerPaused = false;
     s_breakerFlipMs = now;
-    s_lastResumeMs = now;
     xferServerUp();
     log_e("XFER: RESUMED (largest %u)", (unsigned)largest);
   }
@@ -318,6 +343,11 @@ static const char PAGE_3[] =
   "var PIECE=4096,BASE='',probed=false;"
   "var RAWB='http://'+location.hostname+':8081';"
   "function probe(cb){"
+  /* A page served by the raw server SAYS SO (the spliced RAWPAGE tail): same
+   * origin IS the raw transport there, so the probe has nothing to discover —
+   * and must not run, because its failure path would select the multipart
+   * fallback, which the raw server refuses. */
+  "if(window.RAWPAGE&&!probed){probed=true;PIECE=16384;}"
   "if(probed){cb();return;}"
   "var done=false,t=setTimeout(function(){if(!done){done=true;probed=true;cb();}},1500);"
   "fetch(RAWB+'/chunk?name=probe.bin',{cache:'no-store'}).then(function(r){"
@@ -411,11 +441,17 @@ static void handleRoot() {
   s_server->sendHeader("Connection", "close");
   s_server->setContentLength(CONTENT_LENGTH_UNKNOWN);
   s_server->send(200, "text/html", "");
-  s_server->sendContent(PAGE_1);
-  s_server->sendContent(s_cfg->heading);
-  s_server->sendContent(PAGE_2);
-  s_server->sendContent(s_cfg->dir);
-  s_server->sendContent(PAGE_3);
+  /* _P variants, and it is not pedantry: sendContent(const char*) round-trips
+   * every part through a heap String — ~6 KB of copies per page view on top of
+   * the framework's own request machinery, deep enough on a 12-15 K largest to
+   * reach the breaker's instant tier (measured 2026-08-26: page GETs bottoming
+   * at 1.6 K). sendContent_P streams straight from flash through a small
+   * chunk buffer; the page costs the heap nearly nothing. */
+  s_server->sendContent_P(PAGE_1);
+  s_server->sendContent_P(s_cfg->heading);
+  s_server->sendContent_P(PAGE_2);
+  s_server->sendContent_P(s_cfg->dir);
+  s_server->sendContent_P(PAGE_3);
   s_server->sendContent("");            // terminate the chunked response
 }
 
@@ -870,6 +906,20 @@ static void handleChunkDone() {
  * and every reply carries Access-Control-Allow-Origin: *; OPTIONS is answered
  * anyway for the browsers that ask first. */
 #define RAW_PORT       8081
+/* ── AND SINCE 0.9.28, THE RAW SERVER IS ALSO THE FRONT DOOR ON PORT 80 ─────────────
+ * MEASURED 2026-08-26 (docs/uploader-bench-2026-08-26.md): the WebServer's request
+ * MACHINERY — not the page bytes; sendContent_P changed nothing — costs a ~10 KB
+ * internal-heap transient per fresh connection, which from a 13-15 K idle largest
+ * (SIP up) bottoms at 1.6-3 K: the instant breaker tier, the PHY-abort altitude.
+ * So nearly every browser VISIT (page + favicon + probe) tripped the breaker and
+ * the next visitor got "site cannot be loaded". No tuning fixes a per-request
+ * cost that starts below the danger line. The raw state machine serves a request
+ * for ~zero heap, so the PAGE now comes from it too: it listens on :80 (browser
+ * habit) and :8081 (existing tools), one client at a time, keep-alive. The
+ * WebServer still exists for what genuinely needs it — multipart /upload from
+ * no-JS browsers and curl -F, /fetch's HTML replies, /log — but on LEGACY_PORT,
+ * where its trips can no longer take the page down with them. */
+#define LEGACY_PORT    8080
 #define RAW_PIECE_MAX  16384     /* fits the shared block: flush-at 16 KB leaves 16 KB of room.
                                   * Piece size is pure round-trip amortization — in-flight
                                   * bytes are bounded by the TCP window (5,744) no matter the
@@ -877,10 +927,13 @@ static void handleChunkDone() {
                                   * 5744-vs-8192 scaled with size, not segment alignment). */
 #define RAW_HDR_CAP    768
 static WiFiServer* s_rawSrv = NULL;
+static WiFiServer* s_rawSrv80 = NULL;      // same pump, port 80 — the browser's front door
 static WiFiClient  s_rawCli;
 static char        s_rawHdr[RAW_HDR_CAP];
 static size_t      s_rawHdrLen = 0;
 static bool        s_rawBody = false;      // reading a POST body (vs. headers)
+static bool        s_rawFetch = false;     // this body is a small POST /fetch form, not a piece
+static char        s_rawFetchBody[608];    // fetch form body (a URL + margin); pieces go to PSRAM
 static uint32_t    s_rawRxMs = 0;          // last-byte time, for the dead-client deadline
 static bool        s_rawGather = false;    // commit this body (vs. consume-and-reply)
 static bool        s_rawLast = false;
@@ -893,6 +946,7 @@ static void rawReset() {
   s_rawHdrLen = 0;
   s_rawBody = false;
   s_rawGather = false;
+  s_rawFetch = false;
   s_rawGot = 0;
 }
 
@@ -939,27 +993,62 @@ static bool rawQueryArg(const char* q, const char* key, char* out, size_t cap) {
   return false;
 }
 
-static void rawReply(int code, const char* body) {
+static void rawReplyEx(int code, const char* ctype, const char* body) {
   const char* st = code == 200 ? "OK" : code == 204 ? "No Content"
                  : code == 400 ? "Bad Request" : code == 404 ? "Not Found"
                  : code == 409 ? "Conflict" : code == 413 ? "Payload Too Large"
-                 : code == 422 ? "Unprocessable Entity" : "Insufficient Storage";
+                 : code == 422 ? "Unprocessable Entity"
+                 : code == 501 ? "Not Implemented" : "Insufficient Storage";
   char h[192];
   const int bl = (int)strlen(body);
   const int n = snprintf(h, sizeof(h),
-                         "HTTP/1.1 %d %s\r\nContent-Type: text/plain\r\n"
+                         "HTTP/1.1 %d %s\r\nContent-Type: %s\r\n"
                          "Content-Length: %d\r\nAccess-Control-Allow-Origin: *\r\n\r\n",
-                         code, st, bl);
+                         code, st, ctype, bl);
   s_rawCli.write((const uint8_t*)h, (size_t)n);
   if (bl > 0) {
     s_rawCli.write((const uint8_t*)body, (size_t)bl);
   }
 }
 
+static void rawReply(int code, const char* body) {
+  rawReplyEx(code, "text/plain", body);
+}
+
+/* The page, off the raw pump: the exact bytes handleRoot serves, plus a tail that
+ * (a) sets RAWPAGE so the page's JS skips the probe and chunks same-origin, and
+ * (b) points no-JS browsers at the legacy port, since the raw server does not
+ * speak multipart. Written with an exact Content-Length so the connection can
+ * stay open — keep-alive is the whole reason this server exists. The five parts
+ * total ~5.5 KB: one lands in the 5744-byte socket send buffer, the rest rides
+ * the window; a browser drains it immediately. Per-request heap cost: the header
+ * and tail on the stack, nothing else. */
+static void rawSendPage() {
+  char tail[224];
+  snprintf(tail, sizeof(tail),
+           "<script>var RAWPAGE=1</script>"
+           "<p style='color:#888;font-size:13px'>No-JavaScript browser or curl -F? "
+           "Legacy uploader: http://%s:%d/</p>", s_addr, LEGACY_PORT);
+  const size_t len = strlen(PAGE_1) + strlen(s_cfg->heading) + strlen(PAGE_2) +
+                     strlen(s_cfg->dir) + strlen(PAGE_3) + strlen(tail);
+  char h[160];
+  const int n = snprintf(h, sizeof(h),
+                         "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n"
+                         "Content-Length: %u\r\n\r\n", (unsigned)len);
+  s_rawCli.write((const uint8_t*)h, (size_t)n);
+  s_rawCli.write((const uint8_t*)PAGE_1, strlen(PAGE_1));
+  s_rawCli.write((const uint8_t*)s_cfg->heading, strlen(s_cfg->heading));
+  s_rawCli.write((const uint8_t*)PAGE_2, strlen(PAGE_2));
+  s_rawCli.write((const uint8_t*)s_cfg->dir, strlen(s_cfg->dir));
+  s_rawCli.write((const uint8_t*)PAGE_3, strlen(PAGE_3));
+  s_rawCli.write((const uint8_t*)tail, strlen(tail));
+}
+
 /* Headers are complete: decide everything decidable now. Raw bodies mean the
  * piece length is known BEFORE the body arrives (Content-Length), so the
  * verdict is made here and the body is either gathered or drained. */
 static void rawOnRequest() {
+  s_lastRawMs = millis();
   s_rawHdr[s_rawHdrLen] = '\0';
   char method[8] = {0}, target[320] = {0};
   if (sscanf(s_rawHdr, "%7s %319s", method, target) != 2) {
@@ -987,6 +1076,56 @@ static void rawOnRequest() {
   char* qs = strchr(target, '?');
   if (qs) {
     *qs++ = '\0';
+  }
+  if (!strcmp(target, "/") && !strcmp(method, "GET")) {
+    rawSendPage();
+    s_lastActivityMs = millis();
+    rawReset();
+    return;
+  }
+  if (!strcmp(target, "/favicon.ico")) {
+    rawReply(204, "");            // unprompted browser ask; free the pump immediately
+    rawReset();
+    return;
+  }
+  if (!strcmp(target, "/fetch") && !strcmp(method, "POST")) {
+    /* The page's paste-a-link form, now landing on the raw server. The body is a
+     * tiny urlencoded form; gather it into the small buffer and act on completion. */
+    if (s_rawCLen == 0 || s_rawCLen >= sizeof(s_rawFetchBody)) {
+      rawReplyEx(400, "text/html", "<p>Bad URL. <a href=/>back</a></p>");
+      rawAbort();
+      return;
+    }
+    s_rawFetch = true;
+    s_rawGather = false;
+    s_rawGot = 0;
+    s_rawBody = true;
+    s_lastActivityMs = millis();
+    return;
+  }
+  if (!strcmp(target, "/upload")) {
+    /* Multipart is the one thing this server refuses to speak — that parser is
+     * exactly the per-request machinery being escaped. The legacy server keeps it. */
+    char msg[160];
+    snprintf(msg, sizeof(msg),
+             "<p>This port does not take form uploads - use the page's own buttons, "
+             "or the legacy uploader at http://%s:%d/</p>", s_addr, LEGACY_PORT);
+    rawReplyEx(501, "text/html", msg);
+    rawAbort();                   // a multipart body may be in flight; drop it
+    return;
+  }
+  if (!strcmp(target, "/log")) {
+    /* The battery-run workflow reads /log by name (docs carry the exact curl).
+     * File streaming is framework work — bounce to the legacy port, same query.
+     * curl -L and every browser follow it. */
+    char h[224];
+    const int n = snprintf(h, sizeof(h),
+                           "HTTP/1.1 302 Found\r\nLocation: http://%s:%d/log%s%s\r\n"
+                           "Content-Length: 0\r\n\r\n",
+                           s_addr, LEGACY_PORT, qs ? "?" : "", qs ? qs : "");
+    s_rawCli.write((const uint8_t*)h, (size_t)n);
+    rawReset();
+    return;
   }
   if (strcmp(target, "/chunk") != 0) {
     rawReply(404, "nf");
@@ -1078,13 +1217,16 @@ static void rawXferPump() {
     return;
   }
   /* Most-recent-wins accept, but never preempt a client mid-request: a page
-   * reload or a second tool run takes over an IDLE held connection. */
-  if (s_rawSrv->hasClient()) {
+   * reload or a second tool run takes over an IDLE held connection. Two
+   * listeners feed the one slot — :80 (browser) checked first, :8081 (tools). */
+  WiFiServer* src = (s_rawSrv80 && s_rawSrv80->hasClient()) ? s_rawSrv80
+                    : (s_rawSrv && s_rawSrv->hasClient())   ? s_rawSrv : NULL;
+  if (src) {
     if (!s_rawCli || !s_rawCli.connected() || (!s_rawBody && s_rawHdrLen == 0)) {
       if (s_rawCli) {
         s_rawCli.stop();
       }
-      s_rawCli = s_rawSrv->available();
+      s_rawCli = src->available();
       s_rawCli.setNoDelay(true);
       rawReset();
       s_rawRxMs = millis();
@@ -1146,6 +1288,12 @@ static void rawXferPump() {
           break;
         }
         s_rawCrc = chunkCrc32Update(s_rawCrc, s_sdBuf + s_sdLen + s_rawGot, (size_t)n);
+      } else if (s_rawFetch) {
+        size_t want = s_rawCLen - s_rawGot;                   // capped at parse time
+        n = s_rawCli.read((uint8_t*)s_rawFetchBody + s_rawGot, want);
+        if (n <= 0) {
+          break;
+        }
       } else {
         uint8_t scratch[256];
         size_t want = s_rawCLen - s_rawGot;
@@ -1181,6 +1329,22 @@ static void rawXferPump() {
           const int code = chunkCommit(s_rawCLen, s_rawLast, reply, sizeof(reply));
           rawReply(code, reply);
         }
+      } else if (s_rawFetch) {
+        s_rawFetchBody[s_rawGot] = '\0';
+        char url[512];
+        /* The form body is &-separated k=v, exactly what the query parser eats. */
+        if (!rawQueryArg(s_rawFetchBody, "url", url, sizeof(url)) || strlen(url) < 8) {
+          rawReplyEx(400, "text/html", "<p>Bad URL. <a href=/>back</a></p>");
+        } else {
+          /* Same synchronous pull the legacy path runs: the loop blocks for the
+           * download's duration, bounded by downloadTo's own 8 s stall abort.
+           * The proven full-speed path (2026-08-20: 3.9 MB at ~460 KB/s). */
+          const bool ok = xferFetchUrl(url);
+          rawReplyEx(ok ? 200 : 500, "text/html",
+                     ok ? "<p>Downloaded! <a href=/>back</a></p>"
+                        : "<p>Download failed (check the link is a direct file link). "
+                          "<a href=/>back</a></p>");
+        }
       } else {
         rawReply(s_rawCode, s_rawReply);
       }
@@ -1195,6 +1359,11 @@ static void rawXferUp() {
     s_rawSrv->begin();
     s_rawSrv->setNoDelay(true);
   }
+  if (!s_rawSrv80) {
+    s_rawSrv80 = new WiFiServer(80);
+    s_rawSrv80->begin();
+    s_rawSrv80->setNoDelay(true);
+  }
 }
 
 static void rawXferDown() {
@@ -1204,6 +1373,11 @@ static void rawXferDown() {
     s_rawSrv->end();
     delete s_rawSrv;
     s_rawSrv = NULL;
+  }
+  if (s_rawSrv80) {
+    s_rawSrv80->end();
+    delete s_rawSrv80;
+    s_rawSrv80 = NULL;
   }
 }
 
@@ -1377,17 +1551,14 @@ static bool nameAccepted(const String& lowName, const char* accept) {
   return false;
 }
 
-static void handleFetch() {
-  /* A fetch whose derived filename collides with the OPEN batch file (the
-   * `download.epub` default makes this likelier than it sounds) would open a
-   * second FIL on it and truncate under the live append handle — cross-linked
-   * FAT clusters. Same rule as handleUpload: the batch yields first. */
+/* The pull path's core, shared by the raw front door and the legacy WebServer.
+ * A fetch whose derived filename collides with the OPEN batch file (the
+ * `download.epub` default makes this likelier than it sounds) would open a
+ * second FIL on it and truncate under the live append handle — cross-linked
+ * FAT clusters. Same rule as handleUpload: the batch yields first. */
+static bool xferFetchUrl(const char* urlIn) {
   chunkFinalize();
-  String url = s_server->arg("url");
-  if (url.length() < 8) {
-    s_server->send(400, "text/html", "<p>Bad URL. <a href=/>back</a></p>");
-    return;
-  }
+  String url = urlIn;
   // Derive a filename from the URL; fall back to the config's default if unusable.
   String fn = url;
   int q = fn.indexOf('?');
@@ -1408,6 +1579,16 @@ static void handleFetch() {
   if (ok) {
     s_filesAdded++;
   }
+  return ok;
+}
+
+static void handleFetch() {
+  String url = s_server->arg("url");
+  if (url.length() < 8) {
+    s_server->send(400, "text/html", "<p>Bad URL. <a href=/>back</a></p>");
+    return;
+  }
+  bool ok = xferFetchUrl(url.c_str());
   s_server->send(ok ? 200 : 500, "text/html",
                  ok ? "<p>Downloaded! <a href=/>back</a></p>"
                     : "<p>Download failed (check the link is a direct file link). <a href=/>back</a></p>");
@@ -1417,9 +1598,26 @@ static void handleFetch() {
  * breaker's pause/resume uses the exact same lifecycle as start/stop — the
  * resume path being a lesser copy is how the first cuts went stale. */
 static void xferServerUp() {
-  MDNS.begin("wiphone");   // http://wiphone.local
+  /* ── mDNS COMES UP ONCE PER BOOT AND NEVER GOES DOWN ─────────────────────────
+   * This core's ESPmDNS leaks by design: begin() registers a WiFi event callback
+   * every call and end() never removes it (WiFiGeneric's cbEventList has no
+   * dedupe), so every begin/end cycle grows a permanent list entry — and the
+   * breaker used to cycle it on EVERY pause/resume, inside tight heap, which is
+   * a measured share of the stair-stepping floors (3328 → 616 across one batch;
+   * see the raw-transport rationale). One begin, guarded, on first use; nothing
+   * ever calls end() again. wiphone.local keeps resolving while the server is
+   * off — the connection is then refused, which is honest, and cheaper than a
+   * leak that compounds per session. */
+  static bool s_mdnsUp = false;
+  if (!s_mdnsUp) {
+    s_mdnsUp = MDNS.begin("wiphone");   // http://wiphone.local
+  }
   if (!s_server) {
-    s_server = new WebServer(80);
+    /* LEGACY_PORT since 0.9.28 — the raw pump owns :80 now. What lives here is
+     * exactly what needs the framework: multipart /upload (no-JS browsers,
+     * curl -F), and /log's file streaming. Its ~10 KB/request transient and its
+     * breaker trips no longer touch the page. */
+    s_server = new WebServer(LEGACY_PORT);
   }
   s_server->on("/", HTTP_GET, handleRoot);
   s_server->on("/upload", HTTP_POST, []() {
@@ -1446,7 +1644,8 @@ static void xferServerDown() {
     delete s_server;        // the object itself holds internal-heap Strings; free it all
     s_server = NULL;
   }
-  MDNS.end();
+  // No MDNS.end() — deliberately. See xferServerUp(): end() leaks an event-list
+  // entry per cycle in this core, and the responder is cheap to keep.
 }
 
 void xferStart(const XferConfig* cfg) {
@@ -1480,7 +1679,7 @@ void xferStart(const XferConfig* cfg) {
   }
   s_breakerPaused = false;              // a fresh session always starts live
   s_breakerFlipMs = 0;
-  s_breakerWaitMs = 90000;              // and with a fresh fuse — escalation is per-session
+  s_lowSinceMs = 0;
   if (!cfg) {
     cfg = &ROM_CFG;
   }
