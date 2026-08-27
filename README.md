@@ -35,6 +35,35 @@ carries both sets of instructions.)
 
 ---
 
+## ⚠ You need an SD card — and a good one
+
+Most of what makes this firmware worth having **lives on the SD card**: photos
+and wallpaper, books, music, Game Boy ROMs and save states, chat history, the
+`/health.log` the phone writes about itself. The phone boots and calls without
+a card, but the apps above will be empty or refuse politely.
+
+- **Format it FAT32.** The phone does not speak exFAT — and cards over 32 GB
+  come exFAT from the factory, so a big card that "doesn't work" is almost
+  always just this. Cards **up to 32 GB** format to FAT32 out of the box
+  (Windows: right-click → Format → FAT32; macOS: Disk Utility → **MS-DOS
+  (FAT)**, scheme MBR). For a larger card, use the
+  [SD Association's formatter](https://www.sdcard.org/downloads/formatter/) or
+  any tool that does FAT32 above 32 GB. No files or folders needed — the phone
+  creates `/photos`, `/books`, `/music`, `/roms` and the rest itself.
+- **Buy a decent card (a name brand, from a real seller).** The phone writes
+  under real constraints — uploads stream to the card while WiFi runs, and the
+  power switch is a hard cut, not a shutdown — and a weak or counterfeit card
+  shows up as exactly the flakiness you'd blame on the firmware: uploads that
+  die with SD errors, 0-byte files, photos that vanish. During 0.9.28's ~52 MB
+  upload testing, a tired card threw three write errors that a fresh one
+  wouldn't have (the transfer retried through them, but that's the margin
+  you're spending).
+- **Swap cards with the phone OFF.** The power switch cuts power outright, so
+  off is off — but pulling a card from a running phone can corrupt whatever was
+  half-written.
+
+---
+
 ## What's new
 
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
