@@ -4,10 +4,11 @@
 
 Read this first; everything below it is narrative.
 
-✅ **PHONE 1 IS ON 0.9.32; PHONE 2 IS ON 0.9.30** (see the booksync-wedge block below for
-what 0.9.31/0.9.32 change and what is still owed). ⚠ `ver` build-time still cannot distinguish
-same-day builds. Phone 1 associated (SmithWifi) + SIP registered at the work desk; phone 2
-associated; panicwatch running on both under caffeinate.
+✅ **BOTH PHONES ARE ON 0.9.32** (flashed 2026-08-27 evening from one build dir; see the
+booksync-wedge and book-open blocks below for what 0.9.31/0.9.32 change and what is still
+owed). ⚠ `ver` build-time still cannot distinguish same-day builds. Both associated,
+phone 1 SIP-registered at the work desk; panicwatch running on both under caffeinate.
+Repo clean and pushed.
 
 # 🔎 2026-08-27 LATE AFTERNOON — NICK'S BOOKSYNC REPORT: THE TRIGGER IS UNREPRODUCED,
 # THE *NEVER-RECOVERS* HALF IS FIXED (0.9.31)
@@ -127,7 +128,7 @@ The enabler above is closed, and the measurement corrected a plausible wrong the
 
 ## ▶▶ WHAT IS OWED ON THIS (next session)
 
-1. ⏳ **Phone 2 is still on 0.9.30** — flash it for parity once 0.9.32 has a day on phone 1.
+1. ~~Phone 2 is still on 0.9.30~~ ✅ **DONE — both phones on 0.9.32, both associated.**
 2. ⏳ **The fast-bounce has NOT been seen firing in the wedge state** (the desk AP is
    too strong: three staged drop-during-book-open collisions all rejoined in ~2 s
    without ever going dry). The next natural wedge is the test — grep the panicwatch log for
