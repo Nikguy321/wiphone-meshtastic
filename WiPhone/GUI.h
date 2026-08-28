@@ -280,6 +280,24 @@ public:
    * fallback is not a reimplementation of the old path, it IS the old path. */
   bool     t9Enabled;                  // the Settings toggle
   bool     t9Field;                    // this field opted in (default OFF — see setInputState)
+  /* ── THE INPUT MODE, CYCLED BY '#' ────────────────────────────────────────────────────
+   * T9 -> Abc -> ABC -> 123 -> T9, exactly as the old phones did, and for exactly the
+   * reason they did it: with prediction always on you cannot type "testing 1 2 3", because
+   * every 2 is an 'a' and a second 2 is "22". Prediction has to be steppable-out-of, per
+   * word, without a trip to a settings screen.
+   *
+   * ⚠ '#' ALREADY MEANT SHIFT and that must not be lost — it is the only way to type a
+   * capital. This cycle is a SUPERSET of the old two-state toggle: Abc and ABC are the
+   * lower/upper pair '#' used to flip between, so nothing is taken away. On a field that
+   * did NOT opt into T9, '#' still just toggles shift as it always has, because a
+   * four-way cycle would be meaningless there. */
+  enum InputMode : uint8_t {
+    MODE_T9 = 0,        // predictive
+    MODE_ABC,           // multi-tap, lower case
+    MODE_ABC_CAPS,      // multi-tap, upper case
+    MODE_123,           // digits, literally
+  };
+  uint8_t  inputMode;
   T9Engine t9;
   /* Characters waiting to be delivered to the focused widget, one per pass of the event loop
    * in GUI::processEvent. A committed word is longer than the two events one keypress can
@@ -289,8 +307,22 @@ public:
   char     t9Emit[24];
   uint8_t  t9EmitAt;
 
+  /* Predictive text is running RIGHT NOW: the setting is on, the field asked for it, and
+   * the user has not stepped out of it with '#'. */
   bool t9Live() const {
+    return t9Enabled && t9Field && inputMode == MODE_T9;
+  }
+  /* This field could use T9 — used to decide whether '#' cycles modes or just flips shift. */
+  bool t9Available() const {
     return t9Enabled && t9Field;
+  }
+  const char* inputModeName() const {
+    switch (inputMode) {
+      case MODE_ABC:      return "Abc";
+      case MODE_ABC_CAPS: return "ABC";
+      case MODE_123:      return "123";
+      default:            return "T9";
+    }
   }
   /* Queue the selected candidate (or, if the dictionary has no match, the digits themselves
    * so nothing the user typed is ever silently swallowed), then optionally the key that ended

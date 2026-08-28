@@ -664,6 +664,7 @@ ControlState::ControlState(void)
   // until the setting is deliberately turned on; t9Field is re-set per field anyway.
   t9Enabled = false;
   t9Field = false;
+  inputMode = MODE_T9;
   t9Emit[0] = '\0';
   t9EmitAt = 0;
 
@@ -823,6 +824,10 @@ void ControlState::setInputState(InputType newInputType) {
   t9Emit[0] = '\0';
   t9EmitAt = 0;
   t9Field = false;
+  /* Every field starts predictive. Stepping out with '#' is a per-field decision, not a
+   * setting — leaving it sticky would mean a phone that quietly stopped predicting because
+   * of something the user did in a different app twenty minutes ago. */
+  inputMode = MODE_T9;
 }
 
 /* Description:
@@ -1078,9 +1083,28 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
     return;
   }
   if (key==WIPHONE_SHIFT_KEY) {
-    // just toggle Shift and exit
+    if (state.t9Available()) {
+      /* Cycle T9 -> Abc -> ABC -> 123 -> T9. Any half-typed prediction is committed first,
+       * so changing mode never silently throws away keypresses. inputShift is kept in step
+       * because the multi-tap path below still reads it, and so does the footer. */
+      state.t9Commit();
+      state.inputMode = (state.inputMode + 1) & 3;
+      state.inputShift = (state.inputMode == ControlState::MODE_ABC_CAPS);
+      state.inputCurKey = 0;          // a mode change ends any pending multi-tap letter
+      return;
+    }
+    // Field without predictive text: '#' is the shift toggle it has always been.
     state.inputShift = !state.inputShift;
     return;
+  }
+
+  /* 123: the digit types itself. This is the answer to "testing 1 2 3" — no prediction, no
+   * multi-tap cycle, no waiting for a timeout, one press one digit. */
+  if (state.t9Available() && state.inputMode == ControlState::MODE_123) {
+    if (key >= '0' && key <= '9') {
+      r1 = key;
+      return;
+    }
   }
 
   /* ── T9 ────────────────────────────────────────────────────────────────────────────────
@@ -1121,6 +1145,9 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
       case '0':
         state.t9Commit(' ');                   // 0 is space, and space ends a word
         return;
+      case '1':
+        state.t9Commit('1');                   // '1' spells nothing: end the word, type it
+        return;
       default:
         /* Anything else ends the word and then still does its own job: the key is queued
          * BEHIND the word so "word then punctuation" arrives in that order. */
@@ -1128,10 +1155,15 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
         return;
       }
     }
-    /* Nothing pending and not a word digit: '0' should still type a space rather than
-     * entering the multi-tap " +0" cycle, which would need a second press to commit. */
+    /* Nothing pending and not a word digit. '0' is space and '1' spells nothing, so both
+     * should land on one press rather than entering a multi-tap cycle that needs a second
+     * key or a timeout to commit. */
     if (key == '0') {
       r1 = ' ';
+      return;
+    }
+    if (key == '1') {
+      r1 = '1';
       return;
     }
   }
@@ -13196,13 +13228,23 @@ void FooterWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, ui
      * digit keys match exactly one word) shows a bare word and no clutter. ASCII only —
      * the Akrobat faces are generated bitmaps with no glyph beyond it, and anything else
      * renders as a hollow box. */
-    if (controlState.t9Live() && controlState.t9.pending()) {
+    if (controlState.t9Available() && !controlState.inputCurKey) {
+      /* Two things share this slot, and never at the same time: the word being predicted,
+       * and — when nothing is pending — which mode '#' has left you in. The mode has to be
+       * visible or it is invisible state: a user who cycled to 123 and walked away has no
+       * way to know why letters stopped appearing. While MULTI-TAP is mid-letter,
+       * inputCurKey is set and the character strip below wins, because that is the more
+       * urgent thing to be looking at. */
       inputSeq = true;
       char strip[40];
-      const char* word = controlState.t9.current();
-      if (!word) {
+      const char* word = controlState.t9.pending() ? controlState.t9.current() : NULL;
+      if (!controlState.t9.pending()) {
+        // Idle: just say where we are. "T9" included — knowing prediction is ON matters
+        // as much as knowing it is off.
+        snprintf(strip, sizeof(strip), "%s", controlState.inputModeName());
+      } else if (!word) {
         // Nothing in the dictionary matches. Show the digits so the keypresses are visible
-        // while the user decides to backspace or switch to multi-tap.
+        // while the user decides to backspace or press # for multi-tap.
         snprintf(strip, sizeof(strip), "%s ?", controlState.t9.digits());
       } else if (controlState.t9.candidateCount() > 1) {
         snprintf(strip, sizeof(strip), "%s  %d/%d", word,
@@ -13210,8 +13252,9 @@ void FooterWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, ui
       } else {
         snprintf(strip, sizeof(strip), "%s", word);
       }
-      if (controlState.inputShift && strip[0] >= 'a' && strip[0] <= 'z') {
-        strip[0] = toupper(strip[0]);
+      if (controlState.t9.pending() && controlState.inputShift &&
+          strip[0] >= 'a' && strip[0] <= 'z') {
+        strip[0] = toupper(strip[0]);          // never the mode tag — "Abc" is a label
       }
       lcd.setTextDatum(TL_DATUM);
       const int fh = fonts[AKROBAT_SEMIBOLD_22]->height();
