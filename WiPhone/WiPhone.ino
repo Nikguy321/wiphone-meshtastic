@@ -2086,6 +2086,9 @@ static uint32_t msDigitDown = 0;       // when the digit went down, 0 = none hel
 static int8_t   digitHeld = -1;        // which digit, so a slide to another key re-arms
 static bool     digitFired = false;    // one insertion per hold, however long it lasts
 static bool     digitLiteralQueued = false;   // a held digit is waiting to be delivered
+static uint32_t msHashDown = 0;        // when '#' went down, 0 = not held
+static bool     hashFired = false;     // the hold already acted; ignore the rest of it
+static bool     redrawWhatPending = false;    // a hold changed something the footer shows
 static uint32_t msChordStart = 0;      // when both corners went down, 0 = not held
 static bool     chordFired = false;    // one sleep per hold, not one every loop
 
@@ -2452,19 +2455,23 @@ void loop() {
         WIPHONE_KEY_MASK_4, WIPHONE_KEY_MASK_5, WIPHONE_KEY_MASK_6, WIPHONE_KEY_MASK_7,
         WIPHONE_KEY_MASK_8, WIPHONE_KEY_MASK_9,
       };
-      /* ⚠ IN T9 MODE, START AT 2. '0' and '1' already type themselves on the SHORT press —
-       * '0' a space, '1' a one — so the short press has ALREADY put a character in the
-       * field, and t9LiteralDigit() cannot take it back out again: it reverses the
-       * prediction buffer, not the widget. Holding them would type twice. Only 2-9 are
-       * ambiguous, and they are the only ones that need this gesture.
+      /* ⚠ '1' IS SKIPPED IN T9 MODE, and '0' is a special case.
+       * Both already type themselves on the SHORT press — '1' a one, '0' a space — so by
+       * the time a hold fires the character is in the widget, and t9LiteralDigit() reverses
+       * the prediction buffer, not the text. For '1' that is fine: a short press already
+       * gives exactly what a hold would, so the gesture has nothing to add and firing would
+       * only type it twice. For '0' it is NOT fine — a short press gives a space, so
+       * without a hold there is no way to type a zero in T9 at all (field report). It is
+       * handled by retracting the space with a backspace; see t9LiteralDigit().
        *
-       * In Abc/ABC the short press has emitted NOTHING yet — it is sitting in a multi-tap
-       * cycle waiting to commit — so every digit including 0 and 1 is safely reversible,
-       * and holding 0 there is a genuinely useful way to get a zero. */
-      const int8_t firstDigit =
-        (gui.state.inputMode == ControlState::MODE_T9) ? 2 : 0;
+       * In Abc/ABC nothing has been emitted yet — the press is sitting in a multi-tap cycle
+       * waiting to commit — so every digit is reversible there and none of this applies. */
+      const bool t9Mode = (gui.state.inputMode == ControlState::MODE_T9);
       int8_t nowHeld = -1;
-      for (int8_t d = firstDigit; d < 10; d++) {
+      for (int8_t d = 0; d < 10; d++) {
+        if (t9Mode && d == 1) {
+          continue;
+        }
         if (uiKeyDown & digitMask[d]) {
           nowHeld = d;
           break;
@@ -2477,7 +2484,9 @@ void loop() {
           digitFired = false;
         } else if (!digitFired && now - msDigitDown >= T9_DIGIT_HOLD_MS) {
           digitFired = true;
-          gui.state.t9LiteralDigit((char)('0' + nowHeld));
+          /* Retract only for '0' in T9 mode: the one case where the short press has
+           * already committed a character (a space) that the hold has to undo. */
+          gui.state.t9LiteralDigit((char)('0' + nowHeld), t9Mode && nowHeld == 0);
           /* The event loop has to be poked so the queued digit is delivered, but
            * redrawWhat does not exist this early in the pass — so raise a flag and let the
            * dispatch below do it. */
@@ -2492,6 +2501,36 @@ void loop() {
       msDigitDown = 0;
       digitHeld = -1;
       digitFired = false;
+    }
+
+    /* ── HOLD '#' FOR ONE CAPITAL ──────────────────────────────────────────────────
+     * The half of capitalisation no rule can do: a name in the middle of a sentence.
+     * A one-shot, consumed by the next committed word, so it reads as a shift key rather
+     * than as another mode to get stuck in.
+     *
+     * ⚠ A HOLD DOES NOT SWALLOW THE PRESS — the same warning the sleep chord carries. '#'
+     * is edge-triggered, so its short press has already cycled the input mode by the time
+     * this fires. Stepping the mode back by one is not a workaround for that, it is the
+     * only correct response: the user asked for a capital, not for a mode change. */
+    if (gui.state.t9Available()) {
+      if (uiKeyDown & WIPHONE_KEY_MASK_HASH) {
+        if (!msHashDown) {
+          msHashDown = now;
+          hashFired = false;
+        } else if (!hashFired && now - msHashDown >= T9_DIGIT_HOLD_MS) {
+          hashFired = true;
+          gui.state.inputMode = (gui.state.inputMode + 3) & 3;   // undo the short press
+          gui.state.inputShift = (gui.state.inputMode == ControlState::MODE_ABC_CAPS);
+          gui.state.t9Caps = !gui.state.t9Caps;                  // ...and arm the capital
+          redrawWhatPending = true;
+        }
+      } else {
+        msHashDown = 0;
+        hashFired = false;
+      }
+    } else {
+      msHashDown = 0;
+      hashFired = false;
     }
 
     if ((uiKeyDown & SLEEP_CHORD_MASK) == SLEEP_CHORD_MASK) {
@@ -2521,6 +2560,11 @@ void loop() {
     if (digitLiteralQueued) {
       digitLiteralQueued = false;
       redrawWhat |= gui.processEvent(now, (EventType)0);
+    }
+    // A held '#' changed the pending capital; the footer has to say so.
+    if (redrawWhatPending) {
+      redrawWhatPending = false;
+      redrawWhat |= REDRAW_FOOTER;
     }
 
     // Power button check

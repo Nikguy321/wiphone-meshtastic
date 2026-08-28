@@ -336,6 +336,21 @@ public:
   /* Queue the selected candidate (or, if the dictionary has no match, the digits themselves
    * so nothing the user typed is ever silently swallowed), then optionally the key that ended
    * the word. Clears the pending state. */
+  /* ── AUTOMATIC CAPITALS ────────────────────────────────────────────────────────────
+   * t9Caps means "the next word starts a sentence". Set on entering a field, and again
+   * after a '.', '!' or '?' is followed by a space or a newline. Consumed by t9Commit(),
+   * which capitalises the word it is about to insert.
+   *
+   * Also settable BY HAND with a long press on '#', for the thing no rule can know: a name
+   * in the middle of a sentence. That is a one-shot — it survives exactly until the next
+   * word is committed, which is what makes it feel like a shift key rather than a mode. */
+  bool     t9Caps;
+  bool     t9PunctSeen;                // a sentence-ender is waiting for its space
+  /* Tell the capitalisation tracker that this character reached the text field. Called for
+   * every character the input path emits, whatever produced it — T9, multi-tap or the
+   * symbols row — so the rule works the same however the sentence was typed. */
+  void t9NoteChar(char c);
+
   void t9Commit(char trailingKey = 0);
   /* Next queued character, or 0 when the queue is empty. */
   char t9NextEmit();
@@ -346,7 +361,7 @@ public:
    * typing. So the short press is allowed to happen and this reverses it: the digit comes
    * back out of the pending word (or the multi-tap letter is abandoned) and the digit
    * itself is queued instead. Reversibility is why the engine has popDigit(). */
-  void t9LiteralDigit(char digit);
+  void t9LiteralDigit(char digit, bool retractOne = false);
 
   char inputCurKey;   // current physical button active
   InputType inputType;

@@ -678,6 +678,8 @@ ControlState::ControlState(void)
   t9Enabled = T9_DEFAULT_ENABLED;
   t9Field = false;
   inputMode = MODE_T9;
+  t9Caps = true;
+  t9PunctSeen = false;
   t9Emit[0] = '\0';
   t9EmitAt = 0;
 
@@ -807,15 +809,43 @@ void ControlState::t9Commit(char trailingKey) {
   while (*src && n < sizeof(t9Emit) - 2) {
     t9Emit[n++] = *src++;
   }
+  /* The capital goes on here, at the last possible moment, rather than being baked into the
+   * dictionary or the candidate list — so cycling through candidates with UP/DOWN cannot
+   * lose it, and the same word is stored once in flash however it is capitalised. */
+  if (n && t9Caps && t9Emit[0] >= 'a' && t9Emit[0] <= 'z') {
+    t9Emit[0] = (char)toupper(t9Emit[0]);
+  }
+  t9Caps = false;                        // one-shot, whether it came from a rule or from '#'
+  t9PunctSeen = false;
   if (trailingKey && n < sizeof(t9Emit) - 1) {
     t9Emit[n++] = trailingKey;
+    t9NoteChar(trailingKey);             // ". " after a word still starts a new sentence
   }
   t9Emit[n] = '\0';
   t9EmitAt = 0;
   t9.clear();
 }
 
-void ControlState::t9LiteralDigit(char digit) {
+void ControlState::t9NoteChar(char c) {
+  if (c == '.' || c == '!' || c == '?') {
+    t9PunctSeen = true;                  // armed, but a sentence does not end until the space
+  } else if (c == ' ' || c == '\n') {
+    if (t9PunctSeen) {
+      t9Caps = true;
+      t9PunctSeen = false;
+    }
+    /* A bare space does NOT clear t9Caps: "Hello. " then a backspace-and-retype should still
+     * capitalise, and a manual long-press '#' followed by a space before the word must not
+     * silently lose the capital the user asked for. */
+  } else {
+    /* Any other character means a word is under way, so whatever capital was pending has
+     * either been used or no longer applies. */
+    t9PunctSeen = false;
+    t9Caps = false;
+  }
+}
+
+void ControlState::t9LiteralDigit(char digit, bool retractOne) {
   if (t9.pending()) {
     t9.popDigit();          // un-type the keypress the short press fed to the prediction
   }
@@ -823,9 +853,20 @@ void ControlState::t9LiteralDigit(char digit) {
   inputCurSel = 0;
   /* Straight into the emit queue rather than returned as a character, because this is
    * reached from the main loop's hold timer, not from a key event — there is no r1 to put
-   * it in. The caller pokes processEvent afterwards to drain it. */
-  t9Emit[0] = digit;
-  t9Emit[1] = '\0';
+   * it in. The caller pokes processEvent afterwards to drain it.
+   *
+   * retractOne queues a BACKSPACE first, for the one case the prediction buffer cannot
+   * undo: in T9 mode a short '0' has ALREADY put a space in the widget, and popDigit()
+   * reverses the pending word, not the text. So the space is taken back out the same way
+   * the user would — a BACK event through the normal widget path. WIPHONE_KEY_BACK is 8,
+   * which fits this queue and passes IS_KEYBOARD, and queued events bypass
+   * alphanumericInputEvent so the T9 layer never sees it and cannot re-interpret it. */
+  uint8_t n = 0;
+  if (retractOne) {
+    t9Emit[n++] = (char)WIPHONE_KEY_BACK;
+  }
+  t9Emit[n++] = digit;
+  t9Emit[n] = '\0';
   t9EmitAt = 0;
 }
 
@@ -851,6 +892,9 @@ void ControlState::setInputState(InputType newInputType) {
   t9Emit[0] = '\0';
   t9EmitAt = 0;
   t9Field = false;
+  /* A fresh field is the start of a sentence. */
+  t9Caps = true;
+  t9PunctSeen = false;
   /* Every field starts predictive. Stepping out with '#' is a per-field decision, not a
    * setting — leaving it sticky would mean a phone that quietly stopped predicting because
    * of something the user did in a different app twenty minutes ago. */
@@ -1130,6 +1174,7 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
   if (state.t9Available() && state.inputMode == ControlState::MODE_123) {
     if (key >= '0' && key <= '9') {
       r1 = key;
+      state.t9NoteChar((char)r1);        // early return: the tracker is at the far end
       return;
     }
   }
@@ -1152,7 +1197,18 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
       state.t9.pushDigit(key);
       return;                                  // consumed; the footer shows the candidate
     }
-    if (state.t9.pending()) {
+    /* 🛑 '*' MUST NOT BE QUEUED, IT MUST FALL THROUGH.
+     * The emit queue re-delivers whatever it holds as an EVENT, which is exactly right for
+     * the non-printable keys — END still cancels, LEFT still moves the cursor. But '*' is a
+     * printable character (0x2A) whose MEANING comes from this function: it opens the
+     * symbols row. Queued items bypass this function, so committing "there" and queuing '*'
+     * typed a literal asterisk — "Hello there*" on hardware — instead of offering
+     * punctuation. Commit the word with no trailing key and let the multi-tap path below
+     * handle the keypress as it always has. */
+    if (state.t9.pending() && key == WIPHONE_SYMBOLS_KEY) {
+      state.t9Commit();
+      // deliberately no return: '*' still has its own job to do below
+    } else if (state.t9.pending()) {
       switch (key) {
       case WIPHONE_KEY_UP:
         state.t9.prevCandidate();
@@ -1185,12 +1241,18 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
     /* Nothing pending and not a word digit. '0' is space and '1' spells nothing, so both
      * should land on one press rather than entering a multi-tap cycle that needs a second
      * key or a timeout to commit. */
+    /* ⚠ THESE RETURN EARLY, so they must feed the capitalisation tracker themselves — the
+     * hook at the end of this function is never reached from here. Missing it is why a
+     * full stop typed from the symbols row did not capitalise the next word: the '.' was
+     * noted correctly, and then the space that completes the sentence was not. */
     if (key == '0') {
       r1 = ' ';
+      state.t9NoteChar(' ');
       return;
     }
     if (key == '1') {
       r1 = '1';
+      state.t9NoteChar('1');
       return;
     }
   }
@@ -1249,6 +1311,12 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
   if (!r1) {
     r1 = r2;
     r2 = 0;
+  }
+  /* The single point every emitted character passes through — multi-tap letters, the
+   * symbols row, the space from '0'. Committed T9 words are noted by t9Commit() instead,
+   * because they never come back through here. */
+  if (r1 >= 32 && r1 <= 126) {
+    state.t9NoteChar((char)r1);
   }
 }
 
@@ -13310,9 +13378,13 @@ void FooterWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, ui
       } else {
         snprintf(strip, sizeof(strip), "%s", word);
       }
-      if (controlState.t9.pending() && controlState.inputShift &&
+      if (controlState.t9.pending() &&
+          (controlState.inputShift || controlState.t9Caps) &&
           strip[0] >= 'a' && strip[0] <= 'z') {
-        strip[0] = toupper(strip[0]);          // never the mode tag — "Abc" is a label
+        /* Show the capital BEFORE it is committed, so a long press of '#' has visible
+         * feedback and the user can see the rule fire. Never the mode tag: "Abc" is a
+         * label, not a word. */
+        strip[0] = toupper(strip[0]);
       }
       lcd.setTextDatum(TL_DATUM);
       const int fh = fonts[AKROBAT_SEMIBOLD_22]->height();
