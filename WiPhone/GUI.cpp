@@ -4963,8 +4963,20 @@ void AbstractWidget::operator delete(void* p) {
   free(p);
 }
 
+/* Apps go to PSRAM — see the note on WiPhoneApp in GUI.h. At the root of the app hierarchy
+ * for the same reason AbstractWidget::operator new is at the root of the widget one. */
+void* WiPhoneApp::operator new(size_t n) {
+  void* p = ps_malloc(n);
+  return p ? p : malloc(n);
+}
+
+void WiPhoneApp::operator delete(void* p) {
+  free(p);
+}
+
 /* See the note in GUI.h: measured at −4,236 bytes of contiguous internal heap per open, which
- * panicked the phone twice within minutes of the first SIP account being configured. */
+ * panicked the phone twice within minutes of the first SIP account being configured.
+ * Redundant since WiPhoneApp gained the same pair above, and kept for the measurement. */
 void* SipAccountsApp::operator new(size_t n) {
   void* p = ps_malloc(n);
   return p ? p : malloc(n);
@@ -11437,7 +11449,9 @@ LabelWidget::LabelWidget(uint16_t posX, uint16_t posY, uint16_t width, uint16_t 
   : NonFocusableWidget(posX, posY, width, height), widgetFont(font), textColor(col), bgColor(bg), textDirection(orient), xPadding(xPadding) {
   //log_d("create LabelWidget");
 
-  textDyn = strdup(str);
+  /* Widget-lifetime text follows the widget into PSRAM — see MenuOption in GUI.h. The
+   * object is already there (AbstractWidget::operator new); the string was not. */
+  textDyn = extStrdup(str);
   updated = true;
   if (font==NULL) {
     widgetFont = fonts[OPENSANS_COND_BOLD_20];
@@ -11451,9 +11465,9 @@ LabelWidget::~LabelWidget() {
 void LabelWidget::setText(const char* str) {
   freeNull((void **) &textDyn);
   if (str!=NULL) {
-    textDyn = strdup(str);
+    textDyn = extStrdup(str);
   } else {
-    textDyn = strdup("");
+    textDyn = extStrdup("");
   }
   updated = true;
 }
@@ -11701,7 +11715,7 @@ MultilineTextWidget::MultilineTextWidget(uint16_t xPos, uint16_t yPos, uint16_t 
     xPadding(xPadding), yPadding(yPadding) {
   rowsDyn = NULL;
   retTextDyn = NULL;
-  emptyTextDyn = emptyText ? strdup(emptyText) : NULL;
+  emptyTextDyn = emptyText ? extStrdup(emptyText) : NULL;
 
   firstVisibleRow = 0;
   visibleRows = (height-(yPadding*2)) / font->height();
@@ -11927,7 +11941,10 @@ bool MultilineTextWidget::processEvent(EventType event) {
 
     // Insert character in current row
     len = rowsDyn[cursRow] && rowsDyn[cursRow][0] ? strlen(rowsDyn[cursRow]) : 0;
-    char* p = (char*) realloc(rowsDyn[cursRow], len+2);
+    /* extRealloc: this grows a rowsDyn[] entry, and the rest of this widget already
+   * allocates those from PSRAM (extRealloc/extStrndup/extStrdup above). A plain realloc
+   * here quietly pulled edited rows back onto the internal heap. */
+  char* p = (char*) extRealloc(rowsDyn[cursRow], len+2);
     if (p) {
       rowsDyn[cursRow] = p;
       for (int i=len; i>cursOffset; i--) {
@@ -11962,8 +11979,9 @@ bool MultilineTextWidget::processEvent(EventType event) {
             }
 
         // Allocate memory for new strings
-        char* s1 = (char*) malloc(fit + 1);
-        char* s2 = (char*) malloc(len-fit + len2 + 1);
+        // Both become rowsDyn[] entries below — PSRAM, like every other row.
+        char* s1 = (char*) extMalloc(fit + 1);
+        char* s2 = (char*) extMalloc(len-fit + len2 + 1);
         if (s1 && s2) {
           // String with removed characters from the end
           memcpy(s1, rowsDyn[row], fit);
@@ -12059,9 +12077,10 @@ bool MultilineTextWidget::processEvent(EventType event) {
       bool quit = false;
       uint16_t fit = widgetFont->fitWordsLength(dyn, horizontalSpace);
       if (fit != l1) {
-        char* s2 = strdup(dyn+fit);
+        // Same again on the merge path: these replace rowsDyn[row] and rowsDyn[row+1].
+        char* s2 = extStrdup(dyn+fit);
         dyn[fit] = '\0';
-        char* s1 = strdup(dyn);
+        char* s1 = extStrdup(dyn);
         if (s1 && s2) {
           // - replace original two rows with new ones
           free(rowsDyn[row]);
@@ -13105,7 +13124,7 @@ MenuWidget::MenuWidget(uint16_t xPos, uint16_t yPos, uint16_t width, uint16_t he
     widgetFont = fonts[OPENSANS_COND_BOLD_20];
   }
   if (empty) {
-    this->emptyMessageDyn = strdup(empty);
+    this->emptyMessageDyn = extStrdup(empty);
   }
   optionSelectedIndex = 0;
   optionOffsetIndex = 0;
@@ -13116,6 +13135,19 @@ MenuWidget::MenuWidget(uint16_t xPos, uint16_t yPos, uint16_t width, uint16_t he
 }
 
 void MenuWidget::deleteAll() {
+  /* 🔑 DELETE THE ROWS, NOT JUST THE POINTERS TO THEM. options.clear() frees the
+   * LinearArray's pointer block and nothing else, so every MenuOption this widget owned was
+   * leaked - the object, its title, its subtitle and its two IconRle3s. ~MenuWidget already
+   * does this correctly in its own loop; deleteAll() simply never adopted it.
+   *
+   * The one caller is the SIP accounts VIEWING screen (see the rebuild below it), which
+   * re-enters every time an account is opened - so this leaked three iconned rows per open,
+   * out of the ~20 KB internal heap, for the life of the boot. Found while tracing what the
+   * Nodes screen spends internal RAM on: the rows are now PSRAM (see MenuOption in GUI.h),
+   * but a leak of them is still a leak, and the icons were never covered by that at all. */
+  for (uint16_t i = 0; i < options.size(); i++) {
+    delete options[i];
+  }
   options.clear();
   optionSelectedIndex = 0;
   optionOffsetIndex = 0;
@@ -13351,9 +13383,25 @@ MenuOption::~MenuOption() {
   freeNull((void **) &titleDyn);
 };
 
+/* Menu rows go to PSRAM — see the note on MenuOption in GUI.h. Mirrors
+ * AbstractWidget::operator new exactly, including the internal-heap fallback for the case
+ * where PSRAM is unavailable or full, and free() serves both regions. */
+void* MenuOption::operator new(size_t n) {
+  void* p = ps_malloc(n);
+  return p ? p : malloc(n);
+}
+
+void MenuOption::operator delete(void* p) {
+  free(p);
+}
+
 MenuOption::MenuOption(MenuOption::keyType pId, uint16_t pStyle, const char* title)
   : id(pId), style(pStyle) {
-  titleDyn = title ? strdup(title) : NULL;
+  /* extStrdup, not strdup: the OBJECT moving to PSRAM is only half of a row. The title is a
+   * second internal-heap allocation of its own, and on the Nodes screen it is the node name
+   * for every node in the database. Falls back to the internal heap by itself, and
+   * ~MenuOption's freeNull() -> free() is region-agnostic. */
+  titleDyn = title ? extStrdup(title) : NULL;
 };
 
 /* Draw `s` within maxW, with ".." marking anything cut off; returns the width
@@ -13469,7 +13517,9 @@ MenuOptionIconned::MenuOptionIconned(MenuOption::keyType pId, uint16_t pStyle, c
                                      uint8_t textOffset, colorType selBgColor)
   : MenuOption(pId, pStyle, title), selectedBgColor(selBgColor) {
   if (subTitle) {
-    subTitleDyn = strdup(subTitle);
+    /* The THIRD internal allocation per row, and the biggest of them — on Nodes this is the
+     * whole "1.2km NE of camp, 4 min ago" line. To PSRAM with the other two. */
+    subTitleDyn = extStrdup(subTitle);
   } else {
     subTitleDyn = NULL;
   }
@@ -13667,7 +13717,7 @@ ButtonWidget::ButtonWidget(uint16_t xPos, uint16_t yPos, const char* title,
   : FocusableWidget(xPos, yPos, width, height),
     textColor(col), bgColor(bgCol), borderColor(border), selTextColor(sel), selBgColor(selBg) {
   pressed = false;
-  titleDyn = strdup(title);
+  titleDyn = extStrdup(title);
   if (!widgetWidth) {
     widgetWidth = fonts[OPENSANS_COND_BOLD_20]->textWidth(title) + 18;
   }
@@ -13682,7 +13732,7 @@ ButtonWidget::~ButtonWidget() {
 
 void ButtonWidget::setText(const char* str) {
   freeNull((void **) &titleDyn);
-  titleDyn = strdup(str);
+  titleDyn = extStrdup(str);
   updated = true;
 }
 

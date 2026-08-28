@@ -1213,6 +1213,30 @@ public:
   MenuOption(MenuOption::keyType pId, uint16_t pStyle, const char* title);
   virtual ~MenuOption();
 
+  /* 🛑 MENU ROWS GO TO PSRAM TOO — the one hole left in the rule above.
+   *
+   * AbstractWidget routes every widget to PSRAM (see the long note there), but MenuOption
+   * DOES NOT DERIVE FROM IT, so until this existed each row was a plain `new` plus a
+   * strdup'd title and subtitle on the INTERNAL heap — the ~20 KB one. newMenu() in
+   * app_meshtastic.cpp already recorded the consequence in passing; this is the fix for it.
+   *
+   * WHY IT MATTERS MOST HERE: row count is DATA-DRIVEN. A widget count is written by a
+   * programmer and is small; a row count is decided by how busy the mesh is, how many books
+   * are on the card, how long the call log got. Nodes is the sharp end — MESH_MAX_NODES is
+   * 200, and 200 rows is ~3 allocations and ~120 bytes each, ~24 KB, against an internal
+   * heap measured at 16-19 KB free with a largest free block of 7 KB (phone 1 HEALTH lines,
+   * 2026-08-28). The screen cannot fit in the heap it was allocating from, and operator new
+   * THROWS on failure with nothing catching it — std::terminate -> abort -> reset_reason=4.
+   *
+   * One definition here covers MenuOptionIconned, MenuOptionIconnedTimed and
+   * MenuOptionPhonebook, and therefore every list screen in the firmware, not just Nodes.
+   *
+   * SAFE BECAUSE: rows are UI state read by the CPU during redraw — never DMA'd, never
+   * touched from an ISR, not on the emulator's hot path. Same reasoning, same fallback, same
+   * region-agnostic free() as AbstractWidget. Revert by deleting these two functions. */
+  static void* operator new(size_t n);
+  static void operator delete(void* p);
+
   virtual void redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, uint16_t windowWidth, uint16_t windowHeight,
                       colorType fgColor, colorType bgColor, bool opaque, bool selected, SmoothFont* font, uint16_t leftOffset);
 };
@@ -1414,13 +1438,37 @@ public:
   void addInlineLabelYesNo(uint16_t &yOff, uint16_t labelWidth, LabelWidget*& label, YesNoWidget*& input, const char* labelText);
   void addRuler(uint16_t &yOff, RulerWidget*& ruler, uint16_t addOffset = 3);
 
+  /* 🛑 APPS GO TO PSRAM TOO — and for the same reason this is at the ROOT of the app
+   * hierarchy rather than on the two apps that had already hit the wall individually.
+   *
+   * BooksApp (app_books.h) and SipAccountsApp (below) each grew their own copy of these two
+   * functions after panicking the phone, and the note on the second one already says what
+   * this is: "Same one-step fix as BooksApp: override operator new rather than converting a
+   * dozen". Two apps in, the pattern is the rule — the other ~40 apps allocate from the
+   * ~20 KB internal heap purely because nobody had panicked on them YET. WiPhoneApp is the
+   * common denominator, exactly as AbstractWidget is for widgets.
+   *
+   * Every app in this firmware is created with a plain `new` from GUI.cpp's app switch (53
+   * sites, none on the stack, none an array-new), so one definition here reaches all of them
+   * — MeshtasticApp included, which is the screen that sent us looking.
+   *
+   * The two per-app overrides are now redundant but harmless: a derived-class operator new
+   * simply wins, and both do the identical ps_malloc-then-malloc. Left in place because each
+   * carries the measurement that justified it. */
+  static void* operator new(size_t n);
+  static void operator delete(void* p);
+
 protected:
   LCD& lcd;
   ControlState& controlState;       // TODO: make this a global variable?
   int32_t anyEventPeriodStack;
   uint32_t anyEventLastStack;
   bool pushed = false;              // backwards compatibility: each app remembers if it was already pushed after redraw screen (so that app can push itself in redraw and can be pushed by GUI)
-  LinearArray<GUIWidget*, LA_INTERNAL_RAM> registeredWidgets;
+  /* ⚠ EXTERNAL, not internal. This array holds one pointer per widget the app registers,
+   * and it doubles as it grows — but every widget it points AT is already in PSRAM
+   * (AbstractWidget::operator new), so keeping the index in the scarce heap bought nothing.
+   * It is walked on redraw and teardown, never per frame and never from an ISR. */
+  LinearArray<GUIWidget*, LA_EXTERNAL_RAM> registeredWidgets;
 };
 
 // App that manages focus for focusable widgets

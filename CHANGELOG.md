@@ -1,5 +1,63 @@
 # Changelog
 
+## 0.9.33 (2026-08-28) — the Nodes screen fits in memory again
+
+Opening **Nodes** rebooted phone 1. The node database was never the problem — it has
+lived in PSRAM since it existed. **The menu rows did not.**
+
+- 🔑 **`MenuOption` was the one hole in the PSRAM rule.** `AbstractWidget::operator new`
+  routes every widget to PSRAM, but `MenuOption` does not derive from it, so each row was
+  a plain `new` plus a `strdup`'d title and subtitle — **three internal-heap allocations
+  per row**, on the ~20 KB heap. `newMenu()` in app_meshtastic.cpp had already written
+  this down in passing; nothing had acted on it. `MenuOption` now has the same
+  `operator new`/`operator delete` pair, and both strings use `extStrdup`. One definition
+  covers `MenuOptionIconned`, `MenuOptionIconnedTimed` and `MenuOptionPhonebook`, so
+  **every list screen** benefits, not just Nodes.
+- **Why it started now:** the cost is data-driven. `sizeof(MenuOptionIconned)` is 36 B and
+  a row measures **~124 B** across its three blocks. Phone 1's database has grown to
+  **163 nodes** — 20.2 KB — requested from an internal heap the phone's own `heap` command
+  reported at 14.5–17.4 KB free with a largest block of 7.0–13.8 KB. It could not fit, and
+  `operator new` throws on failure with nothing catching it: `std::terminate` → `abort` →
+  `reset_reason=4`. The database crossed the threshold (~125–135 rows) and the screen
+  stopped opening.
+- 🛑 **Do not "fix" this by catching `std::bad_alloc`.** This phone has a decoded panic
+  where the throw itself was fatal — `_Unwind_RaiseException` faulted with `LoadProhibited`
+  before any handler could run (the SIP/UDP abort, helpers.h). The allocation has to not
+  fail.
+- **`MenuWidget::deleteAll()` leaked every row it owned.** It called `options.clear()`,
+  which frees only the `LinearArray` pointer block — the `MenuOption` objects, their
+  strings and their two `IconRle3`s were never deleted. `~MenuWidget` had always done it
+  correctly; `deleteAll()` simply never adopted it. Its one caller is the SIP accounts
+  VIEWING screen, so this leaked three iconned rows per account opened, for the life of
+  the boot.
+- **Apps go to PSRAM at the root now.** `BooksApp` and `SipAccountsApp` had each grown
+  their own `operator new` after panicking; the other ~40 apps allocated from the internal
+  heap only because nobody had panicked on them yet. The pair moved to `WiPhoneApp` — the
+  same "fix it at the root, not per-app" argument `AbstractWidget` makes. The two per-app
+  copies are left in place, redundant but harmless, because each carries the measurement
+  that justified it.
+- **Widget-lifetime text follows its widget.** `ButtonWidget`, `LabelWidget`,
+  `MultilineTextWidget` and `MenuWidget`'s own strings were still `strdup`'d internally
+  while the objects holding them sat in PSRAM. Also finishes a **partial conversion**:
+  `MultilineTextWidget` already used `extStrndup`/`extRealloc` for its wrapped `rowsDyn`
+  rows, but the insert-character `realloc` and the split/merge `malloc`/`strdup` paths
+  were missed and quietly pulled edited rows back onto the internal heap. `registeredWidgets`
+  moved from `LA_INTERNAL_RAM` to `LA_EXTERNAL_RAM` for the same reason — every widget it
+  indexes is already external.
+- ✅ **Proven on phone 1 over the serial bridge, no hands.** Opening Nodes with 163 nodes:
+  internal heap **11,384 → 12,512 bytes free** (it goes UP — the previous menu is freed),
+  PSRAM **3,600,696 → 3,580,524** (−20,172 B, ~124 B/row). No panic, no reboot, list
+  renders with starred nodes on top. Three further open/close cycles: internal recovers to
+  17,856, PSRAM flat — no leak. Before the fix the same screen asked ~20 KB of a heap that
+  had ~15 KB.
+- ⚠ **Left deliberately undone.** `buildNodes`, `buildThread` (up to `MESH_MSG_CAP` = 1000
+  rows), `PhonebookApp::createLoadMenu` and `SipAccountsApp::createLoadMenu` are still the
+  only four uncapped list builds in the firmware — every other list caps and says so
+  (Files 200, Photos 200, Books 48, Music 96, Chats 24, Places 8). Capping Nodes would hide
+  nodes from the user, which is a product decision, not a memory one; with the rows in
+  PSRAM it is no longer a crash. `IconRle3` is also still a plain `new` on the internal
+  heap, two per iconned row, and it lives in vendored `src/TFT_eSPI/`.
+
 ## 0.9.30 (2026-08-27) — peeking at the WiFi list no longer kills auto-rejoin
 
 The 0.9.29 session's P2 wart, closed the same day, with two relatives found in the walk:
