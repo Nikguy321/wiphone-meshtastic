@@ -73,25 +73,45 @@ void T9Engine::clear() {
   nDigits = 0;
   runStart = 0;
   runLen = 0;
+  extraStart = 0;
+  extraLen = 0;
   sel = 0;
 }
 
+void T9Engine::setExtra(const T9ExtraTable* table) {
+  extra = (table && table->words && table->count) ? table : NULL;
+  if (nDigits) {
+    lookup();          // a word already in progress gains (or loses) its extra candidates
+  }
+}
+
+/* Built-in matches first, then the extra table's. The order is the feature: jargon is always
+ * reachable and never in the way. */
 const char* T9Engine::candidate(int i) const {
-  if (i < 0 || i >= (int)runLen) {
+  if (i < 0) {
     return NULL;
   }
-  return T9_WORDS[runStart + i];
+  if (i < (int)runLen) {
+    return T9_WORDS[runStart + i];
+  }
+  const int j = i - (int)runLen;
+  if (extra && j < (int)extraLen) {
+    return extra->words[extraStart + j];
+  }
+  return NULL;
 }
 
 void T9Engine::nextCandidate() {
-  if (runLen) {
-    sel = (uint16_t)((sel + 1) % runLen);
+  const int n = candidateCount();
+  if (n) {
+    sel = (uint16_t)((sel + 1) % n);
   }
 }
 
 void T9Engine::prevCandidate() {
-  if (runLen) {
-    sel = (uint16_t)((sel + runLen - 1) % runLen);
+  const int n = candidateCount();
+  if (n) {
+    sel = (uint16_t)((sel + n - 1) % n);
   }
 }
 
@@ -124,39 +144,55 @@ bool T9Engine::popDigit() {
   return true;
 }
 
-/* Find the contiguous run of words whose key equals digitBuf.
+/* Find the contiguous run of words whose key equals `digits`, in one sorted table.
  *
  * Binary search for the LOWER BOUND — the first word whose key is >= the typed digits — then
  * walk forward while the key still matches. The walk is bounded by the worst collision in the
  * table (T9_WORST_RUN, emitted by the generator and measured, not guessed), so it is a handful
  * of comparisons, not a scan.
  *
- * Cost: about log2(N) key comparisons, each of which touches one word in flash. For 25,000
- * words that is ~15 probes. Every read is a plain dereference of memory-mapped .rodata; the
- * Game Boy emulator reads the same way millions of times a second, so this is not a path that
- * needs to be made incremental or deferred. */
-void T9Engine::lookup() {
-  runStart = 0;
-  runLen = 0;
-  sel = 0;
-  if (!nDigits) {
+ * Cost: about log2(N) key comparisons, each of which touches one word. For 25,000 words that
+ * is ~15 probes. The built-in table is memory-mapped .rodata and the extra one is PSRAM; the
+ * Game Boy emulator reads both the same way millions of times a second, so neither needs to
+ * be made incremental or deferred.
+ *
+ * Factored out because there are now two tables searched identically — the extra one is not a
+ * special case, it is the same algorithm over a different array. */
+static void t9FindRun(const char* const* words, int count, const char* digits,
+                      uint16_t* outStart, uint16_t* outLen) {
+  *outStart = 0;
+  *outLen = 0;
+  if (!words || count <= 0) {
     return;
   }
-
-  int lo = 0, hi = (int)T9_WORD_COUNT;      // [lo, hi)
+  int lo = 0, hi = count;                   // [lo, hi)
   while (lo < hi) {
     const int mid = lo + ((hi - lo) >> 1);
-    if (t9CompareKey(T9_WORDS[mid], digitBuf) < 0) {
+    if (t9CompareKey(words[mid], digits) < 0) {
       lo = mid + 1;
     } else {
       hi = mid;
     }
   }
-
-  runStart = (uint16_t)lo;
+  *outStart = (uint16_t)lo;
   int n = 0;
-  while (lo + n < (int)T9_WORD_COUNT && t9CompareKey(T9_WORDS[lo + n], digitBuf) == 0) {
+  while (lo + n < count && t9CompareKey(words[lo + n], digits) == 0) {
     n++;
   }
-  runLen = (uint16_t)n;
+  *outLen = (uint16_t)n;
+}
+
+void T9Engine::lookup() {
+  runStart = 0;
+  runLen = 0;
+  extraStart = 0;
+  extraLen = 0;
+  sel = 0;
+  if (!nDigits) {
+    return;
+  }
+  t9FindRun(T9_WORDS, (int)T9_WORD_COUNT, digitBuf, &runStart, &runLen);
+  if (extra) {
+    t9FindRun(extra->words, (int)extra->count, digitBuf, &extraStart, &extraLen);
+  }
 }

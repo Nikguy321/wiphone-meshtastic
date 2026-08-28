@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.9.36 (2026-08-28) - bring your own T9 words
+
+An optional second dictionary, read from `/t9/extra.txt` on the SD card at boot. Its words
+are always offered AFTER the built-in English ones, which is exactly what you want from
+jargon: reachable when you need it, never in the way.
+
+- 🔑 **It is a file on the card, not part of the firmware.** One person's vocabulary has no
+  business in a stranger's phone, and keeping it off the image means the licence of whatever
+  was harvested is never a question for anybody else. It also means adding words costs a file
+  copy rather than a reflash, and it generalises — callsigns, place names, a team roster.
+- **PSRAM, read exactly once, at boot.** ~105 KB for 8,700 words (a 70 KB blob plus a 35 KB
+  pointer array, two allocations for the whole dictionary — the words are never copied
+  individually). Measured on hardware: internal heap unchanged at 18,736 free. A filesystem
+  read per keystroke is the freeze this firmware has fought before, which is why the built-in
+  table is in flash and this one is read once.
+- **Every failure is silent and named.** No card, no file, a malformed file, no PSRAM: the
+  table stays empty and predictive text works exactly as it does without it. `t9` on the
+  console says which of those happened, because a dictionary that quietly failed to load
+  looks identical to one with none of your words in it.
+- **`up on t9`** starts the WiFi uploader pointed at `/t9`, and **`t9 reload`** picks up the
+  new file without a reboot — a word list is a thing you iterate on.
+- New tools: `fetch_sarna_titles.py` (page TITLES via the MediaWiki API — never article text;
+  the prose is GNU FDL 1.2 and a vocabulary list is not a copy of it) and `gen_t9_extra.py`,
+  which takes any one-per-line list, drops what the built-in dictionary already has, and
+  sorts the rest for the phone's binary search.
+- ⚠ The useful knob is `--min-titles`. Words appearing in exactly ONE title across a 93,000
+  article wiki are where both the junk and the cost live: at 2 you get 8,753 words for 68 KB
+  and the worst candidate run stays at 9, where the full tail takes it to 11.
+- ✅ Proven on phone 1 end to end: 93,649 titles harvested, 8,753 words uploaded over WiFi in
+  0.6 s, `Kerensky` predicted and auto-capitalised — while `4663` still gives `good` as
+  candidate #1, now 1 of 8 instead of 1 of 7.
+
 ## 0.9.35 (2026-08-28) - T9 predictive text
 
 Five keypresses for "hello" instead of thirteen. Type d-o-n-t and get "don't". Off by

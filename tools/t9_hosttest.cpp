@@ -280,6 +280,77 @@ int main() {
     ok(contractions == reachable, "every contraction is reachable from letters alone");
   }
 
+  // ---- the extra (user) dictionary ---------------------------------------------------------
+  // Words the built-in table does not have, sorted by digit key then relevance, exactly as
+  // tools/gen_t9_extra.py writes them. These stand in for the SD-loaded file.
+  {
+    // keys: mechwarrior=6324927749, battletech=2288384382, kerensky=53736759,
+    // zzzznotaword is unreachable nonsense used to prove "extra only" lookups.
+    static const char* const EXTRA_WORDS[] = {
+      "battletech",     // 2288384382
+      "kerensky",       // 53736759
+      "mechwarrior",    // 6324927749
+    };
+    static const T9ExtraTable EXTRA = { EXTRA_WORDS, 3 };
+
+    T9Engine e;
+    char key[64];
+
+    // Without the extra table these are unreachable.
+    keyOf("kerensky", key);
+    type(e, key);
+    const int before = e.candidateCount();
+    bool foundBefore = false;
+    for (int c = 0; c < before; c++)
+      if (!std::strcmp(e.candidate(c), "kerensky")) foundBefore = true;
+    ok(!foundBefore, "extra word is absent before the table is attached");
+
+    e.setExtra(&EXTRA);
+    ok(e.candidateCount() >= before, "attaching the table cannot lose candidates");
+    bool foundAfter = false;
+    int atIndex = -1;
+    for (int c = 0; c < e.candidateCount(); c++)
+      if (!std::strcmp(e.candidate(c), "kerensky")) { foundAfter = true; atIndex = c; }
+    ok(foundAfter, "extra word is reachable once attached");
+    ok(atIndex >= before, "extra words rank AFTER every built-in match");
+
+    // setExtra re-runs the lookup on a word already in progress.
+    ok(e.pending(), "the word is still pending across setExtra");
+
+    // Detaching removes them again and leaves the selection valid.
+    e.setExtra(NULL);
+    ok(e.candidateCount() == before, "detaching restores the built-in count");
+    ok(e.selected() < e.candidateCount() || e.candidateCount() == 0, "selection stays in range");
+
+    // A common English word must not be displaced by the extra table.
+    e.setExtra(&EXTRA);
+    keyOf("the", key);
+    type(e, key);
+    eqs(e.candidate(0), "the", "extra table does not displace candidate #1");
+
+    // Cycling walks both tables and wraps.
+    keyOf("kerensky", key);
+    type(e, key);
+    const int n = e.candidateCount();
+    const char* first = e.current();
+    for (int i = 0; i < n; i++) {
+      ok(e.current() != NULL, "current() never NULL while cycling across both tables");
+      e.nextCandidate();
+    }
+    eqs(e.current(), first, "cycling wraps across both tables");
+
+    // An empty or malformed table must be treated as no table at all.
+    static const T9ExtraTable EMPTY = { EXTRA_WORDS, 0 };
+    static const T9ExtraTable NOWORDS = { NULL, 5 };
+    e.setExtra(&EMPTY);
+    keyOf("the", key); type(e, key);
+    ok(e.candidateCount() > 0, "a zero-count table is ignored, not fatal");
+    e.setExtra(&NOWORDS);
+    keyOf("the", key); type(e, key);
+    ok(e.candidateCount() > 0, "a NULL-words table is ignored, not fatal");
+    ok(e.candidate(e.candidateCount()) == NULL, "one past the end is still NULL");
+  }
+
   std::printf("\n%d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;
 }

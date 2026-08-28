@@ -41,6 +41,7 @@ const XferConfig* xferBooksConfig();            // the books cfg, for serial `up
 const char* xferAddr();                         // IP address to show next to wiphone.local
 const char* xferStartError();                   // why the last start was refused, or NULL
 const XferConfig* xferPhotosConfig();            // /photos, for `up on photos`
+const XferConfig* xferT9Config();                // /t9, for `up on t9`
 const char* xferApName();                       // SSID of the hotspot, when we made one
 int         xferFilesAdded();                   // files added this session (uploads + fetches)
 

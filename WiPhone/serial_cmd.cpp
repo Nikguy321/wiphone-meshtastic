@@ -8,7 +8,8 @@
 
 /* Defined in WiPhone.ino next to keypadBuff — see the note there on why this is a real press. */
 extern bool uiInjectKey(char c);
-#include "meshtastic_service.h"   // applyChannelUrl, the `chan` command
+#include "meshtastic_service.h"
+#include "t9_extra.h"            // the `t9` command reports the extra dictionary   // applyChannelUrl, the `chan` command
 #include "mesh_pos.h"             // distance/bearing for the `pos` command
 #include "sun_times.h"            // legal light, the `sun` command
 #include "clock.h"                // ntpClock
@@ -344,6 +345,15 @@ static void run(char* line) {
     reportUploader();
     return;
   }
+  if (!strcasecmp(line, "up on t9")) {
+    /* Upload a T9 word list, then `t9 reload` to pick it up without a reboot. */
+    xferStart(xferT9Config());
+    if (!gbcXferOn() && xferStartError()) {
+      say("up: NOT started - %s\n", xferStartError());
+    }
+    reportUploader();
+    return;
+  }
   if (!strcasecmp(line, "up on")) {
     if (gbcXferOn()) {
       say("uploader already on\n");
@@ -479,14 +489,24 @@ static void run(char* line) {
       gui.state.t9Enabled = true;
     } else if (!strcasecmp(arg, "off")) {
       gui.state.t9Enabled = false;
+    } else if (!strcasecmp(arg, "reload")) {
+      /* Re-read the card after an upload. The alternative is a reboot, which loses the
+       * uploader session you just used to put the file there. */
+      const int n = t9ExtraLoad(gui.state.cardPresent);
+      gui.state.t9.setExtra(t9ExtraGet());
+      say("t9: reloaded, %d extra words (%s)\n", n, t9ExtraStatus());
+      return;
     } else if (*arg) {
-      say("t9: say `t9 on`, `t9 off`, or `t9` to see the state\n");
+      say("t9: say `t9 on`, `t9 off`, `t9 reload`, or `t9` to see the state\n");
       return;
     }
     say("t9: predictive text %s  (this field opted in: %s, word pending: %s)\n",
         gui.state.t9Enabled ? "ON" : "OFF",
         gui.state.t9Field ? "yes" : "no",
         gui.state.t9.pending() ? gui.state.t9.digits() : "no");
+    /* The extra dictionary is invisible until it is wrong, so say what happened to it. A file
+     * that failed to load looks exactly like a file with none of your words in it. */
+    say("  extra words: %d from %s  (%s)\n", t9ExtraCount(), T9_EXTRA_PATH, t9ExtraStatus());
     return;
   }
 

@@ -118,6 +118,15 @@ static const XferConfig SERIAL_PHOTOS_CFG = {
   "/photos", "Add photos", ".jpg,.jpeg,.bmp", "photos", "download.jpg", "WiPhone-Photos"
 };
 const XferConfig* xferPhotosConfig() { return &SERIAL_PHOTOS_CFG; }
+/* The T9 extra-dictionary uploader (`up on t9`). Its whole reason for existing is that a
+ * word list is a thing you ITERATE on — add a name, re-sort, try it — and doing that by
+ * powering the phone down and moving the card each time would make the feature not worth
+ * having. The file must be named extra.txt; the uploader keeps the browser's filename.
+ * See t9_extra.h for the format and tools/gen_t9_extra.py for what writes it. */
+static const XferConfig SERIAL_T9_CFG = {
+  "/t9", "Add T9 words", ".txt", "word lists", "extra.txt", "WiPhone-T9"
+};
+const XferConfig* xferT9Config() { return &SERIAL_T9_CFG; }
 static const XferConfig* s_cfg = &ROM_CFG;
 
 void gbcXferHandleClient() {

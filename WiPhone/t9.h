@@ -50,11 +50,29 @@ char t9DigitForChar(char c);
  * '0' is space, '1' is punctuation on a real T9 phone, and neither spells anything. */
 bool t9IsWordDigit(char c);
 
+/* A second, optional word table — the user's own vocabulary, loaded from the SD card into
+ * PSRAM at boot (see t9_extra.h). Deliberately a plain data struct with no filesystem in
+ * sight, so t9.cpp stays free of SD, testable on a laptop, and identical whether or not the
+ * card is there.
+ *
+ * Sorted the same way as the built-in table: by keypad digit key, then by relevance within
+ * a key. Its matches are appended AFTER the built-in ones, which is the whole point — your
+ * jargon is reachable without ever pushing an ordinary English word off the top. */
+struct T9ExtraTable {
+  const char* const* words;
+  uint16_t           count;
+};
+
 class T9Engine {
 public:
   T9Engine() {
+    extra = NULL;
     clear();
   }
+
+  /* Attach (or detach, with NULL) the extra table. Safe at any time: it re-runs the lookup
+   * so a word already being typed picks up the new candidates immediately. */
+  void setExtra(const T9ExtraTable* table);
 
   /* Throw away the pending word. Cheap, and safe to call when nothing is pending. */
   void clear();
@@ -84,11 +102,11 @@ public:
     return digitBuf;
   }
 
-  /* How many words match the typed digits exactly. 0 means the user has typed something this
-   * dictionary does not contain — which is not an error, it is the moment to fall back to
-   * multi-tap. */
+  /* How many words match the typed digits exactly, across BOTH tables. 0 means the user has
+   * typed something neither dictionary contains — which is not an error, it is the moment to
+   * fall back to multi-tap. */
   int candidateCount() const {
-    return runLen;
+    return (int)runLen + (int)extraLen;
   }
 
   /* Candidate `i`, best first, or NULL if out of range. Points into flash and stays valid
@@ -120,8 +138,12 @@ private:
   uint8_t  nDigits;
 
   uint16_t runStart;      // index of the first matching word in T9_WORDS
-  uint16_t runLen;        // how many match; 0 when nothing does
-  uint16_t sel;           // which candidate is selected, always < runLen (or 0)
+  uint16_t runLen;        // how many match there; 0 when nothing does
+  uint16_t extraStart;    // ...and the same pair for the extra table, searched second
+  uint16_t extraLen;
+  uint16_t sel;           // which candidate is selected, always < candidateCount() (or 0)
+
+  const T9ExtraTable* extra;   // NULL when there is no card, no file, or no PSRAM
 };
 
 #endif // _WIPHONE_T9_H

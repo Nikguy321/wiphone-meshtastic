@@ -25,6 +25,7 @@ governing permissions and limitations under the License.
 #include "esp32-hal.h"
 #include <stdio.h>
 #include "GUI.h"
+#include "t9_extra.h"        // the user's own T9 words, loaded from the card at boot
 #include "tinySIP.h"
 #include "config.h"
 #include "clock.h"
@@ -1545,6 +1546,13 @@ void setup() {
    * was exactly that, and it is the reason this line is above the call and not below it. */
   meshService.setCardPresent(gui.state.cardPresent);
   meshService.setup();
+
+  /* The user's own T9 words, if the card has any. Here because the card verdict above is
+   * finally trustworthy, and because this is the ONLY place the file is ever read — one
+   * boot-time SD read, never the keypress path. Every failure is silent: no card, no file,
+   * no PSRAM, and predictive text simply works from the built-in dictionary alone. */
+  t9ExtraLoad(gui.state.cardPresent);
+  gui.state.t9.setExtra(t9ExtraGet());
 
   log_d("WiPhone, firmware date = " __DATE__);
 
