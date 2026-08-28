@@ -97,12 +97,21 @@ The enabler above is closed, and the measurement corrected a plausible wrong the
   and mark `OpfItem.present` for every manifest item; the spine loop then tests a bool.
   `zipHasName`/`nameVisit`/`NameListCtx` are DELETED rather than left lying around, because
   the next per-item caller would silently reintroduce the freeze.
-- ⚠ **A defect caught in self-review before it shipped:** the first cut had
-  `if (!present && strcmp(...)) { present = true; break; }`. With two manifest items sharing
-  one href — malformed but real — only the first would be marked, and the second's chapter
-  would **vanish from the book with no error anywhere**. The old per-item `zipHasName`
-  answered true for both. The `break` and the guard are gone; every match is marked, which
-  restores the old semantics exactly.
+- ⚠ **THREE defects caught before this shipped — all of them "a chapter disappears and
+  nobody is told", which is this repo's signature failure:**
+  1. *Self-review:* the first cut had `if (!present && strcmp(...)) { present = true; break; }`.
+     Two manifest items sharing one href — malformed but real — would leave the second
+     unmarked and its chapter gone. The old per-item `zipHasName` answered true for both.
+     The `break` and the guard are gone; every match is marked.
+  2. *Adversarial review:* **the pass discarded `zipForEach`'s return value.** That walk
+     abandons itself and returns false on a short read from the card (`epub_parse.cpp:176`,
+     `:191`), and because ONE walk now serves every item, a glitch part-way would leave
+     every later item `present=false` — the tail of the book vanishing silently. The old
+     code degraded gently: one bad walk cost one chapter. **It now fails OPEN** — a false
+     return means only "the walk did not finish", so the manifest is trusted instead of a
+     half-read directory. A genuinely missing chapter then fails visibly at read time.
+  3. *Adversarial review:* the pass ran even for `nItems == 0` / `nSpineIds == 0`, adding a
+     full directory walk to a malformed book that was going to fail anyway. Now guarded.
 - ✅ **MEASURED ON PHONE 1 (0.9.32, flashed):** `BOOK OPEN 11903 ms → 1285 ms`, SD reads
   **34,332 → 1,493**, bytes **7.4 MB → 506 KB**, and the `LOOP STALL` the open produces
   **12,025 ms → 1,301 ms**. Correctness checked, not just speed: same book opens at the same

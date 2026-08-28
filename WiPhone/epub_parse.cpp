@@ -1333,11 +1333,27 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
   }
   ebFree(buf);
 
-  // ONE walk of the central directory answers "does this exist?" for every manifest item —
-  // see PresenceCtx above for the 90-walks-per-open freeze this replaces.
-  {
+  /* ONE walk of the central directory answers "does this exist?" for every manifest item —
+   * see PresenceCtx above for the 90-walks-per-open freeze this replaces.
+   *
+   * 🛑 AND IT MUST FAIL OPEN. zipForEach abandons the walk and returns false on a short read
+   * (a failed seek or read on the card), and sharing one walk means a glitch part-way would
+   * leave EVERY later item present=false — the spine loop cannot tell that from "not in the
+   * archive", so the tail of the book would simply vanish, silently. The old per-item probe
+   * degraded far more gently: one bad walk lost one chapter, the other 89 were fine.
+   * presenceVisit never returns false, so a false return here means exactly one thing — the
+   * walk did not finish — and the safe answer is to trust the manifest instead of a
+   * half-read directory. A chapter that then turns out to be missing fails visibly at read
+   * time; a chapter deleted here fails silently, and silent is the one this repo keeps
+   * paying for. Skipped entirely when there is nothing to mark. */
+  if (nItems > 0 && nSpineIds > 0) {
     PresenceCtx pc = { items, nItems };
-    zipForEach(src, presenceVisit, &pc);
+    if (!zipForEach(src, presenceVisit, &pc)) {
+      EB_TIMING("  epubOpen: central directory walk did not finish - trusting the manifest");
+      for (int k = 0; k < nItems; k++) {
+        items[k].present = true;
+      }
+    }
   }
 
   for (int s = 0; s < nSpineIds && b->nSpine < EPUB_MAX_SPINE; s++) {
