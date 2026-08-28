@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.34 (2026-08-28) - two latent panics on the typing path
+
+Found while scoping predictive text; none of it is T9, all of it is live today.
+
+- `MAX_INPUT_SEQUENCE` was 18, making `inputSeq[]` 19 bytes, but the `*` symbols row is
+  `.,!?@$/+-=%^ _:;'*#` - nineteen characters, so `strcpy` (GUI.cpp:1068) wrote twenty.
+  Every press of `*` on a text screen overflowed by one, landing harmlessly in the padding
+  before the next field. Harmless only by luck, and anything added beside `inputSeq` would
+  have been silently zeroed on every press.
+- `TextInputWidget::insertCharacter` and `PasswordInputWidget::insertCharacter` both called
+  `allocateMore()`, ignored its bool, and then wrote `inputStringDyn[0]` - a NULL store, and
+  a StoreProhibited panic, one failed realloc away on a heap measured at 2,276 bytes free at
+  its worst. Both now refuse the character instead, which callers already handle.
+- `TextInputBase::allocateMore` grew the text buffer with plain `realloc` on the internal
+  heap, doubling each time, ceiling 64,000 bytes for some callers. Now `extRealloc`, matching
+  `MultilineTextWidget::allocateMore`. `PasswordInputWidget` deliberately stays internal:
+  those buffers are tiny, and a secret is better off out of external PSRAM.
+
 ## 0.9.33 (2026-08-28) — the Nodes screen fits in memory again
 
 Opening **Nodes** rebooted phone 1. The node database was never the problem — it has

@@ -11654,7 +11654,15 @@ bool TextInputBase::allocateMore(uint32_t minSize) {    // bytes
   }
   if (sz > inputStringSize) {
     //log_d("realloc %d", sz);
-    char *p = (char*) realloc(inputStringDyn, sz);
+    /* extRealloc: this is the buffer holding whatever the user is typing, it grows by
+     * DOUBLING, and its ceiling is maxInputSize - 64,000 bytes for some callers. That is not
+     * a thing to grow on the ~20 KB internal heap. MultilineTextWidget::allocateMore already
+     * uses extRealloc for the same reason; this one was missed. Falls back to internal by
+     * itself, and free() is region-agnostic.
+     * PasswordInputWidget::allocateMore is deliberately NOT changed: those buffers are tiny
+     * (a WiFi key is 63 characters) so they cost the heap nothing, and a secret is better off
+     * in internal RAM than on an external PSRAM die. */
+    char *p = (char*) extRealloc(inputStringDyn, sz);
     if (p!=NULL) {
       //log_d("realloc done %d", sz);
       inputStringDyn = p;
@@ -12301,7 +12309,14 @@ void TextInputWidget::shiftCursor(int16_t shift) {
 bool TextInputWidget::insertCharacter(char c) {
   log_d("insertCharacter TextInputWidget");
   if (inputStringDyn==NULL) {
-    allocateMore();
+    /* 🛑 allocateMore() CAN FAIL AND LEAVE THIS NULL. It returns bool and nothing read it,
+     * so the next line wrote to address 0 — a StoreProhibited panic on the typing path, one
+     * failed realloc away, on a phone whose internal heap has been measured at 2,276 bytes
+     * free at its worst. Refusing the character is the correct outcome: the caller already
+     * treats false as "not inserted". */
+    if (!allocateMore() || inputStringDyn==NULL) {
+      return false;
+    }
     inputStringDyn[0] = '\0';
   }
   uint32_t len = strlen(inputStringDyn);
@@ -12513,7 +12528,10 @@ void PasswordInputWidget::shiftCursor(int16_t shift) {
 
 bool PasswordInputWidget::insertCharacter(char c) {
   if (inputStringDyn==NULL) {
-    allocateMore();
+    // Same NULL-after-failed-allocateMore panic as TextInputWidget above.
+    if (!allocateMore() || inputStringDyn==NULL || outputStringDyn==NULL) {
+      return false;
+    }
     inputStringDyn[0] = '\0';
   }
   uint32_t len = strlen(inputStringDyn);

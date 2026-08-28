@@ -192,7 +192,15 @@ typedef uint16_t EventType;
 #define NONKEY_EVENT_ONE_OF(e, flags)    ((e & 0x80) && ((e & 0xFF7F) & (flags)))        // only for non-keyboard events
 
 // Keypad
-#define MAX_INPUT_SEQUENCE        18          // how many characters AT MOST can one button represent
+/* How many characters AT MOST one button can represent.
+ * 🛑 19, NOT 18. The '#' symbols row in GUI::alphNum is ".,!?@$/+-=%^ _:;'*#" — nineteen
+ * characters, so strcpy() at GUI.cpp:1068 writes TWENTY bytes into inputSeq[]. At 18 that
+ * array is 19 bytes and every press of '#' on a text screen overflowed it by one.
+ * It has been harmless only by luck: the byte landed in the padding before the int32_t that
+ * follows inputSeq in ControlState. Anything added next to inputSeq — a predictive-text
+ * buffer, say — would be placed in that padding and silently zeroed on every '#'.
+ * If a row is ever lengthened again, this number moves with it. */
+#define MAX_INPUT_SEQUENCE        19          // how many characters AT MOST can one button represent
 
 // Process event results
 typedef uint8_t appEventResult;
