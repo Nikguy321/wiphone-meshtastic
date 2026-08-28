@@ -155,6 +155,19 @@ void GUI::loadSettings() {
             (int)state.notifySipMode, (int)state.notifyMeshMode, (int)state.notifyVolume);
     }
   }
+  /* ⚠ Read the predictive-text setting HERE, at boot, for the same reason the ringer mode
+   * above is read here: the Settings row writes it, but nothing would read it back until
+   * that screen was next opened. The fallback is state.t9Enabled, which the constructor has
+   * already set from T9_DEFAULT_ENABLED — so a missing [input] section and a present one
+   * with the key missing both land on the same answer. */
+  {
+    CriticalFile cfg(Storage::ConfigsFile);
+    if ((cfg.load() || cfg.restore()) && !cfg.isEmpty() && cfg.hasSection("input")) {
+      state.t9Enabled = cfg["input"].getIntValueSafe("predictive", state.t9Enabled ? 1 : 0) != 0;
+    }
+    log_d("t9: predictive = %d", (int)state.t9Enabled);
+  }
+
   log_d("fromName  = %s", state.fromNameDyn);
   log_d("fromUri   = %s", state.fromUriDyn);
   log_d("proxyPass = %s", state.proxyPassDyn);
@@ -662,7 +675,7 @@ ControlState::ControlState(void)
 
   // T9 predictive text. Enabled defaults OFF so an existing phone behaves identically
   // until the setting is deliberately turned on; t9Field is re-set per field anyway.
-  t9Enabled = false;
+  t9Enabled = T9_DEFAULT_ENABLED;
   t9Field = false;
   inputMode = MODE_T9;
   t9Emit[0] = '\0';
@@ -800,6 +813,20 @@ void ControlState::t9Commit(char trailingKey) {
   t9Emit[n] = '\0';
   t9EmitAt = 0;
   t9.clear();
+}
+
+void ControlState::t9LiteralDigit(char digit) {
+  if (t9.pending()) {
+    t9.popDigit();          // un-type the keypress the short press fed to the prediction
+  }
+  inputCurKey = 0;          // ...or abandon the multi-tap letter it started
+  inputCurSel = 0;
+  /* Straight into the emit queue rather than returned as a character, because this is
+   * reached from the main loop's hold timer, not from a key event — there is no r1 to put
+   * it in. The caller pokes processEvent afterwards to drain it. */
+  t9Emit[0] = digit;
+  t9Emit[1] = '\0';
+  t9EmitAt = 0;
 }
 
 char ControlState::t9NextEmit() {
@@ -1623,6 +1650,32 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
             }
           } else if (menu[ci].action == GUI_ACTION_RESTART) {
             ESP.restart();
+          } else if (menu[ci].action == GUI_ACTION_T9_TOGGLE) {
+            /* ⭐ One press, in Settings, next to the other things that change how the phone
+             * behaves rather than what it is connected to.
+             *
+             * PERSISTED, unlike the WiFi row above — and the difference is deliberate. A
+             * radio that stays off across a reboot is a setting you can forget you set, and
+             * the failure mode is a phone that silently never connects. A text-entry
+             * preference has no such failure mode: it is visible in the footer the moment
+             * you type, and '#' steps out of it. Somebody who turns prediction off means it
+             * to stay off. */
+            state.t9Enabled = !state.t9Enabled;
+            {
+              CriticalFile ini(Storage::ConfigsFile);
+              if (ini.load() || ini.restore()) {
+                if (!ini.hasSection("input")) {
+                  ini.addSection("input");
+                }
+                ini["input"]["predictive"] = state.t9Enabled ? 1 : 0;
+                if (!ini.store()) {
+                  log_e("t9: could not save the predictive-text setting");
+                }
+              }
+            }
+            log_e("T9 toggled -> %s (from the menu)", state.t9Enabled ? "ON" : "OFF");
+            enterMenu(curMenuId);            // rebuild so the row relabels itself
+
           } else if (menu[ci].action == GUI_ACTION_WIFI_TOGGLE) {
             /* ⭐ ONE PRESS, IN SETTINGS, leading the WiFi group. The same switch already
              * existed inside the network EDIT form, which meant "turn WiFi off to save
@@ -1984,10 +2037,15 @@ void GUI::enterMenu(uint16_t ID) {
        * lived inside a network's EDIT form, several screens down, and told you nothing until
        * you got there. ⚠ This is keyed on the ACTION, not on which menu is being built, so it
        * follows the row wherever it is homed (it lives under Settings now). */
-      char wifiRowTitle[20];
+      char wifiRowTitle[32];
       const char* rowTitle = menu[i].title;
       if (menu[i].action == GUI_ACTION_WIFI_TOGGLE) {
         snprintf(wifiRowTitle, sizeof(wifiRowTitle), "WiFi: %s", wifiOn ? "on" : "off");
+        rowTitle = wifiRowTitle;
+      } else if (menu[i].action == GUI_ACTION_T9_TOGGLE) {
+        // Same trick, same buffer: say the state on the row rather than behind it.
+        snprintf(wifiRowTitle, sizeof(wifiRowTitle), "Predictive text: %s",
+                 state.t9Enabled ? "on" : "off");
         rowTitle = wifiRowTitle;
       }
       if (j<0) {

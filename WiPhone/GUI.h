@@ -278,6 +278,15 @@ public:
    * WHEN T9 IS OFF, OR THE FIELD DID NOT OPT IN, NONE OF THIS RUNS and the multi-tap path
    * below behaves byte for byte as it always has. That is the manual-override story: the
    * fallback is not a reimplementation of the old path, it IS the old path. */
+  /* 🛑 ONE CONSTANT FOR THE DEFAULT, READ BY BOTH THE CONSTRUCTOR AND loadSettings().
+   * serial_cmd.cpp's `lock` command records what happens otherwise: a MISSING SECTION and a
+   * present section with a MISSING KEY default differently, and that disagreement in
+   * [screen] shipped a phone that never slept. loadSettings() passes the already-set member
+   * as its fallback, so both paths land on this one value.
+   *
+   * ON by default: predictive text that ships off is a feature nobody finds, the mode is
+   * always visible in the footer, and '#' steps out of it in one press. */
+  static const bool T9_DEFAULT_ENABLED = true;
   bool     t9Enabled;                  // the Settings toggle
   bool     t9Field;                    // this field opted in (default OFF — see setInputState)
   /* ── THE INPUT MODE, CYCLED BY '#' ────────────────────────────────────────────────────
@@ -330,6 +339,14 @@ public:
   void t9Commit(char trailingKey = 0);
   /* Next queued character, or 0 when the queue is empty. */
   char t9NextEmit();
+  /* Type a digit literally, undoing whatever the short press already did with it.
+   *
+   * A press is dispatched the moment the key goes DOWN — "short or long" is not knowable
+   * then, and delaying every digit until release would put a hold's worth of lag on normal
+   * typing. So the short press is allowed to happen and this reverses it: the digit comes
+   * back out of the pending word (or the multi-tap letter is abandoned) and the digit
+   * itself is queued instead. Reversibility is why the engine has popDigit(). */
+  void t9LiteralDigit(char digit);
 
   char inputCurKey;   // current physical button active
   InputType inputType;
@@ -524,6 +541,7 @@ typedef enum ActionID : uint16_t {
   /* A menu row that DOES something and stays put, rather than opening an app. The main
    * menu had no such thing before: every row was a submenu, an app, or a reboot. */
   GUI_ACTION_WIFI_TOGGLE,
+  GUI_ACTION_T9_TOGGLE,
 
   // Specific applications
   GUI_BASE_APP = 0x4000,      // application flag
@@ -2939,7 +2957,7 @@ protected:
    * too FEW is silent — the tail zero-fills into entries with ID 0, parent 0 and a NULL
    * title, which then appear as children of the Clock menu. It was one short before Books was
    * added. enterMenu() now skips title-less rows so a miscount stays cosmetic. */
-  GUIMenuItem menu[45] PROGMEM = {  // increment size by one to add a new app
+  GUIMenuItem menu[46] PROGMEM = {  // increment size by one to add a new app
 
     // TODO: button names can be removed
 
@@ -3033,6 +3051,7 @@ protected:
      * was not renumbered with it. A duplicate here is SILENT (findMenu matches on id alone
      * and returns the first hit); GUI::init()'s boot check is what catches it. */
     { 44, 5, "Notifications", "", "", GUI_APP_NOTIFY_CONFIG },
+    { 49, 5, "Predictive text", "Select", "Back", GUI_ACTION_T9_TOGGLE },
     { 33, 5, "Screen config", "", "", GUI_APP_SCREEN_CONFIG },
     { 32, 5, "Time offset", "", "", GUI_APP_TIME_CONFIG },
     {37, 5, "Firmware update", "", "", GUI_APP_OTA}   // now a USB how-to; OTA cannot work (see OtaApp)

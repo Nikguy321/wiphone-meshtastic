@@ -2074,6 +2074,18 @@ static bool sipCallActive() {
 #define MUSIC_F2_HOLD_MS 500           // past this, F2 means "previous" rather than "next"
 static uint32_t msF2Down = 0;          // when F2 went down, 0 = not held
 static bool     f2Fired = false;       // the hold already acted; ignore the release
+
+/* Hold a number key to type the DIGIT rather than the letters on it — the way every phone
+ * with a keypad has worked. It is what makes "testing 1 2 3" typable without ever leaving
+ * predictive text: the '#' mode cycle is the deliberate, sentence-long escape, and this is
+ * the one-character one.
+ *
+ * 500 ms, matching the F2 hold above, so the two gestures on this phone feel the same. */
+#define T9_DIGIT_HOLD_MS 500
+static uint32_t msDigitDown = 0;       // when the digit went down, 0 = none held
+static int8_t   digitHeld = -1;        // which digit, so a slide to another key re-arms
+static bool     digitFired = false;    // one insertion per hold, however long it lasts
+static bool     digitLiteralQueued = false;   // a held digit is waiting to be delivered
 static uint32_t msChordStart = 0;      // when both corners went down, 0 = not held
 static bool     chordFired = false;    // one sleep per hold, not one every loop
 
@@ -2422,6 +2434,66 @@ void loop() {
       f2Fired = false;
     }
 
+    /* ── HOLD A DIGIT TO TYPE THE DIGIT ────────────────────────────────────────────
+     * Only while a text field that uses predictive text is focused, and never in 123 mode
+     * where a short press already types the digit — firing there would type it twice.
+     *
+     * ⚠ THE SHORT PRESS HAS ALREADY HAPPENED. Keys are edge-triggered and dispatched on
+     * key-down, so by the time this fires the digit is already in the pending word (or has
+     * started a multi-tap letter). t9LiteralDigit() reverses that rather than trying to
+     * predict the future at key-down time, which would mean holding EVERY digit back until
+     * release and putting a hold's worth of lag on ordinary typing.
+     *
+     * Read here, right after the stale-key sweep, so uiKeyDown is already up to date —
+     * same placement and same reason as the F2 hold above. */
+    if (gui.state.t9Available() && gui.state.inputMode != ControlState::MODE_123) {
+      static const uint32_t digitMask[10] = {
+        WIPHONE_KEY_MASK_0, WIPHONE_KEY_MASK_1, WIPHONE_KEY_MASK_2, WIPHONE_KEY_MASK_3,
+        WIPHONE_KEY_MASK_4, WIPHONE_KEY_MASK_5, WIPHONE_KEY_MASK_6, WIPHONE_KEY_MASK_7,
+        WIPHONE_KEY_MASK_8, WIPHONE_KEY_MASK_9,
+      };
+      /* ⚠ IN T9 MODE, START AT 2. '0' and '1' already type themselves on the SHORT press —
+       * '0' a space, '1' a one — so the short press has ALREADY put a character in the
+       * field, and t9LiteralDigit() cannot take it back out again: it reverses the
+       * prediction buffer, not the widget. Holding them would type twice. Only 2-9 are
+       * ambiguous, and they are the only ones that need this gesture.
+       *
+       * In Abc/ABC the short press has emitted NOTHING yet — it is sitting in a multi-tap
+       * cycle waiting to commit — so every digit including 0 and 1 is safely reversible,
+       * and holding 0 there is a genuinely useful way to get a zero. */
+      const int8_t firstDigit =
+        (gui.state.inputMode == ControlState::MODE_T9) ? 2 : 0;
+      int8_t nowHeld = -1;
+      for (int8_t d = firstDigit; d < 10; d++) {
+        if (uiKeyDown & digitMask[d]) {
+          nowHeld = d;
+          break;
+        }
+      }
+      if (nowHeld >= 0) {
+        if (!msDigitDown || digitHeld != nowHeld) {
+          msDigitDown = now;              // a different key: re-arm rather than inherit
+          digitHeld = nowHeld;
+          digitFired = false;
+        } else if (!digitFired && now - msDigitDown >= T9_DIGIT_HOLD_MS) {
+          digitFired = true;
+          gui.state.t9LiteralDigit((char)('0' + nowHeld));
+          /* The event loop has to be poked so the queued digit is delivered, but
+           * redrawWhat does not exist this early in the pass — so raise a flag and let the
+           * dispatch below do it. */
+          digitLiteralQueued = true;
+        }
+      } else {
+        msDigitDown = 0;
+        digitHeld = -1;
+        digitFired = false;
+      }
+    } else {
+      msDigitDown = 0;
+      digitHeld = -1;
+      digitFired = false;
+    }
+
     if ((uiKeyDown & SLEEP_CHORD_MASK) == SLEEP_CHORD_MASK) {
       if (!msChordStart) {
         msChordStart = now;
@@ -2442,6 +2514,14 @@ void loop() {
     //if (!msProfileStart) msProfileStart = loopTime;
 
     appEventResult redrawWhat = DO_NOTHING;
+
+    /* Deliver a digit that the hold timer above queued. Zero is a safe event here:
+     * processEvent's pre-process guards alphanumericInputEvent on `event` being non-zero,
+     * and its priming step pulls the character out of the queue instead. */
+    if (digitLiteralQueued) {
+      digitLiteralQueued = false;
+      redrawWhat |= gui.processEvent(now, (EventType)0);
+    }
 
     // Power button check
     if (gpioExtenderEvent) {
