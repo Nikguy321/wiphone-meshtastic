@@ -581,8 +581,24 @@ bool BooksApp::openBook(int idx) {
    * 12.4-12.6 s on this phone (four measurements, 2026-08-27). That window is how a WiFi
    * drop gets a head start it never recovers from; see docs/HANDOFF.md, the booksync wedge.
    * The phase breakdown stays in permanently so the next person does not have to re-derive
-   * where the time goes, the way SLOW WIFI / SLOW STEP already do for the network paths. */
-  const uint32_t _o0 = millis();
+   * where the time goes, the way SLOW WIFI / SLOW STEP already do for the network paths.
+   *
+   * ⚠ The guard below reports the FAILED opens too. Four paths return early from here, and
+   * a book that grinds for ten seconds and then fails is the single most interesting case
+   * for the reason this instrumentation exists — the superloop was frozen for all ten of
+   * them — yet it used to print nothing at all, because the success line is the last
+   * statement. Being a destructor, it also covers any return added later. */
+  struct OpenReport {
+    uint32_t t0;
+    bool ok;
+    ~OpenReport() {
+      if (!ok) {
+        log_e("BOOK OPEN FAILED after %u ms - the superloop was frozen for it",
+              (unsigned)(millis() - t0));
+      }
+    }
+  } _report = { millis(), false };
+  const uint32_t _o0 = _report.t0;
   BOOKS_HEAP("open:enter");
   file = SD.open(books[idx].path, FILE_READ);
   if (!file) {
@@ -673,6 +689,7 @@ bool BooksApp::openBook(int idx) {
         (unsigned)(_oEnd - _o0), (unsigned)(_oOpen - _o0), (unsigned)(_oParse - _oOpen),
         (unsigned)(_oPos - _oParse), (unsigned)(_oChap - _oPos), _oSkips,
         (unsigned)(_oGoto - _oChap), (unsigned)(_oEnd - _oGoto), spine, book.nSpine);
+  _report.ok = true;                  // reported here; the guard covers every other exit
   return true;
 }
 

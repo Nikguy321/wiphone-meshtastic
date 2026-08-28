@@ -36,16 +36,29 @@
 #endif
 
 /* ⏱ The open-path timing below is a FIRMWARE measurement (see BooksApp::openBook): on the
- * host there is no millis() and no log_e, and a test run has no superloop to freeze. */
+ * host there is no millis() and no log_e, and a test run has no superloop to freeze.
+ *
+ * ⚠ The host EB_TIMING must still CONSUME its arguments. A `do { } while (0)` that dropped
+ * them left every timing local unused, and `tests/run_tests.sh` — clean before — started
+ * printing ten -Wunused-variable warnings, which is how a suite stops being read. The sink
+ * carries `format(printf)` as well, so the HOST build type-checks these format strings; the
+ * firmware build is the one that cannot (log_e's own varargs are unchecked here), and a
+ * mismatched %u is exactly the kind of thing that goes unnoticed in a log nobody re-reads. */
 #if defined(ARDUINO)
   #define EB_NOW()          millis()
   #define EB_TIMING(...)    log_e(__VA_ARGS__)
 #else
   #define EB_NOW()          0u
-  #define EB_TIMING(...)    do { } while (0)
+  static inline void ebTimingSink(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+  static inline void ebTimingSink(const char* fmt, ...) { (void)fmt; }
+  #define EB_TIMING(...)    ebTimingSink(__VA_ARGS__)
 #endif
 
-// Counters for the open-path report: how many SD transactions, how long, how many bytes.
+/* Counters for the open-path report: how many SD transactions, how long, how many bytes.
+ * ⚠ Scoped to ONE epubOpen by ebSrcReset() at its top, and read only by its report. srcRead
+ * keeps incrementing them for the rest of the reading session (chapter loads, images), so
+ * they are meaningful only between that reset and that report — do not read them elsewhere
+ * expecting an open's figures. */
 static uint32_t ebSrcReads = 0, ebSrcMs = 0;
 static uint64_t ebSrcBytes = 0;
 static void ebSrcReset(void) { ebSrcReads = 0; ebSrcMs = 0; ebSrcBytes = 0; }
@@ -1178,6 +1191,7 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
     ebFree(buf);
     return EPUB_ERR_NO_CONTAINER;
   }
+  const uint32_t _eReadC = EB_NOW();
 
   // container.xml -> the OPF path
   char opfName[EPUB_NAME_MAX] = {0};
@@ -1212,6 +1226,7 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
     return EPUB_ERR_NO_ROOTFILE;
   }
 
+  const uint32_t _ePreFindO = EB_NOW();
   ZipEntry oe;
   if (!zipFind(src, opfName, &oe)) {
     ebFree(buf);
@@ -1382,10 +1397,12 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
   const uint32_t _eNav = EB_NOW();
   ebFree(items);
   ebFree(spineIds);
-  EB_TIMING("  epubOpen %u ms [fp=%u findContainer=%u readContainer=%u findOpf=%u readOpf=%u manifest=%u nav=%u]",
+  EB_TIMING("  epubOpen %u ms [fp=%u findContainer=%u readContainer=%u parseContainer=%u"
+            " findOpf=%u readOpf=%u manifest=%u nav=%u]",
         (unsigned)(_eNav - _e0), (unsigned)(_eFp - _e0),
-        (unsigned)(_eFindC - _eFp), (unsigned)(_eFindO - _eFindC) /*includes container read+parse*/,
-        0u, (unsigned)(_eReadO - _eFindO), (unsigned)(_eManifest - _eReadO),
+        (unsigned)(_eFindC - _eFp), (unsigned)(_eReadC - _eFindC),
+        (unsigned)(_ePreFindO - _eReadC), (unsigned)(_eFindO - _ePreFindO),
+        (unsigned)(_eReadO - _eFindO), (unsigned)(_eManifest - _eReadO),
         (unsigned)(_eNav - _eManifest));
   EB_TIMING("  epubOpen SD: %u reads, %u ms, %u KB [fp=%u findContainer=%u findOpf=%u] items=%d spine=%d",
         (unsigned)ebSrcReads, (unsigned)ebSrcMs, (unsigned)(ebSrcBytes / 1024),
