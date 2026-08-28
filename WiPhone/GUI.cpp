@@ -660,6 +660,13 @@ ControlState::ControlState(void)
   calleeUriDyn  = NULL;//strdup("1@00");//NULL;
   lastReasonDyn = NULL;
 
+  // T9 predictive text. Enabled defaults OFF so an existing phone behaves identically
+  // until the setting is deliberately turned on; t9Field is re-set per field anyway.
+  t9Enabled = false;
+  t9Field = false;
+  t9Emit[0] = '\0';
+  t9EmitAt = 0;
+
   // Not subscribed to "any event"
   msAppTimerEventPeriod = 0;
   msAppTimerEventLast = 0;
@@ -773,12 +780,49 @@ bool ControlState::loadSipAccount() {
 
 FocusableWidget* FocusableWidget::s_textFocus = NULL;
 
+/* Queue the pending word for delivery, plus the key that ended it.
+ *
+ * ⚠ WITH NO DICTIONARY MATCH, THE DIGITS THEMSELVES ARE QUEUED. Typing something the word
+ * list does not contain must never lose the keypresses — that is the moment the user reaches
+ * for the multi-tap override, and they should be able to see what they typed while they do.
+ * It is also what makes "no match" a fallback rather than an error. */
+void ControlState::t9Commit(char trailingKey) {
+  uint8_t n = 0;
+  const char* word = t9.current();
+  const char* src = word ? word : t9.digits();
+  while (*src && n < sizeof(t9Emit) - 2) {
+    t9Emit[n++] = *src++;
+  }
+  if (trailingKey && n < sizeof(t9Emit) - 1) {
+    t9Emit[n++] = trailingKey;
+  }
+  t9Emit[n] = '\0';
+  t9EmitAt = 0;
+  t9.clear();
+}
+
+char ControlState::t9NextEmit() {
+  if (t9EmitAt >= sizeof(t9Emit) || !t9Emit[t9EmitAt]) {
+    return 0;
+  }
+  return t9Emit[t9EmitAt++];
+}
+
 void ControlState::setInputState(InputType newInputType) {
   inputType = newInputType;
   inputCurKey = 0;
   inputCurSel = 0;
   inputShift = false;
   inputSeq[0] = '\0';
+  /* The pending word dies with the field. This function already runs on every focus change
+   * and every app entry, which is exactly the set of moments a half-typed word must not
+   * survive into somewhere else. t9Field defaults OFF here for the same reason: a screen
+   * gets predictive text only by asking for it, so the 20-odd fields nobody has thought
+   * about keep today's behaviour. */
+  t9.clear();
+  t9Emit[0] = '\0';
+  t9EmitAt = 0;
+  t9Field = false;
 }
 
 /* Description:
@@ -1039,6 +1083,59 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
     return;
   }
 
+  /* ── T9 ────────────────────────────────────────────────────────────────────────────────
+   * Sits BESIDE the multi-tap machine below, never inside it. Everything here is gated on
+   * t9Live(), so with the setting off — or on any field that did not opt in — control falls
+   * straight through and the code below runs exactly as it always has.
+   *
+   * The pending word is shown in the FOOTER and inserted into the widget only when it is
+   * committed. That is deliberate and it is the reason this integration is small: nothing
+   * has to reach into the text widget to rewrite a half-typed word, so the digit buffer and
+   * the on-screen text cannot drift apart. See FooterWidget::redraw.
+   *
+   * UP/DOWN cycle candidates ONLY while a word is pending; with nothing pending they are not
+   * touched and still move focus or the cursor. Same shape as the OK rule further down —
+   * consume a key only in the state where it means something new. */
+  if (state.t9Live()) {
+    if (t9IsWordDigit(key)) {
+      state.t9.pushDigit(key);
+      return;                                  // consumed; the footer shows the candidate
+    }
+    if (state.t9.pending()) {
+      switch (key) {
+      case WIPHONE_KEY_UP:
+        state.t9.prevCandidate();
+        return;
+      case WIPHONE_KEY_DOWN:
+        state.t9.nextCandidate();
+        return;
+      case WIPHONE_KEY_BACK:
+        /* One BACK un-types one KEYPRESS, which is one digit — not one letter of whatever
+         * candidate happens to be showing. Deleting a character here instead is the classic
+         * way to desynchronise the two. */
+        state.t9.popDigit();
+        return;
+      case WIPHONE_KEY_OK:
+        state.t9Commit();                      // accept the word, consume the key
+        return;
+      case '0':
+        state.t9Commit(' ');                   // 0 is space, and space ends a word
+        return;
+      default:
+        /* Anything else ends the word and then still does its own job: the key is queued
+         * BEHIND the word so "word then punctuation" arrives in that order. */
+        state.t9Commit((char)key);
+        return;
+      }
+    }
+    /* Nothing pending and not a word digit: '0' should still type a space rather than
+     * entering the multi-tap " +0" cycle, which would need a second press to commit. */
+    if (key == '0') {
+      r1 = ' ';
+      return;
+    }
+  }
+
   // Check if any button is "active" now (meaning a button is pressed and selection of its symbols is displayed)
   if (state.inputCurKey && state.inputCurKey == key) {
     // same button is active now -> cycle to next candidate
@@ -1230,6 +1327,28 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
       log_d("state.unlockButton1 cleared");
     }
     event = EventType(0);
+  }
+
+  /* 🔑 PRIME THE LOOP FROM THE T9 QUEUE. The key that commits a word is CONSUMED by
+   * alphanumericInputEvent — it returns r1 = 0 — so `event` is already zero here and the
+   * loop below would never run. The queued word would sit there until the next keypress
+   * dragged one character out of it, which is exactly the symptom: footer clears, field
+   * stays empty. The drain at the bottom of the loop handles the SECOND character onwards;
+   * this handles the first. */
+  if (!event) {
+    event = (EventType)state.t9NextEmit();
+  }
+
+  /* 🔑 PRIME THE LOOP FROM THE T9 QUEUE, or the committed word arrives late.
+   * The key that commits a word is CONSUMED by alphanumericInputEvent — it returns r1 = 0 —
+   * so `event` is already zero here and the loop below never starts. The word then sat in
+   * the queue and was drained ONE CHARACTER PER BACKGROUND EVENT: on hardware "hello"
+   * appeared letter by letter over the next couple of seconds as health ticks and timers
+   * came through, which looks exactly like a slow phone rather than like a bug.
+   * Priming here starts the loop; the drain at the bottom then delivers the rest of the
+   * word in the SAME pass. */
+  if (!event) {
+    event = (EventType)state.t9NextEmit();
   }
 
   while(event) {
@@ -1519,6 +1638,12 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
     // second key (if any)
     event = keyNext;
     keyNext = 0;
+    /* ...and then any characters a committed T9 word left queued. A word is longer than the
+     * two events one keypress can carry, so it is delivered one character per pass through
+     * this loop, down the same path multi-tap's characters take. */
+    if (!event) {
+      event = (EventType)state.t9NextEmit();
+    }
   };
   return res;
 }
@@ -13060,7 +13185,43 @@ void FooterWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, ui
 
     // Display input characters
     bool inputSeq = false;
-    if (controlState.inputCurKey) {
+
+    /* ── THE PENDING T9 WORD ────────────────────────────────────────────────────────────
+     * This is the whole T9 display. The word being predicted lives HERE, in the footer,
+     * not inline in the text field — which is why the integration needed no changes to
+     * TextInputWidget or MultilineTextWidget and cannot desynchronise from them. The word
+     * is inserted into the field only when it is committed.
+     *
+     * "n/m" appears only when there is actually a choice, so the common case (91.9% of
+     * digit keys match exactly one word) shows a bare word and no clutter. ASCII only —
+     * the Akrobat faces are generated bitmaps with no glyph beyond it, and anything else
+     * renders as a hollow box. */
+    if (controlState.t9Live() && controlState.t9.pending()) {
+      inputSeq = true;
+      char strip[40];
+      const char* word = controlState.t9.current();
+      if (!word) {
+        // Nothing in the dictionary matches. Show the digits so the keypresses are visible
+        // while the user decides to backspace or switch to multi-tap.
+        snprintf(strip, sizeof(strip), "%s ?", controlState.t9.digits());
+      } else if (controlState.t9.candidateCount() > 1) {
+        snprintf(strip, sizeof(strip), "%s  %d/%d", word,
+                 controlState.t9.selected() + 1, controlState.t9.candidateCount());
+      } else {
+        snprintf(strip, sizeof(strip), "%s", word);
+      }
+      if (controlState.inputShift && strip[0] >= 'a' && strip[0] <= 'z') {
+        strip[0] = toupper(strip[0]);
+      }
+      lcd.setTextDatum(TL_DATUM);
+      const int fh = fonts[AKROBAT_SEMIBOLD_22]->height();
+      int wpx = fonts[AKROBAT_SEMIBOLD_22]->textWidth(strip);
+      if (wpx > (int)windowWidth) {
+        wpx = windowWidth;
+      }
+      lcd.drawString(strip, screenOffX + (windowWidth - wpx) / 2,
+                     screenOffY + (windowHeight - fh) / 2);
+    } else if (controlState.inputCurKey) {
       uint8_t len = strlen(controlState.inputSeq);
       if (len) {
         inputSeq = true;

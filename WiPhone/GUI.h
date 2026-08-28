@@ -22,6 +22,7 @@ governing permissions and limitations under the License.
 #include "Networks.h"
 #include "config.h"
 #include "helpers.h"
+#include "t9.h"           // T9Engine lives in ControlState; header pulls in no dictionary
 #include "Hardware.h"
 #include "src/assets/fonts.h"
 #include "src/assets/icons.h"
@@ -264,6 +265,39 @@ public:
   ~ControlState();
 
   // Keyboard input state
+
+  /* ── T9 PREDICTIVE TEXT ────────────────────────────────────────────────────────────────
+   * Deliberately placed BEFORE inputSeq. GUI::alphNum's '*' row is exactly as long as
+   * inputSeq can hold, so anything sitting immediately after that array is the first thing
+   * a future off-by-one would land on — see the note on MAX_INPUT_SEQUENCE above, which was
+   * written after exactly that bug.
+   *
+   * t9 is ~40 bytes of fixed buffers and allocates nothing, ever; the word table it searches
+   * is memory-mapped flash. See t9.h.
+   *
+   * WHEN T9 IS OFF, OR THE FIELD DID NOT OPT IN, NONE OF THIS RUNS and the multi-tap path
+   * below behaves byte for byte as it always has. That is the manual-override story: the
+   * fallback is not a reimplementation of the old path, it IS the old path. */
+  bool     t9Enabled;                  // the Settings toggle
+  bool     t9Field;                    // this field opted in (default OFF — see setInputState)
+  T9Engine t9;
+  /* Characters waiting to be delivered to the focused widget, one per pass of the event loop
+   * in GUI::processEvent. A committed word is longer than the two events one keypress can
+   * carry, so it queues here; the key that ENDED the word is appended after it, which is what
+   * keeps "word then space" in the right order. Every keyboard event is <= 0x7f
+   * (IS_KEYBOARD), so one char per slot is enough for both. */
+  char     t9Emit[24];
+  uint8_t  t9EmitAt;
+
+  bool t9Live() const {
+    return t9Enabled && t9Field;
+  }
+  /* Queue the selected candidate (or, if the dictionary has no match, the digits themselves
+   * so nothing the user typed is ever silently swallowed), then optionally the key that ended
+   * the word. Clears the pending state. */
+  void t9Commit(char trailingKey = 0);
+  /* Next queued character, or 0 when the queue is empty. */
+  char t9NextEmit();
 
   char inputCurKey;   // current physical button active
   InputType inputType;

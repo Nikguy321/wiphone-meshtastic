@@ -466,6 +466,30 @@ static void run(char* line) {
     reportPki();
     return;
   }
+  /* Predictive text on/off from the console. The Settings row does the same thing; this
+   * exists because the feature has to be testable over the serial bridge without a finger
+   * on the phone, and because turning it off in the field must not need a reflash. */
+  if (!strncasecmp(line, "t9", 2) && (line[2] == '\0' || line[2] == ' ')) {
+    extern GUI gui;
+    const char* arg = line[2] ? line + 3 : "";
+    while (*arg == ' ') {
+      arg++;
+    }
+    if (!strcasecmp(arg, "on")) {
+      gui.state.t9Enabled = true;
+    } else if (!strcasecmp(arg, "off")) {
+      gui.state.t9Enabled = false;
+    } else if (*arg) {
+      say("t9: say `t9 on`, `t9 off`, or `t9` to see the state\n");
+      return;
+    }
+    say("t9: predictive text %s  (this field opted in: %s, word pending: %s)\n",
+        gui.state.t9Enabled ? "ON" : "OFF",
+        gui.state.t9Field ? "yes" : "no",
+        gui.state.t9.pending() ? gui.state.t9.digits() : "no");
+    return;
+  }
+
   if (!strcasecmp(line, "heap")) {
     reportHeap();
     return;

@@ -996,6 +996,13 @@ void MeshtasticApp::buildCompose() {
   textArea->setColors(WP_COLOR_1, WP_COLOR_0);  // white text on black (theme)
   textArea->setFocus(true);
   controlState.setInputState(InputType::AlphaNum);
+  /* 🔑 THE ONLY FIELD IN THE FIRMWARE THAT ASKS FOR PREDICTIVE TEXT. It has to come AFTER
+   * setInputState(), which clears the flag — that ordering is the safety property: a field
+   * gets T9 by opting in explicitly, so every other text field in the firmware (SIP URIs,
+   * WiFi passwords, IP addresses, the 4-character short name) keeps today's behaviour
+   * without anyone having to remember to exclude it. InputType cannot be used to decide
+   * this: the WiFi password field is InputType::AlphaNum too. */
+  controlState.t9Field = true;
 }
 
 void MeshtasticApp::buildViewMessage(int msgIndex) {
