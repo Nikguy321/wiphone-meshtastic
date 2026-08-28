@@ -574,6 +574,21 @@ That's it — the WiPhone reboots into the firmware. Open the main menu and look
 ## Credits & license
 
 Based on the official [WiPhone firmware](https://github.com/HackEDA/wiphone-firmware)
-by HackEDA, Inc., distributed under the **WiPhone Public License v1.0** (see
-`LICENSE`). Meshtastic is a trademark of Meshtastic LLC; this is an independent,
-community project, not affiliated with or endorsed by Meshtastic.
+by HackEDA, Inc., whose code is under the **WiPhone Public License v1.0**.
+
+**This repository as a whole is distributed under GPL v3** (`LICENSE`). It has to be:
+RadioHead is compiled into every build and is offered as "GPL V3 or commercial", and
+GPLv3 is the only licence that can cover the rest of the mix. HackEDA's original files
+keep their own WPL headers, which is fine — the WPL is Apache-2.0-derived, and Apache 2.0
+combines one-way into GPLv3.
+
+Two vendored components do not sit cleanly under that, and rather than pretend otherwise
+they are itemised in **[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)**: the Game Boy
+emulator core (gnuboy, GPL v2 with no "or later" clause found) and the MP3 decoder (helix,
+RealNetworks RPSL, which the FSF lists as GPL-incompatible). For a phone you build and
+flash yourself this is moot — every obligation involved is about distribution, and the
+source is public. It would need resolving before the project could be redistributed as one
+clean work; that file says how.
+
+Meshtastic is a trademark of Meshtastic LLC; this is an independent, community project,
+not affiliated with or endorsed by Meshtastic.
