@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.9.35 (2026-08-28) - T9 predictive text
+
+Five keypresses for "hello" instead of thirteen. Type d-o-n-t and get "don't". Off by
+default nowhere: it is on, with a Settings row to turn it off, and '#' steps out of it
+mid-sentence without a trip to a menu.
+
+- 🔑 **25,000 words in flash, ZERO bytes of heap.** The table is `static const` in
+  memory-mapped `.rodata`, so a lookup is a plain pointer dereference and performs no
+  allocation at all — which is the entire safety argument on a phone whose internal heap
+  has been measured at 2,276 bytes free at its worst, and where a failed `new` throws with
+  nothing to catch it. 293 KB of flash (8.7% of the free DROM window), +64 bytes of static
+  RAM, and a worst-case lookup of 25 binary-search probes.
+- **Sorted by keypad digit key, then by frequency.** Neither the key nor the frequency is
+  stored: the key is recomputed from each word, and the rank IS the position in the run. So
+  "most likely first" and "press DOWN for the next" both fall out of an index, for free.
+  91.9% of digit keys match exactly one word; the worst collision is 9.
+- **UP/DOWN cycle candidates, but ONLY while a word is pending** — with nothing pending they
+  still move focus and the cursor, exactly as before. Same rule the OK key already followed:
+  consume a key only in the state where it means something new. '*' and '#' were left alone
+  for the same reason; '#' is the only way to type a capital.
+- **'#' cycles T9 -> Abc -> ABC -> 123.** A superset of the shift toggle it used to be, so
+  nothing was taken away. 123 exists because "testing 1 2 3" was otherwise untypable.
+- **Hold a number key to type the number**, the gesture every keypad phone had. The short
+  press has already happened when the hold fires — keys are edge-triggered, and holding
+  every digit back until release would put half a second of lag on ordinary typing — so it
+  is REVERSED instead: the digit comes back out of the pending word. Holding '0' also
+  retracts the space it already typed.
+- **Capitals both ways:** automatically for the first word and after `.` `!` `?` plus a
+  space, and by hand with a long press on '#' for a name in the middle of a sentence.
+- **The pending word lives in the FOOTER, not inline in the text field**, and is inserted
+  only on commit. That single decision is why this touched no widget code and why the digit
+  buffer cannot drift out of step with what is on screen.
+- **Per-field, default OFF, and message bodies are the only field that opts in.** `InputType`
+  cannot decide it — the WiFi password field is `InputType::AlphaNum` too — so the other
+  twenty-odd text fields keep today's behaviour without anyone having to remember them.
+- The dictionary took three rounds, each written into `tools/gen_t9_dict.py` so it is not
+  re-learned: `/usr/share/dict/web2` is the wrong KIND of list (headwords only — it rejects
+  every plural and does not contain "has", while it does contain "ba" and "aa"); the corpus
+  tokenises on the apostrophe so every contraction had to be repaired; and 279 two-letter
+  initialisms were removed by a rank cutoff rather than a curated list, because a real short
+  word is by definition frequent.
+- ✅ Both handsets. Verified end to end over the serial bridge and by hand: prediction,
+  candidate cycling, mode switching, held digits, held '#', auto-capitals, the Settings row
+  and its persistence across a reboot.
+- Source: hermitdave/FrequencyWords (OpenSubtitles), MIT. Only an ordered list of ordinary
+  English words is compiled in — no counts, no n-grams, no source text. The 612 KB corpus is
+  not committed; `tools/t9-corpus/FETCH.md` has the URL and the hash the generated header
+  records.
+
 ## 0.9.34 (2026-08-28) - two latent panics on the typing path
 
 Found while scoping predictive text; none of it is T9, all of it is live today.
