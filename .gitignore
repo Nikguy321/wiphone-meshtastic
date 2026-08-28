@@ -21,3 +21,9 @@ tests/fixtures/jpeg/
 # MP3 decoder fixture is a slice of a real track and this repo is public.
 # Regenerate with tools/gen_mp3_fixtures.sh <file.mp3>.
 tests/fixtures/mp3/
+
+# T9 source corpus. Not committed: it is 612 KB of input that produces a committed
+# 275 KB output, and the generated header records the source URL and a SHA-256 of this
+# file, so a regeneration is provable without carrying the corpus in the history.
+# Refetch with tools/t9-corpus/FETCH.md.
+tools/t9-corpus/*.txt
