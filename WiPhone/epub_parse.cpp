@@ -35,6 +35,21 @@
   static void* ebAlloc(size_t n) { return malloc(n); }
 #endif
 
+/* ⏱ The open-path timing below is a FIRMWARE measurement (see BooksApp::openBook): on the
+ * host there is no millis() and no log_e, and a test run has no superloop to freeze. */
+#if defined(ARDUINO)
+  #define EB_NOW()          millis()
+  #define EB_TIMING(...)    log_e(__VA_ARGS__)
+#else
+  #define EB_NOW()          0u
+  #define EB_TIMING(...)    do { } while (0)
+#endif
+
+// Counters for the open-path report: how many SD transactions, how long, how many bytes.
+static uint32_t ebSrcReads = 0, ebSrcMs = 0;
+static uint64_t ebSrcBytes = 0;
+static void ebSrcReset(void) { ebSrcReads = 0; ebSrcMs = 0; ebSrcBytes = 0; }
+
 static void ebFree(void* p) { free(p); }
 
 // ---------------------------------------------------------------- source helpers
@@ -45,7 +60,14 @@ static size_t srcRead(EpubSource* s, uint64_t off, void* buf, size_t len) {
   if (off + len > s->size) {
     len = (size_t)(s->size - off);
   }
-  return s->read(s->ctx, off, buf, len);
+  /* ⏱ Every byte the parser takes off the card passes through here, so this is where the
+   * cost of the open path is actually counted — see the EB_TIMING report in epubOpen. */
+  ebSrcReads++;
+  const uint32_t _t0 = EB_NOW();
+  const size_t got = s->read(s->ctx, off, buf, len);
+  ebSrcMs += (uint32_t)(EB_NOW() - _t0);
+  ebSrcBytes += got;
+  return got;
 }
 
 static uint16_t rd16(const uint8_t* p) { return (uint16_t)(p[0] | (p[1] << 8)); }
@@ -835,7 +857,37 @@ size_t epubExtractText(const char* html, size_t htmlLen, char* out, size_t cap) 
 }
 
 // ---------------------------------------------------------------- OPF
-struct OpfItem { char id[64]; char href[EPUB_NAME_MAX]; char media[64]; };
+struct OpfItem { char id[64]; char href[EPUB_NAME_MAX]; char media[64]; bool present; };
+
+/* Mark which manifest hrefs actually exist in the archive, in ONE pass over the central
+ * directory.
+ *
+ * 🛑 MEASURED 2026-08-27, and it was the whole of the book-open freeze: the spine loop used
+ * to ask `zipHasName(src, it->href)` per spine item, and zipHasName is a full zipForEach —
+ * a 64 KB EOCD re-scan plus two small SD reads for every entry it walks. At 90 spine items
+ * that is ninety walks of the same archive: **34,332 SD reads, 7.4 MB, 10.9 of the 11.9
+ * seconds** an open took (BOOK OPEN / epubOpen instrumentation, phone 1, Ghosts_of_
+ * Timkovichi.epub, 227 manifest items). One walk answers the question for every item at
+ * once; the inner strcmp loop is memory-speed and costs nothing by comparison.
+ *
+ * That freeze is not only a reader annoyance: the superloop is stopped for its whole
+ * length, and every piece of the WiFi rescue machinery is polled from that loop — see
+ * docs/HANDOFF.md on the booksync wedge. */
+struct PresenceCtx { OpfItem* items; int n; };
+static bool presenceVisit(const ZipEntry* e, void* user) {
+  PresenceCtx* c = (PresenceCtx*)user;
+  /* ⚠ NO `break` ON THE FIRST MATCH. Two manifest items may carry the SAME href (malformed,
+   * but real), and the per-item zipHasName this replaces answered true for BOTH of them.
+   * Stopping at the first would leave the second marked absent and its chapter would vanish
+   * from the book with no error anywhere — the silent-failure shape this repo keeps
+   * relearning. Marking every match keeps the old semantics exactly. */
+  for (int k = 0; k < c->n; k++) {
+    if (strcmp(c->items[k].href, e->name) == 0) {
+      c->items[k].present = true;
+    }
+  }
+  return true;                        // every entry: we are answering for all items at once
+}
 
 struct OpfParse {
   OpfItem* items;
@@ -900,20 +952,10 @@ int epubIds(const EpubBook* b, char out[3][EPUB_ID_MAX]) {
 }
 
 // ---------------------------------------------------------------- open
-struct NameListCtx { const char* want; bool found; };
-static bool nameVisit(const ZipEntry* e, void* user) {
-  NameListCtx* c = (NameListCtx*)user;
-  if (strcmp(e->name, c->want) == 0) {
-    c->found = true;
-    return false;
-  }
-  return true;
-}
-static bool zipHasName(EpubSource* s, const char* name) {
-  NameListCtx c = { name, false };
-  zipForEach(s, nameVisit, &c);
-  return c.found;
-}
+/* ⚠ `zipHasName(src, name)` used to live here — a full central-directory walk to answer one
+ * yes/no. It was called per spine item and cost 10.9 s of a book open; PresenceCtx above
+ * answers the same question for every item in one walk. Deleted rather than left lying
+ * around, because the next per-item caller would silently reintroduce the freeze. */
 
 struct FallbackCtx { EpubBook* b; };
 static bool fallbackVisit(const ZipEntry* e, void* user) {
@@ -1100,7 +1142,13 @@ static void navTitles(EpubBook* b, EpubSource* src, const OpfItem* items, int nI
 EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool isTextFile) {
   memset(b, 0, sizeof(*b));
   b->src = src;
+  /* ⏱ See the note on BooksApp::openBook: this whole call runs at GUI depth with the
+   * superloop stopped, so its parts are timed and reported rather than guessed at. */
+  ebSrcReset();
+  const uint32_t _e0 = EB_NOW();
   epubFingerprint(src, b->fingerprint);
+  const uint32_t _eFp = EB_NOW();
+  const uint32_t _rFp = ebSrcReads;
 
   if (isTextFile) {
     b->isText = true;
@@ -1119,6 +1167,8 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
   if (!zipFind(src, "META-INF/container.xml", &ce)) {
     return EPUB_ERR_NO_CONTAINER;
   }
+  const uint32_t _eFindC = EB_NOW();
+  const uint32_t _rFindC = ebSrcReads;
   uint8_t* buf = (uint8_t*)ebAlloc(EPUB_MAX_DOC);
   if (!buf) {
     return EPUB_ERR_MEMORY;
@@ -1167,11 +1217,14 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
     ebFree(buf);
     return EPUB_ERR_NO_OPF;
   }
+  const uint32_t _eFindO = EB_NOW();
+  const uint32_t _rFindO = ebSrcReads;
   n = zipRead(src, &oe, buf, EPUB_MAX_DOC);
   if (n <= 0) {
     ebFree(buf);
     return EPUB_ERR_NO_OPF;
   }
+  const uint32_t _eReadO = EB_NOW();
 
   // ⚠ THE HREF TRAP: manifest hrefs resolve against the OPF's OWN directory, not the zip
   // root. Getting this wrong yields a book with zero chapters and no error at all.
@@ -1244,6 +1297,7 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
             tagAttr(p + as, ae - as, "href", href, sizeof(href))) {
           snprintf(items[nItems].id, sizeof(items[nItems].id), "%s", id);
           epubNormPath(base, href, items[nItems].href, EPUB_NAME_MAX);
+          items[nItems].present = false;      // filled in by the single presence pass below
           if (tagAttr(p + as, ae - as, "media-type", media, sizeof(media))) {
             for (char* q = media; *q; q++) {
               if (*q >= 'A' && *q <= 'Z') {
@@ -1279,6 +1333,13 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
   }
   ebFree(buf);
 
+  // ONE walk of the central directory answers "does this exist?" for every manifest item —
+  // see PresenceCtx above for the 90-walks-per-open freeze this replaces.
+  {
+    PresenceCtx pc = { items, nItems };
+    zipForEach(src, presenceVisit, &pc);
+  }
+
   for (int s = 0; s < nSpineIds && b->nSpine < EPUB_MAX_SPINE; s++) {
     const OpfItem* it = NULL;
     for (int k = 0; k < nItems; k++) {
@@ -1290,7 +1351,7 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
     if (!it || !it->href[0]) {
       continue;
     }
-    if (!zipHasName(src, it->href)) {
+    if (!it->present) {                 // answered by the single presence pass above
       continue;
     }
     if (it->media[0] && !strstr(it->media, "html")) {
@@ -1300,9 +1361,20 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
     b->spine[b->nSpine].title[0] = '\0';
     b->nSpine++;
   }
+  const uint32_t _eManifest = EB_NOW();
   navTitles(b, src, items, nItems);      // must run before the manifest is freed
+  const uint32_t _eNav = EB_NOW();
   ebFree(items);
   ebFree(spineIds);
+  EB_TIMING("  epubOpen %u ms [fp=%u findContainer=%u readContainer=%u findOpf=%u readOpf=%u manifest=%u nav=%u]",
+        (unsigned)(_eNav - _e0), (unsigned)(_eFp - _e0),
+        (unsigned)(_eFindC - _eFp), (unsigned)(_eFindO - _eFindC) /*includes container read+parse*/,
+        0u, (unsigned)(_eReadO - _eFindO), (unsigned)(_eManifest - _eReadO),
+        (unsigned)(_eNav - _eManifest));
+  EB_TIMING("  epubOpen SD: %u reads, %u ms, %u KB [fp=%u findContainer=%u findOpf=%u] items=%d spine=%d",
+        (unsigned)ebSrcReads, (unsigned)ebSrcMs, (unsigned)(ebSrcBytes / 1024),
+        (unsigned)_rFp, (unsigned)(_rFindC - _rFp), (unsigned)(_rFindO - _rFindC),
+        nItems, b->nSpine);
 
   if (b->nSpine == 0) {
     FallbackCtx fc = { b };

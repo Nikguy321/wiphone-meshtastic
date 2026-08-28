@@ -2738,10 +2738,11 @@ void loop() {
     // day, which is exactly the September hunt. The first five retries stay at 20 s
     // (stepping briefly out of range still rejoins fast); a sustained absence eases to
     // 3 min; the counter resets the moment anything connects; and a screen wake retries
-    // immediately, so pulling the phone out of a pocket is never the slow path. While
-    // eased, a plain WiFi.disconnect() 30 s after each failed attempt quiesces the
-    // driver's auto-reconnect loop (the same move autoSwitchTick already makes), so the
-    // radio genuinely rests between attempts instead of chewing mid-association.
+    // immediately, so pulling the phone out of a pocket is never the slow path. After
+    // EVERY failed attempt (eased or not — see the note at the quiesce arming), a plain
+    // WiFi.disconnect() 30 s later quiesces the driver's auto-reconnect loop (the same
+    // move autoSwitchTick already makes), so the radio genuinely rests between attempts
+    // instead of chewing mid-association — and so scans read the air honestly.
     {
       static uint32_t s_wifiRetryFails = 0;
       static uint32_t s_wifiQuiesceAtMs = 0;
@@ -2786,9 +2787,16 @@ void loop() {
         if (s_wifiRetryFails < 1000) {
           s_wifiRetryFails++;
         }
-        if (s_wifiRetryFails >= 5) {
-          s_wifiQuiesceAtMs = now + 30000u;   // 30 s is every chance to associate
-        }
+        /* ⚠ From the FIRST failed attempt, not the fifth (2026-08-27, the booksync wedge).
+         * Every begin() that ends NO_AP_FOUND/BEACON_TIMEOUT hands the radio to the
+         * framework's event-task auto-reconnect, which retries capless and gapless — and a
+         * radio that is perpetually mid-connect completes every scan EMPTY (esp_wifi
+         * documents it), which is the deaf-scan state. The first ~100 s of every drop used
+         * to run that churn unquenched; 87ddfbc (08-24) made it worse by removing
+         * connectToWiFi's disconnect(true) — a 5 s freeze, but also an accidental radio
+         * cycle that broke the churn every 20 s. Quiesce 30 s after EVERY failed attempt
+         * so scans between retries read the air honestly. */
+        s_wifiQuiesceAtMs = now + 30000u;   // 30 s is every chance to associate
       }
 
       if (s_wifiQuiesceAtMs && (int32_t)(now - s_wifiQuiesceAtMs) >= 0 &&

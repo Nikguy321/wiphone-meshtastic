@@ -138,8 +138,22 @@ protected:
    * 240 MHz, quiesced or not — while the twin phone hears the same AP at -50 dBm, and the
    * ONLY cure is a radio off/on (which is why "open the WiFi screen and rescan" always
    * fixed it: NetworksApp's constructor bounces the radio by accident). At 2 the
-   * auto-switcher bounces the radio itself before scanning — see autoSwitchTick(). */
+   * auto-switcher bounces the radio itself before scanning — see autoSwitchTick().
+   * MECHANISM (2026-08-27, the booksync wedge): the "deaf" radio is usually the radio held
+   * perpetually MID-CONNECT — esp_wifi documents that scans run while the station is
+   * connecting are ineffective, and the framework's event-task auto-reconnect retries
+   * capless after every reason>=200, so once a drop starts churning, every scan completes
+   * 0 or -2 until something cycles the radio. Failed completions (-2) therefore count as
+   * dry evidence too, not just empty ones. */
   uint32_t _dryScans = 0;
+  /* True once this dry spell has had its radio bounce. While false and _dryScans >= 1 the
+   * disconnected scan interval drops to AUTO_SCAN_RETRY_MS so the deaf state is confirmed
+   * and cured in ~90 s instead of 10-15 min (2026-08-27: the wedge outlived the eased
+   * cadence all afternoon and the user's reboot always beat the bounce to it). After the
+   * bounce the eased cadence returns: if one bounce did not cure it, the phone is genuinely
+   * out of range and fast scanning would just drain the battery. Cleared whenever a scan
+   * hears anything or a connection is made. */
+  bool _dryBounced = false;
 
   bool _userDisabled;
   bool reconnect;             // should it try to reconnect when disconnected? TODO: save this in configs somehow

@@ -1,13 +1,140 @@
 # WiPhone — session handoff
 
-## ▶▶ NEXT SESSION — TASK LIST (header refreshed 2026-08-27 midday)
+## ▶▶ NEXT SESSION — TASK LIST (header refreshed 2026-08-27 late afternoon)
 
 Read this first; everything below it is narrative.
 
-✅ **BOTH PHONES ARE ON 0.9.30** (flashed 2026-08-27 early afternoon; identical binary from
-one build dir — ⚠ `ver` build-time still cannot distinguish same-day builds). Repo clean and
-pushed. Phone 1 associated + SIP registered at the work desk; phone 2 associated; panicwatch
-running on both under caffeinate.
+✅ **PHONE 1 IS ON 0.9.32; PHONE 2 IS ON 0.9.30** (see the booksync-wedge block below for
+what 0.9.31/0.9.32 change and what is still owed). ⚠ `ver` build-time still cannot distinguish
+same-day builds. Phone 1 associated (SmithWifi) + SIP registered at the work desk; phone 2
+associated; panicwatch running on both under caffeinate.
+
+# 🔎 2026-08-27 LATE AFTERNOON — NICK'S BOOKSYNC REPORT: THE TRIGGER IS UNREPRODUCED,
+# THE *NEVER-RECOVERS* HALF IS FIXED (0.9.31)
+
+Nick: *"I generally read ebooks on wiphone 1, and then when I'm done reading I hit the
+booksync. I noticed when I did that the wifi cut and refused to go back on … walked out of
+range and came back, it didn't want to reconnect automatically. A reboot fixed it. So I
+think clicking 'sync my place' killed the wifi's ability to auto reconnect. This might
+possibly have been the issue the whole time."*
+
+**The honest split: I could NOT reproduce the trigger, and I DID reproduce, measure and fix
+the part that actually hurt — the phone never coming back on its own.**
+
+- ❌ **`Sync my place` does not touch WiFi.** `sendMyPlace()` (app_books.cpp:916) →
+  `sendChannelMessage()` → `meshTxText` → `meshPhy.send()`: no WiFi/esp_wifi call anywhere
+  on the chain, no filesystem write beyond the ordinary. Six live open→sync→close cycles on
+  the bench (bridge-driven, screenshots at each step, "Sent: ch 19, 21%" confirmed, receipt
+  `-> in mesh`): **WiFi held every time.** The 0.9.30 flag work is not the culprit either —
+  `ud=0 rec=1 en=1` throughout Nick's wedge.
+- ✅ **What IS real on that path, measured on phone 1 this session:** opening a book =
+  **12.4-12.6 s of frozen superloop, every time** (four measurements, 12419/12433/12534/
+  12571 ms) — during which the WiFi *driver* runs but every piece of RESCUE machinery
+  (the retry at ino:2777, autoSwitchTick, the scan-result poll, the bounce) is dead, because
+  all of it is polled from loop(). The sync press adds ~1.5 s more (the LoRa TX busy-waits
+  TxDone at mesh_phy.cpp:268-277; SF11/250k airtime for a booksync frame is ~1.2-1.5 s).
+  🔑 So a drop that lands in that window gets a ~14 s head start on the phone's rescue.
+- 🔑 **THE MECHANISM OF "REFUSED TO GO BACK ON", now understood and cited:** a failed
+  join hands the radio to the **framework's event-task auto-reconnect**, which retries
+  `disconnect()+begin()` **capless and gapless** after every reason≥200 (WiFiGeneric.cpp
+  :404-410) — and **esp_wifi documents that a scan started while the station is connecting
+  is ineffective or aborted** (esp_wifi.h:322-330). A radio held perpetually mid-connect
+  therefore completes **every** scan 0 or -2. That is the whole "deaf radio": not broken
+  hardware, not a broken flag — *the scan never got a quiet radio to run on.*
+- 🛑 **AND 87ddfbc (08-24) made it worse without knowing.** Removing `connectToWiFi`'s
+  `disconnect(true)` killed a real 5 s freeze — but that call was also an **accidental radio
+  cycle every 20 s**, which is exactly the cure for this state. The freeze fix quietly
+  removed the phone's only automatic escape. Same shape as the "rescan" ritual being an
+  accidental bounce.
+- ✅ **STAGED THE WEDGE LIVE ON 0.9.30 AND WATCHED IT ALL THE WAY THROUGH** (`wifi drop`
+  collided with a book open): the phone went to `wifi=1`, `ud=0 rec=1 en=1 conn=0`, scans
+  completing n=0 and a blocking `wifi scan` reading **-2** — the exact signature of Nick's
+  report — sat wedged, and then **the 0.9.29 self-bounce FIRED for the first time ever
+  observed**: `[autosw] 2 consecutive empty scans: restarting the radio before this one` →
+  scan n=7 → `switching to 'SmithWifi' (-57 dBm)` → `conn=1` → `SIP REGISTRATION ->
+  REGISTERED`, hands-free. ⏳ **That closes the 0.9.29 "first live firing UNPROVEN" item.**
+  The catch: it took **~10 minutes**, because the eased cadence and the `n<0` blind spot
+  both delay it — and Nick reboots long before ten minutes.
+- ✅ **SHIPPED (0.9.31, phone 1 flashed, host suite exit 0):** four changes, all aimed at
+  "recovers by itself, fast":
+  1. **`n<0` completions count as dry evidence** (Networks.cpp) — the mid-connect churn
+     alternates 0 and -2, and counting only the zeros roughly doubled time-to-bounce.
+  2. **Fast confirm cadence:** with dry evidence and no bounce tried yet this spell, the
+     disconnected scan interval drops from 2-5 min to 30 s, so the bounce lands in ~90 s
+     instead of ~10 min. Capped to ONE bounce per spell (`_dryBounced`), so a phone
+     genuinely out of range all day still gets the battery easing.
+  3. **The retry no longer aborts its own rescue:** a scan is skipped while a join is
+     younger than 10 s. The wake path was deterministic self-sabotage — the reconnect block
+     runs BEFORE autoSwitchTick, so on a screen wake the retry started a join and the
+     wake-forced scan's pre-scan disconnect killed it in the SAME loop pass. The wake wish
+     is now sticky (backdated `_msLastScan`) instead of a flag that guard would eat.
+  4. **The 30 s post-failure quiesce arms after EVERY failed attempt, not only the 5th** —
+     the first ~100 s of every drop used to run the framework churn unquenched, which is
+     precisely the window Nick's book-open stall opens.
+  Plus `[autosw] scan done: n=… dry=N` now prints the counter, so the next field wedge is
+  readable from the log without inference.
+- 🔎 **Circumstantial support for Nick's "the issue the whole time":** in the current logs
+  phone 1 (the book phone) has **25** empty scans and 18 book/sync events; phone 2 (same
+  desk, same firmware, no books at all) has **1** empty scan and 0 book events. Phone 1's
+  log is ~4× longer, so the 25:1 ratio is real but not a controlled experiment.
+
+# ✅ 2026-08-27 EVENING — THE BOOK-OPEN FREEZE IS FIXED: 11.9 s → 1.2 s (0.9.32)
+
+The enabler above is closed, and the measurement corrected a plausible wrong theory.
+
+- 🔑 **INSTRUMENT FIRST. The code-reading theory was wrong.** The audit blamed "no zip
+  directory cache — every `zipFind` re-walks the central directory", and predicted
+  `navTitles` and the per-image walks. Two permanent log lines (`BOOK OPEN` in
+  `openBook`, `epubOpen` in `epub_parse.cpp`, plus SD-transaction counters) said otherwise
+  on the first run: `fingerprint=228 findContainer=93 readOpf=11 **manifest=10908**
+  nav=270`, and **34,332 SD reads / 7.4 MB** for one open. The zipFinds are 5 and 279 reads
+  — cheap. `navTitles` is 270 ms. Nearly all of it was in one place nobody suspected.
+- 🛑 **THE CULPRIT: `zipHasName(src, it->href)` in the spine-build loop.** It is a full
+  `zipForEach` — a 64 KB EOCD re-scan plus two small SD reads per central-directory entry —
+  and it was called **once per spine item**. A 90-chapter book therefore walked the same
+  archive **ninety times** to answer ninety yes/no questions.
+- ✅ **THE FIX: one presence pass.** `presenceVisit`/`PresenceCtx` walk the directory ONCE
+  and mark `OpfItem.present` for every manifest item; the spine loop then tests a bool.
+  `zipHasName`/`nameVisit`/`NameListCtx` are DELETED rather than left lying around, because
+  the next per-item caller would silently reintroduce the freeze.
+- ⚠ **A defect caught in self-review before it shipped:** the first cut had
+  `if (!present && strcmp(...)) { present = true; break; }`. With two manifest items sharing
+  one href — malformed but real — only the first would be marked, and the second's chapter
+  would **vanish from the book with no error anywhere**. The old per-item `zipHasName`
+  answered true for both. The `break` and the guard are gone; every match is marked, which
+  restores the old semantics exactly.
+- ✅ **MEASURED ON PHONE 1 (0.9.32, flashed):** `BOOK OPEN 11903 ms → 1285 ms`, SD reads
+  **34,332 → 1,493**, bytes **7.4 MB → 506 KB**, and the `LOOP STALL` the open produces
+  **12,025 ms → 1,301 ms**. Correctness checked, not just speed: same book opens at the same
+  place (ch 19/90, 21 %, identical text) with the **same spine count of 90**, and a
+  second, differently-built book (Dominion 1, 115 items) opens in 1,106 ms with its 41
+  chapters and the empty-cover skip still working.
+- 🔑 **Why this is a WiFi fix too:** that stall is time with the superloop stopped, and every
+  piece of the WiFi rescue machinery is polled from it. **The window in which a drop gets a
+  free head start shrank from ~12.5 s to ~1.3 s.**
+- 📌 The `BOOK OPEN` / `epubOpen` timing lines STAY IN, like `SLOW WIFI` and `SLOW STEP`
+  before them: the next person should not have to re-derive where the time goes. On the host
+  build `EB_NOW`/`EB_TIMING` compile to nothing.
+
+## ▶▶ WHAT IS OWED ON THIS (next session)
+
+1. ⏳ **Phone 2 is still on 0.9.30** — flash it for parity once 0.9.32 has a day on phone 1.
+2. ⏳ **The fast-bounce has NOT been seen firing in the wedge state** (the desk AP is
+   too strong: three staged drop-during-book-open collisions all rejoined in ~2 s
+   without ever going dry). The next natural wedge is the test — grep the panicwatch log for
+   `dry=` and `restarting the radio`, and check the gap between them is ~90 s, not ~10 min.
+3. 🟡 **The open is now 1.2 s, and ~750 ms of that is still SD.** If it ever matters:
+   `findOpf` alone is 279 reads (one full directory walk) and the presence pass is another,
+   so a single cached central directory per open would remove both. Not urgent at 1.2 s.
+4. 🟡 **NEW P2, found by the same audit, adjacent to the incident:** `MeshPhy::send`'s
+   **2000 ms TX timeout is shorter than a maximum-length frame's airtime.** At SF11/250k a
+   254 B frame (the max `MESH_TEXT_LEN` 234 allows) is 2157 ms, so it is declared
+   "TX timeout", the IRQ flags cleared and the radio forced back to RX **while the PA is
+   still transmitting** — truncated on air, `send()` returns false, and the ~2 s of loop
+   stall was paid anyway. A max-length channel text can therefore never be sent. Booksync
+   frames are ~130-165 B so they are safe; this is a latent bug for long chat messages.
+5. 🟡 **P2, unchanged:** Remove-network and Disconnect still call full `disable()` (radio +
+   BT off), heavier than either action means.
 
 # ✅ 2026-08-27 EARLY AFTERNOON — THE PEEK WART IS CLOSED (0.9.30), AT NICK'S ASK
 

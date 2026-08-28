@@ -498,6 +498,7 @@ void Networks::bounceRadio(void) {
   delay(300);
   WiFi.mode(WIFI_STA);          // back up, idle
   _dryScans = 0;
+  _dryBounced = false;          // a deliberate bounce starts the spell accounting over
   _msLastScan = millis() - 600000u;   // next autoSwitchTick: a scan is due NOW
 }
 
@@ -578,9 +579,10 @@ void Networks::autoSwitchTick(bool screenOn) {
       return;
     }
     _scanning = false;
-    log_e("[autosw] scan done: n=%d", n);
     if (n > 0) {
+      log_e("[autosw] scan done: n=%d", n);
       _dryScans = 0;
+      _dryBounced = false;
       autoSwitchEvaluate(n);
     } else if (n == 0) {
       /* 🛑 A COMPLETED SCAN THAT FOUND NOTHING IS the out-of-range case — OR THE DEAF
@@ -593,11 +595,20 @@ void Networks::autoSwitchTick(bool screenOn) {
       if (!connected && _dryScans < 1000) {
         _dryScans++;
       }
+      log_e("[autosw] scan done: n=0 dry=%u", (unsigned)_dryScans);
       _msLastScan = now;
     } else {
-      /* n < 0: the scan was ABORTED, not empty — commonly a reconnect attempt cycled WiFi
-       * and killed it, or the radio was mid-connect. That is a spurious failure and learned
-       * nothing, so try again soon rather than serving out a full period. */
+      /* n < 0: the scan was ABORTED or the API failed — commonly a reconnect attempt
+       * cycled WiFi and killed it, or the radio was mid-connect. Learned nothing about the
+       * AIR, so try again soon rather than serving out a full period. But it IS evidence
+       * about the MACHINERY (2026-08-27, the booksync wedge): the mid-connect churn that
+       * presents as deafness alternates 0 and -2 completions, and counting only the zeros
+       * let the wedge outlive the detector for a whole afternoon. Disconnected, a failed
+       * completion counts toward the bounce like an empty one. */
+      if (!connected && _dryScans < 1000) {
+        _dryScans++;
+      }
+      log_e("[autosw] scan done: n=%d dry=%u", n, (unsigned)_dryScans);
       scheduleScanRetry(now, connected);
     }
     WiFi.scanDelete();
@@ -614,18 +625,41 @@ void Networks::autoSwitchTick(bool screenOn) {
      * out of range and wanting a quick rejoin. Only a sustained absence (roughly ten
      * minutes of failures) eases to five, and the counter resets the moment anything
      * connects, so coming home is still prompt. */
-    const uint32_t discPeriod = currentDiscPeriod();
+    uint32_t discPeriod = currentDiscPeriod();
+    /* Deaf-evidence fast path (2026-08-27): with dry evidence on the books and no bounce
+     * tried yet this spell, do not serve out the eased 2-5 min period — confirm and cure
+     * within ~90 s. Capped to the first bounce (see _dryBounced in the header), so a phone
+     * genuinely out of range still gets the battery easing. */
+    if (!connected && _dryScans >= 1 && !_dryBounced && discPeriod > AUTO_SCAN_RETRY_MS) {
+      discPeriod = AUTO_SCAN_RETRY_MS;
+    }
     bool due = (now - _msLastScan >= (connected ? AUTO_SCAN_PERIOD_MS : discPeriod));
     if (wake && !connected) {
-      due = true;                       // screen woke with no WiFi: scan right away
+      /* Screen woke with no WiFi: scan right away. Backdating instead of a bare due=true
+       * keeps the wish STICKY — the young-join guard below may hold the scan for a few
+       * seconds (the wake RETRY fires earlier in this same loop pass), and a transient
+       * flag would have been lost with it. */
+      _msLastScan = now - discPeriod;
+      due = true;
     }
     if (!due) {
+      return;
+    }
+    if (!connected &&
+        (uint32_t)(now - lastWifiConnectAttemptMs()) < 10000u) {
+      /* A join younger than 10 s is still associating/DHCPing — it reads as 'not
+       * connected' but is about to not be. The pre-scan disconnect below would abort it:
+       * measured 2026-08-27, the screen-wake retry and the wake-forced scan killed each
+       * other in the SAME loop pass, and at the 20 s retry cadence the mutual kill is
+       * what keeps the radio perpetually mid-connect (= every scan completes empty).
+       * `due` stays true, so the scan runs the moment the attempt is stale. */
       return;
     }
     _msLastScan = now;
     if (connected) {
       _discScans = 0;                   // on a network: forget the dry spell
       _dryScans = 0;
+      _dryBounced = false;
     } else if (_discScans < 1000) {
       _discScans++;
     }
@@ -646,6 +680,7 @@ void Networks::autoSwitchTick(bool screenOn) {
         log_e("[autosw] %u consecutive empty scans: restarting the radio before this one",
               (unsigned)_dryScans);
         _dryScans = 0;
+        _dryBounced = true;             // this spell had its bounce: cadence re-eases
         WiFi.disconnect(true /*radio OFF; the scan start turns it back on*/);
       } else {
         // The Arduino WiFi driver auto-reconnects on "AP not found", so with the

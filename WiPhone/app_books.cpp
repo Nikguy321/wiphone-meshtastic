@@ -576,6 +576,13 @@ bool BooksApp::openBook(int idx) {
     return false;
   }
 
+  /* ⏱ MEASURED, NOT GUESSED. Opening a book freezes the whole superloop — keypad, screen
+   * AND every piece of the WiFi rescue machinery, all of which is polled from loop() — for
+   * 12.4-12.6 s on this phone (four measurements, 2026-08-27). That window is how a WiFi
+   * drop gets a head start it never recovers from; see docs/HANDOFF.md, the booksync wedge.
+   * The phase breakdown stays in permanently so the next person does not have to re-derive
+   * where the time goes, the way SLOW WIFI / SLOW STEP already do for the network paths. */
+  const uint32_t _o0 = millis();
   BOOKS_HEAP("open:enter");
   file = SD.open(books[idx].path, FILE_READ);
   if (!file) {
@@ -584,11 +591,13 @@ bool BooksApp::openBook(int idx) {
   src.ctx = &file;
   src.size = file.size();
   src.read = sdSourceRead;
+  const uint32_t _oOpen = millis();
 
   if (epubOpen(&book, &src, books[idx].name, books[idx].isTxt) != EPUB_OK) {
     file.close();
     return false;
   }
+  const uint32_t _oParse = millis();
   BOOKS_HEAP("open:parsed");
 
   // One chapter buffer for the session. PSRAM: 512 KB of internal RAM does not exist here.
@@ -636,6 +645,8 @@ bool BooksApp::openBook(int idx) {
     }
   }
 
+  const uint32_t _oPos = millis();
+
   if (!loadChapter(startSpine)) {
     closeBook(false);
     return false;
@@ -643,16 +654,25 @@ bool BooksApp::openBook(int idx) {
   /* Skip past chapters with no text. A cover page is a spine item made entirely of an image,
    * so opening this book landed on "(this chapter has no text)" — a reader that looks broken
    * on the first screen. There is no position to lose inside an empty chapter. */
+  int _oSkips = 0;
   while (chapLen == 0 && spine + 1 < book.nSpine) {
     if (!loadChapter(spine + 1)) {
       break;
     }
     startOff = 0;
+    _oSkips++;
   }
+  const uint32_t _oChap = millis();
   gotoOffset(startOff, true);
   turnsSinceSave = 0;
+  const uint32_t _oGoto = millis();
   checkForPending();   // a position may have arrived while this book was shut
   BOOKS_HEAP("open:done");
+  const uint32_t _oEnd = millis();
+  log_e("BOOK OPEN %u ms [sdopen=%u epubOpen=%u pos=%u chapter=%u(+%d skips) goto=%u pending=%u] spine=%d/%d",
+        (unsigned)(_oEnd - _o0), (unsigned)(_oOpen - _o0), (unsigned)(_oParse - _oOpen),
+        (unsigned)(_oPos - _oParse), (unsigned)(_oChap - _oPos), _oSkips,
+        (unsigned)(_oGoto - _oChap), (unsigned)(_oEnd - _oGoto), spine, book.nSpine);
   return true;
 }
 
