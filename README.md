@@ -72,6 +72,11 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.42** — Messages knows **who** you are talking to: conversations are labelled
+  with the contact's name where your phonebook has one, and starting a new message to
+  someone you have already texted opens that conversation instead of a second one
+  beside it. Also: choosing a recipient no longer discards a message you had already
+  typed.
 - **0.9.33 – 0.9.41** — **T9 predictive text** (below), and the memory work that made
   it possible: the Nodes screen used to reboot the phone once the mesh got big enough,
   because menu rows were the one thing in the firmware still allocating from the ~20 KB
@@ -414,8 +419,13 @@ dictionary lives in PSRAM and costs the internal heap nothing either.
   exchange in order, oldest at the top, your messages headed `You · 2 min ago`.
   Reply is one press and already knows the address; each message also offers
   Reply/Delete when opened.
+- **Named, not numbered.** A conversation is labelled with the contact's name
+  wherever your phonebook has one — on the row, in the title when it is open, and
+  above each message they sent. Only a stranger shows as a number.
 - **One person is one conversation**, however the number is written — with the
-  country code, without it, punctuated, or as a full SIP address.
+  country code, without it, punctuated, or as a full SIP address. That includes
+  starting one: **New Message → Choose someone you have already texted opens the
+  conversation you already have with them**, rather than a second one beside it.
 - **Type just the number.** A bare number is completed to
   `number@your-server` automatically, from your active SIP account — in the
   composer and when saving a phonebook contact. (It needs a SIP account to be
