@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.41 (2026-08-28) - predictive text in the note page
+
+- **Note Page predicts.** Prose, like a message body — the other place you write sentences
+  rather than an address or a key.
+- 🔑 **And predictive text can no longer outlive the app that claimed it.** `t9Field` was set
+  by the field that wanted T9 and otherwise cleared only by `setInputState()`, which nothing
+  calls on the way out of an app — so it stayed set on menus with no text field at all,
+  swallowing digit keys and stopping UP/DOWN/BACK from navigating. Now cleared at the two
+  doors every app leaves by, beside the existing `clearTextFocus()`. This is the general fix
+  for a bug already patched twice in one app; an app that wants T9 re-claims it when it
+  builds its field.
+- ✅ Verified on hardware: the note page reports `opted in: yes` and predicts "Hello";
+  leaving it reports `opted in: no`.
+
 ## 0.9.40 (2026-08-28) - predictive text in the SIP message body
 
 Reported from use: the SIP composer had no T9.

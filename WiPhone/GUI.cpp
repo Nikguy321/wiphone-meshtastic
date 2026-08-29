@@ -87,6 +87,13 @@ void GUI::cleanAppDynamic() {
   // An app's widgets die here, so no pointer to one may outlive this call. See
   // FocusableWidget::clearTextFocus() for what a stale one costs.
   FocusableWidget::clearTextFocus();
+  /* 🔑 AND NEITHER MAY THE PREDICTIVE-TEXT CLAIM. t9Field is set by the field that wants T9
+   * and otherwise cleared only by setInputState() — which nothing calls on the way out of an
+   * app. Left set, T9 stayed live on menus with no text field at all, swallowing digit keys
+   * and stopping UP/DOWN/BACK from navigating. Cleared here rather than in each app because
+   * this and the EXIT_APP path are the two doors every app leaves by; an app that wants it
+   * re-claims it when it builds its field. */
+  state.t9Field = false;
   if (runningApp!=NULL) {
     delete runningApp;
     runningApp = NULL;
@@ -1704,6 +1711,7 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
         // Running app exited
         log_d("deleting app");
         FocusableWidget::clearTextFocus();   // its widgets are about to go: see clearTextFocus
+        state.t9Field = false;               // ...and so is any predictive-text claim
         delete runningApp;
         runningApp = NULL;
 
@@ -3364,6 +3372,10 @@ NotepadApp::NotepadApp(LCD& lcd, ControlState& state, Storage& flashParam, Heade
   }
 
   textArea->setFocus(true);     // to reveal the cursor
+  /* A note page is prose, so it predicts — the one other place besides a message body where
+   * you are writing sentences rather than an address or a key. AFTER setFocus(), which goes
+   * through setInputState() and clears the flag. */
+  state.t9Field = true;
 }
 
 NotepadApp::~NotepadApp() {
