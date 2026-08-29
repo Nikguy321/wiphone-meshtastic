@@ -1874,6 +1874,16 @@ protected:
   int32_t chatSelected = 0;                       // row index in the chats list
   char    threadPeer[SIP_THREAD_URI_MAX] = {0};   // whose thread is open (digits or raw id)
   char    threadUri[SIP_THREAD_URI_MAX]  = {0};   // full URI to reply to — see note below
+  /* What the open thread is CALLED — the phonebook name where there is one, else the
+   * address. COPIED, not pointed at, for two reasons: HeaderWidget::setTitle keeps the
+   * pointer rather than the string, and the name it would point at lives in the
+   * phonebook INI, which the phonebook screen is free to rewrite underneath us.
+   * Also saves a phonebook scan per message when buildThread() labels the incoming
+   * halves of a forty-message conversation.
+   * ⚠ Sized like the URI it falls back to when there is no name: anything shorter would
+   * HARD-CUT a long address, and a hard cut reads as complete text — the exact failure
+   * guiDrawEllipsized() exists to avoid. */
+  char    threadLabel[SIP_THREAD_URI_MAX] = {0};
 
   void buildChats();
   void buildThread();
@@ -1919,13 +1929,35 @@ class CreateMessageApp : public WindowedApp, FocusableApp {
    * Doing it here, after the focus move has settled, is immune to that ordering. */
   void syncPredictive();
 public:
-  CreateMessageApp(LCD& disp, ControlState& state, Storage& flash, HeaderWidget* header, FooterWidget* footer, const char* sipUri=NULL);
+  /* `jumpToThread` — "New Message" then Choose, when you have texted that person before.
+   *
+   * A texting app has ONE conversation per person; picking a correspondent you already
+   * have a thread with means "take me there", not "start a second, parallel history with
+   * the same human". Nick, 2026-08-28: "if I pick a contact I have already been texting,
+   * I'd like it to go to that conversation." Only MessagesApp's New Message sets this —
+   * a composer opened from a contact card or as a reply already knows its correspondent
+   * and has nowhere to send you.
+   *
+   * When it fires, the app EXITS immediately after the pick and the parent reads
+   * getJumpPeer()/getJumpUri(). It fires only when a thread actually exists, so with a
+   * genuinely new correspondent nothing changes: the address is filled in and you type. */
+  CreateMessageApp(LCD& disp, ControlState& state, Storage& flash, HeaderWidget* header, FooterWidget* footer, const char* sipUri=NULL, bool jumpToThread=false);
   ~CreateMessageApp();
   ActionID_t getId() {
     return GUI_APP_CREATE_MESSAGE;
   };
   appEventResult processEvent(EventType event);
   void redrawScreen(bool redrawAll=false);
+
+  /* Empty unless this app exited to hand its parent an existing conversation to open.
+   * `peer` is the grouping identity, `uri` the full address to reply to — the same pair
+   * MessagesApp::openThread() takes everywhere else. */
+  const char* getJumpPeer() const {
+    return jumpPeer;
+  }
+  const char* getJumpUri() const {
+    return jumpUri;
+  }
 
 protected:
   LabelWidget* label1;
@@ -1940,11 +1972,16 @@ protected:
   WiPhoneApp* subApp;       // can be PhonebookApp (in pick mode)
 
 private:
+  bool jumpToThread = false;
+  char jumpPeer[SIP_THREAD_URI_MAX] = {0};
+  char jumpUri[SIP_THREAD_URI_MAX]  = {0};
+
   void setupUI(const char* sipUri, bool showMessageType=false);
   void deleteUI();
   bool isSipAddress(const char* address);
   bool hasSipAndLora(const char* address);
   const char* extractAddress(const char* address, MessageType_t type);
+  bool takeThreadJump(const char* sipUri, const char* loraAddress);
 };
 
 class MicTestApp : public WindowedApp {

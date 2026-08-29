@@ -25,7 +25,7 @@ governing permissions and limitations under the License.
 #include "app_music.h"
 
 // Defined further down, used by the Messages screens above it.
-static const char* sipDisplayLabel(const char* peer, const char* uri);
+static const char* sipDisplayLabel(Storage& flash, const char* peer, const char* uri);
 
 // Static images
 #include "src/assets/image.h"
@@ -7781,6 +7781,14 @@ MessagesApp::MessagesApp(LCD& lcd, ControlState& state, Storage& flash, HeaderWi
   if (!flash.messages.isLoaded()) {
     flash.messages.load(ntpClock.isTimeKnown() ? ntpClock.getExactUnixTime() : 0);
   }
+  /* And the phonebook, because the rows are labelled with NAMES where there are any.
+   * Here rather than at the first label lookup: this is already the screen's slow
+   * moment, and loading it lazily would put a SPIFFS read inside a menu redraw.
+   * Failure is not fatal — sipContactName() then finds nothing and the address shows,
+   * exactly as it did before names existed. */
+  if (!flash.phonebook.isLoaded()) {
+    flash.loadPhonebook();
+  }
 
   chatsMenu = NULL;
   threadText = NULL;
@@ -7813,13 +7821,16 @@ void MessagesApp::enterState(MessagesState_t state) {
     footer->setButtons("Open", "Back");
   } else if (state == THREAD) {
     /* The correspondent is the title: in a thread, who you are talking to is
-     * the context. For a phone number `threadPeer` (bare digits) is the nicer
-     * label; for a digit-free SIP address it is the identity string, which
-     * identityOf() truncated to 19 chars — show the FULL uri there instead and
-     * let the header ellipsize it honestly. (Widening the identity itself
-     * would cost static RAM in the thread table and the mirror record.) */
-    const char* label = sipDisplayLabel(threadPeer, threadUri);
-    header->setTitle(label[0] ? label : "Messages");
+     * the context. threadLabel is their phonebook name where there is one, else
+     * their address — a phone number's `threadPeer` (bare digits) is the nicer
+     * form, but for a digit-free SIP address it is the identity string, which
+     * identityOf() truncated to 19 chars, so that case shows the FULL uri and
+     * lets the header ellipsize it honestly. (Widening the identity itself
+     * would cost static RAM in the thread table and the mirror record.)
+     * ⚠ setTitle keeps the POINTER: it must be threadLabel, which outlives this
+     * call, and never sipDisplayLabel()'s return, which can point into the
+     * phonebook. */
+    header->setTitle(threadLabel[0] ? threadLabel : "Messages");
     footer->setButtons("Reply", "Back");
   }
   appState = state;
@@ -7889,6 +7900,10 @@ void MessagesApp::markThreadRead() {
 void MessagesApp::openThread(const char* peer, const char* uri) {
   snprintf(threadPeer, sizeof(threadPeer), "%s", peer ? peer : "");
   snprintf(threadUri, sizeof(threadUri), "%s", uri ? uri : "");
+  /* Resolve the name ONCE, here, rather than at each of the places that draw it:
+   * the header and every incoming line in buildThread() want the same answer, and
+   * buildThread() runs again on every new message. */
+  snprintf(threadLabel, sizeof(threadLabel), "%s", sipDisplayLabel(flash, threadPeer, threadUri));
   this->markThreadRead();
   this->buildThread();
   enterState(THREAD);
@@ -7913,10 +7928,42 @@ appEventResult MessagesApp::processEvent(EventType event) {
 
   } else if (subApp) {
     if ((res = subApp->processEvent(event)) & EXIT_APP) {
+      /* The composer can exit asking for a conversation to be OPENED rather than started:
+       * you picked someone from the phonebook you already have a thread with. Copied out
+       * before the delete — the strings belong to the sub-app. */
+      char jumpPeer[SIP_THREAD_URI_MAX] = {0};
+      char jumpUri[SIP_THREAD_URI_MAX]  = {0};
+      if (subApp->getId() == GUI_APP_CREATE_MESSAGE) {
+        CreateMessageApp* composer = (CreateMessageApp*)subApp;
+        snprintf(jumpPeer, sizeof(jumpPeer), "%s", composer->getJumpPeer());
+        snprintf(jumpUri,  sizeof(jumpUri),  "%s", composer->getJumpUri());
+      }
+
       /* Whatever the sub-app did — sent a message, deleted one — the snapshots are now
        * stale. Rebuilding both is cheap next to being wrong. */
       flash.messages.clearPreloaded();
       this->buildChats();
+
+      delete subApp;
+      subApp = NULL;
+
+      if (jumpPeer[0]) {
+        /* Straight into that conversation. Back from it belongs on the chats list, which
+         * is where New Message was pressed, so returnState stays CHATS and the row is
+         * selected on the way past — coming back should land on the person you just
+         * opened, not at the top of the list. */
+        for (int i = 0; i < sipThreadsCount(); i++) {
+          const SipThread* t = sipThreadAt(i);
+          if (t && !strcmp(t->peer, jumpPeer)) {
+            chatSelected = i;
+            chatsMenu->select((MenuOption::keyType)(i + 2));
+            break;
+          }
+        }
+        this->openThread(jumpPeer, jumpUri);
+        return REDRAW_ALL;
+      }
+
       /* returnState, not appState: while the composer is up appState is COMPOSING, so the
        * old `appState == THREAD` test could never be true here and the thread was never
        * rebuilt on the way back — which is also why Reply exited to the chats list. */
@@ -7924,9 +7971,6 @@ appEventResult MessagesApp::processEvent(EventType event) {
         this->buildThread();
       }
       enterState(appState == COMPOSING ? returnState : appState);
-
-      delete subApp;
-      subApp = NULL;
 
       res = REDRAW_ALL;
     }
@@ -7942,10 +7986,12 @@ appEventResult MessagesApp::processEvent(EventType event) {
     if (LOGIC_BUTTON_OK(event)) {
       MenuOption::keyType sel = chatsMenu->readChosen();
       if (sel == 1) {
-        // New message: no correspondent yet, so the composer asks for one.
+        /* New message: no correspondent yet, so the composer asks for one — and if the
+         * one you pick already has a thread, it hands it back for us to open instead of
+         * starting a duplicate conversation with the same person. */
         returnState = CHATS;
         appState = COMPOSING;
-        subApp = new CreateMessageApp(lcd, controlState, flash, header, footer);
+        subApp = new CreateMessageApp(lcd, controlState, flash, header, footer, NULL, true);
       } else if (sel >= 2) {
         const SipThread* t = sipThreadAt((int)sel - 2);
         if (t) {
@@ -8022,7 +8068,7 @@ void MessagesApp::buildChats() {
      * number (the nice label) but for a long SIP address it is a bounded,
      * hash-suffixed grouping key that nobody should ever read. `uri` is the
      * real thing, and the row ellipsizes it honestly. */
-    const char* label = sipDisplayLabel(t->peer, t->uri);
+    const char* label = sipDisplayLabel(flash, t->peer, t->uri);
     MenuOptionIconnedTimed* option = new MenuOptionIconnedTimed(
       (MenuOption::keyType)(i + 2),
       t->unread ? MenuWidget::ALTERNATE_STYLE : MenuWidget::DEFAULT_STYLE,
@@ -8114,7 +8160,7 @@ void MessagesApp::buildThread() {
     }
     // "You" on the ones you sent. Who said what has to be unambiguous before anything else.
     w += snprintf(buf + w, THREAD_TEXT_MAX - w, "%s%s%s\n%s\n%s",
-                  m->incoming ? sipDisplayLabel(threadPeer, threadUri) : "You",
+                  m->incoming ? threadLabel : "You",
                   ago[0] ? "  ·  " : "", ago,
                   m->text ? m->text : "",
                   (i + 1 < n) ? "\n" : "");
@@ -8147,8 +8193,8 @@ void MessagesApp::redrawScreen(bool redrawAll) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Create Message app  - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-CreateMessageApp::CreateMessageApp(LCD& lcd, ControlState& state, Storage& flash, HeaderWidget* header, FooterWidget* footer, const char* sipUri)
-  : WindowedApp(lcd, state, header, footer), FocusableApp(2), flash(flash) {
+CreateMessageApp::CreateMessageApp(LCD& lcd, ControlState& state, Storage& flash, HeaderWidget* header, FooterWidget* footer, const char* sipUri, bool jumpToThread)
+  : WindowedApp(lcd, state, header, footer), FocusableApp(2), flash(flash), jumpToThread(jumpToThread) {
   log_d("create CreateMessageApp");
 
   label1 = NULL;
@@ -8165,6 +8211,20 @@ CreateMessageApp::CreateMessageApp(LCD& lcd, ControlState& state, Storage& flash
 
 void CreateMessageApp::setupUI(const char* sipUri, bool showMessageType) {
   log_d("CreateMessageApp::createUI");
+
+  /* ⚠ WHAT YOU HAVE TYPED SURVIVES A CHANGE OF RECIPIENT. This function rebuilds every
+   * widget on the screen — it is how the phonebook pick fills "To:" in — and the fresh
+   * body widget came back empty, so choosing a recipient after writing the message
+   * silently binned the message. Copied out before deleteUI(), which frees the widget
+   * the string belongs to. PSRAM (extStrdup): the body runs to 1000 characters and
+   * internal contiguous heap is the scarce thing on this phone. */
+  char* keepBody = NULL;
+  if (text) {
+    const char* body = text->getText();
+    if (body && body[0]) {
+      keepBody = extStrdup(body);
+    }
+  }
 
   this->deleteUI();
   focusableWidgets.clear();
@@ -8192,7 +8252,10 @@ void CreateMessageApp::setupUI(const char* sipUri, bool showMessageType) {
 
   text = new MultilineTextWidget(0, yOff, lcd.width(), lcd.height()-yOff-footer->height(),
                                  "type your message", controlState, 1000, fonts[AKROBAT_BOLD_20], InputType::AlphaNum, 8, 5);
-  text->setText("");    // TODO: allow a template like "Hello!\nHow are you doing?"
+  text->setText(keepBody ? keepBody : "");    // TODO: allow a template like "Hello!\nHow are you doing?"
+  if (keepBody) {
+    free(keepBody);                           // free() is region-agnostic; see extStrdup
+  }
 
 
   addFocusableWidget(addr);
@@ -8325,6 +8388,57 @@ const char* CreateMessageApp::extractAddress(const char* address, MessageType_t 
 
 extern uint32_t chipId;
 
+/* Does the correspondent just picked already have a conversation? If so, record it for
+ * the parent and say so; the caller then exits instead of composing.
+ *
+ * ⚠ READS THE THREAD SNAPSHOT, DOES NOT REBUILD IT. MessagesApp::buildChats() built it
+ * on the way to this screen and nothing since has invalidated it, so this costs a walk
+ * of at most SIP_THREADS_MAX entries. Rebuilding here would re-scan the message store
+ * (and the parent would only throw the result away and rebuild again on the way back).
+ *
+ * ⚠ Compared on the grouping IDENTITY, not the string: the phonebook's spelling of a
+ * number is rarely the store's. Same rule as sipContactName(), for the same reason.
+ *
+ * Both addresses are tried because a phonebook entry can carry both, and which one you
+ * have history on is exactly the question — SIP first, since that is what the "To:" field
+ * defaults to sending as when an entry has both. */
+bool CreateMessageApp::takeThreadJump(const char* sipUri, const char* loraAddress) {
+  if (!jumpToThread) {
+    return false;
+  }
+  /* ⚠ ONLY WITH AN EMPTY BODY. Choose is reachable after typing — move focus back up to
+   * "To:" and press OK — and someone who has already written the message meant to send
+   * it, not to go read history. setupUI() now carries the body across the pick, so
+   * staying put keeps what they wrote; jumping would throw the screen away with it. */
+  const char* body = text ? text->getText() : NULL;
+  if (body && body[0]) {
+    return false;
+  }
+
+  const char* tries[2] = { sipUri, loraAddress };
+  for (int i = 0; i < 2; i++) {
+    if (!tries[i] || !tries[i][0]) {
+      continue;
+    }
+    char want[SMS_MIRROR_PEER_MAX];
+    sipThreadIdentity(tries[i], want, sizeof(want));
+    if (!want[0]) {
+      continue;
+    }
+    for (int t = 0; t < sipThreadsCount(); t++) {
+      const SipThread* th = sipThreadAt(t);
+      if (!th || strcmp(th->peer, want)) {
+        continue;
+      }
+      snprintf(jumpPeer, sizeof(jumpPeer), "%s", th->peer);
+      snprintf(jumpUri,  sizeof(jumpUri),  "%s", th->uri);
+      log_i("jump to existing thread with %s", jumpPeer);
+      return true;
+    }
+  }
+  return false;
+}
+
 appEventResult CreateMessageApp::processEvent(EventType event) {
   log_i("processEvent CreateMessageApp");
 
@@ -8335,6 +8449,13 @@ appEventResult CreateMessageApp::processEvent(EventType event) {
       const char* loraAddress = ((PhonebookApp*)subApp)->getSelectedLoraAddress();
       delete subApp;
       subApp = NULL;
+
+      /* Already talking to this person? Then that conversation is where you meant to go —
+       * hand it to the parent and get out of the way. Nothing happens here for a
+       * correspondent with no history, which is the case this screen is actually for. */
+      if (this->takeThreadJump(sipUri, loraAddress)) {
+        return EXIT_APP | REDRAW_ALL;
+      }
 
       if (sipUri && *sipUri && loraAddress && *loraAddress) {
         char tmp[800] = {0};
@@ -13854,13 +13975,78 @@ MenuOption::MenuOption(MenuOption::keyType pId, uint16_t pStyle, const char* tit
  *
  * Cost: a textWidth() per trimmed char, only on strings that actually overflow,
  * only on redraws (keypress-driven) — nothing here runs per frame. */
-/* The human label for a SIP correspondent.
+/* The phonebook name for a correspondent, or NULL when they are not in it.
+ *
+ * ⚠ MATCHED ON THE GROUPING IDENTITY, NEVER ON THE STRING. The same person reaches
+ * the message store as `14257604281@seattle1.voip.ms`, `+14257604281` or a bare
+ * `4257604281` depending on which way the message came in, and the phonebook holds
+ * a fourth spelling again. sipThreadIdentity() is the one normaliser that makes all
+ * of those one person — the same one the threads are grouped by, so a name can never
+ * attach to a row the identity says is somebody else.
+ *
+ * Both address fields are checked: a contact reachable only over LoRa has just `l`,
+ * and its messages are stored under that hex id.
+ *
+ * Cost is one scan of the phonebook per label, on menu builds and screen entry only —
+ * nothing here runs per frame. The returned pointer lives in the phonebook's PSRAM;
+ * copy it if you intend to keep it (HeaderWidget::setTitle does NOT copy).
+ */
+static const char* sipContactName(Storage& flash, const char* peer, const char* uri) {
+  const char* addr = (peer && peer[0]) ? peer : uri;
+  if (!addr || !addr[0]) {
+    return NULL;
+  }
+  /* ⚠ NEVER LOADS. The phonebook comes off SPIFFS, and SPIFFS on this board takes its
+   * stalls in one indivisible piece — see the bench numbers in docs. A lazy load here
+   * would drop that stall in the middle of drawing a menu row. MessagesApp's constructor
+   * loads it once, at the moment the screen is already busy loading the message store;
+   * an unloaded phonebook simply means no names, which is what the old code showed. */
+  if (flash.phonebook.nSections() < 2) {
+    return NULL;
+  }
+
+  char want[SMS_MIRROR_PEER_MAX];
+  sipThreadIdentity(addr, want, sizeof(want));
+  if (!want[0]) {
+    return NULL;
+  }
+
+  for (auto si = flash.phonebook.iterator(1); si.valid(); ++si) {
+    const char* name = si->getValueSafe("n", "");
+    if (!name[0]) {
+      continue;                       // an entry with no name has nothing to contribute
+    }
+    static const char* const FIELDS[] = { "s", "l" };
+    for (int f = 0; f < 2; f++) {
+      const char* have = si->getValueSafe(FIELDS[f], "");
+      if (!have[0]) {
+        continue;
+      }
+      char id[SMS_MIRROR_PEER_MAX];
+      sipThreadIdentity(have, id, sizeof(id));
+      if (id[0] && !strcmp(id, want)) {
+        return name;
+      }
+    }
+  }
+  return NULL;
+}
+
+/* The human label for a SIP correspondent: their name if you have one, else the address.
+ *
+ * The name is the point — Nick, 2026-08-28: "I don't have each contact member number
+ * memorized, I have to keep clicking the conversation to see who is who." A row that
+ * says `4257604281` is a lookup task; one that says `Covey` is an answer.
  *
  * `peer` is the GROUPING IDENTITY (sipThreadIdentity): bare digits for a phone
  * number — the nice form — but for a long address it is a bounded, hash-suffixed
  * key like "sip:alice.wo#hxafym" that nobody should ever be shown. In that case
  * the full `uri` is the truth, and the draw site ellipsizes it honestly. */
-static const char* sipDisplayLabel(const char* peer, const char* uri) {
+static const char* sipDisplayLabel(Storage& flash, const char* peer, const char* uri) {
+  const char* name = sipContactName(flash, peer, uri);
+  if (name) {
+    return name;
+  }
   const bool digits = peer && peer[0] && strspn(peer, "0123456789") == strlen(peer);
   if (digits || !uri || !uri[0]) {
     return (peer && peer[0]) ? peer : (uri ? uri : "");

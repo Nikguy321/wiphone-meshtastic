@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.9.42 (2026-08-28) - conversations know who they are talking to
+
+Two things reported from use, both of them the same complaint: the Messages app knew the
+phone number and expected you to know the person.
+
+- **Chats, threads and thread lines are labelled with the CONTACT NAME** where the phonebook
+  has one, falling back to the address exactly as before where it does not. Nick: "I don't
+  have each contact member number memorized, I have to keep clicking the conversation to see
+  who is who."
+  - ⚠ **Matched on the grouping IDENTITY, never on the string.** The same person reaches the
+    message store as `14257604281@seattle1.voip.ms`, `+14257604281` or a bare `4257604281`
+    depending on which way the message came in, and the phonebook holds a fourth spelling
+    again. `sipThreadIdentity()` — the normaliser the threads are already grouped by — is the
+    one rule, so a name can never attach to a row the identity says is somebody else. Both
+    the `s` and `l` fields are checked, since a LoRa-only contact has no SIP address at all.
+  - ⚠ **The phonebook is loaded ONCE, in the app's constructor**, beside the message store.
+    A lazy load at the first label would have put a SPIFFS read inside a menu redraw, and
+    SPIFFS on this board takes its stalls in one indivisible piece. An unloaded phonebook
+    just means no names, which is what the old code showed anyway.
+  - ⚠ The open thread's label is **copied** into `MessagesApp::threadLabel`, not pointed at:
+    `HeaderWidget::setTitle()` keeps the pointer rather than the string, and the name it
+    would point at lives in the phonebook INI that the picker is free to rewrite. It is also
+    one phonebook scan instead of one per rendered message.
+- **New Message → Choose → someone you have already texted now OPENS that conversation**
+  instead of starting a second, parallel history with the same person. Nick: "think how phone
+  texting apps should work."
+  - The composer reads the thread snapshot `buildChats()` already built — no rebuild, no
+    message-store scan — and exits handing the peer back only when a thread actually exists.
+    A genuinely new correspondent is unchanged: the address is filled in and you type.
+  - ⚠ **Only with an EMPTY message body.** Choose is reachable after typing (move focus back
+    up to "To:" and press OK), and somebody who has already written the message meant to
+    send it, not to go read history.
+  - Back out of the thread lands on that person's row in the chats list, not at the top.
+- 🐛 **And picking a recipient no longer bins a half-written message.** Found while writing
+  the guard above: `CreateMessageApp::setupUI()` rebuilds every widget on the screen — that
+  is how the pick fills "To:" in — and the fresh body widget came back empty. So "type the
+  message, then choose who it goes to", which is a perfectly ordinary order to do it in,
+  silently threw the message away. The body is now carried across.
+
 ## 0.9.41 (2026-08-28) - predictive text in the note page
 
 - **Note Page predicts.** Prose, like a message body — the other place you write sentences
