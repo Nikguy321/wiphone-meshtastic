@@ -55,6 +55,17 @@ int  bookSyncInboxCount();
 const BookSyncInboxItem* bookSyncInboxGet(int i);
 void bookSyncInboxRemove(int i);
 
+/* Bumped whenever the contents change: a packet parked that was not already here, or one
+ * taken out. It exists so the reader can ask "is there anything new?" on a timer for the
+ * price of a comparison — bookSyncInboxFindFor() verifies an HMAC per parked packet, which
+ * is not something to run once a second for nothing.
+ *
+ * ⚠ A packet IDENTICAL to one already parked does NOT bump it. A mesh rebroadcast is the
+ * same news arriving twice, and re-offering a position the reader is already looking at
+ * would turn flood routing into a nag. Pressing Sync again on the sender does produce a
+ * different packet (its own turnedAt and nonce), so a deliberate resend still counts. */
+uint32_t bookSyncInboxSeq();
+
 /* The newest parked position that VERIFIES under `key` and is about the book with these ids.
  *
  * Returns its index and fills `out`/`fromOut`, or -1. Newest by the sender's own turnedAt,

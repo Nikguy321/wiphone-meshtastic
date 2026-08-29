@@ -7,10 +7,16 @@
 
 static BookSyncInboxItem s_items[BOOKSYNC_INBOX_MAX];
 static int s_count = 0;
+static uint32_t s_seq = 0;
 
 void bookSyncInboxInit() {
   s_count = 0;
   memset(s_items, 0, sizeof(s_items));
+  s_seq++;                             // never reset: a reader holding an old value must not match
+}
+
+uint32_t bookSyncInboxSeq() {
+  return s_seq;
 }
 
 bool bookSyncInboxPush(const char* text, uint32_t from, uint32_t rxUnix) {
@@ -28,7 +34,7 @@ bool bookSyncInboxPush(const char* text, uint32_t from, uint32_t rxUnix) {
     if (strcmp(s_items[i].text, text) == 0) {
       s_items[i].from = from;
       s_items[i].rxUnix = rxUnix;
-      return true;
+      return true;                     // deliberately no s_seq bump — see the note in the header
     }
   }
 
@@ -44,6 +50,7 @@ bool bookSyncInboxPush(const char* text, uint32_t from, uint32_t rxUnix) {
   it->text[len] = '\0';
   it->from = from;
   it->rxUnix = rxUnix;
+  s_seq++;
   return true;
 }
 
@@ -63,6 +70,10 @@ void bookSyncInboxRemove(int i) {
     s_items[k] = s_items[k + 1];
   }
   s_count--;
+  /* Bumped on the way out as well as in, so that acting on one offer makes the reader look
+   * again: two devices can each park a position for the same book, and the second must not
+   * stay invisible until the next time the book is opened. */
+  s_seq++;
 }
 
 int bookSyncInboxFindFor(const uint8_t key[32], const char* const* ids, int nIds,

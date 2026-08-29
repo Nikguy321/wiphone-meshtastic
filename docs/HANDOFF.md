@@ -1,14 +1,52 @@
 # WiPhone — session handoff
 
-## ▶▶ NEXT SESSION — TASK LIST (header refreshed 2026-08-27 late afternoon)
+## ▶▶ NEXT SESSION — TASK LIST (header refreshed 2026-08-29 afternoon)
 
 Read this first; everything below it is narrative.
 
-✅ **BOTH PHONES ARE ON 0.9.32** (flashed 2026-08-27 evening from one build dir; see the
-booksync-wedge and book-open blocks below for what 0.9.31/0.9.32 change and what is still
-owed). ⚠ `ver` build-time still cannot distinguish same-day builds. Both associated,
-phone 1 SIP-registered at the work desk; panicwatch running on both under caffeinate.
-Repo clean and pushed.
+✅ **BOTH PHONES ARE ON 0.9.46** (flashed 2026-08-29 15:24 from one build dir, both
+`Hash of data verified`). ⚠ `ver` build-time still cannot distinguish same-day builds. Both
+associated, phone 1 SIP-registered; panicwatch running on both. Host suite **1,161
+assertions, 0 failures** across eight suites (the old "841" figure in memory is stale).
+
+🎉 **BOOK SYNC IS NO LONGER A STOPWATCH (0.9.46) — PROVEN BOTH DIRECTIONS ON HARDWARE.**
+Nick's report was that a position only landed if he opened the book first, sent second, then
+closed and reopened the book. All three steps were working around faults:
+
+- 🛑 **`BooksApp`'s constructor called `bookSyncInboxInit()`.** The app is `new`ed on entry to
+  Books and `delete`d on exit (GUI.cpp `GUI_APP_BOOKS`), so **opening the Books app emptied
+  the parking spot** — at the exact moment the reader was about to look in it. That is the
+  whole reason a position had to arrive with Books ALREADY OPEN. The inbox is a file-static
+  array the C runtime zeroes before `setup()`; it never needed initialising. **The call is
+  gone and there is a 🛑 comment where it was — it reads like tidy housekeeping, so do not
+  put it back.**
+- 🐛 **`checkForPending()` ran on book open and after a passcode edit, and nowhere else** —
+  hence the close-and-reopen. `BOOKS_READ` now ticks at 1 Hz and re-checks when (and only
+  when) `bookSyncInboxSeq()` has moved.
+- 🐛 **Even when a position WAS found, the only surfacing was a row inside `Menu`.** Opening a
+  book with one waiting now goes **straight to the sync card**, which is COVEY's behaviour and
+  what Nick asked for.
+
+**MEASURED ON BOTH PHONES, 2026-08-29 (screenshots at each step, no hand on the receiver):**
+
+| test | result |
+|---|---|
+| sent with the receiver's Books app **shut**, then Books opened | card on book open: *"WiPhone-9040 says: they are at 66% / you are at 21%"* |
+| sent with the receiver **sitting on the page** | card appeared **by itself in <10 s**, no input: *"they are at 82% / you are at 66%"* |
+| declined with Back | lands on the page; **still gone 20 s later** — no nag |
+| sent while the receiver was in the reading **menu** | menu undisturbed; card raised on `Back` to the page |
+| reverse direction (phone 2 → phone 1) | *"WiPhone-Nick says: they are at 66% / you are at 82%"*, accepted, both phones at 66% |
+
+Heap after all of it: phone 1 `largest=23,364`, phone 2 `largest=26,884` with `min == heap`
+(never dipped). The two Guru Meditations in `/tmp/wiphone-serial.log` are at lines 122170 and
+324400 — **before** the 15:27:02 watcher restart, i.e. historical, not this build.
+
+⚠ **Still RAM-only: a reboot discards anything parked.** Persisting the inbox was deliberately
+not attempted — SPIFFS on this phone is pathologically slow and the inbox is four entries.
+⚠ **You still do not need to tap Sync on both devices** (D-089) — the prompt wording is the
+open item there, not the transport.
+📇 **Phone 1's sync device name is still the default `WiPhone-9040`**; phone 2 is
+`WiPhone-Nick`. Books ▸ menu ▸ Sync settings ▸ This device, if Nick wants it friendlier.
 
 # 🔎 2026-08-27 LATE AFTERNOON — NICK'S BOOKSYNC REPORT: THE TRIGGER IS UNREPRODUCED,
 # THE *NEVER-RECOVERS* HALF IS FIXED (0.9.31)

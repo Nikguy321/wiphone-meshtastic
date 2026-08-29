@@ -179,6 +179,60 @@ static void testHousekeeping() {
   ok(!bookSyncInboxPush(NULL, 1, 1), "and neither is nothing");
 }
 
+/* The doorbell. The reading screen polls bookSyncInboxSeq() once a second and only does the
+ * expensive verify when it moves, so if this counter is wrong in either direction the symptom
+ * is silent: either the offer never appears while you are reading, or it re-appears on a mesh
+ * rebroadcast of a position you are already looking at. */
+static void testSeqIsTheDoorbell() {
+  group("the change counter the reader polls");
+
+  uint8_t key[32];
+  keyFor("vector-passcode-a", key);
+  const char* ids[1] = { "id:doorbell-book" };
+
+  char first[BOOKSYNC_MESH_TEXT_MAX], again[BOOKSYNC_MESH_TEXT_MAX];
+  BookSyncRecord r;
+  bookSyncMakeRecord(&r, ids, 1, 2, 40, 0.20, 1000, "COVEY", "eeeeeeee");
+  bookSyncPackMesh(&r, key, first, sizeof(first));
+  // A second press of Sync over there: same book, later page turn, its own nonce.
+  BookSyncRecord r2;
+  bookSyncMakeRecord(&r2, ids, 1, 5, 90, 0.55, 2000, "COVEY", "ffffffff");
+  bookSyncPackMesh(&r2, key, again, sizeof(again));
+
+  bookSyncInboxInit();
+  uint32_t seq = bookSyncInboxSeq();
+  ok(bookSyncInboxSeq() == seq, "quiet air does not move it");
+
+  ok(bookSyncInboxPush(first, 1, 100), "a position arrives");
+  ok(bookSyncInboxSeq() != seq, "and the reader is told to look");
+  seq = bookSyncInboxSeq();
+
+  /* Flood routing means we hear the same frame more than once. That is the same news, and
+   * raising the card again for it would be a nag, not a sync. */
+  ok(bookSyncInboxPush(first, 1, 101), "the same frame arrives again");
+  ok(bookSyncInboxSeq() == seq, "a rebroadcast does NOT ring the doorbell");
+
+  ok(bookSyncInboxPush(again, 1, 200), "they press Sync a second time");
+  ok(bookSyncInboxSeq() != seq, "a deliberate resend does");
+  seq = bookSyncInboxSeq();
+
+  ok(!bookSyncInboxPush("just a normal chat message", 1, 1), "a chat message is refused");
+  ok(bookSyncInboxSeq() == seq, "and does not ring it either");
+
+  /* Two positions are parked for this book. Acting on one must make the reader look again,
+   * or the second stays invisible until the book is closed and opened. */
+  BookSyncRecord got;
+  int idx = bookSyncInboxFindFor(key, ids, 1, &got, NULL);
+  ok(idx >= 0, "the newer of the two is offered first");
+  eqU32(got.spine, 5, "and it is the later page turn");
+  ok(bookSyncInboxSeq() == seq, "looking is not a change");
+
+  bookSyncInboxRemove(idx);
+  ok(bookSyncInboxSeq() != seq, "taking one out rings it, so the other is found");
+  ok(bookSyncInboxFindFor(key, ids, 1, &got, NULL) >= 0, "and the other one is still there");
+  eqU32(got.spine, 2, "which is the earlier position");
+}
+
 static void testWrongBook() {
   group("a position for another book is left alone");
 
@@ -200,6 +254,7 @@ int main() {
   testWrongPasscodeIsDivertedButNeverApplied();
   testNewestWins();
   testHousekeeping();
+  testSeqIsTheDoorbell();
   testWrongBook();
   printf("\n%s%d passed, %d failed\033[0m\n", g_fail ? "\033[31m" : "\033[32m", g_pass, g_fail);
   return g_fail ? 1 : 0;

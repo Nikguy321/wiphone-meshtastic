@@ -154,6 +154,7 @@ protected:
   uint32_t pendingFrom;          // which node sent it
   int      pendingIdx;           // its slot in the inbox, or -1 for none
   bool     pendingClock;         // its clock looks wrong (see bookSyncSuspectClock)
+  uint32_t syncSeqSeen;          // bookSyncInboxSeq() as of the last checkForPending()
   char     syncNote[64];         // result of the last send, shown in the menu
 
   // ---- screen timeout, borrowed while reading

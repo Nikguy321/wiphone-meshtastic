@@ -308,7 +308,17 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   }
 
   loadSyncSettings();
-  bookSyncInboxInit();
+  /* 🛑 DO NOT call bookSyncInboxInit() here, and do not "tidy up" by adding it back.
+   *
+   * This app is `new`ed on entry to Books and `delete`d on exit (GUI.cpp, GUI_APP_BOOKS), so
+   * an init in this constructor threw away every parked position at the exact moment the
+   * reader was about to look for one — which defeated the entire point of the parking spot.
+   * The symptom on hardware was that a position had to arrive with Books ALREADY OPEN or it
+   * was never seen, so the only sequence that worked was: open the book here, press Sync
+   * over there, then close and reopen the book. The inbox is a file-static array, zeroed by
+   * the C runtime before setup() runs; it needs no initialisation and must outlive this app.
+   */
+  syncSeqSeen = bookSyncInboxSeq();     // what was already parked before Books was opened
   BOOKS_HEAP("ctor");
   scanBooks();
   BOOKS_HEAP("scanned");
@@ -994,9 +1004,14 @@ bool BooksApp::sendMyPlace() {
   return ok;
 }
 
-/* Anything parked for the book that is open? Called on opening one and on returning to the
- * page, because a LoRa round trip does not fit inside the moment you press Sync. */
+/* Anything parked for the book that is open? Called on opening one, on the reading screen's
+ * one-second tick whenever the inbox has changed, and after a passcode edit — because a LoRa
+ * round trip does not fit inside the moment you press Sync, and because the person reading
+ * should not have to guess that it landed. */
 void BooksApp::checkForPending() {
+  /* Stamped even on the early exits: this says "the inbox as of seq N has been looked at",
+   * and a book that is not open has been looked at just as conclusively as one that is. */
+  syncSeqSeen = bookSyncInboxSeq();
   pendingIdx = -1;
   if (!isOpen || nIds <= 0) {
     return;
@@ -1606,6 +1621,14 @@ void BooksApp::enterState(BooksState_t state) {
   appState = state;
   freeWidgets();
 
+  /* ⚠ SET WHAT THIS SCREEN NEEDS, do not inherit it. msAppTimerEventPeriod is device-wide,
+   * and apps routinely leave their own value in it (the Game Boy leaves 33 ms, others 25).
+   * Defaulted here rather than written into all twelve cases below, so a state added later
+   * gets "no timer" instead of whatever the previous screen happened to want — this is the
+   * shared-state bug class that produced four faults in one day. The two screens that do
+   * need a tick override it. */
+  controlState.msAppTimerEventPeriod = 0;
+
   switch (state) {
   case BOOKS_LIB:
     holdScreenAwake(false);
@@ -1632,6 +1655,11 @@ void BooksApp::enterState(BooksState_t state) {
     break;
   case BOOKS_READ:
     holdScreenAwake(true);
+    /* One second, for one comparison: the reading screen watches the booksync inbox so a
+     * position that lands while the book is open is offered where you are, rather than
+     * waiting for the book to be closed and opened again. The tick does nothing at all
+     * unless bookSyncInboxSeq() has moved. */
+    controlState.msAppTimerEventPeriod = 1000;
     /* ⚠ Force Numeric. `ControlState::inputType` is a MODE that persists across screens, and
      * the Meshtastic app leaves it on AlphaNum after composing — in which case the GUI runs
      * every key through the multi-tap decoder and pressing 2 yields 'a', not '2'. The number
@@ -1732,7 +1760,10 @@ appEventResult BooksApp::processEvent(EventType event) {
         int idx = (int)sel - BOOKS_ROW_FIRST;
         if (openBook(idx)) {
           libNote[0] = '\0';
-          enterState(BOOKS_READ);
+          /* openBook() has already asked. If somebody's place was waiting, SAY SO: burying
+           * it in a menu row meant a position could arrive, be found, and still be invisible
+           * to anyone who did not think to press Menu. Declining lands on the page. */
+          enterState(pendingIdx >= 0 ? BOOKS_SYNCCARD : BOOKS_READ);
         } else {
           // Say so in the list itself: a book that silently does nothing when you press OK
           // is the worst possible failure, and this one has real causes (a truncated
@@ -1849,6 +1880,20 @@ appEventResult BooksApp::processEvent(EventType event) {
     if (event == WIPHONE_KEY_UP || event == WIPHONE_KEY_LEFT || event == WIPHONE_KEY_F3) {
       prevPage();
       return REDRAW_SCREEN;
+    }
+    /* A position arriving while you are reading. Nothing here runs unless the inbox has
+     * actually changed, and the card is only raised for a position that belongs to THIS book
+     * and verifies under the passcode — checkForPending() decides both. Declining it removes
+     * the offer (see BOOKS_SYNCCARD), so this cannot turn into a prompt on every page. */
+    if (event == APP_TIMER_EVENT) {
+      if (syncSeqSeen != bookSyncInboxSeq()) {
+        checkForPending();
+        if (pendingIdx >= 0) {
+          enterState(BOOKS_SYNCCARD);
+          return REDRAW_ALL;
+        }
+      }
+      return DO_NOTHING;
     }
     // A number key opens the picture captioned with that number on this page.
     if (event >= '1' && event <= '9') {

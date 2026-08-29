@@ -1,5 +1,81 @@
 # Changelog
 
+## 0.9.46 (2026-08-29) - book sync stops being a stopwatch
+
+Nick: *"If I sync my place from a device, the wiphone doesn't automatically have the new place.
+I instead have to open the book on the receiving wiphone, then on the other device I have to
+push sync at that point, then on the receiving wiphone I have to close the book, then reopen
+it... I prefer how it works on covey where the 'jump to (device name)'s place?'"*
+
+That sequence was not superstition. It was the **only** sequence that worked, and each of its
+three steps was working around a different fault.
+
+### 🛑 Opening the Books app threw away every parked position
+
+`BooksApp`'s constructor called `bookSyncInboxInit()`. The app is `new`ed on entry to Books and
+`delete`d on exit (GUI.cpp, `GUI_APP_BOOKS`), so **the parking spot was emptied at the exact
+moment the reader was about to look in it.**
+
+The parking spot exists precisely because a LoRa round trip does not fit inside the moment you
+press Sync — a position is supposed to be able to arrive while the reader is shut and be waiting
+when you open the book. Wiping it on entry inverted that: a position only survived if it landed
+with Books *already open*, which is why the book had to be opened **first** and the send had to
+come **after**. The inbox is a file-static array that the C runtime zeroes before `setup()`
+runs; it never needed initialising, and it must outlive the app that reads it. The call is gone
+and there is a 🛑 comment where it was, because it reads like tidy housekeeping.
+
+### 🐛 A position arriving while you were reading was invisible until you closed the book
+
+`checkForPending()` ran on book open and after a passcode edit, and nowhere else. Sitting on a
+page while a position landed, nothing happened — hence the close-and-reopen. The reading screen
+now watches the inbox on a one-second tick and raises the offer where you are.
+
+The tick costs a **`uint32_t` comparison**: `bookSyncInboxSeq()` moves only when the inbox
+actually changes, and the HMAC verify behind `bookSyncInboxFindFor()` runs only then. A mesh
+**rebroadcast of a frame already parked deliberately does not move it** — flood routing means we
+hear the same frame more than once, and re-raising the card for it would be a nag rather than a
+sync. Pressing Sync again on the sender does move it, because that packet carries its own
+`turnedAt` and nonce.
+
+Removing an entry moves it too, so acting on one offer makes the reader look again: two devices
+can each park a position for the same book, and the second must not stay invisible until the
+next open.
+
+### 🐛 Even when it WAS found, nothing said so
+
+The only surfacing of a found position was a row inside `Menu` — "Go to X's place (47%)". A
+position could arrive, park, verify, match the open book, and still be invisible to anyone who
+did not think to press Menu. Opening a book with a position waiting now goes **straight to the
+sync card**, which is COVEY's behaviour and what Nick asked for. Declining lands on the page;
+the menu row stays for the passcode-edit path.
+
+### ⚙ The tick, and the shared-state trap it walks past
+
+`msAppTimerEventPeriod` is device-wide and apps routinely leave their own value in it. Rather
+than add a thirteenth scattered assignment, `BooksApp::enterState()` now **defaults it to 0 at
+the top** and lets the two screens that need a tick override it — so a state added later gets
+"no timer" instead of whatever the previous screen wanted. Same bug class as the menu ID, the
+I2S channel format and the notification pop's device config.
+
+### What this means in use
+
+Timing no longer matters in any direction:
+
+| when the position arrives | before | now |
+|---|---|---|
+| Books app shut | discarded on entry | offered when you open the book |
+| in the library, book shut | menu row only | offered when you open the book |
+| book open, you are reading | invisible until close+reopen | offered within a second |
+
+⚠ Still RAM-only: a reboot discards anything parked. And **you still do not need to tap Sync on
+both devices** — *Sync my place* broadcasts, the receiver parks it with no tap.
+
+### 🧪 Tests
+
+`test_inbox` gains 17 assertions covering the change counter in both directions — the quiet
+failure here is silent either way (the card never appears, or it re-appears on every
+rebroadcast). Suite: **1,161 assertions, 0 failures** across eight suites.
+
 ## 0.9.45 (2026-08-29) - the instrument for the residual drift, and six audit fixes
 
 ### 📐 The measurement nobody has taken
