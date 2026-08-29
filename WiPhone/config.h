@@ -38,7 +38,7 @@ governing permissions and limitations under the License.
  * Leave it OFF: it defeats the sleep timeout and pins the CPU high.
 //#define SCREEN_ALWAYS_ON_TEST */
 
-#define FIRMWARE_VERSION "0.9.37"
+#define FIRMWARE_VERSION "0.9.38"
 
 #define BUILD_GAMES
 

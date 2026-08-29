@@ -112,6 +112,23 @@ _ALSO = {
     "can": "can't", "don": "don't", "won": "won't", "let": "let's", "shan": "shan't",
 }
 
+# ── WORDS THE CORPUS IS TOO OLD TO HAVE ────────────────────────────────────────────────────
+# OpenSubtitles 2018 systematically lacks the vocabulary of using a phone, because film
+# dialogue rarely contains it. Measured against the shipped table: wifi, bluetooth, usb,
+# username, login, browser, screenshot, emoji and smartphone were all absent, and those are
+# words somebody texts on a Tuesday.
+#
+# Curated, short, and deliberately GENERAL. Project vocabulary — meshtastic, lora, repeater —
+# is NOT here: that is exactly what the SD extra dictionary is for, and baking one project's
+# jargon into everybody's firmware is the thing that design exists to avoid.
+#
+# Injected at a middling rank so they are plausible candidates without displacing core words.
+_MODERN_RANK = 5000
+_MODERN = [
+    "wifi", "bluetooth", "usb", "username", "login", "logout", "browser", "screenshot",
+    "emoji", "smartphone", "hotspot", "charging", "unlock", "reboot", "offline",
+]
+
 # The 's / 're / 've / 'll / 'd forms, which tokenisation splits off entirely so they cannot
 # be recovered from the corpus at all. Curated rather than derived: this is the closed set of
 # things people actually type, and every one of them was on the old phones.
@@ -185,6 +202,21 @@ def load_freq(path):
             emit(w)
             if w in _ALSO:
                 emit(_ALSO[w])            # keep "can", add "can't" just behind it
+
+    # Vocabulary the corpus is too old to RANK, promoted to a fixed middling position.
+    #
+    # ⚠ PROMOTED, NOT MERELY ADDED. Most of these ARE in the corpus — "wifi" sits at rank
+    # 32,756 — they are just far below the 25,000 cut, because film dialogue rarely says
+    # them. Skipping words already present therefore did nothing at all: the word stayed
+    # where it was and was dropped with the rest of the tail. Remove first, then insert.
+    for i, w in enumerate(_MODERN):
+        if w in seen:
+            try:
+                out.remove(w)
+            except ValueError:
+                pass
+        seen.add(w)
+        out.insert(min(_MODERN_RANK + i, len(out)), w)
 
     # Anything tokenisation destroyed outright, at the rank its base form earned so it lands
     # among words of comparable frequency rather than at the bottom of the table.

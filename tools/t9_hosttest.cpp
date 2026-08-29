@@ -351,6 +351,114 @@ int main() {
     ok(e.candidate(e.candidateCount()) == NULL, "one past the end is still NULL");
   }
 
+  // ---- WHAT THE DICTIONARY MUST CONTAIN ----------------------------------------------------
+  /* 🔑 THE TEST THAT WOULD HAVE CAUGHT "cat".
+   *
+   * Everything above asserts that the engine agrees with itself: that words IN the table are
+   * reachable, sorted, and cycled correctly. All of it passed while the shipped dictionary
+   * was missing cat, bat, cop, bus, cup, art, cry, sat, mat, tip, gym, pop and pub, and while
+   * 401 of the 512 three-digit keys matched nothing whatsoever. A generator flag had quietly
+   * removed 990 of the 1,115 three-letter words and no assertion here noticed, because none
+   * of them was about ENGLISH.
+   *
+   * This list is. It is deliberately hand-written rather than derived from the corpus — a
+   * list generated from the same source that builds the table could never disagree with it.
+   * If a word here stops being typable, that is a regression whatever the numbers say. */
+  {
+    static const char* const MUST_HAVE[] = {
+      // The commonest words in the language.
+      "the", "and", "you", "for", "are", "have", "this", "that", "with", "from", "they",
+      "what", "when", "will", "your", "just", "like", "know", "time", "good", "make",
+      // Three letters: the length a rank filter is most likely to eat, and the reason
+      // this block exists. Every one of these was missing at some point today.
+      "cat", "bat", "act", "cop", "bus", "cup", "art", "cry", "sat", "mat", "tip", "gym",
+      "pop", "pub", "dog", "car", "job", "boy", "son", "bad", "big", "old", "new", "day",
+      "way", "off", "any", "two", "ten", "six", "hot", "bed", "red", "man", "kid", "sun",
+      // Two letters: the ones a keypad can actually produce and a person actually types.
+      "am", "an", "as", "at", "be", "by", "do", "go", "he", "hi", "if", "in", "is", "it",
+      "me", "my", "no", "of", "oh", "ok", "on", "or", "so", "to", "up", "us", "we",
+      // Things people text about.
+      "home", "house", "room", "food", "water", "coffee", "dinner", "phone", "text",
+      "message", "email", "call", "battery", "charger", "radio", "signal", "morning",
+      "night", "today", "tomorrow", "week", "money", "work", "school", "meeting",
+      "love", "sorry", "please", "thanks", "hello", "family", "friend", "mother",
+      "father", "sister", "brother", "doctor", "hospital", "help", "safe", "rain",
+      "snow", "cold", "warm", "left", "right", "near", "town", "road", "map",
+      // Using a phone. A 2018 subtitle corpus ranks these far below the cut; the
+      // generator promotes them deliberately, and this is what proves it still does.
+      "wifi", "bluetooth", "usb", "username", "login", "browser", "screenshot",
+      "emoji", "smartphone", "hotspot", "internet", "online", "password", "download",
+      // Contractions, which the corpus splits on the apostrophe and the generator repairs.
+      // Reachable from letters alone — see the apostrophe test above.
+      "don't", "can't", "won't", "i'm", "it's", "that's", "we're", "you're",
+      "didn't", "doesn't", "isn't", "i've", "i'll", "he's", "she's", "there's",
+      "what's", "let's",
+    };
+    const int n = (int)(sizeof(MUST_HAVE) / sizeof(MUST_HAVE[0]));
+
+    // Present in the table at all...
+    int absent = 0;
+    for (int i = 0; i < n; i++) {
+      bool found = false;
+      for (int j = 0; j < (int)T9_WORD_COUNT && !found; j++) {
+        if (!std::strcmp(T9_WORDS[j], MUST_HAVE[i])) found = true;
+      }
+      if (!found) {
+        if (absent < 20) std::printf("  MISSING FROM DICTIONARY: %s\n", MUST_HAVE[i]);
+        absent++;
+      }
+    }
+    checks++;
+    if (absent) { failures++; std::printf("  FAIL  %d of %d required words absent\n", absent, n); }
+
+    // ...and actually TYPABLE, which is the thing the user cares about. A word can be in
+    // the table and still unreachable if the sort and the search ever disagree.
+    T9Engine e;
+    char key[64];
+    int untypable = 0;
+    for (int i = 0; i < n; i++) {
+      keyOf(MUST_HAVE[i], key);
+      if (!key[0] || (int)std::strlen(key) > T9_MAX_KEY_LEN) continue;
+      type(e, key);
+      bool found = false;
+      for (int c = 0; c < e.candidateCount() && !found; c++) {
+        if (!std::strcmp(e.candidate(c), MUST_HAVE[i])) found = true;
+      }
+      if (!found) {
+        if (untypable < 20) std::printf("  NOT TYPABLE: %s (key %s)\n", MUST_HAVE[i], key);
+        untypable++;
+      }
+    }
+    checks++;
+    if (untypable) { failures++; std::printf("  FAIL  %d of %d required words not typable\n", untypable, n); }
+    std::printf("  vocabulary: %d required words, %d absent, %d untypable\n", n, absent, untypable);
+  }
+
+  // ---- KEY COVERAGE ------------------------------------------------------------------------
+  /* The blunt instrument that would have caught the same bug without knowing any English:
+   * how many of the 512 three-digit keys match at least one word.
+   *
+   * Measured: 111 when cat was missing, 373 now, against a ceiling of 433 for the entire
+   * 50,000-word corpus — the last 60 keys live in the tail this dictionary deliberately does
+   * not carry. So the floor is 350: comfortably under the real figure so ordinary churn does
+   * not fail the build, and three times the broken one so a collapse cannot pass.
+   * ⚠ 400 was tried first and is NOT reachable; if this ever needs raising, check the
+   * ceiling above before picking a number. */
+  {
+    T9Engine e;
+    char key[4] = { 0, 0, 0, 0 };
+    int live = 0;
+    for (char a = '2'; a <= '9'; a++)
+      for (char b = '2'; b <= '9'; b++)
+        for (char c = '2'; c <= '9'; c++) {
+          key[0] = a; key[1] = b; key[2] = c;
+          type(e, key);
+          if (e.candidateCount() > 0) live++;
+        }
+    std::printf("  three-digit keys with at least one word: %d of 512\n", live);
+    ok(live >= 350, "three-digit key coverage has not collapsed (>= 350 of 512)");
+  }
+
   std::printf("\n%d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;
 }

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.38 (2026-08-28) - a test that knows English, and the words the corpus was too old to have
+
+The 0.9.37 review found "cat" missing from the dictionary while all 68 host checks passed.
+This closes that gap and the vocabulary hole it exposed.
+
+- 🔑 **The host test now asserts what the dictionary must CONTAIN**, not merely that it is
+  self-consistent. 166 hand-written everyday words — the commonest hundred, a deliberate
+  block of two- and three-letter words, things people text about, the contractions, and the
+  phone vocabulary — each checked as present AND as actually typable. Hand-written on
+  purpose: a list derived from the corpus that builds the table could never disagree with it.
+- **Plus a blunt instrument that needs no English:** how many of the 512 three-digit keys
+  match at least one word. 111 when cat was missing, 373 now, against a ceiling of 433 for
+  the whole 50,000-word corpus. The floor is 350.
+- ✅ **The test was proven against the bug it was written for.** Rebuilding the old dictionary
+  and running it gives 3 failures naming cat, sat, mat, tip, gym, pop, pub, map and usb, and
+  reports coverage collapsed to 111 of 512. It would have stopped this shipping.
+- **Words a 2018 subtitle corpus is too old to rank.** wifi, bluetooth, usb, username, login,
+  logout, browser, screenshot, emoji, smartphone, hotspot and friends were all absent from
+  the table — film dialogue rarely says them. ⚠ They are PROMOTED, not added: most were in
+  the corpus already, just far below the 25,000 cut ("wifi" sat at rank 32,756), so the first
+  attempt skipped them as "already present" and changed nothing at all.
+- Deliberately NOT added: meshtastic, lora, repeater. Project vocabulary belongs in the SD
+  extra dictionary, which is exactly what that design is for — baking one project's jargon
+  into everybody's firmware is the thing it exists to avoid.
+
 ## 0.9.37 (2026-08-28) - four T9 bugs found by review, three of them mine from today
 
 An adversarial read of the finished feature, run while the phone was being used. Every one
