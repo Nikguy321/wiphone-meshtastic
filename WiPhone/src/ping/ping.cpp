@@ -322,11 +322,24 @@ bool ping_start(IPAddress adr, int count=0, int interval=0, int size=0, int time
 
   ping_seq_num = 0;
 
-  while ((ping_seq_num < count) && (!stopped)) {
+  /* 🛑 BOUNDED ON ITERATIONS, NOT ON ping_seq_num — that difference is a phone that hangs
+   * until the battery comes out. ping_seq_num is incremented inside ping_prepare_echo(),
+   * which ping_send() only reaches AFTER mem_malloc() succeeds; on failure it returns
+   * ERR_MEM at the top without touching the counter. So a single failed 340-byte internal
+   * allocation turned this into an infinite `delay(1000)` loop on the main task, with
+   * esp_task_wdt_reset() never reached again — and the watchdog is configured
+   * print-not-panic, so the phone does not even reboot out of it. It just stops.
+   * That is this device's contiguous-internal-heap failure arriving as a HANG rather than
+   * an abort, which is strictly worse: no reset_reason, no backtrace, nothing in the log. */
+  for (int attempt = 0; attempt < count && !stopped; attempt++) {
     if (ping_send(s, &ping_target, size) == ERR_OK) {
       ping_recv(s);
     }
-    delay( interval*1000L);
+    /* No sleep after the last one — it delayed the caller for a full interval with nothing
+     * left to wait for, on a path that already blocks the whole superloop. */
+    if (attempt + 1 < count) {
+      delay( interval*1000L);
+    }
   }
 
   closesocket(s);

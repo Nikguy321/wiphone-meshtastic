@@ -1,5 +1,65 @@
 # Changelog
 
+## 0.9.45 (2026-08-29) - the instrument for the residual drift, and six audit fixes
+
+### 📐 The measurement nobody has taken
+
+0.9.43/0.9.44 removed the app-switching ratchet (47 app opens, net `largest` +0) but phone 1
+still lost **2,292 bytes over 174 minutes in steps that fall BETWEEN app opens**. The app-open
+probe cannot see that by construction and the DROP instrument says a step happened without
+saying what caused it. So `heapEvent()` / `heapDelta()` now mark `largest` at the remaining
+suspects, into `/health.log`:
+
+- `MARK scan-pre` / `MARK scan-post` — brackets every auto-switch WiFi scan
+- `MARK assoc` / `MARK disassoc` — every association change
+- `MARK mesh-relay` — every flood rebroadcast, **logged only when `largest` moved ≥256 bytes**
+  so a quiet TX costs nothing
+
+⚠ **Loop task only.** `healthLogLine()` opens a file on the SD card, so association is detected
+by polling `WiFi.status()` from the loop at 2 s rather than by hooking `processWiFiEvent()` —
+that handler runs on the WiFi event task with a 4 KB stack and would race the loop's own SD
+access. This is the same discipline that made the scan guard a *call-site* decision.
+
+If the residual is stepwise and lands on these marks, we have it. If `largest` slides smoothly
+between them, it is none of these and the next pass must instrument allocation *sites*.
+
+### 🐛 Six from the audit — the ones that were cheap and safe
+
+- 🛑 **Diagnostics ▸ Networks rebooted deterministically with WiFi down.** `nextToPing++` is
+  unconditional but `pingedAll` was only set inside the `wifiRssi != 0` branch, so the sequence
+  never terminated and `bbPings[i]->setText()` ran past the end of a two-element array. At
+  `i==2` that calls setText() on a NULL `this`. One press of DOWN, ~3 s, every time. Index
+  bounded; `buff` initialised (it was handed uninitialised to `extStrdup()` on that path).
+- 🛑 **`ping_start()` could hang the phone until the battery came out.** The loop was bounded on
+  `ping_seq_num`, which is only incremented *after* `mem_malloc()` succeeds — so one failed
+  340-byte allocation made it an infinite `delay(1000)` loop with the watchdog set
+  print-not-panic. **Contiguous-heap exhaustion arriving as a HANG rather than an abort: no
+  reset_reason, no backtrace, nothing in the log.** Now bounded on attempts, and the trailing
+  delay after the last ping is gone.
+- 🐛 **ParcelApp read and copied the serial buffer after freeing it.** `free()` sat above the
+  reads; `setText()` then did `strlen()` on the freed block and allocated *that* length from
+  the internal heap. A use-after-free presenting as a random-sized allocation.
+- 🐛 **`CriticalFile::backup()` leaked both buffers on every settings-screen exit** — it runs
+  from the destructor of every settings app. PSRAM, so not a panic mechanism, but monotone and
+  reclaimed only by reboot. `restore()` and `store()` always freed theirs.
+- 🐛 **Three sprites leaked their pixel buffers on every open.** `TFT_eSprite` has no destructor
+  anywhere in the vendored library. Digital Rain (98 B) and Ackman (340 B) are the stability
+  problem, not Recorder's 32 KB: `esp32Calloc()` tries plain `calloc()` first, so the small ones
+  come from the **internal** heap and are stranded mid-heap, splitting exactly what `largest`
+  measures.
+- 🐛 **UART Passthrough: a one-byte heap overwrite, an unchecked malloc, and a divide-by-zero.**
+  `data[rxBytes] = 0` wrote `data[1024]` on a full read, one byte into the next block's header —
+  silent, with the abort arriving later and elsewhere. The terminator was never needed. The
+  buffer is checked and in PSRAM now. And an empty baud field gave `atoi("") == 0`, so
+  `uart_set_baudrate()` computed `(UART_CLK_FREQ << 4) / 0` — an immediate Guru Meditation on
+  the first OK press.
+
+### Still open, deliberately
+
+The Digital Rain two-writer SPI race (`~ThreadedApp`'s bare `vTaskDelete` plus `showMeshPopup`
+drawing from the loop while the demo's task pushes sprites) needs an exit handshake and
+hardware to verify. Not attempted blind.
+
 ## 0.9.44 (2026-08-29) - four more of the one bug, and 0.9.43 confirmed in real use
 
 ### 📏 First: 0.9.43 was measured on the handsets, and the ratchet is gone

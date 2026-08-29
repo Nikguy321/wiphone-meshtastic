@@ -1698,12 +1698,22 @@ bool CriticalFile::backup(uint32_t unixTime) {
         if (len1 > 0 && len1 != maxStringSize) {
           md5Compress(tmp, len1-1, storedHash);
         }
-
+        /* ⚠ WAS NEVER FREED. backup() runs from the DESTRUCTOR of every settings app, so
+         * this 4,001-byte buffer leaked every time you backed out of a settings screen,
+         * changed or not. PSRAM, so it was not a panic mechanism — but it is a monotone
+         * leak on a routine path, reclaimed only by reboot. restore() and store() have
+         * always freed theirs. */
+        freeNull((void **) &tmp);
       }
     }
 
     // Serialize this INI
     char* str = (char*) extMalloc(len+1);
+    if (str == NULL) {
+      log_e("backup: no memory to serialize %d bytes", len);
+      freeNull((void **) &pageDyn);
+      return false;                    // was passed straight to sprint() unchecked
+    }
     this->sprint(str);
 
     // Calculate hash to compare to the previous one
@@ -1719,13 +1729,14 @@ bool CriticalFile::backup(uint32_t unixTime) {
     // String is sufficiently short and differs from the already strored -> save to NVS
     if (!success) {
       this->end();
-      if (this->begin(pageDyn, false)) {      // not read-only
+      if (this->begin(pageDyn, false)) {
         if (this->putString(backupKey, str)>0) {
           log_i("%d bytes to \"%s\": successful", len, pageDyn);
           success = true;
         }
       }
     }
+    freeNull((void **) &str);          // the other half of the same leak; last use is above
   }
 
   if (!success) {

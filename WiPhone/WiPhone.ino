@@ -1958,6 +1958,45 @@ int healthDump(uint32_t lastBytes) {
   return (int)total;
 }
 
+/* ── THE MEASUREMENT THE RATCHET STILL NEEDS ──────────────────────────────────────────
+ * 0.9.43 removed the app-switching ratchet — 47 app opens across two phones netted `largest`
+ * +0 (measured 2026-08-29). But phone 1 STILL lost 2,292 bytes over 174 minutes, in steps
+ * that fall BETWEEN app opens. The app-open probe cannot see that by construction, and the
+ * DROP instrument says a step happened without saying what caused it.
+ *
+ * So: mark `largest` at the specific events that are the remaining suspects. If the residual
+ * is stepwise and the steps land on these marks, we have the culprit; if `largest` slides
+ * smoothly between them, it is something none of these, and the next pass has to instrument
+ * allocation SITES rather than events.
+ *
+ * ⚠ LOOP TASK ONLY. healthLogLine() opens a file on the SD card, so this must never be
+ * called from the WiFi event task (4 KB stack, and it would race the loop's own SD access).
+ * That is why association is detected by watching WiFi.status() change from the loop rather
+ * than by hooking processWiFiEvent(). */
+void heapEvent(const char* what) {
+  char line[96];
+  snprintf(line, sizeof(line), "MARK %-10s largest=%u free=%u up=%lus", what,
+           (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
+           (unsigned)ESP.getFreeHeap(), (unsigned long)(millis() / 1000));
+  log_e("%s", line);
+  healthLogLine(line);
+}
+
+/* The same, but only when it actually moved — for events too frequent to log unconditionally
+ * (a mesh TX happens ~30 times an hour). Returns the current largest so a caller can chain. */
+uint32_t heapDelta(const char* what, uint32_t before) {
+  const uint32_t now = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+  const int32_t d = (int32_t)now - (int32_t)before;
+  if (d <= -256 || d >= 256) {
+    char line[96];
+    snprintf(line, sizeof(line), "MARK %-10s largest %u->%u (%+ld)", what,
+             (unsigned)before, (unsigned)now, (long)d);
+    log_e("%s", line);
+    healthLogLine(line);
+  }
+  return now;
+}
+
 /* Not static: GUI.cpp's app-open heap probe writes here too, so the culprit lands in the
  * same durable log everything else is read from. */
 void healthLogLine(const char* line) {
@@ -2349,6 +2388,18 @@ void loop() {
       static uint32_t s_largestHigh = 0;
       if (elapsedMillis(now, s_lastLargestCheck, 2000)) {
         s_lastLargestCheck = now;
+        /* Association marks, detected HERE rather than in processWiFiEvent(): that handler
+         * runs on the WiFi event task, and heapEvent() writes to the SD card. Polling the
+         * status from the loop at 2 s gets the same transitions somewhere it is safe to
+         * touch the filesystem. WiFiUDP::begin() used to fire on exactly this edge. */
+        static int s_lastWifiStatus = -1;
+        const int ws = (int)WiFi.status();
+        if (ws != s_lastWifiStatus) {
+          if (s_lastWifiStatus >= 0) {
+            heapEvent(ws == WL_CONNECTED ? "assoc" : "disassoc");
+          }
+          s_lastWifiStatus = ws;
+        }
         const uint32_t lg = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
         if (s_largestHigh == 0 || lg > s_largestHigh) {
           s_largestHigh = lg;

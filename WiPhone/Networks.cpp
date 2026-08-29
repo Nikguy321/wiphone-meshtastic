@@ -14,6 +14,8 @@ governing permissions and limitations under the License.
 
 #include "Networks.h"
 #include "helpers.h"
+
+extern void heapEvent(const char* what);   // WiPhone.ino - the ratchet instrument
 #include "esp_wifi.h"
 #include "esp_bt.h"
 
@@ -591,6 +593,7 @@ void Networks::autoSwitchTick(bool screenOn) {
     if (n > 0) {
       log_e("[autosw] scan done: n=%d", n);
       wifiScanNoteResult(n);          // size the next scan's heap estimate to THIS air
+      heapEvent("scan-post");         // pairs with scan-pre: did this scan cost anything permanent?
       _dryScans = 0;
       _dryBounced = false;
       autoSwitchEvaluate(n);
@@ -719,6 +722,7 @@ void Networks::autoSwitchTick(bool screenOn) {
     scheduleScanRetry(now, WiFi.status() == WL_CONNECTED);
     return;
   }
+  heapEvent("scan-pre");            // the scan is the prime remaining suspect: bracket it
   int16_t r = WiFi.scanNetworks(true /*async*/);   // keeps an existing association
   if (r != WIFI_SCAN_FAILED) {
     log_e("[autosw] scan started (wifi status %d)", (int)WiFi.status());

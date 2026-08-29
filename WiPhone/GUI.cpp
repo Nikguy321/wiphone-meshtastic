@@ -3125,14 +3125,32 @@ UartPassthroughApp::~UartPassthroughApp() {
 void UartPassthroughApp::thread(void *pvParam) {
   uartThreadParams *params = (uartThreadParams*)pvParam;
 
-  uint8_t* data = (uint8_t*) malloc(1024);
+  /* ⚠ CHECKED. Unchecked, a failed allocation handed NULL straight to uart_read_bytes()
+   * below, so the fault landed there rather than here — one more panic attributed to the
+   * wrong line. PSRAM: this is a 1 KB streaming buffer with no DMA or ISR involvement, and
+   * internal heap is the one that kills this phone. */
+  uint8_t* data = (uint8_t*) extMalloc(1024);
+  if (!data) {
+    log_e("UART passthrough: no memory for the 1 KB buffer - thread not started");
+    vTaskDelete(NULL);
+    return;
+  }
   while (1) {
     const int rxBytes = uart_read_bytes(params->rxPort, data, 1024, 1000 / 300);
     if (rxBytes > 0) {
-      data[rxBytes] = 0;
+      /* 🛑 `data[rxBytes] = 0;` USED TO BE HERE and wrote data[1024] on a full read — one
+       * byte into the next heap block's header. Silent; the abort arrives later, somewhere
+       * else, looking exactly like a fragmentation death. The terminator was never needed:
+       * the write below sends exactly rxBytes and never treats `data` as a C string. */
       uart_write_bytes(params->txPort, (const char*)data, rxBytes);
     }
   }
+  /* ⚠ UNREACHABLE, and known to be: the loop is while(1) and the task is killed from
+   * outside by vTaskDelete. That is why every Start/Stop cycle used to lose the buffer
+   * permanently (twice over, with Echo=No). It is PSRAM now, so a cycle costs PSRAM rather
+   * than the internal heap — but the real fix is an exit handshake so the task frees its
+   * own buffer and calls vTaskDelete(NULL). Left for a change that can be tested with a
+   * peer on the daughterboard UART. */
   free(data);
 }
 
@@ -3170,8 +3188,18 @@ appEventResult UartPassthroughApp::processEvent(EventType event) {
       startedSerial = true;
       ((ButtonWidget*) focusedWidget)->setText("stop");
 
+      /* 🛑 EMPTY FIELD = DIVIDE BY ZERO. The baud input starts with no text, so pressing
+       * Start without typing gave atoi("") == 0, and uart_set_baudrate() then computes
+       * (UART_CLK_FREQ << 4) / 0 — an immediate Guru Meditation on the first OK press. */
+      const int baudRate = atoi(baud->getText());
+      if (baudRate <= 0) {
+        log_e("UART passthrough: baud '%s' is not a usable rate", baud->getText());
+        ((ButtonWidget*) focusedWidget)->setText("start");
+        startedSerial = false;
+        return REDRAW_ALL;
+      }
       const uart_config_t uart_config = {
-        .baud_rate = atoi(baud->getText()),
+        .baud_rate = baudRate,
         .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
@@ -3259,6 +3287,13 @@ DigitalRainApp::DigitalRainApp(LCD& lcd, ControlState& state)
 }
 
 DigitalRainApp::~DigitalRainApp() {
+  /* ⚠ TFT_eSprite HAS NO DESTRUCTOR anywhere in the vendored library — the pixel buffer is
+   * released only by an explicit deleteSprite(). Without this the buffer was stranded on
+   * every open/exit. The small sprites are the stability problem, not the big one:
+   * esp32Calloc() tries plain calloc() first, so anything that fits comes from the INTERNAL
+   * heap and is left mid-heap, splitting the free space `largest` measures. deleteSprite()
+   * early-returns when nothing was created, so this is unconditionally safe. */
+  sprite.deleteSprite();
 }
 
 void DigitalRainApp::thread(void *pvParam) {
@@ -4291,15 +4326,25 @@ appEventResult ParcelApp::processEvent(EventType event) {
   } else if (appState == MAIN && event == USER_SERIAL_EVENT) {
     char* str = controlState.userSerialBuffer.getCopy();
     controlState.userSerialBuffer.reset();
+    /* getCopy() allocates; nothing guaranteed it succeeded. */
+    if (!str) {
+      return res;
+    }
     log_d("====================================================================");
     log_d("%s", str);
     log_d("====================================================================");
-    free(str);
+    /* 🛑 free() USED TO BE HERE, ABOVE THE READS. Everything below dereferenced a freed
+     * block: ESP-IDF writes its free-list pointers into the first bytes, so str[0..7] was
+     * already overwritten by the time strncasecmp() looked at it — and setText() then does
+     * strlen() on the freed block and allocates that garbage length from the internal heap.
+     * A use-after-free that presents as a random-sized allocation is about the worst
+     * possible shape on this device. */
     if (!strncasecmp(str, "NAME:", 5)) {
       inputs[0]->setText(str+5);
     } else {
       inputs[1]->setText(str);
     }
+    free(str);
     res |= REDRAW_ALL;
   }
   /*
@@ -9032,6 +9077,16 @@ RecorderApp::RecorderApp(Audio* audio, LCD& lcd, ControlState& state, HeaderWidg
 }
 
 RecorderApp::~RecorderApp() {
+  /* ⚠ TFT_eSprite HAS NO DESTRUCTOR anywhere in the vendored library — the pixel buffer is
+   * released only by an explicit deleteSprite(). Without this the buffer was stranded on
+   * every open/exit. The small sprites are the stability problem, not the big one:
+   * esp32Calloc() tries plain calloc() first, so anything that fits comes from the INTERNAL
+   * heap and is left mid-heap, splitting the free space `largest` measures. deleteSprite()
+   * early-returns when nothing was created, so this is unconditionally safe. */
+  sprite.deleteSprite();
+  if (label) {
+    delete label;   // PSRAM, but it was never released either
+  }
   audio->shutdown();
 }
 
@@ -9601,6 +9656,17 @@ void DiagnosticsApp::updatePing() {
   const char* host = NULL;
   IPAddress addr((uint32_t)0);
   int i = this->nextToPing++;
+  /* 🛑 BOUND THE INDEX. `nextToPing++` is unconditional but `pingedAll` was only ever set
+   * inside the `wifiRssi != 0` branch below — so with WiFi down or out of range the
+   * sequence never terminated, and `bbPings[i]->setText()` at the bottom ran with i past
+   * the end of a two-element array. At i==2 that reads the next member and calls setText()
+   * on a NULL `this`, which immediately dereferences it: LoadProhibited, reboot, about
+   * three seconds after one press of DOWN in Diagnostics. Deterministic. */
+  if (i >= (int)(sizeof(bbPings) / sizeof(bbPings[0]))) {
+    this->nextToPing = 0;
+    this->pingedAll = true;
+    return;
+  }
   if (controlState.wifiRssi != 0) {
     switch(i) {
     case 0:
@@ -9642,7 +9708,9 @@ void DiagnosticsApp::updatePing() {
   }
 
   log_d("PINGING...");
-  char buff[100];
+  /* Initialised: on the no-network path nothing below writes it before strlen()/extStrdup()
+   * read it. */
+  char buff[100] = "";
   bool res = false;
   int received = 0;
   if (addr || host && addr.fromString(host)) {
@@ -10663,6 +10731,13 @@ AckmanApp::AckmanApp(Audio* audio, LCD& lcd, ControlState& state) : WiPhoneApp(l
 }
 
 AckmanApp::~AckmanApp() {
+  /* ⚠ TFT_eSprite HAS NO DESTRUCTOR anywhere in the vendored library — the pixel buffer is
+   * released only by an explicit deleteSprite(). Without this the buffer was stranded on
+   * every open/exit. The small sprites are the stability problem, not the big one:
+   * esp32Calloc() tries plain calloc() first, so anything that fits comes from the INTERNAL
+   * heap and is left mid-heap, splitting the free space `largest` measures. deleteSprite()
+   * early-returns when nothing was created, so this is unconditionally safe. */
+  sprite.deleteSprite();
   //audio->shutdown();
   if (this->score > this->highScore) {
     this->saveHighScore(this->score);

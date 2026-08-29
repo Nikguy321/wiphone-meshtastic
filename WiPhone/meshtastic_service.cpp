@@ -7,6 +7,9 @@
  */
 
 #include "meshtastic_service.h"
+
+extern uint32_t heapDelta(const char* what, uint32_t before);  // WiPhone.ino - ratchet instrument
+#include "esp_heap_caps.h"
 #include "config.h"            // MESHTASTIC_PHY toggle
 #include "mesh_pki.h"          // PKC keypair/derive (portable — used in stub builds too)
 #include "mesh_pos.h"
@@ -1743,7 +1746,12 @@ bool MeshtasticService::loop() {
   // Flood routing: send at most one due rebroadcast per tick (send blocks).
   for (int i = 0; i < 4; i++) {
     if (rebroadcast[i].active && (int32_t)(millis() - rebroadcast[i].dueMs) >= 0) {
+      /* Bracketed because a rebroadcast is the most frequent thing this phone does that
+       * nobody logs, and it is a candidate for the residual drift. Silent unless it moved
+       * `largest` by 256 bytes or more — a quiet TX costs nothing to instrument. */
+      const uint32_t before = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
       meshPhy.send(rebroadcast[i].data, rebroadcast[i].len);
+      heapDelta("mesh-relay", before);
       rebroadcast[i].active = false;
       break;
     }
