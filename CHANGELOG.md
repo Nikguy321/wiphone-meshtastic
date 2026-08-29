@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.9.39 (2026-08-28) - the rest of the review
+
+Ten more findings from the same adversarial pass, triaged and fixed. Nothing here was
+reported by using the phone; all of it came from reading.
+
+**Input path**
+- **Both hold gestures fired while the phone was LOCKED or the screen asleep.** `uiKeyDown`
+  is set by the keypad scan whether or not the press reached the app, and neither hold was
+  gated. Holding `0` on a locked draft queued a backspace and a `0` straight into the text
+  field — the last character you really typed was deleted and replaced, invisibly, behind the
+  lock screen. Both now gated the way the F2 music hold already was.
+- **One `#` press destroyed a pending automatic capital.** `t9Commit` cleared `t9Caps`
+  unconditionally, and `#` called it on every press — so looking at the modes and coming back
+  gave "hello" rather than "Hello". Only a commit that actually committed something consumes
+  the capital now.
+- **A mode change silently ate a half-typed multi-tap letter.** `#` cleared `inputCurKey`
+  without emitting it, while the comment three lines above claimed the opposite. Both this
+  and the `*` drain now share one helper.
+- **The `#` hold was a toggle, not an arm** — and in Abc/ABC it landed on a flag those modes
+  never read, making it a 500 ms no-op that also stepped the mode back. It arms now, and maps
+  onto `inputShift` where that is the flag in play.
+- **A held digit never redrew the footer**, so the strip contradicted the engine until the
+  next keypress.
+- **`t9LiteralDigit` was the one emit path that never called `t9NoteChar`** — hold a digit,
+  then type, and the next word came out capitalised mid-line.
+
+**Dictionary**
+- **Slurs were in the table at ranks 4,600-6,500** and would have been offered as
+  predictions. Blocked, along with subtitle plumbing (`subtitles`, `sync`, `corrected`,
+  `ripped`). Ordinary profanity stays — people type it and the phone is not a chaperone.
+- **Contractions inherited their base word's rank and each family was inserted in reverse**,
+  so `4-3` offered "I'd" before "he" and `4-6` offered "I'm" before "in". They have their own
+  rank band now, ordered by their own frequency.
+- **`y'all` and `o'clock` were being dropped entirely** — no usable base word, so the old
+  fallback appended them past position 46,000 and the cut discarded both.
+- **The documented SD path was not the path the firmware reads.** The usage line said
+  `/t9-extra.txt`; the code opens `/t9/extra.txt`. Following the instructions produced zero
+  extra words.
+
+✅ Verified on hardware: cycling all four modes then typing gives "Hello"; `#` mid-letter now
+emits the letter. `43` gives "he" first and `46` gives "in" first. Host test 71 checks.
+
+⚠ Known and NOT fixed: common first names outrank ordinary words on some keys (`sam` over
+`ran`, `jack` over `lack`, `mike` over `mile`), and they are stored lowercase so they are
+wrong even when they are what you wanted. Removing names is worse than the problem;
+demoting them properly needs a name list and a rank penalty, which is a change worth making
+deliberately rather than in a batch like this one.
+
 ## 0.9.38 (2026-08-28) - a test that knows English, and the words the corpus was too old to have
 
 The 0.9.37 review found "cat" missing from the dictionary while all 68 host checks passed.

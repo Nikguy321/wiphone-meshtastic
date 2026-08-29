@@ -350,6 +350,8 @@ public:
    * every character the input path emits, whatever produced it — T9, multi-tap or the
    * symbols row — so the rule works the same however the sentence was typed. */
   void t9NoteChar(char c);
+  /* Emit and disarm a pending multi-tap letter; 0 if there was none. See the .cpp. */
+  char t9TakeArmedChar();
 
   void t9Commit(char trailingKey = 0);
   /* Next queued character, or 0 when the queue is empty. */

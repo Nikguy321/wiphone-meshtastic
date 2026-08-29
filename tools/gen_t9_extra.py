@@ -37,7 +37,7 @@ USAGE
     python3 tools/gen_t9_extra.py \\
         --titles tools/t9-corpus/sarna-titles.txt \\
         --exclude-freq tools/t9-corpus/en_50k.txt \\
-        --min-titles 2 --out /Volumes/WIPHONE/t9-extra.txt
+        --min-titles 2 --out /Volumes/WIPHONE/t9/extra.txt      # the /t9 dir must exist
 """
 import argparse
 import collections

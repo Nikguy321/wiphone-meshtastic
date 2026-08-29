@@ -815,8 +815,13 @@ void ControlState::t9Commit(char trailingKey) {
   if (n && t9Caps && t9Emit[0] >= 'a' && t9Emit[0] <= 'z') {
     t9Emit[0] = (char)toupper(t9Emit[0]);
   }
-  t9Caps = false;                        // one-shot, whether it came from a rule or from '#'
-  t9PunctSeen = false;
+  /* Only a word that was actually committed consumes the capital. Clearing unconditionally
+   * meant every no-op commit — and there is one on each '#' press — threw away a capital the
+   * user had not yet used. */
+  if (n) {
+    t9Caps = false;                      // one-shot, whether it came from a rule or from '#'
+    t9PunctSeen = false;
+  }
   if (trailingKey && n < sizeof(t9Emit) - 1) {
     t9Emit[n++] = trailingKey;
     t9NoteChar(trailingKey);             // ". " after a word still starts a new sentence
@@ -824,6 +829,27 @@ void ControlState::t9Commit(char trailingKey) {
   t9Emit[n] = '\0';
   t9EmitAt = 0;
   t9.clear();
+}
+
+/* Emit whatever multi-tap letter is armed, if any, and disarm. Returns the character or 0.
+ *
+ * The multi-tap machine only ever commits its pending letter when the NEXT key reaches the
+ * bottom of alphanumericInputEvent — and every T9 path returns long before that. So anything
+ * in the T9 layer that ends a multi-tap selection has to do this itself, or the letter is
+ * silently lost. Two places need it: the '*' symbols row drained when a T9 path takes over,
+ * and the '#' mode cycle. */
+char ControlState::t9TakeArmedChar() {
+  char c = 0;
+  if (inputCurKey && inputCurSel < strlen(inputSeq)) {
+    c = inputSeq[inputCurSel];
+    if (inputShift) {
+      c = (char)toupper(c);
+    }
+    t9NoteChar(c);
+  }
+  inputCurKey = 0;
+  inputCurSel = 0;
+  return c;
 }
 
 void ControlState::t9NoteChar(char c) {
@@ -879,6 +905,11 @@ void ControlState::t9LiteralDigit(char digit, bool retractOne) {
   t9Emit[n++] = digit;
   t9Emit[n] = '\0';
   t9EmitAt = 0;
+  /* The one emit path that bypasses alphanumericInputEvent entirely, so the tail hook there
+   * cannot see it. Without this, holding a digit left the sentence-capital armed and the
+   * next word came out capitalised mid-line: hold 2, then type hello, and you got "2Hello".
+   * The queued BACKSPACE is a control code and correctly needs no note. */
+  t9NoteChar(digit);
 }
 
 char ControlState::t9NextEmit() {
@@ -1166,13 +1197,24 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
   }
   if (key==WIPHONE_SHIFT_KEY) {
     if (state.t9Available()) {
-      /* Cycle T9 -> Abc -> ABC -> 123 -> T9. Any half-typed prediction is committed first,
-       * so changing mode never silently throws away keypresses. inputShift is kept in step
-       * because the multi-tap path below still reads it, and so does the footer. */
-      state.t9Commit();
+      /* Cycle T9 -> Abc -> ABC -> 123 -> T9. Nothing half-typed is thrown away: a pending
+       * PREDICTION commits, and a half-typed MULTI-TAP letter is emitted rather than
+       * discarded — clearing inputCurKey without emitting was silently eating it, which the
+       * previous version of this comment claimed it did not do.
+       *
+       * ⚠ t9Commit() ONLY WHEN A WORD IS PENDING. It clears t9Caps unconditionally, so
+       * calling it on every '#' press meant looking at the modes and coming back destroyed
+       * the automatic capital: a fresh Compose, four presses of '#', then "hello" gave
+       * "hello" rather than "Hello". */
+      if (state.t9.pending()) {
+        state.t9Commit();
+      }
+      const char armed = state.t9TakeArmedChar();
+      if (armed) {
+        r1 = armed;
+      }
       state.inputMode = (state.inputMode + 1) & 3;
       state.inputShift = (state.inputMode == ControlState::MODE_ABC_CAPS);
-      state.inputCurKey = 0;          // a mode change ends any pending multi-tap letter
       return;
     }
     // Field without predictive text: '#' is the shift toggle it has always been.
@@ -1212,15 +1254,10 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
      * It also left inputCurKey set, which blanks the prediction strip in FooterWidget.
      * This is the same commit the multi-tap branch does, hoisted to where T9 can reach it. */
     if (state.inputCurKey && state.inputCurKey != key) {
-      if (state.inputCurSel < strlen(state.inputSeq)) {
-        r1 = state.inputSeq[state.inputCurSel];
-        if (state.inputShift) {
-          r1 = toupper(r1);
-        }
-        state.t9NoteChar((char)r1);
+      const char armed = state.t9TakeArmedChar();
+      if (armed) {
+        r1 = armed;
       }
-      state.inputCurKey = 0;
-      state.inputCurSel = 0;
     }
     if (t9IsWordDigit(key)) {
       state.t9.pushDigit(key);

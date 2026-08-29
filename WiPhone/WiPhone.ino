@@ -2457,7 +2457,14 @@ void loop() {
      *
      * Read here, right after the stale-key sweep, so uiKeyDown is already up to date —
      * same placement and same reason as the F2 hold above. */
-    if (gui.state.t9Available() && gui.state.inputMode != ControlState::MODE_123) {
+    /* ⚠ GATED ON LOCKED AND SCREEN-OFF, like the F2 hold above. uiKeyDown is set by the
+     * keypad scan whether or not the press ever reached the app, and GUI::processEvent zeroes
+     * the event when the phone is locked or the screen is asleep — so without this, a hold
+     * during either state fired anyway. Holding '0' on a locked draft queued a BACKSPACE and
+     * a '0' straight into the text field: the last character you really typed was deleted and
+     * replaced, invisibly, behind the lock screen. */
+    if (!gui.state.locked && gui.state.screenBrightness > 0 &&
+        gui.state.t9Available() && gui.state.inputMode != ControlState::MODE_123) {
       static const uint32_t digitMask[10] = {
         WIPHONE_KEY_MASK_0, WIPHONE_KEY_MASK_1, WIPHONE_KEY_MASK_2, WIPHONE_KEY_MASK_3,
         WIPHONE_KEY_MASK_4, WIPHONE_KEY_MASK_5, WIPHONE_KEY_MASK_6, WIPHONE_KEY_MASK_7,
@@ -2499,6 +2506,10 @@ void loop() {
            * redrawWhat does not exist this early in the pass — so raise a flag and let the
            * dispatch below do it. */
           digitLiteralQueued = true;
+          /* The footer still shows the digits the SHORT press added; the engine has already
+           * dropped them. Without this the strip contradicts the prediction until the next
+           * keypress. The '#' hold below already does this. */
+          redrawWhatPending = true;
         }
       } else {
         msDigitDown = 0;
@@ -2520,7 +2531,7 @@ void loop() {
      * is edge-triggered, so its short press has already cycled the input mode by the time
      * this fires. Stepping the mode back by one is not a workaround for that, it is the
      * only correct response: the user asked for a capital, not for a mode change. */
-    if (gui.state.t9Available()) {
+    if (!gui.state.locked && gui.state.screenBrightness > 0 && gui.state.t9Available()) {
       if (uiKeyDown & WIPHONE_KEY_MASK_HASH) {
         if (!msHashDown) {
           msHashDown = now;
@@ -2528,8 +2539,21 @@ void loop() {
         } else if (!hashFired && now - msHashDown >= T9_DIGIT_HOLD_MS) {
           hashFired = true;
           gui.state.inputMode = (gui.state.inputMode + 3) & 3;   // undo the short press
-          gui.state.inputShift = (gui.state.inputMode == ControlState::MODE_ABC_CAPS);
-          gui.state.t9Caps = !gui.state.t9Caps;                  // ...and arm the capital
+          /* ARM, NEVER UN-ARM. A toggle reads as a coin flip to the user, who cannot see the
+           * flag — and in practice it only ever produced `true` anyway, because the
+           * unconditional reset in t9Commit guaranteed a false input. Asking for a capital
+           * twice should give you a capital. */
+          gui.state.t9Caps = true;
+          /* Abc and ABC never read t9Caps — only the T9 path and the footer do — so in those
+           * modes the gesture has to land on inputShift, which is the flag they DO read.
+           * Otherwise holding '#' in Abc was a 500 ms no-op that also stepped the mode back. */
+          if (gui.state.inputMode == ControlState::MODE_ABC) {
+            gui.state.inputShift = true;
+          } else if (gui.state.inputMode == ControlState::MODE_ABC_CAPS) {
+            gui.state.inputShift = true;
+          } else {
+            gui.state.inputShift = false;
+          }
           redrawWhatPending = true;
         }
       } else {

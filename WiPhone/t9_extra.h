@@ -14,7 +14,7 @@ governing permissions and limitations under the License.
 
 /* The T9 EXTRA dictionary — your own words, from the SD card.
  *
- * `/t9-extra.txt`, one lowercase word per line, already sorted by keypad digit key (see
+ * `/t9/extra.txt`, one lowercase word per line, already sorted by keypad digit key (see
  * tools/gen_t9_extra.py, which writes it). Loaded ONCE at boot into PSRAM and handed to the
  * engine as a second table whose matches come after the built-in ones. So jargon — unit
  * names, callsigns, place names, a team roster — is always reachable on the candidate list
@@ -53,7 +53,7 @@ const T9ExtraTable* t9ExtraGet();
 /* In words, for the `t9` console command. */
 int t9ExtraCount();
 
-/* Why there is no table, in words that name the cause — "no SD card", "no /t9-extra.txt",
+/* Why there is no table, in words that name the cause — "no SD card", "no /t9/extra.txt",
  * "out of memory". A static literal, safe to hold. Exists because a dictionary that quietly
  * did not load looks exactly like a dictionary with none of your words in it. */
 const char* t9ExtraStatus();

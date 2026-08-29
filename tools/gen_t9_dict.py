@@ -112,6 +112,28 @@ _ALSO = {
     "can": "can't", "don": "don't", "won": "won't", "let": "let's", "shan": "shan't",
 }
 
+# ── WHAT A PHONE DICTIONARY SHOULD NOT OFFER ───────────────────────────────────────────────
+# Two kinds, and the list is short on purpose — a big blocklist is a big opinion.
+#
+# 1. Subtitle plumbing. "subtitles", "sync", "corrected", "translated", "ripped" and friends
+#    are frequent in this corpus for a reason that has nothing to do with English: they are
+#    in the credit lines of the files themselves.
+# 2. Slurs. They sat at ranks 4,600-6,500 and would have been offered as predictions. Old T9
+#    phones excluded this vocabulary deliberately and were right to; a word nobody wants
+#    suggested is worse than a word missing. Ordinary profanity is NOT here — "damn", "hell",
+#    "crap" and the rest stay, because people type them and the phone is not a chaperone.
+#
+# ⚠ A HEURISTIC CANNOT DO THIS JOB. "drop tokens whose capitalised form outnumbers their
+# lowercase form" was considered and is unsafe on subtitle data: it deletes "i" outright and
+# endangers every commonly sentence-initial word. Curation is the only honest option.
+_BLOCK = {
+    "subtitles", "subtitle", "subs", "sync", "synced", "synchronized", "synchronised",
+    "corrected", "translated", "translation", "captioning", "captions", "ripped",
+    "encoded", "resync", "uploaded", "downloaded",
+    "nigger", "niggers", "nigga", "niggas", "faggot", "faggots", "fag", "fags",
+    "cunt", "cunts", "retard", "retarded", "spic", "chink", "kike", "tranny",
+}
+
 # ── WORDS THE CORPUS IS TOO OLD TO HAVE ────────────────────────────────────────────────────
 # OpenSubtitles 2018 systematically lacks the vocabulary of using a phone, because film
 # dialogue rarely contains it. Measured against the shipped table: wifi, bluetooth, usb,
@@ -132,12 +154,19 @@ _MODERN = [
 # The 's / 're / 've / 'll / 'd forms, which tokenisation splits off entirely so they cannot
 # be recovered from the corpus at all. Curated rather than derived: this is the closed set of
 # things people actually type, and every one of them was on the old phones.
+#
+# ⚠ ORDERED BY THEIR OWN FREQUENCY AND GIVEN THEIR OWN RANK BAND, not their base word's.
+# Inserting each at `base + 1` put the whole i-family at ranks 6-9 — ahead of "the" at 10 —
+# so 4-3 offered "I'd" before "he", and 4-6 offered "I'm" before "in". Inserting in list
+# order also REVERSED each family, because every later insert pushed the earlier ones back.
+# A fixed band below the core vocabulary fixes both: common enough to find, never ahead of
+# the hundred words that matter most.
+_CONTRACTION_RANK = 150
 _COMMON_CONTRACTIONS = [
-    "i'm", "i've", "i'll", "i'd", "you're", "you've", "you'll", "you'd",
-    "we're", "we've", "we'll", "we'd", "they're", "they've", "they'll", "they'd",
-    "he's", "he'll", "he'd", "she's", "she'll", "she'd", "it's", "it'll",
-    "that's", "there's", "here's", "what's", "who's", "where's", "how's", "let's",
-    "we'd", "y'all", "o'clock",
+    "it's", "that's", "i'm", "don't", "you're", "there's", "what's", "he's", "she's",
+    "we're", "they're", "i'll", "i've", "let's", "here's", "who's", "where's", "how's",
+    "you'll", "you've", "we'll", "we've", "they'll", "they've", "it'll",
+    "i'd", "you'd", "he'd", "she'd", "we'd", "they'd", "o'clock", "y'all",
 ]
 
 
@@ -158,6 +187,8 @@ def normalise(raw):
     # No English word has three identical letters in a row. Subtitles are full of stretched
     # interjections ("aaaah", "ohhh", "hmmmm") and they arrive frequent enough to rank.
     if _RUN3_RE.search(w):
+        return None
+    if w in _BLOCK:
         return None
     # "a" and "i" are real; no other single letter is worth a dictionary slot, and they
     # would otherwise outrank real words on any frequency list.
@@ -220,15 +251,13 @@ def load_freq(path):
 
     # Anything tokenisation destroyed outright, at the rank its base form earned so it lands
     # among words of comparable frequency rather than at the bottom of the table.
-    for c in _COMMON_CONTRACTIONS:
+    # ⚠ y'all and o'clock have no usable base — normalise() rejects single letters other than
+    # a/i — so the old base-lookup fallback appended them past position 46,000 and the 25,000
+    # cut discarded both. A fixed band needs no base at all.
+    for i, c in enumerate(_COMMON_CONTRACTIONS):
         if c in seen:
             continue
-        base = c.split("'")[0]
-        try:
-            at = out.index(base) + 1
-        except ValueError:
-            at = len(out)
-        out.insert(at, c)
+        out.insert(min(_CONTRACTION_RANK + i, len(out)), c)
         seen.add(c)
     return out
 
