@@ -30,10 +30,7 @@ governing permissions and limitations under the License.
 #endif // WIPHONE_PRODUCTION
 
 //IP address to send UDP data to: either use the ip address of the server or a network broadcast address
-static const int localUdpPort = 51002;
 
-extern WiFiUDP udp;
-extern WiFiUDP udpRtcp;
 
 extern void connectToWiFi(const char* ssid, const char* pwd);
 

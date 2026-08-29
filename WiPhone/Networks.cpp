@@ -24,8 +24,6 @@ void Networks::getMac(uint8_t* mac) {
 
 // ===================================================== EXTERNS =====================================================
 
-WiFiUDP udp;
-WiFiUDP udpRtcp;
 MDNSResponder mdnsResponder;
 
 Networks wifiState;
@@ -34,12 +32,23 @@ Networks wifiState;
 void processWiFiEvent(WiFiEvent_t event) {
   switch(event) {
   case SYSTEM_EVENT_STA_GOT_IP:
-    //initializes the UDP state
-    //This initializes the transfer buffer
-    delay(100);               // without the delay, occasionally throws errors with Arduino-ESP32 ver. 1.0.4
-    udp.begin(localUdpPort);
-    udpRtcp.begin(localUdpPort+1);
-    //delay(100);
+    /* 🛑 TWO WRITE-ONLY SOCKETS USED TO BE OPENED HERE, AND THEY COULD KILL THE PHONE.
+     *
+     * `udp.begin(localUdpPort)` and `udpRtcp.begin(localUdpPort+1)` each cost a
+     * `new char[1460]` inside WiFiUDP::begin(), behind the same DEAD null check as
+     * parsePacket() and _scanDone() — and this runs on the WIFI EVENT TASK, so unlike
+     * udpParsePacketSafe() there is nowhere to put a try/catch. Two 1,460-byte contiguous
+     * INTERNAL requests, on the association that follows a scan that has just taken ~3.6 KB.
+     *
+     * Nothing ever read either socket. Verified 2026-08-29 across the whole tree: no
+     * read/parsePacket/write/beginPacket/available/stop on either, ever. RTP audio uses its
+     * own `rtp` socket (Audio.cpp:1500) and the only `udpRtcp` mentions are inside a
+     * commented-out block. So this was ~2,920 bytes of internal heap held for the life of
+     * the boot, plus an uncatchable throw, in exchange for nothing at all.
+     *
+     * The `delay(100)` went with them: its comment said it existed solely to stop the
+     * begin() calls below it from erroring, so it was blocking the shared event task for
+     * 100 ms on every GOT_IP for the sake of code that is now gone. */
     wifiState.setConnected(true, true);
     //When connected set
     log_d("connected! IP address: %s", WiFi.localIP().toString().c_str());

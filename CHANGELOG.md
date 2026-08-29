@@ -1,5 +1,72 @@
 # Changelog
 
+## 0.9.44 (2026-08-29) - four more of the one bug, and 0.9.43 confirmed in real use
+
+### 📏 First: 0.9.43 was measured on the handsets, and the ratchet is gone
+
+Nick used both phones for 1-3 h. Read back from `/health.log`, which survives unplugging:
+
+| | phone 1 (never restarted, 174 min) | phone 2 (2 reboots, a case swap) |
+|---|---|---|
+| app opens recorded | 26 | 21 |
+| **net `largest` across all of them** | **+0 bytes** | **+0 bytes** |
+| panics | **0** | **0** (both boots `reset_reason=1`) |
+| `largest` start → end | 20,940 → 18,648 | 19,200 → **20,816, ended higher** |
+| scan-guard false refusals | 0 (12 scans completed) | 0 |
+
+On 0.9.42 the Dialer cost **−2,308 bytes of `largest` on first open, permanently** (−2,416 /
+−2,524 / −2,416 / −1,876). Now it takes −1,712 and **gives every byte back on the next probe**,
+and 45 of 47 opens are exactly `+0`.
+
+⚠ **A RESIDUAL DRIFT REMAINS AND IS NOT APP SWITCHING.** Phone 1 still lost 2,292 bytes over
+174 min in two steps that fall BETWEEN app opens, which netted zero. Unexplained. ⚠ `min-ever`
+free internal reached **4,076 bytes** — still one bad transient from trouble.
+
+### 🛑 Two write-only UDP sockets, opened on the WiFi event task, deleted
+
+`processWiFiEvent()` called `udp.begin()` and `udpRtcp.begin()` on every `STA_GOT_IP`. Each
+costs a `new char[1460]` inside `WiFiUDP::begin()`, behind the same **dead null check** as
+`parsePacket()` and `_scanDone()` — and it runs on the **WiFi event task**, so unlike
+`udpParsePacketSafe()` there is nowhere to put a try/catch. Two 1,460-byte contiguous internal
+requests, on the association that follows a scan that has just taken ~3.6 KB.
+
+**Nothing ever read either socket.** Verified across the whole tree: no
+read/parsePacket/write/beginPacket/available/stop on either, ever. RTP audio uses its own `rtp`
+socket (Audio.cpp:1500); the only `udpRtcp` mentions are in a commented-out block. So this was
+~2,920 bytes of internal heap held for the life of the boot, plus an uncatchable throw, in
+exchange for nothing. Sockets, externs and the port constant are gone.
+
+The `delay(100)` went with them — its own comment said it existed solely to stop those
+`begin()` calls erroring, so it was blocking the shared event task for 100 ms on every
+association for the sake of code that no longer exists.
+
+### 🐛 The base64 message decode leaked, every time, forever
+
+`Section::getValueBase64()` had **no `free()`** — the sibling `putValueBase64()` twenty lines
+up always had one. Any message whose text is not `isSafeString()` is stored base64, which is
+**any message containing a newline, an emoji, a curly quote or an accent**, so opening a
+conversation lost a few hundred bytes to ~2 KB of internal heap that never came back. It also
+ran unattended: `ingestMirrored()` decodes each newly arrived mirrored SMS. Now freed, checked
+(it was an unchecked write through NULL), zero-initialised (the decoder only NUL-terminates
+when it decoded > 0 bytes), and taken from PSRAM.
+
+### 🐛 Mesh DB save could write ~248 KB past its buffer
+
+`selectPersisted()` returned 0 without touching the caller's `keep` mask when its own key
+allocation failed. `saveDb()` then sized its snapshot from that 0 but still tested `keep[i]` —
+uninitialised `ps_malloc` bytes — copying a 248-byte message for every garbage non-zero byte,
+into the PSRAM that holds the node table, the book text and every widget. Silent and unbounded.
+One `memset`. Latent rather than imminent (PSRAM has ~3.6 MB spare) but it would have been
+blamed on anything but this.
+
+### 🐛 Two unchecked mallocs on the SIP receive path
+
+`normalizeLinearSpaces()` and `parseQuotedString()` both allocated and wrote through the result
+on the next line, with no NULL test, on every inbound message with a multi-word display name or
+an escaped quoted string. Both now bail: the name stays un-normalised / the string stays
+escaped, which is cosmetic. ⚠ Latent on these phones today (no proxy) and live the moment SIP
+works.
+
 ## 0.9.43 (2026-08-29) - the random restart, root-caused and cut off at both ends
 
 Nick asked for a dive on remaining instability. **Every panic ever captured on either phone

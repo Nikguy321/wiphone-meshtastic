@@ -3461,6 +3461,13 @@ void TinySIP::normalizeLinearSpaces(char* p) {
   // Normilize whitespaces
   l += strcspn(p+l, "");           // find index of NUL (end of the string)
   char* b = (char *) malloc((l+1)*sizeof(char));
+  /* ⚠ CHECKED. This ran on every inbound To/From/Contact/Record-Route with a multi-word
+   * display name and wrote through the result immediately — a store to NULL on an exhausted
+   * internal heap, i.e. the LoadProhibited/StoreProhibited shape this phone already dies of.
+   * Bailing leaves the name un-normalised, which is cosmetic: the SIP message still parses. */
+  if (!b) {
+    return;
+  }
   char* bi = b;
   char* pi = p;
   while (*pi) {
@@ -3529,6 +3536,12 @@ char* TinySIP::parseQuotedString(char* p) {
   if (escCnt) {
     // Most quoted strings will not have any escaped characters
     char* bff = (char *) malloc((e-p)*sizeof(char));      // TODO: escaped cnt can be deducted
+    /* ⚠ CHECKED, same reason as normalizeLinearSpaces() above: written through on the very
+     * next line, on the inbound parse path. Returning the still-escaped string is correct
+     * degradation — the caller gets a valid C string, just with its backslashes intact. */
+    if (!bff) {
+      return e + 1;
+    }
     char* bbff = bff;
     char* q = p;
     while (q<e) {

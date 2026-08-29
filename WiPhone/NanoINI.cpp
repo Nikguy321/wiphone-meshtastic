@@ -424,9 +424,24 @@ std::string Section::getValueBase64(const char* key, const char* def) {
     if (val && *val!='\0') {
       auto len64 = strlen(val);
       auto len = base64_decode_expected_len(len64) + 2;
-      char* buff = (char*) malloc(len);
+      /* ⚠ THIS BUFFER USED TO LEAK, EVERY TIME, FOREVER. There was no free() on this path —
+       * the sibling putValueBase64() twenty lines up has always had one. Every message whose
+       * text is not isSafeString() is stored base64, which is ANY message containing a
+       * newline, an emoji, a curly quote or an accent, so opening a conversation lost a few
+       * hundred bytes to ~2 KB of INTERNAL heap that never came back. It also ran unattended:
+       * ingestMirrored() decodes each newly arrived mirrored SMS.
+       * PSRAM now (extMalloc), because this is scratch and internal is the heap that panics. */
+      char* buff = (char*) extMalloc(len);
+      if (!buff) {
+        return std::string(def);        // was an unchecked write through NULL
+      }
+      /* base64_decode_chars only NUL-terminates when it decoded > 0 bytes, so a value that
+       * decodes to nothing would leave std::string reading past the allocation. */
+      buff[0] = '\0';
       base64_decode_chars(val, len64, buff);
-      return std::string(buff);
+      std::string out(buff);
+      free(buff);                       // free() is region-agnostic
+      return out;
     } else if (!val) {
       // attempt to retrieve from a provisional keyValue
       _cleanUp();

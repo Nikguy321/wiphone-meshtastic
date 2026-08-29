@@ -2611,6 +2611,13 @@ int MeshtasticService::selectPersisted(uint8_t* keep) const {
   MeshRetainKey* keys = (MeshRetainKey*)ps_malloc((size_t)msgCount * sizeof(MeshRetainKey));
   if (!keys) {
     log_e("mesh: retention keys alloc failed (%d msgs)", msgCount);
+    /* ⚠ CLEAR THE CALLER'S MASK BEFORE BAILING. Returning 0 with `keep` untouched left
+     * saveDb() sizing its snapshot from 0 and then testing uninitialised ps_malloc bytes in
+     * the write loop — copying a 248-byte message for every garbage non-zero byte, up to
+     * ~248 KB written past the end of the buffer, into the PSRAM that holds the node table,
+     * the book text and every widget. Silent, unbounded, and it would be blamed on anything
+     * but this. Done here rather than in saveDb() to honour this function's own contract. */
+    memset(keep, 0, (size_t)msgCount);
     return 0;
   }
   for (int i = 0; i < msgCount; i++) {
