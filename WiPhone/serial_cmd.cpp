@@ -1062,7 +1062,16 @@ static void run(char* line) {
    * air. If it prints 0 while other devices in the room are associated, THEN suspect the
    * phone. ⚠ Blocks for a couple of seconds - it is a bench command, not a loop call. */
   if (!strcasecmp(line, "wifi scan")) {
+    /* Guarded like the rest — and this one says so out loud, because a bench command that
+     * silently did nothing would be read as "the radio is dead" and send the next hour in
+     * the wrong direction entirely. */
+    if (!wifiScanMemoryOk("serial")) {
+      say("wifi scan: REFUSED - not enough contiguous internal heap to survive the result.\n"
+          "           This is the guard, not the radio. Run `heap` and look at `largest`.\n");
+      return;
+    }
     const int n = WiFi.scanNetworks(false);
+    wifiScanNoteResult(n);
     if (n <= 0) {
       say("wifi scan: %d networks - the radio hears NOTHING. If other devices are associated\n"
           "           in this room, that points at the phone; otherwise the AP is not on air.\n", n);

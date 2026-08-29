@@ -1,5 +1,87 @@
 # Changelog
 
+## 0.9.43 (2026-08-29) - the random restart, root-caused and cut off at both ends
+
+Nick asked for a dive on remaining instability. **Every panic ever captured on either phone
+(33 MB of serial, two distinct events) is one root cause: contiguous INTERNAL heap running
+out, killing whatever allocates next.** Two death shapes, both observed — `abort()` via
+`std::terminate`, and `Guru Meditation (LoadProhibited, EXCVADDR 0x20)` when
+`_Unwind_RaiseException` itself faults on a null unwind context. In this build a throwing
+allocation is a device-killer either way.
+
+Two changes: one removes the **cause**, the other removes the **trigger**.
+
+### 🔑 The cause: font glyph metrics were eating the internal heap, permanently
+
+`SmoothFont::loadFont()` did **seven plain `malloc()`s per font face** (TFT_eSPI.cpp, both
+the SPIFFS and the array variant). Plain `malloc` is INTERNAL heap on this build — there is
+no PSRAM diversion at any size. Eleven faces × 7 = **77 permanently-held scattered internal
+blocks, ~11.5-15.5 KB**, on a phone with ~20 KB of contiguous internal heap in total.
+
+- ⚠ **Loaded LAZILY, at DRAW time.** `FontCollection::operator[]` builds each face on first
+  use and caches it for the life of the boot, and the first use is a widget drawing — i.e.
+  *after* `enterApp()` returns. **That is why the app-open probe reads `+0` while `largest`
+  falls: the probe is blind to font loading by construction.** Worth knowing before trusting
+  that instrument again.
+- It explains the shape exactly: `largest` ratchets while you visit new screens and then
+  PLATEAUS, because there are only eleven faces. Measured 2026-08-29 on one binary: run 1
+  lost 7,380 bytes in 11 minutes of navigation then sat flat for 130; run 2, never touched,
+  held 15,500 for 8.9 hours.
+- Now `fontMetricAlloc()` → PSRAM, internal fallback. The arrays are read during text layout
+  on the loop task — no ISR, no DMA, no `IRAM_ATTR` — so external RAM is safe for them.
+- 🐛 **And the seven were used UNCHECKED**, so a font loaded on an exhausted heap wrote
+  through NULL — a LoadProhibited blamed on whatever screen happened to open. Checked now.
+
+📏 **MEASURED, phone 1, same `heap` command on a young boot:**
+
+| | 0.9.42 | 0.9.43 | |
+|---|---|---|---|
+| free | 19,388 | 23,216 | **+3,828** |
+| largest | 19,208 | 20,940 | **+1,732** |
+| min-ever | 10,312 | 15,948 | **+5,636** ← the worst moment of the run |
+| blocks | 404/15 | 374/18 | **−30** ← the metric arrays, gone from internal |
+
+⚠ **NOT YET PROVEN: that this removes the RATCHET.** That needs the phone driven through
+screens, and both phones lock after 40 s, so serial key injection is swallowed
+(`lock: locked=yes`). Two attempts to test it reported "apps opened: 0" — flat numbers there
+mean the test never ran, not that the fix worked. **It needs a thumb.**
+
+### 🎯 The trigger: the periodic WiFi scan was the allocation that actually killed it
+
+`WiFiScanClass::_scanDone()` does `new wifi_ap_record_t[n]` behind `if(!_scanResult)` — the
+same DEAD null check as the `new char[1460]` in `WiFiUDP::parsePacket()` that
+`udpParsePacketSafe()` already guards. ⚠ **And this one cannot be caught at the call site:
+`_scanDone()` runs on the WiFi event task. The only lever is deciding not to scan.**
+
+📏 **MEASURED, phone 1, three scans off the DROP instrument: ~192 bytes of contiguous
+internal heap per access point** (n=19 → −3,648; n=19 → −3,648; n=18 → −3,536). Deliberately
+not `sizeof(wifi_ap_record_t)` (~80) — the driver allocates alongside the array, and the
+number that predicts the crash is the total effect on `largest`.
+
+**The crash, exactly:** the phone died with `largest = 3,072` and `[autosw] scan started` as
+the last line in the log. 19 APs needed 3,648. There were 3,072.
+
+`wifiScanMemoryOk()` now gates all four scan sites, sizing its estimate from the last scan's
+AP count so it adapts to the actual air. Checked against every heap state seen in the wild:
+no false refusals at 19,208 / 15,500 / 11,016 / 9,512; refuses at 3,072. ⚠ It is a
+PREDICTION, not a guarantee — the count comes from the previous scan and the allocation
+happens later on another task. It turns certain death into unlikely, which is the same trade
+`udpParsePacketSafe()` makes and the best available.
+
+### Also measured, not yet fixed
+
+- **The phone freezes for the whole LoRa airtime, every transmit.** `MeshPhy::send()` polls
+  TxDone with `delay(1)`. 205 loop stalls in 9.9 h idle, median 649 ms, max 2,285 ms (= the
+  2,000 ms TX timeout). Causally demonstrated: **6/6 deliberate transmissions produced a
+  stall, 1/6 matched idle windows did** (p≈0.008). Airtime theory predicts 575 ms for a
+  51-byte SF11/250k packet. ⚠ Most of these are **unlogged flood REBROADCASTS** — only ~31 of
+  the 154 long stalls have a matching announce line: the phone freezes its own UI to relay
+  other people's packets.
+- ⚠ **A third instance of the same throwing-allocation bug is still open:**
+  `processWiFiEvent()` calls `udp.begin()` twice on `STA_GOT_IP`, and `WiFiUDP::begin()` does
+  `tx_buffer = new char[1460]` with the same dead null check — on the WiFi event task, on
+  every reconnect, moments after a scan has just taken 3.6 KB.
+
 ## 0.9.42 (2026-08-28) - conversations know who they are talking to
 
 Two things reported from use, both of them the same complaint: the Messages app knew the

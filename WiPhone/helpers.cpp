@@ -19,6 +19,49 @@ governing permissions and limitations under the License.
 #include "Arduino.h"
 #endif
 
+/* The WiFi-scan heap guard. See the long note in helpers.h for the measurements and for why
+ * this is a call-site decision rather than a try/catch. */
+#ifdef ESP32
+static int s_wifiScanLastAps = 0;
+
+/* MEASURED, not sizeof(wifi_ap_record_t). See helpers.h. */
+static const size_t WIFI_SCAN_BYTES_PER_AP = 192;
+/* Headroom in APs. The estimate is built from the LAST scan, and a phone that moved (or a
+ * neighbour that switched a router on) can meet more than it saw last time. */
+static const size_t WIFI_SCAN_AP_MARGIN    = 20;
+/* Floor for the very first scan of a boot, when there is no previous count to scale from.
+ * Also the minimum we will ever demand, so the estimate can never collapse to nothing. */
+static const size_t WIFI_SCAN_MIN_BYTES    = 4096;
+
+void wifiScanNoteResult(int apCount) {
+  if (apCount > 0) {
+    s_wifiScanLastAps = apCount;
+  }
+}
+
+bool wifiScanMemoryOk(const char* who) {
+  size_t need = ((size_t)s_wifiScanLastAps + WIFI_SCAN_AP_MARGIN) * WIFI_SCAN_BYTES_PER_AP + 512;
+  if (need < WIFI_SCAN_MIN_BYTES) {
+    need = WIFI_SCAN_MIN_BYTES;
+  }
+  const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+  if (largest >= need) {
+    return true;
+  }
+  /* log_e because only log_e is compiled in on this build, and a refusal that printed
+   * nothing would look exactly like a scan that never got scheduled. */
+  log_e("WIFI SCAN REFUSED (%s): largest=%u < %u needed (last scan saw %d APs + %u margin)",
+        who ? who : "?", (unsigned)largest, (unsigned)need,
+        s_wifiScanLastAps, (unsigned)WIFI_SCAN_AP_MARGIN);
+  return false;
+}
+#else
+void wifiScanNoteResult(int) {}
+bool wifiScanMemoryOk(const char*) {
+  return true;
+}
+#endif
+
 void freeNull(void** p) {
   /*
    * Similar solution and explanation of why it's better to set pointers to zero here:

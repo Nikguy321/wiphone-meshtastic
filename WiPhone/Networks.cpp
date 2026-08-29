@@ -581,6 +581,7 @@ void Networks::autoSwitchTick(bool screenOn) {
     _scanning = false;
     if (n > 0) {
       log_e("[autosw] scan done: n=%d", n);
+      wifiScanNoteResult(n);          // size the next scan's heap estimate to THIS air
       _dryScans = 0;
       _dryBounced = false;
       autoSwitchEvaluate(n);
@@ -698,6 +699,17 @@ void Networks::autoSwitchTick(bool screenOn) {
   // asynchronously, so the first attempts can be rejected — retrying every
   // tick for a few seconds beats losing a 30s-backoff race against the radio
   // (that race is why a 5-minute wait once produced zero completed scans).
+  /* 🛑 THE ALLOCATION THAT KILLED PHONE 1 ON 2026-08-28 IS THE ONE THIS SCAN IS ABOUT TO
+   * MAKE. _scanDone() will `new wifi_ap_record_t[n]` — ~192 contiguous internal bytes per
+   * access point, measured — on the WiFi event task, where nothing can catch the throw.
+   * This is the unattended scan: it runs every few minutes on an idle phone in a pocket,
+   * so it is the one that turns a fragmented heap into a reboot while nobody is looking.
+   * Skipping a round costs nothing — we stay on the AP we already have. See helpers.h. */
+  if (!wifiScanMemoryOk("autosw")) {
+    _scanPending = false;
+    scheduleScanRetry(now, WiFi.status() == WL_CONNECTED);
+    return;
+  }
   int16_t r = WiFi.scanNetworks(true /*async*/);   // keeps an existing association
   if (r != WIFI_SCAN_FAILED) {
     log_e("[autosw] scan started (wifi status %d)", (int)WiFi.status());
@@ -796,7 +808,13 @@ bool Networks::scan(void) {
   WiFi.mode(WIFI_STA);
   disconnect();
   delay(100);
+  // Uncalled today, but guarded anyway: an unguarded scan site is how the phone reboots,
+  // and nothing should be revived into that shape by accident. See helpers.h.
+  if (!wifiScanMemoryOk("Networks::scan")) {
+    return false;
+  }
   int n = WiFi.scanNetworks();
+  wifiScanNoteResult(n);
   log_d("scan done");
   log_d("networks: %d", n);
   for (int i=0; i<n; i++) {

@@ -7264,10 +7264,19 @@ appEventResult NetworksApp::processEvent(EventType event) {
     } else if (rn == WIFI_SCAN_FAILED) {
       log_e("ERROR: scanning networks failed");
     }
+    if (rn > 0) {
+      wifiScanNoteResult(rn);       // this screen sees the crowded-air case first
+    }
 
     // Rescan
     log_v("rescanning");
-    WiFi.scanNetworks(true, false, false, 750);
+    /* Guarded like every other scan site: _scanDone()'s `new wifi_ap_record_t[n]` throws on
+     * a fragmented heap and aborts the phone from the WiFi event task. This screen re-scans
+     * on a loop while it is open, so it is the site a user can hold open the longest. When
+     * refused the list simply keeps the results it already has. See helpers.h. */
+    if (wifiScanMemoryOk("wifi screen")) {
+      WiFi.scanNetworks(true, false, false, 750);
+    }
 
   } else if (IS_KEYBOARD(event) && menu!=NULL) {
 

@@ -64,6 +64,42 @@ inline int udpParsePacketSafe(UDP& udp) {
   }
 }
 
+/* 🛑 NEVER CALL WiFi.scanNetworks() DIRECTLY. Ask wifiScanMemoryOk() first.
+ *
+ * The same bug as parsePacket() above, in a different framework file — and this is the one
+ * that actually killed a phone. WiFiScanClass::_scanDone() does:
+ *
+ *     _scanResult = new wifi_ap_record_t[_scanCount];
+ *     if (!_scanResult || ...) { _scanCount = 0; }        <-- DEAD CODE, new[] THROWS
+ *
+ * ⚠ AND IT CANNOT BE CAUGHT AT THE CALL SITE. _scanDone() runs on the WiFi event task, not
+ * on the loop, so unlike udpParsePacketSafe() there is no try/catch we can wrap round it.
+ * The ONLY lever the firmware has is deciding not to start the scan.
+ *
+ * MEASURED on phone 1, 2026-08-29, three scans, off the DROP instrument:
+ *     n=19 APs -> largest fell 3,648    n=19 -> 3,648    n=18 -> 3,536
+ * i.e. ~192 bytes of CONTIGUOUS internal heap per access point. ⚠ That is deliberately NOT
+ * sizeof(wifi_ap_record_t) (~80 bytes): the driver allocates alongside the array while the
+ * scan runs, and the number that predicts the crash is the total effect on `largest`.
+ *
+ * THE CRASH, exactly: the phone died with largest = 3,072 and "[autosw] scan started" as the
+ * last line in the log. 19 APs needed 3,648. There were 3,072.
+ *
+ * ⚠ THIS IS A PREDICTION, NOT A GUARANTEE, and it is important to know which. The AP count
+ * comes from the PREVIOUS scan; the allocation happens later, on another task, in an
+ * environment that may have gained access points since. It turns "certain death in a dense
+ * area on a fragmented phone" into "unlikely" — the same trade udpParsePacketSafe() makes,
+ * for the same reason, and it is the best available: the count cannot be known in advance.
+ *
+ * The cost of refusing is ONE skipped scan. The phone stays on the AP it is already using,
+ * and the normal backoff brings the next attempt round shortly. */
+bool wifiScanMemoryOk(const char* who);
+
+/* Tell the guard how many APs the last completed scan actually found, so the next estimate
+ * is sized to THIS environment rather than a guess. Ignored for n <= 0 — an empty scan is
+ * the deaf-radio/out-of-range case and says nothing about how crowded the air is. */
+void wifiScanNoteResult(int apCount);
+
 uint32_t rotate5(uint32_t x);                                   // rotate by a prime number of bits
 uint32_t hash_murmur(const char *str);                          // simple hash function for C-strings. Uses MurmurHash by Austin Appleby. Only 35% slower than DJB2 on ESP32, 27% slower than SDBM.
 void md5Compress(const char* str, size_t len, HASHHEX hash);    // convert string into up to 32-character string (either as hexadecimal hash representation or string itself)

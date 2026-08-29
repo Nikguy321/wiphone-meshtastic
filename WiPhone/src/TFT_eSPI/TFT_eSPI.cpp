@@ -5359,6 +5359,22 @@ bool SmoothFont::isLoaded(void) {
 ** Function name:           loadFont
 ** Description:             loads parameters from a new font vlw file stored in SPIFFS
 *************************************************************************************x*/
+/* Glyph METRICS go to PSRAM; glyph BITMAPS were never here (they stream from flash).
+ *
+ * These seven arrays are read during text layout on the loop task — no ISR, no DMA, no
+ * IRAM_ATTR — so external RAM is safe for them. Falls back to internal on the (impossible)
+ * PSRAM exhaustion so a phone with no PSRAM still renders text. free() is region-agnostic,
+ * so unloadFont() needs no change. */
+static void* fontMetricAlloc(size_t n) {
+#ifdef ESP32
+  void* p = ps_malloc(n);
+  if (p) {
+    return p;
+  }
+#endif
+  return malloc(n);
+}
+
 void SmoothFont::loadFont(String fontName)
 {
   /*
@@ -5456,13 +5472,26 @@ void SmoothFont::loadFont(String fontName)
   uint32_t headerPtr = 24;
   uint32_t bitmapPtr = 24 + gCount * 28;
 
-  gUnicode  = (uint16_t*)malloc( gCount * 2); // Unicode 16 bit Basic Multilingual Plane (0-FFFF)
-  gHeight   =  (uint8_t*)malloc( gCount );    // Height of glyph
-  gWidth    =  (uint8_t*)malloc( gCount );    // Width of glyph
-  gxAdvance =  (uint8_t*)malloc( gCount );    // xAdvance - to move x cursor
-  gdY       =   (int8_t*)malloc( gCount );    // offset from bitmap top edge from lowest point in any character
-  gdX       =   (int8_t*)malloc( gCount );    // offset for bitmap left edge relative to cursor X
-  gBitmap   = (uint32_t*)malloc( gCount * 4); // seek pointer to glyph bitmap in SPIFFS file
+  /* 🔑 PSRAM, NOT INTERNAL — THIS WAS THE HEAP RATCHET. See fontMetricAlloc() above.
+   * Seven allocations per face, eleven faces, cached for the life of the boot: ~11-15 KB
+   * of internal heap in 77 permanently-held scattered blocks, on a phone that has ~20 KB
+   * of contiguous internal heap in total. */
+  gUnicode  = (uint16_t*)fontMetricAlloc( gCount * 2); // Unicode 16 bit Basic Multilingual Plane (0-FFFF)
+  gHeight   =  (uint8_t*)fontMetricAlloc( gCount );    // Height of glyph
+  gWidth    =  (uint8_t*)fontMetricAlloc( gCount );    // Width of glyph
+  gxAdvance =  (uint8_t*)fontMetricAlloc( gCount );    // xAdvance - to move x cursor
+  gdY       =   (int8_t*)fontMetricAlloc( gCount );    // offset from bitmap top edge from lowest point in any character
+  gdX       =   (int8_t*)fontMetricAlloc( gCount );    // offset for bitmap left edge relative to cursor X
+  gBitmap   = (uint32_t*)fontMetricAlloc( gCount * 4); // seek pointer to glyph bitmap in SPIFFS file
+
+  /* ⚠ AND THEY ARE CHECKED NOW. These seven were used unchecked immediately below, so a
+   * font loaded on an exhausted heap wrote through NULL — a LoadProhibited panic blamed on
+   * whatever screen happened to open. unloadFont() frees whatever did get allocated. */
+  if (!gUnicode || !gHeight || !gWidth || !gxAdvance || !gdY || !gdX || !gBitmap) {
+    log_e("SmoothFont: no memory for %u glyph metrics - font not loaded", (unsigned)gCount);
+    unloadFont();
+    return;
+  }
 
 #ifdef SHOW_ASCENT_DESCENT
   log_d("ascent  = %d", ascent);
@@ -5547,13 +5576,26 @@ void SmoothFont::loadFont(const unsigned char* data)
   spaceWidth = yAdvance / 4;  // Guess at space width
 
   // Load glyphs data
-  gUnicode  = (uint16_t*)malloc( gCount * 2); // Unicode 16 bit Basic Multilingual Plane (0-FFFF)
-  gHeight   =  (uint8_t*)malloc( gCount );    // Height of glyph
-  gWidth    =  (uint8_t*)malloc( gCount );    // Width of glyph
-  gxAdvance =  (uint8_t*)malloc( gCount );    // xAdvance - to move x cursor
-  gdY       =   (int8_t*)malloc( gCount );    // offset from bitmap top edge from lowest point in any character
-  gdX       =   (int8_t*)malloc( gCount );    // offset for bitmap left edge relative to cursor X
-  gBitmap   = (uint32_t*)malloc( gCount * 4); // seek pointer to glyph bitmap in SPIFFS file
+  /* 🔑 PSRAM, NOT INTERNAL — THIS WAS THE HEAP RATCHET. See fontMetricAlloc() above.
+   * Seven allocations per face, eleven faces, cached for the life of the boot: ~11-15 KB
+   * of internal heap in 77 permanently-held scattered blocks, on a phone that has ~20 KB
+   * of contiguous internal heap in total. */
+  gUnicode  = (uint16_t*)fontMetricAlloc( gCount * 2); // Unicode 16 bit Basic Multilingual Plane (0-FFFF)
+  gHeight   =  (uint8_t*)fontMetricAlloc( gCount );    // Height of glyph
+  gWidth    =  (uint8_t*)fontMetricAlloc( gCount );    // Width of glyph
+  gxAdvance =  (uint8_t*)fontMetricAlloc( gCount );    // xAdvance - to move x cursor
+  gdY       =   (int8_t*)fontMetricAlloc( gCount );    // offset from bitmap top edge from lowest point in any character
+  gdX       =   (int8_t*)fontMetricAlloc( gCount );    // offset for bitmap left edge relative to cursor X
+  gBitmap   = (uint32_t*)fontMetricAlloc( gCount * 4); // seek pointer to glyph bitmap in SPIFFS file
+
+  /* ⚠ AND THEY ARE CHECKED NOW. These seven were used unchecked immediately below, so a
+   * font loaded on an exhausted heap wrote through NULL — a LoadProhibited panic blamed on
+   * whatever screen happened to open. unloadFont() frees whatever did get allocated. */
+  if (!gUnicode || !gHeight || !gWidth || !gxAdvance || !gdY || !gdX || !gBitmap) {
+    log_e("SmoothFont: no memory for %u glyph metrics - font not loaded", (unsigned)gCount);
+    unloadFont();
+    return;
+  }
 
   for(uint16_t gNum = 0; gNum < gCount; gNum++) {
 
