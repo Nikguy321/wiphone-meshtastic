@@ -8190,6 +8190,12 @@ void CreateMessageApp::setupUI(const char* sipUri, bool showMessageType) {
   addFocusableWidget(text);
 
   setFocus(addr);
+  syncPredictive();          // starts on the address field, so: off
+}
+
+/* Predictive text belongs to the message body and to nothing else on this screen. */
+void CreateMessageApp::syncPredictive() {
+  controlState.t9Field = (this->getFocused() == (FocusableWidget*)text);
 }
 
 void CreateMessageApp::deleteUI() {
@@ -8352,6 +8358,7 @@ appEventResult CreateMessageApp::processEvent(EventType event) {
     }
     if (!cursorMoved) {
       nextFocus(event == WIPHONE_KEY_DOWN);
+      syncPredictive();       // the body predicts, the address does not
       this->setHeaderFooter();
       res |= REDRAW_ALL;
     }

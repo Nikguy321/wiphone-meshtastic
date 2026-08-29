@@ -1909,6 +1909,15 @@ protected:
 };
 
 class CreateMessageApp : public WindowedApp, FocusableApp {
+  /* ⚠ THIS SCREEN HAS TWO TEXT FIELDS THAT WANT OPPOSITE THINGS. The message body wants
+   * predictive text; the "To:" address is a SIP URI and must never have it. t9Field is one
+   * flag on ControlState, so it has to follow FOCUS rather than be set once for the screen.
+   *
+   * Synced by the app rather than pushed from the widget because FocusableApp::setFocus()
+   * calls setFocus() on EVERY widget in array order, and each one resets the input state —
+   * so a widget positioned after the target would clear a flag the target had just set.
+   * Doing it here, after the focus move has settled, is immune to that ordering. */
+  void syncPredictive();
 public:
   CreateMessageApp(LCD& disp, ControlState& state, Storage& flash, HeaderWidget* header, FooterWidget* footer, const char* sipUri=NULL);
   ~CreateMessageApp();

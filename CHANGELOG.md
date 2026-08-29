@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.40 (2026-08-28) - predictive text in the SIP message body
+
+Reported from use: the SIP composer had no T9.
+
+- The message body now predicts; the **"To:" address deliberately does not** — it is a SIP
+  URI, and a dictionary has no business in it.
+- ⚠ **This screen is the first with two text fields wanting opposite things**, and `t9Field`
+  is one flag on ControlState, so it has to follow FOCUS rather than be set once per screen.
+  Synced by the app after the focus move settles, NOT pushed from the widget:
+  `FocusableApp::setFocus()` calls `setFocus()` on every widget in array order and each one
+  resets the input state, so a widget positioned after the target would clear a flag the
+  target had just set. Doing it in the app is immune to that ordering; doing it in the widget
+  would have worked here by luck and broken on the next screen with three fields.
+- ✅ Verified on hardware: `To:` reports `opted in: no`, DOWN to the body reports
+  `opted in: yes`, and 4-3-5-5-6 predicts "Hello".
+
 ## 0.9.39 (2026-08-28) - the rest of the review
 
 Ten more findings from the same adversarial pass, triaged and fixed. Nothing here was
