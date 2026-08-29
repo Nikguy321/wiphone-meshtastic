@@ -87,6 +87,18 @@ MeshtasticApp::~MeshtasticApp() {
   freeWidgets();
 }
 
+/* 🛑 PREDICTIVE TEXT BELONGS TO THE COMPOSE SCREEN AND MUST DIE WITH IT.
+ * buildCompose() sets t9Field, and ControlState::setInputState() is the only other place
+ * that clears it — but leaving compose does not call setInputState, so the flag survived
+ * onto the thread list and every other Meshtastic screen. With it set, T9 swallowed the
+ * digit keys, and UP/DOWN/BACK stopped navigating because the T9 layer consumed them while
+ * it thought a word was pending. enterState() is the one door every screen change goes
+ * through, so it is the right place; buildCompose() re-sets the flag afterwards. */
+void MeshtasticApp::clearInputClaims() {
+  controlState.t9Field = false;
+  controlState.t9.clear();
+}
+
 void MeshtasticApp::freeWidgets() {
   if (menu) {
     delete menu;
@@ -147,6 +159,7 @@ static void meshNodeLabel(uint32_t node, char* out, size_t cap) {
 void MeshtasticApp::enterState(MeshAppState_t state) {
   appState = state;
   freeWidgets();
+  clearInputClaims();          // Compose re-claims it in buildCompose(); nothing else may
 
   switch (state) {
   case MESH_MAIN:

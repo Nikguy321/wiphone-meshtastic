@@ -33,7 +33,16 @@ kept in the word that gets inserted. That is what the old phones did: you type d
 
 SHORT WORDS ARE FILTERED BY RANK, NOT BY A DICTIONARY
 -----------------------------------------------------
-A subtitle corpus\'s two- and three-letter tokens are mostly initialisms and letter-spellings
+🛑 --short-len IS 2, NOT 3, AND THAT MATTERS. At 3 this filter removed 990 of the 1,115
+three-letter words and left 125: "cat", "bat", "cop", "bus", "cup", "art", "cry", "sat",
+"mat", "tip", "gym", "pop" and "pub" were all UNTYPABLE, and 401 of the 512 three-digit keys
+matched nothing at all. The worked example three paragraphs down — 228 -> cat, bat, act —
+was describing a table that did not contain cat or bat. The reasoning below is sound for
+TWO letters and was wrongly extended to three; a three-letter English word is common enough
+that rank cannot separate it from an initialism, and the initialisms that get in (bff, omg,
+fbi, dna) are mostly things people type anyway.
+
+A subtitle corpus\'s two-letter tokens are mostly initialisms and letter-spellings
 — tv, dr, pm, cd, uk, hq, iq, em, ll, ls — and they are poison precisely because they land on
 the SHORT keys, which are the ones people hit most. But a genuine short English word is by
 definition frequent, so ranking separates them for free: at a cutoff of 1,000 the two-letter
@@ -216,8 +225,9 @@ def main():
     ap.add_argument("--limit", type=int, default=25000)
     ap.add_argument("--max-len", type=int, default=15,
                     help="drop words longer than this (they are never typed on a keypad)")
-    ap.add_argument("--short-len", type=int, default=3,
-                    help="words this long or shorter must also pass --short-max-rank")
+    ap.add_argument("--short-len", type=int, default=2,
+                    help="words this long or shorter must also pass --short-max-rank. TWO, "
+                         "not three: see the docstring. Three gutted the three-letter words")
     ap.add_argument("--short-max-rank", type=int, default=1000,
                     help="a word of --short-len or fewer characters is kept only if it ranks "
                          "this high; 0 disables. Removes initialisms without a curated list")

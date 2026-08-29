@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.9.37 (2026-08-28) - four T9 bugs found by review, three of them mine from today
+
+An adversarial read of the finished feature, run while the phone was being used. Every one
+of these was confirmed on hardware before it was touched.
+
+- 🔑 **"cat" was not in the dictionary.** The rank cutoff that correctly removes two-letter
+  initialisms (tv, dr, pm, cd) was applied at THREE letters as well, which left 125 of 1,115
+  three-letter words and made **401 of the 512 three-digit keys match nothing at all**: cat,
+  bat, cop, bus, cup, art, cry, sat, mat, tip, gym, pop, pub were all untypable. The
+  generator's own worked example — `228 -> cat, bat, act` — described a table containing
+  neither cat nor bat. `--short-len` now defaults to 2. Costs 1.1% of unambiguous keys and
+  one on the worst run; the initialisms that come back (bff, omg, fbi, dna) are mostly things
+  people type anyway.
+- **Punctuation landed after the space it preceded.** Every T9 path returns before the
+  multi-tap machine, which is the only code that commits an armed '*' selection — so typing
+  a word, '*', then '0' gave "Hello ." instead of "Hello. ", and if the screen changed before
+  the 2 s idle timeout the full stop was lost outright. It also left inputCurKey set, which
+  blanks the prediction strip. The commit is now hoisted to where T9 can reach it, and the
+  space moves to r2 so the symbol still goes first.
+- **A held digit jumped ahead of the word it interrupted.** t9LiteralDigit popped the held
+  digit off the pending word but never committed what remained, so 4-3-5-5-6 then holding 7
+  produced "7hello". Anyone typing mp3, covid19 or route66 would have hit it.
+- **Predictive text outlived the screen that owned it.** t9Field is set by buildCompose and
+  cleared only by setInputState, which leaving compose does not call — so T9 stayed live on
+  the thread list, swallowing digits and stopping UP/DOWN/BACK from navigating.
+  MeshtasticApp::enterState now clears it; Compose re-claims it.
+- ✅ All four verified on phone 1: `228` gives "Act 1/4" and DOWN gives "Cat 2/4"; a word then
+  '*' then '0' gives "Hello. "; leaving Compose reports `opted in: no`.
+
+⚠ Worth recording how these were found. The engine's 68 host checks passed throughout — they
+test t9.cpp, and three of these four live in the input path above it. The one bug the host
+test could have caught (the missing three-letter words) it did not, because it only asserts
+that words IN the table are reachable, never that words a user expects are in it.
+
 ## 0.9.36 (2026-08-28) - bring your own T9 words
 
 An optional second dictionary, read from `/t9/extra.txt` on the SD card at boot. Its words

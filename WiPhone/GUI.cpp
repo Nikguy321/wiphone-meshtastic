@@ -848,6 +848,17 @@ void ControlState::t9NoteChar(char c) {
 void ControlState::t9LiteralDigit(char digit, bool retractOne) {
   if (t9.pending()) {
     t9.popDigit();          // un-type the keypress the short press fed to the prediction
+    /* ⚠ AND IF A WORD IS STILL PENDING, IT HAS TO GO IN FIRST. Popping the held digit off
+     * leaves the rest of the word sitting in the buffer, and queuing the digit on its own
+     * delivered it IMMEDIATELY while the word committed later — typing 4-3-5-5-6 and then
+     * holding 7 produced "7hello" instead of "hello7". Anyone typing mp3, covid19 or
+     * route66 hits it. t9Commit(digit) queues the word and then the digit, in that order. */
+    if (t9.pending()) {
+      inputCurKey = 0;
+      inputCurSel = 0;
+      t9Commit(digit);
+      return;
+    }
   }
   inputCurKey = 0;          // ...or abandon the multi-tap letter it started
   inputCurSel = 0;
@@ -1193,6 +1204,24 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
    * touched and still move focus or the cursor. Same shape as the OK rule further down —
    * consume a key only in the state where it means something new. */
   if (state.t9Live()) {
+    /* 🛑 DRAIN AN ARMED SYMBOLS-ROW SELECTION FIRST.
+     * Every path below RETURNS, and the multi-tap machine further down is the only code that
+     * commits a pending '*' selection. So pressing '*' (arming '.') and then '0' emitted the
+     * space and left the '.' armed: on hardware that gave "Hello ." instead of "Hello. ",
+     * and if the screen changed before the 2 s idle timeout the full stop was lost outright.
+     * It also left inputCurKey set, which blanks the prediction strip in FooterWidget.
+     * This is the same commit the multi-tap branch does, hoisted to where T9 can reach it. */
+    if (state.inputCurKey && state.inputCurKey != key) {
+      if (state.inputCurSel < strlen(state.inputSeq)) {
+        r1 = state.inputSeq[state.inputCurSel];
+        if (state.inputShift) {
+          r1 = toupper(r1);
+        }
+        state.t9NoteChar((char)r1);
+      }
+      state.inputCurKey = 0;
+      state.inputCurSel = 0;
+    }
     if (t9IsWordDigit(key)) {
       state.t9.pushDigit(key);
       return;                                  // consumed; the footer shows the candidate
@@ -1245,13 +1274,15 @@ void GUI::alphanumericInputEvent(EventType key, EventType& r1, EventType& r2) {
      * hook at the end of this function is never reached from here. Missing it is why a
      * full stop typed from the symbols row did not capitalise the next word: the '.' was
      * noted correctly, and then the space that completes the sentence was not. */
+    /* r2, not r1, when a symbol was just drained above — one keypress can carry two
+     * characters and the symbol was typed first. The caller delivers r1 then r2. */
     if (key == '0') {
-      r1 = ' ';
+      (r1 ? r2 : r1) = ' ';
       state.t9NoteChar(' ');
       return;
     }
     if (key == '1') {
-      r1 = '1';
+      (r1 ? r2 : r1) = '1';
       state.t9NoteChar('1');
       return;
     }

@@ -78,6 +78,7 @@ protected:
   int      chatCount;
 
   void freeWidgets();
+  void clearInputClaims();      // predictive text belongs to Compose; see the .cpp
   /* ⚠ Delete JUST the menu, for an in-place rebuild. Every build*() starts with
    * `menu = newMenu(...)` and, until this existed, simply dropped the previous
    * one on the floor: freeWidgets() is called only from the destructor and

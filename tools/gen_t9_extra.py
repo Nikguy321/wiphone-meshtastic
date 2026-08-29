@@ -93,7 +93,9 @@ def main():
     ap.add_argument("--titles", required=True, help="page titles or a plain word list, one per line")
     ap.add_argument("--exclude-freq", help="the frequency list the built-in dictionary was built from")
     ap.add_argument("--limit", type=int, default=25000, help="must match the built-in build")
-    ap.add_argument("--short-len", type=int, default=3)
+    # MUST MATCH gen_t9_dict.py's default, or the "already built in" set this subtracts
+    # is not the set the phone actually carries and words get duplicated or lost.
+    ap.add_argument("--short-len", type=int, default=2)
     ap.add_argument("--short-max-rank", type=int, default=1000)
     ap.add_argument("--max-len", type=int, default=15)
     ap.add_argument("--min-titles", type=int, default=2,
