@@ -14,6 +14,9 @@ ESP32 cell phone) that adds:
   while you use the rest of the phone),
 - an **e-reader** (EPUB and text, pictures inline, your place saved, and
   position sync to another device over LoRa),
+- **T9 predictive text** — five keypresses for "hello" instead of thirteen, with a
+  25,000-word dictionary in flash, the old mode cycle on `#`, and room for your own
+  vocabulary on the SD card,
 - and phone quality-of-life fixes (real battery life, WiFi auto-switching,
   input reliability).
 
@@ -69,6 +72,12 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.33 – 0.9.41** — **T9 predictive text** (below), and the memory work that made
+  it possible: the Nodes screen used to reboot the phone once the mesh got big enough,
+  because menu rows were the one thing in the firmware still allocating from the ~20 KB
+  internal heap rather than PSRAM. Also two latent panics on the typing path, and an
+  adversarial review that found fourteen more bugs — including a dictionary that could
+  not spell "cat".
 - **0.9.28** — **the WiFi uploader is finally solid**: the upload page is served
   by the same lean single-connection engine that moves the file pieces, so
   loading it no longer eats the phone's memory and tripping the "site cannot be
@@ -344,6 +353,60 @@ off until you turn it on (**My node**, or `gps on` over serial).
 
 ---
 
+## Predictive text (T9)
+
+Five keypresses for "hello" instead of thirteen. Type `d-o-n-t` and get **don't** — the
+apostrophe comes free, exactly as it did on the phones this is imitating.
+
+It is **on by default**, with a **Settings → Predictive text** switch that remembers, and
+the word being predicted shows in the footer rather than in your message, so nothing is
+committed until you accept it.
+
+| Key | What it does |
+|---|---|
+| **2–9** | build the word; the prediction appears in the footer |
+| **UP / DOWN** | step through the other words on those digits — only while a word is pending, so they still move the cursor otherwise |
+| **OK** | accept the word |
+| **0** | space, and accepts the word first |
+| **BACK** | un-types one **keypress**, not one letter |
+| **`#`** | cycles **T9 → Abc → ABC → 123** — the classic escape, and 123 is how you type "testing 1 2 3" |
+| **hold a number** | types the digit itself, without leaving T9 |
+| **hold `#`** | capitalises the next word — for a name in the middle of a sentence |
+
+Sentences capitalise themselves: the first word, and the first word after `.`, `!` or `?`.
+
+Where it works: **message bodies** (Meshtastic and SIP) and the **note page**. Where it
+deliberately does not: SIP addresses, WiFi passwords, IP addresses, the four-character
+short name. A dictionary in a password field is a bug, not a feature, so every field opts
+in explicitly and the default is off.
+
+### Your own words
+
+Jargon your dictionary has never heard of — unit names, callsigns, place names, a team
+roster — goes in a plain text file at **`/t9/extra.txt`** on the SD card. It loads at boot
+and its words are always offered **after** the built-in English ones, so they are there
+when you want them and never in the way.
+
+It is a file on the card and not part of the firmware on purpose: one person's vocabulary
+has no business in a stranger's phone, and it means adding words is a file copy rather than
+a reflash. `tools/gen_t9_extra.py` builds one from any word list; `up on t9` on the serial
+console starts the WiFi uploader pointed at it, and `t9 reload` picks up the new file
+without rebooting.
+
+### Why it does not eat the phone
+
+The dictionary is **25,000 words in flash** (`static const`, memory-mapped, read by plain
+pointer dereference) and the engine **allocates nothing at all** — every buffer is a fixed
+member. That is not tidiness: on this phone an internal-heap allocation failure inside
+`new` throws, nothing catches it, and the phone aborts. The only safe amount of allocation
+on the keypress path is none.
+
+Cost: **+64 bytes of RAM**, 270 KB of flash, and a worst-case lookup of 25 binary-search
+probes — about 0.05% of the 250 ms the firmware treats as a stall. The optional SD
+dictionary lives in PSRAM and costs the internal heap nothing either.
+
+---
+
 ## Texting
 
 - **Conversations, not an inbox and an outbox.** Messages opens on a list of
@@ -397,7 +460,8 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 
 | command | does |
 |---|---|
-| `up on` / `up on books\|photos` / `up off` / `up` | start / stop the WiFi upload page (into `/roms`, `/books` or `/photos`); show its address |
+| `up on` / `up on books\|photos\|t9` / `up off` / `up` | start / stop the WiFi upload page (into `/roms`, `/books`, `/photos` or `/t9`); show its address |
+| `t9` / `t9 on\|off` / `t9 reload` | predictive text: state and how many extra words are loaded; switch it; re-read `/t9/extra.txt` without rebooting |
 | `heap` | memory truth: internal/DMA/PSRAM free + largest + floor since boot |
 | `wifi scan` | what the radio can actually hear — deaf radio vs absent AP |
 | `wifi calreset` / `wifi restore` | erase the RF calibration / the WiFi driver's stored state, and reboot — the deaf-radio probes (⚠ `restore` forgets the last-used network) |
