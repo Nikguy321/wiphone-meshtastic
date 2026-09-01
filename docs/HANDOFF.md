@@ -4,6 +4,75 @@
 
 Read this first; everything below it is narrative.
 
+# 📉 2026-09-01 EVENING — WIFI *SEARCHING* IS THE BIGGEST MEASURED DRAIN, AND IT PROBABLY EXPLAINS
+# THE 08-31 EVENT. THE AUDIO LEAK IS REAL BUT IS LIKELY NOT WHAT HAPPENED THAT MORNING.
+
+Nick ran phone 1 down again on 0.9.47 (up 79→303 min, 3.73 h, 100 % → 45 %, v 4.120 → 3.780).
+Steady state with the first 20 min discarded: **13.53 %/h, 73.5 mV/h ⇒ 7.4 h from full.** WiFi was
+associated for only **58 %** of it.
+
+🔑 **THREE RUNS SURVIVE IN THE RETAINED LOG AND THEY LINE UP ON ONE VARIABLE — HOW MUCH OF THE RUN
+THE PHONE SPENT ASSOCIATED RATHER THAN SEARCHING:**
+
+| assoc | rate | life | |
+|---|---|---|---|
+| 27 % | 17.56 %/h | 5.7 h | |
+| 58 % | 13.53 %/h | 7.4 h | this run, 0.9.47 |
+| 97 % | 10.24 %/h | 9.8 h | the 07:20-11:20 run |
+
+Least squares: `rate = -0.1037 × assoc% + 20.07`, R² = 0.985.
+⇒ **extrapolated to a phone that NEVER finds a network: 20.1 %/h. The 08-31 event measured 22 %/h**,
+and ~1 h of it was in the car with no WiFi by Nick's own account.
+
+✅ **CONFIRMED WITHIN THE SINGLE RUN TOO**, so it is not only a between-runs artefact. Voltage
+slope over contiguous stretches, first block dropped as surface charge: **associated ≈ 60 mV/h,
+searching ≈ 106 mV/h — about 75 % more.** ⚠ The curve-shape objection cuts the RIGHT way: the
+slowest block of all (54.5 mV/h) sits at the LOWEST voltage, below the searching stretch, so a
+steeper region of the discharge curve is not producing the difference.
+
+⚠ **THREE POINTS IS NOT A STUDY.** Different days, different conditions, and R² on three points is
+nearly meaningless as statistics. The claim is only that the relationship is monotonic, holds
+within a single run as well as across runs, and lands on 08-31's number at the extrapolated end.
+
+🔑 **CONSEQUENCE — READ THIS BEFORE RE-LITIGATING THE AUDIO LEAK.** The codec leak is REAL and was
+caught firing and being released on hardware (see above). But **it is probably not what happened on
+08-31**: this run had `aud=0/0` in all 225 samples and still drained at 13.53 %/h purely from
+hunting. Two separate faults; the WiFi one is the bigger number.
+
+## PHONE 1 HEALTH ON 0.9.47 — ALL 225 SAMPLES, EVERYTHING CLEAN
+
+| instrument | reading | verdict |
+|---|---|---|
+| `aud=` | `0/0` in 225/225 | no audio leak |
+| `ps=` | `1` in 225/225, **including 83 samples spent searching and 8 with the radio down** | modem sleep held |
+| `sip=` | `1` (Idle) in 225/225 — never the stuck `HangUp` | clean |
+| `cpu=` | 80 MHz in 216/225; the 9 at 240 line up with screen-on | governor correct |
+| `largest` | **33712 → 33712, min == max** | **ZERO fragmentation drift over 3.7 h** |
+| psram | 3.441 MB free, varying 336 B across the run | stable |
+
+🔑 **`ps=1` HELD THROUGH 83 SAMPLES OF HUNTING AND 8 WITH THE RADIO DOWN** — that is a second,
+stronger disconfirmation of the WiFi-power-save hypothesis, on top of the `wifi bounce` test.
+Modem sleep is NOT being lost. The cost of hunting is the scanning itself, not a lost PS setting.
+
+📊 **Chart + full write-up published as an artifact** (voltage trace with the searching bands, SOC,
+and the three-run relationship).
+
+## REVISED PREDICTED IDLE LIFE, PHONE 1
+
+| condition | rate | from full |
+|---|---|---|
+| WiFi **off** entirely | 8.6 %/h | **~11.5 h** |
+| associated, in range | ~10 %/h | ~10 h |
+| mixed, in and out of range | 13.5 %/h | 7.4 h |
+| mostly searching | 17.6 %/h | 5.7 h |
+| never finds a network | ~20 %/h | ~5 h |
+
+🌲 **FOR THE WOODS THIS IS THE WHOLE GAME: turning the radio OFF is worth more than doubling the
+battery.** A phone left hunting for a network that does not exist is the ~5 h row. This makes the
+unbuilt "woods mode" (persist WiFi-off across a reboot + the three escape hatches) the highest-value
+remaining battery work by a wide margin — far more than any cell swap.
+
+
 # 🛑 2026-09-01 CORRECTION — THE WIFI POWER-SAVE CLAIM IS DISPROVEN FOR THE PATH THAT MATTERED
 
 Earlier this session I called lost WiFi modem sleep *"bigger than the codec"* and named
