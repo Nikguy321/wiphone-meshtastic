@@ -4,6 +4,39 @@
 
 Read this first; everything below it is narrative.
 
+# 🛑 2026-09-01 CORRECTION — THE WIFI POWER-SAVE CLAIM IS DISPROVEN FOR THE PATH THAT MATTERED
+
+Earlier this session I called lost WiFi modem sleep *"bigger than the codec"* and named
+`Networks::bounceRadio()` — the AUTOMATIC deaf-radio cure — as silently doubling idle radio draw
+for the rest of a boot. **That was inference from code plus an in-file comment, and the first
+direct test on hardware does not support it.**
+
+**MEASURED (phone 1, 0.9.47, `wifi bounce` on the cable):** the bounce genuinely ran —
+`radio cycled off/on`, `wifi=6`, `conn=0`, then reassociated to `wifi=3` and SIP re-registered.
+**`ps=1` throughout, and the `WIFI: modem sleep had been reset ...` repair line NEVER PRINTED**,
+against a check that runs every 5 s and would have caught any drop lasting more than that.
+
+⇒ **`esp_wifi_start()` appears to PRESERVE the configured power-save mode on this SDK**, contrary
+to what the comment at Networks.cpp:171-172 implies ("the driver resets the power-save mode when
+the station starts").
+
+**What still stands:** `esp_wifi_set_ps(WIFI_PS_MIN_MODEM)` really is called in exactly one place
+(Networks.cpp:174, inside `connectToWiFi()`, one caller) and six other paths really do start the
+station without it. That is a code fact. **What does NOT stand is the consequence I drew from
+it.** The one path I could test held the setting.
+
+⚠ **STILL UNTESTED, and they are not the same path:** the Settings WiFi toggle OFF→ON
+(`WiFi.mode(WIFI_OFF)` then a bare `esp_wifi_start()`, GUI.cpp:1839), the Game Boy exit
+(app_gbc.cpp:328) and the uploader stop (app_gbc_xfer.cpp:1766). Those do a fuller stop/start
+than `bounceRadio()` and could still differ. **Do not assume either way — `ps=` answers it in
+one glance now.**
+
+🔑 **THE CONSEQUENCE FOR THE 08-31 EVENT: the audio leak is now the ONLY PROVEN drain, and the
+WiFi hypothesis is substantially weakened.** The `ps=` field and the invariant both stay — they
+cost nothing and will catch it if it ever does happen — but the leading explanation for that
+morning is the codec, not the radio.
+
+
 # ✅ 2026-09-01 LATE MORNING — 0.9.47 IS PROVEN ON HARDWARE. THE AUDIO LEAK IS REAL, CAUGHT IN
 # ORDINARY USE, AND THE WATCHDOG RELEASES IT.
 
@@ -70,10 +103,9 @@ against a vendor's overall figure, not the code.
 
 ## Still open for Thursday
 
-- ⚠ **The WiFi power-save fix is UNPROVEN in the sense that matters.** `ps=1` reads correctly, but
-  nothing has yet been observed *losing* modem sleep and being repaired. The way to see it: run
-  `wifi bounce` on the cable and watch for `WIFI: modem sleep had been reset to 0 by a station
-  restart`. Two minutes, and it closes the other half of this session.
+- ✅ **DONE, AND IT CAME BACK NEGATIVE — see the correction section at the top.** `wifi bounce`
+  held `ps=1` throughout and never triggered the repair, so the bounce does NOT lose modem sleep.
+  The three fuller stop/start paths remain untested.
 - The residual: which of the two leaks caused 08-31. `aud=` and `ps=` now answer it from ordinary
   use — no staged test needed.
 - Nick's music **crackle** is untouched and explicitly deferred to its own session.

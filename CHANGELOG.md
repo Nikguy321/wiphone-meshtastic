@@ -37,7 +37,16 @@ boot.**
 🔑 **AND IT IS INVISIBLE.** After `stopMusic()`, `musicPlayerIsPlaying()` reads false, so the CPU
 governor drops to 80 MHz and every instrument the project owns reports a perfectly idle phone.
 
-### 🛑 WiFi modem sleep is thrown away by every station restart
+### 🛑 WiFi modem sleep — one setter, six bypass paths (⚠ but see the correction below)
+
+⚠ **DISPROVEN SAME DAY FOR THE PATH THAT MATTERED.** `wifi bounce` on 0.9.47 held `ps=1` right
+through a full radio cycle and never triggered the repair, so `esp_wifi_start()` appears to
+PRESERVE power-save on this SDK — contrary to the comment at Networks.cpp:171-172. The code facts
+below stand; the consequence drawn from them does not. The invariant and the `ps=` field stay
+(they cost nothing and will catch it if it ever does happen), but **the audio leak is the only
+PROVEN drain of the two.** The Settings toggle OFF→ON, the Game Boy exit and the uploader stop do
+a fuller stop/start and remain untested.
+
 
 `esp_wifi_set_ps(WIFI_PS_MIN_MODEM)` appears **exactly once in the tree** — Networks.cpp:174,
 inside `connectToWiFi()`, which has exactly one caller. The comment there says why it sits after
