@@ -2,6 +2,11 @@
 
 ## 0.9.47 (2026-09-01) - two shared devices that nothing ever switched off
 
+✅ **PROVEN ON HARDWARE THE SAME MORNING.** Nick played a track for six seconds and paused it:
+`aud=1/1` (playing) → `aud=1/0` (paused: powered, nothing moving — **the leak**) → held while the
+screen was lit → screen slept → **`AUDIO: device was left powered with nothing using it -
+released after 30 s`** → `aud=0/0`. Both phones flashed and confirmed on 0.9.47.
+
 Nick: *"yesterday I unplugged wiphone 1 at like 6am-ish and left it mostly idle. at 10am it was
 at 12 percent."* That is ~22 %/h against a measured baseline of ~10. Four battery ideas were put
 up for assessment; **three of them turned out not to matter, and the two things that did were

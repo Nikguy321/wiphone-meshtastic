@@ -4,7 +4,88 @@
 
 Read this first; everything below it is narrative.
 
-✅ **BOTH PHONES ARE ON 0.9.46** (flashed 2026-08-29 15:24 from one build dir, both
+# ✅ 2026-09-01 LATE MORNING — 0.9.47 IS PROVEN ON HARDWARE. THE AUDIO LEAK IS REAL, CAUGHT IN
+# ORDINARY USE, AND THE WATCHDOG RELEASES IT.
+
+**Both phones are on 0.9.47** (flashed 11:28, both `Hash of data verified`), pushed, and the web
+flasher is published. `ver` reads `firmware 0.9.47, built Sep  1 2026 11:28:29`.
+
+🎉 **NICK PLAYED A TRACK FOR SIX SECONDS AND PAUSED IT. THE WHOLE MECHANISM THEN PLAYED OUT ON
+THE WIRE, UNAMBIGUOUSLY** (serial capture, `scratchpad/p1_proof.log`):
+
+| t | line | meaning |
+|---|---|---|
+| +31 s | `aud=1/1  scr=45` | playing: powered AND moving samples |
+| +46 s | `aud=1/0  scr=45` | **paused — THE LEAK.** Powered, nothing moving |
+| +61 s | `aud=1/0  scr=45` | watchdog correctly HOLDS OFF for the lit screen |
+| +71 s | `CPU 80MHz (idle)` | screen slept |
+| +76, +90 s | `aud=1/0  scr=0` | the 30 s clock running |
+| **+101 s** | **`AUDIO: device was left powered with nothing using it - released after 30 s`** | **fired** |
+| +105 s | `aud=0/0  scr=0` | released |
+
+🔑 **`aud=1/0` IS THE LEAK SIGNATURE AND IT IS NOW A ONE-GLANCE TEST.** An earlier, accidental
+capture had already caught it in a single health sample minutes after flashing — the instrument
+found the bug in ordinary use before anybody went looking.
+
+⚠ **The 30 s clock only starts when the screen sleeps.** `screenBrightness > 0` is a deliberate
+term of `audioDeviceBusy()` — several consumers (the mic-level meters at GUI.cpp:8988, 9076,
+9974, 11800) acquire the device with no non-sticky flag saying so, and enumerating them one by
+one is the game the watchdog exists to stop playing. A first attempt to prove this on the bench
+failed for exactly this reason and it was NOT a fault: the screen was lit.
+
+## The battery number, from the cleanest run this project has
+
+Today, phone 1, 3.75 h off the cable: **100 % → 57 %, v 4.130 → 3.830**, screen off 99 %, WiFi
+associated 97 %, CPU at 80 MHz 99 %, `sip=1` throughout. Steady state with the first 20 min
+discarded: **10.2 %/h, 64 mV/h** (hourly blocks 8.1 / 11.2 / 10.7).
+
+| condition | idle life |
+|---|---|
+| WiFi on and associated | **~9 h** |
+| WiFi off (woods) | ~11 h (from the 8.6 %/h WiFi-off figure) |
+| **something leaking** (2026-08-31) | **~4.5 h** |
+
+⇒ ~90 mA against 900 mAh nominal, or ~72 mA if the 3.5-year-old pack is at 80 % health.
+🔑 **0.9.47 does not make the good case better — it stops the bad case.** The 9 h was always
+there when nothing had leaked.
+
+⚠ **TODAY DID NOT ISOLATE THE CAUSE OF THE 08-31 EVENT, AND NICK SPOTTED WHY: two variables
+changed.** Thursday had ~1 h in the car with no WiFi; today was 97 % associated throughout. So
+the audio leak and the WiFi-power-save loss are BOTH still live explanations for that morning.
+Weak supporting signal only: the previous run was 71 % associated at 77 mV/h, today 97 % at
+64 mV/h, over near-identical voltage ranges. Two runs is not a measurement.
+
+## The cell, settled from a photo of the label
+
+**UFX 603048A, 3.7 V, 900 mAh, 3.33 Wh, made 2023.02.09** — so **6.0 × 30 × 48 mm**, and 3.5
+years old, not the ~6 assumed earlier. **Soldered directly to the board**, no connector; the pack
+carries its own protection FETs (docs/woods-backplate.md:191 records them being destroyed once).
+Same-footprint options: 900 mAh standard, **1000 mAh widely available with PCM** (DNK Power, FP
+Battery, eBay retail), 1100 mAh from a manufacturer with likely MOQ. ⇒ **+11 % realistic.**
+⚠ **The arithmetic says a new cell is not the fix**: 900 mAh at the measured ~78 mA idle is
+~11.5 h, and even at 80 % health ~9.2 h. The 08-31 event needed 180-225 mA. **A pack cannot
+explain it; something was drawing ~100 mA extra.**
+⚠ The `603048` code is the BARE cell — the PCM adds length. Measure the TOTAL installed length
+against a vendor's overall figure, not the code.
+
+## Still open for Thursday
+
+- ⚠ **The WiFi power-save fix is UNPROVEN in the sense that matters.** `ps=1` reads correctly, but
+  nothing has yet been observed *losing* modem sleep and being repaired. The way to see it: run
+  `wifi bounce` on the cable and watch for `WIFI: modem sleep had been reset to 0 by a station
+  restart`. Two minutes, and it closes the other half of this session.
+- The residual: which of the two leaks caused 08-31. `aud=` and `ps=` now answer it from ordinary
+  use — no staged test needed.
+- Nick's music **crackle** is untouched and explicitly deferred to its own session.
+- 📋 Assessed and rejected, with numbers, so they are not re-litigated: a no-relay toggle
+  (~0.016 mAh/h), Bluetooth (nothing runs it), turning SIP off (idle SIP holds nothing).
+- A "woods mode" is still unbuilt. Its real content is NOT just persistence: boot never applies a
+  persisted WiFi-off (Networks.cpp:324 vs WiPhone.ino:1423), and three paths restart the radio
+  without clearing the toggle (GUI.cpp:7167/7322 rescan, app_gbc_xfer.cpp:1731 softAP,
+  app_gbc.cpp:328 GBC exit).
+
+
+✅ **BOTH PHONES ARE ON 0.9.47** (2026-09-01; the 0.9.46 line below is history) (flashed 2026-08-29 15:24 from one build dir, both
 `Hash of data verified`). ⚠ `ver` build-time still cannot distinguish same-day builds. Both
 associated, phone 1 SIP-registered; panicwatch running on both. Host suite **1,161
 assertions, 0 failures** across eight suites (the old "841" figure in memory is stale).
