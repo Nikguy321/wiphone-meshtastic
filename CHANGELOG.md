@@ -1,5 +1,112 @@
 # Changelog
 
+## 0.9.47 (2026-09-01) - two shared devices that nothing ever switched off
+
+Nick: *"yesterday I unplugged wiphone 1 at like 6am-ish and left it mostly idle. at 10am it was
+at 12 percent."* That is ~22 %/h against a measured baseline of ~10. Four battery ideas were put
+up for assessment; **three of them turned out not to matter, and the two things that did were
+found by reading the shared devices rather than the feature list.**
+
+### 🛑 The audio codec, the external amplifier and I2S are left powered, indefinitely
+
+`Audio::shutdown()` is the ONLY function that calls `codec.shutDown()` (Audio.cpp:274),
+`i2s_stop()` (:311) and `amplifierEnable(0)` (:308). Every one of its call sites is a SIP call
+teardown or a debug easter egg. **There is no idle path**, and on a phone whose proxy never
+answers the call teardowns never run at all.
+
+So stopping a track leaves the WM8750 powered — DAC, output driver, VREF/VMID, the left ADC and
+the **microphone bias** (WM8750.h `powerUp()` sets POWER1 = VMIDSEL|VREF|AINL|ADCL|MICB
+regardless of the mask) — plus I2S running and, conditionally, the separate loudspeaker
+amplifier IC. `music_player.cpp` only ever calls `Audio::stopMusic()` = `playbackFile.close()` +
+`ceasePlayback()`, and `ceasePlayback()` (Audio.cpp:673-682) touches none of it.
+
+⚠ **PAUSING IS ENOUGH, AND IT IS WHAT NICK DOES.** `MusicApp::~MusicApp()` deliberately does not
+stop playback, so "start an album, pause it, pocket the phone" is the ordinary shape.
+⚠ **The amplifier is worse than the codec because it is CONDITIONAL.**
+`restoreCallVolume()` calls `chooseSpeaker(s_savedLoudspeaker)` — whatever the routing was when
+music STARTED (music_player.cpp:43) — and `chooseSpeaker()` no-ops when the value does not change
+(Audio.cpp:223). The call screen sets loudspeaker unconditionally (GUI.cpp:5983). **So whether
+pausing music switches your amplifier off depends on whether you had opened the dialer since
+boot.**
+
+🔑 **AND IT IS INVISIBLE.** After `stopMusic()`, `musicPlayerIsPlaying()` reads false, so the CPU
+governor drops to 80 MHz and every instrument the project owns reports a perfectly idle phone.
+
+### 🛑 WiFi modem sleep is thrown away by every station restart
+
+`esp_wifi_set_ps(WIFI_PS_MIN_MODEM)` appears **exactly once in the tree** — Networks.cpp:174,
+inside `connectToWiFi()`, which has exactly one caller. The comment there says why it sits after
+`begin()`: *"the driver resets the power-save mode when the station starts, so setting it earlier
+is silently undone."* Every other path that starts the station never goes near it, and the
+comment above it prices that at *"tens of milliamps, forever"*:
+
+- `Networks::bounceRadio()` (Networks.cpp:504) — ⚠ **the AUTOMATIC deaf-radio cure**, so an
+  ordinary WiFi blip in a pocket silently doubles idle radio draw for the rest of the boot;
+- the Settings WiFi toggle turning back **ON** (GUI.cpp:1839) and the edit screen (GUI.cpp:6632)
+  — ⚠ the one control a user reaches for to SAVE power;
+- the Game Boy on exit (app_gbc.cpp:328), the ROM uploader on stop (app_gbc_xfer.cpp:1766),
+  and the blocking scan path (Networks.cpp:821).
+
+### ✅ The fix, for the class rather than the callers
+
+Both are the same bug: **a shared device whose mode one component sets and another silently
+resets.** Fixing each caller fixes that caller; the next one breaks it again, as four previous
+faults in this codebase already did. So:
+
+- **An audio idle watchdog** in `loop()`: when nothing is entitled to the device for 30 s
+  continuous, `shutdown()` — which clears codec, I2S and amplifier together. Safe because
+  `shutdown()` uses `i2s_stop()` and never uninstalls the driver (see `Audio::configureI2S`), so
+  release-and-reacquire costs no DMA reallocation.
+- **A WiFi power-save invariant**, re-asserted every 5 s regardless of which path restarted the
+  station.
+- 🎁 The audio watchdog also closes the **hot-mic leak**: `shutdown()` is what clears
+  `microphoneOn` / `microphoneStreamOut` / `rtpRemotePort`.
+- ⚠ **Both log at `log_e` every time they fire.** A watchdog that cleans up silently is a
+  bug-hider; these are instruments that name the leak each time, so the underlying caller can
+  still be found.
+
+### 🔎 And the instruments, because none of this was visible
+
+- `aud=%d/%d` in the health line — powered / moving-samples. **`aud=1/0` is the leak signature**,
+  and it is the state that reads as a perfectly idle phone in every other field on that line.
+- `ps=%d` — 1 = modem sleep, 0 = receiver at full power, -1 = station not up.
+- A serial `audio` command: who is entitled to the device, and for how long it has been idle.
+  ⚠ Both report the firmware's SHADOW of the chip: the WM8750 is write-only (no `readReg`), so
+  the registers cannot be read back. That is why the watchdog runs on a timer rather than
+  trusting bookkeeping.
+
+### 🐛 Two bugs the adversarial review found in the watchdog itself, before it ever ran
+
+- **It could never have fired.** The first version used `sipCallActive()`, which counts
+  `HangUp`/`HangingUp` — states measured stuck in **1,066 of 1,071** health samples on phone 2.
+  Now `sipNeedsFullSpeed()`; a teardown with RTP genuinely flowing is held by `movingSamples()`.
+- **It would have crashed the voice recorder.** `recordFromMic()` sets `microphoneRecord` and
+  never touches `playback`, so `movingSamples()` read false during a live recording.
+  `movingSamples()` now counts recording, and the predicate gained `screenBrightness > 0` as a
+  catch-all for UI consumers with no non-sticky flag (the mic meters go through `turnMicOn()`,
+  which sets only `microphoneOn` — cleared nowhere but `shutdown()`).
+
+### 🐛 Pre-existing: `ceaseRecording()` freed the buffer and kept the write index
+
+`freeNull(&recordRaw)` left `recordRawW` set, and `saveWavRecord()` does
+`if (recordRawW > 0) write(recordRaw, recordRawW * 2)` — a read from address 0 on the next Save
+after ANY `shutdown()` during a recording. Reachable from every teardown path; the watchdog would
+merely have been the first thing to trigger it reliably. The buffer and its indices now die
+together.
+
+### 📋 Measured, and NOT worth doing — the three ideas that were assessed and rejected
+
+- **A "do not relay other nodes" toggle saves nothing.** Measured `MARK mesh-relay`: 25 relays in
+  20 h on phone 1, 9 in 18 h on phone 2 = 0.5-1.25/h. At ~0.5 s on air and ~90 mA at PA_BOOST
+  +17 dBm that is ~0.016 mAh/h — about 0.01 % of the budget. Worth adding as mesh etiquette,
+  never as a battery feature.
+- **No Bluetooth is running.** Nothing in the tree calls BluetoothSerial/BLEDevice/NimBLE, and
+  arduino-esp32 does not start the controller unless asked. (There IS RAM to reclaim:
+  `esp_bt_controller_mem_release(ESP_BT_MODE_BTDM)` is called only when the Game Boy starts.)
+- **Turning the SIP account off saves nothing.** `sipNeedsFullSpeed()` excludes every non-call
+  state and phone 1 idles at 80 MHz with `sip=1`; with no WiFi there is nothing to poll and
+  nothing to re-REGISTER. The woods saving is the WiFi radio, not SIP.
+
 ## 0.9.46 (2026-08-29) - book sync stops being a stopwatch
 
 Nick: *"If I sync my place from a device, the wiphone doesn't automatically have the new place.

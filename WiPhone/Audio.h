@@ -215,6 +215,28 @@ public:
   bool isOn() {
     return this->audioOn;
   }
+  /* Is the device actually MOVING SAMPLES right now?
+   *
+   * ⚠ DELIBERATELY NARROW, AND DELIBERATELY NOT A SESSION PREDICATE. This answers one
+   * question — "is the hardware doing work" — and nothing else. It is the device half of the
+   * audio idle watchdog in WiPhone.ino; the session half (a call up, the phone ringing, a
+   * notification pop mid-play, the emulator holding the device) lives there, with the state
+   * that knows about those things. Every consumer states what it needs.
+   *
+   * ⚠ microphoneOn / microphoneStreamOut are NOT consulted, on purpose. They are cleared in
+   * exactly one place — shutdown() — so a call that ended without one leaves them latched
+   * true forever (that is the hot-mic leak documented at the top of shutdown()). Consulting
+   * them here would let the very fault the watchdog exists to clean up switch the watchdog
+   * off. The SIP call state in the loop is the authority on whether a call is live. */
+  bool movingSamples() const {
+    /* ⚠ RECORDING COUNTS, and it is a SEPARATE FLAG. recordFromMic() (Audio.cpp:1571-1601)
+     * allocates the buffer, calls turnOn()/turnMicOn() and sets microphoneRecord — it never
+     * touches `playback`. Reading only `playback` therefore reported "not in use" throughout a
+     * live recording, which let the idle watchdog shut the device down mid-record. Unlike
+     * microphoneOn (see the note below) microphoneRecord is NOT sticky: ceaseRecording() and
+     * saveWavRecord() both clear it. */
+    return this->playback != Playback::Nothing || this->microphoneRecord;
+  }
   bool isEof() {
     return this->playbackEof;
   }

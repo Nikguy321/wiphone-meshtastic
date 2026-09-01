@@ -39,6 +39,7 @@ governing permissions and limitations under the License.
 #include "lora.h"
 #include "esp_ota_ops.h"
 #include "esp_task_wdt.h"   // DIAGNOSTIC: loop-stall watchdog, see setup()
+#include "esp_wifi.h"       // esp_wifi_get_ps/set_ps: the modem-sleep invariant in loop()
 #include "Test.h"
 #include "meshtastic_service.h"
 #include "music_player.h"
@@ -2150,6 +2151,159 @@ static uint32_t meshPopStartMs = 0;
 static bool     meshVibroActive = false;
 static uint32_t meshVibroStartMs = 0;
 
+/* ── THE AUDIO DEVICE IS RELEASED WHEN NOBODY IS USING IT ─────────────────────────────────
+ *
+ * 🛑 THIS EXISTS BECAUSE `Audio` IS A DEVICE-WIDE SINGLETON WITH NO OWNERSHIP DISCIPLINE, AND
+ * THAT HAS NOW PRODUCED THE SAME FAULT FIVE TIMES. Something turns the codec on; nothing turns
+ * it off. `Audio::shutdown()` is the ONLY function that calls `codec.shutDown()` and
+ * `i2s_stop()` (Audio.cpp:274, :311) — and every one of its call sites is a SIP call teardown
+ * or a debug easter egg. There is no idle path. So:
+ *
+ *   - stopping a track leaves it on: music_player.cpp only ever calls `Audio::stopMusic()`,
+ *     which is `playbackFile.close()` + `ceasePlayback()`, and `ceasePlayback()` (Audio.cpp
+ *     :673-682) clears the decode buffers and touches neither the codec nor I2S;
+ *   - a notification pop leaves it on: the teardown below uses ceasePlayback()+restore() on
+ *     purpose, because shutdown()'s codec power-down on the shared I2C bus disturbs the vibro
+ *     motor extender;
+ *   - and on a phone with no working SIP proxy, the call teardowns never run at all.
+ *
+ * ⚠ AND IT IS INVISIBLE. After `stopMusic()`, `musicPlayerIsPlaying()` reads FALSE, so the CPU
+ * governor drops to 80 MHz and every instrument this project owns reports a perfectly idle
+ * phone — while the DAC, the chosen output driver, the external amplifier, VREF/VMID, the left
+ * ADC and the MICROPHONE BIAS all stay powered (WM8750.h powerUp() sets POWER1 =
+ * VMIDSEL|VREF|AINL|ADCL|MICB regardless of the mask) and I2S keeps running.
+ *
+ * 🔑 WHY A WATCHDOG RATHER THAN FIXING EACH CALLER: fixing music_player fixes music. The next
+ * thing to borrow the device breaks it again, exactly as the previous four did. This closes
+ * the class. It is SAFE to do here because `shutdown()` uses `i2s_stop()` and NEVER uninstalls
+ * the driver (see the note in Audio::configureI2S) — so releasing and re-acquiring costs no
+ * DMA reallocation, which is the one thing that would have made this a bad idea on a phone
+ * whose panics are internal-heap fragmentation.
+ *
+ * ⚠ AND IT IS LOUD, ON PURPOSE. It logs at log_e every time it fires. A watchdog that cleans
+ * up silently is a bug-hider; this one is an instrument that names the leak each time it
+ * happens. If this line stops appearing after a caller is fixed, that caller was the leak.
+ *
+ * 🎁 It also closes the hot-mic leak by the same stroke: shutdown() is what clears
+ * microphoneOn / microphoneStreamOut / rtpRemotePort (see the 🛑 note at the top of it), so a
+ * call that ended without a teardown no longer leaves the microphone armed indefinitely. */
+/* ── WIFI MODEM SLEEP IS RE-ASSERTED, BECAUSE THE DRIVER KEEPS THROWING IT AWAY ──────────
+ *
+ * 🛑 SAME BUG CLASS AS THE AUDIO WATCHDOG BELOW, ON A DIFFERENT SHARED DEVICE: one component
+ * sets a mode, another restarts the device and silently inherits the default.
+ *
+ * `esp_wifi_set_ps(WIFI_PS_MIN_MODEM)` appears EXACTLY ONCE in this whole tree —
+ * Networks.cpp:174, inside connectToWiFi() — and connectToWiFi() has exactly one caller
+ * (connectTo(), Networks.cpp:445). The comment there says why it sits after begin():
+ * "the driver resets the power-save mode when the station starts, so setting it earlier is
+ * silently undone." That is the whole problem: EVERY OTHER PATH THAT STARTS THE STATION
+ * NEVER GOES NEAR IT, so the receiver comes back powered continuously — which the comment
+ * two paragraphs above it costs at "tens of milliamps, forever".
+ *
+ * The paths that restart the station without connectToWiFi(), all verified:
+ *   - Networks::bounceRadio() (Networks.cpp:504-513) — disconnect(true) then mode(WIFI_STA).
+ *     ⚠ THIS IS THE AUTOMATIC DEAF-RADIO CURE. It fires by itself after two empty scans, so
+ *     an ordinary WiFi blip in a pocket silently doubles the radio's idle draw for the rest
+ *     of the boot, with nothing on screen and nothing in the log.
+ *   - The Settings WiFi toggle turning back ON (GUI.cpp:1839) and the edit screen
+ *     (GUI.cpp:6632) — both bare esp_wifi_start(). ⚠ So the one control a user reaches for
+ *     to SAVE power leaves the radio drawing MORE once they turn it back on.
+ *   - The Game Boy: mode(WIFI_OFF) on entry (app_gbc.cpp:188), mode(WIFI_STA) + reconnect()
+ *     on exit (app_gbc.cpp:328-329).
+ *   - The ROM uploader: mode(WIFI_STA) + begin() when it stops (app_gbc_xfer.cpp:1766-1772).
+ *   - The blocking scan path (Networks.cpp:821).
+ *
+ * ⚠ NOT GATED ON `wifiOn`. That global (GUI.cpp:45) is a label, not the radio's state, and
+ * the audit found three paths that restart the radio without touching it — gating on a flag
+ * that can lie is how this kind of guard quietly stops running. esp_wifi_get_ps() fails
+ * cleanly when the station is not up, and that error IS the gate.
+ * ⚠ Nothing to do for AP mode either: the power-save setting is station-scoped, so the
+ * uploader's softAP neither needs it nor is harmed by it.
+ * ⚠ LOUD, like the audio watchdog. Every firing names a station restart that did not restore
+ * the mode; if this line stops appearing after a caller is fixed, that caller was the leak. */
+#define WIFI_PS_RECHECK_MS  5000u
+static uint32_t wifiPsCheckMs = 0;
+
+#define AUDIO_IDLE_RELEASE_MS  30000u   // generous: the leak lasts hours, so 30 s recovers ~all of it
+static uint32_t audioBusyStampMs = 0;   // last pass on which something was using the device
+
+/* May the audio device be released this pass?
+ *
+ * ⚠ A NEW PREDICATE ON PURPOSE. sipCallActive(), sipNeedsFullSpeed() and sipMayPoll() already
+ * exist and mean three different things, and this codebase has been bitten repeatedly by one
+ * caller quietly editing a shared predicate another caller depended on. This one asks its own
+ * question: is ANY part of the phone currently entitled to the audio hardware?
+ *
+ * 🛑 `sipNeedsFullSpeed()` AND **NOT** `sipCallActive()`. This was the other way round for one
+ * revision, with a comment arguing that a teardown must not be cut off mid-BYE. That reasoning
+ * was WRONG, and wrong against data already in hand: sipCallActive() counts HangUp and
+ * HangingUp, and those states STICK on these phones - sip=6 was measured in 1,066 of 1,071
+ * health samples on phone 2 and 295 on phone 1. Wiring the watchdog to a permanently-true term
+ * meant it could NEVER FIRE on the exact hardware it was written for. A teardown whose RTP is
+ * genuinely still flowing is held by movingSamples() anyway (playback == RtpStream), which is
+ * the device's own truth rather than a session flag that can latch.
+ *
+ * ⚠ `screenBrightness > 0` IS A DELIBERATE CATCH-ALL, not laziness. Several consumers acquire
+ * the device with no non-sticky flag that says so - the mic-level meters (GUI.cpp:8988, 9076,
+ * 9974, 11800) go through turnMicOn(), which sets only `microphoneOn`, and that is cleared
+ * NOWHERE but shutdown(). Enumerating them one by one is precisely the game this watchdog
+ * exists to stop playing. A lit screen means a person is present, and the leak being hunted is
+ * the one that persists for HOURS with the screen dark - so this costs nothing real and buys
+ * immunity from every UI consumer nobody has enumerated yet, including future ones.
+ *
+ * ⚠ The vibro terms are NOT about audio at all — they are the I2C hazard. The codec and the
+ * SX1509 extender share the bus, and shutdown()'s codec power-down is documented in the pop
+ * teardown below as able to disturb the motor. Never release while the motor is driven. */
+static bool audioDeviceBusy() {
+  if (!audio) {
+    return false;
+  }
+  return audio->movingSamples()          // the device is pushing or pulling samples
+         || sipNeedsFullSpeed()          // a live or imminent audio session - see the note
+         || gui.state.ringing            // the phone is ringing
+         || meshPopPlaying               // a notification pop is mid-play
+         || gGbcActive                   // the emulator owns the device while it runs
+         || musicPlayerIsPlaying()       // belt and braces over movingSamples()
+         || gui.state.screenBrightness > 0   // somebody is LOOKING at it - see the note
+         || meshVibroActive              // I2C hazard: motor is driven
+         || gui.state.vibroOn;           // I2C hazard: ringer motor is driven
+}
+
+/* The `audio` serial command's body. Lives here because the answer needs the SIP state, the
+ * emulator flag, the music player and the vibro state, none of which serial_cmd.cpp can see.
+ *
+ * ⚠ EVERY NUMBER HERE IS THE FIRMWARE'S SHADOW OF THE CHIP, NOT THE CHIP. The WM8750 is
+ * write-only over its 2-wire interface (src/drivers/WM8750.h defines setReg and no readReg),
+ * so there is no way to ask the codec what it actually has powered. That is precisely why the
+ * watchdog releases the device on a timer instead of trusting this bookkeeping — and it is why
+ * `aud=` in the health line is worth more than this command: it is sampled once a minute for
+ * hours, so it catches the leak arriving even when nobody is at the cable. */
+int audioStateDump(char* out, int cap) {
+  if (!audio) {
+    return snprintf(out, cap, "audio: no device object\n");
+  }
+  const bool on = audio->isOn();
+  const bool moving = audio->movingSamples();
+  const bool busy = audioDeviceBusy();
+  int n = snprintf(out, cap,
+                   "audio: powered=%s moving=%s busy=%s idle=%lus (release at %lus)\n"
+                   "  entitled: sip=%d ringing=%d pop=%d gbc=%d music=%d scr=%d vibro=%d/%d\n",
+                   on ? "YES" : "no", moving ? "YES" : "no", busy ? "BUSY" : "idle",
+                   (unsigned long)(audioBusyStampMs ? (millis() - audioBusyStampMs) / 1000 : 0),
+                   (unsigned long)(AUDIO_IDLE_RELEASE_MS / 1000),
+                   (int)sipNeedsFullSpeed(), (int)gui.state.ringing, (int)meshPopPlaying,
+                   (int)gGbcActive, (int)musicPlayerIsPlaying(),
+                   (int)(gui.state.screenBrightness > 0),
+                   (int)meshVibroActive, (int)gui.state.vibroOn);
+  if (on && !busy) {
+    n += snprintf(out + n, cap > n ? cap - n : 0,
+                  "  ^ POWERED WITH NOTHING ENTITLED TO IT - this is the leak. Watch for the\n"
+                  "    'AUDIO: device was left powered' line; it fires once per leak.\n");
+  }
+  return n;
+}
+
+
 /* The brief "you have a message" pop + buzz.
  *
  * ⚠ SHARED BY THE MESH AND SIP PATHS, and that is the whole point of it existing.
@@ -3205,13 +3359,23 @@ void loop() {
         s_minHeapEver = fh;
       }
       char hl[200];
+      wifi_ps_type_t hlPs;
       snprintf(hl, sizeof(hl),
-               "HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% v=%.2f chg=%d wifi=%d cpu=%luMHz scr=%d sip=%d",
+               /* ⚠ aud= IS THE INSTRUMENT FOR THE AUDIO LEAK, and it is two numbers because one
+                * would not have found it: `powered` alone cannot tell a song playing from a
+                * codec left on after one stopped. `aud=1/0` — powered, moving no samples — IS
+                * the leak signature, and it is the state that reads as a perfectly idle phone
+                * everywhere else in this line (cpu=80MHz, scr=0, sip=1). */
+               "HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% v=%.2f chg=%d wifi=%d cpu=%luMHz scr=%d sip=%d aud=%d/%d ps=%d",
                (unsigned long)(now / 60000), fh, s_minHeapEver, ESP.getMaxAllocHeap(),
                ESP.getFreePsram(), (int)round(soc), v,
                (int)gui.state.battCharged, (int)WiFi.status(),
                (unsigned long)getCpuFrequencyMhz(),
-               (int)gui.state.screenBrightness, (int)gui.state.sipState);
+               (int)gui.state.screenBrightness, (int)gui.state.sipState,
+               audio ? (int)audio->isOn() : 0, audio ? (int)audio->movingSamples() : 0,
+               /* ps=1 is MIN_MODEM (what we want), 0 is NONE (receiver at full power),
+                * -1 means the station is not up so the question does not apply. */
+               (esp_wifi_get_ps(&hlPs) == ESP_OK) ? (int)hlPs : -1);
       log_e("%s", hl);
 
       /* ⚠ The CARD gets a line a minute, not one every fifteen seconds like the console.
@@ -3917,6 +4081,44 @@ void loop() {
         audio->ceasePlayback();
         audio->restore();
         meshPopPlaying = false;
+      }
+    }
+
+    /* Keep WiFi modem sleep applied. See the long note at WIFI_PS_RECHECK_MS: the driver
+     * drops it on every station restart and only one code path ever sets it. */
+    if (elapsedMillis(now, wifiPsCheckMs, WIFI_PS_RECHECK_MS)) {
+      wifiPsCheckMs = now;
+      wifi_ps_type_t ps;
+      if (esp_wifi_get_ps(&ps) == ESP_OK && ps != WIFI_PS_MIN_MODEM) {
+        if (esp_wifi_set_ps(WIFI_PS_MIN_MODEM) == ESP_OK) {
+          log_e("WIFI: modem sleep had been reset to %d by a station restart - MIN_MODEM "
+                "reapplied. The receiver was running at full power until now.", (int)ps);
+        }
+      }
+    }
+
+    /* Release the audio device once nothing has wanted it for a while. See the long note at
+     * audioDeviceBusy(). The stamp is refreshed on every busy pass, so the timeout measures
+     * CONTINUOUS idleness, not time since boot. */
+    /* 🛑 THE DEVICE-OFF BRANCH IS FIRST, AND IT IS NOT COSMETIC. Without it the stamp survived
+     * a shutdown() somebody ELSE performed, so the next acquire that had not yet set its busy
+     * flag met a stamp already older than the timeout and was released on its FIRST pass -
+     * the watchdog killing the very thing that had just started. Clearing the clock whenever
+     * the device is down makes the timeout mean what it says: continuous idleness while
+     * POWERED. */
+    if (audio) {
+      if (!audio->isOn()) {
+        audioBusyStampMs = 0;            // device down: there is no idleness to time
+      } else if (audioDeviceBusy()) {
+        audioBusyStampMs = now;
+      } else if (audioBusyStampMs == 0) {
+        audioBusyStampMs = now;          // first idle pass after an acquire: start the clock
+      } else if (elapsedMillis(now, audioBusyStampMs, AUDIO_IDLE_RELEASE_MS)) {
+        audio->shutdown();
+        audioBusyStampMs = 0;
+        log_e("AUDIO: device was left powered with nothing using it - released after %lu s. "
+              "Something acquired it and never called shutdown(); see audioDeviceBusy().",
+              (unsigned long)(AUDIO_IDLE_RELEASE_MS / 1000));
       }
     }
 

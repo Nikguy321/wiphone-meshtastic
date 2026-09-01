@@ -105,6 +105,7 @@ static void help() {
     "  announce   broadcast NodeInfo now, asking others to answer with theirs",
     "  dm <!node> <text>  send a direct message (PKI when the key is known)",
     "  heap       memory truth: internal/DMA/PSRAM free+largest+floor",
+    "  audio      audio device: powered? moving samples? who is entitled to it?",
     "  replay     history-replay state: ring occupancy, pending tx, last served",
     "  nbr        neighbours heard DIRECTLY + announce state (My node > Neighbor info)",
     "  nbr on|4h|off|now  set the announce cadence (1h/4h) or announce right now",
@@ -405,6 +406,7 @@ static void run(char* line) {
    * indistinguishable from a bad thumb, which is how the SN7326's 10ms INT pulse stayed
    * hidden behind "the menus miss the odd button" for two years. Each counter's meaning
    * is written above keypadHealth() in WiPhone.ino. */
+
   /* `health` — the battery/restart black box, over the cable rather than over WiFi.
    * See healthDump() in WiPhone.ino for why the HTTP route is the dangerous one. */
   if (!strcasecmp(line, "health") || !strcasecmp(line, "health all")) {
@@ -430,6 +432,25 @@ static void run(char* line) {
     char buf[200];
     keypadHealth(buf, sizeof(buf));
     say("keys: %s\n", buf);
+    return;
+  }
+
+  /* `audio` — is the codec powered, and is anything actually using it?
+   *
+   * ⚠ THIS REPORTS THE FIRMWARE'S SHADOW STATE, NOT THE CHIP'S. The WM8750 is addressed
+   * write-only over its 2-wire interface (src/drivers/WM8750.h has setReg and no readReg), so
+   * the registers cannot be read back to check. If the shadow and the chip ever disagree, this
+   * command will say the comfortable thing — which is exactly why the idle watchdog in
+   * WiPhone.ino releases the device on a timer rather than trusting anyone's bookkeeping.
+   *
+   * The line to look for is `powered=YES moving=no`: that is the leak. */
+  if (!strcasecmp(line, "audio")) {
+    /* Same shape as `keys` and `health`: the state lives in WiPhone.ino, where the SIP,
+     * emulator, music and vibro state are all visible; this just prints what it hands back. */
+    extern int audioStateDump(char* out, int cap);
+    char buf[420];
+    audioStateDump(buf, sizeof(buf));
+    say("%s", buf);
     return;
   }
   /* `keys raw` — what the CHIP actually sent, oldest first. The counters say a release

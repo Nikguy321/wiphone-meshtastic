@@ -1624,6 +1624,15 @@ bool Audio::saveWavRecord(fs::FS *fs, const char* pathName) {
 void Audio::ceaseRecording() {
   this->microphoneRecord = false;
   freeNull((void **) &this->recordRaw);
+  /* 🛑 ZERO THE INDICES WITH THE BUFFER. This freed recordRaw and left recordRawW at whatever
+   * the recording had reached — and saveWavRecord() writes `recordFile.write(recordRaw,
+   * recordRawW * 2)` behind `if (recordRawW > 0)` (:1615-1616). So ANY shutdown() during a
+   * recording (shutdown() calls ceaseRecording() at :275) armed a read from address 0 on the
+   * next Save. Pre-existing, and reachable from every teardown path — the audio idle watchdog
+   * in WiPhone.ino would merely have been the first thing to trigger it reliably.
+   * The buffer and the indices that describe it must die together. */
+  this->recordRawW = this->recordRawR = 0;
+  this->recordFinished = false;
 }
 
 bool Audio::turnMicOn() {

@@ -48,6 +48,89 @@ open item there, not the transport.
 📇 **Phone 1's sync device name is still the default `WiPhone-9040`**; phone 2 is
 `WiPhone-Nick`. Books ▸ menu ▸ Sync settings ▸ This device, if Nick wants it friendlier.
 
+# 🔋 2026-09-01 — TWO PHONES READ OVER THE CABLE. THE GPS FINDING IS REAL AND IS ON **PHONE 2**.
+# PHONE 1'S 22 %/h IS STILL UNEXPLAINED.
+
+Nick: phone 1 unplugged ~06:00 on 08-31, mostly idle, **12 % by 10:00 ≈ 22 %/h** — against the
+8.6 %/h idle and ~10 %/h mixed this project has measured.
+
+🛑 **I FIRST ATTRIBUTED THIS TO THE WRONG PHONE.** The inference was "memory says the NEW phone is
+on port 025A3EAF, therefore EAF is phone 2" — wrong, and Nick caught it. **Identify a phone from
+the phone, never from the port.**
+
+✅ **THE IDENTIFICATION, from `Meshtastic ▸ Status` on each screen via `tools/shot.py`:**
+
+| port | `Node:` | GPS | wallpaper | = |
+|---|---|---|---|---|
+| `usbserial-025A3EAF` | **`!00449040`** ⇒ default name `WiPhone-9040`, and HANDOFF already records that as phone 1's | none; reader never on, `bytes=0`, `sats -1` | mech on a barren plain | **PHONE 1** |
+| `usbserial-025A3F65` | **`!00449334`** | **live module**, 1,047 sentences / 30 s, **0 bad checksums** | tank / battle scene | **PHONE 2** (woods backplate, expanded battery) |
+
+🔑 **`tools/shot.py <port> out.png --cmd "key menu down down select down down down down select"`
+lands on Meshtastic ▸ Status, which prints `Node: !xxxxxxxx`. That is the identity check** — no
+serial command prints our own node number (`serial_cmd.cpp` never calls `getMyNodeNum()` for self).
+
+## The GPS → 240 MHz pin: REAL, REPRODUCED BOTH WAYS, but it is on PHONE 2
+
+| | phone 2 (`F65`, GPS on) | phone 1 (`EAF`, no GPS) |
+|---|---|---|
+| cpu=240MHz | **1,071 / 1,071 samples** (1,048 with `scr=0`) | 23, all screen-**on** |
+| cpu=80MHz, screen off | **0** | **1,176 / 1,176** |
+
+`gGpsNmea` is a term in the `busy` predicate (WiPhone.ino:4111) — there for **correctness, not
+speed**: the comment above it records a measured hard deadlock where `setCpuFrequencyMhz()`'s
+`uart_on_apb_change()` callback never exits if NMEA arrives faster than 1 byte/ms (115200 =
+11.5 B/ms; 9600 = 0.96 B/ms converges). The same predicate also gates `idleTickStretch`.
+
+✅ **Proved in both directions on phone 2, live:** `gps off` → `CPU 80MHz (idle)` immediately (the
+first 80 MHz in that phone's whole retained log); `gps on` → `CPU 240MHz (busy)` immediately.
+**Left ON — that is how it was found, and that phone has the expanded battery and no complaint.**
+
+⚠ **This is now a WOODS-TRIP WARNING, not an explanation of phone 1.** Phone 2 runs pinned at
+240 MHz with a GPS streaming and Nick reports its battery is fine — which is *evidence against*
+the pin being catastrophic on its own, and/or evidence that the backplate battery masks it. The
+exit the code's own arithmetic points at: run the module at **9600**, then `gGpsNmea` can leave
+`busy` (`gps baud 9600` exists; the M100 Mini ships at 115200 and needs a UBX/PMTK rate command).
+
+## ⚠ PHONE 1'S DRAIN IS NOT IN EITHER LOG, AND `soc=` IS ON AN UNPROGRAMMED BATTERY MODEL
+
+- **Retained windows:** phone 1 = 19.8 h continuous (`up` 2616→3805, one BOOT, no gaps), lowest
+  SOC **49 %**; phone 2 = 17.8 h across three boots, **soc 100 % throughout** (on the charger).
+  Nick's event was ~28-34 h before the read. **It is outside both windows. Neither log saw it.**
+- Phone 1's own measured discharge, GPS off and CPU at 80 MHz, in 1-h blocks:
+  **9.2 / 7.1 / 14.2 / 11.2 %/h** — normal-ish, and nothing like 22.
+- 🔑 **`CW2015::configure()` (src/drivers/CW2015.h:76-88) ONLY CLEARS THE MODE REGISTER. THE
+  BATINFO BATTERY PROFILE (0x10-0x3F) IS NEVER WRITTEN — nothing in this repo touches it.**
+  The gauge estimates SOC from whatever model is in its RAM. So **`soc=` is a soft number**, its
+  linearity is unvalidated, and **it is not comparable between two phones with different packs**.
+  `readVoltage()` is a direct VCELL ADC read and is the trustworthy signal.
+  ⇒ **Quote mV/h, not %/h**, and never compare %/h across the two phones.
+- ⇒ **"22 %/h" conflates draw with pack capacity and with gauge error.** Phone 1 is the older
+  phone; a degraded pack produces exactly this signature at an unchanged current. **Untested.**
+- 🧪 **THE EXPERIMENT THAT SEPARATES THEM:** both phones off the charger from full, side by side,
+  screen off, **same** settings (WiFi off both, GPS off both, mesh on both), 2 h, then read
+  `health` on each and compare **mV/h**. Identical firmware state ⇒ any difference is the pack.
+
+## What the same read says about the four ideas Nick asked about
+
+1. **Toggle off relaying other nodes' traffic — will NOT save measurable battery.** Measured
+   `MARK mesh-relay`: **25 relays in 20 h** (phone 1), **9 in 18 h** (phone 2) = 0.5-1.25/h.
+   At ~0.5 s on air (the code's own "~518 ms") and ~90 mA at PA_BOOST +17 dBm that is
+   **~0.016 mAh/h** — ~0.01 % of the budget. Even 100 relays/h would be ~1 %. Worth adding as
+   mesh etiquette, never as a battery feature. Insert point:
+   `meshtastic_service.cpp:1838-1851` (the CLIENT-role relay block), row in `buildMyNode()`,
+   persist beside `hoplim` in the `wpmesh` Preferences.
+2. **Bluetooth: nothing is running.** No `BluetoothSerial`/`BLEDevice`/`NimBLE` anywhere;
+   `btStop()`/`esp_bt_controller_disable()` appear only in `Networks::disable()` and
+   `app_gbc.cpp`. arduino-esp32 does not start the controller unless asked. **No power to save —
+   but there is RAM:** `app_gbc.cpp:342` calls `esp_bt_controller_mem_release(ESP_BT_MODE_BTDM)`
+   only when the emulator starts. Doing it once in `setup()` returns the BT ROM regions
+   permanently; `heap: internal free=29448`. One line, worth **measuring**.
+3. **Unchecking "Make primary" saves ~nothing.** `sipNeedsFullSpeed()` (WiPhone.ino:2091)
+   excludes every non-call state, and phone 1 sits at 80 MHz with `sip=1`. With no WiFi there is
+   nothing to poll and nothing to re-REGISTER. **The cost is the WiFi radio, not SIP.**
+4. Also seen: **`sip=6` (`CallState::HangUp`)** in 1,066/1,071 samples on phone 2 and 295 on
+   phone 1 — a teardown that never returns to Idle. No evidence it costs power; stability list.
+
 # 🔎 2026-08-27 LATE AFTERNOON — NICK'S BOOKSYNC REPORT: THE TRIGGER IS UNREPRODUCED,
 # THE *NEVER-RECOVERS* HALF IS FIXED (0.9.31)
 
