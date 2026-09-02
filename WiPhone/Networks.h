@@ -118,6 +118,28 @@ public:
   void     setRadioOff(bool off);      // switches, persists, and applies it
   bool     loadRadioOff();             // read the stored switch at boot (does NOT apply it)
 
+  /* Is a join attempt worth the radio time, given what the last scan actually saw?
+   *
+   * 🔑 THE POINT: a scan is ~350 ms. A failed join holds the radio associating for up to 30 s
+   * before the quiesce in loop() disconnects it. Out of range that is the single largest
+   * remaining cost, so do not spend it on air we have just been told is empty.
+   *
+   * 🛑 IT FAILS OPEN, EVERYWHERE, ON PURPOSE. No scan evidence, stale evidence, or not yet in
+   * a long dry spell all return true — this may only ever skip a join it has POSITIVE recent
+   * evidence is pointless. A phone that will not rejoin is a far worse failure than a phone
+   * that wastes some milliamps, and hidden SSIDs never appear in a scan at all.
+   *
+   * ⚠ AND IT HAS A SAFETY VALVE: every JOIN_BLIND_EVERY skips it lets one attempt through
+   * regardless. So a hidden network, or a deaf radio whose scans lie, costs a slower rejoin
+   * and never a permanent one. NOT const — the valve counts. */
+  bool     worthAttemptingJoin();
+  uint32_t joinsTried() const {
+    return _joinsTried;
+  }
+  uint32_t joinsSkipped() const {
+    return _joinsSkipped;
+  }
+
   bool     inLongDrySpell() const {
     return _drySpellStartMs != 0 &&
            (uint32_t)(millis() - _drySpellStartMs) >= WIFI_DRY_SPELL_LONG_MS;
@@ -164,6 +186,16 @@ protected:
    * cannot answer "did the user switch the radio off". This one can, which is what lets the
    * menu label, the boot path and the three re-enable paths all agree. */
   bool     _radioOff = false;
+
+  /* Scan evidence for worthAttemptingJoin(). _scanDoneMs is the last COMPLETED scan of any
+   * result; _savedSeenMs the last one that actually saw a saved network. Both are needed:
+   * "no evidence" and "evidence that there is nothing" must not be confused, because the
+   * first has to fail OPEN. */
+  uint32_t _scanDoneMs = 0;
+  uint32_t _savedSeenMs = 0;
+  uint8_t  _joinsSkippedRun = 0;       // consecutive skips, for the safety valve
+  uint32_t _joinsTried = 0;            // instruments, surfaced in the health line
+  uint32_t _joinsSkipped = 0;
 
   uint32_t _discScans = 0;
   /* When the current disconnected spell began, or 0 while connected. Drives the LONG-SPELL

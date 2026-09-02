@@ -38,7 +38,7 @@ governing permissions and limitations under the License.
  * Leave it OFF: it defeats the sleep timeout and pins the CPU high.
 //#define SCREEN_ALWAYS_ON_TEST */
 
-#define FIRMWARE_VERSION "0.9.49"
+#define FIRMWARE_VERSION "0.9.50"
 
 #define BUILD_GAMES
 
@@ -78,8 +78,22 @@ governing permissions and limitations under the License.
  * ~60 mV/h associated. See Networks::inLongDrySpell() for why the JOIN RETRY, not the scan,
  * is what these numbers are really cutting. */
 #define WIFI_DRY_SPELL_LONG_MS        300000u     // 5 min with no association
-#define WIFI_DRY_SCAN_PERIOD_MS       900000u     // then scan every 15 min, not 5
+/* 🔑 SCAN OFTEN, JOIN RARELY — and this is the right way round, which is NOT how 0.9.48/49
+ * had it. A scan is ~350 ms and it is the SENSOR; a failed join is up to 30 s of radio and it
+ * is the COST. Stretching the scan alongside the retry (15 min, as first shipped) throttled
+ * the cheap thing and pushed worst-case rejoin latency out to 15 minutes. Five minutes of
+ * scanning is 12/hour = ~4 s of radio an hour, and with worthAttemptingJoin() gating the join
+ * on what those scans saw, the expensive half costs almost nothing. Out-of-range duty works
+ * out at ~1.4 % against 16.8 % before, with BETTER return latency than either. */
+#define WIFI_DRY_SCAN_PERIOD_MS       300000u     // keep scanning every 5 min: it is the sensor
 #define WIFI_DRY_RETRY_PERIOD_MS      600000u     // ...and try to join every 10 min, not 3
+/* Scan evidence older than this is treated as no evidence at all, so worthAttemptingJoin()
+ * fails open. Must comfortably exceed the dry-spell scan cadence (15 min) or the gate would
+ * expire between scans and never fire. */
+#define WIFI_SCAN_EVIDENCE_MS         1200000u    // 20 min
+/* One blind attempt every N skips: the insurance for a hidden SSID or a lying scan. At the
+ * 10-minute dry retry that is roughly one blind try every 40 minutes. */
+#define WIFI_JOIN_BLIND_EVERY         4u
 
 
 /* ================== Keyboard constants ================== */

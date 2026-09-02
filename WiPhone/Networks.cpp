@@ -443,6 +443,7 @@ bool Networks::connectTo(const char* ssid) {
      * INI in the same breath — the live flag must agree with it. */
     reconnect = true;
     _userDisabled = false;
+    _joinsTried++;                              // instrument: pairs with _joinsSkipped
     connectToWiFi(wifiSsidDyn, wifiPassDyn);    // "async"
     r = true;
   }
@@ -585,6 +586,7 @@ void Networks::autoSwitchTick(bool screenOn) {
    * stamp; the tick runs at ~1 kHz, so at most one millisecond of spell is lost. */
   if (connected) {
     _drySpellStartMs = 0;
+    _joinsSkippedRun = 0;               // back on a network: the valve starts over
   } else if (_drySpellStartMs == 0) {
     _drySpellStartMs = millis() | 1u;
   }
@@ -607,6 +609,7 @@ void Networks::autoSwitchTick(bool screenOn) {
       heapEvent("scan-post");         // pairs with scan-pre: did this scan cost anything permanent?
       _dryScans = 0;
       _dryBounced = false;
+      _scanDoneMs = now | 1u;           // evidence: a scan completed; evaluate says what it saw
       autoSwitchEvaluate(n);
     } else if (n == 0) {
       /* 🛑 A COMPLETED SCAN THAT FOUND NOTHING IS the out-of-range case — OR THE DEAF
@@ -621,6 +624,7 @@ void Networks::autoSwitchTick(bool screenOn) {
       }
       log_e("[autosw] scan done: n=0 dry=%u", (unsigned)_dryScans);
       _msLastScan = now;
+      _scanDoneMs = now | 1u;           // evidence: a scan completed and saw nothing at all
     } else {
       /* n < 0: the scan was ABORTED or the API failed — commonly a reconnect attempt
        * cycled WiFi and killed it, or the radio was mid-connect. Learned nothing about the
@@ -794,6 +798,34 @@ bool Networks::loadRadioOff() {
   return _radioOff;
 }
 
+bool Networks::worthAttemptingJoin() {
+  /* Every early return here is a FAIL-OPEN. Read the note on the declaration before changing
+   * any of them: this may only skip a join it has positive, recent evidence is pointless. */
+  if (!inLongDrySpell()) {
+    return true;                        // a brief blip: behave exactly as before, no latency
+  }
+  const uint32_t now = millis();
+  if (_scanDoneMs == 0 ||
+      (uint32_t)(now - _scanDoneMs) > WIFI_SCAN_EVIDENCE_MS) {
+    return true;                        // no evidence, or stale — never block on ignorance
+  }
+  if (_savedSeenMs != 0 &&
+      (uint32_t)(now - _savedSeenMs) <= WIFI_SCAN_EVIDENCE_MS) {
+    return true;                        // a saved network was on the air recently: go
+  }
+  if (++_joinsSkippedRun >= WIFI_JOIN_BLIND_EVERY) {
+    _joinsSkippedRun = 0;
+    log_e("[wifi] scans see no saved network, but trying blind anyway "
+          "(insurance for a hidden SSID or a lying scan)");
+    return true;
+  }
+  _joinsSkipped++;
+  log_e("[wifi] join skipped: last scan saw no saved network (%u in a row, %lu total) - "
+        "a scan costs ~350ms, a failed join up to 30s of radio",
+        (unsigned)_joinsSkippedRun, (unsigned long)_joinsSkipped);
+  return false;
+}
+
 uint32_t Networks::currentDiscPeriod() const {
   /* Third tier added 2026-09-01 at Nick's ask. Two minutes covers a brief blip, five covers
    * a spell, and past ten minutes with no association at all the phone is somewhere without
@@ -855,8 +887,9 @@ void Networks::autoSwitchEvaluate(int n) {
   }
   if (bestSsid.length() == 0) {
     log_e("[autosw] no saved network in range");
-    return;
+    return;                             // _savedSeenMs deliberately NOT stamped
   }
+  _savedSeenMs = millis() | 1u;         // a saved network really is on the air right now
 
   if (connected && wifiSsidDyn != NULL && bestSsid.equals(wifiSsidDyn)) {
     return;                             // already on the best network

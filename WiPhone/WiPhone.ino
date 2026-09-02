@@ -3157,6 +3157,17 @@ void loop() {
        * stopped the server (found live, 2026-08-20 — the "books upload locked up"). */
       const bool xferBlocksWifi = gbcXferOn() && xferUsingAP();
       if (!xferBlocksWifi && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && due && !wifiState.userDisabled()) {
+        /* 🔑 DON'T SPEND 30 SECONDS OF RADIO ON AIR WE WERE JUST TOLD IS EMPTY. A scan is
+         * ~350 ms; a failed join holds the radio associating for up to 30 s before the
+         * quiesce below disconnects it, which is the largest remaining out-of-range cost.
+         * worthAttemptingJoin() fails open in every uncertain case and lets one attempt
+         * through every WIFI_JOIN_BLIND_EVERY skips — see the note on its declaration.
+         * ⚠ The retry clock is stamped either way, or a skip would re-ask every loop pass. */
+        const bool joinWorthIt = wifiState.worthAttemptingJoin();
+        if (!joinWorthIt) {
+          msLastWifiRetry = now;        // skipped, but the cadence still advances
+        }
+        if (joinWorthIt) {
         bool _cp = false;
         TIME_STEP("connectToPreferred", _cp = wifiState.connectToPreferred());
         if (_cp) {
@@ -3178,6 +3189,7 @@ void loop() {
          * cycle that broke the churn every 20 s. Quiesce 30 s after EVERY failed attempt
          * so scans between retries read the air honestly. */
         s_wifiQuiesceAtMs = now + 30000u;   // 30 s is every chance to associate
+        }   // joinWorthIt
       }
 
       if (s_wifiQuiesceAtMs && (int32_t)(now - s_wifiQuiesceAtMs) >= 0 &&
@@ -3386,7 +3398,7 @@ void loop() {
                 * codec left on after one stopped. `aud=1/0` — powered, moving no samples — IS
                 * the leak signature, and it is the state that reads as a perfectly idle phone
                 * everywhere else in this line (cpu=80MHz, scr=0, sip=1). */
-               "HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% v=%.2f chg=%d wifi=%d cpu=%luMHz scr=%d sip=%d aud=%d/%d ps=%d",
+               "HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% v=%.2f chg=%d wifi=%d cpu=%luMHz scr=%d sip=%d aud=%d/%d ps=%d joins=%lu/%lu",
                (unsigned long)(now / 60000), fh, s_minHeapEver, ESP.getMaxAllocHeap(),
                ESP.getFreePsram(), (int)round(soc), v,
                (int)gui.state.battCharged, (int)WiFi.status(),
@@ -3395,7 +3407,12 @@ void loop() {
                audio ? (int)audio->isOn() : 0, audio ? (int)audio->movingSamples() : 0,
                /* ps=1 is MIN_MODEM (what we want), 0 is NONE (receiver at full power),
                 * -1 means the station is not up so the question does not apply. */
-               (esp_wifi_get_ps(&hlPs) == ESP_OK) ? (int)hlPs : -1);
+               (esp_wifi_get_ps(&hlPs) == ESP_OK) ? (int)hlPs : -1,
+               /* joins=tried/skipped. Out of range these are THE numbers: `tried` should
+                * barely move once the scan gate has evidence, and `skipped` should climb in
+                * its place — each skip is ~30 s of radio not spent on empty air. */
+               (unsigned long)wifiState.joinsTried(),
+               (unsigned long)wifiState.joinsSkipped());
       log_e("%s", hl);
 
       /* ⚠ The CARD gets a line a minute, not one every fifteen seconds like the console.
