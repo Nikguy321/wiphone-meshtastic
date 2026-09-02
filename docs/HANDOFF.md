@@ -4,7 +4,21 @@
 
 Read this first; everything below it is narrative.
 
-# 📳 2026-09-02 — 0.9.52: A BUZZ SLIDER IN SETTINGS ▸ NOTIFICATIONS
+⚠ **KNOWN HAZARD, PRE-EXISTING, found by the 0.9.52 review and NOT fixed (out of scope, needs a
+completed SIP call to reach):** the **CallApp in-call volume handler** can rewrite `configs.ini`
+with ONLY its three volume keys if its own `load()` fails — silently dropping every other
+setting in the file (`notify_vibro_ms`, `notify_vol`, the notify modes, screen config…). Every
+other writer load-modify-stores the whole file correctly. Fix when SIP calls exist: make that
+handler bail rather than store on a failed load. Search GUI.cpp for the in-call volume path.
+
+
+# 📳 2026-09-02 — 0.9.52/0.9.53: A BUZZ SLIDER IN SETTINGS ▸ NOTIFICATIONS
+
+✅ **0.9.53 = 0.9.52 + the review's one hardening**: the loaded `notify_vibro_ms` is now
+`constrain()`ed to 50..650 at BOTH load sites (boot and screen-open). A hand-edited `-1` had
+meant a 65 s motor run per notification, during which `audioDeviceBusy()`'s vibro term held the
+audio device awake. Review found **zero defects** in the slider itself (4 lanes: widget grid,
+pixel layout from the font tables, persistence path, timer sites).
 
 Nick asked for a vibration-duration slider to tune the pocket feel. **Settings ▸ Notifications ▸
 Buzz**, 50-650 ms in 50 ms steps, default 200 (nearest on-grid to the old hard-coded 180).

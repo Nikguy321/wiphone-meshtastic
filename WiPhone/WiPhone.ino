@@ -2356,13 +2356,13 @@ static void notifyMessageArrived(uint32_t now, uint8_t mode) {
    * GPIO write through the I2C extender; the pop reconfigures and drives the audio codec.
    * If the pop's I2C traffic can ever disturb the extender (the standing suspicion behind
    * "it chirped but never buzzed"), buzzing first removes that whole failure class instead
-   * of measuring it. Costs nothing: the pulse runs ~180 ms and the pop starts within a
+   * of measuring it. Costs nothing: the pulse runs for the configured Buzz length and the pop starts within a
    * millisecond of it either way.
    *
    * "Vibrate only" still buzzes — that is the whole difference from Silent.
    *
    * ⚠ A SECOND MESSAGE RE-ARMS THE TIMER; IT DOES NOT GET SKIPPED. Guarding this on
-   * `!meshVibroActive` silently ate any notification that landed inside the previous 180 ms
+   * `!meshVibroActive` silently ate any notification that landed inside the previous pulse
    * pulse, which is exactly what Nick saw: "only heard one buzz out of 3 sent texts", and
    * the log agreed — buzz, SKIPPED, buzz. Restarting the pulse is also what the original
    * code did before the guard was added, and it degrades the right way: a burst of texts

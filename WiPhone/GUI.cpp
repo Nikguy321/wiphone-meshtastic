@@ -161,7 +161,11 @@ void GUI::loadSettings() {
       state.notifySipMode = (uint8_t) cfg["audio"].getIntValueSafe("notify_sip_mode", state.notifySipMode);
       state.notifyMeshMode= (uint8_t) cfg["audio"].getIntValueSafe("notify_mesh_mode", state.notifyMeshMode);
       state.notifyVolume  = (int8_t)  cfg["audio"].getIntValueSafe("notify_vol", state.notifyVolume);
-      state.notifyVibroMs = (uint16_t) cfg["audio"].getIntValueSafe("notify_vibro_ms", state.notifyVibroMs);
+      /* Clamped to the slider's own range. Review 2026-09-02: a hand-edited ini of -1 became
+       * 65,535 ms - a 65-second motor run per notification, during which audioDeviceBusy()'s
+       * vibro term held the audio device awake too. constrain() keeps a bad file from turning
+       * into a bad phone. */
+      state.notifyVibroMs = (uint16_t) constrain(cfg["audio"].getIntValueSafe("notify_vibro_ms", state.notifyVibroMs), 50, 650);
       log_d("notify: call=%d sip=%d mesh=%d vol=%d", (int)state.ringerMode,
             (int)state.notifySipMode, (int)state.notifyMeshMode, (int)state.notifyVolume);
     }
@@ -4057,7 +4061,7 @@ NotifyConfigApp::NotifyConfigApp(Audio* audio, LCD& lcd, ControlState& state, He
     controlState.notifySipMode  = (uint8_t) ini["audio"].getIntValueSafe(sipModeField, controlState.notifySipMode);
     controlState.notifyMeshMode = (uint8_t) ini["audio"].getIntValueSafe(meshModeField, controlState.notifyMeshMode);
     controlState.notifyVolume   = (int8_t)  ini["audio"].getIntValueSafe(notifyVolField, controlState.notifyVolume);
-    controlState.notifyVibroMs  = (uint16_t) ini["audio"].getIntValueSafe(notifyVibroField, controlState.notifyVibroMs);
+    controlState.notifyVibroMs  = (uint16_t) constrain(ini["audio"].getIntValueSafe(notifyVibroField, controlState.notifyVibroMs), 50, 650);   // same clamp as boot
   }
 
   callChoice->setValue(controlState.ringerMode);

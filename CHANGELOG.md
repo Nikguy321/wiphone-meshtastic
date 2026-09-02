@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.53 (2026-09-02) - the Buzz value is clamped on the way in
+
+Follow-up to 0.9.52 from its adversarial review, which found **no defect** in the slider
+itself and one hardening worth doing. `notify_vibro_ms` was stored at boot and on screen-open
+straight from the ini with no range check, so a hand-edited `-1` became **65,535 ms — a
+65-second motor run per notification** — and 0 became a sub-millisecond twitch that reads as a
+dead motor. Worse, `audioDeviceBusy()`'s vibro term held the audio device awake for the whole
+65 s. Both load sites now `constrain(v, 50, 650)`, the slider's own range. Consistent with how
+the neighbouring `notify_*` fields load, so not a regression, but a bad file no longer becomes
+a bad phone. Two stale comments still describing the pulse as a fixed 180 ms are reworded.
+
+⚠ The review also surfaced a **pre-existing, unrelated** hazard, recorded in the handoff and
+NOT fixed here: the CallApp in-call volume handler can rewrite `configs.ini` with only its
+three volume keys if its own `load()` fails, dropping every other setting. It needs a completed
+SIP call to reach.
+
 ## 0.9.52 (2026-09-02) - a Buzz slider, because a pocket is not a desk
 
 Nick: *"can you add a 'vibration duration' slider to the notifications settings menu? I'd like
