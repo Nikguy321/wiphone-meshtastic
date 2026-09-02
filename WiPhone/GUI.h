@@ -439,6 +439,14 @@ public:
    * leaving vibration alone, which is what "Vibrate only" already does more explicitly. */
   int8_t  notifyVolume = 0;                           // dB; 0 = the codec's reference level
 
+  /* How long the motor runs for ONE notification buzz, in ms. Nick's ask (2026-09-02): "I'd
+   * like to customize what feels best when the phone is in a pocket". This is the pulse that
+   * notifyMessageArrived() fires and the loop releases — the NOTIFICATION buzz only. The CALL
+   * ring pattern (vibroOnPeriodMs / vibroOffPeriodMs, loaded in WiPhone.ino from the ringtone
+   * config) is a different mechanism and is deliberately not driven by this. 200 is the
+   * nearest on-grid value to the 180 that was hard-coded as MESH_VIBRO_MS. */
+  uint16_t notifyVibroMs = 200;
+
   // Ringtone & ringtone vibration
   bool ringing = false;
   bool vibroOn = false;               // is vibration motor ON?
@@ -2440,6 +2448,7 @@ protected:
   static const constexpr char* sipModeField    = "notify_sip_mode";
   static const constexpr char* meshModeField   = "notify_mesh_mode";
   static const constexpr char* notifyVolField  = "notify_vol";
+  static const constexpr char* notifyVibroField = "notify_vibro_ms";
 
   Audio* audio;
   CriticalFile ini;
@@ -2452,6 +2461,8 @@ protected:
   ChoiceWidget* meshChoice = NULL;
   LabelWidget*  volLabel = NULL;
   IntegerSliderWidget* volSlider = NULL;
+  LabelWidget*  vibroLabel = NULL;
+  IntegerSliderWidget* vibroSlider = NULL;
 
   bool screenInited = false;
 };

@@ -161,6 +161,7 @@ void GUI::loadSettings() {
       state.notifySipMode = (uint8_t) cfg["audio"].getIntValueSafe("notify_sip_mode", state.notifySipMode);
       state.notifyMeshMode= (uint8_t) cfg["audio"].getIntValueSafe("notify_mesh_mode", state.notifyMeshMode);
       state.notifyVolume  = (int8_t)  cfg["audio"].getIntValueSafe("notify_vol", state.notifyVolume);
+      state.notifyVibroMs = (uint16_t) cfg["audio"].getIntValueSafe("notify_vibro_ms", state.notifyVibroMs);
       log_d("notify: call=%d sip=%d mesh=%d vol=%d", (int)state.ringerMode,
             (int)state.notifySipMode, (int)state.notifyMeshMode, (int)state.notifyVolume);
     }
@@ -4010,7 +4011,7 @@ void AudioConfigApp::redrawScreen(bool redrawAll) {
  * the choice three ways is what makes "quiet mesh, audible texts" expressible at all.
  */
 NotifyConfigApp::NotifyConfigApp(Audio* audio, LCD& lcd, ControlState& state, HeaderWidget* header, FooterWidget* footer)
-  : WindowedApp(lcd, state, header, footer), FocusableApp(4), audio(audio), ini(Storage::ConfigsFile) {
+  : WindowedApp(lcd, state, header, footer), FocusableApp(5), audio(audio), ini(Storage::ConfigsFile) {
   log_d("create NotifyConfigApp");
 
   header->setTitle("Notifications");
@@ -4037,8 +4038,17 @@ NotifyConfigApp::NotifyConfigApp(Audio* audio, LCD& lcd, ControlState& state, He
     yOff += (*rows[i].ch)->height() + 4;
   }
 
-  addLabelSlider(yOff, volLabel, volSlider, "Notification volume:",
-                 Audio::MuteVolume, Audio::MaxVolume, "dB");
+  /* ⚠ THE SCREEN IS FULL. Header 30 + three label/choice rows at 64 each + one stacked
+   * label-and-slider at 50 = 277 of the 280 px above the footer. A fifth stacked row does not
+   * fit, so both sliders take the INLINE form the Screen config screen uses — label on the
+   * left, slider on the right, one 25 px row each — which lands the whole screen back at 277.
+   * Same labelWidth as Screen config so the two settings screens line up. */
+  const uint16_t labelWidth = 110;
+  addInlineLabelSlider(yOff, labelWidth, volLabel, volSlider, "Volume",
+                       Audio::MuteVolume, Audio::MaxVolume, "dB");
+  /* 50..650 ms in twelve 50 ms steps. 50 rather than 0: a zero-length buzz would just be a
+   * worse spelling of "Silent", which the choice above already says plainly. */
+  addInlineLabelSlider(yOff, labelWidth, vibroLabel, vibroSlider, "Buzz", 50, 650, "ms");
 
   /* Read what is already stored. GUI::loadSettings() has read these at boot too — this is
    * the screen catching up with the live values, not a second source of truth. */
@@ -4047,17 +4057,20 @@ NotifyConfigApp::NotifyConfigApp(Audio* audio, LCD& lcd, ControlState& state, He
     controlState.notifySipMode  = (uint8_t) ini["audio"].getIntValueSafe(sipModeField, controlState.notifySipMode);
     controlState.notifyMeshMode = (uint8_t) ini["audio"].getIntValueSafe(meshModeField, controlState.notifyMeshMode);
     controlState.notifyVolume   = (int8_t)  ini["audio"].getIntValueSafe(notifyVolField, controlState.notifyVolume);
+    controlState.notifyVibroMs  = (uint16_t) ini["audio"].getIntValueSafe(notifyVibroField, controlState.notifyVibroMs);
   }
 
   callChoice->setValue(controlState.ringerMode);
   sipChoice->setValue(controlState.notifySipMode);
   meshChoice->setValue(controlState.notifyMeshMode);
   volSlider->setValue(controlState.notifyVolume);
+  vibroSlider->setValue(controlState.notifyVibroMs);
 
   addFocusableWidget(callChoice);
   addFocusableWidget(sipChoice);
   addFocusableWidget(meshChoice);
   addFocusableWidget(volSlider);
+  addFocusableWidget(vibroSlider);
   setFocus(callChoice);
 }
 
@@ -4072,6 +4085,8 @@ NotifyConfigApp::~NotifyConfigApp() {
   delete meshChoice;
   delete volLabel;
   delete volSlider;
+  delete vibroLabel;
+  delete vibroSlider;
 }
 
 appEventResult NotifyConfigApp::processEvent(EventType event) {
@@ -4085,6 +4100,7 @@ appEventResult NotifyConfigApp::processEvent(EventType event) {
     controlState.notifySipMode  = (uint8_t) sipChoice->getValue();
     controlState.notifyMeshMode = (uint8_t) meshChoice->getValue();
     controlState.notifyVolume   = (int8_t)  volSlider->getValue();
+    controlState.notifyVibroMs  = (uint16_t) vibroSlider->getValue();
 
     if (!ini.hasSection("audio")) {
       ini.addSection("audio");
@@ -4093,6 +4109,7 @@ appEventResult NotifyConfigApp::processEvent(EventType event) {
     ini["audio"][sipModeField]    = (int) controlState.notifySipMode;
     ini["audio"][meshModeField]   = (int) controlState.notifyMeshMode;
     ini["audio"][notifyVolField]  = (int) controlState.notifyVolume;
+    ini["audio"][notifyVibroField] = (int) controlState.notifyVibroMs;
     ini.store();
   }
 
@@ -4118,11 +4135,13 @@ void NotifyConfigApp::redrawScreen(bool redrawAll) {
     ((GUIWidget*) sipLabel)->redraw(lcd);
     ((GUIWidget*) meshLabel)->redraw(lcd);
     ((GUIWidget*) volLabel)->redraw(lcd);
+    ((GUIWidget*) vibroLabel)->redraw(lcd);
   }
   ((GUIWidget*) callChoice)->refresh(lcd, redrawAll);
   ((GUIWidget*) sipChoice)->refresh(lcd, redrawAll);
   ((GUIWidget*) meshChoice)->refresh(lcd, redrawAll);
   ((GUIWidget*) volSlider)->refresh(lcd, redrawAll);
+  ((GUIWidget*) vibroSlider)->refresh(lcd, redrawAll);
   screenInited = true;
 }
 

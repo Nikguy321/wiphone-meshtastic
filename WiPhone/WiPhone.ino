@@ -2158,7 +2158,10 @@ static bool     meshPopPlaying = false;
 static uint32_t meshPopStartMs = 0;
 
 // Short silent vibration on a new Meshtastic message.
-#define MESH_VIBRO_MS 180u
+/* MESH_VIBRO_MS used to be a literal 180 here. The notification buzz length is now a user
+ * setting — gui.state.notifyVibroMs, Settings > Notifications > Buzz — so the two places that
+ * time the pulse read that instead. Kept as a name so a grep for the old constant lands here. */
+#define MESH_VIBRO_MS (gui.state.notifyVibroMs)
 static bool     meshVibroActive = false;
 static uint32_t meshVibroStartMs = 0;
 

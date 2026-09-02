@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.9.52 (2026-09-02) - a Buzz slider, because a pocket is not a desk
+
+Nick: *"can you add a 'vibration duration' slider to the notifications settings menu? I'd like
+to customize what feels best when the phone is in a pocket."*
+
+### ✅ Settings > Notifications > Buzz
+
+50-650 ms in twelve 50 ms steps, default **200 ms** (the nearest on-grid value to the 180 that
+had been hard-coded as `MESH_VIBRO_MS`). Stored as `ControlState::notifyVibroMs`, persisted as
+`[audio] notify_vibro_ms`, loaded at boot in `GUI::loadSettings()` alongside the other
+notification settings. The two places that time the pulse - the buzz in `notifyMessageArrived()`
+and the release in `loop()` - read it through the same name they always did:
+
+    #define MESH_VIBRO_MS (gui.state.notifyVibroMs)
+
+⚠ **This is the NOTIFICATION buzz only.** The call ring pattern (`vibroOnPeriodMs` /
+`vibroOffPeriodMs`, loaded from the ringtone config) is a separate mechanism and is untouched.
+A burst of arrivals still re-arms the timer rather than being skipped, so several texts in a
+row become one longer buzz at the chosen length.
+
+### 🔧 The screen was full, so both sliders went inline
+
+Header 30 + three 64 px label/choice rows + one 50 px stacked label-and-slider = 277 of the
+280 px above the footer. A fifth stacked row did not fit. Both sliders now take the inline
+form Screen config uses - label left, slider right, 25 px each, `labelWidth` 110 so the two
+settings screens line up - which lands the whole screen back at 277. `FocusableApp(4)` → `(5)`.
+
+**Verified on phone 2:** screen renders with both inline rows clear of the footer; four
+`right` presses stepped 200 → 400 ms; **Save, reboot, reopen → 400 ms.**
+
 ## 0.9.51 (2026-09-02) - the join gate now asks the last scan, not the last 20 minutes
 
 **0.9.50's scan-gated join was tested on a real 50-minute commute and both halves worked.** The

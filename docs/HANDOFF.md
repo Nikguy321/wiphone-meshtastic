@@ -4,6 +4,27 @@
 
 Read this first; everything below it is narrative.
 
+# 📳 2026-09-02 — 0.9.52: A BUZZ SLIDER IN SETTINGS ▸ NOTIFICATIONS
+
+Nick asked for a vibration-duration slider to tune the pocket feel. **Settings ▸ Notifications ▸
+Buzz**, 50-650 ms in 50 ms steps, default 200 (nearest on-grid to the old hard-coded 180).
+`ControlState::notifyVibroMs`, persisted as `[audio] notify_vibro_ms`, loaded at boot in
+`GUI::loadSettings()`. Both pulse-timing sites in WiPhone.ino read it via
+`#define MESH_VIBRO_MS (gui.state.notifyVibroMs)`.
+
+⚠ **Notification buzz ONLY.** The call ring pattern (`vibroOnPeriodMs`/`vibroOffPeriodMs`) is a
+separate mechanism and untouched.
+⚠ **The screen was full (277/280 px)**, so BOTH sliders went inline (label left, slider right,
+`labelWidth` 110 like Screen config). `FocusableApp(4)` → `(5)`.
+✅ **Verified on phone 2:** renders clear of the footer; 4 × `right` stepped 200 → 400; **Save →
+reboot → reopen → 400 ms.** Phone 2 was left at **400 ms** by that test.
+⚠ **Phone 1 is on its own battery today (not on serial) and is still on 0.9.51** — flash it when
+it is back on the cable.
+🔎 Navigating there over the cable: the app switch into Settings EATS queued keys, so send the
+path as TWO `--cmd`s: `"key menu down down down down down down down select"` then
+`"key down down down down down down select"` (Notifications is the 7th child of Settings).
+
+
 # 🔋 2026-09-02 — PHONE 2 RAN ITSELF FLAT OVERNIGHT AND HANDED US THE CALIBRATION RUN
 
 Phone 2 was left off the charger after the 09-01 session and was found at **`soc=0% v=3.62`**.
