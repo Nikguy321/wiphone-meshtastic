@@ -32,8 +32,8 @@ separate mechanism and untouched.
 `labelWidth` 110 like Screen config). `FocusableApp(4)` → `(5)`.
 ✅ **Verified on phone 2:** renders clear of the footer; 4 × `right` stepped 200 → 400; **Save →
 reboot → reopen → 400 ms.** Phone 2 was left at **400 ms** by that test.
-⚠ **Phone 1 is on its own battery today (not on serial) and is still on 0.9.51** — flash it when
-it is back on the cable.
+✅ **Phone 1 flashed to 0.9.53 too** (Nick put it on the cable briefly; `gps: reader OFF,
+bytes=0` confirms it was phone 1). **Both phones are on 0.9.53.**
 🔎 Navigating there over the cable: the app switch into Settings EATS queued keys, so send the
 path as TWO `--cmd`s: `"key menu down down down down down down down select"` then
 `"key down down down down down down select"` (Notifications is the 7th child of Settings).
