@@ -4,6 +4,44 @@
 
 Read this first; everything below it is narrative.
 
+# ✅ 2026-09-02 MORNING — THE OUT-OF-RANGE TEST PASSED. 0.9.51 SHIPPED FROM WHAT IT SHOWED.
+
+Nick ran the 50-minute commute test. **Both halves of the 0.9.50 scan-gated join worked**, and the
+log exposed one real defect which 0.9.51 fixes.
+
+| | |
+|---|---|
+| `up745  wifi=1  joins=12/0` | lost WiFi setting off |
+| `up760  wifi=1  joins=18/0` | last blind attempt |
+| **`up770  wifi=1  joins=18/1`** | **FIRST SKIP — the gate engaged** |
+| `up778  wifi=1  joins=18/2` | |
+| `up788  chg=1   joins=18/3` | plugged in at work |
+| **`up789  wifi=3  joins=19/3`** | **REJOINED** — one attempt, connected |
+
+✅ **`tried` frozen at 18 for 28 minutes**, zero join attempts out of range. ✅ Rejoined the moment
+a scan saw a saved network. Nothing stranded, nothing needed a human.
+📉 **Drain over the gated stretch: ~38 mV/h** (least squares on the voltage trace) against
+**106 mV/h** measured hunting on 0.9.46/47. ⚠ **MAGNITUDE IS SOFT AND MUST BE QUOTED THAT WAY**:
+27-minute window, 10 mV gauge quantisation (±20 mV/h over that span), R²=0.54. Direction strong,
+number not pinned. **A longer plateau run would settle it.**
+
+🐛 **THE DEFECT THE LOG FOUND: the gate engaged 25 min into the drive, not 5** — half the trip
+still burned blind joins. `worthAttemptingJoin()` compared `_savedSeenMs` against a **20-minute**
+lookback, so a network seen just before setting off counted as "recent evidence" for twenty
+minutes after it was gone. **Scans run every 5 min in a dry spell, so that window could only ever
+delay the gate.** 0.9.51 replaces it with `_savedSeenLastScan` — *did the MOST RECENT completed
+scan see a saved network?* ⚠ Cleared BEFORE `autoSwitchEvaluate()` and set inside it, so the flag
+always describes the scan that just finished rather than leaving a previous answer standing
+through an early return. ⚠ **The staleness check stays** (`_scanDoneMs`): no scan in a long time
+still fails open. Only the POSITIVE evidence test changed.
+
+⚠ **PHONE 2 IS STILL ON 0.9.50** — it was not on the desk this morning. Flash it when it is.
+⏸ **The safety valve (blind attempt every 4th skip) is STILL UNTESTED** — the drive reached 3
+skips. The next longer trip exercises it; nothing else does.
+🧪 **Worth re-running the commute on 0.9.51** to confirm the gate now engages at ~5-6 min, and to
+get a longer gated stretch for a firmer mV/h.
+
+
 # ▶ TOMORROW (2026-09-02, morning): RUN THE OUT-OF-RANGE TEST. START HERE.
 
 **Nick is driving to work and will do it on the commute. He starts the session once he is at work.**
