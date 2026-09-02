@@ -4,6 +4,46 @@
 
 Read this first; everything below it is narrative.
 
+# ▶▶ STATE NOW (2026-09-02, end of session) — READ THIS BLOCK AND YOU ARE CAUGHT UP
+
+**Both phones are on 0.9.53. `main` is pushed. The web flasher serves 0.9.53.** Host suite: 0 failures.
+Phone 1 = `usbserial-025A3EAF` = `!00449040` (no GPS). Phone 2 = `usbserial-025A3F65` =
+`!00449334` (GPS on, woods backplate, bigger cell). ⚠ Identify from the phone (`gps` — only
+phone 2's reader is ON), never from the port.
+
+**What was found and PROVEN on hardware this week, newest first:**
+- 0.9.52/53 — **Settings ▸ Notifications ▸ Buzz** (50-650 ms, default 200, clamped on load). Phone 2 left at 400.
+- 0.9.50/51 — **the WiFi join is gated on what the last scan saw**; proven on a real 50-min commute
+  (`joins` frozen for 28 min, rejoined on arrival). 0.9.51 fixed the gate engaging at 25 min instead of 5.
+- 0.9.49 — **one persisted WiFi switch** that four re-enable paths respect; proven both directions.
+- 0.9.47 — **the audio codec/amp/I2S were left powered by pausing music**; caught firing and released.
+- **WiFi SEARCHING is the biggest measured drain** (~106 vs ~60 mV/h associated). Out-of-range
+  radio time went 604 → 49 s/hour across 0.9.47-0.9.50. **For the woods: WiFi OFF is worth more
+  than doubling the battery.**
+- **The CW2015 gauge holds 100 % for the first 4.6 h** — quote **mV/h**, never %/h. Phone 2's
+  full-to-empty curve (4.21 → 3.30 V) is recorded.
+- **Phone 2's backplate cell is bigger — measured** (12.5 h at 240 MHz + GPS vs phone 1's ~9-10 h).
+- The backplate wire was unseated overnight (10 h at `chg=0`, one 1-min flicker); reseated, charging.
+
+**Claims of mine that were DISPROVEN — do not re-trust:** WiFi power-save being lost on a station
+restart (`wifi bounce` held `ps=1`; so did 83 samples of hunting); the codec explaining the 08-31
+drain (that run had `aud=0/0` throughout — it was WiFi searching).
+
+**Open, all needing something physical from Nick:**
+1. **The safety valve** (blind join every 4th skip) has never fired — needs >40 min out of range.
+2. **Backplate field endurance** — both OFF mains, backplate on its own cell topping the phone up.
+3. One full-to-empty run on **phone 1** would calibrate its curve (phone 2's is done).
+4. ⚠ Pre-existing hazard, unfixed: the CallApp in-call volume handler can rewrite `configs.ini`
+   with only its three keys if its `load()` fails. Needs a completed SIP call to reach.
+5. The music **crackle** — explicitly deferred to its own session.
+
+**Instruments, all in the once-a-minute health line:** `aud=on/moving` (`1/0` = the leak),
+`ps=` (modem sleep), `joins=tried/skipped`, `wifi=` (`255` = radio deliberately off), `chg=`.
+Read the card log with `cmd.py <port> "health all" 30 150 out.txt` — ⚠ shorter waits truncate,
+and opening a port REBOOTS the phone. `tools/shot.py` drives the UI; send one `--cmd` per app
+boundary, the switch into Settings eats queued keys.
+
+
 ⚠ **KNOWN HAZARD, PRE-EXISTING, found by the 0.9.52 review and NOT fixed (out of scope, needs a
 completed SIP call to reach):** the **CallApp in-call volume handler** can rewrite `configs.ini`
 with ONLY its three volume keys if its own `load()` fails — silently dropping every other
