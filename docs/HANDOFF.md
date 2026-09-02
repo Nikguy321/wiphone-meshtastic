@@ -4,6 +4,59 @@
 
 Read this first; everything below it is narrative.
 
+# 🔬 IN FLIGHT — PHONE 1 FULL-TO-EMPTY CALIBRATION RUN, UNPLUGGED 2026-09-02 11:52 PDT
+
+**Phone 1 came off the cable at 11:52 PDT on 2026-09-02 and was left at work overnight to run
+itself flat on purpose.** This is open item #3 — the run that finally gives phone 1 the
+voltage↔SOC curve phone 2 handed us by accident. ⚠ **`/health.log` records only `up=` minutes and
+NO wall clock, so 11:52 is the ONLY anchor this run has, and it is written here because it exists
+nowhere else.**
+
+**Verified on the cable in the minutes before the unplug**, from a deliberate fresh boot
+(`reset_reason=1`, so `up=` starts at the run):
+`soc=100% v=4.20 chg=1 wifi=255 cpu=80MHz scr=0 sip=0 aud=0/0 ps=1 joins=0/0`
+
+- ✅ **`v=4.20` — the FIRST phone-1 run ever to start from a genuinely full cell.** Every previous
+  one started at 4.13-4.15 V, already past the gauge's top dead zone. This one captures it.
+- ✅ **`wifi=255`, boot-applied from the persisted 0.9.49 switch.** The whole run is ONE constant
+  load — the property that makes phone 2's curve usable (10-20 mV per soc point) and the pooled
+  phone-1 ones useless (13 points at 3.85 V).
+- ✅ `cpu=80MHz` once the screen slept, `aud=0/0`, counters at a clean origin.
+- 🔎 **`wifi=0` is NOT a failure signature and `255` cannot appear without a reboot.**
+  `WiFi.status()` reads an event-group bitfield: `255` (WL_NO_SHIELD) is returned only when the
+  station group was never created, i.e. the station never started this boot. Turning the radio off
+  at runtime leaves the group behind, so a genuinely-off radio reads `0` until the next boot. That
+  ambiguity is exactly why this run was started from a reboot.
+- LoRa deliberately left **ON** — constant, ~0.016 mAh/h, and it is the real woods configuration.
+
+**Expected death 23:00-03:00** (~11.5 h at the 8.6 %/h WiFi-off figure; later if phone 1's dead
+zone runs as deep as phone 2's 4.6 h). ⚠ Once it dies it stops logging, so the retained window is
+NOT burning overnight — there is no hurry at that end.
+
+## ▶ FIRST ACTIONS the morning of 2026-09-03
+
+```
+python3 <scratchpad>/cmd.py /dev/cu.usbserial-025A3EAF "health all" 25 120 p1_full.txt
+```
+
+⚠ **READ IT BEFORE LEAVING IT ON THE CHARGER ALL DAY.** Plugging in restarts logging at a line a
+minute and that DOES eat the ~16.8 h retained window; the dead phone does not. Reading it that
+morning leaves hours of slack.
+⚠ Phone 1 is `usbserial-025A3EAF` = `!00449040` — identify from the phone, never the port.
+⚠ `cmd.py` lives in a session scratchpad and does not survive the session. It is ~15 lines: open
+the port at 500000, swallow `boot` seconds of spew, write the command, then read until the stream
+goes quiet for 2 s.
+
+**Sanity-check the log BEFORE drawing any curve:** `wifi=255`, `aud=0/0`, `scr=0` and `cpu=80MHz`
+in *every* sample. Any sample that varies means the load changed and the curve is polluted — that
+is the one failure mode this run has.
+
+**What it should yield:** phone 1's voltage↔SOC curve from 4.20 V down to ~3.30 V at a single
+constant load; a real measured full-to-empty duration to replace the ~11.5 h figure that currently
+rests on ONE 61-minute block from 2026-08-23 on an old build; and the depth of phone 1's own gauge
+dead zone, which on phone 2 was 4.6 h of a frozen `soc=100%`.
+
+
 # ▶▶ STATE NOW (2026-09-02, end of session) — READ THIS BLOCK AND YOU ARE CAUGHT UP
 
 **Both phones are on 0.9.53. `main` is pushed. The web flasher serves 0.9.53.** Host suite: 0 failures.
