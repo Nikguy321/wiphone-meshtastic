@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.9.51 (2026-09-02) - the join gate now asks the last scan, not the last 20 minutes
+
+**0.9.50's scan-gated join was tested on a real 50-minute commute and both halves worked.** The
+same log showed the gate engaging 25 minutes into the drive instead of 5, so half the trip still
+burned blind joins.
+
+### ✅ What the commute proved
+
+```
+up745   wifi=1   joins=12/0    lost WiFi setting off
+up760   wifi=1   joins=18/0    last blind attempt
+up770   wifi=1   joins=18/1    FIRST SKIP - gate engaged
+up778   wifi=1   joins=18/2
+up788   chg=1    joins=18/3    plugged in at work
+up789   wifi=3   joins=19/3    REJOINED
+```
+
+`tried` frozen at 18 for **28 minutes** with zero join attempts, then one attempt the moment a
+scan saw a saved network, and it connected. Drain over the gated stretch, least-squares on the
+voltage trace: **~38 mV/h against 106 mV/h measured hunting on 0.9.46/47.**
+⚠ **That magnitude is soft** — a 27-minute window, 10 mV gauge quantisation (±20 mV/h over that
+span) and R²=0.54. The direction is strong; the number is not pinned.
+
+### 🐛 The 20-minute lookback was buying nothing and costing twenty minutes
+
+`worthAttemptingJoin()` compared `_savedSeenMs` against `WIFI_SCAN_EVIDENCE_MS` (20 min), so a
+network seen just before setting off counted as "recent evidence" for twenty minutes after it was
+gone. Scans run every **5** minutes in a dry spell, so the lookback could only ever delay the gate.
+
+Replaced with `_savedSeenLastScan` — **did the MOST RECENT completed scan see a saved network?**
+A boolean about the latest evidence, which is the question actually being asked. Cleared *before*
+`autoSwitchEvaluate()` and set inside it, so the flag always describes the scan that just
+finished rather than leaving a previous answer standing through an early return.
+
+Expected effect on the same commute: the gate engages ~5-6 min after losing WiFi rather than ~25,
+roughly doubling the gated portion of a 50-minute drive.
+
+⚠ **The staleness check stays** (`_scanDoneMs` vs `WIFI_SCAN_EVIDENCE_MS`): no scan in a long
+time still fails open. Only the *positive* evidence test changed.
+⏸ **The safety valve is still untested** — it fires on the 4th consecutive skip and the drive only
+reached 3. A longer trip would exercise it.
+
 ## 0.9.49 (2026-09-01) - one WiFi switch that actually means it
 
 Nick: *"in settings let's just make a global Wi-Fi off toggle... it can shut everything Wi-Fi

@@ -193,6 +193,14 @@ protected:
    * first has to fail OPEN. */
   uint32_t _scanDoneMs = 0;
   uint32_t _savedSeenMs = 0;
+  /* Did the MOST RECENT completed scan see a saved network? A boolean about the latest
+   * evidence, which is the question worthAttemptingJoin() actually wants answered. Measured
+   * 2026-09-02 on a 50-minute commute: comparing _savedSeenMs against a 20-minute window
+   * instead meant a network seen just before setting off counted as "recent" for 20 minutes
+   * after it was gone, so the gate engaged 25 minutes into the drive rather than 5 — half
+   * the trip still burning blind joins. Scans run every 5 min in a dry spell, so the lookback
+   * was buying nothing and costing twenty minutes. */
+  bool     _savedSeenLastScan = false;
   uint8_t  _joinsSkippedRun = 0;       // consecutive skips, for the safety valve
   uint32_t _joinsTried = 0;            // instruments, surfaced in the health line
   uint32_t _joinsSkipped = 0;

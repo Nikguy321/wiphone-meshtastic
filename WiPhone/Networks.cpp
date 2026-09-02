@@ -610,6 +610,10 @@ void Networks::autoSwitchTick(bool screenOn) {
       _dryScans = 0;
       _dryBounced = false;
       _scanDoneMs = now | 1u;           // evidence: a scan completed; evaluate says what it saw
+      /* Cleared BEFORE evaluate and set inside it, so the flag always describes THIS scan.
+       * Setting it after would leave the previous scan's answer standing whenever evaluate
+       * takes one of its early returns. */
+      _savedSeenLastScan = false;
       autoSwitchEvaluate(n);
     } else if (n == 0) {
       /* 🛑 A COMPLETED SCAN THAT FOUND NOTHING IS the out-of-range case — OR THE DEAF
@@ -625,6 +629,7 @@ void Networks::autoSwitchTick(bool screenOn) {
       log_e("[autosw] scan done: n=0 dry=%u", (unsigned)_dryScans);
       _msLastScan = now;
       _scanDoneMs = now | 1u;           // evidence: a scan completed and saw nothing at all
+      _savedSeenLastScan = false;       // n==0: definitively nothing on the air
     } else {
       /* n < 0: the scan was ABORTED or the API failed — commonly a reconnect attempt
        * cycled WiFi and killed it, or the radio was mid-connect. Learned nothing about the
@@ -809,9 +814,8 @@ bool Networks::worthAttemptingJoin() {
       (uint32_t)(now - _scanDoneMs) > WIFI_SCAN_EVIDENCE_MS) {
     return true;                        // no evidence, or stale — never block on ignorance
   }
-  if (_savedSeenMs != 0 &&
-      (uint32_t)(now - _savedSeenMs) <= WIFI_SCAN_EVIDENCE_MS) {
-    return true;                        // a saved network was on the air recently: go
+  if (_savedSeenLastScan) {
+    return true;                        // the LAST scan saw a saved network: go
   }
   if (++_joinsSkippedRun >= WIFI_JOIN_BLIND_EVERY) {
     _joinsSkippedRun = 0;
@@ -890,6 +894,7 @@ void Networks::autoSwitchEvaluate(int n) {
     return;                             // _savedSeenMs deliberately NOT stamped
   }
   _savedSeenMs = millis() | 1u;         // a saved network really is on the air right now
+  _savedSeenLastScan = true;
 
   if (connected && wifiSsidDyn != NULL && bestSsid.equals(wifiSsidDyn)) {
     return;                             // already on the best network
