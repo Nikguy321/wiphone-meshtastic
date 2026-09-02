@@ -4,6 +4,50 @@
 
 Read this first; everything below it is narrative.
 
+# ✅ 2026-09-01 LATE — 0.9.49: ONE WIFI SWITCH THAT ACTUALLY MEANS IT. PROVED BOTH DIRECTIONS.
+
+**Both phones on 0.9.49**, pushed, web flasher published. Nick asked for a single global WiFi-off
+toggle in Settings replacing the old one, and for the dry-spell threshold to be **5 min** (he
+argued it down from my 10 himself, and he is right — the screen-wake hatch forces an immediate
+scan AND retry, so a long back-off costs far less responsiveness than it looks like it should).
+
+🛑 **"WiFi: off" WAS NOT OFF, AND DID NOT STAY OFF.** The toggle stopped the PHY, but:
+- the WiFi list screen's 5 s rescan restarted it (`scanNetworks()` opens with `enableSTA(true)`);
+- the uploader's stop path and the Game Boy's exit both did an unconditional `mode(WIFI_STA)`;
+- **boot never applied a stored OFF at all** — `Networks::init()` does `WiFi.mode(WIFI_STA)` and
+  `setup()` only called `disable()` when there was NO saved SSID. ⚠ **Any naive
+  "just persist the toggle" would have inherited exactly that bug**;
+- and `wifiOn` was a bare global the toggle set and those three paths did not, so the label
+  could disagree with the radio.
+
+✅ `Networks::setRadioOff()` flips + persists (`Preferences wpwifi/radiooff`) + applies, in one
+call. `Networks::radioOff()` is the ONE predicate all four paths consult. **`wifiOn` is deleted**
+and `#define`d to `!wifiState.radioOff()` — the label cannot drift any more.
+
+⚠ **The original "NOT PERSISTED" comment gave a REAL reason** ("a setting you can forget you set,
+and the failure mode is a phone that silently never connects again"). **Answered, not ignored:**
+the row now carries a subtitle and boot prints `WIFI: radio is OFF (your setting, kept across
+restarts)` at log_e. If persistence is ever revisited, keep both of those.
+
+✅ **PROVED ON HARDWARE, BOTH DIRECTIONS** (screenshots + serial): off → row reads
+`WiFi: off / saves power - survives restarts`, status bar clears → reboot → **`wifi=255`**
+(WL_NO_SHIELD, station not started). On → reboot → **`wifi=3`** associated.
+🔎 **`wifi=255` in the health line is the clean "radio deliberately off" signature.**
+
+📋 **Settings menu path for the cable: `key menu down down down down down down down select`**
+(main menu order: Phonebook, Messages, Meshtastic, Books, Music, Tools, Games, **Settings**,
+Reboot), then `down select` toggles WiFi.
+
+## 💡 THE NEXT IDEA, DELIBERATELY NOT SHIPPED
+
+The retry still calls `connectToPreferred()` **blind**, and a failed join holds the radio
+associating for up to 30 s. **Scan first (~350 ms) and only attempt a join when a known SSID is
+actually on the air** — that removes almost all of the remaining out-of-range cost and is the
+biggest lever left. ⚠ **NOT in 0.9.49 because it cannot be tested from a desk**: it needs a drive
+away and back, hidden SSIDs do not appear in scans, and shipping it untested before a three-day
+gap risks a phone that will not rejoin. First thing to try next session, with a real trip.
+
+
 # 📉 2026-09-01 EVENING — WIFI *SEARCHING* IS THE BIGGEST MEASURED DRAIN, AND IT PROBABLY EXPLAINS
 # THE 08-31 EVENT. THE AUDIO LEAK IS REAL BUT IS LIKELY NOT WHAT HAPPENED THAT MORNING.
 
