@@ -4,6 +4,60 @@
 
 Read this first; everything below it is narrative.
 
+# ▶ TOMORROW (2026-09-02, morning): RUN THE OUT-OF-RANGE TEST. START HERE.
+
+**Nick is driving to work and will do it on the commute. He starts the session once he is at work.**
+Everything else from 2026-09-01 is verified; this is the ONE thing 0.9.50 needs.
+
+## What he was asked to do
+
+1. **Unplug phone 1 before setting off** — the drive doubles as a battery measurement.
+2. Drive to work (out of range of every saved network). **Longer is better: 45-60 min beats 30.**
+3. Arrive at work — the phone should rejoin on its own. **No cable needed during any of it.**
+4. Plug in, and say so.
+
+## FIRST ACTIONS when he says he is at work
+
+```
+cd /Users/nickhowe/wiphone
+python3 <scratchpad>/cmd.py /dev/cu.usbserial-025A3EAF "health all" 25 90 p1_drive.txt
+```
+⚠ **Opening the port REBOOTS the phone** — harmless, the card log survives. ⚠ `health all` needs
+a ~25 s boot wait and ~90 s of capture; shorter and the dump truncates (it did twice on 09-01).
+⚠ **Phone 1 is `usbserial-025A3EAF` = `!00449040`.** Identify from the phone, never the port.
+
+## WHAT THE RESULT MEANS — decide this before looking
+
+| observation | verdict |
+|---|---|
+| `joins=` **skipped climbs, tried barely moves** while `wifi=1` | ✅ the gate works. The headline. |
+| **one blind attempt** after ~4 skips (`tried` ticks up once) | ✅ the safety valve works — the thing that makes this safe to ship |
+| `wifi=` 1 → 3 within ~5 min of arriving | ✅ rejoin latency is fine |
+| `wifi=` takes >15 min to go 1 → 3 at work | ⚠ the gate is costing too much latency — shorten `WIFI_DRY_SCAN_PERIOD_MS` |
+| **skipped stays 0 the whole drive** | ⚠ the gate never engaged. Check `[autosw] scan done: n=…` completed, and that the spell passed 5 min. NOT a pass. |
+| never rejoins at work | 🛑 **BACK IT OUT.** `worthAttemptingJoin()` is supposed to fail open; if it stranded the phone, one of its early returns is wrong. |
+
+**Then the battery half:** slope the `wifi=1` stretch in **mV/h** and compare with the
+**~106 mV/h** measured while hunting on 0.9.46/47. That is the number that says whether the
+604 → 49 s/hour duty reduction is real rather than arithmetic. ⚠ Compare mV/h, never %/h — the
+CW2015 profile is never written.
+
+⚠ **If his work network was not saved on phone 1**, the return half did not happen and only the
+skip half is valid. Check `[autosw] seen '<ssid>' … saved=1` in the log before concluding anything.
+
+## Everything else is DONE and needs nothing
+
+0.9.47 audio watchdog (leak proven + released on hardware) · 0.9.48 dry-spell easing ·
+0.9.49 one persisted WiFi switch, proven both directions · 0.9.50 the scan-gated join.
+Both phones flashed, pushed, web flasher published. Phone 2 re-verified: GPS on, 5 mesh channels,
+hears phone 1 at 11 dB SNR.
+
+🔎 **Open, not urgent:** calibrating the gauge needs ONE run from full to shutdown (current data
+spans only 4.13-3.76 V — the bottom half, where it matters, is missing). The music **crackle** is
+still deferred to its own session. A cell swap is NOT the fix (UFX 603048A, 6.0x30x48 mm, 900 mAh,
+2023.02; +11 % is the realistic ceiling and the 08-31 event needed 180-225 mA).
+
+
 # 🧪 2026-09-01 END OF SESSION — 0.9.50 IS ON BOTH PHONES AND ONE TEST IS OWED
 
 **Both phones on 0.9.50**, pushed, web flasher published. Phone 2 re-verified after the reflashes:
