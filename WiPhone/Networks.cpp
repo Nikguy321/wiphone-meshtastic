@@ -578,6 +578,16 @@ void Networks::autoSwitchTick(bool screenOn) {
     }
   }
 
+  /* Maintain the dry-spell clock BEFORE the gates below, so it is honest even while the
+   * auto-switcher is switched off — the retry in loop() reads the same predicate. millis()
+   * can legitimately be 0 for one millisecond after boot, so 1 is used as the sentinel-safe
+   * stamp; the tick runs at ~1 kHz, so at most one millisecond of spell is lost. */
+  if (connected) {
+    _drySpellStartMs = 0;
+  } else if (_drySpellStartMs == 0) {
+    _drySpellStartMs = millis() | 1u;
+  }
+
   if (_userDisabled || !reconnect || !autoSwitchEnabled()) {
     return;                             // same gates as the reconnect loop honors
   }
@@ -643,7 +653,13 @@ void Networks::autoSwitchTick(bool screenOn) {
      * tried yet this spell, do not serve out the eased 2-5 min period — confirm and cure
      * within ~90 s. Capped to the first bounce (see _dryBounced in the header), so a phone
      * genuinely out of range still gets the battery easing. */
-    if (!connected && _dryScans >= 1 && !_dryBounced && discPeriod > AUTO_SCAN_RETRY_MS) {
+    /* ⚠ NOT during a long dry spell. This fast path exists to confirm-and-cure a DEAF RADIO
+     * within ~90 s, and it is right to be aggressive for that — but a phone that has simply
+     * been away from any network for ten minutes is not deaf, and letting this branch pull the
+     * cadence back to 30 s would undo the easing above entirely. The bounce it leads to has
+     * also already had its chance by then (_dryBounced). */
+    if (!connected && _dryScans >= 1 && !_dryBounced && !inLongDrySpell() &&
+        discPeriod > AUTO_SCAN_RETRY_MS) {
       discPeriod = AUTO_SCAN_RETRY_MS;
     }
     bool due = (now - _msLastScan >= (connected ? AUTO_SCAN_PERIOD_MS : discPeriod));
@@ -741,6 +757,13 @@ void Networks::autoSwitchTick(bool screenOn) {
  * five once it is clearly not one. One definition, because the due-check and the retry
  * scheduler MUST agree — they did not, and that is what broke the backoff. */
 uint32_t Networks::currentDiscPeriod() const {
+  /* Third tier added 2026-09-01 at Nick's ask. Two minutes covers a brief blip, five covers
+   * a spell, and past ten minutes with no association at all the phone is somewhere without
+   * WiFi — a car, the woods — where scanning three times as often learns the same thing
+   * three times. See Networks::inLongDrySpell(). */
+  if (inLongDrySpell()) {
+    return WIFI_DRY_SCAN_PERIOD_MS;
+  }
   return (_discScans >= 5) ? 300000u : AUTO_SCAN_DISC_PERIOD_MS;
 }
 

@@ -3121,6 +3121,15 @@ void loop() {
       if (s_wifiRetryFails >= 5) {
         retryMs = 180000u;              // clearly not a brief blip: ease off the radio
       }
+      /* 🔑 THE BIG ONE, and the same predicate the scan cadence uses so the two cannot drift
+       * apart. Every failed attempt leaves the radio associating for up to 30 s before the
+       * quiesce below disconnects it, so at 180 s that is still ~20 bursts an hour — roughly
+       * an 8 % duty cycle at full radio power for a phone that is simply somewhere without
+       * WiFi. Ten minutes in, back off to one attempt every ten minutes.
+       * ⚠ The wake branch just below is untouched: picking the phone up still tries at once. */
+      if (wifiState.inLongDrySpell()) {
+        retryMs = WIFI_DRY_RETRY_PERIOD_MS;
+      }
       bool due = elapsedMillis(now, msLastWifiRetry, retryMs);
       if (wokeNow && !wifiState.isConnected() && !wifiState.userDisabled() &&
           (uint32_t)(now - lastWifiConnectAttemptMs()) >= 10000u) {

@@ -91,6 +91,27 @@ public:
     return _scanning || _scanPending;   // (connectToWiFi hard-cycles WiFi, killing scans)
   }
 
+  /* Has this phone been off WiFi for long enough that it is plainly not a brief blip?
+   *
+   * 🔑 NICK ASKED FOR THIS BY NUMBER (2026-09-01): "if it doesn't see a Wi-Fi signal in 10
+   * minutes, [make] the retry interval a lot less [often]". He had just driven 50 minutes home
+   * with no WiFi, and that stretch measured ~106 mV/h against ~60 mV/h associated.
+   *
+   * ⚠ THE SCANS WERE NEVER THE EXPENSIVE PART — a scan is a few hundred ms. The cost is the
+   * JOIN RETRY: WIFI_RETRY_PERIOD_MS is 20 s and eases only to 180 s, and every failed attempt
+   * leaves the radio associating for up to 30 s before the quiesce in loop() disconnects it.
+   * Out of range that is roughly 20 attempts an hour x 30 s ≈ an 8 % duty cycle at full radio
+   * power, on top of the scans. Both cadences read this one predicate so they cannot disagree
+   * — the file already learned that lesson once (see scheduleScanRetry).
+   *
+   * Both escape hatches survive: connecting clears the spell, and a screen wake still forces an
+   * immediate scan and an immediate retry, so picking the phone up is prompt however long the
+   * spell has run. */
+  bool     inLongDrySpell() const {
+    return _drySpellStartMs != 0 &&
+           (uint32_t)(millis() - _drySpellStartMs) >= WIFI_DRY_SPELL_LONG_MS;
+  }
+
   // Properties
   const char* ssid() {
     return wifiSsidDyn;
@@ -128,6 +149,10 @@ protected:
   /* Consecutive scans run while disconnected. Used to stretch the scan interval when
    * there is clearly nothing in range — see autoSwitchTick(). Reset on any connect. */
   uint32_t _discScans = 0;
+  /* When the current disconnected spell began, or 0 while connected. Drives the LONG-SPELL
+   * easing — see inLongDrySpell(). Time, not a scan count, because the ask was in minutes and
+   * a count only maps to minutes through whatever cadence happens to be in force. */
+  uint32_t _drySpellStartMs = 0;
   /* Consecutive scans that COMPLETED with zero results while disconnected. Distinct from
    * _discScans (which counts rounds for the backoff): this one is the deaf-radio detector.
    * MEASURED 2026-08-27 (phone 1, work desk): after hours of disconnected retry churn the

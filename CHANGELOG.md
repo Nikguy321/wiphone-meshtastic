@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.9.48 (2026-09-01) - a phone with no WiFi to find stops hunting for it
+
+Nick, after driving 50 minutes home with no WiFi and watching the battery: *"can we make it so
+if it doesn't see a Wi-Fi signal in 10 minutes, the retry interval is a lot less?"*
+
+Yes, and the measurement says he was pointed at the right thing. Field data from three runs on
+phone 1 puts **WiFi searching at ~106 mV/h against ~60 mV/h associated** — about 75 % more —
+and that held both across runs and within a single one.
+
+### 🔑 The scans were never the expensive part
+
+A scan lights the radio for a few hundred milliseconds. The cost is the **join retry**:
+`WIFI_RETRY_PERIOD_MS` is 20 s, easing only to 180 s after five failures, and **every failed
+attempt leaves the radio associating for up to 30 s** before the quiesce in `loop()` disconnects
+it. Out of range that is ~20 attempts an hour x 30 s — an **~17 % duty cycle at full radio
+power**, with the scans contributing about 4 seconds of it.
+
+### ✅ One predicate, both cadences
+
+`Networks::inLongDrySpell()` — ten minutes with no association — now eases both:
+
+| | before | after |
+|---|---|---|
+| join retry | 180 s | **600 s** |
+| auto-switch scan | 300 s | **900 s** |
+| radio-on time per hour | ~604 s (16.8 %) | **~181 s (5.0 %)** |
+
+**A 3.3x reduction** in radio-on time for a phone that is simply somewhere without WiFi.
+
+⚠ **Both cadences read the SAME predicate on purpose.** This file already learned that lesson —
+see the note on `scheduleScanRetry()`, where the due-check and the retry scheduler disagreeing
+produced 114 scans in 280 seconds.
+⚠ **The deaf-radio fast path is now guarded by it too.** That branch pulls the cadence back to
+30 s to confirm-and-cure a genuinely deaf radio, which is right for deafness — but a phone that
+has been away from any network for ten minutes is not deaf, and letting it fire would have undone
+the easing completely.
+✅ **Both escape hatches survive**: connecting clears the spell instantly, and a screen wake still
+forces an immediate scan *and* an immediate retry, so picking the phone up is prompt however long
+the spell has run.
+
+### 📉 Why this, and not the audio leak
+
+The run that prompted it had **`aud=0/0` in all 225 samples** — no audio leak — and **`ps=1`
+throughout, including 83 samples spent searching and 8 with the radio down**. So neither the codec
+nor lost modem sleep was involved. It was the disconnected radio, and only that.
+
+⚠ The saving is **estimated from duty cycle, not yet measured on the battery.** `ps=` and the
+health log will show it on the next run away from a network.
+
 ## 0.9.47 (2026-09-01) - two shared devices that nothing ever switched off
 
 ✅ **PROVEN ON HARDWARE THE SAME MORNING.** Nick played a track for six seconds and paused it:
