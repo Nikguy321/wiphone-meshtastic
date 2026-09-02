@@ -4,6 +4,60 @@
 
 Read this first; everything below it is narrative.
 
+# 🧪 2026-09-01 END OF SESSION — 0.9.50 IS ON BOTH PHONES AND ONE TEST IS OWED
+
+**Both phones on 0.9.50**, pushed, web flasher published. Phone 2 re-verified after the reflashes:
+GPS still ON (32,062 sentences — `gpsen` survives a flash), audio clean, **all 5 mesh channels
+intact, and it hears phone 1 `!00449040` directly at 11 dB SNR.**
+
+## ⏸ THE ONE THING WAITING ON NICK — the out-of-range test
+
+**0.9.50 gates the WiFi join on what the last scan actually saw** (`worthAttemptingJoin()`), and
+**the out-of-range half has never run.** Everything else in it is verified.
+
+**What he does:** take phone 1 somewhere with NONE of his saved networks for **~30 minutes**,
+come back, leave it alone a few minutes, then plug in. ⚠ **No cable needed during the test** —
+`joins=` is in the health log. 30 min is the floor: the dry spell starts at 5 min, scans run every
+5, and the gate only engages once a COMPLETED scan has positively reported no saved network.
+(Turning off every saved AP for 30 min does the same job — it must be all of them, the phone will
+hop to any.)
+
+**What to read out of the log afterwards:**
+- out of range: `joins=tried/skipped` — `tried` should barely move, `skipped` should climb
+- on return: `wifi=` 1 → 3, and how many minutes it took
+- 🔑 if `skipped` stays 0 the whole time, the gate never engaged — check the scans were completing
+  (`[autosw] scan done: n=…`) and that the spell really passed 5 minutes.
+
+## What 0.9.50 actually changed, and the mistake it corrected
+
+🛑 **0.9.48/49 HAD THE CADENCES THE WRONG WAY ROUND.** A scan is ~350 ms and is the SENSOR; a
+failed join holds the radio associating up to 30 s and is the COST. Stretching the scan to 15 min
+alongside the retry throttled the cheap thing and pushed worst-case rejoin latency to 15 minutes.
+**Scan is back to 5 min; the join is gated instead.**
+
+| | radio time per hour, out of range |
+|---|---|
+| 0.9.47 | 604 s — 16.8 % duty |
+| 0.9.49 | 181 s — 5.0 % |
+| **0.9.50** | **49 s — 1.4 %** — and better return latency than either |
+
+⚠ **`worthAttemptingJoin()` FAILS OPEN EVERYWHERE** — no scan evidence, stale evidence, or not yet
+in a long dry spell all return true. It may only skip a join it has POSITIVE, RECENT evidence is
+pointless. **Plus a safety valve: one blind attempt every 4 skips**, so a hidden SSID or a deaf
+radio whose scans lie costs a slower rejoin and never a permanent one. **Do not remove either
+property without a replacement.**
+
+✅ **Verified in the normal case:** phone 1 rebooted, scanned, saw 'SmithWifi', switched and
+connected, `joins=17/0` — the gate correctly never blocked while a saved network was on air.
+
+## Everything shipped today, in order
+
+0.9.47 audio idle watchdog + `aud=`/`ps=` + the `audio` command (leak PROVEN and released on
+hardware) · 0.9.48 the 10-min dry-spell easing · 0.9.49 one persisted WiFi switch that four paths
+now respect (PROVEN both directions: off → reboot → `wifi=255`; on → reboot → `wifi=3`) + the
+threshold moved to Nick's 5 min · 0.9.50 the scan-gated join.
+
+
 # ✅ 2026-09-01 LATE — 0.9.49: ONE WIFI SWITCH THAT ACTUALLY MEANS IT. PROVED BOTH DIRECTIONS.
 
 **Both phones on 0.9.49**, pushed, web flasher published. Nick asked for a single global WiFi-off
