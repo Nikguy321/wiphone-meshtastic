@@ -42,7 +42,10 @@ static const char* sipDisplayLabel(Storage& flash, const char* peer, const char*
 LCD* static_lcd = NULL;
 bool UDP_SIP = false;
 bool loudSpkr = false;
-bool wifiOn = true;
+/* 🛑 DERIVED, NOT STORED. This was a bare `bool wifiOn = true;` that the toggle set and three
+ * other code paths did not — so the label could say "off" while the radio was up. It now reads
+ * the one persisted switch, and cannot disagree with it. */
+#define wifiOn (!wifiState.radioOff())
 
 
 uint16_t GUI::batteryExtraLength = 0;
@@ -1834,24 +1837,15 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
              * ⚠ NOT PERSISTED, and that is deliberate: WiFi comes back ON after a reboot. A
              * radio that stays off across a power cycle is a setting you can forget you set,
              * and the failure mode is a phone that silently never connects again. */
-            wifiOn = !wifiOn;
-            if (wifiOn) {
-              if (esp_wifi_start() != ESP_OK) {
-                log_e("WIFI can't be started");
-                wifiOn = false;              // say what is true, not what was asked for
-              } else {
-                /* Nothing to connect to explicitly from here — the main loop's reconnect
-                 * and auto-switch own that, and blocking the UI on a join is what froze
-                 * the edit screen before it was fixed. ⚠ But those loops gate on the very
-                 * flags disable() just cleared, so hand them back (2026-08-27): without
-                 * this, an innocent OFF→ON cycle left auto-rejoin dead until a join or
-                 * reboot — the toggle's promise above was broken the day it was written. */
-                wifiState.resumeReconnect();
-              }
-            } else {
-              wifiState.disable();
+            const bool turningOn = wifiState.radioOff();
+            /* One call: it flips the switch, persists it, and applies it (disable() or
+             * resumeReconnect()). The old body did those three things inline and the
+             * persistence half did not exist. */
+            wifiState.setRadioOff(!turningOn);
+            if (turningOn && esp_wifi_start() != ESP_OK) {
+              log_e("WIFI can't be started");
+              wifiState.setRadioOff(true);   // say what is true, not what was asked for
             }
-            log_e("WIFI toggled -> %s (from the menu)", wifiOn ? "ON" : "OFF");
             enterMenu(curMenuId);            // rebuild so the row relabels itself
           }
         }
@@ -2182,10 +2176,18 @@ void GUI::enterMenu(uint16_t ID) {
        * you got there. ⚠ This is keyed on the ACTION, not on which menu is being built, so it
        * follows the row wherever it is homed (it lives under Settings now). */
       char wifiRowTitle[32];
+      char wifiRowSub[40];
       const char* rowTitle = menu[i].title;
+      const char* rowSub = NULL;
       if (menu[i].action == GUI_ACTION_WIFI_TOGGLE) {
         snprintf(wifiRowTitle, sizeof(wifiRowTitle), "WiFi: %s", wifiOn ? "on" : "off");
+        /* ⚠ THE SUBTITLE IS THE ANSWER TO THE ORIGINAL "NOT PERSISTED" OBJECTION — see
+         * Networks::setRadioOff(). A switch that survives a reboot has to say so where a
+         * person will actually read it, or it becomes the setting you forget you set. */
+        strlcpy(wifiRowSub, wifiOn ? "scanning and joining as usual"
+                                   : "saves power - survives restarts", sizeof(wifiRowSub));
         rowTitle = wifiRowTitle;
+        rowSub = wifiRowSub;
       } else if (menu[i].action == GUI_ACTION_T9_TOGGLE) {
         // Same trick, same buffer: say the state on the row rather than behind it.
         snprintf(wifiRowTitle, sizeof(wifiRowTitle), "Predictive text: %s",
@@ -2193,9 +2195,9 @@ void GUI::enterMenu(uint16_t ID) {
         rowTitle = wifiRowTitle;
       }
       if (j<0) {
-        option = new MenuOptionIconned(menu[i].ID, 1, rowTitle);
+        option = new MenuOptionIconned(menu[i].ID, 1, rowTitle, rowSub);
       } else {
-        option = new MenuOptionIconned(menu[i].ID, 1, rowTitle, NULL, menuIcons[j].icon1, menuIcons[j].iconSize1, menuIcons[j].icon2, menuIcons[j].iconSize2);
+        option = new MenuOptionIconned(menu[i].ID, 1, rowTitle, rowSub, menuIcons[j].icon1, menuIcons[j].iconSize1, menuIcons[j].icon2, menuIcons[j].iconSize2);
       }
       if (option && !mainMenu->addOption(option)) {
         delete option;
@@ -6628,7 +6630,7 @@ appEventResult EditNetworkApp::processEvent(EventType event) {
   if (wifiOnOff != NULL && wifiOnOff->getValue() != lastWifiOnOff) {
     lastWifiOnOff = wifiOnOff->getValue();
     if (lastWifiOnOff == 0) {           // WIFI-ON
-      wifiOn = true;
+      wifiState.setRadioOff(false);
       if (esp_wifi_start() != ESP_OK) {
         log_e("WIFI can't be started");
       } else {
@@ -6649,9 +6651,8 @@ appEventResult EditNetworkApp::processEvent(EventType event) {
         }
       }
     } else {                            // WIFI-OFF
-      wifiOn = false;
+      wifiState.setRadioOff(true);      // persists and disables in one call
       log_d("disconnecting, WiFi off");
-      wifiState.disable();
       connectedNetwork = false;
       if (connectionButton != NULL) {
         connectionButton->setText("Connect");
@@ -7320,7 +7321,13 @@ appEventResult NetworksApp::processEvent(EventType event) {
      * on a loop while it is open, so it is the site a user can hold open the longest. When
      * refused the list simply keeps the results it already has. See helpers.h. */
     if (wifiScanMemoryOk("wifi screen")) {
-      WiFi.scanNetworks(true, false, false, 750);
+      /* ⚠ scanNetworks() opens with enableSTA(true) -> esp_wifi_start(), so this rescan
+       * restarted a radio the user had switched off — the third of the three paths found in
+       * the 2026-09-01 audit. Someone standing on the WiFi list screen with the radio off is
+       * shown the list they already have rather than being silently put back on air. */
+      if (!wifiState.radioOff()) {
+        WiFi.scanNetworks(true, false, false, 750);
+      }
     }
 
   } else if (IS_KEYBOARD(event) && menu!=NULL) {

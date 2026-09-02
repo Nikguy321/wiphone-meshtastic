@@ -107,6 +107,17 @@ public:
    * Both escape hatches survive: connecting clears the spell, and a screen wake still forces an
    * immediate scan and an immediate retry, so picking the phone up is prompt however long the
    * spell has run. */
+  /* The user's own WiFi switch: true = they turned the radio off to save power.
+   *
+   * 🔑 EVERY re-enable path must consult this. The 2026-09-01 audit found three that did not
+   * — the WiFi list screen's 5 s rescan, the uploader's softAP fallback, and the Game Boy's
+   * exit — so "WiFi off" quietly stopped being true partway through a trip. */
+  bool     radioOff() const {
+    return _radioOff;
+  }
+  void     setRadioOff(bool off);      // switches, persists, and applies it
+  bool     loadRadioOff();             // read the stored switch at boot (does NOT apply it)
+
   bool     inLongDrySpell() const {
     return _drySpellStartMs != 0 &&
            (uint32_t)(millis() - _drySpellStartMs) >= WIFI_DRY_SPELL_LONG_MS;
@@ -148,6 +159,12 @@ protected:
   void     scheduleScanRetry(uint32_t now, bool connected);
   /* Consecutive scans run while disconnected. Used to stretch the scan interval when
    * there is clearly nothing in range — see autoSwitchTick(). Reset on any connect. */
+  /* The one global WiFi switch, persisted. Distinct from _userDisabled on purpose:
+   * _userDisabled is also raised by a per-NETWORK `disabled` flag in loadPreferred(), so it
+   * cannot answer "did the user switch the radio off". This one can, which is what lets the
+   * menu label, the boot path and the three re-enable paths all agree. */
+  bool     _radioOff = false;
+
   uint32_t _discScans = 0;
   /* When the current disconnected spell began, or 0 while connected. Drives the LONG-SPELL
    * easing — see inLongDrySpell(). Time, not a scan count, because the ask was in minutes and

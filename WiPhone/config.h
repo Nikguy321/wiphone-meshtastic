@@ -38,7 +38,7 @@ governing permissions and limitations under the License.
  * Leave it OFF: it defeats the sleep timeout and pins the CPU high.
 //#define SCREEN_ALWAYS_ON_TEST */
 
-#define FIRMWARE_VERSION "0.9.48"
+#define FIRMWARE_VERSION "0.9.49"
 
 #define BUILD_GAMES
 
@@ -71,10 +71,13 @@ governing permissions and limitations under the License.
 #define TIME_UPDATE_MINUTE_MS         60000u      // 1 minute: how often to update system clock and generate TIME_UPDATE_EVENT (must be 1 minute, unless you know what you are doing)
 #define WIFI_RETRY_PERIOD_MS          20000u      // 20 s
 /* ── LONG DRY SPELL: off WiFi for this long and both cadences ease hard ──────────────────
- * 10 min is Nick's number, asked for after a 50-minute drive home measured ~106 mV/h against
+ * 5 min is Nick's number (he proposed 10, then argued down to 5 himself, and he is right:
+ * the screen-wake escape hatch forces an immediate scan AND retry, so a long back-off costs
+ * far less responsiveness than it looks like it should). Asked for after a 50-minute drive
+ * home measured ~106 mV/h against
  * ~60 mV/h associated. See Networks::inLongDrySpell() for why the JOIN RETRY, not the scan,
  * is what these numbers are really cutting. */
-#define WIFI_DRY_SPELL_LONG_MS        600000u     // 10 min with no association
+#define WIFI_DRY_SPELL_LONG_MS        300000u     // 5 min with no association
 #define WIFI_DRY_SCAN_PERIOD_MS       900000u     // then scan every 15 min, not 5
 #define WIFI_DRY_RETRY_PERIOD_MS      600000u     // ...and try to join every 10 min, not 3
 

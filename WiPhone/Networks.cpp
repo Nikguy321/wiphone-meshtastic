@@ -13,6 +13,7 @@ governing permissions and limitations under the License.
 */
 
 #include "Networks.h"
+#include <Preferences.h>
 #include "helpers.h"
 
 extern void heapEvent(const char* what);   // WiPhone.ino - the ratchet instrument
@@ -756,6 +757,43 @@ void Networks::autoSwitchTick(bool screenOn) {
 /* The disconnected scan period in force right now: two minutes for a brief blip, easing to
  * five once it is clearly not one. One definition, because the due-check and the retry
  * scheduler MUST agree — they did not, and that is what broke the backoff. */
+/* The one WiFi switch, persisted across reboots.
+ *
+ * 🛑 THE ORIGINAL TOGGLE WAS DELIBERATELY NOT PERSISTED, and the reason given was sound:
+ * "a radio that stays off across a power cycle is a setting you can forget you set, and the
+ * failure mode is a phone that silently never connects again." Nick asked for persistence
+ * anyway (2026-09-01) because the measured cost of leaving it on away from a network is real
+ * — ~106 mV/h searching against ~60 mV/h associated. **So the objection is answered rather
+ * than ignored**: the menu row now says "off" in the large font with "saves power - survives
+ * restarts" underneath, and the boot log prints WIFI: radio is OFF at log_e. The state is
+ * loud in the two places someone would look.
+ *
+ * Preferences rather than the configs INI: this is one bool, the INI is a CriticalFile with a
+ * restore path, and the mesh settings already established this namespace pattern. */
+void Networks::setRadioOff(bool off) {
+  _radioOff = off;
+  Preferences prefs;
+  prefs.begin("wpwifi", false);
+  prefs.putBool("radiooff", off);
+  prefs.end();
+  if (off) {
+    disable();
+  } else {
+    resumeReconnect();
+  }
+  log_e("WIFI: radio switched %s by the user (persisted)", off ? "OFF" : "ON");
+}
+
+/* Read the switch at boot. Split from applying it so setup() can decide the order — the
+ * radio must not be started first and stopped a moment later. */
+bool Networks::loadRadioOff() {
+  Preferences prefs;
+  prefs.begin("wpwifi", true);          // read-only
+  _radioOff = prefs.getBool("radiooff", false);
+  prefs.end();
+  return _radioOff;
+}
+
 uint32_t Networks::currentDiscPeriod() const {
   /* Third tier added 2026-09-01 at Nick's ask. Two minutes covers a brief blip, five covers
    * a spell, and past ten minutes with no association at all the phone is somewhere without

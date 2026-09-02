@@ -1,3 +1,4 @@
+#include "Networks.h"   // wifiState.radioOff()
 /*
  * app_gbc_xfer.cpp — the file-transfer web server (see app_gbc_xfer.h).
  *
@@ -1763,13 +1764,21 @@ void xferStop() {
   xferServerDown();
   if (s_usingAP) {
     WiFi.softAPdisconnect(true);
-    WiFi.mode(WIFI_STA);
     s_usingAP = false;
     /* ⚠ Setting the mode back to STA does NOT reconnect. Without this the phone sat with
      * no WiFi until some other timer got round to noticing, which felt like the uploader
      * had broken the network on its way out. begin() with no arguments re-uses the
-     * credentials already in the driver. */
-    WiFi.begin();
+     * credentials already in the driver.
+     *
+     * ⚠ BUT NOT IF THE USER SWITCHED THE RADIO OFF — one of the three paths the 2026-09-01
+     * audit found quietly undoing "WiFi: off". The AP is torn down either way; what is
+     * gated is bringing the station back up. */
+    if (!wifiState.radioOff()) {
+      WiFi.mode(WIFI_STA);
+      WiFi.begin();
+    } else {
+      WiFi.mode(WIFI_OFF);
+    }
   }
   s_on = false;
 }

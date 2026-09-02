@@ -1428,7 +1428,18 @@ void setup() {
   int counter = 0;
   wifiState.loadPreferred();
 
-  if (!wifiState.userDisabled()) {
+  /* 🔑 THE PERSISTED WiFi SWITCH IS APPLIED HERE, and this is the ONLY place it can be:
+   * Networks::init() has already done WiFi.mode(WIFI_STA), so reading the pref any later
+   * means the radio comes up and is switched off a moment afterwards. The 2026-09-01 audit
+   * found that boot never applied a stored OFF at all — any naive "just persist the toggle"
+   * would have inherited exactly that bug.
+   *
+   * Loud at log_e on purpose: a radio that stays off across a power cycle must announce
+   * itself somewhere a person will find it. The menu row says so too. */
+  if (wifiState.loadRadioOff()) {
+    wifiState.disable();
+    log_e("WIFI: radio is OFF (your setting, kept across restarts) - Settings > WiFi to turn it on");
+  } else if (!wifiState.userDisabled()) {
     wifiState.connectToPreferred();
     while (!wifiState.isConnected() && ++counter < 10) {
       log_v("Waiting for wifi: %d %d", counter, ESP.getFreeHeap());

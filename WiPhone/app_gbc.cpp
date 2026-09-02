@@ -18,6 +18,7 @@
 #include "esp_heap_caps.h"
 #include "esp_system.h"     // esp_reset_reason (transfer-screen diagnostics)
 #include "esp_bt.h"
+#include "Networks.h"   // wifiState.radioOff(): do not undo the user's WiFi switch
 #include <string.h>
 #include <errno.h>
 #include "freertos/FreeRTOS.h"
@@ -325,8 +326,13 @@ GbcApp::~GbcApp() {
     enableCore0WDT();
     enableCore1WDT();
     gGbcActive = false;
-    WiFi.mode(WIFI_STA);
-    WiFi.reconnect();
+    /* ⚠ NOT IF THE USER SWITCHED THE RADIO OFF. This restored WiFi unconditionally, so
+     * playing a game silently undid "WiFi: off" — one of three such paths found in the
+     * 2026-09-01 audit. GUI.cpp:7197 already had this right for the networks screen. */
+    if (!wifiState.radioOff()) {
+      WiFi.mode(WIFI_STA);
+      WiFi.reconnect();
+    }
   }
 }
 

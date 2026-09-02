@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.9.49 (2026-09-01) - one WiFi switch that actually means it
+
+Nick: *"in settings let's just make a global Wi-Fi off toggle... it can shut everything Wi-Fi
+related off with one button."* Plus, on the retry cadence: *"5 mins of fast reconnect then after
+that period, slower retries every 10 minutes?"* — which is what 0.9.48 shipped, so the threshold
+moves from 10 minutes to his 5.
+
+### 🛑 "WiFi: off" was not off, and did not stay off
+
+The toggle really did stop the PHY. Three other paths turned it back on without clearing it, and
+boot never applied a stored OFF at all:
+
+- **The WiFi list screen's 5 s rescan** (GUI.cpp) — `scanNetworks()` opens with
+  `enableSTA(true)` → `esp_wifi_start()`, so standing on that screen put the radio back on air.
+- **The ROM/file uploader's stop path** (app_gbc_xfer.cpp) — unconditional
+  `WiFi.mode(WIFI_STA)` + `begin()`.
+- **The Game Boy's exit** (app_gbc.cpp) — unconditional `mode(WIFI_STA)` + `reconnect()`.
+- **Boot** — `Networks::init()` does `WiFi.mode(WIFI_STA)` and `setup()` only called `disable()`
+  when there was NO saved SSID. Any naive "just persist the toggle" would have inherited this.
+- **And the label could lie**: `wifiOn` was a bare global that the toggle set and those three
+  paths did not.
+
+### ✅ One switch, persisted, and honest
+
+`Networks::setRadioOff()` flips it, persists it (Preferences, `wpwifi/radiooff`) and applies it in
+one call. `Networks::radioOff()` is the single predicate all four paths above now consult.
+`wifiOn` is **deleted** as a stored global and `#define`d to `!wifiState.radioOff()`, so the label
+cannot drift from the radio.
+
+⚠ **The original "NOT PERSISTED" comment gave a real reason** — *"a radio that stays off across a
+power cycle is a setting you can forget you set, and the failure mode is a phone that silently
+never connects again."* **That objection is answered, not ignored**: the menu row now carries a
+subtitle (*"saves power - survives restarts"* / *"scanning and joining as usual"*), and boot
+prints `WIFI: radio is OFF (your setting, kept across restarts)` at log_e.
+
+**PROVED ON HARDWARE, both directions:** toggled off → row relabels, status bar clears; reboot →
+`wifi=255` (station not started); toggled on → reboot → `wifi=3` associated.
+
+### ⏱ The dry-spell threshold is now 5 minutes
+
+Nick's number, and he argued it down from my 10 himself. He is right: the screen-wake escape hatch
+forces an immediate scan **and** an immediate retry, so a long back-off costs far less
+responsiveness than it looks like it should. Out of range: join retry 180 → 600 s, scan
+300 → 900 s, radio-on time ~604 s/h → ~181 s/h (16.8 % → 5.0 % duty).
+
+### 💡 Not done, deliberately — the next idea
+
+The retry still calls `connectToPreferred()` blind, and a failed join holds the radio associating
+for up to 30 s. **Scanning first (~350 ms) and only attempting a join when a known SSID is
+actually present** would remove almost all of that. It is the biggest remaining win, and it is NOT
+in this release because it cannot be tested from a desk — it needs a drive away and back, and
+shipping it untested before a three-day gap risks a phone that will not rejoin. For next session.
+
 ## 0.9.48 (2026-09-01) - a phone with no WiFi to find stops hunting for it
 
 Nick, after driving 50 minutes home with no WiFi and watching the battery: *"can we make it so
