@@ -4,6 +4,52 @@
 
 Read this first; everything below it is narrative.
 
+# 🔋 2026-09-02 — PHONE 2 RAN ITSELF FLAT OVERNIGHT AND HANDED US THE CALIBRATION RUN
+
+Phone 2 was left off the charger after the 09-01 session and was found at **`soc=0% v=3.62`**.
+Its log holds the thing that has been missing all along: **a complete full-to-empty discharge,
+12.53 h, 100 % → 0 %, 4.210 → 3.300 V**, at **240 MHz for 100 % of it** (GPS on), WiFi associated
+96 %, screen off 99 %.
+
+## 🔑 TWO RESULTS, AND THE SECOND ONE INVALIDATES A LOT OF ARITHMETIC
+
+**1. PHONE 2'S BACKPLATE CELL IS MATERIALLY BIGGER — now measured, not inferred.**
+Phone 2 does **strictly more work** than phone 1 (pinned at 240 MHz, GPS streaming) and still
+lasts **12.5 h against phone 1's ~9-10 h**. That settles it, and it retires the old worry that the
+GPS/240 MHz pin was quietly ruining that phone: it is not, because the pack absorbs it.
+
+**2. 🛑 THE GAUGE REPORTS 100 % FOR THE FIRST 4.6 HOURS.** The cell fell **110 mV (4.210 → 4.100)
+while `soc` never moved off 100**. Then it tracked down at 12.6 %/h over the remaining 7.9 h.
+
+| phase | duration | mV/h | reported %/h |
+|---|---|---|---|
+| gauge stuck at 100 % | 4.60 h | 23.9 | **0** |
+| gauge tracking | 7.93 h | 100.8 | 12.6 |
+
+⚠ **SAME PHONE, SAME LOAD, AND `%/h` DIFFERS BY INFINITY ACROSS THE TWO.** Any `%/h` figure is
+meaningless unless you say which phase it sampled. **This is the strongest argument yet for the
+standing rule: QUOTE mV/h.** The `CW2015` BATINFO profile is never written (`configure()` only
+clears MODE) and this is what that costs.
+⚠ **It also means a run that starts at a genuinely full 4.21 V behaves differently from one that
+starts at 4.13-4.15 V** — the latter is already past the dead zone. Phone 1's 09-01/09-02 runs all
+started at 4.13-4.15, so they were NOT distorted by this; do not go back and "correct" them.
+
+## 📈 THE VOLTAGE↔SOC CURVE IS NOW RECORDED 4.21 → 3.30 V
+
+Full depth, single continuous load. ⚠ **And it is TIGHT — most `soc` values map to a 10-20 mV
+band — whereas the same mapping POOLED ACROSS PHONE 1'S RUNS spanned 13 points at 3.85 V.** That
+is the rate-compensation effect: a single-load curve is usable, a pooled cross-load one is not. So
+a home-grown voltage→SOC table would need to be per-load, or carry ±6 points. Data is in
+`scratchpad/p2_deep.txt` if this is ever built.
+
+## Housekeeping
+
+✅ **Phone 2 flashed and verified on 0.9.51** (GPS reader ON with 2,908 sentences — which is also
+the identity check; phone 1 has no GPS). All 5 mesh channels intact. Charging now.
+⚠ **Phone 1 is now OFF the cable** (Nick swapped them) — so it is on battery and running 0.9.51.
+⏸ Still untested: **the safety valve** (blind attempt every 4th skip; the commute reached 3).
+
+
 # ✅ 2026-09-02 MORNING — THE OUT-OF-RANGE TEST PASSED. 0.9.51 SHIPPED FROM WHAT IT SHOWED.
 
 Nick ran the 50-minute commute test. **Both halves of the 0.9.50 scan-gated join worked**, and the
