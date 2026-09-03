@@ -28,6 +28,7 @@ governing permissions and limitations under the License.
 #include "t9_extra.h"        // the user's own T9 words, loaded from the card at boot
 #include "tinySIP.h"
 #include "config.h"
+#include "battery_curve.h"   // SOC from voltage, off phone 1's measured discharge (not the CW2015's guess)
 #include "clock.h"
 #include "Audio.h"
 #include "lwip/api.h"
@@ -1175,9 +1176,15 @@ void setup() {
 
   // Initilize hardware serial:
   gui.state.battVoltage = gauge.readVoltage();
-  gui.state.battSoc = gauge.readSocPrecise();
+  /* SOC comes from the VOLTAGE, through phone 1's measured curve — not from the CW2015's
+   * `soc` register, whose battery profile is never programmed and which reads 0 % with 1.3 h
+   * of runtime left (battery_curve.h). The chip's number is still logged as `soc=` in the
+   * health line so the two can be compared on any future run. */
+  gui.state.battSoc = gui.state.battVoltage > 0.0f
+                      ? (float)batterySocFromVoltage(gui.state.battVoltage)
+                      : gauge.readSocPrecise();
   log_d("Voltage = %.2f", gui.state.battVoltage);
-  log_d("SOC = %.1f", gui.state.battSoc);
+  log_d("SOC = %.1f (from voltage)", gui.state.battSoc);
 #endif // WIPHONE_BOARD || WIPHONE_INTEGRATED
 
   log_v("Free memory after sd spiffs: %d %d", ESP.getFreeHeap(), heap_caps_get_free_size(MALLOC_CAP_32BIT));
@@ -1226,6 +1233,17 @@ void setup() {
 #if TF_CARD_DETECT_PIN >= 0
   gui.state.cardPresent = allDigitalRead(TF_CARD_DETECT_PIN) == LOW ? true : false;
 #endif
+  /* Seed battCharged the same way, for the same reason, and re-pick the boot battSoc with the
+   * rule the tick uses: the read above set it from the curve with the charger state unknown,
+   * and on the charger that is the inflated number (66 % vs the chip's 25 %, on the first
+   * 0.9.56 boot). Until the first tick nothing else would correct it. */
+  gui.state.battCharged = allDigitalRead(BATTERY_CHARGING_STATUS_PIN) == LOW ? true : false;
+  if (gui.state.battCharged) {
+    const float bootSoc = gauge.readSocPrecise();
+    if (bootSoc > 0.0f) {
+      gui.state.battSoc = bootSoc;
+    }
+  }
 
 
   // Initialize keypad
@@ -3322,12 +3340,10 @@ void loop() {
     if (elapsedMillis(now, msLastBatt, BATTERY_CHECK_PERIOD_MS)) {
       msLastBatt = now;
       float v = gauge.readVoltage();
+      float soc = gauge.readSocPrecise();          // the chip's own estimate; always logged as soc=
       if (v > 0.0) {
         gui.state.battVoltage = v;
-      }
-      float soc = gauge.readSocPrecise();
-      if (soc > 0.0) {
-        gui.state.battSoc = soc;
+        /* battSoc is chosen BELOW, after battCharged has been refreshed — see there. */
       }
       gui.state.battUpdated = true;
 #if TF_CARD_DETECT_PIN >= 0
@@ -3376,6 +3392,28 @@ void loop() {
        * the only measurement that distinguishes a tapered charger from an inverted pin. */
       gui.state.battCharged = allDigitalRead(BATTERY_CHARGING_STATUS_PIN) == LOW ? true : false;
 
+      /* WHICH NUMBER THE USER SEES (battery_curve.h has the long version):
+       *  - OFF the charger: the voltage curve. This is the number that matters — runtime left,
+       *    in the field — and the one the curve was measured for. It has no cliff: the chip read
+       *    0 % at 3.54 V with 1.3 h left, and the old `if (soc > 0.0)` guard then FROZE the
+       *    display at its last non-zero value for that whole 1.3 h.
+       *  - ON the charger: the chip. MEASURED 2026-09-03, 45 min into a charge from empty at
+       *    3.89-3.91 V: curve 61-65 %, chip 20-25 %. Charge current lifts the terminal voltage
+       *    ~100 mV, and a DISCHARGE curve read against it over-reports by 30-40 points — the
+       *    wrong direction to be wrong. The chip is the only charge-aware number we have.
+       * ⚠ This sits AFTER the battCharged read on purpose. The first 0.9.56 build chose before
+       *   it, on the PREVIOUS tick's flag, and a boot on the charger showed the curve's 66 % for
+       *   ~30 s before dropping to the chip's 25 % — measured on a screenshot, and exactly the
+       *   kind of jump that makes a person stop believing the number.
+       * ⚠ On phone 2 `battCharged` is 0 even on USB (the backplate holds the rail — memory note
+       *   wiphone-phone2-backplate), so phone 2 shows the curve on the cable. Its internal cell
+       *   IS full then, so the curve's 100 % is the right answer there anyway. */
+      if (v > 0.0) {
+        gui.state.battSoc = (gui.state.battCharged && soc > 0.0f)
+                            ? soc
+                            : (float)batterySocFromVoltage(v);
+      }
+
       /* ── HEALTH LINE ────────────────────────────────────────────────────────────
        * One line a minute, at log_e so it is visible in the field. It answers both of
        * the questions that keep coming up, over time rather than in a snapshot:
@@ -3401,9 +3439,12 @@ void loop() {
                 * codec left on after one stopped. `aud=1/0` — powered, moving no samples — IS
                 * the leak signature, and it is the state that reads as a perfectly idle phone
                 * everywhere else in this line (cpu=80MHz, scr=0, sip=1). */
-               "HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% v=%.2f chg=%d wifi=%d cpu=%luMHz scr=%d sip=%d aud=%d/%d ps=%d joins=%lu/%lu",
+               "HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% est=%d%% v=%.2f chg=%d wifi=%d cpu=%luMHz scr=%d sip=%d aud=%d/%d ps=%d joins=%lu/%lu",
                (unsigned long)(now / 60000), fh, s_minHeapEver, ESP.getMaxAllocHeap(),
-               ESP.getFreePsram(), (int)round(soc), v,
+               /* est= is ALWAYS the curve, never the displayed value: on the charger the
+                * display shows the chip, and logging that twice would throw away the one
+                * number a future charge-side correction needs. */
+               ESP.getFreePsram(), (int)round(soc), batterySocFromVoltage(v), v,
                (int)gui.state.battCharged, (int)WiFi.status(),
                (unsigned long)getCpuFrequencyMhz(),
                (int)gui.state.screenBrightness, (int)gui.state.sipState,

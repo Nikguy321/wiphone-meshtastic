@@ -4,6 +4,55 @@
 
 Read this first; everything below it is narrative.
 
+# 🔋 2026-09-03 — 0.9.56: THE BATTERY % IS NOW PHONE 1'S MEASURED CURVE, NOT THE CHIP'S GUESS
+
+Nick: "make the calibration curve to phone one as you think makes the most sense... then we will
+just make that the standard for the firmware. phone 2 and the other people's phones can just use
+our best guess." Done, flashed to both phones, pushed, flasher serving it.
+
+**What shipped.** `WiPhone/battery_curve.{h,cpp}` — `batterySocFromVoltage(v)`, an 18-breakpoint
+table (50 mV) derived from the run below: 10 mV bins of TIME-LINEAR SOC (100 % at the unplug, 0 %
+at the last sample; constant load ⇒ charge linear in time), 50 mV bin means. The raw run is
+committed as **`tests/fixtures/p1_discharge_2026-09-03.tsv`** (557 rows: up, chip soc, v, chg) so
+the curve can be regenerated and re-scored forever. `tests/test_battery.cpp` (20 checks) scores
+the table AND the chip against the run: **ours mean 0.54 pt / max 2; chip mean 5.7 / max 16**,
+and pins the fault itself — 3.54 V must read ≥ 12 %. Mutation-tested: a breakpoint zeroed to the
+chip's cliff, two transposed, interpolation removed, the top clamp moved — all caught.
+
+**The display rule, and the measurement that forced it:**
+| state | shown | why |
+|---|---|---|
+| **off the charger** | the curve | the number that matters — runtime left in the field — and what the curve was measured for |
+| **on the charger** | the chip | **first flash, 45 min into a charge from empty: curve 61-65 %, chip 20-25 %, v 3.89-3.91.** Charge current lifts terminal voltage ~100 mV; a DISCHARGE curve read against it over-reports 30-40 pts, the optimistic direction |
+
+⚠ **`est=` in the health line is ALWAYS the curve**, never the displayed value — on the charger
+the display shows the chip, and logging that twice would throw away the one number a future
+charge-side correction needs. (First build got this wrong; fixed before it left the desk.)
+⚠ **The selection runs AFTER the tick refreshes `battCharged`, and `battCharged` is seeded in
+`setup()` beside `cardPresent`.** The first build chose on the PREVIOUS tick's flag, and a boot on
+the charger showed the curve's **66 %** for ~30 s before dropping to the chip's 25 % — caught on a
+`shot.py` screenshot, exactly the jump that makes a person stop believing the number. Third build:
+**screenshot reads 34 %, health line says `soc=34% est=69%` — the chip, from the first frame.**
+
+✅ **VERIFIED ON BOTH PHONES (final build, `Hash of data verified` ×2):** phone 1 `firmware 0.9.56`,
+display = chip on the charger (34 %), `est=` = curve (69 %) at 3.94 V; phone 2 `firmware 0.9.56`,
+`soc=100 est=100 v=4.21 chg=0` — the backplate signature, curve and chip agreeing — and `nbr`
+hearing **`!00449040` (phone 1) at 11 dB**. Both phones on the same build, hearing each other.
+⚠ **Phone 2 shows the curve on the cable too**, because its `battCharged` reads 0 on USB (the
+backplate holds the rail). Its internal cell IS full then, so the curve's 100 % is right anyway.
+⚠ **The old `if (soc > 0.0)` guard FROZE the display at its last non-zero chip value** once the
+chip hit 0 % — so the phone showed "1 %" for its final 1.3 h. Gone.
+
+**Honest limits, all in `battery_curve.h`:** it is phone 1's cell at an idle, WiFi-off load — the
+woods case; under heavier load it UNDER-reports (conservative, the right way to be wrong); it is
+fitted to one run and tested against that run, which proves it reproduces the curve, not that the
+curve holds on another day; a second phone-1 discharge would settle that.
+
+🔎 **FREE DATA IN FLIGHT: phone 1's `/health.log` is recording a complete CHARGE from empty right
+now** (`soc=` chip, `est=` curve, `v=`, once a minute, `chg=1` throughout). Read it with
+`health all` today — before the ~16 h window trims it — and a charge-side correction becomes
+possible. It is the first charge curve this project has.
+
 # 🔋 2026-09-03 — PHONE 1'S FULL-TO-EMPTY RUN: 9h16m, AND ITS GAUGE FAILS THE OPPOSITE WAY FROM
 # PHONE 2'S
 
@@ -31,14 +80,19 @@ sample). Death worked out to ≈ 20:59 PDT that evening.
 `chg=0` in all 548 samples after the unplug, zero heap fragmentation (`largest` never left
 31,368–32,760), no stalls/panics/reboots inside the run.
 
-🔑 **PHONE 1's GAUGE FAILS THE OPPOSITE WAY FROM PHONE 2's.** Phone 2 froze at `soc=100%` for the
-first 4.6 h while voltage fell 110 mV. Phone 1 shows no such stuck-at-100% zone — `soc` tracks
-down fairly steadily from the start — but instead gets **stuck at `soc=0%` for the LAST 1.3 h**
-(up=479→556min) while still running and still draining, 3.54→3.30 V. Same root cause (the
-CW2015's BATINFO profile is never programmed — [[wiphone-battery-measured]]), a different-shaped
-symptom on each phone. This is now direct evidence for the standing rule, not just a caution:
-**never trust `soc%` near either end of the curve, and never compare gauge behavior across
-phones — the SHAPE of the error differs, not just the rate.**
+🛑 **CORRECTION FROM NICK, 2026-09-03 morning — I HAD PHONE 2's "DEAD ZONE" WRONG, AND SO DID
+THE 09-02 SESSION.** Phone 2 wears the woods backplate. **Its 4.6 h at `soc=100%` was the
+BACKPLATE CELL feeding the internal cell** — the internal pack genuinely sat at full until the
+backplate ran down, then took over and tracked 100→0 over 7.9 h. That is two cells in sequence,
+not a gauge fault, and it means phone 2's 12.5 h is backplate + internal, NOT "a bigger cell".
+⚠ **BATTERY EXPERIMENTS HAPPEN ON PHONE 1.** Phone 2's backplate confounds every reading —
+`chg=`, `soc=`, `v=`, duration — and nothing in the log can tell the two cells apart.
+
+**So the ONLY genuine gauge error we have measured is phone 1's:** the CW2015 hits `soc=0%` at
+3.54 V while the cell actually runs to 3.30 V — **1.3 h of real runtime reported as empty**
+(up=479→556min). Root cause: the BATINFO profile is never programmed
+([[wiphone-battery-measured]]), so the chip runs a generic model whose floor is ~240 mV too high
+for this cell. Conservative direction, but it wastes an eighth of the pack on a trip.
 
 📉 **Rate: 94.3 mV/h, endpoint to endpoint from the unplug** (4.16 V at up=9min → 3.30 V at
 up=556min). Softer than the 60-64 mV/h "associated, WiFi-off" figures from shorter runs, but
@@ -58,15 +112,23 @@ any curve pulled from `health all` — the file is not one continuous run by def
 
 # ▶▶ STATE NOW (2026-09-02, end of session) — READ THIS BLOCK AND YOU ARE CAUGHT UP
 
-**Phone 2 is on 0.9.55, phone 1 on 0.9.53 (its battery run is done — flash it whenever). `main` is pushed. The web flasher serves 0.9.55.** Host suite: 0 failures.
+**Both phones are on 0.9.56. `main` is pushed. The web flasher serves 0.9.56.** Host suite: 0 failures.
 Phone 1 = `usbserial-025A3EAF` = `!00449040` (no GPS). Phone 2 = `usbserial-025A3F65` =
 `!00449334` (GPS on, woods backplate, bigger cell). ⚠ Identify from the phone (`gps` — only
 phone 2's reader is ON), never from the port.
 
 **What was found and PROVEN on hardware this week, newest first:**
+- **0.9.56 (2026-09-03) — the battery % comes from the VOLTAGE off phone 1's measured curve when
+  off the charger** (`battery_curve.{h,cpp}`, 18 breakpoints, mean error 0.5 pt vs the chip's 5.7);
+  the chip's number is shown ON the charger, because a discharge curve read under charge current
+  over-reports by ~40 points (measured: curve 65 %, chip 25 % at 3.91 V). Health line now logs
+  `soc=` (chip) AND `est=` (curve). Nick's decision: phone 1's curve is the standard for every phone.
 - **2026-09-03 — phone 1's full-to-empty run is DONE: 9h16m, WiFi off, textbook-clean load.**
-  Its gauge freezes at `soc=0%` for the last 1.3 h rather than at `soc=100%` like phone 2's —
-  same root cause, opposite-shaped symptom. Retires the old ~11.5 h estimate.
+  The chip reports `soc=0%` for its last 1.3 h (3.54→3.30 V). Retires the old ~11.5 h estimate.
+  🛑 **Nick's correction: phone 2's 4.6 h at 100% was its BACKPLATE feeding the internal cell,
+  not a gauge fault — battery experiments happen on phone 1 only. Phone 2 wears the backplate
+  unless he says otherwise; it is now in memory ([[wiphone-phone2-backplate]]) so it stops being
+  re-learned.**
 - **0.9.55 — Position, Waypoint and the channel hash pinned too (`gen_pos_vectors.py`,
   `mesh_hash.{h,cpp}`), and every varint reader hardened after UBSan caught a real UB on a
   ten-byte varint (any negative int32 — `altitude` below sea level is one).** Proven on air:

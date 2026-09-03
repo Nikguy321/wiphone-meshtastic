@@ -60,6 +60,9 @@ for src in tests/test_*.cpp; do
     test_nmea)     deps=(WiPhone/nmea.cpp) ;;
     # Sunrise/sunset/civil twilight (NOAA method) — almanac anchors + geometry.
     test_sun)      deps=(WiPhone/sun_times.cpp) ;;
+    # Voltage -> SOC off phone 1's recorded discharge (tests/fixtures/p1_discharge_2026-09-03.tsv).
+    # Scores the table AND the CW2015's own number against time-linear truth.
+    test_battery)  deps=(WiPhone/battery_curve.cpp) ;;
     # The mesh-history replay wire format vs vectors generated from COVEY's
     # replay.py (regenerate with tools/gen_replay_vectors.py after changes).
     test_replay)   deps=(WiPhone/replay_proto.cpp) ;;

@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.9.56 (2026-09-03) - the battery percentage comes from the voltage, off phone 1's measured curve
+
+Phone 1 ran itself flat overnight on purpose — 9h16m from a genuinely full cell, WiFi off,
+screen off, 80 MHz, the cleanest load this project has logged — and the run showed the one real
+gauge error we have ever measured: **the CW2015 reported `soc=0%` at 3.54 V while the cell ran on
+to 3.30 V, 1.3 hours of runtime reported as empty.** Its battery profile (BATINFO) is never
+programmed, so it runs a generic model whose floor is ~240 mV too high for this cell, and which
+reads ~7 points optimistic through the middle. Mean error 5.7 points against time-linear truth,
+worst 16.4.
+
+Off the charger, the display no longer uses it. `battery_curve.{h,cpp}` maps cell voltage to SOC
+through an 18-breakpoint table derived from that run (10 mV bins of time-linear SOC, 50 mV means),
+and the battery tick sets `battSoc` from it whenever the phone is not charging. Against the run it
+was built from: mean error 0.54 points, worst 2. The chip's own number is still read and still
+logged as `soc=` in the health line, with the estimate beside it as `est=`, so the next discharge
+can score both exactly as this one was scored.
+
+**On the charger the chip's number is shown instead**, and the first flash of this build is why:
+45 minutes into a charge from empty at 3.89 V, the curve said **61 %** and the chip said **20 %**.
+Charge current lifts the terminal voltage ~100 mV, and a discharge curve read against it
+over-reports by 30-40 points — optimistic, the wrong way for a battery display to be wrong. The
+chip is the only charge-aware estimate we have. ⚠ On phone 2 `battCharged` reads 0 even on USB
+(the backplate holds the rail), so phone 2 shows the curve on the cable — where its internal cell
+is genuinely full and the curve's 100 % is right anyway. Phone 1's `health.log` is now recording a
+complete charge (chip vs curve vs voltage, once a minute); a charge-side correction can come from
+it later.
+
+⚠ **This is phone 1's curve, and Nick's decision is that it is the firmware's standard** —
+phone 2 and other people's phones use it as the best guess available. It is load-dependent
+(voltage sags under load, so a lit screen or a hunting radio makes it UNDER-report — the
+conservative direction), and it is fitted to one run and tested against that run, which proves it
+reproduces the curve rather than that the curve holds on another day.
+
+⚠ **The old `if (soc > 0.0)` guard on the chip's value made the display FREEZE at its last
+non-zero reading once the chip hit 0 %** — so the phone showed "1 %" for its last 1.3 hours. Gone.
+
+🛑 **Correction to the 0.9.54/55 notes: phone 2's 4.6 h at `soc=100%` was its woods BACKPLATE
+feeding the internal cell, not a gauge dead zone.** Phone 2 wears the backplate unless Nick says
+otherwise; its cell holds the internal one at ~4.2 V for hours, so `soc=100%` after unplugging is
+real, `chg=0` on the USB cable is normal, and "12.5 h" is two cells in sequence. **Battery
+experiments happen on phone 1.** Recorded in the handoff and in memory so it stops being
+re-learned.
+
+`tests/test_battery.cpp` (20 checks) loads the actual recorded run from
+`tests/fixtures/p1_discharge_2026-09-03.tsv`, scores the table AND the chip against it, and pins
+the specific fault: 3.54 V must still read ≥ 12 %. Mutation-tested — a breakpoint zeroed to the
+chip's cliff, two breakpoints transposed, interpolation removed, the top clamp moved a band — all
+caught.
+
 ## 0.9.55 (2026-09-02) - Position, Waypoint and the channel hash are pinned too; every varint reader hardened
 
 The rest of the mesh surface gets the treatment 0.9.54 gave the Data and User protobufs.
