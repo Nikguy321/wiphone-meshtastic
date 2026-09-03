@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.9.55 (2026-09-02) - Position, Waypoint and the channel hash are pinned too; every varint reader hardened
+
+The rest of the mesh surface gets the treatment 0.9.54 gave the Data and User protobufs.
+Nick was hands-off for this one, so the work went in as limit-safe checkpoints (`8b93e72`,
+then the pinning commit, then this release).
+
+**Position and Waypoint are now pinned against upstream's own encoder.** `mesh_pos.cpp`
+hand-rolls both, and `test_pos.cpp` had only ever checked them against bytes written by hand
+in the same file. `tools/gen_pos_vectors.py` → `tests/vectors_pos.h` now carries what the real
+Meshtastic runtime emits: Position encode byte for byte; Position decode including a
+**stock-shaped broadcast with every field a RAK actually sends** (two-byte tags for
+`sats_in_view`/`precision_bits` included) — which is the packet COVEY puts on the air every five
+minutes; Waypoint decode for the full form, the id-only deletion marker, a truncated long name,
+UTF-8, unknown fields 7/8, and no-id refused. This is the interop surface the hunting trip
+depends on, and it was the one still resting on the author's own reading of the spec.
+
+**The channel hash is pinned.** It lived in `mesh_crypto.cpp` beside AES, which needs mbedtls
+and will not build on a Mac, so it could never join the suite — 0.9.54 listed it as a known
+gap. `meshXorHash`/`meshChannelHash`/the default key move verbatim into **`mesh_hash.{h,cpp}`**
+(`mesh_crypto.h` re-includes it, no caller changes), and `test_wire.cpp` asserts seven
+(name, key) pairs against `meshtastic.util.generate_channel_hash`, plus
+`meshDefaultChannelHash()` == the LongFast vector == `0x08`, the byte the boot line has always
+printed. Of the two gaps documented in 0.9.54, only the 16-byte on-air header remains, and that
+one is unpinnable from python by nature.
+
+**UBSan found a real defect the moment the new vectors ran.** The stock-shaped Position carries
+`timestamp_millis_adjust = -250`, and protobuf encodes a negative `int32` sign-extended to 64
+bits — a **ten-byte varint**. `rdVarint` in `mesh_pos.cpp` shifted a `uint32_t` by 35 and then
+63: undefined behaviour, which Xtensa masks to a 5-bit count. Nothing was ever misread (the walk
+follows the continuation bit, and every field that file reads is `fixed32`), but `altitude` is
+`int32` too and a fix below sea level is a real thing. `mesh_wire.cpp` had the same pattern in
+three readers. All four now discard bits past 32; a below-sea-level Position vector and a
+hand-crafted ten-byte-varint Data case pin it, and removing the guard makes UBSan complain again.
+
+**The CallApp in-call volume handler can no longer wipe `configs.ini`.** Recorded as a known
+hazard by the 0.9.52 review: it called `load()` (never `restore()`, unlike every other writer of
+that file) and then `store()` unconditionally, so a failed load became a three-key file with
+every other setting gone. It now tries `restore()` like its siblings and, if the file still will
+not load, applies the volume to the driver and persists nothing, loudly. ⚠ Needs a completed SIP
+call to reach, so it has never fired and **cannot be verified on hardware**; it is strictly
+safer than what it replaces.
+
+Every new assertion was mutation-tested — swapped tags, wrong fields, the old single-byte tag
+read, XOR→OR in the hash — all caught. Host suite green under ASan+UBSan with zero runtime
+errors. `test_wire` 128 → 139 assertions.
+
 ## 0.9.54 (2026-09-02) - the Meshtastic wire format is pinned against upstream's own protobufs
 
 Nick asked whether this phone can keep up if Meshtastic changes their core files. It can — this

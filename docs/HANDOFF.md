@@ -59,23 +59,19 @@ dead zone, which on phone 2 was 4.6 h of a frozen `soc=100%`.
 
 # ▶▶ STATE NOW (2026-09-02, end of session) — READ THIS BLOCK AND YOU ARE CAUGHT UP
 
-**Phone 2 is on 0.9.54, phone 1 on 0.9.53 (flash it after the calibration run). The web flasher serves 0.9.54.** Host suite: 0 failures.
+**Phone 2 is on 0.9.55, phone 1 on 0.9.53 (flash it after the calibration run). `main` is pushed. The web flasher serves 0.9.55.** Host suite: 0 failures.
 Phone 1 = `usbserial-025A3EAF` = `!00449040` (no GPS). Phone 2 = `usbserial-025A3F65` =
 `!00449334` (GPS on, woods backplate, bigger cell). ⚠ Identify from the phone (`gps` — only
 phone 2's reader is ON), never from the port.
 
-🚧 **IN PROGRESS (2026-09-02 evening, Nick hands-off, working in limit-safe checkpoints) — toward
-0.9.55:** (a) ✅ committed `8b93e72`: channel hash split into `mesh_hash.{h,cpp}` + the CallApp
-in-call-volume handler no longer wipes `configs.ini` on a failed load (needs a SIP call to
-reach, cannot be hardware-verified). (b) Position/Waypoint pinned against upstream
-(`tools/gen_pos_vectors.py` → `tests/vectors_pos.h`, `test_pos` extended) and the channel hash
-pinned in `test_wire` (137 assertions) — **passing, mutation-tested, being committed next.**
-(c) STILL TO DO: bump `config.h` to 0.9.55, flash phone 2, verify against COVEY's real position
-broadcasts, CHANGELOG, push, `tools/publish_webflasher.sh`. ⚠ Phone 2 is on 0.9.54; the hash
-split and the CallApp fix are NOT on any phone yet. If you are a fresh session: `git log` tells
-you which of (a)/(b)/(c) landed.
-
 **What was found and PROVEN on hardware this week, newest first:**
+- **0.9.55 — Position, Waypoint and the channel hash pinned too (`gen_pos_vectors.py`,
+  `mesh_hash.{h,cpp}`), and every varint reader hardened after UBSan caught a real UB on a
+  ten-byte varint (any negative int32 — `altitude` below sea level is one).** Proven on air:
+  COVEY's own RAK Position decoded at `up=2min` on the new parser. The CallApp `configs.ini`
+  wipe hazard is closed (unverifiable without SIP). **Only the 16-byte on-air header is now
+  unpinned, and that is by nature.** Nick was hands-off; done in limit-safe checkpoints
+  `8b93e72` → `398d6c4` → release.
 - **0.9.54 — the Meshtastic wire format is pinned against upstream's own protobufs**
   (`mesh_wire.cpp` + `test_wire.cpp`, 84 assertions) **and proven on air both ways**: a text
   from phone 2 was decoded by COVEY's independent stack on the right channel with the right
@@ -101,8 +97,8 @@ drain (that run had `aud=0/0` throughout — it was WiFi searching).
 1. **The safety valve** (blind join every 4th skip) has never fired — needs >40 min out of range.
 2. **Backplate field endurance** — both OFF mains, backplate on its own cell topping the phone up.
 3. One full-to-empty run on **phone 1** would calibrate its curve (phone 2's is done).
-4. ⚠ Pre-existing hazard, unfixed: the CallApp in-call volume handler can rewrite `configs.ini`
-   with only its three keys if its `load()` fails. Needs a completed SIP call to reach.
+4. ✅ ~~CallApp in-call volume handler rewriting `configs.ini`~~ — **fixed in 0.9.55** (bails
+   instead of storing on a failed load). Still needs a completed SIP call to *verify*.
 5. The music **crackle** — explicitly deferred to its own session.
 
 **Instruments, all in the once-a-minute health line:** `aud=on/moving` (`1/0` = the leak),
@@ -119,6 +115,62 @@ setting in the file (`notify_vibro_ms`, `notify_vol`, the notify modes, screen c
 other writer load-modify-stores the whole file correctly. Fix when SIP calls exist: make that
 handler bail rather than store on a failed load. Search GUI.cpp for the in-call volume path.
 
+
+# 📍 2026-09-02 EVENING — 0.9.55: POSITION, WAYPOINT AND THE CHANNEL HASH ARE PINNED, AND
+# UBSAN CAUGHT A REAL BUG IN THE FIRST FIVE MINUTES
+
+Nick picked three items and went hands-off: pin Position/Waypoint the way 0.9.54 pinned Data/
+User, split the channel hash out so it can be pinned too, and close the CallApp `configs.ini`
+hazard. All three shipped. **The detail is in CHANGELOG.md under 0.9.55**; this block is the
+state and the traps.
+
+## What is pinned now — the whole wire format bar one thing
+
+| surface | pinned against upstream? |
+|---|---|
+| Data / User protobufs (0.9.54) | ✅ |
+| **Position encode + decode, incl. a stock-shaped broadcast with every field a RAK sends** | ✅ `tools/gen_pos_vectors.py` → `tests/vectors_pos.h` |
+| **Waypoint decode** — full, id-only deletion marker, long name, UTF-8, unknown 7/8, no-id refused | ✅ |
+| **Channel hash** — 7 (name, key) pairs vs `meshtastic.util.generate_channel_hash` | ✅ `mesh_hash.{h,cpp}`, in `test_wire` |
+| NeighborInfo, PKC DM crypto (pre-existing) | ✅ |
+| **The 16-byte on-air PacketHeader** | ❌ **by nature** — firmware-internal, not in the protobufs; structural test only |
+
+🔑 **`mesh_hash.{h,cpp}` is the new home of `meshXorHash`/`meshChannelHash`/the default key.**
+`mesh_crypto.h` re-includes it, so nothing else changed. It exists only because `mesh_crypto.cpp`
+needs mbedtls and cannot build on a host.
+
+## 🐛 UBSAN FOUND UNDEFINED BEHAVIOUR THE FIRST TIME AN UPSTREAM VECTOR RAN
+
+`mesh_pos.cpp:16: shift exponent 35 is too large for 32-bit type`. **protobuf encodes a negative
+`int32` sign-extended to 64 bits — a TEN-BYTE varint** — and the stock-shaped vector carries
+`timestamp_millis_adjust = -250`. `rdVarint` shifted a `uint32_t` by 35 then 63. On Xtensa a shift
+count masks to 5 bits, so it silently became `<< 3`; the walk still advanced correctly (it follows
+the continuation bit) and every field that file reads is `fixed32`, so **nothing was ever
+misread** — but `altitude` is `int32` and a fix below sea level sends exactly this. `mesh_wire.cpp`
+had the same pattern in three readers. **All four now discard bits past 32.** Pinned by a
+below-sea-level Position vector and a hand-crafted ten-byte-varint Data case; removing the guard
+makes UBSan complain again. ⚠ **`./tests/run_tests.sh` builds with `-fsanitize=undefined` — read
+its output for `runtime error`, not just the pass/fail line. That is how this was found and the
+pass/fail line alone would have missed it.**
+
+## Verified on phone 2, on air
+
+| check | result |
+|---|---|
+| boot | `reset_reason=1`, `node=!00449334`, `firmware 0.9.55`, `MESH RADIO READY`, `ANNOUNCE SENT`, DB 200 nodes / 47 msgs intact |
+| TX → independent stack | `send 1 wire test 0.9.55` → COVEY `/root/.covey/messages.json` ch:1 gained it, sender `WiPhone-Nick2` |
+| **Position RX on the hardened parser** | `pos` at `up=2min`: **`!1ec2bca2 'Nick Howe Rak' 47.49640,-122.37488 (0m ago)`** — COVEY's own RAK, full precision — plus two public nodes at `precision_bits`-quantized coordinates, i.e. exactly the stock-shaped packet the vector models |
+| Position TX | ⏸ **not provable right now** — phone 2's GPS has no current fix indoors (`sats=0`), and the beacon refuses under `MESH_POS_MIN_SATS`. Needs sky. |
+
+⚠ **The CallApp fix cannot be hardware-verified** (needs a completed SIP call). It is strictly
+safer than what it replaced: a failed load now applies the volume and persists nothing, at
+`log_e`, instead of writing a three-key `configs.ini`.
+
+## Every assertion was mutation-tested — assume nothing here is real until you have watched it go red
+
+Swapped lat/lon tags, time always emitted, time from the wrong field, waypoint accepted without an
+id, waypoint lat from the wrong field, the old single-byte tag read, XOR→OR in the hash, the name
+dropped from the hash: **all caught.** `test_wire` 128 → 139; `test_pos` gained ~30.
 
 # 🔌 2026-09-02 — THE MESHTASTIC WIRE FORMAT IS NOW PINNED AGAINST UPSTREAM'S OWN PROTOBUFS
 
