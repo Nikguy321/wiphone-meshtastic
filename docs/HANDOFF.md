@@ -4,67 +4,69 @@
 
 Read this first; everything below it is narrative.
 
-# 🔬 IN FLIGHT — PHONE 1 FULL-TO-EMPTY CALIBRATION RUN, UNPLUGGED 2026-09-02 11:52 PDT
+# 🔋 2026-09-03 — PHONE 1'S FULL-TO-EMPTY RUN: 9h16m, AND ITS GAUGE FAILS THE OPPOSITE WAY FROM
+# PHONE 2'S
 
-**Phone 1 came off the cable at 11:52 PDT on 2026-09-02 and was left at work overnight to run
-itself flat on purpose.** This is open item #3 — the run that finally gives phone 1 the
-voltage↔SOC curve phone 2 handed us by accident. ⚠ **`/health.log` records only `up=` minutes and
-NO wall clock, so 11:52 is the ONLY anchor this run has, and it is written here because it exists
-nowhere else.**
+**Unplugged 11:52 PDT 2026-09-02, found dead and replugged ~06:43 PDT 2026-09-03. Read from
+`health all` before it went on the charger for the day, per the plan below — retained window was
+never at risk.** Closes open item #3: phone 1 now has its own real full-to-empty curve, not the
+old ~11.5 h extrapolation from one 61-minute block.
 
-**Verified on the cable in the minutes before the unplug**, from a deliberate fresh boot
-(`reset_reason=1`, so `up=` starts at the run):
-`soc=100% v=4.20 chg=1 wifi=255 cpu=80MHz scr=0 sip=0 aud=0/0 ps=1 joins=0/0`
+**The run, isolated from four boot segments in the retained log** (boundary = `BOOT
+reset_reason=1` lines; this one is the 557-sample segment starting at a fresh `up=0`):
 
-- ✅ **`v=4.20` — the FIRST phone-1 run ever to start from a genuinely full cell.** Every previous
-  one started at 4.13-4.15 V, already past the gauge's top dead zone. This one captures it.
-- ✅ **`wifi=255`, boot-applied from the persisted 0.9.49 switch.** The whole run is ONE constant
-  load — the property that makes phone 2's curve usable (10-20 mV per soc point) and the pooled
-  phone-1 ones useless (13 points at 3.85 V).
-- ✅ `cpu=80MHz` once the screen slept, `aud=0/0`, counters at a clean origin.
-- 🔎 **`wifi=0` is NOT a failure signature and `255` cannot appear without a reboot.**
-  `WiFi.status()` reads an event-group bitfield: `255` (WL_NO_SHIELD) is returned only when the
-  station group was never created, i.e. the station never started this boot. Turning the radio off
-  at runtime leaves the group behind, so a genuinely-off radio reads `0` until the next boot. That
-  ambiguity is exactly why this run was started from a reboot.
-- LoRa deliberately left **ON** — constant, ~0.016 mAh/h, and it is the real woods configuration.
+| up= | event |
+|---|---|
+| 0 min | boot: `soc=100% v=4.19 wifi=255 chg=1` — still on the cable for the pre-flight check |
+| 9 min | `chg` flips 1→0 — **the unplug**, matching Nick's "11:52" almost exactly |
+| 449 min (7.5h) | `soc=6% v=3.61` |
+| 479 min (8.0h) | `soc=0% v=3.54` — gauge hits its floor, phone keeps running |
+| **556 min (9.27h)** | **`soc=0% v=3.30`** — last sample; death within the next minute |
 
-**Expected death 23:00-03:00** (~11.5 h at the 8.6 %/h WiFi-off figure; later if phone 1's dead
-zone runs as deep as phone 2's 4.6 h). ⚠ Once it dies it stops logging, so the retained window is
-NOT burning overnight — there is no hurry at that end.
+**Total uptime 9h16m; genuinely on battery 547 min = 9h07m** (from the `chg=0` unplug to the last
+sample). Death worked out to ≈ 20:59 PDT that evening.
 
-## ▶ FIRST ACTIONS the morning of 2026-09-03
+✅ **Textbook-clean load, confirmed by grepping every sample, not just the endpoints:**
+`wifi=255` in 557/557, `scr=0`+`cpu=80MHz` in 556/557 (the exception is the boot instant itself),
+`chg=0` in all 548 samples after the unplug, zero heap fragmentation (`largest` never left
+31,368–32,760), no stalls/panics/reboots inside the run.
 
-```
-python3 <scratchpad>/cmd.py /dev/cu.usbserial-025A3EAF "health all" 25 120 p1_full.txt
-```
+🔑 **PHONE 1's GAUGE FAILS THE OPPOSITE WAY FROM PHONE 2's.** Phone 2 froze at `soc=100%` for the
+first 4.6 h while voltage fell 110 mV. Phone 1 shows no such stuck-at-100% zone — `soc` tracks
+down fairly steadily from the start — but instead gets **stuck at `soc=0%` for the LAST 1.3 h**
+(up=479→556min) while still running and still draining, 3.54→3.30 V. Same root cause (the
+CW2015's BATINFO profile is never programmed — [[wiphone-battery-measured]]), a different-shaped
+symptom on each phone. This is now direct evidence for the standing rule, not just a caution:
+**never trust `soc%` near either end of the curve, and never compare gauge behavior across
+phones — the SHAPE of the error differs, not just the rate.**
 
-⚠ **READ IT BEFORE LEAVING IT ON THE CHARGER ALL DAY.** Plugging in restarts logging at a line a
-minute and that DOES eat the ~16.8 h retained window; the dead phone does not. Reading it that
-morning leaves hours of slack.
-⚠ Phone 1 is `usbserial-025A3EAF` = `!00449040` — identify from the phone, never the port.
-⚠ `cmd.py` lives in a session scratchpad and does not survive the session. It is ~15 lines: open
-the port at 500000, swallow `boot` seconds of spew, write the command, then read until the stream
-goes quiet for 2 s.
+📉 **Rate: 94.3 mV/h, endpoint to endpoint from the unplug** (4.16 V at up=9min → 3.30 V at
+up=556min). Softer than the 60-64 mV/h "associated, WiFi-off" figures from shorter runs, but
+those never included the steep terminal drop this run captured (soc=0%→3.30V alone cost
+187 mV/h over its last 77 minutes) — not a contradiction, a difference in what each run measured.
 
-**Sanity-check the log BEFORE drawing any curve:** `wifi=255`, `aud=0/0`, `scr=0` and `cpu=80MHz`
-in *every* sample. Any sample that varies means the load changed and the curve is polluted — that
-is the one failure mode this run has.
+**Retired by this run:** the ~11.5 h WiFi-off estimate that rested on one 61-minute block from
+2026-08-23 on an old build. **9h16m is now the number to quote for phone 1, WiFi off, full to
+empty**, alongside phone 2's 12.53 h on its bigger backplate pack.
 
-**What it should yield:** phone 1's voltage↔SOC curve from 4.20 V down to ~3.30 V at a single
-constant load; a real measured full-to-empty duration to replace the ~11.5 h figure that currently
-rests on ONE 61-minute block from 2026-08-23 on an old build; and the depth of phone 1's own gauge
-dead zone, which on phone 2 was 4.6 h of a frozen `soc=100%`.
+⚠ **Analysis method, worth keeping:** the retained `/health.log` on this read held FOUR separate
+boot segments (an old unrelated charging session whose own boot marker had trimmed away, plus
+three more), because `up=` resets to 0 every boot and nothing in the file carries a wall clock.
+Isolate segments with `awk '/^BOOT reset_reason/{c++} {print c"\t"NR"\t"$0}'` before trusting
+any curve pulled from `health all` — the file is not one continuous run by default.
 
 
 # ▶▶ STATE NOW (2026-09-02, end of session) — READ THIS BLOCK AND YOU ARE CAUGHT UP
 
-**Phone 2 is on 0.9.55, phone 1 on 0.9.53 (flash it after the calibration run). `main` is pushed. The web flasher serves 0.9.55.** Host suite: 0 failures.
+**Phone 2 is on 0.9.55, phone 1 on 0.9.53 (its battery run is done — flash it whenever). `main` is pushed. The web flasher serves 0.9.55.** Host suite: 0 failures.
 Phone 1 = `usbserial-025A3EAF` = `!00449040` (no GPS). Phone 2 = `usbserial-025A3F65` =
 `!00449334` (GPS on, woods backplate, bigger cell). ⚠ Identify from the phone (`gps` — only
 phone 2's reader is ON), never from the port.
 
 **What was found and PROVEN on hardware this week, newest first:**
+- **2026-09-03 — phone 1's full-to-empty run is DONE: 9h16m, WiFi off, textbook-clean load.**
+  Its gauge freezes at `soc=0%` for the last 1.3 h rather than at `soc=100%` like phone 2's —
+  same root cause, opposite-shaped symptom. Retires the old ~11.5 h estimate.
 - **0.9.55 — Position, Waypoint and the channel hash pinned too (`gen_pos_vectors.py`,
   `mesh_hash.{h,cpp}`), and every varint reader hardened after UBSan caught a real UB on a
   ten-byte varint (any negative int32 — `altitude` below sea level is one).** Proven on air:
