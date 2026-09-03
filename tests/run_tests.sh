@@ -66,6 +66,9 @@ for src in tests/test_*.cpp; do
     # NeighborInfo encoding vs the real protobuf runtime's bytes
     # (regenerate with tools/gen_neighbor_vectors.py).
     test_neighbor) deps=(WiPhone/neighbor_info.cpp) ;;
+    # The Data/User protobuf codec and the on-air header, vs bytes from the real
+    # protobuf runtime (regenerate with tools/gen_wire_vectors.py after an upstream bump).
+    test_wire)     deps=(WiPhone/mesh_wire.cpp) ;;
     # Compiles the REAL helix decoder so a pass proves the bytes that ship are the bytes
     # that decode. helix is C and is listed in csrc, not deps — see CFLAGS above.
     test_mp3)      deps=(WiPhone/mp3_stream.cpp)

@@ -59,12 +59,16 @@ dead zone, which on phone 2 was 4.6 h of a frozen `soc=100%`.
 
 # ▶▶ STATE NOW (2026-09-02, end of session) — READ THIS BLOCK AND YOU ARE CAUGHT UP
 
-**Both phones are on 0.9.53. `main` is pushed. The web flasher serves 0.9.53.** Host suite: 0 failures.
+**Phone 2 is on 0.9.54, phone 1 on 0.9.53 (flash it after the calibration run). The web flasher serves 0.9.54.** Host suite: 0 failures.
 Phone 1 = `usbserial-025A3EAF` = `!00449040` (no GPS). Phone 2 = `usbserial-025A3F65` =
 `!00449334` (GPS on, woods backplate, bigger cell). ⚠ Identify from the phone (`gps` — only
 phone 2's reader is ON), never from the port.
 
 **What was found and PROVEN on hardware this week, newest first:**
+- **0.9.54 — the Meshtastic wire format is pinned against upstream's own protobufs**
+  (`mesh_wire.cpp` + `test_wire.cpp`, 84 assertions) **and proven on air both ways**: a text
+  from phone 2 was decoded by COVEY's independent stack on the right channel with the right
+  name. **Phone 2 is on 0.9.54; phone 1 is still on 0.9.53** (on its battery run).
 - 0.9.52/53 — **Settings ▸ Notifications ▸ Buzz** (50-650 ms, default 200, clamped on load). Phone 2 left at 400.
 - 0.9.50/51 — **the WiFi join is gated on what the last scan saw**; proven on a real 50-min commute
   (`joins` frozen for 28 min, rejoined on arrival). 0.9.51 fixed the gate engaging at 25 min instead of 5.
@@ -103,6 +107,169 @@ with ONLY its three volume keys if its own `load()` fails — silently dropping 
 setting in the file (`notify_vibro_ms`, `notify_vol`, the notify modes, screen config…). Every
 other writer load-modify-stores the whole file correctly. Fix when SIP calls exist: make that
 handler bail rather than store on a failed load. Search GUI.cpp for the in-call volume path.
+
+
+# 🔌 2026-09-02 — THE MESHTASTIC WIRE FORMAT IS NOW PINNED AGAINST UPSTREAM'S OWN PROTOBUFS
+
+**Question from Nick: if Meshtastic changes their core files, can we keep up?** Answer, now
+written into the test suite rather than into a paragraph: **mostly yes, automatically, and the
+part that isn't automatic is now measured.**
+
+## THE SHAPE OF THE PROBLEM
+
+This firmware is a **reimplementation, not a fork** — no `.proto` files, no nanopb, no upstream
+source in the tree. The Data and User protobufs are hand-rolled as literal tag bytes (`0x08` =
+field 1 varint, `0x48` = field 9). So there is **no "merge upstream" path**; there is only "does
+our byte still equal their byte".
+
+🔑 **THE REASON THIS IS SAFE AT ALL: every parser here walks tag/wire-type pairs and SKIPS
+fields it does not know.** Upstream adds fields constantly, and this phone steps straight over
+them. That is the normal case and it needs no action from anybody. Only a change to an EXISTING
+field's number or meaning can hurt — and that is now what the suite watches.
+
+## WHAT WAS BUILT
+
+* **`WiPhone/mesh_wire.{h,cpp}`** — `meshBuildData` / `meshBuildUser` / `meshFillHeader` /
+  `meshParseData` / `meshParseUserName` / `meshPbBytes` / `meshPbString`, plus the `MESH_PORT_*`
+  values. 🛑 **They were file-statics inside `meshtastic_service.cpp`, which means NOTHING COULD
+  TEST THEM** — that file pulls in the ESP32 SDK and cannot be built on a host. Moved verbatim.
+* **`tools/gen_wire_vectors.py`** — emits `tests/vectors_wire.h` from the **real Meshtastic
+  python protobufs** (`meshtastic` 2.7.11) plus `meshtastic.util` for the channel hash.
+* **`tests/test_wire.cpp`** — **84 assertions, all passing.** Whole suite green, firmware builds
+  (RAM 26.7 %, flash 38.6 %).
+
+## WHAT IS AND IS NOT PINNED — read this before trusting it
+
+| surface | pinned against upstream? |
+|---|---|
+| Data protobuf **encode** (11 cases incl. the 127/128/234-byte varint boundary) | ✅ byte equality |
+| Data protobuf **decode**, incl. messages carrying fields we don't know | ✅ |
+| User/NODEINFO **encode** (5 cases, incl. the `"!%08x"` id spelling and the PKI key) | ✅ |
+| User **decode**, incl. long-name preference and unknown fields | ✅ |
+| **PortNum values** (TEXT/POSITION/NODEINFO/ROUTING/WAYPOINT/NEIGHBORINFO) | ✅ vs `portnums.proto` |
+| NeighborInfo encode | ✅ (pre-existing, `test_neighbor`) |
+| PKC DM crypto | ✅ (pre-existing, `test_pki`) |
+| **The 16-byte on-air PacketHeader** | ❌ **not in the protobufs at all** |
+| **The channel hash** | ❌ not compiled — see below |
+
+⚠ **THE HEADER IS THE REAL GAP AND IT IS NOT FIXABLE FROM PYTHON.** Meshtastic's on-air
+`PacketHeader` is firmware-internal (`src/mesh/RadioInterface.h`); the python package never sees
+it, because the python API talks to a radio over serial/BLE and the *radio* does the framing.
+`test_wire.cpp` therefore checks it **structurally** — 16 bytes, field offsets 0/4/8/12/13/14/15,
+hop_limit in the low 3 bits and hop_start in the top 3, `relayNode` = sender's low byte. That
+catches a padding change or a bad shift on OUR side. **It cannot catch upstream changing the
+header; that still means reading their C++.**
+
+⚠ **THE CHANNEL HASH IS ONE `mbedtls` AWAY FROM BEING PINNED.** Upstream exposes it
+(`meshtastic.util.generate_channel_hash`) and it **matches `meshChannelHash()` exactly — checked
+2026-09-02, `'LongFast'` → `0x08`, which is what the boot line prints.** It is not compiled into
+the test only because it lives in `mesh_crypto.cpp`, which needs `mbedtls/aes.h` and will not
+build on a Mac without a new brew dependency. The reference values are emitted as comments in
+`vectors_wire.h`. **Splitting `meshXorHash`/`meshChannelHash` out of `mesh_crypto.cpp` into a
+header would make this a real test for about twenty minutes of work.** Worth doing.
+
+## 🐛 THE TEST FOUND A REAL DIVERGENCE ON THE DAY IT WAS WRITTEN
+
+`meshBuildData()` **always emitted Data field 2**, even for a zero-length payload — `12 00` where
+upstream emits nothing at all (proto3 omits a field holding its default).
+
+```
+ours:   08 01 12 00 48 00
+theirs: 08 01       48 00
+```
+
+⚠ **This never misread a packet** — an absent `bytes` field decodes as empty, so the two are
+semantically identical — and it is **unreachable in shipping code**: `meshTxText()` rejects
+`textLen == 0` outright, and every other sender passes a fixed struct or an encoder that always
+emits something. **Fixed anyway**, because it was two bytes of LoRa airtime and a permanent diff
+against every other node's encoding. This is the value of byte-equality over "it round-trips".
+
+## ✅ THE DRILL WAS REHEARSED ACROSS A REAL VERSION GAP, AND THE FORMAT HELD
+
+COVEY runs **meshtastic 2.7.10**; this Mac has **2.7.11**. The generator was run on COVEY over
+ssh and its output diffed against the committed vectors: **byte-identical for all 11 Data cases,
+5 User cases and 6 decode cases — zero differences outside the version string.**
+
+That is worth more than it looks. It proves the mechanism works on a second machine with a
+different upstream version, and it is one real data point that **a minor Meshtastic bump changes
+none of the bytes this phone speaks** — which is exactly the forward-compatibility claim the
+whole design rests on. ⚠ One version pair is not a trend; it is a rehearsal that passed.
+
+## 🔎 THE REVIEW FOUND FOUR REAL DEFECTS IN THE NEW CODE — ALL FIXED, ALL MUTATION-TESTED
+
+A five-lens adversarial review was run over the change before it shipped. It was worth it.
+
+| defect | why it mattered | reachable today? |
+|---|---|---|
+| **`portnum` written as ONE RAW BYTE, not a varint** | portnum 256 (`PRIVATE_APP`) encoded as `08 00` — a Data addressed to portnum **ZERO**, silently | **No** — every portnum we speak is < 128. A landmine for whoever adds the next one. |
+| **`meshBuildUser` emitted empty names as `12 00`/`1a 00`** | proto3 omits a default string; same defect as the empty payload, one field over | Yes, for any node with a blank name |
+| **`meshParseUserName` preferred a present-but-empty `long_name`** | the node rendered as a bare number with a good `short_name` two bytes away, unread | Yes — **this firmware itself sent that form until 0.9.54** |
+| **Generator emitted greedy C hex escapes** | `"Caf\xc3\xa9a"` lexes `\xa9a` as one escape; committed cases were safe *by luck* | Not yet — it would have broken on the next non-ASCII name |
+
+🔑 **AND THE REVIEW'S BEST CATCH WAS ABOUT THE TESTS THEMSELVES.** The original
+`parse_unknown_fields` vector was **vacuous**: protobuf serialises in field-number order, so its
+unknown fields (4, 5, 7, 8) all landed *after* everything the test asserted — a completely broken
+skip could not have changed the result. There is now a case with `request_id` (6) sitting
+*between* the unknown 4/5 and 7/8, so reading it proves the parser really walked over them.
+
+⚠ **EVERY FIX WAS MUTATION-TESTED — revert it, the suite must go red.** That discipline caught a
+second vacuous test: the generated short-public-key vector passed 125/125 with the
+`l == MESH_PKI_KEY_LEN` guard **deleted**, because the separate `i + 32 <= dlen` bounds check
+happened to reject it anyway. Rewritten by hand with padding behind the key so only the length
+guard can reject it. **A test that cannot fail is worse than no test**; assume nothing here is
+real until you have watched it go red. **84 assertions → 128.**
+
+⚠ Also closed: decode vectors now cover a **multi-byte length varint** (every earlier decode
+payload was under 128 bytes, so that path was never exercised on receive), an **absent field 2**,
+and hand-written **`fixed64` skip** / **present-but-empty `long_name`** cases — the two shapes
+upstream's own runtime cannot emit, so no generated vector can ever cover them.
+
+## ▶ THE DRILL WHEN MESHTASTIC SHIPS A RELEASE
+
+```
+pip install -U meshtastic
+python3 tools/gen_wire_vectors.py --out tests/vectors_wire.h
+python3 tools/gen_neighbor_vectors.py --out tests/vectors_neighbor.h
+./tests/run_tests.sh
+```
+
+🔑 **READ THE `git diff` ON THE VECTORS BEFORE RE-RUNNING THE SUITE — the diff IS the protocol
+drift report, and regenerating is what makes the failure disappear.** A clean diff means they
+changed nothing we speak. A changed byte means read their release notes before touching anything.
+
+## ✅ VERIFIED ON HARDWARE — 0.9.54 FLASHED TO PHONE 2 AND PROVEN ON AIR IN BOTH DIRECTIONS
+
+Nick was in a meeting and said "test it, then push to another update level and flash and
+push/commit/update GitHub/webflasher if it checks out". It checked out. `FIRMWARE_VERSION` →
+**0.9.54**, built, flashed to phone 2 over the cable at 230400 (`Hash of data verified`).
+
+⚠ **Identified from the phone first, never the port:** `gps: reader ON` — only phone 2's reader
+is on. Phone 1 was off the cable on its calibration run and was never touched.
+
+| check | result |
+|---|---|
+| boot | `reset_reason=1`, `MESH IDENTITY: node=!00449334 'WiPhone-Nick2'`, `firmware 0.9.54` |
+| data survived the flash | `MESH DB: loaded 200 nodes, 45 msgs, 1 places from SD` |
+| radio | `MESH RADIO READY: 906875000 Hz`; no `SX1276 not found`, no `radio init FAILED` |
+| channel hash | boot prints `'LongFast' hash=0x08` — the same byte `meshtastic.util` produced for the vectors |
+| **TX** | `MESH ANNOUNCE SENT` — a NodeInfo built by the moved `meshBuildUser`/`meshBuildData`/`meshFillHeader` went on the air |
+| **RX** | `nbr`: `!62b8d2fd  snr 10 dB  heard 0m ago`, direct — a real packet decoded by the moved `meshParseData` |
+| **TX decoded by an INDEPENDENT stack** | `send 1 ...` → COVEY's RAK → RP2040 → Pi; `/root/.covey/messages.json` ch:1 gained `sender 'WiPhone-Nick2'` with the exact text — right channel, right name. **Done TWICE: once on the first build, and again on the corrected one after the review's fixes changed the encoder.** |
+
+🔑 **That last row is the one that matters.** COVEY is nanopb + the python `meshtastic` package,
+none of our code, and it decoded our header, channel hash, AES-CTR payload, Data protobuf and text,
+AND had our User protobuf already (it knew the name). Every byte the refactor touches was read
+correctly by something we did not write.
+
+🔎 **`covey-ui` RUNS AS ROOT, so its store is `/root/.covey/messages.json`, NOT
+`/home/covey/.covey/`.** The first look in `~covey/.covey/` found nothing and nearly read as
+"COVEY has no history"; Nick corrected it — the RAK receives, the RP2040 holds it if the Pi is
+off, and the Pi persists it. Look under `/root`.
+
+⚠ **Phone 2 read `chg=0` at `v=4.21` while on the USB cable.** `chg=1` means "on the charger",
+so 0 on the cable is the backplate-wire-unseated signature from 09-01. Full pack, no risk to the
+flash, but worth a glance at the wire.
+
 
 
 # 📳 2026-09-02 — 0.9.52/0.9.53: A BUZZ SLIDER IN SETTINGS ▸ NOTIFICATIONS

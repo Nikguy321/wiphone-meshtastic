@@ -15,6 +15,7 @@ extern uint32_t heapDelta(const char* what, uint32_t before);  // WiPhone.ino - 
 #include "mesh_pos.h"
 #include "replay_proto.h"   // mesh history replay (docs/replay-spec.md)
 #include "neighbor_info.h"  // NeighborInfo (portnum 71) encoding
+#include "mesh_wire.h"      // Data protobuf + PacketHeader (host-tested against upstream)
 
 /* Replay sizing. The ring and the reply slab live in PSRAM: 64×~184 B + 24×256 B
  * ≈ 18 KB of the 3.6 MB pool — deliberately NOTHING from internal heap, which
@@ -49,186 +50,21 @@ static uint8_t s_hopLimit = 3;
 #include "mesh_crypto.h"
 #include <esp_system.h>          // esp_random()
 
-// Meshtastic PortNum values we care about (from the Data protobuf).
-#define MESH_PORT_TEXT_MESSAGE  1
-#define MESH_PORT_POSITION      3   // COVEY broadcasts one every 5 minutes
-#define MESH_PORT_NODEINFO      4
-#define MESH_PORT_ROUTING       5   // ACK/NAK carrier: Routing{error_reason}
-#define MESH_PORT_WAYPOINT      8   // camp / truck / stand pins from COVEY's map
+/* PortNum values moved to mesh_wire.h so tests/test_wire.cpp can assert them against
+ * upstream's portnums.proto. Nothing else changed; they are the same numbers. */
 
 // Default hop limit for packets we originate (Meshtastic default is 3).
 #define MESH_TX_HOP_LIMIT       3
 
-// Minimal parser for a decrypted Meshtastic Data protobuf. Returns field 1
-// (portnum, varint) and, via the out params, field 2 (payload bytes). The
-// payload meaning depends on portnum: UTF-8 text for TEXT_MESSAGE, a nested
-// User protobuf for NODEINFO, etc. Bounds-checked against `dlen`.
-/* ⚠ `wantRespOut` is optional and may be NULL. It carries Data field 3, want_response —
- * how every other Meshtastic node asks "tell me who you are". This was previously only ever
- * SET on the send side and never read on receive, so the phone asked the question and never
- * answered it: it appeared on other radios as a bare node number with no name until it
- * happened to announce on its own. See the reply in the NODEINFO branch of the receive path. */
-/* `requestIdOut` (optional) carries Data field 6, request_id — on a ROUTING packet it
- * names the packet an ACK/NAK is answering, which is the phone's only proof of DM
- * delivery. */
-static int meshParseData(const uint8_t* data, size_t dlen,
-                         const uint8_t** payloadOut, size_t* payloadLenOut,
-                         bool* wantRespOut = NULL, uint32_t* requestIdOut = NULL) {
-  int portnum = -1;
-  const uint8_t* payload = NULL;
-  size_t payloadLen = 0;
-  if (wantRespOut) {
-    *wantRespOut = false;
-  }
-  if (requestIdOut) {
-    *requestIdOut = 0;
-  }
-  size_t i = 0;
-  while (i < dlen) {
-    uint8_t tag = data[i++];
-    uint8_t field = tag >> 3;
-    uint8_t wire = tag & 0x07;
-    if (wire == 0) {                       // varint
-      uint32_t v = 0; int shift = 0;
-      while (i < dlen && (data[i] & 0x80)) { v |= (uint32_t)(data[i] & 0x7f) << shift; shift += 7; i++; }
-      if (i < dlen) { v |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
-      if (field == 1) {
-        portnum = (int)v;
-      } else if (field == 3 && wantRespOut) {
-        *wantRespOut = (v != 0);
-      }
-    } else if (wire == 2) {                // length-delimited
-      uint32_t l = 0; int shift = 0;
-      while (i < dlen && (data[i] & 0x80)) { l |= (uint32_t)(data[i] & 0x7f) << shift; shift += 7; i++; }
-      if (i < dlen) { l |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
-      if (field == 2) { payload = data + i; payloadLen = l; }
-      i += l;
-    } else if (wire == 5) {                // fixed32
-      if (field == 6 && requestIdOut && i + 4 <= dlen) {
-        *requestIdOut = (uint32_t)data[i] | ((uint32_t)data[i + 1] << 8) |
-                        ((uint32_t)data[i + 2] << 16) | ((uint32_t)data[i + 3] << 24);
-      }
-      i += 4;
-    }
-    else if (wire == 1) { i += 8; }
-    else break;
-  }
-  if (payload) {                           // clamp to the actual buffer
-    size_t avail = (size_t)(data + dlen - payload);
-    if (payloadLen > avail) payloadLen = avail;
-  }
-  if (payloadOut)    *payloadOut = payload;
-  if (payloadLenOut) *payloadLenOut = payloadLen;
-  return portnum;
-}
-
-// Extract a display name from a Meshtastic User protobuf (the NODEINFO payload):
-// prefer long_name (field 2), fall back to short_name (field 3). Returns true if
-// a non-empty name was copied into `out` (null-terminated).
-// `pubKeyOut`/`hasKeyOut` (optional) receive field 8, public_key — the node's
-// X25519 key, ONLY when it is exactly 32 bytes (stock strips it for ham/licensed
-// operators, so absence is normal).
-static bool meshParseUserName(const uint8_t* data, size_t dlen, char* out, size_t outCap,
-                              uint8_t* pubKeyOut = NULL, bool* hasKeyOut = NULL) {
-  const uint8_t* longName = NULL;  size_t longLen = 0;
-  const uint8_t* shortName = NULL; size_t shortLen = 0;
-  if (hasKeyOut) {
-    *hasKeyOut = false;
-  }
-  size_t i = 0;
-  while (i < dlen) {
-    uint8_t tag = data[i++];
-    uint8_t field = tag >> 3;
-    uint8_t wire = tag & 0x07;
-    if (wire == 2) {
-      uint32_t l = 0; int shift = 0;
-      while (i < dlen && (data[i] & 0x80)) { l |= (uint32_t)(data[i] & 0x7f) << shift; shift += 7; i++; }
-      if (i < dlen) { l |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
-      if (field == 2)      { longName = data + i;  longLen = l; }
-      else if (field == 3) { shortName = data + i; shortLen = l; }
-      else if (field == 8 && l == MESH_PKI_KEY_LEN && pubKeyOut && hasKeyOut &&
-               i + MESH_PKI_KEY_LEN <= dlen) {
-        memcpy(pubKeyOut, data + i, MESH_PKI_KEY_LEN);
-        *hasKeyOut = true;
-      }
-      i += l;
-    } else if (wire == 0) {
-      while (i < dlen && (data[i] & 0x80)) i++;
-      if (i < dlen) i++;
-    } else if (wire == 5) { i += 4; }
-    else if (wire == 1) { i += 8; }
-    else break;
-  }
-  const uint8_t* src = longName ? longName : shortName;
-  size_t srcLen      = longName ? longLen  : shortLen;
-  if (!src || srcLen == 0) {
-    return false;
-  }
-  size_t avail = (size_t)(data + dlen - src);
-  size_t n = srcLen < avail ? srcLen : avail;
-  if (n > outCap - 1) n = outCap - 1;
-  memcpy(out, src, n);
-  out[n] = '\0';
-  return true;
-}
-
-// Append a protobuf varint length-delimited field (tag + length + bytes).
-static size_t pbBytes(uint8_t* out, int field, const uint8_t* val, size_t len) {
-  size_t d = 0;
-  out[d++] = (uint8_t)((field << 3) | 2);
-  if (len < 128) {
-    out[d++] = (uint8_t)len;
-  } else {
-    out[d++] = (uint8_t)((len & 0x7f) | 0x80);
-    out[d++] = (uint8_t)(len >> 7);
-  }
-  memcpy(out + d, val, len);
-  return d + len;
-}
-
-static size_t pbString(uint8_t* out, int field, const char* s) {
-  return pbBytes(out, field, (const uint8_t*)s, strlen(s));
-}
-
-// Serialize a Data protobuf: { portnum, payload, [want_response], [request_id],
-// bitfield }. The bitfield (field 9, added in Meshtastic 2.5) mirrors stock's
-// Router: bit0 = ok-to-MQTT (we say no — private mesh), bit1 = want_response.
-// request_id (field 6, fixed32) is nonzero only on ACK/NAK Routing replies.
-static size_t meshBuildData(uint8_t* data, int portnum,
-                            const uint8_t* payload, size_t payloadLen,
-                            bool wantResponse, uint32_t requestId) {
-  size_t d = 0;
-  data[d++] = 0x08;                          // field 1 portnum (varint)
-  data[d++] = (uint8_t)portnum;
-  d += pbBytes(data + d, 2, payload, payloadLen);   // field 2 payload
-  if (wantResponse) {
-    data[d++] = 0x18;                        // field 3 want_response (varint)
-    data[d++] = 0x01;
-  }
-  if (requestId != 0) {
-    data[d++] = 0x35;                        // field 6 request_id (fixed32)
-    data[d++] = (uint8_t)(requestId >> 0);
-    data[d++] = (uint8_t)(requestId >> 8);
-    data[d++] = (uint8_t)(requestId >> 16);
-    data[d++] = (uint8_t)(requestId >> 24);
-  }
-  data[d++] = 0x48;                          // field 9 bitfield (varint)
-  data[d++] = wantResponse ? 0x02 : 0x00;
-  return d;
-}
-
-static void meshFillHeader(MeshPacketHeader* hdr, uint32_t sender, uint32_t dest,
-                           uint32_t packetId, uint8_t channelHash) {
-  hdr->dest        = dest;
-  hdr->sender      = sender;
-  hdr->packetId    = packetId;
-  hdr->flags       = (s_hopLimit & MESH_FLAGS_HOP_LIMIT_MASK) |
-                     (s_hopLimit << MESH_FLAGS_HOP_START_SHIFT);
-  hdr->channelHash = channelHash;
-  hdr->nextHop     = 0;
-  hdr->relayNode   = (uint8_t)(sender & 0xFF);   // originator is the first relay
-
-}
+/* ── THE WIRE FORMAT MOVED OUT ───────────────────────────────────────────────────────
+ * meshParseData / meshParseUserName / meshBuildData / meshFillHeader / meshPbBytes /
+ * meshPbString now live in mesh_wire.cpp. They were file-statics here, which
+ * meant NOTHING COULD TEST THEM: this file pulls in the ESP32 SDK, so the host suite
+ * cannot build it. mesh_wire.cpp is Arduino-free, and tests/test_wire.cpp now asserts its
+ * bytes against vectors generated from the REAL Meshtastic protobufs.
+ * ⚠ The move was verbatim but the bytes have since changed in four deliberate ways — the
+ * list is in mesh_wire.cpp's header. Do not assume this is still the 0.9.53 encoder.
+ * ⚠ Edit the bytes there, not here, and regenerate the vectors when you do. */
 
 /* The id of the packet the last meshTx* call put on the air. A routing ACK names the message
  * it answers by packet id, and the send functions generate that id internally — this hands it
@@ -270,7 +106,7 @@ static bool meshTxData(uint32_t sender, uint32_t dest, int portnum,
 
   uint32_t packetId = meshNewPacketId();
   MeshPacketHeader hdr;
-  meshFillHeader(&hdr, sender, dest, packetId, channelHash);
+  meshFillHeader(&hdr, sender, dest, packetId, channelHash, s_hopLimit);
   /* ⚠ DEFAULTED OFF, AND IT MUST STAY THAT WAY. This function carries NodeInfo, position,
    * neighbour info AND our own outgoing routing ACKs. Setting want_ack for everything would
    * ask the mesh to acknowledge every beacon, and asking for an ack ON an ack is a loop.
@@ -311,7 +147,7 @@ static bool meshTxDataPki(uint32_t sender, uint32_t dest, int portnum,
 
   uint32_t packetId = meshNewPacketId();
   MeshPacketHeader hdr;
-  meshFillHeader(&hdr, sender, dest, packetId, 0x00);    // hash 0 = PKI on the air
+  meshFillHeader(&hdr, sender, dest, packetId, 0x00, s_hopLimit);  // hash 0 = PKI on the air
   s_lastTxPacketId = packetId;
   /* want_ack asks the peer for a Routing ACK. No retransmit machinery here, but
    * the ACK line in the serial log (`MESH DM ACK ... err=0`) is per-message
@@ -364,17 +200,8 @@ static bool meshTxNodeInfo(uint32_t sender, const char* longName, const char* sh
   if (!ch) {
     return false;
   }
-  char id[12];
-  snprintf(id, sizeof(id), "!%08x", sender);
-
   uint8_t user[128];
-  size_t u = 0;
-  u += pbString(user + u, 1, id);            // field 1 id
-  u += pbString(user + u, 2, longName);      // field 2 long_name
-  u += pbString(user + u, 3, shortName);     // field 3 short_name
-  if (pkiPub) {
-    u += pbBytes(user + u, 8, pkiPub, MESH_PKI_KEY_LEN);   // field 8 public_key
-  }
+  const size_t u = meshBuildUser(user, sender, longName, shortName, pkiPub);
 
   return meshTxData(sender, MESH_ADDR_BROADCAST_ONAIR, MESH_PORT_NODEINFO,
                     user, u, wantResponse, ch->key, ch->keyLen, ch->hash);
