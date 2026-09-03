@@ -64,6 +64,17 @@ Phone 1 = `usbserial-025A3EAF` = `!00449040` (no GPS). Phone 2 = `usbserial-025A
 `!00449334` (GPS on, woods backplate, bigger cell). ⚠ Identify from the phone (`gps` — only
 phone 2's reader is ON), never from the port.
 
+🚧 **IN PROGRESS (2026-09-02 evening, Nick hands-off, working in limit-safe checkpoints) — toward
+0.9.55:** (a) ✅ committed `8b93e72`: channel hash split into `mesh_hash.{h,cpp}` + the CallApp
+in-call-volume handler no longer wipes `configs.ini` on a failed load (needs a SIP call to
+reach, cannot be hardware-verified). (b) Position/Waypoint pinned against upstream
+(`tools/gen_pos_vectors.py` → `tests/vectors_pos.h`, `test_pos` extended) and the channel hash
+pinned in `test_wire` (137 assertions) — **passing, mutation-tested, being committed next.**
+(c) STILL TO DO: bump `config.h` to 0.9.55, flash phone 2, verify against COVEY's real position
+broadcasts, CHANGELOG, push, `tools/publish_webflasher.sh`. ⚠ Phone 2 is on 0.9.54; the hash
+split and the CallApp fix are NOT on any phone yet. If you are a fresh session: `git log` tells
+you which of (a)/(b)/(c) landed.
+
 **What was found and PROVEN on hardware this week, newest first:**
 - **0.9.54 — the Meshtastic wire format is pinned against upstream's own protobufs**
   (`mesh_wire.cpp` + `test_wire.cpp`, 84 assertions) **and proven on air both ways**: a text
@@ -266,9 +277,12 @@ correctly by something we did not write.
 "COVEY has no history"; Nick corrected it — the RAK receives, the RP2040 holds it if the Pi is
 off, and the Pi persists it. Look under `/root`.
 
-⚠ **Phone 2 read `chg=0` at `v=4.21` while on the USB cable.** `chg=1` means "on the charger",
-so 0 on the cable is the backplate-wire-unseated signature from 09-01. Full pack, no risk to the
-flash, but worth a glance at the wire.
+🔎 **Phone 2 read `chg=0` at `v=4.21` while on the USB cable, and that is NOT a fault.** I first
+called it the 09-01 backplate-wire-unseated signature; **Nick corrected it and his reading is the
+better one**: the backplate was plugged in *as well as* serial, and a full backplate cell holds the
+rail at 4.21 V, so the charger IC has nothing to do and leaves STAT released. `chg=0` here means
+"not charging", which is right. ⚠ **So `chg=` is only diagnostic on a phone with NO backplate**;
+with one attached, a healthy full pack and a disconnected wire look identical from that flag.
 
 
 

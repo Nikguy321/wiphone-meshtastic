@@ -20,11 +20,9 @@ NOT covered here, deliberately, so nobody mistakes this for full coverage:
     NOT in the protobufs, so the python package cannot speak to it. test_wire.cpp checks
     its layout and flag packing structurally instead, which catches packing/field drift
     on our side but cannot catch upstream changing the header.
-  * The channel hash. Upstream DOES expose it (meshtastic.util.generate_channel_hash, and
-    it matches meshChannelHash byte for byte — checked 2026-09-02), but it lives in
-    mesh_crypto.cpp which needs mbedtls for AES and so will not build on a host without
-    a new brew dependency. The reference values are emitted below as comments; wiring
-    them up means splitting the hash out of mesh_crypto.cpp first.
+  (The channel hash USED to be listed here as uncovered, because it lived in
+   mesh_crypto.cpp beside AES and could not build on a host. It was split into
+   mesh_hash.cpp on 2026-09-02 and is now pinned below like everything else.)
 
     python3 tools/gen_wire_vectors.py --out tests/vectors_wire.h
 
@@ -121,17 +119,44 @@ def emit(out, argv):
         w(f"#define WIRE_UP_PORT_{macro:<13} {portnums_pb2.PortNum.Value(name)}\n")
     w("\n")
 
-    # Channel-hash reference values (not compiled — see the module docstring).
-    w("/* Channel-hash reference values from meshtastic.util.generate_channel_hash. NOT\n")
-    w(" * compiled into a test: meshChannelHash() lives in mesh_crypto.cpp, which needs\n")
-    w(" * mbedtls and does not build on a host. Split the hash out and these become a test.\n")
-    for nm, key in [("LongFast", "AQ=="), ("LongFast", "1PG7OiApB1nwvP+rz05pAQ==")]:
-        try:
-            h = mt_util.generate_channel_hash(nm, key)
-            w(f" *   '{nm}' + psk {key!r:28} -> 0x{h:02x}\n")
-        except Exception as e:            # a signature change upstream is itself a signal
-            w(f" *   '{nm}' + psk {key!r:28} -> UNAVAILABLE ({type(e).__name__})\n")
-    w(" */\n\n")
+    # ---- Channel hash, against meshtastic.util.generate_channel_hash --------------------
+    # Full key bytes on both sides (upstream expands a 1-byte PSK itself; the phone stores
+    # channels already expanded, so handing both the same 16/32 bytes is the fair test).
+    DEFAULT16 = bytes.fromhex("d4f1bb3a20290759f0bcffabcf4e6901")
+    K32A = bytes(range(0x40, 0x60))
+    K32B = bytes((i * 37 + 11) & 0xFF for i in range(32))
+    hashes = [
+        ("LongFast",   DEFAULT16),
+        ("Howe group", K32A),
+        ("hunt-group", K32B),
+        ("booksync",   K32A),
+        ("",           K32B),                       # empty name is legal
+        ("Cafe\u0301 ridge", K32A),                # combining accent: multi-byte UTF-8
+        ("LongFast",   bytes(16)),                  # all-zero key
+    ]
+    w("/* Channel hash vectors from meshtastic.util.generate_channel_hash. mesh_hash.cpp is\n")
+    w(" * Arduino-free since 2026-09-02 so test_wire.cpp compiles it and asserts these. */\n")
+    w("typedef struct {\n  const char* label;\n  const char* name;\n  const unsigned char* key;\n"
+      "  int keyLen;\n  unsigned char hash;\n} WireHashVec;\n\n")
+    for i, (nm, key) in enumerate(hashes):
+        w(f"static const unsigned char WIRE_HASH_K_{i}[] = {{ {c_bytes(key)} }};\n")
+    w("\nstatic const WireHashVec WIRE_HASH[] = {\n")
+    for i, (nm, key) in enumerate(hashes):
+        h = mt_util.generate_channel_hash(nm, key)
+        def esc2(t):
+            out, prev = "", False
+            for b in t.encode("utf-8"):
+                ch = chr(b)
+                if b > 0x7e or b < 0x20 or ch in '"\\':
+                    out += f"\\x{b:02x}"; prev = True
+                else:
+                    if prev and ch in "0123456789abcdefABCDEF":
+                        out += '""'
+                    out += ch; prev = False
+            return out
+        w(f'  {{ "hash_{i}", "{esc2(nm)}", WIRE_HASH_K_{i}, {len(key)}, 0x{h:02x} }},\n')
+    w("};\n")
+    w(f"#define WIRE_HASH_N {len(hashes)}\n\n")
 
     # ---- Data encode ----
     w("typedef struct {\n  const char* label;\n  int portnum;\n"

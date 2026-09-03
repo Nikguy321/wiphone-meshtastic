@@ -9,16 +9,25 @@
 
 // ---------------------------------------------------------------- protobuf
 
+/* ⚠ A VARINT CAN BE TEN BYTES. protobuf encodes a NEGATIVE int32 sign-extended to 64 bits,
+ * so `altitude = -50` (a GPS below sea level, or a bad geoid) or `timestamp_millis_adjust`
+ * arrives as 0xff... x9 0x01. The shift used to run 0,7,...,63 and `<< 35` on a uint32_t is
+ * undefined; on Xtensa the shift count masks to 5 bits, so it silently became `<< 3`. The
+ * walk still advanced correctly (it follows the continuation bit, not the shift), and every
+ * field this file reads is fixed32, so nothing was misread — but it was UB waiting for a
+ * consumer. Bits past 32 are now discarded, which is the correct truncation for a uint32
+ * reader. Found by UBSan the first time an upstream-generated vector carried a negative
+ * int32 (2026-09-02). */
 static uint32_t rdVarint(const uint8_t* d, size_t len, size_t* i) {
   uint32_t v = 0;
   int shift = 0;
   while (*i < len && (d[*i] & 0x80)) {
-    v |= (uint32_t)(d[*i] & 0x7f) << shift;
+    if (shift < 32) v |= (uint32_t)(d[*i] & 0x7f) << shift;
     shift += 7;
     (*i)++;
   }
   if (*i < len) {
-    v |= (uint32_t)(d[*i] & 0x7f) << shift;
+    if (shift < 32) v |= (uint32_t)(d[*i] & 0x7f) << shift;
     (*i)++;
   }
   return v;

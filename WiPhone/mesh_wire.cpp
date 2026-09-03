@@ -132,9 +132,12 @@ int meshParseData(const uint8_t* data, size_t dlen,
     uint8_t field = tag >> 3;
     uint8_t wire = tag & 0x07;
     if (wire == 0) {                       // varint
+      /* `shift < 32` guards: a 10-byte varint (any negative int32) is legal and would
+       * otherwise shift a uint32_t by 35..63 — UB, masked on Xtensa. See rdVarint in
+       * mesh_pos.cpp for the full note; same fix, same day. */
       uint32_t v = 0; int shift = 0;
-      while (i < dlen && (data[i] & 0x80)) { v |= (uint32_t)(data[i] & 0x7f) << shift; shift += 7; i++; }
-      if (i < dlen) { v |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
+      while (i < dlen && (data[i] & 0x80)) { if (shift < 32) v |= (uint32_t)(data[i] & 0x7f) << shift; shift += 7; i++; }
+      if (i < dlen) { if (shift < 32) v |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
       if (field == 1) {
         portnum = (int)v;
       } else if (field == 3 && wantRespOut) {
@@ -142,8 +145,8 @@ int meshParseData(const uint8_t* data, size_t dlen,
       }
     } else if (wire == 2) {                // length-delimited
       uint32_t l = 0; int shift = 0;
-      while (i < dlen && (data[i] & 0x80)) { l |= (uint32_t)(data[i] & 0x7f) << shift; shift += 7; i++; }
-      if (i < dlen) { l |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
+      while (i < dlen && (data[i] & 0x80)) { if (shift < 32) l |= (uint32_t)(data[i] & 0x7f) << shift; shift += 7; i++; }
+      if (i < dlen) { if (shift < 32) l |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
       if (field == 2) { payload = data + i; payloadLen = l; }
       i += l;
     } else if (wire == 5) {                // fixed32
@@ -179,8 +182,8 @@ bool meshParseUserName(const uint8_t* data, size_t dlen, char* out, size_t outCa
     uint8_t wire = tag & 0x07;
     if (wire == 2) {
       uint32_t l = 0; int shift = 0;
-      while (i < dlen && (data[i] & 0x80)) { l |= (uint32_t)(data[i] & 0x7f) << shift; shift += 7; i++; }
-      if (i < dlen) { l |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
+      while (i < dlen && (data[i] & 0x80)) { if (shift < 32) l |= (uint32_t)(data[i] & 0x7f) << shift; shift += 7; i++; }
+      if (i < dlen) { if (shift < 32) l |= (uint32_t)(data[i] & 0x7f) << shift; i++; }
       if (field == 2)      { longName = data + i;  longLen = l; }
       else if (field == 3) { shortName = data + i; shortLen = l; }
       else if (field == 8 && l == MESH_PKI_KEY_LEN && pubKeyOut && hasKeyOut &&

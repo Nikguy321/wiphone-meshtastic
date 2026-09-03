@@ -14,6 +14,7 @@
  */
 #include "../WiPhone/mesh_wire.h"
 #include "../WiPhone/neighbor_info.h"   // MESH_PORT_NEIGHBORINFO
+#include "../WiPhone/mesh_hash.h"       // meshChannelHash, split out so this can exist
 #include "vectors_wire.h"
 
 #include <stdio.h>
@@ -48,6 +49,23 @@ static void testPortnums() {
   ok(MESH_PORT_ROUTING       == WIRE_UP_PORT_ROUTING,       "ROUTING");
   ok(MESH_PORT_WAYPOINT      == WIRE_UP_PORT_WAYPOINT,      "WAYPOINT");
   ok(MESH_PORT_NEIGHBORINFO  == WIRE_UP_PORT_NEIGHBORINFO,  "NEIGHBORINFO");
+}
+
+/* ── CHANNEL HASH ─────────────────────────────────────────────────────────────────── */
+
+static void testChannelHash() {
+  printf("\n\033[1mChannel hash matches meshtastic.util.generate_channel_hash\033[0m\n");
+  for (int i = 0; i < WIRE_HASH_N; i++) {
+    const WireHashVec* v = &WIRE_HASH[i];
+    const uint8_t h = meshChannelHash(v->name, v->key, (size_t)v->keyLen);
+    char what[96];
+    snprintf(what, sizeof(what), "'%s' name='%s' -> 0x%02x (theirs 0x%02x)", v->label, v->name, h, v->hash);
+    ok(h == v->hash, what);
+  }
+  /* The default-channel helper must agree with the LongFast vector, which is what the boot
+   * line prints as `'LongFast' hash=0x08`. */
+  ok(meshDefaultChannelHash() == WIRE_HASH[0].hash, "meshDefaultChannelHash() == LongFast vector");
+  ok(meshDefaultChannelHash() == 0x08, "LongFast is 0x08, as the boot log has always said");
 }
 
 /* ── ENCODE ───────────────────────────────────────────────────────────────────────── */
@@ -258,6 +276,20 @@ static void testHandCrafted() {
   ok(strcmp(name, "SHRT") == 0, "short key: short_name read");
   ok(!hasKey, "short key: a 16-byte public_key is REJECTED, not padded to 32");
 
+  /* A TEN-BYTE VARINT in an unknown field, then the payload. protobuf encodes a negative
+   * int32 this way; Data has no such field so upstream cannot generate one, but a malformed
+   * or future packet can carry it, and the reader used to shift a uint32 by up to 63 (UB).
+   * Reaching the payload proves all ten bytes were consumed; UBSan proves no bad shift. */
+  static const uint8_t tenByteVarint[] = {
+    0x08, 0x01,                                            // field 1 portnum = 1
+    0x78, 0xce,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0x01, // field 15 varint = -50 (10 bytes)
+    0x12, 0x02, 'o','k',                                   // field 2 payload
+  };
+  pl = NULL; plLen = 0;
+  port = meshParseData(tenByteVarint, sizeof(tenByteVarint), &pl, &plLen, NULL, NULL);
+  ok(port == 1, "10-byte varint: portnum still 1");
+  ok(plLen == 2 && pl && memcmp(pl, "ok", 2) == 0, "10-byte varint: payload read after it");
+
   /* And with nothing usable at all, it must report failure rather than an empty string. */
   static const uint8_t bothEmpty[] = { 0x0a, 0x03, '!','a','b', 0x12, 0x00, 0x1a, 0x00 };
   ok(!meshParseUserName(bothEmpty, sizeof(bothEmpty), name, sizeof(name), NULL, NULL),
@@ -267,6 +299,7 @@ static void testHandCrafted() {
 int main() {
   printf("built against meshtastic %s\n", WIRE_VEC_MESHTASTIC_VERSION);
   testPortnums();
+  testChannelHash();
   testDataEncode();
   testUserEncode();
   testDataDecode();

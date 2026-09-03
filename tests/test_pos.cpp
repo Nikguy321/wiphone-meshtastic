@@ -5,6 +5,7 @@
  */
 
 #include "../WiPhone/mesh_pos.h"
+#include "vectors_pos.h"
 #include <cstdio>
 #include <cstring>
 #include <cmath>
@@ -237,6 +238,58 @@ int main() {
     printf("test_pos: %d FAILURE(S)\n", failures);
     return 1;
   }
+
+  // ---- Against the REAL protobuf runtime (vectors_pos.h, generated) -----------
+  /* Everything above this line checks mesh_pos.cpp against bytes written by hand in
+   * this file — the author's understanding of the protocol, tested against itself.
+   * These check it against what upstream's own encoder emits, which is what COVEY's
+   * RAK actually puts on the air every five minutes. Byte equality on encode; exact
+   * field values on decode; and the stock-shaped Position carries every field a real
+   * radio sends, two-byte tags included. */
+  {
+    printf("  [upstream vectors, meshtastic %s]\n", POS_VEC_MESHTASTIC_VERSION);
+    char nm[96];
+    for (int i = 0; i < POS_ENC_N; i++) {
+      const PosEncVec* v = &POS_ENC[i];
+      uint8_t out[64];
+      size_t n = meshPosBuild(out, (int32_t)v->latI, (int32_t)v->lonI, (uint32_t)v->time);
+      snprintf(nm, sizeof(nm), "encode '%s' bytes == upstream", v->label);
+      bool same = ((int)n == v->len) && memcmp(out, v->bytes, n) == 0;
+      CHECK(same, nm);
+      if (!same) {
+        printf("    ours  :"); for (size_t k = 0; k < n; k++) printf(" %02x", out[k]); printf("\n");
+        printf("    theirs:"); for (int k = 0; k < v->len; k++) printf(" %02x", v->bytes[k]); printf("\n");
+      }
+    }
+    for (int i = 0; i < POS_DEC_N; i++) {
+      const PosDecVec* v = &POS_DEC[i];
+      int32_t lat = 0x7ABCDEF0, lon = 0x7ABCDEF0; uint32_t t = 0xDEADBEEF;
+      bool ok = meshPosParse(v->bytes, (size_t)v->len, &lat, &lon, &t);
+      snprintf(nm, sizeof(nm), "decode '%s' accepted == %d", v->label, v->expectOk);
+      CHECK(ok == (v->expectOk != 0), nm);
+      if (v->expectOk) {
+        snprintf(nm, sizeof(nm), "decode '%s' lat/lon/time", v->label);
+        CHECK(lat == (int32_t)v->latI && lon == (int32_t)v->lonI && t == (uint32_t)v->time, nm);
+      }
+    }
+    for (int i = 0; i < WP_DEC_N; i++) {
+      const WpDecVec* v = &WP_DEC[i];
+      MeshWaypointMsg wp;
+      bool ok = meshWaypointParse(v->bytes, (size_t)v->len, &wp);
+      snprintf(nm, sizeof(nm), "waypoint '%s' accepted == %d", v->label, v->expectOk);
+      CHECK(ok == (v->expectOk != 0), nm);
+      if (v->expectOk) {
+        snprintf(nm, sizeof(nm), "waypoint '%s' id/hasPos/lat/lon", v->label);
+        CHECK(wp.id == (uint32_t)v->id && (int)wp.hasPos == v->hasPos &&
+              (!v->hasPos || (wp.latI == (int32_t)v->latI && wp.lonI == (int32_t)v->lonI)), nm);
+        snprintf(nm, sizeof(nm), "waypoint '%s' expire/lockedTo", v->label);
+        CHECK(wp.expire == (uint32_t)v->expire && wp.lockedTo == (uint32_t)v->lockedTo, nm);
+        snprintf(nm, sizeof(nm), "waypoint '%s' name '%s'", v->label, wp.name);
+        CHECK(strcmp(wp.name, v->name) == 0, nm);
+      }
+    }
+  }
+
   printf("test_pos: all passed\n");
   return 0;
 }
