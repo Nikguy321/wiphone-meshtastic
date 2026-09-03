@@ -6111,7 +6111,15 @@ appEventResult CallApp::processEvent(EventType event) {
      * getIntValueSafe defaults — the in-call volume keys started from stack garbage. */
     int8_t earpieceVol, headphonesVol, loudspeakerVol;
     audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
-    if ((ini.load() ) && !ini.isEmpty()) {
+    /* ⚠ `loaded` GATES THE STORE BELOW. This handler used to load() (never restore(), unlike
+     * every other writer of this file) and then store() UNCONDITIONALLY — so a load that
+     * failed for any reason left `ini` empty, addSection("audio") made it three keys, and
+     * store() wrote that as the whole of configs.ini: notify modes, buzz, screen config,
+     * everything else, gone, with no error. Found by the 0.9.52 review, fixed 2026-09-02.
+     * A failed load now still moves the volume (the driver is the truth) but persists
+     * nothing; losing one keypress's worth of persistence beats losing the file. */
+    const bool loaded = (ini.load() || ini.restore()) && !ini.isEmpty();
+    if (loaded) {
       if (ini.hasSection("audio")) {
           log_d("getting audio info");
           earpieceVol = ini["audio"].getIntValueSafe(earpieceVolField, earpieceVol);
@@ -6146,14 +6154,19 @@ appEventResult CallApp::processEvent(EventType event) {
     audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
     log_d("New Volumes are earspkr %d headphone %d loudspkr %d", earpieceVol,headphonesVol,loudspeakerVol );
 
-    if (!ini.hasSection("audio")) {
+    if (loaded) {
+      if (!ini.hasSection("audio")) {
         ini.addSection("audio");
       }
-    ini["audio"][earpieceVolField] = earpieceVol;
-    ini["audio"][headphonesVolField] = headphonesVol;
-    ini["audio"][loudspeakerVolField] = loudspeakerVol;
-    if (ini.store()) {
-      log_d("new audio settings are saved");
+      ini["audio"][earpieceVolField] = earpieceVol;
+      ini["audio"][headphonesVolField] = headphonesVol;
+      ini["audio"][loudspeakerVolField] = loudspeakerVol;
+      if (ini.store()) {
+        log_d("new audio settings are saved");
+      }
+    } else {
+      log_e("in-call volume: configs.ini did not load - applied to the driver, NOT persisted "
+            "(storing now would have wiped every other setting in the file)");
     }
     ini.unload();
     

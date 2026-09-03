@@ -11,16 +11,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-
-// XOR-hash of a byte range (used to build the channel hash).
-uint8_t meshXorHash(const uint8_t* data, size_t len);
-
-// Channel hash byte for a (name, key): xorHash(name) ^ xorHash(key).
-uint8_t meshChannelHash(const char* name, const uint8_t* key, size_t keyLen);
-
-// The well-known default channel key (16 bytes) and the LongFast channel hash.
-const uint8_t* meshDefaultKey();
-uint8_t        meshDefaultChannelHash();
+#include "mesh_hash.h"   // channel hash + default key: split out so the host suite can pin them
 
 // AES-CTR transform (encrypt == decrypt). keyLen must be 16 or 32 bytes.
 bool meshCryptCtr(const uint8_t* key, size_t keyLen,
