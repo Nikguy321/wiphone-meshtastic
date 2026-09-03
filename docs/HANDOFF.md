@@ -48,10 +48,46 @@ woods case; under heavier load it UNDER-reports (conservative, the right way to 
 fitted to one run and tested against that run, which proves it reproduces the curve, not that the
 curve holds on another day; a second phone-1 discharge would settle that.
 
-🔎 **FREE DATA IN FLIGHT: phone 1's `/health.log` is recording a complete CHARGE from empty right
-now** (`soc=` chip, `est=` curve, `v=`, once a minute, `chg=1` throughout). Read it with
-`health all` today — before the ~16 h window trims it — and a charge-side correction becomes
-possible. It is the first charge curve this project has.
+## ✅ THE CHARGE CURVE IS CAPTURED TOO — phone 1, empty to full, 2026-09-03
+
+Read off phone 1 at 12:49 after Nick's dentist trip, 233 KB and under the 256 KB cap, so nothing
+had trimmed. Stitched across six boot segments (the first 42 min on 0.9.53 with `soc=` only, then
+the 0.9.56 flashes with `est=`): **`tests/fixtures/p1_charge_2026-09-03.tsv`**, 371 rows, `chg=1`
+in every one.
+
+| phase | | |
+|---|---|---|
+| plug-in | 06:43, `v=3.50` (the dead cell had relaxed from 3.30) | chip 0 % |
+| CC bulk | 3.50 → 4.10 V in **111 min, 324 mV/h** | |
+| CV taper | 4.10 → 4.19 V in 57 min | |
+| **full** | cell at 4.19 V at **2.8 h**; chip reads 100 % at **2.9 h** (175 min) | then 3 h of float at 4.19 |
+
+🔑 **A full charge from empty is ~2.9 hours.** And the curve and the chip AGREE at the top (both
+100 at 4.19 V), so unplugging a full phone produces no jump.
+
+📈 **The charge-side over-read of the discharge curve is now MEASURED as a function of voltage** —
+the thing a charge-mode table would be built from, and the reason the display shows the chip on
+the charger:
+
+| v (charging) | curve − chip | | v | curve − chip |
+|---|---|---|---|---|
+| 3.91 | **+39** | | 4.10 | +18 |
+| 3.95 | +33 | | 4.14 | +10 |
+| 4.00 | +25 | | 4.16 | +5 |
+| 4.05 | +23 | | 4.19 | **0** |
+
+Smooth and monotonic. ⚠ One charge, at whatever current the WiPhone's charger IC delivers — a
+different charger or a warmer cell shifts it. **Not built into the firmware; the chip is shown
+while charging and that is correct enough.** If someone wants the display to use the curve on the
+charger too, subtract this gap — it is all in the fixture's `est − soc` column.
+
+📁 **WHERE THE LOGS ARE, for the next session:**
+- `tests/fixtures/p1_discharge_2026-09-03.tsv` — the drain, 557 rows (committed; `test_battery` loads it)
+- `tests/fixtures/p1_charge_2026-09-03.tsv` — the charge, 371 rows (committed)
+- `backups/health-2026-09-03-p1-drain-raw.log`, `…-p1-charge-raw.log`, `…-p1-drain-run-only.log` —
+  the raw `health all` dumps (gitignored, LOCAL ONLY — `backups/` is where device dumps live)
+- Segmenting a raw dump: `awk '/^BOOT reset_reason/{c++} {print c"\t"NR"\t"$0}'` — `up=` resets
+  every boot and nothing carries a wall clock.
 
 # 🔋 2026-09-03 — PHONE 1'S FULL-TO-EMPTY RUN: 9h16m, AND ITS GAUGE FAILS THE OPPOSITE WAY FROM
 # PHONE 2'S
@@ -110,7 +146,7 @@ Isolate segments with `awk '/^BOOT reset_reason/{c++} {print c"\t"NR"\t"$0}'` be
 any curve pulled from `health all` — the file is not one continuous run by default.
 
 
-# ▶▶ STATE NOW (2026-09-02, end of session) — READ THIS BLOCK AND YOU ARE CAUGHT UP
+# ▶▶ STATE NOW (2026-09-03 midday, Nick starting a fresh session) — READ THIS BLOCK AND YOU ARE CAUGHT UP
 
 **Both phones are on 0.9.56. `main` is pushed. The web flasher serves 0.9.56.** Host suite: 0 failures.
 Phone 1 = `usbserial-025A3EAF` = `!00449040` (no GPS). Phone 2 = `usbserial-025A3F65` =
@@ -160,7 +196,7 @@ drain (that run had `aud=0/0` throughout — it was WiFi searching).
 **Open, all needing something physical from Nick:**
 1. **The safety valve** (blind join every 4th skip) has never fired — needs >40 min out of range.
 2. **Backplate field endurance** — both OFF mains, backplate on its own cell topping the phone up.
-3. One full-to-empty run on **phone 1** would calibrate its curve (phone 2's is done).
+3. ✅ ~~One full-to-empty run on phone 1~~ — **done 2026-09-03: 9h16m, and its charge from empty too (2.9 h to 100 %).** Both are fixtures in `tests/fixtures/`.
 4. ✅ ~~CallApp in-call volume handler rewriting `configs.ini`~~ — **fixed in 0.9.55** (bails
    instead of storing on a failed load). Still needs a completed SIP call to *verify*.
 5. The music **crackle** — explicitly deferred to its own session.
