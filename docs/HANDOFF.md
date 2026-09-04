@@ -1,22 +1,38 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-03 evening, handoff commit)
+## ▶▶ STATE NOW (header refreshed 2026-09-04 afternoon)
 
 Read this first; everything below it is narrative.
 
-**Where things are.** Both phones run **0.9.57** (built Sep 3 13:42, `Hash of data verified`
-×2). Committed with this handoff. ⚠ **NOT pushed, and the web flasher is NOT published** —
-`webflasher/manifest.json` is bumped to 0.9.57 but `tools/publish_webflasher.sh` has not run.
-Host suite **139 / 139**. Phone 1 = `usbserial-025A3EAF` = `!00449040` (no plate); phone 2 =
-`025A3F65` = `!00449334` (woods backplate — battery experiments happen on PHONE 1 ONLY).
+**Where things are.** Both phones run **0.9.57**. ✅ **`main` IS PUSHED (`a7020e0`) AND THE WEB
+FLASHER IS PUBLISHED AND VERIFIED LIVE** — nikguy321.github.io serves manifest `0.9.57` and a
+binary whose sha256 (`03555be3…`) matches the committed one byte for byte. Host suite
+**139 / 139**. Phone 1 = `usbserial-025A3EAF` = `!00449040` (no plate); phone 2 = `025A3F65` =
+`!00449334` (woods backplate — battery experiments happen on PHONE 1 ONLY).
 
-**What 0.9.57 is.** (1) Phone 2's "duplicate ROMs starting with `_`" were twelve macOS `._`
-AppleDouble sidecars; the Game Boy picker was the one lister that did not skip dotfiles — fixed,
-and the sidecars are hidden everywhere now (left on the card, harmless). (2) Serial `ls <dir>`
-and `rm </path>` — the card has never been listable over the cable before. (3) Serial `power`:
-the USB-power-meter bench (`lcd sleep|wake`, `i2s stop|start`, `lora sleep|rx`, `sleep <secs>`),
-every switch round-tripped on phone 1, light sleep returned in 5,001 ms. (4) `gb_hw_updatemap()`
-lost its `IRAM_ATTR` to fit — **watch for Game Boy stutter on bank-switch-heavy games**, none expected.
+🛑 **THE RELEASE COMMIT SHIPPED A STALE FLASHER IMAGE, and it is worth knowing how.**
+`a9a3e0e` ("Release 0.9.57") committed `webflasher/wiphone-merged.bin` with the 0.9.57 *manifest*
+but a *binary whose version string reads 0.9.56* — `tools/make_webflasher.sh` had not been re-run
+before committing. The stage was regenerated and published 26 minutes later, so **what users
+downloaded was always correct**; the repo simply never recorded it, and anyone rebuilding the
+flasher from `main` would have produced an installer for the PREVIOUS release. Fixed in
+`a7020e0`, which commits the published image (2,607,392 bytes, containing
+`.pio/build/wiphone/firmware.bin` verbatim at `0x10000`) and `tools/power_bench.py`, which the
+release message described but never added. ⚠ **The lesson for the next release: `make_webflasher.sh`
+BEFORE the release commit, and diff the version string in the staged binary — the manifest and the
+binary are two separate things and only the manifest is human-readable.**
+
+▶ **THE NEXT STEP IS STILL NICK'S 10-MINUTE METER SESSION, and the tooling is now PROVEN.**
+`tools/power_bench.py <port>` drives the whole thing: it flips one consumer at a time in the
+handoff's order, restores every switch in a `finally`, and asks for the meter reading at each
+step. ✅ **Rehearsed end to end on phone 1 today with no meter:** `lcd sleep/wake`,
+`i2s stop/start` and `lora sleep/rx` each flipped and came back (the phone reports them as
+`SLPIN(bench)`, `stopped(bench)`, `SLEEP(bench)`), light sleep returned in **5,001 ms**, and
+nothing was left flipped. **Phone 1 is staged and passes every one of the script's preflight
+checks right now** — `wifi=OFF lora=rx audio=off gbc=0`, `soc=100% v=4.20 chg=1`, and it settles
+to `cpu=80MHz screen=0` once the screen sleeps. So the session is: put the meter inline, run the
+script, type what the meter shows. **Step 0 is still phone ON − OFF, the one reading that decides
+cell-versus-board.**
 
 🔋 **THE DRAIN VERDICT (six lenses, 15/15 skeptic verdicts upheld, critic run): NO SINGLE THING.**
 ESP32 never light-sleeping (~20 mA typ) and the SX1276 in RX-continuous (~11 typ) are the two
@@ -28,12 +44,13 @@ confirmed the cell is 900 mAh nominal. Corrections that landed: WiFi OFF vs ASSO
 HUNTING"; the chip floor is 3.56 V / 1.42 h / 15.5 %; **`esp_pm`/auto light sleep is compiled
 OUT of this core (objdump-proven)** — manual light sleep with WiFi off is the 15-18 mA ceiling.
 
-▶ **THE NEXT STEP IS NICK'S 10-MINUTE METER SESSION.** Protocol is the "THE POWER BENCH" block
-below: **phone ON − OFF first** (decides cell-vs-board in one reading), then `power lora sleep`
-(calibrates the meter chain: expect ~11 mA), `lcd sleep`, `i2s stop`, `sleep 60`, `gps on`
-(pure 80→240 MHz on phone 1), then a WiFi-ON associated reading. **Phone 1 is FULL, WiFi OFF,
-screen off — staged.** Read the meter's decimal places first; at 0.01 A only the two big
-levers read directly. Nothing gets tuned before that session.
+**What 0.9.57 is.** (1) Phone 2's "duplicate ROMs starting with `_`" were twelve macOS `._`
+AppleDouble sidecars; the Game Boy picker was the one lister that did not skip dotfiles — fixed,
+and the sidecars are hidden everywhere now (left on the card, harmless). (2) Serial `ls <dir>`
+and `rm </path>` — the card has never been listable over the cable before. (3) Serial `power`:
+the USB-power-meter bench (`lcd sleep|wake`, `i2s stop|start`, `lora sleep|rx`, `sleep <secs>`),
+every switch round-tripped on phone 1, light sleep returned in 5,001 ms. (4) `gb_hw_updatemap()`
+lost its `IRAM_ATTR` to fit — **watch for Game Boy stutter on bank-switch-heavy games**, none expected.
 
 **Smaller open items, all recorded below:** the 62 `LOOP STALL`s (add the caller's name to the
 STALL line); GPIO38 is both `RFM95_INT` and `USER_SERIAL_RX`; gnuboy runs uninitialised PSRAM on
