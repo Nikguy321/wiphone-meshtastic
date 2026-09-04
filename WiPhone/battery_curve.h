@@ -6,11 +6,14 @@
  * this firmware (CW2015::configure() only clears MODE), so `soc` comes from a generic curve.
  * Measured on phone 1's first genuine full-to-empty run (2026-09-02, WiFi off, 9h16m,
  * tests/fixtures/p1_discharge_2026-09-03.tsv): the chip read ~7 points optimistic through the
- * middle and then hit 0 % at 3.54 V while the cell ran on to 3.30 V — **1.3 hours of real
- * runtime reported as empty.** Mean error 5.7 points, worst 16.4.
+ * middle and then hit 0 % at 3.56 V (up=471 min; 3.54 V by up=479) while the cell ran on to
+ * 3.30 V — **1.42 hours (85 min, 15.5 % of the run) of real runtime reported as empty.** Mean
+ * error 5.7 points, worst 16.4. (First written as "3.54 V / 1.3 h" from the up=479 sample; the
+ * fixture's first soc=0 row is up=471 — corrected 2026-09-03 afternoon.)
  *
  * This table replaces it. SOC is defined as the fraction of usable runtime left at the
- * measured load: 100 % at the unplug, 0 % at the last sample before brown-out, linear in
+ * measured load: 100 % at the unplug, 0 % at the last sample before the firmware's own 3.30 V
+ * power-off (WiPhone.ino battery tick: `v <= 3.3` -> powerOff(); NOT a brown-out), linear in
  * time between (constant load ⇒ constant current ⇒ charge linear in time). Voltage was
  * binned at 10 mV and the 50 mV breakpoints below are the bin means. Against the run it
  * was built from: mean error 0.46 points, worst 2.2 (tests/test_battery.cpp pins both).
@@ -46,7 +49,7 @@
 int batterySocFromVoltage(float volts);
 
 /* The table's ends, so callers and tests do not restate them. */
-#define BATTERY_CURVE_FLOOR_MV 3300   // last sample before brown-out
+#define BATTERY_CURVE_FLOOR_MV 3300   // the firmware's own power-off threshold (WiPhone.ino `v <= 3.3`), not a brown-out
 #define BATTERY_CURVE_TOP_MV   4160   // first sample after the unplug, surface charge relaxed
 
 #endif // BATTERY_CURVE_H

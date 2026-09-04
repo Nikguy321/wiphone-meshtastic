@@ -308,8 +308,14 @@ void gb_hw_vblank(void)
  *
  * gb_hw_updatemap is called whenever bank changes or other operations
  * make the old maps potentially invalid.
+ *
+ * NOT IRAM_ATTR on WiPhone (2026-09-03): it runs per BANK SWITCH, not per bus access
+ * like gb_hw_read/gb_hw_write, and it may call gnuboy_load_bank() (an SD read) anyway.
+ * The serial `power sleep` bench command pulls esp_light_sleep_start() into IRAM and the
+ * link overflowed by 16 bytes; this function was the least hot thing in there. The bus
+ * and scanline paths keep their placement.
  */
-IRAM_ATTR void gb_hw_updatemap(void)
+void gb_hw_updatemap(void)
 {
 	int rombank = cart.rombank & (cart.romsize - 1);
 

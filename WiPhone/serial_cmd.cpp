@@ -15,6 +15,12 @@ extern bool uiInjectKey(char c);
 #include "clock.h"                // ntpClock
 #include "GUI.h"                  // gui.state, the `sip` command
 #include <SD.h>                   // the `wallpaper` command reads both filesystems
+#include "mesh_phy.h"             // meshPhy.benchSleep, the `power lora` toggle
+#include "Networks.h"             // wifiState.radioOff(), the `power sleep` gate
+#include "Hardware.h"             // KEYBOARD_INTERRUPT_PIN, the `power sleep` wake pin
+#include "Audio.h"                // audio->isOn(), the `power` guards
+#include <driver/i2s.h>           // i2s_stop/i2s_start, the `power i2s` toggle
+#include <esp_sleep.h>            // esp_light_sleep_start, the `power sleep` floor
 #include <SPIFFS.h>
 #include <WiFi.h>
 
@@ -122,6 +128,15 @@ static void help() {
     "  ver        firmware version and build time of the binary actually running",
     "  scrim [<alpha> [hex]]  the grey plate under menu text over a wallpaper (RAM only)",
     "  shot       dump the live screen as base64 (tools/shot.py turns it into a PNG)",
+    "  ls [<dir>] list a card folder, HIDDEN entries included (marked *) - the one view",
+    "             that shows dotfiles; the Files app and the pickers never do",
+    "  rm </path> delete ONE file by full path (refuses folders and relative names)",
+    "  power      the USB-power-meter bench: state of every switch below, and the method",
+    "  power lcd sleep|wake   ST7789 DISPOFF+SLPIN / SLPOUT+DISPON (backlight untouched)",
+    "  power i2s stop|start   the I2S peripheral+DMA that runs from boot whether or not",
+    "             anything ever played",
+    "  power lora sleep|rx    park the SX1276 in SLEEP (mesh DEAF) / back to RX-continuous",
+    "  power sleep <secs>     light-sleep the ESP32 for N s (WiFi must be OFF): the floor",
     "  key <names>  press keys: select/menu back ok up down left right call end f1-f4,",
     "             or a single character. `key menu`, `key down down ok`. Real presses -",
     "             they go into the keypad buffer, so the whole UI path runs unchanged",
@@ -1361,6 +1376,204 @@ static void run(char* line) {
   if (!strcasecmp(line, "shot") || !strcasecmp(line, "screenshot")) {
     extern GUI gui;
     gui.screenshotToSerial();
+    return;
+  }
+
+  /* `ls [dir]` — EVERY entry in a card folder, hidden ones included, with sizes. It exists
+   * because the on-phone listers disagreed about dotfiles: the Files app hides any name that
+   * starts with '.', while the Game Boy / Books / Music pickers listed everything with the
+   * right extension — so a macOS AppleDouble sidecar ('._Game.gbc', written by Finder next to
+   * every file it copies onto a FAT card) showed up as a duplicate ROM that the Files app
+   * could not find (Nick, phone 2, 2026-09-03). The picker draws straight to the LCD, so
+   * `shot` cannot show it either. This is the one view of the card as it actually is: hidden
+   * entries are marked '*', folders end in '/'. */
+  if (!strncasecmp(line, "ls", 2) && (line[2] == '\0' || line[2] == ' ')) {
+    const char* arg = line + 2;
+    while (*arg == ' ') {
+      arg++;
+    }
+    const char* path = *arg ? arg : "/";
+    File dir = SD.open(path);
+    if (!dir) {
+      say("ls: %s: cannot open (no card, or no such folder)\n", path);
+      return;
+    }
+    if (!dir.isDirectory()) {
+      say("ls: %s is a file, %u bytes\n", path, (unsigned)dir.size());
+      dir.close();
+      return;
+    }
+    File f;
+    int n = 0, hidden = 0;
+    while ((f = dir.openNextFile())) {
+      /* ⚠ On this core File::name() returns the FULL path — basename it (same as app_files). */
+      const char* nm = f.name();
+      const char* base = strrchr(nm, '/');
+      base = base ? base + 1 : nm;
+      const bool hid = (base[0] == '.');
+      if (hid) {
+        hidden++;
+      }
+      if (f.isDirectory()) {
+        say("  %s %s/\n", hid ? "*" : " ", base);
+      } else {
+        say("  %s %-40s %u\n", hid ? "*" : " ", base, (unsigned)f.size());
+      }
+      n++;
+      f.close();
+    }
+    dir.close();
+    say("ls: %d entries in %s, %d hidden (*)\n", n, path, hidden);
+    return;
+  }
+
+  /* `rm </path/file>` — delete ONE file by full path; the pair to `ls`, for the entries the
+   * Files app cannot show. Refuses folders and relative names so a typo cannot take out a
+   * directory. Same SD.remove() the Files app's Delete and the picker's Back-del run. */
+  if (!strncasecmp(line, "rm ", 3)) {
+    const char* path = line + 3;
+    while (*path == ' ') {
+      path++;
+    }
+    if (path[0] != '/') {
+      say("rm: give a full path starting with / (see `ls`)\n");
+      return;
+    }
+    File f = SD.open(path);
+    if (!f) {
+      say("rm: %s: not found\n", path);
+      return;
+    }
+    const bool isDir = f.isDirectory();
+    f.close();
+    if (isDir) {
+      say("rm: %s is a folder - refused\n", path);
+      return;
+    }
+    say("rm: %s: %s\n", path, SD.remove(path) ? "deleted" : "FAILED");
+    return;
+  }
+
+  /* `power` — THE USB-POWER-METER INSTRUMENT (2026-09-03).
+   *
+   * Phone 1's full-to-empty run (9h07m on battery, WiFi off, screen off, 80 MHz) implies
+   * ~80-100 mA of average draw, and a datasheet-typical sum of everything the firmware leaves
+   * powered (ESP32 at 80 MHz never light-sleeping ~20-31, SX1276 RX-continuous ~11, ST7789
+   * awake behind a dark backlight 1-8?, I2S+APLL running from boot 1-3?) reaches only
+   * ~35-58 mA. The cell is soldered, so battery current cannot be metered, and a drain run
+   * resolves 10 mA only after hours at matched voltage (10 mV log quantisation). Nick's USB
+   * power meter resolves 1 mA in seconds — IF the phone is FULL (charger tapered: chg=1 and
+   * v>=4.19 for 30+ min, so the meter reads the board and not the charge). Absolute readings
+   * include the charger IC and the CP2104; only DELTAS mean anything. Each subcommand flips
+   * exactly ONE thing so one reading answers one question:
+   *   power lcd sleep     the panel controller's own draw (backlight is already off)
+   *   power i2s stop      the I2S module + DMA (the APLL stays; see Audio.cpp:111-121)
+   *   power lora sleep    the radio's RX-continuous draw (~11 mA typical: also calibrates the method)
+   *   power sleep 20      everything EXCEPT the ESP32 core — the light-sleep floor, i.e. the
+   *                       most the CPU lever could ever give (WiFi must be off: light sleep
+   *                       with the station up drops the association)
+   * Bench only — none of this is a power policy; the numbers it produces decide what becomes one. */
+  if (!strncasecmp(line, "power", 5) && (line[5] == '\0' || line[5] == ' ')) {
+    extern GUI gui;
+    extern Audio* audio;
+    extern volatile bool gGbcActive;
+    static bool s_lcdAsleep = false;
+    static bool s_i2sStopped = false;
+    const char* arg = line + 5;
+    while (*arg == ' ') {
+      arg++;
+    }
+    const bool audioOn = audio && audio->isOn();
+    if (!*arg) {
+      say("power: cpu=%luMHz screen=%d wifi=%s lora=%s lcd=%s i2s=%s audio=%s gbc=%d\n",
+          (unsigned long)getCpuFrequencyMhz(), (int)gui.state.screenBrightness,
+          wifiState.radioOff() ? "OFF" : "on",
+          !meshPhy.isReady() ? "absent" : (meshPhy.benchAsleep() ? "SLEEP(bench)" : "rx"),
+          s_lcdAsleep ? "SLPIN(bench)" : "normal", s_i2sStopped ? "stopped(bench)" : "running",
+          audioOn ? "ON" : "off", (int)gGbcActive);
+      say("  method: cell FULL (chg=1, v>=4.19 for 30+ min), screen asleep, WiFi off. Read the\n");
+      say("  meter; flip ONE switch; read again. Only deltas mean anything (charger+CP2104 ride along).\n");
+      return;
+    }
+    if (!strcasecmp(arg, "lcd sleep") || !strcasecmp(arg, "lcd wake")) {
+      const bool sleep = !strcasecmp(arg, "lcd sleep");
+      if (!static_lcd || gGbcActive) {
+        say("power lcd: the emulator owns the panel (or no LCD) - refused\n");
+        return;
+      }
+      if (sleep) {
+        static_lcd->writecommand(0x28);          // DISPOFF
+        static_lcd->writecommand(0x10);          // SLPIN: oscillator, charge pumps, scan stop
+      } else {
+        static_lcd->writecommand(0x11);          // SLPOUT: the panel needs >=120 ms to settle
+        delay(120);
+        static_lcd->writecommand(0x29);          // DISPON
+      }
+      s_lcdAsleep = sleep;
+      say("power lcd: %s (frame memory kept; the GUI repaints on the next screen wake)\n",
+          sleep ? "DISPOFF+SLPIN" : "SLPOUT+DISPON");
+      return;
+    }
+    if (!strcasecmp(arg, "i2s stop") || !strcasecmp(arg, "i2s start")) {
+      const bool stop = !strcasecmp(arg, "i2s stop");
+      if (stop && audioOn) {
+        say("power i2s: audio is ON - stop it first\n");
+        return;
+      }
+      const esp_err_t r = stop ? i2s_stop(I2S_NUM_0) : i2s_start(I2S_NUM_0);
+      if (r == ESP_OK) {
+        s_i2sStopped = stop;
+      }
+      say("power i2s: %s %s (Audio::start() calls i2s_start itself, so audio still works after a stop)\n",
+          stop ? "stop" : "start", r == ESP_OK ? "ok" : "FAILED");
+      return;
+    }
+    if (!strcasecmp(arg, "lora sleep") || !strcasecmp(arg, "lora rx")) {
+      if (!meshPhy.isReady()) {
+        say("power lora: no radio (not detected at boot)\n");
+        return;
+      }
+      const bool sleep = !strcasecmp(arg, "lora sleep");
+      meshPhy.benchSleep(sleep);
+      say("power lora: %s%s\n", sleep ? "SLEEP - the mesh is DEAF until `power lora rx`" : "RX-continuous",
+          sleep ? " (a send or a radio re-init also ends it)" : "");
+      return;
+    }
+    if (!strncasecmp(arg, "sleep", 5)) {
+      const int secs = atoi(arg + 5);
+      if (secs < 1 || secs > 600) {
+        say("power sleep <1..600 seconds>\n");
+        return;
+      }
+      if (!wifiState.radioOff()) {
+        say("power sleep: WiFi is ON - switch it off first (menu > WiFi: off); light sleep with the\n");
+        say("  station up drops the association and the reading would include the reconnect\n");
+        return;
+      }
+      if (audioOn || gGbcActive) {
+        say("power sleep: audio or the emulator is running - refused\n");
+        return;
+      }
+      say("power sleep: %d s. Keypad (GPIO%d low) wakes early; serial typed meanwhile is lost.\n",
+          secs, KEYBOARD_INTERRUPT_PIN);
+      uart_wait_tx_done(PORT, pdMS_TO_TICKS(200));           // let that line leave before the clocks stop
+      /* Flash and PSRAM stay powered through light sleep on this IDF (3.3): sleep_modes.c only
+       * powers VDD_SDIO down under `#ifndef CONFIG_SPIRAM_SUPPORT`, and this build has PSRAM
+       * on, so the heap (which lives in PSRAM) survives. There is no ESP_PD_DOMAIN_VDDSDIO to
+       * pin here (that arrived in IDF 4). Load-bearing on an SDK bump: light sleep must keep
+       * VDD_SDIO ON or the phone wakes into garbage. */
+      esp_sleep_enable_timer_wakeup((uint64_t)secs * 1000000ULL);
+      esp_sleep_enable_ext0_wakeup((gpio_num_t)KEYBOARD_INTERRUPT_PIN, 0);   // SN7326 INT idles high
+      const uint32_t t0 = millis();
+      const esp_err_t r = esp_light_sleep_start();
+      const uint32_t dt = millis() - t0;
+      const esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+      say("power sleep: back after %lu ms (%s), woke by %s\n", (unsigned long)dt,
+          r == ESP_OK ? "ok" : "esp_light_sleep_start FAILED",
+          cause == ESP_SLEEP_WAKEUP_TIMER ? "timer" : cause == ESP_SLEEP_WAKEUP_EXT0 ? "keypad" : "something else");
+      return;
+    }
+    say("power: unknown switch - `?` lists them\n");
     return;
   }
 

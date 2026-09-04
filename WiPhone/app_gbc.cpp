@@ -386,7 +386,14 @@ void GbcApp::scanRoms() {
         const char* nm = f.name();
         const char* slash = strrchr(nm, '/');
         const char* base = slash ? slash + 1 : nm;
-        if (hasRomExt(base)) {
+        /* ⚠ base[0] != '.' — HIDDEN FILES STAY HIDDEN, the same rule the Files app, Books,
+         * Photos and the serial listers apply. Without it this picker listed macOS's
+         * AppleDouble sidecars: Finder writes a '._Game.gbc' beside every file it copies onto
+         * a FAT card, it has the ROM extension, and it is 4 KB of resource-fork metadata, not a
+         * ROM. Phone 2 showed every game twice, once as '._…', and the Files app — which hides
+         * dotfiles — could not find the twins to delete them (Nick, 2026-09-03). Serial `ls`
+         * shows them; `rm` removes them. */
+        if (base[0] != '.' && hasRomExt(base)) {
           snprintf(roms[romCount].name, sizeof(roms[0].name), "%s", base);
           snprintf(roms[romCount].path, sizeof(roms[0].path), "%s", nm);
           roms[romCount].embedded = false;

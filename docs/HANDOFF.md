@@ -1,8 +1,329 @@
 # WiPhone — session handoff
 
-## ▶▶ NEXT SESSION — TASK LIST (header refreshed 2026-08-29 afternoon)
+## ▶▶ STATE NOW (header refreshed 2026-09-03 evening, handoff commit)
 
 Read this first; everything below it is narrative.
+
+**Where things are.** Both phones run **0.9.57** (built Sep 3 13:42, `Hash of data verified`
+×2). Committed with this handoff. ⚠ **NOT pushed, and the web flasher is NOT published** —
+`webflasher/manifest.json` is bumped to 0.9.57 but `tools/publish_webflasher.sh` has not run.
+Host suite **139 / 139**. Phone 1 = `usbserial-025A3EAF` = `!00449040` (no plate); phone 2 =
+`025A3F65` = `!00449334` (woods backplate — battery experiments happen on PHONE 1 ONLY).
+
+**What 0.9.57 is.** (1) Phone 2's "duplicate ROMs starting with `_`" were twelve macOS `._`
+AppleDouble sidecars; the Game Boy picker was the one lister that did not skip dotfiles — fixed,
+and the sidecars are hidden everywhere now (left on the card, harmless). (2) Serial `ls <dir>`
+and `rm </path>` — the card has never been listable over the cable before. (3) Serial `power`:
+the USB-power-meter bench (`lcd sleep|wake`, `i2s stop|start`, `lora sleep|rx`, `sleep <secs>`),
+every switch round-tripped on phone 1, light sleep returned in 5,001 ms. (4) `gb_hw_updatemap()`
+lost its `IRAM_ATTR` to fit — **watch for Game Boy stutter on bank-switch-heavy games**, none expected.
+
+🔋 **THE DRAIN VERDICT (six lenses, 15/15 skeptic verdicts upheld, critic run): NO SINGLE THING.**
+ESP32 never light-sleeping (~20 mA typ) and the SX1276 in RX-continuous (~11 typ) are the two
+big rows; the typical idle sum is 35-45 mA against **91-95 mA implied for a healthy 900 mAh cell
+to the FIRMWARE'S OWN 3.30 V power-off** (WiPhone.ino:3500 `v <= 3.3` → `powerOff()`; the run did
+NOT end in a brown-out). **⇒ 45-60 mA unexplained at 100 % cell health, 25-40 at 80 %.** Nick
+confirmed the cell is 900 mAh nominal. Corrections that landed: WiFi OFF vs ASSOCIATED saves
+**0-20 %**, not 28 % (the headline rested on one pre-`aud=` run) — the woods rule is "avoid
+HUNTING"; the chip floor is 3.56 V / 1.42 h / 15.5 %; **`esp_pm`/auto light sleep is compiled
+OUT of this core (objdump-proven)** — manual light sleep with WiFi off is the 15-18 mA ceiling.
+
+▶ **THE NEXT STEP IS NICK'S 10-MINUTE METER SESSION.** Protocol is the "THE POWER BENCH" block
+below: **phone ON − OFF first** (decides cell-vs-board in one reading), then `power lora sleep`
+(calibrates the meter chain: expect ~11 mA), `lcd sleep`, `i2s stop`, `sleep 60`, `gps on`
+(pure 80→240 MHz on phone 1), then a WiFi-ON associated reading. **Phone 1 is FULL, WiFi OFF,
+screen off — staged.** Read the meter's decimal places first; at 0.01 A only the two big
+levers read directly. Nothing gets tuned before that session.
+
+**Smaller open items, all recorded below:** the 62 `LOOP STALL`s (add the caller's name to the
+STALL line); GPIO38 is both `RFM95_INT` and `USER_SERIAL_RX`; gnuboy runs uninitialised PSRAM on
+a `.gbc` shorter than one bank (guard suggested, not built); `chunkSafeName()` accepts a
+leading-dot name; the 3.30 V cutoff itself is a small lever (+10-25 min, measure first).
+
+# 🔋 2026-09-03 afternoon — WHERE PHONE 1'S 80-100 mA GOES: NO SINGLE THING IS "MOSTLY
+# RESPONSIBLE", THE TWO BIGGEST ROWS ARE THE ESP32 AND THE LORA RADIO, AND 10-50 mA IS UNACCOUNTED
+# FOR UNTIL THE METER SESSION ABOVE IS RUN
+
+Nick: "take a look at wiphone 1's curves and drain log. do a check to see if any one thing is
+mostly responsible for the battery drain and look for optimization opportunities."
+Six-lens investigation over the fixtures, the raw dumps and the firmware (log data, idle-state
+audit, CPU/tasks, hardware budget, prior measurements, plus the ROM dupes), each high finding
+adversarially checked: **14 of 14 skeptic verdicts upheld** (every cited line re-read, every
+number recomputed; corrections were refinements, folded in below). Every number below is
+**typical (datasheet)** unless it says measured.
+
+**1. The answer to "one thing?" is NO.** In the run's state (WiFi off, screen off, 80 MHz, LoRa
+listening, codec off) the ranked idle budget is:
+| row | state the firmware leaves it in | mA (typ) | confidence |
+|---|---|---|---|
+| ESP32-WROVER, 80 MHz, both cores `waiti` between a 1 kHz tick + 5 ms loop + 10 ms LoRa poll | never light-sleeps (`esp_light_sleep_start` only in a debug key + the new bench command) | **20-31** | datasheet row, duty unmeasured |
+| SX1276 RX-continuous, LnaBoost off | from init until a TX; never standby/sleep | **10.8** | datasheet, high |
+| ST7789 panel controller, SLPOUT/DISPON behind a dark backlight | screen-off only writes backlight `ION=0` (GUI.cpp sleepScreen); SLPIN never sent | 1-8 | guess |
+| I2S module + APLL + MCLK on GPIO0 | installed in `Audio::Audio()` with `use_apll`, never `i2s_stop`ped on a boot that never played (watchdog exits on `!isOn()`) | 1-3 | guess |
+| microSD idle, one append per minute | mounted at boot, no power pin | 0.2-3 | card-dependent |
+| SX1509 2 MHz osc (for a PWM that is at 0), CW2015, SN7326, PSRAM standby, regulator Iq, CP2104 (USB-powered — 0) | | < 1 each | |
+| **sum** | | **~35-69** | |
+| **implied by the run** | 900 mAh / 9.12 h; 720 mAh at 80 % health | **99 / 79** | measured hours, unknown capacity; 🛑 **the run did NOT end in a brown-out — the FIRMWARE powered the phone off**: `if (v <= 3.3 && now >= 30000) powerOff();` in the battery tick (WiPhone.ino:3500; boot rule `< 3.1 V` at :1193), which drops the SX1509 latch — exactly why the next boot read `reset_reason=1` POWERON. Capacity "delivered" here is capacity TO 3.30 V ≈ 92-96 % of a to-3.0 V rating (typical LCO tail), so **a healthy 900 mAh cell delivers ~830-865 mAh and implies 91-95 mA** |
+
+**⇒ 10-50 mA is unaccounted for**, and it is EITHER the cell's health (a 2023 cell at ~60-70 %
+would close the gap by itself) OR an unlisted consumer (an amp whose shutdown polarity is
+assumed, a hungry SD card, a linear regulator, the panel). **Step 0 of the meter session — phone
+ON minus phone OFF — is the one reading that decides which.** Do not tune anything against the
+table above; the 08-22 downclock was exactly that mistake.
+✅ **Nick, 2026-09-03 afternoon: "the cells in the wiphone internal are 900mah."** Nominal is
+settled (and agrees with the label photo), so **99 mA is the number for a HEALTHY cell**, and
+the only open variable in the gap is delivered capacity — health, not spec. The meter answers
+that as well: see step 8 in THE POWER BENCH below (charge from flat through the meter's mAh
+counter).
+🔑 **THE ONE LINE TO QUOTE (the critic's reconciliation of four lenses' ranges):** a healthy
+900 mAh cell to the firmware's 3.30 V cutoff ⇒ **91-95 mA average**; typical idle sum **35-45 mA**
+(ESP32 ~20 — no datasheet row exists for "PLL on, both cores in `waiti`", the 20 mA low end is
+CPU-lightly-loaded, so the core may sit BELOW 20 and the light-sleep ceiling nearer 12-18 —
+SX1276 11, panel 2-8, I2S/APLL 1-3, SD 0.2-3, rest < 2); **unexplained 45-60 mA at 100 % health,
+25-40 mA at 80 %.**
+🔧 **The cutoff itself is a small lever nobody listed:** the tail 3.40→3.30 V took 14 min at
+430-600 mV/h, so the cell was already on its cliff; lowering the power-off to 3.10-3.20 V is worth
+an estimated +10-25 min (+2-4 %). The rail is the **MIC5219 LDO** (dropout ~0.1-0.2 V at ~100 mA):
+a 3.1 V cell gives ~2.9-3.0 V at the rail, above flash/PSRAM minimums (~2.7 V) but with less
+margin under a LoRa TX peak. Measure before changing; the boot rule at 3.1 V means a phone
+plugged in below that powers itself off and charges dark (harmless).
+
+**2. WiFi: the saving from OFF was overstated (measured, log-data lens; band widened by the
+critic).** Over the SAME voltage window, this WiFi-off run took 1.17-1.21× as long as the 09-01
+associated run, which reads as **OFF vs ASSOCIATED (modem sleep) ≈ 15-17 %** — but ⚠ **that
+09-01 run (07:20-11:20) was on 0.9.46, BEFORE `aud=` existed and before the codec-leak fix**
+(0.9.47 was flashed 11:28 that day), so 5-15 mA of invisible audio leak may sit inside its
+64 mV/h; its raw rows are not retained. The 0.9.47 run's within-run "associated ≈ 60 mV/h" slope
+(aud=0/0 in 225/225) is like-for-like with this run's plateau **−59.2 mV/h over 4.00-3.80 V
+(R²=0.993)** ⇒ ~0-10 %. **Honest band: 0-20 %.** The "40-50 mV/h" hourly numbers were 10 mV-
+quantised endpoints. OFF vs HUNTING (~106 mV/h) roughly HALVES the drain. So: **"for the woods,
+WiFi off beats doubling the battery" is true against a SEARCHING radio; against an associated
+one it may be worth almost nothing — the woods advice is "avoid HUNTING".** Unmeasured lever for
+the associated case: `WIFI_PS_MAX_MODEM` + `wifi_sta_config_t.listen_interval` (Networks.cpp:
+165-177 declines MAX_MODEM by comment — "can miss beacons" — with no measurement). Retire the
+"~11.5 h WiFi off" figure (HANDOFF further down); the measured number is 9h16m. Any future
+WiFi-on comparison must be quoted over the same voltage window — or read off the meter: **add a
+WiFi-ON associated reading to the session (menu WiFi: on, wait for `wifi=3`, read; the cable does
+not disturb association).**
+
+**3. The gauge floor, corrected (measured):** first `soc=0` at **up=471 / 3.56 V**, so **85 min =
+1.42 h = 15.5 %** of the battery run reported as empty (not 77 min / "an eighth"). Fixed in
+`battery_curve.h` and the 09-03 morning block. Knee at 3.69-3.70 V (curve 27 %) with ~2.5 h
+left; below 3.40 V (curve 2 %) there are 14 minutes.
+
+**4. THE LEVERS, ranked by expected mA — ALL UNMEASURED until the `power` session runs:**
+| lever | ceiling (typ) | how to measure | risk / why not yet |
+|---|---|---|---|
+| **Manual light sleep at idle, WiFi OFF only** | **15-18 mA typical (skeptic's range 15-28) ≈ 15-20 % ≈ 9.1 → 10.7-11.5 h** | `power sleep 60` = the exact ceiling in one reading | medium-high: UART console bytes lost while asleep; ≤200 ms windows so a LongFast packet is never missed (SX1276 latches RxDone); wake via `gpio_wakeup_enable(35/39, LOW)`; must gate on `!busy && radioOff() && !audio->isOn() && !gGbcActive && !battCharged` |
+| **Automatic light sleep / esp_pm** | — | — | **IMPOSSIBLE on this core**: `objdump` of libesp32.a shows `esp_pm_configure` = `movi a2,0x106; retw` (ESP_ERR_NOT_SUPPORTED); tickless idle not compiled. Needs an arduino-esp32 2.x/3.x port. Do not spend time on `CONFIG_PM_ENABLE` here. |
+| A persisted **"Mesh: off"** switch (model: `Networks::setRadioOff`) | 10.8 mA ≈ 11-14 % ≈ +1.1-1.5 h | `power lora sleep` (also calibrates the meter chain: expected value known to ±0.7 mA) | for when the mesh is NOT wanted; in the woods it is the point. CAD duty-cycling (6-9 mA) is a protocol change — don't. |
+| **ST7789 SLPIN on screen-off** | 2-8 mA? | `power lcd sleep` | low: +120 ms on wake (SLPOUT settle); frame memory kept; exclude while `gGbcActive` |
+| `i2s_stop()` at the end of `Audio::Audio()`; APLL needs an uninstall | 1-3 mA? | `power i2s stop` (module only; APLL stays) | stop = trivial and safe (`start()` calls `i2s_start`); **uninstall reallocates 16 KB of DMA RAM = the fragmentation panic class** — idle-only if ever |
+| stretch `vTaskDelay(5)` / the 10 ms poll | < 0.5 mA | — | already in the noise (est. 2-4 % CPU duty at idle); the 1 kHz tick stays regardless |
+| 40 MHz APB | 4-8 mA? | — | breaks the IDF UART0 console baud, WiFi, SPI dividers; subsumed by light sleep |
+| SX1509 osc off, CW2015 sleep, SD unmount | ≤ 0.5 mA each | — | not worth the risk |
+
+**4b. The woods framing (prior-measurements lens):** the woods state IS the WiFi-off state, so the
+entire 0.9.47-0.9.51 WiFi lineage — the biggest drain this project ever measured — is already
+irrelevant to it; the target is the 9h07m floor itself, whose composition has NEVER been
+measured on this hardware (no component current, ever — only mV/h). A "Mesh: off" switch is a
+NON-woods lever (listening is the point of the trip). The 2026-08-31 22 %/h morning stays
+unexplained and outside every retained log; it is now instrumented (`aud=`, `ps=`, `joins=`,
+`wifi=` once a minute) so a recurrence is diagnosable from `/health.log` — do not spend a
+session on it unless it recurs, and do not attribute it to the cell.
+
+**5. Constraints already paid for (prior-measurements lens + code):** never call
+`setCpuFrequencyMhz()` from the input path (08-22: dropped keys); the GPS UART at 115200 makes
+ANY clock switch deadlock (`gGpsNmea` is a `busy` term — phone 2 runs pinned at 240 with the
+plate, and is fine on its bigger pack); `Audio::restore()` reinstalls I2S at most once; the
+health line's `ps=1` means nothing when `wifi=255` (driver inited but stopped).
+
+**6. Two curiosities, neither a power item:** (a) **62 `LOOP STALL`s of ~527 ms in the run** —
+every 5 min for 3.4 h, then ~30 min, then hourly (up=359/419/479/539, exact 60-min steps) —
+38 s total, so < 0.2 mA-equivalent; 62 is a LOWER bound (STALL records are rate-limited to one a
+minute). NOT the mirror poller (it gates on `WL_CONNECTED`), NOT the NodeInfo beacon (3 h). The
+critic's identification: **the hourly series (up=59,119,…,539) is phase-locked to boot at exactly
+one period = phone 1's OWN neighbour-info announce (the only own 1 h timer, `nbr on`); the 5-min
+series is NOT phase-locked = relays of an EXTERNAL 300 s position beacon** (phone 2 reports every
+300 s; COVEY every 5 min) — phone 1 cannot beacon a position itself (needs a GPS fix). Each is
+one LoRa TX (send() polls TxDone synchronously, ~0.5 s at LongFast). **Add the caller's name to
+the STALL line (WiPhone.ino ~2494) and the next run answers it for certain.** (b) **GPIO38 is both
+`RFM95_INT` (DIO0) and `USER_SERIAL_RX`** (Hardware.h:148 vs :160): the plate's GPS TX drives
+the LoRa DIO0 pin. Harmless today because `mesh_phy` polls and never uses DIO0 — but it means a
+DIO0 interrupt wake for light sleep is impossible with the plate fitted, and phone 1 begins
+UART2 at 9600 on a pin nothing drives.
+
+**6b. What the completeness critic added (13 items, the ones that change anything):**
+- **The TRIP phone is phone 2, and its state was analysed by nobody:** GPS at 115200 pins it at
+  240 MHz (`gGpsNmea` ∈ `busy`/`hardBusy`: no idle tick stretch, no light-sleep window ever) and
+  the M100 GPS itself is ~30 mA typical (docs/woods-backplate.md:134) — **~40-70 mA above the run
+  analysed here, and it outranks every phone-1 lever for September.** Nobody priced the GPS
+  module's standby/low-rate modes or the 9600-baud exit ("ships at 115200, silent at 9600",
+  Hardware.h:165-180, untested), or the plate's TPS63020 Iq. The backplate pack pays for it today
+  (Nick: phone 2's battery is fine), but it is the biggest unpriced number in the woods.
+- **Light-sleep design residuals:** (a) the SN7326 INT is a 10 ms self-clearing pulse — a press
+  landing inside the ~0.5-1 ms sleep-entry window is lost until the next key, so every TIMER wake
+  must also poll INT-low / the SN7326 status, not just "set keypadToRead on GPIO wake";
+  (b) `gpio_wakeup_enable()` on GPIO35/39 does NOT overwrite the FALLING ISR type — objdump shows it
+  calls `rtc_gpio_wakeup_enable` and returns for RTC pads — so no level-ISR storm hazard;
+  (c) the bench `power sleep` arms ext0 on GPIO35 only, so the POWER BUTTON (GPIO39) is dead
+  during a bench sleep — fine for 60 s, must not be copied into an idle loop; (d) IRAM is full to
+  within 16 B; any ISR-side wake code needs another eviction.
+- **A latent Game Boy dead-end behind the sidecar fix:** gnuboy accepts any buffer ≥ 512 B and
+  maps banks only while `size - pos >= 16 KB`, so a `.gbc` shorter than one bank (a 4,096 B
+  sidecar on 0.9.56, or any truncated upload > 512 B) "loads", `gb_hw_updatemap()` mallocs an
+  UNINITIALISED PSRAM bank, and the emulator runs garbage — no panic, just a dead game. Hidden now,
+  reachable by a truncated ROM. Guard: `if (!cart.romFile && size < cart.romsize * BANK_SIZE)
+  return -4;` in gnuboy.c + a host vector. Not built.
+- **Parts the repo never named, from wiphone.io's spec sheet (fetched 2026-09-03):** amp AW8733A,
+  LDO MIC5219-3.3BM5 (the ONE 3.3 V regulator listed), codec WM8750BL, 1000 mA USB fuse, **stock
+  battery "700 mAh LiPo"** — ⚠ Nick's phones carry the 900 mAh UFX 603048A (label + Nick); do
+  not "correct" 900 to 700. Charger IC still unnamed. Sleep current "TBD" on their sheet too.
+- Amp and codec are verifiably OFF from boot (`rmtTxInit(false)`; `codec.shutDown()` writes
+  POWER1/2 = 0); I2S + APLL + MCLK verifiably RUN from boot (libdriver literal pools:
+  `i2s_driver_install → i2s_set_clk → i2s_start + rtc_clk_apll_enable`).
+
+**7. What I would do, in order, once the meter has spoken:** if ON−OFF ≈ 40-50 mA the cell is
+the story (a 1000 mAh same-footprint cell + light sleep ≈ +35 %); if ON−OFF ≈ 85-100 mA, hunt
+the 45-60 mA with the four toggles and the CP2104 check, THEN build light sleep gated exactly
+as above (with the SN7326 pulse rule and the GPIO39 wake), THEN SLPIN, THEN `i2s_stop` in the
+constructor, THEN consider the 3.30 → 3.15 V cutoff — each one shipped only with its meter
+delta written next to it. For the TRIP, price phone 2's GPS + 240 MHz first; it dwarfs all of
+these.
+
+# 🔌 2026-09-03 afternoon — THE POWER BENCH: serial `power` turns Nick's USB meter into the
+# instrument this project never had, and phone 1 is sitting in the exact state it needs
+
+**Why.** Phone 1's full-to-empty run implies **~80-100 mA average with WiFi off** (900 mAh over
+9.12 h = 99 mA; 79 mA at 80 % cell health — the cell's health is unknown, so the range is real).
+Everything the firmware leaves powered at idle, summed at datasheet typicals, reaches only
+**~35-58 mA**: ESP32 at 80 MHz never light-sleeping 20-31, SX1276 RX-continuous ~11, ST7789
+awake behind a dark backlight 1-8 (guess), I2S+APLL running from boot 1-3 (guess), SD idle
+0.2-1, everything else < 1. **10-60 mA is unaccounted for** (regulator topology, panel, codec,
+cell health — none measured). The cell is soldered; a drain run resolves 10 mA only after hours
+at matched voltage. **The USB meter resolves 1 mA in seconds — IF the cell is full**, so the
+charger has tapered and the meter reads the board and not the charge.
+
+**The instrument (0.9.57, both phones):**
+| command | flips | expected (typical) |
+|---|---|---|
+| `power` | nothing — prints every switch and the method | |
+| `power lora sleep` / `rx` | SX1276 SLEEP vs RX-continuous (mesh DEAF meanwhile) | ~11 mA — also calibrates the method |
+| `power lcd sleep` / `wake` | ST7789 DISPOFF+SLPIN vs normal (backlight untouched) | 1-8 mA, unknown |
+| `power i2s stop` / `start` | I2S module + DMA (APLL stays: Audio.cpp:111-121) | 1-3 mA, unknown |
+| `power sleep <secs>` | light-sleeps the ESP32 (timer + keypad wake; WiFi must be OFF) | everything EXCEPT the core = the floor |
+
+✅ Smoke-tested on phone 1 over the cable: every toggle round-trips; `power lora sleep` survived
+the 5 s radio health check (healthCheck() accepts the parked state); `power sleep 5` came back
+after **5,001 ms by timer**, `millis()` compensated, phone healthy after. ⚠ `esp_light_sleep_start()`
+overflowed IRAM by 16 bytes — `gb_hw_updatemap()` in gnuboy/hw.c gave up its `IRAM_ATTR` (per
+bank switch, not per bus access). Watch for Game Boy stutter; none expected.
+
+📋 **THE SESSION FOR NICK (10 minutes, phone 1, USB meter inline):**
+0. **The absolute number first, no serial needed:** meter inline, phone FULL, screen asleep,
+   read → then hold END to power OFF (the latch drops, the 3.3 V rail reads 0 V) and read again.
+   **ON − OFF = the whole board's idle current**, charger and CP2104 cancelled. If it lands near
+   40-50 mA, the "gap" is the cell's health, not a hidden consumer; if it is 80-100 mA, something
+   on the board is eating 30-50 mA that no datasheet row explains. This one reading decides
+   which problem we have.
+1. Phone 1 is WiFi OFF (`power` reads `wifi=OFF`). It rode home in the bag (16:10: `v=4.15
+   chg=1 soc=88%`) and **re-topped by 18:14: `soc=100% est=100% v=4.20 chg=1 wifi=255 cpu=80MHz
+   scr=0`** — the exact starting state. Put the meter between the cable and the phone. ⚠ **Open the serial terminal FIRST**
+   (500000 baud) — opening the port reboots the phone — then wait for the screen to sleep
+   (`scr=0` in the health line, or triple-tap). Let the reading settle 30 s: that is **I0**.
+2. `power lora sleep` → read **I1**; `power lora rx`. I0−I1 = the radio (~11 mA expected; if it
+   reads 0, the meter or the method is wrong, stop there).
+3. `power lcd sleep` → **I2**; `power lcd wake`. I0−I2 = the panel controller.
+4. `power i2s stop` → **I3**; `power i2s start`. I0−I3 = I2S/DMA.
+5. `power sleep 60` → read during the minute → **I4**. I0−I4 = the ESP32 core = the most any
+   CPU-sleep work could ever save.
+6. `power lora sleep` then `power sleep 60` → **I5** = the absolute floor: charger overhead +
+   panel + SD + regulators + everything nobody has a switch for. **I5 is the number that says
+   whether the gap is in the ESP32 or in the board.**
+7. `gps on` → **I6**; `gps off`. Phone 1 has no GPS, so this is a PURE 80 → 240 MHz step
+   (`gGpsNmea` is a `busy` term): the cost of the clock alone, which the 08-22 downclock
+   experiment never measured.
+8. **Cell health, another day:** run phone 1 flat (the 09-02 way — it powers itself off at
+   3.30 V), then charge it THROUGH THE METER with its mAh counter zeroed, until `chg` has been 1 at
+   4.19 V for an hour (~3.5 h), WiFi off and screen asleep throughout. The counter includes the
+   charger's quiescent and the CP2104 for the whole charge, so **subtract the ABSOLUTE phone-ON
+   float reading I0 × charge hours (NOT the ON−OFF delta)**; apply the linear/switching factor
+   from the LoRa calibration; the result is capacity TO 3.30 V (≈ 92-96 % of a to-3.0 V rating).
+   Nick says the cell is 900 mAh nominal; **~830-865 means healthy** and the ~91-95 mA average is
+   real board draw; near 500-650 means the cell has aged and a same-footprint 1000 mAh
+   replacement is the biggest single win available.
+Quote deltas in USB mA. ⚠ **The USB→battery factor is UNKNOWN until calibrated**: if the
+MIC5219 LDO is the sole 3.3 V rail (wiphone.io names exactly one LDO) and the charger is linear
+(STAT open-drain + 196 min of float is consistent with linear AND with many switchers), USB mA ≈
+battery mA 1:1; a switcher makes it ≈ /1.15. **`power lora sleep` is the calibration**: the
+radio hangs off that same rail, so a delta of ~11 mA proves 1:1 and ~9.5-10 says switcher.
+Photograph the charger IC marking while the case is open. Absolute readings include the charger
+IC and the CP2104 (USB-powered, a constant offset) — only deltas mean anything. ⚠ A linear
+charger feeding a 50-100 mA load at 4.2 V may terminate and restart at its recharge threshold;
+take each A/B/A within one minute and watch `v=` stay flat. ⚠ **Read the meter's decimal places
+first** — its model is unrecorded; at 0.01 A resolution only LoRa (~11) and light sleep (~15-20)
+are readable directly, and the panel/I2S/SD deltas need the mAh counter over ≥ 60 min per state.
+Hands-on checks if the numbers come out strange: the CP2104 being back-powered through UART0 TX
+idling high — invisible to ON−OFF because VBUS is present in both readings — (meter the CP2104's
+VDD pin with USB out; anything above ~0.5 V is the ESP32 feeding it; or a firmware A/B that
+parks GPIO1 as INPUT when `usbConnected==0`, over a matched 4.00-3.80 V band). The amplifier
+polarity question is ANSWERED from wiphone.io: the part is an **AW8733A** (pulse-count CTRL gain
+modes matching Hardware.cpp:172, CTRL-low = shutdown), and `rmtTxInit(AMPLIFIER_SHUTDOWN, false)`
+at boot idles it LOW — off from the first frame.
+
+# 🎮 2026-09-03 afternoon — 0.9.57: PHONE 2'S "DUPLICATE ROMS STARTING WITH _" WERE MACOS SIDECAR
+# FILES, AND THE GAME BOY PICKER WAS THE ONE LISTER THAT SHOWED DOTFILES
+
+Nick: "wiphone 2 (the one with gps) has duplicate ROMs. the duplicates start with '_'. I can't
+find the dupes in the file browser."
+
+**Proven on the card, not inferred.** New serial `ls /roms` on phone 2 (0.9.57):
+**24 entries, 12 hidden** — every ROM has a `._<same name>` twin of exactly **4,096 bytes**. The
+root also holds `.Spotlight-V100/` and `.fseventsd/`. That is Finder: it writes an AppleDouble
+resource-fork sidecar beside every file it copies onto a FAT card. Not a failed upload, not a
+real duplicate — 48 KB of Mac metadata. (The names read to a person as "_Zelda…" because in
+OpenSans CondBold 20 the '.' is a 4×3 px blob at the baseline touching the 7×2 px '_' one pixel
+below it with no gap — one ~12 px smudge that reads as an underscore. Measured from the font
+tables by the review lens; FatFs LFN is compiled in, so it is the real long name, not an 8.3
+alias like `_ZELDA~1.GBC`.)
+
+**Why only the picker showed them:** `FilesApp::scanDir()` (app_files.cpp:115), `BooksApp::scanBooks()`,
+`PhotosApp`, `musicIsPlayable()` (music_lib.cpp:65 — with a comment naming the macOS resource
+forks) and serial `wallpaper list` all skip a basename starting with `.`. **`GbcApp::scanRoms()`
+did not** — anything with `.gb`/`.gbc` was listed. So the sidecar had the extension, appeared in
+the picker, and was invisible everywhere a person could delete it. The August bug class in
+filter form: one consumer inherited a rule it never set. **Fixed with the same `base[0] != '.'`
+test, loud comment in place (app_gbc.cpp scanRoms).**
+
+🔎 **Two instruments that did not exist and now do — `ls [<dir>]` and `rm </path>` on serial.**
+`ls` prints every entry with size, marks hidden ones `*`, folders `/`. `rm` deletes ONE file by
+full path, refuses folders and relative names. ⚠ **`shot` CANNOT show the Game Boy picker**: it
+reads the GUI page sprite (GUI.cpp screenshotToSerial) and the picker draws straight to `lcd` —
+two runs of `shot.py … key down down down select` returned the Games menu with the app already
+open (`APP id=16427` in the log). Anything drawn direct-to-LCD is invisible to `shot`; `ls` was
+the way in.
+
+✅ **BOTH PHONES ARE ON 0.9.57** (`ver` → `firmware 0.9.57, built Sep 3 2026 13:21:11` on each,
+esptool `Hash of data verified` ×2, 230400 baud, app partition only). Phone 1's `/roms` has **no
+sidecars** (its ROMs came through the WiFi uploader, never through Finder) — but it does hold three
+**0-byte EPUB stubs** (`1_/2_/4_The_Dominion_Civil_War_N.epub`, 0 bytes), the shape `chunkOpenFor()`
+leaves when an upload opens at offset 0 and never continues (uploader-bench leftovers). Books
+scans `/roms`, so those may list as books that cannot open; `rm /roms/<name>` clears them. Not
+touched. The 12 sidecars are LEFT ON
+THE CARD on purpose (harmless, hidden now; `rm /roms/._<name>` removes one; Finder re-creates them
+on the next copy). ⚠ **Trade-off, made knowingly:** on 0.9.56 the picker's own *Back → OK* delete
+was the ONE on-phone way to remove a twin (SD.remove on an LFN dotfile works, then rescan); on
+0.9.57 hidden rows cannot be selected, so serial `rm` is the only path. If that ever matters, the
+Files app could grow a "Show hidden" toggle or a "Remove Mac sidecar files" action — not built.
+Optional hardening the lens suggested, also not built: `chunkSafeName()` (chunk_proto.h:71-73)
+refuses only `.` and `..`, so a WiFi client that sent `._X.gbc` would be accepted; refusing any
+leading-dot basename there is a one-line change with a vector in `tests/test_chunk.cpp`.
+CHANGELOG 0.9.57 written, `webflasher/manifest.json` bumped; **NOT committed, NOT published** —
+the release commit waits for Nick.
+
+📇 Phone 2's `/books` for the record: the four Dominion Civil War EPUBs, Ghosts_of_Timkovichi,
+`positions.cbs` (149 B), and three `chrome_*.bin` test uploads (2.9 MB of leftovers from the
+uploader bench — deletable via Files or `rm`).
 
 # 🔋 2026-09-03 — 0.9.56: THE BATTERY % IS NOW PHONE 1'S MEASURED CURVE, NOT THE CHIP'S GUESS
 
@@ -126,7 +447,10 @@ not a gauge fault, and it means phone 2's 12.5 h is backplate + internal, NOT "a
 
 **So the ONLY genuine gauge error we have measured is phone 1's:** the CW2015 hits `soc=0%` at
 3.54 V while the cell actually runs to 3.30 V — **1.3 h of real runtime reported as empty**
-(up=479→556min). Root cause: the BATINFO profile is never programmed
+(up=479→556min). ✏️ *Corrected 2026-09-03 afternoon by re-reading the fixture: the FIRST `soc=0`
+row is up=471 at **3.56 V** (up=470 reads 1 % at 3.56), so it is **85 min = 1.42 h = 15.5 % of the
+547-min battery run**, not 77 min; `3.54 V` is the up=479 sample. `battery_curve.h` says so now.*
+Root cause: the BATINFO profile is never programmed
 ([[wiphone-battery-measured]]), so the chip runs a generic model whose floor is ~240 mV too high
 for this cell. Conservative direction, but it wastes an eighth of the pack on a trip.
 

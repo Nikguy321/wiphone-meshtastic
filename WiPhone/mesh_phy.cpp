@@ -149,6 +149,9 @@ bool MeshPhy::healthCheck() {
   if (ver == SX1276_VERSION && op == (MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS)) {
     return true;
   }
+  if (benchSleeping && ver == SX1276_VERSION && op == (MODE_LONG_RANGE_MODE | MODE_SLEEP)) {
+    return true;                         // parked by `power lora sleep` — see benchSleep()
+  }
   /* The radio is gone (woods pack died - with R3-R6 fitted the rail collapses
    * and nothing answers) or it lost power and rebooted into POR defaults (pack
    * reconnected: version still answers 0x12 but the mode is FSK standby - a
@@ -160,7 +163,23 @@ bool MeshPhy::healthCheck() {
   return false;
 }
 
+void MeshPhy::benchSleep(bool on) {
+  if (!ready) {
+    return;
+  }
+  if (on) {
+    writeReg(REG_IRQ_FLAGS, 0xFF);
+    writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);
+    inRx = false;
+    benchSleeping = true;
+  } else {
+    benchSleeping = false;
+    setModeRxContinuous();
+  }
+}
+
 bool MeshPhy::reinit(bool logFailure) {
+  benchSleeping = false;                 // a re-init always ends in RX-continuous
   // Probe the chip: must be in SLEEP to switch to LoRa mode.
   writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);
   delay(10);
@@ -205,7 +224,7 @@ bool MeshPhy::reinit(bool logFailure) {
 }
 
 bool MeshPhy::poll(uint8_t* buf, uint16_t maxLen, uint8_t* outLen, int16_t* rssi, int8_t* snr) {
-  if (!ready) {
+  if (!ready || benchSleeping) {
     return false;
   }
   /* ⚠ RATE-LIMITED to every 10 ms. This is called from the main loop at ~1 kHz, and the
@@ -257,6 +276,7 @@ bool MeshPhy::send(const uint8_t* data, uint8_t len) {
   if (!ready || !data || len == 0) {
     return false;
   }
+  benchSleeping = false;                 // a send ends the bench state: it returns to RX below
   setModeIdle();
   writeReg(REG_FIFO_ADDR_PTR, 0x00);
   writeFifo(data, len);

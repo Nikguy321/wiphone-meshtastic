@@ -79,6 +79,17 @@ public:
 
   uint32_t getFrequencyHz() const { return freqHz; }
 
+  /* BENCH ONLY — the USB-power-meter toggle (serial `power lora sleep|rx`, 2026-09-03).
+   * The radio idles in RX-continuous for the whole life of a boot (~11 mA typical on the
+   * SX1276 datasheet) and nothing in this firmware ever puts it lower. To MEASURE what that
+   * costs rather than quote a datasheet, this parks it in LoRa SLEEP and tells healthCheck()
+   * to accept that mode instead of declaring the radio lost and re-initialising it back to RX
+   * five seconds later. poll() returns nothing while asleep; the mesh is DEAF for the
+   * duration, on purpose. send() and reinit() end the bench state, because both leave the
+   * chip in RX-continuous anyway. */
+  void benchSleep(bool on);
+  bool benchAsleep() const { return benchSleeping; }
+
 private:
   uint8_t readReg(uint8_t addr);
   void    writeReg(uint8_t addr, uint8_t val);
@@ -94,6 +105,7 @@ private:
   uint32_t       freqHz;
   bool           ready;
   bool           inRx;
+  bool           benchSleeping = false;   // see benchSleep()
 };
 
 extern MeshPhy meshPhy;

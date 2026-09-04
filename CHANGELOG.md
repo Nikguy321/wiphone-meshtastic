@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.9.57 (2026-09-03) - the Game Boy picker hides macOS sidecar files; serial `ls` and `rm`
+
+Phone 2 showed every game twice in the Game Boy picker, the twin named `._Game.gbc`, and the
+Files app could not find the twins to delete them. Read off the card with the new serial `ls`:
+**12 ROMs in `/roms` and 12 `._` files beside them, 4,096 bytes each** — the AppleDouble
+resource-fork sidecars Finder writes next to every file it copies onto a FAT card (the card also
+carries `.Spotlight-V100/` and `.fseventsd/` at its root, for the same reason). Not corrupt
+uploads, not duplicates of anything: metadata the Mac left behind.
+
+**The picker was the one lister without the rule.** `FilesApp::scanDir()`, `BooksApp::scanBooks()`,
+`PhotosApp`, `musicIsPlayable()` and the serial `wallpaper list` all skip a basename that starts
+with `.` — the music library even carries a comment naming the macOS resource forks — and
+`GbcApp::scanRoms()` listed anything with a `.gb`/`.gbc` extension. So the sidecar had the
+extension, appeared in the picker, and was invisible everywhere a person could delete it. Same
+class as the shared-state bugs of August: one consumer inherited a rule it never set. Fixed with
+the same `base[0] != '.'` test the others use, with a comment that says why.
+
+**Serial `ls [<dir>]` and `rm </path>`** are the instruments this needed. The picker draws straight
+to the LCD, so `shot` cannot show it, and every on-phone lister hides dotfiles, so nothing could
+show the card as it is. `ls` prints every entry with its size, marks hidden ones with `*` and
+folders with a trailing `/`; `rm` deletes ONE file by full path and refuses folders and relative
+names. The sidecars themselves are left in place — 48 KB of harmless metadata that no lister
+shows any more; `rm` removes them if wanted, and Finder will write them again on the next copy.
+
+**Serial `power` — the USB-power-meter bench.** Phone 1's full-to-empty run implies ~80-100 mA
+of idle draw with WiFi off, and a datasheet sum of everything the firmware leaves powered reaches
+only ~35-58 mA; the cell is soldered, so battery current cannot be metered, and a drain run
+resolves 10 mA only after hours. The USB meter resolves 1 mA in seconds if the cell is FULL
+(charger tapered) — so each `power` subcommand flips exactly one thing and one reading answers
+one question: `power lcd sleep|wake` (ST7789 DISPOFF+SLPIN, the controller behind a dark
+backlight), `power i2s stop|start` (the I2S peripheral and DMA that run from boot whether or not
+anything ever played), `power lora sleep|rx` (the SX1276 parked in SLEEP — the mesh is DEAF until
+`rx`; the radio health check accepts the parked state instead of re-initialising it), and
+`power sleep <secs>` (light-sleep the ESP32 with a timer and keypad wake; WiFi must be off).
+`power` alone prints every switch's state and the method. Bench only: none of it is a power
+policy — the numbers it produces decide what becomes one. Smoke-tested on phone 1: all four
+toggles round-trip, and a 5 s light sleep returned after 5,001 ms by timer with `millis()`
+compensated.
+
+⚠ Pulling `esp_light_sleep_start()` into the link overflowed IRAM by 16 bytes. `gb_hw_updatemap()`
+(gnuboy/hw.c) lost its `IRAM_ATTR`: it runs per bank switch, not per bus access, and may call an
+SD read anyway. The bus and scanline hot paths keep theirs. Watch for any Game Boy stutter on
+bank-switch-heavy games; none is expected.
+
 ## 0.9.56 (2026-09-03) - the battery percentage comes from the voltage, off phone 1's measured curve
 
 Phone 1 ran itself flat overnight on purpose — 9h16m from a genuinely full cell, WiFi off,
