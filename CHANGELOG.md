@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.9.58 (2026-09-04) - the stall detector names the block that stalled; two silent dead ends closed
+
+**The `LOOP STALL` line now says WHICH part of the pass took the time.** Nick, 2026-08-24:
+*"sometimes when scrolling menus, the phone will freeze for a second or two, wifi will drop, then
+it will unfreeze and WiFi comes back up."* 0.9.5x added the detector that catches it -- 62 stalls
+recorded, and today's boot alone logged 890 ms, 578 ms and 314 ms -- but it could only ever say
+how LONG a pass took, never what inside it blocked. Everything shares one task, so a stall is the
+keypad, the screen and the WiFi stack frozen together, and "890 ms somewhere in 2,000 lines" is
+not a lead.
+
+Each of the superloop's 25 major blocks now names itself on the way in, and the detector reports
+the slowest one of the pass that just ended: `LOOP STALL: 890 ms in one pass, worst block 'sip'
+412 ms`. The same names go into `/health.log`, so a freeze that happens in the woods is
+diagnosable afterwards rather than only while tethered. The instrument is a pointer store and one
+`millis()` per block -- no allocation, no formatting, nothing that can itself stall, because an
+instrument that can stall is worse than none. Costs 455 bytes of flash.
+
+**A truncated ROM no longer runs uninitialised memory.** gnuboy's only size check was
+`size < 0x200`, and it took the cartridge's bank count from the file's own header rather than
+from how many bytes actually arrived. Its bank-mapping loop runs while `size - pos >= 16 KB`, so
+a buffer smaller than ONE bank left the entire bank table NULL -- `gb_hw_updatemap()` then
+allocated an UNINITIALISED PSRAM bank and the emulated CPU executed whatever was in that memory.
+No panic, no message, just a game that does not work. Reachable by any upload that stopped early,
+and by the 4,096-byte macOS `._` sidecars until 0.9.57 hid them. The arithmetic moved to
+`gnuboy/gb_romsize.h` so the host suite can test the code that actually ships -- `gnuboy.c`
+pulls in five ESP-IDF and emulator headers and cannot be compiled on the Mac, and a test that
+re-implemented the rule would only prove the copy agrees with itself. New suite `test_gbrom`,
+24 checks.
+
+**The uploader refuses the sidecars by name.** `chunkSafeName()` rejected only `.` and `..`, so a
+Mac client sending a folder could put `._Pokemon.gbc` on the card over WiFi -- which is both the
+duplicate 0.9.57 has to hide and the truncated ROM the guard above has to refuse. Nothing this
+protocol legitimately carries begins with a dot, so the whole leading-dot class is refused at the
+door. This reverses one existing test vector on purpose: `.hidden` used to be asserted as "a
+legitimate name".
+
 ## 0.9.57 (2026-09-03) - the Game Boy picker hides macOS sidecar files; serial `ls` and `rm`
 
 Phone 2 showed every game twice in the Game Boy picker, the twin named `._Game.gbc`, and the

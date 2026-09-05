@@ -7,6 +7,7 @@
 #include <string.h>
 #include "esp_heap_caps.h"
 #include "gnuboy.h"
+#include "gb_romsize.h"   // the bank arithmetic, shared with the host suite
 #include "hw.h"
 #include "cpu.h"
 #include "sound.h"
@@ -315,18 +316,31 @@ int gnuboy_load_rom(const byte *data, size_t size)
 	else
 		cart.mbc = MBC_NONE;
 
-	if (romsize < 9)
-	{
-		cart.romsize = (2 << romsize);
-	}
-	else if (romsize > 0x51 && romsize < 0x55)
-	{
-		cart.romsize = 128; // (2 << romsize) + 64;
-	}
-	else
+	/* The header byte -> bank count mapping lives in gb_romsize.h so the host suite can test
+	 * the same code that runs here (this file cannot be compiled on the host). */
+	cart.romsize = gbBanksFromHeader(romsize);
+	if (cart.romsize == 0)
 	{
 		MESSAGE_ERROR("Invalid ROM size: %d\n", romsize);
 		return -2;
+	}
+
+	/* 🛑 A BUFFER SHORTER THAN THE HEADER CLAIMS IS A DEAD GAME, NOT A SMALL ONE.
+	 * The only size check above is `size < 0x200`, so any file over 512 bytes gets this far
+	 * and `cart.romsize` is taken from header[0x0148] rather than from what actually arrived.
+	 * The mapping loop below runs while `size - pos >= BANK_SIZE`, so on a buffer smaller than
+	 * one 16 KB bank it never executes at all and `cart.rombanks[]` stays entirely NULL --
+	 * whereupon gb_hw_updatemap() mallocs an UNINITIALISED PSRAM bank and the CPU executes
+	 * whatever was in that memory. No panic, no message: the emulator just runs garbage.
+	 * Reachable today by any truncated upload (a half-finished WiFi transfer), and it was
+	 * reachable by a 4,096-byte macOS `._` sidecar until 0.9.57 stopped listing them.
+	 * Only the in-memory path is guarded: with a romFile, banks are read from the file on
+	 * demand and a short read is already handled (the 0xFF fill below). */
+	if (!cart.romFile && gbRomTruncated(size, cart.romsize))
+	{
+		MESSAGE_ERROR("ROM truncated: %u bytes for a %d-bank cart\n",
+		              (unsigned)size, cart.romsize);
+		return -4;
 	}
 
 	if (ramsize < 6)

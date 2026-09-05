@@ -67,8 +67,21 @@ static void testSafeName() {
   ok(!chunkSafeName("books/", out, sizeof(out)), "a trailing slash leaves nothing");
   ok(!chunkSafeName(".", out, sizeof(out)), "dot is refused");
   ok(!chunkSafeName("..", out, sizeof(out)), "dot-dot is refused");
-  ok(chunkSafeName(".hidden", out, sizeof(out)) && !strcmp(out, ".hidden"),
-     "a dot-FILE is a legitimate name");
+  /* 🛑 REVERSED 2026-09-04, deliberately. This used to assert that ".hidden" was "a
+   * legitimate name". Nothing this protocol carries -- ROMs, books, photos -- ever begins
+   * with a dot, and the one thing that does is the class that already cost a session: macOS
+   * writes an AppleDouble sidecar `._Name.gbc` beside every real file when a folder is
+   * copied, and twelve of them reached a card and showed up as duplicate ROMs (0.9.57 taught
+   * the picker to hide them). Those sidecars are ~4 KB, which is also exactly the truncated
+   * ROM that made gnuboy run uninitialised PSRAM. Refusing the whole leading-dot class here
+   * stops them at the door instead of hiding them afterwards. */
+  ok(!chunkSafeName(".hidden", out, sizeof(out)), "a leading dot is refused");
+  ok(!chunkSafeName("._Pokemon.gbc", out, sizeof(out)),
+     "the macOS AppleDouble sidecar is refused by name");
+  ok(!chunkSafeName("roms/._Pokemon.gbc", out, sizeof(out)),
+     "...and still refused when it arrives with a path in front of it");
+  ok(chunkSafeName("v1.2.rom", out, sizeof(out)) && !strcmp(out, "v1.2.rom"),
+     "dots elsewhere in the name are untouched");
   ok(!chunkSafeName("a\tb.epub", out, sizeof(out)), "control characters are refused");
   ok(!chunkSafeName(NULL, out, sizeof(out)), "NULL is refused");
   char longname[80];

@@ -1,6 +1,6 @@
 {
   "name": "WiPhone",
-  "version": "0.9.57",
+  "version": "0.9.58",
   "new_install_prompt_erase": false,
   "builds": [
     {

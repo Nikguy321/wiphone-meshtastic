@@ -2442,6 +2442,33 @@ __attribute__((unused)) static void cpuRaiseForUi() {
   }
 }
 
+/* ── LOOP PHASE TRACKER ────────────────────────────────────────────────────────────────────
+ * The stall detector below says HOW LONG a pass took and never WHICH PART of it took the time,
+ * which is the difference between "62 stalls happened" and "this call blocks". Each major block
+ * of the superloop names itself on the way in; the detector then reports the SLOWEST block of
+ * the pass that just ended.
+ *
+ * Deliberately as dumb as it looks: a pointer store and one millis() per phase, no allocation,
+ * no formatting, nothing that can itself block — an instrument that can stall is worse than no
+ * instrument. The name must be a STRING LITERAL (it is held as a bare pointer across passes,
+ * never copied), and `phaseWorst` is read at the top of the next pass, so nothing here may
+ * reset it except the detector itself.
+ */
+static const char* gPhaseNow      = "boot";
+static uint32_t    gPhaseAtMs     = 0;
+static const char* gPhaseWorst    = "-";
+static uint32_t    gPhaseWorstMs  = 0;
+
+static inline void loopPhase(const char* name) {
+  const uint32_t t = millis();
+  if (gPhaseAtMs) {
+    const uint32_t d = t - gPhaseAtMs;
+    if (d > gPhaseWorstMs) { gPhaseWorstMs = d; gPhaseWorst = gPhaseNow; }
+  }
+  gPhaseNow  = name;
+  gPhaseAtMs = t;
+}
+
 void loop() {
   while (1) {
     esp_task_wdt_reset();          // DIAGNOSTIC: see setup(). loop() never returns, so the
@@ -2478,8 +2505,10 @@ void loop() {
       if (sLastPassMs) {
         const uint32_t took = now - sLastPassMs;
         if (took > 250) {
-          log_e("LOOP STALL: %u ms in one pass (scr=%d cpu=%uMHz wifi=%d) - WiFi/keypad/screen "
-                "were all frozen for this long", (unsigned)took, (int)gui.state.screenBrightness,
+          log_e("LOOP STALL: %u ms in one pass, worst block '%s' %u ms "
+                "(scr=%d cpu=%uMHz wifi=%d) - WiFi/keypad/screen were all frozen for this long",
+                (unsigned)took, gPhaseWorst, (unsigned)gPhaseWorstMs,
+                (int)gui.state.screenBrightness,
                 (unsigned)(getCpuFrequencyMhz()), (int)WiFi.status());
           /* ⚠ AND INTO /health.log, because serial only helps when somebody is watching it.
            * The freeze this exists to catch happens while Nick is USING the phone — walking
@@ -2491,22 +2520,31 @@ void loop() {
           if (!sLastStallLogMs || (uint32_t)(now - sLastStallLogMs) > 60000) {
             sLastStallLogMs = now;
             char stallLine[96];
-            snprintf(stallLine, sizeof(stallLine), "STALL %ums scr=%d cpu=%u wifi=%d",
-                     (unsigned)took, (int)gui.state.screenBrightness,
+            snprintf(stallLine, sizeof(stallLine), "STALL %ums %s %ums scr=%d cpu=%u wifi=%d",
+                     (unsigned)took, gPhaseWorst, (unsigned)gPhaseWorstMs,
+                     (int)gui.state.screenBrightness,
                      (unsigned)(getCpuFrequencyMhz()), (int)WiFi.status());
             healthLogLine(stallLine);
           }
         }
       }
       sLastPassMs = now;
+      /* The pass just reported on is over: start the next one's worst-block search clean.
+       * Only the detector may clear this — see the tracker's note above. */
+      gPhaseWorstMs = 0;
+      gPhaseWorst   = "-";
+      loopPhase("top");
     }
     /* The mesh database save blocks this task for ~1.5 s, so it is held off while the phone is
      * being used — see MeshtasticService::setUiIdle(). Three seconds after the last key, the
      * user has stopped scrolling and a freeze there costs nothing. This is the only place that
      * can see both the keypad and the mesh service. */
+    loopPhase("mesh-uiidle");
     meshService.setUiIdle(gLastKeyMs == 0 || (uint32_t)(now - gLastKeyMs) > 3000);
     meshService.setCardPresent(gui.state.cardPresent);   // the DB lives on SD when there is one
+    loopPhase("gbc-xfer");
     gbcXferHandleClient();
+    loopPhase("serial-cmd");
     serialCmdLoop();       // USB console: `?` for help. Costs nothing when nothing is typed.
 
     /* Pull mirrored texts from COVEY over the LAN — one bounded step per pass, never a
@@ -2518,6 +2556,7 @@ void loop() {
      * so the poller could not read a config file that had just been uploaded — and reported
      * nothing about it, because the reporting was inside the skipped call. The socket is the
      * only part that needs gating. */
+    loopPhase("sms-mirror");
     smsMirrorPollLoop(sipMayPoll());
 
     /* THE MIRROR'S ANNOUNCER — one place, both transports. smsMirrorIngestLine() latches
@@ -2532,6 +2571,7 @@ void loop() {
      * until you backed out and re-entered — at which point the sort dropped it mid-list,
      * muddying the ordering bug's report. */
     {
+      loopPhase("mirror-ui");
       static bool     s_mirrorUiPending = false;
       static uint32_t s_mirrorUiLastMs  = 0;
       bool inbound = false;
@@ -2569,6 +2609,7 @@ void loop() {
        * (the handoff's own instruction was to delete it or raise the threshold once
        * trusted). At 2 s it still names the moment of any real step within the window the
        * HEALTH line could never resolve, for an eighth of the walks. */
+      loopPhase("heap-watch");
       const uint32_t DROP_THRESH = 1024;
       static uint32_t s_lastLargestCheck = 0;
       static uint32_t s_largestHigh = 0;
@@ -2622,6 +2663,7 @@ void loop() {
      *
      * So skip a pass that arrives late and let the drain below refresh the timestamps
      * first. One pass is enough — a single keyboardRead() empties the whole FIFO. */
+    loopPhase("key-sweep");
     static uint32_t s_lastSweepMs = 0;
     const bool loopWasStalled = s_lastSweepMs && (now - s_lastSweepMs) > 100;
     s_lastSweepMs = now;
@@ -2661,6 +2703,7 @@ void loop() {
      * restarts the current one.
      *
      * Read here, right after the stale-key sweep, so uiKeyDown is already up to date. */
+    loopPhase("music");
     if (!gGbcActive && musicPlayerCurrent() >= 0) {
       if (uiKeyDown & WIPHONE_KEY_MASK_F2) {
         if (!msF2Down) {
@@ -2899,6 +2942,7 @@ void loop() {
     // Process keys buffer
     EventType keyPressed;
     bool anyPressed = false;
+    loopPhase("keys");
     while (!keypadBuff.empty()) {
       // Retrieve button from buffer safely
       keyPressed = keypadBuff.get();
@@ -3137,6 +3181,7 @@ void loop() {
     // move autoSwitchTick already makes), so the radio genuinely rests between attempts
     // instead of chewing mid-association — and so scans read the air honestly.
     {
+      loopPhase("wifi-retry");
       static uint32_t s_wifiRetryFails = 0;
       static uint32_t s_wifiQuiesceAtMs = 0;
       static bool     s_prevScreenOnWifi = true;
@@ -3251,6 +3296,7 @@ void loop() {
     // while actually connected. That makes this deadlock structurally
     // impossible for ANY stuck state, present or future.
     {
+      loopPhase("audio-gate");
       CallState cs = gui.state.sipState;
       bool audioDelicate = (cs == CallState::InvitingCallee || cs == CallState::InvitedCallee ||
                             cs == CallState::RemoteRinging  || cs == CallState::Call ||
@@ -3283,6 +3329,7 @@ void loop() {
 
     // Trigger scheduled events
     EventType evnt;
+    loopPhase("events");
     while (evnt = gui.state.popEvent(now)) {
       redrawWhat |= gui.processEvent(now, evnt);
     }
@@ -3305,6 +3352,7 @@ void loop() {
     }*/
 
     // Clock update
+    loopPhase("ntp");
     if (ntpClock.isUpdated()) {
       if (waitingForClockUpdate) {
         updateMessageTimes = true;
@@ -3337,6 +3385,7 @@ void loop() {
 #ifdef WIPHONE_BOARD
 
     // Check battery state
+    loopPhase("battery");
     if (elapsedMillis(now, msLastBatt, BATTERY_CHECK_PERIOD_MS)) {
       msLastBatt = now;
       float v = gauge.readVoltage();
@@ -3504,6 +3553,7 @@ void loop() {
     }
 
     // Check for changes in WiFi strength
+    loopPhase("wifi-rssi");
     if (elapsedMillis(now, msLastWiFiRssi, WIFI_CHECK_PERIOD_MS)) {
       msLastWiFiRssi = now;
       int rssi = WiFi.RSSI();
@@ -3516,6 +3566,7 @@ void loop() {
     }
 
     // Check if USB is connected / charging the battery
+    loopPhase("usb");
     if (elapsedMillis(now, msLastUsbCheck, USB_CHECK_PERIOD_MS)) {
       msLastUsbCheck = now;
       //bool usbHere = gpioExtender.digitalRead(USB_POWER_DETECT_PIN)==LOW ? true : false;
@@ -3560,6 +3611,7 @@ void loop() {
     // User serial processing
 #ifdef USER_SERIAL
     // Read what has arrived to user UART
+    loopPhase("user-serial");
     while (userSerial.available() > 0) {
       char ch = userSerial.read();
       if (gGpsNmea) {
@@ -3587,6 +3639,7 @@ void loop() {
 #endif // USER_SERIAL
 
     // GUI update
+    loopPhase("redraw");
     if (redrawWhat & REDRAW_ALL) {
       gui.redrawScreen(redrawWhat & REDRAW_HEADER, redrawWhat & REDRAW_FOOTER, redrawWhat & REDRAW_SCREEN, redrawWhat & LOCK_UNLOCK);
     }
@@ -3594,6 +3647,7 @@ void loop() {
     // SIP CLIENT:
 
     //Added: check if disconnected from wif during call
+    loopPhase("sip-recon");
     if (gui.state.hasSipAccount() && !wifiState.isConnected()) {
       if (sip.isBusy()) {
         log_d("Device disconnected from WIFI");
@@ -3657,6 +3711,7 @@ void loop() {
     }
     //    This is the "user-agent core", something that binds together SIP library, GUI, audio interfaces and message storage.
     //    It implements transitions between different call states.
+    loopPhase("sip");
     if (gui.state.hasSipAccount() && wifiState.isConnected() && sipMayPoll()) {
       if( wifiTerminateSip == TERMINATE_OK ) {
         /* 🛑 THIS LINE WAS `gui.state.sipState == CallState::NotInited;` — A COMPARISON WHOSE
@@ -4054,12 +4109,14 @@ void loop() {
     }
 
 #if defined(LORA_MESSAGING) && !defined(MESHTASTIC_PHY)
+    loopPhase("lora");
     if (!gGbcActive && lora.loop()) {
       log_d("Received LoRa message");
       appEventResult res = gui.processEvent(now, NEW_MESSAGE_EVENT);
       gui.redrawScreen(res & REDRAW_HEADER, res & REDRAW_FOOTER, res & REDRAW_SCREEN);
     }
 
+    loopPhase("lora-tx");
     if (gui.state.outgoingLoraMessages.size() > 0) {
       log_d("Sending LoRa message");
       // Send queued messages
@@ -4111,6 +4168,7 @@ void loop() {
     // Meshtastic background service tick (non-blocking). If a new message
     // arrived, notify the GUI so an open Channel view refreshes live, raise the
     // status-bar unread flag, and show a brief popup banner on any screen.
+    loopPhase("mesh");
     if (!gGbcActive && meshService.loop()) {
       log_d("Received Meshtastic message");
       gui.state.meshUnread = true;
@@ -4262,6 +4320,7 @@ void loop() {
     //msProfile.add(micros()-loopTime);
 //    uint32_t loopTime = micros();
 //    if (!msProfileStart) msProfileStart = loopTime;
+    loopPhase("audio-loop");
     audio->loop();
 
 //    // Profiler
@@ -4320,6 +4379,7 @@ void loop() {
      * ⚠ Not applied while the radio or I2S are mid-transfer by design: everything in the
      * "full speed" list above covers those cases, so the frequency only ever moves when
      * the phone is genuinely idle. */
+    loopPhase("cpu-tick");
     bool idleTickStretch = false;
     {
       /* ── TWO PREDICATES, NOT ONE ──────────────────────────────────────────────

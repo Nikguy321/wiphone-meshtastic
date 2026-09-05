@@ -69,7 +69,13 @@ static inline bool chunkSafeName(const char* in, char* out, size_t cap) {
   if (n == 0 || n >= cap) {
     return false;
   }
-  if (!strcmp(base, ".") || !strcmp(base, "..")) {
+  /* 🛑 REFUSE EVERY LEADING-DOT NAME, not just "." and "..". A macOS client uploading a
+   * folder sends an AppleDouble sidecar `._Name.gbc` beside each real file, and 0.9.57 had to
+   * teach the Game Boy picker to hide those AFTER twelve of them reached a card. Accepting
+   * them here is the other half of that: a 4,096-byte `._X.gbc` is exactly the truncated ROM
+   * the gnuboy guard now refuses to run. Nothing the phone legitimately receives over this
+   * protocol begins with a dot, so the whole class goes. */
+  if (base[0] == '.') {
     return false;
   }
   for (size_t i = 0; i < n; i++) {

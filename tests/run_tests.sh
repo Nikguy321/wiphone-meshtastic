@@ -76,6 +76,10 @@ for src in tests/test_*.cpp; do
     # that decode. helix is C and is listed in csrc, not deps — see CFLAGS above.
     test_mp3)      deps=(WiPhone/mp3_stream.cpp)
                    csrc=(WiPhone/src/audio/helix-mp3/*.c) ;;
+    # Header-only: the Game Boy cartridge arithmetic (gnuboy/gb_romsize.h). gnuboy.c itself
+    # cannot be compiled here (esp_heap_caps.h, hw.h, cpu.h, sound.h, lcd.h), which is why the
+    # arithmetic lives in a header both it and this suite include.
+    test_gbrom)    deps=() ;;
     *)             deps=() ;;
   esac
   echo "building $name"
