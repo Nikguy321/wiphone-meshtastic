@@ -12,7 +12,7 @@ one**: `test_gbrom`, 24 checks. Phone 1 = `usbserial-025A3EAF` = `!00449040` (no
 = `025A3F65` = `!00449334` (woods backplate — battery experiments happen on PHONE 1 ONLY).
 
 🔎 **0.9.58's headline: THE `LOOP STALL` LINE NOW NAMES THE BLOCK THAT STALLED, and it earned
-itself within a minute of flashing.** Each of the superloop's 25 major blocks names itself on the
+itself within a minute of flashing.** Each of the superloop's 26 major blocks names itself on the
 way in; the detector reports the slowest one of the pass that just ended. Measured on phone 1
 straight after the flash:
 | command | stall | worst block |
@@ -20,11 +20,17 @@ straight after the flash:
 | `pki` | 313 ms | `serial-cmd` 312 ms |
 | `health` | 503 ms | `serial-cmd` 501 ms |
 | `nbr` | **644 ms** | 🔑 **`mesh` 644 ms — NOT the printing** |
-▶ **THAT LAST ROW IS THE NEXT THREAD TO PULL.** `nbr`'s cost is inside `meshService.loop()`, not
-in the serial dump, and no previous line could have pointed at it. The mesh DB save is documented
-to block ~1.5 s and is held off while the phone is being used (`setUiIdle`), so that is the first
-suspect — but it is now a measurement rather than a guess. The same names go into `/health.log`,
-so a freeze in the woods is diagnosable afterwards.
+▶ **AND IT IS NOT ABOUT `nbr` — IT IS THE MESH SERVICE IN ORDINARY USE.** Phone 2's retained
+`/health.log`, read over the cable at 22:10 with `health all`, holds **84 STALL records: 83 of
+them `mesh`, one `battery`, none `serial-cmd`.** Median **644 ms**, p90 925 ms, **max 1,505 ms**,
+six over a second. Nobody was driving it — this is what the phone does while it sits there. So
+the `nbr` reading was not a quirk of a big serial dump; it is the same block, and it is the
+dominant cost in the whole loop.
+🔑 **THE NEXT THREAD, and it is now a measurement rather than a guess:** the mesh DB save is
+documented to block ~1.5 s (which matches the 1,505 ms maximum almost exactly) and is held off
+while the phone is being USED via `setUiIdle` — so the suspicion is that it fires whenever the
+phone is idle, which is most of the time in a pocket. Read it yourself with `health all` on
+either phone; the names are in `/health.log`, so a freeze in the woods is diagnosable afterwards.
 
 **Also in 0.9.58, both silent until now:** a **truncated ROM** no longer runs uninitialised PSRAM
 (gnuboy checked only `size < 0x200` and took the bank count from the file's own header, so a
@@ -57,7 +63,7 @@ at 9 dB. The phone confirms its own transmit with `MESH RECEIPT: '<text>' -> in 
 🔋 **THE DRAIN VERDICT (six lenses, 15/15 skeptic verdicts upheld, critic run): NO SINGLE THING.**
 ESP32 never light-sleeping (~20 mA typ) and the SX1276 in RX-continuous (~11 typ) are the two
 big rows; the typical idle sum is 35-45 mA against **91-95 mA implied for a healthy 900 mAh cell
-to the FIRMWARE'S OWN 3.30 V power-off** (WiPhone.ino:3500 `v <= 3.3` → `powerOff()`; the run did
+to the FIRMWARE'S OWN 3.30 V power-off** (WiPhone.ino:3549 `v <= 3.3` → `powerOff()`; the run did
 NOT end in a brown-out). **⇒ 45-60 mA unexplained at 100 % cell health, 25-40 at 80 %.** Nick
 confirmed the cell is 900 mAh nominal. Corrections that landed: WiFi OFF vs ASSOCIATED saves
 **0-20 %**, not 28 % (the headline rested on one pre-`aud=` run) — the woods rule is "avoid
@@ -72,10 +78,10 @@ the USB-power-meter bench (`lcd sleep|wake`, `i2s stop|start`, `lora sleep|rx`, 
 every switch round-tripped on phone 1, light sleep returned in 5,001 ms. (4) `gb_hw_updatemap()`
 lost its `IRAM_ATTR` to fit — **watch for Game Boy stutter on bank-switch-heavy games**, none expected.
 
-**Smaller open items, all recorded below:** the 62 `LOOP STALL`s (add the caller's name to the
-STALL line); GPIO38 is both `RFM95_INT` and `USER_SERIAL_RX`; gnuboy runs uninitialised PSRAM on
-a `.gbc` shorter than one bank (guard suggested, not built); `chunkSafeName()` accepts a
-leading-dot name; the 3.30 V cutoff itself is a small lever (+10-25 min, measure first).
+**Smaller open items** (three of the old five were BUILT in 0.9.58 — the STALL caller's name,
+the gnuboy truncated-ROM guard and `chunkSafeName`'s leading-dot rule — and are described above):
+GPIO38 is both `RFM95_INT` and `USER_SERIAL_RX`, so a DIO0 interrupt wake is impossible with the
+woods plate fitted; and the 3.30 V cutoff itself is a small lever (+10-25 min, measure first).
 
 # 🔋 2026-09-03 afternoon — WHERE PHONE 1'S 80-100 mA GOES: NO SINGLE THING IS "MOSTLY
 # RESPONSIBLE", THE TWO BIGGEST ROWS ARE THE ESP32 AND THE LORA RADIO, AND 10-50 mA IS UNACCOUNTED
@@ -100,9 +106,9 @@ listening, codec off) the ranked idle budget is:
 | microSD idle, one append per minute | mounted at boot, no power pin | 0.2-3 | card-dependent |
 | SX1509 2 MHz osc (for a PWM that is at 0), CW2015, SN7326, PSRAM standby, regulator Iq, CP2104 (USB-powered — 0) | | < 1 each | |
 | **sum** | | **~35-69** | |
-| **implied by the run** | 900 mAh / 9.12 h; 720 mAh at 80 % health | **99 / 79** | measured hours, unknown capacity; 🛑 **the run did NOT end in a brown-out — the FIRMWARE powered the phone off**: `if (v <= 3.3 && now >= 30000) powerOff();` in the battery tick (WiPhone.ino:3500; boot rule `< 3.1 V` at :1193), which drops the SX1509 latch — exactly why the next boot read `reset_reason=1` POWERON. Capacity "delivered" here is capacity TO 3.30 V ≈ 92-96 % of a to-3.0 V rating (typical LCO tail), so **a healthy 900 mAh cell delivers ~830-865 mAh and implies 91-95 mA** |
+| **implied by the run** | 900 mAh / 9.12 h; 720 mAh at 80 % health | **99 / 79** | measured hours, unknown capacity; 🛑 **the run did NOT end in a brown-out — the FIRMWARE powered the phone off**: `if (v <= 3.3 && now >= 30000) powerOff();` in the battery tick (WiPhone.ino:3549; boot rule `< 3.1 V` at :1193), which drops the SX1509 latch — exactly why the next boot read `reset_reason=1` POWERON. Capacity "delivered" here is capacity TO 3.30 V ≈ 92-96 % of a to-3.0 V rating (typical LCO tail), so **a healthy 900 mAh cell delivers ~830-865 mAh and implies 91-95 mA** |
 
-**⇒ 10-50 mA is unaccounted for**, and it is EITHER the cell's health (a 2023 cell at ~60-70 %
+**⇒ 45-60 mA is unaccounted for at 100 % cell health, 25-40 at 80 %** (the reconciled figure — the earlier 10-50 / 10-60 drafts elsewhere in this file are SUPERSEDED), and it is EITHER the cell's health (a 2023 cell at ~60-70 %
 would close the gap by itself) OR an unlisted consumer (an amp whose shutdown polarity is
 assumed, a hungry SD card, a linear regulator, the panel). **Step 0 of the meter session — phone
 ON minus phone OFF — is the one reading that decides which.** Do not tune anything against the
