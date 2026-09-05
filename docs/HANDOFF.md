@@ -1,38 +1,58 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-04 afternoon)
+## ▶▶ STATE NOW (header refreshed 2026-09-04 evening)
 
 Read this first; everything below it is narrative.
 
-**Where things are.** Both phones run **0.9.57**. ✅ **`main` IS PUSHED (`a7020e0`) AND THE WEB
-FLASHER IS PUBLISHED AND VERIFIED LIVE** — nikguy321.github.io serves manifest `0.9.57` and a
-binary whose sha256 (`03555be3…`) matches the committed one byte for byte. Host suite
-**139 / 139**. Phone 1 = `usbserial-025A3EAF` = `!00449040` (no plate); phone 2 = `025A3F65` =
-`!00449334` (woods backplate — battery experiments happen on PHONE 1 ONLY).
+**Where things are.** Both phones run **0.9.58** (flashed this evening, `Hash of data verified`
+on both, radios detected, `ver` reports it). ✅ **`main` IS PUSHED AND THE FLASHER IS LIVE AND
+VERIFIED** — nikguy321.github.io serves manifest `0.9.58` and a binary whose sha256
+(`42d6edc2…`) matches the committed one byte for byte. Host suite **all green, and there is a new
+one**: `test_gbrom`, 24 checks. Phone 1 = `usbserial-025A3EAF` = `!00449040` (no plate); phone 2
+= `025A3F65` = `!00449334` (woods backplate — battery experiments happen on PHONE 1 ONLY).
 
-🛑 **THE RELEASE COMMIT SHIPPED A STALE FLASHER IMAGE, and it is worth knowing how.**
-`a9a3e0e` ("Release 0.9.57") committed `webflasher/wiphone-merged.bin` with the 0.9.57 *manifest*
-but a *binary whose version string reads 0.9.56* — `tools/make_webflasher.sh` had not been re-run
-before committing. The stage was regenerated and published 26 minutes later, so **what users
-downloaded was always correct**; the repo simply never recorded it, and anyone rebuilding the
-flasher from `main` would have produced an installer for the PREVIOUS release. Fixed in
-`a7020e0`, which commits the published image (2,607,392 bytes, containing
-`.pio/build/wiphone/firmware.bin` verbatim at `0x10000`) and `tools/power_bench.py`, which the
-release message described but never added. ⚠ **The lesson for the next release: `make_webflasher.sh`
-BEFORE the release commit, and diff the version string in the staged binary — the manifest and the
-binary are two separate things and only the manifest is human-readable.**
+🔎 **0.9.58's headline: THE `LOOP STALL` LINE NOW NAMES THE BLOCK THAT STALLED, and it earned
+itself within a minute of flashing.** Each of the superloop's 25 major blocks names itself on the
+way in; the detector reports the slowest one of the pass that just ended. Measured on phone 1
+straight after the flash:
+| command | stall | worst block |
+|---|---|---|
+| `pki` | 313 ms | `serial-cmd` 312 ms |
+| `health` | 503 ms | `serial-cmd` 501 ms |
+| `nbr` | **644 ms** | 🔑 **`mesh` 644 ms — NOT the printing** |
+▶ **THAT LAST ROW IS THE NEXT THREAD TO PULL.** `nbr`'s cost is inside `meshService.loop()`, not
+in the serial dump, and no previous line could have pointed at it. The mesh DB save is documented
+to block ~1.5 s and is held off while the phone is being used (`setUiIdle`), so that is the first
+suspect — but it is now a measurement rather than a guess. The same names go into `/health.log`,
+so a freeze in the woods is diagnosable afterwards.
 
-▶ **THE NEXT STEP IS STILL NICK'S 10-MINUTE METER SESSION, and the tooling is now PROVEN.**
-`tools/power_bench.py <port>` drives the whole thing: it flips one consumer at a time in the
-handoff's order, restores every switch in a `finally`, and asks for the meter reading at each
-step. ✅ **Rehearsed end to end on phone 1 today with no meter:** `lcd sleep/wake`,
-`i2s stop/start` and `lora sleep/rx` each flipped and came back (the phone reports them as
-`SLPIN(bench)`, `stopped(bench)`, `SLEEP(bench)`), light sleep returned in **5,001 ms**, and
-nothing was left flipped. **Phone 1 is staged and passes every one of the script's preflight
-checks right now** — `wifi=OFF lora=rx audio=off gbc=0`, `soc=100% v=4.20 chg=1`, and it settles
-to `cpu=80MHz screen=0` once the screen sleeps. So the session is: put the meter inline, run the
-script, type what the meter shows. **Step 0 is still phone ON − OFF, the one reading that decides
-cell-versus-board.**
+**Also in 0.9.58, both silent until now:** a **truncated ROM** no longer runs uninitialised PSRAM
+(gnuboy checked only `size < 0x200` and took the bank count from the file's own header, so a
+buffer under one 16 KB bank left the bank table NULL and the emulated CPU executed whatever was in
+the malloc'd bank — no panic, just a dead game); the arithmetic moved to `gnuboy/gb_romsize.h` so
+the host suite tests the shipping code. And **`chunkSafeName()` now refuses every leading-dot
+name**, so a Mac client can no longer upload the `._` sidecars that 0.9.57 had to hide.
+
+⚠ **THE RELEASE LESSON FROM THIS MORNING, now followed:** regenerate the webflasher stage
+**BEFORE** the release commit and **read the version string out of the BINARY** — 0.9.57 shipped a
+0.9.57 manifest wrapped around a 0.9.56 image because the stage was stale, and only the manifest
+is human-readable. Done and checked for this release.
+
+▶ **THE NEXT STEP IS STILL NICK'S 10-MINUTE METER SESSION, and the tooling is PROVEN.**
+`tools/power_bench.py <port>` flips one consumer at a time in the handoff's order, restores every
+switch in a `finally`, and asks for the reading at each step. ✅ Rehearsed end to end on phone 1
+with no meter: `lcd sleep/wake`, `i2s stop/start` and `lora sleep/rx` each flipped and came back
+(the phone reports them as `SLPIN(bench)`, `stopped(bench)`, `SLEEP(bench)`), light sleep returned
+in **5,001 ms**, nothing left flipped. **Phone 1 is staged and passes every preflight the script
+makes** — `wifi=OFF lora=rx audio=off gbc=0`, `soc=100% v=4.20 chg=1`. **Step 0 is still phone
+ON − OFF, the one reading that decides cell-versus-board.**
+
+📡 **THE MESH WAS TESTED END TO END TODAY AND IT WORKS.** `send 2 'link check …'` from phone 1
+arrived in COVEY's `hunt-group` conversation as `WiPhone-NICK`. ⚠ **A phone that has just
+rebooted transmits into nothing** — the first attempt vanished because opening the serial port
+resets the phone and its radio had no neighbours yet. **Give it ~70 s and check `nbr` shows
+neighbours before trusting a send.** Phone 1 then had two: `!00449334` at 12 dB and `!62b8d2fd`
+at 9 dB. The phone confirms its own transmit with `MESH RECEIPT: '<text>' -> in mesh`.
 
 🔋 **THE DRAIN VERDICT (six lenses, 15/15 skeptic verdicts upheld, critic run): NO SINGLE THING.**
 ESP32 never light-sleeping (~20 mA typ) and the SX1276 in RX-continuous (~11 typ) are the two
