@@ -84,8 +84,11 @@ GPIO38 is both `RFM95_INT` and `USER_SERIAL_RX`, so a DIO0 interrupt wake is imp
 woods plate fitted; and the 3.30 V cutoff itself is a small lever (+10-25 min, measure first).
 
 # 🔋 2026-09-03 afternoon — WHERE PHONE 1'S 80-100 mA GOES: NO SINGLE THING IS "MOSTLY
-# RESPONSIBLE", THE TWO BIGGEST ROWS ARE THE ESP32 AND THE LORA RADIO, AND 10-50 mA IS UNACCOUNTED
+# RESPONSIBLE", THE TWO BIGGEST ROWS ARE THE ESP32 AND THE LORA RADIO, AND 45-60 mA IS UNACCOUNTED
 # FOR UNTIL THE METER SESSION ABOVE IS RUN
+# ⚠ THE FIGURE IN THIS HEADING WAS "10-50 mA" AND IS SUPERSEDED. The reconciled answer — see
+# "THE ONE LINE TO QUOTE" below — is 45-60 mA unexplained at 100 % cell health, 25-40 at 80 %,
+# against a typical idle sum of 35-45 mA. Every other figure in this section is a pre-critic draft.
 
 Nick: "take a look at wiphone 1's curves and drain log. do a check to see if any one thing is
 mostly responsible for the battery drain and look for optimization opportunities."
@@ -105,7 +108,7 @@ listening, codec off) the ranked idle budget is:
 | I2S module + APLL + MCLK on GPIO0 | installed in `Audio::Audio()` with `use_apll`, never `i2s_stop`ped on a boot that never played (watchdog exits on `!isOn()`) | 1-3 | guess |
 | microSD idle, one append per minute | mounted at boot, no power pin | 0.2-3 | card-dependent |
 | SX1509 2 MHz osc (for a PWM that is at 0), CW2015, SN7326, PSRAM standby, regulator Iq, CP2104 (USB-powered — 0) | | < 1 each | |
-| **sum** | | **~35-69** | |
+| **sum** | | **~35-45 typical** (the table's raw span is 35-69; the critic's reconciliation is 35-45) | |
 | **implied by the run** | 900 mAh / 9.12 h; 720 mAh at 80 % health | **99 / 79** | measured hours, unknown capacity; 🛑 **the run did NOT end in a brown-out — the FIRMWARE powered the phone off**: `if (v <= 3.3 && now >= 30000) powerOff();` in the battery tick (WiPhone.ino:3549; boot rule `< 3.1 V` at :1193), which drops the SX1509 latch — exactly why the next boot read `reset_reason=1` POWERON. Capacity "delivered" here is capacity TO 3.30 V ≈ 92-96 % of a to-3.0 V rating (typical LCO tail), so **a healthy 900 mAh cell delivers ~830-865 mAh and implies 91-95 mA** |
 
 **⇒ 45-60 mA is unaccounted for at 100 % cell health, 25-40 at 80 %** (the reconciled figure — the earlier 10-50 / 10-60 drafts elsewhere in this file are SUPERSEDED), and it is EITHER the cell's health (a 2023 cell at ~60-70 %
@@ -240,9 +243,9 @@ these.
 **Why.** Phone 1's full-to-empty run implies **~80-100 mA average with WiFi off** (900 mAh over
 9.12 h = 99 mA; 79 mA at 80 % cell health — the cell's health is unknown, so the range is real).
 Everything the firmware leaves powered at idle, summed at datasheet typicals, reaches only
-**~35-58 mA**: ESP32 at 80 MHz never light-sleeping 20-31, SX1276 RX-continuous ~11, ST7789
+**~35-45 mA reconciled** (this paragraph's own raw span was ~35-58): ESP32 at 80 MHz never light-sleeping 20-31, SX1276 RX-continuous ~11, ST7789
 awake behind a dark backlight 1-8 (guess), I2S+APLL running from boot 1-3 (guess), SD idle
-0.2-1, everything else < 1. **10-60 mA is unaccounted for** (regulator topology, panel, codec,
+0.2-1, everything else < 1. **45-60 mA is unaccounted for at 100 % cell health, 25-40 at 80 %** (this line said 10-60; superseded) (regulator topology, panel, codec,
 cell health — none measured). The cell is soldered; a drain run resolves 10 mA only after hours
 at matched voltage. **The USB meter resolves 1 mA in seconds — IF the cell is full**, so the
 charger has tapered and the meter reads the board and not the charge.
