@@ -324,6 +324,74 @@ static void testIdsMatch() {
   ok(!bookSyncIdsMatch(empty, 1, a, 3), "empty id never matches");
 }
 
+/* ---- the two defects found in the 2026-09-05 booksync sweep -------------------------- */
+
+static void testLongIdsStillMatchAcrossTheWire() {
+  group("a book with a LONG id still syncs (the wire cuts ids to 40 bytes)");
+
+  /* epubSlug builds "ta:" + up to 64 characters, so real ids run to 67 bytes — well past
+   * BOOKSYNC_MESH_ID_BYTES. reduce_for_mesh sends only the first 40, and the matcher used a
+   * plain strcmp, so for these books sync silently did NOTHING, for ever, on both ends. */
+  const char* longId =
+      "ta:the-brothers-karamazov-fyodor-dostoevsky-constance-garnett-translation";
+  ok(strlen(longId) > BOOKSYNC_MESH_ID_BYTES, "the fixture really is longer than the wire");
+
+  BookSyncRecord full, red;
+  const char* mine[] = { longId, "fp:abcdabcd" };
+  bookSyncMakeRecord(&full, mine, 2, 3, 100, 0.5, 1000, "COVEY", "abcdabcd");
+  bookSyncReduceForMesh(&full, &red, NULL);
+  ok(strcmp(red.ids[0], longId) != 0, "the wire id really is truncated");
+
+  ok(bookSyncRecordMatchesIds(&red, mine, 2),
+     "the truncated wire id matches our untruncated one");
+
+  // ...and it must NOT match a different book that merely has a long id too.
+  const char* other[] = { "ta:crime-and-punishment-fyodor-dostoevsky-constance-garnett-trans" };
+  ok(!bookSyncRecordMatchesIds(&red, other, 1), "a different book still does not match");
+
+  // Short ids are unaffected: an exact match is still an exact match, and a miss still misses.
+  const char* shortMine[] = { "id:pg-1342" };
+  const char* shortOther[] = { "id:pg-9999" };
+  ok(bookSyncIdsMatch(shortMine, 1, shortMine, 1), "short id matches itself");
+  ok(!bookSyncIdsMatch(shortMine, 1, shortOther, 1), "short ids that differ still do not match");
+}
+
+static void testFractionRoundsUpSoAChapterStartStays() {
+  group("the fraction quantiser rounds UP, so a chapter start does not fall backwards");
+
+  /* Quantising to 1/65535ths used to truncate. A chapter boundary is an arbitrary real, so
+   * the dequantised value landed BELOW it essentially every time — and applyPending() feeds
+   * exactly that fraction to epubLocate, which then returns the END OF THE PREVIOUS CHAPTER. */
+  const char* ids[] = { "id:x" };
+  const double probes[] = { 0.5, 0.333333, 0.123456, 0.987654, 0.000123, 0.75 };
+  int below = 0;
+  for (unsigned i = 0; i < sizeof(probes) / sizeof(probes[0]); i++) {
+    BookSyncRecord full, red;
+    bookSyncMakeRecord(&full, ids, 1, 0, 0, probes[i], 1000, "d", "abcdabcd");
+    bookSyncReduceForMesh(&full, &red, NULL);
+    if (red.fraction + 1e-12 < full.fraction) {
+      below++;
+    }
+  }
+  eqU32((unsigned long)below, 0, "no probe quantises to LESS than where the reader actually was");
+
+  // and never past the end, nor below the start
+  BookSyncRecord one, oneR, zero, zeroR;
+  bookSyncMakeRecord(&one, ids, 1, 0, 0, 1.0, 1000, "d", "abcdabcd");
+  bookSyncReduceForMesh(&one, &oneR, NULL);
+  ok(oneR.fraction <= 1.0 && oneR.fraction > 0.99999, "1.0 stays 1.0");
+  bookSyncMakeRecord(&zero, ids, 1, 0, 0, 0.0, 1000, "d", "abcdabcd");
+  bookSyncReduceForMesh(&zero, &zeroR, NULL);
+  ok(zeroR.fraction == 0.0, "0.0 stays 0.0");
+
+  /* The overshoot has to stay negligible — this is what makes rounding up the safe direction
+   * rather than a different bug. One step is 1/65535 of the whole book. */
+  BookSyncRecord mid, midR;
+  bookSyncMakeRecord(&mid, ids, 1, 0, 0, 0.5, 1000, "d", "abcdabcd");
+  bookSyncReduceForMesh(&mid, &midR, NULL);
+  ok(midR.fraction - 0.5 < 1.0 / 65535.0 + 1e-12, "and it never overshoots by more than one step");
+}
+
 static void testSuspectClock() {
   group("suspect_clock");
   BookSyncRecord r;
@@ -351,6 +419,8 @@ int main() {
   testRejections();
   testIsSyncText();
   testIdsMatch();
+  testLongIdsStillMatchAcrossTheWire();
+  testFractionRoundsUpSoAChapterStartStays();
   testSuspectClock();
 
   printf("\n%s%d passed, %d failed\033[0m\n",

@@ -153,6 +153,10 @@ protected:
   BookSyncRecord pending;        // a parked position that matches the open book
   uint32_t pendingFrom;          // which node sent it
   int      pendingIdx;           // its slot in the inbox, or -1 for none
+  uint32_t pendingId;            // 🛑 REMOVE BY THIS, NOT BY pendingIdx. Parking a packet
+                                 // evicts and shifts, and the card waits on a human, so the
+                                 // slot moves under us. See booksync_inbox.h.
+  void dropParkedForThisBook();  // retire every offer parked for the open book
   bool     pendingClock;         // its clock looks wrong (see bookSyncSuspectClock)
   uint32_t syncSeqSeen;          // bookSyncInboxSeq() as of the last checkForPending()
   char     syncNote[64];         // result of the last send, shown in the menu

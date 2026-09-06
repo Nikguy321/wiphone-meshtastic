@@ -42,6 +42,7 @@ struct BookSyncInboxItem {
   char     text[BOOKSYNC_MESH_TEXT_MAX];   // the packet exactly as received
   uint32_t from;                           // sender node number, for showing who
   uint32_t rxUnix;                         // when we heard it (0 if the clock is unknown)
+  uint32_t id;                             // stable while parked; see bookSyncInboxRemoveId
 };
 
 void bookSyncInboxInit();
@@ -55,6 +56,42 @@ int  bookSyncInboxCount();
 const BookSyncInboxItem* bookSyncInboxGet(int i);
 void bookSyncInboxRemove(int i);
 
+/* 🛑 AN INDEX IS NOT A HANDLE. Parking a packet can EVICT the oldest, which shifts every
+ * remaining entry down one, and bookSyncInboxRemove() shifts too — so an index held across
+ * any gap can come to mean a different packet, or none.
+ *
+ * The reader holds its choice across a wait for a HUMAN KEYPRESS: checkForPending() picks a
+ * packet, the sync card goes up, and the removal only happens when Nick presses OK or Back,
+ * seconds or minutes later. `meshService.loop()` runs in the same superloop and parks
+ * whatever arrives in every one of the thousands of iterations in between, so this is not a
+ * race to lose occasionally — it is a guaranteed interleaving. Removing by index there
+ * deleted an unrelated position and left the acted-on one parked, which then came back as
+ * the next offer: the reader gets walked backwards through places it has already been while
+ * the newest one is quietly dropped.
+ *
+ * So take an id at selection time and remove by that. Ids are never reused within a boot.
+ */
+uint32_t bookSyncInboxIdAt(int i);          // 0 when i is out of range
+bool bookSyncInboxRemoveId(uint32_t id);    // false if it is already gone (which is fine)
+
+/* Drop EVERY parked position for this book. Returns how many went.
+ *
+ * 🛑 CALL THIS ONCE THE READER HAS ACTED, INSTEAD OF REMOVING THE ONE PACKET IT ACTED ON.
+ * Removing only that one leaves its predecessors parked, and bookSyncInboxRemove() bumps the
+ * sequence — so the reading screen's tick looks again, finds the SECOND-newest position for
+ * the same book, and puts up another card that is indistinguishable from the one just
+ * accepted. Nick syncs three times as he reads (10%, 50%, 80%), opens the book, is offered
+ * 80% and takes it — and is then walked BACKWARDS to 50%, then to 10%, one confirm at a time.
+ * That is the other half of *"it sometimes gets confused on which one of the places to sync
+ * to"*, and it needs no clock to go wrong.
+ *
+ * ⚠ This does discard a position another device parked for the same book. That is the point:
+ * selection already picked the best of them, so everything still parked for this book is
+ * older news or an untimed tie, and the reader has just said where it is. A position that
+ * genuinely arrives LATER still lands normally and is offered normally.
+ */
+int bookSyncInboxDropForBook(const uint8_t key[32], const char* const* ids, int nIds);
+
 /* Bumped whenever the contents change: a packet parked that was not already here, or one
  * taken out. It exists so the reader can ask "is there anything new?" on a timer for the
  * price of a comparison — bookSyncInboxFindFor() verifies an HMAC per parked packet, which
@@ -63,7 +100,14 @@ void bookSyncInboxRemove(int i);
  * ⚠ A packet IDENTICAL to one already parked does NOT bump it. A mesh rebroadcast is the
  * same news arriving twice, and re-offering a position the reader is already looking at
  * would turn flood routing into a nag. Pressing Sync again on the sender does produce a
- * different packet (its own turnedAt and nonce), so a deliberate resend still counts. */
+ * different packet, so a deliberate resend still counts.
+ *
+ * ⛔ THAT USED TO SAY "its own turnedAt AND nonce", AND THE turnedAt HALF WAS FALSE — which
+ * mattered, because bookSyncInboxFindFor() orders by turnedAt. Only the NONCE changes: COVEY
+ * passes `self._turned_at` into every send and that moves on a PAGE TURN, not on a Sync
+ * press (books.py), and a WiPhone with no NTP sends 0 every time. So a stack of Sync taps is
+ * a stack of packets that are all distinct and all TIED on the field used to order them. See
+ * the tie handling in bookSyncInboxFindFor(). */
 uint32_t bookSyncInboxSeq();
 
 /* The newest parked position that VERIFIES under `key` and is about the book with these ids.

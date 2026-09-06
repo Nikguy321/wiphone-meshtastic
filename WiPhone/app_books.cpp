@@ -284,6 +284,7 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   nImages = 0;
   viewImage = -1;
   pendingIdx = -1;
+  pendingId = 0;
   pendingFrom = 0;
   pendingClock = false;
   syncNote[0] = '\0';
@@ -1013,6 +1014,7 @@ void BooksApp::checkForPending() {
    * and a book that is not open has been looked at just as conclusively as one that is. */
   syncSeqSeen = bookSyncInboxSeq();
   pendingIdx = -1;
+  pendingId = 0;
   if (!isOpen || nIds <= 0) {
     return;
   }
@@ -1023,6 +1025,11 @@ void BooksApp::checkForPending() {
   uint8_t key[32];
   bookSyncDeriveKey(syncPass, key);
   pendingIdx = bookSyncInboxFindFor(key, idp, nIds, &pending, &pendingFrom);
+  /* Take a handle that survives the wait for a keypress. `pending` itself is a by-value copy,
+   * so the JUMP was always to the right place — it is the REMOVAL that went to the wrong
+   * packet, which left the position just applied parked and ready to be offered all over
+   * again while an unrelated (often newer) one was deleted in its place. */
+  pendingId = bookSyncInboxIdAt(pendingIdx);
   if (pendingIdx >= 0) {
     /* 🛑 UTC. bookSyncSuspectClock() is `r->turnedAt > nowUnix + 300`, and r->turnedAt is
      * COVEY's real UTC — so against the local-shifted epoch, ANY record COVEY turned in the
@@ -1053,8 +1060,31 @@ void BooksApp::applyPending() {
   }
   gotoOffset(off, true);
   savePosition(true);
-  bookSyncInboxRemove(pendingIdx);
+  /* Every parked position for THIS book is now history — not just the one taken. Removing
+   * only the accepted packet left its predecessors parked, and the removal's own seq bump
+   * sent the reading screen straight back to checkForPending(), which offered the
+   * second-newest. Accepting three stacked syncs walked you backwards through all three. */
+  dropParkedForThisBook();
   pendingIdx = -1;
+  pendingId = 0;
+}
+
+/* Shared by "Go there" and "Stay where I am": both are the reader saying where it stands for
+ * this book, so both retire every offer parked for it. */
+void BooksApp::dropParkedForThisBook() {
+  if (nIds <= 0) {
+    bookSyncInboxRemoveId(pendingId);        // no ids to match on: at least retire this one
+    return;
+  }
+  const char* idp[BOOKSYNC_MAX_IDS];
+  for (int i = 0; i < nIds; i++) {
+    idp[i] = ids[i];
+  }
+  uint8_t key[32];
+  bookSyncDeriveKey(syncPass, key);
+  if (bookSyncInboxDropForBook(key, idp, nIds) == 0) {
+    bookSyncInboxRemoveId(pendingId);        // belt and braces if it no longer verifies
+  }
 }
 
 // ---------------------------------------------------------------- paging
@@ -2005,8 +2035,9 @@ appEventResult BooksApp::processEvent(EventType event) {
       /* Staying put drops the offer rather than leaving it to ask again on every page —
        * a prompt you have already declined is nagging, not syncing. */
       if (pendingIdx >= 0) {
-        bookSyncInboxRemove(pendingIdx);
+        dropParkedForThisBook();      // declining is a decision about the book, not one packet
         pendingIdx = -1;
+        pendingId = 0;
       }
       enterState(BOOKS_READ);
       return REDRAW_ALL;

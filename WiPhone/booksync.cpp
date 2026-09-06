@@ -7,6 +7,7 @@
  */
 #include "booksync.h"
 #include "book_hash.h"
+#include <math.h>          // ceil(), for the fraction quantiser
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -130,9 +131,23 @@ void bookSyncReduceForMesh(const BookSyncRecord* in, BookSyncRecord* out, uint16
   double f = in->fraction;
   if (f < 0.0) f = 0.0;
   if (f > 1.0) f = 1.0;
-  // int() in Python truncates toward zero; a cast does the same. Then the reduced record
-  // carries the DEQUANTISED value, which is what both sides sign.
-  uint16_t q = (uint16_t)(f * 65535.0);
+  /* 🛑 ROUND UP, NEVER DOWN — and this must stay identical to COVEY's `math.ceil` in
+   * reduce_for_mesh(). Chapter starts fall at arbitrary real fractions, so truncating put the
+   * dequantised value BELOW the boundary essentially every time, and a fraction a hair under
+   * a chapter start locates to the END OF THE PREVIOUS CHAPTER — epubLocate is the only thing
+   * applyPending() uses. Syncing from the top of a chapter, which is exactly where a contents
+   * jump or the last page turn of a chapter leaves you, sent the reader a chapter backwards.
+   * Rounding to nearest only makes it a coin toss; rounding UP keeps a chapter start inside
+   * its own chapter, at a cost of at most 1/65535 of a book forward — a few characters, in
+   * the harmless direction.
+   *
+   * ⚠ This changes the bytes a SENDER puts on the air but NOT interoperability: a receiver
+   * verifies the mac over the reduced record it rebuilds from the packet and never
+   * re-quantises anything of its own, so old and new builds talk both ways. What it does
+   * change is the differential vectors — tests/vectors_booksync.h is regenerated from
+   * COVEY's module, and the two expressions have to move together or the suite says so. */
+  double scaled = f * 65535.0;
+  uint16_t q = (uint16_t)ceil(scaled);
   out->fraction = (double)q / 65535.0;
   if (frQOut) {
     *frQOut = q;
@@ -335,13 +350,37 @@ bool bookSyncIsSyncText(const char* text) {
 }
 
 // ---------------------------------------------------------------- matching
+/* 🛑 COMPARE LIKE WITH LIKE. Only the FIRST id travels, and reduce_for_mesh cuts it to
+ * BOOKSYNC_MESH_ID_BYTES (40) — but the ids being generated run to 67 bytes ("ta:" or "id:"
+ * plus a 64-character slug, EPUB_ID_MAX 72). A plain strcmp of a 40-byte wire id against a
+ * 67-byte local one can never be equal, so for any book with a long id sync silently did
+ * NOTHING, for ever, on both ends. ⚠ That is the worst possible presentation, because it is
+ * indistinguishable from a wrong passcode: no card, no message, nothing to tell you which.
+ *
+ * So truncate BOTH sides the same way before comparing. An already-cut id truncates to
+ * itself, so this costs nothing for short ids and needs no change to the wire — old and new
+ * builds interoperate either way.
+ *
+ * ⚠ It does mean two books whose first 40 bytes agree are treated as one. That collision is
+ * already on the wire and cannot be fixed from this end: the sender only ever transmits those
+ * 40 bytes. Matching is strictly better than never matching. */
+static bool bsIdEquivalent(const char* x, const char* y) {
+  if (strcmp(x, y) == 0) {
+    return true;
+  }
+  char cx[BOOKSYNC_ID_MAX], cy[BOOKSYNC_ID_MAX];
+  bsUtf8TruncBytes(cx, sizeof(cx), x, BOOKSYNC_MESH_ID_BYTES);
+  bsUtf8TruncBytes(cy, sizeof(cy), y, BOOKSYNC_MESH_ID_BYTES);
+  return cx[0] && strcmp(cx, cy) == 0;
+}
+
 bool bookSyncIdsMatch(const char* const* a, int na, const char* const* b, int nb) {
   for (int i = 0; i < na; i++) {
     if (!a[i] || !a[i][0]) {
       continue;
     }
     for (int j = 0; j < nb; j++) {
-      if (b[j] && strcmp(a[i], b[j]) == 0) {
+      if (b[j] && bsIdEquivalent(a[i], b[j])) {
         return true;
       }
     }

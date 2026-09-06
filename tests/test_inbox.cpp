@@ -248,6 +248,208 @@ static void testWrongBook() {
   eqU32((unsigned long)bookSyncInboxCount(), 1, "and it stays parked for the right one");
 }
 
+
+/* ---------------------------------------------------------------- stacking
+
+   Nick, 2026-09-05: "when I sync my place on a device and then do that multiple times
+   without checking it each time on the wiphone (stacking sync messages) it sometimes gets
+   confused on which one of the places to sync to. It doesn't happen all the time though."
+
+   Three separate faults, all of which need MORE THAN ONE packet parked to show up — which is
+   why testNewestWins() (two packets, stamps 1000 vs 5000, clearly ordered) never saw any of
+   them. The "sometimes" is whether the sender had a clock. */
+
+// Park n positions for one book with the given turnedAt values; returns the ids assigned.
+static void parkStack(const uint8_t key[32], const char* const* ids, int nIds,
+                      const uint32_t* turnedAt, const uint32_t* spines, int n,
+                      uint32_t* idsOut) {
+  for (int i = 0; i < n; i++) {
+    BookSyncRecord r;
+    char nonce[BOOKSYNC_NONCE_CHARS + 1];
+    for (int k = 0; k < BOOKSYNC_NONCE_CHARS; k++) {
+      nonce[k] = (char)('a' + ((i + k) % 16 < 10 ? (i + k) % 10 : 0));
+    }
+    nonce[BOOKSYNC_NONCE_CHARS] = '\0';
+    snprintf(nonce, sizeof(nonce), "%08x", (unsigned)(0x1000 + i));
+    bookSyncMakeRecord(&r, ids, nIds, spines[i], 100 + i, 0.1 * (i + 1), turnedAt[i],
+                       "SENDER", nonce);
+    char t[BOOKSYNC_MESH_TEXT_MAX];
+    ok(bookSyncPackMesh(&r, key, t, sizeof(t)), "packed a stacked position");
+    ok(bookSyncInboxPush(t, 1, 100 + i), "parked it");
+    if (idsOut) {
+      idsOut[i] = bookSyncInboxIdAt(bookSyncInboxCount() - 1);
+    }
+  }
+}
+
+static void testTiedTurnedAtTakesTheLatest() {
+  group("a tie on turnedAt takes the LATEST parked, not the earliest");
+
+  uint8_t key[32];
+  keyFor("vector-passcode-a", key);
+  const char* ids[1] = { "id:stacking-book" };
+
+  /* Pressing Sync again on COVEY mints a new nonce but NOT a new turnedAt — _turned_at only
+   * moves on a page turn (books.py) — so a stack of taps is a stack of ties. */
+  const uint32_t sameStamp[3] = { 4242, 4242, 4242 };
+  const uint32_t spines[3] = { 1, 2, 3 };
+  bookSyncInboxInit();
+  parkStack(key, ids, 1, sameStamp, spines, 3, NULL);
+  eqU32((unsigned long)bookSyncInboxCount(), 3, "all three parked (different nonces)");
+
+  BookSyncRecord got;
+  ok(bookSyncInboxFindFor(key, ids, 1, &got, NULL) >= 0, "one of them is offered");
+  eqU32(got.spine, 3, "the LAST one synced wins the tie, not the first");
+}
+
+static void testNoClockMeansEverythingTies() {
+  group("turnedAt == 0 (sender has no NTP) still offers the newest sync");
+
+  uint8_t key[32];
+  keyFor("vector-passcode-a", key);
+  const char* ids[1] = { "id:stacking-book" };
+
+  /* sendMyPlace() stamps 0 whenever ntpClock.isTimeKnown() is false, and NTP over WiFi is
+   * the only clock this phone has. Off-grid — which is what LoRa reading IS — every packet a
+   * WiPhone sends carries 0, so the whole stack ties and ordering falls to arrival. */
+  const uint32_t noClock[3] = { 0, 0, 0 };
+  const uint32_t spines[3] = { 5, 6, 7 };
+  bookSyncInboxInit();
+  parkStack(key, ids, 1, noClock, spines, 3, NULL);
+
+  BookSyncRecord got;
+  ok(bookSyncInboxFindFor(key, ids, 1, &got, NULL) >= 0, "an unstamped stack still matches");
+  eqU32(got.spine, 7, "and the most recently arrived is the one offered");
+  eqU32(got.turnedAt, 0, "with its stamp left at 0, not invented");
+}
+
+static void testARealStampStillBeatsArrivalOrder() {
+  group("two real stamps still order by the page turn, not by arrival");
+
+  uint8_t key[32];
+  keyFor("vector-passcode-a", key);
+  const char* ids[1] = { "id:stacking-book" };
+
+  // The original contract, which the tie fix must not have broken: newer turn, parked FIRST.
+  const uint32_t stamps[2] = { 9000, 1000 };
+  const uint32_t spines[2] = { 11, 22 };
+  bookSyncInboxInit();
+  parkStack(key, ids, 1, stamps, spines, 2, NULL);
+
+  BookSyncRecord got;
+  ok(bookSyncInboxFindFor(key, ids, 1, &got, NULL) >= 0, "matched");
+  eqU32(got.spine, 11, "the later page turn wins despite arriving first");
+  eqU32(got.turnedAt, 9000, "and it is the later turnedAt");
+}
+
+static void testIdSurvivesTheArrayShifting() {
+  group("an id still names the right packet after eviction shifts the array");
+
+  uint8_t key[32];
+  keyFor("vector-passcode-a", key);
+  const char* ids[1] = { "id:stacking-book" };
+
+  const uint32_t stamps[4] = { 10, 20, 30, 40 };
+  const uint32_t spines[4] = { 1, 2, 3, 4 };
+  uint32_t parked[4];
+  bookSyncInboxInit();
+  parkStack(key, ids, 1, stamps, spines, 4, parked);
+  eqU32((unsigned long)bookSyncInboxCount(), 4, "inbox full");
+
+  /* The reader has chosen the spine-3 packet and is showing a card. Its INDEX is 2. */
+  int idxAtChoice = 2;
+  uint32_t chosen = parked[2];
+  eqU32(bookSyncInboxIdAt(idxAtChoice), chosen, "index 2 is the chosen packet, for now");
+
+  // A fifth lands while the card is up. Eviction shifts everything down one.
+  const uint32_t late[1] = { 50 };
+  const uint32_t lateSpine[1] = { 9 };
+  parkStack(key, ids, 1, late, lateSpine, 1, NULL);
+  eqU32((unsigned long)bookSyncInboxCount(), 4, "still capped at four");
+  ok(bookSyncInboxIdAt(idxAtChoice) != chosen, "index 2 now names a DIFFERENT packet");
+
+  // Removing by the old index would destroy the wrong one. By id, it does not.
+  ok(bookSyncInboxRemoveId(chosen), "the id still finds the packet the reader chose");
+  eqU32((unsigned long)bookSyncInboxCount(), 3, "and removed exactly one");
+  for (int i = 0; i < bookSyncInboxCount(); i++) {
+    ok(bookSyncInboxIdAt(i) != chosen, "the chosen packet is really gone");
+  }
+  ok(!bookSyncInboxRemoveId(chosen), "removing it twice is a no-op, not a corruption");
+}
+
+static void testActingOnOneRetiresTheWholeStack() {
+  group("taking a position retires the whole stack for that book");
+
+  uint8_t key[32];
+  keyFor("vector-passcode-a", key);
+  const char* book[1] = { "id:stacking-book" };
+  const char* other[1] = { "id:some-other-book" };
+
+  bookSyncInboxInit();
+  const uint32_t stamps[3] = { 100, 200, 300 };
+  const uint32_t spines[3] = { 1, 2, 3 };
+  parkStack(key, book, 1, stamps, spines, 3, NULL);
+
+  // ...and one for a DIFFERENT book, which must survive.
+  const uint32_t oStamp[1] = { 150 };
+  const uint32_t oSpine[1] = { 77 };
+  parkStack(key, other, 1, oStamp, oSpine, 1, NULL);
+  eqU32((unsigned long)bookSyncInboxCount(), 4, "three for one book, one for another");
+
+  BookSyncRecord got;
+  ok(bookSyncInboxFindFor(key, book, 1, &got, NULL) >= 0, "the newest is offered");
+  eqU32(got.spine, 3, "which is the last place synced");
+
+  /* The reader acts. Before the fix it removed ONE packet and the next tick offered spine 2,
+   * then spine 1 — walking backwards through places already left. */
+  eqU32((unsigned long)bookSyncInboxDropForBook(key, book, 1), 3, "all three retired at once");
+  ok(bookSyncInboxFindFor(key, book, 1, &got, NULL) < 0, "nothing left to nag with");
+
+  eqU32((unsigned long)bookSyncInboxCount(), 1, "and the other book is untouched");
+  ok(bookSyncInboxFindFor(key, other, 1, &got, NULL) >= 0, "still offered for its own book");
+  eqU32(got.spine, 77, "with its own position intact");
+}
+
+static void testRetiredPacketDoesNotWalkBackIn() {
+  group("the sender's second copy does not re-raise a card already dealt with");
+
+  uint8_t key[32];
+  keyFor("vector-passcode-a", key);
+  const char* ids[1] = { "id:stacking-book" };
+
+  /* COVEY sends every record TWICE, 7 s apart, byte-identical (books.py retransmits while
+   * _mesh_sends < 2; booksync.py MESH_REPEAT_S = 7.0). The dedup only scans what is parked,
+   * so once the reader acted and the packet was removed, the second copy used to park itself
+   * and put the identical card straight back up. */
+  BookSyncRecord r;
+  bookSyncMakeRecord(&r, ids, 1, 4, 100, 0.4, 7777, "COVEY", "cafebabe");
+  char t[BOOKSYNC_MESH_TEXT_MAX];
+  ok(bookSyncPackMesh(&r, key, t, sizeof(t)), "packed a position");
+
+  bookSyncInboxInit();
+  ok(bookSyncInboxPush(t, 1, 10), "first copy parks");
+  eqU32((unsigned long)bookSyncInboxCount(), 1, "one parked");
+
+  BookSyncRecord got;
+  int idx = bookSyncInboxFindFor(key, ids, 1, &got, NULL);
+  ok(idx >= 0, "it is offered");
+  bookSyncInboxRemove(idx);                    // the reader accepts, or declines
+  eqU32((unsigned long)bookSyncInboxCount(), 0, "and it is retired");
+
+  // 7 seconds later, the sender's identical second copy arrives.
+  ok(bookSyncInboxPush(t, 1, 17), "the repeat is still recognised as a sync packet");
+  eqU32((unsigned long)bookSyncInboxCount(), 0, "but it does NOT come back as a new offer");
+  ok(bookSyncInboxFindFor(key, ids, 1, &got, NULL) < 0, "so no card is raised again");
+
+  /* ...while pressing Sync again on the sender IS news: a fresh nonce is a different packet. */
+  bookSyncMakeRecord(&r, ids, 1, 9, 200, 0.9, 8888, "COVEY", "d00dfeed");
+  char t2[BOOKSYNC_MESH_TEXT_MAX];
+  ok(bookSyncPackMesh(&r, key, t2, sizeof(t2)), "packed a deliberate resync");
+  ok(bookSyncInboxPush(t2, 1, 30), "which parks normally");
+  ok(bookSyncInboxFindFor(key, ids, 1, &got, NULL) >= 0, "and is offered");
+  eqU32(got.spine, 9, "at the new place");
+}
+
 int main() {
   (void)recVec;
   testParkAndFind();
@@ -256,6 +458,12 @@ int main() {
   testHousekeeping();
   testSeqIsTheDoorbell();
   testWrongBook();
+  testTiedTurnedAtTakesTheLatest();
+  testNoClockMeansEverythingTies();
+  testARealStampStillBeatsArrivalOrder();
+  testIdSurvivesTheArrayShifting();
+  testActingOnOneRetiresTheWholeStack();
+  testRetiredPacketDoesNotWalkBackIn();
   printf("\n%s%d passed, %d failed\033[0m\n", g_fail ? "\033[31m" : "\033[32m", g_pass, g_fail);
   return g_fail ? 1 : 0;
 }

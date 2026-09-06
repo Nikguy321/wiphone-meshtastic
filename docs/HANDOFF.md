@@ -4,6 +4,82 @@
 
 Read this first; everything below it is narrative.
 
+🔎 **2026-09-05 — NICK'S STACKED-BOOKSYNC REPORT IS FOUR SEPARATE FAULTS, ALL FIXED IN THE
+WORKING TREE, NONE FLASHED YET.** *"when I sync my place on a device and then do that multiple
+times without checking it each time on the wiphone (stacking sync messages) it sometimes gets
+confused on which one of the places to sync to. It doesn't happen all the time though."*
+
+Every one of these needs MORE THAN ONE packet parked, which is exactly why `testNewestWins()` —
+two packets, stamps 1000 vs 5000, cleanly ordered — never saw any of them. Each was reproduced
+on the host against the shipping sources before it was touched.
+
+1. 🛑 **THE TIE-BREAK PICKED THE OLDEST.** `bookSyncInboxFindFor()` kept its candidate on a
+   STRICT `>` while walking an insertion-ordered (oldest-first) array, so equal `turnedAt`
+   resolved to the FIRST parked. ⚠ **And ties are the normal case, not an edge case:**
+   pressing Sync again on COVEY mints a new nonce but NOT a new `turnedAt` — `_turned_at` only
+   moves on a page turn — so a stack of taps is a stack of ties. **`booksync_inbox.h` claimed
+   the opposite** ("its own turnedAt and nonce"); that sentence was wrong and is corrected.
+2. 🔑 **AND `turnedAt` IS 0 WHENEVER THE SENDER HAS NO CLOCK — THIS IS THE "SOMETIMES".**
+   `sendMyPlace()` stamps `ntpClock.isTimeKnown() ? getExactUtcTime() : 0`, and **NTP over WiFi
+   is the only clock this phone has** — no RTC, no GPS time, one flag set in one place once NTP
+   replies. Off-grid, which is what LoRa reading IS, every packet a WiPhone sends carries 0, the
+   whole stack ties, and fault 1 fires every time. On WiFi it behaves. Same phone, same books,
+   bug present or absent depending on whether that sender has had NTP since boot.
+   ✅ Both fixed: compare stamps only when both sides carry one and they differ, otherwise fall
+   back to arrival order — the one clock this device can always trust.
+3. 🛑 **`pendingIdx` WAS A BARE ARRAY INDEX HELD ACROSS A WAIT FOR A HUMAN KEYPRESS.** Parking a
+   packet evicts by SHIFTING every entry down one, `meshService.loop()` runs from the same
+   superloop (`WiPhone.ino:4172`) on every one of the thousands of passes while the card sits on
+   screen, and nothing re-validates — the `syncSeqSeen` re-check lives only under `BOOKS_READ`.
+   The jump itself was always right (`pending` is a by-value copy); it was the REMOVAL that hit
+   the wrong packet, destroying the newest place unseen and leaving the accepted one parked to
+   be offered again. ✅ Parked packets now carry a stable `id` and are removed by that.
+4. 🛑 **ACCEPTING ONE POSITION LEFT THE OLDER ONES PARKED, SO EACH OK WALKED YOU BACKWARDS.**
+   Remove bumps the sequence, the reading tick looks again, finds the second-newest for the same
+   book, and raises a card indistinguishable from the one just accepted: sync 10/50/80%, take
+   80%, then get offered 50%, then 10%. ✅ Acting on a book now retires every offer parked for
+   that book — accept and decline alike.
+5. 🛑 **AND THE DECLINE CAME STRAIGHT BACK ANYWAY, because COVEY SENDS EVERY RECORD TWICE, 7 s
+   APART, BYTE-IDENTICAL** (`books.py` retransmits while `_mesh_sends < 2`; `MESH_REPEAT_S =
+   7.0`). The dedup only ever scanned what was CURRENTLY parked, so once a packet was retired
+   its twin was "new" again. ✅ The inbox now remembers the last 8 retired packets by hash.
+   ⚠ Cleared **only** in `bookSyncInboxInit()`, which **nothing in the firmware calls** — it is
+   a test reset, and the 🛑 comment at `app_books.cpp:312` says not to add a caller back.
+
+✅ **Host suite green (`test_inbox` 122 checks, six new groups) and the firmware BUILDS** — RAM
+26.7%, Flash 38.8%. 🛑 **NOT FLASHED AND NOT SEEN ON HARDWARE.** Nick was asleep; flashing needs
+panicwatch stopped and he may be carrying phone 1.
+
+✅ **2026-09-06 — AND THE THREE DEFECTS BELOW ARE NOW FIXED TOO, at Nick's go-ahead.** Two of
+them needed BOTH ends changing, which is why they waited.
+* **The quantiser now rounds UP** (`ceil` in `booksync.cpp`, `math.ceil` in COVEY's
+  `booksync.py`), so a chapter start no longer falls into the previous chapter. Rounding to
+  nearest would only have made it a coin toss. ⚠ **`tests/vectors_booksync.h` was regenerated
+  from COVEY's own module** with `tools/gen_booksync_vectors.py` — the two expressions have to
+  move together, and the differential suite is what proves they did (330 checks).
+  🔑 **Interoperability is NOT affected**, which is what made this safe: a receiver verifies the
+  mac over the record it rebuilds from the packet and never re-quantises anything of its own.
+* **Long ids match again.** Both matchers now truncate BOTH sides to the wire's 40 bytes before
+  comparing, so a 67-byte `ta:` id stops being invisible to sync. No wire change.
+* **COVEY no longer launders a `turnedAt` of 0 into `time.time()`** — `int(turned_at or …)` was
+  truthiness, not a None check, and 0 is a real value on this wire.
+✅ Host suite green, firmware builds, COVEY 60/60 on both machines and deployed. 🛑 **The WiPhone
+is still NOT FLASHED** — that is the one step left, and it wants panicwatch stopped.
+
+⚠ **ORIGINALLY LEFT ALONE ON 2026-09-05, for the record of why:** — each changes the
+wire or the other device, which is not a thing to do unattended:
+* **The fraction quantiser truncates downward**, so a position at the very start of a chapter
+  lands at the END OF THE PREVIOUS ONE. Reproduced end to end through the real pack/unpack.
+* **The wire carries only the FIRST book id, cut to 40 bytes, but both ends match it against
+  their own UNtruncated ids** — ids run to 67 bytes. For an unlucky book, sync silently does
+  nothing for ever, which looks exactly like a wrong passcode.
+* **COVEY launders a `turnedAt` of 0 into `time.time()`** — `booksync.py:287` is
+  `int(turned_at or time.time())`, and 0 is a real value on this wire, not an absent one. A
+  clockless WiPhone position becomes "just now" and then propagates.
+⚠ **Refuted and NOT changed, listed so nobody re-opens them:** `sendMyPlace()` stamping send-time
+rather than the page turn (inert on the only path that reaches it), the unseeded `rand()` nonce,
+and the bookstore's tied-timestamp eviction.
+
 **Where things are.** Both phones run **0.9.58** (flashed this evening, `Hash of data verified`
 on both, radios detected, `ver` reports it). ✅ **`main` IS PUSHED AND THE FLASHER IS LIVE AND
 VERIFIED** — nikguy321.github.io serves manifest `0.9.58` and a binary whose sha256
