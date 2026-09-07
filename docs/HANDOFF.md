@@ -22,11 +22,32 @@ all three radio-ON paths via `resumeReconnect()`. It also clears `_dryBounced`, 
 off/on round trips and would otherwise certify a new radio's first empty scan as proof. **Easing
 untouched** — the reset fires only on a deliberate radio-on, never on a drop, so a phone genuinely
 out of range is back on the eased cadence 5 min later and 0.9.50/0.9.51's battery win re-engages
-on the same schedule. ⚠ **NOT FLASHED to either phone**: phone 1 is still running 0.9.59 (built
-Sep 6 07:06), so the fix is unverified on hardware — the compile is green and the log traces
-cleanly through the patched logic, but nobody has watched a real radio-on since. Webflasher
-rebuilt and published at 0.9.60, version verified inside the merged binary, sha256
-`bc847f58af54…`.
+on the same schedule. Webflasher rebuilt and published at 0.9.60, version verified inside the
+merged binary, sha256 `bc847f58af54…`.
+
+✅ **VERIFIED ON HARDWARE, same session ~16:38.** Phone 1 flashed to 0.9.60 (built Sep 7
+16:18:13) and the afternoon's failure re-run deliberately: WiFi switched **off at 16:30:00**
+(`radio switched OFF by the user`, gates `ud=1 rec=0`), left off **7 minutes** — well past
+`WIFI_DRY_SPELL_LONG_MS`, so the dry clock accrued exactly as it did over the 22 h that caused
+the bug — then switched back **on at 16:38:10**. Result:
+
+```
+WIFI: radio switched ON by the user (persisted)
+[autosw] ud=0 rec=1 en=1 conn=0 scanning=0 sinceScan=600s   <- forgetDrySpell backdated _msLastScan: scan due NOW
+[autosw] ud=0 rec=1 en=1 conn=1 scanning=0 sinceScan=604s   <- ASSOCIATED ~4 s after the toggle
+[autosw] scan started (wifi status 3)                        <- CONNECTED, not status 1 mid-connect
+[autosw] scan done: n=12                                     <- twelve networks, not zero
+[autosw] seen 'SmithWifi' -61dBm saved=1 dis=false
+```
+
+**No `[wifi] join skipped` line anywhere** — the join gate failed open as intended. Ended
+`wifi=3 joins=12/0`, clock synced (lock screen `16:38 / 7 Sep 2026`, not `00:00 / waiting NTP`).
+Against 0.9.59 the same afternoon on the same phone and AP: two scans, both `n=0` at `wifi status
+1`, `join skipped`, and no association until Nick joined by hand. Note the deaf state did not
+arise at all this time — joining first meant the radio never entered the mid-connect churn that
+produces empty scans, so the fast-path cure was never needed. That is the fix working one layer
+earlier than expected, but it does leave the repaired cure path itself still unexercised in the
+field.
 
 🩺 **2026-09-07 ~12:50 — RAM/health status check (read-only except as noted).** Phone 2
 (`025A3F65`) answered over the cable: **firmware 0.9.59 (built Sep 6 07:06/07:09 — the 3c55f76
