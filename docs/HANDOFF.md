@@ -4,6 +4,26 @@
 
 Read this first; everything below it is narrative.
 
+🩺 **2026-09-07 ~12:50 — RAM/health status check (read-only except as noted).** Phone 2
+(`025A3F65`) answered over the cable: **firmware 0.9.59 (built Sep 6 07:06/07:09 — the 3c55f76
+build), so the "NOT FLASHED" lines below are stale for phone 2**; phone 1's version was not
+read. **Internal heap is flat, not leaking:** its retained `/health.log` (1,006 one-minute
+samples, ~17 h) shows a 13.4 h idle run on battery with `heap` 26,224 → 25,980 B (−18 B/h,
+two ~120 B steps at app opens, otherwise identical for hours), `largest` 25,248 B unchanged
+the whole run, PSRAM flat at 3.49 MB, zero `DROP` records. WiFi scans dip `largest` to
+~18.5–20 KB and recover. That run ended at `soc=0% v=3.30` — **phone 2 ran its battery flat
+overnight (100 % → 0 % in 13.4 h idle, wifi=3 sip=1)** and came back on the charger ~09:27
+(`reset_reason=1`), reaching 100 % by ~12:30. **Mesh stalls over the same 17 h: 362 `STALL`
+records = 21.6/h, mean 709 ms, 29 over 1 s, 9 over 1.5 s, max 1,985 ms, 357 of 362 `mesh`** —
+the thread below, now worse than the 1,505 ms max it quotes. ⚠ **I RESET PHONE 2 TWICE
+(12:40 and 12:47) by opening its port** — DTR/RTS pre-set low did not prevent it (3/3 on this
+adapter). The two `BOOT reset_reason=1 … build=Sep 6 2026 07:09:49` lines at the end of its
+health.log are mine, not spontaneous. It recovered each time in ~15 s (WiFi, SIP REGISTERED,
+radio ready, hears phone 1 at 12 dB). Phone 1 was left untouched: COVEY logged its hourly
+`[nbr]` announces at 11:37 and 12:37 (5 neighbours), so it is alive; its heap history is the
+Sep 3 `backups/health-*-p1-*` logs (9.3 h at −88 B/h, all 13 boots `reset_reason=1` = bench).
+✅ **Same session: 0.9.59 webflasher published.** Rebuilt from HEAD (3c55f76; incremental, nothing recompiled — the binary phone 2 has run for 17 h IS this tree), staged with `make_webflasher.sh`, version read out of the merged binary (`0.9.59`, sha256 `53abc854d87a…`), pushed to main and gh-pages. Phone 1's version was not read (port open = reset); the flasher will offer it 0.9.59.
+
 🔎 **2026-09-05 — NICK'S STACKED-BOOKSYNC REPORT IS FOUR SEPARATE FAULTS, ALL FIXED IN THE
 WORKING TREE, NONE FLASHED YET.** *"when I sync my place on a device and then do that multiple
 times without checking it each time on the wiphone (stacking sync messages) it sometimes gets
