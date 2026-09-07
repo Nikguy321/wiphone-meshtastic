@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.9.60 (2026-09-07) - a radio you switched off is not a dry spell
+
+**WiFi switched back on now tries immediately, instead of waking up already ten minutes behind.**
+Nick, 2026-09-07: *"I had to manually join."* Phone 1 had been sitting with its radio off for
+about 22 hours. Switching it on produced two scans that found nothing, a join the firmware
+declined to attempt, and an owner who gave up after seven seconds and picked the network by hand.
+
+The dry-spell clock was counting the time the radio was OFF. `autoSwitchTick()` maintains
+`_drySpellStartMs` before its own gates -- deliberately, so the clock stays honest while the
+auto-switcher is disabled -- but `connected` is false with the radio powered DOWN too, and
+nothing cleared the stamp on the way back up. It was cleared in exactly one place: on a
+successful connection. So a phone whose radio had been off overnight came back already far past
+`WIFI_DRY_SPELL_LONG_MS` into a "long dry spell", and all four readers of `inLongDrySpell()` drew
+the wrong conclusion in the same pass: the deaf-radio fast-path cure was DISABLED (it requires
+`!inLongDrySpell()`), `worthAttemptingJoin()` stopped failing open and consulted scan evidence
+instead, the scan cadence started at five minutes rather than two, and the join retry started at
+ten.
+
+The radio meanwhile was in the mid-connect deaf state 0.9.29 documented. **Both scans after the
+switch completed `n=0` while SIX access points were on the air** -- a manual `wifi scan` on the
+same radio minutes earlier listed all six, the home AP strongest at -59 dBm. An empty scan stamps
+`_scanDoneMs` and clears `_savedSeenLastScan`, so a SENSOR FAILURE was written down as fresh,
+confident evidence that the air was empty, and the join gate believed it: `[wifi] join skipped:
+last scan saw no saved network (1 in a row, 1 total)`. With the curing bounce ten minutes out at
+the eased cadence, the phone had nothing left to do but wait.
+
+`Networks::forgetDrySpell()` clears the clock, the deaf-radio accounting and the stale air
+evidence on every radio-ON path -- the Settings toggle through `setRadioOff(false)`, the network
+edit screen, and `NetworksApp`'s destructor after the peek-and-back-out case. The dry spell
+measures how long we have been LOOKING without success; time with the radio switched off is not
+looking, and must not be counted as it.
+
+**The easing is untouched.** The reset fires only on a deliberate radio-on, never on a drop, so a
+phone that genuinely is somewhere without WiFi is back on the eased cadence five minutes later
+exactly as before -- the 114-scans-in-280-s burn the tiers exist to prevent cannot return through
+this door, and 0.9.50/0.9.51's scan-gated join (106 mV/h -> ~38 mV/h, measured on a real commute)
+re-engages on the same schedule. What the phone no longer does is arrive pre-eased from a spell it
+never served.
+
+**One stale verdict went with it.** `_dryBounced` means "this spell's deaf hypothesis has already
+been tested", and nothing cleared it across an off/on round trip -- so a phone that had bounced
+before the radio was switched off came back hours later with that verdict still standing over a
+radio that no longer existed, ready to certify the first empty scan of the new radio's life as
+proof that the air was empty.
+
 ## 0.9.58 (2026-09-04) - the stall detector names the block that stalled; two silent dead ends closed
 
 **The `LOOP STALL` line now says WHICH part of the pass took the time.** Nick, 2026-08-24:

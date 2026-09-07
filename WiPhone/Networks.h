@@ -179,6 +179,11 @@ protected:
   uint32_t _msLastScan = 0;
   uint32_t currentDiscPeriod() const;               // 2 min, easing to 5 — see the .cpp
   void     scheduleScanRetry(uint32_t now, bool connected);
+  /* "We were not looking, so there is nothing to have found." Clears the dry-spell clock, the
+   * deaf-radio accounting and the air evidence gathered before the radio went down, and makes
+   * a scan due immediately. Called from the radio-ON paths only — read the note on the
+   * definition for the 22-hour case that made it necessary. */
+  void     forgetDrySpell(void);
   /* Consecutive scans run while disconnected. Used to stretch the scan interval when
    * there is clearly nothing in range — see autoSwitchTick(). Reset on any connect. */
   /* The one global WiFi switch, persisted. Distinct from _userDisabled on purpose:
@@ -208,7 +213,12 @@ protected:
   uint32_t _discScans = 0;
   /* When the current disconnected spell began, or 0 while connected. Drives the LONG-SPELL
    * easing — see inLongDrySpell(). Time, not a scan count, because the ask was in minutes and
-   * a count only maps to minutes through whatever cadence happens to be in force. */
+   * a count only maps to minutes through whatever cadence happens to be in force.
+   *
+   * 🛑 IT MEASURES HOW LONG WE HAVE BEEN *LOOKING* WITHOUT SUCCESS — not how long since we
+   * last had a network, which is a different question with a different answer whenever the
+   * radio is off. Time with the radio switched off is not looking and must not accrue here;
+   * forgetDrySpell() clears it on every radio-ON path for exactly that reason (2026-09-07). */
   uint32_t _drySpellStartMs = 0;
   /* Consecutive scans that COMPLETED with zero results while disconnected. Distinct from
    * _discScans (which counts rounds for the backoff): this one is the deaf-radio detector.

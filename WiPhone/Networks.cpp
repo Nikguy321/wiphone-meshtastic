@@ -515,6 +515,53 @@ void Networks::bounceRadio(void) {
   _msLastScan = millis() - 600000u;   // next autoSwitchTick: a scan is due NOW
 }
 
+/* "We were not looking, so there is nothing to have found."
+ *
+ * 🛑 A RADIO WE SWITCHED OFF IS NOT A DRY SPELL (2026-09-07, phone 1, from the field log).
+ * autoSwitchTick() maintains _drySpellStartMs BEFORE its own gates — deliberately, so the
+ * clock stays honest while the auto-switcher is off — but `connected` is also false with the
+ * radio powered DOWN, and nothing cleared the stamp on the way back up. A phone whose radio
+ * had been off ~22 h therefore came back already 22 hours into a "long dry spell", and all
+ * four readers of inLongDrySpell() drew the wrong conclusion at the same moment:
+ *
+ *   autoSwitchTick():671      the deaf-radio cure was DISABLED (it requires !inLongDrySpell)
+ *   worthAttemptingJoin():809 the join gate stopped failing open and consulted scan evidence
+ *   currentDiscPeriod():838   the scan cadence started at five minutes instead of two
+ *   WiPhone.ino:3207          the join retry started at ten minutes
+ *
+ * MEASURED that day: both scans after the switch completed n=0 while SIX APs were on the air
+ * (the documented mid-connect deaf state — see _dryScans in the header), and because an empty
+ * scan stamps _scanDoneMs and clears _savedSeenLastScan, a SENSOR FAILURE was written down as
+ * fresh, confident evidence that the air was empty. The phone logged the consequence verbatim:
+ * "[wifi] join skipped: last scan saw no saved network (1 in a row, 1 total)". With the cure
+ * ten minutes away and joins suppressed, the owner gave up and joined by hand 7 s later.
+ *
+ * Clearing the stamp here restarts the clock on the next tick, from the moment the radio
+ * actually came up. The 2/5/10-minute easing then rebuilds exactly as before — a phone that
+ * really is somewhere without WiFi is back on the eased cadence five minutes later, which is
+ * the situation the easing was written for. What it no longer does is arrive pre-eased.
+ *
+ * The stale deaf verdict goes with it: _dryBounced means "this spell's deaf hypothesis has
+ * already been tested", and a verdict about a radio that has since been powered down is
+ * worthless. Nothing else cleared it across an off/on round trip.
+ *
+ * ⚠ CALLED FROM THE RADIO-ON PATHS, NOT FROM autoSwitchTick(). The tick is skipped during a
+ * call, under the Game Boy and under a softAP transfer (WiPhone.ino:3307), while the retry
+ * loop that reads inLongDrySpell() is skipped only by the transfer — so doing this on the
+ * transition is what makes it atomic. No reader can catch the stale spell. */
+void Networks::forgetDrySpell(void) {
+  _drySpellStartMs = 0;               // restarts on the next tick, from NOW
+  _dryScans = 0;
+  _dryBounced = false;                // a verdict about a radio that no longer exists
+  _discScans = 0;                     // the backoff rounds start over with the spell
+  _joinsSkippedRun = 0;
+  /* No evidence about THIS radio's air yet. worthAttemptingJoin() fail-opens on
+   * _scanDoneMs == 0, which is the "try immediately when WiFi is switched on" half. */
+  _scanDoneMs = 0;
+  _savedSeenLastScan = false;
+  _msLastScan = millis() - 600000u;   // ...and look NOW, not one period from now
+}
+
 /* "Manage WiFi again": the symmetric partner of disable(), without naming a network.
  * Called by the WIFI-ON toggles (menu and edit screen) and by NetworksApp's destructor
  * for the peek-and-back-out case. Arms the retry loop and the auto-switcher; the actual
@@ -522,6 +569,7 @@ void Networks::bounceRadio(void) {
 void Networks::resumeReconnect(void) {
   _userDisabled = false;
   reconnect = true;
+  forgetDrySpell();                   // the spell starts now, not when the radio went off
 }
 
 // ===================================================== WIFI AUTO-SWITCH =====================================================

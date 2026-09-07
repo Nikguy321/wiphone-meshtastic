@@ -4,6 +4,30 @@
 
 Read this first; everything below it is narrative.
 
+🛠️ **2026-09-07 ~16:20 — 0.9.60: the WiFi auto-join failure Nick hit today, root-caused and
+fixed in the tree.** Nick: *"I had to manually join."* Phone 1's radio had been off ~22 h;
+switching it back on produced two auto-switch scans that completed `n=0` **while six APs were on
+the air** — a manual `wifi scan` on that same radio minutes earlier listed all six, SmithWifi
+strongest at −59 dBm — then `[wifi] join skipped: last scan saw no saved network (1 in a row)`,
+and he joined by hand 7 s later. **Root cause: the dry-spell clock counts the time the radio is
+deliberately OFF.** `autoSwitchTick()` maintains `_drySpellStartMs` before its own gates and
+`connected` is false with the radio powered down; it was cleared in exactly one place, on a
+successful connection. So the phone came back already 22 h into a "long dry spell" and all four
+readers of `inLongDrySpell()` misfired in the same pass — deaf-radio cure disabled
+(`Networks.cpp:671`), join gate stopped failing open (`:809`), scan cadence 5 min not 2 (`:838`),
+join retry 10 min (`WiPhone.ino:3207`) — while the radio sat in the documented mid-connect deaf
+state, each empty scan stamping fresh "the air is empty" evidence that suppressed the join. New
+`Networks::forgetDrySpell()` clears the clock, the deaf accounting and the stale air evidence on
+all three radio-ON paths via `resumeReconnect()`. It also clears `_dryBounced`, which survived
+off/on round trips and would otherwise certify a new radio's first empty scan as proof. **Easing
+untouched** — the reset fires only on a deliberate radio-on, never on a drop, so a phone genuinely
+out of range is back on the eased cadence 5 min later and 0.9.50/0.9.51's battery win re-engages
+on the same schedule. ⚠ **NOT FLASHED to either phone**: phone 1 is still running 0.9.59 (built
+Sep 6 07:06), so the fix is unverified on hardware — the compile is green and the log traces
+cleanly through the patched logic, but nobody has watched a real radio-on since. Webflasher
+rebuilt and published at 0.9.60, version verified inside the merged binary, sha256
+`bc847f58af54…`.
+
 🩺 **2026-09-07 ~12:50 — RAM/health status check (read-only except as noted).** Phone 2
 (`025A3F65`) answered over the cable: **firmware 0.9.59 (built Sep 6 07:06/07:09 — the 3c55f76
 build), so the "NOT FLASHED" lines below are stale for phone 2**; phone 1's version was not
