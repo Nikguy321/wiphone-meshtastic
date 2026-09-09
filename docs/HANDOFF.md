@@ -63,8 +63,26 @@ BEFORE the release commit and the version read **out of the merged binary** (2 h
 no older string) rather than off the manifest — the 0.9.57 lesson. **Verified against the LIVE
 site, not the push:** `nikguy321.github.io/wiphone-meshtastic/manifest.json` serves `0.9.61` and
 the served `wiphone-merged.bin` is sha256 `861bd05e2073e6a0…`, byte-identical to the staged one.
-⏳ **OWED: BOTH PHONES ARE STILL ON 0.9.60/0.9.59 — nothing in 0.9.61 has run on hardware.**
-The flasher will now offer them 0.9.61; flashing over the cable wants panicwatch stopped.
+✅ **BOTH PHONES FLASHED TO 0.9.61 AND VERIFIED, ~11:30-11:46.** `Hash of data verified` on both
+over the cable, and **the version read back off each device** (`ver` → `firmware 0.9.61, built
+Sep 9 2026 11:13:45`), not taken from the flasher. Phone 1 100% / radio off as Nick left it;
+phone 2 100%, `wifi=3`, `sip=1`.
+✅ **AND THE REFACTORED FLUSH PATH IS PROVEN ON HARDWARE, not just compiled.** 0.9.61 rewrites
+`nextPage`/`prevPage` to route their flush through `savePosition(++turnsSinceSave >= …)`, so a
+mistake there would silently break saving — the exact fault just fixed. Driven over USB on phone 2
+with `key`/`bookpage` (which prints `spine=`/`pageStart=` RAW, so no rounded-percentage ambiguity),
+using **Ghosts_of_Timkovichi, not Leviathan**, so Nick's live read was untouched:
+`pageStart 2382 → 4461` (6 turns) → close → **reopened at 4461** → `→ 6275` → close → **reopened
+at 6275**; and 4461 also survived a REBOOT between runs. Backward paging then walked it exactly
+back to **2382** and a reopen read 2382 off the card — which also exercises the new
+`prevPage` counter. No `SAVE FAILED` at any point. **Book restored to where it was found.**
+⚠ **STILL UNEXERCISED: the sync-card fix itself** — the arming window, the BACKWARD label and the
+undo need a position actually parked for an open book, which needs a real packet from COVEY. The
+mechanism is code-proven and the trap self-erases, so this is the one part still owed to real use.
+🔑 **Book open is 1.6 s, not the 12.4-12.6 s the comment at `app_books.cpp:592` still quotes** —
+measured four times today (`BOOK OPEN 1600-1609 ms [epubOpen≈1230 chapter≈362]`). That comment is
+stale; the WiFi-wedge reasoning built on it (a 12 s window with the superloop frozen) is now a
+~1.6 s window.
 ⚠ Phone 1 was rebooted once by my serial probe at ~09:57 (read-only: `ver`, `ls`, `health all`).
 
 
