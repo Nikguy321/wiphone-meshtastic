@@ -52,6 +52,9 @@
  * delayed: declining is safe, and making the safe answer feel broken teaches the wrong habit. */
 #define BOOKS_SYNCCARD_ARM_MS  600
 
+// How long "Undo the jump" stays on offer. See the note in app_books.h.
+#define BOOKS_UNDO_TTL_MS      (5UL * 60UL * 1000UL)
+
 // Body faces, smallest first. All the phone has are bold faces (see the font note in the
 // COVEY/WiPhone handoffs) — this is a size choice, not a weight one.
 static const uint8_t BODY_FONTS[] = { AKROBAT_BOLD_16, AKROBAT_BOLD_18, OPENSANS_COND_BOLD_20 };
@@ -76,23 +79,39 @@ static size_t sdSourceRead(void* ctx, uint64_t off, void* buf, size_t len) {
   return n > 0 ? (size_t)n : 0;
 }
 
-static bool posLoad(void* ctx, char* buf, size_t cap, size_t* outLen) {
-  File f = SD.open(BOOKS_POS_FILE, FILE_READ);
+/* Read one candidate. Returns bytes read, or -1 if it could not be opened/read at all. */
+static int posReadFile(const char* path, char* buf, size_t cap) {
+  File f = SD.open(path, FILE_READ);
   if (!f) {
-    // A write that died mid-swap leaves the previous good copy here. Losing the last session
-    // is recoverable; losing every book's place because the power went at the wrong instant
-    // is not, and used to be possible — see posStore.
-    f = SD.open(BOOKS_POS_FILE ".bak", FILE_READ);
-  }
-  if (!f) {
-    return false;                       // no file yet is a fresh store, not an error
+    return -1;
   }
   int n = f.read((uint8_t*)buf, cap - 1);
   f.close();
   if (n < 0) {
-    return false;
+    return -1;
   }
   buf[n] = '\0';
+  return n;
+}
+
+static bool posLoad(void* ctx, char* buf, size_t cap, size_t* outLen) {
+  /* ⚠ FALL BACK ON AN EMPTY FILE TOO, not only on one that will not open. A write that died
+   * mid-swap leaves the previous good copy in .bak, but it can just as easily leave a real
+   * file of zero length — and the first version of this only tried .bak when SD.open FAILED,
+   * so an empty real file shadowed a perfectly good backup and every book read as unsaved.
+   * The magic line alone is 9 bytes, so anything shorter cannot be a store. */
+  int n = posReadFile(BOOKS_POS_FILE, buf, cap);
+  if (n < (int)sizeof(BOOKSTORE_MAGIC)) {
+    const int b = posReadFile(BOOKS_POS_FILE ".bak", buf, cap);
+    if (b > n) {
+      n = b;
+    } else if (n < 0) {
+      return false;                     // no file yet is a fresh store, not an error
+    }
+  }
+  if (n < 0) {
+    return false;
+  }
   *outLen = (size_t)n;
   return true;
 }
@@ -122,10 +141,20 @@ static bool posStore(void* ctx, const char* buf, size_t len) {
    * and bookstore.h promised the opposite: that a torn write costs the last session only.
    * Now the outgoing file is kept as .bak until the new one is in place, and posLoad falls
    * back to it, so there is always exactly one file a reader can come back to. */
-  SD.remove(BOOKS_POS_FILE ".bak");
-  SD.rename(BOOKS_POS_FILE, BOOKS_POS_FILE ".bak");   // false on a first-ever write: fine
+  /* 🛑 ONLY VACATE .bak WHEN THERE IS A REAL FILE TO PUT THERE. The first cut of this removed
+   * .bak unconditionally — which is fine every ordinary time, and catastrophic in the ONE
+   * state this whole mechanism exists for: a store left .bak-only by a torn write has no real
+   * file, so the remove deleted the sole readable copy and the rename below then had nothing
+   * to move. The recovery path destroyed the thing it was recovering. */
+  const bool haveReal = SD.exists(BOOKS_POS_FILE);
+  if (haveReal) {
+    SD.remove(BOOKS_POS_FILE ".bak");
+    SD.rename(BOOKS_POS_FILE, BOOKS_POS_FILE ".bak");
+  }
   if (!SD.rename(tmp, BOOKS_POS_FILE)) {
-    SD.rename(BOOKS_POS_FILE ".bak", BOOKS_POS_FILE); // put the old one back if we can
+    if (haveReal) {
+      SD.rename(BOOKS_POS_FILE ".bak", BOOKS_POS_FILE); // put the old one back if we can
+    }
     SD.remove(tmp);
     return false;
   }
@@ -320,6 +349,7 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   syncNote[0] = '\0';
   syncCardMs = 0;
   undoValid = false;
+  undoMs = 0;
   undoSpine = 0;
   undoOffset = 0;
   undoPct = 0;
@@ -708,6 +738,7 @@ bool BooksApp::openBook(int idx) {
     }
   }
 
+  saveFailed = false;      // a failure belongs to the book that had it, not to this one
   const uint32_t _oPos = millis();
 
   if (!loadChapter(startSpine)) {
@@ -945,8 +976,16 @@ double BooksApp::fractionHere() const {
 }
 
 bool BooksApp::savePosition(bool flush) {
-  if (!isOpen || !store || nIds <= 0) {
-    return true;
+  if (!isOpen || nIds <= 0) {
+    return true;                  // nothing to save is not a failure
+  }
+  /* ⚠ But NO STORE is. `store` is a ps_malloc in the constructor (see the allocation there)
+   * and nothing re-tries it, so if it ever came back null every position this session is
+   * unwritable — reporting that as a successful save would hide it for ever, which is the
+   * whole class of fault this return value was added to expose. */
+  if (!store) {
+    saveFailed = true;
+    return false;
   }
   const char* idp[BOOKSYNC_MAX_IDS];
   for (int i = 0; i < nIds; i++) {
@@ -1105,6 +1144,7 @@ void BooksApp::applyPending() {
   undoOffset = pageStart;
   undoPct = (int)(fractionHere() * 100.0 + 0.5);
   undoValid = true;
+  undoMs = millis();
 
   int sp = spine;
   uint32_t off = 0;
@@ -1130,8 +1170,12 @@ void BooksApp::applyPending() {
 /* Put back the place the last jump overwrote. One step, this book, this session — the jump
  * it undoes is a mistake noticed within seconds, not tomorrow, so nothing here is persisted
  * beyond the ordinary savePosition() that commits the restored place. */
+bool BooksApp::undoOffered() const {
+  return undoValid && isOpen && (millis() - undoMs) < BOOKS_UNDO_TTL_MS;
+}
+
 void BooksApp::applyUndo() {
-  if (!undoValid || !isOpen) {
+  if (!undoOffered()) {
     return;
   }
   if (undoSpine >= 0 && undoSpine < book.nSpine) {
@@ -1694,7 +1738,7 @@ void BooksApp::buildMenu() {
              pending.dev[0] ? pending.dev : "their", (int)(pending.fraction * 100.0 + 0.5));
     menu->addOption(l, BOOKS_MENU_PENDING, 1);
   }
-  if (undoValid) {
+  if (undoOffered()) {
     snprintf(l, sizeof(l), "Undo the jump (back to %d%%)", undoPct);
     menu->addOption(l, BOOKS_MENU_UNDO, 1);
   }
@@ -1872,12 +1916,11 @@ void BooksApp::buildSyncSettings() {
 }
 
 appEventResult BooksApp::processEvent(EventType event) {
-  /* 🛑 The rail is about to go. Commit before it does, from WHATEVER screen is up — the book
-   * can be open behind the menu, Book info or a sync card, and closeBook() will not run
-   * because powerOff() drops the latch rather than unwinding the app. */
-  if (event == POWER_OFF_EVENT && isOpen) {
-    savePosition(true);
-  }
+  /* ⚠ THERE IS DELIBERATELY NO POWER_OFF_EVENT ARM HERE. It looks like the natural place to
+   * commit the position, and it is useless: all three dispatchers (WiPhone.ino:1195, :3557,
+   * :3606) call powerOff() BEFORE processEvent, so anything written from here races a rail
+   * that is already dropping — and it duplicated the pre-latch write that now happens at
+   * those call sites via booksSaveOpenPosition(). Save before the latch, not after it. */
   switch (appState) {
 
   case BOOKS_LIB:

@@ -3602,6 +3602,12 @@ void loop() {
     // Power OFF
 #ifdef WIPHONE_INTEGRATED_1_4
     if (powerButtonPressed && !poweringOff && elapsedMillis(now, msPowerOffStarted, 2500)) {
+      /* The EVERYDAY power-off, and it needs the save just as much as the low-battery one.
+       * Every POWER_OFF_EVENT dispatch in this file calls powerOff() FIRST, so an app that
+       * saves when it receives the event is already writing after the latch has been pulled.
+       * Save here, before it. */
+      extern bool booksSaveOpenPosition();
+      booksSaveOpenPosition();
       powerOff();
       redrawWhat |= gui.processEvent(now, POWER_OFF_EVENT);
     }

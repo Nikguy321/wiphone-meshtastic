@@ -176,9 +176,16 @@ protected:
    * the position it overwrites is gone the moment it is taken. Not persisted: this is for
    * "that was not what I meant", which happens seconds later, not tomorrow. */
   bool     undoValid;
+  uint32_t undoMs;               // when the jump was taken — the offer EXPIRES, see below
   int      undoSpine;
   uint32_t undoOffset;
   int      undoPct;
+  /* 🛑 An undo that never expires is a destroyer, not a safety net. Left armed for the whole
+   * open-book session it sits in the reader menu an hour later, one press away from throwing
+   * out everything read since the jump — and it lands on the row Sync settings / Close book
+   * normally occupy, so muscle memory finds it. It answers "that was not what I meant", which
+   * is a thing noticed in seconds, so it is offered for a few minutes and then goes away. */
+  bool undoOffered() const;
 
   /* Did the LAST attempt to write the position to the card fail? Both flush sites used to
    * discard save()'s bool, so a card that refused writes lost a whole night in silence: the
