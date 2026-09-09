@@ -31,6 +31,7 @@
 #define BOOKS_MENU_SYNC    6
 #define BOOKS_MENU_PENDING 7
 #define BOOKS_MENU_SYNCSET 8
+#define BOOKS_MENU_UNDO    9
 
 // Sync settings rows
 #define BOOKS_SET_PASS     1
@@ -41,6 +42,15 @@
  * write per page; never would mean a flat battery costs your place. Four is roughly a minute
  * of reading, and the position is also flushed on the menu, a chapter change and closing. */
 #define BOOKS_SAVE_EVERY   4
+
+/* How long "Go there" stays inert after the sync card appears.
+ *
+ * The card can replace the page from two directions — opening a book that has a position
+ * parked, and the one-second tick while you are reading — and in BOTH the user's next
+ * keystroke was aimed at something else. 600 ms is past a reflex double-press and well short
+ * of reading two lines of text, so a deliberate press never notices it. "Stay" is not
+ * delayed: declining is safe, and making the safe answer feel broken teaches the wrong habit. */
+#define BOOKS_SYNCCARD_ARM_MS  600
 
 // Body faces, smallest first. All the phone has are bold faces (see the font note in the
 // COVEY/WiPhone handoffs) — this is a size choice, not a weight one.
@@ -68,6 +78,12 @@ static size_t sdSourceRead(void* ctx, uint64_t off, void* buf, size_t len) {
 
 static bool posLoad(void* ctx, char* buf, size_t cap, size_t* outLen) {
   File f = SD.open(BOOKS_POS_FILE, FILE_READ);
+  if (!f) {
+    // A write that died mid-swap leaves the previous good copy here. Losing the last session
+    // is recoverable; losing every book's place because the power went at the wrong instant
+    // is not, and used to be possible — see posStore.
+    f = SD.open(BOOKS_POS_FILE ".bak", FILE_READ);
+  }
   if (!f) {
     return false;                       // no file yet is a fresh store, not an error
   }
@@ -99,8 +115,22 @@ static bool posStore(void* ctx, const char* buf, size_t len) {
     SD.remove(tmp);
     return false;
   }
-  SD.remove(BOOKS_POS_FILE);
-  return SD.rename(tmp, BOOKS_POS_FILE);
+  /* 🛑 NEVER be without a good copy. This used to be `SD.remove(BOOKS_POS_FILE)` followed by
+   * the rename below — so between those two calls no positions file existed at all, and a
+   * failed rename (or the rail dropping, which on this phone is a software latch and can
+   * happen at any instant) took EVERY book's place with it. Both this function's own comment
+   * and bookstore.h promised the opposite: that a torn write costs the last session only.
+   * Now the outgoing file is kept as .bak until the new one is in place, and posLoad falls
+   * back to it, so there is always exactly one file a reader can come back to. */
+  SD.remove(BOOKS_POS_FILE ".bak");
+  SD.rename(BOOKS_POS_FILE, BOOKS_POS_FILE ".bak");   // false on a first-ever write: fine
+  if (!SD.rename(tmp, BOOKS_POS_FILE)) {
+    SD.rename(BOOKS_POS_FILE ".bak", BOOKS_POS_FILE); // put the old one back if we can
+    SD.remove(tmp);
+    return false;
+  }
+  SD.remove(BOOKS_POS_FILE ".bak");
+  return true;
 }
 
 // ---------------------------------------------------------------- drawable text
@@ -288,6 +318,12 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   pendingFrom = 0;
   pendingClock = false;
   syncNote[0] = '\0';
+  syncCardMs = 0;
+  undoValid = false;
+  undoSpine = 0;
+  undoOffset = 0;
+  undoPct = 0;
+  saveFailed = false;
   memset(&pending, 0, sizeof(pending));
   memset(pageImageKey, 0, sizeof(pageImageKey));
 
@@ -724,6 +760,7 @@ void BooksApp::closeBook(bool save) {
   isOpen = false;
   openIdx = -1;
   histN = 0;
+  undoValid = false;      // an undo belongs to the book that was open when it was taken
 }
 
 bool BooksApp::loadChapter(int i) {
@@ -907,9 +944,9 @@ double BooksApp::fractionHere() const {
   return f < 0.0 ? 0.0 : (f > 1.0 ? 1.0 : f);
 }
 
-void BooksApp::savePosition(bool flush) {
+bool BooksApp::savePosition(bool flush) {
   if (!isOpen || !store || nIds <= 0) {
-    return;
+    return true;
   }
   const char* idp[BOOKSYNC_MAX_IDS];
   for (int i = 0; i < nIds; i++) {
@@ -920,10 +957,23 @@ void BooksApp::savePosition(bool flush) {
    * old to COVEY, and made COVEY's look eight hours in the future to this phone. */
   uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0;
   store->put(idp, nIds, (uint32_t)spine, pageStart, fractionHere(), now);
-  if (flush) {
-    store->saveIfDirty(&storeIo);
-    turnsSinceSave = 0;
+  if (!flush) {
+    return true;
   }
+  /* 🛑 SAY SO WHEN THE CARD REFUSES. This bool used to be discarded here and at the page-turn
+   * flush, and it is the ONLY channel either has: on failure `dirty` stays set, the RAM store
+   * goes on answering every read correctly for the rest of the session, and the loss appears
+   * the next time a BooksApp is built and loads from the card — the following morning. A
+   * whole evening's reading can go that way without one line anywhere. */
+  const bool ok = store->saveIfDirty(&storeIo);
+  turnsSinceSave = 0;
+  if (!ok) {
+    log_e("BOOK SAVE FAILED: %s not written (spine=%d pageStart=%lu) - the place on the card "
+          "is now STALE and this session will be lost when the book is next opened",
+          BOOKS_POS_FILE, spine, (unsigned long)pageStart);
+  }
+  saveFailed = !ok;
+  return ok;
 }
 
 // ---------------------------------------------------------------- sync
@@ -1048,6 +1098,14 @@ void BooksApp::applyPending() {
   if (pendingIdx < 0 || !isOpen) {
     return;
   }
+  /* Remember what this is about to overwrite. The jump is saved to the card immediately and
+   * every parked offer is retired on the way out, so without this there is nothing left to
+   * go back to and no record that anything moved. */
+  undoSpine = spine;
+  undoOffset = pageStart;
+  undoPct = (int)(fractionHere() * 100.0 + 0.5);
+  undoValid = true;
+
   int sp = spine;
   uint32_t off = 0;
   epubLocate(&book, pending.fraction, &sp, &off);
@@ -1067,6 +1125,23 @@ void BooksApp::applyPending() {
   dropParkedForThisBook();
   pendingIdx = -1;
   pendingId = 0;
+}
+
+/* Put back the place the last jump overwrote. One step, this book, this session — the jump
+ * it undoes is a mistake noticed within seconds, not tomorrow, so nothing here is persisted
+ * beyond the ordinary savePosition() that commits the restored place. */
+void BooksApp::applyUndo() {
+  if (!undoValid || !isOpen) {
+    return;
+  }
+  if (undoSpine >= 0 && undoSpine < book.nSpine) {
+    if (undoSpine != spine) {
+      loadChapter(undoSpine);
+    }
+    gotoOffset(undoOffset, true);
+    savePosition(true);
+  }
+  undoValid = false;
 }
 
 /* Shared by "Go there" and "Stay where I am": both are the reader saying where it stands for
@@ -1144,11 +1219,8 @@ void BooksApp::nextPage() {
   }
   pageStart = pg.next;
 
-  savePosition(false);
-  if (++turnsSinceSave >= BOOKS_SAVE_EVERY && store) {
-    store->saveIfDirty(&storeIo);            // an SD write every page would be all we did
-    turnsSinceSave = 0;
-  }
+  // An SD write every page would be all we did; savePosition(true) resets the counter.
+  savePosition(++turnsSinceSave >= BOOKS_SAVE_EVERY);
 }
 
 void BooksApp::prevPage() {
@@ -1157,7 +1229,11 @@ void BooksApp::prevPage() {
   }
   if (histN > 0) {
     pageStart = hist[--histN];               // exact: this is where we actually came from
-    savePosition(false);
+    /* ⚠ COUNT BACKWARD TURNS TOO. turnsSinceSave used to be advanced only by nextPage(), so
+     * a long stretch of back-paging dirtied the store without ever reaching the card — and
+     * BOOKS_SAVE_EVERY's "you lose at most three turns" guarantee quietly did not hold in
+     * that direction. The counter is about position changes since the last write. */
+    savePosition(++turnsSinceSave >= BOOKS_SAVE_EVERY);
     return;
   }
   if (pageStart == 0) {
@@ -1175,7 +1251,7 @@ void BooksApp::prevPage() {
   BookMeasure m = { f, fontMeasure };
   pageStart = bookLayoutPrevPageImages(chapText, chapLen, pageStart, pageWidth(), pageLines(),
                                        &m, imgBoxes, nImages);
-  savePosition(false);
+  savePosition(++turnsSinceSave >= BOOKS_SAVE_EVERY);
 }
 
 // ---------------------------------------------------------------- drawing
@@ -1331,6 +1407,10 @@ void BooksApp::debugDumpPage() {
   }
 }
 
+bool booksSaveOpenPosition() {
+  return s_liveBooksApp ? s_liveBooksApp->savePosition(true) : true;
+}
+
 void booksDebugDumpPage() {
   if (s_liveBooksApp) {
     s_liveBooksApp->debugDumpPage();
@@ -1478,6 +1558,14 @@ void BooksApp::drawInfo() {
   lcd.setTextColor(WHITE, BLACK);
   snprintf(l, sizeof(l), "now: ch %d, %d%%", spine + 1, (int)(fractionHere() * 100.0 + 0.5));
   lcd.drawString(l, BOOKS_MARGIN, y); y += lh + 4;
+  /* The one state this screen exists to answer and could not: a card that is refusing writes
+   * looks EXACTLY like one that is working, all session, because the RAM store answers every
+   * read. Without this the loss only shows up the next morning, as a place that went stale. */
+  if (saveFailed) {
+    lcd.setTextColor(TFT_RED, BLACK);
+    lcd.drawString("SAVE FAILED - place not written", BOOKS_MARGIN, y); y += lh;
+    lcd.setTextColor(WHITE, BLACK);
+  }
 
   lcd.setTextColor(TFT_DARKGREY, BLACK);
   lcd.drawString("Sync identity", BOOKS_MARGIN, y); y += lh;
@@ -1558,13 +1646,24 @@ void BooksApp::drawSyncCard() {
   lcd.drawString(l, BOOKS_MARGIN, y); y += lh + 2;
 
   lcd.setTextColor(WHITE, BLACK);
+  const double mine = fractionHere();
+  const bool backward = pending.fraction < mine;
   int theirPct = (int)(pending.fraction * 100.0 + 0.5);
   snprintf(l, sizeof(l), "they are at %d%%", theirPct);
   lcd.drawString(l, BOOKS_MARGIN, y); y += lh;
-  snprintf(l, sizeof(l), "you are at %d%%", (int)(fractionHere() * 100.0 + 0.5));
+  snprintf(l, sizeof(l), "you are at %d%%", (int)(mine * 100.0 + 0.5));
   lcd.drawString(l, BOOKS_MARGIN, y); y += lh + 6;
 
   lcd.setTextFont(sf);
+  /* 🛑 A jump that goes BACKWARDS throws away reading already done, and there is no undo on
+   * the wire — applyPending() writes the new place to the card at once. Both percentages were
+   * always on screen, but "they are at 12 / you are at 26" reads as information rather than
+   * as a warning, and at the end of an evening it is easy to miss entirely. Say it. */
+  if (backward) {
+    lcd.setTextColor(TFT_RED, BLACK);
+    lcd.drawString("this moves you BACKWARDS", BOOKS_MARGIN, y);
+    y += sf->height() + 4;
+  }
   if (pendingClock) {
     // Flagged rather than refused, exactly as COVEY does: the position may still be the one
     // you want, but its timestamp cannot be trusted to decide that for you.
@@ -1573,7 +1672,8 @@ void BooksApp::drawSyncCard() {
     y += sf->height() + 4;
   }
   lcd.setTextColor(TFT_DARKGREY, BLACK);
-  lcd.drawString("OK: go there", BOOKS_MARGIN, y); y += sf->height() + 2;
+  lcd.drawString(backward ? "OK: go BACK to their place" : "OK: go there",
+                 BOOKS_MARGIN, y); y += sf->height() + 2;
   lcd.drawString("Back: stay where I am", BOOKS_MARGIN, y);
 }
 
@@ -1593,6 +1693,10 @@ void BooksApp::buildMenu() {
     snprintf(l, sizeof(l), "Go to %s's place (%d%%)",
              pending.dev[0] ? pending.dev : "their", (int)(pending.fraction * 100.0 + 0.5));
     menu->addOption(l, BOOKS_MENU_PENDING, 1);
+  }
+  if (undoValid) {
+    snprintf(l, sizeof(l), "Undo the jump (back to %d%%)", undoPct);
+    menu->addOption(l, BOOKS_MENU_UNDO, 1);
   }
   menu->addOption("Sync settings...", BOOKS_MENU_SYNCSET, 1);
   menu->addOption("Book info", BOOKS_MENU_INFO, 1);
@@ -1717,10 +1821,16 @@ void BooksApp::enterState(BooksState_t state) {
     header->setTitle("Picture");
     footer->setButtons("", "Back");
     break;
-  case BOOKS_SYNCCARD:
+  case BOOKS_SYNCCARD: {
     header->setTitle("Sync");
-    footer->setButtons("Go there", "Stay");
+    syncCardMs = millis();       // arms "Go there" — see BOOKS_SYNCCARD_ARM_MS
+    /* Name the direction on the BUTTON, not just in the body text. A jump that moves you
+     * FORWARD is the ordinary case and needs no ceremony; one that moves you BACK throws
+     * away reading you have already done, and the two used to be the same word. */
+    const bool backward = isOpen && pendingIdx >= 0 && pending.fraction < fractionHere();
+    footer->setButtons(backward ? "Go BACK" : "Go there", "Stay");
     break;
+  }
   case BOOKS_SYNCSET:
     header->setTitle("Sync settings");
     footer->setButtons("Select", "Back");
@@ -1762,6 +1872,12 @@ void BooksApp::buildSyncSettings() {
 }
 
 appEventResult BooksApp::processEvent(EventType event) {
+  /* 🛑 The rail is about to go. Commit before it does, from WHATEVER screen is up — the book
+   * can be open behind the menu, Book info or a sync card, and closeBook() will not run
+   * because powerOff() drops the latch rather than unwinding the app. */
+  if (event == POWER_OFF_EVENT && isOpen) {
+    savePosition(true);
+  }
   switch (appState) {
 
   case BOOKS_LIB:
@@ -1977,6 +2093,10 @@ appEventResult BooksApp::processEvent(EventType event) {
           return REDRAW_ALL;
         }
         return REDRAW_SCREEN;
+      case BOOKS_MENU_UNDO:
+        applyUndo();
+        enterState(BOOKS_READ);
+        return REDRAW_ALL;
       case BOOKS_MENU_SYNCSET:
         enterState(BOOKS_SYNCSET);
         return REDRAW_ALL;
@@ -2027,6 +2147,15 @@ appEventResult BooksApp::processEvent(EventType event) {
 
   case BOOKS_SYNCCARD:
     if (LOGIC_BUTTON_OK(event)) {
+      /* 🛑 NOT the keystroke that put this card on the screen. Opening a book is OK in the
+       * library and a parked position lands you here instead of on the page, so the reflex
+       * second press was taking a position nobody had read the offer for — and applyPending()
+       * writes it to the card and retires every parked offer, so there was nothing left to
+       * show it had happened. Swallow anything inside the arming window; a deliberate press
+       * is always later than that. */
+      if (millis() - syncCardMs < BOOKS_SYNCCARD_ARM_MS) {
+        return REDRAW_SCREEN;
+      }
       applyPending();                    // only ever from a deliberate press
       enterState(BOOKS_READ);
       return REDRAW_ALL;

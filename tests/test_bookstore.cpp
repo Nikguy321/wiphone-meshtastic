@@ -269,6 +269,80 @@ static void testEviction() {
   ok(s.get(newest, 1, NULL), "the most recently read one survived");
 }
 
+/* ---------------------------------------------------------------- a card that says no
+ *
+ * The gap this closes cost a night's reading on 2026-09-08. Every existing test here uses an
+ * io that WORKS, so the whole suite stayed green while the two callers in app_books.cpp threw
+ * saveIfDirty()'s bool away — and a store that cannot write is indistinguishable, all session,
+ * from one that can: the RAM copy answers every read correctly and only the next process
+ * loads from the card. What must hold is that the store REPORTS the failure and stays dirty,
+ * so a later attempt still has something to write and a caller can say so. */
+static bool refuseStore(void* ctx, const char* buf, size_t len) {
+  (*(int*)ctx)++;               // count the attempts; refuse every one
+  return false;
+}
+
+static bool refuseLoad(void* ctx, char* buf, size_t cap, size_t* outLen) {
+  return false;
+}
+
+static void testWriteRefused() {
+  group("a card that refuses writes is reported, not swallowed");
+
+  int attempts = 0;
+  BookStoreIo io = { &attempts, NULL, refuseStore };
+  BookStore s;
+  s.init();
+
+  const char* ids[] = { "id:leviathan", "fp:abc123" };
+  s.put(ids, 2, 8, 7390, 0.120272, 0);
+  ok(s.dirty, "a put marks the store dirty");
+  ok(!s.saveIfDirty(&io), "saveIfDirty REPORTS the refusal");
+  eqU32((unsigned long)attempts, 1, "it did try once");
+  ok(s.dirty, "and stays dirty, so the next attempt still has something to write");
+
+  // A whole session of turns against a dead card: every flush fails, every one says so.
+  for (int i = 0; i < 40; i++) {
+    s.put(ids, 2, 8, 7390 + (uint32_t)i * 100, 0.12 + i * 0.0001, 0);
+    ok(!s.saveIfDirty(&io), "still refused");
+  }
+  eqU32((unsigned long)attempts, 41, "every flush was attempted, none silently skipped");
+
+  // The RAM copy is correct throughout — which is exactly why the failure is invisible
+  // on the device without a caller that checks the bool.
+  BookPos p;
+  ok(s.get(ids, 2, &p), "the reader still finds its place in RAM");
+  eqU32((unsigned long)p.offset, 7390 + 39 * 100, "and it is the LATEST place, not a stale one");
+
+  // Once the card comes back, the accumulated position is written — nothing was lost from RAM.
+  const char* path = "tests/fixtures/_store_refuse.tsv";
+  remove(path);
+  FileCtx fc = { path };
+  BookStoreIo good = { &fc, fileLoad, fileStore };
+  ok(s.saveIfDirty(&good), "a working card takes it");
+  ok(!s.dirty, "and only then is the store clean");
+
+  BookStore back;
+  back.init();
+  ok(back.load(&good), "reloads");
+  ok(back.get(ids, 2, &p), "the book is there");
+  eqU32((unsigned long)p.offset, 7390 + 39 * 100, "with the position that was pending all along");
+}
+
+static void testLoadRefused() {
+  group("a load that FAILS is not a fresh store");
+
+  BookStoreIo io = { NULL, refuseLoad, NULL };
+  BookStore s;
+  s.init();
+  ok(!s.load(&io), "load reports the failure");
+  eqU32((unsigned long)s.count, 0, "and leaves an empty store");
+  /* ⚠ The caller in app_books.cpp discards this bool, so an unreadable card is currently
+   * indistinguishable from a first run — and the first successful save then writes a
+   * one-book file over everybody else's place. Pinned here so the day someone fixes that
+   * caller, this test says what the contract was. */
+}
+
 int main() {
   printf("\033[1mbookstore — reading positions\033[0m\n");
   testPutGet();
@@ -279,6 +353,8 @@ int main() {
   testCorruption();
   testPersistence();
   testEviction();
+  testWriteRefused();
+  testLoadRefused();
   printf("\n%s%d passed, %d failed\033[0m\n",
          g_fail ? "\033[31m" : "\033[32m", g_pass, g_fail);
   return g_fail ? 1 : 0;

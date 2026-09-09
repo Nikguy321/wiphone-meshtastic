@@ -161,6 +161,31 @@ protected:
   uint32_t syncSeqSeen;          // bookSyncInboxSeq() as of the last checkForPending()
   char     syncNote[64];         // result of the last send, shown in the menu
 
+  /* 🛑 WHEN the card was raised, so "Go there" can be ARMED rather than instant.
+   *
+   * Opening a book is OK in the library; a parked position then puts the card on screen
+   * INSTEAD of the page (see the enterState at the end of BOOKS_LIB), and the card's OK is
+   * "Go there". A second reflex press — the natural response to "I pressed OK and a dialog
+   * appeared" — therefore took a position, wrote it to the card and retired the offer, all
+   * from one intended keystroke. That is how a night's reading was replaced by a days-old
+   * place on 2026-09-08, and it leaves no trace because applyPending() drops every parked
+   * offer as it goes. Only the DESTRUCTIVE half is delayed: "Stay" answers immediately. */
+  uint32_t syncCardMs;
+
+  /* One step of undo for a jump taken from the card, because the mistake above is silent and
+   * the position it overwrites is gone the moment it is taken. Not persisted: this is for
+   * "that was not what I meant", which happens seconds later, not tomorrow. */
+  bool     undoValid;
+  int      undoSpine;
+  uint32_t undoOffset;
+  int      undoPct;
+
+  /* Did the LAST attempt to write the position to the card fail? Both flush sites used to
+   * discard save()'s bool, so a card that refused writes lost a whole night in silence: the
+   * RAM store keeps the reader correct all session and only the next BooksApp reads the card
+   * again. Surfaced in Book info so the failure is visible on the device. */
+  bool     saveFailed;
+
   // ---- screen timeout, borrowed while reading
   bool     timeoutsHeld;
   void holdScreenAwake(bool hold);
@@ -182,7 +207,9 @@ protected:
   bool openBook(int idx);
   void closeBook(bool save);
   bool loadChapter(int i);       // pull spine item i into chapText
-  void savePosition(bool flush);
+  /* Returns false ONLY when a flush was asked for and the card refused it. A RAM-only
+   * savePosition(false) always reports true — it cannot fail and has not promised anything. */
+  bool savePosition(bool flush);
   double fractionHere() const;
 
   // Paging. nextPage()/prevPage() step chapters at the ends of one.
@@ -195,6 +222,7 @@ protected:
   void drawPage();
   void debugDumpPage();          // serial `bookpage`: print this page's layout + rendering
   friend void booksDebugDumpPage();
+  friend bool booksSaveOpenPosition();
   void drawHelp();
   void drawXfer();
   void drawInfo();
@@ -206,6 +234,7 @@ protected:
   bool sendMyPlace();            // broadcast where I am on the booksync channel
   void checkForPending();        // is a parked position about the open book?
   void applyPending();           // take the jump, once confirmed
+  void applyUndo();              // put back the place the last jump overwrote
 
   void loadChapterImages();      // sizes and row heights for the current chapter
   int  imageRows(int i) const;   // rows of text height picture i occupies inline
@@ -218,6 +247,14 @@ protected:
  * the margins" report: it shows in one paste whether a missing character was lost by the
  * LAYOUT (wrong line offsets) or by the RENDER (right offsets, wrong pixels). */
 void booksDebugDumpPage();
+
+/* Commit the open book's place to the card RIGHT NOW, from outside the app.
+ *
+ * bookstore.h has always said to call this "on a low-battery shutdown"; until now no such
+ * caller existed. powerOff() (WiPhone.ino) asserts POWER_CONTROL and the rail goes, so the
+ * BooksApp destructor — the thing that would otherwise have flushed — never runs. Returns
+ * true when there is nothing to do, so a caller cannot tell "no book open" from "saved". */
+bool booksSaveOpenPosition();
 
 /* Shared with FilesApp's text viewer, so the two can never disagree about rendering:
  * bookRenderRun substitutes codepoints the font lacks; fontMeasure is the ADVANCE-

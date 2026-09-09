@@ -3547,6 +3547,12 @@ void loop() {
 
       // Power off at low battery to avoid unexpected behaviours
       if (v <= 3.3 && now >= 30000) {     // allow phone to work on low battery for 30 seconds
+        /* Commit the reading position BEFORE the latch drops, not after. powerOff() asserts
+         * POWER_CONTROL and does not unwind anything, so the BooksApp destructor — the only
+         * thing that would otherwise have flushed — never runs. bookstore.h has asked for
+         * this call since it was written; this is it. */
+        extern bool booksSaveOpenPosition();   // app_books.h; declared here like healthDump
+        booksSaveOpenPosition();
         powerOff();
         redrawWhat |= gui.processEvent(now, POWER_OFF_EVENT);
       }
