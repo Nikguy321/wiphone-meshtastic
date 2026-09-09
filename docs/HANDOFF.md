@@ -76,9 +76,32 @@ using **Ghosts_of_Timkovichi, not Leviathan**, so Nick's live read was untouched
 at 6275**; and 4461 also survived a REBOOT between runs. Backward paging then walked it exactly
 back to **2382** and a reopen read 2382 off the card — which also exercises the new
 `prevPage` counter. No `SAVE FAILED` at any point. **Book restored to where it was found.**
-⚠ **STILL UNEXERCISED: the sync-card fix itself** — the arming window, the BACKWARD label and the
-undo need a position actually parked for an open book, which needs a real packet from COVEY. The
-mechanism is code-proven and the trap self-erases, so this is the one part still owed to real use.
+✅ **AND THE SYNC-CARD FIX IS NOW PROVEN ON HARDWARE TOO, phone-to-phone over LoRa (~12:30).**
+Staged with both ports held open at once — 🔑 **the inbox is RAM-ONLY, so opening phone 1's port
+after the packet lands WIPES the parked offer**; the send and the open must happen in one session.
+Phone 1 moved 8118→11936 and closed; phone 2 (behind, at 8118) sent `Sent: ch 9, 12%`; phone 1
+then opened Leviathan and **the card came up instead of the page**, reading `WiPhone-Nick says: /
+they are at 12% / you are at 12%` + **`this moves you BACKWARDS` in RED**, `OK: go BACK to their
+place`, and a footer of **`Go BACK` / `Stay`** — all three display changes live.
+⛔ **THE ARMING WINDOW WAS TESTED WITH THE EXACT KEYSTROKE THAT CAUSED THE BUG:** `key ok ok` in
+ONE injection, so the second press drains on the loop pass right after `openBook` raises the card.
+**Result: `pageStart` stayed 11936 — SWALLOWED.** A deliberate press two seconds later applied the
+jump (`→ 8118`), and the menu then offered **`Undo the jump (back to 12%)`** at row 4.
+⚠ **The undo row was seen but NOT executed** — phone 1 was by then sitting exactly on its baseline
+and running it would have displaced the device again.
+🔑 **A REAL UX WART THE TEST EXPOSED, worth fixing:** both percentages printed **12%** while the
+banner said BACKWARDS, because 8118→11936 stays inside chapter 9 and the card prints a ROUNDED
+int. The direction logic is right (it compares the raw `pending.fraction < fractionHere()`), but
+the numbers on screen contradict the warning. Show a decimal, or the chapter, when the rounded
+values tie.
+✅ **EVERYTHING PUT BACK, verified by reopening each book after a reboot:** phone 1 Leviathan
+`spine 8 / 8118`, phone 2 Leviathan `spine 8 / 8118`, phone 2 Ghosts `spine 24 / 2382`, all
+`pending=0`. **COVEY was never driven and is byte-unchanged** — `/root/.covey/books.json` mtime is
+still 08:42:37 (this morning's boot), Leviathan `sp8 off7390 fr0.120272 t0`, Ghosts `sp24 off1911`.
+⚠ Driving lesson: **screenshot BEFORE injecting keys.** The unlock is two keys (`ok` then `*`) and
+sending it to a phone that is NOT locked opens the dialer and types `+` — which then puts the
+left softkey on "Call". Also **`holdScreenAwake(true)` in BOOKS_READ is why a phone parked in the
+reader never locks** while one on the home screen does; that asymmetry is the app, not the phone.
 🔑 **Book open is 1.6 s, not the 12.4-12.6 s the comment at `app_books.cpp:592` still quotes** —
 measured four times today (`BOOK OPEN 1600-1609 ms [epubOpen≈1230 chapter≈362]`). That comment is
 stale; the WiFi-wedge reasoning built on it (a 12 s window with the superloop frozen) is now a
