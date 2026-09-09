@@ -58,9 +58,13 @@ turns" did not hold backwards. 🔑 **`tests/test_bookstore.cpp` gains the case 
 had — an io whose `store()` and `load()` FAIL, which is exactly where this class of bug lives:
 57 → 111 checks.** Host suite green (19 groups, 0 failed), firmware builds, **RAM 26.7% / Flash
 38.8%, unchanged**, `0.9.61` verified present in the ELF (3 hits, no `0.9.60`).
-⏳ **OWED: BOTH PHONES ARE STILL ON 0.9.60/0.9.59 — nothing here has run on hardware.** Flashing
-wants panicwatch stopped. The webflasher has NOT been regenerated (do that BEFORE any release
-commit and read the version out of the BINARY — the 0.9.57 lesson).
+✅ **PUSHED AND PUBLISHED, 2026-09-09 ~11:20.** `main` is at `13ad81a`; the webflasher was staged
+BEFORE the release commit and the version read **out of the merged binary** (2 hits of `0.9.61`,
+no older string) rather than off the manifest — the 0.9.57 lesson. **Verified against the LIVE
+site, not the push:** `nikguy321.github.io/wiphone-meshtastic/manifest.json` serves `0.9.61` and
+the served `wiphone-merged.bin` is sha256 `861bd05e2073e6a0…`, byte-identical to the staged one.
+⏳ **OWED: BOTH PHONES ARE STILL ON 0.9.60/0.9.59 — nothing in 0.9.61 has run on hardware.**
+The flasher will now offer them 0.9.61; flashing over the cable wants panicwatch stopped.
 ⚠ Phone 1 was rebooted once by my serial probe at ~09:57 (read-only: `ver`, `ls`, `health all`).
 
 
