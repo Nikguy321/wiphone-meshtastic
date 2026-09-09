@@ -4,6 +4,66 @@
 
 Read this first; everything below it is narrative.
 
+📖 **2026-09-09 — NICK'S LOST NIGHT OF READING: IT WAS THE SYNC CARD TAKING THE KEYPRESS THAT
+OPENED THE BOOK, NOT A FAILED WRITE. Fixed in 0.9.61, BUILT AND TESTED, 🛑 NOT FLASHED.**
+Nick: *"I read a good amount and I believe pushed sync place and then closed the book. But this
+morning, both wiphones were at the place I started at last night."* 🔑 **His own guess was right
+about the WHAT and wrong about the WHEN: an older sync place was taken, on OPEN, not on close.**
+`app_books.cpp:1796` — opening a book is OK in the library, and a parked position lands you on
+the CARD instead of the page, with **"Go there" on that same OK**. The reflex second press (or
+one queued in the keypad buffer during the open) took a position nobody had read the offer for;
+`applyPending()` writes it to the card at once and `dropParkedForThisBook()` retires every
+offer, **so nothing is left to show it happened and "Parked positions" reads 0 either way** —
+⚠ a 0 count is CONSISTENT with the trap having fired, not proof it did not. COVEY was up until
+**20:15** that evening holding a stale `sp:8 fr:0.120272 t:0`, and is where the packet came from.
+⚖️ **Not a fluke — the trigger is the normal workflow:** sync while the book is shut, then open
+it. It re-arms every time a position parks; it only HURTS when that position is stale.
+
+🔬 **HOW IT WAS PINNED, and the method is the reusable part.** `health.log` has no timestamps,
+only `up=Nmin` — **back-calculate from the uptime at the moment you probe** (249 min at a 09:57
+probe ⇒ that boot was 05:48). **`psram=` is an app-open tracer**: the reader drops 3.49 MB →
+2.79 MB while a chapter is loaded, so open/close cycles are readable minute by minute. That gave
+four Books sessions on 09-08 — **17:02-17:27, 17:54-17:56, 19:21-19:45, 21:22-21:33** — and
+proved the book **CLOSED CLEANLY** at 21:33 (psram back up, cpu 240→80 MHz, screen off). The
+`BOOT reset_reason=1` at 05:48 was at **soc=77% v=3.96** — nowhere near the 3.3 V cutoff, a
+spontaneous hard power cycle, and a **red herring**. `wifi=0` all session ⇒ no NTP ⇒ every
+`turnedAt` stamped 0, which is exactly the `t:0` COVEY holds.
+🛑 **THREE OF MY OWN THEORIES DIED, each to a measurement, and the order matters:**
+1. **"The SD write failed silently"** — the leading theory for an hour, and a subagent harness
+   reproduced the symptom byte-for-byte from a refusing store. **Killed by asking Nick to jump a
+   CHAPTER and reopen: Book info read "ch 19 26%", green.** ⚠ **A harness that reproduces a
+   symptom proves the mechanism is SUFFICIENT, never that it is what happened.**
+2. **"COVEY has no position for this book"** — I had read `~/.covey/books.json`. **covey-ui runs
+   as ROOT: the live store is `/root/.covey/books.json`.** The `covey` user's copy is a dead
+   orphan from Aug 6. **Check the unit's `User=` before trusting any dotfile path on COVEY.**
+3. The 16 KB `bsAlloc` and the `nIds<=0` early return — both refuted (`ps_malloc`, 3.49 MB free;
+   the `fp:` fingerprint id is always emitted).
+⚠ **Book info's percentage is a ROUNDED int** (`:1472`), so a test that moves you WITHIN a
+chapter proves nothing — Nick caught this himself. Use the **chapter number**, or `bookpage`
+over serial, which prints `spine=` and `pageStart=` raw.
+
+✅ **WHAT 0.9.61 CHANGES.** (1) **"Go there" is armed 600 ms after the card appears** — both
+routes onto it, the open and the one-second tick while reading; "Stay" answers at once. (2) **A
+BACKWARD jump says so**, on the button and in red. (3) **One step of undo** in the reading menu
+for the place a jump overwrote. **Four durability defects fixed alongside, none of them the
+cause:** both flush sites **discarded `saveIfDirty()`'s bool** — `savePosition()` now returns it,
+logs `BOOK SAVE FAILED` and Book info shows it (a card refusing writes was indistinguishable,
+all session, from one that works); **`posStore()` removed the live file BEFORE the rename**, so
+a failed rename or a dropped rail took EVERY book's place — the opposite of what its own comment
+and `bookstore.h` both promised — now the outgoing file is kept as `.bak` and `posLoad` falls
+back to it; **nothing saved on power-off** (`bookstore.h` had asked for a low-battery caller
+since it was written — `booksSaveOpenPosition()` is it, called before `powerOff()` drops the
+latch); **`prevPage()` never advanced `turnsSinceSave`**, so BOOKS_SAVE_EVERY's "at most three
+turns" did not hold backwards. 🔑 **`tests/test_bookstore.cpp` gains the case the suite never
+had — an io whose `store()` and `load()` FAIL, which is exactly where this class of bug lives:
+57 → 111 checks.** Host suite green (19 groups, 0 failed), firmware builds, **RAM 26.7% / Flash
+38.8%, unchanged**, `0.9.61` verified present in the ELF (3 hits, no `0.9.60`).
+⏳ **OWED: BOTH PHONES ARE STILL ON 0.9.60/0.9.59 — nothing here has run on hardware.** Flashing
+wants panicwatch stopped. The webflasher has NOT been regenerated (do that BEFORE any release
+commit and read the version out of the BINARY — the 0.9.57 lesson).
+⚠ Phone 1 was rebooted once by my serial probe at ~09:57 (read-only: `ver`, `ls`, `health all`).
+
+
 🛠️ **2026-09-07 ~16:20 — 0.9.60: the WiFi auto-join failure Nick hit today, root-caused and
 fixed in the tree.** Nick: *"I had to manually join."* Phone 1's radio had been off ~22 h;
 switching it back on produced two auto-switch scans that completed `n=0` **while six APs were on

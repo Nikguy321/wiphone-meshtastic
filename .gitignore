@@ -27,3 +27,8 @@ tests/fixtures/mp3/
 # file, so a regeneration is provable without carrying the corpus in the history.
 # Refetch with tools/t9-corpus/FETCH.md.
 tools/t9-corpus/*.txt
+
+# Transient host-test scratch files: the bookstore tests write a store, reload it and leave
+# it behind. Untracked noise in `git status` right before a deploy is exactly what the
+# handoff warns about, so keep them out of the way.
+tests/fixtures/_store*.tsv
