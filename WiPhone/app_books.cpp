@@ -1866,6 +1866,17 @@ void BooksApp::enterState(BooksState_t state) {
     footer->setButtons("", "Back");
     break;
   case BOOKS_SYNCCARD: {
+    /* 🛑 HOLD THE SCREEN. This was the only Books screen that did not, and it is the one
+     * screen that exists to be READ before answering — so on the library→openBook path (the
+     * hold is released entering BOOKS_LIB and BOOKS_READ never runs) it dimmed at 20 s and
+     * slept at 30 s while an undecided card sat there. Worse than untidy: in the 20-30 s DIM
+     * band a keypress is still delivered to the app (GUI.cpp swallows it only once brightness
+     * has reached 0), and by then millis() - syncCardMs is ~20000, far past the arming window
+     * — so the press meant only to bring the screen back TOOK THE JUMP. Holding here removes
+     * the dim band entirely, which is why the arming window below can stay a simple one.
+     * Balanced: BooksApp::holdScreenAwake is idempotent on timeoutsHeld, BOOKS_READ holds too
+     * (a no-op from here), and BOOKS_LIB and the destructor release. */
+    holdScreenAwake(true);
     header->setTitle("Sync");
     syncCardMs = millis();       // arms "Go there" — see BOOKS_SYNCCARD_ARM_MS
     /* Name the direction on the BUTTON, not just in the body text. A jump that moves you
