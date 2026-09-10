@@ -4,6 +4,52 @@
 
 Read this first; everything below it is narrative.
 
+🔎 **2026-09-09 ~14:00 — 0.9.62: REVIEWING 0.9.61 FOUND THE SAFETY NET EATING THE THING IT SAVED.
+BOTH PHONES FLASHED AND VERIFIED; FLASHER REPUBLISHED.** A 45-agent adversarial review of the
+same morning's changes. ⚠ **Only the `card` and `undo` dimensions got their verifiers — the
+`save`/`store`/`power` verifiers died to a usage limit, so those were re-checked BY HAND against
+source before anything was changed.** Five defects, **four introduced by 0.9.61 itself**:
+⛔ **`posStore` removed `.bak` UNCONDITIONALLY before renaming the live file into it.** Fine every
+ordinary time and catastrophic in the ONE state the mechanism exists for: a store left `.bak`-only
+by a torn write has no real file, so the remove deleted the sole readable copy and the rename then
+had nothing to move. **The recovery path destroyed what it was recovering.** Now it only vacates
+`.bak` when `SD.exists(BOOKS_POS_FILE)`.
+⛔ **`posLoad` fell back to `.bak` only when the real file would not OPEN** — so a zero-length real
+file, exactly what a half-finished swap leaves, shadowed a good backup and every book read as
+unsaved. It now falls back on anything shorter than the magic line.
+⛔ **The `POWER_OFF_EVENT` arm added in 0.9.61 COULD NEVER WORK.** All three dispatchers
+(`WiPhone.ino:1195, :3557, :3606`) call `powerOff()` **before** `processEvent`, so it wrote against
+a rail already dropping — and duplicated the pre-latch write on the low-battery path. Removed, with
+a comment saying why it looks right and is not. 🔑 **The everyday hold-END power-off had NO
+pre-latch save at all; it has one now.**
+⛔ **"Undo the jump" never expired** — armed for the whole open-book session, sitting in the reader
+menu an hour later one press from discarding everything read since, on the row Sync settings /
+Close book normally occupy. **Five-minute TTL** (`BOOKS_UNDO_TTL_MS`, `undoOffered()`).
+⛔ **`savePosition()` reported SUCCESS when `store` was null** — hiding the exact class of silent
+failure the return value was added to expose — and `saveFailed` was never cleared on open, so a red
+`SAVE FAILED` carried to an unrelated book. Both fixed.
+⏳ **STILL OPEN from the same review, deliberately not acted on yet:** the sync card is the only
+Books screen that does not `holdScreenAwake(true)` (`app_books.cpp` BOOKS_SYNCCARD case), so on the
+library→openBook path it dims at ~20 s and sleeps at ~30 s — **and in the 20-30 s DIM band a
+keypress meant only to wake the screen is still delivered to the app** (`GUI.cpp:1450` swallows it
+only when brightness is 0), by which time the 600 ms arm has long expired, so the wake press takes
+the jump. ⚠ **Pre-existing, not introduced by 0.9.61** — `git show 4870c7a:WiPhone/app_books.cpp`
+has the same holdless case — but 0.9.61 makes it matter because the arming window asks the reader
+to spend time on that screen. Recoverable via the undo. **Fix: `holdScreenAwake(true)` as the first
+line of the BOOKS_SYNCCARD case, and re-stamp `syncCardMs` on a wake.**
+✅ **Host suite green (19 groups), 0.9.62 verified in the ELF, both phones flashed
+(`firmware 0.9.62, built Sep 9 2026 13:46:36`, `Hash of data verified` ×4 each), flasher live
+(`nikguy321.github.io/...` serves 0.9.62, served sha256 `c629b52d038ec583…` = staged).**
+✅ **EVERY DEVICE BACK ON ITS OWN PAGE, re-read after the flash:** phone 1 Leviathan `spine 8 /
+8118`, phone 2 Leviathan `spine 8 / 8118`, phone 2 Ghosts `spine 24 / 2382`; COVEY untouched
+(`books.json` mtime still 08:42:37, Leviathan `sp8 off7390`, Ghosts `sp24 off1911`).
+🛑 **METHOD NOTE WORTH KEEPING: the review found by READING what a green host suite and a
+successful hardware test both missed.** 0.9.61 was suite-green, built, flashed, and proven
+end-to-end on two phones — and still shipped a data-loss bug in the very function written to
+prevent data loss. **Neither tests nor a live demo substitute for someone adversarial reading the
+diff.**
+
+
 📖 **2026-09-09 — NICK'S LOST NIGHT OF READING: IT WAS THE SYNC CARD TAKING THE KEYPRESS THAT
 OPENED THE BOOK, NOT A FAILED WRITE. Fixed in 0.9.61, BUILT AND TESTED, 🛑 NOT FLASHED.**
 Nick: *"I read a good amount and I believe pushed sync place and then closed the book. But this
