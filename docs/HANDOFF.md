@@ -4,6 +4,35 @@
 
 Read this first; everything below it is narrative.
 
+✅ **2026-09-09 ~14:30 — 0.9.63: the sync card holds the screen, and it is MEASURED, not assumed.
+Both phones flashed, flasher republished, every device back on its own page.**
+The last finding from the 0.9.61 review: the card was the only Books screen that never called
+`holdScreenAwake(true)` — and it is the one screen that exists to be READ before you answer it.
+On the library→openBook path (the hold is released entering BOOKS_LIB and BOOKS_READ never runs)
+it dimmed at 20 s and slept at 30 s. ⛔ **The DIM BAND is the dangerous part: a keypress is still
+delivered to the app until brightness reaches 0, and by then `millis() - syncCardMs` is ~20000,
+far past the 600 ms arm — so a press meant only to bring the screen back RAN `applyPending()` and
+took the jump.** The 0.9.61 accident, reached by a different door. ⚠ Pre-existing (`4870c7a` has
+the same holdless case), but 0.9.61 made it matter by asking the reader to spend time there.
+🔑 **PROVEN ON THE PANEL WITH `scr=`, NOT WITH A SCREENSHOT.** A framebuffer capture cannot show
+backlight — dimming changes PWM, not pixels, so the card looks identical dimmed or not. The
+HEALTH line's `scr=` IS the brightness. Sat on a live card for 110 s: **`scr=40` at t=12, 24, 42,
+54, 73, 85, 98 s — flat.** Pre-fix that reads 15 at 20 s and 0 at 30 s.
+🔎 **A READER ASYMMETRY WORTH KNOWING, found while restoring the devices:** phone 1's Leviathan
+came back from a driving session at `pageStart 8149` instead of `8118`. Not drift — it was stable
+across open/close/reopen — and not a save fault. **`prevPage()` with `histN == 0` recomputes the
+previous boundary by laying out BACKWARDS, and that need not match the boundary the forward pass
+produced**, so a forward-then-back round trip can land tens of bytes off. 31 bytes ≈ five words
+here. ✅ **Restored EXACTLY by syncing from phone 2 and accepting** — `applyPending()` goes through
+`epubLocate(fraction)`, which reproduced `8118` to the byte — which also re-proved the card path
+on 0.9.63.
+✅ **FINAL STATE, every value re-read after the last flash:** both phones `firmware 0.9.63`,
+`Hash of data verified` ×4 each; phone 1 Leviathan `spine 8 / 8118`, phone 2 Leviathan
+`spine 8 / 8118`, phone 2 Ghosts `spine 24 / 2382`; COVEY untouched all day (`books.json` mtime
+still 08:42:37). Flasher live: `nikguy321.github.io/wiphone-meshtastic` serves **0.9.63**, served
+sha256 `b762b7d96544b45f…` = staged. Host suite green, RAM 26.7% / Flash 38.8%.
+
+
 🔎 **2026-09-09 ~14:00 — 0.9.62: REVIEWING 0.9.61 FOUND THE SAFETY NET EATING THE THING IT SAVED.
 BOTH PHONES FLASHED AND VERIFIED; FLASHER REPUBLISHED.** A 45-agent adversarial review of the
 same morning's changes. ⚠ **Only the `card` and `undo` dimensions got their verifiers — the
