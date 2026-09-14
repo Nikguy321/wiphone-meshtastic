@@ -60,6 +60,10 @@ for src in tests/test_*.cpp; do
     test_nmea)     deps=(WiPhone/nmea.cpp) ;;
     # Sunrise/sunset/civil twilight (NOAA method) — almanac anchors + geometry.
     test_sun)      deps=(WiPhone/sun_times.cpp) ;;
+    # The map: Web Mercator, the slippy-tile grid, the blit rectangles, and the pins
+    # file. Pure arithmetic on purpose — a map that is one tile out looks fine on a
+    # 240x320 screen, so this is the only place that error can be caught.
+    test_maptiles) deps=(WiPhone/map_tiles.cpp WiPhone/map_pins.cpp) ;;
     # Voltage -> SOC off phone 1's recorded discharge (tests/fixtures/p1_discharge_2026-09-03.tsv).
     # Scores the table AND the CW2015's own number against time-linear truth.
     test_battery)  deps=(WiPhone/battery_curve.cpp) ;;
@@ -108,6 +112,16 @@ done
 # the grep needed a literal zero on the same line as `addOption(`.
 echo "checking for menu rows with a key of 0"
 if ! python3 tests/check_menu_keys.py; then
+  fail=1
+fi
+
+# ── THE MAC-SIDE TILE CONVERTER, against what the phone actually reads ────────────────────
+# tools/convert_tiles.py runs on a computer this suite will never see, and two of the three
+# things it can get wrong are SILENT on the phone: a byte-swapped RGB565 tile still draws a
+# recognisable map in wrong colours, and the sips/BMP fallback has three chances to be subtly
+# off. See tests/check_convert_tiles.py. Pillow is optional.
+echo "checking the tile converter against the firmware's pixel format"
+if ! python3 tests/check_convert_tiles.py; then
   fail=1
 fi
 

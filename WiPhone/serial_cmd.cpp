@@ -3,6 +3,7 @@
 #include "sms_mirror_poll.h"
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
 #include "app_photos.h"      // photosSetWallpaper, the `wallpaper set` command
+#include "app_maps.h"        // mapsConsoleStatus/Goto, the `maps` command
 #include "config.h"          // WIPHONE_KEY_*, the `key` command
 #include "Storage.h"         // CriticalFile / ConfigsFile, the `lock` command
 
@@ -124,6 +125,8 @@ static void help() {
     "  gps baud <n>  GPS baud, persists (115200 = the M100 Mini, measured; not 9600)",
     "  gps raw    hex+ASCII of the last bytes off the wire - tells wrong-baud from binary",
     "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
+    "  maps       what the card holds under /maps, the saved view, and the pins file",
+    "  maps goto <lat> <lon> [z] [area]  set where the Maps app opens next (persists)",
     "  lock       why the screen does or does not lock: setting, sleep gate, and the card",
     "  ver        firmware version and build time of the binary actually running",
     "  scrim [<alpha> [hex]]  the grey plate under menu text over a wallpaper (RAM only)",
@@ -1574,6 +1577,47 @@ static void run(char* line) {
       return;
     }
     say("power: unknown switch - `?` lists them\n");
+    return;
+  }
+
+  /* `maps` — the Maps app over a cable.
+   *
+   * ⚠ A MAP'S FAILURE MODE IS SHOWING THE WRONG GROUND, and that looks exactly like showing
+   * the right ground: no screenshot, and no amount of looking at the phone, can tell a tile
+   * tree that is one column out from one that is correct. So the console reports what the
+   * card ACTUALLY holds and what the app will open on, and `maps goto` writes the same saved
+   * view the app itself writes — which means a known coordinate can be put in over the cable
+   * and the screen compared against a map on the computer. */
+  if (!strncasecmp(line, "maps", 4) && (line[4] == '\0' || line[4] == ' ')) {
+    const char* arg = line + 4;
+    while (*arg == ' ') {
+      arg++;
+    }
+    if (!strncasecmp(arg, "goto", 4)) {
+      arg += 4;
+      while (*arg == ' ') {
+        arg++;
+      }
+      char area[32];
+      area[0] = '\0';
+      double lat = 0, lon = 0;
+      int z = 15;
+      const int got = sscanf(arg, "%lf %lf %d %31s", &lat, &lon, &z, area);
+      if (got < 2) {
+        say("usage: maps goto <lat> <lon> [zoom] [area]\n");
+        return;
+      }
+      char why[96];
+      const bool ok = mapsConsoleGoto(lat, lon, z, area, why, sizeof(why));
+      say("maps goto: %s%s\n", ok ? "" : "REFUSED - ", why);
+      return;
+    }
+    char buf[320];
+    if (mapsConsoleStatus(buf, sizeof(buf))) {
+      say("%s\n", buf);
+    } else {
+      say("maps: could not read the card\n");
+    }
     return;
   }
 

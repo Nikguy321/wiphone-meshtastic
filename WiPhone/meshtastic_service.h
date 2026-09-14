@@ -342,6 +342,32 @@ public:
   void clearMyPin();
   bool pinAnnounceOk() const { return lastAnnounceOk; }   // did the last announce transmit?
 
+  /* ---- Putting a place of your own on everyone's map (Maps -> Share) -------
+   * The Maps app's pins are private marks on a private file (map_pins.h). This is the one
+   * door between them and the air, and going through it is always an explicit act: a person
+   * highlighted a pin and chose Share.
+   *
+   * Creates or updates a waypoint locally AND broadcasts it, preferring a private channel
+   * exactly as the "I'm here" pin announce does — a location on LongFast is readable by every
+   * Meshtastic radio in RF range, and a hunting party is not who that serves.
+   *
+   * `id` of 0 means "this pin has never been shared, give it an id". Passing back the id from
+   * a previous share UPDATES that waypoint on everyone's map instead of adding a second pin
+   * beside it, which is the whole reason MapPin carries the id around.
+   *
+   * The waypoint is locked to this node, so another radio cannot move or delete your camp.
+   *
+   * Returns the waypoint id (0 = nothing was done), and *onAir reports whether it actually
+   * transmitted — a pin that stuck locally but never left the phone must not be shown as
+   * shared, which is the same honesty rule setMyPin() follows. */
+  uint32_t shareWaypoint(uint32_t id, int32_t latI, int32_t lonI, const char* name,
+                         uint32_t expire, bool* onAir);
+
+  /* Take a shared place off everyone's map: broadcast the positionless DELETION marker (see
+   * meshWaypointBuild) and drop it here too. Returns whether the marker reached the air; the
+   * local removal happens either way, because a person who said "unshare" has said it. */
+  bool     unshareWaypoint(uint32_t id);
+
   /* Latched "positions or places changed" signal for the UI — read-and-clear.
    * Separate from loop()'s new-MESSAGE return on purpose: a waypoint arriving
    * must refresh an open Places screen but must NOT buzz, pop up, or light the
@@ -646,6 +672,13 @@ private:
    * manual pin announce and the GPS beacon go through it, so there is exactly
    * one set of bytes and one log line to reason about. */
   bool sendPositionOn(int32_t latI, int32_t lonI, const MeshChannel* ch, const char* why);
+  /* The one place a Waypoint payload is built and handed to the radio, mirroring
+   * sendPositionOn so both have one set of bytes and one log line. */
+  bool sendWaypointOn(const uint8_t* payload, size_t len, const MeshChannel* ch,
+                      const char* why, const char* name);
+  /* The private channel the announce path prefers; NULL is impossible (it falls back to
+   * channels[0]) but the caller still checks, because channelCount can be 0. */
+  const MeshChannel* announceChannel() const;
   bool sendGpsPosition();                  // the scheduled beacon (safety rules inside)
 
   void upsertWaypoint(uint32_t id, int32_t latI, int32_t lonI,

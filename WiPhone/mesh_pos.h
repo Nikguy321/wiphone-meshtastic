@@ -64,6 +64,27 @@ bool meshWaypointParse(const uint8_t* pl, size_t len, MeshWaypointMsg* out);
  * reasoning behind the offered intervals. */
 size_t meshPosBuild(uint8_t* out, int32_t latI, int32_t lonI, uint32_t time);
 
+/* Longest payload meshWaypointBuild can produce: id (1+5) + lat (5) + lon (5) + expire (1+5)
+ * + locked_to (1+5) + name (1+1+19). Sized here so callers can put the buffer on the stack
+ * without guessing. */
+#define MESH_WP_BUILD_MAX   64
+
+/* Build a Waypoint payload (port 8) — the bytes COVEY's map reads to put a pin on it.
+ *
+ * ⚠ `hasPos == false` builds the DELETION marker: id alone, no position. That is the
+ * Meshtastic convention and it is the ONLY way to take a waypoint off other people's maps
+ * (expire cannot do it — expire == 0 legitimately means "never"). meshWaypointParse documents
+ * the receiving half of the same rule.
+ *
+ * `lockedTo` should be this node's number for a waypoint we own: it is what stops somebody
+ * else's radio quietly moving or deleting your camp. 0 means anyone may edit.
+ *
+ * Returns bytes written, or 0 if id is 0 or the buffer is too small. Nothing is written on 0.
+ * tests/test_pos.cpp checks the bytes AND round-trips them back through meshWaypointParse. */
+size_t meshWaypointBuild(uint8_t* out, size_t cap, uint32_t id, bool hasPos,
+                         int32_t latI, int32_t lonI, uint32_t expire, uint32_t lockedTo,
+                         const char* name);
+
 // Great-circle distance in meters (haversine, R=6371km — meters-accurate at
 // hunt scale, which is all the display shows).
 double meshPosDistanceM(int32_t aLatI, int32_t aLonI, int32_t bLatI, int32_t bLonI);

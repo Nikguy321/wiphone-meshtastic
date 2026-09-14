@@ -320,11 +320,25 @@ void MeshtasticService::upsertWaypoint(uint32_t id, int32_t latI, int32_t lonI,
        * ⚠ Signed difference, like the node eviction: restored entries are
        * rebased to heardMs=0 at load, and plain '<' would invert at the
        * millis() wrap (the review caught both). */
-      slot = &waypoints[0];
-      for (int i = 1; i < MESH_MAX_WAYPOINTS; i++) {
-        if ((int32_t)(waypoints[i].heardMs - slot->heardMs) < 0) {
+      /* 🛑 NEVER EVICT THE REFERENCE. Every distance this phone shows is measured from it —
+       * "3.2km E of camp" on the Nodes list, the bearing on the map's bottom strip, the
+       * Sun screen's legal light. Losing it silently re-frames all of them, and the table is
+       * eight slots, so one busy channel (or the Maps app sharing a pin) is enough to reach
+       * this branch. The node table gives starred nodes exactly this protection, for exactly
+       * this reason. If somehow every row is the reference, the fallback below still evicts
+       * — a full table has to give something up. */
+      const uint32_t keepId = refWaypointId;
+      slot = NULL;
+      for (int i = 0; i < MESH_MAX_WAYPOINTS; i++) {
+        if (keepId && waypoints[i].id == keepId) {
+          continue;
+        }
+        if (!slot || (int32_t)(waypoints[i].heardMs - slot->heardMs) < 0) {
           slot = &waypoints[i];
         }
+      }
+      if (!slot) {
+        slot = &waypoints[0];
       }
     }
     memset(slot, 0, sizeof(*slot));
@@ -621,20 +635,122 @@ bool MeshtasticService::announceMyPosition() {
    * automatic sends are where a silent public fall-through stops being a
    * defensible default and becomes the worst failure this design can have, so
    * the beacon demands a named channel and refuses without one. */
-  const MeshChannel* ch = &channels[0];
-  for (int i = 0; i < channelCount; i++) {
-    if (channels[i].keyLen != 16 ||
-        memcmp(channels[i].key, meshDefaultKey(), 16) != 0) {
-      ch = &channels[i];
-      break;
-    }
-  }
-  lastAnnounceOk = sendPositionOn(myPinLatI, myPinLonI, ch, "pin");
+  /* ⚠ THE RULE IS UNCHANGED; only its one copy moved. It now lives in announceChannel(),
+   * because the Maps app's "share this pin" needs the identical answer and two copies of
+   * "which channel does a location go out on" is how one of them quietly starts preferring
+   * LongFast after somebody edits the other. Same loop, same first-private-wins, same
+   * fall-through to channels[0]. */
+  const MeshChannel* ch = announceChannel();
+  lastAnnounceOk = ch && sendPositionOn(myPinLatI, myPinLonI, ch, "pin");
   return lastAnnounceOk;
 #else
   lastAnnounceOk = myPinSet;
   return myPinSet;
 #endif
+}
+
+/* ── Sharing a map pin as a Waypoint ──────────────────────────────────────────
+ * The channel choice is factored out of announceMyPosition() rather than copied: two
+ * copies of "which channel does a location go to" is exactly how one of them ends up
+ * quietly preferring LongFast after somebody edits the other.
+ */
+const MeshChannel* MeshtasticService::announceChannel() const {
+  if (channelCount == 0) {
+    return NULL;
+  }
+  /* Prefer the first channel with a PRIVATE key, for the reason written out in
+   * announceMyPosition(): channels[0] is the stock LongFast PSK and anything sent there is
+   * readable by every Meshtastic radio in range. */
+  for (int i = 0; i < channelCount; i++) {
+    if (channels[i].keyLen != 16 || memcmp(channels[i].key, meshDefaultKey(), 16) != 0) {
+      return &channels[i];
+    }
+  }
+  return &channels[0];
+}
+
+bool MeshtasticService::sendWaypointOn(const uint8_t* payload, size_t len,
+                                       const MeshChannel* ch, const char* why,
+                                       const char* name) {
+#ifdef MESHTASTIC_PHY
+  if (!payload || !len || !ch || radioState != MESH_RADIO_READY || channelCount == 0) {
+    log_e("MESH WAYPOINT NOT SENT (%s '%s'): chan=%s radio=%d channels=%d",
+          why, name ? name : "", ch ? ch->name : "NONE", (int)radioState, channelCount);
+    return false;
+  }
+  /* wantResponse and wantAck both false, like the position beacon: a broadcast that also
+   * demands replies is a mesh-wide storm, and a waypoint is re-sent whenever it is edited. */
+  const bool ok = meshTxData(myNodeNum, MESH_ADDR_BROADCAST_ONAIR, MESH_PORT_WAYPOINT,
+                             payload, len, false, ch->key, ch->keyLen, ch->hash);
+  log_e("MESH WAYPOINT %s (%s) '%s' on '%s'%s: %uB payload",
+        ok ? "SENT" : "FAILED", why, name ? name : "", ch->name,
+        channelIsPublic(ch) ? " [PUBLIC - readable by any radio in range]" : "",
+        (unsigned)len);
+  return ok;
+#else
+  (void)payload; (void)len; (void)ch; (void)why; (void)name;
+  return false;
+#endif
+}
+
+uint32_t MeshtasticService::shareWaypoint(uint32_t id, int32_t latI, int32_t lonI,
+                                          const char* name, uint32_t expire, bool* onAir) {
+  if (onAir) {
+    *onAir = false;
+  }
+  if (id == 0) {
+    /* A fresh id. Random, like stock firmware's, so two phones inventing one at the same
+     * moment do not collide.
+     * ⚠ 0 and MESH_REF_GPS are both excluded: 0 is "no waypoint" everywhere in this file,
+     * and MESH_REF_GPS is the sentinel the reference setting uses — a waypoint wearing it
+     * could not be chosen as a reference (see the note on MESH_REF_GPS). */
+    for (int tries = 0; tries < 8 && id == 0; tries++) {
+      const uint32_t r = esp_random();
+      if (r != 0 && r != MESH_REF_GPS) {
+        id = r;
+      }
+    }
+    if (id == 0) {
+      return 0;                      // eight draws of 0 is not luck, it is a broken RNG
+    }
+  }
+  /* Locked to us: another radio may display this waypoint but may not move or delete it.
+   * The receive path enforces the same rule in the other direction. */
+  upsertWaypoint(id, latI, lonI, expire, myNodeNum, name);
+
+  uint8_t buf[MESH_WP_BUILD_MAX];
+  const size_t n = meshWaypointBuild(buf, sizeof(buf), id, true, latI, lonI,
+                                     expire, myNodeNum, name);
+  if (n) {
+    const bool ok = sendWaypointOn(buf, n, announceChannel(), "share", name);
+    if (onAir) {
+      *onAir = ok;
+    }
+  }
+  return id;
+}
+
+bool MeshtasticService::unshareWaypoint(uint32_t id) {
+  if (id == 0) {
+    return false;
+  }
+  uint8_t buf[MESH_WP_BUILD_MAX];
+  char gone[MESH_WP_NAME_LEN];
+  gone[0] = '\0';
+  for (int i = 0; i < waypointCount; i++) {
+    if (waypoints[i].id == id) {
+      strlcpy(gone, waypoints[i].name, sizeof(gone));
+      waypoints[i] = waypoints[--waypointCount];
+      dbDirty = true;
+      placesNews = true;
+      break;
+    }
+  }
+  const size_t n = meshWaypointBuild(buf, sizeof(buf), id, false, 0, 0, 0, 0, NULL);
+  if (!n) {
+    return false;
+  }
+  return sendWaypointOn(buf, n, announceChannel(), "unshare", gone);
 }
 
 /* ── The periodic GPS position beacon ──────────────────────────────────────

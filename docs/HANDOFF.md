@@ -4,6 +4,67 @@
 
 Read this first; everything below it is narrative.
 
+✅ **2026-09-14 — 0.9.64: MAPS. Built, host-tested and compiled; NOT YET ON HARDWARE and no
+tile has ever been on a card.** Menu → Tools → Maps. Everything it draws was already in the
+phone since 0.9.7 — waypoints, node positions, the reference place — rendered as a sentence.
+This renders it as a picture, which is the shape of the question people actually ask.
+🔑 **THE TILES ARE RAW AND THAT IS THE DESIGN, NOT A SHORTCUT.**
+`/maps/<area>/<z>/<x>/<y>.565`, 256×256 RGB565 little-endian, **131072 bytes exactly**, ordinary
+slippy numbering. There is no PNG decoder in this firmware and the ROM JPEG decoder refuses
+greyscale outright (the reason `jpeg_grey.cpp` exists), so compressed tiles would work until the
+day they met a tile of the wrong flavour, in the woods. Raw costs 8× the card (~85 MB for 20×20 km
+at z12–z15) and has exactly one failure mode: the wrong length — which is also how a PNG copied
+across unconverted gets refused instead of drawn as confetti. `tools/convert_tiles.py` makes them
+on the Mac from a z/x/y tree or an `.mbtiles`, with nothing to install (Pillow if present, `sips`
+if not).
+⚠ **A 128 KB TILE READ IS 100–250 ms AND EVERYTHING SHARES ONE TASK**, so a tile arrives in 32 KB
+pieces one per 25 ms tick, opened/seeked/read/**closed** per piece (no `File` alive across a
+teardown or a pulled card), with the hole drawn as a marked grey square meanwhile. 250 ms is
+exactly what 0.9.58's stall detector was built to complain about; four tiles the obvious way is a
+second of frozen phone *per pan*. The timer is disarmed once the screen is painted.
+🔑 **PINS ARE PRIVATE UNTIL YOU SAY OTHERWISE.** 64 in a text file on the card, nothing on the air
+until "Share it on the mesh" — which prefers a private channel, locks the waypoint to this node,
+and **says whether the radio actually sent it**. Rename/move re-send; "Take it off the mesh" sends
+the positionless deletion marker (the only way to remove one; `expire == 0` means never).
+📐 **MEASURED: +72 bytes of internal RAM, +37 KB flash**, by building the tree with and without it
+(87532→87604 RAM, 2544759→2582199 flash). Working set is 768 KB of PSRAM, only while open.
+✅ **PROVEN BEFORE THE PHONE, because a map one tile out looks exactly like a right one**:
+`tests/test_maptiles.cpp`, **110 checks**, Web Mercator against independently computed values and
+the blit rectangles checked *structurally* — every viewport pixel covered exactly once, from the
+right pixel of the right tile, across the antimeridian, with a world shorter than the screen, at
+z19 after a two-billion-pixel pan. `test_pos.cpp` gained the Waypoint builder's bytes.
+🔎 **AND BECAUSE A SCREENSHOT CANNOT TELL RIGHT GROUND FROM WRONG GROUND EITHER:** `maps` prints
+what the card holds, the saved view and how the pins file parses; `maps goto <lat> <lon> [z]
+[area]` writes the same saved view the app writes — so a known coordinate goes in over USB and the
+screen is compared against a map on the computer. That is the FIRST thing to do on hardware.
+🔬 **AN ADVERSARIAL AUDIT RAN OVER IT — 9 lenses, each finding re-read by a skeptic whose job was
+to refute it. 47 confirmed, 17 thrown out.** Every confirmed one is fixed. The eight that would
+have been found only by a thumb, in the woods:
+⛔ **THE TEXT DATUM.** `textdatum` is a plain member of the ONE page sprite everybody draws into,
+and GUI paints the app first and the footer after — so from the second frame onward every string
+on the map inherited the footer's `MR_DATUM`: lifted 8 px (the top chip smearing into the header)
+and slammed to x=0, detached from the black box it belongs to. One line, `setTextDatum(TL_DATUM)`,
+and it is the kind of thing that no test and no amount of reading the app alone would ever show.
+⛔ **A 40 Hz BUSY LOOP ON THE ORDINARY ACT OF PANNING TO THE EDGE OF COVERAGE.** A tile with no
+file blacklisted itself, but the blacklist is only consulted in drawMap(), and a failed piece
+returns DO_NOTHING so drawMap never ran — forty failed five-level SD path walks a second, forever,
+each one evicting a real cached tile.
+⛔ **`mapPinPickNearest` SQUARED 32-BIT.** Projected coordinates run to ±134 M at z19; the product
+wraps NEGATIVE, and negative beats every real distance — a pin on the far side of the world would
+answer "the pin under the crosshair".
+⛔ **LIST ROWS WERE ARRAY INDICES.** The waypoint table compacts (`waypoints[i] = waypoints[--n]`)
+and getNode() re-sorts, both under an open screen: the row said Camp and OK centred on the truck.
+⛔ **savePins()'s "did it work" test was `f.size() > 0`** — satisfied by the header comment alone,
+so a card that failed every line after the first still got renamed over the real file.
+⛔ **A FAILED RETRACTION FORGOT THE WAYPOINT ID**, stranding a camp on everyone else's map with
+nothing left on this phone able to retract it.
+⛔ **THE HELP SCREEN CUT 8 OF ITS 22 ROWS** — the whole colour key — with no scroll and no hint.
+⛔ **saveView() wrote 32 bytes of NVS of which the tail was uninitialised stack.**
+
+⛔ **WHAT HAS NOT HAPPENED:** no phone, no card, no tile, no measured SD read, no measured pan
+latency, no screenshot. The 32 KB chunk and the 25 ms tick are reasoned from the 0.9.58 stall
+threshold, **not measured**. Six 128 KB PSRAM slots is a choice, not a measurement.
+
 ✅ **2026-09-09 ~14:30 — 0.9.63: the sync card holds the screen, and it is MEASURED, not assumed.
 Both phones flashed, flasher republished, every device back on its own page.**
 The last finding from the 0.9.61 review: the card was the only Books screen that never called

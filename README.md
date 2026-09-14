@@ -8,6 +8,9 @@ ESP32 cell phone) that adds:
   text **and encrypted direct messages with modern Meshtastic devices**, no
   phone, app, or internet required — plus shared map pins, distances to your
   people, and sunrise/sunset for wherever you are),
+- an **offline map** — your own tiles off the SD card, with everyone's last
+  position, the mesh's shared places and pins you drop yourself drawn on top of
+  them (and shared back to the mesh when you choose to),
 - a full-speed **Game Boy / Game Boy Color emulator** with sound, save states,
   and drag-and-drop ROM upload over WiFi,
 - a **music player** (MP3 and WAV, stereo, hardware transport buttons, plays on
@@ -72,6 +75,13 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.64** — **Maps**. Menu → Tools → Maps: your own tiles off the SD card, with
+  everyone's last position, the mesh's shared places and your own pins on top. It opens
+  where you closed it — and failing that, on your GPS fix. Pins stay private until you
+  choose to share one, and sharing puts it on COVEY's map as a real Meshtastic waypoint.
+  Tiles are **raw RGB565**, converted on the computer by `tools/convert_tiles.py`, because
+  this phone has no PNG decoder and its JPEG decoder refuses greyscale — see
+  [docs/maps.md](docs/maps.md). Costs +72 bytes of internal RAM, measured.
 - **0.9.42** — Messages knows **who** you are talking to: conversations are labelled
   with the contact's name where your phonebook has one, and starting a new message to
   someone you have already texted opens that conversation instead of a second one
@@ -199,6 +209,45 @@ as a plain (baseline) JPEG. Files the phone can't decode are deliberately not
 listed rather than shown as a grey rectangle — and when you set a wallpaper,
 the phone tests the real loader on the spot and repeats its verdict instead of
 claiming success.
+
+## Maps
+
+**Menu → Tools → Maps** — an offline map with everyone on it. Full detail, the tile format
+and the Mac-side command are in **[docs/maps.md](docs/maps.md)**.
+
+- **Your own tiles, off the card.** `/maps/<area>/<z>/<x>/<y>.565` — ordinary slippy `z/x/y`
+  numbering, so whatever tile tree you already have works. Several areas, and it says which
+  one it is showing.
+- **Everyone is on it.** The mesh's shared places (COVEY's waypoints) as green gems, other
+  people's last positions as cyan dots with their names — **grey, with an age, once the fix
+  is over 30 minutes old**, because on foot half an hour is far enough to be somewhere else
+  and a map that draws a stale dot like a live one is lying by omission. Your own GPS fix is
+  a white ring.
+- **Pins.** `5` drops one on the crosshair and asks for a name; **OK picks up the pin under
+  the crosshair** to rename, move, share or delete it. 64 of them, in a text file on the card,
+  and **nothing about them reaches the air** until you choose *Share it on the mesh* — which
+  prefers a private channel, locks it to this phone so nobody else can move your camp, and
+  tells you honestly whether the radio actually sent it.
+- **It opens where you closed it.** Then, only if there is nothing to remember: your GPS fix,
+  the mesh's reference place, the middle of the tiles on the card.
+- **Arrows scroll** (hold one and it speeds up), `*`/`#` — or `1`/`3` — zoom, `0` centres on
+  you, `7`/`9` walk your pins. **Menu → Keys and colours** is the whole table, on the phone.
+- A scale bar, the crosshair's coordinates, and how far the crosshair is from your reference
+  place — "1.4km NE Camp" — along the bottom.
+
+⚠ **Tiles must be converted on the computer first.** This phone has no PNG decoder and the
+ESP32's built-in JPEG decoder refuses greyscale outright, so a map made of compressed tiles
+would work until the day it met a tile of the wrong flavour, in the woods. Raw RGB565 costs
+about 85 MB for a 20×20 km area at z12–z15 — nothing on a 32 GB card — and has exactly one
+failure mode, which the phone checks and reports. The command, with the card mounted:
+
+```bash
+python3 tools/convert_tiles.py ~/covey-tiles /Volumes/WIPHONE/maps/home --zoom 12-15
+```
+
+It needs nothing installed (Pillow if you have it, macOS's own `sips` if you do not), and
+re-running only converts what is new. Add `--dry-run` to see the tile count and the size
+first.
 
 ## E-reader
 
