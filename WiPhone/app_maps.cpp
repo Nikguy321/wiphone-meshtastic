@@ -123,8 +123,18 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   pins  = (MapPin*)ps_malloc(sizeof(MapPin) * MAPS_MAX_PINS);
   pinVx = (int*)ps_malloc(sizeof(int) * MAPS_MAX_PINS);
   pinVy = (int*)ps_malloc(sizeof(int) * MAPS_MAX_PINS);
+  /* 🛑 THE THREE SUCCEED TOGETHER OR NOT AT ALL, and that is not tidiness. Every user of the
+   * projection scratch is guarded on `pins` alone — because the three are conceptually one
+   * table — so a run where `pins` came back and `pinVx` did not would walk straight into
+   * `pinVx[i]` through a null pointer, from the draw path, on every frame. Collapsing the
+   * three states into two means the one guard everybody writes is the right guard. */
   if (!pins || !pinVx || !pinVy) {
-    log_e("MAPS: no PSRAM for the pin table");
+    log_e("MAPS: no PSRAM for the pin table - pins are off this session");
+    free(pins);
+    free(pinVx);
+    free(pinVy);
+    pins = NULL;
+    pinVx = pinVy = NULL;
   }
 
   if (!allocSlots()) {
@@ -1637,8 +1647,14 @@ appEventResult MapsApp::processEvent(EventType event) {
   }
 
   if (event == APP_TIMER_EVENT) {
-    if (!loadActive && wantAny) {
-      startLoad(wantZ, wantTx, wantTy);
+    if (!loadActive && wantAny && !startLoad(wantZ, wantTx, wantTy)) {
+      /* ⚠ A REFUSED START MUST NOT BE RETRIED AT 40 Hz. startLoad only refuses for reasons
+       * that will still be true in 25 ms — no area, no PSRAM, no free slot — so asking again
+       * immediately is a spin that keeps the CPU awake and achieves nothing. Forget the want
+       * and stand the timer down; the next repaint re-discovers the hole if it still matters. */
+      wantAny = false;
+      controlState.msAppTimerEventPeriod = 0;
+      return DO_NOTHING;
     }
     if (loadActive && tileLoadStep()) {
       return (appState == MAPS_VIEW) ? REDRAW_SCREEN : DO_NOTHING;
