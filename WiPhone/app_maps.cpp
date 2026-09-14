@@ -108,6 +108,7 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   panRun = 0;
   panDir = 0;
   panLastMs = 0;
+  labelCount = 0;
 
   for (int i = 0; i < MAPS_TILE_SLOTS; i++) {
     slots[i].px = NULL;
@@ -794,13 +795,13 @@ void MapsApp::drawMarker(int vx, int vy, uint16_t colour, int shape) {
   drawBlob(vx, vy, 3, colour, diamond);
 }
 
-void MapsApp::drawLabel(int vx, int vy, const char* text, uint16_t colour) {
+bool MapsApp::drawLabel(int vx, int vy, const char* text, uint16_t colour) {
   if (!text || !text[0]) {
-    return;
+    return false;
   }
   SmoothFont* fnt = fonts[AKROBAT_BOLD_16];
   if (!fnt) {
-    return;
+    return false;
   }
   lcd.setTextFont(fnt);
   const int tw = lcd.textWidth(text);
@@ -814,11 +815,27 @@ void MapsApp::drawLabel(int vx, int vy, const char* text, uint16_t colour) {
    * or the footer — so a label that does not fit entirely inside the map is not drawn at all.
    * Half a name is not information anyway. */
   if (bx < vpX || by < vpY || bx + tw + 4 > vpX + vpW || by + th + 2 > vpY + vpH) {
-    return;
+    return false;
   }
-  lcd.fillRect(bx, by, tw + 4, th + 2, BLACK);
+  const int w = tw + 4, h = th + 2;
+  // Would it land on one already placed? Then this one does not get placed.
+  for (int i = 0; i < labelCount; i++) {
+    const LabelRect* r = &labelRects[i];
+    if (bx < r->x + r->w && bx + w > r->x && by < r->y + r->h && by + h > r->y) {
+      return false;
+    }
+  }
+  if (labelCount < (int)(sizeof(labelRects) / sizeof(labelRects[0]))) {
+    labelRects[labelCount].x = (int16_t)bx;
+    labelRects[labelCount].y = (int16_t)by;
+    labelRects[labelCount].w = (int16_t)w;
+    labelRects[labelCount].h = (int16_t)h;
+    labelCount++;
+  }
+  lcd.fillRect(bx, by, w, h, BLACK);
   lcd.setTextColor(colour, BLACK);
   lcd.drawString(text, bx + 2, by + 1);
+  return true;
 }
 
 void MapsApp::drawCrosshair() {
@@ -903,46 +920,90 @@ void MapsApp::drawMap() {
   drawOverlays();
 }
 
+/* Where this phone thinks it is, for the marker and for "centre on me". Returns 0 when there
+ * is nothing to draw, 1 for a live GPS fix, 2 for the user's declared pin. One function so
+ * the marker, the label and the key never disagree about which of the two is being shown. */
+int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs) const {
+  uint32_t age = 0;
+  int32_t la = 0, lo = 0;
+  const bool haveFix = gGpsNmea && meshService.getGpsFix(&la, &lo, &age, NULL, NULL);
+  /* 🛑 getGpsFix() RETURNS TRUE FOR A FIX FROM HOURS AGO — it reports "there has ever been
+   * one", and the age is the caller's to judge. Drawing that as a live white ring is the same
+   * lie the grey node dots exist to avoid, and worse, because it is a lie about YOU: a person
+   * checking they are on the right ridge would be looking at where they were before the
+   * canopy closed. MESH_GPS_FRESH_MS is the service's own bar and this uses it rather than
+   * inventing a second one; past it the ring goes grey and wears its age.
+   *
+   * The order after that is resolveReference()'s, deliberately: a fresh fix beats everything,
+   * then the pin the user declared by hand, then the stale fix. A phone with a pin set this
+   * morning and a fix from yesterday should show the pin. */
+  if (haveFix && age < MESH_GPS_FRESH_MS) {
+    if (latI) {
+      *latI = la;
+    }
+    if (lonI) {
+      *lonI = lo;
+    }
+    if (ageMs) {
+      *ageMs = age;
+    }
+    return MAPS_SELF_GPS;
+  }
+  if (meshService.getMyPin(latI, lonI, NULL)) {
+    if (ageMs) {
+      *ageMs = 0;
+    }
+    return MAPS_SELF_PIN;
+  }
+  if (haveFix) {
+    if (latI) {
+      *latI = la;
+    }
+    if (lonI) {
+      *lonI = lo;
+    }
+    if (ageMs) {
+      *ageMs = age;
+    }
+    return MAPS_SELF_OLD_GPS;
+  }
+  return MAPS_SELF_NONE;
+}
+
+/* ── TWO PASSES, AND THE ORDERS ARE DELIBERATELY OPPOSITE ─────────────────────────────────
+ * Markers are drawn back to front, so the one you most need to see ends up on top: other
+ * people, then the mesh's places, then your own pins, then this phone.
+ *
+ * Labels are drawn afterwards in the REVERSE order, because the first label placed wins the
+ * space (drawLabel drops one that would overlap). With eight places and twenty nodes in view
+ * on a 240x250 screen, unmanaged labels overprint into a grey smear and the map stops
+ * answering the question it exists to answer. A dropped label still leaves its MARKER, which
+ * is the part that says where somebody is, and the name is on the Nodes list regardless.
+ *
+ * Node order is the service's own display order — starred first, then most recently heard —
+ * so the people you marked as mattering get their names placed before strangers do. */
 void MapsApp::drawOverlays() {
-  // ---- this phone's pins ----
+  resetLabels();
+
   for (int i = 0; i < pinCount && pins; i++) {
     mapLatLonToView(zoom, cx, cy, vpW, vpH,
                     mapI7ToDeg(pins[i].latI), mapI7ToDeg(pins[i].lonI),
                     &pinVx[i], &pinVy[i]);
   }
-  for (int i = 0; i < pinCount && pins; i++) {
-    if (pinVx[i] < 0 || pinVx[i] >= vpW || pinVy[i] < 0 || pinVy[i] >= vpH) {
-      continue;
-    }
-    const uint16_t c = pins[i].sharedId ? MAP_C_PIN_SH : MAP_C_PIN;
-    drawMarker(vpX + pinVx[i], vpY + pinVy[i], c, MAP_SHAPE_DOT);
-    drawLabel(vpX + pinVx[i], vpY + pinVy[i], pins[i].name, c);
-  }
 
-  // ---- places heard from the mesh ----
-  const int wpN = meshService.getWaypointCount();
-  for (int i = 0; i < wpN; i++) {
-    const MeshWaypoint* w = meshService.getWaypoint(i);
-    if (!w || !w->id) {
-      continue;
-    }
-    int vx = 0, vy = 0;
-    if (!mapLatLonToView(zoom, cx, cy, vpW, vpH,
-                         mapI7ToDeg(w->latI), mapI7ToDeg(w->lonI), &vx, &vy)) {
-      continue;
-    }
-    drawMarker(vpX + vx, vpY + vy, MAP_C_WP, MAP_SHAPE_DIAMOND);
-    drawLabel(vpX + vx, vpY + vy, w->name, MAP_C_WP);
-  }
-
-  // ---- other people ----
   const uint32_t me = meshService.getMyNodeNum();
   const int nodeN = meshService.getNodeCount();
+  const int wpN = meshService.getWaypointCount();
   const uint32_t now = millis();
+  int32_t selfLat = 0, selfLon = 0;
+  uint32_t selfAge = 0;
+  const int selfKind = selfPosition(&selfLat, &selfLon, &selfAge);
+
+  // ── pass 1: markers, back to front ───────────────────────────────────────────────────
   for (int i = 0; i < nodeN; i++) {
     const MeshNode* nd = meshService.getNode(i);
     if (!nd || !nd->nodeNum || nd->nodeNum == me || !nd->posHeardMs) {
-      continue;                  // our own row holds the manual pin, drawn separately below
+      continue;                  // our own row holds the manual pin; it is drawn below
     }
     int vx = 0, vy = 0;
     if (!mapLatLonToView(zoom, cx, cy, vpW, vpH,
@@ -950,36 +1011,106 @@ void MapsApp::drawOverlays() {
       continue;
     }
     const bool stale = (uint32_t)(now - nd->posHeardMs) > MAP_STALE_MS;
-    const uint16_t c = stale ? MAP_C_NODE_OLD : MAP_C_NODE;
-    drawMarker(vpX + vx, vpY + vy, c, MAP_SHAPE_DOT);
+    drawMarker(vpX + vx, vpY + vy, stale ? MAP_C_NODE_OLD : MAP_C_NODE, MAP_SHAPE_DOT);
+  }
+  for (int i = 0; i < wpN; i++) {
+    const MeshWaypoint* w = meshService.getWaypoint(i);
+    if (!w || !w->id) {
+      continue;
+    }
+    int vx = 0, vy = 0;
+    if (mapLatLonToView(zoom, cx, cy, vpW, vpH,
+                        mapI7ToDeg(w->latI), mapI7ToDeg(w->lonI), &vx, &vy)) {
+      drawMarker(vpX + vx, vpY + vy, MAP_C_WP, MAP_SHAPE_DIAMOND);
+    }
+  }
+  for (int i = 0; i < pinCount && pins; i++) {
+    if (pinVx[i] < 0 || pinVx[i] >= vpW || pinVy[i] < 0 || pinVy[i] >= vpH) {
+      continue;
+    }
+    drawMarker(vpX + pinVx[i], vpY + pinVy[i],
+               pins[i].sharedId ? MAP_C_PIN_SH : MAP_C_PIN, MAP_SHAPE_DOT);
+  }
+  if (selfKind) {
+    int vx = 0, vy = 0;
+    if (mapLatLonToView(zoom, cx, cy, vpW, vpH,
+                        mapI7ToDeg(selfLat), mapI7ToDeg(selfLon), &vx, &vy)) {
+      if (selfKind == MAPS_SELF_PIN) {
+        drawMarker(vpX + vx, vpY + vy, MAP_C_ME, MAP_SHAPE_DIAMOND);
+      } else {
+        const uint16_t c = (selfKind == MAPS_SELF_GPS) ? MAP_C_ME : MAP_C_NODE_OLD;
+        drawBlob(vpX + vx, vpY + vy, 6, BLACK, false);
+        drawBlob(vpX + vx, vpY + vy, 5, c, false);
+        drawBlob(vpX + vx, vpY + vy, 2, BLACK, false);
+      }
+    }
+  }
+
+  // ── pass 2: labels, most important first ─────────────────────────────────────────────
+  if (selfKind) {
+    int vx = 0, vy = 0;
+    if (mapLatLonToView(zoom, cx, cy, vpW, vpH,
+                        mapI7ToDeg(selfLat), mapI7ToDeg(selfLon), &vx, &vy)) {
+      char sl[24];
+      uint16_t sc = MAP_C_ME;
+      if (selfKind == MAPS_SELF_GPS) {
+        strlcpy(sl, "me", sizeof(sl));
+      } else if (selfKind == MAPS_SELF_PIN) {
+        strlcpy(sl, "my pin", sizeof(sl));
+      } else {
+        const unsigned mins = (unsigned)(selfAge / 60000u);
+        snprintf(sl, sizeof(sl), "me, %um ago", mins);
+        sc = MAP_C_NODE_OLD;
+      }
+      drawLabel(vpX + vx, vpY + vy, sl, sc);
+    }
+  }
+  for (int i = 0; i < pinCount && pins; i++) {
+    if (pinVx[i] < 0 || pinVx[i] >= vpW || pinVy[i] < 0 || pinVy[i] >= vpH) {
+      continue;
+    }
+    drawLabel(vpX + pinVx[i], vpY + pinVy[i], pins[i].name,
+              pins[i].sharedId ? MAP_C_PIN_SH : MAP_C_PIN);
+  }
+  for (int i = 0; i < wpN; i++) {
+    const MeshWaypoint* w = meshService.getWaypoint(i);
+    if (!w || !w->id) {
+      continue;
+    }
+    int vx = 0, vy = 0;
+    if (mapLatLonToView(zoom, cx, cy, vpW, vpH,
+                        mapI7ToDeg(w->latI), mapI7ToDeg(w->lonI), &vx, &vy)) {
+      drawLabel(vpX + vx, vpY + vy, w->name, MAP_C_WP);
+    }
+  }
+  for (int i = 0; i < nodeN; i++) {
+    const MeshNode* nd = meshService.getNode(i);
+    if (!nd || !nd->nodeNum || nd->nodeNum == me || !nd->posHeardMs) {
+      continue;
+    }
+    int vx = 0, vy = 0;
+    if (!mapLatLonToView(zoom, cx, cy, vpW, vpH,
+                         mapI7ToDeg(nd->latI), mapI7ToDeg(nd->lonI), &vx, &vy)) {
+      continue;
+    }
+    const uint32_t ageMs = now - nd->posHeardMs;
+    const bool stale = ageMs > MAP_STALE_MS;
     char lbl[MESH_NAME_LEN + 12];
     if (stale) {
-      const unsigned mins = (unsigned)((now - nd->posHeardMs) / 60000u);
-      snprintf(lbl, sizeof(lbl), "%s %uh%um", nd->name[0] ? nd->name : "?",
-               mins / 60u, mins % 60u);
+      /* ⚠ THE AGE RIDES WITH THE NAME WHEN IT IS OLD. A grey dot says "not fresh"; it does
+       * not say whether that is forty minutes or yesterday, and on foot those are completely
+       * different pieces of information. */
+      const unsigned mins = (unsigned)(ageMs / 60000u);
+      if (mins >= 60u) {
+        snprintf(lbl, sizeof(lbl), "%s %uh%02um", nd->name[0] ? nd->name : "?",
+                 mins / 60u, mins % 60u);
+      } else {
+        snprintf(lbl, sizeof(lbl), "%s %um", nd->name[0] ? nd->name : "?", mins);
+      }
     } else {
       strlcpy(lbl, nd->name[0] ? nd->name : "?", sizeof(lbl));
     }
-    drawLabel(vpX + vx, vpY + vy, lbl, c);
-  }
-
-  // ---- this phone ----
-  int32_t la = 0, lo = 0;
-  uint32_t age = 0;
-  if (gGpsNmea && meshService.getGpsFix(&la, &lo, &age, NULL, NULL)) {
-    int vx = 0, vy = 0;
-    if (mapLatLonToView(zoom, cx, cy, vpW, vpH, mapI7ToDeg(la), mapI7ToDeg(lo), &vx, &vy)) {
-      drawBlob(vpX + vx, vpY + vy, 6, BLACK, false);
-      drawBlob(vpX + vx, vpY + vy, 5, MAP_C_ME, false);
-      drawBlob(vpX + vx, vpY + vy, 2, BLACK, false);
-      drawLabel(vpX + vx, vpY + vy, "me", MAP_C_ME);
-    }
-  } else if (meshService.getMyPin(&la, &lo, NULL)) {
-    int vx = 0, vy = 0;
-    if (mapLatLonToView(zoom, cx, cy, vpW, vpH, mapI7ToDeg(la), mapI7ToDeg(lo), &vx, &vy)) {
-      drawMarker(vpX + vx, vpY + vy, MAP_C_ME, MAP_SHAPE_DIAMOND);
-      drawLabel(vpX + vx, vpY + vy, "my pin", MAP_C_ME);
-    }
+    drawLabel(vpX + vx, vpY + vy, lbl, stale ? MAP_C_NODE_OLD : MAP_C_NODE);
   }
 
   drawCrosshair();
@@ -994,22 +1125,43 @@ void MapsApp::drawChips() {
   }
   lcd.setTextFont(fnt);
   const int th = (int)fnt->height();
-  char left[40];
-  snprintf(left, sizeof(left), "z%d %s", zoom, areaSel >= 0 ? areas[areaSel].name : "-");
-  const int lw = lcd.textWidth(left);
-  fillClipped(vpX, vpY, lw + 8, th + 4, MAP_C_CHIP);
-  if (vpY + th + 4 <= vpY + vpH && lw + 8 <= vpW) {
-    lcd.setTextColor(MAP_C_ME, MAP_C_CHIP);
-    lcd.drawString(left, vpX + 4, vpY + 2);
+  const int chipH = th + 4;
+  if (chipH > vpH) {
+    return;
   }
+
+  /* ⚠ THE STATUS CHIP IS DRAWN FIRST AND TAKES THE ROOM IT NEEDS. "no map on the card" is the
+   * most important sentence this screen can say, and the z/area chip beside it is the least;
+   * when they compete for 240 pixels the wrong one used to win, because it was drawn first
+   * and the other was simply skipped. */
+  int rightEdge = vpX + vpW;
   if (statusLine[0]) {
     const int sw = lcd.textWidth(statusLine);
-    const int sx = vpX + vpW - sw - 8;
-    if (sx > vpX + lw + 12) {
-      fillClipped(sx, vpY, sw + 8, th + 4, MAP_C_CHIP);
+    if (sw + 8 <= vpW) {
+      const int sx = vpX + vpW - sw - 8;
+      fillClipped(sx, vpY, sw + 8, chipH, MAP_C_CHIP);
       lcd.setTextColor(0xFD20, MAP_C_CHIP);
       lcd.drawString(statusLine, sx + 4, vpY + 2);
+      rightEdge = sx;
     }
+  }
+
+  /* An area name may be 31 characters and this chip is not that wide. Trim it to what is left
+   * rather than drawing a grey bar with nothing in it, which is what a bare width test gives
+   * you: the background had already been painted before the text was skipped. */
+  char left[48];
+  snprintf(left, sizeof(left), "z%d %s", zoom, areaSel >= 0 ? areas[areaSel].name : "-");
+  const int room = rightEdge - vpX - 4;
+  size_t n = strlen(left);
+  int lw = lcd.textWidth(left);
+  while (lw + 8 > room && n > 3) {
+    left[--n] = '\0';
+    lw = lcd.textWidth(left);
+  }
+  if (lw + 8 <= room) {
+    fillClipped(vpX, vpY, lw + 8, chipH, MAP_C_CHIP);
+    lcd.setTextColor(MAP_C_ME, MAP_C_CHIP);
+    lcd.drawString(left, vpX + 4, vpY + 2);
   }
 }
 
@@ -1033,6 +1185,7 @@ void MapsApp::drawBottomStrip() {
   int barPx = 0;
   const int barM = mapScaleBar(mapMetersPerPixel(lat, zoom), 84, &barPx);
   const int by = sy + 3;
+  int usedLeft = vpX + 4;               // how far along row 1 the scale bar reaches
   if (barM > 0 && barPx > 0) {
     fillClipped(vpX + 4, by + th / 2, barPx, 2, MAP_C_ME);
     fillClipped(vpX + 4, by + th / 2 - 3, 2, 8, MAP_C_ME);
@@ -1045,6 +1198,7 @@ void MapsApp::drawBottomStrip() {
     }
     lcd.setTextColor(MAP_C_ME, MAP_C_STRIP);
     lcd.drawString(sb, vpX + 8 + barPx, by);
+    usedLeft = vpX + 8 + barPx + lcd.textWidth(sb);
   }
 
   int32_t rLat = 0, rLon = 0;
@@ -1057,8 +1211,13 @@ void MapsApp::drawBottomStrip() {
     char right[44];
     snprintf(right, sizeof(right), "%s %s %s", d,
              meshPosCompass8(meshPosBearingDeg(rLat, rLon, cLat, cLon)), rName);
+    /* ⚠ AGAINST THE SCALE BAR, not against the screen. "1.4km NE Camp" is right-aligned, so a
+     * long reference name grows LEFTWARDS — a width test against vpW lets it start at x=0 and
+     * print straight over the scale bar, which is the one thing on this row that cannot be
+     * read wrong without consequence. Dropped rather than overlapped: the distance is also on
+     * the Places screen, and an unreadable scale bar is a map you cannot judge a walk from. */
     const int rw = lcd.textWidth(right);
-    if (rw + 6 < vpW) {
+    if (rw + 8 <= (vpX + vpW - 4) - usedLeft) {
       lcd.setTextColor(MAP_C_WP, MAP_C_STRIP);
       lcd.drawString(right, vpX + vpW - rw - 4, by);
     }
@@ -1126,23 +1285,40 @@ void MapsApp::centreOn(double lat, double lon) {
 }
 
 void MapsApp::centreOnMe() {
+  /* "Me" means this phone: the GPS fix, or the position the user declared by hand. It does
+   * NOT quietly mean the reference place — that may be a waypoint somebody else shared, and a
+   * key labelled "centre on me" that lands on their camp has told you something false. The
+   * reference is still offered as a last resort, and then the screen names it. */
   int32_t la = 0, lo = 0;
   uint32_t age = 0;
-  if (gGpsNmea && meshService.getGpsFix(&la, &lo, &age, NULL, NULL)) {
+  const int kind = selfPosition(&la, &lo, &age);
+  if (kind == MAPS_SELF_GPS) {
     centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
     setNote("Centred on the GPS fix (%us old)", (unsigned)(age / 1000u));
+    return;
+  }
+  if (kind == MAPS_SELF_PIN) {
+    centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
+    setNote(gGpsNmea ? "No fresh GPS fix - centred on your pin"
+                     : "GPS is off - centred on your pin");
+    return;
+  }
+  if (kind == MAPS_SELF_OLD_GPS) {
+    centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
+    setNote("No fresh fix - this is where you were %um ago",
+            (unsigned)(age / 60000u));
     return;
   }
   char nm[24];
   if (meshService.resolveReference(&la, &lo, nm, sizeof(nm))) {
     centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
-    setNote("No GPS fix - centred on %s", nm);
+    setNote("Nothing of your own - centred on %s", nm);
     return;
   }
   if (!gGpsNmea) {
     setNote("GPS is off - turn it on in Meshtastic > My node");
   } else {
-    setNote("No fix and no reference place yet");
+    setNote("No fix yet, and no pin of your own to fall back on");
   }
 }
 
@@ -1508,7 +1684,12 @@ void MapsApp::drawHelp() {
     { "green gem    place from the mesh", MAP_C_WP },
     { "cyan dot     someone else", MAP_C_NODE },
     { "grey dot     ...over 30 min old", MAP_C_NODE_OLD },
-    { "white ring   this phone (GPS)", MAP_C_ME },
+    { "white ring   this phone, live GPS", MAP_C_ME },
+    { "grey ring    ...a fix over 2 min old", MAP_C_NODE_OLD },
+    { "white gem    ...your declared pin", MAP_C_ME },
+    { "", WHITE },
+    { "A name is dropped, never squashed,", WHITE },
+    { "when it would land on another.", WHITE },
   };
   int y = (int)header->height() + 4;
   const int bottom = (int)lcd.height() - (int)footer->height();

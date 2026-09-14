@@ -82,6 +82,12 @@
 #define MAPS_CHUNK_BYTES   (32u * 1024u)
 #define MAPS_PICK_RADIUS   14      // how near the crosshair a pin must be to be "under" it
 
+// What selfPosition() found. See the note on it.
+#define MAPS_SELF_NONE     0
+#define MAPS_SELF_GPS      1       // a fix fresher than MESH_GPS_FRESH_MS
+#define MAPS_SELF_PIN      2       // the position the user declared by hand
+#define MAPS_SELF_OLD_GPS  3       // a fix, but an old one: drawn grey, wearing its age
+
 /* Everything the serial console needs, so this app can be driven without a thumb.
  *
  * ⚠ THIS IS NOT A CONVENIENCE. "Set as wallpaper" reached a user completely untried because
@@ -210,12 +216,33 @@ protected:
   void  drawNoMapPage();
   void  drawOverlays();
   void  drawMarker(int vx, int vy, uint16_t colour, int shape);
-  void  drawLabel(int vx, int vy, const char* text, uint16_t colour);
+  /* Place a label beside a marker, or decline to. Returns whether it was drawn.
+   *
+   * ⚠ LABELS ARE DRAWN IN A SECOND PASS, IN PRIORITY ORDER, AND A LABEL THAT WOULD LAND ON
+   * ONE ALREADY PLACED IS DROPPED. On 240x250 with eight places and twenty nodes in view,
+   * unmanaged labels overprint into a grey smear and the screen stops answering the question
+   * it exists to answer. Dropping one leaves its MARKER, which is the part that says where
+   * somebody is; the name is on the Nodes list either way. Priority runs: this phone, your
+   * pins, the mesh's places, then other people, nearest the crosshair first. */
+  bool  drawLabel(int vx, int vy, const char* text, uint16_t colour);
+  void  resetLabels() { labelCount = 0; }
+
+  struct LabelRect {
+    int16_t x, y, w, h;
+  };
+  LabelRect labelRects[14];
+  int       labelCount;
   void  drawCrosshair();
   void  drawBottomStrip();
   void  drawChips();
 
   // ---- actions ----
+  /* Where this phone thinks it is, and how sure. One answer, so the marker, its label and the
+   * `0` key can never disagree about which of the three they are showing.
+   * ⚠ MESH_GPS_FRESH_MS is the bar, and it is the SERVICE'S bar, not a second one invented
+   * here: getGpsFix() returns true for a fix from hours ago, and a stale fix drawn as a live
+   * one is a lie about where YOU are. */
+  int   selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs) const;
   void  centreOnMe();
   void  centreOn(double lat, double lon);
   int   pinUnderCrosshair();
