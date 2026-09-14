@@ -81,7 +81,7 @@ bug fixes and why each one happened. Recent highlights:
   choose to share one, and sharing puts it on COVEY's map as a real Meshtastic waypoint.
   Tiles are **raw RGB565**, converted on the computer by `tools/convert_tiles.py`, because
   this phone has no PNG decoder and its JPEG decoder refuses greyscale — see
-  [docs/maps.md](docs/maps.md). Costs +24 bytes of internal RAM, measured.
+  [docs/maps.md](docs/maps.md). Costs +72 bytes of internal RAM, measured.
 - **0.9.42** — Messages knows **who** you are talking to: conversations are labelled
   with the contact's name where your phonebook has one, and starting a new message to
   someone you have already texted opens that conversation instead of a second one

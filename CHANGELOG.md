@@ -67,8 +67,8 @@ painted the timer is disarmed entirely — a finished map must not keep the CPU 
 
 ### What it costs
 
-**+24 bytes of internal RAM and 32 KB of flash** — measured, by building the tree with and
-without it (87532 → 87556 bytes RAM, 2544759 → 2577599 flash). The working memory is **768 KB of
+**+72 bytes of internal RAM and 37 KB of flash** — measured, by building the tree with and
+without it (87532 → 87604 bytes RAM, 2544759 → 2582199 flash). The working memory is **768 KB of
 PSRAM** (six 128 KB tile slots) held only while the app is open, out of the ~3.6 MB free; the
 ~19 KB internal heap that SIP and WiFi fight over is untouched.
 
@@ -76,7 +76,7 @@ PSRAM** (six 128 KB tile slots) held only while the app is open, out of the ~3.6
 
 A map that is one tile out is not visibly wrong on a 240×320 screen — it just quietly shows you
 the wrong woods. That class of error cannot be caught by looking, so it is caught by arithmetic:
-**`tests/test_maptiles.cpp`, 89 checks on the host**, over `map_tiles.cpp` (Web Mercator against
+**`tests/test_maptiles.cpp`, 110 checks on the host**, over `map_tiles.cpp` (Web Mercator against
 independently computed reference values; the blit rectangles checked *structurally* — every
 viewport pixel covered exactly once, by a piece that came from the right pixel of the right tile,
 including across the antimeridian seam and with a world shorter than the screen) and

@@ -101,14 +101,19 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   loadSlot = -1;
   loadZ = loadTx = loadTy = -1;
   loadGot = 0;
+  loadRetries = 0;
   wantAny = false;
   wantZ = wantTx = wantTy = -1;
   pendingTiles = 0;
   tileMemFail = false;
+  cardOk = false;
+  pinsTruncated = false;
   panRun = 0;
   panDir = 0;
   panLastMs = 0;
   labelCount = 0;
+  listCount = 0;
+  helpTop = 0;
 
   for (int i = 0; i < MAPS_TILE_SLOTS; i++) {
     slots[i].px = NULL;
@@ -246,6 +251,19 @@ static const char* baseName(const char* path) {
 void MapsApp::scanAreas() {
   areaCount = 0;
   areaSel = -1;
+  /* Is there a card at all? "No map tiles on the card" sends somebody to the computer to
+   * convert tiles; "No SD card" sends them to find the card. Getting those two the wrong way
+   * round costs a trip. */
+  {
+    File root = SD.open("/");
+    cardOk = (bool)root && root.isDirectory();
+    if (root) {
+      root.close();
+    }
+  }
+  if (!cardOk) {
+    return;
+  }
   if (!SD.exists(MAPS_ROOT)) {
     /* Make the folder so the message can name a place that exists. A user told "put tiles in
      * /maps" who then cannot find /maps has been given a puzzle, not an instruction. */
@@ -311,6 +329,7 @@ void MapsApp::scanAreas() {
 
 void MapsApp::loadPins() {
   pinCount = 0;
+  pinsTruncated = false;
   if (!pins) {
     return;
   }
@@ -333,7 +352,13 @@ void MapsApp::loadPins() {
     if (ch == '\n' || ch == '\r') {
       if (n || overlong) {
         line[n] = '\0';
-        if (!overlong && pinCount < MAPS_MAX_PINS) {
+        if (pinCount >= MAPS_MAX_PINS) {
+          /* 🛑 AND NOW NOTHING MAY SAVE. The file holds more pins than this app can hold, so
+           * every later savePins() would write our 64 back over the user's 90 and silently
+           * destroy the rest. A card edited on a computer is exactly how that happens. The
+           * app stays usable read-only until the file is trimmed. */
+          pinsTruncated = true;
+        } else if (!overlong) {
           const int r = mapPinParseLine(line, &pins[pinCount]);
           if (r == 1) {
             pinCount++;
@@ -370,6 +395,11 @@ void MapsApp::savePins() {
   if (!pins) {
     return;
   }
+  if (pinsTruncated) {
+    log_e("MAPS: %s holds more than %d pins - refusing to save over it",
+          MAPS_PINS_FILE, MAPS_MAX_PINS);
+    return;
+  }
   if (!SD.exists(MAPS_ROOT)) {
     SD.mkdir(MAPS_ROOT);
   }
@@ -383,21 +413,30 @@ void MapsApp::savePins() {
     log_e("MAPS: could not write %s", tmp);
     return;
   }
-  f.print("# WiPhone map pins v1 - latI,lonI (1e-7 deg), shared waypoint id, name\n");
+  static const char HDR[] = "# WiPhone map pins v1 - latI,lonI (1e-7 deg), shared waypoint id, name\n";
+  size_t expect = strlen(HDR);
+  f.print(HDR);
   char line[MAP_PIN_LINE_MAX];
   int written = 0;
   for (int i = 0; i < pinCount; i++) {
-    if (mapPinFormatLine(&pins[i], line, sizeof(line)) > 0) {
+    const int len = mapPinFormatLine(&pins[i], line, sizeof(line));
+    if (len > 0) {
       f.print(line);
       f.print("\n");
+      expect += (size_t)len + 1;
       written++;
     }
   }
   f.flush();
-  const bool ok = (f.size() > 0);
+  /* ⚠ THE TEST HAS TO BE ABOUT THE PINS. `f.size() > 0` is satisfied by the header comment
+   * alone, so a card that accepted the first print and then failed every subsequent one
+   * passed this check and was renamed over the real file — the exact loss the temp-file dance
+   * exists to prevent. Compare against what we counted on the way in. */
+  const size_t got = (size_t)f.size();
   f.close();
-  if (!ok) {
-    log_e("MAPS: %s came out empty - keeping the old file", tmp);
+  if (got < expect) {
+    log_e("MAPS: %s is %u bytes, expected %u - keeping the old file",
+          tmp, (unsigned)got, (unsigned)expect);
     SD.remove(tmp);
     return;
   }
@@ -440,8 +479,12 @@ void MapsApp::saveView() {
   p.putInt("lat", mapDegToI7(lat));
   p.putInt("lon", mapDegToI7(lon));
   p.putInt("z", zoom);
+  /* ⚠ memset, NOT just a terminator. putBytes writes all 32 bytes, and everything past the
+   * NUL would otherwise be whatever was on this stack frame a moment ago — stack contents
+   * committed to flash on every exit from the app, and a different 32 bytes each time, so the
+   * NVS page churns for no reason too. */
   char area[32];
-  area[0] = '\0';
+  memset(area, 0, sizeof(area));
   if (areaSel >= 0) {
     strlcpy(area, areas[areaSel].name, sizeof(area));
   }
@@ -663,7 +706,12 @@ void MapsApp::forgetMissing() {
 }
 
 bool MapsApp::startLoad(int z, int tx, int ty) {
-  if (loadActive || tileMemFail || areaSel < 0) {
+  /* ⚠ isKnownMissing IS PART OF THE REFUSAL, not just a drawing hint. Without it a tile that
+   * is not on the card is re-opened on every 25 ms tick forever: tileLoadStep() fails and
+   * blacklists it, but nothing redraws (a failed piece returns DO_NOTHING), so `wantAny` still
+   * points at it on the next tick and the whole cycle repeats forty times a second — an SD
+   * open, a failure and a log line each time, on a phone in somebody's pocket. */
+  if (loadActive || tileMemFail || areaSel < 0 || isKnownMissing(z, tx, ty)) {
     return false;
   }
   const int s = claimSlot();
@@ -683,11 +731,16 @@ bool MapsApp::startLoad(int z, int tx, int ty) {
   loadTx = tx;
   loadTy = ty;
   loadGot = 0;
+  loadRetries = 0;
   loadActive = true;
   return true;
 }
 
 void MapsApp::cancelLoad() {
+  /* The want was computed for the view being abandoned, so it is abandoned with it. Leaving it
+   * set means the very next tick restarts the load this call exists to stop — a zoom key would
+   * cancel a tile and immediately fetch it again for a zoom nobody is looking at. */
+  wantAny = false;
   if (!loadActive) {
     return;
   }
@@ -698,6 +751,25 @@ void MapsApp::cancelLoad() {
   loadActive = false;
   loadSlot = -1;
   loadGot = 0;
+}
+
+/* A read or seek that failed part-way. ⚠ NOT THE SAME THING AS "not on the card": the file
+ * opened and its length was right, so this is the card or the bus having a moment — and the
+ * card in this phone is one the README already warns can throw write errors under load. A
+ * blacklist is for the session, so a single hiccup would leave a grey square in the middle of
+ * the map until the app was closed and reopened. One retry from the top first; a second
+ * failure is real and gets the blacklist. Returns false (no tile finished) either way. */
+bool MapsApp::tileReadFailed(const char* what) {
+  if (loadRetries < 1) {
+    loadRetries++;
+    loadGot = 0;                     // start this tile again rather than trusting a torn read
+    log_e("MAPS: tile %d/%d/%d %s failed - one more go", loadZ, loadTx, loadTy, what);
+    return false;                    // still loadActive: the next tick picks it up
+  }
+  log_e("MAPS: tile %d/%d/%d %s failed twice - giving up on it", loadZ, loadTx, loadTy, what);
+  rememberMissing(loadZ, loadTx, loadTy);
+  cancelLoad();
+  return false;
 }
 
 bool MapsApp::tileLoadStep() {
@@ -733,9 +805,7 @@ bool MapsApp::tileLoadStep() {
   }
   if (loadGot && !f.seek(loadGot)) {
     f.close();
-    rememberMissing(loadZ, loadTx, loadTy);
-    cancelLoad();
-    return false;
+    return tileReadFailed("seek");
   }
   size_t want = MAP_TILE_BYTES - loadGot;
   if (want > MAPS_CHUNK_BYTES) {
@@ -745,9 +815,7 @@ bool MapsApp::tileLoadStep() {
   f.close();
   if (got <= 0) {
     log_e("MAPS: %s read failed at %u", path, (unsigned)loadGot);
-    rememberMissing(loadZ, loadTx, loadTy);
-    cancelLoad();
-    return false;
+    return tileReadFailed("read");
   }
   loadGot += (uint32_t)got;
   if (loadGot >= MAP_TILE_BYTES) {
@@ -795,10 +863,27 @@ void MapsApp::drawBlob(int x, int y, int r, uint16_t colour, bool diamond) {
   }
 }
 
+/* Claim a rectangle so no later label lands on it. Silently ignored once the table is full —
+ * drawLabel refuses to place anything at that point anyway. */
+void MapsApp::reserveBox(int x, int y, int w, int h) {
+  if (labelCount >= (int)(sizeof(labelRects) / sizeof(labelRects[0]))) {
+    return;
+  }
+  labelRects[labelCount].x = (int16_t)x;
+  labelRects[labelCount].y = (int16_t)y;
+  labelRects[labelCount].w = (int16_t)w;
+  labelRects[labelCount].h = (int16_t)h;
+  labelCount++;
+}
+
 void MapsApp::drawMarker(int vx, int vy, uint16_t colour, int shape) {
   const bool diamond = (shape == MAP_SHAPE_DIAMOND);
   drawBlob(vx, vy, 4, BLACK, diamond);     // the surround: markers sit on unknown colours
   drawBlob(vx, vy, 3, colour, diamond);
+  /* ⚠ A LABEL MUST NEVER COVER A MARKER — least of all the one it is naming. The label boxes
+   * are opaque black, so without this a name sitting slightly left of its neighbour's dot
+   * erases that dot, and the map loses a person while gaining a word. */
+  reserveBox(vx - 4, vy - 4, 9, 9);
 }
 
 bool MapsApp::drawLabel(int vx, int vy, const char* text, uint16_t colour) {
@@ -817,6 +902,17 @@ bool MapsApp::drawLabel(int vx, int vy, const char* text, uint16_t colour) {
   if (bx + tw + 4 > vpX + vpW) {
     bx = vx - 7 - (tw + 4);      // no room on the right: put it on the left
   }
+  /* ⚠ A THIRD TRY BEFORE GIVING UP. A label wider than about half the screen fits on NEITHER
+   * side of a marker near the middle, so the all-or-nothing rule below silently created a
+   * dead band through the centre of the map where long names never appeared — and the centre
+   * is where the crosshair is, which is where people put the thing they are looking at.
+   * Sliding it flush against the edge keeps it readable and still inside the viewport. */
+  if (bx < vpX) {
+    bx = vpX;
+  }
+  if (bx + tw + 4 > vpX + vpW) {
+    bx = vpX + vpW - (tw + 4);
+  }
   /* ⚠ ALL OR NOTHING. drawString cannot be clipped — it would write straight into the header
    * or the footer — so a label that does not fit entirely inside the map is not drawn at all.
    * Half a name is not information anyway. */
@@ -824,20 +920,21 @@ bool MapsApp::drawLabel(int vx, int vy, const char* text, uint16_t colour) {
     return false;
   }
   const int w = tw + 4, h = th + 2;
-  // Would it land on one already placed? Then this one does not get placed.
+  /* 🛑 ONCE THE TABLE IS FULL, NOTHING MORE IS DRAWN. The old code kept drawing labels it
+   * could no longer record, so every one past the fourteenth was placed with no collision
+   * test at all — the overprinting this whole mechanism exists to prevent, arriving exactly
+   * when the screen is busiest and needs it most. */
+  if (labelCount >= (int)(sizeof(labelRects) / sizeof(labelRects[0]))) {
+    return false;
+  }
+  // Would it land on something already there — a label, or a marker? Then it is not placed.
   for (int i = 0; i < labelCount; i++) {
     const LabelRect* r = &labelRects[i];
     if (bx < r->x + r->w && bx + w > r->x && by < r->y + r->h && by + h > r->y) {
       return false;
     }
   }
-  if (labelCount < (int)(sizeof(labelRects) / sizeof(labelRects[0]))) {
-    labelRects[labelCount].x = (int16_t)bx;
-    labelRects[labelCount].y = (int16_t)by;
-    labelRects[labelCount].w = (int16_t)w;
-    labelRects[labelCount].h = (int16_t)h;
-    labelCount++;
-  }
+  reserveBox(bx, by, w, h);
   lcd.fillRect(bx, by, w, h, BLACK);
   lcd.setTextColor(colour, BLACK);
   lcd.drawString(text, bx + 2, by + 1);
@@ -990,6 +1087,10 @@ int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs) const {
  * so the people you marked as mattering get their names placed before strangers do. */
 void MapsApp::drawOverlays() {
   resetLabels();
+  /* The crosshair is painted last (it must be on top) but claims its space first: it is the
+   * one thing on this screen that is always exactly where the user is looking, and a name
+   * printed under it is a name obscuring the answer to "what is here". */
+  reserveBox(vpX + vpW / 2 - 16, vpY + vpH / 2 - 16, 33, 33);
 
   for (int i = 0; i < pinCount && pins; i++) {
     mapLatLonToView(zoom, cx, cy, vpW, vpH,
@@ -1036,6 +1137,14 @@ void MapsApp::drawOverlays() {
     }
     drawMarker(vpX + pinVx[i], vpY + pinVy[i],
                pins[i].sharedId ? MAP_C_PIN_SH : MAP_C_PIN, MAP_SHAPE_DOT);
+    if (pins[i].sharedId) {
+      /* ⚠ SHAPE, NOT JUST HUE. Orange and yellow differ only in the green channel and this is
+       * a small screen read in daylight, often through a polarised lens — "is that one shared
+       * or not" is a question whose wrong answer is a location on the air, or a camp nobody
+       * else can see. A hollow centre is unmistakable at arm's length and costs one call.
+       * (The verifier called the colour pair adequate; it is adequate indoors.) */
+      drawBlob(vpX + pinVx[i], vpY + pinVy[i], 1, BLACK, false);
+    }
   }
   if (selfKind) {
     int vx = 0, vy = 0;
@@ -1048,6 +1157,7 @@ void MapsApp::drawOverlays() {
         drawBlob(vpX + vx, vpY + vy, 6, BLACK, false);
         drawBlob(vpX + vx, vpY + vy, 5, c, false);
         drawBlob(vpX + vx, vpY + vy, 2, BLACK, false);
+        reserveBox(vpX + vx - 6, vpY + vy - 6, 13, 13);
       }
     }
   }
@@ -1238,7 +1348,12 @@ void MapsApp::drawBottomStrip() {
     snprintf(line, sizeof(line), "%.5f, %.5f", lat, lon);
     lcd.setTextColor(MAP_C_ME, MAP_C_STRIP);
   }
-  lcd.drawString(line, vpX + 4, sy + th + 4);
+  /* ⚠ ELLIPSIZED, NOT drawString. This row carries a note this app composed from a pin name,
+   * a place name or a node name — all of them other people's text — and plain drawString does
+   * not clip: it paints to the screen edge and beyond. guiDrawEllipsized exists for exactly
+   * this (GUI.h), cuts on a character boundary and appends ".." so a truncated string looks
+   * truncated instead of looking complete. */
+  guiDrawEllipsized(lcd, line, (uint16_t)(vpW - 8), (int16_t)(vpX + 4), (int16_t)(sy + th + 4));
 }
 
 void MapsApp::drawNoMapPage() {
@@ -1249,9 +1364,21 @@ void MapsApp::drawNoMapPage() {
   }
   lcd.setTextFont(fnt);
   lcd.setTextColor(0xFD20, BLACK);
-  lcd.drawString("No map tiles on the card", vpX + 8, vpY + 10);
+  lcd.drawString(cardOk ? "No map tiles on the card" : "No SD card", vpX + 8, vpY + 10);
   lcd.setTextColor(WHITE, BLACK);
   lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
+  static const char* noCard[] = {
+    "The phone cannot see a card at all.",
+    "",
+    "Switch the phone OFF, seat the card,",
+    "and switch it back on - the power",
+    "switch is a hard cut, so 'off' is off.",
+    "",
+    "The card must be FAT32 (see the",
+    "README); the phone does not speak",
+    "exFAT, which is how cards over 32 GB",
+    "come from the factory.",
+  };
   const char* lines[] = {
     "Pins and mesh places still work -",
     "the map is just blank behind them.",
@@ -1263,13 +1390,25 @@ void MapsApp::drawNoMapPage() {
     "",
     "Menu > Rescan card after copying.",
   };
+  const char* const* body = cardOk ? lines : noCard;
+  const unsigned bodyN = cardOk ? (unsigned)(sizeof(lines) / sizeof(lines[0]))
+                                : (unsigned)(sizeof(noCard) / sizeof(noCard[0]));
   int y = vpY + 40;
-  for (unsigned i = 0; i < sizeof(lines) / sizeof(lines[0]); i++) {
-    if (y + 16 > vpY + vpH) {
+  for (unsigned i = 0; i < bodyN; i++) {
+    if (y + 16 > vpY + vpH - 20) {
       break;
     }
-    lcd.drawString(lines[i], vpX + 8, y);
+    lcd.drawString(body[i], vpX + 8, y);
     y += 17;
+  }
+  /* ⚠ THE NOTE GOES HERE TOO. This page replaces the map entirely, and the note line is the
+   * only feedback several keys have: on it, 0 (centre on me), 7/9 (step pins) and the zoom
+   * keys all wrote a message that nothing ever drew, so they read as dead keys on the one
+   * screen where a new user is most likely to be pressing things to see what happens. */
+  if (note[0]) {
+    lcd.setTextColor(0xFD20, BLACK);
+    guiDrawEllipsized(lcd, note, (uint16_t)(vpW - 12), (int16_t)(vpX + 6),
+                      (int16_t)(vpY + vpH - 18));
   }
 }
 
@@ -1370,11 +1509,24 @@ bool MapsApp::sharePin(int idx, char* why, size_t whyCap) {
     return false;
   }
   bool onAir = false;
+  const bool wasShared = (pins[idx].sharedId != 0);
   const uint32_t id = meshService.shareWaypoint(pins[idx].sharedId,
                                                 pins[idx].latI, pins[idx].lonI,
                                                 pins[idx].name, 0, &onAir);
   if (!id) {
     strlcpy(why, "Could not share - the mesh refused it", whyCap);
+    return false;
+  }
+  if (!onAir && !wasShared) {
+    /* 🛑 A SHARE THAT NEVER LEFT THE RADIO IS NOT A SHARE, and writing the id down makes the
+     * claim permanent: the pin draws yellow, the list says "(shared)", and the options offer
+     * "Update it on the mesh" — for a place nobody else has. Worse, a later Delete would then
+     * send a retraction for a waypoint that was never announced. Roll the whole thing back so
+     * the pin stays plainly local, and say what happened.
+     * A RE-share (wasShared) is left alone on purpose: the mesh really does hold the old copy,
+     * and forgetting the id would strand it there with no way to retract it. */
+    meshService.unshareWaypoint(id);
+    snprintf(why, whyCap, "NOT sent - radio not ready. Still just yours.");
     return false;
   }
   pins[idx].sharedId = id;
@@ -1386,19 +1538,24 @@ bool MapsApp::sharePin(int idx, char* why, size_t whyCap) {
   if (onAir) {
     snprintf(why, whyCap, "Shared '%s' on the mesh", pins[idx].name);
   } else {
-    snprintf(why, whyCap, "Saved, but NOT sent - radio not ready");
+    // Only reachable for a RE-share: the mesh still holds the old copy, so the id is kept.
+    snprintf(why, whyCap, "NOT sent - the mesh still has the old one");
   }
   return onAir;
 }
 
-void MapsApp::deletePin(int idx) {
+bool MapsApp::deletePin(int idx) {
   if (idx < 0 || idx >= pinCount || !pins) {
-    return;
+    return true;
   }
+  bool retracted = true;
   if (pins[idx].sharedId) {
-    /* It is on other people's maps too. Taking it off theirs is the point of deleting it —
-     * a camp that has moved is worse than no camp at all. */
-    meshService.unshareWaypoint(pins[idx].sharedId);
+    /* It is on other people's maps too, and the confirm screen promised to take it off
+     * theirs — a camp that has moved is worse than no camp at all.
+     * ⚠ THE RESULT IS RETURNED, NOT DISCARDED. Deleting locally while the retraction failed
+     * strands the waypoint on every other radio with nothing left on this phone that knows
+     * its id, so the caller has to be able to say so. */
+    retracted = meshService.unshareWaypoint(pins[idx].sharedId);
   }
   for (int i = idx; i + 1 < pinCount; i++) {
     pins[i] = pins[i + 1];       // keep the order: the list on screen must not reshuffle
@@ -1409,6 +1566,7 @@ void MapsApp::deletePin(int idx) {
   }
   pinsDirty = true;
   savePins();
+  return retracted;
 }
 
 void MapsApp::stepPin(int delta) {
@@ -1518,7 +1676,7 @@ void MapsApp::enterState(MapsState_t st) {
   case MAPS_RENAME:
     snprintf(headerTitle, sizeof(headerTitle), "Rename pin");
     header->setTitle(headerTitle);
-    footer->setButtons("Save", "Cancel");
+    footer->setButtons("Save", "Clear");        // Back is backspace here; END cancels
     buildRename();
     break;
   case MAPS_AREAS:
@@ -1536,7 +1694,8 @@ void MapsApp::enterState(MapsState_t st) {
   case MAPS_HELP:
     snprintf(headerTitle, sizeof(headerTitle), "Map keys");
     header->setTitle(headerTitle);
-    footer->setButtons("", "Back");
+    footer->setButtons("More", "Back");
+    helpTop = 0;
     break;
   }
 }
@@ -1569,35 +1728,49 @@ void MapsApp::buildList() {
                       : (listKind == LIST_PLACES ? "No places heard from the mesh yet"
                          : "No node has sent a position yet");
   menu = newMenu(empty);
+  listCount = 0;
   char row[72];
   if (listKind == LIST_PINS) {
-    for (int i = 0; i < pinCount; i++) {
+    for (int i = 0; i < pinCount && listCount < MAPS_MAX_LIST; i++) {
       snprintf(row, sizeof(row), "%s%s", pins[i].name, pins[i].sharedId ? " (shared)" : "");
-      menu->addOption(row, ROW_FIRST + i);
+      listId[listCount] = (uint32_t)i;         // this app owns the pin array; index is identity
+      menu->addOption(row, ROW_FIRST + listCount);
+      listCount++;
     }
   } else if (listKind == LIST_PLACES) {
     const int n = meshService.getWaypointCount();
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n && listCount < MAPS_MAX_LIST; i++) {
       const MeshWaypoint* w = meshService.getWaypoint(i);
       if (!w || !w->id) {
         continue;
       }
       snprintf(row, sizeof(row), "%s", w->name);
-      menu->addOption(row, ROW_FIRST + i);
+      listId[listCount] = w->id;               // the waypoint table compacts; the id does not
+      menu->addOption(row, ROW_FIRST + listCount);
+      listCount++;
     }
   } else {
+    /* The service re-sorts the node list only when a screen asks it to, and this is such a
+     * screen — the same contract the Meshtastic app's Nodes list follows. Asking here means
+     * the order is settled BEFORE the rows are built rather than shifting under them. */
+    meshService.refreshNodeOrder();
     const uint32_t me = meshService.getMyNodeNum();
     const uint32_t now = millis();
     const int n = meshService.getNodeCount();
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n && listCount < MAPS_MAX_LIST; i++) {
       const MeshNode* nd = meshService.getNode(i);
       if (!nd || !nd->nodeNum || nd->nodeNum == me || !nd->posHeardMs) {
         continue;
       }
       const unsigned mins = (unsigned)((now - nd->posHeardMs) / 60000u);
       snprintf(row, sizeof(row), "%s - %um ago", nd->name[0] ? nd->name : "?", mins);
-      menu->addOption(row, ROW_FIRST + i);
+      listId[listCount] = nd->nodeNum;
+      menu->addOption(row, ROW_FIRST + listCount);
+      listCount++;
     }
+  }
+  if (listCount >= MAPS_MAX_LIST) {
+    menu->addNote("(more not shown)");
   }
 }
 
@@ -1655,6 +1828,12 @@ void MapsApp::buildAreas() {
 
 void MapsApp::buildConfirmDelete() {
   menu = newMenu("");
+  /* ⚠ THE OPTIONS COME FIRST, and that is not cosmetic: a MenuWidget opens on row 0, and with
+   * the explanatory notes at the top that row was a display-only note. The footer said
+   * "Select" and the first press of it did nothing at all — on the one screen in this app
+   * whose whole job is to take an answer. Every other screen here puts its notes last. */
+  menu->addOption("No, keep it", ROW_DEL_NO);
+  menu->addOption("Yes, delete it", ROW_DEL_YES);
   char row[72];
   if (pinSel >= 0 && pinSel < pinCount) {
     snprintf(row, sizeof(row), "Delete '%s'", pins[pinSel].name);
@@ -1663,60 +1842,96 @@ void MapsApp::buildConfirmDelete() {
       menu->addNote("...and take it off the mesh");
     }
   }
-  menu->addOption("No, keep it", ROW_DEL_NO);
-  menu->addOption("Yes, delete it", ROW_DEL_YES);
 }
 
+/* ⚠ THIS LIST DOES NOT FIT AND USED TO BE SILENTLY CUT. Twenty-odd rows at a 17 px pitch is
+ * 370 px in a 250 px window, so the loop's bottom guard threw away everything from the colour
+ * key down — the half of this screen that explains what the coloured dots on the map MEAN,
+ * on the one screen whose entire job is to explain things. It scrolls now, and says so. */
+static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
+  { "Arrows      scroll (hold = faster)", WHITE },
+  { "2 4 6 8     scroll too", WHITE },
+  { "* or 1      zoom out", WHITE },
+  { "# or 3      zoom in", WHITE },
+  { "5           drop a pin on the crosshair", WHITE },
+  { "OK          the pin under the crosshair,", WHITE },
+  { "            or the menu if there is none", WHITE },
+  { "7 / 9       previous / next pin", WHITE },
+  { "0           centre on me", WHITE },
+  { "Back        leave (the view is saved)", WHITE },
+  { "", WHITE },
+  { "orange dot   your pin", MAP_C_PIN },
+  { "yellow ring  your pin, shared", MAP_C_PIN_SH },
+  { "green gem    place from the mesh", MAP_C_WP },
+  { "cyan dot     someone else", MAP_C_NODE },
+  { "grey dot     ...over 30 min old", MAP_C_NODE_OLD },
+  { "white ring   this phone, live GPS", MAP_C_ME },
+  { "grey ring    ...a fix over 2 min old", MAP_C_NODE_OLD },
+  { "white gem    ...your declared pin", MAP_C_ME },
+  { "", WHITE },
+  { "A name is dropped, never squashed,", WHITE },
+  { "when it would land on another.", WHITE },
+  { "", WHITE },
+  { "grey square  tile not on the card", WHITE },
+  { "See docs/maps.md for the tiles.", WHITE },
+};
+static const int MAPS_HELP_N = (int)(sizeof(MAPS_HELP_ROWS) / sizeof(MAPS_HELP_ROWS[0]));
+
 void MapsApp::drawHelp() {
-  lcd.fillRect(0, header->height(), lcd.width(),
-               lcd.height() - header->height() - footer->height(), BLACK);
+  const int top = (int)header->height();
+  const int bottom = (int)lcd.height() - (int)footer->height();
+  lcd.fillRect(0, top, lcd.width(), bottom - top, BLACK);
   SmoothFont* fnt = fonts[AKROBAT_BOLD_16];
   if (!fnt) {
     return;
   }
   lcd.setTextFont(fnt);
-  struct HelpRow { const char* text; uint16_t colour; };
-  static const HelpRow rows[] = {
-    { "Arrows      scroll (hold = faster)", WHITE },
-    { "2 4 6 8     scroll too", WHITE },
-    { "* or 1      zoom out", WHITE },
-    { "# or 3      zoom in", WHITE },
-    { "5           drop a pin on the crosshair", WHITE },
-    { "OK          the pin under the crosshair,", WHITE },
-    { "            or the menu if there is none", WHITE },
-    { "7 / 9       previous / next pin", WHITE },
-    { "0           centre on me", WHITE },
-    { "Back        leave (the view is saved)", WHITE },
-    { "", WHITE },
-    { "orange dot   your pin", MAP_C_PIN },
-    { "yellow dot   your pin, shared", MAP_C_PIN_SH },
-    { "green gem    place from the mesh", MAP_C_WP },
-    { "cyan dot     someone else", MAP_C_NODE },
-    { "grey dot     ...over 30 min old", MAP_C_NODE_OLD },
-    { "white ring   this phone, live GPS", MAP_C_ME },
-    { "grey ring    ...a fix over 2 min old", MAP_C_NODE_OLD },
-    { "white gem    ...your declared pin", MAP_C_ME },
-    { "", WHITE },
-    { "A name is dropped, never squashed,", WHITE },
-    { "when it would land on another.", WHITE },
-  };
-  int y = (int)header->height() + 4;
-  const int bottom = (int)lcd.height() - (int)footer->height();
-  for (unsigned i = 0; i < sizeof(rows) / sizeof(rows[0]); i++) {
-    if (y + (int)fnt->height() > bottom) {
-      break;
+  const int pitch = (int)fnt->height() + 1;
+  int perScreen = (bottom - top - 4) / pitch;
+  if (perScreen < 1) {
+    perScreen = 1;
+  }
+  // Keep the window inside the list however it was scrolled.
+  int maxTop = MAPS_HELP_N - perScreen;
+  if (maxTop < 0) {
+    maxTop = 0;
+  }
+  if (helpTop > maxTop) {
+    helpTop = maxTop;
+  }
+  if (helpTop < 0) {
+    helpTop = 0;
+  }
+  int y = top + 2;
+  for (int i = helpTop; i < MAPS_HELP_N && i < helpTop + perScreen; i++) {
+    if (MAPS_HELP_ROWS[i].text[0]) {
+      lcd.setTextColor(MAPS_HELP_ROWS[i].colour, BLACK);
+      lcd.drawString(MAPS_HELP_ROWS[i].text, 6, y);
     }
-    if (rows[i].text[0]) {
-      lcd.setTextColor(rows[i].colour, BLACK);
-      lcd.drawString(rows[i].text, 6, y);
-    }
-    y += (int)fnt->height() + 1;
+    y += pitch;
+  }
+  // "there is more below" is the only thing that makes the scroll discoverable.
+  if (maxTop > 0) {
+    char more[32];
+    snprintf(more, sizeof(more), "%s%s", helpTop > 0 ? "^ " : "  ",
+             helpTop < maxTop ? "more below v" : "");
+    lcd.setTextColor(MAP_C_PIN, BLACK);
+    lcd.drawString(more, 6, bottom - (int)fnt->height() - 1);
   }
 }
 
 // ---------------------------------------------------------------- events
 
 appEventResult MapsApp::onMapKey(EventType event) {
+  /* 🛑 A BATTERY BLINK IS NOT A KEYPRESS. Every non-keyboard event the phone raises — the
+   * battery icon, the WiFi RSSI, the clock, a SIP registration — is delivered to the running
+   * app, and this function ran for all of them. So the one line explaining what just happened
+   * ("Saved, but NOT sent", "That place is gone") was wiped within a second or two of being
+   * written, by something the user did not do. IS_KEYBOARD is GUI.h's own test. */
+  if (!IS_KEYBOARD(event)) {
+    return DO_NOTHING;
+  }
+
   /* One place clears the note, and it is here: ANY key on the map retires the last one, and
    * a handler that has something new to say says it below. Clearing per-branch is how a
    * message from ten minutes ago ends up sitting under a map nobody is looking at any more —
@@ -1771,11 +1986,16 @@ appEventResult MapsApp::onMapKey(EventType event) {
   switch (event) {
   case '*':
   case '1': {
-    const int zMin = areaSel >= 0 ? areas[areaSel].zMin : zoom;
-    const int zMax = areaSel >= 0 ? areas[areaSel].zMax : zoom;
+    /* ⚠ FALL BACK TO THE PROJECTION'S LIMITS, NOT TO THE CURRENT ZOOM. With no tiles on the
+     * card zMin and zMax were both `zoom`, so both zoom keys were dead and said "z15 is the
+     * widest this map has" — about a map that does not exist. The markers are still worth
+     * zooming around without a basemap. */
+    const int zMin = areaSel >= 0 ? areas[areaSel].zMin : MAP_ZOOM_MIN;
+    const int zMax = areaSel >= 0 ? areas[areaSel].zMax : MAP_ZOOM_MAX;
     const int nz = mapZoomView(zMin, zMax, zoom, -1, vpW, vpH, &cx, &cy);
     if (nz == zoom) {
-      setNote("z%d is the widest this map has", zoom);
+      setNote(areaSel >= 0 ? "z%d is the widest this map has" : "z%d is as far out as it goes",
+              zoom);
     } else {
       cancelLoad();              // the tile on its way is for a zoom nobody is looking at
       zoom = nz;
@@ -1784,11 +2004,12 @@ appEventResult MapsApp::onMapKey(EventType event) {
   }
   case '#':
   case '3': {
-    const int zMin = areaSel >= 0 ? areas[areaSel].zMin : zoom;
-    const int zMax = areaSel >= 0 ? areas[areaSel].zMax : zoom;
+    const int zMin = areaSel >= 0 ? areas[areaSel].zMin : MAP_ZOOM_MIN;
+    const int zMax = areaSel >= 0 ? areas[areaSel].zMax : MAP_ZOOM_MAX;
     const int nz = mapZoomView(zMin, zMax, zoom, +1, vpW, vpH, &cx, &cy);
     if (nz == zoom) {
-      setNote("z%d is the closest this map has", zoom);
+      setNote(areaSel >= 0 ? "z%d is the closest this map has" : "z%d is as far in as it goes",
+              zoom);
     } else {
       cancelLoad();
       zoom = nz;
@@ -1904,6 +2125,13 @@ appEventResult MapsApp::processEvent(EventType event) {
           slots[i].z = -1;
           slots[i].ready = false;
         }
+        /* ⚠ SAVE BEFORE RE-READING. loadPins() overwrites the in-RAM table from the file, so
+         * any edit not yet on the card — every path here writes immediately today, but that
+         * is a property of the callers, not of this code — would be silently discarded by a
+         * menu row whose name promises only to look at the card again. */
+        if (pinsDirty) {
+          savePins();
+        }
         scanAreas();
         loadPins();
         pinSel = -1;               // the array was just re-read; the old index means nothing
@@ -1917,12 +2145,21 @@ appEventResult MapsApp::processEvent(EventType event) {
           areaSel = 0;
         }
         if (areaSel >= 0) {
+          /* ⚠ cx/cy ARE WORLD PIXELS AT THE CURRENT ZOOM, so changing `zoom` without
+           * rescaling them moves the view to completely different ground — at one level out
+           * that is half the world away. setArea() already does this correctly; the rescan
+           * path did not, and a card whose new area starts at a different zoom would have
+           * dropped the user somewhere in the ocean. Read the ground, change the zoom, put
+           * the ground back. */
+          double keepLat = 0, keepLon = 0;
+          mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &keepLat, &keepLon);
           if (zoom < areas[areaSel].zMin) {
             zoom = areas[areaSel].zMin;
           }
           if (zoom > areas[areaSel].zMax) {
             zoom = areas[areaSel].zMax;
           }
+          centreOn(keepLat, keepLon);
         }
         setNote("%d map%s, %d pin%s on the card", areaCount, areaCount == 1 ? "" : "s",
                 pinCount, pinCount == 1 ? "" : "s");
@@ -1958,29 +2195,41 @@ appEventResult MapsApp::processEvent(EventType event) {
         return REDRAW_SCREEN;
       }
       const int idx = (int)(sel - ROW_FIRST);
+      if (idx < 0 || idx >= listCount) {
+        return REDRAW_SCREEN;
+      }
       if (listKind == LIST_PINS) {
-        if (idx < pinCount) {
-          pinSel = idx;
-          centreOn(mapI7ToDeg(pins[idx].latI), mapI7ToDeg(pins[idx].lonI));
+        const int pi = (int)listId[idx];
+        if (pi >= 0 && pi < pinCount) {
+          pinSel = pi;
+          centreOn(mapI7ToDeg(pins[pi].latI), mapI7ToDeg(pins[pi].lonI));
           enterState(MAPS_PIN_OPTS);
           return REDRAW_ALL;
         }
       } else if (listKind == LIST_PLACES) {
-        const MeshWaypoint* w = meshService.getWaypoint(idx);
+        /* Looked up again by id, because the waypoint table compacts under an open screen:
+         * the expiry sweep moves the last entry into the hole it just made. */
+        const MeshWaypoint* w = meshService.findWaypoint(listId[idx]);
         if (w && w->id) {
           centreOn(mapI7ToDeg(w->latI), mapI7ToDeg(w->lonI));
           setNote("%s", w->name);
           enterState(MAPS_VIEW);
           return REDRAW_ALL;
         }
+        setNote("That place is gone - it expired or was deleted");
+        enterState(MAPS_VIEW);
+        return REDRAW_ALL;
       } else {
-        const MeshNode* nd = meshService.getNode(idx);
+        const MeshNode* nd = meshService.findNode(listId[idx]);
         if (nd && nd->posHeardMs) {
           centreOn(mapI7ToDeg(nd->latI), mapI7ToDeg(nd->lonI));
           setNote("%s", nd->name[0] ? nd->name : "?");
           enterState(MAPS_VIEW);
           return REDRAW_ALL;
         }
+        setNote("That node is no longer in the list");
+        enterState(MAPS_VIEW);
+        return REDRAW_ALL;
       }
       return REDRAW_SCREEN;
     }
@@ -2031,11 +2280,20 @@ appEventResult MapsApp::processEvent(EventType event) {
         return REDRAW_ALL;
       }
       case ROW_P_UNSHARE: {
+        /* 🛑 KEEP THE ID WHEN THE RETRACTION DID NOT GO OUT. Forgetting it removes the pin
+         * from THIS phone's Places and leaves it on everyone else's forever, with nothing on
+         * this phone that knows the id any more — the retraction can never be sent again. A
+         * stale camp on other people's maps is the exact failure "Take it off the mesh"
+         * exists to prevent. */
         const bool ok = meshService.unshareWaypoint(pins[pinSel].sharedId);
-        pins[pinSel].sharedId = 0;
-        pinsDirty = true;
-        savePins();
-        setNote(ok ? "Taken off the mesh" : "Removed here, but the radio did not send");
+        if (ok) {
+          pins[pinSel].sharedId = 0;
+          pinsDirty = true;
+          savePins();
+          setNote("Taken off the mesh");
+        } else {
+          setNote("Radio not ready - the mesh still has it. Try again.");
+        }
         enterState(MAPS_VIEW);
         return REDRAW_ALL;
       }
@@ -2072,8 +2330,12 @@ appEventResult MapsApp::processEvent(EventType event) {
         if (pinSel >= 0 && pinSel < pinCount) {
           strlcpy(gone, pins[pinSel].name, sizeof(gone));
         }
-        deletePin(pinSel);
-        setNote("Deleted '%s'", gone);
+        const bool retracted = deletePin(pinSel);
+        if (retracted) {
+          setNote("Deleted '%s'", gone);
+        } else {
+          setNote("Deleted here - but the radio did not send the retraction");
+        }
         enterState(MAPS_VIEW);
         return REDRAW_ALL;
       }
@@ -2159,9 +2421,19 @@ appEventResult MapsApp::processEvent(EventType event) {
     return REDRAW_SCREEN;
 
   case MAPS_HELP:
-    if (LOGIC_BUTTON_BACK(event) || LOGIC_BUTTON_OK(event)) {
+    if (LOGIC_BUTTON_BACK(event)) {
       enterState(MAPS_MENU);
       return REDRAW_ALL;
+    }
+    if (event == WIPHONE_KEY_UP || event == '2') {
+      helpTop--;
+      return REDRAW_SCREEN;
+    }
+    if (event == WIPHONE_KEY_DOWN || event == '8' || LOGIC_BUTTON_OK(event)) {
+      /* OK pages down rather than leaving: on a screen that scrolls, the key people press to
+       * see more must show more. Back is how you leave, and the footer says so. */
+      helpTop++;
+      return REDRAW_SCREEN;
     }
     return DO_NOTHING;
   }
@@ -2169,6 +2441,18 @@ appEventResult MapsApp::processEvent(EventType event) {
 }
 
 void MapsApp::redrawScreen(bool redrawAll) {
+  /* 🛑 THE TEXT DATUM IS SHARED STATE AND IT IS NOT LEFT AT TL_DATUM.
+   * `lcd` here is the same TFT_eSPI object the header, the footer and every MenuWidget draw
+   * into — GUI makes one page sprite and hands it to everyone — and `textdatum` is a plain
+   * member of it, not per-caller. GUI draws the app FIRST and the header/footer AFTER, so on
+   * the second and every later repaint this app inherits whatever the footer left behind:
+   * MR_DATUM for the right-hand soft key, or ML/CL from the header and the menus. With a
+   * MIDDLE datum drawString subtracts half the font height from y, so every string on the map
+   * — the chips, the scale bar, the coordinates, the whole help screen — is drawn 8 px HIGHER
+   * than it was placed, and the top chip lands in the header band. With a RIGHT datum it also
+   * runs backwards from x. One line, set once per repaint, before anything draws. */
+  lcd.setTextDatum(TL_DATUM);
+
   switch (appState) {
   case MAPS_VIEW:
     if (areaSel < 0 && pinCount == 0 && meshService.getWaypointCount() == 0) {
@@ -2304,7 +2588,12 @@ bool mapsConsoleStatus(char* out, size_t cap) {
     if (f) {
       char line[MAP_PIN_LINE_MAX];
       size_t n = 0;
+      bool overlong = false;
       MapPin tmp;
+      /* ⚠ THE SAME OVER-LONG RULE loadPins USES. Without it this counter silently parses the
+       * FIRST MAP_PIN_LINE_MAX bytes of a long line as a pin and calls it good, while the app
+       * counts the same line as unreadable — so the console would report more pins than the
+       * map draws, which is precisely the question somebody runs `maps` to answer. */
       while (f.available()) {
         const int ch = f.read();
         if (ch < 0) {
@@ -2312,7 +2601,9 @@ bool mapsConsoleStatus(char* out, size_t cap) {
         }
         if (ch == '\n' || ch == '\r') {
           line[n] = '\0';
-          if (n) {
+          if (overlong) {
+            badN++;
+          } else if (n) {
             const int r = mapPinParseLine(line, &tmp);
             if (r == 1) {
               pinN++;
@@ -2321,11 +2612,25 @@ bool mapsConsoleStatus(char* out, size_t cap) {
             }
           }
           n = 0;
+          overlong = false;
           continue;
         }
         if (n + 1 < sizeof(line)) {
           line[n++] = (char)ch;
+        } else {
+          overlong = true;
         }
+      }
+      if (n && !overlong) {
+        line[n] = '\0';              // a last line with no newline is still a line
+        const int r = mapPinParseLine(line, &tmp);
+        if (r == 1) {
+          pinN++;
+        } else if (r < 0) {
+          badN++;
+        }
+      } else if (overlong) {
+        badN++;
       }
       f.close();
     }
@@ -2362,7 +2667,12 @@ bool mapsConsoleGoto(double lat, double lon, int z, const char* area,
   p.putBytes("area", buf, sizeof(buf));
   p.putInt("saved", 1);
   p.end();
-  snprintf(why, whyCap, "next open: %.5f,%.5f z%d%s%s", lat, lon, z,
-           buf[0] ? " area " : "", buf);
+  /* ⚠ SAY THAT AN OPEN APP WILL OVERWRITE THIS. MapsApp::saveView() runs in the destructor,
+   * so closing the app writes wherever it was actually looking, over whatever was set here.
+   * That precedence is right — the screen is the truth while somebody is using it — but a
+   * person setting a coordinate over the cable with the app open would otherwise watch it
+   * vanish with no explanation. */
+  snprintf(why, whyCap, "next open: %.5f,%.5f z%d%s%s (close Maps first if it is open)",
+           lat, lon, z, buf[0] ? " area " : "", buf);
   return true;
 }

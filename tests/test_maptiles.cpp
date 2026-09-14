@@ -330,6 +330,24 @@ int main() {
     CHECK(!strcmp(nm, "Pin"), "a name of nothing becomes 'Pin'");
     mapPinSanitizeName("012345678901234567890123456789", nm, sizeof(nm));
     CHECK(strlen(nm) == MAP_PIN_NAME_LEN - 1, "a long name is cut to the waypoint's length");
+
+    /* A cut that lands mid-codepoint must drop the whole character. These bytes go into a
+     * protobuf string field on the air; half a sequence is invalid UTF-8 and a strict reader
+     * may reject the entire Waypoint. 19 usable bytes: 18 ASCII then a 2-byte 'e' with an
+     * acute, whose second byte does not fit. */
+    mapPinSanitizeName("aaaaaaaaaaaaaaaaaa\xc3\xa9zz", nm, sizeof(nm));
+    CHECK(strlen(nm) == 18 && nm[17] == 'a',
+          "a name cut mid-UTF-8 drops the whole character, not half of it");
+    bool tail_ok = true;
+    for (size_t i = 0; i < strlen(nm); i++) {
+      if (((unsigned char)nm[i] & 0xC0) == 0x80) {
+        tail_ok = false;                     // a bare continuation byte survived
+      }
+    }
+    CHECK(tail_ok, "...and no orphan continuation byte is left behind");
+    // A sequence that FITS is untouched: 17 ASCII + a 2-byte character = 19 bytes.
+    mapPinSanitizeName("aaaaaaaaaaaaaaaaa\xc3\xa9", nm, sizeof(nm));
+    CHECK(strlen(nm) == 19, "a multi-byte character that fits is kept whole");
   }
 
   {
@@ -352,6 +370,19 @@ int main() {
     CHECK(mapPinPickNearest(vx, vy, 4, 131, 129, 12) == 1, "the nearer of two close pins wins");
     CHECK(mapPinPickNearest(vx, vy, 4, 200, 20, 12) == -1, "nothing near the crosshair picks nothing");
     CHECK(mapPinPickNearest(vx, vy, 4, 120, 125, 0) == 0, "a zero radius still matches an exact hit");
+
+    /* 🛑 THE OVERFLOW. mapLatLonToView writes through for points nowhere near the screen, and
+     * at z19 the world is 134 million pixels across. Squared in 32-bit that wraps, and a
+     * wrapped product can come out NEGATIVE — which beats every real distance, so a pin on
+     * the far side of the world would be picked as the one under the crosshair. */
+    const int farX[3] = { 120, 46341, 134217000 };
+    const int farY[3] = { 999, 46341, 134217000 };
+    CHECK(mapPinPickNearest(farX, farY, 3, 120, 125, 14) == -1,
+          "pins a world away are not 'under the crosshair', whatever the arithmetic wraps to");
+    const int mixX[3] = { 134217000, 121, -134217000 };
+    const int mixY[3] = { 134217000, 126, -134217000 };
+    CHECK(mapPinPickNearest(mixX, mixY, 3, 120, 125, 14) == 1,
+          "...and the one that IS under it still wins, with huge ones on both sides");
   }
 
   printf("\n%d checks, %d failures\n", checks, failures);

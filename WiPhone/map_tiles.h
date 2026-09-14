@@ -111,8 +111,14 @@ int     mapZoomView(int zMin, int zMax, int z, int delta, int vw, int vh,
                     int32_t* cx, int32_t* cy);
 
 /* Fill `out` with the blits that cover the viewport, top-to-bottom then left-to-right.
- * Returns the count, or -1 if `cap` was too small (in which case nothing is written —
- * a partially-drawn map is a lie, and a caller that ignored a truncated count would draw one).
+ * Returns the count, or -1 when it will not fit in `cap` or the arguments are nonsense.
+ *
+ * ⚠ ON -1 THE CONTENTS OF `out` ARE UNDEFINED — entries written before the cap was reached are
+ * left there. A caller must branch on the RETURN VALUE and draw nothing, never scan `out` for
+ * plausible-looking entries: a partially-covered viewport is a map with a hole in it that
+ * nothing on the screen accounts for. (Documented rather than papered over: clearing `cap`
+ * entries on the way out would cost every successful call something to make one impossible
+ * call tidier.)
  *
  * A 240x250 viewport over 256 px tiles needs at most 2x2 = 4 blits; MAP_MAX_BLITS is 12,
  * which covers a viewport up to 768 px across should the screen ever change. */

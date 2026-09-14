@@ -40,6 +40,7 @@ so rather than guess.
 import argparse
 import os
 import sqlite3
+import string
 import struct
 import subprocess
 import sys
@@ -82,6 +83,12 @@ def decode_with_pil(data):
     im = Image.open(io.BytesIO(data))
     im = im.convert("RGB")
     if im.size != (TILE, TILE):
+        # ⚠ SAY SO. This used to be a silent rescale, which meant the SAME command gave
+        # different results on two Macs: the sips path cannot resize, so there it came out as
+        # "could not be read" instead. Resizing is the friendlier behaviour of the two - a
+        # 512 px tile source is usable - but it must not be invisible.
+        print("  note: %dx%d tile rescaled to %dx%d"
+              % (im.size[0], im.size[1], TILE, TILE), file=sys.stderr)
         im = im.resize((TILE, TILE), Image.BILINEAR)
     return im.tobytes(), TILE, TILE
 
@@ -156,7 +163,56 @@ def to_565(data, suffix):
 # ---------------------------------------------------------------- sources
 
 def walk_dir(src, zlo, zhi):
-    """Yield (z, x, y, bytes, suffix) from a z/x/y tile tree."""
+    """Yield (z, x, y, bytes, suffix) from a z/x/y tile tree.
+
+    A file that cannot be read is reported and skipped, not raised: a permission-denied file
+    or a broken symlink in the middle of a thousand-tile tree used to abort the whole run with
+    a traceback, after writing part of it and printing no summary."""
+    for z, x, y, path, ext in walk_dir_paths(src, zlo, zhi):
+        try:
+            with open(path, "rb") as f:
+                blob = f.read()
+        except OSError as e:
+            print("  skipped %d/%d/%d: %s" % (z, x, y, e), file=sys.stderr)
+            continue
+        if not blob:
+            print("  skipped %d/%d/%d: empty file" % (z, x, y), file=sys.stderr)
+            continue
+        yield z, x, y, blob, ext
+
+
+def walk_mbtiles(src, zlo, zhi):
+    """Yield (z, x, y, bytes, suffix) from an .mbtiles file.
+
+    ⚠ MBTiles rows are TMS: y counts from the SOUTH. Slippy z/x/y counts from the NORTH, and
+    that is what the phone's arithmetic assumes (map_tiles.h). The flip below is the whole
+    difference between a correct map and one that is mirrored top to bottom - which, on
+    forest, is remarkably hard to notice.
+    """
+    con = sqlite3.connect("file:%s?mode=ro" % src, uri=True)
+    try:
+        cur = con.execute(
+            "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles "
+            "WHERE zoom_level BETWEEN ? AND ? ORDER BY zoom_level, tile_column, tile_row",
+            (zlo, zhi))
+        for z, x, tms_y, blob in cur:
+            y = (1 << z) - 1 - tms_y
+            if not blob:
+                # A NULL or empty tile_data is legal in an .mbtiles and used to raise
+                # TypeError out of the slice below, killing the run mid-way.
+                print("  skipped %d/%d/%d: empty tile_data" % (z, x, y), file=sys.stderr)
+                continue
+            blob = bytes(blob)
+            suffix = ".png" if blob[:8] == b"\x89PNG\r\n\x1a\n" else ".jpg"
+            yield z, x, y, blob, suffix
+    finally:
+        con.close()
+
+
+def walk_dir_paths(src, zlo, zhi):
+    """Yield (z, x, y, path, suffix) WITHOUT reading anything. Counting a tree should not
+    read it: walk_dir used to open and discard every PNG just to be counted, so a directory
+    conversion read the whole tree twice and --dry-run read it once to print one line."""
     for zname in sorted(os.listdir(src)):
         if not zname.isdigit():
             continue
@@ -177,30 +233,9 @@ def walk_dir(src, zlo, zhi):
                 if not stem.isdigit() or ext.lower() not in (".png", ".jpg", ".jpeg"):
                     continue
                 path = os.path.join(xdir, yname)
-                with open(path, "rb") as f:
-                    yield z, int(xname), int(stem), f.read(), ext.lower()
-
-
-def walk_mbtiles(src, zlo, zhi):
-    """Yield (z, x, y, bytes, suffix) from an .mbtiles file.
-
-    ⚠ MBTiles rows are TMS: y counts from the SOUTH. Slippy z/x/y counts from the NORTH, and
-    that is what the phone's arithmetic assumes (map_tiles.h). The flip below is the whole
-    difference between a correct map and one that is mirrored top to bottom - which, on
-    forest, is remarkably hard to notice.
-    """
-    con = sqlite3.connect("file:%s?mode=ro" % src, uri=True)
-    try:
-        cur = con.execute(
-            "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles "
-            "WHERE zoom_level BETWEEN ? AND ? ORDER BY zoom_level, tile_column, tile_row",
-            (zlo, zhi))
-        for z, x, tms_y, blob in cur:
-            y = (1 << z) - 1 - tms_y
-            suffix = ".png" if blob[:8] == b"\x89PNG\r\n\x1a\n" else ".jpg"
-            yield z, x, y, bytes(blob), suffix
-    finally:
-        con.close()
+                if not os.path.isfile(path):
+                    continue                    # a DIRECTORY named 123.png used to abort the run
+                yield z, int(xname), int(stem), path, ext.lower()
 
 
 def count_source(src, zlo, zhi):
@@ -213,7 +248,7 @@ def count_source(src, zlo, zhi):
             con.close()
         return n
     n = 0
-    for _ in walk_dir(src, zlo, zhi):
+    for _ in walk_dir_paths(src, zlo, zhi):
         n += 1
     return n
 
@@ -242,24 +277,42 @@ def main():
                     help="say what would be written and stop")
     a = ap.parse_args()
 
-    if "-" in a.zoom:
-        zlo, zhi = (int(v) for v in a.zoom.split("-", 1))
-    else:
-        zlo = zhi = int(a.zoom)
+    try:
+        if "-" in a.zoom:
+            zlo, zhi = (int(v) for v in a.zoom.split("-", 1))
+        else:
+            zlo = zhi = int(a.zoom)
+    except ValueError:
+        # "12-", "abc" and "12-15-18" all used to print a raw traceback past the polite
+        # message that was sitting two lines below them.
+        raise SystemExit("--zoom must be 0..19 and low-high, e.g. 12-15 or 14")
     if not (0 <= zlo <= zhi <= 19):
-        raise SystemExit("--zoom must be 0..19 and low-high")
+        raise SystemExit("--zoom must be 0..19 and low-high, e.g. 12-15 or 14")
 
     if not os.path.exists(a.src):
         raise SystemExit("no such source: %s" % a.src)
 
     name = os.path.basename(os.path.normpath(a.out))
-    ok = name and name[0] != "." and all(
-        c.isalnum() or c in "-_." for c in name) and len(name) <= 31
+    # ⚠ NOT str.isalnum(): it is Unicode-aware, so "café", "Jagdhütte" and "日本" all pass here
+    # and are then INVISIBLE on the phone — mapAreaNameOk() (WiPhone/map_tiles.cpp) accepts
+    # ASCII letters, digits, '-', '_' and '.' only, and scanAreas() skips a folder it rejects
+    # in silence. The user would have a card full of correct tiles and a Maps app that says
+    # there is no map. This is the firmware's rule, transcribed.
+    ALLOWED = set(string.ascii_letters + string.digits + "-_.")
+    ok = (name and name[0] != "." and all(c in ALLOWED for c in name)
+          and len(name.encode("utf-8")) <= 31)
     if not ok:
         raise SystemExit(
             "the output folder's name is the map's name on the phone, and it must be\n"
-            "letters, digits, '-', '_' or '.', at most 31 characters, not starting with '.'\n"
+            "ASCII letters, digits, '-', '_' or '.', at most 31 characters, not starting\n"
+            "with '.'  (the phone silently ignores a folder it cannot name)\n"
             "got: %r" % name)
+    # The one wrong path that otherwise validates: /maps itself. The tiles land at
+    # /maps/<z>/<x>/<y> and the phone finds zero areas, with nothing anywhere saying why.
+    if name == "maps":
+        raise SystemExit(
+            "--out is the AREA folder, not /maps itself.\n"
+            "Use .../maps/<area>, e.g. /Volumes/WIPHONE/maps/home")
 
     total = count_source(a.src, zlo, zhi)
     print("%d tile(s) at z%d-%d -> %s each, %s in total"
@@ -272,6 +325,7 @@ def main():
 
     walker = walk_mbtiles if os.path.isfile(a.src) else walk_dir
     done = skipped = failed = 0
+    stopped = None
     for z, x, y, blob, suffix in walker(a.src, zlo, zhi):
         dst_dir = os.path.join(a.out, str(z), str(x))
         dst = os.path.join(dst_dir, "%d.565" % y)
@@ -290,18 +344,34 @@ def main():
             print("  skipped %d/%d/%d: produced %d bytes" % (z, x, y, len(raw)), file=sys.stderr)
             failed += 1
             continue
-        os.makedirs(dst_dir, exist_ok=True)
         # Write, then rename: a half-written tile is a file of the wrong length, which the
         # phone refuses - but it refuses it every time you pan over it, forever.
         tmp = dst + ".part"
-        with open(tmp, "wb") as f:
-            f.write(raw)
-        os.replace(tmp, dst)
+        try:
+            os.makedirs(dst_dir, exist_ok=True)
+            with open(tmp, "wb") as f:
+                f.write(raw)
+            os.replace(tmp, dst)
+        except OSError as e:
+            # A full card, a pulled card, a read-only remount. Stop, clean up the partial
+            # file, and still print the summary - "how many landed" is the only thing the
+            # user needs from a run that could not finish, and a traceback does not say it.
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            print("  stopped at %d/%d/%d: %s" % (z, x, y, e), file=sys.stderr)
+            stopped = str(e)
+            break
         done += 1
         if done % 50 == 0:
             print("  %d/%d..." % (done + skipped, total), flush=True)
 
     print("wrote %d, kept %d already there, %d could not be read" % (done, skipped, failed))
+    if stopped:
+        print("\nSTOPPED before the end: %s" % stopped)
+        print("Nothing written is damaged - re-run the same command once the cause is "
+              "fixed and it will carry on from here.")
     if done or skipped:
         print("\nOn the phone: Menu > Tools > Maps. If it was already open, "
               "Menu > Rescan the card.")

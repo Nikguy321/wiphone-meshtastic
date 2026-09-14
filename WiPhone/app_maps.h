@@ -81,6 +81,7 @@
 #define MAPS_MISS_CACHE    24      // tiles known not to be on the card: do not re-ask per frame
 #define MAPS_CHUNK_BYTES   (32u * 1024u)
 #define MAPS_PICK_RADIUS   14      // how near the crosshair a pin must be to be "under" it
+#define MAPS_MAX_LIST      64      // rows in the Pins / Places / Nodes lists
 
 // What selfPosition() found. See the note on it.
 #define MAPS_SELF_NONE     0
@@ -138,6 +139,15 @@ protected:
   // ---- state ----
   MapsState_t appState;
   MapsListKind_t listKind;
+  /* ⚠ WHAT EACH LIST ROW *IS*, NOT WHERE IT SAT. A row key used to be the index into the
+   * service's waypoint or node array — and those arrays move under an open screen: the
+   * waypoint expiry sweep compacts with `waypoints[i] = waypoints[--count]`, and getNode()
+   * re-sorts whenever the node count changes. So the row said "Camp" and OK centred on the
+   * truck. Rows now carry the IDENTITY of the thing (waypoint id, node number, pin index)
+   * and the handler looks it up again, which also means a place that expired while the list
+   * was open resolves to nothing and says so instead of moving the map somewhere else. */
+  uint32_t listId[MAPS_MAX_LIST];
+  int      listCount;
 
   MenuWidget*          menu;
   MultilineTextWidget* textArea;
@@ -172,12 +182,14 @@ protected:
   bool     loadActive;
   int      loadSlot, loadZ, loadTx, loadTy;
   uint32_t loadGot;
+  int      loadRetries;     // a transient card error gets one more go before a blacklist
 
   // Wanted but not resident: what the next load should fetch.
   bool     wantAny;
   int      wantZ, wantTx, wantTy;
   int      pendingTiles;
 
+  int      helpTop;         // first help row on screen; the legend does not fit at once
   int      panRun;          // consecutive presses in panDir, for mapPanStep()
   int      panDir;
   uint32_t panLastMs;
@@ -192,6 +204,8 @@ protected:
   void  saveView();
 
   bool     tileMemFail;     // no PSRAM for tiles: say so once, stop asking the card
+  bool     cardOk;          // the SD card answered at all ("no card" is not "no maps")
+  bool     pinsTruncated;   // the pins file held more than MAPS_MAX_PINS: NEVER save over it
 
   // ---- tiles ----
   int   findSlot(int z, int tx, int ty) const;    // -1 = not cached
@@ -201,6 +215,7 @@ protected:
   void  forgetMissing();
   bool  startLoad(int z, int tx, int ty);
   void  cancelLoad();                             // the zoom or area changed under it
+  bool  tileReadFailed(const char* what);         // one retry, then blacklist
   bool  tileLoadStep();                           // one piece; true = a tile just finished
 
   // ---- drawing ----
@@ -212,6 +227,7 @@ protected:
    * display; it goes through the clip. */
   void  fillClipped(int x, int y, int w, int h, uint16_t colour);
   void  drawBlob(int x, int y, int r, uint16_t colour, bool diamond);
+  void  reserveBox(int x, int y, int w, int h);   // this space is taken; keep labels off it
   void  drawMap();
   void  drawNoMapPage();
   void  drawOverlays();
@@ -230,7 +246,12 @@ protected:
   struct LabelRect {
     int16_t x, y, w, h;
   };
-  LabelRect labelRects[14];
+  /* Space already taken on the map this frame: every MARKER as well as every label. Markers
+   * go in during pass 1 so a name cannot be dropped on top of the dot it is naming, which is
+   * the one thing a label must never cover. 32 boxes is four labels more than a 240x250
+   * screen can legibly hold; once it is full, no further labels are placed at all — a label
+   * drawn without a collision test is exactly the overprinting this exists to stop. */
+  LabelRect labelRects[32];
   int       labelCount;
   void  drawCrosshair();
   void  drawBottomStrip();
@@ -248,7 +269,10 @@ protected:
   int   pinUnderCrosshair();
   bool  dropPin();
   bool  sharePin(int idx, char* why, size_t whyCap);
-  void  deletePin(int idx);
+  /* Returns whether a SHARED pin's retraction actually reached the air. The local delete
+   * happens either way — a person who confirmed a delete has confirmed it — but the caller
+   * must be able to say that other people's maps still have it. */
+  bool  deletePin(int idx);
   void  stepPin(int delta);
   void  setArea(int idx);
   void  setNote(const char* fmt, ...);

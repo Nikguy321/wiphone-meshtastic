@@ -320,11 +320,25 @@ void MeshtasticService::upsertWaypoint(uint32_t id, int32_t latI, int32_t lonI,
        * ⚠ Signed difference, like the node eviction: restored entries are
        * rebased to heardMs=0 at load, and plain '<' would invert at the
        * millis() wrap (the review caught both). */
-      slot = &waypoints[0];
-      for (int i = 1; i < MESH_MAX_WAYPOINTS; i++) {
-        if ((int32_t)(waypoints[i].heardMs - slot->heardMs) < 0) {
+      /* 🛑 NEVER EVICT THE REFERENCE. Every distance this phone shows is measured from it —
+       * "3.2km E of camp" on the Nodes list, the bearing on the map's bottom strip, the
+       * Sun screen's legal light. Losing it silently re-frames all of them, and the table is
+       * eight slots, so one busy channel (or the Maps app sharing a pin) is enough to reach
+       * this branch. The node table gives starred nodes exactly this protection, for exactly
+       * this reason. If somehow every row is the reference, the fallback below still evicts
+       * — a full table has to give something up. */
+      const uint32_t keepId = refWaypointId;
+      slot = NULL;
+      for (int i = 0; i < MESH_MAX_WAYPOINTS; i++) {
+        if (keepId && waypoints[i].id == keepId) {
+          continue;
+        }
+        if (!slot || (int32_t)(waypoints[i].heardMs - slot->heardMs) < 0) {
           slot = &waypoints[i];
         }
+      }
+      if (!slot) {
+        slot = &waypoints[0];
       }
     }
     memset(slot, 0, sizeof(*slot));

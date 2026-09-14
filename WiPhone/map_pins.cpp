@@ -149,7 +149,8 @@ void mapPinSanitizeName(const char* in, char* out, size_t cap) {
     return;
   }
   size_t w = 0;
-  for (const char* p = in; *p && w + 1 < cap; p++) {
+  const char* p = in;
+  for (; *p && w + 1 < cap; p++) {
     unsigned char c = (unsigned char)*p;
     if (c == ',') {
       c = ' ';                        // the separator cannot live inside a field
@@ -161,6 +162,33 @@ void mapPinSanitizeName(const char* in, char* out, size_t cap) {
       continue;                       // no leading spaces
     }
     out[w++] = (char)c;
+  }
+  const bool truncated = (*p != '\0');   // we stopped because the buffer ran out, not the string
+  /* ⚠ IF THE CUT WAS THE BUFFER'S AND NOT THE STRING'S, BACK OFF ANY HALF-FINISHED UTF-8
+   * SEQUENCE. These bytes go two places that will not forgive them: the pins file, and
+   * (via meshWaypointBuild) a protobuf string field on the air, where a truncated sequence is
+   * invalid UTF-8 and a strict reader may reject the whole Waypoint. A name that loses its
+   * last accented letter is a name; a name that ends mid-codepoint is a bug on somebody
+   * else's map. Only a CONTINUATION byte (10xxxxxx) can be a tail, and a lead byte says how
+   * many follow, so this is exact rather than heuristic. */
+  if (truncated) {
+    while (w > 0 && ((unsigned char)out[w - 1] & 0xC0) == 0x80) {
+      w--;                            // walk back over continuation bytes
+    }
+    if (w > 0) {
+      const unsigned char lead = (unsigned char)out[w - 1];
+      size_t need = 0;
+      if ((lead & 0xE0) == 0xC0) {
+        need = 1;
+      } else if ((lead & 0xF0) == 0xE0) {
+        need = 2;
+      } else if ((lead & 0xF8) == 0xF0) {
+        need = 3;
+      }
+      if (need) {
+        w--;                          // its continuations were cut off: drop the lead too
+      }
+    }
   }
   while (w > 0 && out[w - 1] == ' ') {
     w--;                              // no trailing spaces
@@ -207,6 +235,16 @@ int mapPinPickNearest(const int* vx, const int* vy, int n, int px, int py, int m
   for (int i = 0; i < n; i++) {
     const long dx = (long)vx[i] - px;
     const long dy = (long)vy[i] - py;
+    /* 🛑 REJECT ON EACH AXIS BEFORE SQUARING. `long` is 32 bits on this chip, and these are
+     * viewport coordinates projected from world pixels: mapLatLonToView writes through for
+     * points that are nowhere near the screen, and at z19 the world is 134 million pixels
+     * across. 134e6 squared is 1.8e16, which wraps — and a wrapped product can come out
+     * NEGATIVE, which beats every real distance, so a pin on the far side of the world would
+     * be picked as the one "under the crosshair". The axis test costs two comparisons, is a
+     * strict superset of the radius test, and cannot overflow: after it, |dx| <= maxPx. */
+    if (dx > maxPx || dx < -maxPx || dy > maxPx || dy < -maxPx) {
+      continue;
+    }
     const long d = dx * dx + dy * dy;
     if (d > limit) {
       continue;

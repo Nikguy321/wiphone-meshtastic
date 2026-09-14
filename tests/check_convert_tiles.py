@@ -141,11 +141,49 @@ if ct.HAVE_PIL:
 else:
     print("  --  Pillow not installed; the two-path comparison was skipped")
 
-# ── the area name rule must match the firmware's mapAreaNameOk() exactly ──────────────────
-src = (ROOT / "WiPhone" / "map_tiles.cpp").read_text()
-check("c == '-' || c == '_' || c == '.'" in src and "name[0] == '.'" in src and
-      "n <= 31" in src,
-      "the firmware's area-name rule is still the one convert_tiles.py enforces")
+# ── the area name rule, against the FIRMWARE'S OWN FUNCTION ───────────────────────────────
+# Not a grep over the C source: a grep only proves the words are still there. This compiles
+# map_tiles.cpp and asks mapAreaNameOk() itself, then asks the script's gate the same
+# questions. They must agree on every one — a name the script accepts and the firmware
+# rejects is a card full of correct tiles and a Maps app that says there is no map, with
+# nothing anywhere explaining it (scanAreas() skips a folder it cannot name, in silence).
+NAMES = ["home", "unit-3", "elk_2026", "a.b", "H", "0",
+         "café", "Jagdhütte", "日本", "home²", "ｈｏｍｅ",          # Unicode: str.isalnum() says yes
+         "", ".hidden", "._home", ".DS_Store", "a b", "a/b", "a\\b", "a:b", "maps",
+         "0123456789012345678901234567890123", "0123456789012345678901234567890"]
+
+def script_accepts(name):
+    ALLOWED = set(__import__("string").ascii_letters + __import__("string").digits + "-_.")
+    return bool(name) and name[0] != "." and all(c in ALLOWED for c in name) \
+        and len(name.encode("utf-8")) <= 31
+
+import shutil, subprocess, tempfile
+cxx = os.environ.get("CXX") or shutil.which("c++") or shutil.which("g++")
+if cxx:
+    with tempfile.TemporaryDirectory() as td:
+        harness = os.path.join(td, "h.cpp")
+        with open(harness, "w") as f:
+            f.write('#include "%s"\n' % (ROOT / "WiPhone" / "map_tiles.h"))
+            f.write('#include <cstdio>\n#include <cstring>\n')
+            f.write('int main(int c, char** v){for(int i=1;i<c;i++)'
+                    'printf("%d\\n", mapAreaNameOk(v[i]));return 0;}\n')
+        exe = os.path.join(td, "h")
+        r = subprocess.run([cxx, "-std=c++11", "-O0", "-o", exe, harness,
+                            str(ROOT / "WiPhone" / "map_tiles.cpp")],
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if r.returncode != 0:
+            print("  --  could not build the mapAreaNameOk harness; rule check skipped")
+        else:
+            out = subprocess.run([exe] + NAMES, stdout=subprocess.PIPE).stdout.decode().split()
+            disagree = [n for n, fw in zip(NAMES, out) if (fw == "1") != script_accepts(n)]
+            check(not disagree,
+                  "the script's area-name gate agrees with mapAreaNameOk() on every name"
+                  + ("" if not disagree else " (differs on %r)" % disagree))
+            # ...and the rule is actually doing something, in both directions.
+            check(out[NAMES.index("home")] == "1" and out[NAMES.index("café")] == "0",
+                  "...and the firmware really does take 'home' and refuse 'café'")
+else:
+    print("  --  no C++ compiler; the area-name rule check was skipped")
 
 print("\n%d checks, %d failures" % (checks, failures))
 sys.exit(1 if failures else 0)

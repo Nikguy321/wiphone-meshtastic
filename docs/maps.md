@@ -39,7 +39,7 @@ The same table is on the phone: **Menu → Keys and colours**.
 | Mark | What it is |
 |---|---|
 | orange dot | one of your pins |
-| yellow dot | one of your pins, shared with the mesh |
+| yellow ring | one of your pins, shared with the mesh — hollow centre, so it is not a colour judgement |
 | green gem | a place heard from the mesh (a Meshtastic waypoint — COVEY's map shares these) |
 | cyan dot | somebody else's last position, with their name |
 | grey dot | …the same, but over 30 minutes old, and it says how old |
