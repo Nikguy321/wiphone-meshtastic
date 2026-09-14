@@ -174,6 +174,61 @@ size_t meshPosBuild(uint8_t* out, int32_t latI, int32_t lonI, uint32_t time) {
   return d;
 }
 
+/* A protobuf varint. ⚠ Never called with a value that needs more than five bytes: every
+ * field below is a uint32, and a uint32's varint is at most five bytes. */
+static size_t wrVarint(uint8_t* out, uint8_t tag, uint32_t v) {
+  size_t d = 0;
+  out[d++] = tag;
+  while (v >= 0x80) {
+    out[d++] = (uint8_t)(v | 0x80);
+    v >>= 7;
+  }
+  out[d++] = (uint8_t)v;
+  return d;
+}
+
+size_t meshWaypointBuild(uint8_t* out, size_t cap, uint32_t id, bool hasPos,
+                         int32_t latI, int32_t lonI, uint32_t expire, uint32_t lockedTo,
+                         const char* name) {
+  if (!out || id == 0) {
+    return 0;
+  }
+  /* Measure first, write second. A builder that writes as it goes and discovers halfway
+   * through that it does not fit has already scribbled on the caller's buffer, and the caller
+   * has no way to know how much of it is now nonsense. */
+  size_t nameLen = 0;
+  if (name) {
+    while (name[nameLen] && nameLen < MESH_WP_NAME_LEN - 1) {
+      nameLen++;
+    }
+  }
+  uint8_t tmp[MESH_WP_BUILD_MAX];
+  size_t d = 0;
+  d += wrVarint(tmp + d, 0x08, id);                       // field 1, varint
+  if (hasPos) {
+    d += wrFixed32(tmp + d, 0x15, (uint32_t)latI);        // field 2, sfixed32
+    d += wrFixed32(tmp + d, 0x1d, (uint32_t)lonI);        // field 3, sfixed32
+  }
+  if (expire) {
+    d += wrVarint(tmp + d, 0x20, expire);                 // field 4, varint
+  }
+  if (lockedTo) {
+    d += wrVarint(tmp + d, 0x28, lockedTo);               // field 5, varint
+  }
+  if (nameLen) {
+    tmp[d++] = 0x32;                                      // field 6, length-delimited
+    tmp[d++] = (uint8_t)nameLen;                          // < 20, so always one length byte
+    for (size_t i = 0; i < nameLen; i++) {
+      tmp[d++] = (uint8_t)name[i];
+    }
+  }
+  if (d > cap) {
+    return 0;
+  }
+  memcpy(out, tmp, d);
+  return d;
+}
+
 // ---------------------------------------------------------------- geometry
 
 #define DEG(i)  ((double)(i) * 1e-7)

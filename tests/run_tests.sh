@@ -60,6 +60,10 @@ for src in tests/test_*.cpp; do
     test_nmea)     deps=(WiPhone/nmea.cpp) ;;
     # Sunrise/sunset/civil twilight (NOAA method) — almanac anchors + geometry.
     test_sun)      deps=(WiPhone/sun_times.cpp) ;;
+    # The map: Web Mercator, the slippy-tile grid, the blit rectangles, and the pins
+    # file. Pure arithmetic on purpose — a map that is one tile out looks fine on a
+    # 240x320 screen, so this is the only place that error can be caught.
+    test_maptiles) deps=(WiPhone/map_tiles.cpp WiPhone/map_pins.cpp) ;;
     # Voltage -> SOC off phone 1's recorded discharge (tests/fixtures/p1_discharge_2026-09-03.tsv).
     # Scores the table AND the CW2015's own number against time-linear truth.
     test_battery)  deps=(WiPhone/battery_curve.cpp) ;;

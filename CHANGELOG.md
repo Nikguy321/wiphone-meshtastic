@@ -1,5 +1,104 @@
 # Changelog
 
+## 0.9.64 (2026-09-14) - a map, because a list cannot tell you which side of the creek he is on
+
+**Menu → Tools → Maps.** Tiles off the SD card, pins you drop yourself, and everything the mesh
+already knows about where people are, on one screen.
+
+Every fact this draws was already in the phone. Camp is a waypoint, the truck is a waypoint,
+everyone's position arrives on port 3 every few minutes, and the Nodes list has turned that into
+*"3.2km E of camp · 4 min ago"* since 0.9.7. That sentence is correct, and it is the wrong shape
+for the question anyone actually asks in the woods, which is **is he on the other side of the
+creek or this side**. So this adds no radio traffic, no second database and no new source of
+truth — it is a view of state that already exists, plus one thing of its own: pins.
+
+**The keys.** Arrows scroll (hold one and it accelerates; let go and the next press is a nudge
+again, so a correction after a long sweep is still a correction). `*`/`1` zoom out, `#`/`3` zoom
+in. `5` drops a pin on the crosshair and opens the name field. **OK picks up the pin under the
+crosshair** — rename, move it here, share it, delete it — or opens the map menu when there is no
+pin there. `7`/`9` walk the pins, `0` centres on you, Back leaves and remembers where you were.
+`Menu → Keys and colours` is the same table on the phone.
+
+**It opens where you left it.** Then, in order, only when the one before has nothing: this
+phone's GPS fix, the mesh's reference place, the middle of whatever tiles the card holds, and
+finally 0,0 with the screen saying so. The first of those is the one that matters, because it is
+the only one that works with no sky and no signal.
+
+**A pin is private until you say otherwise.** 64 of them live in a text file on the card and
+nothing about them reaches the air. *Share it on the mesh* turns one into a Meshtastic waypoint —
+out on the radio, onto COVEY's map and onto any device sharing the channel — and that is a
+deliberate act every time. It prefers a **private** channel (a location on LongFast is readable by
+every Meshtastic radio in range), it is **locked to this node** so nobody else can move your camp,
+and **the phone says whether it actually left the radio**: "Saved, but NOT sent" means nobody else
+has it. Renaming or moving a shared pin re-sends it, so the mesh never holds a stale copy, and
+*Take it off the mesh* sends the deletion marker rather than leaving a camp where camp no longer is.
+
+### The tiles are RAW, and that is the design rather than a shortcut
+
+`/maps/<area>/<z>/<x>/<y>.565` — 256×256, RGB565, little-endian, **131072 bytes exactly**,
+standard slippy `z/x/y` numbering. `tools/convert_tiles.py` makes them on the computer from a
+tile tree or an `.mbtiles` file, and needs nothing installed: Pillow when you have it, macOS's
+own `sips` when you do not.
+
+🛑 **The phone decodes nothing.** There is no PNG decoder in this firmware — adding one costs a
+vendored library plus contiguous internal RAM on a phone whose crashes are internal-heap
+fragmentation — and the ESP32's ROM JPEG decoder **refuses greyscale outright**, which is the
+entire reason `jpeg_grey.cpp` exists (33 of 45 pictures in one test book were 1-component JPEGs).
+A map made of compressed tiles would work right up until the day it met a tile of the wrong
+flavour, in the woods, with nothing on the screen to say what was wrong.
+
+Raw costs 8× the card space — about **85 MB for a 20×20 km area at z12–z15**, nothing on a 32 GB
+card — and buys zero decode time, zero decoder memory, and exactly **one** failure mode: the file
+is not 131072 bytes. Which is also how a PNG copied across without being converted gets refused
+instead of drawn as a screenful of confetti.
+
+### A 128 KB read is a stall, so the card is read in pieces
+
+⚠ **One tile is 128 KB and everything in this firmware shares one task.** A 128 KB SD read is
+100–250 ms, and 250 ms is exactly the threshold 0.9.58's stall detector was built to complain
+about — the freezes that drop WiFi and eat keypresses. Four tiles for one screen, read the obvious
+way, is a second of frozen phone **every time you pan**.
+
+So a tile arrives in 32 KB pieces, one per 25 ms tick, and the map draws the hole in the meantime
+as a plainly-marked grey square. The file is opened, seeked, read and **closed** on every piece
+rather than held open across ticks: that costs a directory lookup and removes the whole class of
+bug where the app is torn down, or the card pulled, with a `File` still live. Once the screen is
+painted the timer is disarmed entirely — a finished map must not keep the CPU awake.
+
+### What it costs
+
+**+24 bytes of internal RAM and 32 KB of flash** — measured, by building the tree with and
+without it (87532 → 87556 bytes RAM, 2544759 → 2577599 flash). The working memory is **768 KB of
+PSRAM** (six 128 KB tile slots) held only while the app is open, out of the ~3.6 MB free; the
+~19 KB internal heap that SIP and WiFi fight over is untouched.
+
+### Proven before the phone, because a wrong map looks exactly like a right one
+
+A map that is one tile out is not visibly wrong on a 240×320 screen — it just quietly shows you
+the wrong woods. That class of error cannot be caught by looking, so it is caught by arithmetic:
+**`tests/test_maptiles.cpp`, 89 checks on the host**, over `map_tiles.cpp` (Web Mercator against
+independently computed reference values; the blit rectangles checked *structurally* — every
+viewport pixel covered exactly once, by a piece that came from the right pixel of the right tile,
+including across the antimeridian seam and with a world shorter than the screen) and
+`map_pins.cpp` (the pins file's round trip, and every malformed line a hand-edited file can hold).
+`tests/test_pos.cpp` gained the Waypoint builder's bytes, checked against the field numbers and
+then round-tripped back through the parser that reads COVEY's.
+
+And because a screenshot cannot tell right ground from wrong ground either, the whole thing drives
+over the cable: **`maps`** prints what the card holds, what the saved view is and how the pins
+file parses; **`maps goto <lat> <lon> [z] [area]`** writes the same saved view the app writes, so a
+known coordinate can go in over USB and the screen be compared against a map on the computer.
+
+### Also
+
+- `meshWaypointBuild()` in `mesh_pos.cpp` — the bytes that put a pin on somebody else's map,
+  including the positionless **deletion marker** that is the only way to take one off again
+  (expire cannot do it; `expire == 0` legitimately means "never").
+- `MeshtasticService::shareWaypoint()` / `unshareWaypoint()`, and the private-channel choice the
+  pin announce has always used is now in one function, `announceChannel()`, called by both. Same
+  loop, same first-private-wins, same fall-through to `channels[0]` — two copies of *which channel
+  does a location go out on* is how one of them quietly starts preferring LongFast.
+
 ## 0.9.60 (2026-09-07) - a radio you switched off is not a dry spell
 
 **WiFi switched back on now tries immediately, instead of waking up already ten minutes behind.**

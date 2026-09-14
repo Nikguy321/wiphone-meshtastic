@@ -290,6 +290,55 @@ int main() {
     }
   }
 
+  // ---- Waypoint build (the bytes that put a pin on COVEY's map) --------------
+  {
+    uint8_t b[MESH_WP_BUILD_MAX];
+    size_t n = meshWaypointBuild(b, sizeof(b), 0x1234u, true, SEA_LAT, SEA_LON,
+                                 0, 0xdeadbeefu, "Camp");
+    CHECK(n > 0, "waypoint builds");
+
+    // Byte-exact: the field numbers and wire types are the interop contract.
+    const uint8_t want[] = {
+      0x08, 0xb4, 0x24,                                     // 1: id = 0x1234 varint
+      0x15, 0x30, 0x21, 0x60, 0x1c,                         // 2: latitude_i sfixed32
+      0x1d, 0x58, 0x9a, 0x15, 0xb7,                         // 3: longitude_i sfixed32
+      0x28, 0xef, 0xfd, 0xb6, 0xf5, 0x0d,                   // 5: locked_to varint
+      0x32, 0x04, 'C', 'a', 'm', 'p',                       // 6: name
+    };
+    CHECK(n == sizeof(want) && memcmp(b, want, n) == 0, "waypoint bytes are exactly right");
+
+    // ...and it reads back as itself.
+    MeshWaypointMsg wp;
+    CHECK(meshWaypointParse(b, n, &wp) && wp.id == 0x1234u && wp.hasPos &&
+          wp.latI == SEA_LAT && wp.lonI == SEA_LON && wp.lockedTo == 0xdeadbeefu &&
+          wp.expire == 0 && strcmp(wp.name, "Camp") == 0, "waypoint round trips");
+
+    // The deletion marker: an id and nothing else. hasPos false is the discriminator.
+    n = meshWaypointBuild(b, sizeof(b), 0x1234u, false, SEA_LAT, SEA_LON, 0, 0, NULL);
+    CHECK(n == 3 && b[0] == 0x08, "a deletion marker is the id alone");
+    CHECK(meshWaypointParse(b, n, &wp) && wp.id == 0x1234u && !wp.hasPos,
+          "the deletion marker parses as a positionless waypoint");
+
+    // An expiring waypoint carries field 4.
+    n = meshWaypointBuild(b, sizeof(b), 7, true, SEA_LAT, SEA_LON, 1766000000u, 0, "Stand");
+    CHECK(meshWaypointParse(b, n, &wp) && wp.expire == 1766000000u &&
+          !strcmp(wp.name, "Stand"), "expire survives the round trip");
+
+    // Refusals: never a partial write.
+    uint8_t guard[MESH_WP_BUILD_MAX];
+    memset(guard, 0xa5, sizeof(guard));
+    CHECK(meshWaypointBuild(guard, sizeof(guard), 0, true, SEA_LAT, SEA_LON, 0, 0, "x") == 0 &&
+          guard[0] == 0xa5, "a waypoint with no id is refused, and nothing is written");
+    CHECK(meshWaypointBuild(guard, 4, 9, true, SEA_LAT, SEA_LON, 0, 0, "x") == 0 &&
+          guard[0] == 0xa5, "a buffer too small is refused, and nothing is written");
+
+    // A name longer than the field is cut to the field, not to the buffer.
+    n = meshWaypointBuild(b, sizeof(b), 9, true, SEA_LAT, SEA_LON, 0, 0,
+                          "an extremely long waypoint name");
+    CHECK(n > 0 && meshWaypointParse(b, n, &wp) &&
+          strlen(wp.name) == MESH_WP_NAME_LEN - 1, "an over-long name is cut to the field");
+  }
+
   printf("test_pos: all passed\n");
   return 0;
 }

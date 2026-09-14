@@ -637,6 +637,7 @@ typedef enum ActionID : uint16_t {
   GUI_APP_FILES,        // ⚠ appended at the END on purpose: inserting mid-enum shifts every
                         // later app id and stales the handoff's health-log id table
   GUI_APP_PHOTOS,       // ⚠ likewise: append, never insert
+  GUI_APP_MAPS,         // ⚠ likewise: append, never insert
 
 } ActionID_t;
 
@@ -3031,7 +3032,7 @@ protected:
    * too FEW is silent — the tail zero-fills into entries with ID 0, parent 0 and a NULL
    * title, which then appear as children of the Clock menu. It was one short before Books was
    * added. enterMenu() now skips title-less rows so a miscount stays cosmetic. */
-  GUIMenuItem menu[46] PROGMEM = {  // increment size by one to add a new app
+  GUIMenuItem menu[47] PROGMEM = {  // increment size by one to add a new app
 
     // TODO: button names can be removed
 
@@ -3062,6 +3063,10 @@ protected:
      * matches on id alone and returns the first hit — and GUI::init()'s boot check is the only
      * thing that catches it. */
     { 48, 3, "Photos", "Select", "Back", GUI_APP_PHOTOS },
+    /* ⚠ 50 because 49 is the predictive-text toggle. The rule is COUNT UP: 8 and 25 are gaps
+     * and filling one is how a DUPLICATE id happens, which findMenu() resolves silently by
+     * returning the first match — the row then launches somebody else's app. */
+    { 50, 3, "Maps", "Select", "Back", GUI_APP_MAPS },
     { 31, 3, "Audio recorder", "", "", GUI_APP_RECORDER },
     { 14, 3, "Scan WiFi networks", "", "", GUI_APP_NETWORKS },    // duplicate from below
     { 7, 3, "Note page", "", "Back", GUI_APP_NOTEPAD },
