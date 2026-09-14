@@ -184,6 +184,22 @@ int main() {
     // A world shorter than the screen: letterboxed, never repeated vertically.
     coverCheck(0, 128, 128, VW, 300, "z0 with a 300px viewport (letterbox)");
 
+    // A world NARROWER than the viewport: the world repeats sideways (longitude is a
+    // circle) rather than looping forever or overrunning the blit array.
+    coverCheck(0, 128, 128, 300, 200, "z0 with a 300px-wide viewport (world repeats)");
+
+    // An odd viewport height: the clamp's vh/2 must not lose a row.
+    coverCheck(14, 3858868, 2516969, 240, 251, "odd viewport height");
+
+    // A pan far past the world, at the deepest zoom, must fold rather than overflow int32.
+    {
+      int32_t px = mapWorldPx(19) - 3, py = 100000;
+      mapClampView(19, 240, 250, &px, &py);
+      CHECK(mapPanView(19, 240, 250, 2000000000, 0, &px, &py) == 1 &&
+            px >= 0 && px < mapWorldPx(19), "a two-billion-pixel pan folds into the world");
+      coverCheck(19, px, py, 240, 250, "z19 after the huge pan");
+    }
+
     // A cap that is too small must refuse outright, not half-draw.
     MapBlit one[1];
     CHECK(mapViewBlits(15, cx, cy, VW, VH, one, 1) == -1, "too few blit slots refuses");

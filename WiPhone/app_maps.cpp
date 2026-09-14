@@ -185,24 +185,39 @@ void MapsApp::freeSlots() {
 
 // ---------------------------------------------------------------- the card
 
-/* Is `name` all digits, and a zoom we could use? Returns -1 when it is not a zoom folder.
- * ⚠ Not atoi(): atoi("12abc") is 12 and "abc" is 0, so a stray folder would become zoom 0
- * and the app would offer a zoom level with nothing behind it. */
-static int zoomFolder(const char* name) {
+/* A name that is a plain unsigned number, with an optional extension when `allowExt`:
+ * "5249" -> 5249, "11443.565" -> 11443, "x" -> -1, "" -> -1, ".565" -> -1.
+ *
+ * ⚠ NOT atoi(). atoi("12abc") is 12 and atoi("abc") is 0, so with atoi a stray folder becomes
+ * zoom 0 or tile column 0 — a real coordinate — and the map quietly offers a level, or a
+ * column, with nothing behind it. Every name that is not exactly a number is refused here,
+ * which is also what keeps macOS's "._11443.565" sidecars out (they start with a dot). */
+static long numericName(const char* name, bool allowExt) {
   if (!name || !name[0]) {
     return -1;
   }
-  int v = 0;
+  long v = 0;
+  int digits = 0;
   for (const char* p = name; *p; p++) {
+    if (*p == '.' && allowExt && digits) {
+      return v;                        // the extension starts here and the stem was a number
+    }
     if (*p < '0' || *p > '9') {
       return -1;
     }
     v = v * 10 + (*p - '0');
-    if (v > MAP_ZOOM_MAX) {
+    if (v > 134217727L) {              // past the deepest zoom's tile count: not one of ours
       return -1;
     }
+    digits++;
   }
-  return v;
+  return digits ? v : -1;
+}
+
+// A zoom folder: a number, and one this firmware can address.
+static int zoomFolder(const char* name) {
+  const long v = numericName(name, false);
+  return (v >= 0 && v <= MAP_ZOOM_MAX) ? (int)v : -1;
 }
 
 // On this core File::name() returns the FULL path; every caller has to basename it itself.
@@ -371,8 +386,26 @@ void MapsApp::savePins() {
   }
   SD.remove(MAPS_PINS_FILE);
   if (!SD.rename(tmp, MAPS_PINS_FILE)) {
-    log_e("MAPS: could not rename %s into place", tmp);
-    return;
+    /* 🛑 THE OLD FILE IS ALREADY GONE AT THIS POINT, so a failed rename is not "no change",
+     * it is "the pins are now only in a file called pins.txt.new". Write them again, straight
+     * to the real path, rather than leaving a user to find that out in the woods. FAT rename
+     * cannot overwrite, which is why the remove has to come first and why this exists. */
+    log_e("MAPS: could not rename %s into place - writing directly", tmp);
+    File d = SD.open(MAPS_PINS_FILE, FILE_WRITE);
+    if (!d) {
+      log_e("MAPS: and the direct write failed too - the pins are in %s", tmp);
+      return;
+    }
+    d.print("# WiPhone map pins v1 - latI,lonI (1e-7 deg), shared waypoint id, name\n");
+    for (int i = 0; i < pinCount; i++) {
+      if (mapPinFormatLine(&pins[i], line, sizeof(line)) > 0) {
+        d.print(line);
+        d.print("\n");
+      }
+    }
+    d.flush();
+    d.close();
+    SD.remove(tmp);
   }
   pinsDirty = false;
   log_d("MAPS: saved %d pin(s)", written);
@@ -475,74 +508,59 @@ void MapsApp::restoreView() {
   if (!have && areaSel >= 0) {
     /* The middle of the tiles that exist. Scanned at the SHALLOWEST zoom the area has, where
      * there are a handful of folders rather than thousands — the same ground, a hundredth of
-     * the directory reads. */
+     * the directory reads.
+     *
+     * ⚠ The vertical range comes from the FIRST column only, and both loops stop at 64
+     * entries. That is deliberate: this runs once, on a screen the user is waiting for, and
+     * it only has to land somewhere on the map — anything more precise would be a directory
+     * walk of the whole card to save a press of the d-pad. An area whose columns have very
+     * different row ranges opens a little off centre and never wrongly. */
     const MapArea* a = &areas[areaSel];
     char zpath[96];
     snprintf(zpath, sizeof(zpath), "%s/%s/%d", MAPS_ROOT, a->name, a->zMin);
     long xMin = -1, xMax = -1, yMin = -1, yMax = -1;
     File xd = SD.open(zpath);
     if (xd && xd.isDirectory()) {
-      File xf;
       int seen = 0;
-      while ((xf = xd.openNextFile()) && seen < 64) {
-        const int xv = xf.isDirectory() ? zoomFolder(baseName(xf.name())) : -1;
-        // zoomFolder() caps at MAP_ZOOM_MAX, which is wrong for a tile column: parse again.
-        long col = -1;
-        if (xf.isDirectory()) {
-          col = 0;
-          const char* s = baseName(xf.name());
-          for (const char* q = s; *q; q++) {
-            if (*q < '0' || *q > '9') {
-              col = -1;
-              break;
-            }
-            col = col * 10 + (*q - '0');
-          }
+      File xf;
+      while (seen < 64 && (xf = xd.openNextFile())) {
+        const long col = xf.isDirectory() ? numericName(baseName(xf.name()), false) : -1;
+        if (col < 0) {
+          xf.close();
+          continue;                    // not a tile column; it does not count against the 64
         }
-        (void)xv;
-        if (col >= 0) {
-          if (xMin < 0 || col < xMin) {
-            xMin = col;
-          }
-          if (col > xMax) {
-            xMax = col;
-          }
-          if (yMin < 0) {        // one column's rows is enough to centre vertically
-            char ypath[128];
-            snprintf(ypath, sizeof(ypath), "%s/%ld", zpath, col);
-            File yd = SD.open(ypath);
-            if (yd && yd.isDirectory()) {
-              File yf;
-              int ys = 0;
-              while ((yf = yd.openNextFile()) && ys < 64) {
-                const char* yn = baseName(yf.name());
-                long row = 0;
-                bool okrow = !yf.isDirectory() && yn[0];
-                for (const char* q = yn; okrow && *q && *q != '.'; q++) {
-                  if (*q < '0' || *q > '9') {
-                    okrow = false;
-                  } else {
-                    row = row * 10 + (*q - '0');
-                  }
+        if (xMin < 0 || col < xMin) {
+          xMin = col;
+        }
+        if (col > xMax) {
+          xMax = col;
+        }
+        if (yMin < 0) {
+          char ypath[160];
+          snprintf(ypath, sizeof(ypath), "%s/%ld", zpath, col);
+          File yd = SD.open(ypath);
+          if (yd && yd.isDirectory()) {
+            int ys = 0;
+            File yf;
+            while (ys < 64 && (yf = yd.openNextFile())) {
+              const long row = yf.isDirectory() ? -1 : numericName(baseName(yf.name()), true);
+              if (row >= 0) {
+                if (yMin < 0 || row < yMin) {
+                  yMin = row;
                 }
-                if (okrow) {
-                  if (yMin < 0 || row < yMin) {
-                    yMin = row;
-                  }
-                  if (row > yMax) {
-                    yMax = row;
-                  }
+                if (row > yMax) {
+                  yMax = row;
                 }
-                yf.close();
                 ys++;
               }
-            }
-            if (yd) {
-              yd.close();
+              yf.close();
             }
           }
-          seen++;
+          if (yd) {
+            yd.close();
+          }
         }
+        seen++;
         xf.close();
       }
     }
@@ -844,8 +862,8 @@ void MapsApp::drawMap() {
         }
       } else {
         const bool missing = isKnownMissing(zoom, q->tileX, q->tileY);
-        lcd.fillRect(vpX + q->dstX, vpY + q->dstY, q->w, q->h,
-                     missing ? MAP_C_NOTILE : MAP_C_LOADING);
+        fillClipped(vpX + q->dstX, vpY + q->dstY, q->w, q->h,
+                    missing ? MAP_C_NOTILE : MAP_C_LOADING);
         if (!missing) {
           pendingTiles++;
           if (!wantAny && si < 0) {
@@ -1499,6 +1517,12 @@ void MapsApp::drawHelp() {
 // ---------------------------------------------------------------- events
 
 appEventResult MapsApp::onMapKey(EventType event) {
+  /* One place clears the note, and it is here: ANY key on the map retires the last one, and
+   * a handler that has something new to say says it below. Clearing per-branch is how a
+   * message from ten minutes ago ends up sitting under a map nobody is looking at any more —
+   * and how one branch gets forgotten. */
+  note[0] = '\0';
+
   int dx = 0, dy = 0;
   switch (event) {
   case WIPHONE_KEY_UP:
@@ -1522,7 +1546,6 @@ appEventResult MapsApp::onMapKey(EventType event) {
   }
 
   if (dx || dy) {
-    note[0] = '\0';
     /* The accelerator. A run is presses in the SAME direction arriving close together; any
      * pause or change of direction starts again at a nudge, so a deliberate correction after
      * a long sweep is still a correction and not another sweep. */
@@ -1538,8 +1561,9 @@ appEventResult MapsApp::onMapKey(EventType event) {
     panDir = dir;
     panLastMs = now;
     const int step = mapPanStep(panRun);
-    if (!mapPanView(zoom, vpW, vpH, dx * step, dy * step, &cx, &cy)) {
-      setNote(dy ? "That is as far north/south as the map goes" : "");
+    if (!mapPanView(zoom, vpW, vpH, dx * step, dy * step, &cx, &cy) && dy) {
+      /* Only north/south can refuse: longitude wraps, so a sideways press always moves. */
+      setNote("That is as far %s as the map goes", dy < 0 ? "north" : "south");
     }
     return REDRAW_SCREEN;
   }
@@ -1547,7 +1571,6 @@ appEventResult MapsApp::onMapKey(EventType event) {
   switch (event) {
   case '*':
   case '1': {
-    note[0] = '\0';
     const int zMin = areaSel >= 0 ? areas[areaSel].zMin : zoom;
     const int zMax = areaSel >= 0 ? areas[areaSel].zMax : zoom;
     const int nz = mapZoomView(zMin, zMax, zoom, -1, vpW, vpH, &cx, &cy);
@@ -1561,7 +1584,6 @@ appEventResult MapsApp::onMapKey(EventType event) {
   }
   case '#':
   case '3': {
-    note[0] = '\0';
     const int zMin = areaSel >= 0 ? areas[areaSel].zMin : zoom;
     const int zMax = areaSel >= 0 ? areas[areaSel].zMax : zoom;
     const int nz = mapZoomView(zMin, zMax, zoom, +1, vpW, vpH, &cx, &cy);
@@ -1678,6 +1700,7 @@ appEventResult MapsApp::processEvent(EventType event) {
         }
         scanAreas();
         loadPins();
+        pinSel = -1;               // the array was just re-read; the old index means nothing
         areaSel = -1;
         for (int i = 0; i < areaCount; i++) {
           if (was[0] && !strcmp(areas[i].name, was)) {
@@ -1880,6 +1903,14 @@ appEventResult MapsApp::processEvent(EventType event) {
      * (app_photos.cpp), and the convention every other text screen here already follows. */
     if (event == WIPHONE_KEY_END) {
       controlState.setInputState(InputType::Numeric);
+      /* The pin keeps the name it was given automatically - cancelling the FIELD is not
+       * cancelling the PIN, and a person who pressed 5 meant to mark this spot. Say which
+       * name it kept, rather than leaving "name it" sitting under a map nobody is naming. */
+      if (pinSel >= 0 && pinSel < pinCount) {
+        setNote("Kept the name '%s'", pins[pinSel].name);
+      } else {
+        note[0] = '\0';
+      }
       enterState(MAPS_VIEW);
       return REDRAW_ALL;
     }
@@ -1956,10 +1987,31 @@ void MapsApp::redrawScreen(bool redrawAll) {
 /* See the note in app_maps.h: a map's failure mode is showing the wrong ground, which looks
  * exactly like showing the right ground, and no screenshot can tell them apart. These two
  * functions are how the whole thing is driven over a cable. */
+/* ⚠ `w += snprintf(out + w, cap - w, ...)` IS A BUFFER OVERFLOW WAITING FOR A LONG ENOUGH
+ * AREA NAME. snprintf returns what it WOULD have written, so on truncation w passes cap, and
+ * `cap - w` is size_t: it underflows to about four billion and the next call writes off the
+ * end. This is the standard trap in the standard shape, and the fix is to append through one
+ * function that cannot get it wrong. */
+static size_t sayInto(char* out, size_t cap, size_t w, const char* fmt, ...) {
+  if (!out || w >= cap) {
+    return w;
+  }
+  va_list ap;
+  va_start(ap, fmt);
+  const int n = vsnprintf(out + w, cap - w, fmt, ap);
+  va_end(ap);
+  if (n < 0) {
+    return w;
+  }
+  const size_t room = cap - w - 1;
+  return w + ((size_t)n > room ? room : (size_t)n);
+}
+
 bool mapsConsoleStatus(char* out, size_t cap) {
   if (!out || cap == 0) {
     return false;
   }
+  out[0] = '\0';
   size_t w = 0;
   int areaN = 0;
   char first[32];
@@ -2005,27 +2057,27 @@ bool mapsConsoleStatus(char* out, size_t cap) {
       dir.close();
     }
   }
-  w += snprintf(out + w, cap - w, "maps: %d area(s) under %s", areaN, MAPS_ROOT);
-  if (first[0] && w < cap) {
-    w += snprintf(out + w, cap - w, "; first '%s' z%d-%d", first, zMin, zMax);
+  w = sayInto(out, cap, w, "maps: %d area(s) under %s", areaN, MAPS_ROOT);
+  if (first[0]) {
+    w = sayInto(out, cap, w, "; first '%s' z%d-%d", first, zMin, zMax);
   }
 
   Preferences p;
-  if (w < cap && p.begin(MAPS_NVS, true)) {
+  if (p.begin(MAPS_NVS, true)) {
     if (p.getInt("saved", 0) == 1) {
       char area[32];
       area[0] = '\0';
       p.getBytes("area", area, sizeof(area));
       area[sizeof(area) - 1] = '\0';
-      w += snprintf(out + w, cap - w, "\nlast view: %.5f,%.5f z%d area '%s'",
-                    mapI7ToDeg(p.getInt("lat", 0)), mapI7ToDeg(p.getInt("lon", 0)),
-                    p.getInt("z", 0), area);
+      w = sayInto(out, cap, w, "\nlast view: %.5f,%.5f z%d area '%s'",
+                  mapI7ToDeg(p.getInt("lat", 0)), mapI7ToDeg(p.getInt("lon", 0)),
+                  p.getInt("z", 0), area);
     } else {
-      w += snprintf(out + w, cap - w, "\nlast view: none saved yet");
+      w = sayInto(out, cap, w, "\nlast view: none saved yet");
     }
     p.end();
   }
-  if (w < cap) {
+  {
     File f = SD.open(MAPS_PINS_FILE, FILE_READ);
     int pinN = 0, badN = 0;
     if (f) {
@@ -2056,8 +2108,9 @@ bool mapsConsoleStatus(char* out, size_t cap) {
       }
       f.close();
     }
-    snprintf(out + w, cap - w, "\npins: %d good, %d unreadable in %s",
-             pinN, badN, MAPS_PINS_FILE);
+    w = sayInto(out, cap, w, "\npins: %d good, %d unreadable in %s",
+                pinN, badN, MAPS_PINS_FILE);
+    (void)w;
   }
   return true;
 }

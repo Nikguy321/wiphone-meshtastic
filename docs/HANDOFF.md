@@ -4,6 +4,43 @@
 
 Read this first; everything below it is narrative.
 
+✅ **2026-09-14 — 0.9.64: MAPS. Built, host-tested and compiled; NOT YET ON HARDWARE and no
+tile has ever been on a card.** Menu → Tools → Maps. Everything it draws was already in the
+phone since 0.9.7 — waypoints, node positions, the reference place — rendered as a sentence.
+This renders it as a picture, which is the shape of the question people actually ask.
+🔑 **THE TILES ARE RAW AND THAT IS THE DESIGN, NOT A SHORTCUT.**
+`/maps/<area>/<z>/<x>/<y>.565`, 256×256 RGB565 little-endian, **131072 bytes exactly**, ordinary
+slippy numbering. There is no PNG decoder in this firmware and the ROM JPEG decoder refuses
+greyscale outright (the reason `jpeg_grey.cpp` exists), so compressed tiles would work until the
+day they met a tile of the wrong flavour, in the woods. Raw costs 8× the card (~85 MB for 20×20 km
+at z12–z15) and has exactly one failure mode: the wrong length — which is also how a PNG copied
+across unconverted gets refused instead of drawn as confetti. `tools/convert_tiles.py` makes them
+on the Mac from a z/x/y tree or an `.mbtiles`, with nothing to install (Pillow if present, `sips`
+if not).
+⚠ **A 128 KB TILE READ IS 100–250 ms AND EVERYTHING SHARES ONE TASK**, so a tile arrives in 32 KB
+pieces one per 25 ms tick, opened/seeked/read/**closed** per piece (no `File` alive across a
+teardown or a pulled card), with the hole drawn as a marked grey square meanwhile. 250 ms is
+exactly what 0.9.58's stall detector was built to complain about; four tiles the obvious way is a
+second of frozen phone *per pan*. The timer is disarmed once the screen is painted.
+🔑 **PINS ARE PRIVATE UNTIL YOU SAY OTHERWISE.** 64 in a text file on the card, nothing on the air
+until "Share it on the mesh" — which prefers a private channel, locks the waypoint to this node,
+and **says whether the radio actually sent it**. Rename/move re-send; "Take it off the mesh" sends
+the positionless deletion marker (the only way to remove one; `expire == 0` means never).
+📐 **MEASURED: +24 bytes of internal RAM, +32 KB flash**, by building the tree with and without it
+(87532→87556 RAM, 2544759→2578079 flash). Working set is 768 KB of PSRAM, only while open.
+✅ **PROVEN BEFORE THE PHONE, because a map one tile out looks exactly like a right one**:
+`tests/test_maptiles.cpp`, **105 checks**, Web Mercator against independently computed values and
+the blit rectangles checked *structurally* — every viewport pixel covered exactly once, from the
+right pixel of the right tile, across the antimeridian, with a world shorter than the screen, at
+z19 after a two-billion-pixel pan. `test_pos.cpp` gained the Waypoint builder's bytes.
+🔎 **AND BECAUSE A SCREENSHOT CANNOT TELL RIGHT GROUND FROM WRONG GROUND EITHER:** `maps` prints
+what the card holds, the saved view and how the pins file parses; `maps goto <lat> <lon> [z]
+[area]` writes the same saved view the app writes — so a known coordinate goes in over USB and the
+screen is compared against a map on the computer. That is the FIRST thing to do on hardware.
+⛔ **WHAT HAS NOT HAPPENED:** no phone, no card, no tile, no measured SD read, no measured pan
+latency, no screenshot. The 32 KB chunk and the 25 ms tick are reasoned from the 0.9.58 stall
+threshold, **not measured**. Six 128 KB PSRAM slots is a choice, not a measurement.
+
 ✅ **2026-09-09 ~14:30 — 0.9.63: the sync card holds the screen, and it is MEASURED, not assumed.
 Both phones flashed, flasher republished, every device back on its own page.**
 The last finding from the 0.9.61 review: the card was the only Books screen that never called
