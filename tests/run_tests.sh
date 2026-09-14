@@ -115,4 +115,14 @@ if ! python3 tests/check_menu_keys.py; then
   fail=1
 fi
 
+# ── THE MAC-SIDE TILE CONVERTER, against what the phone actually reads ────────────────────
+# tools/convert_tiles.py runs on a computer this suite will never see, and two of the three
+# things it can get wrong are SILENT on the phone: a byte-swapped RGB565 tile still draws a
+# recognisable map in wrong colours, and the sips/BMP fallback has three chances to be subtly
+# off. See tests/check_convert_tiles.py. Pillow is optional.
+echo "checking the tile converter against the firmware's pixel format"
+if ! python3 tests/check_convert_tiles.py; then
+  fail=1
+fi
+
 exit "$fail"
