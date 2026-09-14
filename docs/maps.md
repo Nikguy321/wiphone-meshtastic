@@ -24,8 +24,13 @@ mesh has shared and the last position of everyone who has spoken.
 | **5** | drop a pin on the crosshair, and open the name field |
 | **OK** | the pin under the crosshair (rename / move / share / delete) — or the map menu if there is no pin there |
 | **7 / 9** | previous / next pin, centring the map on it |
-| **0** | centre on me (GPS if it has a fix, otherwise the reference place) |
+| **0** | centre on me: a live GPS fix, else the pin you declared by hand |
 | **Back** | leave. Where you were looking is saved |
+
+The left soft key reads **Pin/Menu** because it does both: the pin under the crosshair if there
+is one, the map menu if there is not. **Centre on me** means *this phone*; it falls through to
+the reference place only as a last resort, and then the screen names it — a key labelled
+"centre on me" that quietly lands on somebody else's camp has told you something false.
 
 The same table is on the phone: **Menu → Keys and colours**.
 
@@ -38,12 +43,22 @@ The same table is on the phone: **Menu → Keys and colours**.
 | green gem | a place heard from the mesh (a Meshtastic waypoint — COVEY's map shares these) |
 | cyan dot | somebody else's last position, with their name |
 | grey dot | …the same, but over 30 minutes old, and it says how old |
-| white ring | this phone, from its own GPS |
-| white gem | this phone's manually declared pin, when there is no GPS fix |
+| white ring | this phone, from a GPS fix under two minutes old |
+| grey ring | …the same, but the fix is older than that, and it says how much older |
+| white gem | this phone's manually declared pin |
 
 A stale position is drawn grey **on purpose**. On foot, half an hour is far enough to be
 somewhere else entirely, and a map that draws an old dot the same as a live one is lying by
-omission.
+omission. The same rule applies to **you**: `getGpsFix()` answers "there has ever been a fix",
+so a phone that lost the sky under canopy would otherwise keep drawing a confident white ring
+over where it was an hour ago. Past two minutes — the mesh service's own freshness bar, not a
+second one invented for the map — your ring goes grey and wears its age.
+
+**Names are dropped, never squashed.** Eight places plus twenty nodes on a 240×250 screen is
+not hypothetical on a hunting channel, and unmanaged labels overprint into a grey smear. Names
+are placed most-important-first — you, your pins, the mesh's places, then other people (starred
+first) — and one that would land on another is not drawn. Its **marker** is still there, which
+is the part that says where somebody is, and the name is on the Nodes list either way.
 
 ## Where it opens
 
