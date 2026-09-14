@@ -146,6 +146,12 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   scanAreas();
   loadPins();
   restoreView();
+  /* First run, or a phone whose pins have all been deleted: the one key nothing on the screen
+   * hints at is the one this app is for. The coordinates it displaces are on the row below on
+   * every subsequent open, and the hint goes away the moment any key is pressed. */
+  if (pinCount == 0 && !note[0]) {
+    setNote("5 drops a pin here - OK opens the menu");
+  }
   enterState(MAPS_VIEW);
 }
 
@@ -1484,7 +1490,9 @@ void MapsApp::enterState(MapsState_t st) {
   case MAPS_VIEW:
     snprintf(headerTitle, sizeof(headerTitle), "Maps");
     header->setTitle(headerTitle);
-    footer->setButtons("Select", "Back");
+    /* "Pin/Menu" rather than "Select", because that key does two different things depending
+     * on what is under the crosshair and a footer that says "Select" tells you neither. */
+    footer->setButtons("Pin/Menu", "Back");
     break;
   case MAPS_MENU:
     snprintf(headerTitle, sizeof(headerTitle), "Map menu");
@@ -1496,7 +1504,8 @@ void MapsApp::enterState(MapsState_t st) {
     snprintf(headerTitle, sizeof(headerTitle), "%s",
              listKind == LIST_PINS ? "Pins" : (listKind == LIST_PLACES ? "Places" : "Nodes"));
     header->setTitle(headerTitle);
-    footer->setButtons("Go to", "Back");
+    // A pin opens its options; a place or a node only moves the map. Say which.
+    footer->setButtons(listKind == LIST_PINS ? "Open" : "Go to", "Back");
     buildList();
     break;
   case MAPS_PIN_OPTS:
@@ -2113,8 +2122,23 @@ appEventResult MapsApp::processEvent(EventType event) {
     }
     if (LOGIC_BUTTON_OK(event)) {
       if (pinSel >= 0 && pinSel < pinCount) {
-        mapPinSanitizeName(textArea ? textArea->getText() : NULL,
-                           pins[pinSel].name, sizeof(pins[pinSel].name));
+        /* ⚠ AN EMPTY FIELD KEEPS THE NAME IT HAD. mapPinSanitizeName() turns "" into "Pin"
+         * because a nameless marker is unusable — but applied here that would quietly rename
+         * "Pin 3" to "Pin", and a second empty save would give you two pins called "Pin".
+         * Saving nothing means changing nothing. */
+        char typed[MAP_PIN_NAME_LEN];
+        mapPinSanitizeName(textArea ? textArea->getText() : NULL, typed, sizeof(typed));
+        const char* raw = textArea ? textArea->getText() : NULL;
+        bool blank = true;
+        for (const char* q = raw; q && *q; q++) {
+          if (*q != ' ' && *q != '\t') {
+            blank = false;
+            break;
+          }
+        }
+        if (!blank) {
+          strlcpy(pins[pinSel].name, typed, sizeof(pins[pinSel].name));
+        }
         pinsDirty = true;
         savePins();
         if (pins[pinSel].sharedId) {
