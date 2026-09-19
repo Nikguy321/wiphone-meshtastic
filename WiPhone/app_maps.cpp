@@ -10,6 +10,8 @@
 #include "tile_fetch.h"
 #include <stdarg.h>
 
+extern bool uiKeyStillHeld(uint32_t mask);   // WiPhone.ino: is this key physically down right now?
+
 extern bool gGpsNmea;         // WiPhone.ino: is the NMEA receiver switched on at all
 
 // ── colours ───────────────────────────────────────────────────────────────────────────────
@@ -37,6 +39,12 @@ extern bool gGpsNmea;         // WiPhone.ino: is the NMEA receiver switched on a
 
 // A pan that arrives within this of the last one counts as "still holding the key".
 #define MAP_PAN_RUN_MS  400
+/* Hold-to-scroll: a press held this long starts repeating, then a repeat every
+ * MAP_PAN_HOLD_STEP_MS through the same accelerator (mapPanStep) a run of taps climbs. 300 ms
+ * keeps a deliberate tap a single nudge; 100 ms is just under the chip's ~109 ms heartbeat, so
+ * the poll never misses a beat and the release is seen within one step. */
+#define MAP_PAN_HOLD_DELAY_MS  300u
+#define MAP_PAN_HOLD_STEP_MS   100u
 
 static const char MAPS_NVS[] = "maps";
 
@@ -58,6 +66,7 @@ enum {
   ROW_M_GOTO       = ROW_ACT + 10,
   ROW_M_FOLLOW     = ROW_ACT + 11,
   ROW_M_MEASURE    = ROW_ACT + 12,
+  ROW_M_SNAP       = ROW_ACT + 13,
   ROW_P_RENAME     = ROW_ACT + 20,
   ROW_P_MOVE       = ROW_ACT + 21,
   ROW_P_SHARE      = ROW_ACT + 22,
@@ -152,6 +161,10 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   panRun = 0;
   panDir = 0;
   panLastMs = 0;
+  panHoldMask = 0;
+  panHoldSinceMs = 0;
+  panHoldDx = panHoldDy = 0;
+  snapPins = true;
   labelCount = 0;
   listCount = 0;
   helpTop = 0;
@@ -178,6 +191,7 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
       dlSource = p.getInt("dlsrc", dlSource);
       dlRadiusIdx = p.getInt("dlrad", dlRadiusIdx);
       dlDepth = p.getInt("dldep", dlDepth);
+      snapPins = p.getInt("snap", 1) != 0;
       p.end();
     }
     if (dlSource < 0 || dlSource >= tileSourceCount()) dlSource = 0;
@@ -1626,6 +1640,65 @@ int MapsApp::pinUnderCrosshair() {
   return mapPinPickNearest(pinVx, pinVy, pinCount, vpW / 2, vpH / 2, MAPS_PICK_RADIUS);
 }
 
+/* The nearest pin AHEAD of the crosshair in the direction (dx, dy): within `reach` pixels
+ * along that axis, and either inside a 45° cone (`cone`: no farther off the line than it is
+ * along it) or within `corridor` pixels either side of the line. -1 if none. pinVx/pinVy
+ * must be current (pinUnderCrosshair() projects them). Ties on distance go to the pin nearer
+ * the line of travel, so of two pins the same way along, the one you would have hit wins. */
+int MapsApp::pinAhead(int dx, int dy, int reach, int corridor, bool cone, int skip) {
+  int best = -1, bestAlong = 0, bestAcross = 0;
+  for (int i = 0; i < pinCount; i++) {
+    if (i == skip) {
+      continue;                          // the pin the crosshair already sits near
+    }
+    const int ox = pinVx[i] - vpW / 2;
+    const int oy = pinVy[i] - vpH / 2;
+    const int along  = dx ? ox * dx : oy * dy;
+    const int across = dx ? (oy < 0 ? -oy : oy) : (ox < 0 ? -ox : ox);
+    if (along <= 0 || along > reach || across > (cone ? along : corridor)) {
+      continue;
+    }
+    if (best < 0 || along < bestAlong || (along == bestAlong && across < bestAcross)) {
+      best = i;
+      bestAlong = along;
+      bestAcross = across;
+    }
+  }
+  return best;
+}
+
+/* One press (or one hold repeat) of an arrow. Returns false only when the map refused to
+ * move — the northern or southern edge; longitude wraps, so sideways always moves.
+ *
+ * Nick, 2026-09-19: "it's hard to pan over an existing pin. It jumps too far, so maybe the
+ * map center can either snap to a pin when very near, and if there are many pins there it
+ * can kinda jump between them as the arrow pads are pressed."  So, with Snap to pins on and
+ * for a DISCRETE press (the first of a run — a sweep never snaps):
+ *   - sitting on a pin: the nearest pin that way within the screen, inside a 45° cone, is
+ *     the destination — the arrows walk the pins;
+ *   - otherwise: a pin the step would land on or fly past (within the pick radius of the
+ *     line of travel, no farther than the step plus that radius) stops the map ON it.
+ * Either way the crosshair ends exactly on the pin, so OK opens it and the strip names it. */
+bool MapsApp::panOnce(int dx, int dy, int step, bool discrete) {
+  if (snapPins && discrete && pins && pinCount > 0) {
+    const int on = pinUnderCrosshair();          // projects pinVx/pinVy as a side effect
+    const int to = (on >= 0) ? pinAhead(dx, dy, dx ? vpW : vpH, 0, true, on)
+                             : pinAhead(dx, dy, step + MAPS_PICK_RADIUS, MAPS_PICK_RADIUS, false, -1);
+    if (to >= 0) {
+      pinSel = to;
+      centreOn(mapI7ToDeg(pins[to].latI), mapI7ToDeg(pins[to].lonI));
+      setNote("%s (%d of %d)", pins[to].name, to + 1, pinCount);
+      return true;
+    }
+  }
+  if (!mapPanView(zoom, vpW, vpH, dx * step, dy * step, &cx, &cy) && dy) {
+    /* Only north/south can refuse: longitude wraps, so a sideways press always moves. */
+    setNote("That is as far %s as the map goes", dy < 0 ? "north" : "south");
+    return false;
+  }
+  return true;
+}
+
 bool MapsApp::dropPin() {
   if (!pins) {
     setNote("No memory for pins");
@@ -1949,6 +2022,7 @@ void MapsApp::buildMenu() {
   menu->addOption("Centre on me", ROW_M_ME);
   menu->addOption(followMe ? "Follow me: ON (scroll stops it)" : "Follow me: off", ROW_M_FOLLOW);
   menu->addOption(measuring ? "Stop measuring" : "Measure from here...", ROW_M_MEASURE);
+  menu->addOption(snapPins ? "Snap to pins: ON" : "Snap to pins: off", ROW_M_SNAP);
   menu->addOption(tileFetchActive() ? "Downloading maps..." : "Download maps...", ROW_M_DOWNLOAD);
   if (areaCount > 1) {
     snprintf(row, sizeof(row), "Map area: %s", areaSel >= 0 ? areas[areaSel].name : "-");
@@ -2375,6 +2449,9 @@ void MapsApp::buildConfirmDelete() {
  * "Hold an arrow..." lost its H and its last digit), which reads as a typo, not a cut. */
 static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "Hold an arrow: it speeds up.", WHITE },
+  { "A tap stops on a pin in its way;", WHITE },
+  { "  on a pin, taps walk the pins", WHITE },
+  { "  (Snap to pins, in the menu).", WHITE },
   { "2 4 6 8 scroll too, for gloves.", WHITE },
   { "5 is OK. 0 is centre on me.", WHITE },
   { "", WHITE },
@@ -2553,6 +2630,7 @@ appEventResult MapsApp::onMapKey(EventType event) {
    * message from ten minutes ago ends up sitting under a map nobody is looking at any more —
    * and how one branch gets forgotten. */
   note[0] = '\0';
+  panHoldMask = 0;                       // whatever this key is, the previous hold is over
 
   int dx = 0, dy = 0;
   switch (event) {
@@ -2595,11 +2673,27 @@ appEventResult MapsApp::onMapKey(EventType event) {
     }
     panDir = dir;
     panLastMs = now;
-    const int step = mapPanStep(panRun);
-    if (!mapPanView(zoom, vpW, vpH, dx * step, dy * step, &cx, &cy) && dy) {
-      /* Only north/south can refuse: longitude wraps, so a sideways press always moves. */
-      setNote("That is as far %s as the map goes", dy < 0 ? "north" : "south");
+    /* A press is discrete — it may stop on a pin — only when it starts a run. Once the run
+     * is going (a second tap inside 400 ms, or the hold repeats below) the map sweeps. */
+    panOnce(dx, dy, mapPanStep(panRun), panRun == 0);
+    /* Remember which key this was, so the timer can keep scrolling while it stays down.
+     * Nick, 2026-09-19: "holding the scroll button doesn't allow it to keep scrolling and
+     * speeding up, it just does a small jump and stops" — the keypad path hides the hold
+     * from every app on purpose, so the map polls for it itself (uiKeyStillHeld). */
+    switch (event) {
+    case WIPHONE_KEY_UP:    panHoldMask = WIPHONE_KEY_MASK_UP;    break;
+    case WIPHONE_KEY_DOWN:  panHoldMask = WIPHONE_KEY_MASK_DOWN;  break;
+    case WIPHONE_KEY_LEFT:  panHoldMask = WIPHONE_KEY_MASK_LEFT;  break;
+    case WIPHONE_KEY_RIGHT: panHoldMask = WIPHONE_KEY_MASK_RIFHT; break;
+    case '2':               panHoldMask = WIPHONE_KEY_MASK_2;     break;
+    case '8':               panHoldMask = WIPHONE_KEY_MASK_8;     break;
+    case '4':               panHoldMask = WIPHONE_KEY_MASK_4;     break;
+    case '6':               panHoldMask = WIPHONE_KEY_MASK_6;     break;
+    default:                panHoldMask = 0;                      break;
     }
+    panHoldSinceMs = now;
+    panHoldDx = dx;
+    panHoldDy = dy;
     return REDRAW_SCREEN;
   }
 
@@ -2701,6 +2795,22 @@ appEventResult MapsApp::processEvent(EventType event) {
   }
 
   if (event == APP_TIMER_EVENT) {
+    if (panHoldMask) {
+      if (appState != MAPS_VIEW || !uiKeyStillHeld(panHoldMask)) {
+        panHoldMask = 0;                 // the finger came off (or a lost release aged out)
+        armTimer();                      // stand the 100 ms tick down unless tiles need it
+      } else {
+        const uint32_t now = millis();
+        if (now - panHoldSinceMs >= MAP_PAN_HOLD_DELAY_MS && now - panLastMs >= MAP_PAN_HOLD_STEP_MS) {
+          if (panRun < 1000) {
+            panRun++;                    // speeding up: the same curve a run of taps climbs
+          }
+          panLastMs = now;
+          panOnce(panHoldDx, panHoldDy, mapPanStep(panRun), false);
+          return REDRAW_SCREEN;
+        }
+      }
+    }
     if (followMe && appState == MAPS_VIEW && !loadActive) {
       /* A newer usable fix than the one last centred on: follow it. A stale or poor fix, or
        * none, leaves the view exactly where it is. */
@@ -2799,6 +2909,18 @@ appEventResult MapsApp::processEvent(EventType event) {
         }
         enterState(MAPS_VIEW);
         return REDRAW_ALL;
+      case ROW_M_SNAP: {
+        snapPins = !snapPins;
+        Preferences p;
+        if (p.begin(MAPS_NVS, false)) {
+          p.putInt("snap", snapPins ? 1 : 0);
+          p.end();
+        }
+        setNote(snapPins ? "Arrows stop on pins and jump between them"
+                         : "Arrows scroll straight past pins");
+        enterState(MAPS_VIEW);
+        return REDRAW_ALL;
+      }
       case ROW_M_MEASURE:
         measuring = !measuring;
         if (measuring) {
@@ -3366,6 +3488,10 @@ void MapsApp::redrawScreen(bool redrawAll) {
    * knows whether a tile is still missing — drawMap() is what discovers it. 25 ms while there
    * is reading to do, nothing at all otherwise: a map that is fully painted must not keep the
    * CPU awake, and the phone that runs this is one somebody is carrying all day. */
+  armTimer();
+}
+
+void MapsApp::armTimer() {
   const bool busy = (appState == MAPS_VIEW) && (loadActive || (wantAny && !tileMemFail));
   /* The download screen ticks at 4 Hz for its progress line only while a job is running:
    * a finished screen must not keep the CPU awake either. */
@@ -3374,7 +3500,10 @@ void MapsApp::redrawScreen(bool redrawAll) {
   const bool progress = (appState == MAPS_DOWNLOAD);
   /* Following polls the fix once a second — a slow tick, and only on the map. */
   const bool following = followMe && (appState == MAPS_VIEW) && gGpsNmea;
-  controlState.msAppTimerEventPeriod = busy ? 25 : (progress ? 250 : (following ? 1000 : 0));
+  /* A held arrow polls the key every 50 ms until the finger comes off — a bounded burst, and
+   * the map is being scrolled, so the CPU is awake for it anyway. */
+  const bool holding = panHoldMask && (appState == MAPS_VIEW);
+  controlState.msAppTimerEventPeriod = busy ? 25 : (holding ? 50 : (progress ? 250 : (following ? 1000 : 0)));
 }
 
 // ---------------------------------------------------------------- the serial console

@@ -10,6 +10,7 @@
 
 /* Defined in WiPhone.ino next to keypadBuff — see the note there on why this is a real press. */
 extern bool uiInjectKey(char c);
+extern void uiKeyBenchHold(uint32_t mask, uint32_t ms);   // WiPhone.ino: `maps hold`, the hold-to-scroll bench
 #include "meshtastic_service.h"
 #include "t9_extra.h"            // the `t9` command reports the extra dictionary   // applyChannelUrl, the `chan` command
 #include "mesh_pos.h"             // distance/bearing for the `pos` command
@@ -135,6 +136,7 @@ static void help() {
     "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
     "  maps       what the card holds under /maps, the saved view, and the pins file",
     "  maps goto <lat> <lon> [z] [area]  set where the Maps app opens next (persists)",
+    "  maps hold up|down|left|right [ms]  press an arrow and hold it (hold-to-scroll bench)",
     "  lock       why the screen does or does not lock: setting, sleep gate, and the card",
     "  ver        firmware version and build time of the binary actually running",
     "  scrim [<alpha> [hex]]  the grey plate under menu text over a wallpaper (RAM only)",
@@ -1706,7 +1708,33 @@ static void run(char* line) {
      *   maps dl                                  status of the last/current run
      *   maps dl <src> <lat> <lon> <km> <zmax>    start: src 0=USGS Topo 1=USGS Aerial 2=OTM 3=custom
      *   maps dl stop                             ask it to finish the current tile and exit
-     *   maps dlurl <template>|clear              set the custom source (a plain-http relay) */
+     *   maps dlurl <template>|clear              set the custom source (a plain-http relay)
+     *   maps hold up|down|left|right <ms>        press an arrow and HOLD it for <ms> — the
+     *                                            bench for hold-to-scroll, where no finger
+     *                                            is on the key (uiKeyBenchHold) */
+    if (!strncasecmp(arg, "hold", 4) && (arg[4] == '\0' || arg[4] == ' ')) {
+      arg += 4;
+      while (*arg == ' ') arg++;
+      uint32_t mask = 0;
+      char key = 0;
+      if (!strncasecmp(arg, "up", 2))         { mask = WIPHONE_KEY_MASK_UP;    key = WIPHONE_KEY_UP;    arg += 2; }
+      else if (!strncasecmp(arg, "down", 4))  { mask = WIPHONE_KEY_MASK_DOWN;  key = WIPHONE_KEY_DOWN;  arg += 4; }
+      else if (!strncasecmp(arg, "left", 4))  { mask = WIPHONE_KEY_MASK_LEFT;  key = WIPHONE_KEY_LEFT;  arg += 4; }
+      else if (!strncasecmp(arg, "right", 5)) { mask = WIPHONE_KEY_MASK_RIFHT; key = WIPHONE_KEY_RIGHT; arg += 5; }
+      if (!mask) {
+        say("maps hold: usage maps hold up|down|left|right <ms>\n");
+        return;
+      }
+      while (*arg == ' ') arg++;
+      const long ms = *arg ? strtol(arg, NULL, 10) : 1000;
+      if (ms < 100 || ms > 10000) {
+        say("maps hold: <ms> must be 100..10000\n");
+        return;
+      }
+      uiKeyBenchHold(mask, (uint32_t)ms);
+      say(uiInjectKey(key) ? "maps hold: pressed, held for %ld ms\n" : "maps hold: key buffer full\n", ms);
+      return;
+    }
     if (!strncasecmp(arg, "dlurl", 5)) {
       arg += 5;
       while (*arg == ' ') arg++;

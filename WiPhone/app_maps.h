@@ -208,6 +208,17 @@ protected:
   int      panRun;          // consecutive presses in panDir, for mapPanStep()
   int      panDir;
   uint32_t panLastMs;
+  /* Hold-to-scroll (2026-09-19). The keypad path suppresses held-key re-reports for every app
+   * (that is what killed the menus' auto-repeat), so the map repeats for itself: the arrow's
+   * key mask is remembered at the press, the timer polls uiKeyStillHeld() and pans again
+   * while the finger stays down, through the same accelerator a run of taps uses. */
+  uint32_t panHoldMask;     // the arrow (or digit) physically down, 0 = not holding
+  uint32_t panHoldSinceMs;  // when the press landed; the first repeat waits MAP_PAN_HOLD_DELAY_MS
+  int      panHoldDx, panHoldDy;
+  /* Snap to pins (2026-09-19, Maps menu toggle, NVS "snap"). A single press that would land on
+   * or fly past a pin stops ON it; a press while sitting on a pin jumps to the next pin that
+   * way, if one is on screen. Hold-scrolling never snaps. */
+  bool     snapPins;
 
   // ---- the download screen ----
   int      dlSource;        // index into tileSource()
@@ -315,6 +326,9 @@ protected:
   void  centreOnMe();
   void  centreOn(double lat, double lon);
   int   pinUnderCrosshair();
+  bool  panOnce(int dx, int dy, int step, bool discrete);   // one pan (or snap/jump); false = the map's edge
+  int   pinAhead(int dx, int dy, int reach, int corridor, bool cone, int skip);  // nearest pin that way, or -1
+  void  armTimer();
   bool  dropPin();
   bool  sharePin(int idx, char* why, size_t whyCap);
   /* Returns whether a SHARED pin's retraction actually reached the air. The local delete

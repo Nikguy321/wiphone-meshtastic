@@ -449,6 +449,45 @@ bool uiInjectKey(char c) {
   return true;
 }
 
+/* Is this key STILL physically down? The one fact the map's hold-to-scroll needs, read
+ * straight from the keypad reader's own state: uiKeyDown holds the bit from the press until
+ * the release (or the 350 ms stale sweep), and keyLastSeenMs[] is stamped by every ~109 ms
+ * heartbeat the chip sends while a key is held (memory: wiphone-keypad-hardware). Both are
+ * ANDed so a lost release — bit still set, heartbeats gone — reads as "up" within a third
+ * of a second, and a map can never scroll away on its own.
+ *
+ * 🛑 THIS IS A QUESTION, NOT AN EVENT. Held-key re-reports are deliberately suppressed on
+ * the UI path (uiSuppress / alreadyDown above): that is what killed the menus' auto-repeat
+ * and the double-clicks, and Nick's word on 2026-09-19 was "for everything but maps, the
+ * d-pad works well". So nothing here synthesises a keypress. The map asks this on its own
+ * timer and does its own repeating; every other app is untouched.
+ *
+ * The bench override lets `maps hold <dir> <ms>` prove the repeat from the cable, where no
+ * finger is on the key: it answers "held" for that mask until the deadline. Same task as
+ * everything else here, so plain variables. */
+static uint32_t s_benchHeldMask = 0;
+static uint32_t s_benchHeldUntil = 0;
+bool uiKeyStillHeld(uint32_t mask) {
+  if (!mask) {
+    return false;
+  }
+  if ((s_benchHeldMask & mask) == mask) {
+    if ((int32_t)(s_benchHeldUntil - millis()) > 0) {
+      return true;
+    }
+    s_benchHeldMask = 0;
+  }
+  if ((uiKeyDown & mask) != mask) {
+    return false;
+  }
+  const uint8_t b = __builtin_ctz(mask);
+  return millis() - keyLastSeenMs[b] < 350u;
+}
+void uiKeyBenchHold(uint32_t mask, uint32_t ms) {
+  s_benchHeldMask = mask;
+  s_benchHeldUntil = millis() + ms;
+}
+
 void IRAM_ATTR keyboardInterrupt() {
   // This function is intentionally minimal
   // (for example, adding a Serial output here produces ISR crashes)
