@@ -1499,6 +1499,19 @@ public:
   void revealSelected();
   const char* getSelectedTitle();
 
+  /* THE MARQUEE — the selected row scrolls when its text is wider than its space.
+   *
+   * One instance for the whole firmware, static: at most one list is on screen and only its
+   * selected row can overflow, so the state is "which widget, which row, how far along".
+   * redraw() takes ownership when it paints an overflowing selected row and gives it up when
+   * that row fits, changes, or the widget dies; marqueeTick() is called by the main loop once
+   * a pass and answers "repaint now" at most 5 times a second, and nothing at all when no
+   * row overflows — the common case costs one pointer test. The row is repainted through the
+   * ordinary REDRAW_SCREEN path, so every list screen gets it and no app is touched. Rhythm
+   * and glyph arithmetic: menu_marquee.h. */
+  static bool marqueeTick(uint32_t now);      // true = the picture moved, ask for REDRAW_SCREEN
+  static void marqueeForget(MenuWidget* w);   // w is dying or emptying: drop it if it is the owner
+
 protected:
   LinearArray<MenuOption*, LA_EXTERNAL_RAM>  options;  // array of pointers to MenuOption objects
   uint16_t optionSelectedIndex;
@@ -2998,6 +3011,10 @@ public:
   void reloadMessages();
   appEventResult processEvent(uint32_t now, EventType event);
   void redrawScreen(bool redrawHeader, bool redrawFooter, bool redrawScreen, bool redrawAll=false);
+  /* The menu marquee's clock, independent of the app timer (apps own msAppTimerEventPeriod
+   * for their own purposes). Called once per loop pass; true asks for REDRAW_SCREEN. Silent
+   * while the screen sleeps, the phone is locked or a power-off is pending. */
+  bool marqueeTick(uint32_t now);
   void circle(uint16_t x, uint16_t y, uint16_t r, uint16_t col);    // TODO: remove
   void becomeCallee();
   void exitCall();

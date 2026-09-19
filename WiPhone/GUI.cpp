@@ -24,6 +24,7 @@ governing permissions and limitations under the License.
 #include "app_maps.h"
 #include "sms_mirror_rx.h"   // sipCompleteAddress: bare number -> full SIP URI
 #include "app_music.h"
+#include "menu_marquee.h"  // the scrolling selected menu row: phase clock + glyph stepping
 
 // Defined further down, used by the Messages screens above it.
 static const char* sipDisplayLabel(Storage& flash, const char* peer, const char* uri);
@@ -2105,6 +2106,15 @@ void GUI::redrawScreen(bool redrawHeader, bool redrawFooter, bool redrawScreen, 
 
   }
 };
+
+bool GUI::marqueeTick(uint32_t now) {
+  /* Asleep, locked or powering off: nobody can see the row, and a repaint would only keep
+   * the CPU up (every redraw stamps gUiWorkMs, which the frequency gate reads). */
+  if (state.screenBrightness == 0 || state.locked || powerOffScreen) {
+    return false;
+  }
+  return MenuWidget::marqueeTick(now);
+}
 
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # #  MENU HELPERS  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -13833,6 +13843,23 @@ void FooterWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, ui
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Menu widget  - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+/* THE MARQUEE'S ONE INSTANCE. See the note on MenuWidget::marqueeTick in GUI.h for the idea;
+ * this is the state. `owner`/`row`/`clock` persist between passes; the rest is scratch that
+ * MenuWidget::redraw sets before painting its selected row and drawRowText fills in while
+ * painting it. Plain statics on purpose: 24 bytes, no allocation, no constructor order. */
+struct MenuMarqueeState {
+  MenuWidget*  owner;        // the list whose selected row overflows, or NULL (no ticking)
+  uint16_t     row;          // its optionSelectedIndex when ownership was taken
+  MarqueeClock clock;        // offset in glyphs + phase, menu_marquee.h
+  bool         drawn;        // liveness: the owner's row was painted since the last tick
+  // Scratch for the row being painted right now:
+  bool         probing;      // the selected row of a MenuWidget is being painted
+  uint16_t     drawOffset;   // glyphs the texts start from (0 unless this is the owner)
+  bool         overflow;     // some text on the row is wider than its space
+  bool         moreToCome;   // some text has not shown its end at drawOffset
+};
+static MenuMarqueeState gMarquee = { NULL, 0, { 0, MARQUEE_HOLD_START, 0 }, false, false, 0, false, false };
+
 MenuWidget::MenuWidget(uint16_t xPos, uint16_t yPos, uint16_t width, uint16_t height, const char* empty,
                        SmoothFont* font, uint8_t itemsPerScreen, uint16_t leftOffset, bool opaque)
   : FocusableWidget(xPos, yPos, width, height), options(), opaque(opaque), leftOffset(leftOffset), widgetFont(font) {
@@ -13869,6 +13896,7 @@ void MenuWidget::deleteAll() {
   optionOffsetIndex = 0;
   chosenKey = 0;
   drawOnce = true;
+  marqueeForget(this);       // the row being scrolled no longer exists
 }
 
 MenuWidget::~MenuWidget() {
@@ -13877,6 +13905,10 @@ MenuWidget::~MenuWidget() {
     delete options[i];
   }
   freeNull((void **) &this->emptyMessageDyn);
+  /* ⚠ Not optional: the next MenuWidget can land at this very address (the lists are all
+   * the same size and PSRAM hands the block straight back), and a stale owner would then
+   * match `this` by coincidence and apply an old offset to a new list. */
+  marqueeForget(this);
 }
 
 bool MenuWidget::processEvent(EventType event) {
@@ -13971,7 +14003,35 @@ void MenuWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, uint
         bgColor   = options[i]->style==1 ? style1SelBgColor : style2SelBgColor;
       }
 
+      /* The selected row is the marquee candidate. `mine` = it is the row we are already
+       * scrolling; anything else (another list, a moved selection, a rebuilt list under the
+       * same index) paints from the start and, if it overflows, takes over with a fresh
+       * clock — the old offset is never applied to a different text. */
+      const bool probe = (i == optionSelectedIndex);
+      bool mine = false;
+      if (probe) {
+        mine = (gMarquee.owner == this && gMarquee.row == optionSelectedIndex);
+        gMarquee.probing = true;
+        gMarquee.drawOffset = mine ? gMarquee.clock.offset : 0;
+        gMarquee.overflow = false;
+        gMarquee.moreToCome = false;
+      }
+
       options[i]->redraw(lcd, screenOffX, screenOffY + yOff, windowWidth, optionHeight, textColor, bgColor, opaque, i==optionSelectedIndex, widgetFont, leftOffset);
+
+      if (probe) {
+        gMarquee.probing = false;
+        if (gMarquee.overflow) {
+          if (!mine) {
+            gMarquee.owner = this;
+            gMarquee.row = optionSelectedIndex;
+            marqueeReset(&gMarquee.clock, millis());
+          }
+          gMarquee.drawn = true;
+        } else if (gMarquee.owner == this) {
+          gMarquee.owner = NULL;        // the selected row fits: nothing to scroll, no ticks
+        }
+      }
 
       yOff += optionHeight;
     }
@@ -14069,6 +14129,31 @@ void MenuWidget::select(MenuOption::keyType key) {
 
 void MenuWidget::selectLastOption() {
   optionSelectedIndex = options.size()-1;
+}
+
+bool MenuWidget::marqueeTick(uint32_t now) {
+  if (!gMarquee.owner) {
+    return false;                 // the common case: no row overflows, one pointer test
+  }
+  if (!gMarquee.drawn) {
+    /* We asked for a repaint and the owner's row was not in it: the app is showing
+     * something else (a text view, a call, a dialog) while the list object lives on. Stop
+     * asking — the row re-arms itself the next time it is actually painted. Without this a
+     * Meshtastic compose screen would be repainted 5 times a second by a list behind it. */
+    gMarquee.owner = NULL;
+    return false;
+  }
+  if (!marqueeAdvance(&gMarquee.clock, now, gMarquee.moreToCome)) {
+    return false;
+  }
+  gMarquee.drawn = false;         // the repaint we are asking for must set it again
+  return true;
+}
+
+void MenuWidget::marqueeForget(MenuWidget* w) {
+  if (gMarquee.owner == w) {
+    gMarquee.owner = NULL;
+  }
 }
 
 //void MenuWidget::removeOption(uint16_t key) {
@@ -14251,9 +14336,61 @@ uint16_t guiDrawEllipsized(LCD &lcd, const char* s, uint16_t maxW, int16_t x, in
   return lcd.textWidth(buf);
 }
 
-// Menu rows kept the old private name; one line so the call sites read the same.
-static inline void drawStringEllipsized(LCD &lcd, const char* s, uint16_t maxW, int16_t x, int16_t y) {
-  guiDrawEllipsized(lcd, s, maxW, x, y);
+static int marqueeMeasure(void* ctx, const char* s) {
+  return ((LCD*)ctx)->textWidth(s);
+}
+
+/* THE ONE TEXT PRIMITIVE FOR MENU ROWS. An unselected row, or a selected one whose text
+ * fits, gets exactly what guiDrawEllipsized gave it. The SELECTED row of the list that
+ * MenuWidget::redraw is probing is the marquee: it reports that it overflowed, paints from
+ * the current glyph offset, and says whether there is more to come — the widget and the tick
+ * do the rest. `font` is the face already set on `lcd`; it is needed here because TFT_eSPI
+ * keeps smoothFont protected and fitting whole glyphs without drawFitString's malloc needs
+ * the font itself. Holding at offset 0 paints the ".." form, so nothing jumps when the
+ * selection lands on a long row; mid-scroll is a hard cut on the right, which reads as
+ * motion. Never hands drawString more than maxW of text (menu_marquee.h, "both ends"). */
+static void drawRowText(LCD &lcd, SmoothFont* font, const char* s, uint16_t maxW, int16_t x, int16_t y, bool selected) {
+  if (!s || !*s) {
+    return;
+  }
+  if (!selected || !gMarquee.probing) {
+    guiDrawEllipsized(lcd, s, maxW, x, y);
+    return;
+  }
+  if (lcd.textWidth(s) <= maxW) {
+    lcd.drawString(s, x, y);
+    return;
+  }
+  gMarquee.overflow = true;
+  if (gMarquee.drawOffset == 0) {
+    gMarquee.moreToCome = true;
+    guiDrawEllipsized(lcd, s, maxW, x, y);
+    return;
+  }
+  bool atEnd = false;
+  const size_t b = marqueeStart(s, gMarquee.drawOffset, maxW, marqueeMeasure, &lcd, &atEnd);
+  if (atEnd) {
+    lcd.drawString(s + b, x, y);          // the whole tail fits: measured above
+    return;
+  }
+  gMarquee.moreToCome = true;
+  const int16_t fit = font ? font->fitTextLength(s + b, maxW) : 0;
+  if (fit <= 0) {
+    return;
+  }
+  /* 160 bytes covers a 232 px row of the narrowest glyphs with room for UTF-8; a longer fit
+   * is cut back to a glyph boundary. Stack, not heap: this runs on every marquee step. */
+  char buf[160];
+  size_t n = (size_t)fit;
+  if (n > sizeof(buf) - 1) {
+    n = sizeof(buf) - 1;
+    while (n > 0 && ((uint8_t)s[b + n] & 0xC0) == 0x80) {
+      n--;
+    }
+  }
+  memcpy(buf, s + b, n);
+  buf[n] = '\0';
+  lcd.drawString(buf, x, y);
 }
 
 uint16_t gScrimColor = THEME_SCRIM_COLOR;
@@ -14286,7 +14423,7 @@ void MenuOption::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, uint
   // Print text
   lcd.setTextFont(font);
   lcd.setTextColor(textColor, bgColor);
-  drawStringEllipsized(lcd, titleDyn, windowWidth - leftOffset, screenOffX + leftOffset, screenOffY + windowHeight/2);
+  drawRowText(lcd, font, titleDyn, windowWidth - leftOffset, screenOffX + leftOffset, screenOffY + windowHeight/2, selected);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Menu option with icon & subtitle - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -14361,12 +14498,12 @@ void MenuOptionIconned::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOff
   uint16_t allotted = windowWidth - iconOffset - leftOffset;
   if (subTitleDyn == NULL) {
     lcd.setTextFont(font);
-    drawStringEllipsized(lcd, titleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + windowHeight/2);
+    drawRowText(lcd, font, titleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + windowHeight/2, selected);
   } else {
     lcd.setTextFont(font);
-    drawStringEllipsized(lcd, titleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + (windowHeight-fonts[AKROBAT_BOLD_16]->height())/2);
+    drawRowText(lcd, font, titleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + (windowHeight-fonts[AKROBAT_BOLD_16]->height())/2, selected);
     lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
-    drawStringEllipsized(lcd, subTitleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + font->height() + (windowHeight-font->height())/2);
+    drawRowText(lcd, fonts[AKROBAT_BOLD_16], subTitleDyn, allotted, screenOffX + leftOffset + iconOffset, screenOffY + font->height() + (windowHeight-font->height())/2, selected);
   }
 }
 
@@ -14420,13 +14557,13 @@ void MenuOptionIconnedTimed::redraw(LCD &lcd, uint16_t screenOffX, uint16_t scre
    *   cut while every other list had "..". */
   lcd.setTextFont(font);
   lcd.setTextDatum(ML_DATUM);
-  guiDrawEllipsized(lcd, titleDyn, windowWidth - leftOffset - iconOffset - rightOffset - dateWidth, screenOffX + leftOffset + iconOffset, screenOffY + (windowHeight-fonts[AKROBAT_BOLD_16]->height())/2);
+  drawRowText(lcd, font, titleDyn, windowWidth - leftOffset - iconOffset - rightOffset - dateWidth, screenOffX + leftOffset + iconOffset, screenOffY + (windowHeight-fonts[AKROBAT_BOLD_16]->height())/2, selected);
   // - Subtitle (message text)
   if (subTitleDyn != NULL) {
     lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
     lcd.setTextColor(selected ? textColor : WP_DISAB_0, bgColor);
     uint16_t allotted = windowWidth - iconOffset - leftOffset;
-    guiDrawEllipsized(lcd, subTitleDyn, allotted, screenOffX + iconOffset + leftOffset, screenOffY + font->height() + (windowHeight-font->height())/2);
+    drawRowText(lcd, fonts[AKROBAT_BOLD_16], subTitleDyn, allotted, screenOffX + iconOffset + leftOffset, screenOffY + font->height() + (windowHeight-font->height())/2, selected);
   }
 }
 
@@ -14479,14 +14616,17 @@ void MenuOptionPhonebook::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenO
   uint16_t allotted = windowWidth - leftIconOff - rightIconOff;
   lcd.setTextColor(textColor, bgColor);
   lcd.setTextDatum(ML_DATUM);
+  /* These were drawFitString — the phonebook was the one list the 2026-08-19 ellipsis sweep
+   * missed, so a long contact name or address ended in a hard cut that read as complete.
+   * Now the same primitive as every other row: ".." unselected, scrolling when selected. */
   if (subTitleDyn == NULL) {
     lcd.setTextFont(font);
-    lcd.drawFitString(titleDyn, allotted, screenOffX + leftIconOff, screenOffY + windowHeight/2);
+    drawRowText(lcd, font, titleDyn, allotted, screenOffX + leftIconOff, screenOffY + windowHeight/2, selected);
   } else {
     lcd.setTextFont(font);
-    lcd.drawFitString(titleDyn, allotted, screenOffX + leftIconOff, screenOffY + (windowHeight-fonts[AKROBAT_BOLD_16]->height())/2);
+    drawRowText(lcd, font, titleDyn, allotted, screenOffX + leftIconOff, screenOffY + (windowHeight-fonts[AKROBAT_BOLD_16]->height())/2, selected);
     lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
-    lcd.drawFitString(subTitleDyn, allotted, screenOffX + leftIconOff, screenOffY + font->height() + (windowHeight-font->height())/2);
+    drawRowText(lcd, fonts[AKROBAT_BOLD_16], subTitleDyn, allotted, screenOffX + leftIconOff, screenOffY + font->height() + (windowHeight-font->height())/2, selected);
   }
 }
 

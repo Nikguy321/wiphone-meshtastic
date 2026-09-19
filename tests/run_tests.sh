@@ -85,6 +85,9 @@ for src in tests/test_*.cpp; do
     # cannot be compiled here (esp_heap_caps.h, hw.h, cpu.h, sound.h, lcd.h), which is why the
     # arithmetic lives in a header both it and this suite include.
     test_gbrom)    deps=() ;;
+    # Header-only: the scrolling selected menu row (WiPhone/menu_marquee.h) — its phase clock
+    # and the UTF-8 glyph stepping. The drawing itself needs the LCD and stays on the phone.
+    test_marquee)  deps=() ;;
     *)             deps=() ;;
   esac
   echo "building $name"

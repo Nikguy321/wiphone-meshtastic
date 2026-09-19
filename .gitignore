@@ -32,3 +32,6 @@ tools/t9-corpus/*.txt
 # it behind. Untracked noise in `git status` right before a deploy is exactly what the
 # handoff warns about, so keep them out of the way.
 tests/fixtures/_store*.tsv
+
+# Claude Code worktrees and local settings
+.claude/

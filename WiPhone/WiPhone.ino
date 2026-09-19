@@ -3334,6 +3334,14 @@ void loop() {
       }
     }
 
+    /* The menu marquee: an overflowing SELECTED row scrolls (MenuWidget::marqueeTick, GUI.h).
+     * Its own clock, not the app timer — apps own that for their own purposes. Nothing to
+     * scroll = one pointer test. Held while the mesh popup is up: the popup is painted on the
+     * panel over the sprite, and the repaint this asks for would wipe it early. */
+    if (!meshPopupActive && gui.marqueeTick(now)) {
+      redrawWhat |= REDRAW_SCREEN;
+    }
+
     // Trigger scheduled events
     EventType evnt;
     loopPhase("events");
