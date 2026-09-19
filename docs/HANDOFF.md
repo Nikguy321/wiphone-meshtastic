@@ -138,8 +138,9 @@ had refused it outright ("21 KB block"); the bar is now the reconnect bar + the 
 (2) A **per-run dynamic task** (stack freed after each download, to give phone 1 its 8 KB
 back) was tried and REJECTED on evidence: 26.3 KB largest before a run → **11.3 KB twenty
 minutes after**, free total recovered — fragmentation, the phone's known killer — so the
-**persistent worker is back** (fixed 8 KB from the first download; phone 1 then reads ~18 KB
-largest, predictably). (3) **A download that loses WiFi lets go**: phone 1 dropped WiFi during
+**persistent worker is back** (fixed 8 KB from the first download; phone 1 settled five
+minutes after its run at free 17.3 KB / largest 12.3 KB, from 25.8 / 20.5 KB before —
+predictably, and honestly thin). (3) **A download that loses WiFi lets go**: phone 1 dropped WiFi during
 a run's first handshake (it did that after every reflash this morning — the deaf-scan spell;
 ✅ **the 0.9.31 self-bounce FIRED and rejoined, hands-free, twice — first time seen in a real
 wedge**) and the paused job sat holding TLS + buffers while the rescue ran against largest

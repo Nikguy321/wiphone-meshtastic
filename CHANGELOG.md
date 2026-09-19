@@ -115,8 +115,8 @@ the thinnest margin in the firmware; the handshake bar was lowered to what phone
 the heap FRAGMENTED (26.3 KB largest before, 11.3 KB twenty minutes after, free total
 recovered): whatever WiFi and SIP allocated mid-run landed in the vacated region. The
 downloader is one persistent worker again: a fixed, visible 8 KB from the first download
-(phone 1 reads ~18 KB largest after it) rather than a number that depends on what else
-happened. **On phone 1, download at home on USB, and prefer the map's own screen closed
+(phone 1, settled five minutes after its run: free 17.3 KB, largest 12.3 KB, from 25.8 /
+20.5 KB before) rather than a number that depends on what else happened. **On phone 1, download at home on USB, and prefer the map's own screen closed
 (`maps dl` over the cable, or Start and then Back).**
 
 **Two more of COVEY's, the same morning.** The Pins / Places / Nodes lists are **nearest-first

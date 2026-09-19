@@ -52,9 +52,9 @@
  *      crashes. The superloop also never blocks for long, so the core-1 idle task that does
  *      the freeing is not guaranteed to run promptly.
  *   3. This: one worker, its 8 KB of internal stack carved once from a steady heap on the
- *      first download and held. The cost is fixed and visible — phone 1 idles at ~26 KB
- *      largest and reads ~18 KB after its first download, every time, instead of a number
- *      that depends on what else happened during the run. `maps dl` prints it. */
+ *      first download and held. The cost is fixed and visible — phone 1 measured five minutes
+ *      after a run: free 17.3 KB / largest 12.3 KB, from 25.8 / 20.5 KB before — instead of a
+ *      number that depends on what else happened during the run. `maps dl` prints it. */
 static StaticTask_t      s_tcb;
 static StackType_t*      s_stack = NULL;
 static TaskHandle_t      s_task  = NULL;
