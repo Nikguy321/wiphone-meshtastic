@@ -71,6 +71,12 @@ protected:
   char     placeTitle[20];          // MESH_PLACE_OPTS title (waypoint name copy)
   char     threadTitle[MESH_NAME_LEN];   // MESH_THREAD title (peer label copy)
 
+  /* Compose: the cap the field was built with (meshComposeCap, per thread type) and the
+   * reason the last Send was refused — a static literal from the service, NULL when the
+   * strip should show the "N/MAX" counter instead. See drawComposeStrip(). */
+  uint16_t    composeCap;
+  const char* composeNote;
+
   // Chats-list entries: a channel (isChannel true, id = channel hash) or a DM
   // peer (isChannel false, id = peer node number). Row key = index + 1.
   bool     chatIsChannel[MESH_APP_MAX_CHATS];
@@ -100,6 +106,7 @@ protected:
   void buildNodes();
   void buildStatus();
   void buildCompose();
+  void drawComposeStrip();      // the counter / "Not sent" band above the footer
   void buildViewMessage(int msgIndex);
   void buildMyNode();
   void buildEditName();

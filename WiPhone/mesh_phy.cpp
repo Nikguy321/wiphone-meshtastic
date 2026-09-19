@@ -3,6 +3,7 @@
  */
 
 #include "mesh_phy.h"
+#include "mesh_airtime.h"      // how long the frame we are about to send is on the air
 #include "Hardware.h"          // RFM95_CS, RFM95_INT, HSPI_MISO/MOSI/SCLK
 #include <RHSoftwareSPI.h>     // RadioHead bit-banged SPI transport
 
@@ -284,11 +285,22 @@ bool MeshPhy::send(const uint8_t* data, uint8_t len) {
   writeReg(REG_IRQ_FLAGS, 0xFF);
   writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
 
-  // Poll TxDone with a timeout (small payloads finish in a few hundred ms).
+  /* Poll TxDone, waiting as long as THIS frame takes. ⚠ THE TIMEOUT WAS A FLAT 2000 ms
+   * until 2026-09-19, and a maximum-length frame is 2157 ms on the air at the registers
+   * configureLongFast() writes (SF11/BW250/CR4-5, 16-symbol preamble — AN1200.13, pinned
+   * by tests/test_airtime.cpp). So a long text was declared "TX timeout", its IRQ flags
+   * cleared and the chip forced back to RX WHILE THE PA WAS STILL KEYED: truncated on air,
+   * false returned, and the whole 2 s stall paid for nothing. A 37-byte position beacon
+   * finishes in 519 ms and waits the same 1000 ms floor it effectively always had; a full
+   * frame now gets up to ~3 s, which is the new worst-case superloop stall for one send
+   * (see the NEVER TWO TRANSMITS note in meshtastic_service.cpp's loop()). */
+  const uint32_t airMs   = meshLoraAirtimeMs(len);
+  const uint32_t limitMs = meshLoraTxTimeoutMs(len);
   uint32_t start = millis();
   while (!(readReg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK)) {
-    if (millis() - start > 2000) {
-      log_e("MeshPhy: TX timeout");
+    if (millis() - start > limitMs) {
+      log_e("MeshPhy: TX timeout after %u ms (%u B frame, %u ms airtime)",
+            (unsigned)limitMs, (unsigned)len, (unsigned)airMs);
       writeReg(REG_IRQ_FLAGS, 0xFF);
       setModeRxContinuous();
       return false;

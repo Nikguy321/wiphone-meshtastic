@@ -17,6 +17,7 @@ extern uint32_t heapDelta(const char* what, uint32_t before);  // WiPhone.ino - 
 #include "replay_proto.h"   // mesh history replay (docs/replay-spec.md)
 #include "neighbor_info.h"  // NeighborInfo (portnum 71) encoding
 #include "mesh_wire.h"      // Data protobuf + PacketHeader (host-tested against upstream)
+#include "mesh_airtime.h"   // how much text one frame holds (host-tested against meshBuildData)
 
 /* Replay sizing. The ring and the reply slab live in PSRAM: 64×~184 B + 24×256 B
  * ≈ 18 KB of the 3.6 MB pool — deliberately NOTHING from internal heap, which
@@ -44,6 +45,18 @@ static bool s_meshCardIn = false;
 // Hop limit used for originated packets (mirrors MeshtasticService::myHopLimit
 // so the static TX helpers can read it). Updated in setup()/setHopLimit().
 static uint8_t s_hopLimit = 3;
+
+/* Why the last static meshTx* helper returned false — a literal in the words the compose
+ * screen shows after "Not sent: ". NULL after a transmit that went out. The helpers below
+ * are file statics that cannot reach a member, so sendChannelMessage/sendDirectMessage copy
+ * this into lastSendErr for the UI. Until 2026-09-19 every refusal here was a bare `return
+ * false` and the compose screen ignored even that: a message the radio would not take was
+ * dropped into the thread as if it had gone. */
+static const char* s_txError = NULL;
+
+/* The compose cap must fit the receive buffer on the far side — and ours. A compile-time
+ * check because the two numbers live in different files with different reasons to change. */
+static_assert(MESH_TEXT_CLIENT_CAP < MESH_TEXT_LEN, "compose cap must leave room for the terminator");
 
 #ifdef MESHTASTIC_PHY
 #include "mesh_phy.h"
@@ -76,9 +89,10 @@ static uint32_t s_lastTxPacketId = 0;
 /* millis() when the radio last finished a transmission. meshPhy.send() BLOCKS
  * for the whole airtime — 518 ms for a 37-byte position frame at the LongFast
  * registers this repo writes (SF11/BW250/CR4-5, computed in mesh_phy.cpp's
- * configureLongFast) — and the superloop makes no progress during it. Two of
- * those back to back is ~1.05 s of frozen keypad and GUI; the watchdog is 20 s
- * so it is not a reset, but it is visibly janky and three would be worse.
+ * configureLongFast), 2157 ms for a full 255-byte frame (mesh_airtime.h) — and
+ * the superloop makes no progress during it. Two of the short ones back to back
+ * is ~1.05 s of frozen keypad and GUI; the watchdog is 20 s so it is not a
+ * reset, but it is visibly janky and three would be worse.
  * The position beacon consults this and simply waits a pass. Stamped at both
  * transmit sites; 0 at boot means the first beacon is never gated. */
 static uint32_t s_lastPhyTxMs = 0;
@@ -98,10 +112,12 @@ static bool meshTxData(uint32_t sender, uint32_t dest, int portnum,
   size_t d = meshBuildData(data, portnum, payload, payloadLen, wantResponse, requestId);
 
   size_t pktLen = MESH_HEADER_LEN + d;
-  if (pktLen > 255) {
+  s_txError = NULL;
+  if (pktLen > MESH_LORA_FRAME_MAX) {
     /* The PHY takes a uint8_t length: 256 would WRAP TO ZERO and "send"
      * nothing. Reachable with a maximum-length text — refuse honestly. */
     log_e("MESH TX REFUSED: %uB exceeds the 255B LoRa frame", (unsigned)pktLen);
+    s_txError = "too long for the mesh";
     return false;
   }
 
@@ -120,12 +136,18 @@ static bool meshTxData(uint32_t sender, uint32_t dest, int portnum,
   uint8_t pkt[MESH_HEADER_LEN + 24 + MESH_PHY_MAX_PAYLOAD];
   memcpy(pkt, &hdr, MESH_HEADER_LEN);
   if (!meshCryptCtr(key, keyLen, sender, packetId, data, d, pkt + MESH_HEADER_LEN)) {
+    s_txError = "could not encrypt";
     return false;
   }
   log_i("Mesh TX port=%d to 0x%08X ch=0x%02X id=0x%08X (%uB)",
         portnum, dest, channelHash, packetId, (unsigned)pktLen);
   const bool sent = meshPhy.send(pkt, (uint8_t)pktLen);
   s_lastPhyTxMs = millis();   // stamped even on failure: the radio was still busy
+  if (!sent) {
+    /* send() is false for two reasons: no radio (isReady() false — the plate is off or the
+     * chip is lost) or TxDone never came within the frame's own timeout. */
+    s_txError = meshPhy.isReady() ? "radio busy, try again" : "no radio";
+  }
   return sent;
 }
 
@@ -141,8 +163,10 @@ static bool meshTxDataPki(uint32_t sender, uint32_t dest, int portnum,
   size_t d = meshBuildData(data, portnum, payload, payloadLen, false, requestId);
 
   size_t pktLen = MESH_HEADER_LEN + d + MESH_PKI_OVERHEAD;
-  if (pktLen > 255) {
+  s_txError = NULL;
+  if (pktLen > MESH_LORA_FRAME_MAX) {
     log_e("MESH PKI TX REFUSED: %uB exceeds the 255B LoRa frame", (unsigned)pktLen);
+    s_txError = "too long for the mesh";
     return false;
   }
 
@@ -162,12 +186,16 @@ static bool meshTxDataPki(uint32_t sender, uint32_t dest, int portnum,
   uint32_t extraNonce = esp_random();
   if (meshPkiEncrypt(sessionKey, sender, packetId, extraNonce,
                      data, d, pkt + MESH_HEADER_LEN) == 0) {
+    s_txError = "could not encrypt";
     return false;
   }
   log_i("Mesh PKI TX port=%d to 0x%08X id=0x%08X (%uB)",
         portnum, dest, packetId, (unsigned)pktLen);
   const bool sent = meshPhy.send(pkt, (uint8_t)pktLen);
   s_lastPhyTxMs = millis();   // see s_lastPhyTxMs: the beacon spaces itself off this
+  if (!sent) {
+    s_txError = meshPhy.isReady() ? "radio busy, try again" : "no radio";   // as meshTxData
+  }
   return sent;
 }
 
@@ -184,7 +212,17 @@ static bool meshTxAck(uint32_t sender, uint32_t dest, uint32_t requestId,
 static bool meshTxText(uint32_t sender, uint32_t dest, const char* text,
                        const MeshChannel* ch, bool wantAck = false) {
   size_t textLen = strlen(text);
-  if (textLen == 0 || textLen > MESH_TEXT_LEN - 1 || !ch) {
+  s_txError = NULL;
+  if (textLen == 0 || !ch) {
+    s_txError = textLen == 0 ? "nothing to send" : "no channel";
+    return false;
+  }
+  /* ⚠ WAS `textLen > MESH_TEXT_LEN - 1` (233). That is the RECEIVE buffer, not what a frame
+   * holds: 233 bytes of text is 256 on the air with the Data envelope and the header, one
+   * over the LoRa frame, and meshTxData refused it a few lines later anyway. The budget
+   * (232) is measured by tests/test_airtime.cpp against meshBuildData itself. */
+  if (textLen > meshTextBudget(false)) {
+    s_txError = "too long for the mesh";
     return false;
   }
   return meshTxData(sender, dest, MESH_PORT_TEXT_MESSAGE, (const uint8_t*)text, textLen,
@@ -259,6 +297,7 @@ MeshtasticService::MeshtasticService()
   refWaypointId = 0;
   placesNews = false;
   lastAnnounceOk = false;
+  lastSendErr = NULL;
   nextWpSweepMs = 0;
   gpsLatI = gpsLonI = 0;
   gpsFixMs = 0;
@@ -1627,6 +1666,10 @@ bool MeshtasticService::loop() {
    *     all fire in the same iteration. Two back to back is ~1.05 s of frozen
    *     keypad and GUI. When the spacing gate fails the deadline is
    *     deliberately NOT advanced: the slot is retried next pass, not lost.
+   *     ⚠ Since 2026-09-19 send() waits as long as the FRAME takes rather than
+   *     a flat 2 s (mesh_airtime.h): a maximum-length text is 2.2 s on the air
+   *     and up to ~3 s at its timeout, so one such send is ~3 s of stall on its
+   *     own. This rule matters more with that change, not less.
    *
    *  3. The movement gate (meshPosShouldBeacon — pure, proven on the host by
    *     tests/test_pos.cpp): a phone that has not moved 100 m skips the slot,
@@ -3383,11 +3426,14 @@ void MeshtasticService::loadChannels() {
 }
 
 bool MeshtasticService::sendChannelMessage(uint8_t channelHash, const char* text) {
+  lastSendErr = NULL;
   if (!text || !text[0]) {
+    lastSendErr = "nothing to send";
     return false;
   }
   const MeshChannel* ch = findChannelByHash(channelHash);
   if (!ch) {
+    lastSendErr = "no channel";
     return false;
   }
 #ifdef MESHTASTIC_PHY
@@ -3400,6 +3446,8 @@ bool MeshtasticService::sendChannelMessage(uint8_t channelHash, const char* text
     replayCapture(myNodeNum, ch, text);   // our own sends are history COVEY may have missed
     storeMessage(myNodeNum, MESH_BROADCAST_ADDR, channelHash, text, true);   // show it locally
     notePendingAck(txId, lastStoredTimeMs);
+  } else {
+    lastSendErr = s_txError ? s_txError : "not sent";
   }
   return ok;
 #else
@@ -3410,7 +3458,19 @@ bool MeshtasticService::sendChannelMessage(uint8_t channelHash, const char* text
 }
 
 bool MeshtasticService::sendDirectMessage(uint32_t destNode, const char* text) {
+  lastSendErr = NULL;
   if (!text || !text[0] || destNode == 0 || channelCount == 0) {
+    lastSendErr = (!text || !text[0]) ? "nothing to send" : "no channel";
+    return false;
+  }
+  /* 🔑 SIZE IS CHECKED HERE, BEFORE ANY PATH — against the PKI budget (220), whichever path
+   * this DM ends up taking. Two reasons. The queued path below echoes the message into the
+   * thread NOW and only discovers "256 B exceeds the frame" a tick later in loop(), where
+   * nobody is looking: the person sees their message in the conversation with a failed
+   * receipt and no idea why. And the legacy path's larger budget (232) is not a budget worth
+   * offering — a text that only fits as a legacy DM is one no 2.5+ node will display. */
+  if (strlen(text) > meshTextBudget(true)) {
+    lastSendErr = "too long for the mesh";
     return false;
   }
   const MeshChannel* ch = &channels[0];              // DMs go on the primary channel
@@ -3431,6 +3491,8 @@ bool MeshtasticService::sendDirectMessage(uint32_t destNode, const char* text) {
       if (ok) {
         storeMessage(myNodeNum, destNode, 0x00, text, true);
         notePendingAck(txId, lastStoredTimeMs);
+      } else {
+        lastSendErr = s_txError ? s_txError : "not sent";
       }
       return ok;
     }
@@ -3444,7 +3506,8 @@ bool MeshtasticService::sendDirectMessage(uint32_t destNode, const char* text) {
         return true;
       }
     }
-    return false;                                    // queue full — refuse honestly
+    lastSendErr = "radio busy, try again";           // queue full — refuse honestly
+    return false;
   }
   bool ok = meshTxText(myNodeNum, destNode, text, ch, true);
   uint32_t txId = s_lastTxPacketId;
@@ -3456,6 +3519,8 @@ bool MeshtasticService::sendDirectMessage(uint32_t destNode, const char* text) {
      * (running `pki` shows who has keys). */
     log_e("MESH DM to !%08x sent LEGACY (no key known) - a 2.5+ node will drop it",
           (unsigned)destNode);
+  } else {
+    lastSendErr = s_txError ? s_txError : "not sent";
   }
   return ok;
 #else
