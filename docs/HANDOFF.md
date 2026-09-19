@@ -75,9 +75,31 @@ read `heap` min-ever. Loop-task stack floor after a fresh boot is ~3 KB (the 408
 `/maps/usgs-topo`, `/maps/usgs-img`, `/maps/otm` areas; pins "Pin 1", "Pin 2" (local,
 unshared); `/photos/{usgs_tile.jpg,download.jpg,swaptest.bmp}`.
 
-⏳ **OPEN / OWED:** (a) phone 1; (b) an adversarial review of the night's diff was launched
-at the end (see the commit after this one for its fixes, or `notes` below if it had not
-returned); (c) OTM's 4 s/tile makes a 10 km OTM area a 1 h job — the screen says so;
+🔎 **THE MORNING'S REVIEW (09-19, `db0700a`): seven lenses were launched; three finished
+before a usage limit and every one of their findings is fixed and re-proven on phone 2.**
+The one that mattered most: **a task that creates itself per run and deletes itself RACES
+ITS OWN STATIC TCB on this FreeRTOS (8.2)**, and `eTaskGetState()` reads a cleaned-up static
+task as `eReady` (the NULL-list → eDeleted clause is newer) — my first fix refused every second
+run "not exited yet", measured. **The downloader is now ONE persistent worker on a semaphore**
+(`workerTask`), never deleted; three back-to-back runs, heap flat. Also fixed: `HTTPClient`
+destructed by a normal return before the worker idles (its Strings leaked internal RAM per run);
+error bodies drained or the socket dropped (a 404's tail would read as the next tile); no
+Content-Length fails at once (was an 8 s stall per tile); over-cap drops the socket; `waitReady()`
+merges pause + RAM-wait (never handshake below free 16 KB / largest 12 KB; 30 s → fail the tile;
+10 min paused → end the run; Stop honoured everywhere); card write failures count toward giving
+up + free-space check before start; a pin whose channel left the phone is not "retracted"
+elsewhere; tRNS on grey/RGB; no internal-heap fallback in any decoder/TLS alloc; stack 8 KB.
+⚠ **Correction to the night's claim:** the 0.5–0.9 s `'mesh'` stalls during downloads are the
+PRE-EXISTING ones (09-04 handoff, median 644 ms with nothing running) — the DB-save deferral
+(now capped at 5 min) did not remove them. That thread is still open and is not the map's.
+✅ **OpenTopoMap tiles seen on the panel** (contours, forest, rivers, right colours) — the
+PNG path is now eye-proven, not just host-tested. **Second review round** (the four lenses
+that never ran + a lens over the fixes) launched at ~03:10; its survivors, if any, are the
+commit after `db0700a`.
+
+⏳ **OPEN / OWED:** (a) phone 1 — not connected tonight (only `025A3F65` is on the USB); flash
+it, one small `maps dl`, read `heap` min-ever; (b) the second review round's findings;
+(c) OTM's 4 s/tile makes a 10 km OTM area a 1 h job — the screen says so;
 (d) COVEY parity not done: ruler, follow-me latch, N/F toggles, nearest-first GO picker
 (the PR's lists are by identity); (e) `docs/maps-brief.md` §10 decisions were taken as
 recommended (F3 = centre; raw .565 kept; per-share picker; in-app download that outlives the

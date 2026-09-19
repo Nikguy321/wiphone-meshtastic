@@ -221,6 +221,14 @@ protected:
   char     gotoLat[16], gotoLon[16];
   int      gotoField;       // 0 = latitude, 1 = longitude
 
+  // ---- follow me ----
+  /* A latched mode, not a one-shot: while on, every FRESH usable fix re-centres the map, and
+   * any scroll switches it off. Losing the fix must NOT move the view (COVEY's field report
+   * of 2026-08-22): only a MAPS_SELF_GPS answer moves it, and only when the fix is newer than
+   * the one it last centred on. */
+  bool     followMe;
+  uint32_t followLastStamp; // millis() at which the fix last centred on ARRIVED (millis - age)
+
   // ---- the channel picker ----
   int      chanPending;     // the PUBLIC row awaiting its second press (0 = none)
   int      chanForPin;      // which pin the picked channel is for

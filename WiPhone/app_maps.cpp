@@ -56,6 +56,7 @@ enum {
   ROW_M_BACK       = ROW_ACT + 8,
   ROW_M_DOWNLOAD   = ROW_ACT + 9,
   ROW_M_GOTO       = ROW_ACT + 10,
+  ROW_M_FOLLOW     = ROW_ACT + 11,
   ROW_P_RENAME     = ROW_ACT + 20,
   ROW_P_MOVE       = ROW_ACT + 21,
   ROW_P_SHARE      = ROW_ACT + 22,
@@ -163,6 +164,8 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   gotoField = 0;
   chanPending = 0;
   chanForPin = -1;
+  followMe = false;
+  followLastStamp = 0;
   {
     /* The last download choices, so a second area is two presses. Same namespace as the view. */
     Preferences p;
@@ -1886,6 +1889,7 @@ void MapsApp::buildMenu() {
   menu->addOption(row, ROW_M_NODES);
   menu->addOption("Go to coordinates...", ROW_M_GOTO);
   menu->addOption("Centre on me", ROW_M_ME);
+  menu->addOption(followMe ? "Follow me: ON (scroll stops it)" : "Follow me: off", ROW_M_FOLLOW);
   menu->addOption(tileFetchActive() ? "Downloading maps..." : "Download maps...", ROW_M_DOWNLOAD);
   if (areaCount > 1) {
     snprintf(row, sizeof(row), "Map area: %s", areaSel >= 0 ? areas[areaSel].name : "-");
@@ -1899,6 +1903,24 @@ void MapsApp::buildMenu() {
   }
 }
 
+/* ── THE LISTS ARE NEAREST-FIRST, FROM WHERE YOU ARE ────────────────────────────────────
+ * COVEY's GO picker (D-126): every row carries "1.4km NE" and the list is sorted by it, so the
+ * question "who is closest" is answered by the first row rather than by reading twenty. The
+ * reference is the chain selfPosition() already ranks — a live fix, your declared pin, a
+ * stale fix — and, with none of those, the crosshair: indoors the column still says how far
+ * from the place you are LOOKING AT, which is what the map is for. The rows carry the
+ * IDENTITY of the thing (see listId), so sorting here cannot change what OK opens. */
+struct MapsListRow {
+  uint32_t id;
+  double   dist;         // metres from the reference
+  char     text[72];
+};
+
+static int listRowCmp(const void* a, const void* b) {
+  const double da = ((const MapsListRow*)a)->dist, db = ((const MapsListRow*)b)->dist;
+  return da < db ? -1 : (da > db ? 1 : 0);
+}
+
 void MapsApp::buildList() {
   const char* empty = (listKind == LIST_PINS)
                       ? "No pins yet - OK on the map drops one"
@@ -1906,45 +1928,88 @@ void MapsApp::buildList() {
                          : "No node has sent a position yet");
   menu = newMenu(empty);
   listCount = 0;
-  char row[72];
+
+  // Where distances are measured from, and what to call it.
+  int32_t rLat = 0, rLon = 0;
+  uint32_t age = 0;
+  const int selfKind = selfPosition(&rLat, &rLon, &age);
+  const char* from = "you";
+  if (selfKind == MAPS_SELF_NONE) {
+    double lat = 0, lon = 0;
+    mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &lat, &lon);
+    rLat = mapDegToI7(lat);
+    rLon = mapDegToI7(lon);
+    from = "the crosshair";
+  } else if (selfKind == MAPS_SELF_PIN) {
+    from = "your pin";
+  }
+
+  /* PSRAM, not the GUI task's stack: 64 rows of 84 bytes is 5 KB, and the loop task's stack
+   * has been measured at a few hundred bytes to spare. */
+  MapsListRow* rows = (MapsListRow*)ps_malloc(sizeof(MapsListRow) * MAPS_MAX_LIST);
+  if (!rows) {
+    menu->addNote("No memory for the list");
+    return;
+  }
+  int n = 0;
+  char d[16];
   if (listKind == LIST_PINS) {
-    for (int i = 0; i < pinCount && listCount < MAPS_MAX_LIST; i++) {
-      snprintf(row, sizeof(row), "%s%s", pins[i].name, pins[i].sharedId ? " (shared)" : "");
-      listId[listCount] = (uint32_t)i;         // this app owns the pin array; index is identity
-      menu->addOption(row, ROW_FIRST + listCount);
-      listCount++;
+    for (int i = 0; i < pinCount && n < MAPS_MAX_LIST; i++) {
+      MapsListRow* r = &rows[n++];
+      r->id = (uint32_t)i;                     // this app owns the pin array; index is identity
+      r->dist = meshPosDistanceM(rLat, rLon, pins[i].latI, pins[i].lonI);
+      meshPosFmtDist(r->dist, d, sizeof(d));
+      snprintf(r->text, sizeof(r->text), "%s %s  %s%s", d,
+               meshPosCompass8(meshPosBearingDeg(rLat, rLon, pins[i].latI, pins[i].lonI)),
+               pins[i].name, pins[i].sharedId ? " (shared)" : "");
     }
   } else if (listKind == LIST_PLACES) {
-    const int n = meshService.getWaypointCount();
-    for (int i = 0; i < n && listCount < MAPS_MAX_LIST; i++) {
+    const int cnt = meshService.getWaypointCount();
+    for (int i = 0; i < cnt && n < MAPS_MAX_LIST; i++) {
       const MeshWaypoint* w = meshService.getWaypoint(i);
       if (!w || !w->id) {
         continue;
       }
-      snprintf(row, sizeof(row), "%s", w->name);
-      listId[listCount] = w->id;               // the waypoint table compacts; the id does not
-      menu->addOption(row, ROW_FIRST + listCount);
-      listCount++;
+      MapsListRow* r = &rows[n++];
+      r->id = w->id;                           // the waypoint table compacts; the id does not
+      r->dist = meshPosDistanceM(rLat, rLon, w->latI, w->lonI);
+      meshPosFmtDist(r->dist, d, sizeof(d));
+      snprintf(r->text, sizeof(r->text), "%s %s  %s", d,
+               meshPosCompass8(meshPosBearingDeg(rLat, rLon, w->latI, w->lonI)), w->name);
     }
   } else {
     /* The service re-sorts the node list only when a screen asks it to, and this is such a
-     * screen — the same contract the Meshtastic app's Nodes list follows. Asking here means
-     * the order is settled BEFORE the rows are built rather than shifting under them. */
+     * screen — the same contract the Meshtastic app's Nodes list follows. */
     meshService.refreshNodeOrder();
     const uint32_t me = meshService.getMyNodeNum();
     const uint32_t now = millis();
-    const int n = meshService.getNodeCount();
-    for (int i = 0; i < n && listCount < MAPS_MAX_LIST; i++) {
+    const int cnt = meshService.getNodeCount();
+    for (int i = 0; i < cnt && n < MAPS_MAX_LIST; i++) {
       const MeshNode* nd = meshService.getNode(i);
       if (!nd || !nd->nodeNum || nd->nodeNum == me || !nd->posHeardMs) {
         continue;
       }
+      MapsListRow* r = &rows[n++];
+      r->id = nd->nodeNum;
+      r->dist = meshPosDistanceM(rLat, rLon, nd->latI, nd->lonI);
+      meshPosFmtDist(r->dist, d, sizeof(d));
       const unsigned mins = (unsigned)((now - nd->posHeardMs) / 60000u);
-      snprintf(row, sizeof(row), "%s - %um ago", nd->name[0] ? nd->name : "?", mins);
-      listId[listCount] = nd->nodeNum;
-      menu->addOption(row, ROW_FIRST + listCount);
-      listCount++;
+      snprintf(r->text, sizeof(r->text), "%s %s  %s, %um ago", d,
+               meshPosCompass8(meshPosBearingDeg(rLat, rLon, nd->latI, nd->lonI)),
+               nd->name[0] ? nd->name : "?", mins);
     }
+  }
+  qsort(rows, (size_t)n, sizeof(MapsListRow), listRowCmp);
+  for (int i = 0; i < n; i++) {
+    listId[listCount] = rows[i].id;
+    menu->addOption(rows[i].text, ROW_FIRST + listCount);
+    listCount++;
+  }
+  free(rows);
+  if (listCount > 0) {
+    char note[48];
+    snprintf(note, sizeof(note), "nearest first, from %s", from);
+    menu->addNote(note);
   }
   if (listCount >= MAPS_MAX_LIST) {
     menu->addNote("(more not shown)");
@@ -2240,6 +2305,8 @@ static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "2 4 6 8     scroll too", WHITE },
   { "Side 1 / 2  zoom in / out (also # / *)", WHITE },
   { "Side 3      centre on me (also 0)", WHITE },
+  { "Menu > Follow me keeps you centred", WHITE },
+  { "            until you scroll", WHITE },
   { "OK          drop a pin, or open the pin", WHITE },
   { "            under the crosshair (also 5)", WHITE },
   { "Menu key    the map menu: download maps,", WHITE },
@@ -2354,6 +2421,10 @@ appEventResult MapsApp::onMapKey(EventType event) {
   }
 
   if (dx || dy) {
+    if (followMe) {
+      followMe = false;                  // a scroll is a decision to look elsewhere
+      setNote("Stopped following");
+    }
     /* The accelerator. A run is presses in the SAME direction arriving close together; any
      * pause or change of direction starts again at a nudge, so a deliberate correction after
      * a long sweep is still a correction and not another sweep. */
@@ -2467,6 +2538,25 @@ appEventResult MapsApp::processEvent(EventType event) {
   }
 
   if (event == APP_TIMER_EVENT) {
+    if (followMe && appState == MAPS_VIEW && !loadActive) {
+      /* A newer usable fix than the one last centred on: follow it. A stale or poor fix, or
+       * none, leaves the view exactly where it is. */
+      int32_t la = 0, lo = 0;
+      uint32_t age = 0;
+      if (selfPosition(&la, &lo, &age) == MAPS_SELF_GPS) {
+        /* The moment this fix arrived, from its age: the same fix reads the same stamp on
+         * every tick (give or take a tick), a new one reads a later stamp. */
+        const uint32_t stamp = millis() - age;
+        if (stamp - followLastStamp > 500u) {
+          followLastStamp = stamp;
+          centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
+          return REDRAW_SCREEN;
+        }
+      }
+      if (!wantAny) {
+        return DO_NOTHING;
+      }
+    }
     if (appState == MAPS_DOWNLOAD) {
       if (tileFetchActive() || (millis() - dlLastMs) < 1500) {
         if (millis() - dlLastMs >= 1000) {
@@ -2531,6 +2621,21 @@ appEventResult MapsApp::processEvent(EventType event) {
         return REDRAW_ALL;
       case ROW_M_AREA:
         enterState(MAPS_AREAS);
+        return REDRAW_ALL;
+      case ROW_M_FOLLOW:
+        followMe = !followMe;
+        followLastStamp = 0;
+        if (followMe) {
+          centreOnMe();                  // one honest centre now; the timer keeps it there
+          if (!gGpsNmea) {
+            setNote("GPS is off - following waits for it");
+          } else {
+            setNote("Following you - any scroll stops it");
+          }
+        } else {
+          setNote("Stopped following");
+        }
+        enterState(MAPS_VIEW);
         return REDRAW_ALL;
       case ROW_M_DOWNLOAD:
         enterState(MAPS_DOWNLOAD);
@@ -3075,7 +3180,9 @@ void MapsApp::redrawScreen(bool redrawAll) {
   /* The download screen ticks at 4 Hz for its progress line only while a job is running:
    * a finished screen must not keep the CPU awake either. */
   const bool progress = (appState == MAPS_DOWNLOAD) && tileFetchActive();
-  controlState.msAppTimerEventPeriod = busy ? 25 : (progress ? 250 : 0);
+  /* Following polls the fix once a second — a slow tick, and only on the map. */
+  const bool following = followMe && (appState == MAPS_VIEW) && gGpsNmea;
+  controlState.msAppTimerEventPeriod = busy ? 25 : (progress ? 250 : (following ? 1000 : 0));
 }
 
 // ---------------------------------------------------------------- the serial console

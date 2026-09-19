@@ -22,7 +22,7 @@ mesh has shared and the last position of everyone who has spoken.
 | **Side button 1 / 2** (top two) | zoom in / out. Also `#`/`*` or `3`/`1` |
 | **Side button 3** | centre on me: a live GPS fix (4+ satellites), else the pin you declared by hand. Also `0` |
 | **OK** | drop a pin on the crosshair and name it — or, with a pin under the crosshair, open it (rename / move / share / delete). Also `5` |
-| **Menu** (top-left soft key) | the map menu: download maps, go to coordinates, pins, places, nodes |
+| **Menu** (top-left soft key) | the map menu: download maps, go to coordinates, follow me, pins, places, nodes — the three lists are **nearest-first** with distance and bearing on every row |
 | **7 / 9** | previous / next pin, centring the map on it |
 | **Back** | leave. Where you were looking is saved — also on power-off |
 
