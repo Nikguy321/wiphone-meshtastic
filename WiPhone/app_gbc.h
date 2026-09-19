@@ -77,6 +77,8 @@ protected:
   bool enteredGaming = false;    // did we turn WiFi/mesh off? (restore on exit)
   volatile bool soundOn = false; // did we start the audio codec? (feed I2S + restore)
   int  audioStarve = 0;          // consecutive under-written I2S frames (emu thread only)
+  bool routeSaved = false;       // did startGame move the codec's output? (put it back)
+  bool savedLoudspeaker = false; // the output the phone was on before the game
 
   void adjustVolume(int delta);  // F1/F2 in-game volume up/down
 

@@ -255,6 +255,31 @@ void GbcApp::startGame() {
      * nothing to restore on the way out. */
     audio->setMonoOutput(false);
 
+    /* ⚠ CHOOSE THE OUTPUT TOO, FOR THE SAME REASON: NOTHING HERE CHOSE, SO A GAME INHERITED
+     * WHATEVER THE LAST USER LEFT. start() builds the codec's power mask from
+     * Audio::loudspeaker (headphones > loudspeaker > earpiece) and switches on the separate
+     * amplifier IC only for the loudspeaker; shutdown() never resets the flag, and the
+     * phone's default is the EARPIECE. Right for a call, where the phone is against your
+     * head; for a game held at arm's length it is the tiny one-ear speaker, and the sound
+     * read as missing. Nick, 2026-09-19: the sound plays through the earpiece.
+     *
+     * Headphones win when the jack is occupied, as in music_player.cpp. setHeadphones() —
+     * the jack interrupt, WiPhone.ino — reconfigures the LIVE codec by itself, so with the
+     * loudspeaker flag set, plugging or unplugging mid-game routes correctly with nothing
+     * more from here. Volume needs nothing either: setVolumes() already clamps the
+     * loudspeaker to MaxLoudspeakerVolume, so F1/F2 (adjustVolume) stay safe on it.
+     *
+     * Saved, and PUT BACK in the destructor: a borrower leaves the device as it found it
+     * (music_player's restoreCallVolume and Audio::preserve/restore, for the same reason),
+     * so whatever starts the codec next inherits the phone's route, not the game's. Its
+     * own flag rather than soundOn: the emu thread clears soundOn when I2S starves, and
+     * start() can fail, and the route has to go back on both of those paths. */
+    savedLoudspeaker = audio->isLoudspeaker();
+    routeSaved = true;
+    if (!audio->getHeadphones()) {
+      audio->chooseSpeaker(true);
+    }
+
     soundOn = audio->start();
     audioStarve = 0;
   }
@@ -319,6 +344,17 @@ GbcApp::~GbcApp() {
   if (soundOn && audio) {   // hand the audio path back to the phone
     audio->shutdown();
     soundOn = false;
+  }
+  if (routeSaved && audio) {
+    /* Put the output back where startGame found it (see the note there). After shutdown()
+     * on purpose: with the device off this is a flag write that the next start() reads.
+     * Two paths skip shutdown(). If the emu thread gave up on a starved I2S and cleared
+     * soundOn the codec is still up (audioOn), so chooseSpeaker() reconfigures it live:
+     * amplifier off, the old output back. If start() itself failed, audioOn is already
+     * false and this is the flag write again; either way the idle watchdog in WiPhone.ino
+     * releases the device once gGbcActive drops below. */
+    audio->chooseSpeaker(savedLoudspeaker);
+    routeSaved = false;
   }
   gbcXferStop();            // in case the app dies while the transfer screen is up
 
