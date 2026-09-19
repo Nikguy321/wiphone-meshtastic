@@ -97,8 +97,27 @@ PNG path is now eye-proven, not just host-tested. **Second review round** (the f
 that never ran + a lens over the fixes) launched at ~03:10; its survivors, if any, are the
 commit after `db0700a`.
 
+🗺️ **~03:00–03:40, after the limit reset: COVEY parity + review round two, all on the panel.**
+`872f715` nearest-first Pins/Places/Nodes lists with distance + bearing ("6.2km N Clifford") and
+**Follow me** (latched, 1 s poll, any scroll stops it, tracked by the fix's arrival stamp);
+`f7bddab` the **ruler** (Menu → Measure from here: dashed line to the crosshair, "Ruler: 1.1km SE
+of the anchor" on the strip's second row — row 1 could not fit it beside a 1 km bar); `afb630b`
+round two's fixes: 🛑 **the places-news redraw was STILL lost** — my first fix OR'd into a per-pass
+local the pass had already consumed (now acts on the result directly, like the mirror path);
+`gMapsActive` no longer grabs F-keys while LOCKED with the map underneath; a pin whose channel
+LEFT the phone is refused by `sharePin()` (rename/move used to re-send it on the automatic
+channel — an unretractable copy), its options say so, and delete keeps it; the download form
+shows a refused Start and rebuilds after a call ate its ticks; `maps dl` validates
+radius/zoom/centre (a negative radius read as an antimeridian crossing = the whole world);
+`maps dlurl` validates; `open` refuses during a call (enterApp deletes the CallApp);
+🔴 **FilesApp's field-by-field `XferConfig` never set `tree`** (PSRAM is not zeroed → the
+general uploader ran in tree mode on some boots); tree segments cap at 31 (the viewer's
+area-name limit); `wiphone_send.py --replace`. Final build on phone 2: 19/19 tiles, 0 failed,
+min-ever 6,308 app closed. **Still to read: the pins-channels and fixes lenses + verifiers
+of round two** (running at 03:40; `/workflows`).
+
 ⏳ **OPEN / OWED:** (a) phone 1 — not connected tonight (only `025A3F65` is on the USB); flash
-it, one small `maps dl`, read `heap` min-ever; (b) the second review round's findings;
+it, one small `maps dl`, read `heap` min-ever; (b) round two's last two lenses;
 (c) OTM's 4 s/tile makes a 10 km OTM area a 1 h job — the screen says so;
 (d) COVEY parity not done: ruler, follow-me latch, N/F toggles, nearest-first GO picker
 (the PR's lists are by identity); (e) `docs/maps-brief.md` §10 decisions were taken as
