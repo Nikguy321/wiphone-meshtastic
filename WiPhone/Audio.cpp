@@ -675,6 +675,7 @@ void Audio::ceasePlayback() {
     playbackFile.close();
   }
   this->playback = Playback::Nothing;
+  this->pcmMem = nullptr;                   // the next LocalPcm reads its FILE unless told otherwise
   i2s_zero_dma_buffer((i2s_port_t)i2s_num);
   memset(this->playDec, 0, sizeof(this->playDec));
   this->playDecFramesLeft = 0;
@@ -887,6 +888,11 @@ void Audio::restore() {
 }
 
 bool Audio::playPop(fs::FS *fs, int8_t vol) {
+  return this->playPop(nullptr, 0, fs, vol);
+}
+
+bool Audio::playPop(const uint8_t* pcm, size_t pcmLen, fs::FS *fs, int8_t vol) {
+  this->popProblem = nullptr;
   this->preserve();          // ⚠ BEFORE anything below changes it
   this->ceasePlayback();
   this->playback = Playback::LocalPcm;
@@ -906,13 +912,56 @@ bool Audio::playPop(fs::FS *fs, int8_t vol) {
   this->setVolumes(Audio::MaxVolume, Audio::MaxVolume, vol);
 
   if (!this->turnOn()) {
+    this->popProblem = "turnOn failed (codec/I2S start)";
     this->restore();      // nothing will call restore() for us if the pop never starts
     return false;
   }
+  /* The buffer first; the file only when there is no buffer. Not "if the buffer fails":
+   * playPcm() cannot fail once turnOn() has succeeded, and a fallback that could run after
+   * a partial start would be exactly the kind of silent second path this codebase keeps
+   * finding. */
+  if (pcm && pcmLen >= 2) {
+    if (this->playPcm(pcm, pcmLen)) {
+      return true;
+    }
+    this->popProblem = "playPcm refused after turnOn - should be impossible";
+    this->restore();
+    return false;
+  }
+  if (!fs) {
+    this->popProblem = "no buffer and no filesystem";
+    this->restore();
+    return false;
+  }
   if (!this->playFile(fs, "/pop.pcm")) {
+    this->popProblem = "open /pop.pcm failed";    // turnOn() already succeeded, so it is the open
     this->restore();      // ditto: the caller only arms the teardown when we return true
     return false;
   }
+  return true;
+}
+
+/* A LocalPcm source that is a buffer instead of a file: the same decode loop, fed by memcpy.
+ * Plays ONCE. When the buffer runs out the LocalPcm branch of loop() pads with zeros instead
+ * of wrapping, because the file player's wrap is what queues a second attack into a 512 ms
+ * DMA that the caller's stop timer then has to beat — see notify_timing.h. */
+bool Audio::playPcm(const uint8_t* data, size_t len) {
+  if (!data || len < 2) {
+    return false;
+  }
+  this->ceasePlayback();    // clears pcmMem too; set it back below, AFTER the buffers are reset
+  if (!this->turnOn()) {
+    return false;
+  }
+  this->playEncW = 0;
+  this->playEncR = 0;
+  this->playDecFramesLeft = 0;
+  memset(this->playDec, 0, sizeof(this->playDec));
+  this->pcmMem = data;
+  this->pcmMemLen = len;
+  this->pcmMemPos = 0;
+  this->playback = Playback::LocalPcm;
+  this->playbackEof = false;
   return true;
 }
 
@@ -1100,12 +1149,30 @@ void Audio::loop() {
   if (this->playback == Playback::LocalPcm) {
     if (this->playDecFramesLeft == 0) {
       static int pcm_offset = 0;
+      int res;
 
-      if (!playbackFile.available()) {
-        this->setFilePos(0);
+      if (this->pcmMem) {
+        /* Memory source (playPcm): play the buffer through once, then silence. The file
+         * branch below wraps; this one must NOT — a pop that wraps replays its attack, and
+         * the whole point of the buffer is that the stop timer no longer has to be exact. */
+        const size_t left = this->pcmMemLen - this->pcmMemPos;
+        size_t n = left < sizeof(this->playDec) ? left : sizeof(this->playDec);
+        if (n > 0) {
+          memcpy(this->playDec, this->pcmMem + this->pcmMemPos, n);
+          this->pcmMemPos += n;
+        } else {
+          memset(this->playDec, 0, sizeof(this->playDec));
+          n = sizeof(this->playDec);
+          this->playbackEof = true;       // every sample handed to the DMA; padding from here
+        }
+        res = (int)n;
+      } else {
+        if (!playbackFile.available()) {
+          this->setFilePos(0);
+        }
+
+        res = playbackFile.read((uint8_t*)this->playDec, sizeof(this->playDec));
       }
-
-      int res = playbackFile.read((uint8_t*)this->playDec, sizeof(this->playDec));
 
       this->playDecCurFrame = 0;
       this->playDecFramesLeft = res / 2;

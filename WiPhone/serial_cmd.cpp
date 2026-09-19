@@ -100,6 +100,8 @@ static void help() {
     "  up         where to point a browser",
     "  sync       poll COVEY for mirrored texts now",
     "  mirror     mirror poller state",
+    "  notify [sip]  fire the mesh (or text) arrival announcement - buzz + pop through the",
+    "             real path, with the NOTIFY: lines that time them; no second phone needed",
     "  sip        SIP account state: loaded, registered, WiFi - one line",
     "  bookpage   dump the open reader page's layout + rendering",
     "  keys       keypad health: why a press went missing (drained/rescued/swept)",
@@ -428,6 +430,21 @@ static void run(char* line) {
   if (!strcasecmp(line, "mirror")) {
     say("mirror: %s (%sconfigured)\n", smsMirrorPollStatus(),
         smsMirrorPollConfigured() ? "" : "not ");
+    return;
+  }
+
+  /* `notify` — the arrival announcement without an arrival. "Sometimes the motor barely
+   * starts, sometimes the sound does not play" needed a second phone and a mesh message per
+   * try; this is one line on the cable, through the SAME notifyMessageArrived() the mesh and
+   * text paths call, so the buzz-off/pop-stopped lines it prints are the ones a real message
+   * would print. It cannot reproduce the DB-save stall that made the real path lie — that
+   * still needs a message landing while the phone is idle. */
+  if (!strcasecmp(line, "notify") || !strcasecmp(line, "notify sip")) {
+    extern void notifyBenchArrival(bool sip);
+    const bool sip = (line[6] != '\0');
+    notifyBenchArrival(sip);
+    say("notify: %s arrival fired - watch for NOTIFY: buzz / pop start / buzz off / pop stopped\n",
+        sip ? "text" : "mesh");
     return;
   }
   if (!strcasecmp(line, "bookpage")) {

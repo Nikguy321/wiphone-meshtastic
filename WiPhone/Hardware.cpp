@@ -46,10 +46,13 @@ bool allDigitalWrite(int16_t pin, int16_t val) {
     return true;
   }
   if (pin & EXTENDER_FLAG) {
-    gpioExtender.digitalWrite(pin ^ EXTENDER_FLAG, val);
-  } else {
-    digitalWrite(pin, val);
+    /* This returned true unconditionally while the extender's write returned void, so the
+     * one caller that checked (lcdLedOnOff) could never see a failure and the vibro motor's
+     * callers never bothered to. The SX1509 write is three I2C transactions on the bus the
+     * codec, keypad and gauge share; the driver now reports them - see SX1509::writePin(). */
+    return gpioExtender.digitalWrite(pin ^ EXTENDER_FLAG, val);
   }
+  digitalWrite(pin, val);
   return true;
 }
 

@@ -92,6 +92,9 @@ for src in tests/test_*.cpp; do
     # Header-only: the scrolling selected menu row (WiPhone/menu_marquee.h) — its phase clock
     # and the UTF-8 glyph stepping. The drawing itself needs the LCD and stays on the phone.
     test_marquee)  deps=() ;;
+    # Header-only: the notification pop's stop timer (notify_timing.h) against the shipping
+    # pop_pcm[] bytes. WiPhone.ino cannot be compiled here, same reason as above.
+    test_notify)   deps=() ;;
     *)             deps=() ;;
   esac
   echo "building $name"

@@ -166,6 +166,22 @@ public:
    * Settings > Notifications owns this now. MaxVolume keeps the old behaviour for any caller
    * that does not care. */
   bool playPop(fs::FS *fs, int8_t vol = Audio::MaxLoudspeakerVolume);
+  /* The same sound from a buffer already in memory — pop_pcm[] in flash — with the SPIFFS
+   * file as the fallback when `pcm` is null or empty. The file's open alone has been measured
+   * at 1.2-1.6 s on this phone (docs/HANDOFF.md, "SPIFFS here is pathologically slow"), and
+   * it happened INSIDE the notification with the motor already running: a chirp made the
+   * buzz a second long, which was one of the two halves of "the vibrate length is very
+   * inconsistent". A buffer plays ONCE and then pads with silence — see the LocalPcm branch
+   * of loop() — so a late stop cannot replay it the way the looping file player does. */
+  bool playPop(const uint8_t* pcm, size_t pcmLen, fs::FS *fallbackFs,
+               int8_t vol = Audio::MaxLoudspeakerVolume);
+  /* Why the last playPop() returned false, for the caller's log line; null after a success. */
+  const char* popError() const {
+    return this->popProblem;
+  }
+  bool popFromMemory() const {
+    return this->pcmMem != nullptr;
+  }
   bool rewind() {
     return this->playFile(this->playbackFS, this->playbackFilename.c_str());
   }
@@ -262,6 +278,7 @@ public:
 protected:
   bool turnOn();                            // enable the audio systems and main loop if not enabled already
   bool playFile();
+  bool playPcm(const uint8_t* data, size_t len);   // LocalPcm from a buffer, once; see playPop()
   bool setDataChannels(int channels);
   bool setFilePos(uint32_t pos);
   bool playChunk();
@@ -345,6 +362,15 @@ protected:
   String      playbackBasename="";          // basename (shor filename)
   File        playbackFile;                 // MP3 file
   bool        playbackEof = false;
+
+  /* Memory-backed LocalPcm source (playPcm). Null = the LocalPcm branch reads playbackFile
+   * as it always did. Cleared by ceasePlayback(), which every playback start goes through,
+   * so the ringtone — LocalPcm from a file — can never be handed the pop's bytes. Nothing is
+   * allocated: the buffer is the caller's and the chunks go through playDec. */
+  const uint8_t* pcmMem = nullptr;
+  size_t      pcmMemLen = 0;
+  size_t      pcmMemPos = 0;
+  const char* popProblem = nullptr;         // playPop()'s reason for a false, see popError()
 
   String      artist;
   String      title;
