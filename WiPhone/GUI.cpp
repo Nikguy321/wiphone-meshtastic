@@ -24,6 +24,7 @@ governing permissions and limitations under the License.
 #include "app_maps.h"
 #include "sms_mirror_rx.h"   // sipCompleteAddress: bare number -> full SIP URI
 #include "app_music.h"
+extern volatile bool gGbcActive;   // WiPhone.ino: the emulator owns the screen and the audio device
 #include "menu_marquee.h"  // the scrolling selected menu row: phase clock + glyph stepping
 
 // Defined further down, used by the Messages screens above it.
@@ -2369,6 +2370,12 @@ bool GUI::openAppFromConsole(ActionID_t app) {
     break;
   }
   if (callApp != NULL) {
+    return false;
+  }
+  /* The emulator is not torn down by enterApp(): `open clock` with a game running entered
+   * the clock underneath it and the `audio` dump kept saying gbc=1 (phone 2, 2026-09-19).
+   * Refuse; the game's own pause menu (END) is the way out. */
+  if (gGbcActive) {
     return false;
   }
   enterApp(app);

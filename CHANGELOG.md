@@ -82,6 +82,63 @@ loop-stall log gained nothing. Still hard-truncating, deliberately left alone: t
 title, `LabelWidget`, `ChoiceWidget`, the sliders and the text inputs -- none of them is a
 list you highlight.
 
+### The notification buzz and chirp are timed from the clock, and the chirp starts in 20 ms
+
+Nick, 2026-09-19: *"Vibrate length of time is very inconsistent. Sometimes it's correct,
+sometimes the motor just barely starts. Also when sound is enabled for notifications, sometimes
+sound will play, but sometimes it won't."* One cause behind both. A mesh arrival is handled
+inside the loop's `mesh` block, AFTER `meshService.loop()` -- the block whose DB save stalls the
+pass 0.5-1.5 s, 556 times in phone 2's log -- and after a full repaint, and it stamped the motor
+and the pop with the `now` taken at the TOP of that pass. The next pass, a few milliseconds
+later, compared a fresh clock against a stamp already a second old, judged the 200 ms buzz and
+the 280 ms pop long finished, and switched both off: a motor that "barely starts", a chirp cut
+before it sounded. The SIP path stamped `millis()` itself and behaved, which is why it looked
+random.
+
+- **Stamps come from the clock.** `notifyMessageArrived()` lost its `now` parameter: the motor
+  is stamped `millis()` right after the write that starts it, the pop right after `playPop()`
+  returns, and the teardown compares against a fresh `millis()` too. A second message still
+  re-arms the pulse. The mesh popup banner had the same stale stamp and is fixed with it.
+- **The chirp plays from flash.** `playPop()` opened `/pop.pcm` on SPIFFS every time -- 505 ms
+  for the open alone on the bench today, 1.2-1.6 s measured earlier -- with the motor already
+  running, so a chirp both started late and stretched the buzz. The same bytes are compiled in
+  as `pop_pcm[]` (they are what installs the SPIFFS copy at boot), so `Audio::playPcm()` now
+  plays them straight from flash, once, then pads silence; the SPIFFS file is the fallback. No
+  allocation. The stop timer is derived from the array's length in `notify_timing.h` (320 ms
+  of samples; 360 ms stop) and pinned to the shipping bytes by `test_notify` (18 checks).
+- **The motor write is checked.** The board's extender is an SX1509, whose `digitalWrite` was a
+  three-transaction read-modify-write that returned nothing, and `allDigitalWrite()` said
+  `true` regardless. The driver now returns the bus result and refuses to write back a word it
+  could not read (a failed read used to write zeros over the LCD reset and the 3.3 V daughter
+  enable); the motor write retries once and logs a failure. No such line has appeared yet.
+- **It proves itself in the log.** Every arrival now prints `NOTIFY: buzz off after N ms
+  (target M)`, `NOTIFY: pop start took N ms (flash, stop at S ms)` and `NOTIFY: pop stopped
+  after N ms`; a chirp that could not start says why. Serial `notify` (and `notify sip`) fires
+  the real arrival path from the cable.
+
+Measured on phone 1 (Buzz 650 ms): three `notify` runs gave buzz off after **651 / 650 / 653
+ms**, pop start **21 / 20 / 19 ms** from flash, pop stopped at 360-364 ms. A real message from
+phone 2 that landed right behind a 1,062 ms `mesh` stall buzzed 869 ms and chirped in 20 ms --
+the DB save that FOLLOWS an arrival can still hold the off-switch a little late (long, never
+short; the pop is silence by then). Under the old code that arrival was the "barely starts"
+case.
+
+### The Game Boy plays through the loudspeaker
+
+Nick, 2026-09-19: *"I believe the sound plays through the earpiece instead of the loudspeaker.
+Can we make it play through the loudspeaker unless headphones are connected?"* `startGame()`
+set the sample rate and the channel format and chose no output, so `Audio::start()` powered
+the codec up with whatever `loudspeaker` was last -- the earpiece, the one-ear call speaker,
+unless music had been playing. It now snapshots the routing, chooses the loudspeaker unless
+headphones are in (the music player's rule, `music_player.cpp`), and puts the routing back in
+the destructor on its own flag -- not `soundOn`, which the emulator clears on a starved I2S --
+so the next call is on the earpiece again. Plugging or unplugging headphones mid-game routes by
+itself through the jack interrupt's live `codecReconfig()`. The serial `audio` dump now shows
+`route=headphones|loudspeaker|earpiece`.
+
+Seen on phone 2: `route=earpiece` before, `route=loudspeaker gbc=1` with MICROCITY running,
+`route=earpiece gbc=0 powered=no` after quitting through the game's own menu.
+
 ## 0.9.64 (2026-09-18) - a map that downloads its own tiles, and the phone's first HTTPS
 
 Built on the 09-14 map (below) and finished on hardware the night of 09-18, against Nick's
