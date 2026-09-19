@@ -106,12 +106,29 @@ int mapPinParseLine(const char* line, MapPin* out) {
     return -1;
   }
 
+  /* Five fields when there is a fourth comma: the channel sits between the id and the name.
+   * The name is the rest of the line either way (it may hold spaces, never a comma). */
+  const char* nameStart = c3 + 1;
+  const char* c4 = (const char*)memchr(c3 + 1, ',', (size_t)(lineEnd - c3 - 1));
+  if (c4) {
+    size_t chanLen = (size_t)(c4 - (c3 + 1));
+    if (chanLen >= sizeof(pin.chan)) {
+      chanLen = sizeof(pin.chan) - 1;
+    }
+    for (size_t i = 0; i < chanLen; i++) {
+      const unsigned char ch = (unsigned char)c3[1 + i];
+      pin.chan[i] = (ch < 0x20) ? ' ' : (char)ch;    // a control character is not a name
+    }
+    pin.chan[chanLen] = '\0';
+    nameStart = c4 + 1;
+  }
+
   char raw[MAP_PIN_LINE_MAX];
-  size_t nameLen = (size_t)(lineEnd - (c3 + 1));
+  size_t nameLen = (size_t)(lineEnd - nameStart);
   if (nameLen >= sizeof(raw)) {
     nameLen = sizeof(raw) - 1;
   }
-  memcpy(raw, c3 + 1, nameLen);
+  memcpy(raw, nameStart, nameLen);
   raw[nameLen] = '\0';
   mapPinSanitizeName(raw, pin.name, sizeof(pin.name));
 
@@ -129,8 +146,16 @@ int mapPinFormatLine(const MapPin* p, char* out, size_t cap) {
   }
   char safe[MAP_PIN_NAME_LEN];
   mapPinSanitizeName(p->name, safe, sizeof(safe));
-  const int n = snprintf(out, cap, "%ld,%ld,%lu,%s",
-                         (long)p->latI, (long)p->lonI, (unsigned long)p->sharedId, safe);
+  /* The channel field may not carry the separator either; a comma in a channel name (none
+   * exist, but a card is hand-editable) becomes a space rather than a fifth field. */
+  char chan[MAP_PIN_CHAN_LEN];
+  size_t k = 0;
+  for (const char* q = p->chan; *q && k + 1 < sizeof(chan); q++) {
+    chan[k++] = (*q == ',' || (unsigned char)*q < 0x20) ? ' ' : *q;
+  }
+  chan[k] = '\0';
+  const int n = snprintf(out, cap, "%ld,%ld,%lu,%s,%s",
+                         (long)p->latI, (long)p->lonI, (unsigned long)p->sharedId, chan, safe);
   if (n < 0 || (size_t)n >= cap) {
     out[0] = '\0';
     return 0;

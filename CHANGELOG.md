@@ -1,6 +1,80 @@
 # Changelog
 
-## 0.9.64 (2026-09-14) - a map, because a list cannot tell you which side of the creek he is on
+## 0.9.64 (2026-09-18) - a map that downloads its own tiles, and the phone's first HTTPS
+
+Built on the 09-14 map (below) and finished on hardware the night of 09-18, against Nick's
+list: download maps to the card from the phone, the COVEY features that make sense on a
+keypad, the side buttons for zoom and centre, OK for pins, the soft key for the menu, a chosen
+channel for sharing, and the view kept across power-off.
+
+**Download maps on the phone.** `Menu → Download maps...`: USGS Topo, USGS Aerial or
+OpenTopoMap; 2/5/10/20 km around the crosshair; z13–z16; the honest estimate before Start. It
+needs WiFi and USB (or a battery above 3.8 V), keeps going when you leave the screen, pauses
+for a call or a dropped WiFi, only fetches what is missing, and writes each tile under a
+temporary name so a power-off mid-tile leaves nothing wrong on the card. Measured: a 5 km
+area at z15 (271 tiles, 34 MB) in 260 s from USGS, zero failures; OpenTopoMap about four
+seconds a tile, server-bound.
+
+**HTTPS, for the first time on this phone.** An HTTPS pull of one USGS tile through the
+existing `/fetch` path FAILED on 0.9.63 (`SSL - Memory allocation failed`, internal heap down
+to 2.7 KB): the framework builds mbedTLS to allocate from INTERNAL RAM, its two 16 KB record
+buffers exceed the largest free block, and the handshake runs on the calling task's 8 KB
+stack. The downloader is the escape — its own task with a 10 KB internal stack, mbedTLS's
+allocator redirected into PSRAM once (`mbedtls_platform_set_calloc_free`), one kept-alive
+connection per area (handshake ~1.5 s once, then ~250 ms a tile) — measured with the new
+`tlstest` bench: 70/70 GETs, PSRAM returned to the byte. The price is spelled out in
+`tile_fetch.h`: ~10 KB of internal RAM for the life of the firmware from the first download,
+and a ~12 KB internal dip during each run's first handshake. The downloader refuses to start
+when the largest free block is under 14 KB and says to reboot.
+
+**The phone decodes tiles now — on arrival, not on the draw path.** USGS tiles are baseline
+colour JPEG and go through the ROM TJpgDec with private callbacks (`tile_decode.cpp`);
+OpenTopoMap's palette PNGs go through the ROM `tinfl` inflater the e-reader already trusts,
+wrapped in the 300-line PNG decoder `tile_png.cpp` (palette 1/2/4/8-bit, grey, RGB, RGBA;
+41 host checks, every filter type, every refusal named). The card still holds raw `.565`;
+the viewer is unchanged.
+
+**The keys Nick asked for.** Side buttons 1/2 zoom, 3 centres on you — and the map owns the
+side buttons while it is open (`gMapsActive`, the Game Boy's rule) so a loaded music track
+cannot swallow them. OK drops a pin or opens the one under the crosshair; the top-left soft
+key is the menu (tested BEFORE `LOGIC_BUTTON_OK`, which folds SELECT into OK on this
+keyboard). `Menu → Go to coordinates` is a two-field entry: digits, `*` for the point, `#`
+for minus.
+
+**Share on a chosen channel.** *Share it on the mesh* opens the channel picker (the beacon's
+rules: public rows say so and take two presses; the default is your position beacon's
+channel). The channel's NAME is stored with the pin — `pins.txt` gains a field, older files
+still load — so a rename re-send and *Take it off the mesh* go out where the pin already is.
+The rows say where: "Update it on hunt-group", "Share on another channel...".
+
+**Saved on power-off.** Both power-off paths pull the latch before any destructor runs; the
+view is now written by `mapsSaveOpenView()` first, the way Books does it.
+
+**Centre on me will not trust a bad fix.** A fresh fix under four satellites or over HDOP 10
+— the bar the distance lines already use — ranks below your declared pin, is drawn grey, and
+says "me? 3 sats".
+
+**Fixed along the way.**
+- 🔴 **Every raw-565 row this firmware ever pushed reached the glass byte-swapped.** A sprite
+  stores pixels swapped and `pushImage` does not swap unless told, so Photos' BMPs and
+  greyscale JPEGs, Books' greyscale pictures — and the map's tiles — showed red as blue and
+  greys as near-black. Measured on the panel with a red/green/grey BMP, then fixed with one
+  bracket (`lcdNativePixels`, GUI.h) at every site.
+- The mesh's `NEW_MESSAGE_EVENT` forward discarded the app's redraw request for two releases;
+  a marker that moved stayed put until a keypress.
+- The mesh database save now waits for a running download: its ~55 small writes queued behind
+  32 KB tile pieces and showed as 0.5–0.9 s stalls of the whole phone.
+
+**For the bench.** `up on maps` + `tools/wiphone_send.py --app maps --tree <dir>` push a
+converted tile tree over WiFi (the one uploader that accepts folder paths, validated by
+`chunkSafeTreeName`); `open <app>` jumps into an app; `hold on|off` keeps the screen awake
+(injected keys do not reset the 30 s sleep, which was eating scripted presses); `maps dl` and
+`tlstest` drive and measure the downloader.
+
+⚠ Only phone 2 has run this. Phone 1 (the SIP phone) has ~2–3 KB less internal headroom;
+watch `heap` min-ever after its first download.
+
+## 0.9.64 as first built (2026-09-14) - a map, because a list cannot tell you which side of the creek he is on
 
 **Menu → Tools → Maps.** Tiles off the SD card, pins you drop yourself, and everything the mesh
 already knows about where people are, on one screen.

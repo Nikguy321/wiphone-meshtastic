@@ -40,6 +40,27 @@ using namespace std;
 #define LCD TFT_eSPI
 extern LCD* static_lcd;      // a hack for the LCD to be usable from static callbacks
 
+/* ⚠ NATIVE-WORD PIXELS. A TFT_eSprite stores every pixel BYTE-SWAPPED (drawPixel, pushColor and
+ * fillRect all do color>>8|color<<8 on store) so that pushSprite can stream its buffer to the
+ * ST7789 raw, MSB first — but TFT_eSprite::pushImage(uint16_t*) stores the word UNCHANGED unless
+ * the sprite's swap flag is set, and nothing in this firmware ever set it. So a row of native
+ * color565() values pushed through pushImage reached the glass with its two bytes exchanged:
+ * pure red F800 -> 00F8 -> blue. MEASURED on the panel 2026-09-18: a red/green/grey BMP opened
+ * in Photos rendered blue / red-pink / near-black. It had been that way in Photos (BMP and
+ * greyscale JPEG) and Books (greyscale pictures) since they shipped; nobody had looked at one.
+ *
+ * Bracket every push of native words with lcdNativePixels(lcd, true) ... (lcd, false). The
+ * panel path wants the same flag for the no-sprite fallback (pushColors -> writePixels swaps on
+ * the wire), and the restore is NOT optional: the page's own pushSprite reads the panel's flag
+ * and would swap the already-swapped sprite bytes for the whole screen. The Game Boy pushes
+ * PRE-swapped (big-endian) rows with the flag off (app_gbc.cpp:852) — that convention stands. */
+static inline void lcdNativePixels(LCD& d, bool on) {
+  d.setSwapBytes(on);
+  if (d.isSprite()) {
+    ((TFT_eSprite&)d).setSwapBytes(on);
+  }
+}
+
 /* Draw text that CANNOT overflow its space: anything cut off ends in "..", and
  * the width actually drawn is returned. Use this instead of lcd.drawString for
  * any string built from user/peer data — a filename, a node name, a SIP URI, a
@@ -3006,6 +3027,9 @@ public:
   static uint16_t drawSipIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y);
   static uint16_t drawMessageIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y);
   void showMeshPopup(const char* title, const char* body);
+  /* The console's `open <app>`: enterApp() is protected on purpose (the menu is the one
+   * caller), and the bench needs a way in that does not depend on which screen is up. */
+  void openAppFromConsole(ActionID_t app);
   void drawPowerOff();
 
   ControlState state;

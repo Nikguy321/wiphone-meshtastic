@@ -87,6 +87,56 @@ static inline bool chunkSafeName(const char* in, char* out, size_t cap) {
   return true;
 }
 
+/* The TREE variant, for the one uploader that legitimately receives paths: map tiles land
+ * at /maps/<area>/<z>/<x>/<y>.565, and a converted area is hundreds of files in nested
+ * folders that nobody wants to push one at a time. Everything chunkSafeName refuses is still
+ * refused; on top of that every segment must be [A-Za-z0-9_-] with an optional extension on
+ * the LAST one only, no segment may begin with a dot (so `.` and `..` cannot appear), at most
+ * CHUNK_TREE_DEPTH segments, and backslashes are not separators here — they are refused
+ * outright, because a client that sends them is not the client this was written for.
+ * `pins.txt` and `home/15/5249/11443.565` pass; `../x`, `a//b`, `home/15/../x` do not. */
+#define CHUNK_TREE_DEPTH 4
+static inline bool chunkSafeTreeName(const char* in, char* out, size_t cap) {
+  if (!in || cap < 2) {
+    return false;
+  }
+  size_t n = strlen(in);
+  if (n == 0 || n >= cap) {
+    return false;
+  }
+  int depth = 1;
+  size_t segLen = 0;
+  bool dotSeen = false;
+  for (size_t i = 0; i < n; i++) {
+    const char c = in[i];
+    if (c == '/') {
+      if (segLen == 0 || ++depth > CHUNK_TREE_DEPTH || dotSeen) {
+        return false;                       // empty segment, too deep, or a dot before the last
+      }
+      segLen = 0;
+      continue;
+    }
+    if (segLen == 0 && c == '.') {
+      return false;                         // no leading-dot segment, anywhere
+    }
+    const bool alnum = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+    if (c == '.') {
+      if (dotSeen) {
+        return false;                       // one extension, one dot
+      }
+      dotSeen = true;
+    } else if (!alnum && c != '_' && c != '-') {
+      return false;
+    }
+    segLen++;
+  }
+  if (segLen == 0) {
+    return false;                           // trailing slash
+  }
+  memcpy(out, in, n + 1);
+  return true;
+}
+
 /* CRC32 (IEEE, the zlib/JS-standard one), bitwise — no table, so the firmware
  * and the host test compile the SAME code and the JS table version is checked
  * against it by vector ("123456789" → 0xCBF43926). ~1 ms per 4 KB piece at

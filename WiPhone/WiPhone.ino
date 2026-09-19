@@ -40,6 +40,8 @@ governing permissions and limitations under the License.
 #include "lora.h"
 #include "esp_ota_ops.h"
 #include "esp_task_wdt.h"   // DIAGNOSTIC: loop-stall watchdog, see setup()
+#include "tile_fetch.h"      // the map downloader: DFS hold, pause-for-calls (below)
+#include "app_maps.h"        // gMapsActive: the map owns the side buttons while it is open
 #include "esp_wifi.h"       // esp_wifi_get_ps/set_ps: the modem-sleep invariant in loop()
 #include "Test.h"
 #include "meshtastic_service.h"
@@ -2704,7 +2706,7 @@ void loop() {
      *
      * Read here, right after the stale-key sweep, so uiKeyDown is already up to date. */
     loopPhase("music");
-    if (!gGbcActive && musicPlayerCurrent() >= 0) {
+    if (!gGbcActive && !gMapsActive && musicPlayerCurrent() >= 0) {
       if (uiKeyDown & WIPHONE_KEY_MASK_F2) {
         if (!msF2Down) {
           msF2Down = now;
@@ -2996,7 +2998,9 @@ void loop() {
        * PLAYING. Read a book with music paused and paging works exactly as it always
        * did; read one with music playing and the side buttons are volume, which is what
        * you want when there is sound coming out. */
-      const bool musicLoaded  = !gGbcActive && musicPlayerCurrent() >= 0;
+      /* ...and the map (gMapsActive): the top two side buttons are its zoom and the third
+       * "centre on me". A zoom key that pauses the music instead would be silently dead. */
+      const bool musicLoaded  = !gGbcActive && !gMapsActive && musicPlayerCurrent() >= 0;
       const bool musicSounding = musicLoaded && musicPlayerIsPlaying();
 
       if (musicLoaded && keyPressed == WIPHONE_KEY_F1) {
@@ -3553,6 +3557,8 @@ void loop() {
          * this call since it was written; this is it. */
         extern bool booksSaveOpenPosition();   // app_books.h; declared here like healthDump
         booksSaveOpenPosition();
+        extern bool mapsSaveOpenView();        // app_maps.h; the map's view, same reason
+        mapsSaveOpenView();
         powerOff();
         redrawWhat |= gui.processEvent(now, POWER_OFF_EVENT);
       }
@@ -3608,6 +3614,8 @@ void loop() {
        * Save here, before it. */
       extern bool booksSaveOpenPosition();
       booksSaveOpenPosition();
+      extern bool mapsSaveOpenView();
+      mapsSaveOpenView();
       powerOff();
       redrawWhat |= gui.processEvent(now, POWER_OFF_EVENT);
     }
@@ -4205,7 +4213,10 @@ void loop() {
      * QUIET on purpose: no popup, no unread icon, no buzz — places are ambient
      * state, not news. */
     if (!gGbcActive && meshService.takePlacesNews()) {
-      gui.processEvent(now, NEW_MESSAGE_EVENT);
+      /* ⚠ THE RESULT IS USED. It was discarded here for two releases, so the Maps app's
+       * "redraw when a position arrives" returned REDRAW_SCREEN into the void and a marker
+       * that moved stayed put until the next keypress. Same shape as the mirror path. */
+      redrawWhat |= gui.processEvent(now, NEW_MESSAGE_EVENT);
     }
 
     // Stop the notification vibration after its brief pulse.
@@ -4461,16 +4472,24 @@ void loop() {
        *
        * The cost is idle power while the GPS is on, and that is the right trade against a
        * phone that stops answering its buttons. */
+      /* The map downloader PAUSES for anything that owns the audio path or the heap: a live
+       * or imminent call (its TLS handshake dips internal RAM to ~4 KB, measured), and a
+       * WiFi that is not associated (a GET into a dead socket is a 15 s timeout per tile,
+       * and the rescue below is what brings the network back — it must not be raced). It
+       * resumes by itself when both clear. */
+      tileFetchPause(sipNeedsFullSpeed() || !wifiState.isConnected());
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
                         gGpsNmea ||            // see the deadlock note above — NOT perf
                         xferOn() ||
+                        tileFetchActive() ||   // tiles: HTTPS + decode + card, see tile_fetch.h
                         musicPlayerIsPlaying() ||
                         sipNeedsFullSpeed();   // NOT sipCallActive() — see the note on it
       /* Anything with a deadline stays at 240 REGARDLESS of the screen: the emulator, the
        * transfer server, audio playback and a live SIP session. Only the screen term is
        * relaxed, and only while nothing is being drawn. */
-      const bool hardBusy = gGbcActive || gGpsNmea || xferOn() || musicPlayerIsPlaying() || sipNeedsFullSpeed();
+      const bool hardBusy = gGbcActive || gGpsNmea || xferOn() || tileFetchActive() ||
+                            musicPlayerIsPlaying() || sipNeedsFullSpeed();
       extern volatile uint32_t gUiWorkMs;      // GUI.cpp: stamped by every redraw
       const bool uiWorking = (uint32_t)(millis() - gUiWorkMs) < UI_WORK_HOLD_MS;
 #if UI_IDLE_DOWNCLOCK

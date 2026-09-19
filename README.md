@@ -223,31 +223,46 @@ and the Mac-side command are in **[docs/maps.md](docs/maps.md)**.
   is over 30 minutes old**, because on foot half an hour is far enough to be somewhere else
   and a map that draws a stale dot like a live one is lying by omission. Your own GPS fix is
   a white ring.
-- **Pins.** `5` drops one on the crosshair and asks for a name; **OK picks up the pin under
-  the crosshair** to rename, move, share or delete it. 64 of them, in a text file on the card,
-  and **nothing about them reaches the air** until you choose *Share it on the mesh* — which
-  prefers a private channel, locks it to this phone so nobody else can move your camp, and
-  tells you honestly whether the radio actually sent it.
-- **It opens where you closed it.** Then, only if there is nothing to remember: your GPS fix,
-  the mesh's reference place, the middle of the tiles on the card.
-- **Arrows scroll** (hold one and it speeds up), `*`/`#` — or `1`/`3` — zoom, `0` centres on
-  you, `7`/`9` walk your pins. **Menu → Keys and colours** is the whole table, on the phone.
+- **It downloads its own maps.** `Menu → Download maps...` fetches an area around the
+  crosshair over WiFi — **USGS Topo**, **USGS Aerial** or **OpenTopoMap** — 2 to 20 km, to
+  z13–z16, with the tile count, megabytes and minutes shown before you press Start. A 5 km
+  hunt area at full detail is ~270 tiles, 34 MB and about four and a half minutes from USGS.
+  It carries on if you leave the screen, pauses for a call, only fetches what is missing, and
+  writes each tile under a temporary name so a power-off mid-tile leaves nothing wrong on the
+  card. Needs USB power or a battery above 3.8 V.
+- **Pins.** **OK** drops one on the crosshair and asks for a name; OK on a pin opens it to
+  rename, move, share or delete. 64 of them, in a text file on the card, and **nothing about
+  them reaches the air** until you choose *Share it on the mesh* — which asks **which channel**
+  (defaulting to your position beacon's, and making you press a public one twice), remembers
+  the answer with the pin so an update or a retraction goes to the same place, locks it to
+  this phone so nobody else can move your camp, and tells you honestly whether the radio
+  actually sent it.
+- **It opens where you closed it** — saved on the way out and on power-off. Then, only if
+  there is nothing to remember: your GPS fix, the mesh's reference place, the middle of the
+  tiles on the card. `Menu → Go to coordinates` takes a typed latitude and longitude.
+- **Arrows scroll** (hold one and it speeds up). **The top two side buttons zoom**, the third
+  **centres on you** — the map owns the side buttons while it is open, so a track loaded in
+  the music player cannot turn zoom into play/pause. `7`/`9` walk your pins. **Menu → Keys
+  and colours** is the whole table, on the phone.
 - A scale bar, the crosshair's coordinates, and how far the crosshair is from your reference
   place — "1.4km NE Camp" — along the bottom.
 
-⚠ **Tiles must be converted on the computer first.** This phone has no PNG decoder and the
-ESP32's built-in JPEG decoder refuses greyscale outright, so a map made of compressed tiles
-would work until the day it met a tile of the wrong flavour, in the woods. Raw RGB565 costs
-about 85 MB for a 20×20 km area at z12–z15 — nothing on a 32 GB card — and has exactly one
-failure mode, which the phone checks and reports. The command, with the card mounted:
+The tiles are raw RGB565 on the card (~128 KB each) so the viewer decodes nothing while you
+pan; the downloader decodes once, on arrival, with the JPEG and inflate code already in the
+ESP32's ROM. You can also convert a tile tree on the Mac and push it over WiFi without
+touching the card:
 
 ```bash
-python3 tools/convert_tiles.py ~/covey-tiles /Volumes/WIPHONE/maps/home --zoom 12-15
+python3 tools/convert_tiles.py ~/covey-tiles ~/tiles-565/home --zoom 12-15
+python3 tools/wiphone_send.py --app maps --tree ~/tiles-565/home
 ```
 
-It needs nothing installed (Pillow if you have it, macOS's own `sips` if you do not), and
-re-running only converts what is new. Add `--dry-run` to see the tile count and the size
-first.
+⚠ **HTTPS on this phone was impossible until tonight** — the framework builds mbedTLS to
+allocate from the ~25 KB internal heap — and the downloader is the first thing on the phone
+to do it, by moving mbedTLS into PSRAM and running on its own task. The internal heap dips by
+~12 KB during the first handshake of a run, once. The downloader refuses to start when the
+phone is low on memory and says to reboot; the details and the measured numbers are in
+[docs/maps.md](docs/maps.md).
 
 ## E-reader
 
@@ -522,6 +537,12 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `up on` / `up on books\|photos\|t9` / `up off` / `up` | start / stop the WiFi upload page (into `/roms`, `/books`, `/photos` or `/t9`); show its address |
 | `t9` / `t9 on\|off` / `t9 reload` | predictive text: state and how many extra words are loaded; switch it; re-read `/t9/extra.txt` without rebooting |
 | `heap` | memory truth: internal/DMA/PSRAM free + largest + floor since boot |
+| `maps dl [src lat lon km zmax \| stop]` | the tile downloader: status with heap floor, start, stop (`docs/maps.md`) |
+| `maps dlurl <template> \| clear` | a plain-HTTP relay as tile source 3 (`{z}/{x}/{y}`) |
+| `tlstest <url> [n]` | the TLS bench: n kept-alive GETs from the fetch task, heap and timing |
+| `up on maps` | the tile uploader: `tools/wiphone_send.py --app maps --tree <dir>` |
+| `open <app>` | jump into maps / photos / books / music / mesh / clock, whatever screen is up |
+| `hold on \| off` | keep the screen awake and unlocked for a scripted bench session |
 | `wifi scan` | what the radio can actually hear — deaf radio vs absent AP |
 | `wifi calreset` / `wifi restore` | erase the RF calibration / the WiFi driver's stored state, and reboot — the deaf-radio probes (⚠ `restore` forgets the last-used network) |
 | `sync` / `mirror` | fetch mirrored texts now; mirror status |

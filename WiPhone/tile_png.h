@@ -1,0 +1,41 @@
+/*
+ * tile_png.h — the smallest PNG decoder that covers map tiles, on top of the inflater the
+ * firmware already has.
+ *
+ * ── WHY IN-REPO AND NOT A LIBRARY ────────────────────────────────────────────────────────
+ * The sources are known: OpenTopoMap serves 256x256 8-bit PALETTE PNGs (measured
+ * 2026-09-18), and USGS's "MIXED" services can hand back an RGBA PNG at a coverage edge.
+ * That is: a chunk walk, one zlib stream, five row filters, and a colour-type switch —
+ * about three hundred lines whose behaviour can be pinned on the host against Pillow.
+ * PNGdec / pngle / lodepng each bring a second inflater, an allocator to redirect into PSRAM
+ * and a licence; the EPUB parser already proved the ROM `tinfl` here (epub_parse.cpp:99-113,
+ * raw deflate into a whole PSRAM output buffer, ~11 KB of state).
+ *
+ * ── WHAT IS SUPPORTED ────────────────────────────────────────────────────────────────────
+ *   colour types 0 (grey), 2 (RGB), 3 (palette), 4 (grey+alpha), 6 (RGBA); bit depth 8 for
+ *   all, plus 1/2/4 for palette and grey; non-interlaced; exactly 256x256. A tRNS chunk on a
+ *   palette image is honoured the same way alpha is: a pixel more transparent than half
+ *   becomes `nodata` (the caller's "no tile here" colour), so a source's transparent edges
+ *   look like the edge of the map rather than like black ground.
+ * ── WHAT IS REFUSED, WITH A REASON ──────────────────────────────────────────────────────
+ *   16-bit samples, interlacing, any other size, a zlib stream with a preset dictionary, a
+ *   truncated or over-long IDAT, a bad filter byte. Every refusal fills `why`.
+ *
+ * Memory is the caller's problem only for `out`; the decoder allocates its own scratch
+ * (the concatenated IDAT, the inflated rows, the inflater state) through tilePngAlloc —
+ * PSRAM on the device, malloc on the host — and frees it before returning.
+ */
+#ifndef TILE_PNG_H
+#define TILE_PNG_H
+
+#include <stdint.h>
+#include <stddef.h>
+
+/* The "no data" colour transparent pixels become. Mid grey: the viewer's own "not on the
+ * card" square is grey too, and transparent ground should read as absent, not as terrain. */
+#define TILE_PNG_NODATA_565  0x8410
+
+bool tilePngDecode(const uint8_t* data, size_t len, uint16_t* out, uint16_t nodata,
+                   char* why, size_t whyCap);
+
+#endif // TILE_PNG_H

@@ -1,8 +1,80 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-04 evening)
+## ▶▶ STATE NOW (header refreshed 2026-09-19 early morning)
 
 Read this first; everything below it is narrative.
+
+🗺️ **2026-09-18 → 19, overnight with Nick's standing permission: THE MAPS APP DOWNLOADS ITS
+OWN TILES, AND IT IS ALL ON HARDWARE (phone 2 only).** Nick asked, then went to bed: "a maps
+app with downloadable maps (to SD) from places like USGS topo; all the features COVEY has
+unless unreasonable; arrows pan; top user buttons zoom; OK sets a pin, OK on a pin edits;
+pins share to a chosen mesh channel; SELECT opens a menu (download / go to pin, coords, node);
+the one user button centres on me; the view saved on exit; check RAM." The analysis is
+`docs/maps-brief.md` (written first, before any code); the build followed it.
+
+**What was done, in order, each step proven on WiPhone 2 before the next:**
+1. **PR #1 fast-forwarded onto main** (`b76ee2c`, 0.9.64 as first built, never on hardware).
+2. 🔴 **Its tiles would have been byte-swapped — and so is every raw-565 row this firmware
+   ever pushed.** `TFT_eSprite` stores pixels swapped; `pushImage(uint16_t*)` does not swap
+   unless told; nothing ever told it. **Measured**: a red/green/grey BMP in Photos on 0.9.63
+   rendered (0,28,197)/(230,0,57)/(16,16,32); after the fix (`lcdNativePixels`, GUI.h, applied
+   in app_maps, app_photos ×2, app_books) it reads (255,0,0)/(0,255,0)/(131,129,131). Photos'
+   BMPs and greyscale JPEGs and Books' greyscale pictures were wrong since they shipped.
+3. **Tree upload** — `up on maps` + `tools/wiphone_send.py --app maps --tree <dir>` pushes a
+   converted area over WiFi (`chunkSafeTreeName`, 18 host checks). 271 tiles / 34 MB in 10
+   min. Used to prove the viewer: pan, zoom, boundaries, labels, heap flat.
+4. 🔑 **HTTPS.** On 0.9.63 an HTTPS `/fetch` of a USGS tile FAILED (`start_ssl_client():207
+   -32512`, internal min-ever 2,676). Cause: `CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC=y` (two
+   16,717 B record buffers from a ~25 KB largest block) AND the handshake runs on the caller's
+   8 KB loop stack. Escape, MEASURED with the new `tlstest` bench: `mbedtls_platform_set_calloc_free`
+   → PSRAM, from a task with a 10 KB static internal stack. **70/70 kept-alive GETs, first
+   1.5 s (handshake), then ~250 ms/tile, PSRAM back to the byte, task stack floor ~6 KB.**
+5. **The engine** (`tile_fetch.{h,cpp}`): sources USGS Topo / USGS Aerial / OpenTopoMap /
+   a serial-set custom template; ±radius square z11..zMax; skip-by-size; temp+rename; sniff;
+   decode; pause for calls/WiFi loss; stop; status with heap floor + stack floor; a start
+   gate (largest ≥ 14 KB, 24 KB before the stack exists). **Decoders** (`tile_decode.cpp`:
+   ROM TJpgDec with private callbacks; `tile_png.cpp`: ROM tinfl + 300 lines, 41 host checks).
+   **Measured**: 21 USGS tiles in 24 s; 271 in 260 s from the panel (0 failed); 33 OTM PNGs
+   at ~4 s/tile (server-bound); `usgs-img` 21 in 20 s. The DB save is deferred while tiles
+   are written (its ~55 small writes queued behind 32 KB pieces = 0.5–0.9 s 'mesh' stalls).
+6. **The UI**: F1/F2 zoom, F3 centre (`gMapsActive` exempts the map from the music transport);
+   SELECT = menu (tested BEFORE `LOGIC_BUTTON_OK`); OK = drop pin / open pin; `Menu → Download
+   maps...` (source/radius/detail/estimate/Start-Stop/progress, holds the screen, gated on
+   WiFi + USB-or-3.8 V); `Go to coordinates` (two fields: digits, `*` point, `#` minus);
+   channel picker on share (beacon's rules; default = beacon channel; channel NAME stored on
+   the pin and in `pins.txt`'s new fifth field; update/unshare go to the same channel; rows
+   say "Update it on hunt-group" / "Share on another channel..."); `mapsSaveOpenView()` at
+   both power-off sites; `MAPS_SELF_POOR_GPS` (fresh but <4 sats / HDOP>10 ranks below the
+   pin, grey, "me? 3 sats"); the `NEW_MESSAGE_EVENT` redraw result is used. **Every one of
+   these was driven on the panel over serial and screenshotted** (share + unshare seen on air
+   on 'hunt-group').
+7. **Bench tools that made it possible**: `open <app>` (enterApp from the console — key
+   walks from an unknown screen misroute), `hold on|off` (🛑 injected keys do NOT reset the
+   30 s sleep timer: the phone locked mid-walk and ate presses all evening; the `key` injector
+   also drops some repeated keys — use single keys with a shot after each).
+
+**RAM, honestly.** Viewer unchanged (+72 B static, 768 KB PSRAM). Downloader: 10 KB internal
+stack permanently from the first download; the run's FIRST TLS handshake dips internal by
+~12 KB for a second (min-ever 6,136 app closed, **2,764 with the app open** — the phone has
+survived every cold handshake tonight, 8 runs, 0 reboots, but that is the number to watch).
+The start gate refuses when the largest block is already low. **⚠ Phone 1 (SIP registered)
+has 2–3 KB less headroom and has NOT run this build** — flash it, run one small download,
+read `heap` min-ever. Loop-task stack floor after a fresh boot is ~3 KB (the 408 B seen on
+0.9.63 was after 22 h).
+
+**Host suite green (21 groups, +test_tilepng 41 checks, +chunkSafeTreeName 18, pins format
++5).** Firmware RAM 88,220 / flash 39.7 %. 🛑 **Not published**: no push, no webflasher
+(`tools/publish_webflasher.sh`) — Nick's call after phone 1. Left on phone 2: `/maps/home`,
+`/maps/usgs-topo`, `/maps/usgs-img`, `/maps/otm` areas; pins "Pin 1", "Pin 2" (local,
+unshared); `/photos/{usgs_tile.jpg,download.jpg,swaptest.bmp}`.
+
+⏳ **OPEN / OWED:** (a) phone 1; (b) an adversarial review of the night's diff was launched
+at the end (see the commit after this one for its fixes, or `notes` below if it had not
+returned); (c) OTM's 4 s/tile makes a 10 km OTM area a 1 h job — the screen says so;
+(d) COVEY parity not done: ruler, follow-me latch, N/F toggles, nearest-first GO picker
+(the PR's lists are by identity); (e) `docs/maps-brief.md` §10 decisions were taken as
+recommended (F3 = centre; raw .565 kept; per-share picker; in-app download that outlives the
+screen); Nick may want to move "the one user button" to F4.
 
 ✅ **2026-09-14 — 0.9.64: MAPS. Built, host-tested and compiled; NOT YET ON HARDWARE and no
 tile has ever been on a card.** Menu → Tools → Maps. Everything it draws was already in the

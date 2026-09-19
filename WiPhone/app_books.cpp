@@ -883,6 +883,7 @@ static void greyBlitRows(void* ctx, int y0, int rows, const uint8_t* band, int w
   GreyBlit* g = (GreyBlit*)ctx;
   uint16_t line[240];
   const int cap = (int)(sizeof(line) / sizeof(line[0]));
+  lcdNativePixels(*g->lcd, true);            // native color565 words: see GUI.h
   for (int r = 0; r < rows; r++) {
     int sy = y0 + r;
     if (sy % g->scale) {
@@ -901,6 +902,7 @@ static void greyBlitRows(void* ctx, int y0, int rows, const uint8_t* band, int w
     }
     g->lcd->pushImage(g->x, g->y + dy, n, 1, line);
   }
+  lcdNativePixels(*g->lcd, false);
 }
 
 bool BooksApp::drawOneImage(int i, int x, int y, uint16_t boxW, uint16_t boxH) {

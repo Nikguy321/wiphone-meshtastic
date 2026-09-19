@@ -71,6 +71,7 @@
 #include "GUI.h"
 #include "map_tiles.h"
 #include "map_pins.h"
+#include "meshtastic_service.h"   // MeshChannel: a pin remembers the channel it is shared on
 
 #define MAPS_ROOT          "/maps"
 #define MAPS_PINS_FILE     "/maps/pins.txt"
@@ -88,6 +89,17 @@
 #define MAPS_SELF_GPS      1       // a fix fresher than MESH_GPS_FRESH_MS
 #define MAPS_SELF_PIN      2       // the position the user declared by hand
 #define MAPS_SELF_OLD_GPS  3       // a fix, but an old one: drawn grey, wearing its age
+#define MAPS_SELF_POOR_GPS 4       // fresh, but under 4 satellites / HDOP over 10: grey, and says so
+
+/* Set while a MapsApp exists. WiPhone.ino's music transport leaves F1-F3 alone while it is
+ * up (the Game Boy's gGbcActive rule): on the map the top buttons are zoom and the third is
+ * "centre on me", and a zoom key that pauses the music instead is the silent "dead hardware"
+ * symptom the keypad self-test already documents. */
+extern volatile bool gMapsActive;
+/* The pre-power-off hook, like booksSaveOpenPosition(): both power-off paths pull the latch
+ * BEFORE any destructor runs, so the view must be written by hand from WiPhone.ino first.
+ * True if a MapsApp was open and its view (and any unsaved pins) went to the card. */
+bool mapsSaveOpenView();
 
 /* Everything the serial console needs, so this app can be driven without a thumb.
  *
@@ -119,6 +131,9 @@ protected:
     MAPS_AREAS,         // which map folder on the card
     MAPS_CONFIRM_DEL,
     MAPS_HELP,
+    MAPS_DOWNLOAD,      // source / radius / detail / start-stop, with the estimate and progress
+    MAPS_GOTO,          // type a latitude and a longitude
+    MAPS_CHANNEL,       // which channel a pin is shared on
   } MapsState_t;
 
   typedef enum { LIST_PINS = 0, LIST_PLACES, LIST_NODES } MapsListKind_t;
@@ -193,6 +208,22 @@ protected:
   int      panRun;          // consecutive presses in panDir, for mapPanStep()
   int      panDir;
   uint32_t panLastMs;
+
+  // ---- the download screen ----
+  int      dlSource;        // index into tileSource()
+  int      dlRadiusIdx;     // into MAPS_DL_RADII
+  int      dlDepth;         // deepest zoom asked for
+  bool     dlHeld;          // the screen is being held awake for the progress display
+  uint32_t dlLastMs;        // last progress rebuild
+  MenuOption::keyType dlKeep;   // the row to re-select after a progress rebuild
+
+  // ---- go to coordinates ----
+  char     gotoLat[16], gotoLon[16];
+  int      gotoField;       // 0 = latitude, 1 = longitude
+
+  // ---- the channel picker ----
+  int      chanPending;     // the PUBLIC row awaiting its second press (0 = none)
+  int      chanForPin;      // which pin the picked channel is for
 
   // ---- setup / teardown ----
   bool  allocSlots();
@@ -289,6 +320,14 @@ protected:
   void  buildAreas();
   void  buildConfirmDelete();
   void  drawHelp();
+  void  buildDownload();
+  void  rescanCard();       // re-read the areas and pins without moving the view
+  void  drawGoto();
+  void  buildChannels();
+  /* The channel a pin is shared on, by the NAME stored with it: NULL when it has none or
+   * the channel is no longer on this phone (the picker is offered then). */
+  const MeshChannel* pinChannel(int idx) const;
+  friend bool mapsSaveOpenView();
 
   appEventResult onMapKey(EventType event);
 };

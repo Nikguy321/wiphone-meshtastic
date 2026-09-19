@@ -52,6 +52,32 @@ static void testDecide() {
   ok(chunkDecide(MAX, MAX - 4096, 4096) == CHUNK_DUPLICATE, "a piece ending exactly at a SIZE_MAX file is honest arithmetic, not a wrap");
 }
 
+static void testSafeTreeName() {
+  group("chunkSafeTreeName: what a map-tile upload may name a file");
+  char out[64];
+  ok(chunkSafeTreeName("home/15/5249/11443.565", out, sizeof(out)) && !strcmp(out, "home/15/5249/11443.565"),
+     "a tile path passes through whole");
+  ok(chunkSafeTreeName("pins.txt", out, sizeof(out)) && !strcmp(out, "pins.txt"),
+     "a plain name passes through");
+  ok(chunkSafeTreeName("hunt-2026_a/11/1/2.565", out, sizeof(out)), "dash and underscore are fine in a folder");
+  ok(!chunkSafeTreeName("../x.565", out, sizeof(out)), "dot-dot is refused");
+  ok(!chunkSafeTreeName("home/15/../x.565", out, sizeof(out)), "dot-dot in the middle is refused");
+  ok(!chunkSafeTreeName("home//x.565", out, sizeof(out)), "an empty segment is refused");
+  ok(!chunkSafeTreeName("/home/x.565", out, sizeof(out)), "a leading slash is refused");
+  ok(!chunkSafeTreeName("home/x.565/", out, sizeof(out)), "a trailing slash is refused");
+  ok(!chunkSafeTreeName("a/b/c/d/e.565", out, sizeof(out)), "five segments is too deep");
+  ok(chunkSafeTreeName("a/b/c/d.565", out, sizeof(out)), "four segments is the limit");
+  ok(!chunkSafeTreeName("home/.hidden", out, sizeof(out)), "a leading-dot segment is refused");
+  ok(!chunkSafeTreeName("._x.565", out, sizeof(out)), "an AppleDouble sidecar is refused");
+  ok(!chunkSafeTreeName("home\\15\\x.565", out, sizeof(out)), "backslashes are not separators, they are refused");
+  ok(!chunkSafeTreeName("ho me/x.565", out, sizeof(out)), "a space is refused");
+  ok(!chunkSafeTreeName("home.old/x.565", out, sizeof(out)), "a dot in a folder segment is refused");
+  ok(!chunkSafeTreeName("x.tar.565", out, sizeof(out)), "two dots in a name is refused");
+  ok(!chunkSafeTreeName("", out, sizeof(out)), "empty is refused");
+  char tiny[4];
+  ok(!chunkSafeTreeName("abcd", tiny, sizeof(tiny)), "too long for the buffer is refused");
+}
+
 static void testSafeName() {
   group("chunkSafeName: what the network may name a file");
   char out[64];
@@ -130,6 +156,7 @@ static void testCrc() {
 int main() {
   testDecide();
   testSafeName();
+  testSafeTreeName();
   testHex();
   testCrc();
 

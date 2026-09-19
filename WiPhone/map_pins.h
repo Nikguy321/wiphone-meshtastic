@@ -17,7 +17,12 @@
  *
  * ── ONE LINE PER PIN, AND NOTHING CLEVER ─────────────────────────────────────────────────
  *     # comment
- *     <latI>,<lonI>,<sharedId>,<name>
+ *     <latI>,<lonI>,<sharedId>,<channel>,<name>
+ * The channel is the NAME of the mesh channel the pin was shared on (empty if never shared),
+ * so a rename re-send and "Take it off the mesh" go out where the pin already is — a
+ * retraction on a different channel than the share strands the waypoint on every other radio.
+ * Names travel and indexes do not: a channel URL applied later re-numbers the table.
+ * A line with only three commas is the older four-field form and still loads (channel "").
  * latI/lonI are 1e-7 degrees — the SAME fixed point the Meshtastic wire format uses, so a pin
  * becomes a waypoint with no conversion and therefore no rounding. A float text format would
  * have been friendlier to read and would have moved every pin a few centimetres on every
@@ -40,12 +45,14 @@
  * first time it was shared, and the user would have named a thing on their map that their
  * friends see under a different, shorter name. */
 #define MAP_PIN_NAME_LEN   20
-#define MAP_PIN_LINE_MAX   96      // longest line mapPinFormatLine can produce, plus slack
+#define MAP_PIN_CHAN_LEN   24      // == MESH_NAME_LEN; the channel name, or "" if never shared
+#define MAP_PIN_LINE_MAX   128     // longest line mapPinFormatLine can produce, plus slack
 
 typedef struct {
   int32_t  latI, lonI;             // 1e-7 degrees
   uint32_t sharedId;               // mesh waypoint id if shared, 0 if this pin is private
   char     name[MAP_PIN_NAME_LEN];
+  char     chan[MAP_PIN_CHAN_LEN]; // the channel it is shared on, by name; "" = none yet
 } MapPin;
 
 /* Parse one line of the pins file.

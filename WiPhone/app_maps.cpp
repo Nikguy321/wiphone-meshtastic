@@ -6,6 +6,8 @@
 #include "mesh_pos.h"
 #include <SD.h>
 #include <Preferences.h>
+#include <WiFi.h>
+#include "tile_fetch.h"
 #include <stdarg.h>
 
 extern bool gGpsNmea;         // WiPhone.ino: is the NMEA receiver switched on at all
@@ -52,6 +54,8 @@ enum {
   ROW_M_RESCAN     = ROW_ACT + 6,
   ROW_M_HELP       = ROW_ACT + 7,
   ROW_M_BACK       = ROW_ACT + 8,
+  ROW_M_DOWNLOAD   = ROW_ACT + 9,
+  ROW_M_GOTO       = ROW_ACT + 10,
   ROW_P_RENAME     = ROW_ACT + 20,
   ROW_P_MOVE       = ROW_ACT + 21,
   ROW_P_SHARE      = ROW_ACT + 22,
@@ -59,9 +63,44 @@ enum {
   ROW_P_CENTRE     = ROW_ACT + 24,
   ROW_P_DELETE     = ROW_ACT + 25,
   ROW_P_CANCEL     = ROW_ACT + 26,
+  ROW_P_SHARE_ON   = ROW_ACT + 27,     // pick a different channel first
   ROW_DEL_YES      = ROW_ACT + 30,
   ROW_DEL_NO       = ROW_ACT + 31,
+  ROW_D_SOURCE     = ROW_ACT + 40,
+  ROW_D_RADIUS     = ROW_ACT + 41,
+  ROW_D_DEPTH      = ROW_ACT + 42,
+  ROW_D_START      = ROW_ACT + 43,
+  ROW_D_STOP       = ROW_ACT + 44,
+  ROW_D_BACK       = ROW_ACT + 45,
+  ROW_C_CANCEL     = ROW_ACT + 59,
+  ROW_C_BASE       = ROW_ACT + 60,     // channel i is ROW_C_BASE + i
 };
+
+/* The download form's choices. Radii are COVEY's; the depth stops at z16 because USGS Topo's
+ * z16 is the z15 drawing scaled up (checked 2026-09-18) and every level quadruples the cost. */
+static const int MAPS_DL_RADII[] = { 2, 5, 10, 20 };
+#define MAPS_DL_RADII_N    ((int)(sizeof(MAPS_DL_RADII) / sizeof(MAPS_DL_RADII[0])))
+#define MAPS_DL_DEPTH_MIN  13
+#define MAPS_DL_DEPTH_MAX  16
+/* Seconds per tile, all-in (fetch, decode, the 128 KB write), measured on WiPhone 2 the night
+ * this was built: USGS over kept-alive HTTPS 24 s / 21 tiles; OpenTopoMap 74 s / 18 tiles
+ * (server-bound). The estimate on the screen is these times the tile count. */
+static const float MAPS_DL_SEC_PER_TILE[] = { 1.2f, 1.2f, 4.0f, 0.6f };
+#define MAPS_DL_BATT_FLOOR 3.8f
+
+static MapsApp* s_instance = NULL;
+volatile bool gMapsActive = false;
+
+bool mapsSaveOpenView() {
+  if (!s_instance) {
+    return false;
+  }
+  s_instance->saveView();
+  if (s_instance->pinsDirty) {
+    s_instance->savePins();
+  }
+  return true;
+}
 
 // ---------------------------------------------------------------- construction
 
@@ -114,6 +153,31 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   labelCount = 0;
   listCount = 0;
   helpTop = 0;
+  dlSource = 0;
+  dlRadiusIdx = 1;                 // 5 km
+  dlDepth = 15;
+  dlHeld = false;
+  dlLastMs = 0;
+  dlKeep = ROW_D_START;
+  gotoLat[0] = gotoLon[0] = '\0';
+  gotoField = 0;
+  chanPending = 0;
+  chanForPin = -1;
+  {
+    /* The last download choices, so a second area is two presses. Same namespace as the view. */
+    Preferences p;
+    if (p.begin(MAPS_NVS, true)) {
+      dlSource = p.getInt("dlsrc", dlSource);
+      dlRadiusIdx = p.getInt("dlrad", dlRadiusIdx);
+      dlDepth = p.getInt("dldep", dlDepth);
+      p.end();
+    }
+    if (dlSource < 0 || dlSource >= tileSourceCount()) dlSource = 0;
+    if (dlRadiusIdx < 0 || dlRadiusIdx >= MAPS_DL_RADII_N) dlRadiusIdx = 1;
+    if (dlDepth < MAPS_DL_DEPTH_MIN || dlDepth > MAPS_DL_DEPTH_MAX) dlDepth = 15;
+  }
+  s_instance = this;
+  gMapsActive = true;
 
   for (int i = 0; i < MAPS_TILE_SLOTS; i++) {
     slots[i].px = NULL;
@@ -155,7 +219,7 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
    * hints at is the one this app is for. The coordinates it displaces are on the row below on
    * every subsequent open, and the hint goes away the moment any key is pressed. */
   if (pinCount == 0 && !note[0]) {
-    setNote("5 drops a pin here - OK opens the menu");
+    setNote("OK drops a pin here - Menu downloads maps");
   }
   enterState(MAPS_VIEW);
 }
@@ -176,6 +240,12 @@ MapsApp::~MapsApp() {
   free(pinVy);
   pins = NULL;
   pinVx = pinVy = NULL;
+  if (dlHeld) {
+    controlState.holdScreenAwake(false);
+    dlHeld = false;
+  }
+  s_instance = NULL;
+  gMapsActive = false;
   controlState.msAppTimerEventPeriod = 0;    // do not leave the CPU waking for a closed app
 }
 
@@ -957,15 +1027,11 @@ void MapsApp::drawCrosshair() {
 // ---------------------------------------------------------------- the map itself
 
 void MapsApp::drawMap() {
-  /* The byte order of a raw tile is the phone's own: RGB565 little-endian, which is exactly
-   * what color565() produces and what a sprite stores. Both flags are set explicitly because
-   * `lcd` is the page sprite when there is one and the real panel when there is not, and the
-   * two keep the flag in different members. */
-  lcd.setSwapBytes(false);
-  if (lcd.isSprite()) {
-    ((TFT_eSprite&)lcd).setSwapBytes(false);
-  }
-
+  /* The byte order of a raw tile is the phone's own: RGB565 little-endian, exactly what
+   * color565() produces — which is NOT what a sprite stores (a sprite keeps every pixel
+   * byte-swapped, see lcdNativePixels in GUI.h). The first cut of this function set both swap
+   * flags FALSE with a comment asserting the opposite, and every tile would have reached the
+   * glass with its bytes exchanged. The flag is raised only around the row pushes below. */
   wantAny = false;
   pendingTiles = 0;
   statusLine[0] = '\0';
@@ -986,10 +1052,12 @@ void MapsApp::drawMap() {
          * sub-rectangle of a 256-wide tile cannot be pushed in one call; a row can, and the
          * source pointer is the row's start. Every coordinate here is already inside both the
          * tile and the viewport — mapViewBlits guarantees it, and test_maptiles proves it. */
+        lcdNativePixels(lcd, true);
         for (int r = 0; r < q->h; r++) {
           uint16_t* row = slots[si].px + (size_t)(q->srcY + r) * MAP_TILE_PX + q->srcX;
           lcd.pushImage(vpX + q->dstX, vpY + q->dstY + r, (uint16_t)q->w, 1, row);
         }
+        lcdNativePixels(lcd, false);
       } else {
         const bool missing = isKnownMissing(zoom, q->tileX, q->tileY);
         fillClipped(vpX + q->dstX, vpY + q->dstY, q->w, q->h,
@@ -1029,7 +1097,13 @@ void MapsApp::drawMap() {
 int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs) const {
   uint32_t age = 0;
   int32_t la = 0, lo = 0;
-  const bool haveFix = gGpsNmea && meshService.getGpsFix(&la, &lo, &age, NULL, NULL);
+  int sats = 0, hdopX10 = 0;
+  const bool haveFix = gGpsNmea && meshService.getGpsFix(&la, &lo, &age, &sats, &hdopX10);
+  /* ⚠ THE SAME BAR THE DISTANCE LINES USE. resolveReference() refuses a fix under four
+   * satellites or over HDOP 10 (meshPosFixUsable — the "twenty kilometres wrong" fix), and a
+   * "centre on me" that trusted one would draw a confident white ring about YOU on the wrong
+   * ridge. A fresh but poor fix ranks below a declared pin and is drawn grey, saying why. */
+  const bool usable = haveFix && meshPosFixUsable(sats, hdopX10);
   /* 🛑 getGpsFix() RETURNS TRUE FOR A FIX FROM HOURS AGO — it reports "there has ever been
    * one", and the age is the caller's to judge. Drawing that as a live white ring is the same
    * lie the grey node dots exist to avoid, and worse, because it is a lie about YOU: a person
@@ -1040,7 +1114,7 @@ int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs) const {
    * The order after that is resolveReference()'s, deliberately: a fresh fix beats everything,
    * then the pin the user declared by hand, then the stale fix. A phone with a pin set this
    * morning and a fix from yesterday should show the pin. */
-  if (haveFix && age < MESH_GPS_FRESH_MS) {
+  if (usable && age < MESH_GPS_FRESH_MS) {
     if (latI) {
       *latI = la;
     }
@@ -1057,6 +1131,18 @@ int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs) const {
       *ageMs = 0;
     }
     return MAPS_SELF_PIN;
+  }
+  if (haveFix && !usable && age < MESH_GPS_FRESH_MS) {
+    if (latI) {
+      *latI = la;
+    }
+    if (lonI) {
+      *lonI = lo;
+    }
+    if (ageMs) {
+      *ageMs = (uint32_t)sats;           // for this kind the "age" slot carries the satellite count
+    }
+    return MAPS_SELF_POOR_GPS;
   }
   if (haveFix) {
     if (latI) {
@@ -1173,6 +1259,8 @@ void MapsApp::drawOverlays() {
         strlcpy(sl, "me", sizeof(sl));
       } else if (selfKind == MAPS_SELF_PIN) {
         strlcpy(sl, "my pin", sizeof(sl));
+      } else if (selfKind == MAPS_SELF_POOR_GPS) {
+        snprintf(sl, sizeof(sl), "me? %u sats", (unsigned)selfAge);
       } else {
         const unsigned mins = (unsigned)(selfAge / 60000u);
         snprintf(sl, sizeof(sl), "me, %um ago", mins);
@@ -1448,6 +1536,11 @@ void MapsApp::centreOnMe() {
                      : "GPS is off - centred on your pin");
     return;
   }
+  if (kind == MAPS_SELF_POOR_GPS) {
+    centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
+    setNote("Poor fix (%u sats) - could be well off", (unsigned)age);
+    return;
+  }
   if (kind == MAPS_SELF_OLD_GPS) {
     centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
     setNote("No fresh fix - this is where you were %um ago",
@@ -1510,9 +1603,12 @@ bool MapsApp::sharePin(int idx, char* why, size_t whyCap) {
   }
   bool onAir = false;
   const bool wasShared = (pins[idx].sharedId != 0);
+  /* On the channel stored with the pin. NULL falls back to announceChannel() inside the
+   * service — only reachable for a pin shared before channels were recorded. */
+  const MeshChannel* ch = pinChannel(idx);
   const uint32_t id = meshService.shareWaypoint(pins[idx].sharedId,
                                                 pins[idx].latI, pins[idx].lonI,
-                                                pins[idx].name, 0, &onAir);
+                                                pins[idx].name, 0, &onAir, ch);
   if (!id) {
     strlcpy(why, "Could not share - the mesh refused it", whyCap);
     return false;
@@ -1525,7 +1621,7 @@ bool MapsApp::sharePin(int idx, char* why, size_t whyCap) {
      * the pin stays plainly local, and say what happened.
      * A RE-share (wasShared) is left alone on purpose: the mesh really does hold the old copy,
      * and forgetting the id would strand it there with no way to retract it. */
-    meshService.unshareWaypoint(id);
+    meshService.unshareWaypoint(id, ch);
     snprintf(why, whyCap, "NOT sent - radio not ready. Still just yours.");
     return false;
   }
@@ -1536,7 +1632,7 @@ bool MapsApp::sharePin(int idx, char* why, size_t whyCap) {
    * shown as shared, is the failure the pin-announce path was built to avoid: it reads as
    * "they know where camp is" when nobody does. */
   if (onAir) {
-    snprintf(why, whyCap, "Shared '%s' on the mesh", pins[idx].name);
+    snprintf(why, whyCap, "Shared '%s' on %s", pins[idx].name, ch ? ch->name : "the mesh");
   } else {
     // Only reachable for a RE-share: the mesh still holds the old copy, so the id is kept.
     snprintf(why, whyCap, "NOT sent - the mesh still has the old one");
@@ -1555,7 +1651,7 @@ bool MapsApp::deletePin(int idx) {
      * ⚠ THE RESULT IS RETURNED, NOT DISCARDED. Deleting locally while the retraction failed
      * strands the waypoint on every other radio with nothing left on this phone that knows
      * its id, so the caller has to be able to say so. */
-    retracted = meshService.unshareWaypoint(pins[idx].sharedId);
+    retracted = meshService.unshareWaypoint(pins[idx].sharedId, pinChannel(idx));
   }
   for (int i = idx; i + 1 < pinCount; i++) {
     pins[i] = pins[i + 1];       // keep the order: the list on screen must not reshuffle
@@ -1571,7 +1667,7 @@ bool MapsApp::deletePin(int idx) {
 
 void MapsApp::stepPin(int delta) {
   if (!pins || pinCount <= 0) {
-    setNote("No pins yet - press 5 to drop one");
+    setNote("No pins yet - OK drops one here");
     return;
   }
   pinSel += delta;
@@ -1643,14 +1739,16 @@ void MapsApp::enterState(MapsState_t st) {
   appState = st;
   freeWidgets();
   controlState.setInputState(InputType::Numeric);
+  if (dlHeld && st != MAPS_DOWNLOAD) {
+    controlState.holdScreenAwake(false);   // the progress screen is the only one that holds it
+    dlHeld = false;
+  }
 
   switch (st) {
   case MAPS_VIEW:
     snprintf(headerTitle, sizeof(headerTitle), "Maps");
     header->setTitle(headerTitle);
-    /* "Pin/Menu" rather than "Select", because that key does two different things depending
-     * on what is under the crosshair and a footer that says "Select" tells you neither. */
-    footer->setButtons("Pin/Menu", "Back");
+    footer->setButtons("Menu", "Back");     // the soft key IS the menu; OK is the pin
     break;
   case MAPS_MENU:
     snprintf(headerTitle, sizeof(headerTitle), "Map menu");
@@ -1697,6 +1795,77 @@ void MapsApp::enterState(MapsState_t st) {
     footer->setButtons("More", "Back");
     helpTop = 0;
     break;
+  case MAPS_DOWNLOAD:
+    snprintf(headerTitle, sizeof(headerTitle), "Download maps");
+    header->setTitle(headerTitle);
+    footer->setButtons("Select", "Back");
+    dlLastMs = millis();
+    buildDownload();
+    break;
+  case MAPS_GOTO:
+    snprintf(headerTitle, sizeof(headerTitle), "Go to coordinates");
+    header->setTitle(headerTitle);
+    footer->setButtons("Go", "Delete");      // Back is backspace here; END cancels
+    gotoLat[0] = gotoLon[0] = '\0';
+    gotoField = 0;
+    break;
+  case MAPS_CHANNEL:
+    snprintf(headerTitle, sizeof(headerTitle), "Share on which channel?");
+    header->setTitle(headerTitle);
+    footer->setButtons("Share", "Back");
+    chanPending = 0;
+    buildChannels();
+    break;
+  }
+}
+
+void MapsApp::rescanCard() {
+  char was[32];
+  was[0] = '\0';
+  if (areaSel >= 0) {
+    strlcpy(was, areas[areaSel].name, sizeof(was));
+  }
+  cancelLoad();
+  forgetMissing();
+  for (int i = 0; i < MAPS_TILE_SLOTS; i++) {
+    slots[i].z = -1;
+    slots[i].ready = false;
+  }
+  /* ⚠ SAVE BEFORE RE-READING. loadPins() overwrites the in-RAM table from the file, so
+   * any edit not yet on the card — every path here writes immediately today, but that
+   * is a property of the callers, not of this code — would be silently discarded by a
+   * menu row whose name promises only to look at the card again. */
+  if (pinsDirty) {
+    savePins();
+  }
+  scanAreas();
+  loadPins();
+  pinSel = -1;               // the array was just re-read; the old index means nothing
+  areaSel = -1;
+  for (int i = 0; i < areaCount; i++) {
+    if (was[0] && !strcmp(areas[i].name, was)) {
+      areaSel = i;
+    }
+  }
+  if (areaSel < 0 && areaCount > 0) {
+    areaSel = 0;
+  }
+  if (areaSel >= 0) {
+    /* ⚠ cx/cy ARE WORLD PIXELS AT THE CURRENT ZOOM, so changing `zoom` without
+     * rescaling them moves the view to completely different ground — at one level out
+     * that is half the world away. setArea() already does this correctly; the rescan
+     * path did not, and a card whose new area starts at a different zoom would have
+     * dropped the user somewhere in the ocean. Read the ground, change the zoom, put
+     * the ground back. */
+    double keepLat = 0, keepLon = 0;
+    mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &keepLat, &keepLon);
+    if (zoom < areas[areaSel].zMin) {
+      zoom = areas[areaSel].zMin;
+    }
+    if (zoom > areas[areaSel].zMax) {
+      zoom = areas[areaSel].zMax;
+    }
+    centreOn(keepLat, keepLon);
   }
 }
 
@@ -1709,7 +1878,9 @@ void MapsApp::buildMenu() {
   menu->addOption(row, ROW_M_PLACES);
   snprintf(row, sizeof(row), "Nodes with a position...");
   menu->addOption(row, ROW_M_NODES);
+  menu->addOption("Go to coordinates...", ROW_M_GOTO);
   menu->addOption("Centre on me", ROW_M_ME);
+  menu->addOption(tileFetchActive() ? "Downloading maps..." : "Download maps...", ROW_M_DOWNLOAD);
   if (areaCount > 1) {
     snprintf(row, sizeof(row), "Map area: %s", areaSel >= 0 ? areas[areaSel].name : "-");
     menu->addOption(row, ROW_M_AREA);
@@ -1724,7 +1895,7 @@ void MapsApp::buildMenu() {
 
 void MapsApp::buildList() {
   const char* empty = (listKind == LIST_PINS)
-                      ? "No pins yet - press 5 on the map to drop one"
+                      ? "No pins yet - OK on the map drops one"
                       : (listKind == LIST_PLACES ? "No places heard from the mesh yet"
                          : "No node has sent a position yet");
   menu = newMenu(empty);
@@ -1784,11 +1955,19 @@ void MapsApp::buildPinOpts() {
   char row[64];
   menu->addOption("Rename...", ROW_P_RENAME);
   menu->addOption("Move it to the crosshair", ROW_P_MOVE);
+  /* The rows say WHERE. A pin that has a channel goes back there in one press; the picker is
+   * a separate row so changing channel is a choice and never a surprise. */
+  const MeshChannel* ch = pinChannel(pinSel);
   if (pins[pinSel].sharedId) {
-    menu->addOption("Update it on the mesh", ROW_P_SHARE);
+    snprintf(row, sizeof(row), "Update it on %s", ch ? ch->name : "the mesh");
+    menu->addOption(row, ROW_P_SHARE);
     menu->addOption("Take it off the mesh", ROW_P_UNSHARE);
+  } else if (ch) {
+    snprintf(row, sizeof(row), "Share it on %s", ch->name);
+    menu->addOption(row, ROW_P_SHARE);
+    menu->addOption("Share on another channel...", ROW_P_SHARE_ON);
   } else {
-    menu->addOption("Share it on the mesh", ROW_P_SHARE);
+    menu->addOption("Share it on the mesh...", ROW_P_SHARE);
   }
   menu->addOption("Centre the map on it", ROW_P_CENTRE);
   menu->addOption("Delete", ROW_P_DELETE);
@@ -1796,6 +1975,207 @@ void MapsApp::buildPinOpts() {
   snprintf(row, sizeof(row), "%.5f, %.5f",
            mapI7ToDeg(pins[pinSel].latI), mapI7ToDeg(pins[pinSel].lonI));
   menu->addNote(row);
+}
+
+void MapsApp::buildDownload() {
+  /* Keep the thumb where it was across the once-a-second progress rebuilds; a row that no
+   * longer exists (Start while running, Stop when done) falls back to the one that replaced it. */
+  MenuOption::keyType keep = menu ? menu->currentKey() : dlKeep;
+  if (keep == 0 || keep == MENU_ROW_NOTE) {
+    keep = dlKeep;
+  }
+  menu = newMenu("");
+  char row[72];
+  const TileSource* src = tileSource(dlSource);
+  if (!src) {
+    dlSource = 0;
+    src = tileSource(0);
+  }
+  TileJobStatus st;
+  tileFetchStatus(&st);
+  const bool running = st.active;
+
+  snprintf(row, sizeof(row), "Source: %s", src->label);
+  menu->addOption(row, ROW_D_SOURCE);
+  snprintf(row, sizeof(row), "Radius: %d km", MAPS_DL_RADII[dlRadiusIdx]);
+  menu->addOption(row, ROW_D_RADIUS);
+  int depth = dlDepth;
+  if (depth > src->zMax) {
+    depth = src->zMax;
+  }
+  snprintf(row, sizeof(row), "Detail: z%d (%s)", depth,
+           depth >= 16 ? "4x z15's cost" : (depth == 15 ? "3 m/pixel" : "coarser"));
+  menu->addOption(row, ROW_D_DEPTH);
+
+  TileJobSpec spec;
+  memset(&spec, 0, sizeof(spec));
+  spec.source = dlSource;
+  mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &spec.lat, &spec.lon);
+  spec.radiusKm = MAPS_DL_RADII[dlRadiusIdx];
+  spec.zMax = depth;
+  uint32_t card = 0, net = 0;
+  const int tiles = tileFetchEstimate(&spec, &card, &net);
+  const float sec = MAPS_DL_SEC_PER_TILE[dlSource < 4 ? dlSource : 3] * (float)tiles;
+  snprintf(row, sizeof(row), "%d tiles, %u MB, about %d min",
+           tiles, (unsigned)(card / (1024u * 1024u)), (int)(sec / 60.0f + 0.5f) < 1 ? 1 : (int)(sec / 60.0f + 0.5f));
+  menu->addNote(row);
+
+  if (running) {
+    snprintf(row, sizeof(row), "%s %d/%d%s", st.paused ? "Paused" : "Downloading",
+             st.done + st.skipped + st.noTile + st.failed, st.total,
+             st.stopping ? " (stopping)" : "");
+    menu->addNote(row);
+    snprintf(row, sizeof(row), "z%d, %u KB, %u s, %d failed",
+             st.curZ, (unsigned)(st.bytes / 1024), (unsigned)(st.elapsedMs / 1000), st.failed);
+    menu->addNote(row);
+    menu->addOption("Stop", ROW_D_STOP);
+  } else {
+    if (st.finished) {
+      snprintf(row, sizeof(row), "Last run: %d new, %d had, %d failed, %u s",
+               st.done, st.skipped, st.failed, (unsigned)(st.elapsedMs / 1000));
+      menu->addNote(row);
+      if (st.lastErr[0]) {
+        menu->addNote(st.lastErr);
+      }
+    }
+    if (WiFi.status() != WL_CONNECTED) {
+      menu->addNote("Not on WiFi - join a network first");
+    } else if (!controlState.usbConnected && controlState.battVoltage < MAPS_DL_BATT_FLOOR) {
+      snprintf(row, sizeof(row), "Battery %.2f V - plug in USB to download", controlState.battVoltage);
+      menu->addNote(row);
+    } else {
+      menu->addOption("Start download", ROW_D_START);
+    }
+  }
+  menu->addOption("Back", ROW_D_BACK);
+  if (src->credit[0]) {
+    menu->addNote(src->credit);
+  }
+  if (keep == ROW_D_START && running) {
+    keep = ROW_D_STOP;
+  } else if (keep == ROW_D_STOP && !running) {
+    keep = ROW_D_START;
+  }
+  menu->select(keep);
+  /* Hold the screen while the progress is on it: a 30 s sleep would lock the phone with the
+   * cancel key behind the unlock chord. Released the moment another screen is entered. */
+  if (running && !dlHeld) {
+    controlState.holdScreenAwake(true);
+    dlHeld = true;
+  } else if (!running && dlHeld) {
+    controlState.holdScreenAwake(false);
+    dlHeld = false;
+  }
+}
+
+void MapsApp::drawGoto() {
+  const int top = (int)header->height();
+  const int bottom = (int)lcd.height() - (int)footer->height();
+  lcd.fillRect(0, top, lcd.width(), bottom - top, BLACK);
+  SmoothFont* big = fonts[AKROBAT_BOLD_20];
+  SmoothFont* small = fonts[AKROBAT_BOLD_16];
+  if (!big || !small) {
+    return;
+  }
+  lcd.setTextDatum(TL_DATUM);
+  const int boxH = 30;
+  const char* labels[2] = { "Latitude", "Longitude" };
+  const char* vals[2] = { gotoLat, gotoLon };
+  int y = top + 12;
+  for (int i = 0; i < 2; i++) {
+    lcd.setTextFont(small);
+    lcd.setTextColor(WHITE, BLACK);
+    lcd.drawString(labels[i], 12, y);
+    y += (int)small->height() + 2;
+    const bool active = (gotoField == i);
+    lcd.fillRect(8, y, lcd.width() - 16, boxH, active ? WHITE : MAP_C_STRIP);
+    lcd.setTextFont(big);
+    lcd.setTextColor(active ? BLACK : WHITE, active ? WHITE : MAP_C_STRIP);
+    lcd.drawString(vals[i][0] ? vals[i] : (i == 0 ? "47.42" : "-121.75"), 14, y + 5);
+    if (!vals[i][0]) {
+      // the placeholder is an example, drawn dim
+      lcd.fillRect(8, y, lcd.width() - 16, boxH, active ? WHITE : MAP_C_STRIP);
+      lcd.setTextColor(active ? MAP_C_STRIP : MAP_C_NODE_OLD, active ? WHITE : MAP_C_STRIP);
+      lcd.drawString(i == 0 ? "e.g. 47.42" : "e.g. -121.75", 14, y + 5);
+    }
+    y += boxH + 12;
+  }
+  lcd.setTextFont(small);
+  lcd.setTextColor(MAP_C_NODE_OLD, BLACK);
+  lcd.drawString("digits type   * point   # minus", 12, y);
+  y += (int)small->height() + 2;
+  lcd.drawString("up/down field   Back deletes", 12, y);
+  y += (int)small->height() + 2;
+  lcd.drawString("OK goes there   End cancels", 12, y);
+  y += (int)small->height() + 8;
+  double lat = 0, lon = 0;
+  mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &lat, &lon);
+  char now[48];
+  snprintf(now, sizeof(now), "Crosshair: %.5f, %.5f", lat, lon);
+  lcd.setTextColor(WHITE, BLACK);
+  lcd.drawString(now, 12, y);
+}
+
+const MeshChannel* MapsApp::pinChannel(int idx) const {
+  if (!pins || idx < 0 || idx >= pinCount || !pins[idx].chan[0]) {
+    return NULL;
+  }
+  return meshService.findChannelByName(pins[idx].chan);
+}
+
+void MapsApp::buildChannels() {
+  /* Rows with a subtitle need the taller pitch the Meshtastic screens use (five rows per
+   * screen); the map's usual single-line menu draws the subtitle over the next row. */
+  freeMenu();
+  menu = new MenuWidget(0, header->height(), lcd.width(),
+                        lcd.height() - header->height() - footer->height(),
+                        "No channels on this phone", fonts[AKROBAT_EXTRABOLD_22], 5, 8);
+  menu->setStyle(MenuWidget::DEFAULT_STYLE, WHITE, BLACK, BLACK, GREEN);
+  char row[40];
+  const int n = meshService.getChannelCount();
+  const char* have = (chanForPin >= 0 && chanForPin < pinCount) ? pins[chanForPin].chan : "";
+  const char* beacon = meshService.getPosChannelName();
+  MenuOption::keyType pick = 0;
+  for (int i = 0; i < n; i++) {
+    const MeshChannel* c = meshService.getChannel(i);
+    if (!c) {
+      continue;
+    }
+    const MenuOption::keyType key = (MenuOption::keyType)(ROW_C_BASE + i);
+    if (meshService.channelIsPublic(c)) {
+      snprintf(row, sizeof(row), "PUBLIC %s", c->name);
+      menu->addOption(row, chanPending == (int)key ? "PUBLIC - press again to confirm"
+                                                   : "PUBLIC - any radio in range", key, 1);
+    } else if (have[0] && strcmp(have, c->name) == 0) {
+      menu->addOption(c->name, "private - this pin is here now", key, 1);
+    } else if (beacon[0] && strcmp(beacon, c->name) == 0) {
+      menu->addOption(c->name, "private - your position beacon's channel", key, 1);
+    } else {
+      menu->addOption(c->name, "private", key, 1);
+    }
+    /* Highlight, in order: where this pin already is, else the beacon's channel, else the
+     * first private channel. Never a public one by default. */
+    if (!pick) {
+      if (have[0] && strcmp(have, c->name) == 0) {
+        pick = key;
+      } else if (beacon[0] && strcmp(beacon, c->name) == 0) {
+        pick = key;
+      }
+    }
+  }
+  if (!pick) {
+    for (int i = 0; i < n; i++) {
+      const MeshChannel* c = meshService.getChannel(i);
+      if (c && !meshService.channelIsPublic(c)) {
+        pick = (MenuOption::keyType)(ROW_C_BASE + i);
+        break;
+      }
+    }
+  }
+  menu->addOption("Back", ROW_C_CANCEL);
+  if (pick) {
+    menu->select(pick);
+  }
 }
 
 void MapsApp::buildRename() {
@@ -1851,13 +2231,13 @@ void MapsApp::buildConfirmDelete() {
 static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "Arrows      scroll (hold = faster)", WHITE },
   { "2 4 6 8     scroll too", WHITE },
-  { "* or 1      zoom out", WHITE },
-  { "# or 3      zoom in", WHITE },
-  { "5           drop a pin on the crosshair", WHITE },
-  { "OK          the pin under the crosshair,", WHITE },
-  { "            or the menu if there is none", WHITE },
+  { "Side 1 / 2  zoom in / out (also # / *)", WHITE },
+  { "Side 3      centre on me (also 0)", WHITE },
+  { "OK          drop a pin, or open the pin", WHITE },
+  { "            under the crosshair (also 5)", WHITE },
+  { "Menu key    the map menu: download maps,", WHITE },
+  { "            go to a place, pins, nodes", WHITE },
   { "7 / 9       previous / next pin", WHITE },
-  { "0           centre on me", WHITE },
   { "Back        leave (the view is saved)", WHITE },
   { "", WHITE },
   { "orange dot   your pin", MAP_C_PIN },
@@ -1872,8 +2252,14 @@ static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "A name is dropped, never squashed,", WHITE },
   { "when it would land on another.", WHITE },
   { "", WHITE },
+  { "grey ring    ...or a poor fix (<4 sats)", MAP_C_NODE_OLD },
   { "grey square  tile not on the card", WHITE },
-  { "See docs/maps.md for the tiles.", WHITE },
+  { "Menu > Download maps fetches an area", WHITE },
+  { "over WiFi. See docs/maps.md.", WHITE },
+  { "", WHITE },
+  { "USGS: public domain, National Map", WHITE },
+  { "OpenTopoMap: (c) OSM contributors,", WHITE },
+  { "SRTM | OpenTopoMap, CC-BY-SA", WHITE },
 };
 static const int MAPS_HELP_N = (int)(sizeof(MAPS_HELP_ROWS) / sizeof(MAPS_HELP_ROWS[0]));
 
@@ -1984,6 +2370,7 @@ appEventResult MapsApp::onMapKey(EventType event) {
   }
 
   switch (event) {
+  case WIPHONE_KEY_F2:              // the second side button: zoom out
   case '*':
   case '1': {
     /* ⚠ FALL BACK TO THE PROJECTION'S LIMITS, NOT TO THE CURRENT ZOOM. With no tiles on the
@@ -2002,6 +2389,7 @@ appEventResult MapsApp::onMapKey(EventType event) {
     }
     return REDRAW_SCREEN;
   }
+  case WIPHONE_KEY_F1:              // the top side button: zoom in
   case '#':
   case '3': {
     const int zMin = areaSel >= 0 ? areas[areaSel].zMin : MAP_ZOOM_MIN;
@@ -2029,6 +2417,7 @@ appEventResult MapsApp::onMapKey(EventType event) {
   case '9':
     stepPin(1);
     return REDRAW_SCREEN;
+  case WIPHONE_KEY_F3:              // the third side button: centre on me
   case '0':
     centreOnMe();
     return REDRAW_SCREEN;
@@ -2036,15 +2425,28 @@ appEventResult MapsApp::onMapKey(EventType event) {
     break;
   }
 
-  if (LOGIC_BUTTON_OK(event)) {
+  /* ⚠ SELECT BEFORE LOGIC_BUTTON_OK, ALWAYS. LOGIC_BUTTON_OK is OK||CALL||SELECT on this
+   * keyboard (Hardware.h:212), so a test for the macro first would swallow the soft key —
+   * app_music.cpp:405-412 has exactly that dead branch. Here the top-left soft key is the
+   * MENU, the D-pad centre is the PIN (options on the one under the crosshair, otherwise drop
+   * a new one), and CALL does nothing on a map. */
+  if (event == WIPHONE_KEY_SELECT) {
+    enterState(MAPS_MENU);
+    return REDRAW_ALL;
+  }
+  if (event == WIPHONE_KEY_OK) {
     const int hit = pinUnderCrosshair();
     if (hit >= 0) {
       pinSel = hit;
       enterState(MAPS_PIN_OPTS);
       return REDRAW_ALL;
     }
-    enterState(MAPS_MENU);
-    return REDRAW_ALL;
+    if (dropPin()) {
+      setNote("Dropped '%s' - name it", pins[pinSel].name);
+      enterState(MAPS_RENAME);
+      return REDRAW_ALL;
+    }
+    return REDRAW_SCREEN;
   }
   return DO_NOTHING;
 }
@@ -2058,6 +2460,16 @@ appEventResult MapsApp::processEvent(EventType event) {
   }
 
   if (event == APP_TIMER_EVENT) {
+    if (appState == MAPS_DOWNLOAD) {
+      if (tileFetchActive() || (millis() - dlLastMs) < 1500) {
+        if (millis() - dlLastMs >= 1000) {
+          dlLastMs = millis();
+          buildDownload();
+          return REDRAW_SCREEN;
+        }
+      }
+      return DO_NOTHING;
+    }
     if (!loadActive && wantAny && !startLoad(wantZ, wantTx, wantTy)) {
       /* ⚠ A REFUSED START MUST NOT BE RETRIED AT 40 Hz. startLoad only refuses for reasons
        * that will still be true in 25 ms — no area, no PSRAM, no free slot — so asking again
@@ -2113,59 +2525,18 @@ appEventResult MapsApp::processEvent(EventType event) {
       case ROW_M_AREA:
         enterState(MAPS_AREAS);
         return REDRAW_ALL;
-      case ROW_M_RESCAN: {
-        char was[32];
-        was[0] = '\0';
-        if (areaSel >= 0) {
-          strlcpy(was, areas[areaSel].name, sizeof(was));
-        }
-        cancelLoad();
-        forgetMissing();
-        for (int i = 0; i < MAPS_TILE_SLOTS; i++) {
-          slots[i].z = -1;
-          slots[i].ready = false;
-        }
-        /* ⚠ SAVE BEFORE RE-READING. loadPins() overwrites the in-RAM table from the file, so
-         * any edit not yet on the card — every path here writes immediately today, but that
-         * is a property of the callers, not of this code — would be silently discarded by a
-         * menu row whose name promises only to look at the card again. */
-        if (pinsDirty) {
-          savePins();
-        }
-        scanAreas();
-        loadPins();
-        pinSel = -1;               // the array was just re-read; the old index means nothing
-        areaSel = -1;
-        for (int i = 0; i < areaCount; i++) {
-          if (was[0] && !strcmp(areas[i].name, was)) {
-            areaSel = i;
-          }
-        }
-        if (areaSel < 0 && areaCount > 0) {
-          areaSel = 0;
-        }
-        if (areaSel >= 0) {
-          /* ⚠ cx/cy ARE WORLD PIXELS AT THE CURRENT ZOOM, so changing `zoom` without
-           * rescaling them moves the view to completely different ground — at one level out
-           * that is half the world away. setArea() already does this correctly; the rescan
-           * path did not, and a card whose new area starts at a different zoom would have
-           * dropped the user somewhere in the ocean. Read the ground, change the zoom, put
-           * the ground back. */
-          double keepLat = 0, keepLon = 0;
-          mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &keepLat, &keepLon);
-          if (zoom < areas[areaSel].zMin) {
-            zoom = areas[areaSel].zMin;
-          }
-          if (zoom > areas[areaSel].zMax) {
-            zoom = areas[areaSel].zMax;
-          }
-          centreOn(keepLat, keepLon);
-        }
+      case ROW_M_DOWNLOAD:
+        enterState(MAPS_DOWNLOAD);
+        return REDRAW_ALL;
+      case ROW_M_GOTO:
+        enterState(MAPS_GOTO);
+        return REDRAW_ALL;
+      case ROW_M_RESCAN:
+        rescanCard();
         setNote("%d map%s, %d pin%s on the card", areaCount, areaCount == 1 ? "" : "s",
                 pinCount, pinCount == 1 ? "" : "s");
         enterState(MAPS_VIEW);
         return REDRAW_ALL;
-      }
       case ROW_M_HELP:
         enterState(MAPS_HELP);
         return REDRAW_ALL;
@@ -2177,6 +2548,195 @@ appEventResult MapsApp::processEvent(EventType event) {
       }
     }
     return REDRAW_SCREEN;
+
+  case MAPS_DOWNLOAD:
+    if (LOGIC_BUTTON_BACK(event)) {
+      /* Coming back to the map after a download: the tiles it wrote are not in the miss
+       * ring's memory, and a new source folder is a new area. Re-read the card, keep the view. */
+      rescanCard();
+      enterState(MAPS_MENU);
+      return REDRAW_ALL;
+    }
+    if (menu) {
+      menu->processEvent(event);
+      /* ⚠ NOTE ROWS ARE STOPS TO MenuWidget — an arrow lands on the estimate line and OK there
+       * does nothing. Step over them, in the direction of travel, so the form has four rows
+       * to the thumb and not seven. */
+      if (event == WIPHONE_KEY_UP || event == WIPHONE_KEY_DOWN) {
+        for (int guard = 0; guard < 8 && menu->currentKey() == MENU_ROW_NOTE; guard++) {
+          menu->processEvent(event);
+        }
+      }
+    }
+    if (LOGIC_BUTTON_OK(event) && menu) {
+      const MenuOption::keyType sel = menu->readChosen();
+      dlKeep = sel;
+      switch (sel) {
+      case ROW_D_SOURCE:
+        dlSource = (dlSource + 1) % tileSourceCount();
+        buildDownload();
+        menu->select(sel);
+        return REDRAW_SCREEN;
+      case ROW_D_RADIUS:
+        dlRadiusIdx = (dlRadiusIdx + 1) % MAPS_DL_RADII_N;
+        buildDownload();
+        menu->select(sel);
+        return REDRAW_SCREEN;
+      case ROW_D_DEPTH:
+        dlDepth = dlDepth >= MAPS_DL_DEPTH_MAX ? MAPS_DL_DEPTH_MIN : dlDepth + 1;
+        buildDownload();
+        menu->select(sel);
+        return REDRAW_SCREEN;
+      case ROW_D_START: {
+        TileJobSpec spec;
+        memset(&spec, 0, sizeof(spec));
+        spec.source = dlSource;
+        mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &spec.lat, &spec.lon);
+        spec.radiusKm = MAPS_DL_RADII[dlRadiusIdx];
+        spec.zMax = dlDepth;
+        char why[80];
+        dlKeep = ROW_D_STOP;             // BEFORE the rebuild: Start is gone from a running form
+        if (tileFetchStart(&spec, why, sizeof(why))) {
+          Preferences p;
+          if (p.begin(MAPS_NVS, false)) {
+            p.putInt("dlsrc", dlSource);
+            p.putInt("dlrad", dlRadiusIdx);
+            p.putInt("dldep", dlDepth);
+            p.end();
+          }
+          setNote("Downloading %s", tileSource(dlSource)->label);
+        } else {
+          setNote("Not started: %s", why);
+        }
+        buildDownload();
+        return REDRAW_SCREEN;
+      }
+      case ROW_D_STOP:
+        tileFetchStop();
+        dlKeep = ROW_D_START;
+        buildDownload();
+        return REDRAW_SCREEN;
+      case ROW_D_BACK:
+        rescanCard();
+        enterState(MAPS_MENU);
+        return REDRAW_ALL;
+      default:
+        break;
+      }
+    }
+    return REDRAW_SCREEN;
+
+  case MAPS_GOTO: {
+    /* Two fields, typed on the keypad: digits, `*` for the point, `#` for a minus sign.
+     * UP/DOWN move between latitude and longitude; Back deletes; END cancels; OK goes. */
+    char* f = gotoField == 0 ? gotoLat : gotoLon;
+    if (event == WIPHONE_KEY_END) {
+      enterState(MAPS_VIEW);
+      return REDRAW_ALL;
+    }
+    if (event == WIPHONE_KEY_BACK) {
+      const size_t n = strlen(f);
+      if (n) {
+        f[n - 1] = '\0';
+      }
+      return REDRAW_SCREEN;
+    }
+    if (event == WIPHONE_KEY_UP || event == WIPHONE_KEY_DOWN) {
+      gotoField = gotoField ? 0 : 1;
+      return REDRAW_SCREEN;
+    }
+    if (LOGIC_BUTTON_OK(event)) {
+      if (!gotoLat[0] || !gotoLon[0]) {
+        gotoField = gotoLat[0] ? 1 : 0;
+        return REDRAW_SCREEN;              // the empty field is highlighted: type it
+      }
+      char* end = NULL;
+      const double lat = strtod(gotoLat, &end);
+      const bool latOk = end && *end == '\0' && lat >= -90.0 && lat <= 90.0;
+      const double lon = strtod(gotoLon, &end);
+      const bool lonOk = end && *end == '\0' && lon >= -180.0 && lon <= 180.0;
+      if (!latOk || !lonOk) {
+        gotoField = latOk ? 1 : 0;
+        return REDRAW_SCREEN;              // the bad one is highlighted
+      }
+      centreOn(lat, lon);
+      setNote("%.5f, %.5f", lat, lon);
+      enterState(MAPS_VIEW);
+      return REDRAW_ALL;
+    }
+    if (IS_KEYBOARD(event)) {
+      char c = 0;
+      if (event >= '0' && event <= '9') {
+        c = (char)event;
+      } else if (event == '*') {
+        c = '.';
+      } else if (event == '#') {
+        /* Toggle the sign: a minus is only ever the first character. */
+        if (f[0] == '-') {
+          memmove(f, f + 1, strlen(f));
+        } else if (strlen(f) < 14) {
+          memmove(f + 1, f, strlen(f) + 1);
+          f[0] = '-';
+        }
+        return REDRAW_SCREEN;
+      }
+      if (c) {
+        const size_t n = strlen(f);
+        if (c == '.' && strchr(f, '.')) {
+          return REDRAW_SCREEN;            // one point per number
+        }
+        if (n < 14) {
+          f[n] = c;
+          f[n + 1] = '\0';
+        }
+        return REDRAW_SCREEN;
+      }
+    }
+    return DO_NOTHING;
+  }
+
+  case MAPS_CHANNEL:
+    if (LOGIC_BUTTON_BACK(event)) {
+      enterState(MAPS_PIN_OPTS);
+      return REDRAW_ALL;
+    }
+    if (menu) {
+      menu->processEvent(event);
+    }
+    if (LOGIC_BUTTON_OK(event) && menu) {
+      const MenuOption::keyType k = menu->currentKey();
+      if (k == ROW_C_CANCEL || chanForPin < 0 || chanForPin >= pinCount) {
+        enterState(MAPS_PIN_OPTS);
+        return REDRAW_ALL;
+      }
+      /* Re-resolve by index NOW, never trusting the key frozen when the rows were drawn —
+       * applyChannelUrl() can have rewritten the table since (app_meshtastic.cpp does this). */
+      const MeshChannel* c = meshService.getChannel((int)k - ROW_C_BASE);
+      if (!c) {
+        chanPending = 0;
+        buildChannels();
+        return REDRAW_SCREEN;
+      }
+      /* The PUBLIC row takes two presses: the same idiom as the beacon's channel picker. A
+       * shared pin persists on every radio that hears it, so "any radio in range" is the
+       * warning to read twice. */
+      if (meshService.channelIsPublic(c) && chanPending != (int)k) {
+        chanPending = (int)k;
+        buildChannels();
+        menu->select(k);
+        return REDRAW_SCREEN;
+      }
+      chanPending = 0;
+      strlcpy(pins[chanForPin].chan, c->name, sizeof(pins[chanForPin].chan));
+      pinSel = chanForPin;
+      char why[72];
+      sharePin(pinSel, why, sizeof(why));
+      setNote("%s", why);
+      enterState(MAPS_VIEW);
+      return REDRAW_ALL;
+    }
+    return REDRAW_SCREEN;
+
 
   case MAPS_LIST:
     if (LOGIC_BUTTON_BACK(event)) {
@@ -2272,7 +2832,18 @@ appEventResult MapsApp::processEvent(EventType event) {
         enterState(MAPS_VIEW);
         return REDRAW_ALL;
       }
+      case ROW_P_SHARE_ON:
+        chanForPin = pinSel;
+        enterState(MAPS_CHANNEL);
+        return REDRAW_ALL;
       case ROW_P_SHARE: {
+        /* A pin that has never been shared — or whose channel is gone from this phone — asks
+         * which channel first. A re-share goes back out where it already is. */
+        if (!pinChannel(pinSel)) {
+          chanForPin = pinSel;
+          enterState(MAPS_CHANNEL);
+          return REDRAW_ALL;
+        }
         char why[72];
         sharePin(pinSel, why, sizeof(why));
         setNote("%s", why);
@@ -2285,7 +2856,7 @@ appEventResult MapsApp::processEvent(EventType event) {
          * this phone that knows the id any more — the retraction can never be sent again. A
          * stale camp on other people's maps is the exact failure "Take it off the mesh"
          * exists to prevent. */
-        const bool ok = meshService.unshareWaypoint(pins[pinSel].sharedId);
+        const bool ok = meshService.unshareWaypoint(pins[pinSel].sharedId, pinChannel(pinSel));
         if (ok) {
           pins[pinSel].sharedId = 0;
           pinsDirty = true;
@@ -2467,6 +3038,9 @@ void MapsApp::redrawScreen(bool redrawAll) {
   case MAPS_HELP:
     drawHelp();
     break;
+  case MAPS_GOTO:
+    drawGoto();
+    break;
   case MAPS_RENAME:
     if (textArea) {
       ((GUIWidget*)textArea)->redraw(lcd);
@@ -2484,7 +3058,10 @@ void MapsApp::redrawScreen(bool redrawAll) {
    * is reading to do, nothing at all otherwise: a map that is fully painted must not keep the
    * CPU awake, and the phone that runs this is one somebody is carrying all day. */
   const bool busy = (appState == MAPS_VIEW) && (loadActive || (wantAny && !tileMemFail));
-  controlState.msAppTimerEventPeriod = busy ? 25 : 0;
+  /* The download screen ticks at 4 Hz for its progress line only while a job is running:
+   * a finished screen must not keep the CPU awake either. */
+  const bool progress = (appState == MAPS_DOWNLOAD) && tileFetchActive();
+  controlState.msAppTimerEventPeriod = busy ? 25 : (progress ? 250 : 0);
 }
 
 // ---------------------------------------------------------------- the serial console

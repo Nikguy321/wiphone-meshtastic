@@ -80,7 +80,7 @@ def bridge_say(cmd_file, log_file, command, wait=4.0):
 def phone_ip_via_bridge(cmd_file, log_file, app):
     out = bridge_say(cmd_file, log_file, 'up')
     m = re.search(r'uploader: ON\s+http://([0-9.]+)/', out)
-    wanted = {'books': '/books', 'photos': '/photos', 'roms': '/roms'}[app]
+    wanted = {'books': '/books', 'photos': '/photos', 'roms': '/roms', 'maps': '/maps'}[app]
     if m and wanted.split('/')[-1] in out:
         return m.group(1)
     if m:
@@ -110,9 +110,12 @@ def held_bytes(conn, name):
         return 0
 
 
-def push_file(ip, path, verbose=True):
-    """Returns (ok, message). One keep-alive connection; resumes; verifies."""
-    name = os.path.basename(path)
+def push_file(ip, path, verbose=True, name=None):
+    """Returns (ok, message). One keep-alive connection; resumes; verifies.
+    `name` is what the phone will call it - the basename, or (tree mode) the path relative
+    to the tree's parent, forward slashes, which the maps uploader turns into folders."""
+    if name is None:
+        name = os.path.basename(path)
     size = os.path.getsize(path)
     tries = 0
     off = None
@@ -190,9 +193,11 @@ def push_file(ip, path, verbose=True):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('files', nargs='+')
-    ap.add_argument('--app', choices=('books', 'photos', 'roms'), default='books',
+    ap.add_argument('files', nargs='*')
+    ap.add_argument('--app', choices=('books', 'photos', 'roms', 'maps'), default='books',
                     help='which folder the phone puts them in (default books)')
+    ap.add_argument('--tree', help='send every file under this folder, keeping the relative '
+                                   'path (maps: a converted <area> folder -> /maps/<area>/...)')
     ap.add_argument('--ip', help='phone address; otherwise bridge, then wiphone.local')
     ap.add_argument('--port-tag', help='bridge tag when two phones are attached '
                                        '(e.g. 025A3F65)')
@@ -202,6 +207,25 @@ def main():
     missing = [p for p in args.files if not os.path.isfile(p)]
     if missing:
         raise SystemExit('not a file: ' + ', '.join(missing))
+    # (path, name-on-the-phone) pairs. A tree is sent under its own folder name so
+    # `--tree out/home` lands at /maps/home/<z>/<x>/<y>.565 - the area the phone lists.
+    jobs = [(p, os.path.basename(p)) for p in args.files]
+    if args.tree:
+        if args.app != 'maps':
+            raise SystemExit('--tree is for --app maps')
+        root = os.path.abspath(args.tree.rstrip('/'))
+        if not os.path.isdir(root):
+            raise SystemExit('not a folder: ' + args.tree)
+        area = os.path.basename(root)
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = sorted(d for d in dirnames if not d.startswith('.'))
+            for fn in sorted(filenames):
+                if fn.startswith('.'):
+                    continue                       # Finder sidecars; the phone refuses them anyway
+                rel = os.path.relpath(os.path.join(dirpath, fn), root).replace(os.sep, '/')
+                jobs.append((os.path.join(dirpath, fn), area + '/' + rel))
+    if not jobs:
+        raise SystemExit('nothing to send')
 
     cmd_file = log_file = None
     ip = args.ip
@@ -220,17 +244,30 @@ def main():
                                  'resolving. Start tools/panicwatch.py or pass --ip.')
 
     fails = 0
-    for p in args.files:
-        ok, msg = push_file(ip, p)
-        print('\r  %s: %s        ' % (os.path.basename(p), msg))
+    done = 0
+    t_all = time.time()
+    for p, name in jobs:
+        ok, msg = push_file(ip, p, verbose=not args.tree, name=name)
+        done += 1
+        if args.tree:
+            # hundreds of files: one line per failure, a running count otherwise
+            if not ok:
+                print('\r  %s: %s        ' % (name, msg))
+            else:
+                sys.stdout.write('\r  %d/%d sent  (%.0f s)   ' % (done, len(jobs), time.time() - t_all))
+                sys.stdout.flush()
+        else:
+            print('\r  %s: %s        ' % (name, msg))
         if not ok:
             fails += 1
+    if args.tree:
+        print()
     if args.off and cmd_file:
         bridge_say(cmd_file, log_file, 'up off')
         print('uploader stopped')
     if fails:
         raise SystemExit('%d file(s) FAILED' % fails)
-    print('all %d file(s) verified on the phone' % len(args.files))
+    print('all %d file(s) verified on the phone' % len(jobs))
 
 
 if __name__ == '__main__':

@@ -128,7 +128,22 @@ static const XferConfig SERIAL_T9_CFG = {
   "/t9", "Add T9 words", ".txt", "word lists", "extra.txt", "WiPhone-T9"
 };
 const XferConfig* xferT9Config() { return &SERIAL_T9_CFG; }
+/* The map-tile uploader (`up on maps`): the ONE tree-mode config. A converted area is
+ * `<area>/<z>/<x>/<y>.565` — hundreds of files in nested folders — and the alternative is
+ * pulling the card. tools/wiphone_send.py --app maps --tree <dir> walks a converted tree and
+ * sends each file under its relative path; chunkSafeTreeName decides what a path may look
+ * like and chunkOpenFor creates the folders. `.txt` is for pins.txt. */
+static const XferConfig SERIAL_MAPS_CFG = {
+  "/maps", "Add map tiles", ".565,.txt", "tiles", "tile.565", "WiPhone-Maps", true
+};
+const XferConfig* xferMapsConfig() { return &SERIAL_MAPS_CFG; }
 static const XferConfig* s_cfg = &ROM_CFG;
+
+/* One name rule per uploader: basename-only for everything, a validated relative path for
+ * the tree-mode config. Both transports (raw and legacy) go through here. */
+static bool xferSafeName(const char* in, char* out, size_t cap) {
+  return s_cfg->tree ? chunkSafeTreeName(in, out, cap) : chunkSafeName(in, out, cap);
+}
 
 void gbcXferHandleClient() {
   if (!s_on) {
@@ -709,6 +724,13 @@ static bool chunkOpenFor(const char* name, size_t off, int* code, char* reply, s
     String path = String(s_cfg->dir) + "/" + name;
     if (off == 0) {
       SD.mkdir(s_cfg->dir);
+      /* Tree mode: create each folder on the way down. SD.mkdir is one level at a time and
+       * returns false for a folder that already exists, which is the common case and fine. */
+      for (int i = (int)strlen(s_cfg->dir) + 1; i < (int)path.length(); i++) {
+        if (path[i] == '/') {
+          SD.mkdir(path.substring(0, i).c_str());
+        }
+      }
       SD.remove(path.c_str());
     }
     /* FILE_APPEND, emphatically not FILE_WRITE: in this core FILE_WRITE is
@@ -752,7 +774,7 @@ static bool xferFlushBlock() {
 static void handleChunkGet() {
   s_server->sendHeader("Connection", "close");
   char name[sizeof(s_chunkName)];
-  if (!chunkSafeName(s_server->arg("name").c_str(), name, sizeof(name))) {
+  if (!xferSafeName(s_server->arg("name").c_str(), name, sizeof(name))) {
     s_server->send(400, "text/plain", "bad name");
     return;
   }
@@ -793,7 +815,7 @@ static void handleChunkData() {
       s_sdLen = 0;
     }
     char name[sizeof(s_chunkName)];
-    if (!chunkSafeName(s_server->arg("name").c_str(), name, sizeof(name))) {
+    if (!xferSafeName(s_server->arg("name").c_str(), name, sizeof(name))) {
       s_chunkCode = 400;
       strlcpy(s_chunkReply, "bad name", sizeof(s_chunkReply));
       return;
@@ -1152,7 +1174,7 @@ static void rawOnRequest() {
   char rawNameArg[96] = {0};
   char name[sizeof(s_chunkName)];
   rawQueryArg(qs, "name", rawNameArg, sizeof(rawNameArg));
-  if (!chunkSafeName(rawNameArg, name, sizeof(name))) {
+  if (!xferSafeName(rawNameArg, name, sizeof(name))) {
     rawReply(400, "bad name");
     rawReset();
     return;

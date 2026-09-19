@@ -291,7 +291,14 @@ int main() {
     MapPin p;
     CHECK(mapPinParseLine("476062000,-1223321000,0,Camp", &p) == 1 &&
           p.latI == 476062000 && p.lonI == -1223321000 && p.sharedId == 0 &&
-          !strcmp(p.name, "Camp"), "a pin line parses");
+          !strcmp(p.name, "Camp") && p.chan[0] == '\0',
+          "the older four-field line parses, with no channel");
+    CHECK(mapPinParseLine("476062000,-1223321000,99,hunt-group,Camp", &p) == 1 &&
+          p.sharedId == 99 && !strcmp(p.chan, "hunt-group") && !strcmp(p.name, "Camp"),
+          "the five-field line carries the channel before the name");
+    CHECK(mapPinParseLine("476062000,-1223321000,99,,Camp, the far one", &p) == 1 &&
+          p.chan[0] == '\0' && !strcmp(p.name, "Camp  the far one"),
+          "an empty channel field is fine, and a comma in the name is still a space");
     CHECK(mapPinParseLine("476062000,-1223321000,3735928559,The gate", &p) == 1 &&
           p.sharedId == 3735928559u && !strcmp(p.name, "The gate"),
           "a shared pin keeps its waypoint id, and a name may hold spaces");
@@ -313,10 +320,18 @@ int main() {
     q.sharedId = 7;
     strcpy(q.name, "Truck");
     CHECK(mapPinFormatLine(&q, line, sizeof(line)) > 0 &&
-          !strcmp(line, "-338688000,1512093000,7,Truck"), "a pin formats");
+          !strcmp(line, "-338688000,1512093000,7,,Truck"), "a never-shared pin formats with an empty channel");
+    strcpy(q.chan, "hunt-group");
+    CHECK(mapPinFormatLine(&q, line, sizeof(line)) > 0 &&
+          !strcmp(line, "-338688000,1512093000,7,hunt-group,Truck"), "a shared pin formats with its channel");
     MapPin r;
     CHECK(mapPinParseLine(line, &r) == 1 && r.latI == q.latI && r.lonI == q.lonI &&
-          r.sharedId == q.sharedId && !strcmp(r.name, q.name), "format -> parse round trips");
+          r.sharedId == q.sharedId && !strcmp(r.name, q.name) && !strcmp(r.chan, q.chan),
+          "format -> parse round trips, channel included");
+    strcpy(q.chan, "odd,name");
+    CHECK(mapPinFormatLine(&q, line, sizeof(line)) > 0 && mapPinParseLine(line, &r) == 1 &&
+          !strcmp(r.chan, "odd name") && !strcmp(r.name, "Truck"),
+          "a comma in a channel name cannot become a sixth field");
     char small[10];
     CHECK(mapPinFormatLine(&q, small, sizeof(small)) == 0 && small[0] == '\0',
           "a line that will not fit is refused, never truncated");

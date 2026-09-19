@@ -19,13 +19,15 @@ mesh has shared and the last position of everyone who has spoken.
 |---|---|
 | **Arrows** | scroll. Hold one down and it speeds up; let go and the next press is a nudge again |
 | **2 4 6 8** | scroll too, for gloves |
-| **\*** or **1** | zoom out |
-| **#** or **3** | zoom in |
-| **5** | drop a pin on the crosshair, and open the name field |
-| **OK** | the pin under the crosshair (rename / move / share / delete) — or the map menu if there is no pin there |
+| **Side button 1 / 2** (top two) | zoom in / out. Also `#`/`*` or `3`/`1` |
+| **Side button 3** | centre on me: a live GPS fix (4+ satellites), else the pin you declared by hand. Also `0` |
+| **OK** | drop a pin on the crosshair and name it — or, with a pin under the crosshair, open it (rename / move / share / delete). Also `5` |
+| **Menu** (top-left soft key) | the map menu: download maps, go to coordinates, pins, places, nodes |
 | **7 / 9** | previous / next pin, centring the map on it |
-| **0** | centre on me: a live GPS fix, else the pin you declared by hand |
-| **Back** | leave. Where you were looking is saved |
+| **Back** | leave. Where you were looking is saved — also on power-off |
+
+While the map is open the side buttons belong to it, not to the music player (the Game Boy
+has the same rule), so zoom cannot silently turn into play/pause because a track is loaded.
 
 The left soft key reads **Pin/Menu** because it does both: the pin under the crosshair if there
 is one, the map menu if there is not. **Centre on me** means *this phone*; it falls through to
@@ -192,9 +194,86 @@ is remarkably hard to see.
 
 ### Where tiles come from
 
-Whatever you already use for COVEY's map. This repo does not fetch them: a tile server's
-terms are between you and the server, bulk downloading is exactly what those terms are about,
-and an area worth carrying into the woods is small enough to fetch politely and once.
+Three ways, in the order you will probably use them:
+
+1. **The phone downloads them itself** — `Menu → Download maps...` on the map, over WiFi.
+   See the next section. This is the one that works with no computer in the loop.
+2. **Push a converted tree from the Mac**, no card swapping: convert as above into any
+   folder, then `python3 tools/wiphone_send.py --app maps --tree ~/tiles-565/home` sends it
+   to `/maps/home/...` over the phone's own upload server (271 tiles, 34 MB: about ten
+   minutes). The uploader's `maps` mode is the only one that accepts folder paths, and only
+   `<area>/<z>/<x>/<y>.565` shaped ones.
+3. **Straight onto the card**, as the commands above show.
+
+A tile server's terms are between you and the server. USGS is public domain and asks for a
+credit line; OpenTopoMap is CC-BY-SA and asks not to be mass-downloaded — the phone waits
+0.6 s between its tiles and says so on the help screen. Both credits are printed there.
+
+---
+
+## Download maps on the phone
+
+`Menu → Download maps...` fetches an area around the crosshair over WiFi and writes it to the
+card in the raw format above, so the viewer never learns where a tile came from.
+
+| Row | Choices |
+|---|---|
+| Source | **USGS Topo** (contours, roads, labels — the hunt map), **USGS Aerial**, **OpenTopoMap** (denser contours, CC-BY-SA, slow server) |
+| Radius | 2 / 5 / 10 / 20 km around the crosshair |
+| Detail | to z13, z14, z15 or z16. z15 is 3 m per pixel; USGS z16 is the same drawing scaled up and costs four times as much |
+
+The line under them is the honest estimate — tiles, megabytes on the card, minutes — from
+the rates measured on the phone (USGS about a second a tile, OpenTopoMap about four). **Start
+download** needs WiFi and either USB power or a battery above 3.8 V; it says which is missing.
+While it runs the screen shows `Downloading 24/271`, the zoom level it is on, bytes, seconds
+and failures, and **Stop** finishes the tile in hand and quits. The screen stays awake while
+you watch it; leave it and the download carries on (the map's own tiles, the messages, the
+clock — all still work), and it pauses by itself for a phone call or a dropped WiFi and
+resumes when they clear. Re-running the same area only fetches what is missing: a tile is
+"there" only when it is exactly 131072 bytes, so a power-off mid-tile leaves nothing the
+next run will not repair.
+
+Each source is its own area on the card (`/maps/usgs-topo`, `/maps/usgs-img`, `/maps/otm`);
+`Map area:` in the menu switches between them.
+
+What it costs (measured on WiPhone 2, 2026-09-18):
+
+| Area | Tiles | On the card | USGS Topo | OpenTopoMap |
+|---|---|---|---|---|
+| 2 km, z11–15 | ~55 | 7 MB | ~1 min | ~4 min |
+| 5 km, z11–15 | ~270 | 34 MB | ~4.5 min | ~18 min |
+| 10 km, z11–15 | ~865 | 113 MB | ~15 min | ~1 h |
+| 20 km, z11–15 | ~3,260 | 427 MB | ~1 h | ~3.5 h |
+
+### How it works, and why it took a night to make it work
+
+The phone had never opened an HTTPS connection: the framework builds mbedTLS to allocate from
+**internal** RAM, its two 16 KB record buffers alone exceed the phone's largest free block, and
+the handshake runs on the calling task's 8 KB stack. `tile_fetch.h` has the whole story. The
+short version: the downloader runs on its own task with a 10 KB stack, redirects mbedTLS's
+allocator into PSRAM once (`mbedtls_platform_set_calloc_free`), keeps one connection alive for
+the whole area, decodes each tile with the decoders already in the ESP32's ROM (TJpgDec for
+USGS's JPEG, the `tinfl` inflater for OpenTopoMap's PNG — `tile_png.cpp` is the 300 lines of
+PNG around it, proven against 41 host checks), and writes the raw file to a temporary name
+before renaming it into place.
+
+Internal RAM is the thing to watch: the task's stack is 10 KB for the life of the firmware
+from the first download, and the first TLS handshake of a run dips the internal heap by
+another ~12 KB for a second or two. The downloader refuses to start when the largest free
+block is under 14 KB (24 KB before the stack exists) and tells you to reboot first. The
+serial console has the numbers: `maps dl` prints the run's heap floor and the task's stack
+high-water mark.
+
+### From the console
+
+```
+maps dl                                  what the last / current run did, with the heap floor
+maps dl 0 47.42 -121.75 5 15             start: source 0=USGS Topo 1=USGS Aerial 2=OpenTopoMap
+maps dl stop                             finish the tile in hand and quit
+maps dlurl http://192.168.1.17:8765/{z}/{x}/{y}.jpg    a plain-HTTP relay as source 3
+tlstest <url> [n]                        the TLS bench: n kept-alive GETs, heap and timing
+open maps                                jump into the app; `hold on` keeps the screen awake
+```
 
 ---
 
@@ -219,7 +298,7 @@ computer. `tools/shot.py` will take the screenshot.
 
 - **768 KB of PSRAM** while the app is open (six 128 KB tile slots), allocated once and freed
   on the way out. PSRAM runs ~3.6 MB free; internal RAM — the ~19 KB that SIP and WiFi fight
-  over — is untouched.
+  over — is untouched by the viewer. The downloader is the exception: see above.
 - **A tile arrives in 32 KB pieces**, one per 25 ms tick, because a 128 KB SD read is
   100–250 ms and everything in this firmware shares one task. 250 ms is exactly the threshold
   the superloop's stall detector was built to complain about; four tiles read the obvious way

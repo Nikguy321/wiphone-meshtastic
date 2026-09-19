@@ -7,6 +7,7 @@
  */
 
 #include "meshtastic_service.h"
+#include "tile_fetch.h"          // tileFetchActive(): defer the DB save while tiles are written
 
 extern uint32_t heapDelta(const char* what, uint32_t before);  // WiPhone.ino - ratchet instrument
 #include "esp_heap_caps.h"
@@ -693,8 +694,21 @@ bool MeshtasticService::sendWaypointOn(const uint8_t* payload, size_t len,
 #endif
 }
 
+const MeshChannel* MeshtasticService::findChannelByName(const char* name) const {
+  if (!name || !name[0]) {
+    return NULL;
+  }
+  for (int i = 0; i < channelCount; i++) {
+    if (strcmp(channels[i].name, name) == 0) {
+      return &channels[i];
+    }
+  }
+  return NULL;
+}
+
 uint32_t MeshtasticService::shareWaypoint(uint32_t id, int32_t latI, int32_t lonI,
-                                          const char* name, uint32_t expire, bool* onAir) {
+                                          const char* name, uint32_t expire, bool* onAir,
+                                          const MeshChannel* ch) {
   if (onAir) {
     *onAir = false;
   }
@@ -722,7 +736,9 @@ uint32_t MeshtasticService::shareWaypoint(uint32_t id, int32_t latI, int32_t lon
   const size_t n = meshWaypointBuild(buf, sizeof(buf), id, true, latI, lonI,
                                      expire, myNodeNum, name);
   if (n) {
-    const bool ok = sendWaypointOn(buf, n, announceChannel(), "share", name);
+    /* A CHOSEN channel when the caller has one (the map's picker); the automatic pick only
+     * for callers that predate it. */
+    const bool ok = sendWaypointOn(buf, n, ch ? ch : announceChannel(), "share", name);
     if (onAir) {
       *onAir = ok;
     }
@@ -730,7 +746,7 @@ uint32_t MeshtasticService::shareWaypoint(uint32_t id, int32_t latI, int32_t lon
   return id;
 }
 
-bool MeshtasticService::unshareWaypoint(uint32_t id) {
+bool MeshtasticService::unshareWaypoint(uint32_t id, const MeshChannel* ch) {
   if (id == 0) {
     return false;
   }
@@ -750,7 +766,7 @@ bool MeshtasticService::unshareWaypoint(uint32_t id) {
   if (!n) {
     return false;
   }
-  return sendWaypointOn(buf, n, announceChannel(), "unshare", gone);
+  return sendWaypointOn(buf, n, ch ? ch : announceChannel(), "unshare", gone);
 }
 
 /* ── The periodic GPS position beacon ──────────────────────────────────────
@@ -1431,7 +1447,12 @@ bool MeshtasticService::loop() {
    * load path came to disagree with the save path for a day and a half. */
   saveDbStep();
 
-  if (dbDirty && uiIdle && !saveActive && (millis() - lastSaveMs > MESH_SAVE_DEBOUNCE_MS)) {
+  /* ...and not while the map downloader is writing the card: saveDb() is ~55 small writes,
+   * each of which queues behind a 32 KB tile piece on the FatFs mutex, and together they
+   * showed up as 0.5-0.9 s 'mesh' stalls of the whole phone (measured 2026-09-18). The
+   * data stays dirty and lands seconds after the download ends. */
+  if (dbDirty && uiIdle && !saveActive && !tileFetchActive() &&
+      (millis() - lastSaveMs > MESH_SAVE_DEBOUNCE_MS)) {
     saveDb();
     dbDirty = false;
     lastSaveMs = millis();

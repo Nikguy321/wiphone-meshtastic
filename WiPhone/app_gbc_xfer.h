@@ -26,6 +26,8 @@ struct XferConfig {
   const char* nounPlural;   // "ROMs" / "books" — used in the page text and the count
   const char* defaultName;  // filename for a URL fetch that has no usable one
   const char* apName;       // hotspot SSID when the phone has no network
+  bool        tree;         // accept `a/b/c.ext` names (chunkSafeTreeName) and create the folders;
+                            // false = basename only. Trailing so the older initialisers stay valid.
 };
 
 // Pumped from the main loop every iteration (no-op unless the server is running).
@@ -42,6 +44,7 @@ const char* xferAddr();                         // IP address to show next to wi
 const char* xferStartError();                   // why the last start was refused, or NULL
 const XferConfig* xferPhotosConfig();            // /photos, for `up on photos`
 const XferConfig* xferT9Config();                // /t9, for `up on t9`
+const XferConfig* xferMapsConfig();              // /maps, tree mode, for `up on maps`
 const char* xferApName();                       // SSID of the hotspot, when we made one
 int         xferFilesAdded();                   // files added this session (uploads + fetches)
 

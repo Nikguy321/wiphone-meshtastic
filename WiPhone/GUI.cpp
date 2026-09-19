@@ -2341,6 +2341,11 @@ static void appHeapProbe(int id, uint32_t heapBefore, uint32_t largestBefore) {
   healthLogLine(line);
 }
 
+void GUI::openAppFromConsole(ActionID_t app) {
+  enterApp(app);
+  redrawScreen(true, true, true);
+}
+
 void GUI::enterApp(ActionID_t app) {
   log_d("entering app");
 

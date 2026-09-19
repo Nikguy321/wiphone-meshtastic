@@ -4,6 +4,7 @@
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
 #include "app_photos.h"      // photosSetWallpaper, the `wallpaper set` command
 #include "app_maps.h"        // mapsConsoleStatus/Goto, the `maps` command
+#include "tile_fetch.h"      // the `tlstest` bench: TLS from a task with mbedTLS in PSRAM
 #include "config.h"          // WIPHONE_KEY_*, the `key` command
 #include "Storage.h"         // CriticalFile / ConfigsFile, the `lock` command
 
@@ -79,6 +80,10 @@ static void say(const char* fmt, ...) {
   }
 }
 
+static void sayLine(const char* line) {
+  say("%s\n", line);
+}
+
 /* ⚠ One say() per line. say()'s buffer is 192 bytes and this text is ~750:
  * a single call TRUNCATED the help mid-list, so every command added after
  * `chan` was invisible to `?` — which is the one place a stranded user looks.
@@ -90,6 +95,7 @@ static void help() {
     "  ?          this help",
     "  up on      start the WiFi uploader (files land in /roms)",
     "  up on books|photos  same, into /books or /photos",
+    "  up on maps          same, into /maps - accepts <area>/<z>/<x>/<y>.565 paths",
     "  up off     stop the uploader",
     "  up         where to point a browser",
     "  sync       poll COVEY for mirrored texts now",
@@ -373,6 +379,15 @@ static void run(char* line) {
     reportUploader();
     return;
   }
+  if (!strcasecmp(line, "up on maps")) {
+    /* Map tiles: a converted area pushed as a TREE (tools/wiphone_send.py --app maps --tree). */
+    xferStart(xferMapsConfig());
+    if (!gbcXferOn() && xferStartError()) {
+      say("up: NOT started - %s\n", xferStartError());
+    }
+    reportUploader();
+    return;
+  }
   if (!strcasecmp(line, "up on")) {
     if (gbcXferOn()) {
       say("uploader already on\n");
@@ -551,6 +566,29 @@ static void run(char* line) {
 
   if (!strcasecmp(line, "heap")) {
     reportHeap();
+    return;
+  }
+  /* `tlstest <url> [n]` — the TLS-in-PSRAM experiment (tile_fetch.h). `tlstest` alone
+   * prints the last run's numbers. */
+  if (!strncasecmp(line, "tlstest", 7) && (line[7] == '\0' || line[7] == ' ')) {
+    const char* p = line + 7;
+    while (*p == ' ') p++;
+    if (!*p) {
+      tileFetchBenchReport(sayLine);
+      return;
+    }
+    char url[512];
+    size_t n = 0;
+    while (*p && *p != ' ' && n < sizeof(url) - 1) url[n++] = *p++;
+    url[n] = '\0';
+    while (*p == ' ') p++;
+    const int count = *p ? atoi(p) : 1;
+    if (tileFetchBenchStart(url, count)) {
+      say("tlstest: started, %d GET(s) of %s - `tlstest` for the result\n", count < 1 ? 1 : count, url);
+    } else {
+      say("tlstest: NOT started -\n");
+      tileFetchBenchReport(sayLine);
+    }
     return;
   }
   /* `replay` — the mesh-history replay's whole state in one line (the feature
@@ -1588,10 +1626,100 @@ static void run(char* line) {
    * card ACTUALLY holds and what the app will open on, and `maps goto` writes the same saved
    * view the app itself writes — which means a known coordinate can be put in over the cable
    * and the screen compared against a map on the computer. */
+  /* `hold on|off` — keep the screen awake (and therefore unlocked) for a bench session.
+   * Injected keys do not reset the 30 s sleep timer — only the keypad hardware does — so a
+   * scripted walk through a screen goes dark and locked half way, and the lock state machine
+   * then eats the next presses. This is gui.state.holdScreenAwake, the same hold the transfer
+   * server and the map's progress screen take; `hold off` releases it. */
+  if (!strncasecmp(line, "hold", 4) && (line[4] == '\0' || line[4] == ' ')) {
+    extern GUI gui;
+    static bool held = false;
+    const char* arg = line + 4;
+    while (*arg == ' ') arg++;
+    const bool on = !strcasecmp(arg, "on") || !*arg;
+    if (on != held) {
+      gui.state.holdScreenAwake(on);
+      held = on;
+    }
+    say("hold: screen %s\n", held ? "held awake" : "released");
+    return;
+  }
+  /* `open <app>` — jump straight into an app, for the bench. `key` can walk the menus, but a
+   * walk is only as good as its starting point: a phone that locked, woke into the dialer or
+   * sat on a different menu row eats or misroutes the first presses, and a screenshot a
+   * minute later shows the wrong screen with no way to tell which key went astray
+   * (2026-09-18, an evening of it). This lands where it says. */
+  if (!strncasecmp(line, "open", 4) && (line[4] == '\0' || line[4] == ' ')) {
+    extern GUI gui;
+    const char* arg = line + 4;
+    while (*arg == ' ') arg++;
+    ActionID_t app = GUI_APP_CLOCK;
+    if (!strcasecmp(arg, "maps"))        app = GUI_APP_MAPS;
+    else if (!strcasecmp(arg, "photos")) app = GUI_APP_PHOTOS;
+    else if (!strcasecmp(arg, "books"))  app = GUI_APP_BOOKS;
+    else if (!strcasecmp(arg, "music"))  app = GUI_APP_MUSIC;
+    else if (!strcasecmp(arg, "mesh"))   app = GUI_APP_MESHTASTIC;
+    else if (!strcasecmp(arg, "clock") || !*arg) app = GUI_APP_CLOCK;
+    else {
+      say("open: maps | photos | books | music | mesh | clock\n");
+      return;
+    }
+    gui.openAppFromConsole(app);
+    say("open: %s\n", arg[0] ? arg : "clock");
+    return;
+  }
   if (!strncasecmp(line, "maps", 4) && (line[4] == '\0' || line[4] == ' ')) {
     const char* arg = line + 4;
     while (*arg == ' ') {
       arg++;
+    }
+    /* `maps dl` — the on-phone tile downloader, driven without a thumb (tile_fetch.h).
+     *   maps dl                                  status of the last/current run
+     *   maps dl <src> <lat> <lon> <km> <zmax>    start: src 0=USGS Topo 1=USGS Aerial 2=OTM 3=custom
+     *   maps dl stop                             ask it to finish the current tile and exit
+     *   maps dlurl <template>|clear              set the custom source (a plain-http relay) */
+    if (!strncasecmp(arg, "dlurl", 5)) {
+      arg += 5;
+      while (*arg == ' ') arg++;
+      if (!*arg || !strcasecmp(arg, "clear")) {
+        tileSetCustomUrl("");
+        say("maps dlurl: custom source cleared\n");
+      } else {
+        tileSetCustomUrl(arg);
+        say("maps dlurl: custom source = %s (source index %d)\n", arg, TILE_SRC_CUSTOM);
+      }
+      return;
+    }
+    if (!strncasecmp(arg, "dl", 2) && (arg[2] == '\0' || arg[2] == ' ')) {
+      arg += 2;
+      while (*arg == ' ') arg++;
+      if (!*arg) {
+        tileFetchReport(sayLine);
+        return;
+      }
+      if (!strcasecmp(arg, "stop")) {
+        tileFetchStop();
+        say("maps dl: stop requested\n");
+        return;
+      }
+      TileJobSpec spec;
+      memset(&spec, 0, sizeof(spec));
+      const int got = sscanf(arg, "%d %lf %lf %d %d", &spec.source, &spec.lat, &spec.lon,
+                             &spec.radiusKm, &spec.zMax);
+      if (got < 5) {
+        say("usage: maps dl <src> <lat> <lon> <radiusKm> <zmax>   (maps dl | maps dl stop)\n");
+        return;
+      }
+      uint32_t card = 0, net = 0;
+      const int n = tileFetchEstimate(&spec, &card, &net);
+      char why[80];
+      if (tileFetchStart(&spec, why, sizeof(why))) {
+        say("maps dl: started %s - %d tiles, ~%u KB down, %u KB on the card\n",
+            tileSource(spec.source)->label, n, (unsigned)(net / 1024), (unsigned)(card / 1024));
+      } else {
+        say("maps dl: NOT started - %s\n", why);
+      }
+      return;
     }
     if (!strncasecmp(arg, "goto", 4)) {
       arg += 4;

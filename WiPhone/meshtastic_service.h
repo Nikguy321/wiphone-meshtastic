@@ -361,12 +361,15 @@ public:
    * transmitted — a pin that stuck locally but never left the phone must not be shown as
    * shared, which is the same honesty rule setMyPin() follows. */
   uint32_t shareWaypoint(uint32_t id, int32_t latI, int32_t lonI, const char* name,
-                         uint32_t expire, bool* onAir);
+                         uint32_t expire, bool* onAir, const MeshChannel* ch = NULL);
 
   /* Take a shared place off everyone's map: broadcast the positionless DELETION marker (see
    * meshWaypointBuild) and drop it here too. Returns whether the marker reached the air; the
    * local removal happens either way, because a person who said "unshare" has said it. */
-  bool     unshareWaypoint(uint32_t id);
+  bool     unshareWaypoint(uint32_t id, const MeshChannel* ch = NULL);
+  /* The channel of that NAME on this phone, or NULL. Pins remember their channel by name
+   * (map_pins.h) for the same reason the beacon does: names travel, indexes do not. */
+  const MeshChannel* findChannelByName(const char* name) const;
 
   /* Latched "positions or places changed" signal for the UI — read-and-clear.
    * Separate from loop()'s new-MESSAGE return on purpose: a waypoint arriving

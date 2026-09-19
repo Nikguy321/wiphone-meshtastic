@@ -132,6 +132,7 @@ static bool drawBmpFitted(LCD& lcd, const uint8_t* d, size_t len,
   if (!row) {
     return false;
   }
+  lcdNativePixels(lcd, true);                        // native color565 words: see GUI.h
   for (int y = 0; y < outH; y++) {
     const int32_t sy = (int32_t)y * (int32_t)den;
     const int32_t srcRow = topDown ? sy : (h - 1 - sy);
@@ -142,6 +143,7 @@ static bool drawBmpFitted(LCD& lcd, const uint8_t* d, size_t len,
     }
     lcd.pushImage(ox, oy + y, outW, 1, row);
   }
+  lcdNativePixels(lcd, false);
   free(row);
   return true;
 }
@@ -158,6 +160,7 @@ static void greyRowsToScreen(void* ctx, int y0, int rows, const uint8_t* band, i
   if (!line) {
     return;
   }
+  lcdNativePixels(*g->lcd, true);                    // native color565 words: see GUI.h
   for (int r = 0; r < rows; r++) {
     const uint8_t* src = band + (size_t)r * width;
     for (int x = 0; x < width; x++) {
@@ -165,6 +168,7 @@ static void greyRowsToScreen(void* ctx, int y0, int rows, const uint8_t* band, i
     }
     g->lcd->pushImage(g->x, g->y + y0 + r, width, 1, line);
   }
+  lcdNativePixels(*g->lcd, false);
   free(line);
 }
 
