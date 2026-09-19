@@ -42,6 +42,46 @@ Three faults lined up behind that sentence, and the message fell through all of 
 Nothing on the receive path, the channel hashing or the crypto changed; `MESH_TEXT_LEN` is
 still the receive buffer. `./tests/run_tests.sh` gains `test_airtime` (46 assertions).
 
+**Proven on air, 2026-09-19, both phones on the merged build:** a 200-byte and a 232-byte
+channel text sent from phone 1 were heard back (`MESH RECEIPT`) and read on phone 2 in full;
+233 bytes came back `REFUSED - reason: too long for the mesh`; no `TX timeout` line. The 232-byte
+frame is the one the old 2000 ms timeout could never carry (2176 ms on the cable's clock). The
+compose strip read `0/200`, then `5/200` after a committed T9 word. Two small things the proof
+turned up were fixed with it: a refused serial `send` no longer says to watch for a receipt, and
+a message with a newline in it (COVEY's `R1: lat, lon` position texts) no longer draws its second
+line over the sender beneath it in the thread and Chats lists.
+
+### The highlighted menu row scrolls when its text does not fit
+
+Nick, 2026-09-19: *"Any menu or line that is too long just cuts off, it should either scroll or
+wrap text when highlighting over it."* Every list in the firmware draws through `MenuWidget`, and
+every row ended in `..` for ever when its title or subtitle was wider than the row -- book
+names, node lines, message previews. Now the **selected** row scrolls: hold the start (800 ms),
+one glyph every 200 ms, hold the end (1 s), wrap; unselected rows keep the ellipsis and a row
+that fits is untouched. One implementation (`drawRowText()` and a single static marquee state in
+GUI.cpp) covers all four row kinds and every app -- Books, Music, Files, Photos, Maps, Phonebook,
+Messages, the mesh lists, Settings -- and no app was touched.
+
+- **Its own clock.** `GUI::marqueeTick()` runs from the loop next to the app timer; apps own
+  `msAppTimerEventPeriod` for their own purposes and keep it. Nothing to scroll costs one
+  pointer test per pass; a scrolling row costs one ordinary `REDRAW_SCREEN` every 200 ms.
+  Silent while the screen sleeps, the phone is locked, a power-off is pending or the mesh
+  popup is up.
+- **Whole glyphs, not pixels.** The vendored TFT_eSPI has no clip rectangle and shifts an
+  over-wide `drawString` left instead of cutting it, so a pixel scroll would lose glyphs at
+  both ends. Stepping by glyph and drawing only what fits needs no clipping, no extra sprite
+  and no allocation. UTF-8 sequences are never cut in the middle.
+- **Two texts, one offset.** A row that carries a name and a long second line scrolls both
+  together; the shorter one parks at its own end and waits while the longer finishes.
+- The clock and the glyph arithmetic live in `WiPhone/menu_marquee.h` so the host suite runs
+  the code the phone runs: `test_marquee`, 50 assertions.
+
+Seen on phone 2: Books > `Leviathan_Wakes_The_Expanse_1.epub` scrolls to `...1.epub`, holds,
+and wraps; the main menu over the wallpaper and the Nodes list (short rows) are unchanged; the
+loop-stall log gained nothing. Still hard-truncating, deliberately left alone: the header
+title, `LabelWidget`, `ChoiceWidget`, the sliders and the text inputs -- none of them is a
+list you highlight.
+
 ## 0.9.64 (2026-09-18) - a map that downloads its own tiles, and the phone's first HTTPS
 
 Built on the 09-14 map (below) and finished on hardware the night of 09-18, against Nick's
