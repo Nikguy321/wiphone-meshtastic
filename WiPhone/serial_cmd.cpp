@@ -926,6 +926,9 @@ static void run(char* line) {
     say("dm: %s to !%08x (%s) - watch for 'MESH DM ACK ... err=0' = delivered\n",
         ok ? "sent" : "REFUSED", (unsigned)node,
         pki ? "PKI" : "LEGACY - no key, 2.5+ nodes drop it");
+    if (!ok) {
+      say("dm: reason: %s\n", meshService.lastSendError() ? meshService.lastSendError() : "?");
+    }
     return;
   }
   /* `send <idx> <text>` — a CHANNEL text from the cable. Born of a gap in the receipt work:
@@ -961,6 +964,11 @@ static void run(char* line) {
     bool ok = meshService.sendChannelMessage(c->hash, end);
     say("send: %s on [%ld] '%s' - watch for 'MESH RECEIPT: ... -> in mesh'\n",
         ok ? "sent" : "REFUSED", idx, c->name);
+    if (!ok) {
+      /* The same literal the compose screen shows after "Not sent: " — the bench sees what
+       * the thumb would. `send 0 <233 x's>` is the way to prove the cap from the cable. */
+      say("send: reason: %s\n", meshService.lastSendError() ? meshService.lastSendError() : "?");
+    }
     return;
   }
   /* `star [<!nodehex>]` — bare, it lists what is starred; with a node, it toggles. Exists for

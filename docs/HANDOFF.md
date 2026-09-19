@@ -1827,8 +1827,16 @@ The enabler above is closed, and the measurement corrected a plausible wrong the
 3. 🟡 **The open is now 1.2 s, and ~750 ms of that is still SD.** If it ever matters:
    `findOpf` alone is 279 reads (one full directory walk) and the presence pass is another,
    so a single cached central directory per open would remove both. Not urgent at 1.2 s.
-4. 🟡 **NEW P2, found by the same audit, adjacent to the incident:** `MeshPhy::send`'s
-   **2000 ms TX timeout is shorter than a maximum-length frame's airtime.** At SF11/250k a
+4. ~~🟡 **NEW P2, found by the same audit, adjacent to the incident:** `MeshPhy::send`'s
+   **2000 ms TX timeout is shorter than a maximum-length frame's airtime.**~~ ✅ **FIXED
+   2026-09-19 (unproven on hardware as of writing):** the wait now follows the frame —
+   `meshLoraTxTimeoutMs()` in `mesh_airtime.{h,cpp}` = airtime + 25 % + 300 ms, floor 1 s,
+   with the AN1200.13 airtime pinned by `tests/test_airtime.cpp` (254 B → 2157 ms, 37 B →
+   519 ms). The compose field's cap dropped from 233 (the RECEIVE buffer) to
+   `meshComposeCap()` = min(wire budget 232 channel / 220 PKI DM, the phone apps' 200) = 200,
+   with a live `N/200` counter, and a refused Send now stays on the compose screen and says
+   why (`lastSendError()`), instead of dropping into the thread with nothing sent. Original
+   finding: at SF11/250k a
    254 B frame (the max `MESH_TEXT_LEN` 234 allows) is 2157 ms, so it is declared
    "TX timeout", the IRQ flags cleared and the radio forced back to RX **while the PA is
    still transmitting** — truncated on air, `send()` returns false, and the ~2 s of loop

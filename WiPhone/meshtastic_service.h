@@ -281,6 +281,14 @@ public:
   // Send a broadcast on a specific channel (by hash), or a DM (primary channel).
   bool sendChannelMessage(uint8_t channelHash, const char* text);
   bool sendDirectMessage(uint32_t destNode, const char* text);
+  /* Why the last send*() returned false, in the words the compose screen shows after
+   * "Not sent: " — "too long for the mesh", "radio busy, try again", "no radio", "no
+   * channel". A static literal, safe to hold; NULL after a send that went out. Every
+   * refusal site sets it, including the pre-check that keeps an oversize DM out of the
+   * deferred PKI queue (where it used to fail a tick later, invisibly). Until 2026-09-19
+   * the UI ignored the bool and dropped into the thread either way, so a refused message
+   * simply vanished. */
+  const char* lastSendError() const { return lastSendErr; }
 
   // ---- Neighbour info (portnum 71) -----------------------------------------
   /* Who we hear DIRECTLY, and (optionally) telling the mesh about it so a
@@ -613,6 +621,7 @@ private:
   uint32_t     refWaypointId;             // 0 = use the pin
   bool         placesNews;                // latched: positions/waypoints changed
   bool         lastAnnounceOk;            // last announceMyPosition() transmitted
+  const char*  lastSendErr;               // see lastSendError(); a literal or NULL
   uint32_t     nextWpSweepMs;             // next local waypoint-expiry sweep
   int32_t      gpsLatI, gpsLonI;          // last VALID GPS fix (1e-7 deg)
   uint32_t     gpsFixMs;                  // millis() of that fix; 0 = never

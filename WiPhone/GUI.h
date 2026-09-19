@@ -1217,6 +1217,19 @@ public:
    * one you opened it for. */
   void cursorToEnd();
 
+  /* Bytes held right now, summed over the rows — what the Meshtastic compose counter asks
+   * on every keystroke. NOT getText(): that mallocs the joined copy on the INTERNAL heap
+   * each call (freed on the next), the one pool this phone cannot spare churn in. The
+   * widget accepts printable ASCII only (see processEvent), so this is the character
+   * count too. */
+  size_t textLength() {
+    size_t n = 0;
+    for (int i = 0; i < maxRows; i++) {
+      n += rowLen(i);
+    }
+    return n;
+  };
+
   /* TextInputAbstract virtuals */
   void setText(const char* str);
   const char* getText();

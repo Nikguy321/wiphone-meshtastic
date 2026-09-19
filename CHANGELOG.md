@@ -1,5 +1,47 @@
 # Changelog
 
+## Unreleased (2026-09-19) - a message the mesh can carry, and an honest no when it cannot
+
+**The compose field stops at 200 characters, shows `N/200` as you type, and a send the radio
+refuses stays on the screen with the reason.** Nick, 2026-09-19: *"The WiPhone lets me send
+Meshtastic messages that are too long, and they just won't get through to anybody else."*
+
+Three faults lined up behind that sentence, and the message fell through all of them:
+
+1. **The radio driver gave up on long frames while they were still going out.**
+   `MeshPhy::send()` polled TxDone with a flat 2000 ms timeout. A maximum-length frame at the
+   registers this phone writes (SF11, BW 250 kHz, CR 4/5, 16-symbol preamble) is **2157 ms**
+   on the air -- Semtech AN1200.13, now worked by hand in `tests/test_airtime.cpp` and computed
+   by `mesh_airtime.cpp` -- so the frame was declared timed out, its IRQ flags cleared and the
+   chip forced back to RX with the PA still keyed. Truncated on air, `false` returned, the
+   whole stall paid for nothing. docs/HANDOFF.md had it filed as a latent P2 since 08-27. The
+   wait now follows the frame: airtime + 25 % + 300 ms, never under a second -- 1000 ms for a
+   37-byte position beacon (what it effectively always got), ~3 s at the very worst for a full
+   frame. The timeout line names the frame length and the airtime it expected.
+
+2. **The compose cap was the receive buffer, not the frame.** The field was built with
+   `MESH_TEXT_LEN - 1` = 233, which is one byte MORE than a 255-byte LoRa frame carries once
+   the 16-byte header and the Data envelope (portnum, payload tag + two-byte length, bitfield
+   = 7) are around it. The wire budget is 232 on a channel and 220 for a PKI direct message --
+   both measured in the host suite by building the Data with the shipping `meshBuildData()`
+   and counting -- and the Meshtastic Android and iOS apps stop the user at **200 UTF-8
+   bytes**. The field now takes `meshComposeCap()` = the smaller of the two, per thread type
+   (200 for both today), and a strip above the footer shows `N/200`, turning orange with the
+   word "full" at the cap. The header and footer are untouched: the footer is the T9 display
+   and stays that.
+
+3. **A refused send vanished.** `MESH_COMPOSE` ignored `sendChannelMessage()`'s return value
+   and dropped into the thread either way, so a message the service refused -- too long, no
+   channel, radio busy, no radio -- was neither on the air nor in the conversation nor on the
+   screen. It now stays in compose with the text intact and shows `Not sent: <reason>` in the
+   same strip; Send is a retry. `MeshtasticService::lastSendError()` carries the reason from
+   every refusal site, including a new size pre-check on direct messages so an oversize DM is
+   refused at the key rather than a tick later in the deferred PKI queue, where it used to
+   fail with nobody looking. The serial `send`/`dm` commands print the same reason.
+
+Nothing on the receive path, the channel hashing or the crypto changed; `MESH_TEXT_LEN` is
+still the receive buffer. `./tests/run_tests.sh` gains `test_airtime` (46 assertions).
+
 ## 0.9.60 (2026-09-07) - a radio you switched off is not a dry spell
 
 **WiFi switched back on now tries immediately, instead of waking up already ten minutes behind.**

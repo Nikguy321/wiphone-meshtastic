@@ -72,6 +72,10 @@ for src in tests/test_*.cpp; do
     # The Data/User protobuf codec and the on-air header, vs bytes from the real
     # protobuf runtime (regenerate with tools/gen_wire_vectors.py after an upstream bump).
     test_wire)     deps=(WiPhone/mesh_wire.cpp WiPhone/mesh_hash.cpp) ;;
+    # LoRa time-on-air at the phone's registers (hand-worked AN1200.13 references) and the
+    # text budget of one frame, measured with the shipping meshBuildData — the numbers
+    # MeshPhy::send's timeout and the compose cap are built from.
+    test_airtime)  deps=(WiPhone/mesh_airtime.cpp WiPhone/mesh_wire.cpp) ;;
     # Compiles the REAL helix decoder so a pass proves the bytes that ship are the bytes
     # that decode. helix is C and is listed in csrc, not deps — see CFLAGS above.
     test_mp3)      deps=(WiPhone/mp3_stream.cpp)

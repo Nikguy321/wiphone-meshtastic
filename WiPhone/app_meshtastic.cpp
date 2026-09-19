@@ -9,6 +9,7 @@
 #include "app_meshtastic.h"
 #include "meshtastic_service.h"
 #include "mesh_pos.h"           // distance/bearing for the Nodes and Places lists
+#include "mesh_airtime.h"       // meshComposeCap: how much text one frame (and the other apps) allow
 #include "clock.h"              // ntpClock, for the Sun screen
 #include "sun_times.h"          // legal light math (host-tested; the serial `sun` core)
 
@@ -79,6 +80,8 @@ MeshtasticApp::MeshtasticApp(LCD& disp, ControlState& state, HeaderWidget* heade
   pendingClear = 0;
   pendingPubRow = 0;
   chatCount = 0;
+  composeCap = 0;
+  composeNote = NULL;
   enterState(MESH_MAIN);
 }
 
@@ -999,12 +1002,32 @@ void MeshtasticApp::buildEditShortName() {
   controlState.setInputState(InputType::AlphaNum);
 }
 
+/* The band between the text area and the footer that carries "123/200" while you type and
+ * "Not sent: too long for the mesh" when the radio refuses. Its own strip of pixels, NOT
+ * the header (the clock and icons already squeeze its title to ~100 px, and guiDrawEllipsized
+ * would drop exactly the digits that matter) and NOT the footer (which IS the T9 display —
+ * the pending word lives there, see FooterWidget::redraw, and must not be shared). Nothing
+ * about predictive text changes: the widget, the claim in buildCompose() and the footer are
+ * all as they were. AKROBAT_BOLD_16 is 16 px tall; 18 gives it a pixel of air each side. */
+#define MESH_COMPOSE_STRIP_H  18
+
 void MeshtasticApp::buildCompose() {
   const int16_t padding = 4;
+  /* 🔑 THE CAP IS WHAT A FRAME HOLDS, NOT THE RECEIVE BUFFER. This was MESH_TEXT_LEN - 1
+   * (233): the buffer a text lands in, which is one byte MORE than a 255-byte LoRa frame
+   * carries once the 16-byte header and the Data envelope are around it — so the field let
+   * you type a message the radio then refused, and the refusal was silent. meshComposeCap()
+   * (mesh_airtime.h, host-tested against meshBuildData itself) is the smaller of that
+   * budget — 232 on a channel, 220 for a PKI direct message — and the 200 UTF-8 bytes the
+   * Meshtastic Android and iOS apps stop at: the longest message the people on the other
+   * end can send back, and one that leaves airtime margin. The widget accepts printable
+   * ASCII only, so its byte count is its character count. */
+  composeCap  = (uint16_t)meshComposeCap(!threadIsChannel);
+  composeNote = NULL;
   textArea = new MultilineTextWidget(0, header->height(), lcd.width(),
-                                     lcd.height() - header->height() - footer->height(),
+                                     lcd.height() - header->height() - footer->height() - MESH_COMPOSE_STRIP_H,
                                      threadIsChannel ? "Type a message" : "Type a direct message",
-                                     controlState, MESH_TEXT_LEN - 1,
+                                     controlState, composeCap,
                                      fonts[OPENSANS_COND_BOLD_20], InputType::AlphaNum, padding, padding);
   textArea->setColors(WP_COLOR_1, WP_COLOR_0);  // white text on black (theme)
   textArea->setFocus(true);
@@ -1016,6 +1039,31 @@ void MeshtasticApp::buildCompose() {
    * without anyone having to remember to exclude it. InputType cannot be used to decide
    * this: the WiFi password field is InputType::AlphaNum too. */
   controlState.t9Field = true;
+}
+
+/* "123/200" bottom-right while typing — orange and marked "full" at the cap, so reaching it
+ * is not mistaken for keys being ignored — or, after a refused Send, the reason left-aligned
+ * in the same orange. Painted straight onto the page sprite after the text widget, in the
+ * band buildCompose() kept back for it; every keystroke in MESH_COMPOSE returns
+ * REDRAW_SCREEN, so it is never stale. */
+void MeshtasticApp::drawComposeStrip() {
+  const int16_t y = (int16_t)(lcd.height() - footer->height() - MESH_COMPOSE_STRIP_H);
+  lcd.fillRect(0, y, lcd.width(), MESH_COMPOSE_STRIP_H, WP_COLOR_0);
+  lcd.setTextFont(fonts[AKROBAT_BOLD_16]);
+  char strip[48];
+  if (composeNote) {
+    snprintf(strip, sizeof(strip), "Not sent: %s", composeNote);
+    lcd.setTextColor(WP_ACCENT_S, WP_COLOR_0);
+    lcd.setTextDatum(ML_DATUM);
+    guiDrawEllipsized(lcd, strip, lcd.width() - 8, 4, y + MESH_COMPOSE_STRIP_H / 2);
+    return;
+  }
+  const size_t n = textArea ? textArea->textLength() : 0;
+  const bool full = n >= composeCap;
+  snprintf(strip, sizeof(strip), full ? "%u/%u full" : "%u/%u", (unsigned)n, (unsigned)composeCap);
+  lcd.setTextColor(full ? WP_ACCENT_S : WP_DISAB_1, WP_COLOR_0);
+  lcd.setTextDatum(MR_DATUM);
+  lcd.drawString(strip, lcd.width() - 4, y + MESH_COMPOSE_STRIP_H / 2);
 }
 
 void MeshtasticApp::buildViewMessage(int msgIndex) {
@@ -1447,10 +1495,17 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
     if (LOGIC_BUTTON_SEND(event)) {
       const char* msg = textArea ? textArea->getText() : NULL;
       if (msg && msg[0]) {
-        if (threadIsChannel) {
-          meshService.sendChannelMessage(threadChannelHash, msg);
-        } else {
-          meshService.sendDirectMessage(threadPeer, msg);
+        const bool sent = threadIsChannel ? meshService.sendChannelMessage(threadChannelHash, msg)
+                                          : meshService.sendDirectMessage(threadPeer, msg);
+        if (!sent) {
+          /* 🛑 STAY HERE, TEXT INTACT, AND SAY WHY. This used to ignore the bool and drop
+           * into the thread regardless, so a message the radio refused — too long, radio
+           * busy, no radio — vanished without a trace: not in the thread, not on the air,
+           * nothing on the screen. Nick, 2026-09-19: "they just won't get through to
+           * anybody else." The reason is the service's own literal (lastSendError); the
+           * strip shows it until the next keystroke, and Send is a retry. */
+          composeNote = meshService.lastSendError() ? meshService.lastSendError() : "not sent";
+          return REDRAW_SCREEN;
         }
         enterState(MESH_THREAD);           // drop into the conversation we posted to
         return REDRAW_ALL;
@@ -1464,6 +1519,7 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
     }
     if (IS_KEYBOARD(event) && textArea) {
       textArea->processEvent(event);
+      composeNote = NULL;                   // a keystroke answers the note; the counter is back
       return REDRAW_SCREEN;
     }
     return DO_NOTHING;
@@ -1503,6 +1559,9 @@ void MeshtasticApp::redrawScreen(bool redrawAll) {
       appState == MESH_EDITSHORT) {
     if (textArea) {
       ((GUIWidget*)textArea)->redraw(lcd);
+    }
+    if (appState == MESH_COMPOSE) {
+      drawComposeStrip();
     }
   } else if (menu) {
     ((GUIWidget*)menu)->redraw(lcd);
