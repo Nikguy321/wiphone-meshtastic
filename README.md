@@ -547,6 +547,8 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `up on maps` | the tile uploader: `tools/wiphone_send.py --app maps --tree <dir>` |
 | `open <app>` | jump into maps / photos / books / music / mesh / clock, whatever screen is up |
 | `hold on \| off` | keep the screen awake and unlocked for a scripted bench session |
+| `notify [sip]` | fire the real message-arrival announcement (buzz + chirp) from the cable; the log prints `buzz off after N ms`, `pop start took N ms`, `pop stopped after N ms` |
+| `send <i> <text>` / `dm <!node> <text>` | a channel text / a direct message; a refusal prints `REFUSED` and the same reason the compose screen shows (`too long for the mesh` past 232 / 220 bytes) |
 | `wifi scan` | what the radio can actually hear — deaf radio vs absent AP |
 | `wifi calreset` / `wifi restore` | erase the RF calibration / the WiFi driver's stored state, and reboot — the deaf-radio probes (⚠ `restore` forgets the last-used network) |
 | `sync` / `mirror` | fetch mirrored texts now; mirror status |
