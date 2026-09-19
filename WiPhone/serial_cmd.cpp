@@ -1003,9 +1003,10 @@ static void run(char* line) {
       return;
     }
     bool ok = meshService.sendChannelMessage(c->hash, end);
-    say("send: %s on [%ld] '%s' - watch for 'MESH RECEIPT: ... -> in mesh'\n",
-        ok ? "sent" : "REFUSED", idx, c->name);
-    if (!ok) {
+    if (ok) {
+      say("send: sent on [%ld] '%s' - watch for 'MESH RECEIPT: ... -> in mesh'\n", idx, c->name);
+    } else {
+      say("send: REFUSED on [%ld] '%s'\n", idx, c->name);
       /* The same literal the compose screen shows after "Not sent: " — the bench sees what
        * the thumb would. `send 0 <233 x's>` is the way to prove the cap from the cable. */
       say("send: reason: %s\n", meshService.lastSendError() ? meshService.lastSendError() : "?");

@@ -429,6 +429,15 @@ void MeshtasticApp::buildThread() {
      * font. The old "who: text" single line spent its width on the name and
      * clipped the words. Full text is still one OK away in the viewer. */
     strlcpy(line, m->text, sizeof(line));
+    /* One row, one line: a message with a newline in it (COVEY's "R1: lat, lon\nname" position
+     * texts, anything pasted from a phone) drew its second line straight over the sender
+     * under it — seen on phone 2, 2026-09-19. The row is a preview; the viewer keeps the
+     * real line breaks. */
+    for (char* c = line; *c; c++) {
+      if (*c == '\n' || *c == '\r') {
+        *c = ' ';
+      }
+    }
     menu->addOption(line, who, (MenuOption::keyType)(i + 1), 1);   // key = global msg index + 1
   }
 }
