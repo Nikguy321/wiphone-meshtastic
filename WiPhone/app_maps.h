@@ -229,6 +229,13 @@ protected:
   bool     followMe;
   uint32_t followLastStamp; // millis() at which the fix last centred on ARRIVED (millis - age)
 
+  // ---- the ruler ----
+  /* COVEY's RUL: an anchor is dropped at the crosshair and PANNING IS THE MEASUREMENT — the
+   * bottom strip reads the distance and bearing from the anchor to wherever the crosshair
+   * is, and a dashed line joins the two. No new gesture, one menu row on and off. */
+  bool     measuring;
+  int32_t  measLatI, measLonI;
+
   // ---- the channel picker ----
   int      chanPending;     // the PUBLIC row awaiting its second press (0 = none)
   int      chanForPin;      // which pin the picked channel is for

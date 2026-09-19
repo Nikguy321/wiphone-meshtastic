@@ -95,7 +95,9 @@ ever falls back to the internal heap; the task stack is 8 KB (measured use 5.2 K
 with distance and bearing** on every row — "6.2km N Clifford, 0m ago" — measured from your
 fix, else your declared pin, else the crosshair (the note under the list says which). And
 **Menu → Follow me** is a latched mode: each fresh usable fix re-centres the map, any scroll
-switches it off, and a lost or poor fix leaves the view where it is.
+switches it off, and a lost or poor fix leaves the view where it is. **Menu → Measure from
+here** drops an anchor at the crosshair; scrolling is the measurement — a dashed line joins the
+two and the strip reads "Ruler: 1.1km SE of the anchor".
 
 ⚠ Only phone 2 has run this. Phone 1 (the SIP phone) has ~2–3 KB less internal headroom;
 watch `heap` min-ever after its first download.

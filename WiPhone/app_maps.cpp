@@ -57,6 +57,7 @@ enum {
   ROW_M_DOWNLOAD   = ROW_ACT + 9,
   ROW_M_GOTO       = ROW_ACT + 10,
   ROW_M_FOLLOW     = ROW_ACT + 11,
+  ROW_M_MEASURE    = ROW_ACT + 12,
   ROW_P_RENAME     = ROW_ACT + 20,
   ROW_P_MOVE       = ROW_ACT + 21,
   ROW_P_SHARE      = ROW_ACT + 22,
@@ -166,6 +167,8 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   chanForPin = -1;
   followMe = false;
   followLastStamp = 0;
+  measuring = false;
+  measLatI = measLonI = 0;
   {
     /* The last download choices, so a second area is two presses. Same namespace as the view. */
     Preferences p;
@@ -1195,6 +1198,34 @@ void MapsApp::drawOverlays() {
   uint32_t selfAge = 0;
   const int selfKind = selfPosition(&selfLat, &selfLon, &selfAge);
 
+  if (measuring) {
+    /* The anchor and a dashed line to the crosshair. Both ends may be far off-screen;
+     * mapLatLonToView still returns their coordinates, and the sprite's drawLine clips per
+     * pixel, so the line is drawn between the two points as they are and the parts inside
+     * the viewport are what appear. Dashed by drawing every other 6 px segment. */
+    int ax = 0, ay = 0;
+    mapLatLonToView(zoom, cx, cy, vpW, vpH, mapI7ToDeg(measLatI), mapI7ToDeg(measLonI), &ax, &ay);
+    const int x0 = vpX + ax, y0 = vpY + ay, x1 = vpX + vpW / 2, y1 = vpY + vpH / 2;
+    const int dx = x1 - x0, dy = y1 - y0;
+    const int steps = (abs(dx) > abs(dy) ? abs(dx) : abs(dy)) / 6;
+    for (int s = 0; s < steps; s += 2) {
+      const int sx0 = x0 + dx * s / steps, sy0 = y0 + dy * s / steps;
+      const int sx1 = x0 + dx * (s + 1) / steps, sy1 = y0 + dy * (s + 1) / steps;
+      /* ⚠ ONLY SEGMENTS WITH BOTH ENDS INSIDE THE VIEWPORT: TFT_eSprite::drawLine clips
+       * per pixel on the SPRITE, but the sprite is the whole screen, so a segment over the
+       * header or the footer would be drawn on top of them. Clip to the map here. */
+      if (sx0 >= vpX && sx0 < vpX + vpW && sy0 >= vpY && sy0 < vpY + vpH &&
+          sx1 >= vpX && sx1 < vpX + vpW && sy1 >= vpY && sy1 < vpY + vpH) {
+        lcd.drawLine(sx0, sy0, sx1, sy1, BLACK);
+        lcd.drawLine(sx0, sy0 - 1, sx1, sy1 - 1, MAP_C_ME);
+      }
+    }
+    if (ax >= 0 && ax < vpW && ay >= 0 && ay < vpH) {
+      drawMarker(vpX + ax, vpY + ay, MAP_C_ME, MAP_SHAPE_DIAMOND);
+      reserveBox(vpX + ax - 6, vpY + ay - 6, 13, 13);
+    }
+  }
+
   // ── pass 1: markers, back to front ───────────────────────────────────────────────────
   for (int i = 0; i < nodeN; i++) {
     const MeshNode* nd = meshService.getNode(i);
@@ -1430,11 +1461,21 @@ void MapsApp::drawBottomStrip() {
     }
   }
 
-  // Row 2: the note if there is one, otherwise where the crosshair is.
+  // Row 2: the note if there is one, else the ruler's reading, else where the crosshair is.
   char line[64];
   if (note[0]) {
     strlcpy(line, note, sizeof(line));
     lcd.setTextColor(0xFD20, MAP_C_STRIP);
+  } else if (measuring) {
+    /* The whole row, not the right end of row 1: "1.2km SE" plus a word does not fit beside
+     * a 1 km scale bar, and a measurement that is silently dropped for width is the one
+     * failure a ruler must not have. */
+    const int32_t cLat = mapDegToI7(lat), cLon = mapDegToI7(lon);
+    char d[16];
+    meshPosFmtDist(meshPosDistanceM(measLatI, measLonI, cLat, cLon), d, sizeof(d));
+    snprintf(line, sizeof(line), "Ruler: %s %s of the anchor", d,
+             meshPosCompass8(meshPosBearingDeg(measLatI, measLonI, cLat, cLon)));
+    lcd.setTextColor(MAP_C_ME, MAP_C_STRIP);
   } else {
     snprintf(line, sizeof(line), "%.5f, %.5f", lat, lon);
     lcd.setTextColor(MAP_C_ME, MAP_C_STRIP);
@@ -1890,6 +1931,7 @@ void MapsApp::buildMenu() {
   menu->addOption("Go to coordinates...", ROW_M_GOTO);
   menu->addOption("Centre on me", ROW_M_ME);
   menu->addOption(followMe ? "Follow me: ON (scroll stops it)" : "Follow me: off", ROW_M_FOLLOW);
+  menu->addOption(measuring ? "Stop measuring" : "Measure from here...", ROW_M_MEASURE);
   menu->addOption(tileFetchActive() ? "Downloading maps..." : "Download maps...", ROW_M_DOWNLOAD);
   if (areaCount > 1) {
     snprintf(row, sizeof(row), "Map area: %s", areaSel >= 0 ? areas[areaSel].name : "-");
@@ -2307,6 +2349,8 @@ static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "Side 3      centre on me (also 0)", WHITE },
   { "Menu > Follow me keeps you centred", WHITE },
   { "            until you scroll", WHITE },
+  { "Menu > Measure: scroll away from the", WHITE },
+  { "            anchor; the bar reads it", WHITE },
   { "OK          drop a pin, or open the pin", WHITE },
   { "            under the crosshair (also 5)", WHITE },
   { "Menu key    the map menu: download maps,", WHITE },
@@ -2634,6 +2678,19 @@ appEventResult MapsApp::processEvent(EventType event) {
           }
         } else {
           setNote("Stopped following");
+        }
+        enterState(MAPS_VIEW);
+        return REDRAW_ALL;
+      case ROW_M_MEASURE:
+        measuring = !measuring;
+        if (measuring) {
+          double lat = 0, lon = 0;
+          mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &lat, &lon);
+          measLatI = mapDegToI7(lat);
+          measLonI = mapDegToI7(lon);
+          setNote("Scroll away - the bar reads the distance");
+        } else {
+          setNote("Stopped measuring");
         }
         enterState(MAPS_VIEW);
         return REDRAW_ALL;
