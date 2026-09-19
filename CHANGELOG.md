@@ -91,6 +91,17 @@ channel has left the phone is not "retracted" on some other channel (it says so,
 id); `tRNS` on grey and RGB PNGs is honoured (43 host checks); no decoder or TLS allocation
 ever falls back to the internal heap; the task stack is 8 KB (measured use 5.2 KB).
 
+**Maps is on the main screen** with its own icon (a folded map, a route, a pin —
+`tools/make_icon_maps.py`, drawn as maths like the Music icon), between Music and Tools.
+
+**The download task is now made per run and freed after it** (8 KB of internal RAM back
+between downloads) — on phone 1, the SIP phone, a permanent 8 KB would have been a third of
+its headroom. Phone 1 ran its first download this morning: 21/21 tiles, 0 failed, SIP stayed
+registered; its heap floor during the handshake was 2,572 bytes — the thinnest margin in the
+firmware. The handshake bar was lowered to what phone 1 has (largest ≥ 10 KB, free ≥ 14 KB)
+so it can download at all; **on phone 1, download at home on USB, with the map's own screen
+closed if you can (`maps dl` over the cable, or start it and press Back)** — see the handoff.
+
 **Two more of COVEY's, the same morning.** The Pins / Places / Nodes lists are **nearest-first
 with distance and bearing** on every row — "6.2km N Clifford, 0m ago" — measured from your
 fix, else your declared pin, else the crosshair (the note under the list says which). And

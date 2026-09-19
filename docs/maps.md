@@ -1,6 +1,6 @@
 # Maps on the WiPhone
 
-**Menu → Tools → Maps.** An offline map: tiles off the SD card, pins you drop yourself, and
+**Menu → Maps.** An offline map: tiles off the SD card, pins you drop yourself, and
 everything the mesh already knows about where people are, on one screen.
 
 The Meshtastic screens already carry every fact this draws — camp is a waypoint, the truck is

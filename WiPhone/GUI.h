@@ -3039,12 +3039,13 @@ public:
 
 
 protected:
-  GUIMenuItemIcons menuIcons[9] PROGMEM = {
+  GUIMenuItemIcons menuIcons[10] PROGMEM = {
     { 2,    icon_Phonebook_w, sizeof (icon_Phonebook_w), icon_Phonebook_b, sizeof (icon_Phonebook_b) },
     { 20,   icon_Messages_w, sizeof (icon_Messages_w), icon_Messages_b, sizeof (icon_Messages_b) },
     { 39,   icon_Meshtastic_w, sizeof (icon_Meshtastic_w), icon_Meshtastic_b, sizeof (icon_Meshtastic_b) },
     { 41,   icon_Books_w, sizeof (icon_Books_w), icon_Books_b, sizeof (icon_Books_b) },
     { 42,   icon_Music_w, sizeof (icon_Music_w), icon_Music_b, sizeof (icon_Music_b) },
+    { 50,   icon_Maps_w, sizeof (icon_Maps_w), icon_Maps_b, sizeof (icon_Maps_b) },
     { 3,    icon_Tools_w, sizeof (icon_Tools_w), icon_Tools_b, sizeof (icon_Tools_b) },
     { 4,    icon_Games_w, sizeof (icon_Games_w), icon_Games_b, sizeof (icon_Games_b) },
     { 13,   icon_Reboot_w, sizeof (icon_Reboot_w), icon_Reboot_b, sizeof (icon_Reboot_b) },
@@ -3071,6 +3072,7 @@ protected:
     { 39, 1, "Meshtastic", "", "", GUI_APP_MESHTASTIC },
     { 41, 1, "Books", "Select", "Back", GUI_APP_BOOKS },
     { 42, 1, "Music", "Select", "Back", GUI_APP_MUSIC },   // ⚠ ID must be UNIQUE, not just the action
+    { 50, 1, "Maps", "Select", "Back", GUI_APP_MAPS },     // main screen, with an icon (Nick, 2026-09-19)
     { 3, 1, "Tools", "Select", "Back", GUI_ACTION_SUBMENU },
     { 4, 1, "Games", "Select", "Back", GUI_ACTION_SUBMENU },
     { 5, 1, "Settings", "Select", "Back", GUI_ACTION_SUBMENU },
@@ -3090,7 +3092,6 @@ protected:
     /* ⚠ 50 because 49 is the predictive-text toggle. The rule is COUNT UP: 8 and 25 are gaps
      * and filling one is how a DUPLICATE id happens, which findMenu() resolves silently by
      * returning the first match — the row then launches somebody else's app. */
-    { 50, 3, "Maps", "Select", "Back", GUI_APP_MAPS },
     { 31, 3, "Audio recorder", "", "", GUI_APP_RECORDER },
     { 14, 3, "Scan WiFi networks", "", "", GUI_APP_NETWORKS },    // duplicate from below
     { 7, 3, "Note page", "", "Back", GUI_APP_NOTEPAD },

@@ -2,7 +2,7 @@
  * app_maps.h — an offline map. Tiles off the SD card, pins you drop yourself, and everything
  * the mesh already knows about where people are, on one screen.
  *
- * Main menu -> Tools -> Maps.
+ * Main menu -> Maps (its own row, with an icon).
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════
  * WHAT IT IS FOR

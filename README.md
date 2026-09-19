@@ -75,7 +75,7 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
-- **0.9.64** — **Maps**. Menu → Tools → Maps: your own tiles off the SD card, with
+- **0.9.64** — **Maps**. Menu → Maps: your own tiles off the SD card, with
   everyone's last position, the mesh's shared places and your own pins on top. It opens
   where you closed it — and failing that, on your GPS fix. Pins stay private until you
   choose to share one, and sharing puts it on COVEY's map as a real Meshtastic waypoint.
@@ -212,7 +212,7 @@ claiming success.
 
 ## Maps
 
-**Menu → Tools → Maps** — an offline map with everyone on it. Full detail, the tile format
+**Menu → Maps** — an offline map with everyone on it. Full detail, the tile format
 and the Mac-side command are in **[docs/maps.md](docs/maps.md)**.
 
 - **Your own tiles, off the card.** `/maps/<area>/<z>/<x>/<y>.565` — ordinary slippy `z/x/y`

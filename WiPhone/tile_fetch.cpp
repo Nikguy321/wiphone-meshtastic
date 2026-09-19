@@ -14,7 +14,6 @@
 #include <mbedtls/platform.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <freertos/semphr.h>
 #include <string.h>
 #include <math.h>
 
@@ -29,27 +28,31 @@
 #define TF_BODY_CAP      (96u * 1024u)     // one tile, with room: USGS/OTM are 13-55 KB
 #define TF_WRITE_PIECE   (32u * 1024u)
 #define TF_MAX_FAILS     12                // consecutive; then the run gives up
-#define TF_CONNECT_LARGEST 12000u          // internal largest block a TLS handshake may start with
-#define TF_CONNECT_FREE    16000u          // ...and total internal free (a fresh boot after the stack: ~17.7 KB)
+#define TF_CONNECT_LARGEST 10000u          // internal largest block a TLS handshake may start with (phone 1 with SIP up: ~11.4 KB after the stack)
+#define TF_CONNECT_FREE    14000u          // ...and total internal free (phone 2 fresh boot after the stack ~17.7 KB, phone 1 ~17.1 KB)
 #define TF_CONNECT_WAIT_MS 30000u          // how long to wait for that room before failing the tile
 #define TF_PAUSE_MAX_MS  (10u * 60u * 1000u) // a job paused this long (call, no WiFi) gives up
 #define TF_RECONNECT_AT  3                 // consecutive; then drop and remake the socket
 #define TF_DRAIN_CAP     (16u * 1024u)     // how much of an error body to read before giving up on the socket
 
-/* ONE WORKER, CREATED ONCE, NEVER DELETED. It sleeps on a semaphore between runs. The first
- * cut created a task per run and let it delete itself, which has two holes on this FreeRTOS
- * (8.2, IDF 3.3): the task clears its "busy" flag a few instructions before vTaskDelete and
- * the loop task can be scheduled in that gap and re-create a task on the same static TCB
- * while the old one is still on a ready list; and eTaskGetState() cannot tell a cleaned-up
- * static task from a ready one (the NULL-list case is not eDeleted in this version — the
- * second run was refused forever, measured). A worker that never dies has neither problem,
- * and the stack was permanent anyway. */
-static StaticTask_t      s_tcb;
-static StackType_t*      s_stack = NULL;
-static TaskHandle_t      s_task  = NULL;
-static SemaphoreHandle_t s_go    = NULL;   // given once per run; the worker takes it
-static volatile int      s_kind  = 0;      // 1 = job, 2 = bench
-static volatile bool     s_busy  = false;  // a run is queued or in progress
+/* ONE TASK PER RUN, DYNAMICALLY ALLOCATED, GONE BETWEEN RUNS. Three shapes were tried on
+ * hardware (2026-09-19):
+ *   1. A STATIC task per run that deletes itself — races its own TCB: the task clears "busy"
+ *      a few instructions before vTaskDelete and the loop task (same core, same priority) can
+ *      re-create on the same TCB while the old one is still on a ready list; and
+ *      eTaskGetState() on this FreeRTOS (8.2) reads a cleaned-up static task as eReady, so a
+ *      liveness check refused every second run.
+ *   2. A persistent worker on a semaphore — correct, but its 8 KB stack is INTERNAL RAM held
+ *      for the life of the firmware from the first download. On phone 1 (SIP registered,
+ *      ~26 KB free at boot) that permanently costs the SIP path a third of its headroom.
+ *   3. This: xTaskCreate per run with a heap stack; the task deletes itself and the IDLE task
+ *      frees stack and TCB (the GBC's "starved idle task" caveat does not apply — nothing
+ *      here hogs a core). Two tasks can overlap for microseconds if a start lands in the gap
+ *      between the old task's last line and its delete; with separate TCBs that is harmless,
+ *      and at worst the new 8 KB allocation fails and the start says so. Between runs the
+ *      phone has its RAM back — measured on phone 1: largest returns to within a few hundred
+ *      bytes of the pre-run figure. */
+static volatile bool     s_busy  = false;  // a run is in progress (cleared by the task itself)
 static volatile bool  s_pause = false;
 static volatile bool  s_stop  = false;
 static bool           s_hookInstalled = false;
@@ -215,16 +218,6 @@ static void installHook() {
   }
 }
 
-static bool ensureStack(char* why, size_t whyCap) {
-  if (!s_stack) {
-    s_stack = (StackType_t*)heap_caps_malloc(TF_STACK_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (!s_stack) {
-      snprintf(why, whyCap, "no internal RAM for the download task");
-      return false;
-    }
-  }
-  return true;
-}
 
 /* One HTTP GET into `body`. Returns the HTTP code (200 = *got bytes are the tile), 0 for a
  * transport failure. `http`/`client` are the kept-alive pair for the whole run. */
@@ -604,7 +597,8 @@ static void runJob(Job* j) {
   st->heapFloorLargest = (floorLargest == 0xFFFFFFFFu) ? 0 : floorLargest;
 }
 
-static void jobRun(Job* j) {
+static void jobTask(void* arg) {
+  Job* j = (Job*)arg;
   TileJobStatus* st = &j->st;
   j->startMs = millis();
   runJob(j);                              // every destructor has run by here
@@ -620,44 +614,18 @@ static void jobRun(Job* j) {
   st->waitingRam = false;
   st->finished = true;
   st->active = false;
+  s_busy = false;                         // the last line before the delete, on purpose
+  vTaskDelete(NULL);                      // the idle task frees the stack and TCB
 }
 
-static void benchRun();                   // below, with the bench
-
-static void workerTask(void*) {
-  for (;;) {
-    xSemaphoreTake(s_go, portMAX_DELAY);
-    if (s_kind == 1) {
-      jobRun(s_job);
-    } else if (s_kind == 2) {
-      benchRun();
-    }
-    s_kind = 0;
-    s_busy = false;                       // the worker is back on the semaphore: nothing else runs
+/* One run's task: 8 KB of internal stack from the heap, pinned to the loop's core at its
+ * priority so neither starves the other. NULL if the RAM is not there. */
+static TaskHandle_t spawnRun(TaskFunction_t fn, void* arg, const char* name) {
+  TaskHandle_t h = NULL;
+  if (xTaskCreatePinnedToCore(fn, name, TF_STACK_BYTES, arg, 1, &h, 1) != pdPASS) {
+    return NULL;
   }
-}
-
-/* The worker and its semaphore, made on first use and kept. */
-static bool ensureWorker(char* why, size_t whyCap) {
-  if (!ensureStack(why, whyCap)) {
-    return false;
-  }
-  if (!s_go) {
-    s_go = xSemaphoreCreateBinary();
-    if (!s_go) {
-      strlcpy(why, "no RAM for the download semaphore", whyCap);
-      return false;
-    }
-  }
-  if (!s_task) {
-    s_task = xTaskCreateStaticPinnedToCore(workerTask, "tilefetch", TF_STACK_BYTES, NULL,
-                                           1, s_stack, &s_tcb, 1);
-    if (!s_task) {
-      strlcpy(why, "could not create the download task", whyCap);
-      return false;
-    }
-  }
-  return true;
+  return h;
 }
 
 bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap) {
@@ -698,11 +666,18 @@ bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap) {
    * where SIP cannot re-register and lwIP's listener dies. Refuse to begin rather than find
    * out mid-handshake; the words say what to do. */
   {
+    /* The SAME bar the reconnect wait uses (waitReady: largest >= TF_CONNECT_LARGEST, free >=
+     * TF_CONNECT_FREE), plus the stack if it has not been allocated yet — the stack is carved
+     * out of the largest block and out of the free total, so both bars move up by its size.
+     * ⚠ Calibrated on phone 2 first (largest ~26 KB idle) and it refused phone 1 outright: the
+     * SIP phone idles at largest ~21.9 KB with a registration up, which is exactly enough. */
     uint32_t f, l, m;
     heapNow(&f, &l, &m);
-    const uint32_t need = s_stack ? 14000u : 24000u;
-    if (l < need) {
-      snprintf(why, whyCap, "phone low on memory (%u KB free block) - reboot first", (unsigned)(l / 1024));
+    const uint32_t needL = TF_CONNECT_LARGEST + (uint32_t)TF_STACK_BYTES;   // the stack is not there yet
+    const uint32_t needF = TF_CONNECT_FREE + (uint32_t)TF_STACK_BYTES;
+    if (l < needL || f < needF) {
+      snprintf(why, whyCap, "phone low on memory (%u KB block, %u KB free) - reboot first",
+               (unsigned)(l / 1024), (unsigned)(f / 1024));
       return false;
     }
   }
@@ -739,9 +714,6 @@ bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap) {
       return false;
     }
   }
-  if (!ensureWorker(why, whyCap)) {
-    return false;
-  }
   memset(s_job, 0, sizeof(Job));
   s_job->spec = *s;
   s_job->src = src;
@@ -754,8 +726,12 @@ bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap) {
   s_pause = false;
   s_busy = true;
   s_job->st.active = true;
-  s_kind = 1;
-  xSemaphoreGive(s_go);
+  if (!spawnRun(jobTask, s_job, "tilefetch")) {
+    s_busy = false;
+    s_job->st.active = false;
+    strlcpy(why, "no internal RAM for the download task - try again shortly", whyCap);
+    return false;
+  }
   return true;
 }
 
@@ -885,13 +861,15 @@ static void runBench(BenchJob* j) {
   free(body);
 }
 
-static void benchRun() {
-  BenchJob* j = s_bench;
+static void benchTask(void* arg) {
+  BenchJob* j = (BenchJob*)arg;
   runBench(j);                            // HTTPClient and its Strings destructed by the return
   j->stackFloor = (uint32_t)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t));
   heapNow(&j->freeAfter, &j->largestAfter, NULL);
   j->psramAfter = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
   j->finished = true;
+  s_busy = false;
+  vTaskDelete(NULL);
 }
 
 bool tileFetchBenchStart(const char* url, int count) {
@@ -907,16 +885,14 @@ bool tileFetchBenchStart(const char* url, int count) {
   memset(s_bench, 0, sizeof(BenchJob));
   strlcpy(s_bench->url, url, sizeof(s_bench->url));
   s_bench->count = count < 1 ? 1 : count;
-  char why[64];
-  if (!ensureWorker(why, sizeof(why))) {
-    strlcpy(s_bench->lastErr, why, sizeof(s_bench->lastErr));
+  installHook();
+  s_busy = true;
+  if (!spawnRun(benchTask, s_bench, "tilebench")) {
+    s_busy = false;
+    strlcpy(s_bench->lastErr, "no internal RAM for the task", sizeof(s_bench->lastErr));
     s_bench->finished = true;
     return false;
   }
-  installHook();
-  s_busy = true;
-  s_kind = 2;
-  xSemaphoreGive(s_go);
   return true;
 }
 
