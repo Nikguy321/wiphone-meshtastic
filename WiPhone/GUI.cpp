@@ -2108,13 +2108,19 @@ void GUI::redrawScreen(bool redrawHeader, bool redrawFooter, bool redrawScreen, 
   }
 };
 
-bool GUI::marqueeTick(uint32_t now) {
+bool GUI::marqueeTick(uint32_t /*now*/) {
   /* Asleep, locked or powering off: nobody can see the row, and a repaint would only keep
    * the CPU up (every redraw stamps gUiWorkMs, which the frequency gate reads). */
   if (state.screenBrightness == 0 || state.locked || powerOffScreen) {
     return false;
   }
-  return MenuWidget::marqueeTick(now);
+  /* ⚠ millis(), NOT the loop's `now` (review, 2026-09-19). Ownership is stamped with
+   * millis() inside a paint, and the SMS-mirror path paints BEFORE this tick in the same
+   * pass: a text landing on the Messages list with a long row selected rebuilt the list,
+   * stamped it ~40 ms AFTER the pass's `now`, and the unsigned `now - phaseMs` wrapped to
+   * "the hold is long over" — one skipped hold and a second full push in the same pass.
+   * The same stale-`now` shape the buzz timing fix removed the same day. */
+  return MenuWidget::marqueeTick(millis());
 }
 
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # #  MENU HELPERS  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -14347,6 +14353,32 @@ static int marqueeMeasure(void* ctx, const char* s) {
   return ((LCD*)ctx)->textWidth(s);
 }
 
+/* The mid-scroll cut: the longest prefix of `s` that fits in maxW, drawn hard-cut on the
+ * right. ⚠ noinline ON PURPOSE (review, 2026-09-19): this frame carries a 160-byte buffer,
+ * and drawRowText() is on the path of EVERY row of EVERY list paint. Inlined, the buffer
+ * sat under the plain ellipsis path too — 224 B deeper for every unselected row, on a loop
+ * task whose recorded floor is 408 B (HANDOFF, 0.9.63 after 22 h). Kept out of line, the
+ * buffer is live only on the one path that needs it. 160 bytes covers a 232 px row of the
+ * narrowest glyphs with room for UTF-8; a longer fit is cut back to a glyph boundary. */
+static void __attribute__((noinline)) drawRowTextCut(LCD &lcd, SmoothFont* font, const char* s,
+                                                     uint16_t maxW, int16_t x, int16_t y) {
+  const int16_t fit = font ? font->fitTextLength(s, maxW) : 0;
+  if (fit <= 0) {
+    return;
+  }
+  char buf[160];
+  size_t n = (size_t)fit;
+  if (n > sizeof(buf) - 1) {
+    n = sizeof(buf) - 1;
+    while (n > 0 && ((uint8_t)s[n] & 0xC0) == 0x80) {
+      n--;
+    }
+  }
+  memcpy(buf, s, n);
+  buf[n] = '\0';
+  lcd.drawString(buf, x, y);
+}
+
 /* THE ONE TEXT PRIMITIVE FOR MENU ROWS. An unselected row, or a selected one whose text
  * fits, gets exactly what guiDrawEllipsized gave it. The SELECTED row of the list that
  * MenuWidget::redraw is probing is the marquee: it reports that it overflowed, paints from
@@ -14381,23 +14413,7 @@ static void drawRowText(LCD &lcd, SmoothFont* font, const char* s, uint16_t maxW
     return;
   }
   gMarquee.moreToCome = true;
-  const int16_t fit = font ? font->fitTextLength(s + b, maxW) : 0;
-  if (fit <= 0) {
-    return;
-  }
-  /* 160 bytes covers a 232 px row of the narrowest glyphs with room for UTF-8; a longer fit
-   * is cut back to a glyph boundary. Stack, not heap: this runs on every marquee step. */
-  char buf[160];
-  size_t n = (size_t)fit;
-  if (n > sizeof(buf) - 1) {
-    n = sizeof(buf) - 1;
-    while (n > 0 && ((uint8_t)s[b + n] & 0xC0) == 0x80) {
-      n--;
-    }
-  }
-  memcpy(buf, s + b, n);
-  buf[n] = '\0';
-  lcd.drawString(buf, x, y);
+  drawRowTextCut(lcd, font, s + b, maxW, x, y);
 }
 
 uint16_t gScrimColor = THEME_SCRIM_COLOR;
