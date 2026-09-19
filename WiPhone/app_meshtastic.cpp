@@ -362,6 +362,11 @@ void MeshtasticApp::buildChats() {
       if (match) {
         snprintf(preview, sizeof(preview), "%s%s",
                  (m->flags & MESH_MSG_OUTGOING) ? "me: " : "", m->text);
+        for (char* c = preview; *c; c++) {     // one line, as in buildThread(): a '\n' draws over the next row
+          if (*c == '\n' || *c == '\r') {
+            *c = ' ';
+          }
+        }
         break;
       }
     }
