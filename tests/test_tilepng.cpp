@@ -296,6 +296,38 @@ int main() {
        "an HTML body is not a PNG");
   }
 
+  group("tRNS on grey and RGB images names one value as transparent");
+  {
+    // grey 8-bit: sample 0x40 transparent
+    Img im = makeImg(0, 8);
+    im.trns = { 0x00, 0x40 };
+    for (int y = 0; y < 256; y++) {
+      for (int x = 0; x < 256; x++) {
+        const int v = (x + y) % 256;
+        if (v == 0x40) im.expect[y * 256 + x] = TILE_PNG_NODATA_565;
+      }
+    }
+    std::vector<uint8_t> z = filterAndDeflate(im, -1, 6);
+    std::vector<uint8_t> png = makePng(im, z, 256, 256, 0, 0, 0);
+    char why[96];
+    ok(decodeMatches(png, im, why, sizeof(why)), "grey tRNS pixels become nodata");
+    // RGB: the colour at (x=10,y=20) transparent wherever it occurs
+    Img rgb = makeImg(2, 8);
+    uint8_t tr, tg, tb;
+    rgbAt(10, 20, &tr, &tg, &tb);
+    rgb.trns = { 0, tr, 0, tg, 0, tb };
+    for (int y = 0; y < 256; y++) {
+      for (int x = 0; x < 256; x++) {
+        uint8_t r, g, b;
+        rgbAt(x, y, &r, &g, &b);
+        if (r == tr && g == tg && b == tb) rgb.expect[y * 256 + x] = TILE_PNG_NODATA_565;
+      }
+    }
+    std::vector<uint8_t> z2 = filterAndDeflate(rgb, -1, 6);
+    std::vector<uint8_t> png2 = makePng(rgb, z2, 256, 256, 0, 0, 0);
+    ok(decodeMatches(png2, rgb, why, sizeof(why)), "RGB tRNS colour becomes nodata");
+  }
+
   group("tileSniff and tileDecode's dispatch on the host");
   {
     const uint8_t jpg[8] = { 0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, 'J', 'F' };

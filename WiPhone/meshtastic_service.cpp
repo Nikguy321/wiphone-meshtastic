@@ -1447,11 +1447,14 @@ bool MeshtasticService::loop() {
    * load path came to disagree with the save path for a day and a half. */
   saveDbStep();
 
-  /* ...and not while the map downloader is writing the card: saveDb() is ~55 small writes,
-   * each of which queues behind a 32 KB tile piece on the FatFs mutex, and together they
-   * showed up as 0.5-0.9 s 'mesh' stalls of the whole phone (measured 2026-09-18). The
-   * data stays dirty and lands seconds after the download ends. */
-  if (dbDirty && uiIdle && !saveActive && !tileFetchActive() &&
+  /* ...and, as a precaution, not while the map downloader is writing the card: saveDb() is
+   * ~55 small writes, each of which queues behind a 32 KB tile piece on the FatFs mutex.
+   * ⚠ Capped at five minutes: a download can run an hour, and a phone switched off at the
+   * end of it must not lose an hour of nodes and messages. (The 0.5-0.9 s 'mesh' stalls
+   * seen during downloads are the PRE-EXISTING ones the 2026-09-04 handoff flagged — they
+   * happen with no download running; this deferral did not remove them.) */
+  const bool downloadHold = tileFetchActive() && (millis() - lastSaveMs < 5u * 60u * 1000u);
+  if (dbDirty && uiIdle && !saveActive && !downloadHold &&
       (millis() - lastSaveMs > MESH_SAVE_DEBOUNCE_MS)) {
     saveDb();
     dbDirty = false;

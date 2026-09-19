@@ -21,8 +21,7 @@
   #include <esp_heap_caps.h>
   #include "rom/miniz.h"
   static void* pngAlloc(size_t n) {
-    void* p = heap_caps_malloc(n, MALLOC_CAP_SPIRAM);
-    return p ? p : malloc(n);
+    return heap_caps_malloc(n, MALLOC_CAP_SPIRAM);   // PSRAM or nothing: never raid the internal heap
   }
   static void pngFree(void* p) { free(p); }
 #else
@@ -281,7 +280,13 @@ bool tilePngDecode(const uint8_t* data, size_t len, uint16_t* out, uint16_t noda
     switch (ctype) {
     case 2:
       for (uint32_t x = 0; x < w; x++) {
-        o[x] = tileColor565(row[x * 3], row[x * 3 + 1], row[x * 3 + 2]);
+        const uint8_t* p = row + x * 3;
+        /* A tRNS on an RGB image names ONE colour (three 16-bit samples) as transparent. */
+        if (trns && trnsN >= 6 && p[0] == trns[1] && p[1] == trns[3] && p[2] == trns[5]) {
+          o[x] = nodata;
+        } else {
+          o[x] = tileColor565(p[0], p[1], p[2]);
+        }
       }
       break;
     case 6:
@@ -317,6 +322,8 @@ bool tilePngDecode(const uint8_t* data, size_t len, uint16_t* out, uint16_t noda
           } else {
             o[x] = tileColor565(plte[v * 3], plte[v * 3 + 1], plte[v * 3 + 2]);
           }
+        } else if (trns && trnsN >= 2 && v == trns[1] && trns[0] == 0) {
+          o[x] = nodata;                   // tRNS on grey: one sample value (16-bit, high byte 0 at these depths)
         } else {
           uint8_t g;
           switch (depth) {

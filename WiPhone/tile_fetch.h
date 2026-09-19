@@ -87,13 +87,15 @@ typedef struct {
 typedef struct {
   bool     active;        // the task is running (or about to)
   bool     finished;      // a run completed (look at the counters)
-  bool     paused;        // held by tileFetchPause(true)
+  bool     paused;        // held by tileFetchPause(true): a call, or WiFi is down
+  bool     waitingRam;    // a new connection is due and the internal heap has no room for it yet
   bool     stopping;      // stop requested, finishing the current tile
   int      total;         // tiles in the job
   int      done;          // written this run
   int      skipped;       // already on the card at the right size
   int      noTile;        // the server said 404: nothing there (not an error)
   int      failed;        // network, decode or write failures
+  int      reconnects;    // TLS/TCP connections made after the first (the server closed keep-alive)
   int      curZ;
   uint32_t bytes;         // downloaded
   uint32_t elapsedMs;

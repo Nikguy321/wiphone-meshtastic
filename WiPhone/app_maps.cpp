@@ -1650,8 +1650,14 @@ bool MapsApp::deletePin(int idx) {
      * theirs — a camp that has moved is worse than no camp at all.
      * ⚠ THE RESULT IS RETURNED, NOT DISCARDED. Deleting locally while the retraction failed
      * strands the waypoint on every other radio with nothing left on this phone that knows
-     * its id, so the caller has to be able to say so. */
-    retracted = meshService.unshareWaypoint(pins[idx].sharedId, pinChannel(idx));
+     * its id, so the caller has to be able to say so. A pin whose channel has left this
+     * phone is not sent anywhere: a retraction on some other channel reaches nobody who
+     * holds the waypoint and would count as success. */
+    if (pins[idx].chan[0] && !pinChannel(idx)) {
+      retracted = false;
+    } else {
+      retracted = meshService.unshareWaypoint(pins[idx].sharedId, pinChannel(idx));
+    }
   }
   for (int i = idx; i + 1 < pinCount; i++) {
     pins[i] = pins[i + 1];       // keep the order: the list on screen must not reshuffle
@@ -2021,7 +2027,8 @@ void MapsApp::buildDownload() {
   menu->addNote(row);
 
   if (running) {
-    snprintf(row, sizeof(row), "%s %d/%d%s", st.paused ? "Paused" : "Downloading",
+    snprintf(row, sizeof(row), "%s %d/%d%s",
+             st.paused ? "Paused" : (st.waitingRam ? "Waiting for memory" : "Downloading"),
              st.done + st.skipped + st.noTile + st.failed, st.total,
              st.stopping ? " (stopping)" : "");
     menu->addNote(row);
@@ -2856,6 +2863,13 @@ appEventResult MapsApp::processEvent(EventType event) {
          * this phone that knows the id any more — the retraction can never be sent again. A
          * stale camp on other people's maps is the exact failure "Take it off the mesh"
          * exists to prevent. */
+        if (pins[pinSel].chan[0] && !pinChannel(pinSel)) {
+          /* The channel it went out on is no longer on this phone: a retraction sent
+           * anywhere else reaches nobody who has it, and would report success. */
+          setNote("Channel '%s' is gone from this phone - cannot retract", pins[pinSel].chan);
+          enterState(MAPS_VIEW);
+          return REDRAW_ALL;
+        }
         const bool ok = meshService.unshareWaypoint(pins[pinSel].sharedId, pinChannel(pinSel));
         if (ok) {
           pins[pinSel].sharedId = 0;

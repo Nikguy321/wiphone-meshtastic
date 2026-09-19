@@ -1,6 +1,10 @@
 # Maps on the WiPhone — the analysis before the build (2026-09-18)
 
-**Status: ANALYSIS, nothing built.** Written the evening of 2026-09-18 from PR #1
+**Status: the analysis that came first — the build followed it the same night.** Everything
+under §9's Phase 0–2 was built and proven on WiPhone 2 by the morning of 2026-09-19 (see
+`docs/HANDOFF.md`'s top block and `docs/maps.md`); §10's decisions were taken as recommended.
+Kept as the record of what was known before any code was written. Written the evening of
+2026-09-18 from PR #1
 (`origin/claude/wiphone-maps-app-lzry49`, "0.9.64: Maps"), COVEY's map, the framework
 sources, and a bench session on WiPhone 2. Every number marked **measured** was read off the
 phone or the wire tonight; everything else says *estimate*.

@@ -53,11 +53,18 @@ the one user button centres on me; the view saved on exit; check RAM." The analy
    30 s sleep timer: the phone locked mid-walk and ate presses all evening; the `key` injector
    also drops some repeated keys — use single keys with a shot after each).
 
-**RAM, honestly.** Viewer unchanged (+72 B static, 768 KB PSRAM). Downloader: 10 KB internal
-stack permanently from the first download; the run's FIRST TLS handshake dips internal by
-~12 KB for a second (min-ever 6,136 app closed, **2,764 with the app open** — the phone has
-survived every cold handshake tonight, 8 runs, 0 reboots, but that is the number to watch).
-The start gate refuses when the largest block is already low. **⚠ Phone 1 (SIP registered)
+**RAM, honestly — and the soak that changed the design.** Viewer unchanged (+72 B static,
+768 KB PSRAM). Downloader: an internal task stack permanently from the first download, and
+every TLS handshake — the first, and each reconnect after the server closes keep-alive (~every
+100 requests) — dips internal by ~12 KB for a second: lwIP's TCP send/receive buffers, not
+shrinkable from the sketch (mbedTLS itself is in PSRAM). A **10 km z15 soak (863 tiles,
+16.3 MB, 14 min, 0 failed) with the map open took min-ever to 952 bytes** — no reboot, but one
+more allocation from it. Two changes after that: the task stack went **10 → 8 KB** (measured
+floor 4,996–6,264 of 10,240 across four runs = 5.2 KB used; the report prints the floor every
+run, put it back up if it ever reads under ~1,500), and **every reconnect waits for room**
+(internal free ≥ 16 KB and largest ≥ 12 KB, up to 30 s, "Paused" on the screen) before it
+handshakes — a start gate does the same for the first one. Expected floor now ≈ 5 KB with the
+app closed, ≈ 3 KB open; the fresh-boot acceptance run's numbers are in the commit after this. **⚠ Phone 1 (SIP registered)
 has 2–3 KB less headroom and has NOT run this build** — flash it, run one small download,
 read `heap` min-ever. Loop-task stack floor after a fresh boot is ~3 KB (the 408 B seen on
 0.9.63 was after 22 h).

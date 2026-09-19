@@ -23,9 +23,13 @@ stack. The downloader is the escape — its own task with a 10 KB internal stack
 allocator redirected into PSRAM once (`mbedtls_platform_set_calloc_free`), one kept-alive
 connection per area (handshake ~1.5 s once, then ~250 ms a tile) — measured with the new
 `tlstest` bench: 70/70 GETs, PSRAM returned to the byte. The price is spelled out in
-`tile_fetch.h`: ~10 KB of internal RAM for the life of the firmware from the first download,
-and a ~12 KB internal dip during each run's first handshake. The downloader refuses to start
-when the largest free block is under 14 KB and says to reboot.
+`tile_fetch.h`: 8 KB of internal RAM for the task's stack for the life of the firmware from the
+first download (measured use 5.2 KB; the report prints the floor every run), and a ~12 KB
+internal dip — lwIP's TCP buffers — at every handshake, the first and each time the server
+closes keep-alive. A 10 km soak with the map open (863 tiles, 0 failed) took the internal heap
+to 952 bytes before that was understood; now every handshake waits for room (free ≥ 16 KB,
+largest ≥ 12 KB, "Paused" on screen) and the start refuses outright when the phone is already
+low, saying to reboot.
 
 **The phone decodes tiles now — on arrival, not on the draw path.** USGS tiles are baseline
 colour JPEG and go through the ROM TJpgDec with private callbacks (`tile_decode.cpp`);
@@ -62,14 +66,30 @@ says "me? 3 sats".
   bracket (`lcdNativePixels`, GUI.h) at every site.
 - The mesh's `NEW_MESSAGE_EVENT` forward discarded the app's redraw request for two releases;
   a marker that moved stayed put until a keypress.
-- The mesh database save now waits for a running download: its ~55 small writes queued behind
-  32 KB tile pieces and showed as 0.5–0.9 s stalls of the whole phone.
+- The mesh database save now waits (at most five minutes) for a running download, as a
+  precaution against its ~55 small writes queuing behind 32 KB tile pieces. ⚠ The 0.5–0.9 s
+  `'mesh'` stalls seen during downloads turned out to be the PRE-EXISTING ones the 2026-09-04
+  handoff flagged (median 644 ms with nothing running); this did not remove them.
 
 **For the bench.** `up on maps` + `tools/wiphone_send.py --app maps --tree <dir>` push a
 converted tile tree over WiFi (the one uploader that accepts folder paths, validated by
 `chunkSafeTreeName`); `open <app>` jumps into an app; `hold on|off` keeps the screen awake
 (injected keys do not reset the 30 s sleep, which was eating scripted presses); `maps dl` and
 `tlstest` drive and measure the downloader.
+
+**The review's fixes (morning of 09-19, all on hardware).** The downloader is one persistent
+worker task on a semaphore (a create-and-delete task raced its own TCB reuse, and this
+FreeRTOS cannot tell a cleaned-up static task from a ready one — the second run was refused
+forever, measured); `HTTPClient` is destructed by a normal return before the task idles (its
+Strings leaked from internal RAM per run); an error body is drained or the socket dropped so a
+404's tail cannot be read as the next tile; a body with no Content-Length fails the tile at
+once instead of stalling 8 s; a body over 96 KB drops the socket; every reconnect waits for
+internal-heap room (free ≥ 16 KB, largest ≥ 12 KB, 30 s) or fails the tile — never handshakes
+low; a pause (call, no WiFi) longer than ten minutes ends the run; card write failures count
+toward giving up and the free space is checked against the area before starting; a pin whose
+channel has left the phone is not "retracted" on some other channel (it says so, keeps the
+id); `tRNS` on grey and RGB PNGs is honoured (43 host checks); no decoder or TLS allocation
+ever falls back to the internal heap; the task stack is 8 KB (measured use 5.2 KB).
 
 ⚠ Only phone 2 has run this. Phone 1 (the SIP phone) has ~2–3 KB less internal headroom;
 watch `heap` min-ever after its first download.

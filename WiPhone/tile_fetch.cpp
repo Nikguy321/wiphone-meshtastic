@@ -14,21 +14,42 @@
 #include <mbedtls/platform.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <freertos/semphr.h>
 #include <string.h>
 #include <math.h>
 
 /* The fetch task's stack: internal RAM (IDF 3.3 cannot put a stack in PSRAM), allocated on
- * the first run and kept for the life of the firmware. Measured: a TLS handshake plus one
- * tile through decode and write used ~4.2 KB of it (tlstest, 2026-09-18). */
-#define TF_STACK_BYTES   10240
+ * the first run and kept for the life of the firmware. Measured over four runs (tlstest and
+ * three areas, 2026-09-18/19): the deepest path — a TLS handshake, then a tile through decode
+ * and the card — left a floor of 4,996-6,264 bytes of 10,240, i.e. ~5.2 KB used. 8 KB keeps
+ * a 2.8 KB margin and gives 2 KB of internal heap back to the download itself, which is
+ * where the margin is thinner (the handshake's ~12 KB of lwIP buffers). `maps dl` prints
+ * the floor after every run: if it ever reads under ~1,500, put this back up. */
+#define TF_STACK_BYTES   8192
 #define TF_BODY_CAP      (96u * 1024u)     // one tile, with room: USGS/OTM are 13-55 KB
 #define TF_WRITE_PIECE   (32u * 1024u)
 #define TF_MAX_FAILS     12                // consecutive; then the run gives up
+#define TF_CONNECT_LARGEST 12000u          // internal largest block a TLS handshake may start with
+#define TF_CONNECT_FREE    16000u          // ...and total internal free (a fresh boot after the stack: ~17.7 KB)
+#define TF_CONNECT_WAIT_MS 30000u          // how long to wait for that room before failing the tile
+#define TF_PAUSE_MAX_MS  (10u * 60u * 1000u) // a job paused this long (call, no WiFi) gives up
 #define TF_RECONNECT_AT  3                 // consecutive; then drop and remake the socket
+#define TF_DRAIN_CAP     (16u * 1024u)     // how much of an error body to read before giving up on the socket
 
-static StaticTask_t   s_tcb;
-static StackType_t*   s_stack = NULL;
-static volatile bool  s_busy  = false;     // a task (bench or job) is alive
+/* ONE WORKER, CREATED ONCE, NEVER DELETED. It sleeps on a semaphore between runs. The first
+ * cut created a task per run and let it delete itself, which has two holes on this FreeRTOS
+ * (8.2, IDF 3.3): the task clears its "busy" flag a few instructions before vTaskDelete and
+ * the loop task can be scheduled in that gap and re-create a task on the same static TCB
+ * while the old one is still on a ready list; and eTaskGetState() cannot tell a cleaned-up
+ * static task from a ready one (the NULL-list case is not eDeleted in this version — the
+ * second run was refused forever, measured). A worker that never dies has neither problem,
+ * and the stack was permanent anyway. */
+static StaticTask_t      s_tcb;
+static StackType_t*      s_stack = NULL;
+static TaskHandle_t      s_task  = NULL;
+static SemaphoreHandle_t s_go    = NULL;   // given once per run; the worker takes it
+static volatile int      s_kind  = 0;      // 1 = job, 2 = bench
+static volatile bool     s_busy  = false;  // a run is queued or in progress
 static volatile bool  s_pause = false;
 static volatile bool  s_stop  = false;
 static bool           s_hookInstalled = false;
@@ -147,8 +168,10 @@ static void heapNow(uint32_t* freeB, uint32_t* largest, uint32_t* minEver) {
  * internal heap only if PSRAM itself is exhausted, which on this phone means something else
  * is already badly wrong. */
 static void* tfCalloc(size_t n, size_t sz) {
-  void* p = heap_caps_calloc(n, sz, MALLOC_CAP_SPIRAM);
-  return p ? p : calloc(n, sz);
+  /* PSRAM or nothing. A fallback to the internal heap would make a PSRAM shortage (3.4 MB
+   * free — it has never happened) into an internal-heap raid by TLS, which is the one thing
+   * this whole file exists to prevent. A NULL here fails the handshake, which is reported. */
+  return heap_caps_calloc(n, sz, MALLOC_CAP_SPIRAM);
 }
 static void tfFree(void* p) {
   free(p);                                  // IDF's free() takes a block from any heap
@@ -181,21 +204,61 @@ static int fetchOne(HTTPClient& http, WiFiClient& client, const char* url,
     return 0;
   }
   const int code = http.GET();
+  const int len  = http.getSize();       // -1 = no Content-Length
+  WiFiClient* s  = http.getStreamPtr();
   if (code != HTTP_CODE_OK) {
     if (code < 0) {
       snprintf(err, errCap, "%s", http.errorToString(code).c_str());
-    } else {
-      snprintf(err, errCap, "HTTP %d", code);
+      http.end();
+      client.stop();                     // a transport error leaves nothing worth keeping
+      return 0;
+    }
+    snprintf(err, errCap, "HTTP %d", code);
+    /* ⚠ THE SOCKET IS KEPT ALIVE, SO THE ERROR BODY MUST BE READ OR THE NEXT TILE STARTS
+     * IN THE MIDDLE OF IT. HTTPClient::end() drains only what has ARRIVED; a 404 page whose
+     * tail is still in flight would be parsed as the next response and burn two tiles.
+     * Read it out (bounded), and if it cannot be read completely, drop the connection. */
+    bool clean = false;
+    if (len >= 0 && (size_t)len <= TF_DRAIN_CAP) {
+      size_t n = 0;
+      uint32_t idle = millis();
+      while (n < (size_t)len && http.connected() && millis() - idle < 3000) {
+        const size_t avail = s->available();
+        if (avail) {
+          size_t want = avail;
+          if (want > cap) want = cap;
+          const int r = s->read(body, want);
+          if (r > 0) {
+            n += (size_t)r;
+            idle = millis();
+          }
+        } else {
+          vTaskDelay(1);
+        }
+      }
+      clean = (n >= (size_t)len);
     }
     http.end();
-    return code < 0 ? 0 : code;
+    if (!clean) {
+      client.stop();
+    }
+    return code;
   }
-  const int   len = http.getSize();
-  WiFiClient* s   = http.getStreamPtr();
+  if (len < 0) {
+    /* No Content-Length: a chunked or close-delimited body. HTTPClient's stream pointer gives
+     * the raw bytes and no way to know where the tile ends on a kept-alive socket; every
+     * such tile would sit out the 8 s stall and fail. Say so, once per tile, and drop the
+     * socket so the next GET starts clean. (USGS and OpenTopoMap both send a length.) */
+    strlcpy(err, "no Content-Length (chunked?)", errCap);
+    http.end();
+    client.stop();
+    return 0;
+  }
   size_t   n    = 0;
   uint32_t idle = millis();
   bool     stalled = false;
-  while (http.connected() && (len < 0 || n < (size_t)len)) {
+  bool     overCap = false;
+  while (http.connected() && n < (size_t)len) {
     const size_t avail = s->available();
     if (avail) {
       size_t want = avail;
@@ -205,7 +268,10 @@ static int fetchOne(HTTPClient& http, WiFiClient& client, const char* url,
         n += (size_t)r;
         idle = millis();
       }
-      if (n >= cap) break;               // bigger than any tile: stop reading, sniff will refuse
+      if (n >= cap && n < (size_t)len) {   // bigger than any tile
+        overCap = true;
+        break;
+      }
     } else if (millis() - idle > 8000) {
       stalled = true;
       break;
@@ -214,12 +280,26 @@ static int fetchOne(HTTPClient& http, WiFiClient& client, const char* url,
     }
   }
   http.end();                            // reuse=true: the socket stays if the server allows
-  if (stalled || (len > 0 && n < (size_t)len)) {
-    strlcpy(err, stalled ? "body stalled" : "body cut short", errCap);
+  if (stalled || overCap || n < (size_t)len) {
+    /* Whatever is left of the body is still in the socket; a kept-alive next GET would read
+     * it as the next response. Drop the connection — the reconnect is the cheaper mistake. */
+    client.stop();
+    strlcpy(err, stalled ? "body stalled" : (overCap ? "tile larger than 96 KB" : "body cut short"), errCap);
     return 0;
   }
   *got = n;
   return 200;
+}
+
+/* Bytes free on the card, or 0xFFFFFFFF if the card cannot say. FatFs trusts FSINFO here
+ * (FF_FS_NOFSINFO=0), so this is one read, not a walk. */
+static uint64_t cardFreeBytes() {
+  const uint64_t total = SD.totalBytes();
+  const uint64_t used  = SD.usedBytes();
+  if (total == 0) {
+    return 0xFFFFFFFFFFFFFFFFull;
+  }
+  return total > used ? total - used : 0;
 }
 
 /* Write the decoded tile as <dir>/<y>.tmp then rename it into place. False = nothing usable
@@ -293,10 +373,57 @@ static void mkdirChain(const char* dirPath) {
   SD.mkdir(tmp);
 }
 
-static void jobTask(void* arg) {
-  Job* j = (Job*)arg;
+/* Wait out a pause (a call, no WiFi) and, when a new connection is about to be made, wait
+ * for the internal RAM a TLS handshake needs. Returns false when the tile should be given up
+ * on: the run was stopped, the pause outlived TF_PAUSE_MAX_MS (the run stops), or the RAM
+ * never came (this tile fails, the run continues). `needRoom` is whether a handshake is due. */
+static bool waitReady(Job* j, bool needRoom) {
   TileJobStatus* st = &j->st;
-  j->startMs = millis();
+  uint32_t pausedMs = 0, roomMs = 0;
+  for (;;) {
+    if (s_stop) {
+      return false;
+    }
+    if (s_pause) {
+      st->paused = true;
+      st->waitingRam = false;
+      if (pausedMs >= TF_PAUSE_MAX_MS) {
+        strlcpy(st->lastErr, "paused too long (call or no WiFi) - stopped", sizeof(st->lastErr));
+        s_stop = true;
+        st->paused = false;
+        return false;
+      }
+      vTaskDelay(pdMS_TO_TICKS(200));
+      pausedMs += 200;
+      continue;
+    }
+    st->paused = false;
+    if (!needRoom) {
+      st->waitingRam = false;
+      return true;
+    }
+    uint32_t f, l, m;
+    heapNow(&f, &l, &m);
+    if (l >= TF_CONNECT_LARGEST && f >= TF_CONNECT_FREE) {
+      st->waitingRam = false;
+      return true;
+    }
+    if (roomMs >= TF_CONNECT_WAIT_MS) {
+      st->waitingRam = false;
+      return false;                       // this tile fails; the caller counts it
+    }
+    st->waitingRam = true;
+    vTaskDelay(pdMS_TO_TICKS(250));
+    roomMs += 250;
+  }
+}
+
+/* The whole run. A function of its own so that everything with a destructor — HTTPClient
+ * and its Strings, the clients — is torn down by a normal return BEFORE the task deletes
+ * itself: vTaskDelete(NULL) never returns, so locals of the task function itself would leak
+ * their internal-heap buffers on every run. */
+static void runJob(Job* j) {
+  TileJobStatus* st = &j->st;
   uint32_t floorLargest = 0xFFFFFFFFu;
 
   uint8_t*  body = (uint8_t*)heap_caps_malloc(TF_BODY_CAP, MALLOC_CAP_SPIRAM);
@@ -305,10 +432,6 @@ static void jobTask(void* arg) {
     strlcpy(st->lastErr, "no PSRAM for the tile buffers", sizeof(st->lastErr));
     free(body);
     free(px);
-    st->finished = true;
-    st->active = false;
-    s_busy = false;
-    vTaskDelete(NULL);
     return;
   }
 
@@ -344,12 +467,6 @@ static void jobTask(void* arg) {
         strlcpy(lastDir, dir, sizeof(lastDir));
       }
       for (int y = y0; y <= y1 && !s_stop; y++) {
-        while (s_pause && !s_stop) {
-          st->paused = true;
-          vTaskDelay(pdMS_TO_TICKS(200));
-        }
-        st->paused = false;
-        if (s_stop) break;
         snprintf(path, sizeof(path), "%s/%d.565", dir, y);
         snprintf(tmpPath, sizeof(tmpPath), "%s/%d.tmp", dir, y);
         if (tileOnCard(path)) {
@@ -360,6 +477,29 @@ static void jobTask(void* arg) {
           strlcpy(st->lastErr, "URL template too long", sizeof(st->lastErr));
           st->failed++;
           continue;
+        }
+        /* 🛑 A NEW TLS HANDSHAKE COSTS ~12 KB OF INTERNAL RAM FOR A SECOND, AND THE SERVER
+         * CLOSES A KEPT-ALIVE CONNECTION EVERY SO MANY REQUESTS. Measured 2026-09-19: a 10 km
+         * run with the map open took the internal heap's min-ever to 952 bytes — the
+         * reconnect landed on top of the app's own use. So before any GET that will have to
+         * reconnect, wait for room (and wait out a call or a WiFi drop, which is the same
+         * loop): a handshake that would start below the bar is a reboot with extra steps. */
+        const bool reconnecting = !client->connected();
+        if (!waitReady(j, reconnecting)) {
+          if (s_stop) {
+            break;
+          }
+          st->failed++;
+          snprintf(st->lastErr, sizeof(st->lastErr), "z%d %d/%d: no RAM for a new connection", z, x, y);
+          if (++j->consecutiveFails >= TF_MAX_FAILS) {
+            strlcpy(st->lastErr, "no RAM for a connection - stopped", sizeof(st->lastErr));
+            s_stop = true;
+            break;
+          }
+          continue;
+        }
+        if (reconnecting && (st->done + st->failed + st->noTile > 0)) {
+          st->reconnects++;
         }
         size_t got = 0;
         err[0] = '\0';
@@ -387,8 +527,16 @@ static void jobTask(void* arg) {
             st->failed++;
             snprintf(st->lastErr, sizeof(st->lastErr), "z%d %d/%d: %s", z, x, y, err);
           } else if (!writeTile(path, tmpPath, px, err, sizeof(err))) {
+            /* A card that refuses is not going to accept the next 800 tiles either: a full,
+             * absent or pulled card counts the same way the network does, and the run stops
+             * rather than downloading the whole area for nothing. */
             st->failed++;
             snprintf(st->lastErr, sizeof(st->lastErr), "z%d %d/%d: %s", z, x, y, err);
+            if (++j->consecutiveFails >= TF_MAX_FAILS) {
+              strlcpy(st->lastErr, "the card keeps refusing writes - stopped", sizeof(st->lastErr));
+              s_stop = true;
+              break;
+            }
           } else {
             st->done++;
           }
@@ -413,6 +561,12 @@ static void jobTask(void* arg) {
   free(body);
   free(px);
   st->heapFloorLargest = (floorLargest == 0xFFFFFFFFu) ? 0 : floorLargest;
+}
+
+static void jobRun(Job* j) {
+  TileJobStatus* st = &j->st;
+  j->startMs = millis();
+  runJob(j);                              // every destructor has run by here
   {
     uint32_t f, l, m;
     heapNow(&f, &l, &m);
@@ -422,10 +576,47 @@ static void jobTask(void* arg) {
   st->elapsedMs = millis() - j->startMs;
   st->stopping = false;
   st->paused = false;
+  st->waitingRam = false;
   st->finished = true;
   st->active = false;
-  s_busy = false;
-  vTaskDelete(NULL);
+}
+
+static void benchRun();                   // below, with the bench
+
+static void workerTask(void*) {
+  for (;;) {
+    xSemaphoreTake(s_go, portMAX_DELAY);
+    if (s_kind == 1) {
+      jobRun(s_job);
+    } else if (s_kind == 2) {
+      benchRun();
+    }
+    s_kind = 0;
+    s_busy = false;                       // the worker is back on the semaphore: nothing else runs
+  }
+}
+
+/* The worker and its semaphore, made on first use and kept. */
+static bool ensureWorker(char* why, size_t whyCap) {
+  if (!ensureStack(why, whyCap)) {
+    return false;
+  }
+  if (!s_go) {
+    s_go = xSemaphoreCreateBinary();
+    if (!s_go) {
+      strlcpy(why, "no RAM for the download semaphore", whyCap);
+      return false;
+    }
+  }
+  if (!s_task) {
+    s_task = xTaskCreateStaticPinnedToCore(workerTask, "tilefetch", TF_STACK_BYTES, NULL,
+                                           1, s_stack, &s_tcb, 1);
+    if (!s_task) {
+      strlcpy(why, "could not create the download task", whyCap);
+      return false;
+    }
+  }
+  return true;
 }
 
 bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap) {
@@ -476,9 +667,24 @@ bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap) {
   s_job->src = src;
   s_job->zMax = s->zMax > src->zMax ? src->zMax : s->zMax;
   if (s_job->zMax < TILE_ZOOM_BASE) s_job->zMax = TILE_ZOOM_BASE;
-  s_job->st.total = tileFetchEstimate(s, NULL, NULL);
+  uint32_t cardBytes = 0;
+  s_job->st.total = tileFetchEstimate(s, &cardBytes, NULL);
+  {
+    /* Room on the card for the whole area, assuming none of it is there yet (a re-run over a
+     * half-done area asks for more than it needs — the honest direction to be wrong in). */
+    const uint64_t freeB = cardFreeBytes();
+    if (freeB == 0 && SD.totalBytes() == 0) {
+      strlcpy(why, "no SD card", whyCap);
+      return false;
+    }
+    if (freeB < (uint64_t)cardBytes + (4u << 20)) {
+      snprintf(why, whyCap, "card has %u MB free, this area needs %u MB",
+               (unsigned)(freeB >> 20), (unsigned)(cardBytes >> 20));
+      return false;
+    }
+  }
   strlcpy(s_job->st.source, src->key, sizeof(s_job->st.source));
-  if (!ensureStack(why, whyCap)) {
+  if (!ensureWorker(why, whyCap)) {
     return false;
   }
   installHook();
@@ -486,14 +692,8 @@ bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap) {
   s_pause = false;
   s_busy = true;
   s_job->st.active = true;
-  TaskHandle_t h = xTaskCreateStaticPinnedToCore(jobTask, "tilefetch", TF_STACK_BYTES, s_job,
-                                                 1, s_stack, &s_tcb, 1);
-  if (!h) {
-    s_busy = false;
-    s_job->st.active = false;
-    strlcpy(why, "could not create the download task", whyCap);
-    return false;
-  }
+  s_kind = 1;
+  xSemaphoreGive(s_go);
   return true;
 }
 
@@ -534,10 +734,11 @@ void tileFetchReport(void (*emit)(const char* line)) {
     emit("maps dl: nothing run yet");
     return;
   }
-  snprintf(l, sizeof(l), "maps dl: %s %s%s%s | %d/%d done, %d skipped, %d no-tile, %d failed, z%d",
+  snprintf(l, sizeof(l), "maps dl: %s %s%s%s%s | %d/%d done, %d skipped, %d no-tile, %d failed, %d reconnects, z%d",
            st.source, st.active ? "RUNNING" : (st.finished ? "finished" : "idle"),
-           st.paused ? " (paused)" : "", st.stopping ? " (stopping)" : "",
-           st.done, st.total, st.skipped, st.noTile, st.failed, st.curZ);
+           st.paused ? " (paused)" : "", st.waitingRam ? " (waiting for RAM)" : "",
+           st.stopping ? " (stopping)" : "",
+           st.done, st.total, st.skipped, st.noTile, st.failed, st.reconnects, st.curZ);
   emit(l);
   snprintf(l, sizeof(l), "  %u KB down in %u s; internal largest floor %u, min-ever %u; task stack floor %u of %u%s%s",
            (unsigned)(st.bytes / 1024), (unsigned)(st.elapsedMs / 1000),
@@ -564,17 +765,13 @@ struct BenchJob {
 };
 static BenchJob* s_bench = NULL;
 
-static void benchTask(void* arg) {
-  BenchJob* j = (BenchJob*)arg;
+static void runBench(BenchJob* j) {
   heapNow(&j->freeBefore, &j->largestBefore, &j->minEverBefore);
   j->psramBefore = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
   j->tMinMs = 0xFFFFFFFFu;
   uint8_t* body = (uint8_t*)heap_caps_malloc(TF_BODY_CAP, MALLOC_CAP_SPIRAM);
   if (!body) {
     strlcpy(j->lastErr, "no PSRAM for the body", sizeof(j->lastErr));
-    j->finished = true;
-    s_busy = false;
-    vTaskDelete(NULL);
     return;
   }
   const bool https = !strncmp(j->url, "https", 5);
@@ -624,12 +821,15 @@ static void benchTask(void* arg) {
   if (secure) { secure->stop(); delete secure; }
   if (plain)  { plain->stop();  delete plain; }
   free(body);
+}
+
+static void benchRun() {
+  BenchJob* j = s_bench;
+  runBench(j);                            // HTTPClient and its Strings destructed by the return
   j->stackFloor = (uint32_t)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t));
   heapNow(&j->freeAfter, &j->largestAfter, NULL);
   j->psramAfter = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
   j->finished = true;
-  s_busy = false;
-  vTaskDelete(NULL);
 }
 
 bool tileFetchBenchStart(const char* url, int count) {
@@ -646,21 +846,15 @@ bool tileFetchBenchStart(const char* url, int count) {
   strlcpy(s_bench->url, url, sizeof(s_bench->url));
   s_bench->count = count < 1 ? 1 : count;
   char why[64];
-  if (!ensureStack(why, sizeof(why))) {
+  if (!ensureWorker(why, sizeof(why))) {
     strlcpy(s_bench->lastErr, why, sizeof(s_bench->lastErr));
     s_bench->finished = true;
     return false;
   }
   installHook();
   s_busy = true;
-  TaskHandle_t h = xTaskCreateStaticPinnedToCore(benchTask, "tilebench", TF_STACK_BYTES, s_bench,
-                                                 1, s_stack, &s_tcb, 1);
-  if (!h) {
-    s_busy = false;
-    strlcpy(s_bench->lastErr, "xTaskCreateStatic failed", sizeof(s_bench->lastErr));
-    s_bench->finished = true;
-    return false;
-  }
+  s_kind = 2;
+  xSemaphoreGive(s_go);
   return true;
 }
 
