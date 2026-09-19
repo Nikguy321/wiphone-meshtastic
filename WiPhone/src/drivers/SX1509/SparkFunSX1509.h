@@ -54,6 +54,9 @@ private:        // These private functions are not available to Arduino sketches
         byte pinReset;
 // Misc variables:
         unsigned long _clkX;
+        // WiPhone: set by any read/write helper whose I2C transaction was not acknowledged
+        // or whose read came back empty. writePin() clears it first and returns it last.
+        bool _xferFailed;
 // Read Functions:
         byte readByte(byte registerAddress);
         unsigned int readWord(byte registerAddress);
@@ -129,9 +132,11 @@ public:
 //      Inputs:
 //              - pin: The SX1509 pin number. Should be a value between 0 and 15.
 //              - highLow: should be Arduino's defined HIGH or LOW constants.
+//      WiPhone: returns true when every I2C transaction of the read-modify-write was
+//              acknowledged; false means the pin was NOT changed (see writePin in the .cpp).
 // -----------------------------------------------------------------------------
-        void digitalWrite(byte pin, byte highLow); 
-        void writePin(byte pin, byte highLow); // Legacy - use digitalWrite
+        bool digitalWrite(byte pin, byte highLow);
+        bool writePin(byte pin, byte highLow); // Legacy - use digitalWrite
 
 // -----------------------------------------------------------------------------
 // digitalRead(byte pin): This function reads the HIGH/LOW status of a pin.

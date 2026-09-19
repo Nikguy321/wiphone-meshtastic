@@ -80,6 +80,9 @@ for src in tests/test_*.cpp; do
     # cannot be compiled here (esp_heap_caps.h, hw.h, cpu.h, sound.h, lcd.h), which is why the
     # arithmetic lives in a header both it and this suite include.
     test_gbrom)    deps=() ;;
+    # Header-only: the notification pop's stop timer (notify_timing.h) against the shipping
+    # pop_pcm[] bytes. WiPhone.ino cannot be compiled here, same reason as above.
+    test_notify)   deps=() ;;
     *)             deps=() ;;
   esac
   echo "building $name"

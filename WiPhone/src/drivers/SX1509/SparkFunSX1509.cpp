@@ -30,6 +30,7 @@ Distributed as-is; no warranty is given.
 SX1509::SX1509()
 {
         _clkX = 0;
+        _xferFailed = false;
 }
 
 SX1509::SX1509(byte address, byte resetPin, byte interruptPin, byte oscillatorPin)
@@ -39,6 +40,7 @@ SX1509::SX1509(byte address, byte resetPin, byte interruptPin, byte oscillatorPi
         pinInterrupt = interruptPin;
         pinOscillator = oscillatorPin;
         pinReset = resetPin;
+        _xferFailed = false;
 }
 
 byte SX1509::begin(byte address, byte resetPin)
@@ -139,13 +141,27 @@ void SX1509::pinMode(byte pin, byte inOut)
         pinDir(pin, inOut);
 }
 
-void SX1509::writePin(byte pin, byte highLow)
+/* WiPhone: this used to return void and swallow every error, and each of its THREE I2C
+ * transactions can fail on a bus shared with the codec, the keypad and the gauge:
+ *   - readWord() returns 0 on a failed read, and a 0 here means "every pin is an output"
+ *     and then "every output is LOW" - so the write that followed would have put LCD_RST,
+ *     KEYBOARD_RST and ENABLE_DAUGHTER_33V low along with the pin asked for. Nothing is
+ *     written after a read that cannot be trusted;
+ *   - the write's own NACK was never looked at, which is how "it chirped but never buzzed"
+ *     stayed a suspicion for weeks. The caller now hears about it and can retry.
+ * true = every transaction acknowledged and the pin changed. */
+bool SX1509::writePin(byte pin, byte highLow)
 {
+        _xferFailed = false;
         unsigned int tempRegDir = readWord(REG_DIR_B);
-        
+        if (_xferFailed)
+                return false;                   // a 0 from a dead read is not "all outputs"
+
         if ((0xFFFF^tempRegDir)&(1<<pin))       // If the pin is an output, write high/low
         {
                 unsigned int tempRegData = readWord(REG_DATA_B);
+                if (_xferFailed)
+                        return false;           // ditto: a 0 here would put every other output LOW
                 if (highLow)    tempRegData |= (1<<pin);
                 else                    tempRegData &= ~(1<<pin);
                 writeWord(REG_DATA_B, tempRegData);
@@ -154,7 +170,9 @@ void SX1509::writePin(byte pin, byte highLow)
         {
                 unsigned int tempPullUp = readWord(REG_PULL_UP_B);
                 unsigned int tempPullDown = readWord(REG_PULL_DOWN_B);
-                
+                if (_xferFailed)
+                        return false;
+
                 if (highLow)    // if HIGH, do pull-up, disable pull-down
                 {
                         tempPullUp |= (1<<pin);
@@ -170,11 +188,12 @@ void SX1509::writePin(byte pin, byte highLow)
                         writeWord(REG_PULL_DOWN_B, tempPullDown);
                 }
         }
+        return !_xferFailed;
 }
 
-void SX1509::digitalWrite(byte pin, byte highLow)
+bool SX1509::digitalWrite(byte pin, byte highLow)
 {
-        writePin(pin, highLow);
+        return writePin(pin, highLow);
 }
 
 byte SX1509::readPin(byte pin)
@@ -686,14 +705,18 @@ byte SX1509::readByte(byte registerAddress)
 
         Wire.beginTransmission(deviceAddress);
         Wire.write(registerAddress);
-        Wire.endTransmission();
+        if (Wire.endTransmission() != 0)
+                _xferFailed = true;             // WiPhone: see writePin()
         Wire.requestFrom(deviceAddress, (byte) 1);
 
         while ((Wire.available() < 1) && (timeout != 0))
                 timeout--;
-                
+
         if (timeout == 0)
+        {
+                _xferFailed = true;
                 return 0;
+        }
 
         readValue = Wire.read();
 
@@ -713,14 +736,18 @@ unsigned int SX1509::readWord(byte registerAddress)
 
         Wire.beginTransmission(deviceAddress);
         Wire.write(registerAddress);
-        Wire.endTransmission();
+        if (Wire.endTransmission() != 0)
+                _xferFailed = true;             // WiPhone: see writePin()
         Wire.requestFrom(deviceAddress, (byte) 2);
 
         while ((Wire.available() < 2) && (timeout != 0))
                 timeout--;
-                
+
         if (timeout == 0)
+        {
+                _xferFailed = true;
                 return 0;
+        }
         
         msb = (Wire.read() & 0x00FF) << 8;
         lsb = (Wire.read() & 0x00FF);
@@ -763,7 +790,8 @@ void SX1509::writeByte(byte registerAddress, byte writeValue)
         Wire.beginTransmission(deviceAddress);
         Wire.write(registerAddress);
         Wire.write(writeValue);
-        Wire.endTransmission();
+        if (Wire.endTransmission() != 0)
+                _xferFailed = true;             // WiPhone: see writePin()
 }
 
 // writeWord(byte registerAddress, ungisnged int writeValue)
@@ -780,7 +808,8 @@ void SX1509::writeWord(byte registerAddress, unsigned int writeValue)
         Wire.write(registerAddress);
         Wire.write(msb);
         Wire.write(lsb);
-        Wire.endTransmission(); 
+        if (Wire.endTransmission() != 0)
+                _xferFailed = true;             // WiPhone: see writePin()
 }
 
 // writeBytes(byte firstRegisterAddress, byte * writeArray, byte length)

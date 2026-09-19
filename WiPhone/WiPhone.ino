@@ -50,6 +50,7 @@ governing permissions and limitations under the License.
 #include "serial_cmd.h"        // debug console on USB serial (uploader on/off, mirror sync)
 #include "mp3_stream.h"
 #include "src/assets/pop_sound.h"
+#include "notify_timing.h"     // the pop's stop timer, derived from sizeof(pop_pcm)
 
 static bool been_in_verify = false;
 
@@ -2169,11 +2170,15 @@ static bool     redrawWhatPending = false;    // a hold changed something the fo
 static uint32_t msChordStart = 0;      // when both corners went down, 0 = not held
 static bool     chordFired = false;    // one sleep per hold, not one every loop
 
-// Quiet "pop" sound on a new Meshtastic message (one-shot). The PCM player
-// loops, so we stop it by timer after it has played through once.
-#define MESH_POP_MS 280u
+// Quiet "pop" sound on a new message (one-shot), stopped by timer. How long is arithmetic on
+// sizeof(pop_pcm), not a literal: see notify_timing.h for why the flash buffer (plays once)
+// and the SPIFFS file (loops) need OPPOSITE margins, and tests/test_notify.cpp for the numbers.
 static bool     meshPopPlaying = false;
 static uint32_t meshPopStartMs = 0;
+static uint32_t meshPopStopMs  = 0;     // set per pop from notifyPopStopMs()
+/* MESH_POP_MS used to be a literal 280u here — the looping file's number, which happened to
+ * cut 40 ms of the sound's own trailing silence. Kept as a name so a grep lands here. */
+#define MESH_POP_MS (meshPopStopMs)
 
 // Short silent vibration on a new Meshtastic message.
 /* MESH_VIBRO_MS used to be a literal 180 here. The notification buzz length is now a user
@@ -2182,6 +2187,7 @@ static uint32_t meshPopStartMs = 0;
 #define MESH_VIBRO_MS (gui.state.notifyVibroMs)
 static bool     meshVibroActive = false;
 static uint32_t meshVibroStartMs = 0;
+static uint8_t  meshVibroOffFails = 0;  // consecutive passes whose LOW the extender refused
 
 /* ── THE AUDIO DEVICE IS RELEASED WHEN NOBODY IS USING IT ─────────────────────────────────
  *
@@ -2348,15 +2354,42 @@ int audioStateDump(char* out, int cap) {
  *
  * So the announcement now belongs to the ARRIVAL, not to the transport that carried it.
  * Both callers share this, and the teardown timers below already service either one. */
-static void notifyMessageArrived(uint32_t now, uint8_t mode);
+static void notifyMessageArrived(uint8_t mode);
 
 /* The mirror's way in. Non-static so meshtastic_service.cpp and the LAN poller can reach it
  * without either of them needing to know about ringer modes or the vibro motor. */
 void smsMirrorNotifyArrival() {
-  notifyMessageArrived(millis(), gui.state.notifySipMode);
+  notifyMessageArrived(gui.state.notifySipMode);
 }
 
-static void notifyMessageArrived(uint32_t now, uint8_t mode) {
+/* The bench's way in: serial `notify` runs the mesh arrival's announcement — same motor write,
+ * same pop, same stamps and the same teardown — without a second phone on the air; `notify sip`
+ * runs the text path's. Non-static for serial_cmd.cpp. */
+void notifyBenchArrival(bool sip) {
+  notifyMessageArrived(sip ? gui.state.notifySipMode : gui.state.notifyMeshMode);
+}
+
+/* One motor write, checked. allDigitalWrite() on this board is an SX1509 read-modify-write
+ * over the I2C bus the codec, keypad and gauge also use, and until now its result was thrown
+ * away — a refused HIGH was a notification that never buzzed, a refused LOW a motor left
+ * running, and neither left a trace. One retry after 2 ms: the bus is single-master and each
+ * transaction is under a millisecond, so a transient fault has cleared by then or is not
+ * transient. */
+static bool motorWrite(int level) {
+  if (allDigitalWrite(VIBRO_MOTOR_CONTROL, level)) {
+    return true;
+  }
+  delay(2);
+  if (allDigitalWrite(VIBRO_MOTOR_CONTROL, level)) {
+    log_e("NOTIFY: motor %s write failed once, retry OK", level ? "ON" : "OFF");
+    return true;
+  }
+  log_e("NOTIFY: motor %s write FAILED twice%s", level ? "ON" : "OFF",
+        level ? "" : " - the motor may still be running");
+  return false;
+}
+
+static void notifyMessageArrived(uint8_t mode) {
   /* `mode` is this KIND of arrival's own setting from Settings > Notifications — a text and
    * a mesh message are separately configurable, because muting one used to mute the other.
    *
@@ -2386,9 +2419,17 @@ static void notifyMessageArrived(uint32_t now, uint8_t mode) {
    * code did before the guard was added, and it degrades the right way: a burst of texts
    * becomes one longer buzz rather than one short buzz and silence. */
   if (!gui.state.ringing) {
-    allDigitalWrite(VIBRO_MOTOR_CONTROL, HIGH);
-    meshVibroActive = true;
-    meshVibroStartMs = now;              // re-arm, so back-to-back arrivals keep it buzzing
+    meshVibroActive = true;              // even if the HIGH is refused: the teardown's LOW is the safe state
+    motorWrite(HIGH);
+    /* 🛑 THE STAMP IS TAKEN HERE, FROM THE CLOCK, NOT PASSED IN. This function used to receive
+     * `now` from the top of the main-loop pass, and the mesh arrival reaches it AFTER
+     * meshService.loop() — whose DB save the health log shows stalling the pass 0.5-1.5 s,
+     * 83 times in one retained log, while nobody was touching the phone. The next pass then
+     * compared its fresh clock against a stamp already up to 1.5 s old and switched the motor
+     * off a few milliseconds after it had started. That was "sometimes the motor just barely
+     * starts"; the SIP mirror path, which stamped millis() itself, was the one that behaved.
+     * The teardown compares against millis() too, for the same reason. */
+    meshVibroStartMs = millis();         // re-arm, so back-to-back arrivals keep it buzzing
     log_e("NOTIFY: buzz %u ms (mode=%d)", (unsigned)MESH_VIBRO_MS, (int)mode);
   } else {
     /* ⚠ SAY SO. The one log line proving this path ran used to sit INSIDE the gate, so a
@@ -2403,10 +2444,24 @@ static void notifyMessageArrived(uint32_t now, uint8_t mode) {
      * Audio::preserve()). A burst therefore gets one sound and one long buzz, which is the
      * right shape: you do not want five chirps, but you do want to feel every arrival. */
     if (!(callBusy || gui.state.ringing || meshPopPlaying)) {
-      const bool played = audio->playPop(&SPIFFS, gui.state.notifyVolume);
+      /* Timed, because this call used to hide a SPIFFS open measured at 1.2-1.6 s — with
+       * the motor already running, so a chirp made the buzz a second long. The pop now comes
+       * from pop_pcm[] in flash and the file is only the fallback; the line says which, and
+       * a "took" in the hundreds of ms names the codec/I2S start, not the file. */
+      const uint32_t t0 = millis();
+      const bool played = audio->playPop(pop_pcm, sizeof(pop_pcm), &SPIFFS, gui.state.notifyVolume);
+      const uint32_t t1 = millis();
       if (played) {
+        const bool fromFlash = audio->popFromMemory();
         meshPopPlaying = true;
-        meshPopStartMs = now;
+        meshPopStopMs  = notifyPopStopMs(sizeof(pop_pcm), NOTIFY_POP_RATE_HZ, NOTIFY_POP_MARGIN_MS,
+                                         !fromFlash);
+        meshPopStartMs = t1;             // AFTER the start, for the motor stamp's reason
+        log_e("NOTIFY: pop start took %lu ms (%s, stop at %lu ms)", (unsigned long)(t1 - t0),
+              fromFlash ? "flash" : "SPIFFS fallback", (unsigned long)meshPopStopMs);
+      } else {
+        log_e("NOTIFY: pop NOT started (%lu ms): %s", (unsigned long)(t1 - t0),
+              audio->popError() ? audio->popError() : "no reason recorded");
       }
     }
   }
@@ -4114,7 +4169,7 @@ void loop() {
         // Pass event to GUI
         appEventResult res = gui.processEvent(now, NEW_MESSAGE_EVENT);
         gui.redrawScreen(res & REDRAW_HEADER, res & REDRAW_FOOTER, res & REDRAW_SCREEN);
-        notifyMessageArrived(now, gui.state.notifySipMode);   // a text arriving is news
+        notifyMessageArrived(gui.state.notifySipMode);   // a text arriving is news
       }
     } else {
       gui.state.sipRegistered = false;
@@ -4194,9 +4249,9 @@ void loop() {
         snprintf(title, sizeof(title), "Mesh: %s", n ? n->name : "new message");
         gui.showMeshPopup(title, nm->text);                // drawn on top of app
         meshPopupActive = true;
-        meshPopupShownMs = now;
+        meshPopupShownMs = millis();     // not `now`: the DB save above can be 1.5 s ago
       }
-      notifyMessageArrived(now, gui.state.notifyMeshMode);
+      notifyMessageArrived(gui.state.notifyMeshMode);
     }
 
     /* A position or waypoint arrived: refresh an open Places/Nodes view so the
@@ -4208,15 +4263,35 @@ void loop() {
       gui.processEvent(now, NEW_MESSAGE_EVENT);
     }
 
-    // Stop the notification vibration after its brief pulse.
-    if (meshVibroActive && elapsedMillis(now, meshVibroStartMs, MESH_VIBRO_MS)) {
-      allDigitalWrite(VIBRO_MOTOR_CONTROL, LOW);
-      meshVibroActive = false;
+    /* 🛑 FRESH CLOCK FOR THE TEARDOWN. `now` is from the top of this pass; anything that
+     * stalled since — the mesh DB save is the one the health log names — would make both
+     * pulses below look older than they are and end them early. The stamps were taken from
+     * millis() at the moment of the write (see notifyMessageArrived), so they are compared
+     * against millis() here; a stall earlier in the pass can no longer shorten a pulse, and
+     * the "after N ms" in the two lines below is the length as actually driven. */
+    const uint32_t tNow = millis();
+
+    // Stop the notification vibration after its pulse.
+    if (meshVibroActive && elapsedMillis(tNow, meshVibroStartMs, MESH_VIBRO_MS)) {
+      if (motorWrite(LOW)) {
+        meshVibroActive = false;
+        meshVibroOffFails = 0;
+        log_e("NOTIFY: buzz off after %lu ms (target %u)",
+              (unsigned long)(tNow - meshVibroStartMs), (unsigned)MESH_VIBRO_MS);
+      } else if (++meshVibroOffFails >= 5) {
+        /* A LOW the extender keeps refusing leaves the motor running, so the flag stays set
+         * and every pass tries again — but not forever: a bus that dead has taken the keypad
+         * and the codec with it, and a log line per pass would bury the evidence. */
+        meshVibroActive = false;
+        meshVibroOffFails = 0;
+        log_e("NOTIFY: motor OFF abandoned after 5 passes - if it is still buzzing, the I2C bus is the fault");
+      }
     }
 
-    // One-shot pop: the PCM player loops, so stop it by timer once it has
-    // played through. Use ceasePlayback (NOT shutdown) — shutdown()'s codec
-    // power-down on the shared I2C bus disrupts the vibro motor extender.
+    // One-shot pop: stop it by timer once it has played through — the flash buffer plays
+    // once and pads with silence, the SPIFFS fallback loops, and meshPopStopMs was chosen
+    // for whichever started (notify_timing.h). Use ceasePlayback (NOT shutdown) — shutdown()'s
+    // codec power-down on the shared I2C bus disrupts the vibro motor extender.
     /* ⚠ audio->restore() IS NOT OPTIONAL — see Audio::preserve() for the whole story.
      * playPop() reconfigures six output parameters and this teardown used to put none of
      * them back, so one mesh notification left the phone at 8 kHz, mono, loudspeaker-forced
@@ -4228,10 +4303,12 @@ void loop() {
       if (gui.state.sipState == CallState::Call || gui.state.ringing) {
         audio->restore();
         meshPopPlaying = false;
-      } else if (elapsedMillis(now, meshPopStartMs, MESH_POP_MS)) {
+        log_e("NOTIFY: pop cut after %lu ms (call/ringing)", (unsigned long)(tNow - meshPopStartMs));
+      } else if (elapsedMillis(tNow, meshPopStartMs, MESH_POP_MS)) {
         audio->ceasePlayback();
         audio->restore();
         meshPopPlaying = false;
+        log_e("NOTIFY: pop stopped after %lu ms", (unsigned long)(tNow - meshPopStartMs));
       }
     }
 
