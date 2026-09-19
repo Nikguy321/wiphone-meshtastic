@@ -2317,7 +2317,13 @@ static bool audioDeviceBusy() {
  * so there is no way to ask the codec what it actually has powered. That is precisely why the
  * watchdog releases the device on a timer instead of trusting this bookkeeping — and it is why
  * `aud=` in the health line is worth more than this command: it is sampled once a minute for
- * hours, so it catches the leak arriving even when nobody is at the cable. */
+ * hours, so it catches the leak arriving even when nobody is at the cable.
+ *
+ * `route=` is where the output goes — headphones > loudspeaker > earpiece, the precedence
+ * Audio::start() and codecReconfig() build the codec's power mask with. It is meaningful with
+ * powered=no as well: that is the route the next start() inherits, which is how a game left
+ * on the earpiece (the 2026-09-19 fix in app_gbc.cpp) and a game that forgot to put the
+ * loudspeaker back would both show. */
 int audioStateDump(char* out, int cap) {
   if (!audio) {
     return snprintf(out, cap, "audio: no device object\n");
@@ -2326,9 +2332,10 @@ int audioStateDump(char* out, int cap) {
   const bool moving = audio->movingSamples();
   const bool busy = audioDeviceBusy();
   int n = snprintf(out, cap,
-                   "audio: powered=%s moving=%s busy=%s idle=%lus (release at %lus)\n"
+                   "audio: powered=%s moving=%s busy=%s route=%s idle=%lus (release at %lus)\n"
                    "  entitled: sip=%d ringing=%d pop=%d gbc=%d music=%d scr=%d vibro=%d/%d\n",
                    on ? "YES" : "no", moving ? "YES" : "no", busy ? "BUSY" : "idle",
+                   audio->getHeadphones() ? "headphones" : (audio->isLoudspeaker() ? "loudspeaker" : "earpiece"),
                    (unsigned long)(audioBusyStampMs ? (millis() - audioBusyStampMs) / 1000 : 0),
                    (unsigned long)(AUDIO_IDLE_RELEASE_MS / 1000),
                    (int)sipNeedsFullSpeed(), (int)gui.state.ringing, (int)meshPopPlaying,
