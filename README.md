@@ -242,7 +242,8 @@ and the Mac-side command are in **[docs/maps.md](docs/maps.md)**.
   tiles on the card. `Menu → Go to coordinates` takes a typed latitude and longitude;
   `Menu → Follow me` keeps you centred until you scroll; `Menu → Measure from here` is a
   ruler (scroll away from the anchor, read the distance); the Pins / Places / Nodes lists are
-  nearest-first with distance and bearing on every row.
+  nearest-first with distance and bearing on every row. **Menu → What the buttons do...**
+  draws the phone's buttons with what each one does on the map.
 - **Arrows scroll** (hold one and it speeds up). **The top two side buttons zoom**, the third
   **centres on you** — the map owns the side buttons while it is open, so a track loaded in
   the music player cannot turn zoom into play/pause. `7`/`9` walk your pins. **Menu → Keys

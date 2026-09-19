@@ -1856,10 +1856,10 @@ void MapsApp::enterState(MapsState_t st) {
     buildConfirmDelete();
     break;
   case MAPS_HELP:
-    snprintf(headerTitle, sizeof(headerTitle), "Map keys");
+    snprintf(headerTitle, sizeof(headerTitle), "The buttons");
     header->setTitle(headerTitle);
     footer->setButtons("More", "Back");
-    helpTop = 0;
+    helpTop = -1;                        // -1 = the drawn key; 0.. = the text rows after it
     break;
   case MAPS_DOWNLOAD:
     snprintf(headerTitle, sizeof(headerTitle), "Download maps");
@@ -1938,6 +1938,7 @@ void MapsApp::rescanCard() {
 void MapsApp::buildMenu() {
   menu = newMenu("");
   char row[64];
+  menu->addOption("What the buttons do...", ROW_M_HELP);
   snprintf(row, sizeof(row), "Pins (%d)...", pinCount);
   menu->addOption(row, ROW_M_PINS);
   snprintf(row, sizeof(row), "Places from the mesh (%d)...", meshService.getWaypointCount());
@@ -1954,7 +1955,6 @@ void MapsApp::buildMenu() {
     menu->addOption(row, ROW_M_AREA);
   }
   menu->addOption("Rescan the card", ROW_M_RESCAN);
-  menu->addOption("Keys and colours...", ROW_M_HELP);
   menu->addOption("Back to the map", ROW_M_BACK);
   if (areaSel < 0) {
     menu->addNote("No tiles on the card - see docs/maps.md");
@@ -2370,21 +2370,23 @@ void MapsApp::buildConfirmDelete() {
  * 370 px in a 250 px window, so the loop's bottom guard threw away everything from the colour
  * key down — the half of this screen that explains what the coloured dots on the map MEAN,
  * on the one screen whose entire job is to explain things. It scrolls now, and says so. */
+/* ⚠ ROWS MUST FIT 240 PX AT AKROBAT_BOLD_16 — about 33 characters. A longer row is not
+ * clipped at the right; the smooth-font renderer shifts it so BOTH ends are cut (measured:
+ * "Hold an arrow..." lost its H and its last digit), which reads as a typo, not a cut. */
 static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
-  { "Arrows      scroll (hold = faster)", WHITE },
-  { "2 4 6 8     scroll too", WHITE },
-  { "Side 1 / 2  zoom in / out (also # / *)", WHITE },
-  { "Side 3      centre on me (also 0)", WHITE },
-  { "Menu > Follow me keeps you centred", WHITE },
-  { "            until you scroll", WHITE },
-  { "Menu > Measure: scroll away from the", WHITE },
-  { "            anchor; the bar reads it", WHITE },
-  { "OK          drop a pin, or open the pin", WHITE },
-  { "            under the crosshair (also 5)", WHITE },
-  { "Menu key    the map menu: download maps,", WHITE },
-  { "            go to a place, pins, nodes", WHITE },
-  { "7 / 9       previous / next pin", WHITE },
-  { "Back        leave (the view is saved)", WHITE },
+  { "Hold an arrow: it speeds up.", WHITE },
+  { "2 4 6 8 scroll too, for gloves.", WHITE },
+  { "5 is OK. 0 is centre on me.", WHITE },
+  { "", WHITE },
+  { "In the menu:", MAP_C_PIN },
+  { "Download maps - the area around", WHITE },
+  { "  the crosshair, over WiFi", WHITE },
+  { "Go to - a pin, a node, a place,", WHITE },
+  { "  or typed coordinates", WHITE },
+  { "Follow me - stays centred on you", WHITE },
+  { "  until you scroll", WHITE },
+  { "Measure - drops an anchor; scroll", WHITE },
+  { "  away and the bar reads it", WHITE },
   { "", WHITE },
   { "orange dot   your pin", MAP_C_PIN },
   { "yellow ring  your pin, shared", MAP_C_PIN_SH },
@@ -2392,28 +2394,109 @@ static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "cyan dot     someone else", MAP_C_NODE },
   { "grey dot     ...over 30 min old", MAP_C_NODE_OLD },
   { "white ring   this phone, live GPS", MAP_C_ME },
-  { "grey ring    ...a fix over 2 min old", MAP_C_NODE_OLD },
+  { "grey ring    ...a fix over 2 min old", MAP_C_NODE_OLD }, // 36 chars: fits, measured
   { "white gem    ...your declared pin", MAP_C_ME },
   { "", WHITE },
   { "A name is dropped, never squashed,", WHITE },
   { "when it would land on another.", WHITE },
   { "", WHITE },
-  { "grey ring    ...or a poor fix (<4 sats,", MAP_C_NODE_OLD },
-  { "             or HDOP over 10)", MAP_C_NODE_OLD },
+  { "grey ring    ...or a poor fix", MAP_C_NODE_OLD },
+  { "             (<4 sats or HDOP >10)", MAP_C_NODE_OLD },
   { "grey square  tile not on the card", WHITE },
-  { "Menu > Download maps fetches an area", WHITE },
-  { "over WiFi. See docs/maps.md.", WHITE },
+  { "See docs/maps.md for the tiles.", WHITE },
   { "", WHITE },
-  { "USGS: public domain, National Map", WHITE },
+  { "USGS: public domain (National Map)", WHITE },
   { "OpenTopoMap: (c) OSM contributors,", WHITE },
-  { "SRTM | OpenTopoMap, CC-BY-SA", WHITE },
+  { "  SRTM | OpenTopoMap, CC-BY-SA", WHITE },
 };
 static const int MAPS_HELP_N = (int)(sizeof(MAPS_HELP_ROWS) / sizeof(MAPS_HELP_ROWS[0]));
+
+/* One labelled box of the drawn key. */
+static void helpBox(LCD& lcd, int x, int y, int w, int h, const char* label, uint16_t fill) {
+  lcd.fillRoundRect(x, y, w, h, 4, fill);
+  lcd.drawRoundRect(x, y, w, h, 4, WHITE);
+  if (label && label[0]) {
+    lcd.setTextDatum(MC_DATUM);
+    lcd.setTextColor(fill == BLACK ? WHITE : BLACK, fill);
+    lcd.drawString(label, x + w / 2, y + h / 2);
+    lcd.setTextDatum(TL_DATUM);
+  }
+}
+
+/* The phone's buttons, drawn where they are on the phone, each saying what it does on the
+ * map. Nick asked for a key that makes sense at a glance (2026-09-19); a table of key names
+ * asks the reader to know which key is which — this shows them. Side buttons down the left
+ * edge as they are on the case, soft keys under the screen, the D-pad in the middle. */
+void MapsApp::drawHelpDiagram() {
+  const int top = (int)header->height();
+  const int bottom = (int)lcd.height() - (int)footer->height();
+  SmoothFont* small = fonts[AKROBAT_BOLD_16];
+  if (!small) {
+    return;
+  }
+  lcd.setTextFont(small);
+  const int th = (int)small->height();
+  const uint16_t KEY = 0x39E7;                // a dark grey key face
+
+  // ── side buttons, top to bottom, at the left edge (as on the case) ──
+  const int sx = 4, sw = 26, sh = 20;
+  int sy = top + 6;
+  const char* sideLabel[4] = { "1", "2", "3", "4" };
+  const char* sideDoes[4]  = { "zoom in", "zoom out", "centre on me", "-" };
+  for (int i = 0; i < 4; i++) {
+    helpBox(lcd, sx, sy, sw, sh, sideLabel[i], KEY);
+    lcd.setTextColor(i < 3 ? WHITE : MAP_C_NODE_OLD, BLACK);
+    lcd.drawString(sideDoes[i], sx + sw + 5, sy + 2);
+    sy += sh + 4;
+  }
+  lcd.setTextColor(MAP_C_NODE_OLD, BLACK);
+  lcd.drawString("side buttons", sx, sy);
+
+  // ── the D-pad on the right: arrows scroll, the centre is the pin ──
+  const int a = 20, gap = 2, cxp = 156, cyp = top + 6 + a + gap + a / 2;
+  helpBox(lcd, cxp - a / 2, cyp - a / 2 - gap - a, a, a, "^", KEY);
+  helpBox(lcd, cxp - a / 2, cyp + a / 2 + gap, a, a, "v", KEY);
+  helpBox(lcd, cxp - a / 2 - gap - a, cyp - a / 2, a, a, "<", KEY);
+  helpBox(lcd, cxp + a / 2 + gap, cyp - a / 2, a, a, ">", KEY);
+  helpBox(lcd, cxp - a / 2, cyp - a / 2, a, a, "OK", MAP_C_PIN);
+  lcd.setTextDatum(TC_DATUM);
+  lcd.setTextColor(WHITE, BLACK);
+  lcd.drawString("arrows scroll", cxp, cyp + a / 2 + gap + a + 4);
+  lcd.setTextColor(MAP_C_PIN, BLACK);
+  lcd.drawString("OK: drop / open a pin", cxp, cyp + a / 2 + gap + a + 4 + th);
+  lcd.setTextDatum(TL_DATUM);
+
+  // ── the keypad shortcuts ──
+  int y = sy + th + 8;
+  lcd.setTextColor(WHITE, BLACK);
+  lcd.drawString("7 / 9    previous / next pin", 6, y);
+  y += th + 1;
+  lcd.drawString("* / #    zoom, like the side buttons", 6, y);
+  y += th + 1;
+  lcd.drawString("Back     leave; your view is kept", 6, y);
+  y += th + 4;
+  lcd.setTextColor(MAP_C_PIN, BLACK);
+  lcd.drawString("More: colours and the rest v", 6, y);
+
+  // ── the soft keys, under the screen ──
+  const int kw = 92, kh = 20;
+  const int ky = bottom - kh - 3;
+  lcd.setTextColor(MAP_C_NODE_OLD, BLACK);
+  lcd.setTextDatum(TC_DATUM);
+  lcd.drawString("soft keys under the screen", lcd.width() / 2, ky - th - 1);
+  lcd.setTextDatum(TL_DATUM);
+  helpBox(lcd, 6, ky, kw, kh, "Menu", KEY);
+  helpBox(lcd, lcd.width() - kw - 6, ky, kw, kh, "Back", KEY);
+}
 
 void MapsApp::drawHelp() {
   const int top = (int)header->height();
   const int bottom = (int)lcd.height() - (int)footer->height();
   lcd.fillRect(0, top, lcd.width(), bottom - top, BLACK);
+  if (helpTop < 0) {
+    drawHelpDiagram();
+    return;
+  }
   SmoothFont* fnt = fonts[AKROBAT_BOLD_16];
   if (!fnt) {
     return;
@@ -2446,7 +2529,7 @@ void MapsApp::drawHelp() {
   // "there is more below" is the only thing that makes the scroll discoverable.
   if (maxTop > 0) {
     char more[32];
-    snprintf(more, sizeof(more), "%s%s", helpTop > 0 ? "^ " : "  ",
+    snprintf(more, sizeof(more), "%s%s", "^ ",           // the drawn key is always above row 0
              helpTop < maxTop ? "more below v" : "");
     lcd.setTextColor(MAP_C_PIN, BLACK);
     lcd.drawString(more, 6, bottom - (int)fnt->height() - 1);
@@ -3221,7 +3304,9 @@ appEventResult MapsApp::processEvent(EventType event) {
       return REDRAW_ALL;
     }
     if (event == WIPHONE_KEY_UP || event == '2') {
-      helpTop--;
+      if (helpTop > -1) {
+        helpTop--;                       // from row 0, up goes back to the drawn key
+      }
       return REDRAW_SCREEN;
     }
     if (event == WIPHONE_KEY_DOWN || event == '8' || LOGIC_BUTTON_OK(event)) {

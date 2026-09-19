@@ -4485,7 +4485,7 @@ void loop() {
        * WiFi that is not associated (a GET into a dead socket is a 15 s timeout per tile,
        * and the rescue below is what brings the network back — it must not be raced). It
        * resumes by itself when both clear. */
-      tileFetchPause(sipNeedsFullSpeed() || !wifiState.isConnected());
+      tileFetchPause(sipNeedsFullSpeed(), !wifiState.isConnected());
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
                         gGpsNmea ||            // see the deadlock note above — NOT perf

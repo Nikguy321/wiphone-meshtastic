@@ -91,6 +91,19 @@ channel has left the phone is not "retracted" on some other channel (it says so,
 id); `tRNS` on grey and RGB PNGs is honoured (43 host checks); no decoder or TLS allocation
 ever falls back to the internal heap; the task stack is 8 KB (measured use 5.2 KB).
 
+**"What the buttons do..." is the first row of the map menu** — a drawn key: the four side
+buttons down the left edge as they are on the case (zoom in, zoom out, centre on me), the
+D-pad with OK as the pin, the soft keys under the screen, and the keypad shortcuts; More pages
+into the menu's features and the colour key. Nick asked for a key that makes sense at a glance
+(2026-09-19); a table of key names asked the reader to know which key was which.
+
+**A download that loses WiFi lets go.** Measured on phone 1: the network dropped during a
+run's first handshake and the job sat paused holding its TLS session and buffers while the
+phone's own WiFi rescue — which needs internal RAM — ran against a largest block of 9 KB. Now a
+pause drops the connection at once, a blip of under 20 s resumes (one reconnect), and a longer
+loss ends the run with "WiFi dropped - stopped; start again to continue" (a restart skips
+every tile already written). A call still pauses for up to ten minutes.
+
 **Maps is on the main screen** with its own icon (a folded map, a route, a pin —
 `tools/make_icon_maps.py`, drawn as maths like the Music icon), between Music and Tools.
 

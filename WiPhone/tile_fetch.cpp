@@ -31,7 +31,8 @@
 #define TF_CONNECT_LARGEST 10000u          // internal largest block a TLS handshake may start with (phone 1 with SIP up: ~11.4 KB after the stack)
 #define TF_CONNECT_FREE    14000u          // ...and total internal free (phone 2 fresh boot after the stack ~17.7 KB, phone 1 ~17.1 KB)
 #define TF_CONNECT_WAIT_MS 30000u          // how long to wait for that room before failing the tile
-#define TF_PAUSE_MAX_MS  (10u * 60u * 1000u) // a job paused this long (call, no WiFi) gives up
+#define TF_PAUSE_MAX_MS  (10u * 60u * 1000u) // a job paused for a CALL this long gives up
+#define TF_NOWIFI_MAX_MS (20u * 1000u)     // a job without WiFi this long gives up (and frees its RAM)
 #define TF_RECONNECT_AT  3                 // consecutive; then drop and remake the socket
 #define TF_DRAIN_CAP     (16u * 1024u)     // how much of an error body to read before giving up on the socket
 
@@ -53,7 +54,8 @@
  *      phone has its RAM back — measured on phone 1: largest returns to within a few hundred
  *      bytes of the pre-run figure. */
 static volatile bool     s_busy  = false;  // a run is in progress (cleared by the task itself)
-static volatile bool  s_pause = false;
+static volatile bool  s_pause = false;     // a call: wait it out (up to TF_PAUSE_MAX_MS)
+static volatile bool  s_noWifi = false;    // the network is gone: let go within TF_NOWIFI_MAX_MS
 static volatile bool  s_stop  = false;
 static bool           s_hookInstalled = false;
 
@@ -402,24 +404,47 @@ static void mkdirChain(const char* dirPath) {
  * for the internal RAM a TLS handshake needs. Returns false when the tile should be given up
  * on: the run was stopped, the pause outlived TF_PAUSE_MAX_MS (the run stops), or the RAM
  * never came (this tile fails, the run continues). `needRoom` is whether a handshake is due. */
-static bool waitReady(Job* j, bool needRoom) {
+static bool waitReady(Job* j, bool needRoom, WiFiClient* client) {
   TileJobStatus* st = &j->st;
-  uint32_t pausedMs = 0, roomMs = 0;
+  uint32_t pausedMs = 0, noWifiMs = 0, roomMs = 0;
+  bool dropped = false;
   for (;;) {
     if (s_stop) {
       return false;
     }
-    if (s_pause) {
+    if (s_pause || s_noWifi) {
       st->paused = true;
       st->waitingRam = false;
-      if (pausedMs >= TF_PAUSE_MAX_MS) {
-        strlcpy(st->lastErr, "paused too long (call or no WiFi) - stopped", sizeof(st->lastErr));
-        s_stop = true;
-        st->paused = false;
-        return false;
+      /* 🛑 LET GO OF THE CONNECTION WHILE PAUSED. Measured on phone 1 (2026-09-19): WiFi
+       * dropped during a run's first handshake, the job sat paused holding its TLS session,
+       * lwIP buffers and client objects, and the phone's WiFi RESCUE — the scan and rejoin,
+       * which need internal heap of their own — had to run against largest = 8,984 bytes.
+       * The socket and the TLS state are the part that can be given back at once. */
+      if (client && !dropped) {
+        client->stop();
+        dropped = true;
+      }
+      if (s_noWifi) {
+        /* No network: nothing a wait can fix that the phone's own rescue is not already
+         * trying, and the rescue wants the RAM this job holds. Twenty seconds covers a blip;
+         * past that the run ends, and a restart skips every tile already written. */
+        noWifiMs += 200;
+        if (noWifiMs >= TF_NOWIFI_MAX_MS) {
+          strlcpy(st->lastErr, "WiFi dropped - stopped; start again to continue", sizeof(st->lastErr));
+          s_stop = true;
+          st->paused = false;
+          return false;
+        }
+      } else {
+        pausedMs += 200;
+        if (pausedMs >= TF_PAUSE_MAX_MS) {
+          strlcpy(st->lastErr, "paused too long (a call) - stopped", sizeof(st->lastErr));
+          s_stop = true;
+          st->paused = false;
+          return false;
+        }
       }
       vTaskDelay(pdMS_TO_TICKS(200));
-      pausedMs += 200;
       continue;
     }
     st->paused = false;
@@ -509,8 +534,8 @@ static void runJob(Job* j) {
          * reconnect landed on top of the app's own use. So before any GET that will have to
          * reconnect, wait for room (and wait out a call or a WiFi drop, which is the same
          * loop): a handshake that would start below the bar is a reboot with extra steps. */
-        const bool reconnecting = !client->connected();
-        if (!waitReady(j, reconnecting)) {
+        const bool reconnecting = !client->connected() || s_pause || s_noWifi;
+        if (!waitReady(j, reconnecting, client)) {
           if (s_stop) {
             break;
           }
@@ -724,6 +749,7 @@ bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap) {
   installHook();
   s_stop = false;
   s_pause = false;
+  s_noWifi = false;
   s_busy = true;
   s_job->st.active = true;
   if (!spawnRun(jobTask, s_job, "tilefetch")) {
@@ -746,8 +772,9 @@ bool tileFetchActive() {
   return s_busy;
 }
 
-void tileFetchPause(bool on) {
-  s_pause = on;
+void tileFetchPause(bool call, bool noWifi) {
+  s_pause = call;
+  s_noWifi = noWifi;
 }
 
 void tileFetchStatus(TileJobStatus* out) {

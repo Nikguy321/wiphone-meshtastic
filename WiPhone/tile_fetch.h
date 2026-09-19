@@ -112,7 +112,9 @@ int  tileFetchEstimate(const TileJobSpec* s, uint32_t* cardBytes, uint32_t* netB
 bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap);
 void tileFetchStop();                     // ask; the task finishes the tile it is on
 bool tileFetchActive();                   // the DFS / screen-hold predicates read this
-void tileFetchPause(bool on);             // the loop sets this for calls and WiFi loss
+/* The loop sets these every pass. A CALL pauses the run (up to ten minutes); NO WIFI drops the
+ * connection at once and ends the run after 20 s — the phone's WiFi rescue needs the RAM. */
+void tileFetchPause(bool call, bool noWifi);
 void tileFetchStatus(TileJobStatus* out);
 /* One line per call of `emit`, for the serial console. */
 void tileFetchReport(void (*emit)(const char* line));

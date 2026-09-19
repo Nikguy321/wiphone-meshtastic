@@ -337,6 +337,7 @@ protected:
   void  buildAreas();
   void  buildConfirmDelete();
   void  drawHelp();
+  void  drawHelpDiagram();  // page -1 of the help: the phone's buttons, drawn
   void  buildDownload();
   void  rescanCard();       // re-read the areas and pins without moving the view
   void  drawGoto();
