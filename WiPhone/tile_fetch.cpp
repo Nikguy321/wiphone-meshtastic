@@ -553,11 +553,19 @@ static void runJob(Job* j) {
           vTaskDelay(pdMS_TO_TICKS(500));
           continue;
         } else {
-          j->consecutiveFails = 0;
           st->bytes += (uint32_t)got;
+          /* ⚠ THE CONSECUTIVE-FAILURE COUNT IS RESET ON A WRITTEN TILE, NOT ON A 200. The
+           * first cut reset it here, before decode and write ran, so a card that refused
+           * every write (or a server answering 200 with pages) could never reach the
+           * give-up threshold — the run fetched the whole area for nothing (review). */
           if (!tileDecode(body, got, px, err, sizeof(err))) {
             st->failed++;
             snprintf(st->lastErr, sizeof(st->lastErr), "z%d %d/%d: %s", z, x, y, err);
+            if (++j->consecutiveFails >= TF_MAX_FAILS) {
+              strlcpy(st->lastErr, "nothing decodes - stopped", sizeof(st->lastErr));
+              s_stop = true;
+              break;
+            }
           } else if (!writeTile(path, tmpPath, px, err, sizeof(err))) {
             /* A card that refuses is not going to accept the next 800 tiles either: a full,
              * absent or pulled card counts the same way the network does, and the run stops
@@ -571,6 +579,7 @@ static void runJob(Job* j) {
             }
           } else {
             st->done++;
+            j->consecutiveFails = 0;
           }
         }
         uint32_t f, l, m;
@@ -708,35 +717,38 @@ bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap) {
       return false;
     }
   }
-  memset(s_job, 0, sizeof(Job));
-  s_job->spec = *s;
-  s_job->src = src;
-  s_job->zMax = s->zMax > src->zMax ? src->zMax : s->zMax;
-  if (s_job->zMax < TILE_ZOOM_BASE) s_job->zMax = TILE_ZOOM_BASE;
+  /* Every refusal below happens BEFORE the job record is touched, so a refused Start leaves
+   * the previous run's "Last run: ..." summary on the form instead of wiping it. */
   uint32_t cardBytes = 0;
-  s_job->st.total = tileFetchEstimate(s, &cardBytes, NULL);
-  if (s_job->st.total > 20000) {
-    snprintf(why, whyCap, "%d tiles is too many for one run (20000 max)", s_job->st.total);
+  const int total = tileFetchEstimate(s, &cardBytes, NULL);
+  if (total > 20000) {
+    snprintf(why, whyCap, "%d tiles is too many for one run (20000 max)", total);
+    return false;
+  }
+  if (SD.totalBytes() == 0) {
+    strlcpy(why, "no SD card", whyCap);
     return false;
   }
   {
     /* Room on the card for the whole area, assuming none of it is there yet (a re-run over a
      * half-done area asks for more than it needs — the honest direction to be wrong in). */
     const uint64_t freeB = cardFreeBytes();
-    if (freeB == 0 && SD.totalBytes() == 0) {
-      strlcpy(why, "no SD card", whyCap);
-      return false;
-    }
     if (freeB < (uint64_t)cardBytes + (4u << 20)) {
       snprintf(why, whyCap, "card has %u MB free, this area needs %u MB",
                (unsigned)(freeB >> 20), (unsigned)(cardBytes >> 20));
       return false;
     }
   }
-  strlcpy(s_job->st.source, src->key, sizeof(s_job->st.source));
   if (!ensureWorker(why, whyCap)) {
     return false;
   }
+  memset(s_job, 0, sizeof(Job));
+  s_job->spec = *s;
+  s_job->src = src;
+  s_job->zMax = s->zMax > src->zMax ? src->zMax : s->zMax;
+  if (s_job->zMax < TILE_ZOOM_BASE) s_job->zMax = TILE_ZOOM_BASE;
+  s_job->st.total = total;
+  strlcpy(s_job->st.source, src->key, sizeof(s_job->st.source));
   installHook();
   s_stop = false;
   s_pause = false;

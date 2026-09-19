@@ -113,11 +113,19 @@ radius/zoom/centre (a negative radius read as an antimeridian crossing = the who
 🔴 **FilesApp's field-by-field `XferConfig` never set `tree`** (PSRAM is not zeroed → the
 general uploader ran in tree mode on some boots); tree segments cap at 31 (the viewer's
 area-name limit); `wiphone_send.py --replace`. Final build on phone 2: 19/19 tiles, 0 failed,
-min-ever 6,308 app closed. **Still to read: the pins-channels and fixes lenses + verifiers
-of round two** (running at 03:40; `/workflows`).
+min-ever 6,308 app closed. **Round two finished 04:15: 28 agents, 16 findings held (13 of
+them already fixed by the time the skeptics read the tree), 7 refuted, 0 unverified.** The last
+three real ones are in `HEAD`: the consecutive-failure counter was reset on HTTP 200 BEFORE
+decode/write, so a refusing card could never reach the give-up (now reset only on a written
+tile, and undecodable bodies count); the "no SD card" refusal tested a value `cardFreeBytes()`
+never returns (now `SD.totalBytes()==0`); every refusal in `tileFetchStart` now happens before
+the job record is cleared, so a refused Start keeps the previous "Last run" line; and `open`
+refuses on the SIP state (the CALLER's CallApp lives inside DialingApp — `callApp` is only the
+callee's). Final build: 21/21 tiles, 0 failed, min-ever 6,736; suite green.
 
 ⏳ **OPEN / OWED:** (a) phone 1 — not connected tonight (only `025A3F65` is on the USB); flash
-it, one small `maps dl`, read `heap` min-ever; (b) round two's last two lenses;
+it, one small `maps dl`, read `heap` min-ever; (b) push + `tools/publish_webflasher.sh` —
+Nick's call, after (a);
 (c) OTM's 4 s/tile makes a 10 km OTM area a 1 h job — the screen says so;
 (d) COVEY parity not done: ruler, follow-me latch, N/F toggles, nearest-first GO picker
 (the PR's lists are by identity); (e) `docs/maps-brief.md` §10 decisions were taken as

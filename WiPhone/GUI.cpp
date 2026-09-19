@@ -2344,7 +2344,20 @@ static void appHeapProbe(int id, uint32_t heapBefore, uint32_t largestBefore) {
 bool GUI::openAppFromConsole(ActionID_t app) {
   /* A call owns the screen: enterApp() would delete the CallApp and leave the call headless
    * (cleanAppDynamic deletes callApp). The menu can never get here during a call because
-   * processEvent feeds callApp first; the console must refuse the same way. */
+   * processEvent feeds callApp first; the console must refuse the same way. ⚠ `callApp` is
+   * only the CALLEE's; the caller's CallApp lives inside DialingApp/PhonebookApp, so the SIP
+   * state is the test that covers both sides (review, 2026-09-19). */
+  switch (state.sipState) {
+  case CallState::InvitingCallee:
+  case CallState::InvitedCallee:
+  case CallState::RemoteRinging:
+  case CallState::Call:
+  case CallState::BeingInvited:
+  case CallState::Accept:
+    return false;
+  default:
+    break;
+  }
   if (callApp != NULL) {
     return false;
   }
