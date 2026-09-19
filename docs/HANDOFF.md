@@ -123,9 +123,32 @@ the job record is cleared, so a refused Start keeps the previous "Last run" line
 refuses on the SIP state (the CALLER's CallApp lives inside DialingApp — `callApp` is only the
 callee's). Final build: 21/21 tiles, 0 failed, min-ever 6,736; suite green.
 
-⏳ **OPEN / OWED:** (a) phone 1 — not connected tonight (only `025A3F65` is on the USB); flash
-it, one small `maps dl`, read `heap` min-ever; (b) push + `tools/publish_webflasher.sh` —
-Nick's call, after (a);
+📱 **09:50–11:30, Nick plugged phone 1 in ("I'll look after I go out"), and asked for Maps on
+the main screen with an icon, then a key of what each button does.** Both done and on both
+phones: `4753ffb` the icon (`tools/make_icon_maps.py`, a folded map + route + pin, the Music
+icon's pipeline) and the row under parent 1 between Music and Tools; `05755ef` **"What the
+buttons do..."** is the map menu's FIRST row — a drawn key (side buttons down the left edge as
+on the case, D-pad with OK as the pin, soft keys, shortcuts; More → features + colours).
+🛑 **Help rows must be ≤ ~34 chars at AKROBAT_BOLD_16**: a longer row is not clipped at the
+right — the smooth-font renderer cuts BOTH ends (measured: "Hold an arrow" lost its H).
+**Phone 1's measurements changed the downloader twice:** (1) its first run (21/21, SIP stayed
+registered) hit **min-ever 2,572** in the handshake — the start gate, calibrated on phone 2,
+had refused it outright ("21 KB block"); the bar is now the reconnect bar + the stack
+(largest ≥ 10 KB / free ≥ 14 KB after the stack), which is what phone 1 has with SIP up.
+(2) A **per-run dynamic task** (stack freed after each download, to give phone 1 its 8 KB
+back) was tried and REJECTED on evidence: 26.3 KB largest before a run → **11.3 KB twenty
+minutes after**, free total recovered — fragmentation, the phone's known killer — so the
+**persistent worker is back** (fixed 8 KB from the first download; phone 1 then reads ~18 KB
+largest, predictably). (3) **A download that loses WiFi lets go**: phone 1 dropped WiFi during
+a run's first handshake (it did that after every reflash this morning — the deaf-scan spell;
+✅ **the 0.9.31 self-bounce FIRED and rejoined, hands-free, twice — first time seen in a real
+wedge**) and the paused job sat holding TLS + buffers while the rescue ran against largest
+9 KB. Now: pause → `client.stop()` at once; > 20 s without WiFi → the run ends ("start again
+to continue"; skip-by-size resumes); a call still pauses ≤ 10 min. Proven on phone 2 with
+`wifi drop` mid-run: 1 reconnect, 1 failed tile, run continued. Phone 1's soak on the final
+build is the commit after this one.
+
+⏳ **OPEN / OWED:** (a) push + `tools/publish_webflasher.sh` — Nick's call;
 (c) OTM's 4 s/tile makes a 10 km OTM area a 1 h job — the screen says so;
 (d) COVEY parity not done: ruler, follow-me latch, N/F toggles, nearest-first GO picker
 (the PR's lists are by identity); (e) `docs/maps-brief.md` §10 decisions were taken as

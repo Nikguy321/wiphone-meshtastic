@@ -107,13 +107,17 @@ every tile already written). A call still pauses for up to ten minutes.
 **Maps is on the main screen** with its own icon (a folded map, a route, a pin —
 `tools/make_icon_maps.py`, drawn as maths like the Music icon), between Music and Tools.
 
-**The download task is now made per run and freed after it** (8 KB of internal RAM back
-between downloads) — on phone 1, the SIP phone, a permanent 8 KB would have been a third of
-its headroom. Phone 1 ran its first download this morning: 21/21 tiles, 0 failed, SIP stayed
-registered; its heap floor during the handshake was 2,572 bytes — the thinnest margin in the
-firmware. The handshake bar was lowered to what phone 1 has (largest ≥ 10 KB, free ≥ 14 KB)
-so it can download at all; **on phone 1, download at home on USB, with the map's own screen
-closed if you can (`maps dl` over the cable, or start it and press Back)** — see the handoff.
+**Phone 1 (the SIP phone) has run it**, and it changed the design twice. Its first download
+worked — 21/21, SIP stayed registered — with a heap floor of 2,572 bytes during the handshake,
+the thinnest margin in the firmware; the handshake bar was lowered to what phone 1 has
+(largest ≥ 10 KB, free ≥ 14 KB) so it can download at all. Then a per-run task that freed its
+8 KB stack afterwards was tried, to give phone 1 its RAM back between downloads — and it left
+the heap FRAGMENTED (26.3 KB largest before, 11.3 KB twenty minutes after, free total
+recovered): whatever WiFi and SIP allocated mid-run landed in the vacated region. The
+downloader is one persistent worker again: a fixed, visible 8 KB from the first download
+(phone 1 reads ~18 KB largest after it) rather than a number that depends on what else
+happened. **On phone 1, download at home on USB, and prefer the map's own screen closed
+(`maps dl` over the cable, or Start and then Back).**
 
 **Two more of COVEY's, the same morning.** The Pins / Places / Nodes lists are **nearest-first
 with distance and bearing** on every row — "6.2km N Clifford, 0m ago" — measured from your
