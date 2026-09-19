@@ -56,6 +56,7 @@ static bool           s_hookInstalled = false;
 
 // ── sources ─────────────────────────────────────────────────────────────────────────────
 static char s_customUrl[200] = "";
+static bool customSourceBusy();           // below: is a running job reading s_customUrl?
 
 static const TileSource SOURCES[] = {
   { "usgs-topo", "USGS Topo",
@@ -81,8 +82,34 @@ const TileSource* tileSource(int i) {
   return &SOURCES[i];
 }
 
-void tileSetCustomUrl(const char* templ) {
-  strlcpy(s_customUrl, templ ? templ : "", sizeof(s_customUrl));
+bool tileSetCustomUrl(const char* templ, char* why, size_t whyCap) {
+  if (why && whyCap) why[0] = '\0';
+  if (!templ || !templ[0]) {
+    if (customSourceBusy()) {
+      if (why) strlcpy(why, "a download is using it - stop that first", whyCap);
+      return false;
+    }
+    s_customUrl[0] = '\0';
+    return true;
+  }
+  if (strlen(templ) >= sizeof(s_customUrl)) {
+    if (why) snprintf(why, whyCap, "template longer than %u characters", (unsigned)(sizeof(s_customUrl) - 1));
+    return false;
+  }
+  if (!strstr(templ, "{z}") || !strstr(templ, "{x}") || !strstr(templ, "{y}")) {
+    if (why) strlcpy(why, "template needs {z} {x} and {y}", whyCap);
+    return false;
+  }
+  if (strncmp(templ, "http://", 7) != 0 && strncmp(templ, "https://", 8) != 0) {
+    if (why) strlcpy(why, "template must start with http:// or https://", whyCap);
+    return false;
+  }
+  if (customSourceBusy()) {
+    if (why) strlcpy(why, "a download is using it - stop that first", whyCap);
+    return false;
+  }
+  strlcpy(s_customUrl, templ, sizeof(s_customUrl));
+  return true;
 }
 
 /* Expand {z} {x} {y}. Returns false if the template does not fit. */
@@ -129,20 +156,21 @@ static void tileRange(const TileJobSpec* s, int z, int* x0, int* x1, int* y0, in
 
 int tileFetchEstimate(const TileJobSpec* s, uint32_t* cardBytes, uint32_t* netBytes) {
   const TileSource* src = tileSource(s ? s->source : -1);
-  if (!s || !src) {
+  if (!s || !src || s->radiusKm <= 0) {
     return 0;
   }
   int zMax = s->zMax;
   if (zMax > src->zMax) zMax = src->zMax;
-  int total = 0;
+  int64_t total = 0;
   for (int z = TILE_ZOOM_BASE; z <= zMax; z++) {
     int x0, x1, y0, y1;
     tileRange(s, z, &x0, &x1, &y0, &y1);
-    total += (x1 - x0 + 1) * (y1 - y0 + 1);
+    total += (int64_t)(x1 - x0 + 1) * (int64_t)(y1 - y0 + 1);
   }
-  if (cardBytes) *cardBytes = (uint32_t)total * (uint32_t)MAP_TILE_BYTES;
-  if (netBytes)  *netBytes  = (uint32_t)total * (uint32_t)src->kbPerTile * 1024u;
-  return total;
+  if (total > 1000000) total = 1000000;      // the caller refuses far below this; keep the bytes sane
+  if (cardBytes) *cardBytes = (uint32_t)(total * (int64_t)MAP_TILE_BYTES > 0xFFFFFFFFll ? 0xFFFFFFFFu : total * (int64_t)MAP_TILE_BYTES);
+  if (netBytes)  *netBytes  = (uint32_t)(total * (int64_t)src->kbPerTile * 1024);
+  return (int)total;
 }
 
 // ── the job ─────────────────────────────────────────────────────────────────────────────
@@ -155,6 +183,10 @@ struct Job {
   int            consecutiveFails;
 };
 static Job* s_job = NULL;                  // PSRAM
+
+static bool customSourceBusy() {
+  return s_busy && s_job && s_job->src == &SOURCES[TILE_SRC_CUSTOM];
+}
 
 static void heapNow(uint32_t* freeB, uint32_t* largest, uint32_t* minEver) {
   multi_heap_info_t h;
@@ -633,6 +665,20 @@ bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap) {
     strlcpy(why, "no such source", whyCap);
     return false;
   }
+  /* The spec comes from the console as well as the form: check it. A negative radius reads
+   * as an antimeridian crossing to tileRange() and becomes the whole world. */
+  if (!(s->lat >= -85.0 && s->lat <= 85.0) || !(s->lon >= -180.0 && s->lon <= 180.0)) {
+    strlcpy(why, "centre out of range", whyCap);
+    return false;
+  }
+  if (s->radiusKm < 1 || s->radiusKm > 50) {
+    strlcpy(why, "radius must be 1-50 km", whyCap);
+    return false;
+  }
+  if (s->zMax < TILE_ZOOM_BASE || s->zMax > 19) {
+    snprintf(why, whyCap, "detail must be z%d-z19", TILE_ZOOM_BASE);
+    return false;
+  }
   if (WiFi.status() != WL_CONNECTED) {
     strlcpy(why, "not on WiFi", whyCap);
     return false;
@@ -669,6 +715,10 @@ bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap) {
   if (s_job->zMax < TILE_ZOOM_BASE) s_job->zMax = TILE_ZOOM_BASE;
   uint32_t cardBytes = 0;
   s_job->st.total = tileFetchEstimate(s, &cardBytes, NULL);
+  if (s_job->st.total > 20000) {
+    snprintf(why, whyCap, "%d tiles is too many for one run (20000 max)", s_job->st.total);
+    return false;
+  }
   {
     /* Room on the card for the whole area, assuming none of it is there yet (a re-run over a
      * half-done area asks for more than it needs — the honest direction to be wrong in). */

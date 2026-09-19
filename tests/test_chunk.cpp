@@ -76,6 +76,10 @@ static void testSafeTreeName() {
   ok(!chunkSafeTreeName("", out, sizeof(out)), "empty is refused");
   char tiny[4];
   ok(!chunkSafeTreeName("abcd", tiny, sizeof(tiny)), "too long for the buffer is refused");
+  ok(chunkSafeTreeName("a234567890123456789012345678901/1/2/3.565", out, sizeof(out)),
+     "a 31-character area name is the viewer's limit and passes");
+  ok(!chunkSafeTreeName("a2345678901234567890123456789012/1/2/3.565", out, sizeof(out)),
+     "a 32-character area name would never be listed and is refused");
 }
 
 static void testSafeName() {

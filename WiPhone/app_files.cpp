@@ -487,6 +487,11 @@ void FilesApp::startUpload() {
   xferCfg.nounPlural = "files";
   xferCfg.defaultName = "download.bin";
   xferCfg.apName = "WiPhone-Files";
+  /* ⚠ SET IT. This config is a member filled field by field, and the object lives in PSRAM
+   * that operator new does not zero: an unset `tree` was whatever the allocator left, so the
+   * general uploader ran in tree mode (folder-shaped names accepted, folders created) on
+   * some boots and not others (review, 2026-09-19). */
+  xferCfg.tree = false;
   xferStart(&xferCfg);
   appState = FILES_XFER;
   footer->setButtons("", "Stop");

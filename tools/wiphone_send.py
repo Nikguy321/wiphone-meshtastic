@@ -110,10 +110,12 @@ def held_bytes(conn, name):
         return 0
 
 
-def push_file(ip, path, verbose=True, name=None):
+def push_file(ip, path, verbose=True, name=None, replace=False):
     """Returns (ok, message). One keep-alive connection; resumes; verifies.
     `name` is what the phone will call it - the basename, or (tree mode) the path relative
-    to the tree's parent, forward slashes, which the maps uploader turns into folders."""
+    to the tree's parent, forward slashes, which the maps uploader turns into folders.
+    `replace` sends from byte 0 regardless of what the phone holds: resume-by-size cannot
+    tell a re-converted tile from the old one (every tile is exactly 131072 bytes)."""
     if name is None:
         name = os.path.basename(path)
     size = os.path.getsize(path)
@@ -126,7 +128,7 @@ def push_file(ip, path, verbose=True, name=None):
             try:
                 if conn is None:
                     conn = http.client.HTTPConnection(ip, RAW_PORT, timeout=30)
-                    off = held_bytes(conn, name)
+                    off = 0 if replace else held_bytes(conn, name)
                     if off > size:
                         off = 0        # a different file wearing our name; start over
                 if off >= size:
@@ -198,6 +200,9 @@ def main():
                     help='which folder the phone puts them in (default books)')
     ap.add_argument('--tree', help='send every file under this folder, keeping the relative '
                                    'path (maps: a converted <area> folder -> /maps/<area>/...)')
+    ap.add_argument('--replace', action='store_true',
+                    help='send every file from byte 0 even if the phone holds one of the same '
+                         'size (a re-converted tile tree: every tile is the same size)')
     ap.add_argument('--ip', help='phone address; otherwise bridge, then wiphone.local')
     ap.add_argument('--port-tag', help='bridge tag when two phones are attached '
                                        '(e.g. 025A3F65)')
@@ -247,7 +252,7 @@ def main():
     done = 0
     t_all = time.time()
     for p, name in jobs:
-        ok, msg = push_file(ip, p, verbose=not args.tree, name=name)
+        ok, msg = push_file(ip, p, verbose=not args.tree, name=name, replace=args.replace)
         done += 1
         if args.tree:
             # hundreds of files: one line per failure, a running count otherwise

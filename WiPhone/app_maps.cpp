@@ -161,6 +161,8 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   dlHeld = false;
   dlLastMs = 0;
   dlKeep = ROW_D_START;
+  dlWhy[0] = '\0';
+  dlShownRunning = false;
   gotoLat[0] = gotoLon[0] = '\0';
   gotoField = 0;
   chanPending = 0;
@@ -1146,7 +1148,9 @@ int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs) const {
       *lonI = lo;
     }
     if (ageMs) {
-      *ageMs = (uint32_t)sats;           // for this kind the "age" slot carries the satellite count
+      /* For this kind the "age" slot carries the REASON: sats in the low byte, HDOP x10
+       * above it. Whichever failed the bar is what the label names. */
+      *ageMs = ((uint32_t)(hdopX10 < 0 ? 0 : hdopX10) << 8) | (uint32_t)(sats & 0xFF);
     }
     return MAPS_SELF_POOR_GPS;
   }
@@ -1294,7 +1298,12 @@ void MapsApp::drawOverlays() {
       } else if (selfKind == MAPS_SELF_PIN) {
         strlcpy(sl, "my pin", sizeof(sl));
       } else if (selfKind == MAPS_SELF_POOR_GPS) {
-        snprintf(sl, sizeof(sl), "me? %u sats", (unsigned)selfAge);
+        const unsigned sats = selfAge & 0xFF, hdopX10 = selfAge >> 8;
+        if (sats < 4) {
+          snprintf(sl, sizeof(sl), "me? %u sats", sats);
+        } else {
+          snprintf(sl, sizeof(sl), "me? HDOP %u.%u", hdopX10 / 10, hdopX10 % 10);
+        }
       } else {
         const unsigned mins = (unsigned)(selfAge / 60000u);
         snprintf(sl, sizeof(sl), "me, %um ago", mins);
@@ -1582,7 +1591,8 @@ void MapsApp::centreOnMe() {
   }
   if (kind == MAPS_SELF_POOR_GPS) {
     centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
-    setNote("Poor fix (%u sats) - could be well off", (unsigned)age);
+    const unsigned sats = age & 0xFF, hdopX10 = age >> 8;
+    setNote("Poor fix (%u sats, HDOP %u.%u) - could be well off", sats, hdopX10 / 10, hdopX10 % 10);
     return;
   }
   if (kind == MAPS_SELF_OLD_GPS) {
@@ -1648,8 +1658,14 @@ bool MapsApp::sharePin(int idx, char* why, size_t whyCap) {
   bool onAir = false;
   const bool wasShared = (pins[idx].sharedId != 0);
   /* On the channel stored with the pin. NULL falls back to announceChannel() inside the
-   * service — only reachable for a pin shared before channels were recorded. */
+   * service — only reachable for a pin shared before channels were recorded (chan ""). A pin
+   * whose recorded channel has LEFT this phone is not sent anywhere: an update on some other
+   * channel is a second copy the radios holding the first will never see retracted. */
   const MeshChannel* ch = pinChannel(idx);
+  if (pins[idx].chan[0] && !ch) {
+    snprintf(why, whyCap, "Channel '%s' is gone from this phone - not sent", pins[idx].chan);
+    return false;
+  }
   const uint32_t id = meshService.shareWaypoint(pins[idx].sharedId,
                                                 pins[idx].latI, pins[idx].lonI,
                                                 pins[idx].name, 0, &onAir, ch);
@@ -2071,7 +2087,13 @@ void MapsApp::buildPinOpts() {
   /* The rows say WHERE. A pin that has a channel goes back there in one press; the picker is
    * a separate row so changing channel is a choice and never a surprise. */
   const MeshChannel* ch = pinChannel(pinSel);
-  if (pins[pinSel].sharedId) {
+  if (pins[pinSel].sharedId && pins[pinSel].chan[0] && !ch) {
+    /* Shared on a channel this phone no longer has: nothing can be sent for it. Say so,
+     * offer nothing that would pretend otherwise, and keep the id for the day it is back. */
+    snprintf(row, sizeof(row), "Channel '%s' is gone - cannot update", pins[pinSel].chan);
+    menu->addNote(row);
+    menu->addNote("Add the channel back to send or retract");
+  } else if (pins[pinSel].sharedId) {
     snprintf(row, sizeof(row), "Update it on %s", ch ? ch->name : "the mesh");
     menu->addOption(row, ROW_P_SHARE);
     menu->addOption("Take it off the mesh", ROW_P_UNSHARE);
@@ -2152,6 +2174,9 @@ void MapsApp::buildDownload() {
         menu->addNote(st.lastErr);
       }
     }
+    if (dlWhy[0]) {
+      menu->addNote(dlWhy);
+    }
     if (WiFi.status() != WL_CONNECTED) {
       menu->addNote("Not on WiFi - join a network first");
     } else if (!controlState.usbConnected && controlState.battVoltage < MAPS_DL_BATT_FLOOR) {
@@ -2170,6 +2195,7 @@ void MapsApp::buildDownload() {
   } else if (keep == ROW_D_STOP && !running) {
     keep = ROW_D_START;
   }
+  dlShownRunning = running;
   menu->select(keep);
   /* Hold the screen while the progress is on it: a 30 s sleep would lock the phone with the
    * cancel key behind the unlock chord. Released the moment another screen is entered. */
@@ -2333,7 +2359,9 @@ void MapsApp::buildConfirmDelete() {
     snprintf(row, sizeof(row), "Delete '%s'", pins[pinSel].name);
     menu->addNote(row);
     if (pins[pinSel].sharedId) {
-      menu->addNote("...and take it off the mesh");
+      menu->addNote(pins[pinSel].chan[0] && !pinChannel(pinSel)
+                    ? "(its channel is gone: it cannot be retracted)"
+                    : "...and take it off the mesh");
     }
   }
 }
@@ -2370,7 +2398,8 @@ static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "A name is dropped, never squashed,", WHITE },
   { "when it would land on another.", WHITE },
   { "", WHITE },
-  { "grey ring    ...or a poor fix (<4 sats)", MAP_C_NODE_OLD },
+  { "grey ring    ...or a poor fix (<4 sats,", MAP_C_NODE_OLD },
+  { "             or HDOP over 10)", MAP_C_NODE_OLD },
   { "grey square  tile not on the card", WHITE },
   { "Menu > Download maps fetches an area", WHITE },
   { "over WiFi. See docs/maps.md.", WHITE },
@@ -2526,13 +2555,20 @@ appEventResult MapsApp::onMapKey(EventType event) {
     }
     return REDRAW_SCREEN;
   }
-  case '5':
+  case '5': {
+    const int hit = pinUnderCrosshair();   // the same key as OK, for gloves: open, else drop
+    if (hit >= 0) {
+      pinSel = hit;
+      enterState(MAPS_PIN_OPTS);
+      return REDRAW_ALL;
+    }
     if (dropPin()) {
       setNote("Dropped '%s' - name it", pins[pinSel].name);
       enterState(MAPS_RENAME);
       return REDRAW_ALL;
     }
     return REDRAW_SCREEN;
+  }
   case '7':
     stepPin(-1);
     return REDRAW_SCREEN;
@@ -2602,12 +2638,11 @@ appEventResult MapsApp::processEvent(EventType event) {
       }
     }
     if (appState == MAPS_DOWNLOAD) {
-      if (tileFetchActive() || (millis() - dlLastMs) < 1500) {
-        if (millis() - dlLastMs >= 1000) {
-          dlLastMs = millis();
-          buildDownload();
-          return REDRAW_SCREEN;
-        }
+      const bool running = tileFetchActive();
+      if (running != dlShownRunning || (running && millis() - dlLastMs >= 1000)) {
+        dlLastMs = millis();
+        buildDownload();
+        return REDRAW_SCREEN;
       }
       return DO_NOTHING;
     }
@@ -2765,6 +2800,7 @@ appEventResult MapsApp::processEvent(EventType event) {
         spec.zMax = dlDepth;
         char why[80];
         dlKeep = ROW_D_STOP;             // BEFORE the rebuild: Start is gone from a running form
+        dlWhy[0] = '\0';
         if (tileFetchStart(&spec, why, sizeof(why))) {
           Preferences p;
           if (p.begin(MAPS_NVS, false)) {
@@ -2775,6 +2811,8 @@ appEventResult MapsApp::processEvent(EventType event) {
           }
           setNote("Downloading %s", tileSource(dlSource)->label);
         } else {
+          /* `note` is drawn on the MAP, not here: a refusal has to live on this form. */
+          snprintf(dlWhy, sizeof(dlWhy), "Not started: %s", why);
           setNote("Not started: %s", why);
         }
         buildDownload();
@@ -3006,9 +3044,11 @@ appEventResult MapsApp::processEvent(EventType event) {
         enterState(MAPS_CHANNEL);
         return REDRAW_ALL;
       case ROW_P_SHARE: {
-        /* A pin that has never been shared — or whose channel is gone from this phone — asks
-         * which channel first. A re-share goes back out where it already is. */
-        if (!pinChannel(pinSel)) {
+        /* A pin that has never been shared asks which channel first. A re-share goes back out
+         * where it already is — for a pin shared before channels were recorded (chan "") that
+         * is the automatic pick it went out on, and sharePin() refuses one whose channel has
+         * left the phone. */
+        if (!pins[pinSel].sharedId && !pinChannel(pinSel)) {
           chanForPin = pinSel;
           enterState(MAPS_CHANNEL);
           return REDRAW_ALL;
@@ -3076,6 +3116,14 @@ appEventResult MapsApp::processEvent(EventType event) {
         gone[0] = '\0';
         if (pinSel >= 0 && pinSel < pinCount) {
           strlcpy(gone, pins[pinSel].name, sizeof(gone));
+          if (pins[pinSel].sharedId && pins[pinSel].chan[0] && !pinChannel(pinSel)) {
+            /* The confirm promised "...and take it off the mesh", and that cannot be done:
+             * the channel it lives on is gone. Deleting locally would throw away the only
+             * id that can ever retract it. Keep the pin and say why. */
+            setNote("Channel '%s' is gone - cannot retract, kept", pins[pinSel].chan);
+            enterState(MAPS_VIEW);
+            return REDRAW_ALL;
+          }
         }
         const bool retracted = deletePin(pinSel);
         if (retracted) {
@@ -3236,7 +3284,9 @@ void MapsApp::redrawScreen(bool redrawAll) {
   const bool busy = (appState == MAPS_VIEW) && (loadActive || (wantAny && !tileMemFail));
   /* The download screen ticks at 4 Hz for its progress line only while a job is running:
    * a finished screen must not keep the CPU awake either. */
-  const bool progress = (appState == MAPS_DOWNLOAD) && tileFetchActive();
+  /* ...and a slow one on a finished form, so a job that ended while a call had every event
+   * (a callApp takes them all) is noticed and the Stop row becomes Start again. */
+  const bool progress = (appState == MAPS_DOWNLOAD);
   /* Following polls the fix once a second — a slow tick, and only on the map. */
   const bool following = followMe && (appState == MAPS_VIEW) && gGpsNmea;
   controlState.msAppTimerEventPeriod = busy ? 25 : (progress ? 250 : (following ? 1000 : 0));

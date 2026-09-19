@@ -202,7 +202,11 @@ Three ways, in the order you will probably use them:
    folder, then `python3 tools/wiphone_send.py --app maps --tree ~/tiles-565/home` sends it
    to `/maps/home/...` over the phone's own upload server (271 tiles, 34 MB: about ten
    minutes). The uploader's `maps` mode is the only one that accepts folder paths, and only
-   `<area>/<z>/<x>/<y>.565` shaped ones.
+   `<area>/<z>/<x>/<y>.565` shaped ones. Two things to know: a tile that is already on the
+   card at the right size is skipped (add `--replace` to push a re-converted tree, since every
+   tile is the same size), and if Maps is OPEN while a tree arrives it may blacklist a tile it
+   caught half-written — `Menu → Rescan the card` afterwards, or push with Maps closed. The
+   same goes for `pins.txt`: push it with Maps closed, or the next pin edit writes over it.
 3. **Straight onto the card**, as the commands above show.
 
 A tile server's terms are between you and the server. USGS is public domain and asks for a

@@ -96,6 +96,8 @@ static inline bool chunkSafeName(const char* in, char* out, size_t cap) {
  * outright, because a client that sends them is not the client this was written for.
  * `pins.txt` and `home/15/5249/11443.565` pass; `../x`, `a//b`, `home/15/../x` do not. */
 #define CHUNK_TREE_DEPTH 4
+#define CHUNK_TREE_SEGMENT_MAX 31       // == the map viewer's MapArea name cap (app_maps.h): a
+                                        // longer first segment would upload fine and never be listed
 static inline bool chunkSafeTreeName(const char* in, char* out, size_t cap) {
   if (!in || cap < 2) {
     return false;
@@ -115,6 +117,9 @@ static inline bool chunkSafeTreeName(const char* in, char* out, size_t cap) {
       }
       segLen = 0;
       continue;
+    }
+    if (segLen >= CHUNK_TREE_SEGMENT_MAX) {
+      return false;                         // a folder the viewer could not name
     }
     if (segLen == 0 && c == '.') {
       return false;                         // no leading-dot segment, anywhere

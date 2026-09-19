@@ -216,6 +216,8 @@ protected:
   bool     dlHeld;          // the screen is being held awake for the progress display
   uint32_t dlLastMs;        // last progress rebuild
   MenuOption::keyType dlKeep;   // the row to re-select after a progress rebuild
+  char     dlWhy[80];       // why the last Start was refused, shown on the form; "" = it was not
+  bool     dlShownRunning;  // what the form last drew, so a job that ended off-screen gets a rebuild
 
   // ---- go to coordinates ----
   char     gotoLat[16], gotoLon[16];

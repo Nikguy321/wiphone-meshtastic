@@ -1453,7 +1453,15 @@ bool MeshtasticService::loop() {
    * end of it must not lose an hour of nodes and messages. (The 0.5-0.9 s 'mesh' stalls
    * seen during downloads are the PRE-EXISTING ones the 2026-09-04 handoff flagged — they
    * happen with no download running; this deferral did not remove them.) */
-  const bool downloadHold = tileFetchActive() && (millis() - lastSaveMs < 5u * 60u * 1000u);
+  static uint32_t holdSinceMs = 0;
+  if (tileFetchActive()) {
+    if (!holdSinceMs) {
+      holdSinceMs = millis() ? millis() : 1;
+    }
+  } else {
+    holdSinceMs = 0;
+  }
+  const bool downloadHold = holdSinceMs && (millis() - holdSinceMs < 5u * 60u * 1000u);
   if (dbDirty && uiIdle && !saveActive && !downloadHold &&
       (millis() - lastSaveMs > MESH_SAVE_DEBOUNCE_MS)) {
     saveDb();

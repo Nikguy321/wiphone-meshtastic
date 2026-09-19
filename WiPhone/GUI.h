@@ -3029,7 +3029,7 @@ public:
   void showMeshPopup(const char* title, const char* body);
   /* The console's `open <app>`: enterApp() is protected on purpose (the menu is the one
    * caller), and the bench needs a way in that does not depend on which screen is up. */
-  void openAppFromConsole(ActionID_t app);
+  bool openAppFromConsole(ActionID_t app);     // false = a call is up; nothing was changed
   void drawPowerOff();
 
   ControlState state;

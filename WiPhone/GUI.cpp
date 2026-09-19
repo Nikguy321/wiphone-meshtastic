@@ -2341,9 +2341,16 @@ static void appHeapProbe(int id, uint32_t heapBefore, uint32_t largestBefore) {
   healthLogLine(line);
 }
 
-void GUI::openAppFromConsole(ActionID_t app) {
+bool GUI::openAppFromConsole(ActionID_t app) {
+  /* A call owns the screen: enterApp() would delete the CallApp and leave the call headless
+   * (cleanAppDynamic deletes callApp). The menu can never get here during a call because
+   * processEvent feeds callApp first; the console must refuse the same way. */
+  if (callApp != NULL) {
+    return false;
+  }
   enterApp(app);
   redrawScreen(true, true, true);
+  return true;
 }
 
 void GUI::enterApp(ActionID_t app) {

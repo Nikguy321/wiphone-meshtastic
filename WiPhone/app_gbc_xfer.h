@@ -27,7 +27,9 @@ struct XferConfig {
   const char* defaultName;  // filename for a URL fetch that has no usable one
   const char* apName;       // hotspot SSID when the phone has no network
   bool        tree;         // accept `a/b/c.ext` names (chunkSafeTreeName) and create the folders;
-                            // false = basename only. Trailing so the older initialisers stay valid.
+                            // false = basename only. Trailing so the older aggregate initialisers
+                            // stay valid (they zero it). 🛑 A config built FIELD BY FIELD must set
+                            // it explicitly — app_files.cpp learned this the hard way.
 };
 
 // Pumped from the main loop every iteration (no-op unless the server is running).

@@ -71,7 +71,7 @@ int               tileSourceCount();      // the fixed ones, plus custom when it
 const TileSource* tileSource(int i);      // NULL past the end
 /* `maps dlurl <template>` — a plain-HTTP relay for USGS (COVEY's cache, a Mac) when TLS is
  * not wanted. Empty string clears it. */
-void              tileSetCustomUrl(const char* templ);
+bool              tileSetCustomUrl(const char* templ, char* why, size_t whyCap);
 
 // ── the job ─────────────────────────────────────────────────────────────────────────────
 #define TILE_ZOOM_BASE 11                 // every area starts here, like COVEY's downloader

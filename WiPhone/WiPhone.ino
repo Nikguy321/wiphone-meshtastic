@@ -2706,7 +2706,7 @@ void loop() {
      *
      * Read here, right after the stale-key sweep, so uiKeyDown is already up to date. */
     loopPhase("music");
-    if (!gGbcActive && !gMapsActive && musicPlayerCurrent() >= 0) {
+    if (!gGbcActive && !(gMapsActive && !gui.state.locked) && musicPlayerCurrent() >= 0) {
       if (uiKeyDown & WIPHONE_KEY_MASK_F2) {
         if (!msF2Down) {
           msF2Down = now;
@@ -3000,7 +3000,10 @@ void loop() {
        * you want when there is sound coming out. */
       /* ...and the map (gMapsActive): the top two side buttons are its zoom and the third
        * "centre on me". A zoom key that pauses the music instead would be silently dead. */
-      const bool musicLoaded  = !gGbcActive && !gMapsActive && musicPlayerCurrent() >= 0;
+      /* ⚠ ...but only while the map can TAKE a key: a locked or dark phone with the map still
+       * open underneath must not leave the side buttons dead for music. */
+      const bool mapOwnsKeys  = gMapsActive && !gui.state.locked;
+      const bool musicLoaded  = !gGbcActive && !mapOwnsKeys && musicPlayerCurrent() >= 0;
       const bool musicSounding = musicLoaded && musicPlayerIsPlaying();
 
       if (musicLoaded && keyPressed == WIPHONE_KEY_F1) {
@@ -4213,10 +4216,15 @@ void loop() {
      * QUIET on purpose: no popup, no unread icon, no buzz — places are ambient
      * state, not news. */
     if (!gGbcActive && meshService.takePlacesNews()) {
-      /* ⚠ THE RESULT IS USED. It was discarded here for two releases, so the Maps app's
+      /* ⚠ THE RESULT IS ACTED ON HERE. It was discarded for two releases, so the Maps app's
        * "redraw when a position arrives" returned REDRAW_SCREEN into the void and a marker
-       * that moved stayed put until the next keypress. Same shape as the mirror path. */
-      redrawWhat |= gui.processEvent(now, NEW_MESSAGE_EVENT);
+       * that moved stayed put until the next keypress. The first fix OR'd it into
+       * `redrawWhat` — which this pass had already consumed, hundreds of lines above — so
+       * it was still discarded (review, 2026-09-19). Same shape as the mirror path now. */
+      const appEventResult r = gui.processEvent(now, NEW_MESSAGE_EVENT);
+      if (r & REDRAW_ALL) {
+        gui.redrawScreen(r & REDRAW_HEADER, r & REDRAW_FOOTER, r & REDRAW_SCREEN);
+      }
     }
 
     // Stop the notification vibration after its brief pulse.

@@ -1664,8 +1664,11 @@ static void run(char* line) {
       say("open: maps | photos | books | music | mesh | clock\n");
       return;
     }
-    gui.openAppFromConsole(app);
-    say("open: %s\n", arg[0] ? arg : "clock");
+    if (gui.openAppFromConsole(app)) {
+      say("open: %s\n", arg[0] ? arg : "clock");
+    } else {
+      say("open: refused - a call is up\n");
+    }
     return;
   }
   if (!strncasecmp(line, "maps", 4) && (line[4] == '\0' || line[4] == ' ')) {
@@ -1681,12 +1684,17 @@ static void run(char* line) {
     if (!strncasecmp(arg, "dlurl", 5)) {
       arg += 5;
       while (*arg == ' ') arg++;
+      char why[80];
       if (!*arg || !strcasecmp(arg, "clear")) {
-        tileSetCustomUrl("");
-        say("maps dlurl: custom source cleared\n");
-      } else {
-        tileSetCustomUrl(arg);
+        if (tileSetCustomUrl("", why, sizeof(why))) {
+          say("maps dlurl: custom source cleared\n");
+        } else {
+          say("maps dlurl: NOT cleared - %s\n", why);
+        }
+      } else if (tileSetCustomUrl(arg, why, sizeof(why))) {
         say("maps dlurl: custom source = %s (source index %d)\n", arg, TILE_SRC_CUSTOM);
+      } else {
+        say("maps dlurl: REFUSED - %s\n", why);
       }
       return;
     }
