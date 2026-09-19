@@ -17,12 +17,12 @@ mesh has shared and the last position of everyone who has spoken.
 
 | Key | What it does |
 |---|---|
-| **Arrows** | scroll. Hold one down and it speeds up; let go and the next press is a nudge again |
+| **Arrows** | scroll. A tap is a nudge; **hold one down and it keeps scrolling and speeds up** (a repeat every 100 ms after 300 ms, through the same 24 → 48 → 72 → 96 px curve a run of taps climbs); let go and the next press is a nudge again. With **Snap to pins** on (the menu; it is on by default) a tap that would land on or fly past a pin **stops on it**, and a tap while sitting on a pin **jumps to the next pin that way** — the arrows walk the pins. A hold never snaps; it is a sweep |
 | **2 4 6 8** | scroll too, for gloves |
 | **Side button 1 / 2** (top two) | zoom in / out. Also `#`/`*` or `3`/`1` |
 | **Side button 3** | centre on me: a live GPS fix (4+ satellites), else the pin you declared by hand. Also `0` |
 | **OK** | drop a pin on the crosshair and name it — or, with a pin under the crosshair, open it (rename / move / share / delete). Also `5` |
-| **Menu** (top-left soft key) | **What the buttons do...** is its first row — the phone's buttons drawn with what each does. Then download maps, go to coordinates, follow me, measure (an anchor at the crosshair; scroll away and the strip reads the distance and bearing), pins, places, nodes — the three lists are **nearest-first** with distance and bearing on every row |
+| **Menu** (top-left soft key) | **What the buttons do...** is its first row — the phone's buttons drawn with what each does. Then download maps, go to coordinates, follow me, measure (an anchor at the crosshair; scroll away and the strip reads the distance and bearing), **Snap to pins: ON/off**, pins, places, nodes — the three lists are **nearest-first** with distance and bearing on every row |
 | **7 / 9** | previous / next pin, centring the map on it |
 | **Back** | leave. Where you were looking is saved — also on power-off |
 

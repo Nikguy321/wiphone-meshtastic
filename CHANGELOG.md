@@ -139,6 +139,34 @@ itself through the jack interrupt's live `codecReconfig()`. The serial `audio` d
 Seen on phone 2: `route=earpiece` before, `route=loudspeaker gbc=1` with MICROCITY running,
 `route=earpiece gbc=0 powered=no` after quitting through the game's own menu.
 
+### Maps: a held arrow keeps scrolling; a tap stops on a pin, and walks the pins
+
+Nick, 2026-09-19, two more: *"holding the scroll button doesn't allow it to keep scrolling and
+speeding up, it just does a small jump and stops"* and *"it's hard to pan over an existing pin.
+It jumps too far, so maybe the map center can either snap to a pin when very near, and if there
+are many pins there it can kinda jump between them as the arrow pads are pressed. Also this
+behavior should be togglable on the maps menu."* — with the rule *"for everything but maps, the
+d-pad works well, so please only edit its behavior for the maps app."*
+
+- **Why a hold did nothing.** The keypad path suppresses held-key re-reports for every app on
+  purpose — that is what killed the menus' auto-repeat and the double-clicks in 0.9.2x — so the
+  map's accelerator, which counts presses arriving within 400 ms, only ever saw one. Nothing on
+  that path changes. The keypad reader now merely *answers a question*, `uiKeyStillHeld(mask)`
+  (the key's down bit AND a heartbeat within 350 ms, so a lost release reads as up), and the
+  map polls it on its own 50 ms timer: after 300 ms it pans again every 100 ms, climbing the
+  same 24/48/72/96 px curve a run of taps climbs. Any other key ends the hold. Every other
+  app is untouched.
+- **Snap to pins** (Maps menu, persisted, on by default). A *discrete* press — the first of a
+  run, never a hold repeat — that would land on or fly past a pin (within the 14 px pick
+  radius of the line of travel, no farther than the step plus that radius) stops **on** it; a
+  press while sitting on a pin jumps to the nearest pin that way inside a 45° cone on screen.
+  The crosshair ends exactly on the pin, the strip names it (`Pin 3 (3 of 4)`), OK opens it.
+- Bench: `maps hold up|down|left|right <ms>` presses the arrow and answers "held" for that long.
+
+Seen on phone 2: two pins three nudges apart — LEFT from Pin 4 lands on Pin 3, RIGHT lands
+back on Pin 4, DOWN nudges off it, UP snaps back on; `maps hold right 2500` moved the view
+0.082° east (~960 px at z14, four screens) with the tiles filling in behind.
+
 ## 0.9.64 (2026-09-18) - a map that downloads its own tiles, and the phone's first HTTPS
 
 Built on the 09-14 map (below) and finished on hardware the night of 09-18, against Nick's

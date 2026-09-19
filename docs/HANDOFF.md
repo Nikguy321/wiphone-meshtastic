@@ -1,8 +1,69 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-19 early morning)
+## ▶▶ STATE NOW (header refreshed 2026-09-19 afternoon)
 
 Read this first; everything below it is narrative.
+
+🔧 **2026-09-19, afternoon: NICK'S FOUR REPORTS, ALL FOUR FIXED, MERGED ON `main`, AND PROVEN
+ON BOTH PHONES. Not pushed; 0.9.64 is still the last flashed release string — the 0.9.65 bump,
+webflasher regeneration and push are Nick's call.** The reports, verbatim: (1) "Any menu or line
+that is too long just cuts off, it should either scroll or wrap text when highlighting over it."
+(2) "The wiphone lets me send messages that are too long on meshtastic, and they just won't get
+through to anybody else." (3) "Vibrate length of time is very inconsistent... sometimes the motor
+just barely starts. Also when sound is enabled for notifications, sometimes sound will play, but
+sometimes it won't." (4) "For the game boy emulator, I believe the sound plays through the
+earpiece instead of the loudspeaker." Full accounts with the numbers: `CHANGELOG.md` "Unreleased".
+
+**Root causes, each read out of the code BEFORE any fix, then measured:**
+1. 📜 **Every list draws through `MenuWidget` → `guiDrawEllipsized()`**; one marquee there covers
+   all four row kinds and every app. The selected row scrolls by whole glyphs (800 ms hold / 200
+   ms per glyph / 1 s end hold / wrap) on its own tick (`GUI::marqueeTick`), NOT the app timer.
+   `menu_marquee.h` + `test_marquee` (50). Seen on phone 2: Books' Leviathan row scrolls to
+   `...1.epub` and wraps; short-row screens unchanged; no new stall lines.
+2. 📡 **`MeshPhy::send()` gave up after a flat 2000 ms while a full LongFast frame is 2157 ms on
+   air** (SF11/250k/CR4-5/preamble 16, AN1200.13 — `mesh_airtime.cpp`, `test_airtime` 46) — the
+   radio was forced back to RX with the PA keyed, and `MESH_COMPOSE` ignored the `false`. The
+   wait now follows the frame; the compose cap is 200 (Android/iOS `MESSAGE_CHARACTER_LIMIT_BYTES`;
+   the wire holds 232 channel / 220 PKI DM); a strip shows `N/200`; a refused send stays put with
+   the reason. **On air: 200 and 232 B from phone 1 heard back and read on phone 2, 233 refused.**
+3. 📳 **The arrival was stamped with the loop-top `now` from inside the `mesh` block, after the
+   DB save's 0.5-1.5 s stall and a full repaint** — the next pass judged the buzz and the chirp
+   already over. Stamps are `millis()` now; the chirp plays from the in-flash `pop_pcm[]` (start
+   19-21 ms, was a 0.5-1.6 s SPIFFS open); the SX1509 extender write is checked. **Phone 1
+   `notify` ×3: buzz off 651/650/653 ms (target 650).** A real arrival behind a 1,062 ms `mesh`
+   stall buzzed 869 ms — the save that FOLLOWS an arrival can hold the off-switch late (long,
+   never short). ⚠ **The board's extender is an SX1509 (`GPIO_EXTENDER 1509`), not the SN7325
+   block that sits first in Hardware.cpp** — read the `#if` before trusting either.
+4. 🎮 **`startGame()` chose no output**, so `Audio::start()` powered up on whatever routing was
+   last — the earpiece. Loudspeaker unless headphones, restored in the destructor on its own
+   flag (`soundOn` is cleared by a starved I2S). **Phone 2: `route=loudspeaker gbc=1` in
+   MICROCITY, `route=earpiece gbc=0` after quitting through the game's menu.**
+
+**Also found on the way:** a message with a newline drew its second line over the sender in the
+thread and Chats lists (flattened); a refused serial `send` said "watch for MESH RECEIPT"; the
+console's `open <app>` entered an app UNDER a running Game Boy (now refused). Still truncating,
+deliberately: header titles, `LabelWidget`, `ChoiceWidget`, sliders, text inputs.
+
+**Bench recipe that worked today** (see `docs/maps.md` too): both bridges up
+(`tools/panicwatch.py <serial>`; phone 1 = `025A3EAF` → `/tmp/wiphone.cmd`, phone 2 = `025A3F65`
+→ `/tmp/wiphone-025A3F65.cmd`); flash with `pkill -f "panicwatch.py <serial>"` (port-specific!)
+→ esptool 230400 → restart that bridge; `hold on`, unlock `key ok` + `key *`, `open <app>`, one
+`key` per second, `tools/bridge_shot.py`. `send <i> <text>` / `notify` / `audio` are the proofs.
+
+5. 🕹️ **Later the same afternoon, two more: a held arrow did a single nudge (the keypad path
+   hides holds from every app on purpose — the map now polls `uiKeyStillHeld()` on its own
+   timer and repeats for itself; nothing else changed, per Nick's "only edit maps"), and a
+   tap flew past pins (Snap to pins, menu toggle, on by default: a tap stops on a pin in its
+   way; on a pin, taps walk the pins in a 45° cone). Both seen on phone 2; `maps hold <dir>
+   <ms>` is the bench.** ⚠ **BRIDGE RACE: the bridge can sit up to 1 s in a serial read before
+   it looks at the command file; two writes under ~1.3 s apart LOSE THE FIRST** — that is how
+   `hold on` went missing and phone 2 "locked itself" mid-test. Space commands ≥ 1.4 s.
+
+**Review (2026-09-19):** two lenses each on marquee and mesh ran clean apart from two low
+findings on the marquee (a 160 B buffer on the common row path; the tick timed from the pass's
+`now`), both fixed in `5802882`. The buzz, Game Boy and pan/snap lenses were cut off by the
+usage limit — see the newest review block below for their outcome.
+
 
 🗺️ **2026-09-18 → 19, overnight with Nick's standing permission: THE MAPS APP DOWNLOADS ITS
 OWN TILES, AND IT IS ALL ON HARDWARE (phone 2 only).** Nick asked, then went to bed: "a maps
