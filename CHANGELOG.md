@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.9.71 (2026-09-20) - where a map's tiles are
+
+Nick: *"When toggling through maps, what is the 'home' map? I don't have any tiles for it and
+there are no tiles available on the downloader. Can we figure that out?"*
+
+What it is: `home` is the area from the first maps release — the tiles converted on the Mac
+with `tools/convert_tiles.py` from COVEY's tile tree and copied to `/maps/home/`, z11-15,
+covering about 47.28-47.52 N, 121.99-121.64 W (North Bend and the Snoqualmie valley; the pins
+are inside it). From the hunt area east of Stampede Pass that is 35 km away, so switching onto
+it there shows grey — and the downloader has no `home` source because it only writes its own
+three areas. Nothing was wrong; the phone just could not say any of that.
+
+**Now it can.** `scanAreaExtent()` reads each area's bounding box once when Maps opens — the x
+folders at its coarsest zoom and the y files in the first and last of them, three small
+listings per area — and:
+
+- switching onto a map whose tiles are elsewhere (the side button or the menu) says
+  `Map: home (z11-15) - its tiles are 35km NW of here` on the strip (two rows, since 0.9.70);
+- the **Map area** list ends every row with `here` or the distance and bearing to that map's
+  tiles from the crosshair, and a note under it says what the numbers are;
+- serial `maps` prints each area's box in degrees and its centre.
+
+A box, not a census: an L-shaped download reads as its enclosing rectangle, which is what
+"where is this map" wants. Seen on phone 2: from the hunt area, `home * z11-15 35km NW` and
+the other three `here`; from the pins, all four `here`.
+
 ## 0.9.70 (2026-09-20) - two quick ones on the map
 
 Nick: *"If I don't have a GPS fix and try to center on myself, the message gets cut off due to

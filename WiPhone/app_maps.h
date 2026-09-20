@@ -158,7 +158,18 @@ protected:
   struct MapArea {
     char name[32];
     int  zMin, zMax;       // the zoom folders that actually exist
+    /* Where its tiles ARE, read once at scan time from the folder names at zMin (the
+     * coarsest level: a handful of x folders, two of them listed for their y range). An
+     * area that is not where you are looking is otherwise indistinguishable from an empty
+     * one — Nick, 2026-09-20, on "home": "I don't have any tiles for it". Tile units at
+     * zMin; hasExtent false when the folders held nothing numeric. */
+    bool hasExtent;
+    long xMin, xMax, yMin, yMax;
   };
+  bool areaHolds(int idx, double lat, double lon) const;   // is this ground inside its box?
+  void areaCentre(int idx, double* lat, double* lon) const;
+  // "12km NE" / "here": the area's tiles relative to a point, for the strip and the list.
+  void areaWhere(int idx, double lat, double lon, char* out, size_t n) const;
 
   // ---- state ----
   MapsState_t appState;
@@ -351,6 +362,7 @@ protected:
    * must be able to say that other people's maps still have it. */
   bool  deletePin(int idx);
   void  stepPin(int delta);
+  void  scanAreaExtent(MapArea* a);   // scanAreas: the tiles' bounding box at zMin
   void  setArea(int idx);
   void  setNote(const char* fmt, ...);
 
@@ -375,6 +387,7 @@ protected:
    * the channel is no longer on this phone (the picker is offered then). */
   const MeshChannel* pinChannel(int idx) const;
   friend bool mapsSaveOpenView();
+  friend bool mapsConsoleStatus(char* out, size_t cap);   // serial `maps`: the areas' boxes
 
   appEventResult onMapKey(EventType event);
 };

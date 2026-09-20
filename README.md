@@ -76,6 +76,10 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.71** — the map says **where each map's tiles are**: switching onto one whose tiles
+  are elsewhere reads `Map: home (z11-15) - its tiles are 35km NW of here`, and the Map area
+  list ends every row with `here` or the distance and bearing. (An area that is not where
+  you are looking used to look exactly like an empty one.)
 - **0.9.70** — the map's **fourth side button cycles the map types** on the card, and a
   message on the map's strip **wraps onto a second row** instead of ending in `..` (the
   no-GPS-fix explanation was the one that did). The on-phone controls guide has the new key.

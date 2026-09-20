@@ -251,7 +251,18 @@ still fails is simply missing, and **Start download** again fetches only the mis
 A card that refuses ten in a row stops the run — that is a full or pulled card.
 
 Each source is its own area on the card (`/maps/usgs-topo`, `/maps/usgs-img`, `/maps/otm`);
-`Map area:` in the menu switches between them.
+`Map area:` in the menu switches between them, as does the bottom side button. An area the
+downloader did not make — `home`, the tiles converted on the computer with
+`tools/convert_tiles.py` — is a map too, just one the downloader cannot add to.
+
+**Where a map's tiles are.** An area that is not where you are looking is indistinguishable
+from an empty one — grey squares either way — so since 0.9.71 the phone reads each area's
+extent once when Maps opens (the folder names at its coarsest zoom: three small directory
+listings) and says so: switching onto a map whose tiles are elsewhere puts `Map: home (z11-15)
+- its tiles are 35km NW of here` on the strip, and every row of **Map area** ends with `here`
+or the distance and bearing to that map's tiles from the crosshair. Serial `maps` prints each
+area's box in degrees. It is a bounding box, so an L-shaped download reads as its enclosing
+rectangle. Deleting an area is a job for the computer: remove `/maps/<area>` from the card.
 
 What it costs (measured on WiPhone 2, 2026-09-18):
 

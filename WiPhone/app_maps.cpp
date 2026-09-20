@@ -411,6 +411,7 @@ void MapsApp::scanAreas() {
     }
     f.close();
     if (a->zMax >= 0) {          // a folder with no zoom levels in it is not a map
+      scanAreaExtent(a);
       areaCount++;
     }
   }
@@ -418,6 +419,104 @@ void MapsApp::scanAreas() {
   if (areaCount > 0) {
     areaSel = 0;
   }
+}
+
+/* The bounding box of an area's tiles at its coarsest zoom: the x folders' range, and the
+ * y files' range in the first and last of them. Three directory listings of a few entries
+ * each — at z11 the whole of a 20 km download is two x folders. A box, not a census: an
+ * L-shaped area reads as its enclosing rectangle, which is what "where is this map" wants. */
+void MapsApp::scanAreaExtent(MapArea* a) {
+  a->hasExtent = false;
+  a->xMin = a->yMin = 0x7FFFFFFFL;
+  a->xMax = a->yMax = -1;
+  char path[112];
+  snprintf(path, sizeof(path), "%s/%s/%d", MAPS_ROOT, a->name, a->zMin);
+  File zd = SD.open(path);
+  if (!zd || !zd.isDirectory()) {
+    if (zd) {
+      zd.close();
+    }
+    return;
+  }
+  File xf;
+  while ((xf = zd.openNextFile())) {
+    const long x = xf.isDirectory() ? numericName(baseName(xf.name()), false) : -1;
+    if (x >= 0) {
+      if (x < a->xMin) {
+        a->xMin = x;
+      }
+      if (x > a->xMax) {
+        a->xMax = x;
+      }
+    }
+    xf.close();
+  }
+  zd.close();
+  if (a->xMax < 0) {
+    return;
+  }
+  const long cols[2] = { a->xMin, a->xMax };
+  for (int c = 0; c < (cols[0] == cols[1] ? 1 : 2); c++) {
+    snprintf(path, sizeof(path), "%s/%s/%d/%ld", MAPS_ROOT, a->name, a->zMin, cols[c]);
+    File xd = SD.open(path);
+    if (!xd || !xd.isDirectory()) {
+      if (xd) {
+        xd.close();
+      }
+      continue;
+    }
+    File yf;
+    while ((yf = xd.openNextFile())) {
+      const long y = yf.isDirectory() ? -1 : numericName(baseName(yf.name()), true);
+      if (y >= 0) {
+        if (y < a->yMin) {
+          a->yMin = y;
+        }
+        if (y > a->yMax) {
+          a->yMax = y;
+        }
+      }
+      yf.close();
+    }
+    xd.close();
+  }
+  a->hasExtent = (a->yMax >= 0);
+}
+
+bool MapsApp::areaHolds(int idx, double lat, double lon) const {
+  if (idx < 0 || idx >= areaCount || !areas[idx].hasExtent) {
+    return false;
+  }
+  const MapArea* a = &areas[idx];
+  double wx = 0, wy = 0;
+  mapLatLonToWorld(lat, lon, a->zMin, &wx, &wy);
+  const long tx = (long)(wx / MAP_TILE_PX), ty = (long)(wy / MAP_TILE_PX);
+  return tx >= a->xMin && tx <= a->xMax && ty >= a->yMin && ty <= a->yMax;
+}
+
+void MapsApp::areaCentre(int idx, double* lat, double* lon) const {
+  const MapArea* a = &areas[idx];
+  // The middle of the box, in world pixels at zMin (a tile's far edge is x+1).
+  const double wx = (a->xMin + a->xMax + 1) * 0.5 * MAP_TILE_PX;
+  const double wy = (a->yMin + a->yMax + 1) * 0.5 * MAP_TILE_PX;
+  mapWorldToLatLon(wx, wy, a->zMin, lat, lon);
+}
+
+void MapsApp::areaWhere(int idx, double lat, double lon, char* out, size_t n) const {
+  if (idx < 0 || idx >= areaCount || !areas[idx].hasExtent) {
+    snprintf(out, n, "no tiles found");
+    return;
+  }
+  if (areaHolds(idx, lat, lon)) {
+    snprintf(out, n, "here");
+    return;
+  }
+  double cl = 0, co = 0;
+  areaCentre(idx, &cl, &co);
+  const int32_t a0 = mapDegToI7(lat), o0 = mapDegToI7(lon), a1 = mapDegToI7(cl), o1 = mapDegToI7(co);
+  char d[16];
+  meshPosFmtDist(meshPosDistanceM(a0, o0, a1, o1), d, sizeof(d));
+  snprintf(out, n, "%s %s", d, meshPosCompass8(meshPosBearingDeg(a0, o0, a1, o1)));
 }
 
 // ---------------------------------------------------------------- pins on the card
@@ -1995,7 +2094,16 @@ void MapsApp::setArea(int idx) {
     zoom = a->zMax;
   }
   centreOn(lat, lon);
-  setNote("Map: %s (z%d-%d)", a->name, a->zMin, a->zMax);
+  if (!areaHolds(areaSel, lat, lon)) {
+    /* The one thing an area switch must not leave you guessing: a grey screen under a map
+     * that has tiles somewhere else. "home" on phone 2 is the hand-converted North Bend
+     * tiles, 30 km west of the hunt area, and read as empty (Nick, 2026-09-20). */
+    char where[24];
+    areaWhere(areaSel, lat, lon, where, sizeof(where));
+    setNote("Map: %s (z%d-%d) - its tiles are %s of here", a->name, a->zMin, a->zMax, where);
+  } else {
+    setNote("Map: %s (z%d-%d)", a->name, a->zMin, a->zMax);
+  }
 }
 
 // ---------------------------------------------------------------- screens
@@ -2579,11 +2687,16 @@ void MapsApp::buildRename() {
 void MapsApp::buildAreas() {
   menu = newMenu("No maps on the card");
   char row[72];
+  double lat = 0, lon = 0;
+  mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &lat, &lon);
   for (int i = 0; i < areaCount; i++) {
-    snprintf(row, sizeof(row), "%s  z%d-%d%s", areas[i].name, areas[i].zMin, areas[i].zMax,
-             i == areaSel ? "  *" : "");
+    char where[24];
+    areaWhere(i, lat, lon, where, sizeof(where));
+    snprintf(row, sizeof(row), "%s%s  z%d-%d  %s", areas[i].name, i == areaSel ? " *" : "",
+             areas[i].zMin, areas[i].zMax, where);
     menu->addOption(row, ROW_FIRST + i);
   }
+  menu->addNoteWrapped("Where each map's tiles are, from the crosshair. The bottom side button cycles them.");
 }
 
 void MapsApp::buildConfirmDelete() {
@@ -3768,6 +3881,23 @@ bool mapsConsoleStatus(char* out, size_t cap) {
   w = sayInto(out, cap, w, "maps: %d area(s) under %s", areaN, MAPS_ROOT);
   if (first[0]) {
     w = sayInto(out, cap, w, "; first '%s' z%d-%d", first, zMin, zMax);
+  }
+  if (s_instance) {
+    /* With the app open, its scan knows where each area's tiles ARE (scanAreaExtent). */
+    for (int i = 0; i < s_instance->areaCount; i++) {
+      const MapsApp::MapArea* a = &s_instance->areas[i];
+      if (!a->hasExtent) {
+        w = sayInto(out, cap, w, "\n  %s z%d-%d: no tiles found at z%d", a->name, a->zMin, a->zMax, a->zMin);
+        continue;
+      }
+      double la = 0, lo = 0;
+      s_instance->areaCentre(i, &la, &lo);
+      double n = 0, wl = 0, s2 = 0, e = 0;
+      mapWorldToLatLon((double)a->xMin * MAP_TILE_PX, (double)a->yMin * MAP_TILE_PX, a->zMin, &n, &wl);
+      mapWorldToLatLon((double)(a->xMax + 1) * MAP_TILE_PX, (double)(a->yMax + 1) * MAP_TILE_PX, a->zMin, &s2, &e);
+      w = sayInto(out, cap, w, "\n  %s z%d-%d: lat %.3f..%.3f lon %.3f..%.3f, centre %.4f,%.4f%s",
+                  a->name, a->zMin, a->zMax, s2, n, wl, e, la, lo, i == s_instance->areaSel ? " (shown)" : "");
+    }
   }
 
   Preferences p;
