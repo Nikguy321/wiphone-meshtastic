@@ -471,8 +471,13 @@ bool uiKeyStillHeld(uint32_t mask) {
   if (!mask) {
     return false;
   }
+  /* ⚠ A KEY BEING POLLED AS HELD IS A KEY IN USE. gLastKeyMs is what holds the mesh DB save
+   * (0.6-1.5 s, blocking) off while the phone is being touched, and it is stamped when a key
+   * is DEQUEUED — a hold dequeues nothing after its press, so three seconds into a sweep the
+   * save landed under the finger (review, 2026-09-19). Every "held" answer stamps it. */
   if ((s_benchHeldMask & mask) == mask) {
     if ((int32_t)(s_benchHeldUntil - millis()) > 0) {
+      gLastKeyMs = millis();
       return true;
     }
     s_benchHeldMask = 0;
@@ -481,7 +486,11 @@ bool uiKeyStillHeld(uint32_t mask) {
     return false;
   }
   const uint8_t b = __builtin_ctz(mask);
-  return millis() - keyLastSeenMs[b] < 350u;
+  if (millis() - keyLastSeenMs[b] >= 350u) {
+    return false;
+  }
+  gLastKeyMs = millis();
+  return true;
 }
 void uiKeyBenchHold(uint32_t mask, uint32_t ms) {
   s_benchHeldMask = mask;
@@ -2413,8 +2422,25 @@ void smsMirrorNotifyArrival() {
 /* The bench's way in: serial `notify` runs the mesh arrival's announcement — same motor write,
  * same pop, same stamps and the same teardown — without a second phone on the air; `notify sip`
  * runs the text path's. Non-static for serial_cmd.cpp. */
-void notifyBenchArrival(bool sip) {
+bool notifyBenchArrival(bool sip) {
+  if (gGbcActive) {
+    return false;                        // see the pop gate: I2S under the emulator's feet
+  }
   notifyMessageArrived(sip ? gui.state.notifySipMode : gui.state.notifyMeshMode);
+  return true;
+}
+
+/* A pop in flight is finished NOW — for the Game Boy, whose startGame() snapshots the audio
+ * routing and reconfigures the device: a chirp that started on the ROM picker would hand it
+ * the pop's forced loudspeaker as "the phone's route", and the teardown's restore() would
+ * then land mid-game (review, 2026-09-19). Same teardown as the loop's, just early. */
+void notifyPopFinishNow() {
+  if (meshPopPlaying) {
+    audio->ceasePlayback();
+    audio->restore();
+    meshPopPlaying = false;
+    log_e("NOTIFY: pop finished early (a game is starting)");
+  }
 }
 
 /* One motor write, checked. allDigitalWrite() on this board is an SX1509 read-modify-write
@@ -2491,7 +2517,11 @@ static void notifyMessageArrived(uint8_t mode) {
      * restarting it mid-play is how the audio device gets left in the wrong mode (see
      * Audio::preserve()). A burst therefore gets one sound and one long buzz, which is the
      * right shape: you do not want five chirps, but you do want to feel every arrival. */
-    if (!(callBusy || gui.state.ringing || meshPopPlaying)) {
+    /* ...and never while the emulator owns the device: playPop() reinstalls I2S for its
+     * 8 kHz mono, under the emu thread's blocking i2s_write — the game goes silent for good
+     * (review, 2026-09-19). The mesh block is skipped while gGbcActive, but the SIP text, the
+     * mirror and serial `notify` are not; the buzz still happens, only the chirp is held. */
+    if (!(callBusy || gui.state.ringing || meshPopPlaying || gGbcActive)) {
       /* Timed, because this call used to hide a SPIFFS open measured at 1.2-1.6 s — with
        * the motor already running, so a chirp made the buzz a second long. The pop now comes
        * from pop_pcm[] in flash and the file is only the fallback; the line says which, and
@@ -2505,6 +2535,14 @@ static void notifyMessageArrived(uint8_t mode) {
         meshPopStopMs  = notifyPopStopMs(sizeof(pop_pcm), NOTIFY_POP_RATE_HZ, NOTIFY_POP_MARGIN_MS,
                                          !fromFlash);
         meshPopStartMs = t1;             // AFTER the start, for the motor stamp's reason
+        /* ⚠ HAND THE FIRST CHUNK TO THE DMA NOW (review, 2026-09-19). playPop() only arms
+         * the source; the samples reach I2S in audio->loop() at the BOTTOM of the pass. The
+         * text paths (SIP, the mirror, serial `notify`) announce ABOVE the mesh block, so a
+         * DB save or a LoRa airtime in the same pass could run the stop timer out before a
+         * single sample was queued — a buzz with no chirp, deterministically. One pump here
+         * queues the whole 300 ms chunk into the 512 ms DMA with zero-tick writes; a stall
+         * after that only ever cuts the silence padding. */
+        audio->loop();
         log_e("NOTIFY: pop start took %lu ms (%s, stop at %lu ms)", (unsigned long)(t1 - t0),
               fromFlash ? "flash" : "SPIFFS fallback", (unsigned long)meshPopStopMs);
       } else {

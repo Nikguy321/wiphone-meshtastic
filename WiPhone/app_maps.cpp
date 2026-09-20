@@ -40,11 +40,15 @@ extern bool gGpsNmea;         // WiPhone.ino: is the NMEA receiver switched on a
 // A pan that arrives within this of the last one counts as "still holding the key".
 #define MAP_PAN_RUN_MS  400
 /* Hold-to-scroll: a press held this long starts repeating, then a repeat every
- * MAP_PAN_HOLD_STEP_MS through the same accelerator (mapPanStep) a run of taps climbs. 300 ms
+ * MAP_PAN_HOLD_STEP_MS through the same accelerator (mapPanStep) a run of taps climbs. 400 ms
  * keeps a deliberate tap a single nudge; 100 ms is just under the chip's ~109 ms heartbeat, so
  * the poll never misses a beat and the release is seen within one step. */
-#define MAP_PAN_HOLD_DELAY_MS  300u
+#define MAP_PAN_HOLD_DELAY_MS  400u
 #define MAP_PAN_HOLD_STEP_MS   100u
+/* ⚠ The delay must be LONGER than uiKeyStillHeld()'s 350 ms staleness window: at 300 ms a
+ * tap whose release was lost (two keys down, or any release the keypad's stale sweep exists
+ * for) still read as "held" at the first repeat and the map took one phantom step — off the
+ * pin the tap had just snapped to (review, 2026-09-19). */
 
 static const char MAPS_NVS[] = "maps";
 
@@ -164,6 +168,7 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   panHoldMask = 0;
   panHoldSinceMs = 0;
   panHoldDx = panHoldDy = 0;
+  panHoldRan = false;
   snapPins = true;
   labelCount = 0;
   listCount = 0;
@@ -1680,6 +1685,8 @@ int MapsApp::pinAhead(int dx, int dy, int reach, int corridor, bool cone, int sk
  *     line of travel, no farther than the step plus that radius) stops the map ON it.
  * Either way the crosshair ends exactly on the pin, so OK opens it and the strip names it. */
 bool MapsApp::panOnce(int dx, int dy, int step, bool discrete) {
+  /* Returns true when the press SNAPPED to a pin (the caller then seeds no run); a plain
+   * pan or a refused one returns false. The map's edge is reported on the strip either way. */
   if (snapPins && discrete && pins && pinCount > 0) {
     const int on = pinUnderCrosshair();          // projects pinVx/pinVy as a side effect
     const int to = (on >= 0) ? pinAhead(dx, dy, dx ? vpW : vpH, 0, true, on)
@@ -1694,9 +1701,8 @@ bool MapsApp::panOnce(int dx, int dy, int step, bool discrete) {
   if (!mapPanView(zoom, vpW, vpH, dx * step, dy * step, &cx, &cy) && dy) {
     /* Only north/south can refuse: longitude wraps, so a sideways press always moves. */
     setNote("That is as far %s as the map goes", dy < 0 ? "north" : "south");
-    return false;
   }
-  return true;
+  return false;
 }
 
 bool MapsApp::dropPin() {
@@ -2674,8 +2680,17 @@ appEventResult MapsApp::onMapKey(EventType event) {
     panDir = dir;
     panLastMs = now;
     /* A press is discrete — it may stop on a pin — only when it starts a run. Once the run
-     * is going (a second tap inside 400 ms, or the hold repeats below) the map sweeps. */
-    panOnce(dx, dy, mapPanStep(panRun), panRun == 0);
+     * is going (a second tap inside 400 ms, or the hold repeats below) the map sweeps.
+     * ⚠ A press that SNAPPED seeds no run: "next pin, next pin" at a normal two-a-second
+     * would otherwise make the second tap a run member that sweeps 24 px off the pin the
+     * first had just found (review, 2026-09-19). panLastMs = 0 makes the next tap discrete
+     * again; the hold's first repeat is gated on panHoldSinceMs, so a hold after a snap is
+     * unaffected. */
+    panHoldRan = false;
+    if (panOnce(dx, dy, mapPanStep(panRun), panRun == 0)) {
+      panRun = 0;
+      panLastMs = 0;
+    }
     /* Remember which key this was, so the timer can keep scrolling while it stays down.
      * Nick, 2026-09-19: "holding the scroll button doesn't allow it to keep scrolling and
      * speeding up, it just does a small jump and stops" — the keypad path hides the hold
@@ -2798,6 +2813,15 @@ appEventResult MapsApp::processEvent(EventType event) {
     if (panHoldMask) {
       if (appState != MAPS_VIEW || !uiKeyStillHeld(panHoldMask)) {
         panHoldMask = 0;                 // the finger came off (or a lost release aged out)
+        if (panHoldRan) {
+          /* A sweep that ENDED ends the run too: a corrective tap within 400 ms of letting
+           * go used to inherit the sweep's 96 px step and could never snap (review,
+           * 2026-09-19). Taps that never became a hold keep their accelerator. */
+          panRun = 0;
+          panDir = 0;
+          panLastMs = 0;
+          panHoldRan = false;
+        }
         armTimer();                      // stand the 100 ms tick down unless tiles need it
       } else {
         const uint32_t now = millis();
@@ -2806,6 +2830,7 @@ appEventResult MapsApp::processEvent(EventType event) {
             panRun++;                    // speeding up: the same curve a run of taps climbs
           }
           panLastMs = now;
+          panHoldRan = true;
           panOnce(panHoldDx, panHoldDy, mapPanStep(panRun), false);
           return REDRAW_SCREEN;
         }

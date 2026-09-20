@@ -215,6 +215,7 @@ protected:
   uint32_t panHoldMask;     // the arrow (or digit) physically down, 0 = not holding
   uint32_t panHoldSinceMs;  // when the press landed; the first repeat waits MAP_PAN_HOLD_DELAY_MS
   int      panHoldDx, panHoldDy;
+  bool     panHoldRan;      // the hold actually repeated: its end ends the run too
   /* Snap to pins (2026-09-19, Maps menu toggle, NVS "snap"). A single press that would land on
    * or fly past a pin stops ON it; a press while sitting on a pin jumps to the next pin that
    * way, if one is on screen. Hold-scrolling never snaps. */
@@ -326,7 +327,7 @@ protected:
   void  centreOnMe();
   void  centreOn(double lat, double lon);
   int   pinUnderCrosshair();
-  bool  panOnce(int dx, int dy, int step, bool discrete);   // one pan (or snap/jump); false = the map's edge
+  bool  panOnce(int dx, int dy, int step, bool discrete);   // one pan or snap; true = it SNAPPED to a pin
   int   pinAhead(int dx, int dy, int reach, int corridor, bool cone, int skip);  // nearest pin that way, or -1
   void  armTimer();
   bool  dropPin();

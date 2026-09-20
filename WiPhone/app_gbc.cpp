@@ -39,6 +39,7 @@ extern uint32_t keypadState;
 extern Audio* audio;
 // When true, the main loop stops polling the mesh/LoRa radio (frees the SPI bus).
 extern volatile bool gGbcActive;
+extern void notifyPopFinishNow();   // WiPhone.ino: end a notification chirp before the device is borrowed
 // Sticky press mask so fast taps between the emulator's frame-rate polls survive.
 extern volatile uint32_t gGbcKeyLatch;
 
@@ -263,22 +264,30 @@ void GbcApp::startGame() {
      * head; for a game held at arm's length it is the tiny one-ear speaker, and the sound
      * read as missing. Nick, 2026-09-19: the sound plays through the earpiece.
      *
-     * Headphones win when the jack is occupied, as in music_player.cpp. setHeadphones() —
-     * the jack interrupt, WiPhone.ino — reconfigures the LIVE codec by itself, so with the
-     * loudspeaker flag set, plugging or unplugging mid-game routes correctly with nothing
-     * more from here. Volume needs nothing either: setVolumes() already clamps the
-     * loudspeaker to MaxLoudspeakerVolume, so F1/F2 (adjustVolume) stay safe on it.
+     * Headphones still win: the precedence lives in Audio::start() and codecReconfig()
+     * (headphones > loudspeaker > earpiece, amplifier only for !headphones && loudspeaker),
+     * NOT in a guard here. ⚠ It was a guard here first — `if (!getHeadphones())` — and that
+     * meant a game STARTED with headphones in never set the flag, so pulling the plug
+     * mid-game dropped it to the earpiece: the bug being fixed, reached by the jack (review,
+     * 2026-09-19). Set unconditionally, the flag is inert while the jack is occupied and an
+     * unplug goes to the loudspeaker. setHeadphones() — the jack interrupt, WiPhone.ino —
+     * reconfigures the LIVE codec by itself, so nothing more is needed from here. Volume
+     * needs nothing either: setVolumes() already clamps the loudspeaker to
+     * MaxLoudspeakerVolume, so F1/F2 (adjustVolume) stay safe on it.
+     *
+     * A notification chirp still in flight is finished FIRST: it forces the loudspeaker for
+     * its 300 ms, and a snapshot taken inside that window would hand the destructor the
+     * pop's route as the phone's — and the pop's own teardown would restore() mid-game.
      *
      * Saved, and PUT BACK in the destructor: a borrower leaves the device as it found it
      * (music_player's restoreCallVolume and Audio::preserve/restore, for the same reason),
      * so whatever starts the codec next inherits the phone's route, not the game's. Its
      * own flag rather than soundOn: the emu thread clears soundOn when I2S starves, and
      * start() can fail, and the route has to go back on both of those paths. */
+    notifyPopFinishNow();
     savedLoudspeaker = audio->isLoudspeaker();
     routeSaved = true;
-    if (!audio->getHeadphones()) {
-      audio->chooseSpeaker(true);
-    }
+    audio->chooseSpeaker(true);
 
     soundOn = audio->start();
     audioStarve = 0;

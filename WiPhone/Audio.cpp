@@ -676,6 +676,11 @@ void Audio::ceasePlayback() {
   }
   this->playback = Playback::Nothing;
   this->pcmMem = nullptr;                   // the next LocalPcm reads its FILE unless told otherwise
+  /* The memory pop latches playbackEof when it runs out, and nothing else cleared it: a
+   * ringtone whose open then FAILED read isEof() true every pass and called rewind() — a
+   * SPIFFS open per pass — while resetting the vibro state machine so the motor never
+   * buzzed (review, 2026-09-19). A source that is gone has no end to report. */
+  this->playbackEof = false;
   i2s_zero_dma_buffer((i2s_port_t)i2s_num);
   memset(this->playDec, 0, sizeof(this->playDec));
   this->playDecFramesLeft = 0;

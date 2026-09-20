@@ -153,7 +153,7 @@ d-pad works well, so please only edit its behavior for the maps app."*
   map's accelerator, which counts presses arriving within 400 ms, only ever saw one. Nothing on
   that path changes. The keypad reader now merely *answers a question*, `uiKeyStillHeld(mask)`
   (the key's down bit AND a heartbeat within 350 ms, so a lost release reads as up), and the
-  map polls it on its own 50 ms timer: after 300 ms it pans again every 100 ms, climbing the
+  map polls it on its own 50 ms timer: after 400 ms it pans again every 100 ms, climbing the
   same 24/48/72/96 px curve a run of taps climbs. Any other key ends the hold. Every other
   app is untouched.
 - **Snap to pins** (Maps menu, persisted, on by default). A *discrete* press — the first of a

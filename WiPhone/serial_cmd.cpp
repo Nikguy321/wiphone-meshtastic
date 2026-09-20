@@ -442,9 +442,12 @@ static void run(char* line) {
    * would print. It cannot reproduce the DB-save stall that made the real path lie — that
    * still needs a message landing while the phone is idle. */
   if (!strcasecmp(line, "notify") || !strcasecmp(line, "notify sip")) {
-    extern void notifyBenchArrival(bool sip);
+    extern bool notifyBenchArrival(bool sip);
     const bool sip = (line[6] != '\0');
-    notifyBenchArrival(sip);
+    if (!notifyBenchArrival(sip)) {
+      say("notify: refused - the emulator owns the audio device (quit the game first)\n");
+      return;
+    }
     say("notify: %s arrival fired - watch for NOTIFY: buzz / pop start / buzz off / pop stopped\n",
         sip ? "text" : "mesh");
     return;
@@ -1695,7 +1698,8 @@ static void run(char* line) {
     if (gui.openAppFromConsole(app)) {
       say("open: %s\n", arg[0] ? arg : "clock");
     } else {
-      say("open: refused - a call is up\n");
+      extern volatile bool gGbcActive;   // a game cannot coexist with a call: startGame turns WiFi off
+      say("open: refused - %s\n", gGbcActive ? "a game is running (END, then Quit)" : "a call is up");
     }
     return;
   }
