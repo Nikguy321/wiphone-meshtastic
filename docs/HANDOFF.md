@@ -12,8 +12,9 @@ all in — the destructor-deletes-the-blit-task-mid-write hang, the bounded park
 past the Fill frame, the state keyed by file name only, NVS at power-off), and proven on BOTH
 phones (phone 1 on an earlier test build, phone 2 on the final). `CHANGELOG.md` 0.9.67 has the
 design, the numbers and the proof lines. **PUSHED (`f5e9103`) AND PUBLISHED at Nick's ask, 2026-09-19 ~21:30: the live flasher serves
-0.9.67 and its image sha matches the stage byte for byte (`2386808a…`).** Phone 2 runs it;
-phone 1 is OFF (see below) and owed the flash.
+0.9.67 and its image sha matches the stage byte for byte (`2386808a…`).** BOTH PHONES RUN IT
+(phone 1 flashed ~21:45 once Nick pressed its button; its earlier `uCity.auto` was adopted into
+the cart-id name and resumed, 350 ms; its Screen pref put back to Fill after my bench toggle).
 
 Shape: two files per ROM under `/gbc/`, named `<clean>-<cartid>.auto` (resume point, written by
 Quit and by both power-off paths) and `…state` (the manual bookmark); `Clear state` (asks) wipes
@@ -27,9 +28,8 @@ down three seconds into a launch on the bench (the log showed the power-off path
 saved the game first). `SX1509::digitalRead()` answers LOW for a pin it could not read; the power
 button is active-LOW; `gpioExtenderServiceInterrupt()` latched it as pressed; 2.5 s later, with no
 release edge to clear it, the hold handler pulled the latch. Now `readPinChecked()` + a
-confirming re-read before power-off (WiPhone.ino, `POWER:` log lines). ⚠ **Phone 1 is OFF as a
-result until its button is pressed; it still runs the pre-review test build and owes a flash of
-the final binary.**
+confirming re-read before power-off (WiPhone.ino, `POWER:` log lines). (Phone 1 was off until Nick
+pressed its button; it now runs the published 0.9.67.)
 
 ⚠ Bench notes for the Game Boy: `shot` shows NEITHER the game NOR the picker (both draw direct to
 the LCD) — `gbc` (status) and the `GBC:` log lines are the eyes; the picker reopens on row 2
