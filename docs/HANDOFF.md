@@ -1,8 +1,19 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-19 night)
+## ▶▶ STATE NOW (header refreshed 2026-09-20 morning)
 
 Read this first; everything below it is narrative.
+
+🗺️ **2026-09-20 MORNING: 0.9.68 — THE DOWNLOAD SCREEN WRAPS; A REFUSED TILE WRITE IS RETRIED.**
+Nick: *"On the maps download screen there is still text that can get cut off... the status of
+the previous download attempt and the file size"* and *"something about card refused... idk
+what that means."* `MenuWidget::addNoteWrapped()` (breaking in `menu_wrap.h`, `test_wrap` 42
+checks) — every note on that screen and the Maps app's other variable notes wrap; the fetcher's
+last error shows as `Last problem: …` + "Start again fetches only the missing tiles"; a short
+`f.write()` on a tile ("card refused the write" — one SD busy timeout; phone 2 lost 4 of 12,853
+tiles to it) is tried once more before it counts. **PUSHED (`c35cd4b`) AND PUBLISHED, live sha
+`d4c0706e…` verified; BOTH PHONES ON 0.9.68.** Bench note: on the map, the left soft key is
+`key select` (opens the menu); Back from Help lands on the MENU, not the map.
 
 🎮 **2026-09-19 NIGHT: 0.9.67 — THE GAME BOY RESUMES WHERE YOU LEFT IT.** Nick: *"save state
 upon exit and open last state upon entrance. That's how covey does it. I still want to be able to
