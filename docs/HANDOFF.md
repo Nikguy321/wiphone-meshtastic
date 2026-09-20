@@ -16,7 +16,12 @@ nudge (one tap steps clear) and radius ≥ nudge/2·√2 (any marker reachable).
 (phone 2 was unplugged) with a bench pin, removed after — see CHANGELOG 0.9.69. 🛑 A 32-bit `long` overflow in `snapNear`'s
 distance (a far node "within 10 px") was caught on phone 2 before shipping — the pin picker
 already guards it; any new distance test on view coordinates must reject BY AXIS before it
-squares. **PUSHED AND PUBLISHED at Nick's ask; BOTH PHONES ON IT.** Bench notes: the `maps hold` tap is dequeued
+squares. **PUSHED (`c118cd0`) AND PUBLISHED at Nick's ask, live sha `09dc8239…` verified; BOTH PHONES ON IT.**
+⚠ **`ver`'s build stamp does NOT tell two builds of one version apart**: `__DATE__/__TIME__`
+are baked into the ONE translation unit that prints them, and an incremental `pio run` that
+recompiles only app_maps.cpp relinks with the old stamp — both phones said `13:43:13` after
+the 15:0x rebuild. Proof that a phone runs a given binary is esptool's `Hash of data verified`
+line (flash.sh prints it — do not `tail -1` it away) or the behaviour itself. Bench notes: the `maps hold` tap is dequeued
 0-200 ms after the command, so a hold's repeat count is ±1 — plan release-snap tests so
 either count lands within the radius; OK off a marker DROPS A PIN (the Rename dialog), so
 screenshot before any OK on the map.
