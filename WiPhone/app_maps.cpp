@@ -1645,56 +1645,179 @@ int MapsApp::pinUnderCrosshair() {
   return mapPinPickNearest(pinVx, pinVy, pinCount, vpW / 2, vpH / 2, MAPS_PICK_RADIUS);
 }
 
-/* The nearest pin AHEAD of the crosshair in the direction (dx, dy): within `reach` pixels
- * along that axis, and either inside a 45° cone (`cone`: no farther off the line than it is
- * along it) or within `corridor` pixels either side of the line. -1 if none. pinVx/pinVy
- * must be current (pinUnderCrosshair() projects them). Ties on distance go to the pin nearer
- * the line of travel, so of two pins the same way along, the one you would have hit wins. */
-int MapsApp::pinAhead(int dx, int dy, int reach, int corridor, bool cone, int skip) {
-  int best = -1, bestAlong = 0, bestAcross = 0;
-  for (int i = 0; i < pinCount; i++) {
-    if (i == skip) {
-      continue;                          // the pin the crosshair already sits near
-    }
-    const int ox = pinVx[i] - vpW / 2;
-    const int oy = pinVy[i] - vpH / 2;
-    const int along  = dx ? ox * dx : oy * dy;
-    const int across = dx ? (oy < 0 ? -oy : oy) : (ox < 0 ? -ox : ox);
-    if (along <= 0 || along > reach || across > (cone ? along : corridor)) {
-      continue;
-    }
-    if (best < 0 || along < bestAlong || (along == bestAlong && across < bestAcross)) {
-      best = i;
-      bestAlong = along;
-      bestAcross = across;
-    }
+/* ── THE MARKERS THE ARROWS CAN STOP ON ──────────────────────────────────────────────────
+ * Three kinds, exactly the set the overlay draws: your pins, places heard from the mesh
+ * (waypoints — the green gems) and other nodes with a position (cyan, grey when stale). One
+ * enumerator feeds both searches below, so the arrows and the screen can never disagree
+ * about what is there. Filters are the overlay's own (drawOverlays): a place needs an id, a
+ * node needs a heard position and must not be this phone. Nick, 2026-09-19: "make it snap
+ * to places in the mesh and nodes with locations too". */
+#define SNAP_PIN    0
+#define SNAP_PLACE  1
+#define SNAP_NODE   2
+
+int MapsApp::snapCount(int kind) {
+  switch (kind) {
+  case SNAP_PIN:   return pins ? pinCount : 0;
+  case SNAP_PLACE: return meshService.getWaypointCount();
+  default:         return meshService.getNodeCount();
   }
-  return best;
 }
 
-/* One press (or one hold repeat) of an arrow. Returns false only when the map refused to
- * move — the northern or southern edge; longitude wraps, so sideways always moves.
+/* Marker `idx` of `kind` in view coordinates (which may lie off the screen — the corridor
+ * search wants the ones just past the edge too). False when the slot is empty or filtered. */
+bool MapsApp::snapMarker(int kind, int idx, int* vx, int* vy) {
+  int32_t la = 0, lo = 0;
+  if (kind == SNAP_PIN) {
+    if (!pins || idx < 0 || idx >= pinCount) {
+      return false;
+    }
+    la = pins[idx].latI;
+    lo = pins[idx].lonI;
+  } else if (kind == SNAP_PLACE) {
+    const MeshWaypoint* w = meshService.getWaypoint(idx);
+    if (!w || !w->id) {
+      return false;
+    }
+    la = w->latI;
+    lo = w->lonI;
+  } else {
+    const MeshNode* nd = meshService.getNode(idx);
+    if (!nd || !nd->nodeNum || nd->nodeNum == meshService.getMyNodeNum() || !nd->posHeardMs) {
+      return false;
+    }
+    la = nd->latI;
+    lo = nd->lonI;
+  }
+  mapLatLonToView(zoom, cx, cy, vpW, vpH, mapI7ToDeg(la), mapI7ToDeg(lo), vx, vy);
+  return true;
+}
+
+/* The nearest marker AHEAD of the crosshair in the direction (dx, dy): within `reach` pixels
+ * along that axis, and either inside a 45° cone (`cone`: no farther off the line than it is
+ * along it) or within `corridor` pixels either side of the line. Ties on distance go to the
+ * marker nearer the line of travel, so of two the same way along, the one you would have
+ * hit wins. `skipKind`/`skipIdx` is the marker the crosshair already sits on. */
+bool MapsApp::snapAhead(int dx, int dy, int reach, int corridor, bool cone,
+                        int skipKind, int skipIdx, MapsSnapHit* out) {
+  bool found = false;
+  int bestAlong = 0, bestAcross = 0;
+  for (int kind = SNAP_PIN; kind <= SNAP_NODE; kind++) {
+    const int n = snapCount(kind);
+    for (int i = 0; i < n; i++) {
+      if (kind == skipKind && i == skipIdx) {
+        continue;
+      }
+      int vx = 0, vy = 0;
+      if (!snapMarker(kind, i, &vx, &vy)) {
+        continue;
+      }
+      const int ox = vx - vpW / 2;
+      const int oy = vy - vpH / 2;
+      const int along  = dx ? ox * dx : oy * dy;
+      const int across = dx ? (oy < 0 ? -oy : oy) : (ox < 0 ? -ox : ox);
+      if (along <= 0 || along > reach || across > (cone ? along : corridor)) {
+        continue;
+      }
+      if (!found || along < bestAlong || (along == bestAlong && across < bestAcross)) {
+        found = true;
+        bestAlong = along;
+        bestAcross = across;
+        out->kind = kind;
+        out->idx = i;
+      }
+    }
+  }
+  return found;
+}
+
+/* The marker under the crosshair — the nearest of any kind within the pick radius. Pins
+ * first at equal distance, since a pin dropped ON a node (the usual "camp" case) is the
+ * thing OK would open. */
+bool MapsApp::snapUnder(MapsSnapHit* out) {
+  bool found = false;
+  long bestD2 = 0;
+  for (int kind = SNAP_PIN; kind <= SNAP_NODE; kind++) {
+    const int n = snapCount(kind);
+    for (int i = 0; i < n; i++) {
+      int vx = 0, vy = 0;
+      if (!snapMarker(kind, i, &vx, &vy)) {
+        continue;
+      }
+      const long ox = vx - vpW / 2, oy = vy - vpH / 2;
+      const long d2 = ox * ox + oy * oy;
+      if (d2 > (long)MAPS_PICK_RADIUS * MAPS_PICK_RADIUS) {
+        continue;
+      }
+      if (!found || d2 < bestD2) {
+        found = true;
+        bestD2 = d2;
+        out->kind = kind;
+        out->idx = i;
+      }
+    }
+  }
+  return found;
+}
+
+/* Land on a marker: the crosshair exactly on it, the strip saying what it is. A pin becomes
+ * the selected pin (7/9 step from it, OK opens it); a place or a node is named — OK there
+ * drops a pin, as it does anywhere. */
+void MapsApp::snapTo(const MapsSnapHit& h) {
+  if (h.kind == SNAP_PIN) {
+    pinSel = h.idx;
+    centreOn(mapI7ToDeg(pins[h.idx].latI), mapI7ToDeg(pins[h.idx].lonI));
+    setNote("%s (%d of %d)", pins[h.idx].name, h.idx + 1, pinCount);
+  } else if (h.kind == SNAP_PLACE) {
+    const MeshWaypoint* w = meshService.getWaypoint(h.idx);
+    if (!w) {
+      return;
+    }
+    centreOn(mapI7ToDeg(w->latI), mapI7ToDeg(w->lonI));
+    setNote("%s (place from the mesh)", w->name[0] ? w->name : "unnamed");
+  } else {
+    const MeshNode* nd = meshService.getNode(h.idx);
+    if (!nd) {
+      return;
+    }
+    centreOn(mapI7ToDeg(nd->latI), mapI7ToDeg(nd->lonI));
+    const uint32_t ageMs = millis() - nd->posHeardMs;
+    if (ageMs > MAP_STALE_MS) {
+      const unsigned mins = (unsigned)(ageMs / 60000u);
+      if (mins >= 60) {
+        setNote("%s (node, %uh%02um ago)", nd->name[0] ? nd->name : "?", mins / 60, mins % 60);
+      } else {
+        setNote("%s (node, %um ago)", nd->name[0] ? nd->name : "?", mins);
+      }
+    } else {
+      setNote("%s (node)", nd->name[0] ? nd->name : "?");
+    }
+  }
+}
+
+/* One press (or one hold repeat) of an arrow.
  *
  * Nick, 2026-09-19: "it's hard to pan over an existing pin. It jumps too far, so maybe the
  * map center can either snap to a pin when very near, and if there are many pins there it
- * can kinda jump between them as the arrow pads are pressed."  So, with Snap to pins on and
- * for a DISCRETE press (the first of a run — a sweep never snaps):
- *   - sitting on a pin: the nearest pin that way within the screen, inside a 45° cone, is
- *     the destination — the arrows walk the pins;
- *   - otherwise: a pin the step would land on or fly past (within the pick radius of the
+ * can kinda jump between them as the arrow pads are pressed" — and, an hour later, "make it
+ * snap to places in the mesh and nodes with locations too". So, with Snap on and for a
+ * DISCRETE press (the first of a run — a sweep never snaps), over pins, places AND nodes:
+ *   - sitting on a marker: the nearest marker that way within the screen, inside a 45°
+ *     cone, is the destination — the arrows walk them;
+ *   - otherwise: a marker the step would land on or fly past (within the pick radius of the
  *     line of travel, no farther than the step plus that radius) stops the map ON it.
- * Either way the crosshair ends exactly on the pin, so OK opens it and the strip names it. */
+ * Either way the crosshair ends exactly on it and the strip says what it is. */
 bool MapsApp::panOnce(int dx, int dy, int step, bool discrete) {
-  /* Returns true when the press SNAPPED to a pin (the caller then seeds no run); a plain
+  /* Returns true when the press SNAPPED to a marker (the caller then seeds no run); a plain
    * pan or a refused one returns false. The map's edge is reported on the strip either way. */
-  if (snapPins && discrete && pins && pinCount > 0) {
-    const int on = pinUnderCrosshair();          // projects pinVx/pinVy as a side effect
-    const int to = (on >= 0) ? pinAhead(dx, dy, dx ? vpW : vpH, 0, true, on)
-                             : pinAhead(dx, dy, step + MAPS_PICK_RADIUS, MAPS_PICK_RADIUS, false, -1);
-    if (to >= 0) {
-      pinSel = to;
-      centreOn(mapI7ToDeg(pins[to].latI), mapI7ToDeg(pins[to].lonI));
-      setNote("%s (%d of %d)", pins[to].name, to + 1, pinCount);
+  if (snapPins && discrete) {
+    MapsSnapHit on, to;
+    const bool onSome = snapUnder(&on);
+    const bool found = onSome
+                       ? snapAhead(dx, dy, dx ? vpW : vpH, 0, true, on.kind, on.idx, &to)
+                       : snapAhead(dx, dy, step + MAPS_PICK_RADIUS, MAPS_PICK_RADIUS, false, -1, -1, &to);
+    if (found) {
+      snapTo(to);
       return true;
     }
   }
@@ -2028,7 +2151,7 @@ void MapsApp::buildMenu() {
   menu->addOption("Centre on me", ROW_M_ME);
   menu->addOption(followMe ? "Follow me: ON (scroll stops it)" : "Follow me: off", ROW_M_FOLLOW);
   menu->addOption(measuring ? "Stop measuring" : "Measure from here...", ROW_M_MEASURE);
-  menu->addOption(snapPins ? "Snap to pins: ON" : "Snap to pins: off", ROW_M_SNAP);
+  menu->addOption(snapPins ? "Snap to markers: ON" : "Snap to markers: off", ROW_M_SNAP);
   menu->addOption(tileFetchActive() ? "Downloading maps..." : "Download maps...", ROW_M_DOWNLOAD);
   if (areaCount > 1) {
     snprintf(row, sizeof(row), "Map area: %s", areaSel >= 0 ? areas[areaSel].name : "-");
@@ -2455,9 +2578,9 @@ void MapsApp::buildConfirmDelete() {
  * "Hold an arrow..." lost its H and its last digit), which reads as a typo, not a cut. */
 static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "Hold an arrow: it speeds up.", WHITE },
-  { "A tap stops on a pin in its way;", WHITE },
-  { "  on a pin, taps walk the pins", WHITE },
-  { "  (Snap to pins, in the menu).", WHITE },
+  { "A tap stops on a pin, place or", WHITE },
+  { "  node in its way; on one, taps", WHITE },
+  { "  walk them (Snap, in the menu).", WHITE },
   { "2 4 6 8 scroll too, for gloves.", WHITE },
   { "5 is OK. 0 is centre on me.", WHITE },
   { "", WHITE },
@@ -2941,8 +3064,8 @@ appEventResult MapsApp::processEvent(EventType event) {
           p.putInt("snap", snapPins ? 1 : 0);
           p.end();
         }
-        setNote(snapPins ? "Arrows stop on pins and jump between them"
-                         : "Arrows scroll straight past pins");
+        setNote(snapPins ? "Arrows stop on pins, places and nodes"
+                         : "Arrows scroll straight past them");
         enterState(MAPS_VIEW);
         return REDRAW_ALL;
       }

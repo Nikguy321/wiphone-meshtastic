@@ -156,11 +156,16 @@ d-pad works well, so please only edit its behavior for the maps app."*
   map polls it on its own 50 ms timer: after 400 ms it pans again every 100 ms, climbing the
   same 24/48/72/96 px curve a run of taps climbs. Any other key ends the hold. Every other
   app is untouched.
-- **Snap to pins** (Maps menu, persisted, on by default). A *discrete* press — the first of a
-  run, never a hold repeat — that would land on or fly past a pin (within the 14 px pick
-  radius of the line of travel, no farther than the step plus that radius) stops **on** it; a
-  press while sitting on a pin jumps to the nearest pin that way inside a 45° cone on screen.
-  The crosshair ends exactly on the pin, the strip names it (`Pin 3 (3 of 4)`), OK opens it.
+- **Snap to markers** (Maps menu, persisted, on by default) — pins, **places from the mesh
+  and nodes with a position** too (*"make it snap to places in the mesh and nodes with
+  locations too"*), exactly the set the overlay draws, through one enumerator so the arrows
+  and the screen cannot disagree. A *discrete* press — the first of a run, never a hold
+  repeat — that would land on or fly past a marker (within the 14 px pick radius of the line
+  of travel, no farther than the step plus that radius) stops **on** it; a press while sitting
+  on one jumps to the nearest marker that way inside a 45° cone on screen. The crosshair ends
+  exactly on it and the strip says what it is: `Pin 3 (3 of 4)`, `hunt camp (place from the
+  mesh)`, `Nick H (node, 12m ago)`. OK on a pin opens it; OK on a place or node drops a pin
+  there, as anywhere.
 - Bench: `maps hold up|down|left|right <ms>` presses the arrow and answers "held" for that long.
 
 Seen on phone 2: two pins three nudges apart — LEFT from Pin 4 lands on Pin 3, RIGHT lands

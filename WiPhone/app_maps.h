@@ -111,6 +111,14 @@ bool mapsSaveOpenView();
 bool mapsConsoleStatus(char* out, size_t cap);
 bool mapsConsoleGoto(double lat, double lon, int z, const char* area, char* why, size_t whyCap);
 
+/* One marker the arrows can stop on: which kind (SNAP_PIN / SNAP_PLACE / SNAP_NODE) and its
+ * index in that kind's table. Indices are only good for the press they were found in — the
+ * mesh tables compact. */
+struct MapsSnapHit {
+  int kind;
+  int idx;
+};
+
 class MapsApp : public WindowedApp {
 public:
   MapsApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer);
@@ -219,7 +227,7 @@ protected:
   /* Snap to pins (2026-09-19, Maps menu toggle, NVS "snap"). A single press that would land on
    * or fly past a pin stops ON it; a press while sitting on a pin jumps to the next pin that
    * way, if one is on screen. Hold-scrolling never snaps. */
-  bool     snapPins;
+  bool     snapPins;        // "Snap to markers" — pins, places and nodes, despite the name
 
   // ---- the download screen ----
   int      dlSource;        // index into tileSource()
@@ -327,8 +335,13 @@ protected:
   void  centreOnMe();
   void  centreOn(double lat, double lon);
   int   pinUnderCrosshair();
-  bool  panOnce(int dx, int dy, int step, bool discrete);   // one pan or snap; true = it SNAPPED to a pin
-  int   pinAhead(int dx, int dy, int reach, int corridor, bool cone, int skip);  // nearest pin that way, or -1
+  bool  panOnce(int dx, int dy, int step, bool discrete);   // one pan or snap; true = it SNAPPED to a marker
+  /* Snap: the markers the arrows stop on — pins, mesh places, other nodes (SNAP_* in the .cpp). */
+  int   snapCount(int kind);
+  bool  snapMarker(int kind, int idx, int* vx, int* vy);
+  bool  snapAhead(int dx, int dy, int reach, int corridor, bool cone, int skipKind, int skipIdx, MapsSnapHit* out);
+  bool  snapUnder(MapsSnapHit* out);
+  void  snapTo(const MapsSnapHit& h);
   void  armTimer();
   bool  dropPin();
   bool  sharePin(int idx, char* why, size_t whyCap);
