@@ -1,12 +1,13 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-19 afternoon)
+## ▶▶ STATE NOW (header refreshed 2026-09-19 evening)
 
 Read this first; everything below it is narrative.
 
-🔧 **2026-09-19, afternoon: NICK'S FOUR REPORTS, ALL FOUR FIXED, MERGED ON `main`, AND PROVEN
-ON BOTH PHONES. Not pushed; 0.9.64 is still the last flashed release string — the 0.9.65 bump,
-webflasher regeneration and push are Nick's call.** The reports, verbatim: (1) "Any menu or line
+🔧 **2026-09-19: NICK'S SIX REPORTS, ALL FIXED, REVIEWED, AND PROVEN ON BOTH PHONES. `main` holds
+0.9.65 with the webflasher stage regenerated from THIS binary (version read out of the .bin,
+per the release rule). NOT PUSHED and NOT PUBLISHED — that is Nick's call: `git push` then
+`tools/publish_webflasher.sh`.** The reports, verbatim: (1) "Any menu or line
 that is too long just cuts off, it should either scroll or wrap text when highlighting over it."
 (2) "The wiphone lets me send messages that are too long on meshtastic, and they just won't get
 through to anybody else." (3) "Vibrate length of time is very inconsistent... sometimes the motor
@@ -59,10 +60,18 @@ deliberately: header titles, `LabelWidget`, `ChoiceWidget`, sliders, text inputs
    it looks at the command file; two writes under ~1.3 s apart LOSE THE FIRST** — that is how
    `hold on` went missing and phone 2 "locked itself" mid-test. Space commands ≥ 1.4 s.
 
-**Review (2026-09-19):** two lenses each on marquee and mesh ran clean apart from two low
-findings on the marquee (a 160 B buffer on the common row path; the tick timed from the pass's
-`now`), both fixed in `5802882`. The buzz, Game Boy and pan/snap lenses were cut off by the
-usage limit — see the newest review block below for their outcome.
+**Review (2026-09-19, two rounds, 26 agents):** round 1 — marquee and mesh clean apart from two
+low findings on the marquee (a 160 B buffer on the common row path; the tick timed from the
+pass's `now`), fixed in `5802882`. Round 2 — buzz, Game Boy and pan/snap: **ten confirmed, none
+refuted, all fixed in `836f4be`**, the ones worth remembering: the pop's first chunk was not in
+the DMA before the mesh block could stall (pump it at start); a game started WITH headphones
+dropped to the earpiece on unplug (the guard was the bug — set the flag unconditionally, the
+precedence lives in `Audio::start`); serial `notify` reinstalled I2S under the emulator; the
+memory pop latched `playbackEof` and a failed ringtone open then re-opened SPIFFS every pass
+with the motor never buzzing; a held arrow was "idle" to the DB-save gate; the hold delay sat
+inside the 350 ms staleness window (phantom step); a snapped tap seeded a run; a finished hold
+did not end its run. Each re-proven on the phones after the fix (`notify` 650/662 ms; game
+`route=loudspeaker` → `earpiece` on quit; `notify`/`open` refused over a game with the reason).
 
 
 🗺️ **2026-09-18 → 19, overnight with Nick's standing permission: THE MAPS APP DOWNLOADS ITS

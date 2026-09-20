@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (2026-09-19) - a message the mesh can carry, and an honest no when it cannot
+## 0.9.65 (2026-09-19) - the six things Nick noticed: menus, long messages, the buzz, the Game Boy's speaker, and the map's arrows
 
 **The compose field stops at 200 characters, shows `N/200` as you type, and a send the radio
 refuses stays on the screen with the reason.** Nick, 2026-09-19: *"The WiPhone lets me send

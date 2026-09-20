@@ -75,6 +75,15 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.65** — **Six things Nick noticed, fixed and measured.** The highlighted row of
+  every list **scrolls** when its text does not fit. A Meshtastic message **stops at 200
+  characters** with a live `N/200` counter, and one the radio refuses **stays on the screen
+  with the reason** — the radio driver used to give up on long frames while they were still
+  going out. The notification **buzz and chirp are timed from the clock** (they were stamped
+  before a second-long database save) and the chirp starts in 20 ms from flash. The **Game
+  Boy plays through the loudspeaker** unless headphones are in. On the map, **a held arrow
+  keeps scrolling and speeds up**, and **a tap stops on a pin in its way** — on a pin, taps
+  walk the pins (Snap to pins, in the Maps menu).
 - **0.9.64** — **Maps**. Menu → Maps: your own tiles off the SD card, with
   everyone's last position, the mesh's shared places and your own pins on top. It opens
   where you closed it — and failing that, on your GPS fix. Pins stay private until you
