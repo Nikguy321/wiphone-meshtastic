@@ -1,8 +1,17 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-20 late afternoon)
+## ▶▶ STATE NOW (header refreshed 2026-09-20 evening)
 
 Read this first; everything below it is narrative.
+
+🗺️ **2026-09-20 EVENING: 0.9.71 — the map says WHERE each area's tiles are.** Nick: "what is the
+'home' map? I don't have any tiles for it." `home` = the hand-converted North Bend/Snoqualmie
+tiles from the first maps release (z11-15, ~47.28-47.52 N / 121.99-121.64 W — the pins are in
+it), 35 km from the hunt area; the downloader only writes its own three areas. Now
+`scanAreaExtent()` reads each area's box at scan time (x folders at zMin + y files of the first
+and last), `setArea` says "its tiles are 35km NW of here", the Map area rows end `here` / "35km
+NW", serial `maps` prints the boxes. **PUSHED (`6415d63`) AND PUBLISHED, live sha `3417e3b4…`
+verified; BOTH PHONES ON IT.** No on-phone way to delete an area (the computer does that).
 
 🗺️ **2026-09-20, LATER: 0.9.70 — the map strip's message wraps to two rows when it needs them
 (`noteRows` via `menu_wrap.h`; the no-fix explanation was the one cut off), and the FOURTH side
