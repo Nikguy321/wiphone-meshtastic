@@ -8,7 +8,8 @@ ESP32 cell phone) that adds:
   text **and encrypted direct messages with modern Meshtastic devices**, no
   phone, app, or internet required — plus shared map pins, distances to your
   people, and sunrise/sunset for wherever you are),
-- an **offline map** — your own tiles off the SD card, with everyone's last
+- an **offline map** — your own tiles off the SD card, **or downloaded on the phone
+  itself** (USGS Topo, USGS Aerial, OpenTopoMap) over WiFi, with everyone's last
   position, the mesh's shared places and pins you drop yourself drawn on top of
   them (and shared back to the mesh when you choose to),
 - a full-speed **Game Boy / Game Boy Color emulator** with sound, save states,
@@ -139,7 +140,9 @@ Main menu → **Games → Game Boy**. Based on the retro-go fork of gnuboy, tune
 until real Game Boy Color games run at full speed on the phone.
 
 - **Full speed with sound** — even heavy GBC titles. Sound plays through the
-  phone's speaker; the **top two side keys** are volume up/down in-game.
+  **loudspeaker** (since 0.9.65 — it used to come out of the earpiece), or the
+  headphones when they are plugged in, and switches by itself if you plug or unplug
+  mid-game; the **top two side keys** are volume up/down in-game.
 - **Save states** — bookmark any game exactly where you are (pause → Save
   state), one slot per game, stored on the SD card.
 - **Get games in over WiFi** — pick **Transfer ROMs...** in the game list: the
@@ -255,10 +258,15 @@ and the Mac-side command are in **[docs/maps.md](docs/maps.md)**.
   ruler (scroll away from the anchor, read the distance); the Pins / Places / Nodes lists are
   nearest-first with distance and bearing on every row. **Menu → What the buttons do...**
   draws the phone's buttons with what each one does on the map.
-- **Arrows scroll** (hold one and it speeds up). **The top two side buttons zoom**, the third
-  **centres on you** — the map owns the side buttons while it is open, so a track loaded in
-  the music player cannot turn zoom into play/pause. `7`/`9` walk your pins. **Menu → Keys
-  and colours** is the whole table, on the phone.
+- **Arrows scroll — a tap is a nudge, a hold keeps scrolling and speeds up.** With **Snap to
+  markers** on (it is, by default; the menu turns it off) a tap that would land on or fly
+  past a pin, a place from the mesh or a node with a position **stops on it**, and a tap
+  while sitting on one **jumps to the next marker that way** — the arrows walk them, and the
+  strip says what you landed on: `Camp (place from the mesh)`, `Nick H (node, 12m ago)`. A
+  hold never snaps; it is a sweep. **The top two side buttons zoom**, the third **centres on
+  you** — the map owns the side buttons while it is open, so a track loaded in the music
+  player cannot turn zoom into play/pause. `7`/`9` step through your pins in order.
+  **Menu → What the buttons do...** is the whole table, on the phone.
 - A scale bar, the crosshair's coordinates, and how far the crosshair is from your reference
   place — "1.4km NE Camp" — along the bottom.
 
@@ -325,11 +333,19 @@ phone is low on memory and says to reboot; the details and the measured numbers 
   name** (long and 4-character short), and a **configurable hop limit**.
 - **Mesh client role** — relays/rebroadcasts other nodes' packets to extend the
   mesh's range (flood routing).
+- **Messages that fit the air.** The compose screen stops at **200 characters** — what
+  the Meshtastic phone apps allow, so it is the longest anyone can send back — with a live
+  `N/200` counter, and a message the radio refuses **stays on the screen with the reason**
+  instead of vanishing (the radio driver used to give up on long frames while they were
+  still going out, so anything near the limit was truncated on the air and never seen).
 - **New-message notifications** — a status-bar icon (with unread counts per chat),
   a brief on-screen popup, plus a quiet "pop" sound and a short vibration
   (designed to be unobtrusive — e.g. usable as a communicator while hunting).
   Meshtastic has its own entry in the sound settings: ring+vibrate, vibrate
-  only, or silent.
+  only, or silent; the buzz length is a slider under **Settings → Notifications**.
+  Since 0.9.65 the buzz and the chirp are **timed from the clock** — they used to be
+  stamped before a second-long database save and were sometimes cut short — and the
+  chirp plays from flash, so it starts in 20 ms rather than after a file open.
 - **Persistent** message history, channels, places and keys across reboots.
 - **Low-power green/black UI theme** for the Meshtastic app, and a Meshtastic
   icon on the main menu.
@@ -559,6 +575,7 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `open <app>` | jump into maps / photos / books / music / mesh / clock, whatever screen is up |
 | `hold on \| off` | keep the screen awake and unlocked for a scripted bench session |
 | `notify [sip]` | fire the real message-arrival announcement (buzz + chirp) from the cable; the log prints `buzz off after N ms`, `pop start took N ms`, `pop stopped after N ms` |
+| `maps hold up\|down\|left\|right [ms]` | press an arrow on the map and hold it for that long — the hold-to-scroll bench |
 | `send <i> <text>` / `dm <!node> <text>` | a channel text / a direct message; a refusal prints `REFUSED` and the same reason the compose screen shows (`too long for the mesh` past 232 / 220 bytes) |
 | `wifi scan` | what the radio can actually hear — deaf radio vs absent AP |
 | `wifi calreset` / `wifi restore` | erase the RF calibration / the WiFi driver's stored state, and reboot — the deaf-radio probes (⚠ `restore` forgets the last-used network) |
@@ -590,6 +607,10 @@ a bench instead. **No authentication:** whoever holds the cable holds the phone.
   multi-second menu freezes caused by DNS lookups (answers are cached now,
   including the "that name does not resolve" answer that used to freeze the
   phone over and over on restrictive networks).
+- **Long names scroll.** In every list on the phone — books, tracks, files, nodes,
+  message previews, contacts — the highlighted row **scrolls sideways** when its text does
+  not fit, holds at the end, and wraps; unhighlighted rows keep their `..`. Nothing is cut
+  off for good any more.
 - **Keypad reliability** — fixes for missed taps, stuck buttons, and held keys
   releasing at random (I2C error retry + a 40 ms hardware key heartbeat).
 - **Real battery life.** The main loop used to spin flat out at 240 MHz forever
