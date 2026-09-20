@@ -11,9 +11,9 @@ clear state from the in-game END menu, and manually save state from the same men
 all in — the destructor-deletes-the-blit-task-mid-write hang, the bounded park wait, the menu box
 past the Fill frame, the state keyed by file name only, NVS at power-off), and proven on BOTH
 phones (phone 1 on an earlier test build, phone 2 on the final). `CHANGELOG.md` 0.9.67 has the
-design, the numbers and the proof lines. **COMMITTED, NOT PUSHED; the webflasher stage is
-regenerated from the final binary (version read out of the .bin) but NOT published** — Nick's
-call, as before.
+design, the numbers and the proof lines. **PUSHED (`f5e9103`) AND PUBLISHED at Nick's ask, 2026-09-19 ~21:30: the live flasher serves
+0.9.67 and its image sha matches the stage byte for byte (`2386808a…`).** Phone 2 runs it;
+phone 1 is OFF (see below) and owed the flash.
 
 Shape: two files per ROM under `/gbc/`, named `<clean>-<cartid>.auto` (resume point, written by
 Quit and by both power-off paths) and `…state` (the manual bookmark); `Clear state` (asks) wipes
