@@ -1,8 +1,15 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-20 afternoon)
+## ▶▶ STATE NOW (header refreshed 2026-09-20 late afternoon)
 
 Read this first; everything below it is narrative.
+
+🗺️ **2026-09-20, LATER: 0.9.70 — the map strip's message wraps to two rows when it needs them
+(`noteRows` via `menu_wrap.h`; the no-fix explanation was the one cut off), and the FOURTH side
+button cycles the map areas (`setArea((areaSel+1) % areaCount)`; Menu → Map area is the same
+switch). Controls guide: button 4 is drawn `map type` — eight characters, its row shares the
+line with the D-pad's "arrows scroll" caption. PUSHED (`e4e7d70`) AND PUBLISHED, live sha
+`c77eedd9…` verified; BOTH PHONES ON IT.** Nick, on 0.9.69: "Otherwise so far it is working well."
 
 🧲 **2026-09-20 AFTERNOON: 0.9.69 — THE MAP'S SNAP IS A LANDING RULE.** Nick: *"make the snap
 less aggressive... I still want to be able to scroll around them, but if I just land near one
