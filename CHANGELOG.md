@@ -27,6 +27,17 @@ opposite of "as near as I possibly can".
 - The arrow-walk from marker to marker is gone; `7` / `9` still walk the pins in order, and
   the menu's three lists (nearest-first) go to any place or node.
 
+🛑 **And a bug the new rule exposed, caught on phone 2 before this shipped:** a tap off Pin 1
+"landed" on a node an ocean away. `snapNear` squared the marker's offset from the crosshair in
+a `long` — 32 bits on this chip — and a marker across the world has view coordinates in the
+millions, so the product wrapped and a garbage distance passed the radius test. The pin
+picker (`mapPinPickNearest`) has guarded against exactly this since 0.9.64, with a comment
+saying why; the snap's copy of the arithmetic did not. Yesterday's `snapUnder` had the same
+wrap and could read "on a marker" while on nothing — which then walked the arrows to the next
+marker in the cone: some of the "aggressive" snapping was this. Now the axis test comes first,
+before anything is squared. Phone 2, after: `9` onto Pin 1, a tap right steps 12 px clear, a
+tap left lands and says `Pin 1 (1 of 3)`.
+
 Seen on phone 1 at z14 (a pin dropped for the bench, removed after; every position read off
 the strip's coordinates): from 29.5 px east of the pin, one tap left lands 17.5 px off — no
 snap — and the second lands 5.5 px off and the strip says `Pin 1 (1 of 1)`; a tap right then

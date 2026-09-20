@@ -13,8 +13,10 @@ crosshair LANDS within 10 px of a pin/place/node — after a tap or where a hold
 (`snapLanding`). The path-stop and the marker-to-marker arrow walk are gone (`7`/`9` still walk
 pins). `MAP_PAN_NUDGE_PX` / `MAP_SNAP_RADIUS_PX` in map_tiles.h; `test_maptiles` pins radius <
 nudge (one tap steps clear) and radius ≥ nudge/2·√2 (any marker reachable). Proven on phone 1
-(phone 2 was unplugged) with a bench pin, removed after — see CHANGELOG 0.9.69. **COMMITTED +
-STAGED, NOT PUSHED/PUBLISHED (asked Nick).** Bench notes: the `maps hold` tap is dequeued
+(phone 2 was unplugged) with a bench pin, removed after — see CHANGELOG 0.9.69. 🛑 A 32-bit `long` overflow in `snapNear`'s
+distance (a far node "within 10 px") was caught on phone 2 before shipping — the pin picker
+already guards it; any new distance test on view coordinates must reject BY AXIS before it
+squares. **PUSHED AND PUBLISHED at Nick's ask; BOTH PHONES ON IT.** Bench notes: the `maps hold` tap is dequeued
 0-200 ms after the command, so a hold's repeat count is ±1 — plan release-snap tests so
 either count lands within the radius; OK off a marker DROPS A PIN (the Rename dialog), so
 screenshot before any OK on the map.

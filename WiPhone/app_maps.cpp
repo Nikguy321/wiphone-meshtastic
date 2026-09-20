@@ -1702,11 +1702,16 @@ bool MapsApp::snapNear(int radius, MapsSnapHit* out) {
       if (!snapMarker(kind, i, &vx, &vy)) {
         continue;
       }
-      const long ox = vx - vpW / 2, oy = vy - vpH / 2;
-      const long d2 = ox * ox + oy * oy;
-      if (d2 > (long)radius * radius) {
+      const int ox = vx - vpW / 2, oy = vy - vpH / 2;
+      /* 🛑 BY AXIS FIRST, BEFORE ANY SQUARING. A marker across the world has view coordinates
+       * in the millions, and `long` is 32 bits on this chip: ox*ox wrapped to whatever, and
+       * on phone 2 a tap off Pin 1 "landed" on a node an ocean away (2026-09-20; the same
+       * arithmetic in yesterday's snapUnder could read "on a marker" while on nothing).
+       * Inside the box the squares are small. */
+      if (ox > radius || ox < -radius || oy > radius || oy < -radius) {
         continue;
       }
+      const long d2 = (long)ox * ox + (long)oy * oy;
       if (!found || d2 < bestD2) {
         found = true;
         bestD2 = d2;
