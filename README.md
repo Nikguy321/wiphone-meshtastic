@@ -76,6 +76,9 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.68** — on the map's **Download** screen every line **wraps** instead of ending in
+  `..` (the estimate, the running status, the account of the last run, an error); a tile
+  write the card refuses is tried once more before it counts as failed.
 - **0.9.67** — the **Game Boy resumes where you left it**, the way COVEY does: Quit
   saves your place, the next launch of that game loads it by itself, and power-off saves
   too. The pause menu keeps a separate manual bookmark (Save/Load state) and gains **Clear

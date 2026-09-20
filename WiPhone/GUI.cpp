@@ -26,6 +26,7 @@ governing permissions and limitations under the License.
 #include "app_music.h"
 extern volatile bool gGbcActive;   // WiPhone.ino: the emulator owns the screen and the audio device
 #include "menu_marquee.h"  // the scrolling selected menu row: phase clock + glyph stepping
+#include "menu_wrap.h"     // a display-only note broken into rows that fit
 
 // Defined further down, used by the Messages screens above it.
 static const char* sipDisplayLabel(Storage& flash, const char* peer, const char* uri);
@@ -14106,6 +14107,42 @@ void MenuWidget::addOption(const char* title) {
 
 void MenuWidget::addNote(const char* title, uint16_t style) {
   this->addOption(title, MENU_ROW_NOTE, style);
+}
+
+struct NoteWrapCtx {
+  MenuWidget* menu;
+  SmoothFont* font;
+  uint16_t maxW;
+  uint16_t style;
+};
+
+static size_t noteWrapFit(const char* s, void* ctx) {
+  NoteWrapCtx* c = (NoteWrapCtx*)ctx;
+  return (size_t)c->font->fitTextLength(s, c->maxW, 1);   // bytes that fit, UTF-8 aware
+}
+
+static void noteWrapRow(const char* s, size_t len, void* ctx) {
+  NoteWrapCtx* c = (NoteWrapCtx*)ctx;
+  char line[96];
+  if (len >= sizeof(line)) {
+    len = sizeof(line) - 1;
+  }
+  memcpy(line, s, len);
+  line[len] = 0;
+  c->menu->addNote(line, c->style);
+}
+
+void MenuWidget::addNoteWrapped(const char* text, uint16_t style) {
+  if (!text || !*text || !widgetFont) {
+    return;
+  }
+  // The row draws from leftOffset; keep a few pixels off the right edge, as the glyphs do.
+  NoteWrapCtx c;
+  c.menu = this;
+  c.font = widgetFont;
+  c.maxW = (widgetWidth > leftOffset + 12) ? (uint16_t)(widgetWidth - leftOffset - 12) : widgetWidth;
+  c.style = style;
+  wrapNote(text, noteWrapFit, noteWrapRow, &c, 8);   // 8 rows is more than any note deserves
 }
 
 void MenuWidget::addOption(const char* title, MenuOption::keyType key, uint16_t style) {

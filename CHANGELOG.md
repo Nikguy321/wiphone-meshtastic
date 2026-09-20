@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.9.68 (2026-09-20) - the download screen says the whole sentence
+
+Nick, the morning after 0.9.67: *"On the maps download screen, there is still text that can
+get cut off, especially the status of the previous download attempt and the file size and so
+on."* And, from phone 1's screen: *"something about card refused... idk what that means."*
+
+**Every note on that screen wraps.** `12853 tiles, 1606 MB, about 257 min`, `Last run: 5517
+new, 7332 already had, 4 failed, 7013 s`, an error handed up from the fetcher — these are the
+lines whose length the numbers decide, and each was one row ending in `..` with the part that
+mattered behind it. The selected-row marquee of 0.9.65 is no help: a note is read, not selected.
+`MenuWidget::addNoteWrapped()` breaks a note at the last space that fits its font and width
+into as many rows as it needs; the breaking is `menu_wrap.h`, header-only, with a host suite
+(`test_wrap`, 42 checks: word boundaries, a word wider than the row is cut and never looped
+on, UTF-8 boundaries, the last word kept). The Maps app's other variable notes — the pin
+sheet's channel line, the delete confirmation's name, the lists' "nearest first" — wrap too.
+Seen on phone 2: the estimate on two rows, the OpenTopoMap credit on three, `Last run: 0 new,
+6 already had, 0 failed, 0 s` on two.
+
+**"card refused the write" is named for what it is.** The fetcher's last error is shown as
+`Last problem: z16 10714/23006: card refused the write` with, when anything failed, `Start
+again fetches only the missing tiles` under it. The error itself is a short `f.write()` on one
+tile — a busy timeout in the SD layer on a card that is otherwise fine; phone 2's 12,853-tile
+run lost four tiles to it, each of which had already crossed the network. **A refused write is
+now tried once more** (200 ms later) before the tile counts as failed, with a `TILES: … written
+on the second try` line when the retry rescued it; ten refusals in a row still stop the run
+(a full or pulled card).
+
 ## 0.9.67 (2026-09-19) - the Game Boy picks up where you left it
 
 Nick, the evening of 0.9.66: *"Can you make the default for the Gameboy emulator to save state

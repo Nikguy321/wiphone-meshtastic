@@ -591,20 +591,34 @@ static void runJob(Job* j) {
               s_stop = true;
               break;
             }
-          } else if (!writeTile(path, tmpPath, px, err, sizeof(err))) {
-            /* A card that refuses is not going to accept the next 800 tiles either: a full,
-             * absent or pulled card counts the same way the network does, and the run stops
-             * rather than downloading the whole area for nothing. */
-            st->failed++;
-            snprintf(st->lastErr, sizeof(st->lastErr), "z%d %d/%d: %s", z, x, y, err);
-            if (++j->consecutiveFails >= TF_MAX_FAILS) {
-              strlcpy(st->lastErr, "the card keeps refusing writes - stopped", sizeof(st->lastErr));
-              s_stop = true;
-              break;
-            }
           } else {
-            st->done++;
-            j->consecutiveFails = 0;
+            /* Written twice before it counts as failed: phone 2's 12,853-tile run lost 4 tiles
+             * to "card refused the write" — a short f.write() on a card that is otherwise
+             * fine, i.e. one busy timeout in the SD layer — and each cost a tile that had
+             * already crossed the network. */
+            bool wrote = writeTile(path, tmpPath, px, err, sizeof(err));
+            if (!wrote) {
+              vTaskDelay(pdMS_TO_TICKS(200));
+              wrote = writeTile(path, tmpPath, px, err, sizeof(err));
+              if (wrote) {
+                log_e("TILES: z%d %d/%d written on the second try", z, x, y);
+              }
+            }
+            if (!wrote) {
+              /* A card that refuses twice is not going to accept the next 800 tiles either: a
+               * full, absent or pulled card counts the same way the network does, and the run
+               * stops rather than downloading the whole area for nothing. */
+              st->failed++;
+              snprintf(st->lastErr, sizeof(st->lastErr), "z%d %d/%d: %s", z, x, y, err);
+              if (++j->consecutiveFails >= TF_MAX_FAILS) {
+                strlcpy(st->lastErr, "the card keeps refusing writes - stopped", sizeof(st->lastErr));
+                s_stop = true;
+                break;
+              }
+            } else {
+              st->done++;
+              j->consecutiveFails = 0;
+            }
           }
         }
         uint32_t f, l, m;

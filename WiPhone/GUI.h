@@ -1500,6 +1500,13 @@ public:
    * subtraction underflows and `(int)` makes it NEGATIVE, which sails through an
    * `idx < entryCount` bounds check. Files, Books and Music each carry that guard. */
   void addNote(const char* title, uint16_t style=1);
+  /* A note that WRAPS: the text is broken at spaces into as many note rows as it needs to
+   * fit this menu's width, measured in its font. For the display-only lines whose length
+   * nobody controls — a status with numbers in it, an error from a lower layer — where a
+   * single row ends in `..` and the part that mattered is the part cut off (the Maps
+   * download screen, Nick, 2026-09-20). The marquee scrolls a SELECTED row; a note is read,
+   * not selected, so it has to fit. */
+  void addNoteWrapped(const char* text, uint16_t style=1);
   void addOption(const char* title, const char* subTitle, MenuOption::keyType key, uint16_t style,
                  const unsigned char* iconData = NULL, const uint16_t iconSize = 0,
                  const unsigned char* iconSelData = NULL, const uint16_t iconSelSize = 0);

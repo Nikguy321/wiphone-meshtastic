@@ -235,7 +235,16 @@ you watch it; leave it and the download carries on (the map's own tiles, the mes
 clock — all still work), and it pauses by itself for a phone call or a dropped WiFi and
 resumes when they clear. Re-running the same area only fetches what is missing: a tile is
 "there" only when it is exactly 131072 bytes, so a power-off mid-tile leaves nothing the
-next run will not repair.
+next run will not repair. When a run is over the screen keeps its account — `Last run: 5517
+new, 7332 already had, 4 failed, 7013 s` — and, if anything failed, `Last problem:` with the
+last tile that did and why. Every line on this screen **wraps** onto more rows rather than
+ending in `..` (0.9.68).
+
+`card refused the write` is the card saying no to one tile's 128 KB: a short write from the
+SD layer, usually one busy timeout on a card that is otherwise fine (phone 2 lost 4 tiles of
+12,853 to it). Since 0.9.68 a refused write is tried once more before it counts; a tile that
+still fails is simply missing, and **Start download** again fetches only the missing ones.
+A card that refuses ten in a row stops the run — that is a full or pulled card.
 
 Each source is its own area on the card (`/maps/usgs-topo`, `/maps/usgs-img`, `/maps/otm`);
 `Map area:` in the menu switches between them.

@@ -2270,7 +2270,7 @@ void MapsApp::buildList() {
   if (listCount > 0) {
     char note[48];
     snprintf(note, sizeof(note), "nearest first, from %s", from);
-    menu->addNote(note);
+    menu->addNoteWrapped(note);
   }
   if (listCount >= MAPS_MAX_LIST) {
     menu->addNote("(more not shown)");
@@ -2294,8 +2294,8 @@ void MapsApp::buildPinOpts() {
     /* Shared on a channel this phone no longer has: nothing can be sent for it. Say so,
      * offer nothing that would pretend otherwise, and keep the id for the day it is back. */
     snprintf(row, sizeof(row), "Channel '%s' is gone - cannot update", pins[pinSel].chan);
-    menu->addNote(row);
-    menu->addNote("Add the channel back to send or retract");
+    menu->addNoteWrapped(row);
+    menu->addNoteWrapped("Add the channel back to send or retract");
   } else if (pins[pinSel].sharedId) {
     snprintf(row, sizeof(row), "Update it on %s", ch ? ch->name : "the mesh");
     menu->addOption(row, ROW_P_SHARE);
@@ -2354,44 +2354,57 @@ void MapsApp::buildDownload() {
   uint32_t card = 0, net = 0;
   const int tiles = tileFetchEstimate(&spec, &card, &net);
   const float sec = MAPS_DL_SEC_PER_TILE[dlSource < 4 ? dlSource : 3] * (float)tiles;
+  /* Every note on this screen WRAPS (addNoteWrapped): these are the lines whose length the
+   * numbers decide — "12853 tiles, 1606 MB, about 257 min", "Last run: 5517 new, 7332 had, 4
+   * failed, 7013 s", an error from the fetcher — and a single row ended in `..` with the
+   * part that mattered behind it (Nick, 2026-09-20). */
+  const int mins = (int)(sec / 60.0f + 0.5f);
   snprintf(row, sizeof(row), "%d tiles, %u MB, about %d min",
-           tiles, (unsigned)(card / (1024u * 1024u)), (int)(sec / 60.0f + 0.5f) < 1 ? 1 : (int)(sec / 60.0f + 0.5f));
-  menu->addNote(row);
+           tiles, (unsigned)(card / (1024u * 1024u)), mins < 1 ? 1 : mins);
+  menu->addNoteWrapped(row);
 
   if (running) {
     snprintf(row, sizeof(row), "%s %d/%d%s",
              st.paused ? "Paused" : (st.waitingRam ? "Waiting for memory" : "Downloading"),
              st.done + st.skipped + st.noTile + st.failed, st.total,
              st.stopping ? " (stopping)" : "");
-    menu->addNote(row);
+    menu->addNoteWrapped(row);
     snprintf(row, sizeof(row), "z%d, %u KB, %u s, %d failed",
              st.curZ, (unsigned)(st.bytes / 1024), (unsigned)(st.elapsedMs / 1000), st.failed);
-    menu->addNote(row);
+    menu->addNoteWrapped(row);
     menu->addOption("Stop", ROW_D_STOP);
   } else {
     if (st.finished) {
-      snprintf(row, sizeof(row), "Last run: %d new, %d had, %d failed, %u s",
+      snprintf(row, sizeof(row), "Last run: %d new, %d already had, %d failed, %u s",
                st.done, st.skipped, st.failed, (unsigned)(st.elapsedMs / 1000));
-      menu->addNote(row);
+      menu->addNoteWrapped(row);
       if (st.lastErr[0]) {
-        menu->addNote(st.lastErr);
+        /* Named for what it is. "z16 10714/23006: card refused the write" on its own read
+         * as a mystery (Nick: "something about card refused... idk what that means"); it is
+         * the last tile that failed and why, and Start fetches the missing ones again. */
+        char why[96];
+        snprintf(why, sizeof(why), "Last problem: %s", st.lastErr);
+        menu->addNoteWrapped(why);
+        if (st.failed > 0) {
+          menu->addNoteWrapped("Start again fetches only the missing tiles");
+        }
       }
     }
     if (dlWhy[0]) {
-      menu->addNote(dlWhy);
+      menu->addNoteWrapped(dlWhy);
     }
     if (WiFi.status() != WL_CONNECTED) {
-      menu->addNote("Not on WiFi - join a network first");
+      menu->addNoteWrapped("Not on WiFi - join a network first");
     } else if (!controlState.usbConnected && controlState.battVoltage < MAPS_DL_BATT_FLOOR) {
       snprintf(row, sizeof(row), "Battery %.2f V - plug in USB to download", controlState.battVoltage);
-      menu->addNote(row);
+      menu->addNoteWrapped(row);
     } else {
       menu->addOption("Start download", ROW_D_START);
     }
   }
   menu->addOption("Back", ROW_D_BACK);
   if (src->credit[0]) {
-    menu->addNote(src->credit);
+    menu->addNoteWrapped(src->credit);
   }
   if (keep == ROW_D_START && running) {
     keep = ROW_D_STOP;
@@ -2560,11 +2573,11 @@ void MapsApp::buildConfirmDelete() {
   char row[72];
   if (pinSel >= 0 && pinSel < pinCount) {
     snprintf(row, sizeof(row), "Delete '%s'", pins[pinSel].name);
-    menu->addNote(row);
+    menu->addNoteWrapped(row);
     if (pins[pinSel].sharedId) {
-      menu->addNote(pins[pinSel].chan[0] && !pinChannel(pinSel)
-                    ? "(its channel is gone: it cannot be retracted)"
-                    : "...and take it off the mesh");
+      menu->addNoteWrapped(pins[pinSel].chan[0] && !pinChannel(pinSel)
+                           ? "(its channel is gone: it cannot be retracted)"
+                           : "...and take it off the mesh");
     }
   }
 }
