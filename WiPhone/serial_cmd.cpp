@@ -137,6 +137,8 @@ static void help() {
     "  maps       what the card holds under /maps, the saved view, and the pins file",
     "  maps goto <lat> <lon> [z] [area]  set where the Maps app opens next (persists)",
     "  maps hold up|down|left|right [ms]  press an arrow and hold it (hold-to-scroll bench)",
+    "  gbc        the Game Boy: is a game up, which ROM, Screen mode, its two state files",
+    "  gbc autosave  write the running game's resume point the way power-off does (parks it)",
     "  lock       why the screen does or does not lock: setting, sleep gate, and the card",
     "  ver        firmware version and build time of the binary actually running",
     "  scrim [<alpha> [hex]]  the grey plate under menu text over a wallpaper (RAM only)",
@@ -1690,9 +1692,10 @@ static void run(char* line) {
     else if (!strcasecmp(arg, "books"))  app = GUI_APP_BOOKS;
     else if (!strcasecmp(arg, "music"))  app = GUI_APP_MUSIC;
     else if (!strcasecmp(arg, "mesh"))   app = GUI_APP_MESHTASTIC;
+    else if (!strcasecmp(arg, "gbc"))    app = GUI_APP_GBC;     // the ROM picker; `key ok` starts the first game
     else if (!strcasecmp(arg, "clock") || !*arg) app = GUI_APP_CLOCK;
     else {
-      say("open: maps | photos | books | music | mesh | clock\n");
+      say("open: maps | photos | books | music | mesh | gbc | clock\n");
       return;
     }
     if (gui.openAppFromConsole(app)) {
@@ -1701,6 +1704,29 @@ static void run(char* line) {
       extern volatile bool gGbcActive;   // a game cannot coexist with a call: startGame turns WiFi off
       say("open: refused - %s\n", gGbcActive ? "a game is running (END, then Quit)" : "a call is up");
     }
+    return;
+  }
+  /* `gbc` / `gbc autosave` — the Game Boy's resume point from the cable. `autosave` calls the
+   * SAME function the two power-off paths call (gbcSaveForPowerOff), so the bench proves that
+   * path without a thumb on the power button: it parks the game, writes /gbc/<rom>.auto,
+   * and leaves the pause menu up (Resume to carry on). */
+  if (!strncasecmp(line, "gbc", 3) && (line[3] == '\0' || line[3] == ' ')) {
+    const char* arg = line + 3;
+    while (*arg == ' ') {
+      arg++;
+    }
+    extern bool gbcSaveForPowerOff();
+    extern void gbcStatus(char* out, size_t n);
+    if (!strcasecmp(arg, "autosave")) {
+      const uint32_t t0 = millis();
+      const bool ok = gbcSaveForPowerOff();
+      say("gbc autosave: %s in %lu ms\n", ok ? "ok" : "NOT written (no game running, or the write failed - see GBC: lines)",
+          (unsigned long)(millis() - t0));
+      return;
+    }
+    char st[200];
+    gbcStatus(st, sizeof(st));
+    say("gbc: %s\n", st);
     return;
   }
   if (!strncasecmp(line, "maps", 4) && (line[4] == '\0' || line[4] == ' ')) {

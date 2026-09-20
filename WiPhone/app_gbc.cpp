@@ -26,6 +26,7 @@
 #include "freertos/semphr.h"
 #include "WiFi.h"
 #include "SD.h"
+#include <Preferences.h>    // the Screen 1:1/Fill choice, remembered across games
 #include "driver/i2s.h"
 #include "Audio.h"
 #include "music_player.h"
@@ -64,12 +65,35 @@ extern volatile uint32_t gGbcKeyLatch;
 #define GBC_MENU_RESUME  0
 #define GBC_MENU_SAVE    1
 #define GBC_MENU_LOAD    2
-#define GBC_MENU_SCREEN  3
-#define GBC_MENU_QUIT    4
-#define GBC_MENU_COUNT   5
+#define GBC_MENU_CLEAR   3
+#define GBC_MENU_SCREEN  4
+#define GBC_MENU_QUIT    5
+#define GBC_MENU_COUNT   6
+// One SD job at a time for the blit task (runAction). The menu's OK is ignored while one
+// is in flight, so a job is never overwritten mid-write.
 #define GBC_ACT_NONE     0
-#define GBC_ACT_SAVE     1
-#define GBC_ACT_LOAD     2
+#define GBC_ACT_SAVE     1   // menu: write the manual slot
+#define GBC_ACT_LOAD     2   // menu: load the manual slot, resume on success
+#define GBC_ACT_CLEAR    3   // menu (confirmed): delete both slots, hard-reset, resume
+#define GBC_ACT_RESUME   4   // launch: load the resume point if there is one, then run
+#define GBC_ACT_AUTOSAVE 5   // quit / power-off: write the resume point, stay parked
+
+// Two files per game under /gbc/, from the sanitized ROM name (buildStatePath):
+//   <rom>.state  the MANUAL slot — Save state / Load state, a checkpoint a quit never touches
+//   <rom>.auto   the RESUME POINT — written on quit and power-off, loaded on the next launch
+// Separate on purpose (RetroArch keeps <rom>.state.auto beside its numbered slots, and that
+// is what COVEY runs): with one file a manual save would be pointless, since quitting
+// overwrites it anyway. Written via <file>.tmp + rename so a power-off mid-write leaves the
+// previous file whole instead of a torn one that loads as garbage.
+#define GBC_EXT_STATE    ".state"
+#define GBC_EXT_AUTO     ".auto"
+// How long the main thread waits for the blit task to write the resume point. A CGB state
+// with 32 KB of cart RAM is 21 x 4 KB blocks; an MBC5 cart with 128 KB is 45 (180 KB). The
+// card writes at a few hundred KB/s over SPI, so a second is typical; the ceiling is for a
+// card having a bad day. The first measured figures are in CHANGELOG 0.9.67.
+#define GBC_AUTOSAVE_WAIT_MS  6000u
+// NVS: the Screen toggle (int "fill", default 1).
+static const char GBC_NVS[] = "gbc";
 
 // Fill mode: nearest-neighbor 1.5x upscale of 160x144 -> 240x216.
 #define GBC_FILL_W  240
@@ -82,6 +106,9 @@ extern volatile uint32_t gGbcKeyLatch;
 #define GBC_ERR_ROMBIG  -5   // ROM larger than the largest free PSRAM block
 #define GBC_ERR_READ    -6   // SD open/read failed
 #define GBC_ERR_TASK    -9
+
+// The app on screen, for gbcSaveForPowerOff() (the maps app's s_instance pattern).
+static GbcApp*   s_instance = NULL;
 
 // gnuboy uses global state and gb_hw_init() has no matching free, so the core and
 // framebuffers are set up once per boot and reused across launches.
@@ -172,8 +199,19 @@ static void gbcReleaseEmulator() {
 
 GbcApp::GbcApp(LCD& disp, ControlState& state) : ThreadedApp(disp, state) {
   log_d("create GbcApp");
+  s_instance = this;
   scanRoms();               // build the picker list; the game starts on selection
   romSel = GBC_PICKER_ACTIONS;   // land on the first game, not the action rows
+  {
+    /* Screen: Fill unless the user switched to 1:1 last time. Opened read-WRITE: a read-only
+     * open of a namespace nothing has written yet fails with an [E] NOT_FOUND line on every
+     * picker open; read-write creates it once. */
+    Preferences p;
+    if (p.begin(GBC_NVS, false)) {
+      scaled = p.getInt("fill", 1) != 0;
+      p.end();
+    }
+  }
   // ~4Hz APP_TIMER_EVENT drives the picker's marquee for long ROM names (the
   // GUI saves/restores the previous period around this app's lifetime).
   controlState.msAppTimerEventPeriod = 250;
@@ -302,6 +340,16 @@ void GbcApp::startGame() {
     initErr = GBC_ERR_ALLOC;
     return;
   }
+  /* The game starts PARKED with the resume job queued: the blit task's first act is to load
+   * /gbc/<rom>.auto if there is one (runAction, on the task with the stack for it), and to
+   * un-pause either way. No menu is drawn for it — menuDirty stays false — so a resumed game
+   * simply appears where it was left. */
+  paused        = true;
+  emuIdle       = false;
+  menuDirty     = false;
+  confirmClear  = false;
+  statusMsg[0]  = 0;
+  pendingAction = GBC_ACT_RESUME;
   // Static stacks (reused every game) and UNPINNED (like DigitalRainApp): the SMP
   // scheduler runs the two ready high-priority tasks on the two cores.
   xHandle = xTaskCreateStatic(&GbcApp::emuThread, "gbc", GBC_EMU_STACK_BYTES, this,
@@ -327,7 +375,21 @@ void GbcApp::startGame() {
 
 GbcApp::~GbcApp() {
   log_d("destroy GbcApp");
+  s_instance = NULL;
   if (playing) {
+    /* The resume point, before the tasks are torn down: this is the "save state upon exit".
+     * autoSaveNow parks the emulator, hands the write to the blit task and waits for it. */
+    autoSaveNow(GBC_AUTOSAVE_WAIT_MS);
+    /* 🛑 NEVER DELETE THE BLIT TASK UNDER A JOB. A write on the card holds the SPI bus mutex
+     * the panel shares and FATFS's volume lock; a task deleted inside one takes both with it
+     * and the next screen draw blocks forever (review, 2026-09-19). If the wait above timed
+     * out on a slow card, the job is still running here: wait it out, however long. */
+    for (uint32_t i = 0; pendingAction != GBC_ACT_NONE; i++) {
+      vTaskDelay(pdMS_TO_TICKS(50));
+      if (i && (i % 100) == 0) {
+        log_e("GBC: still writing the resume point after %lu s", (unsigned long)(i / 20));
+      }
+    }
     s_running = false;
     if (s_blitGo) {
       xSemaphoreGive(s_blitGo);   // wake the blit task if it's waiting
@@ -336,8 +398,13 @@ GbcApp::~GbcApp() {
     // its parked vTaskDelay() (blocked). Deleting a *blocked* task frees its stack
     // immediately; deleting a still-running one only defers the free to idle,
     // which would leave no RAM for the next game ("could not start task").
-    for (int i = 0; i < 60 && !(s_emuExited && s_blitExited); i++) {
+    // Unbounded, for the reason above; with no job running it is one 20-30 ms turn.
+    for (uint32_t i = 0; !(s_emuExited && s_blitExited); i++) {
       vTaskDelay(pdMS_TO_TICKS(10));
+      if (i && (i % 100) == 0) {
+        log_e("GBC: tasks not out after %lu s (emu=%d blit=%d)", (unsigned long)(i / 100),
+              (int)s_emuExited, (int)s_blitExited);
+      }
     }
     vTaskDelay(pdMS_TO_TICKS(30));
     if (xHandle)    { vTaskDelete(xHandle);    xHandle = NULL; }
@@ -366,6 +433,8 @@ GbcApp::~GbcApp() {
     routeSaved = false;
   }
   gbcXferStop();            // in case the app dies while the transfer screen is up
+
+  flushScreenPref();
 
   if (enteredGaming) {   // restore what gaming mode turned off
     enableCore0WDT();
@@ -609,18 +678,421 @@ void GbcApp::blitBuffer(int idx) {
   }
 }
 
-// Build "/sd/gbc/<rom>.state" from a sanitized ROM name.
-void GbcApp::buildStatePath(char* out, size_t n) {
-  char clean[40];
-  int j = 0;
-  for (int i = 0; romName[i] && j < (int)sizeof(clean) - 1; i++) {
-    char c = romName[i];
+// The ROM name with everything but [A-Za-z0-9] dropped: the stem of its state files.
+static void gbcCleanName(const char* name, char* clean, size_t n) {
+  size_t j = 0;
+  for (size_t i = 0; name[i] && j < n - 1; i++) {
+    char c = name[i];
     if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
       clean[j++] = c;
     }
   }
   clean[j] = 0;
-  snprintf(out, n, "/sd/gbc/%s.state", clean);
+}
+
+/* "/sd/gbc/<clean>-<cartid><ext>" — the POSIX path gnuboy's fopen wants (the Arduino SD
+ * object wants it without the "/sd": gbcSdPath). The cart id (gnuboy_cart_id: header
+ * checksum + size codes) is in the name because the name alone is not an identity: the
+ * sanitizer folds "Pokemon Red" and "Pokemon_Red" together, the uploader overwrites a
+ * same-named file without a word, and a resume is now automatic and silent — a state
+ * written from one cart must never be loaded into another (review, 2026-09-19). Files
+ * from before 0.9.67 were named "<clean><ext>"; loadState adopts one of those once. */
+void GbcApp::buildStatePath(char* out, size_t n, const char* ext) {
+  char clean[40];
+  gbcCleanName(romName, clean, sizeof(clean));
+  snprintf(out, n, "/sd/gbc/%s-%08lx%s", clean, (unsigned long)gnuboy_cart_id(), ext);
+}
+
+// The pre-0.9.67 name of the same file, for the one-time adoption.
+void GbcApp::buildLegacyStatePath(char* out, size_t n, const char* ext) {
+  char clean[40];
+  gbcCleanName(romName, clean, sizeof(clean));
+  snprintf(out, n, "/sd/gbc/%s%s", clean, ext);
+}
+
+// The Arduino SD object's view of a "/sd/..." VFS path.
+static inline const char* gbcSdPath(const char* vfsPath) {
+  return vfsPath + 3;
+}
+
+// remove() logs an [E] line for a file that is not there — and that is the common case
+// for one of the two slots — so every removal here is guarded by exists(), which is silent.
+static bool gbcRemoveIfThere(const char* vfsPath) {
+  const char* sd = gbcSdPath(vfsPath);
+  if (!SD.exists(sd)) {
+    return true;
+  }
+  return SD.remove(sd);
+}
+
+static size_t gbcFileSize(const char* vfsPath) {
+  if (!SD.exists(gbcSdPath(vfsPath))) {      // open() logs an [E] line for a missing file
+    return 0;
+  }
+  File f = SD.open(gbcSdPath(vfsPath));
+  if (!f) {
+    return 0;
+  }
+  const size_t n = f.size();
+  f.close();
+  return n;
+}
+
+static bool gbcIsHex8(const char* s) {
+  for (int i = 0; i < 8; i++) {
+    const char c = s[i];
+    if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Does this /gbc entry belong to the ROM whose sanitized name is `clean`? Either spelling:
+// "<clean><ext>" (pre-0.9.67) or "<clean>-<8 hex><ext>", ext one of the two slots or its .tmp.
+static bool gbcStateBelongsTo(const char* base, const char* clean) {
+  const size_t cl = strlen(clean);
+  if (strncmp(base, clean, cl) != 0) {
+    return false;
+  }
+  const char* rest = base + cl;
+  if (rest[0] == '-') {
+    if (!gbcIsHex8(rest + 1)) {
+      return false;
+    }
+    rest += 9;
+  }
+  static const char* const exts[] = { GBC_EXT_STATE, GBC_EXT_AUTO, GBC_EXT_STATE ".tmp", GBC_EXT_AUTO ".tmp" };
+  for (size_t i = 0; i < sizeof(exts) / sizeof(exts[0]); i++) {
+    if (strcmp(rest, exts[i]) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/* Every state file of one ROM, whatever cart id it was written under and whichever
+ * spelling: the directory is read for them (the ids are not knowable from the picker,
+ * where a ROM being deleted is not loaded). Collected first, removed after the directory
+ * is closed — FATFS skips entries when one is unlinked under an open readdir. */
+static void gbcRemoveStatesFor(const char* name) {
+  char clean[40];
+  gbcCleanName(name, clean, sizeof(clean));
+  if (!clean[0]) {
+    return;
+  }
+  char hits[12][72];
+  int n = 0;
+  File dir = SD.open("/gbc");
+  if (!dir) {
+    return;
+  }
+  File f;
+  while (n < 12 && (f = dir.openNextFile())) {
+    const char* nm = f.name();
+    const char* slash = strrchr(nm, '/');
+    const char* base = slash ? slash + 1 : nm;
+    if (!f.isDirectory() && gbcStateBelongsTo(base, clean)) {
+      snprintf(hits[n++], sizeof(hits[0]), "%s", nm[0] == '/' ? nm : base);
+    }
+    f.close();
+  }
+  dir.close();
+  for (int i = 0; i < n; i++) {
+    const char* sd = hits[i][0] == '/' ? hits[i] : NULL;
+    char full[72];
+    if (!sd) {
+      snprintf(full, sizeof(full), "/gbc/%s", hits[i]);
+      sd = full;
+    }
+    if (SD.exists(sd)) {
+      SD.remove(sd);
+    }
+  }
+}
+
+/* Write a state ATOMICALLY: gnuboy writes <path>.tmp, its size is checked against what the
+ * core says a state of this cart is, then the old file is removed and the new one renamed
+ * over it. What this closes is a power-off mid-write, which used to leave a partial file
+ * that gnuboy_load_state reads block by block INTO the emulator's RAM before it discovers
+ * the file ends early — and the size check closes the quiet version of the same thing, a
+ * full card: do_save_load's `fwrite(...) < 1` only notices a write that moved NOTHING. The
+ * gap left is remove-then-rename (microseconds); a stranded .tmp is adopted by loadState.
+ * 0 on success; gnuboy's -1 (open/write, lastErrno says why) / -2 (staging buffer); -3
+ * the rename failed (the .tmp is KEPT for loadState to adopt); -4 short file. */
+int GbcApp::writeState(const char* vfsPath) {
+  char tmp[96];
+  snprintf(tmp, sizeof(tmp), "%s.tmp", vfsPath);
+  SD.mkdir("/gbc");                          // quiet when it already exists
+  errno = 0;
+  int r = gnuboy_save_state(tmp);
+  lastErrno = errno;                         // before anything below can clobber it
+  if (r == 0) {
+    const size_t want = gnuboy_state_size();
+    const size_t got = gbcFileSize(tmp);
+    if (got != want) {
+      log_e("GBC: short state %s: %u of %u bytes", gbcSdPath(tmp), (unsigned)got, (unsigned)want);
+      r = -4;
+    }
+  }
+  if (r != 0) {
+    gbcRemoveIfThere(tmp);
+    return r;
+  }
+  gbcRemoveIfThere(vfsPath);                 // FATFS will not rename over an existing file
+  if (!SD.rename(gbcSdPath(tmp), gbcSdPath(vfsPath))) {
+    log_e("GBC: rename %s failed, keeping the .tmp", gbcSdPath(tmp));
+    return -3;
+  }
+  return 0;
+}
+
+/* Load a state into the core. 1 = there is no such file (the ordinary case, nothing
+ * touched); 0 = loaded; <0 = a file that exists but would not load — the core has been
+ * HARD RESET, because do_save_load has by then copied the file block by block into the
+ * emulator's RAM up to where it failed, and what is left is neither the game that was
+ * running nor the save. A wrong-sized file (a torn write, or a state from another cart
+ * with the same name) is refused before it can touch anything. A stranded <path>.tmp — the
+ * rename never happened — is adopted first. */
+int GbcApp::loadState(const char* vfsPath) {
+  char tmp[96];
+  snprintf(tmp, sizeof(tmp), "%s.tmp", vfsPath);
+  if (!SD.exists(gbcSdPath(vfsPath)) && SD.exists(gbcSdPath(tmp))) {
+    if (SD.rename(gbcSdPath(tmp), gbcSdPath(vfsPath))) {
+      log_e("GBC: adopted stranded %s", gbcSdPath(tmp));
+    }
+  }
+  if (!SD.exists(gbcSdPath(vfsPath))) {
+    /* A file under the pre-0.9.67 name — "<clean>.state", no cart id — is taken over
+     * once, if it is the right size for this cart. The next write uses the new name. */
+    const char* ext = strrchr(vfsPath, '.');
+    char legacy[96];
+    if (ext) {
+      buildLegacyStatePath(legacy, sizeof(legacy), ext);
+      if (SD.exists(gbcSdPath(legacy)) && gbcFileSize(legacy) == gnuboy_state_size() &&
+          SD.rename(gbcSdPath(legacy), gbcSdPath(vfsPath))) {
+        log_e("GBC: adopted %s as %s", gbcSdPath(legacy), gbcSdPath(vfsPath));
+      }
+    }
+  }
+  if (!SD.exists(gbcSdPath(vfsPath))) {
+    return 1;
+  }
+  const size_t want = gnuboy_state_size();
+  const size_t got = gbcFileSize(vfsPath);
+  if (got != want) {
+    log_e("GBC: %s is %u bytes, a state of this cart is %u: not loaded", gbcSdPath(vfsPath),
+          (unsigned)got, (unsigned)want);
+    return -5;
+  }
+  const int r = gnuboy_load_state(vfsPath);
+  if (r != 0) {
+    gnuboy_reset(true);
+  }
+  return r;
+}
+
+/* One SD job, on the blit task. Reads pendingAction's value from the caller, clears it LAST
+ * (the main thread polls that to know the job is done), and never touches the LCD except
+ * through menuDirty / needsClear. The emulator must be PARKED first: paused is set before
+ * every job, and emuIdle is the emu thread's acknowledgement that it is out of gnuboy_run —
+ * a state read mid-frame would be torn. The wait is unbounded on purpose (a stall line every
+ * second): falling through after a deadline would be exactly the torn read it exists to
+ * prevent, and a frame is 16 ms. */
+void GbcApp::runAction(int act) {
+  for (uint32_t i = 0; !emuIdle && !s_emuExited; i++) {
+    vTaskDelay(pdMS_TO_TICKS(2));
+    if (i && (i % 500) == 0) {
+      log_e("GBC: job %d waiting %lu s for the emulator to park", act, (unsigned long)(i / 500));
+    }
+  }
+  char path[96];
+  int r = 0;
+  const uint32_t t0 = millis();
+  switch (act) {
+    case GBC_ACT_SAVE:
+      buildStatePath(path, sizeof(path), GBC_EXT_STATE);
+      r = writeState(path);
+      if (r == 0) {
+        snprintf(statusMsg, sizeof(statusMsg), "Saved");
+      } else {
+        snprintf(statusMsg, sizeof(statusMsg), "Save fail %d e%d", r, lastErrno);
+      }
+      log_e("GBC: save %s to %s (%d e%d, %lu ms)", r == 0 ? "ok" : "FAILED", gbcSdPath(path), r,
+            r == 0 ? 0 : lastErrno, (unsigned long)(millis() - t0));
+      menuDirty = true;
+      break;
+
+    case GBC_ACT_LOAD:
+      buildStatePath(path, sizeof(path), GBC_EXT_STATE);
+      r = loadState(path);
+      if (r == 0) {
+        needsClear = true;                   // the menu box reaches past the frame
+        paused = false;
+      } else if (r == 1) {
+        snprintf(statusMsg, sizeof(statusMsg), "No save found");
+        menuDirty = true;
+      } else {
+        snprintf(statusMsg, sizeof(statusMsg), "Load fail %d: restarted", r);
+        menuDirty = true;
+      }
+      log_e("GBC: load %s from %s (%d, %lu ms)", r == 0 ? "ok" : r == 1 ? "none" : "FAILED, reset",
+            gbcSdPath(path), r, (unsigned long)(millis() - t0));
+      break;
+
+    case GBC_ACT_CLEAR: {
+      /* Both slots go (and any .tmp), then a hard reset: the title screen appearing is the
+       * confirmation. Checked by existence afterwards, not by remove()'s return. */
+      char autoPath[96];
+      buildStatePath(path, sizeof(path), GBC_EXT_STATE);
+      buildStatePath(autoPath, sizeof(autoPath), GBC_EXT_AUTO);
+      gbcRemoveStatesFor(romName);
+      if (SD.exists(gbcSdPath(path)) || SD.exists(gbcSdPath(autoPath))) {
+        r = -1;
+        snprintf(statusMsg, sizeof(statusMsg), "Clear failed");
+        menuDirty = true;
+        log_e("GBC: clear FAILED for %s", gbcSdPath(autoPath));
+        break;
+      }
+      gnuboy_reset(true);
+      needsClear = true;                     // the old frame is gone with the state
+      paused = false;
+      log_e("GBC: cleared %s and %s, hard reset", gbcSdPath(path), gbcSdPath(autoPath));
+      break;
+    }
+
+    case GBC_ACT_RESUME:
+      /* Launch: the resume point if there is one; failing that the manual bookmark — the
+       * state a phone updated to this build already has, or the only one left after a
+       * crash. The next Quit writes the resume point and the fallback never fires again.
+       * Not finding either is the ordinary first launch and says nothing. */
+      buildStatePath(path, sizeof(path), GBC_EXT_AUTO);
+      r = loadState(path);
+      if (r == 1) {
+        buildStatePath(path, sizeof(path), GBC_EXT_STATE);
+        r = loadState(path);
+      }
+      if (r != 1) {
+        log_e("GBC: resume %s from %s (%d, %lu ms)", r == 0 ? "ok" : "FAILED, fresh start",
+              gbcSdPath(path), r, (unsigned long)(millis() - t0));
+      }
+      needsClear = true;
+      paused = false;
+      break;
+
+    case GBC_ACT_AUTOSAVE:
+      buildStatePath(path, sizeof(path), GBC_EXT_AUTO);
+      r = writeState(path);
+      if (r != 0) {
+        snprintf(statusMsg, sizeof(statusMsg), "Save FAILED %d e%d", r, lastErrno);
+        menuDirty = true;                    // the caller holds the screen so this is seen
+      }
+      log_e("GBC: auto-save %s to %s (%d e%d, %lu ms)", r == 0 ? "ok" : "FAILED",
+            gbcSdPath(path), r, r == 0 ? 0 : lastErrno, (unsigned long)(millis() - t0));
+      break;                                 // stays parked: the caller is leaving
+
+    default:
+      break;
+  }
+  actionResult = r;
+  pendingAction = GBC_ACT_NONE;
+}
+
+/* Park the game and have the blit task write the resume point; true when it did. Main
+ * thread only. The menu shows "Saving..." for the duration so the wait is not a freeze —
+ * it is drawn by the blit task from menuDirty, so the flag goes up a couple of its 20 ms
+ * turns before the job does, or the write would run first and the message paint after.
+ * The timeout bounds THIS WAIT ONLY: a job still running when it expires is left to
+ * finish (see the destructor — a task is never deleted under one). A failure is held on
+ * the screen for two seconds, since the app is about to leave and take the menu with it. */
+bool GbcApp::autoSaveNow(uint32_t timeoutMs) {
+  if (!playing || s_blitExited) {
+    return false;
+  }
+  const uint32_t t0 = millis();
+  while (pendingAction != GBC_ACT_NONE && millis() - t0 < timeoutMs) {
+    vTaskDelay(pdMS_TO_TICKS(10));           // a manual save in flight (power-off only)
+  }
+  if (pendingAction != GBC_ACT_NONE) {
+    return false;
+  }
+  paused = true;
+  confirmClear = false;
+  menuSel = GBC_MENU_RESUME;                 // the menu it parks under: Resume is one press
+  snprintf(statusMsg, sizeof(statusMsg), "Saving...");
+  menuDirty = true;
+  vTaskDelay(pdMS_TO_TICKS(50));
+  actionResult = -100;
+  pendingAction = GBC_ACT_AUTOSAVE;
+  while (pendingAction != GBC_ACT_NONE && millis() - t0 < timeoutMs) {
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+  if (pendingAction != GBC_ACT_NONE) {
+    log_e("GBC: auto-save did not finish in %lu ms", (unsigned long)timeoutMs);
+    return false;
+  }
+  if (actionResult != 0) {
+    vTaskDelay(pdMS_TO_TICKS(2000));         // "Save FAILED ..." is on the menu: let it be read
+    return false;
+  }
+  return true;
+}
+
+/* The Screen toggle, written at the two exits and not at the toggle itself: a flash write
+ * from the pause menu would run with the emulator's tasks live on both cores. From the
+ * destructor the tasks are gone; from the power-off path the game is parked and the maps
+ * app writes NVS from the same spot already. */
+void GbcApp::flushScreenPref() {
+  if (!scaledDirty) {
+    return;
+  }
+  Preferences p;
+  if (p.begin(GBC_NVS, false)) {
+    p.putInt("fill", scaled ? 1 : 0);
+    p.end();
+  }
+  scaledDirty = false;
+}
+
+bool GbcApp::saveForPowerOff() {
+  /* The game stays parked afterwards on purpose: the phone is going down, and if it were
+   * somehow to stay up (a cable holding the rail) the state on the card must keep matching
+   * the game on the screen — the pause menu is up, Resume is one press away. A job still
+   * writing when the wait expires is not stopped: powerOff() drops the rail under it, and
+   * the .tmp it was writing is what dies; the previous resume point is whole. */
+  const bool ok = autoSaveNow(GBC_AUTOSAVE_WAIT_MS);
+  flushScreenPref();
+  return ok;
+}
+
+bool gbcSaveForPowerOff() {
+  return s_instance ? s_instance->saveForPowerOff() : false;
+}
+
+// Serial `gbc`: one line of what the bench needs to know.
+void gbcStatus(char* out, size_t n) {
+  if (!s_instance) {
+    snprintf(out, n, "app not open");
+    return;
+  }
+  s_instance->status(out, n);
+}
+
+void GbcApp::status(char* out, size_t n) {
+  if (!playing) {
+    const int r = romSel - GBC_PICKER_ACTIONS;
+    snprintf(out, n, "picker up, %d ROM(s), row %d = '%s', screen=%s", romCount, romSel,
+             r >= 0 && r < romCount ? roms[r].name : (romSel == 0 ? "Transfer ROMs" : "Help"),
+             scaled ? "fill" : "1:1");
+    return;
+  }
+  char a[96], m[96];
+  buildStatePath(a, sizeof(a), GBC_EXT_AUTO);
+  buildStatePath(m, sizeof(m), GBC_EXT_STATE);
+  snprintf(out, n, "running '%s' paused=%d job=%d screen=%s speed=%d%% | %s: %u B | %s: %u B | state size %u",
+           romName, (int)paused, (int)pendingAction, scaled ? "fill" : "1:1", speedPct,
+           gbcSdPath(a), (unsigned)gbcFileSize(a), gbcSdPath(m), (unsigned)gbcFileSize(m),
+           (unsigned)gnuboy_state_size());
 }
 
 // F1/F2 during play: nudge the codec volume. setVolumes() clamps each output to
@@ -796,13 +1268,18 @@ static const char* const s_helpLines[] = {
   "Top 2 right keys: volume",
   "End (hang up): pause",
   "@PAUSE MENU",
-  "Save state: bookmark the",
-  " game exactly as it is",
+  "Quit saves your place;",
+  " the game resumes there",
+  " next time, by itself.",
+  "Save state: a bookmark",
+  " quitting never touches",
   "Load state: jump back to",
-  " the saved bookmark",
+  " the bookmark",
+  "Clear state: wipe both,",
+  " the game's own saves too,",
+  " and start over (asks 1st)",
   "Screen 1:1 or Fill: size",
   "Number = game speed %",
-  "Quit: back to the phone",
   "@ADDING GAMES",
   "Pick 'Transfer ROMs...'",
   "in the game list, then",
@@ -815,8 +1292,12 @@ static const char* const s_helpLines[] = {
   "WiFi + calls are off",
   "while a game runs; quit",
   "the game to reconnect.",
-  "Save states live on the",
-  "SD card, one per game.",
+  "Saves live on the SD",
+  "card in /gbc/: .auto is",
+  "your place, .state the",
+  "bookmark. Deleting a",
+  "game deletes its saves.",
+  "Power-off saves too.",
   "Built-in game: uCity by",
   "AntonioND (GPL).",
 };
@@ -857,7 +1338,11 @@ void GbcApp::drawHelp() {
 
 void GbcApp::drawPauseMenu() {
   SmoothFont* font = fonts[OPENSANS_COND_BOLD_20];
-  const int bw = 176, bh = 176;
+  /* Sized from the font: six rows now, and the old fixed 176 px put the fifth row under the
+   * status line. Title band 46, rows of height+6, then a gap, the status line, a margin. */
+  const int rowH = font->height() + 6;
+  const int bw = 216;
+  const int bh = 46 + GBC_MENU_COUNT * rowH + 8 + font->height() + 10;
   const int bx = (lcd.width() - bw) / 2;
   const int by = (lcd.height() - bh) / 2;
   lcd.fillRect(bx, by, bw, bh, TFT_DARKGREY);
@@ -874,7 +1359,8 @@ void GbcApp::drawPauseMenu() {
   }
 
   const char* items[GBC_MENU_COUNT] = {
-    "Resume", "Save state", "Load state", scaled ? "Screen: Fill" : "Screen: 1:1", "Quit"
+    "Resume", "Save state", "Load state", "Clear state",
+    scaled ? "Screen: Fill" : "Screen: 1:1", "Quit"
   };
   int y = by + 46;
   for (int i = 0; i < GBC_MENU_COUNT; i++) {
@@ -882,11 +1368,12 @@ void GbcApp::drawPauseMenu() {
     lcd.setTextColor(sel ? TFT_YELLOW : TFT_WHITE, TFT_DARKGREY);
     lcd.drawString(sel ? ">" : " ", bx + 12, y);
     lcd.drawString(items[i], bx + 34, y);
-    y += font->height() + 6;
+    y += rowH;
   }
   if (statusMsg[0]) {
-    lcd.setTextColor(TFT_GREENYELLOW, TFT_DARKGREY);
-    lcd.drawString(statusMsg, bx + 14, by + bh - 26);
+    // Orange for the one that asks a question (Clear state's "OK again"), green for news.
+    lcd.setTextColor(confirmClear ? TFT_ORANGE : TFT_GREENYELLOW, TFT_DARKGREY);
+    lcd.drawString(statusMsg, bx + 14, by + bh - 10 - font->height());
   }
 }
 
@@ -899,34 +1386,17 @@ void GbcApp::blitTask(void* pvParam) {
 
   while (s_running) {
     if (app->paused) {
-      if (app->pendingAction == GBC_ACT_SAVE) {
-        SD.mkdir("/gbc");
-        char path[80];
-        app->buildStatePath(path, sizeof(path));
-        errno = 0;
-        int r = gnuboy_save_state(path);
-        if (r == 0) {
-          snprintf(app->statusMsg, sizeof(app->statusMsg), "Saved");
-        } else {   // r=-1 file open/write failed (errno says why), r=-2 buffer alloc failed
-          snprintf(app->statusMsg, sizeof(app->statusMsg), "Save fail %d e%d", r, errno);
-        }
-        app->pendingAction = GBC_ACT_NONE;
-        app->menuDirty = true;
-      } else if (app->pendingAction == GBC_ACT_LOAD) {
-        char path[80];
-        app->buildStatePath(path, sizeof(path));
-        int r = gnuboy_load_state(path);
-        app->pendingAction = GBC_ACT_NONE;
-        if (r == 0) {
-          app->paused = false;
-        } else {
-          snprintf(app->statusMsg, sizeof(app->statusMsg), "No save found");
-          app->menuDirty = true;
-        }
-      }
+      /* Menu first, then the job: a status set BEFORE a job ("Saving...") is on the screen
+       * while the card is written, not after. A job's own message goes up through
+       * menuDirty and paints on the next turn, 20 ms later. */
       if (app->menuDirty) {
         app->drawPauseMenu();
         app->menuDirty = false;
+        app->needsClear = true;              // the box reaches past the frame: clear on resume
+      }
+      const int act = app->pendingAction;
+      if (act != GBC_ACT_NONE) {
+        app->runAction(act);                 // clears pendingAction when done
       }
       s_blitBusy = false;
       gGbcKeyLatch = 0;
@@ -968,7 +1438,13 @@ void GbcApp::emuThread(void* pvParam) {
   int skip = 1;                   // adaptive frameskip: render every skip-th frame
   int skipPhase = 0;              // (heavy games: drop DISPLAY frames, not game speed)
   while (s_running) {
+    /* emuIdle is the promise the blit task's save/load/reset rests on: "the core is not
+     * being run". Dropped BEFORE the paused check, raised only inside the parked branch —
+     * so it can never read true while a frame is in flight, and a requester that sets
+     * paused and then waits for it is waiting for this task's next pass, not an old one. */
+    app->emuIdle = false;
     if (app->paused) {
+      app->emuIdle = true;
       vTaskDelay(pdMS_TO_TICKS(20));
       start = millis();           // reset the pacing baseline for resume
       frames = 0;
@@ -1110,6 +1586,10 @@ appEventResult GbcApp::processEvent(EventType event) {
         int r = romSel - GBC_PICKER_ACTIONS;
         if (r >= 0 && r < romCount && !roms[r].embedded) {
           SD.remove(roms[r].path);
+          /* And its states: the files are keyed by the sanitized name only, so a different
+           * ROM uploaded later under the same name would otherwise resume, silently, into
+           * this one's memory (review, 2026-09-19). */
+          gbcRemoveStatesFor(roms[r].name);
         }
         scanRoms();
         if (romSel >= romCount + GBC_PICKER_ACTIONS) {
@@ -1178,6 +1658,7 @@ appEventResult GbcApp::processEvent(EventType event) {
   if (!paused) {
     if (event == WIPHONE_KEY_END) {
       statusMsg[0] = 0;
+      confirmClear = false;
       menuSel = GBC_MENU_RESUME;
       menuDirty = true;
       paused = true;
@@ -1189,6 +1670,22 @@ appEventResult GbcApp::processEvent(EventType event) {
     return DO_NOTHING;
   }
 
+  /* The pause menu. A job on the card (pendingAction) owns the menu until it is done: keys
+   * are dropped rather than queued, so a job is never replaced mid-write and Quit cannot
+   * tear the tasks down under one. The launch's RESUME job is the same case — a key in the
+   * first moments of a game lands on the parked menu with nothing drawn, and is dropped. */
+  if (!IS_KEYBOARD(event)) {
+    return DO_NOTHING;
+  }
+  if (pendingAction != GBC_ACT_NONE) {
+    return DO_NOTHING;
+  }
+  // "Clear state" asks once; any key but a second OK on the same row withdraws the question.
+  if (confirmClear && !(event == WIPHONE_KEY_OK && menuSel == GBC_MENU_CLEAR)) {
+    confirmClear = false;
+    statusMsg[0] = 0;
+    menuDirty = true;
+  }
   switch (event) {
     case WIPHONE_KEY_UP:
       menuSel = (menuSel + GBC_MENU_COUNT - 1) % GBC_MENU_COUNT;
@@ -1199,17 +1696,31 @@ appEventResult GbcApp::processEvent(EventType event) {
       menuDirty = true;
       break;
     case WIPHONE_KEY_END:
+      needsClear = true;                     // the menu box reaches past the frame
       paused = false;
       break;
     case WIPHONE_KEY_OK:
       switch (menuSel) {
-        case GBC_MENU_RESUME: paused = false;               break;
+        case GBC_MENU_RESUME: needsClear = true;
+                              paused = false;               break;
         case GBC_MENU_SAVE:   pendingAction = GBC_ACT_SAVE;  break;
         case GBC_MENU_LOAD:   pendingAction = GBC_ACT_LOAD;  break;
+        case GBC_MENU_CLEAR:
+          if (!confirmClear) {
+            confirmClear = true;
+            snprintf(statusMsg, sizeof(statusMsg), "OK again: wipes all saves");   // 194 px of 202
+            menuDirty = true;
+          } else {
+            confirmClear = false;
+            statusMsg[0] = 0;
+            pendingAction = GBC_ACT_CLEAR;
+          }
+          break;
         case GBC_MENU_SCREEN: scaled = !scaled;
+                              scaledDirty = true;   // remembered by the destructor, see there
                               needsClear = true;
                               menuDirty = true;              break;
-        case GBC_MENU_QUIT:   return EXIT_APP;
+        case GBC_MENU_QUIT:   return EXIT_APP;   // the destructor writes the resume point
       }
       break;
     default:

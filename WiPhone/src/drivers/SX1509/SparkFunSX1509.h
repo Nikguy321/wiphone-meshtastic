@@ -148,6 +148,12 @@ public:
 //              This function returns a 1 if HIGH, 0 if LOW
 // -----------------------------------------------------------------------------
         byte digitalRead(byte pin);
+        /* WiPhone: digitalRead() answers 0 (LOW) for a pin it could not read - readWord()
+         * returns 0 on a dead transfer, and 0 in REG_DIR_B reads as "output", 0 in REG_DATA_B
+         * as "low". For an input that is active-LOW (the power button) that makes every I2C
+         * hiccup a press. This one says whether it actually heard the chip: true = *level is
+         * real; false = nothing was read and *level is untouched. */
+        bool readPinChecked(byte pin, byte* level);
         byte readPin(byte pin); // Legacy - use digitalRead
         
 // -----------------------------------------------------------------------------

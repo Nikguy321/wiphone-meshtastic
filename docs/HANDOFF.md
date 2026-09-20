@@ -1,8 +1,40 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-19 evening)
+## ▶▶ STATE NOW (header refreshed 2026-09-19 night)
 
 Read this first; everything below it is narrative.
+
+🎮 **2026-09-19 NIGHT: 0.9.67 — THE GAME BOY RESUMES WHERE YOU LEFT IT.** Nick: *"save state
+upon exit and open last state upon entrance. That's how covey does it. I still want to be able to
+clear state from the in-game END menu, and manually save state from the same menu. Default screen
+'fill'."* Built, reviewed by 22 agents (4 lenses + refute-or-confirm; the confirmed findings are
+all in — the destructor-deletes-the-blit-task-mid-write hang, the bounded park wait, the menu box
+past the Fill frame, the state keyed by file name only, NVS at power-off), and proven on BOTH
+phones (phone 1 on an earlier test build, phone 2 on the final). `CHANGELOG.md` 0.9.67 has the
+design, the numbers and the proof lines. **COMMITTED, NOT PUSHED; the webflasher stage is
+regenerated from the final binary (version read out of the .bin) but NOT published** — Nick's
+call, as before.
+
+Shape: two files per ROM under `/gbc/`, named `<clean>-<cartid>.auto` (resume point, written by
+Quit and by both power-off paths) and `…state` (the manual bookmark); `Clear state` (asks) wipes
+both + hard reset; all card work on the BLIT task (`runAction`), the main thread parks the
+emulator (`autoSaveNow`: paused → wait emuIdle → job → poll); writes go `.tmp` → size check →
+remove → rename; loads size-check first, hard-reset on a failed read of an existing file; pre-0.9.67
+`<clean>.state` files are adopted once. Serial: `open gbc`, `gbc`, `gbc autosave`.
+
+🛑 **FOUND ON THE WAY AND FIXED: THE PHONE COULD POWER ITSELF OFF DURING A GAME.** Phone 1 shut
+down three seconds into a launch on the bench (the log showed the power-off path running — it
+saved the game first). `SX1509::digitalRead()` answers LOW for a pin it could not read; the power
+button is active-LOW; `gpioExtenderServiceInterrupt()` latched it as pressed; 2.5 s later, with no
+release edge to clear it, the hold handler pulled the latch. Now `readPinChecked()` + a
+confirming re-read before power-off (WiPhone.ino, `POWER:` log lines). ⚠ **Phone 1 is OFF as a
+result until its button is pressed; it still runs the pre-review test build and owes a flash of
+the final binary.**
+
+⚠ Bench notes for the Game Boy: `shot` shows NEITHER the game NOR the picker (both draw direct to
+the LCD) — `gbc` (status) and the `GBC:` log lines are the eyes; the picker reopens on row 2
+(uCity) every time, so a specific ROM is N × `key down` with `gbc` to confirm the row; after
+`gbc autosave` the game is parked under the pause menu with Resume selected — `key ok` resumes.
 
 🔧 **2026-09-19: NICK'S SEVEN ASKS, ALL FIXED, REVIEWED, AND PROVEN ON BOTH PHONES. `main` holds
 0.9.66 with the webflasher stage regenerated from THIS binary (version read out of the .bin,

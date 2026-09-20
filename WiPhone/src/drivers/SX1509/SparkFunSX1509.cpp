@@ -215,6 +215,21 @@ byte SX1509::digitalRead(byte pin)
         return readPin(pin);
 }
 
+bool SX1509::readPinChecked(byte pin, byte* level)
+{
+        _xferFailed = false;
+        unsigned int tempRegDir = readWord(REG_DIR_B);
+        if (_xferFailed)
+                return false;
+        if (!(tempRegDir & (1<<pin)))           // not an input: no level to report
+                return false;
+        unsigned int tempRegData = readWord(REG_DATA_B);
+        if (_xferFailed)
+                return false;
+        *level = (tempRegData & (1<<pin)) ? 1 : 0;
+        return true;
+}
+
 void SX1509::ledDriverInit(byte pin, byte freq /*= 1*/, bool log /*= false*/)
 {
         unsigned int tempWord;

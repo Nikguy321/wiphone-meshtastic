@@ -983,6 +983,23 @@ int gnuboy_save_state(const char *file)
 }
 
 
+uint32_t gnuboy_cart_id(void)
+{
+	if (!cart.romsize)
+		return 0;
+	return ((uint32_t)cart.checksum << 16) | ((cart.romsize & 0xff) << 8) | (cart.ramsize & 0xff);
+}
+
+
+size_t gnuboy_state_size(void)
+{
+	if (!cart.romsize)
+		return 0;
+	/* Mirrors the blocks[] table in do_save_load: keep the two in step. */
+	return 4096 * (1 + (IS_CGB ? 8 : 2) + (IS_CGB ? 4 : 2) + cart.ramsize * 2);
+}
+
+
 int gnuboy_load_state(const char *file)
 {
 	return do_save_load(file, false);

@@ -1,5 +1,85 @@
 # Changelog
 
+## 0.9.67 (2026-09-19) - the Game Boy picks up where you left it
+
+Nick, the evening of 0.9.66: *"Can you make the default for the Gameboy emulator to save state
+upon exit and open last state upon entrance? That's how covey does it. I still want to be able to
+clear state, from the in game 'end button menu' if I want and manually save state from the same
+menu. I'd also like the default screen to be 'fill' instead of '1:1'."*
+
+**Quit writes your place; the next launch of that game loads it, silently.** Two files per game
+under `/gbc/` now, the way RetroArch keeps `<rom>.state.auto` beside its numbered slots (which is
+what COVEY runs with `savestate_auto_save` / `savestate_auto_load`):
+
+- `<rom>-<cartid>.auto` — the RESUME POINT. Written when you Quit from the pause menu, and by the
+  two power-off paths (the 2.5 s button hold and the 3.30 V cutoff) before the latch drops, beside
+  the book position and the map view that already save there. Loaded at launch; not finding one
+  is the ordinary first launch and says nothing. Failing that, the manual bookmark is loaded once
+  — the state a phone updated to this build already has.
+- `<rom>-<cartid>.state` — the MANUAL slot, Save state / Load state, exactly as before: a
+  checkpoint a quit never overwrites. With one file a manual save would have been pointless,
+  since quitting overwrote it anyway.
+- **Clear state** is the new pause-menu row: it asks (`OK again: wipes all saves`), deletes both
+  files, hard-resets the core and resumes — the title screen is the confirmation. It wipes the
+  cartridge's own battery save too (that lives only inside the states; COVEY's Start Fresh does
+  the same); the help says so.
+
+**The cart is in the file name** (`gnuboy_cart_id()`: the header checksum with the size codes),
+because the name alone was never an identity: the sanitizer folds `Pokemon Red` and `Pokemon_Red`
+together, the uploader overwrites a same-named file without a word, and a resume is now automatic
+— a state written from one cart must never be loaded into another (review). Files from before
+this build (`<rom>.state`, no id) are adopted once, if they are the right size for the cart:
+phone 2's `TetrisDXWorldSGBEnhancedGBCo.state` became `…-00c82001.state` and resumed. Deleting a
+ROM from the picker now deletes its states with it.
+
+**Written atomically, and sized.** A state goes to `<file>.tmp`, its size is checked against what
+the core says a state of this cart is (`gnuboy_state_size()`), then the old file is removed and
+the new one renamed over it. Two cases closed: a power-off mid-write, which used to leave a
+partial file that `gnuboy_load_state` copies block by block INTO the emulator's RAM before it
+finds out the file ends early; and a full card, where FatFs returns a short write that gnuboy's
+`fwrite(...) < 1` check reads as success. A load that fails on a file that exists is followed by a
+hard reset for the same reason; a wrong-sized file is refused before it can touch anything.
+
+**Where the work runs.** All of it on the blit task (`runAction`) — the one task that owns the
+card and the panel and the one with an 8 KB stack (the fopen → FATFS → SD path overflowed the
+old 2 KB stacks and rebooted the phone, 0.9.2). The main thread's side (`autoSaveNow`, from the
+destructor and from `gbcSaveForPowerOff()`) parks the emulator and waits for the job. The park
+is a handshake, not a guess: the emu thread drops `emuIdle` BEFORE it checks `paused` and raises
+it only inside the parked branch, so a requester that sets `paused` and then waits for `emuIdle`
+is waiting for the emulator's NEXT pass, never reading a stale flag while a frame is in flight;
+the wait is unbounded (a streamed 4 MB cart can hold several 16 KB bank reads in one frame). A
+job on the card owns the menu until it is done (keys are dropped, not queued), so nothing
+replaces a job mid-write — and 🛑 **the destructor never deletes the blit task under a job**: a
+write holds the SPI mutex the panel shares and FATFS's volume lock, and a task deleted inside one
+takes both with it, freezing the next screen draw forever (review). A slow card is waited out,
+with a log line a second.
+
+**Screen: Fill by default**, and the toggle is remembered (NVS `gbc/fill`), written at Quit and
+at power-off. The pause menu is six rows now and sized from the font (height 20, decoded from the
+font's own bytes); the old fixed 176 px box had already put its fifth row under the status line,
+and every un-pause now clears the screen, since the box reaches past the Fill frame.
+
+**Measured (uCity, a 128 KB-SRAM cart — the largest state this core writes, 180 KB):** phone 1
+auto-save on Quit 185-209 ms, resume 274-297 ms, manual save 204 ms, load 308 ms; phone 2 (a slower
+card) auto-save 295-309 ms, resume 363 ms; Tetris DX (60 KB) 165 / 248 ms. Clear removed exactly the
+one game's files and left the others. The proofs are `log_e` lines the cable sees — `GBC: resume ok
+from …`, `GBC: auto-save ok to … (0 e0, 185 ms)`, `GBC: cleared … hard reset` — plus serial `gbc`
+(what is up, which ROM, its two files and their sizes) and `gbc autosave`, which calls the SAME
+function the power-off paths call and leaves the game parked under the menu.
+
+🛑 **Found on the way: the phone could power itself off during a game.** Phone 1, on the bench,
+on USB, with nobody near it, shut down three seconds into a launch — and the log showed the
+power-off path running (it saved the game first, which is how it was seen). `SX1509::digitalRead`
+answers LOW for a pin it could not read (a dead transfer returns 0 for the direction AND data
+registers), the power button is active-LOW, and `gpioExtenderServiceInterrupt()` took that LOW as
+a press: `powerButtonPressed` latched, and 2.5 s later — no release edge could clear it — the hold
+handler pulled the latch. Under the emulator the two tasks starve the main loop and the extender
+read timed out. Now `readPinChecked()` says whether the chip was heard, a failed read keeps the
+old state, and the 2.5 s hold is confirmed by a fresh read before anything irreversible (a read
+that fails there is asked again in 500 ms; a button that is up clears the stale flag).
+
+Also: serial `open gbc` opens the ROM picker for the bench.
+
 ## 0.9.66 (2026-09-19) - the arrows stop on places and nodes too
 
 Nick, an hour after 0.9.65 was cut: *"Can you make it snap to places in the mesh and nodes

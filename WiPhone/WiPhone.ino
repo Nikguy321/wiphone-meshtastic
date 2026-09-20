@@ -1041,7 +1041,20 @@ void IRAM_ATTR gpioExtenderInterrupt() {
 // Function that is called after interrupt occurs (not within interrupt)
 bool gpioExtenderServiceInterrupt() {
   gpioExtenderEvent = false;
-  bool powerButton = gpioExtender.digitalRead(POWER_CHECK & ~EXTENDER_FLAG) == LOW;
+  /* 🛑 A READ THAT FAILED IS NOT A PRESS. digitalRead() answers LOW for a pin it could not
+   * read (SparkFunSX1509::readPinChecked), and the power button is active-LOW, so one I2C
+   * hiccup here used to latch powerButtonPressed and, 2.5 s later with no release seen in
+   * between, POWER THE PHONE OFF. Caught on the bench 2026-09-19: phone 1 shut itself down
+   * three seconds into a Game Boy launch, on USB, with nobody near the button - the
+   * emulator's two tasks starve the main loop, and the extender read timed out under them.
+   * On a failed read the state is kept and the event is dropped; the chip re-raises the
+   * line on the next real edge. */
+  byte level = HIGH;
+  if (!gpioExtender.readPinChecked(POWER_CHECK & ~EXTENDER_FLAG, &level)) {
+    log_e("POWER: extender read failed, button state kept (%d)", (int)powerButtonPressed);
+    return false;
+  }
+  bool powerButton = level == LOW;
   //log_d("powerButton = %d", powerButton);
   if (powerButton != powerButtonPressed) {
     powerButtonPressed = powerButton;
@@ -3709,6 +3722,8 @@ void loop() {
         booksSaveOpenPosition();
         extern bool mapsSaveOpenView();        // app_maps.h; the map's view, same reason
         mapsSaveOpenView();
+        extern bool gbcSaveForPowerOff();      // app_gbc.h; a running game's resume point
+        gbcSaveForPowerOff();
         powerOff();
         redrawWhat |= gui.processEvent(now, POWER_OFF_EVENT);
       }
@@ -3758,6 +3773,20 @@ void loop() {
     // Power OFF
 #ifdef WIPHONE_INTEGRATED_1_4
     if (powerButtonPressed && !poweringOff && elapsedMillis(now, msPowerOffStarted, 2500)) {
+      /* A 2.5 s hold is confirmed by a fresh read before anything irreversible: the flag
+       * above is set from one interrupt-time read and cleared only by another edge, so a
+       * misread press (see gpioExtenderServiceInterrupt) would otherwise ride the timer
+       * straight into powerOff(). If the button is not down NOW, or the chip cannot be
+       * heard, nothing happens and the next real press starts over. */
+      byte level = HIGH;
+      const bool heard = gpioExtender.readPinChecked(POWER_CHECK & ~EXTENDER_FLAG, &level);
+      if (!heard) {
+        log_e("POWER: 2.5 s hold - extender read failed, asking again in 500 ms");
+        msPowerOffStarted = now - 2000;          // keep the flag: a real hold is still held
+      } else if (level != LOW) {
+        log_e("POWER: 2.5 s hold not confirmed, the button is up - a release was missed");
+        powerButtonPressed = false;
+      } else {
       /* The EVERYDAY power-off, and it needs the save just as much as the low-battery one.
        * Every POWER_OFF_EVENT dispatch in this file calls powerOff() FIRST, so an app that
        * saves when it receives the event is already writing after the latch has been pulled.
@@ -3766,8 +3795,11 @@ void loop() {
       booksSaveOpenPosition();
       extern bool mapsSaveOpenView();
       mapsSaveOpenView();
+      extern bool gbcSaveForPowerOff();        // a running game: parks it, writes /gbc/<rom>.auto
+      gbcSaveForPowerOff();
       powerOff();
       redrawWhat |= gui.processEvent(now, POWER_OFF_EVENT);
+      }
     }
 #endif // WIPHONE_INTEGRATED_1_4
 #endif // WIPHONE_BOARD

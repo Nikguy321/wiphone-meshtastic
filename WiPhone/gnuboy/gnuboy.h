@@ -137,6 +137,17 @@ int gnuboy_load_sram(const char *file);
 int gnuboy_save_sram(const char *file, bool quick_save);
 int gnuboy_load_state(const char *file);
 int gnuboy_save_state(const char *file);
+/* The exact byte size gnuboy_save_state writes for the LOADED cart (header block + WRAM +
+ * VRAM + cart RAM, 4 KB blocks). do_save_load's fwrite/fread checks only catch a call that
+ * moved NOTHING (`< 1`), so a short write on a full card or a truncated file both pass as
+ * success; the app compares the file's size with this instead (app_gbc.cpp writeState /
+ * loadState). 0 when no cart is loaded. */
+size_t gnuboy_state_size(void);
+/* Identity of the LOADED cart for naming its state files: the header's global checksum
+ * (0x14E-0x14F) with the ROM and RAM size codes. Two ROMs that sanitize to the same file
+ * name (a hack, a revision, a re-upload under the same name) get different states, and a
+ * state can never be resumed into a cart it was not written from. 0 when nothing is loaded. */
+uint32_t gnuboy_cart_id(void);
 
 #ifdef __cplusplus
 }

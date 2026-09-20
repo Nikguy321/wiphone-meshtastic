@@ -76,6 +76,11 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.67** — the **Game Boy resumes where you left it**, the way COVEY does: Quit
+  saves your place, the next launch of that game loads it by itself, and power-off saves
+  too. The pause menu keeps a separate manual bookmark (Save/Load state) and gains **Clear
+  state** (wipes both and restarts the game, asks first). The screen is **Fill** by
+  default; a switch to 1:1 is remembered.
 - **0.9.66** — the map's arrows also stop on **places from the mesh and nodes with a
   position**, not only pins; the strip names what you landed on.
 - **0.9.65** — **Six things Nick noticed, fixed and measured.** The highlighted row of
@@ -143,8 +148,16 @@ until real Game Boy Color games run at full speed on the phone.
   **loudspeaker** (since 0.9.65 — it used to come out of the earpiece), or the
   headphones when they are plugged in, and switches by itself if you plug or unplug
   mid-game; the **top two side keys** are volume up/down in-game.
-- **Save states** — bookmark any game exactly where you are (pause → Save
-  state), one slot per game, stored on the SD card.
+- **Picks up where you left off** (0.9.67) — Quit writes your place to the SD card
+  (`/gbc/<game>-<cart>.auto`) and the next launch of that game loads it by itself, the
+  way COVEY's RetroArch does; a power-off mid-game saves it too. **Save state / Load
+  state** in the pause menu are a separate bookmark (`…state`) that quitting never
+  overwrites — a checkpoint before a boss. **Clear state** wipes both (the game's own
+  battery save with them) and restarts the game from its title; it asks first. Writes
+  go through a temp file and are size-checked, so a battery that dies mid-save or a
+  full card leaves the previous save intact rather than a torn one; a state is named
+  for the cartridge it came from, so a different ROM uploaded under the same file name
+  never resumes into it. Deleting a game from the list deletes its saves.
 - **Get games in over WiFi** — pick **Transfer ROMs...** in the game list: the
   phone becomes a tiny website (`wiphone.local`); drag `.gb`/`.gbc` files onto
   it from any computer, **or paste a download link** and the phone fetches the
@@ -161,8 +174,9 @@ until real Game Boy Color games run at full speed on the phone.
   there is something to play before any SD card or upload.
 - **Housekeeping in the list** — Back on a ROM offers to delete it (with a
   confirm); long names scroll so you can read them.
-- **Two screen modes** — crisp 1:1 or 1.5× Fill, toggled from the pause menu,
-  which also shows the measured game speed %.
+- **Two screen modes** — 1.5× **Fill** (the default since 0.9.67) or crisp 1:1,
+  toggled from the pause menu and remembered; the menu also shows the measured game
+  speed %.
 - **In-app help** — the **Help...** row documents the controls and everything
   else a new user needs.
 - Heads-up: WiFi and calls are off while a game runs (they come back when you
@@ -572,10 +586,11 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `maps dlurl <template> \| clear` | a plain-HTTP relay as tile source 3 (`{z}/{x}/{y}`) |
 | `tlstest <url> [n]` | the TLS bench: n kept-alive GETs from the fetch task, heap and timing |
 | `up on maps` | the tile uploader: `tools/wiphone_send.py --app maps --tree <dir>` |
-| `open <app>` | jump into maps / photos / books / music / mesh / clock, whatever screen is up |
+| `open <app>` | jump into maps / photos / books / music / mesh / gbc / clock, whatever screen is up (`gbc` is the ROM picker; `key ok` starts the first game) |
 | `hold on \| off` | keep the screen awake and unlocked for a scripted bench session |
 | `notify [sip]` | fire the real message-arrival announcement (buzz + chirp) from the cable; the log prints `buzz off after N ms`, `pop start took N ms`, `pop stopped after N ms` |
 | `maps hold up\|down\|left\|right [ms]` | press an arrow on the map and hold it for that long — the hold-to-scroll bench |
+| `gbc` / `gbc autosave` | the Game Boy: what is up, which ROM, its two state files — and the power-off save, run from the cable (it leaves the game parked under the pause menu) |
 | `send <i> <text>` / `dm <!node> <text>` | a channel text / a direct message; a refusal prints `REFUSED` and the same reason the compose screen shows (`too long for the mesh` past 232 / 220 bytes) |
 | `wifi scan` | what the radio can actually hear — deaf radio vs absent AP |
 | `wifi calreset` / `wifi restore` | erase the RF calibration / the WiFi driver's stored state, and reboot — the deaf-radio probes (⚠ `restore` forgets the last-used network) |
@@ -613,6 +628,11 @@ a bench instead. **No authentication:** whoever holds the cable holds the phone.
   off for good any more.
 - **Keypad reliability** — fixes for missed taps, stuck buttons, and held keys
   releasing at random (I2C error retry + a 40 ms hardware key heartbeat).
+- **The power button can no longer fire by itself** (0.9.67). A failed read of the
+  button's expander pin used to count as a press, and 2.5 s later the phone powered off —
+  seen on the bench, three seconds into a Game Boy launch, with nobody near it. A failed
+  read now keeps the old state, and a 2.5 s hold is confirmed by a fresh read before the
+  latch is pulled.
 - **Real battery life.** The main loop used to spin flat out at 240 MHz forever
   with the screen off; it now sleeps between passes, drops the CPU to 80 MHz
   when nothing is happening, and lets the WiFi receiver park between beacons.
