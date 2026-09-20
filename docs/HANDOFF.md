@@ -7,8 +7,8 @@ Read this first; everything below it is narrative.
 🔧 **2026-09-19: NICK'S SEVEN ASKS, ALL FIXED, REVIEWED, AND PROVEN ON BOTH PHONES. `main` holds
 0.9.66 with the webflasher stage regenerated from THIS binary (version read out of the .bin,
 per the release rule; 0.9.65 was staged an hour earlier and retired unpushed when the snap grew
-to places and nodes — one version string, one binary). NOT PUSHED and NOT PUBLISHED — that is
-Nick's call: `git push` then `tools/publish_webflasher.sh`.** The reports, verbatim: (1) "Any menu or line
+to places and nodes — one version string, one binary). PUSHED (`d9d2976`) AND PUBLISHED at Nick's ask, 2026-09-19 ~18:10: the live
+flasher serves 0.9.66 and its image sha matches the stage byte for byte (`c999b864…`).** The reports, verbatim: (1) "Any menu or line
 that is too long just cuts off, it should either scroll or wrap text when highlighting over it."
 (2) "The wiphone lets me send messages that are too long on meshtastic, and they just won't get
 through to anybody else." (3) "Vibrate length of time is very inconsistent... sometimes the motor
