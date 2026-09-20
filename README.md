@@ -76,6 +76,9 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.70** — the map's **fourth side button cycles the map types** on the card, and a
+  message on the map's strip **wraps onto a second row** instead of ending in `..` (the
+  no-GPS-fix explanation was the one that did). The on-phone controls guide has the new key.
 - **0.9.69** — the map's **snap is a landing rule now**: a tap is a smaller 12 px nudge (only
   a hold speeds up), and the map snaps onto a pin, place or node only when the crosshair
   **lands within 10 px of it** — you can scroll around markers again; the arrows no longer
@@ -285,9 +288,11 @@ and the Mac-side command are in **[docs/maps.md](docs/maps.md)**.
   — after a tap, or where a hold stops — and the strip says what you landed on: `Camp
   (place from the mesh)`, `Nick H (node, 12m ago)`. Nothing else snaps: a sweep sails past
   markers, and the tap after a snap steps clear, so you can scroll around them (since
-  0.9.69; it used to stop on anything in a tap's path). **The top two side buttons zoom**, the third **centres on
-  you** — the map owns the side buttons while it is open, so a track loaded in the music
-  player cannot turn zoom into play/pause. `7`/`9` step through your pins in order.
+  0.9.69; it used to stop on anything in a tap's path). **The top two side buttons zoom**,
+  the third **centres on you**, the fourth **cycles the map types** on the card (topo →
+  aerial → OpenTopoMap, since 0.9.70) — the map owns the side buttons while it is open, so
+  a track loaded in the music player cannot turn zoom into play/pause. `7`/`9` step through
+  your pins in order. A message on the strip that needs two rows gets them.
   **Menu → What the buttons do...** is the whole table, on the phone.
 - A scale bar, the crosshair's coordinates, and how far the crosshair is from your reference
   place — "1.4km NE Camp" — along the bottom.

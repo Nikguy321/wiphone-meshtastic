@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.9.70 (2026-09-20) - two quick ones on the map
+
+Nick: *"If I don't have a GPS fix and try to center on myself, the message gets cut off due to
+lack of text wrapping. Can we make the last user button cycle through map types? Let's also
+update the controls guide."*
+
+**The strip's message wraps.** The bottom strip was two rows — the scale bar and one line
+for a message — and "No fix yet, and no pin of your own to fall back on" is 50 characters
+where the row holds about 30. The message row now takes a second row when it needs one
+(`noteRows`, through `menu_wrap.h` — the same breaking the menus' notes use), the strip grows
+upward over the map for it and shrinks back at the next key; the no-map page does the same.
+Seen on phone 1: `Nothing of your own - centred on / hunt camp maybe` on two rows.
+
+**The fourth side button cycles the map types** — the same switch as Menu → Map area, one
+press at a time, round and round; the ground under the crosshair stays put and the strip says
+`Map: usgs-img (z11-13)`. With one map on the card it says so instead. The main loop already
+handed the map all four side buttons while it is open, so nothing changed for music. Seen on
+phone 1: topo → aerial → topo.
+
+**The controls guide** (Menu → What the buttons do...) draws the fourth side button as
+`map type` — eight characters, because that row shares its line with the D-pad's "arrows
+scroll" caption and "next map type" ran under it — and the text page gains "4th side button:
+next map type". docs/maps.md and the README have the row.
+
 ## 0.9.69 (2026-09-20) - the snap is a landing, not a catch
 
 Nick, the same morning: *"Can we make the snap to pins/locations less aggressive? I still want

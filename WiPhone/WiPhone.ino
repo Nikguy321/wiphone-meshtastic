@@ -3150,8 +3150,9 @@ void loop() {
        * PLAYING. Read a book with music paused and paging works exactly as it always
        * did; read one with music playing and the side buttons are volume, which is what
        * you want when there is sound coming out. */
-      /* ...and the map (gMapsActive): the top two side buttons are its zoom and the third
-       * "centre on me". A zoom key that pauses the music instead would be silently dead. */
+      /* ...and the map (gMapsActive): the top two side buttons are its zoom, the third
+       * "centre on me", the fourth the next map type. A zoom key that pauses the music
+       * instead would be silently dead. */
       /* ⚠ ...but only while the map can TAKE a key: a locked or dark phone with the map still
        * open underneath must not leave the side buttons dead for music. */
       const bool mapOwnsKeys  = gMapsActive && !gui.state.locked;

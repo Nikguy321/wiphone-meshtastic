@@ -6,6 +6,7 @@
 #include "mesh_pos.h"
 #include <SD.h>
 #include <Preferences.h>
+#include "menu_wrap.h"      // the strip's note, broken into rows that fit
 #include <WiFi.h>
 #include "tile_fetch.h"
 #include <stdarg.h>
@@ -1428,6 +1429,43 @@ void MapsApp::drawChips() {
   }
 }
 
+/* The note, broken into rows that fit `maxW` in the current font — at most MAPS_NOTE_ROWS,
+ * the last one ellipsized if even that is not enough. Returns the row count. The breaking is
+ * menu_wrap.h's (the same one the menus' notes use); this just measures for it. Nick,
+ * 2026-09-20: "If I don't have a GPS fix and try to center on myself, the message gets cut
+ * off" — "No fix yet, and no pin of your own to fall back on" is 50 characters, and the
+ * strip's row holds about 30 of this font. */
+struct NoteRowsCtx {
+  SmoothFont* fnt;
+  uint16_t maxW;
+  char (*rows)[72];
+  int n;
+};
+static size_t noteRowsFit(const char* s, void* v) {
+  NoteRowsCtx* c = (NoteRowsCtx*)v;
+  return (size_t)c->fnt->fitTextLength(s, c->maxW, 1);
+}
+static void noteRowsTake(const char* s, size_t len, void* v) {
+  NoteRowsCtx* c = (NoteRowsCtx*)v;
+  if (c->n >= MAPS_NOTE_ROWS) {
+    return;
+  }
+  if (len >= sizeof(c->rows[0])) {
+    len = sizeof(c->rows[0]) - 1;
+  }
+  memcpy(c->rows[c->n], s, len);
+  c->rows[c->n][len] = 0;
+  c->n++;
+}
+int MapsApp::noteRows(SmoothFont* fnt, uint16_t maxW, char (*rows)[72]) {
+  if (!note[0]) {
+    return 0;
+  }
+  NoteRowsCtx c = { fnt, maxW, rows, 0 };
+  wrapNote(note, noteRowsFit, noteRowsTake, &c, MAPS_NOTE_ROWS);
+  return c.n;
+}
+
 void MapsApp::drawBottomStrip() {
   SmoothFont* fnt = fonts[AKROBAT_BOLD_16];
   if (!fnt) {
@@ -1435,7 +1473,12 @@ void MapsApp::drawBottomStrip() {
   }
   lcd.setTextFont(fnt);
   const int th = (int)fnt->height();
-  const int stripH = th * 2 + 6;
+  /* Row 1 is the scale bar; the note takes one row, or two when it needs them (noteRows).
+   * The strip grows upward over the map for the second row, and shrinks back when the note
+   * is retired by the next key. */
+  char nrows[MAPS_NOTE_ROWS][72];
+  const int noteN = noteRows(fnt, (uint16_t)(vpW - 8), nrows);
+  const int stripH = th * (1 + (noteN > 1 ? noteN : 1)) + 6;
   const int sy = vpY + vpH - stripH;
   if (stripH >= vpH) {
     return;
@@ -1486,11 +1529,17 @@ void MapsApp::drawBottomStrip() {
     }
   }
 
-  // Row 2: the note if there is one, else the ruler's reading, else where the crosshair is.
+  // Row 2 (and 3): the note if there is one, else the ruler's reading, else the crosshair.
   char line[64];
-  if (note[0]) {
-    strlcpy(line, note, sizeof(line));
+  if (noteN > 0) {
     lcd.setTextColor(0xFD20, MAP_C_STRIP);
+    for (int i = 0; i < noteN; i++) {
+      /* Ellipsized (see below); only the LAST row can still be too long, when the note ran
+       * past MAPS_NOTE_ROWS rows and wrapNote's tail was cut where it stood. */
+      guiDrawEllipsized(lcd, nrows[i], (uint16_t)(vpW - 8), (int16_t)(vpX + 4),
+                        (int16_t)(sy + th * (1 + i) + 4));
+    }
+    return;
   } else if (measuring) {
     /* The whole row, not the right end of row 1: "1.2km SE" plus a word does not fit beside
      * a 1 km scale bar, and a measurement that is silently dropped for width is the one
@@ -1563,9 +1612,13 @@ void MapsApp::drawNoMapPage() {
    * keys all wrote a message that nothing ever drew, so they read as dead keys on the one
    * screen where a new user is most likely to be pressing things to see what happens. */
   if (note[0]) {
+    char nrows[MAPS_NOTE_ROWS][72];
+    const int n = noteRows(fonts[AKROBAT_BOLD_16], (uint16_t)(vpW - 12), nrows);
     lcd.setTextColor(0xFD20, BLACK);
-    guiDrawEllipsized(lcd, note, (uint16_t)(vpW - 12), (int16_t)(vpX + 6),
-                      (int16_t)(vpY + vpH - 18));
+    for (int i = 0; i < n; i++) {
+      guiDrawEllipsized(lcd, nrows[i], (uint16_t)(vpW - 12), (int16_t)(vpX + 6),
+                        (int16_t)(vpY + vpH - 18 - 17 * (n - 1 - i)));
+    }
   }
 }
 
@@ -2567,6 +2620,7 @@ static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "  (Snap, in the menu). 7 9: pins", WHITE },
   { "2 4 6 8 scroll too, for gloves.", WHITE },
   { "5 is OK. 0 is centre on me.", WHITE },
+  { "4th side button: next map type", WHITE },
   { "", WHITE },
   { "In the menu:", MAP_C_PIN },
   { "Download maps - the area around", WHITE },
@@ -2632,10 +2686,12 @@ void MapsApp::drawHelpDiagram() {
   const int sx = 4, sw = 26, sh = 20;
   int sy = top + 6;
   const char* sideLabel[4] = { "1", "2", "3", "4" };
-  const char* sideDoes[4]  = { "zoom in", "zoom out", "centre on me", "-" };
+  /* ⚠ Row 4 shares its line with the D-pad's "arrows scroll" caption (x from ~111): "next
+   * map type" ran under it, seen on phone 1. Eight characters is the room there is. */
+  const char* sideDoes[4]  = { "zoom in", "zoom out", "centre on me", "map type" };
   for (int i = 0; i < 4; i++) {
     helpBox(lcd, sx, sy, sw, sh, sideLabel[i], KEY);
-    lcd.setTextColor(i < 3 ? WHITE : MAP_C_NODE_OLD, BLACK);
+    lcd.setTextColor(WHITE, BLACK);
     lcd.drawString(sideDoes[i], sx + sw + 5, sy + 2);
     sy += sh + 4;
   }
@@ -2859,6 +2915,18 @@ appEventResult MapsApp::onMapKey(EventType event) {
   case WIPHONE_KEY_F3:              // the third side button: centre on me
   case '0':
     centreOnMe();
+    return REDRAW_SCREEN;
+  case WIPHONE_KEY_F4:              // the fourth side button: the next map type
+    /* Nick, 2026-09-20: "make the last user button cycle through map types". The same
+     * switch as Menu > Map area, one press at a time, round and round; setArea keeps the
+     * ground under the crosshair and says which map it is on. */
+    if (areaCount <= 0) {
+      setNote("No maps on the card - see docs/maps.md");
+    } else if (areaCount == 1) {
+      setNote("Only one map on the card: %s", areas[0].name);
+    } else {
+      setArea((areaSel + 1) % areaCount);
+    }
     return REDRAW_SCREEN;
   default:
     break;

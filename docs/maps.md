@@ -21,6 +21,7 @@ mesh has shared and the last position of everyone who has spoken.
 | **2 4 6 8** | scroll too, for gloves |
 | **Side button 1 / 2** (top two) | zoom in / out. Also `#`/`*` or `3`/`1` |
 | **Side button 3** | centre on me: a live GPS fix (4+ satellites), else the pin you declared by hand. Also `0` |
+| **Side button 4** (bottom) | the next map type — the same switch as **Menu → Map area**, one press at a time, round and round (`usgs-topo` → `usgs-img` → `otm` → …). The ground under the crosshair stays put; the strip says which map you are on. With one map on the card it says so |
 | **OK** | drop a pin on the crosshair and name it — or, with a pin under the crosshair, open it (rename / move / share / delete). Also `5` |
 | **Menu** (top-left soft key) | **What the buttons do...** is its first row — the phone's buttons drawn with what each does. Then download maps, go to coordinates, follow me, measure (an anchor at the crosshair; scroll away and the strip reads the distance and bearing), **Snap to markers: ON/off**, pins, places, nodes — the three lists are **nearest-first** with distance and bearing on every row |
 | **7 / 9** | previous / next pin, centring the map on it |
@@ -28,6 +29,9 @@ mesh has shared and the last position of everyone who has spoken.
 
 While the map is open the side buttons belong to it, not to the music player (the Game Boy
 has the same rule), so zoom cannot silently turn into play/pause because a track is loaded.
+
+The strip's message row grows to two rows when a message needs them — "No fix yet, and no pin
+of your own to fall back on" used to end in `..` — and shrinks back at the next key (0.9.70).
 
 The left soft key reads **Pin/Menu** because it does both: the pin under the crosshair if there
 is one, the map menu if there is not. **Centre on me** means *this phone*; it falls through to

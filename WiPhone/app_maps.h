@@ -82,6 +82,7 @@
 #define MAPS_MISS_CACHE    24      // tiles known not to be on the card: do not re-ask per frame
 #define MAPS_CHUNK_BYTES   (32u * 1024u)
 #define MAPS_PICK_RADIUS   14      // how near the crosshair a pin must be to be "under" it
+#define MAPS_NOTE_ROWS     2       // the strip grows to this many rows for a long note
 #define MAPS_MAX_LIST      64      // rows in the Pins / Places / Nodes lists
 
 // What selfPosition() found. See the note on it.
@@ -214,6 +215,7 @@ protected:
 
   int      helpTop;         // first help row on screen; the legend does not fit at once
   int      panRun;          // hold repeats so far, for mapPanStep(); 0 = a tap
+  int      noteRows(SmoothFont* fnt, uint16_t maxW, char (*rows)[72]);   // the note, wrapped
   uint32_t panLastMs;
   /* Hold-to-scroll (2026-09-19). The keypad path suppresses held-key re-reports for every app
    * (that is what killed the menus' auto-repeat), so the map repeats for itself: the arrow's
