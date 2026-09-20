@@ -248,7 +248,7 @@ int main() {
           "zoom stops at the shallowest level the card has");
   }
 
-  CHECK(mapPanStep(0) == 24 && mapPanStep(1) == 24, "the first presses are a nudge");
+  CHECK(mapPanStep(0) == MAP_PAN_NUDGE_PX && MAP_PAN_NUDGE_PX == 12, "a tap is the 12 px nudge");
   {
     bool grows = true;
     for (int i = 1; i < 30; i++) {
@@ -256,8 +256,16 @@ int main() {
         grows = false;
       }
     }
-    CHECK(grows && mapPanStep(100) == 96, "a held key accelerates, and stops accelerating");
+    CHECK(grows && mapPanStep(1) == 24 && mapPanStep(100) == 96,
+          "a held key starts at 24 px, accelerates, and stops accelerating at 96");
   }
+  /* The landing snap's two relations (map_tiles.h). Break either and the map misbehaves in
+   * a way no test of the snap itself would show: a radius >= the nudge means the tap after a
+   * snap lands back inside it and the crosshair is STUCK on the marker; a radius under
+   * nudge/2 x sqrt(2) leaves markers that taps on the two axes can never get near enough. */
+  CHECK(MAP_SNAP_RADIUS_PX < MAP_PAN_NUDGE_PX, "one tap steps clear of a snapped marker");
+  CHECK(2 * MAP_SNAP_RADIUS_PX * MAP_SNAP_RADIUS_PX >= MAP_PAN_NUDGE_PX * MAP_PAN_NUDGE_PX,
+        "every marker can be reached to within the snap radius by taps");
 
   {
     int px = 0;

@@ -213,8 +213,7 @@ protected:
   int      pendingTiles;
 
   int      helpTop;         // first help row on screen; the legend does not fit at once
-  int      panRun;          // consecutive presses in panDir, for mapPanStep()
-  int      panDir;
+  int      panRun;          // hold repeats so far, for mapPanStep(); 0 = a tap
   uint32_t panLastMs;
   /* Hold-to-scroll (2026-09-19). The keypad path suppresses held-key re-reports for every app
    * (that is what killed the menus' auto-repeat), so the map repeats for itself: the arrow's
@@ -339,8 +338,8 @@ protected:
   /* Snap: the markers the arrows stop on — pins, mesh places, other nodes (SNAP_* in the .cpp). */
   int   snapCount(int kind);
   bool  snapMarker(int kind, int idx, int* vx, int* vy);
-  bool  snapAhead(int dx, int dy, int reach, int corridor, bool cone, int skipKind, int skipIdx, MapsSnapHit* out);
-  bool  snapUnder(MapsSnapHit* out);
+  bool  snapNear(int radius, MapsSnapHit* out);   // the nearest marker within radius px of the crosshair
+  bool  snapLanding();                            // snap if the crosshair has landed near one
   void  snapTo(const MapsSnapHit& h);
   void  armTimer();
   bool  dropPin();

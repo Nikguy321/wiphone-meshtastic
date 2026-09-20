@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.9.69 (2026-09-20) - the snap is a landing, not a catch
+
+Nick, the same morning: *"Can we make the snap to pins/locations less aggressive? I still want
+to be able to scroll around them, but if I just land near one while scrolling (as near as I
+possibly can) then I want it to snap. It needs to feel intentional... You could make it more
+sensitive by making each d-pad click move less since it already will accelerate as you hold
+it."* Yes to all of it.
+
+**What was aggressive.** Yesterday's snap did two things a tap could not get around: a marker
+anywhere in a tap's 24 px path (plus 14 px either side) stopped the map on it, and a tap from
+a marker jumped to the next marker anywhere on screen in a 45° cone — so from a pin, an arrow
+could not simply move 24 px away if another marker lay that way. And taps sped up (24 → 48 →
+72 → 96 px within 400 ms of each other), so the size of a tap depended on its timing — the
+opposite of "as near as I possibly can".
+
+**What it is now** (`panOnce` / `snapLanding`, app_maps.cpp; the numbers in map_tiles.h):
+- **A tap is a 12 px nudge, always.** Only a HOLD climbs the accelerator (24 → 48 → 72 → 96 px
+  at the 100 ms repeat, after 400 ms), and a hold's repeats never snap.
+- **The map snaps only when the crosshair LANDS within 10 px of a marker** — after a tap, or
+  where a hold stops (the release check). Nothing in the path of a move matters.
+- The two numbers are tied, and `test_maptiles` now pins both relations: the radius is
+  UNDER the nudge, so the tap after a snap steps clear (12 > 10 — that is "scroll around
+  them"); and it is at least nudge/2 × √2, so taps on the two axes can put the crosshair
+  within 8.5 px of any marker ("as near as I possibly can" is always near enough).
+- The arrow-walk from marker to marker is gone; `7` / `9` still walk the pins in order, and
+  the menu's three lists (nearest-first) go to any place or node.
+
+Seen on phone 1 at z14 (a pin dropped for the bench, removed after; every position read off
+the strip's coordinates): from 29.5 px east of the pin, one tap left lands 17.5 px off — no
+snap — and the second lands 5.5 px off and the strip says `Pin 1 (1 of 1)`; a tap right then
+steps 12 px clear, no snap; a 900 ms hold sweeps 156 px straight through the pin (ends 84 px
+past it, never stopped); a hold that ends 8 px short of the pin snaps onto it when it is let
+go (`Pin 1 (1 of 2)`), and one that ends on a second pin takes that one (`Pin 2 (2 of 2)`).
+
 ## 0.9.68 (2026-09-20) - the download screen says the whole sentence
 
 Nick, the morning after 0.9.67: *"On the maps download screen, there is still text that can

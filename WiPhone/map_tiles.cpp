@@ -310,16 +310,19 @@ void mapViewToLatLon(int z, int32_t cx, int32_t cy, int vw, int vh,
 }
 
 int mapPanStep(int run) {
-  if (run < 2) {
-    return 24;
+  if (run < 1) {
+    return MAP_PAN_NUDGE_PX;      /* a tap */
   }
-  if (run < 4) {
+  if (run < 3) {
+    return 24;                    /* a hold: 240 px/s at the 100 ms repeat, then ... */
+  }
+  if (run < 5) {
     return 48;
   }
-  if (run < 6) {
+  if (run < 7) {
     return 72;
   }
-  return 96;
+  return 96;                      /* ... 960 px/s, four screens a second */
 }
 
 int mapScaleBar(double metersPerPixel, int maxPx, int* px) {

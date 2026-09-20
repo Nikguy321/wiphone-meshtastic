@@ -145,7 +145,16 @@ void    mapViewToLatLon(int z, int32_t cx, int32_t cy, int vw, int vh,
  * overshoots every time you are trying to sit on a creek bend. So the first press is fine and
  * a held-down key accelerates — and it RESETS the moment the presses stop or change
  * direction, so the next deliberate nudge is a nudge again. */
-int     mapPanStep(int run);
+/* The arrows. A TAP moves MAP_PAN_NUDGE_PX; a HELD arrow repeats through mapPanStep(run)
+ * (run 1, 2, ... per repeat) and speeds up. A tap — or a hold, when it ends — that LANDS
+ * within MAP_SNAP_RADIUS_PX of a pin, a place or a node snaps onto it. The two numbers are
+ * tied, and test_maptiles pins both relations: the radius is UNDER the nudge, so one tap
+ * always steps off a marker (12 > 10: the map can be scrolled around them); and it is at
+ * least nudge/2 x sqrt(2), so a marker anywhere can be reached by taps on the two axes
+ * (8.5 <= 10: "as near as I possibly can" always is near enough). Nick, 2026-09-20. */
+#define MAP_PAN_NUDGE_PX    12
+#define MAP_SNAP_RADIUS_PX  10
+int     mapPanStep(int run);   /* 0 = a tap = the nudge; 1.. = the hold's repeats */
 
 /* Choose a scale bar: the largest of 1/2/5 x 10^n metres that fits in `maxPx` pixels.
  * Writes the bar's length in pixels to *px and returns its length in metres. */

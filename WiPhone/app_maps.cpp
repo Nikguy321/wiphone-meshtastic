@@ -37,12 +37,10 @@ extern bool gGpsNmea;         // WiPhone.ino: is the NMEA receiver switched on a
  * a map that draws a stale dot in the same colour as a live one is lying by omission. */
 #define MAP_STALE_MS   (30u * 60u * 1000u)
 
-// A pan that arrives within this of the last one counts as "still holding the key".
-#define MAP_PAN_RUN_MS  400
 /* Hold-to-scroll: a press held this long starts repeating, then a repeat every
- * MAP_PAN_HOLD_STEP_MS through the same accelerator (mapPanStep) a run of taps climbs. 400 ms
- * keeps a deliberate tap a single nudge; 100 ms is just under the chip's ~109 ms heartbeat, so
- * the poll never misses a beat and the release is seen within one step. */
+ * MAP_PAN_HOLD_STEP_MS, climbing mapPanStep()'s curve. 400 ms keeps a deliberate tap a single
+ * nudge; 100 ms is just under the chip's ~109 ms heartbeat, so the poll never misses a beat
+ * and the release is seen within one step. */
 #define MAP_PAN_HOLD_DELAY_MS  400u
 #define MAP_PAN_HOLD_STEP_MS   100u
 /* ⚠ The delay must be LONGER than uiKeyStillHeld()'s 350 ms staleness window: at 300 ms a
@@ -163,7 +161,6 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   cardOk = false;
   pinsTruncated = false;
   panRun = 0;
-  panDir = 0;
   panLastMs = 0;
   panHoldMask = 0;
   panHoldSinceMs = 0;
@@ -1693,48 +1690,9 @@ bool MapsApp::snapMarker(int kind, int idx, int* vx, int* vy) {
   return true;
 }
 
-/* The nearest marker AHEAD of the crosshair in the direction (dx, dy): within `reach` pixels
- * along that axis, and either inside a 45° cone (`cone`: no farther off the line than it is
- * along it) or within `corridor` pixels either side of the line. Ties on distance go to the
- * marker nearer the line of travel, so of two the same way along, the one you would have
- * hit wins. `skipKind`/`skipIdx` is the marker the crosshair already sits on. */
-bool MapsApp::snapAhead(int dx, int dy, int reach, int corridor, bool cone,
-                        int skipKind, int skipIdx, MapsSnapHit* out) {
-  bool found = false;
-  int bestAlong = 0, bestAcross = 0;
-  for (int kind = SNAP_PIN; kind <= SNAP_NODE; kind++) {
-    const int n = snapCount(kind);
-    for (int i = 0; i < n; i++) {
-      if (kind == skipKind && i == skipIdx) {
-        continue;
-      }
-      int vx = 0, vy = 0;
-      if (!snapMarker(kind, i, &vx, &vy)) {
-        continue;
-      }
-      const int ox = vx - vpW / 2;
-      const int oy = vy - vpH / 2;
-      const int along  = dx ? ox * dx : oy * dy;
-      const int across = dx ? (oy < 0 ? -oy : oy) : (ox < 0 ? -ox : ox);
-      if (along <= 0 || along > reach || across > (cone ? along : corridor)) {
-        continue;
-      }
-      if (!found || along < bestAlong || (along == bestAlong && across < bestAcross)) {
-        found = true;
-        bestAlong = along;
-        bestAcross = across;
-        out->kind = kind;
-        out->idx = i;
-      }
-    }
-  }
-  return found;
-}
-
-/* The marker under the crosshair — the nearest of any kind within the pick radius. Pins
- * first at equal distance, since a pin dropped ON a node (the usual "camp" case) is the
- * thing OK would open. */
-bool MapsApp::snapUnder(MapsSnapHit* out) {
+/* The marker nearest the crosshair within `radius` pixels, if any. Pins first at equal
+ * distance, since a pin dropped ON a node (the usual "camp" case) is the thing OK would open. */
+bool MapsApp::snapNear(int radius, MapsSnapHit* out) {
   bool found = false;
   long bestD2 = 0;
   for (int kind = SNAP_PIN; kind <= SNAP_NODE; kind++) {
@@ -1746,7 +1704,7 @@ bool MapsApp::snapUnder(MapsSnapHit* out) {
       }
       const long ox = vx - vpW / 2, oy = vy - vpH / 2;
       const long d2 = ox * ox + oy * oy;
-      if (d2 > (long)MAPS_PICK_RADIUS * MAPS_PICK_RADIUS) {
+      if (d2 > (long)radius * radius) {
         continue;
       }
       if (!found || d2 < bestD2) {
@@ -1797,35 +1755,43 @@ void MapsApp::snapTo(const MapsSnapHit& h) {
 
 /* One press (or one hold repeat) of an arrow.
  *
- * Nick, 2026-09-19: "it's hard to pan over an existing pin. It jumps too far, so maybe the
- * map center can either snap to a pin when very near, and if there are many pins there it
- * can kinda jump between them as the arrow pads are pressed" — and, an hour later, "make it
- * snap to places in the mesh and nodes with locations too". So, with Snap on and for a
- * DISCRETE press (the first of a run — a sweep never snaps), over pins, places AND nodes:
- *   - sitting on a marker: the nearest marker that way within the screen, inside a 45°
- *     cone, is the destination — the arrows walk them;
- *   - otherwise: a marker the step would land on or fly past (within the pick radius of the
- *     line of travel, no farther than the step plus that radius) stops the map ON it.
- * Either way the crosshair ends exactly on it and the strip says what it is. */
+ * The snap is a LANDING rule now, and nothing else. Nick, 2026-09-20: "make the snap less
+ * aggressive... I still want to be able to scroll around them, but if I just land near one
+ * while scrolling (as near as I possibly can) then I want it to snap. It needs to feel
+ * intentional." The first cut (2026-09-19) stopped a tap on any marker in its path and, from
+ * a marker, jumped to the next one anywhere on screen — which meant a pin could not be
+ * scrolled AWAY from by taps at all. So: a tap moves the nudge, a hold sweeps, and the map
+ * snaps only when the crosshair LANDS within MAP_SNAP_RADIUS_PX of a marker — after a tap
+ * (`discrete`), or after a hold when it ends (the release check in the APP_TIMER branch). A
+ * hold's repeats never snap. The nudge is bigger than the radius, so the tap after a snap
+ * steps clear; it is small enough that taps on the two axes can put the crosshair within
+ * the radius of any marker (map_tiles.h has the arithmetic). Pins can still be walked in
+ * order with 7 and 9. */
 bool MapsApp::panOnce(int dx, int dy, int step, bool discrete) {
-  /* Returns true when the press SNAPPED to a marker (the caller then seeds no run); a plain
-   * pan or a refused one returns false. The map's edge is reported on the strip either way. */
-  if (snapPins && discrete) {
-    MapsSnapHit on, to;
-    const bool onSome = snapUnder(&on);
-    const bool found = onSome
-                       ? snapAhead(dx, dy, dx ? vpW : vpH, 0, true, on.kind, on.idx, &to)
-                       : snapAhead(dx, dy, step + MAPS_PICK_RADIUS, MAPS_PICK_RADIUS, false, -1, -1, &to);
-    if (found) {
-      snapTo(to);
-      return true;
+  /* Returns true when the press SNAPPED to a marker; a plain pan or a refused one returns
+   * false. The map's edge is reported on the strip. */
+  if (!mapPanView(zoom, vpW, vpH, dx * step, dy * step, &cx, &cy)) {
+    if (dy) {
+      /* Only north/south can refuse: longitude wraps, so a sideways press always moves. */
+      setNote("That is as far %s as the map goes", dy < 0 ? "north" : "south");
     }
+    return false;                        // nothing moved, so nothing landed
   }
-  if (!mapPanView(zoom, vpW, vpH, dx * step, dy * step, &cx, &cy) && dy) {
-    /* Only north/south can refuse: longitude wraps, so a sideways press always moves. */
-    setNote("That is as far %s as the map goes", dy < 0 ? "north" : "south");
+  return discrete && snapLanding();
+}
+
+/* The landing: with Snap on, centre on the marker within MAP_SNAP_RADIUS_PX of the
+ * crosshair, if there is one. True when it did. */
+bool MapsApp::snapLanding() {
+  if (!snapPins) {
+    return false;
   }
-  return false;
+  MapsSnapHit h;
+  if (!snapNear(MAP_SNAP_RADIUS_PX, &h)) {
+    return false;
+  }
+  snapTo(h);
+  return true;
 }
 
 bool MapsApp::dropPin() {
@@ -2591,9 +2557,9 @@ void MapsApp::buildConfirmDelete() {
  * "Hold an arrow..." lost its H and its last digit), which reads as a typo, not a cut. */
 static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "Hold an arrow: it speeds up.", WHITE },
-  { "A tap stops on a pin, place or", WHITE },
-  { "  node in its way; on one, taps", WHITE },
-  { "  walk them (Snap, in the menu).", WHITE },
+  { "Land near a pin, place or node", WHITE },
+  { "  and the map snaps onto it", WHITE },
+  { "  (Snap, in the menu). 7 9: pins", WHITE },
   { "2 4 6 8 scroll too, for gloves.", WHITE },
   { "5 is OK. 0 is centre on me.", WHITE },
   { "", WHITE },
@@ -2801,32 +2767,14 @@ appEventResult MapsApp::onMapKey(EventType event) {
       followMe = false;                  // a scroll is a decision to look elsewhere
       setNote("Stopped following");
     }
-    /* The accelerator. A run is presses in the SAME direction arriving close together; any
-     * pause or change of direction starts again at a nudge, so a deliberate correction after
-     * a long sweep is still a correction and not another sweep. */
+    /* A tap is ALWAYS the nudge, however fast the taps come: only a hold climbs the
+     * accelerator (below). Taps used to speed up too, which made the size of a tap depend
+     * on its timing — the opposite of "as near as I possibly can". */
     const uint32_t now = millis();
-    const int dir = (dx ? (dx > 0 ? 1 : 2) : 0) + (dy ? (dy > 0 ? 10 : 20) : 0);
-    if (dir == panDir && (uint32_t)(now - panLastMs) < MAP_PAN_RUN_MS) {
-      if (panRun < 1000) {
-        panRun++;
-      }
-    } else {
-      panRun = 0;
-    }
-    panDir = dir;
+    panRun = 0;
     panLastMs = now;
-    /* A press is discrete — it may stop on a pin — only when it starts a run. Once the run
-     * is going (a second tap inside 400 ms, or the hold repeats below) the map sweeps.
-     * ⚠ A press that SNAPPED seeds no run: "next pin, next pin" at a normal two-a-second
-     * would otherwise make the second tap a run member that sweeps 24 px off the pin the
-     * first had just found (review, 2026-09-19). panLastMs = 0 makes the next tap discrete
-     * again; the hold's first repeat is gated on panHoldSinceMs, so a hold after a snap is
-     * unaffected. */
     panHoldRan = false;
-    if (panOnce(dx, dy, mapPanStep(panRun), panRun == 0)) {
-      panRun = 0;
-      panLastMs = 0;
-    }
+    panOnce(dx, dy, mapPanStep(0), true);
     /* Remember which key this was, so the timer can keep scrolling while it stays down.
      * Nick, 2026-09-19: "holding the scroll button doesn't allow it to keep scrolling and
      * speeding up, it just does a small jump and stops" — the keypad path hides the hold
@@ -2950,13 +2898,15 @@ appEventResult MapsApp::processEvent(EventType event) {
       if (appState != MAPS_VIEW || !uiKeyStillHeld(panHoldMask)) {
         panHoldMask = 0;                 // the finger came off (or a lost release aged out)
         if (panHoldRan) {
-          /* A sweep that ENDED ends the run too: a corrective tap within 400 ms of letting
-           * go used to inherit the sweep's 96 px step and could never snap (review,
-           * 2026-09-19). Taps that never became a hold keep their accelerator. */
           panRun = 0;
-          panDir = 0;
           panLastMs = 0;
           panHoldRan = false;
+          /* Where the sweep STOPPED is a landing too: letting go near a marker snaps onto
+           * it, the same rule as a tap. Never mid-sweep — the repeats sail past. */
+          if (appState == MAPS_VIEW && snapLanding()) {
+            armTimer();
+            return REDRAW_SCREEN;
+          }
         }
         armTimer();                      // stand the 100 ms tick down unless tiles need it
       } else {
@@ -3077,8 +3027,8 @@ appEventResult MapsApp::processEvent(EventType event) {
           p.putInt("snap", snapPins ? 1 : 0);
           p.end();
         }
-        setNote(snapPins ? "Arrows stop on pins, places and nodes"
-                         : "Arrows scroll straight past them");
+        setNote(snapPins ? "Landing near a marker snaps onto it"
+                         : "The arrows never snap");
         enterState(MAPS_VIEW);
         return REDRAW_ALL;
       }

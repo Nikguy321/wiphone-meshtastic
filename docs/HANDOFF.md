@@ -1,8 +1,23 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-20 morning)
+## ▶▶ STATE NOW (header refreshed 2026-09-20 afternoon)
 
 Read this first; everything below it is narrative.
+
+🧲 **2026-09-20 AFTERNOON: 0.9.69 — THE MAP'S SNAP IS A LANDING RULE.** Nick: *"make the snap
+less aggressive... I still want to be able to scroll around them, but if I just land near one
+while scrolling (as near as I possibly can) then I want it to snap... make each d-pad click
+move less since it already will accelerate as you hold it."* A tap is a fixed 12 px nudge
+(taps no longer accelerate; a hold still climbs 24→48→72→96); the map snaps only when the
+crosshair LANDS within 10 px of a pin/place/node — after a tap or where a hold stops
+(`snapLanding`). The path-stop and the marker-to-marker arrow walk are gone (`7`/`9` still walk
+pins). `MAP_PAN_NUDGE_PX` / `MAP_SNAP_RADIUS_PX` in map_tiles.h; `test_maptiles` pins radius <
+nudge (one tap steps clear) and radius ≥ nudge/2·√2 (any marker reachable). Proven on phone 1
+(phone 2 was unplugged) with a bench pin, removed after — see CHANGELOG 0.9.69. **COMMITTED +
+STAGED, NOT PUSHED/PUBLISHED (asked Nick).** Bench notes: the `maps hold` tap is dequeued
+0-200 ms after the command, so a hold's repeat count is ±1 — plan release-snap tests so
+either count lands within the radius; OK off a marker DROPS A PIN (the Rename dialog), so
+screenshot before any OK on the map.
 
 🗺️ **2026-09-20 MORNING: 0.9.68 — THE DOWNLOAD SCREEN WRAPS; A REFUSED TILE WRITE IS RETRIED.**
 Nick: *"On the maps download screen there is still text that can get cut off... the status of

@@ -76,6 +76,10 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.69** — the map's **snap is a landing rule now**: a tap is a smaller 12 px nudge (only
+  a hold speeds up), and the map snaps onto a pin, place or node only when the crosshair
+  **lands within 10 px of it** — you can scroll around markers again; the arrows no longer
+  stop on anything in their path or jump between markers.
 - **0.9.68** — on the map's **Download** screen every line **wraps** instead of ending in
   `..` (the estimate, the running status, the account of the last run, an error); a tile
   write the card refuses is tried once more before it counts as failed.
@@ -275,12 +279,13 @@ and the Mac-side command are in **[docs/maps.md](docs/maps.md)**.
   ruler (scroll away from the anchor, read the distance); the Pins / Places / Nodes lists are
   nearest-first with distance and bearing on every row. **Menu → What the buttons do...**
   draws the phone's buttons with what each one does on the map.
-- **Arrows scroll — a tap is a nudge, a hold keeps scrolling and speeds up.** With **Snap to
-  markers** on (it is, by default; the menu turns it off) a tap that would land on or fly
-  past a pin, a place from the mesh or a node with a position **stops on it**, and a tap
-  while sitting on one **jumps to the next marker that way** — the arrows walk them, and the
-  strip says what you landed on: `Camp (place from the mesh)`, `Nick H (node, 12m ago)`. A
-  hold never snaps; it is a sweep. **The top two side buttons zoom**, the third **centres on
+- **Arrows scroll — a tap is a 12 px nudge, a hold keeps scrolling and speeds up.** With
+  **Snap to markers** on (it is, by default; the menu turns it off) the map snaps onto a
+  pin, a place from the mesh or a node with a position **when you land within 10 px of it**
+  — after a tap, or where a hold stops — and the strip says what you landed on: `Camp
+  (place from the mesh)`, `Nick H (node, 12m ago)`. Nothing else snaps: a sweep sails past
+  markers, and the tap after a snap steps clear, so you can scroll around them (since
+  0.9.69; it used to stop on anything in a tap's path). **The top two side buttons zoom**, the third **centres on
   you** — the map owns the side buttons while it is open, so a track loaded in the music
   player cannot turn zoom into play/pause. `7`/`9` step through your pins in order.
   **Menu → What the buttons do...** is the whole table, on the phone.
