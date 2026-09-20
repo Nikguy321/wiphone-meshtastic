@@ -4,10 +4,11 @@
 
 Read this first; everything below it is narrative.
 
-🔧 **2026-09-19: NICK'S SIX REPORTS, ALL FIXED, REVIEWED, AND PROVEN ON BOTH PHONES. `main` holds
-0.9.65 with the webflasher stage regenerated from THIS binary (version read out of the .bin,
-per the release rule). NOT PUSHED and NOT PUBLISHED — that is Nick's call: `git push` then
-`tools/publish_webflasher.sh`.** The reports, verbatim: (1) "Any menu or line
+🔧 **2026-09-19: NICK'S SEVEN ASKS, ALL FIXED, REVIEWED, AND PROVEN ON BOTH PHONES. `main` holds
+0.9.66 with the webflasher stage regenerated from THIS binary (version read out of the .bin,
+per the release rule; 0.9.65 was staged an hour earlier and retired unpushed when the snap grew
+to places and nodes — one version string, one binary). NOT PUSHED and NOT PUBLISHED — that is
+Nick's call: `git push` then `tools/publish_webflasher.sh`.** The reports, verbatim: (1) "Any menu or line
 that is too long just cuts off, it should either scroll or wrap text when highlighting over it."
 (2) "The wiphone lets me send messages that are too long on meshtastic, and they just won't get
 through to anybody else." (3) "Vibrate length of time is very inconsistent... sometimes the motor
@@ -55,8 +56,8 @@ deliberately: header titles, `LabelWidget`, `ChoiceWidget`, sliders, text inputs
    hides holds from every app on purpose — the map now polls `uiKeyStillHeld()` on its own
    timer and repeats for itself; nothing else changed, per Nick's "only edit maps"), and a
    tap flew past pins (Snap to pins, menu toggle, on by default: a tap stops on a pin in its
-   way; on a pin, taps walk the pins in a 45° cone). Both seen on phone 2; `maps hold <dir>
-   <ms>` is the bench.** ⚠ **BRIDGE RACE: the bridge can sit up to 1 s in a serial read before
+   way; on one, taps walk them in a 45° cone — pins, mesh places AND nodes with a position,
+   at Nick's follow-up). Both seen on phone 2; `maps hold <dir> <ms>` is the bench.** ⚠ **BRIDGE RACE: the bridge can sit up to 1 s in a serial read before
    it looks at the command file; two writes under ~1.3 s apart LOSE THE FIRST** — that is how
    `hold on` went missing and phone 2 "locked itself" mid-test. Space commands ≥ 1.4 s.
 

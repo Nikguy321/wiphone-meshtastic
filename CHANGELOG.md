@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.66 (2026-09-19) - the arrows stop on places and nodes too
+
+Nick, an hour after 0.9.65 was cut: *"Can you make it snap to places in the mesh and nodes
+with locations too?"* Yes. The snap now covers exactly the set the overlay draws — your pins,
+places heard from the mesh, other nodes with a position — through one enumerator, so the
+arrows and the screen cannot disagree. Landing on one names it on the strip: `Pin 3 (3 of 3)`,
+`Camp (place from the mesh)`, `Nick H New Device (node)` — with the age when the position is
+stale. The menu row is **Snap to markers**. Seen on phone 2: four taps from Pin 2's spot landed
+on a place, a pin, a place and a node in turn, each exactly on its marker.
+
+0.9.65 was staged but never pushed; its number is retired rather than reused — one version
+string, one binary (the 0.9.57 lesson).
+
 ## 0.9.65 (2026-09-19) - the six things Nick noticed: menus, long messages, the buzz, the Game Boy's speaker, and the map's arrows
 
 **The compose field stops at 200 characters, shows `N/200` as you type, and a send the radio

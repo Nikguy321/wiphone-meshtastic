@@ -75,6 +75,8 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.66** — the map's arrows also stop on **places from the mesh and nodes with a
+  position**, not only pins; the strip names what you landed on.
 - **0.9.65** — **Six things Nick noticed, fixed and measured.** The highlighted row of
   every list **scrolls** when its text does not fit. A Meshtastic message **stops at 200
   characters** with a live `N/200` counter, and one the radio refuses **stays on the screen
