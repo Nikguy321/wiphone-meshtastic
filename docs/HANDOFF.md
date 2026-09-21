@@ -32,9 +32,8 @@ fresh release now returns at once (no tile piece that pass — a 25-60 ms read m
 re-press read as 25+ ms, past the bounce filter, and a fresh tap); F2/digit/`#` hold trackers
 use `uiKeyDownOrBlip()`; `maps hold` injects before arming and validates `[blip]`; `keys raw`
 prints per entry (`keypadTraceLine`). NOT done: Game Boy single-direction blip = one dropped
-frame (1 in 4 blips; measure first); phone 1's heartbeat untraced. **State at the time of
-writing: committed locally, BOTH phones flashed, stage regenerated; NOT pushed/published —
-Nick was away and had not said so for this batch.**
+frame (1 in 4 blips; measure first); phone 1's heartbeat untraced. Nick, on the 12 fps build: "Way way better." **PUSHED (`0ab6f4c`) AND PUBLISHED at Nick's ask,
+live manifest 0.9.73, live image sha `eecce197…` = the stage; BOTH PHONES ON IT.**
 
 📁 **2026-09-20 NIGHT: 0.9.72 — THE FILE BROWSER COPIES, MOVES AND DELETES FOLDERS.** Nick:
 "no way to select a folder and copy/paste/delete... trying to delete 'home' in the maps
