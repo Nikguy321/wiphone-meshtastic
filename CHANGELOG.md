@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.9.72 (2026-09-20) - folders in the file browser
+
+Nick: *"On the file browser, I realize there is no way to select a folder and copy/paste/
+delete. Found it out when trying to delete 'home' in the maps folder. Can we add this? Some
+way of selecting a folder."*
+
+**How a folder is selected.** OK on a folder row still enters it (browsing stays one press a
+level). Inside any folder but the root there is now a **`[ This folder... ]`** row, and it
+opens Copy / Move / Delete for the folder you are standing in. Copy and Move mark the
+clipboard exactly as a file does (`[ Paste "home/" here ]` appears in whatever folder you walk
+to); a folder **Move is one rename** — FAT moves a whole tree across folders in an instant;
+a folder **Copy** and a folder **Delete** are tree walks, so they are JOBS.
+
+**A job runs a slice at a time.** `stepJob()` works for 80 ms per tick of the app timer
+(30 ms), then hands the loop back — the keypad, WiFi, the mesh and the music keep running
+underneath, and **Back stops it where it is** with a note that says what got done ("Stopped:
+120 files deleted, the rest still there"). The walk keeps one open directory handle per
+level (at most six; each costs ~700 B of internal heap) so the next entry is one readdir,
+not a rescan; an entry is unlinked as it is read (safe on FatFs: it is marked deleted in
+place, and the directory's read position does not move); a directory is removed when its
+handle runs dry. Delete goes through POSIX `unlink`/`rmdir` rather than `SD.remove()`, which
+is a stat, an open and a close before the unlink — 25 s became 16 s for the same 271 files.
+A copy streams 32 KB per pass with both handles held open, and a stopped copy leaves no
+half-file. The screen is pushed at most four times a second (a push is 30 ms of the same
+SPI bus), and while music plays the slice is 35 ms and the DMA is fed between operations —
+the I2S buffers hold ~90 ms.
+
+**Delete asks, and counts while you read.** "Delete home/?" — Cancel first, then "Yes,
+delete all of it", and under them a line that fills in as a COUNT job walks the tree:
+`271 files, 38 folders, 33 MB`; a subtree it could not read makes the number a stated floor.
+OK on that line does nothing (a note is read, not chosen).
+
+**What is refused, and why** (`files_paths.h`, host-tested by `test_filepaths`, 22 checks):
+pasting a folder into itself — the ONLY thing that stops it: FatFs `f_rename` has no
+ancestor check, so `/maps` renamed to `/maps/home/maps` would re-parent the tree under
+itself, unreachable; deleting or moving the area a running map download is writing into
+(the worker outlives the Maps app and would recreate folders under the delete; "stop it
+first" instead); and a delete at the card's root, which is simply not offered. The clipboard
+is cleared when the tree it points into goes.
+
+**Reviewed by 20 agents, 3 lenses + refute-or-confirm.** Real and fixed: the download race
+above; a failed job start that left the confirm's OK bound to the browse menu's `[..]` key
+(the confirm's keys are 101/102 now, and a failed start returns to browsing); a job's
+"Stopped" note and screen-hold on a start that never began; the confirm rebuilt every tick
+(now only when the numbers move); `bytes` in 32 bits (a map area can pass 4 GB); the
+first error kept rather than the last (on a delete every later one is "folder not empty",
+up to the root); an unreadable directory entry read as the end of the directory (errno
+tells them apart); the audio DMA under the slice.
+
+**Seen on phone 2:** a 5-file scratch tree copied, moved (rename) and deleted, the delete's
+confirm counting `5 files, 4 folders, 19 KB`; `/maps/home` (271 tiles, 33 MB) copied to
+`/home` in 3 min 19 s, and `/home` deleted in 16 s with no LOOP STALL from the job; paste
+into itself refused. Serial `open files` opens the browser for the bench.
+
 ## 0.9.71 (2026-09-20) - where a map's tiles are
 
 Nick: *"When toggling through maps, what is the 'home' map? I don't have any tiles for it and

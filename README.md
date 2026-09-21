@@ -76,6 +76,9 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.72** — **Files can copy, move and delete whole folders**: the `[ This folder... ]`
+  row inside any folder. A delete counts first, then runs as a job the phone stays usable
+  under, with Back to stop. (Deleting `/maps/home` from the phone was the ask.)
 - **0.9.71** — the map says **where each map's tiles are**: switching onto one whose tiles
   are elsewhere reads `Map: home (z11-15) - its tiles are 35km NW of here`, and the Map area
   list ends every row with `here` or the distance and bearing. (An area that is not where
@@ -639,6 +642,16 @@ a bench instead. **No authentication:** whoever holds the cable holds the phone.
   multi-second menu freezes caused by DNS lookups (answers are cached now,
   including the "that name does not resolve" answer that used to freeze the
   phone over and over on restrictive networks).
+- **Files: folders can be copied, moved and deleted** (0.9.72). Menu → Tools → Files;
+  OK on a folder still enters it, and inside any folder the **`[ This folder... ]`** row
+  offers Copy / Move / Delete for the folder you are standing in — that is how a folder is
+  "selected". Delete counts what is inside while you read the question (`271 files, 38
+  folders, 33 MB`) and then runs as a job with a progress screen, a slice at a time, so the
+  phone keeps working (calls, mesh, music) — about 20 files a second on this card; Back
+  stops it where it is and says what got done. A folder Move is one rename, instant; a
+  folder Copy streams file by file (a 34 MB map area took 3½ minutes). Pasting a folder
+  into itself is refused, and so is touching the area a running map download is writing.
+  Files: `/maps/home` was the reason.
 - **Long names scroll.** In every list on the phone — books, tracks, files, nodes,
   message previews, contacts — the highlighted row **scrolls sideways** when its text does
   not fit, holds at the end, and wraps; unhighlighted rows keep their `..`. Nothing is cut

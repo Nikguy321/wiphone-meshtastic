@@ -94,6 +94,8 @@ for src in tests/test_*.cpp; do
     test_marquee)  deps=() ;;
     # Header-only: a display-only menu note broken into rows that fit (WiPhone/menu_wrap.h).
     test_wrap)     deps=() ;;
+    # Header-only: the Files app's folder copy/move/delete path questions (files_paths.h).
+    test_filepaths) deps=() ;;
     # Header-only: the notification pop's stop timer (notify_timing.h) against the shipping
     # pop_pcm[] bytes. WiPhone.ino cannot be compiled here, same reason as above.
     test_notify)   deps=() ;;

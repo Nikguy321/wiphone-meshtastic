@@ -1693,9 +1693,10 @@ static void run(char* line) {
     else if (!strcasecmp(arg, "music"))  app = GUI_APP_MUSIC;
     else if (!strcasecmp(arg, "mesh"))   app = GUI_APP_MESHTASTIC;
     else if (!strcasecmp(arg, "gbc"))    app = GUI_APP_GBC;     // the ROM picker; `key ok` starts the first game
+    else if (!strcasecmp(arg, "files"))  app = GUI_APP_FILES;
     else if (!strcasecmp(arg, "clock") || !*arg) app = GUI_APP_CLOCK;
     else {
-      say("open: maps | photos | books | music | mesh | gbc | clock\n");
+      say("open: maps | photos | books | music | mesh | gbc | files | clock\n");
       return;
     }
     if (gui.openAppFromConsole(app)) {
