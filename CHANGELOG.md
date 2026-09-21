@@ -83,9 +83,10 @@ heap is only ~16 KB" note in this repo, the fragmentation crashes, the downloade
 what it got: **`BOOT: BT reserve released: internal free 171600 -> 211924`**. Idle, with
 WiFi and SIP up: **phone 2 heap 28,228 -> 68,816, largest block 24,704 -> 67,564; phone 1
 26,000 -> 66,320 / 66,076.** A 20-tile HTTPS download on phone 2 bottomed out at **48 KB free**
-(phone 1's run this morning: 5.3 KB). What comes back is ~40 KB of the 56 (five regions:
-6,192 + 25,480 + 6,688 + 2,412 + 52 bytes; the rest of the window is the ROM's), added at the
-HEAD of the allocator's list — so they absorb the boot-time allocations made after them, and
+(phone 1's run this morning: 5.3 KB). What comes back is ~40 KB, not 56 (five regions:
+6,192 + 25,480 + 6,688 + 2,412 + 52 bytes; the other 16 KB of the window were never withheld
+— heap from boot, per the SOC's reserved-memory table), added at the HEAD of the allocator's
+list — so they absorb the boot-time allocations made after them, and
 the main region's ~67 KB block stays whole for a TLS handshake or any other large request
 (the review corrected my first description, which had the order backwards; the 67 KB
 "largest" is the proof). ⚠ No Bluetooth can start in a boot after this — which has been true
