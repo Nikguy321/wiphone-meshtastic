@@ -52,6 +52,12 @@ phone 2: idle 69.0 KB → in game 37.7 KB (WRAM in PSRAM, VRAM internal, 100 %) 
 block as well as the total, per the review: a 16 KB VRAM out of the only 20 KB block would
 leave the phone's largest at 4 KB.
 
+**A tile over 96 KB is a tile now.** Phone 1's restarted run showed its remaining failures
+were `tile larger than 96 KB` — USGS aerial tiles past the downloader's body buffer, which
+failed the same tiles on every run (grey squares that no Start could fill). The buffer is
+PSRAM, so the cap is 256 KB now. The card retry, measured on the same run: **9 refused
+writes, all 9 written on the second try, none lost** (the earlier run had lost 103 of 2,722).
+
 **README:** the SD card to buy, with the measurement behind it (Nick: "Others have asked").
 
 ## 0.9.74 (2026-09-21) - the phone gets its Bluetooth RAM back; the map downloader says its numbers

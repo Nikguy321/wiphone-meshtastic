@@ -26,7 +26,7 @@
  * where the margin is thinner (the handshake's ~12 KB of lwIP buffers). `maps dl` prints
  * the floor after every run: if it ever reads under ~1,500, put this back up. */
 #define TF_STACK_BYTES   8192
-#define TF_BODY_CAP      (96u * 1024u)     // one tile, with room: USGS/OTM are 13-55 KB
+#define TF_BODY_CAP      (256u * 1024u)    // one tile, with room. PSRAM, so the number is free: USGS aerial tiles run past the old 96 KB ("tile larger than 96 KB" failed the same tiles on every run, 2026-09-21)
 #define TF_WRITE_PIECE   (32u * 1024u)
 #define TF_MAX_FAILS     12                // consecutive; then the run gives up
 #define TF_CONNECT_LARGEST (10u * 1024u)   // internal largest block a TLS handshake may start with (whole KB: it is printed)
@@ -320,7 +320,7 @@ static int fetchOne(HTTPClient& http, WiFiClient& client, const char* url,
     /* Whatever is left of the body is still in the socket; a kept-alive next GET would read
      * it as the next response. Drop the connection — the reconnect is the cheaper mistake. */
     client.stop();
-    strlcpy(err, stalled ? "body stalled" : (overCap ? "tile larger than 96 KB" : "body cut short"), errCap);
+    strlcpy(err, stalled ? "body stalled" : (overCap ? "tile larger than 256 KB" : "body cut short"), errCap);
     return 0;
   }
   *got = n;
