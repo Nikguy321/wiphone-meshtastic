@@ -1,8 +1,23 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-20 evening)
+## ▶▶ STATE NOW (header refreshed 2026-09-20 night)
 
 Read this first; everything below it is narrative.
+
+📁 **2026-09-20 NIGHT: 0.9.72 — THE FILE BROWSER COPIES, MOVES AND DELETES FOLDERS.** Nick:
+"no way to select a folder and copy/paste/delete... trying to delete 'home' in the maps
+folder." `[ This folder... ]` inside any non-root folder → Copy / Move / Delete for the folder
+you stand in. Move = one rename; Copy and Delete are JOBS (`FilesApp::Job`, placement-new in
+PSRAM, `stepJob()` 80 ms per 30 ms app-timer tick, directory handles kept open per level ≤ 6,
+POSIX unlink/rmdir, Back stops). Delete confirms with a live COUNT. `files_paths.h` +
+`test_filepaths` (22). Reviewed by 20 agents (3 lenses); the real ones — the running tile
+download's area (refused), confirm keys 101/102 vs browse 1/2, uint64 bytes, first error kept,
+readdir errors via errno, audio DMA fed inside the slice — all in. Measured on phone 2:
+/maps/home (271 tiles, 33 MB) copied in 199 s, deleted in 16 s, no LOOP STALL from the job.
+**PUSHED (`e1bcd16`) AND PUBLISHED, live sha `b1c639e5…` verified; BOTH PHONES ON IT.**
+`/maps/home` is still on both cards — Nick deletes it himself now, from the phone. Bench: `open
+files`; `tools/wiphone_send.py --app maps --tree <dir>` plants a scratch tree; `shot` sees the
+browser; a `key back` from a folder clears the note, which shifts the row numbers by one.
 
 🗺️ **2026-09-20 EVENING: 0.9.71 — the map says WHERE each area's tiles are.** Nick: "what is the
 'home' map? I don't have any tiles for it." `home` = the hand-converted North Bend/Snoqualmie
