@@ -129,6 +129,7 @@ public:
   }
   appEventResult processEvent(EventType event);
   void redrawScreen(bool redrawAll = false);
+  bool drewInsideBand();         // the map view paints only between the header and the footer
 
 protected:
   typedef enum {
@@ -225,7 +226,9 @@ protected:
   int      pendingTiles;
 
   int      helpTop;         // first help row on screen; the legend does not fit at once
-  int      panRun;          // hold repeats so far, for mapPanStep(); 0 = a tap
+  int      panRun;          // hold repeats so far (the log); 0 = a tap
+  int      panCarry;        // the hold's sub-pixel remainder, px x ms (mapPanHoldMove)
+  int      panHoldPx;       // pixels the hold has moved so far (the log)
   int      noteRows(SmoothFont* fnt, uint16_t maxW, char (*rows)[72]);   // the note, wrapped
   uint32_t panLastMs;
   /* Hold-to-scroll (2026-09-19). The keypad path suppresses held-key re-reports for every app
@@ -236,6 +239,7 @@ protected:
   uint32_t panHoldSinceMs;  // when the press landed; the first repeat waits MAP_PAN_HOLD_DELAY_MS
   int      panHoldDx, panHoldDy;
   bool     panHoldRan;      // the hold actually repeated: its end ends the run too
+  uint32_t panHoldBlipMs;   // the poll first saw the key up (0 = down); see MAP_PAN_HOLD_BLIP_MS
   /* Snap to pins (2026-09-19, Maps menu toggle, NVS "snap"). A single press that would land on
    * or fly past a pin stops ON it; a press while sitting on a pin jumps to the next pin that
    * way, if one is on screen. Hold-scrolling never snaps. */

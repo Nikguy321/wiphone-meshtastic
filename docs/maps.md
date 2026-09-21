@@ -17,7 +17,7 @@ mesh has shared and the last position of everyone who has spoken.
 
 | Key | What it does |
 |---|---|
-| **Arrows** | scroll. A tap is a **12 px nudge**, always — taps never speed up; **hold one down and it keeps scrolling and speeds up** (a repeat every 100 ms after 400 ms, 24 → 48 → 72 → 96 px); let go and the next press is a nudge again. With **Snap to markers** on (the menu; it is on by default) the map snaps onto a pin, a place from the mesh or a node with a position **when the crosshair lands within 10 px of it** — after a tap, or where a hold stops. Nothing else: a marker in the path of a sweep is sailed past, and the tap after a snap steps clear (the nudge is bigger than the radius), so you can scroll around them. Since taps on the two axes can put the crosshair within 8.5 px of anything, "as near as you can get" is always near enough. The strip says what you landed on: `Pin 3 (3 of 4)`, `hunt camp (place from the mesh)`, `Nick H (node, 12m ago)`. `7` / `9` walk your pins in order |
+| **Arrows** | scroll. A tap is a **12 px nudge**, always — taps never speed up; **hold one down and it keeps scrolling and speeds up** (after 400 ms, 240 → 480 → 720 → 960 px/s over the next 0.6 s — by TIME, so a frame that comes late moves further, not later, at ~12 frames a second; since 0.9.73); let go and the next press is a nudge again. A hold also rides through the keypad chip's habit of reporting a release and a re-press 4 ms apart under a thumb that never moved (0.9.73 — it used to stop the sweep dead after one to four jumps). With **Snap to markers** on (the menu; it is on by default) the map snaps onto a pin, a place from the mesh or a node with a position **when the crosshair lands within 10 px of it** — after a tap, or where a hold stops. Nothing else: a marker in the path of a sweep is sailed past, and the tap after a snap steps clear (the nudge is bigger than the radius), so you can scroll around them. Since taps on the two axes can put the crosshair within 8.5 px of anything, "as near as you can get" is always near enough. The strip says what you landed on: `Pin 3 (3 of 4)`, `hunt camp (place from the mesh)`, `Nick H (node, 12m ago)`. `7` / `9` walk your pins in order |
 | **2 4 6 8** | scroll too, for gloves |
 | **Side button 1 / 2** (top two) | zoom in / out. Also `#`/`*` or `3`/`1` |
 | **Side button 3** | centre on me: a live GPS fix (4+ satellites), else the pin you declared by hand. Also `0` |
@@ -301,6 +301,10 @@ maps dl stop                             finish the tile in hand and quit
 maps dlurl http://192.168.1.17:8765/{z}/{x}/{y}.jpg    a plain-HTTP relay as source 3
 tlstest <url> [n]                        the TLS bench: n kept-alive GETs, heap and timing
 open maps                                jump into the app; `hold on` keeps the screen awake
+maps hold right 1500 [300]               hold an arrow for 1500 ms from the cable; with the
+                                         third number, fake the chip's release-blip at 300 ms
+                                         (`MAPS: hold continues past a ...` proves the ride-through)
+keys raw                                 the last 64 bytes the keypad chip sent, with gaps
 ```
 
 ---

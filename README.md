@@ -76,6 +76,11 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.73** — the map's **hold-to-scroll no longer stops under a held thumb**: the keypad
+  chip emits a release-and-re-press pair (4 ms apart) under a finger that never moved, and
+  the map now rides through it (so do the F2 music key and the held-digit/`#` typing holds);
+  a sweep **moves by time at twice the frame rate** (~12 frames a second, from ~5), so it no
+  longer lurches. (`keys raw` also shows all 64 of its entries now, not the oldest 12.)
 - **0.9.72** — **Files can copy, move and delete whole folders**: the `[ This folder... ]`
   row inside any folder. A delete counts first, then runs as a job the phone stays usable
   under, with Back to stop. (Deleting `/maps/home` from the phone was the ask.)
@@ -289,7 +294,9 @@ and the Mac-side command are in **[docs/maps.md](docs/maps.md)**.
   ruler (scroll away from the anchor, read the distance); the Pins / Places / Nodes lists are
   nearest-first with distance and bearing on every row. **Menu → What the buttons do...**
   draws the phone's buttons with what each one does on the map.
-- **Arrows scroll — a tap is a 12 px nudge, a hold keeps scrolling and speeds up.** With
+- **Arrows scroll — a tap is a 12 px nudge, a hold keeps scrolling and speeds up** (240 →
+  960 px/s over the first 0.6 s, by time, so a slow frame moves further rather than later;
+  and a hold survives the keypad chip's release-blip under a steady thumb — since 0.9.73). With
   **Snap to markers** on (it is, by default; the menu turns it off) the map snaps onto a
   pin, a place from the mesh or a node with a position **when you land within 10 px of it**
   — after a tap, or where a hold stops — and the strip says what you landed on: `Camp
@@ -609,7 +616,8 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `open <app>` | jump into maps / photos / books / music / mesh / gbc / clock, whatever screen is up (`gbc` is the ROM picker; `key ok` starts the first game) |
 | `hold on \| off` | keep the screen awake and unlocked for a scripted bench session |
 | `notify [sip]` | fire the real message-arrival announcement (buzz + chirp) from the cable; the log prints `buzz off after N ms`, `pop start took N ms`, `pop stopped after N ms` |
-| `maps hold up\|down\|left\|right [ms]` | press an arrow on the map and hold it for that long — the hold-to-scroll bench |
+| `maps hold up\|down\|left\|right [ms [blip]]` | press an arrow on the map and hold it for that long — the hold-to-scroll bench; `blip` ms in, fake the chip's release-and-re-press under a held finger |
+| `keys` / `keys raw` | the keypad's health counters / the last 64 bytes the chip sent, with the gap before each — the trace that found the release-under-a-held-finger (0.9.73) |
 | `gbc` / `gbc autosave` | the Game Boy: what is up, which ROM, its two state files — and the power-off save, run from the cable (it leaves the game parked under the pause menu) |
 | `send <i> <text>` / `dm <!node> <text>` | a channel text / a direct message; a refusal prints `REFUSED` and the same reason the compose screen shows (`too long for the mesh` past 232 / 220 bytes) |
 | `wifi scan` | what the radio can actually hear — deaf radio vs absent AP |

@@ -2077,17 +2077,32 @@ void GUI::redrawScreen(bool redrawHeader, bool redrawFooter, bool redrawScreen, 
 
   if (state.screenBrightness != 0 || state.screenWakeUp) {      // Optimization: do not push the screen out if the screen is sleeping
 
+    bool bandOnly = false;
     if (redrawScreen) {
       //log_d("REDRAW pushing");
       // In case screen was redrawn, we just push the entire screen for simplicity (cutting away header and footer doesn't save much time; but TODO: possible optimization)
       if (callApp != NULL) {
         callApp->pushScreen();
       } else if (appScreen->isSprite()) {
-        this->pushScreen(appScreen);
+        /* The optimisation the TODO above describes, opted into per app (drewInsideBand):
+         * the map scrolling under a held arrow repaints ~7 frames a second and the header
+         * and footer rows are a fifth of every push. Measured 2026-09-20: ~60 ms a push. */
+        if (runningApp != NULL && appScreen == screen && !state.locked && runningApp->isWindowed() &&
+            runningApp->drewInsideBand() && header && footer) {
+          const int top = ((GUIWidget*)header)->getParentOffY() + ((GUIWidget*)header)->height();
+          const int bottom = ((GUIWidget*)footer)->getParentOffY();
+          if (top >= 0 && bottom > top && bottom <= (int)screen->height()) {
+            this->pushScreenPart(screen, (uint16_t)top, (uint16_t)(bottom - top));
+            bandOnly = true;
+          }
+        }
+        if (!bandOnly) {
+          this->pushScreen(appScreen);
+        }
       }
     }
     // When appScreen is a sprite and entire screen was pushed out above, then no need to draw header and footer parts separately
-    if (!redrawScreen || !appScreen->isSprite()) {
+    if (!redrawScreen || !appScreen->isSprite() || bandOnly) {
       if (redrawHeader) {
         //log_d("REDRAW pushing header");
         this->pushScreenPart(screen, ((GUIWidget*)header)->getParentOffY(), ((GUIWidget*)header)->height());

@@ -12,6 +12,7 @@
 #include <stdarg.h>
 
 extern bool uiKeyStillHeld(uint32_t mask);   // WiPhone.ino: is this key physically down right now?
+extern uint32_t uiKeyUpAgeMs(uint32_t mask); // ...and how long ago its last release was decoded
 
 extern bool gGpsNmea;         // WiPhone.ino: is the NMEA receiver switched on at all
 
@@ -39,11 +40,20 @@ extern bool gGpsNmea;         // WiPhone.ino: is the NMEA receiver switched on a
 #define MAP_STALE_MS   (30u * 60u * 1000u)
 
 /* Hold-to-scroll: a press held this long starts repeating, then a repeat every
- * MAP_PAN_HOLD_STEP_MS, climbing mapPanStep()'s curve. 400 ms keeps a deliberate tap a single
- * nudge; 100 ms is just under the chip's ~109 ms heartbeat, so the poll never misses a beat
- * and the release is seen within one step. */
+ * MAP_PAN_HOLD_STEP_MS (map_tiles.h) or as soon after as the loop gets round to it, moving
+ * the distance the time warrants (mapPanHoldMove). 400 ms keeps a deliberate tap a single
+ * nudge. */
 #define MAP_PAN_HOLD_DELAY_MS  400u
-#define MAP_PAN_HOLD_STEP_MS   100u
+/* 🛑 A RELEASE UNDONE THIS SOON IS NOT A FINGER COMING OFF. The keypad chip emits a release
+ * under a held thumb — two heartbeats of silence, a release, the same key pressed again 4 ms
+ * later — at the first re-report slot or a few repeats in (the trace is by uiKeyUpAgeMs in
+ * WiPhone.ino; Nick, 2026-09-20: "works for one to 3 or 4 jumps before it just stops"). The
+ * re-press is killed as bounce on the UI path, correctly, so no keypress ever told the map the
+ * finger was still there. So a hold survives a release younger than this: the poll keeps the
+ * hold and looks again, and the same arrow arriving as a keypress inside the window (a
+ * re-press just past KEY_BOUNCE_MS) is the hold continuing, not a tap. 4 ms observed; no
+ * human re-taps a key inside 80 ms (WiPhone.ino, KEY_BOUNCE_MS), so 40 sits between. */
+#define MAP_PAN_HOLD_BLIP_MS   40u
 /* ⚠ The delay must be LONGER than uiKeyStillHeld()'s 350 ms staleness window: at 300 ms a
  * tap whose release was lost (two keys down, or any release the keypad's stale sweep exists
  * for) still read as "held" at the first repeat and the map took one phantom step — off the
@@ -165,6 +175,9 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   panLastMs = 0;
   panHoldMask = 0;
   panHoldSinceMs = 0;
+  panHoldBlipMs = 0;
+  panCarry = 0;
+  panHoldPx = 0;
   panHoldDx = panHoldDy = 0;
   panHoldRan = false;
   snapPins = true;
@@ -1162,7 +1175,20 @@ void MapsApp::drawMap() {
 
   MapBlit b[MAP_MAX_BLITS];
   const int n = mapViewBlits(zoom, cx, cy, vpW, vpH, b, MAP_MAX_BLITS);
-  lcd.fillRect(vpX, vpY, vpW, vpH, MAP_C_VOID);
+  /* The void behind the tiles is painted only where a tile cannot be: the blits tile the
+   * viewport completely except past the world's north or south edge, and filling 60,000
+   * pixels of PSRAM sprite to paint them over again cost 15 ms of every frame (measured
+   * 2026-09-20, a seventh of the frame). A missing or unread tile is filled in its own
+   * colour below, so nothing is left unpainted. */
+  long covered = 0;
+  for (int i = 0; i < n; i++) {
+    covered += (long)b[i].w * b[i].h;
+  }
+  /* ...and always when the tile loop below will not run at all (no area on the card: the
+   * map is drawn blank behind the markers) — the memory-failure branch paints its own. */
+  if (covered != (long)vpW * vpH || n <= 0 || areaSel < 0) {
+    lcd.fillRect(vpX, vpY, vpW, vpH, MAP_C_VOID);
+  }
 
   int haveTiles = 0;
   if (n > 0 && areaSel >= 0 && !tileMemFail) {
@@ -1175,7 +1201,10 @@ void MapsApp::drawMap() {
         /* Row at a time. pushImage's `w` is both the width AND the source stride, so a
          * sub-rectangle of a 256-wide tile cannot be pushed in one call; a row can, and the
          * source pointer is the row's start. Every coordinate here is already inside both the
-         * tile and the viewport — mapViewBlits guarantees it, and test_maptiles proves it. */
+         * tile and the viewport — mapViewBlits guarantees it, and test_maptiles proves it.
+         * (Tried 2026-09-20: swapping once at load and memcpy-ing rows here saved nothing
+         * measurable — the ~18 ms these rows cost a frame is PSRAM-to-PSRAM bandwidth, not
+         * the swap. Left as it was.) */
         lcdNativePixels(lcd, true);
         for (int r = 0; r < q->h; r++) {
           uint16_t* row = slots[si].px + (size_t)(q->srcY + r) * MAP_TILE_PX + q->srcX;
@@ -2897,6 +2926,21 @@ void MapsApp::drawHelp() {
 
 // ---------------------------------------------------------------- events
 
+/* The keypad mask of a scrolling key, 0 for anything else — what the hold polls for. */
+static uint32_t arrowMask(EventType event) {
+  switch (event) {
+  case WIPHONE_KEY_UP:    return WIPHONE_KEY_MASK_UP;
+  case WIPHONE_KEY_DOWN:  return WIPHONE_KEY_MASK_DOWN;
+  case WIPHONE_KEY_LEFT:  return WIPHONE_KEY_MASK_LEFT;
+  case WIPHONE_KEY_RIGHT: return WIPHONE_KEY_MASK_RIFHT;
+  case '2':               return WIPHONE_KEY_MASK_2;
+  case '8':               return WIPHONE_KEY_MASK_8;
+  case '4':               return WIPHONE_KEY_MASK_4;
+  case '6':               return WIPHONE_KEY_MASK_6;
+  default:                return 0;
+  }
+}
+
 appEventResult MapsApp::onMapKey(EventType event) {
   /* 🛑 A BATTERY BLINK IS NOT A KEYPRESS. Every non-keyboard event the phone raises — the
    * battery icon, the WiFi RSSI, the clock, a SIP registration — is delivered to the running
@@ -2911,8 +2955,19 @@ appEventResult MapsApp::onMapKey(EventType event) {
    * a handler that has something new to say says it below. Clearing per-branch is how a
    * message from ten minutes ago ends up sitting under a map nobody is looking at any more —
    * and how one branch gets forgotten. */
+  /* The arrow being held, pressed again within a blip of its release: the chip's
+   * release-and-re-press under a finger that never moved (MAP_PAN_HOLD_BLIP_MS). The hold
+   * goes on exactly as it was — no nudge, no restart of the delay, the run kept. */
+  if (panHoldMask && arrowMask(event) == panHoldMask &&
+      uiKeyUpAgeMs(panHoldMask) < MAP_PAN_HOLD_BLIP_MS) {
+    log_e("MAPS: hold continues past a re-press %lums after its release (%d repeats in)",
+          (unsigned long)uiKeyUpAgeMs(panHoldMask), panRun);
+    panHoldBlipMs = 0;
+    return DO_NOTHING;
+  }
   note[0] = '\0';
   panHoldMask = 0;                       // whatever this key is, the previous hold is over
+  panHoldBlipMs = 0;
 
   int dx = 0, dy = 0;
   switch (event) {
@@ -2946,6 +3001,8 @@ appEventResult MapsApp::onMapKey(EventType event) {
      * on its timing — the opposite of "as near as I possibly can". */
     const uint32_t now = millis();
     panRun = 0;
+    panCarry = 0;
+    panHoldPx = 0;
     panLastMs = now;
     panHoldRan = false;
     panOnce(dx, dy, mapPanStep(0), true);
@@ -2953,17 +3010,7 @@ appEventResult MapsApp::onMapKey(EventType event) {
      * Nick, 2026-09-19: "holding the scroll button doesn't allow it to keep scrolling and
      * speeding up, it just does a small jump and stops" — the keypad path hides the hold
      * from every app on purpose, so the map polls for it itself (uiKeyStillHeld). */
-    switch (event) {
-    case WIPHONE_KEY_UP:    panHoldMask = WIPHONE_KEY_MASK_UP;    break;
-    case WIPHONE_KEY_DOWN:  panHoldMask = WIPHONE_KEY_MASK_DOWN;  break;
-    case WIPHONE_KEY_LEFT:  panHoldMask = WIPHONE_KEY_MASK_LEFT;  break;
-    case WIPHONE_KEY_RIGHT: panHoldMask = WIPHONE_KEY_MASK_RIFHT; break;
-    case '2':               panHoldMask = WIPHONE_KEY_MASK_2;     break;
-    case '8':               panHoldMask = WIPHONE_KEY_MASK_8;     break;
-    case '4':               panHoldMask = WIPHONE_KEY_MASK_4;     break;
-    case '6':               panHoldMask = WIPHONE_KEY_MASK_6;     break;
-    default:                panHoldMask = 0;                      break;
-    }
+    panHoldMask = arrowMask(event);
     panHoldSinceMs = now;
     panHoldDx = dx;
     panHoldDy = dy;
@@ -3081,9 +3128,34 @@ appEventResult MapsApp::processEvent(EventType event) {
 
   if (event == APP_TIMER_EVENT) {
     if (panHoldMask) {
-      if (appState != MAPS_VIEW || !uiKeyStillHeld(panHoldMask)) {
+      const bool held = (appState == MAPS_VIEW) && uiKeyStillHeld(panHoldMask);
+      if (held && panHoldBlipMs) {
+        /* Back down within the blip: the chip's release under a finger that never moved. */
+        log_e("MAPS: hold continues past a %lums release blip (%d repeats in)",
+              (unsigned long)(millis() - panHoldBlipMs), panRun);
+        panHoldBlipMs = 0;
+      }
+      if (!held && appState == MAPS_VIEW && uiKeyUpAgeMs(panHoldMask) < MAP_PAN_HOLD_BLIP_MS) {
+        /* Just released — too soon to say the finger came off (MAP_PAN_HOLD_BLIP_MS). Keep
+         * the hold and look again next tick; the timer stays armed while panHoldMask is set.
+         *
+         * 🛑 AND DO NOTHING ELSE THIS PASS. The blip is judged on drain-time stamps: the
+         * chip's re-press comes 4 ms after its release, but it is READ on the next pass, and
+         * if this pass went on to read a 32 KB tile piece (25-60 ms) the re-press would
+         * arrive 25+ ms late — past the bounce filter, so dispatched as a keypress, and past
+         * the blip window, so taken for a fresh tap: nudge, snap, a 400 ms restart. Keeping
+         * this pass short keeps the re-press inside KEY_BOUNCE_MS, where the keypad path
+         * absorbs it silently (review, 2026-09-20). The tile waits one tick. */
+        if (!panHoldBlipMs) {
+          panHoldBlipMs = millis();
+        }
+        return DO_NOTHING;
+      } else if (!held) {
         panHoldMask = 0;                 // the finger came off (or a lost release aged out)
+        panHoldBlipMs = 0;
         if (panHoldRan) {
+          log_e("MAPS: hold ended after %d repeats, %lums, %d px", panRun,
+                (unsigned long)(millis() - panHoldSinceMs), panHoldPx);
           panRun = 0;
           panLastMs = 0;
           panHoldRan = false;
@@ -3097,14 +3169,27 @@ appEventResult MapsApp::processEvent(EventType event) {
         armTimer();                      // stand the 100 ms tick down unless tiles need it
       } else {
         const uint32_t now = millis();
-        if (now - panHoldSinceMs >= MAP_PAN_HOLD_DELAY_MS && now - panLastMs >= MAP_PAN_HOLD_STEP_MS) {
+        const uint32_t held = now - panHoldSinceMs;
+        if (held >= MAP_PAN_HOLD_DELAY_MS) {
+          /* The repeats began at the end of the delay; the speed is set by how long they
+           * have been running, and the distance by how long THIS tick took to come round —
+           * a late frame moves further, so the sweep is steady when the frames are not.
+           * EVERY tick moves (no "at least 100 ms since the last" gate): a frame costs
+           * ~80 ms, and a 100 ms gate on a 50 ms timer let every other tick through — one
+           * frame per 180 ms, measured, from a phone that could draw one per 90. */
+          const int run = 1 + (int)((held - MAP_PAN_HOLD_DELAY_MS) / MAP_PAN_HOLD_STEP_MS);
+          const uint32_t dt = panHoldRan ? (now - panLastMs) : MAP_PAN_HOLD_STEP_MS;
+          const int px = mapPanHoldMove(run, dt, &panCarry);
           if (panRun < 1000) {
-            panRun++;                    // speeding up: the same curve a run of taps climbs
+            panRun++;
           }
           panLastMs = now;
           panHoldRan = true;
-          panOnce(panHoldDx, panHoldDy, mapPanStep(panRun), false);
-          return REDRAW_SCREEN;
+          if (px > 0) {
+            panHoldPx += px;
+            panOnce(panHoldDx, panHoldDy, px, false);
+            return REDRAW_SCREEN;
+          }
         }
       }
     }
@@ -3737,6 +3822,14 @@ appEventResult MapsApp::processEvent(EventType event) {
     return DO_NOTHING;
   }
   return DO_NOTHING;
+}
+
+/* GUI::redrawScreen asks this after every repaint: the map VIEW draws nothing outside
+ * vpX/vpY/vpW/vpH — the band between the header and the footer, set in the constructor — so
+ * only that band needs to reach the glass. The other screens (menus, help, the dialogs) are
+ * widgets drawn the ordinary way and take the ordinary full push. */
+bool MapsApp::drewInsideBand() {
+  return appState == MAPS_VIEW && vpY > 0;
 }
 
 void MapsApp::redrawScreen(bool redrawAll) {

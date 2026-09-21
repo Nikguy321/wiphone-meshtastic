@@ -325,6 +325,19 @@ int mapPanStep(int run) {
   return 96;                      /* ... 960 px/s, four screens a second */
 }
 
+int mapPanHoldMove(int run, uint32_t dtMs, int* carry) {
+  if (dtMs > MAP_PAN_HOLD_MAX_DT_MS) {
+    dtMs = MAP_PAN_HOLD_MAX_DT_MS;
+  }
+  int c = carry ? *carry : 0;
+  c += mapPanStep(run < 1 ? 1 : run) * (int)dtMs;
+  const int px = c / MAP_PAN_HOLD_STEP_MS;
+  if (carry) {
+    *carry = c - px * MAP_PAN_HOLD_STEP_MS;
+  }
+  return px;
+}
+
 int mapScaleBar(double metersPerPixel, int maxPx, int* px) {
   if (px) {
     *px = 0;

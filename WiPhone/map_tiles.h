@@ -155,6 +155,16 @@ void    mapViewToLatLon(int z, int32_t cx, int32_t cy, int vw, int vh,
 #define MAP_PAN_NUDGE_PX    12
 #define MAP_SNAP_RADIUS_PX  10
 int     mapPanStep(int run);   /* 0 = a tap = the nudge; 1.. = the hold's repeats */
+/* A hold moves BY TIME, not by tick. mapPanStep(run) is the speed — pixels per
+ * MAP_PAN_HOLD_STEP_MS, with `run` counted from the moment the repeats began — and a tick
+ * that arrives late (a redraw or a tile read ran long: 125-170 ms between repeats measured
+ * on the phone, never the 100 the timer asks for) moves the map the extra distance, so the
+ * sweep runs at a steady speed however uneven the frames come. `carry` keeps the sub-pixel
+ * remainder between ticks (px x ms); a tick longer than MAP_PAN_HOLD_MAX_DT_MS counts as
+ * that long, so a stalled loop cannot teleport the view. Nick, 2026-09-20: "a little choppy". */
+#define MAP_PAN_HOLD_STEP_MS   100
+#define MAP_PAN_HOLD_MAX_DT_MS 250
+int     mapPanHoldMove(int run, uint32_t dtMs, int* carry);
 
 /* Choose a scale bar: the largest of 1/2/5 x 10^n metres that fits in `maxPx` pixels.
  * Writes the bar's length in pixels to *px and returns its length in metres. */

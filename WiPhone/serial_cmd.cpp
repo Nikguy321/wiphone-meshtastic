@@ -10,7 +10,7 @@
 
 /* Defined in WiPhone.ino next to keypadBuff — see the note there on why this is a real press. */
 extern bool uiInjectKey(char c);
-extern void uiKeyBenchHold(uint32_t mask, uint32_t ms);   // WiPhone.ino: `maps hold`, the hold-to-scroll bench
+extern void uiKeyBenchHold(uint32_t mask, uint32_t ms, uint32_t blipAtMs);   // WiPhone.ino: `maps hold`, the hold-to-scroll bench
 #include "meshtastic_service.h"
 #include "t9_extra.h"            // the `t9` command reports the extra dictionary   // applyChannelUrl, the `chan` command
 #include "mesh_pos.h"             // distance/bearing for the `pos` command
@@ -136,7 +136,7 @@ static void help() {
     "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
     "  maps       what the card holds under /maps, the saved view, and the pins file",
     "  maps goto <lat> <lon> [z] [area]  set where the Maps app opens next (persists)",
-    "  maps hold up|down|left|right [ms]  press an arrow and hold it (hold-to-scroll bench)",
+    "  maps hold up|down|left|right [ms [blip]]  press an arrow and hold it (hold-to-scroll bench)",
     "  gbc        the Game Boy: is a game up, which ROM, Screen mode, its two state files",
     "  gbc autosave  write the running game's resume point the way power-off does (parks it)",
     "  lock       why the screen does or does not lock: setting, sleep gate, and the card",
@@ -513,10 +513,22 @@ static void run(char* line) {
   /* `keys raw` — what the CHIP actually sent, oldest first. The counters say a release
    * went missing; only this says whether it was never emitted, mis-decoded, or stranded. */
   if (!strcasecmp(line, "keys raw")) {
-    extern int keypadTrace(char* out, int cap);
-    char buf[1400];
-    keypadTrace(buf, sizeof(buf));
-    say("keys raw (oldest first):\n%s\n", buf);
+    /* ⚠ ONE say() PER ENTRY, like help(): say()'s buffer is 192 bytes, and the trace as one
+     * string showed the OLDEST twelve of 64 entries and dropped the rest without a word —
+     * the part of a hold where it went wrong (found chasing the map's hold, 2026-09-20). */
+    extern bool keypadTraceLine(int i, char* out, int cap);
+    char buf[48];
+    int shown = 0;
+    sayLine("keys raw (oldest first):");
+    for (int i = 0; keypadTraceLine(i, buf, sizeof(buf)); i++) {
+      if (buf[0]) {
+        sayLine(buf);
+        shown++;
+      }
+    }
+    if (!shown) {
+      sayLine("(nothing recorded - press some keys)");
+    }
     return;
   }
 
@@ -1740,9 +1752,11 @@ static void run(char* line) {
      *   maps dl <src> <lat> <lon> <km> <zmax>    start: src 0=USGS Topo 1=USGS Aerial 2=OTM 3=custom
      *   maps dl stop                             ask it to finish the current tile and exit
      *   maps dlurl <template>|clear              set the custom source (a plain-http relay)
-     *   maps hold up|down|left|right <ms>        press an arrow and HOLD it for <ms> — the
+     *   maps hold up|down|left|right <ms> [blip] press an arrow and HOLD it for <ms> — the
      *                                            bench for hold-to-scroll, where no finger
-     *                                            is on the key (uiKeyBenchHold) */
+     *                                            is on the key (uiKeyBenchHold); <blip> ms
+     *                                            in, fake the chip's release-and-re-press
+     *                                            under a held finger (see uiKeyUpAgeMs) */
     if (!strncasecmp(arg, "hold", 4) && (arg[4] == '\0' || arg[4] == ' ')) {
       arg += 4;
       while (*arg == ' ') arg++;
@@ -1753,17 +1767,49 @@ static void run(char* line) {
       else if (!strncasecmp(arg, "left", 4))  { mask = WIPHONE_KEY_MASK_LEFT;  key = WIPHONE_KEY_LEFT;  arg += 4; }
       else if (!strncasecmp(arg, "right", 5)) { mask = WIPHONE_KEY_MASK_RIFHT; key = WIPHONE_KEY_RIGHT; arg += 5; }
       if (!mask) {
-        say("maps hold: usage maps hold up|down|left|right <ms>\n");
+        say("maps hold: usage maps hold up|down|left|right [ms [blip]]\n");
         return;
       }
       while (*arg == ' ') arg++;
-      const long ms = *arg ? strtol(arg, NULL, 10) : 1000;
+      /* Two numbers, both optional, nothing else: "1500x" or "1500 x" is a mistake to be
+       * told about, not a plain hold to be run as though it were the blip test asked for. */
+      char* end = (char*)arg;
+      const long ms = *arg ? strtol(arg, &end, 10) : 1000;
+      if (*arg && (end == arg || (*end && *end != ' '))) {
+        say("maps hold: <ms> must be a number\n");
+        return;
+      }
       if (ms < 100 || ms > 10000) {
         say("maps hold: <ms> must be 100..10000\n");
         return;
       }
-      uiKeyBenchHold(mask, (uint32_t)ms);
-      say(uiInjectKey(key) ? "maps hold: pressed, held for %ld ms\n" : "maps hold: key buffer full\n", ms);
+      while (*end == ' ') end++;
+      long blip = 0;
+      if (*end) {
+        char* end2 = end;
+        blip = strtol(end, &end2, 10);
+        while (*end2 == ' ') end2++;
+        if (end2 == end || *end2) {
+          say("maps hold: <blip> must be a number of ms\n");
+          return;
+        }
+        if (blip < 0 || blip >= ms) {
+          say("maps hold: <blip> must be 0..<ms>\n");
+          return;
+        }
+      }
+      /* Inject first, arm second: an armed bench with no press dispatched would answer
+       * "held" to the next real tap of that arrow for up to ten seconds. */
+      if (!uiInjectKey(key)) {
+        say("maps hold: key buffer full\n");
+        return;
+      }
+      uiKeyBenchHold(mask, (uint32_t)ms, (uint32_t)blip);
+      if (blip) {
+        say("maps hold: pressed, held for %ld ms, a release blip at %ld ms\n", ms, blip);
+      } else {
+        say("maps hold: pressed, held for %ld ms\n", ms);
+      }
       return;
     }
     if (!strncasecmp(arg, "dlurl", 5)) {

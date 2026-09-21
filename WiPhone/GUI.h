@@ -1589,6 +1589,15 @@ public:
     return DO_NOTHING;
   };       // return "false" to trigger exit from the app (like "Back" button pressed)
   virtual void redrawScreen(bool redrawAll=false) {};
+  /* True when this repaint touched nothing outside the band between the header and the
+   * footer, so GUI::redrawScreen may push only that band to the glass (the header and the
+   * footer are pushed separately when THEY were redrawn). The map says yes while it is
+   * scrolling: a 240x320 sprite push is ~60 ms of blocking SPI from PSRAM and the
+   * header/footer rows are a fifth of it that never change under a held arrow. Default
+   * false: a full-screen app paints under the header, and a windowed one may too. */
+  virtual bool drewInsideBand() {
+    return false;
+  };
   void resetPush() {
     pushed = false;
   };

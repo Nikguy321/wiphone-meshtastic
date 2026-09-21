@@ -4,6 +4,38 @@
 
 Read this first; everything below it is narrative.
 
+🎮 **2026-09-20 LATE: 0.9.73 — THE MAP'S HOLD RIDES THROUGH THE KEYPAD CHIP'S RELEASE-BLIP, AND
+SWEEPS BY TIME.** Nick: "hold to scroll... works for one to 3 or 4 jumps before it just stops."
+`keys raw` on phone 2 while he held RIGHT: heartbeats every ~58 ms, then `+124ms 0x00 r`
+(a code-0 RELEASE) and `+4ms 0x5C P` (the same key down again) — under a thumb that never
+moved, at the first re-report slot (123-125 ms) or 2-4 repeats in. The attributed release
+cleared `uiKeyDown`; the map's poll read "up"; the re-press was bounce-killed (rightly). Fix in
+the MAP: `MAP_PAN_HOLD_BLIP_MS` = 40 — a release younger than that keeps the hold
+(`panHoldBlipMs`, next tick re-asks), and the same arrow as a keypress inside the window is a
+continuation. WiPhone.ino: `uiKeyUpAgeMs(mask)` (read-only) + the bench blip in
+`uiKeyBenchHold(mask, ms, blipAt)`. Then the choppiness: repeats came every 125-170 ms, not
+100 — `mapPanHoldMove(run, dt, &carry)` moves by TIME (curve = px per 100 ms, dt capped 250;
+`test_maptiles` +7): 1.2 s = 478 px (curve 480), 3 s = 2,214 (2,267). Also `keys raw` printed
+12 of 64 lines (`say()` is 192 bytes; one line per call now). Bench: `maps hold <dir> <ms>
+[blip]`; log lines `MAPS: hold continues past a Nms release blip (K repeats in)` and `MAPS:
+hold ended after N repeats, T ms, P px`. By hand on phone 2: "Worked" ×2, a real blip ridden
+through 3 repeats in. ⚠ The 2026-08-22 memo says the heartbeat is ~109 ms; today it measured
+58 — both are the chip's; nothing depends on the number except the 350 ms sweep, which is
+clear of both. FRAME RATE: a map frame was 107 ms → 77 (void fill skipped when the blits cover
+the band; `WiPhoneApp::drewInsideBand()` → GUI pushes only the band between header and footer;
+the 100 ms repeat gate on the 50 ms timer removed — every tick moves by time): 3 s hold = 14 →
+29-31 frames, distance on the curve. What is left in a frame: ~18 ms tile rows PSRAM→PSRAM
+(a pre-swapped memcpy was tried: no gain), ~10 ms overlays, ~45 ms SPI push at 40 MHz — DMA
+or a faster bus is the next lever, not tried. REVIEW (4 lenses; verifiers died on the Fable
+credit limit, hand-checked): the blip is judged on DRAIN-time stamps, so the tick that sees a
+fresh release now returns at once (no tile piece that pass — a 25-60 ms read made the 4 ms
+re-press read as 25+ ms, past the bounce filter, and a fresh tap); F2/digit/`#` hold trackers
+use `uiKeyDownOrBlip()`; `maps hold` injects before arming and validates `[blip]`; `keys raw`
+prints per entry (`keypadTraceLine`). NOT done: Game Boy single-direction blip = one dropped
+frame (1 in 4 blips; measure first); phone 1's heartbeat untraced. **State at the time of
+writing: committed locally, BOTH phones flashed, stage regenerated; NOT pushed/published —
+Nick was away and had not said so for this batch.**
+
 📁 **2026-09-20 NIGHT: 0.9.72 — THE FILE BROWSER COPIES, MOVES AND DELETES FOLDERS.** Nick:
 "no way to select a folder and copy/paste/delete... trying to delete 'home' in the maps
 folder." `[ This folder... ]` inside any non-root folder → Copy / Move / Delete for the folder

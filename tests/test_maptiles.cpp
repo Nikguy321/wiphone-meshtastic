@@ -259,6 +259,34 @@ int main() {
     CHECK(grows && mapPanStep(1) == 24 && mapPanStep(100) == 96,
           "a held key starts at 24 px, accelerates, and stops accelerating at 96");
   }
+  /* A hold moves by TIME (map_tiles.h, mapPanHoldMove): the same distance for the same
+   * milliseconds whether the ticks come every 100 ms or, as measured on the phone, every
+   * 125-170. */
+  {
+    int carry = 0;
+    CHECK(mapPanHoldMove(1, 100, &carry) == 24 && carry == 0, "a 100 ms tick at run 1 is the 24 px step");
+    carry = 0;
+    int a = mapPanHoldMove(1, 165, &carry);
+    int b = mapPanHoldMove(1, 165, &carry);
+    CHECK(a + b == 79 && carry == 20, "two 165 ms ticks move 3.3 steps, remainder carried (79 px, 20 px.ms over)");
+    carry = 0;
+    int slow = 0;
+    for (int i = 0; i < 4; i++) {
+      slow += mapPanHoldMove(9, 125, &carry);       /* 500 ms in five uneven... */
+    }
+    int fast = 0;
+    int carry2 = 0;
+    for (int i = 0; i < 5; i++) {
+      fast += mapPanHoldMove(9, 100, &carry2);      /* ...or on-time frames */
+    }
+    CHECK(slow == fast && fast == 480, "500 ms at full speed is 480 px however the frames fall");
+    carry = 0;
+    CHECK(mapPanHoldMove(9, 1500, &carry) == mapPanHoldMove(9, MAP_PAN_HOLD_MAX_DT_MS, &carry),
+          "a stalled tick moves at most MAP_PAN_HOLD_MAX_DT_MS worth: no teleport");
+    carry = 0;
+    CHECK(mapPanHoldMove(0, 100, &carry) == 24, "run 0 never reaches the hold (it is the tap): treated as run 1");
+    CHECK(mapPanHoldMove(3, 50, NULL) == 24, "a null carry is allowed: 50 ms at 48 px/step is 24 px");
+  }
   /* The landing snap's two relations (map_tiles.h). Break either and the map misbehaves in
    * a way no test of the snap itself would show: a radius >= the nudge means the tap after a
    * snap lands back inside it and the crosshair is STUCK on the marker; a radius under

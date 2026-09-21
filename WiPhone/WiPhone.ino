@@ -311,11 +311,14 @@ static uint32_t uiKeyDown = 0;
 #define KEYPAD_POLL_MS       40u     // one chip heartbeat
 #define KEYPAD_POLL_TAIL_MS  1000u   // keep polling this long after the last event
 /* Threshold for "this press is too old to be a hold continuing".
- * ⚠ MEASURED: the chip re-reports a held key about every 109 ms, NOT the 40 ms the
- * LONGPRESS_DELAY(1) comment in SN7326.h claims. 100 ms was therefore BELOW the real
- * heartbeat interval and every heartbeat read as a fresh press. Kept only as a counter
- * now (see the note at its use), but if anything ever acts on it again it must sit well
- * above 109 ms with room for jitter — and below the 350 ms sweep to be worth anything. */
+ * ⚠ MEASURED: the chip re-reports a held key every ~58 ms (traced 2026-09-20, phone 2 on
+ * the map) — an earlier trace (2026-08-22, menus) read ~109 ms; both are the chip's, and
+ * NEITHER is the 40 ms the LONGPRESS_DELAY(1) comment in SN7326.h claims. 100 ms was
+ * therefore BELOW the 109 ms reading and every heartbeat read as a fresh press. Kept only
+ * as a counter now (see the note at its use), but if anything ever acts on it again it must
+ * sit well above the slower heartbeat with room for jitter — and below the 350 ms sweep to
+ * be worth anything. The 350 ms sweep is the ONE threshold that acts on the heartbeat, and
+ * it is clear of both readings (six beats or three). */
 #define KEY_HOLD_GAP_MS      100u
 // (named ...Activity, not ...Event: GUI has its own msLastKeypadEvent member for the
 // screen-dimming timer and the two are not the same clock.)
@@ -376,23 +379,26 @@ static inline void keyTrace(uint8_t b, bool polled, bool unknown, bool dropped =
  *   full/err >0           the loop is blocking, or the I2C bus is unhappy. Both are their
  *                         own investigation; neither should ever move. */
 /* Oldest-first dump of the raw trace. Format per entry: `+123ms 0x4B P +` */
-int keypadTrace(char* out, int cap) {
-  int n = 0;
-  for (int i = 0; i < KEYTRACE_N && n < cap - 1; i++) {
-    const uint8_t k = (ktHead + i) % KEYTRACE_N;
-    if (!ktGap[k] && !ktByte[k] && !ktFlag[k]) {
-      continue;                                   // never written
-    }
-    n += snprintf(out + n, cap - n, "%s+%ums 0x%02X %c%s%s",
-                  n ? "\n" : "", (unsigned)ktGap[k], ktByte[k],
-                  (ktByte[k] & SN7326_PRESSED) ? 'P' : 'r',
-                  (ktByte[k] & SN7326_MORE) ? " +more" : "",
-                  (ktFlag[k] & 2) ? " ?UNKNOWN" : ((ktFlag[k] & 1) ? " (poll)" : ""));
+/* One entry of the trace, oldest first: i = 0..KEYTRACE_N-1. False past the last entry
+ * written (the caller stops there). ⚠ ONE LINE PER CALL, by design: the trace used to be
+ * formatted whole into a 1,400-byte buffer and printed with one say() — whose buffer is 192
+ * bytes — so the console showed the OLDEST twelve entries and dropped the rest without a
+ * word, and the rest is where a hold went wrong (2026-09-20). A line is at most ~30 bytes. */
+bool keypadTraceLine(int i, char* out, int cap) {
+  if (i < 0 || i >= KEYTRACE_N) {
+    return false;
   }
-  if (!n) {
-    n = snprintf(out, cap, "(nothing recorded - press some keys)");
+  const uint8_t k = (ktHead + i) % KEYTRACE_N;
+  if (!ktGap[k] && !ktByte[k] && !ktFlag[k]) {
+    out[0] = '\0';                                 // never written: an empty line to skip
+    return true;
   }
-  return n;
+  snprintf(out, cap, "+%ums 0x%02X %c%s%s",
+           (unsigned)ktGap[k], ktByte[k],
+           (ktByte[k] & SN7326_PRESSED) ? 'P' : 'r',
+           (ktByte[k] & SN7326_MORE) ? " +more" : "",
+           (ktFlag[k] & 2) ? " ?UNKNOWN" : ((ktFlag[k] & 1) ? " (poll)" : ""));
+  return true;
 }
 
 int keypadHealth(char* out, int cap) {
@@ -451,8 +457,8 @@ bool uiInjectKey(char c) {
 
 /* Is this key STILL physically down? The one fact the map's hold-to-scroll needs, read
  * straight from the keypad reader's own state: uiKeyDown holds the bit from the press until
- * the release (or the 350 ms stale sweep), and keyLastSeenMs[] is stamped by every ~109 ms
- * heartbeat the chip sends while a key is held (memory: wiphone-keypad-hardware). Both are
+ * the release (or the 350 ms stale sweep), and keyLastSeenMs[] is stamped by every heartbeat
+ * the chip sends while a key is held (~58-109 ms, see KEY_HOLD_GAP_MS). Both are
  * ANDed so a lost release — bit still set, heartbeats gone — reads as "up" within a third
  * of a second, and a map can never scroll away on its own.
  *
@@ -467,6 +473,11 @@ bool uiInjectKey(char c) {
  * everything else here, so plain variables. */
 static uint32_t s_benchHeldMask = 0;
 static uint32_t s_benchHeldUntil = 0;
+/* The bench's fake of the chatter blip (see uiKeyUpAgeMs): at s_benchBlipAt the next poll
+ * is answered "up" once and the release is stamped, exactly what one chip-emitted release
+ * followed by a re-press 4 ms later looks like from the map. 0 = no blip. */
+static uint32_t s_benchBlipAt = 0;
+static uint32_t s_benchBlipUpMs = 0;
 bool uiKeyStillHeld(uint32_t mask) {
   if (!mask) {
     return false;
@@ -477,10 +488,16 @@ bool uiKeyStillHeld(uint32_t mask) {
    * save landed under the finger (review, 2026-09-19). Every "held" answer stamps it. */
   if ((s_benchHeldMask & mask) == mask) {
     if ((int32_t)(s_benchHeldUntil - millis()) > 0) {
+      if (s_benchBlipAt && (int32_t)(millis() - s_benchBlipAt) >= 0) {
+        s_benchBlipAt = 0;               // one "up" answer, then held again
+        s_benchBlipUpMs = millis();
+        return false;
+      }
       gLastKeyMs = millis();
       return true;
     }
     s_benchHeldMask = 0;
+    s_benchBlipAt = 0;
   }
   if ((uiKeyDown & mask) != mask) {
     return false;
@@ -492,9 +509,54 @@ bool uiKeyStillHeld(uint32_t mask) {
   gLastKeyMs = millis();
   return true;
 }
-void uiKeyBenchHold(uint32_t mask, uint32_t ms) {
+/* How long ago this key's last RELEASE was decoded, in ms (huge if never).
+ *
+ * 🛑 THE CHIP EMITS A RELEASE UNDER A HELD FINGER. Traced on phone 2, 2026-09-20, while
+ * Nick held RIGHT on the map ("works for one to 3 or 4 jumps before it just stops"):
+ *
+ *     +58ms 0x5C P     heartbeats every ~58 ms while held...
+ *     +124ms 0x00 r    ...two beats of silence, then a RELEASE (code 0)...
+ *     +4ms 0x5C P      ...and the same key pressed again 4 ms later, beats resuming.
+ *
+ * Nothing left the key. It happened at the first re-report slot (123-125 ms after the
+ * press, three holds running) and mid-hold (2-4 repeats in, four more), 22 heartbeat gaps
+ * in a few minutes. The release cleared uiKeyDown, the map polled "up" and dropped its
+ * hold, and the re-press 4 ms later was killed as contact bounce (KEY_BOUNCE_MS, rightly:
+ * a menu must not double-step) — so the finger stayed down on a map that had stopped.
+ * The map now treats a release undone within MAP_PAN_HOLD_BLIP_MS as the hold continuing,
+ * and this is how it measures that. The bench blip above answers the same question. */
+uint32_t uiKeyUpAgeMs(uint32_t mask) {
+  if (!mask) {
+    return 0xFFFFFFFFu;
+  }
+  if ((s_benchHeldMask & mask) == mask && s_benchBlipUpMs) {
+    return millis() - s_benchBlipUpMs;
+  }
+  const uint8_t b = __builtin_ctz(mask);
+  if (!keyLastUpMs[b]) {
+    return 0xFFFFFFFFu;
+  }
+  return millis() - keyLastUpMs[b];
+}
+void uiKeyBenchHold(uint32_t mask, uint32_t ms, uint32_t blipAtMs) {
   s_benchHeldMask = mask;
   s_benchHeldUntil = millis() + ms;
+  s_benchBlipAt = blipAtMs ? millis() + blipAtMs : 0;
+  s_benchBlipUpMs = 0;
+}
+/* For the loop's own hold trackers (F2 for the music player, a held digit, a held '#'): is
+ * this key down, or released so recently that the chip's blip (uiKeyUpAgeMs, above) has not
+ * had its 4 ms to put it back? `tracking` is the tracker's own "a hold is in progress" state,
+ * so a key that was simply up stays up — the tolerance applies only inside a hold. What it
+ * costs: a real release is acted on up to KEY_BLIP_MS later. What it saves: a tap of F2
+ * skipping two tracks (the blip read as a release, the re-press as a second tap), a held
+ * digit typing itself twice. */
+#define KEY_BLIP_MS 40u
+static inline bool uiKeyDownOrBlip(uint32_t mask, bool tracking) {
+  if (uiKeyDown & mask) {
+    return true;
+  }
+  return tracking && uiKeyUpAgeMs(mask) < KEY_BLIP_MS;
 }
 
 void IRAM_ATTR keyboardInterrupt() {
@@ -2859,7 +2921,7 @@ void loop() {
      * Read here, right after the stale-key sweep, so uiKeyDown is already up to date. */
     loopPhase("music");
     if (!gGbcActive && !(gMapsActive && !gui.state.locked) && musicPlayerCurrent() >= 0) {
-      if (uiKeyDown & WIPHONE_KEY_MASK_F2) {
+      if (uiKeyDownOrBlip(WIPHONE_KEY_MASK_F2, msF2Down != 0)) {
         if (!msF2Down) {
           msF2Down = now;
           f2Fired = false;
@@ -2921,7 +2983,7 @@ void loop() {
         if (t9Mode && d == 1) {
           continue;
         }
-        if (uiKeyDown & digitMask[d]) {
+        if (uiKeyDownOrBlip(digitMask[d], msDigitDown != 0 && digitHeld == d)) {
           nowHeld = d;
           break;
         }
@@ -2966,7 +3028,7 @@ void loop() {
      * this fires. Stepping the mode back by one is not a workaround for that, it is the
      * only correct response: the user asked for a capital, not for a mode change. */
     if (!gui.state.locked && gui.state.screenBrightness > 0 && gui.state.t9Available()) {
-      if (uiKeyDown & WIPHONE_KEY_MASK_HASH) {
+      if (uiKeyDownOrBlip(WIPHONE_KEY_MASK_HASH, msHashDown != 0)) {
         if (!msHashDown) {
           msHashDown = now;
           hashFired = false;

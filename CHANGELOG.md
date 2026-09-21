@@ -1,5 +1,88 @@
 # Changelog
 
+## 0.9.73 (2026-09-20) - the map's hold-to-scroll no longer stops under a held thumb
+
+Nick: *"So the hold to scroll through maps isn't reliable. It works for one to 3 or 4 jumps
+before it just stops... Ideas?"* — then, on the fix: *"Worked."* / *"Tried another way, worked
+too. Both were a little choppy but not bad."*
+
+**The chip emits a release under a held finger.** The raw keypad trace (`keys raw`), taken
+while Nick held RIGHT on phone 2:
+
+```
++58ms  0x5C P     RIGHT held: a re-report every ~58 ms...
++124ms 0x00 r     ...two beats of silence, then a RELEASE (key code 0)...
++4ms   0x5C P     ...and RIGHT pressed again 4 ms later, beats resuming.
+```
+
+Nothing left the key. It happened at the first re-report slot (123-125 ms after the press,
+three holds running — the sweep never started) and mid-hold (2-4 repeats in, four more); the
+counters showed 22 heartbeat gaps over 100 ms in a few minutes of holding. The firmware
+attributes a code-0 release to the one key that is down (0.9.3x's fix for "every release is
+CALL"), which cleared `uiKeyDown`; the map's 50 ms poll read "up" and dropped its hold; and
+the re-press 4 ms later was killed as contact bounce (`KEY_BOUNCE_MS` = 25 — correctly: a menu
+must not double-step), so no keypress ever told the map the finger was still there. Hence
+"stuck": a thumb on the key, a map that had stopped.
+
+**The fix is in the map, not the keypad path** (Nick's rule from 0.9.66: "for everything but
+maps, the d-pad works well"). `MAP_PAN_HOLD_BLIP_MS` = 40: a release younger than that is not
+a finger coming off — the poll keeps the hold (`panHoldBlipMs`) and looks again next tick,
+and the same arrow arriving as a keypress inside the window (a re-press just past the bounce
+filter) is the hold continuing, not a tap: no nudge, no restart of the 400 ms delay. Humans
+cannot re-tap a key inside 80 ms (measured 2026-08-22), the blip is 4 ms; 40 sits between, so
+fast tapping is untouched. WiPhone.ino gains one read-only accessor for it,
+`uiKeyUpAgeMs(mask)` — how long ago the key's last release was decoded.
+
+**And the sweep moves by time now, not by tick — at twice the frame rate.** The repeats were
+asked for every 100 ms and came every 125-170 (a map redraw and a tile read between them run
+long), each moving the same distance late — the choppiness, and a sweep ~25 % slower than
+designed. `mapPanHoldMove(run, dt, &carry)` (map_tiles.h, `test_maptiles` +7) turns the curve
+into a speed — 24/48/72/96 px per 100 ms, `run` counted from when the repeats began — and
+moves each frame the distance its own interval warrants, sub-pixel remainder carried; a tick
+over 250 ms counts as 250, so a stalled loop cannot teleport the view. Then the frame itself,
+timed on the phone (107 ms): 15 ms of it filled the whole viewport black before the tiles
+covered it again (skipped when the blits cover the band), ~15 ms pushed the header and footer
+rows that never change under a held arrow (`WiPhoneApp::drewInsideBand()` — the map says yes
+on its view, and `GUI::redrawScreen` pushes only the band between them; the header's own
+repaints still push the header), and the "at least 100 ms since the last repeat" gate on a
+50 ms timer let every other tick through — one frame per 180 ms from a phone that draws one
+in 77. Every tick moves now. Measured on phone 2 from the cable, 3 s holds: **14 frames →
+29-31 frames, 2,215-2,231 px (the curve says 2,208)**; a frame is ~77 ms: ~18 ms copying tile
+rows into the page (PSRAM to PSRAM — swapping the bytes once at load and memcpy-ing was tried
+and saved nothing), ~10 ms markers and labels, ~45 ms pushing 240x250 pixels down a 40 MHz
+SPI bus. Faster than that means DMA or a faster bus; not tonight.
+
+**Reviewed (4 lenses, 15 findings; the verifiers ran out of Fable credit after the first, so
+the rest were checked by hand).** Real and fixed: (1) the blip is judged on DRAIN-time
+stamps — the re-press comes 4 ms after the release but is read on the next pass, and a pass
+that went on to read a 32 KB tile piece (25-60 ms) delivered it 25+ ms "late": past the bounce
+filter, so dispatched as a keypress, past the blip window, so taken for a fresh tap — nudge,
+snap, a 400 ms restart. The tick that sees a fresh release now does nothing else that pass
+(the tile waits one tick), which keeps the re-press inside `KEY_BOUNCE_MS`, where the keypad
+path absorbs it silently; on the bench the ride-throughs went from "51ms release blip" to
+"24ms". (2) The same chip blip hits the loop's OTHER hold trackers: F2 for the music player
+(a blip mid-tap = `Next` twice, mid-hold = a spurious `Next` before `Previous`), a held digit
+(typed twice on a long hold), a held `#` — all three now use `uiKeyDownOrBlip()`, "down, or
+released under 40 ms ago inside a hold". (3) `maps hold` armed the bench override BEFORE
+injecting the key, so a full key buffer left a phantom hold armed against the next real tap
+(inject first now); a non-numeric `[blip]` ran as a plain hold and said so (an error now); the
+usage line still showed the old shape. (4) `keys raw` moved its cut from 192 bytes to
+keypadTrace's 1,400 (64 entries with `+more (poll)` tags are ~1,800): it prints one entry per
+call now, no big buffer at all. (5) Comments: the heartbeat has measured 58 ms (today) and
+109 ms (2026-08-22) — both the chip's; only the 350 ms sweep depends on it and is clear of
+both. Rejected: a human re-tap swallowed as a continuation needs the tap under ~120 ms after
+the lift AND the release drained late — the tap is honoured as a nudge otherwise, and the
+window is the same 40 ms the ride-through needs. Noted, not done: a blip on a single held
+Game Boy direction can drop one frame of input (1 in 4 blips; measure with `keys` in a game
+first); phone 1's heartbeat has not been traced (`keys raw` while holding an arrow).
+
+**The bench:** `maps hold <dir> <ms> [blip]` fakes the chip's release-and-re-press at `blip`
+ms into a hold (`hold continues past a 24ms release blip (6 repeats in)` / `hold ended after
+31 repeats, 3040ms, 2231 px` are the log lines). Seen on phone 2 by hand, three sessions:
+`hold continues past a 49ms release blip (3 repeats in)`, `...51ms... (4 repeats in)` — real
+ones, ridden through; Nick: "Worked." / "worked too" / "Did it a bit better" (that last on the
+by-time build before the frame-rate work).
+
 ## 0.9.72 (2026-09-20) - folders in the file browser
 
 Nick: *"On the file browser, I realize there is no way to select a folder and copy/paste/
