@@ -105,7 +105,7 @@ typedef struct {
   uint32_t heapFloorLargest;   // the smallest "largest internal block" seen this run
   uint32_t heapMinEver;        // the allocator's own low-water mark when the run ended
   uint32_t stackFloor;         // the task's unused stack at the end of the run (bytes)
-  char     lastErr[64];
+  char     lastErr[96];   // "stopped: no RAM to connect: 13.6/14 KB free, 10.5/10 KB block" and its like
   char     source[24];
 } TileJobStatus;
 

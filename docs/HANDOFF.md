@@ -4,6 +4,34 @@
 
 Read this first; everything below it is narrative.
 
+🔇 **2026-09-21 MID-MORNING: 0.9.75 — MASTER MUTE + THE GAME BOY'S RAM FLOOR.** Nick (at work,
+"no sounds"): "a master 'mute' button within the settings... make sure it also works for the
+Gameboy". Settings → Mute all sounds (`MuteApp`, menu id 51, `GUI_APP_MUTE`; `configs.ini
+[audio] mute`; `guiSetMuted()` is the one path for the screen and serial `mute on|off`);
+`Audio::setMuted` → every codec volume write goes through `Audio::applyVolume` (outputs at
+floor + `codec.mute()` DACMU re-asserted after `codec.setVolume()`, which clears it; amp off) —
+ON THE LOUDSPEAKER ROUTE ONLY: earpiece (a call) and headphones play, the ring/pop/music/GBC
+all route to the loudspeaker;
+header crossed-speaker `GUI::drawMuteIcon`. THE GBC FINDING: first game under 0.9.74's layout →
+`wram=internal vram=internal speed=101%` but in-game HEALTH 4.8 KB free / largest 2.3 KB (every
+earlier session: 35-38 KB ⇒ WRAM had always been in PSRAM). `gnuboy/hw.c gb_alloc_pref_internal`
+now keeps `GB_INTERNAL_KEEP` 20 KB free → `wram=PSRAM vram=internal speed=98%`, in-game 37.9 KB.
+⚠ BUILD TRAP: an edit to WiPhone.ino did NOT recompile on the next `pio run` (the flashed phone
+still printed the old arg order); check for `Compiling .pio/build/wiphone/src/WiPhone.ino.cpp.o`
+in the build output after touching the .ino. Bench with the mute: `mute on` → `open gbc` →
+`key ok` → `gbc` (placement, speed) → `gbc autosave`; `key end` from the cable did NOT pause the
+game this time (paused=0) — use `gbc autosave` to park it. README: SD card recommendation
+(SanDisk High Endurance 32 GB, with the 1-in-8 measurement). REVIEW OF 0.9.74 (4 lenses, 11
+verified): 🔑 THE RESERVE SURVIVED BECAUSE OF ONE DEAD `btStop()` in `Networks::disable()` —
+it links esp32-hal-bt.c whose strong `btInUse()` returns true, and `initArduino()` (arduino-esp32
+is 1.0.6, not 1.0.5) skips its own `esp_bt_controller_mem_release` on that test. Removed; `btInUse`
+is weak (`W`) in the ELF now, the core releases before setup(). The released regions are added at
+the HEAD of the heap list (tried FIRST, absorb boot allocations, the main region's 67 KB block
+stays whole) — my first comment said the opposite. `~GbcApp` now calls `gbcReleaseEmulator()`
+(stacks/VRAM/audio/WRAM were resident until reboot after a game; measured 69.0 → 37.7 in game →
+68.2 KB after quit). tile_fetch: bar = exact 14/10 KB, `TF_MAX_RAM_FAILS` own counter,
+`lastErr[96]`, shorter message. **State: see the git log.**
+
 🧠 **2026-09-21 MORNING: 0.9.74 — THE BLUETOOTH RESERVE IS RELEASED AT BOOT: +40 KB INTERNAL
 RAM ON BOTH PHONES.** Nick: phone 1's map download "waiting for memory... eventually stops due to
 ram problems." `maps dl`: 13.2-13.7 KB free with Maps open, under the 14 KB handshake bar, never

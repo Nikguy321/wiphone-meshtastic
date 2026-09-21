@@ -29,9 +29,10 @@
 #define TF_BODY_CAP      (96u * 1024u)     // one tile, with room: USGS/OTM are 13-55 KB
 #define TF_WRITE_PIECE   (32u * 1024u)
 #define TF_MAX_FAILS     12                // consecutive; then the run gives up
-#define TF_CONNECT_LARGEST 10000u          // internal largest block a TLS handshake may start with (phone 1 with SIP up: ~11.4 KB after the stack)
-#define TF_CONNECT_FREE    14000u          // ...and total internal free (phone 2 fresh boot after the stack ~17.7 KB, phone 1 ~17.1 KB)
+#define TF_CONNECT_LARGEST (10u * 1024u)   // internal largest block a TLS handshake may start with (whole KB: it is printed)
+#define TF_CONNECT_FREE    (14u * 1024u)   // ...and total internal free. Set when the phones idled at 16-28 KB (phone 1 with Maps open: 13.6, never met it - 0.9.74 gave the phone 40 KB more)
 #define TF_CONNECT_WAIT_MS 30000u          // how long to wait for that room before failing the tile
+#define TF_MAX_RAM_FAILS   3               // consecutive tiles refused a connection for want of RAM (30 s each); then the run stops
 #define TF_PAUSE_MAX_MS  (10u * 60u * 1000u) // a job paused for a CALL this long gives up
 #define TF_NOWIFI_MAX_MS (20u * 1000u)     // a job without WiFi this long gives up (and frees its RAM)
 #define TF_RECONNECT_AT  3                 // consecutive; then drop and remake the socket
@@ -188,6 +189,7 @@ int tileFetchEstimate(const TileJobSpec* s, uint32_t* cardBytes, uint32_t* netBy
 // ── the job ─────────────────────────────────────────────────────────────────────────────
 struct Job {
   TileJobSpec    spec;
+  int            ramFails;       // consecutive "no RAM for a connection" refusals (its own count)
   const TileSource* src;
   int            zMax;
   TileJobStatus  st;
@@ -410,7 +412,8 @@ static void mkdirChain(const char* dirPath) {
 /* Wait out a pause (a call, no WiFi) and, when a new connection is about to be made, wait
  * for the internal RAM a TLS handshake needs. Returns false when the tile should be given up
  * on: the run was stopped, the pause outlived TF_PAUSE_MAX_MS (the run stops), or the RAM
- * never came (this tile fails, the run continues). `needRoom` is whether a handshake is due. */
+ * never came (this tile fails; TF_MAX_RAM_FAILS of those in a row stop the run with the
+ * numbers). `needRoom` is whether a handshake is due. */
 static bool waitReady(Job* j, bool needRoom, WiFiClient* client) {
   TileJobStatus* st = &j->st;
   uint32_t pausedMs = 0, noWifiMs = 0, roomMs = 0;
@@ -483,12 +486,18 @@ static bool waitReady(Job* j, bool needRoom, WiFiClient* client) {
  * and the console say what is short by how much rather than only that something is. Phone 1
  * sat at 13.6 KB free under the 14 KB bar for two hours saying "waiting for memory"
  * (2026-09-21); this is what it should have said. */
+/* KB with one decimal: 13,836 -> "13.5". The bar is printed the same way so 14000 reads 13.7,
+ * not "13" (integer KB made the screen say "needs 13, has 13.6" and contradict itself). */
+static unsigned kbWhole(uint32_t b) {
+  return (unsigned)(b / 1024);
+}
+static unsigned kbTenth(uint32_t b) {
+  return (unsigned)(((b % 1024) * 10) / 1024);
+}
 static void ramShortMsg(char* out, size_t cap, const TileJobStatus* st, const char* prefix) {
-  snprintf(out, cap, "%sno RAM for a connection: %u.%u of %u KB free, %u.%u of %u KB in one block",
-           prefix, (unsigned)(st->ramFree / 1024), (unsigned)((st->ramFree % 1024) / 103),
-           (unsigned)(st->ramNeedFree / 1024),
-           (unsigned)(st->ramLargest / 1024), (unsigned)((st->ramLargest % 1024) / 103),
-           (unsigned)(st->ramNeedLargest / 1024));
+  snprintf(out, cap, "%sno RAM to connect: %u.%u/%u.%u KB free, %u.%u/%u.%u KB block",
+           prefix, kbWhole(st->ramFree), kbTenth(st->ramFree), kbWhole(st->ramNeedFree), kbTenth(st->ramNeedFree),
+           kbWhole(st->ramLargest), kbTenth(st->ramLargest), kbWhole(st->ramNeedLargest), kbTenth(st->ramNeedLargest));
 }
 
 /* The whole run. A function of its own so that everything with a destructor — HTTPClient
@@ -568,14 +577,16 @@ static void runJob(Job* j) {
            * bad tile, and the next one meets the same heap: the old rule failed twelve of
            * them thirty seconds apart, six minutes of "waiting for memory" for the same
            * answer, and then stopped without saying what the numbers were. Three in a row
-           * is the same fact three times: stop, and say how short by how much. */
-          if (++j->consecutiveFails >= 3) {
+           * is the same fact three times: stop, and say how short by how much. Its own
+           * counter — a network failure and a RAM refusal are not the same run of luck. */
+          if (++j->ramFails >= TF_MAX_RAM_FAILS) {
             ramShortMsg(st->lastErr, sizeof(st->lastErr), st, "stopped: ");
             s_stop = true;
             break;
           }
           continue;
         }
+        j->ramFails = 0;                 // the room was there this time
         if (reconnecting && (st->done + st->failed + st->noTile > 0)) {
           st->reconnects++;
         }
@@ -871,7 +882,7 @@ void tileFetchStatus(TileJobStatus* out) {
 }
 
 void tileFetchReport(void (*emit)(const char* line)) {
-  char l[192];
+  char l[256];
   TileJobStatus st;
   tileFetchStatus(&st);
   if (!s_job) {

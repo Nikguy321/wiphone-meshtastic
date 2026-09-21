@@ -65,6 +65,21 @@ a card, but the apps above will be empty or refuse politely.
   upload testing, a tired card threw three write errors that a fresh one
   wouldn't have (the transfer retried through them, but that's the margin
   you're spending).
+- **The card to buy: SanDisk High Endurance 32 GB (`SDSQQNR-032G-GN6IA`)** —
+  [Amazon listing](https://www.amazon.com/SanDisk-Endurance-microSDHC-Adapter-Monitoring/dp/B07P14QHB7),
+  sold by Amazon itself, not a marketplace reseller (the counterfeits are the
+  cards that misbehave). It is the dash-cam card: rated for continuous
+  recording, which is what the map downloader does to a card for hours, and
+  32 GB comes FAT32 from the factory (the whole 20 km aerial map area is 1.6 GB,
+  so 32 GB is plenty). The "MAX Endurance" variant (`SDSQQVR-032G`) is fine too.
+  **Why it matters, measured (0.9.74):** the phone gives a card 500 ms to come
+  out of "busy" before each block, and a card that pauses longer than that for
+  its own housekeeping fails the write. A generic card in one of the two test
+  phones refused **one tile write in eight** during a map download (35 rescued
+  on a retry, 7 lost, in 311 tiles); a decent card in the other did it 4 times
+  in 12,853. The firmware retries a refused write three times with growing
+  pauses now and shows the count on the Download screen ("The card was busy
+  N times") — a few is normal, dozens is a card to replace.
 - **Swap cards with the phone OFF.** The power switch cuts power outright, so
   off is off — but pulling a card from a running phone can corrupt whatever was
   half-written.
@@ -76,6 +91,11 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.75** — **Settings → Mute all sounds**: one switch, applied at the audio chip, that
+  silences the loudspeaker — ring, chirps, the mesh pop, music, the Game Boy — while a call
+  in the earpiece, headphones and vibrate all still work (a crossed speaker shows in the
+  header). And the Game Boy now leaves the rest of the
+  phone 20 KB of internal RAM while it runs, instead of taking the block 0.9.74 freed.
 - **0.9.74** — **the phone gets 40 KB of internal RAM back**: the SDK reserved 56 KB for a
   Bluetooth controller nothing ever starts; it is released at boot now (idle free heap
   28 KB → 68 KB, largest block 25 KB → 67 KB on both phones). The map downloader on phone 1 had
@@ -624,6 +644,7 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `hold on \| off` | keep the screen awake and unlocked for a scripted bench session |
 | `notify [sip]` | fire the real message-arrival announcement (buzz + chirp) from the cable; the log prints `buzz off after N ms`, `pop start took N ms`, `pop stopped after N ms` |
 | `maps hold up\|down\|left\|right [ms [blip]]` | press an arrow on the map and hold it for that long — the hold-to-scroll bench; `blip` ms in, fake the chip's release-and-re-press under a held finger |
+| `mute on\|off` | the master mute (Settings → Mute all sounds) from the cable; `mute` alone reports; `audio` shows `muted=` |
 | `keys` / `keys raw` | the keypad's health counters / the last 64 bytes the chip sent, with the gap before each — the trace that found the release-under-a-held-finger (0.9.73) |
 | `gbc` / `gbc autosave` | the Game Boy: what is up, which ROM, its two state files — and the power-off save, run from the cable (it leaves the game parked under the pause menu) |
 | `send <i> <text>` / `dm <!node> <text>` | a channel text / a direct message; a refusal prints `REFUSED` and the same reason the compose screen shows (`too long for the mesh` past 232 / 220 bytes) |
@@ -647,6 +668,11 @@ a bench instead. **No authentication:** whoever holds the cable holds the phone.
 
 ## Phone improvements
 
+- **Mute all sounds** (Settings, 0.9.75) — a master mute at the audio chip: nothing comes
+  out of the loudspeaker — ring, message chirp, mesh pop, music, Game Boy — while a call in
+  the earpiece, headphones and the vibrate motor keep working, so "Vibrate only" behaves as
+  it says. A crossed speaker in the header shows it is on. Serial `mute on|off` flips it
+  from the cable.
 - **WiFi auto-switch** — the phone quietly scans in the background and hops to
   the strongest *saved* network (with hysteresis, so it doesn't ping-pong);
   waking the screen with no connection triggers an immediate scan+connect, and

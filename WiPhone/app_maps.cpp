@@ -2484,7 +2484,7 @@ void MapsApp::buildDownload() {
     keep = dlKeep;
   }
   menu = newMenu("");
-  char row[72];
+  char row[96];   // the RAM line ("Needs 13.6 KB free (has 13.5) and a 9.7 KB block (has 10.2)") is 59
   const TileSource* src = tileSource(dlSource);
   if (!src) {
     dlSource = 0;
@@ -2534,11 +2534,11 @@ void MapsApp::buildDownload() {
       /* The numbers, not the adjective: a TLS handshake needs this much internal RAM to be
        * safe, and this is what the phone has. Nick, 2026-09-21: "waiting for memory is always
        * being displayed" — for two hours, with nothing to say why or by how much. */
-      snprintf(row, sizeof(row), "Needs %u KB free (has %u.%u) and a %u KB block (has %u.%u)",
-               (unsigned)(st.ramNeedFree / 1024),
-               (unsigned)(st.ramFree / 1024), (unsigned)((st.ramFree % 1024) / 103),
-               (unsigned)(st.ramNeedLargest / 1024),
-               (unsigned)(st.ramLargest / 1024), (unsigned)((st.ramLargest % 1024) / 103));
+      snprintf(row, sizeof(row), "Needs %u.%u KB free (has %u.%u) and a %u.%u KB block (has %u.%u)",
+               (unsigned)(st.ramNeedFree / 1024), (unsigned)(((st.ramNeedFree % 1024) * 10) / 1024),
+               (unsigned)(st.ramFree / 1024), (unsigned)(((st.ramFree % 1024) * 10) / 1024),
+               (unsigned)(st.ramNeedLargest / 1024), (unsigned)(((st.ramNeedLargest % 1024) * 10) / 1024),
+               (unsigned)(st.ramLargest / 1024), (unsigned)(((st.ramLargest % 1024) * 10) / 1024));
       menu->addNoteWrapped(row);
     }
     snprintf(row, sizeof(row), "z%d, %u KB, %u s, %d failed",
@@ -2561,7 +2561,7 @@ void MapsApp::buildDownload() {
         /* Named for what it is. "z16 10714/23006: card refused the write" on its own read
          * as a mystery (Nick: "something about card refused... idk what that means"); it is
          * the last tile that failed and why, and Start fetches the missing ones again. */
-        char why[96];
+        char why[128];
         snprintf(why, sizeof(why), "Last problem: %s", st.lastErr);
         menu->addNoteWrapped(why);
         if (st.failed > 0) {

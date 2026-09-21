@@ -1153,31 +1153,32 @@ void setup() {
   log_i("\r\nChip id: %X %d %d", chipId, ESP.getFreeHeap(), heap_caps_get_free_size(MALLOC_CAP_32BIT));
   log_i("Firmware version: %s", FIRMWARE_VERSION);
 
-  /* ── THE BLUETOOTH RESERVE, GIVEN BACK (0.9.74) ──────────────────────────────────────────
+  /* ── THE BLUETOOTH RESERVE, GIVEN BACK (0.9.74/0.9.75) ─────────────────────────────────
    * This SDK reserves CONFIG_BT_RESERVE_DRAM (0xdb5c = 56 KB) of internal RAM for a
-   * Bluetooth controller that nothing in this firmware ever starts (no BluetoothSerial, no
-   * BLE; Networks::disable's btStop() finds it idle), and the linker puts the whole app
-   * ABOVE it. The Game Boy has reclaimed it on its first launch since the emulator landed
-   * (app_gbc.cpp reclaimInternalRam) — which is how a game gets room for its stacks and VRAM
-   * — and the phone then runs the rest of the day with it in the heap. Everything else ran
-   * in the 16-28 KB left over: the "internal heap is only ~16 KB with WiFi + SIP up" that
-   * every memory note in this repo is about, the fragmentation crashes, and the map
-   * downloader on phone 1 sitting at 13.6 KB under a 14 KB handshake bar, never connecting
-   * (Nick, 2026-09-21: "waiting for memory is always being displayed... then eventually it
-   * stops due to ram problems"). Released here, first thing, so nothing has to wait for a
-   * game to be played. Three regions come back (0x3ffb0000-0x3ffbdb28 in two pieces, plus
-   * the ~6 KB BT data area below it) as extra heap the allocator tries AFTER the main one,
-   * so they stay clean for the big transient — a TLS handshake's ~9 KB of lwIP buffers —
-   * rather than being nibbled by every String. Measured: see the BOOT line and CHANGELOG.
-   * ⚠ After this no Bluetooth can start in this boot. That has always been the case on
-   * every phone that has run a game; the GBC's own call is now a harmless no-op. */
+   * Bluetooth controller that nothing in this firmware ever starts, and the linker puts the
+   * whole app ABOVE it. arduino-esp32's initArduino() gives it back to the heap before
+   * setup() runs — UNLESS btInUse() says otherwise, and the strong btInUse(){return true;}
+   * lives in esp32-hal-bt.c, which was linked in by one dead btStop() in Networks::disable()
+   * (removed in 0.9.75). So for as long as this firmware has existed the phone ran in the
+   * 16-28 KB the reserve left over — every "the internal heap is only ~16 KB" note in this
+   * repo — and only the Game Boy, which releases the reserve on its first launch for its own
+   * stacks and VRAM, ever saw the rest. What comes back is ~40 KB, not 56 (five regions:
+   * 0x3ffae6e0-0x3ffaff10 6,192 B, 0x3ffb0000-0x3ffb6388 25,480 B, 0x3ffb8000-0x3ffb9a20
+   * 6,688 B, libbtdm_app's .bss 2,412 B, and 52 B); they are added at the HEAD of the heap
+   * list, so they absorb the boot-time allocations made after them and the main region's
+   * ~67 KB block stays whole — that block is what a TLS handshake or any large internal
+   * request now draws on. Measured idle with WiFi + SIP up: 28 -> 68 KB free, largest block
+   * 25 -> 67 KB. This block is the belt to the framework's braces: release it here too if
+   * the core did not, and either way write the numbers into the boot log. ⚠ No Bluetooth
+   * can start in a boot after this — which has always been true of every phone that ran a
+   * game, and nothing here asks for it. */
   {
     const uint32_t fBefore = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     const uint32_t lBefore = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    const esp_err_t rel = (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE)
-                          ? esp_bt_controller_mem_release(ESP_BT_MODE_BTDM) : ESP_ERR_INVALID_STATE;
-    log_e("BOOT: BT reserve %s: internal free %lu -> %lu, largest %lu -> %lu",
-          rel == ESP_OK ? "released" : "NOT released",
+    const esp_err_t rel = esp_bt_controller_mem_release(ESP_BT_MODE_BTDM);
+    const char* how = (rel == ESP_OK) ? "released here" :
+                      (rel == ESP_ERR_INVALID_STATE) ? "already released by the core (initArduino)" : "NOT released";
+    log_e("BOOT: BT reserve %s (err %d): internal free %lu -> %lu, largest %lu -> %lu", how, (int)rel,
           (unsigned long)fBefore, (unsigned long)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
           (unsigned long)lBefore, (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
   }
@@ -1640,6 +1641,7 @@ void setup() {
 
   static Audio audio_local(true, I2S_BCK_PIN, I2S_WS_PIN, I2S_MOSI_PIN, I2S_MISO_PIN);
   audio = &audio_local;
+  audio->setMuted(gui.state.audioMuted);   // Settings > Mute all sounds, read by loadSettings()
   gui.state.codecInited = !audio->error();
 
   // Load phone configs
@@ -2485,10 +2487,11 @@ int audioStateDump(char* out, int cap) {
   const bool moving = audio->movingSamples();
   const bool busy = audioDeviceBusy();
   int n = snprintf(out, cap,
-                   "audio: powered=%s moving=%s busy=%s route=%s idle=%lus (release at %lus)\n"
+                   "audio: powered=%s moving=%s busy=%s route=%s muted=%s idle=%lus (release at %lus)\n"
                    "  entitled: sip=%d ringing=%d pop=%d gbc=%d music=%d scr=%d vibro=%d/%d\n",
                    on ? "YES" : "no", moving ? "YES" : "no", busy ? "BUSY" : "idle",
                    audio->getHeadphones() ? "headphones" : (audio->isLoudspeaker() ? "loudspeaker" : "earpiece"),
+                   audio->isMuted() ? "YES" : "no",
                    (unsigned long)(audioBusyStampMs ? (millis() - audioBusyStampMs) / 1000 : 0),
                    (unsigned long)(AUDIO_IDLE_RELEASE_MS / 1000),
                    (int)sipNeedsFullSpeed(), (int)gui.state.ringing, (int)meshPopPlaying,

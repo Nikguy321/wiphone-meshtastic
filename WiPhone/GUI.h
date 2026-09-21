@@ -467,6 +467,7 @@ public:
    * config) is a different mechanism and is deliberately not driven by this. 200 is the
    * nearest on-grid value to the 180 that was hard-coded as MESH_VIBRO_MS. */
   uint16_t notifyVibroMs = 200;
+  bool     audioMuted = false;      // Settings > Mute all sounds (configs.ini [audio] mute); applied via Audio::setMuted
 
   // Ringtone & ringtone vibration
   bool ringing = false;
@@ -659,6 +660,7 @@ typedef enum ActionID : uint16_t {
                         // later app id and stales the handoff's health-log id table
   GUI_APP_PHOTOS,       // ⚠ likewise: append, never insert
   GUI_APP_MAPS,         // ⚠ likewise: append, never insert
+  GUI_APP_MUTE,         // ⚠ likewise: Settings > Mute all sounds (0.9.75)
 
 } ActionID_t;
 
@@ -2893,6 +2895,37 @@ protected:
   bool screenInited;
 };
 
+/* Settings > Mute all sounds: the master mute, one ON/OFF choice applied the moment it is
+ * changed (Audio::setMuted) and stored in configs.ini [audio] mute. Silences the loudspeaker
+ * route — the ring, chirps, the mesh pop, music, the Game Boy; the earpiece (a call) and
+ * headphones still play, vibrate is untouched. The header shows a crossed speaker while it
+ * is on. */
+class MuteApp : public WindowedApp, FocusableApp {
+public:
+  MuteApp(Audio* audio, LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer);
+  virtual ~MuteApp();
+
+  ActionID_t getId() {
+    return GUI_APP_MUTE;
+  };
+  appEventResult processEvent(EventType event);
+  void redrawScreen(bool redrawAll=false);
+
+protected:
+  Audio* audio;
+  RectWidget* clearRect;
+  LabelWidget* captionLabel;
+  LabelWidget* hintLabel;
+  LabelWidget* hint2Label;
+  ChoiceWidget* choice;
+  bool screenInited;
+};
+
+/* Set, apply and store the master mute — the one path both the Settings screen and the
+ * serial `mute` command use. Returns false when the file could not be written (the live
+ * state is changed regardless: the phone obeys now, and remembers if it can). */
+bool guiSetMuted(Audio* audio, ControlState& state, bool muted);
+
 class NetworksApp : public WindowedApp {
 public:
   NetworksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer);
@@ -3072,6 +3105,7 @@ public:
   static uint16_t drawWifiIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y);
   static uint16_t drawSipIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y);
   static uint16_t drawMessageIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y);
+  static uint16_t drawMuteIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y);   // 0 wide unless muted
   void showMeshPopup(const char* title, const char* body);
   /* The console's `open <app>`: enterApp() is protected on purpose (the menu is the one
    * caller), and the bench needs a way in that does not depend on which screen is up. */
@@ -3103,7 +3137,7 @@ protected:
    * too FEW is silent — the tail zero-fills into entries with ID 0, parent 0 and a NULL
    * title, which then appear as children of the Clock menu. It was one short before Books was
    * added. enterMenu() now skips title-less rows so a miscount stays cosmetic. */
-  GUIMenuItem menu[47] PROGMEM = {  // increment size by one to add a new app
+  GUIMenuItem menu[48] PROGMEM = {  // increment size by one to add a new app
 
     // TODO: button names can be removed
 
@@ -3201,6 +3235,9 @@ protected:
      * was not renumbered with it. A duplicate here is SILENT (findMenu matches on id alone
      * and returns the first hit); GUI::init()'s boot check is what catches it. */
     { 44, 5, "Notifications", "", "", GUI_APP_NOTIFY_CONFIG },
+    /* 51: 43-50 are taken (44 Notifications, 45 reboot, 46 Files, 47 WiFi, 48 Photos, 49 T9,
+     * 50 Maps). Counting up, as the note above says. */
+    { 51, 5, "Mute all sounds", "", "", GUI_APP_MUTE },
     { 49, 5, "Predictive text", "Select", "Back", GUI_ACTION_T9_TOGGLE },
     { 33, 5, "Screen config", "", "", GUI_APP_SCREEN_CONFIG },
     { 32, 5, "Time offset", "", "", GUI_APP_TIME_CONFIG },

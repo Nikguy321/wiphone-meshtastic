@@ -501,6 +501,27 @@ static void run(char* line) {
    * WiPhone.ino releases the device on a timer rather than trusting anyone's bookkeeping.
    *
    * The line to look for is `powered=YES moving=no`: that is the leak. */
+  /* `mute on|off` — the master mute (Settings > Mute all sounds), from the cable: the same
+   * path the screen uses, so it is applied at once and stored. `mute` alone reports. */
+  if (!strncasecmp(line, "mute", 4) && (line[4] == '\0' || line[4] == ' ')) {
+    extern Audio* audio;
+    extern GUI gui;
+    const char* arg = line + 4;
+    while (*arg == ' ') arg++;
+    if (!*arg) {
+      say("mute: %s\n", gui.state.audioMuted ? "ON (nothing out of the loudspeaker; earpiece and headphones play)" : "off");
+      return;
+    }
+    const bool on = !strcasecmp(arg, "on");
+    if (!on && strcasecmp(arg, "off")) {
+      say("mute: usage mute on|off\n");
+      return;
+    }
+    const bool stored = guiSetMuted(audio, gui.state, on);
+    say("mute: %s%s\n", on ? "ON" : "off", stored ? ", stored" : " (NOT stored - configs file)");
+    return;
+  }
+
   if (!strcasecmp(line, "audio")) {
     /* Same shape as `keys` and `health`: the state lives in WiPhone.ino, where the SIP,
      * emulator, music and vibro state are all visible; this just prints what it hands back. */

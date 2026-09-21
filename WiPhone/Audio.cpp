@@ -181,11 +181,11 @@ bool Audio::start() {
   // TODO: feed result into succ
   uint16_t powerMask = this->headphones ? DAC_HEADPHONES : (this->loudspeaker ? DAC_LOUDSPEAKER : DAC_EARSPEAKER);
   codec.powerUp(!this->monoOut, 32000, powerMask, AUDIO_MCLK_CRYSTAL_KHZ);
-  codec.setVolume(MuteVolume, MuteVolume);     // mute: avoid sudden pop
+  applyVolume(MuteVolume, MuteVolume);     // mute: avoid sudden pop
 
-  // Turn on amplifier (separate IC) if needed
+  // Turn on amplifier (separate IC) if needed — never while the master mute is on
 #ifdef WIPHONE_INTEGRATED
-  if (!this->headphones && this->loudspeaker) {
+  if (!this->headphones && this->loudspeaker && !this->muted) {
     log_v("turning ON amplifier");
     amplifierEnable(4);
   }
@@ -199,7 +199,7 @@ bool Audio::start() {
   }
 
   // Turn on the volume
-  codec.setVolume(this->loudspeakerVol, this->headphones ? this->headphonesVol : this->earpieceVol);
+  applyVolume(this->loudspeakerVol, this->headphones ? this->headphonesVol : this->earpieceVol);
 
   this->audioOn = succ;
 
@@ -237,11 +237,11 @@ void Audio::codecReconfig() {
   log_v("turning audio codec ON");
   uint16_t powerMask = this->headphones ? DAC_HEADPHONES : (this->loudspeaker ? DAC_LOUDSPEAKER : DAC_EARSPEAKER);
   codec.powerUp(!this->monoOut, 32000, powerMask, AUDIO_MCLK_CRYSTAL_KHZ);
-  codec.setVolume(MuteVolume, MuteVolume);     // mute: avoid sudden pop
+  applyVolume(MuteVolume, MuteVolume);     // mute: avoid sudden pop
 
-  // Switch amplifier (separate IC) if needed
+  // Switch amplifier (separate IC) if needed — never on while the master mute is on
 #ifdef WIPHONE_INTEGRATED
-  if (!this->headphones && this->loudspeaker) {
+  if (!this->headphones && this->loudspeaker && !this->muted) {
     log_v("turning amplifier ON");
     amplifierEnable(4);
   } else {
@@ -251,7 +251,49 @@ void Audio::codecReconfig() {
 #endif
 
   // Turn on the volume
-  codec.setVolume(this->loudspeakerVol, this->headphones ? this->headphonesVol : this->earpieceVol);
+  applyVolume(this->loudspeakerVol, this->headphones ? this->headphonesVol : this->earpieceVol);
+}
+
+/* The mute silences THE LOUDSPEAKER ROUTE: the ring, the message chirp, the mesh pop, music
+ * and the Game Boy all play through it, and it is the one output the room hears. A call
+ * answered to the earpiece, or anything on headphones, plays as normal — nobody else can
+ * hear those, and a muted phone that could not take a call would be a phone left unmuted.
+ * (In-call "Loud Spkr" while muted is silent, like everything else on that route.) */
+void Audio::applyVolume(int8_t loudspeakerVol, int8_t otherVol) {
+  if (this->muted && !this->headphones && this->loudspeaker) {
+    /* Outputs at their floor AND the DAC soft-muted: codec.setVolume() clears the mute bit
+     * as it goes (its "Unmute DAC" line), so the bit is written back after it. */
+    codec.setVolume(MuteVolume, MuteVolume);
+    codec.mute();
+    return;
+  }
+  codec.setVolume(loudspeakerVol, otherVol);
+}
+
+void Audio::setMuted(bool m) {
+  if (this->muted == m) {
+    return;
+  }
+  this->muted = m;
+  log_e("AUDIO: master mute %s", m ? "ON" : "off");
+  if (!this->audioOn) {
+    return;                                // start() applies it when the device next comes up
+  }
+  /* Live: the codec path first, then the amplifier — muting turns the amp off before the
+   * DAC could pop; unmuting brings the DAC up before the amp hears it. */
+  if (m) {
+#ifdef WIPHONE_INTEGRATED
+    amplifierEnable(0);
+#endif
+    applyVolume(this->loudspeakerVol, this->headphones ? this->headphonesVol : this->earpieceVol);
+  } else {
+    applyVolume(this->loudspeakerVol, this->headphones ? this->headphonesVol : this->earpieceVol);
+#ifdef WIPHONE_INTEGRATED
+    if (!this->headphones && this->loudspeaker) {
+      amplifierEnable(4);
+    }
+#endif
+  }
 }
 
 void Audio::pause() {
@@ -355,7 +397,7 @@ void Audio::setVolumes(int8_t earpieceVol, int8_t headphonesVol, int8_t loudspea
   this->earpieceVol = earpieceVol;
   this->headphonesVol = headphonesVol;
   this->loudspeakerVol = loudspeakerVol;
-  codec.setVolume(loudspeakerVol, this->headphones ? headphonesVol : earpieceVol);
+  applyVolume(loudspeakerVol, this->headphones ? headphonesVol : earpieceVol);
 }
 
 void Audio::getVolumes(int8_t &speakerVol, int8_t &headphonesVol, int8_t &loudspeakerVol) {

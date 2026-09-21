@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.9.75 (2026-09-21) - a master mute; the Game Boy leaves the phone its RAM
+
+Nick, at work: *"You could always implement a master 'mute' button within the settings. Just
+make sure it also works for the Gameboy emulator before trying... Up to you though."*
+
+**Settings → Mute all sounds.** One ON/MUTED choice, applied the moment it changes and stored
+(`configs.ini [audio] mute`), read back at boot. It is done AT THE CODEC — the WM8750's DAC
+soft-mute plus both output pairs at their floor, and the loudspeaker amplifier left off —
+whenever the LOUDSPEAKER is the route, which is what the ring, the message chirp, the mesh pop,
+music and the Game Boy all use and the one output the room hears. A call answered to the
+earpiece, and anything on headphones, plays as normal: nobody else can hear those, and a muted
+phone that could not take a call would be a phone left unmuted. Every volume write in `Audio`
+goes through one gate (`applyVolume`), so no app's volume change can undo it (the codec's own
+`setVolume()` clears the mute bit as it goes; the gate writes it back). The volumes the apps
+set are kept underneath, so unmuting is exact. The vibrate motor is not sound and is not
+touched — "Vibrate only" still vibrates. A crossed speaker sits in the header while it is on. Serial `mute on|off` is the same path from
+the cable, and `audio` reports `muted=`. Bench, phone 2: `mute on`, a game launched and left
+running with the codec powered and `muted=YES`; the setting survived a reboot.
+
+**The Game Boy under the new memory layout (0.9.74 gave the phone its Bluetooth RAM at
+boot).** First game, `gbc`: `speed=101% wram=internal vram=internal` — and the in-game HEALTH
+line read **4.8 KB free, largest 2.3 KB**, where every earlier session on both phones had sat at
+35-38 KB. The 30 KB is gnuboy's 32 KB work RAM: with a 67 KB block on offer it went internal,
+where before — no 32 KB contiguous block after WiFi went off — it had been landing in PSRAM all
+along, at 98-100 % speed. A phone with 2 KB to spare while the blit task writes 180 KB save
+states through FatFs is a phone waiting to crash. `gb_alloc_pref_internal` (gnuboy/hw.c) now
+takes internal RAM only when **20 KB stays free after it**; VRAM (16 KB) still fits, WRAM goes
+to PSRAM as it always had. Measured: `speed=98% wram=PSRAM vram=internal`, in-game heap
+37.9 KB / largest 35.6 KB — the old numbers back, with the phone knowing why this time.
+
+**Why the reserve survived (the review's find).** arduino-esp32 (1.0.6 here, not the 1.0.5 the
+notes said) releases the Bluetooth DRAM itself in `initArduino()`, before `setup()` — unless
+`btInUse()` returns true. The weak default returns false; the strong `btInUse(){ return true; }`
+lives in `esp32-hal-bt.c`, and that file is linked in by ANY reference to `btStop()`. The one
+reference in this firmware was `Networks::disable()`'s `btStop(); // ... leave it off to save
+power` — a no-op on a controller that is never started. One dead line cost every phone 40 KB of
+internal RAM for as long as it has existed (ELF: `btInUse` compiled to `movi a2,1; retw`; the
+only `btStop` call was that line). Removed, together with the `esp_bt_controller_disable()`
+beside it; `btInUse` is a weak symbol in the ELF again and the core does the release. The
+`setup()` block stays as the belt to the framework's braces and logs which of the two did it.
+
+**A game gives the RAM back when it ends.** `~GbcApp` unloaded the ROM and left the two task
+stacks (12 KB), VRAM (16 KB) and the audio buffer (4 KB) — and WRAM, when it had landed
+internal — resident until reboot; only the "Transfer ROMs" row ever called
+`gbcReleaseEmulator()`. So the first game of a boot cost the phone 32-64 KB of internal RAM for
+the day. The destructor releases everything now (the tasks are already deleted by then), and
+the next launch re-allocates as the first launch of every boot always has. Measured on
+phone 2: idle 69.0 KB → in game 37.7 KB (WRAM in PSRAM, VRAM internal, 100 %) → after Quit
+**68.2 KB, largest 67.4 KB**. The floor in `gb_alloc_pref_internal` tests the largest free
+block as well as the total, per the review: a 16 KB VRAM out of the only 20 KB block would
+leave the phone's largest at 4 KB.
+
+**README:** the SD card to buy, with the measurement behind it (Nick: "Others have asked").
+
 ## 0.9.74 (2026-09-21) - the phone gets its Bluetooth RAM back; the map downloader says its numbers
 
 Nick: *"When downloading maps on phone 1 (not phone 2), the downloads get very slow and the
@@ -29,16 +83,24 @@ heap is only ~16 KB" note in this repo, the fragmentation crashes, the downloade
 what it got: **`BOOT: BT reserve released: internal free 171600 -> 211924`**. Idle, with
 WiFi and SIP up: **phone 2 heap 28,228 -> 68,816, largest block 24,704 -> 67,564; phone 1
 26,000 -> 66,320 / 66,076.** A 20-tile HTTPS download on phone 2 bottomed out at **48 KB free**
-(phone 1's run this morning: 5.3 KB). The released memory arrives as extra heap regions the
-allocator tries after the main one, so they stay clean for the big transients rather than
-being nibbled by every String. ⚠ No Bluetooth can start in a boot after this — which has been
-true of every phone that ran a game, and nothing here asks for it (`btStop()` finds it idle).
+(phone 1's run this morning: 5.3 KB). What comes back is ~40 KB of the 56 (five regions:
+6,192 + 25,480 + 6,688 + 2,412 + 52 bytes; the rest of the window is the ROM's), added at the
+HEAD of the allocator's list — so they absorb the boot-time allocations made after them, and
+the main region's ~67 KB block stays whole for a TLS handshake or any other large request
+(the review corrected my first description, which had the order backwards; the 67 KB
+"largest" is the proof). ⚠ No Bluetooth can start in a boot after this — which has been true
+of every phone that ran a game, and nothing here asks for it. **0.9.75 found WHY the reserve
+survived at all — see there.**
 
 **The downloader, for the worst case.** The bar stays (it is what keeps a handshake from
-being a reboot), but the wait now says what is short: the Download screen adds `Needs 14 KB
-free (has 13.6) and a 10 KB block (has 10.5)` under "Waiting for memory", the failure text
-carries the same numbers, and a run that meets the same heap three times in a row (90 s)
-stops with them rather than failing twelve tiles over six minutes. `maps dl` prints the
+being a reboot) and is now exactly 14 KB / 10 KB (it was 14,000 / 10,000 bytes, which printed
+as "13" and "9" against a reading of "13.6" — the review caught the screen contradicting
+itself), but the wait now says what is short: the Download screen adds `Needs 14.0 KB free
+(has 13.6) and a 10.0 KB block (has 10.5)` under "Waiting for memory", the failure text
+carries the same numbers (`no RAM to connect: 13.6/14.0 KB free, 10.5/10.0 KB block` — sized
+to fit the 96-byte error field, which the first wording did not), and a run that is refused
+three connections in a row for want of RAM (90 s, its own counter — a network failure is not
+the same run of luck) stops with them rather than failing twelve tiles over six minutes. `maps dl` prints the
 numbers while waiting and a `job:` line with the run's spec — source, centre, radius, zoom —
 which is also how Nick's run was restarted on the cable after the flash: its centre recovered
 from the tile columns already on the card (`ls /maps/usgs-img/16`), `12864 tiles` back to the

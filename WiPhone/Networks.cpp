@@ -18,7 +18,6 @@ governing permissions and limitations under the License.
 
 extern void heapEvent(const char* what);   // WiPhone.ino - the ratchet instrument
 #include "esp_wifi.h"
-#include "esp_bt.h"
 
 void Networks::getMac(uint8_t* mac) {
   esp_read_mac(mac, ESP_MAC_WIFI_STA);
@@ -361,10 +360,16 @@ void Networks::disable() {
   _userDisabled = true;
   disconnect();
   WiFi.mode(WIFI_OFF);
-  btStop(); // we don't currently use bluetooth for anything, leave it off to save power
+  /* 🛑 NO btStop() HERE, EVER (0.9.75). It was a no-op — the Bluetooth controller is never
+   * started in this firmware — but merely REFERENCING btStop() links esp32-hal-bt.c, whose
+   * strong btInUse() returns true, and that is the one test initArduino() makes before it
+   * would hand the 56 KB Bluetooth DRAM reserve back to the heap at boot. So one dead line
+   * "to save power" cost every phone ~40 KB of internal RAM for as long as it has existed;
+   * the Game Boy reclaimed it on its first launch, nothing else ever saw it (see the BOOT
+   * line in WiPhone.ino setup(), and CHANGELOG 0.9.74/0.9.75). Verified in the ELF: the
+   * only reference to btStop was this line, and btInUse() compiled to `movi a2,1; retw`. */
   esp_wifi_stop(); //likely unnecessary
-  esp_bt_controller_disable(); //likely unnecessary
-  log_d("WiFi and BT disabled");
+  log_d("WiFi disabled");
 }
 
 /* Description:

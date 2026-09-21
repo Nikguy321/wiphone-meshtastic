@@ -20,10 +20,25 @@ gb_t GB;
 int gb_hw_wram_internal = 0;
 int gb_hw_vram_internal = 0;
 
-// Allocate zeroed memory preferring fast internal RAM, falling back to PSRAM.
+/* Allocate zeroed memory preferring fast internal RAM, falling back to PSRAM — but never
+ * taking the internal heap below GB_INTERNAL_KEEP. The rest of the phone keeps running
+ * under a game (the blit task writes 180 KB save states through FatFs, the pause menu
+ * draws, the keypad and the power button are serviced), and it does so from this heap.
+ * Measured 2026-09-21, the first game after the Bluetooth reserve was released at boot
+ * (0.9.74): with a 67 KB block on offer, WRAM (32 KB) and VRAM (16 KB) both went internal and
+ * the phone played on with 4.8 KB free, largest 2.3 KB — every earlier session had 35-38 KB,
+ * which is to say WRAM had been landing in PSRAM all along, at 98-100 % speed. So internal
+ * is taken only when this much stays behind; the `gbc` console line says where each landed. */
+#define GB_INTERNAL_KEEP (20 * 1024)
 static void *gb_alloc_pref_internal(size_t n, int *isInternal)
 {
-	void *p = heap_caps_malloc(n, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+	void *p = NULL;
+	const size_t freeInt = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+	const size_t bigInt = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+	/* Both the total and the one block it would come out of must leave the floor behind:
+	 * taking a 16 KB VRAM out of the only 20 KB block leaves 4 KB to the phone's largest. */
+	if (freeInt >= n + GB_INTERNAL_KEEP && bigInt >= n + GB_INTERNAL_KEEP)
+		p = heap_caps_malloc(n, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 	*isInternal = (p != NULL);
 	if (!p)
 		p = heap_caps_malloc(n, MALLOC_CAP_SPIRAM);

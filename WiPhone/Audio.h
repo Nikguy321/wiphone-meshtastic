@@ -115,6 +115,18 @@ public:
   bool shutdown();
   void setVolumes(int8_t speakerVol, int8_t headphonesVol, int8_t loudspeakerVol);
   void getVolumes(int8_t &speakerVol, int8_t &headphonesVol, int8_t &loudspeakerVol);
+  /* The master mute (Settings > Mute all sounds, serial `mute`). Applied AT THE CODEC — the
+   * DAC's soft-mute bit plus both output pairs at their minimum, and the loudspeaker
+   * amplifier left off — whenever the LOUDSPEAKER is the route: the ring, the message chirp,
+   * the mesh pop, music, the Game Boy. The earpiece (a call you answered) and headphones are
+   * not muted: nobody else hears them. The vibrate motor is not sound and is not touched. The
+   * volumes the apps set are kept underneath (getVolumes still answers them), so unmuting is
+   * exact. Nick, 2026-09-21, at work: "a master 'mute' button within the settings. Just make
+   * sure it also works for the Gameboy emulator". */
+  void setMuted(bool muted);
+  bool isMuted() const {
+    return muted;
+  }
   void setHeadphones(bool plugged);
   bool getHeadphones(void);
   void chooseSpeaker(bool loudspeaker);
@@ -217,6 +229,11 @@ public:
    * is why every notification pop has been leaking device state. Implemented 2026-08-15. */
   void preserve();        // remember current configs to restore playback later
   void restore();         // restore preserved state
+  /* Every write of an output volume to the codec goes through here, so the mute cannot be
+   * undone by a volume change from any app (and codec.setVolume() itself clears the DAC
+   * mute bit, so the bit is re-asserted after each). */
+  void applyVolume(int8_t loudspeakerVol, int8_t otherVol);
+  bool muted = false;
 
   // Properties
   const char* getTitle() {

@@ -170,6 +170,9 @@ void GUI::loadSettings() {
        * vibro term held the audio device awake too. constrain() keeps a bad file from turning
        * into a bad phone. */
       state.notifyVibroMs = (uint16_t) constrain(cfg["audio"].getIntValueSafe("notify_vibro_ms", state.notifyVibroMs), 50, 650);
+      /* The master mute: read here at boot for the same reason as the ringer mode; the Audio
+       * object does not exist yet, so WiPhone.ino applies it (audio->setMuted) once it does. */
+      state.audioMuted = cfg["audio"].getIntValueSafe("mute", 0) != 0;
       log_d("notify: call=%d sip=%d mesh=%d vol=%d", (int)state.ringerMode,
             (int)state.notifySipMode, (int)state.notifyMeshMode, (int)state.notifyVolume);
     }
@@ -2531,6 +2534,9 @@ void GUI::enterApp(ActionID_t app) {
 #endif
   case GUI_APP_WIFI_AUTOSWITCH:
     runningApp = new WifiAutoSwitchApp(*screen, state, header, footer);
+    break;
+  case GUI_APP_MUTE:
+    runningApp = new MuteApp(audio, *screen, state, header, footer);
     break;
   case GUI_APP_EDITWIFI:
     runningApp = new EditNetworkApp(*screen, state, NULL, header, footer);
@@ -6434,6 +6440,89 @@ void WifiAutoSwitchApp::redrawScreen(bool redrawAll) {
     ((GUIWidget*) clearRect)->redraw(lcd);
     ((GUIWidget*) captionLabel)->redraw(lcd);
     ((GUIWidget*) hintLabel)->redraw(lcd);
+  }
+  ((GUIWidget*) choice)->redraw(lcd);
+  screenInited = true;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Mute app  - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+bool guiSetMuted(Audio* audio, ControlState& state, bool muted) {
+  state.audioMuted = muted;
+  if (audio) {
+    audio->setMuted(muted);
+  }
+  CriticalFile ini(Storage::ConfigsFile);
+  if (!(ini.load() || ini.restore())) {
+    log_e("MUTE: configs file unreadable - %s now, not remembered", muted ? "muted" : "unmuted");
+    return false;
+  }
+  if (!ini.hasSection("audio")) {
+    ini.addSection("audio");
+  }
+  ini["audio"]["mute"] = muted ? 1 : 0;
+  if (!ini.store()) {
+    log_e("MUTE: configs file not written - %s now, not remembered", muted ? "muted" : "unmuted");
+    return false;
+  }
+  return true;
+}
+
+MuteApp::MuteApp(Audio* audio, LCD& lcd, ControlState& state, HeaderWidget* header, FooterWidget* footer)
+  : WindowedApp(lcd, state, header, footer), FocusableApp(1), audio(audio) {
+  log_d("MuteApp");
+
+  header->setTitle("Mute all sounds");
+  footer->setButtons(NULL, "Back");
+
+  clearRect = new RectWidget(0, header->height(), lcd.width(), lcd.height() - header->height() - footer->height(), WP_COLOR_1);
+
+  uint16_t yOff = header->height() + 8;
+  captionLabel = new LabelWidget(0, yOff, lcd.width(), 25, "Nothing out of the loudspeaker:", WP_COLOR_0, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
+  yOff += captionLabel->height();
+  hintLabel = new LabelWidget(0, yOff, lcd.width(), 25, "ring, chirps, music, Game Boy.", WP_COLOR_0, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
+  yOff += hintLabel->height();
+  hint2Label = new LabelWidget(0, yOff, lcd.width(), 25, "Earpiece, headphones, vibrate work.", WP_COLOR_0, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
+  yOff += hint2Label->height() + 8;
+
+  choice = new ChoiceWidget(0, yOff, lcd.width(), 35);
+  choice->addChoice("Sounds ON");
+  choice->addChoice("MUTED");
+  choice->setValue(controlState.audioMuted ? 1 : 0);
+
+  addFocusableWidget(choice);
+  setFocus(choice);
+  screenInited = false;
+}
+
+MuteApp::~MuteApp() {
+  log_d("destroy MuteApp");
+  delete clearRect;
+  delete captionLabel;
+  delete hintLabel;
+  delete hint2Label;
+  delete choice;
+}
+
+appEventResult MuteApp::processEvent(EventType event) {
+  if (LOGIC_BUTTON_BACK(event)) {
+    return EXIT_APP;
+  }
+  choice->processEvent(event);          // left/right cycles ON/MUTED
+  const bool muted = (choice->getValue() == 1);
+  if (muted != controlState.audioMuted) {
+    guiSetMuted(audio, controlState, muted);   // applied now, stored in configs.ini
+    return REDRAW_ALL;                          // the header's crossed speaker
+  }
+  return REDRAW_SCREEN;
+}
+
+void MuteApp::redrawScreen(bool redrawAll) {
+  if (!screenInited || redrawAll) {
+    ((GUIWidget*) clearRect)->redraw(lcd);
+    ((GUIWidget*) captionLabel)->redraw(lcd);
+    ((GUIWidget*) hintLabel)->redraw(lcd);
+    ((GUIWidget*) hint2Label)->redraw(lcd);
   }
   ((GUIWidget*) choice)->redraw(lcd);
   screenInited = true;
@@ -13541,6 +13630,21 @@ uint16_t GUI::drawSipIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x,
  * Both glyphs are the same 18x17 RLE3 image; the green one is generated from the white one by
  * recolouring its palette (see icons.h). The return value is the width consumed, which the
  * header uses to place what it draws next — so the overlapped pair must report its real width. */
+/* A small crossed speaker, 14 px wide, drawn only while the master mute is on — the one
+ * place a silent phone says so. Primitives, not an image: two rectangles for the speaker's
+ * body and cone, a diagonal through it. */
+uint16_t GUI::drawMuteIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y) {
+  if (!controlState.audioMuted) {
+    return 0;
+  }
+  const uint16_t c = WP_ACCENT_1;
+  lcd.fillRect(x, y + 5, 4, 6, c);                        // body
+  lcd.fillTriangle(x + 4, y + 8, x + 9, y + 2, x + 9, y + 14, c);   // cone
+  lcd.drawLine(x, y + 15, x + 13, y + 1, TFT_RED);        // the cross
+  lcd.drawLine(x + 1, y + 15, x + 14, y + 1, TFT_RED);
+  return 14;
+}
+
 uint16_t GUI::drawMessageIcon(TFT_eSPI &lcd, ControlState &controlState, uint16_t x, uint16_t y) {
   const bool sip  = controlState.unreadMessages;
   const bool mesh = controlState.meshUnread;
@@ -13639,6 +13743,10 @@ void HeaderWidget::redraw(LCD &lcd, uint16_t screenOffX, uint16_t screenOffY, ui
     xOff += space + 3;
   }
   xOff += (w = GUI::drawMessageIcon(lcd, controlState, screenOffX + windowWidth - xOff - 20, screenOffY + 6));
+  if (w) {
+    xOff += space;
+  }
+  xOff += (w = GUI::drawMuteIcon(lcd, controlState, screenOffX + windowWidth - xOff - 14, screenOffY + 7));
   if (w) {
     xOff += space;
   }

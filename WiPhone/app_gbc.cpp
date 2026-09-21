@@ -133,10 +133,10 @@ static void gbcUnloadRom() {
 }
 
 // Free everything the emulator keeps resident (gnuboy WRAM/VRAM, task stacks,
-// audio buffer, framebuffers, loaded ROM). Once a game has run, the phone idles
-// at ~10KB free internal RAM — the WiFi/web stack then panics (OOM) trying to
-// serve the ROM transfer page, so the transfer screen calls this first. The
-// next game launch re-allocates and re-inits everything from scratch.
+// audio buffer, framebuffers, loaded ROM). Called by the transfer screen (the
+// WiFi/web stack needs the RAM) and, since 0.9.75, by the destructor — a quit
+// gives the phone its RAM back. The next game launch re-allocates and re-inits
+// everything from scratch.
 static void gbcReleaseEmulator();
 
 // Serializes the SD card (ROM bank streaming, from the emu task) against the
@@ -177,10 +177,10 @@ static volatile bool     s_emuExited = false;
 #define GBC_BLIT_STACK_BYTES  8192
 static StaticTask_t s_emuTcb;
 static StaticTask_t s_blitTcb;
-// Stacks live in internal RAM but are allocated from the heap on the FIRST launch
-// (after gaming mode has freed WiFi + the ~60KB BT RAM) and reused forever, never
-// freed. Keeping them out of BSS matters: ~20KB of permanent static internal RAM
-// starves the boot-time WiFi/BT allocations and boot-loops this RAM-tight board.
+// Stacks live in internal RAM but are allocated from the heap at launch (after gaming
+// mode has freed WiFi) and freed again when the app closes (gbcReleaseEmulator, 0.9.75).
+// Keeping them out of BSS matters: ~20KB of permanent static internal RAM
+// starves the boot-time WiFi allocations and boot-loops this RAM-tight board.
 static StackType_t* s_emuStack  = NULL;
 static StackType_t* s_blitStack = NULL;
 
@@ -228,7 +228,7 @@ void GbcApp::startGame() {
   WiFi.mode(WIFI_OFF);
   disableCore0WDT();
   disableCore1WDT();
-  reclaimInternalRam();       // idempotent; frees the BT RAM on the first launch
+  reclaimInternalRam();       // a no-op since 0.9.74 (the reserve is released at boot); harmless
 
   // Allocate the task stacks FIRST, while internal RAM is at its emptiest and
   // least fragmented (WiFi/BT just freed, gnuboy hasn't claimed WRAM/VRAM yet,
@@ -415,7 +415,15 @@ GbcApp::~GbcApp() {
   // Always release these (also covers a failed startGame that created the
   // semaphore / loaded a ROM before bailing).
   if (s_blitGo) { vSemaphoreDelete(s_blitGo); s_blitGo = NULL; }
-  gbcUnloadRom();
+  /* 🛑 EVERYTHING, not just the ROM (0.9.75). Until now only the "Transfer ROMs" row called
+   * gbcReleaseEmulator(); a quit left the two task stacks (12 KB), VRAM (16 KB), the audio
+   * buffer (4 KB) — and WRAM (32 KB) when it had landed internal — resident until the next
+   * reboot, so the first game of a boot cost the rest of the phone 32-64 KB of internal RAM
+   * for the day (review, 2026-09-21; measured: 66 KB idle before a game, 34 after). The
+   * tasks are gone by here (deleted above, 30 ms settle), so the stacks are free to free;
+   * startGame re-allocates everything on the next launch, as the first launch of every
+   * boot always has. */
+  gbcReleaseEmulator();
 
   if (soundOn && audio) {   // hand the audio path back to the phone
     audio->shutdown();
