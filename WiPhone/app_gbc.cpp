@@ -1089,8 +1089,13 @@ void GbcApp::status(char* out, size_t n) {
   char a[96], m[96];
   buildStatePath(a, sizeof(a), GBC_EXT_AUTO);
   buildStatePath(m, sizeof(m), GBC_EXT_STATE);
-  snprintf(out, n, "running '%s' paused=%d job=%d screen=%s speed=%d%% | %s: %u B | %s: %u B | state size %u",
+  /* wram/vram: where gnuboy's work RAM landed (hw.c prefers internal for speed, falls back to
+   * PSRAM). Worth a look after any change to the internal heap's layout — the Bluetooth
+   * reserve is released at boot since 0.9.74, not on the first game. */
+  extern int gb_hw_wram_internal, gb_hw_vram_internal;
+  snprintf(out, n, "running '%s' paused=%d job=%d screen=%s speed=%d%% wram=%s vram=%s | %s: %u B | %s: %u B | state size %u",
            romName, (int)paused, (int)pendingAction, scaled ? "fill" : "1:1", speedPct,
+           gb_hw_wram_internal ? "internal" : "PSRAM", gb_hw_vram_internal ? "internal" : "PSRAM",
            gbcSdPath(a), (unsigned)gbcFileSize(a), gbcSdPath(m), (unsigned)gbcFileSize(m),
            (unsigned)gnuboy_state_size());
 }

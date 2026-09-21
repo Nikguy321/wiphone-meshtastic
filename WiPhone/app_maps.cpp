@@ -2530,6 +2530,17 @@ void MapsApp::buildDownload() {
              st.done + st.skipped + st.noTile + st.failed, st.total,
              st.stopping ? " (stopping)" : "");
     menu->addNoteWrapped(row);
+    if (st.waitingRam) {
+      /* The numbers, not the adjective: a TLS handshake needs this much internal RAM to be
+       * safe, and this is what the phone has. Nick, 2026-09-21: "waiting for memory is always
+       * being displayed" — for two hours, with nothing to say why or by how much. */
+      snprintf(row, sizeof(row), "Needs %u KB free (has %u.%u) and a %u KB block (has %u.%u)",
+               (unsigned)(st.ramNeedFree / 1024),
+               (unsigned)(st.ramFree / 1024), (unsigned)((st.ramFree % 1024) / 103),
+               (unsigned)(st.ramNeedLargest / 1024),
+               (unsigned)(st.ramLargest / 1024), (unsigned)((st.ramLargest % 1024) / 103));
+      menu->addNoteWrapped(row);
+    }
     snprintf(row, sizeof(row), "z%d, %u KB, %u s, %d failed",
              st.curZ, (unsigned)(st.bytes / 1024), (unsigned)(st.elapsedMs / 1000), st.failed);
     menu->addNoteWrapped(row);
@@ -2539,6 +2550,13 @@ void MapsApp::buildDownload() {
       snprintf(row, sizeof(row), "Last run: %d new, %d already had, %d failed, %u s",
                st.done, st.skipped, st.failed, (unsigned)(st.elapsedMs / 1000));
       menu->addNoteWrapped(row);
+      if (st.cardRetries > 0) {
+        /* The card's own number: how often a write had to wait for it. A few is normal;
+         * one in eight (phone 1, 2026-09-21) is a card worth replacing before the woods. */
+        snprintf(row, sizeof(row), "The card was busy %d time%s (each write waited and went through)",
+                 st.cardRetries, st.cardRetries == 1 ? "" : "s");
+        menu->addNoteWrapped(row);
+      }
       if (st.lastErr[0]) {
         /* Named for what it is. "z16 10714/23006: card refused the write" on its own read
          * as a mystery (Nick: "something about card refused... idk what that means"); it is

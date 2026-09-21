@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.9.74 (2026-09-21) - the phone gets its Bluetooth RAM back; the map downloader says its numbers
+
+Nick: *"When downloading maps on phone 1 (not phone 2), the downloads get very slow and the
+'waiting for memory' is always being displayed... Then eventually it stops due to ram problems
+it says. Can we make sure the maps downloader is designed for the worst case ram condition?
+Also, can you check if phone one has something going on that is taking extra ram?"*
+
+**What phone 1 had.** `maps dl` on the cable: `RUNNING (waiting for RAM) | 0/12864 done, 5303
+skipped ... 0 KB down in 351 s | last: no RAM for a new connection`. The downloader's
+handshake gate wants 14 KB of internal RAM free before it opens a TLS connection (a handshake
+takes ~9 KB for a second, and the WiFi stack aborts the phone when it cannot get a few KB);
+phone 1 with Maps open sits at **13.2-13.7 KB** and never reached it, so the run failed a
+tile every 30 s and stopped after twelve, having said only "waiting for memory". Phone 2 in
+the same state has 15.7 KB. The 2 KB between them is **SIP**: phone 1 is registered with a
+SIP server (`sip=1`; 3,402 `SIP REGISTER -> sending` lines in its log against 57 on phone 2,
+which sits at `sip=0`), and a minute after boot on the same firmware phone 1 has 25,960 B
+free to phone 2's 28,228. Nothing is wrong with phone 1; it is the phone with the account.
+
+**What every phone had, and never used: 56 KB of internal RAM reserved for Bluetooth.** The
+SDK is built with Bluetooth on (`CONFIG_BT_RESERVE_DRAM 0xdb5c`), the linker starts the app's
+RAM above that window, and nothing in this firmware has ever started Bluetooth. The Game Boy
+has reclaimed it on its first launch since the emulator landed — that is how a game finds room
+for its stacks and VRAM — and every phone that has run a game has then run the rest of its day
+with the memory in the heap. Everything else ran in the 16-28 KB left over: every "the internal
+heap is only ~16 KB" note in this repo, the fragmentation crashes, the downloader's bar.
+`setup()` now calls `esp_bt_controller_mem_release(ESP_BT_MODE_BTDM)` first thing and logs
+what it got: **`BOOT: BT reserve released: internal free 171600 -> 211924`**. Idle, with
+WiFi and SIP up: **phone 2 heap 28,228 -> 68,816, largest block 24,704 -> 67,564; phone 1
+26,000 -> 66,320 / 66,076.** A 20-tile HTTPS download on phone 2 bottomed out at **48 KB free**
+(phone 1's run this morning: 5.3 KB). The released memory arrives as extra heap regions the
+allocator tries after the main one, so they stay clean for the big transients rather than
+being nibbled by every String. ⚠ No Bluetooth can start in a boot after this — which has been
+true of every phone that ran a game, and nothing here asks for it (`btStop()` finds it idle).
+
+**The downloader, for the worst case.** The bar stays (it is what keeps a handshake from
+being a reboot), but the wait now says what is short: the Download screen adds `Needs 14 KB
+free (has 13.6) and a 10 KB block (has 10.5)` under "Waiting for memory", the failure text
+carries the same numbers, and a run that meets the same heap three times in a row (90 s)
+stops with them rather than failing twelve tiles over six minutes. `maps dl` prints the
+numbers while waiting and a `job:` line with the run's spec — source, centre, radius, zoom —
+which is also how Nick's run was restarted on the cable after the flash: its centre recovered
+from the tile columns already on the card (`ls /maps/usgs-img/16`), `12864 tiles` back to the
+tile, 5,303 skipped in four minutes, then downloading with 53 KB free.
+
+**Phone 1's card refuses one write in eight.** Watching the restarted run: 35 tiles "written on
+the second try" and 7 lost outright in the first 311 — `card refused the write` is a short
+`f.write()`, the SD layer's 500 ms allowance for a card to come out of busy running out on a
+card that pauses longer for its own housekeeping (phone 2's card did it 4 times in 12,853). A
+tile lost there had already crossed the network. The write is now tried again after 200 ms,
+then 1 s, then 3 s — long enough for any card's pause — with the pixels still in PSRAM, so
+nothing is fetched twice; only a card that refuses for five seconds fails the tile. The
+retries are counted: `maps dl` says `card busy N times`, and the Download screen's last-run
+summary adds "The card was busy N times (each write waited and went through)" — a few is
+normal, one in eight is a card to replace before the woods.
+
+**Also:** `gbc` reports `wram=internal|PSRAM vram=internal|PSRAM` — where gnuboy's work RAM
+landed — for checking the emulator still gets its fast RAM under the new layout (to be run
+when a game can be started; the bench phones must stay silent today).
+
 ## 0.9.73 (2026-09-20) - the map's hold-to-scroll no longer stops under a held thumb
 
 Nick: *"So the hold to scroll through maps isn't reliable. It works for one to 3 or 4 jumps

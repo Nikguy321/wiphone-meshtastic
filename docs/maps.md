@@ -328,6 +328,11 @@ computer. `tools/shot.py` will take the screenshot.
 
 ## What it costs the phone
 
+- **Since 0.9.74 the whole phone has ~40 KB more internal RAM** (the SDK's unused Bluetooth
+  reserve, released at boot — CHANGELOG 0.9.74), so the numbers below that say "~19 KB" or
+  "~25 KB" of internal heap describe the phones as they were when measured; idle is ~66 KB now
+  and a download bottoms out near 48 KB. The downloader's 14 KB handshake bar is unchanged;
+  when it cannot be met the Download screen and `maps dl` now print how far short the phone is.
 - **768 KB of PSRAM** while the app is open (six 128 KB tile slots), allocated once and freed
   on the way out. PSRAM runs ~3.6 MB free; internal RAM — the ~19 KB that SIP and WiFi fight
   over — is untouched by the viewer. The downloader is the exception: see above.

@@ -43,6 +43,7 @@ governing permissions and limitations under the License.
 #include "tile_fetch.h"      // the map downloader: DFS hold, pause-for-calls (below)
 #include "app_maps.h"        // gMapsActive: the map owns the side buttons while it is open
 #include "esp_wifi.h"       // esp_wifi_get_ps/set_ps: the modem-sleep invariant in loop()
+#include "esp_bt.h"         // esp_bt_controller_mem_release: the Bluetooth reserve, given back at boot
 #include "Test.h"
 #include "meshtastic_service.h"
 #include "music_player.h"
@@ -1151,6 +1152,35 @@ void setup() {
 
   log_i("\r\nChip id: %X %d %d", chipId, ESP.getFreeHeap(), heap_caps_get_free_size(MALLOC_CAP_32BIT));
   log_i("Firmware version: %s", FIRMWARE_VERSION);
+
+  /* ── THE BLUETOOTH RESERVE, GIVEN BACK (0.9.74) ──────────────────────────────────────────
+   * This SDK reserves CONFIG_BT_RESERVE_DRAM (0xdb5c = 56 KB) of internal RAM for a
+   * Bluetooth controller that nothing in this firmware ever starts (no BluetoothSerial, no
+   * BLE; Networks::disable's btStop() finds it idle), and the linker puts the whole app
+   * ABOVE it. The Game Boy has reclaimed it on its first launch since the emulator landed
+   * (app_gbc.cpp reclaimInternalRam) — which is how a game gets room for its stacks and VRAM
+   * — and the phone then runs the rest of the day with it in the heap. Everything else ran
+   * in the 16-28 KB left over: the "internal heap is only ~16 KB with WiFi + SIP up" that
+   * every memory note in this repo is about, the fragmentation crashes, and the map
+   * downloader on phone 1 sitting at 13.6 KB under a 14 KB handshake bar, never connecting
+   * (Nick, 2026-09-21: "waiting for memory is always being displayed... then eventually it
+   * stops due to ram problems"). Released here, first thing, so nothing has to wait for a
+   * game to be played. Three regions come back (0x3ffb0000-0x3ffbdb28 in two pieces, plus
+   * the ~6 KB BT data area below it) as extra heap the allocator tries AFTER the main one,
+   * so they stay clean for the big transient — a TLS handshake's ~9 KB of lwIP buffers —
+   * rather than being nibbled by every String. Measured: see the BOOT line and CHANGELOG.
+   * ⚠ After this no Bluetooth can start in this boot. That has always been the case on
+   * every phone that has run a game; the GBC's own call is now a harmless no-op. */
+  {
+    const uint32_t fBefore = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    const uint32_t lBefore = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    const esp_err_t rel = (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE)
+                          ? esp_bt_controller_mem_release(ESP_BT_MODE_BTDM) : ESP_ERR_INVALID_STATE;
+    log_e("BOOT: BT reserve %s: internal free %lu -> %lu, largest %lu -> %lu",
+          rel == ESP_OK ? "released" : "NOT released",
+          (unsigned long)fBefore, (unsigned long)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+          (unsigned long)lBefore, (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+  }
 
   // Initialize I2C and wake up battery gauge first
   gauge.connect();

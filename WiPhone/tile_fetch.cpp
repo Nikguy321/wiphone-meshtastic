@@ -461,6 +461,10 @@ static bool waitReady(Job* j, bool needRoom, WiFiClient* client) {
     }
     uint32_t f, l, m;
     heapNow(&f, &l, &m);
+    st->ramFree = f;
+    st->ramLargest = l;
+    st->ramNeedFree = TF_CONNECT_FREE;
+    st->ramNeedLargest = TF_CONNECT_LARGEST;
     if (l >= TF_CONNECT_LARGEST && f >= TF_CONNECT_FREE) {
       st->waitingRam = false;
       return true;
@@ -473,6 +477,18 @@ static bool waitReady(Job* j, bool needRoom, WiFiClient* client) {
     vTaskDelay(pdMS_TO_TICKS(250));
     roomMs += 250;
   }
+}
+
+/* "no RAM for a new connection", with the numbers: the two the bar is made of, so the screen
+ * and the console say what is short by how much rather than only that something is. Phone 1
+ * sat at 13.6 KB free under the 14 KB bar for two hours saying "waiting for memory"
+ * (2026-09-21); this is what it should have said. */
+static void ramShortMsg(char* out, size_t cap, const TileJobStatus* st, const char* prefix) {
+  snprintf(out, cap, "%sno RAM for a connection: %u.%u of %u KB free, %u.%u of %u KB in one block",
+           prefix, (unsigned)(st->ramFree / 1024), (unsigned)((st->ramFree % 1024) / 103),
+           (unsigned)(st->ramNeedFree / 1024),
+           (unsigned)(st->ramLargest / 1024), (unsigned)((st->ramLargest % 1024) / 103),
+           (unsigned)(st->ramNeedLargest / 1024));
 }
 
 /* The whole run. A function of its own so that everything with a destructor — HTTPClient
@@ -547,9 +563,14 @@ static void runJob(Job* j) {
             break;
           }
           st->failed++;
-          snprintf(st->lastErr, sizeof(st->lastErr), "z%d %d/%d: no RAM for a new connection", z, x, y);
-          if (++j->consecutiveFails >= TF_MAX_FAILS) {
-            strlcpy(st->lastErr, "no RAM for a connection - stopped", sizeof(st->lastErr));
+          ramShortMsg(st->lastErr, sizeof(st->lastErr), st, "");
+          /* 🛑 THE RAM IS NOT COMING. A tile that failed for want of a connection is not a
+           * bad tile, and the next one meets the same heap: the old rule failed twelve of
+           * them thirty seconds apart, six minutes of "waiting for memory" for the same
+           * answer, and then stopped without saying what the numbers were. Three in a row
+           * is the same fact three times: stop, and say how short by how much. */
+          if (++j->consecutiveFails >= 3) {
+            ramShortMsg(st->lastErr, sizeof(st->lastErr), st, "stopped: ");
             s_stop = true;
             break;
           }
@@ -592,16 +613,25 @@ static void runJob(Job* j) {
               break;
             }
           } else {
-            /* Written twice before it counts as failed: phone 2's 12,853-tile run lost 4 tiles
-             * to "card refused the write" — a short f.write() on a card that is otherwise
-             * fine, i.e. one busy timeout in the SD layer — and each cost a tile that had
-             * already crossed the network. */
+            /* 🛑 A CARD THAT IS BUSY IS NOT A CARD THAT IS BROKEN. "card refused the write" is a
+             * short f.write(): the SD layer gives a card 500 ms to come out of busy before a
+             * block (sd_diskio.cpp sdWriteBytes) and some cards pause longer than that for
+             * their own housekeeping. Phone 2's 12,853-tile run lost 4 tiles to it; phone 1's
+             * card does it to ONE WRITE IN EIGHT (2026-09-21: 35 rescued on a second try, 7
+             * lost, in the first 311 tiles) — and every tile lost had already crossed the
+             * network. So the write is tried again after a pause that grows — 200 ms, then a
+             * second, then three — long enough for any card's pause to end; the pixels are
+             * still in PSRAM, nothing is fetched twice. Only a card that refuses for five
+             * seconds counts the tile as failed. The retries are counted (cardRetries) and
+             * shown, because they are the measure of the card. */
+            static const uint16_t WRITE_WAIT_MS[] = { 200, 1000, 3000 };
             bool wrote = writeTile(path, tmpPath, px, err, sizeof(err));
-            if (!wrote) {
-              vTaskDelay(pdMS_TO_TICKS(200));
+            for (int t = 0; !wrote && !s_stop && t < 3; t++) {
+              vTaskDelay(pdMS_TO_TICKS(WRITE_WAIT_MS[t]));
               wrote = writeTile(path, tmpPath, px, err, sizeof(err));
               if (wrote) {
-                log_e("TILES: z%d %d/%d written on the second try", z, x, y);
+                st->cardRetries++;
+                log_e("TILES: z%d %d/%d written on try %d", z, x, y, t + 2);
               }
             }
             if (!wrote) {
@@ -854,8 +884,19 @@ void tileFetchReport(void (*emit)(const char* line)) {
            st.stopping ? " (stopping)" : "",
            st.done, st.total, st.skipped, st.noTile, st.failed, st.reconnects, st.curZ);
   emit(l);
-  snprintf(l, sizeof(l), "  %u KB down in %u s; internal largest floor %u, min-ever %u; task stack floor %u of %u%s%s",
+  if (st.waitingRam) {
+    ramShortMsg(l, sizeof(l), &st, "  ");
+    emit(l);
+  }
+  if (s_job) {
+    snprintf(l, sizeof(l), "  job: source %d, centre %.5f %.5f, %d km, z%d-%d",
+             s_job->spec.source, s_job->spec.lat, s_job->spec.lon, s_job->spec.radiusKm,
+             TILE_ZOOM_BASE, s_job->spec.zMax);
+    emit(l);
+  }
+  snprintf(l, sizeof(l), "  %u KB down in %u s; card busy %d time%s; internal largest floor %u, min-ever %u; task stack floor %u of %u%s%s",
            (unsigned)(st.bytes / 1024), (unsigned)(st.elapsedMs / 1000),
+           st.cardRetries, st.cardRetries == 1 ? "" : "s",
            (unsigned)st.heapFloorLargest, (unsigned)st.heapMinEver,
            (unsigned)st.stackFloor, (unsigned)TF_STACK_BYTES,
            st.lastErr[0] ? " | last: " : "", st.lastErr);

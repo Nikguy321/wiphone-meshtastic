@@ -4,6 +4,28 @@
 
 Read this first; everything below it is narrative.
 
+🧠 **2026-09-21 MORNING: 0.9.74 — THE BLUETOOTH RESERVE IS RELEASED AT BOOT: +40 KB INTERNAL
+RAM ON BOTH PHONES.** Nick: phone 1's map download "waiting for memory... eventually stops due to
+ram problems." `maps dl`: 13.2-13.7 KB free with Maps open, under the 14 KB handshake bar, never
+connected. The 2 KB phone 1 lacks vs phone 2 is SIP (phone 1 registered, `sip=1`, 3,402
+REGISTERs in its log vs 57; 25,960 vs 28,228 B at up=1min). THE FIX: `CONFIG_BT_RESERVE_DRAM
+0xdb5c` — 56 KB reserved for a BT controller nothing starts; the GBC's `reclaimInternalRam()`
+has released it on first launch for months. `setup()` now calls
+`esp_bt_controller_mem_release(ESP_BT_MODE_BTDM)` first thing: `BOOT: BT reserve released:
+internal free 171600 -> 211924`; idle heap 28,228 → 68,816 / largest 24,704 → 67,564 (phone 2),
+26,000 → 66,320 (phone 1); a 20-tile HTTPS run: min-ever 48,012 (was 5,280). ⚠ EVERY "internal
+heap is ~16 KB" NOTE BELOW THIS BLOCK IS HISTORY NOW — the gates and the reasoning stand, the
+numbers moved. Downloader: `TileJobStatus.ramFree/ramLargest/ramNeed*`, screen row `Needs 14 KB
+free (has 13.6) and a 10 KB block (has 10.5)`, stop after 3 no-RAM fails (90 s) with the
+numbers, `maps dl` prints a `job:` spec line. Nick's run restarted on the cable
+(`maps dl 1 47.2528 -121.4054 20 16` — centre recovered from `ls /maps/usgs-img/16` columns +
+one column's y range; `12864 tiles` = his exact total). PHONE 1's CARD refuses ~1 write in 8 (35 second-try
+saves + 7 lost in 311 tiles): the tile write now retries after 200 ms / 1 s / 3 s and counts
+`cardRetries` (`maps dl` "card busy N times"; the screen's last-run note). `gbc` prints
+`wram=/vram=` placement — NOT yet checked under the new layout (no sound allowed on the bench today; run a game when Nick
+is home and read `gbc`). Review: workflow `wiphone-btram-review` (4 lenses). **State: see the
+git log — committed/flashed/staged per the usual rule; push/publish on Nick's word.**
+
 🎮 **2026-09-20 LATE: 0.9.73 — THE MAP'S HOLD RIDES THROUGH THE KEYPAD CHIP'S RELEASE-BLIP, AND
 SWEEPS BY TIME.** Nick: "hold to scroll... works for one to 3 or 4 jumps before it just stops."
 `keys raw` on phone 2 while he held RIGHT: heartbeats every ~58 ms, then `+124ms 0x00 r`

@@ -76,6 +76,11 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.74** — **the phone gets 40 KB of internal RAM back**: the SDK reserved 56 KB for a
+  Bluetooth controller nothing ever starts; it is released at boot now (idle free heap
+  28 KB → 68 KB, largest block 25 KB → 67 KB on both phones). The map downloader on phone 1 had
+  been sitting under its 14 KB handshake bar saying "waiting for memory"; it now runs with
+  50 KB to spare, and when it does wait it says the numbers.
 - **0.9.73** — the map's **hold-to-scroll no longer stops under a held thumb**: the keypad
   chip emits a release-and-re-press pair (4 ms apart) under a finger that never moved, and
   the map now rides through it (so do the F2 music key and the held-digit/`#` typing holds);
@@ -321,12 +326,14 @@ python3 tools/convert_tiles.py ~/covey-tiles ~/tiles-565/home --zoom 12-15
 python3 tools/wiphone_send.py --app maps --tree ~/tiles-565/home
 ```
 
-⚠ **HTTPS on this phone was impossible until tonight** — the framework builds mbedTLS to
-allocate from the ~25 KB internal heap — and the downloader is the first thing on the phone
-to do it, by moving mbedTLS into PSRAM and running on its own task. The internal heap dips by
-~12 KB during the first handshake of a run, once. The downloader refuses to start when the
-phone is low on memory and says to reboot; the details and the measured numbers are in
-[docs/maps.md](docs/maps.md).
+⚠ **HTTPS on this phone was impossible until 0.9.64** — the framework builds mbedTLS to
+allocate from the internal heap, which sat at ~25 KB — and the downloader is the first thing
+on the phone to do it, by moving mbedTLS into PSRAM and running on its own task. The internal
+heap dips by ~9 KB during each handshake. The downloader waits for 14 KB free before it opens
+a connection and, since 0.9.74, says on screen how much the phone has against that when it
+cannot (`Needs 14 KB free (has 13.6)...`); the same release gave the phone 40 KB more internal
+RAM, so on both phones a download now runs with ~50 KB to spare. Details and the measured
+numbers are in [docs/maps.md](docs/maps.md).
 
 ## E-reader
 
@@ -713,8 +720,8 @@ itself. This is a memory limit, not a broken link or an expired certificate:
 |---|---|
 | mbedTLS needs (`CONFIG_MBEDTLS_SSL_MAX_CONTENT_LEN` 16384, in **and** out buffers) | **~33 KB** |
 | may any of it come from PSRAM? (`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC`) | **no, not set** |
-| free internal heap on this phone | **~19 KB** |
-| largest contiguous internal block, fresh boot | **~14.9 KB** |
+| free internal heap on this phone (before 0.9.74; ~66 KB since) | **~19 KB** |
+| largest contiguous internal block, fresh boot (before 0.9.74; ~66 KB since) | **~14.9 KB** |
 
 The TLS handshake fails in `client->connect()` before a single byte of HTTP.
 It is not close, and it is not fragmentation — there is not enough internal heap
@@ -726,6 +733,9 @@ longer spends part of every startup on a connection that cannot open.
 Changing this means changing the **transport** — a plain-HTTP mirror, or a TLS
 stack that can allocate from PSRAM — not the URL. The code is still there and
 still builds; flip `OTA_TRANSPORT_AVAILABLE` to `1` once the transport is real.
+(The map downloader has since shown the way — mbedTLS pointed at PSRAM on a
+worker task, 0.9.64 — and 0.9.74 gave the phone 40 KB more internal RAM, so the
+numbers in the table are history; the OTA path itself has not been rewired.)
 
 ## Applying a channel setup link
 

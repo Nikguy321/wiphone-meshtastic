@@ -89,6 +89,8 @@ typedef struct {
   bool     finished;      // a run completed (look at the counters)
   bool     paused;        // held by tileFetchPause(true): a call, or WiFi is down
   bool     waitingRam;    // a new connection is due and the internal heap has no room for it yet
+  uint32_t ramFree, ramLargest;   // ...and what it has (bytes), for the screen and the console
+  uint32_t ramNeedFree, ramNeedLargest;   // ...against what a handshake needs (the bar)
   bool     stopping;      // stop requested, finishing the current tile
   int      total;         // tiles in the job
   int      done;          // written this run
@@ -96,6 +98,7 @@ typedef struct {
   int      noTile;        // the server said 404: nothing there (not an error)
   int      failed;        // network, decode or write failures
   int      reconnects;    // TLS/TCP connections made after the first (the server closed keep-alive)
+  int      cardRetries;   // tile writes the card refused once and took on a later try (its busy pauses)
   int      curZ;
   uint32_t bytes;         // downloaded
   uint32_t elapsedMs;
