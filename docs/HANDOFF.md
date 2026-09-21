@@ -30,7 +30,12 @@ the HEAD of the heap list (tried FIRST, absorb boot allocations, the main region
 stays whole) — my first comment said the opposite. `~GbcApp` now calls `gbcReleaseEmulator()`
 (stacks/VRAM/audio/WRAM were resident until reboot after a game; measured 69.0 → 37.7 in game →
 68.2 KB after quit). tile_fetch: bar = exact 14/10 KB, `TF_MAX_RAM_FAILS` own counter,
-`lastErr[96]`, shorter message. **State: see the git log.**
+`lastErr[96]`, shorter message. Body cap 96 → 256 KB (USGS aerial tiles over 96 KB failed
+on every run). Card retry measured: 9 refused, 9 written on try 2, 0 lost. **STATE: 0.9.74 +
+0.9.75 COMMITTED (`fa2056b`), stage regenerated and wraps the flashed binary, BOTH PHONES ON
+IT; NOT pushed/published — Nick at work, no word yet. Phone 2 was left MUTED (`mute off` or
+Settings → Mute all sounds → Sounds ON). Phone 1 is running Nick's aerial download
+(`maps dl 1 47.2528 -121.4054 20 16`, 12864 tiles, ~2.5 h from ~11:00).**
 
 🧠 **2026-09-21 MORNING: 0.9.74 — THE BLUETOOTH RESERVE IS RELEASED AT BOOT: +40 KB INTERNAL
 RAM ON BOTH PHONES.** Nick: phone 1's map download "waiting for memory... eventually stops due to
