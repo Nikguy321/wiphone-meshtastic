@@ -52,9 +52,12 @@ stream then rsync to fill gaps; the link is 185-1,000 KB/s; NM power save set to
 `SmithWifi`); phone inventories `~/tiles-master/inv_p1.tsv`/`inv_p2.tsv` (serial `ls` walk,
 `scratchpad/inv.py`, ~2 s a folder, 21 + 52 min), COVEY's list `inv_covey.txt`; `plan.py`
 prints the per-zoom union table and writes `only_pN.txt` / `missing_pN.txt`. THE DRIVER:
-`~/tiles-master/cardday.sh phone1|phone2 pull|push /Volumes/<card>` and `cardday.sh covey push`
-(logs beside it) — the documented recipe REHEARSED end to end on FAT32 `hdiutil` images: a
-phone-only tile came back byte-identical on the "new card", zero sidecars.
+`tools/cardday.sh phone1|phone2 pull|push /Volumes/<card>` + `cardday.sh covey push`
+(`~/tiles-master/cardday.sh` is a symlink to it; log `~/tiles-master/cardday.log`;
+`CARDDAY_MASTER`/`CARDDAY_CARDS` override the paths for a rehearsal). Rehearsed end to end on
+FAT32 `hdiutil` images — a phone-only tile came back byte-identical on the "new card", zero
+sidecars, and the pull found exactly the 15 planted tiles the master lacked. `push` refuses a
+card that is not FAT32.
 CARD DAY (docs/maps.md "Pooling the tiles of several devices"): old card in →
 `tools/card_clone.sh pull /Volumes/<card> ~/wiphone-cards/phoneN` → `tools/tiles_565_to_png.py
 <backup>/maps/<area> ~/tiles-master/<area>` (`--jpeg` for usgs-img) → new card in →
