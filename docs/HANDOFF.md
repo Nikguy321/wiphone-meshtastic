@@ -30,8 +30,28 @@ it, stage = the flashed binary (sha `bfcc0aa7…`), NOT pushed/published — Nic
 phones left UNMUTED.** `ver` still prints the 19:55 stamp: serial_cmd.cpp was not recompiled by
 the fix build (the stamp lives there) — the in-game bench is the identity, not the stamp.
 
-🗺️ **2026-09-21 EVENING: POOLING THE TILES OF ALL THREE DEVICES — MAC-SIDE HALF DONE, THE
-PHONES WAIT FOR THEIR CARDS.** Nick: *"All three of my devices (both wiphones and covey) each
+🗺️ **2026-09-22 MORNING: BOTH PHONES CARRY THE WHOLE POOL — 132,826 TILES EACH, VERIFIED.
+ONLY COVEY IS LEFT.** Card day ran on `tools/cardday.sh`: phone 2's old 16 GB card (60,464
+tiles) and phone 1's old 32 GB card (26,025) pulled, then both new SanDisk 32 GB cards written
+and named `WIPHONE2` / `WIPHONE1`. Per card, checked BEFORE ejecting: every master tile present
+at exactly 131,072 bytes (132,826/132,826, 0 missing, 0 short), every one of the old card's own
+files restored at an identical size (63 for phone 2, 77 for phone 1 — books, ROMs, GBC saves,
+music, photos, wallpaper, t9, configs.ini, meshdb.bin, pins.txt, health.log), 0 `._` sidecars,
+16 GB used / 13 GB free. ~13-14 min a card at **~23 MB/s** (otm 164-167 s, usgs-img 230-242 s,
+usgs-topo 336-350 s) — the earlier "an hour a card" fear was wrong. 🔑 THE PULL DOES NOT COPY
+TILES (`card_clone.sh --no-tiles`): on the real card they came off at ~4 MB/s (half an hour) to
+be thrown away, since the master holds a PNG for every one and the new card is rebuilt from it —
+3.5 min instead of 30, and the OLD CARD is the safety net. Unique contributions: phone 2 **8,635**
+(topo 7,110 / otm 1,214 / img 311), phone 1 **101**. ⚠ ONE DUD: `usgs-img/14/2621/5733.png` is
+0 bytes in COVEY's cache (dated Jul 20, a failed fetch there) — removed from the master, so the
+union is **132,826**, and absent means a downloader can still fill it. Delete it on COVEY too.
+⚠ `diskutil eject` is dissented by loginwindow on these cards — `sync; diskutil unmount force`
+is the way, and the slot needs a fresh insert afterwards (phone 1's card took two re-seats and
+enumerated nothing until then; the readers are a Genesys USB3.0 and a Samsung uSD). Master free
+space on the Mac: 74 GB before, ~71 after. ▶ **NEXT: `tools/cardday.sh covey push` (8,736 tiles
+it lacks) when COVEY is on the network — Nick: "talk later tonight for the covey transfer".**
+
+🗺️ **2026-09-21 EVENING: POOLING THE TILES — THE MAC-SIDE HALF (superseded by the block above).** Nick: *"All three of my devices (both wiphones and covey) each
 have random tiles from different downloads. Can you pull the files from each and combine them
 all to get the max tile coverage and put them back on the devices?"* Then, on the transport:
 *"I have a card reader. When the new cards come, I will first put the old ones on so you can
