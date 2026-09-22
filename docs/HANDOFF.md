@@ -1,8 +1,34 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-21 evening)
+## ▶▶ STATE NOW (header refreshed 2026-09-21 night)
 
 Read this first; everything below it is narrative.
+
+🔇 **2026-09-21 NIGHT: 0.9.76 — HOLD '#' TO MUTE.** Nick: *"make holding the pound key mute and
+unmute... only when you're not entering text or when that key isn't being used for something
+else"*, then *"stop that behavior"* for the clock's dialer-on-'#'. The '#' hold tracker in
+WiPhone.ino is now capital (predictive field) OR mute (`uiHashMuteArmed()` = no focused text
+field — `FocusableWidget::textFieldFocused()`, focus regardless of content — and not the
+map, whose '#' is zoom). 🛑 THE PRESS IS SWALLOWED while the mute hold is armed (key loop:
+`hashDeferred`), delivered on an early release (`hashTapPending` → the same processEvent, ~100
+ms late) or forgiven by the hold — so a tap still opens the dialer/Messages from the clock and
+menus and a hold no longer does. Feedback: a 70 ms buzz (`meshVibroLenMs` per pulse, `MUTE_BUZZ_MS`)
++ the header icon, and the CLOCK FACE now draws the mute icon too (`ClockApp::redrawScreen`).
+🛑 THE FIRST IN-GAME HOLD WEDGED PHONE 2: the icon refresh's `REDRAW_HEADER` pushed the header
+rows to the LCD under the emulator's blit task (SPI from the other core) → loopTask hung, task
+watchdog, MOTOR LEFT RUNNING until an esptool reset (Nick: "The buzzer is constantly running").
+Fixed twice over: no redraw request while `gGbcActive`, and `GUI::redrawScreen` clears
+redrawHeader/redrawFooter while `gGbcActive` (the pause menu's REDRAW_SCREEN still reaches the
+app). Bench: `key hold <key> [ms [blip]]` (uiKeyDownOrBlip answers from the bench;
+`uiKeyMaskFor`). ⚠ Injected keys do NOT reach a running game (`key end`/`key up`/`key ok` all
+dropped; known since 0.9.75) — `gbc autosave` parks it, esptool `--before default_reset read_mac`
+resets the phone from the cable (also the way to stop a stuck motor). Proven on both phones:
+clock (mute, no dialer; tap → dialer with '#'), dialer (types '#'), submenu, Phonebook, Compose
+To: + T9 body (no mute; T9 hold stepped the mode back), map (zoom, no mute), running game
+(unmute → mute, `buzz off after 70 ms`, loop alive). **STATE: `46db7bd` committed, both phones on
+it, stage = the flashed binary (sha `bfcc0aa7…`), NOT pushed/published — Nick's word. Both
+phones left UNMUTED.** `ver` still prints the 19:55 stamp: serial_cmd.cpp was not recompiled by
+the fix build (the stamp lives there) — the in-game bench is the identity, not the stamp.
 
 🗺️ **2026-09-21 EVENING: POOLING THE TILES OF ALL THREE DEVICES — MAC-SIDE HALF DONE, THE
 PHONES WAIT FOR THEIR CARDS.** Nick: *"All three of my devices (both wiphones and covey) each
