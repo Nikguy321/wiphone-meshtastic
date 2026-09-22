@@ -1,8 +1,43 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-20 night)
+## ▶▶ STATE NOW (header refreshed 2026-09-21 evening)
 
 Read this first; everything below it is narrative.
+
+🗺️ **2026-09-21 EVENING: POOLING THE TILES OF ALL THREE DEVICES — MAC-SIDE HALF DONE, THE
+PHONES WAIT FOR THEIR CARDS.** Nick: *"All three of my devices (both wiphones and covey) each
+have random tiles from different downloads. Can you pull the files from each and combine them
+all to get the max tile coverage and put them back on the devices?"* Then, on the transport:
+*"I have a card reader. When the new cards come, I will first put the old ones on so you can
+pull the info. Then I will put the new ones in, that way you could both clone what is on the
+current cards, and put the entirety of the maps together. On covey and both phones."* THE
+NUMBERS THAT CHOSE THE METHOD: COVEY holds 124,091 tiles (usgs-topo 55,368 / usgs-img 39,641 /
+otm 29,082, z8-16; `/root/covey-tiles/<src>/z/x/y.png` — ⚠ the usgs-img files are JPEG BYTES
+under .png names); phone 1 26,025 raw tiles (usgs-topo z11-16 13,165 + usgs-img z11-16 12,860),
+phone 2 more (usgs-topo, otm, usgs-img — its listing was still running). Union ≈ 127k tiles =
+**15.5 GB per phone** at 128 KB a tile; the WiFi uploader does 48-69 KB/s (3 days) and NOTHING
+serves a file off the phone (`/log` is the only GET, 60-78 KB/s) — so cards in the reader.
+Almost everything flows COVEY → phones: only ~215 of phone 1's tiles and ~2,900 of phone 2's
+(so far) are not on COVEY. STATE: `~/tiles-master/` is the union-in-progress (COVEY's cache
+pulled zoom by zoom by `~/tiles-master/pull_covey.py` — tar stream then rsync to fill gaps —
+its WiFi link is 185-1,000 KB/s; NM power save set to disable on `SmithWifi`); phone inventories
+`~/tiles-master/inv_p1.tsv`/`inv_p2.tsv` (serial `ls` walk, `scratchpad/inv.py`, ~2 s a folder),
+COVEY's list `inv_covey.txt`, `plan.py` prints the per-zoom union table and writes
+`only_pN.txt` (what only that phone has → convert into the master) and `missing_pN.txt`.
+CARD DAY (docs/maps.md "Pooling the tiles of several devices"): old card in →
+`tools/card_clone.sh pull /Volumes/<card> ~/wiphone-cards/phoneN` → `tools/tiles_565_to_png.py
+<backup>/maps/<area> ~/tiles-master/<area>` (`--jpeg` for usgs-img) → new card in →
+`card_clone.sh push` the backup → `tools/convert_tiles.py ~/tiles-master/<src>
+/Volumes/<new>/maps/<src>` per source (~300 tiles/s now: numpy + `--jobs`; the card is the
+limit, budget ~1 h) → `diskutil eject` → phone → Maps → Menu → Rescan card. COVEY:
+`rsync -a --ignore-existing --rsync-path='sudo rsync' ~/tiles-master/<src>/
+covey:/root/covey-tiles/<src>/` — its map reads files by path, no index, no restart. ⚠ The new
+32 GB SanDisk cards ship FAT32 (the phone reads no exFAT); a card over 32 GB needs
+`diskutil eraseDisk FAT32 WIPHONE MBRFormat diskN`. Tools committed `327c1bf` (tools only, no
+firmware; `check_convert_tiles` 22 checks holds 565→PNG→565 through both scripts). Bench: a
+200 MB FAT32 `hdiutil` image — clone both ways byte-identical, 751 tiles onto it in 4.8 s, no
+sidecars. Phone 1's aerial download finished: 4,408 + 8,452 skipped of 12,864, 4 failed, 126 MB
+in 2.2 h, card busy 292 times. Phone 2 is STILL MUTED. NOT pushed — push on Nick's word.
 
 🔇 **2026-09-21 MID-MORNING: 0.9.75 — MASTER MUTE + THE GAME BOY'S RAM FLOOR.** Nick (at work,
 "no sounds"): "a master 'mute' button within the settings... make sure it also works for the
