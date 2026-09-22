@@ -1,5 +1,44 @@
 # Changelog
 
+## tools (2026-09-21) - pooling the tiles of three devices; the converter is 40x faster
+
+Nick: *"All three of my devices (both wiphones and covey) each have random tiles from
+different downloads. Can you pull the files from each and combine them all to get the max
+tile coverage and put them back on the devices?"* No firmware in this one.
+
+**The numbers first, because they chose the method.** COVEY's cache: 124,091 PNGs (usgs-topo
+55k, usgs-img 40k, otm 29k, z8-16). Phone 1: 26,025 raw tiles; phone 2: more. The union is
+~127,000 tiles = **15.5 GB per phone** in the phone's 128 KB-per-tile format — three days each
+over the WiFi uploader (48-69 KB/s measured 2026-08-26), and nothing serves a file OFF the
+phone over WiFi anyway (`/log` is the one GET, at 60-78 KB/s). Under an hour onto a card in
+the Mac's reader. So the phones' halves wait for their cards; everything else runs now.
+
+- **`tools/convert_tiles.py`: ~300 tiles/s** (was ~7): the per-pixel Python loop packs a tile
+  in ~150 ms, numpy in ~1 ms, and `--jobs N` (default: one per core) converts several at
+  once. Same bytes — `tests/check_convert_tiles.py` holds the numpy path to the loop. The
+  workers read and write their own tiles; `.mbtiles` rows are handed over as bytes since
+  SQLite does not cross processes.
+- **`tools/tiles_565_to_png.py`** — the way back: a phone area folder → `<z>/<x>/<y>.png`,
+  keeping any PNG already there (an original beats a tile that has been through 5-6-5). Bit
+  replication on the way up, so white stays white. `--jpeg` for imagery: COVEY's usgs-img
+  files are JPEG bytes under `.png` names (its downloader keeps what the server sent), and a
+  photo as true-colour PNG is 105 KB against 42 KB at JPEG q92 (measured; ≤2 LSB of 5/6 bits
+  after a round trip, half the pixels identical). The check now round-trips
+  565 → PNG → 565 through both scripts: a tile that goes phone → master → other phone passes
+  through both, and one bit of disagreement is a map in the wrong colours on the second phone.
+- **`tools/card_clone.sh pull|push`** — the whole card to a folder and back: rsync with the
+  FAT32-appropriate flags, macOS's `._`/`.Spotlight`/`.fseventsd` litter excluded both ways,
+  Spotlight told not to index the card, `dot_clean` after, and a file count on both sides so a
+  copy that stopped early cannot pass for a finished one. Refuses a destination outside
+  `/Volumes`. Never deletes.
+- `docs/maps.md`: *Pooling the tiles of several devices* — the four commands, in order.
+
+Bench: a 200 MB FAT32 disk image (`hdiutil`) — clone both ways byte-identical, 751 tiles
+converted straight onto it in 4.8 s, zero sidecars. COVEY's cache is pulled with a tar stream
+over SSH per zoom folder with an rsync pass to fill anything a stalled stream dropped: its
+WiFi link measured 185-450 KB/s (a Pi 3A+ at 54-66 % signal; NetworkManager's WiFi power save
+turned off on the connection, which did not change it), so 2.5 GB is ~90 minutes.
+
 ## 0.9.75 (2026-09-21) - a master mute; the Game Boy leaves the phone its RAM
 
 Nick, at work: *"You could always implement a master 'mute' button within the settings. Just

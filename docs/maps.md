@@ -217,6 +217,53 @@ A tile server's terms are between you and the server. USGS is public domain and 
 credit line; OpenTopoMap is CC-BY-SA and asks not to be mass-downloaded — the phone waits
 0.6 s between its tiles and says so on the help screen. Both credits are printed there.
 
+### Pooling the tiles of several devices
+
+Two phones and a COVEY that each downloaded their own patches end up with three different
+maps. The union of them is one tree of PNG originals on the Mac, and every device gets the
+whole of it. The tree is the standard `<source>/<z>/<x>/<y>.png` — COVEY's own cache layout,
+so its cache seeds it directly and is refilled from it with plain `rsync`.
+
+The phones need their **cards in the Mac's reader**: the union is 128 KB per tile, and a
+hundred thousand tiles is ~13 GB — a week over the phone's WiFi uploader (measured 48–69 KB/s)
+against under an hour onto a card. Nothing reads files off the phone over WiFi at all.
+
+```bash
+# 1. the originals: COVEY's cache (its WiFi link is slow; ~2.5 GB took ~90 min)
+ssh covey 'sudo tar cf - -C /root/covey-tiles .' | tar xf - -C ~/tiles-master
+
+# 2. each phone's card, in the reader: copy the whole card, then add its tiles to the master
+#    (a PNG already in the master is kept — an original beats a tile that has been through 565)
+tools/card_clone.sh pull /Volumes/WIPHONE ~/wiphone-cards/phone1
+for a in ~/wiphone-cards/phone1/maps/*/; do
+  python3 tools/tiles_565_to_png.py "$a" ~/tiles-master/$(basename "$a")   # --jpeg for usgs-img
+done
+
+# 3. the union back onto a card (a new one: clone the old card's contents first)
+tools/card_clone.sh push ~/wiphone-cards/phone1 /Volumes/NEWCARD
+for s in ~/tiles-master/*/; do
+  python3 tools/convert_tiles.py "$s" /Volumes/NEWCARD/maps/$(basename "$s")
+done
+diskutil eject /Volumes/NEWCARD
+
+# 4. and back to COVEY — only what it lacks travels
+for s in ~/tiles-master/*/; do
+  rsync -a --ignore-existing --rsync-path='sudo rsync' "$s" covey:/root/covey-tiles/$(basename "$s")/
+done
+```
+
+The area name on the phone is the source's folder name (`usgs-topo`, `usgs-img`, `otm`), so
+the same tile is the same file on all three devices and a re-run copies nothing twice:
+`convert_tiles.py` keeps a tile that is already there at the right length, `tiles_565_to_png.py`
+keeps a PNG that exists, and `card_clone.sh` never deletes. `convert_tiles.py` does ~300
+tiles/s with numpy installed (`python3 -m pip install --user numpy`); the card is the limit.
+
+`tiles_565_to_png.py` is `convert_tiles.py` run backwards (5-6-5 bits replicated up to 8, so
+white stays white); `tests/check_convert_tiles.py` holds the two to each other, because a tile
+that goes phone → master → other phone passes through both. ⚠ COVEY's aerial tiles are JPEG
+bytes under `.png` names (its downloader keeps whatever the server sent, and the map loads by
+content) — `--jpeg` writes the same, at a third of the bytes of a true-colour PNG of a photo.
+
 ---
 
 ## Download maps on the phone

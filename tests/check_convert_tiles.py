@@ -96,6 +96,20 @@ check(red[0] == 0x00 and red[1] == 0xF8, "pure red is 0x00 0xF8 on disk, not 0xF
 
 check(ct.TILE_BYTES == 131072, "TILE_BYTES agrees with the firmware's MAP_TILE_BYTES")
 
+# The numpy path is a fast copy of the loop, not a second opinion: with numpy installed the
+# two must agree byte for byte on every value a channel can take.
+if ct.HAVE_NUMPY:
+    import random
+    rnd = random.Random(565)
+    noise = bytes(rnd.getrandbits(8) for _ in range(256 * 256 * 3))
+    fast = ct.rgb565_bytes_numpy(noise)
+    ct.HAVE_NUMPY = False
+    slow = ct.rgb565_bytes(noise, 256, 256)
+    ct.HAVE_NUMPY = True
+    check(fast == slow, "the numpy packing and the loop write identical tiles")
+else:
+    print("  --  numpy not installed; the fast-path comparison was skipped")
+
 try:
     ct.rgb565_bytes(bytes(3 * 64 * 64), 64, 64)
     check(False, "a wrong-sized buffer is refused")
@@ -140,6 +154,37 @@ if ct.HAVE_PIL:
           "...and therefore write identical tiles")
 else:
     print("  --  Pillow not installed; the two-path comparison was skipped")
+
+# ── the way back: tiles_565_to_png.py is convert_tiles.py's inverse ──────────────────────
+# A phone-only tile goes 565 -> PNG into the master tree and later PNG -> 565 onto another
+# card; if the two scripts disagree on the packing by one bit, every such tile lands with
+# the wrong colours on the second phone. So: 565 -> PNG -> 565 must be the identity, and the
+# expansion must send pure white to pure white (bit replication, not a shift).
+spec2 = importlib.util.spec_from_file_location("rv", ROOT / "tools" / "tiles_565_to_png.py")
+rv = importlib.util.module_from_spec(spec2)
+spec2.loader.exec_module(rv)
+import random as _random
+_rnd = _random.Random(1310)
+raw = bytes(_rnd.getrandbits(8) for _ in range(256 * 256 * 2))
+expanded = rv.rgb_from_565(raw)
+check(len(expanded) == 256 * 256 * 3, "a 565 tile expands to 256x256 RGB")
+check(ct.rgb565_bytes(expanded, 256, 256) == raw, "565 -> RGB -> 565 is the identity")
+check(rv.rgb_from_565(b"\xff\xff" * 65536)[:3] == b"\xff\xff\xff"
+      and rv.rgb_from_565(b"\x00\x00" * 65536)[:3] == b"\x00\x00\x00",
+      "pure white and pure black come back exactly")
+if rv.HAVE_NUMPY:
+    rv.HAVE_NUMPY = False
+    check(rv.rgb_from_565(raw) == expanded, "the reverse numpy path and its loop agree")
+    rv.HAVE_NUMPY = True
+if ct.HAVE_PIL:
+    png = rv.png_from_565(raw)
+    got, _, _ = ct.decode_with_pil(png)
+    check(ct.rgb565_bytes(got, 256, 256) == raw, "565 -> PNG file -> 565 is the identity too")
+try:
+    rv.rgb_from_565(raw[:-2])
+    check(False, "a tile of the wrong length is refused on the way back")
+except ValueError:
+    check(True, "a tile of the wrong length is refused on the way back")
 
 # ── the area name rule, against the FIRMWARE'S OWN FUNCTION ───────────────────────────────
 # Not a grep over the C source: a grep only proves the words are still there. This compiles

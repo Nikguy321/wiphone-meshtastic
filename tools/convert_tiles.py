@@ -38,6 +38,7 @@ so rather than guess.
 """
 
 import argparse
+import multiprocessing
 import os
 import sqlite3
 import string
@@ -55,6 +56,15 @@ try:
 except Exception:
     HAVE_PIL = False
 
+# numpy is optional too: with it a tile packs in ~1 ms instead of ~150 ms (the pure-Python
+# loop below visits 65,536 pixels one at a time). The output is byte-identical either way —
+# tests/check_convert_tiles.py holds the two paths to each other.
+try:
+    import numpy as np             # noqa: F401
+    HAVE_NUMPY = True
+except Exception:
+    HAVE_NUMPY = False
+
 
 # ---------------------------------------------------------------- RGB565
 
@@ -67,6 +77,8 @@ def rgb565_bytes(rgb, w, h):
     """
     if w != TILE or h != TILE:
         raise ValueError("tile is %dx%d, must be %dx%d" % (w, h, TILE, TILE))
+    if HAVE_NUMPY:
+        return rgb565_bytes_numpy(rgb)
     out = bytearray(TILE_BYTES)
     j = 0
     for i in range(0, len(rgb), 3):
@@ -75,6 +87,13 @@ def rgb565_bytes(rgb, w, h):
         out[j + 1] = (v >> 8) & 0xFF
         j += 2
     return bytes(out)
+
+
+def rgb565_bytes_numpy(rgb):
+    """The same packing as the loop above, vectorised. '<u2' is the little-endian half."""
+    a = np.frombuffer(bytes(rgb), dtype=np.uint8).reshape(-1, 3).astype(np.uint16)
+    v = ((a[:, 0] & 0xF8) << 8) | ((a[:, 1] & 0xFC) << 3) | (a[:, 2] >> 3)
+    return v.astype("<u2").tobytes()
 
 
 def decode_with_pil(data):
@@ -162,25 +181,6 @@ def to_565(data, suffix):
 
 # ---------------------------------------------------------------- sources
 
-def walk_dir(src, zlo, zhi):
-    """Yield (z, x, y, bytes, suffix) from a z/x/y tile tree.
-
-    A file that cannot be read is reported and skipped, not raised: a permission-denied file
-    or a broken symlink in the middle of a thousand-tile tree used to abort the whole run with
-    a traceback, after writing part of it and printing no summary."""
-    for z, x, y, path, ext in walk_dir_paths(src, zlo, zhi):
-        try:
-            with open(path, "rb") as f:
-                blob = f.read()
-        except OSError as e:
-            print("  skipped %d/%d/%d: %s" % (z, x, y, e), file=sys.stderr)
-            continue
-        if not blob:
-            print("  skipped %d/%d/%d: empty file" % (z, x, y), file=sys.stderr)
-            continue
-        yield z, x, y, blob, ext
-
-
 def walk_mbtiles(src, zlo, zhi):
     """Yield (z, x, y, bytes, suffix) from an .mbtiles file.
 
@@ -253,6 +253,50 @@ def count_source(src, zlo, zhi):
     return n
 
 
+# ---------------------------------------------------------------- one tile
+
+def convert_one(job):
+    """(z, x, y, blob, suffix, dst) -> (z, x, y, verdict, detail). Runs in a worker process
+    when --jobs is more than one, so it must not touch anything but its own arguments.
+
+    verdict: 'wrote' | 'unreadable' | 'stopped'. 'stopped' is an OSError on the WRITE — a
+    full card, a pulled card, a read-only remount — and ends the run; 'unreadable' is this
+    one tile and the run goes on."""
+    z, x, y, blob, suffix, dst = job
+    if blob is None:                     # a directory source: the path came instead
+        try:
+            with open(suffix, "rb") as f:
+                blob = f.read()
+        except OSError as e:
+            return z, x, y, "unreadable", str(e)
+        suffix = os.path.splitext(suffix)[1].lower()
+        if not blob:
+            return z, x, y, "unreadable", "empty file"
+    try:
+        raw = to_565(blob, suffix)
+    except SystemExit as e:
+        return z, x, y, "stopped", str(e)
+    except Exception as e:
+        return z, x, y, "unreadable", str(e)
+    if len(raw) != TILE_BYTES:
+        return z, x, y, "unreadable", "produced %d bytes" % len(raw)
+    # Write, then rename: a half-written tile is a file of the wrong length, which the
+    # phone refuses - but it refuses it every time you pan over it, forever.
+    tmp = dst + ".part"
+    try:
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        with open(tmp, "wb") as f:
+            f.write(raw)
+        os.replace(tmp, dst)
+    except OSError as e:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        return z, x, y, "stopped", str(e)
+    return z, x, y, "wrote", ""
+
+
 # ---------------------------------------------------------------- main
 
 def human(n):
@@ -275,7 +319,10 @@ def main():
                     help="rewrite tiles that are already there and the right length")
     ap.add_argument("--dry-run", action="store_true",
                     help="say what would be written and stop")
+    ap.add_argument("--jobs", type=int, default=0,
+                    help="tiles to convert at once (default: one per CPU core)")
     a = ap.parse_args()
+    jobs = a.jobs if a.jobs > 0 else (os.cpu_count() or 1)
 
     try:
         if "-" in a.zoom:
@@ -323,49 +370,53 @@ def main():
     if a.dry_run:
         return
 
-    walker = walk_mbtiles if os.path.isfile(a.src) else walk_dir
     done = skipped = failed = 0
     stopped = None
-    for z, x, y, blob, suffix in walker(a.src, zlo, zhi):
-        dst_dir = os.path.join(a.out, str(z), str(x))
-        dst = os.path.join(dst_dir, "%d.565" % y)
-        if not a.force and os.path.exists(dst) and os.path.getsize(dst) == TILE_BYTES:
-            skipped += 1
-            continue
-        try:
-            raw = to_565(blob, suffix)
-        except SystemExit:
-            raise
-        except Exception as e:
-            print("  skipped %d/%d/%d: %s" % (z, x, y, e), file=sys.stderr)
-            failed += 1
-            continue
-        if len(raw) != TILE_BYTES:
-            print("  skipped %d/%d/%d: produced %d bytes" % (z, x, y, len(raw)), file=sys.stderr)
-            failed += 1
-            continue
-        # Write, then rename: a half-written tile is a file of the wrong length, which the
-        # phone refuses - but it refuses it every time you pan over it, forever.
-        tmp = dst + ".part"
-        try:
-            os.makedirs(dst_dir, exist_ok=True)
-            with open(tmp, "wb") as f:
-                f.write(raw)
-            os.replace(tmp, dst)
-        except OSError as e:
-            # A full card, a pulled card, a read-only remount. Stop, clean up the partial
-            # file, and still print the summary - "how many landed" is the only thing the
-            # user needs from a run that could not finish, and a traceback does not say it.
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
-            print("  stopped at %d/%d/%d: %s" % (z, x, y, e), file=sys.stderr)
-            stopped = str(e)
-            break
-        done += 1
-        if done % 50 == 0:
-            print("  %d/%d..." % (done + skipped, total), flush=True)
+
+    def pending():
+        """Every tile that is not already on the card, as a job for convert_one(). A
+        directory source hands the worker the PATH (it reads the file itself, so the
+        parent never holds a tile it is not writing); an .mbtiles source hands the bytes,
+        because SQLite cannot be shared across processes."""
+        nonlocal skipped
+        if os.path.isfile(a.src):
+            source = ((z, x, y, blob, suffix) for z, x, y, blob, suffix
+                      in walk_mbtiles(a.src, zlo, zhi))
+        else:
+            source = ((z, x, y, None, path) for z, x, y, path, ext
+                      in walk_dir_paths(a.src, zlo, zhi))
+        for z, x, y, blob, suffix in source:
+            dst = os.path.join(a.out, str(z), str(x), "%d.565" % y)
+            if not a.force and os.path.exists(dst) and os.path.getsize(dst) == TILE_BYTES:
+                skipped += 1
+                continue
+            yield z, x, y, blob, suffix, dst
+
+    # One process is the plain loop; more is a pool. Results come back unordered, which is
+    # fine: nothing here depends on the order tiles land in.
+    if jobs > 1:
+        pool = multiprocessing.Pool(jobs)
+        results = pool.imap_unordered(convert_one, pending(), chunksize=4)
+    else:
+        pool = None
+        results = map(convert_one, pending())
+    try:
+        for z, x, y, verdict, detail in results:
+            if verdict == "wrote":
+                done += 1
+                if done % 50 == 0:
+                    print("  %d/%d..." % (done + skipped, total), flush=True)
+            elif verdict == "unreadable":
+                print("  skipped %d/%d/%d: %s" % (z, x, y, detail), file=sys.stderr)
+                failed += 1
+            else:
+                print("  stopped at %d/%d/%d: %s" % (z, x, y, detail), file=sys.stderr)
+                stopped = detail
+                break
+    finally:
+        if pool is not None:
+            pool.terminate()
+            pool.join()
 
     print("wrote %d, kept %d already there, %d could not be read" % (done, skipped, failed))
     if stopped:
