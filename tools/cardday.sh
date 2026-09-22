@@ -52,12 +52,15 @@ pull() {          # $1 = phone tag, $2 = card volume
   [ -d "$card" ] || die "$card is not mounted (ls /Volumes)"
   [ -d "$card/maps" ] || say "⚠ no /maps on this card — copying it anyway"
   say "=== PULL $tag from $card ==="
-  "$REPO/tools/card_clone.sh" pull "$card" "$dst" 2>&1 | tee -a "$LOG" || die "the card copy did not finish — re-run this same command"
-  # A manifest of what the card held, so the push can be checked against it later.
-  ( cd "$dst" && find . -type f ! -name '._*' -exec stat -f '%z %N' {} + | sort -k2 ) > "$M/manifest_$tag.txt"
-  say "$tag: $(wc -l < "$M/manifest_$tag.txt" | tr -d ' ') files backed up to $dst"
+  # The manifest is taken from the CARD, not from the copy: it is the record of what this card
+  # held, and it is what a later push is checked against.
+  ( cd "$card" && find . -type f ! -name '._*' -exec stat -f '%z %N' {} + | sort -k2 ) > "$M/manifest_$tag.txt"
+  say "$tag: the card holds $(wc -l < "$M/manifest_$tag.txt" | tr -d ' ') files, $(grep -c '\.565$' "$M/manifest_$tag.txt" | tr -d ' ') of them tiles"
+  # Everything but the tiles: they come back from the master, which ends this pull holding a
+  # PNG for every one of them. See the note in card_clone.sh.
+  "$REPO/tools/card_clone.sh" pull --no-tiles "$card" "$dst" 2>&1 | tee -a "$LOG" || die "the card copy did not finish — re-run this same command"
   local added=0
-  for a in "$dst"/maps/*/; do
+  for a in "$card"/maps/*/; do          # read the tiles off the CARD (they are not in the copy)
     [ -d "$a" ] || continue
     local area; area=$(basename "$a")
     local have; have=$(count_565 "$a")
@@ -82,8 +85,8 @@ push() {          # $1 = phone tag, $2 = card volume
     *) die "$card is not FAT32 — the phone does not read exFAT. diskutil eraseDisk FAT32 WIPHONE MBRFormat diskN" ;;
   esac
   say "=== PUSH $tag to $card ==="
-  say "step 1: the old card's contents ($(find "$src" -type f ! -name '._*' | wc -l | tr -d ' ') files)"
-  "$REPO/tools/card_clone.sh" push "$src" "$card" 2>&1 | grep -v '^eject before' | tee -a "$LOG" || die "the restore did not finish — re-run this same command"
+  say "step 1: the old card's contents ($(find "$src" -type f ! -name '._*' | wc -l | tr -d ' ') files, tiles excluded — they are step 2)"
+  "$REPO/tools/card_clone.sh" push --no-tiles "$src" "$card" 2>&1 | grep -v '^eject before' | tee -a "$LOG" || die "the restore did not finish — re-run this same command"
   say "step 2: the master, one source at a time"
   for s in "$M"/*/; do
     [ -d "$s" ] || continue

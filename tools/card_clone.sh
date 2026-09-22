@@ -19,13 +19,18 @@
 set -u
 
 usage() {
-  echo "usage: $0 pull /Volumes/<card> <folder>" >&2
-  echo "       $0 push <folder> /Volumes/<card>" >&2
+  echo "usage: $0 pull [--no-tiles] /Volumes/<card> <folder>" >&2
+  echo "       $0 push [--no-tiles] <folder> /Volumes/<card>" >&2
   exit 2
 }
 
-[ $# -eq 3 ] || usage
-mode=$1; src=$2; dst=$3
+mode=${1:-}; shift || usage
+no_tiles=0
+if [ "${1:-}" = --no-tiles ]; then
+  no_tiles=1; shift
+fi
+[ $# -eq 2 ] || usage
+src=$1; dst=$2
 case "$mode" in
   pull) card=$src; folder=$dst ;;
   push) card=$dst; folder=$src ;;
@@ -50,8 +55,19 @@ fi
 EXCL=(--exclude '._*' --exclude '.DS_Store' --exclude '.Spotlight-V100' --exclude '.fseventsd'
       --exclude '.Trashes' --exclude '.TemporaryItems' --exclude '.metadata_never_index')
 
-count() {   # files, not counting the macOS leftovers
+# --no-tiles leaves the map TILES out (the numbered zoom folders under /maps/<area>) and takes
+# everything else, `pins.txt` included. For the tile pool that is the right trade: the master
+# tree on the Mac holds a PNG for every tile on the card, and the card is rebuilt from it — so
+# copying 7.5 GB of .565 to the Mac and back is work for a result that is identical or better
+# (an original from the tile server beats a tile that has been through RGB565). The OLD CARD is
+# still the safety net; nothing here erases it.
+if [ "$no_tiles" = 1 ]; then
+  EXCL+=(--exclude 'maps/*/[0-9]*')
+fi
+
+count() {   # files this run is responsible for, not counting the macOS leftovers
   find "$1" -type f ! -name '._*' ! -name '.DS_Store' ! -name '.metadata_never_index' \
+       $([ "$no_tiles" = 1 ] && printf '%s' "! -path */maps/*/[0-9]*") \
        ! -path '*/.Spotlight-V100/*' ! -path '*/.fseventsd/*' ! -path '*/.Trashes/*' \
        ! -path '*/.TemporaryItems/*' | wc -l | tr -d ' '
 }
@@ -62,7 +78,7 @@ if [ "$mode" = push ]; then
   touch "$card/.metadata_never_index" 2>/dev/null || true
 fi
 
-echo "$mode: $src -> $dst"
+echo "$mode: $src -> $dst$([ "$no_tiles" = 1 ] && printf '%s' '  (map tiles left out)')"
 before=$(count "$dst")
 t0=$(date +%s)
 rsync -rt --no-perms --no-owner --no-group "${EXCL[@]}" "$src/" "$dst/"
