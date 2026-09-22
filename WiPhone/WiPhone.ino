@@ -554,10 +554,48 @@ void uiKeyBenchHold(uint32_t mask, uint32_t ms, uint32_t blipAtMs) {
  * digit typing itself twice. */
 #define KEY_BLIP_MS 40u
 static inline bool uiKeyDownOrBlip(uint32_t mask, bool tracking) {
+  if ((s_benchHeldMask & mask) == mask) {
+    /* The bench (`key hold`): the same answer the map gets, blip and deadline included, so
+     * a hold can be proven from the cable with no finger on the key. */
+    return uiKeyStillHeld(mask) || (tracking && uiKeyUpAgeMs(mask) < KEY_BLIP_MS);
+  }
   if (uiKeyDown & mask) {
     return true;
   }
   return tracking && uiKeyUpAgeMs(mask) < KEY_BLIP_MS;
+}
+
+/* The keypad bit for a key code — the reverse of the switch in keyboardRead(), for the
+ * bench's `key hold <key>`; 0 for a code that is not a key. */
+uint32_t uiKeyMaskFor(char c) {
+  switch (c) {
+  case '0': return WIPHONE_KEY_MASK_0;
+  case '1': return WIPHONE_KEY_MASK_1;
+  case '2': return WIPHONE_KEY_MASK_2;
+  case '3': return WIPHONE_KEY_MASK_3;
+  case '4': return WIPHONE_KEY_MASK_4;
+  case '5': return WIPHONE_KEY_MASK_5;
+  case '6': return WIPHONE_KEY_MASK_6;
+  case '7': return WIPHONE_KEY_MASK_7;
+  case '8': return WIPHONE_KEY_MASK_8;
+  case '9': return WIPHONE_KEY_MASK_9;
+  case '*': return WIPHONE_KEY_MASK_ASTERISK;
+  case '#': return WIPHONE_KEY_MASK_HASH;
+  case WIPHONE_KEY_UP:     return WIPHONE_KEY_MASK_UP;
+  case WIPHONE_KEY_DOWN:   return WIPHONE_KEY_MASK_DOWN;
+  case WIPHONE_KEY_LEFT:   return WIPHONE_KEY_MASK_LEFT;
+  case WIPHONE_KEY_RIGHT:  return WIPHONE_KEY_MASK_RIFHT;
+  case WIPHONE_KEY_OK:     return WIPHONE_KEY_MASK_OK;
+  case WIPHONE_KEY_BACK:   return WIPHONE_KEY_MASK_BACK;
+  case WIPHONE_KEY_SELECT: return WIPHONE_KEY_MASK_SELECT;
+  case WIPHONE_KEY_CALL:   return WIPHONE_KEY_MASK_CALL;
+  case WIPHONE_KEY_END:    return WIPHONE_KEY_MASK_END;
+  case WIPHONE_KEY_F1:     return WIPHONE_KEY_MASK_F1;
+  case WIPHONE_KEY_F2:     return WIPHONE_KEY_MASK_F2;
+  case WIPHONE_KEY_F3:     return WIPHONE_KEY_MASK_F3;
+  case WIPHONE_KEY_F4:     return WIPHONE_KEY_MASK_F4;
+  default: return 0;
+  }
 }
 
 void IRAM_ATTR keyboardInterrupt() {
@@ -2323,6 +2361,16 @@ static bool     digitFired = false;    // one insertion per hold, however long i
 static bool     digitLiteralQueued = false;   // a held digit is waiting to be delivered
 static uint32_t msHashDown = 0;        // when '#' went down, 0 = not held
 static bool     hashFired = false;     // the hold already acted; ignore the rest of it
+static bool     hashDeferred = false;  // a '#' press swallowed at key-down, owed on release (mute hold)
+/* Is '#' free for the mute hold right now? Not in any focused text field — the dialer's
+ * number, a predictive field (where the hold is a capital), a plain one (where a tap is
+ * shift) — and not on the map, whose '#' is zoom in. Asked at the press (to swallow it) and
+ * on every pass of the tracker; the two must agree, so there is one function. */
+static inline bool uiHashMuteArmed() {
+  return !FocusableWidget::textFieldFocused() && !gMapsActive;
+}
+static bool     hashTapPending = false;   // ...and the release came before the hold: deliver it
+static bool     muteTogglePending = false; // the hold flipped the mute; the icon has to follow
 static bool     redrawWhatPending = false;    // a hold changed something the footer shows
 static uint32_t msChordStart = 0;      // when both corners went down, 0 = not held
 static bool     chordFired = false;    // one sleep per hold, not one every loop
@@ -2345,6 +2393,10 @@ static uint32_t meshPopStopMs  = 0;     // set per pop from notifyPopStopMs()
 static bool     meshVibroActive = false;
 static uint32_t meshVibroStartMs = 0;
 static uint8_t  meshVibroOffFails = 0;  // consecutive passes whose LOW the extender refused
+/* How long the running pulse is. The notification sets it to the Buzz setting; the mute
+ * hold's confirmation is a fixed short tap, so it cannot be mistaken for a message. */
+static uint32_t meshVibroLenMs = 0;
+#define MUTE_BUZZ_MS 70u
 
 /* ── THE AUDIO DEVICE IS RELEASED WHEN NOBODY IS USING IT ─────────────────────────────────
  *
@@ -2602,6 +2654,7 @@ static void notifyMessageArrived(uint8_t mode) {
    * becomes one longer buzz rather than one short buzz and silence. */
   if (!gui.state.ringing) {
     meshVibroActive = true;              // even if the HIGH is refused: the teardown's LOW is the safe state
+    meshVibroLenMs = MESH_VIBRO_MS;
     motorWrite(HIGH);
     /* 🛑 THE STAMP IS TAKEN HERE, FROM THE CLOCK, NOT PASSED IN. This function used to receive
      * `now` from the top of the main-loop pass, and the mesh arrival reaches it AFTER
@@ -3051,47 +3104,90 @@ void loop() {
       digitFired = false;
     }
 
-    /* ── HOLD '#' FOR ONE CAPITAL ──────────────────────────────────────────────────
-     * The half of capitalisation no rule can do: a name in the middle of a sentence.
-     * A one-shot, consumed by the next committed word, so it reads as a shift key rather
-     * than as another mode to get stuck in.
+    /* ── HOLD '#': ONE CAPITAL IN A TEXT FIELD, THE MUTE EVERYWHERE ELSE ──────────────
+     * In a predictive-text field, the half of capitalisation no rule can do: a name in the
+     * middle of a sentence. A one-shot, consumed by the next committed word, so it reads as
+     * a shift key rather than as another mode to get stuck in.
      *
      * ⚠ A HOLD DOES NOT SWALLOW THE PRESS — the same warning the sleep chord carries. '#'
      * is edge-triggered, so its short press has already cycled the input mode by the time
      * this fires. Stepping the mode back by one is not a workaround for that, it is the
-     * only correct response: the user asked for a capital, not for a mode change. */
-    if (!gui.state.locked && gui.state.screenBrightness > 0 && gui.state.t9Available()) {
+     * only correct response: the user asked for a capital, not for a mode change.
+     *
+     * OUTSIDE A TEXT FIELD the same hold toggles the master mute (Settings > Mute all
+     * sounds) — Nick, 2026-09-21: "holding the pound key mute and unmute. It already has an
+     * icon on it that suggests muting... only when you're not entering text or when that
+     * key isn't being used for something else." Where '#' is somebody's: a focused text
+     * field of any kind (the dialer's number, a non-predictive field where '#' is shift),
+     * and the map, whose '#' is zoom in. The Game Boy does not read '#', so a game can be
+     * muted from the pad. Same gate as every hold here — awake and unlocked — and the same
+     * 500 ms.
+     *
+     * 🛑 HERE THE PRESS IS SWALLOWED, unlike the capital above. On the clock and in the menus
+     * a short '#' opens the dialer with a '#' in it (or Messages, when the envelope shows),
+     * so a hold that let the press through would open the dialer AND mute — Nick: "maybe we
+     * can stop that behavior if it does". So while the mute hold is armed, the key loop
+     * below zeroes the press and owes it (hashDeferred); a release before the threshold
+     * pays the debt (hashTapPending → the same processEvent the press would have had, a
+     * hundred-odd ms late), the hold fires the mute instead and the debt is forgiven. The
+     * F2 music key is decided on release the same way and for the same reason. */
+    const bool hashCapital = gui.state.t9Available();
+    const bool hashMute = !hashCapital && uiHashMuteArmed();
+    if (!gui.state.locked && gui.state.screenBrightness > 0 && (hashCapital || hashMute)) {
       if (uiKeyDownOrBlip(WIPHONE_KEY_MASK_HASH, msHashDown != 0)) {
         if (!msHashDown) {
           msHashDown = now;
           hashFired = false;
         } else if (!hashFired && now - msHashDown >= T9_DIGIT_HOLD_MS) {
           hashFired = true;
-          gui.state.inputMode = (gui.state.inputMode + 3) & 3;   // undo the short press
-          /* ARM, NEVER UN-ARM. A toggle reads as a coin flip to the user, who cannot see the
-           * flag — and in practice it only ever produced `true` anyway, because the
-           * unconditional reset in t9Commit guaranteed a false input. Asking for a capital
-           * twice should give you a capital. */
-          gui.state.t9Caps = true;
-          /* Abc and ABC never read t9Caps — only the T9 path and the footer do — so in those
-           * modes the gesture has to land on inputShift, which is the flag they DO read.
-           * Otherwise holding '#' in Abc was a 500 ms no-op that also stepped the mode back. */
-          if (gui.state.inputMode == ControlState::MODE_ABC) {
-            gui.state.inputShift = true;
-          } else if (gui.state.inputMode == ControlState::MODE_ABC_CAPS) {
-            gui.state.inputShift = true;
+          if (hashCapital) {
+            gui.state.inputMode = (gui.state.inputMode + 3) & 3;   // undo the short press
+            /* ARM, NEVER UN-ARM. A toggle reads as a coin flip to the user, who cannot see the
+             * flag — and in practice it only ever produced `true` anyway, because the
+             * unconditional reset in t9Commit guaranteed a false input. Asking for a capital
+             * twice should give you a capital. */
+            gui.state.t9Caps = true;
+            /* Abc and ABC never read t9Caps — only the T9 path and the footer do — so in those
+             * modes the gesture has to land on inputShift, which is the flag they DO read.
+             * Otherwise holding '#' in Abc was a 500 ms no-op that also stepped the mode back. */
+            if (gui.state.inputMode == ControlState::MODE_ABC) {
+              gui.state.inputShift = true;
+            } else if (gui.state.inputMode == ControlState::MODE_ABC_CAPS) {
+              gui.state.inputShift = true;
+            } else {
+              gui.state.inputShift = false;
+            }
+            redrawWhatPending = true;
           } else {
-            gui.state.inputShift = false;
+            const bool muted = !gui.state.audioMuted;
+            guiSetMuted(audio, gui.state, muted);      // applied now, stored in configs.ini
+            log_e("MUTE: '#' held - %s", muted ? "MUTED" : "sounds on");
+            /* One short buzz says it took, since the one thing a mute cannot do is beep.
+             * The notification motor path: HIGH now, the teardown below LOWs it after
+             * MUTE_BUZZ_MS (see meshVibroLenMs). Not while ringing — the ring owns the
+             * motor — and not on top of a buzz already running. */
+            if (!gui.state.ringing && !meshVibroActive) {
+              meshVibroActive = true;
+              meshVibroLenMs = MUTE_BUZZ_MS;
+              motorWrite(HIGH);
+              meshVibroStartMs = millis();
+            }
+            muteTogglePending = true;
+            hashDeferred = false;                     // the press is forgiven, not owed
           }
-          redrawWhatPending = true;
         }
       } else {
+        if (hashDeferred && !hashFired) {
+          hashTapPending = true;                      // released early: it was a tap
+        }
         msHashDown = 0;
         hashFired = false;
+        hashDeferred = false;
       }
     } else {
       msHashDown = 0;
       hashFired = false;
+      hashDeferred = false;       // the screen changed under a swallowed press: dropped
     }
 
     if ((uiKeyDown & SLEEP_CHORD_MASK) == SLEEP_CHORD_MASK) {
@@ -3126,6 +3222,25 @@ void loop() {
     if (redrawWhatPending) {
       redrawWhatPending = false;
       redrawWhat |= REDRAW_FOOTER;
+    }
+    /* A '#' the key loop swallowed for the mute hold, released before the threshold: the
+     * tap it always was, delivered now. Same call the key loop would have made. */
+    if (hashTapPending) {
+      hashTapPending = false;
+      redrawWhat |= gui.processEvent(now, (EventType)'#');
+    }
+    /* The mute flipped under a held '#': the crossed speaker lives in the header — or on the
+     * clock face, which draws its own icon row and has no header to ask.
+     *
+     * 🛑 NOT DURING A GAME. The emulator's blit task owns the LCD; a header push from this
+     * task on top of it deadlocked the SPI and wedged loopTask — task watchdog, motor left
+     * running, phone 2, 2026-09-21, the first time this fired inside a game. The buzz is the
+     * whole confirmation there; the icon catches up when the game ends. */
+    if (muteTogglePending) {
+      muteTogglePending = false;
+      if (!gGbcActive) {
+        redrawWhat |= gui.isAppRunning(GUI_APP_CLOCK) ? REDRAW_SCREEN : REDRAW_HEADER;
+      }
     }
 
     // Power button check
@@ -3271,6 +3386,13 @@ void loop() {
 
       if (musicLoaded && keyPressed == WIPHONE_KEY_F2) {
         keyPressed = 0;      // consumed; the action fires on release or on the hold timer
+      }
+
+      /* '#' where a hold means mute: owed, not delivered — see the '#' hold tracker. */
+      if (keyPressed == '#' && !gui.state.locked && gui.state.screenBrightness > 0 &&
+          !gui.state.t9Available() && uiHashMuteArmed()) {
+        keyPressed = 0;
+        hashDeferred = true;
       }
 
       if (keyPressed == WIPHONE_KEY_END && !gGbcActive) {
@@ -4511,12 +4633,12 @@ void loop() {
     const uint32_t tNow = millis();
 
     // Stop the notification vibration after its pulse.
-    if (meshVibroActive && elapsedMillis(tNow, meshVibroStartMs, MESH_VIBRO_MS)) {
+    if (meshVibroActive && elapsedMillis(tNow, meshVibroStartMs, meshVibroLenMs)) {
       if (motorWrite(LOW)) {
         meshVibroActive = false;
         meshVibroOffFails = 0;
         log_e("NOTIFY: buzz off after %lu ms (target %u)",
-              (unsigned long)(tNow - meshVibroStartMs), (unsigned)MESH_VIBRO_MS);
+              (unsigned long)(tNow - meshVibroStartMs), (unsigned)meshVibroLenMs);
       } else if (++meshVibroOffFails >= 5) {
         /* A LOW the extender keeps refusing leaves the motor running, so the flag stays set
          * and every pass tries again — but not forever: a bus that dead has taken the keypad

@@ -848,6 +848,14 @@ public:
            && s_textFocus->textEntryHasContent();
   }
 
+  /* Does a text field have focus at all, empty or not? The OTHER question, for the mute
+   * hold on '#' (WiPhone.ino): an empty field is not an edit in progress, but '#' typed
+   * into it still cycles the input mode or flips shift — the key is the field's the moment
+   * the field is focused, content or no content. Do not use this for triple-tap. */
+  static bool textFieldFocused() {
+    return s_textFocus != NULL && s_textFocus->getFocus();
+  }
+
   /* Forget whatever text field was focused. Called when an app is torn down.
    *
    * ⚠ The destructor clears this pointer only for the widget that IS the current focus, and
@@ -2917,6 +2925,7 @@ protected:
   LabelWidget* captionLabel;
   LabelWidget* hintLabel;
   LabelWidget* hint2Label;
+  LabelWidget* hint3Label;
   ChoiceWidget* choice;
   bool screenInited;
 };

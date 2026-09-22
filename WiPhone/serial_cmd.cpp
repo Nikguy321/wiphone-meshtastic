@@ -11,6 +11,7 @@
 /* Defined in WiPhone.ino next to keypadBuff — see the note there on why this is a real press. */
 extern bool uiInjectKey(char c);
 extern void uiKeyBenchHold(uint32_t mask, uint32_t ms, uint32_t blipAtMs);   // WiPhone.ino: `maps hold`, the hold-to-scroll bench
+extern uint32_t uiKeyMaskFor(char code);                                    // WiPhone.ino: key code -> keypad bit, for `key hold`
 #include "meshtastic_service.h"
 #include "t9_extra.h"            // the `t9` command reports the extra dictionary   // applyChannelUrl, the `chan` command
 #include "mesh_pos.h"             // distance/bearing for the `pos` command
@@ -137,6 +138,7 @@ static void help() {
     "  maps       what the card holds under /maps, the saved view, and the pins file",
     "  maps goto <lat> <lon> [z] [area]  set where the Maps app opens next (persists)",
     "  maps hold up|down|left|right [ms [blip]]  press an arrow and hold it (hold-to-scroll bench)",
+    "  key hold <key> [ms [blip]]  press any key and HOLD it (the F2/digit/'#' holds, from the cable)",
     "  gbc        the Game Boy: is a game up, which ROM, Screen mode, its two state files",
     "  gbc autosave  write the running game's resume point the way power-off does (parks it)",
     "  lock       why the screen does or does not lock: setting, sleep gate, and the card",
@@ -1430,6 +1432,81 @@ static void run(char* line) {
       { "menu",   WIPHONE_KEY_SELECT }, { "sel",   WIPHONE_KEY_SELECT },
     };
     const char* p = line + 3;
+    while (*p == ' ') {
+      p++;
+    }
+    /* `key hold <key> [ms [blip]]` — press the key and keep it "down" for <ms> (default
+     * 1000) with no finger on it, the way `maps hold` does for the arrows: the loop's hold
+     * trackers (F2 previous-track, a held digit, a held '#' for a capital or the mute) read
+     * uiKeyDownOrBlip(), which answers from the bench while this runs. <blip> ms in, fake the
+     * chip's release-and-re-press under a held finger (see uiKeyUpAgeMs). */
+    if (!strncasecmp(p, "hold", 4) && (p[4] == '\0' || p[4] == ' ')) {
+      p += 4;
+      while (*p == ' ') {
+        p++;
+      }
+      char tok[16];
+      size_t n = 0;
+      while (*p && *p != ' ' && n < sizeof(tok) - 1) {
+        tok[n++] = *p++;
+      }
+      tok[n] = '\0';
+      char code = 0;
+      for (size_t i = 0; i < sizeof(NAMES) / sizeof(NAMES[0]); i++) {
+        if (!strcasecmp(tok, NAMES[i].name)) {
+          code = NAMES[i].code;
+          break;
+        }
+      }
+      if (!code && n == 1) {
+        code = tok[0];
+      }
+      const uint32_t mask = code ? uiKeyMaskFor(code) : 0;
+      if (!mask) {
+        say("key hold: usage key hold <key> [ms [blip]]  (a key name as for `key`)\n");
+        return;
+      }
+      while (*p == ' ') {
+        p++;
+      }
+      char* end = (char*)p;
+      const long ms = *p ? strtol(p, &end, 10) : 1000;
+      if (*p && (end == p || (*end && *end != ' '))) {
+        say("key hold: <ms> must be a number\n");
+        return;
+      }
+      if (ms < 100 || ms > 10000) {
+        say("key hold: <ms> must be 100..10000\n");
+        return;
+      }
+      while (*end == ' ') {
+        end++;
+      }
+      long blip = 0;
+      if (*end) {
+        char* end2 = end;
+        blip = strtol(end, &end2, 10);
+        while (*end2 == ' ') {
+          end2++;
+        }
+        if (end2 == end || *end2 || blip < 0 || blip >= ms) {
+          say("key hold: <blip> must be a number of ms below <ms>\n");
+          return;
+        }
+      }
+      /* Inject first, arm second — same order and same reason as `maps hold`. */
+      if (!uiInjectKey(code)) {
+        say("key hold: key buffer full\n");
+        return;
+      }
+      uiKeyBenchHold(mask, (uint32_t)ms, (uint32_t)blip);
+      if (blip) {
+        say("key hold: %s pressed, held for %ld ms, a release blip at %ld ms\n", tok, ms, blip);
+      } else {
+        say("key hold: %s pressed, held for %ld ms\n", tok, ms);
+      }
+      return;
+    }
     int sent = 0, refused = 0;
     char what[96] = "";
     while (*p) {

@@ -91,6 +91,11 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.76** — **hold `#` to mute and unmute**, on any screen where nothing is being typed
+  — the clock, the menus, a game — with a short buzz as the answer and the crossed speaker
+  in the header (and now on the clock face). A tap of `#` still does what it did; the phone
+  waits to see which you meant. Inside a text field `#` stays the field's (shift, the input
+  mode, a held capital), and on the map it stays zoom.
 - **0.9.75** — **Settings → Mute all sounds**: one switch, applied at the audio chip, that
   silences the loudspeaker — ring, chirps, the mesh pop, music, the Game Boy — while a call
   in the earpiece, headphones and vibrate all still work (a crossed speaker shows in the
@@ -644,6 +649,7 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `hold on \| off` | keep the screen awake and unlocked for a scripted bench session |
 | `notify [sip]` | fire the real message-arrival announcement (buzz + chirp) from the cable; the log prints `buzz off after N ms`, `pop start took N ms`, `pop stopped after N ms` |
 | `maps hold up\|down\|left\|right [ms [blip]]` | press an arrow on the map and hold it for that long — the hold-to-scroll bench; `blip` ms in, fake the chip's release-and-re-press under a held finger |
+| `key hold <key> [ms [blip]]` | press any key and hold it — the F2, held-digit and `#` holds from the cable (`key hold # 800` toggles the mute) |
 | `mute on\|off` | the master mute (Settings → Mute all sounds) from the cable; `mute` alone reports; `audio` shows `muted=` |
 | `keys` / `keys raw` | the keypad's health counters / the last 64 bytes the chip sent, with the gap before each — the trace that found the release-under-a-held-finger (0.9.73) |
 | `gbc` / `gbc autosave` | the Game Boy: what is up, which ROM, its two state files — and the power-off save, run from the cable (it leaves the game parked under the pause menu) |
@@ -672,7 +678,10 @@ a bench instead. **No authentication:** whoever holds the cable holds the phone.
   out of the loudspeaker — ring, message chirp, mesh pop, music, Game Boy — while a call in
   the earpiece, headphones and the vibrate motor keep working, so "Vibrate only" behaves as
   it says. A crossed speaker in the header shows it is on. Serial `mute on|off` flips it
-  from the cable.
+  from the cable. **Hold `#` (0.9.76)** flips it from the keypad wherever `#` is not
+  somebody's — not in a text field (the dialer's number included), not on the map — with a
+  70 ms buzz to say it took; a short tap of `#` still opens the dialer from the clock or a
+  menu, delivered on release.
 - **WiFi auto-switch** — the phone quietly scans in the background and hops to
   the strongest *saved* network (with hysteresis, so it doesn't ping-pong);
   waking the screen with no connection triggers an immediate scan+connect, and

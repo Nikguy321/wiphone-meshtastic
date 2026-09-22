@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.9.76 (2026-09-21) - hold '#' to mute
+
+Nick: *"maybe that we can make holding the pound key mute and unmute. It already has an icon on
+it that suggests muting. Obviously this will only work when you're not entering text or when
+that key isn't being used for something else"* — and, on the clock's shortcut: *"I'm not sure
+if it automatically tries to bring up the dialer when the button is held. But maybe we can
+stop that behavior if it does."* It did; it doesn't now.
+
+**Hold `#` for half a second** and the master mute of 0.9.75 flips, wherever `#` is nobody's:
+the clock, every menu and list, Books, Music, the Game Boy picker and a running game. A
+70 ms buzz says it took (the one confirmation a mute can give), the crossed speaker appears
+in the header — and on the clock face, which draws its own icon row and had never shown it.
+Where `#` IS somebody's, nothing changes: any focused text field (the dialer's number, a
+plain field where a tap is shift, a predictive field where the hold is still the capital),
+and the map, where it is zoom in. The gate is the same one every hold uses — screen on,
+unlocked — and the hold rides through the keypad chip's release-blip like the others.
+
+**The press is swallowed, unlike the capital's.** On the clock and in the menus a tap of `#`
+opens the dialer with a `#` in it (or Messages when the envelope shows); keys are dispatched
+on key-down, so the old shape would have opened the dialer and THEN muted. While the mute
+hold is armed the press is owed instead of delivered: released early, it is the tap it
+always was and goes to the same `processEvent`, ~100 ms late; held, it is the mute and the
+tap is forgiven. The F2 music key is decided on release the same way.
+
+🛑 **The first time it fired inside a game it wedged the phone.** Phone 2, uCity running,
+`key hold # 800`: the mute flipped, the buzz started — and `loopTask` never came back
+(task watchdog; the motor ran until the phone was reset, which Nick heard from the next
+room). The icon refresh asked for `REDRAW_HEADER`, and the GUI pushed the header rows to
+the LCD under the emulator's blit task, which owns the SPI bus from the other core. The
+request now stays away during a game, and `GUI::redrawScreen` refuses header and footer
+pushes while `gGbcActive` from any source — the pause menu's own `REDRAW_SCREEN` still
+reaches the app, which paints the LCD itself with the blit task parked. Re-run: two holds
+in the running game, unmute then mute, `buzz off after 70 ms` both times, loop alive.
+
+**Bench: `key hold <key> [ms [blip]]`** — `maps hold` for every key. The hold trackers ask
+`uiKeyDownOrBlip()`, which now answers from the bench too, so the F2, held-digit and `#`
+holds can all be driven from the cable. The mute icon on the clock: `GUI::drawMuteIcon` in
+`ClockApp::redrawScreen`. Settings → Mute all sounds gains the line "Or hold # where nothing
+is typed." ⚠ Injected keys do not reach a RUNNING game (known since 0.9.75: `key end` never
+paused it); `gbc autosave` parks it and an esptool reset is the way out from the cable.
+
+Proven on both phones, from the cable: clock (mute, no dialer; a tap still opens the dialer
+with `#`), the dialer (types `#`, no mute), a submenu (mute, stays put; tap → dialer), the
+Phonebook list (unmute), Compose's To: field and its T9 body (no mute; the hold in T9 stepped
+the mode back as before), the map (zoom z15→z16, no mute), a running game (unmute, mute).
+
 ## tools (2026-09-21) - pooling the tiles of three devices; the converter is 40x faster
 
 Nick: *"All three of my devices (both wiphones and covey) each have random tiles from

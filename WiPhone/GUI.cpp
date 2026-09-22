@@ -2051,6 +2051,15 @@ void GUI::redrawScreen(bool redrawHeader, bool redrawFooter, bool redrawScreen, 
 
   // Step 2: redraw header or footer into the screen sprite
 
+  /* 🛑 Never while a game runs: the emulator's blit task is on the LCD's SPI bus from the
+   * other core, and a header pushed under it from this task deadlocked both (phone 2,
+   * 2026-09-21 — the mute hold's icon refresh; loopTask stopped, task watchdog). A REDRAW_SCREEN
+   * still reaches GbcApp::redrawScreen for its own pause menu, which paints the LCD itself
+   * with the blit task parked; the header and footer are simply not on screen in a game. */
+  if (gGbcActive) {
+    redrawHeader = redrawFooter = false;
+  }
+
   if (!hfDrawn) {
     if (redrawHeader) {
       //log_d("REDRAW header");
@@ -6483,7 +6492,9 @@ MuteApp::MuteApp(Audio* audio, LCD& lcd, ControlState& state, HeaderWidget* head
   hintLabel = new LabelWidget(0, yOff, lcd.width(), 25, "ring, chirps, music, Game Boy.", WP_COLOR_0, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
   yOff += hintLabel->height();
   hint2Label = new LabelWidget(0, yOff, lcd.width(), 25, "Earpiece, headphones, vibrate work.", WP_COLOR_0, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
-  yOff += hint2Label->height() + 8;
+  yOff += hint2Label->height();
+  hint3Label = new LabelWidget(0, yOff, lcd.width(), 25, "Or hold # where nothing is typed.", WP_COLOR_0, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
+  yOff += hint3Label->height() + 8;
 
   choice = new ChoiceWidget(0, yOff, lcd.width(), 35);
   choice->addChoice("Sounds ON");
@@ -6501,6 +6512,7 @@ MuteApp::~MuteApp() {
   delete captionLabel;
   delete hintLabel;
   delete hint2Label;
+  delete hint3Label;
   delete choice;
 }
 
@@ -6523,6 +6535,7 @@ void MuteApp::redrawScreen(bool redrawAll) {
     ((GUIWidget*) captionLabel)->redraw(lcd);
     ((GUIWidget*) hintLabel)->redraw(lcd);
     ((GUIWidget*) hint2Label)->redraw(lcd);
+    ((GUIWidget*) hint3Label)->redraw(lcd);
   }
   ((GUIWidget*) choice)->redraw(lcd);
   screenInited = true;
@@ -7855,7 +7868,11 @@ void ClockApp::redrawScreen(bool redrawAll) {
   // Draw icons
   GUI::drawWifiIcon(lcd, controlState, 3, 5);
   auto w = GUI::drawSipIcon(lcd, controlState, 24, 5);
-  messageIconShown = GUI::drawMessageIcon(lcd, controlState, 26 + w, 5) > 0;
+  const uint16_t mw = GUI::drawMessageIcon(lcd, controlState, 26 + w, 5);
+  messageIconShown = mw > 0;
+  /* The crossed speaker, as the header shows it on every other screen. The clock draws its
+   * own row, so it has to ask too — and this is the screen a held '#' mutes from. */
+  GUI::drawMuteIcon(lcd, controlState, 26 + w + mw + (mw ? 4 : 0), 4);
   {
     /* The number next to the icon, on the clock only. Five coarse icon levels meant "will
      * it last the evening?" had no answer anywhere in the normal UI — the exact question
