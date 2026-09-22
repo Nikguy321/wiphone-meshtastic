@@ -14,16 +14,21 @@ current cards, and put the entirety of the maps together. On covey and both phon
 NUMBERS THAT CHOSE THE METHOD: COVEY holds 124,091 tiles (usgs-topo 55,368 / usgs-img 39,641 /
 otm 29,082, z8-16; `/root/covey-tiles/<src>/z/x/y.png` — ⚠ the usgs-img files are JPEG BYTES
 under .png names); phone 1 26,025 raw tiles (usgs-topo z11-16 13,165 + usgs-img z11-16 12,860),
-phone 2 more (usgs-topo, otm, usgs-img — its listing was still running). Union ≈ 127k tiles =
-**15.5 GB per phone** at 128 KB a tile; the WiFi uploader does 48-69 KB/s (3 days) and NOTHING
-serves a file off the phone (`/log` is the only GET, 60-78 KB/s) — so cards in the reader.
-Almost everything flows COVEY → phones: only ~215 of phone 1's tiles and ~2,900 of phone 2's
-(so far) are not on COVEY. STATE: `~/tiles-master/` is the union-in-progress (COVEY's cache
-pulled zoom by zoom by `~/tiles-master/pull_covey.py` — tar stream then rsync to fill gaps —
-its WiFi link is 185-1,000 KB/s; NM power save set to disable on `SmithWifi`); phone inventories
-`~/tiles-master/inv_p1.tsv`/`inv_p2.tsv` (serial `ls` walk, `scratchpad/inv.py`, ~2 s a folder),
-COVEY's list `inv_covey.txt`, `plan.py` prints the per-zoom union table and writes
-`only_pN.txt` (what only that phone has → convert into the master) and `missing_pN.txt`.
+phone 2 60,464 (usgs-topo z11-16 32,918 + otm z11-16 14,412 + usgs-img z11-16 13,134). UNION =
+**132,827 tiles = 16.2 GB per phone** at 128 KB a tile; the WiFi uploader does 48-69 KB/s (3
+days) and NOTHING serves a file off the phone (`/log` is the only GET, 60-78 KB/s) — so cards
+in the reader. Almost everything flows COVEY → phones: phone 1 has 226 tiles COVEY lacks and
+gains 106,802 (13.0 GB); phone 2 has 8,635 and gains 72,363 (8.8 GB); COVEY gains 8,736. STATE:
+`~/tiles-master/<src>/z/x/y.png` HOLDS ALL 124,091 COVEY TILES, VERIFIED (every file's size
+against COVEY's `find -printf`, one truncated file from a killed stream caught and re-fetched;
+42-file md5 sample identical) — pulled zoom by zoom by `~/tiles-master/pull_covey.py` (tar
+stream then rsync to fill gaps; the link is 185-1,000 KB/s; NM power save set to disable on
+`SmithWifi`); phone inventories `~/tiles-master/inv_p1.tsv`/`inv_p2.tsv` (serial `ls` walk,
+`scratchpad/inv.py`, ~2 s a folder, 21 + 52 min), COVEY's list `inv_covey.txt`; `plan.py`
+prints the per-zoom union table and writes `only_pN.txt` / `missing_pN.txt`. THE DRIVER:
+`~/tiles-master/cardday.sh phone1|phone2 pull|push /Volumes/<card>` and `cardday.sh covey push`
+(logs beside it) — the documented recipe REHEARSED end to end on FAT32 `hdiutil` images: a
+phone-only tile came back byte-identical on the "new card", zero sidecars.
 CARD DAY (docs/maps.md "Pooling the tiles of several devices"): old card in →
 `tools/card_clone.sh pull /Volumes/<card> ~/wiphone-cards/phoneN` → `tools/tiles_565_to_png.py
 <backup>/maps/<area> ~/tiles-master/<area>` (`--jpeg` for usgs-img) → new card in →
@@ -37,7 +42,9 @@ covey:/root/covey-tiles/<src>/` — its map reads files by path, no index, no re
 firmware; `check_convert_tiles` 22 checks holds 565→PNG→565 through both scripts). Bench: a
 200 MB FAT32 `hdiutil` image — clone both ways byte-identical, 751 tiles onto it in 4.8 s, no
 sidecars. Phone 1's aerial download finished: 4,408 + 8,452 skipped of 12,864, 4 failed, 126 MB
-in 2.2 h, card busy 292 times. Phone 2 is STILL MUTED. NOT pushed — push on Nick's word.
+in 2.2 h, card busy 292 times. Phone 2 is STILL MUTED. Commits `327c1bf` (tools) + handoff:
+NOT pushed — push on Nick's word. ⚠ zsh: `for f in $list` does NOT word-split an unquoted
+variable — use a `while read` loop (a 42-file md5 loop ran once as one 1,300-character name).
 
 🔇 **2026-09-21 MID-MORNING: 0.9.75 — MASTER MUTE + THE GAME BOY'S RAM FLOOR.** Nick (at work,
 "no sounds"): "a master 'mute' button within the settings... make sure it also works for the
