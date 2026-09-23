@@ -100,6 +100,32 @@ separate and unaffected — only shared ones take one of those eight slots.
 
 ---
 
+## One level past the tiles
+
+Zoom in past the deepest level your card holds and the map goes there anyway: the tiles from
+the level below are **stretched 2x**. It is bigger, not sharper — the same ground detail in
+four times the pixels — and the map says so in three places rather than letting a fuzzy screen
+look like a fault:
+
+- the corner chip reads **`z17*`** instead of `z17`, the star being the always-visible sign;
+- the status chip reads **`z16 tiles stretched 2x`**;
+- the step that crosses the line says *"Past the tiles: z16 stretched 2x. Same detail, bigger
+  — and fuzzy."*
+
+**The scale bar stays honest** — 50 m where z16 read 100 m — because the view really is at
+z17; only the pixels are borrowed. Pins, the crosshair readout and "how far is that" are all
+computed at the real zoom, so nothing on the screen is lying about distance.
+
+One level only (`MAP_OVERZOOM_MAX`). Two would be a screen of 64 fat squares and nothing is
+learned from it. The stretched level is remembered across a power-off like any other, and it
+travels between map areas — but only ever one level past *that* area's own deepest tiles.
+
+COVEY does the same thing at z17, stretching its z16 cache, and says
+`z17 · USGS topo · z16 stretched 2x` on its info chip. Online it streams the real z17 tiles
+instead, and then there is nothing to stretch.
+
+---
+
 ## The tiles
 
 ```

@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.9.77 (2026-09-22) - one level past the tiles, on all three devices
+
+Nick, with the 132,826-tile pool freshly on both phones and COVEY: *"for all 3 devices, can we
+allow them to zoom in one level more (maybe add a little bit of text saying its zooming past
+the tile level or something of the sort) on maps? i totally get that it will get fuzzy, but
+would be usefull regardless."*
+
+**The view may now sit one level deeper than the deepest tiles the area has**
+(`MAP_OVERZOOM_MAX`, map_tiles.h), with those tiles stretched 2x — each tile pixel drawn as a
+2x2 block. 🔑 **The VIEW still lives at the zoom the user chose**, which is what keeps the
+scale bar (50 m where z16 read 100 m), the pin projection, the crosshair readout and the
+distance lines exact; only the tile FETCH is pulled back to the level that exists
+(`MapsApp::overZoom()` / `tileZoom()` — everything that touches a tile uses the second,
+everything that is geometry uses the first, and mixing them up draws a map that is wrong by a
+factor of two without looking it).
+
+**It says so in three places**, because a fuzzy screen otherwise reads as a bad tile or a dirty
+lens: the corner chip gains a star (`z17* usgs-img`), the status chip reads `z16 tiles
+stretched 2x`, and the step that crosses the line notes *"Past the tiles: z16 stretched 2x.
+Same detail, bigger - and fuzzy."* once — not every frame. A further press now says *"z17 is
+as close as this map goes, tiles and all"*. The stretched level survives a power-off, and it
+travels between areas but only ever one level past that area's own tiles (z17 over a z13 area
+would be a 16x smear).
+
+**The arithmetic is its own tested function.** `mapOverzoomView()` pulls the centre back
+(rounded, so in-and-out lands on the same ground) and divides the viewport, **rounded UP** so
+the last row and column of magnified blocks reach the screen edge instead of leaving a strip
+that reads as a missing tile. `test_maptiles` +7: the identity at over 0, the halving of both
+centre and viewport, the odd-viewport round-up, the odd-centre rounding, a z16 -> z17 -> tile
+view round trip landing on exactly the ground it left, and the clamp past the cap. The push
+itself widens one source row into a 480-byte stack buffer and pushes it twice.
+
+**COVEY too** (`covey_ui/mapview.py`): `ZMAX` 16 -> 17, and `TileCache.get_stretched()` returns
+the ancestor tile scaled to size and **cropped to the right quadrant** — the info chip then
+reads `z17 · USGS topo · z16 stretched 2x`. Online it streams the real z17 tile and there is
+nothing to stretch. New `tests/test_map_overzoom.py`, 17 checks, built around the failure that
+would look plausible: a stretched tile showing its NEIGHBOUR's ground. A parent painted as
+four coloured quadrants proves each of the four children takes its own, corner to corner.
+
+Proven on hardware, both phones: aerial z16 -> z17* and topo z16 -> z17*, a further press
+refused, panning at z17, zooming back out to the same coordinates and the 100 m bar, and the
+stretched zoom still there after a reflash and reboot.
+
 ## 0.9.76 (2026-09-21) - hold '#' to mute
 
 Nick: *"maybe that we can make holding the pound key mute and unmute. It already has an icon on

@@ -216,6 +216,29 @@ int mapZoomView(int zMin, int zMax, int z, int delta, int vw, int vh,
   return nz;
 }
 
+void mapOverzoomView(int32_t cx, int32_t cy, int vw, int vh, int over,
+                     int32_t* bcx, int32_t* bcy, int* bw, int* bh) {
+  if (over < 0) {
+    over = 0;
+  }
+  if (over > MAP_OVERZOOM_MAX) {
+    over = MAP_OVERZOOM_MAX;
+  }
+  const int mag = 1 << over;
+  if (bcx) {
+    *bcx = over ? (int32_t)(((int64_t)cx + (mag >> 1)) >> over) : cx;
+  }
+  if (bcy) {
+    *bcy = over ? (int32_t)(((int64_t)cy + (mag >> 1)) >> over) : cy;
+  }
+  if (bw) {
+    *bw = over ? (vw + mag - 1) / mag : vw;
+  }
+  if (bh) {
+    *bh = over ? (vh + mag - 1) / mag : vh;
+  }
+}
+
 int mapViewBlits(int z, int32_t cx, int32_t cy, int vw, int vh, MapBlit* out, int cap) {
   if (!out || cap <= 0 || vw <= 0 || vh <= 0) {
     return -1;

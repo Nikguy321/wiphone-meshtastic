@@ -762,7 +762,9 @@ void MapsApp::restoreView() {
   }
   if (areaSel >= 0) {
     const MapArea* a = &areas[areaSel];
-    if (z < a->zMin || z > a->zMax) {
+    /* A remembered zoom one level PAST the tiles is kept: the user chose the stretched level
+     * and closing the app is not a reason to undo it (map_tiles.h, MAP_OVERZOOM_MAX). */
+    if (z < a->zMin || z > a->zMax + MAP_OVERZOOM_MAX) {
       /* No remembered zoom, or one this area does not have: start at the deepest level that
        * is not the very deepest, so there is somewhere to zoom in TO. */
       z = (a->zMax > a->zMin) ? a->zMax - 1 : a->zMax;
@@ -852,6 +854,21 @@ void MapsApp::restoreView() {
 }
 
 // ---------------------------------------------------------------- tile cache
+
+int MapsApp::overZoom() const {
+  if (areaSel < 0) {
+    return 0;
+  }
+  const int over = zoom - areas[areaSel].zMax;
+  if (over <= 0) {
+    return 0;
+  }
+  return over > MAP_OVERZOOM_MAX ? MAP_OVERZOOM_MAX : over;
+}
+
+int MapsApp::tileZoom() const {
+  return zoom - overZoom();
+}
 
 int MapsApp::findSlot(int z, int tx, int ty) const {
   for (int i = 0; i < MAPS_TILE_SLOTS; i++) {
@@ -1173,8 +1190,24 @@ void MapsApp::drawMap() {
   pendingTiles = 0;
   statusLine[0] = '\0';
 
+  /* ── PAST THE TILES ───────────────────────────────────────────────────────────────────
+   * When the view is deeper than the deepest tiles (overZoom(), app_maps.h), the blits are
+   * worked out for a viewport `mag` times SMALLER at the level the tiles exist, and every
+   * tile pixel is drawn as a mag x mag block. So the arithmetic that decides WHICH tiles and
+   * which pixels is the same proven function; only the push is stretched.
+   *
+   * The centre is shifted down a level by a plain >>, which loses the sub-tile-pixel part —
+   * at 2x that is half a tile pixel, one screen pixel, and a d-pad tap moves 12. The
+   * crosshair readout and the scale bar are computed from `zoom` and stay exact. */
+  const int over = overZoom();
+  const int mag = 1 << over;
+  const int tz = zoom - over;
+  int32_t bcx = cx, bcy = cy;
+  int bw = vpW, bh = vpH;
+  mapOverzoomView(cx, cy, vpW, vpH, over, &bcx, &bcy, &bw, &bh);
+
   MapBlit b[MAP_MAX_BLITS];
-  const int n = mapViewBlits(zoom, cx, cy, vpW, vpH, b, MAP_MAX_BLITS);
+  const int n = mapViewBlits(tz, bcx, bcy, bw, bh, b, MAP_MAX_BLITS);
   /* The void behind the tiles is painted only where a tile cannot be: the blits tile the
    * viewport completely except past the world's north or south edge, and filling 60,000
    * pixels of PSRAM sprite to paint them over again cost 15 ms of every frame (measured
@@ -1186,7 +1219,7 @@ void MapsApp::drawMap() {
   }
   /* ...and always when the tile loop below will not run at all (no area on the card: the
    * map is drawn blank behind the markers) — the memory-failure branch paints its own. */
-  if (covered != (long)vpW * vpH || n <= 0 || areaSel < 0) {
+  if (covered != (long)bw * bh || n <= 0 || areaSel < 0) {
     lcd.fillRect(vpX, vpY, vpW, vpH, MAP_C_VOID);
   }
 
@@ -1194,7 +1227,21 @@ void MapsApp::drawMap() {
   if (n > 0 && areaSel >= 0 && !tileMemFail) {
     for (int i = 0; i < n; i++) {
       const MapBlit* q = &b[i];
-      const int si = findSlot(zoom, q->tileX, q->tileY);
+      const int si = findSlot(tz, q->tileX, q->tileY);
+      /* Where this piece lands on the screen, and how much of it fits. At mag > 1 the
+       * viewport was rounded UP to whole tile pixels, so the last row and column of blocks
+       * can hang over the edge by up to mag-1 pixels; both are clipped here. */
+      const int dstX = q->dstX * mag, dstY = q->dstY * mag;
+      int pw = q->w * mag, ph = q->h * mag;
+      if (dstX + pw > vpW) {
+        pw = vpW - dstX;
+      }
+      if (dstY + ph > vpH) {
+        ph = vpH - dstY;
+      }
+      if (pw <= 0 || ph <= 0) {
+        continue;
+      }
       if (si >= 0 && slots[si].ready) {
         slots[si].used = ++useSeq;
         haveTiles++;
@@ -1206,20 +1253,45 @@ void MapsApp::drawMap() {
          * measurable — the ~18 ms these rows cost a frame is PSRAM-to-PSRAM bandwidth, not
          * the swap. Left as it was.) */
         lcdNativePixels(lcd, true);
-        for (int r = 0; r < q->h; r++) {
-          uint16_t* row = slots[si].px + (size_t)(q->srcY + r) * MAP_TILE_PX + q->srcX;
-          lcd.pushImage(vpX + q->dstX, vpY + q->dstY + r, (uint16_t)q->w, 1, row);
+        if (mag == 1) {
+          for (int r = 0; r < q->h; r++) {
+            uint16_t* row = slots[si].px + (size_t)(q->srcY + r) * MAP_TILE_PX + q->srcX;
+            lcd.pushImage(vpX + q->dstX, vpY + q->dstY + r, (uint16_t)q->w, 1, row);
+          }
+        } else {
+          /* One source row, widened into `wide`, then pushed mag times. TFT_WIDTH px of
+           * uint16 is 480 bytes of stack — the screen's width is the cap, so this cannot
+           * grow with the tile size. `pw` was clipped to vpW above and vpW is the screen
+           * width; the min() is a belt for a future wider viewport rather than a live case. */
+          uint16_t wide[TFT_WIDTH];
+          const int cap = pw < TFT_WIDTH ? pw : TFT_WIDTH;
+          for (int r = 0; r < q->h; r++) {
+            const uint16_t* row = slots[si].px + (size_t)(q->srcY + r) * MAP_TILE_PX + q->srcX;
+            int w = 0;
+            for (int sx = 0; sx < q->w && w < cap; sx++) {
+              for (int k = 0; k < mag && w < cap; k++) {
+                wide[w++] = row[sx];
+              }
+            }
+            for (int k = 0; k < mag; k++) {
+              const int y = dstY + r * mag + k;
+              if (y >= vpH) {
+                break;
+              }
+              lcd.pushImage(vpX + dstX, vpY + y, (uint16_t)w, 1, wide);
+            }
+          }
         }
         lcdNativePixels(lcd, false);
       } else {
-        const bool missing = isKnownMissing(zoom, q->tileX, q->tileY);
-        fillClipped(vpX + q->dstX, vpY + q->dstY, q->w, q->h,
+        const bool missing = isKnownMissing(tz, q->tileX, q->tileY);
+        fillClipped(vpX + dstX, vpY + dstY, pw, ph,
                     missing ? MAP_C_NOTILE : MAP_C_LOADING);
         if (!missing) {
           pendingTiles++;
           if (!wantAny && si < 0) {
             wantAny = true;
-            wantZ = zoom;
+            wantZ = tz;
             wantTx = q->tileX;
             wantTy = q->tileY;
           }
@@ -1239,6 +1311,8 @@ void MapsApp::drawMap() {
              pendingTiles == 1 ? "" : "s");
   } else if (haveTiles == 0) {
     strlcpy(statusLine, "no tiles here", sizeof(statusLine));
+  } else if (over > 0) {
+    snprintf(statusLine, sizeof(statusLine), "z%d tiles stretched %dx", tz, mag);
   }
 
   drawOverlays();
@@ -1542,7 +1616,10 @@ void MapsApp::drawChips() {
    * rather than drawing a grey bar with nothing in it, which is what a bare width test gives
    * you: the background had already been painted before the text was skipped. */
   char left[48];
-  snprintf(left, sizeof(left), "z%d %s", zoom, areaSel >= 0 ? areas[areaSel].name : "-");
+  /* The star is the one always-visible sign that the pixels are borrowed from a level up.
+   * Without it a fuzzy screen reads as a bad tile or a dirty lens. */
+  snprintf(left, sizeof(left), "z%d%s %s", zoom, overZoom() ? "*" : "",
+           areaSel >= 0 ? areas[areaSel].name : "-");
   const int room = rightEdge - vpX - 4;
   size_t n = strlen(left);
   int lw = lcd.textWidth(left);
@@ -2119,8 +2196,10 @@ void MapsApp::setArea(int idx) {
   if (zoom < a->zMin) {
     zoom = a->zMin;
   }
-  if (zoom > a->zMax) {
-    zoom = a->zMax;
+  /* The stretched level travels between areas, but only one level past THIS area's tiles:
+   * z17 over a z16 area is fine, z17 over a z13 area would be a 16x smear. */
+  if (zoom > a->zMax + MAP_OVERZOOM_MAX) {
+    zoom = a->zMax + MAP_OVERZOOM_MAX;
   }
   centreOn(lat, lon);
   if (!areaHolds(areaSel, lat, lon)) {
@@ -2291,8 +2370,8 @@ void MapsApp::rescanCard() {
     if (zoom < areas[areaSel].zMin) {
       zoom = areas[areaSel].zMin;
     }
-    if (zoom > areas[areaSel].zMax) {
-      zoom = areas[areaSel].zMax;
+    if (zoom > areas[areaSel].zMax + MAP_OVERZOOM_MAX) {
+      zoom = areas[areaSel].zMax + MAP_OVERZOOM_MAX;
     }
     centreOn(keepLat, keepLon);
   }
@@ -2807,6 +2886,12 @@ static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "grey ring    ...or a poor fix", MAP_C_NODE_OLD },
   { "             (<4 sats or HDOP >10)", MAP_C_NODE_OLD },
   { "grey square  tile not on the card", WHITE },
+  { "", WHITE },
+  { "z16* means one level PAST the", MAP_C_PIN },
+  { "  tiles: they are stretched 2x,", WHITE },
+  { "  so it is bigger and fuzzy, not", WHITE },
+  { "  sharper. The scale bar is right.", WHITE },
+  { "", WHITE },
   { "See docs/maps.md for the tiles.", WHITE },
   { "", WHITE },
   { "USGS: public domain (National Map)", WHITE },
@@ -3059,14 +3144,24 @@ appEventResult MapsApp::onMapKey(EventType event) {
   case '#':
   case '3': {
     const int zMin = areaSel >= 0 ? areas[areaSel].zMin : MAP_ZOOM_MIN;
-    const int zMax = areaSel >= 0 ? areas[areaSel].zMax : MAP_ZOOM_MAX;
+    /* One level PAST the deepest tiles is allowed, stretched 2x (map_tiles.h). The tiles
+     * stop at zMax; the view does not have to. */
+    const int zMax = areaSel >= 0 ? areas[areaSel].zMax + MAP_OVERZOOM_MAX : MAP_ZOOM_MAX;
+    const int was = zoom;
     const int nz = mapZoomView(zMin, zMax, zoom, +1, vpW, vpH, &cx, &cy);
     if (nz == zoom) {
-      setNote(areaSel >= 0 ? "z%d is the closest this map has" : "z%d is as far in as it goes",
-              zoom);
+      setNote(areaSel >= 0 ? "z%d is as close as this map goes, tiles and all" :
+              "z%d is as far in as it goes", zoom);
     } else {
       cancelLoad();
       zoom = nz;
+      /* Say it ONCE, on the step that crosses the line — not on every frame. Past here the
+       * strip's "z17*" and the status line carry it, which is quieter than a note that
+       * cannot be dismissed. */
+      if (areaSel >= 0 && was <= areas[areaSel].zMax && nz > areas[areaSel].zMax) {
+        setNote("Past the tiles: z%d stretched %dx. Same detail, bigger - and fuzzy.",
+                areas[areaSel].zMax, 1 << (nz - areas[areaSel].zMax));
+      }
     }
     return REDRAW_SCREEN;
   }

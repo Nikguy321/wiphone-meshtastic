@@ -91,6 +91,10 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.77** — **zoom one level past the tiles**: the map goes a level closer than your card
+  holds, stretching those tiles 2x. Bigger, not sharper — and it says so (`z17*` in the
+  corner, "z16 tiles stretched 2x" on the status chip), while the scale bar stays honest
+  because the view really is at that zoom. COVEY does the same with its own cache.
 - **0.9.76** — **hold `#` to mute and unmute**, on any screen where nothing is being typed
   — the clock, the menus, a game — with a short buzz as the answer and the crossed speaker
   in the header (and now on the clock face). A tap of `#` still does what it did; the phone

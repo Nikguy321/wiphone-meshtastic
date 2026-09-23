@@ -292,6 +292,18 @@ protected:
   bool     pinsTruncated;   // the pins file held more than MAPS_MAX_PINS: NEVER save over it
 
   // ---- tiles ----
+  /* ── PAST THE TILES ───────────────────────────────────────────────────────────────────
+   * The view may sit up to MAP_OVERZOOM_MAX levels deeper than the deepest tiles this area
+   * has (map_tiles.h says why). `overZoom()` is how many levels past — 0 almost always —
+   * and `tileZoom()` is the level the tiles are actually read from. EVERYTHING that touches
+   * a tile (the cache, the loader, the missing list, the blits) uses tileZoom(); everything
+   * that is geometry (the scale bar, pins, the crosshair readout, panning) keeps using
+   * `zoom`, because the view really is at that zoom — only the pixels are borrowed from one
+   * level up and stretched. Mixing the two up draws a map that is off by a factor of two,
+   * which on forest is not obvious. */
+  int   overZoom() const;
+  int   tileZoom() const;
+
   int   findSlot(int z, int tx, int ty) const;    // -1 = not cached
   int   claimSlot();                              // LRU victim, never one mid-load
   bool  isKnownMissing(int z, int tx, int ty) const;

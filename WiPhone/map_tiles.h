@@ -53,6 +53,17 @@
 #define MAP_ZOOM_MIN      0
 #define MAP_ZOOM_MAX      19
 
+/* HOW FAR PAST THE DEEPEST TILES THE VIEW MAY GO. Nick, 2026-09-22: "can we allow them to
+ * zoom in one level more... i totally get that it will get fuzzy, but would be usefull
+ * regardless." One level is 2x: every tile pixel becomes a 2x2 block, so the ground detail is
+ * exactly what the deepest tiles hold and only the scale changes — which is the point. The
+ * arithmetic below is untouched by this: the VIEW still lives at the zoom the user chose (so
+ * the scale bar, the pin projection and the crosshair readout all stay truthful at 1 screen
+ * pixel = 1 world pixel), and only the tile FETCH is pulled back to the level that exists.
+ * See MapsApp::overZoom()/tileZoom() and drawMap(). Two levels (4x) was not offered: a 4x
+ * block is a screen of 64 fat squares and nothing is learned from it. */
+#define MAP_OVERZOOM_MAX  1
+
 // The latitude Web Mercator stops at. Not a rounding of 85: it is atan(sinh(pi)) in degrees.
 #define MAP_LAT_LIMIT     85.0511287798066
 
@@ -109,6 +120,19 @@ int     mapPanView(int z, int vw, int vh, int dx, int dy, int32_t* cx, int32_t* 
  * offering a zoom with no tiles behind it is offering a grey screen. */
 int     mapZoomView(int zMin, int zMax, int z, int delta, int vw, int vh,
                     int32_t* cx, int32_t* cy);
+
+/* The view to ASK THE BLITS FOR when the screen is `over` levels deeper than the deepest
+ * tiles (MAP_OVERZOOM_MAX). Everything is written through: the centre pulled back `over`
+ * levels (rounded, so stepping in and out of the stretched level lands on the same ground)
+ * and the viewport divided by 2^over, ROUNDED UP so the last row and column of magnified
+ * blocks reach the edge of the screen rather than leaving a strip of void. `over` 0 is the
+ * identity, which is what every normal frame uses.
+ *
+ * Its own function, and tested, because the two ways to get this wrong are both invisible:
+ * halving the viewport but not the centre shows the wrong ground at the right scale, and
+ * rounding the viewport DOWN leaves a 1-2 px unpainted edge that reads as a missing tile. */
+void    mapOverzoomView(int32_t cx, int32_t cy, int vw, int vh, int over,
+                        int32_t* bcx, int32_t* bcy, int* bw, int* bh);
 
 /* Fill `out` with the blits that cover the viewport, top-to-bottom then left-to-right.
  * Returns the count, or -1 when it will not fit in `cap` or the arguments are nonsense.

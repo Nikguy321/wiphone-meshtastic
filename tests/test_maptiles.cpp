@@ -436,6 +436,58 @@ int main() {
           "...and the one that IS under it still wins, with huge ones on both sides");
   }
 
+  /* ── ONE LEVEL PAST THE TILES (MAP_OVERZOOM_MAX) ────────────────────────────────────
+   * The view stays at the zoom the user chose and the TILES are asked for one level up,
+   * stretched 2x. Both ways to get that wrong are invisible on a forest: pull the centre
+   * back without shrinking the viewport (or the other way round) and the screen shows the
+   * wrong ground at a plausible scale. */
+  {
+    int32_t bcx = -1, bcy = -1;
+    int bw = -1, bh = -1;
+
+    mapOverzoomView(12345, 67890, 240, 250, 0, &bcx, &bcy, &bw, &bh);
+    CHECK(bcx == 12345 && bcy == 67890 && bw == 240 && bh == 250,
+          "over 0 is the identity - every ordinary frame goes through here");
+
+    mapOverzoomView(1000, 2000, 240, 250, 1, &bcx, &bcy, &bw, &bh);
+    CHECK(bcx == 500 && bcy == 1000, "over 1 pulls the centre back a level");
+    CHECK(bw == 120 && bh == 125, "...and asks for half the viewport");
+
+    /* ROUNDED UP. 241/2 = 120 covers 240 magnified pixels and leaves the last column
+     * unpainted; 121 covers 242 and is clipped on the way to the screen. */
+    mapOverzoomView(0, 0, 241, 251, 1, &bcx, &bcy, &bw, &bh);
+    CHECK(bw == 121 && bh == 126, "an odd viewport rounds UP, so no strip is left unpainted");
+
+    /* Rounded, not truncated: the same rule mapZoomView's zoom-out follows, so stepping
+     * into the stretched level and back out lands on the ground you started on. */
+    mapOverzoomView(1001, 2003, 240, 250, 1, &bcx, &bcy, &bw, &bh);
+    CHECK(bcx == 501 && bcy == 1002, "an odd centre rounds rather than creeping north-west");
+
+    /* A round trip through the real zoom helper: z16 -> z17 -> the tile view is the z16
+     * centre again. This is the property that keeps the stretched level over the same
+     * ground as the level it borrows from. */
+    int32_t cx = 0, cy = 0;
+    mapLatLonToWorld(47.2528, -121.4054, 16, NULL, NULL);   // (no-op: proves the NULL guard)
+    double wx = 0, wy = 0;
+    mapLatLonToWorld(47.2528, -121.4054, 16, &wx, &wy);
+    cx = (int32_t)(wx + 0.5);
+    cy = (int32_t)(wy + 0.5);
+    const int32_t cx16 = cx, cy16 = cy;
+    const int nz = mapZoomView(11, 16 + MAP_OVERZOOM_MAX, 16, +1, 240, 250, &cx, &cy);
+    CHECK(nz == 17, "zoom in from z16 reaches the stretched z17");
+    mapOverzoomView(cx, cy, 240, 250, nz - 16, &bcx, &bcy, &bw, &bh);
+    CHECK(bcx == cx16 && bcy == cy16,
+          "...and the tiles it asks for are centred on exactly the z16 ground it left");
+
+    /* An `over` past the cap is clamped rather than producing a 4x smear. */
+    mapOverzoomView(1000, 2000, 240, 250, 9, &bcx, &bcy, &bw, &bh);
+    int32_t ecx = 0, ecy = 0;
+    int ew = 0, eh = 0;
+    mapOverzoomView(1000, 2000, 240, 250, MAP_OVERZOOM_MAX, &ecx, &ecy, &ew, &eh);
+    CHECK(bcx == ecx && bcy == ecy && bw == ew && bh == eh,
+          "an over-zoom past MAP_OVERZOOM_MAX is clamped to it");
+  }
+
   printf("\n%d checks, %d failures\n", checks, failures);
   if (failures) {
     printf("test_maptiles: %d FAILURE(S)\n", failures);
