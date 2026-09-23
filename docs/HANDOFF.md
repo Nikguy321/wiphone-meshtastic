@@ -1,8 +1,38 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-21 night)
+## ▶▶ STATE NOW (header refreshed 2026-09-22 night)
 
 Read this first; everything below it is narrative.
+
+🔭 **2026-09-22 NIGHT: 0.9.77 — ONE LEVEL PAST THE TILES, ON ALL THREE DEVICES; AND COVEY HAS
+THE WHOLE TILE POOL.** Nick: *"for all 3 devices, can we allow them to zoom in one level more
+(maybe add a little bit of text saying its zooming past the tile level...) i totally get that
+it will get fuzzy, but would be usefull regardless."* THE MAP: the view may sit one level
+deeper than the area's deepest tiles (`MAP_OVERZOOM_MAX` 1), those tiles stretched 2x. 🔑 THE
+VIEW STAYS AT THE CHOSEN ZOOM — scale bar (50 m where z16 read 100 m), pins, crosshair readout
+and distances are all still exact; only the tile FETCH is pulled back (`MapsApp::overZoom()` /
+`tileZoom()`: everything touching a tile uses the tile level, everything geometric uses
+`zoom`). Three labels, because a fuzzy screen reads as a bad tile: corner chip `z17*`, status
+chip `z16 tiles stretched 2x`, and a ONE-SHOT note on the step that crosses the line. Past it:
+"z17 is as close as this map goes, tiles and all". The stretched level survives a power-off and
+travels between areas (one level past THAT area only). `mapOverzoomView()` is the pure, tested
+part — centre pulled back rounded, viewport divided ROUNDED UP (down leaves a 1-2 px unpainted
+strip that reads as a missing tile); `test_maptiles` +7 including a z16→z17→tile-view round
+trip. The push widens one source row into a 480-byte stack buffer and pushes it twice.
+COVEY: `ZMAX` 16→17 + `TileCache.get_stretched()` (ancestor scaled AND cropped to the right
+quadrant — the plausible-looking failure), chip `z17 · USGS topo · z16 stretched 2x`, online it
+streams the real z17 instead; `tests/test_map_overzoom.py` 17 checks with a four-quadrant
+parent. **STATE: WiPhone `c171158` (0.9.77) — both phones flashed and benched (aerial + topo
+z16→z17*, refusal past it, panning, back out to the same coordinates, the zoom still there
+after a reboot), stage = the flashed binary, host suite 323 assertions 0 failures. COVEY
+`493c49e`, DEPLOYED (44/44 md5-matched first, 66/66 Mac and 66/66 device, restarted with no
+game running). ⚠ NOTHING PUSHED — Nick's word. 0.9.76 is unpushed too.** COVEY's tiles:
+`cardday.sh covey push` ran — **132,826, matching the master exactly** (otm 30,296 / usgs-img
+39,951 / usgs-topo 62,579, 0 zero-byte, 95 GB free); the dud 0-byte `usgs-img/14/2621/5733`
+was deleted there as well. ⚠ THE SCRATCHPAD WAS WIPED mid-session (flash.sh, p1.py, p2.py and
+the shot helpers had to be rewritten — they are back under
+`/private/tmp/claude-501/-Users-nickhowe-wiphone/<session>/scratchpad/`). ⚠ `hold on` before a
+bench that takes screenshots: the phone locks in 30 s and the shots come back as the clock.
 
 🔇 **2026-09-21 NIGHT: 0.9.76 — HOLD '#' TO MUTE.** Nick: *"make holding the pound key mute and
 unmute... only when you're not entering text or when that key isn't being used for something
