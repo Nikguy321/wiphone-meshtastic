@@ -26,7 +26,12 @@ parent. **STATE: WiPhone `c171158` (0.9.77) — both phones flashed and benched 
 z16→z17*, refusal past it, panning, back out to the same coordinates, the zoom still there
 after a reboot), stage = the flashed binary, host suite 323 assertions 0 failures. COVEY
 `493c49e`, DEPLOYED (44/44 md5-matched first, 66/66 Mac and 66/66 device, restarted with no
-game running). ⚠ NOTHING PUSHED — Nick's word. 0.9.76 is unpushed too.** COVEY's tiles:
+game running). ✅ PUSHED + PUBLISHED at Nick's word ("Works great. Feel free to push and
+publish"): WiPhone `5da55dd..475a705` (0.9.76 + 0.9.77 + the tile tools), live manifest 0.9.77,
+live image sha `0463474f…` = the stage byte for byte; COVEY `791cf4a..493c49e` — ⚠ that push
+also carried FOUR earlier commits other sessions had committed and never pushed (D-155..D-158:
+the fleet node on 2.7.26, slide-to-unlock + GPS on the RAK's always-on rail, the L+R+START
+unlock chord).** COVEY's tiles:
 `cardday.sh covey push` ran — **132,826, matching the master exactly** (otm 30,296 / usgs-img
 39,951 / usgs-topo 62,579, 0 zero-byte, 95 GB free); the dud 0-byte `usgs-img/14/2621/5733`
 was deleted there as well. ⚠ THE SCRATCHPAD WAS WIPED mid-session (flash.sh, p1.py, p2.py and
