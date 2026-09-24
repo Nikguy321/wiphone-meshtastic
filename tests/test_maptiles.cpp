@@ -107,6 +107,96 @@ static void coverCheck(int z, int32_t cx, int32_t cy, int vw, int vh, const char
   free(paint);
 }
 
+/* ── THE STRETCH, DRAWN THE WAY THE PHONE DRAWS IT ──────────────────────────────────────
+ * g_anc is an ancestor tile whose every pixel names itself: (y << 8) | x. A piece rendered
+ * from it therefore says, pixel by pixel, which ancestor pixel it came from, and pieceMatches
+ * compares that with the answer worked out straight from world pixels (the world pixel at the
+ * view zoom, shifted down d levels) — no call to the code under test on that side. */
+static uint16_t g_anc[MAP_TILE_PX * MAP_TILE_PX];
+static uint16_t g_fb[MAP_TILE_PX * MAP_TILE_PX];     // one piece, w x h, stride w
+static uint8_t  g_hits[MAP_TILE_PX * MAP_TILE_PX];
+
+static void fillAncestorTile() {
+  for (int y = 0; y < MAP_TILE_PX; y++) {
+    for (int x = 0; x < MAP_TILE_PX; x++) {
+      g_anc[y * MAP_TILE_PX + x] = (uint16_t)((y << 8) | x);
+    }
+  }
+}
+
+/* drawMap's loop, with the LCD replaced by g_fb: mapAncestorSrc, then one mapAncestorRow per
+ * ancestor row, pushed once for each screen row it covers. *rowsOk goes false if a row lands
+ * outside the piece, the rows are not contiguous from the top, any screen pixel is written
+ * other than exactly once, or a widened row leaves a pixel unwritten. */
+static bool renderPiece(const MapBlit* b, int d, const uint16_t* tile, MapAncestorBlit* ab, bool* rowsOk) {
+  if (!mapAncestorSrc(b, d, ab)) {
+    return false;
+  }
+  memset(g_hits, 0, sizeof(g_hits));
+  uint16_t rowA[MAP_TILE_PX], rowB[MAP_TILE_PX];
+  int nextTop = 0;
+  for (int r = 0; r < ab->sh; r++) {
+    int y0 = -1, y0b = -1;
+    // Twice, over two different fillings: a pixel the row did not write differs between them.
+    for (int x = 0; x < MAP_TILE_PX; x++) {
+      rowA[x] = 0x0000;
+      rowB[x] = 0xFFFF;
+    }
+    const int rows = mapAncestorRow(ab, tile, r, rowA, MAP_TILE_PX, &y0);
+    const int rowsB = mapAncestorRow(ab, tile, r, rowB, MAP_TILE_PX, &y0b);
+    if (rows < 1 || rows != rowsB || y0 != y0b || y0 != nextTop || y0 < 0 || y0 + rows > b->h) {
+      *rowsOk = false;
+      if (rows < 1) {
+        continue;
+      }
+    }
+    for (int x = 0; x < b->w; x++) {
+      if (rowA[x] != rowB[x]) {
+        *rowsOk = false;
+      }
+    }
+    nextTop = y0 + rows;
+    for (int k = 0; k < rows; k++) {
+      const int y = y0 + k;
+      if (y < 0 || y >= b->h) {
+        *rowsOk = false;
+        continue;
+      }
+      for (int x = 0; x < b->w; x++) {
+        g_fb[y * b->w + x] = rowA[x];
+        g_hits[y * b->w + x]++;
+      }
+    }
+  }
+  if (nextTop != b->h) {
+    *rowsOk = false;
+  }
+  for (int i = 0; i < b->w * b->h; i++) {
+    if (g_hits[i] != 1) {
+      *rowsOk = false;
+    }
+  }
+  return true;
+}
+
+// g_fb (rendered from g_anc) against the directly scaled reference, pixel by pixel.
+static bool pieceMatches(const MapBlit* b, int d, const MapAncestorBlit* ab) {
+  for (int j = 0; j < b->h; j++) {
+    for (int i = 0; i < b->w; i++) {
+      const long long X = (long long)b->tileX * MAP_TILE_PX + b->srcX + i;
+      const long long Y = (long long)b->tileY * MAP_TILE_PX + b->srcY + j;
+      const long long XL = X >> d, YL = Y >> d;          // the same ground, d levels up
+      if ((XL >> 8) != ab->ax || (YL >> 8) != ab->ay) {
+        return false;
+      }
+      if (g_fb[j * b->w + i] != (uint16_t)(((YL & 255) << 8) | (XL & 255))) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 int main() {
   printf("test_maptiles\n");
 
@@ -436,56 +526,305 @@ int main() {
           "...and the one that IS under it still wins, with huge ones on both sides");
   }
 
-  /* ── ONE LEVEL PAST THE TILES (MAP_OVERZOOM_MAX) ────────────────────────────────────
-   * The view stays at the zoom the user chose and the TILES are asked for one level up,
-   * stretched 2x. Both ways to get that wrong are invisible on a forest: pull the centre
-   * back without shrinking the viewport (or the other way round) and the screen shows the
-   * wrong ground at a plausible scale. */
+  /* ── THE STRETCH: A POSITION DRAWN FROM THE TILE `d` LEVELS UP ─────────────────────────
+   * Every piece below is drawn exactly as drawMap draws it (renderPiece: mapAncestorSrc, then
+   * mapAncestorRow per ancestor row, each pushed once per screen row it covers) and compared
+   * with the answer worked out directly from world pixels. The failure this exists for is the
+   * plausible one: a stretched tile showing its NEIGHBOUR's ground, or its own ground a few
+   * pixels off — both look like a map. */
+  fillAncestorTile();
+
+  // The four-colour parent: each child, grandchild, great-grandchild shows ITS quadrant only.
   {
-    int32_t bcx = -1, bcy = -1;
-    int bw = -1, bh = -1;
+    static uint16_t quad[MAP_TILE_PX * MAP_TILE_PX];
+    for (int y = 0; y < MAP_TILE_PX; y++) {
+      for (int x = 0; x < MAP_TILE_PX; x++) {
+        quad[y * MAP_TILE_PX + x] = (uint16_t)(1 + (x >= 128 ? 1 : 0) + (y >= 128 ? 2 : 0));
+      }
+    }
+    for (int d = 1; d <= 3; d++) {
+      const int kids = 1 << d;
+      bool allOwn = true, tileOk = true;
+      for (int j = 0; j < kids; j++) {
+        for (int i = 0; i < kids; i++) {
+          // The parent is tile (37, 90) at its level; child (i, j) of it, a whole tile.
+          MapBlit b = { 37 * kids + i, 90 * kids + j, 0, 0, 0, 0, MAP_TILE_PX, MAP_TILE_PX };
+          MapAncestorBlit ab;
+          bool rowsOk = true;
+          if (!renderPiece(&b, d, quad, &ab, &rowsOk) || !rowsOk) {
+            allOwn = false;
+            continue;
+          }
+          if (ab.ax != 37 || ab.ay != 90) {
+            tileOk = false;
+          }
+          const uint16_t want = (uint16_t)(1 + ((i * 2) / kids) + ((j * 2) / kids) * 2);
+          for (int p = 0; p < MAP_TILE_PX * MAP_TILE_PX; p++) {
+            if (g_fb[p] != want) {
+              allOwn = false;
+            }
+          }
+        }
+      }
+      char nm[96];
+      snprintf(nm, sizeof(nm), "d=%d: all %d descendants of the parent read the parent tile", d, kids * kids);
+      CHECK(tileOk, nm);
+      snprintf(nm, sizeof(nm), "d=%d: each one shows its own quadrant, never a neighbour's", d);
+      CHECK(allOwn, nm);
+    }
+  }
 
-    mapOverzoomView(12345, 67890, 240, 250, 0, &bcx, &bcy, &bw, &bh);
-    CHECK(bcx == 12345 && bcy == 67890 && bw == 240 && bh == 250,
-          "over 0 is the identity - every ordinary frame goes through here");
+  // THE PHASE: a piece starting part-way through an ancestor pixel (srcX 203 at d = 4 is
+  // ancestor pixel 12 plus 11/16), against the directly scaled reference, pixel by pixel.
+  {
+    const MapBlit b = { 16 * 500 + 13, 16 * 700 + 6, 203, 77, 0, 0, MAP_TILE_PX - 203, MAP_TILE_PX - 77 };
+    MapAncestorBlit ab;
+    bool rowsOk = true;
+    const bool ok = renderPiece(&b, 4, g_anc, &ab, &rowsOk);
+    CHECK(ok && ab.ax == 500 && ab.ay == 700, "srcX 203 srcY 77 at d=4: the right ancestor tile");
+    CHECK(ok && ab.scale == 16 && ab.phx == 11 && ab.phy == 13 && ab.sx0 == 13 * 16 + 12 &&
+          ab.sy0 == 6 * 16 + 4, "...the phase is kept, not rounded away (first column 5 px, first row 3 px)");
+    CHECK(ok && rowsOk, "...its rows cover the piece exactly once, top to bottom");
+    CHECK(ok && pieceMatches(&b, 4, &ab), "...and every pixel is the directly scaled reference's");
+  }
 
-    mapOverzoomView(1000, 2000, 240, 250, 1, &bcx, &bcy, &bw, &bh);
-    CHECK(bcx == 500 && bcy == 1000, "over 1 pulls the centre back a level");
-    CHECK(bw == 120 && bh == 125, "...and asks for half the viewport");
+  // Every blit of real views, at every d: never a source outside the tile, never a pixel
+  // outside the piece, always the right ground.
+  {
+    struct { int z; double lat, lon; } views[] = {
+      { 12, 47.5, -121.8 }, { 15, 47.6062, -122.3321 }, { 17, 47.42, -121.75 },
+      { 18, 47.5, -121.8 }, { 19, -33.8688, 151.2093 }, { 18, 47.5, 179.9995 },
+    };
+    bool srcOk = true, rowsAll = true, pixOk = true, refused = false;
+    int pieces = 0;
+    for (size_t v = 0; v < sizeof(views) / sizeof(views[0]); v++) {
+      double wx = 0, wy = 0;
+      mapLatLonToWorld(views[v].lat, views[v].lon, views[v].z, &wx, &wy);
+      for (int shift = 0; shift < 3; shift++) {
+        int32_t cx = (int32_t)wx + shift * 97, cy = (int32_t)wy + shift * 61;
+        mapClampView(views[v].z, 240, 250, &cx, &cy);
+        MapBlit bl[MAP_MAX_BLITS];
+        const int n = mapViewBlits(views[v].z, cx, cy, 240, 250, bl, MAP_MAX_BLITS);
+        for (int i = 0; i < n; i++) {
+          for (int d = 0; d <= MAP_ANCESTOR_MAX_D; d++) {
+            MapAncestorBlit ab;
+            bool rowsOk = true;
+            if (!renderPiece(&bl[i], d, g_anc, &ab, &rowsOk)) {
+              refused = true;
+              continue;
+            }
+            pieces++;
+            if (ab.sx0 < 0 || ab.sy0 < 0 || ab.sx0 + ab.sw > MAP_TILE_PX || ab.sy0 + ab.sh > MAP_TILE_PX ||
+                ab.phx < 0 || ab.phy < 0 || ab.phx >= ab.scale || ab.phy >= ab.scale) {
+              srcOk = false;
+            }
+            if (!rowsOk) {
+              rowsAll = false;
+            }
+            if (!pieceMatches(&bl[i], d, &ab)) {
+              pixOk = false;
+            }
+          }
+        }
+      }
+    }
+    char nm[96];
+    snprintf(nm, sizeof(nm), "%d pieces at d=0..%d: none refused", pieces, MAP_ANCESTOR_MAX_D);
+    CHECK(!refused && pieces > 100, nm);
+    CHECK(srcOk, "...every source rectangle inside [0,256), every phase inside one ancestor pixel");
+    CHECK(rowsAll, "...every row lands inside its piece (dst >= 0), each screen row exactly once");
+    CHECK(pixOk, "...and every pixel is the right ground at every d");
+  }
 
-    /* ROUNDED UP. 241/2 = 120 covers 240 magnified pixels and leaves the last column
-     * unpainted; 121 covers 242 and is clipped on the way to the screen. */
-    mapOverzoomView(0, 0, 241, 251, 1, &bcx, &bcy, &bw, &bh);
-    CHECK(bw == 121 && bh == 126, "an odd viewport rounds UP, so no strip is left unpainted");
+  // d = 0 is the tile itself; past MAP_ANCESTOR_MAX_D there is no blit at all.
+  {
+    const MapBlit b = { 5249, 11443, 40, 16, 0, 0, 200, 240 };
+    MapAncestorBlit ab;
+    CHECK(mapAncestorSrc(&b, 0, &ab) == 1 && ab.ax == 5249 && ab.ay == 11443 && ab.sx0 == 40 &&
+          ab.sy0 == 16 && ab.sw == 200 && ab.sh == 240 && ab.scale == 1 && ab.phx == 0 && ab.phy == 0,
+          "d=0 is the identity: the tile's own pixels, unscaled");
+    CHECK(mapAncestorSrc(&b, MAP_ANCESTOR_MAX_D, &ab) == 1 && ab.sw == 1 && ab.sh == 1 && ab.scale == 256,
+          "d=8: a position is one ancestor pixel, 256x");
+    CHECK(mapAncestorSrc(&b, MAP_ANCESTOR_MAX_D + 1, &ab) == 0,
+          "d=9: no blit (256 >> 9 is 0 - a divide by zero on the phone)");
+    CHECK(mapAncestorSrc(&b, -1, &ab) == 0, "a negative d: no blit");
+    const MapBlit bad = { 5249, 11443, 200, 0, 0, 0, 100, 10 };   // runs off the tile's right edge
+    CHECK(mapAncestorSrc(&bad, 1, &ab) == 0, "a blit that leaves its tile is refused");
+    CHECK(mapAncestorSrc(NULL, 1, &ab) == 0 && mapAncestorSrc(&b, 1, NULL) == 0, "NULLs are refused");
+    uint16_t row[8];
+    int y0 = -1;
+    CHECK(mapAncestorSrc(&b, 2, &ab) == 1 && mapAncestorRow(&ab, g_anc, ab.sh, row, 8, &y0) == 0 && y0 == 0,
+          "a row past the piece draws nothing");
+  }
 
-    /* Rounded, not truncated: the same rule mapZoomView's zoom-out follows, so stepping
-     * into the stretched level and back out lands on the ground you started on. */
-    mapOverzoomView(1001, 2003, 240, 250, 1, &bcx, &bcy, &bw, &bh);
-    CHECK(bcx == 501 && bcy == 1002, "an odd centre rounds rather than creeping north-west");
-
-    /* A round trip through the real zoom helper: z16 -> z17 -> the tile view is the z16
-     * centre again. This is the property that keeps the stretched level over the same
-     * ground as the level it borrows from. */
-    int32_t cx = 0, cy = 0;
-    mapLatLonToWorld(47.2528, -121.4054, 16, NULL, NULL);   // (no-op: proves the NULL guard)
+  // ── Z18: ONE LEVEL PAST OPENTOPOMAP'S Z17 ────────────────────────────────────────────
+  CHECK(mapWorldPx(18) == 67108864, "world size at z18");
+  {
+    int px = 0;
+    CHECK(mapScaleBar(mapMetersPerPixel(47.5, 18), 84, &px) == 20 && px == 50,
+          "z18 scale bar at 47.5 N (0.403 m/px) is 20 m / 50 px");
+  }
+  {
+    /* The round trip, and the property that keeps the stretched level honest: z17 -> z18 -> z17
+     * lands on the same pixel, and EVERY screen pixel of the z18 view, drawn from the z17 tiles
+     * at d = 1, is the z17 pixel under it — the crosshair included, so the readout, the pins and
+     * the stretched ground agree exactly. */
     double wx = 0, wy = 0;
-    mapLatLonToWorld(47.2528, -121.4054, 16, &wx, &wy);
-    cx = (int32_t)(wx + 0.5);
-    cy = (int32_t)(wy + 0.5);
-    const int32_t cx16 = cx, cy16 = cy;
-    const int nz = mapZoomView(11, 16 + MAP_OVERZOOM_MAX, 16, +1, 240, 250, &cx, &cy);
-    CHECK(nz == 17, "zoom in from z16 reaches the stretched z17");
-    mapOverzoomView(cx, cy, 240, 250, nz - 16, &bcx, &bcy, &bw, &bh);
-    CHECK(bcx == cx16 && bcy == cy16,
-          "...and the tiles it asks for are centred on exactly the z16 ground it left");
+    mapLatLonToWorld(47.5, -121.8, 17, &wx, &wy);
+    int32_t cx = (int32_t)(wx + 0.5), cy = (int32_t)(wy + 0.5);
+    mapClampView(17, 240, 250, &cx, &cy);
+    const int32_t cx17 = cx, cy17 = cy;
+    const int nz = mapZoomView(11, 17 + MAP_OVERZOOM_MAX, 17, +1, 240, 250, &cx, &cy);
+    CHECK(nz == 18 && cx == cx17 * 2 && cy == cy17 * 2, "zoom in from z17 reaches the stretched z18");
+    coverCheck(18, cx, cy, 240, 250, "z18 at 47.5,-121.8");
+    MapBlit bl[MAP_MAX_BLITS];
+    const int n = mapViewBlits(18, cx, cy, 240, 250, bl, MAP_MAX_BLITS);
+    static uint16_t view[240 * 250];
+    static int32_t viewTx[240 * 250], viewTy[240 * 250];
+    bool drawn = n > 0;
+    for (int i = 0; i < n; i++) {
+      MapAncestorBlit ab;
+      bool rowsOk = true;
+      if (!renderPiece(&bl[i], 1, g_anc, &ab, &rowsOk) || !rowsOk) {
+        drawn = false;
+        continue;
+      }
+      for (int y = 0; y < bl[i].h; y++) {
+        for (int x = 0; x < bl[i].w; x++) {
+          view[(bl[i].dstY + y) * 240 + bl[i].dstX + x] = g_fb[y * bl[i].w + x];
+          viewTx[(bl[i].dstY + y) * 240 + bl[i].dstX + x] = ab.ax;
+          viewTy[(bl[i].dstY + y) * 240 + bl[i].dstX + x] = ab.ay;
+        }
+      }
+    }
+    bool same = drawn;
+    for (int y = 0; y < 250 && same; y++) {
+      for (int x = 0; x < 240; x++) {
+        const long long w17x = ((long long)cx - 120 + x) >> 1, w17y = ((long long)cy - 125 + y) >> 1;
+        if (viewTx[y * 240 + x] != (int32_t)(w17x >> 8) || viewTy[y * 240 + x] != (int32_t)(w17y >> 8) ||
+            view[y * 240 + x] != (uint16_t)(((w17y & 255) << 8) | (w17x & 255))) {
+          same = false;
+          break;
+        }
+      }
+    }
+    CHECK(same, "every z18 screen pixel drawn from z17 is the z17 pixel under it");
+    CHECK(view[125 * 240 + 120] == (uint16_t)(((cy17 & 255) << 8) | (cx17 & 255)),
+          "...the crosshair's included: exactly the z17 crosshair pixel");
+    const int back = mapZoomView(11, 18, 18, -1, 240, 250, &cx, &cy);
+    CHECK(back == 17 && cx == cx17 && cy == cy17, "...and zooming back out lands on the z17 pixel it left");
+  }
 
-    /* An `over` past the cap is clamped rather than producing a 4x smear. */
-    mapOverzoomView(1000, 2000, 240, 250, 9, &bcx, &bcy, &bw, &bh);
-    int32_t ecx = 0, ecy = 0;
-    int ew = 0, eh = 0;
-    mapOverzoomView(1000, 2000, 240, 250, MAP_OVERZOOM_MAX, &ecx, &ecy, &ew, &eh);
-    CHECK(bcx == ecx && bcy == ecy && bw == ew && bh == eh,
-          "an over-zoom past MAP_OVERZOOM_MAX is clamped to it");
+  // ── THE LABEL: deepest level first, each end beside its own factor ─────────────────────
+  {
+    char s[48];
+    CHECK(mapStretchLabel(s, sizeof(s), 17, 15, 15, 0) > 0 && !strcmp(s, "z15 tiles stretched 4x"),
+          "one level: 'z15 tiles stretched 4x'");
+    CHECK(mapStretchLabel(s, sizeof(s), 18, 17, 17, 0) > 0 && !strcmp(s, "z17 tiles stretched 2x"),
+          "one level past OTM's z17: 'z17 tiles stretched 2x'");
+    CHECK(mapStretchLabel(s, sizeof(s), 17, 14, 16, 0) > 0 && !strcmp(s, "z16-14 stretched 2-8x"),
+          "several: 'z16-14 stretched 2-8x' - z16 is the 2x, z14 the 8x");
+    CHECK(mapStretchLabel(s, sizeof(s), 18, 11, 17, 0) > 0 && !strcmp(s, "z17-11 stretched 2-128x"),
+          "the widest mix at z18: 'z17-11 stretched 2-128x'");
+    CHECK(mapStretchLabel(s, sizeof(s), 17, 14, 16, 1) > 0 && !strcmp(s, "z16-14 x2-8"),
+          "compact, several: 'z16-14 x2-8'");
+    CHECK(mapStretchLabel(s, sizeof(s), 17, 15, 15, 1) > 0 && !strcmp(s, "z15 x4"),
+          "compact, one level: 'z15 x4'");
+    CHECK(mapStretchLabel(s, sizeof(s), 17, 16, 14, 0) == 0 && s[0] == '\0',
+          "levels the wrong way round: no label");
+    CHECK(mapStretchLabel(s, sizeof(s), 17, 17, 17, 0) == 0 && s[0] == '\0',
+          "a level at the view zoom is not stretched: no label");
+    CHECK(mapStretchLabel(s, sizeof(s), 18, 9, 17, 0) == 0, "a factor past 2^MAP_ANCESTOR_MAX_D: no label");
+    char tiny[10];
+    CHECK(mapStretchLabel(tiny, sizeof(tiny), 17, 14, 16, 0) == 0 && tiny[0] == '\0',
+          "a label that will not fit is refused, never cut (a cut one states the wrong factor)");
+  }
+
+  /* ── THE MISS CACHE: the least recently walked-past entry goes ─────────────────────────
+   * The frame on the screen stamps every hole it walks past with the newest number, so this
+   * rule is also "never a hole that is on the screen" while any other entry exists. */
+  {
+    MapMiss m[4];
+    memset(m, 0, sizeof(m));
+    int n = 0;
+    bool appends = true;
+    for (int i = 0; i < 4; i++) {
+      const int at = mapMissSlot(m, n, 4);
+      if (at != i) {
+        appends = false;
+        break;
+      }
+      m[at].z = (int8_t)(14 + i);
+      m[at].tx = 1000 + i;
+      m[at].ty = 2000 + i;
+      n = at + 1;
+    }
+    CHECK(appends && n == 4, "a cache with room appends");
+    CHECK(mapMissFind(m, n, 16, 1002, 2002) == 2 && mapMissFind(m, n, 15, 1002, 2002) == -1,
+          "find matches level AND tile");
+    m[0].hit = 5; m[1].hit = 3; m[2].hit = 7; m[3].hit = 4;
+    CHECK(mapMissSlot(m, 4, 4) == 1, "full: the entry walked past longest ago is replaced");
+    m[1].hit = 7;                    // the frame on the screen (7) walks past entry 1 again
+    CHECK(mapMissSlot(m, 4, 4) == 3,
+          "...and once the screen walks past it again, it is kept and the next oldest goes");
+    m[0].hit = 0xFFFFFFFEu; m[1].hit = 2; m[2].hit = 1; m[3].hit = 0xFFFFFFFFu;
+    CHECK(mapMissSlot(m, 4, 4) == 0, "...counted with a signed difference, so the frame counter may wrap");
+    m[0].hit = m[1].hit = m[2].hit = m[3].hit = 9;
+    CHECK(mapMissSlot(m, 4, 4) == 0, "all on the screen (the cache is sized so this cannot happen): still a slot");
+    CHECK(mapMissSlot(m, 0, 0) == -1 && mapMissSlot(NULL, 0, 4) == -1, "no room at all: -1");
+    CHECK(MAP_ANCESTOR_MAX_D + 1 == 9, "a position walks at most 9 levels (4 positions x 9 = 36 holes on screen)");
+  }
+
+  // ── THE RULER'S DASHES ──────────────────────────────────────────────────────────────
+  {
+    const int BX = 0, BY = 26, BW = 240, BH = 250, X1 = 120, Y1 = 26 + 125;
+    int64_t first = -1, end = -1;
+    int64_t steps = mapDashRange(100, 60, X1, Y1, BX, BY, BW, BH, 6, &first, &end);
+    CHECK(steps == 91 / 6 && first == 0 && end == steps, "an anchor on the screen: every step is tried");
+
+    /* Brute force a line that enters from off-screen: the visible dashes, found by trying every
+     * even step, all lie inside the range. */
+    steps = mapDashRange(-3000, -2000, X1, Y1, BX, BY, BW, BH, 6, &first, &end);
+    int visible = 0, missed = 0;
+    for (int64_t s = 0; s < steps; s += 2) {
+      int ax = 0, ay = 0, bx = 0, by = 0;
+      mapDashAt(-3000, -2000, X1, Y1, s, steps, &ax, &ay);
+      mapDashAt(-3000, -2000, X1, Y1, s + 1, steps, &bx, &by);
+      const bool in = ax >= BX && ax < BX + BW && ay >= BY && ay < BY + BH &&
+                      bx >= BX && bx < BX + BW && by >= BY && by < BY + BH;
+      if (in) {
+        visible++;
+        if (s < first || s >= end) {
+          missed++;
+        }
+      }
+    }
+    CHECK(visible > 5 && missed == 0 && (first % 2) == 0,
+          "a line from off-screen: every visible dash is inside the range");
+    CHECK(end - first < 60 && steps > 500, "...and the range is the visible part, not the whole line");
+
+    /* A world away: z19 is 134 million px across. In int32, `dx * s` overflows past 113,512 px
+     * (UBSan in this build would report it); the range walks a handful of steps. */
+    steps = mapDashRange(-134000000, 90000000, X1, Y1, BX, BY, BW, BH, 6, &first, &end);
+    int drawnFar = 0;
+    for (int64_t s = first; s < end; s += 2) {
+      int ax = 0, ay = 0, bx = 0, by = 0;
+      mapDashAt(-134000000, 90000000, X1, Y1, s, steps, &ax, &ay);
+      mapDashAt(-134000000, 90000000, X1, Y1, s + 1, steps, &bx, &by);
+      if (ax >= BX && ax < BX + BW && ay >= BY && ay < BY + BH &&
+          bx >= BX && bx < BX + BW && by >= BY && by < BY + BH) {
+        drawnFar++;
+      }
+    }
+    CHECK(steps > 20000000 && end - first < 60 && drawnFar > 5,
+          "an anchor 134 million px away: no overflow, a few dozen steps tried, dashes drawn");
+    int ex = 0, ey = 0;
+    mapDashAt(-134000000, 90000000, X1, Y1, steps, steps, &ex, &ey);
+    CHECK(ex == X1 && ey == Y1, "...and the last step is the crosshair");
+    CHECK(mapDashRange(-5000, 0, 300, 125, BX, BY, BW, BH, 6, &first, &end) > 0 && first == 0 && end == 0,
+          "a crosshair outside the box: nothing is tried");
+    CHECK(mapDashRange(118, 150, X1, Y1, BX, BY, BW, BH, 6, &first, &end) == 0 && end == 0,
+          "an anchor under the crosshair: no dashes");
   }
 
   printf("\n%d checks, %d failures\n", checks, failures);

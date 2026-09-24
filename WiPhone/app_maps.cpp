@@ -54,6 +54,9 @@ extern bool gGpsNmea;         // WiPhone.ino: is the NMEA receiver switched on a
  * re-press just past KEY_BOUNCE_MS) is the hold continuing, not a tap. 4 ms observed; no
  * human re-taps a key inside 80 ms (WiPhone.ino, KEY_BOUNCE_MS), so 40 sits between. */
 #define MAP_PAN_HOLD_BLIP_MS   40u
+/* How often the map looks at a download running under it (jobTilesLanded): a finished tile
+ * waits at most this long to replace the stretched parent drawn over its hole. */
+#define MAPS_JOB_POLL_MS       10000
 /* ⚠ The delay must be LONGER than uiKeyStillHeld()'s 350 ms staleness window: at 300 ms a
  * tap whose release was lost (two keys down, or any release the keypad's stale sweep exists
  * for) still read as "held" at the first repeat and the map took one phantom step — off the
@@ -159,7 +162,16 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   pinsDirty = false;
   slotsAlive = 0;
   useSeq = 0;
-  missCount = missNext = 0;
+  missCount = 0;
+  drawSeq = 0;
+  stretchAny = false;
+  stretchMinL = stretchMaxL = 0;
+  statusIsStretch = false;
+  readErrorInView = false;
+  memset(&jobSt, 0, sizeof(jobSt));
+  jobPollMs = 0;
+  jobSeen = jobSeenActive = false;
+  jobSeenDone = jobSeenZ = jobSeenTotal = 0;
   loadActive = false;
   loadSlot = -1;
   loadZ = loadTx = loadTy = -1;
@@ -855,21 +867,6 @@ void MapsApp::restoreView() {
 
 // ---------------------------------------------------------------- tile cache
 
-int MapsApp::overZoom() const {
-  if (areaSel < 0) {
-    return 0;
-  }
-  const int over = zoom - areas[areaSel].zMax;
-  if (over <= 0) {
-    return 0;
-  }
-  return over > MAP_OVERZOOM_MAX ? MAP_OVERZOOM_MAX : over;
-}
-
-int MapsApp::tileZoom() const {
-  return zoom - overZoom();
-}
-
 int MapsApp::findSlot(int z, int tx, int ty) const {
   for (int i = 0; i < MAPS_TILE_SLOTS; i++) {
     if (slots[i].px && slots[i].z == z && slots[i].tx == tx && slots[i].ty == ty) {
@@ -899,42 +896,90 @@ int MapsApp::claimSlot() {
 }
 
 bool MapsApp::isKnownMissing(int z, int tx, int ty) const {
-  for (int i = 0; i < missCount; i++) {
-    if (misses[i].z == z && misses[i].tx == tx && misses[i].ty == ty) {
-      return true;
-    }
-  }
-  return false;
+  return mapMissFind(misses, missCount, z, tx, ty) >= 0;
 }
 
-void MapsApp::rememberMissing(int z, int tx, int ty) {
+void MapsApp::rememberMissing(int z, int tx, int ty, bool bad) {
   if (isKnownMissing(z, tx, ty)) {
     return;
   }
-  if (missCount < MAPS_MISS_CACHE) {
-    misses[missCount].z = z;
-    misses[missCount].tx = tx;
-    misses[missCount].ty = ty;
-    missCount++;
+  /* The entry walked past LONGEST ago goes, so never one on the screen now (mapMissSlot). A
+   * ring evicting in order of arrival throws out holes still in view once a deep view far from
+   * the downloads needs more than it holds, and each is then re-asked, redrawn, re-asked. */
+  const int i = mapMissSlot(misses, missCount, MAPS_MISS_CACHE);
+  if (i < 0) {
     return;
   }
-  misses[missNext].z = z;        // a ring: the oldest hole is the one we can afford to re-ask
-  misses[missNext].tx = tx;
-  misses[missNext].ty = ty;
-  missNext = (missNext + 1) % MAPS_MISS_CACHE;
+  if (i >= missCount) {
+    missCount = i + 1;
+  }
+  misses[i].z = (int8_t)z;
+  misses[i].tx = tx;
+  misses[i].ty = ty;
+  misses[i].bad = bad ? 1 : 0;
+  misses[i].hit = drawSeq;       // the frame that wanted it is the frame on the screen
 }
 
 void MapsApp::forgetMissing() {
   missCount = 0;
-  missNext = 0;
+}
+
+int MapsApp::forgetMissingLevels(int zLo, int zHi) {
+  int n = 0;
+  for (int i = 0; i < missCount; i++) {
+    if (misses[i].z >= zLo && misses[i].z <= zHi) {
+      continue;
+    }
+    misses[n++] = misses[i];
+  }
+  const int gone = missCount - n;
+  missCount = n;
+  return gone;
+}
+
+/* A download writing into the area on the screen turns holes into tiles, and a known-missing
+ * hole is never asked for again — so without this the map goes on drawing the parent stretched,
+ * and saying so, over tiles that are on the card now. Called at most every MAPS_JOB_POLL_MS.
+ * Only the levels written since the last look are forgotten (a job goes level by level, from
+ * TILE_ZOOM_BASE up): forgetting everything would re-ask the card for every hole of every
+ * position every ten seconds, most of them still holes. */
+bool MapsApp::jobTilesLanded() {
+  if (areaSel < 0) {
+    return false;
+  }
+  tileFetchStatus(&jobSt);
+  if (!(jobSt.active || jobSt.finished) || strcmp(jobSt.source, areas[areaSel].name) != 0) {
+    jobSeen = false;             // no job, or it is filling another folder
+    return false;
+  }
+  /* A run this map did not watch from its last look — the first sighting, another job (a new
+   * total), a restart (done went back) or one that began since — may have written anything
+   * from TILE_ZOOM_BASE up to where it is now. */
+  const bool fresh = !jobSeen || jobSt.total != jobSeenTotal || jobSt.done < jobSeenDone ||
+                     (jobSt.active && !jobSeenActive);
+  const bool wrote = fresh ? (jobSt.done > 0) : (jobSt.done != jobSeenDone);
+  int zLo = fresh ? TILE_ZOOM_BASE : jobSeenZ;
+  int zHi = jobSt.curZ;
+  if (zLo > zHi) {
+    const int t = zLo;           // a pass that went back to the coarse levels
+    zLo = zHi;
+    zHi = t;
+  }
+  jobSeen = true;
+  jobSeenActive = jobSt.active;
+  jobSeenDone = jobSt.done;
+  jobSeenZ = jobSt.curZ;
+  jobSeenTotal = jobSt.total;
+  /* A redraw only when a hole at those levels was forgotten: the job writing somewhere this
+   * map has not asked about changes nothing on the screen. */
+  return wrote && forgetMissingLevels(zLo, zHi) > 0;
 }
 
 bool MapsApp::startLoad(int z, int tx, int ty) {
-  /* ⚠ isKnownMissing IS PART OF THE REFUSAL, not just a drawing hint. Without it a tile that
-   * is not on the card is re-opened on every 25 ms tick forever: tileLoadStep() fails and
-   * blacklists it, but nothing redraws (a failed piece returns DO_NOTHING), so `wantAny` still
-   * points at it on the next tick and the whole cycle repeats forty times a second — an SD
-   * open, a failure and a log line each time, on a phone in somebody's pocket. */
+  /* ⚠ isKnownMissing IS PART OF THE REFUSAL, not just a drawing hint. drawMap never wants a
+   * known-missing tile, but a want can go stale between the draw and the tick, and without
+   * this a tile that is not on the card would be opened, fail, redraw and be opened again —
+   * an SD open, a failure and a log line each time, on a phone in somebody's pocket. */
   if (loadActive || tileMemFail || areaSel < 0 || isKnownMissing(z, tx, ty)) {
     return false;
   }
@@ -981,38 +1026,44 @@ void MapsApp::cancelLoad() {
  * opened and its length was right, so this is the card or the bus having a moment — and the
  * card in this phone is one the README already warns can throw write errors under load. A
  * blacklist is for the session, so a single hiccup would leave a grey square in the middle of
- * the map until the app was closed and reopened. One retry from the top first; a second
- * failure is real and gets the blacklist. Returns false (no tile finished) either way. */
-bool MapsApp::tileReadFailed(const char* what) {
+ * the map until the app was closed and reopened. One retry from the top first (LOAD_PIECE);
+ * a second failure is real and gets the blacklist as BAD (LOAD_MISS): the position falls back
+ * to its parent, and the chip says "card read error" rather than passing it off as stretching. */
+int MapsApp::tileReadFailed(const char* what) {
   if (loadRetries < 1) {
     loadRetries++;
     loadGot = 0;                     // start this tile again rather than trusting a torn read
     log_e("MAPS: tile %d/%d/%d %s failed - one more go", loadZ, loadTx, loadTy, what);
-    return false;                    // still loadActive: the next tick picks it up
+    return LOAD_PIECE;               // still loadActive: the next tick picks it up
   }
   log_e("MAPS: tile %d/%d/%d %s failed twice - giving up on it", loadZ, loadTx, loadTy, what);
-  rememberMissing(loadZ, loadTx, loadTy);
+  rememberMissing(loadZ, loadTx, loadTy, true);
   cancelLoad();
-  return false;
+  return LOAD_MISS;
 }
 
-bool MapsApp::tileLoadStep() {
+/* 🛑 A MISS REDRAWS (the caller returns REDRAW_SCREEN for LOAD_MISS in MAPS_VIEW). drawMap is
+ * the only place a want is chosen, and a stretched position finds its ancestor one level per
+ * miss. Without the repaint, cancelLoad() has cleared the want and nothing asks again: the
+ * screen sits grey saying "4 tiles..." until a key is pressed — at the edge of an area's
+ * tiles as much as under a stretch. */
+int MapsApp::tileLoadStep() {
   if (!loadActive || loadSlot < 0 || !slots[loadSlot].px) {
     loadActive = false;
-    return false;
+    return LOAD_PIECE;
   }
   char path[160];
   if (areaSel < 0 ||
       !mapTilePath(path, sizeof(path), MAPS_ROOT, areas[areaSel].name, loadZ, loadTx, loadTy)) {
-    rememberMissing(loadZ, loadTx, loadTy);
+    rememberMissing(loadZ, loadTx, loadTy, false);
     cancelLoad();
-    return false;
+    return LOAD_MISS;
   }
   File f = SD.open(path, FILE_READ);
   if (!f) {
-    rememberMissing(loadZ, loadTx, loadTy);
+    rememberMissing(loadZ, loadTx, loadTy, false);
     cancelLoad();
-    return false;
+    return LOAD_MISS;
   }
   /* 🛑 THE LENGTH IS THE WHOLE FORMAT CHECK, AND IT IS CHECKED ON EVERY PIECE. A raw tile has
    * no header, no magic and no way to be self-describing: a PNG that was copied without being
@@ -1023,9 +1074,9 @@ bool MapsApp::tileLoadStep() {
     log_e("MAPS: %s is %u bytes, expected %u - not a raw tile",
           path, (unsigned)f.size(), (unsigned)MAP_TILE_BYTES);
     f.close();
-    rememberMissing(loadZ, loadTx, loadTy);
+    rememberMissing(loadZ, loadTx, loadTy, true);   // there, but not a tile: BAD, not absent
     cancelLoad();
-    return false;
+    return LOAD_MISS;
   }
   if (loadGot && !f.seek(loadGot)) {
     f.close();
@@ -1047,9 +1098,9 @@ bool MapsApp::tileLoadStep() {
     loadActive = false;
     loadSlot = -1;
     loadGot = 0;
-    return true;
+    return LOAD_DONE;
   }
-  return false;
+  return LOAD_PIECE;
 }
 
 // ---------------------------------------------------------------- drawing primitives
@@ -1189,25 +1240,21 @@ void MapsApp::drawMap() {
   wantAny = false;
   pendingTiles = 0;
   statusLine[0] = '\0';
+  statusIsStretch = false;
+  stretchAny = false;
+  stretchMinL = stretchMaxL = 0;
+  readErrorInView = false;
+  drawSeq++;
 
-  /* ── PAST THE TILES ───────────────────────────────────────────────────────────────────
-   * When the view is deeper than the deepest tiles (overZoom(), app_maps.h), the blits are
-   * worked out for a viewport `mag` times SMALLER at the level the tiles exist, and every
-   * tile pixel is drawn as a mag x mag block. So the arithmetic that decides WHICH tiles and
-   * which pixels is the same proven function; only the push is stretched.
-   *
-   * The centre is shifted down a level by a plain >>, which loses the sub-tile-pixel part —
-   * at 2x that is half a tile pixel, one screen pixel, and a d-pad tap moves 12. The
-   * crosshair readout and the scale bar are computed from `zoom` and stay exact. */
-  const int over = overZoom();
-  const int mag = 1 << over;
-  const int tz = zoom - over;
-  int32_t bcx = cx, bcy = cy;
-  int bw = vpW, bh = vpH;
-  mapOverzoomView(cx, cy, vpW, vpH, over, &bcx, &bcy, &bw, &bh);
-
-  MapBlit b[MAP_MAX_BLITS];
-  const int n = mapViewBlits(tz, bcx, bcy, bw, bh, b, MAP_MAX_BLITS);
+  /* ── THE STRETCH (app_maps.h, map_tiles.h) ────────────────────────────────────────────
+   * The blits are worked out at the VIEW zoom, as if every position's own tile were on the
+   * card — the same proven function every frame has always used — and each position is then
+   * drawn from the deepest level that IS there (mapAncestorSrc). One path for all of it: a
+   * real tile is d = 0, one level past the area's deepest tiles is d = 1 from the first level
+   * tried, and a hole far from the downloads is whatever d it takes, down to
+   * MAP_ANCESTOR_MAX_D. Exact at every d: the centre is never rounded to another level, so the
+   * stretched ground sits under the crosshair, the pins and the scale bar to the pixel. */
+  const int n = mapViewBlits(zoom, cx, cy, vpW, vpH, viewBlits, MAP_MAX_BLITS);
   /* The void behind the tiles is painted only where a tile cannot be: the blits tile the
    * viewport completely except past the world's north or south edge, and filling 60,000
    * pixels of PSRAM sprite to paint them over again cost 15 ms of every frame (measured
@@ -1215,86 +1262,118 @@ void MapsApp::drawMap() {
    * colour below, so nothing is left unpainted. */
   long covered = 0;
   for (int i = 0; i < n; i++) {
-    covered += (long)b[i].w * b[i].h;
+    covered += (long)viewBlits[i].w * viewBlits[i].h;
   }
   /* ...and always when the tile loop below will not run at all (no area on the card: the
    * map is drawn blank behind the markers) — the memory-failure branch paints its own. */
-  if (covered != (long)bw * bh || n <= 0 || areaSel < 0) {
+  if (covered != (long)vpW * vpH || n <= 0 || areaSel < 0) {
     lcd.fillRect(vpX, vpY, vpW, vpH, MAP_C_VOID);
   }
 
   int haveTiles = 0;
   if (n > 0 && areaSel >= 0 && !tileMemFail) {
+    const MapArea* a = &areas[areaSel];
+    /* The levels a position may be drawn from: its own zoom, or the deepest the area has if
+     * the view is past it; down to the coarsest the area has, but never more than
+     * MAP_ANCESTOR_MAX_D levels up (256 >> d must stay >= 1: map_tiles.h). */
+    const int topL = zoom < a->zMax ? zoom : a->zMax;
+    const int floorL = (zoom - MAP_ANCESTOR_MAX_D > a->zMin) ? zoom - MAP_ANCESTOR_MAX_D : a->zMin;
     for (int i = 0; i < n; i++) {
-      const MapBlit* q = &b[i];
-      const int si = findSlot(tz, q->tileX, q->tileY);
-      /* Where this piece lands on the screen, and how much of it fits. At mag > 1 the
-       * viewport was rounded UP to whole tile pixels, so the last row and column of blocks
-       * can hang over the edge by up to mag-1 pixels; both are clipped here. */
-      const int dstX = q->dstX * mag, dstY = q->dstY * mag;
-      int pw = q->w * mag, ph = q->h * mag;
-      if (dstX + pw > vpW) {
-        pw = vpW - dstX;
+      const MapBlit* q = &viewBlits[i];
+      /* THE WALK, finest level first. The first READY slot is drawn and ends it. A level known
+       * missing is passed (its entry stamped: it is on the screen, so it must not be evicted).
+       * The first level that is neither is this position's TARGET: wanted if no slot holds it
+       * yet, being read if one does — and a coarser level is never wanted while it is, so an
+       * ancestor is read only once every finer level is known missing. The walk goes on past
+       * the target only to find something ready to show meanwhile. */
+      int drawSi = -1, drawL = -1;
+      bool pending = false;
+      for (int L = topL; L >= floorL; L--) {
+        const int d = zoom - L;
+        const int ax = q->tileX >> d, ay = q->tileY >> d;
+        const int si = findSlot(L, ax, ay);
+        if (si >= 0 && slots[si].ready) {
+          drawSi = si;
+          drawL = L;
+          break;
+        }
+        const int mi = mapMissFind(misses, missCount, L, ax, ay);
+        if (mi >= 0) {
+          misses[mi].hit = drawSeq;
+          if (misses[mi].bad) {
+            readErrorInView = true;
+          }
+          continue;
+        }
+        if (!pending) {
+          pending = true;
+          if (si < 0 && !wantAny) {
+            wantAny = true;
+            wantZ = L;
+            wantTx = ax;
+            wantTy = ay;
+          }
+        }
       }
-      if (dstY + ph > vpH) {
-        ph = vpH - dstY;
-      }
-      if (pw <= 0 || ph <= 0) {
-        continue;
-      }
-      if (si >= 0 && slots[si].ready) {
-        slots[si].used = ++useSeq;
-        haveTiles++;
-        /* Row at a time. pushImage's `w` is both the width AND the source stride, so a
-         * sub-rectangle of a 256-wide tile cannot be pushed in one call; a row can, and the
-         * source pointer is the row's start. Every coordinate here is already inside both the
-         * tile and the viewport — mapViewBlits guarantees it, and test_maptiles proves it.
-         * (Tried 2026-09-20: swapping once at load and memcpy-ing rows here saved nothing
-         * measurable — the ~18 ms these rows cost a frame is PSRAM-to-PSRAM bandwidth, not
-         * the swap. Left as it was.) */
+      MapAncestorBlit ab;
+      if (drawSi >= 0 && mapAncestorSrc(q, zoom - drawL, &ab)) {
+        /* 🛑 EVERY SLOT DRAWN IS BUMPED, ancestor or not. An unbumped ancestor is the LRU
+         * victim of the next load, so two positions showing two ancestors would evict each
+         * other's by turns forever: 128 KB of reads per tile, forty times a second. */
+        slots[drawSi].used = ++useSeq;
+        haveTiles++;             // drawn from ANY level: a stretched map is not "no tiles here"
+        if (drawL < zoom) {
+          /* Stretched — including while this position's own tile is still on its way: this
+           * is what is on the screen, so this is what the chip says. */
+          if (!stretchAny || drawL < stretchMinL) {
+            stretchMinL = drawL;
+          }
+          if (!stretchAny || drawL > stretchMaxL) {
+            stretchMaxL = drawL;
+          }
+          stretchAny = true;
+        }
+        /* 🛑 NON-CONST, ON PURPOSE. TFT_eSprite::pushImage has a `const uint16_t*` overload and
+         * it is the PROGMEM one: it swaps the bytes when the flag says NOT to, and clips
+         * nothing. A `const` row pointer selects it silently and every tile reaches the glass
+         * byte-swapped — a recognisable map in the wrong colours. Rows pushed from here are
+         * `uint16_t*` (the slot's own pixels, or wideRow). */
+        uint16_t* tile = slots[drawSi].px;
         lcdNativePixels(lcd, true);
-        if (mag == 1) {
+        if (ab.scale == 1) {
+          /* Row at a time. pushImage's `w` is both the width AND the source stride, so a
+           * sub-rectangle of a 256-wide tile cannot be pushed in one call; a row can, and the
+           * source pointer is the row's start. Every coordinate here is already inside both the
+           * tile and the viewport — mapViewBlits guarantees it, and test_maptiles proves it.
+           * (Tried 2026-09-20: swapping once at load and memcpy-ing rows here saved nothing
+           * measurable — the ~18 ms these rows cost a frame is PSRAM-to-PSRAM bandwidth, not
+           * the swap. Left as it was.) */
           for (int r = 0; r < q->h; r++) {
-            uint16_t* row = slots[si].px + (size_t)(q->srcY + r) * MAP_TILE_PX + q->srcX;
+            uint16_t* row = tile + (size_t)(ab.sy0 + r) * MAP_TILE_PX + ab.sx0;
             lcd.pushImage(vpX + q->dstX, vpY + q->dstY + r, (uint16_t)q->w, 1, row);
           }
         } else {
-          /* One source row, widened into `wide`, then pushed mag times. TFT_WIDTH px of
-           * uint16 is 480 bytes of stack — the screen's width is the cap, so this cannot
-           * grow with the tile size. `pw` was clipped to vpW above and vpW is the screen
-           * width; the min() is a belt for a future wider viewport rather than a live case. */
-          uint16_t wide[TFT_WIDTH];
-          const int cap = pw < TFT_WIDTH ? pw : TFT_WIDTH;
-          for (int r = 0; r < q->h; r++) {
-            const uint16_t* row = slots[si].px + (size_t)(q->srcY + r) * MAP_TILE_PX + q->srcX;
-            int w = 0;
-            for (int sx = 0; sx < q->w && w < cap; sx++) {
-              for (int k = 0; k < mag && w < cap; k++) {
-                wide[w++] = row[sx];
-              }
-            }
-            for (int k = 0; k < mag; k++) {
-              const int y = dstY + r * mag + k;
-              if (y >= vpH) {
-                break;
-              }
-              lcd.pushImage(vpX + dstX, vpY + y, (uint16_t)w, 1, wide);
+          /* One ancestor row, widened into `wideRow` (mapAncestorRow, the phase-cut first
+           * column included), then pushed once for each screen row it covers. The piece lies
+           * inside the viewport at the view zoom already, so nothing here needs clipping and
+           * nothing starts at a negative x or y. */
+          const int cap = q->w < TFT_WIDTH ? q->w : TFT_WIDTH;
+          for (int r = 0; r < ab.sh; r++) {
+            int y0 = 0;
+            const int rows = mapAncestorRow(&ab, tile, r, wideRow, cap, &y0);
+            for (int k = 0; k < rows; k++) {
+              lcd.pushImage(vpX + q->dstX, vpY + q->dstY + y0 + k, (uint16_t)cap, 1, wideRow);
             }
           }
         }
         lcdNativePixels(lcd, false);
       } else {
-        const bool missing = isKnownMissing(tz, q->tileX, q->tileY);
-        fillClipped(vpX + dstX, vpY + dstY, pw, ph,
-                    missing ? MAP_C_NOTILE : MAP_C_LOADING);
-        if (!missing) {
+        /* Nothing ready at any level. LOADING while some level is still to be asked for or is
+         * on its way; NOTILE once every level down to the floor is known missing. */
+        fillClipped(vpX + q->dstX, vpY + q->dstY, q->w, q->h,
+                    pending ? MAP_C_LOADING : MAP_C_NOTILE);
+        if (pending) {
           pendingTiles++;
-          if (!wantAny && si < 0) {
-            wantAny = true;
-            wantZ = tz;
-            wantTx = q->tileX;
-            wantTy = q->tileY;
-          }
         }
       }
     }
@@ -1302,6 +1381,10 @@ void MapsApp::drawMap() {
     lcd.fillRect(vpX, vpY, vpW, vpH, MAP_C_NOTILE);
   }
 
+  /* One sentence, most important first. A position drawn from an ancestor counts as HAVING a
+   * tile and not as pending, so a view drawn entirely from stretched tiles says what it is
+   * stretching rather than "no tiles here" or "4 tiles...". A tile the card could not read
+   * outranks the stretch label: a failing card must not pass for ordinary stretching. */
   if (tileMemFail) {
     strlcpy(statusLine, "no memory for tiles", sizeof(statusLine));
   } else if (areaSel < 0) {
@@ -1309,10 +1392,13 @@ void MapsApp::drawMap() {
   } else if (pendingTiles > 0) {
     snprintf(statusLine, sizeof(statusLine), "%d tile%s...", pendingTiles,
              pendingTiles == 1 ? "" : "s");
+  } else if (readErrorInView) {
+    strlcpy(statusLine, "card read error", sizeof(statusLine));
   } else if (haveTiles == 0) {
     strlcpy(statusLine, "no tiles here", sizeof(statusLine));
-  } else if (over > 0) {
-    snprintf(statusLine, sizeof(statusLine), "z%d tiles stretched %dx", tz, mag);
+  } else if (stretchAny) {
+    statusIsStretch = mapStretchLabel(statusLine, sizeof(statusLine), zoom,
+                                      stretchMinL, stretchMaxL, 0) > 0;
   }
 
   drawOverlays();
@@ -1422,18 +1508,22 @@ void MapsApp::drawOverlays() {
   const int selfKind = selfPosition(&selfLat, &selfLon, &selfAge);
 
   if (measuring) {
-    /* The anchor and a dashed line to the crosshair. Both ends may be far off-screen;
-     * mapLatLonToView still returns their coordinates, and the sprite's drawLine clips per
-     * pixel, so the line is drawn between the two points as they are and the parts inside
-     * the viewport are what appear. Dashed by drawing every other 6 px segment. */
+    /* The anchor and a dashed line to the crosshair. The anchor may be far off-screen —
+     * mapLatLonToView still returns its coordinates — so the line runs between the two points
+     * as they are and the part inside the viewport is what appears. Dashed by drawing every
+     * other 6 px step, counted from the anchor. 🛑 The steps worth drawing are found by
+     * clipping the line to the viewport first, and each point is an int64 product
+     * (mapDashRange / mapDashAt): in int32, `dx * s` overflows for an anchor 46 km away at
+     * z18, and walking all |dx|/6 steps is 413k a frame at 1000 km. */
     int ax = 0, ay = 0;
     mapLatLonToView(zoom, cx, cy, vpW, vpH, mapI7ToDeg(measLatI), mapI7ToDeg(measLonI), &ax, &ay);
     const int x0 = vpX + ax, y0 = vpY + ay, x1 = vpX + vpW / 2, y1 = vpY + vpH / 2;
-    const int dx = x1 - x0, dy = y1 - y0;
-    const int steps = (abs(dx) > abs(dy) ? abs(dx) : abs(dy)) / 6;
-    for (int s = 0; s < steps; s += 2) {
-      const int sx0 = x0 + dx * s / steps, sy0 = y0 + dy * s / steps;
-      const int sx1 = x0 + dx * (s + 1) / steps, sy1 = y0 + dy * (s + 1) / steps;
+    int64_t sFirst = 0, sEnd = 0;
+    const int64_t steps = mapDashRange(x0, y0, x1, y1, vpX, vpY, vpW, vpH, 6, &sFirst, &sEnd);
+    for (int64_t s = sFirst; s < sEnd; s += 2) {
+      int sx0 = 0, sy0 = 0, sx1 = 0, sy1 = 0;
+      mapDashAt(x0, y0, x1, y1, s, steps, &sx0, &sy0);
+      mapDashAt(x0, y0, x1, y1, s + 1, steps, &sx1, &sy1);
       /* ⚠ ONLY SEGMENTS WITH BOTH ENDS INSIDE THE VIEWPORT: TFT_eSprite::drawLine clips
        * per pixel on the SPRITE, but the sprite is the whole screen, so a segment over the
        * header or the footer would be drawn on top of them. Clip to the map here. */
@@ -1596,14 +1686,30 @@ void MapsApp::drawChips() {
     return;
   }
 
-  /* ⚠ THE STATUS CHIP IS DRAWN FIRST AND TAKES THE ROOM IT NEEDS. "no map on the card" is the
-   * most important sentence this screen can say, and the z/area chip beside it is the least;
-   * when they compete for 240 pixels the wrong one used to win, because it was drawn first
-   * and the other was simply skipped. */
+  /* The star is the one always-visible sign that pixels are borrowed from a shallower level —
+   * ANY position in view, not only past the area's deepest tiles (drawMap's stretch summary).
+   * Without it a fuzzy screen reads as a bad tile or a dirty lens. 🛑 "z18*" IS THE FLOOR OF
+   * THE CORNER CHIP: nothing below trims it, and the status chip leaves room for it — the
+   * longest stretch label is exactly when the star matters most. */
+  char left[48];
+  snprintf(left, sizeof(left), "z%d%s", zoom, stretchAny ? "*" : "");
+  const size_t floorN = strlen(left);
+  const int floorW = lcd.textWidth(left) + 8;
+
+  /* ⚠ THE STATUS CHIP IS DRAWN FIRST AND TAKES THE ROOM IT NEEDS — all of it but the corner
+   * chip's floor. "no map on the card" is the most important sentence this screen can say,
+   * and the area name beside it is the least; when they compete for 240 pixels the wrong one
+   * used to win, because it was drawn first and the other was simply skipped. A stretch label
+   * that will not fit is shortened ("z16-14 x2-8") before anything is dropped. */
   int rightEdge = vpX + vpW;
   if (statusLine[0]) {
-    const int sw = lcd.textWidth(statusLine);
-    if (sw + 8 <= vpW) {
+    const int avail = vpW - floorW - 4;
+    int sw = lcd.textWidth(statusLine);
+    if (statusIsStretch && sw + 8 > avail &&
+        mapStretchLabel(statusLine, sizeof(statusLine), zoom, stretchMinL, stretchMaxL, 1) > 0) {
+      sw = lcd.textWidth(statusLine);
+    }
+    if (sw + 8 <= avail) {
       const int sx = vpX + vpW - sw - 8;
       fillClipped(sx, vpY, sw + 8, chipH, MAP_C_CHIP);
       lcd.setTextColor(0xFD20, MAP_C_CHIP);
@@ -1615,15 +1721,11 @@ void MapsApp::drawChips() {
   /* An area name may be 31 characters and this chip is not that wide. Trim it to what is left
    * rather than drawing a grey bar with nothing in it, which is what a bare width test gives
    * you: the background had already been painted before the text was skipped. */
-  char left[48];
-  /* The star is the one always-visible sign that the pixels are borrowed from a level up.
-   * Without it a fuzzy screen reads as a bad tile or a dirty lens. */
-  snprintf(left, sizeof(left), "z%d%s %s", zoom, overZoom() ? "*" : "",
-           areaSel >= 0 ? areas[areaSel].name : "-");
+  snprintf(left + floorN, sizeof(left) - floorN, " %s", areaSel >= 0 ? areas[areaSel].name : "-");
   const int room = rightEdge - vpX - 4;
   size_t n = strlen(left);
   int lw = lcd.textWidth(left);
-  while (lw + 8 > room && n > 3) {
+  while (lw + 8 > room && n > floorN) {
     left[--n] = '\0';
     lw = lcd.textWidth(left);
   }
@@ -2885,12 +2987,15 @@ static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "", WHITE },
   { "grey ring    ...or a poor fix", MAP_C_NODE_OLD },
   { "             (<4 sats or HDOP >10)", MAP_C_NODE_OLD },
-  { "grey square  tile not on the card", WHITE },
+  { "grey square  no tile at any level", WHITE },
   { "", WHITE },
-  { "z16* means one level PAST the", MAP_C_PIN },
-  { "  tiles: they are stretched 2x,", WHITE },
-  { "  so it is bigger and fuzzy, not", WHITE },
-  { "  sharper. The scale bar is right.", WHITE },
+  /* The star: ANY position drawn from a shallower tile, not only one level past the deepest
+   * (drawMap's stretch walk). Measured with SmoothFont::textWidth's own rule over the
+   * Akrobat_Bold16 glyph table: 181-190 px, and 203 for the "grey square" row above. */
+  { "A star (z18*): part of the view", MAP_C_PIN },
+  { "  is a shallower tile stretched;", WHITE },
+  { "  the chip says which and how", WHITE },
+  { "  much. The scale bar is right.", WHITE },
   { "", WHITE },
   { "See docs/maps.md for the tiles.", WHITE },
   { "", WHITE },
@@ -3306,6 +3411,15 @@ appEventResult MapsApp::processEvent(EventType event) {
         }
       }
     }
+    /* A download filling the area on the screen (jobTilesLanded): tiles it has written since
+     * the last look are read now, instead of their parents staying stretched over them. */
+    if (appState == MAPS_VIEW && (uint32_t)(millis() - jobPollMs) >= MAPS_JOB_POLL_MS) {
+      jobPollMs = millis();
+      if (jobTilesLanded()) {
+        return REDRAW_SCREEN;
+      }
+      armTimer();                // a download that has ended stands its slow tick down
+    }
     if (followMe && appState == MAPS_VIEW && !loadActive) {
       /* A newer usable fix than the one last centred on: follow it. A stale or poor fix, or
        * none, leaves the view exactly where it is. */
@@ -3338,13 +3452,18 @@ appEventResult MapsApp::processEvent(EventType event) {
       /* ⚠ A REFUSED START MUST NOT BE RETRIED AT 40 Hz. startLoad only refuses for reasons
        * that will still be true in 25 ms — no area, no PSRAM, no free slot — so asking again
        * immediately is a spin that keeps the CPU awake and achieves nothing. Forget the want
-       * and stand the timer down; the next repaint re-discovers the hole if it still matters. */
+       * and stand the fast tick down (armTimer keeps any slow one — follow, a download's
+       * poll); the next repaint re-discovers the hole if it still matters. */
       wantAny = false;
-      controlState.msAppTimerEventPeriod = 0;
+      armTimer();
       return DO_NOTHING;
     }
-    if (loadActive && tileLoadStep()) {
-      return (appState == MAPS_VIEW) ? REDRAW_SCREEN : DO_NOTHING;
+    if (loadActive) {
+      /* A finished tile redraws, and so does a MISS: the next level down is only chosen by
+       * drawMap, so without the repaint a stretched position would wait for a keypress. */
+      if (tileLoadStep() != LOAD_PIECE) {
+        return (appState == MAPS_VIEW) ? REDRAW_SCREEN : DO_NOTHING;
+      }
     }
     /* Deliberately no redraw while a piece is merely in flight: repainting 240x250 to change
      * nothing is the sort of busy-work that shows up as a warm phone and a flat battery. */
@@ -4006,7 +4125,11 @@ void MapsApp::armTimer() {
   /* A held arrow polls the key every 50 ms until the finger comes off — a bounded burst, and
    * the map is being scrolled, so the CPU is awake for it anyway. */
   const bool holding = panHoldMask && (appState == MAPS_VIEW);
-  controlState.msAppTimerEventPeriod = busy ? 25 : (holding ? 50 : (progress ? 250 : (following ? 1000 : 0)));
+  /* A download running under the map: a tick every MAPS_JOB_POLL_MS to see whether it has
+   * written into the area on the screen (jobTilesLanded). The download holds the CPU up anyway. */
+  const bool jobPoll = (appState == MAPS_VIEW) && tileFetchActive();
+  controlState.msAppTimerEventPeriod = busy ? 25 : (holding ? 50 : (progress ? 250 :
+                                       (following ? 1000 : (jobPoll ? MAPS_JOB_POLL_MS : 0))));
 }
 
 // ---------------------------------------------------------------- the serial console

@@ -216,29 +216,6 @@ int mapZoomView(int zMin, int zMax, int z, int delta, int vw, int vh,
   return nz;
 }
 
-void mapOverzoomView(int32_t cx, int32_t cy, int vw, int vh, int over,
-                     int32_t* bcx, int32_t* bcy, int* bw, int* bh) {
-  if (over < 0) {
-    over = 0;
-  }
-  if (over > MAP_OVERZOOM_MAX) {
-    over = MAP_OVERZOOM_MAX;
-  }
-  const int mag = 1 << over;
-  if (bcx) {
-    *bcx = over ? (int32_t)(((int64_t)cx + (mag >> 1)) >> over) : cx;
-  }
-  if (bcy) {
-    *bcy = over ? (int32_t)(((int64_t)cy + (mag >> 1)) >> over) : cy;
-  }
-  if (bw) {
-    *bw = over ? (vw + mag - 1) / mag : vw;
-  }
-  if (bh) {
-    *bh = over ? (vh + mag - 1) / mag : vh;
-  }
-}
-
 int mapViewBlits(int z, int32_t cx, int32_t cy, int vw, int vh, MapBlit* out, int cap) {
   if (!out || cap <= 0 || vw <= 0 || vh <= 0) {
     return -1;
@@ -292,6 +269,193 @@ int mapViewBlits(int z, int32_t cx, int32_t cy, int vw, int vh, MapBlit* out, in
     wy += hh;
   }
   return n;
+}
+
+// ---------------------------------------------------------------- the stretch
+
+int mapAncestorSrc(const MapBlit* b, int d, MapAncestorBlit* out) {
+  if (!b || !out || d < 0 || d > MAP_ANCESTOR_MAX_D) {
+    return 0;
+  }
+  if (b->tileX < 0 || b->tileY < 0 || b->srcX < 0 || b->srcY < 0 || b->w <= 0 || b->h <= 0 ||
+      b->srcX + b->w > MAP_TILE_PX || b->srcY + b->h > MAP_TILE_PX) {
+    return 0;
+  }
+  const int sub = MAP_TILE_PX >> d;      // the position's side in ancestor pixels: >= 1 because d <= 8
+  const int mask = (1 << d) - 1;
+  out->ax = b->tileX >> d;
+  out->ay = b->tileY >> d;
+  // Where the position sits inside its ancestor, plus how far into the position the piece starts.
+  out->sx0 = (b->tileX & mask) * sub + (b->srcX >> d);
+  out->sy0 = (b->tileY & mask) * sub + (b->srcY >> d);
+  // From the ancestor pixel holding the first screen pixel to the one holding the last.
+  out->sw = ((b->srcX + b->w - 1) >> d) - (b->srcX >> d) + 1;
+  out->sh = ((b->srcY + b->h - 1) >> d) - (b->srcY >> d) + 1;
+  out->scale = 1 << d;
+  out->phx = b->srcX & mask;
+  out->phy = b->srcY & mask;
+  out->w = b->w;
+  out->h = b->h;
+  return 1;
+}
+
+int mapAncestorRow(const MapAncestorBlit* a, const uint16_t* tile, int r,
+                   uint16_t* out, int cap, int* y0) {
+  if (y0) {
+    *y0 = 0;
+  }
+  if (!a || !tile || !out || cap <= 0 || r < 0 || r >= a->sh || a->scale < 1) {
+    return 0;
+  }
+  /* The screen rows this ancestor row covers. The first is cut short by the phase: `phy` of
+   * its rows lie above the piece and belong to the piece above (or to nothing on screen). */
+  const int top = (r == 0) ? 0 : (a->scale - a->phy) + (r - 1) * a->scale;
+  int rows = (r == 0) ? (a->scale - a->phy) : a->scale;
+  if (top >= a->h) {
+    return 0;                          // past the piece: not reachable for r < sh
+  }
+  if (top + rows > a->h) {
+    rows = a->h - top;
+  }
+  const uint16_t* src = tile + (size_t)(a->sy0 + r) * MAP_TILE_PX + a->sx0;
+  const int w = a->w < cap ? a->w : cap;
+  int x = 0;
+  for (int c = 0; c < a->sw && x < w; c++) {
+    int run = (c == 0) ? (a->scale - a->phx) : a->scale;   // the first column: the same cut
+    if (x + run > w) {
+      run = w - x;
+    }
+    const uint16_t p = src[c];
+    for (int k = 0; k < run; k++) {
+      out[x++] = p;
+    }
+  }
+  if (y0) {
+    *y0 = top;
+  }
+  return rows;
+}
+
+int mapStretchLabel(char* out, size_t cap, int zoom, int minL, int maxL, int compact) {
+  if (!out || cap == 0) {
+    return 0;
+  }
+  out[0] = '\0';
+  if (minL < 0 || minL > maxL || maxL >= zoom || zoom - minL > MAP_ANCESTOR_MAX_D) {
+    return 0;
+  }
+  const int fDeep = 1 << (zoom - maxL);       // the deepest level is stretched the least
+  const int fShallow = 1 << (zoom - minL);
+  int n;
+  if (minL == maxL) {
+    n = compact ? snprintf(out, cap, "z%d x%d", maxL, fDeep)
+                : snprintf(out, cap, "z%d tiles stretched %dx", maxL, fDeep);
+  } else {
+    n = compact ? snprintf(out, cap, "z%d-%d x%d-%d", maxL, minL, fDeep, fShallow)
+                : snprintf(out, cap, "z%d-%d stretched %d-%dx", maxL, minL, fDeep, fShallow);
+  }
+  if (n < 0 || (size_t)n >= cap) {
+    out[0] = '\0';                     // a cut label would state the wrong factor: none at all
+    return 0;
+  }
+  return n;
+}
+
+int mapMissFind(const MapMiss* m, int n, int z, int tx, int ty) {
+  if (!m) {
+    return -1;
+  }
+  for (int i = 0; i < n; i++) {
+    if (m[i].z == z && m[i].tx == tx && m[i].ty == ty) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+int mapMissSlot(const MapMiss* m, int n, int cap) {
+  if (!m || cap < 1) {
+    return -1;
+  }
+  if (n < cap) {
+    return n < 0 ? 0 : n;
+  }
+  int best = 0;
+  for (int i = 1; i < cap; i++) {
+    if ((int32_t)(m[i].hit - m[best].hit) < 0) {
+      best = i;                        // signed difference: `hit` is a counter and counters wrap
+    }
+  }
+  return best;
+}
+
+// ---------------------------------------------------------------- the ruler's dashes
+
+int64_t mapDashRange(int x0, int y0, int x1, int y1, int bx, int by, int bw, int bh,
+                     int dash, int64_t* first, int64_t* end) {
+  if (first) {
+    *first = 0;
+  }
+  if (end) {
+    *end = 0;
+  }
+  if (dash < 1 || bw <= 0 || bh <= 0) {
+    return 0;
+  }
+  const int64_t dx = (int64_t)x1 - x0, dy = (int64_t)y1 - y0;
+  const int64_t adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
+  const int64_t steps = (adx > ady ? adx : ady) / dash;
+  if (steps <= 0) {
+    return 0;
+  }
+  /* The crosshair end is the viewport's centre, so the part of the line inside the box is one
+   * run of steps ending at `steps`. If it is not inside, nothing is tried: this answers the
+   * question the ruler asks and no other. */
+  if (x1 < bx || x1 >= bx + bw || y1 < by || y1 >= by + bh) {
+    return steps;
+  }
+  /* Where the line ENTERS the box: Liang-Barsky's lower bound on t. Only the lower bound —
+   * the far end is inside. The steps are truncated toward zero (mapDashAt, as the old int code
+   * did), which moves a point toward the anchor and so can only enter LATER than this t; two
+   * steps early is a margin for the double arithmetic, not for that. */
+  double lo = 0.0;
+  const double p[4] = { -(double)dx, (double)dx, -(double)dy, (double)dy };
+  const double q[4] = { (double)x0 - bx, (double)(bx + bw - 1) - x0,
+                        (double)y0 - by, (double)(by + bh - 1) - y0 };
+  for (int k = 0; k < 4; k++) {
+    if (p[k] < 0.0) {
+      const double t = q[k] / p[k];
+      if (t > lo) {
+        lo = t;
+      }
+    }
+  }
+  int64_t f = (int64_t)(lo * (double)steps) - 2;
+  if (f < 0) {
+    f = 0;
+  }
+  f &= ~(int64_t)1;                    // even: every other step from the ANCHOR is drawn
+  if (first) {
+    *first = f;
+  }
+  if (end) {
+    *end = steps;
+  }
+  return steps;
+}
+
+void mapDashAt(int x0, int y0, int x1, int y1, int64_t s, int64_t steps, int* x, int* y) {
+  if (steps <= 0) {
+    s = 0;
+    steps = 1;
+  }
+  // Between the two ends for 0 <= s <= steps, so it fits back in an int.
+  if (x) {
+    *x = (int)(x0 + ((int64_t)x1 - x0) * s / steps);
+  }
+  if (y) {
+    *y = (int)(y0 + ((int64_t)y1 - y0) * s / steps);
+  }
 }
 
 int mapLatLonToView(int z, int32_t cx, int32_t cy, int vw, int vh,

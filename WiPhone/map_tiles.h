@@ -59,10 +59,29 @@
  * exactly what the deepest tiles hold and only the scale changes — which is the point. The
  * arithmetic below is untouched by this: the VIEW still lives at the zoom the user chose (so
  * the scale bar, the pin projection and the crosshair readout all stay truthful at 1 screen
- * pixel = 1 world pixel), and only the tile FETCH is pulled back to the level that exists.
- * See MapsApp::overZoom()/tileZoom() and drawMap(). Two levels (4x) was not offered: a 4x
- * block is a screen of 64 fat squares and nothing is learned from it. */
+ * pixel = 1 world pixel), and only the tile FETCH is pulled back to a level that exists —
+ * mapAncestorSrc() below, the same path that fills a hole with a shallower tile. Two levels
+ * (4x) was not offered as a ZOOM STEP: a 4x block is a screen of 64 fat squares and nothing is
+ * learned from it. (A hole can still be filled from further up; that is not a choice the user
+ * made, and the status chip says it.) */
 #define MAP_OVERZOOM_MAX  1
+
+/* ── THE STRETCH: THE MOST DETAILED TILE THERE IS, PER POSITION ──────────────────────────
+ * Nick, 2026-09-23: "if the more detailed zoom levels don't exist, don't just let the higher
+ * zooms go blank, just stretch the most detailed available tile and say what tile is being
+ * stretched and by how much". So every tile POSITION on the screen (a tile at the VIEW zoom)
+ * is drawn from the deepest level the card has there: its own tile, else its parent's quarter
+ * of the parent tile stretched 2x, else its grandparent's sixteenth stretched 4x, and so on.
+ * One level past the deepest tiles (MAP_OVERZOOM_MAX) is simply the case where the first
+ * level tried is already one up.
+ *
+ * `d` is how many levels up the tile drawn is, counted from the VIEW zoom: one screen pixel
+ * is then 1/2^d of an ancestor pixel. 🛑 d NEVER PASSES MAP_ANCESTOR_MAX_D: at d = 8 a
+ * position is ONE ancestor pixel (256 >> 8), and past it the sub-square is less than a pixel
+ * — `256 >> d` is 0 and anything dividing by it divides by zero, which on the ESP32 is a
+ * panic, not a NaN. The pooled cards hold z8 overview tiles, so a z18 view far from any
+ * download really does reach d = 10 if nothing stops it. */
+#define MAP_ANCESTOR_MAX_D  8
 
 // The latitude Web Mercator stops at. Not a rounding of 85: it is atan(sinh(pi)) in degrees.
 #define MAP_LAT_LIMIT     85.0511287798066
@@ -121,19 +140,6 @@ int     mapPanView(int z, int vw, int vh, int dx, int dy, int32_t* cx, int32_t* 
 int     mapZoomView(int zMin, int zMax, int z, int delta, int vw, int vh,
                     int32_t* cx, int32_t* cy);
 
-/* The view to ASK THE BLITS FOR when the screen is `over` levels deeper than the deepest
- * tiles (MAP_OVERZOOM_MAX). Everything is written through: the centre pulled back `over`
- * levels (rounded, so stepping in and out of the stretched level lands on the same ground)
- * and the viewport divided by 2^over, ROUNDED UP so the last row and column of magnified
- * blocks reach the edge of the screen rather than leaving a strip of void. `over` 0 is the
- * identity, which is what every normal frame uses.
- *
- * Its own function, and tested, because the two ways to get this wrong are both invisible:
- * halving the viewport but not the centre shows the wrong ground at the right scale, and
- * rounding the viewport DOWN leaves a 1-2 px unpainted edge that reads as a missing tile. */
-void    mapOverzoomView(int32_t cx, int32_t cy, int vw, int vh, int over,
-                        int32_t* bcx, int32_t* bcy, int* bw, int* bh);
-
 /* Fill `out` with the blits that cover the viewport, top-to-bottom then left-to-right.
  * Returns the count, or -1 when it will not fit in `cap` or the arguments are nonsense.
  *
@@ -149,6 +155,94 @@ void    mapOverzoomView(int32_t cx, int32_t cy, int vw, int vh, int over,
 #define MAP_MAX_BLITS   12
 int     mapViewBlits(int z, int32_t cx, int32_t cy, int vw, int vh,
                      MapBlit* out, int cap);
+
+/* ── ONE PIECE OF THE SCREEN, DRAWN FROM THE TILE `d` LEVELS UP ──────────────────────────
+ * `b` is a blit worked out at the VIEW zoom (mapViewBlits), exactly as if its own tile were on
+ * the card. Its tile's ground is the (b->tileX >> d, b->tileY >> d) tile `d` levels up, in the
+ * (256 >> d)-pixel sub-square at ((tileX mod 2^d) * (256 >> d), (tileY mod 2^d) * ...), and
+ * each ancestor pixel covers scale = 2^d screen pixels each way.
+ *
+ * 🛑 THE PHASE. A piece at the left or top edge of the viewport usually starts PART-WAY
+ * THROUGH an ancestor pixel: srcX = 203 at d = 4 is 11/16 of the way through ancestor
+ * pixel 12 of the sub-square (203 / 16 = 12.69). Rounding that away shifts the stretched ground by up to scale-1 screen pixels against
+ * the crosshair, the pins and the real tile beside it — a road that jogs at the seam, and at
+ * 16x the wrong ground by 15 px, which is the failure that looks right. So the first ancestor
+ * column is drawn only (scale - phx) px wide and the first row (scale - phy) px high; nothing
+ * is ever drawn at a negative position (TFT_eSprite::pushImage does not clip the left or top
+ * edge — a negative x writes before the start of the sprite).
+ *
+ * Returns 1 and fills `out`, or 0 (no blit) for a nonsense blit, d < 0, or d past
+ * MAP_ANCESTOR_MAX_D. d = 0 is the identity: the tile itself, scale 1. The source rectangle
+ * [sx0, sx0 + sw) x [sy0, sy0 + sh) always lies inside the ancestor tile. */
+typedef struct {
+  int ax, ay;            // the ancestor tile, at (view zoom - d)
+  int sx0, sy0;          // the first ancestor pixel the piece touches
+  int sw, sh;            // ancestor pixels across and down it touches (rounded outwards)
+  int scale;             // screen pixels per ancestor pixel: 2^d
+  int phx, phy;          // of the FIRST ancestor column/row, the screen pixels left of/above the piece
+  int w, h;              // the piece's own size on the screen (the blit's)
+} MapAncestorBlit;
+int     mapAncestorSrc(const MapBlit* b, int d, MapAncestorBlit* out);
+
+/* Ancestor row `r` (0 .. a->sh-1) of the piece, widened to screen pixels: writes
+ * min(a->w, cap) pixels of `tile` (the whole 256x256 ancestor) into `out`, and returns how
+ * many screen rows that row covers, starting *y0 rows below the top of the piece. 0 = no such
+ * row. The caller pushes `out` that many times — one widened row per ancestor row, never a
+ * fillRect per stretched pixel (at 2x that is 16,384 calls a tile). This IS the drawing the
+ * phone does, which is why test_maptiles can check it pixel by pixel. */
+int     mapAncestorRow(const MapAncestorBlit* a, const uint16_t* tile, int r,
+                       uint16_t* out, int cap, int* y0);
+
+/* What the status chip says about the stretch in view: the levels drawn stretched (minL..maxL,
+ * any mix) at view zoom `zoom`, where a level L is stretched 2^(zoom - L) times.
+ *   one level:  "z15 tiles stretched 4x"      compact "z15 x4"
+ *   several:    "z16-14 stretched 2-8x"       compact "z16-14 x2-8"
+ * ⚠ DEEPEST LEVEL FIRST, so each end of the range sits beside ITS OWN factor: z16 is the 2x and
+ * z14 the 8x. Written the other way round ("z14-16 stretched 2-8x") it reads as z14 at 2x — the
+ * one fact Nick asked to be told, told backwards. Returns the length, or 0 (and "") when the
+ * summary is nonsense (minL > maxL, a level at or past the zoom, a factor past
+ * 2^MAP_ANCESTOR_MAX_D) or it will not fit. */
+int     mapStretchLabel(char* out, size_t cap, int zoom, int minL, int maxL, int compact);
+
+/* ── TILES KNOWN NOT TO BE ON THE CARD ─────────────────────────────────────────────────
+ * A position far from the downloads walks several levels before it finds a tile, and every
+ * level it passes has to be remembered as missing or the card is re-asked for it on every
+ * frame. `hit` is the frame that last walked past the entry, and a full cache replaces the
+ * entry hit LONGEST ago. That is also what keeps a hole on the screen from being evicted:
+ * everything the frame on the screen walked past carries the newest stamp, so it is chosen
+ * only if EVERY entry is on the screen, which the cache's size rules out (MAPS_MISS_CACHE).
+ * Evicting a hole in view would ask the card for it again at once — the redraw loop this
+ * exists to prevent. `bad` = the file is there but the wrong length or unreadable twice:
+ * still drawn from an ancestor, but the chip says "card read error", because a failing card
+ * in the woods must not pass for ordinary stretching. */
+typedef struct {
+  int32_t  tx, ty;
+  int8_t   z;
+  uint8_t  bad;
+  uint32_t hit;
+} MapMiss;
+int     mapMissFind(const MapMiss* m, int n, int z, int tx, int ty);   // index, or -1
+int     mapMissSlot(const MapMiss* m, int n, int cap);   // where a new one goes; -1 = cap < 1
+
+/* ── THE RULER'S DASHES ───────────────────────────────────────────────────────────────
+ * The dashed line from the anchor (x0,y0) to the crosshair (x1,y1), in steps of `dash` px
+ * counted from the anchor, every other step drawn. Returns the line's step count and writes
+ * [*first, *end): the only steps worth trying, those that can touch the box (bx,by,bw,bh).
+ * *first is even, so the dashes keep their phase from the anchor wherever the line enters.
+ * The crosshair end must be inside the box (it is the viewport's centre); if it is not, the
+ * range is empty.
+ *
+ * 🛑 BOTH HALVES MATTER. The anchor can be a world away (mapLatLonToView writes through): at
+ * z18 an anchor 46 km off is 113,512 px, where `dx * s` overflows int32 — undefined behaviour,
+ * stray dashes wherever a wrapped end lands on the screen — and walking every one of |dx|/6
+ * steps is 413k a frame at 1000 km, to draw the few dozen that show. So the range is found by
+ * clipping the line to the box (Liang-Barsky), and mapDashAt does the product in int64. A
+ * caller still keeps only pieces with both ends inside the box: that test is exact, the range
+ * is just where to look. */
+int64_t mapDashRange(int x0, int y0, int x1, int y1, int bx, int by, int bw, int bh,
+                     int dash, int64_t* first, int64_t* end);
+// Point `s` of `steps` along the line (s = 0 is the anchor, s = steps the crosshair).
+void    mapDashAt(int x0, int y0, int x1, int y1, int64_t s, int64_t steps, int* x, int* y);
 
 /* Project a lat/lon into viewport coordinates. Always writes through vx and vy (a caller drawing an
  * off-screen arrow needs them) and returns 1 only when the point is inside the viewport.

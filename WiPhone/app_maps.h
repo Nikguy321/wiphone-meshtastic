@@ -72,6 +72,7 @@
 #include "map_tiles.h"
 #include "map_pins.h"
 #include "meshtastic_service.h"   // MeshChannel: a pin remembers the channel it is shared on
+#include "tile_fetch.h"           // TileJobStatus: a download filling the area on screen
 
 #define MAPS_ROOT          "/maps"
 #define MAPS_PINS_FILE     "/maps/pins.txt"
@@ -79,7 +80,12 @@
 #define MAPS_MAX_PINS      64      // PSRAM, ~2 KB. A day's worth of marks, not a database.
 #define MAPS_MAX_AREAS     12
 #define MAPS_TILE_SLOTS    6       // x 128 KB PSRAM; see the note above
-#define MAPS_MISS_CACHE    24      // tiles known not to be on the card: do not re-ask per frame
+/* Tiles known not to be on the card, so they are not re-asked every frame. 64 because a
+ * position far from the downloads remembers one hole for every level it walks past (up to
+ * MAP_ANCESTOR_MAX_D + 1 = 9), and 4 positions x 9 = 36 can be on the screen at once. A cache
+ * that has to evict one of THOSE re-asks the card for it at once, redraws, and does it again
+ * (mapMissSlot, map_tiles.h). 16 B each, in the PSRAM app object. */
+#define MAPS_MISS_CACHE    64
 #define MAPS_CHUNK_BYTES   (32u * 1024u)
 #define MAPS_PICK_RADIUS   14      // how near the crosshair a pin must be to be "under" it
 #define MAPS_NOTE_ROWS     2       // the strip grows to this many rows for a long note
@@ -211,9 +217,6 @@ protected:
   int      slotsAlive;
   uint32_t useSeq;
 
-  struct { int z, tx, ty; } misses[MAPS_MISS_CACHE];
-  int      missCount, missNext;
-
   // The load in flight (one at a time, one piece per tick).
   bool     loadActive;
   int      loadSlot, loadZ, loadTx, loadTy;
@@ -223,7 +226,31 @@ protected:
   // Wanted but not resident: what the next load should fetch.
   bool     wantAny;
   int      wantZ, wantTx, wantTy;
-  int      pendingTiles;
+  int      pendingTiles;      // positions painted LOADING: nothing of theirs to draw yet
+
+  // ════ THE STRETCH (2026-09-23): per-position ancestors, their label, the miss cache ════
+  /* Everything drawMap() needs per frame lives HERE, in the PSRAM app object, never on the
+   * stack: drawMap runs on the loop task, whose 8 KB stack has a measured floor of a few hundred
+   * bytes (tile_fetch.h). */
+  MapBlit  viewBlits[MAP_MAX_BLITS];
+  uint16_t wideRow[TFT_WIDTH];      // one ancestor row, widened to screen pixels
+  MapMiss  misses[MAPS_MISS_CACHE]; // tiles known missing (MAPS_MISS_CACHE, mapMissSlot)
+  int      missCount;
+  uint32_t drawSeq;                 // frames drawn: the stamp a miss gets when a frame walks past it
+  /* What the last frame stretched, for the status chip and the corner star: the shallowest and
+   * deepest levels drawn stretched (a level's factor is 2^(zoom - level)). The star shows
+   * whenever ANY position is stretched, not only past the area's deepest level. */
+  bool     stretchAny;
+  int      stretchMinL, stretchMaxL;
+  bool     statusIsStretch;         // statusLine holds the stretch label (drawChips may shorten it)
+  bool     readErrorInView;         // a position fell back past a tile the card could not read
+  /* A download filling the area on screen. Its progress is read every MAPS_JOB_POLL_MS while
+   * the map is up, and the misses at the levels it has written since the last look are
+   * forgotten, so those tiles are read now instead of staying stretched until a rescan. */
+  TileJobStatus jobSt;              // a member, not a local: ~200 B the loop stack cannot spare
+  uint32_t jobPollMs;
+  bool     jobSeen, jobSeenActive;
+  int      jobSeenDone, jobSeenZ, jobSeenTotal;
 
   int      helpTop;         // first help row on screen; the legend does not fit at once
   int      panRun;          // hold repeats so far (the log); 0 = a tap
@@ -292,27 +319,31 @@ protected:
   bool     pinsTruncated;   // the pins file held more than MAPS_MAX_PINS: NEVER save over it
 
   // ---- tiles ----
-  /* ── PAST THE TILES ───────────────────────────────────────────────────────────────────
-   * The view may sit up to MAP_OVERZOOM_MAX levels deeper than the deepest tiles this area
-   * has (map_tiles.h says why). `overZoom()` is how many levels past — 0 almost always —
-   * and `tileZoom()` is the level the tiles are actually read from. EVERYTHING that touches
-   * a tile (the cache, the loader, the missing list, the blits) uses tileZoom(); everything
-   * that is geometry (the scale bar, pins, the crosshair readout, panning) keeps using
-   * `zoom`, because the view really is at that zoom — only the pixels are borrowed from one
-   * level up and stretched. Mixing the two up draws a map that is off by a factor of two,
-   * which on forest is not obvious. */
-  int   overZoom() const;
-  int   tileZoom() const;
-
+  /* ── THE STRETCH: THE MOST DETAILED TILE THERE IS, PER POSITION ────────────────────────
+   * Every tile POSITION on the screen (a tile at the view `zoom`) is drawn from the deepest
+   * level the card has there, walking from min(zoom, area zMax) down to max(area zMin,
+   * zoom - MAP_ANCESTOR_MAX_D) (map_tiles.h). One level past the area's deepest tiles
+   * (MAP_OVERZOOM_MAX) is the same walk, starting one level up. The VIEW stays at `zoom`:
+   * the scale bar, pins, the crosshair readout and panning are geometry at `zoom` and stay
+   * exact — only the pixels are borrowed from a level up and stretched. Mixing the two up
+   * draws a map that is off by a factor of two, which on forest is not obvious.
+   *
+   * The loader wants, per position, the FINEST level that is neither in a slot nor known
+   * missing; a coarser level is read only once every finer one is known missing. Meanwhile
+   * the finest READY level below it is drawn, stretched, and counted as stretched (honest:
+   * that is what is on the screen). A miss redraws, so the walk moves a level down at once. */
   int   findSlot(int z, int tx, int ty) const;    // -1 = not cached
   int   claimSlot();                              // LRU victim, never one mid-load
   bool  isKnownMissing(int z, int tx, int ty) const;
-  void  rememberMissing(int z, int tx, int ty);
+  void  rememberMissing(int z, int tx, int ty, bool bad);   // bad = there, but unreadable
   void  forgetMissing();
+  int   forgetMissingLevels(int zLo, int zHi);    // a download wrote these levels; returns how many went
+  bool  jobTilesLanded();                         // ...has it, since the last look? (MAPS_VIEW tick)
   bool  startLoad(int z, int tx, int ty);
   void  cancelLoad();                             // the zoom or area changed under it
-  bool  tileReadFailed(const char* what);         // one retry, then blacklist
-  bool  tileLoadStep();                           // one piece; true = a tile just finished
+  enum { LOAD_PIECE, LOAD_DONE, LOAD_MISS };      // what one tileLoadStep() did
+  int   tileReadFailed(const char* what);         // one retry (LOAD_PIECE), then blacklist (LOAD_MISS)
+  int   tileLoadStep();                           // one piece; LOAD_DONE = a tile finished
 
   // ---- drawing ----
   /* ⚠ EVERY PIXEL THIS APP DRAWS GOES THROUGH fillClipped OR A GUARDED drawString.
