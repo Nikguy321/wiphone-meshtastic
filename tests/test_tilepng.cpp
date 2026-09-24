@@ -344,10 +344,68 @@ int main() {
     std::vector<uint8_t> p = makePng(im, z, 256, 256, 0, 0, 0);
     std::vector<uint16_t> out(256 * 256);
     char why[96];
-    ok(tileDecode(p.data(), p.size(), out.data(), why, sizeof(why)) && out[0] == im.expect[0],
+    ok(tileDecode(p.data(), p.size(), out.data(), why, sizeof(why)) == TILE_DECODE_OK && out[0] == im.expect[0],
        "tileDecode routes a PNG to the PNG decoder");
-    ok(!tileDecode((const uint8_t*)html, strlen(html), out.data(), why, sizeof(why)) && strstr(why, "page"),
+    ok(tileDecode((const uint8_t*)html, strlen(html), out.data(), why, sizeof(why)) == TILE_DECODE_ERROR && strstr(why, "page"),
        "tileDecode names an HTML body for what it is");
+    const uint8_t tiny[12] = { 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0 };
+    ok(tileDecode(tiny, sizeof(tiny), out.data(), why, sizeof(why)) == TILE_DECODE_ERROR,
+       "a PNG signature with nothing behind it is an ERROR, not a blank");
+  }
+
+  /* OpenTopoMap answers z18 with a 200 and a fully transparent RGBA PNG (measured 2026-09-23).
+   * That is "no tile here", and it must be told apart from a real tile that merely LOOKS like
+   * the nodata grey — which is why it is judged on alpha while unpacking, not on the output. */
+  group("a tile in which every pixel is transparent is BLANK, judged on alpha, not on colour");
+  {
+    char why[96];
+    std::vector<uint16_t> out(256 * 256);
+    Img clear = makeImg(6, 8);
+    for (int y = 0; y < 256; y++) {
+      for (int x = 0; x < 256; x++) {
+        clear.raw[(size_t)y * clear.rowBytes + x * 4 + 3] = 0;
+      }
+    }
+    std::vector<uint8_t> z = filterAndDeflate(clear, -1, 6);
+    std::vector<uint8_t> png = makePng(clear, z, 256, 256, 0, 0, 0);
+    bool blank = false;
+    ok(tilePngDecode(png.data(), png.size(), out.data(), TILE_PNG_NODATA_565, why, sizeof(why), &blank) && blank,
+       "all-transparent RGBA: decodes, and says blank");
+    ok(tileDecode(png.data(), png.size(), out.data(), why, sizeof(why)) == TILE_DECODE_BLANK,
+       "all-transparent RGBA: tileDecode says BLANK");
+
+    Img one = clear;
+    one.raw[(size_t)128 * one.rowBytes + 77 * 4 + 3] = 255;     // a single opaque pixel
+    std::vector<uint8_t> z1 = filterAndDeflate(one, -1, 6);
+    std::vector<uint8_t> png1 = makePng(one, z1, 256, 256, 0, 0, 0);
+    ok(tilePngDecode(png1.data(), png1.size(), out.data(), TILE_PNG_NODATA_565, why, sizeof(why), &blank) && !blank,
+       "the same tile with ONE opaque pixel is not blank");
+    ok(tileDecode(png1.data(), png1.size(), out.data(), why, sizeof(why)) == TILE_DECODE_OK,
+       "...and tileDecode says OK");
+
+    Img grey = makeImg(2, 8);                                     // opaque RGB, every pixel (128,128,128)
+    for (size_t i = 0; i < grey.raw.size(); i++) grey.raw[i] = 128;
+    std::vector<uint8_t> zg = filterAndDeflate(grey, -1, 6);
+    std::vector<uint8_t> pngg = makePng(grey, zg, 256, 256, 0, 0, 0);
+    bool allNodataColour = true;
+    const TileDecodeResult rg = tileDecode(pngg.data(), pngg.size(), out.data(), why, sizeof(why));
+    for (size_t i = 0; i < out.size(); i++) {
+      if (out[i] != TILE_PNG_NODATA_565) allNodataColour = false;
+    }
+    ok(allNodataColour, "an opaque (128,128,128) tile decodes to all 0x8410, the nodata colour...");
+    ok(rg == TILE_DECODE_OK, "...and is still OK: opaque ground is a tile, whatever its colour");
+
+    Img pal = makeImg(3, 8);                                      // OpenTopoMap's own format
+    pal.trns.assign(256, 0);                                      // every palette entry transparent
+    std::vector<uint8_t> zp = filterAndDeflate(pal, -1, 6);
+    std::vector<uint8_t> pngp = makePng(pal, zp, 256, 256, 0, 0, 0);
+    ok(tileDecode(pngp.data(), pngp.size(), out.data(), why, sizeof(why)) == TILE_DECODE_BLANK,
+       "a palette PNG whose tRNS clears every entry is BLANK");
+    Img half = makeImg(6, 8);                                     // the checkerboard: half transparent
+    std::vector<uint8_t> zh = filterAndDeflate(half, -1, 6);
+    std::vector<uint8_t> pngh = makePng(half, zh, 256, 256, 0, 0, 0);
+    ok(tileDecode(pngh.data(), pngh.size(), out.data(), why, sizeof(why)) == TILE_DECODE_OK,
+       "a tile half transparent (a coverage edge) is OK");
   }
 
   printf("\n%s%d passed, %d failed%s\n", g_fail ? "\033[31m" : "\033[32m", g_pass, g_fail, "\033[0m");

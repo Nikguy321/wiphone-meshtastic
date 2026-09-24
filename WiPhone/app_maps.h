@@ -275,12 +275,18 @@ protected:
   // ---- the download screen ----
   int      dlSource;        // index into tileSource()
   int      dlRadiusIdx;     // into MAPS_DL_RADII
-  int      dlDepth;         // deepest zoom asked for
+  int      dlDepth;         // deepest zoom WISHED for (NVS); shown and used clamped to the source (tilePlanDepthShown)
   bool     dlHeld;          // the screen is being held awake for the progress display
   uint32_t dlLastMs;        // last progress rebuild
   MenuOption::keyType dlKeep;   // the row to re-select after a progress rebuild
   char     dlWhy[80];       // why the last Start was refused, shown on the form; "" = it was not
   bool     dlShownRunning;  // what the form last drew, so a job that ended off-screen gets a rebuild
+  /* ---- 0.9.78, multi-day downloads (P2). Kept together so a merge with the view's work is
+   * one hunk. A job that is running or WAITING to resume is shown read-only; Stop is a second
+   * press inside MAPS_DL_STOP_ARM_MS; the screen hold lets go MAPS_DL_HOLD_MS after a key. */
+  bool     dlShownJob;      // the form last drew a running or waiting job (it re-reads once a second)
+  uint32_t dlKeyMs;         // millis() of the last key on the form: the screen hold's clock
+  uint32_t dlStopArmMs;     // millis() of the first Stop press; 0 = not armed
 
   // ---- go to coordinates ----
   char     gotoLat[16], gotoLon[16];

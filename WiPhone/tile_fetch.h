@@ -48,12 +48,30 @@
  *
  * Internal RAM per tile: the WiFiClient's 1.4 KB RX buffer and HTTPClient's URL strings.
  * Everything else — body, decoded tile, decoder pools — is PSRAM.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════
+ * MULTI-DAY JOBS (0.9.78)
+ * ══════════════════════════════════════════════════════════════════════════════════════════
+ * OpenTopoMap has a real z17, and 20 km of it is ~51,000 tiles: about 2.4 days at the phone's
+ * ~4 s a tile. Nothing lasts that long without a WiFi drop, a call, a game or a restart, so:
+ *   - a job is PERSISTED in NVS (source key, network name, centre, radius, depth, and a cursor
+ *     saved at most every 500 tiles / 5 minutes / level end) and a stopped one is RESUMED by the
+ *     loop (tileFetchTick) under the rules of tile_plan.h — the same gates as Start, on the same
+ *     network, with cool-downs after failures and a strike count against reboot loops;
+ *   - within a level the tiles go centre-out in 16x16 blocks (tile_plan.h), so a run cut short
+ *     holds the middle; a resume starts at the cursor instead of re-testing every tile;
+ *   - a run that reaches the end with holes makes ONE second pass over what did not land;
+ *   - a user Stop is final: it forgets the NVS job at once, not when the worker gets round to
+ *     exiting (that can be 20 s: a 15 s HTTP timeout plus the card's write retries).
+ * Every NVS read and write happens on the LOOP task (the tick, Start, Stop): the worker only
+ * publishes its cursor, under a spinlock, for the tick to save.
  */
 #ifndef TILE_FETCH_H
 #define TILE_FETCH_H
 
 #include <stdint.h>
 #include <stddef.h>
+#include "tile_plan.h"                    // TileStopReason, TILE_JOB_MAX_TILES, the resume rules
 
 // ── sources ─────────────────────────────────────────────────────────────────────────────
 typedef struct {
@@ -74,7 +92,7 @@ const TileSource* tileSource(int i);      // NULL past the end
 bool              tileSetCustomUrl(const char* templ, char* why, size_t whyCap);
 
 // ── the job ─────────────────────────────────────────────────────────────────────────────
-#define TILE_ZOOM_BASE 11                 // every area starts here, like COVEY's downloader
+#define TILE_ZOOM_BASE TILE_PLAN_ZOOM_BASE   // every area starts here, like COVEY's downloader
 #define TILE_MAPS_ROOT "/maps"            // == MAPS_ROOT in app_maps.h; the viewer's folder
 
 typedef struct {
@@ -87,7 +105,8 @@ typedef struct {
 typedef struct {
   bool     active;        // the task is running (or about to)
   bool     finished;      // a run completed (look at the counters)
-  bool     paused;        // held by tileFetchPause(true): a call, or WiFi is down
+  bool     paused;        // held by tileFetchPause: a call, a game, or WiFi is down (pauseWhy)
+  uint8_t  pauseWhy;      // 1 = a call, 2 = the Game Boy, 3 = no WiFi
   bool     waitingRam;    // a new connection is due and the internal heap has no room for it yet
   uint32_t ramFree, ramLargest;   // ...and what it has (bytes), for the screen and the console
   uint32_t ramNeedFree, ramNeedLargest;   // ...against what a handshake needs (the bar)
@@ -95,12 +114,19 @@ typedef struct {
   int      total;         // tiles in the job
   int      done;          // written this run
   int      skipped;       // already on the card at the right size
-  int      noTile;        // the server said 404: nothing there (not an error)
-  int      failed;        // network, decode or write failures
+  int      noTile;        // 404/410, or a PNG with every pixel transparent: nothing there (not an error)
+  int      failed;        // network, decode or write failures on the FIRST pass (the second's: p2Tried - p2Fixed)
   int      reconnects;    // TLS/TCP connections made after the first (the server closed keep-alive)
   int      cardRetries;   // tile writes the card refused once and took on a later try (its busy pauses)
   int      curZ;
-  uint32_t bytes;         // downloaded
+  int      stopReason;    // TileStopReason: why the run ended (NONE while it runs)
+  int      before;        // tiles a resumed run starts past (the cursor): visited by earlier runs
+  int      pass;          // 1; 2 = the one automatic second pass over the tiles that did not land
+  int      p2Total, p2Seen, p2Tried, p2Fixed;   // the second pass: to look at, looked at, fetched, written
+  int      serverBusy;    // 429/503/502/504 answers this run (never counted as failures)
+  uint32_t serverWaitSec; // > 0: the server said busy; the same tile is tried again in this many seconds
+  uint32_t msPerTile;     // mean all-in time of the last 200 FETCHED tiles (0 = too few yet)
+  uint64_t bytes;         // downloaded
   uint32_t elapsedMs;
   uint32_t heapFloorLargest;   // the smallest "largest internal block" seen this run
   uint32_t heapMinEver;        // the allocator's own low-water mark when the run ended
@@ -109,18 +135,70 @@ typedef struct {
   char     source[24];
 } TileJobStatus;
 
-/* Tiles in the job and the bytes it will put on the card / pull from the network. */
-int  tileFetchEstimate(const TileJobSpec* s, uint32_t* cardBytes, uint32_t* netBytes);
-/* Start. False with `why` filled: a run is already going, no WiFi, no task stack, ... */
+/* Tiles in the job and the bytes it will put on the card / pull from the network. 64-bit: 20 km
+ * to z17 is 6.7 GB on the card, and a uint32 saturated at 4095 MB on the form. */
+int  tileFetchEstimate(const TileJobSpec* s, uint64_t* cardBytes, uint64_t* netBytes);
+/* Start a NEW job (it replaces any waiting one). False with `why` filled: a run is already
+ * going, no WiFi, a game or a Files folder job, a call under a minute ago, no RAM, no room... */
 bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap);
-void tileFetchStop();                     // ask; the task finishes the tile it is on
+/* The user's Stop (form or serial): the run finishes the tile it is on, and the job is
+ * FORGOTTEN now — it will not resume. Also forgets a waiting job that is not running. */
+void tileFetchStop();
 bool tileFetchActive();                   // the DFS / screen-hold predicates read this
-/* The loop sets these every pass. A CALL pauses the run (up to ten minutes); NO WIFI drops the
- * connection at once and ends the run after 20 s — the phone's WiFi rescue needs the RAM. */
-void tileFetchPause(bool call, bool noWifi);
+/* The loop sets these every pass. A CALL or a GAME pauses the run (up to ten minutes; the worker
+ * does not touch the card while paused); NO WIFI drops the connection at once and ends the run
+ * after 20 s — the phone's WiFi rescue needs the RAM. tileFetchStart never touches them: the
+ * loop owns them. */
+void tileFetchPause(bool call, bool game, bool noWifi);
+/* What the loop sees, for tileFetchTick. */
+typedef struct {
+  bool        wifiUp;     // wifiState.isConnected()
+  const char* ssid;       // wifiState.ssid(): the network a job is tied to
+  bool        usb;
+  float       volts;
+  bool        card;       // gui.state.cardPresent
+  bool        filesJob;   // filesJobActive(): a Files folder copy/move/delete is running
+} TileFetchWorld;
+/* The loop, every pass, straight after tileFetchPause. A compare or two per pass; once a second
+ * it stops a running job off USB under the battery floor, saves the resume cursor when one is
+ * due, settles a run that ended, and resumes a waiting job when tile_plan.h says so. It reads
+ * NVS once (the first call after boot) and writes it only when one of those fires. */
+void tileFetchTick(const TileFetchWorld* w);
 void tileFetchStatus(TileJobStatus* out);
+
+/* The job that is running or waiting to resume, for the Download form. */
+typedef struct {
+  bool     exists;        // a job is running, or persisted and waiting (or given up)
+  bool     running;
+  bool     resumable;     // it is in NVS: a WiFi drop or a restart does not lose it
+  char     label[24];     // "OpenTopoMap"
+  char     ssid[33];      // the network it resumes on
+  double   lat, lon;
+  int      radiusKm, zMax;
+  int      total;         // tiles in the job
+  int      reached;       // tiles its cursor is past, for "31200 of 51084"
+  int      gate;          // TileGate, when not running
+  int      giveUp;        // TileGiveUp
+  bool     otherNet;      // WiFi is up, on a different network from the job's
+  char     why[112];      // one sentence: what it waits for, or why it stopped resuming
+  /* Why the last automatic resume was refused — or why a waiting job was DROPPED (the card has
+   * no room for the rest, its source is gone, the saved record was unreadable). Set even when
+   * `exists` is false: a dropped job must still say so on the form. */
+  char     note[112];
+} TileFetchJobInfo;
+void tileFetchJobInfo(TileFetchJobInfo* out);
+/* The form's "Resume": start the waiting job now, on THIS network (it becomes the job's
+ * network), whatever a cool-down or a give-up said. The Start gates still apply. */
+bool tileFetchResumeNow(char* why, size_t whyCap);
+/* The /maps/<key> a running or waiting job writes under, or NULL: the Files app refuses to
+ * delete or move a folder at or above it. `running` says which it is. */
+const char* tileFetchJobKey(bool* running);
 /* One line per call of `emit`, for the serial console. */
 void tileFetchReport(void (*emit)(const char* line));
+
+/* app_files.cpp: a Files folder copy/move/delete is running (it and a download must not race
+ * over /maps). Declared here because tile_fetch.cpp and the loop both read it. */
+bool filesJobActive();
 
 // ── the bench that proved the mechanism (`tlstest <url> [n]`) ────────────────────────────
 bool tileFetchBenchStart(const char* url, int count);

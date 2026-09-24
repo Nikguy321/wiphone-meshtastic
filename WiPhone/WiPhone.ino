@@ -4900,11 +4900,26 @@ void loop() {
        * The cost is idle power while the GPS is on, and that is the right trade against a
        * phone that stops answering its buttons. */
       /* The map downloader PAUSES for anything that owns the audio path or the heap: a live
-       * or imminent call (its TLS handshake dips internal RAM to ~4 KB, measured), and a
-       * WiFi that is not associated (a GET into a dead socket is a 15 s timeout per tile,
-       * and the rescue below is what brings the network back — it must not be raced). It
-       * resumes by itself when both clear. */
-      tileFetchPause(sipNeedsFullSpeed(), !wifiState.isConnected());
+       * or imminent call (its TLS handshake dips internal RAM to ~4 KB, measured), the Game
+       * Boy (it owns the card and the SPI bus, and turns WiFi off), and a WiFi that is not
+       * associated (a GET into a dead socket is a 15 s timeout per tile, and the rescue below
+       * is what brings the network back — it must not be raced). It resumes by itself when
+       * they clear. */
+      tileFetchPause(sipNeedsFullSpeed(), gGbcActive, !wifiState.isConnected());
+      /* ...and a job that STOPPED (a WiFi drop past 20 s, a long call, failures, a flat
+       * battery, a restart) is resumed from here, under tile_plan.h's rules. A compare or two
+       * per pass; the real work is once a second, and NVS is touched only when a decision
+       * fires (tile_fetch.h). */
+      {
+        TileFetchWorld tw;
+        tw.wifiUp = wifiState.isConnected();
+        tw.ssid = wifiState.ssid();
+        tw.usb = gui.state.usbConnected;
+        tw.volts = gui.state.battVoltage;
+        tw.card = gui.state.cardPresent;
+        tw.filesJob = filesJobActive();
+        tileFetchTick(&tw);
+      }
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
                         gGpsNmea ||            // see the deadlock note above — NOT perf

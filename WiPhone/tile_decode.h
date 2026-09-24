@@ -42,10 +42,20 @@ typedef enum { TILE_FMT_UNKNOWN = 0, TILE_FMT_JPEG, TILE_FMT_PNG, TILE_FMT_HTML 
  * answered with a page, not a tile" rather than "corrupt". */
 TileFormat tileSniff(const uint8_t* data, size_t len);
 
+/* What a decode came to. ERROR is 0 on purpose: `if (!tileDecode(...))` still reads "it failed".
+ *   OK     a tile: `out` holds it.
+ *   BLANK  a PNG that decoded and in which EVERY pixel is transparent — "no tile here", the same
+ *          as a 404: OpenTopoMap answers a level it does not have with one (z18, 2026-09-23).
+ *          Never written to the card, and NOT a failure (12 blanks in a row must not stop a run).
+ *   ERROR  anything else, `why` filled: an HTML page, junk, a damaged image. These stay
+ *          failures — a captive portal answering every GET with a 200 page must reach the
+ *          "nothing decodes - stopped" threshold, not walk the whole area as "no tile". */
+typedef enum { TILE_DECODE_ERROR = 0, TILE_DECODE_OK, TILE_DECODE_BLANK } TileDecodeResult;
+
 /* Decode `data` into out[TILE_DECODE_WORDS] (native uint16_t color565 words, row-major,
- * top-down). True on success; false with `why` filled. `out` is untouched on failure only
- * as far as the decoder got — never rely on it after a false. */
-bool tileDecode(const uint8_t* data, size_t len, uint16_t* out, char* why, size_t whyCap);
+ * top-down). `out` is untouched on failure only as far as the decoder got — never rely on
+ * it after an ERROR (or a BLANK: it is all nodata grey then). */
+TileDecodeResult tileDecode(const uint8_t* data, size_t len, uint16_t* out, char* why, size_t whyCap);
 
 /* The packing, spelled once: TFT_eSPI::color565 without a display object. */
 static inline uint16_t tileColor565(uint8_t r, uint8_t g, uint8_t b) {

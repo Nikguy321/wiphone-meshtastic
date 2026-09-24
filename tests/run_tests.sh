@@ -65,6 +65,9 @@ for src in tests/test_*.cpp; do
     # 240x320 screen, so this is the only place that error can be caught.
     test_maptiles) deps=(WiPhone/map_tiles.cpp WiPhone/map_pins.cpp) ;;
     test_tilepng)  deps=(WiPhone/tile_png.cpp WiPhone/tile_decode.cpp); extra=(-lz) ;;
+    # The map download's arithmetic and decisions (tile_plan.cpp): tile counts, 64-bit bytes,
+    # the Detail row's depths, the centre-out block order, the time, and the auto-resume table.
+    test_tileplan) deps=(WiPhone/tile_plan.cpp WiPhone/map_tiles.cpp) ;;
     # Voltage -> SOC off phone 1's recorded discharge (tests/fixtures/p1_discharge_2026-09-03.tsv).
     # Scores the table AND the CW2015's own number against time-linear truth.
     test_battery)  deps=(WiPhone/battery_curve.cpp) ;;

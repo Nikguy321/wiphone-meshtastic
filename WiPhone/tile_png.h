@@ -35,7 +35,12 @@
  * card" square is grey too, and transparent ground should read as absent, not as terrain. */
 #define TILE_PNG_NODATA_565  0x8410
 
+/* `blank` (may be NULL) is set true when EVERY pixel was transparent — alpha under 128, or the
+ * tRNS colour/entry — counted while unpacking, never read back from the output: an opaque
+ * tile whose ground happens to be mid grey (0x8410, the nodata colour) is a real tile.
+ * OpenTopoMap answers its z18 with exactly such an all-transparent 200 (measured 2026-09-23):
+ * the downloader calls that "no tile" and writes nothing. */
 bool tilePngDecode(const uint8_t* data, size_t len, uint16_t* out, uint16_t nodata,
-                   char* why, size_t whyCap);
+                   char* why, size_t whyCap, bool* blank = NULL);
 
 #endif // TILE_PNG_H
