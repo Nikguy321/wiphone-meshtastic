@@ -5908,6 +5908,8 @@ no badge — the receiving device looks completely inert until you open the book
 produced the confirm card immediately, and it had almost certainly worked the first time.
 **If sync "does nothing", OPEN THE BOOK ON THE RECEIVER before debugging anything.**
 
+⚠ **CLARIFIED 2026-09-24 (Nick asked): on COVEY the RECEIVER never uses a window** — a `CBS1` packet is parked in the background the moment it lands and offered when the book is opened; the 15 s "Syncing…" countdown belongs to the SENDER's Sync tap only (LoRa at 0 s and 7 s, LAN UDP :8083 for 15 s, then "In sync" / "No other device answered"). The LAN half needs both devices inside their windows at once and the WiPhone never implemented it, so between COVEY and the phones the window carries only that toast — which is misleading for LoRa: the answer is usually parked later. The WiPhone side has always parked in the background (booksync_inbox). Nick rotated the booksync passcode on 2026-09-24.
+
 ⚠ **The parked record is RAM-ONLY.** A `covey-ui` restart discards it silently — which happened
 during this very debug, when the radio check restarted the service. Re-send after any restart
 before concluding it failed.
