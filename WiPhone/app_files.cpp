@@ -49,19 +49,34 @@ static const size_t   FILES_COPY_CHUNK   = 32 * 1024;  // 128 KB tiles: four chu
 static const char* FILES_SD_MOUNT = "/sd";
 extern Audio* audio;       // pumped from inside a slice while music plays (see stepJob)
 
-/* Is a RUNNING map download writing under (or above) this path? Its worker task creates
- * folders and writes tiles the whole time it runs, and it outlives the Maps app (serial
- * `maps dl` needs no app at all): a delete or move racing it would unlink a tile between
- * its write pieces and rmdir a folder it is about to mkdir again (review, 2026-09-20). */
-static bool downloadWritesUnder(const char* path) {
-  if (!tileFetchActive()) {
+/* Is a map download writing under (or above) this path — RUNNING, or WAITING to resume there
+ * (0.9.78: a stopped download resumes by itself)? Its worker task creates folders and writes
+ * tiles the whole time it runs, and it outlives the Maps app (serial `maps dl` needs no app at
+ * all): a delete or move racing it would unlink a tile between its write pieces and rmdir a
+ * folder it is about to mkdir again (review, 2026-09-20). A waiting one would come back in the
+ * middle of the delete. `*waiting` says which, for the words. */
+static bool downloadWritesUnder(const char* path, bool* waiting) {
+  bool running = false;
+  const char* key = tileFetchJobKey(&running);
+  if (!key) {
     return false;
   }
-  TileJobStatus st;
-  tileFetchStatus(&st);
+  if (waiting) *waiting = !running;
   char root[64];
-  snprintf(root, sizeof(root), "%s/%s", TILE_MAPS_ROOT, st.source);
+  snprintf(root, sizeof(root), "%s/%s", TILE_MAPS_ROOT, key);
   return filePathWithin(root, path) || filePathWithin(path, root);
+}
+static const char* downloadRefusal(bool waiting) {
+  return waiting ? "A map download will resume there - stop it first (Maps > Download)"
+                 : "A map download is writing there - stop it first (Maps menu)";
+}
+
+/* A folder copy / move / delete is running: a map download neither starts nor resumes while
+ * it does (tile_fetch.h). A COUNT only reads, and does not count. Set by startJob, cleared by
+ * freeJob — every way a job ends goes through freeJob. */
+static volatile bool s_treeJob = false;
+bool filesJobActive() {
+  return s_treeJob;
 }
 static bool sdUnlink(const char* path) {
   char p[FILES_PATH_MAX_C];
@@ -360,8 +375,9 @@ void FilesApp::pasteHere() {
       setNote("Cannot paste a folder into itself");
       return;
     }
-    if (s_clipMove == 2 && downloadWritesUnder(s_clipSrc)) {
-      setNote("A map download is writing there - stop it first (Maps menu)");
+    bool waiting = false;
+    if (s_clipMove == 2 && downloadWritesUnder(s_clipSrc, &waiting)) {
+      setNote("%s", downloadRefusal(waiting));
       return;
     }
     if (!SD.exists(s_clipSrc)) {
@@ -486,11 +502,12 @@ void FilesApp::deleteEntry(int idx) {
 void FilesApp::deleteFolderConfirmed() {
   char target[FILES_PATH_MAX];
   snprintf(target, sizeof(target), "%s", curPath);
-  if (downloadWritesUnder(target)) {
+  bool waiting = false;
+  if (downloadWritesUnder(target, &waiting)) {
     if (job) {
       endJob(true);
     }
-    setNote("A map download is writing there - stop it first (Maps menu)");
+    setNote("%s", downloadRefusal(waiting));
     appState = FILES_BROWSE;
     buildBrowse();
     return;
@@ -551,12 +568,14 @@ bool FilesApp::startJob(int kind, const char* src, const char* dst) {
     appState = FILES_JOB;
     footer->setButtons("", "Stop");
     controlState.holdScreenAwake(true);   // the progress is being watched
+    s_treeJob = true;
   }
   controlState.msAppTimerEventPeriod = 30;   // the slices; 0 again in endJob
   return true;
 }
 
 void FilesApp::freeJob() {
+  s_treeJob = false;
   if (!job) {
     return;
   }

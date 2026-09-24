@@ -96,21 +96,28 @@ enum {
   ROW_D_START      = ROW_ACT + 43,
   ROW_D_STOP       = ROW_ACT + 44,
   ROW_D_BACK       = ROW_ACT + 45,
+  ROW_D_RESUME     = ROW_ACT + 46,     // a waiting download: start it now, on this network
   ROW_C_CANCEL     = ROW_ACT + 59,
   ROW_C_BASE       = ROW_ACT + 60,     // channel i is ROW_C_BASE + i
 };
 
-/* The download form's choices. Radii are COVEY's; the depth stops at z16 because USGS Topo's
- * z16 is the z15 drawing scaled up (checked 2026-09-18) and every level quadruples the cost. */
+/* The download form's choices. Radii are COVEY's, 2 to 20 km for every depth: a 20 km z17 run
+ * is ~51,000 tiles and ~2.4 days, and that is what it is for (Nick: "overnight downloads or
+ * multi day downloads even pre-trips"). The Detail row runs z13..z17 (MAPS_DL_DEPTH_MIN/MAX,
+ * tile_plan.h) but offers only what the SOURCE has — z17 is OpenTopoMap's (and the custom
+ * relay's); both USGS services answer 404 there, and USGS Topo's z16 is already its z15
+ * drawing scaled up (checked 2026-09-18). Every level quadruples the cost. */
 static const int MAPS_DL_RADII[] = { 2, 5, 10, 20 };
 #define MAPS_DL_RADII_N    ((int)(sizeof(MAPS_DL_RADII) / sizeof(MAPS_DL_RADII[0])))
-#define MAPS_DL_DEPTH_MIN  13
-#define MAPS_DL_DEPTH_MAX  16
 /* Seconds per tile, all-in (fetch, decode, the 128 KB write), measured on WiPhone 2 the night
  * this was built: USGS over kept-alive HTTPS 24 s / 21 tiles; OpenTopoMap 74 s / 18 tiles
- * (server-bound). The estimate on the screen is these times the tile count. */
+ * (server-bound, at z<=15). The estimate on the screen is the tile count of each level times
+ * this or the level's throttle interval (OTM z17: 2.0 s), whichever is longer — a CEILING,
+ * since tiles already on the card are skipped. ⚠ OTM z17 is not measured yet: it renders on
+ * demand more often, so re-measure on the first z17 run (`maps dl` prints ms/tile). */
 static const float MAPS_DL_SEC_PER_TILE[] = { 1.2f, 1.2f, 4.0f, 0.6f };
-#define MAPS_DL_BATT_FLOOR 3.8f
+#define MAPS_DL_HOLD_MS    (2u * 60u * 1000u)   // the running form holds the screen this long after a key
+#define MAPS_DL_STOP_ARM_MS 3000u              // Stop is a second press inside this
 
 static MapsApp* s_instance = NULL;
 volatile bool gMapsActive = false;
@@ -192,6 +199,9 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   dlKeep = ROW_D_START;
   dlWhy[0] = '\0';
   dlShownRunning = false;
+  dlShownJob = false;
+  dlKeyMs = 0;
+  dlStopArmMs = 0;
   gotoLat[0] = gotoLon[0] = '\0';
   gotoField = 0;
   chanPending = 0;
@@ -2308,6 +2318,21 @@ void MapsApp::enterState(MapsState_t st) {
     header->setTitle(headerTitle);
     footer->setButtons("Select", "Back");
     dlLastMs = millis();
+    dlKeyMs = dlLastMs;
+    dlStopArmMs = 0;
+    /* Open on the source of the map being LOOKED AT, when its folder is one (otm, usgs-topo,
+     * usgs-img): someone viewing OpenTopoMap who opens Download for its z17 must not meet
+     * "USGS Topo" and a Detail row that stops at z16. Otherwise the last choice (NVS). It is
+     * saved only by a Start. */
+    if (areaSel >= 0 && areaSel < areaCount) {
+      for (int i = 0; i < tileSourceCount(); i++) {
+        const TileSource* s = tileSource(i);
+        if (s && !strcmp(s->key, areas[areaSel].name)) {
+          dlSource = i;
+          break;
+        }
+      }
+    }
     buildDownload();
     break;
   case MAPS_GOTO:
@@ -2569,66 +2594,180 @@ void MapsApp::buildDownload() {
     dlSource = 0;
     src = tileSource(0);
   }
-  TileJobStatus st;
-  tileFetchStatus(&st);
-  const bool running = st.active;
-
-  snprintf(row, sizeof(row), "Source: %s", src->label);
-  menu->addOption(row, ROW_D_SOURCE);
-  snprintf(row, sizeof(row), "Radius: %d km", MAPS_DL_RADII[dlRadiusIdx]);
-  menu->addOption(row, ROW_D_RADIUS);
-  int depth = dlDepth;
-  if (depth > src->zMax) {
-    depth = src->zMax;
+  /* The run's status and the job's summary are ~600 bytes together: PSRAM, allocated on the
+   * first build and kept, NOT the loop task's 8 KB stack — this runs from the GUI's key path,
+   * among the deepest the loop has, and its measured floor is a few hundred bytes. */
+  static TileJobStatus*    s_dlSt = NULL;
+  static TileFetchJobInfo* s_dlJob = NULL;
+  if (!s_dlSt) s_dlSt = (TileJobStatus*)ps_malloc(sizeof(TileJobStatus));
+  if (!s_dlJob) s_dlJob = (TileFetchJobInfo*)ps_malloc(sizeof(TileFetchJobInfo));
+  if (!s_dlSt || !s_dlJob) {
+    menu->addNoteWrapped("No memory for the download form");
+    menu->addOption("Back", ROW_D_BACK);
+    menu->select(ROW_D_BACK);
+    return;
   }
-  snprintf(row, sizeof(row), "Detail: z%d (%s)", depth,
-           depth >= 16 ? "4x z15's cost" : (depth == 15 ? "3 m/pixel" : "coarser"));
-  menu->addOption(row, ROW_D_DEPTH);
-
-  TileJobSpec spec;
-  memset(&spec, 0, sizeof(spec));
-  spec.source = dlSource;
-  mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &spec.lat, &spec.lon);
-  spec.radiusKm = MAPS_DL_RADII[dlRadiusIdx];
-  spec.zMax = depth;
-  uint32_t card = 0, net = 0;
-  const int tiles = tileFetchEstimate(&spec, &card, &net);
-  const float sec = MAPS_DL_SEC_PER_TILE[dlSource < 4 ? dlSource : 3] * (float)tiles;
+  TileJobStatus& st = *s_dlSt;
+  TileFetchJobInfo& job = *s_dlJob;
+  tileFetchStatus(&st);
+  tileFetchJobInfo(&job);
+  const bool running = st.active;
+  const bool battLow = !controlState.usbConnected && controlState.battVoltage < MAPS_DL_BATT_FLOOR;
+  if (dlStopArmMs && (uint32_t)(millis() - dlStopArmMs) >= MAPS_DL_STOP_ARM_MS) {
+    dlStopArmMs = 0;                       // the second press did not come: Stop is Stop again
+  }
   /* Every note on this screen WRAPS (addNoteWrapped): these are the lines whose length the
-   * numbers decide — "12853 tiles, 1606 MB, about 257 min", "Last run: 5517 new, 7332 had, 4
-   * failed, 7013 s", an error from the fetcher — and a single row ended in `..` with the
-   * part that mattered behind it (Nick, 2026-09-20). */
-  const int mins = (int)(sec / 60.0f + 0.5f);
-  snprintf(row, sizeof(row), "%d tiles, %u MB, about %d min",
-           tiles, (unsigned)(card / (1024u * 1024u)), mins < 1 ? 1 : mins);
-  menu->addNoteWrapped(row);
+   * numbers decide — "12853 tiles, 1.6 GB, up to about 4 h", "Last run: 5517 new, 7332 had, 4
+   * failed, 7013 s", an error from the fetcher — and a single row ended in `..` with the part
+   * that mattered behind it (Nick, 2026-09-20). */
+  MenuOption::keyType fallback;
 
-  if (running) {
-    snprintf(row, sizeof(row), "%s %d/%d%s",
-             st.paused ? "Paused" : (st.waitingRam ? "Waiting for memory" : "Downloading"),
-             st.done + st.skipped + st.noTile + st.failed, st.total,
-             st.stopping ? " (stopping)" : "");
+  if (job.exists) {
+    /* ── A JOB IS RUNNING OR WAITING TO RESUME: show THAT job, read-only. The choice rows are
+     * for the next Start, and a Start now would replace a multi-day job whose centre was the
+     * map centre days ago — so Start is not offered until this one is stopped or done. */
+    snprintf(row, sizeof(row), "%s, %d km to z%d, around %.2f, %.2f",
+             job.label, job.radiusKm, job.zMax, job.lat, job.lon);
     menu->addNoteWrapped(row);
-    if (st.waitingRam) {
-      /* The numbers, not the adjective: a TLS handshake needs this much internal RAM to be
-       * safe, and this is what the phone has. Nick, 2026-09-21: "waiting for memory is always
-       * being displayed" — for two hours, with nothing to say why or by how much. */
-      snprintf(row, sizeof(row), "Needs %u.%u KB free (has %u.%u) and a %u.%u KB block (has %u.%u)",
-               (unsigned)(st.ramNeedFree / 1024), (unsigned)(((st.ramNeedFree % 1024) * 10) / 1024),
-               (unsigned)(st.ramFree / 1024), (unsigned)(((st.ramFree % 1024) * 10) / 1024),
-               (unsigned)(st.ramNeedLargest / 1024), (unsigned)(((st.ramNeedLargest % 1024) * 10) / 1024),
-               (unsigned)(st.ramLargest / 1024), (unsigned)(((st.ramLargest % 1024) * 10) / 1024));
+    if (running) {
+      if (st.pass == 2) {
+        snprintf(row, sizeof(row), "Second pass: %d of %d looked at again%s",
+                 st.p2Seen, st.p2Total, st.stopping ? " (stopping)" : "");
+      } else {
+        const char* what = st.waitingRam ? "Waiting for memory" : "Downloading";
+        if (st.paused) {
+          what = st.pauseWhy == 2 ? "Paused for the game" : (st.pauseWhy == 3 ? "Paused: no WiFi" : "Paused for a call");
+        }
+        snprintf(row, sizeof(row), "%s %d of %d%s", what,
+                 st.before + st.done + st.skipped + st.noTile + st.failed, st.total,
+                 st.stopping ? " (stopping)" : "");
+      }
+      menu->addNoteWrapped(row);
+      if (st.serverWaitSec) {
+        snprintf(row, sizeof(row), "Server busy - trying again in %u min", (unsigned)((st.serverWaitSec + 59u) / 60u));
+        menu->addNoteWrapped(row);
+      }
+      if (st.waitingRam) {
+        /* The numbers, not the adjective: a TLS handshake needs this much internal RAM to be
+         * safe, and this is what the phone has. Nick, 2026-09-21: "waiting for memory is always
+         * being displayed" — for two hours, with nothing to say why or by how much. */
+        snprintf(row, sizeof(row), "Needs %u.%u KB free (has %u.%u) and a %u.%u KB block (has %u.%u)",
+                 (unsigned)(st.ramNeedFree / 1024), (unsigned)(((st.ramNeedFree % 1024) * 10) / 1024),
+                 (unsigned)(st.ramFree / 1024), (unsigned)(((st.ramFree % 1024) * 10) / 1024),
+                 (unsigned)(st.ramNeedLargest / 1024), (unsigned)(((st.ramNeedLargest % 1024) * 10) / 1024),
+                 (unsigned)(st.ramLargest / 1024), (unsigned)(((st.ramLargest % 1024) * 10) / 1024));
+        menu->addNoteWrapped(row);
+      }
+      snprintf(row, sizeof(row), "z%d, %u KB, %u s, %d failed",
+               st.curZ, (unsigned)(st.bytes / 1024), (unsigned)(st.elapsedMs / 1000), st.failed);
+      menu->addNoteWrapped(row);
+      /* The live time left: what is left of the square times the mean all-in time of the last
+       * 200 tiles actually FETCHED (skips take milliseconds and are left out). An upper bound:
+       * tiles already on the card ahead of the cursor go by in milliseconds too. */
+      if (st.msPerTile) {
+        const int left = st.pass == 2 ? st.p2Total - st.p2Seen
+                                      : st.total - (st.before + st.done + st.skipped + st.noTile + st.failed);
+        if (left > 0) {
+          char t[24];
+          tilePlanDuration((double)left * st.msPerTile / 1000.0, t, sizeof(t));
+          snprintf(row, sizeof(row), "About %s left", t);
+          menu->addNoteWrapped(row);
+        }
+      }
+    } else {
+      snprintf(row, sizeof(row), "%d of %d done", job.reached, job.total);
+      menu->addNoteWrapped(row);
+      if (job.why[0]) {
+        menu->addNoteWrapped(job.why);
+      }
+      if (st.lastErr[0]) {
+        char why[128];
+        snprintf(why, sizeof(why), "Last problem: %s", st.lastErr);
+        menu->addNoteWrapped(why);
+      }
+    }
+    if (job.note[0]) {
+      menu->addNoteWrapped(job.note);
+    }
+    if (job.resumable && job.giveUp == TILE_GIVEUP_NONE) {
+      menu->addNoteWrapped("Resumes by itself after a WiFi drop or a restart");
+    }
+    if (dlWhy[0]) {
+      menu->addNoteWrapped(dlWhy);
+    }
+    fallback = ROW_D_STOP;
+    if (!running && job.gate != TILE_GATE_GO) {
+      /* A waiting job can be started NOW by a person: on another network ("Paused: resumes on
+       * Home, where it started" — the hotspot on a trip is someone's data plan, so it never
+       * does that by itself), after a give-up, or through a cool-down. Same power rule as Start. */
+      if (battLow) {
+        snprintf(row, sizeof(row), "Battery %.2f V - plug in USB to download", controlState.battVoltage);
+        menu->addNoteWrapped(row);
+      } else if (WiFi.status() == WL_CONNECTED) {
+        menu->addOption(job.otherNet ? "Resume on this network" : "Resume it now", ROW_D_RESUME);
+        fallback = ROW_D_RESUME;
+      }
+    }
+    if (dlStopArmMs) {
+      snprintf(row, sizeof(row), "Stopping forgets it: %d of %d done, and it will not resume",
+               job.reached, job.total);
+      menu->addNoteWrapped(row);
+      menu->addOption("Press again to stop", ROW_D_STOP);
+    } else {
+      menu->addOption("Stop", ROW_D_STOP);
+    }
+    if (keep != ROW_D_STOP && keep != ROW_D_RESUME && keep != ROW_D_BACK) {
+      keep = fallback;
+    }
+    if (keep == ROW_D_RESUME && fallback != ROW_D_RESUME) {
+      keep = ROW_D_STOP;
+    }
+  } else {
+    // ── No job: the choices, the estimate, and what the last run came to. ──
+    snprintf(row, sizeof(row), "Source: %s", src->label);
+    menu->addOption(row, ROW_D_SOURCE);
+    snprintf(row, sizeof(row), "Radius: %d km", MAPS_DL_RADII[dlRadiusIdx]);
+    menu->addOption(row, ROW_D_RADIUS);
+    /* The depth SHOWN is the depth USED: the wish clamped to what this source has. */
+    const int depth = tilePlanDepthShown(dlDepth, src->zMax);
+    snprintf(row, sizeof(row), "Detail: z%d (%s)", depth,
+             depth >= 17 ? "4x z16's cost" : (depth == 16 ? "4x z15's cost" : (depth == 15 ? "3 m/pixel" : "coarser")));
+    menu->addOption(row, ROW_D_DEPTH);
+
+    TileJobSpec spec;
+    memset(&spec, 0, sizeof(spec));
+    spec.source = dlSource;
+    mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &spec.lat, &spec.lon);
+    spec.radiusKm = MAPS_DL_RADII[dlRadiusIdx];
+    spec.zMax = depth;
+    uint64_t card = 0, net = 0;
+    const int tiles = tileFetchEstimate(&spec, &card, &net);
+    const double secs = tilePlanSeconds(spec.lat, spec.lon, spec.radiusKm, depth,
+                                        MAPS_DL_SEC_PER_TILE[dlSource < 4 ? dlSource : 3], src->key);
+    char size[24], t[24];
+    tilePlanBytes(card, size, sizeof(size));
+    tilePlanDuration(secs, t, sizeof(t));
+    /* "up to": tiles already on the card are skipped in milliseconds, so this is a ceiling. */
+    snprintf(row, sizeof(row), "%d tiles, %s, up to about %s", tiles, size, t);
+    menu->addNoteWrapped(row);
+    const bool tooMany = tiles > TILE_JOB_MAX_TILES;
+    if (tooMany) {
+      snprintf(row, sizeof(row), "Too many tiles for one run (%d max) - a smaller radius or less detail", TILE_JOB_MAX_TILES);
+      menu->addNoteWrapped(row);
+    } else if (secs > 4.0 * 3600.0) {
+      /* A run this long outlasts the battery: off USB it stops under the floor and waits. */
+      snprintf(row, sizeof(row), "Keep it on USB: about %s of downloading", t);
       menu->addNoteWrapped(row);
     }
-    snprintf(row, sizeof(row), "z%d, %u KB, %u s, %d failed",
-             st.curZ, (unsigned)(st.bytes / 1024), (unsigned)(st.elapsedMs / 1000), st.failed);
-    menu->addNoteWrapped(row);
-    menu->addOption("Stop", ROW_D_STOP);
-  } else {
+
     if (st.finished) {
       snprintf(row, sizeof(row), "Last run: %d new, %d already had, %d failed, %u s",
                st.done, st.skipped, st.failed, (unsigned)(st.elapsedMs / 1000));
       menu->addNoteWrapped(row);
+      if (st.p2Tried > 0) {
+        snprintf(row, sizeof(row), "Second pass: %d tried again, %d fixed", st.p2Tried, st.p2Fixed);
+        menu->addNoteWrapped(row);
+      }
       if (st.cardRetries > 0) {
         /* The card's own number: how often a write had to wait for it. A few is normal;
          * one in eight (phone 1, 2026-09-21) is a card worth replacing before the woods. */
@@ -2643,40 +2782,47 @@ void MapsApp::buildDownload() {
         char why[128];
         snprintf(why, sizeof(why), "Last problem: %s", st.lastErr);
         menu->addNoteWrapped(why);
-        if (st.failed > 0) {
+        if (st.failed > st.p2Fixed) {
           menu->addNoteWrapped("Start again fetches only the missing tiles");
         }
       }
     }
+    if (job.note[0]) {
+      menu->addNoteWrapped(job.note);      // a waiting job that was dropped, and why
+    }
     if (dlWhy[0]) {
       menu->addNoteWrapped(dlWhy);
     }
+    fallback = ROW_D_SOURCE;
     if (WiFi.status() != WL_CONNECTED) {
       menu->addNoteWrapped("Not on WiFi - join a network first");
-    } else if (!controlState.usbConnected && controlState.battVoltage < MAPS_DL_BATT_FLOOR) {
+    } else if (battLow) {
       snprintf(row, sizeof(row), "Battery %.2f V - plug in USB to download", controlState.battVoltage);
       menu->addNoteWrapped(row);
-    } else {
+    } else if (!tooMany) {
       menu->addOption("Start download", ROW_D_START);
+      fallback = ROW_D_START;
+    }
+    if (keep == ROW_D_STOP || keep == ROW_D_RESUME || (keep == ROW_D_START && fallback != ROW_D_START)) {
+      keep = fallback;
     }
   }
   menu->addOption("Back", ROW_D_BACK);
-  if (src->credit[0]) {
+  if (src->credit[0] && !job.exists) {
     menu->addNoteWrapped(src->credit);
   }
-  if (keep == ROW_D_START && running) {
-    keep = ROW_D_STOP;
-  } else if (keep == ROW_D_STOP && !running) {
-    keep = ROW_D_START;
-  }
   dlShownRunning = running;
+  dlShownJob = job.exists;
   menu->select(keep);
-  /* Hold the screen while the progress is on it: a 30 s sleep would lock the phone with the
-   * cancel key behind the unlock chord. Released the moment another screen is entered. */
-  if (running && !dlHeld) {
+  /* Hold the screen while the progress is being WATCHED: a 30 s sleep would lock the phone with
+   * the cancel key behind the unlock chord. Released the moment another screen is entered —
+   * and MAPS_DL_HOLD_MS after the last key, because a form left open on a multi-day job would
+   * otherwise keep the backlight on for days. The job carries on either way. */
+  const bool hold = running && (uint32_t)(millis() - dlKeyMs) < MAPS_DL_HOLD_MS;
+  if (hold && !dlHeld) {
     controlState.holdScreenAwake(true);
     dlHeld = true;
-  } else if (!running && dlHeld) {
+  } else if (!hold && dlHeld) {
     controlState.holdScreenAwake(false);
     dlHeld = false;
   }
@@ -3326,8 +3472,13 @@ appEventResult MapsApp::processEvent(EventType event) {
       }
     }
     if (appState == MAPS_DOWNLOAD) {
+      /* Once a second while there is something live to show: a running job's progress, a
+       * waiting one's countdown (it may resume, or be dropped, while the form is open), an
+       * armed Stop running out, the screen hold letting go. A form with none of those does
+       * not rebuild at all. */
       const bool running = tileFetchActive();
-      if (running != dlShownRunning || (running && millis() - dlLastMs >= 1000)) {
+      const bool live = running || dlShownJob || dlStopArmMs;
+      if (running != dlShownRunning || (live && (uint32_t)(millis() - dlLastMs) >= 1000u)) {
         dlLastMs = millis();
         buildDownload();
         return REDRAW_SCREEN;
@@ -3454,12 +3605,19 @@ appEventResult MapsApp::processEvent(EventType event) {
     return REDRAW_SCREEN;
 
   case MAPS_DOWNLOAD:
+    if (IS_KEYBOARD(event)) {
+      dlKeyMs = millis();                // the screen hold's clock (buildDownload)
+    }
     if (LOGIC_BUTTON_BACK(event)) {
       /* Coming back to the map after a download: the tiles it wrote are not in the miss
        * ring's memory, and a new source folder is a new area. Re-read the card, keep the view. */
       rescanCard();
       enterState(MAPS_MENU);
       return REDRAW_ALL;
+    }
+    if (dlStopArmMs && IS_KEYBOARD(event) && !LOGIC_BUTTON_OK(event)) {
+      dlStopArmMs = 0;                   // any other key disarms Stop: it reads "Stop" again
+      buildDownload();
     }
     if (menu) {
       menu->processEvent(event);
@@ -3475,6 +3633,9 @@ appEventResult MapsApp::processEvent(EventType event) {
     if (LOGIC_BUTTON_OK(event) && menu) {
       const MenuOption::keyType sel = menu->readChosen();
       dlKeep = sel;
+      if (sel != ROW_D_STOP) {
+        dlStopArmMs = 0;                 // OK on another row is not the second press
+      }
       switch (sel) {
       case ROW_D_SOURCE:
         dlSource = (dlSource + 1) % tileSourceCount();
@@ -3486,19 +3647,25 @@ appEventResult MapsApp::processEvent(EventType event) {
         buildDownload();
         menu->select(sel);
         return REDRAW_SCREEN;
-      case ROW_D_DEPTH:
-        dlDepth = dlDepth >= MAPS_DL_DEPTH_MAX ? MAPS_DL_DEPTH_MIN : dlDepth + 1;
+      case ROW_D_DEPTH: {
+        /* Through the depths THIS source has, and nothing else: raising the form's top to z17
+         * without this gave USGS a fifth press that still read "z16" — a key that looks dead.
+         * The wish survives a Source change (17 on USGS shows 16; back on OTM it is 17). */
+        const TileSource* s = tileSource(dlSource);
+        dlDepth = tilePlanDepthNext(dlDepth, s ? s->zMax : MAPS_DL_DEPTH_MIN);
         buildDownload();
         menu->select(sel);
         return REDRAW_SCREEN;
+      }
       case ROW_D_START: {
+        const TileSource* s = tileSource(dlSource);
         TileJobSpec spec;
         memset(&spec, 0, sizeof(spec));
         spec.source = dlSource;
         mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &spec.lat, &spec.lon);
         spec.radiusKm = MAPS_DL_RADII[dlRadiusIdx];
-        spec.zMax = dlDepth;
-        char why[80];
+        spec.zMax = tilePlanDepthShown(dlDepth, s ? s->zMax : MAPS_DL_DEPTH_MIN);   // the depth SHOWN
+        char why[96];
         dlKeep = ROW_D_STOP;             // BEFORE the rebuild: Start is gone from a running form
         dlWhy[0] = '\0';
         if (tileFetchStart(&spec, why, sizeof(why))) {
@@ -3519,10 +3686,32 @@ appEventResult MapsApp::processEvent(EventType event) {
         return REDRAW_SCREEN;
       }
       case ROW_D_STOP:
+        /* 🛑 TWO PRESSES. A Stop forgets a job that may be two days into a 20 km run, and it will
+         * not resume: the first press only says so. */
+        if (!dlStopArmMs || (uint32_t)(millis() - dlStopArmMs) >= MAPS_DL_STOP_ARM_MS) {
+          dlStopArmMs = millis() | 1u;
+          dlKeep = ROW_D_STOP;
+          buildDownload();
+          return REDRAW_SCREEN;
+        }
+        dlStopArmMs = 0;
         tileFetchStop();
+        dlWhy[0] = '\0';
         dlKeep = ROW_D_START;
         buildDownload();
         return REDRAW_SCREEN;
+      case ROW_D_RESUME: {
+        char why[96];
+        dlWhy[0] = '\0';
+        if (tileFetchResumeNow(why, sizeof(why))) {
+          setNote("Resumed the download");
+          dlKeep = ROW_D_STOP;
+        } else {
+          snprintf(dlWhy, sizeof(dlWhy), "Not resumed: %s", why);
+        }
+        buildDownload();
+        return REDRAW_SCREEN;
+      }
       case ROW_D_BACK:
         rescanCard();
         enterState(MAPS_MENU);

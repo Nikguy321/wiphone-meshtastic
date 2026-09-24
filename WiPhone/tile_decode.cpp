@@ -134,30 +134,35 @@ static bool decodeJpeg(const uint8_t* data, size_t len, uint16_t* out, char* why
 
 #endif // ARDUINO
 
-bool tileDecode(const uint8_t* data, size_t len, uint16_t* out, char* why, size_t whyCap) {
+TileDecodeResult tileDecode(const uint8_t* data, size_t len, uint16_t* out, char* why, size_t whyCap) {
   if (!why || whyCap == 0) {
-    return false;
+    return TILE_DECODE_ERROR;
   }
   why[0] = '\0';
   if (!data || !out || len < 8) {
     snprintf(why, whyCap, "empty body");
-    return false;
+    return TILE_DECODE_ERROR;
   }
   switch (tileSniff(data, len)) {
   case TILE_FMT_JPEG:
 #if defined(ARDUINO)
-    return decodeJpeg(data, len, out, why, whyCap);
+    return decodeJpeg(data, len, out, why, whyCap) ? TILE_DECODE_OK : TILE_DECODE_ERROR;   // a JPEG has no alpha
 #else
     snprintf(why, whyCap, "JPEG decode is device-only (ROM TJpgDec)");
-    return false;
+    return TILE_DECODE_ERROR;
 #endif
-  case TILE_FMT_PNG:
-    return tilePngDecode(data, len, out, TILE_PNG_NODATA_565, why, whyCap);
+  case TILE_FMT_PNG: {
+    bool blank = false;
+    if (!tilePngDecode(data, len, out, TILE_PNG_NODATA_565, why, whyCap, &blank)) {
+      return TILE_DECODE_ERROR;
+    }
+    return blank ? TILE_DECODE_BLANK : TILE_DECODE_OK;
+  }
   case TILE_FMT_HTML:
     snprintf(why, whyCap, "the server sent a page, not a tile");
-    return false;
+    return TILE_DECODE_ERROR;
   default:
     snprintf(why, whyCap, "not a JPEG or PNG");
-    return false;
+    return TILE_DECODE_ERROR;
   }
 }

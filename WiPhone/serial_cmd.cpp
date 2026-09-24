@@ -1848,7 +1848,10 @@ static void run(char* line) {
     /* `maps dl` — the on-phone tile downloader, driven without a thumb (tile_fetch.h).
      *   maps dl                                  status of the last/current run
      *   maps dl <src> <lat> <lon> <km> <zmax>    start: src 0=USGS Topo 1=USGS Aerial 2=OTM 3=custom
-     *   maps dl stop                             ask it to finish the current tile and exit
+     *                                            (zmax is capped at the source's deepest: USGS 16,
+     *                                            OTM 17); the job is kept and resumes by itself
+     *   maps dl stop                             finish the current tile and exit; the job is
+     *                                            forgotten (it will not resume)
      *   maps dlurl <template>|clear              set the custom source (a plain-http relay)
      *   maps hold up|down|left|right <ms> [blip] press an arrow and HOLD it for <ms> — the
      *                                            bench for hold-to-scroll, where no finger
@@ -1936,7 +1939,7 @@ static void run(char* line) {
       }
       if (!strcasecmp(arg, "stop")) {
         tileFetchStop();
-        say("maps dl: stop requested\n");
+        say("maps dl: stop requested; the job is forgotten and will not resume\n");
         return;
       }
       TileJobSpec spec;
@@ -1947,12 +1950,15 @@ static void run(char* line) {
         say("usage: maps dl <src> <lat> <lon> <radiusKm> <zmax>   (maps dl | maps dl stop)\n");
         return;
       }
-      uint32_t card = 0, net = 0;
+      uint64_t card = 0, net = 0;
       const int n = tileFetchEstimate(&spec, &card, &net);
-      char why[80];
+      char why[96];
       if (tileFetchStart(&spec, why, sizeof(why))) {
-        say("maps dl: started %s - %d tiles, ~%u KB down, %u KB on the card\n",
-            tileSource(spec.source)->label, n, (unsigned)(net / 1024), (unsigned)(card / 1024));
+        const TileSource* src = tileSource(spec.source);
+        /* The depth USED: a z17 asked of USGS fetches to z16, and says so. */
+        say("maps dl: started %s to z%d - %d tiles, ~%u MB down, %u MB on the card\n",
+            src->label, spec.zMax > src->zMax ? src->zMax : spec.zMax, n,
+            (unsigned)(net >> 20), (unsigned)(card >> 20));
       } else {
         say("maps dl: NOT started - %s\n", why);
       }

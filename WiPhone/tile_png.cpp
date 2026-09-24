@@ -116,7 +116,10 @@ static bool unfilterRow(uint8_t type, uint8_t* row, const uint8_t* prev, size_t 
 }
 
 bool tilePngDecode(const uint8_t* data, size_t len, uint16_t* out, uint16_t nodata,
-                   char* why, size_t whyCap) {
+                   char* why, size_t whyCap, bool* blank) {
+  if (blank) {
+    *blank = false;
+  }
   if (!why || whyCap == 0) {
     return false;
   }
@@ -267,6 +270,7 @@ bool tilePngDecode(const uint8_t* data, size_t len, uint16_t* out, uint16_t noda
 
   // ---- unfilter, then unpack into 565 ----
   const uint8_t* prev = NULL;
+  uint32_t clear = 0;             // pixels that were transparent (see `blank` in tile_png.h)
   for (uint32_t y = 0; y < h; y++) {
     uint8_t* line = raw + (size_t)y * (rowBytes + 1);
     const uint8_t ftype = line[0];
@@ -284,6 +288,7 @@ bool tilePngDecode(const uint8_t* data, size_t len, uint16_t* out, uint16_t noda
         /* A tRNS on an RGB image names ONE colour (three 16-bit samples) as transparent. */
         if (trns && trnsN >= 6 && p[0] == trns[1] && p[1] == trns[3] && p[2] == trns[5]) {
           o[x] = nodata;
+          clear++;
         } else {
           o[x] = tileColor565(p[0], p[1], p[2]);
         }
@@ -292,13 +297,23 @@ bool tilePngDecode(const uint8_t* data, size_t len, uint16_t* out, uint16_t noda
     case 6:
       for (uint32_t x = 0; x < w; x++) {
         const uint8_t* p = row + x * 4;
-        o[x] = (p[3] < 128) ? nodata : tileColor565(p[0], p[1], p[2]);
+        if (p[3] < 128) {
+          o[x] = nodata;
+          clear++;
+        } else {
+          o[x] = tileColor565(p[0], p[1], p[2]);
+        }
       }
       break;
     case 4:
       for (uint32_t x = 0; x < w; x++) {
         const uint8_t* p = row + x * 2;
-        o[x] = (p[1] < 128) ? nodata : tileColor565(p[0], p[0], p[0]);
+        if (p[1] < 128) {
+          o[x] = nodata;
+          clear++;
+        } else {
+          o[x] = tileColor565(p[0], p[0], p[0]);
+        }
       }
       break;
     case 0:
@@ -319,11 +334,13 @@ bool tilePngDecode(const uint8_t* data, size_t len, uint16_t* out, uint16_t noda
           }
           if (trns && v < trnsN && trns[v] < 128) {
             o[x] = nodata;
+            clear++;
           } else {
             o[x] = tileColor565(plte[v * 3], plte[v * 3 + 1], plte[v * 3 + 2]);
           }
         } else if (trns && trnsN >= 2 && v == trns[1] && trns[0] == 0) {
           o[x] = nodata;                   // tRNS on grey: one sample value (16-bit, high byte 0 at these depths)
+          clear++;
         } else {
           uint8_t g;
           switch (depth) {
@@ -343,5 +360,8 @@ bool tilePngDecode(const uint8_t* data, size_t len, uint16_t* out, uint16_t noda
     prev = row;
   }
   pngFree(raw);
+  if (blank) {
+    *blank = (clear == w * h);
+  }
   return true;
 }
