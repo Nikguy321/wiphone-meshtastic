@@ -155,6 +155,93 @@ if ct.HAVE_PIL:
 else:
     print("  --  Pillow not installed; the two-path comparison was skipped")
 
+# ── a "no tile here" placeholder is refused; a map with transparency in it is not ─────────
+# A server that answers 200 with a fully transparent PNG used to reach the card as a solid
+# square (convert("RGB") flattens it). The line is the phone downloader's: EVERY pixel
+# transparent, judged on alpha. One opaque pixel is a tile.
+import subprocess, tempfile
+
+
+def png_bytes(im):
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def refused(data):
+    try:
+        ct.decode_with_pil(data)
+        return False
+    except ValueError as e:
+        return "transparent" in str(e)
+
+
+if ct.HAVE_PIL:
+    from PIL import Image
+    clear = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+    check(refused(png_bytes(clear)), "a fully transparent RGBA tile is refused")
+    faint = Image.new("RGBA", (256, 256), (255, 255, 255, 127))
+    check(refused(png_bytes(faint)), "...and so is one whose every pixel is under half opaque")
+    one = clear.copy()
+    one.putpixel((200, 13), (40, 80, 40, 255))
+    check(not refused(png_bytes(one)), "one opaque pixel makes it a tile")
+    # OTM's z18 answer has this shape: opaque words on a transparent ground. It is NOT refused
+    # here, and the check says so, so nobody mistakes this rule for the thing that stops it.
+    words = clear.copy()
+    for x in range(20, 236):
+        for y in range(80, 104):
+            words.putpixel((x, y), (0, 0, 0, 255))
+    check(not refused(png_bytes(words)),
+          "a tile that is only partly transparent is kept (OTM's z18 words are this shape)")
+    pal = Image.new("P", (256, 256), 0)
+    pal.putpalette([10, 20, 30] * 256)
+    buf = io.BytesIO()
+    pal.save(buf, format="PNG", transparency=0)
+    check(refused(buf.getvalue()), "a palette tile whose one colour is the tRNS colour is refused")
+    buf = io.BytesIO()
+    pal.save(buf, format="PNG")
+    check(not refused(buf.getvalue()), "the same palette tile with no tRNS is a tile")
+    check(not refused(png_bytes(Image.new("RGB", (256, 256), (0, 0, 0)))),
+          "an opaque black tile is a tile (no alpha: nothing to judge)")
+    with tempfile.TemporaryDirectory() as td:
+        p = os.path.join(td, "1.png")
+        with open(p, "wb") as f:
+            f.write(png_bytes(clear))
+        v = ct.convert_one((18, 1, 1, None, p, os.path.join(td, "out", "1.565")))
+        check(v[3] == "unreadable" and "transparent" in v[4]
+              and not os.path.exists(os.path.join(td, "out", "1.565")),
+              "the converter counts it unreadable and writes nothing")
+else:
+    print("  --  Pillow not installed; the transparent-tile checks were skipped")
+
+# ── a card that fills STOPS the run, and the exit code says so ───────────────────────────
+# cardday.sh push dies on a non-zero exit. convert_tiles used to print "STOPPED before the end"
+# and exit 0, so a card that filled half-way read as a finished push.
+if ct.HAVE_PIL:
+    from PIL import Image
+    with tempfile.TemporaryDirectory() as td:
+        src = os.path.join(td, "src")
+        os.makedirs(os.path.join(src, "15", "5"))
+        with open(os.path.join(src, "15", "5", "7.png"), "wb") as f:
+            f.write(png_bytes(Image.new("RGB", (256, 256), (40, 80, 40))))
+        conv = [sys.executable, str(ROOT / "tools" / "convert_tiles.py")]
+        good = subprocess.run(conv + [src, os.path.join(td, "ok", "area"), "--jobs", "1"],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        check(good.returncode == 0
+              and os.path.getsize(os.path.join(td, "ok", "area", "15", "5", "7.565")) == 131072,
+              "a run that writes everything exits 0")
+        # A FILE where the zoom folder must go: the write fails the way a full card does, with
+        # an OSError on the output side.
+        blocked = os.path.join(td, "full", "area")
+        os.makedirs(blocked)
+        open(os.path.join(blocked, "15"), "w").close()
+        bad = subprocess.run(conv + [src, blocked, "--jobs", "1"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        check(bad.returncode == 1 and b"STOPPED" in bad.stdout,
+              "a run that STOPPED on a failed write exits 1 (got %d)" % bad.returncode)
+else:
+    print("  --  Pillow not installed; the STOPPED exit-code check was skipped")
+
 # ── the way back: tiles_565_to_png.py is convert_tiles.py's inverse ──────────────────────
 # A phone-only tile goes 565 -> PNG into the master tree and later PNG -> 565 onto another
 # card; if the two scripts disagree on the packing by one bit, every such tile lands with
@@ -185,6 +272,36 @@ try:
     check(False, "a tile of the wrong length is refused on the way back")
 except ValueError:
     check(True, "a tile of the wrong length is refused on the way back")
+
+# A 0-byte PNG already in the master is a failed write, not a tile. Kept, it would shadow this
+# phone's good copy on every card from then on; a PNG with bytes in it is still left alone.
+if ct.HAVE_PIL:
+    with tempfile.TemporaryDirectory() as td:
+        card = os.path.join(td, "card")
+        master = os.path.join(td, "master")
+        for y in (1, 2):
+            os.makedirs(os.path.join(card, "14", "3"), exist_ok=True)
+            with open(os.path.join(card, "14", "3", "%d.565" % y), "wb") as f:
+                f.write(raw)
+        os.makedirs(os.path.join(master, "14", "3"))
+        open(os.path.join(master, "14", "3", "1.png"), "wb").close()          # the dud
+        with open(os.path.join(master, "14", "3", "2.png"), "wb") as f:
+            f.write(b"an original from the tile server")
+        r = subprocess.run([sys.executable, str(ROOT / "tools" / "tiles_565_to_png.py"),
+                            card, master, "--jobs", "1"],
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        with open(os.path.join(master, "14", "3", "1.png"), "rb") as f:
+            filled = f.read()
+        with open(os.path.join(master, "14", "3", "2.png"), "rb") as f:
+            kept = f.read()
+        same = bool(filled) and ct.rgb565_bytes(ct.decode_with_pil(filled)[0], 256, 256) == raw
+        check(r.returncode == 0 and same, "an empty PNG in the master is filled from the card")
+        check(kept == b"an original from the tile server",
+              "...and a PNG with something in it is left alone")
+        check(b"1 tile(s) to write as PNG (1 over an empty PNG), 1 already there" in r.stdout,
+              "...and the count says which was which")
+else:
+    print("  --  Pillow not installed; the empty-PNG check was skipped")
 
 # ── the area name rule, against the FIRMWARE'S OWN FUNCTION ───────────────────────────────
 # Not a grep over the C source: a grep only proves the words are still there. This compiles

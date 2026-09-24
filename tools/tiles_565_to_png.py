@@ -9,6 +9,7 @@ beside whatever is already there. A PNG that already exists is LEFT ALONE - the 
 script is to fill the gaps in a tree of originals (COVEY's cache, say) with the tiles only a
 phone has, and an original from the tile server is always better than a tile that has been
 through RGB565: 5-6-5 keeps 16 bits of the 24, and no amount of care gets the other 8 back.
+The one exception is a 0-byte PNG: that is a write that failed, not a tile, and it is filled.
 
 The expansion is the usual bit replication (r8 = r5 << 3 | r5 >> 2, and so on), so pure
 white comes back as pure white and pure black as pure black, not 248 and 0.
@@ -152,15 +153,20 @@ def main():
         raise SystemExit("This needs Pillow:\n    python3 -m pip install --user Pillow")
 
     jobs = a.jobs if a.jobs > 0 else (os.cpu_count() or 1)
-    todo, kept = [], 0
+    todo, kept, empty = [], 0, 0
     for z, x, y, path in walk_565(a.src, zlo, zhi):
         dst = os.path.join(a.out, str(z), str(x), "%d.png" % y)
         if not a.force and os.path.exists(dst):
-            kept += 1
-            continue
+            # A 0-byte PNG is a write that failed (COVEY's usgs-img/14/2621/5733 was one), not
+            # a tile: kept, it would shadow this phone's good copy on every card from now on.
+            if os.path.getsize(dst) > 0:
+                kept += 1
+                continue
+            empty += 1
         todo.append((z, x, y, path, dst, a.jpeg))
-    print("%d tile(s) to write as %s, %d already there"
-          % (len(todo), "JPEG (under .png names)" if a.jpeg else "PNG", kept))
+    print("%d tile(s) to write as %s%s, %d already there"
+          % (len(todo), "JPEG (under .png names)" if a.jpeg else "PNG",
+             " (%d over an empty PNG)" % empty if empty else "", kept))
     if a.dry_run or not todo:
         return
 

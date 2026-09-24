@@ -3646,6 +3646,10 @@ appEventResult MapsApp::processEvent(EventType event) {
       /* A finished tile redraws, and so does a MISS: the next level down is only chosen by
        * drawMap, so without the repaint a stretched position would wait for a keypress. */
       if (tileLoadStep() != LOAD_PIECE) {
+        /* Stand the fast tick down now: while the phone is locked the redraw below goes to the
+         * clock, so drawMap (which re-arms it) does not run, and a 25 ms tick would go on doing
+         * nothing until unlock. Unlocked, drawMap re-arms it at once. */
+        armTimer();
         return (appState == MAPS_VIEW) ? REDRAW_SCREEN : DO_NOTHING;
       }
     }

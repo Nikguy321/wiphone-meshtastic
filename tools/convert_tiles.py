@@ -96,10 +96,26 @@ def rgb565_bytes_numpy(rgb):
     return v.astype("<u2").tobytes()
 
 
+def fully_transparent(im):
+    """True when EVERY pixel is transparent (alpha < 128, a tRNS colour included): a tile
+    server's way of saying "no tile here" with a 200. Flattened to RGB it would reach the card
+    as a solid square. Half-transparent tiles are kept; this is the same line the phone's own
+    downloader draws (all 65,536 pixels, judged on alpha).
+
+    ⚠ OTM's z18 answer is NOT this: it is the words "max zoom layer = 17" in opaque pixels on
+    a transparent tile (5,198 opaque pixels of 65,536, measured 2026-09-23). What keeps it off
+    the cards is that nothing fetches OTM z18 and cardday.sh never converts z18."""
+    if "A" not in im.getbands() and "transparency" not in im.info:
+        return False
+    return im.convert("RGBA").getchannel("A").getextrema()[1] < 128
+
+
 def decode_with_pil(data):
     from PIL import Image
     import io
     im = Image.open(io.BytesIO(data))
+    if fully_transparent(im):
+        raise ValueError("fully transparent - a tile server's 'no tile here' placeholder")
     im = im.convert("RGB")
     if im.size != (TILE, TILE):
         # ⚠ SAY SO. This used to be a silent rescale, which meant the SAME command gave
@@ -172,6 +188,8 @@ def to_565(data, suffix):
     if HAVE_PIL:
         rgb, w, h = decode_with_pil(data)
     elif sys.platform == "darwin":
+        # ⚠ No transparency check on this path: the BMP sips writes carries no alpha to judge.
+        # Pillow is on the card-day Mac; this fallback is for someone else's.
         rgb, w, h = decode_with_sips(data, suffix)
     else:
         raise SystemExit("This needs Pillow on anything but macOS:\n"
@@ -429,6 +447,10 @@ def main():
     if failed:
         print("\nThe unreadable ones are usually a tile server's 'no tile here' placeholder, "
               "which is safe to ignore.")
+    if stopped:
+        # Non-zero, so cardday.sh can tell a full or pulled card from a finished copy: it
+        # used to exit 0 here, and a card that filled half-way through read as done.
+        sys.exit(1)
 
 
 if __name__ == "__main__":

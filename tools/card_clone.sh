@@ -66,8 +66,13 @@ if [ "$no_tiles" = 1 ]; then
 fi
 
 count() {   # files this run is responsible for, not counting the macOS leftovers
+  # ⚠ An array, quoted: the pattern used to come out of an unquoted $(...), so the shell
+  # globbed it against the CURRENT directory first. Run from a cwd holding */maps/<area>/<digits>
+  # (/Volumes with a card mounted), find failed, both counts read 0 and "b < a" passed.
+  local tiles=()
+  [ "$no_tiles" = 1 ] && tiles=(! -path '*/maps/*/[0-9]*')
   find "$1" -type f ! -name '._*' ! -name '.DS_Store' ! -name '.metadata_never_index' \
-       $([ "$no_tiles" = 1 ] && printf '%s' "! -path */maps/*/[0-9]*") \
+       ${tiles[@]+"${tiles[@]}"} \
        ! -path '*/.Spotlight-V100/*' ! -path '*/.fseventsd/*' ! -path '*/.Trashes/*' \
        ! -path '*/.TemporaryItems/*' | wc -l | tr -d ' '
 }

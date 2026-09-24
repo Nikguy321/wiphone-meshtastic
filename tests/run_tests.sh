@@ -143,4 +143,13 @@ if ! python3 tests/check_convert_tiles.py; then
   fail=1
 fi
 
+# ── THE COVEY PULL, against a fake COVEY in a temp dir ─────────────────────────────────────
+# tools/covey_pull.py feeds the pool the phones are built from; the two ways it can go wrong
+# silently are overwriting a master tile and pooling COVEY's STREAMED tiles as if they were
+# downloaded. See tests/check_covey_pull.py (no ssh, no network).
+echo "checking the COVEY pull"
+if ! python3 tests/check_covey_pull.py; then
+  fail=1
+fi
+
 exit "$fail"
