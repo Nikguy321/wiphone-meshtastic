@@ -1,11 +1,198 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-22 night)
+## ▶▶ STATE NOW (header refreshed 2026-09-23 night)
 
 Read this first; everything below it is narrative.
 
+🗺️ **2026-09-23 NIGHT: 0.9.78. ALL THREE DEVICES GET OPENTOPOMAP z17 DOWNLOADS (20 km,
+THROTTLED, MULTI-DAY) AND "STRETCH THE MOST DETAILED TILE THERE IS". COVEY NOW TELLS STREAMED
+TILES FROM DOWNLOADED ONES, AND MAY EXPIRE THE STREAMED ONES. THE MAC GETS `cardday.sh covey
+pull`. BOTH PHONES ON 0.9.78 (LEFT MUTED); COVEY DEPLOYED AND CUT OVER; device 72/72.**
+Nick asked for these, in order: (1) *"open topo has a native z17 tile set. For all three
+devices, can we make that a downloadable option?"* (2) COVEY must show which tiles it only
+STREAMED, *"so when I update the tiles on the wiphone via the pool method, I won't miss it"*.
+(3) *"all streamed tiles to be retained permanently, unless we get near a certain large
+percentage of my max storage... Then some of the tiles far from where I go can expire"*. (4)
+*"if the more detailed zoom levels don't exist, don't just let the higher zooms go blank, just
+stretch the most detailed available tile and say what tile is being stretched and by how much"*.
+(5) *"allow up to [20]km but throttle the download a bit... overnight downloads or multi day
+downloads even pre-trips"*.
+The binding spec was DESIGN.md §9 in the session scratchpad; where the code deviated, the code
+wins.
+🛑 **CORRECTION TO THE BLOCK BELOW:** "online it streams the real z17 instead" was
+**OpenTopoMap-only**. **USGS (topo and aerial) answers 404 at z17 AND z18.** On COVEY each 404
+set a 20 s CLASS-WIDE streaming backoff, so over USGS at z17 even the z16 parents stopped
+streaming and the chip said "offline" on a good link. Fixed: a 404/410 rests THAT tile for 10
+min; only OSError/HTTPException set the shared backoff. **OpenTopoMap's z17 is real.** Its **z18
+is a 200 with a placeholder reading "max zoom layer = 17"**: text on a transparent background
+(5,198 of its 65,536 pixels at alpha >= 128). **So the "fully transparent PNG = no tile" guard
+on all three devices does NOT catch it.** The real guard is that nothing asks past the source
+ceiling: the phone's `otm` zMax is 17, COVEY's `TILE_ZMAX["otm"]` is 17, and cardday never
+converts z>=18. **The block below names `MapsApp::overZoom()`/`tileZoom()` and
+`mapOverzoomView()`: they are GONE.**
+**PHONE, THE VIEW** (P1, `7be5cbb`): **The walk.** Each tile POSITION draws from the deepest
+level on the card, walking from min(zoom, area zMax) down to max(area zMin, zoom−8)
+(`MAP_ANCESTOR_MAX_D` 8: past it `256 >> d` is 0 and a divide by zero PANICS). The source is
+cropped to the exact sub-square, with the phase of a piece that starts mid-ancestor-pixel kept
+(`mapAncestorSrc()`), and one ancestor row is widened and pushed once per screen row it covers
+(`mapAncestorRow()`). Overzoom is just d>=1 on the same path. A real tile is never stretched.
+Grey = no tile at any level. **The labels.** `mapStretchLabel()` writes DEEPEST FIRST: `z15
+tiles stretched 4x`, `z16-14 stretched 2-8x`, compact `z16-14 x2-8`. The corner star means ANY
+position is stretched, and `z%d*` is never trimmed. **The status chip, highest priority first:**
+no memory; no map; N tiles...; `card read error` (a BAD miss: wrong length or unreadable twice);
+no tiles here; the stretch label. **The loader and the miss cache.** Per position the loader
+wants the finest level not in a slot and not known missing; a coarser level is read only once
+every finer one is known missing. `tileLoadStep` returns PIECE/DONE/MISS, and a MISS redraws
+(which also fixed the area-edge stall that waited for a key). The miss cache is 64 entries,
+least-recently-hit, ABSENT vs BAD. A download writing into the viewed area is polled every 10 s
+(`MAPS_JOB_POLL_MS`), and the misses at the levels it wrote are forgotten (every level once
+the job's second pass begins). A job writing a level DEEPER than the area's scanned zMax (the
+first z17 run over a z16 area) raises that zMax on the open map, found with a POSIX `stat` of
+the level's folder (`SD.exists` logs every miss). **The ruler's dash**
+is int64 now. 🛑 **A `const uint16_t*` row selects TFT_eSprite's PROGMEM `pushImage` overload.**
+It inverts the byte swap and does not clip, so every tile would show in swapped colours. The
+host tests cannot see it; there is a 🛑 comment. Do not add `const` there. **Tests:**
+`test_maptiles` 130 → 179, and 12 mutants of map_tiles.cpp all go red.
+**PHONE, THE DOWNLOADS** (P2, `987958e`; the merge is `1144c7c`; `FIRMWARE_VERSION` "0.9.78"):
+**The Detail row** offers z17 only where the source's zMax >= 17 (OpenTopoMap and the custom
+relay) (`tilePlanDepthTop/Shown/Next`). There is no phantom step, and the depth shown is the
+depth used. **The throttle** is a 2.0 s minimum interval between OTM z17 request starts, and
+at z17 it IS the pace (2,068 ms a tile measured). 429/502/503/504 retry the same tile at 60 s
+doubling to 15 min, in 200 ms slices, and the pace doubles (cap 10 s). **Limits and the
+estimate.** `TILE_JOB_MAX_TILES` 100000; `tileFetchEstimate` bytes are uint64 (they used to
+saturate at ~4 GB). `tilePlanSeconds` takes z11-16 at the source's rate (OTM 4.0 s) and OTM
+z17 at the interval + 0.1 s = 2.1 s: 20 km z17 at 47.5° N is ~36-37 h (it said "2.4 days"
+before the measurement). `tileDecode` returns OK/BLANK/ERROR. The order is centre-out 16×16
+blocks, column-major inside each. **The saved job** is an NVS blob `maps`/`dljob`: source KEY,
+SSID, centre, radius, depth, and the cursor (pass, z, ordinal, written), saved every 500 tiles,
+every 5 min, and at each level end. Never for a custom source. **Auto-resume** = ONE pure
+function, `tileResumeCheck()` in the new `tile_plan.{h,cpp}`, called from the loop next to
+`tileFetchPause`. It needs: the SAME SSID; USB or >= 3.8 V (`MAPS_DL_BATT_FLOOR`; a running job
+stops at 3.75 V off USB); no call for 60 s, no game (`gGbcActive`), no Files folder job, a card
+present, and WiFi up for 60 s. **Cool-downs** are 10, 20, 40, then every 60 min. **It gives up
+after 26 failure stops / refused starts in a row** (`TILE_PLAN_STALL_TRIES`, about a day of
+cool-downs), counted in TRIES: days waiting at a gate (another network, off USB) are not
+retrying. The first cut used "24 h since the last tile", which gave a job up on its first
+failure after such a wait. CARDFAILS never resume by themselves. **A card too full for the
+rest KEEPS the job, given up** (`TILE_GIVEUP_SPACE`, "free some, then Resume"); the space check
+runs from the cursor, not from `written`. **Crash strikes** are committed to NVS BEFORE each
+BOOT resume and cleared by a recorded stop reason or 50 new tiles. After 3 strikes it stops
+resuming, and the form says why. **A power-off is not a crash:** the held power button, the
+low-battery cut and the menu's Restart all call `tileFetchPowerOff()`, which saves the live
+cursor and records `TILE_STOP_POWEROFF`. An esptool reset, a reflash or a panic still strikes.
+**On another network:** `Paused: resumes on <SSID>, where it started`, plus **Resume on this
+network** (**Resume it now** for any other waiting gate, e.g. a give-up or a cool-down). A
+manual resume never strikes. **One automatic second pass.** Stop takes two presses within 3 s,
+and `tileFetchStop()` clears the NVS job synchronously. Every entry point (`tileFetchStop`,
+`tileFetchResumeNow`, a Start) loads the saved job before acting on it. The form shows a running
+or waiting job read-only, and settles a run that just ended before drawing; the screen hold
+lets go 2 min after the last key. Files refuses a delete or move over a running OR waiting
+job's `/maps/<src>`. **Tests:** `test_tileplan` is new, with 140 checks, and `test_tilepng`
+42 → 52.
+**COVEY** (`131feb3`, deployed 2026-09-24 00:26; decisions D-159/D-160 in its repo):
+**Per-source ceilings:** `tilestore.TILE_ZMAX` = otm 17 / usgs 16. The view goes one level past
+(otm z18, usgs z17). Nothing ever fetches past `tile_zmax`. **Nearest-ancestor stretch** to
+max(ZMIN, z−8). The chip reads `· z16-14 stretched 2-8x`. **Streamed tiles go to their own
+tree:** `/root/covey-tiles-streamed/<src>`, a SIBLING of `/root/covey-tiles`, so **the
+filesystem is the provenance record.** They show an amber wash, a 2 px edge, and a chip
+reading `N streamed tiles in view`, toggled with `mark_streamed`. **The streamed-only list:**
+Map Downloads → **Streamed-only (not downloaded on COVEY)** → the places list → **Download
+this area properly** (a PRESET; nothing starts until DOWNLOAD is pressed). **Expiry of
+streamed z>=12 only**, at >=90 % used or <2 GiB free, down to 85 %. Never within 10 km of GPS
+visits (the new `visits.py`), pins, downloaded tiles, live map centres or the running job.
+Anything streamed in the last 7 days goes last. Never anything downloaded, and a streamed tile
+is deleted as a "duplicate" only when the downloaded copy starts AND ends like a tile
+(IEND/FFD9). **Area downloads:** OTM to z17, 20 km, the same 2 s interval, a job file resumed
+at start on the same WiFi, and a second pass. Its time estimate still rests on
+`TILEDL_FETCH_S = 0.5`, a guess, but at z17 its model pins the rate to the 2.0 s interval
+whatever the guess, which matches the phone's measurement; only its z11-16 part is a guess.
+**New modules** `tilestore.py`, `visits.py`, `streamplaces.py` (so **47** files in the md5
+rule), and 72 suites.
+**MAC TOOLS** (`4719a8b`): **`tools/covey_pull.py` + `cardday.sh covey pull`** take
+DOWNLOADED tiles only. The manifest comes from `sudo find -printf`. Tiles are staged in
+`.incoming`, checked for COVEY's size AND the tile's own end (a PNG's IEND, a JPEG's FFD9),
+then linked in with `os.link` (EEXIST = the master wins, so it NEVER overwrites). 🛑 **The end
+check was the review's one critical finding:** when a tar stream stops mid-tile, bsdtar pads
+that tile to its full header size with ZEROS, so a size-only check pooled corrupt tiles; the
+tile bsdtar was writing when a stream stopped is also dropped by name. Zero-byte tiles are
+never pulled (`covey_zero_bytes.txt`). The pass test is a set difference, and an empty master
+file counts as missing. It prints COVEY's streamed-only places BEFORE transferring, with how
+much of each the master already has. **It REFUSES (exit 2) when COVEY cannot give that
+report**; `--without-report` overrides, only once the cut-over is known done. **The card-day
+order:** `status` (the evening before) → `covey pull` → phone pulls → phone pushes → `covey
+push`. `covey push` uses `-rt`, counts with `-size +0`, and refuses to leave COVEY under 4 GiB
+free. **The phone push** goes in bands: z0-16 for every source, then z17, each after a `df`
+check. Never z18. **Fixes:** pipefail; the backtick message; `convert_tiles` exits 1 on STOPPED
+and refuses a fully transparent tile; `tiles_565_to_png` fills 0-byte PNGs; `card_clone`'s
+glob. **Tests:** `check_covey_pull.py` 83, now in `run_tests.sh`; `check_convert_tiles.py`
+22 → 35. ⚠ **Do NOT run the old `~/tiles-master/pull_covey.*`**: it untars straight into the
+master, and bsdtar overwrites. The same commit makes the map's 25 ms load tick stand down when
+a load ends (while locked, the redraw goes to the clock and would not re-arm it).
+**THE REVIEW** (`0bb0146` for the phone, `4719a8b` for the tools; COVEY's are in `131feb3`):
+six adversarial reviewers, plus a verifier on every finding. Phone view 3 (1 major), phone
+downloads 6 (2 major), COVEY store 4, COVEY UI 9 (2 major), Mac tools 3 (1 critical), fidelity
+to Nick's asks 5. **All 30 fixed.** The majors: 🛑 **a tile that finished loading while the
+phone was LOCKED was read again 40 times a second until unlock** (the redraw went to the
+clock, so the stale "want" still named it; `startLoad` now refuses a tile already in a slot);
+the form could show a waiting multi-day job as "no job" with Start under the cursor, in the
+second after a run ended; the 24 h give-up counted days at a gate; on COVEY an undecodable
+tile was fetched again on every frame, and pass 2 could retry one refused tile forever.
+**BENCH, THE REVIEWED BUILD** (`firmware 0.9.78, built Sep 24 2026 00:04:42`, firmware.bin
+2,663,296 bytes, a clean build, RAM 27.1 %; both phones flashed, esptool hash verified; muted
+first, `hold on` before every shot). **Phone 2:** at z16 over a spot where the pool has z13 but
+nothing deeper, `z16* otm` / `z13 tiles stretched 8x`; at that tile's corner at z15, `z13-12
+stretched 4-8x`, and the roads line up across the seam. **A real 2 km OTM z17 download:** 567
+tiles (555 new, 12 already there), 0 failed, 1,243 s (21 min); z17 at 2,068 ms a tile (the 2.0 s
+interval sets the pace), z11-16 at ~3.5-4 s; internal largest-block floor 49,616 B, min-ever
+(since boot) 38,868 B; worker `task stack floor 4572 of 8192`; the saved job cleared itself at
+the end. Over it, z17 is REAL (`z17 otm`, no star, house numbers readable), and z18 reads `z18* otm` / `z17
+tiles stretched 2x`, a 20 m scale bar and the one-shot "Past the tiles" note. **Crash resume:**
+an esptool reset in the middle of a 5 km z17 job; at boot the job "waits to resume", then
+`resumed the otm download at z16 #1 (pass 1, 217 written, strike 1)`, and the strike cleared
+after 50 new tiles. A reflash in the middle of the same run later resumed `at z17 #399 (pass
+1, 923 written, strike 1)`. ⚠ **That 5 km z17 job was LEFT RUNNING on phone 2** on purpose
+(useful coverage, and a long-run test): `maps dl` shows it. **Phone 1:** `z17* usgs-topo` /
+`z16 tiles stretched 2x`; the Download form for OpenTopoMap 20 km z17 reads `50451 tiles, 6.2
+GB, up to about 36 h` and `Keep it on USB: about 36 h of downloading`; USGS Topo's Detail
+stops at z16. ⚠ **BOTH PHONES WERE LEFT MUTED** (master mute on) after the bench; Nick unmutes
+with a held `#`. **Still not exercised on hardware:** a resume after a WiFi drop over 20 s, a
+double Stop, a battery stop off USB.
+**THE COVEY CUT-OVER, AS RUN (2026-09-24, covey-ui stopped).** 749 tiles were on COVEY but not
+in the 2026-09-22 pool. 🛑 **478 of them were NOT streamed: a deliberate OpenTopoMap download
+made on COVEY on 2026-09-22 20:21-20:32** (z15-16, written one at a time ~1.2 s apart, column
+by column, which is the Downloader's signature). They were KEPT as downloaded. The other 271
+(otm 222: z9-16 plus 101 at z17; usgs-topo 49) were streamed browsing, and moved into
+`/root/covey-tiles-streamed` with `tilestore --mark-streamed` (dry run first: 271 to move, none
+refused, every mtime after the push; then `moved=271 failed=0`). After it: otm downloaded
+30,774 / streamed 222; usgs-topo 62,579 / 49; usgs-img 39,951 / 0. `tilestore --places`: 4
+places (3 OpenTopo + 1 USGS topo), every one radius 2 km, plus overview lines (otm 98,
+usgs-topo 16); COVEY's card 15.4 % used, 101.7 GB free. 🔑 **LESSON: "newer than the push"
+did NOT mean "streamed". Check the write CADENCE before any cut-over:** a download writes one
+tile every ~1.2 s, column by column; browsing does not.
+**THE MAC, AFTER THE CUT-OVER.** `cardday.sh status` shows COVEY's streamed-only places, each
+with how much of it the master already has. `cardday.sh covey pull` ran for real: +250 tiles
+(the rest of that COVEY download; 228 were already in the master from the overnight fetch),
+"0 on COVEY missing from the master", and the streamed ones not pulled (otm 222 / usgs-topo
+49). openrsync `--files-from` against COVEY's rsync WORKED. **The overnight fetch** (running
+as this was written): OpenTopoMap z11-17, 10 km around two of Nick's pins, into
+`~/tiles-master` by `~/tiles-master/fetch_otm_areas.py` (outside the repo), 2.0 s between z17
+requests: 25,546 tiles in the two squares, 19,714 not yet pooled, ~11 h. When it finishes,
+`cardday.sh covey push` puts it into COVEY's DOWNLOADED tree. ⏳ It was still running at the release commit (5,000 of 19,714 new tiles at 00:27, no failures); its final counts and the push go in the next handoff commit.. The phones get it on the next card day.
+**STATE:** **WiPhone:** P1 `7be5cbb` + P2 `987958e`, merged `1144c7c`; review fixes `0bb0146`;
+tools + `run_tests.sh` + the map's tick `4719a8b` (HEAD when the release image was built),
+all on main. Host
+suite: `./tests/run_tests.sh` exit 0, with `test_maptiles` 179, `test_tileplan` 140,
+`test_tilepng` 52, `check_covey_pull` 83, `check_convert_tiles` 35, and every other suite
+unchanged and passing. **Both phones:** `firmware 0.9.78, built Sep 24 2026 00:04:42`, muted,
+phone 2 running a 5 km z17 job. **COVEY:** `131feb3`, deployed 2026-09-24 00:26: md5 47/47 ==
+HEAD (the three new modules included), `covey-ui` restarted 00:27:03 PDT, NRestarts=0, no
+tracebacks. Mac 72/72; device 72/72 as `covey` (~00:45), no test leftovers in `/home/covey`,
+covey-ui still active. **Pushed and published:** ⏳ right after the release commit — the pushed range, the live manifest and the live image sha are in the next handoff commit..
+
 🔭 **2026-09-22 NIGHT: 0.9.77 — ONE LEVEL PAST THE TILES, ON ALL THREE DEVICES; AND COVEY HAS
-THE WHOLE TILE POOL.** Nick: *"for all 3 devices, can we allow them to zoom in one level more
+THE WHOLE TILE POOL.** (Partly superseded by the block above: the helpers it names are gone,
+and "online it streams the real z17" was true for OpenTopoMap only.) Nick: *"for all 3 devices,
+can we allow them to zoom in one level more
 (maybe add a little bit of text saying its zooming past the tile level...) i totally get that
 it will get fuzzy, but would be usefull regardless."* THE MAP: the view may sit one level
 deeper than the area's deepest tiles (`MAP_OVERZOOM_MAX` 1), those tiles stretched 2x. 🔑 THE

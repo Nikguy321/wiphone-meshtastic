@@ -106,7 +106,7 @@ enum {
 };
 
 /* The download form's choices. Radii are COVEY's, 2 to 20 km for every depth: a 20 km z17 run
- * is ~51,000 tiles and ~2.4 days, and that is what it is for (Nick: "overnight downloads or
+ * is ~51,000 tiles and ~36 h, and that is what it is for (Nick: "overnight downloads or
  * multi day downloads even pre-trips"). The Detail row runs z13..z17 (MAPS_DL_DEPTH_MIN/MAX,
  * tile_plan.h) but offers only what the SOURCE has — z17 is OpenTopoMap's (and the custom
  * relay's); both USGS services answer 404 there, and USGS Topo's z16 is already its z15

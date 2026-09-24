@@ -11,7 +11,7 @@
  *   - whether a stopped job should start again by itself, and if not, why not.
  *
  * ── WHY THE RESUME DECISION IS ONE PURE FUNCTION ────────────────────────────────────────
- * A download can now take days (20 km to z17 on OpenTopoMap is ~51,000 tiles at ~4 s each), and
+ * A download can now take days (20 km to z17 on OpenTopoMap is ~51,000 tiles, ~36 h), and
  * nothing lasting that long survives without a WiFi drop, a call, a game or a restart. So a stopped
  * job starts again by itself — but only under the conditions the form's own Start would accept,
  * on the network it was started on (a hotspot on a trip is someone's phone bill), and never in a

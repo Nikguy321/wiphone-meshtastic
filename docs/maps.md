@@ -100,29 +100,63 @@ separate and unaffected — only shared ones take one of those eight slots.
 
 ---
 
-## One level past the tiles
+## Stretching the most detailed tile there is
 
-Zoom in past the deepest level your card holds and the map goes there anyway: the tiles from
-the level below are **stretched 2x**. It is bigger, not sharper — the same ground detail in
-four times the pixels — and the map says so in three places rather than letting a fuzzy screen
-look like a fault:
+Nick: *"if the more detailed zoom levels don't exist, don't just let the higher zooms go
+blank, just stretch the most detailed available tile and say what tile is being stretched and
+by how much"* (0.9.78).
 
-- the corner chip reads **`z17*`** instead of `z17`, the star being the always-visible sign;
-- the status chip reads **`z16 tiles stretched 2x`**;
-- the step that crosses the line says *"Past the tiles: z16 stretched 2x. Same detail, bigger
-  — and fuzzy."*
+**Every tile position on the screen is drawn from the deepest level the card has there.** If
+the position's own tile is missing, the map uses its parent's quarter, stretched 2x. If that
+is missing too, it uses the grandparent's sixteenth, stretched 4x, and so on, down to the
+area's shallowest level or 8 levels up, whichever comes first (past 8, a position would be
+smaller than one pixel of the ancestor). The walk is per
+position, so the edge of a download shows real tiles beside stretched ones instead of grey.
+A real tile is never stretched. **A grey square means there is no tile at any level.**
 
-**The scale bar stays honest** — 50 m where z16 read 100 m — because the view really is at
-z17; only the pixels are borrowed. Pins, the crosshair readout and "how far is that" are all
+Stretched is bigger, not sharper: the same ground detail in more pixels. The map says so
+rather than let a fuzzy screen look like a fault:
+
+- **the corner chip gets a star** (`z17*`) whenever any position on the screen is stretched;
+- **the status chip names the stretched levels and their factors, deepest level first**, so
+  each end of the range sits beside its own factor:
+  - one level: `z16 tiles stretched 2x`, or `z13 tiles stretched 8x` at z16 where the card
+    holds z13 and nothing deeper;
+  - several: `z13-12 stretched 4-8x` at z15 means z13 at 4x and z12 at 8x;
+  - `z16-14 x2-8` is the short form when the full one will not fit.
+
+  Written the other way round, `z14-16 stretched 2-8x` would read as z14 at 2x. That is the
+  one fact Nick asked to be told, told backwards;
+- **`card read error`** on the status chip means a tile is on the card but the wrong length or
+  unreadable. It is still drawn from its ancestor, but a failing card must not pass for
+  ordinary stretching;
+- the zoom step that goes **one level past an area's deepest tiles** says once *"Past the
+  tiles: z16 stretched 2x. Same detail, bigger — and fuzzy."* The next press is refused with
+  *"z17 is as close as this map goes, tiles and all"*.
+
+**The scale bar stays honest.** It reads 50 m where z16 read 100 m, because the view really is
+at z17; only the pixels are borrowed. Pins, the crosshair readout and "how far is that" are all
 computed at the real zoom, so nothing on the screen is lying about distance.
 
-One level only (`MAP_OVERZOOM_MAX`). Two would be a screen of 64 fat squares and nothing is
-learned from it. The stretched level is remembered across a power-off like any other, and it
-travels between map areas — but only ever one level past *that* area's own deepest tiles.
+The zoom STEP goes only one level past an area's deepest tiles (`MAP_OVERZOOM_MAX`): two levels
+would be a screen of 64 fat squares, and nothing is learned from it. Filling a HOLE from
+several levels up is different: that is not a zoom you chose, and the chip names the factor.
+So an OpenTopoMap area holding z17 zooms to z18, and a USGS area stops at z17. The stretched
+level is remembered across a power-off. It travels between map areas, but only ever one level
+past *that* area's own deepest tiles.
 
-COVEY does the same thing at z17, stretching its z16 cache, and says
-`z17 · USGS topo · z16 stretched 2x` on its info chip. Online it streams the real z17 tiles
-instead, and then there is nothing to stretch.
+While a tile is still being read off the card, the nearest shallower level already in memory
+is drawn in its place and counted as stretched, so the chip is honest about that too. While a
+download is writing into the area on the screen, the map checks it every 10 s, so a freshly
+written tile replaces its stretched parent without a keypress. That includes a download
+writing a level deeper than the area had when the map opened (the first z17 run over a z16
+area): the map picks up the new level, draws it, and lets you zoom into it.
+
+**COVEY does the same**, per source: OpenTopoMap views to z18 over its real z17, and USGS to
+z17 over z16. Its info chip reads like `z18 · OpenTopo · z17 stretched 2x` or
+`· z16-14 stretched 2-8x`. ⚠ The 0.9.77 version of this section said that online COVEY
+"streams the real z17 tiles instead". That was only ever true for OpenTopoMap. Both USGS
+services answer 404 at z17, so over USGS COVEY stretches z16 online and offline alike.
 
 ---
 
@@ -167,10 +201,15 @@ A 20 × 20 km area at roughly 47° N:
 | z13 | ~13 m | ~35 | 4.5 MB |
 | z14 | ~6.5 m | ~130 | 17 MB |
 | z15 | ~3.2 m | ~500 | 63 MB |
+| z16 | ~1.6 m | ~2,400 | 300 MB |
+| z17 (OpenTopoMap only) | ~0.8 m | ~9,600 | 1.2 GB |
 
-About **85 MB for the whole stack** — nothing on a 32 GB card. z13–z15 is the useful range
-on a 240×320 screen; z16 is sharper but four times the card space for ground you can already
-see.
+About **85 MB for the whole stack to z15**, which is nothing on a 32 GB card. To z16 it is
+~0.4 GB, and to z17 ~1.6 GB (the downloader's own count for 10 km around 47.5° N). z13–z15 is
+the useful range on a 240×320 screen. USGS Topo's z16 is the z15 drawing scaled up, four
+times the card space for ground you can already see. OpenTopoMap's z17 is a real drawing
+(house numbers, footpaths). It is worth its 4x for a small area, not by default. **z17 exists
+only for OpenTopoMap: USGS answers 404 past z16.**
 
 ---
 
@@ -240,49 +279,133 @@ Three ways, in the order you will probably use them:
 3. **Straight onto the card**, as the commands above show.
 
 A tile server's terms are between you and the server. USGS is public domain and asks for a
-credit line; OpenTopoMap is CC-BY-SA and asks not to be mass-downloaded — the phone waits
-0.6 s between its tiles and says so on the help screen. Both credits are printed there.
+credit line. OpenTopoMap is CC-BY-SA, and its about page welcomes use as long as mass
+downloads do not overburden its server. The phone waits 0.6 s after each OpenTopoMap tile and
+says so on the help screen; both credits are printed there.
+
+**z17 quadruples the requests**, so at z17 there is a **minimum of 2.0 s between the starts of
+two OpenTopoMap requests**, on the phone and on COVEY. At z17 that interval IS the pace: a
+real 2 km run on phone 2 measured 2,068 ms a z17 tile, while its z11-16 tiles took ~3.5-4 s. A
+20 km area to z17 is ~51,000 requests (~38,000 of them at z17). A server that answers
+429/502/503/504 gets the same tile retried after 60 s, doubling to 15 min, and the pace is
+doubled for the rest of the run (capped at 10 s).
+
+**z18 is never requested.** OpenTopoMap answers z18 with a 200 and a placeholder image reading
+*"max zoom layer = 17"*: opaque text on a transparent background. ⚠ That is NOT caught by the
+"fully transparent PNG = no tile" check (on the phone, on COVEY or in `convert_tiles.py`), so the
+guard is that nothing ever asks for it. The phone's source ceiling for `otm` is z17, COVEY's
+`TILE_ZMAX["otm"]` is 17, and `cardday.sh` never converts a z18 folder.
 
 ### Pooling the tiles of several devices
 
 Two phones and a COVEY that each downloaded their own patches end up with three different
-maps. The union of them is one tree of PNG originals on the Mac, and every device gets the
-whole of it. The tree is the standard `<source>/<z>/<x>/<y>.png` — COVEY's own cache layout,
-so its cache seeds it directly and is refilled from it with plain `rsync`.
+maps. The union of them is one tree of PNG originals on the Mac, `~/tiles-master`, and every
+device gets the whole of it. The tree is the standard `<source>/<z>/<x>/<y>.png`, which is
+COVEY's own layout. **Only COVEY's DOWNLOADED tiles go into the pool** (`/root/covey-tiles/<src>`).
+Tiles it only STREAMED while panning live in a separate tree (`/root/covey-tiles-streamed`).
+They stay on COVEY, marked as streamed and liable to expire when its card fills, and they
+never reach the phones. A spot that exists only because it was streamed has to be downloaded
+properly on COVEY before card day (below).
 
 The phones need their **cards in the Mac's reader**: the union is 128 KB per tile, and a
 hundred thousand tiles is ~13 GB — a week over the phone's WiFi uploader (measured 48–69 KB/s)
 against under an hour onto a card. Nothing reads files off the phone over WiFi at all.
 
-```bash
-# 1. the originals: COVEY's cache (its WiFi link is slow; ~2.5 GB took ~90 min)
-ssh covey 'sudo tar cf - -C /root/covey-tiles .' | tar xf - -C ~/tiles-master
+**Card day is `tools/cardday.sh`, in this order:**
 
-# 2. each phone's card, in the reader: copy the whole card, then add its tiles to the master
-#    (a PNG already in the master is kept — an original beats a tile that has been through 565)
-tools/card_clone.sh pull /Volumes/WIPHONE ~/wiphone-cards/phone1
-for a in ~/wiphone-cards/phone1/maps/*/; do
+```bash
+# 0. THE EVENING BEFORE: the master's counts, and COVEY's streamed-only places.
+#    Download those properly on COVEY (Map > DL > Streamed-only) or the phones will not get them.
+tools/cardday.sh status
+
+# 1. COVEY's DOWNLOADED tiles into the master (never its streamed ones; never overwrites)
+tools/cardday.sh covey pull
+
+# 2. each phone's OLD card, in the reader: a full backup, and its tiles into the master
+#    (pull every phone before pushing any, so each card gets them all)
+tools/cardday.sh phone1 pull /Volumes/WIPHONE1
+tools/cardday.sh phone2 pull /Volumes/WIPHONE2
+
+# 3. each NEW card: that phone's backup, then the WHOLE master
+tools/cardday.sh phone1 push /Volumes/NEWCARD
+
+# 4. and back to COVEY: whatever its downloaded tree lacks, over SSH
+tools/cardday.sh covey push
+```
+
+🛑 **The old step 1 was `ssh covey 'sudo tar cf - -C /root/covey-tiles .' | tar xf - -C
+~/tiles-master`. Do not use it.** `tar` overwrites by default, so it replaced master tiles
+with whatever COVEY had. It also pulled the legacy root-level zoom folders and any half-written
+`.part` files, and today it would pool streamed tiles as if they were downloaded.
+
+**What `covey pull` does** (`tools/covey_pull.py`):
+- It reads a manifest of COVEY's downloaded tree per source (`sudo find -printf`). It never
+  names the streamed tree, the root-level digit folders or anything called `*-streamed`.
+- Before anything moves, it prints COVEY's own streamed-only list (COVEY's `tilestore
+  --places`) under *"Will NOT reach the phones unless downloaded on COVEY first:"*, one row per
+  place with its tile count, zoom range, the date it was streamed, and how much of its deepest
+  level the master already has. A place the master already covers completely (a phone's own
+  download, a fetch on the Mac) is listed apart, because the phones get it anyway.
+- **Without that report it refuses (exit 2).** A COVEY that cannot give it is most likely one
+  whose streamed tiles still sit in the downloaded tree, and pulling them would put them on
+  both phones as if chosen. `--without-report` overrides it, and is only for when COVEY's
+  cut-over is known to be done.
+- It stages the missing tiles in `~/tiles-master/.incoming/<src>`: a tar stream for a big zoom,
+  and `rsync --files-from` passes to fill gaps. Each staged file must match COVEY's size
+  exactly, be more than 0 bytes, AND end like a tile (a PNG's IEND chunk, a JPEG's FFD9). A
+  file that fails is deleted from staging and fetched again. 🛑 The end check is not optional:
+  when a tar stream stops mid-tile, bsdtar still pads that tile to the size in its header with
+  zeros, so a cut tile is exactly COVEY's size. The tile bsdtar was writing when a stream
+  stopped is dropped by name too.
+- It links the verified tiles into the master with `os.link`, which fails when the name
+  exists. **A master tile is never overwritten.**
+- Its pass test is a set difference: every non-empty tile COVEY has must be in the master
+  afterwards, non-empty (an empty master file where COVEY has a good tile fails it). It logs
+  to `cardday.log` and writes the added paths to `covey_pulled_<date>.txt`. For a first run,
+  try `python3 tools/covey_pull.py pull --dry-run` (manifests and counts only). The first real
+  pull (2026-09-24, after COVEY's cut-over) added 250 tiles and ended with "0 on COVEY missing
+  from the master"; openrsync's `--files-from` against COVEY worked.
+
+**Zero-byte tiles are never pulled.** A 0-byte tile on COVEY is a failed fetch or a hard power
+cut, not a map. It is listed in `~/tiles-master/covey_zero_bytes.txt`, and deleting it on COVEY
+stays a deliberate act. On the way back, `tiles_565_to_png.py` treats a 0-byte master PNG as
+absent and fills it, and `covey push` counts only non-empty tiles.
+
+**What the other steps do:**
+- **`cardday.sh status`** prints the master's per-source counts and, when COVEY answers, its
+  streamed-only places (with how much of each the master already has) and its disk. Otherwise
+  it prints "not reachable" and carries on.
+- **`covey push`** writes only into COVEY's downloaded tree, with `rsync -rt` (so the files do
+  not arrive owned by the Mac's uid). It skips a source that would leave COVEY under 4 GiB
+  free.
+- **The phone push** writes z0-16 for every source first, then z17, each after a free-space
+  check against the card. It never writes z18. A card that fills up then loses only z17,
+  never the whole of `usgs-img`/`usgs-topo`, which sort after `otm`.
+
+The hand loops underneath, for reference:
+
+```bash
+tools/card_clone.sh pull /Volumes/WIPHONE ~/wiphone-cards/phone1          # the whole card
+for a in ~/wiphone-cards/phone1/maps/*/; do                                # its tiles, as PNG
   python3 tools/tiles_565_to_png.py "$a" ~/tiles-master/$(basename "$a")   # --jpeg for usgs-img
 done
-
-# 3. the union back onto a card (a new one: clone the old card's contents first)
-tools/card_clone.sh push ~/wiphone-cards/phone1 /Volumes/NEWCARD
+tools/card_clone.sh push ~/wiphone-cards/phone1 /Volumes/NEWCARD           # onto a new card
 for s in ~/tiles-master/*/; do
-  python3 tools/convert_tiles.py "$s" /Volumes/NEWCARD/maps/$(basename "$s")
-done
-diskutil eject /Volumes/NEWCARD
-
-# 4. and back to COVEY — only what it lacks travels
-for s in ~/tiles-master/*/; do
-  rsync -a --ignore-existing --rsync-path='sudo rsync' "$s" covey:/root/covey-tiles/$(basename "$s")/
-done
+  python3 tools/convert_tiles.py "$s" /Volumes/NEWCARD/maps/$(basename "$s") --zoom 0-16
+done                                                                       # then --zoom 17-17
 ```
 
 The area name on the phone is the source's folder name (`usgs-topo`, `usgs-img`, `otm`), so
 the same tile is the same file on all three devices and a re-run copies nothing twice:
 `convert_tiles.py` keeps a tile that is already there at the right length, `tiles_565_to_png.py`
-keeps a PNG that exists, and `card_clone.sh` never deletes. `convert_tiles.py` does ~300
-tiles/s with numpy installed (`python3 -m pip install --user numpy`); the card is the limit.
+keeps a PNG that exists (unless it is 0 bytes), and `card_clone.sh` never deletes.
+`convert_tiles.py` does ~300 tiles/s with numpy installed (`python3 -m pip install --user
+numpy`); the card is the limit. It exits 1 when it stops early (a full or pulled card), so
+`cardday.sh` stops too. It also refuses a fully transparent tile as unreadable rather than
+flattening it into a solid square.
+
+The pool on 2026-09-22 was **132,826 tiles, 16.2 GB on each phone**, with ~13 GB free on a
+32 GB card. A 20 km OpenTopoMap area to z17 adds ~6.3 GB, so z17 fits, but it is a budget.
 
 `tiles_565_to_png.py` is `convert_tiles.py` run backwards (5-6-5 bits replicated up to 8, so
 white stays white); `tests/check_convert_tiles.py` holds the two to each other, because a tile
@@ -299,29 +422,98 @@ card in the raw format above, so the viewer never learns where a tile came from.
 
 | Row | Choices |
 |---|---|
-| Source | **USGS Topo** (contours, roads, labels — the hunt map), **USGS Aerial**, **OpenTopoMap** (denser contours, CC-BY-SA, slow server) |
-| Radius | 2 / 5 / 10 / 20 km around the crosshair |
-| Detail | to z13, z14, z15 or z16. z15 is 3 m per pixel; USGS z16 is the same drawing scaled up and costs four times as much |
+| Source | **USGS Topo** (contours, roads, labels — the hunt map), **USGS Aerial**, **OpenTopoMap** (denser contours, CC-BY-SA, slow server). The form opens on the source of the map you are looking at |
+| Radius | 2 / 5 / 10 / 20 km around the crosshair, at every depth |
+| Detail | to z13, z14, z15 or z16, and **z17 for OpenTopoMap only** (`Detail: z17 (4x z16's cost)`). z15 is 3 m per pixel; USGS z16 is the same drawing scaled up and costs four times as much. USGS has no z17, so on USGS the row stops at z16, and a press never lands on a step that shows the same depth twice. The depth shown is the depth used |
 
-The line under them is the honest estimate — tiles, megabytes on the card, minutes — from
-the rates measured on the phone (USGS about a second a tile, OpenTopoMap about four). **Start
-download** needs WiFi and either USB power or a battery above 3.8 V; it says which is missing.
-While it runs the screen shows `Downloading 24/271`, the zoom level it is on, bytes, seconds
-and failures, and **Stop** finishes the tile in hand and quits. The screen stays awake while
-you watch it; leave it and the download carries on (the map's own tiles, the messages, the
-clock — all still work), and it pauses by itself for a phone call or a dropped WiFi and
-resumes when they clear. Re-running the same area only fetches what is missing: a tile is
-"there" only when it is exactly 131072 bytes, so a power-off mid-tile leaves nothing the
-next run will not repair. When a run is over the screen keeps its account — `Last run: 5517
-new, 7332 already had, 4 failed, 7013 s` — and, if anything failed, `Last problem:` with the
-last tile that did and why. Every line on this screen **wraps** onto more rows rather than
-ending in `..` (0.9.68).
+The line under them is the honest estimate: tiles, size on the card, and time, e.g. `50451
+tiles, 6.2 GB, up to about 36 h` (OpenTopoMap, 20 km, z17). It uses the rates measured on the
+phone: USGS about a second a tile, OpenTopoMap about four to z16, and OpenTopoMap's z17 at the
+2.0 s interval plus 0.1 s (phone 2 measured ~2.07 s). It says **"up to"** because tiles
+already on the card are skipped in milliseconds. Over 4 h it adds `Keep it on USB: about 36 h
+of downloading`; off USB the job would stop at the battery floor and wait.
+**Start download** needs WiFi and either USB power or a battery above 3.8 V, and says which is
+missing. It is also refused during a game, a Files folder job, or within a minute of a call.
+
+While it runs, the screen shows THAT job, read-only:
+- `Downloading 24 of 271`, the zoom level it is on, the bytes, the seconds and the failures;
+- `About N left`, from the mean of the last 200 tiles fetched;
+- `Server busy - trying again in N min` when the server has asked it to slow down;
+- `Resumes by itself after a WiFi drop or a restart`.
+
+Start is not offered until the job is stopped or finished: a new one would replace a job that
+may be days old. **Stop takes two presses within 3 s.** The first says `Stopping forgets it: N
+of M done, and it will not resume`. The second finishes the tile in hand and quits, and the
+saved job is forgotten at once. The screen stays awake while you watch it, and lets go 2 min
+after the last key. Leave it and the download carries on; the map's own tiles, the messages
+and the clock all still work.
+
+Re-running the same area only fetches what is missing. A tile is "there" only when it is
+exactly 131072 bytes, so a power-off mid-tile leaves nothing the next run will not repair. When
+a run is over the screen keeps its account (`Last run: 5517 new, 7332 already had, 4 failed,
+7013 s`). If anything failed, it adds `Last problem:` with the last tile that did and why. Every
+line on this screen **wraps** onto more rows rather than ending in `..` (0.9.68).
+
+**A download is built to run for days (0.9.78).** A 20 km OpenTopoMap area to z17 is about 36
+hours, and nothing that long happens without a WiFi drop, a call, a game or a restart:
+- **The job is kept in NVS:** source, the WiFi network it started on, centre, radius, depth and
+  a cursor, saved at most every 500 tiles, every 5 min, and at the end of each level. A job on
+  the serial custom source is not kept.
+- **A call or a game pauses it.** Past 10 min it stops instead.
+- **A WiFi drop longer than 20 s stops it**, because the phone's WiFi rescue needs the RAM.
+- **Off USB, below 3.75 V**, a running job stops.
+- **A stopped job resumes by itself** when all of these hold:
+  - the phone is back on **the same network** it started on, and has been for 60 s;
+  - it is on USB, or the battery is at 3.8 V or more;
+  - there has been no call for a minute;
+  - no game is running and no Files folder job is running;
+  - the card is in.
+- **Cool-downs:** after a failure stop (the network gave up, nothing decoded, no RAM) it waits
+  10, 20, then 40 min, then retries every 60 min (`Retrying in N min (the network gave up)`).
+  **After 26 failure stops or refused starts in a row without one new tile (about a day of
+  cool-downs) it gives up** and says so (`Stopped resuming: a day of retries without one new
+  tile`). Time spent waiting at a gate, on another network or off USB, is not retrying and
+  does not count. A card that keeps refusing writes never resumes by itself.
+- **Crash strikes:** three restarts during boot resumes (a resume that neither ended in a
+  recorded stop nor wrote 50 new tiles) stop the resuming: `Stopped resuming: the phone
+  restarted 3 times during this download`. Switching the phone off (the held power button or
+  the low-battery cut) and **Restart** from the menu are not crashes: each saves the live
+  cursor and records a clean stop first. A reset from the cable, a reflash or a panic does
+  count. Proven on phone 2: an esptool reset mid-run came back as `resumed the otm download at
+  z16 #1 (pass 1, 217 written, strike 1)`, and the strike cleared after 50 new tiles.
+- **On another network** it waits: `Paused: resumes on <network>, where it started`. On a trip
+  the network is often a phone's hotspot, on somebody's data plan, so the phone never does
+  that by itself. The form offers **Resume on this network**, which moves the job to the
+  current one. A job waiting for any other reason (a give-up, a cool-down) gets **Resume it
+  now**. A manual resume never counts a strike, and a refused one says why.
+- **The order is centre-out.** Within each level the tiles go centre-out in 16×16 blocks,
+  starting at z11, so a run cut short still holds the middle of the area. At the end of a run
+  that was not stopped, **one automatic second pass** retries what did not land.
+- **Card space.** A resume checks card space only for the tiles at or past the cursor that
+  the job has not written, keeping max(256 MB, 2 % of the card) spare. If there is not enough
+  room, the job is KEPT and stops resuming: `Stopped: no room on the card for the rest - free
+  some, then Resume`.
+
+The Files app refuses to delete or move a folder at or above the `/maps/<src>` of a download
+that is running or waiting to resume.
+
+**What counts as a tile:**
+- **No tile:** HTTP 404 or 410, or a PNG whose every pixel is transparent. Either is counted
+  and skipped, and nothing is written.
+- **A failure:** a 200 that does not decode as a tile (a captive portal's login page, a
+  truncated body). Twelve in a row stop the run, and it then resumes under the cool-downs
+  above.
+
+⚠ OpenTopoMap's z18 placeholder is not fully transparent (see above). The guard against it is
+that the phone never asks for z18.
 
 `card refused the write` is the card saying no to one tile's 128 KB: a short write from the
 SD layer, usually one busy timeout on a card that is otherwise fine (phone 2 lost 4 tiles of
-12,853 to it). Since 0.9.68 a refused write is tried once more before it counts; a tile that
-still fails is simply missing, and **Start download** again fetches only the missing ones.
-A card that refuses ten in a row stops the run — that is a full or pulled card.
+12,853 to it). A refused write is tried again after 200 ms, 1 s and 3 s before it counts
+(0.9.68 tried once; 0.9.74 made it three). A tile that still fails is simply missing, and
+**Start download** again fetches only the missing ones. A card that refuses twelve tiles in a
+row stops the run, because that is a full or pulled card, and that stop never resumes by
+itself.
 
 Each source is its own area on the card (`/maps/usgs-topo`, `/maps/usgs-img`, `/maps/otm`);
 `Map area:` in the menu switches between them, as does the bottom side button. An area the
@@ -346,20 +538,41 @@ What it costs (measured on WiPhone 2, 2026-09-18):
 | 10 km, z11–15 | ~865 | 113 MB | ~15 min | ~1 h |
 | 20 km, z11–15 | ~3,260 | 427 MB | ~1 h | ~3.5 h |
 
+OpenTopoMap to z17, computed with the phone's own count and rates (tileFetchEstimate's square
+at 47.5° N; 4.0 s a tile to z16, and 2.1 s at z17, the 2.0 s interval plus 0.1 s). The count
+moves a little with where you stand, and the Download form shows the exact figure for the
+crosshair:
+
+| Area | Tiles | On the card | OpenTopoMap |
+|---|---|---|---|
+| 2 km, z11–17 | ~570 | 70 MB | ~25 min |
+| 5 km, z11–17 | ~3,400 | 424 MB | ~2.5 h |
+| 10 km, z11–17 | ~12,900 | 1.6 GB | ~9 h |
+| 20 km, z11–17 | ~51,000 | 6.2–6.3 GB | ~36–37 h |
+
+Measured (phone 2, 2026-09-23): a real 2 km run was 567 tiles (555 new, 12 already there), 0
+failed, in 1,243 s (21 min). z17 went at 2,068 ms a tile and z11–16 at ~3.5–4 s. The internal
+largest block never fell below 49,616 B.
+
+Each level is 4x the one above it, so ~three quarters of any z17 area is the z17 level itself.
+z17 is for a hunt area and its approaches; 20 km of it is the overnight-and-then-some case
+Nick asked for (*"overnight downloads or multi day downloads even pre-trips"*).
+
 ### How it works, and why it took a night to make it work
 
 The phone had never opened an HTTPS connection: the framework builds mbedTLS to allocate from
 **internal** RAM, its two 16 KB record buffers alone exceed the phone's largest free block, and
 the handshake runs on the calling task's 8 KB stack. `tile_fetch.h` has the whole story. The
-short version: the downloader runs on its own task with a 10 KB stack, redirects mbedTLS's
+short version: the downloader runs on its own task with an 8 KB stack, redirects mbedTLS's
 allocator into PSRAM once (`mbedtls_platform_set_calloc_free`), keeps one connection alive for
 the whole area, decodes each tile with the decoders already in the ESP32's ROM (TJpgDec for
 USGS's JPEG, the `tinfl` inflater for OpenTopoMap's PNG — `tile_png.cpp` is the 300 lines of
-PNG around it, proven against 41 host checks), and writes the raw file to a temporary name
+PNG around it, proven against 52 host checks), and writes the raw file to a temporary name
 before renaming it into place.
 
-Internal RAM is the thing to watch: the task's stack is 10 KB for the life of the firmware
-from the first download, and the first TLS handshake of a run dips the internal heap by
+Internal RAM is the thing to watch: the task's stack is 8 KB for the life of the firmware
+from the first download (a real z17 run left 4,572 of its 8,192 bytes never touched: `task
+stack floor 4572 of 8192`), and the first TLS handshake of a run dips the internal heap by
 another ~12 KB for a second or two. The downloader refuses to start when the largest free
 block is under 14 KB (24 KB before the stack exists) and tells you to reboot first. The
 serial console has the numbers: `maps dl` prints the run's heap floor and the task's stack
@@ -368,9 +581,15 @@ high-water mark.
 ### From the console
 
 ```
-maps dl                                  what the last / current run did, with the heap floor
-maps dl 0 47.42 -121.75 5 15             start: source 0=USGS Topo 1=USGS Aerial 2=OpenTopoMap
-maps dl stop                             finish the tile in hand and quit
+maps dl                                  what the last / current run did, with the heap floor,
+                                         the stack floor, ms a tile, and the saved job's resume
+                                         state (network, cursor, strikes, last stop reason)
+maps dl 0 47.42 -121.75 5 15             start: source 0=USGS Topo 1=USGS Aerial 2=OpenTopoMap;
+                                         the depth is capped at the source's (USGS 16, OTM 17)
+                                         and the start line prints the depth actually used.
+                                         The job is kept and resumes by itself
+maps dl stop                             finish the tile in hand and quit; the job is
+                                         forgotten and will not resume
 maps dlurl http://192.168.1.17:8765/{z}/{x}/{y}.jpg    a plain-HTTP relay as source 3
 tlstest <url> [n]                        the TLS bench: n kept-alive GETs, heap and timing
 open maps                                jump into the app; `hold on` keeps the screen awake
@@ -413,6 +632,8 @@ computer. `tools/shot.py` will take the screenshot.
   100–250 ms and everything in this firmware shares one task. 250 ms is exactly the threshold
   the superloop's stall detector was built to complain about; four tiles read the obvious way
   is a second of frozen phone, a dropped WiFi connection and some eaten keypresses, every
-  time you pan. A tile that has not arrived is drawn as a plainly-marked grey square.
+  time you pan. While a tile has not arrived, a shallower level already in memory is drawn
+  stretched in its place (and the chip says so); with nothing to stretch, it is a
+  plainly-marked grey square.
 - **No timer at all** once the screen is painted. A map that is finished must not keep the
   CPU awake.

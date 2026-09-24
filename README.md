@@ -70,8 +70,10 @@ a card, but the apps above will be empty or refuse politely.
   sold by Amazon itself, not a marketplace reseller (the counterfeits are the
   cards that misbehave). It is the dash-cam card: rated for continuous
   recording, which is what the map downloader does to a card for hours, and
-  32 GB comes FAT32 from the factory (the whole 20 km aerial map area is 1.6 GB,
-  so 32 GB is plenty). The "MAX Endurance" variant (`SDSQQVR-032G`) is fine too.
+  32 GB comes FAT32 from the factory. For scale: the pooled tiles of both phones
+  and COVEY (132,826 of them) take 16.2 GB and leave ~13 GB free, and a 20 km
+  OpenTopoMap area to z17 is about 6.2 GB more. 32 GB still fits all of that, but
+  z17 is a budget, not a default. The "MAX Endurance" variant (`SDSQQVR-032G`) is fine too.
   **Why it matters, measured (0.9.74):** the phone gives a card 500 ms to come
   out of "busy" before each block, and a card that pauses longer than that for
   its own housekeeping fails the write. A generic card in one of the two test
@@ -91,6 +93,15 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.78** — **OpenTopoMap's real z17 is downloadable**, 2 to 20 km, throttled to at least
+  2 s between z17 requests, and **built to run for days**: the job survives a WiFi drop, a
+  call, a game or a restart, and resumes by itself on the network it started on. Stop takes two
+  presses, and the form shows the time as well as the size (`50451 tiles, 6.2 GB, up to about
+  36 h`). And **the map never goes grey while a shallower tile exists**: each spot is drawn
+  from the most detailed level on the card, stretched, and the chip says which level and by how
+  much (`z16-14 stretched 2-8x`). USGS has no z17 (it answers 404), so it still stops at z16.
+  COVEY does the same, and now keeps the tiles it only STREAMED apart from the ones it
+  downloaded, lists them, and can download a spot properly before card day.
 - **0.9.77** — **zoom one level past the tiles**: the map goes a level closer than your card
   holds, stretching those tiles 2x. Bigger, not sharper — and it says so (`z17*` in the
   corner, "z16 tiles stretched 2x" on the status chip), while the scale bar stays honest
@@ -309,11 +320,20 @@ and the Mac-side command are in **[docs/maps.md](docs/maps.md)**.
   a white ring.
 - **It downloads its own maps.** `Menu → Download maps...` fetches an area around the
   crosshair over WiFi — **USGS Topo**, **USGS Aerial** or **OpenTopoMap** — 2 to 20 km, to
-  z13–z16, with the tile count, megabytes and minutes shown before you press Start. A 5 km
-  hunt area at full detail is ~270 tiles, 34 MB and about four and a half minutes from USGS.
-  It carries on if you leave the screen, pauses for a call, only fetches what is missing, and
-  writes each tile under a temporary name so a power-off mid-tile leaves nothing wrong on the
-  card. Needs USB power or a battery above 3.8 V.
+  z13–z16, or **z17 for OpenTopoMap** (USGS has none), with the tile count, the size on the
+  card and the time shown before you press Start. A 5 km hunt area to z15 is ~270 tiles,
+  34 MB and about four and a half minutes from USGS. A 20 km OpenTopoMap area to z17 is ~51,000
+  tiles, ~6.2 GB and about 36 h: z17 is throttled to at least 2 s a request (a real run went at
+  2.07 s a tile), and a run that long is expected to be stopped by life, so **the job resumes
+  by itself** after a WiFi drop, a long call or a restart, on the network it started on. It
+  carries on if you leave the screen, only fetches what is missing, and writes each tile under
+  a temporary name, so a power-off mid-tile leaves nothing wrong on the card. Needs USB power
+  or a battery above 3.8 V; Stop is two presses.
+- **It never goes grey while a shallower tile exists.** Each spot on the screen is drawn from
+  the most detailed level the card has there, stretched. The corner chip gets a star (`z17*`)
+  and the status chip says which level and by how much (`z15 tiles stretched 4x`,
+  `z16-14 stretched 2-8x`). You can zoom one level past an area's deepest tiles. The scale
+  bar stays honest, because the view really is at that zoom.
 - **Pins.** **OK** drops one on the crosshair and asks for a name; OK on a pin opens it to
   rename, move, share or delete. 64 of them, in a text file on the card, and **nothing about
   them reaches the air** until you choose *Share it on the mesh* — which asks **which channel**
