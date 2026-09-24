@@ -10,6 +10,7 @@
 #include <WiFi.h>
 #include "tile_fetch.h"
 #include <stdarg.h>
+#include <sys/stat.h>
 
 extern bool uiKeyStillHeld(uint32_t mask);   // WiPhone.ino: is this key physically down right now?
 extern uint32_t uiKeyUpAgeMs(uint32_t mask); // ...and how long ago its last release was decoded
@@ -178,7 +179,7 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   memset(&jobSt, 0, sizeof(jobSt));
   jobPollMs = 0;
   jobSeen = jobSeenActive = false;
-  jobSeenDone = jobSeenZ = jobSeenTotal = 0;
+  jobSeenDone = jobSeenZ = jobSeenTotal = jobSeenPass = 0;
   loadActive = false;
   loadSlot = -1;
   loadZ = loadTx = loadTy = -1;
@@ -970,19 +971,40 @@ bool MapsApp::jobTilesLanded() {
   const bool wrote = fresh ? (jobSt.done > 0) : (jobSt.done != jobSeenDone);
   int zLo = fresh ? TILE_ZOOM_BASE : jobSeenZ;
   int zHi = jobSt.curZ;
-  if (zLo > zHi) {
-    const int t = zLo;           // a pass that went back to the coarse levels
-    zLo = zHi;
-    zHi = t;
+  if (!fresh && jobSt.pass != jobSeenPass) {
+    /* The automatic second pass began since the last look: pass 1 finished every level up to
+     * the job's depth, and pass 2 started again at TILE_ZOOM_BASE and may already be back at
+     * the top — either may have written anything. Keyed on the pass itself, not on the order
+     * of the two levels: a pass 2 with few holes climbs back inside one poll. Once a run. */
+    zLo = TILE_ZOOM_BASE;
+    zHi = MAP_ZOOM_MAX;
+  } else if (zLo > zHi) {
+    zLo = TILE_ZOOM_BASE;          // went back to the coarse levels: anything up to where it had been
+    zHi = jobSeenZ;
+  }
+  /* A job writing a level DEEPER than this area was scanned to (the first z17 run over a z16
+   * area) makes that level exist only now. The walk and the zoom-in ceiling both stop at the
+   * scanned zMax, so without this the map would go on stretching z16 over z17 tiles on the
+   * card until a rescan. One folder check per poll, only while that is true. */
+  bool deeper = false;
+  if (jobSt.curZ > areas[areaSel].zMax && jobSt.curZ <= MAP_ZOOM_MAX) {
+    char dir[72];
+    snprintf(dir, sizeof(dir), "/sd%s/%s/%d", MAPS_ROOT, areas[areaSel].name, jobSt.curZ);
+    struct stat sb;              // a POSIX stat on the card's mount: SD.exists() logs every miss
+    if (::stat(dir, &sb) == 0 && S_ISDIR(sb.st_mode)) {
+      areas[areaSel].zMax = jobSt.curZ;
+      deeper = true;
+    }
   }
   jobSeen = true;
   jobSeenActive = jobSt.active;
   jobSeenDone = jobSt.done;
   jobSeenZ = jobSt.curZ;
+  jobSeenPass = jobSt.pass;
   jobSeenTotal = jobSt.total;
   /* A redraw only when a hole at those levels was forgotten: the job writing somewhere this
    * map has not asked about changes nothing on the screen. */
-  return wrote && forgetMissingLevels(zLo, zHi) > 0;
+  return (wrote && forgetMissingLevels(zLo, zHi) > 0) || deeper;
 }
 
 bool MapsApp::startLoad(int z, int tx, int ty) {
@@ -991,6 +1013,14 @@ bool MapsApp::startLoad(int z, int tx, int ty) {
    * this a tile that is not on the card would be opened, fail, redraw and be opened again —
    * an SD open, a failure and a log line each time, on a phone in somebody's pocket. */
   if (loadActive || tileMemFail || areaSel < 0 || isKnownMissing(z, tx, ty)) {
+    return false;
+  }
+  /* 🛑 ...AND A TILE ALREADY IN A SLOT IS NOT READ AGAIN. The want is rebuilt only by drawMap,
+   * and while the phone is LOCKED the redraw after LOAD_DONE goes to the clock, not here — so
+   * the stale want named the tile just finished, and each 25 ms tick read the same 128 KB into
+   * another slot, in the pocket, until someone unlocked it (review, 2026-09-23). Refusing here
+   * sends the tick down its refused-start path, which forgets the want and stands it down. */
+  if (findSlot(z, tx, ty) >= 0) {
     return false;
   }
   const int s = claimSlot();
@@ -1105,6 +1135,9 @@ int MapsApp::tileLoadStep() {
   loadGot += (uint32_t)got;
   if (loadGot >= MAP_TILE_BYTES) {
     slots[loadSlot].ready = true;
+    if (wantAny && wantZ == loadZ && wantTx == loadTx && wantTy == loadTy) {
+      wantAny = false;               // the want was this tile: it is satisfied (see startLoad)
+    }
     loadActive = false;
     loadSlot = -1;
     loadGot = 0;

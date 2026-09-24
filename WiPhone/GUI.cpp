@@ -1808,6 +1808,10 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
               res |= runningApp->isWindowed() ? REDRAW_ALL : REDRAW_SCREEN;  // initialize screen for the newly launched app
             }
           } else if (menu[ci].action == GUI_ACTION_RESTART) {
+            /* A download's cursor and a clean stop reason first: a restart asked for from the menu
+             * is not a crash, and must not be counted as one (tile_fetch.h). */
+            extern void tileFetchPowerOff();
+            tileFetchPowerOff();
             ESP.restart();
           } else if (menu[ci].action == GUI_ACTION_T9_TOGGLE) {
             /* ⭐ One press, in Settings, next to the other things that change how the phone

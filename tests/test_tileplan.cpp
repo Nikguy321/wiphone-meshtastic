@@ -169,12 +169,18 @@ int main() {
     ok(tilePlanMinIntervalMs("otm", 17) == 2000, "OpenTopoMap z17: 2.0 s between request starts");
     ok(tilePlanMinIntervalMs("otm", 16) == 0, "OpenTopoMap z16: no interval");
     ok(tilePlanMinIntervalMs("usgs-topo", 17) == 0 && tilePlanMinIntervalMs(NULL, 17) == 0, "only OpenTopoMap");
+    /* Where the interval applies it IS the pace (phone 2 measured 2,067 ms a z17 tile against
+     * the 2,000 ms interval, 2026-09-23): interval + 0.1 s there, the source's own rate elsewhere. */
     const double s = tilePlanSeconds(47.5, -121.8, 20, 17, 4.0f, "otm");
-    ok(fabs(s - 51084 * 4.0) < 1e-6, "20 km z17 on OTM at the measured 4.0 s: the interval does not add to it");
+    ok(fabs(s - ((51084 - 38220) * 4.0 + 38220 * 2.1)) < 1e-3, "20 km z17 on OTM: 4.0 s for z11-16, 2.1 s for z17");
     const double s2 = tilePlanSeconds(47.5, -121.8, 20, 17, 1.2f, "otm");
-    ok(fabs(s2 - ((51084 - 38220) * (double)1.2f + 38220 * 2.0)) < 1e-3, "a faster rate is floored at 2.0 s on z17 only");
+    ok(fabs(s2 - ((51084 - 38220) * (double)1.2f + 38220 * 2.1)) < 1e-3, "a faster rate is unchanged below z17");
+    const double s3 = tilePlanSeconds(47.5, -121.8, 20, 16, 1.2f, "usgs-topo");
+    ok(fabs(s3 - 12864 * (double)1.2f) < 1e-3, "no interval, no change: USGS to z16");
     char t[24];
     tilePlanDuration(s, t, sizeof(t));
+    ok(!strcmp(t, "37 h"), "36.6 h reads \"37 h\"");
+    tilePlanDuration(51084 * 4.0, t, sizeof(t));
     ok(!strcmp(t, "2.4 days"), "56.8 h reads \"2.4 days\"");
     tilePlanDuration(12917 * 4.0, t, sizeof(t));
     ok(!strcmp(t, "14 h"), "14.4 h reads \"14 h\"");
@@ -321,13 +327,15 @@ int main() {
     w = allClear(T + 202 * MIN);
     ok(tileResumeCheck(&r, &w, &wait) == TILE_GATE_COOL && wait == 9 * MIN, "...so the next failure is 10 min again");
 
-    // A day of retrying without one new tile: give up, and say so.
+    // A day of RETRYING without one new tile (26 tries: 10+20+40 then 23 x 60 min): give up.
     tileResumeFresh(&r, T);
+    for (int i = 0; i < TILE_PLAN_STALL_TRIES - 1; i++) {
+      tileResumeStopped(&r, TILE_STOP_NETFAILS, T);
+    }
+    w = allClear(T + 2 * MIN);
+    ok(tileResumeCheck(&r, &w, &wait) == TILE_GATE_COOL, "25 tries: still cooling down, still trying");
     tileResumeStopped(&r, TILE_STOP_NETFAILS, T);
-    w = allClear(T + TILE_PLAN_STALL_MS - 1);
-    ok(tileResumeCheck(&r, &w, &wait) != TILE_GATE_GAVE_UP, "23:59:59 of retries: still trying");
-    w = allClear(T + TILE_PLAN_STALL_MS);
-    ok(tileResumeCheck(&r, &w, &wait) == TILE_GATE_GAVE_UP && r.giveUp == TILE_GIVEUP_STALLED, "24 h without a tile: gave up");
+    ok(tileResumeCheck(&r, &w, &wait) == TILE_GATE_GAVE_UP && r.giveUp == TILE_GIVEUP_STALLED, "26 tries without a tile: gave up");
     ok(tileResumeCheck(&r, &w, &wait) == TILE_GATE_GAVE_UP, "...and stays given up");
     tileResumeStarting(&r, false);
     ok(r.giveUp == TILE_GIVEUP_NONE && !r.pending, "Resume on the form is a fresh chance");
@@ -335,9 +343,34 @@ int main() {
     // A WiFi wait is not retrying: a job pending for days on another network never gives up.
     tileResumeFresh(&r, T);
     tileResumeStopped(&r, TILE_STOP_NOWIFI, T);
-    w = allClear(T + 3 * TILE_PLAN_STALL_MS);
+    w = allClear(T + 3 * 24 * 60 * MIN);
     w.sameNet = false;
     ok(tileResumeCheck(&r, &w, &wait) == TILE_GATE_NET, "three days on the wrong network: still waiting, not given up");
+    // ...and its FIRST failure after that wait cools down; it does not give up (review, 2026-09-23:
+    // the old clock since the last tile counted the wait as retrying).
+    tileResumeStopped(&r, TILE_STOP_NETFAILS, T + 3 * 24 * 60 * MIN);
+    w = allClear(T + 3 * 24 * 60 * MIN + MIN);
+    ok(tileResumeCheck(&r, &w, &wait) == TILE_GATE_COOL && wait == 9 * MIN, "one failure after days at a gate: 10 min, not given up");
+    // A clean power-off, the real path: tileFetchPowerOff writes reason POWEROFF and strikes 0,
+    // the next boot loads that record and resumes it (a boot resume, so it counts a strike) — and
+    // the NEXT power-off writes strikes 0 again. Four short power cycles in a row never give up.
+    for (int cycle = 0; cycle < 4; cycle++) {
+      tileResumeLoaded(&r, 0 /* what tileFetchPowerOff writes */, 0, TILE_STOP_POWEROFF, T);
+      w = allClear(T + 2 * MIN);
+      ok(tileResumeCheck(&r, &w, &wait) == TILE_GATE_GO, "a switched-off job waits to resume, no cool-down");
+      tileResumeStarting(&r, true);
+    }
+    ok(r.strikes == 1, "...each boot resume counts one strike, cleared by the next clean power-off");
+    // ...whereas three CRASHES (no power-off record: the strikes carry over) do give up.
+    uint8_t s = 0;
+    for (int crash = 0; crash < 3; crash++) {
+      tileResumeLoaded(&r, s, 0, TILE_STOP_NONE, T);
+      s = tileResumeStarting(&r, true);
+    }
+    tileResumeLoaded(&r, s, 0, TILE_STOP_NONE, T);
+    ok(tileResumeCheck(&r, &w, &wait) == TILE_GATE_GAVE_UP && r.giveUp == TILE_GIVEUP_STRIKES,
+       "three crashes in a row: stops resuming");
+    ok(!strcmp(tileStopReasonName(TILE_STOP_POWEROFF), "power-off"), "the console names it");
 
     tileResumeStopped(&r, TILE_STOP_CARDFAILS, T);
     ok(tileResumeCheck(&r, &w, &wait) == TILE_GATE_GAVE_UP && r.giveUp == TILE_GIVEUP_CARD, "the card refused writes: never by itself");
@@ -353,6 +386,9 @@ int main() {
     tileResumeRefused(&r, T + MIN);
     w = allClear(T + 2 * MIN);
     ok(tileResumeCheck(&r, &w, &wait) == TILE_GATE_COOL && wait == 9 * MIN, "refused: 10 min before the next try");
+    ok(r.refused, "...and the form can say the last try was refused, not that the network gave up");
+    tileResumeStopped(&r, TILE_STOP_NETFAILS, T + 20 * MIN);
+    ok(!r.refused, "a real stop clears it");
 
     // millis() wraps under a multi-day job: every comparison is a difference.
     tileResumeFresh(&r, 0xFFFFFF00u);

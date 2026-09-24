@@ -144,6 +144,10 @@ bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap);
 /* The user's Stop (form or serial): the run finishes the tile it is on, and the job is
  * FORGOTTEN now — it will not resume. Also forgets a waiting job that is not running. */
 void tileFetchStop();
+/* The phone is about to power off (the held power button, or the low-battery cut): a RUNNING
+ * job's cursor and a CLEAN stop reason go to NVS now, so the next boot resumes exactly where it
+ * was and does not count the restart as a crash strike. Loop task only; one NVS write. */
+void tileFetchPowerOff();
 bool tileFetchActive();                   // the DFS / screen-hold predicates read this
 /* The loop sets these every pass. A CALL or a GAME pauses the run (up to ten minutes; the worker
  * does not touch the card while paused); NO WIFI drops the connection at once and ends the run

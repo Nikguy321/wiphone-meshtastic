@@ -1251,6 +1251,9 @@ static void settleEnded(uint32_t now) {
 static bool startJob(const TileJobSpec* s, bool resume, bool automatic, char* why, size_t whyCap,
                      bool* spaceRefused) {
   if (spaceRefused) *spaceRefused = false;
+  if (!s_loaded) {
+    loadPersisted(millis());       // see tileFetchStop: a new job must not be overwritten by an old one's record
+  }
   if (!why || whyCap == 0) {
     return false;
   }
@@ -1363,7 +1366,15 @@ static bool startJob(const TileJobSpec* s, bool resume, bool automatic, char* wh
     if (margin < TF_SPACE_MARGIN_MIN) margin = TF_SPACE_MARGIN_MIN;
     int64_t left = total;
     if (resume) {
+      /* The rest is what lies at or past the CURSOR (everything before it is settled — written,
+       * already on the card, or no tile), capped by what this job has not written. `written`
+       * alone counted the pooled tiles a job SKIPPED as still to come: a 20 km z17 job over a
+       * card that already holds z11-16 asked for 1.6 GB it would never write (review,
+       * 2026-09-23). */
+      int64_t past = (int64_t)total - reachOf(s_rec.lat, s_rec.lon, s_rec.radiusKm, s_rec.curZ, s_rec.curOrd);
+      if (past < 0) past = 0;
       left -= s_rec.written;
+      if (left > past) left = past;
       if (left < 0) left = 0;
     }
     const uint64_t need = tilePlanCardBytes(left);
@@ -1495,8 +1506,22 @@ static bool recSpec(TileJobSpec* spec) {
   return true;
 }
 
+/* No room on the card for the rest. Waiting cannot make room, so it does not retry by itself —
+ * but the job (its centre, days old, and its cursor) is KEPT: freeing space and pressing Resume
+ * carries on where it stopped. Dropping it lost a multi-day job to one full card. */
+static void spaceGiveUp(const char* why) {
+  s_rs.pending = true;
+  s_rs.giveUp = TILE_GIVEUP_SPACE;
+  s_rec.giveUp = TILE_GIVEUP_SPACE;
+  if (s_persist) {
+    recSave();
+  }
+  snprintf(s_note, sizeof(s_note), "Not resumed: %s", why);
+  log_e("TILES: resume refused for space - %s", why);
+}
+
 /* The loop's resume. A refusal cools down like a failure (never a retry every second); a card
- * with no room for the rest drops the job and says so — waiting cannot make room. */
+ * with no room for the rest gives up and says so (spaceGiveUp). */
 static void autoResume(uint32_t now) {
   TileJobSpec spec;
   if (!recSpec(&spec)) {
@@ -1510,9 +1535,7 @@ static void autoResume(uint32_t now) {
     return;
   }
   if (space) {
-    char n[112];
-    snprintf(n, sizeof(n), "Dropped the waiting download: %s", why);
-    dropJob(n);
+    spaceGiveUp(why);
     return;
   }
   tileResumeRefused(&s_rs, now);
@@ -1525,6 +1548,9 @@ bool tileFetchResumeNow(char* why, size_t whyCap) {
     return false;
   }
   why[0] = '\0';
+  if (!s_loaded) {
+    loadPersisted(millis());
+  }
   settleEnded(millis());
   if (s_busy) {
     strlcpy(why, "a download is already running", whyCap);
@@ -1548,14 +1574,18 @@ bool tileFetchResumeNow(char* why, size_t whyCap) {
     return true;
   }
   if (space) {
-    char n[112];
-    snprintf(n, sizeof(n), "Dropped the waiting download: %s", why);
-    dropJob(n);
+    spaceGiveUp(why);
   }
   return false;
 }
 
 void tileFetchStop() {
+  /* Every entry point sees the persisted job before acting on it: a `maps dl stop` handled on the
+   * first loop pass after a boot (the serial port's open resets the phone) ran before the tick
+   * had loaded it, "forgot" nothing, and the job resumed a minute later. */
+  if (!s_loaded) {
+    loadPersisted(millis());
+  }
   settleEnded(millis());
   if (s_busy && s_job && s_kind == 1) {
     s_job->st.stopping = true;
@@ -1567,6 +1597,27 @@ void tileFetchStop() {
    * the job in NVS at the next boot and start it again — a Stop that did not stop. */
   dropJob(NULL);
   s_note[0] = '\0';
+}
+
+void tileFetchPowerOff() {
+  if (!s_loaded) {
+    return;                        // nothing was ever read or started this boot: NVS is as it was
+  }
+  settleEnded(millis());           // a run that ended inside the last tick records its REAL reason
+  if (!s_persist || !(s_busy && s_kind == 1 && s_job)) {
+    return;                        // nothing running: a waiting job's record is already what it is
+  }
+  /* Without this a switched-off job looked exactly like a crashed one (reason NONE, a strike
+   * pending): three short power cycles stopped auto-resume with "the phone restarted 3 times"
+   * (review, 2026-09-23), and the cursor fell back to the last 500-tile save. */
+  const Cursor cur = readCursor();
+  s_rec.pass = (uint8_t)cur.pass;
+  s_rec.curZ = cur.z;
+  s_rec.curOrd = cur.ord;
+  s_rec.written = s_writtenBase + cur.done;
+  s_rec.reason = TILE_STOP_POWEROFF;
+  s_rec.strikes = 0;
+  recSave();
 }
 
 bool tileFetchActive() {
@@ -1706,14 +1757,17 @@ static void gateWords(char* out, size_t cap) {
       strlcpy(out, "Stopped resuming: the phone restarted 3 times during this download", cap);
     } else if (s_rs.giveUp == TILE_GIVEUP_STALLED) {
       strlcpy(out, "Stopped resuming: a day of retries without one new tile", cap);
+    } else if (s_rs.giveUp == TILE_GIVEUP_SPACE) {
+      strlcpy(out, "Stopped: no room on the card for the rest - free some, then Resume", cap);
     } else {
       strlcpy(out, "Stopped: the card keeps refusing writes - it will not resume by itself", cap);
     }
     break;
   case TILE_GATE_COOL:
     snprintf(out, cap, "Retrying in %u min (%s)", mins,
-             s_rs.reason == TILE_STOP_RAM ? "no memory to connect" :
-             (s_rs.reason == TILE_STOP_DECODEFAILS ? "nothing decoded" : "the network gave up"));
+             s_rs.refused ? "the last try was refused - see below" :
+             (s_rs.reason == TILE_STOP_RAM ? "no memory to connect" :
+              (s_rs.reason == TILE_STOP_DECODEFAILS ? "nothing decoded" : "the network gave up")));
     break;
   case TILE_GATE_CARD:  strlcpy(out, "Waiting for the SD card", cap); break;
   case TILE_GATE_FILES: strlcpy(out, "Waiting for the Files app's folder job to finish", cap); break;
@@ -1742,6 +1796,11 @@ void tileFetchJobInfo(TileFetchJobInfo* out) {
   if (!s_loaded) {
     loadPersisted(millis());
   }
+  /* 🛑 SETTLE FIRST. A run that just ended is 'pending' again only once settleEnded has run, and
+   * the tick does that at most once a second: the form, rebuilding on the running->stopped flip
+   * inside that second, drew "no job" with Start under the cursor — one press replaced a
+   * waiting multi-day job (review, 2026-09-23). One compare when there is nothing to settle. */
+  settleEnded(millis());
   strlcpy(out->note, s_note, sizeof(out->note));
   const bool running = s_busy && s_kind == 1 && s_job;
   if (!running && !(s_persist && s_rs.pending)) {
@@ -1784,6 +1843,7 @@ const char* tileFetchJobKey(bool* running) {
   if (!s_loaded) {
     loadPersisted(millis());
   }
+  settleEnded(millis());         // as tileFetchJobInfo: the Files app's guard must see a waiting job too
   if (s_busy && s_kind == 1 && s_job) {
     if (running) *running = true;
     return s_job->src->key;

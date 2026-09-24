@@ -133,21 +133,29 @@ typedef enum {
   TILE_STOP_RAM,          // no internal RAM for a connection, three tiles running
   TILE_STOP_BATTERY,      // off USB and under the floor
   TILE_STOP_GAME,         // the Game Boy held it paused past ten minutes
+  TILE_STOP_POWEROFF,     // the phone was switched off (or powered itself off) while it ran:
+                          //  a CLEAN stop, recorded so the next boot's resume is not a crash strike
 } TileStopReason;
 const char* tileStopReasonName(int reason);   // "user", "wifi", ... (the serial console)
 
 typedef enum {
   TILE_GIVEUP_NONE = 0,
   TILE_GIVEUP_STRIKES,    // the phone restarted TILE_PLAN_STRIKES times during boot resumes
-  TILE_GIVEUP_STALLED,    // TILE_PLAN_STALL_MS of retries without one new tile
+  TILE_GIVEUP_STALLED,    // TILE_PLAN_STALL_TRIES retries in a row without one new tile
   TILE_GIVEUP_CARD,       // the card refused writes: a person should look at it first
+  TILE_GIVEUP_SPACE,      // no room on the card for the rest: free some, then Resume (the job is KEPT)
 } TileGiveUp;
 
 #define TILE_PLAN_STRIKES      3
 #define TILE_PLAN_STRIKE_CLEAR 50                          // new tiles after which a boot resume is trusted
 #define TILE_PLAN_WIFI_UP_MS   (60u * 1000u)               // WiFi up this long before a resume
 #define TILE_PLAN_CALL_QUIET_MS (60u * 1000u)              // ...and no call for this long
-#define TILE_PLAN_STALL_MS     (24u * 60u * 60u * 1000u)   // retrying this long without a tile: give up
+/* Give up after this many failure stops / refused starts in a row without one new tile: the
+ * cool-downs 10+20+40 then 23 x 60 min are a day of RETRYING. Counted in tries, not by the clock
+ * since the last tile: days spent waiting at a gate (another network, off USB) are not retrying,
+ * and a clock would have given a job up on its first failure after such a wait (review,
+ * 2026-09-23). */
+#define TILE_PLAN_STALL_TRIES  26
 
 /* The resume bookkeeping for the one job there can be. The NVS record carries strikes, giveUp
  * and reason across a restart; the millis() stamps are per boot. */
@@ -158,6 +166,7 @@ typedef struct {
   uint8_t  giveUp;        // TileGiveUp; set = only a person resumes it
   uint8_t  reason;        // TileStopReason of the last stop
   uint8_t  cools;         // failure stops and refused starts in a row since the last new tile
+  bool     refused;       // the last of those was a REFUSED start (the form words it so)
   uint32_t stopMs;        // millis() of that stop / refusal / the boot load
   uint32_t progressMs;    // millis() of the last new tile (or the start, or the boot load)
 } TileResume;

@@ -250,7 +250,7 @@ protected:
   TileJobStatus jobSt;              // a member, not a local: ~200 B the loop stack cannot spare
   uint32_t jobPollMs;
   bool     jobSeen, jobSeenActive;
-  int      jobSeenDone, jobSeenZ, jobSeenTotal;
+  int      jobSeenDone, jobSeenZ, jobSeenTotal, jobSeenPass;
 
   int      helpTop;         // first help row on screen; the legend does not fit at once
   int      panRun;          // hold repeats so far (the log); 0 = a tap

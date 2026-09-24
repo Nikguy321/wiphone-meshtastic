@@ -3940,6 +3940,7 @@ void loop() {
         booksSaveOpenPosition();
         extern bool mapsSaveOpenView();        // app_maps.h; the map's view, same reason
         mapsSaveOpenView();
+        tileFetchPowerOff();                   // tile_fetch.h; a download's cursor, and "not a crash"
         extern bool gbcSaveForPowerOff();      // app_gbc.h; a running game's resume point
         gbcSaveForPowerOff();
         powerOff();
@@ -4013,6 +4014,7 @@ void loop() {
       booksSaveOpenPosition();
       extern bool mapsSaveOpenView();
       mapsSaveOpenView();
+      tileFetchPowerOff();
       extern bool gbcSaveForPowerOff();        // a running game: parks it, writes /gbc/<rom>.auto
       gbcSaveForPowerOff();
       powerOff();

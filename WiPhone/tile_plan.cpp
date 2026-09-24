@@ -81,7 +81,10 @@ double tilePlanSeconds(double lat, double lon, int radiusKm, int zMax, float sec
   for (int z = TILE_PLAN_ZOOM_BASE; z <= zMax; z++) {
     double rate = secPerTile;
     const double floorRate = tilePlanMinIntervalMs(srcKey, z) / 1000.0;
-    if (rate < floorRate) rate = floorRate;
+    /* Where the throttle applies it IS the pace: OpenTopoMap's z17 tiles are small, and phone 2
+     * measured 2,067 ms a tile over 400 of them (2026-09-23) against the 2,000 ms interval —
+     * not the 4.0 s its z11-16 tiles take. So the interval plus a little, not max(rate, it). */
+    if (floorRate > 0) rate = floorRate + 0.1;
     secs += (double)tilePlanLevelTiles(lat, lon, radiusKm, z) * rate;
   }
   return secs;
@@ -254,6 +257,7 @@ const char* tileStopReasonName(int reason) {
   case TILE_STOP_RAM:         return "ram";
   case TILE_STOP_BATTERY:     return "battery";
   case TILE_STOP_GAME:        return "game";
+  case TILE_STOP_POWEROFF:    return "power-off";
   default:                    return "?";
   }
 }
@@ -282,7 +286,7 @@ TileGate tileResumeCheck(TileResume* r, const TileWorld* w, uint32_t* waitMs) {
     return TILE_GATE_GAVE_UP;
   }
   if (r->cools > 0) {
-    if ((uint32_t)(w->now - r->progressMs) >= TILE_PLAN_STALL_MS) {
+    if (r->cools >= TILE_PLAN_STALL_TRIES) {
       r->giveUp = TILE_GIVEUP_STALLED;
       return TILE_GATE_GAVE_UP;
     }
@@ -335,11 +339,13 @@ uint8_t tileResumeStarting(TileResume* r, bool automatic) {
   r->pending = false;
   r->giveUp = TILE_GIVEUP_NONE;   // a start (by a person, or by the rules) is a fresh chance
   r->reason = TILE_STOP_NONE;
+  r->refused = false;
   return r->strikes;
 }
 
 void tileResumeStopped(TileResume* r, int reason, uint32_t now) {
   r->reason = (uint8_t)reason;
+  r->refused = false;
   r->strikes = 0;            // the run ended with its reason recorded: it did not crash the phone
   r->stopMs = now;
   switch (reason) {
@@ -366,6 +372,7 @@ void tileResumeStopped(TileResume* r, int reason, uint32_t now) {
 
 void tileResumeRefused(TileResume* r, uint32_t now) {
   r->pending = true;
+  r->refused = true;
   if (r->cools < 255) r->cools++;
   r->stopMs = now;
 }
