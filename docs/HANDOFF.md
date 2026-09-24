@@ -187,7 +187,7 @@ unchanged and passing. **Both phones:** `firmware 0.9.78, built Sep 24 2026 00:0
 phone 2 running a 5 km z17 job. **COVEY:** `131feb3`, deployed 2026-09-24 00:26: md5 47/47 ==
 HEAD (the three new modules included), `covey-ui` restarted 00:27:03 PDT, NRestarts=0, no
 tracebacks. Mac 72/72; device 72/72 as `covey` (~00:45), no test leftovers in `/home/covey`,
-covey-ui still active. **Pushed and published:** ⏳ right after the release commit — the pushed range, the live manifest and the live image sha are in the next handoff commit..
+covey-ui still active. **Pushed and published:** ✅ PUSHED `9edbedd..0d84b15` and PUBLISHED: live manifest 0.9.78, live image sha256 `71ba15e8…` = the stage byte for byte = the binary both phones run (build stamp 00:04). COVEY pushed `493c49e..88d9359`..
 
 🔭 **2026-09-22 NIGHT: 0.9.77 — ONE LEVEL PAST THE TILES, ON ALL THREE DEVICES; AND COVEY HAS
 THE WHOLE TILE POOL.** (Partly superseded by the block above: the helpers it names are gone,
