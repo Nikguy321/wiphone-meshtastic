@@ -112,6 +112,17 @@ opens exactly as before and is simply not syncable. Serial: `kosync` (status), `
 `push`, `pull`, `reload`; a `KOSYNC window ... heap= largest=` line every 15 s while one is open.
 Host suite: `tests/test_kosync.cpp` reproduces every number in `tests/vectors_kosync.h`.
 
+### The 0.6-1.5 s 'mesh' freezes were LoRa transmits, not the database save (0.9.79 dev, 2026-09-25)
+
+`MeshPhy::send()` waited out each frame's time on air on the loop task (0.5-2.2 s, ~20 an hour, mostly
+flood relays); every `STALL ... mesh` value sits on the airtime lattice. Now the chip is started and left
+to transmit, and an 8-frame queue feeds it one frame a pass (ACKs, then our own frames, then due relays;
+a relay somebody else sent first is cancelled; beacons wait for an idle radio). **"Sent" now means
+queued**: a frame that fails to leave marks its message failed, a full queue says "radio busy, try
+again", and the `MESH ANNOUNCE/POSITION/WAYPOINT` lines say `QUEUED`. The stall line splits `mesh` /
+`mesh-ui` / `mesh-post`. Serial: `radio`; `power` shows `lora=tx`. Host suite: `tests/test_txq.cpp`,
+`tests/check_mesh_tx.py`.
+
 ### Calls and music stop fighting over the codec; the SIP audit's leftovers (0.9.79 dev, 2026-09-25)
 
 Both phones register now (`sip=1`), which made the 2026-08-15 audit's "unreachable" findings reachable.

@@ -145,6 +145,9 @@ bool MeshPhy::healthCheck() {
   if (!ready) {
     return false;
   }
+  if (txActive) {
+    return true;                         // mid-frame: TX/STANDBY is not a fault - see the header
+  }
   uint8_t ver = readReg(REG_VERSION);
   uint8_t op  = readReg(REG_OP_MODE);
   if (ver == SX1276_VERSION && op == (MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS)) {
@@ -164,11 +167,24 @@ bool MeshPhy::healthCheck() {
   return false;
 }
 
+/* A frame that was on the air will not finish: say so once, through serviceTx(), so the
+ * service can fail its receipt rather than wait for a TxDone that is never coming. */
+void MeshPhy::txCutShort(const char* why) {
+  if (!txActive) {
+    return;
+  }
+  txActive = false;
+  txAborted = true;
+  log_e("MeshPhy: TX of %u B cut short after %u ms by %s", (unsigned)txLen,
+        (unsigned)(millis() - txStartMs), why);
+}
+
 void MeshPhy::benchSleep(bool on) {
   if (!ready) {
     return;
   }
   if (on) {
+    txCutShort("`power lora sleep`");
     writeReg(REG_IRQ_FLAGS, 0xFF);
     writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);
     inRx = false;
@@ -181,6 +197,8 @@ void MeshPhy::benchSleep(bool on) {
 
 bool MeshPhy::reinit(bool logFailure) {
   benchSleeping = false;                 // a re-init always ends in RX-continuous
+  txCutShort("a radio re-init");         // (unreachable today: re-init only follows a failed
+                                         //  health check, and that is never mid-frame)
   // Probe the chip: must be in SLEEP to switch to LoRa mode.
   writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);
   delay(10);
@@ -225,16 +243,17 @@ bool MeshPhy::reinit(bool logFailure) {
 }
 
 bool MeshPhy::poll(uint8_t* buf, uint16_t maxLen, uint8_t* outLen, int16_t* rssi, int8_t* snr) {
-  if (!ready || benchSleeping) {
-    return false;
+  if (!ready || benchSleeping || txActive) {
+    return false;                        // mid-frame the IRQ flags are serviceTx()'s, not ours
   }
   /* ⚠ RATE-LIMITED to every 10 ms. This is called from the main loop at ~1 kHz, and the
    * IRQ read below goes over BIT-BANGED SPI (~64 GPIO ops + per-bit delays) — one register
    * read per millisecond kept the core measurably busy at idle for nothing: at SF11/250k
-   * the 16-symbol preamble alone is ~131 ms on air, RX_DONE LATCHES until cleared, and TX
-   * polls its own flags synchronously — so a 10 ms cadence cannot lose a packet and adds
-   * at most 10 ms of RX latency. DIO0 gating would be cheaper still, but that pin's wiring
-   * has never been verified on hardware; do not switch without measuring it first. */
+   * the 16-symbol preamble alone is ~131 ms on air and RX_DONE LATCHES until cleared (and
+   * startSend() will not key the transmitter over a latched one) — so a 10 ms cadence
+   * cannot lose a packet and adds at most 10 ms of RX latency. TX is serviceTx()'s, below.
+   * DIO0 gating would be cheaper still, but that pin's wiring has never been verified on
+   * hardware; do not switch without measuring it first. */
   static uint32_t s_lastPollMs = 0;
   const uint32_t nowMs = millis();
   if ((uint32_t)(nowMs - s_lastPollMs) < 10) {
@@ -273,41 +292,68 @@ bool MeshPhy::poll(uint8_t* buf, uint16_t maxLen, uint8_t* outLen, int16_t* rssi
   return true;
 }
 
-bool MeshPhy::send(const uint8_t* data, uint8_t len) {
-  if (!ready || !data || len == 0) {
+bool MeshPhy::startSend(const uint8_t* data, uint8_t len) {
+  if (!ready || !data || len == 0 || txActive) {
     return false;
   }
-  benchSleeping = false;                 // a send ends the bench state: it returns to RX below
+  /* A packet has landed and poll() has not read it yet: keying the transmitter now would
+   * clear RX_DONE below and throw it away. Let poll() have it (<= 10 ms) and go next pass. */
+  if (readReg(REG_IRQ_FLAGS) & IRQ_RX_DONE_MASK) {
+    return false;
+  }
+  benchSleeping = false;                 // a send ends the bench state: serviceTx() returns to RX
   setModeIdle();
   writeReg(REG_FIFO_ADDR_PTR, 0x00);
   writeFifo(data, len);
   writeReg(REG_PAYLOAD_LENGTH, len);
   writeReg(REG_IRQ_FLAGS, 0xFF);
   writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
-
-  /* Poll TxDone, waiting as long as THIS frame takes. ⚠ THE TIMEOUT WAS A FLAT 2000 ms
-   * until 2026-09-19, and a maximum-length frame is 2157 ms on the air at the registers
-   * configureLongFast() writes (SF11/BW250/CR4-5, 16-symbol preamble — AN1200.13, pinned
-   * by tests/test_airtime.cpp). So a long text was declared "TX timeout", its IRQ flags
-   * cleared and the chip forced back to RX WHILE THE PA WAS STILL KEYED: truncated on air,
-   * false returned, and the whole 2 s stall paid for nothing. A 37-byte position beacon
-   * finishes in 519 ms and waits the same 1000 ms floor it effectively always had; a full
-   * frame now gets up to ~3 s, which is the new worst-case superloop stall for one send
-   * (see the NEVER TWO TRANSMITS note in meshtastic_service.cpp's loop()). */
-  const uint32_t airMs   = meshLoraAirtimeMs(len);
-  const uint32_t limitMs = meshLoraTxTimeoutMs(len);
-  uint32_t start = millis();
-  while (!(readReg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK)) {
-    if (millis() - start > limitMs) {
-      log_e("MeshPhy: TX timeout after %u ms (%u B frame, %u ms airtime)",
-            (unsigned)limitMs, (unsigned)len, (unsigned)airMs);
-      writeReg(REG_IRQ_FLAGS, 0xFF);
-      setModeRxContinuous();
-      return false;
-    }
-    delay(1);
-  }
-  writeReg(REG_IRQ_FLAGS, 0xFF);
-  setModeRxContinuous();
+  txActive = true;
+  txAborted = false;
+  txLen = len;
+  txStartMs = millis();
+  txLastPollMs = txStartMs;
+  /* How long to wait for TxDone before calling the frame lost: airtime + 25 % + 300 ms, never
+   * under 1 s (mesh_airtime.h). ⚠ It follows the FRAME: until 2026-09-19 it was a flat 2000 ms,
+   * a maximum-length frame is 2157 ms on the air, and a long text was cut off mid-air. It
+   * costs nothing to wait now — the loop runs while the chip transmits. */
+  txLimitMs = meshLoraTxTimeoutMs(len);
   return true;
+}
+
+MeshTxState MeshPhy::serviceTx() {
+  if (!txActive) {
+    if (txAborted) {
+      txAborted = false;
+      return MESH_TX_TIMEOUT;            // cut short by benchSleep()/reinit(): report it once
+    }
+    return MESH_TX_IDLE;
+  }
+  const uint32_t now = millis();
+  /* Two milliseconds between IRQ reads: each is ~64 GPIO toggles of bit-banged SPI, the loop
+   * idles at a 5 ms tick, and a frame is >= 354 ms on the air (the 16-byte header alone), so
+   * this costs nothing in accuracy and keeps a busy loop from reading the chip every
+   * microsecond. */
+  if ((uint32_t)(now - txLastPollMs) < 2) {
+    return MESH_TX_BUSY;
+  }
+  txLastPollMs = now;
+  /* ⚠ TxDone FIRST, the deadline second — see the header: a pass that comes back late (a Game
+   * Boy session skips this whole loop) finds a frame that finished long ago, and it went whole. */
+  if (readReg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK) {
+    writeReg(REG_IRQ_FLAGS, 0xFF);
+    setModeRxContinuous();
+    txActive = false;
+    txLastAirMs = now - txStartMs;
+    return MESH_TX_DONE;
+  }
+  if ((uint32_t)(now - txStartMs) > txLimitMs) {
+    log_e("MeshPhy: TX timeout after %u ms (%u B frame, %u ms airtime)",
+          (unsigned)txLimitMs, (unsigned)txLen, (unsigned)meshLoraAirtimeMs(txLen));
+    writeReg(REG_IRQ_FLAGS, 0xFF);
+    setModeRxContinuous();
+    txActive = false;
+    return MESH_TX_TIMEOUT;
+  }
+  return MESH_TX_BUSY;
 }

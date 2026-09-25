@@ -492,7 +492,7 @@ void MeshtasticApp::buildNodes() {
      * 🛑 Read live from getGpsFix(). The fix is deliberately NOT mirrored into
      * nodes[self].latI: that field's only writers are setMyPin()/clearMyPin(),
      * and writing it per fix would set dbDirty on every NMEA epoch and drag the
-     * ~1.5 s database save into a 1 Hz loop. */
+     * database save (~0.1 s on the card, seconds on SPIFFS) into a 1 Hz loop. */
     if (n->nodeNum == meshService.getMyNodeNum()) {
       int32_t myLat = 0, myLon = 0;
       uint32_t myAge = 0;

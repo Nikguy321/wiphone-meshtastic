@@ -16,6 +16,7 @@
 
 #include <Arduino.h>
 #include <stdint.h>
+#include "mesh_txq.h"       // the radio's send queue and relay slots (pure, host-tested)
 
 #define MESH_MSG_CAP        1000     // total message capacity (allocated in PSRAM)
 #define MESH_MAX_PER_CHAT    150     // max stored messages per conversation
@@ -178,8 +179,9 @@ typedef struct {
    * 🛑 FOR OUR OWN ENTRY THIS IS THE MANUAL PIN AND NOTHING ELSE. The GPS does
    * NOT mirror its fix in here, however tempting that looks: the only writers
    * are setMyPin()/clearMyPin(), and writing it per fix would set dbDirty on
-   * every NMEA epoch and drag the ~1.5 s database save into a 1 Hz loop. The
-   * self row in Nodes reads getGpsFix() live instead. */
+   * every NMEA epoch and drag the database save (~0.1 s on the card, ~1.5-2.8 s
+   * on SPIFFS with no card) into a 1 Hz loop. The self row in Nodes reads
+   * getGpsFix() live instead. */
   int32_t  latI, lonI;              // 1e-7 degrees
   uint32_t posHeardMs;              // millis() when the position arrived
 } MeshNode;
@@ -203,6 +205,20 @@ typedef struct {
   uint8_t keyLen;                   // 16 or 32
   uint8_t hash;                     // channel hash (name ^ key), matches packet header
 } MeshChannel;
+
+/* What the radio has done this boot — the serial `radio` line. RAM only, zero at boot.
+ * ⚠ "own" and "relay" count frames that FINISHED on the air (TxDone), not frames queued. */
+struct MeshTxStats {
+  uint32_t own;             // our own frames that left whole: texts, beacons, NodeInfo, ACKs
+  uint32_t relay;           // flood relays that left whole
+  uint32_t timeout;         // frames that never finished (no TxDone in time, or cut by the bench)
+  uint32_t relayCancelled;  // relays dropped because somebody else relayed that packet first
+  uint32_t refused;         // own frames refused because the queue was full ("radio busy")
+  uint32_t airMsTotal;      // COMPUTED time on air of every finished frame (meshLoraAirtimeMs)
+  uint32_t lastAirMs;       // the last finished frame, start to the pass that saw TxDone
+  uint8_t  lastLen;         // ...its length (meshLoraAirtimeMs(lastLen) is the prediction)
+  uint8_t  lastKind;        // ...and what it was (MeshTxKind)
+};
 
 class MeshtasticService {
 public:
@@ -231,11 +247,14 @@ public:
   /* Re-sort the node list NOW. The UI calls this when it (re)builds the Nodes screen and at
    * no other time — see the note on getNode(). */
   void               refreshNodeOrder();
-  /* ⚠ HOLD THE DATABASE SAVE WHILE SOMEONE IS USING THE PHONE. saveDb() blocks the superloop
-   * for ~1.5 s — measured, not estimated — and everything here is one task, so that freezes
-   * the keypad, the screen AND the WiFi stack together. Landing that mid-scroll is exactly
-   * Nick's "freeze for a second or two and WiFi drops". The main loop calls this because it
-   * is the only place that can see both the keypad and this service. */
+  /* ⚠ HOLD THE DATABASE SAVE WHILE SOMEONE IS USING THE PHONE. On SPIFFS (no card) a save
+   * blocks the superloop for ~1.5-2.8 s — measured (`bench`) — and everything here is one task,
+   * so that freezes the keypad, the screen AND the WiFi stack together. On the card it is
+   * ~50-130 ms (since 0.9.19), which is why the gate still exists but is no longer the story.
+   * 🛑 THE 0.6-1.5 s 'mesh' STALLS WERE NOT THIS. They were LoRa transmits — the old
+   * MeshPhy::send() waited out the frame's time on air, and nothing on that path looked at
+   * this flag (see mesh_txq.h). The main loop calls this because it is the only place that
+   * can see both the keypad and this service. */
   void               setUiIdle(bool idle) { uiIdle = idle; }
   /* The database lives on the SD card when there is one (about fifty times faster than SPIFFS
    * — measured; see meshFs()). Reported by the main loop rather than read from GUI here, so
@@ -289,6 +308,19 @@ public:
    * the UI ignored the bool and dropped into the thread either way, so a refused message
    * simply vanished. */
   const char* lastSendError() const { return lastSendErr; }
+
+  /* ── THE SEND QUEUE (mesh_txq.h) ─────────────────────────────────────────────────────────
+   * ⚠ "SENT" NOW MEANS "QUEUED FOR THE RADIO". send*() returning true means the frame is in
+   * the queue; it goes on the air within a pass or two (behind at most one frame already on
+   * the air, ~0.5-2.2 s). A frame that then fails to leave — TxDone never comes, or the radio
+   * is lost while it waits — fails its message's receipt ("timed out" / "no radio interface"),
+   * through the same resolveAck() an inbound NAK uses, so the thread never shows a message as
+   * gone that never went. A full queue is refused at once, "radio busy, try again". */
+  const MeshTxStats& txStats() const;
+  int      txQueued() const;         // own frames waiting (not counting the one on the air)
+  int      txQueueCap() const;       // 8, or 2 on the internal fallback, 0 with no queue at all
+  int      txQueueMaxDepth() const;  // deepest the own queue has been this boot
+  int      relaysPending() const;    // relays waiting out their jitter
 
   // ---- Neighbour info (portnum 71) -----------------------------------------
   /* Who we hear DIRECTLY, and (optionally) telling the mesh about it so a
@@ -464,9 +496,9 @@ public:
    * string is a static literal, safe to hold. */
   const char* posBlockedReason() const;
   int         getPosSkipRuns() const { return posSkipRuns; }
-  /* Bench only (serial `pos now`): build and transmit one beacon immediately,
+  /* Bench only (serial `pos now`): build and queue one beacon immediately,
    * ignoring the interval and the movement gate but NOT the safety rules.
-   * ⚠ BLOCKS for ~518 ms in meshPhy.send(), like every other transmit here. */
+   * (It used to BLOCK ~518 ms in meshPhy.send(); since 0.9.79 nothing does.) */
   bool        sendGpsPositionNow();
 
   // Maintenance (persisted immediately).
@@ -551,6 +583,9 @@ private:
    * MEASURED 2026-08-24: SPIFFS on this part writes at about 6 KB/s, so saving the database
    * in one go blocked the superloop for ~1.5 s — and one task means the keypad, the screen and
    * the WiFi stack all stopped with it. That is Nick's "menus freeze and WiFi drops".
+   * ⚠ HISTORY SINCE 0.9.19: with a card in, the database is on SD and a whole save is ~50-130 ms
+   * (the `bench` numbers in the .cpp). The 0.6-1.5 s 'mesh' stalls that were still blamed on
+   * this afterwards were LoRa transmits (mesh_txq.h).
    * The cost is per-BYTE, not per-call (batching ~55 writes into 2 changed almost nothing), so
    * the total is irreducible — but it does NOT have to be paid all at once.
    * The image is built into PSRAM in one pass (memcpy only, no I/O), then dribbled to flash a
@@ -701,15 +736,25 @@ private:
   void loadMyName();                          // load from NVS or derive default
   void deriveShortName();                     // short = first chars of long
 
-  // Flood-routing rebroadcast queue (CLIENT role: relay others' packets).
-  struct MeshPendingTx {
-    uint8_t  data[MESH_KEY_LEN + 8 + MESH_TEXT_LEN + 16];
-    uint8_t  len;
-    uint32_t dueMs;
-    bool     active;
-  };
-  MeshPendingTx rebroadcast[4];
+  // Flood-routing rebroadcast slots (CLIENT role: relay others' packets). See mesh_txq.h.
+  MeshRelaySlot rebroadcast[MESH_RELAY_SLOTS];
   void scheduleRebroadcast(const uint8_t* pkt, uint8_t len);
+
+  /* ── THE TRANSMIT PUMP (mesh_txq.h) ──────────────────────────────────────────────────────
+   * The FIRST thing loop() does: service the frame on the air (TxDone -> back to RX; a
+   * timeout fails an own frame's receipt), then start at most ONE frame — the own queue's
+   * front, else the earliest-due relay. 🛑 It must run before the 5 s health check and before
+   * poll(): after a Game Boy game the chip sits in STANDBY with TxDone latched, because the
+   * whole mesh loop was skipped while it finished. */
+  void txPump();
+  /* May a BACKGROUND originator queue now? Nothing on the air and nothing waiting. Told no,
+   * it keeps its deadline / owed flag and asks again next pass. */
+  bool txPipelineIdle() const;
+  /* The radio is gone: every queued own frame's receipt fails with `err`, relays are dropped. */
+  void txDropAll(uint8_t err);
+  /* A NodeInfo somebody asked for (want_response) that is waiting for an idle pipeline. The
+   * damping decision is still taken when the request arrives (lastNodeInfoTxMs). */
+  bool nodeInfoOwed;
 
   // Recently-seen packet ids, to drop mesh rebroadcasts of the same packet.
   uint32_t recentPktIds[16];

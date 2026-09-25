@@ -58,6 +58,21 @@ static const char* s_txError = NULL;
  * check because the two numbers live in different files with different reasons to change. */
 static_assert(MESH_TEXT_CLIENT_CAP < MESH_TEXT_LEN, "compose cap must leave room for the terminator");
 
+/* ── THE SEND QUEUE ──────────────────────────────────────────────────────────────────────────
+ * File statics, like s_saveFile, so the static meshTx* helpers below can reach them and this
+ * header need not know the PHY. Storage is PSRAM, allocated in setup() BEFORE the radio comes
+ * up (boot announces NodeInfo straight away); see mesh_txq.h for the rules. */
+static MeshTxQueue s_txq = { NULL, 0, 0, 0, 0 };
+static MeshTxStats s_txStats;
+/* The frame on the air: popped from the queue (or taken from its relay slot) when it started,
+ * so this is the only record of what it was when TxDone — or the lack of it — comes back. */
+static struct {
+  bool     active;
+  uint8_t  kind;          // MeshTxKind
+  uint8_t  len;
+  uint32_t packetId;
+} s_txInFlight;
+
 #ifdef MESHTASTIC_PHY
 #include "mesh_phy.h"
 #include "mesh_packet.h"
@@ -86,20 +101,43 @@ static_assert(MESH_TEXT_CLIENT_CAP < MESH_TEXT_LEN, "compose cap must leave room
  * radio path and read immediately after, both in loop()/GUI context on the same core. */
 static uint32_t s_lastTxPacketId = 0;
 
-/* millis() when the radio last finished a transmission. meshPhy.send() BLOCKS
- * for the whole airtime — 518 ms for a 37-byte position frame at the LongFast
- * registers this repo writes (SF11/BW250/CR4-5, computed in mesh_phy.cpp's
- * configureLongFast), 2157 ms for a full 255-byte frame (mesh_airtime.h) — and
- * the superloop makes no progress during it. Two of the short ones back to back
- * is ~1.05 s of frozen keypad and GUI; the watchdog is 20 s so it is not a
- * reset, but it is visibly janky and three would be worse.
- * The position beacon consults this and simply waits a pass. Stamped at both
- * transmit sites; 0 at boot means the first beacon is never gated. */
+/* millis() when the radio last FINISHED a transmission (TxDone, or gave up on one) — stamped
+ * by txPump() and nowhere else. The position beacon and `pos now` space themselves 1.5 s off
+ * it: airtime politeness on a shared band.
+ * ⚠ IT USED TO BE A STALL GUARD. meshPhy.send() blocked the superloop for the frame's whole
+ * time on air (518 ms for a 37-byte position frame, 2157 ms for a full one — mesh_airtime.h),
+ * two back to back froze the keypad for over a second, and this stamp was how the beacon kept
+ * out of the way of the others. It was stamped at the two meshTx* sites but NOT at the relay
+ * send, which is how the 1,985 ms two-transmit stall happened. Transmits no longer block
+ * (mesh_txq.h: one start per pass, never while one is on the air), so that job is gone.
+ * 0 at boot means the first beacon is never gated. */
 static uint32_t s_lastPhyTxMs = 0;
+
 
 static uint32_t meshNewPacketId() {
   uint32_t packetId = esp_random();
   return packetId == 0 ? 1 : packetId;
+}
+
+/* Hand a finished frame to the radio's queue. `urgent` is a routing ACK: it goes ahead of our
+ * other waiting frames (the DM's sender retries without it) but never ahead of the frame on
+ * the air. True = queued; it goes out within a pass or two, and txPump() fails the message's
+ * receipt if it then does not. */
+static bool meshTxEnqueue(const uint8_t* pkt, size_t len, uint32_t packetId, bool urgent) {
+  if (!meshPhy.isReady()) {
+    s_txError = "no radio";
+    return false;
+  }
+  const bool ok = urgent ? meshTxqPushFront(&s_txq, pkt, len, MESH_TXK_ACK, packetId)
+                         : meshTxqPushBack(&s_txq, pkt, len, MESH_TXK_OWN, packetId);
+  if (!ok) {
+    s_txStats.refused++;
+    s_txError = "radio busy, try again";
+    log_e("MESH TX REFUSED: queue full (%d/%d waiting, one on the air) - %uB %s id=0x%08x",
+          meshTxqCount(&s_txq), (int)s_txq.cap, (unsigned)len, urgent ? "ACK" : "frame",
+          (unsigned)packetId);
+  }
+  return ok;
 }
 
 // Build a Data protobuf and transmit it as a CHANNEL-encrypted (AES-CTR)
@@ -107,7 +145,7 @@ static uint32_t meshNewPacketId() {
 static bool meshTxData(uint32_t sender, uint32_t dest, int portnum,
                        const uint8_t* payload, size_t payloadLen, bool wantResponse,
                        const uint8_t* key, uint8_t keyLen, uint8_t channelHash,
-                       uint32_t requestId = 0, bool wantAck = false) {
+                       uint32_t requestId = 0, bool wantAck = false, bool urgent = false) {
   uint8_t data[24 + MESH_PHY_MAX_PAYLOAD];
   size_t d = meshBuildData(data, portnum, payload, payloadLen, wantResponse, requestId);
 
@@ -141,14 +179,10 @@ static bool meshTxData(uint32_t sender, uint32_t dest, int portnum,
   }
   log_i("Mesh TX port=%d to 0x%08X ch=0x%02X id=0x%08X (%uB)",
         portnum, dest, channelHash, packetId, (unsigned)pktLen);
-  const bool sent = meshPhy.send(pkt, (uint8_t)pktLen);
-  s_lastPhyTxMs = millis();   // stamped even on failure: the radio was still busy
-  if (!sent) {
-    /* send() is false for two reasons: no radio (isReady() false — the plate is off or the
-     * chip is lost) or TxDone never came within the frame's own timeout. */
-    s_txError = meshPhy.isReady() ? "radio busy, try again" : "no radio";
-  }
-  return sent;
+  /* QUEUED, not sent — see meshTxEnqueue(). False for two reasons: no radio (the plate is off
+   * or the chip is lost) or the queue is full. A frame that later fails to leave fails its
+   * receipt in txPump(). */
+  return meshTxEnqueue(pkt, pktLen, packetId, urgent);
 }
 
 // Build a Data protobuf and transmit it PKI-encrypted (AES-256-CCM under the
@@ -191,12 +225,7 @@ static bool meshTxDataPki(uint32_t sender, uint32_t dest, int portnum,
   }
   log_i("Mesh PKI TX port=%d to 0x%08X id=0x%08X (%uB)",
         portnum, dest, packetId, (unsigned)pktLen);
-  const bool sent = meshPhy.send(pkt, (uint8_t)pktLen);
-  s_lastPhyTxMs = millis();   // see s_lastPhyTxMs: the beacon spaces itself off this
-  if (!sent) {
-    s_txError = meshPhy.isReady() ? "radio busy, try again" : "no radio";   // as meshTxData
-  }
-  return sent;
+  return meshTxEnqueue(pkt, pktLen, packetId, false);   // queued, as meshTxData
 }
 
 // ACK a DM: Data{portnum=ROUTING, payload=Routing{error_reason=NONE}, request_id}.
@@ -205,8 +234,10 @@ static bool meshTxDataPki(uint32_t sender, uint32_t dest, int portnum,
 static bool meshTxAck(uint32_t sender, uint32_t dest, uint32_t requestId,
                       const MeshChannel* ch) {
   static const uint8_t ackNone[2] = { 0x18, 0x00 };   // Routing{error_reason=NONE}
+  /* urgent: ahead of our own queued frames — the sender is waiting on this and retries (and
+   * the text shows twice) without it — but never ahead of the frame already on the air. */
   return meshTxData(sender, dest, MESH_PORT_ROUTING, ackNone, sizeof(ackNone), false,
-                    ch->key, ch->keyLen, ch->hash, requestId);
+                    ch->key, ch->keyLen, ch->hash, requestId, false, true);
 }
 
 static bool meshTxText(uint32_t sender, uint32_t dest, const char* text,
@@ -279,6 +310,7 @@ MeshtasticService::MeshtasticService()
   shortNameCustom = false;
   nextNodeInfoMs = 0;
   lastNodeInfoTxMs = 0;
+  nodeInfoOwed = false;
   memset(myPkiPriv, 0, sizeof(myPkiPriv));
   memset(myPkiPub, 0, sizeof(myPkiPub));
   pkiReady = false;
@@ -642,7 +674,7 @@ bool MeshtasticService::sendPositionOn(int32_t latI, int32_t lonI,
   const bool ok = meshTxData(myNodeNum, MESH_ADDR_BROADCAST_ONAIR, MESH_PORT_POSITION,
                              pos, n, false, ch->key, ch->keyLen, ch->hash);
   log_e("MESH POSITION %s (%s) on '%s'%s: %d.%05d,%d.%05d  %uB payload",
-        ok ? "SENT" : "FAILED", why, ch->name,
+        ok ? "QUEUED" : "FAILED", why, ch->name,
         channelIsPublic(ch) ? " [PUBLIC - readable by any radio in range]" : "",
         (int)(latI / 10000000), abs((int)((latI % 10000000) / 100)),
         (int)(lonI / 10000000), abs((int)((lonI % 10000000) / 100)), (unsigned)n);
@@ -723,7 +755,7 @@ bool MeshtasticService::sendWaypointOn(const uint8_t* payload, size_t len,
   const bool ok = meshTxData(myNodeNum, MESH_ADDR_BROADCAST_ONAIR, MESH_PORT_WAYPOINT,
                              payload, len, false, ch->key, ch->keyLen, ch->hash);
   log_e("MESH WAYPOINT %s (%s) '%s' on '%s'%s: %uB payload",
-        ok ? "SENT" : "FAILED", why, name ? name : "", ch->name,
+        ok ? "QUEUED" : "FAILED", why, name ? name : "", ch->name,
         channelIsPublic(ch) ? " [PUBLIC - readable by any radio in range]" : "",
         (unsigned)len);
   return ok;
@@ -994,11 +1026,10 @@ bool MeshtasticService::sendGpsPosition() {
 }
 
 bool MeshtasticService::sendGpsPositionNow() {
-  /* ⚠ THE SPACING GATE APPLIES TO THE FORCED SEND TOO. Without it, a `pos now`
-   * issued just after a periodic rebroadcast puts two ~518 ms blocking transmits
-   * back to back — a ~1.05 s frozen superloop, which is the precise thing
-   * s_lastPhyTxMs was introduced to prevent. A bench command is still allowed to
-   * jump the interval; it is not allowed to jump the airtime spacing. */
+  /* ⚠ THE SPACING GATE APPLIES TO THE FORCED SEND TOO. A bench command is allowed to
+   * jump the interval; it is not allowed to jump the airtime spacing the scheduled beacon
+   * keeps. (Until 0.9.79 this gate also kept two BLOCKING transmits from landing back to
+   * back — a ~1.05 s frozen superloop. Transmits no longer block; see mesh_txq.h.) */
   if (s_lastPhyTxMs != 0 && (uint32_t)(millis() - s_lastPhyTxMs) < 1500UL) {
     log_e("POS: 'now' refused - a send finished <1.5 s ago, spacing it");
     return false;
@@ -1251,7 +1282,7 @@ void MeshtasticService::announceNodeInfo(bool wantResponse) {
   const bool ok = meshTxNodeInfo(myNodeNum, myLongName, myShortName, wantResponse, &channels[0],
                                  pkiReady ? myPkiPub : NULL);
   log_e("MESH ANNOUNCE %s: node=!%08x '%s' (%s) ch='%s' hash=0x%02X keyLen=%u wantResp=%d pki=%s",
-        ok ? "SENT" : "FAILED", (unsigned)myNodeNum, myLongName, myShortName,
+        ok ? "QUEUED" : "FAILED", (unsigned)myNodeNum, myLongName, myShortName,
         channels[0].name, channels[0].hash, (unsigned)channels[0].keyLen, (int)wantResponse,
         pkiReady ? "in packet" : "MISSING");
 #else
@@ -1282,19 +1313,134 @@ void MeshtasticService::clearNodes() {
 }
 
 void MeshtasticService::scheduleRebroadcast(const uint8_t* pkt, uint8_t len) {
-  if (len == 0 || len > sizeof(rebroadcast[0].data)) {
-    return;
-  }
-  for (int i = 0; i < 4; i++) {
-    if (!rebroadcast[i].active) {
-      memcpy(rebroadcast[i].data, pkt, len);
-      rebroadcast[i].len = len;
-      // 130..700 ms random jitter so relays don't all transmit at once.
-      rebroadcast[i].dueMs = millis() + 130 + (esp_random() % 570);
-      rebroadcast[i].active = true;
-      return;
+  /* 130..700 ms random jitter so relays don't all transmit at once. All four slots taken:
+   * this packet is not relayed, as before. txPump() sends it once due and the own queue is
+   * empty; hearing somebody else relay it first cancels it (the seenPacketId branch). */
+  meshRelaySchedule(rebroadcast, MESH_RELAY_SLOTS, pkt, len,
+                    millis() + 130 + (esp_random() % 570));
+}
+
+/* ── THE TRANSMIT PUMP ──────────────────────────────────────────────────────────────────────
+ * See mesh_txq.h for the why (the 'mesh' loop stalls were the old blocking send) and the rules.
+ * Runs FIRST in loop(). Costs, per pass: one rate-limited IRQ read while a frame is on the air;
+ * nothing at all otherwise until something is queued or a relay falls due. */
+void MeshtasticService::txPump() {
+#ifdef MESHTASTIC_PHY
+  const MeshTxState st = meshPhy.serviceTx();
+  if (st == MESH_TX_DONE || st == MESH_TX_TIMEOUT) {
+    s_lastPhyTxMs = millis();              // "finished", which is what the beacon spacing meant
+    if (s_txInFlight.active) {
+      s_txInFlight.active = false;
+      if (st == MESH_TX_DONE) {
+        if (s_txInFlight.kind == MESH_TXK_RELAY) {
+          s_txStats.relay++;
+        } else {
+          s_txStats.own++;
+        }
+        s_txStats.airMsTotal += meshLoraAirtimeMs(s_txInFlight.len);
+        s_txStats.lastAirMs = meshPhy.lastTxAirMs();
+        s_txStats.lastLen = s_txInFlight.len;
+        s_txStats.lastKind = s_txInFlight.kind;
+      } else {
+        s_txStats.timeout++;
+        /* An own frame that never left: its message (if it has one waiting on a receipt)
+         * says "failed: timed out" instead of sitting there looking sent. A beacon has no
+         * receipt and resolveAck() finds nothing; an ACK or a relay is nobody's message. */
+        if (s_txInFlight.kind == MESH_TXK_OWN) {
+          resolveAck(s_txInFlight.packetId, 3);
+        }
+      }
     }
   }
+  if (radioState != MESH_RADIO_READY) {
+    return;
+  }
+  const MeshTxPick pick = meshTxPick(meshPhy.txBusy(), meshTxqCount(&s_txq), rebroadcast,
+                                     MESH_RELAY_SLOTS, millis());
+  if (pick.what == MESH_PICK_QUEUE) {
+    const MeshTxFrame* f = meshTxqFront(&s_txq);
+    /* startSend() can refuse for one pass (a received packet not yet read): the frame stays at
+     * the front and goes next pass. Popped only once it is really on the air. */
+    if (f && meshPhy.startSend(f->data, f->len)) {
+      s_txInFlight.active = true;
+      s_txInFlight.kind = f->kind;
+      s_txInFlight.len = f->len;
+      s_txInFlight.packetId = f->packetId;
+      meshTxqPop(&s_txq);
+    }
+  } else if (pick.what == MESH_PICK_RELAY) {
+    MeshRelaySlot& r = rebroadcast[pick.relay];
+    /* Bracketed because a rebroadcast is the most frequent thing this phone does that nobody
+     * logs, and it is a candidate for the residual drift. Silent unless it moved `largest` by
+     * 256 bytes or more — a quiet TX costs nothing to instrument. */
+    const uint32_t before = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+    if (meshPhy.startSend(r.data, r.len)) {
+      s_txInFlight.active = true;
+      s_txInFlight.kind = MESH_TXK_RELAY;
+      s_txInFlight.len = r.len;
+      s_txInFlight.packetId = meshFramePacketId(r.data);
+      r.active = false;
+    }
+    heapDelta("mesh-relay", before);
+  }
+#endif
+}
+
+bool MeshtasticService::txPipelineIdle() const {
+#ifdef MESHTASTIC_PHY
+  return meshTxPipelineIdle(meshPhy.txBusy(), meshTxqCount(&s_txq));
+#else
+  return true;
+#endif
+}
+
+void MeshtasticService::txDropAll(uint8_t err) {
+  const int queued = meshTxqCount(&s_txq);
+  int ours = 0;
+  for (int i = 0; i < queued; i++) {
+    const MeshTxFrame* f = meshTxqAt(&s_txq, i);
+    if (f && f->kind == MESH_TXK_OWN) {
+      resolveAck(f->packetId, err);          // "no radio interface" on the message, not "sent"
+      ours++;
+    }
+  }
+  meshTxqClear(&s_txq);
+  const int relays = relaysPending();
+  meshRelayClear(rebroadcast, MESH_RELAY_SLOTS);
+  if (s_txInFlight.active && s_txInFlight.kind == MESH_TXK_OWN) {
+    resolveAck(s_txInFlight.packetId, err);  // belt and braces: never true mid-frame today
+  }
+  s_txInFlight.active = false;
+  if (queued || relays) {
+    log_e("MESH TX: radio gone - %d queued frame(s) dropped (%d of ours, receipts failed), "
+          "%d relay(s) dropped", queued, ours, relays);
+  }
+}
+
+const MeshTxStats& MeshtasticService::txStats() const {
+  return s_txStats;
+}
+
+int MeshtasticService::txQueued() const {
+  return meshTxqCount(&s_txq);
+}
+
+int MeshtasticService::txQueueCap() const {
+  return s_txq.cap;
+}
+
+int MeshtasticService::txQueueMaxDepth() const {
+  return s_txq.maxDepth;
+}
+
+int MeshtasticService::relaysPending() const {
+  int n = 0;
+  for (int i = 0; i < MESH_RELAY_SLOTS; i++) {
+    if (rebroadcast[i].active) {
+      n++;
+    }
+  }
+  return n;
 }
 
 bool MeshtasticService::seenPacketId(uint32_t id) {
@@ -1347,6 +1493,26 @@ void MeshtasticService::setup() {
   if (!messages) {
     log_e("MeshtasticService: message buffer alloc FAILED");
   }
+
+#ifdef MESHTASTIC_PHY
+  /* The radio's send queue (mesh_txq.h): 8 frames, ~2 KB of PSRAM. BEFORE the radio comes up
+   * below — boot announces NodeInfo at once, and that is a queued frame. Unlike replay it
+   * falls back to internal RAM (2 frames, ~0.5 KB): a phone that cannot queue cannot send at
+   * all, not even an ACK. */
+  {
+    MeshTxFrame* txStore = (MeshTxFrame*)ps_malloc((size_t)MESH_TXQ_CAP * sizeof(MeshTxFrame));
+    int txCap = MESH_TXQ_CAP;
+    if (!txStore) {
+      txStore = (MeshTxFrame*)malloc((size_t)MESH_TXQ_CAP_FALLBACK * sizeof(MeshTxFrame));
+      txCap = MESH_TXQ_CAP_FALLBACK;
+      log_e("MeshtasticService: TX queue PSRAM alloc failed - %s", txStore
+            ? "2-frame internal fallback" : "NO QUEUE, every send will refuse");
+    }
+    meshTxqInit(&s_txq, txStore, txStore ? txCap : 0);
+    memset(&s_txStats, 0, sizeof(s_txStats));
+    memset(&s_txInFlight, 0, sizeof(s_txInFlight));
+  }
+#endif
 
   // Replay ring + reply slab — PSRAM only, no internal fallback: history
   // replay is a luxury and must never compete with SIP/WiFi for real RAM.
@@ -1463,6 +1629,12 @@ void MeshtasticService::setup() {
 }
 
 bool MeshtasticService::loop() {
+  /* 🛑 THE RADIO FIRST: before the database save, before the 5 s health check, before poll().
+   * txPump() finishes the frame on the air (after a Game Boy game the chip has been sitting in
+   * STANDBY with TxDone latched, because this whole loop was skipped) and starts at most one
+   * more. It never waits for the air: see mesh_txq.h for why that used to be the 'mesh' stall. */
+  txPump();
+
   // Debounced persistence of new nodes/messages (limits flash wear).
   /* Starred IDs are tiny and are written on the very next tick rather than on the DB's
    * debounce: the file is a few dozen bytes, and a star the user just set should survive a
@@ -1471,16 +1643,22 @@ bool MeshtasticService::loop() {
     favDirty = false;
     saveFavourites();
   }
-  /* ⚠ `uiIdle` is the third condition and it is not optional. A save blocks this task for
-   * ~1.5 s (MEASURED: 6.7 KB in ~1200 ms — SPIFFS on this part runs about 6 KB/s, and the
-   * filesystem is only 2.6% full, so it is the flash, not fragmentation). Anything that
-   * blocks here blocks the keypad, the screen and the WiFi stack together, which is why the
-   * symptom was "menus freeze for a second or two AND WiFi drops". Deferring until nobody is
-   * touching the phone does not make the save faster — it makes it land where it cannot be
-   * felt. The data still persists within seconds of the user putting the phone down. */
-  /* Drain any save in flight FIRST, and unconditionally: each step is bounded (128 bytes,
-   * ~20 ms) so it cannot freeze anything, and letting it finish promptly keeps the temp file's
-   * lifetime short. Only STARTING a save waits for an idle moment. */
+  /* ⚠ `uiIdle` is the third condition and it is not optional ON SPIFFS. There (no card) a save
+   * blocks this task for ~1.5 s (MEASURED: 6.7 KB in ~1200 ms — SPIFFS on this part runs about
+   * 6 KB/s, and the filesystem is only 2.6% full, so it is the flash, not fragmentation).
+   * Anything that blocks here blocks the keypad, the screen and the WiFi stack together.
+   * Deferring until nobody is touching the phone does not make the save faster — it makes it
+   * land where it cannot be felt. The data still persists within seconds of the user putting
+   * the phone down.
+   * ⚠ WITH A CARD IN (the normal case since 0.9.19) A WHOLE SAVE IS ~50-130 ms — see the
+   * `bench` numbers at meshFs(). 🛑 The 0.6-1.5 s 'mesh' STALL lines that kept being blamed on
+   * this were LoRa TRANSMITS (the old blocking send, relays above all — mesh_txq.h); nothing on
+   * that path ever looked at uiIdle, which is why they landed mid-scroll too. */
+  /* Drain any save in flight FIRST, and unconditionally. Each pass writes at most
+   * MESH_SAVE_CHUNK_BYTES — 64 KB, i.e. the whole image in one pass today (see the note at
+   * that define for why it is not smaller on SPIFFS) — then close/remove/rename. Letting it
+   * finish promptly keeps the temp file's lifetime short. Only STARTING a save waits for an
+   * idle moment. */
   /* s_meshCardIn is set by setCardPresent(), which the main loop calls every pass AND once
    * before setup() — it is not synced here any more. One writer: two of them was how the
    * load path came to disagree with the save path for a day and a half. */
@@ -1491,7 +1669,8 @@ bool MeshtasticService::loop() {
    * ⚠ Capped at five minutes: a download can run an hour, and a phone switched off at the
    * end of it must not lose an hour of nodes and messages. (The 0.5-0.9 s 'mesh' stalls
    * seen during downloads are the PRE-EXISTING ones the 2026-09-04 handoff flagged — they
-   * happen with no download running; this deferral did not remove them.) */
+   * happen with no download running; this deferral did not remove them. They were LoRa
+   * transmits, the old blocking send — gone since 0.9.79, see mesh_txq.h.) */
   static uint32_t holdSinceMs = 0;
   if (tileFetchActive()) {
     if (!holdSinceMs) {
@@ -1552,6 +1731,10 @@ bool MeshtasticService::loop() {
         if (!meshPhy.healthCheck()) {
           radioState = MESH_RADIO_ERROR;
           log_e("MESH RADIO LOST (pack dead or radio reset) - sends will refuse honestly");
+          /* Whatever was waiting will never go: say so on each message now, rather than
+           * leave it looking sent. (Never mid-frame: healthCheck() is true while one is on
+           * the air, and txPump() above already finished or failed the last one.) */
+          txDropAll(4);
         }
       } else if (radioState == MESH_RADIO_ERROR) {
         /* Retry fast while a swapped pack is plausible, then slow down. A phone with
@@ -1597,15 +1780,25 @@ bool MeshtasticService::loop() {
    * turn one node's housekeeping into a mesh-wide storm every three hours.
    *
    * The first one fires a period after boot, since setup() already announced. */
+  /* ⚠ BACKGROUND: it waits for an idle pipeline (nothing on the air, nothing queued) and does
+   * NOT advance its deadline while it waits — the same rule for every automatic sender below,
+   * so they never fill the queue a person's text needs and never lose a slot either. */
   if (radioState == MESH_RADIO_READY && channelCount > 0) {
     const uint32_t now = millis();
     if (nextNodeInfoMs == 0) {
       nextNodeInfoMs = now + MESH_NODEINFO_PERIOD_MS;
-    } else if ((int32_t)(now - nextNodeInfoMs) >= 0) {
+    } else if ((int32_t)(now - nextNodeInfoMs) >= 0 && txPipelineIdle()) {
       nextNodeInfoMs = now + MESH_NODEINFO_PERIOD_MS;
       lastNodeInfoTxMs = now;
+      nodeInfoOwed = false;          // this one answers any request still waiting, too
       announceNodeInfo(false);
       log_i("Mesh: periodic NodeInfo as '%s' (%s)", myLongName, myShortName);
+    }
+    /* A NodeInfo somebody asked for (want_response, answered in the RX path below), sent once
+     * the pipeline is idle. The damping was decided when the request arrived. */
+    if (nodeInfoOwed && txPipelineIdle()) {
+      nodeInfoOwed = false;
+      announceNodeInfo(false);
     }
   }
 
@@ -1632,11 +1825,10 @@ bool MeshtasticService::loop() {
       }
       nbrDripMs = now;
     }
-    /* ONE channel per pass, spaced: meshPhy.send() BLOCKS, and a LongFast
-     * packet is most of a second on air. Three back-to-back sends would stall
-     * the superloop long enough to matter (the task watchdog is not
-     * theoretical on this phone). */
-    if (nbrPendingMask && (int32_t)(now - nbrDripMs) >= 0) {
+    /* ONE channel at a time, 2 s apart, into an idle pipeline only: airtime politeness on a
+     * shared band. (It used to be about the superloop — meshPhy.send() BLOCKED for the frame's
+     * time on air. It no longer does; see mesh_txq.h.) A skipped pass keeps the pending bit. */
+    if (nbrPendingMask && (int32_t)(now - nbrDripMs) >= 0 && txPipelineIdle()) {
       for (int i = 1; i < channelCount && i < 8; i++) {
         if (nbrPendingMask & (1u << i)) {
           nbrPendingMask &= (uint8_t)~(1u << i);
@@ -1660,16 +1852,15 @@ bool MeshtasticService::loop() {
    *
    *  1. posIntervalSecs > 0 is the arming switch. Default 0. Persisted.
    *
-   *  2. 🛑 NEVER TWO TRANSMITS IN ONE PASS. meshPhy.send() blocks for the whole
-   *     airtime — 518 ms for this 37-byte frame at the LongFast registers —
-   *     and the rebroadcast queue, the replay pump and the neighbour drip can
-   *     all fire in the same iteration. Two back to back is ~1.05 s of frozen
-   *     keypad and GUI. When the spacing gate fails the deadline is
-   *     deliberately NOT advanced: the slot is retried next pass, not lost.
-   *     ⚠ Since 2026-09-19 send() waits as long as the FRAME takes rather than
-   *     a flat 2 s (mesh_airtime.h): a maximum-length text is 2.2 s on the air
-   *     and up to ~3 s at its timeout, so one such send is ~3 s of stall on its
-   *     own. This rule matters more with that change, not less.
+   *  2. SPACED, INTO AN IDLE PIPELINE: 1.5 s after the last transmit finished,
+   *     with nothing on the air and nothing queued. When the gate fails the slot
+   *     is deliberately NOT spent: it is retried next pass, not lost.
+   *     ⚠ This was "🛑 NEVER TWO TRANSMITS IN ONE PASS" while meshPhy.send()
+   *     BLOCKED for the frame's time on air (518 ms for this 37-byte frame) — and
+   *     only this beacon obeyed it; the relay path did not, which is how two
+   *     transmits in one pass produced the 1,985 ms stall. Since 0.9.79 nothing
+   *     blocks and txPump() starts one frame a pass by construction (mesh_txq.h),
+   *     so what is left here is band politeness.
    *
    *  3. The movement gate (meshPosShouldBeacon — pure, proven on the host by
    *     tests/test_pos.cpp): a phone that has not moved 100 m skips the slot,
@@ -1710,7 +1901,7 @@ bool MeshtasticService::loop() {
      * ⚠ ONE SLOT MAX. `posDue` is a flag, not a counter, and the deadline keeps advancing
      * while it is set — so an hour with no sky owes exactly one beacon, not twelve. That is
      * the same anti-backlog rule the deadline recomputation above already follows. */
-    if (posDue && (uint32_t)(now - s_lastPhyTxMs) >= 1500u) {
+    if (posDue && (uint32_t)(now - s_lastPhyTxMs) >= 1500u && txPipelineIdle()) {
       const bool fresh = gpsEnabled && gpsFixMs != 0 &&
                          (uint32_t)(now - gpsFixMs) < MESH_POS_TX_FRESH_MS;
       if (fresh) {
@@ -1735,8 +1926,11 @@ bool MeshtasticService::loop() {
 
   /* Drain DMs that sendDirectMessage queued because their session key wasn't
    * cached (GUI depth cannot run the ~3 KB-stack X25519 derive; here it can).
-   * One per tick; the local echo already happened at queue time. */
-  for (int i = 0; i < 2; i++) {
+   * One per tick; the local echo already happened at queue time.
+   * Only while the send queue has room: this DM is already in the thread, so a full queue
+   * means "next pass", not "failed" — a person's text is not a background frame. */
+  const bool txRoom = s_txq.slots && meshTxqCount(&s_txq) < (int)s_txq.cap;
+  for (int i = 0; i < 2 && txRoom; i++) {
     if (pendingDm[i].active) {
       pendingDm[i].active = false;
       const MeshNode* peer = findNode(pendingDm[i].dest);
@@ -1761,19 +1955,8 @@ bool MeshtasticService::loop() {
     }
   }
 
-  // Flood routing: send at most one due rebroadcast per tick (send blocks).
-  for (int i = 0; i < 4; i++) {
-    if (rebroadcast[i].active && (int32_t)(millis() - rebroadcast[i].dueMs) >= 0) {
-      /* Bracketed because a rebroadcast is the most frequent thing this phone does that
-       * nobody logs, and it is a candidate for the residual drift. Silent unless it moved
-       * `largest` by 256 bytes or more — a quiet TX costs nothing to instrument. */
-      const uint32_t before = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
-      meshPhy.send(rebroadcast[i].data, rebroadcast[i].len);
-      heapDelta("mesh-relay", before);
-      rebroadcast[i].active = false;
-      break;
-    }
-  }
+  /* Flood relays are started by txPump() at the top of this function (one frame a pass, own
+   * frames first, earliest-due relay next) — see mesh_txq.h. */
 
   replayPump();   // drip one queued replay packet per gap (airtime politeness)
 
@@ -1818,6 +2001,14 @@ bool MeshtasticService::loop() {
   }
   // Drop duplicate rebroadcasts of the same packet (mesh flooding).
   if (seenPacketId(hdr.packetId)) {
+    /* ...and if WE are still waiting to relay it, don't: somebody else just did, and everyone
+     * who heard them has it. Stock FloodingRouter does exactly this for a non-router role
+     * (cancelSending on a dupe). Matched on sender AND packet id, from the frame's own header.
+     * A relay already on the air cannot be recalled and is not in a slot any more. */
+    const int cancelled = meshRelayCancel(rebroadcast, MESH_RELAY_SLOTS, hdr.sender, hdr.packetId);
+    if (cancelled) {
+      s_txStats.relayCancelled += (uint32_t)cancelled;
+    }
     /* ...but a REPEATED want-ack DM we already stored means our ACK was lost
      * and the sender is retrying: ACK again (stock does — ReliableRouter),
      * without re-storing. Only ids in recentAckIds — i.e. DMs we actually
@@ -2179,8 +2370,10 @@ bool MeshtasticService::loop() {
           const uint32_t now = millis();
           if (lastNodeInfoTxMs == 0 || (now - lastNodeInfoTxMs) > MESH_NODEINFO_REPLY_MIN_MS) {
             lastNodeInfoTxMs = now;
-            announceNodeInfo(false);
-            log_i("Mesh NodeInfo requested by 0x%08X - answered as '%s' (%s)",
+            /* OWED, not sent here: it goes from loop()'s NodeInfo block once the pipeline is
+             * idle, like every other automatic frame (mesh_txq.h). Usually the next pass. */
+            nodeInfoOwed = true;
+            log_i("Mesh NodeInfo requested by 0x%08X - answering as '%s' (%s)",
                   hdr.sender, myLongName, myShortName);
           } else {
             log_i("Mesh NodeInfo requested by 0x%08X - damped (replied recently)", hdr.sender);
@@ -3669,6 +3862,9 @@ void MeshtasticService::replayPump() {
     replayPktCount = replayPktNext = 0;
     return;
   }
+  if (!txPipelineIdle()) {
+    return;                     // background: wait for an idle radio, and do NOT move on
+  }
 #ifdef MESHTASTIC_PHY
   /* QUIET tx — meshTxText directly, never sendChannelMessage: protocol
    * traffic must not local-echo into this phone's own chat list. */
@@ -3810,14 +4006,15 @@ bool MeshtasticService::announceNeighborsOn(const MeshChannel* ch) {
 #endif
   nbrLastTxMs = millis();
   nbrLastTxCount = n;
-  log_e("NEIGHBOR: announced %d neighbour(s) on '%s' (%d bytes)%s",
-        n, ch->name, len, ok ? "" : " - TX FAILED");
+  log_e("NEIGHBOR: queued %d neighbour(s) on '%s' (%d bytes)%s",
+        n, ch->name, len, ok ? "" : " - NOT QUEUED");
   return ok;
 }
 
-/* Announce on EVERY private channel right now, blocking. Only the bench calls
- * this (serial `nbr now`); the scheduled path drips one channel per pass
- * instead, because three LongFast sends back to back stall the superloop. */
+/* Announce on EVERY private channel right now. Only the bench calls this (serial `nbr now`):
+ * each announce is QUEUED and they go out one after another, a frame's airtime apart (up to 7
+ * channels, and the queue holds 8). The scheduled path still drips one channel every 2 s into
+ * an idle pipeline, which is politeness, not a stall guard any more — nothing here blocks. */
 int MeshtasticService::announceNeighborsNow() {
   int sent = 0;
   for (int i = 1; i < channelCount && i < 8; i++) {
@@ -3825,7 +4022,6 @@ int MeshtasticService::announceNeighborsNow() {
       if (announceNeighborsOn(&channels[i])) {
         sent++;
       }
-      delay(50);
     }
   }
   return sent;

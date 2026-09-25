@@ -37,8 +37,8 @@
  * ⚠ 3 s IS NOT A TIMEOUT ON ANYTHING REAL. Every call-audio setup arms the session in the same
  * main-loop pass that moves the SIP state into Call, and every teardown calls shutdown() in the
  * same pass that leaves it. A real call is therefore never unentitled for even one pass; the 3 s
- * is headroom for one stalled pass (the mesh DB save has been measured at 1.5 s), not a guess
- * at how long a transition takes.
+ * is headroom for one stalled pass (passes of 1.5-2 s have been measured — LoRa transmits until
+ * 0.9.79, a SPIFFS database save still), not a guess at how long a transition takes.
  */
 #ifndef RTP_WATCH_H
 #define RTP_WATCH_H

@@ -104,6 +104,10 @@ for src in tests/test_*.cpp; do
     # text budget of one frame, measured with the shipping meshBuildData — the numbers
     # MeshPhy::send's timeout and the compose cap are built from.
     test_airtime)  deps=(WiPhone/mesh_airtime.cpp WiPhone/mesh_wire.cpp) ;;
+    # The radio's send queue (mesh_txq.cpp): FIFO own frames with ACKs ahead of them, relays only
+    # when due and cancelled on a duplicate, one start per pass. It replaced a transmit that held
+    # the superloop for the frame's whole time on air - the 0.6-1.5 s 'mesh' STALL lines.
+    test_txq)      deps=(WiPhone/mesh_txq.cpp) ;;
     # Compiles the REAL helix decoder so a pass proves the bytes that ship are the bytes
     # that decode. helix is C and is listed in csrc, not deps — see CFLAGS above.
     test_mp3)      deps=(WiPhone/mp3_stream.cpp)
@@ -171,6 +175,15 @@ fi
 # of them in a scratch copy and the suite stayed green; each is a positive contract now.
 echo "checking the call-audio guards (END, F1/F2, ring order, RTP silence, hot-mic backstop)"
 if ! python3 tests/check_call_audio.py; then
+  fail=1
+fi
+
+# ── SOURCE GUARD: the LoRa radio never waits for the air on the loop task ─────────────────
+# See tests/check_mesh_tx.py. test_txq proves the queue; the guards that make it safe - no blocking
+# send, healthCheck() true mid-frame, TxDone before the deadline, txPump() first in loop(), the
+# background senders' idle gates - live in files this suite cannot compile.
+echo "checking the mesh transmit guards (no blocking send, pump first, health mid-frame)"
+if ! python3 tests/check_mesh_tx.py; then
   fail=1
 fi
 

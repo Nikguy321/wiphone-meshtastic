@@ -441,8 +441,9 @@ int keypadHealth(char* out, int cap) {
 static char bootLine[120] = {0};
 /* millis() of the last key actually dequeued for the UI. GUI::msLastKeypadEvent is protected
  * and the keypad is drained here anyway, so this is stamped at the source rather than widening
- * GUI's interface for one reader. Used only to hold off the ~1.5 s mesh database save while
- * somebody is scrolling — see MeshtasticService::setUiIdle(). */
+ * GUI's interface for one reader. Used only to hold off the mesh database save while somebody
+ * is scrolling (~1.5-2.8 s on SPIFFS, ~0.1 s on the card) — see MeshtasticService::setUiIdle().
+ * ⚠ The 0.6-1.5 s 'mesh' stalls were LoRa transmits, not this save (mesh_txq.h). */
 static uint32_t gLastKeyMs = 0;
 
 /* Time one named step of the superloop and say so if it blocked. The whole-pass stall detector
@@ -507,9 +508,10 @@ bool uiKeyStillHeld(uint32_t mask) {
     return false;
   }
   /* ⚠ A KEY BEING POLLED AS HELD IS A KEY IN USE. gLastKeyMs is what holds the mesh DB save
-   * (0.6-1.5 s, blocking) off while the phone is being touched, and it is stamped when a key
-   * is DEQUEUED — a hold dequeues nothing after its press, so three seconds into a sweep the
-   * save landed under the finger (review, 2026-09-19). Every "held" answer stamps it. */
+   * (blocking; ~0.1 s on the card, seconds on SPIFFS) off while the phone is being touched, and
+   * it is stamped when a key is DEQUEUED — a hold dequeues nothing after its press, so three
+   * seconds into a sweep the save landed under the finger (review, 2026-09-19). Every "held"
+   * answer stamps it. */
   if ((s_benchHeldMask & mask) == mask) {
     if ((int32_t)(s_benchHeldUntil - millis()) > 0) {
       if (s_benchBlipAt && (int32_t)(millis() - s_benchBlipAt) >= 0) {
@@ -2769,8 +2771,9 @@ static void notifyMessageArrived(uint8_t mode) {
     motorWrite(HIGH);
     /* 🛑 THE STAMP IS TAKEN HERE, FROM THE CLOCK, NOT PASSED IN. This function used to receive
      * `now` from the top of the main-loop pass, and the mesh arrival reaches it AFTER
-     * meshService.loop() — whose DB save the health log shows stalling the pass 0.5-1.5 s,
-     * 83 times in one retained log, while nobody was touching the phone. The next pass then
+     * meshService.loop() — which the health log shows stalling the pass 0.5-1.5 s, 83 times in
+     * one retained log, while nobody was touching the phone (blamed on the DB save at the time;
+     * they were LoRa transmits, the old blocking send — gone since 0.9.79). The next pass then
      * compared its fresh clock against a stamp already up to 1.5 s old and switched the motor
      * off a few milliseconds after it had started. That was "sometimes the motor just barely
      * starts"; the SIP mirror path, which stamped millis() itself, was the one that behaved.
@@ -2810,10 +2813,10 @@ static void notifyMessageArrived(uint8_t mode) {
         /* ⚠ HAND THE FIRST CHUNK TO THE DMA NOW (review, 2026-09-19). playPop() only arms
          * the source; the samples reach I2S in audio->loop() at the BOTTOM of the pass. The
          * text paths (SIP, the mirror, serial `notify`) announce ABOVE the mesh block, so a
-         * DB save or a LoRa airtime in the same pass could run the stop timer out before a
-         * single sample was queued — a buzz with no chirp, deterministically. One pump here
-         * queues the whole 300 ms chunk into the 512 ms DMA with zero-tick writes; a stall
-         * after that only ever cuts the silence padding. */
+         * DB save or (before 0.9.79) a LoRa airtime in the same pass could run the stop timer
+         * out before a single sample was queued — a buzz with no chirp, deterministically. One
+         * pump here queues the whole 300 ms chunk into the 512 ms DMA with zero-tick writes; a
+         * stall after that only ever cuts the silence padding. */
         audio->loop();
         log_e("NOTIFY: pop start took %lu ms (%s, stop at %lu ms)", (unsigned long)(t1 - t0),
               fromFlash ? "flash" : "SPIFFS fallback", (unsigned long)meshPopStopMs);
@@ -2945,10 +2948,11 @@ void loop() {
       gPhaseWorst   = "-";
       loopPhase("top");
     }
-    /* The mesh database save blocks this task for ~1.5 s, so it is held off while the phone is
-     * being used — see MeshtasticService::setUiIdle(). Three seconds after the last key, the
-     * user has stopped scrolling and a freeze there costs nothing. This is the only place that
-     * can see both the keypad and the mesh service. */
+    /* The mesh database save blocks this task (~1.5-2.8 s on SPIFFS, ~0.1 s on the card), so it
+     * is held off while the phone is being used — see MeshtasticService::setUiIdle(). Three
+     * seconds after the last key, the user has stopped scrolling and a freeze there costs
+     * nothing. This is the only place that can see both the keypad and the mesh service.
+     * ⚠ The 0.6-1.5 s STALLs named 'mesh' were LoRa transmits, not this (mesh_txq.h). */
     loopPhase("mesh-uiidle");
     meshService.setUiIdle(gLastKeyMs == 0 || (uint32_t)(now - gLastKeyMs) > 3000);
     meshService.setCardPresent(gui.state.cardPresent);   // the DB lives on SD when there is one
@@ -3429,7 +3433,7 @@ void loop() {
       // Retrieve button from buffer safely
       keyPressed = keypadBuff.get();
       if (keyPressed) {
-        gLastKeyMs = millis();     // see setUiIdle() below: holds off the blocking DB save
+        gLastKeyMs = millis();     // see setUiIdle() below: holds off the DB save
       }
 #if UI_IDLE_DOWNCLOCK
       if (keyPressed) {
@@ -4796,8 +4800,15 @@ void loop() {
     // Meshtastic background service tick (non-blocking). If a new message
     // arrived, notify the GUI so an open Channel view refreshes live, raise the
     // status-bar unread flag, and show a brief popup banner on any screen.
+    /* THREE PHASES, SO A STALL LINE SAYS WHICH HALF: 'mesh' is the service itself (radio, RX,
+     * the DB save step), 'mesh-ui' is what an arrival does to the screen (repaint, popup,
+     * notify), 'mesh-post' is the buzz/pop/audio teardown and the rest of the block. Until
+     * 0.9.79 all three were 'mesh', and that one name sent the 0.6-1.5 s stalls to the wrong
+     * suspect for three weeks (they were LoRa transmits). No behaviour change. */
     loopPhase("mesh");
-    if (!gGbcActive && meshService.loop()) {
+    const bool meshArrived = !gGbcActive && meshService.loop();
+    loopPhase("mesh-ui");
+    if (meshArrived) {
       log_d("Received Meshtastic message");
       gui.state.meshUnread = true;
       gui.processEvent(now, NEW_MESSAGE_EVENT);   // let an open Mesh view rebuild
@@ -4810,7 +4821,7 @@ void loop() {
         snprintf(title, sizeof(title), "Mesh: %s", n ? n->name : "new message");
         gui.showMeshPopup(title, nm->text);                // drawn on top of app
         meshPopupActive = true;
-        meshPopupShownMs = millis();     // not `now`: the DB save above can be 1.5 s ago
+        meshPopupShownMs = millis();     // not `now`: this pass may have been long
       }
       notifyMessageArrived(gui.state.notifyMeshMode);
     }
@@ -4833,11 +4844,12 @@ void loop() {
     }
 
     /* 🛑 FRESH CLOCK FOR THE TEARDOWN. `now` is from the top of this pass; anything that
-     * stalled since — the mesh DB save is the one the health log names — would make both
-     * pulses below look older than they are and end them early. The stamps were taken from
-     * millis() at the moment of the write (see notifyMessageArrived), so they are compared
-     * against millis() here; a stall earlier in the pass can no longer shorten a pulse, and
-     * the "after N ms" in the two lines below is the length as actually driven. */
+     * stalled since — the health log named the mesh block (LoRa transmits, until 0.9.79) —
+     * would make both pulses below look older than they are and end them early. The stamps
+     * were taken from millis() at the moment of the write (see notifyMessageArrived), so they
+     * are compared against millis() here; a stall earlier in the pass can no longer shorten a
+     * pulse, and the "after N ms" in the two lines below is the length as actually driven. */
+    loopPhase("mesh-post");
     const uint32_t tNow = millis();
 
     // Stop the notification vibration after its pulse.

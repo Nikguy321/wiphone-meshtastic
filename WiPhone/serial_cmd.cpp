@@ -21,6 +21,7 @@ extern uint32_t uiKeyMaskFor(char code);                                    // W
 #include "GUI.h"                  // gui.state, the `sip` command
 #include <SD.h>                   // the `wallpaper` command reads both filesystems
 #include "mesh_phy.h"             // meshPhy.benchSleep, the `power lora` toggle
+#include "mesh_airtime.h"         // meshLoraAirtimeMs, the `radio` line's prediction
 #include "Networks.h"             // wifiState.radioOff(), the `power sleep` gate
 #include "Hardware.h"             // KEYBOARD_INTERRUPT_PIN, the `power sleep` wake pin
 #include "Audio.h"                // audio->isOn(), the `power` guards
@@ -146,6 +147,8 @@ static void help() {
     "  audio orphan  arm an RTP receive with NO call (no mic, nothing sent) - the hot-mic",
     "             backstop must shut it down within 3 s with an 'AUDIO: RTP session armed' line",
     "  replay     history-replay state: ring occupancy, pending tx, last served",
+    "  radio      the LoRa send queue: rx/tx, queued + relays waiting, frames finished (own/relay),",
+    "             timeouts, relays cancelled, the last frame's air time seen vs predicted",
     "  nbr        neighbours heard DIRECTLY + announce state (My node > Neighbor info)",
     "  nbr on|4h|off|now  set the announce cadence (1h/4h) or announce right now",
     "  pos        positions: waypoints, node fixes, our pin, the reference, our beacon",
@@ -774,8 +777,8 @@ static void run(char* line) {
       say("nbr: announcing OFF\n");
     } else if (!strcasecmp(arg, "now")) {
       const int n = meshService.announceNeighborsNow();
-      say("nbr: announced on %d private channel(s)%s\n", n,
-          n ? "" : " - none configured, nothing sent");
+      say("nbr: queued on %d private channel(s)%s\n", n,
+          n ? " - they go out one after another (`radio`)" : " - none configured, nothing sent");
     } else {
       say("nbr: usage nbr on|4h|off|now\n");
     }
@@ -802,6 +805,34 @@ static void run(char* line) {
           meshService.lastNeighborTxCount());
     } else {
       say("nbr: never announced yet\n");
+    }
+    return;
+  }
+  /* `radio` — what the LoRa radio has done this boot. Exists because transmits stopped blocking
+   * the loop in 0.9.79 (mesh_txq.h): before, every frame was visible as a STALL line; now a
+   * frame is invisible unless something counts it. `last` is the proof on the bench — the air
+   * time the loop SAW (start to the pass that read TxDone: one pass, ~5 ms, over the truth)
+   * against meshLoraAirtimeMs(), which is exact. They should agree to a few ms. */
+  if (!strcasecmp(line, "radio")) {
+    const MeshTxStats& t = meshService.txStats();
+    static const char* const KIND[] = { "own", "ACK", "relay" };
+    say("radio: %s | queue %d/%d (deepest %d) | relays waiting %d\n",
+        !meshPhy.isReady() ? "absent"
+          : (meshPhy.benchAsleep() ? "SLEEP(bench)" : (meshPhy.txBusy() ? "tx" : "rx")),
+        meshService.txQueued(), meshService.txQueueCap(), meshService.txQueueMaxDepth(),
+        meshService.relaysPending());
+    say("radio: finished own=%lu relay=%lu | timeout=%lu | relays cancelled=%lu | "
+        "refused (queue full)=%lu\n",
+        (unsigned long)t.own, (unsigned long)t.relay, (unsigned long)t.timeout,
+        (unsigned long)t.relayCancelled, (unsigned long)t.refused);
+    if (t.lastLen) {
+      say("radio: on air %lu ms this boot (computed) | last: %s %u B, %lu ms seen vs %lu ms "
+          "predicted\n",
+          (unsigned long)t.airMsTotal, t.lastKind < 3 ? KIND[t.lastKind] : "?",
+          (unsigned)t.lastLen, (unsigned long)t.lastAirMs,
+          (unsigned long)meshLoraAirtimeMs(t.lastLen));
+    } else {
+      say("radio: nothing has finished on the air yet this boot\n");
     }
     return;
   }
@@ -868,11 +899,12 @@ static void run(char* line) {
      * the movement gate. It still obeys every SAFETY rule (receiver on, channel
      * named, channel present, channel not silently public, fix fresh enough),
      * because those are what the feature is for.
-     * ⚠ BLOCKS ~518 ms inside meshPhy.send(), like `nbr now` does. */
+     * It QUEUES the frame (mesh_txq.h); it no longer blocks ~518 ms in a send. */
     if (!strcasecmp(arg, "now")) {
       const bool ok = meshService.sendGpsPositionNow();
-      say("pos: forced beacon %s%s\n", ok ? "SENT" : "NOT SENT",
-          ok ? " (37 B on air with the clock set - see the MESH POSITION log line)" : "");
+      say("pos: forced beacon %s%s\n", ok ? "QUEUED" : "NOT SENT",
+          ok ? " (37 B on air with the clock set - see the MESH POSITION log line, then `radio`)"
+             : "");
       if (!ok) {
         const char* why = meshService.posBlockedReason();
         say("pos: %s\n", why ? why : "radio not ready, or no channels");
@@ -1110,7 +1142,7 @@ static void run(char* line) {
    * firmware; give it a minute, then run `pki` to see what was learned.) */
   if (!strcasecmp(line, "announce")) {
     meshService.announceNodeInfo(true);
-    say("announce: sent (watch for MESH ANNOUNCE above; `pki` in a minute to see keys)\n");
+    say("announce: queued (watch for MESH ANNOUNCE above; `pki` in a minute to see keys)\n");
     return;
   }
   /* `dm !62b8d2fd hello` — send a direct message from the cable. Exists so PKC can be
@@ -1135,7 +1167,7 @@ static void run(char* line) {
     bool pki = peer && (peer->pkiFlags & MESH_NODE_HAS_KEY);
     bool ok = meshService.sendDirectMessage(node, end);
     say("dm: %s to !%08x (%s) - watch for 'MESH DM ACK ... err=0' = delivered\n",
-        ok ? "sent" : "REFUSED", (unsigned)node,
+        ok ? "queued" : "REFUSED", (unsigned)node,
         pki ? "PKI" : "LEGACY - no key, 2.5+ nodes drop it");
     if (!ok) {
       say("dm: reason: %s\n", meshService.lastSendError() ? meshService.lastSendError() : "?");
@@ -1174,7 +1206,7 @@ static void run(char* line) {
     }
     bool ok = meshService.sendChannelMessage(c->hash, end);
     if (ok) {
-      say("send: sent on [%ld] '%s' - watch for 'MESH RECEIPT: ... -> in mesh'\n", idx, c->name);
+      say("send: queued on [%ld] '%s' - watch for 'MESH RECEIPT: ... -> in mesh'\n", idx, c->name);
     } else {
       say("send: REFUSED on [%ld] '%s'\n", idx, c->name);
       /* The same literal the compose screen shows after "Not sent: " — the bench sees what
@@ -2024,7 +2056,8 @@ static void run(char* line) {
       say("power: cpu=%luMHz screen=%d wifi=%s lora=%s lcd=%s i2s=%s audio=%s gbc=%d\n",
           (unsigned long)getCpuFrequencyMhz(), (int)gui.state.screenBrightness,
           wifiState.radioOff() ? "OFF" : "on",
-          !meshPhy.isReady() ? "absent" : (meshPhy.benchAsleep() ? "SLEEP(bench)" : "rx"),
+          !meshPhy.isReady() ? "absent"
+            : (meshPhy.benchAsleep() ? "SLEEP(bench)" : (meshPhy.txBusy() ? "tx" : "rx")),
           s_lcdAsleep ? "SLPIN(bench)" : "normal", s_i2sStopped ? "stopped(bench)" : "running",
           audioOn ? "ON" : "off", (int)gGbcActive);
       say("  method: cell FULL (chg=1, v>=4.19 for 30+ min), screen asleep, WiFi off. Read the\n");
@@ -2070,9 +2103,11 @@ static void run(char* line) {
         return;
       }
       const bool sleep = !strcasecmp(arg, "lora sleep");
+      const bool wasTx = meshPhy.txBusy();
       meshPhy.benchSleep(sleep);
-      say("power lora: %s%s\n", sleep ? "SLEEP - the mesh is DEAF until `power lora rx`" : "RX-continuous",
-          sleep ? " (a send or a radio re-init also ends it)" : "");
+      say("power lora: %s%s%s\n", sleep ? "SLEEP - the mesh is DEAF until `power lora rx`" : "RX-continuous",
+          sleep ? " (a send or a radio re-init also ends it)" : "",
+          (sleep && wasTx) ? " - a frame on the air was CUT (its receipt says so; see `radio`)" : "");
       return;
     }
     if (!strncasecmp(arg, "sleep", 5)) {

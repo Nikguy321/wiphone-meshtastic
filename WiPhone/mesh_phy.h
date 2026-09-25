@@ -37,6 +37,15 @@
 
 class RHSoftwareSPI;   // forward decl (RadioHead transport)
 
+/* What serviceTx() found. DONE and TIMEOUT are reported ONCE per frame, on the pass that sees
+ * them; after that the PHY is IDLE again. */
+enum MeshTxState : uint8_t {
+  MESH_TX_IDLE    = 0,   // nothing on the air
+  MESH_TX_BUSY    = 1,   // a frame is still on the air
+  MESH_TX_DONE    = 2,   // TxDone: the frame left whole; the chip is back in RX
+  MESH_TX_TIMEOUT = 3,   // it did not finish (no TxDone in time, or the bench / a re-init cut it)
+};
+
 class MeshPhy {
 public:
   MeshPhy();
@@ -49,12 +58,39 @@ public:
 
   // Non-blocking RX poll. If a full LoRa packet is available, copies up to
   // `maxLen` bytes into `buf`, sets *outLen, fills RSSI/SNR, and returns true.
-  // Otherwise returns false immediately.
+  // Otherwise returns false immediately. Always false while a frame is on the air.
   bool poll(uint8_t* buf, uint16_t maxLen, uint8_t* outLen, int16_t* rssi, int8_t* snr);
 
-  // Transmit a raw LoRa payload (blocks until TxDone or timeout, then returns
-  // to RX-continuous). Used by later steps for Meshtastic TX.
-  bool send(const uint8_t* data, uint8_t len);
+  /* ── TRANSMIT WITHOUT WAITING ────────────────────────────────────────────────────────────
+   * 🛑 THERE IS NO BLOCKING send() ANY MORE, AND THERE MUST NOT BE ONE AGAIN. It put the chip
+   * in TX and busy-waited on TxDone for the frame's whole time on air — 518 ms for a 37-byte
+   * position beacon, 2157 ms for a full frame — on the superloop task, so the keypad, the
+   * screen and the WiFi stack froze with it. Those were the 0.6-1.5 s 'mesh' LOOP STALL lines
+   * (~20 an hour, mostly flood relays, all on the airtime lattice in mesh_airtime.h); the
+   * database save they were blamed on is ~0.1 s on the card.
+   *
+   * startSend() writes the FIFO and keys the transmitter (~2-4 ms of bit-banged SPI at 240 MHz,
+   * ~9-12 at 80) and returns; the SX1276 transmits on its own. serviceTx(), called every loop
+   * pass, reads TxDone and puts the chip back in RX. Everything stays on the loop task: no new
+   * task, no lock, no ISR.
+   *
+   * startSend() REFUSES (false, nothing touched) when: no radio; a frame is already on the air;
+   * or RX_DONE is latched — a packet has arrived that poll() has not read yet, and keying the
+   * transmitter would clear the flags and lose it (the old send() did exactly that). The caller
+   * simply tries again next pass; poll() reads the packet within 10 ms.
+   * A send also ends the bench sleep state (see benchSleep()), as it always did. */
+  bool startSend(const uint8_t* data, uint8_t len);
+
+  /* Rate-limited to one IRQ read per ~2 ms. ⚠ TxDone is checked BEFORE the deadline: a Game
+   * Boy session (which skips the whole mesh loop) or any other long pass can come back long
+   * after the frame finished, and that frame went out whole — calling it a timeout would fail
+   * a receipt for a message that was sent. */
+  MeshTxState serviceTx();
+  bool        txBusy() const { return txActive; }
+  /* Start of the last finished frame to the pass that SAW its TxDone: an upper bound on its
+   * time on air, one loop pass (~5 ms idle) over the true figure — meshLoraAirtimeMs(len) is
+   * the exact one. After a Game Boy game it is the length of the game; compare, do not sum. */
+  uint32_t    lastTxAirMs() const { return txLastAirMs; }
 
   /* Is the radio still the radio we configured? Reads REG_VERSION (0x12) and
    * REG_OP_MODE (LoRa bit + RX-continuous, the only mode we idle in). Two
@@ -63,7 +99,12 @@ public:
    * (FSK standby, LoRa bit clear) fails the second even though it would pass a
    * bare version probe. That distinction is the whole point: version-only says
    * "present", present-and-misconfigured is DEAF AND MUTE. Cheap: two register
-   * reads over the bit-bang, ~240 us. Call it only between transactions. */
+   * reads over the bit-bang, ~240 us. Call it only between transactions.
+   * 🛑 TRUE WITHOUT READING WHILE A FRAME IS ON THE AIR. The op-mode is then TX (0x83), or
+   * STANDBY (0x81) once TxDone has fired and serviceTx() has not yet run — neither is the RX
+   * mode this checks for, so without the guard a 5 s health tick landing inside a 0.65 s
+   * transmit (~13 % of them) would declare the radio LOST and re-initialise it mid-frame,
+   * truncating the frame on the air. */
   bool healthCheck();
 
   /* Full re-init for a radio that died and came back (pack reconnected in the
@@ -85,8 +126,10 @@ public:
    * costs rather than quote a datasheet, this parks it in LoRa SLEEP and tells healthCheck()
    * to accept that mode instead of declaring the radio lost and re-initialising it back to RX
    * five seconds later. poll() returns nothing while asleep; the mesh is DEAF for the
-   * duration, on purpose. send() and reinit() end the bench state, because both leave the
-   * chip in RX-continuous anyway. */
+   * duration, on purpose. startSend() and reinit() end the bench state, because both leave the
+   * chip in RX-continuous anyway (a send once its frame is done).
+   * ⚠ Sleeping cuts a frame that is on the air: serviceTx() reports it as MESH_TX_TIMEOUT on
+   * the next pass, so the receipt of whatever it was says so instead of claiming it went. */
   void benchSleep(bool on);
   bool benchAsleep() const { return benchSleeping; }
 
@@ -106,6 +149,16 @@ private:
   bool           ready;
   bool           inRx;
   bool           benchSleeping = false;   // see benchSleep()
+
+  // The frame on the air (see startSend/serviceTx). All touched from the loop task only.
+  bool           txActive     = false;
+  bool           txAborted    = false;    // cut by benchSleep()/reinit(): one TIMEOUT to report
+  uint8_t        txLen        = 0;
+  uint32_t       txStartMs    = 0;        // millis() just after MODE_TX was written
+  uint32_t       txLimitMs    = 0;        // meshLoraTxTimeoutMs(txLen)
+  uint32_t       txLastPollMs = 0;        // serviceTx()'s 2 ms rate limit
+  uint32_t       txLastAirMs  = 0;        // see lastTxAirMs()
+  void           txCutShort(const char* why);
 };
 
 extern MeshPhy meshPhy;

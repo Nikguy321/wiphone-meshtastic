@@ -3,13 +3,18 @@
  *
  * Two pieces of arithmetic that used to live as guesses in comments and constants:
  *
- *   1. AIRTIME. MeshPhy::send() polls TxDone with a timeout, and until 2026-09-19 that
+ *   1. AIRTIME. The PHY gives up on TxDone after a timeout, and until 2026-09-19 that
  *      timeout was a flat 2000 ms. A maximum-length frame at the registers this phone writes
  *      (SF11, BW 250 kHz, CR 4/5, explicit header, CRC on, LDRO off, 16-symbol preamble) is
  *      2157 ms on the air — so a long channel text was declared "TX timeout", its IRQ flags
  *      cleared and the chip forced back to RX WHILE THE PA WAS STILL KEYED. Truncated on
  *      air, send() false, and the whole stall paid anyway. Filed as a latent P2 in
  *      docs/HANDOFF.md; the fix is that the wait follows the frame.
+ *      🔑 THE SAME ARITHMETIC NAMED THE 'mesh' LOOP STALLS (0.9.79). Every value in the
+ *      health log's `STALL ... mesh N ms` lines sat on this function's lattice — 166 ms of
+ *      preamble + (8 + 5k) x 8.192 ms, steps of 40.96 ms — plus the bit-banged FIFO write
+ *      (+2..+4 ms at 240 MHz, +9..+12 at 80): the old send() BLOCKED the superloop for the
+ *      frame's time on air. It no longer does (MeshPhy::startSend/serviceTx, mesh_txq.h).
  *
  *   2. THE TEXT BUDGET. The Data protobuf around a text costs bytes, the 16-byte header
  *      costs bytes, a PKI DM's CCM tag and nonce cost 12 more, and the LoRa frame is 255.
@@ -60,11 +65,12 @@ uint32_t meshLoraAirtimeUs(size_t frameLen, unsigned sf, uint32_t bwHz, unsigned
  *   254/255 B -> 2157   249 B -> 2116   60 B -> 682   37 B -> 519   20 B -> 396 */
 uint32_t meshLoraAirtimeMs(size_t frameLen);
 
-/* How long MeshPhy::send() waits for TxDone before giving up: airtime + 25 % + 300 ms,
- * never under 1000 ms. The 25 % covers crystal tolerance and the SX1276's own ramp; the
- * 300 ms covers the bit-banged SPI polling loop; the floor keeps a short frame's wait where
- * it always was. A full frame therefore holds the superloop ~3 s at the very worst, and
- * 2.2 s when the radio simply does its job. */
+/* How long MeshPhy::serviceTx() waits for TxDone before calling the frame lost: airtime +
+ * 25 % + 300 ms, never under 1000 ms. The 25 % covers crystal tolerance and the SX1276's own
+ * ramp; the 300 ms covers a loop pass that comes round late; the floor keeps a short frame's
+ * wait where it always was. ⚠ This used to be how long a transmit could hold the superloop
+ * (~3 s for a full frame); since 0.9.79 the loop runs while the chip transmits, so it is only
+ * a deadline, and nothing waits on it. */
 uint32_t meshLoraTxTimeoutMs(size_t frameLen);
 
 /* ── HOW MUCH TEXT FITS ───────────────────────────────────────────────────────────────── */
