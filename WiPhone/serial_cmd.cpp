@@ -124,6 +124,8 @@ static void help() {
     "  chan <url> apply a Meshtastic channel invite URL",
     "  chans      list the channels this phone has",
     "  meshdb     chat history: which filesystem, what loaded, what the next save keeps",
+    "  meshdb cut BENCH: save, set /meshdb.bin aside as /meshdb.cut WITHOUT the rename (the state",
+    "             a power cut mid-save leaves), then REBOOT - the boot log must say RECOVERED",
     "  wifi drop  simulate a hotspot blip, to measure the reconnect path",
     "  wifi off|on  the Settings \"WiFi\" switch from the cable (persisted, same calls)",
     "  wifi why   (or just `wifi`) why it dropped: disconnect reasons, the AP/channel/RSSI,",
@@ -1541,6 +1543,29 @@ static void run(char* line) {
    *
    * ⚠ The sizes are read live from BOTH filesystems every time, never cached: which one is
    * in use is the exact thing in question. */
+  /* `meshdb cut` — prove the boot recovery of a save cut between its remove() and its rename()
+   * (mesh_dbfile.h) on the phone's own filesystem, without pulling a battery at the right
+   * millisecond. The real file is renamed ASIDE, never deleted: if the recovery fails, the
+   * database is /meshdb.cut on the card, one rename (on a computer) from being back. */
+  if (!strcasecmp(line, "meshdb cut")) {
+    extern volatile bool gGbcActive;
+    if (gGbcActive || tileFetchActive()) {
+      say("meshdb cut: refused - a game or a map download owns the card right now\n");
+      return;
+    }
+    const char* why = meshService.benchCutSave();
+    if (why) {
+      say("meshdb cut: NOT done - %s\n", why);
+      return;
+    }
+    say("meshdb cut: /meshdb.tmp written whole, /meshdb.bin set aside as /meshdb.cut, NO rename.\n");
+    say("  REBOOTING NOW (so no save can heal it first). The boot log must say 'MESH DB: RECOVERED',\n");
+    say("  `meshdb` must show the same counts, and `rm /meshdb.cut` tidies up. No RECOVERED line:\n");
+    say("  the database is /meshdb.cut on the card - STOP and rename it back on a computer.\n");
+    delay(300);                              // let the lines above leave the UART
+    ESP.restart();
+    return;
+  }
   if (!strcasecmp(line, "meshdb")) {
     const bool card = meshService.dbOnCard();
     say("meshdb: in use %s   loaded from %s at boot\n",

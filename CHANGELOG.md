@@ -126,6 +126,7 @@ again", and the `MESH ANNOUNCE/POSITION/WAYPOINT` lines say `QUEUED`. The stall 
   `/meshdb.tmp`, which boot ignored (the stale SPIFFS copy, or nothing, loaded instead) and the next save
   truncated. Boot now renames a WHOLE temp file into place (its length must be exactly what its header's
   counts say — `MESH DB: RECOVERED ...`); the star list gets the same. Host suite: `tests/test_dbfile.cpp`.
+  Bench: serial `meshdb cut` leaves exactly that state (the real file set aside as `/meshdb.cut`) and reboots.
 - **The card save goes 16 KB a pass** (~66 KB was one ~0.1 s write), and the close/remove/rename gets a
   pass of its own on both filesystems; SPIFFS still writes its image whole (an erase cannot be chunked
   around). The finish happens on the filesystem the save started on, even if the card is pulled mid-save.

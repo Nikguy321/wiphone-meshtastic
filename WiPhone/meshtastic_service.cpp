@@ -2690,6 +2690,7 @@ MeshNode* MeshtasticService::upsertNode(uint32_t nodeNum, const char* name) {
 
 #define MESH_DB_PATH      "/meshdb.bin"
 #define MESH_DB_TMP       "/meshdb.tmp"
+#define MESH_DB_CUT       "/meshdb.cut"   // benchCutSave()'s copy of the real file, set aside
 #define MESH_FAV_PATH     "/meshfav.bin"
 #define MESH_FAV_TMP      "/meshfav.tmp"
 #define MESH_FAV_MAGIC    0x31564146u   // "FAV1"
@@ -3050,6 +3051,42 @@ void MeshtasticService::saveDbStep() {
  * loadFavourites(), in setup(), i.e. before any save can open TMP with "w" and truncate it.
  * On the filesystem the saves write to NOW (meshFs()); that is the only one this can happen on.
  * ⚠ fs.exists() rather than open(): a missing file is the normal case and open() logs it. */
+const char* MeshtasticService::benchCutSave() {
+  if (saveActive) {
+    return "a save is already in flight - try again in a second";
+  }
+  saveDb();                                  // the same snapshot and temp file a real save makes
+  if (!saveActive) {
+    return "the save could not start (see the log) - nothing was cut";
+  }
+  while (saveActive && saveOff < saveLen) {
+    saveDbStep();                            // every chunk, stopping short of the finish
+  }
+  if (!saveActive) {
+    return "the write failed (see the log) - nothing was cut";
+  }
+  s_saveFile.close();
+  free(saveBuf);
+  saveBuf = NULL;
+  saveActive = false;
+  const uint32_t bytes = saveLen;
+  fs::FS& fs = s_saveOnCard ? (fs::FS&)SD : (fs::FS&)SPIFFS;
+  if (fs.exists(MESH_DB_CUT)) {
+    fs.remove(MESH_DB_CUT);                  // a copy from an earlier run of this bench
+  }
+  if (fs.exists(MESH_DB_PATH) && !fs.rename(MESH_DB_PATH, MESH_DB_CUT)) {
+    return "could not set /meshdb.bin aside - nothing was cut (the next save rewrites the temp)";
+  }
+  /* Nothing pending, so the debounced save cannot heal the cut before the reset. A message that
+   * arrives now still sets dbDirty, and ten seconds later the next save puts /meshdb.bin back. */
+  dbDirty = false;
+  lastSaveMs = millis();
+  log_e("MESH DB BENCH: %s%s written whole (%u B) and %s set aside as %s WITHOUT the rename - "
+        "reset now: boot must say 'MESH DB: RECOVERED'", s_saveOnCard ? "SD" : "SPIFFS",
+        MESH_DB_TMP, (unsigned)bytes, MESH_DB_PATH, MESH_DB_CUT);
+  return NULL;
+}
+
 static void meshRecoverTmp(const char* path, const char* tmp, bool fav) {
   fs::FS& fs = meshFs();
   const char* fsName = s_meshCardIn ? "SD" : "SPIFFS";

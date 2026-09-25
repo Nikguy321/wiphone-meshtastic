@@ -275,6 +275,13 @@ public:
   const char*        dbLoadedFrom() const { return dbSource; }
   /* How many messages the NEXT save will write, under the caps above. */
   int                persistedMessageCount() const;
+  /* BENCH ONLY (serial `meshdb cut`): leave the card in EXACTLY the state a power cut between the
+   * save's remove() and rename() leaves — a whole /meshdb.tmp and no /meshdb.bin — so the boot
+   * recovery (meshRecoverTmp, mesh_dbfile.h) can be proven on the phone's own filesystem. The
+   * real file is RENAMED aside to /meshdb.cut rather than removed, so a recovery that fails
+   * still has the database one rename away. Blocks for one whole save (~0.1 s on the card).
+   * NULL = done (the serial command then reboots, before a save can heal it); else the reason. */
+  const char*        benchCutSave();
 
   // ---- Channels ------------------------------------------------------------
   int                getChannelCount() const;
