@@ -65,6 +65,10 @@ for src in tests/test_*.cpp; do
     test_retain)   deps=(WiPhone/mesh_retain.cpp) ;;
     # The woods plate's GPS: NMEA assembly, checksums, fixed-point coords.
     test_nmea)     deps=(WiPhone/nmea.cpp) ;;
+    # Who may set the clock: GPS time (fed through the shipping NMEA reader) and mesh time —
+    # a 'V' sentence refused, two consecutive readings, a fresh NTP never overridden, and the
+    # mesh only into an unknown clock (two nodes on a public channel, one on a private one).
+    test_clocksrc) deps=(WiPhone/clock_source.cpp WiPhone/nmea.cpp) ;;
     # Sunrise/sunset/civil twilight (NOAA method) — almanac anchors + geometry.
     test_sun)      deps=(WiPhone/sun_times.cpp) ;;
     # The map: Web Mercator, the slippy-tile grid, the blit rectangles, and the pins

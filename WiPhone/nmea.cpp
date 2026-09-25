@@ -20,6 +20,8 @@ void NmeaReader::reset() {
   f.sats = -1;
   f.hdopX10 = -1;
   f.altM = -10000;
+  f.rmcHms = -1;
+  f.rmcDmy = -1;
   nBytes = nSentences = nBadChecksum = nOverrun = 0;
 }
 
@@ -127,6 +129,37 @@ static long parseHms(const char* p, int n) {
   return parseUInt(p, 6);
 }
 
+/* The STRICT form, for the clock: exactly "hhmmss" or "hhmmss.f..." and nothing else, with
+ * the fraction kept (first three digits, as ms). parseHms above is lenient on purpose — it
+ * feeds a display — but a clock set from "123519x" would be a clock set from a sentence we
+ * did not understand. Range checks (hh < 24 ...) are clock_source.cpp's, with the date's. */
+static bool parseHmsStrict(const char* p, int n, int32_t* hms, int16_t* ms) {
+  if (n < 6) {
+    return false;
+  }
+  long v = parseUInt(p, 6);
+  if (v < 0) {
+    return false;
+  }
+  int frac = 0;
+  if (n > 6) {
+    if (p[6] != '.' || n == 7) {
+      return false;
+    }
+    int scale = 100;
+    for (int i = 7; i < n; i++) {
+      if (p[i] < '0' || p[i] > '9') {
+        return false;
+      }
+      frac += (p[i] - '0') * scale;
+      scale /= 10;                      // beyond the third digit: legal, ignored
+    }
+  }
+  *hms = (int32_t)v;
+  *ms = (int16_t)frac;
+  return true;
+}
+
 /* One verified sentence body: "GNRMC,123519,A,4807.038,N,...". Talker (GP/GN/GL/
  * GA/GB...) is ignored — the M100 is multi-constellation and answers as GN. */
 bool NmeaReader::parseSentence(const char* body, NmeaFix* f) {
@@ -174,6 +207,29 @@ bool NmeaReader::parseSentence(const char* body, NmeaFix* f) {
         f->dateDmy = (uint32_t)dmy;
       }
     }
+    /* This RMC's own time, for the clock (see NmeaFix). Every field is rewritten, present
+     * or not: "absent in THIS sentence" must read as absent, never as the last one's. */
+    f->rmcCount++;
+    f->rmcStatus = (st[0] == 'A' || st[0] == 'V') ? st[0] : 0;
+    f->rmcHms = -1;
+    f->rmcMs = 0;
+    if (t) {
+      int32_t hms;
+      int16_t ms;
+      if (parseHmsStrict(t, fieldLen(t), &hms, &ms)) {
+        f->rmcHms = hms;
+        f->rmcMs = ms;
+      }
+    }
+    f->rmcDmy = -1;
+    if (d && fieldLen(d) == 6) {
+      long dmy = parseUInt(d, 6);       // "010127" -> 10127: the leading zero is the day's
+      if (dmy >= 0) {
+        f->rmcDmy = (int32_t)dmy;
+      }
+    }
+    const char* mode = fieldAt(body, 11);   // 9=magvar 10=E/W 11=mode (NMEA 2.3+)
+    f->rmcMode = (mode && fieldLen(mode) == 1) ? mode[0] : 0;
     return true;
   }
 

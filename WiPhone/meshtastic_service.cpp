@@ -671,9 +671,12 @@ bool MeshtasticService::sendPositionOn(int32_t latI, int32_t lonI,
    * is from this morning" — and it is the same shift as the 7.7-hour-old position that was
    * written up on 2026-08-25 as the phone being indoors.
    * The identical trap was found and fixed in the replay path (see the note at the
-   * getExactUtcTime() call there); it was never swept to the other senders. */
-  const size_t n = meshPosBuild(pos, latI, lonI,
-                                ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0);
+   * getExactUtcTime() call there); it was never swept to the other senders.
+   * 🛑 TRUSTED, not merely known (0.9.79): a clock set FROM the mesh is never put back ON the
+   * mesh. Another phone's mesh vote counts two different nodes as two witnesses; our
+   * second-hand copy of node A's time would be a forged second witness for A. With an
+   * NTP/GPS clock this is the time it always was; with a mesh one it is 0, as before. */
+  const size_t n = meshPosBuild(pos, latI, lonI, ntpClock.getTrustedUtcTime());
   /* wantResponse and wantAck both false, like every other beacon here: a
    * periodic broadcast that also demanded replies is a mesh-wide storm. */
   const bool ok = meshTxData(myNodeNum, MESH_ADDR_BROADCAST_ONAIR, MESH_PORT_POSITION,
@@ -1701,8 +1704,10 @@ bool MeshtasticService::loop() {
   /* Places age out on their OWN clock, not only when a packet mentions them:
    * a pin set on COVEY to die in a day dies here in a day too. Once a minute
    * is plenty — expiries are set in hours. Needs the real clock; guessing
-   * with an unset clock could throw camp away at boot. */
-  if (ntpClock.isTimeKnown() && (int32_t)(millis() - nextWpSweepMs) >= 0) {
+   * with an unset clock could throw camp away at boot.
+   * 🛑 TRUSTED (ntp/gps), not merely known: a mesh-set clock is one nobody vouched for, and
+   * a wrong one AHEAD would delete every expiring pin at once (clock_source.h). */
+  if (ntpClock.isTimeTrusted() && (int32_t)(millis() - nextWpSweepMs) >= 0) {
     nextWpSweepMs = millis() + 60000;
     /* UTC: MeshWaypoint::expire came off the air from COVEY and is real UTC, so comparing it
      * against the local-shifted epoch made every pin outlive its own deadline by the timezone
@@ -2304,13 +2309,21 @@ bool MeshtasticService::loop() {
       } else if (portnum == MESH_PORT_POSITION && pl && plLen) {
         // A node told the mesh where it is (COVEY does, every 5 minutes).
         int32_t latI, lonI;
-        if (meshPosParse(pl, plLen, &latI, &lonI, NULL) && n) {
+        uint32_t posTime = 0;
+        if (meshPosParse(pl, plLen, &latI, &lonI, &posTime) && n) {
           n->latI = latI;
           n->lonI = lonI;
           n->posHeardMs = millis();
           dbDirty = true;
           placesNews = true;                 // refresh an open Nodes/Places view
           log_i("Mesh POSITION 0x%08X: %d,%d", hdr.sender, latI, lonI);
+          /* MESH TIME (0.9.79), for a phone with no GPS: the sender's clock may fill an UNKNOWN
+           * clock — one packet on a private channel, two agreeing nodes on a public one, and
+           * never over a set clock. hdr.sender is the ORIGINATOR (a relay does not change it),
+           * so two relays of one node's packet are still one witness. The spoofing trade-off is
+           * written out at clockMeshOffer (clock_source.h). */
+          ntpClock.meshPositionTime(hdr.sender, !channelIsPublic(ch), posTime, millis(),
+                                    ch ? ch->name : "?");
         }
 
       } else if (portnum == MESH_PORT_WAYPOINT && pl && plLen) {
@@ -2332,7 +2345,7 @@ bool MeshtasticService::loop() {
            * known — dropping camp because NTP hasn't run yet would be worse
            * than showing a stale pin). */
           else if (!wp.hasPos ||
-                   (wp.expire != 0 && ntpClock.isTimeKnown() &&
+                   (wp.expire != 0 && ntpClock.isTimeTrusted() &&   // not a mesh clock: see the sweep
                     (uint32_t)ntpClock.getExactUtcTime() > wp.expire)) {   // UTC: expire is COVEY's
             for (int i = 0; i < waypointCount; i++) {
               if (waypoints[i].id == wp.id) {
@@ -3861,9 +3874,9 @@ void MeshtasticService::replayCapture(uint32_t sender, const MeshChannel* ch, co
   if (!replayRing || !ch || !text || !text[0]) {
     return;
   }
-  if (!ntpClock.isTimeKnown()) {
+  if (!ntpClock.isTimeTrusted()) {
     return;                     // an entry without real time can serve no window
-  }
+  }                             // (TRUSTED: these stamps are served to COVEY - a mesh clock is not real time)
   /* When this ring's coverage BEGAN. Stamped on the first packet heard after
    * the clock locks — before the machine-traffic filter, because hearing
    * anything proves we were listening. Ring fullness was the wrong proxy: the

@@ -18,6 +18,8 @@ governing permissions and limitations under the License.
 #include <time.h>
 #include "config.h"
 #include "Networks.h"
+#include "clock_source.h"   // who set the clock, and the GPS/mesh rules (pure, host-tested)
+#include "nmea.h"
 
 #define NTP_PACKET_SIZE         48
 #define NTP_DEFAULT_LOCAL_PORT  1337
@@ -37,9 +39,59 @@ public:
   bool update(const uint32_t& nowMillis);
   void minuteTick(const uint32_t& nowMillis);
 
+  /* ── KNOWN vs TRUSTED (0.9.79) ───────────────────────────────────────────────────────────
+   * KNOWN: any source set it — ntp, gps, or mesh. Right for what this phone SHOWS: the clock,
+   * message times, "5 min ago", the sun times.
+   * TRUSTED: ntp or gps. 🛑 Required by everything that LEAVES the phone or DESTROYS something
+   * on the strength of the time — those all needed a known clock before 0.9.79, which meant
+   * NTP, and a mesh time must not quietly lower that bar:
+   *   the position beacon's time (a second-hand mesh time on the air would come back as an
+   *     "independent" witness for somebody else's mesh vote), booksync's turnedAt (x2, compared
+   *     on COVEY), the "their clock looks wrong" test, the replay ring's stamps (served to
+   *     COVEY), waypoint expiry (deletes camp), and KOSync (its "provably older" HIDES a place,
+   *     and it stamps the time it serves to the X4).
+   * A mesh clock is KNOWN and not TRUSTED, so for all of those it is exactly the unknown clock
+   * it replaced: nothing another device sees changes. See clock_source.h. */
   bool isTimeKnown()      {
-    return everUpdated;
+    return source != CLOCK_SRC_NONE;
   }
+  bool isTimeTrusted()    {
+    return clockSourceTrusted(source);
+  }
+  uint32_t getTrustedUtcTime() {                  // UTC, or 0 when not trusted: the on-air form
+    return isTimeTrusted() ? getExactUtcTime() : 0;
+  }
+  int getSource()         {
+    return source;                                // ClockSource
+  }
+  uint32_t msSinceSet(uint32_t nowMs);            // since the current source set it; 0 = unset
+  uint32_t msSinceNtp(uint32_t nowMs);            // since NTP last set it; CLOCK_NEVER_MS = never
+
+  /* GPS time. Called from the loop after EVERY sentence the NMEA reader completes (RMC or
+   * GGA); acts only on a NEW RMC. `rxMs` = millis() when it completed. The rules are all in
+   * clock_source.h (clockGpsStep); this takes the lock, asks, and applies. */
+  void gpsSentence(const NmeaFix& fx, uint32_t rxMs);
+  /* Mesh time: one received Position's `time` (0 = none). `privateChannel` is
+   * !MeshtasticService::channelIsPublic(ch). Only ever fills an UNKNOWN clock. */
+  void meshPositionTime(uint32_t node, bool privateChannel, uint32_t t, uint32_t rxMs,
+                        const char* chanName);
+
+  /* What the serial `clock` command prints. Written by the loop task only (the GPS and mesh
+   * paths); the NTP thread never touches it. */
+  struct Diag {
+    int      gpsVerdict;       // the last GPS verdict (CLK_*); CLK_NONE before the first RMC
+    uint32_t gpsVerdictMs;     // millis() of it
+    bool     gpsHaveDiff;      // gpsDiffMs is a real measurement
+    int32_t  gpsDiffMs;        // gps - clock at the last agreeing pair (clamped to +-24 days)
+    uint32_t gpsDiffAtMs;
+    uint32_t gpsSets;          // times GPS set the clock since boot
+    int      meshVerdict;      // the last mesh verdict (CLK_*)
+    uint32_t meshVerdictMs;
+    uint32_t meshHeld;         // public-channel candidates held after that offer
+    uint32_t meshNode;         // the node whose time SET the clock (0 = none)
+    char     meshChan[16];     // ...the channel it came on
+  };
+  const Diag& diag() const { return dg; }
   bool isUpdated()        {
     bool res = updated;
     updated = false;
@@ -110,7 +162,15 @@ protected:
    */
 
   bool          sentRequest = false;            // are we waiting for NTP server's response?
-  bool          everUpdated = false;            // did we ever get a response from NTP server?
+  bool          everUpdated = false;            // did we ever get a response from NTP server? (NOT "is the time known" since 0.9.79: see `source`)
+  volatile uint8_t source = CLOCK_SRC_NONE;     // who set the clock last (ClockSource); written under `mux`
+  uint32_t      setMillis = 0;                  // millis() when `source` set it
+  uint32_t      ntpSetMillis = 0;               // millis() of the last NTP set (valid when everUpdated)
+  uint32_t      gpsRmcSeen = 0;                 // NmeaFix::rmcCount already judged (a GGA leaves it)
+  uint32_t      gpsDisagreeLogMs = 0;           // rate limit for "GPS disagrees with fresh NTP"
+  ClockGpsPair  gpsPair;                        // the previous good RMC (loop task only)
+  ClockMeshVote meshVote;                       // public-channel mesh candidates (loop task only)
+  Diag          dg;
   bool          updated = false;                // updated recently?
   uint32_t      timeOffsetSeconds = 0;          // timezone offset
 
@@ -127,6 +187,8 @@ protected:
   uint32_t      lastDnsResolvedMillis;          // when was the last time the NTP server domain got resolved?
 
   void          unixToHuman();                  // convert unix epoch into human-readable values (simply converts into "struct tm")
+  int64_t       utcMsAtLocked(uint32_t atMs);   // what the clock reads at millis() == atMs, in ms (hold `mux`)
+  void          applyLocked(uint8_t src, int64_t utcMsAtRx, uint32_t rxMs);   // set it (hold `mux`)
 
   static void  thread(void *pvParam);
 

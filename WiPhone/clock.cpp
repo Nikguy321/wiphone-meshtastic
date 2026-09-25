@@ -19,9 +19,17 @@ governing permissions and limitations under the License.
 
 Clock ntpClock;
 
+// A millisecond difference for a %ld log field (+-23 days is plenty to say "wildly wrong").
+static long clampMs(int64_t v) {
+  return (long)(v > 2000000000LL ? 2000000000LL : v < -2000000000LL ? -2000000000LL : v);
+}
+
 Clock::Clock(long timeOffsetSeconds) : timeOffsetSeconds(timeOffsetSeconds) {
   udpTime = new WiFiUDP();
   ntpServerIp = (uint32_t) 0;
+  clockGpsPairReset(&gpsPair);
+  clockMeshVoteReset(&meshVote);
+  memset(&dg, 0, sizeof(dg));
   unixToHuman();
 
   mux = xSemaphoreCreateMutex();
@@ -156,11 +164,22 @@ bool Clock::update(const uint32_t& nowMillis) {
   // AVOID CONTEXT SWITCHES: updating time values
   if (xSemaphoreTake(mux, LONG_TIME) == pdTRUE) {
 
+    /* NTP is authoritative: it sets the clock whatever set it before (clock_source.h). What
+     * it replaced is kept for one log line below, because "NTP moved a GPS clock by 40 s" is
+     * the one observation that would say the GPS path is wrong. */
+    const uint8_t was = source;
+    const int64_t before = (was != CLOCK_SRC_NONE) ? utcMsAtLocked(nowMillis) : 0;
+
     // No errors detected
     updated = everUpdated = true;
     lastNtpTime = ntpTime;
     lastMillis = nowMillis;
+    /* The carried sub-second remainder belonged to the OLD timeline; left in place it put up
+     * to 999 ms of the previous clock's phase onto this one. */
+    extraMillis = 0;
     utcTime = ntpTime - SEVENTY_YEARS;          // UTC time in Unix epoch format (ntpTime starts at 1900, so at 1970 it would be 70 years)
+    source = CLOCK_SRC_NTP;
+    setMillis = ntpSetMillis = nowMillis;
 
     // Convert unix epoch into human-readable values
     unixToHuman();
@@ -168,11 +187,151 @@ bool Clock::update(const uint32_t& nowMillis) {
     // Resume context switches
     xSemaphoreGive(mux);
 
+    if (was == CLOCK_SRC_GPS || was == CLOCK_SRC_MESH) {
+      log_e("CLOCK: NTP set the clock (it was %s; moved %ld ms)", clockSourceName(was),
+            clampMs((int64_t)(ntpTime - SEVENTY_YEARS) * 1000 - before));
+    }
+
   } else {
     log_e("failed to obtain clock mutex");
   }
 
   return true;
+}
+
+// ---------------------------------------------------------------- GPS and mesh time (0.9.79)
+/* All the RULES are in clock_source.cpp, host-tested. What is here is the lock, the apply and
+ * the log. Both entry points run on the LOOP task (the NMEA reader and the mesh receive path
+ * are both in the superloop); only the lock keeps them consistent with the NTP thread. */
+
+int64_t Clock::utcMsAtLocked(uint32_t atMs) {
+  /* Signed: `atMs` can be a few ms BEFORE lastMillis when a set landed after the caller
+   * stamped it (the NTP thread runs beside the loop). */
+  const int32_t passed = (int32_t)(atMs - lastMillis);
+  return (int64_t)utcTime * 1000 + (int64_t)extraMillis + passed;
+}
+
+/* Set the clock to `utcMsAtRx` as of millis() == rxMs, aged to NOW. Keeps the sub-second
+ * phase: lastMillis goes back by the fraction, so getExactUtcTime() and getSecond() tick over
+ * when UTC does, not up to a second late. (NTP keeps whole seconds, as it always has.) */
+void Clock::applyLocked(uint8_t src, int64_t utcMsAtRx, uint32_t rxMs) {
+  const uint32_t nowMs = millis();
+  const int64_t utcNowMs = utcMsAtRx + (int64_t)(uint32_t)(nowMs - rxMs);
+  utcTime = (uint32_t)(utcNowMs / 1000);
+  lastMillis = nowMs - (uint32_t)(utcNowMs % 1000);
+  extraMillis = 0;
+  source = src;
+  setMillis = nowMs;
+  updated = true;               // the loop redraws the clock and re-stamps waiting messages
+  unixToHuman();
+}
+
+uint32_t Clock::msSinceSet(uint32_t nowMs) {
+  return source == CLOCK_SRC_NONE ? 0 : nowMs - setMillis;
+}
+
+uint32_t Clock::msSinceNtp(uint32_t nowMs) {
+  if (!everUpdated) {
+    return CLOCK_NEVER_MS;
+  }
+  /* A few ms "negative" means NTP set it after `nowMs` was stamped: just now. Anything else is
+   * the plain unsigned age (so an old set never reads as fresh, however long the uptime). */
+  const uint32_t age = nowMs - ntpSetMillis;
+  return age > 0xFFFF0000u ? 0 : age;
+}
+
+void Clock::gpsSentence(const NmeaFix& fx, uint32_t rxMs) {
+  if (fx.rmcCount == gpsRmcSeen) {
+    return;                     // a GGA completed: no NEW RMC to judge
+  }
+  gpsRmcSeen = fx.rmcCount;
+
+  int64_t setMs = 0, diff = 0;
+  const bool locked = xSemaphoreTake(mux, LONG_TIME) == pdTRUE;
+  if (!locked) {
+    log_e("failed to obtain clock mutex");
+  }
+  const uint8_t was = source;
+  ClockNow now;
+  now.source = source;
+  now.utcMs = utcMsAtLocked(rxMs);
+  now.msSinceNtp = msSinceNtp(rxMs);
+  const int v = clockGpsStep(&gpsPair, &fx, rxMs, &now, &setMs, &diff);
+  const bool sets = clockVerdictSets(v);
+  if (sets) {
+    applyLocked(CLOCK_SRC_GPS, setMs, rxMs);
+  }
+  const uint32_t newUtc = utcTime;
+  if (locked) {
+    xSemaphoreGive(mux);
+  }
+
+  dg.gpsVerdict = v;
+  dg.gpsVerdictMs = rxMs;
+  if (v >= CLK_GPS_SET_UNKNOWN && v <= CLK_GPS_KEEP_NTP_FRESH && was != CLOCK_SRC_NONE) {
+    dg.gpsHaveDiff = true;
+    dg.gpsDiffMs = (int32_t)clampMs(diff);
+    dg.gpsDiffAtMs = rxMs;
+  }
+  /* log_e: the only level compiled in. Once per SET (rare: the first fix, a mesh upgrade, a
+   * drift past 2 s) and at most once per 10 min for a fresh-NTP disagreement — never once a
+   * second, never for the steady "agrees". */
+  if (sets) {
+    dg.gpsSets++;
+    char when[24];
+    unixToHuman(newUtc, when);
+    if (was == CLOCK_SRC_NONE) {
+      log_e("CLOCK: set from GPS -> %s UTC (%s)", when, clockVerdictText(v));
+    } else {
+      log_e("CLOCK: set from GPS -> %s UTC (%s; it was %s, gps-clock %ld ms)", when,
+            clockVerdictText(v), clockSourceName(was), clampMs(diff));
+    }
+  } else if (v == CLK_GPS_KEEP_NTP_FRESH &&
+             (diff > CLOCK_GPS_STEP_MS || diff < -CLOCK_GPS_STEP_MS) &&
+             (gpsDisagreeLogMs == 0 || rxMs - gpsDisagreeLogMs > 600000u)) {
+    gpsDisagreeLogMs = rxMs ? rxMs : 1;
+    log_e("CLOCK: GPS disagrees with a fresh NTP by %ld ms - NTP kept (see clock_source.h)",
+          clampMs(diff));
+  }
+}
+
+void Clock::meshPositionTime(uint32_t node, bool privateChannel, uint32_t t, uint32_t rxMs,
+                             const char* chanName) {
+  if (t == 0) {
+    return;                     // most positions: stock nodes strip the time (clock_source.h)
+  }
+  int v;
+  uint32_t adopt = 0;
+  if (source != CLOCK_SRC_NONE) {
+    v = CLK_MESH_CLOCK_KNOWN;   // the everyday case, without the lock (clockMeshOffer re-checks under it)
+  } else {
+    const bool locked = xSemaphoreTake(mux, LONG_TIME) == pdTRUE;
+    if (!locked) {
+      log_e("failed to obtain clock mutex");
+    }
+    v = clockMeshOffer(&meshVote, source, node, privateChannel, t, rxMs, &adopt);
+    if (clockVerdictSets(v)) {
+      applyLocked(CLOCK_SRC_MESH, (int64_t)adopt * 1000, rxMs);
+    }
+    if (locked) {
+      xSemaphoreGive(mux);
+    }
+  }
+  dg.meshVerdict = v;
+  dg.meshVerdictMs = rxMs;
+  dg.meshHeld = (uint32_t)clockMeshVoteCount(&meshVote, rxMs);
+  if (clockVerdictSets(v)) {
+    dg.meshNode = node;
+    strlcpy(dg.meshChan, chanName ? chanName : "?", sizeof(dg.meshChan));
+    char when[24];
+    unixToHuman(adopt, when);
+    log_e("CLOCK: set from the MESH -> %s UTC, from !%08x on '%s' (%s). Lower trust: KOSync, "
+          "waypoint expiry and everything this phone transmits still treat it as unknown",
+          when, (unsigned)node, dg.meshChan, clockVerdictText(v));
+  } else if (v == CLK_MESH_WAIT || v == CLK_MESH_BAD_YEAR) {
+    log_e("CLOCK: mesh time from !%08x on '%s': %s (%u held)", (unsigned)node,
+          chanName ? chanName : "?", clockVerdictText(v), (unsigned)dg.meshHeld);
+  }
 }
 
 void Clock::unixToHuman() {
@@ -204,24 +363,27 @@ void Clock::minuteTick(const uint32_t& nowMillis) {
     log_e("failed to obtain clock mutex");
   }
 
-  // Calculate passed time, millis
-  uint32_t passedMs = nowMillis;
-  if (nowMillis >= lastMillis) {
-    passedMs -= lastMillis;
-  } else
-    // Milliseconds overflow (happens once per 24.85 days)
-  {
-    passedMs += 0xFFFFFFFF - lastMillis;
-  }
+  /* Calculate passed time, millis.
+   * 🛑 SIGNED, AND "BEFORE THE LAST SET" IS NOTHING PASSED. `nowMillis` is the loop's `now`,
+   * stamped at the top of its pass, and a set can land AFTER it — the NTP thread runs beside
+   * the loop, and since 0.9.79 a GPS or mesh set happens inside the pass itself — leaving
+   * lastMillis a little later than `now`. The old code read that as the millis() wrap and
+   * added ~49.7 DAYS. The real wrap is still right (the unsigned subtraction), and lastMillis
+   * is left alone so the next tick counts from the set. Only a tick gap over 24.8 days would
+   * be misread; the loop ticks every minute. */
+  const int32_t passedSigned = (int32_t)(nowMillis - lastMillis);
+  if (passedSigned > 0) {
+    const uint32_t passedMs = (uint32_t)passedSigned;
 
-  // Propagate passed time
-  utcTime += passedMs / 1000;
-  extraMillis += passedMs % 1000;
-  if (extraMillis >= 1000) {
-    utcTime += extraMillis / 1000;
-    extraMillis %= 1000;
+    // Propagate passed time
+    utcTime += passedMs / 1000;
+    extraMillis += passedMs % 1000;
+    if (extraMillis >= 1000) {
+      utcTime += extraMillis / 1000;
+      extraMillis %= 1000;
+    }
+    lastMillis = nowMillis;
   }
-  lastMillis = nowMillis;
 
   unixToHuman();
 

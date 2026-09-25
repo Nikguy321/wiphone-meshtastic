@@ -29,8 +29,17 @@ extern GUI gui;
 #include <string.h>
 #include <strings.h>
 
+/* 🛑 TRUSTED (ntp or gps), NOT merely known — the one clock rule KOSync has (0.9.79).
+ * Every time KOSync takes is used to JUDGE: the last-move stamp decides "provably older" (and a
+ * "provably older" server record is HIDDEN — no card), the window stamps `timestamp` on what it
+ * serves (the X4 judges by it), and a parked offer carries it into the inbox's newest-wins.
+ * A mesh-set clock was adopted from unauthenticated packets (clock_source.h): if it ran AHEAD,
+ * our last move would look newer than every real server record and each would be hidden — the
+ * one failure the offer rule exists to prevent ("a spurious card costs one Back; a hidden
+ * position is the bug"). As 0 ("unknown") it costs at most that one Back. A GPS-set clock is
+ * UTC from a solved fix and is as good as NTP here. */
 static uint32_t nowUtc() {
-  return ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0;
+  return ntpClock.getTrustedUtcTime();
 }
 
 static size_t largestInternal() {

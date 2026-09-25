@@ -4045,7 +4045,13 @@ void loop() {
       if (fh < s_minHeapEver) {
         s_minHeapEver = fh;
       }
-      char hl[256];                    // 200 + wdis/cr/ssf + pll/csw (~230 worst case, 2026-09-25)
+      /* ⚠ hl[] IS NEARLY FULL. Worked out 2026-09-25 (0.9.79) from the formats and real
+       * health.log lines: the base line ~170, + wdis/cr/ssf ~28, + pll/csw ~22, + clk= ~12
+       * (mesh/NNNN) = ~232 typical, ~253 with five-digit counters everywhere. The appends below
+       * each re-measure strlen(), and clk= (the last) is dropped whole rather than cut. The NEXT
+       * field needs a bigger hl — but this is the 8 KB loop task's own frame, so read the
+       * "loop-task stack floor" (serial `heap`) before widening it. */
+      char hl[256];
       wifi_ps_type_t hlPs;
       int hlLen = snprintf(hl, sizeof(hl),
                /* ⚠ aud= IS THE INSTRUMENT FOR THE AUDIO LEAK, and it is two numbers because one
@@ -4083,6 +4089,30 @@ void loop() {
       hlLen = (int)strlen(hl);
       if (hlLen < (int)sizeof(hl) - 1) {
         cpuClockHealth(hl + hlLen, sizeof(hl) - (size_t)hlLen);
+      }
+      /* clk=<source>/<minutes since it set the clock> (0.9.79): none | ntp | gps | mesh. The
+       * log's own timestamps are only as good as this, so a day's health.log can now say which
+       * stretches were stamped from GPS, from the mesh, or from nothing at all.
+       * ⚠ LAST ON THE LINE, AND WHOLE OR NOT AT ALL. hl[] is nearly full (see its declaration),
+       * and snprintf truncates silently: a cut "clk=mesh/12" reads "clk=mesh/1" — a different,
+       * perfectly plausible number. So a field that did not fit is rolled back to nothing;
+       * a missing clk= (as opposed to clk=none) means the line ran out of room. */
+      {
+        const size_t used = strlen(hl);
+        if (used + 1 < sizeof(hl)) {
+          const size_t room = sizeof(hl) - used;
+          int n;
+          if (ntpClock.isTimeKnown()) {
+            n = snprintf(hl + used, room, " clk=%s/%lu",
+                         clockSourceName(ntpClock.getSource()),
+                         (unsigned long)(ntpClock.msSinceSet(millis()) / 60000u));   // not `now`: a set this pass is later than it
+          } else {
+            n = snprintf(hl + used, room, " clk=none");
+          }
+          if (n < 0 || (size_t)n >= room) {
+            hl[used] = '\0';           // did not fit whole: drop it rather than log a cut number
+          }
+        }
       }
       log_e("%s", hl);
 
@@ -4239,6 +4269,11 @@ void loop() {
         if (gGpsReader.feed(ch)) {
           const NmeaFix& fx = gGpsReader.fix();
           meshService.gpsUpdate(fx.valid, fx.latI, fx.lonI, fx.sats, fx.hdopX10);
+          /* GPS TIME (0.9.79): a new RMC with a fix may set the clock — two consecutive agreeing
+           * readings, never over a fresh NTP; the rules are clock_source.h's. millis() here,
+           * not the pass's `now`: the stamp is WHEN THE SENTENCE ARRIVED, and this loop drains
+           * a whole UART buffer per pass. */
+          ntpClock.gpsSentence(fx, millis());
         }
         continue;
       }

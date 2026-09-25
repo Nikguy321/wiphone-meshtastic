@@ -201,11 +201,10 @@ int bookSyncInboxFindFor(const uint8_t key[32], const char* const* ids, int nIds
      * still describes when the page was turned.
      *
      * 🛑 BUT ONLY WHEN THERE IS A READING EVENT TO COMPARE. `turnedAt` is 0 whenever the
-     * SENDER's clock is unknown — sendMyPlace() stamps
-     * `ntpClock.isTimeKnown() ? getExactUtcTime() : 0` (app_books.cpp), and NTP over WiFi is
-     * the only clock this phone has: no RTC, no GPS time, one flag set once NTP replies. A
-     * phone that has not been on WiFi since boot therefore stamps EVERY packet it sends 0,
-     * and a stack of them all tie.
+     * SENDER's clock is not trusted — sendMyPlace() stamps `ntpClock.getTrustedUtcTime()`
+     * (app_books.cpp): NTP over WiFi, or since 0.9.79 the woods plate's GPS; never a clock
+     * set from the mesh (clock_source.h). There is no RTC. A phone with neither since boot
+     * therefore stamps EVERY packet it sends 0, and a stack of them all tie.
      *
      * ⛔ WITH A STRICT `>` A TIE LEFT THE FIRST-SEEN WINNER IN PLACE — and the array is
      * insertion-ordered, so first-seen is the OLDEST parked. Syncing repeatedly without

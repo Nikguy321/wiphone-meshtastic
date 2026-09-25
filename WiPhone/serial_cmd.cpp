@@ -166,6 +166,8 @@ static void help() {
     "  gps baud <n>  GPS baud, persists (115200 = the M100 Mini, measured; not 9600)",
     "  gps raw    hex+ASCII of the last bytes off the wire - tells wrong-baud from binary",
     "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
+    "  clock      (or `time`) the time, WHO set it (ntp/gps/mesh) and how long ago, and",
+    "             what the GPS and mesh paths last decided about it - see clock_source.h",
     "  maps       what the card holds under /maps, the saved view, and the pins file",
     "  maps goto <lat> <lon> [z] [area]  set where the Maps app opens next (persists)",
     "  maps hold up|down|left|right [ms [blip]]  press an arrow and hold it (hold-to-scroll bench)",
@@ -394,6 +396,82 @@ static void reportUploader() {
       xferApName(),
       xferApProtected() ? " (WPA2: a KOSync window's hotspot_pass - see /books/kosync.txt)" : "",
       xferFilesAdded());
+}
+
+// "12s" / "4m12s" / "3h05m" / "2d04h"
+static void fmtAge(uint32_t ms, char* out, size_t cap) {
+  const unsigned long s = ms / 1000;
+  if (s < 60) {
+    snprintf(out, cap, "%lus", s);
+  } else if (s < 3600) {
+    snprintf(out, cap, "%lum%02lus", s / 60, s % 60);
+  } else if (s < 86400) {
+    snprintf(out, cap, "%luh%02lum", s / 3600, (s / 60) % 60);
+  } else {
+    snprintf(out, cap, "%lud%02luh", s / 86400, (s / 3600) % 24);
+  }
+}
+
+/* `clock` / `time` — see the dispatch in run(). Everything here is read from ntpClock; the
+ * GPS and mesh lines are the Diag the loop task writes (clock.h). */
+static void reportClock() {
+  const uint32_t nowMs = millis();
+  const Clock::Diag& d = ntpClock.diag();
+  char age[16];
+  if (!ntpClock.isTimeKnown()) {
+    say("clock: NOT SET - waiting for NTP (WiFi), a GPS fix (`gps on`, open sky), or mesh time\n");
+  } else {
+    const uint32_t utc = ntpClock.getExactUtcTime();
+    const uint32_t loc = ntpClock.getExactUnixTime();
+    const int tzMin = (int)(((int64_t)loc - (int64_t)utc) / 60);
+    char u[24], l[24];
+    Clock::unixToHuman(utc, u);
+    Clock::unixToHuman(loc, l);
+    say("clock: %s UTC  (local %s, UTC%+d:%02d)\n", u, l, tzMin / 60, abs(tzMin % 60));
+    fmtAge(ntpClock.msSinceSet(nowMs), age, sizeof(age));
+    say("clock: source %s, set %s ago - %s\n", clockSourceName(ntpClock.getSource()), age,
+        ntpClock.isTimeTrusted()
+            ? "trusted"
+            : "LOWER TRUST: shown, but KOSync, waypoint expiry and all it transmits treat it as unknown");
+  }
+  const uint32_t sinceNtp = ntpClock.msSinceNtp(nowMs);
+  if (sinceNtp == CLOCK_NEVER_MS) {
+    say("clock: ntp: has not answered since boot\n");
+  } else {
+    fmtAge(sinceNtp, age, sizeof(age));
+    say("clock: ntp: last set it %s ago - %s\n", age,
+        sinceNtp < CLOCK_NTP_FRESH_MS ? "fresh: GPS will not override it"
+                                      : "stale (30 min+): GPS may correct it past 2 s");
+  }
+#ifdef USER_SERIAL
+  const bool gpsOn = gGpsNmea;
+#else
+  const bool gpsOn = false;
+#endif
+  if (d.gpsVerdict == CLK_NONE) {
+    say("clock: gps: %s\n", gpsOn ? "receiver on, no RMC judged yet" : "receiver off (`gps on`)");
+  } else {
+    fmtAge(nowMs - d.gpsVerdictMs, age, sizeof(age));
+    say("clock: gps: last RMC %s ago: %s%s\n", age, clockVerdictText(d.gpsVerdict),
+        gpsOn ? "" : "  [receiver now off]");
+  }
+  if (d.gpsHaveDiff) {
+    fmtAge(nowMs - d.gpsDiffAtMs, age, sizeof(age));
+    say("clock: gps: gps minus clock = %+ld ms (%s ago); set the clock %lu time(s) since boot\n",
+        (long)d.gpsDiffMs, age, (unsigned long)d.gpsSets);
+  } else if (d.gpsSets) {
+    say("clock: gps: set the clock %lu time(s) since boot\n", (unsigned long)d.gpsSets);
+  }
+  if (d.meshNode) {
+    say("clock: mesh: SET it from !%08lx on '%s'\n", (unsigned long)d.meshNode, d.meshChan);
+  }
+  if (d.meshVerdict == CLK_NONE) {
+    say("clock: mesh: no position carrying a time heard yet\n");
+  } else {
+    fmtAge(nowMs - d.meshVerdictMs, age, sizeof(age));
+    say("clock: mesh: last timed position %s ago: %s (%lu held)\n", age,
+        clockVerdictText(d.meshVerdict), (unsigned long)d.meshHeld);
+  }
 }
 
 static void run(char* line) {
@@ -1037,9 +1115,22 @@ static void run(char* line) {
     } else {
       say("gps: no fix yet (sats in view: %d)\n", sats);
     }
+    /* GPS TIME (0.9.79): what the last RMC did to the clock, in one line. `clock` has the rest. */
+    say("gps: time -> %s (`clock` for the rest)\n",
+        ntpClock.diag().gpsVerdict != CLK_NONE ? clockVerdictText(ntpClock.diag().gpsVerdict)
+                                               : "no RMC judged yet");
 #else
     say("gps: USER_SERIAL not compiled into this build\n");
 #endif
+    return;
+  }
+  /* `clock` (or `time`) — what time the phone thinks it is, WHO said so, and what the GPS and
+   * mesh paths last decided (0.9.79; the rules are clock_source.h's). The first thing to paste
+   * when a time looks wrong, and the hardware proof of GPS time: outdoors with `gps on`, the
+   * gps line goes "one good reading..." -> "SET - the clock was not set" about a second after
+   * the first fix, and then sits on "kept - agrees within 2 s". */
+  if (!strcasecmp(line, "clock") || !strcasecmp(line, "time")) {
+    reportClock();
     return;
   }
   /* `sun` — legal light at the reference place, offline. The most-asked
@@ -1048,8 +1139,13 @@ static void run(char* line) {
    * whatever the phone's clock is configured with). */
   if (!strcasecmp(line, "sun") || !strncasecmp(line, "sun ", 4)) {
     if (!ntpClock.isTimeKnown()) {
-      say("sun: clock not set yet (needs one NTP sync)\n");
+      say("sun: clock not set yet (needs NTP on WiFi, a GPS fix, or mesh time - see `clock`)\n");
       return;
+    }
+    if (ntpClock.getSource() == CLOCK_SRC_MESH) {
+      /* Legal light is the one number here someone might act on. A mesh clock is adopted from
+       * unauthenticated packets (clock_source.h) — usually right, never vouched for. */
+      say("sun: WARNING the clock came from the MESH (lower trust) - check it before relying on this\n");
     }
     int32_t refLat, refLon;
     char refName[20];

@@ -637,7 +637,7 @@ void MeshtasticApp::buildSun() {
 
   if (!ntpClock.isTimeKnown()) {
     menu->addOption("Clock not set yet", 1, 1);
-    menu->addOption("(one NTP sync on WiFi fixes it)", 2, 1);
+    menu->addOption("(NTP on WiFi, GPS, or mesh)", 2, 1);
     return;
   }
   int32_t latI = 0, lonI = 0;
@@ -696,8 +696,15 @@ void MeshtasticApp::buildSun() {
     }
     menu->addOption(line, 3 + i, 1);
   }
-  snprintf(line, sizeof(line), "Local clock UTC%+d:%02d", tzMin / 60, abs(tzMin % 60));
+  /* WHO set the clock (0.9.79): every time above is only as good as it. A mesh clock gets a
+   * row of its own - legal light is the one number on this screen someone might act on, and
+   * a mesh time is adopted from packets nobody vouched for (clock_source.h). */
+  snprintf(line, sizeof(line), "Clock UTC%+d:%02d via %s", tzMin / 60, abs(tzMin % 60),
+           clockSourceName(ntpClock.getSource()));
   menu->addOption(line, 7, 1);
+  if (ntpClock.getSource() == CLOCK_SRC_MESH) {
+    menu->addOption("Mesh time: check it!", 8, 1);
+  }
 }
 
 void MeshtasticApp::buildStatus() {

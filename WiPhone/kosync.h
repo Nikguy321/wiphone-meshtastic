@@ -147,7 +147,8 @@ struct KosyncServeOut {
 };
 
 /* Answer one request. `reply` receives the JSON body. `nowUnix` is 0 when the phone has no
- * clock, and is then what `timestamp` says (the receivers treat 0 as "unknown").
+ * TRUSTED clock (none, or only a mesh-set one: kosync_sync.cpp nowUtc()), and is then what
+ * `timestamp` says (the receivers treat 0 as "unknown").
  * 🛑 A PUT for another document is answered 200 and DISCARDED: the window is about one book,
  * and the X4 must not see an error for a book the phone simply was not asked about. */
 void kosyncServe(const char* method, const char* path, const char* hdrs,

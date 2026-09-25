@@ -28,6 +28,19 @@ struct NmeaFix {
   int      sats;         // GGA satellites in use (-1 = no GGA yet)
   int      hdopX10;      // GGA HDOP x10 (-1 = unknown)
   int      altM;         // GGA antenna altitude, metres, rounded toward zero (INT32-min sentinel unused; -10000 = unknown)
+
+  /* ── THE LAST RMC'S OWN TIME, READ ONLY FROM THAT ONE SENTENCE (the clock's input) ──────
+   * 🛑 timeHms/dateDmy above are NOT a timestamp and must never be paired into one: timeHms
+   * is shared with GGA, and dateDmy survives an RMC whose date field was empty. Joined, they
+   * can put 00:00:01 on YESTERDAY's date at midnight — a clock a whole day wrong from two
+   * individually correct fields. clock_source.cpp reads ONLY these, and each is rewritten by
+   * every RMC (absent = -1 / 0), so a field can never be inherited from an older sentence. */
+  uint32_t rmcCount;     // RMC sentences parsed; a change means a NEW one completed
+  char     rmcStatus;    // 'A' / 'V' as the sentence said it; 0 when empty or anything else
+  char     rmcMode;      // NMEA 2.3+ mode indicator (A D E F M N P R S) after the date; 0 = absent
+  int32_t  rmcHms;       // hhmmss, -1 when absent or not exactly "hhmmss[.f...]"
+  int16_t  rmcMs;        // the time's fraction in ms (0 when none) - 0 at the M100's 1 Hz
+  int32_t  rmcDmy;       // ddmmyy, -1 when absent or not exactly six digits
 };
 
 class NmeaReader {

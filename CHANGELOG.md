@@ -259,6 +259,36 @@ once instead of treating the join those killed as still in flight (`wifiJoinInFl
 Networks.cpp, and (review: deleting a guard spells nothing banned) states 13 contracts positively:
 the retry's `wifiStationWanted()` gate, xferStart's game refusal, each restore call site and its order.
 
+### The clock from GPS, and (carefully) from the mesh (0.9.79 dev, 2026-09-25)
+
+Nick: *"for wiphones, are we able to also do gps time as long as the gps is enabled?"* Until now the
+clock was NTP or nothing, so a phone off WiFi since boot did not know the date however long its GPS
+had had a fix. The rules are all in `clock_source.{h,cpp}` (host suite `tests/test_clocksrc.cpp`).
+
+- **GPS time**: with `gps on`, an RMC with status `A` and its OWN full date and time sets the clock —
+  once a SECOND consecutive reading agrees (next second, and its seconds match the millis() between
+  them within 1 s), in a year from 2026 to 2099 (a GPS week-rollover date lands in 2006 and is
+  refused). It sets an unset clock, replaces a mesh-set one, and corrects a clock more than 2 s out —
+  but **never while NTP has set it in the last 30 minutes**: NTP stays in charge when it is present
+  (a disagreement is logged, at most every 10 min). A `V` (no-fix) sentence's time is NOT used even
+  when it looks complete: u-blox prints RTC / first-satellite time before a fix. Modes `E` (dead
+  reckoning), `M` (manual) and `S` (simulator) are refused too.
+- **Mesh time, for a phone without GPS** (phone 1): a received Position's `time` fills an UNSET
+  clock only — one packet on a private channel, or two DIFFERENT nodes agreeing within 60 s on a
+  public one (LongFast is anyone's). It never overrides anything, and NTP or GPS replaces it.
+- **Known vs trusted**: a mesh clock is shown (clock, message times, `sun`, which warns) but NOT
+  trusted — KOSync, waypoint expiry, the position beacon's time, booksync's turnedAt and the replay
+  ring's stamps all treat it as unknown, so nothing any other device sees changes and nothing is
+  deleted on its word. GPS is trusted like NTP (KOSync's "provably older" uses it). This phone never
+  puts a mesh-derived time back on the air.
+- **FIX (latent): `minuteTick` read "the loop's `now` is before the last set" as the millis() wrap
+  and added ~49.7 days.** NTP's thread could land a set in that window (microseconds wide); the new
+  sets make it matter more, so a negative gap now counts as nothing passed.
+- **Serial `clock`** (or `time`): the time, its source and age, NTP freshness, the last GPS and mesh
+  verdicts, and gps-minus-clock in ms; `gps` gains a `gps: time -> ...` line. **HEALTH gains
+  ` clk=<none|ntp|gps|mesh>/<minutes since set>`.** Log lines: `CLOCK: set from GPS -> ...`,
+  `CLOCK: set from the MESH -> ...`, `CLOCK: NTP set the clock (it was gps; moved N ms)`.
+
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 
 Nick, after looking at OpenTopoMap one level deeper: *"So it seems like open topo has a native

@@ -1044,8 +1044,10 @@ bool BooksApp::savePosition(bool flush) {
   }
   /* UTC: this becomes BookSyncRecord::turnedAt, which goes on the air and is compared against
    * COVEY's own UTC stamps. The local-shifted epoch made this phone's page look eight hours
-   * old to COVEY, and made COVEY's look eight hours in the future to this phone. */
-  uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0;
+   * old to COVEY, and made COVEY's look eight hours in the future to this phone.
+   * TRUSTED (ntp/gps) since 0.9.79: a mesh-set clock stamps 0, exactly as the unknown clock it
+   * replaced did — a time nobody vouched for must not win "the later turn" on another device. */
+  uint32_t now = ntpClock.getTrustedUtcTime();
   store->put(idp, nIds, (uint32_t)spine, pageStart, fractionHere(), now);
   /* A MOVE is the place changing, not a save: closes, flushes and the OK-to-menu save all come
    * through here with the place where it was. (The store's own turnedAt above is stamped
@@ -1135,7 +1137,7 @@ bool BooksApp::sendMyPlace() {
   for (int i = 0; i < nIds; i++) {
     idp[i] = ids[i];
   }
-  uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0;   // UTC: goes on the air
+  uint32_t now = ntpClock.getTrustedUtcTime();   // UTC: goes on the air - so ntp/gps only, never a mesh clock
 
   BookSyncRecord r;
   bookSyncMakeRecord(&r, idp, nIds, (uint32_t)spine, pageStart, fractionHere(),
@@ -1183,8 +1185,10 @@ void BooksApp::checkForPending() {
     /* 🛑 UTC. bookSyncSuspectClock() is `r->turnedAt > nowUnix + 300`, and r->turnedAt is
      * COVEY's real UTC — so against the local-shifted epoch, ANY record COVEY turned in the
      * last ~7.9 hours was painted "(their clock looks wrong)". The warning was almost always
-     * about our own arithmetic. */
-    uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0;
+     * about our own arithmetic.
+     * TRUSTED: "their clock looks wrong" is only a fair thing to say with a clock of our own
+     * that somebody vouched for; against a mesh-set one it stays unsaid (0.9.79). */
+    uint32_t now = ntpClock.getTrustedUtcTime();
     pendingClock = now && bookSyncSuspectClock(&pending, now);
   }
 }
@@ -1329,7 +1333,7 @@ void BooksApp::kosyncTellPosition(bool moved) {
     return;                      // one test per page turn for everyone without KOSync
   }
   if (moved) {
-    kosyncNoteMoved(ksByName, ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0);
+    kosyncNoteMoved(ksByName, ntpClock.getTrustedUtcTime());   // mesh clock = 0: see kosync_sync.cpp nowUtc()
   }
   if (!kosyncWantsPosition()) {
     return;
