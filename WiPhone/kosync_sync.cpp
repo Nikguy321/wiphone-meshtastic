@@ -9,7 +9,7 @@
 #include "app_gbc_xfer.h"
 #include "meshtastic_service.h"   // the default device name: the mesh long name
 #include "clock.h"                // ntpClock: UTC for timestamps
-#include "Networks.h"             // lastWifiLinkUpMs: one home= lookup per WiFi join
+#include "Networks.h"             // lastWifiLinkUpMs: an answered home= name lasts the join
 #include "GUI.h"                  // gui.isAppRunning: no window under Settings > WiFi
 
 extern GUI gui;
@@ -747,8 +747,10 @@ bool kosyncPull(const KosyncBook* b, char* note, size_t cap) {
  *     resolveDomain() tried them in): lwIP's own resolver, STARTED ON THE TCPIP THREAD (it is
  *     not thread-safe from here) and answered by a callback into s_dns*; the loop only reads
  *     the flag. Given up at KS_DNS_GIVEUP_MS; a late answer carries a stale tag and is dropped.
- * One lookup per WiFi join at most (kosyncHomePlan); the answer, SSID and home= are kept in
- * NVS so an unanswered lookup after a restart still has the last address to fall back to.
+ * An ANSWERED name is not looked up again on the same WiFi join (kosyncHomePlan); one nobody
+ * answered is asked again by the next job (nothing recorded - kosync.h). The last answer, its
+ * SSID and home= are kept in NVS (one record) so an unanswered lookup after a restart still has
+ * the last address to fall back to.
  * ⚠ The name looked up is T->lookName, copied from home= as the job starts: a `kosync reload`
  *   mid-lookup cannot change what the query asks, what the answer must match, or what lwIP is
  *   reading on its own thread. */
@@ -1605,8 +1607,8 @@ void kosyncDumpStatus(void (*emit)(const char* line)) {
     const bool thisJoin = kosyncHomePlan(h, T->cfg.home, ssid, lastWifiLinkUpMs(), &use) ==
                           KOSYNC_HOME_USE;
     if (!h->ip || strcasecmp(h->host, T->cfg.home) != 0) {
-      snprintf(l, sizeof(l), "kosync: home %s -> not found yet (looked up by the first home job "
-               "of each WiFi join)  longest lookup pass %lu us", T->cfg.home,
+      snprintf(l, sizeof(l), "kosync: home %s -> not found yet (each home job asks until it "
+               "answers)  longest lookup pass %lu us", T->cfg.home,
                (unsigned long)s_lookMaxUs);
     } else {
       char t[16];

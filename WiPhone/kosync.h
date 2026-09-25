@@ -322,14 +322,22 @@ size_t   kosyncMdnsQuery(const char* host, uint16_t id, uint8_t* out, size_t cap
 uint32_t kosyncMdnsAnswer(const uint8_t* pkt, size_t len, const char* host, uint16_t id);
 
 /* ── WHAT THE PHONE KNOWS OF home='s ADDRESS ───────────────────────────────────────────────
- * A NAME is looked up at most once per WiFi ASSOCIATION (the first home job after each
- * GOT_IP — `assoc` is any number that changes with each one, 0 = none yet; the phone uses
- * lastWifiLinkUpMs(), the GOT_IP stamp) and the answer is used until the association
- * changes, the SSID changes, home= changes, or a job gives up on the address.
+ * A NAME is looked up by a home job, in the background: 2 s of mDNS for .local or a bare name,
+ * up to 6 s of lwIP's resolver for a DNS name (or a bare name mDNS did not know). The loop
+ * never waits on either. An ANSWERED name — or a fallback (below) that then gets an HTTP
+ * answer — is used as it is for the rest of that WiFi ASSOCIATION (`assoc` is any number that
+ * changes with each GOT_IP, 0 = none yet; the phone uses lastWifiLinkUpMs(), the GOT_IP stamp),
+ * until the SSID changes, home= changes, or a job gives up on the address.
+ * ⚠ NOT "once per join" for a name nobody answers: nothing is recorded, so the NEXT job asks
+ *   again. On a WiFi without COVEY (a friend's; COVEY off with no address kept for this SSID)
+ *   that is one more background lookup — 3 multicasts, a socket held 2 s — per book open and
+ *   close, and the `kosync` home line never says "this join". Never a wait.
  * A lookup nobody answers FALLS BACK to the address last found for the same home= on the same
  * SSID — kept across a restart — so one lost multicast, or avahi renaming COVEY to
  * covey-2.local after a name clash, does not strand a push the address would still deliver.
- * A fallback that then gets an HTTP answer is trusted for the rest of that association.
+ * ⚠ ONE record (one NVS slot): the LAST home=, SSID and address that answered. An answer for
+ *   another home=, or for the same name on another WiFi, replaces it — the old one has no
+ *   fallback until it answers there again.
  * An IP literal is used as it is: nothing looked up, nothing remembered. */
 struct KosyncHomeAddr {
   char     host[KOSYNC_HOST_MAX];            // the home= it is for ("" = nothing known)

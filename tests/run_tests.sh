@@ -191,6 +191,16 @@ if ! python3 tests/check_mesh_tx.py; then
   fail=1
 fi
 
+# ── SOURCE GUARD: the KOSync home client never waits on a name; Books' re-reads keep warnings ─
+# See tests/check_kosync_glue.py. test_kosync proves the pure half (the mDNS bytes, the lookup
+# and fallback rules); both bugs 0.9.79 fixed were in the GLUE - resolveDomain() at the start of
+# every home job, and the window's warnings cleared by the re-read Books makes on every entry.
+# A review put both back in a scratch copy and the suite stayed green.
+echo "checking the KOSync glue (no blocking lookup, only 'kosync reload' clears on asking)"
+if ! python3 tests/check_kosync_glue.py; then
+  fail=1
+fi
+
 # ── THE MAC-SIDE TILE CONVERTER, against what the phone actually reads ────────────────────
 # tools/convert_tiles.py runs on a computer this suite will never see, and two of the three
 # things it can get wrong are SILENT on the phone: a byte-swapped RGB565 tile still draws a

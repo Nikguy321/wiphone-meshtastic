@@ -72,13 +72,18 @@ no space before it (`pass#word`) is part of the value.
   a roam at home no longer puts the phone on its hotspot; no more 2 s freeze on every close out
   of range), and closing one no longer restarts a station its owner had disabled.
 - **`home=` can be a NAME** (`covey.local`, or just `covey`), so a new DHCP lease for COVEY no
-  longer breaks sync silently. It is looked up once per WiFi join with the phone's own one-shot
-  mDNS query (a DNS name: lwIP's resolver), polled, never waited on; unanswered, it falls back to
-  the last address that name had on the same WiFi (NVS `kosync`/`home`). A `.local` name used to
-  never resolve (this core's `mdns_query_a()` takes the bare label, so "covey.local" went out as
-  ONE label) and blocked the loop ~0.5 s on every book open and close. `kosync` shows `home
-  covey.local -> 192.168.1.55 on 'SmithWifi' - this join`. The window's `!` warnings now also
-  clear on `kosync reload` or an edit of kosync.txt (the re-read on each Books entry keeps them).
+  longer breaks sync silently. It is looked up with the phone's own one-shot mDNS query (a DNS
+  name: lwIP's resolver), polled, never waited on. An ANSWERED name, or a fallback COVEY then
+  answers at, is reused for the rest of the WiFi join; a name nobody answers is asked again by
+  the next home job (2 s in the background - on a WiFi without COVEY, 3 multicasts per book open
+  or close). Unanswered, it falls back to the last address that name had on the same WiFi (NVS
+  `kosync`/`home`, one record: an answer for another name or on another WiFi replaces it). A
+  `.local` name used to never resolve (this core's `mdns_query_a()` takes the bare label, so
+  "covey.local" went out as ONE label) and blocked the loop ~0.5 s on every book open and close.
+  `kosync` shows `home covey.local -> 192.168.1.55 on 'SmithWifi' - this join`. The window's `!`
+  warnings now also clear on `kosync reload` or an edit of kosync.txt (the re-read on each Books
+  entry keeps them). `tests/check_kosync_glue.py` pins the glue the host suite cannot compile:
+  no blocking lookup in the home client, and only `kosync reload` clears the warnings by asking.
 - **What the X4 would not tell you is on the phone's screen**: a place PUT for a DIFFERENT book
   (`! A place for a DIFFERENT book arrived (id 0c9a1f7e..) - not the same file here?`) and
   wrong-password requests, in the reader menu and Sync settings. `kosync.txt` and
