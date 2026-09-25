@@ -191,7 +191,12 @@ void MeshPhy::benchSleep(bool on) {
     benchSleeping = true;
   } else {
     benchSleeping = false;
-    setModeRxContinuous();
+    /* ⚠ NOT mid-frame: `power lora rx` typed while a frame is on the air would force the chip
+     * into RX with the PA keyed — the frame truncated on air, and a TIMEOUT for a frame that
+     * was fine. serviceTx() puts it back in RX the moment TxDone comes. */
+    if (!txActive) {
+      setModeRxContinuous();
+    }
   }
 }
 

@@ -80,6 +80,10 @@ static struct {
 #include "mesh_crypto.h"
 #include <esp_system.h>          // esp_random()
 
+/* mesh_txq.h is pure and cannot include mesh_packet.h's struct: hold its copies to the truth. */
+static_assert(MESH_TXQ_HDR_LEN == MESH_HEADER_LEN, "relay cancel reads the on-air header");
+static_assert(MESH_TXQ_FRAME_MAX > MESH_LORA_FRAME_MAX, "a queue slot must hold a whole frame");
+
 /* PortNum values moved to mesh_wire.h so tests/test_wire.cpp can assert them against
  * upstream's portnums.proto. Nothing else changed; they are the same numbers. */
 
@@ -1408,6 +1412,7 @@ void MeshtasticService::txDropAll(uint8_t err) {
   meshTxqClear(&s_txq);
   const int relays = relaysPending();
   meshRelayClear(rebroadcast, MESH_RELAY_SLOTS);
+  nodeInfoOwed = false;                      // a reply for a radio that is gone; recovery re-announces
   if (s_txInFlight.active && s_txInFlight.kind == MESH_TXK_OWN) {
     resolveAck(s_txInFlight.packetId, err);  // belt and braces: never true mid-frame today
   }
@@ -1929,8 +1934,10 @@ bool MeshtasticService::loop() {
    * cached (GUI depth cannot run the ~3 KB-stack X25519 derive; here it can).
    * One per tick; the local echo already happened at queue time.
    * Only while the send queue has room: this DM is already in the thread, so a full queue
-   * means "next pass", not "failed" — a person's text is not a background frame. */
-  const bool txRoom = s_txq.slots && meshTxqCount(&s_txq) < (int)s_txq.cap;
+   * means "next pass", not "failed" — a person's text is not a background frame. (No queue at
+   * all — both allocations failed — counts as room, so the send fails HONESTLY with a receipt
+   * instead of waiting forever for space that will never come.) */
+  const bool txRoom = !s_txq.slots || meshTxqCount(&s_txq) < (int)s_txq.cap;
   for (int i = 0; i < 2 && txRoom; i++) {
     if (pendingDm[i].active) {
       pendingDm[i].active = false;
