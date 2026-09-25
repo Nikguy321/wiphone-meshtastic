@@ -41,7 +41,8 @@ public:
 
   /* ── KNOWN vs TRUSTED (0.9.79) ───────────────────────────────────────────────────────────
    * KNOWN: any source set it — ntp, gps, or mesh. Right for what this phone SHOWS: the clock,
-   * message times, "5 min ago", the sun times.
+   * message times, "5 min ago", the sun times. (The SIP store WRITES message times: it takes
+   * msgStamp(), which marks a mesh clock's stamps provisional for NTP/GPS to correct - SA-3.)
    * TRUSTED: ntp or gps. 🛑 Required by everything that LEAVES the phone, DESTROYS or SILENCES
    * something on the strength of the time — those all needed a known clock before 0.9.79,
    * which meant NTP, and a mesh time must not quietly lower that bar:
@@ -67,6 +68,12 @@ public:
   int getSource()         {
     return source;                                // ClockSource
   }
+  /* The SIP message store's view of the clock, read in ONE lock (clock_source.h, "THE SIP
+   * MESSAGE STORE UNDER A MESH CLOCK"): now in UTC (0 = unknown), whether that is a mesh
+   * clock's (its set's id: the stamp is provisional), and the offset NTP/GPS found when it
+   * replaced this boot's mesh clock. Every Messages::load() and every stamp the phone itself
+   * writes into the store takes this, never getExactUtcTime() + isTimeKnown() separately. */
+  ClockMsgStamp msgStamp();
   uint32_t msSinceSet(uint32_t nowMs);            // since the current source set it; 0 = unset
   uint32_t msSinceNtp(uint32_t nowMs);            // since NTP last set it; CLOCK_NEVER_MS = never
 
@@ -173,6 +180,9 @@ protected:
   uint32_t      gpsDisagreeLogMs = 0;           // rate limit for "GPS disagrees with fresh NTP"
   ClockGpsPair  gpsPair;                        // the previous good RMC (loop task only)
   ClockMeshVote meshVote;                       // public-channel mesh candidates (loop task only)
+  uint32_t      meshSetId = 0;                  // random id of this boot's mesh set (0 = none); under `mux`
+  uint32_t      meshCorrId = 0;                 // the mesh set NTP/GPS replaced this boot (0 = none)...
+  int32_t       meshCorrS = 0;                  // ...and how far that moved the clock (s, trusted - mesh)
   Diag          dg;
   bool          updated = false;                // updated recently?
   uint32_t      timeOffsetSeconds = 0;          // timezone offset
@@ -191,6 +201,8 @@ protected:
 
   void          unixToHuman();                  // convert unix epoch into human-readable values (simply converts into "struct tm")
   int64_t       utcMsAtLocked(uint32_t atMs);   // what the clock reads at millis() == atMs, in ms (hold `mux`)
+  uint32_t      exactUtcLocked();               // getExactUtcTime()'s arithmetic (hold `mux`)
+  void          noteMeshReplacedLocked(int64_t trustedMsAt, uint32_t atMs);   // before a trusted set (hold `mux`)
   void          applyLocked(uint8_t src, int64_t utcMsAtRx, uint32_t rxMs);   // set it (hold `mux`)
 
   static void  thread(void *pvParam);

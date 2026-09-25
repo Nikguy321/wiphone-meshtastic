@@ -460,6 +460,17 @@ static void reportClock() {
             ? "trusted"
             : "LOWER TRUST: shown, but KOSync, waypoint expiry and all it transmits treat it as unknown");
   }
+  /* The SIP message store under a mesh clock (review SA-3; clock_source.h): what it is doing
+   * with the stamps it writes, and the offset that will move (or moved) the provisional ones. */
+  const ClockMsgStamp ms = ntpClock.msgStamp();
+  if (ms.meshId) {
+    say("clock: messages: stamps written now are PROVISIONAL (mesh set %08x) - NTP/GPS will move them\n",
+        (unsigned)ms.meshId);
+  } else if (ms.corrId) {
+    say("clock: messages: NTP/GPS replaced mesh set %08x, which was off by %+ld s - its provisional "
+        "stamps move by that (serial `MSG: finalised ...`)\n",
+        (unsigned)ms.corrId, (long)ms.corrS);
+  }
   const uint32_t sinceNtp = ntpClock.msSinceNtp(nowMs);
   if (sinceNtp == CLOCK_NEVER_MS) {
     say("clock: ntp: has not answered since boot\n");

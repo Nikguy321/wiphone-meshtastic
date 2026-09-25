@@ -208,8 +208,11 @@ void GUI::reloadMessages() {
    * paths) and like dateTimeAgo's "now". load() stamps its repairs of no-time texts with this;
    * the local-shifted getExactUnixTime() it was given since the vendor code put boot-era texts
    * seven hours early at UTC-7 — drawn mid-thread — and in the future east of UTC (review,
-   * 2026-09-25). A mesh-set clock is used on purpose: message times follow any KNOWN clock. */
-  flash.messages.load(ntpClock.isTimeKnown() ? ntpClock.getExactUtcTime() : 0);
+   * 2026-09-25). A mesh-set clock is used on purpose: message times follow any KNOWN clock.
+   * ⚠ But the store WRITES them, so msgStamp() also says WHEN it is a mesh clock: the repair's
+   * stamps are then provisional, and the first load under NTP/GPS moves them by what that
+   * replacement moved the clock (review SA-3; clock_source.h has the rules). */
+  flash.messages.load(ntpClock.msgStamp());
   state.unreadMessages = flash.messages.hasUnread();
 }
 
@@ -8162,7 +8165,7 @@ MessagesApp::MessagesApp(LCD& lcd, ControlState& state, Storage& flash, HeaderWi
 
   // Load messages database
   if (!flash.messages.isLoaded()) {
-    flash.messages.load(ntpClock.isTimeKnown() ? ntpClock.getExactUtcTime() : 0);   // UTC: see GUI::reloadMessages()
+    flash.messages.load(ntpClock.msgStamp());   // UTC, and mesh = provisional: see GUI::reloadMessages()
   }
   /* And the phonebook, because the rows are labelled with NAMES where there are any.
    * Here rather than at the first label lookup: this is already the screen's slow
@@ -8946,16 +8949,13 @@ appEventResult CreateMessageApp::processEvent(EventType event) {
 
       log_d("To address: %s", toUri);
 
-      uint32_t time        = 0;    // 0 - indicates unknown time
-      if (ntpClock.isTimeKnown()) {
-        time = ntpClock.getExactUtcTime();
-        if (!time) {
-          time++;  // avoid 0 if time is known (will almost NEVER hapen)
-        }
-      }
+      /* 0 = unknown time. msgStamp() reads the time and WHO set it in one lock: a stamp off a
+       * mesh clock is saved PROVISIONAL (its meshId), and NTP/GPS finalises it (review SA-3). */
+      const ClockMsgStamp stamp = ntpClock.msgStamp();
+      uint32_t time        = stamp.utc;    // never 0 when the clock is known (msgStamp)
 
       // Save to message database
-      flash.messages.saveMessage(message, fromUri, toUri, incoming, time);
+      flash.messages.saveMessage(message, fromUri, toUri, incoming, time, 0, 0, stamp.meshId);
 
       // Queue for sending
       log_d("adding message to send queue: %d %s %s", sipMessage, fromUri, toUri);

@@ -244,7 +244,72 @@ static void testBssid() {
   ok(!strcmp(b, "-"), "all-zero (a failed join names no AP) prints '-'");
 }
 
+/* The card gate (review F3): at most one LOST/JOIN pair a minute on /health.log, the rest
+ * counted and reported, never a pair split, never a storm's end left unsaid. */
+static void testCardGate() {
+  printf("\n\033[1mThe card gate: one LOST/JOIN pair a minute, the rest counted\033[0m\n");
+  {
+    WifiCardGate g;
+    ok(g.join(10000), "the boot's first JOIN goes to the card");
+    ok(g.lost(30000), "the first LOST ever goes, 20 s after that JOIN (LOSTs gate on LOSTs)");
+    ok(g.join(35000), "...and its JOIN: a pair is never split");
+    ok(!g.lost(50000), "a LOST 20 s after the last card LOST is held");
+    ok(!g.join(55000), "...and its JOIN, 20 s after the last card line");
+    ok(g.heldLost == 1 && g.heldJoin == 1 && g.heldSinceMs == 50000, "both counted, from 50 s");
+    ok(!g.summaryDue(94999), "no summary before a quiet minute since the last card line (35 s)");
+    ok(g.summaryDue(95000), "...a summary at 95 s: the card must hear how the storm ended");
+    uint32_t l = 0, j = 0, since = 0;
+    ok(g.takeHeld(95000, &l, &j, &since) && l == 1 && j == 1 && since == 50000,
+       "takeHeld gives 1 LOST, 1 JOIN since 50 s");
+    ok(!g.summaryDue(200000) && !g.takeHeld(200000, &l, &j, &since),
+       "and resets them: nothing held, nothing due");
+  }
+  {
+    /* A steady flap: drop at :00, rejoin at :05, every 10 s, for an hour. Before the gate that
+     * was 720 card lines; now the LOST+JOIN pairs are one a minute and the count line at most
+     * one a minute on top. */
+    WifiCardGate g;
+    uint32_t card = 0, serialOnly = 0;
+    for (uint32_t t = 0; t < 3600000u; t += 10000u) {
+      uint32_t l, j, since;
+      if (g.lost(t)) {
+        card += g.takeHeld(t, &l, &j, &since) ? 2 : 1;
+      } else {
+        serialOnly++;
+      }
+      if (g.join(t + 5000)) {
+        card += g.takeHeld(t + 5000, &l, &j, &since) ? 2 : 1;
+      } else {
+        serialOnly++;
+      }
+      if (g.summaryDue(t + 9999)) {
+        g.takeHeld(t + 9999, &l, &j, &since);
+        card++;
+      }
+    }
+    char m[96];
+    snprintf(m, sizeof(m), "an hour of 10 s flapping: %u card lines (was 720), %u serial-only",
+             (unsigned)card, (unsigned)serialOnly);
+    printf("  %s\n", m);
+    /* 60 LOSTs (one a minute) + their 60 JOINs + 59 count lines (the first minute has nothing
+     * held yet); the other 600 lines are serial-only, each counted exactly once. */
+    ok(card == 179 && serialOnly == 600, m);
+  }
+  {
+    WifiCardGate g;
+    ok(g.lost(1000), "a LOST in the first minute of the boot (millis small) is not mistaken for 'recent'");
+    ok(!g.lost(2000) && g.join(3000) == false, "a second drop inside the minute is held, and so is its JOIN");
+    ok(g.lost(61000), "exactly a minute after the last card LOST, the next goes");
+    ok(g.join(61500), "...with its JOIN");
+    WifiCardGate w;
+    w.lost(0xFFFFF000u);
+    ok(!w.lost(0x00001000u), "millis() wrap: 8 s later is still inside the minute (unsigned difference)");
+    ok(w.lost(0x0000F000u), "...and 64 s later is not");
+  }
+}
+
 int main() {
+  testCardGate();
   testCorePredicates();
   testNames();
   testBuckets();

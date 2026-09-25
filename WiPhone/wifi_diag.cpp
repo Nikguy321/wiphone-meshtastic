@@ -294,3 +294,61 @@ int wifiDiagHealthField(char* out, size_t cap, const WifiDiagLog& log, const Wif
                   (unsigned long)log.coreRejoins(), (unsigned long)ss.refusedRuns,
                   (unsigned long)(uint32_t)ss.lastErr);
 }
+
+// ---------------------------------------------------------------- the card gate (review F3)
+
+bool WifiCardGate::lost(uint32_t ms) {
+  if (!anyLost || (uint32_t)(ms - lastLostMs) >= WIFI_CARD_PERIOD_MS) {
+    anyLost = any = true;
+    lastLostMs = lastMs = ms;
+    pairOpen = true;
+    return true;
+  }
+  if (heldLost == 0 && heldJoin == 0) {
+    heldSinceMs = ms;
+  }
+  heldLost++;
+  pairOpen = false;           // this spell's JOIN is not the partner of the card's last LOST
+  return false;
+}
+
+bool WifiCardGate::join(uint32_t ms) {
+  if (pairOpen) {
+    pairOpen = false;
+    lastMs = ms;
+    return true;              // never split a pair
+  }
+  if (!any || (uint32_t)(ms - lastMs) >= WIFI_CARD_PERIOD_MS) {
+    any = true;
+    lastMs = ms;
+    return true;
+  }
+  if (heldLost == 0 && heldJoin == 0) {
+    heldSinceMs = ms;
+  }
+  heldJoin++;
+  return false;
+}
+
+bool WifiCardGate::summaryDue(uint32_t ms) const {
+  return (heldLost || heldJoin) && (uint32_t)(ms - lastMs) >= WIFI_CARD_PERIOD_MS;
+}
+
+bool WifiCardGate::takeHeld(uint32_t ms, uint32_t* nLost, uint32_t* nJoin, uint32_t* sinceMs) {
+  const bool had = heldLost || heldJoin;
+  if (nLost) {
+    *nLost = heldLost;
+  }
+  if (nJoin) {
+    *nJoin = heldJoin;
+  }
+  if (sinceMs) {
+    *sinceMs = heldSinceMs;
+  }
+  heldLost = heldJoin = 0;
+  if (had) {
+    any = true;
+    lastMs = ms;
+  }
+  return had;
+}

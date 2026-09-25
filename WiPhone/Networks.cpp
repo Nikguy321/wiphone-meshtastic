@@ -265,11 +265,40 @@ int wifiDiagHealth(char* out, size_t cap) {
   return wifiDiagHealthField(out, cap, s_wd, s_ss);
 }
 
-/* One place that writes a line to the durable log as well as the console. The card is the
- * loop's (never the event task's) and the Game Boy's while a game runs. */
-static void wifiDiagDurable(const char* line) {
-  log_e("%s", line);
+/* WHICH of the link lines reach the card: at most one LOST/JOIN pair a minute, the rest
+ * serial-only and counted (review F3; the rules and the reason are wifi_diag.h's WifiCardGate,
+ * host-tested). Loop task only, like everything that drains s_wd. */
+static WifiCardGate s_card;
+
+/* The gate's count of lines kept off the card, as a card line of its own — just before the next
+ * LOST/JOIN that goes there, or after a quiet minute (then with the link's state, so the card
+ * ends on how the storm ended). Nothing held: nothing written. noinline: its buffer exists only
+ * while it runs, not in diagTick's frame. */
+static void __attribute__((noinline)) wifiCardHeldLine(uint32_t ms, const char* linkNow) {
+  uint32_t nLost = 0, nJoin = 0, since = 0;
+  if (!s_card.takeHeld(ms, &nLost, &nJoin, &since)) {
+    return;
+  }
+  char l[160];
+  snprintf(l, sizeof(l), "WIFI card: %lu LOST + %lu JOIN line(s) since t=%lu.%lus were serial-only "
+           "(one pair a minute here)%s%s", (unsigned long)nLost, (unsigned long)nJoin,
+           (unsigned long)(since / 1000), (unsigned long)((since % 1000) / 100),
+           linkNow ? " - link now " : "", linkNow ? linkNow : "");
+  log_e("%s", l);
   if (!gGbcActive) {
+    healthLogLine(l);
+  }
+}
+
+/* One place that writes a link line to the console and, when the gate let it through, to the
+ * durable log (after any held count, so the card reads in order). The card is the loop's (never
+ * the event task's) and the Game Boy's while a game runs. */
+static void wifiDiagDurable(const char* line, bool card, uint32_t ms) {
+  if (card) {
+    wifiCardHeldLine(ms, NULL);
+  }
+  log_e("%s", line);
+  if (card && !gGbcActive) {
     healthLogLine(line);
   }
 }
@@ -277,13 +306,14 @@ static void wifiDiagDurable(const char* line) {
 /* Drain the event ring into log lines. LOOP TASK, every pass (a compare when nothing happened).
  *
  *   WIFI LOST  the drop that ENDS a link: reason, the AP, its channel, the last RSSI and how
- *              long before the drop it was sampled. Also written to health.log.
+ *              long before the drop it was sampled. Also written to health.log — at most one
+ *              LOST/JOIN pair a minute there (s_card above; `WIFI card:` counts the rest).
  *   WIFI disc  every later disconnect of the same spell — a core auto-reconnect storm is a
  *              train of these (NO_AP_FOUND every few seconds), so a run of one reason prints
  *              twice and then is COUNTED, with a summary line at least once a minute.
  *   WIFI JOIN  associated: the AP, channel, RSSI, and for a spell the bill — how long down,
  *              how many disconnects, how many of them the core answered with its own begin(),
- *              and how many scan starts were refused. Also written to health.log.
+ *              and how many scan starts were refused. Also written to health.log (s_card).
  *   WIFI scan  a SCAN_DONE that failed/aborted or found nothing (the core reports both as n=0).
  *   WIFI radio STA started/stopped (a bounce, the Game Boy, WiFi off). */
 void Networks::diagTick(uint32_t now) {
@@ -302,7 +332,8 @@ void Networks::diagTick(uint32_t now) {
   static uint32_t s_runSaidMs = 0;
 
   const uint32_t head = s_wd.head();
-  if (head == s_next && !(s_runHidden && (uint32_t)(now - s_runSaidMs) >= 60000u)) {
+  if (head == s_next && !(s_runHidden && (uint32_t)(now - s_runSaidMs) >= 60000u) &&
+      !s_card.summaryDue(now)) {
     return;                                   // the common case: nothing new
   }
   char line[232];
@@ -355,7 +386,7 @@ void Networks::diagTick(uint32_t now) {
                    (unsigned)e.code, wifiReasonName(e.code), b, (unsigned)e.chan, tS, tD,
                    coreRejoins ? " - core rejoining" : "");
         }
-        wifiDiagDurable(line);
+        wifiDiagDurable(line, s_card.lost(e.ms), e.ms);
         break;
       }
       if (s_spell) {
@@ -399,7 +430,7 @@ void Networks::diagTick(uint32_t now) {
         snprintf(line, sizeof(line), "WIFI JOIN ap=%s ch=%u rssi=%d t=%lu.%lus", b,
                  (unsigned)e.chan, rssiNow, tS, tD);
       }
-      wifiDiagDurable(line);
+      wifiDiagDurable(line, s_card.join(e.ms), e.ms);
       break;
     }
     case WDE_SCANDONE:
@@ -425,7 +456,7 @@ void Networks::diagTick(uint32_t now) {
         s_spellLast = 0;
         memset(s_lostBssid, 0, sizeof(s_lostBssid));
         snprintf(line, sizeof(line), "WIFI LOST radio stopped while associated t=%lu.%lus", tS, tD);
-        wifiDiagDurable(line);
+        wifiDiagDurable(line, s_card.lost(e.ms), e.ms);
       } else {
         log_e("WIFI radio stopped t=%lu.%lus", tS, tD);
       }
@@ -440,6 +471,9 @@ void Networks::diagTick(uint32_t now) {
   }
   if (s_runHidden && (uint32_t)(now - s_runSaidMs) >= 60000u) {
     flushRun();                               // a storm still running says so once a minute
+  }
+  if (s_card.summaryDue(now)) {
+    wifiCardHeldLine(now, s_linkView ? "UP" : "down");   // the card hears how the storm ended
   }
 }
 
@@ -499,6 +533,12 @@ void Networks::diagPrint(void (*out)(const char*)) {
            (unsigned long)s_wd.disconnects(), (unsigned long)s_wd.coreRejoins(),
            (unsigned long)s_wd.connects(), (unsigned long)s_wd.scansDone(),
            (unsigned long)s_wd.scansFailed());
+  out(l);
+  snprintf(l, sizeof(l), "  health.log: last LOST there %lds ago, last line %lds ago; held off it now: "
+           "%lu LOST + %lu JOIN (one pair a minute; the rest are serial-only)",
+           s_card.anyLost ? (long)((uint32_t)(now - s_card.lastLostMs) / 1000) : -1L,
+           s_card.any ? (long)((uint32_t)(now - s_card.lastMs) / 1000) : -1L,
+           (unsigned long)s_card.heldLost, (unsigned long)s_card.heldJoin);
   out(l);
   for (int k = 0; k < WIFI_DIAG_BUCKETS; k++) {
     if (!s_wd.count(k)) {

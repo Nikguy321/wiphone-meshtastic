@@ -350,8 +350,26 @@ Messages::Messages()
   preloadedRangeEnd = 0;
 };
 
-bool Messages::load(uint32_t unixTime) {
+/* An 8-hex-digit stamp as the store writes it (putValueFullHex). ⚠ NOT getHexValueSafe():
+ * that is strtol() into this chip's 32-bit long, which SATURATES at 0x7fffffff — every stamp
+ * after 2038-01-19, including the 2079 a replayed mesh time can set (clock_source.h), would
+ * read back as 2038 and be "corrected" from the wrong number. */
+static bool msgHexStamp(const char* s, uint32_t* out) {
+  if (!s || !*s) {
+    return false;
+  }
+  char* end = NULL;
+  const unsigned long v = strtoul(s, &end, 16);
+  if (!end || *end != '\0') {
+    return false;
+  }
+  *out = (uint32_t)v;
+  return true;
+}
+
+bool Messages::load(const ClockMsgStamp& st) {
   // TODO: make sure not to mess things up with unixTime if it is zero
+  const uint32_t unixTime = st.utc;               // UTC; 0 = unknown (see Storage.h)
 
   // Load index file
   this->loaded = false;
@@ -409,6 +427,7 @@ bool Messages::load(uint32_t unixTime) {
     }
 
     // Ensure that all partitions have time fields in the index
+    bool markedTm = false;
     if (!ipart->hasKey("t1") || !ipart->hasKey("t2")) {
       if (ipart->hasKey("t2")) {
         log_d("t2 present, but not t1");
@@ -429,6 +448,10 @@ bool Messages::load(uint32_t unixTime) {
             if (!t) {
               // this message has no time -> set to current minute
               im->putValueFullHex("t", unixTime);
+              if (unixTime && st.meshId) {
+                im->putValueFullHex("tm", st.meshId);     // a mesh clock's: provisional (SA-3)
+                markedTm = true;
+              }
               t = im->getValueSafe("t", NULL);
             } else if (strlen(t)<8) {
               // this value must have been modified by a human -> align
@@ -481,9 +504,112 @@ bool Messages::load(uint32_t unixTime) {
       log_d("updating index");
       (*ipart)["t1"] = ini[0].getValueSafe("t1", "386d4380");      // default = 2000-01-01
       (*ipart)["t2"] = ini[0].getValueSafe("t2", "386d4380");
+      if (markedTm) {
+        (*ipart)["tm"] = "1";                     // holds provisional stamps (SA-3, below)
+      }
       indexUpdated = true;
     }
   }
+  /* One descending band of repair stamps ending at `unixTime`, shared by the two passes below
+   * so no stamp is handed out twice (see the sentinel pass for why that matters). */
+  uint32_t bandEnd = unixTime;
+
+  /* ⚠ FINALISE THE PROVISIONAL STAMPS — a MESH clock's — now that NTP or GPS is here (review
+   * SA-3; the rules and the reasons are clock_source.h, "THE SIP MESSAGE STORE UNDER A MESH
+   * CLOCK", host-tested in test_clocksrc).
+   *
+   * A stamp this store took from a mesh clock carries "tm" = that mesh set's id, and its
+   * partition's index row carries "tm" = 1, so only those partitions are ever re-read — the
+   * same trick as t2 == ffffffff for sentinels below. Under a trusted clock each marked stamp
+   * is moved by the offset NTP/GPS found when it replaced that mesh clock (this boot), kept
+   * (an earlier boot's, in the past), or — in the future with no offset to fix it — re-stamped
+   * in the repair band like an unknown time, in file order (which is the order the mesh clock
+   * gave them). The mark goes either way: the stamp is final.
+   *
+   * 🛑 NEVER UNDER A MESH CLOCK (st.meshId != 0): that is the clock these stamps may be wrong
+   * by. A mesh load leaves them marked and waits.
+   * ⚠ THE INDEX FOLLOWS THE FILE, as in the sentinel pass: the row's "tm" goes only once the
+   * partition stored, so a failed write is retried by the next load (with the same offset —
+   * the file still holds the provisional numbers — so nothing is moved twice). */
+  if (unixTime && !st.meshId) {
+    for (auto ipart = index.iterator(1); ipart.valid(); ++ipart) {
+      if (!ipart->hasKey("tm")) {
+        continue;
+      }
+      IniFile ini;
+      if (!this->loadPartition(ini, ipart->getIntValueSafe("p", -1))) {
+        continue;                        // retried by the next load
+      }
+      int32_t moved = 0, kept = 0, restamped = 0;
+      for (auto im = ini.iterator(1); im.valid(); ++im) {
+        const char* tm = im->getValueSafe("tm", NULL);
+        if (!tm) {
+          continue;
+        }
+        uint32_t t = 0, id = 0, fin = 0;
+        msgHexStamp(im->getValueSafe("t", NULL), &t);   // unreadable: 0, which is not final
+        msgHexStamp(tm, &id);                           // unreadable: 0, which matches nothing
+        if (clockMsgFinal(t, id, &st, &fin)) {
+          if (fin != t) {
+            im->putValueFullHex("t", fin);
+            moved++;
+          } else {
+            kept++;
+          }
+          im->remove("tm");
+        } else {
+          restamped++;                   // still marked: stamped just below
+        }
+      }
+      if (restamped > 0) {
+        uint32_t stamp = bandEnd - (uint32_t)(restamped - 1);
+        for (auto im = ini.iterator(1); im.valid(); ++im) {
+          if (im->getValueSafe("tm", NULL)) {
+            im->putValueFullHex("t", stamp++);
+            im->remove("tm");
+          }
+        }
+        bandEnd -= (uint32_t)restamped;
+      }
+      if (moved + kept + restamped == 0) {
+        ipart->remove("tm");             // a stale row (nothing marked in the file): heal it
+        indexUpdated = true;
+        continue;
+      }
+      if (moved + restamped > 0) {
+        ini.sortFrom(1, Storage::messageCompare);
+      }
+      const char* t1 = NULL;
+      const char* t2 = NULL;
+      for (auto im = ini.iterator(1); im.valid(); ++im) {
+        const char* t = im->getValueSafe("t", NULL);
+        if (!t) {
+          continue;
+        }
+        t1 = (!t1 || strncasecmp(t, t1, 8) < 0) ? t : t1;
+        t2 = (!t2 || strncasecmp(t, t2, 8) > 0) ? t : t2;
+      }
+      if (t1 && t2) {
+        ini[0]["t1"] = t1;
+        ini[0]["t2"] = t2;
+      }
+      if (ini.store()) {
+        if (t1 && t2) {
+          (*ipart)["t1"] = t1;
+          (*ipart)["t2"] = t2;
+        }
+        ipart->remove("tm");
+        indexUpdated = true;
+        log_e("MSG: finalised %d mesh-clock stamp(s) in partition %s: %d moved %+lds, %d kept, "
+              "%d re-stamped", (int)(moved + kept + restamped), ipart->getValueSafe("p", "?"),
+              (int)moved, (long)st.corrS, (int)kept, (int)restamped);
+      } else {
+        log_e("MSG: finalising partition %s did NOT store - will retry next load",
+              ipart->getValueSafe("p", "?"));
+      }
+    }
+  }
+
   /* ⚠ REPAIR THE UNKNOWN-TIME SENTINELS, now that the clock is known.
    *
    * saveMessage() stores 0xFFFFFFFF for a message whose arrival time was unknown — every
@@ -502,14 +628,18 @@ bool Messages::load(uint32_t unixTime) {
    * times in file order preserves the order the texts actually arrived in. The stamps are
    * DISTINCT so no downstream sort ever has to break this tie again. The time shown is the
    * sync moment rather than the true arrival — the honest best available on a board with
-   * no RTC, and hours closer than "pinned newest forever". */
+   * no RTC, and hours closer than "pinned newest forever".
+   *
+   * UNDER A MESH CLOCK (0.9.79) this still runs — a woods trip's texts must not sit pinned
+   * newest until WiFi — but every stamp it writes is PROVISIONAL ("tm", the pass above), and
+   * the loop's forced reload stays armed for NTP/GPS (WiPhone.ino), which finalises them. */
   if (unixTime) {
     /* One descending band of stamps across ALL repaired partitions. Incoming and outgoing
      * live in separate partitions, and giving each its own band ending at unixTime would
      * hand the same stamps out twice — a boot-era exchange (received, replied) could then
      * interleave wrongly forever. Bands are assigned in index-scan order: arbitrary across
-     * directions (nothing on disk records the true interleave), but distinct and stable. */
-    uint32_t bandEnd = unixTime;
+     * directions (nothing on disk records the true interleave), but distinct and stable.
+     * (`bandEnd` is declared above: the provisional pass may already have used the top.) */
     for (auto ipart = index.iterator(1); ipart.valid(); ++ipart) {
       if (strcasecmp(ipart->getValueSafe("t2", ""), "ffffffff")) {
         continue;                        // running max isn't the sentinel: none inside
@@ -529,6 +659,9 @@ bool Messages::load(uint32_t unixTime) {
         for (auto im = ini.iterator(1); im.valid(); ++im) {
           if (!strcasecmp(im->getValueSafe("t", ""), "ffffffff")) {
             im->putValueFullHex("t", stamp++);
+            if (st.meshId) {
+              im->putValueFullHex("tm", st.meshId);       // a mesh clock's: provisional (SA-3)
+            }
           }
         }
         bandEnd -= (uint32_t)k;                           // next partition: older band
@@ -564,8 +697,13 @@ bool Messages::load(uint32_t unixTime) {
             (*ipart)["t2"] = t2;
             indexUpdated = true;
           }
-          log_e("MSG: repaired %d unknown-time message(s) in partition %s",
-                (int)k, ipart->getValueSafe("p", "?"));
+          if (st.meshId) {
+            (*ipart)["tm"] = "1";                         // the provisional pass finds it here
+            indexUpdated = true;
+          }
+          log_e("MSG: repaired %d unknown-time message(s) in partition %s%s",
+                (int)k, ipart->getValueSafe("p", "?"),
+                st.meshId ? " - PROVISIONAL (mesh clock): NTP/GPS will finalise them" : "");
         } else {
           log_e("MSG: repair of partition %s did NOT store - will retry next load",
                 ipart->getValueSafe("p", "?"));
@@ -577,7 +715,9 @@ bool Messages::load(uint32_t unixTime) {
          * forever. The file itself is fine — only the index range needs recomputing. */
         const char* t1 = NULL;
         const char* t2 = NULL;
+        bool anyTm = false;
         for (auto im = ini.iterator(1); im.valid(); ++im) {
+          anyTm = anyTm || im->getValueSafe("tm", NULL) != NULL;
           const char* t = im->getValueSafe("t", NULL);
           if (!t) {
             continue;
@@ -588,6 +728,11 @@ bool Messages::load(uint32_t unixTime) {
         if (t1 && t2) {
           (*ipart)["t1"] = t1;
           (*ipart)["t2"] = t2;
+          /* The same lost index write can have lost a mesh-clock repair's "tm" row: without it
+           * the provisional pass would never look in this partition again (SA-3). */
+          if (anyTm) {
+            (*ipart)["tm"] = "1";
+          }
           indexUpdated = true;
           log_e("MSG: healed stale sentinel range on partition %s",
                 ipart->getValueSafe("p", "?"));
@@ -821,11 +966,12 @@ bool Messages::loadPartition(IniFile& ini, int32_t part) {
  */
 Messages::hash_t Messages::saveMessage(const char* text, const char* fromUri, const char* toUri,
                                        bool incoming, unsigned long time, unsigned long ackTime,
-                                       int64_t voipId) {
+                                       int64_t voipId, uint32_t meshId) {
   log_v("saving message to %s, time = %d, d = %c", toUri ? toUri : "nil", time, incoming ? 'i' : 'o');
 
   if (!time) {
     time--;  // store 0xFFFFFFFF insted of 0x00000000 so that sorting is still correct
+    meshId = 0;   // the sentinel is repaired by load(), not finalised: never both
   }
 
   // Find first partition of the right type in index
@@ -902,6 +1048,11 @@ Messages::hash_t Messages::saveMessage(const char* text, const char* fromUri, co
   log_d("storing new message: %d", partn);
   ini.addSection();
   ini[-1].putValueFullHex("t", time);
+  if (meshId) {
+    /* Read off a MESH clock: provisional until NTP/GPS finalises it (load(); SA-3). The index
+     * row is marked below, once the partition has stored. */
+    ini[-1].putValueFullHex("tm", meshId);
+  }
   if (fromUri) {
     ini[-1][incoming ? "o" : "s"] = fromUri;
   }
@@ -972,6 +1123,9 @@ Messages::hash_t Messages::saveMessage(const char* text, const char* fromUri, co
     if (incoming) {
       index[partPos]["u"] = ini[0]["u"];
       index[0]["u"] = index[0].getIntValueSafe("u", 0) + 1;         // increase the unread messages counter for entire database
+    }
+    if (meshId) {
+      index[partPos]["tm"] = "1";      // this partition holds a provisional stamp (load(), SA-3)
     }
 
     // Restore sorting by time in the index

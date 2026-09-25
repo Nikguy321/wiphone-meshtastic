@@ -47,6 +47,7 @@ governing permissions and limitations under the License.
 #include "SPIFFS.h"
 #include "nvs.h"
 #include "NanoINI.h"
+#include "clock_source.h"   // ClockMsgStamp only (pure; clock.h itself cannot be included - below)
 //#include "clock.h"      // CANNOT USE CLOCK HERE: since it depends on Networks, which depends on Storage
 
 /*
@@ -261,7 +262,11 @@ public:
   typedef uint32_t hash_t;           // we are using Murmur3_32 hash (seed 5381) to hashing text of the messages
 
   Messages();
-  bool load(uint32_t unixTime);
+  /* `st` is ntpClock.msgStamp(): the time the unknown-time repair stamps with (UTC; 0 = do not
+   * repair), whether that is a MESH clock's (its stamps are then marked provisional, "tm"),
+   * and, under a trusted clock, the offset that finalises the provisional ones. See
+   * clock_source.h, "THE SIP MESSAGE STORE UNDER A MESH CLOCK". */
+  bool load(const ClockMsgStamp& st);
   void unload();
   bool isLoaded() {
     return this->loaded;
@@ -285,9 +290,13 @@ public:
    * case for every message the phone itself sends or receives over SIP or LoRa. It exists
    * so a text mirrored from COVEY can be recognised as one already held; see
    * ingestMirrored() and WiPhone/sms_mirror.h. */
+  /* `meshId` nonzero: `time` was read off a MESH clock (ClockMsgStamp::meshId), so the stamp
+   * is PROVISIONAL — marked "tm" and finalised by the first load under NTP/GPS. Only the
+   * phone's OWN stamps pass it (a SIP arrival, a text composed here); a mirrored record's
+   * time is COVEY's and final. */
   hash_t saveMessage(const char* text, const char* fromUri, const char* toUri,
                      bool incoming, unsigned long time, unsigned long ackTime=0,
-                     int64_t voipId=0);
+                     int64_t voipId=0, uint32_t meshId=0);
 
   /* Fold one text mirrored from COVEY into this store.
    *

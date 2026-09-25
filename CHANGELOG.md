@@ -311,6 +311,15 @@ had had a fix. The rules are all in `clock_source.{h,cpp}` (host suite `tests/te
   is now ~232 of its 255 bytes, so a clk= that would not fit is dropped whole, never cut to a
   different number (a line with no clk= at all ran out of room). Log lines: `CLOCK: set from GPS -> ...`,
   `CLOCK: set from the MESH -> ...`, `CLOCK: NTP set the clock (it was gps; moved N ms)`.
+- **Review round (SA-3, F1, F3):** a text stamped from a MESH clock (a SIP arrival, one composed here,
+  or the unknown-time repair) is PROVISIONAL (`tm`); the first load under NTP/GPS moves it by exactly
+  what that set moved the clock (`MSG: finalised ...`; an older boot's stays unless in the future),
+  and the forced message reload stays armed until the clock is trusted (`clock` shows it;
+  `tests/check_msg_clock.py`). The HEALTH line is built in a noinline helper: loop()'s own frame
+  640 -> 240 B (560 on main), under the picture-page chain (`tests/check_health_log.py`). `WIFI
+  LOST/JOIN` and `MARK assoc/disassoc` reach health.log at most one pair a minute, the rest
+  serial-only and counted (`WIFI card: N LOST + M JOIN ...`; `wifi why`), which keeps the log's
+  ~9 h window (not ~16: HEALTH lines are ~232 B now).
 
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 

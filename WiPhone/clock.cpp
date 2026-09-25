@@ -183,6 +183,7 @@ bool Clock::update(const uint32_t& nowMillis) {
      * the one observation that would say the GPS path is wrong. */
     const uint8_t was = source;
     const int64_t before = (was != CLOCK_SRC_NONE) ? utcMsAtLocked(nowMillis) : 0;
+    noteMeshReplacedLocked((int64_t)(ntpTime - SEVENTY_YEARS) * 1000, nowMillis);
 
     // No errors detected
     updated = everUpdated = true;
@@ -229,6 +230,9 @@ int64_t Clock::utcMsAtLocked(uint32_t atMs) {
  * phase: lastMillis goes back by the fraction, so getExactUtcTime() and getSecond() tick over
  * when UTC does, not up to a second late. (NTP keeps whole seconds, as it always has.) */
 void Clock::applyLocked(uint8_t src, int64_t utcMsAtRx, uint32_t rxMs) {
+  if (clockSourceTrusted(src)) {
+    noteMeshReplacedLocked(utcMsAtRx, rxMs);    // before the mesh timeline is overwritten
+  }
   const uint32_t nowMs = millis();
   const int64_t utcNowMs = utcMsAtRx + (int64_t)(uint32_t)(nowMs - rxMs);
   utcTime = (uint32_t)(utcNowMs / 1000);
@@ -238,6 +242,43 @@ void Clock::applyLocked(uint8_t src, int64_t utcMsAtRx, uint32_t rxMs) {
   setMillis = nowMs;
   updated = true;               // the loop redraws the clock and re-stamps waiting messages
   unixToHuman();
+}
+
+/* A TRUSTED source (NTP, GPS) is about to replace the clock. If it is a MESH clock, keep how far
+ * it was out, so the SIP store can move every stamp it wrote provisionally under it by exactly
+ * that (clock_source.h, "THE SIP MESSAGE STORE UNDER A MESH CLOCK"). `trustedMsAt` is the new
+ * time at millis() == atMs. A mesh clock is set at most once a boot (it only fills an UNKNOWN
+ * clock), so this records at most one offset; later NTP/GPS sets find a trusted clock and leave
+ * it alone. */
+void Clock::noteMeshReplacedLocked(int64_t trustedMsAt, uint32_t atMs) {
+  if (source != CLOCK_SRC_MESH || meshSetId == 0) {
+    return;
+  }
+  meshCorrId = meshSetId;
+  meshCorrS = clockMeshCorrS(trustedMsAt, utcMsAtLocked(atMs));
+}
+
+ClockMsgStamp Clock::msgStamp() {
+  ClockMsgStamp st = {0, 0, 0, 0};
+  const bool locked = xSemaphoreTake(mux, LONG_TIME) == pdTRUE;
+  if (!locked) {
+    log_e("failed to obtain clock mutex");
+  }
+  if (source != CLOCK_SRC_NONE) {
+    st.utc = exactUtcLocked();
+    if (st.utc == 0) {
+      st.utc = 1;               // a known clock never reads as "unknown" (cannot happen: sane years)
+    }
+    if (source == CLOCK_SRC_MESH) {
+      st.meshId = meshSetId;    // nonzero whenever the source is mesh (set with it, under this lock)
+    }
+  }
+  st.corrId = meshCorrId;
+  st.corrS = meshCorrS;
+  if (locked) {
+    xSemaphoreGive(mux);
+  }
+  return st;
 }
 
 uint32_t Clock::msSinceSet(uint32_t nowMs) {
@@ -325,6 +366,10 @@ void Clock::meshPositionTime(uint32_t node, bool privateChannel, uint32_t t, uin
     }
     v = clockMeshOffer(&meshVote, source, node, privateChannel, t, rxMs, &adopt);
     if (clockVerdictSets(v)) {
+      /* A fresh RANDOM id per mesh set, not the adopted time: a replay of the same Position in
+       * two boots would give two equal times, and one boot's provisional message stamps would
+       * then take the other boot's correction (clock_source.h, SA-3). Never 0 (= "none"). */
+      meshSetId = esp_random() | 1u;
       applyLocked(CLOCK_SRC_MESH, (int64_t)adopt * 1000, rxMs);
     }
     if (locked) {
@@ -407,13 +452,7 @@ void Clock::minuteTick(const uint32_t& nowMillis) {
   }
 }
 
-uint32_t Clock::getExactUtcTime() {
-  // AVOID CONTEXT SWITCHES: updating time values
-  bool locked = xSemaphoreTake(mux, LONG_TIME) == pdTRUE;
-  if (!locked) {
-    log_e("failed to obtain clock mutex");
-  }
-
+uint32_t Clock::exactUtcLocked() {
   // Calculate passed time, millis
   uint32_t passedMs = millis();
   if (passedMs >= lastMillis) {
@@ -423,7 +462,17 @@ uint32_t Clock::getExactUtcTime() {
   {
     passedMs += 0xFFFFFFFF - lastMillis;
   }
-  uint32_t exactTime = utcTime + passedMs / 1000;
+  return utcTime + passedMs / 1000;
+}
+
+uint32_t Clock::getExactUtcTime() {
+  // AVOID CONTEXT SWITCHES: updating time values
+  bool locked = xSemaphoreTake(mux, LONG_TIME) == pdTRUE;
+  if (!locked) {
+    log_e("failed to obtain clock mutex");
+  }
+
+  uint32_t exactTime = exactUtcLocked();
 
   // Resume context switches
   if (locked) {

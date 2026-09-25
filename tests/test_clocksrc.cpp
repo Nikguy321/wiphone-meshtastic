@@ -503,6 +503,59 @@ int main() {
     CHECK(!clockNtpReplySane(NULL, 48, &got), "no packet, no clock");
   }
 
+  printf("-- the SIP store under a mesh clock (SA-3): the offset, and finalising a stamp\n");
+  {
+    CHECK(clockMeshCorrS(1786624519000LL, 1786624519000LL) == 0, "no error, no offset");
+    CHECK(clockMeshCorrS(1786624519000LL, 1786624519499LL) == 0 &&
+          clockMeshCorrS(1786624519000LL, 1786624519500LL) == -1 &&
+          clockMeshCorrS(1786624519500LL, 1786624519000LL) == 1,
+          "rounded to the nearest second, half away from zero, both signs");
+    /* The CTR replay's worst case: a mesh clock at 2079-12-31 23:59:59 replaced by NTP at
+     * 2026-08-13 12:35:19 — (1786624519 - 3471292799) s = -1684668280 (Python). */
+    CHECK(clockMeshCorrS(1786624519000LL, 3471292799000LL) == -1684668280,
+          "a 2079 mesh clock's offset fits and is exact");
+    CHECK(clockMeshCorrS(0, 4000000000000LL) == -2147483647 - 1 &&
+          clockMeshCorrS(4000000000000LL, 0) == 2147483647, "clamped, never wrapped");
+
+    const uint32_t now = 1786624519u;               // 2026-08-13 12:35:19 UTC, trusted
+    ClockMsgStamp st = {now, 0, 0xA5A5A5A5u, -1684668280};
+    uint32_t out = 0;
+    CHECK(clockMsgFinal(3471292700u, 0xA5A5A5A5u, &st, &out) && out == now - 99,
+          "this boot's mesh clock (2079, replayed): a stamp 99 s before NTP lands 99 s before now");
+    st.corrS = 3;
+    CHECK(clockMsgFinal(now - 600, 0xA5A5A5A5u, &st, &out) && out == now - 597,
+          "a mesh clock 3 s behind: its stamps move 3 s");
+    CHECK(clockMsgFinal(now - 600, 0x12345678u, &st, &out) && out == now - 600,
+          "an EARLIER boot's mesh stamp in the past is kept (no offset is known for it)");
+    out = 7;
+    CHECK(!clockMsgFinal(now + 1, 0x12345678u, &st, &out) && out == 7,
+          "an earlier boot's stamp in the FUTURE is not final: re-stamped like an unknown time");
+    CHECK(!clockMsgFinal(3471292700u, 0x12345678u, &st, &out),
+          "...which is exactly the 2079 replay whose boot has gone");
+    CHECK(clockMsgFinal(now, 0x12345678u, &st, &out) && out == now, "now itself is not the future");
+    CHECK(!clockMsgFinal(CLOCK_UNIX_MIN - 1, 0x12345678u, &st, &out),
+          "a stamp before 2026 is not final either");
+    st.corrS = 10;
+    CHECK(!clockMsgFinal(now - 5, 0xA5A5A5A5u, &st, &out),
+          "a correction that would put a stamp in the future is refused, not clamped");
+    CHECK(clockMsgFinal(now - 600, 0, &st, &out) && out == now - 600,
+          "an unreadable id (0) is an earlier boot's: kept, not corrected");
+    ClockMsgStamp zero = {now, 0, 0, 10};
+    CHECK(clockMsgFinal(now - 600, 0, &zero, &out) && out == now - 600,
+          "...even when no mesh clock was replaced (corrId 0 matches nothing)");
+    ClockMsgStamp none = {now, 0, 0, 0};
+    CHECK(clockMsgFinal(now - 600, 0, &none, &out) && out == now - 600,
+          "no correction this boot (NTP came first): past stamps kept");
+    ClockMsgStamp mesh = {now, 0xA5A5A5A5u, 0, 0};
+    out = 7;
+    CHECK(!clockMsgFinal(now - 600, 0xA5A5A5A5u, &mesh, &out) && out == 7,
+          "under a MESH clock nothing is final");
+    ClockMsgStamp unknown = {0, 0, 0, 0};
+    CHECK(!clockMsgFinal(now - 600, 0x12345678u, &unknown, &out) && out == 7,
+          "under an unknown clock nothing is final");
+    CHECK(!clockMsgFinal(now - 600, 0x12345678u, NULL, &out), "no clock, no answer");
+  }
+
   printf("%d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;
 }

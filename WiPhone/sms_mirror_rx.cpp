@@ -109,7 +109,7 @@ int smsMirrorIngestLine(const char* line, bool* wasIncoming) {
   }
 
   if (!gui.flash.messages.isLoaded()) {
-    gui.flash.messages.load(ntpClock.isTimeKnown() ? ntpClock.getExactUtcTime() : 0);   // UTC: see GUI::reloadMessages()
+    gui.flash.messages.load(ntpClock.msgStamp());   // UTC, and mesh = provisional: see GUI::reloadMessages()
   }
 
   int r = gui.flash.messages.ingestMirrored(rec, ownUri, peerUri);

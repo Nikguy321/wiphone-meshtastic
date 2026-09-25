@@ -348,3 +348,31 @@ int clockMeshOffer(ClockMeshVote* v, int clockSource, uint32_t node, bool privat
   v->c[slot].rxMs = rxMs;
   return CLK_MESH_WAIT;
 }
+
+// ---------------------------------------------------------------- the SIP message store (SA-3)
+
+int32_t clockMeshCorrS(int64_t trustedMs, int64_t meshMs) {
+  const int64_t d = trustedMs - meshMs;
+  int64_t s = (d >= 0) ? (d + 500) / 1000 : -((-d + 500) / 1000);   // nearest, half away from 0
+  if (s > 2147483647LL) {
+    s = 2147483647LL;
+  } else if (s < -2147483647LL - 1) {
+    s = -2147483647LL - 1;
+  }
+  return (int32_t)s;
+}
+
+bool clockMsgFinal(uint32_t t, uint32_t id, const ClockMsgStamp* st, uint32_t* out) {
+  if (!st || !out || st->utc == 0 || st->meshId != 0) {
+    return false;               // not a trusted clock: nothing is final yet
+  }
+  int64_t f = t;
+  if (id != 0 && id == st->corrId) {
+    f += st->corrS;             // the mesh clock this boot's NTP/GPS replaced: its exact error
+  }
+  if (f < (int64_t)CLOCK_UNIX_MIN || f > (int64_t)st->utc) {
+    return false;               // before this firmware existed, or in the future: re-stamp it
+  }
+  *out = (uint32_t)f;
+  return true;
+}

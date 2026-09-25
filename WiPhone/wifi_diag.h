@@ -170,4 +170,43 @@ int wifiDiagHealthField(char* out, size_t cap, const WifiDiagLog& log, const Wif
 /* "aa:bb:cc:dd:ee:ff" into out[18]; "-" for an all-zero BSSID (a failed join has none). */
 void wifiFormatBssid(const uint8_t bssid[6], char out[18]);
 
+/* ── WHICH LINK LINES REACH THE CARD (review F3, 0.9.79) ───────────────────────────────────────
+ * Serial gets EVERY `WIFI LOST` / `WIFI JOIN` (and `MARK assoc/disassoc`); /health.log gets at
+ * most ONE LOST/JOIN pair a minute. At the edge of an AP the core's capless auto-reconnect can
+ * associate and drop every 10-20 s for as long as the phone sits there, and each line is an SD
+ * open/append/close (~150-230 B) — at 6 cycles a minute that is 12 card writes a minute where
+ * the HEALTH line was cut to 1 on purpose, ~100 KB an hour into a log that keeps 128 KB across a
+ * trim: one flapping hour would push the BOOT reset_reason lines — what the trim exists to keep
+ * — off the end. The console's `disc` lines were already counted; these were not.
+ *
+ *   LOST   to the card if no LOST has gone there in the last minute (so the FIRST drop of any
+ *          minute keeps its full line: reason, AP, channel, RSSI).
+ *   JOIN   to the card if it closes a pair (its LOST went) — a pair is never split — or, on its
+ *          own, if nothing at all has gone there in the last minute.
+ *   HELD   everything else is serial-only and COUNTED; the counts go to the card as their own
+ *          line ("WIFI card: ...") just before the next LOST/JOIN that does, or after a quiet
+ *          minute (summaryDue) so the card still ends on how the storm ended.
+ * A steady flap every 10 s now costs three card lines a minute (the count, one LOST, its JOIN)
+ * where it cost twelve; tests/test_wifidiag.cpp plays that hour through. Pure; loop task only
+ * (Networks::diagTick, and a second instance for the MARK lines in WiPhone.ino). */
+#define WIFI_CARD_PERIOD_MS 60000u
+struct WifiCardGate {
+  uint32_t lastLostMs = 0;    // millis() of the last LOST that went to the card
+  uint32_t lastMs = 0;        // ...of the last line of ANY kind that did
+  uint32_t heldSinceMs = 0;   // the first held line of the current batch
+  uint32_t heldLost = 0;      // LOST lines kept off the card since the last "WIFI card:" line
+  uint32_t heldJoin = 0;      // JOIN lines, ditto
+  bool     anyLost = false;
+  bool     any = false;
+  bool     pairOpen = false;  // the last LOST went to the card and its JOIN has not come yet
+
+  bool lost(uint32_t ms);     // true: this LOST goes to the card
+  bool join(uint32_t ms);     // true: this JOIN goes to the card
+  /* Lines are held and nothing has gone to the card for a minute: write the counts now. */
+  bool summaryDue(uint32_t ms) const;
+  /* The held counts and when the batch began; true if there were any. Resets them, and counts
+   * as a card line at `ms` (the caller writes it). */
+  bool takeHeld(uint32_t ms, uint32_t* nLost, uint32_t* nJoin, uint32_t* sinceMs);
+};
+
 #endif  // WIPHONE_WIFI_DIAG_H

@@ -34,6 +34,7 @@ governing permissions and limitations under the License.
 #include "lwip/api.h"
 #include <WiFi.h>
 #include "Networks.h"
+#include "wifi_diag.h"         // WifiCardGate: the MARK assoc/disassoc card lines, one pair a minute
 #include "esp_log.h"
 #include <Update.h>
 #include "ota.h"
@@ -2120,9 +2121,17 @@ static uint32_t meshPopupShownMs = 0;
  * 33 hours, ~2 MB a month at the cap, on a card that holds gigabytes and whose other
  * occupant is a 5 MB book. The original 96 K was cautious about a resource that turned out
  * not to be scarce, and the caution cost data twice — once on 2026-08-15 (the reset_reason
- * line for a restart, wrapped 29 minutes later) and nearly again today. */
+ * line for a restart, wrapped 29 minutes later) and nearly again today.
+ *
+ * ⚠ THE HOURS ABOVE ARE STALE (review F3, 2026-09-25). The HEALTH line is ~232 bytes now, not
+ * ~130 (wdis/cr/ssf, pll/csw and clk= were added in 0.9.79 — see hl[] in healthLineTick), so
+ * a quiet phone fills 256 KB in ~18 h and a trim keeps ~9 h, not ~16. Anything else that
+ * writes here eats that window: the WiFi link lines are rate-limited for exactly that reason
+ * (wifi_diag.h WifiCardGate — one LOST/JOIN pair a minute, the rest counted). If ~9 h is
+ * ever too short, raise KEEP AND MAX together: each trim copies KEEP bytes on the loop task in
+ * 512 B pieces, so a bigger KEEP under the same MAX means both longer and more frequent stalls. */
 #define HEALTH_LOG_MAX  (256 * 1024)
-#define HEALTH_LOG_KEEP (128 * 1024)  // ~1000 lines, ~16 hours, retained across a trim
+#define HEALTH_LOG_KEEP (128 * 1024)  // ~560 lines of ~232 B: ~9 hours retained across a trim
 
 /* ── KEEP THE NEWEST HISTORY, NOT NONE OF IT ──────────────────────────────────────────
  * This used to hit the cap and SD.remove() the whole file. That threw away the most
@@ -2136,8 +2145,8 @@ static uint32_t meshPopupShownMs = 0;
  *
  * ⚠ Streamed in a 512-byte stack buffer, never loaded whole: internal heap is this
  * phone's scarcest resource and a 32 KB allocation here would be self-defeating.
- * ⚠ Runs roughly twice a day (64 KB of growth at ~130 bytes a line), so the one-off cost
- * of copying 32 KB is not worth optimising further.
+ * ⚠ Runs every ~9 hours (MAX - KEEP = 128 KB of growth at ~232 bytes a minute; the numbers
+ * this said, 64 KB at ~130 bytes, were for the old caps), copying KEEP = 128 KB each time.
  * Returns false if anything went wrong, and the caller then falls back to deleting —
  * an unbounded log is worse than a lost one. */
 static bool healthLogTrim() {
@@ -2259,6 +2268,35 @@ void heapEvent(const char* what) {
            (unsigned)ESP.getFreeHeap(), (unsigned long)(millis() / 1000));
   log_e("%s", line);
   healthLogLine(line);
+}
+
+/* The association marks: every change of WiFi.status() on serial, but on the CARD only a move
+ * INTO or OUT OF WL_CONNECTED, and those at most one disassoc/assoc pair a minute — the same
+ * gate as Networks.cpp's WIFI LOST/JOIN (wifi_diag.h WifiCardGate; review F3). A flapping link
+ * wrote one of these per status change, on top of the LOST/JOIN pair, with no limit at all; and
+ * a change between two NOT-connected states (DISCONNECTED <-> NO_SSID_AVAIL in a reconnect
+ * storm) was written as a "disassoc" too, which it is not. What the card misses is counted onto
+ * its next MARK line ("+N/M serial-only"). noinline: the line buffer stays out of loop()'s frame
+ * (review F1). LOOP TASK ONLY, like heapEvent(). */
+static void __attribute__((noinline)) wifiMarkLink(int was, int ws, uint32_t now) {
+  static WifiCardGate s_gate;
+  const bool assoc = (ws == WL_CONNECTED);
+  const bool edge = assoc || was == WL_CONNECTED;
+  const bool card = edge && (assoc ? s_gate.join(now) : s_gate.lost(now));
+  char line[144];               // ~68 for the mark, ~55 for a realistic held count: never cut
+  int n = snprintf(line, sizeof(line), "MARK %-10s largest=%u free=%u up=%lus status %d->%d",
+                   assoc ? "assoc" : "disassoc",
+                   (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
+                   (unsigned)ESP.getFreeHeap(), (unsigned long)(millis() / 1000), was, ws);
+  uint32_t heldL = 0, heldJ = 0, since = 0;
+  if (card && s_gate.takeHeld(now, &heldL, &heldJ, &since) && n > 0 && n < (int)sizeof(line)) {
+    snprintf(line + n, sizeof(line) - (size_t)n, " (+%lu/%lu disassoc/assoc serial-only since up=%lus)",
+             (unsigned long)heldL, (unsigned long)heldJ, (unsigned long)(since / 1000));
+  }
+  log_e("%s", line);
+  if (card) {
+    healthLogLine(line);
+  }
 }
 
 /* The same, but only when it actually moved — for events too frequent to log unconditionally
@@ -2882,6 +2920,138 @@ static inline void loopPhase(const char* name) {
   gPhaseAtMs = t;
 }
 
+/* ── THE HEALTH LINE, OUT OF loop()'S OWN FRAME (review F1, 0.9.79) ─────────────────────────
+ * 🛑 NOINLINE, AND THAT IS THE POINT. The two line buffers here (hl[256], kl[176]) have their
+ * addresses passed to snprintf, so while they lived inline in loop() the compiler reserved all
+ * 432 bytes in loop()'s frame for the WHOLE pass — under every call loop() makes, including
+ * the deepest chain in the firmware: a Books picture page (GUI::redrawScreen -> drawPage 1,120
+ * -> drawOneImage -> jpegGreyDecode 4,928 -> greyBlitRows -> pushImage) is ~7.6 KB of the 8 KB
+ * loop task on its own, and HANDOFF records a 408 B loop-task floor measured before 0.9.79.
+ * MEASURED with objdump (`entry a1, N`): loop() was 560 B on main and 640 B once hl grew 200 ->
+ * 256 for this branch's fields; with the buffers here it is 240 B, and this helper is 592 B —
+ * which exists only for the moment it runs, under nothing deeper than healthLogLine() (80) and
+ * its SD open (FatFS keeps its 512 B long-name buffer on the stack) or trim (608): ~3 KB from
+ * the task's top, against ~7.2 KB for the picture page, which is now 400 B shallower.
+ * ⚠ Keep it that way: BATTERY_UPDATE_EVENT and the low-battery power-off stay in loop() (the
+ * caller) on purpose — they reach app redraws and the book/map/game saves, and inside this
+ * helper those would run on top of hl and kl again. And never let the compiler inline it
+ * (a `static` function with one caller is exactly what -Os inlines). */
+static void __attribute__((noinline)) healthLineTick(uint32_t now, float soc, float v) {
+  /* ── HEALTH LINE ────────────────────────────────────────────────────────────
+   * One line a minute, at log_e so it is visible in the field. It answers both of
+   * the questions that keep coming up, over time rather than in a snapshot:
+   *
+   *   heap/min   a LEAK shows as `min` sliding down over hours. A steady min with
+   *              occasional dips is just normal churn.
+   *   largest    fragmentation: `free` can look healthy while the biggest single
+   *              block is too small for the WiFi PHY, which is how this phone
+   *              rebooted over a book.
+   *   soc/v      the drain rate, which is the only honest way to tell whether a
+   *              power change actually helped.
+   *   up         minutes since boot -- an unplanned restart resets it. */
+  static uint32_t s_minHeapEver = 0xFFFFFFFF;
+  const uint32_t fh = ESP.getFreeHeap();
+  if (fh < s_minHeapEver) {
+    s_minHeapEver = fh;
+  }
+  /* ⚠ hl[] IS NEARLY FULL. Worked out 2026-09-25 (0.9.79) from the formats and real
+   * health.log lines: the base line ~170, + wdis/cr/ssf ~28, + pll/csw ~22, + clk= ~12
+   * (mesh/NNNN) = ~232 typical, ~253 with five-digit counters everywhere. The appends below
+   * each re-measure strlen(), and clk= (the last) is dropped whole rather than cut. The NEXT
+   * field needs a bigger hl — it is still on the 8 KB loop task (this helper's frame, only
+   * while it runs: see above), so read the "loop-task stack floor" (serial `heap`) first. */
+  char hl[256];
+  wifi_ps_type_t hlPs;
+  int hlLen = snprintf(hl, sizeof(hl),
+           /* ⚠ aud= IS THE INSTRUMENT FOR THE AUDIO LEAK, and it is two numbers because one
+            * would not have found it: `powered` alone cannot tell a song playing from a
+            * codec left on after one stopped. `aud=1/0` — powered, moving no samples — IS
+            * the leak signature, and it is the state that reads as a perfectly idle phone
+            * everywhere else in this line (cpu=80MHz, scr=0, sip=1). */
+           "HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% est=%d%% v=%.2f chg=%d wifi=%d cpu=%luMHz scr=%d sip=%d aud=%d/%d ps=%d joins=%lu/%lu",
+           (unsigned long)(now / 60000), fh, s_minHeapEver, ESP.getMaxAllocHeap(),
+           /* est= is ALWAYS the curve, never the displayed value: on the charger the
+            * display shows the chip, and logging that twice would throw away the one
+            * number a future charge-side correction needs. */
+           ESP.getFreePsram(), (int)round(soc), batterySocFromVoltage(v), v,
+           (int)gui.state.battCharged, (int)WiFi.status(),
+           (unsigned long)getCpuFrequencyMhz(),
+           (int)gui.state.screenBrightness, (int)gui.state.sipState,
+           audio ? (int)audio->isOn() : 0, audio ? (int)audio->movingSamples() : 0,
+           /* ps=1 is MIN_MODEM (what we want), 0 is NONE (receiver at full power),
+            * -1 means the station is not up so the question does not apply. */
+           (esp_wifi_get_ps(&hlPs) == ESP_OK) ? (int)hlPs : -1,
+           /* joins=tried/skipped. Out of range these are THE numbers: `tried` should
+            * barely move once the scan gate has evidence, and `skipped` should climb in
+            * its place — each skip is ~30 s of radio not spent on empty air. */
+           (unsigned long)wifiState.joinsTried(),
+           (unsigned long)wifiState.joinsSkipped());
+  /* wdis=<disconnect events>/<last reason> cr=<of them answered by the core's own begin()>
+   * ssf=<runs of refused scan starts>/<last esp_err hex>. The reason is the number HEALTH
+   * never had: `wifi=` is only the core's lossy summary of it (wifi_diag.h). */
+  if (hlLen > 0 && hlLen < (int)sizeof(hl)) {
+    wifiDiagHealth(hl + hlLen, sizeof(hl) - (size_t)hlLen);
+  }
+  /* pll=<the PLL the CPU runs from> csw=<same-PLL switches>/<PLL re-locks, radio off>/<PLL
+   * re-locks WITH THE RADIO ON>. The third is the event that broke phone 1's WiFi 4 of 4;
+   * under `cpu method new` it stays 0 for the whole boot (cpu_clock_policy.h). */
+  hlLen = (int)strlen(hl);
+  if (hlLen < (int)sizeof(hl) - 1) {
+    cpuClockHealth(hl + hlLen, sizeof(hl) - (size_t)hlLen);
+  }
+  /* clk=<source>/<minutes since it set the clock> (0.9.79): none | ntp | gps | mesh. The
+   * log's own timestamps are only as good as this, so a day's health.log can now say which
+   * stretches were stamped from GPS, from the mesh, or from nothing at all.
+   * ⚠ LAST ON THE LINE, AND WHOLE OR NOT AT ALL. hl[] is nearly full (see its declaration),
+   * and snprintf truncates silently: a cut "clk=mesh/12" reads "clk=mesh/1" — a different,
+   * perfectly plausible number. So a field that did not fit is rolled back to nothing;
+   * a missing clk= (as opposed to clk=none) means the line ran out of room. */
+  {
+    const size_t used = strlen(hl);
+    if (used + 1 < sizeof(hl)) {
+      const size_t room = sizeof(hl) - used;
+      int n;
+      if (ntpClock.isTimeKnown()) {
+        n = snprintf(hl + used, room, " clk=%s/%lu",
+                     clockSourceName(ntpClock.getSource()),
+                     (unsigned long)(ntpClock.msSinceSet(millis()) / 60000u));   // not `now`: a set this pass is later than it
+      } else {
+        n = snprintf(hl + used, room, " clk=none");
+      }
+      if (n < 0 || (size_t)n >= room) {
+        hl[used] = '\0';           // did not fit whole: drop it rather than log a cut number
+      }
+    }
+  }
+  log_e("%s", hl);
+
+  /* ⚠ The CARD gets a line a minute, not one every fifteen seconds like the console.
+   * The battery poll runs at 15 s (BATTERY_CHECK_PERIOD_MS) and hanging the SD write
+   * off it meant 240 open-write-close cycles an hour — measurable drain from the very
+   * instrument meant to measure drain. Serial is free, so it keeps the faster rate;
+   * the card does not. */
+  static uint32_t s_lastCardLog = 0;
+  if (s_lastCardLog == 0 || now - s_lastCardLog >= 60000u) {
+    s_lastCardLog = now;
+    healthLogLine(hl);
+
+    /* Keypad health rides the same minute tick, but ONLY when something moved.
+     * Dropped keypresses happen while a person is holding the phone and nobody is
+     * watching a terminal, so the numbers have to reach the card; and a KEYS line
+     * every minute forever would just push the interesting hours off the end of a
+     * capped log. Silence here means the keypad had a clean minute. */
+    char kl[176];
+    int n = snprintf(kl, sizeof(kl), "KEYS ");
+    keypadHealth(kl + n, (int)sizeof(kl) - n);
+    static char s_lastKeys[176] = {0};
+    if (strcmp(kl, s_lastKeys)) {
+      strlcpy(s_lastKeys, kl, sizeof(s_lastKeys));
+      log_e("%s", kl);
+      healthLogLine(kl);
+    }
+  }
+}
+
 void loop() {
   while (1) {
     esp_task_wdt_reset();          // DIAGNOSTIC: see setup(). loop() never returns, so the
@@ -3044,7 +3214,7 @@ void loop() {
         const int ws = (int)WiFi.status();
         if (ws != s_lastWifiStatus) {
           if (s_lastWifiStatus >= 0) {
-            heapEvent(ws == WL_CONNECTED ? "assoc" : "disassoc");
+            wifiMarkLink(s_lastWifiStatus, ws, now);   // card: one pair a minute (review F3)
           }
           s_lastWifiStatus = ws;
         }
@@ -3933,9 +4103,14 @@ void loop() {
     // Clock update
     loopPhase("ntp");
     if (ntpClock.isUpdated()) {
+      /* The forced message reload: its load() repairs the unknown-time texts of this boot.
+       * 🛑 A MESH clock reloads but does NOT disarm it (review SA-3): that repair's stamps are
+       * provisional, and it is the reload on the first NTP or GPS set that finalises them
+       * (Storage.cpp). Disarming on the mesh set — as it did — let the mesh time stand for
+       * good. A mesh clock sets at most once a boot, so this is one reload more, at most. */
       if (waitingForClockUpdate) {
         updateMessageTimes = true;
-        waitingForClockUpdate = false;
+        waitingForClockUpdate = !ntpClock.isTimeTrusted();
       }
       msLastMinute = now;
       redrawWhat |= gui.processEvent(now, TIME_UPDATE_EVENT);
@@ -4042,119 +4217,8 @@ void loop() {
                             : (float)batterySocFromVoltage(v);
       }
 
-      /* ── HEALTH LINE ────────────────────────────────────────────────────────────
-       * One line a minute, at log_e so it is visible in the field. It answers both of
-       * the questions that keep coming up, over time rather than in a snapshot:
-       *
-       *   heap/min   a LEAK shows as `min` sliding down over hours. A steady min with
-       *              occasional dips is just normal churn.
-       *   largest    fragmentation: `free` can look healthy while the biggest single
-       *              block is too small for the WiFi PHY, which is how this phone
-       *              rebooted over a book.
-       *   soc/v      the drain rate, which is the only honest way to tell whether a
-       *              power change actually helped.
-       *   up         minutes since boot -- an unplanned restart resets it. */
-      static uint32_t s_minHeapEver = 0xFFFFFFFF;
-      const uint32_t fh = ESP.getFreeHeap();
-      if (fh < s_minHeapEver) {
-        s_minHeapEver = fh;
-      }
-      /* ⚠ hl[] IS NEARLY FULL. Worked out 2026-09-25 (0.9.79) from the formats and real
-       * health.log lines: the base line ~170, + wdis/cr/ssf ~28, + pll/csw ~22, + clk= ~12
-       * (mesh/NNNN) = ~232 typical, ~253 with five-digit counters everywhere. The appends below
-       * each re-measure strlen(), and clk= (the last) is dropped whole rather than cut. The NEXT
-       * field needs a bigger hl — but this is the 8 KB loop task's own frame, so read the
-       * "loop-task stack floor" (serial `heap`) before widening it. */
-      char hl[256];
-      wifi_ps_type_t hlPs;
-      int hlLen = snprintf(hl, sizeof(hl),
-               /* ⚠ aud= IS THE INSTRUMENT FOR THE AUDIO LEAK, and it is two numbers because one
-                * would not have found it: `powered` alone cannot tell a song playing from a
-                * codec left on after one stopped. `aud=1/0` — powered, moving no samples — IS
-                * the leak signature, and it is the state that reads as a perfectly idle phone
-                * everywhere else in this line (cpu=80MHz, scr=0, sip=1). */
-               "HEALTH up=%lumin heap=%u min=%u largest=%u psram=%u soc=%d%% est=%d%% v=%.2f chg=%d wifi=%d cpu=%luMHz scr=%d sip=%d aud=%d/%d ps=%d joins=%lu/%lu",
-               (unsigned long)(now / 60000), fh, s_minHeapEver, ESP.getMaxAllocHeap(),
-               /* est= is ALWAYS the curve, never the displayed value: on the charger the
-                * display shows the chip, and logging that twice would throw away the one
-                * number a future charge-side correction needs. */
-               ESP.getFreePsram(), (int)round(soc), batterySocFromVoltage(v), v,
-               (int)gui.state.battCharged, (int)WiFi.status(),
-               (unsigned long)getCpuFrequencyMhz(),
-               (int)gui.state.screenBrightness, (int)gui.state.sipState,
-               audio ? (int)audio->isOn() : 0, audio ? (int)audio->movingSamples() : 0,
-               /* ps=1 is MIN_MODEM (what we want), 0 is NONE (receiver at full power),
-                * -1 means the station is not up so the question does not apply. */
-               (esp_wifi_get_ps(&hlPs) == ESP_OK) ? (int)hlPs : -1,
-               /* joins=tried/skipped. Out of range these are THE numbers: `tried` should
-                * barely move once the scan gate has evidence, and `skipped` should climb in
-                * its place — each skip is ~30 s of radio not spent on empty air. */
-               (unsigned long)wifiState.joinsTried(),
-               (unsigned long)wifiState.joinsSkipped());
-      /* wdis=<disconnect events>/<last reason> cr=<of them answered by the core's own begin()>
-       * ssf=<runs of refused scan starts>/<last esp_err hex>. The reason is the number HEALTH
-       * never had: `wifi=` is only the core's lossy summary of it (wifi_diag.h). */
-      if (hlLen > 0 && hlLen < (int)sizeof(hl)) {
-        wifiDiagHealth(hl + hlLen, sizeof(hl) - (size_t)hlLen);
-      }
-      /* pll=<the PLL the CPU runs from> csw=<same-PLL switches>/<PLL re-locks, radio off>/<PLL
-       * re-locks WITH THE RADIO ON>. The third is the event that broke phone 1's WiFi 4 of 4;
-       * under `cpu method new` it stays 0 for the whole boot (cpu_clock_policy.h). */
-      hlLen = (int)strlen(hl);
-      if (hlLen < (int)sizeof(hl) - 1) {
-        cpuClockHealth(hl + hlLen, sizeof(hl) - (size_t)hlLen);
-      }
-      /* clk=<source>/<minutes since it set the clock> (0.9.79): none | ntp | gps | mesh. The
-       * log's own timestamps are only as good as this, so a day's health.log can now say which
-       * stretches were stamped from GPS, from the mesh, or from nothing at all.
-       * ⚠ LAST ON THE LINE, AND WHOLE OR NOT AT ALL. hl[] is nearly full (see its declaration),
-       * and snprintf truncates silently: a cut "clk=mesh/12" reads "clk=mesh/1" — a different,
-       * perfectly plausible number. So a field that did not fit is rolled back to nothing;
-       * a missing clk= (as opposed to clk=none) means the line ran out of room. */
-      {
-        const size_t used = strlen(hl);
-        if (used + 1 < sizeof(hl)) {
-          const size_t room = sizeof(hl) - used;
-          int n;
-          if (ntpClock.isTimeKnown()) {
-            n = snprintf(hl + used, room, " clk=%s/%lu",
-                         clockSourceName(ntpClock.getSource()),
-                         (unsigned long)(ntpClock.msSinceSet(millis()) / 60000u));   // not `now`: a set this pass is later than it
-          } else {
-            n = snprintf(hl + used, room, " clk=none");
-          }
-          if (n < 0 || (size_t)n >= room) {
-            hl[used] = '\0';           // did not fit whole: drop it rather than log a cut number
-          }
-        }
-      }
-      log_e("%s", hl);
-
-      /* ⚠ The CARD gets a line a minute, not one every fifteen seconds like the console.
-       * The battery poll runs at 15 s (BATTERY_CHECK_PERIOD_MS) and hanging the SD write
-       * off it meant 240 open-write-close cycles an hour — measurable drain from the very
-       * instrument meant to measure drain. Serial is free, so it keeps the faster rate;
-       * the card does not. */
-      static uint32_t s_lastCardLog = 0;
-      if (s_lastCardLog == 0 || now - s_lastCardLog >= 60000u) {
-        s_lastCardLog = now;
-        healthLogLine(hl);
-
-        /* Keypad health rides the same minute tick, but ONLY when something moved.
-         * Dropped keypresses happen while a person is holding the phone and nobody is
-         * watching a terminal, so the numbers have to reach the card; and a KEYS line
-         * every minute forever would just push the interesting hours off the end of a
-         * capped log. Silence here means the keypad had a clean minute. */
-        char kl[176];
-        int n = snprintf(kl, sizeof(kl), "KEYS ");
-        keypadHealth(kl + n, (int)sizeof(kl) - n);
-        static char s_lastKeys[176] = {0};
-        if (strcmp(kl, s_lastKeys)) {
-          strlcpy(s_lastKeys, kl, sizeof(s_lastKeys));
-          log_e("%s", kl);
-          healthLogLine(kl);
-        }
-      }
+      /* The HEALTH and KEYS lines. In a helper of their own, NOT inline here: see its header. */
+      healthLineTick(now, soc, v);
 
       log_d("Voltage/SOC = %.2f/%d%%", v, (int) round(soc));
       log_d("SD card = %d", gui.state.cardPresent);
@@ -4759,10 +4823,15 @@ void loop() {
 
       // Check for incoming messages
       TextMessage* msg = NULL;
-      if (msg = sip.checkMessage(now, ntpClock.getExactUtcTime(), ntpClock.isTimeKnown())) {
+      /* The time and WHO set it, in one lock (review SA-3): a SIP arrival stamped off a MESH
+       * clock is saved provisional (meshId) and finalised when NTP/GPS arrives. */
+      const ClockMsgStamp rxStamp = ntpClock.msgStamp();
+      if (msg = sip.checkMessage(now, rxStamp.utc, rxStamp.utc != 0)) {
         log_v("message received");
         // Save message from external RAM into a file (part of message database)
-        gui.flash.messages.saveMessage(msg->message, msg->from, msg->to, true, msg->useTime ? msg->utcTime : 0);    // time == 0 for unknown real time
+        gui.flash.messages.saveMessage(msg->message, msg->from, msg->to, true,
+                                       msg->useTime ? msg->utcTime : 0,    // time == 0 for unknown real time
+                                       0, 0, msg->useTime ? rxStamp.meshId : 0);
         delete msg;
         // Pass event to GUI
         appEventResult res = gui.processEvent(now, NEW_MESSAGE_EVENT);

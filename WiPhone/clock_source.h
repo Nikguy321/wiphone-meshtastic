@@ -254,7 +254,8 @@ int clockGpsStep(ClockGpsPair* p, const NmeaFix* fx, uint32_t rxMs, const ClockN
  * it never replaces a set clock, and NTP or GPS replaces IT the first time either appears.
  * What it can get wrong is what the phone SHOWS — the clock, message times and their order,
  * and the `sun` legal-light times, which say "via mesh" and "Mesh time: check it!" when it
- * is. Any new caller that ACTS on the time must ask isTimeTrusted(), not isTimeKnown(). */
+ * is. (Message times are also WRITTEN, to the SIP store; those stamps are provisional and NTP
+ * or GPS moves them — see the end of this file.) Any new caller that ACTS on the time must ask isTimeTrusted(), not isTimeKnown(). */
 #define CLOCK_MESH_AGREE_S         60
 #define CLOCK_MESH_CAND_MAX        4
 #define CLOCK_MESH_CAND_MAX_AGE_MS (60u * 60u * 1000u)   // older candidates are forgotten
@@ -273,5 +274,40 @@ int  clockMeshVoteCount(const ClockMeshVote* v, uint32_t nowMs);   // live candi
  * (one slot per node, the newest; the oldest goes when full) and CLK_MESH_WAIT returned. */
 int  clockMeshOffer(ClockMeshVote* v, int clockSource, uint32_t node, bool privateChannel,
                     uint32_t t, uint32_t rxMs, uint32_t* adoptUtc);
+
+/* ── THE SIP MESSAGE STORE UNDER A MESH CLOCK (0.9.79 review, SA-3) ──────────────────────────
+ * Message times follow any KNOWN clock — the list at the top of this file puts them on the
+ * SHOWN side, and a woods trip on a mesh clock must not leave its texts at the unknown-time
+ * sentinel, which sorts newest FOREVER ("a new text lands mid-thread", Storage.cpp). But that
+ * store is not a display: it WRITES the time to SPIFFS, and until this a text stamped from a
+ * mesh clock kept that stamp for good. A wrong mesh time — AHEAD to 2079 by the CTR replay
+ * above — then sat those texts on top of their threads long after NTP had put the clock right,
+ * and it used up the loop's one forced repair (WiPhone.ino, waitingForClockUpdate) on itself,
+ * so the first NTP answer re-stamped nothing. Both broke "NTP or GPS replaces IT".
+ *
+ * So a stamp written under a mesh clock is PROVISIONAL. The store marks it with the mesh
+ * set's id (key "tm", Storage.cpp), and the first load under a TRUSTED clock finalises it:
+ *   - written under the mesh clock that NTP or GPS replaced THIS boot: moved by exactly what
+ *     that replacement moved the clock (corrS) — right to the second however wrong the mesh
+ *     was, and a no-op for the usual right one (phone 2's GPS beacon);
+ *   - written under an EARLIER boot's mesh clock (no offset is known any more — there is no
+ *     RTC): kept if it is not in the future, because a past stamp cannot pin a text above
+ *     later ones; one in the future is re-stamped the way an unknown time is (false below).
+ * The id is random per mesh set (clock.cpp), so a replay of the same packet in two boots
+ * does not make one boot's texts take the other boot's offset. Everything is UTC seconds. */
+struct ClockMsgStamp {
+  uint32_t utc;       // now; 0 = the clock is not known (the store's "unknown time")
+  uint32_t meshId;    // nonzero: `utc` is a MESH clock's, set `meshId` -> stamps are provisional
+  uint32_t corrId;    // nonzero: NTP or GPS replaced mesh set `corrId` this boot...
+  int32_t  corrS;     // ...moving the clock by this many seconds (trusted minus mesh)
+};
+/* (trusted - mesh) in whole seconds, rounded to nearest, clamped to int32. */
+int32_t clockMeshCorrS(int64_t trustedMs, int64_t meshMs);
+/* Finalise one provisional stamp `t`, written under mesh set `id`, against `st`. Call it ONLY
+ * under a trusted clock (st->utc != 0 and st->meshId == 0); anything else returns false with
+ * *out untouched. true: *out is the final stamp (corrected when `id` is st->corrId, else `t`).
+ * false: it would land before 2026 or after st->utc, so no known offset makes it right — the
+ * caller re-stamps it like an unknown time. */
+bool clockMsgFinal(uint32_t t, uint32_t id, const ClockMsgStamp* st, uint32_t* out);
 
 #endif // CLOCK_SOURCE_H

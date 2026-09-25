@@ -207,6 +207,25 @@ if ! python3 tests/check_kosync_glue.py; then
   fail=1
 fi
 
+# ── SOURCE GUARD: the SIP message store never keeps a MESH clock's time (review SA-3) ─────
+# See tests/check_msg_clock.py. test_clocksrc proves clockMsgFinal/clockMeshCorrS; the glue that
+# makes a mesh stamp provisional - msgStamp() at every load and own stamp, the trusted-only
+# finalise before the sentinel repair, the "tm" marks, the reload armed until NTP/GPS, the offset
+# kept before the overwrite - lives in Storage.cpp, GUI.cpp, WiPhone.ino and clock.cpp.
+echo "checking the message store's mesh-clock stamps (provisional until NTP/GPS)"
+if ! python3 tests/check_msg_clock.py; then
+  fail=1
+fi
+
+# ── SOURCE GUARD: HEALTH out of loop()'s frame; WiFi link lines gated to the card (F1, F3) ─
+# See tests/check_health_log.py. The loop-task stack margin and the health.log's retention are
+# both properties of WHERE code sits (a noinline helper; every card write asking WifiCardGate),
+# which no host test can see.
+echo "checking the HEALTH helper and the WiFi card gate"
+if ! python3 tests/check_health_log.py; then
+  fail=1
+fi
+
 # ── THE MAC-SIDE TILE CONVERTER, against what the phone actually reads ────────────────────
 # tools/convert_tiles.py runs on a computer this suite will never see, and two of the three
 # things it can get wrong are SILENT on the phone: a byte-swapped RGB565 tile still draws a
