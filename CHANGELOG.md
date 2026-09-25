@@ -159,6 +159,11 @@ from the real source to prove its contract trips).
 - **The card save goes 16 KB a pass** (~66 KB was one ~0.1 s write), and the close/remove/rename gets a
   pass of its own on both filesystems; SPIFFS still writes its image whole (an erase cannot be chunked
   around). The finish happens on the filesystem the save started on, even if the card is pulled mid-save.
+- **Queued is not sent, everywhere it was said** (review M1-M3). Own frames are now QUEUED -> SENT/FAILED;
+  the map's share/unshare/delete, Books' "Sync my place" and the pin/beacon rows wait for that answer (a
+  retraction's waypoint id is kept until it has really left). A game or legacy upload started mid-frame no
+  longer leaves the radio deaf. `meshdb cut`/`wifi calreset`/`wifi restore` run the power-off saves first;
+  `meshdb cut` and both `power` sleeps refuse while a frame is on the air or waiting.
 
 ### Calls and music stop fighting over the codec; the SIP audit's leftovers (0.9.79 dev, 2026-09-25)
 

@@ -763,9 +763,13 @@ void MeshtasticApp::buildStatus() {
     /* "set (send FAILED)" is the honest state when the pin stuck locally but
      * the announce never transmitted — otherwise it reads as "they know where
      * I am" when nobody does. */
+    /* ⚠ AND "set" IS NOT SAID FOR A FRAME STILL IN THE QUEUE (review M1): the announce is
+     * queued, and "sending" until the radio reports it left whole. */
+    const uint8_t pinTx = meshService.pinAnnounceOutcome();
     snprintf(line, sizeof(line), "My pin: %s",
              !meshService.getMyPin(NULL, NULL, NULL) ? "not set" :
-             (meshService.pinAnnounceOk() ? "set" : "set (send FAILED)"));
+             pinTx == MESH_TXO_FAILED ? "set (send FAILED)" :
+             pinTx == MESH_TXO_QUEUED ? "set (sending)" : "set");
     menu->addOption(line, 9, 1);
     /* Whether this phone is telling the mesh where it is, and where to. It is
      * on Status because "am I broadcasting my location right now" should be
@@ -778,7 +782,8 @@ void MeshtasticApp::buildStatus() {
         * subtitle, so the whole state has to fit the 232 px title. */
       snprintf(line, sizeof(line), "Report: %lum - NOT SENT",
                (unsigned long)(pi / 60));
-    } else if (meshService.getPosLastTxMs() != 0 && !meshService.posLastSendOk()) {
+    } else if (meshService.getPosLastTxMs() != 0 &&
+               meshService.posLastOutcome() == MESH_TXO_FAILED) {
       // Same honesty as the pin row: a failed transmit is not a delivered one.
       /* ⚠ 396 px as first written TODAY — this row is where the send-failed fix
         * landed and it pushed the line far past the edge. The channel is dropped
@@ -865,7 +870,7 @@ void MeshtasticApp::buildMyNode() {
       } else if (meshService.getPosLastTxMs() == 0) {
         snprintf(sub, sizeof(sub), "to %s - first send due",
                  meshService.getPosChannelName());
-      } else if (!meshService.posLastSendOk()) {
+      } else if (meshService.posLastOutcome() == MESH_TXO_FAILED) {
         /* ⚠ THE ATTEMPT IS STAMPED WHETHER OR NOT IT REACHED THE AIR, so reading
          * only the timestamp renders a failed send as "sent 0 min ago" — which is
          * the exact failure the pin row one screen away was already fixed for:
@@ -873,6 +878,9 @@ void MeshtasticApp::buildMyNode() {
          * here; this row just was not asking for it. */
         snprintf(sub, sizeof(sub), "to %s - last send FAILED",
                  meshService.getPosChannelName());
+      } else if (meshService.posLastOutcome() == MESH_TXO_QUEUED) {
+        /* Queued is not sent (review M1): a second or two, then "sent 0 min ago". */
+        snprintf(sub, sizeof(sub), "to %s - sending", meshService.getPosChannelName());
       } else {
         snprintf(sub, sizeof(sub), "to %s - sent %lu min ago",
                  meshService.getPosChannelName(),

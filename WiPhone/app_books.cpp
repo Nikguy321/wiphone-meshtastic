@@ -348,6 +348,8 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   pendingFrom = 0;
   pendingClock = false;
   syncNote[0] = '\0';
+  syncTxId = 0;
+  syncTxCh = syncTxPct = 0;
   ksPartial[0] = '\0';
   ksByName[0] = '\0';
   ksIdsDone = false;
@@ -1114,6 +1116,7 @@ void BooksApp::saveSyncSettings() {
  * refuse and say why. */
 bool BooksApp::sendMyPlace() {
   syncNote[0] = '\0';
+  syncTxId = 0;                  // an older frame's answer must not re-word THIS attempt's note
   if (!isOpen || nIds <= 0) {
     snprintf(syncNote, sizeof(syncNote), "No book open");
     return false;
@@ -1151,9 +1154,43 @@ bool BooksApp::sendMyPlace() {
     return false;
   }
   bool ok = meshService.sendChannelMessage(ch->hash, text);
-  snprintf(syncNote, sizeof(syncNote), ok ? "Sent: ch %d, %d%%" : "Radio would not send",
-           spine + 1, (int)(fractionHere() * 100.0 + 0.5));
+  /* 🛑 QUEUED, NOT SENT (review M1, 2026-09-25). true means the frame is waiting for the radio;
+   * it goes within a second or two, or it does not (the pack died, the radio was lost with it
+   * queued). The note says so until the radio has spoken — syncNoteSettle(), on the menu's
+   * rebuild and its KOSync tick — and a refusal says WHY, in the compose screen's words. */
+  syncTxCh = spine + 1;
+  syncTxPct = (int)(fractionHere() * 100.0 + 0.5);
+  syncTxId = ok ? meshService.lastQueuedPacketId() : 0;
+  if (ok) {
+    snprintf(syncNote, sizeof(syncNote), "Queued: ch %d, %d%%", syncTxCh, syncTxPct);
+  } else {
+    snprintf(syncNote, sizeof(syncNote), "Not sent: %s",
+             meshService.lastSendError() ? meshService.lastSendError() : "radio would not send");
+  }
   return ok;
+}
+
+/* The frame "Sync my place" queued, re-read: "Sent" once it left whole, "NOT sent" if it never
+ * did. Still queued leaves "Queued" standing; FORGOTTEN (UNKNOWN: 16 newer own frames since, so
+ * the menu sat unopened a long while) stops asking and leaves it too — never a guess at "Sent".
+ * True when the note changed, so the menu rebuilds. */
+bool BooksApp::syncNoteSettle() {
+  if (!syncTxId) {
+    return false;
+  }
+  const uint8_t o = meshService.txOutcome(syncTxId);
+  if (o == MESH_TXO_QUEUED) {
+    return false;
+  }
+  syncTxId = 0;
+  if (o == MESH_TXO_SENT) {
+    snprintf(syncNote, sizeof(syncNote), "Sent: ch %d, %d%%", syncTxCh, syncTxPct);
+  } else if (o == MESH_TXO_FAILED) {
+    snprintf(syncNote, sizeof(syncNote), "NOT sent - the radio did not send it");
+  } else {
+    return false;                          // no word: "Queued" stays, and is still true
+  }
+  return true;
 }
 
 /* Anything parked for the book that is open? Called on opening one, on the reading screen's
@@ -1406,6 +1443,7 @@ void BooksApp::syncMyPlace() {
     sendMyPlace();
   } else {
     syncNote[0] = '\0';
+    syncTxId = 0;
   }
   kosyncIds();                   // (the place itself was flushed on the way into this menu)
   if (!kosyncSnapshot()) {
@@ -2043,6 +2081,7 @@ void BooksApp::buildMenu() {
   menu->addOption("Sync settings...", BOOKS_MENU_SYNCSET, 1);
   menu->addOption("Book info", BOOKS_MENU_INFO, 1);
   menu->addOption("Close book", BOOKS_MENU_CLOSE, 1);
+  syncNoteSettle();                        // "Queued" -> "Sent"/"NOT sent" once the radio says
   if (syncNote[0]) {
     menu->addNote(syncNote);               // what the last send did, good or bad
   }
@@ -2467,7 +2506,10 @@ appEventResult BooksApp::processEvent(EventType event) {
           return REDRAW_ALL;
         }
       }
-      if (menu && kosyncLinesChanged()) {
+      /* The sync note's frame: rebuilt when the radio has reported it (buildMenu() re-words). */
+      const bool noteMoved = syncTxId && meshService.txOutcome(syncTxId) != MESH_TXO_QUEUED;
+      /* (UNKNOWN counts as moved once: the rebuild's syncNoteSettle() then stops asking.) */
+      if (menu && (kosyncLinesChanged() || noteMoved)) {
         const MenuOption::keyType k = menu->currentKey();
         freeWidgets();
         buildMenu();

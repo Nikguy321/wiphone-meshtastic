@@ -93,6 +93,26 @@ static void sayLine(const char* line) {
   say("%s\n", line);
 }
 
+/* ── EVERY REBOOT FROM THE CABLE GOES THROUGH HERE ─────────────────────────────────────────
+ * 🛑 THE BENCH RUNS ON NICK'S DAILY PHONES. `meshdb cut`, `wifi calreset` and `wifi restore`
+ * each ended in a bare ESP.restart(), which skips everything the two power-off paths save
+ * first (WiPhone.ino: the low-battery cut and the 2.5 s hold): an open book's page turns since
+ * its last periodic save (BOOKS_SAVE_EVERY) and KOSync's last-move stamps, the map's view and
+ * dirty pins, a running download's cursor ("not a crash"), a running game's resume point.
+ * Review M3, 2026-09-25. The SAME four calls, in the same order, so a bench reboot leaves the
+ * phone exactly as a power-off would — and there is one place to add the next one.
+ * ⚠ Nothing here touches /meshdb.*: `meshdb cut` relies on no DB save running after it. */
+static void benchReboot(const char* who) {
+  booksSaveOpenPosition();          // app_books.h: the page you are on + KOSync's stamps
+  mapsSaveOpenView();               // app_maps.h: the view, and pins not yet written
+  tileFetchPowerOff();              // tile_fetch.h: a download's cursor, and "not a crash"
+  extern bool gbcSaveForPowerOff(); // app_gbc.h: a running game parks and writes its resume point
+  gbcSaveForPowerOff();
+  say("%s: saved what a power-off saves - rebooting\n", who);
+  delay(300);                       // let the lines above leave the UART
+  ESP.restart();
+}
+
 /* ⚠ One say() per line. say()'s buffer is 192 bytes and this text is ~750:
  * a single call TRUNCATED the help mid-list, so every command added after
  * `chan` was invisible to `?` — which is the one place a stranded user looks.
@@ -128,7 +148,9 @@ static void help() {
     "  meshdb     chat history: which filesystem, what loaded, what the next save keeps",
     "  meshdb cut BENCH: save, set /meshdb.bin aside as /meshdb.cut WITHOUT the rename (the state",
     "             a power cut mid-save leaves), then REBOOT - the boot log must say RECOVERED.",
-    "             Card only; refuses while an old /meshdb.cut is there (it may BE the database)",
+    "             Card only; refuses while an old /meshdb.cut is there (it may BE the database),",
+    "             or a frame waits for the radio, a server/window or a call is up. Runs the power-off",
+    "             saves (book place, map view, download cursor, game) before it reboots",
     "  wifi drop  simulate a hotspot blip, to measure the reconnect path",
     "  wifi off|on  the Settings \"WiFi\" switch from the cable (persisted, same calls)",
     "  wifi why   (or just `wifi`) why it dropped: disconnect reasons, the AP/channel/RSSI,",
@@ -187,6 +209,7 @@ static void help() {
     "             anything ever played",
     "  power lora sleep|rx    park the SX1276 in SLEEP (mesh DEAF) / back to RX-continuous",
     "  power sleep <secs>     light-sleep the ESP32 for N s (WiFi must be OFF): the floor",
+    "             (both sleeps refuse while a mesh frame is on the air or waiting)",
     "  cpu        the CPU clock: MHz, the PLL it runs from, radio on/off, method, and the switch",
     "             counts (same-PLL / PLL re-locks radio off / re-locks WITH THE RADIO ON)",
     "  cpu method old|new  new (default) never re-locks the PLL under a running radio: 160/80",
@@ -302,9 +325,12 @@ static void reportPos() {
     if (meshService.getPosLastTxMs() == 0) {
       say("pos: never beaconed (first send is a full interval after arming)\n");
     } else {
+      /* QUEUED is not SENT (review M1): the word is what the radio has reported so far. */
+      const uint8_t o = meshService.posLastOutcome();
       say("pos: last beacon %lus ago, %s, %d slot(s) skipped since\n",
           (unsigned long)((millis() - meshService.getPosLastTxMs()) / 1000UL),
-          meshService.posLastSendOk() ? "SENT" : "FAILED",
+          o == MESH_TXO_SENT ? "SENT" : o == MESH_TXO_QUEUED ? "QUEUED (not on the air yet)"
+                             : o == MESH_TXO_FAILED ? "FAILED" : "queued (no word since)",
           meshService.getPosSkipRuns());
     }
   }
@@ -917,7 +943,7 @@ static void run(char* line) {
           (unsigned)t.lastLen, (unsigned long)t.lastAirMs,
           (unsigned long)meshLoraAirtimeMs(t.lastLen));
       say("radio: longest deaf gap after a frame this boot %lu ms (TxDone to back in RX; an idle "
-          "pass is ~5, a Game Boy game counts whole)\n", (unsigned long)t.worstDeafMs);
+          "pass is ~5, a map frame up to ~100)\n", (unsigned long)t.worstDeafMs);
     } else {
       say("radio: nothing has finished on the air yet this boot\n");
     }
@@ -1609,8 +1635,7 @@ static void run(char* line) {
     const esp_err_t e = esp_phy_erase_cal_data_in_nvs();
     say("wifi calreset: erase %s - rebooting to recalibrate\n",
         e == ESP_OK ? "OK" : "FAILED (will still reboot; cal may simply be absent)");
-    delay(300);
-    ESP.restart();
+    benchReboot("wifi calreset");
     return;
   }
 
@@ -1624,8 +1649,7 @@ static void run(char* line) {
   if (!strcasecmp(line, "wifi restore")) {
     const esp_err_t e = esp_wifi_restore();
     say("wifi restore: %s - rebooting\n", e == ESP_OK ? "OK" : "FAILED");
-    delay(300);
-    ESP.restart();
+    benchReboot("wifi restore");
     return;
   }
   if (!strcasecmp(line, "chans")) {
@@ -1655,8 +1679,27 @@ static void run(char* line) {
    * leftover /meshdb.cut REFUSES the next run rather than being cleared (benchCutSave()). */
   if (!strcasecmp(line, "meshdb cut")) {
     extern volatile bool gGbcActive;
+    extern GUI gui;
     if (gGbcActive || tileFetchActive()) {
       say("meshdb cut: refused - a game or a map download owns the card right now\n");
+      return;
+    }
+    /* 🛑 SAFE TO TYPE ON A DAILY PHONE (review M3). The reboot below would end a transfer, a
+     * KOSync window (a reading position on its way in or out) or a call mid-way, and lose every
+     * frame still waiting for the radio — texts whose messages the save just wrote to the card
+     * as outgoing with no receipt, so after the reboot they would read "sent" forever. Wait for
+     * all of that, then type it again. */
+    if (xferServing()) {
+      say("meshdb cut: refused - the uploader or a KOSync window is up (`up off` / let it close)\n");
+      return;
+    }
+    if (gui.inCall()) {
+      say("meshdb cut: refused - a call is up\n");
+      return;
+    }
+    if (!meshService.txPipelineIdle()) {
+      say("meshdb cut: refused - %d frame(s) waiting for the radio%s; try again in a few seconds\n",
+          meshService.txQueued(), meshPhy.txBusy() ? " and one on the air" : "");
       return;
     }
     const char* why = meshService.benchCutSave();
@@ -1668,8 +1711,9 @@ static void run(char* line) {
     say("  REBOOTING NOW (so no save can heal it first). The boot log must say 'MESH DB: RECOVERED',\n");
     say("  `meshdb` must show the same counts, and `rm /meshdb.cut` tidies up. No RECOVERED line:\n");
     say("  the database is /meshdb.cut on the card - STOP and rename it back on a computer.\n");
-    delay(300);                              // let the lines above leave the UART
-    ESP.restart();
+    /* The power-off saves run AFTER the cut, not before: a refused cut then costs nothing, and
+     * none of them touches /meshdb.* (benchReboot()). */
+    benchReboot("meshdb cut");
     return;
   }
   if (!strcasecmp(line, "meshdb")) {
@@ -2234,11 +2278,18 @@ static void run(char* line) {
         return;
       }
       const bool sleep = !strcasecmp(arg, "lora sleep");
-      const bool wasTx = meshPhy.txBusy();
-      meshPhy.benchSleep(sleep);
+      /* 🛑 NOT OVER A FRAME (review M3). Sleep cuts the frame on the air — somebody's text,
+       * truncated on the air — and the next queued frame would wake the chip straight back up
+       * (a send ends the bench state), so the meter would read RX while this said SLEEP. */
+      if (sleep && !meshService.txPipelineIdle()) {
+        say("power lora sleep: refused - %d frame(s) waiting%s; try again in a few seconds\n",
+            meshService.txQueued(), meshPhy.txBusy() ? " and one on the air" : "");
+        return;
+      }
+      const bool cut = meshPhy.benchSleep(sleep);
       say("power lora: %s%s%s\n", sleep ? "SLEEP - the mesh is DEAF until `power lora rx`" : "RX-continuous",
           sleep ? " (a send or a radio re-init also ends it)" : "",
-          (sleep && wasTx) ? " - a frame on the air was CUT (its receipt says so; see `radio`)" : "");
+          cut ? " - a frame on the air was CUT (its receipt says so; see `radio`)" : "");
       return;
     }
     if (!strncasecmp(arg, "sleep", 5)) {
@@ -2272,6 +2323,16 @@ static void run(char* line) {
       }
       if (audioOn || gGbcActive) {
         say("power sleep: audio or the emulator is running - refused\n");
+        return;
+      }
+      /* 🛑 NOT WITH A FRAME ON THE AIR OR WAITING (review M3). Light sleep stops the loop, not
+       * the SX1276: a frame on the air finishes on its own and the chip then sits in STANDBY
+       * (~1.6 mA, not RX's ~11) until the loop comes back — so the floor reading is ~9 mA low,
+       * and any ACK owed waits out the sleep. A waiting frame would go out on waking and put its
+       * transmit in the next reading. Refused, not waited for: this is typed at a desk. */
+      if (!meshService.txPipelineIdle()) {
+        say("power sleep: refused - %d frame(s) waiting for the radio%s; try again in a few seconds\n",
+            meshService.txQueued(), meshPhy.txBusy() ? " and one on the air" : "");
         return;
       }
       say("power sleep: %d s. Keypad (GPIO%d low) wakes early; serial typed meanwhile is lost.\n",

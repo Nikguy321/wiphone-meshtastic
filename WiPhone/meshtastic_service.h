@@ -220,9 +220,10 @@ struct MeshTxStats {
   uint8_t  lastKind;        // ...and what it was (MeshTxKind)
   /* The longest the chip sat DEAF after a frame this boot: seen minus predicted, i.e. TxDone to
    * the pass that put it back in RX (the SX1276 idles in STANDBY meanwhile and hears nothing).
-   * One idle pass is ~5 ms; a long pass (a map frame, a WiFi scan) shows up here, and a Game Boy
-   * game counts whole (it skips the mesh loop). The bench number for "does a busy screen lose
-   * the quick reply to our own frame" - a DM's ACK, or the first relay of our broadcast. */
+   * One idle pass is ~5 ms; a long pass (a map frame, a WiFi scan) shows up here. A Game Boy
+   * game or a legacy whole-file upload no longer counts whole: both call txComplete() on their
+   * own cadence (review M2), so this stays the answer to "does a busy screen lose the quick
+   * reply to our own frame" - a DM's ACK, or the first relay of our broadcast. */
   uint32_t worstDeafMs;
 };
 
@@ -333,6 +334,25 @@ public:
    * gone that never went. A full queue is refused at once, "radio busy, try again". */
   const MeshTxStats& txStats() const;
   int      txQueued() const;         // own frames waiting (not counting the one on the air)
+  /* 🛑 WHAT BECAME OF ONE OWN FRAME — QUEUED, SENT or FAILED (mesh_txq.h, review M1). The map's
+   * pin share/unshare/delete, Books' "Sync my place" and the pin row used to take "queued" for
+   * "on the air"; they keep the id and ask. UNKNOWN (forgotten after 16 newer frames, or never
+   * noted) means "no word" and must be read as the caller's safe default, never as SENT. */
+  uint8_t  txOutcome(uint32_t packetId) const;
+  /* The packet id of the frame the last successful send queued, 0 after a refusal. Read it
+   * IMMEDIATELY after the call that returned true — the next send overwrites it. */
+  uint32_t lastQueuedPacketId() const;
+  /* Finish the frame on the air (TxDone -> RX, stats, outcome, a timeout's receipt) and start
+   * NOTHING. Called by loop() through txPump(), and from the two places that keep loop() from
+   * running for minutes: a Game Boy game (WiPhone.ino) and the legacy whole-file upload
+   * (app_gbc_xfer.cpp) — review M2. Loop task only; costs one bool test when nothing is on
+   * the air. */
+  void     txComplete();
+  /* May a BACKGROUND originator queue now? Nothing on the air and nothing waiting. Told no,
+   * it keeps its deadline / owed flag and asks again next pass. Public since review M3: the
+   * serial bench commands that reboot or sleep (`meshdb cut`, `power sleep`, `power lora
+   * sleep`) refuse while it is false, so a frame is never cut or stranded from the cable. */
+  bool     txPipelineIdle() const;
   int      txQueueCap() const;       // 8, or 2 on the internal fallback, 0 with no queue at all
   int      txQueueMaxDepth() const;  // deepest the own queue has been this boot
   int      relaysPending() const;    // relays waiting out their jitter
@@ -395,7 +415,10 @@ public:
   bool getMyPin(int32_t* latI, int32_t* lonI, uint32_t* pinnedAtUnix) const;
   bool setMyPin(int32_t latI, int32_t lonI);              // persist + announce
   void clearMyPin();
-  bool pinAnnounceOk() const { return lastAnnounceOk; }   // did the last announce transmit?
+  bool pinAnnounceOk() const { return lastAnnounceOk; }   // queued, and not since failed
+  /* 🛑 QUEUED IS NOT SENT (review M1): MESH_TXO_QUEUED while the announce waits for the radio
+   * ("sending"), SENT once it left whole, FAILED if it never did or was refused outright. */
+  uint8_t pinAnnounceOutcome() const { return lastAnnounceOk ? announceOutcome : (uint8_t)MESH_TXO_FAILED; }
 
   /* ---- Putting a place of your own on everyone's map (Maps -> Share) -------
    * The Maps app's pins are private marks on a private file (map_pins.h). This is the one
@@ -503,7 +526,10 @@ public:
    * has this true and is not overridden. */
   bool        posChannelWasPublic() const { return posChanWasPublic; }
   uint32_t    getPosLastTxMs() const { return posLastTxMs; }       // 0 = never
-  bool        posLastSendOk()  const { return posLastOk; }
+  bool        posLastSendOk()  const { return posLastOk; }         // queued, and not since failed
+  /* The last beacon's frame (mesh_txq.h MeshTxOutcome): QUEUED = "sending", SENT = it left whole,
+   * FAILED = refused or never left. Rows that say "sent N min ago" ask this first (review M1). */
+  uint8_t     posLastOutcome() const { return posLastOk ? posOutcome : (uint8_t)MESH_TXO_FAILED; }
   /* True when a slot has come round and is still waiting for a fix worth sending. */
   bool        posBeaconDue()   const { return posDue; }
   /* Why nothing is being sent right now — NULL when reporting is actually
@@ -699,7 +725,9 @@ private:
   uint32_t     myPinAtUnix;               // when pinned (0 = clock was unknown)
   uint32_t     refWaypointId;             // 0 = use the pin
   bool         placesNews;                // latched: positions/waypoints changed
-  bool         lastAnnounceOk;            // last announceMyPosition() transmitted
+  bool         lastAnnounceOk;            // last announceMyPosition() was queued, and has not failed
+  uint32_t     announceTxId;              // ...its frame's packet id (0 = none), for noteOwnOutcome()
+  uint8_t      announceOutcome;           // ...and what became of it (MeshTxOutcome)
   const char*  lastSendErr;               // see lastSendError(); a literal or NULL
   uint32_t     nextWpSweepMs;             // next local waypoint-expiry sweep
   int32_t      gpsLatI, gpsLonI;          // last VALID GPS fix (1e-7 deg)
@@ -723,7 +751,9 @@ private:
   bool         posLastValid;              // ...and whether there is one
   int          posSkipRuns;               // consecutive slots the movement gate ate
   uint32_t     posLastTxMs;               // millis() of the last beacon (0 = never)
-  bool         posLastOk;                 // did it reach the air?
+  bool         posLastOk;                 // queued, and not since failed (see posLastOutcome())
+  uint32_t     posTxId;                   // the last beacon's packet id (0 = none)
+  uint8_t      posOutcome;                // ...and what became of it (MeshTxOutcome)
   /* ⚠ THE SLOT IS OWED, NOT SPENT. Set when the interval comes round; cleared only when the
    * beacon is actually resolved (sent, or skipped because the phone has not moved). A slot
    * that finds no usable fix stays owed and fires the moment one arrives — see the long note
@@ -759,14 +789,14 @@ private:
    * The FIRST thing loop() does: service the frame on the air (TxDone -> back to RX; a
    * timeout fails an own frame's receipt), then start at most ONE frame — the own queue's
    * front, else the earliest-due relay. 🛑 It must run before the 5 s health check and before
-   * poll(): after a Game Boy game the chip sits in STANDBY with TxDone latched, because the
-   * whole mesh loop was skipped while it finished. */
+   * poll(): a long pass can come back to a chip in STANDBY with TxDone latched, and finishing
+   * that frame first is what puts it back in RX before anything listens. Its first half is
+   * txComplete() (public: a game and the legacy upload call it where this loop cannot run). */
   void txPump();
-  /* May a BACKGROUND originator queue now? Nothing on the air and nothing waiting. Told no,
-   * it keeps its deadline / owed flag and asks again next pass. */
-  bool txPipelineIdle() const;
   /* The radio is gone: every queued own frame's receipt fails with `err`, relays are dropped. */
   void txDropAll(uint8_t err);
+  /* Record an own frame's outcome (the ring, and the pin-announce / beacon rows it names). */
+  void noteOwnOutcome(uint32_t packetId, uint8_t outcome);
   /* A NodeInfo somebody asked for (want_response) that is waiting for an idle pipeline. The
    * damping decision is still taken when the request arrives (lastNodeInfoTxMs). */
   bool nodeInfoOwed;

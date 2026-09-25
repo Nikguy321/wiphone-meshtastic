@@ -4855,6 +4855,15 @@ void loop() {
      * 0.9.79 all three were 'mesh', and that one name sent the 0.6-1.5 s stalls to the wrong
      * suspect for three weeks (they were LoRa transmits). No behaviour change. */
     loopPhase("mesh");
+    /* 🛑 A GAME STARTED MID-FRAME MUST NOT LEAVE THE RADIO DEAF FOR THE WHOLE GAME (review M2,
+     * 2026-09-25). The mesh loop is skipped while the emulator runs, and after TxDone the SX1276
+     * waits in STANDBY for the pass that puts it back in RX — which was the first pass after the
+     * game. txComplete() finishes that frame (back to RX, its receipt, its stats) and starts
+     * nothing; it drives only the LoRa chip's own bit-banged bus (GPIO 12/13/14/27), never the
+     * LCD, the card or I2S, so it cannot collide with the emulator. A bool test when idle. */
+    if (gGbcActive) {
+      meshService.txComplete();
+    }
     const bool meshArrived = !gGbcActive && meshService.loop();
     loopPhase("mesh-ui");
     if (meshArrived) {

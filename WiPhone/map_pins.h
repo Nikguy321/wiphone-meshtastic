@@ -82,4 +82,38 @@ int  mapPinAutoName(const MapPin* pins, int n, char* out, size_t cap);
  * same way every press, or "select, edit, select again" edits a different pin the second time. */
 int  mapPinPickNearest(const int* vx, const int* vy, int n, int px, int py, int maxPx);
 
+/* ── A PIN'S FRAME, UNTIL THE RADIO SAYS WHAT BECAME OF IT ──────────────────────────────────
+ * 🛑 QUEUED IS NOT ON THE AIR (review M1, 2026-09-25; mesh_txq.h, MeshTxOutcome). A share, a
+ * re-share, "Take it off the mesh" and a delete of a shared pin each queue ONE waypoint frame,
+ * and the map used to act on "queued" as if it had gone: "Take it off the mesh" cleared the
+ * pin's waypoint id at once, so a retraction that then failed stranded the place on every
+ * other radio with nothing left on this phone that could ever retract it. Now the map keeps
+ * the frame's packet id and asks, and THIS decides what the answer means — pure, so the rule
+ * is proven on the host (tests/test_maptiles.cpp) rather than read off a screen.
+ *
+ * `outcome` is the MeshTxOutcome value (0 unknown, 1 queued, 2 sent, 3 failed). `final` is
+ * "no more waiting": the Maps app is closing, another pin operation is starting, or the radio
+ * has said nothing for too long. A final QUEUED is read like UNKNOWN — NO WORD — and no word
+ * takes the SAFE side, which is always the side that keeps a waypoint id: an id the mesh does
+ * not hold costs one harmless extra retraction later, an id thrown away costs a stale camp on
+ * everyone's map forever. The one exception is a delete, which keeps what deleting always did
+ * (the pin gone) — the frame is far likelier to be on its way than lost. */
+enum MapPinMeshOp : uint8_t {
+  MAP_PINOP_SHARE   = 1,   // a pin shared for the first time (the id was just made up)
+  MAP_PINOP_RESHARE = 2,   // an update of a pin the mesh already holds (moved, renamed, re-sent)
+  MAP_PINOP_UNSHARE = 3,   // "Take it off the mesh"
+  MAP_PINOP_DELETE  = 4,   // a shared pin deleted: the retraction
+};
+
+enum MapPinMeshAct : uint8_t {
+  MAP_PINACT_WAIT      = 0,   // still queued: keep asking
+  MAP_PINACT_DONE      = 1,   // it went (or no word on a delete): nothing more to change
+  MAP_PINACT_FORGET_ID = 2,   // the retraction went: NOW clear the pin's waypoint id
+  MAP_PINACT_ROLL_BACK = 3,   // a first share never left: clear the id, the pin stays just yours
+  MAP_PINACT_KEEP_ID   = 4,   // it did not go, or no word: the id stays (the mesh may hold it)
+  MAP_PINACT_RESTORE   = 5,   // a retraction never left: put the deleted pin back, id and all
+};
+
+uint8_t mapPinMeshSettle(uint8_t op, uint8_t outcome, bool final);
+
 #endif // MAP_PINS_H

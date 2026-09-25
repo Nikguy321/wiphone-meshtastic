@@ -144,4 +144,44 @@ inline bool meshTxPipelineIdle(bool phyBusy, int queueCount) {
   return !phyBusy && queueCount == 0;
 }
 
+/* ── WHAT BECAME OF OUR OWN FRAMES ─────────────────────────────────────────────────────────
+ * 🛑 QUEUED IS NOT ON THE AIR. Since the queue, a send returning true means the frame is
+ * WAITING for the radio. It leaves within a pass or two — or it does not: TxDone never comes
+ * (the woods pack died, a sagging pack browns the SX1276 out on TX), or MESH RADIO LOST drops
+ * the queue. A chat message learns that through its receipt (resolveAck). Nothing else did:
+ * the map's "Take it off the mesh" forgot the waypoint id on QUEUED, so a retraction that then
+ * failed could never be sent again; a pin share drew yellow, Books said "Sent", the pin row
+ * said "set" — all for a frame nobody heard (review M1, 2026-09-25; on main each got false
+ * from the blocking send's TX timeout and said so).
+ *
+ * So the pump notes every OWN frame here by packet id — QUEUED when it enters the queue, SENT
+ * on TxDone, FAILED on a TX timeout, a bench cut or a dropped queue — and a caller that must
+ * not claim "sent" before it is true asks. ACKs and relays are nobody's claim and are not
+ * noted. Small and forgetful on purpose: 16 frames (the queue holds 8 plus one on the air). An
+ * id older than that reads UNKNOWN, which a caller must treat as "no word" — its safe default
+ * — and NEVER as SENT. Storage is the caller's (a file static in the service, 84 bytes). */
+enum MeshTxOutcome : uint8_t {
+  MESH_TXO_UNKNOWN = 0,   // never noted here, or forgotten (16 newer own frames since)
+  MESH_TXO_QUEUED  = 1,   // waiting for the radio, or on the air now
+  MESH_TXO_SENT    = 2,   // TxDone: it left whole
+  MESH_TXO_FAILED  = 3,   // it did not leave: timed out, cut short, or dropped with the radio
+};
+
+#define MESH_TXO_SLOTS  16
+
+struct MeshTxOutcomeRing {
+  uint32_t id[MESH_TXO_SLOTS];        // 0 = empty
+  uint8_t  state[MESH_TXO_SLOTS];     // MeshTxOutcome
+  uint8_t  next;                      // the slot the next new id overwrites (the oldest)
+};
+
+void meshTxoInit(MeshTxOutcomeRing* r);
+
+/* Record `outcome` for `packetId`: updates its entry, or takes the oldest slot for a new one.
+ * Packet id 0 and MESH_TXO_UNKNOWN are ignored. ⚠ A final outcome (SENT/FAILED) is never
+ * turned back into QUEUED: a late QUEUED note for the same id is a bug somewhere else, and
+ * "queued" would make a caller wait on a frame that has already finished. */
+void    meshTxoNote(MeshTxOutcomeRing* r, uint32_t packetId, uint8_t outcome);
+uint8_t meshTxoGet(const MeshTxOutcomeRing* r, uint32_t packetId);   // MeshTxOutcome
+
 #endif // MESH_TXQ_H

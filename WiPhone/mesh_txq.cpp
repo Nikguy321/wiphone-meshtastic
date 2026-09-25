@@ -183,3 +183,42 @@ MeshTxPick meshTxPick(bool phyBusy, int queueCount, const MeshRelaySlot* relays,
   }
   return p;
 }
+
+// ---- What became of our own frames -------------------------------------------------------
+
+void meshTxoInit(MeshTxOutcomeRing* r) {
+  if (r) {
+    memset(r, 0, sizeof(*r));
+  }
+}
+
+void meshTxoNote(MeshTxOutcomeRing* r, uint32_t packetId, uint8_t outcome) {
+  if (!r || !packetId || outcome == MESH_TXO_UNKNOWN || outcome > MESH_TXO_FAILED) {
+    return;
+  }
+  for (int i = 0; i < MESH_TXO_SLOTS; i++) {
+    if (r->id[i] == packetId) {
+      if (outcome == MESH_TXO_QUEUED && r->state[i] != MESH_TXO_QUEUED) {
+        return;                              // finished stays finished (see the header)
+      }
+      r->state[i] = outcome;
+      return;
+    }
+  }
+  const int at = r->next % MESH_TXO_SLOTS;
+  r->id[at] = packetId;
+  r->state[at] = outcome;
+  r->next = (uint8_t)((at + 1) % MESH_TXO_SLOTS);
+}
+
+uint8_t meshTxoGet(const MeshTxOutcomeRing* r, uint32_t packetId) {
+  if (!r || !packetId) {
+    return MESH_TXO_UNKNOWN;
+  }
+  for (int i = 0; i < MESH_TXO_SLOTS; i++) {
+    if (r->id[i] == packetId) {
+      return r->state[i];
+    }
+  }
+  return MESH_TXO_UNKNOWN;
+}

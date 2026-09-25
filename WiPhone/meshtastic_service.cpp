@@ -73,6 +73,14 @@ static struct {
   uint8_t  len;
   uint32_t packetId;
 } s_txInFlight;
+/* What became of each own frame — QUEUED, then SENT or FAILED (mesh_txq.h, review M1). Written
+ * by meshTxEnqueue() and by noteOwnOutcome() from the pump and txDropAll(); read through
+ * txOutcome(). 84 bytes of internal RAM; zero at boot is "nothing known", which is correct. */
+static MeshTxOutcomeRing s_txo;
+/* The packet id the last successful meshTxEnqueue() queued, 0 after a refusal. Unlike
+ * s_lastTxPacketId (stamped before the frame is even encrypted) this is only ever the id of a
+ * frame that is really in the queue — the handle lastQueuedPacketId() gives the UI. */
+static uint32_t s_lastQueuedId = 0;
 
 #ifdef MESHTASTIC_PHY
 #include "mesh_phy.h"
@@ -129,12 +137,19 @@ static uint32_t meshNewPacketId() {
  * the air. True = queued; it goes out within a pass or two, and txPump() fails the message's
  * receipt if it then does not. */
 static bool meshTxEnqueue(const uint8_t* pkt, size_t len, uint32_t packetId, bool urgent) {
+  s_lastQueuedId = 0;
   if (!meshPhy.isReady()) {
     s_txError = "no radio";
     return false;
   }
   const bool ok = urgent ? meshTxqPushFront(&s_txq, pkt, len, MESH_TXK_ACK, packetId)
                          : meshTxqPushBack(&s_txq, pkt, len, MESH_TXK_OWN, packetId);
+  if (ok && !urgent) {
+    /* An own frame: "queued", and nothing more, until the pump says otherwise (mesh_txq.h).
+     * An ACK is nobody's claim and is not noted. */
+    meshTxoNote(&s_txo, packetId, MESH_TXO_QUEUED);
+    s_lastQueuedId = packetId;
+  }
   if (!ok) {
     s_txStats.refused++;
     s_txError = "radio busy, try again";
@@ -334,6 +349,8 @@ MeshtasticService::MeshtasticService()
   refWaypointId = 0;
   placesNews = false;
   lastAnnounceOk = false;
+  announceTxId = 0;
+  announceOutcome = MESH_TXO_UNKNOWN;
   lastSendErr = NULL;
   nextWpSweepMs = 0;
   gpsLatI = gpsLonI = 0;
@@ -352,6 +369,8 @@ MeshtasticService::MeshtasticService()
   posSkipRuns = 0;
   posLastTxMs = 0;
   posLastOk = false;
+  posTxId = 0;
+  posOutcome = MESH_TXO_UNKNOWN;
   posDue = false;
 }
 
@@ -722,6 +741,10 @@ bool MeshtasticService::announceMyPosition() {
    * fall-through to channels[0]. */
   const MeshChannel* ch = announceChannel();
   lastAnnounceOk = ch && sendPositionOn(myPinLatI, myPinLonI, ch, "pin");
+  /* QUEUED, not sent (review M1): the Status row says "sending" until the pump reports this
+   * frame, and "send FAILED" if it never leaves — noteOwnOutcome() watches this id. */
+  announceTxId = lastAnnounceOk ? s_lastQueuedId : 0;
+  announceOutcome = lastAnnounceOk ? MESH_TXO_QUEUED : MESH_TXO_FAILED;
   return lastAnnounceOk;
 #else
   lastAnnounceOk = myPinSet;
@@ -1021,6 +1044,11 @@ bool MeshtasticService::sendGpsPosition() {
   const bool ok = sendPositionOn(latI, lonI, ch, "gps beacon");
   posLastTxMs = millis();
   posLastOk = ok;
+  /* QUEUED, not sent (review M1). If the frame then fails to leave, noteOwnOutcome() takes
+   * posLastOk AND the movement gate's "last sent" back, so the rows say FAILED and the next
+   * slot does not think the mesh already has this position. */
+  posTxId = ok ? s_lastQueuedId : 0;
+  posOutcome = ok ? MESH_TXO_QUEUED : MESH_TXO_FAILED;
   if (ok) {
     /* The movement gate measures from what actually WENT OUT, not from the last
      * fix: a failed send must not make the next slot think the mesh already
@@ -1331,40 +1359,12 @@ void MeshtasticService::scheduleRebroadcast(const uint8_t* pkt, uint8_t len) {
 /* ── THE TRANSMIT PUMP ──────────────────────────────────────────────────────────────────────
  * See mesh_txq.h for the why (the 'mesh' loop stalls were the old blocking send) and the rules.
  * Runs FIRST in loop(). Costs, per pass: one rate-limited IRQ read while a frame is on the air;
- * nothing at all otherwise until something is queued or a relay falls due. */
+ * nothing at all otherwise until something is queued or a relay falls due.
+ * Two halves: txComplete() finishes the frame on the air and never starts one; the rest here
+ * starts at most one. Only the first half runs outside loop() — see txComplete(). */
 void MeshtasticService::txPump() {
+  txComplete();
 #ifdef MESHTASTIC_PHY
-  const MeshTxState st = meshPhy.serviceTx();
-  if (st == MESH_TX_DONE || st == MESH_TX_TIMEOUT) {
-    s_lastPhyTxMs = millis();              // "finished", which is what the beacon spacing meant
-    if (s_txInFlight.active) {
-      s_txInFlight.active = false;
-      if (st == MESH_TX_DONE) {
-        if (s_txInFlight.kind == MESH_TXK_RELAY) {
-          s_txStats.relay++;
-        } else {
-          s_txStats.own++;
-        }
-        s_txStats.airMsTotal += meshLoraAirtimeMs(s_txInFlight.len);
-        s_txStats.lastAirMs = meshPhy.lastTxAirMs();
-        s_txStats.lastLen = s_txInFlight.len;
-        s_txStats.lastKind = s_txInFlight.kind;
-        const uint32_t pred = meshLoraAirtimeMs(s_txInFlight.len);   // rounded up: never over
-        const uint32_t deaf = s_txStats.lastAirMs > pred ? s_txStats.lastAirMs - pred : 0;
-        if (deaf > s_txStats.worstDeafMs) {
-          s_txStats.worstDeafMs = deaf;
-        }
-      } else {
-        s_txStats.timeout++;
-        /* An own frame that never left: its message (if it has one waiting on a receipt)
-         * says "failed: timed out" instead of sitting there looking sent. A beacon has no
-         * receipt and resolveAck() finds nothing; an ACK or a relay is nobody's message. */
-        if (s_txInFlight.kind == MESH_TXK_OWN) {
-          resolveAck(s_txInFlight.packetId, 3);
-        }
-      }
-    }
-  }
   if (radioState != MESH_RADIO_READY) {
     return;
   }
@@ -1399,6 +1399,90 @@ void MeshtasticService::txPump() {
 #endif
 }
 
+/* ── THE FIRST HALF: FINISH THE FRAME ON THE AIR, START NOTHING ─────────────────────────────
+ * TxDone -> the chip back in RX (inside serviceTx), the stats, the frame's outcome; a timeout
+ * fails an own frame's receipt. It never starts a frame, never touches the queue's order, the
+ * card, the screen or I2S — only the LoRa chip's own bit-banged bus (GPIO 12/13/14/27,
+ * Hardware.h), the receipt table in PSRAM and a log line.
+ * 🔑 THAT IS WHY IT MAY RUN WHERE loop() DOES NOT (review M2, 2026-09-25). After TxDone the
+ * SX1276 sits in STANDBY — deaf — until something puts it back in RX, and only serviceTx()
+ * does. loop() is skipped for a whole Game Boy game (WiPhone.ino) and never reached while the
+ * legacy whole-file upload owns the loop (app_gbc_xfer.cpp), so a frame on the air as either
+ * began left the radio deaf for all of it — where the old blocking send was back in RX within
+ * ~1 ms and latched the last packet heard. Both now call this; it costs one bool test when
+ * nothing is on the air and one rate-limited (2 ms) IRQ read while something is.
+ * ⚠ NOT spread into every loopPhase(): the ordinary gap is one pass (0-7 ms idle, up to ~100 ms
+ * over a map frame), a 16-symbol preamble is 131 ms, and the review judged that not worth TX
+ * bookkeeping in every phase before a bench shows a missed ACK (`radio`: worst deaf gap). */
+void MeshtasticService::txComplete() {
+#ifdef MESHTASTIC_PHY
+  const MeshTxState st = meshPhy.serviceTx();
+  if (st == MESH_TX_DONE || st == MESH_TX_TIMEOUT) {
+    s_lastPhyTxMs = millis();              // "finished", which is what the beacon spacing meant
+    if (s_txInFlight.active) {
+      s_txInFlight.active = false;
+      if (st == MESH_TX_DONE) {
+        if (s_txInFlight.kind == MESH_TXK_RELAY) {
+          s_txStats.relay++;
+        } else {
+          s_txStats.own++;
+        }
+        if (s_txInFlight.kind == MESH_TXK_OWN) {
+          noteOwnOutcome(s_txInFlight.packetId, MESH_TXO_SENT);   // on the air: now it is "sent"
+        }
+        s_txStats.airMsTotal += meshLoraAirtimeMs(s_txInFlight.len);
+        s_txStats.lastAirMs = meshPhy.lastTxAirMs();
+        s_txStats.lastLen = s_txInFlight.len;
+        s_txStats.lastKind = s_txInFlight.kind;
+        const uint32_t pred = meshLoraAirtimeMs(s_txInFlight.len);   // rounded up: never over
+        const uint32_t deaf = s_txStats.lastAirMs > pred ? s_txStats.lastAirMs - pred : 0;
+        if (deaf > s_txStats.worstDeafMs) {
+          s_txStats.worstDeafMs = deaf;
+        }
+      } else {
+        s_txStats.timeout++;
+        /* An own frame that never left: its message (if it has one waiting on a receipt)
+         * says "failed: timed out" instead of sitting there looking sent. A beacon has no
+         * receipt and resolveAck() finds nothing; an ACK or a relay is nobody's message. */
+        if (s_txInFlight.kind == MESH_TXK_OWN) {
+          noteOwnOutcome(s_txInFlight.packetId, MESH_TXO_FAILED);   // a pin share, a beacon...
+          resolveAck(s_txInFlight.packetId, 3);                     // ...and a text's receipt
+        }
+      }
+    }
+  }
+#endif
+}
+
+/* An own frame's outcome: into the ring (mesh_txq.h) for anyone who kept its packet id, and
+ * onto the two rows that name a frame of their own — the pin announce and the GPS beacon. */
+void MeshtasticService::noteOwnOutcome(uint32_t packetId, uint8_t outcome) {
+  meshTxoNote(&s_txo, packetId, outcome);
+  if (packetId && packetId == announceTxId) {
+    announceOutcome = outcome;
+    if (outcome == MESH_TXO_FAILED) {
+      lastAnnounceOk = false;                // "set (send FAILED)": nobody heard it
+    }
+  }
+  if (packetId && packetId == posTxId) {
+    posOutcome = outcome;
+    if (outcome == MESH_TXO_FAILED) {
+      /* The same rule sendGpsPosition() applies to a refusal: a position that never went out
+       * must not be what the movement gate measures from, nor read as the last one sent. */
+      posLastOk = false;
+      posLastValid = false;
+    }
+  }
+}
+
+uint8_t MeshtasticService::txOutcome(uint32_t packetId) const {
+  return meshTxoGet(&s_txo, packetId);
+}
+
+uint32_t MeshtasticService::lastQueuedPacketId() const {
+  return s_lastQueuedId;
+}
+
 bool MeshtasticService::txPipelineIdle() const {
 #ifdef MESHTASTIC_PHY
   return meshTxPipelineIdle(meshPhy.txBusy(), meshTxqCount(&s_txq));
@@ -1413,6 +1497,7 @@ void MeshtasticService::txDropAll(uint8_t err) {
   for (int i = 0; i < queued; i++) {
     const MeshTxFrame* f = meshTxqAt(&s_txq, i);
     if (f && f->kind == MESH_TXK_OWN) {
+      noteOwnOutcome(f->packetId, MESH_TXO_FAILED);   // a pin share or retraction too, not only texts
       resolveAck(f->packetId, err);          // "no radio interface" on the message, not "sent"
       ours++;
     }
@@ -1422,6 +1507,7 @@ void MeshtasticService::txDropAll(uint8_t err) {
   meshRelayClear(rebroadcast, MESH_RELAY_SLOTS);
   nodeInfoOwed = false;                      // a reply for a radio that is gone; recovery re-announces
   if (s_txInFlight.active && s_txInFlight.kind == MESH_TXK_OWN) {
+    noteOwnOutcome(s_txInFlight.packetId, MESH_TXO_FAILED);
     resolveAck(s_txInFlight.packetId, err);  // belt and braces: never true mid-frame today
   }
   s_txInFlight.active = false;
@@ -1644,9 +1730,10 @@ void MeshtasticService::setup() {
 
 bool MeshtasticService::loop() {
   /* 🛑 THE RADIO FIRST: before the database save, before the 5 s health check, before poll().
-   * txPump() finishes the frame on the air (after a Game Boy game the chip has been sitting in
-   * STANDBY with TxDone latched, because this whole loop was skipped) and starts at most one
-   * more. It never waits for the air: see mesh_txq.h for why that used to be the 'mesh' stall. */
+   * txPump() finishes the frame on the air and starts at most one more. It never waits for the
+   * air: see mesh_txq.h for why that used to be the 'mesh' stall. (A Game Boy game skips this
+   * whole loop; since review M2 the game's passes call txComplete() so the frame on the air as
+   * it began still ends in RX — but nothing new starts until the game is over.) */
   txPump();
 
   // Debounced persistence of new nodes/messages (limits flash wear).
@@ -3081,6 +3168,14 @@ const char* MeshtasticService::benchCutSave() {
   }
   if (SD.exists(MESH_DB_CUT)) {
     return "/meshdb.cut from an earlier run is still there - check it, then `rm /meshdb.cut`";
+  }
+  /* A DM waiting for its key derive (sendDirectMessage's deferred PKI path) is in the thread as
+   * outgoing but not yet in the radio's queue: the reboot would strand it looking "sent". The
+   * serial command already refuses a busy pipeline; this is the half only the service sees. */
+  for (int i = 0; i < 2; i++) {
+    if (pendingDm[i].active) {
+      return "a DM is still waiting to be queued - try again in a second";
+    }
   }
   saveDb();                                  // the same snapshot and temp file a real save makes
   if (!saveActive) {

@@ -25,6 +25,21 @@ meshtastic_service.cpp or WiPhone.ino - files the host suite cannot compile:
     'sent'); MESH RADIO LOST fails everything queued (txDropAll); and `power lora rx` never
     forces RX over a frame on the air (benchSleep's setModeRxContinuous only under !txActive).
 
+Review M1-M3 (2026-09-25) added three more families, because "queued" kept being read as "sent"
+one layer further out:
+
+  - M1, QUEUED IS NOT SENT: every own frame's outcome is recorded (meshTxEnqueue notes QUEUED; the
+    pump's DONE path SENT; its TIMEOUT path and txDropAll FAILED), and the words are chosen from it
+    - "Take it off the mesh" never clears the waypoint id itself (only a retraction reported SENT
+    does, in settleMeshOp), sharePin says "Sending", Books' sendMyPlace says "Queued";
+  - M2, THE FRAME ON THE AIR IS FINISHED WHERE loop() CANNOT RUN: txPump() starts with
+    txComplete(), which never starts a frame, and a Game Boy game (WiPhone.ino) and the legacy
+    upload (app_gbc_xfer.cpp handleUpload) call it - else the chip sits deaf in STANDBY for all of it;
+  - M3, BENCH COMMANDS ARE SAFE ON A DAILY PHONE: every serial reboot goes through benchReboot(),
+    which runs the four power-off saves first; `meshdb cut`, `power sleep` and `power lora sleep`
+    refuse while a frame is on the air or waiting; txCutShort() asks the chip for TX_DONE before it
+    calls a frame cut.
+
 Like tests/check_call_audio.py this states each contract POSITIVELY and a contract that cannot find
 its function fails too. A self-test replays the pre-fix shapes first, so a contract that has
 quietly stopped matching fails loudly - and then REMOVES each of those four guards from the real
@@ -67,6 +82,36 @@ def else_block(code, block_end):
 
 # resolveAck() on the frame in flight with a NON-ZERO reason (0 is "delivered")
 FAIL_IN_FLIGHT = re.compile(r"\bresolveAck\s*\(\s*s_txInFlight\s*\.\s*packetId\s*,\s*(?!0\s*\))[^)\s]")
+# an own frame's outcome recorded as FAILED (review M1)
+NOTE_FAILED = re.compile(r"\bnoteOwnOutcome\s*\([^;]*\bMESH_TXO_FAILED\b")
+
+
+def raw_block(raw, code, pat):
+    """(open, close) of the `{...}` block that follows the first CODE match of `pat` in the raw
+    text (strip_code blanks string literals, so a command's name is found in the raw text at a
+    position the stripped text shows is code). None when absent."""
+    for m in re.finditer(pat, raw):
+        if code[m.start():m.start() + 2] != "if":
+            continue
+        ob = code.find("{", m.end() - 1)
+        cb = match_close(code, ob) if ob >= 0 else -1
+        if cb > 0:
+            return ob, cb
+    return None
+
+
+IDLE_REFUSAL = re.compile(r"!\s*meshService\s*\.\s*txPipelineIdle\s*\(")
+
+
+def refuses_before(code, blk, call_rx):
+    """Inside block blk: an `if (... !meshService.txPipelineIdle() ...) { ... return ... }` that
+    comes before the first match of call_rx. False when either is missing."""
+    a, z = blk
+    call = call_rx.search(code, a, z)
+    if not call:
+        return False
+    return any(h[0] < call.start() and re.search(r"\breturn\b", code[h[1]:h[2] + 1])
+               for h in ifs(code, a, z, IDLE_REFUSAL))
 
 
 def check(files):
@@ -196,29 +241,59 @@ def check(files):
             bad.append("the `if (!meshPhy.healthCheck())` (MESH RADIO LOST) branch must call "
                        "txDropAll(<non-zero reason>) - else queued messages sit there looking sent")
     tp = function_body(svc, "MeshtasticService::txPump")
+    tc = function_body(svc, "MeshtasticService::txComplete")
     if tp is None:
         bad.append("MeshtasticService::txPump() not found")
+    elif tc is None:
+        bad.append("MeshtasticService::txComplete() not found - the pump's first half (review M2)")
     else:
+        # ── M2: the pump's first half finishes the frame and starts nothing ──────────────────
+        if not re.match(r"\s*txComplete\s*\(\s*\)\s*;", svc[tp[0] + 1:tp[1]]):
+            bad.append("txComplete(); must be the FIRST statement of txPump() - one copy of TxDone")
+        tcb = svc[tc[0] + 1:tc[1]]
+        if re.search(r"\b(?:startSend|meshTxPick|meshTxqPop)\s*\(", tcb):
+            bad.append("txComplete() starts a frame - it runs where loop() does not (a game, an "
+                       "upload), so it must only FINISH one (review M2)")
         # the TIMEOUT path: the else of `if (... MESH_TX_DONE)`, or an `if` on MESH_TX_TIMEOUT alone
-        tpb = svc[tp[0] + 1:tp[1]]
-        paths = []
-        for h in ifs(tpb, 0, len(tpb), re.compile(r"\bMESH_TX_(?:DONE|TIMEOUT)\b")):
-            c = if_cond(tpb, h[0])
+        paths, done_paths = [], []
+        for h in ifs(tcb, 0, len(tcb), re.compile(r"\bMESH_TX_(?:DONE|TIMEOUT)\b")):
+            c = if_cond(tcb, h[0])
             has_done = re.search(r"\bMESH_TX_DONE\b", c)
             has_to = re.search(r"\bMESH_TX_TIMEOUT\b", c)
             if has_done and not has_to:
-                e = else_block(tpb, h[2])
+                done_paths.append((h[1], h[2]))
+                e = else_block(tcb, h[2])
                 if e:
                     paths.append(e)
             elif has_to and not has_done:
                 paths.append((h[1], h[2]))
-        own = [h for (a, z) in paths
-               for h in ifs(tpb, a, z, re.compile(r"(?:==\s*MESH_TXK_OWN|MESH_TXK_OWN\s*==)"))
-               if FAIL_IN_FLIGHT.search(tpb, h[1], h[2] + 1)]
+        own_rx = re.compile(r"(?:==\s*MESH_TXK_OWN|MESH_TXK_OWN\s*==)")
+        own = [h for (a, z) in paths for h in ifs(tcb, a, z, own_rx)
+               if FAIL_IN_FLIGHT.search(tcb, h[1], h[2] + 1)]
         if not own:
-            bad.append("txPump()'s TIMEOUT path must `if (s_txInFlight.kind == MESH_TXK_OWN) "
+            bad.append("txComplete()'s TIMEOUT path must `if (s_txInFlight.kind == MESH_TXK_OWN) "
                        "resolveAck(s_txInFlight.packetId, <non-zero>)` - else a message that never "
                        "left stays 'sent'")
+        # ── M1: queued is not sent - every own frame's outcome is recorded ───────────────────
+        failed = [h for (a, z) in paths for h in ifs(tcb, a, z, own_rx)
+                  if NOTE_FAILED.search(tcb, h[1], h[2] + 1)]
+        if not failed:
+            bad.append("txComplete()'s TIMEOUT path must noteOwnOutcome(<id>, MESH_TXO_FAILED) for an "
+                       "own frame - else a pin share or retraction that never left reads 'queued' "
+                       "forever and the map keeps waiting (review M1)")
+        sent = [h for (a, z) in done_paths for h in ifs(tcb, a, z, own_rx)
+                if re.search(r"\bnoteOwnOutcome\s*\([^;]*\bMESH_TXO_SENT\b", tcb[h[1]:h[2] + 1])]
+        if not sent:
+            bad.append("txComplete()'s DONE path must noteOwnOutcome(<id>, MESH_TXO_SENT) for an own "
+                       "frame - the only place 'sent' becomes true (review M1)")
+    eq = body(svc, "meshTxEnqueue")
+    if eq is None or not re.search(r"\bmeshTxoNote\s*\([^;]*\bMESH_TXO_QUEUED\b", eq):
+        bad.append("meshTxEnqueue() must meshTxoNote(..., MESH_TXO_QUEUED) an own frame it queues "
+                   "- the outcome starts at QUEUED, never at SENT (review M1)")
+    da = body(svc, "MeshtasticService::txDropAll")
+    if da is None or not NOTE_FAILED.search(da):
+        bad.append("txDropAll() must noteOwnOutcome(<id>, MESH_TXO_FAILED) the frames it drops - "
+                   "a pin retraction dropped with a dying pack is FAILED, not queued (review M1)")
     for m in re.finditer(r"meshPhy\s*\.\s*startSend\s*\(", svc):
         if tp is None or not (tp[0] < m.start() < tp[1]):
             line = svc.count("\n", 0, m.start()) + 1
@@ -246,6 +321,94 @@ def check(files):
     if not (0 <= a < b < c < d):
         bad.append("WiPhone.ino: loopPhase(\"mesh\") -> meshService.loop() -> loopPhase(\"mesh-ui\") "
                    "-> the popup, in that order")
+
+    # ── M2: where loop() cannot run, the frame on the air is still finished ───────────────────
+    game = [h for h in ifs(ino, max(a, 0), b if b > 0 else len(ino),
+                           re.compile(r"(?<![!\w])gGbcActive\b"))
+            if re.search(r"meshService\s*\.\s*txComplete\s*\(", ino[h[1]:h[2] + 1])]
+    if a < 0 or b < 0 or not game:
+        bad.append("WiPhone.ino: between loopPhase(\"mesh\") and meshService.loop(), `if (gGbcActive) "
+                   "meshService.txComplete();` - a game started mid-frame must not leave the radio "
+                   "deaf in STANDBY for the whole game (review M2)")
+    xfer = files.get("app_gbc_xfer.cpp", "")
+    hu = body(xfer, "handleUpload")
+    if hu is None or not re.search(r"meshService\s*\.\s*txComplete\s*\(", hu):
+        bad.append("app_gbc_xfer.cpp handleUpload() must call meshService.txComplete() on its "
+                   "per-piece yield - the legacy upload owns the loop for the whole file (review M2)")
+
+    # ── M1: the claims. Queued is not sent, where the words are chosen ────────────────────────
+    maps = files.get("app_maps.cpp", "")
+    maps_raw = files.get("app_maps.cpp.raw", "")
+    un = maps.find("case ROW_P_UNSHARE")
+    un_end = maps.find("case ROW_P_", un + 10) if un >= 0 else -1
+    if un < 0 or un_end < 0:
+        bad.append("app_maps.cpp: the `case ROW_P_UNSHARE` block not found")
+    else:
+        blk = maps[un:un_end]
+        if re.search(r"\bsharedId\s*=\s*0\b", blk):
+            bad.append("app_maps.cpp: \"Take it off the mesh\" (ROW_P_UNSHARE) clears the pin's "
+                       "waypoint id on QUEUED - a retraction that then fails can never be sent again; "
+                       "the id goes only when the radio reports it SENT (settleMeshOp, review M1)")
+        if not re.search(r"\bbeginMeshOp\s*\(\s*MAP_PINOP_UNSHARE\b", blk):
+            bad.append("app_maps.cpp: ROW_P_UNSHARE must beginMeshOp(MAP_PINOP_UNSHARE, ...) so the "
+                       "radio's answer decides the id (review M1)")
+    sp = function_body(maps, "MapsApp::sharePin")
+    if sp is None or not re.search(r"\bbeginMeshOp\s*\(", maps[sp[0]:sp[1]]) or \
+            re.search(r'"Shared ', maps_raw[sp[0]:sp[1]]):
+        bad.append("app_maps.cpp: sharePin() must beginMeshOp() and say 'Sending' - \"Shared\" is "
+                   "said only once the radio reports the frame SENT (review M1)")
+    books = files.get("app_books.cpp", "")
+    books_raw = files.get("app_books.cpp.raw", "")
+    sm = function_body(books, "BooksApp::sendMyPlace")
+    if sm is None or re.search(r'"Sent', books_raw[sm[0]:sm[1]]) or \
+            not re.search(r"\blastQueuedPacketId\s*\(", books[sm[0]:sm[1]]):
+        bad.append("app_books.cpp: sendMyPlace() must say 'Queued' and keep lastQueuedPacketId() - "
+                   "'Sent' only once the radio reports it (syncNoteSettle, review M1)")
+
+    # ── M3: bench commands safe to type on a daily phone ──────────────────────────────────────
+    ser = files.get("serial_cmd.cpp", "")
+    ser_raw = files.get("serial_cmd.cpp.raw", "")
+    br = function_body(ser, "benchReboot")
+    if br is None:
+        bad.append("serial_cmd.cpp: benchReboot() not found - every cable reboot runs the power-off "
+                   "saves (review M3)")
+    else:
+        brb = ser[br[0]:br[1]]
+        rs = first(brb, r"\bESP\s*\.\s*restart\s*\(")
+        for save in ("booksSaveOpenPosition", "mapsSaveOpenView", "tileFetchPowerOff",
+                     "gbcSaveForPowerOff"):
+            at = first(brb, r"\b" + save + r"\s*\(\s*\)\s*;")
+            if rs < 0 or at < 0 or at > rs:
+                bad.append(f"serial_cmd.cpp: benchReboot() must call {save}() before ESP.restart() - "
+                           "the same saves as both power-off paths (review M3)")
+        for m in re.finditer(r"\bESP\s*\.\s*restart\s*\(", ser):
+            if not (br[0] < m.start() < br[1]):
+                line = ser.count("\n", 0, m.start()) + 1
+                bad.append(f"serial_cmd.cpp:{line} reboots with a bare ESP.restart() - use "
+                           "benchReboot() (an open book's page turns, a game, the map's view)")
+    cut = raw_block(ser_raw, ser, r'if\s*\(\s*!strcasecmp\s*\(\s*line\s*,\s*"meshdb cut"\s*\)\s*\)')
+    if cut is None or not refuses_before(ser, cut, re.compile(r"\bbenchCutSave\s*\(")):
+        bad.append("serial_cmd.cpp: `meshdb cut` must refuse `if (!meshService.txPipelineIdle())` "
+                   "before benchCutSave() - queued texts would be lost to the reboot looking sent")
+    slp = raw_block(ser_raw, ser, r'if\s*\(\s*!strncasecmp\s*\(\s*arg\s*,\s*"sleep"\s*,\s*5\s*\)\s*\)')
+    if slp is None or not refuses_before(ser, slp, re.compile(r"\besp_light_sleep_start\s*\(")):
+        bad.append("serial_cmd.cpp: `power sleep` must refuse `if (!meshService.txPipelineIdle())` "
+                   "before esp_light_sleep_start() - a frame finishing in light sleep leaves the chip "
+                   "in STANDBY for the rest of it (review M3)")
+    lora = raw_block(ser_raw, ser, r'if\s*\(\s*!strcasecmp\s*\(\s*arg\s*,\s*"lora sleep"\s*\)')
+    if lora is None or not refuses_before(ser, lora, re.compile(r"\bbenchSleep\s*\(")):
+        bad.append("serial_cmd.cpp: `power lora sleep` must refuse while !txPipelineIdle() before "
+                   "benchSleep() - sleep cuts the frame on the air (review M3)")
+    cs = body(phy, "MeshPhy::txCutShort")
+    if cs is None:
+        bad.append("MeshPhy::txCutShort() not found")
+    else:
+        rd = first(cs, r"readReg\s*\(\s*REG_IRQ_FLAGS\s*\)")
+        td = first(cs, r"IRQ_TX_DONE_MASK")
+        ab = first(cs, r"\btxAborted\s*=\s*true")
+        if rd < 0 or td < 0 or ab < 0 or not (rd < td < ab):
+            bad.append("txCutShort() must read REG_IRQ_FLAGS and test IRQ_TX_DONE_MASK before it "
+                       "calls the frame cut - a frame that finished whole is SENT (review M3)")
     return bad
 
 
@@ -283,17 +446,36 @@ void MeshPhy::benchSleep(bool on) {
   if (on) { writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP); }
   else { benchSleeping = false; setModeRxContinuous(); }
 }
+void MeshPhy::txCutShort(const char* why) {
+  if (!txActive) { return; }
+  txActive = false;
+  txAborted = true;
+}
 """
 OLD_SVC = """
+static bool meshTxEnqueue(const uint8_t* pkt, size_t len) {
+  return meshTxqPushBack(&s_txq, pkt, len, MESH_TXK_OWN, 0);
+}
 void MeshtasticService::txPump() {
+  const MeshTxState st = meshPhy.serviceTx();
+  meshPhy.startSend(a, b);
+}
+void MeshtasticService::txComplete() {
   const MeshTxState st = meshPhy.serviceTx();
   if (st == MESH_TX_DONE || st == MESH_TX_TIMEOUT) {
     if (s_txInFlight.active) {
       s_txInFlight.active = false;
-      if (st == MESH_TX_DONE) { s_txStats.own++; } else { s_txStats.timeout++; }
+      if (st == MESH_TX_DONE) {
+        if (s_txInFlight.kind == MESH_TXK_OWN) { s_txStats.own++; }
+      } else {
+        if (s_txInFlight.kind == MESH_TXK_OWN) { s_txStats.timeout++; }
+      }
     }
   }
   meshPhy.startSend(a, b);
+}
+void MeshtasticService::txDropAll(uint8_t err) {
+  resolveAck(f->packetId, err);
 }
 bool MeshtasticService::loop() {
   saveDbStep();
@@ -319,19 +501,86 @@ OLD_INO = """
       gui.showMeshPopup(title, nm->text);
     }
 """
+OLD_XFER = """
+static void handleUpload() {
+  s_uploadFile.write(up.buf, up.currentSize);
+  delay(1);
+}
+"""
+OLD_MAPS = """
+bool MapsApp::sharePin(int idx, char* why, size_t whyCap) {
+  pins[idx].sharedId = id;
+  if (onAir) { snprintf(why, whyCap, "Shared '%s' on %s", pins[idx].name, ch->name); }
+  return onAir;
+}
+void x() {
+  switch (sel) {
+      case ROW_P_UNSHARE: {
+        const bool ok = meshService.unshareWaypoint(pins[pinSel].sharedId, pinChannel(pinSel));
+        if (ok) { pins[pinSel].sharedId = 0; savePins(); setNote("Taken off the mesh"); }
+        return REDRAW_ALL;
+      }
+      case ROW_P_CENTRE:
+        return REDRAW_ALL;
+  }
+}
+"""
+OLD_BOOKS = """
+bool BooksApp::sendMyPlace() {
+  bool ok = meshService.sendChannelMessage(ch->hash, text);
+  snprintf(syncNote, sizeof(syncNote), ok ? "Sent: ch %d, %d%%" : "Radio would not send", a, b);
+  return ok;
+}
+"""
+OLD_SERIAL = """
+void serialCmd(const char* line, const char* arg) {
+  if (!strcasecmp(line, "wifi calreset")) {
+    delay(300);
+    ESP.restart();
+    return;
+  }
+  if (!strcasecmp(line, "meshdb cut")) {
+    const char* why = meshService.benchCutSave();
+    delay(300);
+    ESP.restart();
+    return;
+  }
+  if (!strcasecmp(arg, "lora sleep") || !strcasecmp(arg, "lora rx")) {
+    meshPhy.benchSleep(sleep);
+    return;
+  }
+  if (!strncasecmp(arg, "sleep", 5)) {
+    const esp_err_t r = esp_light_sleep_start();
+    return;
+  }
+}
+"""
 
 
 def selftest():
     got = check({"mesh_phy.cpp": strip_code(OLD_PHY), "mesh_phy.h": "bool send(const uint8_t* d);",
                  "meshtastic_service.cpp": strip_code(OLD_SVC), "WiPhone.ino": strip_code(OLD_INO),
-                 "WiPhone.ino.raw": OLD_INO})
+                 "WiPhone.ino.raw": OLD_INO, "app_gbc_xfer.cpp": strip_code(OLD_XFER),
+                 "app_maps.cpp": strip_code(OLD_MAPS), "app_maps.cpp.raw": OLD_MAPS,
+                 "app_books.cpp": strip_code(OLD_BOOKS), "app_books.cpp.raw": OLD_BOOKS,
+                 "serial_cmd.cpp": strip_code(OLD_SERIAL), "serial_cmd.cpp.raw": OLD_SERIAL})
     want = ["MeshPhy::send() is back", "loops on IRQ_TX_DONE_MASK", "calls meshPhy.send()",
             "healthCheck() must", "poll() must", "serviceTx() must", "must be the FIRST statement",
             "before saveDbStep()", "the periodic NodeInfo", "the neighbour drip",
             "the position beacon", "the owed NodeInfo reply", "want_response NodeInfo must",
             "starts a frame outside txPump()", "replayPump() must", "WiPhone.ino: loopPhase",
-            "startSend() must", "benchSleep() must", "MESH RADIO LOST", "TIMEOUT path must",
-            "retry loop of >= 3"]
+            "startSend() must", "benchSleep() must", "MESH RADIO LOST", "TIMEOUT path must `if",
+            "retry loop of >= 3",
+            # review M2: the frame on the air is finished where loop() does not run
+            "txComplete(); must be the FIRST", "txComplete() starts a frame",
+            "meshService.txComplete();` - a game", "handleUpload() must call",
+            # review M1: queued is not sent
+            "TIMEOUT path must noteOwnOutcome", "DONE path must noteOwnOutcome",
+            "meshTxEnqueue() must", "txDropAll() must", "(ROW_P_UNSHARE) clears",
+            "ROW_P_UNSHARE must beginMeshOp", "sharePin() must", "sendMyPlace() must",
+            # review M3: bench commands safe on a daily phone
+            "benchReboot() not found", "`meshdb cut` must refuse", "`power sleep` must refuse",
+            "`power lora sleep` must refuse", "txCutShort() must read"]
     missing = [w for w in want if not any(w in g for g in got)]
     if missing:
         for w in missing:
@@ -356,13 +605,48 @@ MUTATIONS = [
     # the health check's retry loop cut down to one read (the pre-0.9.79 single-read shape)
     ("mesh_phy.cpp", "retry loop of >= 3",
      r"for\s*\(\s*int\s+attempt\s*=\s*0\s*;\s*attempt\s*<\s*3\s*;", "for (int attempt = 0; attempt < 1;"),
+    # ── review M1-M3 (2026-09-25) ──
+    # a failed own frame no longer recorded: the map would wait on a retraction that never left
+    ("meshtastic_service.cpp", "TIMEOUT path must noteOwnOutcome",
+     r"noteOwnOutcome\s*\(\s*s_txInFlight\s*\.\s*packetId\s*,\s*MESH_TXO_FAILED\s*\)\s*;", ""),
+    # "Take it off the mesh" forgetting the id on QUEUED again (the stranding)
+    ("app_maps.cpp", "(ROW_P_UNSHARE) clears",
+     r"beginMeshOp\s*\(\s*MAP_PINOP_UNSHARE\s*,[^;]*;", "pins[pinSel].sharedId = 0;"),
+    # the game no longer finishing the frame on the air
+    ("WiPhone.ino", "meshService.txComplete();` - a game",
+     r"if\s*\(\s*gGbcActive\s*\)\s*\{\s*meshService\s*\.\s*txComplete\s*\(\s*\)\s*;\s*\}", ""),
+    # a cable reboot that skips the reading position
+    ("serial_cmd.cpp", "must call booksSaveOpenPosition()",
+     r"booksSaveOpenPosition\s*\(\s*\)\s*;", ""),
+    # `meshdb cut` back on a bare restart
+    ("serial_cmd.cpp", "bare ESP.restart()", r"benchReboot\s*\(\s*\)\s*;", "ESP.restart();", 2),
+    # `meshdb cut` without its pipeline refusal (the first such `if` in the file)
+    ("serial_cmd.cpp", "`meshdb cut` must refuse",
+     r"if\s*\(\s*!\s*meshService\s*\.\s*txPipelineIdle\s*\(\s*\)\s*\)", "if (false)"),
+    # `power sleep` without its pipeline refusal (the second)
+    ("serial_cmd.cpp", "`power sleep` must refuse",
+     r"if\s*\(\s*!\s*meshService\s*\.\s*txPipelineIdle\s*\(\s*\)\s*\)", "if (false)", 1),
+    # the bench cut calling a finished frame cut
+    ("mesh_phy.cpp", "txCutShort() must read",
+     r"if\s*\(\s*\(\s*irq\s*&\s*IRQ_TX_DONE_MASK\s*\)", "if ((irq & 0)"),
 ]
+
+
+def sub_nth(pat, repl, text, nth):
+    """Replace only the nth (0-based) match of pat. Returns (text, 1) or (text, 0)."""
+    ms = list(re.finditer(pat, text))
+    if len(ms) <= nth:
+        return text, 0
+    m = ms[nth]
+    return text[:m.start()] + m.expand(repl) + text[m.end():], 1
 
 
 def mutation_test(files):
     ok = True
-    for name, want, pat, repl in MUTATIONS:
-        mutated, n = re.subn(pat, repl, files[name], count=1)
+    for mut in MUTATIONS:
+        name, want, pat, repl = mut[:4]
+        nth = mut[4] if len(mut) > 4 else 0
+        mutated, n = sub_nth(pat, repl, files[name], nth)
         if n != 1:
             print(f"  SELF-TEST FAILED: the '{want}' guard is no longer where this mutation looks "
                   f"in {name} - update MUTATIONS with the guard")
@@ -373,8 +657,8 @@ def mutation_test(files):
             print(f"  SELF-TEST FAILED: removing the guard from {name} did not trip '{want}'")
             ok = False
     if ok:
-        print(f"  ok  self-test: removing each of the {len(MUTATIONS)} guards (queued-is-honest + the health re-read) "
-              "from the real source trips its contract")
+        print(f"  ok  self-test: removing each of the {len(MUTATIONS)} guards (queued-is-honest, the health "
+              "re-read, and review M1-M3's outcome / game / bench guards) from the real source trips its contract")
     return ok
 
 
@@ -382,7 +666,8 @@ def main():
     if not selftest():
         return 1
     files = {}
-    for name in ("mesh_phy.cpp", "mesh_phy.h", "meshtastic_service.cpp", "WiPhone.ino"):
+    for name in ("mesh_phy.cpp", "mesh_phy.h", "meshtastic_service.cpp", "WiPhone.ino",
+                 "app_gbc_xfer.cpp", "app_maps.cpp", "app_books.cpp", "serial_cmd.cpp"):
         raw = (ROOT / name).read_text(errors="replace")
         files[name] = strip_code(raw)
         files[name + ".raw"] = raw
@@ -394,7 +679,9 @@ def main():
     if not mutation_test(files):
         return 1
     print("  ok  no blocking transmit; health/poll/serviceTx guards, the pump's order, the "
-          "background senders' idle gates and the four 'queued is honest' guards all hold")
+          "background senders' idle gates, the four 'queued is honest' guards, every own frame's "
+          "outcome and the UI that waits on it, the game/upload TX completion and the safe bench "
+          "reboots/sleeps all hold")
     return 0
 
 

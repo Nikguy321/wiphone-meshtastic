@@ -210,6 +210,19 @@ protected:
   int      pinCount;
   int      pinSel;          // index into pins[] for PIN_OPTS/RENAME/CONFIRM_DEL
   bool     pinsDirty;
+  /* ── A PIN'S FRAME ON ITS WAY TO THE RADIO (review M1, 2026-09-25) ────────────────────────
+   * 🛑 QUEUED IS NOT ON THE AIR. A share, an update, "Take it off the mesh" and a shared pin's
+   * delete each QUEUE one waypoint frame; the map now keeps its packet id here and asks the
+   * service (txOutcome) on the app timer until the radio answers, and mapPinMeshSettle()
+   * (map_pins.h, host-tested) decides what the answer means. One at a time: a new operation
+   * settles the old one first, with no more waiting. ~80 bytes in the app object. */
+  struct {
+    uint32_t txId;          // the frame's packet id; 0 = nothing pending
+    uint32_t wpId;          // the waypoint it concerns (pins are found BY THIS: the list moves)
+    uint32_t sinceMs;       // when it was queued: the give-up clock
+    uint8_t  op;            // MapPinMeshOp
+    MapPin   pin;           // the pin as it was: name/channel for the note, all of it for a restore
+  } meshOp;
   int*     pinVx;           // projection scratch, PSRAM: members not stack, this is the GUI task
   int*     pinVy;
 
@@ -410,10 +423,14 @@ protected:
   void  armTimer();
   bool  dropPin();
   bool  sharePin(int idx, char* why, size_t whyCap);
-  /* Returns whether a SHARED pin's retraction actually reached the air. The local delete
-   * happens either way — a person who confirmed a delete has confirmed it — but the caller
-   * must be able to say that other people's maps still have it. */
+  /* Returns whether a SHARED pin's retraction was QUEUED (review M1: queued, not on the air —
+   * meshOp then reports whether it left, and a retraction that never does puts the pin back).
+   * The local delete happens either way — a person who confirmed a delete has confirmed it —
+   * but the caller must be able to say that other people's maps still have it. */
   bool  deletePin(int idx);
+  void  beginMeshOp(uint8_t op, uint32_t txId, int idx);
+  bool  settleMeshOp(bool final);   // true = the note or a pin changed (redraw)
+  int   pinByWaypoint(uint32_t wpId) const;   // -1 when no pin carries it
   void  stepPin(int delta);
   void  scanAreaExtent(MapArea* a);   // scanAreas: the tiles' bounding box at zMin
   void  setArea(int idx);

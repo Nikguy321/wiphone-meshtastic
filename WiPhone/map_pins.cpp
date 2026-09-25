@@ -281,3 +281,24 @@ int mapPinPickNearest(const int* vx, const int* vy, int n, int px, int py, int m
   }
   return best;
 }
+
+/* See map_pins.h. The outcome numbers are MeshTxOutcome's (mesh_txq.h); spelled as literals
+ * here so this file stays free of the mesh headers, and pinned by tests/test_maptiles.cpp. */
+uint8_t mapPinMeshSettle(uint8_t op, uint8_t outcome, bool final) {
+  const uint8_t QUEUED = 1, SENT = 2, FAILED = 3;
+  if (outcome == QUEUED && !final) {
+    return MAP_PINACT_WAIT;
+  }
+  if (outcome == SENT) {
+    return op == MAP_PINOP_UNSHARE ? MAP_PINACT_FORGET_ID : MAP_PINACT_DONE;
+  }
+  if (outcome == FAILED) {
+    switch (op) {
+      case MAP_PINOP_SHARE:  return MAP_PINACT_ROLL_BACK;
+      case MAP_PINOP_DELETE: return MAP_PINACT_RESTORE;
+      default:               return MAP_PINACT_KEEP_ID;    // re-share, unshare: the mesh still has it
+    }
+  }
+  /* No word (UNKNOWN, or QUEUED with no more waiting). */
+  return op == MAP_PINOP_DELETE ? MAP_PINACT_DONE : MAP_PINACT_KEEP_ID;
+}

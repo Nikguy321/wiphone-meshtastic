@@ -14,6 +14,7 @@
 
 #include "../WiPhone/map_tiles.h"
 #include "../WiPhone/map_pins.h"
+#include "../WiPhone/mesh_txq.h"      // MeshTxOutcome: the numbers mapPinMeshSettle spells as literals
 #include <cstdio>
 #include <cstring>
 #include <cmath>
@@ -825,6 +826,54 @@ int main() {
           "a crosshair outside the box: nothing is tried");
     CHECK(mapDashRange(118, 150, X1, Y1, BX, BY, BW, BH, 6, &first, &end) == 0 && end == 0,
           "an anchor under the crosshair: no dashes");
+  }
+
+  /* Review M1 (2026-09-25): a pin's frame is QUEUED, not on the air. What the map does once the
+   * radio answers — and when it gives up waiting — decides whether a place can be stranded on
+   * every other radio with nothing left on this phone that could retract it. */
+  {
+    const uint8_t UNK = MESH_TXO_UNKNOWN, Q = MESH_TXO_QUEUED, S = MESH_TXO_SENT, F = MESH_TXO_FAILED;
+    CHECK(UNK == 0 && Q == 1 && S == 2 && F == 3,
+          "mapPinMeshSettle's literal outcome numbers are still MeshTxOutcome's");
+    const uint8_t ops[4] = { MAP_PINOP_SHARE, MAP_PINOP_RESHARE, MAP_PINOP_UNSHARE, MAP_PINOP_DELETE };
+    bool waits = true;
+    for (int i = 0; i < 4; i++) {
+      waits = waits && mapPinMeshSettle(ops[i], Q, false) == MAP_PINACT_WAIT;
+    }
+    CHECK(waits, "still queued: every operation waits - nothing is claimed, nothing is undone");
+    CHECK(mapPinMeshSettle(MAP_PINOP_UNSHARE, S, false) == MAP_PINACT_FORGET_ID,
+          "the retraction LEFT: only now is the waypoint id forgotten");
+    CHECK(mapPinMeshSettle(MAP_PINOP_UNSHARE, F, false) == MAP_PINACT_KEEP_ID,
+          "the retraction failed: the id stays, so it can be sent again (the M1 stranding)");
+    CHECK(mapPinMeshSettle(MAP_PINOP_UNSHARE, Q, true) == MAP_PINACT_KEEP_ID &&
+          mapPinMeshSettle(MAP_PINOP_UNSHARE, UNK, false) == MAP_PINACT_KEEP_ID,
+          "no word on a retraction (app closed, forgotten): the id stays - the safe side");
+    CHECK(mapPinMeshSettle(MAP_PINOP_SHARE, S, false) == MAP_PINACT_DONE &&
+          mapPinMeshSettle(MAP_PINOP_RESHARE, S, false) == MAP_PINACT_DONE,
+          "a share or an update that left: done");
+    CHECK(mapPinMeshSettle(MAP_PINOP_SHARE, F, false) == MAP_PINACT_ROLL_BACK,
+          "a FIRST share that never left rolls back: the pin is not drawn as shared");
+    CHECK(mapPinMeshSettle(MAP_PINOP_RESHARE, F, false) == MAP_PINACT_KEEP_ID,
+          "a failed UPDATE keeps the id: the mesh still holds the old copy");
+    CHECK(mapPinMeshSettle(MAP_PINOP_SHARE, Q, true) == MAP_PINACT_KEEP_ID,
+          "no word on a first share: keep the id (it may be on the air) rather than lose it");
+    CHECK(mapPinMeshSettle(MAP_PINOP_DELETE, F, false) == MAP_PINACT_RESTORE,
+          "a delete whose retraction never left puts the pin back, id and all");
+    CHECK(mapPinMeshSettle(MAP_PINOP_DELETE, S, false) == MAP_PINACT_DONE &&
+          mapPinMeshSettle(MAP_PINOP_DELETE, Q, true) == MAP_PINACT_DONE,
+          "a delete that left, or with no word: the pin stays deleted (what deleting always did)");
+    bool neverForgets = true;
+    for (int i = 0; i < 4; i++) {
+      for (uint8_t o = 0; o <= 3; o++) {
+        for (int fin = 0; fin < 2; fin++) {
+          if (mapPinMeshSettle(ops[i], o, fin != 0) == MAP_PINACT_FORGET_ID &&
+              !(ops[i] == MAP_PINOP_UNSHARE && o == S)) {
+            neverForgets = false;
+          }
+        }
+      }
+    }
+    CHECK(neverForgets, "FORGET_ID comes from exactly one answer: a retraction reported SENT");
   }
 
   printf("\n%d checks, %d failures\n", checks, failures);

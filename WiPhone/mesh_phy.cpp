@@ -189,23 +189,39 @@ bool MeshPhy::healthCheck() {
 }
 
 /* A frame that was on the air will not finish: say so once, through serviceTx(), so the
- * service can fail its receipt rather than wait for a TxDone that is never coming. */
-void MeshPhy::txCutShort(const char* why) {
+ * service can fail its receipt rather than wait for a TxDone that is never coming.
+ * ⚠ ASK THE CHIP FIRST (review M3, 2026-09-25). serviceTx() reads TxDone at most every 2 ms and
+ * only on a loop pass, so a frame can have FINISHED WHOLE since the last look — and calling it
+ * cut made its message's receipt say "failed: timed out" for a text that went. TX_DONE set is
+ * reported as DONE instead. RX_DONE cannot be set while the chip transmits, so a read with it
+ * set (0xFF from a floating bus: the rail collapsed under a re-init) is not believed, and the
+ * frame counts as cut — the safe side for a receipt. Returns true when it really was cut. */
+bool MeshPhy::txCutShort(const char* why) {
   if (!txActive) {
-    return;
+    return false;
   }
+  const uint8_t irq = readReg(REG_IRQ_FLAGS);
   txActive = false;
+  if ((irq & IRQ_TX_DONE_MASK) && !(irq & IRQ_RX_DONE_MASK)) {
+    txDoneLate = true;
+    txLastAirMs = millis() - txStartMs;  // an upper bound, like serviceTx()'s
+    log_e("MeshPhy: TX of %u B had already finished when %s came (%u ms) - reported sent",
+          (unsigned)txLen, why, (unsigned)txLastAirMs);
+    return false;
+  }
   txAborted = true;
   log_e("MeshPhy: TX of %u B cut short after %u ms by %s", (unsigned)txLen,
         (unsigned)(millis() - txStartMs), why);
+  return true;
 }
 
-void MeshPhy::benchSleep(bool on) {
+bool MeshPhy::benchSleep(bool on) {
   if (!ready) {
-    return;
+    return false;
   }
+  bool cut = false;
   if (on) {
-    txCutShort("`power lora sleep`");
+    cut = txCutShort("`power lora sleep`");
     writeReg(REG_IRQ_FLAGS, 0xFF);
     writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);
     inRx = false;
@@ -219,6 +235,7 @@ void MeshPhy::benchSleep(bool on) {
       setModeRxContinuous();
     }
   }
+  return cut;
 }
 
 bool MeshPhy::reinit(bool logFailure) {
@@ -349,6 +366,10 @@ bool MeshPhy::startSend(const uint8_t* data, uint8_t len) {
 
 MeshTxState MeshPhy::serviceTx() {
   if (!txActive) {
+    if (txDoneLate) {
+      txDoneLate = false;
+      return MESH_TX_DONE;               // finished whole before benchSleep()/reinit() looked
+    }
     if (txAborted) {
       txAborted = false;
       return MESH_TX_TIMEOUT;            // cut short by benchSleep()/reinit(): report it once

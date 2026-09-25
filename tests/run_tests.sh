@@ -189,8 +189,10 @@ fi
 # ── SOURCE GUARD: the LoRa radio never waits for the air on the loop task ─────────────────
 # See tests/check_mesh_tx.py. test_txq proves the queue; the guards that make it safe - no blocking
 # send, healthCheck() true mid-frame, TxDone before the deadline, txPump() first in loop(), the
-# background senders' idle gates - live in files this suite cannot compile.
-echo "checking the mesh transmit guards (no blocking send, pump first, health mid-frame)"
+# background senders' idle gates - live in files this suite cannot compile. Since review M1-M3 it
+# also pins "queued is not sent" where the UI words are chosen, the TX completion a game or the
+# legacy upload runs, and the bench commands that must be safe to type on a daily phone.
+echo "checking the mesh transmit guards (no blocking send, pump first, health mid-frame, queued != sent, safe bench)"
 if ! python3 tests/check_mesh_tx.py; then
   fail=1
 fi

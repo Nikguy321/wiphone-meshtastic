@@ -58,6 +58,11 @@ extern bool gGpsNmea;         // WiPhone.ino: is the NMEA receiver switched on a
 /* How often the map looks at a download running under it (jobTilesLanded): a finished tile
  * waits at most this long to replace the stretched parent drawn over its hole. */
 #define MAPS_JOB_POLL_MS       10000
+/* How long a pin's frame may sit "queued" before the map stops waiting and takes the safe side
+ * (mapPinMeshSettle, final). A backstop only: every queued frame ends SENT or FAILED — TxDone,
+ * the PHY's airtime timeout, or MESH RADIO LOST — within a full queue's worth of frames
+ * (8 x ~3 s at the very worst). A minute means the pipeline itself is stuck: say so. */
+#define MAPS_MESH_OP_GIVEUP_MS 60000
 /* ⚠ The delay must be LONGER than uiKeyStillHeld()'s 350 ms staleness window: at 300 ms a
  * tap whose release was lost (two keys down, or any release the keypad's stale sweep exists
  * for) still read as "held" at the first repeat and the map took one phantom step — off the
@@ -168,6 +173,7 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   pinCount = 0;
   pinSel = -1;
   pinsDirty = false;
+  memset(&meshOp, 0, sizeof(meshOp));   // no pin frame pending
   slotsAlive = 0;
   useSeq = 0;
   missCount = 0;
@@ -290,6 +296,10 @@ MapsApp::~MapsApp() {
   /* Save the view FIRST. Everything after this can fail; where the user was looking is the
    * one piece of state they will notice missing, and it costs one NVS write. */
   saveView();
+  /* A pin's frame still pending (review M1): whatever the radio has said by now is applied, and
+   * no word takes the safe side — a retraction's id is KEPT (mapPinMeshSettle). Before the save
+   * below, which writes what this changed. */
+  settleMeshOp(true);
   if (pinsDirty) {
     savePins();
   }
@@ -2227,6 +2237,7 @@ bool MapsApp::dropPin() {
 }
 
 bool MapsApp::sharePin(int idx, char* why, size_t whyCap) {
+  settleMeshOp(true);                    // one pin frame at a time: the last one settled first
   if (idx < 0 || idx >= pinCount || !pins) {
     strlcpy(why, "no pin", whyCap);
     return false;
@@ -2266,9 +2277,19 @@ bool MapsApp::sharePin(int idx, char* why, size_t whyCap) {
   savePins();
   /* 🔑 SAY WHETHER IT ACTUALLY LEFT THE PHONE. A place that is on your map and nobody else's,
    * shown as shared, is the failure the pin-announce path was built to avoid: it reads as
-   * "they know where camp is" when nobody does. */
+   * "they know where camp is" when nobody does.
+   * 🛑 AND `onAir` MEANS QUEUED (review M1, 2026-09-25): the frame is waiting for the radio, so
+   * this says "Sending" and the app timer says "Shared" once the radio reports it left — or
+   * rolls a first share back if it never does (settleMeshOp). The id is written down NOW, not
+   * then: a frame that does go out must never leave the only retracting id unrecorded. */
   if (onAir) {
-    snprintf(why, whyCap, "Shared '%s' on %s", pins[idx].name, ch ? ch->name : "the mesh");
+    beginMeshOp(wasShared ? MAP_PINOP_RESHARE : MAP_PINOP_SHARE, meshService.lastQueuedPacketId(),
+                idx);
+    if (wasShared) {
+      snprintf(why, whyCap, "Updating it on %s...", ch ? ch->name : "the mesh");
+    } else {
+      snprintf(why, whyCap, "Sending '%s' on %s...", pins[idx].name, ch ? ch->name : "the mesh");
+    }
   } else {
     // Only reachable for a RE-share: the mesh still holds the old copy, so the id is kept.
     snprintf(why, whyCap, "NOT sent - the mesh still has the old one");
@@ -2277,6 +2298,7 @@ bool MapsApp::sharePin(int idx, char* why, size_t whyCap) {
 }
 
 bool MapsApp::deletePin(int idx) {
+  settleMeshOp(true);                    // one pin frame at a time (may clear this pin's id)
   if (idx < 0 || idx >= pinCount || !pins) {
     return true;
   }
@@ -2293,6 +2315,12 @@ bool MapsApp::deletePin(int idx) {
       retracted = false;
     } else {
       retracted = meshService.unshareWaypoint(pins[idx].sharedId, pinChannel(idx));
+      if (retracted) {
+        /* QUEUED (review M1): the pin is copied into meshOp BEFORE it goes, so a retraction the
+         * radio then fails to send puts it back, id and all (MAP_PINACT_RESTORE) — the one
+         * handle that can ever take the place off other people's maps. */
+        beginMeshOp(MAP_PINOP_DELETE, meshService.lastQueuedPacketId(), idx);
+      }
     }
   }
   for (int i = idx; i + 1 < pinCount; i++) {
@@ -2305,6 +2333,121 @@ bool MapsApp::deletePin(int idx) {
   pinsDirty = true;
   savePins();
   return retracted;
+}
+
+/* ── A pin's frame, from queued to what the radio said (review M1) ─────────────────────────── */
+
+int MapsApp::pinByWaypoint(uint32_t wpId) const {
+  if (!pins || !wpId) {
+    return -1;
+  }
+  for (int i = 0; i < pinCount; i++) {
+    if (pins[i].sharedId == wpId) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+void MapsApp::beginMeshOp(uint8_t op, uint32_t txId, int idx) {
+  memset(&meshOp, 0, sizeof(meshOp));
+  if (!txId || idx < 0 || idx >= pinCount || !pins) {
+    return;                  // nothing to watch: the pin stays as it is now (no word = safe side)
+  }
+  meshOp.txId = txId;
+  meshOp.wpId = pins[idx].sharedId;
+  meshOp.sinceMs = millis();
+  meshOp.op = op;
+  meshOp.pin = pins[idx];    // a copy: the pin may be deleted (or the list reordered) meanwhile
+  armTimer();                // the redraw after this arms it too; a menu state needs it now
+}
+
+bool MapsApp::settleMeshOp(bool final) {
+  if (!meshOp.txId) {
+    return false;
+  }
+  const uint8_t outcome = meshService.txOutcome(meshOp.txId);
+  const bool giveUp = !final && (uint32_t)(millis() - meshOp.sinceMs) >= MAPS_MESH_OP_GIVEUP_MS;
+  const uint8_t act = mapPinMeshSettle(meshOp.op, outcome, final || giveUp);
+  if (act == MAP_PINACT_WAIT) {
+    return false;
+  }
+  const bool noWord = (outcome != MESH_TXO_SENT && outcome != MESH_TXO_FAILED);
+  const uint8_t op = meshOp.op;
+  const uint32_t wpId = meshOp.wpId;
+  const MapPin was = meshOp.pin;
+  memset(&meshOp, 0, sizeof(meshOp));          // settled: nothing below can re-enter it
+  const char* chName = was.chan[0] ? was.chan : "the mesh";
+  const int i = pinByWaypoint(wpId);
+  log_e("MAPS: pin '%s' frame %s -> %s (op %u, act %u)", was.name,
+        outcome == MESH_TXO_SENT ? "SENT" : outcome == MESH_TXO_FAILED ? "FAILED" : "no word",
+        act == MAP_PINACT_DONE ? "done" : act == MAP_PINACT_FORGET_ID ? "id forgotten"
+          : act == MAP_PINACT_ROLL_BACK ? "rolled back" : act == MAP_PINACT_KEEP_ID ? "id kept"
+          : act == MAP_PINACT_RESTORE ? "pin restored" : "?", (unsigned)op, (unsigned)act);
+  switch (act) {
+  case MAP_PINACT_FORGET_ID:
+    if (i >= 0) {
+      pins[i].sharedId = 0;
+      pinsDirty = true;
+      savePins();
+    }
+    setNote("Taken '%s' off the mesh", was.name);
+    break;
+  case MAP_PINACT_ROLL_BACK: {
+    /* A FIRST share that never left: the pin goes back to plainly local, and the local
+     * waypoint shareWaypoint() made goes too. unshareWaypoint() also queues a retraction —
+     * the conservative side if the "failed" frame did get out (a TX timeout can be a missed
+     * TxDone) — but never on a channel other than the pin's (sharePin's rule). */
+    if (i >= 0) {
+      pins[i].sharedId = 0;
+      pinsDirty = true;
+      savePins();
+    }
+    const MeshChannel* ch = was.chan[0] ? meshService.findChannelByName(was.chan) : NULL;
+    if (!was.chan[0] || ch) {
+      meshService.unshareWaypoint(wpId, ch);
+    }
+    setNote("NOT sent - the radio did not send '%s'. Still just yours.", was.name);
+    break;
+  }
+  case MAP_PINACT_KEEP_ID:
+    if (noWord) {
+      setNote("No word from the radio on '%s' - kept as shared", was.name);
+    } else if (op == MAP_PINOP_UNSHARE) {
+      setNote("NOT taken off - the radio did not send it. Try again.");
+    } else {
+      setNote("Update NOT sent - the mesh still has the old '%s'", was.name);
+    }
+    break;
+  case MAP_PINACT_RESTORE:
+    /* The retraction never left, and the pin is gone from this phone: put it back, id and
+     * channel and all, so "Take it off the mesh" can be tried again. At the end of the list;
+     * nothing else moves. */
+    if (pins && pinCount < MAPS_MAX_PINS) {
+      pins[pinCount++] = was;
+      pinsDirty = true;
+      savePins();
+      setNote("Retraction NOT sent - '%s' is back so you can try again", was.name);
+    } else {
+      setNote("Retraction NOT sent, and no room to put '%s' back", was.name);
+    }
+    break;
+  case MAP_PINACT_DONE:
+  default:
+    if (op == MAP_PINOP_DELETE) {
+      if (noWord) {
+        setNote("Deleted '%s' - no word from the radio on the retraction", was.name);
+      } else {
+        setNote("Deleted '%s' and took it off the mesh", was.name);
+      }
+    } else if (op == MAP_PINOP_RESHARE) {
+      setNote("Updated '%s' on %s", was.name, chName);
+    } else {
+      setNote("Shared '%s' on %s", was.name, chName);
+    }
+    break;
+  }
+  return true;
 }
 
 void MapsApp::stepPin(int delta) {
@@ -3590,6 +3733,23 @@ appEventResult MapsApp::processEvent(EventType event) {
         }
       }
     }
+    /* A pin's frame (review M1): the radio's answer, when it comes — "Shared", "Taken off",
+     * or the roll-back / restore / kept id when it never left. One ring lookup a tick. */
+    if (meshOp.txId) {
+      const bool moved = settleMeshOp(false);
+      if (moved) {
+        armTimer();                            // the 250 ms watch stands down with it
+      }
+      if (appState == MAPS_VIEW) {
+        if (moved) {
+          return REDRAW_SCREEN;
+        }
+      } else if (appState != MAPS_DOWNLOAD) {
+        /* A menu or a form: this watch is the ONLY reason it ticks (armTimer), so nothing
+         * below — tile loads, the follow — may run under it. The note shows on the map. */
+        return DO_NOTHING;
+      }
+    }
     /* A download filling the area on the screen (jobTilesLanded): tiles it has written since
      * the last look are read now, instead of their parents staying stretched over them. */
     if (appState == MAPS_VIEW && (uint32_t)(millis() - jobPollMs) >= MAPS_JOB_POLL_MS) {
@@ -4109,7 +4269,17 @@ appEventResult MapsApp::processEvent(EventType event) {
          * from THIS phone's Places and leaves it on everyone else's forever, with nothing on
          * this phone that knows the id any more — the retraction can never be sent again. A
          * stale camp on other people's maps is the exact failure "Take it off the mesh"
-         * exists to prevent. */
+         * exists to prevent.
+         * 🛑 AND "QUEUED" IS NOT "WENT OUT" (review M1, 2026-09-25). unshareWaypoint() is true
+         * once the retraction is in the radio's queue; the id used to be cleared right here, so
+         * a frame that then timed out, or was dropped with a dying pack, stranded the place
+         * exactly as above. The id is now forgotten only when the radio reports the retraction
+         * SENT (settleMeshOp -> MAP_PINACT_FORGET_ID); no word keeps it. */
+        settleMeshOp(true);                  // one pin frame at a time: the last one first
+        if (!pins[pinSel].sharedId) {
+          enterState(MAPS_VIEW);             // that settle took it off: its note says so
+          return REDRAW_ALL;
+        }
         if (pins[pinSel].chan[0] && !pinChannel(pinSel)) {
           /* The channel it went out on is no longer on this phone: a retraction sent
            * anywhere else reaches nobody who has it, and would report success. */
@@ -4119,10 +4289,8 @@ appEventResult MapsApp::processEvent(EventType event) {
         }
         const bool ok = meshService.unshareWaypoint(pins[pinSel].sharedId, pinChannel(pinSel));
         if (ok) {
-          pins[pinSel].sharedId = 0;
-          pinsDirty = true;
-          savePins();
-          setNote("Taken off the mesh");
+          beginMeshOp(MAP_PINOP_UNSHARE, meshService.lastQueuedPacketId(), pinSel);
+          setNote("Taking '%s' off the mesh...", pins[pinSel].name);
         } else {
           setNote("Radio not ready - the mesh still has it. Try again.");
         }
@@ -4171,7 +4339,9 @@ appEventResult MapsApp::processEvent(EventType event) {
           }
         }
         const bool retracted = deletePin(pinSel);
-        if (retracted) {
+        if (retracted && meshOp.txId && meshOp.op == MAP_PINOP_DELETE) {
+          setNote("Deleted '%s' - taking it off the mesh...", gone);   // queued, not gone yet
+        } else if (retracted) {
           setNote("Deleted '%s'", gone);
         } else {
           setNote("Deleted here - but the radio did not send the retraction");
@@ -4354,7 +4524,10 @@ void MapsApp::armTimer() {
   /* A download running under the map: a tick every MAPS_JOB_POLL_MS to see whether it has
    * written into the area on the screen (jobTilesLanded). The download holds the CPU up anyway. */
   const bool jobPoll = (appState == MAPS_VIEW) && tileFetchActive();
-  controlState.msAppTimerEventPeriod = busy ? 25 : (holding ? 50 : (progress ? 250 :
+  /* A pin's frame waiting for the radio's answer (review M1): 4 Hz for the second or two it
+   * takes, then nothing. Any state — the answer can change a pin under a menu too. */
+  const bool meshWatch = meshOp.txId != 0;
+  controlState.msAppTimerEventPeriod = busy ? 25 : (holding ? 50 : ((progress || meshWatch) ? 250 :
                                        (following ? 1000 : (jobPoll ? MAPS_JOB_POLL_MS : 0))));
 }
 

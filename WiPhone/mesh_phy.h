@@ -81,15 +81,16 @@ public:
    * A send also ends the bench sleep state (see benchSleep()), as it always did. */
   bool startSend(const uint8_t* data, uint8_t len);
 
-  /* Rate-limited to one IRQ read per ~2 ms. ⚠ TxDone is checked BEFORE the deadline: a Game
-   * Boy session (which skips the whole mesh loop) or any other long pass can come back long
-   * after the frame finished, and that frame went out whole — calling it a timeout would fail
-   * a receipt for a message that was sent. */
+  /* Rate-limited to one IRQ read per ~2 ms. ⚠ TxDone is checked BEFORE the deadline: any long
+   * pass can come back long after the frame finished, and that frame went out whole — calling
+   * it a timeout would fail a receipt for a message that was sent. (A Game Boy session skips
+   * the mesh loop but calls MeshtasticService::txComplete(), which calls this — review M2.) */
   MeshTxState serviceTx();
   bool        txBusy() const { return txActive; }
   /* Start of the last finished frame to the pass that SAW its TxDone: an upper bound on its
    * time on air, one loop pass (~5 ms idle) over the true figure — meshLoraAirtimeMs(len) is
-   * the exact one. After a Game Boy game it is the length of the game; compare, do not sum. */
+   * the exact one. Compare, do not sum. (Until review M2 a game started mid-frame made this the
+   * length of the game; the game's passes now finish the frame.) */
   uint32_t    lastTxAirMs() const { return txLastAirMs; }
 
   /* Is the radio still the radio we configured? Reads REG_VERSION (0x12) and
@@ -134,8 +135,12 @@ public:
    * duration, on purpose. startSend() and reinit() end the bench state, because both leave the
    * chip in RX-continuous anyway (a send once its frame is done).
    * ⚠ Sleeping cuts a frame that is on the air: serviceTx() reports it as MESH_TX_TIMEOUT on
-   * the next pass, so the receipt of whatever it was says so instead of claiming it went. */
-  void benchSleep(bool on);
+   * the next pass, so the receipt of whatever it was says so instead of claiming it went — UNLESS
+   * TxDone had already fired (the frame finished since the last pass): that one is reported
+   * DONE, because it went out whole (txCutShort(), review M3). Serial `power lora sleep`
+   * refuses while a frame is on the air or waiting, so a bench never cuts a daily phone's text.
+   * Returns true when a frame really was cut. */
+  bool benchSleep(bool on);
   bool benchAsleep() const { return benchSleeping; }
 
 private:
@@ -161,12 +166,13 @@ private:
   // The frame on the air (see startSend/serviceTx). All touched from the loop task only.
   bool           txActive     = false;
   bool           txAborted    = false;    // cut by benchSleep()/reinit(): one TIMEOUT to report
+  bool           txDoneLate   = false;    // ...but TxDone had fired first: one DONE to report
   uint8_t        txLen        = 0;
   uint32_t       txStartMs    = 0;        // millis() just after MODE_TX was written
   uint32_t       txLimitMs    = 0;        // meshLoraTxTimeoutMs(txLen)
   uint32_t       txLastPollMs = 0;        // serviceTx()'s 2 ms rate limit
   uint32_t       txLastAirMs  = 0;        // see lastTxAirMs()
-  void           txCutShort(const char* why);
+  bool           txCutShort(const char* why);   // true = really cut (false: nothing, or it had finished)
 };
 
 extern MeshPhy meshPhy;

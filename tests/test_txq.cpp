@@ -290,6 +290,51 @@ int main() {
     ok(!meshTxPipelineIdle(false, 1), "a frame waiting: not idle");
   }
 
+  /* Review M1 (2026-09-25): QUEUED is not on the air. The map, Books and the pin row now wait
+   * on this ring before they say "sent", so the ways it can lie are the ways they would. */
+  group("what became of our own frames: queued -> sent / failed, and forgetting safely");
+  {
+    MeshTxOutcomeRing r;
+    meshTxoInit(&r);
+    ok(meshTxoGet(&r, 0x1234) == MESH_TXO_UNKNOWN, "an id never noted reads UNKNOWN");
+    meshTxoNote(&r, 0x1234, MESH_TXO_QUEUED);
+    ok(meshTxoGet(&r, 0x1234) == MESH_TXO_QUEUED, "queued reads QUEUED - not sent");
+    meshTxoNote(&r, 0x1234, MESH_TXO_SENT);
+    ok(meshTxoGet(&r, 0x1234) == MESH_TXO_SENT, "TxDone turns it SENT");
+    meshTxoNote(&r, 0x1234, MESH_TXO_QUEUED);
+    ok(meshTxoGet(&r, 0x1234) == MESH_TXO_SENT, "a late QUEUED never un-finishes a frame");
+    meshTxoNote(&r, 0x5678, MESH_TXO_QUEUED);
+    meshTxoNote(&r, 0x5678, MESH_TXO_FAILED);
+    ok(meshTxoGet(&r, 0x5678) == MESH_TXO_FAILED, "a timeout or a dropped queue reads FAILED");
+    ok(meshTxoGet(&r, 0x1234) == MESH_TXO_SENT, "...and does not touch another frame's outcome");
+    meshTxoNote(&r, 0, MESH_TXO_SENT);
+    ok(meshTxoGet(&r, 0) == MESH_TXO_UNKNOWN, "packet id 0 is nobody: never recorded");
+    meshTxoNote(&r, 0x9999, MESH_TXO_UNKNOWN);
+    ok(meshTxoGet(&r, 0x9999) == MESH_TXO_UNKNOWN, "an UNKNOWN note records nothing");
+    meshTxoNote(&r, 0xAAAA, MESH_TXO_SENT);
+    ok(meshTxoGet(&r, 0xAAAA) == MESH_TXO_SENT,
+       "an outcome for an id already forgotten is still recorded (a late TxDone)");
+
+    /* A full queue (8) + one on the air + a burst of beacons: the oldest is forgotten, and
+     * forgotten reads UNKNOWN - the caller's "no word", never a made-up SENT. */
+    MeshTxOutcomeRing w;
+    meshTxoInit(&w);
+    meshTxoNote(&w, 1, MESH_TXO_QUEUED);
+    for (uint32_t id = 2; id <= MESH_TXO_SLOTS; id++) {
+      meshTxoNote(&w, id, MESH_TXO_QUEUED);
+    }
+    ok(meshTxoGet(&w, 1) == MESH_TXO_QUEUED, "16 frames in flight: the first is still known");
+    meshTxoNote(&w, MESH_TXO_SLOTS + 1, MESH_TXO_QUEUED);
+    ok(meshTxoGet(&w, 1) == MESH_TXO_UNKNOWN, "the 17th forgets the oldest - UNKNOWN, not SENT");
+    ok(meshTxoGet(&w, 2) == MESH_TXO_QUEUED && meshTxoGet(&w, MESH_TXO_SLOTS + 1) == MESH_TXO_QUEUED,
+       "...and only the oldest");
+    meshTxoNote(&w, 5, MESH_TXO_SENT);                  // an update in place takes no new slot
+    meshTxoNote(&w, MESH_TXO_SLOTS + 2, MESH_TXO_QUEUED);
+    ok(meshTxoGet(&w, 5) == MESH_TXO_SENT && meshTxoGet(&w, 2) == MESH_TXO_UNKNOWN,
+       "updating an entry does not move the eviction order");
+    ok(sizeof(MeshTxOutcomeRing) <= 96, "the ring is small enough for internal RAM (<= 96 B)");
+  }
+
   group("the pump over a whole run: one start per pass, never two frames on the air");
   {
     /* The shape of MeshtasticService::txPump(): service the PHY, then (if it is idle) pick and

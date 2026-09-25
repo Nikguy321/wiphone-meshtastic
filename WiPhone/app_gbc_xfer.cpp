@@ -28,6 +28,7 @@
 #include "GUI.h"
 #include "kosync.h"        // kosyncIsPath: which requests belong to a KOSync window
 #include "kosync_sync.h"   // kosyncWindowServe: the window's answers
+#include "meshtastic_service.h"   // meshService.txComplete(): the radio back in RX mid-upload
 
 extern volatile bool gGbcActive;   // WiPhone.ino: a Game Boy game owns the radio, RAM and cores
 
@@ -1615,6 +1616,10 @@ static void handleUpload() {
        * whole upload, so this is the only chance the WiFi and TCP stacks get to run —
        * starving them is what made the phone drop off the network mid-transfer. */
       delay(1);
+      /* ...and the only chance the LoRa radio gets to leave STANDBY: a frame on the air when
+       * the upload began would otherwise leave the mesh deaf until it ends (review M2). Finishes
+       * that frame and starts nothing — the chip's own bit-banged bus, not the card's. */
+      meshService.txComplete();
     }
   } else if (up.status == UPLOAD_FILE_END) {
     if (s_uploadFile) {

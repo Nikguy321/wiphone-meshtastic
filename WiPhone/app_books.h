@@ -162,6 +162,11 @@ protected:
   bool     pendingClock;         // its clock looks wrong (see bookSyncSuspectClock)
   uint32_t syncSeqSeen;          // bookSyncInboxSeq() as of the last checkForPending()
   char     syncNote[64];         // result of the last send, shown in the menu
+  /* The LoRa frame "Sync my place" queued, until the radio says what became of it: the note
+   * reads "Queued" until then, never "Sent" (review M1 — queued is not on the air). 0 = none. */
+  uint32_t syncTxId;
+  int      syncTxCh, syncTxPct;  // ...what the note names (chapter, %), fixed at the send
+  bool     syncNoteSettle();     // re-word syncNote from the frame's outcome; true = changed
 
   /* ---- KOSync (kosync_sync.h): a SECOND transport beside LoRa, and OFF unless
    * /books/kosync.txt exists — without it "Sync my place" does exactly what it always did.
