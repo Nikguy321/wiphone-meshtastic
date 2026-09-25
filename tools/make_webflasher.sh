@@ -29,8 +29,47 @@ VER=$(sed -n 's/#define FIRMWARE_VERSION "\(.*\)"/\1/p' WiPhone/config.h)
 # layout and reset-loops. merge_bin applies exactly the same header patching (and fixes
 # the appended hash), so the browser writes what the cable would have written.
 ESPTOOL=$(ls -d "$HOME/.platformio/packages/tool-esptoolpy"*/esptool.py | head -1)
-python3 "$ESPTOOL" --chip esp32 merge_bin   --flash_mode dio --flash_freq 80m --flash_size 16MB   -o "$OUT/wiphone-merged.bin"   0x1000 "$FRAMEWORK/tools/sdk/bin/bootloader_dio_80m.bin"   0x8000 "$BUILD/partitions.bin"   0xe000 "$FRAMEWORK/tools/partitions/boot_app0.bin"   0x10000 "$BUILD/firmware.bin"
-rm -f "$OUT/bootloader.bin" "$OUT/partitions.bin" "$OUT/boot_app0.bin" "$OUT/firmware.bin"
+MERGED=$(mktemp -t wiphone-merged)
+trap 'rm -f "$MERGED"' EXIT
+python3 "$ESPTOOL" --chip esp32 merge_bin   --flash_mode dio --flash_freq 80m --flash_size 16MB   -o "$MERGED"   0x1000 "$FRAMEWORK/tools/sdk/bin/bootloader_dio_80m.bin"   0x8000 "$BUILD/partitions.bin"   0xe000 "$FRAMEWORK/tools/partitions/boot_app0.bin"   0x10000 "$BUILD/firmware.bin"
+rm -f "$OUT/bootloader.bin" "$OUT/partitions.bin" "$OUT/boot_app0.bin" "$OUT/firmware.bin" \
+      "$OUT/wiphone-merged.bin"
+
+# 🛑 NEVER WRITE OVER NVS. merge_bin pads the gap between the partition table and boot_app0
+# with 0xFF — and that gap IS the nvs partition (0x9000, 20 KB). Written from offset 0, the
+# one merged image ERASED every user's NVS on every web-flasher install through 0.9.78: the
+# mesh identity key (other nodes then flag a MISMATCH and DMs to the phone fail until they
+# clear nodes — seen on phone 2 after phone 1 was flashed this way, 2026-09-25), the booksync
+# passcode and device name, the KOSync last-move memo, the WiFi driver's calibration. So the
+# patched image is cut into two parts that step AROUND nvs (read from this build's own
+# partition table, not assumed): the bootloader + table, then boot_app0 + the app. otadata
+# (boot_app0) is still written on purpose: it points the bootloader at app0, where the app goes.
+python3 - "$MERGED" "$BUILD/partitions.bin" "$OUT" <<'PY'
+import struct, sys
+merged, table, out = sys.argv[1], sys.argv[2], sys.argv[3]
+img = open(merged, "rb").read()
+t = open(table, "rb").read()
+nvs = otadata = None
+for i in range(0, len(t) - 31, 32):
+    magic, ptype, sub, off, size = struct.unpack_from("<HBBII", t, i)
+    if magic != 0x50AA:
+        break
+    if ptype == 1 and sub == 0x02:
+        nvs = (off, off + size)
+    if ptype == 1 and sub == 0x00:
+        otadata = (off, off + size)
+if not nvs or not otadata:
+    sys.exit("partition table has no nvs/otadata entry - refusing to guess the offsets")
+if not (0x9000 <= nvs[0] and nvs[1] <= otadata[0]):
+    sys.exit("nvs %x-%x is not between the table and otadata - this split no longer fits" % nvs)
+parts = [("wiphone-boot.bin", 0x1000, nvs[0]), ("wiphone-app.bin", otadata[0], len(img))]
+for name, a, b in parts:
+    if a < nvs[1] and b > nvs[0]:
+        sys.exit("%s would cover nvs - refusing to stage it" % name)
+    open("%s/%s" % (out, name), "wb").write(img[a:b])
+    print("  %-18s 0x%06x..0x%06x  %d bytes" % (name, a, b, b - a))
+print("  nvs 0x%x..0x%x is in neither part" % nvs)
+PY
 
 cat > "$OUT/manifest.json" <<EOF
 {
@@ -41,7 +80,8 @@ cat > "$OUT/manifest.json" <<EOF
     {
       "chipFamily": "ESP32",
       "parts": [
-        { "path": "wiphone-merged.bin", "offset": 0 }
+        { "path": "wiphone-boot.bin", "offset": 4096 },
+        { "path": "wiphone-app.bin", "offset": 57344 }
       ]
     }
   ]

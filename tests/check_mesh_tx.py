@@ -99,6 +99,20 @@ def check(files):
         if not guard or (rd >= 0 and guard[0][0] > rd):
             bad.append("healthCheck() must `if (txActive) return true;` BEFORE its first register "
                        "read - TX/STANDBY mid-frame is not a lost radio")
+        # One garbled read is a bus glitch, not a dead radio (five of five 'health FAILED' lines,
+        # 2026-09-23..25): the register reads sit inside a loop of at least 3 attempts, and
+        # `ready = false` comes only after that loop.
+        loop = re.search(r"for\s*\(\s*int\s+(\w+)\s*=\s*0\s*;\s*\1\s*<\s*(\d+)\s*;", hc)
+        if not loop or int(loop.group(2)) < 3 or not (loop.start() < rd):
+            bad.append("healthCheck() must read the registers inside a retry loop of >= 3 attempts "
+                       "- one garbled read on the bit-bang is not a lost radio")
+        else:
+            lb = hc.index("{", loop.end())
+            le = match_close(hc, lb)
+            if le < 0 or first(hc, r"\bready\s*=\s*false", le) < 0 or \
+                    first(hc[lb:le], r"\bready\s*=\s*false") >= 0:
+                bad.append("healthCheck() must set `ready = false` only AFTER its retry loop "
+                           "gives up, never inside it")
 
     # ── poll: hands off the IRQ flags mid-frame ───────────────────────────────────────────────
     pl = body(phy, "MeshPhy::poll")
@@ -316,7 +330,8 @@ def selftest():
             "before saveDbStep()", "the periodic NodeInfo", "the neighbour drip",
             "the position beacon", "the owed NodeInfo reply", "want_response NodeInfo must",
             "starts a frame outside txPump()", "replayPump() must", "WiPhone.ino: loopPhase",
-            "startSend() must", "benchSleep() must", "MESH RADIO LOST", "TIMEOUT path must"]
+            "startSend() must", "benchSleep() must", "MESH RADIO LOST", "TIMEOUT path must",
+            "retry loop of >= 3"]
     missing = [w for w in want if not any(w in g for g in got)]
     if missing:
         for w in missing:
@@ -338,6 +353,9 @@ MUTATIONS = [
     ("meshtastic_service.cpp", "MESH RADIO LOST", r"txDropAll\s*\(\s*4\s*\)\s*;", ""),
     ("mesh_phy.cpp", "benchSleep() must",
      r"if\s*\(\s*!\s*txActive\s*\)\s*\{\s*(setModeRxContinuous\s*\(\s*\)\s*;)\s*\}", r"\1"),
+    # the health check's retry loop cut down to one read (the pre-0.9.79 single-read shape)
+    ("mesh_phy.cpp", "retry loop of >= 3",
+     r"for\s*\(\s*int\s+attempt\s*=\s*0\s*;\s*attempt\s*<\s*3\s*;", "for (int attempt = 0; attempt < 1;"),
 ]
 
 
@@ -355,7 +373,7 @@ def mutation_test(files):
             print(f"  SELF-TEST FAILED: removing the guard from {name} did not trip '{want}'")
             ok = False
     if ok:
-        print(f"  ok  self-test: removing each of the {len(MUTATIONS)} 'queued is honest' guards "
+        print(f"  ok  self-test: removing each of the {len(MUTATIONS)} guards (queued-is-honest + the health re-read) "
               "from the real source trips its contract")
     return ok
 

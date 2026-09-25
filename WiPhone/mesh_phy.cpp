@@ -148,13 +148,34 @@ bool MeshPhy::healthCheck() {
   if (txActive) {
     return true;                         // mid-frame: TX/STANDBY is not a fault - see the header
   }
-  uint8_t ver = readReg(REG_VERSION);
-  uint8_t op  = readReg(REG_OP_MODE);
-  if (ver == SX1276_VERSION && op == (MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS)) {
-    return true;
-  }
-  if (benchSleeping && ver == SX1276_VERSION && op == (MODE_LONG_RANGE_MODE | MODE_SLEEP)) {
-    return true;                         // parked by `power lora sleep` — see benchSleep()
+  /* ⚠ ONE BAD READ IS NOT A DEAD RADIO. Every "health FAILED" in both phones' logs from
+   * 2026-09-23 to 09-25 (five, ~one per phone per several hours, 0.9.78 and 0.9.79 alike) was
+   * a single register garbled on the bit-banged bus: ver=0x10/0x13/0x03/0x1A where the chip
+   * says 0x12, or op=0xC5 where it says 0x85 — one or two bits, with the other register
+   * right. RADIO LOST re-inits the chip and, since the TX queue (0.9.79), fails every queued
+   * message with "no radio interface", so a glitch cost real messages. A dead pack or a POR
+   * reset reads wrong EVERY time, so a fault must survive three reads in a row; a read that
+   * comes right on a retry is counted (serial `radio`) and logged, never acted on. */
+  uint8_t ver = 0;
+  uint8_t op  = 0;
+  for (int attempt = 0; attempt < 3; attempt++) {
+    ver = readReg(REG_VERSION);
+    op  = readReg(REG_OP_MODE);
+    const bool rx    = ver == SX1276_VERSION && op == (MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS);
+    const bool bench = benchSleeping && ver == SX1276_VERSION &&
+                       op == (MODE_LONG_RANGE_MODE | MODE_SLEEP);   // `power lora sleep` — see benchSleep()
+    if (rx || bench) {
+      if (attempt > 0) {
+        healthGlitchCount++;
+        log_e("MeshPhy: a health read came back garbled (ver=0x%02X op=0x%02X) and read right on "
+              "retry %d - bus glitch, radio kept", glitchVer, glitchOp, attempt);
+      }
+      return true;
+    }
+    if (attempt == 0) {
+      glitchVer = ver;
+      glitchOp = op;
+    }
   }
   /* The radio is gone (woods pack died - with R3-R6 fitted the rail collapses
    * and nothing answers) or it lost power and rebooted into POR defaults (pack

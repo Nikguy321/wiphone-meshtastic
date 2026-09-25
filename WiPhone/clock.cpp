@@ -153,6 +153,20 @@ bool Clock::update(const uint32_t& nowMillis) {
   uint32_t ntpTime = (hi << 16) | lo;
   log_i("%u from NTP, bytes = %d", ntpTime, cb);
 
+  /* 🛑 ONLY A REAL ANSWER FROM THE SERVER ASKED. This used to take any 48 bytes on the port
+   * with a non-zero, changed time as a TRUSTED clock: a transmit time before 1970 wrapped to
+   * 2036+, and a clock that far ahead hides every KOSync place as "provably older", expires
+   * every pin at the next sweep and goes out on the air in beacons — while GPS may not
+   * override a fresh NTP (clock_source.h). Mode/LI/stratum/date: clockNtpReplySane(). */
+  uint32_t saneUnix = 0;
+  if (udpTime->remoteIP() != ntpServerIp || udpTime->remotePort() != NTP_REMOTE_PORT ||
+      !clockNtpReplySane(ntpBuff, cb, &saneUnix)) {
+    log_e("NTP: answer refused (from %s:%u, byte0=0x%02X stratum=%u, time %u) - clock unchanged",
+          udpTime->remoteIP().toString().c_str(), (unsigned)udpTime->remotePort(),
+          (unsigned)ntpBuff[0], (unsigned)ntpBuff[1], (unsigned)ntpTime);
+    return false;
+  }
+
   // Check for errors
   if (ntpTime==0) {
     return false;  //

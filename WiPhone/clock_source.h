@@ -70,6 +70,17 @@ bool        clockSourceTrusted(int src);        // ntp or gps
 #define CLOCK_UNIX_LIMIT          3471292800u          // 2080-01-01T00:00:00Z (test-checked)
 bool clockUnixSane(uint32_t unixSec);
 
+/* Is this 48-byte datagram an NTP answer the clock may take? The UNIX seconds of its transmit
+ * time in *unixOut when true. Refused: short; LI = 3 (the server says it is unsynchronised);
+ * mode other than 4 (server); stratum 0 (a kiss-o'-death) or above 15; a transmit time before
+ * 1970, which `ntpTime - SEVENTY_YEARS` would wrap to 2036+; and anything clockUnixSane()
+ * refuses. Until 0.9.79 Clock::update() took any 48 bytes on its port with a non-zero,
+ * changed time as a TRUSTED clock — the one source the 2080 ceiling above did not cover, and
+ * NTP is the source everything else defers to (review, 2026-09-25). Who SENT it (the server
+ * asked, port 123) is checked by the caller, which has the socket. */
+#define CLOCK_NTP_1900_TO_1970    2208988800u
+bool clockNtpReplySane(const uint8_t* pkt, int len, uint32_t* unixOut);
+
 /* A calendar UTC instant -> ms since 1970. False (out untouched) unless it is a real instant
  * in a sane year: month 1-12, the day within THAT month (29 Feb only in a leap year), hh < 24,
  * mm < 60, ss < 60 (a leap second's :60 is refused — the next reading is one second away),

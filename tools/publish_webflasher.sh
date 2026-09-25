@@ -11,7 +11,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 [ -f webflasher/manifest.json ] || { echo "no stage - run tools/make_webflasher.sh"; exit 1; }
-[ webflasher/wiphone-merged.bin -nt .pio/build/wiphone/firmware.bin ] || \
+[ webflasher/wiphone-app.bin -nt .pio/build/wiphone/firmware.bin ] || \
   [ ! -f .pio/build/wiphone/firmware.bin ] || {
     echo "stage is OLDER than the build - run tools/make_webflasher.sh"; exit 1; }
 
@@ -19,7 +19,9 @@ VER=$(python3 -c "import json;print(json.load(open('webflasher/manifest.json'))[
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-cp webflasher/index.html webflasher/manifest.json webflasher/wiphone-merged.bin "$TMP/"
+# The two parts make_webflasher.sh cut around nvs (never the old merged image: it erased NVS).
+cp webflasher/index.html webflasher/manifest.json webflasher/wiphone-boot.bin \
+   webflasher/wiphone-app.bin "$TMP/"
 touch "$TMP/.nojekyll"
 
 git -C "$TMP" init -q -b gh-pages

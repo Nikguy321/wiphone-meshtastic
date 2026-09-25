@@ -464,6 +464,45 @@ int main() {
           CLK_MESH_SET_AGREED && adopt == T + 10, "aging across the millis() wrap");
   }
 
+  // ---- an NTP answer the clock may take (clockNtpReplySane) ---------------------------
+  {
+    /* A real server answer, built as ntpd sends it: LI 0, version 4, mode 4, stratum 2, the
+     * transmit time 2026-08-13 12:35:19 UTC = 1786624519 + 2208988800 = 3995613319
+     * (0xEE283887 — computed in Python, not here). */
+    uint8_t p[48];
+    auto answer = [&](uint8_t b0, uint8_t stratum, uint32_t ntpSec) {
+      memset(p, 0, sizeof(p));
+      p[0] = b0;
+      p[1] = stratum;
+      p[40] = (uint8_t)(ntpSec >> 24);
+      p[41] = (uint8_t)(ntpSec >> 16);
+      p[42] = (uint8_t)(ntpSec >> 8);
+      p[43] = (uint8_t)ntpSec;
+    };
+    uint32_t got = 0;
+    answer(0x24, 2, 3995613319u);
+    CHECK(clockNtpReplySane(p, 48, &got) && got == 1786624519u, "a normal server answer is taken");
+    CHECK(!clockNtpReplySane(p, 47, &got), "a short datagram is refused");
+    answer(0xE4, 2, 3995613319u);                   // LI 3
+    CHECK(!clockNtpReplySane(p, 48, &got), "LI=3 (server unsynchronised) is refused");
+    answer(0x23, 2, 3995613319u);                   // mode 3: a client's request echoed back
+    CHECK(!clockNtpReplySane(p, 48, &got), "mode other than 4 (server) is refused");
+    answer(0x24, 0, 3995613319u);
+    CHECK(!clockNtpReplySane(p, 48, &got), "stratum 0 (kiss-o'-death) is refused");
+    answer(0x24, 16, 3995613319u);
+    CHECK(!clockNtpReplySane(p, 48, &got), "stratum 16 (unsynchronised) is refused");
+    answer(0x24, 2, 1000u);                         // 1900 + 1000 s: would wrap to 2036
+    CHECK(!clockNtpReplySane(p, 48, &got), "a transmit time before 1970 is refused (no 2036 wrap)");
+    answer(0x24, 2, 1767225600u + 2208988800u - 1); // 2025-12-31 23:59:59
+    CHECK(!clockNtpReplySane(p, 48, &got), "a time before the 2026 floor is refused");
+    answer(0x24, 2, 1767225600u + 2208988800u);     // 2026-01-01 00:00:00
+    CHECK(clockNtpReplySane(p, 48, &got) && got == 1767225600u, "the floor itself is taken");
+    answer(0x24, 1, 0xFFFFFFFFu);                   // 2036-02-07 06:28:15 UTC (Python): inside 2026..2079
+    CHECK(clockNtpReplySane(p, 48, &got) && got == 0xFFFFFFFFu - 2208988800u,
+          "the last NTP-era-0 second (2036-02-07) is a sane date and taken");
+    CHECK(!clockNtpReplySane(NULL, 48, &got), "no packet, no clock");
+  }
+
   printf("%d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;
 }

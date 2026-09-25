@@ -25,6 +25,31 @@ bool clockUnixSane(uint32_t unixSec) {
   return unixSec >= CLOCK_UNIX_MIN && unixSec < CLOCK_UNIX_LIMIT;
 }
 
+bool clockNtpReplySane(const uint8_t* pkt, int len, uint32_t* unixOut) {
+  if (!pkt || len < 48) {
+    return false;
+  }
+  const int li      = pkt[0] >> 6;
+  const int mode    = pkt[0] & 7;
+  const int stratum = pkt[1];
+  if (li == 3 || mode != 4 || stratum < 1 || stratum > 15) {
+    return false;
+  }
+  const uint32_t ntp = ((uint32_t)pkt[40] << 24) | ((uint32_t)pkt[41] << 16) |
+                       ((uint32_t)pkt[42] << 8) | (uint32_t)pkt[43];
+  if (ntp < CLOCK_NTP_1900_TO_1970) {
+    return false;                              // before 1970: the subtraction would wrap
+  }
+  const uint32_t unixSec = ntp - CLOCK_NTP_1900_TO_1970;
+  if (!clockUnixSane(unixSec)) {
+    return false;
+  }
+  if (unixOut) {
+    *unixOut = unixSec;
+  }
+  return true;
+}
+
 static bool isLeap(int y) {
   return (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
 }

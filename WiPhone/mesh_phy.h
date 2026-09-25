@@ -99,13 +99,18 @@ public:
    * (FSK standby, LoRa bit clear) fails the second even though it would pass a
    * bare version probe. That distinction is the whole point: version-only says
    * "present", present-and-misconfigured is DEAF AND MUTE. Cheap: two register
-   * reads over the bit-bang, ~240 us. Call it only between transactions.
+   * reads over the bit-bang, ~240 us (up to three pairs when one comes back
+   * garbled: a fault must read wrong three times running - see the .cpp).
+   * Call it only between transactions.
    * 🛑 TRUE WITHOUT READING WHILE A FRAME IS ON THE AIR. The op-mode is then TX (0x83), or
    * STANDBY (0x81) once TxDone has fired and serviceTx() has not yet run — neither is the RX
    * mode this checks for, so without the guard a 5 s health tick landing inside a 0.65 s
    * transmit (~13 % of them) would declare the radio LOST and re-initialise it mid-frame,
    * truncating the frame on the air. */
   bool healthCheck();
+  /* Health reads that came back wrong and then right on a retry (bus glitches healthCheck()
+   * refused to call a dead radio). RAM only; serial `radio` prints it. */
+  uint32_t healthGlitches() const { return healthGlitchCount; }
 
   /* Full re-init for a radio that died and came back (pack reconnected in the
    * field). Re-runs the begin() register sequence on the already-built SPI.
@@ -149,6 +154,9 @@ private:
   bool           ready;
   bool           inRx;
   bool           benchSleeping = false;   // see benchSleep()
+  uint32_t       healthGlitchCount = 0;   // see healthGlitches()
+  uint8_t        glitchVer = 0;           // the first wrong read of the last glitch, for its log line
+  uint8_t        glitchOp  = 0;
 
   // The frame on the air (see startSend/serviceTx). All touched from the loop task only.
   bool           txActive     = false;

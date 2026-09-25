@@ -204,7 +204,12 @@ void GUI::loadSettings() {
  */
 void GUI::reloadMessages() {
   flash.messages.unload();
-  flash.messages.load(ntpClock.isTimeKnown() ? ntpClock.getExactUnixTime() : 0);
+  /* UTC, like every writer of the store (saveMessage's getExactUtcTime, the SIP and mirror
+   * paths) and like dateTimeAgo's "now". load() stamps its repairs of no-time texts with this;
+   * the local-shifted getExactUnixTime() it was given since the vendor code put boot-era texts
+   * seven hours early at UTC-7 — drawn mid-thread — and in the future east of UTC (review,
+   * 2026-09-25). A mesh-set clock is used on purpose: message times follow any KNOWN clock. */
+  flash.messages.load(ntpClock.isTimeKnown() ? ntpClock.getExactUtcTime() : 0);
   state.unreadMessages = flash.messages.hasUnread();
 }
 
@@ -8157,7 +8162,7 @@ MessagesApp::MessagesApp(LCD& lcd, ControlState& state, Storage& flash, HeaderWi
 
   // Load messages database
   if (!flash.messages.isLoaded()) {
-    flash.messages.load(ntpClock.isTimeKnown() ? ntpClock.getExactUnixTime() : 0);
+    flash.messages.load(ntpClock.isTimeKnown() ? ntpClock.getExactUtcTime() : 0);   // UTC: see GUI::reloadMessages()
   }
   /* And the phonebook, because the rows are labelled with NAMES where there are any.
    * Here rather than at the first label lookup: this is already the screen's slow

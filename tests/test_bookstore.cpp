@@ -269,6 +269,43 @@ static void testEviction() {
   ok(s.get(newest, 1, NULL), "the most recently read one survived");
 }
 
+/* The clockless case the old rule got backwards: 47 books saved with real stamps, then the
+ * book being read now saved with NO trusted clock (turnedAt 0 - the woods, phone 1), then a
+ * 49th book is opened. The one read most recently must keep its place; the one saved longest
+ * ago goes. Evicting by smallest turnedAt threw the current book away. */
+static void testEvictionClockless() {
+  group("a full store keeps the book read most recently even when it has no clock stamp");
+  BookStore s;
+  s.init();
+  for (int i = 0; i < BOOKSTORE_MAX_BOOKS - 1; i++) {
+    char id[64];
+    snprintf(id, sizeof(id), "id:old-%03d", i);
+    const char* ids[] = { id };
+    s.put(ids, 1, (uint32_t)i, 0, 0.0, (uint32_t)(1700000000 + i));   // real, older stamps
+  }
+  const char* woods[] = { "id:read-in-the-woods" };
+  s.put(woods, 1, 7, 1234, 0.5, 0);                                    // no clock: stamp 0
+  eqU32((unsigned long)s.count, BOOKSTORE_MAX_BOOKS, "full");
+
+  const char* fresh[] = { "id:opened-at-home" };
+  s.put(fresh, 1, 0, 0, 0.0, 1790000000);
+  BookPos got;
+  ok(s.get(woods, 1, &got) && got.spine == 7 && got.offset == 1234,
+     "the clockless, most recent book kept its place");
+  const char* first[] = { "id:old-000" };
+  ok(!s.get(first, 1, NULL), "the book saved longest ago was the one evicted");
+  ok(s.get(fresh, 1, NULL), "the new book is in");
+
+  // Re-saving an old book moves it to the back: it is no longer the next to go.
+  const char* old1[] = { "id:old-001" };
+  s.put(old1, 1, 1, 0, 0.0, 1700000001);
+  const char* another[] = { "id:another" };
+  s.put(another, 1, 0, 0, 0.0, 1790000001);
+  ok(s.get(old1, 1, NULL), "a book re-saved is at the back of the line");
+  const char* old2[] = { "id:old-002" };
+  ok(!s.get(old2, 1, NULL), "...and the next-oldest save went instead");
+}
+
 /* ---------------------------------------------------------------- a card that says no
  *
  * The gap this closes cost a night's reading on 2026-09-08. Every existing test here uses an
@@ -353,6 +390,7 @@ int main() {
   testCorruption();
   testPersistence();
   testEviction();
+  testEvictionClockless();
   testWriteRefused();
   testLoadRefused();
   printf("\n%s%d passed, %d failed\033[0m\n",

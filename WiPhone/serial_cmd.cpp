@@ -921,6 +921,8 @@ static void run(char* line) {
     } else {
       say("radio: nothing has finished on the air yet this boot\n");
     }
+    say("radio: health reads garbled then right on retry: %lu this boot (bus glitches, NOT a lost "
+        "radio - see MeshPhy::healthCheck)\n", (unsigned long)meshPhy.healthGlitches());
     return;
   }
   if (!strcasecmp(line, "replay")) {

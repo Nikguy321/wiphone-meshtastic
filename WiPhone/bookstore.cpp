@@ -88,15 +88,13 @@ void BookStore::put(const char* const* ids, int nIds, uint32_t spine, uint32_t o
   count = w;
 
   if (count >= BOOKSTORE_MAX_BOOKS) {
-    // Full: evict the least recently turned. Losing the place in the book you have not
-    // opened in longest is the least bad option available.
-    int oldest = 0;
-    for (int i = 1; i < count; i++) {
-      if (books[i].turnedAt < books[oldest].turnedAt) {
-        oldest = i;
-      }
-    }
-    for (int i = oldest; i + 1 < count; i++) {
+    /* Full: evict the book SAVED longest ago — books[0], because every put() takes its book
+     * out and appends it last, and the file keeps that order. Losing the place in the book you
+     * have not opened in longest is the least bad option available.
+     * 🛑 NOT the smallest turnedAt. That stamp is 0 for every save made with no trusted clock
+     * (the woods; phone 1 has no GPS), so a book read last night lost its place to one stamped
+     * a year ago the moment a 49th book was opened (review, 2026-09-25). Order needs no clock. */
+    for (int i = 0; i + 1 < count; i++) {
       books[i] = books[i + 1];
     }
     count--;
