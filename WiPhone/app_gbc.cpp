@@ -34,6 +34,7 @@
 #include "gbc_test_rom.h"   // embedded public-domain ROM (flash) used when no SD ROM
 #include "app_gbc_xfer.h"   // ROM transfer web server (UI lives on our Transfer screen)
 #include "kosync_sync.h"   // kosyncWindowClose: a game ends any sync window
+#include "cpu_clock.h"     // cpuClockRaise: 240 MHz the moment the radio is off
 
 // Global held-button mask, updated by the main loop's keypad scanner.
 extern uint32_t keypadState;
@@ -233,6 +234,14 @@ void GbcApp::startGame() {
   WiFi.scanDelete();          // drop any lingering auto-switch scan results
   WiFi.disconnect(true, false);
   WiFi.mode(WIFI_OFF);
+  /* 🛑 240 MHz NOW, WITH THE RADIO JUST STOPPED - not at the bottom of the next loop pass
+   * (0.9.79 dev). With WiFi on, the clock gate's "full speed" is 160 on PLL 320 (it may not
+   * re-lock the PLL under a running radio: cpu_clock_policy.h), and the move to 240 is a
+   * re-lock, allowed only once the radio is off - which is this line. Done before the
+   * emulator and its audio start, so the ~100 us XTAL window of the re-lock lands on nothing.
+   * The gate agrees on every pass after (gGbcActive is in `busy`). No-op under method old,
+   * where the lit screen already has it at 240. */
+  cpuClockRaise("gbc");
   disableCore0WDT();
   disableCore1WDT();
   reclaimInternalRam();       // a no-op since 0.9.74 (the reserve is released at boot); harmless

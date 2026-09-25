@@ -81,6 +81,9 @@ for src in tests/test_*.cpp; do
     # Why the WiFi dropped: the core's reason->status/rejoin predicates (how an old health.log's
     # wifi=5 is read), the IDF reason/err names, the event ring the loop drains, the HEALTH field.
     test_wifidiag) deps=(WiPhone/wifi_diag.cpp) ;;
+    # Header-only: the CPU clock gate's decisions (cpu_clock_policy.h) - never a PLL re-lock
+    # under a running radio, checked for every state, and the 2026-09-25 bench day replayed.
+    test_cpuclock) deps=() ;;
     # The mesh-history replay wire format vs vectors generated from COVEY's
     # replay.py (regenerate with tools/gen_replay_vectors.py after changes).
     test_replay)   deps=(WiPhone/replay_proto.cpp) ;;

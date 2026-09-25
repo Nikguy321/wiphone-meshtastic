@@ -37,6 +37,7 @@ extern uint32_t uiKeyMaskFor(char code);                                    // W
 #include <esp_wifi_internal.h>   // the blob's own log level, `wifi log on|off`
 #include <esp_log.h>
 #include "wifi_diag.h"       // wifiErrName, `wifi scan`
+#include "cpu_clock.h"       // the `cpu` command: MHz, PLL, method, switch counts, the cycle bench
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>     // strtoul, the `dm` command's node number
@@ -167,6 +168,13 @@ static void help() {
     "             anything ever played",
     "  power lora sleep|rx    park the SX1276 in SLEEP (mesh DEAF) / back to RX-continuous",
     "  power sleep <secs>     light-sleep the ESP32 for N s (WiFi must be OFF): the floor",
+    "  cpu        the CPU clock: MHz, the PLL it runs from, radio on/off, method, and the switch",
+    "             counts (same-PLL / PLL re-locks radio off / re-locks WITH THE RADIO ON)",
+    "  cpu method old|new  new (default) never re-locks the PLL under a running radio: 160/80",
+    "             with WiFi on, 240/80 with it off. old = setCpuFrequencyMhz 240/80, the 4/4",
+    "             WiFi break. RAM only - a reboot is new again",
+    "  cpu cycle <n> <ms>  n down/up switch pairs through the gate's own code, one per <ms>",
+    "             (`cpu cycle 0` stops) - the A/B for the WiFi drop",
     "  key <names>  press keys: select/menu back ok up down left right call end f1-f4,",
     "             or a single character. `key menu`, `key down down ok`. Real presses -",
     "             they go into the keypad buffer, so the whole UI path runs unchanged",
@@ -1747,6 +1755,117 @@ static void run(char* line) {
       return;
     }
     say("rm: %s: %s\n", path, SD.remove(path) ? "deleted" : "FAILED");
+    return;
+  }
+
+  /* `cpu` — THE CPU CLOCK AND THE PLL UNDER IT (0.9.79 dev, 2026-09-25).
+   *
+   * Phone 1's WiFi went deaf 4 times in 4 when the gate dropped 240->80 straight after the
+   * uploader's traffic, because on this chip that move re-locks the BBPLL the radio runs from
+   * (cpu_clock_policy.h). This is the instrument for the fix: what the clock is, which PLL it
+   * runs from, whether the radio is up, and - the number that matters - how many PLL re-locks
+   * happened WITH THE RADIO ON (method new must keep it at 0). `cpu method old|new` is the A/B;
+   * `cpu cycle` drives the gate's own switch on demand so the A/B needs no screen timeouts. */
+  if (!strncasecmp(line, "cpu", 3) && (line[3] == '\0' || line[3] == ' ')) {
+    extern volatile bool gGbcActive;
+    const char* arg = line + 3;
+    while (*arg == ' ') {
+      arg++;
+    }
+    CpuClockStatus cs;
+    if (!strncasecmp(arg, "method", 6)) {
+      const char* m = arg + 6;
+      while (*m == ' ') {
+        m++;
+      }
+      if (!strcasecmp(m, "old")) {
+        cpuClockSetMethod(CPU_METHOD_OLD);
+      } else if (!strcasecmp(m, "new")) {
+        cpuClockSetMethod(CPU_METHOD_NEW);
+      } else if (*m) {
+        say("cpu method old|new\n");
+        return;
+      }
+      cpuClockStatus(&cs);
+      say("cpu method: %s (RAM only; every boot starts new)\n",
+          cs.method == CPU_METHOD_NEW ? "new - the PLL is never re-locked while the radio runs"
+                                      : "OLD - setCpuFrequencyMhz 240/80, a PLL re-lock on every change");
+      if (cs.method == CPU_METHOD_NEW && cs.radioOn && cs.pllMhz == 480) {
+        say("  the PLL is at 480 with the radio on, so the clock stays at 240 until the radio next\n");
+        say("  stops (`wifi bounce` does it): only then can it move to PLL 320 without a re-lock under it\n");
+      }
+      return;
+    }
+    if (!strncasecmp(arg, "cycle", 5)) {
+      char* end = NULL;
+      const long n = strtol(arg + 5, &end, 10);
+      const bool gotN = end != arg + 5;
+      const long ms = (gotN && *end) ? strtol(end, &end, 10) : 0;
+      if (gotN && n == 0) {
+        cpuClockCycleStart(0, 0);
+        say("cpu cycle: stopped - the gate has the clock back\n");
+        return;
+      }
+      if (n < 1 || n > 500 || ms < 50 || ms > 60000) {
+        say("cpu cycle <1..500 pairs> <50..60000 ms per switch>   (`cpu cycle 0` stops)\n");
+        return;
+      }
+      if (gGbcActive) {
+        say("cpu cycle: a Game Boy game owns the clock - refused\n");
+        return;
+      }
+      cpuClockStatus(&cs);
+#ifdef USER_SERIAL
+      if (cs.method == CPU_METHOD_OLD && gGpsNmea) {
+        say("cpu cycle: method OLD with the GPS reader on would take the APB-callback deadlock\n");
+        say("  (WiPhone.ino, the gGpsNmea note) - `gps off` first, or use method new\n");
+        return;
+      }
+#endif
+      const uint32_t lo = cpuGateTarget(cs.method, false, cs.believedMhz, cs.radioOn, cs.rated160);
+      const uint32_t hi = cpuGateTarget(cs.method, true, lo, cs.radioOn, cs.rated160);
+      const bool relock = cpuSwitchRelocksPll(lo, hi);
+      cpuClockCycleStart((uint32_t)n, (uint32_t)ms);
+      say("cpu cycle: %ld down/up pairs, one switch every %ld ms, method %s, radio %s\n", n, ms,
+          cs.method == CPU_METHOD_NEW ? "new" : "OLD", cs.radioOn ? "ON" : "off");
+      say("  expect %lu <-> %lu MHz: %s\n", (unsigned long)hi, (unsigned long)lo,
+          lo == hi ? "NO switch (held - see `cpu`)"
+                   : !relock ? "same PLL, a divider write"
+                             : cs.radioOn ? "a PLL RE-LOCK WITH THE RADIO ON each time (the 4/4 break)"
+                                          : "a PLL re-lock each time, radio off (allowed)");
+      say("  the gate gets the clock back after the last (up) switch; `CPU cycle done` gives the counts\n");
+      return;
+    }
+    if (*arg) {
+      say("cpu: unknown - `cpu`, `cpu method old|new`, `cpu cycle <n> <ms>`\n");
+      return;
+    }
+    cpuClockStatus(&cs);
+    say("cpu: %lu MHz on PLL %lu, radio %s, method %s%s\n", (unsigned long)cs.mhz,
+        (unsigned long)cs.pllMhz, cs.radioOn ? "ON" : "off",
+        cs.method == CPU_METHOD_NEW ? "new (same PLL while the radio runs)" : "OLD (setCpuFrequencyMhz)",
+        cs.rated160 ? ", chip RATED 160" : "");
+    say("  switches this boot: %lu same-PLL (divider only), %lu PLL re-locks radio off, %lu WITH THE RADIO ON\n",
+        (unsigned long)cs.samePll, (unsigned long)cs.relockOff, (unsigned long)cs.relockOn);
+    say("  240->160 before the radio started: %lu   idle refused (PLL 480 + radio on): %lu\n",
+        (unsigned long)cs.preRadio, (unsigned long)cs.held);
+    if (cs.anySwitch) {
+      say("  last gate switch: %lu -> %lu MHz (%s) %s, radio %s, %lu s ago\n",
+          (unsigned long)cs.lastFrom, (unsigned long)cs.lastTo, cs.lastWhy,
+          cs.lastRelock ? "PLL RE-LOCK" : "same PLL", cs.lastRadioOn ? "ON" : "off",
+          (unsigned long)(cs.lastAgoMs / 1000));
+    } else {
+      say("  last gate switch: none this boot\n");
+    }
+    if (cs.believedMhz != cs.mhz) {
+      say("  WARNING: the clock module set %lu MHz but the hardware reads %lu - something switched\n",
+          (unsigned long)cs.believedMhz, (unsigned long)cs.mhz);
+      say("  behind it (only cpu_clock.cpp may change the CPU frequency)\n");
+    }
+    if (cs.cycleLeft) {
+      say("  cycle: %lu switches left, one per %lu ms\n", (unsigned long)cs.cycleLeft,
+          (unsigned long)cs.cyclePeriodMs);
+    }
     return;
   }
 

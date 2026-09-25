@@ -55,6 +55,7 @@ governing permissions and limitations under the License.
 #include "mp3_stream.h"
 #include "src/assets/pop_sound.h"
 #include "notify_timing.h"     // the pop's stop timer, derived from sizeof(pop_pcm)
+#include "cpu_clock.h"         // the CPU gate's MHz: never a PLL re-lock under a running radio
 
 static bool been_in_verify = false;
 
@@ -1220,6 +1221,19 @@ void setup() {
     log_e("BOOT: BT reserve %s (err %d): internal free %lu -> %lu, largest %lu -> %lu", how, (int)rel,
           (unsigned long)fBefore, (unsigned long)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
           (unsigned long)lBefore, (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+  }
+
+  /* The clock as the app found it: 240 MHz on PLL 480 (sdkconfig DEFAULT_CPU_FREQ 240; the
+   * core's initArduino() setCpuFrequencyMhz(240) is then a no-op). Under method NEW it moves to
+   * PLL 320 INSIDE the first esp_wifi_start() - wifiState.init() below - before the radio
+   * exists; the gate's first pass prints that move (cpu_clock.cpp). */
+  cpuClockInit();
+  {
+    CpuClockStatus cs;
+    cpuClockStatus(&cs);
+    log_e("BOOT: CPU %lu MHz on PLL %lu%s, clock method %s", (unsigned long)cs.mhz,
+          (unsigned long)cs.pllMhz, cs.rated160 ? " (chip RATED 160: 240 is never used)" : "",
+          cs.method == CPU_METHOD_NEW ? "new (same PLL while the radio runs)" : "old");
   }
 
   // Initialize I2C and wake up battery gauge first
@@ -2728,21 +2742,18 @@ extern bool gbcXferOn();             // the UPLOADER is up; the gates below use 
  * gate is reached.
  *
  * So the gate keeps its place and its down-path, and this raise-only helper runs at the
- * moment a key is dequeued. It shares gCpuCurMhz with the gate, so the two can never
+ * moment a key is dequeued. It goes through cpu_clock.cpp like the gate, so the two can never
  * disagree about what the hardware is doing. Raising only: nothing here can ever put the
- * phone into a lower state than the gate chose. */
-static uint32_t gCpuCurMhz = 240;
-
-/* ⚠ IF THIS IS EVER RE-ENABLED, READ THE DEADLOCK NOTE ON THE `busy` PREDICATE FIRST.
- * A RAISE is a frequency change like any other, so it fires uart_on_apb_change() and can park
- * the loop task forever while the plate's GPS is streaming at 115200. It is safe today only
- * because gGpsNmea is in `busy`, which pins the clock at 240 so the `!= 240` test below is
- * false and this never calls. That is load-bearing, not incidental. */
+ * phone into a lower state than the gate chose.
+ *
+ * ⚠ IF THIS IS EVER RE-ENABLED, READ THE DEADLOCK NOTE ON THE `busy` PREDICATE FIRST.
+ * Under `cpu method old` a RAISE is a setCpuFrequencyMhz() like any other, so it fires
+ * uart_on_apb_change() and can park the loop task forever while the plate's GPS is streaming at
+ * 115200 (method new fires no APB callback). It is safe today only because gGpsNmea is in
+ * `busy`, which pins the clock at full speed, so this finds nothing to raise. That is
+ * load-bearing, not incidental. */
 __attribute__((unused)) static void cpuRaiseForUi() {
-  if (gCpuCurMhz != 240) {
-    setCpuFrequencyMhz(240);
-    gCpuCurMhz = 240;
-  }
+  cpuClockRaise("key");
 }
 
 /* ── LOOP PHASE TRACKER ────────────────────────────────────────────────────────────────────
@@ -3878,7 +3889,7 @@ void loop() {
       if (fh < s_minHeapEver) {
         s_minHeapEver = fh;
       }
-      char hl[256];                    // 200 + the wdis/cr/ssf field (2026-09-25)
+      char hl[256];                    // 200 + wdis/cr/ssf + pll/csw (~230 worst case, 2026-09-25)
       wifi_ps_type_t hlPs;
       int hlLen = snprintf(hl, sizeof(hl),
                /* ⚠ aud= IS THE INSTRUMENT FOR THE AUDIO LEAK, and it is two numbers because one
@@ -3909,6 +3920,13 @@ void loop() {
        * never had: `wifi=` is only the core's lossy summary of it (wifi_diag.h). */
       if (hlLen > 0 && hlLen < (int)sizeof(hl)) {
         wifiDiagHealth(hl + hlLen, sizeof(hl) - (size_t)hlLen);
+      }
+      /* pll=<the PLL the CPU runs from> csw=<same-PLL switches>/<PLL re-locks, radio off>/<PLL
+       * re-locks WITH THE RADIO ON>. The third is the event that broke phone 1's WiFi 4 of 4;
+       * under `cpu method new` it stays 0 for the whole boot (cpu_clock_policy.h). */
+      hlLen = (int)strlen(hl);
+      if (hlLen < (int)sizeof(hl) - 1) {
+        cpuClockHealth(hl + hlLen, sizeof(hl) - (size_t)hlLen);
       }
       log_e("%s", hl);
 
@@ -4920,7 +4938,10 @@ void loop() {
        * and sent this hunt after the wrong transition.
        *
        * The cost is idle power while the GPS is on, and that is the right trade against a
-       * phone that stops answering its buttons. */
+       * phone that stops answering its buttons.
+       * ⚠ 0.9.79: cpu_clock.cpp's method NEW (the default) switches without arduino's APB
+       * callbacks, so it cannot take this deadlock at all - but gGpsNmea STAYS in `busy`: it
+       * keeps phone 2 exactly as it was, and `cpu method old` brings the callback back. */
       /* The map downloader PAUSES for anything that owns the audio path or the heap: a live
        * or imminent call (its TLS handshake dips internal RAM to ~4 KB, measured), the Game
        * Boy (it owns the card and the SPI bus, and turns WiFi off), and a WiFi that is not
@@ -4961,20 +4982,25 @@ void loop() {
 #else
       const bool wantFull = busy;
 #endif
-      const uint32_t wantMhz = wantFull ? 240 : 80;
-      if (wantMhz != gCpuCurMhz) {
-        setCpuFrequencyMhz(wantMhz);
-        gCpuCurMhz = wantMhz;
-        /* Label the reason the ACTIVE predicate gave, not the experimental one - with
-         * UI_IDLE_DOWNCLOCK off, a lit screen goes to 240 via `busy`, and calling that
-         * "screen idle" in the log is how you mislead the next person reading it. */
-        log_e("CPU %luMHz (%s)", (unsigned long)wantMhz,
+      /* 🛑 FULL/IDLE IS DECIDED HERE; WHAT THAT MEANS IN MHz IS cpu_clock.cpp's (0.9.79 dev).
+       * This was setCpuFrequencyMhz(wantFull ? 240 : 80), and on this chip that is not a
+       * divider: 240 runs off PLL 480 and 80 off PLL 320 (ESP32 TRM Table 7.2-2 - there is no
+       * 480/6), so every change re-locked the BBPLL that the WiFi radio runs from. MEASURED on
+       * phone 1, 2026-09-25: 240->80 straight after the uploader's traffic broke WiFi 4 of 4
+       * (disassoc ~10 s later, then deaf until a radio bounce); CPU held at 240, 0 of 3; 20
+       * switches with an idle radio, 0 of 20. Under method NEW (the default) the PLL is never
+       * re-locked while the radio runs: with WiFi on, full = 160 and idle = 80, both off PLL
+       * 320, a divider write; with it off, 240/80 exactly as before. `cpu method old` puts the
+       * old call back for the A/B, `cpu` says what happened (cpu_clock_policy.h has the rest).
+       * Label the reason the ACTIVE predicate gave, not the experimental one - with
+       * UI_IDLE_DOWNCLOCK off, a lit screen goes to full speed via `busy`, and calling that
+       * "screen idle" in the log is how you mislead the next person reading it. */
+      cpuClockGate(wantFull,
 #if UI_IDLE_DOWNCLOCK
-              hardBusy ? "busy" : (gui.state.screenBrightness > 0 ? "screen idle" : "idle"));
+                   hardBusy ? "busy" : (gui.state.screenBrightness > 0 ? "screen idle" : "idle"));
 #else
-              busy ? "busy" : "idle");
+                   busy ? "busy" : "idle");
 #endif
-      }
       /* The same predicate decides the TICK below — plus one extra gate: while the LAN
        * mirror poll is mid-transfer its state machine advances one bounded step per pass,
        * so stretching the tick then would slow a live download 5x for no saving worth

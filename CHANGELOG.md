@@ -140,6 +140,20 @@ was thrown away (the core's own `Reason:` line is log_w, compiled out).
   of refused starts retried every loop pass and wrote a health.log line (an SD open/append/close) for
   each one.
 
+### Phone 1's WiFi drop: the CPU gate no longer re-locks the PLL under a running radio (0.9.79 dev, 2026-09-25)
+
+🛑 **The cause, measured on phone 1:** the gate's 240→80 MHz drop straight after WiFi traffic broke WiFi
+4 of 4 (0 of 3 held at 240; 0 of 20 with an idle radio). On the ESP32, 240 runs off PLL 480 and 80/160
+off PLL 320 (TRM Table 7.2-2; there is no 480/6), so `setCpuFrequencyMhz` re-locked the BBPLL under the
+radio every time (TRM 7.2.5 requires WiFi to be in low power first). **New CPU clock module
+(`cpu_clock.cpp`):** while the radio runs, the clock stays on one PLL, with **160 MHz for work and 80
+idle** (a divider write, the switch IDF's own DFS uses). With WiFi off it is **240/80 as before**, and the
+Game Boy still gets 240. `esp_wifi_start/stop` are link-wrapped so every radio start first moves the
+clock off PLL 480. There are no APB callbacks, so the GPS-UART deadlock cannot happen. ⚠ **With WiFi on,
+"full speed" is now 160 MHz.** Serial: `cpu`, `cpu method old|new` (A/B, RAM only), `cpu cycle <n> <ms>`.
+HEALTH gains ` pll=<MHz> csw=<same-PLL>/<re-locks radio off>/<re-locks radio ON>`. The last number must
+stay 0. Host suite: `tests/test_cpuclock.cpp`.
+
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 
 Nick, after looking at OpenTopoMap one level deeper: *"So it seems like open topo has a native
