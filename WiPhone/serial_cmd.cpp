@@ -851,6 +851,16 @@ static void run(char* line) {
       arg++;
     }
     if (!strcasecmp(arg, "on") || !strcasecmp(arg, "off")) {
+      /* 🛑 Not under `cpu method old` (0.9.79 dev): typed with the screen off the clock is at
+       * 80, and the gate's next pass (busy: gGpsNmea) would setCpuFrequencyMhz(240) into the
+       * APB-callback deadlock (WiPhone.ino, the gGpsNmea note). `cpu method old` refuses the
+       * other order. The mesh app's GPS row needs no guard: it is toggled with the screen lit,
+       * i.e. already at full speed, so no switch follows. */
+      if (!strcasecmp(arg, "on") && !gGpsNmea && cpuClockMethod() == CPU_METHOD_OLD) {
+        say("gps on: refused - cpu method is OLD, whose next clock switch would take the APB-callback\n");
+        say("  deadlock with the reader streaming (WiPhone.ino, the gGpsNmea note) - `cpu method new` first\n");
+        return;
+      }
       gGpsNmea = !strcasecmp(arg, "on");
       Preferences p;
       p.begin("wpmesh", false);
@@ -1779,6 +1789,20 @@ static void run(char* line) {
         m++;
       }
       if (!strcasecmp(m, "old")) {
+#ifdef USER_SERIAL
+        /* 🛑 NOT WITH THE GPS READER ON (review, 2026-09-25). Under method new with WiFi up,
+         * phone 2 runs at 160 on PLL 320; the gate's next pass under OLD (busy: gGpsNmea) would
+         * call setCpuFrequencyMhz(240), which fires uart_on_apb_change - the gGpsNmea deadlock
+         * that parks the loop for good (WiPhone.ino) - AND re-locks the PLL under the radio.
+         * On 0.9.78 phone 2 never called setCpuFrequencyMhz after boot; this switch must not
+         * hand it a new way to hang. Same refusal as `cpu cycle`'s, and `gps on` refuses the
+         * other order. */
+        if (gGpsNmea) {
+          say("cpu method old: refused - with the GPS reader on, method OLD's next switch would take\n");
+          say("  the APB-callback deadlock (WiPhone.ino, the gGpsNmea note) - `gps off` first\n");
+          return;
+        }
+#endif
         cpuClockSetMethod(CPU_METHOD_OLD);
       } else if (!strcasecmp(m, "new")) {
         cpuClockSetMethod(CPU_METHOD_NEW);

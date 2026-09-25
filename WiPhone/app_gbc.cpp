@@ -225,6 +225,23 @@ void GbcApp::startGame() {
   // and disable the core watchdogs (the two tasks saturate both cores).
   gGbcActive = true;
   enteredGaming = true;
+  /* 🛑 THE CORE'S AUTO-RECONNECT IS OFF FOR THE WHOLE GAME (0.9.79 dev, review 2026-09-25).
+   * The core's event task answers a STA_DISCONNECTED with reason >= 200 (not 202) by
+   * `WiFi.disconnect(); WiFi.begin();` (WiFiGeneric.cpp:404-410), and begin() on a radio that
+   * disconnect(true) below has just stopped STARTS IT AGAIN (_esp_wifi_started is already false,
+   * so mode(STA) runs esp_wifi_start). One such event still queued when the game starts - an
+   * out-of-range NO_AP_FOUND storm is exactly that - put the radio back up under the emulator:
+   * an old race (WiFi competing for the internal RAM the emulator just took), and since the
+   * cpu_clock wrapper, also a PLL re-lock 240->160 with the emulator and I2S running, after
+   * which the game stays at 160 (the gate holds PLL 320 while the radio runs). Cleared BEFORE
+   * the disconnect and the KOSync teardown so no event handled after them can restart it;
+   * restored in ~GbcApp before the station is brought back. Saved once, so a second start in
+   * one app lifetime could never "restore" the cleared value. */
+  if (!autoReconnectHeld) {
+    savedAutoReconnect = WiFi.getAutoReconnect();
+    autoReconnectHeld = true;
+  }
+  WiFi.setAutoReconnect(false);
   /* 🛑 A KOSync sync window ends HERE, before the radio goes off (0.9.79). Left open it would
    * count down over a dead radio and, at its deadline, take its hotspot down with a
    * WiFi.begin() in the middle of the game — with the watchdogs off and the emulator holding
@@ -464,6 +481,13 @@ GbcApp::~GbcApp() {
     enableCore0WDT();
     enableCore1WDT();
     gGbcActive = false;
+    /* The core's auto-reconnect back first (startGame cleared it for the game), so a
+     * NO_AP_FOUND from the reconnect below is retried as it always was. Whatever the
+     * radio switch says: it is the core's policy flag, not the radio. */
+    if (autoReconnectHeld) {
+      WiFi.setAutoReconnect(savedAutoReconnect);
+      autoReconnectHeld = false;
+    }
     /* ⚠ NOT IF THE USER SWITCHED THE RADIO OFF. This restored WiFi unconditionally, so
      * playing a game silently undid "WiFi: off" — one of three such paths found in the
      * 2026-09-01 audit. GUI.cpp:7197 already had this right for the networks screen. */

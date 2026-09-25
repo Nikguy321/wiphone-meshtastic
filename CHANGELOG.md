@@ -154,6 +154,13 @@ clock off PLL 480. There are no APB callbacks, so the GPS-UART deadlock cannot h
 HEALTH gains ` pll=<MHz> csw=<same-PLL>/<re-locks radio off>/<re-locks radio ON>`. The last number must
 stay 0. Host suite: `tests/test_cpuclock.cpp`.
 
+Review round: `cpu method old` is refused while the GPS reader is on, and `gps on` is refused under
+method old. Either order would bring back the APB-callback deadlock that the GPS reader can cause on
+phone 2. A Game Boy game now switches the core's WiFi auto-reconnect off for its duration: a
+NO_AP_FOUND still queued at game start could restart the radio under the emulator, and that restart
+would have dropped the game to 160 MHz. The pre-radio clock move is now decided inside the lock, so a
+racing gate pass can no longer leave the radio on PLL 480 with idle held at 240.
+
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 
 Nick, after looking at OpenTopoMap one level deeper: *"So it seems like open topo has a native

@@ -52,7 +52,7 @@
  *    its book and the client all live here.
  * ⚠ The window gates the WiFi rescue exactly as the uploader's hotspot does (xferServing() in
  *    WiPhone.ino) — for at most 5 minutes, on a hard millis() deadline that nothing can
- *    extend past what was asked for. It does NOT hold the screen or pin 240 MHz (the uploader
+ *    extend past what was asked for. It does NOT hold the screen or pin full speed (the uploader
  *    does): it serves with the screen dark, at 80 MHz. It never opens during a Game Boy game
  *    (and a game closes it), nor under Settings > WiFi (which closes it too).
  */

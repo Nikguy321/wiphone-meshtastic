@@ -297,16 +297,24 @@ extern "C" esp_err_t __real_esp_wifi_stop(void);
 
 extern "C" esp_err_t __wrap_esp_wifi_start(void) {
   cpuClockInit();
-  rtc_cpu_freq_config_t conf;
-  const uint32_t want = cpuPreRadioTarget(s_method, s_curMhz);
-  const bool haveConf = !s_radioOn && want != s_curMhz && rtc_clk_cpu_freq_mhz_to_config(want, &conf);
-  if (haveConf) {
+  /* The console drain is keyed on a guess made OUTSIDE the lock (uart_tx_wait_idle spins on the
+   * UART and must not run with interrupts off). The DECISION is made inside it, from the s_curMhz
+   * the lock protects: decided out here, a gate pass on the other core that re-locked 80->240
+   * (radio off, allowed) between the read and the lock left `want` stale, the in-lock re-check
+   * failed, and the radio came up on PLL 480 - safe, but idle then held at 240 until the radio
+   * next stopped, possibly for hours (review, 2026-09-25). A lost race now costs at most a few
+   * console bytes in the XTAL window. rtc_clk_cpu_freq_mhz_to_config is fit for the lock: IRAM
+   * (esp32.project.ld places libsoc rtc_clk.* there) and, disassembled, a table lookup whose only
+   * call is rtc_clk_xtal_freq_get(), one register read. */
+  if (!s_radioOn && cpuPreRadioTarget(s_method, s_curMhz) != s_curMhz) {
     uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM);
   }
+  rtc_cpu_freq_config_t conf;
   portENTER_CRITICAL(&s_mux);
   const bool wasOn = s_radioOn;
-  if (haveConf && !wasOn && cpuPreRadioTarget(s_method, s_curMhz) == want && s_curMhz != want) {
-    const uint32_t from = s_curMhz;
+  const uint32_t from = s_curMhz;
+  const uint32_t want = cpuPreRadioTarget(s_method, from);
+  if (!wasOn && want != from && rtc_clk_cpu_freq_mhz_to_config(want, &conf)) {
     applyLocked(&conf);
     s_relockOff++;
     s_preRadio++;

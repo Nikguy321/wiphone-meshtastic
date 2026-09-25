@@ -1658,7 +1658,7 @@ static TileWorld worldNow(uint32_t now) {
 static void runningTick(uint32_t now) {
   Job* j = s_job;
   /* Off USB and under the floor (less the hysteresis): stop, and wait for USB. The phone's own
-   * power-off at 3.30 V would otherwise end a multi-day job in the night, WiFi on at 240 MHz,
+   * power-off at 3.30 V would otherwise end a multi-day job in the night, WiFi on at full speed,
    * with nothing to bring it back. */
   if (!s_world.usb && s_world.volts > 0.5f && s_world.volts < MAPS_DL_BATT_FLOOR - TILE_PLAN_BATT_HYST && !s_stop) {
     char msg[64];

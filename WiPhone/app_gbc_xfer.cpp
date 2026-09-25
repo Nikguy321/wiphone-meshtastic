@@ -62,7 +62,8 @@ static bool         s_apByUploader = false; // xferStart() brought it up, not a 
 
 /* ── IDLE AUTO-STOP ────────────────────────────────────────────────────────────────
  * The transfer server is a term in the DFS busy predicate (WiPhone.ino), so while it
- * is up the CPU is PINNED at 240 MHz and the idle tick runs 5x faster - roughly
+ * is up the CPU is PINNED at full speed (240 MHz until 0.9.79; 160 now, since WiFi is up
+ * and cpu_clock.cpp may not re-lock the PLL under it) and the idle tick runs 5x faster - roughly
  * DOUBLE idle current - and it also stretches the screen sleep timeout to 10 minutes.
  * Nothing ever released that. There was no idle timeout, no client-gone timeout, no
  * WiFi-loss timeout: it stayed on until something called xferStop().
@@ -182,7 +183,7 @@ void gbcXferHandleClient() {
    * gone quiet costs one comparison rather than a full poll. The UPLOADER's only: a KOSync
    * window carries its own hard deadline (kosyncLoop), five minutes at most. */
   if (s_upOn && s_lastActivityMs && (uint32_t)(millis() - s_lastActivityMs) > XFER_IDLE_STOP_MS) {
-    log_e("XFER: idle %lu min with no client - stopping itself (it was pinning 240 MHz)",
+    log_e("XFER: idle %lu min with no client - stopping itself (it was holding the CPU at full speed)",
           (unsigned long)(XFER_IDLE_STOP_MS / 60000UL));
     xferStop();
     return;
@@ -2049,7 +2050,7 @@ static bool windowRefused(const char* fmt, ...) {
   return false;
 }
 
-/* ⚠ NO SCREEN HOLD AND NO 240 MHz FOR A WINDOW (0.9.79 review). Both were copied from the
+/* ⚠ NO SCREEN HOLD AND NO FULL-SPEED CPU FOR A WINDOW (0.9.79 review). Both were copied from the
  * uploader, which needs them: a person is watching its screen, and it streams megabytes
  * through the SD card. A window answers a handful of ~300-byte requests. Checked, not
  * assumed: gbcXferHandleClient() is called on every loop() pass whatever the screen is doing,

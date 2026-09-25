@@ -4856,7 +4856,9 @@ void loop() {
      * it stayed there in a pocket with the screen off. At 80 MHz the core draws roughly
      * half as much, and the phone spends most of its life doing nothing but listening.
      *
-     * Full speed whenever anything would notice:
+     * Full speed whenever anything would notice (⚠ since 0.9.79 "full speed" is 240 only with
+     * the WiFi radio off - with it running it is 160, the most PLL 320 gives, because moving to
+     * 240 would re-lock the PLL under the radio: cpu_clock_policy.h):
      *   - the screen is on (someone is looking, and redraws should feel instant)
      *   - music is playing (the decoder has headroom at 240 and less of it at 80)
      *   - a call is up (RTP is a hard 20 ms deadline)
@@ -4940,8 +4942,12 @@ void loop() {
        * The cost is idle power while the GPS is on, and that is the right trade against a
        * phone that stops answering its buttons.
        * ⚠ 0.9.79: cpu_clock.cpp's method NEW (the default) switches without arduino's APB
-       * callbacks, so it cannot take this deadlock at all - but gGpsNmea STAYS in `busy`: it
-       * keeps phone 2 exactly as it was, and `cpu method old` brings the callback back. */
+       * callbacks, so it cannot take this deadlock at all - but gGpsNmea STAYS in `busy`, so
+       * phone 2's GPS still holds the clock at FULL SPEED. That is no longer "240 as it always
+       * was": full speed is 240 with the radio off and 160 on PLL 320 while WiFi runs (method
+       * new may not re-lock the PLL under the radio - cpu_clock_policy.h), so with WiFi on
+       * phone 2 now runs at 160. `cpu method old` would bring the callback back, which is why
+       * it is refused while the reader is on, and `gps on` is refused under it (serial_cmd.cpp). */
       /* The map downloader PAUSES for anything that owns the audio path or the heap: a live
        * or imminent call (its TLS handshake dips internal RAM to ~4 KB, measured), the Game
        * Boy (it owns the card and the SPI bus, and turns WiFi off), and a WiFi that is not
@@ -4966,13 +4972,16 @@ void loop() {
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
                         gGpsNmea ||            // see the deadlock note above — NOT perf
-                        xferOn() ||            // the UPLOADER; a KOSync window needs no 240 MHz (app_gbc_xfer.cpp)
+                        xferOn() ||            // the UPLOADER; a KOSync window needs no full speed (app_gbc_xfer.cpp)
                         tileFetchActive() ||   // tiles: HTTPS + decode + card, see tile_fetch.h
                         musicPlayerIsPlaying() ||
                         sipNeedsFullSpeed();   // NOT sipCallActive() — see the note on it
-      /* Anything with a deadline stays at 240 REGARDLESS of the screen: the emulator, the
-       * transfer server, audio playback and a live SIP session. Only the screen term is
-       * relaxed, and only while nothing is being drawn. */
+      /* Anything with a deadline stays at FULL SPEED REGARDLESS of the screen: the emulator,
+       * the transfer server, audio playback and a live SIP session. Only the screen term is
+       * relaxed, and only while nothing is being drawn. ⚠ Full speed is what cpu_clock.cpp
+       * gives `wantFull`: 240 with the radio off, 160 on PLL 320 while it runs (method new).
+       * So the uploader, a SIP call, tiles and music with WiFi up all run at 160 now; 240 is
+       * left to work done with the radio off (the Game Boy turns it off first). */
       const bool hardBusy = gGbcActive || gGpsNmea || xferOn() || tileFetchActive() ||
                             musicPlayerIsPlaying() || sipNeedsFullSpeed();
       extern volatile uint32_t gUiWorkMs;      // GUI.cpp: stamped by every redraw
