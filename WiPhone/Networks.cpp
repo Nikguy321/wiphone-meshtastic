@@ -143,6 +143,41 @@ void noteWifiJoinStarted() {
   s_msLastConnectAttempt = millis();
 }
 
+/* The core's auto-reconnect: armed by the owner's policy, held off by the scopes that take the
+ * station away (wifi_policy.h has the why). {armed = true: the core's own default, holds = 0}.
+ * Applied on EVERY change, so the core's flag is never a copy someone forgot to put back. */
+static WifiAutoReconnect s_ar = { true, 0 };
+
+static void wifiAutoReconnectApply() {
+  WiFi.setAutoReconnect(wifiArOn(s_ar));
+}
+
+void wifiAutoReconnectHold(uint8_t who) {
+  wifiArHold(s_ar, who);
+  wifiAutoReconnectApply();
+}
+
+void wifiAutoReconnectRelease(uint8_t who) {
+  wifiArRelease(s_ar, who);
+  wifiAutoReconnectApply();
+}
+
+/* The policy half: false in disable(), true again on a deliberate join (connectToWiFi) or on
+ * "manage WiFi again" (resumeReconnect). Networks.cpp only. */
+static void wifiAutoReconnectArm(bool armed) {
+  wifiArArm(s_ar, armed);
+  wifiAutoReconnectApply();
+}
+
+/* 14 dBm, on every join this file starts: connectToWiFi()'s and wifiRestoreStation()'s JOIN (the
+ * restore's bare begin() skipped it, and the duplicate retry R2 removed was what re-applied it). */
+static void wifiCapTxPower() {
+  int rv = 0;
+  if ((rv = esp_wifi_set_max_tx_power(56)) != ESP_OK) {
+    log_e("failed to limit transmit power: %d", rv);
+  }
+}
+
 // ===================================================== WHY IT DROPPED =====================================================
 
 /* ── THE SCAN START, WITH THE REASON IT WAS REFUSED ─────────────────────────────────────────
@@ -415,9 +450,12 @@ void Networks::diagPrint(void (*out)(const char*)) {
   char b[18];
   const uint32_t now = millis();
 
-  snprintf(l, sizeof(l), "wifi why: status=%d conn=%d mode=%d autoReconnect=%d radioOff=%d ud=%d rec=%d",
+  /* autoReconnect is the core's flag as it is NOW; (armed, held) is why (R1: held 1 = a game,
+   * 2 = a hotspot). mode=3 (AP+STA) under a live sync window is the R1 race having happened. */
+  snprintf(l, sizeof(l), "wifi why: status=%d conn=%d mode=%d autoReconnect=%d (armed=%d held=%u) "
+           "radioOff=%d ud=%d rec=%d",
            (int)WiFi.status(), (int)connected, (int)WiFi.getMode(), (int)WiFi.getAutoReconnect(),
-           (int)_radioOff, (int)_userDisabled, (int)reconnect);
+           (int)s_ar.armed, (unsigned)s_ar.holds, (int)_radioOff, (int)_userDisabled, (int)reconnect);
   out(l);
   {
     const char* by = wifiStationBlockedBy();
@@ -540,6 +578,10 @@ bool connectToWiFi(const char* ssid, const char* pwd) {
   }
 
   s_msLastConnectAttempt = millis();   // every join path stamps this — see Networks.h
+  /* A deliberate join re-arms the core's auto-reconnect that disable() disarmed (R1): from here a
+   * NO_AP_FOUND is retried by the core as it always was. Held scopes (a game, a hotspot) still win,
+   * though the refusal above means none is live here. */
+  wifiAutoReconnectArm(true);
 
   log_d("Connecting to network: %s", ssid);
 
@@ -601,10 +643,7 @@ bool connectToWiFi(const char* ssid, const char* pwd) {
   }
 
   // Limit transmit power to 14 dBm
-  int rv = 0;
-  if ((rv = esp_wifi_set_max_tx_power(56)) != ESP_OK) {
-    log_e("failed to limit transmit power: %d", rv);
-  }
+  wifiCapTxPower();
 
   /* ── WiFi MODEM SLEEP ─────────────────────────────────────────────────────────────
    * The radio was running with power save OFF, meaning the receiver stayed powered
@@ -619,6 +658,7 @@ bool connectToWiFi(const char* ssid, const char* pwd) {
    *
    * Set after begin() on purpose: the driver resets the power-save mode when the station
    * starts, so setting it earlier is silently undone. */
+  int rv = 0;
   if ((rv = esp_wifi_set_ps(WIFI_PS_MIN_MODEM)) != ESP_OK) {
     log_e("failed to enable wifi modem sleep: %d", rv);
   }
@@ -807,6 +847,15 @@ void Networks::disable() {
    * flag false — and anything gating on userDisabled() was reading a stale answer. The
    * flag is cleared by the symmetric acts: a deliberate connectTo() or resumeReconnect(). */
   _userDisabled = true;
+  /* 🛑 THE CORE'S AUTO-RECONNECT IS DISARMED FIRST (0.9.79 review R1), before disconnect() takes
+   * the station away. Left armed, one NO_AP_FOUND still queued from a hunting station - the state
+   * a phone is in when its owner switches WiFi off because the network is gone - is answered on
+   * the event task by `WiFi.disconnect(); WiFi.begin();`, and begin() on the radio stopped below
+   * is mode(STA) from NULL: esp_wifi_start() behind "WiFi: off", for the rest of the boot. The
+   * mode(OFF)/esp_wifi_stop() after it only won the interleavings where the handler finished
+   * first. Re-armed by the symmetric acts: connectToWiFi() (a deliberate join) and
+   * resumeReconnect() (WiFi on). */
+  wifiAutoReconnectArm(false);
   disconnect();
   WiFi.mode(WIFI_OFF);
   /* 🛑 NO btStop() HERE, EVER (0.9.75). It was a no-op — the Bluetooth controller is never
@@ -1036,6 +1085,7 @@ void Networks::forgetDrySpell(void) {
 void Networks::resumeReconnect(void) {
   _userDisabled = false;
   reconnect = true;
+  wifiAutoReconnectArm(true);         // disable() disarmed the core's auto-reconnect (R1)
   forgetDrySpell();                   // the spell starts now, not when the radio went off
 }
 
@@ -1107,7 +1157,10 @@ bool wifiRestoreStation(const char* who) {
     wifi_config_t conf;
     if (esp_wifi_get_config(WIFI_IF_STA, &conf) == ESP_OK && conf.sta.ssid[0]) {
       WiFi.begin();
-      noteWifiJoinStarted();   // a join in flight: the young-join rules (quiesce, scans, KS-T1) see it
+      /* A join in flight: the young-join rules see it - the quiesce, the scans, KS-T1, and (R2)
+       * the loop's own join retry, which later in this same pass used to re-begin over it. */
+      noteWifiJoinStarted();
+      wifiCapTxPower();        // what connectToWiFi() applies; the retry that re-applied it is gone
     } else {
       d = WIFI_RESTORE_UP_IDLE;
       note = " - nothing in the driver's config, the loop's retry joins";

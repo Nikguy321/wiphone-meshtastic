@@ -1866,6 +1866,19 @@ static bool transportUp(const char* apName, const char* pass, bool waitForSta, c
     snprintf(s_addr, sizeof(s_addr), "%s", WiFi.localIP().toString().c_str());
   } else {
     s_usingAP = true;
+    /* 🛑 THE CORE'S AUTO-RECONNECT IS HELD OFF BEFORE THE STATION GOES (0.9.79 review R1). A
+     * hotspot comes up exactly when the station is NOT associated - out of range, often still
+     * hunting on NO_AP_FOUND, or a JOIN begun moments ago by the teardown of the window this one
+     * replaces. The core's event task answers a NO_AP_FOUND handled after the mode(AP) below with
+     * `WiFi.disconnect(); WiFi.begin();`, and begin() is enableSTA(true) = mode(AP+STA): the
+     * station hunting beside the live softAP for the whole window (nothing puts the mode back to
+     * AP - the loop's retry, quiesce and auto-switch all stand down under a live hotspot). The AP
+     * then follows the station's scan channels (the X4 cannot hold 'WiPhone-Books'), and a station
+     * connect under a live softAP is the chip panic WiPhone.ino's reconnect gate exists for.
+     * Released in transportDown() (and below, if the softAP fails) BEFORE the station is given
+     * back. No WiFi.disconnect(true) first: a radio stop/start for nothing, and it does not close
+     * the race by itself - the hold does. `wifi why` shows mode=3 if it ever happens anyway. */
+    wifiAutoReconnectHold(WIFI_AR_HOLD_HOTSPOT);
     WiFi.mode(WIFI_AP);
     const bool wpa2 = pass && pass[0];
     // 🛑 The passphrase goes to the driver and nowhere else: never into a log line.
@@ -1885,6 +1898,7 @@ static bool transportUp(const char* apName, const char* pass, bool waitForSta, c
       /* (0.9.79) ...and do not leave the radio in AP mode with no AP: put the station back
        * exactly as a stop does, or the phone sits off WiFi until something notices. */
       s_usingAP = false;
+      wifiAutoReconnectRelease(WIFI_AR_HOLD_HOTSPOT);   // no hotspot: the station's own retry is back
       wifiRestoreStation("hotspot failed to start");
       return false;
     }
@@ -1918,7 +1932,13 @@ static void transportDown(const char* who) {
      * owns both cores and the internal RAM it grabbed with WiFi off; the game's own exit asks
      * again — this used to be a branch of its own here), and never over "WiFi: off" or a
      * Disconnected network (the 2026-09-01 audit's paths). The AP is torn down either way;
-     * what is gated is bringing the station back up. */
+     * what is gated is bringing the station back up.
+     *
+     * The hotspot's hold on the core's auto-reconnect goes first (transportUp took it, R1), so a
+     * NO_AP_FOUND on the restore's own join is retried by the core as it always was. Whether the
+     * flag actually comes back on is the owner's: disarmed after disable() (WiFi off), still held
+     * under a game (startGame holds before it closes a window - this runs inside it). */
+    wifiAutoReconnectRelease(WIFI_AR_HOLD_HOTSPOT);
     wifiRestoreStation(who);
   }
   s_on = false;

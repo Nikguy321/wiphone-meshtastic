@@ -97,6 +97,12 @@ no space before it (`pass#word`) is part of the value.
   card (one lost to a restart or a full inbox is offered again, and "Sync my place" sends
   nothing while one waits on the card); and the X4 fork's second PUT, under its file-name id,
   no longer shows "! A place for a DIFFERENT book" beside a sync that worked.
+- **Integration review, WiFi (R1, R2):** the core's auto-reconnect is held off while a sync
+  window's or the uploader's hotspot is up (a late NO_AP_FOUND could turn it into AP+STA, the
+  station hunting beside the hotspot) and after WiFi is switched off (it could restart the radio
+  behind "off"); a game and a hotspot hold it without undoing each other. `power sleep` refuses
+  on the radio's real state. The loop's join retry no longer re-begins over the join a window
+  close or a game exit started in the same pass, and restored joins get the 14 dBm TX cap.
 - The phone only ever HOSTS: it never scans for or joins another device's hotspot.
 - **The sync hotspot is OPEN unless `hotspot_pass=` is set.** With 8-63 plain-ASCII characters
   (spaces inside are fine; spaces at either end are trimmed) the window's `WiPhone-Books` is

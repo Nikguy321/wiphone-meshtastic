@@ -22,6 +22,7 @@ governing permissions and limitations under the License.
 #include "lwip/netdb.h"
 #include "src/ping/ping.h"
 #include <ESPmDNS.h>
+#include "wifi_policy.h"   // WIFI_AR_HOLD_*, wifiRetryMayBegin: the pure half of the rules below
 
 #ifdef WIPHONE_PRODUCTION
 #define WIFI_DEBUG(fmt, ...)
@@ -57,9 +58,21 @@ const char* wifiStationBlockedBy();
 /* millis() of the last connectToWiFi() from ANY path — the periodic retry, the
  * auto-switcher, or a manual join in the networks app — and of the transfer server's own
  * WiFi.begin() when it hands the radio back (noteWifiJoinStarted). The reconnect backoff's
- * radio quiesce consults this so it never disconnects an association it did not start. */
+ * radio quiesce consults this so it never disconnects an association it did not start, and the
+ * loop's join retry so it never re-begins over one (wifiRetryMayBegin, review R2). ⚠ Read it with
+ * wifi_policy.h's wifiJoinAgeMs/wifiJoinYoungAt against the loop's `now`: a join stamped later
+ * in the same pass is AHEAD of it, and a plain `now - stamp` calls that ~49 days old. */
 uint32_t lastWifiConnectAttemptMs();
 void     noteWifiJoinStarted();       // a join begun outside connectToWiFi() (a bare WiFi.begin())
+
+/* ── THE CORE'S AUTO-RECONNECT, HELD OFF FOR A SCOPE (0.9.79 review R1; wifi_policy.h) ──────
+ * 🛑 Never WiFi.setAutoReconnect() anywhere else. Hold BEFORE the line that takes the station away
+ * (a hotspot's WiFi.mode(WIFI_AP), a game's disconnect(true)), release BEFORE the station is given
+ * back (wifiRestoreStation()). `who` is one WIFI_AR_HOLD_* bit; holding twice or releasing what
+ * was never held is harmless. The flag the core sees is "armed AND nobody holds it", whatever
+ * order the scopes end in. LOOP TASK. */
+void     wifiAutoReconnectHold(uint8_t who);
+void     wifiAutoReconnectRelease(uint8_t who);
 /* millis() of the last moment the station was known UP (its GOT_IP, or the drop that ended a
  * connected spell); 0 = never. A blip's own reconnect is the core's WiFi.begin(), which no
  * join path stamps — this is how a caller tells "just dropped, rejoining" from "out of range". */

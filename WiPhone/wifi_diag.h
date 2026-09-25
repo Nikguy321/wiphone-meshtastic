@@ -35,9 +35,10 @@ int wifiCoreStatusAfter(unsigned reason);
 
 /* Does the core's event-task auto-reconnect run `WiFi.disconnect(); WiFi.begin();` after this
  * reason? WiFiGeneric.cpp:404-410: AUTH_EXPIRE, or any reason >= 200 except AUTH_FAIL — and only
- * while getAutoReconnect(), which only a Game Boy game clears, for its duration (app_gbc.cpp
- * startGame; a disconnect handled then is still counted as a rejoin). No cap, no delay: a
- * NO_AP_FOUND begets another attempt, which begets another NO_AP_FOUND. */
+ * while getAutoReconnect(), which Networks.cpp owns (review R1, wifi_policy.h): off after
+ * disable() (WiFi off, Disconnect, Forget) until a deliberate join, and held off for a Game Boy
+ * game and a hotspot's lifetime (a disconnect handled then is still counted as a rejoin here).
+ * No cap, no delay: a NO_AP_FOUND begets another attempt, which begets another NO_AP_FOUND. */
 bool wifiCoreRejoinsAfter(unsigned reason);
 
 /* esp_err_t -> name, for the codes esp_wifi_scan_start/connect can return ("ESP_ERR_WIFI_STATE"). */

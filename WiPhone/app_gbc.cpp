@@ -233,15 +233,15 @@ void GbcApp::startGame() {
    * out-of-range NO_AP_FOUND storm is exactly that - put the radio back up under the emulator:
    * an old race (WiFi competing for the internal RAM the emulator just took), and since the
    * cpu_clock wrapper, also a PLL re-lock 240->160 with the emulator and I2S running, after
-   * which the game stays at 160 (the gate holds PLL 320 while the radio runs). Cleared BEFORE
-   * the disconnect and the KOSync teardown so no event handled after them can restart it;
-   * restored in ~GbcApp before the station is brought back. Saved once, so a second start in
-   * one app lifetime could never "restore" the cleared value. */
-  if (!autoReconnectHeld) {
-    savedAutoReconnect = WiFi.getAutoReconnect();
-    autoReconnectHeld = true;
-  }
-  WiFi.setAutoReconnect(false);
+   * which the game stays at 160 (the gate holds PLL 320 while the radio runs). Held BEFORE the
+   * disconnect and the KOSync teardown so no event handled after them can restart it; released
+   * in ~GbcApp before the station is brought back.
+   * ⚠ A HOLD, NOT A SAVED COPY (review R1). This used to save getAutoReconnect() and put it back.
+   * A sync window's hotspot now holds the same flag, and the kosyncWindowClose() below ends the
+   * window's scope INSIDE the game's: a saved copy would be re-armed mid-game by the window and
+   * then "restored" to the window's cleared value for the rest of the boot. The flag is computed
+   * from the holds (wifi_policy.h), so the order the scopes end in cannot matter. */
+  wifiAutoReconnectHold(WIFI_AR_HOLD_GAME);
   /* 🛑 A KOSync sync window ends HERE, before the radio goes off (0.9.79). Left open it would
    * count down over a dead radio and, at its deadline, take its hotspot down with a
    * WiFi.begin() in the middle of the game — with the watchdogs off and the emulator holding
@@ -487,13 +487,10 @@ GbcApp::~GbcApp() {
     enableCore0WDT();
     enableCore1WDT();
     gGbcActive = false;
-    /* The core's auto-reconnect back first (startGame cleared it for the game), so a
-     * NO_AP_FOUND from the reconnect below is retried as it always was. Whatever the
-     * radio switch says: it is the core's policy flag, not the radio. */
-    if (autoReconnectHeld) {
-      WiFi.setAutoReconnect(savedAutoReconnect);
-      autoReconnectHeld = false;
-    }
+    /* The game's hold on the core's auto-reconnect released first (startGame took it), so a
+     * NO_AP_FOUND from the reconnect below is retried as it always was - if the owner's policy
+     * has it armed (disable() disarms it: WiFi off stays off) and no hotspot holds it too. */
+    wifiAutoReconnectRelease(WIFI_AR_HOLD_GAME);
     /* 🛑 THROUGH wifiRestoreStation(), AFTER gGbcActive drops (0.9.79). This used to ask the
      * off switch alone: `if (!radioOff) { WiFi.mode(WIFI_STA); WiFi.reconnect(); }` — and a phone
      * with NO saved network, or after Disconnect or Forget, is userDisabled() but not

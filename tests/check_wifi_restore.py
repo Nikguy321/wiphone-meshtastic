@@ -36,6 +36,23 @@ documentation is one people learn to ignore - check_menu_keys.py found that out)
 wrappers in cpu_clock.cpp (`__wrap_esp_wifi_start`, `__real_esp_wifi_start`) are not calls
 anyone makes and do not match: the pattern needs a word boundary before `esp_wifi_`.
 A self-test runs first, so a pattern that has quietly stopped matching fails loudly.
+
+THE CORE'S AUTO-RECONNECT AND THE LOOP'S RETRY (the 0.9.79 integration review, R1 and R2). Two more
+ways the station came back without anyone asking, pinned the same way:
+
+  R1  arduino-esp32's event task answers a NO_AP_FOUND with `WiFi.disconnect(); WiFi.begin();`
+      while getAutoReconnect() - and begin() is mode(current | STA). So the flag is held off before
+      every line that takes the station away (a hotspot's WiFi.mode(WIFI_AP), a game's disconnect,
+      Networks::disable()) and released before the station is given back. `setAutoReconnect(` is
+      BANNED outside Networks.cpp, and inside it lives only in wifiAutoReconnectApply(), which
+      computes the flag from the holds (wifi_policy.h) - saved copies did not nest.
+      `power sleep` refuses on the RADIO (cpuClockRadioOn), not the switch.
+  R2  the loop's join retry may not begin within 10 s of any other join (wifiRetryMayBegin), and
+      the loop reads join ages with wifiJoinAgeMs, never `now - stamp`: a restore earlier in the
+      same pass stamps AFTER the loop read `now`, and the subtraction called it 49 days old.
+
+MUTATIONS then removes each of those guards from the REAL source, one at a time, and requires the
+check to fail - the review's experiment (a guard deleted, the suite still green), kept.
 """
 import pathlib
 import re
@@ -51,6 +68,9 @@ BANNED = [
     (re.compile(r"\bWiFi\s*\.\s*begin\s*\("), "WiFi.begin() (any form - the one join is connectToWiFi())"),
     (re.compile(r"\bWiFi\s*\.\s*mode\s*\(\s*WIFI_(?:MODE_)?(?:STA|AP_?STA)\s*\)"), "WiFi.mode(<a STA mode>)"),
     (re.compile(r"\bWiFi\s*\.\s*enableSTA\s*\(\s*true\s*\)"), "WiFi.enableSTA(true)"),
+    # R1: the core's auto-reconnect restarts the station on its own - one owner, computed, never a
+    # saved copy put back (wifiAutoReconnectHold/Release, Networks.h).
+    (re.compile(r"\bsetAutoReconnect\s*\("), "setAutoReconnect() (use wifiAutoReconnectHold/Release)"),
 ]
 
 
@@ -210,10 +230,27 @@ def contract_problem(code, c):
             if pos < later.start() and re.search(r"\breturn\b", code[g_bs:g_be + 1]):
                 return None
         return f"no refusal (`if (/{c['cond']}/) ... return`) before /{c['later']}/: {c['what']}"
+    if kind == "absent":
+        m = rx(c["pat"]).search(code, bs, be)
+        if not m:
+            return None
+        line = code.count("\n", 0, m.start()) + 1
+        return f"line {line}: {c['what']}"
+    if kind == "only_within":
+        # every occurrence of `pat` in the whole FILE lies inside fn's body
+        for m in rx(c["pat"]).finditer(code):
+            if not (bs < m.start() < be):
+                line = code.count("\n", 0, m.start()) + 1
+                return f"line {line}: {c['what']}"
+        return None if rx(c["pat"]).search(code, bs, be) else f"{c['fn']}() no longer does it"
     return f"unknown contract kind {kind}"
 
 
 RESTORE = r"\bwifiRestoreStation\s*\("
+AR_HOLD_HOTSPOT = r"\bwifiAutoReconnectHold\s*\(\s*WIFI_AR_HOLD_HOTSPOT\s*\)"
+AR_REL_HOTSPOT = r"\bwifiAutoReconnectRelease\s*\(\s*WIFI_AR_HOLD_HOTSPOT\s*\)"
+AR_ARM_FALSE = r"\bwifiAutoReconnectArm\s*\(\s*false\s*\)"
+AR_ARM_TRUE = r"\bwifiAutoReconnectArm\s*\(\s*true\s*\)"
 CONTRACTS = [
     dict(file="WiPhone.ino", fn="loop", kind="guarded",
          call=r"\bconnectToPreferred\s*\(", cond=r"\bwifiStationWanted\s*\(\s*\)",
@@ -262,6 +299,64 @@ CONTRACTS = [
          what="Connect's setRadioOff(false)",
          why="Connect with WiFi off must switch WiFi on - but only once a join has STARTED: "
              "first, a failed Connect left it on and the loop joined the OLD network"),
+
+    # ── R1: the core's auto-reconnect is held off before the station is taken away ──
+    dict(id="R1-hotspot-hold", file="app_gbc_xfer.cpp", fn="transportUp", kind="order",
+         first=AR_HOLD_HOTSPOT, then=r"\bWiFi\s*\.\s*mode\s*\(\s*WIFI_AP\s*\)",
+         what="wifiAutoReconnectHold(HOTSPOT), THEN WiFi.mode(WIFI_AP)",
+         why="R1: a NO_AP_FOUND handled after mode(AP) made the phone AP+STA, the station hunting "
+             "beside the sync window's softAP"),
+    dict(id="R1-hotspot-fail", file="app_gbc_xfer.cpp", fn="transportUp", kind="order",
+         first=AR_REL_HOTSPOT, then=RESTORE,
+         what="a failed softAP releases the hold, THEN wifiRestoreStation()",
+         why="R1: otherwise the core's auto-reconnect stayed off after a hotspot that never came up"),
+    dict(id="R1-hotspot-release", file="app_gbc_xfer.cpp", fn="transportDown", kind="order",
+         first=AR_REL_HOTSPOT, then=RESTORE,
+         what="wifiAutoReconnectRelease(HOTSPOT), THEN wifiRestoreStation()",
+         why="R1: the restore's join must be retried by the core as it always was"),
+    dict(id="R1-game-hold", file="app_gbc.cpp", fn="GbcApp::startGame", kind="order",
+         first=r"\bwifiAutoReconnectHold\s*\(\s*WIFI_AR_HOLD_GAME\s*\)",
+         then=r"\bkosyncWindowClose\s*\(",
+         what="wifiAutoReconnectHold(GAME), THEN the window closes and the radio goes off",
+         why="a NO_AP_FOUND after the game's disconnect(true) restarted the radio under the emulator"),
+    dict(id="R1-game-release", file="app_gbc.cpp", fn="GbcApp::~GbcApp", kind="order",
+         first=r"\bwifiAutoReconnectRelease\s*\(\s*WIFI_AR_HOLD_GAME\s*\)", then=RESTORE,
+         what="wifiAutoReconnectRelease(GAME), THEN wifiRestoreStation()",
+         why="R1: a held flag left after the game meant no core rejoin for the rest of the boot"),
+    dict(id="R1-disable", file="Networks.cpp", fn="Networks::disable", kind="order",
+         first=AR_ARM_FALSE, then=r"\bdisconnect\s*\(",
+         what="wifiAutoReconnectArm(false), THEN disconnect() takes the station away",
+         why="R1: a NO_AP_FOUND after disable() restarted the radio behind 'WiFi: off'"),
+    dict(id="R1-join-arms", file="Networks.cpp", fn="connectToWiFi", kind="order",
+         first=AR_ARM_TRUE, then=r"\bWiFi\s*\.\s*begin\s*\(",
+         what="a deliberate join re-arms the core's auto-reconnect before its begin()",
+         why="R1: after disable(), nothing else would ever re-arm it"),
+    dict(id="R1-resume-arms", file="Networks.cpp", fn="Networks::resumeReconnect", kind="calls",
+         call=AR_ARM_TRUE, what="wifiAutoReconnectArm(true)",
+         why="R1: WiFi switched back on must re-arm what disable() disarmed"),
+    dict(id="R1-one-owner", file="Networks.cpp", fn="wifiAutoReconnectApply", kind="only_within",
+         pat=r"\bsetAutoReconnect\s*\(",
+         what="setAutoReconnect() outside wifiAutoReconnectApply() (the flag is computed, not set)",
+         why="R1: a second writer is a saved copy that does not nest"),
+    dict(id="R1-power-sleep", file="serial_cmd.cpp", fn="run", kind="refuses_before",
+         cond=r"\bcpuClockRadioOn\s*\(", later=r"\besp_light_sleep_start\s*\(",
+         what="`power sleep` must refuse on the RADIO (cpuClockRadioOn), not the switch",
+         why="R1(c): light sleep over a radio restarted behind 'off' is a PLL re-lock under it"),
+    dict(id="R2-tx-cap", file="Networks.cpp", fn="wifiRestoreStation", kind="order",
+         first=r"\bWiFi\s*\.\s*begin\s*\(", then=r"\bwifiCapTxPower\s*\(",
+         what="the restore's JOIN caps TX power (14 dBm) after its begin()",
+         why="R2: the duplicate retry that re-applied the cap is gone"),
+
+    # ── R2: the loop's retry never re-begins over a join stamped earlier in the same pass ──
+    dict(id="R2-retry-young", file="WiPhone.ino", fn="loop", kind="guarded",
+         call=r"\bconnectToPreferred\s*\(", cond=r"\bwifiRetryMayBegin\s*\(",
+         what="the loop's retry join (connectToPreferred)",
+         why="R2: the pass that closed a window re-began over the restore's fresh JOIN"),
+    dict(id="R2-no-raw-age", file="WiPhone.ino", fn="loop", kind="absent",
+         pat=r"\(\s*uint32_t\s*\)\s*\(\s*now\s*-\s*(?:lastAttempt|lastWifiConnectAttemptMs\s*\(\s*\))",
+         what="a join age as `now - stamp` (use wifiJoinAgeMs/wifiRetryMayBegin: a same-pass stamp "
+              "is AHEAD of `now`)",
+         why="R2: the quiesce and the wake branch read a join milliseconds old as 49 days old"),
 ]
 
 
@@ -275,7 +370,8 @@ def check_contracts(texts):
             continue
         p = contract_problem(code, c)
         if p:
-            problems.append(f"WiPhone/{c['file']}: {c['fn']}(): {p}\n      (why it matters: {c['why']})")
+            tag = f"[{c['id']}] " if "id" in c else ""
+            problems.append(f"{tag}WiPhone/{c['file']}: {c['fn']}(): {p}\n      (why it matters: {c['why']})")
     return problems
 
 
@@ -340,6 +436,30 @@ def contract_selftest():
             " wifiScreenStopsHotspotUploader(\"x\");\n}\n")
     ec = next(c for c in CONTRACTS if c["fn"] == "EditNetworkApp::EditNetworkApp")
     expect(ctor, ec, True, "a constructor with an initializer list is found")
+
+    byid = {c["id"]: c for c in CONTRACTS if "id" in c}
+    raw_age = byid["R2-no-raw-age"]
+    expect("void loop() {\n if (wifiJoinAgeMs(now, lastAttempt) < 30000u) { x(); }\n}\n", raw_age, True,
+           "the quiesce through wifiJoinAgeMs holds")
+    expect("void loop() {\n if ((uint32_t)(now - lastAttempt) < 30000u) { x(); }\n}\n", raw_age, False,
+           "the quiesce's raw `now - lastAttempt` fails")
+    expect("void loop() {\n if (w && (uint32_t) ( now - lastWifiConnectAttemptMs() ) >= 10000u) {}\n}\n",
+           raw_age, False, "the wake branch's raw subtraction fails")
+    expect("void loop() {\n // (uint32_t)(now - lastAttempt)\n}\n", raw_age, True,
+           "the raw spelling inside a comment is not code")
+    owner = byid["R1-one-owner"]
+    one = ("static void wifiAutoReconnectApply() {\n WiFi.setAutoReconnect(wifiArOn(s_ar));\n}\n"
+           "void Networks::disable() {\n wifiAutoReconnectArm(false);\n}\n")
+    expect(one, owner, True, "setAutoReconnect only inside the applier holds")
+    expect(one.replace("wifiAutoReconnectArm(false);", "WiFi.setAutoReconnect(false);"), owner, False,
+           "a second writer elsewhere in the file fails")
+    expect("static void wifiAutoReconnectApply() {\n}\n", owner, False, "an applier that sets nothing fails")
+    ps = byid["R1-power-sleep"]
+    good_ps = ("static void run(char* line) {\n if (x) {\n  if (cpuClockRadioOn()) {\n   say(\"on\");\n"
+               "   return;\n  }\n  esp_light_sleep_start();\n }\n}\n")
+    expect(good_ps, ps, True, "`power sleep` refusing on the radio holds")
+    expect(good_ps.replace("cpuClockRadioOn()", "!wifiState.radioOff()"), ps, False,
+           "`power sleep` refusing on the switch alone fails")
     return ok
 
 
@@ -357,6 +477,8 @@ def selftest():
         "WiFi.mode(WIFI_AP_STA);": 1,
         "WiFi.enableSTA(true);": 1,
         "esp_wifi_connect();": 1,
+        "WiFi.setAutoReconnect(saved);": 1,     # R1: the saved copy that did not nest
+        "WiFi . setAutoReconnect (false);": 1,
     }
     good = [
         "WiFi.mode(WIFI_OFF);",
@@ -369,6 +491,8 @@ def selftest():
         "log_e(\"WiFi.begin() refused\");",
         "char c = '\"'; // WiFi.begin()",
         "static const char P[] = R\"HTML(<p>WiFi.begin()</p>)HTML\";",
+        "WiFi.getAutoReconnect();",
+        "wifiAutoReconnectHold(WIFI_AR_HOLD_HOTSPOT);",
     ]
     ok = True
     for src, want in bad.items():
@@ -386,27 +510,97 @@ def selftest():
     return ok
 
 
+def banned_sites(texts):
+    """[(file, line, what)] for every banned spelling outside the owner. texts: blanked sources."""
+    out = []
+    for name in sorted(texts):
+        if name == OWNER:
+            continue
+        for line, what in findings(None, texts[name]):
+            out.append((name, line, what))
+    return out
+
+
+# The review's experiment, kept (check_mesh_tx.py's pattern): each R1/R2 guard REMOVED from the
+# real source (blanked text, as the check sees it) must trip the contract named here. A pattern
+# that no longer matches fails too - the guard was rewritten, so its mutation needs rewriting.
+# (file, the contract id or banned text that must be reported, pattern, replacement)
+MUTATIONS = [
+    ("app_gbc_xfer.cpp", "R1-hotspot-hold",
+     r"wifiAutoReconnectHold\s*\(\s*WIFI_AR_HOLD_HOTSPOT\s*\)\s*;", ""),
+    ("app_gbc_xfer.cpp", "R1-hotspot-release",       # the 2nd release is transportDown's
+     r"(wifiAutoReconnectRelease\s*\(\s*WIFI_AR_HOLD_HOTSPOT\s*\)\s*;(?![\s\S]*wifiAutoReconnectRelease))",
+     ""),
+    ("app_gbc_xfer.cpp", "R1-hotspot-fail",
+     r"wifiAutoReconnectRelease\s*\(\s*WIFI_AR_HOLD_HOTSPOT\s*\)\s*;", ""),
+    # the game back on the saved copy it used to keep: the order contract AND the ban trip
+    ("app_gbc.cpp", "R1-game-hold",
+     r"wifiAutoReconnectHold\s*\(\s*WIFI_AR_HOLD_GAME\s*\)\s*;", "WiFi.setAutoReconnect(false);"),
+    ("app_gbc.cpp", "setAutoReconnect()",
+     r"wifiAutoReconnectHold\s*\(\s*WIFI_AR_HOLD_GAME\s*\)\s*;", "WiFi.setAutoReconnect(false);"),
+    ("app_gbc.cpp", "R1-game-release",
+     r"wifiAutoReconnectRelease\s*\(\s*WIFI_AR_HOLD_GAME\s*\)\s*;", ""),
+    ("Networks.cpp", "R1-disable", r"wifiAutoReconnectArm\s*\(\s*false\s*\)\s*;", ""),
+    ("Networks.cpp", "R1-join-arms",                  # the 1st arm(true) is connectToWiFi's
+     r"wifiAutoReconnectArm\s*\(\s*true\s*\)\s*;", ""),
+    ("Networks.cpp", "R1-resume-arms",                # the last arm(true) is resumeReconnect's
+     r"wifiAutoReconnectArm\s*\(\s*true\s*\)\s*;(?![\s\S]*wifiAutoReconnectArm\s*\(\s*true)", ""),
+    ("Networks.cpp", "R1-one-owner",                  # disable() setting the flag itself
+     r"wifiAutoReconnectArm\s*\(\s*false\s*\)\s*;", "WiFi.setAutoReconnect(false);"),
+    ("Networks.cpp", "R2-tx-cap",                     # the restore's cap is the file's last call
+     r"wifiCapTxPower\s*\(\s*\)\s*;(?![\s\S]*wifiCapTxPower\s*\()", ""),
+    ("serial_cmd.cpp", "R1-power-sleep",
+     r"if\s*\(\s*cpuClockRadioOn\s*\(\s*\)\s*\)", "if (!wifiState.radioOff())"),
+    ("WiPhone.ino", "R2-retry-young",
+     r"&&\s*due\s*&&\s*wifiRetryMayBegin\s*\(\s*now\s*,\s*lastWifiConnectAttemptMs\s*\(\s*\)\s*\)",
+     "&& due"),
+    ("WiPhone.ino", "R2-no-raw-age",
+     r"wifiJoinAgeMs\s*\(\s*now\s*,\s*lastAttempt\s*\)", "(uint32_t)(now - lastAttempt)"),
+]
+
+
+def check_all(texts):
+    """Every banned site and broken contract, as report lines."""
+    out = [f"WiPhone/{n}:{line}: {what}" for n, line, what in banned_sites(texts)]
+    return out + check_contracts(texts)
+
+
+def mutation_test(texts):
+    ok = True
+    for name, want, pat, repl in MUTATIONS:
+        mutated, n = re.subn(pat, repl, texts[name], count=1)
+        if n != 1:
+            print(f"  SELF-TEST FAILED: the '{want}' guard is no longer where its mutation looks in "
+                  f"{name} - update MUTATIONS with the guard")
+            ok = False
+            continue
+        got = check_all(dict(texts, **{name: mutated}))
+        if not any(want in g for g in got):
+            print(f"  SELF-TEST FAILED: removing the guard from {name} did not trip '{want}'")
+            ok = False
+    if ok:
+        print(f"  ok  self-test: removing each of the {len(MUTATIONS)} R1/R2 guards from the real "
+              "source trips its own contract")
+    return ok
+
+
 def main():
     if not selftest() or not contract_selftest():
         return 1
     files = sorted(list(ROOT.glob("*.cpp")) + list(ROOT.glob("*.h")) + list(ROOT.glob("*.ino")))
-    bad = 0
-    texts = {}
-    for f in files:
-        text = f.read_text(errors="replace")
-        texts[f.name] = strip_code(text)
-        if f.name == OWNER:
-            continue
-        for line, what in findings(text, texts[f.name]):
-            print(f"  {f.relative_to(ROOT.parent)}:{line}: {what} - give the radio back through "
-                  f"wifiRestoreStation() (Networks.h), which asks the owner first")
-            bad += 1
+    texts = {f.name: strip_code(f.read_text(errors="replace")) for f in files}
+    bad = banned_sites(texts)
+    for name, line, what in bad:
+        print(f"  WiPhone/{name}:{line}: {what} - give the radio back through "
+              f"wifiRestoreStation() (Networks.h), which asks the owner first")
     if bad:
-        print(f"  {bad} site(s) bring the WiFi station back without asking (see wifi_policy.h)")
+        print(f"  {len(bad)} site(s) bring the WiFi station back without asking (see wifi_policy.h)")
     problems = check_contracts(texts)
     for p in problems:
         print(f"  CONTRACT BROKEN: {p}")
     if bad or problems:
+        return 1
+    if not mutation_test(texts):
         return 1
     print(f"  ok  no site outside {OWNER} starts or rejoins the station by itself "
           f"({len(files) - 1} files)")

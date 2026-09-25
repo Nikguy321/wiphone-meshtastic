@@ -22,7 +22,7 @@ extern uint32_t uiKeyMaskFor(char code);                                    // W
 #include <SD.h>                   // the `wallpaper` command reads both filesystems
 #include "mesh_phy.h"             // meshPhy.benchSleep, the `power lora` toggle
 #include "mesh_airtime.h"         // meshLoraAirtimeMs, the `radio` line's prediction
-#include "Networks.h"             // wifiState.radioOff(), the `power sleep` gate
+#include "Networks.h"             // wifiState.radioOff(), the `power sleep` message
 #include "Hardware.h"             // KEYBOARD_INTERRUPT_PIN, the `power sleep` wake pin
 #include "Audio.h"                // audio->isOn(), the `power` guards
 #include "rtp_watch.h"            // RTP_ORPHAN_RELEASE_MS, the `audio orphan` bench
@@ -2247,19 +2247,31 @@ static void run(char* line) {
         say("power sleep <1..600 seconds>\n");
         return;
       }
-      if (!wifiState.radioOff()) {
-        say("power sleep: WiFi is ON - switch it off first (menu > WiFi: off); light sleep with the\n");
-        say("  station up drops the association and the reading would include the reconnect\n");
+      /* "WiFi: off" does not mean the radio is off: a KOSync window (or the uploader) can be
+       * hosting a hotspot with the switch off — that is the woods case it exists for. Asked
+       * first, so the radio check below is left with the cases nothing else explains. */
+      if (xferServing()) {
+        say("power sleep: a server/hotspot is up (uploader or KOSync window) - refused\n");
+        return;
+      }
+      /* 🛑 THE RADIO, NOT THE SWITCH (0.9.79 review R1). "WiFi: off" is what the owner asked for;
+       * cpuClockRadioOn() is what the driver is doing (the esp_wifi_start/stop wrappers). They can
+       * disagree: a NO_AP_FOUND handled after disable() used to restart the station behind "off"
+       * (the core's auto-reconnect, now disarmed there), and a phone with no saved network is
+       * off with the switch ON. Light sleep over a running radio is the PLL re-lock under the
+       * radio (IDF 3.3 turns the PLL off) - the class that dropped phone 1's WiFi 4/4. */
+      if (cpuClockRadioOn()) {
+        if (wifiState.radioOff()) {
+          say("power sleep: WiFi reads OFF but the RADIO IS RUNNING - refused (`wifi why`: mode=, and\n");
+          say("  who restarted it); switch WiFi on and off again to stop it\n");
+        } else {
+          say("power sleep: WiFi is ON - switch it off first (menu > WiFi: off); light sleep with the\n");
+          say("  station up drops the association and the reading would include the reconnect\n");
+        }
         return;
       }
       if (audioOn || gGbcActive) {
         say("power sleep: audio or the emulator is running - refused\n");
-        return;
-      }
-      /* "WiFi: off" does not mean the radio is off: a KOSync window (or the uploader) can be
-       * hosting a hotspot with the switch off — that is the woods case it exists for. */
-      if (xferServing()) {
-        say("power sleep: a server/hotspot is up (uploader or KOSync window) - refused\n");
         return;
       }
       say("power sleep: %d s. Keypad (GPIO%d low) wakes early; serial typed meanwhile is lost.\n",

@@ -3757,7 +3757,7 @@ void loop() {
       }
       bool due = elapsedMillis(now, msLastWifiRetry, retryMs);
       if (wokeNow && !wifiState.isConnected() && wifiState.stationAllowed() &&
-          (uint32_t)(now - lastWifiConnectAttemptMs()) >= 10000u) {
+          wifiRetryMayBegin(now, lastWifiConnectAttemptMs())) {
         /* Someone just picked the phone up: try NOW — unless a join started in the last
          * ten seconds, in which case hard-cycling the radio would abort an association
          * that was about to succeed and make the wake path SLOWER, not faster. */
@@ -3779,7 +3779,17 @@ void loop() {
        * read on the loop the game's keys ride on, then WiFi.begin() — esp_wifi_start() under the
        * emulator. And with the switch OFF but the per-network flag cleared (Edit > Save), it
        * joined while the menu said off. xferBlocksWifi stays for the quiesce below. */
-      if (wifiStationWanted() && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && due) {
+      /* 🛑 wifiRetryMayBegin() (0.9.79 review R2): not within 10 s of ANY join. msLastWifiRetry is
+       * stamped only by this retry, and it goes stale while a hotspot or a game holds the radio -
+       * so the pass that closed a sync window (kosyncLoop, above) or ended a game (the key
+       * handling, above) reached here with `due` already true, straight after the restore's JOIN
+       * had begun, and connectToPreferred() re-began over it: an INI read (~1.6 s) on the loop,
+       * then disconnect(false) aborting the fresh association. ⚠ That join is stamped AFTER `now`
+       * was read at the top of this pass, and `now - stamp` wraps to ~49 days: the helper counts a
+       * stamp ahead of `now` as age 0 (wifi_policy.h) - the plain subtraction the wake branch used
+       * could not see it. `due` stays true: if the join has not associated in 10 s, this runs. */
+      if (wifiStationWanted() && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && due &&
+          wifiRetryMayBegin(now, lastWifiConnectAttemptMs())) {
         /* 🔑 DON'T SPEND 30 SECONDS OF RADIO ON AIR WE WERE JUST TOLD IS EMPTY. A scan is
          * ~350 ms; a failed join holds the radio associating for up to 30 s before the
          * quiesce below disconnects it, which is the largest remaining out-of-range cost.
@@ -3823,7 +3833,11 @@ void loop() {
          * abort a join that started milliseconds earlier (mid-DHCP still reads as "not
          * connected"). Any attempt younger than 30 s pushes the deadline out instead. */
         const uint32_t lastAttempt = lastWifiConnectAttemptMs();
-        if ((uint32_t)(now - lastAttempt) < 30000u) {
+        /* wifiJoinAgeMs, not `now - lastAttempt` (R2): a restore's JOIN earlier in this pass is
+         * stamped after `now`, the subtraction read it as ~49 days old, and this disconnected a
+         * join milliseconds old - masked until R2 by the duplicate retry above re-arming the
+         * deadline in the same pass. */
+        if (wifiJoinAgeMs(now, lastAttempt) < 30000u) {
           s_wifiQuiesceAtMs = lastAttempt + 30000u;
         } else {
           s_wifiQuiesceAtMs = 0;

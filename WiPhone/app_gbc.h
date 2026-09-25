@@ -99,8 +99,6 @@ protected:
   bool confirmDelete = false;    // picker is asking to confirm a delete
   bool playing = false;          // false = picker on screen, true = game running
   bool enteredGaming = false;    // did we turn WiFi/mesh off? (restore on exit)
-  bool autoReconnectHeld = false;   // did startGame clear the core's auto-reconnect? (restore)
-  bool savedAutoReconnect = true;   // ...and what it was before
   volatile bool soundOn = false; // did we start the audio codec? (feed I2S + restore)
   int  audioStarve = 0;          // consecutive under-written I2S frames (emu thread only)
   bool routeSaved = false;       // did startGame move the codec's output? (put it back)

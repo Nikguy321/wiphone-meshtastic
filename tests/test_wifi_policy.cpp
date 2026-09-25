@@ -224,6 +224,103 @@ int main() {
     s.joinYoung = wifiJoinInFlight(true, t, t - 2000u);
     ok(wifiRestoreDecision(s) == WIFI_RESTORE_UP_IDLE,
        "left Settings > WiFi 2 s after its Connect (station still up) -> UP_IDLE, no second begin()");
+    ok(wifiJoinInFlight(true, t, t + 300u),
+       "a join stamped AFTER the caller read `now` (same loop pass) -> in flight");
+  }
+
+  group("wifiJoinAgeMs / wifiRetryMayBegin: the loop's retry never re-begins over a fresh join (R2)");
+  {
+    /* The pass: `now` read at the top of loop(); kosyncLoop() closes a window 250 ms later and the
+     * restore's JOIN stamps millis() then; the wifi-retry phase runs later in the SAME pass with
+     * the stale `now` and a stale msLastWifiRetry (due = true). */
+    const uint32_t now = 500000u;
+    const uint32_t stamp = now + 250u;
+    ok(wifiJoinAgeMs(now, stamp) == 0, "a stamp 250 ms AHEAD of `now` is age 0");
+    ok((uint32_t)(now - stamp) >= 10000u,
+       "(the old spelling `now - stamp >= 10000` reads that same stamp as ~49 days old)");
+    ok(!wifiRetryMayBegin(now, stamp),
+       "the window-close pass: the restore's JOIN was stamped after `now` -> the retry HOLDS");
+    ok(!wifiRetryMayBegin(now, now), "a join stamped at `now` exactly -> holds");
+    ok(!wifiRetryMayBegin(now + 9999u, stamp - 250u), "9.999 s old -> holds");
+    ok(wifiRetryMayBegin(now + 10000u, now), "10 s old and still not associated -> the retry runs");
+    ok(wifiRetryMayBegin(now, 0), "never joined (stamp 0) -> the retry runs");
+    ok(wifiRetryMayBegin(5000u, 0), "never joined, 5 s after boot -> the retry runs");
+    ok(wifiJoinAgeMs(now, now - 20000u) == 20000u, "an ordinary 20 s age reads 20 s");
+    ok(!wifiRetryMayBegin(3000u, 0xFFFFF000u), "7.1 s old across the millis() wrap -> holds");
+    ok(wifiRetryMayBegin(20000u, 0xFFFFF000u), "24.1 s old across the millis() wrap -> runs");
+    /* An int32 "negative means ahead" rule would block the retry for 24.8 days after a stamp more
+     * than 24.8 days old: a phone associated for a month, then out of range, never retrying. */
+    const uint32_t day = 86400000u;
+    ok(wifiRetryMayBegin(now + 30u * day, now), "a join 30 days old -> the retry runs");
+    ok(wifiRetryMayBegin(now + 40u * day, now), "40 days old (int32 would read it negative) -> runs");
+    ok(wifiJoinAgeMs(now + 40u * day, now) == 40u * day, "...and its age reads 40 days");
+    ok(wifiJoinAgeMs(now, now + 60000u) == 0 && wifiJoinAgeMs(now, now + 60001u) != 0,
+       "'ahead' means at most 60 s ahead (WIFI_JOIN_AHEAD_MS), no more");
+    /* The quiesce (WiPhone.ino) pushes its deadline out while the last attempt is < 30 s old. */
+    ok(wifiJoinAgeMs(now, stamp) < 30000u,
+       "the quiesce sees the same-pass join as young and pushes out, not a disconnect");
+  }
+
+  group("the core's auto-reconnect: armed AND nobody holding it (R1)");
+  {
+    WifiAutoReconnect a = { true, 0 };
+    ok(wifiArOn(a), "at boot (the core's default) -> on");
+    // A game starting under a sync window: startGame holds, THEN closes the window.
+    wifiArHold(a, WIFI_AR_HOLD_HOTSPOT);
+    ok(!wifiArOn(a), "a hotspot up (transportUp holds before mode(AP)) -> off");
+    wifiArHold(a, WIFI_AR_HOLD_GAME);
+    wifiArRelease(a, WIFI_AR_HOLD_HOTSPOT);
+    ok(!wifiArOn(a), "the window closed INSIDE the game (non-LIFO) -> still off for the game");
+    wifiArRelease(a, WIFI_AR_HOLD_GAME);
+    ok(wifiArOn(a), "the game ended -> on again (not the window's cleared copy for ever)");
+
+    /* The same sequence with the saved copies the game used to keep, to show why it is gone. */
+    bool core = true, windowSaved, gameSaved;
+    windowSaved = core; core = false;          // transportUp
+    gameSaved = core;   core = false;          // startGame
+    core = windowSaved;                        // the window closes inside the game
+    ok(core, "(saved copies: the window's restore RE-ARMED the flag in the middle of the game)");
+    core = gameSaved;                          // ~GbcApp
+    ok(!core, "(saved copies: ...and the game's restore left it OFF for the rest of the boot)");
+
+    WifiAutoReconnect b = { true, 0 };
+    wifiArHold(b, WIFI_AR_HOLD_HOTSPOT);
+    wifiArArm(b, false);                       // WiFi switched off while a window is up
+    wifiArRelease(b, WIFI_AR_HOLD_HOTSPOT);
+    ok(!wifiArOn(b), "disable() during a window: the window's close does not re-arm it");
+    wifiArArm(b, true);                        // resumeReconnect / connectToWiFi
+    ok(wifiArOn(b), "WiFi on again -> on");
+
+    WifiAutoReconnect c = { false, 0 };        // after disable()
+    wifiArHold(c, WIFI_AR_HOLD_GAME);
+    wifiArArm(c, true);
+    ok(!wifiArOn(c), "re-armed while a game holds it -> still off until the game ends");
+    wifiArRelease(c, WIFI_AR_HOLD_GAME);
+    ok(wifiArOn(c), "...then on");
+
+    WifiAutoReconnect d = { true, 0 };
+    wifiArRelease(d, WIFI_AR_HOLD_HOTSPOT);
+    ok(wifiArOn(d) && d.holds == 0, "releasing a hold never taken changes nothing");
+    wifiArHold(d, WIFI_AR_HOLD_GAME);
+    wifiArHold(d, WIFI_AR_HOLD_GAME);
+    wifiArRelease(d, WIFI_AR_HOLD_GAME);
+    ok(wifiArOn(d), "holding twice (a second start in one app lifetime) needs one release");
+    wifiArHold(d, WIFI_AR_HOLD_GAME);
+    wifiArRelease(d, WIFI_AR_HOLD_HOTSPOT);
+    ok(!wifiArOn(d), "one scope's release never ends another's hold");
+
+    int bad = 0;
+    for (int armed = 0; armed < 2; armed++) {
+      for (unsigned h = 0; h < 4; h++) {
+        WifiAutoReconnect e = { armed != 0, (uint8_t)h };
+        checks++;
+        if (wifiArOn(e) != (armed && h == 0)) {
+          failures++;
+          bad++;
+        }
+      }
+    }
+    ok(bad == 0, "on <=> armed and no hold, in all 8 states");
   }
 
   printf("\n%d checks, %d failures\n", checks, failures);
