@@ -172,11 +172,15 @@ protected:
   char     ksByName[EPUB_KOSYNC_ID_CHARS];    // MD5 of its file name (CrossPoint's default)
   bool     ksIdsDone;                         // computed for THIS open book
   char     ksNote[96];           // why the last KOSync action could not happen ("" = it did)
-  char     ksLines[200];         // the live window/home lines as last shown (redraw on change)
+  char     ksLines[360];         // the live window/home/problem lines as last shown
   KosyncBook* ksBook;            // PSRAM scratch for the snapshot handed to kosync_sync
+  /* Where the place stood at the last real MOVE (set as the book opens). A save that finds
+   * (spine, pageStart) unchanged is a close or a flush, not a move — see kosyncNoteMoved. */
+  int      ksMovedSpine;
+  uint32_t ksMovedOff;
   void kosyncIds();              // the two ids, once per open book (12 small card reads)
   bool kosyncSnapshot();         // fill ksBook from the open book
-  void kosyncTellPosition();     // a window serving this book answers with the new place
+  void kosyncTellPosition(bool moved);   // the last-move stamp, and a window's live place
   size_t kosyncLiveLines(char* out, size_t cap);
   void kosyncAddLines(MenuWidget* m);
   bool kosyncLinesChanged();

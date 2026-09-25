@@ -12,19 +12,29 @@
  *
  *   "Sync my place" (reader menu) opens a WINDOW for 5 minutes: the phone serves KOSync for
  *     THIS book — on its own open hotspot 'WiPhone-Books' (http://192.168.4.1) when it is not
- *     on WiFi, or on its WiFi address when it is — and, on WiFi with home= set, also PUTs the
- *     place to the home server. An X4 (or anything that speaks KOSync) joins and syncs; the
+ *     on WiFi, or on its WiFi address when it is — and, on WiFi with home= set, also READS the
+ *     home server and then PUTs the place there — unless the server holds a place from another
+ *     device that the offer rule (kosync.h, D1) says is news: that is OFFERED as the card
+ *     instead, and ours is not sent over it (pressing again after declining it sends ours).
+ *     An X4 (or anything that speaks KOSync) joins and syncs; the
  *     window closes 10 s after a PUT for the book, 120 s after a GET (the peer may be waiting
  *     on a person), or at the deadline — whichever is first.
  *   A PUT from the peer lands as the ORDINARY sync card ("CrossPoint says: they are at N%"),
  *     with its undo, arming and backward warning — it is parked in the booksync inbox as a
  *     locally-signed CBS1 record, so none of that machinery knows KOSync exists.
  *   auto=on         closing a book (or leaving the reader) opens the same 5-minute window
- *                   and pushes home.
+ *                   and pushes home — the push ONLY if the place moved since the book was
+ *                   opened or last pushed (kosync.h, D2): an unmoved place must not overwrite
+ *                   a newer one another device sent.
  *   open_window=on  opening a book while NOT on WiFi opens a 60 s window, so an X4 already
  *                   waiting in its own "sync" can find the phone.
  *   Opening a book while ON WiFi with home= set asks the home server (partial MD5 first,
- *   then the file-name id) and offers anything newer from another device as the card.
+ *   then the file-name id) and offers the card per the offer rule. Opened BEFORE the WiFi
+ *   came up (right after power-on, say), the same ask is made once it does, while the book
+ *   is still open.
+ *   The home client never blocks the loop: its connect is polled, and a push or pull that
+ *   gets no answer is tried again (KOSYNC_CLIENT_TRIES in all, 1 s and 4 s apart) before it
+ *   is given up — and then said so.
  *
  * ══════════════════════════════════════════════════════════════════════════════════
  * THE RULES THIS MODULE KEEPS
@@ -68,7 +78,10 @@ struct KosyncBook {
   int      nRead;                              // the reading spine's length
   bool     pctOk;                              // false: this place cannot be expressed
   double   pct;                                // the phone's place as a KOSync percentage
-  uint32_t turnedAt;                           // UTC of the last page turn, 0 = unknown
+  /* UTC of the reader's last real MOVE in this book (kosyncMovedAt), 0 = unknown. 🛑 Not the
+   * CBS1 turnedAt: that one is stamped on every save and close, and a record compared against
+   * it hid a newer X4 place behind an open-and-close that read nothing. */
+  uint32_t movedAt;
   EpubKosyncMap map;                           // for turning a peer's percentage back
 };
 
@@ -85,11 +98,20 @@ const char* kosyncMyDeviceId();
  * home). False with `note` saying why when nothing could be done; on success `note` is left
  * empty — the live lines (kosyncWindowLine/kosyncClientLine) say what is happening. */
 bool kosyncSyncMyPlace(const KosyncBook* b, char* note, size_t cap);
-void kosyncBookOpened(const KosyncBook* b);   // pull (on WiFi) or a 60 s window (off it)
-void kosyncBookClosed(const KosyncBook* b);   // auto=on: window + push
+void kosyncBookOpened(const KosyncBook* b);   // pull (on WiFi, or once it comes up) / window
+void kosyncBookClosed(const KosyncBook* b);   // auto=on: window + push (if moved, or unsent)
+/* The reader's place in this book actually CHANGED (a page turn, a jump, a card taken) —
+ * not a save. `nowUtc` 0 (no clock) keeps the previous stamp, which is still no later than
+ * the real last move, so it can only ever let MORE offers through. */
+void     kosyncNoteMoved(const char* byName, uint32_t nowUtc);
+uint32_t kosyncMovedAt(const char* byName);    // 0 = unknown
+// Write the per-book memo to NVS now if it changed (a book close does this itself).
+void     kosyncSaveState();
+// Someone wants the live place of this book: a window serving it, or an ask waiting for WiFi.
+bool kosyncWantsPosition();
 // The reader moved: a window serving this book answers GETs with the new place.
 void kosyncNotePosition(const char* partial, const char* byName, double pct, bool pctOk,
-                        uint32_t turnedAt);
+                        uint32_t movedAt);
 
 // ---------------------------------------------------------------- the window
 bool     kosyncWindowOpen(const KosyncBook* b, uint32_t durationMs, char* note, size_t cap);
@@ -103,6 +125,9 @@ const char* kosyncWindowServe(const char* method, const char* path, const char* 
 // ---------------------------------------------------------------- the home client
 bool kosyncPush(const KosyncBook* b, char* note, size_t cap);   // PUT under both ids
 bool kosyncPull(const KosyncBook* b, char* note, size_t cap);   // GET partial, then name
+/* "Sync my place"'s home half: GET both ids; someone else's newer place is OFFERED and ours
+ * is not sent over it; otherwise PUT under both ids. */
+bool kosyncSyncHome(const KosyncBook* b, char* note, size_t cap);
 bool kosyncClientBusy();                                         // mid-request: no idle tick
 
 /* "hotspot: WPA2" / "hotspot: open" / "hotspot: open (uploader's)" / "hotspot: open -
@@ -119,6 +144,9 @@ bool kosyncPeerPctFor(uint32_t inboxId, double* pct);
 // Whole minutes only, so the text (and the menu rebuilt around it) changes rarely.
 size_t kosyncWindowLine(char* out, size_t cap);
 size_t kosyncClientLine(char* out, size_t cap);
+/* What went wrong in the current (or the last) window that the X4 would not tell anyone: a
+ * place for a different book, the wrong user/password. "" when nothing did. */
+size_t kosyncProblemLine(char* out, size_t cap);
 void   kosyncDumpStatus(void (*emit)(const char* line));        // serial `kosync`
 
 // One bounded step per main-loop pass. `callActive`: a live or imminent SIP call — no

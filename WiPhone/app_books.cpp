@@ -354,6 +354,8 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   ksNote[0] = '\0';
   ksLines[0] = '\0';
   ksBook = NULL;
+  ksMovedSpine = -1;
+  ksMovedOff = 0;
   syncCardMs = 0;
   undoValid = false;
   undoMs = 0;
@@ -573,7 +575,10 @@ void BooksApp::scanBooks() {
         const char* slash = strrchr(nm, '/');
         const char* base = slash ? slash + 1 : nm;
         bool txt = hasExt(base, ".txt");
-        if ((hasExt(base, ".epub") || txt) && base[0] != '.') {
+        /* kosync.txt / smsmirror.txt are SETTINGS, with a password in them — never books.
+         * Listed, one opened like any .txt and put its secrets on the screen, and with auto=on
+         * closing it opened a window and sent its "place" home. */
+        if ((hasExt(base, ".epub") || txt) && base[0] != '.' && !(txt && kosyncNotABook(base))) {
           bool dup = false;
           for (int i = 0; i < bookCount; i++) {
             if (strcmp(books[i].name, base) == 0) {
@@ -727,6 +732,12 @@ bool BooksApp::openBook(int idx) {
     chapCap = 0;
     return false;
   }
+  /* A .txt is shown CUT at chapCap-1 bytes. epubOpen already refuses KOSync for one bigger
+   * than EPUB_MAX_DOC; the smaller fallback buffer just above cuts sooner, so say the same
+   * here — a place on cut text is not a place in the book. */
+  if (book.isText && book.kosync && !book.kosync->refused && src.size > (uint64_t)(chapCap - 1)) {
+    book.kosync->refused = EPUB_KOSYNC_TEXT_TOO_BIG;
+  }
 
   isOpen = true;
   openIdx = idx;
@@ -780,6 +791,8 @@ bool BooksApp::openBook(int idx) {
   const uint32_t _oChap = millis();
   gotoOffset(startOff, true);
   turnsSinceSave = 0;
+  ksMovedSpine = spine;                // opening is not a move (kosyncTellPosition)
+  ksMovedOff = pageStart;
   const uint32_t _oGoto = millis();
   checkForPending();   // a position may have arrived while this book was shut
   const uint32_t _oPend = millis();
@@ -827,6 +840,7 @@ void BooksApp::closeBook(bool save) {
   ksIdsDone = false;      // KOSync ids belong to the file that was open
   ksPartial[0] = '\0';
   ksByName[0] = '\0';
+  ksMovedSpine = -1;
 }
 
 bool BooksApp::loadChapter(int i) {
@@ -1033,7 +1047,15 @@ bool BooksApp::savePosition(bool flush) {
    * old to COVEY, and made COVEY's look eight hours in the future to this phone. */
   uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0;
   store->put(idp, nIds, (uint32_t)spine, pageStart, fractionHere(), now);
-  kosyncTellPosition();          // RAM only: a window serving this book answers with this place
+  /* A MOVE is the place changing, not a save: closes, flushes and the OK-to-menu save all come
+   * through here with the place where it was. (The store's own turnedAt above is stamped
+   * either way — that is LoRa's meaning and it stays.) */
+  const bool moved = (spine != ksMovedSpine || pageStart != ksMovedOff);
+  if (moved) {
+    ksMovedSpine = spine;
+    ksMovedOff = pageStart;
+  }
+  kosyncTellPosition(moved);     // RAM only (plus a stamp): nothing here touches the store
   if (!flush) {
     return true;
   }
@@ -1295,27 +1317,26 @@ bool BooksApp::kosyncSnapshot() {
   k->nRead = book.nSpine;
   memcpy(&k->map, book.kosync, sizeof(k->map));
   k->pctOk = epubKosyncPercentAt(&book, spine, pageStart, chapLen, &k->pct);
-  /* The LAST PAGE TURN, as the store has it (savePosition stamps it, UTC or 0) — not "now":
-   * a pull compares a server record against when we last actually read. */
-  k->turnedAt = 0;
-  if (store) {
-    const char* idp[BOOKSYNC_MAX_IDS] = { ids[0], ids[1], ids[2] };
-    BookPos pos;
-    if (nIds > 0 && store->get(idp, nIds, &pos)) {
-      k->turnedAt = pos.turnedAt;
-    }
-  }
+  /* The last real MOVE (kosyncNoteMoved), UTC or 0 — 🛑 NOT the store's turnedAt, which every
+   * save and close restamps: compared against that, an open-and-close that read nothing hid a
+   * newer X4 place for good. */
+  k->movedAt = kosyncMovedAt(ksByName);
   return k->byName[0] != '\0';
 }
 
-void BooksApp::kosyncTellPosition() {
-  if (!ksIdsDone || !isOpen || !kosyncWindowActive()) {
-    return;                      // one pointer test per page turn for everyone else
+void BooksApp::kosyncTellPosition(bool moved) {
+  if (!ksIdsDone || !isOpen) {
+    return;                      // one test per page turn for everyone without KOSync
+  }
+  if (moved) {
+    kosyncNoteMoved(ksByName, ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0);
+  }
+  if (!kosyncWantsPosition()) {
+    return;
   }
   double pct = 0.0;
   const bool ok = epubKosyncPercentAt(&book, spine, pageStart, chapLen, &pct);
-  kosyncNotePosition(ksPartial, ksByName, pct, ok,
-                     ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0);
+  kosyncNotePosition(ksPartial, ksByName, pct, ok, kosyncMovedAt(ksByName));
 }
 
 size_t BooksApp::kosyncLiveLines(char* out, size_t cap) {
@@ -1323,10 +1344,11 @@ size_t BooksApp::kosyncLiveLines(char* out, size_t cap) {
   if (!kosyncConfigured()) {
     return 0;
   }
-  char w[100], c[100];
+  char w[100], c[100], p[160];
   kosyncWindowLine(w, sizeof(w));
   kosyncClientLine(c, sizeof(c));
-  snprintf(out, cap, "%s\n%s", w, c);
+  kosyncProblemLine(p, sizeof(p));
+  snprintf(out, cap, "%s\n%s\n%s", w, c, p);
   return strlen(out);
 }
 
@@ -1335,11 +1357,18 @@ void BooksApp::kosyncAddLines(MenuWidget* m) {
   if (!m || !ksLines[0]) {
     return;
   }
-  char w[100], c[100];
+  char w[100], c[100], p[160];
   kosyncWindowLine(w, sizeof(w));
   kosyncClientLine(c, sizeof(c));
+  kosyncProblemLine(p, sizeof(p));
   if (w[0]) {
     m->addNoteWrapped(w);
+  }
+  /* 🛑 ON THE SCREEN, not only on serial: a PUT for a different document is answered 200 and
+   * discarded, and the X4 then says "Upload complete" — this line is the only place that says
+   * the place never landed (and why). */
+  if (p[0]) {
+    m->addNoteWrapped(p);
   }
   if (c[0]) {
     m->addNoteWrapped(c);
@@ -1372,7 +1401,8 @@ void BooksApp::syncMyPlace() {
   }
   kosyncIds();                   // (the place itself was flushed on the way into this menu)
   if (!kosyncSnapshot()) {
-    snprintf(ksNote, sizeof(ksNote), "This book can't sync over KOSync");
+    snprintf(ksNote, sizeof(ksNote), "This book can't sync over KOSync: %s",
+             epubKosyncWhyNot(book.kosync));
     return;
   }
   kosyncSyncMyPlace(ksBook, ksNote, sizeof(ksNote));
@@ -1412,6 +1442,11 @@ bool BooksApp::kosyncBench(const char* verb, uint32_t secs, char* out, size_t ca
     }
   } else if (!strcmp(verb, "pull")) {
     ok = kosyncPull(ksBook, out, cap);
+    if (ok) {
+      kosyncClientLine(out, cap);
+    }
+  } else if (!strcmp(verb, "sync")) {
+    ok = kosyncSyncHome(ksBook, out, cap);   // Sync my place's home half: read, then offer or send
     if (ok) {
       kosyncClientLine(out, cap);
     }
@@ -1667,7 +1702,9 @@ void BooksApp::debugDumpPage() {
 }
 
 bool booksSaveOpenPosition() {
-  return s_liveBooksApp ? s_liveBooksApp->savePosition(true) : true;
+  const bool ok = s_liveBooksApp ? s_liveBooksApp->savePosition(true) : true;
+  kosyncSaveState();             // this session's last-move stamps (no close is coming)
+  return ok;
 }
 
 bool booksKosyncBench(const char* verb, uint32_t secs, char* out, size_t cap) {
@@ -1853,6 +1890,8 @@ void BooksApp::drawInfo() {
     double kp = 0.0;
     if (epubKosyncPercentAt(&book, spine, pageStart, chapLen, &kp)) {
       snprintf(l, sizeof(l), "kosync %.12s.. %.1f%%", ksPartial[0] ? ksPartial : ksByName, kp * 100.0);
+    } else if (epubKosyncTotal(book.kosync) == 0) {
+      snprintf(l, sizeof(l), "kosync: no - %s", epubKosyncWhyNot(book.kosync));
     } else {
       snprintf(l, sizeof(l), "kosync: this place can't be sent");
     }

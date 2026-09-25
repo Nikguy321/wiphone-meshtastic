@@ -20,6 +20,8 @@ extern GUI gui;
 #include <SD.h>
 #include <Preferences.h>
 #include <esp_system.h>           // esp_read_mac
+#include <lwip/sockets.h>         // the home client's polled connect (see KS_CONNECTING)
+#include <errno.h>
 #include <stdarg.h>
 #include <string.h>
 #include <strings.h>
@@ -63,7 +65,10 @@ struct KsText {
   char parkDev[KOSYNC_DEV_MAX];               // the PUT waiting to be parked
   char hline[128];                            // the home client's current header line
   char cliLast[96];                           // the last home job's outcome
+  char otherDoc[16];                          // the start of the last "other book" PUT's id
   KosyncParkLedger ledger;                    // one KOSync offer per book (kosync.h)
+  KosyncMemo memo;                            // last move + last offer per book (kosync.h)
+  uint8_t memoBlob[KOSYNC_MEMO_BLOB_MAX];     // its bytes on the way to/from NVS
 };
 static KsText* T = NULL;
 
@@ -194,6 +199,77 @@ static bool onWifi() {
   return WiFi.status() == WL_CONNECTED && !xferUsingAP();
 }
 
+// ================================================================ the per-book memo (kosync.h)
+/* The last real MOVE of each book's place, the server record last offered for it, and what
+ * home last had from us (or that a move never reached it), kept in NVS so a reboot neither
+ * forgets a move, re-offers a declined place, nor drops a place that was never sent. ~840
+ * bytes, written at most once per book close (and once per offer, once per successful PUT) —
+ * never per page turn. */
+static bool s_memoLoaded = false;
+
+static KosyncMemo* memo() {
+  if (!T) {
+    return NULL;
+  }
+  if (!s_memoLoaded) {
+    s_memoLoaded = true;
+    size_t n = 0;
+    Preferences p;
+    /* Read-WRITE on purpose: a read-only open of a namespace that does not exist yet prints
+     * "[E] nvs_open failed: NOT_FOUND" on every boot until the first save. This creates the
+     * (empty) namespace once instead. */
+    if (p.begin("kosync", false)) {
+      if (p.isKey("memo")) {
+        n = p.getBytes("memo", T->memoBlob, sizeof(T->memoBlob));
+      }
+      p.end();
+    }
+    if (n && !kosyncMemoUnpack(&T->memo, T->memoBlob, n)) {
+      log_e("KOSYNC memo: %u stored bytes did not read back - starting empty", (unsigned)n);
+    }
+  }
+  return &T->memo;
+}
+
+static KosyncMemoEntry* memoFor(const char* byName, bool create) {
+  KosyncMemo* m = memo();
+  return m ? kosyncMemoGet(m, byName, create) : NULL;
+}
+
+static void memoSaveIfDirty() {
+  KosyncMemo* m = memo();
+  if (!m || !m->dirty) {
+    return;
+  }
+  m->dirty = false;
+  const size_t n = kosyncMemoPack(m, T->memoBlob, sizeof(T->memoBlob));
+  Preferences p;
+  if (!p.begin("kosync", false)) {
+    log_e("KOSYNC memo: NVS would not open - last moves not kept across a restart");
+    return;
+  }
+  if (p.putBytes("memo", T->memoBlob, n) != n) {
+    log_e("KOSYNC memo: NVS refused %u bytes", (unsigned)n);
+  }
+  p.end();
+}
+
+void kosyncNoteMoved(const char* byName, uint32_t nowUtc) {
+  // The session's flag, `unsent` (home has not had this move) and the stamp; saved at the close.
+  kosyncMemoMoved(memo(), memoFor(byName, true), nowUtc);
+}
+
+void kosyncSaveState() {
+  if (T && s_memoLoaded) {
+    memoSaveIfDirty();
+  }
+}
+
+uint32_t kosyncMovedAt(const char* byName) {
+  const KosyncMemoEntry* e = memoFor(byName, false);
+  return e ? e->movedAt : 0;
+}
+
 static bool allocBook(KosyncBook** p) {
   if (!*p) {
     *p = (KosyncBook*)ps_malloc(sizeof(KosyncBook));
@@ -211,7 +287,8 @@ static bool kosyncPark(const KosyncBook* b, double pct, const char* device, uint
   int r = 0;
   double w = 0.0;
   if (!T || !b || !epubKosyncLocate(&b->map, pct, &r, &w, NULL, NULL)) {
-    log_e("KOSYNC park: '%s' cannot place %.4f (not syncable)", b ? b->title : "?", pct);
+    log_e("KOSYNC park: '%s' cannot place %.4f (not syncable: %s)", b ? b->title : "?", pct,
+          b ? epubKosyncWhyNot(&b->map) : "?");
     return false;
   }
   char pass[24] = {0};
@@ -247,6 +324,10 @@ static bool               s_winArmed = false;
 static KosyncWindowClock  s_clock;
 static uint32_t           s_gets = 0, s_puts = 0, s_parked = 0, s_other = 0, s_unauth = 0;
 static uint32_t           s_healthMs = 0;
+// A window on the phone's WiFi address: the address it opened on, and the loss watch (W1).
+static uint32_t           s_winIp = 0;        // 0 = on our own hotspot
+static uint32_t           s_staLostMs = 0;
+static uint32_t           s_staCheckMs = 0;
 // A PUT worth a card, parked on the next kosyncLoop() pass (see kosyncPark) — WITH its own
 // copy of the book it was for, so a window re-opened for another book in between (a serial
 // `kosync open`, a close/open request) can never file this place under that one.
@@ -264,6 +345,39 @@ bool kosyncWindowActive() {
   return s_winArmed;
 }
 
+static bool s_askInBlip = false;   // a window was asked for while its WiFi was blipping
+static void requestWindow(const KosyncBook* b, uint32_t durMs, const char* why);
+
+/* A window on the phone's WiFi address, checked by the ONE rule (kosyncStationWindowCheck) from
+ * both the loop's once-a-second look and a new ask (`asking`): closed when the WiFi is LOST
+ * (past the grace, or switched off / disabled) or MOVED; a BLIP keeps it. True = it was closed.
+ * An ask that a blip kept on the WiFi is not lost if the blip turns out to be the WiFi GOING
+ * (walking out of the house): the loop's close asks again, for what was left of it, and that
+ * ask brings up the hotspot. Not from an ask's own check: that ask goes on to open a window
+ * itself, and a second one queued behind it would replace it. */
+static bool staWindowGoneClose(uint32_t now, bool asking) {
+  const bool off = wifiState.radioOff() || wifiState.userDisabled();
+  const int st = kosyncStationWindowCheck(off, WiFi.status() == WL_CONNECTED,
+                                          (uint32_t)WiFi.localIP(), s_winIp, &s_staLostMs, now,
+                                          KOSYNC_STA_GRACE_MS);
+  if (st == KOSYNC_STA_OK) {
+    s_askInBlip = false;                         // the WiFi came back: the ask was served on it
+    return false;
+  }
+  if (st == KOSYNC_STA_BLIP) {
+    s_askInBlip = s_askInBlip || asking;
+    return false;
+  }
+  const bool reask = s_askInBlip && !asking && !off && s_win;
+  const uint32_t left = kosyncClockRemainingMs(&s_clock, now);
+  kosyncWindowClose(st == KOSYNC_STA_MOVED ? "the WiFi address changed"
+                    : off ? "the WiFi was switched off" : "the WiFi went away");
+  if (reask && left) {
+    requestWindow(s_win, left, "asked during a WiFi drop");
+  }
+  return true;
+}
+
 bool kosyncWindowOpen(const KosyncBook* b, uint32_t durationMs, char* note, size_t cap) {
   if (note && cap) {
     note[0] = '\0';
@@ -277,7 +391,7 @@ bool kosyncWindowOpen(const KosyncBook* b, uint32_t durationMs, char* note, size
     return false;
   }
   if (epubKosyncTotal(&b->map) == 0) {
-    setNote(note, cap, "This book can't sync over KOSync (no spine sizes)");
+    setNote(note, cap, "This book can't sync over KOSync: %s", epubKosyncWhyNot(&b->map));
     return false;
   }
   if (!allocBook(&s_win) || (!s_reply && !(s_reply = (char*)ps_malloc(KOSYNC_REPLY_CAP)))) {
@@ -285,6 +399,18 @@ bool kosyncWindowOpen(const KosyncBook* b, uint32_t durationMs, char* note, size
     return false;
   }
   const uint32_t now = millis();
+  /* 🛑 A WINDOW ON A WIFI THAT IS GONE IS NOT A WINDOW. Opened on the phone's WiFi address at
+   * home, then asked for again in the car: without this the dead window was simply extended
+   * (the transport below is only started when no window is armed), 'WiPhone-Books' never came
+   * up, and the note went on saying "on WiFi at 192.168.1.37" to an X4 that found nothing.
+   * Close it first so the ask below brings up the hotspot. (kosyncLoop closes one that goes
+   * stale while nobody is asking.)
+   * ⚠ BY THE LOOP'S RULE, grace included: "not connected THIS instant" is also a blip or a
+   * roam at home, and closing on it swapped a working WiFi window for the hotspot. A blip
+   * keeps the window (and is extended below); only LOST / switched off / MOVED closes it. */
+  if (s_winArmed && !xferUsingAP()) {
+    staWindowGoneClose(now, true);
+  }
   const bool sameBook = s_winArmed && !strcmp(s_win->byName, b->byName) &&
                         !strcmp(s_win->partial, b->partial);
   /* 🛑 NOT UNDER Settings > WiFi. That screen scans every 5 s and joins networks, and with a
@@ -313,6 +439,13 @@ bool kosyncWindowOpen(const KosyncBook* b, uint32_t durationMs, char* note, size
   } else {
     s_gets = s_puts = s_parked = s_other = s_unauth = 0;
     T->peer[0] = '\0';
+    T->otherDoc[0] = '\0';
+  }
+  if (!s_winArmed) {
+    s_winIp = xferUsingAP() ? 0 : (uint32_t)WiFi.localIP();
+    s_staLostMs = 0;
+    s_staCheckMs = now;
+    s_askInBlip = false;
   }
   memcpy(s_win, b, sizeof(*b));
   kosyncClockOpen(&s_clock, now, dur);
@@ -335,6 +468,8 @@ void kosyncWindowClose(const char* why) {
   }
   s_winArmed = false;
   s_clock.open = false;
+  s_winIp = 0;
+  s_askInBlip = false;
   xferWindowStop();
   snprintf(T->winLast, sizeof(T->winLast), "Window closed: %s", why ? why : "");
   log_e("KOSYNC window CLOSED (%s): gets=%u puts=%u parked=%u other-book=%u unauthorised=%u",
@@ -349,7 +484,7 @@ const char* kosyncWindowServe(const char* method, const char* path, const char* 
     return "{\"message\":\"Not found\"}";
   }
   KosyncServed sv = { s_win->partial, s_win->byName, s_win->pctOk, s_win->pct, kosyncMyDevice(),
-                      kosyncMyDeviceId(), s_win->turnedAt };
+                      kosyncMyDeviceId(), s_win->movedAt };
   KosyncServeOut o;
   kosyncServe(method, path, hdrs, body, bodyLen, T->cfg.user, T->cfg.key, &sv, nowUtc(),
               &o, s_reply, KOSYNC_REPLY_CAP);
@@ -380,6 +515,7 @@ const char* kosyncWindowServe(const char* method, const char* path, const char* 
   }
   if (o.otherDoc) {
     s_other++;
+    snprintf(T->otherDoc, sizeof(T->otherDoc), "%s", o.otherDocId);   // shown on the screen
   }
   /* log_e on purpose: only log_e is compiled into this firmware, and a window that "did
    * nothing" must be tellable from one that was never reached. A window sees a handful of
@@ -391,20 +527,39 @@ const char* kosyncWindowServe(const char* method, const char* path, const char* 
   return s_reply;
 }
 
-void kosyncNotePosition(const char* partial, const char* byName, double pct, bool pctOk,
-                        uint32_t turnedAt) {
-  if (!s_winArmed || !s_win || !byName) {
-    return;
-  }
-  if (strcmp(s_win->byName, byName) != 0 || strcmp(s_win->partial, partial ? partial : "") != 0) {
+// A pull asked for while the phone was not yet on WiFi (see kosyncBookOpened).
+static KosyncBook*        s_waitBook = NULL;  // PSRAM
+static bool               s_waitWifi = false;
+static uint32_t           s_waitCheckMs = 0;
+
+bool kosyncWantsPosition() {
+  return s_winArmed || s_waitWifi;
+}
+
+static void notePlace(KosyncBook* k, const char* partial, const char* byName, double pct,
+                      bool pctOk, uint32_t movedAt) {
+  if (!k || strcmp(k->byName, byName) != 0 || strcmp(k->partial, partial ? partial : "") != 0) {
     return;
   }
   /* ⚠ An update that CANNOT be expressed still updates: the reader has left the place the
    * window was holding, and a GET must now answer `{}`, not that old place. */
-  s_win->pctOk = pctOk;
-  s_win->pct = pctOk ? pct : 0.0;   // a GET now answers where the reader actually is
-  if (turnedAt) {
-    s_win->turnedAt = turnedAt;
+  k->pctOk = pctOk;
+  k->pct = pctOk ? pct : 0.0;       // a GET now answers where the reader actually is
+  if (movedAt) {
+    k->movedAt = movedAt;
+  }
+}
+
+void kosyncNotePosition(const char* partial, const char* byName, double pct, bool pctOk,
+                        uint32_t movedAt) {
+  if (!byName) {
+    return;
+  }
+  if (s_winArmed) {
+    notePlace(s_win, partial, byName, pct, pctOk, movedAt);
+  }
+  if (s_waitWifi) {
+    notePlace(s_waitBook, partial, byName, pct, pctOk, movedAt);   // compare from HERE, later
   }
 }
 
@@ -419,7 +574,20 @@ static void requestWindow(const KosyncBook* b, uint32_t durMs, const char* why) 
 }
 
 // ================================================================ the home client
-enum KsCliState { KS_IDLE = 0, KS_CONNECT, KS_HEADERS, KS_BODY };
+/* KS_CONNECT opens a socket and starts a NON-BLOCKING connect; KS_CONNECTING polls it (a
+ * zero-timeout select, once a pass) until it is writable, refused, or KS_CONNECT_MS has gone
+ * by; KS_HEADERS/KS_BODY read the answer; KS_RETRY waits out the back-off after a request
+ * that got no answer (kosyncRetryDelayMs). Nothing here waits on the network.
+ *
+ * 🛑 THE CONNECT USED TO BE WiFiClient::connect(ip, port, 600) — which, in this core, is a
+ * non-blocking connect followed by a select() that SLEEPS the loop task for the whole 600 ms:
+ * the 608 ms LOOP STALL named 'kosync' on hardware, and on a foreign WiFi where home= never
+ * answers, a 600 ms freeze on every book open and close. And one failed attempt (the first
+ * contact after a quiet spell, on a station in modem sleep — seen on hardware 2026-09-24)
+ * dropped the whole push or pull: the place sent on close never reached home, and the ask on
+ * open offered nothing. The same steps are taken here, one per pass, and a job gets
+ * KOSYNC_CLIENT_TRIES. */
+enum KsCliState { KS_IDLE = 0, KS_CONNECT, KS_CONNECTING, KS_HEADERS, KS_BODY, KS_RETRY };
 
 #define KS_IO_CAP   1536                      // the request, then the response body
 struct KsCliWork {
@@ -433,28 +601,35 @@ struct KsCliWork {
 static KsCliWork*  s_w = NULL;                // PSRAM
 static KsCliState  s_cs = KS_IDLE;
 static WiFiClient  s_client;
+static int         s_fd = -1;                 // the socket while it connects (not yet s_client's)
 static KosyncBook* s_pushBook = NULL;
 static KosyncBook* s_pullBook = NULL;
 static bool        s_pushWant = false, s_pullWant = false;
+static bool        s_pushReadFirst = false;   // "Sync my place": read the server before sending
 static uint32_t    s_pushGen = 0, s_pullGen = 0, s_jobGen = 0;
-static bool        s_curPush = false;
+static bool        s_curPush = false;         // this job came from the push slot
+static bool        s_jobReadFirst = false;    // ...and reads before it sends
+static bool        s_phaseGet = false;        // the request in hand is a GET
 static int         s_step = 0;                // 0: the partial MD5 id, 1: the file-name id
+static int         s_fails = 0;               // requests of this job that got no answer
+static uint32_t    s_retryAtMs = 0;
 static size_t      s_hlen = 0;
 static size_t      s_bodyGot = 0;
 static long        s_clen = -1;
 static bool        s_chunked = false;
 static int         s_code = -1;
-static uint32_t    s_deadlineMs = 0, s_reqStartMs = 0;
+static uint32_t    s_deadlineMs = 0, s_reqStartMs = 0, s_connStartMs = 0;
 static IPAddress   s_ip((uint32_t)0);
 static uint32_t    s_ipAt = 0;
 
-static const uint32_t KS_CONNECT_MS = 600;     // the ONLY call here that can block
+static const uint32_t KS_CONNECT_MS = 3000;    // polled, never waited on
 static const uint32_t KS_STALL_MS   = 5000;    // silence once connected
 static const uint32_t KS_TOTAL_MS   = 12000;   // one request, stall or not
 static const int      KS_READ_BUDGET = 512;    // bytes per main-loop pass
 
 bool kosyncClientBusy() {
-  return s_cs != KS_IDLE;
+  // Waiting out a back-off is not "mid-transfer": the stretched idle tick is fine for that.
+  return s_cs != KS_IDLE && s_cs != KS_RETRY;
 }
 
 static bool homeReady(char* note, size_t cap) {
@@ -473,7 +648,7 @@ static bool homeReady(char* note, size_t cap) {
   return true;
 }
 
-bool kosyncPush(const KosyncBook* b, char* note, size_t cap) {
+static bool queuePush(const KosyncBook* b, bool readFirst, char* note, size_t cap) {
   if (!homeReady(note, cap)) {
     return false;
   }
@@ -487,9 +662,19 @@ bool kosyncPush(const KosyncBook* b, char* note, size_t cap) {
   }
   memcpy(s_pushBook, b, sizeof(*b));
   s_pushWant = true;
+  s_pushReadFirst = readFirst;
   s_pushGen++;
-  snprintf(T->cliLast, sizeof(T->cliLast), "Sending %d%% to home...", pctInt(b->pct));
+  snprintf(T->cliLast, sizeof(T->cliLast), readFirst ? "Checking home, then sending %d%%..."
+                                                     : "Sending %d%% to home...", pctInt(b->pct));
   return true;
+}
+
+bool kosyncPush(const KosyncBook* b, char* note, size_t cap) {
+  return queuePush(b, false, note, cap);
+}
+
+bool kosyncSyncHome(const KosyncBook* b, char* note, size_t cap) {
+  return queuePush(b, true, note, cap);
 }
 
 bool kosyncPull(const KosyncBook* b, char* note, size_t cap) {
@@ -511,9 +696,17 @@ bool kosyncPull(const KosyncBook* b, char* note, size_t cap) {
   return true;
 }
 
+static void dropSocket() {
+  if (s_fd >= 0) {
+    close(s_fd);                               // a connect still in flight: nobody owns it yet
+    s_fd = -1;
+  }
+  s_client.stop();
+}
+
 static void finishJob(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 static void finishJob(const char* fmt, ...) {
-  s_client.stop();
+  dropSocket();
   s_cs = KS_IDLE;
   // Only retire the ask this job answered: a newer one made meanwhile still runs.
   if (s_curPush && s_pushGen == s_jobGen) {
@@ -525,7 +718,28 @@ static void finishJob(const char* fmt, ...) {
   va_start(ap, fmt);
   vsnprintf(T->cliLast, sizeof(T->cliLast), fmt, ap);
   va_end(ap);
-  log_e("KOSYNC home %s: %s", s_curPush ? "push" : "pull", T->cliLast);
+  log_e("KOSYNC home %s: %s", s_curPush ? (s_jobReadFirst ? "sync" : "push") : "pull", T->cliLast);
+}
+
+/* A request that got no answer (no connect, a timeout, a close with no status line). Tried
+ * again after kosyncRetryDelayMs, from the step it was on; given up after KOSYNC_CLIENT_TRIES.
+ * The address is kept for the retries (F5: a retry must not also re-resolve) and dropped only
+ * when the job gives up. An HTTP answer (401, 500...) is an answer and is NOT retried. */
+static void noAnswer(uint32_t now, const char* what) {
+  dropSocket();
+  s_fails++;
+  const uint32_t wait = kosyncRetryDelayMs(s_fails);
+  if (wait) {
+    s_cs = KS_RETRY;
+    s_retryAtMs = now + wait;
+    snprintf(T->cliLast, sizeof(T->cliLast), "Home: %s - trying again", what);
+    log_e("KOSYNC home %s: %s - try %d of %d in %lu ms", s_curPush ? "push" : "pull", what,
+          s_fails + 1, KOSYNC_CLIENT_TRIES, (unsigned long)wait);
+    return;
+  }
+  s_ipAt = 0;                                  // re-resolve next time: the address may be stale
+  finishJob("Home: %s from %s:%u (%d tries)", what, T->cfg.home, (unsigned)T->cfg.homePort,
+            s_fails);
 }
 
 // Resolve home=, with our own 10-minute cache (resolveDomain does not cache .local).
@@ -548,46 +762,67 @@ static bool resolveHome(uint32_t now) {
   return true;
 }
 
-static void evaluatePull() {
+/* The server's side of this book is read (both ids): is there a place from another device
+ * worth the card (kosync.h, D1)? Offered -> true, the job is finished. For a plain pull the
+ * job is finished either way (true). For "Sync my place" (`thenSend`) nothing to offer ->
+ * false: the caller goes on to PUT. */
+static bool evaluateOffer(bool thenSend) {
   const KosyncBook* b = &s_w->book;
-  int best = -1;
+  /* Both ids live on ONE server, so its timestamps are comparable: the NEWEST record from
+   * another device is the one that counts (a stock X4 on "filename" matching and our own push
+   * under the partial MD5 can both be there for the same book). A tie or a missing timestamp
+   * keeps the partial MD5's. Only that one is judged: an older record under the other id is
+   * history, not a second offer. */
   bool sawAny = false;
-  for (int i = 0; i < 2; i++) {
-    if (!s_w->have[i] || !s_w->got[i].hasPct) {
-      continue;
+  const int best = kosyncPickRecord(s_w->got, s_w->have, 2, kosyncMyDevice(), kosyncMyDeviceId(),
+                                    &sawAny);
+  if (best < 0) {
+    if (thenSend) {
+      return false;
     }
-    sawAny = true;
-    const KosyncProgress& g = s_w->got[i];
-    if (!kosyncWorthParking(g.pct, g.device, g.deviceId, b->pctOk ? b->pct : -1.0,
-                            kosyncMyDevice(), kosyncMyDeviceId())) {
-      continue;
-    }
-    if (!kosyncPullIsNews(g.pct, g.hasTimestamp, g.timestamp, b->pct, b->pctOk, b->turnedAt)) {
-      continue;                              // older than our last page turn, or behind us
-    }
-    /* Both ids live on ONE server, so its timestamps are comparable: the newer record wins
-     * (a stock X4 on "filename" matching and our own push under the partial MD5 can both be
-     * there for the same book). A tie or a missing timestamp keeps the partial MD5's. */
-    if (best < 0 || (g.hasTimestamp && s_w->got[best].hasTimestamp &&
-                     g.timestamp > s_w->got[best].timestamp)) {
-      best = i;
-    }
+    finishJob(sawAny ? "Home: nothing newer from another device"
+                     : "Home: this book is not on the server yet");
+    return true;
   }
-  if (best >= 0) {
-    const KosyncProgress& g = s_w->got[best];
-    const uint32_t ts = (g.hasTimestamp && g.timestamp > 0 && g.timestamp < 4000000000LL)
-                        ? (uint32_t)g.timestamp : 0;
-    const char* dev = g.device[0] ? g.device : "Home";
-    if (kosyncPark(b, g.pct, dev, ts)) {
-      finishJob("Home: %s is at %d%% - offered", dev, pctInt(g.pct));
-    } else {
-      finishJob("Home: %s is at %d%% - could not offer it", dev, pctInt(g.pct));
+  const KosyncProgress& g = s_w->got[best];
+  KosyncMemoEntry* me = memoFor(b->byName, true);
+  KosyncOfferIn in;
+  in.theirPct = g.pct;
+  in.theirTs = g.hasTimestamp ? g.timestamp : 0;
+  in.theirDevice = g.device;
+  in.theirDeviceId = g.deviceId;
+  in.mineOk = b->pctOk;
+  in.minePct = b->pct;
+  in.myDevice = kosyncMyDevice();
+  in.myDeviceId = kosyncMyDeviceId();
+  in.myMovedAt = me ? me->movedAt : 0;         // the freshest: moves since the job was queued
+  in.offeredSig = me ? me->offeredSig : 0;
+  const int v = kosyncOfferVerdict(&in);
+  const char* dev = g.device[0] ? g.device : "Home";
+  if (v != KOSYNC_OFFER) {
+    if (thenSend) {
+      log_e("KOSYNC home sync: %s at %d%% is not offered (%s) - sending ours", dev,
+            pctInt(g.pct), kosyncOfferVerdictText(v));
+      return false;
     }
-  } else if (sawAny) {
-    finishJob("Home: nothing newer from another device");
+    finishJob("Home: %s is at %d%% - %s, not offered", dev, pctInt(g.pct), kosyncOfferVerdictText(v));
+    return true;
+  }
+  const uint32_t ts = (in.theirTs > 0 && in.theirTs < 4000000000LL) ? (uint32_t)in.theirTs : 0;
+  if (kosyncPark(b, g.pct, dev, ts)) {
+    if (me) {
+      me->offeredSig = kosyncOfferSig(in.theirTs, g.pct, g.deviceId, g.device);
+      T->memo.dirty = true;
+    }
+    memoSaveIfDirty();                         // rare, and a declined offer must stay declined
+    finishJob(thenSend ? "Home: %s is at %d%% - offered; yours NOT sent over it"
+                       : "Home: %s is at %d%% - offered", dev, pctInt(g.pct));
   } else {
-    finishJob("Home: this book is not on the server yet");
+    // Not offered and not overwritten either: a place the card could not show is not ours to bury.
+    finishJob("Home: %s is at %d%% - could not offer it%s", dev, pctInt(g.pct),
+              thenSend ? " (yours not sent)" : "");
   }
+  return true;
 }
 
 static void stepDone(int code) {
@@ -596,7 +831,7 @@ static void stepDone(int code) {
     finishJob("Home: wrong user or password (401)");
     return;
   }
-  if (s_curPush) {
+  if (!s_phaseGet) {
     if (code != -2 && code != 200 && code != 202) {
       finishJob("Home: HTTP %d on PUT", code);
       return;
@@ -617,15 +852,82 @@ static void stepDone(int code) {
     s_cs = KS_CONNECT;                         // a fresh connection next pass
     return;
   }
-  if (s_curPush) {
-    if (s_w->sent > 0) {
-      finishJob("Sent %d%% to home", pctInt(s_w->book.pct));
-    } else {
-      finishJob("Home: no id to send under");
+  if (s_phaseGet) {
+    if (evaluateOffer(s_curPush)) {
+      return;                                  // offered (or, for a pull, judged): done
     }
-  } else {
-    evaluatePull();
+    s_phaseGet = false;                        // "Sync my place": nothing to offer - now send
+    s_step = 0;
+    s_cs = KS_CONNECT;
+    return;
   }
+  if (s_w->sent > 0) {
+    /* THE PUSH REFERENCE (D2): the place is now what home has from us, so a close that does
+     * not move it sends nothing — this session or any later one (it is SAVED now: a restart
+     * before the next close must not turn this into "never sent" and push an unmoved place
+     * over a newer one). Only for the book this job was about. */
+    kosyncMemoSent(memo(), memoFor(s_w->book.byName, true), s_w->book.pct);
+    memoSaveIfDirty();
+    finishJob("Sent %d%% to home", pctInt(s_w->book.pct));
+  } else {
+    finishJob("Home: no id to send under");
+  }
+}
+
+// Start a non-blocking connect to home=. False: no socket, or refused on the spot.
+static bool startConnect() {
+  const int fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (fd < 0) {
+    return false;
+  }
+  fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+  struct sockaddr_in a;
+  memset(&a, 0, sizeof(a));
+  a.sin_family = AF_INET;
+  const uint32_t ip = (uint32_t)s_ip;
+  memcpy(&a.sin_addr.s_addr, &ip, 4);          // the byte order WiFiClient::connect uses
+  a.sin_port = htons(T->cfg.homePort);
+  const int r = lwip_connect_r(fd, (struct sockaddr*)&a, sizeof(a));
+  if (r < 0 && errno != EINPROGRESS) {
+    close(fd);
+    return false;
+  }
+  s_fd = fd;
+  return true;
+}
+
+// Connected: hand the socket to s_client and send the request.
+static void sendRequest(uint32_t now) {
+  fcntl(s_fd, F_SETFL, fcntl(s_fd, F_GETFL, 0) & ~O_NONBLOCK);   // as WiFiClient::connect leaves it
+  /* The same adoption WiFiServer::available() makes: from here s_client owns (and closes) the
+   * socket. The temporary's destructor only drops its share of it. */
+  s_client = WiFiClient(s_fd);
+  s_fd = -1;
+  const char* doc = s_step == 0 ? s_w->book.partial : s_w->book.byName;
+  size_t n;
+  if (!s_phaseGet) {
+    char body[320];
+    kosyncBuildPutBody(body, sizeof(body), doc, s_w->book.pct, kosyncMyDevice(),
+                       kosyncMyDeviceId());
+    n = kosyncBuildPut(s_w->io, KS_IO_CAP, T->cfg.home, T->cfg.homePort, T->cfg.user,
+                       T->cfg.key, body);
+  } else {
+    n = kosyncBuildGet(s_w->io, KS_IO_CAP, T->cfg.home, T->cfg.homePort, T->cfg.user,
+                       T->cfg.key, doc);
+  }
+  if (!n) {
+    finishJob("Home: request too long");
+    return;
+  }
+  s_client.write((const uint8_t*)s_w->io, n);
+  s_cs = KS_HEADERS;
+  s_hlen = 0;
+  s_bodyGot = 0;
+  s_clen = -1;
+  s_chunked = false;
+  s_code = -1;
+  s_deadlineMs = now + KS_STALL_MS;
+  s_reqStartMs = now;
 }
 
 static void clientStep(bool mayUseNetwork, uint32_t now) {
@@ -652,11 +954,14 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
     }
     s_curPush = s_pushWant;                    // a push first: it is the fresher news
     s_jobGen = s_curPush ? s_pushGen : s_pullGen;
+    s_jobReadFirst = s_curPush && s_pushReadFirst;
+    s_phaseGet = !s_curPush || s_jobReadFirst;
     memcpy(&s_w->book, s_curPush ? s_pushBook : s_pullBook, sizeof(KosyncBook));
     memset(s_w->got, 0, sizeof(s_w->got));
     s_w->have[0] = s_w->have[1] = false;
     s_w->sent = 0;
     s_step = 0;
+    s_fails = 0;
     if (!resolveHome(now)) {
       finishJob("Home: '%s' not found", T->cfg.home);
       return;
@@ -665,48 +970,73 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
     return;                                    // connect on the NEXT pass: this one stays cheap
   }
 
+  if (s_cs == KS_RETRY) {
+    if ((s_curPush ? s_pushGen : s_pullGen) != s_jobGen) {
+      /* A newer ask of the same kind came in while this one waited: that one is the news.
+       * Dropped WITHOUT retiring the ask, so the next pass starts it fresh. */
+      dropSocket();
+      s_cs = KS_IDLE;
+      log_e("KOSYNC home: a newer ask replaces the one waiting to retry");
+      return;
+    }
+    if (!onWifi()) {
+      finishJob("Home: not on WiFi any more - gave up");
+      return;
+    }
+    if (!mayUseNetwork || (int32_t)(now - s_retryAtMs) < 0) {
+      return;
+    }
+    s_cs = KS_CONNECT;
+    // fall through: connect on this pass
+  }
+
   if (s_cs == KS_CONNECT) {
     const char* doc = s_step == 0 ? s_w->book.partial : s_w->book.byName;
     if (!doc[0]) {
       stepDone(-2);
       return;
     }
-    // The one call here that can block, bounded to KS_CONNECT_MS (as the SMS mirror does).
-    if (!s_client.connect(s_ip, T->cfg.homePort, KS_CONNECT_MS)) {
-      s_ipAt = 0;                              // re-resolve next time: the address may be stale
-      finishJob("Home: no answer from %s:%u", T->cfg.home, (unsigned)T->cfg.homePort);
+    if (!mayUseNetwork) {
+      return;                                  // held between steps, as at the start
+    }
+    if (!startConnect()) {
+      noAnswer(now, "could not connect");
       return;
     }
-    size_t n;
-    if (s_curPush) {
-      char body[320];
-      kosyncBuildPutBody(body, sizeof(body), doc, s_w->book.pct, kosyncMyDevice(),
-                         kosyncMyDeviceId());
-      n = kosyncBuildPut(s_w->io, KS_IO_CAP, T->cfg.home, T->cfg.homePort, T->cfg.user,
-                         T->cfg.key, body);
-    } else {
-      n = kosyncBuildGet(s_w->io, KS_IO_CAP, T->cfg.home, T->cfg.homePort, T->cfg.user,
-                         T->cfg.key, doc);
-    }
-    if (!n) {
-      finishJob("Home: request too long");
+    s_connStartMs = now;
+    s_cs = KS_CONNECTING;
+    return;
+  }
+
+  if (s_cs == KS_CONNECTING) {
+    fd_set w;
+    FD_ZERO(&w);
+    FD_SET(s_fd, &w);
+    struct timeval tv = { 0, 0 };              // a look, not a wait
+    const int r = select(s_fd + 1, NULL, &w, NULL, &tv);
+    if (r < 0) {
+      noAnswer(now, "connect failed");
       return;
     }
-    s_client.write((const uint8_t*)s_w->io, n);
-    s_cs = KS_HEADERS;
-    s_hlen = 0;
-    s_bodyGot = 0;
-    s_clen = -1;
-    s_chunked = false;
-    s_code = -1;
-    s_deadlineMs = now + KS_STALL_MS;
-    s_reqStartMs = now;
+    if (r == 0) {
+      if ((uint32_t)(now - s_connStartMs) >= KS_CONNECT_MS) {
+        noAnswer(now, "no answer");
+      }
+      return;
+    }
+    int err = 0;
+    socklen_t len = (socklen_t)sizeof(err);
+    if (getsockopt(s_fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0 || err != 0) {
+      noAnswer(now, err == ECONNREFUSED ? "connection refused" : "no answer");
+      return;
+    }
+    sendRequest(now);
     return;
   }
 
   // KS_HEADERS / KS_BODY: at most KS_READ_BUDGET bytes this pass.
   if ((int32_t)(now - s_deadlineMs) >= 0 || (uint32_t)(now - s_reqStartMs) > KS_TOTAL_MS) {
-    finishJob("Home: timed out");
+    noAnswer(now, "timed out");
     return;
   }
   int budget = KS_READ_BUDGET;
@@ -753,7 +1083,7 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
   if (bodyDone || closed) {
     s_client.stop();
     if (s_code < 0) {
-      finishJob("Home: no HTTP answer");
+      noAnswer(now, "no HTTP answer");
       return;
     }
     size_t len = s_bodyGot < KS_IO_CAP - 1 ? s_bodyGot : KS_IO_CAP - 1;
@@ -774,6 +1104,10 @@ bool kosyncSyncMyPlace(const KosyncBook* b, char* note, size_t cap) {
   if (!kosyncConfigured()) {
     return false;
   }
+  if (b && epubKosyncTotal(&b->map) == 0) {
+    setNote(note, cap, "This book can't sync over KOSync: %s", epubKosyncWhyNot(&b->map));
+    return false;
+  }
   if (!b || !b->pctOk) {
     setNote(note, cap, "This place can't be sent over KOSync");
     return false;
@@ -782,8 +1116,10 @@ bool kosyncSyncMyPlace(const KosyncBook* b, char* note, size_t cap) {
   const bool opened = kosyncWindowOpen(b, KOSYNC_WINDOW_SYNC_MS, note, cap);
   bool pushed = false;
   if (wifi && T->cfg.home[0]) {
+    /* D2: an explicit sync always SENDS — but it READS home first, and a newer place from
+     * another device is offered as the card instead of being overwritten. */
     char pn[80];
-    pushed = kosyncPush(b, pn, sizeof(pn));
+    pushed = kosyncSyncHome(b, pn, sizeof(pn));
     if (!pushed && note && !note[0]) {
       setNote(note, cap, "%s", pn);
     }
@@ -795,23 +1131,59 @@ void kosyncBookOpened(const KosyncBook* b) {
   if (!kosyncConfigured() || !b) {
     return;
   }
+  /* The session's push reference (D2): where the place stands as the book opens. What home
+   * last had from us is NOT reset here — that is kept (kosyncClosePushWanted). */
+  kosyncMemoOpened(memoFor(b->byName, true), b->pctOk, b->pct);
+  s_waitWifi = false;                          // an ask for another book is superseded
   if (onWifi()) {
     if (T->cfg.home[0]) {
       kosyncPull(b, NULL, 0);                  // a newer place from another device -> the card
     }
-  } else if (T->cfg.openWindow && epubKosyncTotal(&b->map) > 0) {
+    return;
+  }
+  /* Not on WiFi YET (a book opened straight after power-on, before the join finished): the
+   * same ask is made once it comes up, while this book is still open (kosyncLoop). */
+  if (T->cfg.home[0] && epubKosyncTotal(&b->map) > 0 && allocBook(&s_waitBook)) {
+    memcpy(s_waitBook, b, sizeof(*b));
+    s_waitWifi = true;
+    s_waitCheckMs = millis();
+  }
+  if (T->cfg.openWindow && epubKosyncTotal(&b->map) > 0) {
     requestWindow(b, KOSYNC_WINDOW_OPEN_MS, "book opened");
   }
 }
 
 void kosyncBookClosed(const KosyncBook* b) {
-  if (!kosyncConfigured() || !T->cfg.autoOnClose || !b || !b->pctOk) {
+  if (!kosyncConfigured() || !b) {
     return;
   }
-  if (onWifi() && T->cfg.home[0]) {
-    kosyncPush(b, NULL, 0);
+  if (s_waitWifi && s_waitBook && !strcmp(s_waitBook->byName, b->byName)) {
+    s_waitWifi = false;                        // the book it was for is shut
   }
-  requestWindow(b, KOSYNC_WINDOW_SYNC_MS, "book closed");
+  if (T->cfg.autoOnClose && b->pctOk) {
+    if (onWifi() && T->cfg.home[0]) {
+      /* 🛑 ONLY IF THE PLACE MOVED (D2). An open and a close with no reading between used to
+       * PUT the unmoved place under both ids — and a server keeps the LAST PUT, so a newer
+       * place the X4 had sent was simply gone, and COVEY was then offered this stale one as
+       * news. "Moved" is this session OR a place home never had from us (read in the woods,
+       * closed off WiFi; a push that gave up) — see kosyncClosePushWanted. */
+      const KosyncMemoEntry* e = memoFor(b->byName, false);
+      if (kosyncClosePushWanted(e, b->pctOk, b->pct)) {
+        const bool session = !e || kosyncAutoPushWanted(e->refOk, e->refPct, e->movedSinceRef,
+                                                        b->pctOk, b->pct);
+        log_e("KOSYNC home: '%s' at %d%% - pushing on close (%s)", b->title, pctInt(b->pct),
+              session ? "moved since it was opened"
+                      : (e->sentOk ? "home has an older place of ours" : "a move home never had"));
+        kosyncPush(b, NULL, 0);
+      } else {
+        snprintf(T->cliLast, sizeof(T->cliLast), "Not moved - nothing sent home");
+        log_e("KOSYNC home: '%s' at %d%% has not moved - no push on close", b->title,
+              pctInt(b->pct));
+      }
+    }
+    requestWindow(b, KOSYNC_WINDOW_SYNC_MS, "book closed");
+  }
+  memoSaveIfDirty();                           // this session's last move, kept across a restart
 }
 
 // ================================================================ status
@@ -850,6 +1222,18 @@ size_t kosyncHotspotLine(char* out, size_t cap) {
     snprintf(out, cap, "hotspot: open");
   }
   return strlen(out);
+}
+
+size_t kosyncProblemLine(char* out, size_t cap) {
+  if (!cap) {
+    return 0;
+  }
+  out[0] = '\0';
+  if (!T) {
+    return 0;
+  }
+  // The current window's counts, or the last one's until the next window opens.
+  return kosyncWindowProblems(s_other, T->otherDoc, s_unauth, out, cap);
 }
 
 bool kosyncPeerPctFor(uint32_t inboxId, double* pct) {
@@ -933,7 +1317,15 @@ void kosyncDumpStatus(void (*emit)(const char* line)) {
     snprintf(l, sizeof(l), "kosync: window closed%s%s", T->winLast[0] ? " - " : "", T->winLast);
     emit(l);
   }
-  snprintf(l, sizeof(l), "kosync: home client %s%s%s", s_cs != KS_IDLE ? "BUSY" : "idle",
+  {
+    char pl[160];
+    if (kosyncProblemLine(pl, sizeof(pl))) {
+      snprintf(l, sizeof(l), "kosync: %s", pl);
+      emit(l);
+    }
+  }
+  snprintf(l, sizeof(l), "kosync: home client %s%s%s%s", s_cs == KS_RETRY ? "WAITING TO RETRY"
+           : s_cs != KS_IDLE ? "BUSY" : "idle", s_waitWifi ? " (an ask waits for WiFi)" : "",
            T->cliLast[0] ? " - " : "", T->cliLast);
   emit(l);
   snprintf(l, sizeof(l), "kosync: heap largest=%u free=%u psram=%u", (unsigned)largestInternal(),
@@ -944,10 +1336,27 @@ void kosyncDumpStatus(void (*emit)(const char* line)) {
 // ================================================================ the loop
 void kosyncLoop(bool mayUseNetwork, bool callActive) {
   // The common case, every pass, for every phone: nothing asked, nothing open.
-  if (!s_reqWant && !s_winArmed && !s_parkWant && s_cs == KS_IDLE && !s_pushWant && !s_pullWant) {
+  if (!s_reqWant && !s_winArmed && !s_parkWant && s_cs == KS_IDLE && !s_pushWant && !s_pullWant &&
+      !s_waitWifi) {
     return;
   }
   const uint32_t now = millis();
+
+  /* The ask a book open could not make because the WiFi was not up yet: made once it is (a
+   * second's look at most; the ask itself is the ordinary non-blocking pull). */
+  if (s_waitWifi && (uint32_t)(now - s_waitCheckMs) >= 1000u) {
+    s_waitCheckMs = now;
+    if (onWifi()) {
+      s_waitWifi = false;
+      char note[80] = "";
+      if (s_waitBook && kosyncPull(s_waitBook, note, sizeof(note))) {
+        log_e("KOSYNC: WiFi is up - asking home about '%s' (opened before it was)",
+              s_waitBook->title);
+      } else if (note[0]) {
+        log_e("KOSYNC: WiFi is up, but no ask: %s", note);
+      }
+    }
+  }
 
   if (s_parkWant) {
     s_parkWant = false;
@@ -978,6 +1387,14 @@ void kosyncLoop(bool mayUseNetwork, bool callActive) {
      * no hotspot under it is not open — say so rather than count down to nothing. */
     if (xferWindowUp() && xferUsingAP() && !(WiFi.getMode() & WIFI_MODE_AP)) {
       kosyncWindowClose("the hotspot went off (WiFi switched off?)");
+    } else if (xferWindowUp() && !xferUsingAP() && (uint32_t)(now - s_staCheckMs) >= 1000u) {
+      /* ...and so can the WiFi under a window on the phone's WiFi address: out of range,
+       * switched off, or the auto-switcher moved the phone to another network. A few
+       * seconds' grace for a blip (none for a switch-off); after that the window is closed,
+       * so the next ask (a book opened in the car, Sync my place) brings up the hotspot
+       * instead of extending a window nobody can reach. */
+      s_staCheckMs = now;
+      staWindowGoneClose(now, false);
     }
   }
   if (s_winArmed) {

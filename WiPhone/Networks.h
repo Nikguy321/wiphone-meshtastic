@@ -35,9 +35,15 @@ governing permissions and limitations under the License.
 extern void connectToWiFi(const char* ssid, const char* pwd);
 
 /* millis() of the last connectToWiFi() from ANY path — the periodic retry, the
- * auto-switcher, or a manual join in the networks app. The reconnect backoff's radio
- * quiesce consults this so it never disconnects an association it did not start. */
+ * auto-switcher, or a manual join in the networks app — and of the transfer server's own
+ * WiFi.begin() when it hands the radio back (noteWifiJoinStarted). The reconnect backoff's
+ * radio quiesce consults this so it never disconnects an association it did not start. */
 uint32_t lastWifiConnectAttemptMs();
+void     noteWifiJoinStarted();       // a join begun outside connectToWiFi() (a bare WiFi.begin())
+/* millis() of the last moment the station was known UP (its GOT_IP, or the drop that ended a
+ * connected spell); 0 = never. A blip's own reconnect is the core's WiFi.begin(), which no
+ * join path stamps — this is how a caller tells "just dropped, rejoining" from "out of range". */
+uint32_t lastWifiLinkUpMs();
 extern IPAddress resolveDomain(const char* hostName);
 
 // Class to save/load WiFi networks data from Flash

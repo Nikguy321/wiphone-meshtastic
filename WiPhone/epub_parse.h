@@ -92,10 +92,20 @@ struct EpubSpineItem {
  * guessed total. */
 #define EPUB_KOSYNC_ID_CHARS 33          // 32 lower-case hex + NUL
 
+/* Why a book is NOT syncable even though it reads (EpubKosyncMap::refused). Each is a case
+ * where every number this phone sent would differ from the X4's, silently — so the book says
+ * so instead (epubKosyncWhyNot) and sends nothing. */
+enum EpubKosyncRefusal {
+  EPUB_KOSYNC_SYNCABLE = 0,
+  EPUB_KOSYNC_TOO_MANY_ITEMS,            // the OPF ran past EPUB_MAX_SPINE items or itemrefs
+  EPUB_KOSYNC_TEXT_TOO_BIG,              // a .txt bigger than the reader shows (EPUB_MAX_DOC)
+};
+
 struct EpubKosyncMap {
   int      nCp;                          // CrossPoint spine items
   int      nRead;                        // the reading spine (EpubBook.nSpine)
   bool     sizesKnown;                   // false: the zip walk failed, do not sync
+  uint8_t  refused;                      // EpubKosyncRefusal: not syncable, and why
   uint32_t cum[EPUB_MAX_SPINE];          // cum[i] = size[0] + ... + size[i], CrossPoint order
   int16_t  cpToRead[EPUB_MAX_SPINE];     // reading index with the same path (first), or -1
   int16_t  readToCp[EPUB_MAX_SPINE];     // FIRST CrossPoint item with that path, or -1
@@ -209,6 +219,8 @@ bool epubKosyncIds(EpubSource* src, const char* basename,
 
 // Sum of every CrossPoint item's size. 0 = "this book cannot sync over KOSync".
 uint32_t epubKosyncTotal(const EpubKosyncMap* m);
+/* Why epubKosyncTotal() is 0, in words for a screen note ("" when the book is syncable). */
+const char* epubKosyncWhyNot(const EpubKosyncMap* m);
 
 /* The KOSync percentage for reading-spine item `readIdx`, `within` (0..1) of the way
  * through it. False when the book is not syncable (no map, sizes unknown, total 0) or this

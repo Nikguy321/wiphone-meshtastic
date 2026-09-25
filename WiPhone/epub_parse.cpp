@@ -1047,6 +1047,14 @@ static void kosyncMapForText(EpubBook* b) {
   m->sizesKnown = true;
   m->cpToRead[0] = 0;
   m->readToCp[0] = 0;
+  /* 🛑 ONLY IF THE READER SHOWS ALL OF IT. epubChapterTextImages reads the first cap-1 bytes
+   * of a .txt, so a bigger file is shown CUT: every place on it said 0 % (kosyncOversized),
+   * and a peer's 80 % landed 80 % into the cut text — about a fifth of a 2 MB novel. Not
+   * syncable, and saying so, beats both. (A reader whose buffer fell back to a smaller one
+   * marks the same thing itself: BooksApp::openBook.) */
+  if (sz > (uint64_t)(EPUB_MAX_DOC - 1)) {
+    m->refused = EPUB_KOSYNC_TEXT_TOO_BIG;
+  }
   b->kosync = m;
 }
 
@@ -1055,7 +1063,8 @@ static void kosyncMapForText(EpubBook* b) {
  * the generator's dict has it); a reading chapter maps to the FIRST CrossPoint item with the
  * same path, and a CrossPoint item to the FIRST reading chapter with its path. */
 static void kosyncMapBuild(EpubBook* b, const OpfItem* items, const OpfCp* cp, int nItems,
-                           char (*cpIds)[64], int nCpIds, bool sizesKnown) {
+                           char (*cpIds)[64], int nCpIds, bool sizesKnown,
+                           bool manifestCapped, bool itemrefsCapped) {
   if (!cp || !cpIds) {
     return;                              // an optional block failed: readable, not syncable
   }
@@ -1067,6 +1076,14 @@ static void kosyncMapBuild(EpubBook* b, const OpfItem* items, const OpfCp* cp, i
     return;                              // the book reads; it just cannot sync over KOSync
   }
   m->sizesKnown = sizesKnown;
+  /* ⚠ PAST THE CAPS, THE X4 COUNTS WHAT WE CANNOT. More itemrefs than EPUB_MAX_SPINE: the
+   * items past it are missing from the total. A manifest cut at EPUB_MAX_SPINE: an itemref
+   * naming an item past the cut looks exactly like one that names nothing (below), which
+   * CrossPoint skips and we would too — wrongly. Either way every percentage would differ
+   * from the X4's with no warning (picture books, cookbooks), so the book is refused. */
+  if (itemrefsCapped) {
+    m->refused = EPUB_KOSYNC_TOO_MANY_ITEMS;
+  }
   uint32_t sum = 0;
   for (int c = 0; cpIds && c < nCpIds; c++) {
     int k = -1;
@@ -1074,6 +1091,9 @@ static void kosyncMapBuild(EpubBook* b, const OpfItem* items, const OpfCp* cp, i
       if (strcmp(items[q].id, cpIds[c]) == 0) {
         k = q;                           // keep going: the LAST one with this id wins
       }
+    }
+    if (k < 0 && manifestCapped) {
+      m->refused = EPUB_KOSYNC_TOO_MANY_ITEMS;   // past the cut, or truly nothing: cannot tell
     }
     if (k < 0 || !items[k].href[0]) {
       continue;                          // an idref that names nothing is not an item
@@ -1406,6 +1426,7 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
   OpfCp* cp = (OpfCp*)ksAlloc(sizeof(OpfCp) * EPUB_MAX_SPINE);   // ~100 KB, optional
   int nCpIds = 0;
   bool cpSizesKnown = false;
+  bool cpManifestCapped = false, cpItemrefsCapped = false;   // KOSync only: see kosyncMapBuild
 
   {
     const char* p = (const char*)buf;
@@ -1450,6 +1471,13 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
         textEnd++;
       }
 
+      /* KOSync only, and nothing else reads them: did the manifest or the itemrefs run past
+       * the caps below? The branches themselves are exactly what they were. */
+      if (!closing && nItems >= EPUB_MAX_SPINE && strcmp(name, "item") == 0) {
+        cpManifestCapped = true;
+      } else if (!closing && nCpIds >= EPUB_MAX_SPINE && strcmp(name, "itemref") == 0) {
+        cpItemrefsCapped = true;
+      }
       if (!closing && strcmp(name, "item") == 0 && nItems < EPUB_MAX_SPINE) {
         char id[64], href[EPUB_NAME_MAX], media[64];
         if (tagAttr(p + as, ae - as, "id", id, sizeof(id)) &&
@@ -1579,7 +1607,8 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
   /* The KOSync map needs the FINAL reading spine (fallback included) and the manifest, so the
    * manifest is freed after it rather than before the fallback walk — which never read it. */
   if (b->nSpine > 0) {
-    kosyncMapBuild(b, items, cpScratch ? cp : NULL, nItems, cpIds, nCpIds, cpSizesKnown);
+    kosyncMapBuild(b, items, cpScratch ? cp : NULL, nItems, cpIds, nCpIds, cpSizesKnown,
+                   cpManifestCapped, cpItemrefsCapped);
   }
   ebFree(items);
   ebFree(spineIds);
@@ -1944,10 +1973,29 @@ bool epubKosyncIds(EpubSource* src, const char* basename,
 }
 
 uint32_t epubKosyncTotal(const EpubKosyncMap* m) {
-  if (!m || !m->sizesKnown || m->nCp <= 0 || m->nRead <= 0) {
+  if (!m || !m->sizesKnown || m->refused || m->nCp <= 0 || m->nRead <= 0) {
     return 0;
   }
   return m->cum[m->nCp - 1];
+}
+
+const char* epubKosyncWhyNot(const EpubKosyncMap* m) {
+  if (!m) {
+    return "no KOSync data (memory)";
+  }
+  if (m->refused == EPUB_KOSYNC_TOO_MANY_ITEMS) {
+    return "over 512 items - the X4 would count it differently";
+  }
+  if (m->refused == EPUB_KOSYNC_TEXT_TOO_BIG) {
+    return "a .txt too big to show whole here";
+  }
+  if (!m->sizesKnown) {
+    return "its zip could not be read to the end";
+  }
+  if (m->nCp <= 0 || m->nRead <= 0 || !m->cum[m->nCp - 1]) {
+    return "no spine for the X4 to count";
+  }
+  return "";
 }
 
 bool epubKosyncPercent(const EpubKosyncMap* m, int readIdx, double within, double* pct) {

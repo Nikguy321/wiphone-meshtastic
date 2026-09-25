@@ -131,7 +131,7 @@ struct KosyncServed {
   double      pct;                   // the phone's place, as a KOSync percentage
   const char* device;                // what the phone calls itself ("WiPhone-NICK")
   const char* deviceId;
-  uint32_t    turnedAt;              // the phone's last page turn, UTC, or 0 when unknown
+  uint32_t    turnedAt;              // the phone's last real MOVE here, UTC, or 0 when unknown
 };
 
 struct KosyncServeOut {
@@ -143,6 +143,7 @@ struct KosyncServeOut {
   char   putDevice[KOSYNC_DEV_MAX];
   char   putDeviceId[KOSYNC_DEV_MAX];
   bool   otherDoc;                   // a PUT for some other book: answered 200, discarded
+  char   otherDocId[16];             // ...and the start of ITS id, for the screen ("" if none)
 };
 
 /* Answer one request. `reply` receives the JSON body. `nowUnix` is 0 when the phone has no
@@ -154,23 +155,172 @@ void kosyncServe(const char* method, const char* path, const char* hdrs,
                  const char* user, const char* key, const KosyncServed* book,
                  uint32_t nowUnix, KosyncServeOut* out, char* reply, size_t replyCap);
 
-/* Is a peer's place worth a card? Not when it is our own record coming back (same device
- * name or same device id), and not when it is within KOSYNC_EPSILON of where we are. */
+/* Is a peer's place worth a card? Not when it is our own record coming back (see
+ * kosyncIsOwnRecord), and not when it is within KOSYNC_EPSILON of where we are. This is the
+ * WINDOW's rule: every PUT into a window is a new PUT made on purpose, so it is offered again. */
 bool kosyncWorthParking(double theirs, const char* theirDevice, const char* theirDeviceId,
                         double mine, const char* myDevice, const char* myDeviceId);
-// Our own record coming back (same device name, or same device id).
+/* Our own record coming back. 🛑 BY device_id WHEN BOTH SIDES HAVE ONE — the name is only the
+ * fallback for a record that carries no id. The name is whatever a person typed (device= in
+ * kosync.txt, the Sync settings name), and two phones given one kosync.txt, or one name, are
+ * still two devices: matching on the name made each silently ignore the other's place. Ours is
+ * MAC-derived (kosyncDeviceId) and always sent, so our own echo is always caught by the id. */
 bool kosyncIsOwnRecord(const char* theirDevice, const char* theirDeviceId,
                        const char* myDevice, const char* myDeviceId);
 
-/* For the home PULL on book open, which runs on its own every time a book is opened: is the
- * server's record NEWS worth a card? Newer than our last page turn when both clocks are known
- * (the server's timestamp is its own receive time, UTC, and ours is NTP's); otherwise AHEAD
- * of us by more than KOSYNC_EPSILON — the contract's "compare by percentage when either
- * side's time is unknown". Without this, an X4 that simply had not synced lately would offer
- * the same BACKWARD jump on every open. (A live window offers both directions: someone is
- * syncing on purpose, and the card says "BACKWARDS" in red.) */
-bool kosyncPullIsNews(double theirs, bool theirHasTs, int64_t theirTs,
-                      double mine, bool mineOk, uint32_t myTurnedAt);
+/* ── THE OFFER RULE (shared decision D1, the same on the X4 fork and COVEY) ──────────────
+ * A SERVER's record (the home pull on book open, and the read that "Sync my place" makes
+ * before it sends) goes to the card — never applied silently — when it is:
+ *   from ANOTHER device (kosyncIsOwnRecord),
+ *   more than KOSYNC_EPSILON away from where we are (skipped when we cannot place ourselves),
+ *   not the very record already offered for this book (kosyncOfferSig — a new PUT gets a new
+ *     server timestamp and is offered again; a declined one stays declined),
+ *   and NOT PROVABLY OLDER than our last real move. "Provably" needs BOTH clocks: our
+ *     last-move stamp (the reader's place actually changing — NOT every save or close, which
+ *     is what the CBS1 turnedAt is) and the server's timestamp (0 / missing = unknown; COVEY
+ *     serves 0 while its clock is not NTP-synchronised). Either unknown -> offer.
+ * The bias is deliberate: a spurious card costs one Back; a hidden position is the bug. */
+enum KosyncOfferVerdict {
+  KOSYNC_OFFER = 0,
+  KOSYNC_SKIP_OWN,                   // our own record coming back
+  KOSYNC_SKIP_IN_STEP,               // within KOSYNC_EPSILON of where we are
+  KOSYNC_SKIP_OFFERED,               // this very record was offered already
+  KOSYNC_SKIP_OLDER,                 // older than our last move, both clocks known
+};
+struct KosyncOfferIn {
+  double      theirPct;
+  int64_t     theirTs;               // the server's timestamp; <= 0 = unknown
+  const char* theirDevice;
+  const char* theirDeviceId;
+  bool        mineOk;                // false: we cannot express where we are
+  double      minePct;
+  const char* myDevice;
+  const char* myDeviceId;
+  uint32_t    myMovedAt;             // UTC of our last real move in this book; 0 = unknown
+  uint32_t    offeredSig;            // kosyncOfferSig of the record last offered; 0 = none
+};
+int         kosyncOfferVerdict(const KosyncOfferIn* in);
+/* Of the records a read found (got[i] valid where have[i]; the partial-MD5 id first), the one
+ * the offer rule judges: the NEWEST from another device — both ids live on one server, so
+ * their timestamps compare; a tie or a missing timestamp keeps the earlier id. -1 when there
+ * is none; `sawAny` says whether any record had a percentage at all. */
+int         kosyncPickRecord(const KosyncProgress* got, const bool* have, int n,
+                             const char* myDevice, const char* myDeviceId, bool* sawAny);
+const char* kosyncOfferVerdictText(int verdict);   // "in step", "already offered", ...
+
+/* Who, where, when — one server record, as a number that is never 0. The device_id when the
+ * record has one, else its name; the percentage as it goes on the wire (6 decimals). */
+uint32_t kosyncOfferSig(int64_t ts, double pct, const char* deviceId, const char* device);
+
+/* ── THE AUTOMATIC PUSH RULE (shared decision D2) ──────────────────────────────────────
+ * A push on close / on leaving the book goes out ONLY when the place moved since the book was
+ * opened or since the last successful push of it (`ref`). An open and a close with no reading
+ * in between used to PUT the unmoved place over a newer one another device had sent — the
+ * server keeps the last PUT, so the X4's place was simply gone. With no reference percentage
+ * (the place at open could not be expressed), `movedSinceRef` decides. The explicit "Sync my
+ * place" always pushes (after reading the server first — see kosync_sync.h).
+ * This is the SESSION half; kosyncClosePushWanted below is the whole rule. */
+bool kosyncAutoPushWanted(bool refOk, double refPct, bool movedSinceRef, bool pctOk, double pct);
+
+/* ── WHAT THE PHONE REMEMBERS PER BOOK FOR KOSync ─────────────────────────────────────────
+ * 🛑 NOT positions.cbs. The CBS1 turnedAt is stamped on every SAVE (a close, the OK-to-menu
+ * flush) and goes on the air; its meaning is LoRa's and stays as it was. This is a separate,
+ * small table: the last real MOVE of the place and the server record last offered (both
+ * persisted, in NVS, so a reboot does not re-offer a declined place), what home last had from
+ * us (persisted — see kosyncClosePushWanted), plus the session's push reference (never
+ * persisted). Keyed by the file-name id; least recently used goes. */
+#define KOSYNC_MEMO_MAX 16
+struct KosyncMemoEntry {
+  char     book[KOSYNC_KEY_CHARS];   // the file-name id (32 hex); "" = a free slot
+  uint32_t movedAt;                  // UTC of the last real move, 0 = unknown   (persisted)
+  uint32_t offeredSig;               // kosyncOfferSig last offered, 0 = none   (persisted)
+  uint32_t used;                     // recency                                  (persisted)
+  bool     sentOk;                   // a PUT of ours for this book succeeded     (persisted)
+  double   sentPct;                  // ...and this was its place (6 dp kept)     (persisted)
+  bool     unsent;                   // a real move home has not had yet          (persisted)
+  bool     refOk;                    // this session: the push reference is known
+  bool     movedSinceRef;            // this session: the place moved since `refPct`
+  double   refPct;                   // this session: the place at open / at the last push
+};
+struct KosyncMemo {
+  KosyncMemoEntry e[KOSYNC_MEMO_MAX];
+  uint32_t tick;
+  bool     dirty;                    // a persisted field changed since the last save
+};
+// The entry for `book`, or NULL. `create`: take a free slot, or the least recently used one.
+KosyncMemoEntry* kosyncMemoGet(KosyncMemo* m, const char* book, bool create);
+/* The three things that change an entry, kept here so the whole D2 story runs on a Mac:
+ *   Opened  the session's reference is the place as the book opens;
+ *   Moved   a real move (never a save or a close): the session's flag, the persisted `unsent`,
+ *           and the last-move stamp when the clock is known (`nowUtc` 0 = unknown, kept as is);
+ *   Sent    a PUT of `pct` succeeded: it is both the session's reference and what home has. */
+void kosyncMemoOpened(KosyncMemoEntry* e, bool pctOk, double pct);
+void kosyncMemoMoved(KosyncMemo* m, KosyncMemoEntry* e, uint32_t nowUtc);
+void kosyncMemoSent(KosyncMemo* m, KosyncMemoEntry* e, double pct);
+/* ── THE WHOLE CLOSE RULE (D2) ───────────────────────────────────────────────────────────
+ * Push when the place moved THIS SESSION (kosyncAutoPushWanted), OR home has not had it from
+ * us: it differs from the last place a PUT of ours delivered (`sentPct`, persisted), or — no
+ * PUT of ours ever succeeded — a real move is recorded as `unsent`.
+ * 🛑 THE SESSION HALF ALONE LOST PLACES. Read 0.40 -> 0.60 off WiFi (the close there cannot
+ * push), then open and close the book at home without turning a page: "not moved since this
+ * open", nothing sent, and home kept 0.40 for good — as it did after a push that gave up. The
+ * persisted half still keeps F3 fixed: a phone whose place home already has from it sends
+ * nothing, however often the book is opened. A move away and back to what home has also sends
+ * nothing: home has that place from us already. NULL (no memo): push whatever is expressible. */
+bool kosyncClosePushWanted(const KosyncMemoEntry* e, bool pctOk, double pct);
+// The persisted fields as bytes (magic "KSM2", then 52 bytes an entry). Returns the length.
+#define KOSYNC_MEMO_ENTRY_BYTES 52
+#define KOSYNC_MEMO_BLOB_MAX (4 + KOSYNC_MEMO_MAX * KOSYNC_MEMO_ENTRY_BYTES)
+size_t kosyncMemoPack(const KosyncMemo* m, uint8_t* out, size_t cap);
+/* False (and an empty memo) for anything that is not exactly what kosyncMemoPack writes —
+ * including the development build's "KSM1" (44-byte entries, never released). */
+bool   kosyncMemoUnpack(KosyncMemo* m, const uint8_t* in, size_t len);
+
+// ---------------------------------------------------------------- the home client's retries
+/* One connect that did not answer is routine — the first contact after a quiet spell, on a
+ * station in modem sleep, was seen failing on hardware and a manual retry then worked — so a
+ * push or pull is NOT dropped on it. KOSYNC_CLIENT_TRIES attempts a job; this is the wait
+ * after the Nth transport failure (1-based): 1 s, then 4 s, then 0 = give up. */
+#define KOSYNC_CLIENT_TRIES 3
+uint32_t kosyncRetryDelayMs(int failures);
+
+// ---------------------------------------------------------------- the window's transport
+/* A window on the phone's WiFi address outlives that WiFi unless someone checks. Checked
+ * once a second while a window is on the station, AND by a new ask for a window: OK; BLIP
+ * (disconnected for less than `graceMs`, a roam or a blip — hold on); LOST (gone longer, or
+ * the WiFi switched off / disabled by its owner, which is no blip: close it, so the next ask
+ * can bring up the hotspot); MOVED (connected, but not at the address the window opened on —
+ * the auto-switcher took the phone elsewhere). `lostSinceMs` is the caller's; 0 = connected.
+ * 🛑 ONE RULE FOR BOTH CALLERS. The ask used to close a station window on ANY status but
+ * connected, with no grace: a book opened during a blip at home tore the WiFi window down
+ * and hosted 'WiPhone-Books' instead. */
+#define KOSYNC_STA_GRACE_MS 5000UL
+enum KosyncStaCheck { KOSYNC_STA_OK = 0, KOSYNC_STA_BLIP, KOSYNC_STA_LOST, KOSYNC_STA_MOVED };
+int kosyncStationWindowCheck(bool switchedOff, bool connected, uint32_t ipNow, uint32_t ipOpened,
+                             uint32_t* lostSinceMs, uint32_t now, uint32_t graceMs);
+
+/* Should a WINDOW's transport wait (up to 2 s, blocking) for the station before hosting a
+ * hotspot? Only when an association is genuinely in flight: the radio on and not disabled by
+ * the user, the station running, and EITHER a join started within the last 10 s OR the station
+ * was UP within the last 10 s (`lastUpMs`: a blip or a roam, whose rejoin is the core's own
+ * WiFi.begin() that no join path stamps — without this, a book closed at home during a
+ * sub-second blip put the phone on its hotspot for five minutes). A long out-of-range spell
+ * has neither, and does not wait. The uploader's own wait is unchanged (a person started it
+ * and is watching); a window opens by itself on every book close/open. 0 = never, for both. */
+bool kosyncWindowWaitsForSta(bool radioOff, bool userDisabled, bool staMode, uint32_t now,
+                             uint32_t lastJoinMs, uint32_t lastUpMs);
+
+/* What went wrong in a window, for the SCREEN (the X4 says "Upload complete" either way):
+ * a PUT for a different document (not the same file on both? `docId` is the start of its
+ * id), and requests with the wrong user/password. "" when neither happened. */
+size_t kosyncWindowProblems(uint32_t otherBook, const char* docId, uint32_t unauth,
+                            char* out, size_t cap);
+
+// ---------------------------------------------------------------- the Books library
+/* Settings files that live beside the books and are NOT books: /books/kosync.txt (it holds
+ * the password) and smsmirror.txt (at / or /roms). The library scans all three folders for
+ * .txt, so without this they were listed — and opening one showed its secrets on screen. */
+bool kosyncNotABook(const char* basename);
 
 // ---------------------------------------------------------------- the window's clock
 /* A hard millis() deadline plus the picked-up grace. Pure so the wrap and the ordering can
@@ -210,7 +360,7 @@ int      kosyncClockDue(const KosyncWindowClock* c, uint32_t now);
 uint32_t kosyncClockRemainingMs(const KosyncWindowClock* c, uint32_t now);
 
 // ---------------------------------------------------------------- /books/kosync.txt
-/* key=value lines, '#' comments:
+/* key=value lines, '#' comments on their OWN lines:
  *   user=<name>            the ONE KOSync account shared by all your devices
  *   password=<secret>      stored only as its MD5 (what goes on the wire); or key=<32 hex>
  *   home=<host or IP>[:port]   the server at home (COVEY: port 8088); http only, no https
@@ -219,7 +369,12 @@ uint32_t kosyncClockRemainingMs(const KosyncWindowClock* c, uint32_t now);
  *   open_window=on|off     open a 60 s window when a book is opened while off WiFi
  *   hotspot_pass=<8-63 printable ASCII>   the window's own hotspot is WPA2 with this
  *                          password; absent (or invalid — and then SAID so) = open
- * A missing file means the feature is OFF and LoRa booksync is exactly as before. */
+ * A missing file means the feature is OFF and LoRa booksync is exactly as before.
+ *
+ * ⚠ A TRAILING " #..." (whitespace, then '#') is a comment on user/home/device/auto/
+ * open_window and is cut off. On password/key/hotspot_pass it is REFUSED with the reason
+ * shown, never guessed at: "#" is a legal password character, and a comment folded into the
+ * MD5 meant a 401 on every exchange with nothing saying why. */
 struct KosyncConfig {
   bool     ok;                       // user and a password/key: the feature is on
   char     user[KOSYNC_USER_MAX];

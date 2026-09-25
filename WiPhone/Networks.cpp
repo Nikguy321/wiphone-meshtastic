@@ -30,10 +30,21 @@ MDNSResponder mdnsResponder;
 
 Networks wifiState;
 
+/* millis() of the last moment the station was known to be UP: its GOT_IP, and a DISCONNECTED
+ * that ends a connected spell (a blip, a roam, an AP reboot). NOT a failed join's DISCONNECTED
+ * (NO_AP_FOUND and the like arrive with `connected` already false), so a long out-of-range
+ * spell leaves it old. Written on the WiFi event task; a 32-bit store is atomic here. */
+static volatile uint32_t s_msLastLinkUp = 0;
+
+uint32_t lastWifiLinkUpMs() {
+  return s_msLastLinkUp;
+}
+
 //wifi event handler
 void processWiFiEvent(WiFiEvent_t event) {
   switch(event) {
   case SYSTEM_EVENT_STA_GOT_IP:
+    s_msLastLinkUp = millis() | 1u;   // 0 = never
     /* 🛑 TWO WRITE-ONLY SOCKETS USED TO BE OPENED HERE, AND THEY COULD KILL THE PHONE.
      *
      * `udp.begin(localUdpPort)` and `udpRtcp.begin(localUdpPort+1)` each cost a
@@ -57,6 +68,9 @@ void processWiFiEvent(WiFiEvent_t event) {
     break;
   case SYSTEM_EVENT_STA_DISCONNECTED:
     log_d("lost connection");
+    if (wifiState.isConnected()) {
+      s_msLastLinkUp = millis() | 1u;   // up until just now: the core's auto-reconnect follows
+    }
     wifiState.setConnected(false, true);
     break;
   case SYSTEM_EVENT_WIFI_READY:
@@ -85,6 +99,10 @@ static uint32_t s_msLastConnectAttempt = 0;
 
 uint32_t lastWifiConnectAttemptMs() {
   return s_msLastConnectAttempt;
+}
+
+void noteWifiJoinStarted() {
+  s_msLastConnectAttempt = millis();
 }
 
 void connectToWiFi(const char* ssid, const char* pwd) {

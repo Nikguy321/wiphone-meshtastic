@@ -105,6 +105,21 @@ static bool isTxt(const char* file) {
   return n > 4 && !strcmp(file + n - 4, ".txt");
 }
 
+/* Is `needle` anywhere in the `n` bytes at `hay`? 🛑 NOT strstr((const char*)&struct, ...):
+ * that stops at the first zero byte, and a KosyncConfig starts with `bool ok` — for a config
+ * that is OFF the very first byte is 0, so strstr searched an EMPTY string and "no secret is
+ * kept" could never fail (a mutant copying the refused password into c.key passed the suite). */
+static bool bytesHave(const void* hay, size_t n, const char* needle) {
+  const size_t m = strlen(needle);
+  const unsigned char* h = (const unsigned char*)hay;
+  for (size_t i = 0; m && i + m <= n; i++) {
+    if (!memcmp(h + i, needle, m)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // ================================================================ 1. AGREEMENT
 static void testMd5() {
   group("MD5 vs RFC 1321");
@@ -611,6 +626,28 @@ static void testServe() {
         "{\"document\":\"someotherbook\",\"percentage\":0.2,\"device\":\"CrossPoint\"}", &o, reply);
   ok(o.code == 200 && o.otherDoc && !o.gotPut && !o.pickedUp, "another book: 200 and discarded");
   eqStr(reply, "{\"document\":\"someotherbook\",\"timestamp\":1790000200}", "still answered properly");
+  eqStr(o.otherDocId, "someothe", "...and the start of its id is kept for the screen (#6)");
+  serve("PUT", "/syncs/progress", hdrs,
+        "{\"document\":\"7db24c08211c49e8e0c2b8522e9efc1b\",\"percentage\":0.7,\"device\":\"CrossPoint\"}",
+        &o, reply);
+  eqStr(o.otherDocId, "", "our own book leaves no other-book id");
+
+  group("KS-P1 / F7: two phones with ONE name are still two devices");
+  // Phone 2 shares phone 1's device= line but has its own MAC-derived id.
+  serve("PUT", "/syncs/progress", hdrs,
+        "{\"document\":\"7db24c08211c49e8e0c2b8522e9efc1b\",\"percentage\":0.2,\"device\":\"WiPhone-NICK\","
+        "\"device_id\":\"phone-two-id\"}", &o, reply);
+  ok(o.gotPut && o.park, "same name, different device_id: PARKED (the other phone's place)");
+  ok(!kosyncIsOwnRecord("WiPhone-NICK", "phone-two-id", "WiPhone-NICK", "wiphone-id"),
+     "both ids present and different: not ours, whatever the names say");
+  ok(kosyncIsOwnRecord("Renamed", "wiphone-id", "WiPhone-NICK", "wiphone-id"),
+     "our id under another name: ours (the id decides)");
+  ok(kosyncIsOwnRecord("WiPhone-NICK", "", "WiPhone-NICK", "wiphone-id"),
+     "no id on the record: the name is the fallback");
+  ok(!kosyncIsOwnRecord("CrossPoint", "", "WiPhone-NICK", "wiphone-id"), "no id, another name");
+  ok(!kosyncIsOwnRecord("WiPhone-NICK", "x4", "WiPhone-NICK", ""),
+     "an id we cannot match (we have none) is not ours");
+  ok(!kosyncIsOwnRecord("", "", "WiPhone-NICK", "wiphone-id"), "an anonymous record is not ours");
 
   serve("PUT", "/syncs/progress", hdrs, "{\"percentage\":0.2}", &o, reply);
   eqInt(o.code, 400, "no document: 400");
@@ -650,15 +687,8 @@ static void testServe() {
   ok(kosyncWorthParking(0.4985, "X4", "", 0.5, "WiPhone-A", "id"), "backwards counts too");
   ok(!kosyncWorthParking(0.9, "WiPhone-A", "", 0.1, "WiPhone-A", "id"), "our own name");
 
-  // The pull-on-open rule: news = newer (both clocks) or ahead (either clock unknown).
-  ok(kosyncPullIsNews(0.3, true, 2000, 0.5, true, 1000), "newer than our last turn, even if behind");
-  ok(!kosyncPullIsNews(0.9, true, 900, 0.5, true, 1000), "older than our last turn, even if ahead");
-  ok(kosyncPullIsNews(0.6, false, 0, 0.5, true, 1000), "no server time: ahead is news");
-  ok(!kosyncPullIsNews(0.4, false, 0, 0.5, true, 1000), "no server time: behind is not");
-  ok(!kosyncPullIsNews(0.4, true, 2000, 0.5, true, 0), "our clock unknown: behind is not");
-  ok(kosyncPullIsNews(0.6, true, 2000, 0.5, true, 0), "our clock unknown: ahead is");
-  ok(!kosyncPullIsNews(0.5005, false, 0, 0.5, true, 0), "ahead by less than epsilon is not");
-  ok(kosyncPullIsNews(0.1, false, 0, 0.5, false, 0), "we cannot place ourselves: offer it");
+  ok(kosyncWorthParking(0.9, "WiPhone-A", "phone-b", 0.1, "WiPhone-A", "id"),
+     "our own NAME with another device's id: worth a card");
 }
 
 static void testClock() {
@@ -729,7 +759,7 @@ static void testConfig() {
   eqStr(c.device, "WiPhone-NICK", "device");
   ok(c.autoOnClose && c.openWindow, "switches");
   eqStr(c.problem, "", "no problem");
-  ok(!strstr((const char*)&c, "correct horse"), "the plaintext is not kept");
+  ok(!bytesHave(&c, sizeof(c), "correct horse"), "the plaintext is not kept (any byte of the config)");
 
   const char* minimal = "user=a\npassword=short\n";
   ok(kosyncParseConfig(minimal, strlen(minimal), &c) && c.passwordShort, "short password warns");
@@ -784,6 +814,91 @@ static void testConfig() {
   snprintf(txt, sizeof(txt), "%shotspot_pass=good-password\nhotspot_pass=bad\n", base);
   ok(kosyncParseConfig(txt, strlen(txt), &c) && !c.hotspotPass[0] && c.hotspotNote[0],
      "the last line wins, invalid included");
+
+  group("/books/kosync.txt: inline comments (critic #1)");
+  {
+    // The CHANGELOG's old template, copied as it stood: a comment on every line.
+    const char* tmpl =
+        "user=nick          # the one account all your devices share\n"
+        "password=abcdefghijklmnop   # kept only as its MD5\n"
+        "home=192.168.1.55:8088      # optional\n"
+        "device=WiPhone-Sam\t# optional\n"
+        "auto=on   # optional: closing a book opens a window\n"
+        "open_window=on # optional\n"
+        "hotspot_pass=goodpassword   # optional\n";
+    ok(!kosyncParseConfig(tmpl, strlen(tmpl), &c) && !c.ok,
+       "a password line with a comment: REFUSED, KOSync off (never a guessed MD5)");
+    eqStr(c.problem, "password= has ' #' - put comments on their own line", "and it says why");
+    eqStr(c.user, "nick", "user: the comment is cut off");
+    eqStr(c.home, "192.168.1.55", "home: the comment is cut off");
+    eqInt(c.homePort, 8088, "home port");
+    eqStr(c.device, "WiPhone-Sam", "device: a TAB before the '#' counts too");
+    ok(c.autoOnClose && c.openWindow, "auto/open_window: the comment no longer turns them off");
+    eqStr(c.hotspotPass, "", "hotspot_pass with a comment: refused -> open");
+    eqStr(c.hotspotNote, "hotspot_pass ignored: ' #' in it", "...and said");
+    ok(!bytesHave(&c, sizeof(c), "goodpassword") && !bytesHave(&c, sizeof(c), "abcdefghijklmnop"),
+       "neither refused secret is kept anywhere in the config (all sizeof(c) bytes searched)");
+    // ...and the search itself can see a secret there (the check above is not decorative).
+    {
+      KosyncConfig probe;
+      memset(&probe, 0, sizeof(probe));
+      memcpy(probe.key, "abcdefghijklmnop", 16);
+      ok(bytesHave(&probe, sizeof(probe), "abcdefghijklmnop"), "the byte search finds a secret in an OFF config");
+      memset(&probe, 0, sizeof(probe));
+      memcpy(probe.hotspotNote + 20, "goodpassword", 12);
+      ok(bytesHave(&probe, sizeof(probe), "goodpassword"), "...anywhere, past any zero byte");
+    }
+
+    const char* keyed = "user=a\nkey=5f4dcc3b5aa765d61d8327deb882cf99  # from COVEY\n";
+    ok(!kosyncParseConfig(keyed, strlen(keyed), &c), "key= with a comment: refused");
+    eqStr(c.problem, "key= has ' #' - put comments on their own line", "and says why");
+
+    // The refusal is WHY it is off, and a later home= complaint must not hide it (repair #4).
+    const char* thenHttps = "user=a\npassword=abcdefghijklmnop  # mine\nhome=https://x.example\n";
+    ok(!kosyncParseConfig(thenHttps, strlen(thenHttps), &c) && !c.ok, "refused password, then a bad home=: off");
+    eqStr(c.problem, "password= has ' #' - put comments on their own line",
+          "...and the screen names the PASSWORD, not the home= line");
+    const char* thenPort = "user=a\nkey=5f4dcc3b5aa765d61d8327deb882cf99 # c\nhome=h:99999\n";
+    ok(!kosyncParseConfig(thenPort, strlen(thenPort), &c), "refused key, then a bad port: off");
+    eqStr(c.problem, "key= has ' #' - put comments on their own line", "...the key's reason wins");
+    const char* thenPath = "user=a\nkey=nothex\nhome=covey/x\n";
+    ok(!kosyncParseConfig(thenPath, strlen(thenPath), &c), "a key that is not hex, then a path: off");
+    eqStr(c.problem, "key= must be 32 hex digits (MD5 of the password)", "...the key's reason wins");
+    const char* noUserEither = "password=abcdefghijklmnop # x\n";
+    ok(!kosyncParseConfig(noUserEither, strlen(noUserEither), &c), "no user AND a refused password: off");
+    eqStr(c.problem, "password= has ' #' - put comments on their own line", "...the password is named");
+    const char* rescued = "user=a\npassword=abcdefghijklmnop # x\nkey=5f4dcc3b5aa765d61d8327deb882cf99\n";
+    ok(kosyncParseConfig(rescued, strlen(rescued), &c) && c.ok, "a refused password, but a good key=: on");
+    eqStr(c.key, KEY, "...on the key");
+    eqStr(c.problem, "password= has ' #' - put comments on their own line", "...and the dropped line is still said");
+    ok(!bytesHave(&c, sizeof(c), "abcdefghijklmnop"), "...and not kept");
+
+    // Comments on their own lines (the new template) and '#' INSIDE a value are fine.
+    const char* good =
+        "# the one account all your devices share\n"
+        "user=nick\n"
+        "  # kept only as its MD5\n"
+        "password=pass#word-long\n"
+        "hotspot_pass=hot#spot#pass\n"
+        "device=Phone#2\n"
+        "auto=on\n";
+    ok(kosyncParseConfig(good, strlen(good), &c) && c.ok, "own-line comments: on");
+    char want[33];
+    bsMd5Hex("pass#word-long", 14, want);
+    eqStr(c.key, want, "a '#' with no space before it is part of the password");
+    eqStr(c.hotspotPass, "hot#spot#pass", "...and of hotspot_pass");
+    eqStr(c.device, "Phone#2", "...and of a name");
+    eqStr(c.problem, "", "no problem");
+
+    const char* empty = "user=a\npassword=abcdefghijklmnop\nauto= # nothing\ndevice= # none\n";
+    ok(kosyncParseConfig(empty, strlen(empty), &c), "a value that is ONLY a comment");
+    eqStr(c.device, "", "...is empty");
+    ok(!c.autoOnClose, "auto stays off");
+    eqStr(c.problem, "auto= must be on or off", "and an unreadable switch now says so");
+    const char* bad = "user=a\npassword=abcdefghijklmnop\nopen_window=maybe\n";
+    ok(kosyncParseConfig(bad, strlen(bad), &c) && !c.openWindow, "open_window=maybe: off");
+    eqStr(c.problem, "open_window= must be on or off", "...and said");
+  }
 
   uint8_t mac[6] = { 0x24, 0x0a, 0xc4, 0x01, 0x02, 0x03 };
   char id1[33], id2[33];
@@ -943,6 +1058,570 @@ static void testAllocFailure() {
   epubTestFailKosyncAllocs = 0;
 }
 
+
+// ================================================================ review round 2
+/* D1 — the offer rule, shared with the X4 fork and COVEY. */
+static void testOfferRule() {
+  group("D1: the offer rule (a server record -> the card, or not)");
+  KosyncOfferIn in;
+  memset(&in, 0, sizeof(in));
+  in.theirPct = 0.60; in.theirTs = 2000; in.theirDevice = "CrossPoint"; in.theirDeviceId = "x4";
+  in.mineOk = true; in.minePct = 0.40; in.myDevice = "WiPhone-NICK"; in.myDeviceId = "me";
+  in.myMovedAt = 1000; in.offeredSig = 0;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "another device, newer than our last move");
+  in.theirPct = 0.30;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "...even BEHIND us (the card says backwards)");
+  in.theirTs = 999;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_OLDER, "provably older than our last move");
+  in.theirTs = 1000;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "the same second is NOT provably older");
+  in.theirTs = 999; in.myMovedAt = 0;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "our move time unknown: offer (bias)");
+  in.theirTs = 0; in.myMovedAt = 1000;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "their time unknown (COVEY unsynced = 0): offer");
+  in.theirTs = -5;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "a negative time is unknown too");
+  in.theirTs = 2000; in.theirPct = 0.4009;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_IN_STEP, "within 0.001: synchronized");
+  in.theirPct = 0.4011;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "just past 0.001: offered");
+  in.mineOk = false; in.theirPct = 0.4;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "we cannot place ourselves: no epsilon test");
+  in.mineOk = true; in.theirPct = 0.6;
+  in.theirDevice = "WiPhone-NICK"; in.theirDeviceId = "me";
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_OWN, "our own record");
+  in.theirDeviceId = "phone-2";
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "our NAME, another phone's id: offered (F7)");
+
+  group("D1: a record offered once is not offered again; a new PUT is");
+  in.theirDevice = "CrossPoint"; in.theirDeviceId = "x4"; in.theirTs = 2000; in.theirPct = 0.6;
+  in.offeredSig = kosyncOfferSig(2000, 0.6, "x4", "CrossPoint");
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_OFFERED, "the very record already offered");
+  in.theirTs = 2001;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "a new PUT (new server time) is offered again");
+  in.theirTs = 2000; in.theirPct = 0.61;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "another place is another record");
+  // Unknown server time: the place and the device still tell one record from another.
+  in.theirTs = 0; in.theirPct = 0.6; in.offeredSig = kosyncOfferSig(0, 0.6, "x4", "CrossPoint");
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_OFFERED, "time unknown: same place, same device");
+  in.theirPct = 0.7;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "time unknown: a new place");
+  ok(kosyncOfferSig(0, 0.6, "x4", "A") == kosyncOfferSig(0, 0.6, "x4", "B"),
+     "the id identifies a record, not the name");
+  ok(kosyncOfferSig(0, 0.6, "", "A") != kosyncOfferSig(0, 0.6, "", "B"),
+     "no id: the name does");
+  ok(kosyncOfferSig(5, 0.6, "x4", "") == kosyncOfferSig(5, 0.6000001, "x4", ""),
+     "the percentage as it goes on the wire (6 decimals)");
+  ok(kosyncOfferSig(0, 0, "", "") != 0, "never 0 (0 = nothing offered)");
+  eqStr(kosyncOfferVerdictText(KOSYNC_SKIP_OLDER), "older than your last page turn", "said plainly");
+
+  group("F4: an open and close with no reading does not hide a newer X4 place");
+  /* 20:00 the X4 sends 0.60. 21:00 the phone (last MOVED at 19:00, at 0.40) opens and closes the
+   * book with no page turned — which restamps the CBS1 turnedAt to 21:00, and used to hide the
+   * X4's place behind it. The move stamp is still 19:00, so the X4's place is offered. */
+  memset(&in, 0, sizeof(in));
+  in.theirPct = 0.60; in.theirTs = 72000; in.theirDevice = "CrossPoint"; in.theirDeviceId = "x4";
+  in.mineOk = true; in.minePct = 0.40; in.myDevice = "WiPhone-NICK"; in.myDeviceId = "me";
+  in.myMovedAt = 68400;                              // 19:00, the last real move
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "offered against the last MOVE");
+  in.myMovedAt = 75600;                              // what the save/close stamp would say (21:00)
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_OLDER, "(the close stamp would have hidden it)");
+
+  group("the two records a read finds: the newest from another device is judged");
+  KosyncProgress g[2];
+  bool have[2] = { true, true };
+  memset(g, 0, sizeof(g));
+  g[0].hasPct = true; g[0].pct = 0.4; g[0].hasTimestamp = true; g[0].timestamp = 3000;
+  snprintf(g[0].device, sizeof(g[0].device), "WiPhone-NICK");
+  snprintf(g[0].deviceId, sizeof(g[0].deviceId), "me");
+  g[1].hasPct = true; g[1].pct = 0.6; g[1].hasTimestamp = true; g[1].timestamp = 2000;
+  snprintf(g[1].device, sizeof(g[1].device), "CrossPoint");
+  bool saw = false;
+  eqInt(kosyncPickRecord(g, have, 2, "WiPhone-NICK", "me", &saw), 1,
+        "our own newer push under the partial id is skipped; the X4's (filename id) is judged");
+  ok(saw, "records were seen");
+  snprintf(g[0].device, sizeof(g[0].device), "KOReader");
+  snprintf(g[0].deviceId, sizeof(g[0].deviceId), "ko");
+  eqInt(kosyncPickRecord(g, have, 2, "WiPhone-NICK", "me", &saw), 0, "two others: the NEWER one");
+  g[1].timestamp = 3000;
+  eqInt(kosyncPickRecord(g, have, 2, "WiPhone-NICK", "me", &saw), 0, "a tie keeps the partial id's");
+  g[1].hasTimestamp = false; g[1].timestamp = 9000;
+  eqInt(kosyncPickRecord(g, have, 2, "WiPhone-NICK", "me", &saw), 0, "no timestamp keeps it too");
+  have[0] = false;
+  eqInt(kosyncPickRecord(g, have, 2, "WiPhone-NICK", "me", &saw), 1, "only the filename id answered");
+  have[1] = false;
+  eqInt(kosyncPickRecord(g, have, 2, "WiPhone-NICK", "me", &saw), -1, "nothing answered");
+  ok(!saw, "...and nothing was seen");
+  have[0] = have[1] = true;
+  g[0].hasPct = false;                                // `{}`: nobody has synced this document
+  g[1].hasPct = false;
+  eqInt(kosyncPickRecord(g, have, 2, "WiPhone-NICK", "me", &saw), -1, "two {}: none");
+  ok(!saw, "{} is not a record");
+}
+
+/* D2 — the automatic push rule (F3). */
+static void testAutoPush() {
+  group("D2 / F3: a close pushes only a place that MOVED");
+  ok(!kosyncAutoPushWanted(true, 0.40, false, true, 0.40), "opened at 0.40, closed at 0.40: no push");
+  ok(!kosyncAutoPushWanted(true, 0.40, true, true, 0.4009), "moved and back within 0.001: no push");
+  ok(kosyncAutoPushWanted(true, 0.40, true, true, 0.45), "read on to 0.45: push");
+  ok(kosyncAutoPushWanted(true, 0.40, true, true, 0.35), "went back to 0.35: push (a move is a move)");
+  ok(!kosyncAutoPushWanted(true, 0.45, false, true, 0.45), "pushed at 0.45 by Sync my place: no second push");
+  ok(kosyncAutoPushWanted(false, 0.0, true, true, 0.3), "no reference: a recorded move decides (yes)");
+  ok(!kosyncAutoPushWanted(false, 0.0, false, true, 0.3), "no reference, no move: no push");
+  ok(!kosyncAutoPushWanted(true, 0.1, true, false, 0.0), "a place that cannot be expressed is never sent");
+
+  /* The whole close rule, driven through the memo the way the phone drives it (open -> moves ->
+   * close, a PUT that succeeded, a RESTART as a pack/unpack), so what is kept across a reboot
+   * is part of what is proven. */
+  group("D2 (repair #1): a move home never had is sent by a later close, even an unmoved one");
+  static KosyncMemo m;
+  static uint8_t blob[KOSYNC_MEMO_BLOB_MAX];
+  const char* B = "0123456789abcdef0123456789abcdef";
+  memset(&m, 0, sizeof(m));
+  // Home has 0.40 from this phone (an earlier close at home pushed it).
+  KosyncMemoEntry* e = kosyncMemoGet(&m, B, true);
+  kosyncMemoOpened(e, true, 0.30);
+  kosyncMemoMoved(&m, e, 1790000000u);
+  ok(kosyncClosePushWanted(e, true, 0.40), "read 0.30 -> 0.40 at home: push");
+  kosyncMemoSent(&m, e, 0.40);
+  ok(!e->unsent && e->sentOk, "the PUT succeeded: nothing unsent");
+  // The woods: 0.40 -> 0.60, closed off WiFi (the close cannot push), then a restart.
+  kosyncMemoOpened(e, true, 0.40);
+  kosyncMemoMoved(&m, e, 0);                        // no clock out there: the stamp is kept
+  ok(e->movedAt == 1790000000u, "a move with no clock keeps the older stamp");
+  ok(e->unsent && m.dirty, "the move is marked unsent, and the memo is due a save");
+  size_t len = kosyncMemoPack(&m, blob, sizeof(blob));
+  ok(kosyncMemoUnpack(&m, blob, len), "restart");
+  e = kosyncMemoGet(&m, B, false);
+  ok(e && e->sentOk && fabs(e->sentPct - 0.40) < 1e-9 && e->unsent, "what home has, and the unsent move, survive it");
+  // Home: opened at 0.60 and closed without a page turned.
+  kosyncMemoOpened(e, true, 0.60);
+  ok(!kosyncAutoPushWanted(e->refOk, e->refPct, e->movedSinceRef, true, 0.60),
+     "the session alone says 'not moved' (the bug: 0.60 was never sent)");
+  ok(kosyncClosePushWanted(e, true, 0.60), "...but home has 0.40 from us: PUSH 0.60");
+  // The push gives up (3 tries, no answer): nothing recorded as sent. Opened and closed again.
+  kosyncMemoOpened(e, true, 0.60);
+  ok(kosyncClosePushWanted(e, true, 0.60), "a push that gave up: the next unmoved close tries again");
+  kosyncMemoSent(&m, e, 0.60);
+  // F3 stays fixed: home has 0.60 from us; the X4 then sends 0.75 (nothing on our side).
+  kosyncMemoOpened(e, true, 0.60);
+  ok(!kosyncClosePushWanted(e, true, 0.60), "F3: home has our 0.60 - an unmoved close sends nothing");
+  len = kosyncMemoPack(&m, blob, sizeof(blob));
+  kosyncMemoUnpack(&m, blob, len);
+  e = kosyncMemoGet(&m, B, false);
+  kosyncMemoOpened(e, true, 0.60);
+  ok(!kosyncClosePushWanted(e, true, 0.60), "F3 across a restart too (the sent place is saved)");
+  // Away and back to what home has, off WiFi: home already has that place from us.
+  kosyncMemoMoved(&m, e, 0);
+  kosyncMemoMoved(&m, e, 0);
+  kosyncMemoOpened(e, true, 0.60);
+  ok(!kosyncClosePushWanted(e, true, 0.6004), "away and back within 0.001 of what home has: nothing");
+  ok(kosyncClosePushWanted(e, true, 0.62), "...but 0.62 is news");
+  // A PUT of 0.60 still in flight when the book was re-opened and read on to 0.62.
+  kosyncMemoOpened(e, true, 0.60);
+  kosyncMemoMoved(&m, e, 0);
+  kosyncMemoSent(&m, e, 0.60);                      // the older PUT lands after the move
+  ok(kosyncClosePushWanted(e, true, 0.62), "a move made while a PUT was in flight is still pushed");
+
+  group("D2 (repair #1): a book never sent from this phone");
+  memset(&m, 0, sizeof(m));
+  e = kosyncMemoGet(&m, B, true);
+  kosyncMemoOpened(e, true, 0.40);
+  ok(!kosyncClosePushWanted(e, true, 0.40), "never sent, never moved: nothing (F3: the X4's place stays)");
+  kosyncMemoMoved(&m, e, 0);
+  len = kosyncMemoPack(&m, blob, sizeof(blob));
+  ok(len == 4 + KOSYNC_MEMO_ENTRY_BYTES, "an entry with only an unsent move is still saved");
+  kosyncMemoUnpack(&m, blob, len);
+  e = kosyncMemoGet(&m, B, false);
+  kosyncMemoOpened(e, true, 0.55);
+  ok(kosyncClosePushWanted(e, true, 0.55), "read off WiFi, restarted, closed unmoved at home: push");
+  ok(!kosyncClosePushWanted(e, false, 0.0), "...never a place that cannot be expressed");
+  ok(kosyncClosePushWanted(NULL, true, 0.5) && !kosyncClosePushWanted(NULL, false, 0.5),
+     "no memo at all: push whatever can be expressed");
+}
+
+/* The per-book memo: last move + last offer, persisted; the push reference, not. */
+static void testMemo() {
+  group("the per-book memo (F4, D1, D2)");
+  static KosyncMemo m;
+  memset(&m, 0, sizeof(m));
+  char id[KOSYNC_MEMO_MAX + 2][33];
+  for (int i = 0; i < KOSYNC_MEMO_MAX + 2; i++) {
+    snprintf(id[i], sizeof(id[i]), "%032x", i + 1);
+  }
+  ok(kosyncMemoGet(&m, id[0], false) == NULL, "absent, not created");
+  ok(kosyncMemoGet(&m, "", true) == NULL && kosyncMemoGet(&m, NULL, true) == NULL, "no id, no entry");
+  KosyncMemoEntry* e = kosyncMemoGet(&m, id[0], true);
+  ok(e && !strcmp(e->book, id[0]) && !e->movedAt && !e->offeredSig, "created empty");
+  e->movedAt = 1790000000u; e->offeredSig = 77; e->refOk = true; e->refPct = 0.5; e->movedSinceRef = true;
+  ok(kosyncMemoGet(&m, id[0], false) == e, "found again");
+  for (int i = 1; i < KOSYNC_MEMO_MAX; i++) {
+    KosyncMemoEntry* x = kosyncMemoGet(&m, id[i], true);
+    x->movedAt = 1000u + (uint32_t)i;
+  }
+  kosyncMemoGet(&m, id[0], false);                  // book 0 is now the most recently used
+  m.dirty = false;
+  KosyncMemoEntry* n = kosyncMemoGet(&m, id[KOSYNC_MEMO_MAX], true);
+  ok(n != NULL, "full: a new book still gets a slot");
+  ok(kosyncMemoGet(&m, id[1], false) == NULL, "...the least recently used one (book 1) went");
+  ok(kosyncMemoGet(&m, id[0], false) != NULL, "...not the one just used");
+  ok(m.dirty, "evicting stamps marks the memo for saving");
+
+  static uint8_t blob[KOSYNC_MEMO_BLOB_MAX];
+  const size_t len = kosyncMemoPack(&m, blob, sizeof(blob));
+  // 16 slots: book 0 (moved+offered), books 2..15 (moved), the new one (nothing to keep).
+  eqInt((long long)len, 4 + KOSYNC_MEMO_ENTRY_BYTES * (KOSYNC_MEMO_MAX - 1), "only entries with a stamp are kept");
+  ok(len <= KOSYNC_MEMO_BLOB_MAX, "fits the NVS blob");
+  static KosyncMemo back;
+  ok(kosyncMemoUnpack(&back, blob, len), "reads back");
+  KosyncMemoEntry* b0 = kosyncMemoGet(&back, id[0], false);
+  ok(b0 && b0->movedAt == 1790000000u && b0->offeredSig == 77, "the stamps survive a restart");
+  ok(b0 && !b0->refOk && !b0->movedSinceRef && b0->refPct == 0.0, "the session's reference does not");
+  ok(kosyncMemoGet(&back, id[5], false) && kosyncMemoGet(&back, id[5], false)->movedAt == 1005u,
+     "another book's stamp too");
+  ok(!back.dirty, "a fresh load is clean");
+  // The LRU order survives too: after the load, a new book evicts the oldest of the old ones.
+  kosyncMemoGet(&back, id[0], false);
+  KosyncMemoEntry* fresh = kosyncMemoGet(&back, id[KOSYNC_MEMO_MAX + 1], true);
+  ok(fresh && !fresh->movedAt, "a free slot is used first");
+  kosyncMemoGet(&back, id[KOSYNC_MEMO_MAX + 1], true)->movedAt = 5;
+  KosyncMemoEntry* again = kosyncMemoGet(&back, "ffffffffffffffffffffffffffffffff", true);
+  ok(again && kosyncMemoGet(&back, id[2], false) == NULL, "full again: the oldest (book 2) goes");
+
+  group("the memo: anything not written by kosyncMemoPack reads as empty");
+  ok(!kosyncMemoUnpack(&back, blob, 3), "too short");
+  ok(!kosyncMemoUnpack(&back, blob, len - 1), "ragged");
+  static uint8_t bad[KOSYNC_MEMO_BLOB_MAX];
+  memcpy(bad, blob, len);
+  bad[0] = 'X';
+  ok(!kosyncMemoUnpack(&back, bad, len), "wrong magic");
+  memcpy(bad, blob, len);
+  bad[4] = 'z';                                     // not hex
+  ok(!kosyncMemoUnpack(&back, bad, len), "a damaged id");
+  ok(kosyncMemoGet(&back, id[0], false) == NULL, "...and nothing half-read is kept");
+  ok(kosyncMemoUnpack(&back, blob, 4) && kosyncMemoGet(&back, id[0], false) == NULL,
+     "just the magic: a valid, empty memo");
+  memcpy(bad, blob, len);
+  memcpy(bad, "KSM1", 4);
+  ok(!kosyncMemoUnpack(&back, bad, len), "the development build's KSM1: empty, not misread");
+  memcpy(bad, blob, len);
+  bad[4 + 48] = 0x80;                               // a flag nobody writes
+  ok(!kosyncMemoUnpack(&back, bad, len), "unknown flags");
+  memcpy(bad, blob, len);
+  bad[4 + 44] = 0x41; bad[4 + 45] = 0x42; bad[4 + 46] = 0x0f; bad[4 + 47] = 0x00;   // 1,000,001
+  ok(!kosyncMemoUnpack(&back, bad, len), "a sent place past 100 %");
+
+  group("the memo: what home has from us survives a restart (D2, repair #1)");
+  memset(&m, 0, sizeof(m));
+  KosyncMemoEntry* s1 = kosyncMemoGet(&m, id[0], true);
+  kosyncMemoSent(&m, s1, 0.4567894);
+  KosyncMemoEntry* s2 = kosyncMemoGet(&m, id[1], true);
+  kosyncMemoMoved(&m, s2, 0);
+  KosyncMemoEntry* s3 = kosyncMemoGet(&m, id[2], true);
+  kosyncMemoSent(&m, s3, 1.0);
+  const size_t l2 = kosyncMemoPack(&m, blob, sizeof(blob));
+  eqInt((long long)l2, 4 + 3 * KOSYNC_MEMO_ENTRY_BYTES, "sent-only and unsent-only entries are kept");
+  ok(kosyncMemoUnpack(&back, blob, l2), "reads back");
+  s1 = kosyncMemoGet(&back, id[0], false);
+  s2 = kosyncMemoGet(&back, id[1], false);
+  s3 = kosyncMemoGet(&back, id[2], false);
+  ok(s1 && s1->sentOk && !s1->unsent && fabs(s1->sentPct - 0.456789) < 1e-9, "the sent place, to 6 dp");
+  ok(s2 && !s2->sentOk && s2->unsent && !s2->movedAt, "an unsent move with no clock");
+  ok(s3 && s3->sentOk && s3->sentPct == 1.0, "the very end");
+  ok(s1 && !s1->refOk && !s1->movedSinceRef, "the session's reference is not kept");
+}
+
+/* F5 / KS-C1: a push or pull is retried, boundedly; KS-W1 / KS-T1: the window's transport. */
+static void testClientAndTransport() {
+  group("F5: a job gets KOSYNC_CLIENT_TRIES attempts, 1 s then 4 s apart");
+  eqInt(KOSYNC_CLIENT_TRIES, 3, "three tries");
+  eqInt(kosyncRetryDelayMs(1), 1000, "after the first failure: 1 s");
+  eqInt(kosyncRetryDelayMs(2), 4000, "after the second: 4 s");
+  eqInt(kosyncRetryDelayMs(3), 0, "after the third: give up");
+  eqInt(kosyncRetryDelayMs(0), 0, "no failure, no wait");
+  eqInt(kosyncRetryDelayMs(99), 0, "never unbounded");
+  // The whole schedule: at most 3 x 3 s of polled connect + 5 s of waiting, and never a block.
+  uint32_t total = 0;
+  int tries = 1;
+  for (int f = 1; kosyncRetryDelayMs(f); f++) {
+    total += kosyncRetryDelayMs(f);
+    tries++;
+  }
+  eqInt(tries, KOSYNC_CLIENT_TRIES, "the schedule ends at the cap");
+  eqInt(total, 5000, "5 s of back-off in all");
+
+  group("KS-W1: a window on the station notices the WiFi going");
+  const uint32_t IP = 0x2501a8c0u, IP2 = 0x2601a8c0u;
+  uint32_t lost = 0;
+  eqInt(kosyncStationWindowCheck(false, true, IP, IP, &lost, 1000, KOSYNC_STA_GRACE_MS), KOSYNC_STA_OK, "connected");
+  eqInt(kosyncStationWindowCheck(false, false, 0, IP, &lost, 2000, KOSYNC_STA_GRACE_MS), KOSYNC_STA_BLIP, "dropped: a blip first");
+  eqInt(lost, 2000, "the drop is timed");
+  eqInt(kosyncStationWindowCheck(false, false, 0, IP, &lost, 6999, KOSYNC_STA_GRACE_MS), KOSYNC_STA_BLIP, "4.999 s: still a blip");
+  eqInt(kosyncStationWindowCheck(false, false, 0, IP, &lost, 7000, KOSYNC_STA_GRACE_MS), KOSYNC_STA_LOST, "5 s: gone - close it");
+  eqInt(kosyncStationWindowCheck(false, true, IP, IP, &lost, 7100, KOSYNC_STA_GRACE_MS), KOSYNC_STA_OK, "back in time: fine");
+  eqInt(lost, 0, "...and the clock resets");
+  eqInt(kosyncStationWindowCheck(false, false, 0, IP, &lost, 8000, KOSYNC_STA_GRACE_MS), KOSYNC_STA_BLIP, "a second drop starts over");
+  eqInt(kosyncStationWindowCheck(false, true, IP2, IP, &lost, 9000, KOSYNC_STA_GRACE_MS), KOSYNC_STA_MOVED,
+        "connected at ANOTHER address (auto-switch): the window is stale");
+  eqInt(kosyncStationWindowCheck(false, true, IP2, 0, &lost, 9000, KOSYNC_STA_GRACE_MS), KOSYNC_STA_OK,
+        "no address recorded: nothing to compare");
+  lost = 0;
+  eqInt(kosyncStationWindowCheck(false, false, 0, IP, &lost, 0, KOSYNC_STA_GRACE_MS), KOSYNC_STA_BLIP, "a drop at millis() 0");
+  ok(lost != 0, "...is still timed (0 means connected)");
+  lost = 0xFFFFF000u;
+  eqInt(kosyncStationWindowCheck(false, false, 0, IP, &lost, 0x00000388u, KOSYNC_STA_GRACE_MS), KOSYNC_STA_LOST,
+        "across the millis() wrap");
+  lost = 0;
+  eqInt(kosyncStationWindowCheck(true, false, 0, IP, &lost, 1000, KOSYNC_STA_GRACE_MS), KOSYNC_STA_LOST,
+        "WiFi switched off / disabled: gone at once (no blip grace)");
+  eqInt(kosyncStationWindowCheck(true, true, IP, IP, &lost, 1000, KOSYNC_STA_GRACE_MS), KOSYNC_STA_LOST,
+        "...even if the status has not caught up yet");
+
+  group("repair #2: a new ask during a blip keeps the WiFi window (the same rule as the loop)");
+  // The ask used to close on ANY status but connected. Through the rule, a sub-second blip is
+  // a BLIP: kept, and extended; only after the grace is it LOST (the hotspot's turn).
+  lost = 0;
+  eqInt(kosyncStationWindowCheck(false, false, 0, IP, &lost, 50000, KOSYNC_STA_GRACE_MS), KOSYNC_STA_BLIP,
+        "a book opened 0 ms into a blip: the window stays on WiFi");
+  eqInt(kosyncStationWindowCheck(false, true, IP, IP, &lost, 50800, KOSYNC_STA_GRACE_MS), KOSYNC_STA_OK,
+        "back 0.8 s later: fine, never closed");
+  eqInt(kosyncStationWindowCheck(false, false, 0, IP, &lost, 60000, KOSYNC_STA_GRACE_MS), KOSYNC_STA_BLIP,
+        "gone again (the car)...");
+  eqInt(kosyncStationWindowCheck(false, false, 0, IP, &lost, 65000, KOSYNC_STA_GRACE_MS), KOSYNC_STA_LOST,
+        "...5 s on: LOST, and the next ask brings up the hotspot (KS-W1 stays fixed)");
+
+  group("KS-T1: a window waits for the station only when a join is under way");
+  ok(kosyncWindowWaitsForSta(false, false, true, 20000, 15000, 0), "a join 5 s ago: wait for it");
+  ok(!kosyncWindowWaitsForSta(false, false, true, 30000, 15000, 0), "the last join 15 s ago: no wait");
+  ok(!kosyncWindowWaitsForSta(false, false, true, 30000, 0, 0), "never joined: no wait");
+  ok(!kosyncWindowWaitsForSta(true, false, true, 20000, 15000, 19000), "WiFi switched off: no wait");
+  ok(!kosyncWindowWaitsForSta(false, true, true, 20000, 15000, 19000), "WiFi disabled (no saved network): no wait");
+  ok(!kosyncWindowWaitsForSta(false, false, false, 20000, 15000, 19000), "station not running: no wait");
+  ok(kosyncWindowWaitsForSta(false, false, true, 5, 0xFFFFFF00u, 0), "a join just before the wrap");
+
+  group("repair #2: a blip or a roam at home is a join under way too");
+  // Joined at boot (an hour ago), up ever since, dropped 300 ms ago: the core's own rejoin is
+  // WiFi.begin(), which stamps no join — the link-up time is what says "rejoining".
+  ok(kosyncWindowWaitsForSta(false, false, true, 3600300u, 60000u, 3600000u),
+     "up until 0.3 s ago (a blip): wait the 2 s for it");
+  ok(kosyncWindowWaitsForSta(false, false, true, 3609000u, 60000u, 3600000u), "...9 s on: still");
+  ok(!kosyncWindowWaitsForSta(false, false, true, 3611000u, 60000u, 3600000u),
+     "11 s on (out of range, the car): no wait - KS-T1 stays fixed");
+  ok(!kosyncWindowWaitsForSta(false, false, true, 7200000u, 60000u, 3600000u), "an hour out of range: no wait");
+  ok(kosyncWindowWaitsForSta(false, false, true, 5, 0, 0xFFFFFF00u), "up just before the wrap");
+  ok(!kosyncWindowWaitsForSta(true, false, true, 3600300u, 60000u, 3600000u),
+     "switched off a moment after being up: no wait (nothing will associate)");
+}
+
+/* #6: what went wrong in a window, on the SCREEN; #7: settings files are not books. */
+static void testProblemsAndLibrary() {
+  group("#6: a window's silent failures, said on the screen");
+  char l[200];
+  eqInt((long long)kosyncWindowProblems(0, "", 0, l, sizeof(l)), 0, "nothing wrong: nothing said");
+  eqStr(l, "", "empty");
+  kosyncWindowProblems(1, "0c9a1f7e", 0, l, sizeof(l));
+  eqStr(l, "! A place for a DIFFERENT book arrived (id 0c9a1f7e..) - not the same file here?",
+        "a PUT for another document");
+  kosyncWindowProblems(3, "", 0, l, sizeof(l));
+  eqStr(l, "! A place for a DIFFERENT book arrived - not the same file here? (x3)", "three, no id");
+  kosyncWindowProblems(0, NULL, 2, l, sizeof(l));
+  eqStr(l, "! Wrong user/password from the reader (x2)", "wrong password");
+  kosyncWindowProblems(1, "abc", 1, l, sizeof(l));
+  ok(strstr(l, "DIFFERENT book") && strstr(l, "Wrong user/password"), "both at once");
+  char tiny[10];
+  kosyncWindowProblems(1, "abc", 1, tiny, sizeof(tiny));
+  eqInt((long long)strlen(tiny), 9, "cut to the buffer, never past it");
+
+  group("#7: settings files beside the books are not books");
+  ok(kosyncNotABook("kosync.txt"), "kosync.txt");
+  ok(kosyncNotABook("KOSync.TXT"), "any case (FAT)");
+  ok(kosyncNotABook("smsmirror.txt"), "smsmirror.txt");
+  ok(!kosyncNotABook("my-notes.txt"), "a real .txt book");
+  ok(!kosyncNotABook("kosync.txt.epub") && !kosyncNotABook("my kosync.txt"), "only the exact names");
+  ok(!kosyncNotABook(NULL) && !kosyncNotABook(""), "nothing");
+}
+
+// ---------------------------------------------------------------- an EPUB built in memory
+/* A stored (uncompressed) zip written here, so a book with 520 manifest items or itemrefs can
+ * be opened without a 520-entry fixture on disk. The parser reads the central directory and
+ * the local headers and never checks a CRC, so none is written. */
+struct MemBook {
+  unsigned char* buf;
+  size_t len, cap;
+};
+
+static void mbPut(MemBook* m, const void* p, size_t n) {
+  if (m->len + n > m->cap) {
+    m->cap = (m->len + n) * 2 + 4096;
+    m->buf = (unsigned char*)realloc(m->buf, m->cap);
+  }
+  memcpy(m->buf + m->len, p, n);
+  m->len += n;
+}
+
+static void mbLe(MemBook* m, uint32_t v, int bytes) {
+  unsigned char b[4] = { (unsigned char)v, (unsigned char)(v >> 8), (unsigned char)(v >> 16),
+                         (unsigned char)(v >> 24) };
+  mbPut(m, b, (size_t)bytes);
+}
+
+static size_t memRead(void* ctx, uint64_t off, void* buf, size_t len) {
+  const MemBook* m = (const MemBook*)ctx;
+  if (off >= m->len) {
+    return 0;
+  }
+  const size_t n = (m->len - off < len) ? (size_t)(m->len - off) : len;
+  memcpy(buf, m->buf + off, n);
+  return n;
+}
+
+// names[i]/datas[i] -> a zip in `z` (the caller frees z->buf).
+static void buildZip(MemBook* z, int n, const char* const* names, const char* const* datas) {
+  memset(z, 0, sizeof(*z));
+  uint32_t* offs = (uint32_t*)calloc((size_t)n, sizeof(uint32_t));
+  for (int i = 0; i < n; i++) {
+    offs[i] = (uint32_t)z->len;
+    const size_t nl = strlen(names[i]), dl = strlen(datas[i]);
+    mbLe(z, 0x04034b50u, 4); mbLe(z, 20, 2); mbLe(z, 0, 2); mbLe(z, 0, 2);   // sig, ver, flags, stored
+    mbLe(z, 0, 2); mbLe(z, 0, 2); mbLe(z, 0, 4);                              // time, date, crc
+    mbLe(z, (uint32_t)dl, 4); mbLe(z, (uint32_t)dl, 4);
+    mbLe(z, (uint32_t)nl, 2); mbLe(z, 0, 2);
+    mbPut(z, names[i], nl);
+    mbPut(z, datas[i], dl);
+  }
+  const uint32_t cd = (uint32_t)z->len;
+  for (int i = 0; i < n; i++) {
+    const size_t nl = strlen(names[i]), dl = strlen(datas[i]);
+    mbLe(z, 0x02014b50u, 4); mbLe(z, 20, 2); mbLe(z, 20, 2); mbLe(z, 0, 2); mbLe(z, 0, 2);
+    mbLe(z, 0, 2); mbLe(z, 0, 2); mbLe(z, 0, 4);
+    mbLe(z, (uint32_t)dl, 4); mbLe(z, (uint32_t)dl, 4);
+    mbLe(z, (uint32_t)nl, 2); mbLe(z, 0, 2); mbLe(z, 0, 2); mbLe(z, 0, 2); mbLe(z, 0, 2);
+    mbLe(z, 0, 4); mbLe(z, offs[i], 4);
+    mbPut(z, names[i], nl);
+  }
+  const uint32_t cdLen = (uint32_t)z->len - cd;
+  mbLe(z, 0x06054b50u, 4); mbLe(z, 0, 2); mbLe(z, 0, 2);
+  mbLe(z, (uint32_t)n, 2); mbLe(z, (uint32_t)n, 2); mbLe(z, cdLen, 4); mbLe(z, cd, 4); mbLe(z, 0, 2);
+  free(offs);
+}
+
+/* An OPF with `nItems` manifest items (the two chapters at `chapAt` and `chapAt + 1`, images
+ * elsewhere) and `nRefs` itemrefs alternating over the two chapters. */
+static void buildCapBook(MemBook* z, int nItems, int chapAt, int nRefs) {
+  static char opf[160 * 1024];
+  size_t o = 0;
+  o += (size_t)snprintf(opf + o, sizeof(opf) - o,
+                        "<?xml version=\"1.0\"?><package xmlns=\"http://www.idpf.org/2007/opf\">"
+                        "<metadata><dc:title>Caps</dc:title></metadata><manifest>");
+  for (int i = 0; i < nItems; i++) {
+    if (i == chapAt || i == chapAt + 1) {
+      o += (size_t)snprintf(opf + o, sizeof(opf) - o,
+                            "<item id=\"c%d\" href=\"c%d.xhtml\" media-type=\"application/xhtml+xml\"/>",
+                            i - chapAt, i - chapAt);
+    } else {
+      o += (size_t)snprintf(opf + o, sizeof(opf) - o,
+                            "<item id=\"i%d\" href=\"i%d.png\" media-type=\"image/png\"/>", i, i);
+    }
+  }
+  o += (size_t)snprintf(opf + o, sizeof(opf) - o, "</manifest><spine>");
+  for (int r = 0; r < nRefs; r++) {
+    o += (size_t)snprintf(opf + o, sizeof(opf) - o, "<itemref idref=\"c%d\"/>", r % 2);
+  }
+  snprintf(opf + o, sizeof(opf) - o, "</spine></package>");
+  const char* names[] = { "mimetype", "META-INF/container.xml", "OEBPS/content.opf",
+                          "OEBPS/c0.xhtml", "OEBPS/c1.xhtml" };
+  const char* datas[] = {
+      "application/epub+zip",
+      "<?xml version=\"1.0\"?><container version=\"1.0\" "
+      "xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\"><rootfiles><rootfile "
+      "full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/>"
+      "</rootfiles></container>",
+      opf,
+      "<html><body><p>Chapter one has some words in it.</p></body></html>",
+      "<html><body><p>Chapter two has a few more words in it than one.</p></body></html>" };
+  buildZip(z, 5, names, datas);
+}
+
+static bool openMem(MemBook* z, EpubBook* b, EpubSource* s, const char* name, bool txt) {
+  s->ctx = z;
+  s->size = z->len;
+  s->read = memRead;
+  return epubOpen(b, s, name, txt) == EPUB_OK;
+}
+
+static void testCapsAndBigText() {
+  group("#12: past 512 items or itemrefs the book says it cannot sync");
+  MemBook z;
+  EpubBook b;
+  EpubSource s;
+  buildCapBook(&z, 20, 0, 2);
+  ok(openMem(&z, &b, &s, "small.epub", false), "a small built book opens");
+  eqInt(b.nSpine, 2, "two chapters");
+  ok(epubKosyncTotal(b.kosync) > 0, "syncable");
+  eqStr(epubKosyncWhyNot(b.kosync), "", "nothing to say");
+  epubClose(&b);
+  free(z.buf);
+
+  buildCapBook(&z, 520, 0, 2);
+  ok(openMem(&z, &b, &s, "manifest-big.epub", false), "520 manifest items, the chapters FIRST");
+  eqInt(b.nSpine, 2, "reads as before");
+  ok(epubKosyncTotal(b.kosync) > 0,
+     "every itemref found its item before the cut: still syncable (not over-refused)");
+  epubClose(&b);
+  free(z.buf);
+
+  buildCapBook(&z, 520, 518, 2);
+  ok(openMem(&z, &b, &s, "manifest-cut.epub", false), "520 items, the chapters PAST the cut");
+  eqInt(epubKosyncTotal(b.kosync), 0, "an itemref naming an item past the cut: NOT syncable");
+  eqInt(b.kosync ? b.kosync->refused : -1, EPUB_KOSYNC_TOO_MANY_ITEMS, "...and why");
+  eqStr(epubKosyncWhyNot(b.kosync), "over 512 items - the X4 would count it differently", "said");
+  double p = -1;
+  ok(!epubKosyncPercentAt(&b, 0, 0, 10, &p), "no percentage is sent");
+  int r = -1;
+  double w = -1;
+  ok(!epubKosyncLocate(b.kosync, 0.5, &r, &w, NULL, NULL), "none is taken either");
+  epubClose(&b);
+  free(z.buf);
+
+  buildCapBook(&z, 4, 0, 520);
+  ok(openMem(&z, &b, &s, "spine-big.epub", false), "520 itemrefs");
+  eqInt(b.nSpine, EPUB_MAX_SPINE, "reads what it always read (the reading cap)");
+  eqInt(epubKosyncTotal(b.kosync), 0, "the X4 counts 520: NOT syncable");
+  eqInt(b.kosync ? b.kosync->refused : -1, EPUB_KOSYNC_TOO_MANY_ITEMS, "...and why");
+  epubClose(&b);
+  free(z.buf);
+
+  buildCapBook(&z, 4, 0, EPUB_MAX_SPINE);
+  ok(openMem(&z, &b, &s, "spine-512.epub", false), "exactly 512 itemrefs");
+  ok(epubKosyncTotal(b.kosync) > 0, "at the cap, not past it: syncable");
+  epubClose(&b);
+  free(z.buf);
+
+  group("F6: a .txt the reader shows CUT is not syncable");
+  MemBook t;
+  memset(&t, 0, sizeof(t));
+  t.cap = t.len = EPUB_MAX_DOC - 1;
+  t.buf = (unsigned char*)malloc(t.cap);
+  memset(t.buf, 'a', t.len);
+  ok(openMem(&t, &b, &s, "whole.txt", true), "a .txt of EPUB_MAX_DOC-1 bytes");
+  ok(epubKosyncTotal(b.kosync) == EPUB_MAX_DOC - 1, "shown whole: syncable");
+  ok(epubKosyncPercentAt(&b, 0, 1000, 2000, &p) && p == 0.5, "and its percentage is real");
+  epubClose(&b);
+  t.len = EPUB_MAX_DOC;                              // one byte more than the reader shows
+  t.buf = (unsigned char*)realloc(t.buf, t.len);
+  t.buf[t.len - 1] = 'a';
+  ok(openMem(&t, &b, &s, "big.txt", true), "a .txt of EPUB_MAX_DOC bytes still OPENS");
+  eqInt(epubKosyncTotal(b.kosync), 0, "...but is not syncable (no more 0 % at every page)");
+  eqInt(b.kosync ? b.kosync->refused : -1, EPUB_KOSYNC_TEXT_TOO_BIG, "...and why");
+  eqStr(epubKosyncWhyNot(b.kosync), "a .txt too big to show whole here", "said");
+  ok(!epubKosyncPercentAt(&b, 0, 1000, 2000, &p), "nothing is sent");
+  ok(!epubKosyncLocate(b.kosync, 0.8, &r, &w, NULL, NULL), "and 80 % is not applied to cut text");
+  epubClose(&b);
+  free(t.buf);
+  ok(!strcmp(epubKosyncWhyNot(NULL), "no KOSync data (memory)"), "no map at all is said too");
+}
+
 // ================================================================ 3. NOBODY'S PLACE MOVES
 static void testGolden() {
   group("before/after: every fixture reads and locates exactly as 0.9.78 did");
@@ -1047,6 +1726,12 @@ int main() {
   testInboundChain();
   testLedger();
   testAllocFailure();
+  testOfferRule();
+  testAutoPush();
+  testMemo();
+  testClientAndTransport();
+  testProblemsAndLibrary();
+  testCapsAndBigText();
   testGolden();
   printf("\n%s%d passed, %d failed\033[0m\n", g_fail ? "\033[31m" : "\033[32m", g_pass, g_fail);
   return g_fail ? 1 : 0;

@@ -29,6 +29,8 @@ static bool ksEqNoCase(const char* a, size_t alen, const char* b) {
   return true;
 }
 
+static bool ksIsHex32(const char* v);   // (the config section)
+
 static void ksCopy(char* out, size_t cap, const char* in) {
   if (cap == 0) {
     return;
@@ -558,10 +560,15 @@ KosyncRoute kosyncRoute(const char* method, const char* path, char* doc, size_t 
 
 bool kosyncIsOwnRecord(const char* theirDevice, const char* theirDeviceId,
                        const char* myDevice, const char* myDeviceId) {
-  if (theirDevice && theirDevice[0] && myDevice && !strcmp(theirDevice, myDevice)) {
-    return true;                        // our own record, coming back from a server
+  const bool theirId = theirDeviceId && theirDeviceId[0];
+  if (theirId && myDeviceId && myDeviceId[0]) {
+    return !strcmp(theirDeviceId, myDeviceId);   // two ids: they decide, the names do not
   }
-  return theirDeviceId && theirDeviceId[0] && myDeviceId && !strcmp(theirDeviceId, myDeviceId);
+  if (theirId) {
+    return false;                       // an id that cannot be ours (we have none to match)
+  }
+  // No id on the record: the name is all there is.
+  return theirDevice && theirDevice[0] && myDevice && !strcmp(theirDevice, myDevice);
 }
 
 bool kosyncWorthParking(double theirs, const char* theirDevice, const char* theirDeviceId,
@@ -573,15 +580,317 @@ bool kosyncWorthParking(double theirs, const char* theirDevice, const char* thei
   return fabs(theirs - mine) > KOSYNC_EPSILON + 1e-9;
 }
 
-bool kosyncPullIsNews(double theirs, bool theirHasTs, int64_t theirTs,
-                      double mine, bool mineOk, uint32_t myTurnedAt) {
-  if (!mineOk) {
-    return true;                        // we cannot say where we are: let the person decide
+int kosyncOfferVerdict(const KosyncOfferIn* in) {
+  if (kosyncIsOwnRecord(in->theirDevice, in->theirDeviceId, in->myDevice, in->myDeviceId)) {
+    return KOSYNC_SKIP_OWN;
   }
-  if (theirHasTs && theirTs > 0 && myTurnedAt > 0) {
-    return theirTs > (int64_t)myTurnedAt;
+  if (in->mineOk && fabs(in->theirPct - in->minePct) <= KOSYNC_EPSILON + 1e-9) {
+    return KOSYNC_SKIP_IN_STEP;        // CrossPoint's "synchronized"
   }
-  return theirs > mine + KOSYNC_EPSILON + 1e-9;
+  if (in->offeredSig &&
+      in->offeredSig == kosyncOfferSig(in->theirTs, in->theirPct, in->theirDeviceId, in->theirDevice)) {
+    return KOSYNC_SKIP_OFFERED;        // the person has seen this very record already
+  }
+  // PROVABLY older: both clocks known, and theirs strictly before our last move.
+  if (in->theirTs > 0 && in->myMovedAt > 0 && in->theirTs < (int64_t)in->myMovedAt) {
+    return KOSYNC_SKIP_OLDER;
+  }
+  return KOSYNC_OFFER;
+}
+
+int kosyncPickRecord(const KosyncProgress* got, const bool* have, int n,
+                     const char* myDevice, const char* myDeviceId, bool* sawAny) {
+  int best = -1;
+  if (sawAny) {
+    *sawAny = false;
+  }
+  for (int i = 0; i < n; i++) {
+    if (!have[i] || !got[i].hasPct) {
+      continue;
+    }
+    if (sawAny) {
+      *sawAny = true;
+    }
+    if (kosyncIsOwnRecord(got[i].device, got[i].deviceId, myDevice, myDeviceId)) {
+      continue;
+    }
+    if (best < 0 || (got[i].hasTimestamp && got[best].hasTimestamp &&
+                     got[i].timestamp > got[best].timestamp)) {
+      best = i;
+    }
+  }
+  return best;
+}
+
+const char* kosyncOfferVerdictText(int v) {
+  switch (v) {
+    case KOSYNC_OFFER:        return "offered";
+    case KOSYNC_SKIP_OWN:     return "our own record";
+    case KOSYNC_SKIP_IN_STEP: return "already in step";
+    case KOSYNC_SKIP_OFFERED: return "already offered";
+    case KOSYNC_SKIP_OLDER:   return "older than your last page turn";
+  }
+  return "?";
+}
+
+uint32_t kosyncOfferSig(int64_t ts, double pct, const char* deviceId, const char* device) {
+  char p[16];
+  kosyncFormatPct(pct, p, sizeof(p));
+  const char* who = (deviceId && deviceId[0]) ? deviceId : (device ? device : "");
+  char s[40 + 16 + 2 * KOSYNC_DEV_MAX];
+  snprintf(s, sizeof(s), "%lld|%s|%s", (long long)(ts > 0 ? ts : 0), p, who);
+  uint32_t h = 2166136261u;                           // FNV-1a
+  for (const unsigned char* q = (const unsigned char*)s; *q; q++) {
+    h ^= *q;
+    h *= 16777619u;
+  }
+  return h ? h : 1u;                                  // 0 means "nothing offered"
+}
+
+bool kosyncAutoPushWanted(bool refOk, double refPct, bool movedSinceRef, bool pctOk, double pct) {
+  if (!pctOk) {
+    return false;                       // nothing expressible to send
+  }
+  if (refOk) {
+    return fabs(pct - refPct) > KOSYNC_EPSILON + 1e-9;
+  }
+  return movedSinceRef;
+}
+
+bool kosyncClosePushWanted(const KosyncMemoEntry* e, bool pctOk, double pct) {
+  if (!pctOk) {
+    return false;                       // nothing expressible to send
+  }
+  if (!e) {
+    return true;                        // nothing known: the old rule (push on close)
+  }
+  if (kosyncAutoPushWanted(e->refOk, e->refPct, e->movedSinceRef, pctOk, pct)) {
+    return true;                        // moved this session
+  }
+  if (e->sentOk) {
+    return fabs(pct - e->sentPct) > KOSYNC_EPSILON + 1e-9;   // home has another place of ours
+  }
+  return e->unsent;                     // never delivered: a move home has not had
+}
+
+// ---------------------------------------------------------------- the per-book memo
+void kosyncMemoOpened(KosyncMemoEntry* e, bool pctOk, double pct) {
+  if (!e) {
+    return;
+  }
+  e->refOk = pctOk;
+  e->refPct = pctOk ? pct : 0.0;
+  e->movedSinceRef = false;
+}
+
+void kosyncMemoMoved(KosyncMemo* m, KosyncMemoEntry* e, uint32_t nowUtc) {
+  if (!m || !e) {
+    return;
+  }
+  e->movedSinceRef = true;
+  if (!e->unsent) {
+    e->unsent = true;
+    m->dirty = true;                    // saved at the close, not on every turn
+  }
+  if (nowUtc && nowUtc != e->movedAt) {
+    e->movedAt = nowUtc;
+    m->dirty = true;
+  }
+}
+
+void kosyncMemoSent(KosyncMemo* m, KosyncMemoEntry* e, double pct) {
+  if (!m || !e) {
+    return;
+  }
+  e->refOk = true;
+  e->refPct = pct;
+  e->movedSinceRef = false;
+  /* `unsent` goes even if the reader moved again while this PUT was in flight: with sentOk the
+   * rule compares PLACES (sentPct), so that later move still differs and is still pushed. */
+  if (!e->sentOk || e->sentPct != pct || e->unsent) {
+    e->sentOk = true;
+    e->sentPct = pct;
+    e->unsent = false;
+    m->dirty = true;
+  }
+}
+
+KosyncMemoEntry* kosyncMemoGet(KosyncMemo* m, const char* book, bool create) {
+  if (!m || !book || !book[0]) {
+    return NULL;
+  }
+  int freeSlot = -1, oldest = -1;
+  for (int i = 0; i < KOSYNC_MEMO_MAX; i++) {
+    KosyncMemoEntry* e = &m->e[i];
+    if (!e->book[0]) {
+      if (freeSlot < 0) {
+        freeSlot = i;
+      }
+      continue;
+    }
+    if (!strcmp(e->book, book)) {
+      e->used = ++m->tick;
+      return e;
+    }
+    if (oldest < 0 || e->used < m->e[oldest].used) {
+      oldest = i;
+    }
+  }
+  if (!create) {
+    return NULL;
+  }
+  const int slot = freeSlot >= 0 ? freeSlot : oldest;
+  KosyncMemoEntry* e = &m->e[slot];
+  if (e->book[0] && (e->movedAt || e->offeredSig || e->sentOk || e->unsent)) {
+    m->dirty = true;                    // an evicted book's stamps must leave the card too
+  }
+  memset(e, 0, sizeof(*e));
+  ksCopy(e->book, sizeof(e->book), book);
+  e->used = ++m->tick;
+  return e;
+}
+
+static void ksPut32(uint8_t* p, uint32_t v) {
+  p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24);
+}
+
+static uint32_t ksGet32(const uint8_t* p) {
+  return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+/* An entry on the card: the id (32), movedAt, offeredSig, used, the sent place in millionths
+ * (the wire's 6 decimals — the D2 comparison is 0.001 wide), then flags: 1 sentOk, 2 unsent. */
+#define KSM_SENT_OK 1u
+#define KSM_UNSENT  2u
+
+size_t kosyncMemoPack(const KosyncMemo* m, uint8_t* out, size_t cap) {
+  if (!m || !out || cap < 4) {
+    return 0;
+  }
+  memcpy(out, "KSM2", 4);
+  size_t n = 4;
+  for (int i = 0; i < KOSYNC_MEMO_MAX; i++) {
+    const KosyncMemoEntry* e = &m->e[i];
+    if (strlen(e->book) != 32 || (!e->movedAt && !e->offeredSig && !e->sentOk && !e->unsent)) {
+      continue;                         // a slot with nothing worth keeping across a reboot
+    }
+    if (n + KOSYNC_MEMO_ENTRY_BYTES > cap) {
+      break;
+    }
+    double sp = e->sentPct < 0.0 ? 0.0 : (e->sentPct > 1.0 ? 1.0 : e->sentPct);
+    memcpy(out + n, e->book, 32);
+    ksPut32(out + n + 32, e->movedAt);
+    ksPut32(out + n + 36, e->offeredSig);
+    ksPut32(out + n + 40, e->used);
+    ksPut32(out + n + 44, e->sentOk ? (uint32_t)(sp * 1000000.0 + 0.5) : 0u);
+    ksPut32(out + n + 48, (e->sentOk ? KSM_SENT_OK : 0u) | (e->unsent ? KSM_UNSENT : 0u));
+    n += KOSYNC_MEMO_ENTRY_BYTES;
+  }
+  return n;
+}
+
+bool kosyncMemoUnpack(KosyncMemo* m, const uint8_t* in, size_t len) {
+  if (!m) {
+    return false;
+  }
+  memset(m, 0, sizeof(*m));
+  const size_t EB = KOSYNC_MEMO_ENTRY_BYTES;
+  if (!in || len < 4 || memcmp(in, "KSM2", 4) != 0 || (len - 4) % EB != 0 ||
+      (len - 4) / EB > KOSYNC_MEMO_MAX) {
+    return false;
+  }
+  const int n = (int)((len - 4) / EB);
+  for (int i = 0; i < n; i++) {
+    const uint8_t* r = in + 4 + EB * (size_t)i;
+    char id[33];
+    memcpy(id, r, 32);
+    id[32] = '\0';
+    const uint32_t micro = ksGet32(r + 44);
+    const uint32_t flags = ksGet32(r + 48);
+    if (!ksIsHex32(id) || micro > 1000000u || (flags & ~(KSM_SENT_OK | KSM_UNSENT))) {
+      memset(m, 0, sizeof(*m));
+      return false;                     // not ours, or damaged: start empty, never half-read
+    }
+    KosyncMemoEntry* e = &m->e[i];
+    memcpy(e->book, id, 33);
+    e->movedAt = ksGet32(r + 32);
+    e->offeredSig = ksGet32(r + 36);
+    e->used = ksGet32(r + 40);
+    e->sentOk = (flags & KSM_SENT_OK) != 0;
+    e->sentPct = e->sentOk ? micro / 1000000.0 : 0.0;
+    e->unsent = (flags & KSM_UNSENT) != 0;
+    if (e->used > m->tick) {
+      m->tick = e->used;
+    }
+  }
+  return true;
+}
+
+// ---------------------------------------------------------------- the client's retries
+uint32_t kosyncRetryDelayMs(int failures) {
+  static const uint32_t WAIT[KOSYNC_CLIENT_TRIES - 1] = { 1000u, 4000u };
+  if (failures < 1 || failures >= KOSYNC_CLIENT_TRIES) {
+    return 0;
+  }
+  return WAIT[failures - 1];
+}
+
+// ---------------------------------------------------------------- the window's transport
+int kosyncStationWindowCheck(bool switchedOff, bool connected, uint32_t ipNow, uint32_t ipOpened,
+                             uint32_t* lostSinceMs, uint32_t now, uint32_t graceMs) {
+  if (switchedOff) {
+    return KOSYNC_STA_LOST;                   // on purpose, not a blip: no grace
+  }
+  if (connected) {
+    *lostSinceMs = 0;
+    return (ipOpened && ipNow && ipNow != ipOpened) ? KOSYNC_STA_MOVED : KOSYNC_STA_OK;
+  }
+  if (!*lostSinceMs) {
+    *lostSinceMs = now ? now : 0xFFFFFFFFu;   // 0 is "connected": a drop AT 0 counts from -1 ms
+  }
+  return ((uint32_t)(now - *lostSinceMs) >= graceMs) ? KOSYNC_STA_LOST : KOSYNC_STA_BLIP;
+}
+
+bool kosyncWindowWaitsForSta(bool radioOff, bool userDisabled, bool staMode, uint32_t now,
+                             uint32_t lastJoinMs, uint32_t lastUpMs) {
+  if (radioOff || userDisabled || !staMode) {
+    return false;
+  }
+  const bool joining = lastJoinMs != 0 && (uint32_t)(now - lastJoinMs) < 10000u;
+  const bool wasUp = lastUpMs != 0 && (uint32_t)(now - lastUpMs) < 10000u;
+  return joining || wasUp;
+}
+
+size_t kosyncWindowProblems(uint32_t otherBook, const char* docId, uint32_t unauth,
+                            char* out, size_t cap) {
+  if (!cap) {
+    return 0;
+  }
+  out[0] = '\0';
+  char a[96] = "", b[64] = "";
+  if (otherBook) {
+    snprintf(a, sizeof(a), "! A place for a DIFFERENT book arrived%s%s%s - not the same file here?",
+             (docId && docId[0]) ? " (id " : "", (docId && docId[0]) ? docId : "",
+             (docId && docId[0]) ? "..)" : "");
+    if (otherBook > 1) {
+      char n[16];
+      snprintf(n, sizeof(n), " (x%u)", (unsigned)otherBook);
+      strncat(a, n, sizeof(a) - strlen(a) - 1);
+    }
+  }
+  if (unauth) {
+    snprintf(b, sizeof(b), "! Wrong user/password from the reader (x%u)", (unsigned)unauth);
+  }
+  snprintf(out, cap, "%s%s%s", a, (a[0] && b[0]) ? "  " : "", b);
+  return strlen(out);
+}
+
+bool kosyncNotABook(const char* basename) {
+  if (!basename) {
+    return false;
+  }
+  return ksEqNoCase(basename, strlen(basename), "kosync.txt") ||
+         ksEqNoCase(basename, strlen(basename), "smsmirror.txt");
 }
 
 static void ksReply(char* reply, size_t cap, const char* s) {
@@ -662,6 +971,7 @@ void kosyncServe(const char* method, const char* path, const char* hdrs,
   snprintf(reply, replyCap, "{\"document\":\"%s\",\"timestamp\":%lu}", dc, (unsigned long)nowUnix);
   if (!haveBook || (strcmp(in.document, book->partial) != 0 && strcmp(in.document, book->byName) != 0)) {
     out->otherDoc = true;               // answered, and dropped: this window is one book
+    snprintf(out->otherDocId, sizeof(out->otherDocId), "%.8s", in.document);   // for the screen
     return;
   }
   out->pickedUp = true;
@@ -770,6 +1080,11 @@ bool kosyncParseConfig(const char* text, size_t len, KosyncConfig* out) {
   memset(out, 0, sizeof(*out));
   out->homePort = 80;
   bool havePw = false;
+  /* Why a password=/key= line was REFUSED. Kept apart from `problem` and put first at the end:
+   * written straight into `problem`, a later home= complaint overwrote it, and the screen said
+   * only "home= has a bad port" for a phone whose KOSync was OFF for want of a password — fix
+   * that, and only then learn about the password. */
+  char secretWhy[64] = "";
   const char* p = text;
   const char* e = text ? text + len : text;
   char line[160];
@@ -802,8 +1117,37 @@ bool kosyncParseConfig(const char* text, size_t len, KosyncConfig* out) {
     char* v = eq + 1;
     char* ke = eq;
     while (ke > k && (ke[-1] == ' ' || ke[-1] == '\t')) *--ke = '\0';
-    while (*v == ' ' || *v == '\t') v++;
     for (char* q = k; *q; q++) *q = ksLower(*q);
+    /* An inline comment: '#' with whitespace right before it (so "#" INSIDE a value, as in
+     * "pass#word", is not one). Found on the RAW value, before its leading blanks go. */
+    char* hash = NULL;
+    for (char* q = v; *q; q++) {
+      if (q > v && *q == '#' && (q[-1] == ' ' || q[-1] == '\t')) {
+        hash = q;
+        break;
+      }
+    }
+    const bool secret = !strcmp(k, "password") || !strcmp(k, "key") || !strcmp(k, "hotspot_pass");
+    if (hash && secret) {
+      /* 🛑 REFUSED, NOT GUESSED. "password=hunter2secret  # mine" is either a comment or a
+       * password with " # mine" in it, and the one wrong guess is a 401 on every exchange (or
+       * a hotspot nobody can join) with nothing anywhere saying why. The line is dropped and
+       * the reason is what Sync settings and `kosync` show. */
+      if (!strcmp(k, "hotspot_pass")) {
+        out->hotspotPass[0] = '\0';
+        ksCopy(out->hotspotNote, sizeof(out->hotspotNote), "hotspot_pass ignored: ' #' in it");
+      } else {
+        snprintf(secretWhy, sizeof(secretWhy), "%s= has ' #' - put comments on their own line", k);
+      }
+      memset(line, 0, sizeof(line));   // no stray copy of a secret on the stack
+      continue;
+    }
+    if (hash) {
+      *hash = '\0';                    // a comment on a plain setting: cut it off
+      char* te = hash;
+      while (te > v && (te[-1] == ' ' || te[-1] == '\t')) *--te = '\0';
+    }
+    while (*v == ' ' || *v == '\t') v++;
 
     if (!strcmp(k, "user")) {
       ksCopy(out->user, sizeof(out->user), v);
@@ -820,7 +1164,7 @@ bool kosyncParseConfig(const char* text, size_t len, KosyncConfig* out) {
         out->key[32] = '\0';
         havePw = true;
       } else {
-        ksCopy(out->problem, sizeof(out->problem), "key= must be 32 hex digits (MD5 of the password)");
+        ksCopy(secretWhy, sizeof(secretWhy), "key= must be 32 hex digits (MD5 of the password)");
       }
     } else if (!strcmp(k, "home")) {
       if (!strncmp(v, "https://", 8)) {
@@ -851,10 +1195,14 @@ bool kosyncParseConfig(const char* text, size_t len, KosyncConfig* out) {
       ksCopy(out->home, sizeof(out->home), h);
     } else if (!strcmp(k, "device")) {
       ksCopy(out->device, sizeof(out->device), v);
-    } else if (!strcmp(k, "auto")) {
-      ksBool(v, &out->autoOnClose);
-    } else if (!strcmp(k, "open_window")) {
-      ksBool(v, &out->openWindow);
+    } else if (!strcmp(k, "auto") || !strcmp(k, "open_window")) {
+      // A value that is neither on nor off leaves the switch OFF — and now says so.
+      if (!ksBool(v, !strcmp(k, "auto") ? &out->autoOnClose : &out->openWindow) &&
+          !out->problem[0]) {
+        char why[64];
+        snprintf(why, sizeof(why), "%s= must be on or off", k);
+        ksCopy(out->problem, sizeof(out->problem), why);
+      }
     } else if (!strcmp(k, "hotspot_pass")) {
       /* Leading/trailing spaces are trimmed with the line (a Windows CR too); the password
        * is what is between them. Invalid -> OPEN, and hotspotNote says why — a hotspot that
@@ -871,13 +1219,20 @@ bool kosyncParseConfig(const char* text, size_t len, KosyncConfig* out) {
     }
   }
   if (!out->user[0] || !havePw) {
-    if (!out->problem[0]) {
+    /* The reason it is OFF, first: with no usable password, a refused secret line IS the
+     * reason, whatever else the file got wrong after it. */
+    if (!havePw && secretWhy[0]) {
+      ksCopy(out->problem, sizeof(out->problem), secretWhy);
+    } else if (!out->problem[0]) {
       ksCopy(out->problem, sizeof(out->problem), !out->user[0] ? "no user= line" : "no password= line");
     }
     out->ok = false;
     return false;
   }
   out->ok = true;
+  if (secretWhy[0] && !out->problem[0]) {
+    ksCopy(out->problem, sizeof(out->problem), secretWhy);   // on (another line's secret), but said
+  }
   if (out->passwordShort && !out->problem[0]) {
     ksCopy(out->problem, sizeof(out->problem), "password is under 12 characters");
   }

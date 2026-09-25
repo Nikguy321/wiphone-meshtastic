@@ -109,8 +109,9 @@ static void help() {
     "  bookpage   dump the open reader page's layout + rendering",
     "  kosync     KOSync (reading-position sync with an X4/COVEY): config, window, home client",
     "  kosync open [secs]  open a sync window for the book open in the reader (default 300)",
-    "  kosync close|push|pull|reload  end the window / send home / ask home / re-read",
-    "             /books/kosync.txt (push/pull need WiFi + home=, and a book open)",
+    "  kosync close|push|pull|sync|reload  end the window / send home / ask home /",
+    "             read home then offer-or-send (Sync my place) / re-read /books/kosync.txt",
+    "             (push/pull/sync need WiFi + home=, and a book open)",
     "  keys       keypad health: why a press went missing (drained/rescued/swept)",
     "  health     dump /health.log over the CABLE (battery + restart black box)",
     "  health all dump the whole file, not just the last 24 KB",
@@ -493,12 +494,13 @@ static void run(char* line) {
       const uint32_t secs = (uint32_t)strtoul(arg + 4, NULL, 10);
       const bool ok = booksKosyncBench("open", secs > 0 && secs <= 3600 ? secs : 0, out, sizeof(out));
       say("kosync: %s%s\n", ok ? "" : "NOT opened - ", out);
-    } else if (!strcasecmp(arg, "push") || !strcasecmp(arg, "pull")) {
-      const bool ok = booksKosyncBench(!strcasecmp(arg, "push") ? "push" : "pull", 0, out, sizeof(out));
+    } else if (!strcasecmp(arg, "push") || !strcasecmp(arg, "pull") || !strcasecmp(arg, "sync")) {
+      const char* verb = !strcasecmp(arg, "push") ? "push" : !strcasecmp(arg, "pull") ? "pull" : "sync";
+      const bool ok = booksKosyncBench(verb, 0, out, sizeof(out));
       say("kosync: %s%s%s\n", ok ? "" : "NOT started - ", out,
           ok ? "  (watch for a KOSYNC home line)" : "");
     } else {
-      say("kosync: status | open [secs] | close | push | pull | reload\n");
+      say("kosync: status | open [secs] | close | push | pull | sync | reload\n");
     }
     return;
   }

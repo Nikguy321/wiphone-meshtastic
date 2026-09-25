@@ -1817,10 +1817,30 @@ static void xferServerDown() {
  * Shared by the uploader and a KOSync window (see the note at the top of this file). The
  * body is what xferStart() always did, moved rather than rewritten; the two changes are
  * marked. `apName` is the hotspot to host when the phone is not on a network. */
+/* Put the station back as a stop leaves it — ONLY for a phone whose owner has WiFi on.
+ * 🛑 NOT radioOff() ALONE. Networks::disable() (no saved network at boot, Disconnect, Remove
+ * network) sets userDisabled, erases the STA config and switches the radio OFF, but does not
+ * set radioOff. A bare WiFi.begin() on that phone runs esp_wifi_connect on an empty config:
+ * NO_AP_FOUND, and the core's auto-reconnect calls begin() again, for ever — the loop's own
+ * reconnect/quiesce all stand down for a userDisabled phone, so nothing ever quiets it. The
+ * uploader did this once per manual stop; a sync window that opens on every book close made
+ * it routine, and a hunting radio is the biggest drain this phone has measured. */
+static void restoreStation() {
+  if (!wifiState.radioOff() && !wifiState.userDisabled()) {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin();
+    noteWifiJoinStarted();     // a join in flight: a window asked for next waits for it (KS-T1)
+  } else {
+    WiFi.mode(WIFI_OFF);
+  }
+}
+
 /* `pass`: NULL or "" = an open hotspot (every uploader, and a window without hotspot_pass);
  * otherwise 8-63 printable ASCII, validated by kosyncHotspotPassValid() before it gets here —
- * softAP() refuses 1-7 characters outright, which would leave NO hotspot at all. */
-static bool transportUp(const char* apName, const char* pass, const char** err) {
+ * softAP() refuses 1-7 characters outright, which would leave NO hotspot at all.
+ * `waitForSta`: the uploader's 2 s grace for an association in flight (see below); a window
+ * asks for it only when one genuinely is (kosyncWindowWaitsForSta). */
+static bool transportUp(const char* apName, const char* pass, bool waitForSta, const char** err) {
   // Use the joined WiFi network if we have one; otherwise host our own hotspot.
   /* ⚠ GIVE THE STATION A MOMENT BEFORE GIVING UP ON IT.
    *
@@ -1836,8 +1856,13 @@ static bool transportUp(const char* apName, const char* pass, const char** err) 
    *
    * (0.9.79) Not at all when the user switched WiFi OFF: nothing can associate, and a sync
    * window in the woods — the case it is for — would otherwise freeze the phone for two
-   * seconds every time a book is closed. */
-  for (int i = 0; i < 20 && !wifiState.radioOff() && WiFi.status() != WL_CONNECTED; i++) {
+   * seconds every time a book is closed. And (review) not for a WINDOW unless a join is
+   * actually under way: out of range, or with no saved network, it waited the full 2 s after
+   * every book close/open (LOOP STALL 'kosync'), for a status that was never coming. "Under
+   * way" includes a blip or a roam (the station was UP moments ago and the core is rejoining
+   * by itself) — exactly the case this wait was written for. */
+  for (int i = 0; waitForSta && i < 20 && !wifiState.radioOff() && WiFi.status() != WL_CONNECTED;
+       i++) {
     delay(100);
   }
 
@@ -1866,12 +1891,7 @@ static bool transportUp(const char* apName, const char* pass, const char** err) 
       /* (0.9.79) ...and do not leave the radio in AP mode with no AP: put the station back
        * exactly as a stop does, or the phone sits off WiFi until something notices. */
       s_usingAP = false;
-      if (!wifiState.radioOff()) {
-        WiFi.mode(WIFI_STA);
-        WiFi.begin();
-      } else {
-        WiFi.mode(WIFI_OFF);
-      }
+      restoreStation();
       return false;
     }
   }
@@ -1910,14 +1930,9 @@ static void transportDown() {
      * credentials already in the driver.
      *
      * ⚠ BUT NOT IF THE USER SWITCHED THE RADIO OFF — one of the three paths the 2026-09-01
-     * audit found quietly undoing "WiFi: off". The AP is torn down either way; what is
-     * gated is bringing the station back up. */
-    if (!wifiState.radioOff()) {
-      WiFi.mode(WIFI_STA);
-      WiFi.begin();
-    } else {
-      WiFi.mode(WIFI_OFF);
-    }
+     * audit found quietly undoing "WiFi: off" — NOR IF THEY DISABLED IT (restoreStation). The
+     * AP is torn down either way; what is gated is bringing the station back up. */
+    restoreStation();
   }
   s_on = false;
 }
@@ -1976,7 +1991,7 @@ void xferStart(const XferConfig* cfg) {
   s_filesAdded = 0;
 
   if (!s_on) {
-    if (!transportUp(s_cfg->apName, NULL, &s_startErr)) {
+    if (!transportUp(s_cfg->apName, NULL, true, &s_startErr)) {
       return;                    // (the uploader's own hotspot is always open, as it always was)
     }
     s_apByUploader = s_usingAP;
@@ -2080,7 +2095,12 @@ bool xferWindowStart(const char* apName, const char* pass) {
     return windowRefused("Low memory (%u B free block) - restart the phone", (unsigned)largest);
   }
   const char* err = NULL;
-  if (!transportUp(apName, pass, &err)) {
+  /* The 2 s grace only for an association genuinely in flight: a join started, or the station
+   * UP moments ago (a blip or a roam, rejoined by the core itself) — not out of range. */
+  const bool wait = kosyncWindowWaitsForSta(wifiState.radioOff(), wifiState.userDisabled(),
+                                            (WiFi.getMode() & WIFI_MODE_STA) != 0, millis(),
+                                            lastWifiConnectAttemptMs(), lastWifiLinkUpMs());
+  if (!transportUp(apName, pass, wait, &err)) {
     return windowRefused("%s", err ? err : "no network");
   }
   s_winOn = true;

@@ -7,19 +7,31 @@ on another device"* — and, the one hard rule: *"we can't let it screw up the p
 at in their own wiphones after they update"*.
 
 **Off unless `/books/kosync.txt` exists.** Without it, nothing changes: "Sync my place" is the
-LoRa booksync send it always was. With it (key=value lines, `#` comments):
+LoRa booksync send it always was. With it (key=value lines; `#` comments go on their OWN lines):
 
 ```
-user=<your KOSync user>          # the one account all your devices share
-password=<12+ characters>        # kept only as its MD5; or key=<32 hex> instead
-home=192.168.1.20:8088           # optional: a KOSync server on your WiFi (COVEY: 8088); http only.
-                                 # Use an IP ADDRESS, not a .local name: an mDNS lookup is not
-                                 # cached and can freeze the phone ~500 ms on every book open.
-device=WiPhone-Sam               # optional: default "WiPhone-" + Sync settings > This device
-auto=on                          # optional: closing a book opens a window + sends home
-open_window=on                   # optional: opening a book off WiFi opens a 60 s window
-hotspot_pass=<8-63 characters>   # optional: the sync hotspot is WPA2 with this password
+# The one account all your devices share.
+user=<your KOSync user>
+# 12+ characters, kept only as its MD5. Or key=<32 hex> instead.
+password=<12+ characters>
+# Optional: a KOSync server on your WiFi (COVEY: 8088); http only. Use an IP ADDRESS, not a
+# .local name: an mDNS lookup is not cached and can freeze the phone ~500 ms on every book open.
+home=192.168.1.20:8088
+# Optional: default "WiPhone-" + Sync settings > This device. Give EACH phone its own.
+device=WiPhone-Sam
+# Optional: closing a book opens a window + sends home (only if the place moved).
+auto=on
+# Optional: opening a book off WiFi opens a 60 s window.
+open_window=on
+# Optional: the sync hotspot is WPA2 with this password (8-63 characters).
+hotspot_pass=<8-63 characters>
 ```
+
+A comment at the END of a line (`auto=on   # ...`) is cut off on `user`, `home`, `device`, `auto`
+and `open_window`; on `password`, `key` and `hotspot_pass` it is REFUSED and the reason shown
+(`password= has ' #' - put comments on their own line`), because `#` is a legal password
+character and a guessed-wrong MD5 is a 401 on every exchange with nothing saying why. A `#` with
+no space before it (`pass#word`) is part of the value.
 
 - **"Sync my place" opens a 5-minute sync WINDOW**: the phone serves KOSync for that one book,
   on its own open hotspot **WiPhone-Books (http://192.168.4.1)** when it is not on WiFi, or on
@@ -36,8 +48,36 @@ hotspot_pass=<8-63 characters>   # optional: the sync hotspot is WPA2 with this 
   so none of that code knows KOSync exists, and a new KOSync offer for a book REPLACES that
   book's previous one, so other books' LoRa positions are never pushed out of the inbox.
 - **Opening a book on WiFi with `home=` asks the server** (partial MD5 first, then the file-name
-  id) and offers a place that is newer than your last page turn (or, with a clock missing,
-  ahead of you) from another device.
+  id) and offers, as the card, the newest place from ANOTHER device that is more than 0.001
+  away, has not been offered already (a new PUT is offered again; a declined one is not), and
+  is not provably older than your last real MOVE in that book (a page turn, a jump, a card
+  taken — not a save or a close). With either clock unknown it is offered. A book opened before
+  the WiFi came up is asked about once it does. The last move and the last offer per book are
+  kept in NVS (`kosync`/`memo`, 16 books, with what home last had from this phone); `positions.cbs` and the LoRa record are untouched.
+- **"Sync my place" on WiFi READS home first**: a newer place from another device is offered
+  instead of being overwritten ("Home: CrossPoint is at 61% - offered; yours NOT sent over
+  it"); anything else, or pressing again after declining it, sends yours. **An automatic push
+  on close goes out only if the place moved** since the book was opened, or differs from the
+  last place home had from this phone (kept in NVS, so a place read off WiFi, or a push that
+  gave up, is still sent by the next close at home — even one with no page turned), so an
+  open-and-close no longer puts a stale place over the X4's. Each phone is known by its
+  MAC-derived `device_id`; the name is only the fallback for a record with no id, so two
+  phones given one `device=` still see each other's places.
+- **The home client never blocks the loop** (its connect is polled, where it used to sleep up to
+  600 ms), and a push or pull that gets no answer is tried 3 times, 1 s and 4 s apart, before
+  "no answer ... (3 tries)". A window on the phone's WiFi address closes when that WiFi goes
+  (5 s grace — a new ask during a blip keeps it; switching WiFi off closes it at once) or the
+  address changes, so the next ask brings up the hotspot. A window opening by itself waits for
+  the station only while a join is under way or the station was up in the last 10 s (a blip or
+  a roam at home no longer puts the phone on its hotspot; no more 2 s freeze on every close out
+  of range), and closing one no longer restarts a station its owner had disabled.
+- **What the X4 would not tell you is on the phone's screen**: a place PUT for a DIFFERENT book
+  (`! A place for a DIFFERENT book arrived (id 0c9a1f7e..) - not the same file here?`) and
+  wrong-password requests, in the reader menu and Sync settings. `kosync.txt` and
+  `smsmirror.txt` are no longer listed as books. A book is refused, with the reason, when the
+  X4 would count it differently: over 512 manifest items/itemrefs, or a `.txt` too big to be
+  shown whole (it used to send 0 % and apply a peer's place to the cut text). Serial:
+  `kosync sync` (the read-then-offer-or-send path).
 - The phone only ever HOSTS: it never scans for or joins another device's hotspot.
 - **The sync hotspot is OPEN unless `hotspot_pass=` is set.** With 8-63 plain-ASCII characters
   (spaces inside are fine; spaces at either end are trimmed) the window's `WiPhone-Books` is
