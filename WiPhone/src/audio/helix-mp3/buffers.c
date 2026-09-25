@@ -171,3 +171,55 @@ void FreeBuffers(MP3DecInfo *mp3DecInfo)
 
 	SAFE_FREE(mp3DecInfo);
 }
+
+/**************************************************************************************
+ * Function:    ResetBuffers   (WiPhone addition, 0.9.79 - not in upstream helix)
+ *
+ * Description: put a decoder back into the state AllocateBuffers() left it in, WITHOUT
+ *              freeing and re-allocating its ~29 KB (which is how PSRAM gets fragmented
+ *              when it is done per track, per pause and per resume).
+ *
+ * Why it exists: every piece of history helix keeps from the previous frame - the bit
+ *              reservoir (mainBuf / mainDataBytes), the IMDCT overlap, the polyphase
+ *              filterbank - belongs to wherever the stream WAS. After a seek (a resume,
+ *              a new track) the first frame's main_data_begin then points back into the
+ *              OLD position's bytes, which helix decodes without complaint: the "loud
+ *              burst" on 2-33 of every 500 replayed resumes (docs/HANDOFF.md, 2026-09-25).
+ *              Cleared, the first frame reports ERR_MP3_MAINDATA_UNDERFLOW instead, which
+ *              is the truth, and Mp3Stream steps over it.
+ **************************************************************************************/
+void ResetBuffers(MP3DecInfo *mp3DecInfo)
+{
+	void *keep[7];
+
+	if (!mp3DecInfo)
+		return;
+
+	keep[0] = mp3DecInfo->FrameHeaderPS;
+	keep[1] = mp3DecInfo->SideInfoPS;
+	keep[2] = mp3DecInfo->ScaleFactorInfoPS;
+	keep[3] = mp3DecInfo->HuffmanInfoPS;
+	keep[4] = mp3DecInfo->DequantInfoPS;
+	keep[5] = mp3DecInfo->IMDCTInfoPS;
+	keep[6] = mp3DecInfo->SubbandInfoPS;
+
+	/* memset, not ClearBuffer: the same zeros, but this runs on every track start and the
+	 * byte loop over ~29 KB of PSRAM is measurably slower than the library call. */
+	memset(mp3DecInfo, 0, sizeof(MP3DecInfo));
+
+	mp3DecInfo->FrameHeaderPS =     keep[0];
+	mp3DecInfo->SideInfoPS =        keep[1];
+	mp3DecInfo->ScaleFactorInfoPS = keep[2];
+	mp3DecInfo->HuffmanInfoPS =     keep[3];
+	mp3DecInfo->DequantInfoPS =     keep[4];
+	mp3DecInfo->IMDCTInfoPS =       keep[5];
+	mp3DecInfo->SubbandInfoPS =     keep[6];
+
+	if (keep[0]) memset(keep[0], 0, sizeof(FrameHeader));
+	if (keep[1]) memset(keep[1], 0, sizeof(SideInfo));
+	if (keep[2]) memset(keep[2], 0, sizeof(ScaleFactorInfo));
+	if (keep[3]) memset(keep[3], 0, sizeof(HuffmanInfo));
+	if (keep[4]) memset(keep[4], 0, sizeof(DequantInfo));
+	if (keep[5]) memset(keep[5], 0, sizeof(IMDCTInfo));
+	if (keep[6]) memset(keep[6], 0, sizeof(SubbandInfo));
+}

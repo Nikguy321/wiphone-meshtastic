@@ -30,6 +30,9 @@ governing permissions and limitations under the License.
 #include "Audio.h"
 #include "config.h"
 #include "rtp_watch.h"
+#include "esp_timer.h"
+#include "esp_heap_caps.h"
+#include <new>
 
 //#define TAG "audio" // log tags don't seem to work in Arduino
 
@@ -110,17 +113,37 @@ Audio::Audio(bool stereoOut, int BCLK, int LRC, int DOUT, int DIN) : playbackFS(
  *       - this->bps
  *       - this->sampleRate
  *       - this->monoOut
+ *     in the DEFAULT geometry (TX+RX, 4 x 1024). Music's own is configureMusicI2S().
  */
 void Audio::configureI2S() {
+  this->installI2S(false, false);
+}
+
+/* Music's own ring. See music_feed.h for the sizes and the measurements behind them.
+ *
+ * 🛑 `fresh` FORCES A REINSTALL, and playMusic() asks for one whenever the ring was STOPPED
+ * (the idle watchdog's shutdown() -> i2s_stop()) or the rate is changing. IDF 3.3's i2s_start()
+ * — which i2s_set_sample_rates() also runs — restarts the DMA at buffer 0 but keeps the driver's
+ * free-buffer queue as it was, so the writer fills buffers in an order the DMA no longer plays
+ * them in: the first trip round the ring comes out SCRAMBLED. With 4 x 1024 that was up to
+ * ~90 ms; with music's 24 buffers it would be half a second of jumbled audio at a resume. A
+ * fresh install has an empty queue and a DMA at buffer 0, which agree. Same size, freed and
+ * reallocated back to back, so it lands in the blocks it just left. */
+void Audio::configureMusicI2S(bool fresh) {
+  this->installI2S(true, fresh);
+}
+
+void Audio::installI2S(bool music, bool fresh) {
   /* ── DO NOT REINSTALL THE DRIVER TO CHANGE NOTHING ────────────────────────────────────
    * The TODO that used to sit here ("does it create pop noise? if so - reduce number of
    * calls") was asking for this, and there is a second, larger reason to do it.
    *
-   * Every call uninstalls and reinstalls the driver, which frees and reallocates
-   * dma_buf_count(4) x dma_buf_len(1024) x 2ch x 2B = ~16 KB of INTERNAL, DMA-capable RAM.
-   * Internal contiguous RAM is the resource whose exhaustion panics this phone, and callers
-   * arrive in clusters: starting a track sets rate, channels and mono in sequence, so one
-   * play could churn 16 KB several times over. Measured on hardware: starting music dropped
+   * Every call uninstalls and reinstalls the driver, which frees and reallocates its DMA
+   * ring in INTERNAL, DMA-capable RAM: dma_buf_count(4) x dma_buf_len(1024, which IDF caps at
+   * 1023 in stereo) x 2ch x 2B for TX, and the same again for RX — ~32 KB in stereo, ~16 KB in
+   * mono. Internal contiguous RAM is the resource whose exhaustion panics this phone, and
+   * callers arrive in clusters: starting a track sets rate, channels and mono in sequence, so
+   * one play could churn it several times over. Measured on hardware: starting music dropped
    * the largest free block 15,648 -> 8,200, and the MusicApp object itself accounted for
    * only 224 of that.
    *
@@ -128,14 +151,31 @@ void Audio::configureI2S() {
    * actually changed. Callers can keep calling this as "make I2S match my settings" — which
    * is what every one of them means — without paying for a teardown each time.
    *
+   * 🛑 0.9.79: THERE ARE TWO GEOMETRIES NOW, AND ONLY MUSIC ASKS FOR ITS OWN. Music installs
+   * mono, TX only, MUSIC_DMA_BUFS x MUSIC_DMA_BUF_SAMPLES (24 KB; see music_feed.h). Every other
+   * path — configureI2S(), which every setter calls — asks for the DEFAULT one, so a pop, a
+   * ring, a call or the Game Boy that follows a track gets a reinstall back to it instead of
+   * inheriting music's ring. (The Game Boy is paced by the DMA draining; a call reads the
+   * microphone, and music's install has no RX.) turnMicOn() calls configureI2S() for the same
+   * reason: the mic-level meters never call a setter.
+   *
    * ⚠ Safe to cache because NOTHING ELSE installs or uninstalls the driver: start() uses
    * i2s_start() and shutdown() uses i2s_stop(), neither of which uninstalls. Verified by
    * grep over the whole tree. If that ever stops being true, this cache goes stale and the
    * symptom is silence, so re-check it before adding an uninstall anywhere else. */
-  if (this->i2sInstalled &&
+  const uint16_t bufs = music ? MUSIC_DMA_BUFS : 4;
+  const uint16_t len  = music ? MUSIC_DMA_BUF_SAMPLES : 1024;
+  const bool     rx   = !music;
+  const bool     mono = music ? true : this->monoOut;
+  const uint8_t  bps  = music ? 16 : this->bps;
+  if (!fresh &&
+      this->i2sInstalled &&
       this->i2sRate == this->sampleRate &&
-      this->i2sBps  == this->bps &&
-      this->i2sMono == this->monoOut) {
+      this->i2sBps  == bps &&
+      this->i2sMono == mono &&
+      this->i2sBufs == bufs &&
+      this->i2sLen  == len &&
+      this->i2sRx   == rx) {
     return;
   }
 
@@ -144,14 +184,15 @@ void Audio::configureI2S() {
     this->i2sInstalled = false;
   }
   i2s_config_t i2s_config = {
-    .mode = static_cast<i2s_mode_t> (I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_RX ),
+    .mode = static_cast<i2s_mode_t> (rx ? (I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_RX)
+                                        : (I2S_MODE_MASTER | I2S_MODE_TX)),
     .sample_rate = this->sampleRate,
-    .bits_per_sample = (this->bps == 16 ? I2S_BITS_PER_SAMPLE_16BIT : I2S_BITS_PER_SAMPLE_8BIT ),
-    .channel_format = (this->monoOut ? I2S_CHANNEL_FMT_ONLY_LEFT : I2S_CHANNEL_FMT_RIGHT_LEFT),
+    .bits_per_sample = (bps == 16 ? I2S_BITS_PER_SAMPLE_16BIT : I2S_BITS_PER_SAMPLE_8BIT ),
+    .channel_format = (mono ? I2S_CHANNEL_FMT_ONLY_LEFT : I2S_CHANNEL_FMT_RIGHT_LEFT),
     .communication_format = static_cast<i2s_comm_format_t> (I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB),
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1, // high interrupt priority
-    .dma_buf_count = 4,
-    .dma_buf_len = 1024,
+    .dma_buf_count = bufs,
+    .dma_buf_len = len,
     .use_apll=APLL_ENABLE,
     .tx_desc_auto_clear=true,  // new in V1.0.1
     .fixed_mclk=-1
@@ -160,11 +201,31 @@ void Audio::configureI2S() {
   if (i2s_driver_install((i2s_port_t)i2s_num, &i2s_config, 0, NULL) == ESP_OK) {
     this->i2sInstalled = true;
     this->i2sRate = this->sampleRate;
-    this->i2sBps  = this->bps;
-    this->i2sMono = this->monoOut;
+    this->i2sBps  = bps;
+    this->i2sMono = mono;
+    this->i2sBufs = bufs;
+    this->i2sLen  = len;
+    this->i2sRx   = rx;
+    this->i2sGen++;
   }
   log_d("Audio::Audio: after driver install %d", ESP.getFreeHeap());
   this->report();
+}
+
+/* The installed ring, for the music feed's lead. IDF caps one DMA buffer at 4092 bytes, so a
+ * stereo 1024 is really 1023 — the feed must use what the driver built, not what was asked. */
+MusicDma Audio::musicDma() const {
+  MusicDma d;
+  const uint32_t frameBytes = (this->i2sMono ? 1u : 2u) * (this->i2sBps == 16 ? 2u : 1u);
+  uint32_t len = this->i2sLen;
+  if (len * frameBytes > 4092) {
+    len = 4092 / frameBytes;
+  }
+  d.bufs = this->i2sBufs;
+  d.len = (uint16_t)len;
+  d.rate = (uint32_t)(this->i2sRate > 0 ? this->i2sRate : 1);
+  d.gen = this->i2sGen;
+  return d;
 }
 
 void Audio::report() {
@@ -461,11 +522,59 @@ bool Audio::playFile() {
   return true;
 }
 
-/* Open an MP3 or WAV and configure I2S from what the file actually is.
+/* ── Where the music feed gets its bytes and puts its samples ────────────────────────────
+ * The feed (music_feed.cpp) is Arduino-free so the host suite can drive it against a model
+ * of the DMA; these two adapters are all it knows of the card and of I2S. File-static: two
+ * vtable pointers and a File*, in internal RAM. */
+class AudioMusicFile : public MusicSource {
+public:
+  File* f = nullptr;
+  int read(uint8_t* dst, size_t n) override {
+    return f ? (int)f->read(dst, n) : -1;
+  }
+  bool seek(uint32_t pos) override {
+    return f && f->seek(pos);
+  }
+  uint32_t size() override {
+    return f ? (uint32_t)f->size() : 0;
+  }
+};
+
+class AudioMusicI2s : public MusicSink {
+public:
+  /* ⚠ TIMEOUT 0, ALWAYS. The loop task must never wait for the DMA: a short count is the
+   * feed's "the ring is full" and it simply comes back next pass. */
+  size_t write(const int16_t* s, size_t n) override {
+    size_t w = 0;
+    i2s_write(Audio::i2s_num, (const char*)s, n * sizeof(int16_t), &w, 0);
+    return w / sizeof(int16_t);
+  }
+  uint64_t nowUs() override {
+    return (uint64_t)esp_timer_get_time();
+  }
+};
+
+static AudioMusicFile s_musicFile;
+static AudioMusicI2s  s_musicI2s;
+
+/* The feed object and its buffers, in PSRAM, once. Kept between tracks for the same reason
+ * the decoder is: allocating and freeing per track is how PSRAM gets fragmented. */
+bool Audio::ensureFeed() {
+  if (!this->feed) {
+    void* mem = heap_caps_malloc(sizeof(MusicFeed), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!mem) {
+      return false;
+    }
+    this->feed = new (mem) MusicFeed();
+  }
+  return this->feed->begin();
+}
+
+/* Open an MP3 or WAV, decode its first frames, and give it music's own I2S ring.
  *
  * ⚠ The format is decided by the CONTENT, not the extension. The uploader has no
  * extension filter, so a .wav that is really an MP3 is an ordinary thing to meet. */
-bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo, uint32_t startAt) {
+bool Audio::playMusic(fs::FS *fs, const char* path, uint32_t startAt) {
   /* 🛑 NEVER OVER A CALL. Everything below replaces `playback` (RtpStream -> LocalMp3/Wav) and
    * reinstalls I2S at the track's rate and channel count. Under a live call that was two faults
    * at once, and F1 or F2 from any screen reached it (the transport keys had no call guard):
@@ -482,9 +591,14 @@ bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo, uint32_t startA
   }
   this->stopMusic();
   this->musicProblem = NULL;
+  this->musicStopValid = false;
 
   if (!fs || !path) {
     this->musicProblem = "No file";
+    return false;
+  }
+  if (!this->ensureFeed()) {
+    this->musicProblem = "No memory for music";
     return false;
   }
   this->playbackFS = fs;
@@ -507,32 +621,13 @@ bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo, uint32_t startA
     return false;
   }
 
-  int rate = 0, chans = 0;
-
-  if (wavParseHeader(hdr, (size_t)got, &this->wavInfo)) {
-    /* ⚠ dataBytes comes straight from the file and a WAV written to a pipe carries
-     * 0xFFFFFFFF or 0 there. Clamp to what the file actually holds, or playback runs off
-     * the end into whatever the SD driver returns. */
-    uint32_t fileSize = (uint32_t)this->playbackFile.size();
-    uint32_t avail = fileSize > this->wavInfo.dataOffset ? fileSize - this->wavInfo.dataOffset : 0;
-    if (this->wavInfo.dataBytes == 0 || this->wavInfo.dataBytes > avail) {
-      this->wavInfo.dataBytes = avail;
-    }
-    uint32_t wavStart = this->wavInfo.dataOffset;
-    if (startAt > wavStart && startAt < wavStart + this->wavInfo.dataBytes) {
-      // Align to a whole frame, or the channels swap and it plays as noise.
-      const uint32_t fb = wavFrameBytes(this->wavInfo);
-      if (fb) {
-        wavStart = startAt - ((startAt - this->wavInfo.dataOffset) % fb);
-      }
-    }
-    this->playbackFile.seek(wavStart);
-    this->musicLeft = this->wavInfo.dataBytes - (wavStart - this->wavInfo.dataOffset);
-    this->wavConv.begin(this->wavInfo, this->wavInfo.sampleRate, stereo);
-    rate  = (int)this->wavInfo.sampleRate;
-    chans = stereo ? 2 : 1;
-    this->playback = Playback::LocalWav;
-
+  s_musicFile.f = &this->playbackFile;
+  WavInfo wav;
+  bool opened = false;
+  Playback kind = Playback::Nothing;
+  if (wavParseHeader(hdr, (size_t)got, &wav)) {
+    opened = this->feed->openWav(&s_musicFile, wav, this->playDec, startAt);
+    kind = Playback::LocalWav;
   } else {
     if (!this->mp3) {
       this->mp3 = new Mp3Stream();
@@ -542,178 +637,113 @@ bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo, uint32_t startA
       this->musicProblem = "No memory for MP3";
       return false;
     }
-    this->mp3->reset();
-    // Seek past the ID3 tag; helix would otherwise hunt for a sync word inside album art.
-    uint32_t skip = mp3Id3v2Size(hdr, (size_t)got);
-    /* Resuming: jump straight back to where we paused. The decoder resynchronises on the
-     * next frame sync by itself, so at worst this loses a frame or two to the bit
-     * reservoir — inaudible, and the alternative is restarting the song. */
-    if (startAt > skip && startAt < (uint32_t)this->playbackFile.size()) {
-      skip = startAt;
-    }
-    this->playbackFile.seek(skip);
-
-    /* Decode one frame BEFORE configuring I2S. A frame header can be read out of a false
-     * sync, but a successful decode cannot — and configuring the clock from a bad header
-     * plays the whole track at the wrong speed. */
-    bool ok = false;
-    for (int tries = 0; tries < 64 && !ok; tries++) {
-      uint8_t tmp[512];
-      size_t room = this->mp3->space();
-      if (room > sizeof(tmp)) {
-        room = sizeof(tmp);
-      }
-      if (room > 0 && this->playbackFile.available()) {
-        int n = this->playbackFile.read(tmp, room);
-        if (n > 0) {
-          this->mp3->fill(tmp, (size_t)n);
-        }
-      }
-      Mp3Info info;
-      int samples = this->mp3->decode(this->playDec, &info);
-      if (samples > 0) {
-        rate  = info.sampleRate;
-        chans = stereo ? 2 : (info.channels >= 2 ? 2 : 1);
-        // Keep this first frame: throwing it away clips the start of every track.
-        this->playDecCurFrame = 0;
-        this->playDecFramesLeft = samples / (info.channels ? info.channels : 1);
-        ok = true;
-      } else if (samples == 0 && !this->playbackFile.available()) {
-        break;
-      }
-    }
-    if (!ok) {
-      this->playbackFile.close();
-      this->musicProblem = "Not playable audio";
-      return false;
-    }
-    this->playback = Playback::LocalMp3;
+    /* Skip the ID3 tag (helix would otherwise hunt for a sync word inside album art), or go
+     * straight back to a paused place. The feed resets helix, steps over the frame whose bit
+     * reservoir is missing, drops the overlap transient after it, and believes a format only
+     * when two frames in a row agree on it — see MusicFeed::openMp3(). */
+    const uint32_t audioStart = mp3Id3v2Size(hdr, (size_t)got);
+    opened = this->feed->openMp3(&s_musicFile, this->mp3, this->playDec, audioStart, startAt);
+    kind = Playback::LocalMp3;
   }
+  if (!opened) {
+    this->playbackFile.close();
+    this->musicProblem = this->feed->problem() ? this->feed->problem() : "Not playable audio";
+    return false;
+  }
+  this->playback = kind;
 
+  /* Was the ring RUNNING? If the idle watchdog stopped it, turnOn()'s i2s_start() restarts the
+   * DMA at buffer 0 under a stale free-queue — see configureMusicI2S(). */
+  const bool ringWasRunning = this->audioOn;
   if (!this->turnOn()) {
     this->playbackFile.close();
     this->playback = Playback::Nothing;
+    this->feed->stop();
     this->musicProblem = "Audio would not start";
     return false;
   }
 
-  /* ⚠ A mono MP3 into headphones still drives two I2S channels — the decoder gives one
-   * channel and playChunk duplicates it. dataChannels describes the DECODED data;
-   * monoOut describes the wire. They are not the same thing. */
-  this->dataChannels = (this->playback == Playback::LocalMp3 && !stereo) ? 1 : chans;
-  if (this->playback == Playback::LocalWav) {
-    this->dataChannels = stereo ? 2 : 1;
-  }
-  this->setMonoOutput(!stereo);
-  this->setSampleRate(rate);
+  /* Music's own ring, mono, at the feed's output rate (half the file's for 44.1/48 kHz).
+   * Every output parameter is SET here, not inherited — the rule for every consumer of this
+   * singleton. codec.setAudioPath(false) routes the left channel to both outputs, which is
+   * what setMonoOutput(true) has always done alongside the I2S format. */
+  this->bps = 16;
+  this->dataChannels = 1;
+  this->monoOut = true;
+  this->sampleRate = (int)this->feed->outRate();
+  this->voipPacketSize = this->packetSizeSamples(VOIP_PACKET_DURATION_MS);
+  this->configureMusicI2S(!ringWasRunning);  // a rate change reinstalls anyway (the cache)
+  codec.setAudioPath(false);
+  /* Clean silence, and the ring's write position back on a sample PAIR (a per-sample mono
+   * write — the ring, the pop — can leave it on an odd sample, and the mono pair swap
+   * below it would then be inverted for the whole track). i2s_zero_dma_buffer() pads to 4
+   * bytes; see IDF 3.3 driver/i2s.c. */
+  i2s_zero_dma_buffer(i2s_num);
+  this->playDecFramesLeft = 0;               // music never goes through playChunk()
 
-  this->musicStereo = stereo;
-  this->musicUnderruns = 0;
-  this->musicWasStarved = false;
-  this->musicEof = false;
-  this->playEncW = 0;
-  this->playEncR = 0;
+  /* The prefill: decode until the ring refuses. The "loading" pause Nick allowed. */
+  this->feed->start(&s_musicI2s, this->musicDma());
   return true;
 }
 
 uint32_t Audio::musicFilePos() {
+  if (this->musicPlaying() && this->feed) {
+    return this->feed->playingPos((uint64_t)esp_timer_get_time());
+  }
   return this->playbackFile ? (uint32_t)this->playbackFile.position() : 0;
 }
 
-/* One i2s_write for the whole decoded buffer instead of one per SAMPLE.
- *
- * playSample() writes 2 or 4 bytes at a time, which is fine for the 8 kHz telephony it
- * was built for — 8000 calls a second. Music at 48 kHz stereo makes 48000, each paying
- * the full ESP-IDF entry cost, and the jitter that adds is most of the reason music
- * crackled. The decoded buffer is already interleaved L,R 16-bit, which is exactly the
- * layout I2S wants, so it can go out in a single call.
- *
- * Returns false when the DMA would not take everything, which is the caller's signal
- * that there is no room to decode further ahead. */
-bool Audio::pushMusicChunk() {
-  if (this->playDecFramesLeft == 0) {
-    return true;
-  }
-  const int chans = this->monoOut ? 1 : 2;
-  const size_t offset = (size_t)this->playDecCurFrame * chans;
-  const size_t bytes = (size_t)this->playDecFramesLeft * chans * sizeof(int16_t);
-
-  size_t written = 0;
-  esp_err_t err = i2s_write((i2s_port_t)i2s_num, (const char*)(this->playDec + offset),
-                            bytes, &written, 0);
-  if (err != ESP_OK) {
+bool Audio::musicStats(MusicStats* out) {
+  if (!this->feed || !out) {
     return false;
   }
-  const uint32_t framesOut = (uint32_t)(written / (chans * sizeof(int16_t)));
-  this->playDecCurFrame += framesOut;
-  this->playDecFramesLeft -= framesOut;
-  return this->playDecFramesLeft == 0;
+  this->feed->stats(out, (uint64_t)esp_timer_get_time());
+  return true;
 }
 
-/* One frame of whichever format is playing, into playDec. Both paths leave
- * playDecCurFrame/playDecFramesLeft set the way pushMusicChunk() expects. */
-bool Audio::fillMusicFrame() {
-  if (this->playDecFramesLeft > 0) {
-    return true;                        // still something to push
+void Audio::musicResetStats() {
+  if (this->feed) {
+    this->feed->resetStats((uint64_t)esp_timer_get_time());
   }
+}
 
-  if (this->playback == Playback::LocalMp3) {
-    uint8_t tmp[512];
-    size_t room = this->mp3 ? this->mp3->space() : 0;
-    if (room > sizeof(tmp)) {
-      room = sizeof(tmp);
-    }
-    if (room > 0 && this->playbackFile.available()) {
-      int n = this->playbackFile.read(tmp, room);
-      if (n > 0) {
-        this->mp3->fill(tmp, (size_t)n);
-      }
-    }
-    Mp3Info info;
-    int samples = this->mp3 ? this->mp3->decode(this->playDec, &info) : 0;
-    if (samples > 0) {
-      this->playDecCurFrame = 0;
-      this->playDecFramesLeft = samples / (info.channels ? info.channels : 1);
-      return true;
-    }
-    if (!this->playbackFile.available() && this->mp3 && this->mp3->space() > 0) {
-      /* Nothing decoded and nothing left to read. Not an error: the tail of a file is
-       * usually a partial frame or a Lyrics/APE tag that will never decode. */
-      this->musicEof = true;
-    }
+void Audio::musicSetSwap(bool on) {
+  if (this->ensureFeed()) {
+    this->feed->swapPairs = on;       // from the next frame decoded
+  }
+}
+
+bool Audio::musicTakeStopPlace(uint32_t* pos, uint32_t* stoppedMs) {
+  if (!this->musicStopValid) {
     return false;
   }
-
-  if (this->playback == Playback::LocalWav) {
-    const uint32_t fb = wavFrameBytes(this->wavInfo);
-    if (fb == 0 || this->musicLeft < fb) {
-      this->musicEof = true;
-      return false;
-    }
-    uint8_t tmp[512];
-    uint32_t want = sizeof(tmp) - (sizeof(tmp) % fb);      // whole frames only
-    if (want > this->musicLeft) {
-      want = this->musicLeft - (this->musicLeft % fb);
-    }
-    int n = want > 0 ? this->playbackFile.read(tmp, want) : 0;
-    if (n <= 0) {
-      this->musicEof = true;
-      return false;
-    }
-    this->musicLeft -= (uint32_t)n;
-    size_t used = 0;
-    // playDec holds 2400 shorts: 1200 stereo frames or 2400 mono samples.
-    const size_t outCap = this->dataChannels == 2 ? 1200 : 2400;
-    size_t out = this->wavConv.feed(tmp, (size_t)n / fb, this->playDec, outCap, &used);
-    if (out > 0) {
-      this->playDecCurFrame = 0;
-      this->playDecFramesLeft = out;
-      return true;
-    }
-    return false;
+  this->musicStopValid = false;
+  if (pos) {
+    *pos = this->musicStopPos;
   }
+  if (stoppedMs) {
+    *stoppedMs = this->musicStopMs;
+  }
+  return true;
+}
 
-  return false;
+void Audio::setCodecTone(uint8_t tone) {
+#if AUDIO_CODEC == AUDIO_CODEC_WM8750
+  codec.setTone(tone);
+  if (this->audioOn) {
+    this->codecReconfig();            // powerUp() writes the tone; mute, route and levels follow
+  }
+#else
+  (void)tone;
+#endif
+}
+
+uint8_t Audio::codecTone() const {
+#if AUDIO_CODEC == AUDIO_CODEC_WM8750
+  return codec.tone();
+#else
+  return 0;
+#endif
 }
 
 void Audio::stopMusic() {
@@ -723,15 +753,30 @@ void Audio::stopMusic() {
     }
     this->ceasePlayback();
   }
-  this->musicEof = false;
-  this->musicLeft = 0;
+  /* The player stopped it itself: it knows the place (musicFilePos() before this call), so
+   * this is not a "stopped by something else" for musicTakeStopPlace(). */
+  this->musicStopValid = false;
   if (this->mp3) {
     this->mp3->reset();     // keep the 29 KB; re-allocating per track fragments PSRAM
   }
 }
 
 void Audio::ceasePlayback() {
-  if (this->playback == Playback::LocalMp3) {
+  if (this->playback == Playback::LocalMp3 || this->playback == Playback::LocalWav) {
+    /* Music ended by whoever called this — a pop, the ring, a call, shutdown(). Keep where it
+     * was, so the player can make it a pause (musicTakeStopPlace()). Before the file closes:
+     * the feed computes the place from its own frame log, not from the file. */
+    if (this->feed && this->feed->active()) {
+      this->musicStopPos = this->feed->playingPos((uint64_t)esp_timer_get_time());
+      this->musicStopMs = millis();
+      this->musicStopValid = true;
+    }
+    if (this->feed) {
+      this->feed->closeRing();              // leave IDF's current buffer full: see closeRing()
+      this->feed->stop();
+    }
+    /* WAV too: until 0.9.79 only an MP3's file was closed here, so a pop over a WAV left it
+     * open until the next track's open() replaced the handle. */
     playbackFile.close();
   }
   this->playback = Playback::Nothing;
@@ -892,7 +937,8 @@ bool Audio::playRingtone(fs::FS *fs) {
  * So a single Meshtastic notification left the phone at 8 kHz, mono, loudspeaker-forced and
  * at maximum volume, for good. Two measured consequences:
  *   - music afterwards played MONO OUT OF THE LOUDSPEAKER with headphones plugged in,
- *     because music_player's wantStereo() reads audio->getHeadphones();
+ *     because music_player's wantStereo() read audio->getHeadphones() (gone in 0.9.79:
+ *     music is always mono now, and only the route follows the jack);
  *   - monoOut = true is exactly what paces the Game Boy at 50% (it is clocked by a blocking
  *     i2s_write, so a mono sink drains at half rate — see app_gbc.cpp). A mesh message was a
  *     far more frequent trigger for that than the music player ever was.
@@ -1058,7 +1104,11 @@ void Audio::loop() {
 
   // MICROPHONE PART: process/encode/send microphone data
 
-  if (this->microphoneOn && this->bps==16) {      // TODO: different bits-per-sample are not supported for simplicity
+  /* ⚠ i2sRx: music's install (0.9.79) has no RX side, and i2s_read() on it fails with an IDF
+   * error line on every pass. microphoneOn is latched until shutdown(), so it can still be true
+   * from a recording when a track starts. Every mic user goes through turnMicOn(), which puts
+   * the RX-capable install back first. */
+  if (this->microphoneOn && this->bps==16 && this->i2sRx) {      // TODO: different bits-per-sample are not supported for simplicity
 
     // Ensure the microphone data starts at the beginning
     if (this->micRawR > 0) {
@@ -1247,41 +1297,22 @@ void Audio::loop() {
 
 
   } else if (this->playback == Playback::LocalMp3 || this->playback == Playback::LocalWav) {
-    /* ── Keep the DMA fed, and be able to CATCH UP ──────────────────────────────────
-     * This used to decode exactly ONE frame per loop() call. A frame is 1152 samples —
-     * 24 ms at 48 kHz — so the most audio this could ever produce per main-loop
-     * iteration was 24 ms. The main loop also draws the screen, services WiFi, SIP and
-     * the mesh, and any iteration slower than that drained the DMA a little further with
-     * NO WAY TO RECOVER, because the next pass still only produced 24 ms. Every stall
-     * became a permanent deficit, and the result was audible as a steady crackle at any
-     * volume. Rate limiting yourself to realtime means you can never make up a gap.
+    /* ── ONE PASS OF THE MUSIC FEED (music_feed.h) ──────────────────────────────────
+     * Decode whole frames into music's own mono ring until it refuses (never waiting),
+     * at most MUSIC_UNITS_PER_PASS of them (more when the ring is low), and count, honestly,
+     * whether the ring ran dry since the last pass.
      *
-     * Now it decodes ahead until the DMA refuses more (or the guard trips), so a stall
-     * costs one gap rather than a permanent one. The guard is a bound on how long this
-     * may hold the main loop, not a limit that should normally be reached. */
-    /* An underrun is the loop arriving to find NOTHING buffered and the DMA still
-     * hungry — i.e. we were late, and there was a gap. Counted on the transition so one
-     * stall is one count rather than one per pass. */
-    bool starvedNow = (this->playDecFramesLeft == 0) && !this->musicEof;
-
-    for (int guard = 0; guard < 12; guard++) {
-      if (this->playDecFramesLeft > 0) {
-        if (!this->pushMusicChunk()) {
-          starvedNow = false;          // DMA still had room to take: we were not late
-          break;
-        }
-      }
-      if (this->musicEof) {
-        break;
-      }
-      if (!this->fillMusicFrame()) {
-        break;                         // needs more input, or the file is done
-      }
+     * 🛑 WHAT THIS REPLACED, measured 2026-09-25 on both phones and replayed on the Mac: a
+     * 512-byte read and ONE decode per fill, the pass ending the first time a decode lacked
+     * input. A 192 kbps frame is 627 bytes, so 8.6 passes a second ended that way and each
+     * counted as a "gap" — 167 in 19 s on 0.9.78, with no dropout at all at short passes; and
+     * the ring (~70 ms usable, 4 x 1023 stereo) ran dry for real under any pass longer than
+     * that, which the counter mostly missed. And the top-of-loop playChunk() pushed 25-61% of
+     * all music one SAMPLE per i2s_write. Music never touches playDecFramesLeft now, so that
+     * per-sample path never runs for it. */
+    if (this->feed) {
+      this->feed->pass(this->musicDma());
     }
-    if (starvedNow && !this->musicWasStarved) {
-      this->musicUnderruns++;
-    }
-    this->musicWasStarved = starvedNow;
 
   } else if (this->playback == Playback::Record) {
     if (this->playDecFramesLeft <= 0 && this->recordRaw) {
@@ -1538,7 +1569,16 @@ int Audio::packetSizeSamples(int duration) {
 bool Audio::setSampleRate(int freq) {
   log_d("SAMPLE RATE = %d", freq);
   this->sampleRate = freq;
-  i2s_set_sample_rates((i2s_port_t) i2s_num, this->sampleRate);
+  /* ⚠ KEEP THE INSTALL CACHE TRUE (0.9.79). This changes the hardware's rate without a
+   * reinstall, and the cache used to go on believing the install-time rate: a later
+   * configureI2S() asking for THAT rate then "matched" and left the hardware where this put
+   * it. It also means one reinstall fewer per notification pop (its setMonoOutput(true) after
+   * this no longer sees a stale rate). A rate change is a new ring as far as the music feed's
+   * lead is concerned, hence the generation. */
+  if (i2s_set_sample_rates((i2s_port_t) i2s_num, this->sampleRate) == ESP_OK && this->i2sInstalled) {
+    this->i2sRate = this->sampleRate;
+    this->i2sGen++;
+  }
   this->voipPacketSize = this->packetSizeSamples(VOIP_PACKET_DURATION_MS);
   return true;
 }
@@ -1779,6 +1819,12 @@ void Audio::ceaseRecording() {
 }
 
 bool Audio::turnMicOn() {
+
+  /* ⚠ AN INSTALL WITH AN RX SIDE FIRST (0.9.79). Music's own I2S install is TX only, and the
+   * mic-level meters (GUI.cpp) come here straight after start() without calling any setter,
+   * so after a track they would have read nothing. configureI2S() is a no-op when the default
+   * install is already in; after music it puts it back. */
+  this->configureI2S();
 
   // Start the audio systems (if not started)
   // TODO: separate electrically switching microphone ON into this routine

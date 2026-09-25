@@ -351,6 +351,39 @@ CONTRACTS = [
     dict(file="GUI.cpp", fn="AudioConfigApp::AudioConfigApp", kind="not_calls",
          pat=r"\bini\s*\.\s*store\s*\(", what="opening Settings > Audio writes configs.ini",
          why="a failed load stored a three-key file: every other setting wiped (8b93e72's rule)"),
+    # ── Audio.cpp: music's own I2S install is music's alone (0.9.79, music_feed.h) ──
+    dict(file="Audio.cpp", fn="Audio::configureI2S", kind="calls",
+         pat=r"\binstallI2S\s*\(\s*false\b", what="the DEFAULT install (installI2S(false, ...))",
+         why="every setter reaches I2S through here; asking for music's TX-only ring would hand a "
+             "call no microphone and the Game Boy the wrong pacing"),
+    dict(file="Audio.cpp", fn="Audio::turnMicOn", kind="sequence",
+         seq=[r"\bconfigureI2S\s*\(", r"\bturnOn\s*\("],
+         what="configureI2S() before the mic starts",
+         why="the mic-level meters call start()+turnMicOn() with no setter: after a track they "
+             "would read a TX-only ring"),
+    dict(file="Audio.cpp", fn="Audio::loop", kind="guarded", pat=r"\bi2s_read\s*\(",
+         need=[POS(r"\bi2sRx\b")], what="the loop's microphone i2s_read()",
+         why="microphoneOn is latched until shutdown(); on music's TX-only install every pass "
+             "would fail with an IDF error line"),
+    dict(file="Audio.cpp", fn="Audio::ceasePlayback", kind="sequence",
+         seq=[r"\bcloseRing\s*\(", r"\bfeed\s*->\s*stop\s*\(", r"\bi2s_zero_dma_buffer\s*\("],
+         what="closeRing() before the feed stops and the ring is zeroed",
+         why="a half-filled driver buffer left behind comes back out of order at the next "
+             "resume (test_musicfeed: 22 of 60 pauses without it)"),
+    dict(file="Audio.cpp", fn="Audio::playMusic", kind="calls",
+         pat=r"\bconfigureMusicI2S\s*\(\s*!\s*ringWasRunning\s*\)",
+         what="configureMusicI2S(!ringWasRunning)",
+         why="i2s_start() after the idle watchdog restarts the DMA at buffer 0 under a stale queue: "
+             "the first half second would play scrambled unless the ring is installed fresh"),
+    # ── music_player.cpp: the route and the place ──
+    dict(file="music_player.cpp", fn="applyMusicVolume", kind="not_calls",
+         pat=r"\bif\s*\(\s*!\s*audio\s*->\s*getHeadphones\s*\(",
+         what="the loudspeaker flag set only when the jack is empty",
+         why="a track started with headphones in then fell into the EARPIECE when they were pulled "
+             "(the Game Boy's 2026-09-19 lesson); the reopen that hid it is gone"),
+    dict(file="music_player.cpp", fn="musicPlayerLoop", kind="calls",
+         pat=r"\bmusicTakeStopPlace\s*\(", what="musicTakeStopPlace() when something else stopped music",
+         why="a mesh pop, the ring or a call cut the track and F1 restarted it at 0:00"),
 ]
 
 BANNED = [

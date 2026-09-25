@@ -38,6 +38,7 @@ governing permissions and limitations under the License.
 #include "RTPacket.h"
 #include "mp3_stream.h"
 #include "wav_reader.h"
+#include "music_feed.h"
 
 #define AUDIO_INLINE inline __attribute__((always_inline))
 
@@ -102,6 +103,8 @@ public:
   ~Audio();
 
   // Configuring
+  /* Install I2S as every consumer but music expects it: TX+RX, 4 x 1024, channel format from
+   * monoOut. A no-op when that is what is installed. */
   void configureI2S();
   bool setSampleRate(int hz);         // TODO: which or these purely configuring, and which reset the configuration?
   bool setBitsPerSample(int bits);
@@ -144,32 +147,49 @@ public:
    * because it was written for a ringtone, this one ENDS — musicEnded() is what lets
    * a playlist advance.
    *
-   * Output follows the headphone jack: stereo when something is plugged in, mono into
-   * the earpiece otherwise. The I2S rate is set from the file, which the APLL makes
-   * exact rather than approximate.
+   * 🛑 0.9.79: ALWAYS MONO, AND AT HALF RATE FOR 44.1/48 kHz FILES, ON ITS OWN I2S RING
+   * (music_feed.h has the whole story and the measurements). The jack no longer decides the
+   * format — it only routes (setHeadphones() reconfigures the live codec). Until 0.9.79 the
+   * jack decided stereo vs mono, and the MONO path played garbage from the first MP3 commit:
+   * it told I2S the decoder's interleaved L,R,L,R... was 1152 mono samples, so the first half
+   * of every 26 ms frame played an octave low and the second half never played. Every track
+   * ever heard from the loudspeaker was that.
    *
    * ⚠ Do not call during a call. Music and RTP are both Playback modes and there is one
    * I2S peripheral; the caller stops music when a call arrives. Since 0.9.79 it REFUSES while
    * an RTP session is armed (musicError() "In a call") — see the note at its top. */
-  bool playMusic(fs::FS *fs, const char* path, bool stereo, uint32_t startAt = 0);
-  /* Byte offset currently being read. Handed back to playMusic() as `startAt` to resume
-   * a paused track where it left off. */
+  bool playMusic(fs::FS *fs, const char* path, uint32_t startAt = 0);
+  /* The file offset to resume at: two frames before the one PLAYING now. (It was the READ
+   * position, which the feed now keeps up to 4 KB + half a second of ring ahead of the ear.)
+   * Handed back to playMusic() as `startAt` to resume a paused track where it left off. */
   uint32_t musicFilePos();
   void stopMusic();
   bool musicPlaying() const {
     return this->playback == Playback::LocalMp3 || this->playback == Playback::LocalWav;
   }
-  /* True once the file is finished AND the last decoded samples have been pushed out,
-   * so a track is not cut off a fraction of a second early. */
+  /* True once the file is finished AND its last sample has certainly played. */
   bool musicEnded() const {
-    return this->musicEof && this->playDecFramesLeft == 0;
-  }
-  uint32_t musicUnderrunCount() const {
-    return this->musicUnderruns;
+    return this->musicPlaying() && this->feed && this->feed->ended();
   }
   const char* musicError() const {
     return this->musicProblem;
   }
+  /* The feed's counters, for the Now Playing line, `audio` and `music` (serial). See the
+   * note at the bottom of music_feed.h for what each one can and cannot claim. False when no
+   * track has been opened since boot. */
+  bool musicStats(MusicStats* out);
+  void musicResetStats();
+  void musicSetSwap(bool on);
+  bool musicSwap() const {
+    return this->feed ? this->feed->swapPairs : true;
+  }
+  /* Music stopped by something OTHER than the player (a pop, the ring, a call, shutdown()):
+   * where it was and when, handed over ONCE. The player turns it into a pause, so F1 carries
+   * on instead of restarting the song at 0:00 — which is what every mesh message used to cost. */
+  bool musicTakeStopPlace(uint32_t* pos, uint32_t* stoppedMs);
+  /* The codec's tone: bass boost, treble shelf, de-emphasis. See WM8750::setTone(). */
+  void setCodecTone(uint8_t tone);
+  uint8_t codecTone() const;
 
   bool playFile(fs::FS *fs, const char* path);
   bool playRecord();
@@ -337,27 +357,26 @@ protected:
   enum class Playback { Nothing, RtpStream, LocalMp3, Record, LocalPcm, LocalWav };
 
   /* ── Music state ────────────────────────────────────────────────────────────────
-   * The decoder is a POINTER, allocated on first use, and its buffers live in PSRAM.
-   * This object is global; 4 KB of input buffer plus 29 KB of decoder state sitting in
-   * it would take the internal heap the WiFi PHY needs. See helix_memory.c. */
+   * The decoder and the feed are POINTERS, allocated on first use, and everything big they
+   * own lives in PSRAM. This object is global; 4 KB of input buffer, 29 KB of decoder state
+   * and ~11 KB of feed buffers sitting in it would take the internal heap the WiFi PHY needs.
+   * See helix_memory.c. The feed object itself is placed in PSRAM too (Audio.cpp). */
   Mp3Stream*  mp3 = nullptr;
-  WavConverter wavConv;
-  WavInfo      wavInfo;
-  uint32_t     musicLeft = 0;        // bytes of WAV data still to read
-  bool         musicStereo = false;
-  /* How often the DMA ran completely dry while a track was playing. Each one is an
-   * audible gap. Exposed because "it crackles a bit" is not something you can act on and
-   * a count per minute is. */
-  uint32_t     musicUnderruns = 0;
-  bool         musicWasStarved = false;
-  /* Pushes the decoded buffer to I2S in ONE write instead of one per sample. See the
-   * comment on the definition — this is most of why music used to crackle. */
-  bool pushMusicChunk();
-  /* Decode ONE frame of the current file into playDec. False when it needs more
-   * input than is left, or the file has ended (musicEof is set then). */
-  bool fillMusicFrame();
-  bool         musicEof = false;
+  MusicFeed*  feed = nullptr;
+  bool        ensureFeed();
+  /* Music's own I2S install: mono 16-bit, TX only, MUSIC_DMA_BUFS x MUSIC_DMA_BUF_SAMPLES, at
+   * `sampleRate`. Only playMusic() asks for it; every other consumer goes through
+   * configureI2S() (via the setters), which puts the default geometry back — so no consumer
+   * can inherit music's ring, the bug class this singleton keeps producing. */
+  void        configureMusicI2S(bool fresh);
+  void        installI2S(bool music, bool fresh);
+  MusicDma    musicDma() const;
   const char*  musicProblem = nullptr;
+  /* Set by ceasePlayback() when it ends music that the player did not stop (see
+   * musicTakeStopPlace()). stopMusic() — the player's own stop — clears it. */
+  bool        musicStopValid = false;
+  uint32_t    musicStopPos = 0;
+  uint32_t    musicStopMs = 0;
 
   bool        audioOn = false;              // I2S and audio codec are turned ON
   bool        audioLoop = true;             // do the audio processing if audio is ON?
@@ -381,9 +400,16 @@ protected:
    * that would change nothing. See the note on it in Audio.cpp — each reinstall reallocates
    * ~16 KB of internal DMA memory, and internal RAM is what this phone runs out of. */
   bool        i2sInstalled = false;
-  int         i2sRate = 0;
+  int         i2sRate = 0;                  // kept TRUE by setSampleRate() too (0.9.79)
   uint8_t     i2sBps = 0;
   bool        i2sMono = false;
+  /* The ring's geometry and direction (0.9.79): music installs its own (see
+   * configureMusicI2S()), so the cache must know which one is in. i2sGen changes on every
+   * install and every rate change — the music feed's lead is unknown across one. */
+  uint16_t    i2sBufs = 0;
+  uint16_t    i2sLen = 0;
+  bool        i2sRx = false;
+  uint32_t    i2sGen = 0;
 
   /* Snapshot taken by preserve() and put back by restore(). See the comment on those in
    * Audio.cpp: a one-shot sound reconfigures the whole device and used to leave it that way. */

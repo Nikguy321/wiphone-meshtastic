@@ -143,6 +143,45 @@ opens exactly as before and is simply not syncable. Serial: `kosync` (status), `
 `push`, `pull`, `reload`; a `KOSYNC window ... heap= largest=` line every 15 s while one is open.
 Host suite: `tests/test_kosync.cpp` reproduces every number in `tests/vectors_kosync.h`.
 
+### Music: mono, half rate, half a second of ring, and a gap counter that tells the truth (0.9.79 dev, 2026-09-25)
+
+Nick: music *"has always been bad"*; *"Lower audio quality and having to take time to load in-between
+tracks are things I can live with."* Four faults, measured on both phones and replayed on the Mac
+against the real decoder (`WiPhone/music_feed.h` has the numbers):
+- **The loudspeaker played garbage** since the first MP3 commit: stereo PCM went to I2S as 1152 mono
+  samples, so half of every 26 ms frame played an octave down and the other half never played.
+- **Real dropouts** whenever a main-loop pass outlasted the ~70 ms the old ring let the writer get
+  ahead (a map frame, a Files slice, a repaint and anything else). `LOOP STALL` only sees > 250 ms.
+- **`gaps` was arithmetic**: 512-byte reads against 627-byte 192 kbps frames made 8.6 short passes a
+  second, each a "gap" (167 in 19 s on 0.9.78), with no dropout at all — and it read 0 through real ones.
+- **A resume re-fed its first frame** (helix's MAINDATA_UNDERFLOW taken for "need bytes", helix never
+  reset): a loud burst on 2-33 of every 500 resumes, and ~1% played the rest of the track at the wrong
+  speed off a false sync that decoded cleanly.
+
+Now: **music plays MONO, and 44.1/48 kHz files at HALF RATE** (22.05/24 kHz, through a 23-tap
+half-band filter: flat to 8 kHz), on **its own I2S ring — 24 x 512 samples, TX only, 24 KB of
+internal RAM (8 KB less than the install the phone boots with), 534 ms deep** against ~70 ms. Each
+pass decodes whole frames (4 KB card reads; never a pass ended for lack of bytes) until the ring
+refuses, 4 frames at most (8 after a stall). The format is believed only when two decoded frames in a
+row agree; a resume steps over the frame with no bit reservoir, resets helix and drops the overlap
+transient, and returns to two frames before the one that was PLAYING (it was the read position). A
+pop, the ring or a call that cuts a track now leaves it PAUSED at its place (F1 carries on; it used to
+restart at 0:00); the devices still yield exactly as before. The jack no longer reopens the track: the
+route moves live. **The codec's tone** is now adaptive bass boost, no treble shelf, no de-emphasis
+(linear +9 dB clipped inside the DAC at any volume, and the shelf would have cut from 1.8 kHz at
+22.05 kHz) — for everything, calls included; `audio tone old` puts 0.9.78's back for an A/B.
+- **Now Playing says `drops:N buf:X.Xs`**: `drops` = the ring CERTAINLY ran dry (never invented).
+  Serial **`music`** adds `minLead` (lowest lower bound on what the ring held; > 0 = certainly no
+  gap), `lead`, `maxGap` (the loop's longest unfed stretch), work per pass, reads; `music reset`
+  zeroes them; `music swap on|off` A/Bs the ESP32 mono pair swap by ear. `audio` prints them too.
+- A gap of ~0.1-0.2 s between tracks (up to ~0.6 s for the first after a pop, call or game: a fresh
+  ring plays its own silence once). Stereo and 44.1 kHz are what was traded.
+- Host suite: `tests/test_musicfeed.cpp` — the 0.9.78 feed reproduced (8.6 gaps/s with 0 true
+  dropouts at 10 ms passes; 4.8 true dropouts/s at 50 ms) against the new one (0 at 5-80 ms passes and
+  through 100/300/450 ms stalls), the counter checked against the model's ground truth, reservoir and
+  false-sync resumes, bit-exact resumes on the real-track fixture. `tests/check_call_audio.py` pins
+  the new guards (music's install is music's alone; the mic reinstalls RX; the ring is closed on stop).
+
 ### The 0.6-1.5 s 'mesh' freezes were LoRa transmits, not the database save (0.9.79 dev, 2026-09-25)
 
 `MeshPhy::send()` waited out each frame's time on air on the loop task (0.5-2.2 s, ~20 an hour, mostly

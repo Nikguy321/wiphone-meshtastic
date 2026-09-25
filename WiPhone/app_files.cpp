@@ -643,7 +643,7 @@ void FilesApp::stepJob() {
   const bool music = musicPlayerIsPlaying();
   while ((uint32_t)(millis() - t0) < slice) {
     if (music && audio) {
-      audio->loop();                 // the DMA holds ~90 ms of music: feed it between ops
+      audio->loop();                 // feed the music ring between ops (~0.5 s deep since 0.9.79, ~90 ms before)
     }
     if (job->copying) {
       if (!buf) {

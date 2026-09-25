@@ -4,6 +4,26 @@
 
 Read this first; everything below it is narrative.
 
+🎵 **2026-09-25: MUSIC REBUILT (0.9.79 dev, NOT FLASHED when written — see the bench below). Nick: music
+*"has always been bad"*; he accepts lower quality and a load pause between tracks.** Four faults, all
+measured (phones + a Mac replay with the real decoder), all fixed — `WiPhone/music_feed.h` has the story:
+(1) the **loudspeaker path played garbage** since the first MP3 commit (stereo PCM sent as 1152 mono
+samples: half of every frame an octave down, half never played); (2) **real dropouts** under any loop
+pass > ~70 ms (the old 4 x 1023 stereo ring; LOOP STALL only logs > 250 ms); (3) 🛑 **`gaps` WAS
+ARITHMETIC, NOT DROPOUTS** — 512 B reads vs 627 B frames = 8.6 "gaps"/s on every 192 kbps file with no
+dropout at all, and 0 through real ones: **every `gaps` reading in this document is void**; (4) a resume
+re-fed its first frame (MAINDATA_UNDERFLOW read as "need bytes") = bursts, and ~1% wrong speed.
+**Now:** mono, 44.1/48 kHz at HALF RATE (half-band filter), music's OWN I2S ring (24 x 512, TX only,
+24 KB — 8 KB less than the boot install — 534 ms deep), whole-frame feed, codec tone = adaptive bass /
+no treble cut / no de-emphasis (the old linear +9 dB clipped in the DAC at any volume). The counter is
+**`drops`** (ring CERTAINLY ran dry, never invented) + **`minLead`** (> 0 = certainly no gap): Now
+Playing `drops:N buf:X.Xs`, serial `music` / `music reset` / `music swap on|off`, `audio tone
+old|clean|flat`. A pop/ring/call that cuts a track now leaves it PAUSED at its place. ⚠ A fresh ring
+(first track after a pop, call or game) plays ~0.5 s of its own silence before the music: that is the
+IDF 3.3 driver (empty free queue at install), not a bug. Host: `tests/test_musicfeed.cpp` (0.9.78 feed
+reproduced: 8.6 gaps/s with 0 dropouts at 10 ms passes, 4.8 dropouts/s at 50 ms; new feed 0 through
+5-80 ms passes and 100/300/450 ms stalls).
+
 📚 **2026-09-24 NIGHT: READING-POSITION SYNC WITH THE XTEINK X4 PRO (arrives Sun 2026-09-28) IS BUILT ON
 ALL THREE SIDES, OVER KOSync (KOReader's sync protocol).** Nick: *"push 'sync location' on the device I
 was just reading and have it ready when I open it on another device"*; must work with NO COVEY and NO
@@ -5908,6 +5928,14 @@ with everything needed to act on it below.
 1. **`gaps` never left ZERO**, through general crackle on headphones.
 2. 🔑 **"when I let the screen sleep the music cleared up almost perfectly."**
 
+🛑 **2026-09-25: `gaps` IS RETIRED, AND IT WAS WORSE THAN THE CORRECTION BELOW SAYS.** It was blind to
+short dropouts (below) AND it counted things that were not dropouts: a 512-byte read against a 627-byte
+192 kbps frame ended a pass "starved", 8.6 times a second, with the DMA never dry (phone 2: 8-9/s on every
+192k file; a Mac replay of the same feed: 0 true dropouts at passes up to 30 ms). The replacement is
+`drops` + `minLead` (serial `music`), checked against a model's ground truth in `tests/test_musicfeed.cpp`;
+see the 🎵 block at the top of STATE NOW. The hypothesis below (TFT/SD contention on the shared bus)
+was never tested as such; what the screen really did was make passes longer than the ~70 ms ring.
+
 ⚠ **FIRST, A CORRECTION: `gaps:0` IS MUCH WEAKER EVIDENCE THAN THIS DOC USED TO CLAIM.** Read
 what it actually counts (`Audio.cpp`, the `starvedNow` logic): it only increments if the loop
 arrives with the decode buffer empty **and** the DMA then accepts 12 consecutive frames without
@@ -5954,6 +5982,11 @@ several times over. Those buffers are also roughly **16 KB of internal, DMA-capa
 exact resource that is running out and panicking the phone** (§1). **Enlarging them trades the
 crackle for the restart.** The two open bugs pull in opposite directions; that is why the
 `gaps` reading has to come first.
+✅ **(2026-09-25) Resolved without enlarging the bytes:** the ring was made deeper in TIME instead —
+mono and half rate — so music's own install is 24 x 512 mono = 24 KB, TX only, 534 ms, against the
+boot install's 32 KB (TX + RX, stereo) and 93 ms. And that boot install was ~32 KB, not 16: the RX side
+is the same size again. Since 0.9.75 the idle internal heap is ~66 KB, not the ~16 KB this was written
+against.
 
 ### 🎮 4. Game Boy ran at 50% — FIXED, needs one look to confirm
 Nick, 2026-08-14: *"my Metroid II game (probably all the games) is running at 50%"*, and he

@@ -2674,6 +2674,41 @@ int audioStateDump(char* out, int cap) {
   return n;
 }
 
+/* The music feed's counters, for `audio` and `music` (serial). What each one can and cannot
+ * claim is at the top of music_feed.h; in one line:
+ *   drops   = passes that found the I2S ring CERTAINLY dry (an audible gap; never invented);
+ *   minLead = the lowest LOWER bound on the audio queued, at any pass start since the track
+ *             (or `music reset`) began — above 0 means there was certainly no gap at all;
+ *   maxGap  = the longest the main loop left music unfed (the LOOP STALL line only sees > 250 ms).
+ * ⚠ Each line stays under say()'s 192 bytes. */
+int musicStateDump(char* out, int cap) {
+  if (!audio || cap <= 0) {
+    return 0;
+  }
+  MusicStats st;
+  if (!audio->musicStats(&st)) {
+    return snprintf(out, cap, "  music: nothing opened since boot\n");
+  }
+  static const char* const TONES[] = {"old", "clean", "flat"};
+  const uint8_t tone = audio->codecTone();
+  int n = snprintf(out, cap,
+                   "  music: %s %lu Hz %u ch -> %lu Hz mono, ring %lu ms, swap=%s tone=%s | playing=%d paused=%d ended=%d\n",
+                   musicPlayerCurrent() >= 0 ? "track" : "-", (unsigned long)st.srcHz, (unsigned)st.srcCh,
+                   (unsigned long)st.outHz, (unsigned long)st.capMs, st.swap ? "on" : "off",
+                   tone < 3 ? TONES[tone] : "?", (int)musicPlayerIsPlaying(), (int)musicPlayerIsPaused(),
+                   (int)st.ended);
+  n += snprintf(out + n, cap > n ? cap - n : 0,
+                "  music: drops=%lu (%lu ms) minLead=%ld ms lead=%ld ms | units=%lu skipped=%lu reservoir=%lu\n",
+                (unsigned long)st.drops, (unsigned long)st.dropMs, (long)st.minLeadMs, (long)st.leadMs,
+                (unsigned long)st.units, (unsigned long)st.skipped, (unsigned long)st.reservoir);
+  n += snprintf(out + n, cap > n ? cap - n : 0,
+                "  music: passes=%lu maxGap=%lu ms maxWork=%lu.%lu ms avgWork=%lu us | reads=%lu (%lu KB) inBuf=%lu B\n",
+                (unsigned long)st.passes, (unsigned long)st.maxGapMs, (unsigned long)(st.maxWorkUs / 1000),
+                (unsigned long)((st.maxWorkUs % 1000) / 100), (unsigned long)st.avgWorkUs,
+                (unsigned long)st.reads, (unsigned long)st.readKB, (unsigned long)st.inBuf);
+  return n;
+}
+
 /* Serial `audio orphan`: arm an RTP session with NO call, so the backstop can be watched firing
  * without a second phone, an easter egg or a hot mic. RECEIVE side only — playRtpStream() on a
  * local port; the microphone is never switched on and nothing is sent anywhere. Expect the

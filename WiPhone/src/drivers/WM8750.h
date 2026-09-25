@@ -115,6 +115,12 @@ governing permissions and limitations under the License.
 
 #define WM8750_TREBLE_LOW_CUTOFF    ((unsigned short)0x40)            // 0 - High Cutoff (8 KHz; def.), 1 - Low Cutoff (4 KHz)
 #define WM8750_TREBLE_MIN_INTENS    ((unsigned short)0x0E)
+#define WM8750_TONE_BYPASS          ((unsigned short)0x0F)            // BASS[3:0] / TRBL[3:0] = 1111: that control is off
+
+/* The tone presets (0.9.79) — see WM8750::setTone(). */
+#define WM8750_TONE_OLD     0     // until 0.9.78: linear +9 dB bass, -6 dB treble shelf, 44.1 kHz de-emphasis
+#define WM8750_TONE_CLEAN   1     // the default: ADAPTIVE bass boost, no treble shelf, no de-emphasis
+#define WM8750_TONE_FLAT    2     // no tone control at all
 
 #define WM8750_POWER1_VMIDSEL(n)    ((unsigned short)(n & 0x3)<<7)    // Vmid divider enable and select: 00 – Vmid disabled (for OFF mode), 01 – 50kOhm divider enabled (for playback/record); 10 – 500kOhm divider enabled (for low-power standby); 11 – 5kOhm divider enabled (for fast start-up)
 #define WM8750_POWER1_VREF          ((unsigned char)0x40)             // VREF (necessary for all other functions) power up
@@ -205,8 +211,49 @@ private:
   uint8_t   _addr;
   uint8_t   _sda;
   uint8_t   _scl;
+  uint8_t   _tone = WM8750_TONE_CLEAN;
+
+  unsigned short bassReg() const {
+    if (_tone == WM8750_TONE_OLD) {
+      return WM8750_BASS_HIGH_CUTOFF | WM8750_BASS_MAX_BOOST;     // linear +9 dB at 200 Hz (@48k)
+    }
+    if (_tone == WM8750_TONE_FLAT) {
+      return WM8750_TONE_BYPASS;
+    }
+    return WM8750_BASS_ADAPT_BOOST | WM8750_BASS_HIGH_CUTOFF | WM8750_BASS_MAX_BOOST;
+  }
+  unsigned short trebleReg() const {
+    return _tone == WM8750_TONE_OLD ? (WM8750_TREBLE_MIN_INTENS | WM8750_TREBLE_LOW_CUTOFF)
+                                    : WM8750_TONE_BYPASS;
+  }
+  unsigned char deemph() const {
+    return _tone == WM8750_TONE_OLD ? 2 : 0;
+  }
 
 public:
+  /* ── THE TONE CONTROL, AND WHY IT CHANGED (0.9.79) ──────────────────────────────────────
+   * powerUp() used to program, for every sound this phone makes: a LINEAR +9 dB bass boost at
+   * 200 Hz, a -6 dB treble shelf at 4 kHz and 44.1 kHz de-emphasis. All three are digital and
+   * sit AHEAD of the output volume, so:
+   *   - +9 dB of linear boost on music mastered to 0 dBFS clips inside the DAC at ANY volume
+   *     (a Mac model of the shelf put 17% of Pulse's samples and 30% of No Regrets' over full
+   *     scale; the files themselves clip on 0.00-0.12%). "Crackly at all volumes", and the
+   *     2026-08 test that ruled clipping out by turning the volume down only ruled out the
+   *     ANALOGUE stage. ADAPTIVE boost is the chip's own answer: it backs off before it clips.
+   *   - de-emphasis is only right for pre-emphasised CD audio, which nothing here is;
+   *   - the shelf and the de-emphasis are both specified at 48/44.1 kHz and scale with the rate
+   *     they actually run at: music now plays at 22.05 kHz (music_feed.h), where they would
+   *     cut from ~1.8 kHz; calls at 8 kHz had them from ~700 Hz.
+   * ONE setting for the whole device, deliberately: a per-route tone would be new shared
+   * state for the next consumer to inherit (the bug class of this codebase). `audio tone
+   * old|clean|flat` on serial switches it live for an A/B by ear; it is not stored. */
+  void setTone(uint8_t t) {
+    _tone = (t <= WM8750_TONE_FLAT) ? t : WM8750_TONE_CLEAN;
+  }
+  uint8_t tone() const {
+    return _tone;
+  }
+
   WM8750(uint8_t _addr, uint8_t _sda, uint8_t _scl) {
     this->_addr = _addr;
     this->_sda  = _sda;
@@ -233,7 +280,7 @@ public:
     log_v("Audio codec: unmute");
     //setReg(WM8750_REG_POWER1, 0x17e);
     //setReg(WM8750_REG_POWER2, 0x7e);
-    setReg(WM8750_REG_ADCDAC, 0x000 | WM8750_ADCDAC_DEEMP(2));
+    setReg(WM8750_REG_ADCDAC, 0x000 | WM8750_ADCDAC_DEEMP(deemph()));
     //setReg(WM8750_REG_LOUT1VOL, WM8750_OUT_VOL(0b1111001));
     //setReg(WM8750_REG_ROUT1VOL, WM8750_OUT_VOL(0b1111001));
   }
@@ -425,19 +472,12 @@ public:
       log_e("crystal freq. %d not implemented", crystal_KHz);
     }
 
-    // Graphic equalizer
-    //if (samplingRate >= 32000) {
-    // Boost bass for the music
-    setReg(WM8750_REG_BASS, WM8750_BASS_HIGH_CUTOFF | WM8750_BASS_MAX_BOOST);        // high cutoff (200 Hz) / +9 dB / linear bass control
-    setReg(WM8750_REG_TREBLE, WM8750_TREBLE_MIN_INTENS | WM8750_TREBLE_LOW_CUTOFF);      // low cutoff (4 KHz) / -6 dB
-    //} else {
-    //    // Default configuration
-    //    setReg(WM8750_REG_BASS, 0x0F);        // bypass (OFF)
-    //    setReg(WM8750_REG_TREBLE, 0x0F);      // disable
-    //}
+    // Tone control: see the note on setTone() for why this is no longer a fixed +9 dB / -6 dB
+    setReg(WM8750_REG_BASS, bassReg());
+    setReg(WM8750_REG_TREBLE, trebleReg());
 
-    // Unmute DAC
-    err = setReg(WM8750_REG_ADCDAC, 0x000 | WM8750_ADCDAC_DEEMP(2));        // deemphasis for 44.1 kHz
+    // Unmute DAC (and de-emphasis: off, unless the old voicing was asked for)
+    err = setReg(WM8750_REG_ADCDAC, 0x000 | WM8750_ADCDAC_DEEMP(deemph()));
     if (err != WM8750_ERROR_OK) {
       return err;
     }

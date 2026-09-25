@@ -31,7 +31,6 @@ static int         s_vol = MUSIC_VOL_DEFAULT_DB;
 static bool        s_volSaved = false;      // are the call levels stashed?
 static int8_t      s_savedEar = 6, s_savedHp = 6, s_savedLoud = 0;
 static bool        s_savedLoudspeaker = false;   // which speaker calls were using
-static bool        s_lastHeadphones = false;     // to notice the jack changing mid-track
 
 /* Take the codec over, remembering what calls were using. */
 static void applyMusicVolume() {
@@ -47,10 +46,17 @@ static void applyMusicVolume() {
    * The default is the earpiece — correct for a phone call, where you are holding it to
    * your head, and useless for music, which is why it sounded so quiet. chooseSpeaker()
    * switches the codec's output path to DAC_LOUDSPEAKER and turns on the separate
-   * amplifier IC. Restored on stop, so the next call still goes to the earpiece. */
-  if (!audio->getHeadphones()) {
-    audio->chooseSpeaker(true);
-  }
+   * amplifier IC. Restored on stop, so the next call still goes to the earpiece.
+   *
+   * 🛑 UNCONDITIONALLY (0.9.79), the Game Boy's lesson (app_gbc.cpp, 2026-09-19): the route's
+   * precedence is headphones > loudspeaker > earpiece and lives in Audio::start() and
+   * codecReconfig(), so the flag is inert while the jack is occupied — and when the jack is
+   * pulled mid-track, setHeadphones() reconfigures the live codec straight onto the
+   * loudspeaker. Guarded on "no headphones now", a track STARTED with headphones in never set
+   * it, and an unplug dropped the music into the earpiece. That is why the player used to
+   * reopen the track on every jack change; the format no longer depends on the jack (music is
+   * always mono now, music_feed.h), so the route is all that was left, and this covers it. */
+  audio->chooseSpeaker(true);
   const int8_t v = (int8_t)s_vol;
   // The loudspeaker amp maxes out at 0 dB where the other two reach +6.
   const int8_t loud = v > 0 ? 0 : v;
@@ -220,13 +226,6 @@ const MusicTrack* musicPlayerTrack(int i) {
 
 // ─── transport ──────────────────────────────────────────────────────────────────────
 
-/* Stereo follows the headphone jack. Nothing useful comes of driving two channels into
- * a single earpiece, and a track started with headphones in should still be in stereo
- * after the screen has been off. */
-static bool wantStereo() {
-  return audio && audio->getHeadphones();
-}
-
 static bool startTrack(int idx, uint32_t startAt = 0) {
   s_error = NULL;
   if (!audio || !s_tracks || idx < 0 || idx >= s_count) {
@@ -246,14 +245,13 @@ static bool startTrack(int idx, uint32_t startAt = 0) {
     return false;
   }
   audio->stopMusic();
-  if (!audio->playMusic(&SD, s_tracks[idx].path, wantStereo(), startAt)) {
+  if (!audio->playMusic(&SD, s_tracks[idx].path, startAt)) {
     s_error = audio->musicError() ? audio->musicError() : "Will not play";
     s_loaded = -1;
     s_paused = false;
     return false;
   }
   applyMusicVolume();
-  s_lastHeadphones = wantStereo();
   s_loaded = idx;
   s_paused = false;
   s_startedAt = millis();
@@ -295,9 +293,12 @@ void musicPlayerResume() {
      *
      * This is a resume, not a seek: the offset is one we recorded ourselves while
      * playing, so there is no need to guess a position from a timestamp — which is the
-     * hard part in a VBR MP3 and the reason a scrub bar still does not exist. The
-     * decoder resynchronises on the next frame sync, costing at most a frame or two to
-     * the bit reservoir, which is inaudible.
+     * hard part in a VBR MP3 and the reason a scrub bar still does not exist. It is two
+     * frames before the one that was PLAYING (MusicFeed::playingPos()); the feed resets
+     * helix, steps over the frame with no bit reservoir and drops the overlap transient,
+     * so the first frame heard is the one that was cut off. (Until 0.9.79 a resume re-fed
+     * that first frame and played a burst on ~1 in 30, and the offset was the READ
+     * position, some way ahead of the ear.)
      *
      * s_elapsedBase is deliberately NOT reset, so the clock on screen keeps counting
      * from where it was instead of jumping back to 0:00. */
@@ -376,8 +377,8 @@ uint32_t musicPlayerElapsed() {
   return s_elapsedBase + (millis() - s_startedAt) / 1000;
 }
 
-uint32_t musicPlayerUnderruns() {
-  return audio ? audio->musicUnderrunCount() : 0;
+bool musicPlayerFeedStats(MusicStats* out) {
+  return audio && out && audio->musicStats(out);
 }
 
 void musicPlayerSetShuffle(bool on) {
@@ -400,21 +401,29 @@ void musicPlayerLoop() {
     return;
   }
   if (!audio->musicPlaying()) {
-    return;                      // stopped by something else (a call, an error)
-  }
-
-  /* The headphone jack changed while playing. Both things that follow from it — stereo
-   * versus mono, and headphones versus loudspeaker — are set when the track is opened,
-   * so the track is reopened AT ITS CURRENT POSITION rather than restarted. That is the
-   * same resume path pause/play uses, which is what makes this cheap. */
-  if (audio->getHeadphones() != s_lastHeadphones) {
-    const uint32_t at = audio->musicFilePos();
-    const uint32_t played = musicPlayerElapsed();
-    if (startTrack(s_loaded, at)) {
-      s_elapsedBase = played;    // keep the clock, do not reset it to 0:00
+    /* Stopped by something else — a notification pop, the ring, a call, a shutdown. The
+     * device still yields exactly as it always has; what changes (0.9.79) is that the PLACE
+     * is kept: this becomes a pause, so F1 carries on from where the pop cut in instead of
+     * restarting the song at 0:00, which is what every mesh message used to cost.
+     * ⚠ The call levels are NOT handed back here: a pop still playing holds a snapshot of the
+     * MUSIC levels and its teardown restore()s them after this runs, so giving them back now
+     * would be undone (the "pop first, then the music" rule — see musicPlayerYieldForCall(),
+     * which still gives them back when a call is what stopped the track). Nothing else moves:
+     * the stash stays held exactly as it did before 0.9.79. */
+    uint32_t pos = 0, stoppedMs = 0;
+    if (audio->musicTakeStopPlace(&pos, &stoppedMs)) {
+      s_elapsedBase += (stoppedMs - s_startedAt) / 1000;
+      s_resumePos = pos;
+      s_paused = true;
     }
     return;
   }
+
+  /* The headphone jack needs nothing here any more (0.9.79). The track used to be reopened on
+   * every jack change, because stereo-vs-mono was decided when a track opened; music is always
+   * mono now, and applyMusicVolume() sets the loudspeaker flag unconditionally, so
+   * setHeadphones() (the jack interrupt) moves the live codec between the headphones and the
+   * loudspeaker by itself and the track plays on without a gap. */
   if (!audio->musicEnded()) {
     return;
   }

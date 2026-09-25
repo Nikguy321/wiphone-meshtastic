@@ -74,7 +74,7 @@ int mp3FindFrame(const uint8_t* buf, size_t len, size_t from) {
 
 // ─── the stream ─────────────────────────────────────────────────────────────────────
 
-Mp3Stream::Mp3Stream() : dec(0), inBuf(0), inLen(0), gotFormat(false) {
+Mp3Stream::Mp3Stream() : dec(0), inBuf(0), inLen(0), lastFrame(0), gotFormat(false) {
   memset(&fmt, 0, sizeof(fmt));
 }
 
@@ -115,8 +115,12 @@ void Mp3Stream::end() {
 
 void Mp3Stream::reset() {
   inLen = 0;
+  lastFrame = 0;
   gotFormat = false;
   memset(&fmt, 0, sizeof(fmt));
+  if (dec) {
+    MP3ResetDecoder((HMP3Decoder)dec);   // see the 🛑 note on reset() in mp3_stream.h
+  }
 }
 
 size_t Mp3Stream::fill(const uint8_t* data, size_t len) {
@@ -165,11 +169,34 @@ int Mp3Stream::decode(int16_t* out, Mp3Info* info) {
   int left = (int)inLen;
   int rc = MP3Decode((HMP3Decoder)dec, &p, &left, out, 0);
 
-  if (rc == ERR_MP3_INDATA_UNDERFLOW || rc == ERR_MP3_MAINDATA_UNDERFLOW) {
+  if (rc == ERR_MP3_INDATA_UNDERFLOW) {
+    if (inLen >= MP3_INBUF_BYTES) {
+      /* A header claiming a frame bigger than the whole buffer (no real one is: 1,441 bytes
+       * at most). More bytes cannot help and "needs input" forever would stall the track, so
+       * step past it like any other damage. */
+      discard(1);
+      return -1;
+    }
     return 0;                          // caller should fill() and try again
   }
 
   const size_t consumed = inLen - (size_t)(left < 0 ? 0 : left);
+
+  /* 🛑 MAINDATA_UNDERFLOW IS NOT A REQUEST FOR BYTES, AND IT WAS HANDLED AS ONE UNTIL 0.9.79.
+   * helix returns it AFTER it has consumed the frame (mp3dec.c: *inbuf and *bytesLeft are
+   * advanced past it, its main data is appended to the bit reservoir, outbuf is zeroed): it
+   * means "this frame's main data starts in a frame I never saw" - the first frame or two
+   * after a seek. Returning 0 here without discarding handed the SAME frame back on the next
+   * call, helix appended its main data a SECOND time and then "decoded" it against its own
+   * duplicate. Replayed on the Mac against the real decoder (2026-09-25): 99.4-100% of
+   * resumes hit this, the duplicated frame played on 45-61% of them, and 2-33 of every 500
+   * were a burst louder than twice the real frame. Step over it; the reservoir it filled is
+   * exactly what the next frame needs. Never seen from the start of a file (0 in 7 tracks). */
+  if (rc == ERR_MP3_MAINDATA_UNDERFLOW) {
+    discard(consumed > 0 ? consumed : 1);
+    lastFrame = consumed;              // it WAS a frame: the feed remembers where it started
+    return MP3_SKIPPED_RESERVOIR;
+  }
 
   if (rc != ERR_MP3_NONE) {
     /* A bad frame is survivable — that is the point of a sync word. Step over one byte
@@ -180,6 +207,7 @@ int Mp3Stream::decode(int16_t* out, Mp3Info* info) {
   }
 
   discard(consumed);
+  lastFrame = consumed;
 
   MP3FrameInfo fi;
   MP3GetLastFrameInfo((HMP3Decoder)dec, &fi);

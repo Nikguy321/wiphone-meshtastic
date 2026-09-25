@@ -120,6 +120,14 @@ for src in tests/test_*.cpp; do
     # that decode. helix is C and is listed in csrc, not deps — see CFLAGS above.
     test_mp3)      deps=(WiPhone/mp3_stream.cpp)
                    csrc=(WiPhone/src/audio/helix-mp3/*.c) ;;
+    # The music feed (music_feed.cpp) with the real helix and Mp3Stream, driven by simulated
+    # main-loop passes against a model of IDF 3.3's I2S DMA: the 0.9.78 feed reproduced (8.6
+    # "gaps"/s with no dropout at 10 ms passes, real dropouts at 50 ms), the new one clean at
+    # every pass length and stall the old one failed, and the drop counter checked against the
+    # model's ground truth. Synthetic streams, so it needs no fixture (the real-track resume
+    # tests use tests/fixtures/mp3/track.mp3 when it is there).
+    test_musicfeed) deps=(WiPhone/music_feed.cpp WiPhone/mp3_stream.cpp WiPhone/wav_reader.cpp)
+                   csrc=(WiPhone/src/audio/helix-mp3/*.c) ;;
     # Header-only: the Game Boy cartridge arithmetic (gnuboy/gb_romsize.h). gnuboy.c itself
     # cannot be compiled here (esp_heap_caps.h, hw.h, cpu.h, sound.h, lcd.h), which is why the
     # arithmetic lives in a header both it and this suite include.

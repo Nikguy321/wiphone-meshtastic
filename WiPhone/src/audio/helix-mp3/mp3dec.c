@@ -95,6 +95,18 @@ void MP3FreeDecoder(HMP3Decoder hMP3Decoder)
 }
 
 /**************************************************************************************
+ * Function:    MP3ResetDecoder   (WiPhone addition, 0.9.79 - not in upstream helix)
+ *
+ * Description: forget everything the decoder remembers about the stream - bit reservoir,
+ *              overlap, filterbank - and keep its memory. Call on every seek. See
+ *              ResetBuffers() in buffers.c for the fault it prevents.
+ **************************************************************************************/
+void MP3ResetDecoder(HMP3Decoder hMP3Decoder)
+{
+	ResetBuffers((MP3DecInfo *)hMP3Decoder);
+}
+
+/**************************************************************************************
  * Function:    MP3FindSyncWord
  *
  * Description: locate the next byte-alinged sync word in the raw mp3 stream

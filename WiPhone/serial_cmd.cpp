@@ -113,6 +113,21 @@ static void benchReboot(const char* who) {
   ESP.restart();
 }
 
+/* A multi-line dump, one say() per line (say()'s 192-byte buffer; see help()). Cuts `buf`. */
+static void sayLines(char* buf) {
+  for (char* p = buf; *p;) {
+    char* nl = strchr(p, '\n');
+    if (nl) {
+      *nl = '\0';
+    }
+    sayLine(p);
+    if (!nl) {
+      break;
+    }
+    p = nl + 1;
+  }
+}
+
 /* ⚠ One say() per line. say()'s buffer is 192 bytes and this text is ~750:
  * a single call TRUNCATED the help mid-list, so every command added after
  * `chan` was invisible to `?` — which is the one place a stranded user looks.
@@ -173,6 +188,11 @@ static void help() {
     "             + the RTP session (mic/stream/port: all 0 after any call) and the levels",
     "  audio orphan  arm an RTP receive with NO call (no mic, nothing sent) - the hot-mic",
     "             backstop must shut it down within 3 s with an 'AUDIO: RTP session armed' line",
+    "  audio tone [old|clean|flat]  the codec's bass/treble/de-emphasis, live, not stored",
+    "             (clean = default: adaptive bass, no treble cut, no de-emphasis; old = 0.9.78)",
+    "  music      the music feed: drops (ring certainly ran dry), minLead (>0 = certainly no",
+    "             gap), lead, the loop's longest gap, reads. `music reset` zeroes the counters,",
+    "             `music swap on|off` flips the mono sample-pair swap for an A/B by ear",
     "  replay     history-replay state: ring occupancy, pending tx, last served",
     "  radio      the LoRa send queue: rx/tx, queued + relays waiting, frames finished (own/relay),",
     "             timeouts, relays cancelled, the last frame's air time seen vs predicted,",
@@ -729,19 +749,72 @@ static void run(char* line) {
      * the rtp line (0.9.79) and ~420 with the leak warning. As one say() the rtp line — the
      * hot-mic check — was the part that got cut. */
     extern int audioStateDump(char* out, int cap);
+    extern int musicStateDump(char* out, int cap);
     char buf[512];
     audioStateDump(buf, sizeof(buf));
-    for (char* p = buf; *p;) {
-      char* nl = strchr(p, '\n');
-      if (nl) {
-        *nl = '\0';
+    sayLines(buf);
+    /* The music feed's three lines after it, through the same buffer (not appended: 512 is
+     * what this task's stack was given for this, and the two together run past it). */
+    musicStateDump(buf, sizeof(buf));
+    sayLines(buf);
+    return;
+  }
+  /* `music` — the feed alone; `music reset` zeroes its counters (a clean window for a bench:
+   * reset, wait, read); `music swap on|off` flips the mono sample-pair swap, live, for an A/B
+   * by ear (see MusicFeed::swapPairs). Nothing here is stored. */
+  if (!strncasecmp(line, "music", 5) && (line[5] == '\0' || line[5] == ' ')) {
+    extern Audio* audio;
+    extern int musicStateDump(char* out, int cap);
+    const char* arg = line + 5;
+    while (*arg == ' ') arg++;
+    if (!strcasecmp(arg, "reset")) {
+      audio->musicResetStats();
+      say("music: counters zeroed\n");
+    } else if (!strncasecmp(arg, "swap", 4)) {
+      const char* v = arg + 4;
+      while (*v == ' ') v++;
+      if (!strcasecmp(v, "on") || !strcasecmp(v, "off")) {
+        audio->musicSetSwap(!strcasecmp(v, "on"));
+      } else if (*v) {
+        say("music: usage music swap on|off\n");
+        return;
       }
-      sayLine(p);
-      if (!nl) {
-        break;
-      }
-      p = nl + 1;
+      say("music: pair swap %s (from the next frame decoded)\n", audio->musicSwap() ? "ON" : "off");
+      return;
+    } else if (*arg) {
+      say("music: usage music | music reset | music swap on|off\n");
+      return;
     }
+    char buf[512];
+    musicStateDump(buf, sizeof(buf));
+    sayLines(buf);
+    return;
+  }
+  /* `audio tone old|clean|flat` — the codec's bass boost / treble shelf / de-emphasis, live
+   * (a codec reconfigure if it is powered), NOT stored: a reboot is back to `clean`. For the
+   * A/B by ear that picks the default; see WM8750::setTone() for why it changed. */
+  if (!strncasecmp(line, "audio tone", 10) && (line[10] == '\0' || line[10] == ' ')) {
+    extern Audio* audio;
+    static const char* const TONES[] = {"old", "clean", "flat"};
+    const char* arg = line + 10;
+    while (*arg == ' ') arg++;
+    if (*arg) {
+      int t = -1;
+      for (int i = 0; i < 3; i++) {
+        if (!strcasecmp(arg, TONES[i])) {
+          t = i;
+        }
+      }
+      if (t < 0) {
+        say("audio tone: usage audio tone old|clean|flat\n");
+        return;
+      }
+      audio->setCodecTone((uint8_t)t);
+    }
+    const uint8_t now = audio->codecTone();
+    say("audio tone: %s%s\n", now < 3 ? TONES[now] : "?",
+        now == 0 ? " (0.9.78: linear +9 dB bass, -6 dB treble, 44.1k de-emphasis)" :
+        now == 1 ? " (adaptive bass boost, no treble cut, no de-emphasis)" : " (no tone control)");
     return;
   }
   /* `audio orphan` — arm an RTP session with no call (receive only: no microphone, nothing

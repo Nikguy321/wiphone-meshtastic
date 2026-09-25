@@ -11,17 +11,14 @@
  * worth the effort here: every failure mode in this layer is silent. A mis-skipped tag
  * or a sync word found inside album art does not crash, it produces noise or nothing.
  *
- * ── WHY THE OUTPUT IS A RING BUFFER AND NOT A FRAME ─────────────────────────────────
+ * ── WHERE THE SLACK LIVES (corrected 0.9.79) ────────────────────────────────────────
  *
- * Audio::loop() runs from the main loop, which also draws the screen, services WiFi,
- * writes to SD and runs the mesh. A decoder that hands over exactly one frame whenever
- * the main loop happens to ask would stutter every time something else took longer than
- * 26 ms — and screen redraws and SD reads both do.
- *
- * So decode runs AHEAD into a PSRAM ring and I2S drains it. The ring is the slack that
- * absorbs main-loop jitter, and it is why this does not need its own task on core 0:
- * a few hundred milliseconds of buffer is worth more than a scheduler here, and it does
- * not put a second thread anywhere near the I2S peripheral that SIP calls also use.
+ * This header used to say decode ran ahead "into a PSRAM ring" that absorbed main-loop
+ * jitter. There never was such a ring, and one could not have helped: during a stall of the
+ * loop NOTHING moves samples from a PSRAM ring into the DMA, because the loop is the only
+ * thing that writes I2S. The only slack music has is the I2S DMA ring itself, which lives in
+ * INTERNAL RAM. music_feed.h is where that ring is sized (mono, half rate, 24 x 512 samples,
+ * ~0.5 s) and where the per-pass feed and the honest drop counter live.
  */
 
 #ifndef MP3_STREAM_H
@@ -36,6 +33,10 @@
 
 /* 1152 samples x 2 channels: one frame, and exactly what Audio::playDec is sized for. */
 #define MP3_MAX_FRAME_SAMPLES 2304
+
+/* decode()'s code for a frame stepped over because its main data begins in bytes this
+ * decoder never saw (the frame after a seek). See the 🛑 note in decode(). */
+#define MP3_SKIPPED_RESERVOIR (-2)
 
 struct Mp3Info {
   int sampleRate;
@@ -73,18 +74,30 @@ public:
   void end();
   bool ready() const { return dec != 0; }
 
-  /* Forget the current file's buffered bytes and decoder history. Call between tracks;
-   * the decoder allocation is kept, because tearing 29 KB down and up between every
-   * track is how PSRAM gets fragmented. */
+  /* Forget the current file's buffered bytes and decoder history. Call between tracks
+   * AND ON EVERY SEEK; the decoder allocation is kept, because tearing 29 KB down and up
+   * between every track is how PSRAM gets fragmented.
+   * 🛑 "Decoder history" includes helix's own: its bit reservoir, IMDCT overlap and
+   * filterbank (MP3ResetDecoder, 0.9.79). Until then this cleared only OUR buffer, so a
+   * resume decoded its first frame against the reservoir of the place it paused at. */
   void reset();
 
   size_t space() const { return MP3_INBUF_BYTES - inLen; }
+  size_t buffered() const { return inLen; }
   size_t fill(const uint8_t* data, size_t len);   // returns bytes accepted
+  /* Bytes the last successful decode() took out of the buffer for its frame (header, side
+   * info and main data - not junk skipped ahead of it). The feed uses it to know the file
+   * offset of every frame it plays, which is what a resume returns to. */
+  size_t lastFrameBytes() const { return lastFrame; }
 
-  /* Decode one frame into `out` (needs MP3_MAX_FRAME_SAMPLES shorts).
-   * Returns samples written, 0 if more input is needed, -1 on a corrupt frame that was
-   * skipped. A corrupt frame is NOT fatal: MP3 is designed to resynchronise, and a
-   * damaged download should cost a crackle, not the rest of the album. */
+  /* Decode one frame into `out` (needs MP3_MAX_FRAME_SAMPLES shorts). Returns:
+   *   > 0  samples written;
+   *     0  more input is needed (INDATA_UNDERFLOW: the frame is not all here yet);
+   *    -1  a corrupt frame was stepped over;
+   *    -2  (MP3_SKIPPED_RESERVOIR) a frame whose bit reservoir is missing was stepped over.
+   * A corrupt frame is NOT fatal: MP3 is designed to resynchronise, and a damaged
+   * download should cost a crackle, not the rest of the album. Both negatives mean "keep
+   * decoding", never "wait for bytes". */
   int decode(int16_t* out, Mp3Info* info);
 
   /* True once a frame has decoded, so the caller knows the real rate and channel count.
@@ -101,6 +114,7 @@ private:
    * on this phone belongs in PSRAM. */
   uint8_t* inBuf;
   size_t  inLen;
+  size_t  lastFrame;
   bool    gotFormat;
   Mp3Info fmt;
 

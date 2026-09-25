@@ -244,12 +244,18 @@ void MusicApp::drawNowPlaying() {
   y += lh + 2;
 
   {
+    /* drops: the ring CERTAINLY ran dry (an audible gap), counted by music_feed's bounded
+     * lead; buf: seconds of audio queued ahead of the ear right now. This line was "gaps:"
+     * until 0.9.79 — a count of short card reads that read 8-9 a second on every 192 kbps
+     * file with no gap at all, and 0 through real ones. See music_feed.h. */
     const MusicRepeat r = musicPlayerRepeat();
-    const uint32_t dry = musicPlayerUnderruns();
-    snprintf(line, sizeof(line), "%s%s%s%lu",
+    MusicStats st;
+    const bool have = musicPlayerFeedStats(&st);
+    const int32_t bufMs = have && st.leadMs > 0 ? st.leadMs : 0;
+    snprintf(line, sizeof(line), "%s%sdrops:%lu buf:%ld.%lds",
              musicPlayerShuffle() ? "shuffle " : "",
              r == MUSIC_REPEAT_ONE ? "repeat one " : (r == MUSIC_REPEAT_ALL ? "repeat all " : ""),
-             "gaps:", (unsigned long)dry);
+             (unsigned long)(have ? st.drops : 0), (long)(bufMs / 1000), (long)((bufMs % 1000) / 100));
     lcd.setTextColor(TFT_DARKGREY, BLACK);
     lcd.fillRect(MUSIC_MARGIN, y, clearW, lh, BLACK);   // cleared even when empty
     lcd.drawString(line, MUSIC_MARGIN, y);

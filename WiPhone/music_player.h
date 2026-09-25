@@ -24,6 +24,7 @@
 #define MUSIC_PLAYER_H
 
 #include "music_lib.h"
+#include "music_feed.h"
 
 /* Where uploads land, and the first place the library is scanned. `/roms` and `/` are
  * also scanned, for the same reason Books does it: the Game Boy uploader has no
@@ -61,9 +62,12 @@ const char* musicPlayerError();       // last failure, or NULL
  * for a progress line on screen, not for seeking. */
 uint32_t musicPlayerElapsed();
 
-/* Times the audio buffer ran dry on the current track — each one is an audible gap.
- * Shown on the now-playing screen so "it crackles a bit" can become a number. */
-uint32_t musicPlayerUnderruns();
+/* The music feed's counters for the track playing (or last played): `drops` — the ring
+ * CERTAINLY ran dry — and the buffered seconds, shown on the now-playing screen so "it
+ * crackles a bit" can become a number. What each can and cannot claim is at the top of
+ * music_feed.h. (This replaced 0.9.78's "gaps", which counted arithmetic: 8.6 a second on
+ * every 192 kbps file with no dropout at all.) False before any track has been opened. */
+bool musicPlayerFeedStats(MusicStats* out);
 
 /* ── Volume ─────────────────────────────────────────────────────────────────────────
  * In dB, the units the WM875x codec actually takes: -69 is mute, +6 is maximum.
