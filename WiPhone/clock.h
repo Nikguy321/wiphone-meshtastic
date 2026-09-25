@@ -42,14 +42,17 @@ public:
   /* ── KNOWN vs TRUSTED (0.9.79) ───────────────────────────────────────────────────────────
    * KNOWN: any source set it — ntp, gps, or mesh. Right for what this phone SHOWS: the clock,
    * message times, "5 min ago", the sun times.
-   * TRUSTED: ntp or gps. 🛑 Required by everything that LEAVES the phone or DESTROYS something
-   * on the strength of the time — those all needed a known clock before 0.9.79, which meant
-   * NTP, and a mesh time must not quietly lower that bar:
+   * TRUSTED: ntp or gps. 🛑 Required by everything that LEAVES the phone, DESTROYS or SILENCES
+   * something on the strength of the time — those all needed a known clock before 0.9.79,
+   * which meant NTP, and a mesh time must not quietly lower that bar:
    *   the position beacon's time (a second-hand mesh time on the air would come back as an
    *     "independent" witness for somebody else's mesh vote), booksync's turnedAt (x2, compared
    *     on COVEY), the "their clock looks wrong" test, the replay ring's stamps (served to
-   *     COVEY), waypoint expiry (deletes camp), and KOSync (its "provably older" HIDES a place,
-   *     and it stamps the time it serves to the X4).
+   *     COVEY), waypoint expiry (deletes camp), KOSync (its "provably older" HIDES a place,
+   *     and it stamps the time it serves to the X4), and the mirrored-text buzz's "is it
+   *     recent" (sms_mirror_rx.cpp: a clock ahead would hush real arrivals).
+   * ⚠ A NEW CALLER THAT ACTS ON THE TIME ASKS isTimeTrusted(). The buzz gate was missed in
+   * the first sweep precisely because isTimeKnown() still compiles and still reads right.
    * A mesh clock is KNOWN and not TRUSTED, so for all of those it is exactly the unknown clock
    * it replaced: nothing another device sees changes. See clock_source.h. */
   bool isTimeKnown()      {

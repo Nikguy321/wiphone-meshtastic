@@ -267,8 +267,9 @@ had had a fix. The rules are all in `clock_source.{h,cpp}` (host suite `tests/te
 
 - **GPS time**: with `gps on`, an RMC with status `A` and its OWN full date and time sets the clock —
   once a SECOND consecutive reading agrees (next second, and its seconds match the millis() between
-  them within 1 s), in a year from 2026 to 2099 (a GPS week-rollover date lands in 2006 and is
-  refused). It sets an unset clock, replaces a mesh-set one, and corrects a clock more than 2 s out —
+  them within 1 s), in a year from 2026 to 2079 (a GPS week-rollover date lands in 2006 and is
+  refused; so is a receiver's two-digit DEFAULT year 80..99 — `060180` is the 1980 GPS epoch, which
+  2000 + yy reads as 2080 — the same ceiling as COVEY's `gpstime.py`). It sets an unset clock, replaces a mesh-set one, and corrects a clock more than 2 s out —
   but **never while NTP has set it in the last 30 minutes**: NTP stays in charge when it is present
   (a disagreement is logged, at most every 10 min). A `V` (no-fix) sentence's time is NOT used even
   when it looks complete: u-blox prints RTC / first-satellite time before a fix. Modes `E` (dead
@@ -276,17 +277,22 @@ had had a fix. The rules are all in `clock_source.{h,cpp}` (host suite `tests/te
 - **Mesh time, for a phone without GPS** (phone 1): a received Position's `time` fills an UNSET
   clock only — one packet on a private channel, or two DIFFERENT nodes agreeing within 60 s on a
   public one (LongFast is anyone's). It never overrides anything, and NTP or GPS replaces it.
+  ⚠ It CAN be spoofed, ahead as well as behind, even on a private channel: channel crypto is
+  AES-CTR with no MAC, so a recorded Position's time bytes can be bit-flipped and replayed without
+  the key. What bounds that is that a mesh clock is never trusted (below), not these rules.
 - **Known vs trusted**: a mesh clock is shown (clock, message times, `sun`, which warns) but NOT
-  trusted — KOSync, waypoint expiry, the position beacon's time, booksync's turnedAt and the replay
-  ring's stamps all treat it as unknown, so nothing any other device sees changes and nothing is
-  deleted on its word. GPS is trusted like NTP (KOSync's "provably older" uses it). This phone never
+  trusted — KOSync, waypoint expiry, the position beacon's time, booksync's turnedAt, the replay
+  ring's stamps and the mirrored-text buzz's "is it recent" all treat it as unknown, so nothing any
+  other device sees changes, nothing is deleted and no real arrival is hushed on its word. GPS is trusted like NTP (KOSync's "provably older" uses it). This phone never
   puts a mesh-derived time back on the air.
 - **FIX (latent): `minuteTick` read "the loop's `now` is before the last set" as the millis() wrap
   and added ~49.7 days.** NTP's thread could land a set in that window (microseconds wide); the new
   sets make it matter more, so a negative gap now counts as nothing passed.
 - **Serial `clock`** (or `time`): the time, its source and age, NTP freshness, the last GPS and mesh
   verdicts, and gps-minus-clock in ms; `gps` gains a `gps: time -> ...` line. **HEALTH gains
-  ` clk=<none|ntp|gps|mesh>/<minutes since set>`.** Log lines: `CLOCK: set from GPS -> ...`,
+  ` clk=<none|ntp|gps|mesh>/<minutes since set>`**, last on the line after `pll=`/`csw=`; the line
+  is now ~232 of its 255 bytes, so a clk= that would not fit is dropped whole, never cut to a
+  different number (a line with no clk= at all ran out of room). Log lines: `CLOCK: set from GPS -> ...`,
   `CLOCK: set from the MESH -> ...`, `CLOCK: NTP set the clock (it was gps; moved N ms)`.
 
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices

@@ -10,10 +10,10 @@
  *
  * Every expected epoch below was computed INDEPENDENTLY in Python
  * (datetime(..., tzinfo=timezone.utc).timestamp()), not by the code under test:
- *   2026-01-01 00:00:00  1767225600      2100-01-01 00:00:00  4102444800
+ *   2026-01-01 00:00:00  1767225600      2080-01-01 00:00:00  3471292800
  *   2026-08-13 12:35:19  1786624519      2028-02-29 06:00:00  1835416800
  *   2026-08-13 23:59:59  1786665599      2026-08-14 00:00:01  1786665601
- *   2026-08-14 00:00:02  1786665602      2099-12-31 23:59:59  4102444799
+ *   2026-08-14 00:00:02  1786665602      2079-12-31 23:59:59  3471292799
  */
 
 #include "../WiPhone/clock_source.h"
@@ -118,8 +118,8 @@ int main() {
     CHECK(clockCivilToUnixMs(2026, 1, 1, 0, 0, 0, 0, &ms) && ms == 1767225600000LL,
           "2026-01-01 = CLOCK_UNIX_MIN (python)");
     CHECK(ms / 1000 == CLOCK_UNIX_MIN, "CLOCK_UNIX_MIN constant matches the arithmetic");
-    CHECK(clockCivilToUnixMs(2099, 12, 31, 23, 59, 59, 0, &ms) && ms == 4102444799000LL,
-          "2099-12-31 23:59:59 accepted (python)");
+    CHECK(clockCivilToUnixMs(2079, 12, 31, 23, 59, 59, 0, &ms) && ms == 3471292799000LL,
+          "2079-12-31 23:59:59 accepted (python)");
     CHECK(ms / 1000 + 1 == CLOCK_UNIX_LIMIT, "CLOCK_UNIX_LIMIT is the next second");
     CHECK(clockCivilToUnixMs(2028, 2, 29, 6, 0, 0, 0, &ms) && ms == 1835416800000LL,
           "29 Feb 2028 (leap) accepted (python)");
@@ -133,7 +133,9 @@ int main() {
     CHECK(!clockCivilToUnixMs(2026, 1, 1, 0, 60, 0, 0, &ms), "minute 60 refused");
     CHECK(!clockCivilToUnixMs(2026, 1, 1, 0, 0, 60, 0, &ms), "leap second :60 refused");
     CHECK(!clockCivilToUnixMs(2025, 12, 31, 23, 59, 59, 0, &ms), "2025 refused (floor)");
-    CHECK(!clockCivilToUnixMs(2100, 1, 1, 0, 0, 0, 0, &ms), "2100 refused (ceiling)");
+    CHECK(!clockCivilToUnixMs(2080, 1, 1, 0, 0, 0, 0, &ms), "2080 refused (ceiling)");
+    CHECK(!clockCivilToUnixMs(2099, 12, 31, 23, 59, 59, 0, &ms), "2099 refused (an NMEA '99')");
+    CHECK(CLOCK_UNIX_LIMIT == 3471292800u, "CLOCK_UNIX_LIMIT = 2080-01-01T00:00:00Z (python)");
     CHECK(clockUnixSane(CLOCK_UNIX_MIN) && !clockUnixSane(CLOCK_UNIX_MIN - 1), "sane floor");
     CHECK(clockUnixSane(CLOCK_UNIX_LIMIT - 1) && !clockUnixSane(CLOCK_UNIX_LIMIT), "sane ceiling");
   }
@@ -209,8 +211,17 @@ int main() {
           "year 00 -> 2000 -> BAD_YEAR");
     CHECK(judge(r, "123519.00", 'A', "130825", "A", &why) == -1 && why == CLK_GPS_BAD_YEAR,
           "2025 -> BAD_YEAR (older than this firmware)");
-    CHECK(judge(r, "235959.00", 'A', "311299", "A", &why) == 4102444799000LL,
-          "2099-12-31 23:59:59 accepted (python)");
+    CHECK(judge(r, "235959.00", 'A', "311279", "A", &why) == 3471292799000LL,
+          "2079-12-31 23:59:59 accepted (python)");
+    /* 🛑 THE 80..99 DEFAULTS. Two-digit years a receiver prints before it knows the time. As
+     * 2000 + yy they are well-formed dates decades ahead, and on the GPS path a pair of them
+     * would be a TRUSTED clock (clock_source.h, SANE YEARS). */
+    CHECK(judge(r, "000015.00", 'A', "060180", "A", &why) == -1 && why == CLK_GPS_BAD_YEAR,
+          "🛑 060180 (the 1980 GPS epoch, read as 2080) -> BAD_YEAR");
+    CHECK(judge(r, "235959.00", 'A', "311299", "A", &why) == -1 && why == CLK_GPS_BAD_YEAR,
+          "a '99' (2099) -> BAD_YEAR");
+    CHECK(judge(r, "000000.00", 'A', "010180", "A", &why) == -1 && why == CLK_GPS_BAD_YEAR,
+          "2080-01-01 00:00:00, the first refused second -> BAD_YEAR");
     CHECK(judge(r, "060000.00", 'A', "290228", "A", &why) == 1835416800000LL,
           "29 Feb 2028 accepted (python)");
     CHECK(judge(r, "060000.00", 'A', "290227", "A", &why) == -1 && why == CLK_GPS_BAD_DATE,
@@ -392,7 +403,14 @@ int main() {
     CHECK(clockMeshOffer(&v, CLOCK_SRC_NONE, 0x1234, true, CLOCK_UNIX_MIN - 1, 1000, &adopt) ==
           CLK_MESH_BAD_YEAR, "2025 refused, even privately");
     CHECK(clockMeshOffer(&v, CLOCK_SRC_NONE, 0x1234, true, CLOCK_UNIX_LIMIT, 1000, &adopt) ==
-          CLK_MESH_BAD_YEAR, "2100 refused");
+          CLK_MESH_BAD_YEAR, "the ceiling refused");
+    CHECK(clockMeshOffer(&v, CLOCK_SRC_NONE, 0x1234, true, 3471292800u, 1000, &adopt) ==
+          CLK_MESH_BAD_YEAR, "🛑 2080-01-01 (a stock node's TinyGPS++ '80' default) refused, even privately");
+    CHECK(clockMeshOffer(&v, CLOCK_SRC_NONE, 0x1234, true, 3471724800u, 1000, &adopt) ==
+          CLK_MESH_BAD_YEAR, "2080-01-06 (the 1980 GPS epoch as 2080, python) refused");
+    CHECK(clockMeshOffer(&v, CLOCK_SRC_NONE, 0x1234, false, 4102444799u, 1000, &adopt) ==
+          CLK_MESH_BAD_YEAR && clockMeshVoteCount(&v, 1000) == 0,
+          "2099 refused on a public channel, and not even held as a candidate");
     CHECK(clockMeshOffer(&v, CLOCK_SRC_NONE, 0, true, T, 1000, &adopt) == CLK_MESH_BAD_NODE &&
           clockMeshOffer(&v, CLOCK_SRC_NONE, 0xFFFFFFFFu, true, T, 1000, &adopt) ==
           CLK_MESH_BAD_NODE, "node 0 / broadcast refused");

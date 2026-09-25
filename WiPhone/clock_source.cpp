@@ -73,7 +73,7 @@ const char* clockVerdictText(int v) {
   case CLK_GPS_NO_TIME:        return "RMC has no usable time";
   case CLK_GPS_NO_DATE:        return "RMC has no usable date";
   case CLK_GPS_BAD_DATE:       return "RMC date/time is not a real instant";
-  case CLK_GPS_BAD_YEAR:       return "RMC year outside 2026-2099 (week rollover?)";
+  case CLK_GPS_BAD_YEAR:       return "RMC year outside 2026-2079 (rollover or default?)";
   case CLK_GPS_FIRST:          return "one good reading, waiting for the next to agree";
   case CLK_GPS_NOT_LATER:      return "next reading did not move forward";
   case CLK_GPS_GAP:            return "too long between readings";
@@ -84,7 +84,7 @@ const char* clockVerdictText(int v) {
   case CLK_GPS_KEEP_AGREES:    return "kept - agrees within 2 s";
   case CLK_GPS_KEEP_NTP_FRESH: return "kept - NTP set it recently and stays in charge";
   case CLK_MESH_NO_TIME:       return "position carried no time";
-  case CLK_MESH_BAD_YEAR:      return "position time outside 2026-2099";
+  case CLK_MESH_BAD_YEAR:      return "position time outside 2026-2079";
   case CLK_MESH_BAD_NODE:      return "not a real sender";
   case CLK_MESH_CLOCK_KNOWN:   return "clock already set - mesh never overrides";
   case CLK_MESH_WAIT:          return "public channel - held until a second node agrees";
@@ -120,7 +120,9 @@ bool clockGpsRmcTime(const NmeaFix* fx, int64_t* utcMs, int* why) {
     const int dd = fx->rmcDmy / 10000, mo = (fx->rmcDmy / 100) % 100, yy = fx->rmcDmy % 100;
     /* NMEA's year is two digits. 2000 + yy covers everything this firmware can meet; a
      * rollover date (2006/2007) lands below 2026 and is refused as BAD_YEAR, not as a bad
-     * date — the distinction is the whole diagnosis. */
+     * date — the distinction is the whole diagnosis. 🛑 So does a receiver DEFAULT: 80..99
+     * (`060180` is the 1980 GPS epoch) reads as 2080..2099, above CLOCK_YEAR_LIMIT — see
+     * SANE YEARS in the header for why that ceiling is 2080 and not 2100. */
     const int year = 2000 + yy;
     if (year < CLOCK_YEAR_MIN || year >= CLOCK_YEAR_LIMIT) {
       w = CLK_GPS_BAD_YEAR;

@@ -143,10 +143,13 @@ int smsMirrorIngestLine(const char* line, bool* wasIncoming) {
      * gap, COVEY catching up after ITS fix) without letting an archive vibrate. When the
      * clock is not yet known the buzz wins over silence: a wrongly silent real arrival
      * is the exact fault this feature exists to fix. The UI latch is unconditional —
-     * the screen should refresh whatever the age. */
+     * the screen should refresh whatever the age.
+     * 🛑 TRUSTED (ntp/gps), not merely known (0.9.79): a mesh-set clock is one nobody
+     * vouched for (clock_source.h — it can be spoofed AHEAD), and one ten minutes fast would
+     * silence every real arrival. It counts as unknown here, so the buzz wins. */
     s_newStored = true;
     if (!rec.out) {
-      const bool recent = !ntpClock.isTimeKnown() || rec.ts == 0 ||
+      const bool recent = !ntpClock.isTimeTrusted() || rec.ts == 0 ||
                           /* UTC: rec.ts is COVEY's real UTC stamp. Against the local-shifted
                            * epoch the "ten minutes of slack" above was really EIGHT HOURS ten
                            * minutes, so a full resync buzzed for everything under 8 h. */

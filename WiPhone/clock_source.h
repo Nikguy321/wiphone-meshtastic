@@ -15,15 +15,17 @@
  *         under a microsecond; everything between it and this clock (the NMEA output delay,
  *         the UART, the loop) costs a few hundred ms, and the clock only keeps seconds.
  *   mesh  a Meshtastic Position packet's `time` field, for phones with no GPS. LOWER TRUST:
- *         nothing on the air is authenticated beyond a channel key (see the spoofing note at
- *         clockMeshOffer), so it only ever fills an UNKNOWN clock, and trusted() is false.
+ *         nothing on the air is authenticated — a channel key encrypts but does not
+ *         authenticate (AES-CTR, no MAC: see the spoofing note at clockMeshOffer) — so it only
+ *         ever fills an UNKNOWN clock, and trusted() is false.
  *
  * isTimeKnown() is true for any of them (a clock on the screen, message times, "5 min ago").
- * clockSourceTrusted() is the bar for everything that either LEAVES the phone or DESTROYS
- * something on the strength of the time — the position beacon's time, booksync's turnedAt,
- * the replay ring, waypoint expiry, KOSync's "provably older". Those all required a known
- * clock before 0.9.79, which meant NTP; they now require ntp or gps, never mesh, so a mesh
- * clock changes NOTHING any other device sees and deletes nothing. (clock.h has the list.)
+ * clockSourceTrusted() is the bar for everything that either LEAVES the phone, DESTROYS or
+ * SILENCES something on the strength of the time — the position beacon's time, booksync's
+ * turnedAt, the replay ring, waypoint expiry, KOSync's "provably older", the mirrored-text
+ * buzz's "is it recent". Those all required a known clock before 0.9.79, which meant NTP; they
+ * now require ntp or gps, never mesh, so a mesh clock changes NOTHING any other device sees,
+ * deletes nothing and hushes nothing. (clock.h has the list.)
  *
  * Pure C++, no Arduino: tests/test_clocksrc.cpp runs every rule here on a Mac, fed through the
  * shipping NMEA reader (nmea.cpp). clock.cpp is only the glue: it takes the mutex, asks these
@@ -45,14 +47,27 @@ const char* clockSourceName(int src);           // "none" "ntp" "gps" "mesh"
 bool        clockSourceTrusted(int src);        // ntp or gps
 
 /* ── SANE YEARS ────────────────────────────────────────────────────────────────────────────
- * 2026 <= year < 2100. The floor is this firmware's own year: nothing it will ever see is
+ * 2026 <= year < 2080. The floor is this firmware's own year: nothing it will ever see is
  * older, and it is exactly the bar a GPS WEEK-ROLLOVER date fails — a receiver that has lost
  * track of the 1024-week era reports 2006/2007 (19.6 years back), which would otherwise be a
- * perfectly well-formed date. The ceiling keeps the arithmetic inside uint32_t seconds. */
+ * perfectly well-formed date.
+ *
+ * 🛑 THE CEILING IS 2080, NOT 2100, AND THAT IS NOT ABOUT ARITHMETIC. NMEA's year is TWO
+ * digits on the wire, and 80..99 is how a receiver with no time yet reads out its DEFAULTS:
+ * `060180` is the GPS epoch (1980-01-06), and 99/00 come out of resets. Read as 2000 + yy —
+ * which is what clockGpsRmcTime() does, and what TinyGPS++'s year() does inside every stock
+ * Meshtastic node, so the SAME default reaches us over the mesh as a Position time in 2080 —
+ * those are well-formed dates 54 years in the future. With a 2100 ceiling (0.9.79's first
+ * cut) a pair of 'A' RMCs carrying one would have become a TRUSTED clock: stamped on every
+ * position beacon, expiring every pin at the next sweep, hiding every KOSync place as
+ * "provably older" — and every later GPS pair would AGREE with it, so only NTP could undo it.
+ * COVEY's own GPS-time code draws the same line for the same reason (covey_ui/gpstime.py,
+ * MAX_YEAR = 2079), so the two devices refuse the same dates. Whoever is still flashing this
+ * firmware in 2079 has 53 years' notice. */
 #define CLOCK_YEAR_MIN            2026
-#define CLOCK_YEAR_LIMIT          2100                 // first year NOT accepted
+#define CLOCK_YEAR_LIMIT          2080                 // first year NOT accepted (COVEY: MAX_YEAR 2079)
 #define CLOCK_UNIX_MIN            1767225600u          // 2026-01-01T00:00:00Z (test-checked)
-#define CLOCK_UNIX_LIMIT          4102444800u          // 2100-01-01T00:00:00Z (test-checked)
+#define CLOCK_UNIX_LIMIT          3471292800u          // 2080-01-01T00:00:00Z (test-checked)
 bool clockUnixSane(uint32_t unixSec);
 
 /* A calendar UTC instant -> ms since 1970. False (out untouched) unless it is a real instant
@@ -71,7 +86,7 @@ enum ClockVerdict {
   CLK_GPS_NO_TIME,                  // the RMC's own time field empty or garbled
   CLK_GPS_NO_DATE,                  // ...its date field
   CLK_GPS_BAD_DATE,                 // not a calendar instant (31 Sep, 24:00, :60)
-  CLK_GPS_BAD_YEAR,                 // outside 2026..2099 (a week-rollover date)
+  CLK_GPS_BAD_YEAR,                 // outside 2026..2079 (a week-rollover date, an 80..99 default)
   /* Two readings. */
   CLK_GPS_FIRST,                    // one good reading, waiting for the next to agree
   CLK_GPS_NOT_LATER,                // the next did not move forward (repeat or backwards)
@@ -85,7 +100,7 @@ enum ClockVerdict {
   CLK_GPS_KEEP_NTP_FRESH,           // kept: NTP set it recently and stays authoritative
   /* A mesh Position's time. */
   CLK_MESH_NO_TIME,                 // the packet carried no time (stock nodes strip it)
-  CLK_MESH_BAD_YEAR,                // outside 2026..2099
+  CLK_MESH_BAD_YEAR,                // outside 2026..2079
   CLK_MESH_BAD_NODE,                // node 0 / broadcast: not a sender
   CLK_MESH_CLOCK_KNOWN,             // the clock is set: the mesh never overrides it
   CLK_MESH_WAIT,                    // public channel: held until a second node agrees
@@ -188,7 +203,7 @@ int clockGpsStep(ClockGpsPair* p, const NmeaFix* fx, uint32_t rxMs, const ClockN
  * For phones with no GPS (phone 1). A Meshtastic Position's `time` (field 4) is the sender's
  * clock when it took the position. Adopted ONLY when:
  *   - this clock is NOT SET — the mesh never overrides ntp, gps, or an earlier mesh time;
- *   - the time is in a sane year (2026..2099);
+ *   - the time is in a sane year (2026..2079 — a 2080 is a stock node's GPS default, above);
  *   - and EITHER it arrived on a PRIVATE channel (a key that is not the well-known default and
  *     not empty — MeshtasticService::channelIsPublic() is the test), where one packet is
  *     enough; OR, on a public channel, TWO DIFFERENT nodes agree within CLOCK_MESH_AGREE_S
@@ -207,14 +222,28 @@ int clockGpsStep(ClockGpsPair* p, const NmeaFix* fx, uint32_t rxMs, const ClockN
  * ⚠ THE SPOOFING TRADE-OFF, stated plainly. Nothing on the mesh is authenticated beyond the
  * channel key. On LongFast anyone can transmit, under ANY node number — "two different nodes"
  * defends against one misconfigured radio, not against somebody who means it, and who can
- * invent two node numbers as easily as one. On a private channel an outsider without the key
- * can still REPLAY a recorded packet (the packet-id dedup is a short window), which sets this
- * clock to the moment it was recorded: behind, never ahead. What bounds the damage is not
- * these rules but where a mesh time is allowed to go: it is never trusted (KOSync ignores it,
- * waypoints never expire on it, nothing this phone transmits carries it), it never replaces
- * a set clock, and NTP or GPS replaces IT the first time either appears. What it can get
- * wrong is what the phone SHOWS — the clock, message times, and the `sun` legal-light times,
- * which say "clock from the mesh" when it is. */
+ * invent two node numbers as easily as one.
+ *
+ * 🛑 A PRIVATE CHANNEL DOES NOT BOUND THE TIME EITHER — not even to "behind". (0.9.79's first
+ * cut said a keyless outsider could only replay a packet, setting the clock to when it was
+ * recorded, "behind, never ahead". That was wrong.) Meshtastic channel crypto is AES-CTR with
+ * NO MAC (meshCryptCtr, mesh_crypto.cpp): the ciphertext is the plaintext XOR a keystream, so
+ * flipping a ciphertext bit flips the same plaintext bit and nothing notices. A Position's
+ * plaintext is predictable — meshPosBuild() writes fixed32 lat, lon and time at fixed
+ * offsets, and the time is about the moment the packet was heard — so an outsider who
+ * recorded ONE timed Position off the channel can XOR any delta into those four bytes, keep
+ * the sender and packet id (they ARE the nonce; changing them changes the keystream), wait
+ * out the 16-entry packet-id dedup (seenPacketId), and replay it. That puts nearly ANY time
+ * on this phone, AHEAD included, with no key. It needs someone in range, recording, who knows
+ * the format: a deliberate act, not an accident — but these rules do not stop it.
+ *
+ * WHAT DOES BOUND THE DAMAGE is where a mesh time is allowed to go, not how it got in: it is
+ * never TRUSTED (KOSync ignores it, waypoints never expire on it, the mirrored-text buzz gate
+ * treats it as unknown, nothing this phone transmits carries it — so it is never re-radiated),
+ * it never replaces a set clock, and NTP or GPS replaces IT the first time either appears.
+ * What it can get wrong is what the phone SHOWS — the clock, message times and their order,
+ * and the `sun` legal-light times, which say "via mesh" and "Mesh time: check it!" when it
+ * is. Any new caller that ACTS on the time must ask isTimeTrusted(), not isTimeKnown(). */
 #define CLOCK_MESH_AGREE_S         60
 #define CLOCK_MESH_CAND_MAX        4
 #define CLOCK_MESH_CAND_MAX_AGE_MS (60u * 60u * 1000u)   // older candidates are forgotten
