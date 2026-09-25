@@ -34,6 +34,7 @@ extern uint32_t heapDelta(const char* what, uint32_t before);  // WiPhone.ino - 
 #include <SPIFFS.h>           // node + message history persistence
 #include <SD.h>               // ...which now lives HERE when a card is in; see meshFs()
 #include "mesh_retain.h"      // which messages are worth writing down
+#include "mesh_dbfile.h"      // is a leftover temp file a WHOLE image (boot recovery)
 
 /* Mirrors MeshtasticService::cardIn so the file-scope filesystem helpers can see it without
  * every one of them taking a `this`. Refreshed at the top of the service's loop(). */
@@ -3012,7 +3013,9 @@ void MeshtasticService::saveDbStep() {
   free(saveBuf);
   saveBuf = NULL;
   saveActive = false;
-  /* Only now does the real file change: an interrupted save leaves the OLD database intact. */
+  /* Only now does the real file change: an interrupted save leaves the OLD database intact.
+   * ⚠ A cut BETWEEN these two calls leaves no /meshdb.bin and a whole /meshdb.tmp — boot puts
+   * it back (meshRecoverTmp, at the top of loadDb). */
   meshFs().remove(MESH_DB_PATH);
   if (!meshFs().rename(MESH_DB_TMP, MESH_DB_PATH)) {
     log_e("mesh: saveDb RENAME FAILED - database left as it was");
@@ -3021,8 +3024,54 @@ void MeshtasticService::saveDbStep() {
   log_i("mesh: saved %d nodes, %d msgs, %d waypoints", nodeCount, msgCount, waypointCount);
 }
 
+/* ── A SAVE CUT BETWEEN remove() AND rename() ───────────────────────────────────────────────
+ * The last two steps of saveDbStep()/saveFavourites() are remove(PATH) then rename(TMP, PATH):
+ * a power cut between them leaves the only good copy in TMP, with PATH gone. This finds exactly
+ * that state and puts TMP in PATH's place — only when TMP is WHOLE (mesh_dbfile.h: this build's
+ * header, and exactly the length its own counts say). Called at the top of loadDb() and
+ * loadFavourites(), in setup(), i.e. before any save can open TMP with "w" and truncate it.
+ * On the filesystem the saves write to NOW (meshFs()); that is the only one this can happen on.
+ * ⚠ fs.exists() rather than open(): a missing file is the normal case and open() logs it. */
+static void meshRecoverTmp(const char* path, const char* tmp, bool fav) {
+  fs::FS& fs = meshFs();
+  const char* fsName = s_meshCardIn ? "SD" : "SPIFFS";
+  if (fs.exists(path) || !fs.exists(tmp)) {
+    return;                                  // the normal case: nothing was cut
+  }
+  File f = fs.open(tmp, "r");
+  if (!f) {
+    return;
+  }
+  const size_t n = f.size();
+  bool whole = false;
+  if (n > 0 && n <= 512u * 1024u) {          // a card image is <= ~66 KB; anything huge is not ours
+    uint8_t* img = (uint8_t*)ps_malloc(n);
+    if (img) {
+      whole = f.read(img, n) == n &&
+              (fav ? meshFavImageComplete(img, n, MESH_FAV_MAGIC, MESH_MAX_FAVOURITES)
+                   : meshDbImageComplete(img, n, MESH_DB_MAGIC, MESH_DB_VERSION,
+                                         (uint16_t)sizeof(MeshNode), (uint16_t)sizeof(MeshMessage),
+                                         (uint16_t)sizeof(MeshWaypoint)));
+      free(img);
+    }
+  }
+  f.close();
+  if (!whole) {
+    log_e("MESH DB: %s%s is there without %s but is not a whole image (%u B) - left alone",
+          fsName, tmp, path, (unsigned)n);
+    return;
+  }
+  if (fs.rename(tmp, path)) {
+    log_e("MESH DB: RECOVERED %s%s from %s (%u B) - the last save was cut between its remove "
+          "and its rename", fsName, path, tmp, (unsigned)n);
+  } else {
+    log_e("MESH DB: %s%s is whole but the rename to %s FAILED", fsName, tmp, path);
+  }
+}
+
 void MeshtasticService::loadDb() {
   orderDirty = true;                       // freshly loaded: nothing is sorted yet
+  meshRecoverTmp(MESH_DB_PATH, MESH_DB_TMP, false);   // before anything reads (or truncates) it
   /* Prefer the card, then fall back to a database written before the move — that one is
    * migrated to the card by the next save.
    *
@@ -3289,6 +3338,7 @@ void MeshtasticService::applyFavouriteFlag(MeshNode* n) const {
 
 void MeshtasticService::loadFavourites() {
   favCount = 0;
+  meshRecoverTmp(MESH_FAV_PATH, MESH_FAV_TMP, true);  // the same cut window as the database
   /* Same two filesystems, named for the same reason as loadDb() — this also runs in setup()
    * and also read SPIFFS twice while every star the user set was written to the card. */
   File f;

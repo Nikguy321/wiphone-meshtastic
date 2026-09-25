@@ -122,6 +122,10 @@ queued**: a frame that fails to leave marks its message failed, a full queue say
 again", and the `MESH ANNOUNCE/POSITION/WAYPOINT` lines say `QUEUED`. The stall line splits `mesh` /
 `mesh-ui` / `mesh-post`. Serial: `radio`; `power` shows `lora=tx`. Host suite: `tests/test_txq.cpp`,
 `tests/check_mesh_tx.py`.
+- **A save cut between its remove and its rename no longer loses the chat history.** It left only
+  `/meshdb.tmp`, which boot ignored (the stale SPIFFS copy, or nothing, loaded instead) and the next save
+  truncated. Boot now renames a WHOLE temp file into place (its length must be exactly what its header's
+  counts say — `MESH DB: RECOVERED ...`); the star list gets the same. Host suite: `tests/test_dbfile.cpp`.
 
 ### Calls and music stop fighting over the codec; the SIP audit's leftovers (0.9.79 dev, 2026-09-25)
 

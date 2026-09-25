@@ -108,6 +108,10 @@ for src in tests/test_*.cpp; do
     # when due and cancelled on a duplicate, one start per pass. It replaced a transmit that held
     # the superloop for the frame's whole time on air - the 0.6-1.5 s 'mesh' STALL lines.
     test_txq)      deps=(WiPhone/mesh_txq.cpp) ;;
+    # Is a leftover /meshdb.tmp or /meshfav.tmp WHOLE? Boot renames one over a missing database
+    # (a save cut between its remove and its rename) - only if its length is exactly what its
+    # own header's counts say.
+    test_dbfile)   deps=(WiPhone/mesh_dbfile.cpp) ;;
     # Compiles the REAL helix decoder so a pass proves the bytes that ship are the bytes
     # that decode. helix is C and is listed in csrc, not deps — see CFLAGS above.
     test_mp3)      deps=(WiPhone/mp3_stream.cpp)
