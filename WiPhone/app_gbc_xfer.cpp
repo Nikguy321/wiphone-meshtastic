@@ -1881,13 +1881,34 @@ static bool transportUp(const char* apName, const char* pass, bool waitForSta, c
      * then follows the station's scan channels (the X4 cannot hold 'WiPhone-Books'), and a station
      * connect under a live softAP is the chip panic WiPhone.ino's reconnect gate exists for.
      * Released in transportDown() (and below, if the softAP fails) BEFORE the station is given
-     * back. No WiFi.disconnect(true) first: a radio stop/start for nothing, and it does not close
-     * the race by itself - the hold does. `wifi why` shows mode=3 if it ever happens anyway. */
+     * back.
+     *
+     * ⚠ THE HOLD NARROWS THE RACE; IT DOES NOT CLOSE IT. The core's handler (WiFiGeneric.cpp,
+     * STA_DISCONNECTED) reads getAutoReconnect() FIRST, then calls WiFi.disconnect(), whose
+     * esp_wifi_disconnect() waits on the WiFi task. Its "network_event" task outranks this loop
+     * (priority 19 against 1, both on core 1), so this line only ever runs while such a handler is
+     * blocked - and one blocked there is already past its flag read: its begin() lands after our
+     * mode(AP) and makes it AP+STA all the same. About a millisecond per NO_AP_FOUND, one every
+     * few seconds while the station hunts. So a softAP() that came up looks at the mode once more
+     * and switches a station that came back off (below, logged); a handler slower even than that
+     * shows as mode=3 in `wifi why`. No WiFi.disconnect(true) first: a radio stop/start for
+     * nothing, and it closes nothing the hold does not - the race is in a handler already running,
+     * not in the station's state. */
     wifiAutoReconnectHold(WIFI_AR_HOLD_HOTSPOT);
     WiFi.mode(WIFI_AP);
     const bool wpa2 = pass && pass[0];
     // 🛑 The passphrase goes to the driver and nowhere else: never into a log line.
     if (WiFi.softAP(apName, wpa2 ? pass : NULL)) {
+      /* The race the hold cannot close (above), caught when it has already landed. Nothing else
+       * turns the station on here: mode(AP) removed it and softAP() only adds the AP, so a
+       * station now is the core's begin() from a handler that read the flag before the hold. No
+       * client can have joined an AP this young, so even a mode change that restarts it costs
+       * nobody anything (not measured: the race has never been seen on the bench). */
+      if (WiFi.getMode() & WIFI_MODE_STA) {
+        log_e("XFER: the station came back beside the hotspot (the core's auto-reconnect, "
+              "already past its flag) - switched off");
+        WiFi.enableSTA(false);
+      }
       snprintf(s_addr, sizeof(s_addr), "%s", WiFi.softAPIP().toString().c_str());
       snprintf(s_apName, sizeof(s_apName), "%s", apName);
       s_apProtected = wpa2;

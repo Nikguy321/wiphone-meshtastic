@@ -107,6 +107,8 @@ no space before it (`pass#word`) is part of the value.
   behind "off"); a game and a hotspot hold it without undoing each other. `power sleep` refuses
   on the radio's real state. The loop's join retry no longer re-begins over the join a window
   close or a game exit started in the same pass, and restored joins get the 14 dBm TX cap.
+  A hotspot that comes up with the station already restarted beside it (the core's handler can be
+  past its check when the hold is taken) switches the station off and says so on serial.
 - The phone only ever HOSTS: it never scans for or joins another device's hotspot.
 - **The sync hotspot is OPEN unless `hotspot_pass=` is set.** With 8-63 plain-ASCII characters
   (spaces inside are fine; spaces at either end are trimmed) the window's `WiPhone-Books` is

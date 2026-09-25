@@ -47,9 +47,15 @@ ways the station came back without anyone asking, pinned the same way:
       BANNED outside Networks.cpp, and inside it lives only in wifiAutoReconnectApply(), which
       computes the flag from the holds (wifi_policy.h) - saved copies did not nest.
       `power sleep` refuses on the RADIO (cpuClockRadioOn), not the switch.
+      The hold narrows the race without closing it (a core handler already past its flag read
+      still begins), so a hotspot that came up switches a returned station off (enableSTA(false)
+      after softAP()).
   R2  the loop's join retry may not begin within 10 s of any other join (wifiRetryMayBegin), and
       the loop reads join ages with wifiJoinAgeMs, never `now - stamp`: a restore earlier in the
-      same pass stamps AFTER the loop read `now`, and the subtraction called it 49 days old.
+      same pass stamps AFTER the loop read `now`, and the subtraction called it 49 days old. The
+      gate only knows the restore's join through ITS stamp (noteWifiJoinStarted() after the
+      begin() in wifiRestoreStation's JOIN) - the one line the first round left unpinned: deleted,
+      every check stayed green and the retry began over the fresh join again (the re-review).
 
 MUTATIONS then removes each of those guards from the REAL source, one at a time, and requires the
 check to fail - the review's experiment (a guard deleted, the suite still green), kept.
@@ -342,10 +348,20 @@ CONTRACTS = [
          cond=r"\bcpuClockRadioOn\s*\(", later=r"\besp_light_sleep_start\s*\(",
          what="`power sleep` must refuse on the RADIO (cpuClockRadioOn), not the switch",
          why="R1(c): light sleep over a radio restarted behind 'off' is a PLL re-lock under it"),
+    dict(id="R1-hotspot-sta-off", file="app_gbc_xfer.cpp", fn="transportUp", kind="order",
+         first=r"\bWiFi\s*\.\s*softAP\s*\(", then=r"\bWiFi\s*\.\s*enableSTA\s*\(\s*false\s*\)",
+         what="a softAP() that came up switches a returned station off (enableSTA(false))",
+         why="R1: the hold narrows the race, it does not close it - a core handler already past "
+             "its flag read begins after mode(AP) and leaves the hotspot AP+STA"),
     dict(id="R2-tx-cap", file="Networks.cpp", fn="wifiRestoreStation", kind="order",
          first=r"\bWiFi\s*\.\s*begin\s*\(", then=r"\bwifiCapTxPower\s*\(",
          what="the restore's JOIN caps TX power (14 dBm) after its begin()",
          why="R2: the duplicate retry that re-applied the cap is gone"),
+    dict(id="R2-restore-stamps", file="Networks.cpp", fn="wifiRestoreStation", kind="order",
+         first=r"\bWiFi\s*\.\s*begin\s*\(", then=r"\bnoteWifiJoinStarted\s*\(",
+         what="the restore's JOIN stamps its join (noteWifiJoinStarted) after its begin()",
+         why="R2: wifiRetryMayBegin only sees the restore's join through this stamp - without it "
+             "the same pass's retry began connectToPreferred() over the fresh join again"),
 
     # ── R2: the loop's retry never re-begins over a join stamped earlier in the same pass ──
     dict(id="R2-retry-young", file="WiPhone.ino", fn="loop", kind="guarded",
@@ -460,6 +476,15 @@ def contract_selftest():
     expect(good_ps, ps, True, "`power sleep` refusing on the radio holds")
     expect(good_ps.replace("cpuClockRadioOn()", "!wifiState.radioOff()"), ps, False,
            "`power sleep` refusing on the switch alone fails")
+    st = byid["R2-restore-stamps"]
+    good_st = ("bool wifiRestoreStation(const char* who) {\n switch (d) {\n case J: {\n"
+               "  if (c) {\n   WiFi.begin();\n   noteWifiJoinStarted();\n   wifiCapTxPower();\n  }\n"
+               "  break;\n }\n }\n return ok;\n}\n")
+    expect(good_st, st, True, "the restore's JOIN stamping after its begin() holds")
+    expect(good_st.replace("   noteWifiJoinStarted();\n", ""), st, False,
+           "a restore JOIN with no stamp fails (the re-review's slipped mutation)")
+    expect(good_st.replace("   noteWifiJoinStarted();\n", "   // noteWifiJoinStarted();\n"), st, False,
+           "a stamp that is only a comment fails")
     return ok
 
 
@@ -549,6 +574,10 @@ MUTATIONS = [
      r"wifiAutoReconnectArm\s*\(\s*false\s*\)\s*;", "WiFi.setAutoReconnect(false);"),
     ("Networks.cpp", "R2-tx-cap",                     # the restore's cap is the file's last call
      r"wifiCapTxPower\s*\(\s*\)\s*;(?![\s\S]*wifiCapTxPower\s*\()", ""),
+    ("Networks.cpp", "R2-restore-stamps",             # the restore's stamp is the file's last call
+     r"noteWifiJoinStarted\s*\(\s*\)\s*;(?![\s\S]*noteWifiJoinStarted\s*\()", ""),
+    ("app_gbc_xfer.cpp", "R1-hotspot-sta-off",
+     r"WiFi\s*\.\s*enableSTA\s*\(\s*false\s*\)\s*;", ""),
     ("serial_cmd.cpp", "R1-power-sleep",
      r"if\s*\(\s*cpuClockRadioOn\s*\(\s*\)\s*\)", "if (!wifiState.radioOff())"),
     ("WiPhone.ino", "R2-retry-young",
