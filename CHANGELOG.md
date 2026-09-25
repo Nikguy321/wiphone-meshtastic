@@ -112,6 +112,34 @@ opens exactly as before and is simply not syncable. Serial: `kosync` (status), `
 `push`, `pull`, `reload`; a `KOSYNC window ... heap= largest=` line every 15 s while one is open.
 Host suite: `tests/test_kosync.cpp` reproduces every number in `tests/vectors_kosync.h`.
 
+### WiFi drops explain themselves; a station wedged mid-connect now cures itself (0.9.79 dev, 2026-09-25)
+
+Phone 2 lost WiFi twice on 2026-09-24 (HEALTH `wifi=5` then `wifi=1`, a serial `wifi scan` of -2,
+only `wifi bounce` brought it back), and nothing on the phone could say why: the disconnect REASON
+was thrown away (the core's own `Reason:` line is log_w, compiled out).
+
+- **`WIFI LOST reason=200 BEACON_TIMEOUT ap=<bssid> ch=6 rssi=-63 (sampled 1400ms before)`** on the
+  drop that ends a link, and **`WIFI JOIN ap=... ch=... rssi=... (same|OTHER AP) after 94s down: N
+  disconnects (last 201 NO_AP_FOUND), N core rejoins, N refused-scan-start runs`** on the rejoin —
+  both on serial AND in `/health.log`. In between, every disconnect prints (`WIFI disc reason=...`),
+  with a run of one reason — the core's auto-reconnect storm — counted after two lines and summarised
+  once a minute. Recorded on the WiFi event task with plain stores only (no log, no allocation, no
+  card); printed by the loop.
+- **HEALTH gains ` wdis=<disconnects>/<last reason> cr=<answered by the core's own begin()>
+  ssf=<runs of refused scan starts>/<last esp_err hex>`.**
+- **Serial `wifi why` (or `wifi`)**: status, the driver's STA config (SSID; never the password), the
+  AP/channel/RSSI, a count per reason, the scan-start refusals, the auto-switcher's counters, and the
+  last 15 WiFi events. **`wifi scan` now says WHICH -2**: refused at the start (with the esp_err —
+  `ESP_ERR_WIFI_STATE` = mid-connect) or started and never finished. **`wifi log on|off`**: the WiFi
+  driver's own state lines (RAM only, bench only).
+- 🛑 **FIX: a round of refused scan starts now counts toward the deaf-radio self-bounce.** `_dryScans`
+  only counted scans that COMPLETED, so a station held mid-connect (every start refused while the
+  core's capless auto-reconnect keeps it "connecting") could never reach the bounce written for that
+  state. Two refused rounds and the next one restarts the radio (~1.5 min after the drop).
+- **FIX: the auto-switcher's `MARK scan-pre` is taken once per round, not once per attempt** — a round
+  of refused starts retried every loop pass and wrote a health.log line (an SD open/append/close) for
+  each one.
+
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 
 Nick, after looking at OpenTopoMap one level deeper: *"So it seems like open topo has a native

@@ -78,6 +78,9 @@ for src in tests/test_*.cpp; do
     # Voltage -> SOC off phone 1's recorded discharge (tests/fixtures/p1_discharge_2026-09-03.tsv).
     # Scores the table AND the CW2015's own number against time-linear truth.
     test_battery)  deps=(WiPhone/battery_curve.cpp) ;;
+    # Why the WiFi dropped: the core's reason->status/rejoin predicates (how an old health.log's
+    # wifi=5 is read), the IDF reason/err names, the event ring the loop drains, the HEALTH field.
+    test_wifidiag) deps=(WiPhone/wifi_diag.cpp) ;;
     # The mesh-history replay wire format vs vectors generated from COVEY's
     # replay.py (regenerate with tools/gen_replay_vectors.py after changes).
     test_replay)   deps=(WiPhone/replay_proto.cpp) ;;

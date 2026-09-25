@@ -1,0 +1,258 @@
+/*
+ * test_wifidiag.cpp — wifi_diag.cpp: the disconnect-reason record behind `WIFI LOST` / `wifi why`.
+ *
+ * What is pinned here, and why each matters on the phone:
+ *   - The core predicates, copied from arduino-esp32 1.0.6 WiFiGeneric.cpp:392-410. They are how
+ *     an OLD health.log is read (wifi=5 can only have been reason 200 or 204) and how the storm
+ *     count `cr=` is computed; a wrong entry would mislead exactly the reading this exists for.
+ *   - The IDF 3.3 reason and esp_err numbers (esp_wifi_types.h, esp_wifi.h, esp_err.h).
+ *   - The ring: in-order, one slot of margin, an overrun reported as lost, never a torn copy
+ *     reported as good.
+ *   - The link bookkeeping: a drop carries the channel/RSSI of the link it ENDED, and only that.
+ *   - The scan-start runs and the HEALTH field's exact text.
+ */
+#include "../WiPhone/wifi_diag.h"
+
+#include <stdio.h>
+#include <string.h>
+
+static int g_pass = 0, g_fail = 0;
+
+static void ok(bool cond, const char* what) {
+  if (cond) {
+    g_pass++;
+  } else {
+    g_fail++;
+    printf("  \033[31mFAIL\033[0m %s\n", what);
+  }
+}
+
+static void testCorePredicates() {
+  printf("\n\033[1mThe 1.0.6 core: status set, and whether it calls begin() again\033[0m\n");
+  // WiFiGeneric.cpp:392-403
+  ok(wifiCoreStatusAfter(201) == 1, "NO_AP_FOUND -> WL_NO_SSID_AVAIL (1)");
+  ok(wifiCoreStatusAfter(202) == 4, "AUTH_FAIL -> WL_CONNECT_FAILED (4)");
+  ok(wifiCoreStatusAfter(203) == 4, "ASSOC_FAIL -> WL_CONNECT_FAILED (4)");
+  ok(wifiCoreStatusAfter(200) == 5, "BEACON_TIMEOUT -> WL_CONNECTION_LOST (5)");
+  ok(wifiCoreStatusAfter(204) == 5, "HANDSHAKE_TIMEOUT -> WL_CONNECTION_LOST (5)");
+  ok(wifiCoreStatusAfter(2) == -1, "AUTH_EXPIRE leaves the status alone");
+  ok(wifiCoreStatusAfter(8) == 6, "ASSOC_LEAVE (our own disconnect) -> WL_DISCONNECTED (6)");
+  ok(wifiCoreStatusAfter(205) == 6, "CONNECTION_FAIL -> WL_DISCONNECTED (6)");
+  ok(wifiCoreStatusAfter(206) == 6, "AP_TSF_RESET -> WL_DISCONNECTED (6)");
+  ok(wifiCoreStatusAfter(15) == 6, "4WAY_HANDSHAKE_TIMEOUT -> WL_DISCONNECTED (6)");
+  // The inverse the HEALTH reader needs: exactly which reasons produce wifi=5.
+  int fives = 0;
+  for (unsigned r = 0; r < 256; r++) {
+    if (wifiCoreStatusAfter(r) == 5) {
+      fives++;
+      ok(r == 200 || r == 204, "only 200/204 read as wifi=5");
+    }
+  }
+  ok(fives == 2, "exactly two reasons read as wifi=5");
+  // WiFiGeneric.cpp:404-410
+  ok(wifiCoreRejoinsAfter(2), "AUTH_EXPIRE: core rejoins");
+  ok(wifiCoreRejoinsAfter(200), "BEACON_TIMEOUT: core rejoins");
+  ok(wifiCoreRejoinsAfter(201), "NO_AP_FOUND: core rejoins (the capless storm)");
+  ok(!wifiCoreRejoinsAfter(202), "AUTH_FAIL: core does NOT rejoin");
+  ok(wifiCoreRejoinsAfter(203), "ASSOC_FAIL: core rejoins");
+  ok(wifiCoreRejoinsAfter(204), "HANDSHAKE_TIMEOUT: core rejoins");
+  ok(wifiCoreRejoinsAfter(205), "CONNECTION_FAIL: core rejoins");
+  ok(wifiCoreRejoinsAfter(206), "AP_TSF_RESET: core rejoins");
+  ok(!wifiCoreRejoinsAfter(8), "ASSOC_LEAVE (a plain WiFi.disconnect()) quiets it");
+  ok(!wifiCoreRejoinsAfter(1) && !wifiCoreRejoinsAfter(3) && !wifiCoreRejoinsAfter(15),
+     "deauth-style reasons below 200 are left to the firmware's own retry");
+}
+
+static void testNames() {
+  printf("\n\033[1mIDF 3.3 reason and error names\033[0m\n");
+  ok(!strcmp(wifiReasonName(200), "BEACON_TIMEOUT"), "200");
+  ok(!strcmp(wifiReasonName(201), "NO_AP_FOUND"), "201");
+  ok(!strcmp(wifiReasonName(204), "HANDSHAKE_TIMEOUT"), "204");
+  ok(!strcmp(wifiReasonName(8), "ASSOC_LEAVE"), "8");
+  ok(!strcmp(wifiReasonName(15), "4WAY_HANDSHAKE_TIMEOUT"), "15");
+  ok(!strcmp(wifiReasonName(24), "CIPHER_SUITE_REJECTED"), "24");
+  ok(!strcmp(wifiReasonName(12), "?"), "12 is unassigned in IDF 3.3");
+  ok(!strcmp(wifiReasonName(0), "?") && !strcmp(wifiReasonName(207), "?"), "out of range");
+  ok(!strcmp(wifiErrName(0x3006), "ESP_ERR_WIFI_STATE"), "0x3006 = ESP_ERR_WIFI_BASE + 6");
+  ok(!strcmp(wifiErrName(0x3002), "ESP_ERR_WIFI_NOT_STARTED"), "0x3002");
+  ok(!strcmp(wifiErrName(0x107), "ESP_ERR_TIMEOUT"), "0x107");
+  ok(!strcmp(wifiErrName(0), "ESP_OK"), "0");
+  ok(!strcmp(wifiErrName(0x3010), "?"), "0x3010 is unassigned");
+}
+
+static void testBuckets() {
+  printf("\n\033[1mThe per-reason table: every IDF 3.3 reason gets its own row\033[0m\n");
+  bool used[WIFI_DIAG_BUCKETS] = {false};
+  const unsigned reasons[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20,
+                              21, 22, 23, 24, 200, 201, 202, 203, 204, 205, 206};
+  bool distinct = true, roundTrip = true, inRange = true;
+  for (unsigned r : reasons) {
+    const int b = wifiReasonBucket(r);
+    if (b <= 0 || b >= WIFI_DIAG_BUCKETS) {
+      inRange = false;
+      continue;
+    }
+    if (used[b]) {
+      distinct = false;
+    }
+    used[b] = true;
+    if (wifiBucketReason(b) != r) {
+      roundTrip = false;
+    }
+  }
+  ok(inRange, "every real reason lands in 1..31");
+  ok(distinct, "no two reasons share a row");
+  ok(roundTrip, "bucket -> reason is the inverse");
+  ok(wifiReasonBucket(0) == 0 && wifiReasonBucket(99) == 0 && wifiReasonBucket(250) == 0,
+     "anything else is row 0 (other)");
+}
+
+static const uint8_t AP_A[6] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
+static const uint8_t AP_B[6] = {0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
+static const uint8_t ZERO[6] = {0, 0, 0, 0, 0, 0};
+
+static void testTheNightOf2026_09_24() {
+  printf("\n\033[1mThe 2026-09-24 shape: joined, beacon timeout, a NO_AP_FOUND storm, a bounce, rejoined\033[0m\n");
+  static WifiDiagLog L;
+  L.reset();
+  L.onRadio(1000, true);
+  L.onConnect(3000, AP_A, 6);
+  L.noteRssi(-63, 360000);
+  L.noteRssi(0, 362000);                // not associated: ignored, the -63 stands
+  L.onDisconnect(363500, 200, AP_A);    // the drop that ENDS the link
+  for (int i = 0; i < 5; i++) {
+    L.onDisconnect(366000 + 2500u * i, 201, ZERO);
+  }
+  L.onRadio(400000, false);             // wifi bounce
+  L.onRadio(400300, true);
+  L.onScanDone(401000, 0, 7);
+  L.onConnect(404000, AP_B, 11);
+
+  ok(L.head() == 12, "12 events written");
+  ok(L.disconnects() == 6, "6 disconnects");
+  ok(L.coreRejoins() == 6, "all 6 were answered by the core's own begin()");
+  ok(L.lastReason() == 201, "last reason 201");
+  ok(L.count(wifiReasonBucket(200)) == 1 && L.count(wifiReasonBucket(201)) == 5, "per-reason counts");
+  ok(L.connects() == 2 && L.scansDone() == 1 && L.scansFailed() == 0, "joins and scan events");
+
+  WifiDiagEvent e;
+  ok(L.read(2, &e) && e.kind == WDE_DISC && e.code == 200, "event 2 is the beacon timeout");
+  ok(!memcmp(e.bssid, AP_A, 6) && e.chan == 6, "...on AP_A, channel 6 (from its CONNECTED)");
+  ok(e.rssi == -63 && e.val == 3500, "...last RSSI -63, sampled 3.5 s before the drop");
+  ok(L.read(3, &e) && e.kind == WDE_DISC && e.code == 201, "event 3 is a NO_AP_FOUND");
+  ok(e.chan == 0 && e.rssi == 0 && e.val == -1, "...which ended no link: no channel, no RSSI");
+  ok(L.read(11, &e) && e.kind == WDE_CONN && e.chan == 11 && !memcmp(e.bssid, AP_B, 6),
+     "the rejoin: AP_B on channel 11");
+  ok(L.linked() && L.linkChan() == 11, "linked again");
+  ok(!L.read(12, &e), "an event not yet written reads as absent");
+}
+
+static void testRssiBelongsToTheLink() {
+  printf("\n\033[1mA drop only borrows an RSSI sampled on the link it ended\033[0m\n");
+  static WifiDiagLog L;
+  L.reset();
+  L.onConnect(1000, AP_A, 1);
+  L.noteRssi(-50, 5000);
+  L.onDisconnect(6000, 8, AP_A);
+  L.onConnect(9000, AP_B, 6);             // no sample on this link yet
+  L.onDisconnect(9500, 200, AP_B);
+  WifiDiagEvent e;
+  ok(L.read(1, &e) && e.rssi == -50 && e.chan == 1, "first link: its own sample and channel");
+  ok(L.read(3, &e) && e.rssi == 0 && e.val == -1 && e.chan == 6,
+     "second link: the OLD link's -50 is not reported as this one's");
+  L.onDisconnect(9600, 201, AP_B);        // already unlinked
+  ok(L.read(4, &e) && e.chan == 0, "a disconnect with no link up carries no channel");
+  L.onConnect(10000, AP_A, 3);
+  L.noteRssi(-70, 10500);
+  L.onRadio(11000, false);                // radio off while associated
+  ok(!L.linked(), "a stopped radio has no link");
+}
+
+static void testRing() {
+  printf("\n\033[1mThe ring: 15 readable, overrun reported, never torn\033[0m\n");
+  static WifiDiagLog L;
+  L.reset();
+  for (uint32_t i = 0; i < 40; i++) {
+    L.onScanDone(1000 + i, 0, i);
+  }
+  WifiDiagEvent e;
+  int good = 0;
+  bool inOrder = true;
+  for (uint32_t s = 0; s < 40; s++) {
+    if (L.read(s, &e)) {
+      good++;
+      if ((uint32_t)e.val != s) {
+        inOrder = false;
+      }
+    }
+  }
+  ok(good == (int)WifiDiagLog::RING - 1, "exactly RING-1 of the newest are readable (one slot of margin)");
+  ok(inOrder, "each readable slot holds the event its sequence names");
+  ok(!L.read(40 - WifiDiagLog::RING, &e), "the one about to be overwritten is refused");
+  ok(L.read(39, &e) && e.val == 39, "the newest reads");
+  ok(!L.read(40, &e), "the future does not");
+  ok(L.scansDone() == 40, "the counters are not limited by the ring");
+  for (int i = 0; i < 3; i++) {
+    L.onScanDone(0, 1, 1234);
+  }
+  ok(L.read(L.head() - 1, &e) && e.code == 1 && e.val == 1234, "status/aps of a failed scan kept");
+  ok(L.scansFailed() == 3, "failed/aborted scans counted apart");
+}
+
+static void testScanStarts() {
+  printf("\n\033[1mScan starts: refusals grouped into runs; the HEALTH field\033[0m\n");
+  WifiScanStartStats s;
+  s.note(1000, 0);
+  for (uint32_t t = 2000; t < 2100; t++) {
+    s.note(t, 0x3006);                    // one 5 s pending round retries every pass
+  }
+  s.note(40000, 0x3006);                  // the next round, 38 s later: a new run
+  s.note(40001, 0x3006);
+  s.note(41000, 0);                       // a start that worked ends the run
+  s.note(41001, 0x3002);
+  ok(s.starts == 105, "attempts");
+  ok(s.refused == 103, "refused attempts");
+  ok(s.refusedRuns == 3, "three runs of refusals");
+  ok(s.refusedState == 102, "of which 'still connecting'");
+  ok(s.lastErr == 0x3002 && s.lastRefusedMs == 41001, "the last refusal and when");
+  s.noteTimeout(50000);
+  ok(s.timedOut == 1, "a blocking scan that never finished is its own count");
+
+  static WifiDiagLog L;
+  L.reset();
+  L.onDisconnect(1, 200, AP_A);
+  L.onDisconnect(2, 201, ZERO);
+  char buf[96];
+  wifiDiagHealthField(buf, sizeof(buf), L, s);
+  ok(!strcmp(buf, " wdis=2/201 cr=2 ssf=3/3002"), buf);
+  WifiScanStartStats none;
+  static WifiDiagLog empty;
+  empty.reset();
+  wifiDiagHealthField(buf, sizeof(buf), empty, none);
+  ok(!strcmp(buf, " wdis=0/0 cr=0 ssf=0/0"), buf);
+  char tiny[8];
+  const int n = wifiDiagHealthField(tiny, sizeof(tiny), L, s);
+  ok(n > (int)sizeof(tiny) && strlen(tiny) == sizeof(tiny) - 1, "truncates safely into a short buffer");
+}
+
+static void testBssid() {
+  printf("\n\033[1mBSSID text\033[0m\n");
+  char b[18];
+  wifiFormatBssid(AP_B, b);
+  ok(!strcmp(b, "aa:bb:cc:dd:ee:ff"), b);
+  wifiFormatBssid(ZERO, b);
+  ok(!strcmp(b, "-"), "all-zero (a failed join names no AP) prints '-'");
+}
+
+int main() {
+  testCorePredicates();
+  testNames();
+  testBuckets();
+  testTheNightOf2026_09_24();
+  testRssiBelongsToTheLink();
+  testRing();
+  testScanStarts();
+  testBssid();
+  printf("\n%d passed, %d failed\n", g_pass, g_fail);
+  return g_fail ? 1 : 0;
+}

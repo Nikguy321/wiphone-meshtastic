@@ -46,6 +46,18 @@ void     noteWifiJoinStarted();       // a join begun outside connectToWiFi() (a
 uint32_t lastWifiLinkUpMs();
 extern IPAddress resolveDomain(const char* hostName);
 
+/* WiFi.scanNetworks(async) with the esp_err_t it throws away (see Networks.cpp): -2 from the core
+ * means "refused" OR (blocking only) "started, no SCAN_DONE in 10 s", and *whyOut says which —
+ * ESP_ERR_WIFI_STATE (0x3006) = the station is mid-connect; ESP_ERR_TIMEOUT (0x107) = the
+ * blocking wait ran out. Ask wifiScanMemoryOk() first, exactly as for scanNetworks(). LOOP TASK. */
+int16_t wifiScanStart(bool async, int32_t* whyOut = nullptr);
+/* The loop's RSSI sample (WiPhone.ino, every WIFI_CHECK_PERIOD_MS), so a drop can say what the
+ * link looked like just before it. 0 (not associated) is ignored. */
+void    wifiDiagNoteRssi(int rssi, uint32_t ms);
+/* " wdis=<disconnects>/<last reason> cr=<core rejoins> ssf=<refused-start runs>/<last err hex>"
+ * for the HEALTH line. */
+int     wifiDiagHealth(char* out, size_t cap);
+
 // Class to save/load WiFi networks data from Flash
 class Networks {
 public:
@@ -96,6 +108,12 @@ public:
   bool scanBusy(void) {          // a scan is in flight or starting: hold off reconnect
     return _scanning || _scanPending;   // (connectToWiFi hard-cycles WiFi, killing scans)
   }
+
+  /* Why the station dropped (2026-09-25): diagTick() drains the event task's record into
+   * `WIFI LOST` / `WIFI disc` / `WIFI JOIN` lines (LOST and JOIN also to health.log) — call it
+   * from the loop every pass; diagPrint() is the serial `wifi why` report. Both LOOP TASK. */
+  void diagTick(uint32_t now);
+  void diagPrint(void (*out)(const char*));
 
   /* Has this phone been off WiFi for long enough that it is plainly not a brief blip?
    *
@@ -181,6 +199,7 @@ protected:
   bool     _scanning = false;       // an async scan is in flight
   bool     _scanPending = false;    // scan requested; keep retrying start briefly
   uint32_t _msScanPendingSince = 0;
+  bool     _scanPreMarked = false;  // this pending round's heapEvent("scan-pre") is taken
   bool     _prevScreenOn = true;    // for the wake-up edge
   uint32_t _msLastScan = 0;
   uint32_t currentDiscPeriod() const;               // 2 min, easing to 5 — see the .cpp

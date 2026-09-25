@@ -34,6 +34,9 @@ extern uint32_t uiKeyMaskFor(char code);                                    // W
 #include <esp_heap_caps.h>   // multi_heap_info_t, the `heap` command
 #include <esp_phy_init.h>    // esp_phy_erase_cal_data_in_nvs, `wifi calreset`
 #include <esp_wifi.h>        // esp_wifi_restore, `wifi restore`
+#include <esp_wifi_internal.h>   // the blob's own log level, `wifi log on|off`
+#include <esp_log.h>
+#include "wifi_diag.h"       // wifiErrName, `wifi scan`
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>     // strtoul, the `dm` command's node number
@@ -119,6 +122,10 @@ static void help() {
     "  chans      list the channels this phone has",
     "  meshdb     chat history: which filesystem, what loaded, what the next save keeps",
     "  wifi drop  simulate a hotspot blip, to measure the reconnect path",
+    "  wifi why   (or just `wifi`) why it dropped: disconnect reasons, the AP/channel/RSSI,",
+    "             the driver's STA config, refused scan starts, the last 15 WiFi events",
+    "  wifi log on|off  the WiFi driver's OWN state lines (beacon timeout, state changes) -",
+    "             bench only, RAM only, off again at reboot",
     "  wifi scan  what the radio can actually hear - deaf radio vs absent AP",
     "  wifi bounce  radio off/on without a reboot - the deaf-scan cure, keeps saved APs",
     "  wifi calreset  erase the stored RF calibration and reboot - the deaf-radio probe",
@@ -1221,6 +1228,52 @@ static void run(char* line) {
     return;
   }
 
+  /* `wifi why` — the drop record (Networks::diagPrint). Written straight to the UART rather
+   * than through say(), whose 192-byte buffer would clip the longer lines. */
+  if (!strcasecmp(line, "wifi") || !strcasecmp(line, "wifi why")) {
+    wifiState.diagPrint([](const char* l) {
+      uart_write_bytes(PORT, l, strlen(l));
+      uart_write_bytes(PORT, "\n", 1);
+    });
+    return;
+  }
+
+  /* `wifi log on|off` — the WiFi DRIVER's own log lines ("state: run -> init (c800)",
+   * "bcn_timout,ap_probe_send_start", "recv deauth, reason=..."), which this build filters out
+   * twice: the blob's own level (g_log_level, read by wifi_log()) and esp_log's level for the
+   * "wifi" tag (CONFIG_LOG_DEFAULT_LEVEL 1 = errors only). Both are RAM-only — the blob setter
+   * is a single store (disassembled: esp_wifi_internal_set_log_level) — so a reboot turns it
+   * off. ⚠ Bench only: the driver prints from its own task while on. Best effort: if the blob's
+   * module mask also filters, nothing appears, and that is the whole cost. */
+  if (!strcasecmp(line, "wifi log on") || !strcasecmp(line, "wifi log off")) {
+    static bool             s_blobSaved = false;
+    static wifi_log_level_t s_blobLevel = WIFI_LOG_WARNING;
+    const bool on = !strcasecmp(line, "wifi log on");
+    if (on) {
+      if (!s_blobSaved) {
+        /* ⚠ The blob memcpy()s 20 BYTES into the second argument, whatever the header's
+         * `uint32_t *log_mod` suggests (esp_wifi_internal_get_log, disassembled) — a single
+         * uint32_t here would be a stack overwrite. */
+        uint32_t mods[5] = {0, 0, 0, 0, 0};
+        wifi_log_level_t lv;
+        if (esp_wifi_internal_get_log(&lv, mods) == ESP_OK) {
+          s_blobLevel = lv;
+          s_blobSaved = true;
+        }
+      }
+      esp_wifi_internal_set_log_level(WIFI_LOG_INFO);
+      esp_log_level_set("wifi", ESP_LOG_INFO);
+    } else {
+      if (s_blobSaved) {
+        esp_wifi_internal_set_log_level(s_blobLevel);
+      }
+      esp_log_level_set("wifi", ESP_LOG_ERROR);
+    }
+    say("wifi log: driver state lines %s (blob level was %d)\n", on ? "ON" : "off",
+        s_blobSaved ? (int)s_blobLevel : -1);
+    return;
+  }
+
   /* `wifi bounce` — radio OFF, then STA back on. THE cure for the deaf-scan state
    * (2026-08-27): after hours of disconnected retry churn the driver can reach a state
    * where every scan COMPLETES with 0 results while the AP is on air at -50 dBm (the twin
@@ -1259,9 +1312,24 @@ static void run(char* line) {
           "           This is the guard, not the radio. Run `heap` and look at `largest`.\n");
       return;
     }
-    const int n = WiFi.scanNetworks(false);
+    /* wifiScanStart, not WiFi.scanNetworks: the same scan, but -2 now says WHICH -2 (2026-09-25 —
+     * the night before, a -2 could not be told apart from a 10 s no-show). */
+    int32_t why = 0;
+    const uint32_t t0 = millis();
+    const int n = wifiScanStart(false, &why);
+    const unsigned long took = (unsigned long)(millis() - t0);
     wifiScanNoteResult(n);
-    if (n <= 0) {
+    if (n == WIFI_SCAN_RUNNING) {
+      say("wifi scan: another scan is already in flight (the auto-switcher's?) - try again in a few s\n");
+    } else if (n == WIFI_SCAN_FAILED) {
+      say("wifi scan: -2 after %lu ms - %s: 0x%lx %s\n", took,
+          why == (int32_t)ESP_ERR_TIMEOUT ? "STARTED but no SCAN_DONE in 10 s" : "REFUSED at the start",
+          (unsigned long)(uint32_t)why, wifiErrName(why));
+      if (why == (int32_t)ESP_ERR_WIFI_STATE) {
+        say("           = the station is mid-connect (a join, or the core's auto-reconnect after\n"
+            "           a NO_AP_FOUND/BEACON_TIMEOUT). `wifi why` shows the disconnect train.\n");
+      }
+    } else if (n <= 0) {
       say("wifi scan: %d networks - the radio hears NOTHING. If other devices are associated\n"
           "           in this room, that points at the phone; otherwise the AP is not on air.\n", n);
     } else {

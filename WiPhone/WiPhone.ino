@@ -3567,6 +3567,9 @@ void loop() {
     // instead of chewing mid-association — and so scans read the air honestly.
     {
       loopPhase("wifi-retry");
+      /* The drop record first, so a LOST/JOIN line lands BEFORE whatever this pass does about
+       * it (Networks::diagTick: the event task only stores; printing and the card are here). */
+      wifiState.diagTick(now);
       static uint32_t s_wifiRetryFails = 0;
       static uint32_t s_wifiQuiesceAtMs = 0;
       static bool     s_prevScreenOnWifi = true;
@@ -3875,9 +3878,9 @@ void loop() {
       if (fh < s_minHeapEver) {
         s_minHeapEver = fh;
       }
-      char hl[200];
+      char hl[256];                    // 200 + the wdis/cr/ssf field (2026-09-25)
       wifi_ps_type_t hlPs;
-      snprintf(hl, sizeof(hl),
+      int hlLen = snprintf(hl, sizeof(hl),
                /* ⚠ aud= IS THE INSTRUMENT FOR THE AUDIO LEAK, and it is two numbers because one
                 * would not have found it: `powered` alone cannot tell a song playing from a
                 * codec left on after one stopped. `aud=1/0` — powered, moving no samples — IS
@@ -3901,6 +3904,12 @@ void loop() {
                 * its place — each skip is ~30 s of radio not spent on empty air. */
                (unsigned long)wifiState.joinsTried(),
                (unsigned long)wifiState.joinsSkipped());
+      /* wdis=<disconnect events>/<last reason> cr=<of them answered by the core's own begin()>
+       * ssf=<runs of refused scan starts>/<last esp_err hex>. The reason is the number HEALTH
+       * never had: `wifi=` is only the core's lossy summary of it (wifi_diag.h). */
+      if (hlLen > 0 && hlLen < (int)sizeof(hl)) {
+        wifiDiagHealth(hl + hlLen, sizeof(hl) - (size_t)hlLen);
+      }
       log_e("%s", hl);
 
       /* ⚠ The CARD gets a line a minute, not one every fifteen seconds like the console.
@@ -3963,6 +3972,7 @@ void loop() {
     if (elapsedMillis(now, msLastWiFiRssi, WIFI_CHECK_PERIOD_MS)) {
       msLastWiFiRssi = now;
       int rssi = WiFi.RSSI();
+      wifiDiagNoteRssi(rssi, now);     // so a drop can say what the link looked like just before
       if (GUI::wifiSignalStrength(gui.state.wifiRssi) != GUI::wifiSignalStrength(rssi)) {
         gui.state.wifiRssi = rssi;
         redrawWhat |= gui.processEvent(now, WIFI_ICON_UPDATE_EVENT);

@@ -15,9 +15,19 @@ governing permissions and limitations under the License.
 #include "Networks.h"
 #include <Preferences.h>
 #include "helpers.h"
+#include "wifi_diag.h"
 
 extern void heapEvent(const char* what);   // WiPhone.ino - the ratchet instrument
+extern void healthLogLine(const char* line);   // WiPhone.ino - the durable log; LOOP TASK ONLY
+extern volatile bool gGbcActive;               // WiPhone.ino - a game owns the card and the radio
 #include "esp_wifi.h"
+
+/* 🔎 WHY THE STATION DROPPED (2026-09-25). See wifi_diag.h for the night that made it necessary.
+ * s_wd is written ONLY on the WiFi event task (processWiFiEvent), s_ss ONLY on the loop
+ * (wifiScanStart) — one writer per field, so neither needs a lock. The loop drains s_wd into
+ * log lines in Networks::diagTick(). */
+static WifiDiagLog        s_wd;
+static WifiScanStartStats s_ss;
 
 void Networks::getMac(uint8_t* mac) {
   esp_read_mac(mac, ESP_MAC_WIFI_STA);
@@ -40,9 +50,17 @@ uint32_t lastWifiLinkUpMs() {
   return s_msLastLinkUp;
 }
 
-//wifi event handler
-void processWiFiEvent(WiFiEvent_t event) {
-  switch(event) {
+/* WiFi event handler — runs on the core's `network_event` task (4 KB stack, priority above the
+ * loop, same core). ⚠ NOTHING HERE MAY BLOCK, ALLOCATE, LOG OR TOUCH THE CARD: the s_wd calls are
+ * plain stores into static memory, and the loop turns them into log lines (diagTick).
+ *
+ * Takes the whole system_event_t (the WiFiEventSysCb overload — a plain function pointer, no
+ * std::function) because the REASON is in event_info, and throwing it away is why the
+ * 2026-09-24 drops could not explain themselves. The core's own `Reason: %u` line is log_w and
+ * compiled out (only log_e is in this build — sdkconfig CONFIG_ARDUHAL_LOG_DEFAULT_LEVEL 1). */
+void processWiFiEvent(system_event_t* ev) {
+  const uint32_t ms = millis();
+  switch(ev->event_id) {
   case SYSTEM_EVENT_STA_GOT_IP:
     s_msLastLinkUp = millis() | 1u;   // 0 = never
     /* 🛑 TWO WRITE-ONLY SOCKETS USED TO BE OPENED HERE, AND THEY COULD KILL THE PHONE.
@@ -67,21 +85,35 @@ void processWiFiEvent(WiFiEvent_t event) {
     log_d("connected! IP address: %s", WiFi.localIP().toString().c_str());
     break;
   case SYSTEM_EVENT_STA_DISCONNECTED:
-    log_d("lost connection");
+    /* The reason, and the AP it concerns. By the time this runs the core has ALREADY acted on
+     * it (WiFiGeneric.cpp:390-410 runs before the callback list): status set from the reason,
+     * and for AUTH_EXPIRE or any reason >= 200 but AUTH_FAIL, `WiFi.disconnect(); WiFi.begin();`
+     * — the capless auto-reconnect. wifiCoreRejoinsAfter() mirrors that predicate. */
+    s_wd.onDisconnect(ms, ev->event_info.disconnected.reason, ev->event_info.disconnected.bssid);
     if (wifiState.isConnected()) {
-      s_msLastLinkUp = millis() | 1u;   // up until just now: the core's auto-reconnect follows
+      s_msLastLinkUp = ms | 1u;         // up until just now: the core's auto-reconnect follows
     }
     wifiState.setConnected(false, true);
     break;
+  case SYSTEM_EVENT_STA_CONNECTED:
+    s_wd.onConnect(ms, ev->event_info.connected.bssid, ev->event_info.connected.channel);
+    break;
   case SYSTEM_EVENT_WIFI_READY:
-    //log_d("ready");      // comes up very frequently
+    /* ⚠ Also SYNTHESISED on the CALLER's task by the core's espWiFiStart() (WiFiGeneric.cpp:165-168,
+     * event_info uninitialised) — which is why nothing is recorded for it: s_wd has one writer. */
     break;
   case SYSTEM_EVENT_SCAN_DONE:
-    log_d("scan done");
+    /* status != 0 = the scan FAILED or was aborted — the core ignores it and reports the result
+     * as `n = 0`, indistinguishable from "heard nothing". This is the only place it is visible. */
+    s_wd.onScanDone(ms, (uint8_t)(ev->event_info.scan_done.status > 255 ? 255 : ev->event_info.scan_done.status),
+                    ev->event_info.scan_done.number);
     break;
   case SYSTEM_EVENT_STA_START:
+    s_wd.onRadio(ms, true);
+    break;
   case SYSTEM_EVENT_STA_STOP:
-  case SYSTEM_EVENT_STA_CONNECTED:
+    s_wd.onRadio(ms, false);
+    break;
   case SYSTEM_EVENT_STA_AUTHMODE_CHANGE:
   case SYSTEM_EVENT_STA_LOST_IP:
   case SYSTEM_EVENT_STA_WPS_ER_SUCCESS:
@@ -103,6 +135,377 @@ uint32_t lastWifiConnectAttemptMs() {
 
 void noteWifiJoinStarted() {
   s_msLastConnectAttempt = millis();
+}
+
+// ===================================================== WHY IT DROPPED =====================================================
+
+/* ── THE SCAN START, WITH THE REASON IT WAS REFUSED ─────────────────────────────────────────
+ * WiFi.scanNetworks() answers WIFI_SCAN_FAILED (-2) for FOUR different things: esp_wifi_scan_start
+ * refused (radio not started, wrong mode, or — the one that matters — ESP_ERR_WIFI_STATE, "still
+ * connecting"), and, in blocking mode, a scan that started and never delivered SCAN_DONE in 10 s.
+ * On 2026-09-24 a serial `wifi scan` read -2 and there was no way to say which.
+ *
+ * This is the core's own scanNetworks() (arduino-esp32 1.0.6 WiFiScan.cpp:57-107), line for line,
+ * with its defaults (active, 100-300 ms per channel, no hidden SSIDs, all channels), keeping the
+ * esp_err_t it discards. It has to live in a class derived from both WiFiGenericClass and
+ * WiFiScanClass only because the bookkeeping it must leave behind (_scanStarted, _scanAsync,
+ * _scanTimeout, the SCANNING/DONE status bits) is `protected` there — scanComplete(), _scanDone()
+ * and scanDelete() then treat the scan exactly as one the core started.
+ * ⚠ If the core is ever bumped, re-diff this against its scanNetworks(). */
+namespace {
+struct ScanStarter : public WiFiGenericClass, public WiFiScanClass {
+  static int16_t start(bool async, int32_t* why, bool* attempted) {
+    *why = ESP_OK;
+    *attempted = false;
+    if (WiFiGenericClass::getStatusBits() & WIFI_SCANNING_BIT) {
+      return WIFI_SCAN_RUNNING;                     // one already in flight: not an attempt
+    }
+    WiFiScanClass::_scanTimeout = 300u * 20u;       // max_ms_per_chan * 20, as the core does
+    WiFiScanClass::_scanAsync = async;
+    WiFi.enableSTA(true);                           // the "on" half of the deaf-radio bounce
+    WiFi.scanDelete();
+    wifi_scan_config_t config;
+    memset(&config, 0, sizeof(config));
+    config.ssid = 0;
+    config.bssid = 0;
+    config.channel = 0;
+    config.show_hidden = false;
+    config.scan_type = WIFI_SCAN_TYPE_ACTIVE;
+    config.scan_time.active.min = 100;
+    config.scan_time.active.max = 300;
+    *attempted = true;
+    const esp_err_t e = esp_wifi_scan_start(&config, false);
+    if (e != ESP_OK) {
+      *why = (int32_t)e;
+      return WIFI_SCAN_FAILED;
+    }
+    WiFiScanClass::_scanStarted = millis();
+    if (!WiFiScanClass::_scanStarted) {
+      ++WiFiScanClass::_scanStarted;                // 0 means "no scan" to scanComplete()
+    }
+    WiFiGenericClass::clearStatusBits(WIFI_SCAN_DONE_BIT);
+    WiFiGenericClass::setStatusBits(WIFI_SCANNING_BIT);
+    if (async) {
+      return WIFI_SCAN_RUNNING;
+    }
+    if (WiFiGenericClass::waitStatusBits(WIFI_SCAN_DONE_BIT, 10000)) {
+      return (int16_t)WiFiScanClass::_scanCount;
+    }
+    *why = (int32_t)ESP_ERR_TIMEOUT;                // started, but no SCAN_DONE in 10 s
+    return WIFI_SCAN_FAILED;
+  }
+};
+}  // namespace
+
+int16_t wifiScanStart(bool async, int32_t* whyOut) {
+  int32_t why = ESP_OK;
+  bool attempted = false;
+  const int16_t r = ScanStarter::start(async, &why, &attempted);
+  if (attempted) {
+    const uint32_t ms = millis();
+    if (why == (int32_t)ESP_ERR_TIMEOUT) {
+      s_ss.note(ms, ESP_OK);                        // it DID start...
+      s_ss.noteTimeout(ms);                         // ...and never finished
+    } else {
+      s_ss.note(ms, why);
+    }
+  }
+  if (whyOut) {
+    *whyOut = why;
+  }
+  return r;
+}
+
+void wifiDiagNoteRssi(int rssi, uint32_t ms) {
+  s_wd.noteRssi((int8_t)rssi, ms);
+}
+
+int wifiDiagHealth(char* out, size_t cap) {
+  return wifiDiagHealthField(out, cap, s_wd, s_ss);
+}
+
+/* One place that writes a line to the durable log as well as the console. The card is the
+ * loop's (never the event task's) and the Game Boy's while a game runs. */
+static void wifiDiagDurable(const char* line) {
+  log_e("%s", line);
+  if (!gGbcActive) {
+    healthLogLine(line);
+  }
+}
+
+/* Drain the event ring into log lines. LOOP TASK, every pass (a compare when nothing happened).
+ *
+ *   WIFI LOST  the drop that ENDS a link: reason, the AP, its channel, the last RSSI and how
+ *              long before the drop it was sampled. Also written to health.log.
+ *   WIFI disc  every later disconnect of the same spell — a core auto-reconnect storm is a
+ *              train of these (NO_AP_FOUND every few seconds), so a run of one reason prints
+ *              twice and then is COUNTED, with a summary line at least once a minute.
+ *   WIFI JOIN  associated: the AP, channel, RSSI, and for a spell the bill — how long down,
+ *              how many disconnects, how many of them the core answered with its own begin(),
+ *              and how many scan starts were refused. Also written to health.log.
+ *   WIFI scan  a SCAN_DONE that failed/aborted or found nothing (the core reports both as n=0).
+ *   WIFI radio STA started/stopped (a bounce, the Game Boy, WiFi off). */
+void Networks::diagTick(uint32_t now) {
+  static uint32_t s_next = 0;                 // the next event sequence to print
+  static bool     s_linkView = false;         // a CONNECTED drained since the last DISCONNECTED
+  static bool     s_spell = false;            // a LOST printed, no JOIN since
+  static uint32_t s_spellMs = 0;
+  static uint32_t s_spellDisc = 0;
+  static uint32_t s_spellCr = 0;
+  static uint32_t s_spellSsf0 = 0;
+  static uint8_t  s_spellLast = 0;
+  static uint8_t  s_lostBssid[6] = {0};
+  static uint8_t  s_runReason = 0;            // the reason of the current run of disconnects
+  static uint32_t s_runLen = 0;
+  static uint32_t s_runHidden = 0;
+  static uint32_t s_runSaidMs = 0;
+
+  const uint32_t head = s_wd.head();
+  if (head == s_next && !(s_runHidden && (uint32_t)(now - s_runSaidMs) >= 60000u)) {
+    return;                                   // the common case: nothing new
+  }
+  char line[232];
+  char b[18];
+  uint32_t missed = 0;
+  if ((uint32_t)(head - s_next) >= WifiDiagLog::RING) {
+    missed += (uint32_t)(head - s_next) - (WifiDiagLog::RING - 1);
+    s_next = head - (WifiDiagLog::RING - 1);
+  }
+
+  auto flushRun = [&]() {
+    if (s_runHidden) {
+      log_e("WIFI disc reason=%u %s x%lu more (counted, not printed)", (unsigned)s_runReason,
+            wifiReasonName(s_runReason), (unsigned long)s_runHidden);
+      s_runHidden = 0;
+    }
+    s_runSaidMs = now;
+  };
+
+  for (; s_next != head; s_next++) {
+    WifiDiagEvent e;
+    if (!s_wd.read(s_next, &e)) {
+      missed++;
+      continue;
+    }
+    const unsigned long tS = e.ms / 1000, tD = (e.ms % 1000) / 100;
+    switch (e.kind) {
+    case WDE_DISC: {
+      wifiFormatBssid(e.bssid, b);
+      const bool coreRejoins = wifiCoreRejoinsAfter(e.code);
+      if (s_linkView) {
+        flushRun();
+        s_linkView = false;
+        s_spell = true;
+        s_spellMs = e.ms;
+        s_spellDisc = 1;
+        s_spellCr = coreRejoins ? 1 : 0;
+        s_spellSsf0 = s_ss.refusedRuns;
+        s_spellLast = e.code;
+        memcpy(s_lostBssid, e.bssid, 6);
+        s_runReason = e.code;
+        s_runLen = 1;
+        if (e.rssi != 0) {
+          snprintf(line, sizeof(line),
+                   "WIFI LOST reason=%u %s ap=%s ch=%u rssi=%d (sampled %ldms before) t=%lu.%lus%s",
+                   (unsigned)e.code, wifiReasonName(e.code), b, (unsigned)e.chan, (int)e.rssi,
+                   (long)e.val, tS, tD, coreRejoins ? " - core rejoining" : "");
+        } else {
+          snprintf(line, sizeof(line), "WIFI LOST reason=%u %s ap=%s ch=%u rssi=? t=%lu.%lus%s",
+                   (unsigned)e.code, wifiReasonName(e.code), b, (unsigned)e.chan, tS, tD,
+                   coreRejoins ? " - core rejoining" : "");
+        }
+        wifiDiagDurable(line);
+        break;
+      }
+      if (s_spell) {
+        s_spellDisc++;
+        s_spellCr += coreRejoins ? 1 : 0;
+        s_spellLast = e.code;
+      }
+      if (s_runLen > 0 && e.code == s_runReason) {
+        if (++s_runLen > 2) {
+          s_runHidden++;
+          break;                              // counted; flushed on a change or once a minute
+        }
+      } else {
+        flushRun();
+        s_runReason = e.code;
+        s_runLen = 1;
+      }
+      log_e("WIFI disc reason=%u %s ap=%s t=%lu.%lus%s", (unsigned)e.code, wifiReasonName(e.code),
+            b, tS, tD, coreRejoins ? " - core rejoining" : "");
+      break;
+    }
+    case WDE_CONN: {
+      flushRun();
+      s_runLen = 0;
+      s_linkView = true;
+      wifiFormatBssid(e.bssid, b);
+      const int rssiNow = (int)WiFi.RSSI();   // 0 if it has already gone again
+      if (s_spell) {
+        snprintf(line, sizeof(line),
+                 "WIFI JOIN ap=%s ch=%u rssi=%d (%s AP) after %lus down: %lu disconnects "
+                 "(last %u %s), %lu core rejoins, %lu refused-scan-start runs%s%s t=%lu.%lus",
+                 b, (unsigned)e.chan, rssiNow,
+                 memcmp(e.bssid, s_lostBssid, 6) == 0 ? "same" : "OTHER",
+                 (unsigned long)((uint32_t)(e.ms - s_spellMs) / 1000), (unsigned long)s_spellDisc,
+                 (unsigned)s_spellLast, wifiReasonName(s_spellLast), (unsigned long)s_spellCr,
+                 (unsigned long)(s_ss.refusedRuns - s_spellSsf0),
+                 (s_ss.refusedRuns != s_spellSsf0) ? " last " : "",
+                 (s_ss.refusedRuns != s_spellSsf0) ? wifiErrName(s_ss.lastErr) : "", tS, tD);
+        s_spell = false;
+      } else {
+        snprintf(line, sizeof(line), "WIFI JOIN ap=%s ch=%u rssi=%d t=%lu.%lus", b,
+                 (unsigned)e.chan, rssiNow, tS, tD);
+      }
+      wifiDiagDurable(line);
+      break;
+    }
+    case WDE_SCANDONE:
+      if (e.code != 0 || e.val == 0) {
+        log_e("WIFI scan event: %s (status=%u) aps=%ld t=%lu.%lus",
+              e.code ? "FAILED/aborted" : "completed, heard NOTHING", (unsigned)e.code,
+              (long)e.val, tS, tD);
+      }
+      break;
+    case WDE_START:
+      log_e("WIFI radio started t=%lu.%lus", tS, tD);
+      break;
+    case WDE_STOP:
+      if (s_linkView) {
+        /* A radio stopped while associated delivers no DISCONNECTED (the bounce-v1 lesson,
+         * Networks::bounceRadio) — so this IS the end of that link. */
+        s_linkView = false;
+        s_spell = true;
+        s_spellMs = e.ms;
+        s_spellDisc = 0;
+        s_spellCr = 0;
+        s_spellSsf0 = s_ss.refusedRuns;
+        s_spellLast = 0;
+        memset(s_lostBssid, 0, sizeof(s_lostBssid));
+        snprintf(line, sizeof(line), "WIFI LOST radio stopped while associated t=%lu.%lus", tS, tD);
+        wifiDiagDurable(line);
+      } else {
+        log_e("WIFI radio stopped t=%lu.%lus", tS, tD);
+      }
+      break;
+    default:
+      break;
+    }
+  }
+  if (missed) {
+    log_e("WIFI diag: %lu event(s) overwritten before the loop could print them",
+          (unsigned long)missed);
+  }
+  if (s_runHidden && (uint32_t)(now - s_runSaidMs) >= 60000u) {
+    flushRun();                               // a storm still running says so once a minute
+  }
+}
+
+/* `wifi` / `wifi why` over the cable: everything above in one screen, plus the driver's own view.
+ * LOOP TASK (the serial console). Reads s_wd without draining it. */
+void Networks::diagPrint(void (*out)(const char*)) {
+  char l[200];
+  char b[18];
+  const uint32_t now = millis();
+
+  snprintf(l, sizeof(l), "wifi why: status=%d conn=%d mode=%d autoReconnect=%d radioOff=%d ud=%d rec=%d",
+           (int)WiFi.status(), (int)connected, (int)WiFi.getMode(), (int)WiFi.getAutoReconnect(),
+           (int)_radioOff, (int)_userDisabled, (int)reconnect);
+  out(l);
+
+  /* The config the CORE's auto-reconnect rejoins with (begin() with no arguments re-uses it).
+   * An empty or wrong SSID here makes every core rejoin NO_AP_FOUND for ever. 🛑 The password
+   * is never printed — only whether there is one. */
+  wifi_config_t conf;
+  if (esp_wifi_get_config(WIFI_IF_STA, &conf) == ESP_OK) {
+    snprintf(l, sizeof(l), "  driver STA config: ssid='%.32s' pw=%s bssid_set=%d channel=%u scan_method=%d sort=%d",
+             (const char*)conf.sta.ssid, conf.sta.password[0] ? "set" : "EMPTY",
+             (int)conf.sta.bssid_set, (unsigned)conf.sta.channel, (int)conf.sta.scan_method,
+             (int)conf.sta.sort_method);
+  } else {
+    snprintf(l, sizeof(l), "  driver STA config: unreadable (driver not initialised)");
+  }
+  out(l);
+
+  wifi_ap_record_t ap;
+  if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
+    wifiFormatBssid(ap.bssid, b);
+    snprintf(l, sizeof(l), "  link: ap=%s ch=%u rssi=%d ssid='%.32s'", b, (unsigned)ap.primary,
+             (int)ap.rssi, (const char*)ap.ssid);
+  } else {
+    uint8_t lb[6];
+    s_wd.linkBssid(lb);
+    wifiFormatBssid(lb, b);
+    snprintf(l, sizeof(l), "  link: NOT associated (last joined ap=%s ch=%u)", b,
+             (unsigned)s_wd.linkChan());
+  }
+  out(l);
+
+  snprintf(l, sizeof(l), "  since boot: %lu disconnects (%lu answered by the core's own begin()), %lu joins; "
+           "scan events %lu (%lu failed/aborted)",
+           (unsigned long)s_wd.disconnects(), (unsigned long)s_wd.coreRejoins(),
+           (unsigned long)s_wd.connects(), (unsigned long)s_wd.scansDone(),
+           (unsigned long)s_wd.scansFailed());
+  out(l);
+  for (int k = 0; k < WIFI_DIAG_BUCKETS; k++) {
+    if (!s_wd.count(k)) {
+      continue;
+    }
+    const unsigned r = wifiBucketReason(k);
+    snprintf(l, sizeof(l), "    reason %3u %-24s x%u%s", r, k ? wifiReasonName(r) : "(other)",
+             (unsigned)s_wd.count(k), wifiCoreRejoinsAfter(r) ? "  (core rejoins after it)" : "");
+    out(l);
+  }
+  snprintf(l, sizeof(l), "  scan starts: %lu, refused %lu in %lu run(s) (%lu 'still connecting'), "
+           "timed out %lu; last refusal %s (0x%lx) %lds ago",
+           (unsigned long)s_ss.starts, (unsigned long)s_ss.refused, (unsigned long)s_ss.refusedRuns,
+           (unsigned long)s_ss.refusedState, (unsigned long)s_ss.timedOut, wifiErrName(s_ss.lastErr),
+           (unsigned long)(uint32_t)s_ss.lastErr,
+           s_ss.lastRefusedMs ? (long)((uint32_t)(now - s_ss.lastRefusedMs) / 1000) : -1L);
+  out(l);
+  snprintf(l, sizeof(l), "  autosw: scanning=%d pending=%d dryScans=%u dryBounced=%d discScans=%lu "
+           "sinceScan=%lus longDry=%d joins=%lu/%lu lastJoinAttempt=%lus ago",
+           (int)_scanning, (int)_scanPending, (unsigned)_dryScans, (int)_dryBounced,
+           (unsigned long)_discScans, (unsigned long)((uint32_t)(now - _msLastScan) / 1000),
+           (int)inLongDrySpell(), (unsigned long)_joinsTried, (unsigned long)_joinsSkipped,
+           (unsigned long)((uint32_t)(now - lastWifiConnectAttemptMs()) / 1000));
+  out(l);
+
+  out("  recent events (oldest first):");
+  const uint32_t head = s_wd.head();
+  const uint32_t first = (head >= WifiDiagLog::RING - 1) ? head - (WifiDiagLog::RING - 1) : 0;
+  for (uint32_t s = first; s != head; s++) {
+    WifiDiagEvent e;
+    if (!s_wd.read(s, &e)) {
+      continue;
+    }
+    wifiFormatBssid(e.bssid, b);
+    const long ago = (long)((uint32_t)(now - e.ms) / 1000);
+    switch (e.kind) {
+    case WDE_DISC:
+      snprintf(l, sizeof(l), "    %5lds ago  DISC reason=%u %s ap=%s ch=%u rssi=%d%s", ago,
+               (unsigned)e.code, wifiReasonName(e.code), b, (unsigned)e.chan, (int)e.rssi,
+               wifiCoreRejoinsAfter(e.code) ? " (core rejoined)" : "");
+      break;
+    case WDE_CONN:
+      snprintf(l, sizeof(l), "    %5lds ago  CONN ap=%s ch=%u", ago, b, (unsigned)e.chan);
+      break;
+    case WDE_SCANDONE:
+      snprintf(l, sizeof(l), "    %5lds ago  SCAN_DONE status=%u aps=%ld", ago, (unsigned)e.code,
+               (long)e.val);
+      break;
+    case WDE_START:
+      snprintf(l, sizeof(l), "    %5lds ago  STA_START (radio up)", ago);
+      break;
+    case WDE_STOP:
+      snprintf(l, sizeof(l), "    %5lds ago  STA_STOP (radio down)", ago);
+      break;
+    default:
+      continue;
+    }
+    out(l);
+  }
 }
 
 void connectToWiFi(const char* ssid, const char* pwd) {
@@ -775,6 +1178,7 @@ void Networks::autoSwitchTick(bool screenOn) {
     }
     _scanPending = true;                // scanBusy() now holds the reconnect loop off
     _msScanPendingSince = now;
+    _scanPreMarked = false;             // this round's scan-pre mark is still to be taken
     if (!connected) {
       if (_dryScans >= 2) {
         /* THE DEAF-RADIO RECOVERY (2026-08-27, measured on phone 1 at the work desk):
@@ -789,6 +1193,17 @@ void Networks::autoSwitchTick(bool screenOn) {
          * at most every second round (~10 min), not every scan. */
         log_e("[autosw] %u consecutive empty scans: restarting the radio before this one",
               (unsigned)_dryScans);
+        /* ...and to the card (2026-09-25): the one line that proves the self-cure fired, on a
+         * phone that was in a pocket with no cable. Rare by construction (at most one per
+         * spell's two dry rounds), so one SD append costs nothing. The console text above is
+         * kept as it was: the handoff's grep recipes look for "restarting the radio". */
+        if (!gGbcActive) {
+          char bl[112];
+          snprintf(bl, sizeof(bl), "WIFI BOUNCE (auto): %u dry scan rounds (empty, failed or "
+                   "refused) - restarting the radio up=%lus", (unsigned)_dryScans,
+                   (unsigned long)(now / 1000));
+          healthLogLine(bl);
+        }
         _dryScans = 0;
         _dryBounced = true;             // this spell had its bounce: cadence re-eases
         WiFi.disconnect(true /*radio OFF; the scan start turns it back on*/);
@@ -819,8 +1234,20 @@ void Networks::autoSwitchTick(bool screenOn) {
     scheduleScanRetry(now, WiFi.status() == WL_CONNECTED);
     return;
   }
-  heapEvent("scan-pre");            // the scan is the prime remaining suspect: bracket it
-  int16_t r = WiFi.scanNetworks(true /*async*/);   // keeps an existing association
+  /* ⚠ ONCE PER ROUND, NOT ONCE PER ATTEMPT (2026-09-25). A refused start is retried on EVERY
+   * loop pass for up to 5 s, and heapEvent() is a log_e plus an SD open/append/close — so each
+   * round of refusals wrote one "MARK scan-pre" line to health.log per ATTEMPT (as many as the
+   * loop could turn in 5 s with an SD write in each pass), every ~30 s, for as long as the
+   * station stayed wedged: the instrument flooding the very log meant to explain the drop.
+   * (A burst of consecutive scan-pre marks with no scan-post in an OLD log is therefore the
+   * fingerprint of refused starts.) The mark brackets the scan's allocation; the heap a few ms
+   * into the round is the same heap. */
+  if (!_scanPreMarked) {
+    _scanPreMarked = true;
+    heapEvent("scan-pre");            // the scan is the prime remaining suspect: bracket it
+  }
+  int32_t startErr = 0;
+  int16_t r = wifiScanStart(true /*async*/, &startErr);   // keeps an existing association
   if (r != WIFI_SCAN_FAILED) {
     log_e("[autosw] scan started (wifi status %d)", (int)WiFi.status());
     _scanPending = false;
@@ -828,7 +1255,23 @@ void Networks::autoSwitchTick(bool screenOn) {
     return;
   }
   if (now - _msScanPendingSince > 5000) {
-    log_e("[autosw] scan start kept failing (wifi status %d)", (int)WiFi.status());
+    /* 🛑 A ROUND OF REFUSED STARTS IS DRY EVIDENCE TOO (2026-09-25, from phone 2's two drops
+     * the night before: wifi=5 then wifi=1, a serial scan of -2, cured only by `wifi bounce`).
+     * _dryScans — the counter that triggers the deaf-radio bounce above — was only ever
+     * advanced by COMPLETED scans (n == 0 and n < 0, in the _scanning branch). A start that
+     * esp_wifi_scan_start REFUSES never gets there: this branch only rescheduled. So a station
+     * held mid-connect — every start refused with ESP_ERR_WIFI_STATE while the core's capless
+     * auto-reconnect keeps it "connecting" (wifiCoreRejoinsAfter) — could NEVER reach
+     * `_dryScans >= 2`, and the self-bounce written for exactly that state could never fire:
+     * down until a human bounced the radio or rebooted. Counted here, disconnected only, the
+     * same way the n < 0 completions already are: two refused rounds (~35 s apart on the
+     * fast-confirm cadence) and the round after restarts the radio before it scans. */
+    if (!connected && _dryScans < 1000) {
+      _dryScans++;
+    }
+    log_e("[autosw] scan start kept failing for 5 s (wifi status %d, refused with 0x%lx %s) dry=%u",
+          (int)WiFi.status(), (unsigned long)(uint32_t)startErr, wifiErrName(startErr),
+          (unsigned)_dryScans);
     _scanPending = false;               // give up; normal backoff retries soon
     scheduleScanRetry(now, WiFi.status() == WL_CONNECTED);
   }
