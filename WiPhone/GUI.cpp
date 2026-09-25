@@ -9313,6 +9313,9 @@ MicTestApp::MicTestApp(Audio* audio, LCD& lcd, ControlState& state, HeaderWidget
   state.msAppTimerEventLast = millis();
   state.msAppTimerEventPeriod = 33;    // 30 fps
 
+  /* Music first (review, 2026-09-25): start() restarts I2S and turnMicOn() swaps music's own
+   * ring for the microphone's under a playing track. Paused, so it keeps its place. */
+  musicPlayerPause();
   audio->start();
   audio->turnMicOn();
 
@@ -9401,6 +9404,9 @@ RecorderApp::RecorderApp(Audio* audio, LCD& lcd, ControlState& state, HeaderWidg
 
   label = new LabelWidget(0, 195, lcd.width(), 35, "Not recording", WP_COLOR_1, WP_COLOR_0, fonts[AKROBAT_BOLD_22], LabelWidget::CENTER, 8);
 
+  /* Music first (review, 2026-09-25): start() restarts I2S and turnMicOn() swaps music's own
+   * ring for the microphone's under a playing track. Paused, so it keeps its place. */
+  musicPlayerPause();
   audio->start();
   audio->turnMicOn();
 }
@@ -12124,7 +12130,10 @@ LedMicApp::LedMicApp(Audio* audio, LCD& lcd, ControlState& state, HeaderWidget* 
   }
 
   // Turn on microphone
-  audio->setSampleRate(16000);
+  /* Music first (review, 2026-09-25): start() restarts I2S and turnMicOn() swaps music's own
+   * ring for the microphone's under a playing track. Paused, so it keeps its place. */
+  musicPlayerPause();
+  audio->setSampleRate(16000);         // (the rate change reached a playing track too: 0.73x)
   audio->start();
   audio->turnMicOn();
 

@@ -17,6 +17,10 @@
  *   5. Mono/half-rate conversion: DC exact, 1 kHz passes, 18 kHz is gone, and it is the same
  *      whether fed in one block or frame by frame.
  *   6. The end of a track plays out whole, and nothing but silence plays after it.
+ *   7. (review, 2026-09-25) Long passes WITH a stall stay clean (the 80% catch-up mark), every
+ *      stall is counted even where the ring is seldom full again (normalize()), a card read that
+ *      fails mid-track is an error and not the end of the file, and a WAV's units keep the mono
+ *      pair swap on its pairs.
  *
  * Costs are the ones the replay was calibrated with: decode 7.65 ms/frame (5,103 us measured at
  * 240 MHz x 1.5 for 160 MHz), card read 330 us + 1.95 us/byte (1.33 ms per 512 B vs 1,281 us
@@ -302,6 +306,16 @@ struct ModelSink : public MusicSink {
   }
   uint64_t nowUs() override {
     return (uint64_t)clk->us;
+  }
+};
+
+/* A ModelSink that also keeps every sample the DMA accepted, in order. */
+struct RecSink : public ModelSink {
+  std::vector<int16_t> rec;
+  size_t write(const int16_t* s, size_t n) override {
+    const size_t w = ModelSink::write(s, n);
+    rec.insert(rec.end(), s, s + w);
+    return w;
   }
 };
 
@@ -596,6 +610,11 @@ static void testOldVsNew() {
     {"10 ms + 300 ms every 10 s", 10, 300, 10, 60},
     {"40 ms + 300 ms every 10 s", 40, 300, 10, 60},
     {"10 ms + 450 ms every 5 s", 10, 450, 5, 60},
+    /* Long passes AND a stall (review, 2026-09-25). At a map pan's ~77 ms a pass plus its own
+     * decode needs more than 4 frames, so the ring settles at the catch-up mark: at 40% (a2aa516)
+     * both of these dropped out on every few stalls while every row above stayed green. */
+    {"77 ms (map pan) + 300 ms every 10 s", 77, 300, 10, 60},
+    {"100 ms + 300 ms every 10 s", 100, 300, 10, 60},
   };
   for (const Scenario& sc : grid) {
     const Result r = runNew(s192, sc);
@@ -623,6 +642,7 @@ static void testOtherShapes() {
     {"40 ms + 300 ms every 10 s", 40, 300, 10, 36},
     {"60 ms passes", 60, 0, 0, 36},
     {"10 ms + 100 ms every 1 s", 10, 100, 1, 36},
+    {"77 ms (map pan) + 300 ms every 10 s", 77, 300, 10, 36},
   };
   for (const Scenario& sc : hard) {
     const Result a = runNew(s48, sc);
@@ -671,6 +691,312 @@ static void testDropsAreTrue() {
     ok(r.dropMs <= r.trueDryMs + 1 && r.dropMs + 40.0 * r.drops >= r.trueDryMs, what);
     snprintf(what, sizeof(what), "%s: minLead went below zero", st.sc.name);
     ok(r.minLeadMs < 0, what);
+  }
+  /* After a drop the upper bound restarts at "full", and only normalize() stops it staying loose
+   * by everything written since: at LONG passes the writer seldom meets a full ring to pin it
+   * again, so without it the next stall inside that stretch is not counted (review, 2026-09-25:
+   * deleting the normalize() call in run() was the one mutation no test caught; here it
+   * counts 6 of these 12 stalls). */
+  {
+    const Scenario sc = {"120 ms passes + 0.8 s stall every 5 s", 120, 800, 5, 60};
+    const Result r = runNew(s192, sc);
+    note("%-38s true dropouts %ld (%.0f ms) | drops %u (%u ms)", sc.name, r.trueEpisodes, r.trueDryMs,
+         r.drops, r.dropMs);
+    ok(r.drops == 12 && (long)r.drops <= r.trueEpisodes,
+       "120 ms passes + 0.8 s stalls: every stall is counted, though the ring is seldom full between");
+  }
+}
+
+/* The same claim at the unit level: a fresh (or just-dropped) ring's upper bound is "full", and a
+ * writer that is never refused must not leave it at full + everything written since. */
+static void testLeadNormalize() {
+  group("MusicLead::normalize(): no bound above what the ring can hold");
+  const uint32_t cap = MUSIC_DMA_BUFS * MUSIC_DMA_BUF_SAMPLES;
+  const MusicDma d = {MUSIC_DMA_BUFS, MUSIC_DMA_BUF_SAMPLES, 22050, 1};
+  MusicLead a;
+  a.begin(d, 0);
+  a.wrote(cap);                          // a whole ring written, and never a short write
+  a.normalize(0);
+  ok(a.hi(0) == (int32_t)cap && a.lo(0) <= (int32_t)cap, "both bounds at most a full ring after normalize()");
+  /* 700 ms with nothing written: the ring (557 ms) is certainly dry, by ~140 ms. Un-normalized, the
+   * upper bound would still be +a full ring and this would read as clean. */
+  ok(a.check(700000), "a 700 ms stall after it is a drop");
+  ok(a.drops == 1 && a.dryUs > 100000, "counted once, with the dry time it certainly had");
+}
+
+// ─── WAV units: whole groups of four, so the pair swap stays on its pairs ─────────────────
+
+/* The mono pair swap is done per staged unit, so every unit must hand the ring an EVEN number of
+ * samples. A WAV's first unit used to be odd at half rate (the converter's one-frame lag, then
+ * `& ~1`): from there on every pair was swapped with the wrong partner. Played twice, swap on
+ * and swap off, the first must be the second with each pair exchanged — from the first sample
+ * to the last. */
+static void testWavUnits() {
+  group("a WAV's units keep the mono pair swap on its pairs (44.1 kHz stereo, half rate)");
+  const int fs = 44100, secs = 2;
+  std::vector<uint8_t> w;
+  appendWavHeader(w, fs, 2, (uint32_t)(fs * secs * 4));
+  for (int i = 0; i < fs * secs; i++) {
+    const int16_t l = (int16_t)(9000 * sin(2 * M_PI * 440 * i / fs));
+    const int16_t r = (int16_t)(7000 * sin(2 * M_PI * 1250 * i / fs));
+    for (int16_t x : {l, r}) {
+      w.push_back((uint8_t)x);
+      w.push_back((uint8_t)(x >> 8));
+    }
+  }
+  WavInfo info;
+  ok(wavParseHeader(w.data(), w.size(), &info), "(the WAV parses)");
+  std::vector<int16_t> heard[2];
+  for (int sw = 0; sw < 2; sw++) {
+    Clock clk;
+    MemSource src;
+    src.d = &w;
+    src.clk = &clk;
+    static int16_t dec[2400];
+    SimFeed feed;
+    feed.clk = &clk;
+    feed.decodeUs = 0;
+    feed.begin();
+    feed.swapPairs = sw == 1;
+    feed.openWav(&src, info, dec, 0);
+    DmaModel m(MUSIC_DMA_BUFS, MUSIC_DMA_BUF_SAMPLES, feed.outRate());
+    m.t0us = clk.us;
+    RecSink sink;
+    sink.m = &m;
+    sink.clk = &clk;
+    sink.keepValues = true;
+    MusicDma dma = {MUSIC_DMA_BUFS, MUSIC_DMA_BUF_SAMPLES, feed.outRate(), 1};
+    feed.start(&sink, dma);
+    for (int i = 0; i < 600 && !feed.ended(); i++) {
+      clk.us += 10000;
+      feed.pass(dma);
+    }
+    heard[sw] = sink.rec;
+  }
+  const size_t len = heard[0].size() < heard[1].size() ? heard[0].size() : heard[1].size();
+  size_t wrong = 0, firstWrong = (size_t)-1;
+  for (size_t k = 0; k + 1 < len; k += 2) {
+    if (heard[1][k] != heard[0][k + 1] || heard[1][k + 1] != heard[0][k]) {
+      wrong++;
+      if (firstWrong == (size_t)-1) {
+        firstWrong = k;
+      }
+    }
+  }
+  note("%zu samples each way; %zu pairs not exchanged (first at sample %ld)", len, wrong,
+       firstWrong == (size_t)-1 ? -1L : (long)firstWrong);
+  ok(len > (size_t)(fs * secs / 2) - 8, "(the whole track was heard both ways)");
+  ok(wrong == 0, "every pair swapped with its own partner, from the first unit to the last");
+}
+
+// ─── a card that will not read ──────────────────────────────────────────────────────────
+
+/* A MemSource that fails on purpose: reads starting at or past `failFrom` return 0 `failReads`
+ * times (-1 = for ever), or come back `shortBy` bytes short once. 0 is what Arduino's
+ * File::read() returns for an error AND for the end of the file. */
+struct FlakySource : public MemSource {
+  size_t failFrom = (size_t)-1;
+  int failReads = 0;
+  int shortBy = 0;
+  int failedReads = 0, reopens = 0;
+  int read(uint8_t* dst, size_t n) override {
+    if (pos >= failFrom && pos < d->size()) {
+      if (failReads != 0) {
+        if (failReads > 0) {
+          failReads--;
+        }
+        failedReads++;
+        return 0;
+      }
+      if (shortBy > 0 && n > (size_t)shortBy) {
+        n -= (size_t)shortBy;
+        shortBy = 0;
+      }
+    }
+    return MemSource::read(dst, n);
+  }
+  bool reopen(uint32_t p) override {
+    reopens++;
+    return seek(p);
+  }
+};
+
+struct FlakyRun {
+  bool ended = false, failed = false;
+  long episodes = 0;
+  MusicStats st;
+  uint32_t playingAtFail = 0;
+  uint32_t readsAfterFail = 0;          // reads attempted in the 100 passes after failed()
+  int maxFailsInAPass = 0;              // failed reads attempted in any one pass (or the prefill)
+};
+
+
+/* 10 ms passes until ended() or failed(), then 100 more passes to see that a failed feed stays
+ * quiet (Audio::loop() stops it at once on the phone; the feed must not need that to be safe). */
+static FlakyRun runFlaky(FlakySource& src, bool wav, const WavInfo* info, double passMs = 10) {
+  FlakyRun R;
+  memset(&R.st, 0, sizeof(R.st));
+  Clock clk;
+  src.clk = &clk;
+  Mp3Stream mp3;
+  mp3.begin();
+  static int16_t dec[2400];
+  SimFeed feed;
+  feed.clk = &clk;
+  feed.decodeUs = wav ? 0 : 7650;
+  feed.begin();
+  feed.swapPairs = false;
+  const bool opened = wav ? feed.openWav(&src, *info, dec, 0) : feed.openMp3(&src, &mp3, dec, 0, 0);
+  if (!opened) {
+    ok(false, "the stream opens");
+    return R;
+  }
+  DmaModel m(MUSIC_DMA_BUFS, MUSIC_DMA_BUF_SAMPLES, feed.outRate());
+  m.t0us = clk.us;
+  ModelSink sink;
+  sink.m = &m;
+  sink.clk = &clk;
+  sink.keepValues = true;
+  MusicDma dma = {MUSIC_DMA_BUFS, MUSIC_DMA_BUF_SAMPLES, feed.outRate(), 1};
+  int f0 = src.failedReads;
+  feed.start(&sink, dma);
+  R.maxFailsInAPass = src.failedReads - f0;
+  for (int i = 0; i < 6000 && !feed.ended() && !feed.failed(); i++) {
+    clk.us += passMs * 1000;
+    f0 = src.failedReads;
+    feed.pass(dma);
+    if (src.failedReads - f0 > R.maxFailsInAPass) {
+      R.maxFailsInAPass = src.failedReads - f0;
+    }
+  }
+  m.advance(clk.us);
+  R.ended = feed.ended();
+  R.failed = feed.failed();
+  R.episodes = m.episodes;
+  if (R.failed) {
+    R.playingAtFail = feed.playingPos((uint64_t)clk.us);
+    MusicStats before;
+    feed.stats(&before, (uint64_t)clk.us);
+    for (int i = 0; i < 100; i++) {
+      clk.us += 10000;
+      feed.pass(dma);
+    }
+    MusicStats after;
+    feed.stats(&after, (uint64_t)clk.us);
+    R.readsAfterFail = after.reads - before.reads;
+  }
+  feed.stats(&R.st, (uint64_t)clk.us);
+  return R;
+}
+
+static void testReadErrors() {
+  group("a card read that fails mid-track is an error, not the end of the file");
+  const Stream st = makeMpeg1(44100, 192, 600);          // 15.7 s
+  const size_t at = st.frameOff[200];
+  {
+    FlakySource clean;
+    clean.d = &st.bytes;
+    const FlakyRun c = runFlaky(clean, false, nullptr);
+    FlakySource src;
+    src.d = &st.bytes;
+    src.failFrom = at;
+    src.failReads = MUSIC_READ_TRIES - 1;
+    const FlakyRun r = runFlaky(src, false, nullptr);
+    note("MP3, %d failed reads at byte %zu: ended %d failed %d, units %u (clean run %u), reopens %d, dropouts %ld",
+         src.failedReads, at, (int)r.ended, (int)r.failed, r.st.units, c.st.units, src.reopens, r.episodes);
+    ok(r.ended && !r.failed, "MP3: MUSIC_READ_TRIES - 1 failed reads in a row are retried, and the track plays to its end");
+    ok(r.st.units == c.st.units && c.st.units >= 598, "... every frame of it: nothing after the failed reads was skipped");
+    ok(r.st.readErrors == (uint32_t)(MUSIC_READ_TRIES - 1) && src.reopens == MUSIC_READ_TRIES - 1,
+       "... each failed read counted, and each retry on a NEW handle (FatFs latches the error)");
+    ok(r.episodes == 0, "... without a dropout: the retries cost a pass each, the ring covers them");
+  }
+  {
+    FlakySource src;
+    src.d = &st.bytes;
+    src.failFrom = at;
+    src.failReads = -1;                                   // the card is gone
+    /* 60 ms passes: each pass decodes a few frames, so a feed that retried within a pass would. */
+    const FlakyRun r = runFlaky(src, false, nullptr, 60);
+    note("MP3, card gone at byte %zu: failed %d ended %d, read errors %u, place %u, reads after %u",
+         at, (int)r.failed, (int)r.ended, r.st.readErrors, r.playingAtFail, r.readsAfterFail);
+    ok(r.failed && !r.ended, "MP3, card pulled: failed(), NOT ended() — the player must not go to the next track");
+    ok(r.st.readErrors == (uint32_t)MUSIC_READ_TRIES && r.maxFailsInAPass == 1,
+       "... after exactly MUSIC_READ_TRIES failed reads, never two in one pass (each can be an SD timeout)");
+    ok(r.readsAfterFail == 0, "... and then it reads nothing more");
+    ok(r.playingAtFail > st.frameOff[150] && r.playingAtFail < at,
+       "... and the place to resume is where it was playing, before the bytes it could not read");
+  }
+  /* WAV: 16 kHz mono (no filter, no halving), every sample its own index, so a skip, a repeat or
+   * a misaligned byte shows as a break in the ramp. */
+  const int fs = 16000, n = fs * 3;
+  std::vector<uint8_t> w;
+  appendWavHeader(w, fs, 1, (uint32_t)n * 2);
+  for (int i = 0; i < n; i++) {
+    const int16_t x = (int16_t)(1 + i % 20000);
+    w.push_back((uint8_t)x);
+    w.push_back((uint8_t)(x >> 8));
+  }
+  WavInfo info;
+  ok(wavParseHeader(w.data(), w.size(), &info), "(the WAV parses)");
+  const size_t wat = info.dataOffset + 30000;
+  {
+    FlakySource src;
+    src.d = &w;
+    src.failFrom = wat;
+    src.failReads = -1;
+    const FlakyRun r = runFlaky(src, true, &info);
+    ok(r.failed && !r.ended && r.readsAfterFail == 0, "WAV, card pulled: failed(), not ended(), then quiet");
+  }
+  {
+    /* A read that comes back 3 bytes short, mid-file (an error part-way through a read). The
+     * odd bytes must be read again, not dropped: dropped, every sample after them is built from
+     * the wrong byte pair — noise for the rest of the track. */
+    FlakySource src;
+    src.d = &w;
+    src.failFrom = wat;
+    src.shortBy = 3;
+    Clock clk;
+    src.clk = &clk;
+    static int16_t dec[2400];
+    SimFeed feed;
+    feed.clk = &clk;
+    feed.decodeUs = 0;
+    feed.begin();
+    feed.swapPairs = false;
+    ok(feed.openWav(&src, info, dec, 0) && feed.outRate() == (uint32_t)fs, "(a 16 kHz WAV plays at its own rate)");
+    DmaModel m(MUSIC_DMA_BUFS, MUSIC_DMA_BUF_SAMPLES, fs);
+    m.t0us = clk.us;
+    RecSink sink;
+    sink.m = &m;
+    sink.clk = &clk;
+    sink.keepValues = true;
+    MusicDma dma = {MUSIC_DMA_BUFS, MUSIC_DMA_BUF_SAMPLES, (uint32_t)fs, 1};
+    feed.start(&sink, dma);
+    for (int i = 0; i < 800 && !feed.ended(); i++) {
+      clk.us += 10000;
+      feed.pass(dma);
+    }
+    m.advance(clk.us);
+    /* The ramp never holds a 0; the silence around it does. */
+    long samples = 0, breaks = 0;
+    int16_t prev = 0;
+    for (int16_t v : sink.rec) {
+      if (v == 0) {
+        continue;
+      }
+      if (samples > 0 && !(v == prev + 1 || (prev == 20000 && v == 1))) {
+        breaks++;
+      }
+      prev = v;
+      samples++;
+    }
+    note("WAV, one read 3 bytes short at byte %zu: %ld samples heard of %d, %ld breaks in the ramp",
+         wat, samples, n, breaks);
+    ok(feed.ended() && m.episodes == 0, "WAV, a read 3 bytes short: played to the end, in order");
+    /* The converter holds the file's last frame and the feed its last 0-3 samples (whole groups
+     * of 4 only, see produceWav()): those few at the very end are all that may be missing. */
+    ok(samples >= n - 4 && samples <= n && breaks == 0,
+       "... every sample once, in order, built from the right bytes (none dropped at the start either)");
   }
 }
 
@@ -1359,6 +1685,9 @@ int main() {
   testOldVsNew();
   testOtherShapes();
   testDropsAreTrue();
+  testLeadNormalize();
+  testReadErrors();
+  testWavUnits();
   testEnd();
   testPlayingPos();
   testRealResume();

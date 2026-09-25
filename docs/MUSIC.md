@@ -87,15 +87,23 @@ Measured on both phones 2026-09-25 and replayed on the Mac (details at the top o
 What it is now: one pass decodes WHOLE frames (the compressed buffer is kept above 2 KB with
 4 KB reads) into mono, halves 44.1/48 kHz through a 23-tap half-band filter, and writes music's
 own ring — 24 x 512 samples, TX only, 24 KB (8 KB less than the install the phone boots with),
-534 ms at 22.05 kHz — until it refuses, at most 4 frames a pass (8 when the ring is low). Zero
-true dropouts in the model at passes of 5-80 ms, at a 100 ms stall every second and a 450 ms one
-every 5 s. The Now Playing line says `drops:N buf:X.Xs`; serial `music` says more:
+534 ms at 22.05 kHz — until it refuses, at most 4 frames a pass (8 when the ring is under 80%:
+at 40% the ring SETTLED at 40% under map-pan-length passes, and a 300 ms stall on top dropped
+out). Zero true dropouts in the model at passes of 5-80 ms, at a 100 ms stall every second, a
+450 ms one every 5 s, and 77/100 ms passes with a 300 ms stall every 10 s. Any stall longer than
+the ring (534 ms; 490 ms for a 48 kHz file) IS a dropout — the ring is the only slack. The Now
+Playing line says `drops:N buf:X.Xs`; serial `music` says more:
 - `drops` — passes that found the ring CERTAINLY dry: never invented, can miss one shorter than
   a buffer (23 ms);
 - `minLead` — the lowest LOWER bound on what the ring held at any pass start: above 0 means
   there was certainly no dropout at all;
 - `maxGap` — the longest the loop left music unfed (the stall `LOOP STALL` cannot see).
-`music reset` zeroes them for a clean window.
+`music reset` zeroes them for a clean window. ⚠ **After a drop, `drops` is only a lower bound
+until the ring is next FULL** (only a short write pins the upper bound again), and at long passes
+that can be the rest of the track: judge a busy bench by `minLead > 0`, never by `drops=0` alone.
+`reads=N (K KB, F failed)`: a read that fails before the end of the file is retried on a new handle
+once a pass, three passes running, then the track stops as "Card read failed" and keeps its place
+(F1 tries again) — it used to be taken for the end of the file.
 
 ⚠ **A ring in PSRAM would NOT help** (this doc and `mp3_stream.h` used to say it would): during a
 stall nothing moves samples from it into the DMA, because the loop is the only thing that
@@ -128,7 +136,16 @@ decode.
    mic-level meters never call a setter. The loop's `i2s_read()` is gated on `i2sRx`.
 10. **The mono pair swap.** In 16-bit ONLY_LEFT mode the ESP32 sends each pair of samples in the
    wrong order; `playChunk()` has always swapped them for the ring, the pop and calls, and the
-   feed does too (`swapPairs`). `music swap off` A/Bs it by ear.
+   feed does too (`swapPairs`). `music swap off` A/Bs it by ear. ⚠ The swap is done PER STAGED
+   UNIT, so every unit must reach the ring as an EVEN number of samples: MP3 frames always are; a
+   WAV's are carried in whole groups of 4 (`produceWav()`), because its first unit used to come out
+   odd at half rate and inverted the swap for the whole track.
+11. **Nothing may take the device from under a playing track.** The pop, the ring, a call and the
+   Game Boy finish a pop in flight FIRST, then pause music, then set their own rate and format
+   (music's `startTrack()` finishes the pop too); the mic apps pause the player before
+   `audio->start()`, and `turnMicOn()` stops a track itself as a backstop. `setSampleRate()`
+   marks the ring's queue stale, so the configureI2S() after it reinstalls onto a clean ring
+   (`tests/check_call_audio.py` pins all of it).
 2. **Format comes from content, not extension.** The uploader has no extension filter — a
    `.wav` holding an MP3 is ordinary input.
 3. **WAV `dataBytes` is a lie in streamed files** (`0xFFFFFFFF` or 0). Clamp to the real file

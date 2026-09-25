@@ -23,6 +23,11 @@ contract that cannot find its function fails too (a rename must update it, not r
 A guard's POLARITY is checked, not just its spelling: `!gui.inCall()` does not satisfy a contract
 that needs `gui.inCall()`, and the other way round. A self-test runs first and replays the
 pre-fix shapes, so a contract that has quietly stopped matching fails loudly.
+
+The music rebuild's review round (2026-09-25) added the device-borrowing contracts at the end of
+CONTRACTS: the pop finished before a track or a game takes the device, the mic apps pause music,
+setSampleRate() marks the ring's queue stale, music refuses a failed I2S install, and a card that
+will not read stops the track keeping its place. Each was checked by reverting it in a scratch copy.
 """
 import pathlib
 import re
@@ -381,9 +386,76 @@ CONTRACTS = [
          what="the loudspeaker flag set only when the jack is empty",
          why="a track started with headphones in then fell into the EARPIECE when they were pulled "
              "(the Game Boy's 2026-09-19 lesson); the reopen that hid it is gone"),
-    dict(file="music_player.cpp", fn="musicPlayerLoop", kind="calls",
+    dict(file="music_player.cpp", fn="adoptStopPlace", kind="calls",
          pat=r"\bmusicTakeStopPlace\s*\(", what="musicTakeStopPlace() when something else stopped music",
          why="a mesh pop, the ring or a call cut the track and F1 restarted it at 0:00"),
+    dict(file="music_player.cpp", fn="musicPlayerLoop", kind="calls",
+         pat=r"\badoptStopPlace\s*\(", what="adoptStopPlace() when something else stopped music",
+         why="a mesh pop, the ring or a call cut the track and F1 restarted it at 0:00"),
+    dict(file="music_player.cpp", fn="musicPlayerTogglePause", kind="sequence",
+         seq=[r"\badoptStopPlace\s*\(", r"\bmusicPlayerIsPlaying\s*\("],
+         what="a stop not yet adopted is adopted before F1 decides",
+         why="F1 in the pass a pop cut the track found neither playing nor paused: restart at 0:00"),
+    # ── 0.9.79 review round: the pop, the ring's queue, the install, the microphone ──
+    dict(file="music_player.cpp", fn="startTrack", kind="sequence",
+         seq=[r"\bnotifyPopFinishFor\s*\(", r"\bplayMusic\s*\("],
+         what="a pop in flight is finished BEFORE the track takes the device",
+         why="F1 inside a pop's 300 ms: the pop's teardown stopped the new track and restore()d "
+             "the pre-pop state over it"),
+    dict(file="WiPhone.ino", fn="loop", kind="guarded",
+         pat=r"\baudio\s*->\s*discardPreserved\s*\(",
+         need=[POS(r"\baudio\s*->\s*musicPlaying\s*\(")],
+         what="the pop teardown dropping its snapshot only when music has taken over",
+         why="the teardown's ceasePlayback()+restore() pulled a track's ring out from under it"),
+    dict(file="app_gbc.cpp", fn="GbcApp::startGame", kind="sequence",
+         seq=[r"\bnotifyPopFinishNow\s*\(", r"\bmusicPlayerPause\s*\(",
+              r"\baudio\s*->\s*setSampleRate\s*\(", r"\baudio\s*->\s*setMonoOutput\s*\("],
+         what="the pop finished, THEN music paused, THEN the game's rate and format",
+         why="the pop's restore() put the pre-pop 22.05 kHz mono back over the game: 50% speed"),
+    dict(file="Audio.cpp", fn="Audio::setSampleRate", kind="calls",
+         pat=r"\bi2sQueueStale\s*=\s*true\b", what="i2sQueueStale = true on a rate change",
+         why="i2s_set_clk() restarts the DMA at buffer 0 under the old free queue; with the cache "
+             "matching, a pop after a music session played on that scrambled ring, late and cut"),
+    dict(file="Audio.cpp", fn="Audio::setSampleRate", kind="guarded",
+         pat=r"\bi2s_set_sample_rates\s*\(",
+         need=[POS(r"\bi2sInstalled\b"), POS(r"\bi2sRate\s*!=")],
+         what="i2s_set_sample_rates() only on an installed driver and a CHANGED rate",
+         why="an unchanged rate restarted the ring for nothing; no driver = a NULL dereference in IDF"),
+    dict(file="Audio.cpp", fn="Audio::installI2S", kind="calls",
+         pat=r"!\s*this\s*->\s*i2sQueueStale\b", what="the cache refusing to match a stale queue",
+         why="the reinstall after setSampleRate() is what gives a pop, the ring and a call a clean ring"),
+    dict(file="Audio.cpp", fn="Audio::playMusic", kind="refuses_before",
+         need=[NEG(r"\bthis\s*->\s*i2sInstalled\b")], later=r"\bi2s_zero_dma_buffer\s*\(",
+         what="playMusic() refusing when music's I2S install failed",
+         why="IDF 3.3's i2s_zero_dma_buffer()/i2s_write() dereference a NULL driver: a panic"),
+    dict(file="Audio.cpp", fn="Audio::ceasePlayback", kind="guarded", pat=r"\bi2s_zero_dma_buffer\s*\(",
+         need=[POS(r"\bi2sInstalled\b")], what="ceasePlayback()'s i2s_zero_dma_buffer()",
+         why="after a failed install there is no driver, and IDF would dereference NULL"),
+    dict(file="Audio.cpp", fn="Audio::loop", kind="guarded", pat=r"\bfeed\s*->\s*pass\s*\(",
+         need=[POS(r"\bi2sInstalled\b")], what="the music feed's pass",
+         why="it writes I2S; no driver = a NULL dereference"),
+    dict(file="Audio.cpp", fn="Audio::loop", kind="sequence",
+         seq=[r"\bfeed\s*->\s*pass\s*\(", r"\bfeed\s*->\s*failed\s*\(", r"\bceasePlayback\s*\("],
+         what="a card that will not read stops the track keeping its place",
+         why="a read error was taken for the end of the file: the rest skipped, a pulled card "
+             "walked the queue"),
+    dict(file="Audio.cpp", fn="Audio::turnMicOn", kind="sequence",
+         seq=[r"\bmusicPlaying\s*\(", r"\bceasePlayback\s*\(", r"\bconfigureI2S\s*\("],
+         what="a playing track stopped (place kept) before the microphone's install",
+         why="configureI2S() swapped music's 534 ms ring for 186 ms under a playing track"),
+    dict(file="GUI.cpp", fn="MicTestApp::MicTestApp", kind="sequence",
+         seq=[r"\bmusicPlayerPause\s*\(", r"\baudio\s*->\s*start\s*\("],
+         what="music paused before the Mic test takes the device",
+         why="start() restarts I2S and turnMicOn() swaps the ring under a playing track"),
+    dict(file="GUI.cpp", fn="RecorderApp::RecorderApp", kind="sequence",
+         seq=[r"\bmusicPlayerPause\s*\(", r"\baudio\s*->\s*start\s*\("],
+         what="music paused before the Recorder takes the device",
+         why="start() restarts I2S and turnMicOn() swaps the ring under a playing track"),
+    dict(file="GUI.cpp", fn="LedMicApp::LedMicApp", kind="sequence",
+         seq=[r"\bmusicPlayerPause\s*\(", r"\baudio\s*->\s*setSampleRate\s*\(",
+              r"\baudio\s*->\s*start\s*\("],
+         what="music paused before the LED mic app sets 16 kHz",
+         why="the rate change played the track at 0.73x, then the ring was swapped under it"),
 ]
 
 BANNED = [

@@ -252,6 +252,12 @@ public:
    * is why every notification pop has been leaking device state. Implemented 2026-08-15. */
   void preserve();        // remember current configs to restore playback later
   void restore();         // restore preserved state
+  /* Forget the snapshot without putting it back: the pop's teardown, when something else has
+   * taken the device since (its configuration stands; restore() would pull it out from under
+   * it, and a snapshot left held would be restored by the NEXT pop instead of its own). */
+  void discardPreserved() {
+    this->presValid = false;
+  }
   /* Every write of an output volume to the codec goes through here, so the mute cannot be
    * undone by a volume change from any app (and codec.setVolume() itself clears the DAC
    * mute bit, so the bit is re-asserted after each). */
@@ -401,6 +407,9 @@ protected:
    * ~16 KB of internal DMA memory, and internal RAM is what this phone runs out of. */
   bool        i2sInstalled = false;
   int         i2sRate = 0;                  // kept TRUE by setSampleRate() too (0.9.79)
+  /* setSampleRate() restarted the DMA at buffer 0 under the driver's old free-buffer queue:
+   * the next configureI2S()/configureMusicI2S() must reinstall even if everything matches. */
+  bool        i2sQueueStale = false;
   uint8_t     i2sBps = 0;
   bool        i2sMono = false;
   /* The ring's geometry and direction (0.9.79): music installs its own (see

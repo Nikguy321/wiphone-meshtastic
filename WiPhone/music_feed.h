@@ -48,14 +48,20 @@
  *   - WHOLE FRAMES: a pass never ends for lack of bytes. The compressed buffer is topped up to
  *     4 KB (in one read) whenever it falls under 2 KB — at least one of the largest possible
  *     frames (1,441 B) is always there.
- *   - A BUDGET per pass (4 frames, 8 when the ring is under 40%), so music never holds the loop
+ *   - A BUDGET per pass (4 frames, 8 when the ring is under 80%), so music never holds the loop
  *     for long: at most ~37 ms a pass including the card reads, ~73 ms catching up after a stall
  *     (the replay's costs: decode 7.65 ms a frame at 160 MHz, a card read 330 us + 1.95 us/B).
- *     Normally a pass does one frame or none.
+ *     Normally a pass does one frame or none. ⚠ The 80% is load-bearing (review, 2026-09-25):
+ *     at LONG passes (a map pan is ~77 ms, a Files slice 80 ms) the pass plus its own decode
+ *     needs ~4.2-4.8 frames, so 4 cannot keep up and the ring SETTLES at the catch-up mark. At
+ *     40% that left ~200 ms of lead and any extra ~200 ms stall ran it dry (the replay: 4-5
+ *     dropouts in 180 s at 77 ms + 300 ms every 10 s); at 80% it settles at ~430 ms and the same
+ *     runs are clean. The work per second is set by the audio rate either way; only the level
+ *     the ring settles at moves. (120 ms passes at 48 kHz still lose: 8 frames a pass is the CPU.)
  *   - tests/test_musicfeed.cpp, with the real decoder on a 192 kbps-shaped stream against a model
  *     of the IDF 3.3 DMA: zero true dropouts at passes of 5-80 ms, at 10 ms + a 100 ms stall
- *     every second, 300 ms every 10 s and 450 ms every 5 s (the old feed: 4.8/s at 50 ms passes,
- *     1.1/s at the 100 ms stall). This is the design the host replay called "F4". (A decode task
+ *     every second, 300 ms every 10 s and 450 ms every 5 s, and at 77 or 100 ms passes + 300 ms
+ *     every 10 s (the old feed: 4.8/s at 50 ms passes, 1.1/s at the 100 ms stall). This is the design the host replay called "F4". (A decode task
  *     was the other candidate: it is not needed for CPU — decode is ~30% of one core at 160 MHz —
  *     and it would put a second I2S writer beside the Audio singleton, which every pop, ring,
  *     call and game borrows.)
@@ -74,8 +80,12 @@
  * zero there was certainly no dropout at all. `drops > 0` = proven gaps; `minLead > 0` = proven
  * clean; anything between is "possibly a gap shorter than one buffer". tests/test_musicfeed.cpp
  * checks both claims against the model's ground truth, 24,000 times over random passes and
- * stalls. (After a drop the upper bound is loose until the ring is next full, so a second dry
- * spell inside that refill shows in minLead, not in drops.)
+ * stalls. ⚠ AFTER A DROP, `drops` IS ONLY A LOWER BOUND UNTIL THE RING IS NEXT FULL: the upper
+ * bound restarts at "full" and only a short write pins it again, so a second dry spell inside
+ * that refill shows in minLead, not in drops — and at long passes, where the writer never meets
+ * a full ring, that can be the rest of the track. On the bench judge a busy run by minLead > 0,
+ * never by drops == 0 alone. Any stall longer than the ring itself (534 ms at 22.05 kHz, 490 ms
+ * at 24 kHz) is a dropout by construction: the ring is the only slack a loop-fed design has.
  *
  * ── TWO IDF 3.3 DRIVER HABITS THE REST OF AUDIO.CPP HAS TO ALLOW FOR ─────────────────────────
  *   - A freshly installed ring plays itself (zeros) once before anything written reaches the
@@ -104,7 +114,7 @@
 /* Frames (MP3) or chunks (WAV) decoded per main-loop pass, normally and while catching up. */
 #define MUSIC_UNITS_PER_PASS     4
 #define MUSIC_UNITS_CATCH_UP     8
-#define MUSIC_CATCH_UP_BELOW_PCT 40
+#define MUSIC_CATCH_UP_BELOW_PCT 80       // see "A BUDGET per pass" above: 40 dropped out at map pans
 /* At a track start, decode until the ring is full (bounded): the "loading" pause Nick allowed. */
 #define MUSIC_PREFILL_UNITS      12
 /* Silence written after a track's last sample (see padSilence()): 5 x 512 = 116 ms. */
@@ -122,6 +132,13 @@
 #define MUSIC_UNIT_FRAMES        1152
 /* File offsets of the most recent frames, to resume at the one that was PLAYING. */
 #define MUSIC_PLACES             32
+/* A card read that FAILS before the end of the file (a FatFs error, a card pulled) is retried on
+ * the next pass — through MusicSource::reopen(), because FatFs latches a disk error on the open
+ * handle and every later f_read just returns it — at most this many passes running, then the
+ * track stops with "Card read failed" and keeps its place (the player makes it a pause; F1
+ * tries again). It used to be taken for the END of the file: one transient error skipped the rest
+ * of the track, and a pulled card walked the whole queue from the loop (review, 2026-09-25). */
+#define MUSIC_READ_TRIES         3
 
 /* The DMA as it is installed right now. `gen` changes on every (re)install or rate change —
  * a different ring means the lead is unknown until the next full write. */
@@ -135,9 +152,14 @@ struct MusicDma {
 class MusicSource {
 public:
   virtual ~MusicSource() {}
-  virtual int      read(uint8_t* dst, size_t n) = 0;   // bytes read; 0 at the end; < 0 error
+  /* Bytes read. 0 or < 0 is the end ONLY where the file ends (pos >= size()); anywhere else it
+   * is an error — Arduino's File::read() returns 0 for both. */
+  virtual int      read(uint8_t* dst, size_t n) = 0;
   virtual bool     seek(uint32_t pos) = 0;
   virtual uint32_t size() = 0;
+  /* After a failed read: get a handle that can read again, positioned at `pos`. The phone's
+   * source closes and reopens the file (FatFs latches the error on the old one). */
+  virtual bool     reopen(uint32_t pos) { return seek(pos); }
 };
 
 class MusicSink {
@@ -204,6 +226,7 @@ struct MusicStats {
   uint32_t skipped;       // corrupt frames and frames at the wrong rate stepped over
   uint32_t reservoir;     // frames stepped over for a missing bit reservoir (after a seek)
   uint32_t reads;         // card reads
+  uint32_t readErrors;    // of those, reads that failed before the end of the file
   uint32_t readKB;
   uint32_t inBuf;         // compressed bytes waiting
   uint32_t passes;
@@ -243,6 +266,10 @@ public:
   /* The file is done and its last sample has CERTAINLY played (a little silence is queued
    * behind it; the next track's ceasePlayback() zeroes the ring). */
   bool ended() const { return kind != NONE && isEnded; }
+  /* The card would not read MUSIC_READ_TRIES passes running, before the end of the file. The
+   * feed does nothing more; the caller stops the track keeping its place (problem() says why).
+   * NOT ended(): the rest of the track is still on the card. */
+  bool failed() const { return kind != NONE && readFailed; }
   bool active() const { return kind != NONE; }
   /* Music is stopping (a pause, a pop, the next track): top the driver's half-filled buffer
    * up to its boundary with silence. Never waits. See the 🛑 note on it. Call before stop(). */
@@ -275,6 +302,8 @@ private:
   bool   produceMp3();
   bool   produceWav();
   bool   topUp();
+  bool   readAgain();               // the retry after a failed read: false = not this pass
+  void   readError();
   void   stage(const int16_t* pcm, size_t frames, int ch);
   void   remember(uint32_t fileOff);
   bool   probeMp3(bool midFile);
@@ -295,6 +324,12 @@ private:
   const char*  why = 0;
 
   uint32_t srcPos = 0;           // file offset after the last read
+  uint32_t srcSize = 0;          // the file's size at open: a read that stops short of it failed
+  uint8_t  readFails = 0;        // failed reads, one per pass at most, since the last good one
+  bool     readFailed = false;   // gave up: see failed()
+  bool     readHeld = false;     // a read failed THIS pass: no second slow one until the next
+  bool     readReopen = false;   // the next read goes through src->reopen(srcPos) first
+  bool     readSeek = false;     // the next read seeks to srcPos first (a partial WAV read)
   uint32_t srcHz = 0, outHz = 0;
   uint8_t  srcCh = 0;
   bool     srcEof = false;       // the card has nothing more
@@ -302,6 +337,8 @@ private:
   bool     isEnded = false;
   bool     dropNext = false;
   uint32_t wavLeft = 0;          // WAV payload bytes still to read
+  int16_t  wavCarry[3];          // converted WAV samples past the last whole group of 4
+  uint8_t  wavCarryN = 0;
   uint32_t wavStartFrame = 0;
 
   size_t   stageOff = 0, stageLeft = 0;
@@ -318,7 +355,7 @@ private:
   uint32_t dmaGen = 0;
   uint64_t lastPassUs = 0;
   // stats
-  uint32_t nUnits = 0, nSkipped = 0, nReservoir = 0, nReads = 0, nPasses = 0;
+  uint32_t nUnits = 0, nSkipped = 0, nReservoir = 0, nReads = 0, nPasses = 0, nReadErrors = 0;
   uint64_t readBytes = 0, sumWorkUs = 0, maxGapUs = 0, maxWorkUs = 0;
 };
 

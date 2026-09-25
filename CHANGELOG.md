@@ -181,6 +181,18 @@ route moves live. **The codec's tone** is now adaptive bass boost, no treble she
   through 100/300/450 ms stalls), the counter checked against the model's ground truth, reservoir and
   false-sync resumes, bit-exact resumes on the real-track fixture. `tests/check_call_audio.py` pins
   the new guards (music's install is music's alone; the mic reinstalls RX; the ring is closed on stop).
+- **Review round (same day, before any flash):** the catch-up mark is **80%**, not 40% (at a map pan's
+  ~77 ms passes the ring settled at 40% and a 300 ms stall on top dropped out: 4-5 times in 180 s);
+  a **card read that fails mid-track** is retried on a new handle and then stops the track as "Card
+  read failed" at its place (it was taken for the end of the file: the rest skipped, a pulled card
+  walked the queue); music refuses when its **I2S install fails** (IDF would have dereferenced NULL);
+  `setSampleRate()` marks the ring's queue **stale** so the pop, the ringtone and a call get a clean
+  ring again (the 2nd pop after a music session played late, scrambled and cut); **a pop in flight is
+  finished before a track, a game or the mic apps take the device** (F1 inside a chirp was undone
+  300 ms later; a game started under a chirp got the pre-pop 22.05 kHz mono back); a **WAV's first
+  unit** no longer inverts the mono pair swap for the whole track. ⚠ **The codec tone change reaches
+  calls, the ringtone and the pop too, and has not been heard: the release waits on Nick's
+  `audio tone clean|old|flat` A/B on music AND a ringtone/call.**
 
 ### The 0.6-1.5 s 'mesh' freezes were LoRa transmits, not the database save (0.9.79 dev, 2026-09-25)
 

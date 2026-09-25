@@ -23,6 +23,17 @@ old|clean|flat`. A pop/ring/call that cuts a track now leaves it PAUSED at its p
 IDF 3.3 driver (empty free queue at install), not a bug. Host: `tests/test_musicfeed.cpp` (0.9.78 feed
 reproduced: 8.6 gaps/s with 0 dropouts at 10 ms passes, 4.8 dropouts/s at 50 ms; new feed 0 through
 5-80 ms passes and 100/300/450 ms stalls).
+**Review round, same day (still NOT flashed):** catch-up mark 40% -> **80%** (map-pan passes + a 300 ms
+stall dropped out at 40%); a mid-track **card read error** now stops the track at its place as "Card read
+failed" (was: end of file, and a pulled card walked the queue); a failed **music I2S install** is refused
+(was a NULL panic); `setSampleRate()` marks the queue **stale** so every pop/ring/call gets a clean ring (from
+the 2nd pop after music they played late and scrambled); **pop first** before a track, a game and the mic
+apps; a WAV's first unit no longer inverts the pair swap. 🛑 **BENCH: judge busy runs by `minLead > 0`, not
+`drops=0`** (after a drop `drops` is a lower bound until the ring is next full). 🛑 **RELEASE GATE: the codec
+tone (`audio tone clean|old|flat`) changes calls, the ring and the pop too — Nick must A/B a ringtone or a
+call as well as music before release.** Bench also: a second `notify` 60 s after one that paused music
+(must sound identical, `NOTIFY: pop stopped after` the same), a card pull mid-track (stops with "Card read
+failed", no queue walk), `heap` largest after ~10 play/notify/resume cycles + a Game Boy start.
 
 📚 **2026-09-24 NIGHT: READING-POSITION SYNC WITH THE XTEINK X4 PRO (arrives Sun 2026-09-28) IS BUILT ON
 ALL THREE SIDES, OVER KOSync (KOReader's sync protocol).** Nick: *"push 'sync location' on the device I

@@ -169,6 +169,7 @@ void Audio::installI2S(bool music, bool fresh) {
   const bool     mono = music ? true : this->monoOut;
   const uint8_t  bps  = music ? 16 : this->bps;
   if (!fresh &&
+      !this->i2sQueueStale &&             // see setSampleRate(): the DMA was restarted under it
       this->i2sInstalled &&
       this->i2sRate == this->sampleRate &&
       this->i2sBps  == bps &&
@@ -206,6 +207,7 @@ void Audio::installI2S(bool music, bool fresh) {
     this->i2sBufs = bufs;
     this->i2sLen  = len;
     this->i2sRx   = rx;
+    this->i2sQueueStale = false;          // a fresh ring: empty queue, DMA at buffer 0 — they agree
     this->i2sGen++;
   }
   log_d("Audio::Audio: after driver install %d", ESP.getFreeHeap());
@@ -366,7 +368,9 @@ void Audio::pause() {
   this->audioLoop = false;
 
   // Clear only immediate audio playback (DMA) buffer to stop the sound
-  i2s_zero_dma_buffer((i2s_port_t)i2s_num);
+  if (this->i2sInstalled) {
+    i2s_zero_dma_buffer((i2s_port_t)i2s_num);
+  }
 }
 
 void Audio::resume() {
@@ -529,6 +533,8 @@ bool Audio::playFile() {
 class AudioMusicFile : public MusicSource {
 public:
   File* f = nullptr;
+  fs::FS* fs = nullptr;
+  const String* path = nullptr;       // Audio::playbackFilename: only playMusic()/playFile() move it
   int read(uint8_t* dst, size_t n) override {
     return f ? (int)f->read(dst, n) : -1;
   }
@@ -537,6 +543,16 @@ public:
   }
   uint32_t size() override {
     return f ? (uint32_t)f->size() : 0;
+  }
+  /* After a failed read (MUSIC_READ_TRIES in music_feed.h): FatFs latches a disk error on the
+   * FIL, so every later read on this handle fails too. A new handle is the only retry. */
+  bool reopen(uint32_t pos) override {
+    if (!f || !fs || !path) {
+      return false;
+    }
+    f->close();
+    *f = fs->open(path->c_str());
+    return *f && f->seek(pos);
   }
 };
 
@@ -622,6 +638,8 @@ bool Audio::playMusic(fs::FS *fs, const char* path, uint32_t startAt) {
   }
 
   s_musicFile.f = &this->playbackFile;
+  s_musicFile.fs = fs;
+  s_musicFile.path = &this->playbackFilename;
   WavInfo wav;
   bool opened = false;
   Playback kind = Playback::Nothing;
@@ -673,6 +691,22 @@ bool Audio::playMusic(fs::FS *fs, const char* path, uint32_t startAt) {
   this->sampleRate = (int)this->feed->outRate();
   this->voipPacketSize = this->packetSizeSamples(VOIP_PACKET_DURATION_MS);
   this->configureMusicI2S(!ringWasRunning);  // a rate change reinstalls anyway (the cache)
+  /* 🛑 DID IT INSTALL? installI2S() uninstalls first, and music's ring is 24 x 1 KB of DMA-capable
+   * INTERNAL RAM plus 24 descriptors — 8 KB more than the mono default a pop or a call leaves.
+   * If i2s_driver_install() failed there is NO driver, and IDF 3.3's i2s_zero_dma_buffer() and
+   * i2s_write() dereference p_i2s_obj[0] with no NULL check: a LoadProhibited panic, not a track
+   * that will not play (review, 2026-09-25). Refuse, and try to put the default back. */
+  if (!this->i2sInstalled || this->i2sBufs != MUSIC_DMA_BUFS) {
+    this->playbackFile.close();
+    this->feed->stop();
+    this->playback = Playback::Nothing;
+    this->musicProblem = "No memory for music";
+    log_e("MUSIC: I2S install failed (internal free %u, largest %u) - not playing",
+          (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+          (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+    this->configureI2S();
+    return false;
+  }
   codec.setAudioPath(false);
   /* Clean silence, and the ring's write position back on a sample PAIR (a per-sample mono
    * write — the ring, the pop — can leave it on an odd sample, and the mono pair swap
@@ -786,7 +820,9 @@ void Audio::ceasePlayback() {
    * SPIFFS open per pass — while resetting the vibro state machine so the motor never
    * buzzed (review, 2026-09-19). A source that is gone has no end to report. */
   this->playbackEof = false;
-  i2s_zero_dma_buffer((i2s_port_t)i2s_num);
+  if (this->i2sInstalled) {                 // no driver after a failed install: IDF would crash
+    i2s_zero_dma_buffer((i2s_port_t)i2s_num);
+  }
   memset(this->playDec, 0, sizeof(this->playDec));
   this->playDecFramesLeft = 0;
   this->playEncW = 0;
@@ -915,9 +951,9 @@ bool Audio::playRingtone(fs::FS *fs) {
   this->ceasePlayback();
   this->playback = Playback::LocalPcm;
   this->setDataChannels(1);
-  this->setBitsPerSample(16);
-  this->setSampleRate(8000);
+  this->setSampleRate(8000);      // the RATE FIRST, the bits last: see playPop()
   this->setMonoOutput(true);
+  this->setBitsPerSample(16);
 
   if (!this->turnOn()) {
     return false;
@@ -1008,9 +1044,15 @@ bool Audio::playPop(const uint8_t* pcm, size_t pcmLen, fs::FS *fs, int8_t vol) {
   this->ceasePlayback();
   this->playback = Playback::LocalPcm;
   this->setDataChannels(1);
-  this->setBitsPerSample(16);
+  /* ⚠ THE RATE FIRST, THE BITS LAST (0.9.79 review). A rate change marks the ring's queue stale,
+   * so setMonoOutput()'s configureI2S() reinstalls — ONCE, at 8 kHz mono, onto a clean ring —
+   * and setBitsPerSample() then matches. The old order (bits, rate, mono) reinstalled at the OLD
+   * rate straight after a music session (music's own ring had to go) and again for the new one:
+   * ~16 KB of internal DMA memory freed and taken again for nothing, on the phone's most
+   * frequent sound. Every order ends in the same configuration. */
   this->setSampleRate(8000);
   this->setMonoOutput(true);
+  this->setBitsPerSample(16);
   this->setHeadphones(false);                       // force speaker path (not headphones)
   this->chooseSpeaker(true);                        // loudspeaker (not the tiny earpiece)
   /* ⚠ The loudspeaker level is the caller's, not a constant. This line used to force
@@ -1310,8 +1352,17 @@ void Audio::loop() {
      * that, which the counter mostly missed. And the top-of-loop playChunk() pushed 25-61% of
      * all music one SAMPLE per i2s_write. Music never touches playDecFramesLeft now, so that
      * per-sample path never runs for it. */
-    if (this->feed) {
+    if (this->feed && this->i2sInstalled) {
       this->feed->pass(this->musicDma());
+      if (this->feed->failed()) {
+        /* The card would not read, MUSIC_READ_TRIES passes running, before the end of the file
+         * (music_feed.h). Stop HERE, keeping the place — ceasePlayback() hands it to the player,
+         * which makes it a pause with the reason on screen, so F1 tries again — instead of
+         * ending the track: that skipped the rest of it, and a pulled card walked the queue. */
+        this->musicProblem = this->feed->problem();
+        log_e("MUSIC: %s - stopped, place kept", this->musicProblem ? this->musicProblem : "?");
+        this->ceasePlayback();
+      }
     }
 
   } else if (this->playback == Playback::Record) {
@@ -1569,15 +1620,33 @@ int Audio::packetSizeSamples(int duration) {
 bool Audio::setSampleRate(int freq) {
   log_d("SAMPLE RATE = %d", freq);
   this->sampleRate = freq;
-  /* ⚠ KEEP THE INSTALL CACHE TRUE (0.9.79). This changes the hardware's rate without a
-   * reinstall, and the cache used to go on believing the install-time rate: a later
-   * configureI2S() asking for THAT rate then "matched" and left the hardware where this put
-   * it. It also means one reinstall fewer per notification pop (its setMonoOutput(true) after
-   * this no longer sees a stale rate). A rate change is a new ring as far as the music feed's
-   * lead is concerned, hence the generation. */
-  if (i2s_set_sample_rates((i2s_port_t) i2s_num, this->sampleRate) == ESP_OK && this->i2sInstalled) {
-    this->i2sRate = this->sampleRate;
-    this->i2sGen++;
+  /* ⚠ THE CACHE STAYS TRUE, AND THE NEXT INSTALL REQUEST IS A FRESH ONE (0.9.79, review).
+   *
+   * i2s_set_sample_rates() is i2s_set_clk(): with the bits unchanged it keeps the DMA ring and
+   * its free-buffer queue, then i2s_stop() + i2s_start() — the DMA restarts at buffer 0 while the
+   * queue stays in its old finish order, so the next trip round the ring plays SCRAMBLED
+   * (music_feed.h; tests/test_musicfeed.cpp, "pause and resume on the same ring").
+   *   - i2sRate follows the hardware (musicDma() and a later configureI2S() read it): the old
+   *     cache kept the install-time rate, and a later configureI2S() asking for THAT rate
+   *     "matched" and left the hardware at this one.
+   *   - i2sQueueStale makes the next configureI2S() REINSTALL even when everything else
+   *     matches. Without it (a2aa516), every sequence that ends in setMonoOutput(true) — a pop,
+   *     the ringtone, a call's audio — found the mono default already in after a music session
+   *     and skipped the reinstall, so from the second pop on the 300 ms chirp came late, out of
+   *     order and cut short by its stop timer. 0.9.78 got a fresh ring there by accident (the
+   *     stale rate never matched); this gets it on purpose, at the same one reinstall a pop
+   *     (playPop() and playRingtone() set the rate FIRST so the reinstall that follows is the
+   *     only one, even straight after music's own ring).
+   *   - An UNCHANGED rate touches nothing: no restart, nothing to go stale. A call sets its rate
+   *     for the microphone and again for the far end's stream (sendRtpStreamFromMic() then
+   *     playRtpStream()), and the second used to restart the ring under the first trip of it.
+   *   - No driver (a failed install): IDF 3.3 would dereference NULL. The next install sets it. */
+  if (this->i2sInstalled && this->i2sRate != freq) {
+    if (i2s_set_sample_rates((i2s_port_t) i2s_num, freq) == ESP_OK) {
+      this->i2sRate = freq;
+    }
+    this->i2sQueueStale = true;
+    this->i2sGen++;                    // a new rate is a new ring to the music feed's lead
   }
   this->voipPacketSize = this->packetSizeSamples(VOIP_PACKET_DURATION_MS);
   return true;
@@ -1819,6 +1888,15 @@ void Audio::ceaseRecording() {
 }
 
 bool Audio::turnMicOn() {
+
+  /* ⚠ NOT UNDER A PLAYING TRACK (review, 2026-09-25). The configureI2S() below swaps music's
+   * 24 x 512 ring for the 4 x 1024 default under the feed — it plays on, on ~186 ms of ring, for
+   * the rest of the track. The Mic test, Recorder and LED mic apps pause the player before they
+   * start (GUI.cpp); this is the device refusing on its own behalf for any caller that does not.
+   * ceasePlayback() keeps the place (musicTakeStopPlace()): the player makes it a pause. */
+  if (this->musicPlaying()) {
+    this->ceasePlayback();
+  }
 
   /* ⚠ AN INSTALL WITH AN RX SIDE FIRST (0.9.79). Music's own I2S install is TX only, and the
    * mic-level meters (GUI.cpp) come here straight after start() without calling any setter,

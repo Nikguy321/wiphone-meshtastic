@@ -195,6 +195,7 @@ size_t MusicPcm::convert(const int16_t* in, size_t frames, int ch, int16_t* out,
 MusicFeed::MusicFeed() {
   memset(places, 0, sizeof(places));
   memset(&wav, 0, sizeof(wav));
+  memset(wavCarry, 0, sizeof(wavCarry));
 }
 
 MusicFeed::~MusicFeed() {
@@ -221,10 +222,14 @@ void MusicFeed::reset() {
   sink = 0;
   why = 0;
   srcPos = 0;
+  srcSize = 0;
+  readFails = 0;
+  readFailed = readHeld = readReopen = readSeek = false;
   srcHz = outHz = 0;
   srcCh = 0;
   srcEof = decodeEof = isEnded = dropNext = false;
   wavLeft = wavStartFrame = 0;
+  wavCarryN = 0;
   stageOff = stageLeft = 0;
   outStaged = outWritten = 0;
   zerosAfter = 0;
@@ -234,7 +239,7 @@ void MusicFeed::reset() {
   dmaGen = 0;
   lastPassUs = 0;
   lead = MusicLead();
-  nUnits = nSkipped = nReservoir = nReads = nPasses = 0;
+  nUnits = nSkipped = nReservoir = nReads = nPasses = nReadErrors = 0;
   readBytes = sumWorkUs = maxGapUs = maxWorkUs = 0;
   pcm.begin(false);
 }
@@ -248,8 +253,43 @@ void MusicFeed::remember(uint32_t fileOff) {
   }
 }
 
+/* 🛑 A READ THAT RETURNS NOTHING IS THE END OF THE FILE ONLY AT THE END OF THE FILE. Arduino's
+ * File::read() gives 0 for an error too, and this took every one for the end: one FatFs error
+ * (a CRC, a timeout, the volume lock held by the tile downloader) skipped the rest of the track,
+ * and a pulled card sent the player through every track in the queue (review, 2026-09-25). */
+void MusicFeed::readError() {
+  nReadErrors++;
+  readHeld = true;                    // one slow failing read a pass is enough
+  readReopen = true;                  // FatFs latched the error on this handle
+  if (++readFails >= MUSIC_READ_TRIES) {
+    readFailed = true;
+    why = "Card read failed";
+  }
+}
+
+bool MusicFeed::readAgain() {
+  if (readFailed || readHeld) {
+    return false;
+  }
+  if (readReopen) {
+    readReopen = false;
+    readSeek = false;
+    if (!src->reopen(srcPos)) {
+      readError();
+      return false;
+    }
+  } else if (readSeek) {
+    readSeek = false;
+    if (!src->seek(srcPos)) {
+      readError();
+      return false;
+    }
+  }
+  return true;
+}
+
 bool MusicFeed::topUp() {
-  if (srcEof || !src) {
+  if (srcEof || !src || !readAgain()) {
     return false;
   }
   size_t room = mp3 ? mp3->space() : 0;
@@ -262,9 +302,14 @@ bool MusicFeed::topUp() {
   const int n = src->read(scratch, room);
   nReads++;
   if (n <= 0) {
-    srcEof = true;
+    if (srcPos >= srcSize) {
+      srcEof = true;
+    } else {
+      readError();
+    }
     return false;
   }
+  readFails = 0;
   readBytes += (uint32_t)n;
   srcPos += (uint32_t)n;
   mp3->fill(scratch, (size_t)n);
@@ -302,6 +347,7 @@ bool MusicFeed::openMp3(MusicSource* s, Mp3Stream* m, int16_t* decBuf, uint32_t 
   mp3 = m;
   dec = decBuf;
   const uint32_t size = src->size();
+  srcSize = size;
   const bool mid = startAt > audioStart && startAt < size;
   srcPos = mid ? startAt : audioStart;
   if (!src->seek(srcPos)) {
@@ -376,7 +422,10 @@ bool MusicFeed::probeMp3(bool mid) {
         why = "Not playable audio";
         return false;
       }
-      topUp();
+      if (!topUp() && !srcEof) {
+        why = "Card read failed";     // at the open: no retry, the player shows why
+        return false;
+      }
       if (readBytes > 256u * 1024u) {
         why = "No audio found";       // a quarter megabyte without two agreeing frames
         return false;
@@ -429,6 +478,7 @@ bool MusicFeed::openWav(MusicSource* s, const WavInfo& info, int16_t* decBuf, ui
     return false;
   }
   srcPos = start;
+  srcSize = wav.dataOffset + wav.dataBytes;
   wavLeft = wav.dataBytes - (start - wav.dataOffset);
   wavStartFrame = (start - wav.dataOffset) / fb;
   wavConv.begin(wav, wav.sampleRate, false);       // mono at the file's own rate
@@ -467,7 +517,9 @@ bool MusicFeed::produceMp3() {
         decodeEof = true;             // the tail of a file: a partial frame, a tag
         return false;
       }
-      topUp();
+      if (!topUp() && !srcEof) {
+        return false;                 // a failed read: try again next pass (readError())
+      }
       continue;
     }
     if (rc == MP3_SKIPPED_RESERVOIR) {
@@ -495,27 +547,48 @@ bool MusicFeed::produceWav() {
     frames = maxFrames;
   }
   frames &= ~3u;                      // halving and the pair swap both want even counts
+  if (!readAgain()) {
+    return false;
+  }
   const int n = src->read(scratch, frames * fb);
   nReads++;
-  if (n <= 0) {
-    decodeEof = true;
+  /* wavLeft >= 4 frames here and is clamped to what the file holds, so a read that brings back
+   * fewer than 4 frames is an ERROR, not the end (see readError()). And only whole groups of 4
+   * frames are consumed: a short read's odd bytes are read again (readSeek), or every sample
+   * after them would be off by a channel or a byte — noise for the rest of the track. */
+  const uint32_t got = n > 0 ? (((uint32_t)n / fb) & ~3u) : 0;
+  if (got == 0) {
+    readError();
     return false;
+  }
+  readFails = 0;
+  const uint32_t take = got * fb;
+  if ((uint32_t)n != take) {
+    readSeek = true;
   }
   readBytes += (uint32_t)n;
-  srcPos += (uint32_t)n;
-  wavLeft -= (uint32_t)n < wavLeft ? (uint32_t)n : wavLeft;
-  const uint32_t got = ((uint32_t)n / fb) & ~3u;
-  if (got == 0) {
-    decodeEof = true;
-    return false;
-  }
+  srcPos += take;
+  wavLeft -= take < wavLeft ? take : wavLeft;
+  /* 🛑 WHOLE GROUPS OF FOUR SAMPLES INTO stage(), THE REST CARRIED TO THE NEXT UNIT. The
+   * converter lags one frame (its first call gives got - 1), and this used to stage `out & ~1`:
+   * one sample of every track and every resume thrown away, and at half rate an ODD number of
+   * output samples from that first unit — the mono pair swap is done per unit, so from then on
+   * every pair was swapped with the wrong partner: 44.1/48 kHz WAVs played the whole track with
+   * the swap inverted, the grit `music swap off` exists to hear (review, 2026-09-25). A multiple
+   * of 4 in gives an even count out whether or not it is halved, as every MP3 frame already is. */
+  const size_t c = wavCarryN;
+  memcpy(dec, wavCarry, c * sizeof(int16_t));
   size_t used = 0;
-  const size_t out = wavConv.feed(scratch, got, dec, 2400, &used);
+  const size_t out = wavConv.feed(scratch, got, dec + c, 2400 - c, &used);
   chargeDecode(1, out);
-  if (out == 0) {
+  size_t total = c + out;
+  wavCarryN = (uint8_t)(total & 3u);
+  total -= wavCarryN;
+  memcpy(wavCarry, dec + total, wavCarryN * sizeof(int16_t));
+  if (total == 0) {
     return false;
   }
-  stage(dec, out & ~(size_t)1, 1);
+  stage(dec, total, 1);
   nUnits++;
   return true;
 }
@@ -657,9 +730,10 @@ void MusicFeed::start(MusicSink* s, const MusicDma& dma) {
 }
 
 void MusicFeed::pass(const MusicDma& dma) {
-  if (kind == NONE || !sink) {
+  if (kind == NONE || !sink || readFailed) {
     return;
   }
+  readHeld = false;                   // a failed read may be tried again, once, this pass
   const uint64_t now = sink->nowUs();
   if (dma.gen != dmaGen) {
     lead.begin(dma, now);             // someone reinstalled I2S under us: the lead is unknown
@@ -754,6 +828,7 @@ void MusicFeed::stats(MusicStats* o, uint64_t nowUs) const {
   o->skipped = nSkipped;
   o->reservoir = nReservoir;
   o->reads = nReads;
+  o->readErrors = nReadErrors;
   o->readKB = (uint32_t)(readBytes / 1024);
   o->inBuf = (kind == MP3 && mp3) ? (uint32_t)mp3->buffered() : 0;
   o->passes = nPasses;
@@ -772,7 +847,7 @@ void MusicFeed::resetStats(uint64_t nowUs) {
   lead.drops = 0;
   lead.dryUs = 0;
   lead.minLo = 0x7fffffff;
-  nUnits = nSkipped = nReservoir = nReads = nPasses = 0;
+  nUnits = nSkipped = nReservoir = nReads = nPasses = nReadErrors = 0;
   readBytes = sumWorkUs = maxGapUs = maxWorkUs = 0;
   lastPassUs = 0;                     // the next gap is measured from the next pass
 }

@@ -301,7 +301,14 @@ void GbcApp::startGame() {
      * noise. It also reconfigures the sample rate below and calls audio->shutdown() on
      * the way out, which would leave the player pointing at a dead I2S.
      *
-     * Paused rather than stopped, so the track is still there to resume afterwards. */
+     * Paused rather than stopped, so the track is still there to resume afterwards.
+     *
+     * 🛑 A CHIRP STILL IN FLIGHT IS FINISHED BEFORE ANY OF IT (review, 2026-09-25) — the ring's
+     * and a call's order: the pop first, then the music, then this app's own settings. It used
+     * to be finished further down, AFTER the rate and channel format below, so its restore()
+     * put the pre-pop rate and mono back over the game's — and after a music session that is
+     * 22.05 kHz mono: the 50%-speed game this block exists to prevent. */
+    notifyPopFinishNow();
     musicPlayerPause();
     audio->setSampleRate(GBC_I2S_RATE);
 
@@ -352,16 +359,16 @@ void GbcApp::startGame() {
      * needs nothing either: setVolumes() already clamps the loudspeaker to
      * MaxLoudspeakerVolume, so F1/F2 (adjustVolume) stay safe on it.
      *
-     * A notification chirp still in flight is finished FIRST: it forces the loudspeaker for
-     * its 300 ms, and a snapshot taken inside that window would hand the destructor the
-     * pop's route as the phone's — and the pop's own teardown would restore() mid-game.
+     * A notification chirp still in flight was finished FIRST (above): it forces the
+     * loudspeaker for its 300 ms, and a snapshot taken inside that window would hand the
+     * destructor the pop's route as the phone's — and the pop's own teardown would restore()
+     * mid-game.
      *
      * Saved, and PUT BACK in the destructor: a borrower leaves the device as it found it
      * (music_player's restoreCallVolume and Audio::preserve/restore, for the same reason),
      * so whatever starts the codec next inherits the phone's route, not the game's. Its
      * own flag rather than soundOn: the emu thread clears soundOn when I2S starves, and
      * start() can fail, and the route has to go back on both of those paths. */
-    notifyPopFinishNow();
     savedLoudspeaker = audio->isLoudspeaker();
     routeSaved = true;
     audio->chooseSpeaker(true);

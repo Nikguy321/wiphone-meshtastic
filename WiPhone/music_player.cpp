@@ -10,6 +10,8 @@
 #include <string.h>
 
 extern Audio* audio;
+/* WiPhone.ino: end a notification chirp still in flight — see startTrack(). */
+extern void notifyPopFinishFor(const char* why);
 
 // ─── state, with static lifetime so it survives the screen closing ───────────────────
 
@@ -244,6 +246,13 @@ static bool startTrack(int idx, uint32_t startAt = 0) {
     s_error = "In a call";
     return false;
   }
+  /* 🛑 THE POP FIRST, THEN THE MUSIC — the rule the ring, a call and the Game Boy already keep
+   * (review, 2026-09-25). A pop that cuts a track leaves it PAUSED at its place (0.9.79), which
+   * invites an F1 inside the chirp's ~300 ms; playMusic() took the device without finishing the
+   * pop, and the pop's timed teardown then ceasePlayback()'d the NEW track and restore()d the
+   * pre-pop state over it — the F1 undone a third of a second later. Finished here, the pop's
+   * restore() lands first and the track sets everything it needs on top. */
+  notifyPopFinishFor("music is starting");
   audio->stopMusic();
   if (!audio->playMusic(&SD, s_tracks[idx].path, startAt)) {
     s_error = audio->musicError() ? audio->musicError() : "Will not play";
@@ -313,7 +322,31 @@ void musicPlayerResume() {
   }
 }
 
+/* Something other than the player stopped the track — a notification pop, the ring, a call, a
+ * shutdown, a card that would not read: make it a pause at its place, so F1 carries on from
+ * where it was cut instead of restarting the song at 0:00 (what every mesh message used to
+ * cost). True if there was such a stop to adopt.
+ * ⚠ The call levels are NOT handed back here: a pop still playing holds a snapshot of the MUSIC
+ * levels and its teardown restore()s them after this runs, so giving them back now would be
+ * undone (the "pop first, then the music" rule — see musicPlayerYieldForCall(), which still
+ * gives them back when a call is what stopped the track). The stash stays held as before. */
+static bool adoptStopPlace() {
+  uint32_t pos = 0, stoppedMs = 0;
+  if (!audio || s_paused || s_loaded < 0 || audio->musicPlaying() ||
+      !audio->musicTakeStopPlace(&pos, &stoppedMs)) {
+    return false;
+  }
+  s_elapsedBase += (stoppedMs - s_startedAt) / 1000;
+  s_resumePos = pos;
+  s_paused = true;
+  s_error = audio->musicError();   // "Card read failed"; NULL for a pop or a call, which are not faults
+  return true;
+}
+
 bool musicPlayerTogglePause() {
+  /* A stop not yet adopted (F1 in the same pass as the pop that cut the track): adopt it first,
+   * or the key below would find neither playing nor paused and restart the track at 0:00. */
+  adoptStopPlace();
   if (musicPlayerIsPlaying()) {
     musicPlayerPause();
     return false;
@@ -401,21 +434,9 @@ void musicPlayerLoop() {
     return;
   }
   if (!audio->musicPlaying()) {
-    /* Stopped by something else — a notification pop, the ring, a call, a shutdown. The
-     * device still yields exactly as it always has; what changes (0.9.79) is that the PLACE
-     * is kept: this becomes a pause, so F1 carries on from where the pop cut in instead of
-     * restarting the song at 0:00, which is what every mesh message used to cost.
-     * ⚠ The call levels are NOT handed back here: a pop still playing holds a snapshot of the
-     * MUSIC levels and its teardown restore()s them after this runs, so giving them back now
-     * would be undone (the "pop first, then the music" rule — see musicPlayerYieldForCall(),
-     * which still gives them back when a call is what stopped the track). Nothing else moves:
-     * the stash stays held exactly as it did before 0.9.79. */
-    uint32_t pos = 0, stoppedMs = 0;
-    if (audio->musicTakeStopPlace(&pos, &stoppedMs)) {
-      s_elapsedBase += (stoppedMs - s_startedAt) / 1000;
-      s_resumePos = pos;
-      s_paused = true;
-    }
+    /* Stopped by something else. The device still yields exactly as it always has; what
+     * changes (0.9.79) is that the PLACE is kept — see adoptStopPlace(). */
+    adoptStopPlace();
     return;
   }
 

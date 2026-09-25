@@ -2697,15 +2697,18 @@ int musicStateDump(char* out, int cap) {
                    (unsigned long)st.outHz, (unsigned long)st.capMs, st.swap ? "on" : "off",
                    tone < 3 ? TONES[tone] : "?", (int)musicPlayerIsPlaying(), (int)musicPlayerIsPaused(),
                    (int)st.ended);
+  const char* why = audio->musicError();
   n += snprintf(out + n, cap > n ? cap - n : 0,
-                "  music: drops=%lu (%lu ms) minLead=%ld ms lead=%ld ms | units=%lu skipped=%lu reservoir=%lu\n",
+                "  music: drops=%lu (%lu ms) minLead=%ld ms lead=%ld ms | units=%lu skipped=%lu reservoir=%lu%s%s\n",
                 (unsigned long)st.drops, (unsigned long)st.dropMs, (long)st.minLeadMs, (long)st.leadMs,
-                (unsigned long)st.units, (unsigned long)st.skipped, (unsigned long)st.reservoir);
+                (unsigned long)st.units, (unsigned long)st.skipped, (unsigned long)st.reservoir,
+                why ? " | error: " : "", why ? why : "");
   n += snprintf(out + n, cap > n ? cap - n : 0,
-                "  music: passes=%lu maxGap=%lu ms maxWork=%lu.%lu ms avgWork=%lu us | reads=%lu (%lu KB) inBuf=%lu B\n",
+                "  music: passes=%lu maxGap=%lu ms maxWork=%lu.%lu ms avgWork=%lu us | reads=%lu (%lu KB, %lu failed) inBuf=%lu B\n",
                 (unsigned long)st.passes, (unsigned long)st.maxGapMs, (unsigned long)(st.maxWorkUs / 1000),
                 (unsigned long)((st.maxWorkUs % 1000) / 100), (unsigned long)st.avgWorkUs,
-                (unsigned long)st.reads, (unsigned long)st.readKB, (unsigned long)st.inBuf);
+                (unsigned long)st.reads, (unsigned long)st.readKB, (unsigned long)st.readErrors,
+                (unsigned long)st.inBuf);
   return n;
 }
 
@@ -5048,10 +5051,21 @@ void loop() {
         meshPopPlaying = false;
         log_e("NOTIFY: pop cut after %lu ms (call/ringing)", (unsigned long)(tNow - meshPopStartMs));
       } else if (elapsedMillis(tNow, meshPopStartMs, MESH_POP_MS)) {
-        audio->ceasePlayback();
-        audio->restore();
+        if (audio->musicPlaying()) {
+          /* The pop does not own the device any more: a track started over it without
+           * finishing it first (music_player's startTrack() does finish it; this is the backstop
+           * for a caller that does not). ceasePlayback() here stopped THAT track and restore()
+           * pulled its ring and levels out from under it. Its configuration stands; only the
+           * snapshot goes, or the next pop would restore this one's instead of its own. */
+          audio->discardPreserved();
+          log_e("NOTIFY: pop already replaced by music after %lu ms - snapshot dropped",
+                (unsigned long)(tNow - meshPopStartMs));
+        } else {
+          audio->ceasePlayback();
+          audio->restore();
+          log_e("NOTIFY: pop stopped after %lu ms", (unsigned long)(tNow - meshPopStartMs));
+        }
         meshPopPlaying = false;
-        log_e("NOTIFY: pop stopped after %lu ms", (unsigned long)(tNow - meshPopStartMs));
       }
     }
 
