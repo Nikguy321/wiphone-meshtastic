@@ -1346,6 +1346,11 @@ void MeshtasticService::txPump() {
         s_txStats.lastAirMs = meshPhy.lastTxAirMs();
         s_txStats.lastLen = s_txInFlight.len;
         s_txStats.lastKind = s_txInFlight.kind;
+        const uint32_t pred = meshLoraAirtimeMs(s_txInFlight.len);   // rounded up: never over
+        const uint32_t deaf = s_txStats.lastAirMs > pred ? s_txStats.lastAirMs - pred : 0;
+        if (deaf > s_txStats.worstDeafMs) {
+          s_txStats.worstDeafMs = deaf;
+        }
       } else {
         s_txStats.timeout++;
         /* An own frame that never left: its message (if it has one waiting on a receipt)
@@ -3043,17 +3048,26 @@ void MeshtasticService::saveDbStep() {
   log_i("mesh: saved %d nodes, %d msgs, %d waypoints", nodeCount, msgCount, waypointCount);
 }
 
-/* ── A SAVE CUT BETWEEN remove() AND rename() ───────────────────────────────────────────────
- * The last two steps of saveDbStep()/saveFavourites() are remove(PATH) then rename(TMP, PATH):
- * a power cut between them leaves the only good copy in TMP, with PATH gone. This finds exactly
- * that state and puts TMP in PATH's place — only when TMP is WHOLE (mesh_dbfile.h: this build's
- * header, and exactly the length its own counts say). Called at the top of loadDb() and
- * loadFavourites(), in setup(), i.e. before any save can open TMP with "w" and truncate it.
- * On the filesystem the saves write to NOW (meshFs()); that is the only one this can happen on.
- * ⚠ fs.exists() rather than open(): a missing file is the normal case and open() logs it. */
+/* BENCH ONLY — serial `meshdb cut` (see the header). Leaves the state meshRecoverTmp() below
+ * exists for, on purpose, then the serial command reboots.
+ * 🛑 IT NEVER DELETES /meshdb.cut. After a run whose boot recovery FAILED that file IS the
+ * database — and by then the debounced save has usually written a new /meshdb.bin from what did
+ * load (stale, or nothing). Removing "a copy from an earlier run" here would delete the only good
+ * copy, so a leftover refuses instead: the operator checks it and `rm`s it, which the bench plan
+ * does anyway on the success path. (The rename below cannot overwrite it either: FatFs's
+ * f_rename() refuses an existing target.)
+ * 🛑 CARD ONLY. On the card, `rm` and a computer can both reach /meshdb.cut; on SPIFFS a failed
+ * recovery would leave the database where only new firmware can rename it back. */
 const char* MeshtasticService::benchCutSave() {
   if (saveActive) {
     return "a save is already in flight - try again in a second";
+  }
+  if (!s_meshCardIn) {
+    return "the database is on SPIFFS (no card) - this bench runs on the card only, where "
+           "`rm` and a computer can reach /meshdb.cut";
+  }
+  if (SD.exists(MESH_DB_CUT)) {
+    return "/meshdb.cut from an earlier run is still there - check it, then `rm /meshdb.cut`";
   }
   saveDb();                                  // the same snapshot and temp file a real save makes
   if (!saveActive) {
@@ -3070,10 +3084,7 @@ const char* MeshtasticService::benchCutSave() {
   saveBuf = NULL;
   saveActive = false;
   const uint32_t bytes = saveLen;
-  fs::FS& fs = s_saveOnCard ? (fs::FS&)SD : (fs::FS&)SPIFFS;
-  if (fs.exists(MESH_DB_CUT)) {
-    fs.remove(MESH_DB_CUT);                  // a copy from an earlier run of this bench
-  }
+  fs::FS& fs = s_saveOnCard ? (fs::FS&)SD : (fs::FS&)SPIFFS;   // SD: saveDb() read the flag above
   if (fs.exists(MESH_DB_PATH) && !fs.rename(MESH_DB_PATH, MESH_DB_CUT)) {
     return "could not set /meshdb.bin aside - nothing was cut (the next save rewrites the temp)";
   }
@@ -3087,6 +3098,14 @@ const char* MeshtasticService::benchCutSave() {
   return NULL;
 }
 
+/* ── A SAVE CUT BETWEEN remove() AND rename() ───────────────────────────────────────────────
+ * The last two steps of saveDbStep()/saveFavourites() are remove(PATH) then rename(TMP, PATH):
+ * a power cut between them leaves the only good copy in TMP, with PATH gone. This finds exactly
+ * that state and puts TMP in PATH's place — only when TMP is WHOLE (mesh_dbfile.h: this build's
+ * header, and exactly the length its own counts say). Called at the top of loadDb() and
+ * loadFavourites(), in setup(), i.e. before any save can open TMP with "w" and truncate it.
+ * On the filesystem the saves write to NOW (meshFs()); that is the only one this can happen on.
+ * ⚠ fs.exists() rather than open(): a missing file is the normal case and open() logs it. */
 static void meshRecoverTmp(const char* path, const char* tmp, bool fav) {
   fs::FS& fs = meshFs();
   const char* fsName = s_meshCardIn ? "SD" : "SPIFFS";

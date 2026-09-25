@@ -125,7 +125,8 @@ static void help() {
     "  chans      list the channels this phone has",
     "  meshdb     chat history: which filesystem, what loaded, what the next save keeps",
     "  meshdb cut BENCH: save, set /meshdb.bin aside as /meshdb.cut WITHOUT the rename (the state",
-    "             a power cut mid-save leaves), then REBOOT - the boot log must say RECOVERED",
+    "             a power cut mid-save leaves), then REBOOT - the boot log must say RECOVERED.",
+    "             Card only; refuses while an old /meshdb.cut is there (it may BE the database)",
     "  wifi drop  simulate a hotspot blip, to measure the reconnect path",
     "  wifi off|on  the Settings \"WiFi\" switch from the cable (persisted, same calls)",
     "  wifi why   (or just `wifi`) why it dropped: disconnect reasons, the AP/channel/RSSI,",
@@ -150,7 +151,8 @@ static void help() {
     "             backstop must shut it down within 3 s with an 'AUDIO: RTP session armed' line",
     "  replay     history-replay state: ring occupancy, pending tx, last served",
     "  radio      the LoRa send queue: rx/tx, queued + relays waiting, frames finished (own/relay),",
-    "             timeouts, relays cancelled, the last frame's air time seen vs predicted",
+    "             timeouts, relays cancelled, the last frame's air time seen vs predicted,",
+    "             and the longest the chip sat deaf after a frame (TxDone to back in RX)",
     "  nbr        neighbours heard DIRECTLY + announce state (My node > Neighbor info)",
     "  nbr on|4h|off|now  set the announce cadence (1h/4h) or announce right now",
     "  pos        positions: waypoints, node fixes, our pin, the reference, our beacon",
@@ -814,7 +816,8 @@ static void run(char* line) {
    * the loop in 0.9.79 (mesh_txq.h): before, every frame was visible as a STALL line; now a
    * frame is invisible unless something counts it. `last` is the proof on the bench — the air
    * time the loop SAW (start to the pass that read TxDone: one pass, ~5 ms, over the truth)
-   * against meshLoraAirtimeMs(), which is exact. They should agree to a few ms. */
+   * against meshLoraAirtimeMs(), which is exact. They should agree to a few ms. The difference
+   * is time the chip spent deaf in STANDBY; `longest deaf gap` is the worst of it this boot. */
   if (!strcasecmp(line, "radio")) {
     const MeshTxStats& t = meshService.txStats();
     static const char* const KIND[] = { "own", "ACK", "relay" };
@@ -833,6 +836,8 @@ static void run(char* line) {
           (unsigned long)t.airMsTotal, t.lastKind < 3 ? KIND[t.lastKind] : "?",
           (unsigned)t.lastLen, (unsigned long)t.lastAirMs,
           (unsigned long)meshLoraAirtimeMs(t.lastLen));
+      say("radio: longest deaf gap after a frame this boot %lu ms (TxDone to back in RX; an idle "
+          "pass is ~5, a Game Boy game counts whole)\n", (unsigned long)t.worstDeafMs);
     } else {
       say("radio: nothing has finished on the air yet this boot\n");
     }
@@ -1546,7 +1551,8 @@ static void run(char* line) {
   /* `meshdb cut` — prove the boot recovery of a save cut between its remove() and its rename()
    * (mesh_dbfile.h) on the phone's own filesystem, without pulling a battery at the right
    * millisecond. The real file is renamed ASIDE, never deleted: if the recovery fails, the
-   * database is /meshdb.cut on the card, one rename (on a computer) from being back. */
+   * database is /meshdb.cut on the card, one rename (on a computer) from being back. So a
+   * leftover /meshdb.cut REFUSES the next run rather than being cleared (benchCutSave()). */
   if (!strcasecmp(line, "meshdb cut")) {
     extern volatile bool gGbcActive;
     if (gGbcActive || tileFetchActive()) {

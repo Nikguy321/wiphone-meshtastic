@@ -17,11 +17,18 @@ meshtastic_service.cpp or WiPhone.ino - files the host suite cannot compile:
   - txPump() is the FIRST statement of loop(), ahead of the DB save, the health check and poll();
   - only txPump() starts a frame (one start a pass, by construction);
   - the background senders (periodic NodeInfo, the neighbour drip, the position beacon, the replay
-    drip) wait for an idle pipeline, and the want_response reply is OWED, not sent from RX.
+    drip) wait for an idle pipeline, and the want_response reply is OWED, not sent from RX;
+  - and the four guards that keep 'queued' HONEST (a review removed all four at once in a scratch
+    copy and this file still passed): startSend() refuses on a latched RX_DONE before it touches
+    the chip (keying TX clears the flags - the old send() lost a received packet that way);
+    txPump()'s TIMEOUT path fails the own frame's receipt (else a message that never left stays
+    'sent'); MESH RADIO LOST fails everything queued (txDropAll); and `power lora rx` never
+    forces RX over a frame on the air (benchSleep's setModeRxContinuous only under !txActive).
 
 Like tests/check_call_audio.py this states each contract POSITIVELY and a contract that cannot find
 its function fails too. A self-test replays the pre-fix shapes first, so a contract that has
-quietly stopped matching fails loudly.
+quietly stopped matching fails loudly - and then REMOVES each of those four guards from the real
+sources, one at a time (the review's experiment), and requires its contract to trip.
 """
 import pathlib
 import re
@@ -41,6 +48,25 @@ def body(code, name):
 def first(text, pat, start=0):
     m = re.compile(pat).search(text, start)
     return m.start() if m else -1
+
+
+def if_cond(code, if_pos):
+    """The condition text of the `if (...)` at if_pos."""
+    po = code.index("(", if_pos)
+    return code[po + 1:match_close(code, po)]
+
+
+def else_block(code, block_end):
+    """(start, end) of the `else { ... }` straight after the if-block ending at block_end, or None."""
+    m = re.compile(r"\s*else\s*\{").match(code, block_end + 1)
+    if not m:
+        return None
+    end = match_close(code, m.end() - 1)
+    return None if end < 0 else (m.end() - 1, end)
+
+
+# resolveAck() on the frame in flight with a NON-ZERO reason (0 is "delivered")
+FAIL_IN_FLIGHT = re.compile(r"\bresolveAck\s*\(\s*s_txInFlight\s*\.\s*packetId\s*,\s*(?!0\s*\))[^)\s]")
 
 
 def check(files):
@@ -95,6 +121,32 @@ def check(files):
         if done < 0 or limit < 0 or done > limit:
             bad.append("serviceTx() must test TxDone BEFORE the txLimitMs deadline")
 
+    # ── startSend: a latched RX_DONE refuses before the chip is touched ───────────────────────
+    ss = body(phy, "MeshPhy::startSend")
+    if ss is None:
+        bad.append("MeshPhy::startSend() not found")
+    else:
+        guard = [b for b in ifs(ss, 0, len(ss), re.compile(r"IRQ_RX_DONE_MASK"))
+                 if re.search(r"readReg\s*\(\s*REG_IRQ_FLAGS\s*\)", if_cond(ss, b[0]))
+                 and not re.match(r"\s*!", if_cond(ss, b[0]))
+                 and re.search(r"return\s+false", ss[b[1]:b[2] + 1])]
+        touch = first(ss, r"\b(?:writeReg|writeFifo|setMode\w*)\s*\(")
+        key = first(ss, r"\bwriteReg\s*\(\s*REG_OP_MODE\b")
+        if not guard or touch < 0 or key < 0 or guard[0][0] > touch:
+            bad.append("startSend() must `if (readReg(REG_IRQ_FLAGS) & IRQ_RX_DONE_MASK) return false;` "
+                       "BEFORE it writes the chip - keying TX clears the flags and loses the packet")
+
+    # ── benchSleep: `power lora rx` never forces RX over a frame on the air ───────────────────
+    bs = body(phy, "MeshPhy::benchSleep")
+    if bs is None:
+        bad.append("MeshPhy::benchSleep() not found")
+    else:
+        idle = [b for b in ifs(bs, 0, len(bs), re.compile(r"!\s*txActive\b"))]
+        calls = [m.start() for m in re.finditer(r"\bsetModeRxContinuous\s*\(", bs)]
+        if not calls or any(not any(b[1] <= c <= b[2] for b in idle) for c in calls):
+            bad.append("benchSleep() must call setModeRxContinuous() only inside `if (!txActive)` - "
+                       "mid-frame it truncates the frame on the air")
+
     # ── the pump: first in loop(), the only starter ───────────────────────────────────────────
     lp = body(svc, "MeshtasticService::loop")
     if lp is None:
@@ -124,9 +176,35 @@ def check(files):
         elif any(re.search(r"announceNodeInfo\s*\(", lp[h[1]:h[2]]) for h in wr) or \
                 not any(re.search(r"nodeInfoOwed\s*=\s*true", lp[h[1]:h[2]]) for h in wr):
             bad.append("a want_response NodeInfo must set nodeInfoOwed, not announce from the RX path")
+        # MESH RADIO LOST fails everything queued, with a reason (0 would say "delivered")
+        lost = ifs(lp, 0, len(lp), re.compile(r"!\s*meshPhy\s*\.\s*healthCheck\s*\("))
+        if not any(re.search(r"\btxDropAll\s*\(\s*(?!0\s*\))[^)\s]", lp[h[1]:h[2] + 1]) for h in lost):
+            bad.append("the `if (!meshPhy.healthCheck())` (MESH RADIO LOST) branch must call "
+                       "txDropAll(<non-zero reason>) - else queued messages sit there looking sent")
     tp = function_body(svc, "MeshtasticService::txPump")
     if tp is None:
         bad.append("MeshtasticService::txPump() not found")
+    else:
+        # the TIMEOUT path: the else of `if (... MESH_TX_DONE)`, or an `if` on MESH_TX_TIMEOUT alone
+        tpb = svc[tp[0] + 1:tp[1]]
+        paths = []
+        for h in ifs(tpb, 0, len(tpb), re.compile(r"\bMESH_TX_(?:DONE|TIMEOUT)\b")):
+            c = if_cond(tpb, h[0])
+            has_done = re.search(r"\bMESH_TX_DONE\b", c)
+            has_to = re.search(r"\bMESH_TX_TIMEOUT\b", c)
+            if has_done and not has_to:
+                e = else_block(tpb, h[2])
+                if e:
+                    paths.append(e)
+            elif has_to and not has_done:
+                paths.append((h[1], h[2]))
+        own = [h for (a, z) in paths
+               for h in ifs(tpb, a, z, re.compile(r"(?:==\s*MESH_TXK_OWN|MESH_TXK_OWN\s*==)"))
+               if FAIL_IN_FLIGHT.search(tpb, h[1], h[2] + 1)]
+        if not own:
+            bad.append("txPump()'s TIMEOUT path must `if (s_txInFlight.kind == MESH_TXK_OWN) "
+                       "resolveAck(s_txInFlight.packetId, <non-zero>)` - else a message that never "
+                       "left stays 'sent'")
     for m in re.finditer(r"meshPhy\s*\.\s*startSend\s*\(", svc):
         if tp is None or not (tp[0] < m.start() < tp[1]):
             line = svc.count("\n", 0, m.start()) + 1
@@ -180,13 +258,33 @@ MeshTxState MeshPhy::serviceTx() {
   if (readReg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK) { return MESH_TX_DONE; }
   return MESH_TX_BUSY;
 }
+bool MeshPhy::startSend(const uint8_t* data, uint8_t len) {
+  if (!ready || txActive) { return false; }
+  setModeIdle();
+  writeReg(REG_IRQ_FLAGS, 0xFF);
+  writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
+  return true;
+}
+void MeshPhy::benchSleep(bool on) {
+  if (on) { writeReg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP); }
+  else { benchSleeping = false; setModeRxContinuous(); }
+}
 """
 OLD_SVC = """
-void MeshtasticService::txPump() { meshPhy.startSend(a, b); }
+void MeshtasticService::txPump() {
+  const MeshTxState st = meshPhy.serviceTx();
+  if (st == MESH_TX_DONE || st == MESH_TX_TIMEOUT) {
+    if (s_txInFlight.active) {
+      s_txInFlight.active = false;
+      if (st == MESH_TX_DONE) { s_txStats.own++; } else { s_txStats.timeout++; }
+    }
+  }
+  meshPhy.startSend(a, b);
+}
 bool MeshtasticService::loop() {
   saveDbStep();
   txPump();
-  if (!meshPhy.healthCheck()) { x(); }
+  if (!meshPhy.healthCheck()) { radioState = MESH_RADIO_ERROR; }
   if ((int32_t)(now - nextNodeInfoMs) >= 0) { announceNodeInfo(false); }
   if (nodeInfoOwed) { announceNodeInfo(false); }
   if (nbrPendingMask && (int32_t)(now - nbrDripMs) >= 0) { y(); }
@@ -217,7 +315,8 @@ def selftest():
             "healthCheck() must", "poll() must", "serviceTx() must", "must be the FIRST statement",
             "before saveDbStep()", "the periodic NodeInfo", "the neighbour drip",
             "the position beacon", "the owed NodeInfo reply", "want_response NodeInfo must",
-            "starts a frame outside txPump()", "replayPump() must", "WiPhone.ino: loopPhase"]
+            "starts a frame outside txPump()", "replayPump() must", "WiPhone.ino: loopPhase",
+            "startSend() must", "benchSleep() must", "MESH RADIO LOST", "TIMEOUT path must"]
     missing = [w for w in want if not any(w in g for g in got)]
     if missing:
         for w in missing:
@@ -225,6 +324,40 @@ def selftest():
         return False
     print(f"  ok  self-test: the pre-fix shapes break all {len(want)} contract kinds")
     return True
+
+
+# The review's experiment, kept: each of the four 'queued is honest' guards REMOVED from the real
+# source (stripped text, as check() sees it) must trip its own contract. A pattern that no longer
+# matches the source fails too - the guard was rewritten, so this mutation needs rewriting with it.
+MUTATIONS = [
+    ("mesh_phy.cpp", "startSend() must",
+     r"if\s*\(\s*readReg\s*\(\s*REG_IRQ_FLAGS\s*\)\s*&\s*IRQ_RX_DONE_MASK\s*\)\s*\{\s*return\s+false\s*;\s*\}",
+     ""),
+    ("meshtastic_service.cpp", "TIMEOUT path must",
+     r"resolveAck\s*\(\s*s_txInFlight\s*\.\s*packetId\s*,\s*3\s*\)\s*;", ""),
+    ("meshtastic_service.cpp", "MESH RADIO LOST", r"txDropAll\s*\(\s*4\s*\)\s*;", ""),
+    ("mesh_phy.cpp", "benchSleep() must",
+     r"if\s*\(\s*!\s*txActive\s*\)\s*\{\s*(setModeRxContinuous\s*\(\s*\)\s*;)\s*\}", r"\1"),
+]
+
+
+def mutation_test(files):
+    ok = True
+    for name, want, pat, repl in MUTATIONS:
+        mutated, n = re.subn(pat, repl, files[name], count=1)
+        if n != 1:
+            print(f"  SELF-TEST FAILED: the '{want}' guard is no longer where this mutation looks "
+                  f"in {name} - update MUTATIONS with the guard")
+            ok = False
+            continue
+        got = check(dict(files, **{name: mutated}))
+        if not any(want in g for g in got):
+            print(f"  SELF-TEST FAILED: removing the guard from {name} did not trip '{want}'")
+            ok = False
+    if ok:
+        print(f"  ok  self-test: removing each of the {len(MUTATIONS)} 'queued is honest' guards "
+              "from the real source trips its contract")
+    return ok
 
 
 def main():
@@ -240,8 +373,10 @@ def main():
         print(f"  CONTRACT BROKEN: {p}")
     if problems:
         return 1
-    print("  ok  no blocking transmit; health/poll/serviceTx guards, the pump's order and the "
-          "background senders' idle gates all hold")
+    if not mutation_test(files):
+        return 1
+    print("  ok  no blocking transmit; health/poll/serviceTx guards, the pump's order, the "
+          "background senders' idle gates and the four 'queued is honest' guards all hold")
     return 0
 
 

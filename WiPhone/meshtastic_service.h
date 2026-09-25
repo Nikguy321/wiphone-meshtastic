@@ -218,6 +218,12 @@ struct MeshTxStats {
   uint32_t lastAirMs;       // the last finished frame, start to the pass that saw TxDone
   uint8_t  lastLen;         // ...its length (meshLoraAirtimeMs(lastLen) is the prediction)
   uint8_t  lastKind;        // ...and what it was (MeshTxKind)
+  /* The longest the chip sat DEAF after a frame this boot: seen minus predicted, i.e. TxDone to
+   * the pass that put it back in RX (the SX1276 idles in STANDBY meanwhile and hears nothing).
+   * One idle pass is ~5 ms; a long pass (a map frame, a WiFi scan) shows up here, and a Game Boy
+   * game counts whole (it skips the mesh loop). The bench number for "does a busy screen lose
+   * the quick reply to our own frame" - a DM's ACK, or the first relay of our broadcast. */
+  uint32_t worstDeafMs;
 };
 
 class MeshtasticService {
@@ -279,7 +285,9 @@ public:
    * save's remove() and rename() leaves — a whole /meshdb.tmp and no /meshdb.bin — so the boot
    * recovery (meshRecoverTmp, mesh_dbfile.h) can be proven on the phone's own filesystem. The
    * real file is RENAMED aside to /meshdb.cut rather than removed, so a recovery that fails
-   * still has the database one rename away. Blocks for one whole save (~0.1 s on the card).
+   * still has the database one rename away — and it REFUSES while an earlier /meshdb.cut is
+   * still there (after a failed recovery that file is the database), and on SPIFFS (where no
+   * `rm` or computer can reach it). Blocks for one whole save (~0.1 s on the card).
    * NULL = done (the serial command then reboots, before a save can heal it); else the reason. */
   const char*        benchCutSave();
 

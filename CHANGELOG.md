@@ -120,13 +120,17 @@ to transmit, and an 8-frame queue feeds it one frame a pass (ACKs, then our own 
 a relay somebody else sent first is cancelled; beacons wait for an idle radio). **"Sent" now means
 queued**: a frame that fails to leave marks its message failed, a full queue says "radio busy, try
 again", and the `MESH ANNOUNCE/POSITION/WAYPOINT` lines say `QUEUED`. The stall line splits `mesh` /
-`mesh-ui` / `mesh-post`. Serial: `radio`; `power` shows `lora=tx`. Host suite: `tests/test_txq.cpp`,
-`tests/check_mesh_tx.py`.
+`mesh-ui` / `mesh-post`. Serial: `radio` (with the longest the chip sat deaf in STANDBY after a frame
+before a pass put it back in RX); `power` shows `lora=tx`. Host suite: `tests/test_txq.cpp`,
+`tests/check_mesh_tx.py` (which also pins the four guards that keep "queued" honest, and removes each
+from the real source to prove its contract trips).
 - **A save cut between its remove and its rename no longer loses the chat history.** It left only
   `/meshdb.tmp`, which boot ignored (the stale SPIFFS copy, or nothing, loaded instead) and the next save
   truncated. Boot now renames a WHOLE temp file into place (its length must be exactly what its header's
   counts say — `MESH DB: RECOVERED ...`); the star list gets the same. Host suite: `tests/test_dbfile.cpp`.
   Bench: serial `meshdb cut` leaves exactly that state (the real file set aside as `/meshdb.cut`) and reboots.
+  It never deletes `/meshdb.cut`: a leftover one refuses the next run (after a failed recovery it IS the
+  database), and it runs on the card only, where `rm` and a computer can reach that file.
 - **The card save goes 16 KB a pass** (~66 KB was one ~0.1 s write), and the close/remove/rename gets a
   pass of its own on both filesystems; SPIFFS still writes its image whole (an erase cannot be chunked
   around). The finish happens on the filesystem the save started on, even if the card is pulled mid-save.
