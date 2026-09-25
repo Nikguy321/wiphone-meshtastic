@@ -30,9 +30,13 @@
     void* p = ps_malloc(n);                 // books belong in PSRAM; internal RAM is precious
     return p ? p : malloc(n);
   }
+  // KOSync's allocations are all OPTIONAL: failing one leaves the book readable, unsyncable.
+  static void* ksAlloc(size_t n) { return ebAlloc(n); }
 #else
   #include <zlib.h>
   static void* ebAlloc(size_t n) { return malloc(n); }
+  int epubTestFailKosyncAllocs = 0;         // see epub_parse.h: host tests only
+  static void* ksAlloc(size_t n) { return epubTestFailKosyncAllocs ? NULL : malloc(n); }
 #endif
 
 /* ⏱ The open-path timing below is a FIRMWARE measurement (see BooksApp::openBook): on the
@@ -871,6 +875,19 @@ size_t epubExtractText(const char* html, size_t htmlLen, char* out, size_t cap) 
 
 // ---------------------------------------------------------------- OPF
 struct OpfItem { char id[64]; char href[EPUB_NAME_MAX]; char media[64]; bool present; };
+/* 🛑 PINNED AT 0.9.78's SIZE. 512 of these are the one allocation every EPUB open REQUIRES
+ * (~164 KB of contiguous PSRAM, while a 512 KB OPF buffer is also live); a failure is
+ * EPUB_ERR_MEMORY and the book does not open. KOSync's per-item data briefly lived in here
+ * and took it to ~266 KB — for a feature most phones never switch on. It is now OpfCp below,
+ * a separate and OPTIONAL block. Anything added to this struct costs every owner. */
+static_assert(sizeof(OpfItem) == 321, "OpfItem is the required allocation - see the note");
+
+/* The KOSync map's per-manifest-item data, parallel to items[] (see EpubKosyncMap in the
+ * header): the same href resolved CrossPoint's way (%XX decoded, '.' kept) and the
+ * uncompressed size of the zip entry with EXACTLY that name. Filled in the one presence walk,
+ * read by nothing on the reading path. OPTIONAL: when it cannot be allocated the book opens
+ * exactly as it would have, and is simply not syncable over KOSync. */
+struct OpfCp { char path[EPUB_NAME_MAX]; uint32_t bytes; };
 
 /* Mark which manifest hrefs actually exist in the archive, in ONE pass over the central
  * directory.
@@ -886,7 +903,7 @@ struct OpfItem { char id[64]; char href[EPUB_NAME_MAX]; char media[64]; bool pre
  * That freeze is not only a reader annoyance: the superloop is stopped for its whole
  * length, and every piece of the WiFi rescue machinery is polled from that loop — see
  * docs/HANDOFF.md on the booksync wedge. */
-struct PresenceCtx { OpfItem* items; int n; };
+struct PresenceCtx { OpfItem* items; int n; OpfCp* cp; };
 static bool presenceVisit(const ZipEntry* e, void* user) {
   PresenceCtx* c = (PresenceCtx*)user;
   /* ⚠ NO `break` ON THE FIRST MATCH. Two manifest items may carry the SAME href (malformed,
@@ -897,6 +914,12 @@ static bool presenceVisit(const ZipEntry* e, void* user) {
   for (int k = 0; k < c->n; k++) {
     if (strcmp(c->items[k].href, e->name) == 0) {
       c->items[k].present = true;
+    }
+    /* KOSync's sizes, from the same pass: zero extra card reads. A later entry with the same
+     * name overwrites an earlier one — the generator's dict does the same, and a zip with two
+     * entries of one name is broken anyway. Never read by the reading path. */
+    if (c->cp && c->cp[k].path[0] && strcmp(c->cp[k].path, e->name) == 0) {
+      c->cp[k].bytes = e->uncompSize;
     }
   }
   return true;                        // every entry: we are answering for all items at once
@@ -969,6 +992,117 @@ int epubIds(const EpubBook* b, char out[3][EPUB_ID_MAX]) {
  * yes/no. It was called per spine item and cost 10.9 s of a book open; PresenceCtx above
  * answers the same question for every item in one walk. Deleted rather than left lying
  * around, because the next per-item caller would silently reintroduce the freeze. */
+
+// ---------------------------------------------------------------- KOSync map (see the header)
+/* An href resolved CrossPoint's way — normalisePath(decodeUriEscapes(opfDir + href)) — into
+ * `out` (EPUB_NAME_MAX). `scratch` is a PSRAM buffer of EPUB_NAME_MAX*2 + 8: the joined path
+ * can be twice a name before '..' shortens it, and epubOpen's frame is not the place for
+ * another 400 bytes of stack (see the 24-segment note in epubNormPath).
+ *
+ * ⚠ A name that ends up EPUB_NAME_MAX or longer is left EMPTY rather than cut: zipForEach
+ * never reports such an entry, so a cut name could only ever match the wrong file. The item
+ * then weighs 0 bytes here where CrossPoint would find it — one of the documented ways the
+ * two can differ, and vanishingly rare (a 192-byte path inside a book). */
+static void kosyncCpPath(const char* base, const char* href, char* out, char* scratch) {
+  out[0] = '\0';
+  if (!scratch) {
+    return;
+  }
+  const size_t cap = EPUB_NAME_MAX * 2 + 8;
+  const int j = (base && base[0]) ? snprintf(scratch, cap, "%s/%s", base, href)
+                                  : snprintf(scratch, cap, "%s", href);
+  if (j < 0 || (size_t)j >= cap) {
+    return;
+  }
+  epubKosyncDecodePath(scratch, scratch, cap);        // shrinks or keeps: safe in place
+  const size_t n = epubKosyncNormPath(scratch, scratch, cap);
+  if (n >= EPUB_NAME_MAX) {
+    return;
+  }
+  memcpy(out, scratch, n + 1);
+}
+
+static EpubKosyncMap* kosyncMapAlloc(int nRead) {
+  EpubKosyncMap* m = (EpubKosyncMap*)ksAlloc(sizeof(EpubKosyncMap));
+  if (m) {
+    memset(m, 0, sizeof(*m));
+    m->nRead = nRead;
+    for (int i = 0; i < EPUB_MAX_SPINE; i++) {
+      m->cpToRead[i] = -1;
+      m->readToCp[i] = -1;
+    }
+  }
+  return m;
+}
+
+// A .txt: one item the size of the file, so the percentage is just how far through it.
+static void kosyncMapForText(EpubBook* b) {
+  EpubKosyncMap* m = kosyncMapAlloc(1);
+  if (!m) {
+    return;
+  }
+  const uint64_t sz = b->src ? b->src->size : 0;
+  m->nCp = 1;
+  m->cum[0] = sz > 0xFFFFFFFFull ? 0xFFFFFFFFu : (uint32_t)sz;
+  m->sizesKnown = true;
+  m->cpToRead[0] = 0;
+  m->readToCp[0] = 0;
+  b->kosync = m;
+}
+
+/* CrossPoint's spine, its sizes, and the two directions of the reading<->CrossPoint mapping.
+ * Every itemref naming a manifest item is an item (the LAST manifest item with that id, as
+ * the generator's dict has it); a reading chapter maps to the FIRST CrossPoint item with the
+ * same path, and a CrossPoint item to the FIRST reading chapter with its path. */
+static void kosyncMapBuild(EpubBook* b, const OpfItem* items, const OpfCp* cp, int nItems,
+                           char (*cpIds)[64], int nCpIds, bool sizesKnown) {
+  if (!cp || !cpIds) {
+    return;                              // an optional block failed: readable, not syncable
+  }
+  EpubKosyncMap* m = kosyncMapAlloc(b->nSpine);
+  int16_t* cpItem = (int16_t*)ksAlloc(sizeof(int16_t) * EPUB_MAX_SPINE);
+  if (!m || !cpItem) {
+    ebFree(m);
+    ebFree(cpItem);
+    return;                              // the book reads; it just cannot sync over KOSync
+  }
+  m->sizesKnown = sizesKnown;
+  uint32_t sum = 0;
+  for (int c = 0; cpIds && c < nCpIds; c++) {
+    int k = -1;
+    for (int q = 0; q < nItems; q++) {
+      if (strcmp(items[q].id, cpIds[c]) == 0) {
+        k = q;                           // keep going: the LAST one with this id wins
+      }
+    }
+    if (k < 0 || !items[k].href[0]) {
+      continue;                          // an idref that names nothing is not an item
+    }
+    const uint32_t sz = cp[k].bytes;
+    sum = (sum > 0xFFFFFFFFu - sz) ? 0xFFFFFFFFu : sum + sz;
+    cpItem[m->nCp] = (int16_t)k;
+    m->cum[m->nCp] = sum;
+    m->nCp++;
+  }
+  for (int r = 0; r < b->nSpine && r < EPUB_MAX_SPINE; r++) {
+    for (int c = 0; c < m->nCp; c++) {
+      if (strcmp(cp[cpItem[c]].path, b->spine[r].name) == 0) {
+        m->readToCp[r] = (int16_t)c;
+        break;
+      }
+    }
+  }
+  for (int c = 0; c < m->nCp; c++) {
+    for (int r = 0; r < b->nSpine && r < EPUB_MAX_SPINE; r++) {
+      if (strcmp(cp[cpItem[c]].path, b->spine[r].name) == 0) {
+        m->cpToRead[c] = (int16_t)r;
+        break;
+      }
+    }
+  }
+  ebFree(cpItem);
+  b->kosync = m;
+}
 
 struct FallbackCtx { EpubBook* b; };
 static bool fallbackVisit(const ZipEntry* e, void* user) {
@@ -1173,6 +1307,7 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
     snprintf(b->spine[0].name, EPUB_NAME_MAX, "%s", displayName);
     snprintf(b->spine[0].title, EPUB_CH_TITLE_MAX, "%s", b->title);
     b->nSpine = 1;
+    kosyncMapForText(b);       // one "CrossPoint item" the size of the file: pct = within
     return EPUB_OK;
   }
 
@@ -1262,6 +1397,15 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
     return EPUB_ERR_MEMORY;
   }
   int nItems = 0, nSpineIds = 0;
+  /* KOSync's spine: EVERY itemref, linear="no" included, in document order — kept apart
+   * from spineIds so the reading spine is built from exactly the list it always was. Both
+   * allocations are optional: if either fails the book reads normally and simply is not
+   * syncable over KOSync. PSRAM, with the rest of the open's scratch. */
+  char (*cpIds)[64] = (char (*)[64])ksAlloc(64 * EPUB_MAX_SPINE);
+  char* cpScratch = (char*)ksAlloc(EPUB_NAME_MAX * 2 + 8);
+  OpfCp* cp = (OpfCp*)ksAlloc(sizeof(OpfCp) * EPUB_MAX_SPINE);   // ~100 KB, optional
+  int nCpIds = 0;
+  bool cpSizesKnown = false;
 
   {
     const char* p = (const char*)buf;
@@ -1313,6 +1457,10 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
           snprintf(items[nItems].id, sizeof(items[nItems].id), "%s", id);
           epubNormPath(base, href, items[nItems].href, EPUB_NAME_MAX);
           items[nItems].present = false;      // filled in by the single presence pass below
+          if (cp) {
+            kosyncCpPath(base, href, cp[nItems].path, cpScratch);
+            cp[nItems].bytes = 0;             // ...and so is this, from the same walk
+          }
           if (tagAttr(p + as, ae - as, "media-type", media, sizeof(media))) {
             for (char* q = media; *q; q++) {
               if (*q >= 'A' && *q <= 'Z') {
@@ -1325,14 +1473,23 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
           }
           nItems++;
         }
-      } else if (!closing && strcmp(name, "itemref") == 0 && nSpineIds < EPUB_MAX_SPINE) {
+      } else if (!closing && strcmp(name, "itemref") == 0 &&
+                 (nSpineIds < EPUB_MAX_SPINE || (cpIds && nCpIds < EPUB_MAX_SPINE))) {
+        /* ⚠ The reading half of this is EXACTLY what it was: the same skip, the same cap on
+         * the same counter. The condition above widened only so a book whose reading list
+         * is full still gets its CrossPoint list; with the reading list full the old code
+         * fell through to branches that cannot match "itemref", so nothing else moves. */
         char idref[64], linear[16];
         if (tagAttr(p + as, ae - as, "idref", idref, sizeof(idref))) {
           bool skip = tagAttr(p + as, ae - as, "linear", linear, sizeof(linear)) &&
                       (linear[0] == 'n' || linear[0] == 'N');
-          if (!skip) {
+          if (!skip && nSpineIds < EPUB_MAX_SPINE) {
             snprintf(spineIds[nSpineIds], 64, "%s", idref);
             nSpineIds++;
+          }
+          if (cpIds && nCpIds < EPUB_MAX_SPINE) {      // KOSync: EVERY itemref
+            snprintf(cpIds[nCpIds], 64, "%s", idref);
+            nCpIds++;
           }
         }
       } else if (!closing && strcmp(name, "title") == 0 && !b->title[0]) {
@@ -1361,13 +1518,21 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
    * half-read directory. A chapter that then turns out to be missing fails visibly at read
    * time; a chapter deleted here fails silently, and silent is the one this repo keeps
    * paying for. Skipped entirely when there is nothing to mark. */
-  if (nItems > 0 && nSpineIds > 0) {
-    PresenceCtx pc = { items, nItems };
+  /* ⚠ `|| nCpIds > 0` is KOSync's: a book whose itemrefs are ALL linear="no" has an empty
+   * reading list (and falls back to zip order below, exactly as before) but a non-empty
+   * CrossPoint one that needs sizes. `present` is only ever read through spineIds, which is
+   * empty in that case, so the extra walk cannot change what is read. */
+  if (nItems > 0 && (nSpineIds > 0 || nCpIds > 0)) {
+    PresenceCtx pc = { items, nItems, cp };
     if (!zipForEach(src, presenceVisit, &pc)) {
       EB_TIMING("  epubOpen: central directory walk did not finish - trusting the manifest");
       for (int k = 0; k < nItems; k++) {
         items[k].present = true;
       }
+      // KOSync does NOT trust the manifest: a half-read directory is unknown sizes, and an
+      // unknown total must never be sent as if it were one (cpSizesKnown stays false).
+    } else {
+      cpSizesKnown = true;
     }
   }
 
@@ -1395,8 +1560,6 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
   const uint32_t _eManifest = EB_NOW();
   navTitles(b, src, items, nItems);      // must run before the manifest is freed
   const uint32_t _eNav = EB_NOW();
-  ebFree(items);
-  ebFree(spineIds);
   EB_TIMING("  epubOpen %u ms [fp=%u findContainer=%u readContainer=%u parseContainer=%u"
             " findOpf=%u readOpf=%u manifest=%u nav=%u]",
         (unsigned)(_eNav - _e0), (unsigned)(_eFp - _e0),
@@ -1413,6 +1576,16 @@ EpubStatus epubOpen(EpubBook* b, EpubSource* src, const char* displayName, bool 
     FallbackCtx fc = { b };
     zipForEach(src, fallbackVisit, &fc);
   }
+  /* The KOSync map needs the FINAL reading spine (fallback included) and the manifest, so the
+   * manifest is freed after it rather than before the fallback walk — which never read it. */
+  if (b->nSpine > 0) {
+    kosyncMapBuild(b, items, cpScratch ? cp : NULL, nItems, cpIds, nCpIds, cpSizesKnown);
+  }
+  ebFree(items);
+  ebFree(spineIds);
+  ebFree(cpIds);
+  ebFree(cpScratch);
+  ebFree(cp);
   if (b->nSpine == 0) {
     ebFree(b->spine);
     b->spine = NULL;
@@ -1428,6 +1601,10 @@ void epubClose(EpubBook* b) {
   if (b->spine) {
     ebFree(b->spine);
     b->spine = NULL;
+  }
+  if (b->kosync) {
+    ebFree(b->kosync);
+    b->kosync = NULL;
   }
   b->nSpine = 0;
 }
@@ -1708,4 +1885,274 @@ const char* epubChapterTitle(const EpubBook* b, int i, char* buf, size_t cap) {
     snprintf(buf, cap, "Chapter %d", i + 1);
   }
   return buf;
+}
+
+// ---------------------------------------------------------------- KOSync (see epub_parse.h)
+bool epubKosyncPartialMd5(EpubSource* src, char out[EPUB_KOSYNC_ID_CHARS]) {
+  /* KOReader's util.partialMD5, which CrossPoint's KOReaderDocumentId copies: a 1 KB sample
+   * at 0 and at 1 KB, 4 KB, 16 KB ... 1 GB. It identifies the exact BYTES, so a book re-saved
+   * by any tool on any device becomes a different document — which is why the filename id
+   * below exists too.
+   *
+   * ⚠ A SHORT READ THAT IS NOT END-OF-FILE FAILS THE WHOLE ID. srcRead() clips at the file's
+   * end (that IS KOReader's rule for a short last chunk), so anything shorter than the clip
+   * is the card refusing a read — and hashing what did arrive would produce a confident,
+   * WRONG id that matches nothing, silently. No id is the honest answer. */
+  out[0] = '\0';
+  if (!src || !src->read) {
+    return false;
+  }
+  uint8_t* buf = (uint8_t*)ksAlloc(1024);     // not on the 8 KB loop-task stack
+  if (!buf) {
+    return false;
+  }
+  BsMd5 c;
+  bsMd5Init(&c);
+  bool ok = true;
+  for (int i = -1; i <= 10; i++) {
+    const uint64_t off = i < 0 ? 0 : ((uint64_t)1024 << (2 * i));
+    if (off >= src->size) {
+      break;
+    }
+    const uint64_t left = src->size - off;
+    const size_t want = left < 1024 ? (size_t)left : 1024;
+    if (srcRead(src, off, buf, want) != want) {
+      ok = false;
+      break;
+    }
+    bsMd5Update(&c, buf, want);
+  }
+  ebFree(buf);
+  if (!ok) {
+    return false;
+  }
+  uint8_t d[16];
+  bsMd5Final(&c, d);
+  bsHex(d, 16, out);
+  return true;
+}
+
+void epubKosyncFilenameMd5(const char* basename, char out[EPUB_KOSYNC_ID_CHARS]) {
+  const char* n = basename ? basename : "";
+  bsMd5Hex(n, strlen(n), out);
+}
+
+bool epubKosyncIds(EpubSource* src, const char* basename,
+                   char partial[EPUB_KOSYNC_ID_CHARS], char byName[EPUB_KOSYNC_ID_CHARS]) {
+  epubKosyncFilenameMd5(basename, byName);
+  return epubKosyncPartialMd5(src, partial);
+}
+
+uint32_t epubKosyncTotal(const EpubKosyncMap* m) {
+  if (!m || !m->sizesKnown || m->nCp <= 0 || m->nRead <= 0) {
+    return 0;
+  }
+  return m->cum[m->nCp - 1];
+}
+
+bool epubKosyncPercent(const EpubKosyncMap* m, int readIdx, double within, double* pct) {
+  const uint32_t total = epubKosyncTotal(m);
+  if (!total || readIdx < 0 || readIdx >= m->nRead || readIdx >= EPUB_MAX_SPINE) {
+    return false;
+  }
+  const int c = m->readToCp[readIdx];
+  if (c < 0) {
+    return false;                 // a chapter CrossPoint does not list: refuse, never guess
+  }
+  if (!(within >= 0.0)) {         // also catches NaN
+    within = 0.0;
+  }
+  if (within > 1.0) {
+    within = 1.0;
+  }
+  const uint32_t prev = c > 0 ? m->cum[c - 1] : 0;
+  const uint32_t size = m->cum[c] - prev;
+  // Written in the generator's order of operations, so the result is the same double.
+  *pct = ((double)prev + within * (double)size) / (double)total;
+  return true;
+}
+
+bool epubKosyncLocate(const EpubKosyncMap* m, double pct, int* readIdx, double* readWithin,
+                      int* cpIdx, double* cpWithin) {
+  const uint32_t total = epubKosyncTotal(m);
+  if (!total) {
+    return false;
+  }
+  double p = pct;
+  if (!(p >= 0.0)) {
+    p = 0.0;
+  }
+  if (p > 1.0) {
+    p = 1.0;
+  }
+  const double target = p * (double)total;
+  /* `>=`, so a percentage exactly on a boundary picks the EARLIER item — the end of the
+   * chapter it closes, not the start of the next. Every device uses the same rule, which is
+   * what makes a boundary round-trip land in the same place everywhere. */
+  int c = m->nCp - 1;
+  for (int i = 0; i < m->nCp; i++) {
+    if ((double)m->cum[i] >= target) {
+      c = i;
+      break;
+    }
+  }
+  const uint32_t prev = c > 0 ? m->cum[c - 1] : 0;
+  const uint32_t size = m->cum[c] - prev;
+  double w = size == 0 ? 0.0 : (target - (double)prev) / (double)size;
+  if (w < 0.0) {
+    w = 0.0;
+  }
+  if (w > 1.0) {
+    w = 1.0;
+  }
+  if (cpIdx) {
+    *cpIdx = c;
+  }
+  if (cpWithin) {
+    *cpWithin = w;
+  }
+  int r = m->cpToRead[c];
+  double rw = w;
+  if (r < 0) {
+    /* It fell in something we do not read: a linear="no" cover, an image in the spine, a
+     * file missing from the zip. The next thing we DO read, from its start; failing that,
+     * the end of the book. */
+    rw = 0.0;
+    for (int j = c + 1; j < m->nCp; j++) {
+      if (m->cpToRead[j] >= 0) {
+        r = m->cpToRead[j];
+        break;
+      }
+    }
+    if (r < 0) {
+      r = m->nRead - 1;
+      rw = 1.0;
+    }
+  }
+  if (readIdx) {
+    *readIdx = r;
+  }
+  if (readWithin) {
+    *readWithin = rw;
+  }
+  return true;
+}
+
+static bool kosyncOversized(const EpubKosyncMap* m, int readIdx) {
+  if (!m || readIdx < 0 || readIdx >= m->nRead || readIdx >= EPUB_MAX_SPINE) {
+    return false;
+  }
+  const int c = m->readToCp[readIdx];
+  if (c < 0) {
+    return false;
+  }
+  const uint32_t prev = c > 0 ? m->cum[c - 1] : 0;
+  return (m->cum[c] - prev) > (uint32_t)EPUB_MAX_DOC;   // shown as a placeholder here
+}
+
+bool epubKosyncPercentAt(const EpubBook* b, int spine, uint32_t offset, size_t chapLen,
+                         double* pct) {
+  const EpubKosyncMap* m = b ? b->kosync : NULL;
+  if (!m) {
+    return false;
+  }
+  double within = chapLen ? (double)offset / (double)chapLen : 0.0;
+  if (kosyncOversized(m, spine)) {
+    within = 0.0;                 // "[chapter too large to display]": the offset means nothing
+  }
+  return epubKosyncPercent(m, spine, within, pct);
+}
+
+bool epubKosyncLocateOffset(EpubBook* b, double pct, int* spine, uint32_t* offset) {
+  int r = 0;
+  double w = 0.0;
+  if (!b || !epubKosyncLocate(b->kosync, pct, &r, &w, NULL, NULL)) {
+    return false;
+  }
+  /* The `>=` rule puts an exact chapter START at the END of the chapter before (within 1) —
+   * the same place in the text, but a reader would open on the last page of the wrong
+   * chapter. For a POSITION, prefer the start of the next one. (epubKosyncLocate itself keeps
+   * the rule exactly: every device must agree on which ITEM a boundary belongs to.) */
+  if (w >= 1.0 && r + 1 < b->nSpine) {
+    r++;
+    w = 0.0;
+  }
+  const size_t chars = kosyncOversized(b->kosync, r) ? 0 : epubChapterLen(b, r);
+  if (spine) {
+    *spine = r;
+  }
+  if (offset) {
+    *offset = (uint32_t)(w * (double)chars);
+  }
+  return true;
+}
+
+static int kosyncHexVal(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+size_t epubKosyncDecodePath(const char* in, char* out, size_t cap) {
+  /* FsHelpers::decodeUriEscapes: "%XX" (either case) becomes that byte; a '%' without two hex
+   * digits after it stays literal. Safe with out == in: output never overtakes input. */
+  const size_t len = strlen(in);
+  size_t n = 0;
+  size_t i = 0;
+  while (i < len && n + 1 < cap) {
+    if (in[i] == '%' && i + 2 < len && kosyncHexVal(in[i + 1]) >= 0 &&
+        kosyncHexVal(in[i + 2]) >= 0) {
+      out[n++] = (char)(kosyncHexVal(in[i + 1]) * 16 + kosyncHexVal(in[i + 2]));
+      i += 3;
+      continue;
+    }
+    out[n++] = in[i++];
+  }
+  out[n] = '\0';
+  return n;
+}
+
+size_t epubKosyncNormPath(const char* in, char* out, size_t cap) {
+  /* FsHelpers::normalisePath: split on '/', drop empty components, '..' pops the previous
+   * one (and is dropped at the top), and — unlike epubNormPath — '.' is KEPT as a component.
+   * Safe with out == in: the write position never passes the read position. */
+  const size_t len = strlen(in);
+  size_t n = 0;
+  size_t i = 0;
+  while (i < len) {
+    while (i < len && in[i] == '/') {
+      i++;
+    }
+    if (i >= len) {
+      break;
+    }
+    const size_t s = i;
+    while (i < len && in[i] != '/') {
+      i++;
+    }
+    size_t cl = i - s;
+    if (cl == 2 && in[s] == '.' && in[s + 1] == '.') {
+      while (n > 0 && out[n - 1] != '/') {
+        n--;
+      }
+      if (n > 0) {
+        n--;                      // and the separator before it
+      }
+      continue;
+    }
+    if (n > 0) {
+      if (n + 1 >= cap) {
+        break;
+      }
+      out[n++] = '/';
+    }
+    if (n + cl >= cap) {
+      cl = cap - 1 - n;
+    }
+    memmove(out + n, in + s, cl);
+    n += cl;
+  }
+  out[n] = '\0';
+  return n;
 }

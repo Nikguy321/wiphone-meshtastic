@@ -24,6 +24,7 @@ governing permissions and limitations under the License.
 #include "app_maps.h"
 #include "sms_mirror_rx.h"   // sipCompleteAddress: bare number -> full SIP URI
 #include "app_music.h"
+#include "kosync_sync.h"   // kosyncWindowClose: the WiFi settings screens end any sync window
 extern volatile bool gGbcActive;   // WiPhone.ino: the emulator owns the screen and the audio device
 #include "menu_marquee.h"  // the scrolling selected menu row: phase clock + glyph stepping
 #include "menu_wrap.h"     // a display-only note broken into rows that fit
@@ -6550,6 +6551,9 @@ void MuteApp::redrawScreen(bool redrawAll) {
 EditNetworkApp::EditNetworkApp(LCD& lcd, ControlState& state, const char* SSID, HeaderWidget* header, FooterWidget* footer)
   : WindowedApp(lcd, state, header, footer), FocusableApp(5), ini(Networks::filename) {
   log_d("EditNetworkApp");
+  // It joins networks (connectTo); see the note in NetworksApp's constructor. A no-op when
+  // NetworksApp opened this screen, which already closed it.
+  kosyncWindowClose("Settings > WiFi opened");
 
   if (ini.load() || ini.restore()) {
     if (ini.isEmpty() || !ini[0].hasKey("v") || strcmp(ini[0]["v"], "1")) {
@@ -7378,6 +7382,15 @@ NetworksApp::NetworksApp(LCD& lcd, ControlState& state, HeaderWidget* header, Fo
    * networks do not appear and vanish within a second — and the list flickers less. */
   controlState.msAppTimerEventLast = millis();
   controlState.msAppTimerEventPeriod = 5000;
+
+  /* 🛑 A KOSync SYNC WINDOW ENDS HERE (0.9.79). This screen scans every 5 s and its edit
+   * screen joins networks; under a live 'WiPhone-Books' hotspot that is AP+STA channel
+   * hopping (the X4 loses the phone mid-sync) and, on a join, a station connect under a live
+   * softAP — what WiPhone.ino's reconnect gate calls a chip panic. Closing it here, and in
+   * EditNetworkApp's constructor (its other entry point, GUI_APP_EDITWIFI), and refusing a
+   * new one while either screen is up (kosyncWindowOpen) covers every scan and join these
+   * screens make. */
+  kosyncWindowClose("Settings > WiFi opened");
 
   // Start ASYNC scan
   log_v("scanning");

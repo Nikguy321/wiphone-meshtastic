@@ -33,6 +33,7 @@
 #include "gnuboy/gnuboy.h"
 #include "gbc_test_rom.h"   // embedded public-domain ROM (flash) used when no SD ROM
 #include "app_gbc_xfer.h"   // ROM transfer web server (UI lives on our Transfer screen)
+#include "kosync_sync.h"   // kosyncWindowClose: a game ends any sync window
 
 // Global held-button mask, updated by the main loop's keypad scanner.
 extern uint32_t keypadState;
@@ -223,6 +224,12 @@ void GbcApp::startGame() {
   // and disable the core watchdogs (the two tasks saturate both cores).
   gGbcActive = true;
   enteredGaming = true;
+  /* 🛑 A KOSync sync window ends HERE, before the radio goes off (0.9.79). Left open it would
+   * count down over a dead radio and, at its deadline, take its hotspot down with a
+   * WiFi.begin() in the middle of the game — with the watchdogs off and the emulator holding
+   * the internal RAM. After gGbcActive on purpose: the teardown sees the game and leaves the
+   * station OFF (app_gbc_xfer.cpp transportDown); the game's exit below restores it. */
+  kosyncWindowClose("a Game Boy game started");
   WiFi.scanDelete();          // drop any lingering auto-switch scan results
   WiFi.disconnect(true, false);
   WiFi.mode(WIFI_OFF);

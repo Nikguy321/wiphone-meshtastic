@@ -18,6 +18,7 @@
 #include "app_gbc_xfer.h"
 #include "chunk_proto.h"
 #include "Arduino.h"
+#include <stdarg.h>        // windowRefused()'s message
 #include "WiFi.h"
 #include "WebServer.h"
 #include "ESPmDNS.h"
@@ -25,11 +26,39 @@
 #include "WiFiClientSecure.h"
 #include "SD.h"
 #include "GUI.h"
+#include "kosync.h"        // kosyncIsPath: which requests belong to a KOSync window
+#include "kosync_sync.h"   // kosyncWindowServe: the window's answers
+
+extern volatile bool gGbcActive;   // WiPhone.ino: a Game Boy game owns the radio, RAM and cores
 
 static WebServer*   s_server = NULL;
 static File         s_uploadFile;
 static volatile int s_filesAdded = 0;   // uploads + downloads this session (for status)
-static bool         s_on = false;
+/* ── TWO OWNERS OF ONE TRANSPORT (0.9.79) ─────────────────────────────────────────────
+ * The network this module brings up (the phone's WiFi address, or its own hotspot), the
+ * raw :80 listener and the screen hold used to belong to the uploader alone. A KOSync sync
+ * WINDOW (kosync_sync.h) needs exactly those three and nothing else of the uploader's, so
+ * they are now shared:
+ *
+ *   s_on      the transport is up             -> xferServing(): the busy/240 MHz predicate
+ *                                                and the WiFi gates in WiPhone.ino
+ *   s_upOn    the UPLOADER is up              -> gbcXferOn()/xferOn(): what every
+ *                                                "Add books/music/ROMs" screen shows
+ *   s_winOn   a KOSync window holds it        -> xferWindowUp()
+ *
+ * 🛑 xferStop() STOPS THE UPLOADER, NOT THE TRANSPORT. Every app calls it from its destructor
+ * ("in case the app dies with the transfer screen up"), and before this split that meant
+ * leaving Music, Games, Files — or Books itself — killed any window a book close had just
+ * opened. The transport now comes down only when its LAST owner lets go. */
+static bool         s_on = false;       // transport up (either owner)
+static bool         s_upOn = false;     // the uploader (WebServer, :8081, the page, /chunk)
+static bool         s_winOn = false;    // a KOSync window (only the KOSync routes on :80)
+static char         s_apName[33] = {0}; // the hotspot we are actually hosting, when s_usingAP
+/* Who brought the hotspot up, and how. A hotspot is never RE-configured under whoever is
+ * using it: a window that finds the uploader's open 'WiPhone-Books' rides it open, and an
+ * uploader that finds a window's WPA2 one rides it protected (and its screens say so). */
+static bool         s_apProtected = false;  // WPA2 (a window's hotspot_pass), else open
+static bool         s_apByUploader = false; // xferStart() brought it up, not a window
 
 /* ── IDLE AUTO-STOP ────────────────────────────────────────────────────────────────
  * The transfer server is a term in the DFS busy predicate (WiPhone.ino), so while it
@@ -150,8 +179,9 @@ void gbcXferHandleClient() {
     return;
   }
   /* Forgotten-server watchdog. Checked before the pumps so a server that has already
-   * gone quiet costs one comparison rather than a full poll. */
-  if (s_lastActivityMs && (uint32_t)(millis() - s_lastActivityMs) > XFER_IDLE_STOP_MS) {
+   * gone quiet costs one comparison rather than a full poll. The UPLOADER's only: a KOSync
+   * window carries its own hard deadline (kosyncLoop), five minutes at most. */
+  if (s_upOn && s_lastActivityMs && (uint32_t)(millis() - s_lastActivityMs) > XFER_IDLE_STOP_MS) {
     log_e("XFER: idle %lu min with no client - stopping itself (it was pinning 240 MHz)",
           (unsigned long)(XFER_IDLE_STOP_MS / 60000UL));
     xferStop();
@@ -276,11 +306,16 @@ void gbcXferHandleClient() {
   }
 }
 
-bool        gbcXferOn()      { return s_on; }
+bool        gbcXferOn()      { return s_upOn; }
+bool        xferServing()    { return s_on; }
+bool        xferWindowUp()   { return s_on && s_winOn; }
 bool        xferUsingAP()    { return s_usingAP; }
+bool        xferApProtected() { return s_on && s_usingAP && s_apProtected; }
+bool        xferApByUploader() { return s_on && s_usingAP && s_apByUploader; }
 const char* xferAddr()       { return s_addr; }
 const char* xferStartError() { return s_startErr; }
-const char* xferApName()     { return s_cfg->apName; }
+// The SSID actually on the air when we host one (a window may have brought it up).
+const char* xferApName()     { return (s_usingAP && s_apName[0]) ? s_apName : s_cfg->apName; }
 int         xferFilesAdded() { return s_filesAdded; }
 
 void gbcXferStart() {
@@ -980,12 +1015,27 @@ static size_t      s_rawOff = 0, s_rawCLen = 0, s_rawGot = 0;
 static uint32_t    s_rawWantCrc = 0, s_rawCrc = 0;
 static int         s_rawCode = 0;          // pre-decided verdict for consume mode
 static char        s_rawReply[32];
+/* A KOSync PUT/POST body (a few hundred bytes of JSON) is read here, then answered.
+ * PSRAM, allocated when a window starts and freed when it ends: KOSync is off for almost
+ * every phone, and 2 KB of .bss would be internal RAM spent on nothing. */
+#define RAW_KS_BODY_CAP 2048
+static bool        s_rawKs = false;        // this body is a KOSync request's
+static char*       s_ksBuf = NULL;
+/* ⚠ AN ABSOLUTE DEADLINE, not only the 4 s silence rule. There is ONE raw client slot, and a
+ * client that trickles a byte every 3 s never trips a silence rule — while it holds the slot,
+ * an X4 in a sync window gets nothing. So a request's HEADERS (any request: a real client
+ * sends them in one segment) and a whole KOSync request must each finish within this of
+ * their first byte. Upload pieces keep the silence rule alone: a 16 KB piece on a weak
+ * hotspot can legitimately take longer. */
+#define RAW_REQ_ABS_MS  8000
+static uint32_t    s_rawReqMs = 0;         // first byte of the current request
 
 static void rawReset() {
   s_rawHdrLen = 0;
   s_rawBody = false;
   s_rawGather = false;
   s_rawFetch = false;
+  s_rawKs = false;
   s_rawGot = 0;
 }
 
@@ -1035,6 +1085,8 @@ static bool rawQueryArg(const char* q, const char* key, char* out, size_t cap) {
 static void rawReplyEx(int code, const char* ctype, const char* body) {
   const char* st = code == 200 ? "OK" : code == 204 ? "No Content"
                  : code == 400 ? "Bad Request" : code == 404 ? "Not Found"
+                 : code == 401 ? "Unauthorized" : code == 402 ? "Payment Required"
+                 : code == 403 ? "Forbidden"
                  : code == 409 ? "Conflict" : code == 413 ? "Payload Too Large"
                  : code == 422 ? "Unprocessable Entity"
                  : code == 501 ? "Not Implemented" : "Insufficient Storage";
@@ -1115,6 +1167,42 @@ static void rawOnRequest() {
   char* qs = strchr(target, '?');
   if (qs) {
     *qs++ = '\0';
+  }
+  /* ── KOSYNC — a sync window's routes, and ONLY while a window is open ─────────────────
+   * Decided before any uploader route so a window can ride on a running uploader (same
+   * network, same port). Outside a window these paths are simply not found: the phone is
+   * not a KOSync server except for the minutes someone asked it to be one. */
+  if (kosyncIsPath(target)) {
+    if (!s_winOn) {
+      rawReplyEx(404, "application/json", "{\"message\":\"Not found\"}");
+      rawReset();
+      return;
+    }
+    if (s_rawCLen > 0) {
+      if (!s_ksBuf || s_rawCLen >= RAW_KS_BODY_CAP) {
+        rawReplyEx(413, "application/json", "{\"message\":\"Request too large\"}");
+        rawAbort();                 // the body is in flight and not worth draining
+        return;
+      }
+      s_rawKs = true;               // read the JSON, answer in rawXferPump
+      s_rawGather = false;
+      s_rawGot = 0;
+      s_rawBody = true;
+      return;
+    }
+    int code = 500;
+    const char* reply = kosyncWindowServe(method, target, s_rawHdr, "", 0, &code);
+    rawReplyEx(code, "application/json", reply);
+    rawReset();
+    return;
+  }
+  /* ⚠ A WINDOW ALONE SERVES NOTHING ELSE. With only a window up the phone may be an OPEN
+   * hotspot that opened itself when a book was closed; the page, /chunk and /fetch write to
+   * the SD card, and that is only ever offered from a screen the owner is looking at. */
+  if (!s_upOn) {
+    rawReplyEx(404, "application/json", "{\"message\":\"Not found\"}");
+    rawReset();
+    return;
   }
   if (!strcmp(target, "/") && !strcmp(method, "GET")) {
     rawSendPage();
@@ -1252,7 +1340,7 @@ static void rawOnRequest() {
 }
 
 static void rawXferPump() {
-  if (!s_rawSrv) {
+  if (!s_rawSrv && !s_rawSrv80) {
     return;
   }
   /* Most-recent-wins accept, but never preempt a client mid-request: a page
@@ -1282,6 +1370,12 @@ static void rawXferPump() {
     rawAbort();               // mid-request silence: a dead client must not hold the port
     return;
   }
+  if (((!s_rawBody && s_rawHdrLen) || s_rawKs) && (uint32_t)(millis() - s_rawReqMs) > RAW_REQ_ABS_MS) {
+    log_e("XFER: request over %u ms from its first byte (%s) - dropped, the slot is freed",
+          (unsigned)RAW_REQ_ABS_MS, s_rawKs ? "KOSync body" : "headers");
+    rawAbort();
+    return;
+  }
   if (!s_rawBody) {
     while (s_rawCli.available()) {
       if (s_rawHdrLen >= RAW_HDR_CAP - 1) {
@@ -1291,6 +1385,9 @@ static void rawXferPump() {
       const int c = s_rawCli.read();
       if (c < 0) {
         break;
+      }
+      if (s_rawHdrLen == 0) {
+        s_rawReqMs = millis();  // this request's clock starts with its first byte
       }
       s_rawHdr[s_rawHdrLen++] = (char)c;
       s_rawRxMs = millis();
@@ -1333,6 +1430,12 @@ static void rawXferPump() {
         if (n <= 0) {
           break;
         }
+      } else if (s_rawKs && s_ksBuf) {
+        size_t want = s_rawCLen - s_rawGot;                   // capped at parse time
+        n = s_rawCli.read((uint8_t*)s_ksBuf + s_rawGot, want);
+        if (n <= 0) {
+          break;
+        }
       } else {
         uint8_t scratch[256];
         size_t want = s_rawCLen - s_rawGot;
@@ -1368,6 +1471,20 @@ static void rawXferPump() {
           const int code = chunkCommit(s_rawCLen, s_rawLast, reply, sizeof(reply));
           rawReply(code, reply);
         }
+      } else if (s_rawKs && s_ksBuf) {
+        /* The request line is still in s_rawHdr (only its LENGTH is reset between requests,
+         * and nothing writes it while a body is being read), so it is parsed again here
+         * rather than kept in more statics. KOSync paths are short; 96 is plenty. */
+        s_ksBuf[s_rawGot] = '\0';
+        char method[8] = {0}, target[96] = {0};
+        sscanf(s_rawHdr, "%7s %95s", method, target);
+        char* q = strchr(target, '?');
+        if (q) {
+          *q = '\0';
+        }
+        int code = 500;
+        const char* reply = kosyncWindowServe(method, target, s_rawHdr, s_ksBuf, s_rawGot, &code);
+        rawReplyEx(code, "application/json", reply);
       } else if (s_rawFetch) {
         s_rawFetchBody[s_rawGot] = '\0';
         char url[512];
@@ -1392,12 +1509,9 @@ static void rawXferPump() {
   }
 }
 
-static void rawXferUp() {
-  if (!s_rawSrv) {
-    s_rawSrv = new WiFiServer(RAW_PORT);
-    s_rawSrv->begin();
-    s_rawSrv->setNoDelay(true);
-  }
+/* :80 belongs to the TRANSPORT (the page and a KOSync window both answer there); :8081 is
+ * the uploader's tools port and comes and goes with it. */
+static void rawXferUp80() {
   if (!s_rawSrv80) {
     s_rawSrv80 = new WiFiServer(80);
     s_rawSrv80->begin();
@@ -1405,14 +1519,26 @@ static void rawXferUp() {
   }
 }
 
-static void rawXferDown() {
-  rawAbort();
-  s_rawCli = WiFiClient();
+static void rawXferUp8081() {
+  if (!s_rawSrv) {
+    s_rawSrv = new WiFiServer(RAW_PORT);
+    s_rawSrv->begin();
+    s_rawSrv->setNoDelay(true);
+  }
+}
+
+static void rawXferDown8081() {
   if (s_rawSrv) {
     s_rawSrv->end();
     delete s_rawSrv;
     s_rawSrv = NULL;
   }
+}
+
+static void rawXferDown() {
+  rawAbort();
+  s_rawCli = WiFiClient();
+  rawXferDown8081();
   if (s_rawSrv80) {
     s_rawSrv80->end();
     delete s_rawSrv80;
@@ -1687,6 +1813,115 @@ static void xferServerDown() {
   // entry per cycle in this core, and the responder is cheap to keep.
 }
 
+/* ── THE TRANSPORT: a network to be reached on, :80, and the screen held awake ──────────
+ * Shared by the uploader and a KOSync window (see the note at the top of this file). The
+ * body is what xferStart() always did, moved rather than rewritten; the two changes are
+ * marked. `apName` is the hotspot to host when the phone is not on a network. */
+/* `pass`: NULL or "" = an open hotspot (every uploader, and a window without hotspot_pass);
+ * otherwise 8-63 printable ASCII, validated by kosyncHotspotPassValid() before it gets here —
+ * softAP() refuses 1-7 characters outright, which would leave NO hotspot at all. */
+static bool transportUp(const char* apName, const char* pass, const char** err) {
+  // Use the joined WiFi network if we have one; otherwise host our own hotspot.
+  /* ⚠ GIVE THE STATION A MOMENT BEFORE GIVING UP ON IT.
+   *
+   * This used to decide instantly, and deciding instantly is how opening the uploader
+   * KNOCKED THE PHONE OFF WIFI: if the radio happened to be mid-association — which it
+   * is after a boot, after a roam, or any time the link blipped — status() is not yet
+   * WL_CONNECTED, so this fell through to softAP() and tore the station connection down
+   * to host its own network. The phone then had no WiFi until something else noticed,
+   * which is exactly the "no wifi for a while afterwards" that got reported.
+   *
+   * Two seconds is long enough to cover an association already in flight and short
+   * enough not to feel like a hang when there genuinely is no network.
+   *
+   * (0.9.79) Not at all when the user switched WiFi OFF: nothing can associate, and a sync
+   * window in the woods — the case it is for — would otherwise freeze the phone for two
+   * seconds every time a book is closed. */
+  for (int i = 0; i < 20 && !wifiState.radioOff() && WiFi.status() != WL_CONNECTED; i++) {
+    delay(100);
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    s_usingAP = false;
+    s_apName[0] = '\0';
+    snprintf(s_addr, sizeof(s_addr), "%s", WiFi.localIP().toString().c_str());
+  } else {
+    s_usingAP = true;
+    WiFi.mode(WIFI_AP);
+    const bool wpa2 = pass && pass[0];
+    // 🛑 The passphrase goes to the driver and nowhere else: never into a log line.
+    if (WiFi.softAP(apName, wpa2 ? pass : NULL)) {
+      snprintf(s_addr, sizeof(s_addr), "%s", WiFi.softAPIP().toString().c_str());
+      snprintf(s_apName, sizeof(s_apName), "%s", apName);
+      s_apProtected = wpa2;
+    } else {
+      snprintf(s_addr, sizeof(s_addr), "AP FAILED");   // surfaced on the phone screen
+      *err = "Could not host a hotspot either";
+      /* ⚠ FAIL CLEANLY RATHER THAN ACQUIRE. This used to fall through and take the
+       * hold anyway: no AP, no client possible, and yet the CPU pinned at 240 MHz and
+       * the screen timeouts stretched, with the only evidence a small "AP FAILED" on
+       * a screen the serial path does not even show. A server that cannot serve must
+       * not cost anything. */
+      log_e("XFER: softAP failed - not starting (nothing would be able to connect)");
+      /* (0.9.79) ...and do not leave the radio in AP mode with no AP: put the station back
+       * exactly as a stop does, or the phone sits off WiFi until something notices. */
+      s_usingAP = false;
+      if (!wifiState.radioOff()) {
+        WiFi.mode(WIFI_STA);
+        WiFi.begin();
+      } else {
+        WiFi.mode(WIFI_OFF);
+      }
+      return false;
+    }
+  }
+  rawXferUp80();
+  /* (0.9.79) The screen hold is NOT taken here: it is the UPLOADER's (xferStart), because the
+   * uploader is a screen someone is watching. A KOSync window serves just as well with the
+   * screen dark — the loop and this pump never stop for a dim or a sleep, which on this phone
+   * are backlight-only (see the note on xferWindowStart). */
+  s_on = true;   // gbcXferHandleClient() (main loop) now pumps it
+  return true;
+}
+
+static void transportDown() {
+  if (!s_on) {
+    return;
+  }
+  rawXferDown();
+  if (s_usingAP) {
+    WiFi.softAPdisconnect(true);
+    s_usingAP = false;
+    s_apName[0] = '\0';
+    s_apProtected = false;
+    s_apByUploader = false;
+    /* 🛑 NEVER BRING THE STATION BACK UNDER A GAME. The emulator owns both cores (watchdogs
+     * off) and the internal RAM it grabbed with WiFi off; a WiFi.begin() in the middle of
+     * that is the kind of allocation this phone aborts on. The game's own exit restores the
+     * station (~GbcApp), honouring "WiFi: off" exactly as below. */
+    if (gGbcActive) {
+      WiFi.mode(WIFI_OFF);
+      s_on = false;
+      return;
+    }
+    /* ⚠ Setting the mode back to STA does NOT reconnect. Without this the phone sat with
+     * no WiFi until some other timer got round to noticing, which felt like the uploader
+     * had broken the network on its way out. begin() with no arguments re-uses the
+     * credentials already in the driver.
+     *
+     * ⚠ BUT NOT IF THE USER SWITCHED THE RADIO OFF — one of the three paths the 2026-09-01
+     * audit found quietly undoing "WiFi: off". The AP is torn down either way; what is
+     * gated is bringing the station back up. */
+    if (!wifiState.radioOff()) {
+      WiFi.mode(WIFI_STA);
+      WiFi.begin();
+    } else {
+      WiFi.mode(WIFI_OFF);
+    }
+  }
+  s_on = false;
+}
+
 void xferStart(const XferConfig* cfg) {
   s_startErr = NULL;                    // this attempt gets its own verdict
   /* ── REFUSE TO START WHEN THERE IS NOT ENOUGH CONTIGUOUS HEAP TO SERVE FROM ──
@@ -1722,85 +1957,147 @@ void xferStart(const XferConfig* cfg) {
   if (!cfg) {
     cfg = &ROM_CFG;
   }
-  if (s_on) {
+  if (s_upOn) {
     if (s_cfg == cfg) {
       return;                   // already serving this folder
     }
     xferStop();                 // a different app wants a different folder: there is one port
   }
+  /* A KOSync window may already hold the transport. On the phone's WiFi, or on a hotspot with
+   * the SAME name (the Books uploader and a window are both 'WiPhone-Books'), the uploader
+   * simply joins it. A hotspot with a DIFFERENT name cannot be shared — this screen is about
+   * to tell someone to join cfg->apName — so the window ends; kosyncLoop notices and says so. */
+  if (s_on && s_usingAP && strcmp(s_apName, cfg->apName) != 0) {
+    log_e("XFER: uploader wants hotspot '%s' - ending the sync window on '%s'",
+          cfg->apName, s_apName);
+    xferWindowStop();
+  }
   s_cfg = cfg;
   s_filesAdded = 0;
 
-  // Use the joined WiFi network if we have one; otherwise host our own hotspot.
-  /* ⚠ GIVE THE STATION A MOMENT BEFORE GIVING UP ON IT.
-   *
-   * This used to decide instantly, and deciding instantly is how opening the uploader
-   * KNOCKED THE PHONE OFF WIFI: if the radio happened to be mid-association — which it
-   * is after a boot, after a roam, or any time the link blipped — status() is not yet
-   * WL_CONNECTED, so this fell through to softAP() and tore the station connection down
-   * to host its own network. The phone then had no WiFi until something else noticed,
-   * which is exactly the "no wifi for a while afterwards" that got reported.
-   *
-   * Two seconds is long enough to cover an association already in flight and short
-   * enough not to feel like a hang when there genuinely is no network. */
-  for (int i = 0; i < 20 && WiFi.status() != WL_CONNECTED; i++) {
-    delay(100);
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    s_usingAP = false;
-    snprintf(s_addr, sizeof(s_addr), "%s", WiFi.localIP().toString().c_str());
-  } else {
-    s_usingAP = true;
-    WiFi.mode(WIFI_AP);
-    if (WiFi.softAP(s_cfg->apName)) {
-      snprintf(s_addr, sizeof(s_addr), "%s", WiFi.softAPIP().toString().c_str());
-    } else {
-      snprintf(s_addr, sizeof(s_addr), "AP FAILED");   // surfaced on the phone screen
-      s_startErr = "Could not host a hotspot either";
-      /* ⚠ FAIL CLEANLY RATHER THAN ACQUIRE. This used to fall through and take the
-       * hold anyway: no AP, no client possible, and yet the CPU pinned at 240 MHz and
-       * the screen timeouts stretched, with the only evidence a small "AP FAILED" on
-       * a screen the serial path does not even show. A server that cannot serve must
-       * not cost anything. */
-      log_e("XFER: softAP failed - not starting (nothing would be able to connect)");
-      return;
+  if (!s_on) {
+    if (!transportUp(s_cfg->apName, NULL, &s_startErr)) {
+      return;                    // (the uploader's own hotspot is always open, as it always was)
     }
+    s_apByUploader = s_usingAP;
   }
-
   xferServerUp();
-  rawXferUp();
-
-  xferHoldAwake(true);
+  rawXferUp8081();
+  xferHoldAwake(true);           // the uploader is a screen being watched (a window is not)
   s_lastActivityMs = millis();   // a server nobody ever visits still ages out
-  s_on = true;   // gbcXferHandleClient() (main loop) now pumps it
+  s_upOn = true;
 }
 
 void xferStop() {
-  if (!s_on) {
+  if (!s_upOn) {
     return;
   }
+  s_upOn = false;
   xferHoldAwake(false);
-  rawXferDown();
+  /* Drop any request in flight on the shared raw slot: an uploader piece mid-body would
+   * otherwise go on writing into s_sdBuf after chunkFinalize() below has let go of it. A
+   * KOSync request that happened to be on the slot at this instant is dropped too, and its
+   * client retries — a trade for never touching a freed buffer. */
+  rawAbort();
+  rawXferDown8081();
   chunkFinalize();          // a real stop DOES close the batch (persist alone is for pauses)
   xferServerDown();
-  if (s_usingAP) {
-    WiFi.softAPdisconnect(true);
-    s_usingAP = false;
-    /* ⚠ Setting the mode back to STA does NOT reconnect. Without this the phone sat with
-     * no WiFi until some other timer got round to noticing, which felt like the uploader
-     * had broken the network on its way out. begin() with no arguments re-uses the
-     * credentials already in the driver.
-     *
-     * ⚠ BUT NOT IF THE USER SWITCHED THE RADIO OFF — one of the three paths the 2026-09-01
-     * audit found quietly undoing "WiFi: off". The AP is torn down either way; what is
-     * gated is bringing the station back up. */
-    if (!wifiState.radioOff()) {
-      WiFi.mode(WIFI_STA);
-      WiFi.begin();
-    } else {
-      WiFi.mode(WIFI_OFF);
+  /* A paused breaker would otherwise RESUME the WebServer from the pump while a window keeps
+   * the transport (and therefore the pump) alive — an uploader nobody started. */
+  s_breakerPaused = false;
+  s_lowSinceMs = 0;
+  if (!s_winOn) {
+    transportDown();
+  }
+}
+
+// ---------------------------------------------------------------- the KOSync window's transport
+/* Why the last WINDOW start was refused. Its own string, never s_startErr: that one is what
+ * the uploader screens show under "Start", and a window refused five minutes ago must not
+ * appear there as the reason an upload did not start. */
+static const char* s_winErr = NULL;
+static char        s_winWhy[72];
+const char* xferWindowError() { return s_winErr; }
+
+static bool windowRefused(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+static bool windowRefused(const char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf(s_winWhy, sizeof(s_winWhy), fmt, ap);
+  va_end(ap);
+  s_winErr = s_winWhy;
+  if (!s_winOn) {
+    free(s_ksBuf);          // nothing will read into it: do not keep 2 KB for a refusal
+    s_ksBuf = NULL;
+  }
+  log_e("XFER: sync window refused - %s", s_winWhy);
+  return false;
+}
+
+/* ⚠ NO SCREEN HOLD AND NO 240 MHz FOR A WINDOW (0.9.79 review). Both were copied from the
+ * uploader, which needs them: a person is watching its screen, and it streams megabytes
+ * through the SD card. A window answers a handful of ~300-byte requests. Checked, not
+ * assumed: gbcXferHandleClient() is called on every loop() pass whatever the screen is doing,
+ * and "sleep" on this phone is the BACKLIGHT (GUI::toggleScreen / lcdOnOff) — the only
+ * esp_light_sleep_start() calls are the STEAL_THE_USER_BUTTONS debug key (compiled out,
+ * config.h) and the serial `power sleep` bench, which refuses while anything is serving. At
+ * 80 MHz and the 5 ms idle tick a request waits at most a tick. What a window DOES keep is
+ * the softAP WiFi gates (xferServing() in WiPhone.ino): those are about not panicking the
+ * chip, not about speed. */
+bool xferWindowStart(const char* apName, const char* pass) {
+  s_winErr = NULL;
+  if (s_winOn && s_on) {
+    return true;
+  }
+  if (gGbcActive) {
+    // A game has WiFi off and the watchdogs down; it closed any window as it started.
+    return windowRefused("a Game Boy game is running");
+  }
+  if (!s_ksBuf) {
+    s_ksBuf = (char*)ps_malloc(RAW_KS_BODY_CAP);
+    if (!s_ksBuf) {
+      return windowRefused("No PSRAM for the sync window");
     }
   }
-  s_on = false;
+  if (s_on) {
+    /* The uploader is up. Its network is ours too — unless it is hosting a hotspot under
+     * another name, which the X4 would not be looking for. Say so rather than tearing down
+     * an upload someone is in the middle of. */
+    if (s_usingAP && strcmp(s_apName, apName) != 0) {
+      return windowRefused("Uploader is hosting '%s' - stop it first", s_apName);
+    }
+    s_winOn = true;
+    return true;
+  }
+  /* ⚠ A LOWER BAR THAN THE UPLOADER'S 10240, ON PURPOSE — AND CHOSEN, NOT MEASURED. A window
+   * never creates the WebServer (its ~10 KB per-request transient is what the uploader's bar
+   * protects); the raw pump's per-request cost is ~zero. What remains is the AP bring-up and
+   * one listening socket. 6144 is the breaker's own trip line: below it this phone is
+   * already in the altitude where the WiFi PHY aborts, and nothing should be started. Bench
+   * item: log `largest` across a real window (the KOSYNC health line does). */
+  const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  if (largest < 6144) {
+    return windowRefused("Low memory (%u B free block) - restart the phone", (unsigned)largest);
+  }
+  const char* err = NULL;
+  if (!transportUp(apName, pass, &err)) {
+    return windowRefused("%s", err ? err : "no network");
+  }
+  s_winOn = true;
+  return true;
+}
+
+void xferWindowStop() {
+  if (!s_winOn) {
+    return;
+  }
+  s_winOn = false;
+  if (s_rawKs) {
+    rawAbort();             // a KOSync body mid-read must not land in a freed buffer
+  }
+  if (!s_upOn) {
+    transportDown();
+  }
+  free(s_ksBuf);            // region-agnostic free(), as everywhere in this firmware
+  s_ksBuf = NULL;
 }

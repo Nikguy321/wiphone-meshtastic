@@ -2,6 +2,7 @@
 #include "app_gbc_xfer.h"
 #include "sms_mirror_poll.h"
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
+#include "kosync_sync.h"     // the `kosync` command: the window, the home client, the config
 #include "app_photos.h"      // photosSetWallpaper, the `wallpaper set` command
 #include "app_maps.h"        // mapsConsoleStatus/Goto, the `maps` command
 #include "tile_fetch.h"      // the `tlstest` bench: TLS from a task with mbedTLS in PSRAM
@@ -106,6 +107,10 @@ static void help() {
     "             real path, with the NOTIFY: lines that time them; no second phone needed",
     "  sip        SIP account state: loaded, registered, WiFi - one line",
     "  bookpage   dump the open reader page's layout + rendering",
+    "  kosync     KOSync (reading-position sync with an X4/COVEY): config, window, home client",
+    "  kosync open [secs]  open a sync window for the book open in the reader (default 300)",
+    "  kosync close|push|pull|reload  end the window / send home / ask home / re-read",
+    "             /books/kosync.txt (push/pull need WiFi + home=, and a book open)",
     "  keys       keypad health: why a press went missing (drained/rescued/swept)",
     "  health     dump /health.log over the CABLE (battery + restart black box)",
     "  health all dump the whole file, not just the last 24 KB",
@@ -348,8 +353,10 @@ static void reportUploader() {
   say("uploader: ON  http://%s/  (or http://wiphone.local/)%s\n",
       xferAddr(), xferUsingAP() ? "  [own hotspot]" : "");
   say("          legacy (no-JS / curl -F / log): http://%s:8080/\n", xferAddr());
-  say("          hotspot SSID if used: %s   files added: %d\n",
-      xferApName(), xferFilesAdded());
+  say("          hotspot SSID if used: %s%s   files added: %d\n",
+      xferApName(),
+      xferApProtected() ? " (WPA2: a KOSync window's hotspot_pass - see /books/kosync.txt)" : "",
+      xferFilesAdded());
 }
 
 static void run(char* line) {
@@ -458,6 +465,41 @@ static void run(char* line) {
   }
   if (!strcasecmp(line, "bookpage")) {
     booksDebugDumpPage();
+    return;
+  }
+
+  /* `kosync` — the KOSync window and home client from the cable. `open` is the bench's way
+   * to put the phone in front of an X4 without pressing through the reader menu; the status
+   * lines are the same ones the Sync settings screen shows, plus the heap. */
+  if (!strcasecmp(line, "kosync") || !strncasecmp(line, "kosync ", 7)) {
+    const char* arg = line + 6;
+    while (*arg == ' ') {
+      arg++;
+    }
+    char out[128];
+    if (!*arg || !strcasecmp(arg, "status")) {
+      kosyncDumpStatus(sayLine);
+    } else if (!strcasecmp(arg, "reload")) {
+      kosyncReloadConfig();
+      kosyncDumpStatus(sayLine);
+    } else if (!strcasecmp(arg, "close")) {
+      if (kosyncWindowActive()) {
+        kosyncWindowClose("closed from serial");
+        say("kosync: window closed\n");
+      } else {
+        say("kosync: no window open\n");
+      }
+    } else if (!strncasecmp(arg, "open", 4)) {
+      const uint32_t secs = (uint32_t)strtoul(arg + 4, NULL, 10);
+      const bool ok = booksKosyncBench("open", secs > 0 && secs <= 3600 ? secs : 0, out, sizeof(out));
+      say("kosync: %s%s\n", ok ? "" : "NOT opened - ", out);
+    } else if (!strcasecmp(arg, "push") || !strcasecmp(arg, "pull")) {
+      const bool ok = booksKosyncBench(!strcasecmp(arg, "push") ? "push" : "pull", 0, out, sizeof(out));
+      say("kosync: %s%s%s\n", ok ? "" : "NOT started - ", out,
+          ok ? "  (watch for a KOSYNC home line)" : "");
+    } else {
+      say("kosync: status | open [secs] | close | push | pull | reload\n");
+    }
     return;
   }
 
@@ -1736,6 +1778,12 @@ static void run(char* line) {
       }
       if (audioOn || gGbcActive) {
         say("power sleep: audio or the emulator is running - refused\n");
+        return;
+      }
+      /* "WiFi: off" does not mean the radio is off: a KOSync window (or the uploader) can be
+       * hosting a hotspot with the switch off — that is the woods case it exists for. */
+      if (xferServing()) {
+        say("power sleep: a server/hotspot is up (uploader or KOSync window) - refused\n");
         return;
       }
       say("power sleep: %d s. Keypad (GPIO%d low) wakes early; serial typed meanwhile is lost.\n",

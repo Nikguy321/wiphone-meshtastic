@@ -49,6 +49,7 @@ governing permissions and limitations under the License.
 #include "music_player.h"
 #include "app_gbc_xfer.h"
 #include "sms_mirror_poll.h"   // pulls mirrored texts from COVEY over the LAN
+#include "kosync_sync.h"      // KOSync: the reading-position sync window + home client
 #include "sms_mirror_rx.h"     // smsMirrorTakeNews: the mirror's arrival announcements
 #include "serial_cmd.h"        // debug console on USB serial (uploader on/off, mirror sync)
 #include "mp3_stream.h"
@@ -2716,7 +2717,7 @@ static void notifyMessageArrived(uint8_t mode) {
 
 
 extern void gbcXferHandleClient();   // ROM-transfer web server pump (no-op when off)
-extern bool gbcXferOn();             // true while the transfer server is running
+extern bool gbcXferOn();             // the UPLOADER is up; the gates below use xferServing()
 
 /* ── RAISE THE CLOCK BEFORE THE WORK, NEVER AFTER ─────────────────────────────────
  * The frequency gate lives at the BOTTOM of loop(), which is correct for deciding to
@@ -2860,6 +2861,13 @@ void loop() {
      * only part that needs gating. */
     loopPhase("sms-mirror");
     smsMirrorPollLoop(sipMayPoll());
+
+    /* KOSync (kosync_sync.h): the window's hard deadline and health line, a peer's place
+     * parked into the booksync inbox, the automatic windows asked for by a book close/open,
+     * and one bounded step of the home client. One comparison when none of it is in use.
+     * Same socket gate as the mirror; and no automatic window into a live or ringing call. */
+    loopPhase("kosync");
+    kosyncLoop(sipMayPoll(), sipNeedsFullSpeed());
 
     /* THE MIRROR'S ANNOUNCER — one place, both transports. smsMirrorIngestLine() latches
      * news whenever it stores a text (whether the line rode in over LoRa or the LAN poll
@@ -3598,7 +3606,9 @@ void loop() {
        * is just a socket, and GATING RECONNECT STRANDED IT: a hotspot blink mid-upload
        * left the phone at NO_SSID with the page dead and no path back until the user
        * stopped the server (found live, 2026-08-20 — the "books upload locked up"). */
-      const bool xferBlocksWifi = gbcXferOn() && xferUsingAP();
+      /* (0.9.79) xferServing(), not gbcXferOn(): a KOSync sync window's hotspot is the same
+       * softAP as the uploader's and panics the chip the same way under an STA connect. */
+      const bool xferBlocksWifi = xferServing() && xferUsingAP();
       if (!xferBlocksWifi && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && due && !wifiState.userDisabled()) {
         /* 🔑 DON'T SPEND 30 SECONDS OF RADIO ON AIR WE WERE JUST TOLD IS EMPTY. A scan is
          * ~350 ms; a failed join holds the radio associating for up to 30 s before the
@@ -3681,7 +3691,7 @@ void loop() {
       bool callBusy = audioDelicate && wifiState.isConnected();
       // Same softAP-only rule as the reconnect gate above: an STA-mode transfer
       // server must not stop the machinery that would bring its network back.
-      if (!gGbcActive && !(gbcXferOn() && xferUsingAP()) && !callBusy) {
+      if (!gGbcActive && !(xferServing() && xferUsingAP()) && !callBusy) {
         TIME_STEP("autoSwitchTick", wifiState.autoSwitchTick(gui.state.screenBrightness > 0));
       }
     }
@@ -4925,7 +4935,7 @@ void loop() {
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
                         gGpsNmea ||            // see the deadlock note above — NOT perf
-                        xferOn() ||
+                        xferOn() ||            // the UPLOADER; a KOSync window needs no 240 MHz (app_gbc_xfer.cpp)
                         tileFetchActive() ||   // tiles: HTTPS + decode + card, see tile_fetch.h
                         musicPlayerIsPlaying() ||
                         sipNeedsFullSpeed();   // NOT sipCallActive() — see the note on it
@@ -4959,7 +4969,7 @@ void loop() {
        * mirror poll is mid-transfer its state machine advances one bounded step per pass,
        * so stretching the tick then would slow a live download 5x for no saving worth
        * having. */
-      idleTickStretch = !busy && !smsMirrorPollBusy();
+      idleTickStretch = !busy && !smsMirrorPollBusy() && !kosyncClientBusy();
     }
 
     /* ── LET THE CPU ACTUALLY IDLE ────────────────────────────────────────────────

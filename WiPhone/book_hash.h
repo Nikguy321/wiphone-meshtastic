@@ -45,6 +45,25 @@ void bsSha1Init(BsSha1* c);
 void bsSha1Update(BsSha1* c, const void* data, size_t len);
 void bsSha1Final(BsSha1* c, uint8_t out[20]);
 
+// ---------------------------------------------------------------- MD5 (RFC 1321)
+/* KOSync's document id (KOReader's partial MD5) and its x-auth-key (MD5 of the password).
+ * Not a security choice in either place — KOReader chose it and every server and client
+ * speaks it — so it is here for interoperability, proven against RFC 1321 and hashlib. */
+typedef struct {
+  uint32_t state[4];
+  uint64_t bitCount;
+  uint8_t  buf[64];
+  size_t   bufLen;
+} BsMd5;
+
+void bsMd5Init(BsMd5* c);
+void bsMd5Update(BsMd5* c, const void* data, size_t len);
+void bsMd5Final(BsMd5* c, uint8_t out[16]);
+void bsMd5Hex(const void* data, size_t len, char out[33]);   // lower-case, NUL-terminated
+
+// Lower-case hex of `len` bytes into `out` (2*len + 1 bytes).
+void bsHex(const uint8_t* d, size_t len, char* out);
+
 // ---------------------------------------------------------------- HMAC-SHA256
 void bsHmacSha256(const uint8_t* key, size_t keyLen,
                   const void* msg, size_t msgLen, uint8_t out[32]);

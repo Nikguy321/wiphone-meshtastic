@@ -44,6 +44,13 @@ for src in tests/test_*.cpp; do
     test_bookstore) deps=(WiPhone/bookstore.cpp WiPhone/booksync.cpp WiPhone/book_hash.cpp) ;;
     test_layout)   deps=(WiPhone/book_layout.cpp) ;;
     test_inbox)    deps=(WiPhone/booksync_inbox.cpp WiPhone/booksync.cpp WiPhone/book_hash.cpp) ;;
+    # KOSync (KOReader's sync protocol): the vectors from tools/gen_kosync_vectors.py (partial
+    # MD5, CrossPoint's byte-weighted spine and its inverse), the pure protocol module, the
+    # inbound chain into the booksync inbox, AND the before/after proof that no saved place
+    # moves (tests/golden_positions.h, generated once from the pre-KOSync parser).
+    test_kosync)   deps=(WiPhone/kosync.cpp WiPhone/epub_parse.cpp WiPhone/book_hash.cpp
+                         WiPhone/booksync.cpp WiPhone/booksync_inbox.cpp WiPhone/bookstore.cpp)
+                   extra=(-lz) ;;
     test_jpeg)     deps=(WiPhone/jpeg_grey.cpp) ;;
     test_music)    deps=(WiPhone/music_lib.cpp WiPhone/wav_reader.cpp) ;;
     test_sms_mirror) deps=(WiPhone/sms_mirror.cpp) ;;

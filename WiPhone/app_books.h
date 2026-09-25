@@ -31,6 +31,8 @@
 #include "booksync_inbox.h"
 #include "jpeg_grey.h"
 
+struct KosyncBook;                // kosync_sync.h: a snapshot the KOSync window/client keep
+
 #define BOOKS_MAX        48       // books listed from the SD card
 #define BOOKS_HIST       48       // remembered page starts: exact back-paging while reading
 #define BOOKS_DIR        "/books"
@@ -161,6 +163,28 @@ protected:
   uint32_t syncSeqSeen;          // bookSyncInboxSeq() as of the last checkForPending()
   char     syncNote[64];         // result of the last send, shown in the menu
 
+  /* ---- KOSync (kosync_sync.h): a SECOND transport beside LoRa, and OFF unless
+   * /books/kosync.txt exists — without it "Sync my place" does exactly what it always did.
+   * 🛑 Nothing here touches the stored position: the KOSync percentage is computed from
+   * (spine, pageStart, chapLen) on the way out, and a peer's place comes back as an ordinary
+   * inbox offer on the sync card. */
+  char     ksPartial[EPUB_KOSYNC_ID_CHARS];   // KOReader's partial MD5 of the open file
+  char     ksByName[EPUB_KOSYNC_ID_CHARS];    // MD5 of its file name (CrossPoint's default)
+  bool     ksIdsDone;                         // computed for THIS open book
+  char     ksNote[96];           // why the last KOSync action could not happen ("" = it did)
+  char     ksLines[200];         // the live window/home lines as last shown (redraw on change)
+  KosyncBook* ksBook;            // PSRAM scratch for the snapshot handed to kosync_sync
+  void kosyncIds();              // the two ids, once per open book (12 small card reads)
+  bool kosyncSnapshot();         // fill ksBook from the open book
+  void kosyncTellPosition();     // a window serving this book answers with the new place
+  size_t kosyncLiveLines(char* out, size_t cap);
+  void kosyncAddLines(MenuWidget* m);
+  bool kosyncLinesChanged();
+  void syncMyPlace();            // the menu row: LoRa (as before) + KOSync when configured
+  void closeBookByUser();        // closeBook(true), after telling KOSync (auto=on)
+  bool kosyncBench(const char* verb, uint32_t secs, char* out, size_t cap);
+  friend bool booksKosyncBench(const char* verb, uint32_t secs, char* out, size_t cap);
+
   /* 🛑 WHEN the card was raised, so "Go there" can be ARMED rather than instant.
    *
    * Opening a book is OK in the library; a parked position then puts the card on screen
@@ -262,6 +286,10 @@ void booksDebugDumpPage();
  * BooksApp destructor — the thing that would otherwise have flushed — never runs. Returns
  * true when there is nothing to do, so a caller cannot tell "no book open" from "saved". */
 bool booksSaveOpenPosition();
+
+/* Serial `kosync open|push|pull` — needs the reader with a book open (these act on THAT
+ * book). Writes one line into `out`; false when nothing could be done. */
+bool booksKosyncBench(const char* verb, uint32_t secs, char* out, size_t cap);
 
 /* Shared with FilesApp's text viewer, so the two can never disagree about rendering:
  * bookRenderRun substitutes codepoints the font lacks; fontMeasure is the ADVANCE-

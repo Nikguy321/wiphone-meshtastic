@@ -65,6 +65,42 @@ struct EpubSpineItem {
   char title[EPUB_CH_TITLE_MAX];         // "" when the book has no usable table of contents
 };
 
+/* ══════════════════════════════════════════════════════════════════════════════════
+ * KOSync — the SECOND spine, which exists only to talk percentages with other readers
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *
+ * KOSync (KOReader's sync protocol, which the Xteink X4's CrossPoint firmware and COVEY also
+ * speak) moves a position as ONE number: a whole-book percentage. The number the X4 sends is
+ * CrossPoint's, BYTE-weighted over CrossPoint's idea of the spine — and that is not this
+ * reader's spine. CrossPoint counts every <itemref> naming a manifest item, linear="no"
+ * covers and images included, looks each one up by its %XX-DECODED path, and weighs it by
+ * its uncompressed size in the zip. The reading spine above skips all three kinds, so the
+ * two lists differ in length and in order of magnitude (a 200 KB map image in the spine is
+ * two thirds of one fixture's "book" to CrossPoint and nothing at all to us).
+ *
+ * 🛑 THIS MAP IS ADDITIVE. It never feeds the reading spine, epubFraction/epubLocate, the
+ * position store or the LoRa record — those stay spine-EQUAL and byte-for-byte what they
+ * were, which is what keeps every saved place where it was across the update (proven by
+ * tests/golden_positions.h). A KOSync percentage is made from (spine, offset, chapter
+ * length) on the way OUT and turned back into (spine, within) on the way IN, and nowhere
+ * else. The rules are pinned by tools/gen_kosync_vectors.py; every number in
+ * tests/vectors_kosync.h is reproduced by tests/test_kosync.cpp.
+ *
+ * Sizes come from the central-directory walk epubOpen already makes to learn which chapters
+ * exist, so the map costs ZERO extra card reads. When that walk does not finish, sizes are
+ * unknown (sizesKnown=false) and the book is simply not syncable over KOSync — never a
+ * guessed total. */
+#define EPUB_KOSYNC_ID_CHARS 33          // 32 lower-case hex + NUL
+
+struct EpubKosyncMap {
+  int      nCp;                          // CrossPoint spine items
+  int      nRead;                        // the reading spine (EpubBook.nSpine)
+  bool     sizesKnown;                   // false: the zip walk failed, do not sync
+  uint32_t cum[EPUB_MAX_SPINE];          // cum[i] = size[0] + ... + size[i], CrossPoint order
+  int16_t  cpToRead[EPUB_MAX_SPINE];     // reading index with the same path (first), or -1
+  int16_t  readToCp[EPUB_MAX_SPINE];     // FIRST CrossPoint item with that path, or -1
+};
+
 struct EpubBook {
   EpubSource*     src;
   bool            isText;                // a plain .txt "book": one spine item, no zip
@@ -74,6 +110,7 @@ struct EpubBook {
   EpubSpineItem*  spine;
   int             nSpine;
   char            fingerprint[17];       // 16 hex characters, or "" if unreadable
+  EpubKosyncMap*  kosync;                // PSRAM; NULL if it could not be allocated
 };
 
 enum EpubStatus {
@@ -156,6 +193,55 @@ void epubLocate(EpubBook* b, double fraction, int* spineOut, uint32_t* offsetOut
 
 // The chapter's title, or "Chapter N".
 const char* epubChapterTitle(const EpubBook* b, int i, char* buf, size_t cap);
+
+// ---------------------------------------------------------------- KOSync (see the map above)
+/* KOReader's partial MD5, the KOSync document id every "binary" matcher uses: 1024-byte
+ * chunks at offset 0 and then at 1024 << (2*i), i = 0..10, a chunk starting at or past EOF
+ * skipped, a short last one hashed as it is. At most 12 small card reads. Lower-case hex. */
+bool epubKosyncPartialMd5(EpubSource* src, char out[EPUB_KOSYNC_ID_CHARS]);
+/* CrossPoint's DEFAULT matcher ("filename"): MD5 of the file's base name, extension
+ * included. Pass the basename, not a path. */
+void epubKosyncFilenameMd5(const char* basename, char out[EPUB_KOSYNC_ID_CHARS]);
+/* Both at once. False when the partial MD5 could not be read (`partial` is then "", and the
+ * file-name id alone still matches a CrossPoint left on its default). */
+bool epubKosyncIds(EpubSource* src, const char* basename,
+                   char partial[EPUB_KOSYNC_ID_CHARS], char byName[EPUB_KOSYNC_ID_CHARS]);
+
+// Sum of every CrossPoint item's size. 0 = "this book cannot sync over KOSync".
+uint32_t epubKosyncTotal(const EpubKosyncMap* m);
+
+/* The KOSync percentage for reading-spine item `readIdx`, `within` (0..1) of the way
+ * through it. False when the book is not syncable (no map, sizes unknown, total 0) or this
+ * chapter has no CrossPoint counterpart — a caller says so rather than sending a guess. */
+bool epubKosyncPercent(const EpubKosyncMap* m, int readIdx, double within, double* pct);
+
+/* The inverse: which reading chapter, how far through it. A percentage that lands in an item
+ * we do not read (a linear="no" cover, a spine image) resolves to the NEXT reading chapter at
+ * its start, or to the end of the last one. `cpIdx`/`cpWithin` (either may be NULL) report
+ * the CrossPoint item it fell in, for the tests. */
+bool epubKosyncLocate(const EpubKosyncMap* m, double pct, int* readIdx, double* readWithin,
+                      int* cpIdx, double* cpWithin);
+
+/* From a reader position: within = offset / chapLen (clamped). A chapter bigger than
+ * EPUB_MAX_DOC shows only a placeholder here, so its within is 0 — the offset means
+ * nothing. Pure arithmetic: pass the chapter length already in hand, no extraction. */
+bool epubKosyncPercentAt(const EpubBook* b, int spine, uint32_t offset, size_t chapLen,
+                         double* pct);
+
+/* To a reader position: one chapter extraction (epubChapterLen), exactly what epubLocate
+ * already pays. */
+bool epubKosyncLocateOffset(EpubBook* b, double pct, int* spine, uint32_t* offset);
+
+#if !defined(ARDUINO)
+/* HOST TESTS ONLY: non-zero makes every KOSync allocation fail, to prove a book still opens
+ * — identically — when the optional KOSync blocks cannot be had. Not in the firmware. */
+extern int epubTestFailKosyncAllocs;
+#endif
+
+// CrossPoint's path rules for ITS spine only (FsHelpers): %XX decoded (either case) ...
+size_t epubKosyncDecodePath(const char* in, char* out, size_t cap);
+// ... then normalised: empty components dropped, '..' pops, '.' KEPT, no leading '/'.
+size_t epubKosyncNormPath(const char* in, char* out, size_t cap);
 
 // ---------------------------------------------------------------- exposed for tests
 // COVEY's _slug: lowercase, runs of non-[a-z0-9] become '-', trimmed, cut to 64 characters.

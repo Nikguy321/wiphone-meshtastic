@@ -8,6 +8,7 @@
 
 #include "app_books.h"
 #include "app_gbc_xfer.h"
+#include "kosync_sync.h"          // KOSync: the window, the home client, /books/kosync.txt
 #include "meshtastic_service.h"
 #include "clock.h"
 #include "Arduino.h"
@@ -347,6 +348,12 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   pendingFrom = 0;
   pendingClock = false;
   syncNote[0] = '\0';
+  ksPartial[0] = '\0';
+  ksByName[0] = '\0';
+  ksIdsDone = false;
+  ksNote[0] = '\0';
+  ksLines[0] = '\0';
+  ksBook = NULL;
   syncCardMs = 0;
   undoValid = false;
   undoMs = 0;
@@ -368,6 +375,7 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   books    = (BookFile*)ps_malloc(sizeof(BookFile) * BOOKS_MAX);
   images   = (EpubImage*)ps_malloc(sizeof(EpubImage) * EPUB_MAX_IMAGES);
   imgBoxes = (BookImageBox*)ps_malloc(sizeof(BookImageBox) * EPUB_MAX_IMAGES);
+  ksBook   = (KosyncBook*)ps_malloc(sizeof(KosyncBook));   // ~4.5 KB; NULL = KOSync unavailable
   store    = (BookStore*)ps_malloc(sizeof(BookStore));
   if (store) {
     store->init();
@@ -375,6 +383,10 @@ BooksApp::BooksApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   }
 
   loadSyncSettings();
+  /* Re-read /books/kosync.txt on every entry to Books: it is how an edited file (or one just
+   * put on the card over WiFi) takes effect without a reboot. A missing file is one failed
+   * open — and means KOSync is simply off. */
+  kosyncReloadConfig();
   /* 🛑 DO NOT call bookSyncInboxInit() here, and do not "tidy up" by adding it back.
    *
    * This app is `new`ed on entry to Books and `delete`d on exit (GUI.cpp, GUI_APP_BOOKS), so
@@ -434,13 +446,22 @@ BooksApp::~BooksApp() {
   if (s_liveBooksApp == this) {
     s_liveBooksApp = NULL;
   }
-  closeBook(true);
-  xferStop();                    // in case the app dies with the transfer screen up
+  closeBookByUser();             // leaving the reader with a book open IS closing it (auto=on)
+  /* 🛑 ONLY IF THE TRANSFER SCREEN WAS UP. This used to be unconditional, which was harmless
+   * while the uploader was the only thing that module ran — and then a KOSync window opened
+   * on book close died the moment Books was left. xferStop() itself now leaves a window's
+   * transport standing too; both halves are deliberate, so a window survives either change
+   * being undone alone. */
+  if (appState == BOOKS_XFER) {
+    xferStop();                  // in case the app dies with the transfer screen up
+  }
   holdScreenAwake(false);        // never leave the user's screen timeout stretched
   free(store);
   free(books);
   free(images);
   free(imgBoxes);
+  free(ksBook);
+  ksBook = NULL;
   store = NULL;
   books = NULL;
   images = NULL;
@@ -761,12 +782,23 @@ bool BooksApp::openBook(int idx) {
   turnsSinceSave = 0;
   const uint32_t _oGoto = millis();
   checkForPending();   // a position may have arrived while this book was shut
+  const uint32_t _oPend = millis();
+  /* KOSync, when configured: the two document ids (12 small reads) and then a pull from home
+   * (on WiFi) or a short window (off it). Neither blocks here — the pull is a state machine
+   * in kosyncLoop() and the window is opened from there too — so this costs the reads. */
+  if (kosyncConfigured()) {
+    kosyncIds();
+    if (kosyncSnapshot()) {
+      kosyncBookOpened(ksBook);
+    }
+  }
   BOOKS_HEAP("open:done");
   const uint32_t _oEnd = millis();
-  log_e("BOOK OPEN %u ms [sdopen=%u epubOpen=%u pos=%u chapter=%u(+%d skips) goto=%u pending=%u] spine=%d/%d",
+  log_e("BOOK OPEN %u ms [sdopen=%u epubOpen=%u pos=%u chapter=%u(+%d skips) goto=%u pending=%u ks=%u] spine=%d/%d",
         (unsigned)(_oEnd - _o0), (unsigned)(_oOpen - _o0), (unsigned)(_oParse - _oOpen),
         (unsigned)(_oPos - _oParse), (unsigned)(_oChap - _oPos), _oSkips,
-        (unsigned)(_oGoto - _oChap), (unsigned)(_oEnd - _oGoto), spine, book.nSpine);
+        (unsigned)(_oGoto - _oChap), (unsigned)(_oPend - _oGoto), (unsigned)(_oEnd - _oPend),
+        spine, book.nSpine);
   _report.ok = true;                  // reported here; the guard covers every other exit
   return true;
 }
@@ -792,6 +824,9 @@ void BooksApp::closeBook(bool save) {
   openIdx = -1;
   histN = 0;
   undoValid = false;      // an undo belongs to the book that was open when it was taken
+  ksIdsDone = false;      // KOSync ids belong to the file that was open
+  ksPartial[0] = '\0';
+  ksByName[0] = '\0';
 }
 
 bool BooksApp::loadChapter(int i) {
@@ -998,6 +1033,7 @@ bool BooksApp::savePosition(bool flush) {
    * old to COVEY, and made COVEY's look eight hours in the future to this phone. */
   uint32_t now = ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0;
   store->put(idp, nIds, (uint32_t)spine, pageStart, fractionHere(), now);
+  kosyncTellPosition();          // RAM only: a window serving this book answers with this place
   if (!flush) {
     return true;
   }
@@ -1206,6 +1242,183 @@ void BooksApp::dropParkedForThisBook() {
   if (bookSyncInboxDropForBook(key, idp, nIds) == 0) {
     bookSyncInboxRemoveId(pendingId);        // belt and braces if it no longer verifies
   }
+}
+
+// ---------------------------------------------------------------- KOSync (kosync_sync.h)
+
+// The booksync LoRa transport exists on this phone (the channel is found BY NAME, as always).
+static bool haveBooksyncChannel() {
+  const int n = meshService.getChannelCount();
+  for (int i = 0; i < n; i++) {
+    const MeshChannel* c = meshService.getChannel(i);
+    if (c && strcasecmp(c->name, "booksync") == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/* The two KOSync document ids of the open file. Once per open book, and only when KOSync is
+ * configured: the partial MD5 is 12 small reads spread across the file. A failed read gives
+ * no partial id (never a wrong one) and the file-name id still works.
+ *
+ * ⚠ The file name comes from the PATH, not books[].name: that one is cut at 63 bytes for the
+ * list, and an MD5 of a cut name matches nothing on the X4. */
+void BooksApp::kosyncIds() {
+  if (ksIdsDone || !isOpen || openIdx < 0) {
+    return;
+  }
+  ksIdsDone = true;
+  const char* slash = strrchr(books[openIdx].path, '/');
+  if (!epubKosyncIds(&src, slash ? slash + 1 : books[openIdx].path, ksPartial, ksByName)) {
+    log_e("KOSYNC: could not read %s for its partial MD5 - the file-name id only",
+          books[openIdx].path);
+  }
+}
+
+/* Everything the window and the home client need, copied out of the reader (they outlive
+ * it). The percentage is made HERE, from the chapter in hand — the same inputs fractionHere()
+ * uses, so it costs no extraction and changes nothing that is stored. */
+bool BooksApp::kosyncSnapshot() {
+  if (!isOpen || !ksBook || !book.kosync || !ksIdsDone) {
+    return false;
+  }
+  KosyncBook* k = ksBook;
+  memset(k, 0, sizeof(*k));
+  snprintf(k->title, sizeof(k->title), "%s", book.title);
+  snprintf(k->partial, sizeof(k->partial), "%s", ksPartial);
+  snprintf(k->byName, sizeof(k->byName), "%s", ksByName);
+  for (int i = 0; i < nIds && i < 3; i++) {
+    snprintf(k->ids[i], sizeof(k->ids[i]), "%s", ids[i]);
+  }
+  k->nIds = nIds;
+  k->nRead = book.nSpine;
+  memcpy(&k->map, book.kosync, sizeof(k->map));
+  k->pctOk = epubKosyncPercentAt(&book, spine, pageStart, chapLen, &k->pct);
+  /* The LAST PAGE TURN, as the store has it (savePosition stamps it, UTC or 0) — not "now":
+   * a pull compares a server record against when we last actually read. */
+  k->turnedAt = 0;
+  if (store) {
+    const char* idp[BOOKSYNC_MAX_IDS] = { ids[0], ids[1], ids[2] };
+    BookPos pos;
+    if (nIds > 0 && store->get(idp, nIds, &pos)) {
+      k->turnedAt = pos.turnedAt;
+    }
+  }
+  return k->byName[0] != '\0';
+}
+
+void BooksApp::kosyncTellPosition() {
+  if (!ksIdsDone || !isOpen || !kosyncWindowActive()) {
+    return;                      // one pointer test per page turn for everyone else
+  }
+  double pct = 0.0;
+  const bool ok = epubKosyncPercentAt(&book, spine, pageStart, chapLen, &pct);
+  kosyncNotePosition(ksPartial, ksByName, pct, ok,
+                     ntpClock.isTimeKnown() ? (uint32_t)ntpClock.getExactUtcTime() : 0);
+}
+
+size_t BooksApp::kosyncLiveLines(char* out, size_t cap) {
+  out[0] = '\0';
+  if (!kosyncConfigured()) {
+    return 0;
+  }
+  char w[100], c[100];
+  kosyncWindowLine(w, sizeof(w));
+  kosyncClientLine(c, sizeof(c));
+  snprintf(out, cap, "%s\n%s", w, c);
+  return strlen(out);
+}
+
+void BooksApp::kosyncAddLines(MenuWidget* m) {
+  kosyncLiveLines(ksLines, sizeof(ksLines));
+  if (!m || !ksLines[0]) {
+    return;
+  }
+  char w[100], c[100];
+  kosyncWindowLine(w, sizeof(w));
+  kosyncClientLine(c, sizeof(c));
+  if (w[0]) {
+    m->addNoteWrapped(w);
+  }
+  if (c[0]) {
+    m->addNoteWrapped(c);
+  }
+}
+
+bool BooksApp::kosyncLinesChanged() {
+  char now[sizeof(ksLines)];
+  kosyncLiveLines(now, sizeof(now));
+  return strcmp(now, ksLines) != 0;
+}
+
+/* "Sync my place".
+ *
+ * Without /books/kosync.txt this is sendMyPlace() and nothing else — byte for byte the old
+ * behaviour, including its "No 'booksync' channel" note. With it, the two transports are
+ * independent: LoRa goes out if this phone has the channel (silently skipped if it does not
+ * — someone who set up KOSync alone should not be told to import a channel), and KOSync
+ * opens its window and, on WiFi, sends home. */
+void BooksApp::syncMyPlace() {
+  ksNote[0] = '\0';
+  if (!kosyncConfigured()) {
+    sendMyPlace();
+    return;
+  }
+  if (haveBooksyncChannel()) {
+    sendMyPlace();
+  } else {
+    syncNote[0] = '\0';
+  }
+  kosyncIds();                   // (the place itself was flushed on the way into this menu)
+  if (!kosyncSnapshot()) {
+    snprintf(ksNote, sizeof(ksNote), "This book can't sync over KOSync");
+    return;
+  }
+  kosyncSyncMyPlace(ksBook, ksNote, sizeof(ksNote));
+}
+
+void BooksApp::closeBookByUser() {
+  if (isOpen && kosyncConfigured()) {
+    kosyncIds();
+    if (kosyncSnapshot()) {
+      kosyncBookClosed(ksBook);  // auto=on: a window (opened from the loop) + a push home
+    }
+  }
+  closeBook(true);
+}
+
+bool BooksApp::kosyncBench(const char* verb, uint32_t secs, char* out, size_t cap) {
+  if (!kosyncConfigured()) {
+    snprintf(out, cap, "KOSync is %s", kosyncConfigNote());
+    return false;
+  }
+  kosyncIds();
+  if (!kosyncSnapshot()) {
+    snprintf(out, cap, "no KOSync snapshot for the open book");
+    return false;
+  }
+  bool ok = false;
+  out[0] = '\0';
+  if (!strcmp(verb, "open")) {
+    ok = kosyncWindowOpen(ksBook, secs ? secs * 1000UL : KOSYNC_WINDOW_SYNC_MS, out, cap);
+    if (ok) {
+      kosyncWindowLine(out, cap);
+    }
+  } else if (!strcmp(verb, "push")) {
+    ok = kosyncPush(ksBook, out, cap);
+    if (ok) {
+      kosyncClientLine(out, cap);
+    }
+  } else if (!strcmp(verb, "pull")) {
+    ok = kosyncPull(ksBook, out, cap);
+    if (ok) {
+      kosyncClientLine(out, cap);
+    }
+  } else {
+    snprintf(out, cap, "unknown: %s", verb);
+  }
+  return ok;
 }
 
 // ---------------------------------------------------------------- paging
@@ -1457,6 +1670,14 @@ bool booksSaveOpenPosition() {
   return s_liveBooksApp ? s_liveBooksApp->savePosition(true) : true;
 }
 
+bool booksKosyncBench(const char* verb, uint32_t secs, char* out, size_t cap) {
+  if (!s_liveBooksApp || !s_liveBooksApp->isOpen) {
+    snprintf(out, cap, "no book open - `open books`, then open one");
+    return false;
+  }
+  return s_liveBooksApp->kosyncBench(verb, secs, out, cap);
+}
+
 void booksDebugDumpPage() {
   if (s_liveBooksApp) {
     s_liveBooksApp->debugDumpPage();
@@ -1537,7 +1758,13 @@ void BooksApp::drawXfer() {
     if (xferUsingAP()) {
       snprintf(l, sizeof(l), "(join WiFi '%s'", xferApName());
       lcd.drawString(l, BOOKS_MARGIN, y); y += lh;
-      lcd.drawString(" first, no password)", BOOKS_MARGIN, y); y += lh + 4;
+      /* ⚠ Not always open any more: this uploader shares 'WiPhone-Books' with a KOSync sync
+       * window, and one that started while a window held it rides on the window's WPA2
+       * hotspot. Telling someone "no password" at a hotspot that asks for one is the kind
+       * of screen that gets a person to give up. (Padded: this screen draws in place.) */
+      lcd.drawString(xferApProtected() ? " first; it has a password)"
+                                       : " first, no password)      ", BOOKS_MARGIN, y);
+      y += lh + 4;
     } else {
       lcd.drawString("(same WiFi as the phone)", BOOKS_MARGIN, y); y += lh + 4;
     }
@@ -1620,6 +1847,18 @@ void BooksApp::drawInfo() {
     lcd.drawFitString(ids[i], lcd.width() - 2 * BOOKS_MARGIN, BOOKS_MARGIN, y);
     y += lh;
   }
+  /* KOSync's id and percentage, when it is on: the X4 and COVEY show the same document id
+   * (the partial MD5) and a percentage that should read the same as this one. */
+  if (kosyncConfigured() && ksIdsDone) {
+    double kp = 0.0;
+    if (epubKosyncPercentAt(&book, spine, pageStart, chapLen, &kp)) {
+      snprintf(l, sizeof(l), "kosync %.12s.. %.1f%%", ksPartial[0] ? ksPartial : ksByName, kp * 100.0);
+    } else {
+      snprintf(l, sizeof(l), "kosync: this place can't be sent");
+    }
+    lcd.drawFitString(l, lcd.width() - 2 * BOOKS_MARGIN, BOOKS_MARGIN, y);
+    y += lh;
+  }
   y += 4;
   lcd.setTextColor(TFT_DARKGREY, BLACK);
   snprintf(l, sizeof(l), "file %s", books[openIdx].path);
@@ -1695,8 +1934,18 @@ void BooksApp::drawSyncCard() {
   const double mine = fractionHere();
   const bool backward = pending.fraction < mine;
   int theirPct = (int)(pending.fraction * 100.0 + 0.5);
-  snprintf(l, sizeof(l), "they are at %d%%", theirPct);
-  lcd.drawString(l, BOOKS_MARGIN, y); y += lh;
+  /* A KOSync offer also shows the peer's OWN number — the one its screen shows — with this
+   * phone's reading of the same place beside it ("61% (48% here)"): the X4 weighs chapters
+   * by their size and this reader by their count, so the two are honestly different. The
+   * comparisons below (backwards, the button) stay on this phone's scale. Same row, same
+   * height; cut to the width rather than run under the margin. */
+  double peerPct = 0.0;
+  if (kosyncPeerPctFor(pendingId, &peerPct)) {
+    snprintf(l, sizeof(l), "they are at %d%% (%d%% here)", (int)(peerPct * 100.0 + 0.5), theirPct);
+  } else {
+    snprintf(l, sizeof(l), "they are at %d%%", theirPct);
+  }
+  lcd.drawFitString(l, lcd.width() - 2 * BOOKS_MARGIN, BOOKS_MARGIN, y); y += lh;
   snprintf(l, sizeof(l), "you are at %d%%", (int)(mine * 100.0 + 0.5));
   lcd.drawString(l, BOOKS_MARGIN, y); y += lh + 6;
 
@@ -1750,6 +1999,10 @@ void BooksApp::buildMenu() {
   if (syncNote[0]) {
     menu->addNote(syncNote);               // what the last send did, good or bad
   }
+  if (ksNote[0]) {
+    menu->addNoteWrapped(ksNote);          // why KOSync could not do what was asked
+  }
+  kosyncAddLines(menu);                    // the window's countdown and the home result
 }
 
 void BooksApp::buildToc() {
@@ -1852,6 +2105,9 @@ void BooksApp::enterState(BooksState_t state) {
   case BOOKS_MENU:
     header->setTitle("Reading");
     footer->setButtons("Select", "Back");
+    if (kosyncConfigured()) {
+      controlState.msAppTimerEventPeriod = 1000;   // KOSync's live lines + the card (see above)
+    }
     buildMenu();
     break;
   case BOOKS_TOC:
@@ -1891,6 +2147,10 @@ void BooksApp::enterState(BooksState_t state) {
   case BOOKS_SYNCSET:
     header->setTitle("Sync settings");
     footer->setButtons("Select", "Back");
+    kosyncReloadConfig();              // looking at the settings re-reads the file
+    if (kosyncConfigured()) {
+      controlState.msAppTimerEventPeriod = 1000;
+    }
     buildSyncSettings();
     break;
   case BOOKS_SYNCEDIT:
@@ -1926,6 +2186,38 @@ void BooksApp::buildSyncSettings() {
                        : "Channel 'booksync': MISSING");
   snprintf(l, sizeof(l), "Parked positions: %d", bookSyncInboxCount());
   menu->addNote(l);
+
+  /* KOSync: what /books/kosync.txt configures, SHOWN, never edited here (a file keeps the
+   * password out of a public repo's UI, as smsmirror.txt does) — and never the password. */
+  const KosyncConfig* kc = kosyncConfig();
+  if (!kosyncConfigured()) {
+    snprintf(l, sizeof(l), "KOSync: %s", kosyncConfigNote());
+    menu->addNoteWrapped(l);
+  } else {
+    snprintf(l, sizeof(l), "KOSync: on, user %s", kc->user);
+    menu->addNoteWrapped(l);
+    if (kc->home[0]) {
+      snprintf(l, sizeof(l), "Home: %s:%u", kc->home, (unsigned)kc->homePort);
+    } else {
+      snprintf(l, sizeof(l), "Home: (none - hotspot window only)");
+    }
+    menu->addNoteWrapped(l);
+    snprintf(l, sizeof(l), "KOSync name: %s", kosyncMyDevice());
+    menu->addNoteWrapped(l);
+    snprintf(l, sizeof(l), "On close: %s. On open off WiFi: %s",
+             kc->autoOnClose ? "window + send" : "nothing",
+             kc->openWindow ? "60 s window" : "nothing");
+    menu->addNoteWrapped(l);
+    char hs[80];
+    kosyncHotspotLine(hs, sizeof(hs));       // "hotspot: WPA2" - never the password itself
+    snprintf(l, sizeof(l), "%c%s", hs[0] >= 'a' && hs[0] <= 'z' ? hs[0] - 32 : hs[0], hs + 1);
+    menu->addNoteWrapped(l);
+    if (kosyncConfigNote()[0]) {
+      snprintf(l, sizeof(l), "! %s", kosyncConfigNote());   // e.g. a short password
+      menu->addNoteWrapped(l);
+    }
+    kosyncAddLines(menu);
+  }
 }
 
 appEventResult BooksApp::processEvent(EventType event) {
@@ -2065,7 +2357,7 @@ appEventResult BooksApp::processEvent(EventType event) {
 
   case BOOKS_READ:
     if (LOGIC_BUTTON_BACK(event)) {
-      closeBook(true);
+      closeBookByUser();
       scanBooks();
       enterState(BOOKS_LIB);
       return REDRAW_ALL;
@@ -2116,6 +2408,27 @@ appEventResult BooksApp::processEvent(EventType event) {
       enterState(BOOKS_READ);
       return REDRAW_ALL;
     }
+    /* KOSync's tick (set in enterState only when KOSync is configured): a peer's place that
+     * lands while this menu is up raises the card HERE — "Sync my place" was just pressed on
+     * this very screen, and the reply is what the person is waiting for — and the window's
+     * countdown and the home line refresh. The menu is rebuilt only when their text changed. */
+    if (event == APP_TIMER_EVENT) {
+      if (syncSeqSeen != bookSyncInboxSeq()) {
+        checkForPending();
+        if (pendingIdx >= 0) {
+          enterState(BOOKS_SYNCCARD);
+          return REDRAW_ALL;
+        }
+      }
+      if (menu && kosyncLinesChanged()) {
+        const MenuOption::keyType k = menu->currentKey();
+        freeWidgets();
+        buildMenu();
+        menu->select(k);
+        return REDRAW_SCREEN;
+      }
+      return DO_NOTHING;
+    }
     menu->processEvent(event);
     if (LOGIC_BUTTON_OK(event)) {
       switch (menu->currentKey()) {
@@ -2138,7 +2451,7 @@ appEventResult BooksApp::processEvent(EventType event) {
         return REDRAW_SCREEN;
       }
       case BOOKS_MENU_SYNC:
-        sendMyPlace();
+        syncMyPlace();
         freeWidgets();
         buildMenu();
         menu->select(BOOKS_MENU_SYNC);
@@ -2160,7 +2473,7 @@ appEventResult BooksApp::processEvent(EventType event) {
         enterState(BOOKS_INFO);
         return REDRAW_ALL;
       case BOOKS_MENU_CLOSE:
-        closeBook(true);
+        closeBookByUser();
         enterState(BOOKS_LIB);
         return REDRAW_ALL;
       default:
@@ -2233,6 +2546,16 @@ appEventResult BooksApp::processEvent(EventType event) {
     if (LOGIC_BUTTON_BACK(event)) {
       enterState(isOpen ? BOOKS_MENU : BOOKS_LIB);
       return REDRAW_ALL;
+    }
+    if (event == APP_TIMER_EVENT) {       // the KOSync window/home lines, live (see BOOKS_MENU)
+      if (menu && kosyncLinesChanged()) {
+        const MenuOption::keyType k = menu->currentKey();
+        freeWidgets();
+        buildSyncSettings();
+        menu->select(k);
+        return REDRAW_SCREEN;
+      }
+      return DO_NOTHING;
     }
     menu->processEvent(event);
     if (LOGIC_BUTTON_OK(event)) {

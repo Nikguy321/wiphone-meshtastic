@@ -1,5 +1,77 @@
 # Changelog
 
+## 0.9.79 (dev build, not released) - reading-position sync over KOSync (Xteink X4, KOReader, COVEY)
+
+Nick: *"push 'sync location' on the device I was just reading and have it ready when I open it
+on another device"* — and, the one hard rule: *"we can't let it screw up the position people are
+at in their own wiphones after they update"*.
+
+**Off unless `/books/kosync.txt` exists.** Without it, nothing changes: "Sync my place" is the
+LoRa booksync send it always was. With it (key=value lines, `#` comments):
+
+```
+user=<your KOSync user>          # the one account all your devices share
+password=<12+ characters>        # kept only as its MD5; or key=<32 hex> instead
+home=192.168.1.20:8088           # optional: a KOSync server on your WiFi (COVEY: 8088); http only.
+                                 # Use an IP ADDRESS, not a .local name: an mDNS lookup is not
+                                 # cached and can freeze the phone ~500 ms on every book open.
+device=WiPhone-Sam               # optional: default "WiPhone-" + Sync settings > This device
+auto=on                          # optional: closing a book opens a window + sends home
+open_window=on                   # optional: opening a book off WiFi opens a 60 s window
+hotspot_pass=<8-63 characters>   # optional: the sync hotspot is WPA2 with this password
+```
+
+- **"Sync my place" opens a 5-minute sync WINDOW**: the phone serves KOSync for that one book,
+  on its own open hotspot **WiPhone-Books (http://192.168.4.1)** when it is not on WiFi, or on
+  its WiFi address when it is (and then also sends the place to `home=`). Point an X4's KOReader
+  Sync at `http://192.168.4.1` with the same user/password. The window closes 10 s after a PUT
+  for the book, 120 s after a GET (a stock X4 may be waiting for you to choose before it sends
+  anything), or at the deadline. The reader menu shows `Window open, 5 min left - WiPhone-Books
+  192.168.4.1`, then `Sent 61% to home` / `Picked up by CrossPoint`. The window does NOT keep
+  the screen on or the CPU at 240 MHz — it serves with the screen dark, at 80 MHz — and it ends
+  when a Game Boy game starts or Settings > WiFi is opened (and cannot open under either).
+- **A place sent TO the phone arrives as the ordinary sync card** ("CrossPoint says: they are at
+  61% (48% here)" — the X4's own number, then this reader's for the same place) with its undo,
+  arming and backwards warning. It is parked in the booksync inbox as a locally-signed record,
+  so none of that code knows KOSync exists, and a new KOSync offer for a book REPLACES that
+  book's previous one, so other books' LoRa positions are never pushed out of the inbox.
+- **Opening a book on WiFi with `home=` asks the server** (partial MD5 first, then the file-name
+  id) and offers a place that is newer than your last page turn (or, with a clock missing,
+  ahead of you) from another device.
+- The phone only ever HOSTS: it never scans for or joins another device's hotspot.
+- **The sync hotspot is OPEN unless `hotspot_pass=` is set.** With 8-63 plain-ASCII characters
+  (spaces inside are fine; spaces at either end are trimmed) the window's `WiPhone-Books` is
+  WPA2-PSK. A stock CrossPoint then needs that password typed once when it joins the hotspot;
+  Nick's fork has a matching "Peer Wi-Fi Password" setting. An invalid line keeps the hotspot
+  OPEN and says why, in `kosync` and in Sync settings (`hotspot: open - hotspot_pass ignored:
+  8-63 characters` / `... plain ASCII only`). The window note reads `WiPhone-Books (password)
+  192.168.4.1` so whoever joins knows to ask. The password itself is never shown, printed or
+  logged: everything says only `hotspot: WPA2` or `hotspot: open`. A window that finds the Books
+  uploader already hosting `WiPhone-Books` rides it as it is (`hotspot: open (uploader's)`); an
+  uploader started while a protected window holds it rides it protected, and its screen then
+  says "it has a password" instead of "no password". (Like any WiFi password on this phone, the
+  ESP32 WiFi driver keeps it in its own NVS config.)
+
+**No saved place moves.** The reading spine, `epubFraction`/`epubLocate`, `/books/positions.cbs`
+and the LoRa record are untouched. KOSync's percentage is CrossPoint's byte-weighted one over
+CrossPoint's own spine (linear="no" items and spine images included, %XX-decoded paths), captured
+in the zip walk the reader already made, and computed only on the way out / converted back only
+on the way in. Proven: `tests/golden_positions.h` was generated from the 0.9.78 parser and the
+current one reproduces it byte for byte (and did the same across 27 real EPUBs, Nick's library
+included).
+
+**The window is KOSync-only on the raw port-80 pump** — no upload page, no `/chunk`, no
+WebServer: an open hotspot that opens itself on a book close must not offer an SD-card writer,
+and the raw pump costs ~zero heap per request. It shares a running uploader's network (same
+hotspot name or the same WiFi). `xferStop()` now stops the uploader only, so leaving Books, Music,
+Games or Files no longer kills a window; the softAP WiFi gates use `xferServing()` (uploader OR
+window), the busy/240 MHz predicate stays the uploader's (`xferOn()`). One slow client cannot hold
+the single raw slot: a request's headers, and a whole KOSync request, must finish within 8 s of
+their first byte. KOSync's per-book data is an OPTIONAL allocation: if it cannot be had the book
+opens exactly as before and is simply not syncable. Serial: `kosync` (status), `kosync open [secs]`, `close`,
+`push`, `pull`, `reload`; a `KOSYNC window ... heap= largest=` line every 15 s while one is open.
+Host suite: `tests/test_kosync.cpp` reproduces every number in `tests/vectors_kosync.h`.
+
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 
 Nick, after looking at OpenTopoMap one level deeper: *"So it seems like open topo has a native
