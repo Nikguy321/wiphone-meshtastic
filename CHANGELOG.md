@@ -112,6 +112,30 @@ opens exactly as before and is simply not syncable. Serial: `kosync` (status), `
 `push`, `pull`, `reload`; a `KOSYNC window ... heap= largest=` line every 15 s while one is open.
 Host suite: `tests/test_kosync.cpp` reproduces every number in `tests/vectors_kosync.h`.
 
+### Calls and music stop fighting over the codec; the SIP audit's leftovers (0.9.79 dev, 2026-09-25)
+
+Both phones register now (`sip=1`), which made the 2026-08-15 audit's "unreachable" findings reachable.
+- **F1/F2 during a call do nothing** (they started a track over the call: the caller went silent and the
+  mic went out garbled or dropped), and `Audio::playMusic()` refuses with "In a call" while RTP is armed.
+- **END hangs up a call and nothing else.** It set HangUp from every screen: that stopped music and lost its
+  place, zeroed the volumes, and — with no WiFi or no SIP account — left HangUp stuck, so music could not
+  play again until a reboot. ⚠ END no longer happens to walk a phone out of CallState::Error.
+- **The ring and the answered call use the call levels**, not the music level (the ringtone stole
+  `playback` before the music pause could see it). A pop still playing is finished before a ring or a
+  call's audio starts, so its restore() no longer lands on top of them.
+- **No more 0/0/0 dB after every call end and END press** (never-written `restore*` globals, removed).
+  ⚠ The ring now follows Settings > Audio's loudspeaker level instead of the accidental 0 dB maximum.
+- **Settings > Audio with music playing** shows and saves the CALL levels (into music's stash, applied
+  when music lets go) instead of writing under the track and being overwritten by it.
+- **The second call of a boot is no longer ended at connect**: RTP silence is counted per call, and a
+  call ends after 120 s of continuous silence (`CALL: no RTP from the far end` at log_e).
+- **Hot-mic backstop**: an RTP session armed with no live call is shut down within 3 s (`AUDIO: RTP
+  session armed with no live call`). The audio easter eggs (**202## streamed the mic to a hardcoded LAN
+  address) are compiled out unless `-DAUDIO_DEBUG_EGGS`.
+- Serial: `audio` gains an `rtp:` line (mic/stream/port, armed/owned, `vol=`, `callvol=`) and prints line
+  by line; `audio orphan` arms a receive-only session with no call to watch the backstop fire. Host suite:
+  `tests/test_rtpwatch.cpp`.
+
 ### WiFi drops explain themselves; a station wedged mid-connect now cures itself (0.9.79 dev, 2026-09-25)
 
 Phone 2 lost WiFi twice on 2026-09-24 (HEALTH `wifi=5` then `wifi=1`, a serial `wifi scan` of -2,

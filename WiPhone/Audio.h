@@ -55,8 +55,10 @@ extern AUDIO_CODEC_CLASS  codec;
 #define LOUDSPEAKER 1
 #define EARSPEAKER 0
 
-#define STP_SILENT_PERIOD 60000  // to detect rtp silent
-extern uint8_t    rtpSilentPeriod;  // for detection of other party rtp stream silent
+/* Far-end RTP silence. The window and the strike count live in rtp_watch.h (host-tested); this
+ * flag is only the hand-off to the main loop, and since 0.9.79 RTP_SILENT_ON means "END THIS
+ * CALL" — two windows of continuous silence within the call — not "one window went by". */
+extern uint8_t    rtpSilentPeriod;
 #define RTP_SILENT_ON     0x02
 #define RTP_SILENT_OFF    0x00
 /* Description
@@ -147,7 +149,8 @@ public:
    * exact rather than approximate.
    *
    * ⚠ Do not call during a call. Music and RTP are both Playback modes and there is one
-   * I2S peripheral; the caller stops music when a call arrives. */
+   * I2S peripheral; the caller stops music when a call arrives. Since 0.9.79 it REFUSES while
+   * an RTP session is armed (musicError() "In a call") — see the note at its top. */
   bool playMusic(fs::FS *fs, const char* path, bool stereo, uint32_t startAt = 0);
   /* Byte offset currently being read. Handed back to playMusic() as `startAt` to resume
    * a paused track where it left off. */
@@ -269,6 +272,28 @@ public:
      * microphoneOn (see the note below) microphoneRecord is NOT sticky: ceaseRecording() and
      * saveWavRecord() both clear it. */
     return this->playback != Playback::Nothing || this->microphoneRecord;
+  }
+  /* Does the device hold an RTP SESSION — the microphone streaming out, or a call's incoming
+   * stream playing? The question the orphan clock in WiPhone.ino asks (see rtp_watch.h).
+   *
+   * ⚠ A NEW PREDICATE ON PURPOSE, not an edit to movingSamples() above: that one deliberately
+   * ignores the mic flags so a latched flag cannot switch the idle watchdog off. This one asks
+   * exactly about those flags, because a latched send flag is the hazard it exists to catch.
+   * microphoneOn alone is NOT a session — the mic-level meters set it with nothing going out;
+   * the send gate in loop() is microphoneStreamOut. */
+  bool rtpSessionArmed() const {
+    return this->microphoneStreamOut || this->playback == Playback::RtpStream;
+  }
+  /* Read-only views for the serial `audio` line: is the mic being read, is it being SENT, and
+   * to which port. After any call ends all three must read 0. */
+  bool micOn() const {
+    return this->microphoneOn;
+  }
+  bool micStreamOut() const {
+    return this->microphoneStreamOut;
+  }
+  uint16_t rtpPeerPort() const {
+    return this->rtpRemotePort;
   }
   bool isEof() {
     return this->playbackEof;

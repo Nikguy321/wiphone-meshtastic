@@ -24,6 +24,7 @@ extern uint32_t uiKeyMaskFor(char code);                                    // W
 #include "Networks.h"             // wifiState.radioOff(), the `power sleep` gate
 #include "Hardware.h"             // KEYBOARD_INTERRUPT_PIN, the `power sleep` wake pin
 #include "Audio.h"                // audio->isOn(), the `power` guards
+#include "rtp_watch.h"            // RTP_ORPHAN_RELEASE_MS, the `audio orphan` bench
 #include <driver/i2s.h>           // i2s_stop/i2s_start, the `power i2s` toggle
 #include <esp_sleep.h>            // esp_light_sleep_start, the `power sleep` floor
 #include <SPIFFS.h>
@@ -141,6 +142,9 @@ static void help() {
     "  dm <!node> <text>  send a direct message (PKI when the key is known)",
     "  heap       memory truth: internal/DMA/PSRAM free+largest+floor",
     "  audio      audio device: powered? moving samples? who is entitled to it?",
+    "             + the RTP session (mic/stream/port: all 0 after any call) and the levels",
+    "  audio orphan  arm an RTP receive with NO call (no mic, nothing sent) - the hot-mic",
+    "             backstop must shut it down within 3 s with an 'AUDIO: RTP session armed' line",
     "  replay     history-replay state: ring occupancy, pending tx, last served",
     "  nbr        neighbours heard DIRECTLY + announce state (My node > Neighbor info)",
     "  nbr on|4h|off|now  set the announce cadence (1h/4h) or announce right now",
@@ -596,11 +600,38 @@ static void run(char* line) {
 
   if (!strcasecmp(line, "audio")) {
     /* Same shape as `keys` and `health`: the state lives in WiPhone.ino, where the SIP,
-     * emulator, music and vibro state are all visible; this just prints what it hands back. */
+     * emulator, music and vibro state are all visible; this just prints what it hands back.
+     * ⚠ ONE say() PER LINE, like help(): say()'s buffer is 192 bytes and this dump is ~260 with
+     * the rtp line (0.9.79) and ~420 with the leak warning. As one say() the rtp line — the
+     * hot-mic check — was the part that got cut. */
     extern int audioStateDump(char* out, int cap);
-    char buf[420];
+    char buf[512];
     audioStateDump(buf, sizeof(buf));
-    say("%s", buf);
+    for (char* p = buf; *p;) {
+      char* nl = strchr(p, '\n');
+      if (nl) {
+        *nl = '\0';
+      }
+      sayLine(p);
+      if (!nl) {
+        break;
+      }
+      p = nl + 1;
+    }
+    return;
+  }
+  /* `audio orphan` — arm an RTP session with no call (receive only: no microphone, nothing
+   * sent) so the hot-mic backstop can be watched firing. See audioBenchOrphan(). */
+  if (!strcasecmp(line, "audio orphan")) {
+    extern bool audioBenchOrphan();
+    if (!audioBenchOrphan()) {
+      say("audio orphan: refused - a call is live or ringing, a game owns the device, a "
+          "session is already armed, or something is playing (pause the music first)\n");
+      return;
+    }
+    say("audio orphan: RTP receive armed on port 5004 with NO call - expect 'AUDIO: RTP session "
+        "armed with no live call' within %u ms, then `audio` armed=0\n",
+        (unsigned)RTP_ORPHAN_RELEASE_MS);
     return;
   }
   /* `keys raw` — what the CHIP actually sent, oldest first. The counters say a release

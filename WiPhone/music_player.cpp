@@ -67,6 +67,31 @@ static void restoreCallVolume() {
   }
 }
 
+void musicPlayerYieldForCall() {
+  musicPlayerPause();         // sounding: keep the place, stop, give the levels back
+  restoreCallVolume();        // already stopped by the ring or a pop: the levels are still ours
+}
+
+bool musicPlayerCallVolumes(int8_t& ear, int8_t& hp, int8_t& loud) {
+  if (!s_volSaved) {
+    return false;
+  }
+  ear = s_savedEar;
+  hp = s_savedHp;
+  loud = s_savedLoud;
+  return true;
+}
+
+bool musicPlayerSetCallVolumes(int8_t ear, int8_t hp, int8_t loud) {
+  if (!s_volSaved) {
+    return false;
+  }
+  s_savedEar = ear;
+  s_savedHp = hp;
+  s_savedLoud = loud;
+  return true;
+}
+
 int musicPlayerVolume() {
   return s_vol;
 }

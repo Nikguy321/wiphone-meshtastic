@@ -29,11 +29,15 @@ governing permissions and limitations under the License.
 
 #include "Audio.h"
 #include "config.h"
+#include "rtp_watch.h"
 
 //#define TAG "audio" // log tags don't seem to work in Arduino
 
 uint8_t    rtpSilentPeriod = 0x0;
-uint32_t   rtpSilentScan = 0x0;
+/* The far end's silence, per call. Started fresh by newCall(); see rtp_watch.h for why the old
+ * pair (a boot-long `rtpSilentScan` here, a boot-long counter in WiPhone.ino) ended the second
+ * call of every boot at connect. */
+static RtpSilence s_rtpSilence = {0, 0};
 
 AUDIO_CODEC_CLASS  codec(AUDIO_CODEC_I2C_ADDR, I2C_SDA_PIN, I2C_SCK_PIN);
 
@@ -462,6 +466,20 @@ bool Audio::playFile() {
  * ⚠ The format is decided by the CONTENT, not the extension. The uploader has no
  * extension filter, so a .wav that is really an MP3 is an ordinary thing to meet. */
 bool Audio::playMusic(fs::FS *fs, const char* path, bool stereo, uint32_t startAt) {
+  /* 🛑 NEVER OVER A CALL. Everything below replaces `playback` (RtpStream -> LocalMp3/Wav) and
+   * reinstalls I2S at the track's rate and channel count. Under a live call that was two faults
+   * at once, and F1 or F2 from any screen reached it (the transport keys had no call guard):
+   *   - the caller went silent for the rest of the call — playback no longer RtpStream, and
+   *     nothing ever sets it back;
+   *   - the microphone kept sending, but packetSizeSamples() reads the SHARED sampleRate and
+   *     dataChannels, so 20 ms became 882 samples at 44.1 kHz (garble at the far end) or 1764
+   *     with headphones in (over micEnc's 1600 bytes, so every packet was dropped: silence).
+   * The keys are gated in WiPhone.ino now; this is the device refusing on its own behalf, so a
+   * caller nobody has written yet cannot do it either. musicError() says why, on the screen. */
+  if (this->playback == Playback::RtpStream || this->microphoneStreamOut) {
+    this->musicProblem = "In a call";
+    return false;
+  }
   this->stopMusic();
   this->musicProblem = NULL;
 
@@ -1308,17 +1326,17 @@ void Audio::loop() {
       int32_t len = udpParsePacketSafe(rtp);
 
       if (len == 0) {
-        uint32_t tmpSilentAudio = millis();
-        if ((tmpSilentAudio - rtpSilentScan) > STP_SILENT_PERIOD) {
-          log_d("tmpSilentAudio is: %ld  and rtpSilentScan is: %ld", tmpSilentAudio, rtpSilentScan);
-          log_d("NO RTP PACKETS FROM REMOTE PART");
-          rtpSilentScan = tmpSilentAudio;
-          rtpSilentPeriod = RTP_SILENT_ON;
+        const RtpQuiet q = rtpSilenceQuiet(s_rtpSilence, millis());
+        if (q == RTP_QUIET_STRIKE) {
+          log_d("NO RTP PACKETS FROM REMOTE PART for %u s - one more window ends the call",
+                (unsigned)(RTP_SILENCE_WINDOW_MS / 1000));
+        } else if (q == RTP_QUIET_END) {
+          rtpSilentPeriod = RTP_SILENT_ON;       // the main loop ends the call on its next pass
         }
       }
 
       if (len > 0) {
-        rtpSilentScan = millis();
+        rtpSilenceHeard(s_rtpSilence, millis());
         rtpSilentPeriod = RTP_SILENT_OFF;
         //log_d("RTP packet received: %d", len);
 
@@ -1572,6 +1590,12 @@ AUDIO_INLINE bool Audio::playSample() {
 }
 
 void Audio::newCall() {
+  /* 🛑 THE SILENCE CLOCK STARTS AT THIS CALL. It used to carry over from the last one, which
+   * ended the second call of every boot at connect — see rtp_watch.h. The flag too: a verdict
+   * about the last call's far end is not one about this call's. */
+  rtpSilenceBegin(s_rtpSilence, millis());
+  rtpSilentPeriod = RTP_SILENT_OFF;
+
   this->firstPacket = true;
   this->lastSequenceNum = 0;
 
@@ -1680,6 +1704,11 @@ bool Audio::sendRtpStreamFromMic(uint8_t payloadType, IPAddress remoteAddr, uint
   rtpSend.newSession();
   // Kickstart streaming
   this->microphoneStreamOut = true;
+  /* ⚠ This success path fell off the end with no return — undefined behaviour in C++, and the
+   * value it handed back was whatever the return register held (the 2026-09 audit read `this`
+   * there: true by accident). Every caller ignores the result, which is all that kept it
+   * harmless. */
+  return true;
 }
 
 bool Audio::recordFromMic() {

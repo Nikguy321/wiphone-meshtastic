@@ -87,6 +87,10 @@ for src in tests/test_*.cpp; do
     # Header-only: may the WiFi station come back, and how (wifi_policy.h) - never over the
     # owner's "off", never under a game or a live hotspot, all 256 input states swept.
     test_wifi_policy) deps=() ;;
+    # Header-only: a call's RTP clocks (rtp_watch.h) - far-end silence counted PER CALL (the old
+    # boot-long rule, reproduced, ends the second call of a boot at connect) and the hot-mic
+    # backstop that releases an RTP session no live call owns.
+    test_rtpwatch) deps=() ;;
     # The mesh-history replay wire format vs vectors generated from COVEY's
     # replay.py (regenerate with tools/gen_replay_vectors.py after changes).
     test_replay)   deps=(WiPhone/replay_proto.cpp) ;;

@@ -24,6 +24,7 @@ governing permissions and limitations under the License.
 #include "app_maps.h"
 #include "sms_mirror_rx.h"   // sipCompleteAddress: bare number -> full SIP URI
 #include "app_music.h"
+#include "music_player.h"   // Settings > Audio: while music plays, the call levels live in its stash
 #include "kosync_sync.h"   // kosyncWindowClose: the WiFi settings screens end any sync window
 #include "app_gbc_xfer.h"  // xferStop: ...and any headless uploader's hotspot
 extern volatile bool gGbcActive;   // WiPhone.ino: the emulator owns the screen and the audio device
@@ -3979,8 +3980,14 @@ AudioConfigApp::AudioConfigApp(Audio* audio, LCD& lcd, ControlState& state, Head
    * this one no longer draws it. */
 
   // Load preferences
+  /* ⚠ THE SEED IS THE CALL LEVELS, NOT WHATEVER THE CODEC HOLDS. While music plays the codec
+   * carries the MUSIC level and the call levels sit in the player's stash; seeding from the
+   * codec put the music level on these sliders wherever configs.ini lacked a key or would not
+   * load — and the branch below then wrote it to the file as the call volume. */
   int8_t earpieceVol, headphonesVol, loudspeakerVol;
-  audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
+  if (!musicPlayerCallVolumes(earpieceVol, headphonesVol, loudspeakerVol)) {
+    audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
+  }
   if ((ini.load() || ini.restore()) && !ini.isEmpty()) {
     // Check version of the file format
     // if (ini[0].hasKey("v")){ //&& !strcmp(ini[0]["v"], "1")) {
@@ -4057,7 +4064,14 @@ appEventResult AudioConfigApp::processEvent(EventType event) {
      * screen still READS it above (harmless, and it keeps the file's shape documented in one
      * place), but two writers of one value is exactly how the two screens would disagree. */
     ini.store();
-    audio->setVolumes(speakerVol, headphonesVol, loudspeakerVol);
+    /* 🛑 NOT STRAIGHT TO THE CODEC WHILE MUSIC HOLDS IT. That wrote the call levels under the
+     * playing track (the music jumped — up to ~24 dB on headphones), and when the music stopped
+     * the player put its stale stash back over them, so the saved setting did not take until a
+     * reboot. While music holds the codec the new levels go into its stash and are applied when
+     * it lets go; otherwise the codec holds the call levels and gets them now. */
+    if (!musicPlayerSetCallVolumes(speakerVol, headphonesVol, loudspeakerVol)) {
+      audio->setVolumes(speakerVol, headphonesVol, loudspeakerVol);
+    }
   }
 
   // TODO: clean up this code (group by state)

@@ -56,6 +56,7 @@ governing permissions and limitations under the License.
 #include "src/assets/pop_sound.h"
 #include "notify_timing.h"     // the pop's stop timer, derived from sizeof(pop_pcm)
 #include "cpu_clock.h"         // the CPU gate's MHz: never a PLL re-lock under a running radio
+#include "rtp_watch.h"         // a call's RTP: far-end silence per call, and the orphaned-session clock
 
 static bool been_in_verify = false;
 
@@ -169,7 +170,25 @@ void audio_test() {
  *               - "delay" - delay before the vibration motor turn ON for the first time, milliseconds
  *     TODO: generate both files if they are absent
  */
+void notifyPopFinishFor(const char* why);   // defined with the pop, further down
+
 void startRingtone() {
+
+  /* ── TAKE THE DEVICE FROM WHOEVER HAS IT, IN THIS ORDER ────────────────────────────────
+   * 🛑 The ring used to inherit the MUSIC level: playRingtone() below calls ceasePlayback(),
+   * so by the time the main loop's call-wins-over-music check asked musicPlayerIsPlaying() the
+   * answer was already "no", musicPlayerPause() was skipped, and restoreCallVolume() never ran.
+   * The phone rang at the music level (default -18 dB, as low as -45), the answered call's
+   * earpiece stayed there, the stash went stale, and the next F1 restarted the track at 0:00.
+   *
+   * ⚠ THE POP FIRST, THEN THE MUSIC. A pop in flight holds a snapshot taken while music owned
+   * the codec — the MUSIC level — and its restore() puts that back. Finishing it after the
+   * music had handed back the call levels would undo them.
+   * ⚠ THE LOUDSPEAKER IS CHOSEN HERE, not inherited. The CallApp constructor picks it, but it
+   * runs BEFORE this (becomeCallee() comes first), and giving music's route back resets it —
+   * without this line the ring would go to the earpiece whenever music had been playing. */
+  notifyPopFinishFor("the phone is ringing");
+  musicPlayerYieldForCall();
 
   /* Ringer mode, from Settings > Audio (persisted, loaded at boot by GUI::loadSettings).
    * The motor is driven below regardless of the tone, so "vibrate only" is simply not
@@ -179,6 +198,8 @@ void startRingtone() {
   const bool doVibrate = (mode != ControlState::RINGER_SILENT);
 
   if (playTone) {
+    audio->chooseSpeaker(true);      // the ring is for the room - see the note at the top
+
     // Start audio
     audio->start();
 
@@ -2011,13 +2032,21 @@ uint32_t msLastUsbCheck = 0;
 uint32_t msLastMinute = 0;
 uint32_t msLastWifiRetry = -WIFI_RETRY_PERIOD_MS;
 uint32_t msLastWiFiRssi = -WIFI_CHECK_PERIOD_MS;
-uint8_t  rtpSilentCnt = 0x0;  // for the other praty rtp stream silent detection
+/* The far end's RTP silence is counted in Audio.cpp now, per call (rtp_watch.h); the boot-long
+ * `rtpSilentCnt` that lived here is gone — it was half of why the second call of a boot died at
+ * connect. */
 bool keypadLedsOn = false;
 bool updateMessageTimes = false;
 bool waitingForClockUpdate = true;
 uint8_t wifiTerminateSip = 0x0;
 
-int8_t restoreSpeakerVol, restoreHeadphonesVol, restoreLoudspeakerVol;
+/* 🛑 `restoreSpeakerVol, restoreHeadphonesVol, restoreLoudspeakerVol` WERE HERE, AND NOTHING
+ * EVER WROTE THEM. The one getVolumes() into them was commented out with the in-call loudspeaker
+ * mute it belonged to, but the four setVolumes(restore...) calls at the call ends were not — so
+ * every call end, and every END press on any screen, set the codec to 0/0/0 dB (a zero-initialised
+ * global): the earpiece off its setting, and the loudspeaker to its MAXIMUM for the next ring.
+ * With nothing lowered at call start there is nothing to restore; the in-call levels ARE the
+ * configured ones (in-call UP/DOWN persists its own). Removed with all four calls. */
 
 uint32_t usbConnected = 0;        // DEBUG
 uint32_t usbConnectedChecks = 0;  // DEBUG
@@ -2350,21 +2379,11 @@ static bool sipNeedsFullSpeed() {
   }
 }
 
-static bool sipCallActive() {
-  switch (gui.state.sipState) {
-    case CallState::InvitingCallee:
-    case CallState::InvitedCallee:
-    case CallState::RemoteRinging:
-    case CallState::Call:
-    case CallState::HangUp:
-    case CallState::HangingUp:
-    case CallState::BeingInvited:
-    case CallState::Accept:
-      return true;
-    default:
-      return false;
-  }
-}
+/* sipCallActive() stood here: the six live states PLUS HangUp and HangingUp. Its last caller,
+ * the call-wins-over-music pause, moved to gui.inCall() in 0.9.79 — HangUp stuck for hours
+ * (no WiFi, or no account after an END press) and that pause kept the music from ever playing.
+ * The notes in this file that name it are history: every one of them is about a caller that
+ * was moved off it for the same reason. */
 
 #define MUSIC_F2_HOLD_MS 500           // past this, F2 means "previous" rather than "next"
 static uint32_t msF2Down = 0;          // when F2 went down, 0 = not held
@@ -2541,6 +2560,21 @@ static bool audioDeviceBusy() {
          || gui.state.vibroOn;           // I2C hazard: ringer motor is driven
 }
 
+/* May an RTP session (the mic streaming out, or a call's stream playing) exist this pass?
+ *
+ * ⚠ A NEW PREDICATE ON PURPOSE, like the ones above it: this asks only "does a live call own
+ * the RTP session". sipNeedsFullSpeed() is the live-or-imminent set; the session is armed only
+ * in the pass that has just moved the state to Call, and every teardown shuts it down in the
+ * pass that leaves the set. So this is never false under a real call.
+ * ⚠ `hasSipAccount()` IS THE POINT, not decoration. Remove the account mid-call and the SIP
+ * block stops running: the state stays Call for good, so the state alone would entitle the
+ * session forever. Change the account mid-call and the SIP block re-inits straight to Idle
+ * without a shutdown() — that one the state catches. Both were gaps in the 2026-08-16 fix. */
+static bool rtpSessionEntitled() {
+  return sipNeedsFullSpeed() && gui.state.hasSipAccount();
+}
+static RtpOrphan rtpOrphan = {0, false};   // the backstop's clock; see rtp_watch.h
+
 /* The `audio` serial command's body. Lives here because the answer needs the SIP state, the
  * emulator flag, the music player and the vibro state, none of which serial_cmd.cpp can see.
  *
@@ -2575,12 +2609,48 @@ int audioStateDump(char* out, int cap) {
                    (int)gGbcActive, (int)musicPlayerIsPlaying(),
                    (int)(gui.state.screenBrightness > 0),
                    (int)meshVibroActive, (int)gui.state.vibroOn);
+  /* The RTP session and the levels. After ANY call has ended, mic= stream= rtpPort= must all
+   * read 0 — that is the hot-mic check. vol= is what the codec holds now (earpiece/headphones/
+   * loudspeaker, dB); callvol= is where the call levels are while music holds the codec. */
+  int8_t ve = 0, vh = 0, vl = 0, ce = 0, ch = 0, cl = 0;
+  audio->getVolumes(ve, vh, vl);
+  const bool stashed = musicPlayerCallVolumes(ce, ch, cl);
+  if (!stashed) {
+    ce = ve;
+    ch = vh;
+    cl = vl;
+  }
+  n += snprintf(out + n, cap > n ? cap - n : 0,
+                "  rtp: mic=%d stream=%d rtpPort=%u armed=%d owned=%d  vol=%d/%d/%d callvol=%d/%d/%d%s\n",
+                (int)audio->micOn(), (int)audio->micStreamOut(), (unsigned)audio->rtpPeerPort(),
+                (int)audio->rtpSessionArmed(), (int)rtpSessionEntitled(),
+                (int)ve, (int)vh, (int)vl, (int)ce, (int)ch, (int)cl,
+                stashed ? " (in music's stash)" : "");
   if (on && !busy) {
     n += snprintf(out + n, cap > n ? cap - n : 0,
                   "  ^ POWERED WITH NOTHING ENTITLED TO IT - this is the leak. Watch for the\n"
                   "    'AUDIO: device was left powered' line; it fires once per leak.\n");
   }
   return n;
+}
+
+/* Serial `audio orphan`: arm an RTP session with NO call, so the backstop can be watched firing
+ * without a second phone, an easter egg or a hot mic. RECEIVE side only — playRtpStream() on a
+ * local port; the microphone is never switched on and nothing is sent anywhere. Expect the
+ * 'AUDIO: RTP session armed with no live call' line within RTP_ORPHAN_RELEASE_MS, then `audio`
+ * showing armed=0. Refused during a call (it would be owned, and would steal the call's audio),
+ * under the emulator, and while anything is playing. Costs one I2S reinstall to 8 kHz mono and one UDP socket, both given
+ * back by the shutdown(). Returns false when refused. */
+bool audioBenchOrphan() {
+  /* ⚠ Nothing may be PLAYING either: playRtpStream() takes `playback` without ceasePlayback(),
+   * so a track under it would lose its file handle for good (shutdown() closes the MP3 only
+   * while playback still says LocalMp3). Pause the music first; the refusal says so. */
+  if (!audio || gGbcActive || gui.inCall() || audio->rtpSessionArmed() || audio->movingSamples()) {
+    return false;
+  }
+  audio->openRtpConnection(5004);        // a local port, receive only
+  audio->playRtpStream(Audio::ALAW_RTP_PAYLOAD);
+  return true;
 }
 
 
@@ -2618,14 +2688,30 @@ bool notifyBenchArrival(bool sip) {
 /* A pop in flight is finished NOW — for the Game Boy, whose startGame() snapshots the audio
  * routing and reconfigures the device: a chirp that started on the ROM picker would hand it
  * the pop's forced loudspeaker as "the phone's route", and the teardown's restore() would
- * then land mid-game (review, 2026-09-19). Same teardown as the loop's, just early. */
-void notifyPopFinishNow() {
+ * then land mid-game (review, 2026-09-19). Same teardown as the loop's, just early.
+ *
+ * ⚠ THE RING AND A CALL'S AUDIO NEED THE SAME HAND-OVER (0.9.79). The pop gate refuses to START
+ * a pop only in CallState::Call, so one can still be mid-play when the phone starts ringing or
+ * an outgoing call connects — and the loop's cut-short branch then restore()s the pre-pop state
+ * OVER the new owner: the ringtone's 8 kHz PCM clocked at the pre-pop rate (5.5x fast after a
+ * 44.1 kHz track) through the pre-pop route and levels, or the call's I2S reconfigured under its
+ * microphone. startRingtone() and the call's audio setup finish it first, so
+ * their own configuration lands last. `why` names the new owner in the log line.
+ * Costs one I2S reinstall only when a pop genuinely overlaps (a ~300 ms window).
+ *
+ * ⚠ notifyPopFinishNow() keeps its old no-argument signature: app_gbc.cpp declares it extern
+ * by that shape, and a default argument would clash with the .ino prototype generator. */
+void notifyPopFinishFor(const char* why) {
   if (meshPopPlaying) {
     audio->ceasePlayback();
     audio->restore();
     meshPopPlaying = false;
-    log_e("NOTIFY: pop finished early (a game is starting)");
+    log_e("NOTIFY: pop finished early (%s)", why);
   }
+}
+
+void notifyPopFinishNow() {
+  notifyPopFinishFor("a game is starting");
 }
 
 /* One motor write, checked. allDigitalWrite() on this board is an SX1509 read-modify-write
@@ -3035,7 +3121,10 @@ void loop() {
      *
      * Read here, right after the stale-key sweep, so uiKeyDown is already up to date. */
     loopPhase("music");
-    if (!gGbcActive && !(gMapsActive && !gui.state.locked) && musicPlayerCurrent() >= 0) {
+    /* ⚠ ...and never during a call: Next/Previous start a track, which is the same theft of the
+     * call's audio as F1 — see the transport block and Audio::playMusic(). */
+    if (!gGbcActive && !(gMapsActive && !gui.state.locked) && !gui.inCall() &&
+        musicPlayerCurrent() >= 0) {
       if (uiKeyDownOrBlip(WIPHONE_KEY_MASK_F2, msF2Down != 0)) {
         if (!msF2Down) {
           msF2Down = now;
@@ -3395,7 +3484,14 @@ void loop() {
       /* ⚠ ...but only while the map can TAKE a key: a locked or dark phone with the map still
        * open underneath must not leave the side buttons dead for music. */
       const bool mapOwnsKeys  = gMapsActive && !gui.state.locked;
-      const bool musicLoaded  = !gGbcActive && !mapOwnsKeys && musicPlayerCurrent() >= 0;
+      /* 🛑 ...and NOT DURING A CALL. The emulator and the map were guarded; a live call was not.
+       * F1 (or F2) mid-call started a track: playMusic() replaced `playback` = RtpStream, so the
+       * caller went silent for the rest of the call, and reinstalled I2S at the track's rate, so
+       * the microphone packets went out 882 samples long (garble) or 1764 with headphones
+       * (dropped: silence). The keys fall through to the call screen, which ignores them.
+       * gui.inCall() is the live-or-ringing set; teardown states are not calls. */
+      const bool musicLoaded  = !gGbcActive && !mapOwnsKeys && !gui.inCall() &&
+                                musicPlayerCurrent() >= 0;
       const bool musicSounding = musicLoaded && musicPlayerIsPlaying();
 
       if (musicLoaded && keyPressed == WIPHONE_KEY_F1) {
@@ -3424,9 +3520,23 @@ void loop() {
         hashDeferred = true;
       }
 
-      if (keyPressed == WIPHONE_KEY_END && !gGbcActive) {
-        // During a Game Boy session END is the pause-menu button; don't also
-        // poke the SIP state machine (it popped call UI over the game / froze).
+      /* 🛑 END HANGS UP A CALL — AND ONLY A CALL. It set HangUp from EVERY screen, call or no
+       * call, and HangUp is not a harmless label:
+       *   - with WiFi and an account, the SIP block's HangUp branch ran stopRingtone() ->
+       *     audio->shutdown(), stopping any music and losing its place; zeroed the volumes (the
+       *     never-written restore* globals); and called terminateCall() with no call — log_e
+       *     "currentCall not set", plus a stray CANCEL on a TCP account;
+       *   - with no WiFi, or no SIP account (the firmware is public), nothing ever LEAVES HangUp,
+       *     and the call-wins-over-music check counted it as a call, so after one END press the
+       *     music could not be played at all until WiFi came back or the phone rebooted.
+       * gui.inCall() is live or ringing (BeingInvited included, so END still rejects a ringing
+       * call). The call screen's own END sees HangUp first and closes, exactly as before.
+       * ⚠ One accidental side effect goes with it: END used to walk a phone parked in
+       * CallState::Error (proxy unreachable at init) through HangUp -> HungUp -> Idle, where
+       * checkCall() reconnects. Nothing documented that as a feature.
+       * During a Game Boy session END is the pause-menu button; don't also poke the SIP state
+       * machine (it popped call UI over the game / froze). */
+      if (keyPressed == WIPHONE_KEY_END && !gGbcActive && gui.inCall()) {
         gui.state.setSipState(CallState::HangUp);
       }
 
@@ -3509,7 +3619,13 @@ void loop() {
           allDigitalWrite(POWER_CONTROL, HIGH);
 
           // AUDIO
-
+          /* 🛑 THE AUDIO EGGS ARE A DEVELOPER BUILD'S, NOT A PHONE'S. **202## streams the LIVE
+           * MICROPHONE to a hardcoded 192.168.1.15:5000 — on a typical home LAN, some other
+           * device — with nothing on screen, on a firmware other people run. The rest record
+           * 1 MB into PSRAM, write .pcm files to the card, and arm RTP with no call. The orphan
+           * clock (rtp_watch.h) would now cut 202/203 after 3 s, but the right amount of hot mic
+           * in a release is none. Build with -DAUDIO_DEBUG_EGGS to have them back. */
+#ifdef AUDIO_DEBUG_EGGS
         } else if (!memcmp(lastKeys + 2, "002**", 5)) {    // **200##
           log_d("Easter egg = 200: audio test on");
           audio_test();
@@ -3537,6 +3653,7 @@ void loop() {
           log_d("creating file %s", filename);
           audio->saveWavRecord(&SD, filename);
           audio->shutdown();
+#endif // AUDIO_DEBUG_EGGS
 
           // RINGTONE
 
@@ -4133,7 +4250,6 @@ void loop() {
         // terminate audio session
         audio->showAudioStats();
         audio->shutdown();
-        audio->setVolumes(restoreSpeakerVol, restoreHeadphonesVol, restoreLoudspeakerVol);
 
         sip.wifiTerminateCall();  // wifi is disconnected but need to destroy this dialogue
         /* ⚠ A call that was still RINGING when WiFi dropped left the ringtone playing:
@@ -4158,33 +4274,34 @@ void loop() {
       }
     }
 
-    /*check if remote party is disconnected during call*/
+    /* The far end's RTP went quiet for RTP_SILENCE_STRIKES whole windows IN THIS CALL (120 s):
+     * end it. The counting is Audio.cpp's, per call (rtp_watch.h); RTP_SILENT_ON is the verdict,
+     * not a single window. Until 0.9.79 the count lived here and was never reset, so from the
+     * second silent window of a boot onward EVERY window ended the call — including the first
+     * packet-less pass of the next call. ⚠ sip.rtpSilent() still sends no BYE; out of scope. */
     if (rtpSilentPeriod == RTP_SILENT_ON) {
 
       rtpSilentPeriod = RTP_SILENT_OFF;
 
-      if (rtpSilentCnt == 0x01) {
-        rtpSilentCnt = 0x0;
+      // Stop media session
+      audio->showAudioStats();
+      audio->shutdown();
 
-        // Stop media session
-        audio->showAudioStats();
-        audio->shutdown();
-        audio->setVolumes(restoreSpeakerVol, restoreHeadphonesVol, restoreLoudspeakerVol);
+      if (sip.isBusy()) {
+        /* log_e, not log_d: only log_e is compiled in, and a call ended by the phone itself with
+         * no BYE and no screen of explanation was invisible on serial. */
+        log_e("CALL: no RTP from the far end for %u s - call ended (no BYE sent)",
+              (unsigned)(RTP_SILENCE_WINDOW_MS * RTP_SILENCE_STRIKES / 1000));
 
-        if (sip.isBusy()) {
-          log_d("No RTP Packets From Remote Part");  // Send logs msgs with wifi disconnection
+        sip.rtpSilent();
+        gui.exitCall();
 
-          sip.rtpSilent();
-          gui.exitCall();
+        gui.state.setSipState(CallState::HungUp);
+        appEventResult res = gui.processEvent(now, CALL_UPDATE_EVENT);
+        gui.redrawScreen(res & REDRAW_HEADER, res & REDRAW_FOOTER, res & REDRAW_SCREEN);
 
-          gui.state.setSipState(CallState::HungUp);
-          appEventResult res = gui.processEvent(now, CALL_UPDATE_EVENT);
-          gui.redrawScreen(res & REDRAW_HEADER, res & REDRAW_FOOTER, res & REDRAW_SCREEN);
-
-          wifiTerminateSip = TERMINATE_OK;
-        }
+        wifiTerminateSip = TERMINATE_OK;
       }
-      rtpSilentCnt++;
     }
     //    This is the "user-agent core", something that binds together SIP library, GUI, audio interfaces and message storage.
     //    It implements transitions between different call states.
@@ -4431,11 +4548,13 @@ void loop() {
         if (callEstablished) {
           // If audio configs are OK -> turn on audio (speaker & microphone) & start listening to audio port
           if ((uint32_t)rtpRemoteIP && rtpRemotePort && audioFormat != TinySIP::NULL_RTP_PAYLOAD) {
+            /* ⚠ A POP STILL PLAYING IS FINISHED FIRST. The pop gate only refuses to START one
+             * during CallState::Call, so a chirp that began while this call was still ringing
+             * out can be mid-play now — and its teardown restore()s the pre-pop rate, channels,
+             * route and levels over whatever the lines below configure, in this same pass.
+             * Finishing it here puts its snapshot back BEFORE the call sets up on top. */
+            notifyPopFinishFor("a call's audio is starting");
             audio->openRtpConnection(rtpLocalPort);
-            // This works the opposite of how you might expect. The ear speaker is what ends up getting muted. Probably need to remove after checking with Andriy.
-            //audio->getVolumes(restoreSpeakerVol, restoreHeadphonesVol, restoreLoudspeakerVol);
-            //audio->setVolume(-70, 6);                                   // max. volume for headphones, min. volume for speaker
-            //audio->setVolumes(restoreSpeakerVol, restoreHeadphonesVol, Audio::MuteVolume);    // mute loudspeaker for calls
             audio->sendRtpStreamFromMic(audioFormat, rtpRemoteIP, rtpRemotePort);
             audio->playRtpStream(audioFormat, rtpRemotePort);
           } else {
@@ -4463,7 +4582,6 @@ void loop() {
               audio->showAudioStats();
               audio->shutdown();
               log_d("call terminated by remote @ Call");
-              audio->setVolumes(restoreSpeakerVol, restoreHeadphonesVol, restoreLoudspeakerVol);
               gui.state.setSipState(CallState::HungUp);
               msHungUp = now;
             } else if(gui.state.sipState == CallState::HungUp) {
@@ -4526,7 +4644,6 @@ void loop() {
         // Stop media session
         audio->showAudioStats();
         audio->shutdown();
-        audio->setVolumes(restoreSpeakerVol, restoreHeadphonesVol, restoreLoudspeakerVol);
 
         int res = sip.terminateCall(now);
         if (res == TINY_SIP_OK) {
@@ -4635,11 +4752,20 @@ void loop() {
      * called when something is actually playing, so it cannot latch and cannot repeat.
      *
      * Nothing resumes afterwards on purpose: a phone that bursts into music the moment you
-     * hang up is worse than one you press play on. */
-    {
-      if (sipCallActive() && musicPlayerIsPlaying()) {
-        musicPlayerPause();
-      }
+     * hang up is worse than one you press play on.
+     *
+     * 🛑 0.9.79: gui.inCall(), NOT sipCallActive() (now gone). Level-triggering made the stuck
+     * HangUp above worse, not better: with no WiFi or no SIP account nothing ever leaves HangUp,
+     * so after one END press on any screen every track was paused on the pass it started — the
+     * music could not be played at all until WiFi came back or the phone rebooted. Teardown
+     * states hold no audio (the HangUp branch has already shut the device down), so they are
+     * not a reason to stop music. END also no longer enters HangUp outside a call.
+     * ⚠ musicPlayerYieldForCall(), not musicPlayerPause(): the ring and a pop take `playback`
+     * away from music BEFORE this runs, and only the yield still gives the call levels back
+     * then. It is idempotent (nothing playing + nothing stashed = nothing done), so running it
+     * on every pass of a call is two flag reads. */
+    if (gui.inCall()) {
+      musicPlayerYieldForCall();
     }
 
     // Meshtastic background service tick (non-blocking). If a new message
@@ -4766,6 +4892,21 @@ void loop() {
               "Something acquired it and never called shutdown(); see audioDeviceBusy().",
               (unsigned long)(AUDIO_IDLE_RELEASE_MS / 1000));
       }
+    }
+
+    /* 🛑 NO RTP SESSION WITHOUT A CALL TO OWN IT — the hot-mic backstop. See rtp_watch.h.
+     * The watchdog above cannot do this job: an armed RtpStream counts as moving samples, so an
+     * orphaned session looks busy to it forever. Checked whether or not the device is powered —
+     * a latched send flag with the codec off is the SAME hazard, armed for the next power-up
+     * (that was the original leak). ⚠ LOUD on purpose, like the watchdog: every firing names a
+     * path that armed a session and never shut it down, and a real call must NEVER print it. */
+    if (audio && rtpOrphanCheck(rtpOrphan, audio->rtpSessionArmed(), rtpSessionEntitled(), now)) {
+      log_e("AUDIO: RTP session armed with no live call (sip=%d, mic=%d stream=%d port=%u) for "
+            "%u ms - shut down. Something armed it and never called shutdown().",
+            (int)gui.state.sipState, (int)audio->micOn(), (int)audio->micStreamOut(),
+            (unsigned)audio->rtpPeerPort(), (unsigned)RTP_ORPHAN_RELEASE_MS);
+      audio->shutdown();
+      audioBusyStampMs = 0;
     }
 
     // Auto-dismiss the mesh popup: repaint the screen to erase it after a moment.

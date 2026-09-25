@@ -84,6 +84,34 @@ uint32_t musicPlayerUnderruns();
 int  musicPlayerVolume();             // current level in dB
 void musicPlayerVolumeStep(int steps); // +1 louder, -1 quieter; clamped
 
+/* ── A call takes the codec ─────────────────────────────────────────────────────────
+ * Pause the track if one is SOUNDING (the place is kept, as a pause always keeps it), and
+ * give the call levels and route back even if something ELSE already stopped the track.
+ *
+ * 🛑 THAT SECOND HALF IS THE FIX. The ringtone's playRingtone() -> ceasePlayback() takes
+ * `playback` away from music before anything asks musicPlayerIsPlaying(), and so does a
+ * notification pop — so musicPlayerPause() saw "not playing", skipped restoreCallVolume(), and
+ * the phone rang, and the answered call ran, at the MUSIC level (default -18 dB, as low as
+ * -45). Idempotent: with nothing playing and nothing stashed it does nothing, so the main loop
+ * calls it on every pass of a live call. */
+void musicPlayerYieldForCall();
+
+/* ── The call levels while music holds the codec ────────────────────────────────────
+ * While music plays, the codec's volume registers hold the MUSIC level and the call levels
+ * live in the player's stash, put back when music lets go. So "what are the call volumes" is
+ * answered by the stash while one is held, and a new call level must go INTO the stash:
+ * writing it to the codec lands under the music (headphones jumped about 24 dB), and the
+ * stale stash then overwrote it when the music stopped, so a Settings > Audio save did not
+ * take until a reboot. Settings > Audio is the caller.
+ *
+ * musicPlayerCallVolumes: true + the stashed levels while music holds the codec; false means
+ * the codec itself holds the call levels (ask audio->getVolumes()).
+ * musicPlayerSetCallVolumes: true = stored in the stash, applied when music lets go; false =
+ * no stash is held, the caller writes the codec itself. Not clamped here: restoring goes
+ * through Audio::setVolumes(), which clamps. */
+bool musicPlayerCallVolumes(int8_t& ear, int8_t& hp, int8_t& loud);
+bool musicPlayerSetCallVolumes(int8_t ear, int8_t hp, int8_t loud);
+
 void        musicPlayerSetShuffle(bool on);
 bool        musicPlayerShuffle();
 void        musicPlayerSetRepeat(MusicRepeat r);
