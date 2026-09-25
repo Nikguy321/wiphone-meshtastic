@@ -162,6 +162,18 @@ if ! python3 tests/check_wifi_restore.py; then
   fail=1
 fi
 
+# ── SOURCE GUARD: the call-audio guards of 0.9.79 stay where they are ─────────────────────
+# See tests/check_call_audio.py. test_rtpwatch proves rtp_watch.h, but the fixes that USE it -
+# newCall()'s per-call begin, END's gui.inCall() gate and its one way out of CallState::Error,
+# F1/F2 kept off a call, the ring's pop-then-music-then-loudspeaker order, the loop yield held
+# under a pop, the backstop held for the motor, Settings > Audio through music's stash, the
+# **202## mic egg compiled out - live in files this suite cannot compile. A review reverted six
+# of them in a scratch copy and the suite stayed green; each is a positive contract now.
+echo "checking the call-audio guards (END, F1/F2, ring order, RTP silence, hot-mic backstop)"
+if ! python3 tests/check_call_audio.py; then
+  fail=1
+fi
+
 # ── THE MAC-SIDE TILE CONVERTER, against what the phone actually reads ────────────────────
 # tools/convert_tiles.py runs on a computer this suite will never see, and two of the three
 # things it can get wrong are SILENT on the phone: a byte-swapped RGB565 tile still draws a

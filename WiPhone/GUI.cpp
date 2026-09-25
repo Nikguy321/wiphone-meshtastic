@@ -4008,14 +4008,16 @@ AudioConfigApp::AudioConfigApp(Audio* audio, LCD& lcd, ControlState& state, Head
       ini.show();
     }
   } else {
-    log_d("creating configs file");
-    ini[0]["desc"] = "WiPhone general configs";
-    ini[0]["v"] = "1";
-    ini.addSection("audio");
-    ini["audio"][earpieceVolField] = earpieceVol;
-    ini["audio"][headphonesVolField] = headphonesVol;
-    ini["audio"][loudspeakerVolField] = loudspeakerVol;
-    ini.store();
+    /* 🛑 NOTHING IS WRITTEN HERE — the same rule 8b93e72 gave the in-call volume handler. This
+     * branch used to build a three-key [audio] and store() it as the WHOLE of configs.ini
+     * whenever the file and its NVS backup both failed to load: every other setting in it
+     * (notify modes, buzz, mute, predictive text) gone, just for OPENING the screen. The
+     * sliders are seeded above and the object is left empty, so the destructor's backup()
+     * writes nothing either (it skips an empty file). Only Save writes — a deliberate press
+     * on a screen that loaded nothing, the same as Settings > Notifications' Save, and on a
+     * fresh phone with no file yet it is what creates one. */
+    log_e("AUDIO SETTINGS: configs.ini did not load - showing the current levels; nothing is "
+          "written unless you Save");
   }
 
   // Set values

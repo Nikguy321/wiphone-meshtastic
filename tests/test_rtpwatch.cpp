@@ -72,7 +72,10 @@ struct OldRule {
 };
 
 /* The new rule, wired the way Audio.cpp and WiPhone.ino wire it: newCall() begins, a packet is
- * heard, a packet-less pass is quiet, and RTP_QUIET_END raises the flag the loop acts on. */
+ * heard, a packet-less pass is quiet, and RTP_QUIET_END raises the flag the loop acts on.
+ * ⚠ A RE-IMPLEMENTATION of that wiring, so it proves the header, not the callers: reverting the
+ * begin in Audio::newCall() leaves this suite green. tests/check_call_audio.py is what pins the
+ * real calls in place (a review found exactly that gap). */
 struct NewRule {
   RtpSilence s = {0, 0};
   bool flag = false;
@@ -150,6 +153,40 @@ int main() {
     NewRule early;
     ok(runCall(early, 61000u, 121000u, 30, true) < 0,
        "a call a minute after boot is not scored against millis() = 0");
+  }
+
+  /* WHY Audio::newCall() MUST CALL rtpSilenceBegin() — the wiring, not just the header. The
+   * clock is one object for the whole boot (Audio.cpp's s_rtpSilence), so without a per-call
+   * begin a strike left over from the LAST call is still on it. A call that hangs up with one
+   * strike outstanding (a minute or more of far-end silence, then END) leaves strikes = 1, and
+   * the next call's first packet-less pass — which always precedes its first packet — scores the
+   * gap since that strike as the SECOND window: RTP_QUIET_END, the call torn down at connect by
+   * TinySIP::rtpSilent(), no BYE. tests/check_call_audio.py pins the begin inside newCall(). */
+  group("the per-call begin is load-bearing: a strike outstanding at hang-up");
+  {
+    NewRule neu;
+    // Call 1: connects at 10 s, talks for 20 s, then the far end goes quiet for 70 s and the
+    // user hangs up. One strike, still outstanding when the call ends.
+    neu.newCall(10000u);
+    bool ended = false;
+    uint32_t t = 10000u;
+    for (; t < 30000u; t += 10) {
+      ended |= neu.pass(t, (t % 20) == 0);
+    }
+    for (; t < 100000u; t += 10) {
+      ended |= neu.pass(t, false);
+    }
+    ok(!ended && neu.s.strikes == 1, "call 1 hangs up with ONE strike outstanding, still up");
+
+    NewRule noBegin = neu;             // the same boot, the next call WITHOUT newCall()'s begin
+    const long c2 = runCall(noBegin, 400000u, 460000u, 30, false);
+    char line[128];
+    snprintf(line, sizeof(line),
+             "no begin: the next call is ended %ld ms after it connects - before any packet", c2);
+    ok(c2 >= 0 && c2 < 30, line);
+
+    ok(runCall(neu, 400000u, 460000u, 30, true) < 0,
+       "with the begin: the next call starts with no strikes and survives");
   }
 
   group("120 s of CONTINUOUS silence ends a call, and nothing shorter does");

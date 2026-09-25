@@ -68,6 +68,37 @@ opens BLANK (wifiSsidDyn is set only by a join or a save) — clean up through `
 The durable record is the commits, CHANGELOG 0.9.79, COVEY's D-161 (+ follow-up) and the fork's commit messages; the
 design contract and the two review rounds lived in the 2026-09-24 session scratchpad, which does not survive.
 
+📞 **2026-09-25: THE SIP AUDIT'S "UNREACHABLE" CALL-AUDIO FINDINGS ARE FIXED (`9213fc0` + a review-round
+repair on top), LOCAL on `kosync`, UNBENCHED, NOT FLASHED.** Both phones register now (`sip=1`), so the
+2026-08-15 table further down (search "NINE FINDINGS") was live; every row now carries its status there.
+In short: F1/F2 do nothing in a call and `playMusic()` refuses an armed RTP session; END sets HangUp ONLY
+in a call; the ring and the call get the call levels back from music (pop finished first, then music,
+then the loudspeaker); the `restore*` 0/0/0 dB globals are gone; Settings > Audio reads/writes music's
+stash while music plays; RTP silence is counted PER CALL (the second call of a boot used to die at
+connect, no BYE); an RTP session with no live call is shut down within 3 s (held while the motor runs or a
+pop plays); the **202## live-mic-to-a-LAN-IP egg needs `-DAUDIO_DEBUG_EGGS`.
+🛑 **NICK'S CALL — END IN `CallState::Error` NOW RETRIES SIP.** Error (`sip=12`) is where `sip.init()` lands
+when the proxy is unreachable at boot/join (COVEY's no-internet hotspot, a captive portal, a DNS miss), and
+NOTHING leaves it by itself. The old END-everywhere was, by accident, the only way out (Error → HangUp →
+`terminateCall` fails → HungUp → Idle → `checkCall()` reconnects); gating END on a call removed it, so the
+repair adds an explicit one: END (not in a game, with an account) in Error → NotInited → ONE `init()` on
+the next SIP pass with WiFi up (`SIP: END in Error - one re-init attempt` at log_e). One try per press, no
+timer; `resolveDomain()` caches a DNS miss for 60 s. The alternative is a timed retry out of Error — ask
+Nick which he wants before release. `tests/check_call_audio.py` (19 positive contracts + 4 banned spellings,
+in `run_tests.sh`) now fails the suite if any of these guards is reverted.
+**Bench, when a phone is free (serial):** (1) `audio` — the `rtp:` line: after ANY call `mic=0 stream=0
+rtpPort=0 armed=0`; `vol=` is the codec now, `callvol=` where the call levels are (`(in music's stash)` while
+music plays). (2) With music PAUSED or stopped: `audio orphan` → within ~3 s `AUDIO: RTP session armed with no
+live call ... - shut down`, then `audio` shows `armed=0`. (F1 inside those 3 s now answers "In a call" and
+KEEPS the paused place; before the repair it unloaded the track.) (3) Boot on a network with no route to
+the proxy → `sip=12`; END on the home screen → the re-init line, then `failed to connect to SIP` (Error
+again); on the home network END → `SIP REGISTRATION -> REGISTERED`. (4) Real calls: two in one boot (the
+second must survive its connect); music playing → incoming ring at the CALL level on the loudspeaker
+(`NOTIFY: pop finished early (the phone is ringing)` if a chirp overlapped); F1/F2 mid-call do nothing;
+END on the home screen with music playing leaves the music alone. Lines to expect: `CALL: no RTP from
+the far end for 120 s - call ended (no BYE sent)`, `NOTIFY: pop finished early (a call's audio is
+starting)`, `AUDIO SETTINGS: configs.ini did not load - ... nothing is written unless you Save`.
+
 🗺️ **2026-09-23 NIGHT: 0.9.78. ALL THREE DEVICES GET OPENTOPOMAP z17 DOWNLOADS (20 km,
 THROTTLED, MULTI-DAY) AND "STRETCH THE MOST DETAILED TILE THERE IS". COVEY NOW TELLS STREAMED
 TILES FROM DOWNLOADED ONES, AND MAY EXPIRE THE STREAMED ONES. THE MAC GETS `cardday.sh covey
@@ -4538,6 +4569,11 @@ filter queued.
   6=DISCONNECTED) — it was misread as a boolean once today; don't repeat that.
   ⚠ Follow-up question, deliberately not changed: should END enter HangUp from screens
   with no call? It plausibly backs call-reject; the guard fix removes its teeth here.
+  ✅ **ANSWERED 2026-09-25 (`9213fc0` + its review repair): NO.** END sets HangUp only when
+  `gui.inCall()` — live or ringing, so BeingInvited is included and END still REJECTS a
+  ringing call. Outside a call HangUp stopped music, zeroed the volumes and stuck with no
+  WiFi/account. The one thing it did by accident — the only way out of CallState::Error —
+  is now explicit: END in Error retries SIP once (see STATE NOW, "NICK'S CALL").
   ⚠ The phone now runs the post-0.9.7 build (GPS half dormant + Sun screen + GPS toggle
   + this fix) — TONIGHT'S BENCH FLASH IS ALREADY DONE; after assembly just flip
   My node > GPS receiver.
@@ -6050,18 +6086,25 @@ several reinstalls per notification and been worse than the bug.
 ⚠ **`playback` is deliberately NOT restored** (ceasePlayback closes the file). **A pop still
 stops the current track — that is a separate, unfixed issue.**
 
-### ⏸ NINE FINDINGS ARE REAL BUT UNREACHABLE — do not spend time until SIP works
-**Every one of them needs a completed SIP call, and this phone has never made one.** Measured:
-**`sip=12` (`CallState::Error`) in 49 of 50 health samples** — with no proxy reachable the phone
-rests in Error forever. Fix these *before* SIP is ever made to work:
+### ✅ NINE FINDINGS WERE "REAL BUT UNREACHABLE" — REACHABLE SINCE 2026-09-04, FIXED 2026-09-25
+✅ **STATUS 2026-09-25: every row below is fixed** — `9213fc0` plus its review-round repair on `kosync`
+(LOCAL, unbenched; bench list in STATE NOW, "📞 2026-09-25"). The premise under this heading no longer
+holds: phone 2 logged `SIP REGISTRATION -> REGISTERED` on 2026-09-04 and both phones report `sip=1`.
+The guards are pinned by `tests/check_call_audio.py` (a revert of any of them fails `run_tests.sh`).
+*(History, as written 2026-08-15:)* **Every one of them needs a completed SIP call, and this phone has
+never made one.** Measured: **`sip=12` (`CallState::Error`) in 49 of 50 health samples** — with no proxy
+reachable the phone rests in Error forever. Fix these *before* SIP is ever made to work:
 
-| | what |
-|---|---|
-| 🔴 **Live mic RTP leak** | Call teardown never clears `microphoneOn` / `microphoneStreamOut` / `rtpRemoteIP` / `rtpRemotePort`, and `audioOn` is the **only** gate. Anything that turns audio back on — music, **or a mesh pop, which needs no user action at all** — resumes encoding the live microphone and sending RTP to whoever you last called. `microphoneOn` is written exactly ONCE in the whole tree (`= true`); there is no `= false` anywhere and no `rtp.stop()`. |
-| 🔴 **`micEnc[1600]` overflow** | `packetSizeSamples()` is computed from `sampleRate`/`dataChannels`. With music's 44.1 kHz stereo left behind, a G.711 call overruns the buffer by ~164 bytes, landing on the `WiFiUDP rtp` object's socket fd and tx_buffer pointer. |
-| 🟠 **Ringtone at music volume** (×4 findings, one root cause) | `startRingtone()` takes `Audio::playback` away from music **before** `musicPlayerPause()` checks `audio->musicPlaying()`, so `restoreCallVolume()` is skipped. The phone rings 18–45 dB quiet and the call stays there. |
-| 🟠 **F1 during a call** | The transport keys were guarded for the emulator and for Books but **not for a live call**. F1 starts a track, steals `Audio::playback` from `RtpStream`, and reinstalls I2S at 44.1 kHz underneath the call. |
-| 🟡 **Settings > Audio corruption** (×2) | Opening that screen while music plays persists the **music** volume into `/configs.ini` as the call volume, surviving reboot; and saving a volume there while music plays is silently reverted by music's stale snapshot. |
+| | what | status (2026-09-25) |
+|---|---|---|
+| 🔴 **Live mic RTP leak** | Call teardown never clears `microphoneOn` / `microphoneStreamOut` / `rtpRemoteIP` / `rtpRemotePort`, and `audioOn` is the **only** gate. Anything that turns audio back on — music, **or a mesh pop, which needs no user action at all** — resumes encoding the live microphone and sending RTP to whoever you last called. `microphoneOn` is written exactly ONCE in the whole tree (`= true`); there is no `= false` anywhere and no `rtp.stop()`. | ✅ Fixed at the source 2026-08-16: `Audio::shutdown()` clears `microphoneOn`/`microphoneStreamOut`/`rtpRemotePort`/`rtpRemoteIP` and closes the socket. 0.9.79 adds the class backstop: an RTP session armed with no live call is shut down within 3 s (`AUDIO: RTP session armed with no live call`, held while the motor runs or a pop plays), and the **202## egg that streamed the mic to 192.168.1.15 needs `-DAUDIO_DEBUG_EGGS`. |
+| 🔴 **`micEnc[1600]` overflow** | `packetSizeSamples()` is computed from `sampleRate`/`dataChannels`. With music's 44.1 kHz stereo left behind, a G.711 call overruns the buffer by ~164 bytes, landing on the `WiFiUDP rtp` object's socket fd and tx_buffer pointer. | ✅ Guarded 2026-08-16 (an oversized packet is dropped with `mic packet too large for micEnc` at log_e, never written past the buffer); 0.9.79 removes the cause — music can no longer change the rate under a call (F1/F2 gated, `playMusic()` refuses an armed session). |
+| 🟠 **Ringtone at music volume** (×4 findings, one root cause) | `startRingtone()` takes `Audio::playback` away from music **before** `musicPlayerPause()` checks `audio->musicPlaying()`, so `restoreCallVolume()` is skipped. The phone rings 18–45 dB quiet and the call stays there. | ✅ 0.9.79: `startRingtone()` finishes a pop, then `musicPlayerYieldForCall()` (levels back even when the ring already took `playback`), then the loudspeaker; the loop's per-pass yield uses `gui.inCall()` and waits for a pop in flight. |
+| 🟠 **F1 during a call** | The transport keys were guarded for the emulator and for Books but **not for a live call**. F1 starts a track, steals `Audio::playback` from `RtpStream`, and reinstalls I2S at 44.1 kHz underneath the call. | ✅ 0.9.79: `musicLoaded` and the F2 tracker ask `!gui.inCall()`; `playMusic()` refuses while RTP is armed; `startTrack()` refuses first and KEEPS the paused place. |
+| 🟡 **Settings > Audio corruption** (×2) | Opening that screen while music plays persists the **music** volume into `/configs.ini` as the call volume, surviving reboot; and saving a volume there while music plays is silently reverted by music's stale snapshot. | ✅ 0.9.79: seeded from music's stash while music holds the codec, Save goes into the stash; and opening the screen with an unreadable configs.ini no longer stores a three-key file (only Save writes, 8b93e72's rule). |
+| 🆕 **N1 — END set HangUp from every screen** (found 2026-09-25) | Outside a call HangUp stopped music (place lost), zeroed the volumes, sent a stray CANCEL on TCP; with no WiFi or no account it STUCK, and the music pause counted it as a call — no music until a reboot. | ✅ END sets HangUp only in `gui.inCall()`. ⚠ It was also the accidental only way out of CallState::Error; that is now an explicit END-in-Error SIP retry — **Nick to confirm** (STATE NOW). |
+| 🆕 **N2 — `restore*Vol` globals never written** (found 2026-09-25) | The `getVolumes()` into them was commented out, the four `setVolumes(restore...)` calls were not: every call end and END press set 0/0/0 dB — the loudspeaker to its MAXIMUM for the next ring. | ✅ Globals and all four calls removed; the ring follows Settings > Audio's loudspeaker level. |
+| 🆕 **N3 — RTP silence counted for the whole boot** (found 2026-09-25) | `rtpSilentScan` and `rtpSilentCnt` were never reset per call: the second call of a boot was ended at connect by `rtpSilent()`, with no BYE. | ✅ `rtp_watch.h`, begun per call in `Audio::newCall()`; 120 s continuous silence ends a call (`CALL: no RTP from the far end`). `test_rtpwatch` replays the old rule, and shows a strike left at hang-up ending the next call without the per-call begin. |
 
 ### 🟢 Cosmetic, worth knowing
 **Diagnostics keypad self-test can never register F1/F2** (and F3/F4 while playing) once a track

@@ -233,6 +233,18 @@ static bool startTrack(int idx, uint32_t startAt = 0) {
     s_error = "No track";
     return false;
   }
+  /* 🛑 REFUSED HERE, BEFORE ANYTHING IS TOUCHED, while an RTP session is armed. playMusic()
+   * refuses too ("In a call"), but the failure branch below then unloads the track — s_loaded
+   * -1, s_paused false — so a paused place was LOST: musicPlayerResume()'s fall-back retry
+   * failed with "No track". That window is real: a session still armed while gui.inCall() is
+   * already false (END's HangUp with the SIP block not running, an orphan before the 3 s
+   * backstop, the `audio orphan` bench), and the transport keys are live again. A refusal is
+   * not a bad file: the track, the place and the pause all stay as they were, and F1 once the
+   * session is gone carries on. Pinned by tests/check_call_audio.py. */
+  if (audio->rtpSessionArmed()) {
+    s_error = "In a call";
+    return false;
+  }
   audio->stopMusic();
   if (!audio->playMusic(&SD, s_tracks[idx].path, wantStereo(), startAt)) {
     s_error = audio->musicError() ? audio->musicError() : "Will not play";

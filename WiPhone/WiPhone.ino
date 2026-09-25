@@ -3531,13 +3531,31 @@ void loop() {
        *     music could not be played at all until WiFi came back or the phone rebooted.
        * gui.inCall() is live or ringing (BeingInvited included, so END still rejects a ringing
        * call). The call screen's own END sees HangUp first and closes, exactly as before.
-       * ⚠ One accidental side effect goes with it: END used to walk a phone parked in
-       * CallState::Error (proxy unreachable at init) through HangUp -> HungUp -> Idle, where
-       * checkCall() reconnects. Nothing documented that as a feature.
        * During a Game Boy session END is the pause-menu button; don't also poke the SIP state
-       * machine (it popped call UI over the game / froze). */
+       * machine (it popped call UI over the game / froze).
+       *
+       * 🛑 ...AND END IN CallState::Error RETRIES SIP, EXPLICITLY. Error is where sip.init()
+       * lands when the proxy cannot be reached (booted on COVEY's no-internet hotspot, a captive
+       * portal, a DNS miss on the first join), and NOTHING ever moves the state out of it by
+       * itself — not a WiFi rejoin (that path only re-inits after a call it tore down), not
+       * time. The old END-sets-HangUp-everywhere happened to be the only way out: Error ->
+       * HangUp -> terminateCall() fails -> HungUp -> Idle, where checkCall() reconnects to the
+       * proxy address resolved at boot (0.0.0.0 after a DNS miss, so not even that always
+       * worked). Removing it left such a phone unregistered until a reboot or an account edit.
+       * This keeps the escape without any of HangUp's side effects: NotInited runs one init()
+       * on the next SIP pass with WiFi up — the boot path: the proxy's name is looked up again
+       * (resolveDomain() caches a miss for 60 s, so a press within a minute of one fails at
+       * once), then one 500 ms connect — and it goes back to Error if that fails. One attempt
+       * per press: no timer, so a phone on a network with no route to the proxy is not stalled
+       * by a lookup on a schedule. ⚠ A deliberate behaviour for Nick to confirm (a timed retry
+       * out of Error is the alternative); recorded in docs/HANDOFF.md. Pinned by
+       * tests/check_call_audio.py. */
       if (keyPressed == WIPHONE_KEY_END && !gGbcActive && gui.inCall()) {
         gui.state.setSipState(CallState::HangUp);
+      } else if (keyPressed == WIPHONE_KEY_END && !gGbcActive &&
+                 gui.state.sipState == CallState::Error && gui.state.hasSipAccount()) {
+        log_e("SIP: END in Error - one re-init attempt (next SIP pass, needs WiFi)");
+        gui.state.setSipState(CallState::NotInited);
       }
 
 
@@ -4763,8 +4781,15 @@ void loop() {
      * ⚠ musicPlayerYieldForCall(), not musicPlayerPause(): the ring and a pop take `playback`
      * away from music BEFORE this runs, and only the yield still gives the call levels back
      * then. It is idempotent (nothing playing + nothing stashed = nothing done), so running it
-     * on every pass of a call is two flag reads. */
-    if (gui.inCall()) {
+     * on every pass of a call is two flag reads.
+     * 🛑 NOT WHILE A POP IS IN FLIGHT — the same "pop first, then the music" rule startRingtone()
+     * follows. A pop that cut a track holds a snapshot of the MUSIC level and route; dial inside
+     * its 360 ms and this yield would hand the call levels back and clear the stash, then the
+     * pop's teardown below restore()s the music snapshot over them, and nothing re-applies them
+     * — the outgoing call runs at the music level on the loudspeaker. Held off, the yield runs on
+     * the pass after the pop's restore(); and if the call connects first, the call-audio setup
+     * finishes the pop (notifyPopFinishFor) and this runs in that same pass. */
+    if (gui.inCall() && !meshPopPlaying) {
       musicPlayerYieldForCall();
     }
 
@@ -4899,8 +4924,16 @@ void loop() {
      * orphaned session looks busy to it forever. Checked whether or not the device is powered —
      * a latched send flag with the codec off is the SAME hazard, armed for the next power-up
      * (that was the original leak). ⚠ LOUD on purpose, like the watchdog: every firing names a
-     * path that armed a session and never shut it down, and a real call must NEVER print it. */
-    if (audio && rtpOrphanCheck(rtpOrphan, audio->rtpSessionArmed(), rtpSessionEntitled(), now)) {
+     * path that armed a session and never shut it down, and a real call must NEVER print it.
+     * ⚠ HELD WHILE THE MOTOR IS DRIVEN OR A POP IS MID-PLAY, the terms audioDeviceBusy() holds
+     * the watchdog above for: shutdown()'s codec power-down on the shared I2C bus disturbs the
+     * vibro motor's extender (a motor left running), and a pop's teardown restore()s on top of
+     * a device shut down under it. The motor and pop tests come FIRST so rtpOrphanCheck() is
+     * not even asked on those passes: its clock keeps the stamp, and it fires on the first
+     * pass after the pulse or the pop ends, rather than starting over (a buzz is at most
+     * 650 ms, a ring pulse 500 ms by default, a pop 360 ms; the ring alternates on and off). */
+    if (audio && !meshVibroActive && !gui.state.vibroOn && !meshPopPlaying &&
+        rtpOrphanCheck(rtpOrphan, audio->rtpSessionArmed(), rtpSessionEntitled(), now)) {
       log_e("AUDIO: RTP session armed with no live call (sip=%d, mic=%d stream=%d port=%u) for "
             "%u ms - shut down. Something armed it and never called shutdown().",
             (int)gui.state.sipState, (int)audio->micOn(), (int)audio->micStreamOut(),

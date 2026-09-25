@@ -119,7 +119,10 @@ Both phones register now (`sip=1`), which made the 2026-08-15 audit's "unreachab
   mic went out garbled or dropped), and `Audio::playMusic()` refuses with "In a call" while RTP is armed.
 - **END hangs up a call and nothing else.** It set HangUp from every screen: that stopped music and lost its
   place, zeroed the volumes, and — with no WiFi or no SIP account — left HangUp stuck, so music could not
-  play again until a reboot. ⚠ END no longer happens to walk a phone out of CallState::Error.
+  play again until a reboot. **END in CallState::Error (the proxy was unreachable at init: COVEY's
+  no-internet hotspot, a captive portal, a DNS miss) now retries SIP once per press** — the only way out
+  of Error used to be the old END-everywhere's accidental HangUp -> HungUp -> Idle walk (`SIP: END in
+  Error - one re-init attempt` at log_e; needs an account and WiFi).
 - **The ring and the answered call use the call levels**, not the music level (the ringtone stole
   `playback` before the music pause could see it). A pop still playing is finished before a ring or a
   call's audio starts, so its restore() no longer lands on top of them.
@@ -135,6 +138,14 @@ Both phones register now (`sip=1`), which made the 2026-08-15 audit's "unreachab
 - Serial: `audio` gains an `rtp:` line (mic/stream/port, armed/owned, `vol=`, `callvol=`) and prints line
   by line; `audio orphan` arms a receive-only session with no call to watch the backstop fire. Host suite:
   `tests/test_rtpwatch.cpp`.
+- Review round: the loop's music yield waits for a pop in flight (dialling inside a pop's 360 ms left the
+  call at the music level and route); the backstop is held while the motor is driven or a pop plays
+  (shutdown() on the shared I2C bus can leave the motor running); F1 while a session is armed keeps the
+  paused track and its place ("In a call") instead of unloading it; opening Settings > Audio with an
+  unreadable configs.ini no longer writes a three-key file over every other setting (only Save writes).
+  `tests/check_call_audio.py` pins every guard above in the source (a review reverted six of them and the
+  suite stayed green), and `test_rtpwatch` shows a strike left at hang-up ending the next call at
+  connect without Audio::newCall()'s per-call begin.
 
 ### WiFi drops explain themselves; a station wedged mid-connect now cures itself (0.9.79 dev, 2026-09-25)
 
