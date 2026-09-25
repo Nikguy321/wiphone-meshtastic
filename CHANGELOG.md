@@ -96,7 +96,11 @@ no space before it (`pass#word`) is part of the value.
   "Sync my place" uses the latest turn); a place counts as declined only once you ANSWER its
   card (one lost to a restart or a full inbox is offered again, and "Sync my place" sends
   nothing while one waits on the card); and the X4 fork's second PUT, under its file-name id,
-  no longer shows "! A place for a DIFFERENT book" beside a sync that worked.
+  no longer shows "! A place for a DIFFERENT book" beside a sync that worked. The push on close
+  obeys the same rule: closed while the pull on open was still on its way, it no longer PUTs your
+  place over the X4's the pull has just parked (`Home: another device's place waits for your
+  answer - yours NOT sent`); the next close after you answer the card sends it.
+  `tools/kosync_home_stub.py` is a slow bench home server for these races.
 - **Integration review, WiFi (R1, R2):** the core's auto-reconnect is held off while a sync
   window's or the uploader's hotspot is up (a late NO_AP_FOUND could turn it into AP+STA, the
   station hunting beside the hotspot) and after WiFi is switched off (it could restart the radio

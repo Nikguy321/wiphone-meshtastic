@@ -621,9 +621,10 @@ bool kosyncParkedPeerPct(const KosyncParkLedger* l, uint32_t inboxId, double* pc
  * With `key` (the local booksync key; NULL = do not check), the parked record must also still
  * VERIFY under it: a park signed before the booksync passcode was changed can never become a
  * card (the reader verifies under the new key), so nobody is going to answer it.
- * 🛑 "Sync my place" sends NOTHING home while this is true (kosync_sync.cpp evaluateOffer): a
- *    place the person has not yet seen is not ours to send over. ⚠ Hence the key: without it a
- *    park the card can never show would hold "Sync my place" until a restart. */
+ * 🛑 "Sync my place" sends NOTHING home while this is true (kosync_sync.cpp evaluateOffer), and
+ *    neither does any other push (the close's, `kosync push`): its first PUT is refused
+ *    (parkAwaitsAnswer) — a place the person has not yet seen is not ours to send over. ⚠ Hence
+ *    the key: without it a park the card can never show would hold every push until a restart. */
 bool kosyncParkPending(const KosyncParkLedger* l, const char* book, const uint8_t* key,
                        uint32_t* sig);
 

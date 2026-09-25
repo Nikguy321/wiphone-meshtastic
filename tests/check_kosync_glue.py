@@ -52,6 +52,11 @@ kosyncOfferFill, kosyncParkPending/kosyncOfferAnswered, the PUT log):
   9. KS-3 - a reader's second id is not another book: kosyncWindowServe() logs `if (o.gotPut)`
      with kosyncPutLogOwn() and `if (o.otherDoc)` with kosyncPutLogOther(), and
      kosyncProblemLine() counts the other-book PUTs with kosyncPutLogDifferent().
+ 10. KS-2's rule for EVERY push (the repair round): clientStep()'s KS_CONNECT block refuses a job's
+     FIRST PUT - `if (!s_phaseGet && s_w->sent == 0 && parkAwaitsAnswer(...)) { finishJob(...);
+     return; }`, after the `!mayUseNetwork` hold and before startConnect() - and parkAwaitsAnswer()
+     asks kosyncParkPending() WITH the local key. A close's push queued behind the pull on open
+     used to PUT our place over the X4's the pull had just parked, before anyone saw the card.
 
 A contract that cannot find its function fails too - a rename must update it, not silently
 retire it. A self-test replays the pre-fix shapes first, then REMOVES each guard from the real
@@ -411,6 +416,51 @@ def check_review(files):
                                   sync[pr[0]:pr[1]]):
             bad.append("kosyncProblemLine() must count the other-book PUTs with kosyncPutLogDifferent() "
                        "- the X4 fork's second id is not 'a DIFFERENT book'")
+    bad.extend(check_close_push(sync))
+    return bad
+
+
+def check_close_push(sync):
+    """Contract 10: KS-2's rule for EVERY push - no PUT over a place still waiting on the card."""
+    bad = []
+    pa = body(sync, "parkAwaitsAnswer")
+    if pa is None:
+        bad.append("parkAwaitsAnswer() not found - if it was renamed, update this contract")
+    else:
+        keyed = 0
+        for m in re.finditer(r"\bkosyncParkPending\s*\(", sync):
+            a = call_args(sync, m.end() - 1) or []
+            if within(m.start(), pa) and len(a) == 4 and a[2] not in ("NULL", "nullptr", "0"):
+                keyed += 1
+        if not keyed:
+            bad.append("parkAwaitsAnswer() must ask kosyncParkPending(..., key, ...) WITH the local "
+                       "key - a park the card can never show (the passcode changed) must not hold "
+                       "every push")
+    cs = body(sync, "clientStep")
+    if cs is None:
+        bad.append("clientStep() not found - if it was renamed, update this contract")
+        return bad
+    blk = ifs(sync, cs[0], cs[1], re.compile(r"\bs_cs\s*==\s*KS_CONNECT\s*$"))
+    if not blk:
+        bad.append("clientStep(): the `if (s_cs == KS_CONNECT) {...}` block not found - update this "
+                   "contract")
+        return bad
+    lo, hi = blk[0][1], blk[0][2]
+    conn = [m.start() for m in re.compile(r"\bstartConnect\s*\(").finditer(sync, lo, hi)]
+    held = ifs(sync, lo, hi, re.compile(r"!\s*mayUseNetwork\b"))
+    guards = [h for h in ifs(sync, lo, hi, re.compile(r"\bparkAwaitsAnswer\s*\("))
+              if re.search(r"!\s*s_phaseGet\b", sync[h[0]:h[1]])
+              and re.search(r"\bs_w\s*->\s*sent\s*==\s*0\b", sync[h[0]:h[1]])
+              and re.search(r"\bfinishJob\s*\(", sync[h[1]:h[2] + 1])
+              and re.search(r"\breturn\s*;", sync[h[1]:h[2] + 1])]
+    if not guards or not conn or not guards[0][2] < conn[0]:
+        bad.append("clientStep() must refuse a job's first PUT - `if (!s_phaseGet && s_w->sent == 0 && "
+                   "parkAwaitsAnswer(...)) { finishJob(...); return; }` before startConnect() in the "
+                   "KS_CONNECT block - or a close's push sends ours over the X4's place the pull just "
+                   "parked, unseen")
+    elif not held or not held[0][2] < guards[0][0]:
+        bad.append("clientStep(): the parked-place check must come AFTER `if (!mayUseNetwork) return;` "
+                   "- a held job would read NVS on every loop pass")
     return bad
 
 
@@ -500,6 +550,20 @@ static bool evaluateOffer(bool thenSend) {
 size_t kosyncProblemLine(char* out, size_t cap) {
   return kosyncWindowProblems(s_other, T->otherDoc, s_unauth, out, cap);
 }
+static bool parkAwaitsAnswer(const char* byName) {
+  return kosyncParkPending(&T->ledger, byName, NULL, NULL);
+}
+static void clientStep(bool mayUseNetwork, uint32_t now) {
+  if (s_cs == KS_CONNECT) {
+    if (!mayUseNetwork) {
+      return;
+    }
+    if (!startConnect()) {
+      noAnswer(now, "could not connect");
+      return;
+    }
+  }
+}
 """
 OLD_SYNC_H = "bool kosyncReloadConfig(bool asked = true);"
 OLD_BOOKS = """
@@ -557,7 +621,8 @@ def selftest():
             "assigns offeredSig", "applyPending() must call kosyncCardAnswered",
             "Back branch must call kosyncCardAnswered", "only the two ANSWERS",
             "with kosyncPutLogOwn()", "with kosyncPutLogOther()",
-            "kosyncProblemLine() must count"]
+            "kosyncProblemLine() must count", "parkAwaitsAnswer() must ask kosyncParkPending",
+            "must refuse a job's first PUT"]
     missing = [w for w in want if not any(w in g for g in got)]
     if missing:
         for w in missing:
@@ -618,6 +683,18 @@ MUTATIONS = [
     (SYNC, "kosyncProblemLine() must count",
      r"=\s*kosyncPutLogDifferent\s*\(\s*&\s*T\s*->\s*puts\s*,\s*&\s*doc\s*,\s*NULL\s*\)",
      "= T->puts.nOther", 0),
+    # 10: the close's push over a parked place - the guard gone, its "first PUT" half gone, the
+    # key dropped, and the check moved in front of the hold.
+    (SYNC, "must refuse a job's first PUT",
+     r"if\s*\(\s*!\s*s_phaseGet\s*&&\s*s_w\s*->\s*sent\s*==\s*0\s*&&\s*parkAwaitsAnswer\s*\([^)]*\)\s*\)"
+     r"\s*\{[^{}]*\}", "", 0),
+    (SYNC, "must refuse a job's first PUT", r"(!\s*s_phaseGet\s*&&\s*)s_w\s*->\s*sent\s*==\s*0\s*&&\s*",
+     r"\1", 0),
+    (SYNC, "parkAwaitsAnswer() must ask kosyncParkPending",
+     r"(kosyncParkPending\s*\(\s*&\s*T\s*->\s*ledger\s*,\s*byName\s*,\s*)key\b", r"\1NULL", 0),
+    (SYNC, "must come AFTER `if (!mayUseNetwork)",
+     r"(if\s*\(\s*!\s*mayUseNetwork\s*\)\s*\{[^{}]*\})(\s*)(if\s*\(\s*!\s*s_phaseGet[^{]*\{[^{}]*\})",
+     r"\3\2\1", 0),
 ]
 
 
@@ -672,6 +749,8 @@ def main():
           "asking; a new window, or a changed kosync.txt, clears the rest")
     print("  ok  KS-1 a home record is judged as of the ask; KS-2 declined = answered, and Sync "
           "my place sends nothing over a place on the card; KS-3 a second id is not another book")
+    print("  ok  no push's first PUT goes out over a place from another device still waiting on "
+          "the card (the close's push behind the pull on open)")
     return 0
 
 

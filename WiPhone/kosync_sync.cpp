@@ -1061,6 +1061,27 @@ static bool evaluateOffer(bool thenSend) {
   return true;
 }
 
+/* 🛑 KS-2's rule for EVERY push, not only "Sync my place" (evaluateOffer): a place from another
+ * device parked for this book and still unanswered (kosyncParkPending, WITH the local key — a
+ * park the card can never show must not hold the pushes) is not ours to send over. Asked before
+ * a job's FIRST PUT (clientStep, KS_CONNECT). The case it closes: the pull on open is still on
+ * its way when the book is closed (auto=on, the place moved or home never had it); the close's
+ * push is queued behind the pull, the pull parks the X4's newer place, and the push used to PUT
+ * ours over it on home a moment later — COVEY then held our place while the card, on the next
+ * open, offered the X4's. Refused, nothing is recorded as sent (kosyncMemoSent is not reached),
+ * so the next close after the card is answered sends it (kosyncClosePushWanted: sentPct differs
+ * or `unsent`). The first test is the cheap one; the key is read only when a park exists. */
+static bool parkAwaitsAnswer(const char* byName) {
+  if (!kosyncParkPending(&T->ledger, byName, NULL, NULL)) {
+    return false;
+  }
+  uint8_t key[32];
+  localSyncKey(key);
+  const bool live = kosyncParkPending(&T->ledger, byName, key, NULL);
+  memset(key, 0, sizeof(key));
+  return live;
+}
+
 static void stepDone(int code) {
   // code -2: this id is missing on our side (an unreadable partial MD5) — skip the step.
   if (code == 401) {
@@ -1301,6 +1322,13 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
     }
     if (!mayUseNetwork) {
       return;                                  // held between steps, as at the start
+    }
+    /* Before the job's FIRST PUT (nothing sent yet: a retry of it asks again, the second id of
+     * a pair already half-sent does not) — after the hold above, so a held job never reads NVS
+     * on every pass. See parkAwaitsAnswer(). */
+    if (!s_phaseGet && s_w->sent == 0 && parkAwaitsAnswer(s_w->book.byName)) {
+      finishJob("Home: another device's place waits for your answer - yours NOT sent");
+      return;
     }
     if (!startConnect()) {
       noAnswer(now, "could not connect");
