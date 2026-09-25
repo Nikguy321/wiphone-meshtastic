@@ -1,8 +1,61 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-23 night)
+## ▶▶ STATE NOW (header refreshed 2026-09-24 night)
 
 Read this first; everything below it is narrative.
+
+📚 **2026-09-24 NIGHT: READING-POSITION SYNC WITH THE XTEINK X4 PRO (arrives Sun 2026-09-28) IS BUILT ON
+ALL THREE SIDES, OVER KOSync (KOReader's sync protocol).** Nick: *"push 'sync location' on the device I
+was just reading and have it ready when I open it on another device"*; must work with NO COVEY and NO
+internet (a WiPhone + the X4 in the woods); nothing Nick-only in the public WiPhone firmware; and 🛑 *"we
+can't let it screw up the position people are at in their own wiphones after they update"*.
+**Where everything is:**
+| | state |
+|---|---|
+| WiPhone 0.9.79 dev | LOCAL branch `kosync` (`3a4def6` + review round `733803f`), NOT pushed, NOT released. BOTH PHONES FLASHED (rc2, sha `313d47df…`, built 21:04). OFF on both: no `/books/kosync.txt` |
+| COVEY | D-161 `7bec3b9` + follow-up `6b8803f`, pushed + deployed (device 73/73). Server on :8088 is OFF until Nick sets a user + password in Books > Sync settings |
+| X4 fork | github.com/Nikguy321/crosspoint-reader branch `booksync` (`be76d1a1`, `3a5c352f`, `17c12cc7`), pushed; 1.6.105; NOT flashed; NO release until it works on the X4 (Nick) |
+**How it works.** The phone only ever HOSTS: "Sync my place" opens a 5-min KOSync WINDOW for the open book
+on its own hotspot `WiPhone-Books` (http://192.168.4.1; open, or WPA2 with `hotspot_pass=`) or on its WiFi
+address, and on WiFi reads `home=` (COVEY) first, then sends. A place PUT to the phone arrives as the
+ordinary sync card ("X4 says: they are at 52% (43% here)"). The wire percentage is CrossPoint's
+BYTE-weighted number over CrossPoint's spine (rules: docstring of `tools/gen_kosync_vectors.py`), computed
+on the way out and converted back on the way in; positions.cbs / epubFraction / epubLocate / the LoRa
+record are UNCHANGED (`tests/golden_positions.h`, generated from 0.9.78, reproduces byte for byte). Both
+document ids everywhere (partial MD5 + md5(basename)). Offer rule (all three): another device, |Δ| > 0.001,
+not already offered, not provably older than MY LAST MOVE (clocks trusted only when known; COVEY serves
+timestamp 0 when its clock is unsynced). Automatic pushes only when the place MOVED.
+**Bench-proven tonight (phone 2, home LAN, a throwaway COVEY server on :8098):** push under both ids
+(`95060042…`/`3a6d9a60…` for Ghosts_of_Timkovichi = the Mac's own computation), unknown doc → "not on the
+server yet", window GET both ids / `{}` / 401 / upload page 404, fake-X4 PUT → card at the right chapter
+(generator agrees: 0.4502 → index 35, 57.7 %), window closes 10 s after the PUT, a second pull says "already
+offered", Sync my place after a decline sends ours, three tries 1 s/4 s apart with no loop stall, the
+"DIFFERENT book" and "Wrong user/password (x1)" warnings. Stay kept ch 25/90 27 %. NOT proven: the
+`WiPhone-Books` hotspot itself (open/WPA2) — the Mac cannot join it without losing its own network.
+**SUNDAY, IN THIS ORDER:** (1) COVEY: Books > Sync settings — KOSync user, password (12+ chars; letters and
+digits — the phone trims end spaces), server ON; it must read `http://192.168.1.55:8088` (⚠ COVEY's DHCP
+lease has no reservation — add one on the router, or `home=` and the X4 URL silently go stale). (2) Phones:
+`/books/kosync.txt` with `user=`, `key=<kosync_key from COVEY's /root/.covey/prefs.json>` (the password never
+travels), `home=192.168.1.55:8088`, a DIFFERENT `device=` per phone, comments on their own lines only; serial
+`kosync` must say `config ON`, `kosync push` → "Sent N% to home". (3) The SAME book file byte for byte on all
+three (Calibre's send-to-device rewrites metadata → different id; phone Book info shows `kosync <id>`, COVEY
+`sudo python3 -m covey_ui.kosync --list`, Mac `gen_kosync_vectors.partial_md5()`). (4) X4: back up the stock
+flash FIRST (esptool `read-flash 0 0x1000000` twice, compare MD5), then `~/.local/bin/pio-x4 run -e x4pro -t
+upload`; serial `Starting CrossPoint version 1.6.105-x4pro`; KOReader Sync: same user/password, Sync Server
+URL `http://192.168.1.55:8088` (⚠ EMPTY = the public sync.crosspointreader.com), Document Matching BINARY
+(set it by hand if stock CrossPoint was configured first — it keeps Filename), never "Sign up". (5) At home:
+Sync progress on the X4 ↔ COVEY. (6) Woods: phone WiFi off, open the same book, Sync my place, then Sync
+progress on the X4 within 5 min (the fork saves `WiPhone-Books` itself; set its Peer Wi-Fi Password if the
+phone has `hotspot_pass=`).
+**Traps:** 🛑 the X4 builds ONLY via `~/.local/bin/pio-x4` (own core `~/.platformio-x4`) — sharing
+`~/.platformio` made each project overwrite the other's framework/esptool/scons (esptool is now at
+`~/.platformio/packages/tool-esptoolpy/esptool.py`). ⚠ The phone's window is ONE book; a PUT for another id
+is answered 200 and dropped (now shown on screen). ⚠ A book already open on the phone does not see a later
+X4 push until reopened. ⚠ Phone 1 lost WiFi twice tonight right after a screen wake (deaf-radio class,
+`wifi bounce` cured it; phone 2 never did) — watch it. ⚠ `~GbcApp` (app_gbc.cpp:461) restores the station
+checking only the off switch, not `userDisabled()` — older, same class as the window fix, not done.
+The durable record is the commits, CHANGELOG 0.9.79, COVEY's D-161 (+ follow-up) and the fork's commit messages; the
+design contract and the two review rounds lived in the 2026-09-24 session scratchpad, which does not survive.
 
 🗺️ **2026-09-23 NIGHT: 0.9.78. ALL THREE DEVICES GET OPENTOPOMAP z17 DOWNLOADS (20 km,
 THROTTLED, MULTI-DAY) AND "STRETCH THE MOST DETAILED TILE THERE IS". COVEY NOW TELLS STREAMED
