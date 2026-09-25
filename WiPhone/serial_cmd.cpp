@@ -113,11 +113,13 @@ static void help() {
     "             real path, with the NOTIFY: lines that time them; no second phone needed",
     "  sip        SIP account state: loaded, registered, WiFi - one line",
     "  bookpage   dump the open reader page's layout + rendering",
-    "  kosync     KOSync (reading-position sync with an X4/COVEY): config, window, home client",
+    "  kosync     KOSync (reading-position sync with an X4/COVEY): config, window, home client;",
+    "             home= by name adds where it was found, on which WiFi, and the longest lookup pass",
     "  kosync open [secs]  open a sync window for the book open in the reader (default 300)",
     "  kosync close|push|pull|sync|reload  end the window / send home / ask home /",
     "             read home then offer-or-send (Sync my place) / re-read /books/kosync.txt",
-    "             (push/pull/sync need WiFi + home=, and a book open)",
+    "             (push/pull/sync need WiFi + home=, and a book open; reload also clears",
+    "             the last window's ! warnings)",
     "  keys       keypad health: why a press went missing (drained/rescued/swept)",
     "  health     dump /health.log over the CABLE (battery + restart black box)",
     "  health all dump the whole file, not just the last 24 KB",
@@ -518,7 +520,7 @@ static void run(char* line) {
     if (!*arg || !strcasecmp(arg, "status")) {
       kosyncDumpStatus(sayLine);
     } else if (!strcasecmp(arg, "reload")) {
-      kosyncReloadConfig();
+      kosyncReloadConfig(true);          // asked for: last window's warnings go too
       kosyncDumpStatus(sayLine);
     } else if (!strcasecmp(arg, "close")) {
       if (kosyncWindowActive()) {

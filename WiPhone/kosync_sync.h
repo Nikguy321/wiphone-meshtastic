@@ -86,7 +86,10 @@ struct KosyncBook {
 };
 
 // ---------------------------------------------------------------- config
-bool kosyncReloadConfig();                     // re-read the card now; true = configured
+/* Re-read the card now; true = configured. `asked`: a person asked for it (serial `kosync
+ * reload`), which also clears the last window's warnings — as does a re-read that finds the
+ * file changed. The re-read Books makes on every entry keeps them (kosyncReloadClears). */
+bool kosyncReloadConfig(bool asked = false);
 bool kosyncConfigured();                       // reads the card once if it never has
 const KosyncConfig* kosyncConfig();
 const char* kosyncConfigNote();                // "off (no /books/kosync.txt)", a warning, or ""

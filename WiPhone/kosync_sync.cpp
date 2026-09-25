@@ -9,7 +9,7 @@
 #include "app_gbc_xfer.h"
 #include "meshtastic_service.h"   // the default device name: the mesh long name
 #include "clock.h"                // ntpClock: UTC for timestamps
-#include "Networks.h"             // resolveDomain
+#include "Networks.h"             // lastWifiLinkUpMs: one home= lookup per WiFi join
 #include "GUI.h"                  // gui.isAppRunning: no window under Settings > WiFi
 
 extern GUI gui;
@@ -21,6 +21,9 @@ extern GUI gui;
 #include <Preferences.h>
 #include <esp_system.h>           // esp_read_mac
 #include <lwip/sockets.h>         // the home client's polled connect (see KS_CONNECTING)
+#include <lwip/dns.h>             // home= as a DNS name: lwIP's resolver, never waited on
+#include <lwip/tcpip.h>           // ...started on the tcpip thread (tcpip_callback_with_block)
+#include <esp_wifi.h>             // esp_wifi_sta_get_ap_info: the SSID, without a String
 #include <errno.h>
 #include <stdarg.h>
 #include <string.h>
@@ -66,6 +69,11 @@ struct KsText {
   char hline[128];                            // the home client's current header line
   char cliLast[96];                           // the last home job's outcome
   char otherDoc[16];                          // the start of the last "other book" PUT's id
+  uint32_t cfgSig;                            // kosyncConfigSig of the file as last read
+  KosyncHomeAddr home;                        // home='s looked-up address (kosync.h)
+  uint8_t homeBlob[KOSYNC_HOME_BLOB_BYTES];   // ...its bytes on the way to/from NVS
+  char jobSsid[33];                           // the SSID the current home job started on
+  char lookName[KOSYNC_HOST_MAX];             // the name being looked up (lwIP reads it too)
   KosyncParkLedger ledger;                    // one KOSync offer per book (kosync.h)
   KosyncMemo memo;                            // last move + last offer per book (kosync.h)
   uint8_t memoBlob[KOSYNC_MEMO_BLOB_MAX];     // its bytes on the way to/from NVS
@@ -85,8 +93,22 @@ static bool ksAlloc() {
 
 // ================================================================ config
 static bool         s_cfgTried = false;
+static bool         s_cfgRead = false;            // T->cfgSig holds a real read's signature
+static void         clearWindowProblems();        // (the window, below)
 
-bool kosyncReloadConfig() {
+static void reloadDone(bool asked) {
+  /* 🛑 NOT ON EVERY RE-READ: Books re-reads the file on each entry and Sync settings on each
+   * visit, and clearing there would wipe the window's warning on the way to the one screen
+   * that shows it. Asked for (serial `kosync reload`), or the file now SAYS something else. */
+  const uint32_t sig = kosyncConfigSig(&T->cfg);
+  if (kosyncReloadClears(asked, s_cfgRead, T->cfgSig, sig)) {
+    clearWindowProblems();
+  }
+  T->cfgSig = sig;
+  s_cfgRead = true;
+}
+
+bool kosyncReloadConfig(bool asked) {
   s_cfgTried = true;
   if (!ksAlloc()) {
     return false;                                 // no PSRAM: KOSync is simply off
@@ -102,6 +124,7 @@ bool kosyncReloadConfig() {
   }
   if (!f) {
     snprintf(T->cfgNote, sizeof(T->cfgNote), "off (no %s)", KOSYNC_CONFIG_FILE);
+    reloadDone(asked);                            // a file taken away is a change too
     return false;
   }
   // PSRAM, and wiped after: the password is in these bytes until kosyncParseConfig hashes it.
@@ -110,6 +133,9 @@ bool kosyncReloadConfig() {
   if (!buf) {
     f.close();
     snprintf(T->cfgNote, sizeof(T->cfgNote), "off (no memory to read the file)");
+    if (asked) {
+      clearWindowProblems();                      // (unread: not a signature worth keeping)
+    }
     return false;
   }
   int n = f.read((uint8_t*)buf, cap - 1);
@@ -121,6 +147,7 @@ bool kosyncReloadConfig() {
   kosyncParseConfig(buf, (size_t)n, &T->cfg);
   memset(buf, 0, cap);
   free(buf);
+  reloadDone(asked);
   if (!T->cfg.ok) {
     snprintf(T->cfgNote, sizeof(T->cfgNote), "off - %s", T->cfg.problem);
   } else {
@@ -437,9 +464,11 @@ bool kosyncWindowOpen(const KosyncBook* b, uint32_t durationMs, char* note, size
       dur = left;
     }
   } else {
-    s_gets = s_puts = s_parked = s_other = s_unauth = 0;
+    /* A NEW window: the last one's warnings go (they stayed on the screen until now). The
+     * open one extended for the same book keeps its own. */
+    s_gets = s_puts = s_parked = 0;
     T->peer[0] = '\0';
-    T->otherDoc[0] = '\0';
+    clearWindowProblems();
   }
   if (!s_winArmed) {
     s_winIp = xferUsingAP() ? 0 : (uint32_t)WiFi.localIP();
@@ -475,6 +504,13 @@ void kosyncWindowClose(const char* why) {
   log_e("KOSYNC window CLOSED (%s): gets=%u puts=%u parked=%u other-book=%u unauthorised=%u",
         why ? why : "", (unsigned)s_gets, (unsigned)s_puts, (unsigned)s_parked,
         (unsigned)s_other, (unsigned)s_unauth);
+}
+
+/* The window's warnings (a PUT for another book, a wrong password): cleared by a NEW window,
+ * or by a reload that was asked for or found the file changed (reloadDone). kosync.h. */
+static void clearWindowProblems() {
+  s_other = s_unauth = 0;
+  T->otherDoc[0] = '\0';
 }
 
 const char* kosyncWindowServe(const char* method, const char* path, const char* hdrs,
@@ -587,7 +623,7 @@ static void requestWindow(const KosyncBook* b, uint32_t durMs, const char* why) 
  * dropped the whole push or pull: the place sent on close never reached home, and the ask on
  * open offered nothing. The same steps are taken here, one per pass, and a job gets
  * KOSYNC_CLIENT_TRIES. */
-enum KsCliState { KS_IDLE = 0, KS_CONNECT, KS_CONNECTING, KS_HEADERS, KS_BODY, KS_RETRY };
+enum KsCliState { KS_IDLE = 0, KS_RESOLVE, KS_CONNECT, KS_CONNECTING, KS_HEADERS, KS_BODY, KS_RETRY };
 
 #define KS_IO_CAP   1536                      // the request, then the response body
 struct KsCliWork {
@@ -620,7 +656,12 @@ static bool        s_chunked = false;
 static int         s_code = -1;
 static uint32_t    s_deadlineMs = 0, s_reqStartMs = 0, s_connStartMs = 0;
 static IPAddress   s_ip((uint32_t)0);
-static uint32_t    s_ipAt = 0;
+/* The WiFi join the job started on: lastWifiLinkUpMs(), the GOT_IP stamp. While the station is
+ * connected that stamp is THIS association's (a drop rewrites it, and so does the GOT_IP that
+ * ends the rejoin), so it tells "the same join" from "a new one" with nothing added to the WiFi
+ * event handler. */
+static uint32_t    s_jobAssoc = 0;
+static bool        s_viaFallback = false;     // s_ip is home='s LAST address: the name did not answer
 
 static const uint32_t KS_CONNECT_MS = 3000;    // polled, never waited on
 static const uint32_t KS_STALL_MS   = 5000;    // silence once connected
@@ -696,12 +737,176 @@ bool kosyncPull(const KosyncBook* b, char* note, size_t cap) {
   return true;
 }
 
+// ================================================================ home= by NAME (kosync.h)
+/* KS_RESOLVE: nothing here waits.
+ *   mDNS (covey.local, or the bare covey): a one-shot query from our own UDP socket, sent at 0,
+ *     250 and 1000 ms and answered by UNICAST to that socket (RFC 6762 §6.7) — read with a
+ *     zero-wait recvfrom once a pass, given up at KS_MDNS_GIVEUP_MS. Three sends, because one
+ *     lost multicast (a station in modem sleep, a busy AP) must not cost the job.
+ *   DNS (a dotted name that is not .local, or a bare name mDNS did not know — the order
+ *     resolveDomain() tried them in): lwIP's own resolver, STARTED ON THE TCPIP THREAD (it is
+ *     not thread-safe from here) and answered by a callback into s_dns*; the loop only reads
+ *     the flag. Given up at KS_DNS_GIVEUP_MS; a late answer carries a stale tag and is dropped.
+ * One lookup per WiFi join at most (kosyncHomePlan); the answer, SSID and home= are kept in
+ * NVS so an unanswered lookup after a restart still has the last address to fall back to.
+ * ⚠ The name looked up is T->lookName, copied from home= as the job starts: a `kosync reload`
+ *   mid-lookup cannot change what the query asks, what the answer must match, or what lwIP is
+ *   reading on its own thread. */
+static const uint32_t KS_MDNS_SEND_AT_MS[3] = { 0, 250, 1000 };
+static const uint32_t KS_MDNS_GIVEUP_MS = 2000;
+static const uint32_t KS_DNS_GIVEUP_MS  = 6000;
+static int               s_udp = -1;
+static uint16_t          s_qid = 0;
+static int               s_qSent = 0;
+static bool              s_lookMdns = false, s_lookTriedDns = false;
+static uint32_t          s_lookStartMs = 0, s_lookFirstMs = 0;
+static uint32_t          s_lookMaxUs = 0;     // the longest lookup pass this boot (serial `kosync`)
+static volatile bool     s_dnsDone = false;
+static volatile uint32_t s_dnsIp = 0;
+static volatile uint32_t s_dnsTag = 0;
+static bool              s_homeLoaded = false;
+
+static KosyncHomeAddr* homeAddr() {
+  if (!s_homeLoaded) {
+    s_homeLoaded = true;
+    size_t n = 0;
+    Preferences p;
+    if (p.begin("kosync", false)) {           // read-write: see memo()
+      if (p.isKey("home")) {
+        n = p.getBytes("home", T->homeBlob, sizeof(T->homeBlob));
+      }
+      p.end();
+    }
+    if (n && !kosyncHomeUnpack(&T->home, T->homeBlob, n)) {
+      log_e("KOSYNC home: %u stored bytes did not read back - no last address", (unsigned)n);
+    }
+  }
+  return &T->home;
+}
+
+// Written only when the address, the name or the network CHANGED (kosyncHomeLooked's *changed).
+static void homeSave() {
+  const size_t n = kosyncHomePack(&T->home, T->homeBlob, sizeof(T->homeBlob));
+  Preferences p;
+  if (!n || !p.begin("kosync", false)) {
+    return;
+  }
+  if (p.putBytes("home", T->homeBlob, n) != n) {
+    log_e("KOSYNC home: NVS refused %u bytes", (unsigned)n);
+  }
+  p.end();
+}
+
+// The joined network's SSID, without a String (esp_wifi_sta_get_ap_info). "" when not joined.
+static void staSsid(char out[33]) {
+  out[0] = '\0';
+  wifi_ap_record_t ap;
+  if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
+    memcpy(out, ap.ssid, 32);
+    out[32] = '\0';
+  }
+}
+
+static void dnsFound(const char* name, const ip_addr_t* a, void* arg) {     // the tcpip thread
+  if ((uint32_t)(uintptr_t)arg != s_dnsTag) {
+    return;                                    // a lookup given up on: nobody is waiting
+  }
+  s_dnsIp = (a && IP_IS_V4(a)) ? ip4_addr_get_u32(ip_2_ip4(a)) : 0;
+  s_dnsDone = true;
+}
+
+static void dnsStart(void* arg) {                                             // the tcpip thread
+  ip_addr_t a;
+  const err_t e = dns_gethostbyname(T->lookName, &a, dnsFound, arg);
+  if (e == ERR_OK) {
+    dnsFound(T->lookName, &a, arg);            // lwIP's own table had it
+  } else if (e != ERR_INPROGRESS) {
+    dnsFound(T->lookName, NULL, arg);
+  }
+}
+
+static void lookupEnd() {
+  if (s_udp >= 0) {
+    close(s_udp);
+    s_udp = -1;
+  }
+  s_dnsTag = s_dnsTag + 1u;                    // an answer still on its way belongs to nobody
+}
+
+static bool lookupStart(uint32_t now, bool dns) {
+  lookupEnd();
+  s_lookStartMs = now;
+  s_lookMdns = !dns;
+  if (dns) {
+    s_dnsDone = false;
+    s_dnsIp = 0;
+    const uint32_t tag = s_dnsTag;
+    return tcpip_callback_with_block(dnsStart, (void*)(uintptr_t)tag, 0) == ERR_OK;
+  }
+  s_udp = socket(AF_INET, SOCK_DGRAM, 0);
+  if (s_udp < 0) {
+    return false;
+  }
+  fcntl(s_udp, F_SETFL, fcntl(s_udp, F_GETFL, 0) | O_NONBLOCK);
+  struct in_addr ifa;
+  ifa.s_addr = (uint32_t)WiFi.localIP();       // out of the station, whatever else is up
+  setsockopt(s_udp, IPPROTO_IP, IP_MULTICAST_IF, &ifa, sizeof(ifa));
+  const uint8_t ttl = 255;                     // RFC 6762 §11
+  setsockopt(s_udp, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+  s_qid = (uint16_t)(esp_random() | 1u);
+  s_qSent = 0;
+  return true;                                 // the first query goes out on the first poll
+}
+
+// 1: answered (*ip). 0: still waiting. -1: nobody answered.
+static int lookupPoll(uint32_t now, uint32_t* ip) {
+  const uint32_t age = now - s_lookStartMs;
+  if (!s_lookMdns) {
+    if (s_dnsDone) {
+      *ip = s_dnsIp;
+      return *ip ? 1 : -1;
+    }
+    return age >= KS_DNS_GIVEUP_MS ? -1 : 0;
+  }
+  if (s_qSent < 3 && age >= KS_MDNS_SEND_AT_MS[s_qSent]) {
+    const size_t n = kosyncMdnsQuery(T->lookName, s_qid, (uint8_t*)s_w->io, KS_IO_CAP);
+    struct sockaddr_in to;
+    memset(&to, 0, sizeof(to));
+    to.sin_family = AF_INET;
+    to.sin_port = htons(KOSYNC_MDNS_PORT);
+    to.sin_addr.s_addr = htonl(0xE00000FBu);   // 224.0.0.251
+    if (!n || sendto(s_udp, s_w->io, n, 0, (struct sockaddr*)&to, sizeof(to)) != (int)n) {
+      log_e("KOSYNC home: mDNS query %d for '%s' not sent (errno %d)", s_qSent + 1, T->lookName,
+            errno);
+    }
+    s_qSent++;                                 // a failed send counts: the next one is the retry
+  }
+  for (int i = 0; i < 4; i++) {                // a few datagrams a pass, never a wait
+    const int n = recvfrom(s_udp, s_w->io, KS_IO_CAP, MSG_DONTWAIT, NULL, NULL);
+    if (n <= 0) {
+      break;
+    }
+    const uint32_t a = kosyncMdnsAnswer((const uint8_t*)s_w->io, (size_t)n, T->lookName, s_qid);
+    if (a) {
+      *ip = a;
+      return 1;
+    }
+  }
+  return age >= KS_MDNS_GIVEUP_MS ? -1 : 0;
+}
+
+static void ipText(uint32_t ip, char out[16]) {
+  const uint8_t* b = (const uint8_t*)&ip;
+  snprintf(out, 16, "%u.%u.%u.%u", b[0], b[1], b[2], b[3]);
+}
+
 static void dropSocket() {
   if (s_fd >= 0) {
     close(s_fd);                               // a connect still in flight: nobody owns it yet
     s_fd = -1;
   }
   s_client.stop();
+  lookupEnd();                                 // (and a lookup's socket, if one is open)
 }
 
 static void finishJob(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -737,29 +942,18 @@ static void noAnswer(uint32_t now, const char* what) {
           s_fails + 1, KOSYNC_CLIENT_TRIES, (unsigned long)wait);
     return;
   }
-  s_ipAt = 0;                                  // re-resolve next time: the address may be stale
-  finishJob("Home: %s from %s:%u (%d tries)", what, T->cfg.home, (unsigned)T->cfg.homePort,
+  /* A NAME's address is looked up again by the next job (it may have moved: a new DHCP lease
+   * within this join); an unanswered lookup then still falls back to it — COVEY may simply have
+   * been off. The retries above did NOT look again (F5: a retry never re-resolves). */
+  char at[36] = "";
+  if (!kosyncParseIp(T->lookName, NULL)) {
+    kosyncHomeGaveUp(homeAddr(), (uint32_t)s_ip);
+    char t[16];
+    ipText((uint32_t)s_ip, t);
+    snprintf(at, sizeof(at), " (%s%s)", s_viaFallback ? "last known " : "", t);
+  }
+  finishJob("Home: %s from %s%s:%u (%d tries)", what, T->lookName, at, (unsigned)T->cfg.homePort,
             s_fails);
-}
-
-// Resolve home=, with our own 10-minute cache (resolveDomain does not cache .local).
-static bool resolveHome(uint32_t now) {
-  if (s_ipAt && (uint32_t)(now - s_ipAt) < 600000u && (uint32_t)s_ip != 0) {
-    return true;
-  }
-  IPAddress ip;
-  if (ip.fromString(T->cfg.home)) {
-    s_ip = ip;
-    s_ipAt = now | 1u;
-    return true;
-  }
-  ip = resolveDomain(T->cfg.home);      // ⚠ can block (~500 ms for .local): prefer an IP
-  if ((uint32_t)ip == 0) {
-    return false;
-  }
-  s_ip = ip;
-  s_ipAt = now | 1u;
-  return true;
 }
 
 /* The server's side of this book is read (both ids): is there a place from another device
@@ -962,12 +1156,79 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
     s_w->sent = 0;
     s_step = 0;
     s_fails = 0;
-    if (!resolveHome(now)) {
-      finishJob("Home: '%s' not found", T->cfg.home);
+    s_viaFallback = false;
+    snprintf(T->lookName, sizeof(T->lookName), "%s", T->cfg.home);
+    uint32_t ip = 0;
+    if (kosyncParseIp(T->lookName, &ip)) {
+      s_ip = IPAddress(ip);                    // an IP: nothing looked up, nothing remembered
+      s_cs = KS_CONNECT;
+      return;                                  // connect on the NEXT pass: this one stays cheap
+    }
+    /* 🛑 NEVER resolveDomain() here (kosync.h): it froze the loop >= 0.5 s on every book open
+     * and close, and never found a .local name at all. */
+    staSsid(T->jobSsid);
+    s_jobAssoc = lastWifiLinkUpMs();
+    if (kosyncHomePlan(homeAddr(), T->lookName, T->jobSsid, s_jobAssoc, &ip) == KOSYNC_HOME_USE) {
+      s_ip = IPAddress(ip);                    // already found on this WiFi join
+      s_cs = KS_CONNECT;
       return;
     }
+    s_lookTriedDns = !kosyncHostIsMdns(T->lookName);
+    s_lookFirstMs = now;
+    if (!lookupStart(now, s_lookTriedDns)) {
+      finishJob("Home: could not start looking up '%s'", T->lookName);
+      return;
+    }
+    s_cs = KS_RESOLVE;
+    return;
+  }
+
+  if (s_cs == KS_RESOLVE) {
+    if (!onWifi()) {
+      finishJob("Home: not on WiFi any more - gave up");
+      return;
+    }
+    if (!mayUseNetwork) {
+      /* HELD, as a job is at its start and between steps (the Game Boy owns the heap) — but a
+       * lookup's clock cannot be stopped, so its socket goes now and the job starts over, with
+       * a fresh lookup, once the network may be used again. The ask itself is kept. */
+      dropSocket();
+      s_cs = KS_IDLE;
+      return;
+    }
+    uint32_t got = 0;
+    const int r = lookupPoll(now, &got);
+    if (r == 0) {
+      return;
+    }
+    if (r < 0 && !s_lookTriedDns && !strchr(T->lookName, '.')) {
+      s_lookTriedDns = true;                   // a bare name mDNS did not know: the router may
+      if (lookupStart(now, true)) {
+        return;
+      }
+    }
+    const bool mdns = s_lookMdns;
+    const char* how = mdns ? "mDNS" : kosyncHostIsMdns(T->lookName) ? "mDNS, then DNS" : "DNS";
+    lookupEnd();
+    bool fb = false, changed = false;
+    const uint32_t ip = kosyncHomeLooked(homeAddr(), T->lookName, T->jobSsid, s_jobAssoc,
+                                         r > 0 ? got : 0, &fb, &changed);
+    if (changed) {
+      homeSave();                              // rare: the address (or the network) changed
+    }
+    char t[16];
+    ipText(ip, t);
+    if (!ip) {
+      finishJob("Home: '%s' did not answer (%s) - is it on this WiFi?", T->lookName, how);
+      return;
+    }
+    s_viaFallback = fb;
+    log_e("KOSYNC home: %s -> %s %s after %lu ms", T->lookName, t,
+          fb ? "(did NOT answer: the last address it had here)" : mdns ? "by mDNS" : "by DNS",
+          (unsigned long)(now - s_lookFirstMs));
+    s_ip = IPAddress(ip);
     s_cs = KS_CONNECT;
-    return;                                    // connect on the NEXT pass: this one stays cheap
+    return;                                    // connect on the NEXT pass
   }
 
   if (s_cs == KS_RETRY) {
@@ -1091,6 +1352,10 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
     if (s_chunked) {
       const long d = kosyncDechunk(s_w->io, len);
       s_w->io[d > 0 ? (size_t)d : 0] = '\0';
+    }
+    // An HTTP answer, whatever its status: this address is home= on this WiFi join.
+    if (!kosyncParseIp(T->lookName, NULL)) {
+      kosyncHomeReached(homeAddr(), T->lookName, T->jobSsid, s_jobAssoc, (uint32_t)s_ip);
     }
     stepDone(s_code);
   }
@@ -1232,7 +1497,8 @@ size_t kosyncProblemLine(char* out, size_t cap) {
   if (!T) {
     return 0;
   }
-  // The current window's counts, or the last one's until the next window opens.
+  /* The current window's, or the last one's — kept after it closes, until a new window opens
+   * or a reload that was asked for (or found the file changed) clears them. */
   return kosyncWindowProblems(s_other, T->otherDoc, s_unauth, out, cap);
 }
 
@@ -1325,9 +1591,33 @@ void kosyncDumpStatus(void (*emit)(const char* line)) {
     }
   }
   snprintf(l, sizeof(l), "kosync: home client %s%s%s%s", s_cs == KS_RETRY ? "WAITING TO RETRY"
-           : s_cs != KS_IDLE ? "BUSY" : "idle", s_waitWifi ? " (an ask waits for WiFi)" : "",
-           T->cliLast[0] ? " - " : "", T->cliLast);
+           : s_cs == KS_RESOLVE ? "LOOKING UP HOME" : s_cs != KS_IDLE ? "BUSY" : "idle",
+           s_waitWifi ? " (an ask waits for WiFi)" : "", T->cliLast[0] ? " - " : "", T->cliLast);
   emit(l);
+  if (T->cfg.home[0] && !kosyncParseIp(T->cfg.home, NULL)) {
+    /* home= by NAME: the address it was last found at, on which network, and whether the next
+     * job uses it as it is ("this join") or looks the name up first — by kosyncHomePlan, the
+     * rule the job itself follows. The longest lookup pass is the bench's proof it never waits. */
+    const KosyncHomeAddr* h = homeAddr();
+    char ssid[33];
+    staSsid(ssid);
+    uint32_t use = 0;
+    const bool thisJoin = kosyncHomePlan(h, T->cfg.home, ssid, lastWifiLinkUpMs(), &use) ==
+                          KOSYNC_HOME_USE;
+    if (!h->ip || strcasecmp(h->host, T->cfg.home) != 0) {
+      snprintf(l, sizeof(l), "kosync: home %s -> not found yet (looked up by the first home job "
+               "of each WiFi join)  longest lookup pass %lu us", T->cfg.home,
+               (unsigned long)s_lookMaxUs);
+    } else {
+      char t[16];
+      ipText(h->ip, t);
+      snprintf(l, sizeof(l), "kosync: home %s -> %s on '%s' - %s  longest lookup pass %lu us",
+               T->cfg.home, t, h->ssid, thisJoin ? "this join" : h->stale
+               ? "gave up on: looked up again first" : "last known: looked up again first",
+               (unsigned long)s_lookMaxUs);
+    }
+    emit(l);
+  }
   snprintf(l, sizeof(l), "kosync: heap largest=%u free=%u psram=%u", (unsigned)largestInternal(),
            (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
   emit(l);
@@ -1426,5 +1716,15 @@ void kosyncLoop(bool mayUseNetwork, bool callActive) {
     }
   }
 
+  /* Timed only on a pass that starts a lookup or is in one: the bench's proof that the lookup
+   * never waits (a job's own NVS memo save is not a lookup, and is not counted here). */
+  const bool looking = s_cs == KS_RESOLVE;
+  const uint32_t t0 = micros();
   clientStep(mayUseNetwork, now);
+  if (looking || s_cs == KS_RESOLVE) {
+    const uint32_t us = micros() - t0;
+    if (us > s_lookMaxUs) {
+      s_lookMaxUs = us;
+    }
+  }
 }

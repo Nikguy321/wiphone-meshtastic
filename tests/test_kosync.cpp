@@ -1708,6 +1708,254 @@ static void testGolden() {
   ok(n == strlen(GP_STORE_BLOB) && !memcmp(again, GP_STORE_BLOB, n), "re-saved byte for byte");
 }
 
+// ---------------------------------------------------------------- home= by name
+static uint32_t ip4(int a, int b, int c, int d) {
+  const uint8_t x[4] = { (uint8_t)a, (uint8_t)b, (uint8_t)c, (uint8_t)d };
+  uint32_t v;
+  memcpy(&v, x, 4);
+  return v;
+}
+
+// An avahi-style legacy unicast answer: our id, QR|AA, the question echoed, then one A record
+// whose name is a pointer back at the question.
+static const uint8_t AVAHI_ANSWER[] = {
+  0x12, 0x34, 0x84, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+  0x05, 'c', 'o', 'v', 'e', 'y', 0x05, 'l', 'o', 'c', 'a', 'l', 0x00, 0x00, 0x01, 0x00, 0x01,
+  0xC0, 0x0C, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x04, 192, 168, 1, 55,
+};
+
+static void testHomeByName() {
+  group("home= by name: which names are asked, and how");
+  uint32_t ip = 0;
+  ok(kosyncParseIp("192.168.1.55", &ip) && ip == ip4(192, 168, 1, 55), "a dotted quad, wire order");
+  ok(!kosyncParseIp("192.168.1", NULL) && !kosyncParseIp("192.168.1.256", NULL) &&
+     !kosyncParseIp("1.2.3.4.5", NULL) && !kosyncParseIp("1.2.3.4 ", NULL) &&
+     !kosyncParseIp("covey.local", NULL) && !kosyncParseIp("", NULL) && !kosyncParseIp(NULL, NULL) &&
+     !kosyncParseIp("0001.2.3.4", NULL), "not an address");
+  ok(kosyncHostIsMdns("covey") && kosyncHostIsMdns("covey.local") && kosyncHostIsMdns("COVEY.LOCAL") &&
+     kosyncHostIsMdns("covey.local.") && kosyncHostIsMdns("my-pi.lab.local"), "mDNS names");
+  ok(!kosyncHostIsMdns("kosync.example.com") && !kosyncHostIsMdns("192.168.1.55") &&
+     !kosyncHostIsMdns("") && !kosyncHostIsMdns(NULL) && !kosyncHostIsMdns(".local") &&
+     !kosyncHostIsMdns("covey..local") && !kosyncHostIsMdns("covey.local..") &&
+     !kosyncHostIsMdns("covey.localx"), "not mDNS names (DNS, an IP, broken)");
+
+  uint8_t q[300];
+  static const uint8_t WANT_Q[] = {
+    0x12, 0x34, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x05, 'c', 'o', 'v', 'e', 'y', 0x05, 'l', 'o', 'c', 'a', 'l', 0x00, 0x00, 0x01, 0x00, 0x01,
+  };
+  size_t n = kosyncMdnsQuery("covey", 0x1234, q, sizeof(q));
+  ok(n == sizeof(WANT_Q) && !memcmp(q, WANT_Q, n), "'covey' asks for covey.local, A, IN, no QU bit");
+  n = kosyncMdnsQuery("covey.local", 0x1234, q, sizeof(q));
+  ok(n == sizeof(WANT_Q) && !memcmp(q, WANT_Q, n),
+     "'covey.local' is the SAME query — two labels, never the one label 'covey.local'");
+  ok(kosyncMdnsQuery("covey.local", 1, q, sizeof(WANT_Q) - 1) == 0, "no room: nothing");
+  ok(kosyncMdnsQuery("kosync.example.com", 1, q, sizeof(q)) == 0, "not an mDNS name: nothing");
+  char big[80];
+  memset(big, 'a', 64);
+  big[64] = '\0';
+  ok(kosyncMdnsQuery(big, 1, q, sizeof(q)) == 0, "a 64-byte label: nothing");
+
+  group("home= by name: reading the answer");
+  eqInt(kosyncMdnsAnswer(AVAHI_ANSWER, sizeof(AVAHI_ANSWER), "covey.local", 0x1234),
+        ip4(192, 168, 1, 55), "avahi's legacy unicast answer (compressed name)");
+  eqInt(kosyncMdnsAnswer(AVAHI_ANSWER, sizeof(AVAHI_ANSWER), "Covey", 0x1234), ip4(192, 168, 1, 55),
+        "asked as the bare label, in another case");
+  eqInt(kosyncMdnsAnswer(AVAHI_ANSWER, sizeof(AVAHI_ANSWER), "covey.local", 0x1235), 0,
+        "another query's id: not ours");
+  eqInt(kosyncMdnsAnswer(AVAHI_ANSWER, sizeof(AVAHI_ANSWER), "other.local", 0x1234), 0,
+        "another host's address: not ours");
+  uint8_t pkt[sizeof(AVAHI_ANSWER) + 64];
+  memcpy(pkt, AVAHI_ANSWER, sizeof(AVAHI_ANSWER));
+  pkt[2] = 0x00;
+  eqInt(kosyncMdnsAnswer(pkt, sizeof(AVAHI_ANSWER), "covey.local", 0x1234), 0,
+        "our own query looped back (QR clear) is not an answer");
+  memcpy(pkt, AVAHI_ANSWER, sizeof(AVAHI_ANSWER));
+  pkt[33] = 0x80;                             // class 0x8001: the cache-flush bit
+  eqInt(kosyncMdnsAnswer(pkt, sizeof(AVAHI_ANSWER), "covey.local", 0x1234), ip4(192, 168, 1, 55),
+        "the cache-flush bit is ignored");
+  memcpy(pkt, AVAHI_ANSWER, sizeof(AVAHI_ANSWER));
+  pkt[35] = pkt[36] = pkt[37] = pkt[38] = 0;  // TTL 0: a goodbye
+  eqInt(kosyncMdnsAnswer(pkt, sizeof(AVAHI_ANSWER), "covey.local", 0x1234), 0,
+        "a goodbye (TTL 0) withdraws the address, it does not give one");
+  memcpy(pkt, AVAHI_ANSWER, sizeof(AVAHI_ANSWER));
+  pkt[32] = 0x1C;                             // type 28: AAAA
+  eqInt(kosyncMdnsAnswer(pkt, sizeof(AVAHI_ANSWER), "covey.local", 0x1234), 0, "an AAAA only: none");
+  // In the ADDITIONAL section (AN 0, AR 1), the name written out in full, upper case.
+  static const uint8_t ADDITIONAL[] = {
+    0x00, 0x07, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+    0x05, 'C', 'O', 'V', 'E', 'Y', 0x05, 'L', 'O', 'C', 'A', 'L', 0x00,
+    0x00, 0x01, 0x80, 0x01, 0x00, 0x00, 0x00, 0x78, 0x00, 0x04, 10, 0, 0, 7,
+  };
+  eqInt(kosyncMdnsAnswer(ADDITIONAL, sizeof(ADDITIONAL), "covey.local", 7), ip4(10, 0, 0, 7),
+        "an A record in the additional section, no question, full upper-case name");
+  // Two records: another host's A first, then ours.
+  static const uint8_t TWO[] = {
+    0x00, 0x09, 0x84, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
+    0x03, 'n', 'a', 's', 0x05, 'l', 'o', 'c', 'a', 'l', 0x00,
+    0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x04, 192, 168, 1, 9,
+    0x05, 'c', 'o', 'v', 'e', 'y', 0xC0, 0x10,  // "covey" + a pointer to "local"
+    0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x04, 192, 168, 1, 55,
+  };
+  eqInt(kosyncMdnsAnswer(TWO, sizeof(TWO), "covey", 9), ip4(192, 168, 1, 55),
+        "ours after another's, with a mid-name pointer");
+  eqInt(kosyncMdnsAnswer(TWO, sizeof(TWO), "nas.local", 9), ip4(192, 168, 1, 9), "and the other");
+  // A record whose name is far too long to be ours comes first: it is skipped, not the end.
+  {
+    uint8_t lp[400];
+    size_t k = 0;
+    const uint8_t hdr[12] = { 0x00, 0x05, 0x84, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00 };
+    memcpy(lp, hdr, 12);
+    k = 12;
+    for (int i = 0; i < 3; i++) {             // 3 labels of 60: a 180-character name
+      lp[k++] = 60;
+      memset(lp + k, 'x', 60);
+      k += 60;
+    }
+    lp[k++] = 0;
+    const uint8_t rr1[14] = { 0x00, 0x01, 0x00, 0x01, 0, 0, 0, 10, 0x00, 0x04, 9, 9, 9, 9 };
+    memcpy(lp + k, rr1, 14);
+    k += 14;
+    const uint8_t rr2[] = { 0x05, 'c', 'o', 'v', 'e', 'y', 0x05, 'l', 'o', 'c', 'a', 'l', 0x00,
+                            0x00, 0x01, 0x00, 0x01, 0, 0, 0, 10, 0x00, 0x04, 192, 168, 1, 55 };
+    memcpy(lp + k, rr2, sizeof(rr2));
+    k += sizeof(rr2);
+    eqInt(kosyncMdnsAnswer(lp, k, "covey.local", 5), ip4(192, 168, 1, 55),
+          "a 180-character name first: skipped, and ours after it still found");
+  }
+  // A pointer that points at itself must end, not spin.
+  static const uint8_t LOOP[] = {
+    0x00, 0x01, 0x84, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+    0xC0, 0x0C, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x04, 1, 2, 3, 4,
+  };
+  eqInt(kosyncMdnsAnswer(LOOP, sizeof(LOOP), "covey.local", 1), 0, "a pointer loop: none, and it ends");
+  // Every truncation of a good answer: never an address from half a record, never a read past
+  // the end (ASan watches this: each copy is a heap block of exactly that length).
+  bool allClean = true;
+  for (size_t cut = 0; cut < sizeof(AVAHI_ANSWER); cut++) {
+    uint8_t* h = (uint8_t*)malloc(cut ? cut : 1);
+    memcpy(h, AVAHI_ANSWER, cut);
+    allClean = allClean && kosyncMdnsAnswer(h, cut, "covey.local", 0x1234) == 0;
+    free(h);
+  }
+  ok(allClean, "every truncated answer: none (and no over-read)");
+  memcpy(pkt, AVAHI_ANSWER, sizeof(AVAHI_ANSWER));
+  pkt[39] = 0;
+  pkt[40] = 60;                               // rdlength 60: past the end
+  eqInt(kosyncMdnsAnswer(pkt, sizeof(AVAHI_ANSWER), "covey.local", 0x1234), 0, "rdlength past the end");
+
+  group("home= by name: once per WiFi join, and what it falls back to");
+  KosyncHomeAddr a;
+  memset(&a, 0, sizeof(a));
+  const uint32_t C55 = ip4(192, 168, 1, 55), C77 = ip4(192, 168, 1, 77), HOT = ip4(172, 20, 10, 3);
+  bool fb = false, ch = false;
+  eqInt(kosyncHomePlan(&a, "192.168.1.55", "SmithWifi", 1, &ip), KOSYNC_HOME_USE, "an IP: used as it is");
+  eqInt(ip, C55, "...that address");
+  eqInt(kosyncHomePlan(&a, "covey.local", "SmithWifi", 1, &ip), KOSYNC_HOME_LOOKUP,
+        "a name, nothing known: look it up");
+  eqInt(kosyncHomeLooked(&a, "covey.local", "SmithWifi", 1, C55, &fb, &ch), C55, "answered: used");
+  ok(!fb && ch, "not a fallback; the saved copy must be written");
+  eqInt(kosyncHomePlan(&a, "covey.local", "SmithWifi", 1, &ip), KOSYNC_HOME_USE,
+        "the next job on the SAME join: no lookup");
+  eqInt(ip, C55, "...the answer");
+  eqInt(kosyncHomePlan(&a, "covey.local", "SmithWifi", 2, &ip), KOSYNC_HOME_LOOKUP,
+        "a NEW join (a blip, a reboot of the router): look again");
+  eqInt(kosyncHomeLooked(&a, "covey.local", "SmithWifi", 2, C55, &fb, &ch), C55, "same answer");
+  ok(!ch, "same answer: nothing to write");
+  eqInt(kosyncHomePlan(&a, "COVEY.local", "SmithWifi", 2, &ip), KOSYNC_HOME_USE,
+        "home= in another case is the same name");
+  eqInt(kosyncHomePlan(&a, "covey.local", "NickH-wifi", 2, &ip), KOSYNC_HOME_LOOKUP,
+        "another SSID: look it up there");
+  eqInt(kosyncHomeLooked(&a, "covey.local", "NickH-wifi", 2, 0, &fb, &ch), 0,
+        "...no answer there: NO fallback to the other network's address");
+  ok(!fb, "not a fallback");
+  eqInt(kosyncHomePlan(&a, "nas.local", "SmithWifi", 2, &ip), KOSYNC_HOME_LOOKUP,
+        "home= changed: look it up");
+  eqInt(kosyncHomeLooked(&a, "nas.local", "SmithWifi", 2, 0, &fb, &ch), 0,
+        "...and a new name never falls back to the old name's address");
+
+  group("home= by name: the fallback, and a job that gives up");
+  eqInt(kosyncHomePlan(&a, "covey.local", "SmithWifi", 3, &ip), KOSYNC_HOME_LOOKUP, "join 3: look");
+  eqInt(kosyncHomeLooked(&a, "covey.local", "SmithWifi", 3, 0, &fb, &ch), C55,
+        "nobody answered (a lost multicast, avahi renamed to covey-2): the LAST address");
+  ok(fb && !ch, "said to be a fallback; nothing to write");
+  eqInt(kosyncHomePlan(&a, "covey.local", "SmithWifi", 3, &ip), KOSYNC_HOME_LOOKUP,
+        "an unconfirmed fallback is not trusted for the next job");
+  kosyncHomeReached(&a, "covey.local", "SmithWifi", 3, C55);
+  eqInt(kosyncHomePlan(&a, "covey.local", "SmithWifi", 3, &ip), KOSYNC_HOME_USE,
+        "...until it gets an HTTP answer: then no lookup for the rest of the join");
+  kosyncHomeGaveUp(&a, C77);
+  eqInt(kosyncHomePlan(&a, "covey.local", "SmithWifi", 3, &ip), KOSYNC_HOME_USE,
+        "giving up on ANOTHER address changes nothing");
+  kosyncHomeGaveUp(&a, C55);
+  eqInt(kosyncHomePlan(&a, "covey.local", "SmithWifi", 3, &ip), KOSYNC_HOME_LOOKUP,
+        "a job gave up on it: the next job looks again, same join or not");
+  eqInt(kosyncHomeLooked(&a, "covey.local", "SmithWifi", 3, C77, &fb, &ch), C77,
+        "COVEY moved (a lease ran out): the new address");
+  ok(!fb && ch, "and it is saved");
+  eqInt(kosyncHomePlan(&a, "covey.local", "SmithWifi", 3, &ip), KOSYNC_HOME_USE, "trusted again");
+  eqInt(ip, C77, "...the new one");
+  eqInt(kosyncHomeLooked(&a, "covey.local", "NickH-wifi", 4, HOT, &fb, &ch), HOT,
+        "found on the hotspot: that network's address replaces it");
+  eqInt(kosyncHomePlan(&a, "covey.local", "SmithWifi", 5, &ip), KOSYNC_HOME_LOOKUP, "home again: look");
+  eqInt(kosyncHomeLooked(&a, "covey.local", "SmithWifi", 5, 0, &fb, &ch), 0,
+        "...and one network's address is never tried on another");
+  kosyncHomeReached(&a, "covey.local", "SmithWifi", 5, HOT);
+  eqInt(kosyncHomePlan(&a, "covey.local", "SmithWifi", 5, &ip), KOSYNC_HOME_LOOKUP,
+        "an answer from an address for another network confirms nothing");
+  eqInt(kosyncHomePlan(&a, "covey.local", "NickH-wifi", 0, &ip), KOSYNC_HOME_LOOKUP,
+        "association 0 (none counted yet) never matches");
+
+  group("home= by name: kept across a restart");
+  uint8_t blob[KOSYNC_HOME_BLOB_BYTES + 8];
+  KosyncHomeAddr b;
+  memset(&a, 0, sizeof(a));
+  eqInt((long long)kosyncHomePack(&a, blob, sizeof(blob)), 0, "nothing known: nothing written");
+  kosyncHomeLooked(&a, "covey.local", "SmithWifi", 9, C55, &fb, &ch);
+  eqInt((long long)kosyncHomePack(&a, blob, sizeof(blob)), KOSYNC_HOME_BLOB_BYTES, "packed");
+  ok(kosyncHomeUnpack(&b, blob, KOSYNC_HOME_BLOB_BYTES), "read back");
+  ok(!strcmp(b.host, "covey.local") && !strcmp(b.ssid, "SmithWifi") && b.ip == C55, "the same");
+  eqInt(kosyncHomePlan(&b, "covey.local", "SmithWifi", 1, &ip), KOSYNC_HOME_LOOKUP,
+        "after a restart it is only a FALLBACK: the first job looks the name up");
+  eqInt(kosyncHomeLooked(&b, "covey.local", "SmithWifi", 1, 0, &fb, &ch), C55,
+        "...and, unanswered, falls back to it");
+  ok(!kosyncHomeUnpack(&b, blob, KOSYNC_HOME_BLOB_BYTES - 1) && !b.ip, "a short blob: empty");
+  blob[0] = 'X';
+  ok(!kosyncHomeUnpack(&b, blob, KOSYNC_HOME_BLOB_BYTES) && !b.host[0], "another magic: empty");
+  blob[0] = 'K';
+  memset(blob + 4, 'z', KOSYNC_HOST_MAX);     // no NUL in the host field
+  ok(!kosyncHomeUnpack(&b, blob, KOSYNC_HOME_BLOB_BYTES), "an unterminated field: empty");
+}
+
+static void testProblemsKept() {
+  group("the window's warnings: a re-read clears them only when asked for or the file changed");
+  KosyncConfig c1, c2;
+  const char* f1 = "user=nick\npassword=correct horse battery\nhome=covey.local:8088\nauto=on\n";
+  const char* f1b = "# edited, same meaning\r\n\r\nuser = nick\r\npassword=correct horse battery\r\n"
+                    "home=http://covey.local:8088/\r\nauto=yes\r\n";
+  const char* f2 = "user=nick\npassword=correct horse staple\nhome=covey.local:8088\nauto=on\n";
+  const char* f3 = "user=nick\npassword=correct horse battery\nhome=192.168.1.55:8088\nauto=on\n";
+  kosyncParseConfig(f1, strlen(f1), &c1);
+  kosyncParseConfig(f1b, strlen(f1b), &c2);
+  eqInt(kosyncConfigSig(&c1), kosyncConfigSig(&c2), "comments, spacing and spelling: the same config");
+  kosyncParseConfig(f2, strlen(f2), &c2);
+  ok(kosyncConfigSig(&c1) != kosyncConfigSig(&c2), "a new password: another config");
+  kosyncParseConfig(f3, strlen(f3), &c2);
+  ok(kosyncConfigSig(&c1) != kosyncConfigSig(&c2), "a new home=: another config");
+  const char* f4 = "user=nick\npassword=correct horse battery\nhome=covey.local:8088\nauto=off\n";
+  KosyncConfig c4;
+  kosyncParseConfig(f4, strlen(f4), &c4);
+  ok(kosyncConfigSig(&c1) != kosyncConfigSig(&c4), "a switch turned off: another config");
+  const KosyncConfig none = KosyncConfig();
+  ok(kosyncConfigSig(&c1) != kosyncConfigSig(&none), "the file taken away (nothing read): another config");
+  const uint32_t s1 = kosyncConfigSig(&c1), s2 = kosyncConfigSig(&c2);
+  ok(!kosyncReloadClears(false, true, s1, s1),
+     "the re-read on every Books entry / Sync settings visit, file unchanged: KEPT");
+  ok(kosyncReloadClears(false, true, s1, s2), "the file changed since the last read: cleared");
+  ok(kosyncReloadClears(true, true, s1, s1), "serial `kosync reload`: cleared");
+  ok(!kosyncReloadClears(false, false, 0, s1), "the first read of the boot: nothing to clear");
+}
+
 int main() {
   testMd5();
   testDocIds();
@@ -1731,6 +1979,8 @@ int main() {
   testMemo();
   testClientAndTransport();
   testProblemsAndLibrary();
+  testHomeByName();
+  testProblemsKept();
   testCapsAndBigText();
   testGolden();
   printf("\n%s%d passed, %d failed\033[0m\n", g_fail ? "\033[31m" : "\033[32m", g_pass, g_fail);

@@ -284,6 +284,80 @@ bool   kosyncMemoUnpack(KosyncMemo* m, const uint8_t* in, size_t len);
 #define KOSYNC_CLIENT_TRIES 3
 uint32_t kosyncRetryDelayMs(int failures);
 
+// ---------------------------------------------------------------- home= by NAME
+/* WHY A NAME: COVEY's address is the router's DHCP lease (no reservation, HANDOFF
+ * 2026-09-24), so home=192.168.1.55:8088 goes stale — silently: "no answer (3 tries)" — the
+ * day the lease moves. avahi on COVEY already publishes covey.local, and follows it onto any
+ * network (192.168.89.1 on its own hotspot).
+ *
+ * home=covey.local (or the bare home=covey) is asked of the LAN by a ONE-SHOT multicast DNS
+ * query (RFC 6762 §5.1) sent from an ordinary UDP port. Every responder there (avahi on COVEY,
+ * a Mac) answers such a query by UNICAST to the asking port (§6.7), so the lookup is one polled
+ * socket and the loop never waits on it. A dotted name that is not .local goes to lwIP's own
+ * resolver the same way (kosync_sync.cpp), and an IP literal is used as it is.
+ *
+ * 🛑 NOT resolveDomain(). It BLOCKS the loop (mdnsResponder.queryHost waits 500 ms for a name
+ *    nobody answers), and a .local name NEVER resolved through it: this core's mdns_query_a()
+ *    takes the BARE host label and adds "local" itself (IDF 3.3's _mdns_search_init only
+ *    strndup()s the name; libmdns.a imports no strchr/strstr/strtok, and its own console
+ *    prints "Query A: %s.local") — so "covey.local" went on the air as the ONE label
+ *    "covey.local" under .local, which no responder answers. lwIP (LWIP_DNS_SUPPORT_MDNS_QUERIES
+ *    is 0 in this core) then asked the router, which has never heard of it. Every book open and
+ *    close on WiFi blocked the loop (500 ms of mDNS, then a DNS round trip) and ended "Home:
+ *    'covey.local' not found". (Read from the code and libmdns.a, 2026-09-25 — never seen on a
+ *    phone: both used an IP.) */
+#define KOSYNC_MDNS_PORT 5353
+bool     kosyncParseIp(const char* host, uint32_t* ip);   // dotted quad -> wire-order bytes
+bool     kosyncHostIsMdns(const char* host);              // one label, or ending in .local
+/* The query for `host`'s A record ("covey" and "covey.local" both ask for covey.local): our
+ * `id`, one question, QTYPE A, QCLASS IN, no QU bit (the port already says "answer me
+ * unicast"). Returns the length, 0 when `host` is not an mDNS name or does not fit. */
+size_t   kosyncMdnsQuery(const char* host, uint16_t id, uint8_t* out, size_t cap);
+/* The IPv4 address an answer gives for `host`, as the 4 wire bytes memcpy'd into a uint32_t
+ * (the representation IPAddress and sin_addr use); 0 when it gives none. Only a RESPONSE
+ * carrying our `id` counts (our own query looped back is not one), and only an A record for
+ * that very name — in any section, class IN with the cache-flush bit ignored, rdlength 4, TTL
+ * not 0 (a goodbye) — with names compared case-insensitively and compression followed. Never
+ * reads past `len`, whatever the packet says. */
+uint32_t kosyncMdnsAnswer(const uint8_t* pkt, size_t len, const char* host, uint16_t id);
+
+/* ── WHAT THE PHONE KNOWS OF home='s ADDRESS ───────────────────────────────────────────────
+ * A NAME is looked up at most once per WiFi ASSOCIATION (the first home job after each
+ * GOT_IP — `assoc` is any number that changes with each one, 0 = none yet; the phone uses
+ * lastWifiLinkUpMs(), the GOT_IP stamp) and the answer is used until the association
+ * changes, the SSID changes, home= changes, or a job gives up on the address.
+ * A lookup nobody answers FALLS BACK to the address last found for the same home= on the same
+ * SSID — kept across a restart — so one lost multicast, or avahi renaming COVEY to
+ * covey-2.local after a name clash, does not strand a push the address would still deliver.
+ * A fallback that then gets an HTTP answer is trusted for the rest of that association.
+ * An IP literal is used as it is: nothing looked up, nothing remembered. */
+struct KosyncHomeAddr {
+  char     host[KOSYNC_HOST_MAX];            // the home= it is for ("" = nothing known)
+  char     ssid[33];                         // the network it was found on
+  uint32_t ip;                               // wire-order bytes; 0 = none
+  uint32_t assoc;                            // the association it is good for; 0 = none yet
+  bool     stale;                            // a job gave up on it: look again first
+};
+enum KosyncHomePlan { KOSYNC_HOME_USE = 0, KOSYNC_HOME_LOOKUP };
+/* What a job does first: USE `*ip` (an IP literal, or a name already answered for this
+ * home=, SSID and association), or LOOKUP. */
+int      kosyncHomePlan(const KosyncHomeAddr* a, const char* host, const char* ssid,
+                        uint32_t assoc, uint32_t* ip);
+/* A lookup ended; `answer` 0 = nobody answered. Returns the address to use — the answer, or
+ * the fallback (*fallback set) — or 0 for none. An answer is recorded, and *changed says the
+ * persisted copy (kosyncHomePack) differs from what is now known: write it. */
+uint32_t kosyncHomeLooked(KosyncHomeAddr* a, const char* host, const char* ssid, uint32_t assoc,
+                          uint32_t answer, bool* fallback, bool* changed);
+// `ip` gave an HTTP answer (any status): good for this association, no lookup until the next.
+void     kosyncHomeReached(KosyncHomeAddr* a, const char* host, const char* ssid, uint32_t assoc,
+                           uint32_t ip);
+// A job gave up with no answer from `ip`: the next job looks the name up again first.
+void     kosyncHomeGaveUp(KosyncHomeAddr* a, uint32_t ip);
+// Persisted: "KSH1", home= (64), SSID (33), ip (4). assoc/stale are not: a restart looks again.
+#define KOSYNC_HOME_BLOB_BYTES (4 + KOSYNC_HOST_MAX + 33 + 4)
+size_t   kosyncHomePack(const KosyncHomeAddr* a, uint8_t* out, size_t cap);
+bool     kosyncHomeUnpack(KosyncHomeAddr* a, const uint8_t* in, size_t len);
+
 // ---------------------------------------------------------------- the window's transport
 /* A window on the phone's WiFi address outlives that WiFi unless someone checks. Checked
  * once a second while a window is on the station, AND by a new ask for a window: OK; BLIP
@@ -315,6 +389,22 @@ bool kosyncWindowWaitsForSta(bool radioOff, bool userDisabled, bool staMode, uin
  * id), and requests with the wrong user/password. "" when neither happened. */
 size_t kosyncWindowProblems(uint32_t otherBook, const char* docId, uint32_t unauth,
                             char* out, size_t cap);
+
+/* ── THE WINDOW'S WARNINGS, AND WHAT CLEARS THEM ──────────────────────────────────────────
+ * Kept after the window closes — a person looks at Sync settings AFTER the X4 has said
+ * "Upload complete" — and cleared by exactly two things: a NEW window (not the open one being
+ * extended for the same book), and a re-read of kosync.txt that was ASKED FOR (serial
+ * `kosync reload`) or that finds the file now SAYS something else (kosyncConfigSig).
+ * 🛑 NOT BY EVERY RE-READ. Books re-reads the file on every entry and Sync settings on every
+ *    visit (app_books.cpp), so clearing there would wipe the warning on the way to the one
+ *    screen that shows it. Before this, nothing but a new window cleared them: the last
+ *    night's bench warnings survived `kosync reload`. */
+struct KosyncConfig;                         // (the config section, below)
+/* What a config says, as a number: every field kosyncParseConfig fills. Comments, blank lines
+ * and spacing do not change it; the password (as its MD5), home=, device= and the switches do. */
+uint32_t kosyncConfigSig(const KosyncConfig* c);
+// Does this re-read clear the warnings? Asked for, or the file changed since the last read.
+bool   kosyncReloadClears(bool asked, bool readBefore, uint32_t sigBefore, uint32_t sigNow);
 
 // ---------------------------------------------------------------- the Books library
 /* Settings files that live beside the books and are NOT books: /books/kosync.txt (it holds
@@ -363,7 +453,9 @@ uint32_t kosyncClockRemainingMs(const KosyncWindowClock* c, uint32_t now);
 /* key=value lines, '#' comments on their OWN lines:
  *   user=<name>            the ONE KOSync account shared by all your devices
  *   password=<secret>      stored only as its MD5 (what goes on the wire); or key=<32 hex>
- *   home=<host or IP>[:port]   the server at home (COVEY: port 8088); http only, no https
+ *   home=<host or IP>[:port]   the server at home (COVEY: port 8088); http only, no https.
+ *                          A name (covey.local, or just covey) is looked up on the WiFi once
+ *                          per join, without stopping the phone — see kosyncHomePlan
  *   device=<name>          what this phone calls itself (default "WiPhone-<device name>")
  *   auto=on|off            open a window (and push home) when a book is closed
  *   open_window=on|off     open a 60 s window when a book is opened while off WiFi

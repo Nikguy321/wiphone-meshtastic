@@ -835,6 +835,313 @@ uint32_t kosyncRetryDelayMs(int failures) {
   return WAIT[failures - 1];
 }
 
+// ---------------------------------------------------------------- home= by NAME
+bool kosyncParseIp(const char* host, uint32_t* ip) {
+  if (!host || !host[0]) {
+    return false;
+  }
+  uint8_t b[4];
+  const char* p = host;
+  for (int i = 0; i < 4; i++) {
+    if (*p < '0' || *p > '9') {
+      return false;
+    }
+    unsigned v = 0;
+    int digits = 0;
+    while (*p >= '0' && *p <= '9') {
+      v = v * 10u + (unsigned)(*p - '0');
+      if (++digits > 3 || v > 255u) {
+        return false;
+      }
+      p++;
+    }
+    b[i] = (uint8_t)v;
+    if (i < 3 && *p++ != '.') {
+      return false;
+    }
+  }
+  if (*p) {
+    return false;
+  }
+  if (ip) {
+    memcpy(ip, b, 4);                         // wire order, as IPAddress holds it
+  }
+  return true;
+}
+
+/* The labels of an mDNS name, into `lab` as (start, length) pairs, with ".local" appended when
+ * `host` is one bare label. False for anything that is not one: an IP, an empty label, a label
+ * over 63 bytes, a dotted name not ending in .local, or more than 8 labels. */
+static int ksMdnsLabels(const char* host, const char* lab[8], uint8_t len[8]) {
+  if (!host || !host[0] || kosyncParseIp(host, NULL)) {
+    return 0;
+  }
+  size_t hl = strlen(host);
+  if (host[hl - 1] == '.') {
+    hl--;                                     // "covey.local." — the FQDN spelling
+  }
+  int n = 0;
+  size_t i = 0;
+  while (i < hl) {
+    size_t j = i;
+    while (j < hl && host[j] != '.') {
+      j++;
+    }
+    if (j == i || j - i > 63 || n == 8) {
+      return 0;
+    }
+    lab[n] = host + i;
+    len[n] = (uint8_t)(j - i);
+    n++;
+    i = j + 1;
+    if (j == hl - 1 && host[j] == '.') {
+      return 0;                               // "covey..local": an empty label
+    }
+  }
+  if (n == 0 || hl > KOSYNC_HOST_MAX + 8) {
+    return 0;                                 // longer than home= can hold
+  }
+  if (n == 1) {
+    lab[1] = "local";
+    len[1] = 5;
+    return 2;
+  }
+  return ksEqNoCase(lab[n - 1], len[n - 1], "local") ? n : 0;
+}
+
+bool kosyncHostIsMdns(const char* host) {
+  const char* lab[8];
+  uint8_t len[8];
+  return ksMdnsLabels(host, lab, len) > 0;
+}
+
+size_t kosyncMdnsQuery(const char* host, uint16_t id, uint8_t* out, size_t cap) {
+  const char* lab[8];
+  uint8_t len[8];
+  const int n = ksMdnsLabels(host, lab, len);
+  if (!n || !out) {
+    return 0;
+  }
+  size_t need = 12 + 1 + 4;
+  for (int i = 0; i < n; i++) {
+    need += 1 + len[i];
+  }
+  if (need > cap || need - 16 > 255) {
+    return 0;
+  }
+  memset(out, 0, 12);
+  out[0] = (uint8_t)(id >> 8);
+  out[1] = (uint8_t)id;
+  out[5] = 1;                                 // QDCOUNT 1; flags 0: a standard query
+  size_t k = 12;
+  for (int i = 0; i < n; i++) {
+    out[k++] = len[i];
+    memcpy(out + k, lab[i], len[i]);
+    k += len[i];
+  }
+  out[k++] = 0;
+  out[k++] = 0; out[k++] = 1;                 // QTYPE A
+  out[k++] = 0; out[k++] = 1;                 // QCLASS IN, QU bit clear
+  return k;
+}
+
+/* Read the name at `off` into `out` as lower-case dotted text ("covey.local"), following
+ * compression pointers. Returns the offset just past the name AS WRITTEN at `off` (a pointer
+ * ends it), or 0 when it runs off the packet or loops. A name longer than `cap` is walked to
+ * its end all the same and comes back as "" — it is not ours, and the records after it still
+ * count. */
+static size_t ksDnsName(const uint8_t* pkt, size_t len, size_t off, char* out, size_t cap) {
+  size_t o = 0, end = 0;
+  bool fits = true;
+  int jumps = 0;
+  for (;;) {
+    if (off >= len) {
+      return 0;
+    }
+    const uint8_t c = pkt[off];
+    if (c == 0) {
+      if (!end) {
+        end = off + 1;
+      }
+      break;
+    }
+    if ((c & 0xC0) == 0xC0) {
+      if (off + 1 >= len || ++jumps > 16) {
+        return 0;                             // off the end, or a loop
+      }
+      if (!end) {
+        end = off + 2;
+      }
+      off = ((size_t)(c & 0x3F) << 8) | pkt[off + 1];
+      continue;
+    }
+    if (c & 0xC0) {
+      return 0;                               // the reserved label types
+    }
+    if (off + 1 + c > len) {
+      return 0;
+    }
+    if (o + c + 2 > cap) {
+      fits = false;                           // too long to be ours: keep walking, keep nothing
+    }
+    if (fits) {
+      if (o) {
+        out[o++] = '.';
+      }
+      for (size_t i = 0; i < c; i++) {
+        out[o++] = ksLower((char)pkt[off + 1 + i]);
+      }
+    }
+    off += 1 + c;
+  }
+  out[fits ? o : 0] = '\0';
+  return end;
+}
+
+uint32_t kosyncMdnsAnswer(const uint8_t* pkt, size_t len, const char* host, uint16_t id) {
+  const char* lab[8];
+  uint8_t ln[8];
+  const int n = ksMdnsLabels(host, lab, ln);
+  if (!pkt || len < 12 || !n) {
+    return 0;
+  }
+  char want[KOSYNC_HOST_MAX + 16];            // (ksMdnsLabels keeps it to home='s size)
+  size_t w = 0;
+  for (int i = 0; i < n; i++) {
+    if (i) {
+      want[w++] = '.';
+    }
+    for (size_t j = 0; j < ln[i]; j++) {
+      want[w++] = ksLower(lab[i][j]);
+    }
+  }
+  want[w] = '\0';
+  if ((((uint16_t)pkt[0] << 8) | pkt[1]) != id || !(pkt[2] & 0x80)) {
+    return 0;                                 // not our query's answer, or not an answer at all
+  }
+  const unsigned qd = ((unsigned)pkt[4] << 8) | pkt[5];
+  const unsigned rr = (((unsigned)pkt[6] << 8) | pkt[7]) + (((unsigned)pkt[8] << 8) | pkt[9]) +
+                      (((unsigned)pkt[10] << 8) | pkt[11]);
+  size_t off = 12;
+  char name[KOSYNC_HOST_MAX + 32];
+  for (unsigned i = 0; i < qd; i++) {
+    const size_t e = ksDnsName(pkt, len, off, name, sizeof(name));
+    if (!e || e + 4 > len) {
+      return 0;
+    }
+    off = e + 4;
+  }
+  for (unsigned i = 0; i < rr; i++) {
+    const size_t e = ksDnsName(pkt, len, off, name, sizeof(name));
+    if (!e || e + 10 > len) {
+      return 0;
+    }
+    const uint8_t* r = pkt + e;
+    const unsigned type = ((unsigned)r[0] << 8) | r[1];
+    const unsigned cls = (((unsigned)r[2] << 8) | r[3]) & 0x7FFFu;   // the cache-flush bit
+    const uint32_t ttl = ((uint32_t)r[4] << 24) | ((uint32_t)r[5] << 16) | ((uint32_t)r[6] << 8) | r[7];
+    const unsigned rdlen = ((unsigned)r[8] << 8) | r[9];
+    if (e + 10 + rdlen > len) {
+      return 0;
+    }
+    if (type == 1 && cls == 1 && rdlen == 4 && ttl != 0 && !strcmp(name, want)) {
+      uint32_t ip;
+      memcpy(&ip, r + 10, 4);
+      if (ip) {
+        return ip;
+      }
+    }
+    off = e + 10 + rdlen;
+  }
+  return 0;
+}
+
+static bool ksSameHome(const KosyncHomeAddr* a, const char* host, const char* ssid) {
+  return a->ip && ksEqNoCase(a->host, strlen(a->host), host ? host : "") &&
+         !strcmp(a->ssid, ssid ? ssid : "");
+}
+
+int kosyncHomePlan(const KosyncHomeAddr* a, const char* host, const char* ssid, uint32_t assoc,
+                   uint32_t* ip) {
+  uint32_t lit = 0;
+  if (kosyncParseIp(host, &lit)) {
+    *ip = lit;
+    return KOSYNC_HOME_USE;
+  }
+  if (a && assoc && a->assoc == assoc && !a->stale && ksSameHome(a, host, ssid)) {
+    *ip = a->ip;
+    return KOSYNC_HOME_USE;
+  }
+  *ip = 0;
+  return KOSYNC_HOME_LOOKUP;
+}
+
+uint32_t kosyncHomeLooked(KosyncHomeAddr* a, const char* host, const char* ssid, uint32_t assoc,
+                          uint32_t answer, bool* fallback, bool* changed) {
+  *fallback = false;
+  *changed = false;
+  if (answer) {
+    *changed = !ksSameHome(a, host, ssid) || a->ip != answer || strcmp(a->host, host) != 0;
+    ksCopy(a->host, sizeof(a->host), host);
+    ksCopy(a->ssid, sizeof(a->ssid), ssid);
+    a->ip = answer;
+    a->assoc = assoc;
+    a->stale = false;
+    return answer;
+  }
+  if (ksSameHome(a, host, ssid)) {
+    *fallback = true;                         // unconfirmed: kosyncHomeReached confirms it
+    return a->ip;
+  }
+  return 0;
+}
+
+void kosyncHomeReached(KosyncHomeAddr* a, const char* host, const char* ssid, uint32_t assoc,
+                       uint32_t ip) {
+  if (kosyncParseIp(host, NULL) || !ip || a->ip != ip || !ksSameHome(a, host, ssid)) {
+    return;
+  }
+  a->assoc = assoc;
+  a->stale = false;
+}
+
+void kosyncHomeGaveUp(KosyncHomeAddr* a, uint32_t ip) {
+  if (ip && a->ip == ip) {
+    a->stale = true;
+  }
+}
+
+size_t kosyncHomePack(const KosyncHomeAddr* a, uint8_t* out, size_t cap) {
+  if (!a || !out || cap < KOSYNC_HOME_BLOB_BYTES || !a->ip || !a->host[0]) {
+    return 0;
+  }
+  memset(out, 0, KOSYNC_HOME_BLOB_BYTES);
+  memcpy(out, "KSH1", 4);
+  ksCopy((char*)out + 4, KOSYNC_HOST_MAX, a->host);
+  ksCopy((char*)out + 4 + KOSYNC_HOST_MAX, 33, a->ssid);
+  memcpy(out + 4 + KOSYNC_HOST_MAX + 33, &a->ip, 4);
+  return KOSYNC_HOME_BLOB_BYTES;
+}
+
+bool kosyncHomeUnpack(KosyncHomeAddr* a, const uint8_t* in, size_t len) {
+  if (!a) {
+    return false;
+  }
+  memset(a, 0, sizeof(*a));
+  if (!in || len != KOSYNC_HOME_BLOB_BYTES || memcmp(in, "KSH1", 4) != 0 ||
+      !memchr(in + 4, 0, KOSYNC_HOST_MAX) || !memchr(in + 4 + KOSYNC_HOST_MAX, 0, 33)) {
+    return false;
+  }
+  memcpy(a->host, in + 4, KOSYNC_HOST_MAX);
+  memcpy(a->ssid, in + 4 + KOSYNC_HOST_MAX, 33);
+  memcpy(&a->ip, in + 4 + KOSYNC_HOST_MAX + 33, 4);
+  if (!a->host[0] || !a->ip) {
+    memset(a, 0, sizeof(*a));
+    return false;
+  }
+  return true;                                // assoc 0: good for no association until looked up
+}
+
 // ---------------------------------------------------------------- the window's transport
 int kosyncStationWindowCheck(bool switchedOff, bool connected, uint32_t ipNow, uint32_t ipOpened,
                              uint32_t* lostSinceMs, uint32_t now, uint32_t graceMs) {
@@ -883,6 +1190,10 @@ size_t kosyncWindowProblems(uint32_t otherBook, const char* docId, uint32_t unau
   }
   snprintf(out, cap, "%s%s%s", a, (a[0] && b[0]) ? "  " : "", b);
   return strlen(out);
+}
+
+bool kosyncReloadClears(bool asked, bool readBefore, uint32_t sigBefore, uint32_t sigNow) {
+  return asked || (readBefore && sigBefore != sigNow);
 }
 
 bool kosyncNotABook(const char* basename) {
@@ -1237,6 +1548,35 @@ bool kosyncParseConfig(const char* text, size_t len, KosyncConfig* out) {
     ksCopy(out->problem, sizeof(out->problem), "password is under 12 characters");
   }
   return true;
+}
+
+static uint32_t ksFnv(uint32_t h, const void* p, size_t n) {
+  const uint8_t* b = (const uint8_t*)p;
+  for (size_t i = 0; i < n; i++) {
+    h = (h ^ b[i]) * 16777619u;
+  }
+  return h;
+}
+
+static uint32_t ksFnvStr(uint32_t h, const char* s) {
+  return ksFnv(h, s, strlen(s) + 1);          // the NUL too: "ab","c" is not "a","bc"
+}
+
+uint32_t kosyncConfigSig(const KosyncConfig* c) {
+  uint32_t h = 2166136261u;
+  const uint8_t flags[4] = { (uint8_t)c->ok, (uint8_t)c->passwordShort, (uint8_t)c->autoOnClose,
+                             (uint8_t)c->openWindow };
+  h = ksFnv(h, flags, sizeof(flags));
+  h = ksFnvStr(h, c->user);
+  h = ksFnvStr(h, c->key);
+  h = ksFnvStr(h, c->home);
+  const uint8_t port[2] = { (uint8_t)(c->homePort >> 8), (uint8_t)c->homePort };
+  h = ksFnv(h, port, sizeof(port));
+  h = ksFnvStr(h, c->device);
+  h = ksFnvStr(h, c->problem);
+  h = ksFnvStr(h, c->hotspotPass);
+  h = ksFnvStr(h, c->hotspotNote);
+  return h;
 }
 
 void kosyncDeviceId(const uint8_t mac[6], char out[KOSYNC_KEY_CHARS]) {
