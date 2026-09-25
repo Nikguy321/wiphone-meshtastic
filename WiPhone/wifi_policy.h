@@ -39,7 +39,10 @@
  *   staConnected   already associated: leave it alone (WiFi.status(), never the `connected`
  *                  flag, which a radio stopped while associated leaves stale-TRUE).
  *   joinYoung      a join started < 10 s ago is still associating: bring the station up but do
- *                  not re-begin under it (the loop's own young-join rule, Networks.cpp).
+ *                  not re-begin under it (the loop's own young-join rule, Networks.cpp). Only
+ *                  while its station RUNS - the gatherer reports false once the station was
+ *                  stopped (a hotspot's mode(AP), a game, disable()), since nothing is then in
+ *                  flight and waiting for the loop's next retry would only delay the rejoin.
  *   longDrySpell   5+ min with no network: come up idle and let the loop's GATED retry join -
  *                  it arms the 30 s quiesce and consults worthAttemptingJoin(); a restore's own
  *                  begin() did neither, so a window close in the car (with auto=on, every book
@@ -67,7 +70,7 @@ struct WifiRestoreIn {
   bool gameActive;     // gGbcActive
   bool softApLive;     // xferServing() && xferUsingAP(): the uploader's or a window's hotspot
   bool staConnected;   // WiFi.status() == WL_CONNECTED
-  bool joinYoung;      // a join started less than 10 s ago
+  bool joinYoung;      // a join started less than 10 s ago AND its station is still running
   bool longDrySpell;   // Networks::inLongDrySpell()
 };
 
@@ -77,6 +80,15 @@ struct WifiRestoreIn {
 static inline bool wifiStationWantedFrom(bool radioOff, bool userDisabled, bool gameActive,
                                          bool softApLive) {
   return !radioOff && !userDisabled && !gameActive && !softApLive;
+}
+
+/* The joinYoung input: is a join still ASSOCIATING? Started less than 10 s ago (`lastJoinMs`: the
+ * attempt stamp, 0 = never) AND its station still running. A join whose station has since been
+ * stopped - a hotspot's mode(AP), a game's disconnect(true), disable() - is not in flight, and
+ * calling it young only made the restore come up idle and wait for the loop's next retry (20 s,
+ * or 3 min after five failures) where a begin() now is right (0.9.79 review). Wrap-safe. */
+static inline bool wifiJoinInFlight(bool staRunning, uint32_t now, uint32_t lastJoinMs) {
+  return staRunning && lastJoinMs != 0 && (uint32_t)(now - lastJoinMs) < 10000u;
 }
 
 static inline WifiRestore wifiRestoreDecision(const WifiRestoreIn& s) {

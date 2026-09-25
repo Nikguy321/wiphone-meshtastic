@@ -208,6 +208,24 @@ int main() {
        "after a standalone Edit > Save (retry disarmed) -> OFF, not a join on an erased config");
   }
 
+  group("wifiJoinInFlight: the joinYoung input (review, 2026-09-25)");
+  {
+    const uint32_t t = 100000u;
+    ok(wifiJoinInFlight(true, t, t - 2000u), "a join 2 s old on a running station -> in flight");
+    ok(!wifiJoinInFlight(false, t, t - 2000u),
+       "the same join after a hotspot's mode(AP) / a game stopped the station -> NOT in flight");
+    ok(!wifiJoinInFlight(true, t, t - 10000u), "10 s old -> no longer young");
+    ok(!wifiJoinInFlight(true, t, 0), "never joined (stamp 0) -> not in flight");
+    ok(wifiJoinInFlight(true, 3000u, 0xFFFFF000u), "young across the millis() wrap");
+    WifiRestoreIn s = base();
+    s.joinYoung = wifiJoinInFlight(false, t, t - 2000u);
+    ok(wifiRestoreDecision(s) == WIFI_RESTORE_JOIN,
+       "a hotspot up and down within 10 s of the loop's join -> JOIN at its close, not a 20 s wait");
+    s.joinYoung = wifiJoinInFlight(true, t, t - 2000u);
+    ok(wifiRestoreDecision(s) == WIFI_RESTORE_UP_IDLE,
+       "left Settings > WiFi 2 s after its Connect (station still up) -> UP_IDLE, no second begin()");
+  }
+
   printf("\n%d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;
 }

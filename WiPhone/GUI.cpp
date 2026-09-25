@@ -6730,6 +6730,17 @@ appEventResult EditNetworkApp::processEvent(EventType event) {
 
     quit = true;
 
+  } else if (LOGIC_BUTTON_OK(event) && focusedWidget == saveButton &&
+             (ssidInput->getText() == NULL || !ssidInput->getText()[0])) {
+
+    /* 🛑 NO SAVE WITH A BLANK SSID (0.9.79 review). The save below queries the INI for "", finds
+     * nothing, adds a section s="" p="" and MOVES THE PREFERRED FLAG ("m") ONTO IT: the saved
+     * network stops being the one the phone boots onto, and networks.ini keeps an empty network
+     * for good. The standalone screen opens blank whenever the driver has no current SSID — after
+     * a reboot with the network Disconnected, for one (wifiSsidDyn is only set by a join or a
+     * save) — so one OK on Save from there was enough. Nothing is written; the screen stays. */
+    log_e("WIFI: Save refused - the SSID is blank (type the network's name first)");
+
   } else if (LOGIC_BUTTON_OK(event) && focusedWidget == saveButton) {
 
     // If "OK" was pressed while one of saveButton selected
@@ -6803,20 +6814,29 @@ appEventResult EditNetworkApp::processEvent(EventType event) {
         ini.store();
       } 
     } else {
-      /* ⚠ A DELIBERATE JOIN TURNS THE SWITCH ON (0.9.79). connectTo() clears userDisabled but
+      /* ⚠ A JOIN THAT STARTS TURNS THE SWITCH ON (0.9.79). connectTo() clears userDisabled but
        * never radioOff, so Connect with WiFi off joined while the menu said "off" — and then the
        * next game exit or window close honoured the stale switch and dropped the network just
-       * joined, and the next boot came up off. Pressing Connect IS switching WiFi on, so say so:
-       * persisted, and the WIFI-ON/OFF choice below shows it (its handler then sees no change). */
-      if (wifiState.radioOff()) {
-        wifiState.setRadioOff(false);
-        if (wifiOnOff != NULL) {
-          wifiOnOff->setValue(0);
-          lastWifiOnOff = 0;
-        }
-      }
+       * joined, and the next boot came up off. A join IS switching WiFi on, so say so: persisted,
+       * and the WIFI-ON/OFF choice below shows it (its handler then sees no change).
+       * 🛑 ONLY ONCE connectTo() HAS STARTED ONE (review). SELECT and CALL reach this branch from
+       * any field, saved network or not, Connect button or not, so switching on FIRST meant a
+       * Connect on a typed-in, unsaved SSID (or a blank one) failed here — nothing in
+       * networks.ini to join — yet left WiFi on, persisted, with the retry re-armed: the loop
+       * joined the OLD preferred network ~20 s later while the owner saw a Connect that did
+       * nothing. Now a failed Connect does nothing, as it did before 0.9.79. The order is safe:
+       * connectToWiFi() does not ask radioOff, and setRadioOff(false) only re-arms the flags
+       * (resumeReconnect) that the successful connectTo() has just set anyway. */
+      const bool wasOff = wifiState.radioOff();
       if (wifiState.connectTo(ssidInput->getText())) {
         log_d("connecting: %s", ssidInput->getText());
+        if (wasOff) {
+          wifiState.setRadioOff(false);
+          if (wifiOnOff != NULL) {
+            wifiOnOff->setValue(0);
+            lastWifiOnOff = 0;
+          }
+        }
 
         int index = ini.query("s", ssidInput->getText());       // "s" key stands for "SSID"
         if (index >= 0) {
@@ -6824,8 +6844,13 @@ appEventResult EditNetworkApp::processEvent(EventType event) {
           ini.store();
         } 
 
-        // Change button appearance
-        connectionButton->setText("Connecting");
+        /* Change button appearance. ⚠ NULL-CHECKED (0.9.79 review): the button exists only when
+         * the SSID the screen OPENED with was saved, but SELECT/CALL join whatever is typed now —
+         * a saved name typed into the blank standalone screen (a reboot with the network
+         * Disconnected opens it that way) joined and then dereferenced NULL here. */
+        if (connectionButton != NULL) {
+          connectionButton->setText("Connecting");
+        }
         //((GUIWidget*) connectionButton)->redraw(lcd);         // TODO: works, but doesn't separate event processing from redrawing well (move connecting logic elsewhere)
 
         int i = ini.query("s", ssidInput->getText());                   // "s" for "SSID"
@@ -6848,8 +6873,10 @@ appEventResult EditNetworkApp::processEvent(EventType event) {
         } else {
           log_d("connection timeout");
 
-          // Restore button appearance
-          connectionButton->setText("Connect");
+          // Restore button appearance (NULL-checked: see "Connecting" above)
+          if (connectionButton != NULL) {
+            connectionButton->setText("Connect");
+          }
           //((GUIWidget*) connectionButton)->redraw(lcd);       // Works, but doesn't separate event processing from redrawing well
         }
 

@@ -877,6 +877,13 @@ bool Networks::connectTo(const char* ssid) {
    * costs ~1.6 s on this part (measured with `bench`), while connectToWiFi() is documented as
    * async. One of those two claims is wrong and this says which. */
   const uint32_t t0 = millis();
+  /* Nothing joins an empty SSID (0.9.79 review). Only an INI that already holds a blank network
+   * (the edit screen's Save used to write one) could "load" it, and WiFi.begin("") starts the
+   * station and then refuses to connect — a radio up for nothing, and on the edit screen with
+   * WiFi off, the switch turned ON by a Connect that did nothing. */
+  if (ssid == NULL || !ssid[0]) {
+    return false;
+  }
   // Load password and connect to WiFi network
   const bool loaded = this->loadNetworkSettings(ssid);
   const uint32_t tIni = millis();
@@ -894,11 +901,16 @@ bool Networks::connectTo(const char* ssid) {
      * exactly what reconnect means. The same argument clears _userDisabled (added
      * 2026-08-27 when disable() started setting it live): a deliberate join IS the user
      * re-enabling WiFi, and the settings screen's join path writes disabled=false to the
-     * INI in the same breath — the live flag must agree with it. */
-    reconnect = true;
-    _userDisabled = false;
+     * INI in the same breath — the live flag must agree with it.
+     * ⚠ ONLY FOR A JOIN THAT STARTED (0.9.79 review). connectToWiFi() refuses under a game or a
+     * live hotspot, and a refused Connect shows the owner nothing happening (the edit screen
+     * leaves its button at "Connect" and writes no disabled=false) — so the flags must not say
+     * otherwise either: cleared here, they had a Disconnected network rejoin by itself the
+     * moment the hotspot came down, with the INI still saying Disconnected. */
     r = connectToWiFi(wifiSsidDyn, wifiPassDyn);    // "async"; false = refused, nothing started
     if (r) {
+      reconnect = true;
+      _userDisabled = false;
       _joinsTried++;                            // instrument: pairs with _joinsSkipped
     }
   }
@@ -1060,7 +1072,14 @@ bool wifiRestoreStation(const char* who) {
    * restore that believed it would LEAVE the phone off its network until the next reboot. The
    * core's STA_STOP handler does set status() to WL_NO_SHIELD, so this one tells the truth. */
   in.staConnected = WiFi.status() == WL_CONNECTED;
-  in.joinYoung    = lastJoin != 0 && (uint32_t)(now - lastJoin) < 10000u;
+  /* ⚠ YOUNG ONLY WHILE ITS STATION RUNS (0.9.79 review; wifiJoinInFlight). The rule is "do not
+   * re-begin under an association still in flight", and a join whose station has since been
+   * stopped is not in flight: a hotspot's WiFi.mode(WIFI_AP) (transportUp), startGame's
+   * disconnect(true) and a disable() all killed it. Counted young anyway, the restore came up
+   * idle and the rejoin waited for the loop's next retry — 20 s, or 3 min after five failures,
+   * with nothing to hurry it — where the old restoreStation() began at once. getMode() reads the
+   * core's own started flag, which every Arduino path to the radio sets (mode(), begin(), scans). */
+  in.joinYoung    = wifiJoinInFlight((WiFi.getMode() & WIFI_MODE_STA) != 0, now, lastJoin);
   in.longDrySpell = wifiState.inLongDrySpell();
   WifiRestore d = wifiRestoreDecision(in);
   bool ok = true;

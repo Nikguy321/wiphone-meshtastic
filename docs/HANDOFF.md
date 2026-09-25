@@ -58,8 +58,13 @@ station restored on the off switch alone — is fixed with its whole class: EVER
 through `wifiRestoreStation()` (Networks.cpp; decides in `wifi_policy.h`, host suite `test_wifi_policy`), which
 logs `WIFI restore (<who>): JOIN|UP_IDLE|OFF|LEAVE [ro ud rec game ap conn young dry]`; the loop's retry is
 gated on `wifiStationWanted()` (no game, no hotspot, both switches); `tests/check_wifi_restore.py` fails the
-suite on a bare `esp_wifi_start()`/`WiFi.reconnect()`/`WiFi.begin()`/`WiFi.mode(WIFI_STA)` outside Networks.cpp.
-⚠ Connect on the edit screen with WiFi off now flips the persisted switch ON (Nick's call to keep or revert).
+suite on a bare `esp_wifi_start()`/`WiFi.reconnect()`/any `WiFi.begin(`/`WiFi.mode(WIFI_STA)` outside Networks.cpp,
+and on 13 POSITIVE contracts (each guard where it must be; a revert of any of them now fails the suite).
+⚠ Connect on the edit screen with WiFi off now flips the persisted switch ON — only once the join has
+STARTED (review: a Connect on an unsaved/blank SSID used to flip it and then the loop joined the old network).
+Nick's call to keep or revert. 🛑 BENCH TRAP: after a reboot with the network Disconnected, `open wifiedit`
+opens BLANK (wifiSsidDyn is set only by a join or a save) — clean up through `open wifi` + the network row +
+`key ok` + `key select`, never Save on a blank screen (Save now refuses it; it used to make "" the preferred network).
 The durable record is the commits, CHANGELOG 0.9.79, COVEY's D-161 (+ follow-up) and the fork's commit messages; the
 design contract and the two review rounds lived in the 2026-09-24 session scratchpad, which does not survive.
 

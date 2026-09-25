@@ -178,8 +178,15 @@ all 256 states), which logs `WIFI restore (<who>): JOIN|UP_IDLE|OFF|LEAVE [...]`
 - in a 5+ min dry spell a restore now leaves the join to the loop's gated retry.
 `wifi scan`/`wifi bounce` refuse under a game or a hotspot (bounce also with WiFi off); a scan with WiFi
 off puts the radio back off. `wifi why` shows the last restore. **Connect with WiFi off now switches
-WiFi ON (persisted).** `tests/check_wifi_restore.py` fails the suite on a bare station start outside
-Networks.cpp.
+WiFi ON (persisted) - once the join has actually STARTED.** (Review: switching on first meant a Connect
+on an unsaved or blank SSID failed yet left WiFi on, and the loop joined the OLD network 20 s later;
+a refused join now leaves the Disconnected flags alone too.) The edit screen's Save refuses a blank
+SSID (it made an empty network the PREFERRED one), and a saved name typed into the blank edit screen
+no longer crashes Connect on a missing button. A restore right after a hotspot or a game rejoins at
+once instead of treating the join those killed as still in flight (`wifiJoinInFlight`).
+`tests/check_wifi_restore.py` fails the suite on a bare station start - or ANY `WiFi.begin(` - outside
+Networks.cpp, and (review: deleting a guard spells nothing banned) states 13 contracts positively:
+the retry's `wifiStationWanted()` gate, xferStart's game refusal, each restore call site and its order.
 
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 
