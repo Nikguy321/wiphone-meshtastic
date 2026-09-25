@@ -84,6 +84,9 @@ for src in tests/test_*.cpp; do
     # Header-only: the CPU clock gate's decisions (cpu_clock_policy.h) - never a PLL re-lock
     # under a running radio, checked for every state, and the 2026-09-25 bench day replayed.
     test_cpuclock) deps=() ;;
+    # Header-only: may the WiFi station come back, and how (wifi_policy.h) - never over the
+    # owner's "off", never under a game or a live hotspot, all 256 input states swept.
+    test_wifi_policy) deps=() ;;
     # The mesh-history replay wire format vs vectors generated from COVEY's
     # replay.py (regenerate with tools/gen_replay_vectors.py after changes).
     test_replay)   deps=(WiPhone/replay_proto.cpp) ;;
@@ -143,6 +146,15 @@ done
 # the grep needed a literal zero on the same line as `addOption(`.
 echo "checking for menu rows with a key of 0"
 if ! python3 tests/check_menu_keys.py; then
+  fail=1
+fi
+
+# ── SOURCE GUARD: nothing but Networks.cpp brings the WiFi station back by itself ─────────
+# See tests/check_wifi_restore.py. Every site that gives the radio back goes through
+# wifiRestoreStation(); a bare esp_wifi_start()/WiFi.reconnect()/WiFi.begin()/WiFi.mode(WIFI_STA)
+# elsewhere is how WiFi came back on behind "off" after every Game Boy game (0.9.79).
+echo "checking that WiFi is only given back through wifiRestoreStation()"
+if ! python3 tests/check_wifi_restore.py; then
   fail=1
 fi
 

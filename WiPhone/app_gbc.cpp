@@ -18,7 +18,7 @@
 #include "esp_heap_caps.h"
 #include "esp_system.h"     // esp_reset_reason (transfer-screen diagnostics)
 #include "esp_bt.h"
-#include "Networks.h"   // wifiState.radioOff(): do not undo the user's WiFi switch
+#include "Networks.h"   // wifiRestoreStation(): the station back after a game, as its owner has it
 #include <string.h>
 #include <errno.h>
 #include "freertos/FreeRTOS.h"
@@ -248,6 +248,12 @@ void GbcApp::startGame() {
    * the internal RAM. After gGbcActive on purpose: the teardown sees the game and leaves the
    * station OFF (app_gbc_xfer.cpp transportDown); the game's exit below restores it. */
   kosyncWindowClose("a Game Boy game started");
+  /* ...and so does an UPLOADER (0.9.79). No screen can have one up here — the picker's
+   * Transfer row stops its own on Back — but serial `up on` / wiphone_send.py start one
+   * HEADLESS, and it used to survive the game: the radio went off under its hotspot while
+   * xferServing()/xferUsingAP() went on saying "up" for the whole game. Same order, same
+   * reason as the window: gGbcActive is already set, so the teardown's restore says OFF. */
+  gbcXferStop();
   WiFi.scanDelete();          // drop any lingering auto-switch scan results
   WiFi.disconnect(true, false);
   WiFi.mode(WIFI_OFF);
@@ -488,13 +494,16 @@ GbcApp::~GbcApp() {
       WiFi.setAutoReconnect(savedAutoReconnect);
       autoReconnectHeld = false;
     }
-    /* ⚠ NOT IF THE USER SWITCHED THE RADIO OFF. This restored WiFi unconditionally, so
-     * playing a game silently undid "WiFi: off" — one of three such paths found in the
-     * 2026-09-01 audit. GUI.cpp:7197 already had this right for the networks screen. */
-    if (!wifiState.radioOff()) {
-      WiFi.mode(WIFI_STA);
-      WiFi.reconnect();
-    }
+    /* 🛑 THROUGH wifiRestoreStation(), AFTER gGbcActive drops (0.9.79). This used to ask the
+     * off switch alone: `if (!radioOff) { WiFi.mode(WIFI_STA); WiFi.reconnect(); }` — and a phone
+     * with NO saved network, or after Disconnect or Forget, is userDisabled() but not
+     * radioOff(), with its STA config ERASED. Every game exit on it started the station and
+     * esp_wifi_connect()ed an empty SSID, and nothing ever quieted it (the loop's retry, quiesce
+     * and auto-switcher all stand down for a userDisabled phone): the radio stayed up until the
+     * next reboot. Before that (2026-09-01) it restored unconditionally, undoing "WiFi: off".
+     * Now both switches, the retry's arming and the dry spell are asked in one place, and the
+     * log line says what it was allowed to do: `WIFI restore (Game Boy game ended): ...`. */
+    wifiRestoreStation("Game Boy game ended");
   }
 }
 

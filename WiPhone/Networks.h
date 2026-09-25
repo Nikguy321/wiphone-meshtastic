@@ -32,7 +32,27 @@ governing permissions and limitations under the License.
 //IP address to send UDP data to: either use the ip address of the server or a network broadcast address
 
 
-extern void connectToWiFi(const char* ssid, const char* pwd);
+/* The tree's ONE WiFi.begin(ssid, pwd). False = refused (a Game Boy game or a live hotspot owns the
+ * radio - see wifiStationBlockedBy()); nothing was started. */
+extern bool connectToWiFi(const char* ssid, const char* pwd);
+
+/* ── MAY THE STATION COME BACK? (0.9.79, WiPhone/wifi_policy.h) ──────────────────────────
+ * 🛑 EVERY SITE THAT TURNED THE RADIO OFF, OR LENT IT TO A HOTSPOT, GIVES IT BACK THROUGH
+ * wifiRestoreStation() — never `WiFi.mode(WIFI_STA)`, `WiFi.begin()`, `WiFi.reconnect()` or a bare
+ * esp_wifi_start() of its own (tests/check_wifi_restore.py fails the suite on those outside
+ * Networks.cpp). Each site used to ask its own subset of the owner's state, and between them
+ * they turned WiFi back on behind "off" after every Game Boy game on a phone with no saved
+ * network. The decision is the pure wifiRestoreDecision(); this gathers its inputs, does the
+ * radio work and says so at log_e: `WIFI restore (<who>): <JOIN|UP_IDLE|OFF|LEAVE> [...]`.
+ * Returns false only when WiFi.mode() failed (the Settings toggle's "say what is true" cue).
+ * LOOP TASK. */
+bool        wifiRestoreStation(const char* who);
+/* May the station run at all right now: the owner's two switches, no game, no live hotspot. The
+ * loop's join retry asks this. */
+bool        wifiStationWanted();
+/* Who holds the radio away from the station, or NULL: "a Game Boy game is running" or "a hotspot
+ * is live (uploader or sync window)". connectToWiFi() and the serial bench commands refuse on it. */
+const char* wifiStationBlockedBy();
 
 /* millis() of the last connectToWiFi() from ANY path — the periodic retry, the
  * auto-switcher, or a manual join in the networks app — and of the transfer server's own
@@ -182,6 +202,15 @@ public:
 
   bool userDisabled() {
     return _userDisabled;
+  }
+  /* The OWNER allows the station: neither the global switch nor the network's own Disconnect
+   * says off. A NEW predicate (0.9.79) rather than an edit of either one, because each of those
+   * has readers that mean exactly it — and because "radioOff implies userDisabled" is not a
+   * rule anyone enforces: loadPreferred() rewrites _userDisabled from the per-network INI flag
+   * (Edit network > Save does that with WiFi off), and connectTo() clears it while the switch
+   * stays off. Every "may I bring WiFi back" reader asks BOTH, through this. */
+  bool stationAllowed() const {
+    return !_radioOff && !_userDisabled;
   }
 
   static constexpr const char* filename = "/networks.ini";

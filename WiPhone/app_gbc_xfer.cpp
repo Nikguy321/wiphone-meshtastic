@@ -1,4 +1,4 @@
-#include "Networks.h"   // wifiState.radioOff()
+#include "Networks.h"   // wifiState, wifiRestoreStation(): the station back after a hotspot
 /*
  * app_gbc_xfer.cpp — the file-transfer web server (see app_gbc_xfer.h).
  *
@@ -1818,23 +1818,16 @@ static void xferServerDown() {
  * Shared by the uploader and a KOSync window (see the note at the top of this file). The
  * body is what xferStart() always did, moved rather than rewritten; the two changes are
  * marked. `apName` is the hotspot to host when the phone is not on a network. */
-/* Put the station back as a stop leaves it — ONLY for a phone whose owner has WiFi on.
- * 🛑 NOT radioOff() ALONE. Networks::disable() (no saved network at boot, Disconnect, Remove
- * network) sets userDisabled, erases the STA config and switches the radio OFF, but does not
- * set radioOff. A bare WiFi.begin() on that phone runs esp_wifi_connect on an empty config:
- * NO_AP_FOUND, and the core's auto-reconnect calls begin() again, for ever — the loop's own
- * reconnect/quiesce all stand down for a userDisabled phone, so nothing ever quiets it. The
- * uploader did this once per manual stop; a sync window that opens on every book close made
- * it routine, and a hunting radio is the biggest drain this phone has measured. */
-static void restoreStation() {
-  if (!wifiState.radioOff() && !wifiState.userDisabled()) {
-    WiFi.mode(WIFI_STA);
-    WiFi.begin();
-    noteWifiJoinStarted();     // a join in flight: a window asked for next waits for it (KS-T1)
-  } else {
-    WiFi.mode(WIFI_OFF);
-  }
-}
+/* Putting the station back after a hotspot is wifiRestoreStation() (Networks.cpp, deciding in
+ * wifi_policy.h) — the one answer every site that gives the radio back now shares.
+ * 🛑 It asks BOTH switches, not radioOff() alone. Networks::disable() (no saved network at boot,
+ * Disconnect, Remove network) sets userDisabled, erases the STA config and switches the radio
+ * OFF, but does not set radioOff. A bare WiFi.begin() on that phone runs esp_wifi_connect on an
+ * empty config: NO_AP_FOUND, and the core's auto-reconnect calls begin() again, for ever — the
+ * loop's own reconnect/quiesce all stand down for a userDisabled phone, so nothing ever quiets
+ * it. The uploader did this once per manual stop; a sync window that opens on every book close
+ * made it routine, and a hunting radio is the biggest drain this phone has measured. A join it
+ * does start is stamped (noteWifiJoinStarted), so a window asked for next waits for it (KS-T1). */
 
 /* `pass`: NULL or "" = an open hotspot (every uploader, and a window without hotspot_pass);
  * otherwise 8-63 printable ASCII, validated by kosyncHotspotPassValid() before it gets here —
@@ -1892,7 +1885,7 @@ static bool transportUp(const char* apName, const char* pass, bool waitForSta, c
       /* (0.9.79) ...and do not leave the radio in AP mode with no AP: put the station back
        * exactly as a stop does, or the phone sits off WiFi until something notices. */
       s_usingAP = false;
-      restoreStation();
+      wifiRestoreStation("hotspot failed to start");
       return false;
     }
   }
@@ -1905,41 +1898,45 @@ static bool transportUp(const char* apName, const char* pass, bool waitForSta, c
   return true;
 }
 
-static void transportDown() {
+static void transportDown(const char* who) {
   if (!s_on) {
     return;
   }
   rawXferDown();
   if (s_usingAP) {
     WiFi.softAPdisconnect(true);
-    s_usingAP = false;
+    s_usingAP = false;           // BEFORE the restore: it asks whether a hotspot is still live
     s_apName[0] = '\0';
     s_apProtected = false;
     s_apByUploader = false;
-    /* 🛑 NEVER BRING THE STATION BACK UNDER A GAME. The emulator owns both cores (watchdogs
-     * off) and the internal RAM it grabbed with WiFi off; a WiFi.begin() in the middle of
-     * that is the kind of allocation this phone aborts on. The game's own exit restores the
-     * station (~GbcApp), honouring "WiFi: off" exactly as below. */
-    if (gGbcActive) {
-      WiFi.mode(WIFI_OFF);
-      s_on = false;
-      return;
-    }
-    /* ⚠ Setting the mode back to STA does NOT reconnect. Without this the phone sat with
+    /* ⚠ Setting the mode back to STA does NOT reconnect. Without a join the phone sat with
      * no WiFi until some other timer got round to noticing, which felt like the uploader
-     * had broken the network on its way out. begin() with no arguments re-uses the
-     * credentials already in the driver.
+     * had broken the network on its way out — so the restore rejoins (begin() with no
+     * arguments re-uses the credentials already in the driver) when it may.
      *
-     * ⚠ BUT NOT IF THE USER SWITCHED THE RADIO OFF — one of the three paths the 2026-09-01
-     * audit found quietly undoing "WiFi: off" — NOR IF THEY DISABLED IT (restoreStation). The
-     * AP is torn down either way; what is gated is bringing the station back up. */
-    restoreStation();
+     * ⚠ AND IT MAY NOT, whatever the hotspot did: 🛑 never under a Game Boy game (the emulator
+     * owns both cores and the internal RAM it grabbed with WiFi off; the game's own exit asks
+     * again — this used to be a branch of its own here), and never over "WiFi: off" or a
+     * Disconnected network (the 2026-09-01 audit's paths). The AP is torn down either way;
+     * what is gated is bringing the station back up. */
+    wifiRestoreStation(who);
   }
   s_on = false;
 }
 
 void xferStart(const XferConfig* cfg) {
   s_startErr = NULL;                    // this attempt gets its own verdict
+  /* 🛑 NOT UNDER A GAME (0.9.79), the same refusal xferWindowStart() already made. A game has
+   * WiFi off, the watchdogs down and the internal RAM; serial `up on` mid-game ran transportUp,
+   * found no station, and brought up a SOFT-AP under the emulator (WiFi.mode(WIFI_AP) is an
+   * esp_wifi_start()) with the screen hold and the CPU gate's "busy" on top. No screen can start
+   * one during a game (the Games picker's Transfer row is unreachable once a game runs), so this
+   * only ever answers the bench and a script. */
+  if (gGbcActive) {
+    s_startErr = "a Game Boy game is running";
+    log_e("XFER: refusing to start - %s", s_startErr);
+    return;
+  }
   /* ── REFUSE TO START WHEN THERE IS NOT ENOUGH CONTIGUOUS HEAP TO SERVE FROM ──
    * 🔑 The breaker below trips at 6144 bytes largest-internal-block, and when it
    * trips the listener closes — which a browser reports as "site cannot be
@@ -2023,7 +2020,7 @@ void xferStop() {
   s_breakerPaused = false;
   s_lowSinceMs = 0;
   if (!s_winOn) {
-    transportDown();
+    transportDown("uploader stopped");
   }
 }
 
@@ -2117,7 +2114,7 @@ void xferWindowStop() {
     rawAbort();             // a KOSync body mid-read must not land in a freed buffer
   }
   if (!s_upOn) {
-    transportDown();
+    transportDown("sync window closed");
   }
   free(s_ksBuf);            // region-agnostic free(), as everywhere in this firmware
   s_ksBuf = NULL;

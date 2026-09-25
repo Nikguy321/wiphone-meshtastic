@@ -16,6 +16,8 @@ governing permissions and limitations under the License.
 #include <Preferences.h>
 #include "helpers.h"
 #include "wifi_diag.h"
+#include "wifi_policy.h"   // wifiRestoreDecision: may the station come back, and how
+#include "app_gbc_xfer.h"  // xferServing()/xferUsingAP(): a live hotspot owns the radio
 
 extern void heapEvent(const char* what);   // WiPhone.ino - the ratchet instrument
 extern void healthLogLine(const char* line);   // WiPhone.ino - the durable log; LOOP TASK ONLY
@@ -28,6 +30,10 @@ extern volatile bool gGbcActive;               // WiPhone.ino - a game owns the 
  * log lines in Networks::diagTick(). */
 static WifiDiagLog        s_wd;
 static WifiScanStartStats s_ss;
+/* The last wifiRestoreStation(), for `wifi why`. `who` is always a string literal. LOOP TASK. */
+static const char*        s_restoreWho = NULL;
+static WifiRestore        s_restoreWhat = WIFI_RESTORE_LEAVE;
+static uint32_t           s_restoreMs = 0;
 
 void Networks::getMac(uint8_t* mac) {
   esp_read_mac(mac, ESP_MAC_WIFI_STA);
@@ -413,6 +419,14 @@ void Networks::diagPrint(void (*out)(const char*)) {
            (int)WiFi.status(), (int)connected, (int)WiFi.getMode(), (int)WiFi.getAutoReconnect(),
            (int)_radioOff, (int)_userDisabled, (int)reconnect);
   out(l);
+  {
+    const char* by = wifiStationBlockedBy();
+    snprintf(l, sizeof(l), "  restore: station wanted=%d (owner allows=%d, held by: %s); last '%s' -> %s %lds ago",
+             (int)wifiStationWanted(), (int)stationAllowed(), by ? by : "nobody",
+             s_restoreWho ? s_restoreWho : "-", s_restoreWho ? wifiRestoreName(s_restoreWhat) : "-",
+             s_restoreWho ? (long)((uint32_t)(now - s_restoreMs) / 1000) : -1L);
+    out(l);
+  }
 
   /* The config the CORE's auto-reconnect rejoins with (begin() with no arguments re-uses it).
    * An empty or wrong SSID here makes every core rejoin NO_AP_FOUND for ever. 🛑 The password
@@ -508,9 +522,22 @@ void Networks::diagPrint(void (*out)(const char*)) {
   }
 }
 
-void connectToWiFi(const char* ssid, const char* pwd) {
+bool connectToWiFi(const char* ssid, const char* pwd) {
 
   // TODO: do not connect while scanning for networks
+
+  /* 🛑 NOT UNDER A GAME, NOT UNDER A LIVE HOTSPOT (0.9.79). This is the tree's only
+   * WiFi.begin(ssid, pwd), and begin() opens with enableSTA(true) — so any join path reaching
+   * here starts the radio. Under a Game Boy game that is esp_wifi_start() beside the emulator
+   * (the loop's retry did exactly that for a phone that was off WiFi when the game began); under
+   * the uploader's or a sync window's softAP it is the station connect WiPhone.ino's reconnect
+   * gate calls a chip panic (reachable from Settings > WiFi's Connect with a headless `up on`).
+   * The callers' own gates should never let it get here; this is the one place that makes it
+   * impossible rather than unlikely. Refused BEFORE the attempt stamp: nothing started. */
+  if (const char* by = wifiStationBlockedBy()) {
+    log_e("WIFI join REFUSED: %s", by);
+    return false;
+  }
 
   s_msLastConnectAttempt = millis();   // every join path stamps this — see Networks.h
 
@@ -597,6 +624,7 @@ void connectToWiFi(const char* ssid, const char* pwd) {
   }
 
   log_d("Waiting for connection...");
+  return true;
 }
 
 // Inspired by: https://github.com/nkolban/esp32-snippets/blob/master/cpp_utils/WiFi.cpp
@@ -869,9 +897,10 @@ bool Networks::connectTo(const char* ssid) {
      * INI in the same breath — the live flag must agree with it. */
     reconnect = true;
     _userDisabled = false;
-    _joinsTried++;                              // instrument: pairs with _joinsSkipped
-    connectToWiFi(wifiSsidDyn, wifiPassDyn);    // "async"
-    r = true;
+    r = connectToWiFi(wifiSsidDyn, wifiPassDyn);    // "async"; false = refused, nothing started
+    if (r) {
+      _joinsTried++;                            // instrument: pairs with _joinsSkipped
+    }
   }
   const uint32_t total = millis() - t0;
   if (total > 150) {
@@ -998,6 +1027,91 @@ void Networks::resumeReconnect(void) {
   forgetDrySpell();                   // the spell starts now, not when the radio went off
 }
 
+// ===================================================== GIVING THE RADIO BACK =====================================================
+/* See wifi_policy.h for the bug class and the order the inputs win in, and Networks.h for the
+ * rule every caller follows. Everything here runs on the LOOP task. */
+
+const char* wifiStationBlockedBy() {
+  if (gGbcActive) {
+    return "a Game Boy game is running";
+  }
+  if (xferServing() && xferUsingAP()) {
+    return "a hotspot is live (uploader or sync window)";
+  }
+  return NULL;
+}
+
+bool wifiStationWanted() {
+  return wifiStationWantedFrom(wifiState.radioOff(), wifiState.userDisabled(), gGbcActive,
+                               xferServing() && xferUsingAP());
+}
+
+bool wifiRestoreStation(const char* who) {
+  const uint32_t now = millis();
+  const uint32_t lastJoin = lastWifiConnectAttemptMs();
+  WifiRestoreIn in;
+  in.radioOff     = wifiState.radioOff();
+  in.userDisabled = wifiState.userDisabled();
+  in.reconnect    = wifiState.doReconnect();
+  in.gameActive   = gGbcActive;
+  in.softApLive   = xferServing() && xferUsingAP();
+  /* 🛑 WiFi.status(), NOT wifiState.isConnected(). A radio stopped while associated delivers no
+   * DISCONNECTED (the bounceRadio note), so after a game `connected` can still read TRUE — and a
+   * restore that believed it would LEAVE the phone off its network until the next reboot. The
+   * core's STA_STOP handler does set status() to WL_NO_SHIELD, so this one tells the truth. */
+  in.staConnected = WiFi.status() == WL_CONNECTED;
+  in.joinYoung    = lastJoin != 0 && (uint32_t)(now - lastJoin) < 10000u;
+  in.longDrySpell = wifiState.inLongDrySpell();
+  WifiRestore d = wifiRestoreDecision(in);
+  bool ok = true;
+  const char* note = "";
+  switch (d) {
+  case WIFI_RESTORE_OFF:
+    ok = WiFi.mode(WIFI_OFF);
+    break;
+  case WIFI_RESTORE_UP_IDLE:
+    /* ⚠ WiFi.mode(WIFI_STA), never a bare esp_wifi_start(): mode() SETS the mode before it
+     * starts the driver, where esp_wifi_start() restarts whatever the driver last had — AP, after
+     * a sync window closed with WiFi off (softAPdisconnect -> mode(NULL) never resets the
+     * driver's mode), which put an unserved soft-AP back on the air. */
+    ok = WiFi.mode(WIFI_STA);
+    break;
+  case WIFI_RESTORE_JOIN: {
+    ok = WiFi.mode(WIFI_STA);
+    if (!ok) {
+      break;                  // said below; the Settings toggle turns that into "off"
+    }
+    /* begin() with no arguments rejoins whatever STA config the DRIVER holds. Read AFTER the
+     * mode switch (the call can fail with the station down). An erased config — disconnect(),
+     * Forget, Settings > WiFi's constructor — has nothing to join: come up idle and let the
+     * loop's retry join with the saved credentials instead of hunting an empty SSID. */
+    wifi_config_t conf;
+    if (esp_wifi_get_config(WIFI_IF_STA, &conf) == ESP_OK && conf.sta.ssid[0]) {
+      WiFi.begin();
+      noteWifiJoinStarted();   // a join in flight: the young-join rules (quiesce, scans, KS-T1) see it
+    } else {
+      d = WIFI_RESTORE_UP_IDLE;
+      note = " - nothing in the driver's config, the loop's retry joins";
+    }
+    break;
+  }
+  case WIFI_RESTORE_LEAVE:
+  default:
+    break;
+  }
+  s_restoreWho = who;
+  s_restoreWhat = d;
+  s_restoreMs = now;
+  /* Loud, like the audio watchdog: each line names a site handing the radio back and what it was
+   * allowed to do. Console only, not health.log — with auto=on a sync window closes on every
+   * book close. */
+  log_e("WIFI restore (%s): %s%s [ro=%d ud=%d rec=%d game=%d ap=%d conn=%d young=%d dry=%d]%s",
+        who ? who : "?", wifiRestoreName(d), note, (int)in.radioOff, (int)in.userDisabled,
+        (int)in.reconnect, (int)in.gameActive, (int)in.softApLive, (int)in.staConnected,
+        (int)in.joinYoung, (int)in.longDrySpell, ok ? "" : " - WiFi.mode() FAILED");
+  return ok;
+}
+
 // ===================================================== WIFI AUTO-SWITCH =====================================================
 // Scans in the background (async, keeps the current association) and hops to
 // the strongest saved network. Driven by autoSwitchTick() from the main loop.
@@ -1065,7 +1179,9 @@ void Networks::autoSwitchTick(bool screenOn) {
     _drySpellStartMs = millis() | 1u;
   }
 
-  if (_userDisabled || !reconnect || !autoSwitchEnabled()) {
+  /* stationAllowed(), not _userDisabled alone (0.9.79): with the switch OFF and the per-network
+   * flag cleared by an Edit > Save, this scanned — and wifiScanStart() starts the radio. */
+  if (!stationAllowed() || !reconnect || !autoSwitchEnabled()) {
     return;                             // same gates as the reconnect loop honors
   }
 

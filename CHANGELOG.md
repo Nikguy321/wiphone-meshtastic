@@ -161,6 +161,26 @@ NO_AP_FOUND still queued at game start could restart the radio under the emulato
 would have dropped the game to 160 MHz. The pre-radio clock move is now decided inside the lock, so a
 racing gate pass can no longer leave the radio on PLL 480 with idle held at 240.
 
+### WiFi no longer comes back on behind "off" (0.9.79 dev, 2026-09-25)
+
+🛑 **After every Game Boy game, a phone with no saved network (or after Disconnect or Forget) started
+its station and joined an ERASED config, and nothing ever quieted it until the next reboot.** The exit
+asked only the global off switch, and that phone is "disabled" without being "off". It was one of a
+class: every site that gives the radio back asked its own subset of the owner's state. **Now they all
+go through `wifiRestoreStation()`** (decision in `wifi_policy.h`, host suite `tests/test_wifi_policy.cpp`,
+all 256 states), which logs `WIFI restore (<who>): JOIN|UP_IDLE|OFF|LEAVE [...]`. Also fixed:
+- the loop's join retry ran DURING a game (`WiFi.begin()` under the emulator);
+- serial `up on` brought up a hotspot mid-game, and a game left a headless uploader "up" over a dead radio;
+- Settings > WiFi could scan and join under a headless uploader's hotspot (the chip-panic combination);
+- both Settings "WiFi on" controls used a bare `esp_wifi_start()`, which restarts the driver's LAST mode:
+  a soft-AP after a sync window closed with WiFi off;
+- leaving the WiFi list, and booting with the saved network Disconnected, left the station up idle;
+- in a 5+ min dry spell a restore now leaves the join to the loop's gated retry.
+`wifi scan`/`wifi bounce` refuse under a game or a hotspot (bounce also with WiFi off); a scan with WiFi
+off puts the radio back off. `wifi why` shows the last restore. **Connect with WiFi off now switches
+WiFi ON (persisted).** `tests/check_wifi_restore.py` fails the suite on a bare station start outside
+Networks.cpp.
+
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 
 Nick, after looking at OpenTopoMap one level deeper: *"So it seems like open topo has a native

@@ -52,8 +52,14 @@ phone has `hotspot_pass=`).
 `~/.platformio/packages/tool-esptoolpy/esptool.py`). ⚠ The phone's window is ONE book; a PUT for another id
 is answered 200 and dropped (now shown on screen). ⚠ A book already open on the phone does not see a later
 X4 push until reopened. ⚠ Phone 1 lost WiFi twice tonight right after a screen wake (deaf-radio class,
-`wifi bounce` cured it; phone 2 never did) — watch it. ⚠ `~GbcApp` (app_gbc.cpp:461) restores the station
-checking only the off switch, not `userDisabled()` — older, same class as the window fix, not done.
+`wifi bounce` cured it; phone 2 never did) — watch it. ✅ (2026-09-25, UNBENCHED) The `~GbcApp` trap — the
+station restored on the off switch alone — is fixed with its whole class: EVERY site that gives the radio back
+(game exit, uploader/window teardown, both Settings "WiFi on" controls, leaving Settings > WiFi, boot) goes
+through `wifiRestoreStation()` (Networks.cpp; decides in `wifi_policy.h`, host suite `test_wifi_policy`), which
+logs `WIFI restore (<who>): JOIN|UP_IDLE|OFF|LEAVE [ro ud rec game ap conn young dry]`; the loop's retry is
+gated on `wifiStationWanted()` (no game, no hotspot, both switches); `tests/check_wifi_restore.py` fails the
+suite on a bare `esp_wifi_start()`/`WiFi.reconnect()`/`WiFi.begin()`/`WiFi.mode(WIFI_STA)` outside Networks.cpp.
+⚠ Connect on the edit screen with WiFi off now flips the persisted switch ON (Nick's call to keep or revert).
 The durable record is the commits, CHANGELOG 0.9.79, COVEY's D-161 (+ follow-up) and the fork's commit messages; the
 design contract and the two review rounds lived in the 2026-09-24 session scratchpad, which does not survive.
 

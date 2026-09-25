@@ -25,6 +25,7 @@ governing permissions and limitations under the License.
 #include "sms_mirror_rx.h"   // sipCompleteAddress: bare number -> full SIP URI
 #include "app_music.h"
 #include "kosync_sync.h"   // kosyncWindowClose: the WiFi settings screens end any sync window
+#include "app_gbc_xfer.h"  // xferStop: ...and any headless uploader's hotspot
 extern volatile bool gGbcActive;   // WiPhone.ino: the emulator owns the screen and the audio device
 #include "menu_marquee.h"  // the scrolling selected menu row: phase clock + glyph stepping
 #include "menu_wrap.h"     // a display-only note broken into rows that fit
@@ -1859,7 +1860,12 @@ appEventResult GUI::processEvent(uint32_t now, EventType event) {
              * resumeReconnect()). The old body did those three things inline and the
              * persistence half did not exist. */
             wifiState.setRadioOff(!turningOn);
-            if (turningOn && esp_wifi_start() != ESP_OK) {
+            /* wifiRestoreStation(), NOT a bare esp_wifi_start() (0.9.79). esp_wifi_start()
+             * restarts whatever mode the DRIVER last had — WiFi.mode(WIFI_OFF) never resets it —
+             * so after a sync window's hotspot closed with WiFi off, "WiFi on" here put an
+             * unserved soft-AP on the air instead of the station, and Arduino's getMode() went
+             * on reading NULL beside it. The helper sets STA first, and rejoins when it may. */
+            if (turningOn && !wifiRestoreStation("Settings: WiFi on")) {
               log_e("WIFI can't be started");
               wifiState.setRadioOff(true);   // say what is true, not what was asked for
             }
@@ -6546,6 +6552,20 @@ void MuteApp::redrawScreen(bool redrawAll) {
   screenInited = true;
 }
 
+/* 🛑 Settings > WiFi scans every 5 s and joins networks; under a live soft-AP that is AP+STA
+ * channel hopping and, on a join, the station connect WiPhone.ino's reconnect gate calls a chip
+ * panic. kosyncWindowClose() ends a sync window's hotspot; this ends the other kind (0.9.79). No
+ * UI uploader can be up here — cleanAppDynamic() deleted the screen that owned it and its
+ * destructor called xferStop() — so this only ever meets a HEADLESS one (serial `up on`,
+ * wiphone_send.py, -DXFER_AUTOSTART). Said out loud: someone may be mid-upload from a computer. */
+static void wifiScreenStopsHotspotUploader(const char* screen) {
+  if (xferServing() && xferUsingAP()) {
+    log_e("XFER: %s opened - stopping the uploader's hotspot '%s' (a scan or join under it)",
+          screen, xferApName());
+    xferStop();
+  }
+}
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  EditNetwork app  - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 EditNetworkApp::EditNetworkApp(LCD& lcd, ControlState& state, const char* SSID, HeaderWidget* header, FooterWidget* footer)
@@ -6554,6 +6574,7 @@ EditNetworkApp::EditNetworkApp(LCD& lcd, ControlState& state, const char* SSID, 
   // It joins networks (connectTo); see the note in NetworksApp's constructor. A no-op when
   // NetworksApp opened this screen, which already closed it.
   kosyncWindowClose("Settings > WiFi opened");
+  wifiScreenStopsHotspotUploader("Settings > edit network");
 
   if (ini.load() || ini.restore()) {
     if (ini.isEmpty() || !ini[0].hasKey("v") || strcmp(ini[0]["v"], "1")) {
@@ -6782,6 +6803,18 @@ appEventResult EditNetworkApp::processEvent(EventType event) {
         ini.store();
       } 
     } else {
+      /* ⚠ A DELIBERATE JOIN TURNS THE SWITCH ON (0.9.79). connectTo() clears userDisabled but
+       * never radioOff, so Connect with WiFi off joined while the menu said "off" — and then the
+       * next game exit or window close honoured the stale switch and dropped the network just
+       * joined, and the next boot came up off. Pressing Connect IS switching WiFi on, so say so:
+       * persisted, and the WIFI-ON/OFF choice below shows it (its handler then sees no change). */
+      if (wifiState.radioOff()) {
+        wifiState.setRadioOff(false);
+        if (wifiOnOff != NULL) {
+          wifiOnOff->setValue(0);
+          lastWifiOnOff = 0;
+        }
+      }
       if (wifiState.connectTo(ssidInput->getText())) {
         log_d("connecting: %s", ssidInput->getText());
 
@@ -6845,7 +6878,8 @@ appEventResult EditNetworkApp::processEvent(EventType event) {
     lastWifiOnOff = wifiOnOff->getValue();
     if (lastWifiOnOff == 0) {           // WIFI-ON
       wifiState.setRadioOff(false);
-      if (esp_wifi_start() != ESP_OK) {
+      // wifiRestoreStation(), not a bare esp_wifi_start(): see the Settings toggle (0.9.79).
+      if (!wifiRestoreStation("Settings > edit network: WIFI-ON")) {
         log_e("WIFI can't be started");
       } else {
         /* ON means "managed again" (2026-08-27): with no SSID below, the retry and
@@ -7391,6 +7425,7 @@ NetworksApp::NetworksApp(LCD& lcd, ControlState& state, HeaderWidget* header, Fo
    * new one while either screen is up (kosyncWindowOpen) covers every scan and join these
    * screens make. */
   kosyncWindowClose("Settings > WiFi opened");
+  wifiScreenStopsHotspotUploader("Settings > WiFi");
 
   // Start ASYNC scan
   log_v("scanning");
@@ -7414,13 +7449,22 @@ NetworksApp::~NetworksApp() {
    * background rejoin cannot race the user's own choice while the list is open — but
    * leaving WITHOUT joining used to leave it cleared, so merely LOOKING at the WiFi list
    * silently killed auto-rejoin (and the radio) until the next join or reboot. Put it
-   * back on the way out. Gated on userDisabled(): an explicit Disconnect / Remove /
-   * WIFI-OFF in this visit went through disable(), which now sets that flag live — the
+   * back on the way out. Gated on stationAllowed(): an explicit Disconnect / Remove /
+   * WIFI-OFF in this visit went through disable(), which now sets userDisabled live — the
    * user said off, and backing out of the screen must not overrule them. A join needs no
-   * help here: connectTo() already restored both flags. */
-  if (!wifiState.userDisabled()) {
+   * help here: connectTo() already restored both flags.
+   * ⚠ BOTH switches (0.9.79), not userDisabled() alone: with WiFi off, an Edit > Save clears
+   * userDisabled from the INI (loadPreferred) while the switch stays off, and this re-armed the
+   * retry, which joined within 20 s under a menu row that still said "off". */
+  if (wifiState.stationAllowed()) {
     wifiState.resumeReconnect();
   }
+  /* ...and the radio goes back to how its owner has it (0.9.79). This screen's rescans start
+   * the station (scanNetworks -> enableSTA) on a phone whose network is Disconnected, or that
+   * has none saved — which is how that phone FINDS one, so they stay — but nothing put it down
+   * again: the station stayed up idle for the rest of the boot. The helper says OFF there,
+   * and rejoins (or leaves an association alone) for a phone with WiFi on. */
+  wifiRestoreStation("left Settings > WiFi");
 }
 
 void NetworksApp::setHeaderFooter() {
@@ -7548,7 +7592,10 @@ appEventResult NetworksApp::processEvent(EventType event) {
        * restarted a radio the user had switched off — the third of the three paths found in
        * the 2026-09-01 audit. Someone standing on the WiFi list screen with the radio off is
        * shown the list they already have rather than being silently put back on air. */
-      if (!wifiState.radioOff()) {
+      /* (0.9.79) Nor under a live hotspot: the constructor stopped any that was up, but serial
+       * `up on` can start one while this screen is open, and a scan under it is AP+STA channel
+       * hopping in the middle of someone's upload. */
+      if (!wifiState.radioOff() && !(xferServing() && xferUsingAP())) {
         WiFi.scanNetworks(true, false, false, 750);
       }
     }

@@ -1674,6 +1674,13 @@ void setup() {
       wifiState.connectToPreferred();
       delay(500);
     }
+  } else {
+    /* ⚠ THE PREFERRED NETWORK IS DISCONNECTED (its INI `disabled=true`: Disconnect, then a
+     * reboot) — or there is none, which disable() above already handled. Networks::init() has
+     * started the station, and until 0.9.79 nothing stopped it: no join, no retry, no scan (all
+     * stand down for userDisabled), just a station up and idle for the whole boot. The restore
+     * helper says OFF here, and logs that it did. */
+    wifiRestoreStation("boot: no saved network, or it is disconnected");
   }
 
 #if OTA_TRANSPORT_AVAILABLE
@@ -2474,6 +2481,9 @@ static uint32_t meshVibroLenMs = 0;
  *     on exit (app_gbc.cpp:328-329).
  *   - The ROM uploader: mode(WIFI_STA) + begin() when it stops (app_gbc_xfer.cpp:1766-1772).
  *   - The blocking scan path (Networks.cpp:821).
+ *   (0.9.79: the toggle, the edit screen, the Game Boy's exit and the uploader/window teardown
+ *   now all go through wifiRestoreStation() — still without esp_wifi_set_ps, so this still
+ *   applies to every one of them.)
  *
  * ⚠ NOT GATED ON `wifiOn`. That global (GUI.cpp:45) is a label, not the radio's state, and
  * the audit found three paths that restart the radio without touching it — gating on a flag
@@ -3607,7 +3617,7 @@ void loop() {
         retryMs = WIFI_DRY_RETRY_PERIOD_MS;
       }
       bool due = elapsedMillis(now, msLastWifiRetry, retryMs);
-      if (wokeNow && !wifiState.isConnected() && !wifiState.userDisabled() &&
+      if (wokeNow && !wifiState.isConnected() && wifiState.stationAllowed() &&
           (uint32_t)(now - lastWifiConnectAttemptMs()) >= 10000u) {
         /* Someone just picked the phone up: try NOW — unless a join started in the last
          * ten seconds, in which case hard-cycling the radio would abort an association
@@ -3623,7 +3633,14 @@ void loop() {
       /* (0.9.79) xferServing(), not gbcXferOn(): a KOSync sync window's hotspot is the same
        * softAP as the uploader's and panics the chip the same way under an STA connect. */
       const bool xferBlocksWifi = xferServing() && xferUsingAP();
-      if (!xferBlocksWifi && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && due && !wifiState.userDisabled()) {
+      /* 🛑 wifiStationWanted() (0.9.79): the owner's BOTH switches, no game, no live hotspot — the
+       * station gate wifiRestoreStation() shares (wifi_policy.h). This gate asked userDisabled() and
+       * the hotspot only. loop() runs all through a Game Boy game (its keys are drained here),
+       * so a phone that was off WiFi when the game began kept retrying every 20 s: a SPIFFS INI
+       * read on the loop the game's keys ride on, then WiFi.begin() — esp_wifi_start() under the
+       * emulator. And with the switch OFF but the per-network flag cleared (Edit > Save), it
+       * joined while the menu said off. xferBlocksWifi stays for the quiesce below. */
+      if (wifiStationWanted() && !wifiState.scanBusy() && wifiState.doReconnect() && !wifiState.isConnected() && due) {
         /* 🔑 DON'T SPEND 30 SECONDS OF RADIO ON AIR WE WERE JUST TOLD IS EMPTY. A scan is
          * ~350 ms; a failed join holds the radio associating for up to 30 s before the
          * quiesce below disconnects it, which is the largest remaining out-of-range cost.

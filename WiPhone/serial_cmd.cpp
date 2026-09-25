@@ -100,7 +100,7 @@ static void help() {
     "",
     "WiPhone serial commands:",
     "  ?          this help",
-    "  up on      start the WiFi uploader (files land in /roms)",
+    "  up on      start the WiFi uploader (files land in /roms; refused during a Game Boy game)",
     "  up on books|photos  same, into /books or /photos",
     "  up on maps          same, into /maps - accepts <area>/<z>/<x>/<y>.565 paths",
     "  up off     stop the uploader",
@@ -123,12 +123,16 @@ static void help() {
     "  chans      list the channels this phone has",
     "  meshdb     chat history: which filesystem, what loaded, what the next save keeps",
     "  wifi drop  simulate a hotspot blip, to measure the reconnect path",
+    "  wifi off|on  the Settings \"WiFi\" switch from the cable (persisted, same calls)",
     "  wifi why   (or just `wifi`) why it dropped: disconnect reasons, the AP/channel/RSSI,",
-    "             the driver's STA config, refused scan starts, the last 15 WiFi events",
+    "             the driver's STA config, refused scan starts, the last 15 WiFi events,",
+    "             and the last `WIFI restore` (who gave the radio back, and what it was allowed)",
     "  wifi log on|off  the WiFi driver's OWN state lines (beacon timeout, state changes) -",
     "             bench only, RAM only, off again at reboot",
-    "  wifi scan  what the radio can actually hear - deaf radio vs absent AP",
+    "  wifi scan  what the radio can actually hear - deaf radio vs absent AP (with WiFi off",
+    "             the radio goes back off after it; refused under a game or a live hotspot)",
     "  wifi bounce  radio off/on without a reboot - the deaf-scan cure, keeps saved APs",
+    "             (refused with WiFi off/disabled, under a game or a live hotspot)",
     "  wifi calreset  erase the stored RF calibration and reboot - the deaf-radio probe",
     "  star [<!node>]  list starred nodes, or toggle one (top of list, evicted last)",
     "  send <i> <text>  send a channel text (index from `chans`) - proves the broadcast receipt",
@@ -178,6 +182,10 @@ static void help() {
     "  key <names>  press keys: select/menu back ok up down left right call end f1-f4,",
     "             or a single character. `key menu`, `key down down ok`. Real presses -",
     "             they go into the keypad buffer, so the whole UI path runs unchanged",
+    "  open <app>  jump into an app: maps photos books music mesh gbc files clock, or",
+    "             wifi (Settings > WiFi's list) / wifiedit (edit the current network - there",
+    "             `key select` is its Connect/Disconnect). Leaving (`open clock`) runs the exit",
+    "             path Back does - for the WiFi screens, the `WIFI restore` line",
     "  wallpaper  what the background loader found, and why it did or did not use it",
     "  wallpaper reload|list|clear  re-read it / list /photos / drop the override",
     "  wallpaper set <name>  set /photos/<name> as the wallpaper - the SAME code the",
@@ -390,6 +398,9 @@ static void run(char* line) {
   }
   if (!strcasecmp(line, "up on books")) {
     xferStart(xferBooksConfig());       // the Books uploader, no hands on the phone
+    if (!gbcXferOn() && xferStartError()) {
+      say("up: NOT started - %s\n", xferStartError());
+    }
     reportUploader();
     return;
   }
@@ -1246,6 +1257,33 @@ static void run(char* line) {
     return;
   }
 
+  /* `wifi off` / `wifi on` — the Settings row "WiFi: on/off" from the cable (0.9.79), the SAME two
+   * calls it makes (GUI.cpp, GUI_ACTION_WIFI_TOGGLE): setRadioOff() persists and applies the
+   * switch, and ON hands the radio back through wifiRestoreStation(). Exists for the restore
+   * bench, whose every scenario starts from one switch position or the other — and a `key` walk
+   * to a menu row is the fragile part of a bench (see `open`). Refused where the menu row cannot
+   * be reached either: under a game, and under a live hotspot (switching off there stops the
+   * radio beneath a transport that goes on reporting itself up). */
+  if (!strcasecmp(line, "wifi off") || !strcasecmp(line, "wifi on")) {
+    const bool on = !strcasecmp(line, "wifi on");
+    if (const char* by = wifiStationBlockedBy()) {
+      say("wifi %s: REFUSED - %s\n", on ? "on" : "off", by);
+      return;
+    }
+    if (on == !wifiState.radioOff()) {
+      say("wifi: already %s\n", on ? "on" : "off");
+      return;
+    }
+    wifiState.setRadioOff(!on);
+    if (on && !wifiRestoreStation("serial wifi on")) {
+      wifiState.setRadioOff(true);    // say what is true, as the Settings row does
+      say("wifi on: the radio would not start - left OFF\n");
+      return;
+    }
+    say("wifi: switched %s (persisted, exactly as the Settings row does)\n", on ? "ON" : "OFF");
+    return;
+  }
+
   /* `wifi why` — the drop record (Networks::diagPrint). Written straight to the UART rather
    * than through say(), whose 192-byte buffer would clip the longer lines. */
   if (!strcasecmp(line, "wifi") || !strcasecmp(line, "wifi why")) {
@@ -1303,6 +1341,20 @@ static void run(char* line) {
    * autoSwitchTick() now performs this on its own after 2 consecutive empty scans; this
    * command exists so a bench session can apply and PROVE the cure without a reboot. */
   if (!strcasecmp(line, "wifi bounce")) {
+    /* (0.9.79) Not over anyone who holds the radio, and not over the owner's "off": bounceRadio()
+     * ends in WiFi.mode(WIFI_STA), which under a live hotspot switches AP -> STA (the hotspot
+     * dies while the uploader/window go on saying "up"), under a game starts the radio beside
+     * the emulator, and with WiFi off or the network Disconnected leaves the station up for the
+     * rest of the boot. A deaf radio on such a phone has nothing to be deaf to. */
+    if (const char* by = wifiStationBlockedBy()) {
+      say("wifi bounce: REFUSED - %s\n", by);
+      return;
+    }
+    if (!wifiState.stationAllowed()) {
+      say("wifi bounce: REFUSED - WiFi is %s (menu > WiFi / Settings > WiFi to turn it on)\n",
+          wifiState.radioOff() ? "switched OFF" : "disabled for this network");
+      return;
+    }
     wifiState.bounceRadio();
     say("wifi bounce: radio cycled off/on - retry/auto-switch take it from here\n");
     return;
@@ -1330,6 +1382,17 @@ static void run(char* line) {
           "           This is the guard, not the radio. Run `heap` and look at `largest`.\n");
       return;
     }
+    /* (0.9.79) A scan starts the station (enableSTA): under a hotspot that is AP+STA channel
+     * hopping mid-transfer, under a game the radio beside the emulator. */
+    if (const char* by = wifiStationBlockedBy()) {
+      say("wifi scan: REFUSED - %s\n", by);
+      return;
+    }
+    /* With WiFi off (or the network Disconnected) the scan still runs — "can this radio hear
+     * anything" is a fair bench question either way — but the radio goes back down after it.
+     * Only when the scan was what brought the station up: a station that was already running
+     * is left exactly as it was, so this never starts a join on a phone being diagnosed. */
+    const bool staWasUp = (WiFi.getMode() & WIFI_MODE_STA) != 0;
     /* wifiScanStart, not WiFi.scanNetworks: the same scan, but -2 now says WHICH -2 (2026-09-25 —
      * the night before, a -2 could not be told apart from a 10 s no-show). */
     int32_t why = 0;
@@ -1357,6 +1420,9 @@ static void run(char* line) {
       }
     }
     WiFi.scanDelete();
+    if (!staWasUp) {
+      wifiRestoreStation("serial wifi scan");   // the log line says what the radio went back to
+    }
     return;
   }
 
@@ -2065,9 +2131,15 @@ static void run(char* line) {
     else if (!strcasecmp(arg, "mesh"))   app = GUI_APP_MESHTASTIC;
     else if (!strcasecmp(arg, "gbc"))    app = GUI_APP_GBC;     // the ROM picker; `key ok` starts the first game
     else if (!strcasecmp(arg, "files"))  app = GUI_APP_FILES;
+    /* The two WiFi settings screens (0.9.79), for the restore bench: their constructors close a
+     * sync window and stop a hotspot uploader, the list's exit hands the radio back
+     * (wifiRestoreStation), and the edit screen's SELECT is Connect/Disconnect whatever has
+     * focus. Landing on them by `key` walks through Settings was the fragile part. */
+    else if (!strcasecmp(arg, "wifi"))   app = GUI_APP_NETWORKS;
+    else if (!strcasecmp(arg, "wifiedit")) app = GUI_APP_EDITWIFI;
     else if (!strcasecmp(arg, "clock") || !*arg) app = GUI_APP_CLOCK;
     else {
-      say("open: maps | photos | books | music | mesh | gbc | files | clock\n");
+      say("open: maps | photos | books | music | mesh | gbc | files | wifi | wifiedit | clock\n");
       return;
     }
     if (gui.openAppFromConsole(app)) {
