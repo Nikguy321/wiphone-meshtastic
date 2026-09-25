@@ -1655,11 +1655,11 @@ bool MeshtasticService::loop() {
    * `bench` numbers at meshFs(). 🛑 The 0.6-1.5 s 'mesh' STALL lines that kept being blamed on
    * this were LoRa TRANSMITS (the old blocking send, relays above all — mesh_txq.h); nothing on
    * that path ever looked at uiIdle, which is why they landed mid-scroll too. */
-  /* Drain any save in flight FIRST, and unconditionally. Each pass writes at most
-   * MESH_SAVE_CHUNK_BYTES — 64 KB, i.e. the whole image in one pass today (see the note at
-   * that define for why it is not smaller on SPIFFS) — then close/remove/rename. Letting it
-   * finish promptly keeps the temp file's lifetime short. Only STARTING a save waits for an
-   * idle moment. */
+  /* Drain any save in flight FIRST, and unconditionally. Each pass writes one chunk — 16 KB on
+   * the card, the whole image on SPIFFS (meshSaveChunk(), mesh_dbfile.h, and the note above
+   * saveDb() for why SPIFFS is not chunked) — and the close/remove/rename gets a pass of its
+   * own. Letting it finish promptly keeps the temp file's lifetime short. Only STARTING a save
+   * waits for an idle moment. */
   /* s_meshCardIn is set by setCardPresent(), which the main loop calls every pass AND once
    * before setup() — it is not synced here any more. One writer: two of them was how the
    * load path came to disagree with the save path for a day and a half. */
@@ -2870,6 +2870,11 @@ int MeshtasticService::persistedMessageCount() const {
 /* The temp file stays open across loop passes while a save drains. A file-static rather than a
  * member so meshtastic_service.h does not have to include FS.h for every one of its consumers. */
 static File s_saveFile;
+/* Which filesystem the save in flight was STARTED on. A save now spans several passes (16 KB a
+ * pass on the card, then a pass for the finish), and meshFs() follows the card from pass to
+ * pass: a card pulled mid-save must not turn the finish into remove("/meshdb.bin") on SPIFFS,
+ * the fallback copy, followed by a rename of a temp file that is not there. */
+static bool s_saveOnCard = false;
 
 /* ⚠ CHUNKING WAS TRIED AT 128 BYTES AND IT MADE THINGS WORSE. MEASURED, not theorised: three
  * saves produced **31** stalls over 250 ms, against a handful before. The per-byte model that
@@ -2887,7 +2892,11 @@ static File s_saveFile;
  * on the SD card and appends every minute without ever tripping the stall detector. Moving the
  * database there is a deliberate piece of work — it needs a SPIFFS fallback for a missing card
  * — and it is the thing to do next, not another attempt at outsmarting this filesystem. */
-#define MESH_SAVE_CHUNK_BYTES  65536
+/* ⚠ 0.9.79: THE ABOVE IS THE SPIFFS STORY AND STILL HOLDS THERE (MESH_SAVE_CHUNK_FLASH, 64 KB =
+ * the whole image). The database has lived on the card since 0.9.19, and the card has no erase
+ * cliff, so there it goes in MESH_SAVE_CHUNK_SD pieces with the finish in a pass of its own —
+ * meshSaveChunk() in mesh_dbfile.h, host-tested. The 0.6-1.5 s 'mesh' stalls this was chasing
+ * were LoRa transmits (mesh_txq.h), never this save. */
 
 void MeshtasticService::saveDb() {
   /* Builds the whole image in PSRAM — memcpy only, NO file I/O — and hands it to saveDbStep()
@@ -2972,6 +2981,7 @@ void MeshtasticService::saveDb() {
     free(keep);
   }
 
+  s_saveOnCard = s_meshCardIn;             // the finish must happen where the writes did
   s_saveFile = meshFs().open(MESH_DB_TMP, "w");
   if (!s_saveFile) {
     log_e("mesh: saveDb open failed");
@@ -2991,23 +3001,23 @@ void MeshtasticService::saveDbStep() {
   if (!saveActive) {
     return;
   }
-  const uint32_t n = (saveLen - saveOff) < MESH_SAVE_CHUNK_BYTES
-                     ? (saveLen - saveOff) : MESH_SAVE_CHUNK_BYTES;
+  fs::FS& fs = s_saveOnCard ? (fs::FS&)SD : (fs::FS&)SPIFFS;
+  /* One chunk a pass — 16 KB on the card, the whole image on SPIFFS (mesh_dbfile.h) — and the
+   * close/remove/rename on a pass of its own once nothing is left to write. */
+  const uint32_t n = meshSaveChunk(saveLen, saveOff, s_saveOnCard);
   if (n) {
     if (s_saveFile.write(saveBuf + saveOff, n) != n) {
       log_e("mesh: saveDb write FAILED at %u/%u - database left as it was",
             (unsigned)saveOff, (unsigned)saveLen);
       s_saveFile.close();
-      meshFs().remove(MESH_DB_TMP);
+      fs.remove(MESH_DB_TMP);
       free(saveBuf);
       saveBuf = NULL;
       saveActive = false;
       return;
     }
     saveOff += n;
-  }
-  if (saveOff < saveLen) {
-    return;                                  // more next pass
+    return;                                  // more next pass, or the finish
   }
   s_saveFile.close();
   free(saveBuf);
@@ -3015,9 +3025,10 @@ void MeshtasticService::saveDbStep() {
   saveActive = false;
   /* Only now does the real file change: an interrupted save leaves the OLD database intact.
    * ⚠ A cut BETWEEN these two calls leaves no /meshdb.bin and a whole /meshdb.tmp — boot puts
-   * it back (meshRecoverTmp, at the top of loadDb). */
-  meshFs().remove(MESH_DB_PATH);
-  if (!meshFs().rename(MESH_DB_TMP, MESH_DB_PATH)) {
+   * it back (meshRecoverTmp, at the top of loadDb). Kept in ONE pass so that window stays as
+   * short as the two calls. */
+  fs.remove(MESH_DB_PATH);
+  if (!fs.rename(MESH_DB_TMP, MESH_DB_PATH)) {
     log_e("mesh: saveDb RENAME FAILED - database left as it was");
     return;
   }

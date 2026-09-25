@@ -47,3 +47,12 @@ bool meshFavImageComplete(const uint8_t* img, size_t len, uint32_t magic, int ma
   const int n = img[4];
   return n <= maxCount && len == (size_t)(5 + 4 * n);
 }
+
+uint32_t meshSaveChunk(uint32_t len, uint32_t off, bool onCard) {
+  if (off >= len) {
+    return 0;
+  }
+  const uint32_t left = len - off;
+  const uint32_t chunk = onCard ? MESH_SAVE_CHUNK_SD : MESH_SAVE_CHUNK_FLASH;
+  return left < chunk ? left : chunk;
+}

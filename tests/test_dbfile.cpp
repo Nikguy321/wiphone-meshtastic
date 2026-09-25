@@ -153,6 +153,39 @@ int main() {
     ok(!meshFavImageComplete(f.data(), f.size(), FM, 32), "wrong magic fails");
   }
 
+  group("a save pass writes one chunk; the finish gets a pass of its own");
+  {
+    /* Drive a save the way saveDbStep() does: one call per loop pass. */
+    struct Run { int writes; int finishPass; uint32_t biggest; uint32_t total; };
+    auto run = [](uint32_t len, bool onCard) {
+      Run r = {0, -1, 0, 0};
+      uint32_t off = 0;
+      for (int pass = 0; pass < 100; pass++) {
+        const uint32_t n = meshSaveChunk(len, off, onCard);
+        if (!n) { r.finishPass = pass; break; }
+        r.writes++;
+        if (n > r.biggest) r.biggest = n;
+        r.total += n;
+        off += n;
+      }
+      return r;
+    };
+    const uint32_t card = 12 + 4 + 200 * 80 + 4 + 200 * 248 + 4 + 8 * 44;   // the largest card image
+    Run r = run(card, true);
+    ok(r.total == card && r.writes == 5 && r.biggest == MESH_SAVE_CHUNK_SD,
+       "the largest card image (65,976 B): five 16 KB-or-less writes, every byte once");
+    ok(r.finishPass == 5, "...and the close/remove/rename on a SIXTH pass, not riding on a write");
+    const uint32_t flash = 12 + 4 + 200 * 80 + 4 + 60 * 248 + 4 + 8 * 44;   // SPIFFS keeps 60 messages
+    r = run(flash, false);
+    ok(r.writes == 1 && r.total == flash,
+       "the largest SPIFFS image (31,252 B) goes in ONE write (an erase cannot be chunked around)");
+    ok(r.finishPass == 1, "...and its finish on the next pass");
+    r = run(MESH_SAVE_CHUNK_SD, true);
+    ok(r.writes == 1 && r.finishPass == 1, "exactly one chunk: one write, then the finish");
+    ok(meshSaveChunk(100, 100, true) == 0 && meshSaveChunk(100, 150, true) == 0,
+       "nothing left (or past the end): 0, i.e. finish");
+  }
+
   printf("\n%d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;
 }
