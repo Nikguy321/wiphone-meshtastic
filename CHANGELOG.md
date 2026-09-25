@@ -91,6 +91,12 @@ no space before it (`pass#word`) is part of the value.
   X4 would count it differently: over 512 manifest items/itemrefs, or a `.txt` too big to be
   shown whole (it used to send 0 % and apply a peer's place to the cut text). Serial:
   `kosync sync` (the read-then-offer-or-send path).
+- **Review round (KS-1..3):** the ask on book open is judged against your last page turn AS OF
+  THE ASK, so a page turned while it is on its way no longer hides the X4's newer place (only
+  "Sync my place" uses the latest turn); a place counts as declined only once you ANSWER its
+  card (one lost to a restart or a full inbox is offered again, and "Sync my place" sends
+  nothing while one waits on the card); and the X4 fork's second PUT, under its file-name id,
+  no longer shows "! A place for a DIFFERENT book" beside a sync that worked.
 - The phone only ever HOSTS: it never scans for or joins another device's hotspot.
 - **The sync hotspot is OPEN unless `hotspot_pass=` is set.** With 8-63 plain-ASCII characters
   (spaces inside are fine; spaces at either end are trimmed) the window's `WiPhone-Books` is

@@ -990,7 +990,7 @@ static void testLedger() {
   for (int n = 0; n < 10; n++) {
     char text[BOOKSYNC_MESH_TEXT_MAX];
     ok(kosyncParkText(mine, 1, 1, 0.1 * n, 4, 0, "CrossPoint", key, text, sizeof(text)), "pack");
-    ok(kosyncParkInto(&L, BYNAME, text, 0.05 * n, 0), "parked");
+    ok(kosyncParkInto(&L, BYNAME, text, 0.05 * n, 0, 0), "parked");
     eqInt(bookSyncInboxCount(), 4, "three others + ONE for this book, every time");
     lastId = bookSyncInboxIdAt(bookSyncInboxCount() - 1);
   }
@@ -1012,12 +1012,12 @@ static void testLedger() {
   char text[BOOKSYNC_MESH_TEXT_MAX];
   const char* b2[1] = { "ta:plain" };
   ok(kosyncParkText(b2, 1, 0, 0.5, 3, 0, "CrossPoint", key, text, sizeof(text)), "pack book 2");
-  ok(kosyncParkInto(&L, "otherbook", text, 0.3, 0), "park book 2");
+  ok(kosyncParkInto(&L, "otherbook", text, 0.3, 0, 0), "park book 2");
   ok(bookSyncInboxFindFor(key, mine, 1, &r, &from) >= 0, "book 1's offer still there");
   // The reader took the offer (the card removes it): the next park simply adds.
   bookSyncInboxDropForBook(key, mine, 1);
   ok(kosyncParkText(mine, 1, 2, 0.5, 4, 0, "CrossPoint", key, text, sizeof(text)), "pack");
-  ok(kosyncParkInto(&L, BYNAME, text, 0.7, 0), "parks after its predecessor was taken");
+  ok(kosyncParkInto(&L, BYNAME, text, 0.7, 0, 0), "parks after its predecessor was taken");
   bookSyncInboxInit();
 }
 
@@ -1956,6 +1956,286 @@ static void testProblemsKept() {
   ok(!kosyncReloadClears(false, false, 0, s1), "the first read of the boot: nothing to clear");
 }
 
+// ================================================================ integration review (KS-1..3)
+/* KS-1: an AUTOMATIC ask is judged against the last move AS OF THE ASK. Nick's Sunday flow:
+ * read on the X4, then open the book on the phone — and a page turned in the seconds the pull
+ * on open takes must not hide the X4's newer place. */
+static void testOfferRace() {
+  group("KS-1: a page turn while the pull on open is on its way does not hide the X4's place");
+  static KosyncMemo m;
+  memset(&m, 0, sizeof(m));
+  const uint32_t H13 = 1790046800u, H14 = H13 + 3600u, H15 = H13 + 7200u;
+  KosyncMemoEntry* e = kosyncMemoGet(&m, BYNAME, true);
+  kosyncMemoMoved(&m, e, H13);                     // the phone last read this book at 13:00
+  KosyncProgress g;                                // 14:00: the X4 sends 70 % to COVEY
+  memset(&g, 0, sizeof(g));
+  g.hasPct = true; g.pct = 0.70; g.hasTimestamp = true; g.timestamp = H14;
+  snprintf(g.device, sizeof(g.device), "CrossPoint");
+  snprintf(g.deviceId, sizeof(g.deviceId), "x4");
+  // 15:00: the book opens at 40 %; the pull is queued with the snapshot (kosyncMovedAt, now).
+  const uint32_t asked = e->movedAt;
+  kosyncMemoMoved(&m, e, H15 + 1);                 // ...and a page is turned before it answers
+  KosyncOfferIn in;
+  kosyncOfferFill(&in, &g, false, true, 0.401, asked, e, 0, "WiPhone-NICK", "me");
+  eqInt(in.myMovedAt, H13, "the automatic ask is judged by the stamp as of the ask");
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "the X4's 70 % is OFFERED despite the turn");
+  in.myMovedAt = e->movedAt;                       // what the glue used to read
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_OLDER,
+        "(the freshest stamp would have hidden it: 'older than your last page turn')");
+  kosyncOfferFill(&in, &g, true, true, 0.401, asked, e, 0, "WiPhone-NICK", "me");
+  eqInt(in.myMovedAt, H15 + 1, "the explicit Sync my place is judged by the freshest stamp");
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_OLDER, "...the person just said 'this is where I am'");
+
+  group("KS-1: the rule itself still holds for an automatic ask");
+  memset(&m, 0, sizeof(m));
+  e = kosyncMemoGet(&m, BYNAME, true);
+  kosyncMemoMoved(&m, e, H15);                     // the phone really did read after the X4
+  kosyncOfferFill(&in, &g, false, true, 0.45, e->movedAt, e, 0, "WiPhone-NICK", "me");
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_OLDER, "a move made BEFORE the ask still wins");
+  kosyncOfferFill(&in, &g, false, true, 0.45, 0, e, 0, "WiPhone-NICK", "me");
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "no stamp at the ask (no clock then): offered");
+
+  group("KS-1: the book opened before the WiFi came up");
+  memset(&m, 0, sizeof(m));
+  e = kosyncMemoGet(&m, BYNAME, true);
+  kosyncMemoMoved(&m, e, H13);
+  const uint32_t atOpen = e->movedAt;              // s_waitBook's snapshot, never refreshed now
+  for (int t = 1; t <= 20; t++) {
+    kosyncMemoMoved(&m, e, H15 + 30u * (uint32_t)t);   // a GPS-set clock stamps every page
+  }
+  kosyncOfferFill(&in, &g, false, true, 0.43, atOpen, e, 0, "WiPhone-NICK", "me");
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "the pull once WiFi is up still offers the X4's place");
+
+  group("KS-1: kosyncOfferFill carries everything else as it was");
+  static KosyncMemo m2;
+  memset(&m2, 0, sizeof(m2));
+  KosyncMemoEntry* e2 = kosyncMemoGet(&m2, BYNAME, true);
+  e2->offeredSig = 1234; e2->movedAt = 99;
+  g.hasTimestamp = false; g.timestamp = 777;
+  kosyncOfferFill(&in, &g, false, false, 0.2, 55, e2, 4321, "dev", "id");
+  ok(in.theirTs == 0 && in.theirPct == 0.70 && !strcmp(in.theirDevice, "CrossPoint") &&
+     !strcmp(in.theirDeviceId, "x4"), "the record (no timestamp = 0)");
+  ok(!in.mineOk && in.minePct == 0.2 && !strcmp(in.myDevice, "dev") && !strcmp(in.myDeviceId, "id"),
+     "our side");
+  ok(in.offeredSig == 1234 && in.pendingSig == 4321 && in.myMovedAt == 55, "the memo's answer, the pending park");
+  kosyncOfferFill(&in, &g, true, true, 0.2, 55, NULL, 0, "dev", "id");
+  ok(in.myMovedAt == 0 && in.offeredSig == 0, "no memo entry: nothing known");
+}
+
+/* KS-2: "declined" means the person ANSWERED the card — never that it was parked. */
+static void testPendingOffer() {
+  group("KS-2: a parked home record is PENDING until the card is answered");
+  uint8_t key[32];
+  bookSyncDeriveKey("test-passcode", key);
+  bookSyncInboxInit();
+  static KosyncParkLedger L;
+  static KosyncMemo m;
+  static uint8_t blob[KOSYNC_MEMO_BLOB_MAX];
+  memset(&L, 0, sizeof(L));
+  memset(&m, 0, sizeof(m));
+  const char* mine[1] = { "id:urn-uuid-kosync-mixed-0001" };
+  const uint32_t S = kosyncOfferSig(1790050400, 0.70, "x4", "CrossPoint");
+  KosyncOfferIn in;
+  memset(&in, 0, sizeof(in));
+  in.theirPct = 0.70; in.theirTs = 1790050400; in.theirDevice = "CrossPoint"; in.theirDeviceId = "x4";
+  in.mineOk = true; in.minePct = 0.40; in.myDevice = "WiPhone-NICK"; in.myDeviceId = "me";
+  char text[BOOKSYNC_MESH_TEXT_MAX];
+  ok(kosyncParkText(mine, 1, 2, 0.5, 4, 0, "CrossPoint", key, text, sizeof(text)), "pack");
+  ok(kosyncParkInto(&L, BYNAME, text, 0.70, 0, S), "the pull parks the X4's place");
+  uint32_t pend = 0;
+  ok(kosyncParkPending(&L, BYNAME, NULL, &pend) && pend == S, "pending, with its record");
+  ok(kosyncParkPending(&L, BYNAME, key, &pend) && pend == S, "...and it verifies: a card can show it");
+  uint8_t otherKey[32];
+  bookSyncDeriveKey("a-new-passcode", otherKey);
+  ok(!kosyncParkPending(&L, BYNAME, otherKey, &pend) && pend == 0,
+     "the passcode changed since: it can never be a card, so it holds nothing");
+  kosyncParkPending(&L, BYNAME, key, &pend);
+  ok(kosyncMemoGet(&m, BYNAME, false) == NULL, "...and NOTHING is written to the memo (it was, at park)");
+  in.pendingSig = pend;
+  in.offeredSig = 0;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_WAITING, "a second read of it: on the card, not re-parked");
+  eqStr(kosyncOfferVerdictText(KOSYNC_SKIP_WAITING), "on the card, waiting for your answer", "said so");
+  in.theirTs = 1790050500;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "a NEWER record replaces the pending one");
+  in.theirTs = 1790050400;
+  ok(!kosyncParkPending(&L, "ffffffffffffffffffffffffffffffff", key, &pend) && pend == 0,
+     "another book: nothing pending");
+
+  group("KS-2: a park lost unanswered is simply offered again");
+  bookSyncInboxInit();                             // a restart (the inbox and the ledger are RAM)
+  memset(&L, 0, sizeof(L));
+  size_t len = kosyncMemoPack(&m, blob, sizeof(blob));
+  ok(kosyncMemoUnpack(&m, blob, len), "the memo, as NVS kept it");
+  KosyncMemoEntry* e = kosyncMemoGet(&m, BYNAME, true);
+  ok(!kosyncParkPending(&L, BYNAME, key, &pend), "nothing parked after the restart");
+  in.pendingSig = pend;
+  in.offeredSig = e->offeredSig;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "the next pull OFFERS it (it said 'already offered')");
+  // Evicted from the four-slot inbox by LoRa traffic for other books, before anyone saw it.
+  ok(kosyncParkInto(&L, BYNAME, text, 0.70, 0, S), "parked again");
+  const char* others[4] = { "id:o1", "id:o2", "id:o3", "id:o4" };
+  for (int i = 0; i < 4; i++) {
+    BookSyncRecord r;
+    const char* ids[1] = { others[i] };
+    bookSyncMakeRecord(&r, ids, 1, 1, 10, 0.3, 1790000000u + i, "COVEY", NULL);
+    char t2[BOOKSYNC_MESH_TEXT_MAX];
+    bookSyncPackMesh(&r, key, t2, sizeof(t2));
+    bookSyncInboxPush(t2, 0x1234, 0);
+  }
+  ok(!kosyncParkPending(&L, BYNAME, key, &pend) && pend == 0, "evicted: no longer pending");
+  in.pendingSig = pend;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_OFFER, "...and offered again by the next pull");
+
+  group("KS-2: answering THAT card is what declines it");
+  bookSyncInboxInit();
+  memset(&L, 0, sizeof(L));
+  ok(kosyncParkInto(&L, BYNAME, text, 0.70, 0, S), "parked");
+  const uint32_t id = bookSyncInboxIdAt(0);
+  ok(!kosyncOfferAnswered(&L, &m, id + 1000), "a LoRa card (not in the ledger): nothing");
+  ok(!kosyncOfferAnswered(&L, &m, 0), "no card: nothing");
+  m.dirty = false;
+  ok(kosyncOfferAnswered(&L, &m, id), "Stay (or Go there) on the card");
+  e = kosyncMemoGet(&m, BYNAME, false);
+  ok(e && e->offeredSig == S && m.dirty, "the record is now the book's answered one, due a save");
+  ok(!kosyncOfferAnswered(&L, &m, id), "answered once: a second call changes nothing");
+  ok(kosyncParkPending(&L, BYNAME, key, &pend) && pend == 0,
+     "until the reader retires it, the park carries no unanswered record");
+  bookSyncInboxDropForBook(key, mine, 1);          // the reader retires the book's parks
+  ok(!kosyncParkPending(&L, BYNAME, key, &pend), "nothing pending any more");
+  in.pendingSig = pend;
+  in.offeredSig = e->offeredSig;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_OFFERED, "the next pull: already answered, not offered");
+  len = kosyncMemoPack(&m, blob, sizeof(blob));
+  kosyncMemoUnpack(&m, blob, len);
+  e = kosyncMemoGet(&m, BYNAME, false);
+  in.offeredSig = e ? e->offeredSig : 0;
+  eqInt(kosyncOfferVerdict(&in), KOSYNC_SKIP_OFFERED, "...and across a restart: a decline stays one");
+
+  group("KS-2: only the card for that record answers it");
+  memset(&m, 0, sizeof(m));
+  bookSyncInboxInit();
+  memset(&L, 0, sizeof(L));
+  ok(kosyncParkInto(&L, BYNAME, text, 0.70, 0, S), "record 1 parked");
+  const uint32_t id1 = bookSyncInboxIdAt(0);
+  char text2[BOOKSYNC_MESH_TEXT_MAX];
+  ok(kosyncParkText(mine, 1, 3, 0.1, 4, 0, "CrossPoint", key, text2, sizeof(text2)), "pack");
+  const uint32_t S2 = kosyncOfferSig(1790050500, 0.80, "x4", "CrossPoint");
+  ok(kosyncParkInto(&L, BYNAME, text2, 0.80, 0, S2), "record 2 replaces it");
+  ok(kosyncParkPending(&L, BYNAME, key, &pend) && pend == S2, "record 2 pending");
+  ok(!kosyncOfferAnswered(&L, &m, id1), "a card still showing record 1 does not decline record 2");
+  ok(kosyncMemoGet(&m, BYNAME, false) == NULL, "...nothing remembered");
+  ok(kosyncParkText(mine, 1, 1, 0.2, 4, 0, "CrossPoint", key, text2, sizeof(text2)), "pack");
+  ok(kosyncParkInto(&L, BYNAME, text2, 0.9, 0, 0), "a window PUT replaces it (sig 0)");
+  ok(kosyncParkPending(&L, BYNAME, key, &pend) && pend == 0, "pending (it blocks Sync), with no home record");
+  ok(!kosyncOfferAnswered(&L, &m, bookSyncInboxIdAt(bookSyncInboxCount() - 1)),
+     "a window PUT's card: nothing to remember (every new PUT is offered again)");
+  bookSyncInboxInit();
+}
+
+/* KS-3: the X4 fork PUTs under BOTH ids; the second is not "a different book". */
+static void testSecondId() {
+  group("KS-3: the X4 fork's second PUT (its file-name id) is not a DIFFERENT book");
+  KosyncServeOut o;
+  char reply[512], hdrs[512], l[200];
+  snprintf(hdrs, sizeof(hdrs), "X HTTP/1.1\r\nx-auth-user: %s\r\nx-auth-key: %s\r\n\r\n", USER, KEY);
+  // The same bytes (partial MD5 matches), another file name on the X4 (its name id does not).
+  const char* put1 = "{\"document\":\"7db24c08211c49e8e0c2b8522e9efc1b\",\"percentage\":0.7,"
+                     "\"device\":\"CrossPoint\",\"device_id\":\"x4-id\"}";
+  const char* put2 = "{\"document\":\"0c9a1f7e00000000000000000000beef\",\"percentage\":0.7,"
+                     "\"device\":\"CrossPoint\",\"device_id\":\"x4-id\"}";
+  static KosyncPutLog w;
+  // As kosyncWindowServe feeds the log from each answer.
+  const char* order[2][2] = { { put1, put2 }, { put2, put1 } };
+  for (int k = 0; k < 2; k++) {
+    memset(&w, 0, sizeof(w));
+    uint32_t oldCount = 0;
+    for (int i = 0; i < 2; i++) {
+      serve("PUT", "/syncs/progress", hdrs, order[k][i], &o, reply);
+      eqInt(o.code, 200, "answered 200 either way");
+      if (o.gotPut) {
+        kosyncPutLogOwn(&w, o.putDevice, o.putDeviceId);
+      }
+      if (o.otherDoc) {
+        oldCount++;
+        eqStr(o.putDevice, "CrossPoint", "who sent the other-id PUT is known");
+        eqStr(o.putDeviceId, "x4-id", "...by its device_id");
+        kosyncPutLogOther(&w, o.putDevice, o.putDeviceId, o.otherDocId);
+      }
+    }
+    const char* doc = NULL;
+    uint32_t second = 9;
+    eqInt(kosyncPutLogDifferent(&w, &doc, &second), 0, k ? "other id FIRST: still not a different book"
+                                                           : "the partial PUT, then the name PUT: not a different book");
+    eqInt(second, 1, "...it is counted as the reader's second id");
+    kosyncWindowProblems(kosyncPutLogDifferent(&w, &doc, NULL), doc, 0, l, sizeof(l));
+    eqStr(l, "", "and the screen says nothing is wrong");
+    kosyncWindowProblems(oldCount, "0c9a1f7e", 0, l, sizeof(l));
+    ok(strstr(l, "DIFFERENT book") != NULL, "(the old count said '! A place for a DIFFERENT book')");
+  }
+
+  group("KS-3: a PUT for another document from anyone else is still a DIFFERENT book");
+  memset(&w, 0, sizeof(w));
+  kosyncPutLogOwn(&w, "CrossPoint", "x4-id");
+  kosyncPutLogOther(&w, "KOReader", "ko-id", "abcdef01");
+  const char* doc = NULL;
+  uint32_t second = 0;
+  eqInt(kosyncPutLogDifferent(&w, &doc, &second), 1, "another device's PUT for another book");
+  eqStr(doc, "abcdef01", "...with its id for the screen");
+  eqInt(second, 0, "no second id");
+  kosyncWindowProblems(kosyncPutLogDifferent(&w, &doc, NULL), doc, 0, l, sizeof(l));
+  eqStr(l, "! A place for a DIFFERENT book arrived (id abcdef01..) - not the same file here?", "said");
+  memset(&w, 0, sizeof(w));
+  kosyncPutLogOther(&w, "CrossPoint", "x4-id", "0c9a1f7e");
+  eqInt(kosyncPutLogDifferent(&w, &doc, NULL), 1, "a device that never PUT this book: different");
+  kosyncPutLogOther(&w, "CrossPoint", "x4-id", "0c9a1f7e");
+  eqInt(kosyncPutLogDifferent(&w, &doc, NULL), 2, "twice: (x2)");
+  kosyncPutLogOwn(&w, "CrossPoint", "x4-id");
+  eqInt(kosyncPutLogDifferent(&w, &doc, &second), 0, "...until it PUTs this book too (either order)");
+  eqInt(second, 2, "both were its second id");
+
+  group("KS-3: who is 'the same device'");
+  ok(kosyncPeerKey("CrossPoint", "x4-id") == kosyncPeerKey("Renamed", "x4-id"), "the id decides");
+  ok(kosyncPeerKey("A", "") != kosyncPeerKey("B", ""), "no id: the name does");
+  ok(kosyncPeerKey("x4-id", "") != kosyncPeerKey("", "x4-id"), "a name never passes for an id");
+  eqInt(kosyncPeerKey("", ""), 0, "neither: nobody");
+  eqInt(kosyncPeerKey(NULL, NULL), 0, "neither (NULL): nobody");
+  memset(&w, 0, sizeof(w));
+  kosyncPutLogOwn(&w, "", "");
+  kosyncPutLogOther(&w, "", "", "0c9a1f7e");
+  eqInt(kosyncPutLogDifferent(&w, &doc, NULL), 1, "a PUT naming no device is always counted");
+  memset(&w, 0, sizeof(w));
+  kosyncPutLogOwn(&w, "KOReader", "");
+  kosyncPutLogOther(&w, "KOReader", "", "0c9a1f7e");
+  eqInt(kosyncPutLogDifferent(&w, &doc, NULL), 0, "a device with no id, by its name");
+  memset(&w, 0, sizeof(w));
+  kosyncPutLogOwn(&w, "CrossPoint", "x4-id");
+  kosyncPutLogOther(&w, "CrossPoint", "", "0c9a1f7e");
+  eqInt(kosyncPutLogDifferent(&w, &doc, NULL), 1, "one PUT with an id, one without: counted (not sure)");
+
+  group("KS-3: a full log never hides a warning");
+  memset(&w, 0, sizeof(w));
+  for (int i = 0; i < KOSYNC_PUTLOG_MAX + 3; i++) {
+    char d[16];
+    snprintf(d, sizeof(d), "%08x", 0xa0000000u + (unsigned)i);
+    kosyncPutLogOther(&w, "Stranger", "s-id", d);
+  }
+  eqInt(kosyncPutLogDifferent(&w, &doc, NULL), KOSYNC_PUTLOG_MAX + 3, "every one counted");
+  kosyncPutLogOwn(&w, "Stranger", "s-id");
+  eqInt(kosyncPutLogDifferent(&w, &doc, &second), 3, "the ones it had no room to tell apart stay counted");
+  eqInt(second, KOSYNC_PUTLOG_MAX, "...the logged ones are its second ids");
+  memset(&w, 0, sizeof(w));
+  for (int i = 0; i < KOSYNC_PUTLOG_MAX; i++) {
+    char dev[16];
+    snprintf(dev, sizeof(dev), "dev-%d", i);
+    kosyncPutLogOwn(&w, "R", dev);
+  }
+  kosyncPutLogOwn(&w, "Late", "late-id");            // no room left for its own PUT
+  kosyncPutLogOther(&w, "Late", "late-id", "0c9a1f7e");
+  eqInt(kosyncPutLogDifferent(&w, &doc, NULL), 1, "a device the own-log had no room for: counted");
+  eqInt(kosyncPutLogDifferent(NULL, &doc, &second), 0, "no log: nothing");
+  ok(doc && !doc[0] && second == 0, "...and nothing said");
+}
+
 int main() {
   testMd5();
   testDocIds();
@@ -1981,6 +2261,9 @@ int main() {
   testProblemsAndLibrary();
   testHomeByName();
   testProblemsKept();
+  testOfferRace();
+  testPendingOffer();
+  testSecondId();
   testCapsAndBigText();
   testGolden();
   printf("\n%s%d passed, %d failed\033[0m\n", g_fail ? "\033[31m" : "\033[32m", g_pass, g_fail);

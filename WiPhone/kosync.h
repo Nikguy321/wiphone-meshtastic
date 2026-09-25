@@ -174,19 +174,28 @@ bool kosyncIsOwnRecord(const char* theirDevice, const char* theirDeviceId,
  * before it sends) goes to the card — never applied silently — when it is:
  *   from ANOTHER device (kosyncIsOwnRecord),
  *   more than KOSYNC_EPSILON away from where we are (skipped when we cannot place ourselves),
- *   not the very record already offered for this book (kosyncOfferSig — a new PUT gets a new
- *     server timestamp and is offered again; a declined one stays declined),
+ *   not the very record the person already ANSWERED on the card for this book (kosyncOfferSig —
+ *     a new PUT gets a new server timestamp and is offered again; a declined one stays
+ *     declined), nor the very record parked on the card and still waiting for that answer,
  *   and NOT PROVABLY OLDER than our last real move. "Provably" needs BOTH clocks: our
  *     last-move stamp (the reader's place actually changing — NOT every save or close, which
  *     is what the CBS1 turnedAt is) and the server's timestamp (0 / missing = unknown; COVEY
  *     serves 0 while its clock is not NTP-synchronised). Either unknown -> offer.
- * The bias is deliberate: a spurious card costs one Back; a hidden position is the bug. */
+ * The bias is deliberate: a spurious card costs one Back; a hidden position is the bug.
+ * 🛑 "DECLINED" MEANS ANSWERED (KS-2). The record's signature used to be saved as "offered" the
+ *    moment it was PARKED — before anyone had seen a card. A reboot, a power-off or an inbox
+ *    eviction before the book was reopened then lost the card, and the saved signature hid the
+ *    place ("already offered") until the X4 sent again; and a "Sync my place" pressed while the
+ *    park was on its way sent the phone's older place over it on COVEY. The signature now waits
+ *    in the park ledger and reaches the memo only when "Go there" or "Stay" is pressed on THAT
+ *    card (kosyncOfferAnswered); a park that is lost unanswered is simply offered again. */
 enum KosyncOfferVerdict {
   KOSYNC_OFFER = 0,
   KOSYNC_SKIP_OWN,                   // our own record coming back
   KOSYNC_SKIP_IN_STEP,               // within KOSYNC_EPSILON of where we are
-  KOSYNC_SKIP_OFFERED,               // this very record was offered already
+  KOSYNC_SKIP_OFFERED,               // this very record was answered on the card already
   KOSYNC_SKIP_OLDER,                 // older than our last move, both clocks known
+  KOSYNC_SKIP_WAITING,               // this very record is on the card, not yet answered
 };
 struct KosyncOfferIn {
   double      theirPct;
@@ -198,7 +207,8 @@ struct KosyncOfferIn {
   const char* myDevice;
   const char* myDeviceId;
   uint32_t    myMovedAt;             // UTC of our last real move in this book; 0 = unknown
-  uint32_t    offeredSig;            // kosyncOfferSig of the record last offered; 0 = none
+  uint32_t    offeredSig;            // kosyncOfferSig of the record last ANSWERED; 0 = none
+  uint32_t    pendingSig;            // ...of the record parked and unanswered; 0 = none
 };
 int         kosyncOfferVerdict(const KosyncOfferIn* in);
 /* Of the records a read found (got[i] valid where have[i]; the partial-MD5 id first), the one
@@ -213,6 +223,26 @@ const char* kosyncOfferVerdictText(int verdict);   // "in step", "already offere
  * record has one, else its name; the percentage as it goes on the wire (6 decimals). */
 uint32_t kosyncOfferSig(int64_t ts, double pct, const char* deviceId, const char* device);
 
+struct KosyncMemoEntry;                      // (the per-book memo, below)
+/* ── WHICH LAST MOVE JUDGES A HOME RECORD (KS-1) ──────────────────────────────────────────
+ * The offer rule's inputs for the record `g` a home read found. `askedMovedAt` is the last-move
+ * stamp AS IT STOOD WHEN THE ASK WAS MADE (the job's snapshot of the book); `me` is the book's
+ * memo entry (NULL = none), whose movedAt is the FRESHEST stamp; `pendingSig` the park ledger's
+ * unanswered record for this book (kosyncParkPending; 0 = none).
+ * 🛑 AN AUTOMATIC ASK IS JUDGED AGAINST THE STAMP AS OF THE ASK. The pull on book open (and the
+ *    same pull once the WiFi comes up) is not instant — two connections, up to 2 s of mDNS on a
+ *    join's first job, a first connect that times out (3 s) plus the 1 s retry on a station in
+ *    modem sleep — and the reader turns pages meanwhile. Judged against the freshest stamp, ONE
+ *    turn in those seconds made the X4's newer place "provably older": no card (only the line
+ *    "older than your last page turn, not offered"), every later open the same, and the next
+ *    "Sync my place" then sent the phone's older place over the X4's on COVEY — and "read on
+ *    the X4, then open the book on the phone" is THE flow this feature exists for.
+ *    Only the explicit "Sync my place" (`explicitSync`) is judged against the freshest stamp:
+ *    the person has just said "this is where I am". */
+void kosyncOfferFill(KosyncOfferIn* in, const KosyncProgress* g, bool explicitSync, bool mineOk,
+                     double minePct, uint32_t askedMovedAt, const KosyncMemoEntry* me,
+                     uint32_t pendingSig, const char* myDevice, const char* myDeviceId);
+
 /* ── THE AUTOMATIC PUSH RULE (shared decision D2) ──────────────────────────────────────
  * A push on close / on leaving the book goes out ONLY when the place moved since the book was
  * opened or since the last successful push of it (`ref`). An open and a close with no reading
@@ -226,15 +256,15 @@ bool kosyncAutoPushWanted(bool refOk, double refPct, bool movedSinceRef, bool pc
 /* ── WHAT THE PHONE REMEMBERS PER BOOK FOR KOSync ─────────────────────────────────────────
  * 🛑 NOT positions.cbs. The CBS1 turnedAt is stamped on every SAVE (a close, the OK-to-menu
  * flush) and goes on the air; its meaning is LoRa's and stays as it was. This is a separate,
- * small table: the last real MOVE of the place and the server record last offered (both
- * persisted, in NVS, so a reboot does not re-offer a declined place), what home last had from
+ * small table: the last real MOVE of the place and the server record last ANSWERED on the card
+ * (both persisted, in NVS, so a reboot does not re-offer a declined place), what home last had from
  * us (persisted — see kosyncClosePushWanted), plus the session's push reference (never
  * persisted). Keyed by the file-name id; least recently used goes. */
 #define KOSYNC_MEMO_MAX 16
 struct KosyncMemoEntry {
   char     book[KOSYNC_KEY_CHARS];   // the file-name id (32 hex); "" = a free slot
   uint32_t movedAt;                  // UTC of the last real move, 0 = unknown   (persisted)
-  uint32_t offeredSig;               // kosyncOfferSig last offered, 0 = none   (persisted)
+  uint32_t offeredSig;               // kosyncOfferSig last ANSWERED, 0 = none  (persisted)
   uint32_t used;                     // recency                                  (persisted)
   bool     sentOk;                   // a PUT of ours for this book succeeded     (persisted)
   double   sentPct;                  // ...and this was its place (6 dp kept)     (persisted)
@@ -399,6 +429,39 @@ bool kosyncWindowWaitsForSta(bool radioOff, bool userDisabled, bool staMode, uin
 size_t kosyncWindowProblems(uint32_t otherBook, const char* docId, uint32_t unauth,
                             char* out, size_t cap);
 
+/* ── A READER'S SECOND ID IS NOT ANOTHER BOOK (KS-3) ──────────────────────────────────────
+ * The CrossPoint fork with booksync PUTs every upload under BOTH its ids when they differ: the
+ * partial MD5 and the MD5 of ITS OWN file name. The same bytes under another name ('Title -
+ * Author.epub' on the X4, 'Title_Author.epub' here) match on the partial MD5 — that PUT parks and
+ * the card goes up — and not on the file name, and that second PUT put "! A place for a
+ * DIFFERENT book arrived" right beside the card from the same exchange: a sync that worked,
+ * reported as one that failed, which cheapens the one warning that matters when the files
+ * really differ.
+ * So a window keeps WHO sent what. A PUT for another document is a DIFFERENT book only when the
+ * same device (its device_id; its name when it sends no id) did not ALSO PUT this window's own
+ * book in this window — before it or after it: the count is worked out when the line is SHOWN,
+ * and the line outlives the window. A PUT that names no device at all is always counted, and so
+ * is one the fixed-size log had no room to tell apart: a warning is never hidden for want of
+ * room. The rest are counted too (serial `kosync`: "second-id"), never shown as a problem. */
+#define KOSYNC_PUTLOG_MAX 6
+struct KosyncPutLog {
+  uint32_t own[KOSYNC_PUTLOG_MAX];           // who PUT the window's own book (kosyncPeerKey), once each
+  uint8_t  nOwn;
+  uint32_t by[KOSYNC_PUTLOG_MAX];            // who PUT another document...
+  char     doc[KOSYNC_PUTLOG_MAX][16];       // ...which one (the start of its id, as shown)...
+  uint32_t n[KOSYNC_PUTLOG_MAX];             // ...and how many times
+  uint8_t  nOther;
+  uint32_t unlogged;                         // PUTs for another document with no room left
+};
+// Who a PUT came from, as a number: its device_id, else its name. 0 = it names neither.
+uint32_t kosyncPeerKey(const char* device, const char* deviceId);
+void     kosyncPutLogOwn(KosyncPutLog* l, const char* device, const char* deviceId);
+void     kosyncPutLogOther(KosyncPutLog* l, const char* device, const char* deviceId, const char* docId);
+/* How many of the PUTs for another document were a DIFFERENT book (above), and in `*doc` the
+ * start of the latest such id ("" when none is known). `secondIds` (may be NULL): the rest — a
+ * reader's other id for this window's own book. */
+uint32_t kosyncPutLogDifferent(const KosyncPutLog* l, const char** doc, uint32_t* secondIds);
+
 /* ── THE WINDOW'S WARNINGS, AND WHAT CLEARS THEM ──────────────────────────────────────────
  * Kept after the window closes — a person looks at Sync settings AFTER the X4 has said
  * "Upload complete" — and cleared by exactly two things: a NEW window (not the open one being
@@ -535,15 +598,39 @@ struct KosyncParkLedger {
   char     book[KOSYNC_LEDGER_MAX][KOSYNC_KEY_CHARS];   // the file-name id of the book
   uint32_t id[KOSYNC_LEDGER_MAX];                       // its inbox record (0 = none)
   double   peerPct[KOSYNC_LEDGER_MAX];                  // the peer's own KOSync percentage
+  /* The SERVER record the park offers (kosyncOfferSig), waiting for the person's answer; 0 = a
+   * window PUT (offered again on every PUT anyway), or answered already. RAM only, on purpose:
+   * a park lost to a restart is simply offered again (KS-2, above). */
+  uint32_t sig[KOSYNC_LEDGER_MAX];
   int      next;                                        // round-robin slot for a new book
 };
 
 /* Park `text` for `book`: remove this ledger's previous record for the book, push, remember
- * the new one. True when the inbox took it. Plain C++ over booksync_inbox — host-tested. */
+ * the new one and the server record it offers (`sig`, 0 for a window PUT). True when the inbox
+ * took it. Plain C++ over booksync_inbox — host-tested. */
 bool kosyncParkInto(KosyncParkLedger* l, const char* book, const char* text, double peerPct,
-                    uint32_t rxUnix);
+                    uint32_t rxUnix, uint32_t sig);
 
 // The peer's own percentage for the inbox record `inboxId`, if a KOSync park made it.
 bool kosyncParkedPeerPct(const KosyncParkLedger* l, uint32_t inboxId, double* pct);
+
+/* Is a KOSync park for `book` still in the inbox — on the card, or waiting for the book to be
+ * opened — and so still UNANSWERED? `*sig` (may be NULL) gets the server record it offers (0: a
+ * window PUT). An answered card retires every parked record for its book, and a restart or an
+ * eviction loses it, so "still in the inbox" is exactly "nobody has answered it yet".
+ * With `key` (the local booksync key; NULL = do not check), the parked record must also still
+ * VERIFY under it: a park signed before the booksync passcode was changed can never become a
+ * card (the reader verifies under the new key), so nobody is going to answer it.
+ * 🛑 "Sync my place" sends NOTHING home while this is true (kosync_sync.cpp evaluateOffer): a
+ *    place the person has not yet seen is not ours to send over. ⚠ Hence the key: without it a
+ *    park the card can never show would hold "Sync my place" until a restart. */
+bool kosyncParkPending(const KosyncParkLedger* l, const char* book, const uint8_t* key,
+                       uint32_t* sig);
+
+/* The person ANSWERED the card for inbox record `inboxId` ("Go there" or "Stay where I am"). If
+ * a home read parked it, its server record is now the book's `offeredSig` in the memo (marked
+ * dirty: save it) and is not offered again; the ledger forgets the pending signature. True when
+ * the memo changed. A LoRa card, or a window PUT's: nothing to remember, false. */
+bool kosyncOfferAnswered(KosyncParkLedger* l, KosyncMemo* m, uint32_t inboxId);
 
 #endif // KOSYNC_H

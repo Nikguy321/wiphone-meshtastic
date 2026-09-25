@@ -587,9 +587,12 @@ int kosyncOfferVerdict(const KosyncOfferIn* in) {
   if (in->mineOk && fabs(in->theirPct - in->minePct) <= KOSYNC_EPSILON + 1e-9) {
     return KOSYNC_SKIP_IN_STEP;        // CrossPoint's "synchronized"
   }
-  if (in->offeredSig &&
-      in->offeredSig == kosyncOfferSig(in->theirTs, in->theirPct, in->theirDeviceId, in->theirDevice)) {
-    return KOSYNC_SKIP_OFFERED;        // the person has seen this very record already
+  const uint32_t sig = kosyncOfferSig(in->theirTs, in->theirPct, in->theirDeviceId, in->theirDevice);
+  if (in->pendingSig && in->pendingSig == sig) {
+    return KOSYNC_SKIP_WAITING;        // on the card already, and not yet answered (KS-2)
+  }
+  if (in->offeredSig && in->offeredSig == sig) {
+    return KOSYNC_SKIP_OFFERED;        // the person has ANSWERED this very record already
   }
   // PROVABLY older: both clocks known, and theirs strictly before our last move.
   if (in->theirTs > 0 && in->myMovedAt > 0 && in->theirTs < (int64_t)in->myMovedAt) {
@@ -629,8 +632,28 @@ const char* kosyncOfferVerdictText(int v) {
     case KOSYNC_SKIP_IN_STEP: return "already in step";
     case KOSYNC_SKIP_OFFERED: return "already offered";
     case KOSYNC_SKIP_OLDER:   return "older than your last page turn";
+    case KOSYNC_SKIP_WAITING: return "on the card, waiting for your answer";
   }
   return "?";
+}
+
+void kosyncOfferFill(KosyncOfferIn* in, const KosyncProgress* g, bool explicitSync, bool mineOk,
+                     double minePct, uint32_t askedMovedAt, const KosyncMemoEntry* me,
+                     uint32_t pendingSig, const char* myDevice, const char* myDeviceId) {
+  memset(in, 0, sizeof(*in));
+  in->theirPct = g->pct;
+  in->theirTs = g->hasTimestamp ? g->timestamp : 0;
+  in->theirDevice = g->device;
+  in->theirDeviceId = g->deviceId;
+  in->mineOk = mineOk;
+  in->minePct = minePct;
+  in->myDevice = myDevice;
+  in->myDeviceId = myDeviceId;
+  /* 🛑 KS-1 (kosync.h): an automatic ask is judged as of the ask. A turn made while its reply
+   * was on the way is newer than the ask, not newer than the X4's place. */
+  in->myMovedAt = explicitSync ? (me ? me->movedAt : 0) : askedMovedAt;
+  in->offeredSig = me ? me->offeredSig : 0;
+  in->pendingSig = pendingSig;
 }
 
 uint32_t kosyncOfferSig(int64_t ts, double pct, const char* deviceId, const char* device) {
@@ -1192,6 +1215,84 @@ size_t kosyncWindowProblems(uint32_t otherBook, const char* docId, uint32_t unau
   return strlen(out);
 }
 
+// ---------------------------------------------------------------- who PUT what (KS-3)
+uint32_t kosyncPeerKey(const char* device, const char* deviceId) {
+  const bool id = deviceId && deviceId[0];
+  const char* s = id ? deviceId : device;
+  if (!s || !s[0]) {
+    return 0;                           // names nobody: never "the same device" as anyone
+  }
+  uint32_t h = 2166136261u;             // FNV-1a over "i" or "n", then the id or the name
+  h = (h ^ (uint8_t)(id ? 'i' : 'n')) * 16777619u;
+  for (const unsigned char* q = (const unsigned char*)s; *q; q++) {
+    h = (h ^ *q) * 16777619u;
+  }
+  return h ? h : 1u;
+}
+
+static bool ksPutLogHasOwn(const KosyncPutLog* l, uint32_t who) {
+  for (int i = 0; who && i < l->nOwn && i < KOSYNC_PUTLOG_MAX; i++) {
+    if (l->own[i] == who) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void kosyncPutLogOwn(KosyncPutLog* l, const char* device, const char* deviceId) {
+  const uint32_t who = kosyncPeerKey(device, deviceId);
+  if (!l || !who || ksPutLogHasOwn(l, who) || l->nOwn >= KOSYNC_PUTLOG_MAX) {
+    return;                             // (full: that device's other PUTs stay "different")
+  }
+  l->own[l->nOwn++] = who;
+}
+
+void kosyncPutLogOther(KosyncPutLog* l, const char* device, const char* deviceId, const char* docId) {
+  if (!l) {
+    return;
+  }
+  const uint32_t who = kosyncPeerKey(device, deviceId);
+  char d[16];
+  ksCopy(d, sizeof(d), docId ? docId : "");
+  for (int i = 0; i < l->nOther && i < KOSYNC_PUTLOG_MAX; i++) {
+    if (l->by[i] == who && !strcmp(l->doc[i], d)) {
+      l->n[i]++;                        // the same device, the same document: one more of it
+      return;
+    }
+  }
+  if (l->nOther >= KOSYNC_PUTLOG_MAX) {
+    l->unlogged++;                      // no room to tell it apart: it counts as different
+    return;
+  }
+  l->by[l->nOther] = who;
+  memcpy(l->doc[l->nOther], d, sizeof(d));
+  l->n[l->nOther] = 1;
+  l->nOther++;
+}
+
+uint32_t kosyncPutLogDifferent(const KosyncPutLog* l, const char** doc, uint32_t* secondIds) {
+  uint32_t diff = 0, second = 0;
+  const char* last = "";
+  if (l) {
+    for (int i = 0; i < l->nOther && i < KOSYNC_PUTLOG_MAX; i++) {
+      if (ksPutLogHasOwn(l, l->by[i])) {
+        second += l->n[i];              // that device ALSO sent this window's book: its other id
+      } else {
+        diff += l->n[i];
+        last = l->doc[i];
+      }
+    }
+    diff += l->unlogged;
+  }
+  if (doc) {
+    *doc = last;
+  }
+  if (secondIds) {
+    *secondIds = second;
+  }
+  return diff;
+}
+
 bool kosyncReloadClears(bool asked, bool readBefore, uint32_t sigBefore, uint32_t sigNow) {
   return asked || (readBefore && sigBefore != sigNow);
 }
@@ -1280,6 +1381,9 @@ void kosyncServe(const char* method, const char* path, const char* hdrs,
   kosyncJsonEscape(in.document, dc, sizeof(dc));
   out->code = 200;
   snprintf(reply, replyCap, "{\"document\":\"%s\",\"timestamp\":%lu}", dc, (unsigned long)nowUnix);
+  // Who sent it, for ANY PUT: a PUT for another document is told apart by it too (KS-3).
+  ksCopy(out->putDevice, sizeof(out->putDevice), in.device);
+  ksCopy(out->putDeviceId, sizeof(out->putDeviceId), in.deviceId);
   if (!haveBook || (strcmp(in.document, book->partial) != 0 && strcmp(in.document, book->byName) != 0)) {
     out->otherDoc = true;               // answered, and dropped: this window is one book
     snprintf(out->otherDocId, sizeof(out->otherDocId), "%.8s", in.document);   // for the screen
@@ -1288,8 +1392,6 @@ void kosyncServe(const char* method, const char* path, const char* hdrs,
   out->pickedUp = true;
   out->gotPut = true;
   out->putPct = in.pct < 0.0 ? 0.0 : (in.pct > 1.0 ? 1.0 : in.pct);
-  ksCopy(out->putDevice, sizeof(out->putDevice), in.device);
-  ksCopy(out->putDeviceId, sizeof(out->putDeviceId), in.deviceId);
   // With no place of our own to compare against, any other device's place is worth a card.
   out->park = book->pctOk
               ? kosyncWorthParking(out->putPct, in.device, in.deviceId,
@@ -1632,7 +1734,7 @@ static int ledgerFind(const KosyncParkLedger* l, const char* book) {
 }
 
 bool kosyncParkInto(KosyncParkLedger* l, const char* book, const char* text, double peerPct,
-                    uint32_t rxUnix) {
+                    uint32_t rxUnix, uint32_t sig) {
   if (!l || !book || !book[0] || !text) {
     return false;
   }
@@ -1659,6 +1761,7 @@ bool kosyncParkInto(KosyncParkLedger* l, const char* book, const char* text, dou
   ksCopy(l->book[slot], sizeof(l->book[slot]), book);
   l->id[slot] = id;
   l->peerPct[slot] = peerPct;
+  l->sig[slot] = id ? sig : 0;            // pending until the person answers THIS card (KS-2)
   return id != 0;
 }
 
@@ -1675,4 +1778,57 @@ bool kosyncParkedPeerPct(const KosyncParkLedger* l, uint32_t inboxId, double* pc
     }
   }
   return false;
+}
+
+bool kosyncParkPending(const KosyncParkLedger* l, const char* book, const uint8_t* key,
+                       uint32_t* sig) {
+  if (sig) {
+    *sig = 0;
+  }
+  if (!l || !book || !book[0]) {
+    return false;
+  }
+  const int slot = ledgerFind(l, book);
+  if (slot < 0 || !l->id[slot]) {
+    return false;
+  }
+  // Still in the inbox = nobody answered it: an answer retires it, a restart or eviction loses it.
+  for (int i = 0; i < bookSyncInboxCount(); i++) {
+    const BookSyncInboxItem* it = bookSyncInboxGet(i);
+    if (it && it->id == l->id[slot]) {
+      BookSyncRecord r;
+      if (key && !bookSyncUnpackMesh(it->text, key, &r)) {
+        return false;                     // it can never be a card: nobody will answer it
+      }
+      if (sig) {
+        *sig = l->sig[slot];
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+bool kosyncOfferAnswered(KosyncParkLedger* l, KosyncMemo* m, uint32_t inboxId) {
+  if (!l || !m || !inboxId) {
+    return false;
+  }
+  for (int i = 0; i < KOSYNC_LEDGER_MAX; i++) {
+    if (!l->book[i][0] || l->id[i] != inboxId) {
+      continue;
+    }
+    const uint32_t sig = l->sig[i];
+    l->sig[i] = 0;
+    if (!sig) {
+      return false;                       // a window PUT: every new PUT is offered again anyway
+    }
+    KosyncMemoEntry* e = kosyncMemoGet(m, l->book[i], true);
+    if (!e || e->offeredSig == sig) {
+      return false;
+    }
+    e->offeredSig = sig;                  // declined (or taken): not offered again
+    m->dirty = true;
+    return true;
+  }
+  return false;                           // a LoRa card: nothing of KOSync's
 }

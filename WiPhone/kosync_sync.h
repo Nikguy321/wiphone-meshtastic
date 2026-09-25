@@ -16,6 +16,7 @@
  *     home server and then PUTs the place there — unless the server holds a place from another
  *     device that the offer rule (kosync.h, D1) says is news: that is OFFERED as the card
  *     instead, and ours is not sent over it (pressing again after declining it sends ours).
+ *     While a KOSync place for the book is still on the card, unanswered, it sends nothing.
  *     An X4 (or anything that speaks KOSync) joins and syncs; the
  *     window closes 10 s after a PUT for the book, 120 s after a GET (the peer may be waiting
  *     on a person), or at the deadline — whichever is first.
@@ -141,6 +142,12 @@ size_t kosyncHotspotLine(char* out, size_t cap);
 /* The peer's OWN KOSync percentage for a parked offer (by inbox id), so the sync card can
  * show the number the X4 shows beside this phone's. False for a LoRa offer. */
 bool kosyncPeerPctFor(uint32_t inboxId, double* pct);
+/* The person ANSWERED the sync card for inbox record `inboxId`: "Go there" (applyPending) or
+ * "Stay where I am" (Back). 🛑 ONLY THOSE TWO — not the press the arming window swallows, not a
+ * card left up, not a park dropped as a side effect of answering another card: a home record
+ * becomes "declined" (not offered again) here and nowhere else (kosync.h, KS-2). A LoRa card, or
+ * no KOSync at all: nothing, without touching NVS. */
+void kosyncCardAnswered(uint32_t inboxId);
 
 // ---------------------------------------------------------------- status
 // One line each for the reader menu and Sync settings; "" when there is nothing to say.

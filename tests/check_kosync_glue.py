@@ -32,8 +32,26 @@ comment-and-string-blanked source by brace and paren matching (check_wifi_restor
   6. and the rest of the "what clears the warnings" rule: clearWindowProblems() is called only
      from kosyncWindowOpen(), reloadDone() - there only `if (kosyncReloadClears(asked, ...))` -
      and kosyncReloadConfig() - there only `if (asked)`; kosyncReloadConfig() passes `asked`
-     through to every reloadDone(); and s_other/s_unauth are zeroed nowhere but
-     clearWindowProblems().
+     through to every reloadDone(); and s_other/s_unauth, and the window's PUT log (T->puts),
+     are zeroed nowhere but clearWindowProblems().
+
+The integration review's three KOSync findings were glue too (test_kosync pins their pure half:
+kosyncOfferFill, kosyncParkPending/kosyncOfferAnswered, the PUT log):
+
+  7. KS-1 - a home record is judged against the last move AS OF THE ASK: evaluateOffer() fills
+     its KosyncOfferIn only through kosyncOfferFill(&in, &g, thenSend, ..., b->movedAt, ...) -
+     the explicit flag is `thenSend`, the asked stamp is the job's snapshot - and nothing in
+     kosync_sync.cpp assigns myMovedAt; kosyncNotePosition() never refreshes s_waitBook's stamp
+     (its notePlace(s_waitBook, ...) passes 0). A page turned while the pull on open was on its
+     way used to hide the X4's newer place ("older than your last page turn").
+  8. KS-2 - "declined" means ANSWERED: nothing in kosync_sync.cpp assigns offeredSig (it was set
+     and saved the moment a park succeeded); evaluateOffer() asks kosyncParkPending() and every
+     `return false` there (= "go on and PUT ours") sits under an `if` that says `!parkLive`;
+     app_books.cpp calls kosyncCardAnswered(pendingId) in applyPending() and in the
+     LOGIC_BUTTON_BACK branch that retires the parks, and nowhere else calls it.
+  9. KS-3 - a reader's second id is not another book: kosyncWindowServe() logs `if (o.gotPut)`
+     with kosyncPutLogOwn() and `if (o.otherDoc)` with kosyncPutLogOther(), and
+     kosyncProblemLine() counts the other-book PUTs with kosyncPutLogDifferent().
 
 A contract that cannot find its function fails too - a rename must update it, not silently
 retire it. A self-test replays the pre-fix shapes first, then REMOVES each guard from the real
@@ -276,6 +294,123 @@ def check(files):
         if brace_depth(sync, m.start()) > 0 and not within(m.start(), cw):
             bad.append(f"{SYNC}:{line_of(sync, m.start())} zeroes s_other/s_unauth outside "
                        "clearWindowProblems() - every clear of the warnings goes through it")
+    puts_clears = list(re.finditer(r"\bmemset\s*\(\s*&\s*T\s*->\s*puts\b", sync))
+    for m in puts_clears:
+        if not within(m.start(), cw):
+            bad.append(f"{SYNC}:{line_of(sync, m.start())} clears the window's PUT log outside "
+                       "clearWindowProblems() - every clear of the warnings goes through it")
+    if cw is not None and not any(within(m.start(), cw) for m in puts_clears):
+        bad.append("clearWindowProblems() must clear the window's PUT log (memset(&T->puts, ...)) - "
+                   "a new window starts with no 'DIFFERENT book' warning")
+
+    bad.extend(check_review(files))
+    return bad
+
+
+def check_review(files):
+    """Contracts 7-9: the integration review's KS-1, KS-2 and KS-3 (see the docstring)."""
+    bad = []
+    sync = files.get(SYNC, "")
+    books = files.get(BOOKS, "")
+    ev = body(sync, "evaluateOffer")
+    if ev is None:
+        bad.append("evaluateOffer() not found - if it was renamed, update this contract")
+    else:
+        # ── 7. KS-1: judged as of the ask ─────────────────────────────────────────────────────
+        fills = [m for m in re.finditer(r"\bkosyncOfferFill\s*\(", sync) if within(m.start(), ev)]
+        if len(fills) != 1:
+            bad.append(f"evaluateOffer() must fill its KosyncOfferIn with ONE kosyncOfferFill() call "
+                       f"(found {len(fills)}) - the rule for which last move judges a record lives there")
+        for m in fills:
+            a = call_args(sync, m.end() - 1) or []
+            if len(a) < 6 or a[2] != "thenSend" or a[5] not in ("b->movedAt", "s_w->book.movedAt"):
+                bad.append(f"{SYNC}:{line_of(sync, m.start())} kosyncOfferFill({', '.join(a)}) - the "
+                           "explicit flag must be `thenSend` and the asked stamp the job's snapshot "
+                           "(b->movedAt): an automatic ask is judged against the last move AS OF THE ASK")
+        # ── 8. KS-2: nothing sent over a place still on the card ─────────────────────────────
+        pl = re.search(r"\bparkLive\s*=[^;]*?\bkosyncParkPending\s*\(", sync[ev[0]:ev[1]])
+        pa = call_args(sync, ev[0] + pl.end() - 1) if pl else None
+        if not pa or len(pa) != 4 or pa[2] in ("NULL", "nullptr", "0"):
+            bad.append("evaluateOffer() must ask kosyncParkPending() (`parkLive = ... "
+                       "kosyncParkPending(ledger, book, key, &sig)`, WITH the local key) - Sync my "
+                       "place must not send over a place still waiting on the card, and a park the "
+                       "card can never show (the passcode changed) must not hold it")
+        gates = ifs(sync, ev[0], ev[1], re.compile(r"!\s*parkLive\b"))
+        for m in re.finditer(r"\breturn\s+false\s*;", sync[ev[0]:ev[1]]):
+            pos = ev[0] + m.start()
+            if not any(g[1] <= pos <= g[2] for g in gates):
+                bad.append(f"{SYNC}:{line_of(sync, pos)} evaluateOffer() returns false (= PUT ours) "
+                           "outside an `if (... !parkLive)` - Sync my place would send over a place "
+                           "the person has not answered yet")
+    for m in re.finditer(r"\bmyMovedAt\s*=(?!=)", sync):
+        bad.append(f"{SYNC}:{line_of(sync, m.start())} assigns myMovedAt - the offer's inputs come "
+                   "from kosyncOfferFill() only (KS-1: judged as of the ask)")
+    np = body(sync, "kosyncNotePosition")
+    if np is None:
+        bad.append("kosyncNotePosition() not found - if it was renamed, update this contract")
+    else:
+        waits = [m for m in re.finditer(r"\bnotePlace\s*\(\s*s_waitBook\b", sync) if within(m.start(), np)]
+        if not waits:
+            bad.append("kosyncNotePosition(): the notePlace(s_waitBook, ...) call not found - update "
+                       "this contract")
+        for m in waits:
+            a = call_args(sync, m.end() - len(m.group(0)) + m.group(0).index("(")) or []
+            if not a or a[-1] != "0":
+                bad.append(f"{SYNC}:{line_of(sync, m.start())} notePlace(s_waitBook, ..., "
+                           f"{a[-1] if a else '?'}) - the ask waiting for WiFi keeps the stamp it was "
+                           "made with (pass 0): pages read meanwhile hid the X4's newer place")
+    for m in re.finditer(r"\bofferedSig\s*=(?!=)", sync):
+        bad.append(f"{SYNC}:{line_of(sync, m.start())} assigns offeredSig - a record is 'declined' only "
+                   "when the person ANSWERS the card (kosyncCardAnswered -> kosyncOfferAnswered), "
+                   "never when it is parked")
+    ap = body(books, "BooksApp::applyPending")
+    if ap is None:
+        bad.append("BooksApp::applyPending() not found - if it was renamed, update this contract")
+    backs = [h for h in ifs(books, 0, len(books), re.compile(r"\bLOGIC_BUTTON_BACK\s*\(\s*event\s*\)"))
+             if re.search(r"\bdropParkedForThisBook\s*\(", books[h[1]:h[2]])]
+    if not backs:
+        bad.append(f"{BOOKS}: the sync card's Back branch (LOGIC_BUTTON_BACK ... dropParkedForThisBook) "
+                   "not found - update this contract")
+    in_apply = in_back = 0
+    for name in sorted(k for k in files if k.endswith((".cpp", ".ino"))):
+        code = files[name]
+        for m in re.finditer(r"(?<![\w:.>])kosyncCardAnswered\s*\(", code):
+            if is_definition(code, m.start()):
+                continue
+            a = call_args(code, m.end() - 1)
+            if name == BOOKS and a == ["pendingId"] and within(m.start(), ap):
+                in_apply += 1
+            elif name == BOOKS and a == ["pendingId"] and any(h[1] <= m.start() <= h[2] for h in backs):
+                in_back += 1
+            else:
+                bad.append(f"{name}:{line_of(code, m.start())} kosyncCardAnswered({', '.join(a or ['?'])}) "
+                           "- only the two ANSWERS to the card (applyPending, and Back) decline a record")
+    if not in_apply:
+        bad.append(f"{BOOKS}: applyPending() must call kosyncCardAnswered(pendingId) - 'Go there' answers "
+                   "the card")
+    if not in_back:
+        bad.append(f"{BOOKS}: the sync card's Back branch must call kosyncCardAnswered(pendingId) - "
+                   "'Stay where I am' answers the card (and declines the record)")
+    # ── 9. KS-3: a reader's second id is not another book ────────────────────────────────────
+    ws = body(sync, "kosyncWindowServe")
+    pr = body(sync, "kosyncProblemLine")
+    for fn, span in (("kosyncWindowServe", ws), ("kosyncProblemLine", pr)):
+        if span is None:
+            bad.append(f"{fn}() not found - if it was renamed, update this contract")
+    if ws is not None:
+        for call, cond in (("kosyncPutLogOwn", "o.gotPut"), ("kosyncPutLogOther", "o.otherDoc")):
+            gate = ifs(sync, ws[0], ws[1], re.compile(r"(?<=\()\s*" + re.escape(cond) + r"\s*$"))
+            calls = [m.start() for m in re.finditer(r"\b" + call + r"\s*\(", sync) if within(m.start(), ws)]
+            if not calls or not all(any(g[1] <= c <= g[2] for g in gate) for c in calls):
+                bad.append(f"kosyncWindowServe() must log `if ({cond})` with {call}() - the window "
+                           "tells a reader's second id from a different book by who sent what")
+    if pr is not None:
+        wp = [m for m in re.finditer(r"\bkosyncWindowProblems\s*\(", sync) if within(m.start(), pr)]
+        a = call_args(sync, wp[0].end() - 1) if wp else None
+        if not a or not re.search(r"\b" + re.escape(a[0]) + r"\s*=\s*kosyncPutLogDifferent\s*\(",
+                                  sync[pr[0]:pr[1]]):
+            bad.append("kosyncProblemLine() must count the other-book PUTs with kosyncPutLogDifferent() "
+                       "- the X4 fork's second id is not 'a DIFFERENT book'")
     return bad
 
 
@@ -324,11 +459,64 @@ static bool resolveHome(uint32_t now) {
   ip = WiFi.hostByName(T->cfg.home, ip);
   return MDNS.queryHost(T->cfg.home);
 }
+const char* kosyncWindowServe(const char* method, const char* path, int* code) {
+  if (o.gotPut) {
+    snprintf(T->peer, sizeof(T->peer), "%s", o.putDevice);
+  }
+  if (o.otherDoc) {
+    s_other++;
+    snprintf(T->otherDoc, sizeof(T->otherDoc), "%s", o.otherDocId);
+  }
+  return s_reply;
+}
+void kosyncNotePosition(const char* partial, const char* byName, double pct, bool pctOk,
+                        uint32_t movedAt) {
+  if (s_waitWifi) {
+    notePlace(s_waitBook, partial, byName, pct, pctOk, movedAt);
+  }
+}
+static bool evaluateOffer(bool thenSend) {
+  if (best < 0) {
+    if (thenSend) {
+      return false;
+    }
+    return true;
+  }
+  KosyncOfferIn in;
+  in.myMovedAt = me ? me->movedAt : 0;
+  in.offeredSig = me ? me->offeredSig : 0;
+  const int v = kosyncOfferVerdict(&in);
+  if (v != KOSYNC_OFFER) {
+    if (thenSend) {
+      return false;
+    }
+    return true;
+  }
+  if (kosyncPark(b, g.pct, dev, ts)) {
+    me->offeredSig = kosyncOfferSig(in.theirTs, g.pct, g.deviceId, g.device);
+  }
+  return true;
+}
+size_t kosyncProblemLine(char* out, size_t cap) {
+  return kosyncWindowProblems(s_other, T->otherDoc, s_unauth, out, cap);
+}
 """
 OLD_SYNC_H = "bool kosyncReloadConfig(bool asked = true);"
 OLD_BOOKS = """
 BooksApp::BooksApp() { kosyncReloadConfig(true); }
 void BooksApp::changeState() { kosyncReloadConfig(true); }
+void BooksApp::applyPending() {
+  savePosition(true);
+  dropParkedForThisBook();
+}
+void BooksApp::other() {
+  if (LOGIC_BUTTON_BACK(event)) {
+    if (pendingIdx >= 0) {
+      dropParkedForThisBook();
+    }
+  }
+  kosyncCardAnswered(0);
+}
 """
 OLD_SERIAL = """
   if (!strcasecmp(line, "sip") || !strncasecmp(line, "sip ", 4)) {
@@ -363,7 +551,13 @@ def selftest():
             "must call kosyncReloadConfig(true)", "kosyncReloadConfig(true) - only serial",
             "new-window branch", "outside its new-window branch", "calls clearWindowProblems() - only",
             "reloadDone() must clear only", "only `if (asked)`", "pass `asked` through",
-            "zeroes s_other/s_unauth"]
+            "zeroes s_other/s_unauth", "must clear the window's PUT log",
+            "with ONE kosyncOfferFill() call", "must ask kosyncParkPending()",
+            "outside an `if (... !parkLive)`", "assigns myMovedAt", "notePlace(s_waitBook, ...,",
+            "assigns offeredSig", "applyPending() must call kosyncCardAnswered",
+            "Back branch must call kosyncCardAnswered", "only the two ANSWERS",
+            "with kosyncPutLogOwn()", "with kosyncPutLogOther()",
+            "kosyncProblemLine() must count"]
     missing = [w for w in want if not any(w in g for g in got)]
     if missing:
         for w in missing:
@@ -400,6 +594,30 @@ MUTATIONS = [
      r"if\s*\(\s*kosyncReloadClears\s*\([^;{]*\)\s*\)\s*\{\s*(clearWindowProblems\s*\(\s*\)\s*;)\s*\}",
      r"\1", 0),
     (SYNC, "pass `asked` through", r"reloadDone\s*\(\s*asked\s*\)", "reloadDone(true)", 1),
+    (SYNC, "must clear the window's PUT log", r"memset\s*\(\s*&\s*T\s*->\s*puts\s*,[^;]*;", "", 0),
+    # KS-1: the freshest stamp back in an automatic ask, two ways; the WiFi wait's stamp refreshed.
+    (SYNC, "the explicit flag must be `thenSend`",
+     r"(kosyncOfferFill\s*\([^;]*?)\bb\s*->\s*movedAt\b", r"\1me->movedAt", 0),
+    (SYNC, "assigns myMovedAt", r"(const\s+int\s+v\s*=\s*kosyncOfferVerdict)",
+     r"in.myMovedAt = me->movedAt; \1", 0),
+    (SYNC, "notePlace(s_waitBook, ...,", r"(notePlace\s*\(\s*s_waitBook\s*,[^;]*?,\s*)0(\s*\)\s*;)",
+     r"\1movedAt\2", 0),
+    # KS-2: a park marked declined as it is made; Sync my place sending over a live park; either
+    # answer to the card left out.
+    (SYNC, "assigns offeredSig", r"(if\s*\(\s*kosyncPark\s*\(\s*b\s*,)", r"me->offeredSig = 1; \1", 0),
+    (SYNC, "outside an `if (... !parkLive)`", r"if\s*\(\s*thenSend\s*&&\s*!\s*parkLive\s*\)",
+     "if (thenSend)", 1),
+    (SYNC, "must ask kosyncParkPending()",
+     r"(parkLive\s*=[^;]*?kosyncParkPending\s*\([^,;]*,[^,;]*,\s*)key\b", r"\1NULL", 0),
+    (BOOKS, "applyPending() must call kosyncCardAnswered", r"kosyncCardAnswered\s*\(\s*pendingId\s*\)\s*;",
+     "", 0),
+    (BOOKS, "Back branch must call kosyncCardAnswered", r"kosyncCardAnswered\s*\(\s*pendingId\s*\)\s*;",
+     "", 1),
+    # KS-3: the fork's own-book PUT not logged; the problem line back on the raw count.
+    (SYNC, "with kosyncPutLogOwn()", r"kosyncPutLogOwn\s*\([^;]*\)\s*;", "", 0),
+    (SYNC, "kosyncProblemLine() must count",
+     r"=\s*kosyncPutLogDifferent\s*\(\s*&\s*T\s*->\s*puts\s*,\s*&\s*doc\s*,\s*NULL\s*\)",
+     "= T->puts.nOther", 0),
 ]
 
 
@@ -440,7 +658,7 @@ def main():
     for p in sorted(list(ROOT.glob("*.cpp")) + list(ROOT.glob("*.ino"))):
         if p.name not in texts:
             raw = p.read_text(errors="replace")
-            if "kosyncReloadConfig" in raw:
+            if "kosyncReloadConfig" in raw or "kosyncCardAnswered" in raw:
                 texts[p.name] = raw
     files = load(texts)
     problems = check(files)
@@ -452,6 +670,8 @@ def main():
         return 1
     print("  ok  no blocking lookup in the home client; only serial `kosync reload` clears on "
           "asking; a new window, or a changed kosync.txt, clears the rest")
+    print("  ok  KS-1 a home record is judged as of the ask; KS-2 declined = answered, and Sync "
+          "my place sends nothing over a place on the card; KS-3 a second id is not another book")
     return 0
 
 

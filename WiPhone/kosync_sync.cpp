@@ -77,7 +77,7 @@ struct KsText {
   char parkDev[KOSYNC_DEV_MAX];               // the PUT waiting to be parked
   char hline[128];                            // the home client's current header line
   char cliLast[96];                           // the last home job's outcome
-  char otherDoc[16];                          // the start of the last "other book" PUT's id
+  KosyncPutLog puts;                          // who PUT what in the window (kosync.h, KS-3)
   uint32_t cfgSig;                            // kosyncConfigSig of the file as last read
   KosyncHomeAddr home;                        // home='s looked-up address (kosync.h)
   uint8_t homeBlob[KOSYNC_HOME_BLOB_BYTES];   // ...its bytes on the way to/from NVS
@@ -319,7 +319,20 @@ static bool allocBook(KosyncBook** p) {
  * book) then raises the ordinary card. Called only from kosyncLoop(), never from inside the
  * raw pump: the packer and its HMAC want ~2 KB of stack, and the pump's own frames are
  * already on the 8 KB loop task when a request is being answered. */
-static bool kosyncPark(const KosyncBook* b, double pct, const char* device, uint32_t turnedAt) {
+// The LOCAL booksync key: the one the reader verifies a parked record under (Sync settings).
+static void localSyncKey(uint8_t key[32]) {
+  char pass[24] = {0};
+  Preferences p;
+  if (p.begin("wpmesh", true)) {
+    p.getString("bspw", pass, sizeof(pass));    // the reader verifies under this same key
+    p.end();
+  }
+  bookSyncDeriveKey(pass, key);
+  memset(pass, 0, sizeof(pass));
+}
+
+static bool kosyncPark(const KosyncBook* b, double pct, const char* device, uint32_t turnedAt,
+                       uint32_t sig) {
   int r = 0;
   double w = 0.0;
   if (!T || !b || !epubKosyncLocate(&b->map, pct, &r, &w, NULL, NULL)) {
@@ -327,15 +340,8 @@ static bool kosyncPark(const KosyncBook* b, double pct, const char* device, uint
           b ? epubKosyncWhyNot(&b->map) : "?");
     return false;
   }
-  char pass[24] = {0};
-  Preferences p;
-  if (p.begin("wpmesh", true)) {
-    p.getString("bspw", pass, sizeof(pass));    // the reader verifies under this same key
-    p.end();
-  }
   uint8_t key[32];
-  bookSyncDeriveKey(pass, key);
-  memset(pass, 0, sizeof(pass));
+  localSyncKey(key);
   const char* idp[BOOKSYNC_MAX_IDS] = { b->ids[0], b->ids[1], b->ids[2] };
   char text[BOOKSYNC_MESH_TEXT_MAX];
   if (!kosyncParkText(idp, b->nIds, r, w, b->nRead, turnedAt, device, key, text, sizeof(text))) {
@@ -344,8 +350,9 @@ static bool kosyncPark(const KosyncBook* b, double pct, const char* device, uint
   }
   /* Through the ledger: this book's previous KOSync offer is REPLACED, so repeated PUTs (or
    * the same book opened again and again) can never push another book's LoRa position out
-   * of the four-slot inbox. */
-  const bool ok = kosyncParkInto(&T->ledger, b->byName, text, pct, nowUtc());
+   * of the four-slot inbox. `sig` (a home record's; 0 for a window PUT) waits there for the
+   * person's answer — it is NOT "offered" until they give one (kosync.h, KS-2). */
+  const bool ok = kosyncParkInto(&T->ledger, b->byName, text, pct, nowUtc(), sig);
   log_e("KOSYNC parked %s's place in '%s': %.4f -> chapter %d, %d%% through it (%s)",
         device && device[0] ? device : "a peer", b->title, pct, r + 1, pctInt(w),
         ok ? "the card will offer it" : "inbox REFUSED it");
@@ -358,7 +365,7 @@ static KosyncBook*        s_win = NULL;       // PSRAM: the ONE book the window 
 static char*              s_reply = NULL;     // PSRAM: the JSON answer
 static bool               s_winArmed = false;
 static KosyncWindowClock  s_clock;
-static uint32_t           s_gets = 0, s_puts = 0, s_parked = 0, s_other = 0, s_unauth = 0;
+static uint32_t           s_gets = 0, s_puts = 0, s_parked = 0, s_unauth = 0;
 static uint32_t           s_healthMs = 0;
 // A window on the phone's WiFi address: the address it opened on, and the loss watch (W1).
 static uint32_t           s_winIp = 0;        // 0 = on our own hotspot
@@ -510,16 +517,18 @@ void kosyncWindowClose(const char* why) {
   s_askInBlip = false;
   xferWindowStop();
   snprintf(T->winLast, sizeof(T->winLast), "Window closed: %s", why ? why : "");
-  log_e("KOSYNC window CLOSED (%s): gets=%u puts=%u parked=%u other-book=%u unauthorised=%u",
-        why ? why : "", (unsigned)s_gets, (unsigned)s_puts, (unsigned)s_parked,
-        (unsigned)s_other, (unsigned)s_unauth);
+  uint32_t second = 0;
+  const uint32_t diff = kosyncPutLogDifferent(&T->puts, NULL, &second);
+  log_e("KOSYNC window CLOSED (%s): gets=%u puts=%u parked=%u other-book=%u second-id=%u "
+        "unauthorised=%u", why ? why : "", (unsigned)s_gets, (unsigned)s_puts,
+        (unsigned)s_parked, (unsigned)diff, (unsigned)second, (unsigned)s_unauth);
 }
 
 /* The window's warnings (a PUT for another book, a wrong password): cleared by a NEW window,
  * or by a reload that was asked for or found the file changed (reloadDone). kosync.h. */
 static void clearWindowProblems() {
-  s_other = s_unauth = 0;
-  T->otherDoc[0] = '\0';
+  s_unauth = 0;
+  memset(&T->puts, 0, sizeof(T->puts));        // the PUTs for another book (KS-3's log)
 }
 
 const char* kosyncWindowServe(const char* method, const char* path, const char* hdrs,
@@ -548,6 +557,7 @@ const char* kosyncWindowServe(const char* method, const char* path, const char* 
   }
   if (o.gotPut) {
     snprintf(T->peer, sizeof(T->peer), "%s", o.putDevice[0] ? o.putDevice : "a KOSync reader");
+    kosyncPutLogOwn(&T->puts, o.putDevice, o.putDeviceId);   // KS-3: this device syncs THIS book
   }
   if (o.park && !allocBook(&s_parkBook)) {
     log_e("KOSYNC: no memory to hold %s's place - not offered", o.putDevice);
@@ -559,8 +569,11 @@ const char* kosyncWindowServe(const char* method, const char* path, const char* 
     s_parkTurned = nowUtc();
   }
   if (o.otherDoc) {
-    s_other++;
-    snprintf(T->otherDoc, sizeof(T->otherDoc), "%s", o.otherDocId);   // shown on the screen
+    /* 🛑 NOT "a different book" by itself (KS-3): the CrossPoint fork with booksync PUTs every
+     * upload under BOTH its ids, and the file-name one differs whenever the file NAME does.
+     * Whether it was that device's second id is decided when the line is shown
+     * (kosyncProblemLine), so the order of the two PUTs does not matter. */
+    kosyncPutLogOther(&T->puts, o.putDevice, o.putDeviceId, o.otherDocId);
   }
   /* log_e on purpose: only log_e is compiled into this firmware, and a window that "did
    * nothing" must be tellable from one that was never reached. A window sees a handful of
@@ -604,7 +617,11 @@ void kosyncNotePosition(const char* partial, const char* byName, double pct, boo
     notePlace(s_win, partial, byName, pct, pctOk, movedAt);
   }
   if (s_waitWifi) {
-    notePlace(s_waitBook, partial, byName, pct, pctOk, movedAt);   // compare from HERE, later
+    /* The place, yes (the in-step test compares from HERE, later) — 🛑 but NOT the last-move
+     * stamp (0 = keep it): the ask was made as the book opened, and it is judged against the
+     * stamp as it stood then (kosync.h, KS-1). Pages read before the WiFi came up (a GPS-set
+     * clock stamps every one) used to make the X4's newer place "provably older". */
+    notePlace(s_waitBook, partial, byName, pct, pctOk, 0);
   }
 }
 
@@ -970,9 +987,21 @@ static void noAnswer(uint32_t now, const char* what) {
 /* The server's side of this book is read (both ids): is there a place from another device
  * worth the card (kosync.h, D1)? Offered -> true, the job is finished. For a plain pull the
  * job is finished either way (true). For "Sync my place" (`thenSend`) nothing to offer ->
- * false: the caller goes on to PUT. */
+ * false: the caller goes on to PUT — 🛑 unless a KOSync place for this book is still on the
+ * card, unanswered (`parkLive`): then nothing is sent (KS-2). The person answers it first
+ * (the card goes up within a second of a park, and while the book is open it must be answered
+ * before anything else), and presses again. */
 static bool evaluateOffer(bool thenSend) {
   const KosyncBook* b = &s_w->book;
+  /* A park still waiting on the card (kosync.h, KS-2) — checked cheaply first, then (rarely)
+   * that it still VERIFIES, so a park the card can never show does not hold Sync my place. */
+  uint32_t pendingSig = 0;
+  uint8_t key[32];
+  const bool maybe = kosyncParkPending(&T->ledger, b->byName, NULL, NULL);
+  if (maybe) {
+    localSyncKey(key);
+  }
+  const bool parkLive = maybe && kosyncParkPending(&T->ledger, b->byName, key, &pendingSig);
   /* Both ids live on ONE server, so its timestamps are comparable: the NEWEST record from
    * another device is the one that counts (a stock X4 on "filename" matching and our own push
    * under the partial MD5 can both be there for the same book). A tie or a missing timestamp
@@ -982,44 +1011,46 @@ static bool evaluateOffer(bool thenSend) {
   const int best = kosyncPickRecord(s_w->got, s_w->have, 2, kosyncMyDevice(), kosyncMyDeviceId(),
                                     &sawAny);
   if (best < 0) {
-    if (thenSend) {
+    if (thenSend && !parkLive) {
       return false;
     }
-    finishJob(sawAny ? "Home: nothing newer from another device"
-                     : "Home: this book is not on the server yet");
+    finishJob(thenSend ? "Home: answer the sync card first - yours NOT sent"
+              : sawAny ? "Home: nothing newer from another device"
+                       : "Home: this book is not on the server yet");
     return true;
   }
   const KosyncProgress& g = s_w->got[best];
   KosyncMemoEntry* me = memoFor(b->byName, true);
+  /* 🛑 KS-1: `b->movedAt` is the last move AS OF THE ASK (the job's snapshot); only the explicit
+   * "Sync my place" (thenSend) is judged against the memo's freshest stamp. A page turned while
+   * the pull on open was on its way hid the X4's newer place when this read the freshest. */
   KosyncOfferIn in;
-  in.theirPct = g.pct;
-  in.theirTs = g.hasTimestamp ? g.timestamp : 0;
-  in.theirDevice = g.device;
-  in.theirDeviceId = g.deviceId;
-  in.mineOk = b->pctOk;
-  in.minePct = b->pct;
-  in.myDevice = kosyncMyDevice();
-  in.myDeviceId = kosyncMyDeviceId();
-  in.myMovedAt = me ? me->movedAt : 0;         // the freshest: moves since the job was queued
-  in.offeredSig = me ? me->offeredSig : 0;
+  kosyncOfferFill(&in, &g, thenSend, b->pctOk, b->pct, b->movedAt, me, pendingSig,
+                  kosyncMyDevice(), kosyncMyDeviceId());
   const int v = kosyncOfferVerdict(&in);
   const char* dev = g.device[0] ? g.device : "Home";
   if (v != KOSYNC_OFFER) {
-    if (thenSend) {
+    if (thenSend && !parkLive) {
       log_e("KOSYNC home sync: %s at %d%% is not offered (%s) - sending ours", dev,
             pctInt(g.pct), kosyncOfferVerdictText(v));
       return false;
     }
-    finishJob("Home: %s is at %d%% - %s, not offered", dev, pctInt(g.pct), kosyncOfferVerdictText(v));
+    if (thenSend) {
+      finishJob("Home: %s is at %d%% - answer the sync card first; yours NOT sent", dev,
+                pctInt(g.pct));
+    } else if (v == KOSYNC_SKIP_WAITING) {
+      finishJob("Home: %s is at %d%% - %s", dev, pctInt(g.pct), kosyncOfferVerdictText(v));
+    } else {
+      finishJob("Home: %s is at %d%% - %s, not offered", dev, pctInt(g.pct),
+                kosyncOfferVerdictText(v));
+    }
     return true;
   }
   const uint32_t ts = (in.theirTs > 0 && in.theirTs < 4000000000LL) ? (uint32_t)in.theirTs : 0;
-  if (kosyncPark(b, g.pct, dev, ts)) {
-    if (me) {
-      me->offeredSig = kosyncOfferSig(in.theirTs, g.pct, g.deviceId, g.device);
-      T->memo.dirty = true;
-    }
-    memoSaveIfDirty();                         // rare, and a declined offer must stay declined
+  /* 🛑 NOT "offered" yet (KS-2): the signature waits in the ledger and reaches the memo only
+   * when the person answers THIS card (kosyncCardAnswered). Saved here, a reboot before the
+   * book was reopened lost the card and hid the place as "already offered". */
+  if (kosyncPark(b, g.pct, dev, ts, kosyncOfferSig(in.theirTs, g.pct, g.deviceId, g.device))) {
     finishJob(thenSend ? "Home: %s is at %d%% - offered; yours NOT sent over it"
                        : "Home: %s is at %d%% - offered", dev, pctInt(g.pct));
   } else {
@@ -1510,11 +1541,24 @@ size_t kosyncProblemLine(char* out, size_t cap) {
   }
   /* The current window's, or the last one's — kept after it closes, until a new window opens
    * or a reload that was asked for (or found the file changed) clears them. */
-  return kosyncWindowProblems(s_other, T->otherDoc, s_unauth, out, cap);
+  const char* doc = "";
+  const uint32_t diff = kosyncPutLogDifferent(&T->puts, &doc, NULL);   // KS-3: not a second id
+  return kosyncWindowProblems(diff, doc, s_unauth, out, cap);
 }
 
 bool kosyncPeerPctFor(uint32_t inboxId, double* pct) {
   return T && kosyncParkedPeerPct(&T->ledger, inboxId, pct);
+}
+
+void kosyncCardAnswered(uint32_t inboxId) {
+  /* The cheap test first: a LoRa card (every card, for a phone without KOSync) is not in the
+   * ledger, and must not load the memo from NVS just to find that out. */
+  if (!T || !inboxId || !kosyncParkedPeerPct(&T->ledger, inboxId, NULL)) {
+    return;
+  }
+  if (kosyncOfferAnswered(&T->ledger, memo(), inboxId)) {
+    memoSaveIfDirty();                         // rare (one per answer), and a decline must stay one
+  }
 }
 
 size_t kosyncWindowLine(char* out, size_t cap) {
@@ -1579,12 +1623,14 @@ void kosyncDumpStatus(void (*emit)(const char* line)) {
     emit(l);
   }
   if (s_winArmed && s_win) {
+    uint32_t second = 0;
+    const uint32_t diff = kosyncPutLogDifferent(&T->puts, NULL, &second);
     snprintf(l, sizeof(l), "kosync: window OPEN %lus left at %s%s%s  gets=%u puts=%u parked=%u "
-             "other-book=%u unauthorised=%u%s%s",
+             "other-book=%u second-id=%u unauthorised=%u%s%s",
              (unsigned long)(kosyncClockRemainingMs(&s_clock, millis()) / 1000), xferAddr(),
              xferUsingAP() ? " hotspot " : " (on WiFi)", xferUsingAP() ? xferApName() : "",
-             (unsigned)s_gets, (unsigned)s_puts, (unsigned)s_parked, (unsigned)s_other,
-             (unsigned)s_unauth, s_clock.picked ? "  picked up" : "",
+             (unsigned)s_gets, (unsigned)s_puts, (unsigned)s_parked, (unsigned)diff,
+             (unsigned)second, (unsigned)s_unauth, s_clock.picked ? "  picked up" : "",
              T->peer[0] ? T->peer : "");
     emit(l);
     snprintf(l, sizeof(l), "kosync: serving '%s' partial=%s name=%s pct=%.6f",
@@ -1661,7 +1707,7 @@ void kosyncLoop(bool mayUseNetwork, bool callActive) {
 
   if (s_parkWant) {
     s_parkWant = false;
-    if (s_parkBook && kosyncPark(s_parkBook, s_parkPct, T->parkDev, s_parkTurned)) {
+    if (s_parkBook && kosyncPark(s_parkBook, s_parkPct, T->parkDev, s_parkTurned, 0)) {
       s_parked++;
     }
   }

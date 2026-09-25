@@ -1222,6 +1222,10 @@ void BooksApp::applyPending() {
   }
   gotoOffset(off, true);
   savePosition(true);
+  /* An ANSWER: a home record parked as this card is now taken, and not offered again. Only
+   * here and at "Stay" — a park is "declined" when a person answers it, never when it is
+   * parked (kosync.h, KS-2). A LoRa card: nothing. */
+  kosyncCardAnswered(pendingId);
   /* Every parked position for THIS book is now history — not just the one taken. Removing
    * only the accepted packet left its predecessors parked, and the removal's own seq bump
    * sent the reading screen straight back to checkForPending(), which offered the
@@ -2576,6 +2580,7 @@ appEventResult BooksApp::processEvent(EventType event) {
       /* Staying put drops the offer rather than leaving it to ask again on every page —
        * a prompt you have already declined is nagging, not syncing. */
       if (pendingIdx >= 0) {
+        kosyncCardAnswered(pendingId);   // declined: a home record parked as THIS card (KS-2)
         dropParkedForThisBook();      // declining is a decision about the book, not one packet
         pendingIdx = -1;
         pendingId = 0;
