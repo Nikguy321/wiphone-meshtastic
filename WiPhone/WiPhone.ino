@@ -173,6 +173,63 @@ void audio_test() {
  */
 void notifyPopFinishFor(const char* why);   // defined with the pop, further down
 
+/* ── THE CALL LEVELS, READ FROM WHERE THEY ARE KEPT (review SA-1, 2026-09-25) ────────────────
+ * The ring and a call used to INHERIT whatever levels the codec held when they started. The
+ * codec also carries every borrower's level while it is borrowed, and one that forgets to give
+ * them back sets the next ring's loudness and the next call's earpiece: a game's F1/F2 did,
+ * until this round; Development > My App's keys still do. Every owner of the call levels
+ * writes them to configs.ini [audio] (Settings > Audio, the call screen's UP/DOWN) and boot
+ * applies that file, so the file is where they are kept, and the ring and a call read them
+ * from there.
+ * ⚠ ONLY AFTER THE POP HAS FINISHED AND MUSIC HAS YIELDED - both put their own snapshots back,
+ * which would land on top of these.
+ * A missing key keeps what the codec holds; a file that will not load changes nothing and says
+ * so. The line that matters on the bench is the other one: "...held X, stored Y - applied"
+ * means a borrower left its level behind, and it names who took the device next. */
+static void applyStoredCallVolumes(const char* who) {
+  if (!audio) {
+    return;
+  }
+  CriticalFile ini(Storage::ConfigsFile);
+  if (!((ini.load() || ini.restore()) && !ini.isEmpty() && ini.hasSection("audio"))) {
+    log_e("AUDIO: %s: configs.ini [audio] did not load - the codec's levels are kept", who);
+    return;
+  }
+  int8_t ear, hp, loud;
+  audio->getVolumes(ear, hp, loud);
+  const int8_t e0 = ear, h0 = hp, l0 = loud;
+  ear = ini["audio"].getIntValueSafe("speaker_vol", ear);
+  hp = ini["audio"].getIntValueSafe("headphones_vol", hp);
+  loud = ini["audio"].getIntValueSafe("loudspeaker_vol", loud);
+  if (ear == e0 && hp == h0 && loud == l0) {
+    return;                                   // the codec already holds them: no bus traffic
+  }
+  audio->setVolumes(ear, hp, loud);
+  audio->getVolumes(ear, hp, loud);           // setVolumes() clamps: the readback is the truth
+  if (ear != e0 || hp != h0 || loud != l0) {
+    log_e("AUDIO: %s: the codec held %d/%d/%d dB, the stored call levels are %d/%d/%d - applied",
+          who, (int)e0, (int)h0, (int)l0, (int)ear, (int)hp, (int)loud);
+  }
+}
+
+/* ── A CALL TAKES THE AUDIO DEVICE: music yields, the stored levels, THEN the call's route ─────
+ * (review SA-2, 2026-09-25.) Nothing chose a CALLER's route: the CallApp constructor's
+ * LOUDSPEAKER, meant for the ring, stood for the whole call - the far end came out of the back
+ * speaker with the phone at your ear while the key offered "Loud Spkr" - and music's yield,
+ * which puts music's own saved route back, could land on top of it, so the same outgoing call
+ * played on the loudspeaker or the earpiece depending on whether a track had played. The route
+ * is the call screen's key (ControlState::callLoudspeaker, reset per call: the earpiece).
+ * Called when dialling, so UP/DOWN before connect steps the level of the route the call will
+ * use (SA-1), and again at connect, because a pop can start while the far end rings.
+ * ⚠ The caller finishes a pop in flight FIRST (notifyPopFinishFor) - the ring's order: the pop's
+ * restore() would put its snapshot back over all of this. This is not the loop-level yield;
+ * that one waits for a pop to end, these end it. */
+static void callTakesAudioDevice(const char* who) {
+  musicPlayerYieldForCall();
+  applyStoredCallVolumes(who);
+  audio->chooseSpeaker(gui.state.callLoudspeaker);
+}
+
 void startRingtone() {
 
   /* ── TAKE THE DEVICE FROM WHOEVER HAS IT, IN THIS ORDER ────────────────────────────────
@@ -185,11 +242,15 @@ void startRingtone() {
    * ⚠ THE POP FIRST, THEN THE MUSIC. A pop in flight holds a snapshot taken while music owned
    * the codec — the MUSIC level — and its restore() puts that back. Finishing it after the
    * music had handed back the call levels would undo them.
-   * ⚠ THE LOUDSPEAKER IS CHOSEN HERE, not inherited. The CallApp constructor picks it, but it
-   * runs BEFORE this (becomeCallee() comes first), and giving music's route back resets it —
-   * without this line the ring would go to the earpiece whenever music had been playing. */
+   * ⚠ THE LOUDSPEAKER IS CHOSEN HERE, not inherited. Giving music's route back resets it —
+   * without the line below the ring would go to the earpiece whenever music had been playing.
+   * (The CallApp constructor used to pick it too, BEFORE this; it picks nothing now - SA-2.)
+   * ⚠ SO ARE THE LEVELS (review SA-1): the stored call levels, the loudspeaker one being
+   * Settings > Audio's "Loudspeaker volume" - not whatever a game or a test app left in the
+   * codec. After the yield, which puts music's stash back. */
   notifyPopFinishFor("the phone is ringing");
   musicPlayerYieldForCall();
+  applyStoredCallVolumes("ring");
 
   /* Ringer mode, from Settings > Audio (persisted, loaded at boot by GUI::loadSettings).
    * The motor is driven below regardless of the tone, so "vibrate only" is simply not
@@ -4645,6 +4706,12 @@ void loop() {
 
         log_d("Calling: %s", gui.state.calleeUriDyn);
         if (strchr(gui.state.calleeUriDyn, '@') != NULL and  strlen(gui.state.calleeUriDyn)>0 and gui.state.sipRegistered) {
+          /* 🛑 THE CALL TAKES THE AUDIO DEVICE HERE (review SA-2, 2026-09-25): a pop in flight
+           * finished, then music, the stored levels and the call's own route - see
+           * callTakesAudioDevice(). Before connect, so the call screen's UP/DOWN steps the
+           * level of the route this call will use, not a stale one (SA-1). */
+          notifyPopFinishFor("a call is being dialled");
+          callTakesAudioDevice("dial");
           sip.startCall(gui.state.calleeUriDyn, now);
           // Proceed to next state
           gui.state.setSipState(CallState::InvitedCallee);
@@ -4727,6 +4794,12 @@ void loop() {
              * route and levels over whatever the lines below configure, in this same pass.
              * Finishing it here puts its snapshot back BEFORE the call sets up on top. */
             notifyPopFinishFor("a call's audio is starting");
+            /* 🛑 THEN THE CALL TAKES THE DEVICE: music yields, the stored levels, THEN the call's
+             * own route (review SA-2, 2026-09-25) - see callTakesAudioDevice(). A caller's call
+             * used to play on the loudspeaker the CallApp constructor picked for the ring. Here,
+             * not after: the loop's own yield runs later in this pass and would put music's
+             * saved route back over a route chosen before it. */
+            callTakesAudioDevice("call");
             audio->openRtpConnection(rtpLocalPort);
             audio->sendRtpStreamFromMic(audioFormat, rtpRemoteIP, rtpRemotePort);
             audio->playRtpStream(audioFormat, rtpRemotePort);

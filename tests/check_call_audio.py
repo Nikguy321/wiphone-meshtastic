@@ -28,6 +28,14 @@ The music rebuild's review round (2026-09-25) added the device-borrowing contrac
 CONTRACTS: the pop finished before a track or a game takes the device, the mic apps pause music,
 setSampleRate() marks the ring's queue stale, music refuses a failed I2S install, and a card that
 will not read stops the track keeping its place. Each was checked by reverting it in a scratch copy.
+
+The integration review's SA-1/SA-2 (2026-09-25) added the ROUTE-AND-LEVEL contracts after those:
+the call screen's UP/DOWN steps ONE level - the route in use - and stores only that key (it moved
+all three, and the loudspeaker one is the ring's: two presses on a loud earpiece left every later
+ring 12 dB quieter, across reboots); the ring and a call read the stored call levels after music
+yields; a call chooses its own route where it takes the device (dialling and connect), from the
+call screen's key, which the CallApp constructor resets and no longer overrides with the ring's
+LOUDSPEAKER; and the Game Boy puts back the levels its F1/F2 moved, not just the route.
 """
 import pathlib
 import re
@@ -268,6 +276,8 @@ IN_CALL = r"\bgui\s*\.\s*inCall\s*\(\s*\)"
 GBC = r"\bgGbcActive\b"
 POP = r"\bmeshPopPlaying\b"
 KEY_END = r"\bkeyPressed\s*==\s*WIPHONE_KEY_END\b"
+CALL_ROUTE = r"\baudio\s*->\s*chooseSpeaker\s*\(\s*gui\s*\.\s*state\s*\.\s*callLoudspeaker\s*\)"
+TAKES_DEVICE = r"\bcallTakesAudioDevice\s*\("
 
 CONTRACTS = [
     # ── Audio.cpp: the per-call silence clock is wired, not just written ──
@@ -456,6 +466,70 @@ CONTRACTS = [
               r"\baudio\s*->\s*start\s*\("],
          what="music paused before the LED mic app sets 16 kHz",
          why="the rate change played the track at 0.73x, then the ring was swapped under it"),
+    # ── review SA-1 (2026-09-25): the call screen's keys step ONE level, the ring reads its own ──
+    dict(file="GUI.cpp", fn="CallApp::processEvent", kind="sequence",
+         seq=[r"\bonHeadphones\s*=\s*audio\s*->\s*getHeadphones\s*\(\s*\)",
+              r"\bonLoudspeaker\s*=\s*!\s*onHeadphones\s*&&\s*audio\s*->\s*isLoudspeaker\s*\(\s*\)",
+              r"\bint8_t\s*&\s*level\s*=\s*onHeadphones\s*\?\s*headphonesVol\s*:\s*\(\s*onLoudspeaker\s*\?"
+              r"\s*loudspeakerVol\s*:\s*earpieceVol\s*\)",
+              r"\blevel\s*\+=", r"\baudio\s*->\s*setVolumes\s*\("],
+         what="UP/DOWN stepping the level of the route in use (headphones > loudspeaker > earpiece)",
+         why="it moved all three and the loudspeaker level is the RING's: two presses on a loud "
+             "earpiece left every later ring 12 dB quieter, across reboots"),
+    dict(file="GUI.cpp", fn="CallApp::processEvent", kind="not_calls",
+         pat=r"\b(?:earpiece|headphones|loudspeaker)Vol\s*\+=",
+         what="a named level stepped (the three used to move together)",
+         why="an earpiece press moved the ring's loudspeaker level"),
+    dict(file="GUI.cpp", fn="CallApp::processEvent", kind="not_calls",
+         pat=r"\]\s*\[\s*(?:earpiece|headphones|loudspeaker)VolField\s*\]\s*=(?!=)",
+         what="a named level key stored (all three were written back on every press)",
+         why="storing the levels that did not move wrote whatever the codec held over the ring's"),
+    dict(file="WiPhone.ino", fn="startRingtone", kind="sequence",
+         seq=[r"\bmusicPlayerYieldForCall\s*\(", r"\bapplyStoredCallVolumes\s*\(",
+              r"\baudio\s*->\s*chooseSpeaker\s*\(\s*true\s*\)", r"\baudio\s*->\s*start\s*\(\s*\)"],
+         what="the ring applying the stored call levels AFTER music yields, before audio->start()",
+         why="the ring inherited the codec's levels: an in-call press, a game's F1/F2"),
+    dict(file="WiPhone.ino", fn="applyStoredCallVolumes", kind="sequence",
+         seq=[r"\bini\s*\.\s*load\s*\(", r"\bgetIntValueSafe\s*\(", r"\baudio\s*->\s*setVolumes\s*\("],
+         what="the stored levels read from configs.ini and applied",
+         why="an empty helper would leave the ring and a call inheriting again"),
+    dict(file="app_gbc.cpp", fn="GbcApp::startGame", kind="sequence",
+         seq=[r"\bmusicPlayerPause\s*\(",
+              r"\baudio\s*->\s*getVolumes\s*\(\s*savedEar\s*,\s*savedHp\s*,\s*savedLoud\s*\)",
+              r"\baudio\s*->\s*chooseSpeaker\s*\(\s*true\s*\)"],
+         what="the phone's levels saved (after music gives them back) before the game takes the device",
+         why="F1/F2 move all three levels; only the route went back"),
+    dict(file="app_gbc.cpp", fn="GbcApp::~GbcApp", kind="guarded",
+         pat=r"\baudio\s*->\s*setVolumes\s*\(\s*savedEar\s*,\s*savedHp\s*,\s*savedLoud\s*\)",
+         need=[POS(r"\brouteSaved\b")], what="the game putting the saved levels back",
+         why="a game turned down left the ring and the next call's earpiece quieter until a reboot"),
+    # ── review SA-2 (2026-09-25): a call chooses its own route where it takes the device ──
+    dict(file="WiPhone.ino", fn="callTakesAudioDevice", kind="sequence",
+         seq=[r"\bmusicPlayerYieldForCall\s*\(", r"\bapplyStoredCallVolumes\s*\(", CALL_ROUTE],
+         what="music yields, the stored levels, THEN the call's route (the call screen's key)",
+         why="a caller's call played on the LOUDSPEAKER the CallApp constructor picked for the "
+             "ring, or on music's saved route (the yield restores it) when a track had played"),
+    dict(file="WiPhone.ino", fn="loop", kind="sequence_within", outer=CALL_SETUP,
+         has=r"\bopenRtpConnection\s*\(",
+         seq=[r"\bnotifyPopFinishFor\s*\(", TAKES_DEVICE, r"\bopenRtpConnection\s*\("],
+         what="connect: the pop finished, THEN the call takes the device, THEN RTP",
+         why="nothing chose a caller's route; the loop's own yield later in the pass would put "
+             "music's route back over one chosen before it"),
+    dict(file="WiPhone.ino", fn="loop", kind="sequence_within", outer=[POS(r"\bcalleeUriDyn\b")],
+         has=r"\bsip\s*\.\s*startCall\s*\(",
+         seq=[r"\bnotifyPopFinishFor\s*\(", TAKES_DEVICE, r"\bsip\s*\.\s*startCall\s*\("],
+         what="dialling: the pop finished, THEN the call takes the device, before the INVITE",
+         why="before connect UP/DOWN stepped the level of a stale route - often the ring's"),
+    dict(file="GUI.cpp", fn="CallApp::CallApp", kind="not_calls",
+         pat=r"\baudio\s*->\s*chooseSpeaker\s*\(",
+         what="the CallApp constructor choosing a route",
+         why="its LOUDSPEAKER (meant for the ring) was every caller's route; it runs before music "
+             "yields, and it also runs for the No-SIP-URI popup"),
+    dict(file="GUI.cpp", fn="CallApp::CallApp", kind="calls",
+         pat=r"\bcontrolState\s*\.\s*callLoudspeaker\s*=\s*false\b",
+         what="controlState.callLoudspeaker = false (every call starts on the earpiece)",
+         why="the old global was never reset: after a call ended on speaker the next call's key "
+             "labels ran backwards"),
 ]
 
 BANNED = [
@@ -463,6 +537,8 @@ BANNED = [
     (r"\brestore(?:Speaker|Headphones|Loudspeaker)Vol\b", "a restore*Vol global - never written"),
     (r"\brtpSilentCnt\b", "the boot-long rtpSilentCnt - silence is counted per call (rtp_watch.h)"),
     (r"\brtpSilentScan\b", "the boot-long rtpSilentScan - silence is counted per call (rtp_watch.h)"),
+    (r"\bloudSpkr\b", "the file-scope loudSpkr - nothing reset it per call and the call's audio never "
+                       "read it (ControlState::callLoudspeaker, SA-2)"),
 ]
 
 
@@ -630,9 +706,132 @@ def selftest():
                         "#ifdef AUDIO_DEBUG_EGGS\n"),
            egg, False, "a mic stream moved out of the egg region fails")
 
+    # ── SA-1: the call screen's UP/DOWN steps one level and stores one key ──
+    step = C("CallApp::processEvent", "sequence")
+    good = ("appEventResult CallApp::processEvent(EventType event) {\n"
+            " if (event == WIPHONE_KEY_UP || event == WIPHONE_KEY_DOWN) {\n"
+            "  int8_t earpieceVol, headphonesVol, loudspeakerVol;\n"
+            "  audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"
+            "  const bool onHeadphones = audio->getHeadphones();\n"
+            "  const bool onLoudspeaker = !onHeadphones && audio->isLoudspeaker();\n"
+            "  int8_t& level = onHeadphones ? headphonesVol : (onLoudspeaker ? loudspeakerVol : earpieceVol);\n"
+            "  const char* levelField = onHeadphones ? headphonesVolField :\n"
+            "                           (onLoudspeaker ? loudspeakerVolField : earpieceVolField);\n"
+            "  level += (event == WIPHONE_KEY_UP) ? 6 : -6;\n"
+            "  audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"
+            "  audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"
+            "  if (loaded) {\n   ini[\"audio\"][levelField] = level;\n   ini.store();\n  }\n }\n}\n")
+    pre = (good.replace("  int8_t& level = onHeadphones ? headphonesVol : (onLoudspeaker ? loudspeakerVol : earpieceVol);\n", "")
+               .replace("  level += (event == WIPHONE_KEY_UP) ? 6 : -6;\n",
+                        "  int8_t d = event == WIPHONE_KEY_UP ? 6 : -6;\n  earpieceVol += d;\n"
+                        "  headphonesVol += d;\n  loudspeakerVol += d;\n")
+               .replace("   ini[\"audio\"][levelField] = level;\n",
+                        "   ini[\"audio\"][earpieceVolField] = earpieceVol;\n"
+                        "   ini[\"audio\"][headphonesVolField] = headphonesVol;\n"
+                        "   ini[\"audio\"][loudspeakerVolField] = loudspeakerVol;\n"))
+    expect(good, step, True, "UP/DOWN stepping the route's level holds")
+    expect(pre, step, False, "the pre-SA-1 all-three step fails")
+    expect(good.replace("!onHeadphones && audio->isLoudspeaker()", "!onHeadphones"), step, False,
+           "the loudspeaker picked without asking the codec's route fails")
+    nstep = C("CallApp::processEvent", "not_calls", pat=r"\b(?:earpiece|headphones|loudspeaker)Vol\s*\+=")
+    expect(good, nstep, True, "no named level stepped holds")
+    expect(pre, nstep, False, "earpieceVol/headphonesVol/loudspeakerVol += d fails")
+    expect(good.replace("  level += (event", "  loudspeakerVol += 6;\n  level += (event"), nstep, False,
+           "the ring's level stepped beside the route's fails")
+    nstore = next(c for c in CONTRACTS if c.get("fn") == "CallApp::processEvent" and c["kind"] == "not_calls"
+                  and "VolField" in c["pat"])
+    expect(good, nstore, True, "storing only the moved key holds")
+    expect(good.replace("   ini[\"audio\"][levelField] = level;\n",
+                        "   ini[\"audio\"][levelField] = level;\n"
+                        "   ini[\"audio\"][loudspeakerVolField] = loudspeakerVol;\n"), nstore, False,
+           "the loudspeaker key stored beside the moved one fails")
+    expect(good.replace("ini[\"audio\"][levelField] = level;", "if (x[loudspeakerVolField] == 1) {}"),
+           nstore, True, "a comparison is not a store")
+
+    rs = C("startRingtone", "sequence", seq=[r"\bmusicPlayerYieldForCall\s*\(", r"\bapplyStoredCallVolumes\s*\(",
+                                             r"\baudio\s*->\s*chooseSpeaker\s*\(\s*true\s*\)",
+                                             r"\baudio\s*->\s*start\s*\(\s*\)"])
+    good = ("void startRingtone() {\n notifyPopFinishFor(\"r\");\n musicPlayerYieldForCall();\n"
+            " applyStoredCallVolumes(\"ring\");\n if (t) {\n  audio->chooseSpeaker(true);\n  audio->start();\n }\n}\n")
+    expect(good, rs, True, "the ring applying the stored levels after the yield holds")
+    expect(good.replace(" applyStoredCallVolumes(\"ring\");\n", ""), rs, False,
+           "the ring inheriting the codec's levels fails")
+    expect(good.replace(" musicPlayerYieldForCall();\n applyStoredCallVolumes(\"ring\");\n",
+                        " applyStoredCallVolumes(\"ring\");\n musicPlayerYieldForCall();\n"), rs, False,
+           "the stored levels applied BEFORE the yield (its stash lands on top) fails")
+    ap = C("applyStoredCallVolumes", "sequence")
+    good = ("static void applyStoredCallVolumes(const char* who) {\n CriticalFile ini(F);\n"
+            " if (!((ini.load() || ini.restore()) && !ini.isEmpty())) { return; }\n"
+            " ear = ini[\"audio\"].getIntValueSafe(\"speaker_vol\", ear);\n audio->setVolumes(ear, hp, loud);\n}\n")
+    expect(good, ap, True, "the helper reading and applying holds")
+    expect(good.replace(" audio->setVolumes(ear, hp, loud);\n", ""), ap, False, "a helper that applies nothing fails")
+
+    gs = C("GbcApp::startGame", "sequence", seq=[r"\bmusicPlayerPause\s*\(",
+           r"\baudio\s*->\s*getVolumes\s*\(\s*savedEar\s*,\s*savedHp\s*,\s*savedLoud\s*\)",
+           r"\baudio\s*->\s*chooseSpeaker\s*\(\s*true\s*\)"])
+    good = ("void GbcApp::startGame() {\n notifyPopFinishNow();\n musicPlayerPause();\n"
+            " savedLoudspeaker = audio->isLoudspeaker();\n audio->getVolumes(savedEar, savedHp, savedLoud);\n"
+            " routeSaved = true;\n audio->chooseSpeaker(true);\n}\n")
+    expect(good, gs, True, "the game saving the levels holds")
+    expect(good.replace(" audio->getVolumes(savedEar, savedHp, savedLoud);\n", ""), gs, False,
+           "the game saving only the route fails")
+    gd = C("GbcApp::~GbcApp", "guarded")
+    good = ("GbcApp::~GbcApp() {\n if (soundOn && audio) {\n  audio->shutdown();\n }\n"
+            " if (routeSaved && audio) {\n  audio->chooseSpeaker(savedLoudspeaker);\n"
+            "  audio->setVolumes(savedEar, savedHp, savedLoud);\n  routeSaved = false;\n }\n}\n")
+    expect(good, gd, True, "the game putting its levels back holds")
+    expect(good.replace("  audio->setVolumes(savedEar, savedHp, savedLoud);\n", ""), gd, False,
+           "the game putting back only the route (pre-SA-1) fails")
+
+    # ── SA-2: a call takes its own route, after music yields, at dial and at connect ──
+    tk = C("callTakesAudioDevice", "sequence")
+    good = ("static void callTakesAudioDevice(const char* who) {\n musicPlayerYieldForCall();\n"
+            " applyStoredCallVolumes(who);\n audio->chooseSpeaker(gui.state.callLoudspeaker);\n}\n")
+    expect(good, tk, True, "the call taking the device in order holds")
+    expect(good.replace(" audio->chooseSpeaker(gui.state.callLoudspeaker);\n", ""), tk, False,
+           "a call that chooses no route (pre-SA-2) fails")
+    expect(good.replace(" musicPlayerYieldForCall();\n", "").replace(
+           " audio->chooseSpeaker(gui.state.callLoudspeaker);\n",
+           " audio->chooseSpeaker(gui.state.callLoudspeaker);\n musicPlayerYieldForCall();\n"), tk, False,
+           "the route chosen BEFORE the yield (music's route lands on top) fails")
+    expect(good.replace("gui.state.callLoudspeaker", "true"), tk, False,
+           "the call put on the loudspeaker regardless of its key fails")
+    cn = next(c for c in CONTRACTS if c["kind"] == "sequence_within" and TAKES_DEVICE in c["seq"]
+              and c["has"].startswith(r"\bopenRtp"))
+    good = ("void loop() {\n if (callEstablished) {\n  if ((uint32_t)rtpRemoteIP && rtpRemotePort && "
+            "audioFormat != N) {\n   notifyPopFinishFor(\"c\");\n   callTakesAudioDevice(\"call\");\n"
+            "   audio->openRtpConnection(p);\n   audio->sendRtpStreamFromMic(f, ip, rtpRemotePort);\n"
+            "   audio->playRtpStream(f, p);\n  }\n }\n}\n")
+    expect(good, cn, True, "connect taking the device before RTP holds")
+    expect(good.replace("   callTakesAudioDevice(\"call\");\n", ""), cn, False,
+           "connect with no route of its own (pre-SA-2) fails")
+    expect(good.replace("   notifyPopFinishFor(\"c\");\n   callTakesAudioDevice(\"call\");\n",
+                        "   callTakesAudioDevice(\"call\");\n   notifyPopFinishFor(\"c\");\n"), cn, False,
+           "the device taken before the pop is finished (its restore() lands on top) fails")
+    dl = next(c for c in CONTRACTS if c["kind"] == "sequence_within" and TAKES_DEVICE in c["seq"]
+              and "startCall" in c["has"])
+    good = ("void loop() {\n if (s == InvitingCallee) {\n  if (strchr(gui.state.calleeUriDyn, '@') != NULL) {\n"
+            "   notifyPopFinishFor(\"d\");\n   callTakesAudioDevice(\"dial\");\n"
+            "   sip.startCall(gui.state.calleeUriDyn, now);\n  }\n }\n}\n")
+    expect(good, dl, True, "dialling taking the device holds")
+    expect(good.replace("   callTakesAudioDevice(\"dial\");\n", ""), dl, False,
+           "dialling on a stale route fails")
+    cc = C("CallApp::CallApp", "not_calls")
+    cr = C("CallApp::CallApp", "calls")
+    good = ("CallApp::CallApp(Audio* audio, LCD& lcd, ControlState& state, bool c, HeaderWidget* h, FooterWidget* f)\n"
+            "  : WindowedApp(lcd, state, h, f), audio(audio), caller(c) {\n"
+            " reasonHash = hash_murmur(s);\n controlState.callLoudspeaker = false;\n}\n")
+    expect(good, cc, True, "the constructor choosing no route holds")
+    expect(good.replace(" controlState.callLoudspeaker = false;\n",
+                        " audio->chooseSpeaker(LOUDSPEAKER);\n controlState.callLoudspeaker = false;\n"), cc, False,
+           "the constructor's LOUDSPEAKER (pre-SA-2) fails")
+    expect(good, cr, True, "the per-call reset holds")
+    expect(good.replace(" controlState.callLoudspeaker = false;\n", ""), cr, False,
+           "a route key never reset per call (pre-SA-2) fails")
+
     for pat, what in BANNED:
         if not re.search(pat, strip_code("audio->setVolumes(restoreSpeakerVol, h, l); rtpSilentCnt++; "
-                                         "rtpSilentScan = 0;")):
+                                         "rtpSilentScan = 0; loudSpkr = true;")):
             print(f"  SELF-TEST FAIL: banned pattern matches nothing: {what}")
             ok = False
     return ok

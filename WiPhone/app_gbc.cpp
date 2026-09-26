@@ -370,6 +370,13 @@ void GbcApp::startGame() {
      * own flag rather than soundOn: the emu thread clears soundOn when I2S starves, and
      * start() can fail, and the route has to go back on both of those paths. */
     savedLoudspeaker = audio->isLoudspeaker();
+    /* 🛑 AND THE LEVELS (review SA-1, 2026-09-25). F1/F2 (adjustVolume) move the earpiece,
+     * headphones and loudspeaker levels together, and only the route used to go back: a game
+     * turned down left the next ring (the loudspeaker level) and the next call's earpiece
+     * quieter until a reboot. The ring and a call read the stored levels now anyway
+     * (WiPhone.ino, applyStoredCallVolumes), but a borrower leaves the device as it found it.
+     * So the game's own F1/F2 level lasts for that game, not for the next one. */
+    audio->getVolumes(savedEar, savedHp, savedLoud);
     routeSaved = true;
     audio->chooseSpeaker(true);
 
@@ -484,6 +491,7 @@ GbcApp::~GbcApp() {
      * false and this is the flag write again; either way the idle watchdog in WiPhone.ino
      * releases the device once gGbcActive drops below. */
     audio->chooseSpeaker(savedLoudspeaker);
+    audio->setVolumes(savedEar, savedHp, savedLoud);   // route first, then levels (Audio::restore's order)
     routeSaved = false;
   }
   gbcXferStop();            // in case the app dies while the transfer screen is up
@@ -1163,7 +1171,9 @@ void GbcApp::status(char* out, size_t n) {
 
 // F1/F2 during play: nudge the codec volume. setVolumes() clamps each output to
 // its own valid range, so stepping all three together is safe (the codec applies
-// whichever one is active: loudspeaker / earpiece / headphones).
+// whichever one is active: loudspeaker / earpiece / headphones). All three are put
+// back when the game ends (~GbcApp, savedEar/savedHp/savedLoud): they are the call
+// levels, and the loudspeaker one is the ring's (review SA-1).
 void GbcApp::adjustVolume(int delta) {
   if (!audio) {
     return;

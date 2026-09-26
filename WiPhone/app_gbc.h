@@ -103,6 +103,7 @@ protected:
   int  audioStarve = 0;          // consecutive under-written I2S frames (emu thread only)
   bool routeSaved = false;       // did startGame move the codec's output? (put it back)
   bool savedLoudspeaker = false; // the output the phone was on before the game
+  int8_t savedEar = 0, savedHp = 0, savedLoud = 0;  // its levels too: F1/F2 move all three (SA-1)
 
   void adjustVolume(int delta);  // F1/F2 in-game volume up/down
 

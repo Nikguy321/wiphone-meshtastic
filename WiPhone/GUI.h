@@ -469,6 +469,16 @@ public:
   uint16_t notifyVibroMs = 200;
   bool     audioMuted = false;      // Settings > Mute all sounds (configs.ini [audio] mute); applied via Audio::setMuted
 
+  /* The CALL's route: false = earpiece, true = loudspeaker (headphones win over both, in
+   * Audio). The call screen's Loud Spkr / Ear Spkr key flips it; the CallApp constructor resets
+   * it, so every call starts on the earpiece with the key reading "Loud Spkr"; WiPhone.ino gives
+   * it to the codec where a call takes the audio device (dialling, and connect). Until review
+   * SA-2 (2026-09-25) it was a file-scope `loudSpkr` in GUI.cpp that nothing reset and nothing
+   * but the key read: a caller's call played on the LOUDSPEAKER (the constructor's pick, meant
+   * for the ring) while the key offered "Loud Spkr", and after a call ended on speaker the next
+   * call's key labels ran backwards. */
+  bool callLoudspeaker = false;
+
   // Ringtone & ringtone vibration
   bool ringing = false;
   bool vibroOn = false;               // is vibration motor ON?

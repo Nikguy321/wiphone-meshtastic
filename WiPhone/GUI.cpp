@@ -48,7 +48,7 @@ static const char* sipDisplayLabel(Storage& flash, const char* peer, const char*
 
 LCD* static_lcd = NULL;
 bool UDP_SIP = false;
-bool loudSpkr = false;
+/* (The call's speaker choice lives in ControlState::callLoudspeaker now - see GUI.h.) */
 /* 🛑 DERIVED, NOT STORED. This was a bare `bool wifiOn = true;` that the toggle set and three
  * other code paths did not — so the label could say "off" while the radio was up. It now reads
  * the one persisted switch, and cannot disagree with it. */
@@ -6122,8 +6122,17 @@ CallApp::CallApp(Audio* audio, LCD& lcd, ControlState& state, bool isCaller, Hea
   debugCaption = new LabelWidget(0, yOff, lcd.width(), fonts[AKROBAT_BOLD_16]->height(), s, WP_DISAB_0, WP_COLOR_1, fonts[AKROBAT_BOLD_16], LabelWidget::CENTER);
   
   reasonHash = hash_murmur(s);
-  log_i("hash_murmur");  
-  audio->chooseSpeaker(LOUDSPEAKER);
+  log_i("hash_murmur");
+  /* 🛑 NO ROUTE IS CHOSEN HERE ANY MORE (review SA-2, 2026-09-25). This picked LOUDSPEAKER for
+   * every call - meant for the ring - and for a CALLER nothing ever moved it: the far end came
+   * out of the back speaker with the phone at your ear, while the footer offered "Loud Spkr".
+   * It also ran BEFORE music gave the device back, whose yield puts music's own saved route
+   * back over it, so the same outgoing call landed on the earpiece or the loudspeaker depending
+   * on whether a track had played. The ring picks its route itself (startRingtone(), after the
+   * yield), and a call takes its route where it takes the device, in WiPhone.ino (dialling and
+   * connect, after the yield: callTakesAudioDevice), from the key reset below. Nothing is
+   * chosen for the "No SIP URI" popup, which this constructor also builds. */
+  controlState.callLoudspeaker = false;      // every call starts on the earpiece: "Loud Spkr"
 }
 
 CallApp::~CallApp() {
@@ -6253,10 +6262,22 @@ appEventResult CallApp::processEvent(EventType event) {
     }
     log_d("Volumes are earspkr %d headphone %d loudspkr %d", earpieceVol,headphonesVol,loudspeakerVol );
     
-    int8_t d = event == WIPHONE_KEY_UP ? 6 : -6;
-    earpieceVol += d;
-    headphonesVol += d;
-    loudspeakerVol += d;
+    /* 🛑 ONE LEVEL: THE ROUTE YOU ARE LISTENING ON (review SA-1, 2026-09-25). These keys used
+     * to move the earpiece, headphones AND loudspeaker levels together and store all three -
+     * and the loudspeaker level is the RING's (startRingtone() rings on the loudspeaker at the
+     * stored call levels; the ring follows Settings > Audio's "Loudspeaker volume"). Two
+     * presses down on a loud earpiece left every later ring 12 dB quieter, across reboots,
+     * with nothing on the call screen saying so; a third made it -18. It stayed hidden only
+     * while every call end reset the codec to 0/0/0 dB (the never-written restore* globals,
+     * removed in 9213fc0). Headphones win (Audio's precedence), then the codec's speaker
+     * choice: the call's own from dialling on (WiPhone.ino takes the device for it), the
+     * ring's loudspeaker while it rings. ONLY that level is stepped, and only its key stored. */
+    const bool onHeadphones = audio->getHeadphones();
+    const bool onLoudspeaker = !onHeadphones && audio->isLoudspeaker();
+    int8_t& level = onHeadphones ? headphonesVol : (onLoudspeaker ? loudspeakerVol : earpieceVol);
+    const char* levelField = onHeadphones ? headphonesVolField :
+                             (onLoudspeaker ? loudspeakerVolField : earpieceVolField);
+    level += (event == WIPHONE_KEY_UP) ? 6 : -6;
     uint8_t precentage = 0x0;
     uint8_t precentageLoud = 0x0;
     //audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);
@@ -6276,9 +6297,7 @@ appEventResult CallApp::processEvent(EventType event) {
       if (!ini.hasSection("audio")) {
         ini.addSection("audio");
       }
-      ini["audio"][earpieceVolField] = earpieceVol;
-      ini["audio"][headphonesVolField] = headphonesVol;
-      ini["audio"][loudspeakerVolField] = loudspeakerVol;
+      ini["audio"][levelField] = level;     // the one that moved - see ONE LEVEL above
       if (ini.store()) {
         log_d("new audio settings are saved");
       }
@@ -6288,68 +6307,69 @@ appEventResult CallApp::processEvent(EventType event) {
     }
     ini.unload();
     
-    if (earpieceVol == -69){
+    if (level == -69){
       precentage = 0x0;
       precentageLoud = 0x0;
     } 
-    if ((earpieceVol == -66) || (earpieceVol == -63) ) {
+    if ((level == -66) || (level == -63) ) {
       precentage = 0x04;
       precentageLoud = 8;
     } 
-    if ((earpieceVol == -60) || (earpieceVol == -57)) {
+    if ((level == -60) || (level == -57)) {
       precentage = 12;
       precentageLoud = 16;
     } 
-    if ((earpieceVol == -54) || (earpieceVol == -51)) {
+    if ((level == -54) || (level == -51)) {
       precentage = 20;
       precentageLoud = 24;
     } 
-    if ((earpieceVol == -48) || (earpieceVol == -45)) {
+    if ((level == -48) || (level == -45)) {
       precentage = 28;
       precentageLoud = 32;
     } 
-    if ((earpieceVol == -42) || (earpieceVol == -39)) {
+    if ((level == -42) || (level == -39)) {
       precentage = 36;
       precentageLoud = 40;
     } 
-    if ((earpieceVol == -36) || (earpieceVol == -33)) {
+    if ((level == -36) || (level == -33)) {
       precentage = 44;
       precentageLoud = 48;
     } 
-    if ((earpieceVol == -30) || (earpieceVol == -27)) {
+    if ((level == -30) || (level == -27)) {
       precentage = 52;
       precentageLoud = 56;
     } 
-    if ((earpieceVol == -24) || (earpieceVol == -21)) {
+    if ((level == -24) || (level == -21)) {
       precentage = 60;
       precentageLoud = 64;
     } 
-    if ((earpieceVol == -18) || (earpieceVol == -15)) {
+    if ((level == -18) || (level == -15)) {
       precentage = 68;
       precentageLoud = 72;
     } 
-    if ((earpieceVol == -12) || (earpieceVol == -9)) {
+    if ((level == -12) || (level == -9)) {
       precentage = 76;
       precentageLoud = 80;
     } 
-    if ((earpieceVol == -6) || (earpieceVol == -3)) {
+    if ((level == -6) || (level == -3)) {
       precentage = 84;
       precentageLoud = 90;
     } 
-    if ((earpieceVol == 0) || (earpieceVol == 3)) {
+    if ((level == 0) || (level == 3)) {
       precentage = 92;
       precentageLoud = 100;
     } 
-    if (earpieceVol == 6) {
+    if (level == 6) {
       precentage = 100;
       precentageLoud = 100;
     }
     log_d("precentage is %d %%", precentage);
-    log_d("earpieceVol is %d %%", earpieceVol);
-    if(loudSpkr == false){
-      snprintf(buff, sizeof(buff), "Speaker %d %%, Headphones %d %%", precentage, precentage);
-    } else {
+    log_d("level is %d dB", level);
+    /* The route that moved, named - not "Speaker %, Headphones %" off a stale flag. */
+    if (onLoudspeaker) {
       snprintf(buff, sizeof(buff), "    Loudspeaker %d %%",  precentageLoud);
+    } else {
+      snprintf(buff, sizeof(buff), "%s %d %%", onHeadphones ? "Headphones" : "Earpiece", precentage);
     }
     
     precentage = 0x0;
@@ -6362,16 +6382,16 @@ appEventResult CallApp::processEvent(EventType event) {
   
   if (event == WIPHONE_KEY_SELECT) {
     if (controlState.sipState == CallState::Call) {
-      if (loudSpkr == false){
+      if (controlState.callLoudspeaker == false){
         footer->setButtons("Ear Spkr", "Hang up");
         res |= REDRAW_SCREEN | REDRAW_FOOTER;
         audio->chooseSpeaker(!EARSPEAKER);
-        loudSpkr = true;
+        controlState.callLoudspeaker = true;
       } else {
         footer->setButtons("Loud Spkr", "Hang up");
         res |= REDRAW_SCREEN | REDRAW_FOOTER;
         audio->chooseSpeaker(EARSPEAKER);
-        loudSpkr = false;
+        controlState.callLoudspeaker = false;
       }
       
     }

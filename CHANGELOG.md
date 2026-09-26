@@ -259,6 +259,12 @@ Both phones register now (`sip=1`), which made the 2026-08-15 audit's "unreachab
   `tests/check_call_audio.py` pins every guard above in the source (a review reverted six of them and the
   suite stayed green), and `test_rtpwatch` shows a strike left at hang-up ending the next call at
   connect without Audio::newCall()'s per-call begin.
+- Integration review SA-1/SA-2: **the call screen's UP/DOWN moves only the level you are listening on**
+  (it moved all three, so two presses on the earpiece left every later ring 12 dB quieter), and the ring
+  and a call apply the stored levels (`AUDIO: ring: the codec held ... - applied` when something left
+  its level behind); a game puts back the levels its F1/F2 moved. **Outgoing calls start on the
+  EARPIECE** (they played on the loudspeaker the ring's code picked), and the Loud Spkr key is reset
+  every call. 12 more contracts in `check_call_audio.py`.
 
 ### WiFi drops explain themselves; a station wedged mid-connect now cures itself (0.9.79 dev, 2026-09-25)
 
