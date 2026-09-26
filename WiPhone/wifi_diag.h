@@ -188,8 +188,19 @@ void wifiFormatBssid(const uint8_t bssid[6], char out[18]);
  *          minute (summaryDue) so the card still ends on how the storm ended.
  * A steady flap every 10 s now costs three card lines a minute (the count, one LOST, its JOIN)
  * where it cost twelve; tests/test_wifidiag.cpp plays that hour through. Pure; loop task only
- * (Networks::diagTick, and a second instance for the MARK lines in WiPhone.ino). */
+ * (Networks::diagTick, and a second instance for the MARK lines in WiPhone.ino).
+ *
+ * 🛑 TWO CLOCKS MEET HERE. Networks::diagTick feeds lost()/join() the EVENT's millis() (stamped
+ * by the WiFi event task) but asks summaryDue() with the loop pass's `now`, read at the TOP of the
+ * pass — and an event drained later in that same pass is stamped AFTER it. A plain
+ * `(uint32_t)(now - lastMs)` then read a card line made milliseconds ago as ~49 days old, and a
+ * held count went to the card at once instead of after a quiet minute (the trap wifi_policy.h's
+ * wifiJoinAgeMs records for R2). So every age here goes through one rule: a stamp up to
+ * WIFI_CARD_AHEAD_MS AHEAD of the time asked about is age 0, and takeHeld() never moves lastMs
+ * back. The price, as there: a 60 s window every 49.7 days in which an ancient stamp reads fresh
+ * — one line held that would have gone, never one lost. */
 #define WIFI_CARD_PERIOD_MS 60000u
+#define WIFI_CARD_AHEAD_MS  60000u
 struct WifiCardGate {
   uint32_t lastLostMs = 0;    // millis() of the last LOST that went to the card
   uint32_t lastMs = 0;        // ...of the last line of ANY kind that did
@@ -205,8 +216,12 @@ struct WifiCardGate {
   /* Lines are held and nothing has gone to the card for a minute: write the counts now. */
   bool summaryDue(uint32_t ms) const;
   /* The held counts and when the batch began; true if there were any. Resets them, and counts
-   * as a card line at `ms` (the caller writes it). */
+   * as a card line at `ms` (the caller writes it) — unless a line already went there LATER than
+   * `ms` (the two clocks above), which then stays the last one. */
   bool takeHeld(uint32_t ms, uint32_t* nLost, uint32_t* nJoin, uint32_t* sinceMs);
 };
+/* How long before `ms` was `stamp`? 0 for a stamp up to WIFI_CARD_AHEAD_MS after `ms` (made later
+ * in the same loop pass); wrap-safe otherwise. The gate's only age rule. */
+uint32_t wifiCardAgeMs(uint32_t ms, uint32_t stamp);
 
 #endif  // WIPHONE_WIFI_DIAG_H

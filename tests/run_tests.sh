@@ -210,8 +210,9 @@ fi
 # ── SOURCE GUARD: the SIP message store never keeps a MESH clock's time (review SA-3) ─────
 # See tests/check_msg_clock.py. test_clocksrc proves clockMsgFinal/clockMeshCorrS; the glue that
 # makes a mesh stamp provisional - msgStamp() at every load and own stamp, the trusted-only
-# finalise before the sentinel repair, the "tm" marks, the reload armed until NTP/GPS, the offset
-# kept before the overwrite - lives in Storage.cpp, GUI.cpp, WiPhone.ino and clock.cpp.
+# finalise AFTER the sentinel repair and re-stamping only through clockMsgRestamp, the "tm" marks,
+# the reload armed until NTP/GPS, the offset kept before the overwrite - lives in Storage.cpp,
+# GUI.cpp, WiPhone.ino and clock.cpp.
 echo "checking the message store's mesh-clock stamps (provisional until NTP/GPS)"
 if ! python3 tests/check_msg_clock.py; then
   fail=1

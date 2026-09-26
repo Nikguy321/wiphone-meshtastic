@@ -306,6 +306,28 @@ static void testCardGate() {
     ok(!w.lost(0x00001000u), "millis() wrap: 8 s later is still inside the minute (unsigned difference)");
     ok(w.lost(0x0000F000u), "...and 64 s later is not");
   }
+  {
+    /* TWO CLOCKS (the misc repair round): diagTick drains events stamped by the WiFi event task
+     * but asks summaryDue() with the loop pass's `now`, read BEFORE the drain. One slow pass
+     * drains a LOST (card), its JOIN (card) and a second LOST (held), all stamped after `now`. */
+    WifiCardGate g;
+    ok(g.lost(1000) && g.join(1500) && !g.lost(1600), "LOST + JOIN to the card, the next LOST held");
+    ok(!g.summaryDue(1200), "summaryDue at the pass's `now` (1.2 s, BEFORE those stamps): not due - "
+       "a card line 300 ms in the future is age 0, not ~49 days");
+    ok(!g.summaryDue(61499) && g.summaryDue(61500), "...due a quiet minute after the JOIN, as ever");
+    uint32_t l = 0, j = 0, since = 0;
+    ok(g.takeHeld(1200, &l, &j, &since) && l == 1 && j == 0 && since == 1600,
+       "a takeHeld at the earlier `now` still hands over the count");
+    ok(g.lastMs == 1500, "...and does not move the last card line BACK to 1.2 s");
+    ok(!g.lost(2000) && !g.summaryDue(61499) && g.summaryDue(61500),
+       "the next held LOST's summary still waits a minute from the JOIN at 1.5 s");
+    ok(wifiCardAgeMs(1000, 1000) == 0 && wifiCardAgeMs(1000, 61000) == 0 &&
+       wifiCardAgeMs(1000, 61001) == 0xFFFFFFFFu - 60000u,
+       "wifiCardAgeMs: a stamp up to 60 s ahead is age 0; further ahead is the old wrap (a stamp "
+       "~49.7 days old)");
+    ok(wifiCardAgeMs(70000, 10000) == 60000 && wifiCardAgeMs(0x1000u, 0xFFFFF000u) == 0x2000u,
+       "...and a past stamp is its plain age, across the millis() wrap");
+  }
 }
 
 int main() {

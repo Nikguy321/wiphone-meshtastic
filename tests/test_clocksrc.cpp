@@ -556,6 +556,84 @@ int main() {
     CHECK(!clockMsgFinal(now - 600, 0x12345678u, NULL, &out), "no clock, no answer");
   }
 
+  printf("-- re-stamping what clockMsgFinal refused keeps the order the texts came in\n");
+  {
+    /* The file order these stamps come in, from the store's own rules (Storage.cpp): a new text
+     * is appended, then reorderLast() moves it before the first section messageCompare puts
+     * after it — messageCompare(a, b) = strcasecmp(b.t, a.t), so before the first OLDER one,
+     * i.e. AFTER its equals. 8-hex-digit stamps compare as the numbers do. */
+    struct Txt { uint32_t t; char who; };
+    auto arrive = [](Txt* file, uint32_t* n, Txt x) {
+      file[(*n)++] = x;
+      for (uint32_t j = 0; j + 1 < *n; j++) {
+        if (x.t > file[j].t) {                      // messageCompare(file[j], last) > 0
+          for (uint32_t k = *n - 1; k > j; k--) {
+            file[k] = file[k - 1];
+          }
+          file[j] = x;
+          break;
+        }
+      }
+    };
+    const uint32_t now = 1786624519u, bandEnd = now - 2;   // two sentinels took the top
+    /* The misc repair round's case: A, B, C arrive under an EARLIER boot's mesh clock ~10 min
+     * fast; the phone reboots and NTP finalises them inside those 10 min, all still ahead. */
+    Txt file[8];
+    uint32_t n = 0;
+    arrive(file, &n, {now + 300, 'A'});
+    arrive(file, &n, {now + 360, 'B'});
+    arrive(file, &n, {now + 420, 'C'});
+    CHECK(n == 3 && file[0].who == 'C' && file[1].who == 'B' && file[2].who == 'A',
+          "a partition is newest-first: C, B, A");
+    uint32_t prov[8], got[8];
+    for (uint32_t i = 0; i < n; i++) {
+      prov[i] = file[i].t;
+    }
+    clockMsgRestamp(prov, n, bandEnd, got);
+    CHECK(got[0] == bandEnd && got[1] == bandEnd - 1 && got[2] == bandEnd - 2,
+          "C (the newest) takes the top of the band, A the bottom - NOT ascending in file order, "
+          "which gave C the earliest stamp and reversed the thread for good");
+    /* The same, read back the way the thread shows it: oldest first. */
+    uint32_t tA = 0, tB = 0, tC = 0;
+    for (uint32_t i = 0; i < n; i++) {
+      (file[i].who == 'A' ? tA : file[i].who == 'B' ? tB : tC) = got[i];
+    }
+    CHECK(tA < tB && tB < tC, "reading order after the re-stamp is still A, B, C");
+
+    /* Equal provisional stamps (two texts in one second): the store keeps them in ARRIVAL order,
+     * so the later in the file is the newer. */
+    n = 0;
+    arrive(file, &n, {now + 500, 'D'});
+    arrive(file, &n, {now + 500, 'E'});
+    arrive(file, &n, {now + 501, 'F'});
+    CHECK(file[0].who == 'F' && file[1].who == 'D' && file[2].who == 'E',
+          "equals sit in arrival order: F, D, E");
+    for (uint32_t i = 0; i < n; i++) {
+      prov[i] = file[i].t;
+    }
+    clockMsgRestamp(prov, n, bandEnd, got);
+    CHECK(got[0] == bandEnd && got[2] == bandEnd - 1 && got[1] == bandEnd - 2,
+          "D < E < F: the tie goes to the later arrival, and every stamp is distinct");
+
+    /* Ranked, not walked: an unsorted list (a partition someone edited) gets the same answer. */
+    const uint32_t un[5] = {now + 30, now + 90, now + 10, now + 90, now + 60};
+    clockMsgRestamp(un, 5, bandEnd, got);
+    CHECK(got[1] == bandEnd - 1 && got[3] == bandEnd && got[4] == bandEnd - 2 &&
+          got[0] == bandEnd - 3 && got[2] == bandEnd - 4,
+          "unsorted input: ranked by stamp, equals by position - the band bandEnd-4..bandEnd");
+    bool distinct = true;
+    for (uint32_t i = 0; i < 5; i++) {
+      for (uint32_t j = i + 1; j < 5; j++) {
+        distinct = distinct && got[i] != got[j];
+      }
+    }
+    CHECK(distinct, "...and no two share a stamp");
+    got[0] = 7;
+    clockMsgRestamp(un, 0, bandEnd, got);
+    clockMsgRestamp(NULL, 5, bandEnd, got);
+    CHECK(got[0] == 7, "nothing to re-stamp, or no list: nothing written");
+  }
+
   printf("%d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;
 }

@@ -376,3 +376,18 @@ bool clockMsgFinal(uint32_t t, uint32_t id, const ClockMsgStamp* st, uint32_t* o
   *out = (uint32_t)f;
   return true;
 }
+
+void clockMsgRestamp(const uint32_t* prov, uint32_t n, uint32_t bandEnd, uint32_t* out) {
+  if (!prov || !out) {
+    return;
+  }
+  for (uint32_t i = 0; i < n; i++) {
+    uint32_t newer = 0;         // how many of the others came after text i
+    for (uint32_t j = 0; j < n; j++) {
+      if (prov[j] > prov[i] || (prov[j] == prov[i] && j > i)) {
+        newer++;
+      }
+    }
+    out[i] = bandEnd - newer;   // the newest (newer == 0) takes the top of the band
+  }
+}

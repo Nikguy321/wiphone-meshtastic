@@ -297,8 +297,15 @@ int wifiDiagHealthField(char* out, size_t cap, const WifiDiagLog& log, const Wif
 
 // ---------------------------------------------------------------- the card gate (review F3)
 
+uint32_t wifiCardAgeMs(uint32_t ms, uint32_t stamp) {
+  if ((uint32_t)(stamp - ms) <= WIFI_CARD_AHEAD_MS) {
+    return 0;                   // stamped at or after `ms` was read (this pass): as young as it gets
+  }
+  return ms - stamp;
+}
+
 bool WifiCardGate::lost(uint32_t ms) {
-  if (!anyLost || (uint32_t)(ms - lastLostMs) >= WIFI_CARD_PERIOD_MS) {
+  if (!anyLost || wifiCardAgeMs(ms, lastLostMs) >= WIFI_CARD_PERIOD_MS) {
     anyLost = any = true;
     lastLostMs = lastMs = ms;
     pairOpen = true;
@@ -318,7 +325,7 @@ bool WifiCardGate::join(uint32_t ms) {
     lastMs = ms;
     return true;              // never split a pair
   }
-  if (!any || (uint32_t)(ms - lastMs) >= WIFI_CARD_PERIOD_MS) {
+  if (!any || wifiCardAgeMs(ms, lastMs) >= WIFI_CARD_PERIOD_MS) {
     any = true;
     lastMs = ms;
     return true;
@@ -331,7 +338,8 @@ bool WifiCardGate::join(uint32_t ms) {
 }
 
 bool WifiCardGate::summaryDue(uint32_t ms) const {
-  return (heldLost || heldJoin) && (uint32_t)(ms - lastMs) >= WIFI_CARD_PERIOD_MS;
+  /* `ms` is often the loop pass's `now`, and lastMs an event stamped after it (wifi_diag.h). */
+  return (heldLost || heldJoin) && wifiCardAgeMs(ms, lastMs) >= WIFI_CARD_PERIOD_MS;
 }
 
 bool WifiCardGate::takeHeld(uint32_t ms, uint32_t* nLost, uint32_t* nJoin, uint32_t* sinceMs) {
@@ -347,8 +355,10 @@ bool WifiCardGate::takeHeld(uint32_t ms, uint32_t* nLost, uint32_t* nJoin, uint3
   }
   heldLost = heldJoin = 0;
   if (had) {
+    if (!any || wifiCardAgeMs(ms, lastMs) != 0) {
+      lastMs = ms;              // never BACK past a line stamped later than `ms` (wifi_diag.h)
+    }
     any = true;
-    lastMs = ms;
   }
   return had;
 }

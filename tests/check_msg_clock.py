@@ -15,7 +15,9 @@ files the host suite cannot compile (Storage.cpp, GUI.cpp, WiPhone.ino, clock.cp
 
   1. every Messages::load() is given ntpClock.msgStamp() - never `isTimeKnown() ? time : 0`;
   2. Messages::load() takes a ClockMsgStamp, finalises ONLY under a trusted clock
-     (`if (unixTime && !st.meshId)`), and does so BEFORE the sentinel repair;
+     (`if (unixTime && !st.meshId)`), and does so AFTER the sentinel repair: they share one
+     band of stamps, and the sentinels (THIS boot's texts) must take its top, an earlier boot's
+     re-stamps the band under it (the misc repair round);
   3. the sentinel repair marks what it stamps under a mesh clock ("tm", and the index row);
   4. saveMessage() marks a meshId stamp and its index row, and never marks a sentinel;
   5. the phone's own stamps (a SIP arrival, a composed text) pass msgStamp()'s meshId;
@@ -23,7 +25,13 @@ files the host suite cannot compile (Storage.cpp, GUI.cpp, WiPhone.ino, clock.cp
   7. clock.cpp records the offset before NTP or GPS overwrites a mesh clock, and a mesh set takes
      a fresh random id;
   8. the provisional pass never reads a stamp with getHexValueSafe() (strtol into a 32-bit long
-     saturates at 2038 - the 2079 stamp this exists for would read as 0x7fffffff).
+     saturates at 2038 - the 2079 stamp this exists for would read as 0x7fffffff);
+  9. what the finalise pass RE-STAMPS gets clockMsgRestamp()'s stamps from `bandEnd`, and nothing
+     else: every "t" it writes is either clockMsgFinal's `fin` or clockMsgRestamp's `out[...]`,
+     and `bandEnd` is lowered after. The pass once walked the file handing out ASCENDING stamps
+     - the sentinel pass's rule, right only for equal ffffffff keys - and a partition is
+     NEWEST-FIRST, so the newest text got the earliest stamp and the thread was reversed for
+     good (the misc repair round; clockMsgRestamp's ordering is host-tested in test_clocksrc).
 
 Each is a POSITIVE contract; one that cannot find its function fails too. The self-test then
 REMOVES each guard from the real sources, one at a time, and requires its contract to trip.
@@ -100,7 +108,7 @@ def check(f):
         bad.append(f"only {n} messages.load() call(s) found (GUI::reloadMessages, MessagesApp, the "
                    "mirror ingest) - the contract cannot see them")
 
-    # 2. load(): the signature, the trusted-only finalise, before the sentinel pass
+    # 2. load(): the signature, the trusted-only finalise, after the sentinel pass
     st, sr = f["Storage.cpp"], f["Storage.cpp.raw"]
     if not re.search(r"\bbool\s+load\s*\(\s*const\s+ClockMsgStamp\s*&", f["Storage.h"]):
         bad.append("Storage.h: Messages::load must take `const ClockMsgStamp&`")
@@ -120,8 +128,40 @@ def check(f):
         sent = ifs_exact(st, a, z, r"\s*unixTime\s*")
         if not sent:
             bad.append("load(): the sentinel repair `if (unixTime)` block not found")
-        elif fin and fin[0][0] > sent[0][0]:
-            bad.append("load(): finalise BEFORE the sentinel repair (they share one band of stamps)")
+        elif fin and fin[0][0] < sent[0][0]:
+            bad.append("load(): finalise AFTER the sentinel repair - they share one band of stamps, "
+                       "and this boot's sentinels take its top, an earlier boot's re-stamps the band "
+                       "under it")
+        # 9. the finalise pass re-stamps only through clockMsgRestamp, from bandEnd
+        if fin:
+            f0, f1 = fin[0][1], fin[0][2]
+            rs = [args for p, args in calls(st, r"\bclockMsgRestamp\s*\(") if f0 <= p <= f1]
+            if not any(re.search(r"\bbandEnd\b", x) for x in rs):
+                bad.append("load(): the finalise pass must re-stamp through clockMsgRestamp(..., "
+                           "bandEnd, out) - walking the NEWEST-FIRST file with ascending stamps "
+                           "reverses the thread")
+            writes = 0
+            for m in re.compile(r'putValueFullHex\s*\(\s*"t"\s*,').finditer(sr, f0, f1 + 1):
+                if st[m.start()] != sr[m.start()]:
+                    continue                      # in a comment
+                writes += 1
+                depth, j = 1, m.end()
+                while j < len(sr) and depth:
+                    depth += {"(": 1, ")": -1}.get(sr[j], 0)
+                    j += 1
+                arg = sr[m.end():j - 1]
+                if not re.fullmatch(r"\s*(fin|out\s*\[[^\]]*\])\s*", arg):
+                    bad.append(f'load(): the finalise pass writes "t" = `{arg.strip()}` - only '
+                               "clockMsgFinal's `fin` or clockMsgRestamp's `out[...]` keep the "
+                               "order the texts came in")
+            if writes < 2:
+                bad.append(f'load(): {writes} "t" write(s) in the finalise pass - expected the '
+                           "final stamp and the re-stamp")
+            call = re.compile(r"\bclockMsgRestamp\s*\(").search(st, f0, f1)
+            low = re.compile(r"\bbandEnd\s*-=").search(st, f0, f1)
+            if not call or not low or low.start() < call.start():
+                bad.append("load(): the finalise pass must lower bandEnd after its re-stamp, so no "
+                           "stamp is handed out twice")
         # 3. the sentinel repair marks under a mesh clock
         if sent:
             s0, s1 = sent[0][1], sent[0][2]
@@ -220,6 +260,17 @@ MUTATIONS = [
      r'putValueFullHex\("tm", st\.meshId\);       // a mesh clock', 'putValueFullHex("tx", st.meshId);  // a mesh clock'),
     ("Storage.cpp", "must mark the index row (\"tm\") under a mesh",
      r'\(\*ipart\)\["tm"\] = "1";                         // the provisional', '(void)0;  // the provisional'),
+    ("Storage.cpp", "finalise AFTER the sentinel repair",
+     r"(?s)(  /\* ⚠ REPAIR THE UNKNOWN-TIME SENTINELS.*?\n)(  /\* ⚠ FINALISE THE PROVISIONAL STAMPS"
+     r".*?\n)(  if \(indexUpdated \|\| removePart\) \{)",
+     lambda m: m.group(2) + m.group(1) + m.group(3)),
+    ("Storage.cpp", "must re-stamp through clockMsgRestamp",
+     r"clockMsgRestamp\(prov, \(uint32_t\)i, bandEnd, out\);", "(void)0;"),
+    ("Storage.cpp", "keep the order the texts came in",
+     r'im->putValueFullHex\("t", out\[i\+\+\]\);',
+     'im->putValueFullHex("t", bandEnd - (uint32_t)(got - 1) + (uint32_t)i++);'),
+    ("Storage.cpp", "must lower bandEnd after its re-stamp",
+     r"bandEnd -= \(uint32_t\)got;", "(void)0;"),
     ("Storage.cpp", "saturates at",
      r'msgHexStamp\(im->getValueSafe\("t", NULL\), &t\);', 't = im->getHexValueSafe("t", 0);'),
     ("Storage.cpp", "must write \"tm\" onto the message",
@@ -256,7 +307,7 @@ def mutation_test(files):
             ok = False
             continue
         m = ms[nth]
-        mutated = raw[:m.start()] + repl + raw[m.end():]
+        mutated = raw[:m.start()] + (repl(m) if callable(repl) else repl) + raw[m.end():]
         got = check(dict(files, **{name: strip_code(mutated), name + ".raw": mutated}))
         if not any(want in g for g in got):
             print(f"  SELF-TEST FAILED: removing the guard from {name} did not trip '{want}'")
@@ -281,7 +332,8 @@ def main():
     if not mutation_test(files):
         return 1
     print("  ok  every message-store load and own stamp carries msgStamp(); mesh stamps are marked, "
-          "finalised only under NTP/GPS and before the sentinel repair; the reload waits for a "
+          "finalised only under NTP/GPS and after the sentinel repair, re-stamped in arrival order; "
+          "the reload waits for a "
           "trusted clock; clock.cpp keeps the offset")
     return 0
 

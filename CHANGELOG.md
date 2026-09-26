@@ -329,6 +329,12 @@ had had a fix. The rules are all in `clock_source.{h,cpp}` (host suite `tests/te
   LOST/JOIN` and `MARK assoc/disassoc` reach health.log at most one pair a minute, the rest
   serial-only and counted (`WIFI card: N LOST + M JOIN ...`; `wifi why`), which keeps the log's
   ~9 h window (not ~16: HEALTH lines are ~232 B now).
+- **Misc repair round:** an earlier boot's mesh-stamped texts still in the future at the first
+  NTP/GPS load are re-stamped in the order they came (the newest gets the latest stamp,
+  `clockMsgRestamp`), not reversed, and below this boot's unknown-time repairs. Before this, the
+  newest-first partition was walked with ascending stamps, which reversed that thread for good.
+  The WiFi card gate no longer reads an event stamped later in the loop pass as ~49 days old, so a
+  held `WIFI card:` count is no longer written early.
 
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 

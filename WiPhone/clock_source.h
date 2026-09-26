@@ -292,7 +292,9 @@ int  clockMeshOffer(ClockMeshVote* v, int clockSource, uint32_t node, bool priva
  *     was, and a no-op for the usual right one (phone 2's GPS beacon);
  *   - written under an EARLIER boot's mesh clock (no offset is known any more — there is no
  *     RTC): kept if it is not in the future, because a past stamp cannot pin a text above
- *     later ones; one in the future is re-stamped the way an unknown time is (false below).
+ *     later ones; one in the future is re-stamped the way an unknown time is (false below),
+ *     by clockMsgRestamp() in the band BELOW this load's unknown-time repairs: those are THIS
+ *     boot's texts, and an earlier boot's are older.
  * The id is random per mesh set (clock.cpp), so a replay of the same packet in two boots
  * does not make one boot's texts take the other boot's offset. Everything is UTC seconds. */
 struct ClockMsgStamp {
@@ -309,5 +311,17 @@ int32_t clockMeshCorrS(int64_t trustedMs, int64_t meshMs);
  * false: it would land before 2026 or after st->utc, so no known offset makes it right — the
  * caller re-stamps it like an unknown time. */
 bool clockMsgFinal(uint32_t t, uint32_t id, const ClockMsgStamp* st, uint32_t* out);
+/* The new stamps for one partition's texts that clockMsgFinal() refused. `prov[0..n)` are their
+ * provisional stamps in FILE order; out[i] (never aliasing prov) gets prov[i]'s replacement.
+ * The n stamps are DISTINCT and fill bandEnd-(n-1) .. bandEnd, in the order the texts came:
+ * the newest provisional stamp takes bandEnd, and between EQUAL ones the LATER in the file is
+ * newer. 🛑 NOT "ascending in file order", which is what the sentinel repair does (Storage.cpp)
+ * and is right only there: every sentinel is the same ffffffff, so its file order IS arrival
+ * order. A partition is sorted NEWEST-FIRST (messageCompare is strcasecmp(b.t, a.t);
+ * reorderLast() puts a new text before the first OLDER one, so after its equals) — ascending
+ * stamps in that order handed the newest text the earliest stamp and reversed the thread for
+ * good (the misc repair round; the mark goes, so nothing would ever put it back). Ranked, not
+ * walked, so the answer does not depend on the file being sorted. O(n^2): n <= a partition. */
+void clockMsgRestamp(const uint32_t* prov, uint32_t n, uint32_t bandEnd, uint32_t* out);
 
 #endif // CLOCK_SOURCE_H
