@@ -82,19 +82,50 @@ static inline uint32_t notifyPopStopMs(size_t pcmBytes, uint32_t rateHz, uint32_
  * those stalls away, and the master mute hid the rest. (Before 0.9.66 the SPIFFS open, 1.2-1.6 s,
  * sat between the start and the first write, so the queue was full and the chirp played at once.)
  *
- * HOW THE POP FOUND THE RING decides the lead (Audio::playPop() reports it):
+ * THE QUEUE IS ONE SHORT OF THE RING. i2s_create_dma_queue() creates it dma_buf_count - 1 deep
+ * (objdump of this build's libdriver.a: `addi.n a10, a3, -1` is xQueueGenericCreate's length), and
+ * at each buffer's end the ISR, finding it full, first takes the OLDEST entry off - the buffer the
+ * DMA is starting to play, stale by a trip - and zeroes it (installI2S() sets tx_desc_auto_clear).
+ * So a full queue holds every buffer EXCEPT the one playing, oldest = the next to play.
+ *
+ * HOW THE POP FOUND THE RING (Audio::playPop() reports it; the log line names it):
  *   FRESH     - installed for this pop (or its rate changed, which forces a reinstall): the queue
- *               is empty and the DMA at buffer 0, so the lead is EXACTLY one trip.
+ *               is empty and the DMA at buffer 0, so the lead is one trip - less the few ms from
+ *               turnOn()'s i2s_start() to the caller's stamp, which only lengthen the padding.
  *   RESTARTED - the device was off and the ring it left is reused: start()'s i2s_start() puts the
  *               DMA back at buffer 0 under the queue as the last session left it, so the first
  *               buffer written is somewhere up to three buffers ahead of the DMA - a lead anywhere
  *               in [0, one trip).
- *   RUNNING   - the device was on and the ring kept: the queue is full, the first write lands in
- *               the buffer playing now or the next. No lead.
- * A range is resolved by the source's own margin rule above: the play-once memory source must
- * stop LATE, so it takes the whole trip (only zero padding is lengthened); the looping file must
- * stop EARLY, so it takes none (its second attack is never replayed; the chirp may be cut, as it
- * always could be). FRESH is exact, so both take it. */
+ *   RUNNING   - the device was on and the ring kept (the 8 kHz ring a call or the ring left, and a
+ *               pop's restore() did not replace). Once it has idled three buffers (384 ms) since its
+ *               last write, the ISR has filled the queue and the first write lands in the NEXT
+ *               buffer, never the one playing: a lead under one buffer (128 ms). But a pop that
+ *               starts sooner - a burst, arriving just after the last pop's teardown - finds the
+ *               queue still (nearly) empty, drained by that pop's padding: a lead up to a trip. The
+ *               plain 360 ms stop lost the whole chirp from 0-20 ms after the teardown and part of
+ *               it to ~150 ms (test_notify models it). So a lead anywhere in [0, one trip).
+ * Every state is a range bounded by one trip, and the source's own margin rule resolves it: the
+ * play-once memory source must stop LATE, so it takes the WHOLE TRIP IN EVERY STATE (only zero
+ * padding is lengthened, and the early finishes - the ring, a call, a track, a game - still cut
+ * it). 0.9.79's first cut took 0 for RUNNING on the premise that its queue is always full.
+ *
+ * 🛑 THE LOOPING FILE TAKES NO LEAD, IN ANY STATE. Its SPIFFS open (0.5-1.6 s measured) runs AFTER
+ * turnOn() has started the DMA and BEFORE the caller's stamp, so by the stamp the ring has played
+ * its first trip and the queue is full: the first write lands in the next buffer, a lead under
+ * 128 ms. 0.9.79's first cut gave it the FRESH trip too ("exact, so both take it"): a stop at
+ * 792 ms, long after the wrap (320-448 ms), which let the SECOND attack play - the replay this
+ * file's early-stop rule exists to prevent (test_notify models it). Taking the least lead keeps the
+ * rule whatever the open cost: at 280 ms the chirp (heard by ~218 ms) is whole and the wrap never
+ * sounds. An open faster than three buffers (384 ms - never measured on these phones) leaves more
+ * lead and the chirp may be cut, as the early rule always allowed. Unreachable in the shipping
+ * build: the only caller passes pop_pcm, and playPcm() cannot fail after turnOn().
+ *
+ * ⚠ ALL OF THIS ASSUMES THE LAST WRITER LEFT IDF's `curr_ptr` FULL, as the pop's own padding does
+ * in practice (a 2,400-sample chunk is nearly always waiting, so the queue refuses first). A
+ * half-filled one - the RTP stream writes a packet at a time, and music_feed.h's closeRing() is
+ * the only writer that tops its buffer up - is written FIRST on RESTARTED and RUNNING, wherever
+ * the DMA is: the out-of-order case test_musicfeed pins for music. Not modelled here; the first
+ * pop after a call is where it would show. */
 enum NotifyRing {
   NOTIFY_RING_RUNNING   = 0,
   NOTIFY_RING_RESTARTED = 1,
@@ -110,18 +141,17 @@ static inline uint32_t notifyRingTripMs(uint32_t bufs, uint32_t bufSamples, uint
   return (uint32_t)(((uint64_t)bufs * bufSamples * 1000u + rateHz - 1) / rateHz);
 }
 
-/* How long after the start the first sample written reaches the DAC, for the stop timer. */
+/* How long after the start the first sample written reaches the DAC, for the stop timer: the most
+ * the ring's state allows for the memory source (stop LATE), the least for the looping file (stop
+ * EARLY). `ring` no longer changes the answer - every state is bounded by one trip - but it is kept
+ * in the signature and the log, the bench's only view of which case ran. */
 static inline uint32_t notifyPopLeadMs(enum NotifyRing ring, uint32_t bufs, uint32_t bufSamples,
                                        uint32_t rateHz, bool sourceLoops) {
-  const uint32_t trip = notifyRingTripMs(bufs, bufSamples, rateHz);
-  switch (ring) {
-    case NOTIFY_RING_FRESH:
-      return trip;                            // exact, for either source
-    case NOTIFY_RING_RESTARTED:
-      return sourceLoops ? 0 : trip;          // [0, trip): early stops take the least, late the most
-    default:
-      return 0;
+  (void)ring;
+  if (sourceLoops) {
+    return 0;                                 // its open ran the first trip before the stamp
   }
+  return notifyRingTripMs(bufs, bufSamples, rateHz);
 }
 
 /* The stop timer the caller arms: the sound's own stop (notifyPopStopMs) moved back by the lead.

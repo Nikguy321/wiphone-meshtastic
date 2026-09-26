@@ -314,9 +314,11 @@ static void applyStoredCallVolumes(const char* who) {
  * port still closed, so the far end's first words ("Hello?") are lost for its length. And it
  * gains nothing there: the same stored levels went in moments earlier - when dialling for a
  * caller (before the INVITE, off the audio path), at the ring for a callee - and nothing in
- * between leaves them changed: the call screen's UP/DOWN stores what it applies, a pop is
- * finished first and puts back its own snapshot of them, and music's yield gives back the ones
- * it saved. Connect still yields and still chooses the route - both are RAM and bus writes. */
+ * between leaves them changed: the call screen's UP/DOWN applies at once and records the level
+ * for the post-call write (callLevelStepped()/callLevelsOverlay()), so the codec already holds
+ * it at connect; a pop is finished first and puts back its own snapshot of them, and music's
+ * yield gives back the ones it saved. Connect still yields and still chooses the route - both
+ * are RAM and bus writes. */
 static void callTakesAudioDevice(const char* who, bool readStoredLevels) {
   musicPlayerYieldForCall();
   if (readStoredLevels) {
@@ -3044,19 +3046,28 @@ static void notifyMessageArrived(uint8_t mode) {
          * a FRESH ring on almost every pop, and a fresh ring plays itself (zeros) once before the
          * first written sample reaches the DAC: the chirp was due at ~512 ms and the teardown at
          * 360 ms zeroed it first - silence, except when a stall pushed the teardown late. The
-         * lead is 0 on a ring that was already running; the early finishes (the ring, a call, a
-         * track, a game) still cut it whenever they come. */
+         * flash buffer waits the whole trip whatever state the ring was in (a RUNNING ring's lead
+         * is under a buffer only once it has idled three: a burst found it drained); the SPIFFS
+         * fallback waits none (its open ran the trip before t1). The early finishes (the ring, a
+         * call, a track, a game) still cut it whenever they come. */
         const uint32_t leadMs = audio->popLeadMs(!fromFlash);
         meshPopStopMs  = notifyPopTimerMs(sizeof(pop_pcm), NOTIFY_POP_RATE_HZ, NOTIFY_POP_MARGIN_MS,
                                           !fromFlash, leadMs);
         meshPopStartMs = t1;             // AFTER the start, for the motor stamp's reason
         /* ⚠ PUMP ONCE NOW (review, 2026-09-19). playPop() only arms the source; the samples reach
          * I2S in audio->loop() at the BOTTOM of the pass, and the text paths (SIP, the mirror,
-         * serial `notify`) announce ABOVE the mesh block. On a ring that was already RUNNING this
-         * queues the chirp at once. ⚠ On a FRESH ring (the usual case) it queues NOTHING: the
-         * free-buffer queue is empty until the first buffer has played out (~128 ms), and the
-         * first written samples play one trip later - which is why the stop above carries the
-         * lead, and why a stall can no longer cut the chirp: only the padding after it. */
+         * serial `notify`) announce ABOVE the mesh block. On a RUNNING ring that has idled three
+         * buffers this queues the chirp at once, in the next buffer to play. ⚠ On a FRESH ring
+         * (the usual case) it queues NOTHING: the free-buffer queue is empty until the first
+         * buffer has played out (~128 ms), and the first write after that - whichever pass comes
+         * next - puts the chirp in a buffer that plays one trip after the start. Hence the lead.
+         * ⚠ A STALL AFTER THAT WRITE cannot cut the chirp, only the padding after it: the buffer
+         * is the DMA's now. A STALL BEFORE IT STILL CAN (review 3's repair): a pass held from
+         * here until past ~0.77 s after the start - a stall of ~0.65 s or more - loses it. The
+         * write then lands in a buffer that comes round after the 872 ms stop, and from 872 ms on
+         * the teardown, which sits ABOVE the bottom-of-loop pump, zeroes the ring before the
+         * chirp is ever written. This pump runs too early to help. The SIP and mesh arrivals do
+         * their SPIFFS work (saveMessage, the mesh DB) before this call, not after it. */
         audio->loop();
         log_e("NOTIFY: pop start took %lu ms (%s, %s ring, lead %lu ms, stop at %lu ms)",
               (unsigned long)(t1 - t0), fromFlash ? "flash" : "SPIFFS fallback",

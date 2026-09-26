@@ -234,9 +234,11 @@ public:
   }
   /* After a successful playPop(): how long after it returned the first sample it wrote reaches
    * the DAC, for the caller's stop timer (notify_timing.h: notifyPopLeadMs(), notifyPopTimerMs()).
-   * 🛑 One whole trip round a ring the pop installed (512 ms): the teardown used to zero the
-   * buffers at 360 ms, 150 ms before the chirp could sound (review 3, A1). `sourceLoops` = the
-   * SPIFFS fallback (stop early); false = the pop_pcm buffer (stop late). */
+   * 🛑 One whole trip round the ring (512 ms) for the pop_pcm buffer (stop LATE), whatever state
+   * the ring was in - each is bounded by one trip: the teardown used to zero the buffers at 360 ms,
+   * 150 ms before the chirp could sound (review 3, A1). 0 for the SPIFFS fallback (`sourceLoops`,
+   * stop EARLY): its open runs the first trip before the caller's stamp. popRingState() is for
+   * the log. */
   uint32_t popLeadMs(bool sourceLoops) const;
   NotifyRing popRingState() const {
     return this->popRing;

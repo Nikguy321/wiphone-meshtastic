@@ -698,12 +698,13 @@ CONTRACTS = [
          seq=[r"\bgen0\s*=\s*this\s*->\s*i2sGen\b", r"\bwasOn\s*=\s*this\s*->\s*audioOn\b",
               r"\bpreserve\s*\(", r"\bsetSampleRate\s*\(", r"\bturnOn\s*\(", r"\bpopRing\s*=(?!=)"],
          what="the ring's generation and power taken BEFORE the pop's setters, its state set after turnOn()",
-         why="taken after the setters, every pop reads as RUNNING (no lead) and the chirp is erased again"),
+         why="taken after the setters, every pop is logged RUNNING - the bench's only view of which "
+             "ring case ran (the lead no longer rests on it: the memory source takes the trip in all)"),
     dict(file="Audio.cpp", fn="Audio::playPop", args=POP_PCM_ARGS, kind="assign_needs", name="popRing",
          need=[POS(r"\bi2sGen\s*!=\s*gen0\b"), POS(r"\bNOTIFY_RING_FRESH\b"), NEG(r"\bwasOn\b"),
                POS(r"\bNOTIFY_RING_RESTARTED\b")],
          what="FRESH on a new ring generation, RESTARTED when the device was off",
-         why="the lead is one trip on a fresh ring and up to one on a restarted one"),
+         why="the log line names the case the bench is checking (FRESH: one trip; the rest: up to one)"),
     dict(file="Audio.cpp", fn="Audio::popLeadMs", kind="calls",
          pat=r"\bnotifyPopLeadMs\s*\([^;]*\bpopRing\b",
          what="popLeadMs() through notify_timing.h's notifyPopLeadMs(popRing, ...)",
@@ -1223,7 +1224,7 @@ def selftest():
     expect(good, pa, True, "FRESH / RESTARTED / RUNNING holds")
     expect(good.replace(" const uint32_t gen0 = this->i2sGen;\n", "").replace(
            " if (!this->turnOn())", " const uint32_t gen0 = this->i2sGen;\n if (!this->turnOn())"), pp, False,
-           "the generation read AFTER the setters (every pop RUNNING, no lead) fails")
+           "the generation read AFTER the setters (every pop logged RUNNING) fails")
     expect(good.replace("(this->i2sGen != gen0) ? NOTIFY_RING_FRESH", "false ? NOTIFY_RING_FRESH"), pa, False,
            "a fresh ring never reported fails")
     expect(good.replace("!wasOn ?", "wasOn ?"), pa, False, "RESTARTED on the wrong power state fails")

@@ -1165,9 +1165,11 @@ bool Audio::playPop(fs::FS *fs, int8_t vol) {
 
 bool Audio::playPop(const uint8_t* pcm, size_t pcmLen, fs::FS *fs, int8_t vol) {
   this->popProblem = nullptr;
-  /* For the lead (review 3, A1; notify_timing.h): did this pop install the ring, restart a stopped
-   * one, or find one running? i2sGen moves on every install and every rate change - and a rate
-   * change always reinstalls below (it marks the queue stale). */
+  /* For the lead's log line (review 3, A1; notify_timing.h): did this pop install the ring, restart
+   * a stopped one, or find one running? i2sGen moves on every install and every rate change - and a
+   * rate change always reinstalls below (it marks the queue stale). The memory source's lead no
+   * longer depends on it (every state is bounded by one trip, and it takes the trip), but the
+   * bench reads which case ran from here. */
   const uint32_t gen0 = this->i2sGen;
   const bool wasOn = this->audioOn;
   this->preserve();          // ⚠ BEFORE anything below changes it

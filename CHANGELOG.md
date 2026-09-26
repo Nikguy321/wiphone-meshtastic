@@ -278,6 +278,10 @@ Both phones register now (`sip=1`), which made the 2026-08-15 audit's "unreachab
   the jack (an unplug inside a pop sent the ring to an empty jack), a ring installed with the device off
   is left stopped, the mic apps finish a pop first, and a failed I2S reinstall with the device on is
   refused by every writer instead of panicking. `test_notify` models IDF's TX ring.
+  Its verification's repair: the chirp now waits one trip (872 ms stop) on a RUNNING ring too — a
+  pop arriving just after the last one's teardown found the queue drained and lost the chirp at 360 —
+  and the SPIFFS fallback takes no lead (its open runs the first trip; the 792 ms stop replayed its
+  second attack). The model's queue is IDF's real depth, one short of the ring (objdump).
 - Integration review 3 (R3-4, tests only - no firmware change): hand mutations the source guards let
   through now trip them. The music place kept at a pop (`s_resumePos = pos`, and its path from
   ceasePlayback to the resume: `check_call_audio.py`'s first real-source mutations), N1's 60 s cap and
