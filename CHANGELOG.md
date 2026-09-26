@@ -278,6 +278,12 @@ Both phones register now (`sip=1`), which made the 2026-08-15 audit's "unreachab
   the jack (an unplug inside a pop sent the ring to an empty jack), a ring installed with the device off
   is left stopped, the mic apps finish a pop first, and a failed I2S reinstall with the device on is
   refused by every writer instead of panicking. `test_notify` models IDF's TX ring.
+- Integration review 3 (R3-4, tests only - no firmware change): hand mutations the source guards let
+  through now trip them. The music place kept at a pop (`s_resumePos = pos`, and its path from
+  ceasePlayback to the resume: `check_call_audio.py`'s first real-source mutations), N1's 60 s cap and
+  the terms of `joinInProgress()`, `wifiMarkLink()`'s noinline (without it loop()'s frame is 288 B, not
+  240 - objdump) and three more helpers' with a rule for every static loop helper, `txCutShort()`'s RX_DONE
+  half, and the I2S writers reachable only behind the no-driver refusals (`check_gbc_ring.py` G17).
 
 ### WiFi drops explain themselves; a station wedged mid-connect now cures itself (0.9.79 dev, 2026-09-25)
 

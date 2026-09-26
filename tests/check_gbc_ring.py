@@ -46,6 +46,11 @@ start() then):
       their setters and before turnOn(); playPop's refusal names it and restore()s its snapshot.
 And (A6) a ring installed with the device OFF is left stopped, the way shutdown() leaves one:
   G16 installI2S(): i2s_stop() inside the successful install, only when !audioOn.
+And (review 3, R3-4 on R3-2) those refusals only protect the writers behind them:
+  G17 playChunk(), i2s_read() and the music feed's pass() are called nowhere but Audio::loop() (after
+      its G13 return), playSample() nowhere but playChunk() (and the caller-less playSampleChunk(), which
+      nothing may call), and i2s_write() nowhere but playSample(),
+      music's AudioMusicI2s sink and the Game Boy's emuThread (behind soundOn = audio->start(), G8).
 
 MUTATIONS then breaks each one in the REAL source, one at a time, and requires its own contract to
 report it (tests/check_wifi_restore.py's pattern): a guard rewritten so its mutation no longer
@@ -56,7 +61,7 @@ import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from check_wifi_restore import function_body, strip_code  # noqa: E402
+from check_wifi_restore import function_body, match_close, strip_code  # noqa: E402
 from check_call_audio import NEG, POS, contract_problem, if_blocks, line_of  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent / "WiPhone"
@@ -209,6 +214,69 @@ def installer_problems(texts):
     return out
 
 
+# G17 (integration review 3, R3-4 on R3-2): the writers the no-driver refusals stand in front of are
+# reached from NOWHERE ELSE. G13 pins Audio::loop()'s return before playChunk(), and G8/G12 the device's
+# start - but a playChunk(), i2s_read() or feed pass added outside loop(), or a new raw i2s_write(),
+# would sit behind no refusal at all, and IDF 3.3's i2s_write()/i2s_read() dereference a NULL driver.
+# (pattern, name, the (file, function) spans it may be called from, what guards those)
+CLASS = "class:"                        # a (file, "class:Name") site: anywhere in that class's body
+WRITER_SITES = [
+    (r"\bplayChunk\s*\(", "playChunk()", {("Audio.cpp", "Audio::loop")},
+     "Audio::loop() returns with no driver before it (G13)"),
+    (r"\bi2s_read\s*\(", "i2s_read()", {("Audio.cpp", "Audio::loop")},
+     "Audio::loop() returns with no driver before it (G13)"),
+    (r"\bfeed\s*->\s*pass\s*\(", "the music feed's pass()", {("Audio.cpp", "Audio::loop")},
+     "Audio::loop()'s refusal (G13) and the pass's own i2sInstalled guard"),
+    (r"(?<!::)\bplaySample\s*\(", "playSample()",
+     {("Audio.cpp", "Audio::playChunk"), ("Audio.cpp", "Audio::playSampleChunk")},
+     "only playChunk() writes a sample, and only Audio::loop() calls it (playSampleChunk() has no caller)"),
+    (r"\bplaySampleChunk\s*\(", "playSampleChunk()", set(),
+     "it has no caller (dead since the original firmware); a caller would need a refusal of its own"),
+    (r"\bi2s_write\s*\(", "i2s_write()",
+     {("Audio.cpp", "Audio::playSample"), ("Audio.cpp", CLASS + "AudioMusicI2s"),
+      ("app_gbc.cpp", "GbcApp::emuThread")},
+     "each of those writes only behind a refusal: playChunk's loop (G13), the music feed's pass and "
+     "playMusic()'s install check, the game's soundOn = audio->start() (G8)"),
+]
+
+
+def class_span(code, name):
+    m = re.search(r"\bclass\s+" + re.escape(name) + r"\b[^;{]*\{", code)
+    if not m:
+        return None
+    end = match_close(code, m.end() - 1)
+    return None if end < 0 else (m.end() - 1, end)
+
+
+def writer_problems(texts):
+    out = []
+    for pat, what, sites, why in WRITER_SITES:
+        spans = {}
+        for fname, fn in sites:
+            code = texts.get(fname)
+            if code is None:
+                out.append(f"G17-writers: WiPhone/{fname}: file not found")
+                continue
+            sp = class_span(code, fn[len(CLASS):]) if fn.startswith(CLASS) else function_body(code, fn)
+            if sp is None:
+                out.append(f"G17-writers: WiPhone/{fname}: {fn}() not found - if it was renamed or moved, "
+                           f"update WRITER_SITES")
+                continue
+            spans.setdefault(fname, []).append(sp)
+        for name in sorted(texts):
+            for m in re.finditer(pat, texts[name]):
+                line = texts[name][texts[name].rfind("\n", 0, m.start()) + 1:m.start()]
+                if name.endswith(".h") and re.search(r"\b(?:bool|void|int|size_t)\s+$", line):
+                    continue                                    # the member's declaration
+                if texts[name][m.start() - 2:m.start()] == "::" or \
+                        any(a < m.start() < z for a, z in spans.get(name, [])):
+                    continue                                    # its definition, or an allowed site
+                out.append(f"G17-writers: WiPhone/{name}:{line_of(texts[name], m.start())}: {what} outside "
+                           f"{', '.join(sorted(fn for _, fn in sites)) or 'its definition'} - it would reach "
+                           f"IDF 3.3's NULL driver behind no refusal; the allowed sites are safe because {why}")
+    return out
+
+
 def check(texts):
     problems = []
     for c in CONTRACTS:
@@ -220,7 +288,7 @@ def check(texts):
         if p:
             problems.append(f"{c['id']}: WiPhone/{c['file']}: {c['fn']}: {p}\n"
                             f"      (why it matters: {c['why']})")
-    return problems + installer_problems(texts) + quit_shutdown_problems(texts)
+    return problems + installer_problems(texts) + quit_shutdown_problems(texts) + writer_problems(texts)
 
 
 # (file, the contract id that must be reported, pattern on the BLANKED source, replacement)
@@ -295,6 +363,15 @@ MUTATIONS = [
     ("Audio.cpp", "G16-install-off-stopped",
      r"\bif\s*\(\s*!\s*this\s*->\s*audioOn\s*\)\s*\{\s*i2s_stop\s*\(\s*i2s_num\s*\)\s*;\s*\}",
      "i2s_stop(i2s_num);"),
+    # G17 (review 3, R3-4): a writer reached from outside the refusals - a ring that plays its first
+    # chunk itself, a mic read in shutdown(), a raw write in turnOn(), a feed pass in playMusic(), a
+    # sample written outside playChunk()
+    ("Audio.cpp", "G17-writers", r"(bool\s+Audio::playRingtone\s*\([^)]*\)\s*\{)", r"\1 this->playChunk();"),
+    ("Audio.cpp", "G17-writers", r"(bool\s+Audio::shutdown\s*\(\s*\)\s*\{)", r"\1 i2s_read(i2s_num, 0, 0, 0, 0);"),
+    ("Audio.cpp", "G17-writers", r"(bool\s+Audio::turnOn\s*\(\s*\)\s*\{)", r"\1 i2s_write(i2s_num, 0, 0, 0, 0);"),
+    ("Audio.cpp", "G17-writers", r"(this\s*->\s*feed\s*->\s*start\s*\()", r"this->feed->pass(1); \1"),
+    ("Audio.cpp", "G17-writers", r"(bool\s+Audio::turnMicOn\s*\(\s*\)\s*\{)", r"\1 this->playSample();"),
+    ("Audio.cpp", "G17-writers", r"(bool\s+Audio::turnMicOn\s*\(\s*\)\s*\{)", r"\1 this->playSampleChunk();"),
 ]
 
 
@@ -373,7 +450,8 @@ def main():
     if not mutation_test(texts):
         return 1
     print(f"  ok  all {len(CONTRACTS)} ring contracts hold, the quit shuts the device down on "
-          f"soundStarted, and I2S is installed nowhere but {INSTALLER[1]}() ({len(files)} files)")
+          f"soundStarted, I2S is installed nowhere but {INSTALLER[1]}(), and written or read only behind the "
+          f"no-driver refusals (G17) ({len(files)} files)")
     return 0
 
 

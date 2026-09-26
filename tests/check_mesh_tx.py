@@ -45,6 +45,16 @@ one layer further out:
     refuse while a frame is on the air or waiting; txCutShort() asks the chip for TX_DONE before it
     calls a frame cut.
 
+Integration review 3 (R3-4) deleted txCutShort()'s `&& !(irq & IRQ_RX_DONE_MASK)` in a scratch copy and
+this file stayed green: the M3 contract pinned only "read, then TX_DONE, then txAborted". That half is
+what keeps a 0xFF read (the bus floating under a re-init: every flag "set") from calling a CUT frame
+SENT. check_cut_short() now pins the whole DONE branch - one read into a variable; TX_DONE set AND
+RX_DONE clear, no `||`; txDoneLate and `return false` inside it, txAborted after it; txActive let go
+between the read and the branch - and MUTATIONS breaks each part. ⚠ It is the SECOND line today: both
+callers are kept off a live frame already (`power lora sleep` refuses while !txPipelineIdle(), pinned
+above, and reinit() only follows a failed health check, which healthCheck() never reports mid-frame),
+so no phone can reach the branch now; it is pinned for the day one of those gives way.
+
 Like tests/check_call_audio.py this states each contract POSITIVELY and a contract that cannot find
 its function fails too. A self-test replays the pre-fix shapes first, so a contract that has
 quietly stopped matching fails loudly - and then REMOVES each of those four guards from the real
@@ -485,6 +495,73 @@ def check(files):
         if rd < 0 or td < 0 or ab < 0 or not (rd < td < ab):
             bad.append("txCutShort() must read REG_IRQ_FLAGS and test IRQ_TX_DONE_MASK before it "
                        "calls the frame cut - a frame that finished whole is SENT (review M3)")
+        else:
+            bad.extend(check_cut_short(cs))
+    return bad
+
+
+# One read of the flags, kept in a variable: `irq`, as `(irq & MASK)` terms of the DONE branch.
+CUT_READ = re.compile(r"\b(?:const\s+)?uint8_t\s+(\w+)\s*=\s*readReg\s*\(\s*REG_IRQ_FLAGS\s*\)\s*;")
+
+
+def top_level_or(cond):
+    """Does `cond` have an `||` outside every parenthesis?"""
+    depth = 0
+    for i, c in enumerate(cond):
+        depth += c == "("
+        depth -= c == ")"
+        if depth == 0 and cond.startswith("||", i):
+            return True
+    return False
+
+
+def check_cut_short(cs):
+    """Integration review 3 (R3-4d): txCutShort() reports a frame DONE only on TX_DONE set AND
+    RX_DONE clear, and it lets go of the frame (txActive) on both paths. The M3 contract above pins
+    only 'read, then TX_DONE, then txAborted', and deleting the RX_DONE half survived it - but that
+    half is what keeps a 0xFF read (the SPI bus floating while the rail collapses under a re-init:
+    every flag 'set') from reporting a CUT frame as SENT. Mutations in MUTATIONS."""
+    bad = []
+    rd = CUT_READ.search(cs)
+    if rd is None:
+        return ["txCutShort() must read the flags ONCE into a variable (`const uint8_t irq = "
+                "readReg(REG_IRQ_FLAGS);`) and judge that one read - a second read can disagree"]
+    v = re.escape(rd.group(1))
+    tx = re.compile(r"\(\s*" + v + r"\s*&\s*IRQ_TX_DONE_MASK\s*\)")
+    rx = re.compile(r"\(\s*" + v + r"\s*&\s*IRQ_RX_DONE_MASK\s*\)")
+    done = [h for h in ifs(cs, rd.end(), len(cs), tx)
+            if re.search(r"\btxDoneLate\s*=\s*true\b", cs[h[1]:h[2] + 1])]
+    if not done:
+        return ["txCutShort() must set txDoneLate = true only under `if ((irq & IRQ_TX_DONE_MASK) && "
+                "!(irq & IRQ_RX_DONE_MASK))` - else a frame that finished whole is never reported "
+                "(review 3, R3-4)"]
+    h = done[0]
+    po = cs.index("(", h[0])
+    cond = cs[po + 1:match_close(cs, po)]
+
+    def negated(m):
+        return re.search(r"!\s*$", cond[:m.start()]) is not None
+
+    tx_set = [m for m in tx.finditer(cond) if not negated(m)]
+    rx_all = list(rx.finditer(cond))
+    if not tx_set or not rx_all or not all(negated(m) for m in rx_all) or top_level_or(cond):
+        bad.append("txCutShort() must report DONE only when TX_DONE is set AND RX_DONE is clear - "
+                   "`(irq & IRQ_TX_DONE_MASK) && !(irq & IRQ_RX_DONE_MASK)`, no `||`: a 0xFF read "
+                   "(a floating bus under a re-init) would call a CUT frame sent (review 3, R3-4)")
+    blk = cs[h[1]:h[2] + 1]
+    if not re.search(r"\breturn\s+false\s*;", blk) or re.search(r"\btxAborted\s*=\s*true\b", blk):
+        bad.append("txCutShort()'s DONE branch must `return false` before the cut - falling through "
+                   "sets txAborted too, one frame reported twice (review 3, R3-4)")
+    ab = re.compile(r"\btxAborted\s*=\s*true\b").search(cs, h[2])
+    if ab is None:
+        bad.append("txCutShort() must set txAborted = true AFTER the DONE branch - a frame that did not "
+                   "finish must be reported cut")
+    act = re.compile(r"\btxActive\s*=\s*false\s*;").search(cs, rd.end())
+    if act is None or act.start() > h[0]:
+        bad.append("txCutShort() must let go of the frame (`txActive = false;`) between the read and "
+                   "the DONE branch - on both paths; left true, serviceTx() never reports the DONE or the "
+                   "cut just decided (it reports those only with txActive clear) and polls a chip that "
+                   "was just put to sleep until its deadline: a TIMEOUT (review 3, R3-4)")
     return bad
 
 
@@ -708,6 +785,23 @@ MUTATIONS = [
     # the bench cut calling a finished frame cut
     ("mesh_phy.cpp", "txCutShort() must read",
      r"if\s*\(\s*\(\s*irq\s*&\s*IRQ_TX_DONE_MASK\s*\)", "if ((irq & 0)"),
+    # ── integration review 3 (R3-4d): the DONE branch's other half, which survived the M3 contract.
+    # The RX_DONE test deleted (a 0xFF floating-bus read calls a CUT frame sent), OR-ed, or un-negated;
+    # the DONE never recorded; the frame never let go of; the DONE branch falling through to the cut.
+    ("mesh_phy.cpp", "must report DONE only when TX_DONE is set AND RX_DONE is clear",
+     r"\s*&&\s*!\s*\(\s*irq\s*&\s*IRQ_RX_DONE_MASK\s*\)", ""),
+    ("mesh_phy.cpp", "must report DONE only when TX_DONE is set AND RX_DONE is clear",
+     r"(\(\s*irq\s*&\s*IRQ_TX_DONE_MASK\s*\))\s*&&(\s*!\s*\(\s*irq\s*&\s*IRQ_RX_DONE_MASK\s*\))", r"\1 ||\2"),
+    ("mesh_phy.cpp", "must report DONE only when TX_DONE is set AND RX_DONE is clear",
+     r"!\s*(\(\s*irq\s*&\s*IRQ_RX_DONE_MASK\s*\)\s*\))", r"\1"),
+    ("mesh_phy.cpp", "must set txDoneLate = true only under", r"\btxDoneLate\s*=\s*true\s*;", ""),
+    ("mesh_phy.cpp", "must let go of the frame",
+     r"(readReg\s*\(\s*REG_IRQ_FLAGS\s*\)\s*;\s*)txActive\s*=\s*false\s*;", r"\1"),
+    ("mesh_phy.cpp", "DONE branch must `return false`",
+     r"(txLastAirMs\s*=[^;]*;\s*log_e\s*\([^;]*\)\s*;\s*)return\s+false\s*;", r"\1"),
+    # the flags read twice (the DONE test on a second read of the chip)
+    ("mesh_phy.cpp", "txCutShort() must set txDoneLate",
+     r"if\s*\(\s*\(\s*irq\s*&\s*IRQ_TX_DONE_MASK\s*\)", "if ((readReg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK)"),
     # ── the M1 follow-up (integration review, 2026-09-25) ──
     # sharePin re-sharing over a still-queued retraction (the place back on every radio)
     ("app_maps.cpp", "sharePin() must refuse",

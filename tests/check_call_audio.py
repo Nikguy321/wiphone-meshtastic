@@ -50,6 +50,17 @@ is written before Settings > Audio reads; the press finishes a pop first (A4) an
 route and music's stash (A3), not whoever holds the codec. The mic apps finish a pop first (A6); the
 jack is a sensor restore() re-reads, with one writer (A5, ONLY_IN); and the pop's stop timer carries
 the ring's lead (A1, arithmetic in notify_timing.h, test_notify). `args` picks an overload.
+
+The same review's R3-4 deleted `s_resumePos = pos;` from adoptStopPlace() in a scratch copy - a pop-cut
+track then resumes at a stale place or 0:00, the headline 0.9.79 music fix undone - and every contract
+here held: they pinned that the place is ASKED for, not that it is KEPT. So the place's whole path is
+pinned now (ceasePlayback records it before closeRing() and the feed's stop; adoptStopPlace takes it,
+carries the clock, keeps it and makes the pause; the pause takes its own before stopMusic(); the resume
+starts AT it), and - the first real-source mutations in this file - MUTATIONS breaks each of those in
+the real music_player.cpp and Audio.cpp and requires its contract to trip. NOT pinned, on purpose: the
+order of adoptStopPlace()'s refusal terms, musicTakeStopPlace() clearing the flag and stopMusic()'s
+clear. The take, stopMusic() and playMusic() all clear the place, so breaking any one of those changes
+nothing a phone can do today (equivalent mutants; a contract on one would only be noise).
 """
 import pathlib
 import re
@@ -459,6 +470,33 @@ CONTRACTS = [
          seq=[r"\badoptStopPlace\s*\(", r"\bmusicPlayerIsPlaying\s*\("],
          what="a stop not yet adopted is adopted before F1 decides",
          why="F1 in the pass a pop cut the track found neither playing nor paused: restart at 0:00"),
+    # ── integration review 3 (R3-4a): the PLACE itself, not only the calls that carry it. Deleting
+    # `s_resumePos = pos;` from adoptStopPlace() survived every contract above - the `calls` one
+    # pins only that musicTakeStopPlace() is asked - and music_player.cpp is not host-compiled. ──
+    dict(file="music_player.cpp", fn="adoptStopPlace", kind="sequence",
+         seq=[r"\bmusicTakeStopPlace\s*\(\s*&\s*pos\s*,\s*&\s*stoppedMs\s*\)",
+              r"\bs_elapsedBase\s*\+=\s*\(\s*stoppedMs\s*-\s*s_startedAt\s*\)",
+              r"\bs_resumePos\s*=(?!=)\s*pos\s*;", r"\bs_paused\s*=(?!=)\s*true\s*;", r"\breturn\s+true\b"],
+         what="the taken place made the pause: the clock carried, s_resumePos = pos, THEN s_paused = true",
+         why="without s_resumePos = pos a track a pop, the ring or a call cut resumes at a stale place "
+             "or 0:00 - the headline 0.9.79 music fix undone; without s_paused the F1 after it finds "
+             "neither playing nor paused and restarts the track"),
+    dict(file="music_player.cpp", fn="musicPlayerResume", kind="sequence",
+         seq=[r"\bat\s*=\s*s_resumePos\b", r"\bstartTrack\s*\(\s*s_loaded\s*,\s*at\s*\)"],
+         what="the resume starting the track AT the kept place (startTrack(s_loaded, at))",
+         why="a resume from 0:00 loses every place a pause or a pop kept"),
+    dict(file="music_player.cpp", fn="musicPlayerPause", kind="sequence",
+         seq=[r"\bs_resumePos\s*=(?!=)\s*audio\s*->\s*musicFilePos\s*\(", r"\baudio\s*->\s*stopMusic\s*\("],
+         what="the pause taking its place BEFORE stopMusic() closes the file",
+         why="after stopMusic() there is no file and no feed to ask: F1 would resume at 0:00"),
+    dict(file="Audio.cpp", fn="Audio::ceasePlayback", kind="sequence",
+         seq=[r"\bmusicStopPos\s*=(?!=)\s*this\s*->\s*feed\s*->\s*playingPos\s*\(",
+              r"\bmusicStopValid\s*=(?!=)\s*true\b", r"\bcloseRing\s*\(", r"\bfeed\s*->\s*stop\s*\("],
+         what="the place a pop, the ring or a call cut the track at recorded (and marked valid) BEFORE "
+              "the feed stops",
+         why="the feed computes the place from its own frame log and the ring's lead: stopped first it "
+             "has neither and musicTakeStopPlace() has nothing to hand the player, and after closeRing() "
+             "its padding zeros count as lead the track never wrote (the place slips back up to a buffer)"),
     # ── 0.9.79 review round: the pop, the ring's queue, the install, the microphone ──
     dict(file="music_player.cpp", fn="startTrack", kind="sequence",
          seq=[r"\bnotifyPopFinishFor\s*\(", r"\bplayMusic\s*\("],
@@ -1199,6 +1237,56 @@ def selftest():
     return ok
 
 
+# Integration review 3 (R3-4a): the music PLACE broken in the REAL source, one way at a time; each must
+# trip the contract whose `what` is named. Patterns run on the blanked source (the text check() sees)
+# and replace the first match; a pattern that no longer matches fails too - the guard was rewritten,
+# so its mutation needs rewriting with it.
+MUTATIONS = [
+    # adoptStopPlace(): the place dropped (the review's own mutation), zeroed, the pause not made,
+    # the clock not carried
+    ("music_player.cpp", "the taken place made the pause", r"\bs_resumePos\s*=\s*pos\s*;", ""),
+    ("music_player.cpp", "the taken place made the pause", r"\bs_resumePos\s*=\s*pos\s*;", "s_resumePos = 0;"),
+    ("music_player.cpp", "the taken place made the pause",
+     r"(\bs_resumePos\s*=\s*pos\s*;\s*)s_paused\s*=\s*true\s*;", r"\1"),
+    ("music_player.cpp", "the taken place made the pause",
+     r"\bs_elapsedBase\s*\+=\s*\(\s*stoppedMs\s*-\s*s_startedAt\s*\)[^;]*;", ""),
+    # the resume from 0:00, and the pause asking for its place after the file is closed (or not at all)
+    ("music_player.cpp", "AT the kept place", r"\bstartTrack\s*\(\s*s_loaded\s*,\s*at\s*\)", "startTrack(s_loaded)"),
+    ("music_player.cpp", "BEFORE stopMusic() closes the file",
+     r"\bs_resumePos\s*=\s*audio\s*->\s*musicFilePos\s*\(\s*\)\s*;", ""),
+    ("music_player.cpp", "BEFORE stopMusic() closes the file",
+     r"(s_resumePos\s*=\s*audio\s*->\s*musicFilePos\s*\(\s*\)\s*;)(\s*)(audio\s*->\s*stopMusic\s*\(\s*\)\s*;)",
+     r"\3\2\1"),
+    # Audio::ceasePlayback(): the place never marked valid, or taken after the feed stopped
+    ("Audio.cpp", "recorded (and marked valid) BEFORE", r"\bthis\s*->\s*musicStopValid\s*=\s*true\s*;", ""),
+    ("Audio.cpp", "recorded (and marked valid) BEFORE",
+     r"(if\s*\(\s*this\s*->\s*feed\s*&&\s*this\s*->\s*feed\s*->\s*active\s*\(\s*\)\s*\)\s*\{[^{}]*\})(\s*)"
+     r"(if\s*\(\s*this\s*->\s*feed\s*\)\s*\{[^{}]*\})", r"\3\2\1"),
+]
+
+
+def mutation_test(texts, raws):
+    ok = True
+    for name, want, pat, repl in MUTATIONS:
+        ms = list(re.finditer(pat, texts[name]))
+        if not ms:
+            print(f"  SELF-TEST FAILED: the '{want}' guard is no longer where its mutation looks in "
+                  f"{name} - update MUTATIONS with the guard")
+            ok = False
+            continue
+        m = ms[0]
+        mutated = texts[name][:m.start()] + m.expand(repl) + texts[name][m.end():]
+        # Only the mutated file's contracts: a whole check() is ~2 s over 148 files.
+        got = [contract_problem(mutated, c, raws.get(name)) or "" for c in CONTRACTS if c["file"] == name]
+        if not any(want in p for p in got):
+            print(f"  SELF-TEST FAILED: /{pat}/ -> '{repl}' in {name} did not trip '{want}'")
+            ok = False
+    if ok:
+        print(f"  ok  self-test: each of the {len(MUTATIONS)} mutations of the music place in the real "
+              "source trips its own contract (review 3, R3-4)")
+    return ok
+
+
 def main():
     if not selftest():
         return 1
@@ -1209,6 +1297,8 @@ def main():
     for p in problems:
         print(f"  CONTRACT BROKEN: {p}")
     if problems:
+        return 1
+    if not mutation_test(texts, raws):
         return 1
     print(f"  ok  all {len(CONTRACTS)} call-audio contracts hold, and none of the "
           f"{len(BANNED)} retired spellings is back ({len(files)} files)")

@@ -67,6 +67,11 @@ kosyncOfferFill, kosyncParkPending/kosyncOfferAnswered, the PUT log):
      only under `if (!heldOffWifi(mayUseNetwork, now))`, KS_CONNECT's check comes before
      startConnect(); and heldOffWifi() holds while a game has the radio OR a join is coming, going
      back to KS_IDLE with the ask KEPT (dropSocket, no finishJob, no want cleared).
+     The same review's R3-4 then showed contract 11 pinned the SHAPE and not the parts: replacing the
+     60 s cap with `if (true)` (a phone out of range held the ask for ever) and deleting
+     `!xferUsingAP() && wifiStationWanted() &&` both survived. So also: joinInProgress() is ONE `&&`
+     chain holding every term (JOIN_TERMS); the wait returns only under the cap, starts only
+     `if (!s_joinWaitSinceMs)`, and is zeroed on the way past it before the ask can be dropped.
 
 A contract that cannot find its function fails too - a rename must update it, not silently
 retire it. A self-test replays the pre-fix shapes first, then REMOVES each guard from the real
@@ -473,6 +478,8 @@ def check_join_wait(sync):
         if m.group(1).strip() != "0" and not any(w[1] <= m.start() <= w[2] for w in waits):
             bad.append(f"{SYNC}:{line_of(sync, m.start())} starts the join wait outside the idle "
                        "branch's `if (joinInProgress(now))` - it is non-zero only while that holds")
+    bad.extend(check_join_wait_cap(sync, lo, hi, waits))
+    bad.extend(check_join_terms(sync, jp))
     # 11c (review 3, KOS-N1a): a job past KS_IDLE that finds the station down gives up only when
     # heldOffWifi() says nothing is coming. It used to give up in KS_RETRY (a back-off begun in the
     # Games picker) and burn a try in KS_CONNECT (connecting on a station not yet rejoined).
@@ -516,6 +523,97 @@ def check_join_wait(sync):
                 bad.append("clientStep(): KS_CONNECT must check onWifi() BEFORE startConnect() - a job held "
                            "across a game burnt a try connecting on a station not yet rejoined "
                            "(review 3, KOS-N1a)")
+    return bad
+
+
+# 11d/11e (integration review 3, R3-4): the parts of N1 a hand mutation removed and contract 11 did not
+# notice. Each term of joinInProgress() whose loss a phone would show, as a whole `&&` operand with its
+# polarity (T->cfg.ok and T->cfg.home[0] are left free: without a home the idle branch drops the ask
+# with the same words either way).
+JOIN_TERMS = [
+    (r"!\s*onWifi\s*\(\s*\)", "!onWifi()"),
+    (r"!\s*xferUsingAP\s*\(\s*\)", "!xferUsingAP()"),
+    (r"wifiStationWanted\s*\(\s*\)", "wifiStationWanted()"),
+    (r"lastWifiConnectAttemptMs\s*\(\s*\)\s*!=\s*0", "lastWifiConnectAttemptMs() != 0"),
+    (r"wifiJoinAgeMs\s*\(\s*now\s*,\s*lastWifiConnectAttemptMs\s*\(\s*\)\s*\)\s*<\s*KOSYNC_JOIN_WAIT_MS",
+     "wifiJoinAgeMs(now, lastWifiConnectAttemptMs()) < KOSYNC_JOIN_WAIT_MS"),
+]
+
+
+def top_level(expr, op):
+    """expr split at every `op` outside parentheses and brackets."""
+    parts, depth, cur, i = [], 0, [], 0
+    while i < len(expr):
+        c = expr[i]
+        depth += c in "(["
+        depth -= c in ")]"
+        if depth == 0 and expr.startswith(op, i):
+            parts.append("".join(cur).strip())
+            cur, i = [], i + len(op)
+            continue
+        cur.append(c)
+        i += 1
+    parts.append("".join(cur).strip())
+    return parts
+
+
+def check_join_terms(sync, jp):
+    """11d: joinInProgress() is ONE `&&` chain holding every term. Deleting `!xferUsingAP()` or
+    `wifiStationWanted()` survived contract 11 (it pinned the age test alone): with WiFi turned off in
+    Settings, a game holding the radio or our own hotspot up, no join is coming, and the ask sat
+    "waiting for WiFi to join" instead of giving up honestly."""
+    if jp is None:
+        return []
+    ret = re.compile(r"\breturn\b([^;]*);").search(sync, jp[0], jp[1])
+    if ret is None:
+        return ["joinInProgress() must `return` its test - update this contract"]
+    expr = ret.group(1)
+    if len(top_level(expr, "||")) > 1:
+        return ["joinInProgress() must be ONE `&&` chain - an `||` makes any one term enough to hold an "
+                "ask (review 3, R3-4)"]
+    ops = top_level(expr, "&&")
+    missing = [name for pat, name in JOIN_TERMS if not any(re.fullmatch(pat, o) for o in ops)]
+    if missing:
+        return [f"joinInProgress() lacks {', '.join('`' + m + '`' for m in missing)} as an `&&` term - no "
+                "join is coming without each of them (WiFi off in Settings or a game holding the radio: "
+                "wifiStationWanted; our own hotspot up: xferUsingAP; already joined: onWifi), and the "
+                "ask would wait instead of being handled (review 3, R3-4)"]
+    return []
+
+
+def check_join_wait_cap(sync, lo, hi, waits):
+    """11e: the wait's own rules inside the idle branch. Replacing the 60 s test with `if (true)`
+    survived contract 11 - and without the cap a phone out of range holds the ask for ever, because
+    the loop's retry keeps re-stamping joins under 30 s old. So: the idle branch's `if
+    (joinInProgress(now))` block returns only under `if ((uint32_t)(now - s_joinWaitSinceMs) <
+    KOSYNC_JOIN_WAIT_MAX_MS)`; it starts the wait only `if (!s_joinWaitSinceMs)` (re-stamped every
+    pass, now - start is always 0 and the cap never comes); and the fall-through zeroes the wait
+    BEFORE the ask is dropped (left set, the next close's wait inherits it and gives up at once -
+    R3-3's loss by another road)."""
+    if not waits:
+        return ["clientStep(): the idle branch's `if (joinInProgress(now)) {...}` block not found - "
+                "update this contract"]
+    w0, w1 = waits[0][1], waits[0][2]
+    bad = []
+    cap = ifs(sync, w0, w1, re.compile(r"(?<=\()\s*\(\s*uint32_t\s*\)\s*\(\s*now\s*-\s*s_joinWaitSinceMs\s*\)"
+                                       r"\s*<\s*KOSYNC_JOIN_WAIT_MAX_MS\s*$"))
+    rets = [m.start() for m in re.compile(r"\breturn\b").finditer(sync, w0, w1)]
+    if not cap or not rets or not all(any(c[1] <= r <= c[2] for c in cap) for r in rets):
+        bad.append("clientStep(): the join wait must hold (return) only under `if ((uint32_t)(now - "
+                   "s_joinWaitSinceMs) < KOSYNC_JOIN_WAIT_MAX_MS)` - without the 60 s cap a phone out "
+                   "of range holds the ask for ever (review 3, R3-4)")
+    first = ifs(sync, w0, w1, re.compile(r"(?<=\()\s*!\s*s_joinWaitSinceMs\s*$"))
+    starts = [m.start() for m in re.finditer(r"\bs_joinWaitSinceMs\s*=(?!=)\s*([^;]*);", sync[:w1])
+              if m.start() > w0 and m.group(1).strip() != "0"]
+    if not starts or not all(any(f[1] <= s <= f[2] for f in first) for s in starts):
+        bad.append("clientStep(): the join wait must start only `if (!s_joinWaitSinceMs)` - re-stamped on "
+                   "every pass, now - start stays 0 and the 60 s cap never comes (review 3, R3-4)")
+    drop = re.compile(r"\bs_pushWant\s*=\s*s_pullWant\s*=\s*false\s*;").search(sync, w1, hi)
+    reset = re.compile(r"\bs_joinWaitSinceMs\s*=\s*0\s*;").search(sync, w1, hi)
+    if drop is None or reset is None or reset.start() > drop.start():
+        bad.append("clientStep(): past the join wait the idle branch must zero it (`s_joinWaitSinceMs = "
+                   "0;`) before it can drop the ask - left set, the next close's wait inherits a start "
+                   "60 s old and gives up on its first pass (review 3, R3-4)")
     return bad
 
 
@@ -761,6 +859,24 @@ MUTATIONS = [
      r"dropSocket\s*\(\s*\)\s*;\s*s_cs\s*=\s*KS_IDLE\s*;\s*(return\s+true\s*;)", r"finishJob(   ); \1", 0),
     (SYNC, "starts the join wait outside",
      r"(s_cs\s*=\s*KS_IDLE\s*;\s*)(return\s+true\s*;)", r"\1s_joinWaitSinceMs = now; \2", 0),
+    # Integration review 3 (R3-4b): the 60 s cap gone (`if (true)`, or OR-ed away), each of
+    # joinInProgress()'s terms deleted, its chain OR-ed, the wait re-stamped every pass, and the
+    # fall-through reset gone. Contract 11 as 9c1887a left it missed every one.
+    (SYNC, "must hold (return) only under",
+     r"if\s*\(\s*\(\s*uint32_t\s*\)\s*\(\s*now\s*-\s*s_joinWaitSinceMs\s*\)\s*<\s*KOSYNC_JOIN_WAIT_MAX_MS\s*\)",
+     "if (true)", 0),
+    (SYNC, "must hold (return) only under", r"(<\s*KOSYNC_JOIN_WAIT_MAX_MS)(\s*\))", r"\1 || true\2", 0),
+    (SYNC, "lacks `!xferUsingAP()`", r"!\s*xferUsingAP\s*\(\s*\)\s*&&\s*(wifiStationWanted)", r"\1", 0),
+    (SYNC, "lacks `wifiStationWanted()`", r"(!\s*xferUsingAP\s*\(\s*\)\s*&&\s*)wifiStationWanted\s*\(\s*\)\s*&&",
+     r"\1", 0),
+    (SYNC, "lacks `!onWifi()`", r"(T\s*->\s*cfg\s*\.\s*home\s*\[\s*0\s*\]\s*&&\s*)!\s*onWifi\s*\(\s*\)\s*&&",
+     r"\1", 0),
+    (SYNC, "lacks `lastWifiConnectAttemptMs() != 0`", r"lastWifiConnectAttemptMs\s*\(\s*\)\s*!=\s*0\s*&&", "", 0),
+    (SYNC, "must be ONE `&&` chain", r"!\s*onWifi\s*\(\s*\)\s*&&\s*!\s*xferUsingAP", "!onWifi() || !xferUsingAP", 0),
+    (SYNC, "must start only `if (!s_joinWaitSinceMs)`",
+     r"if\s*\(\s*!\s*s_joinWaitSinceMs\s*\)\s*\{\s*(s_joinWaitSinceMs\s*=[^;]*;)", r"\1 {", 0),
+    (SYNC, "past the join wait the idle branch must zero it",
+     r"(\}\s*)s_joinWaitSinceMs\s*=\s*0\s*;(\s*if\s*\(\s*!\s*T\s*->\s*cfg\s*\.\s*ok)", r"\1\2", 0),
     (SYNC, "calls resolveDomain()", r"(staSsid\s*\(\s*T\s*->\s*jobSsid\s*\)\s*;)",
      r"resolveDomain(T->cfg.home); \1", 0),
     (BOOKS, "kosyncReloadConfig(true) - only serial", r"kosyncReloadConfig\s*\(\s*\)",

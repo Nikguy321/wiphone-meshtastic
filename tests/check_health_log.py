@@ -20,6 +20,18 @@ F3. At the edge of an AP the core's auto-reconnect can associate and drop every 
     wakes for the gate's summary, and the 2 s status poll goes through wifiMarkLink(), whose card
     write is gated the same way.
 
+Integration review 3 (R3-4) dropped wifiMarkLink()'s `noinline` in a scratch copy and this file stayed
+green - it pinned the attribute for healthLineTick() alone. Rebuilt that way, loop()'s frame is 288 B
+instead of 240 (objdump, 2026-09-25: GCC inlines the one-caller helper and its line[144] with it), the
+exact F1 cost this file exists to keep out. So NOINLINE lists every helper whose attribute keeps a
+buffer out of a frame that sits under deep calls, and a general rule backs it: a `static` function in
+WiPhone.ino that loop() calls DIRECTLY and that declares a buffer of BIG bytes or more, or a
+CriticalFile, must be `__attribute__((noinline))` - a new helper is held to it without an edit here.
+(callLevelsFlush() and Networks.cpp's wifiCardHeldLine() have two callers each, and the same rebuild
+without their attribute still kept them out of line - measured; the attribute is what guarantees it
+the day one caller goes.) GUI.cpp's drawRowTextCut() is on the list too: the same loop-task stack,
+under every row of every list paint, and its attribute was just as unpinned.
+
 Each is a POSITIVE contract; one that cannot find its function fails too. The self-test REMOVES
 each guard from the real sources, one at a time, and requires its contract to trip.
 """
@@ -28,25 +40,99 @@ import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from check_wifi_restore import function_body, ifs, strip_code  # noqa: E402
+from check_wifi_restore import function_body, ifs, match_close, strip_code  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent / "WiPhone"
-FILES = ("WiPhone.ino", "Networks.cpp")
+FILES = ("WiPhone.ino", "Networks.cpp", "GUI.cpp")
 BIG = 128   # a char/uint8_t array this size or more does not belong in loop()'s own frame
+
+# (file, helper, what its noinline keeps out of which frame). Every one must be DEFINED with
+# `__attribute__((noinline))` (and never `inline` / always_inline).
+NOINLINE = [
+    ("WiPhone.ino", "healthLineTick",
+     "inlined, its hl/kl buffers are back in loop()'s frame (560/640 B -> 240 B was the F1 fix)"),
+    ("WiPhone.ino", "wifiMarkLink",
+     "inlined, its line[144] is in loop()'s frame: 240 -> 288 B, measured by objdump on a rebuild "
+     "without it (review 3, R3-4)"),
+    ("WiPhone.ino", "callLevelsFlush",
+     "inlined, its CriticalFile sits in loop()'s frame under every call loop() makes (review 3, R3-1)"),
+    ("Networks.cpp", "wifiCardHeldLine",
+     "inlined, its l[160] joins its caller's frame (wifiDiagDurable(), or Networks::diagTick() at 416 B "
+     "already) under the healthLogLine() SD write that follows it"),
+    ("GUI.cpp", "drawRowTextCut",
+     "inlined into drawRowText(), its 160-byte buffer is 224 B deeper for EVERY row of every list paint, "
+     "on a loop task whose recorded floor is 408 B (review, 2026-09-19)"),
+]
+BUFFER = re.compile(r"\b(?:char|uint8_t|int8_t|byte)\s+(\w+)\s*\[\s*(\d+)\s*\]")
+CRITICAL = re.compile(r"\bCriticalFile\s+\w+\s*[(;{]")
+NOINLINE_ATTR = re.compile(r"__attribute__\s*\(\(\s*noinline\s*\)\)")
+STATIC_LOCAL = re.compile(r"\bstatic\s+(?:const\s+)?$")     # a static local is not in the frame
 
 
 def span(code, name):
     return function_body(code, name)
 
 
+def def_head(code, name):
+    """The declaration text in front of the DEFINITION of `name` (return type, storage class,
+    attributes), from the previous `;` or `}` up to the name. None when there is no definition."""
+    bs = function_body(code, name)
+    if bs is None:
+        return None
+    for m in re.compile(r"(?<![\w:~.>])" + re.escape(name) + r"\s*\(").finditer(code, 0, bs[0]):
+        close = match_close(code, m.end() - 1)
+        if close < 0 or code.find("{", close) != bs[0]:
+            continue
+        begin = max(code.rfind(";", 0, m.start()), code.rfind("}", 0, m.start())) + 1
+        return code[begin:m.start()]
+    return None
+
+
+def noinline_problem(code, name, why):
+    head = def_head(code, name)
+    if head is None:
+        return f"{name}() not found - if it was renamed or moved, update NOINLINE"
+    if not NOINLINE_ATTR.search(head) or re.search(r"\binline\b|\balways_inline\b", head):
+        return f"{name}() must be `static void __attribute__((noinline))` - {why}"
+    return None
+
+
+def loop_helper_problems(ino):
+    """The general rule: a `static` function of WiPhone.ino that loop() calls DIRECTLY and that
+    declares a buffer of BIG bytes or more, or a CriticalFile, carries noinline. -Os inlines a static
+    function with one caller as a matter of course, and its locals then sit in loop()'s frame for the
+    WHOLE pass - under every app redraw loop() reaches, the deepest being a Books picture page."""
+    lp = span(ino, "loop")
+    if lp is None:
+        return []
+    out = []
+    for name in sorted(set(re.findall(r"(?<![\w:.>])(\w+)\s*\(", ino[lp[0]:lp[1]]))):
+        head = def_head(ino, name)
+        if head is None or not re.search(r"\bstatic\b", head):
+            continue
+        a, z = span(ino, name)
+        bufs = [f"{m.group(1)}[{m.group(2)}]" for m in BUFFER.finditer(ino, a, z)
+                if int(m.group(2)) >= BIG and not STATIC_LOCAL.search(ino, max(a, m.start() - 24), m.start())]
+        if CRITICAL.search(ino, a, z):
+            bufs.append("a CriticalFile")
+        if bufs and (not NOINLINE_ATTR.search(head) or re.search(r"\binline\b|\balways_inline\b", head)):
+            out.append(f"{name}() is a static helper loop() calls, and it declares {', '.join(bufs)} - it "
+                       "must be `static void __attribute__((noinline))` or those bytes sit in loop()'s "
+                       "frame for the whole pass (review F1)")
+    return out
+
+
 def check(f):
     bad = []
     ino, net = f["WiPhone.ino"], f["Networks.cpp"]
 
-    # ── F1: the HEALTH line's buffers live in a noinline helper ───────────────────────────────
-    if not re.search(r"\bstatic\s+void\s+__attribute__\s*\(\(\s*noinline\s*\)\)\s+healthLineTick\s*\(", ino):
-        bad.append("healthLineTick() must be `static void __attribute__((noinline))` - inlined, its "
-                   "hl/kl buffers are back in loop()'s frame")
+    # ── F1: the HEALTH line's buffers live in a noinline helper, and so do the other loop helpers'
+    # (review 3, R3-4: wifiMarkLink's attribute was unpinned, and dropping it cost loop() 48 B) ──
+    for fname, name, why in NOINLINE:
+        p = noinline_problem(f[fname], name, why)
+        if p:
+            bad.append(p)
+    bad.extend(loop_helper_problems(ino))
     lp = span(ino, "loop")
     hb = span(ino, "healthLineTick")
     if lp is None or hb is None:
@@ -153,7 +239,52 @@ MUTATIONS = [
      r"const bool card = edge && \(assoc \? s_gate\.join\(now\) : s_gate\.lost\(now\)\);", "const bool card = edge;"),
     ("WiPhone.ino", "wifiMarkLink() must write the card only under",
      r"  if \(card\) \{\n    healthLogLine\(line\);\n  \}\n\}", "  healthLogLine(line);\n}"),
+    # ── integration review 3 (R3-4c): the other helpers' attribute, which nothing pinned ──
+    ("WiPhone.ino", "wifiMarkLink() must be `static void __attribute__((noinline))`",
+     r"static void __attribute__\(\(noinline\)\) wifiMarkLink\(", "static void wifiMarkLink("),
+    ("WiPhone.ino", "wifiMarkLink() must be `static void __attribute__((noinline))`",
+     r"static void __attribute__\(\(noinline\)\) wifiMarkLink\(",
+     "static inline void __attribute__((always_inline)) wifiMarkLink("),
+    ("WiPhone.ino", "callLevelsFlush() must be `static void __attribute__((noinline))`",
+     r"static void __attribute__\(\(noinline\)\) callLevelsFlush\(", "static void callLevelsFlush("),
+    ("Networks.cpp", "wifiCardHeldLine() must be `static void __attribute__((noinline))`",
+     r"static void __attribute__\(\(noinline\)\) wifiCardHeldLine\(", "static void wifiCardHeldLine("),
+    ("GUI.cpp", "drawRowTextCut() must be `static void __attribute__((noinline))`",
+     r"static void __attribute__\(\(noinline\)\) drawRowTextCut\(", "static void drawRowTextCut("),
+    # the general rule on its own: a helper loop() calls, not in NOINLINE, given a big buffer
+    ("WiPhone.ino", "notifyMessageArrived() is a static helper loop() calls",
+     r"static void notifyMessageArrived\(uint8_t mode\) \{\n",
+     "static void notifyMessageArrived(uint8_t mode) {\n  char scratch[200];\n  (void)scratch;\n"),
 ]
+
+
+def selftest():
+    """The general loop-helper rule on synthetic text: a static helper loop() calls with a big
+    buffer or a CriticalFile and no noinline is reported; with noinline, with a small buffer, with a
+    static local, or not called from loop() it is not."""
+    ok = True
+    src = ("static void %s helper(uint32_t now) {\n %s\n}\n"
+           "static void other() {\n char far[300];\n}\n"
+           "void loop() {\n helper(now);\n}\n")
+    for attr, local, flagged in (("", "char b[200];", True), ("__attribute__((noinline))", "char b[200];", False),
+                                 ("", "char b[64];", False), ("", "static char b[512];", False),
+                                 ("", "CriticalFile ini(Storage::ConfigsFile);", True),
+                                 ("__attribute__((noinline))", "CriticalFile ini(Storage::ConfigsFile);", False)):
+        got = loop_helper_problems(strip_code(src % (attr, local)))
+        if bool(got) != flagged or any("other()" in g for g in got):
+            print(f"  SELF-TEST FAILED: the loop-helper rule on `{attr or 'no attribute'}` + `{local}` "
+                  f"should {'report' if flagged else 'pass'} (got {got})")
+            ok = False
+    if noinline_problem(strip_code("static inline void __attribute__((always_inline)) f() {\n}\n"), "f", "") is None:
+        print("  SELF-TEST FAILED: always_inline taken for noinline")
+        ok = False
+    if noinline_problem(strip_code("// __attribute__((noinline))\nstatic void f() {\n}\n"), "f", "") is None:
+        print("  SELF-TEST FAILED: a noinline that is only a comment was taken for the attribute")
+        ok = False
+    if ok:
+        print("  ok  self-test: the loop-helper rule reports a big buffer or a CriticalFile without "
+              "noinline, and passes noinline, a small buffer, a static local and a helper loop() never calls")
+    return ok
 
 
 def mutation_test(files):
@@ -180,6 +311,8 @@ def mutation_test(files):
 
 
 def main():
+    if not selftest():
+        return 1
     files = {}
     for name in FILES:
         raw = (ROOT / name).read_text(errors="replace")
@@ -194,6 +327,8 @@ def main():
         return 1
     print("  ok  the HEALTH buffers stay out of loop()'s frame (noinline helper, the redraw/power-off "
           "calls kept in loop), and every WIFI LOST/JOIN and MARK assoc/disassoc card write asks the gate")
+    print(f"  ok  the {len(NOINLINE)} noinline helpers keep their attribute, and every static helper loop() "
+          f"calls with a buffer of {BIG}+ bytes or a CriticalFile has one (review 3, R3-4)")
     return 0
 
 
