@@ -235,10 +235,26 @@ const char* kosyncMyDeviceId() {
 /* Review N1: how long an ask waits for a join that has just begun, and the most it waits in all. */
 #define KOSYNC_JOIN_WAIT_MS      30000u
 #define KOSYNC_JOIN_WAIT_MAX_MS  60000u
-static uint32_t s_joinWaitSinceMs = 0;      // when the idle ask started waiting for a join; 0 = not
+/* When the idle ask started waiting for ONE join; 0 = not waiting. 🛑 Non-zero ONLY while
+ * clientStep()'s idle branch is returning "held for a join": every other way out of that branch
+ * zeroes it (integration review 3, KOS-N1a/R3-3). It used to survive the Games-app hold, so the
+ * join ~GbcApp begins after a game inherited a start from BEFORE the game, was already "60 s
+ * old" on its first pass, and dropped the very push N1 was written to keep. */
+static uint32_t s_joinWaitSinceMs = 0;
 
 static bool onWifi() {
   return WiFi.status() == WL_CONNECTED && !xferUsingAP();
+}
+
+/* Review N1: the WiFi is not up but it is COMING — the owner wants the station (not off in
+ * Settings, no game holding the radio: wifiStationWanted), no hotspot of ours is on the radio, and
+ * a join was begun < KOSYNC_JOIN_WAIT_MS ago (wifiJoinAgeMs: a stamp made later in this pass, as
+ * ~GbcApp's and a window's close make, is age 0, not ~49 days). While this holds, "not on WiFi"
+ * is not a reason to give up an ask — in ANY state of the home client (heldOffWifi()). */
+static bool joinInProgress(uint32_t now) {
+  return T->cfg.ok && T->cfg.home[0] && !onWifi() && !xferUsingAP() && wifiStationWanted() &&
+         lastWifiConnectAttemptMs() != 0 &&
+         wifiJoinAgeMs(now, lastWifiConnectAttemptMs()) < KOSYNC_JOIN_WAIT_MS;
 }
 
 // ================================================================ the per-book memo (kosync.h)
@@ -1193,24 +1209,58 @@ static void sendRequest(uint32_t now) {
   s_reqStartMs = now;
 }
 
+/* A job PAST KS_IDLE found the station down (integration review 3, KOS-N1a). 🛑 N1's hold used to
+ * cover only the idle ask, and these states gave up on the spot:
+ *   - KS_RETRY: a push whose first connect timed out (KS_CONNECT_MS, the modem-sleeping station's
+ *     first contact) waits out its 1 s / 4 s back-off — in the Games picker, if the owner got there
+ *     that fast — and the first pass after a game had taken the radio said "gave up";
+ *   - KS_CONNECT: held across the whole game (the !mayUseNetwork hold), then connected on a station
+ *     not yet rejoined: no route, a try burnt, KS_RETRY, "gave up" well inside the 7-11 s rejoin;
+ *   - KS_RESOLVE: the WiFi dropped mid-lookup and the loop is already rejoining (a game cannot
+ *     reach it: the first pass in the Games picker already sends a lookup back to KS_IDLE).
+ * So off WiFi with the network not ours to use (a game has the radio), or with a join in progress,
+ * the job is dropped and the ASK KEPT — as KS_RESOLVE's own hold does — and the idle branch then
+ * waits for the join (at most KOSYNC_JOIN_WAIT_MAX_MS) and starts it over from scratch: a fresh
+ * snapshot, s_fails 0, and the parked-place check again (sent == 0). A step already sent is sent
+ * again — a PUT of the same place, or a GET. True: held (the caller returns); false: the caller
+ * gives up honestly — really off WiFi, nothing coming. */
+static bool heldOffWifi(bool mayUseNetwork, uint32_t now) {
+  if (mayUseNetwork && !joinInProgress(now)) {
+    return false;
+  }
+  log_e("KOSYNC home %s: off WiFi %s - %s; the ask waits and starts over",
+        s_curPush ? "push" : "pull", s_cs == KS_RETRY ? "waiting to retry" : s_cs == KS_CONNECT
+        ? "before connecting" : s_cs == KS_RESOLVE ? "while looking up home" : "mid-job",
+        mayUseNetwork ? "a join is in progress" : "a game has the radio");
+  dropSocket();
+  s_cs = KS_IDLE;
+  return true;
+}
+
 static void clientStep(bool mayUseNetwork, uint32_t now) {
   if (s_cs == KS_IDLE) {
     if (!s_pushWant && !s_pullWant) {
       return;
     }
     if (!mayUseNetwork) {
-      return;                                  // held (the Game Boy owns the heap), not dropped
+      /* Held (the Game Boy owns the heap), not dropped. 🛑 AND THE JOIN WAIT ENDS HERE (review 3,
+       * KOS-N1a/R3-3): its 60 s budget is for ONE join, not for a whole held period. Kept, a wait
+       * begun before the game (or before a second trip into Games, back-to-back) made the join
+       * ~GbcApp begins look 60 s old on its first pass, and the ask was dropped "not on WiFi any
+       * more" - the exact loss N1 fixed. Zeroed, the wait starts again from the quit. */
+      s_joinWaitSinceMs = 0;
+      return;
     }
     /* 🛑 A JOIN IN PROGRESS IS NOT "OFF WIFI" (0.9.79 review N1). A push queued at a book close
      * is held while the Games app is open (mayUseNetwork above); a game takes the radio away, and
      * the first pass after ~GbcApp found WiFi.status() != CONNECTED because the rejoin had only
      * just begun — so the push was dropped "not on WiFi any more" and COVEY kept the older place
      * until the next close. Same after a hotspot window. So while the owner wants the station
-     * and a join started < 30 s ago, the ask waits; a phone still unjoined 60 s after it started
-     * waiting (out of range: the retry keeps re-stamping joins) gives up honestly below. */
-    if (T->cfg.ok && T->cfg.home[0] && !onWifi() && !xferUsingAP() && wifiStationWanted() &&
-        lastWifiConnectAttemptMs() != 0 &&
-        wifiJoinAgeMs(now, lastWifiConnectAttemptMs()) < KOSYNC_JOIN_WAIT_MS) {
+     * and a join started < 30 s ago (joinInProgress), the ask waits; a phone still unjoined 60 s
+     * after it started waiting (out of range: the retry keeps re-stamping joins) gives up
+     * honestly below. A job past this point that finds the station down comes back here to wait
+     * the same way (heldOffWifi). */
+    if (joinInProgress(now)) {
       if (!s_joinWaitSinceMs) {
         s_joinWaitSinceMs = now ? now : 1;
         snprintf(T->cliLast, sizeof(T->cliLast), "Home: waiting for WiFi to join");
@@ -1273,7 +1323,9 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
 
   if (s_cs == KS_RESOLVE) {
     if (!onWifi()) {
-      finishJob("Home: not on WiFi any more - gave up");
+      if (!heldOffWifi(mayUseNetwork, now)) {  // a join in progress: the ask waits (KOS-N1a)
+        finishJob("Home: not on WiFi any more - gave up");
+      }
       return;
     }
     if (!mayUseNetwork) {
@@ -1329,7 +1381,12 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
       return;
     }
     if (!onWifi()) {
-      finishJob("Home: not on WiFi any more - gave up");
+      /* 🛑 Held, not given up, while a game has the radio or a join is under way (KOS-N1a): a
+       * back-off that began in the Games picker used to end in "gave up" on the first pass after
+       * the game took the radio away. */
+      if (!heldOffWifi(mayUseNetwork, now)) {
+        finishJob("Home: not on WiFi any more - gave up");
+      }
       return;
     }
     if (!mayUseNetwork || (int32_t)(now - s_retryAtMs) < 0) {
@@ -1343,6 +1400,15 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
     const char* doc = s_step == 0 ? s_w->book.partial : s_w->book.byName;
     if (!doc[0]) {
       stepDone(-2);
+      return;
+    }
+    if (!onWifi()) {
+      /* 🛑 BEFORE startConnect() (KOS-N1a): a job held here across a game used to connect on the
+       * first pass after it, on a station not yet rejoined — no route, a try burnt, KS_RETRY, and
+       * "gave up" well inside the 7-11 s rejoin. Now it waits for the join like an idle ask. */
+      if (!heldOffWifi(mayUseNetwork, now)) {
+        finishJob("Home: not on WiFi any more - gave up");
+      }
       return;
     }
     if (!mayUseNetwork) {

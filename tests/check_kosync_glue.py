@@ -57,6 +57,16 @@ kosyncOfferFill, kosyncParkPending/kosyncOfferAnswered, the PUT log):
      return; }`, after the `!mayUseNetwork` hold and before startConnect() - and parkAwaitsAnswer()
      asks kosyncParkPending() WITH the local key. A close's push queued behind the pull on open
      used to PUT our place over the X4's the pull had just parked, before anyone saw the card.
+ 11. N1 - a WiFi join in progress is not "off WiFi": joinInProgress() is the join-age test
+     (wifiJoinAgeMs(now, lastWifiConnectAttemptMs()) < KOSYNC_JOIN_WAIT_MS), and clientStep()'s
+     idle branch holds the ask on it before dropping it. Integration review 3 (R3-3, KOS-N1a)
+     found the hold incomplete, so also: the idle branch's `if (!mayUseNetwork)` hold zeroes
+     s_joinWaitSinceMs (a wait begun before a game made the join after it look 60 s old, and the
+     ask was dropped on its first pass); the wait starts nowhere but in the idle branch's
+     `if (joinInProgress(now))`; KS_RESOLVE, KS_RETRY and KS_CONNECT each give up "not on WiFi"
+     only under `if (!heldOffWifi(mayUseNetwork, now))`, KS_CONNECT's check comes before
+     startConnect(); and heldOffWifi() holds while a game has the radio OR a join is coming, going
+     back to KS_IDLE with the ask KEPT (dropSocket, no finishJob, no want cleared).
 
 A contract that cannot find its function fails too - a rename must update it, not silently
 retire it. A self-test replays the pre-fix shapes first, then REMOVES each guard from the real
@@ -417,22 +427,95 @@ def check_review(files):
             bad.append("kosyncProblemLine() must count the other-book PUTs with kosyncPutLogDifferent() "
                        "- the X4 fork's second id is not 'a DIFFERENT book'")
     bad.extend(check_close_push(sync))
-    # ── N1: a join in progress is not "off WiFi" ─────────────────────────────────────────────
-    # clientStep()'s idle branch must HOLD an ask while a join younger than KOSYNC_JOIN_WAIT_MS is
-    # in flight (the first pass after a game or a window, before the rejoin completes), and only
-    # then drop it. Without the hold, a push queued at a book close before a game was lost.
+    bad.extend(check_join_wait(sync))
+    return bad
+
+
+def check_join_wait(sync):
+    """Contract 11: N1 - a join in progress is not "off WiFi", in any state; one wait per join."""
+    bad = []
+    # 11a (N1): the join-in-progress predicate, and the idle ask HELD by it before it is dropped.
+    # Without the hold, a push queued at a book close before a game was lost on the first pass
+    # after it (the rejoin had only just begun).
+    jp = body(sync, "joinInProgress")
+    if jp is None:
+        bad.append("joinInProgress() not found - if it was renamed, update this contract")
+    elif not re.search(r"wifiJoinAgeMs\s*\(\s*now\s*,\s*lastWifiConnectAttemptMs\s*\(\s*\)\s*\)\s*<\s*"
+                       r"KOSYNC_JOIN_WAIT_MS", sync[jp[0]:jp[1]]):
+        bad.append("joinInProgress() must hold an idle ask while a join is in progress "
+                   "(wifiJoinAgeMs(now, lastWifiConnectAttemptMs()) < KOSYNC_JOIN_WAIT_MS) - review N1")
     cs = body(sync, "clientStep")
     if cs is None:
         bad.append("clientStep() not found - if it was renamed, update this contract")
+        return bad
+    idle = ifs(sync, cs[0], cs[1], re.compile(r"\bs_cs\s*==\s*KS_IDLE\s*$"))
+    if not idle:
+        bad.append("clientStep(): the `if (s_cs == KS_IDLE) {...}` block not found - update this contract")
+        return bad
+    lo, hi = idle[0][1], idle[0][2]
+    seg = sync[lo:hi]
+    hold = re.search(r"\bjoinInProgress\s*\(\s*now\s*\)", seg)
+    drop = re.search(r"\bs_pushWant\s*=\s*s_pullWant\s*=\s*false\s*;", seg)
+    if not hold or not drop or hold.start() > drop.start():
+        bad.append("clientStep() must hold an idle ask while a join is in progress "
+                   "(joinInProgress(now)) BEFORE it drops it as not on WiFi - review N1")
+    # 11b (review 3, R3-3/KOS-N1a): the wait is for ONE join. The Games-app hold ends it, or the
+    # join ~GbcApp begins inherits a start from before the game and the ask is dropped at once.
+    # And the wait starts nowhere but in the idle branch's joinInProgress() block.
+    held = [h for h in ifs(sync, lo, hi, re.compile(r"(?<=\()\s*!\s*mayUseNetwork\s*$"))
+            if re.search(r"\breturn\s*;", sync[h[1]:h[2] + 1])]
+    if not held or not re.search(r"\bs_joinWaitSinceMs\s*=\s*0\s*;", sync[held[0][1]:held[0][2] + 1]):
+        bad.append("clientStep(): the join wait must end at the Games-app hold - `if (!mayUseNetwork) "
+                   "{ s_joinWaitSinceMs = 0; return; }` in the idle branch - or a wait begun before a "
+                   "game makes the join after it look 60 s old (review 3, R3-3)")
+    waits = ifs(sync, lo, hi, re.compile(r"(?<=\()\s*joinInProgress\s*\(\s*now\s*\)\s*$"))
+    for m in re.finditer(r"\bs_joinWaitSinceMs\s*=(?!=)\s*([^;]*);", sync):
+        if m.group(1).strip() != "0" and not any(w[1] <= m.start() <= w[2] for w in waits):
+            bad.append(f"{SYNC}:{line_of(sync, m.start())} starts the join wait outside the idle "
+                       "branch's `if (joinInProgress(now))` - it is non-zero only while that holds")
+    # 11c (review 3, KOS-N1a): a job past KS_IDLE that finds the station down gives up only when
+    # heldOffWifi() says nothing is coming. It used to give up in KS_RETRY (a back-off begun in the
+    # Games picker) and burn a try in KS_CONNECT (connecting on a station not yet rejoined).
+    hw = body(sync, "heldOffWifi")
+    if hw is None:
+        bad.append("heldOffWifi() not found - if it was renamed, update this contract")
     else:
-        seg = sync[cs[0]:cs[1]]
-        hold = re.search(r"wifiJoinAgeMs\s*\(\s*now\s*,\s*lastWifiConnectAttemptMs\s*\(\s*\)\s*\)\s*<\s*"
-                         r"KOSYNC_JOIN_WAIT_MS", seg)
-        drop = re.search(r"\bs_pushWant\s*=\s*s_pullWant\s*=\s*false\s*;", seg)
-        if not hold or not drop or hold.start() > drop.start():
-            bad.append("clientStep() must hold an idle ask while a join is in progress "
-                       "(wifiJoinAgeMs(now, lastWifiConnectAttemptMs()) < KOSYNC_JOIN_WAIT_MS) BEFORE "
-                       "it drops it as not on WiFi - review N1")
+        hb = sync[hw[0]:hw[1]]
+        if not re.search(r"if\s*\(\s*(?:mayUseNetwork\s*&&\s*!\s*joinInProgress\s*\(\s*now\s*\)|"
+                         r"!\s*joinInProgress\s*\(\s*now\s*\)\s*&&\s*mayUseNetwork)\s*\)\s*\{\s*"
+                         r"return\s+false\s*;\s*\}", hb):
+            bad.append("heldOffWifi() must hold while a game has the radio OR a join is in progress - "
+                       "`if (mayUseNetwork && !joinInProgress(now)) { return false; }` (review 3, KOS-N1a)")
+        if not re.search(r"\bdropSocket\s*\(\s*\)\s*;", hb) or \
+                not re.search(r"\bs_cs\s*=\s*KS_IDLE\s*;", hb) or \
+                re.search(r"\bs_p(?:ush|ull)Want\s*=|\bfinishJob\s*\(", hb):
+            bad.append("heldOffWifi() must drop the socket and go back to KS_IDLE KEEPING the ask "
+                       "(no finishJob(), no s_pushWant/s_pullWant) - the idle branch waits for the join")
+    gate = re.compile(r"(?<=\()\s*!\s*heldOffWifi\s*\(\s*mayUseNetwork\s*,\s*now\s*\)\s*$")
+    for state in ("KS_RESOLVE", "KS_RETRY", "KS_CONNECT"):
+        blk = ifs(sync, cs[0], cs[1], re.compile(r"\bs_cs\s*==\s*" + state + r"\s*$"))
+        if not blk:
+            bad.append(f"clientStep(): the `if (s_cs == {state}) {{...}}` block not found - update this "
+                       "contract")
+            continue
+        off = ifs(sync, blk[0][1], blk[0][2], re.compile(r"(?<=\()\s*!\s*onWifi\s*\(\s*\)\s*$"))
+        ok = bool(off)
+        for o in off:
+            gates = ifs(sync, o[1], o[2], gate)
+            gives = [m.start() for m in re.compile(r"\bfinishJob\s*\(").finditer(sync, o[1], o[2])]
+            if not gates or not all(any(g[1] <= f <= g[2] for g in gates) for f in gives):
+                ok = False
+        if not ok:
+            bad.append(f"clientStep(): {state} gives up off WiFi without heldOffWifi() - `if (!onWifi()) "
+                       "{ if (!heldOffWifi(mayUseNetwork, now)) { finishJob(...); } return; }` - a join "
+                       "in progress, or a game holding the radio, is not a reason to drop the ask "
+                       "(review 3, KOS-N1a)")
+        if state == "KS_CONNECT" and off:
+            conn = re.search(r"\bstartConnect\s*\(", sync[blk[0][1]:blk[0][2]])
+            if conn is None or not off[0][2] < blk[0][1] + conn.start():
+                bad.append("clientStep(): KS_CONNECT must check onWifi() BEFORE startConnect() - a job held "
+                           "across a game burnt a try connecting on a station not yet rejoined "
+                           "(review 3, KOS-N1a)")
     return bad
 
 
@@ -657,6 +740,27 @@ MUTATIONS = [
     (SYNC, "hold an idle ask while a join is in progress",
      r"wifiJoinAgeMs\s*\(\s*now\s*,\s*lastWifiConnectAttemptMs\s*\(\s*\)\s*\)\s*<\s*KOSYNC_JOIN_WAIT_MS",
      "false", 0),
+    # Review 3 (R3-3, KOS-N1a): the wait not ended by the Games-app hold; each state's give-up
+    # ungated (RESOLVE, RETRY, CONNECT); KS_CONNECT's check moved past startConnect(); the game no
+    # longer holding; the ask retired, or the wait started, where the job goes back to idle.
+    (SYNC, "the join wait must end at the Games-app hold",
+     r"(if\s*\(\s*!\s*mayUseNetwork\s*\)\s*\{)\s*s_joinWaitSinceMs\s*=\s*0\s*;", r"\1", 0),
+    (SYNC, "KS_RESOLVE gives up off WiFi without heldOffWifi()",
+     r"if\s*\(\s*!\s*heldOffWifi\s*\([^)]*\)\s*\)\s*\{\s*(finishJob\s*\([^;]*\)\s*;)\s*\}", r"\1", 0),
+    (SYNC, "KS_RETRY gives up off WiFi without heldOffWifi()",
+     r"if\s*\(\s*!\s*heldOffWifi\s*\([^)]*\)\s*\)\s*\{\s*(finishJob\s*\([^;]*\)\s*;)\s*\}", r"\1", 1),
+    (SYNC, "KS_CONNECT gives up off WiFi without heldOffWifi()",
+     r"if\s*\(\s*!\s*heldOffWifi\s*\([^)]*\)\s*\)\s*\{\s*(finishJob\s*\([^;]*\)\s*;)\s*\}", r"\1", 2),
+    (SYNC, "KS_CONNECT must check onWifi() BEFORE startConnect()",
+     r"(if\s*\(\s*!\s*onWifi\s*\(\s*\)\s*\)\s*\{\s*if[^{]*\{[^{}]*\}\s*return\s*;\s*\})(\s*)"
+     r"(if\s*\(\s*!\s*mayUseNetwork\s*\)\s*\{[^{}]*\}\s*if\s*\(\s*!\s*s_phaseGet[^{]*\{[^{}]*\}\s*"
+     r"if\s*\(\s*!\s*startConnect\s*\(\s*\)\s*\)\s*\{[^{}]*\})", r"\3\2\1", 0),
+    (SYNC, "heldOffWifi() must hold while a game has the radio",
+     r"mayUseNetwork\s*&&\s*(!\s*joinInProgress\s*\(\s*now\s*\))", r"\1", 0),
+    (SYNC, "heldOffWifi() must drop the socket and go back to KS_IDLE KEEPING",
+     r"dropSocket\s*\(\s*\)\s*;\s*s_cs\s*=\s*KS_IDLE\s*;\s*(return\s+true\s*;)", r"finishJob(   ); \1", 0),
+    (SYNC, "starts the join wait outside",
+     r"(s_cs\s*=\s*KS_IDLE\s*;\s*)(return\s+true\s*;)", r"\1s_joinWaitSinceMs = now; \2", 0),
     (SYNC, "calls resolveDomain()", r"(staSsid\s*\(\s*T\s*->\s*jobSsid\s*\)\s*;)",
      r"resolveDomain(T->cfg.home); \1", 0),
     (BOOKS, "kosyncReloadConfig(true) - only serial", r"kosyncReloadConfig\s*\(\s*\)",
@@ -770,6 +874,8 @@ def main():
           "my place sends nothing over a place on the card; KS-3 a second id is not another book")
     print("  ok  no push's first PUT goes out over a place from another device still waiting on "
           "the card (the close's push behind the pull on open)")
+    print("  ok  N1: a WiFi join in progress, or a game holding the radio, keeps a home ask in every "
+          "state; the wait is for ONE join (the Games-app hold ends it)")
     return 0
 
 

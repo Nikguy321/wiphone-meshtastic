@@ -425,6 +425,11 @@ had had a fix. The rules are all in `clock_source.{h,cpp}` (host suite `tests/te
   a stray datagram could set a trusted clock in 2036. Message-store repairs are stamped in UTC.
 - **A KOSync ask waits for a WiFi join in progress** (review N1): a push queued at a book close
   before a Game Boy game was dropped "not on WiFi any more" on the first pass after the game.
+  Integration review 3 completed it: the wait is for ONE join (opening Games ends it, so a wait
+  begun before a game, or back-to-back games, no longer makes the rejoin after look 60 s old), and
+  a job already waiting to retry, about to connect or looking up home goes back to waiting with its
+  ask kept instead of "gave up" (`KOSYNC home push: off WiFi waiting to retry - a game has the radio;
+  the ask waits and starts over`); a connect is no longer tried on a station not yet rejoined.
 
 ### A Game Boy game no longer leaves the internal heap split for the rest of the boot (0.9.79 dev, 2026-09-25)
 
