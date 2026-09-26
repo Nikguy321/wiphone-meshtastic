@@ -4,6 +4,17 @@
 
 Read this first; everything below it is narrative.
 
+🌙 **2026-09-25 NIGHT (Nick away, full permission): BOTH PHONES NOW RUN `kosync` 160b2a0 (built 19:52), same two-part
+install, keys/mute/GPS kept.** Added since the block below: **SA-1/SA-2** (e87eeb0, 6900e63 — in-call UP/DOWN moves only the
+route in use and stores under its own key; the ring and a call apply the stored levels; a call picks its own route, the
+earpiece first; connect reads no file); **the post-game heap split fixed** (05a5f4e, fd2c54f — `Audio::reseatI2S()` at game
+quit, after the emulator's RAM is freed; PROVEN: phone 1 largest 65,580 after a game (was 32,816), phone 2 music-then-game
+`largest 27592 -> 60432` (was 28,732 for the boot)); **the music budget studied and left alone** (160b2a0 — ~90 rules in the
+host model; any rule that decodes less after a long pass drops out when a stall follows; the ~280 ms "pan stalls" were the
+catch-up AFTER a frame already on screen; 324 long-pass-then-stall guard cases added). Idea for Nick, not done: keep the
+phones' music as 22.05 kHz MPEG-2 files (helix decodes them in ~half the time; the phone already plays 44.1k at 22.05k).
+A 2-hour idle soak on 160b2a0 started 19:57.
+
 🧪 **2026-09-25 EVENING: BOTH PHONES RUN `kosync` a42110f (0.9.79 dev, built 17:24), INSTALLED THE WAY THE
 FIXED WEB FLASHER INSTALLS (two parts: `wiphone-boot.bin` @0x1000 + `wiphone-app.bin` @0xe000 — mesh key,
 KOSync id, mute and `positions.cbs` proven unchanged across it).** Local only, not pushed, not published.
@@ -38,7 +49,7 @@ repaint while scr=0 is a small follow-up).
 ⚠ **After a Game Boy game the internal heap stays SPLIT until something reinstalls I2S** (largest 64 -> 29-33 KB on
 both phones; free returns to ~65 KB): the game's I2S install puts its DMA buffers above the emulator's blocks, which
 then free below them. Proven by a music play on phone 2 (music installs its own ring): largest 28,732 -> 64,316.
-Fix in progress (reinstall the default ring at the bottom once the emulator is released).
+FIXED later that night (05a5f4e/fd2c54f, see the 🌙 block).
 Bench junk on phone 1's card (bench_*.bin ~52 MB, piece_*.bin, test.txt, uprep_probe_*.txt in /books) is Nick's
 to delete. Both phones are MUTED (`mute on`, stored) — keep them so unless a test needs sound.
 
