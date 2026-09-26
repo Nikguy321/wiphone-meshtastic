@@ -47,6 +47,15 @@
 #include <stdint.h>
 
 #define KOSYNC_ACCEPT          "application/vnd.koreader.v1+json"
+/* The header line the phone's OWN home client puts on every request (kosyncBuildGet/Put): the
+ * same marker the X4 fork sends and the window looks for (kosyncClientTakesPercentage below).
+ * 🛑 NOT DECORATION. COVEY D-163 answers `{}` to an UNMARKED GET when the stored record has no
+ * XPointer — and every record a phone wrote is one — so a phone without this line reads `{}`
+ * for its own place, decides "this book is not on the server yet" (evaluateOffer) and PUTs
+ * its own, possibly older, place over the newer one. On the PUT too: the phone is one client
+ * and says the same thing on both verbs, as the fork does (applyAuthHeaders adds it to every
+ * request); a home that sorts its writers by the marker then needs no second phone flash. */
+#define KOSYNC_MARKER_LINE     "X-BookSync: 1\r\n"
 #define KOSYNC_EPSILON         0.001      // |Δp| at or under this is "already synchronized"
 #define KOSYNC_DOC_MAX         72         // a document id we will echo (ours are 32 hex)
 #define KOSYNC_DEV_MAX         48         // a device name / device id from a peer
@@ -96,11 +105,14 @@ bool kosyncAuthOk(const char* hdrs, const char* user, const char* keyHex);
  * PAGE 1 (plugins/kosync.koplugin/main.lua:705-711), and a manual pull applies WITHOUT asking.
  * A body of `{}` gives it "No progress found" instead, and nothing at all on an automatic pull.
  * So the record goes only to a reader that SAYS it can take a percentage: the X4 fork sends
- * `X-BookSync: 1` (KOReaderSyncClient.cpp applyAuthHeaders), and stock CrossPoint and Readest
- * send an `Authorization: Basic` header (KOReader sends x-auth-* only). Either header, with any
- * value, is the marker; names match case-insensitively (kosyncHeader). 🛑 Two shortcuts are
- * WRONG: "`{}` unless Basic" blanks the fork, which omits Basic on the peer and hub networks;
- * "a DocFragment pointer for everyone" sends the X4 to page 0 of the chapter (its
+ * `X-BookSync: 1` (KOReaderSyncClient.cpp applyAuthHeaders, on every request), as does the
+ * phone's own home client (KOSYNC_MARKER_LINE), and stock CrossPoint sends an
+ * `Authorization: Basic` header BESIDE its x-auth-* pair (KOReader sends x-auth-* only). Either
+ * header, with any value, is the marker; names match case-insensitively (kosyncHeader). Readest
+ * sends Basic INSTEAD of x-auth-* and is 401'd by kosyncAuthOk before the marker is looked at:
+ * on 0.9.79 it is served by nobody (the plan's §5.5 "any account" is where that changes). 🛑 Two
+ * shortcuts are WRONG: "`{}` unless Basic" blanks the fork, which omits Basic on the peer and
+ * hub networks; "a DocFragment pointer for everyone" sends the X4 to page 0 of the chapter (its
  * ProgressMapper maps a chapter-start XPointer there). Auth comes first: a 401 needs no marker. */
 bool kosyncClientTakesPercentage(const char* hdrs);
 
@@ -112,8 +124,10 @@ int kosyncStatusCode(const char* statusLine);
  * chunked framing. Chunk extensions are ignored; trailers are dropped. */
 long kosyncDechunk(char* buf, size_t len);
 
-/* The request bytes the client sends, headers per contract §7.4. `port` 80 is left off the
- * Host header, as every client does. Return the length, or 0 if it did not fit. */
+/* The request bytes the client sends, headers per contract §7.4 plus KOSYNC_MARKER_LINE (the
+ * phone can take a percentage: without it a D-163 COVEY answers `{}` for the phone's own
+ * place). `port` 80 is left off the Host header, as every client does. Return the length, or 0
+ * if it did not fit. */
 size_t kosyncBuildGet(char* out, size_t cap, const char* host, uint16_t port,
                       const char* user, const char* key, const char* doc);
 size_t kosyncBuildPut(char* out, size_t cap, const char* host, uint16_t port,

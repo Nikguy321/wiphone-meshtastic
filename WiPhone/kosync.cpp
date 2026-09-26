@@ -409,7 +409,7 @@ bool kosyncAuthOk(const char* hdrs, const char* user, const char* keyHex) {
 }
 
 bool kosyncClientTakesPercentage(const char* hdrs) {
-  // Presence is the marker (kosync.h): the fork's `X-BookSync: 1`, or a Basic header.
+  // Presence is the marker (kosync.h): the fork's and the phone's `X-BookSync: 1`, or a Basic header.
   char v[4];
   return kosyncHeader(hdrs, "x-booksync", v, sizeof(v)) ||
          kosyncHeader(hdrs, "authorization", v, sizeof(v));
@@ -489,6 +489,7 @@ size_t kosyncBuildGet(char* out, size_t cap, const char* host, uint16_t port,
                          "Accept: " KOSYNC_ACCEPT "\r\n"
                          "x-auth-user: %s\r\n"
                          "x-auth-key: %s\r\n"
+                         KOSYNC_MARKER_LINE                 // else a D-163 home answers `{}`
                          "Connection: close\r\n"
                          "\r\n",
                          doc, h, user, key);
@@ -506,6 +507,7 @@ size_t kosyncBuildPut(char* out, size_t cap, const char* host, uint16_t port,
                          "Content-Type: application/json\r\n"
                          "x-auth-user: %s\r\n"
                          "x-auth-key: %s\r\n"
+                         KOSYNC_MARKER_LINE                 // one client, the same on both verbs
                          "Content-Length: %u\r\n"
                          "Connection: close\r\n"
                          "\r\n"

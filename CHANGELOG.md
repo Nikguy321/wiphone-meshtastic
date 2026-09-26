@@ -115,15 +115,26 @@ no space before it (`pass#word`) is part of the value.
   `"progress":""` — and KOReader's kosync plugin takes exactly that body to `GotoXPointer("")`,
   a crengine null pointer, and lands the book on PAGE 1 (a manual pull applies without asking).
   The record now goes only to a reader that says it can take a percentage: the X4 fork sends
-  `X-BookSync: 1`, stock CrossPoint and Readest an `Authorization: Basic` header; everyone else
-  (KOReader sends `x-auth-*` only) is answered `{}` for the book — "No progress found" on a
-  manual pull, nothing on an automatic one. A KOReader PUT to the window is unchanged (parked,
+  `X-BookSync: 1`, stock CrossPoint an `Authorization: Basic` header beside its `x-auth-*` pair;
+  everyone else (KOReader sends `x-auth-*` only) is answered `{}` for the book — "No progress
+  found" on a manual pull, nothing on an automatic one. (Readest sends Basic INSTEAD of
+  `x-auth-*` and is 401'd by the auth check before the marker matters: nobody serves it on
+  0.9.79; the plan's §5.5 "any account" is where that changes.) A KOReader PUT to the window is unchanged (parked,
   the card). The window says so on the screen (`! A reader that can't take a percentage asked
   (x1) - told 'No progress found' (KOReader?)`, cleared with the window's other warnings) and
   once per window on serial; the close line counts them as `no-percentage=`. Auth still comes
   first (a wrong key is a 401 with or without the marker), `/users/create` stays 402, an unknown
   document stays `{}` for everyone, and the phone's own PUT body to `home=` is untouched.
   Host-tested in `tests/test_kosync.cpp` (`kosyncClientTakesPercentage`, the window's answers).
+  **The phone's own home client sends the marker too** (review, 2026-09-26): `X-BookSync: 1` on
+  its GET and its PUT to `home=` (`KOSYNC_MARKER_LINE`; one client, the same on both verbs, as
+  the fork does). COVEY D-163 answers `{}` to an UNMARKED GET when the stored record has no
+  XPointer — and every record a phone wrote is one — so a marker-less phone would read `{}` for
+  its own place, decide "this book is not on the server yet" and PUT an older place over the
+  newer. 🛑 **DEPLOY ORDER: flash both phones with this build BEFORE COVEY D-163 goes live** — a
+  D-163 COVEY facing marker-less phones takes their stale PUTs. Pinned in `tests/test_kosync.cpp`:
+  the request bytes, and the phone's own GET and PUT pass `kosyncClientTakesPercentage` beside a
+  valid `x-auth-*` pair.
 - **"Sync my place" asks home FIRST; the window opens after (2026-09-26, the plan's §5.2).** On
   WiFi with `home=` the press used to open the window and queue the push behind it. A window on
   the phone's WiFi address (all of 0.9.79) leaves the station alone, but the coming
@@ -158,7 +169,18 @@ CrossPoint's own spine (linear="no" items and spine images included, %XX-decoded
 in the zip walk the reader already made, and computed only on the way out / converted back only
 on the way in. Proven: `tests/golden_positions.h` was generated from the 0.9.78 parser and the
 current one reproduces it byte for byte (and did the same across 27 real EPUBs, Nick's library
-included).
+included). And who may CALL the writer is a source contract (`tests/check_positions_write.py`,
+the plan's §5.3, in run_tests.sh): no carrier file — the LoRa record and inbox, the KOSync
+protocol, window and home client, the LoRa receive that parks (`meshtastic_service.cpp`) and the
+:80 pump that carries every KOSync request (`app_gbc_xfer.cpp`) — references `savePosition(`,
+`booksSaveOpenPosition(`, `applyPending(`, `epubLocate(`, `store->put(`, `BOOKS_POS_FILE` or
+`positions.cbs`; `app_books.cpp` has ONE `store->put(` (inside `savePosition`) and ONE
+`applyPending()` call (the sync card's OK, after the arming guard; "Go to X's place" only enters
+the card), and `epubLocate(` only inside `applyPending()`. The guard checks the real sources
+FIRST and prints their `CONTRACT BROKEN file:line`; its self-test then judges each planted
+spelling as what it ADDS (review, 2026-09-26: the first version ran the self-test first, on
+absolute presence, and a real `savePosition(true)` in `kosync_sync.cpp` came out as three
+`SELF-TEST FAILED` lines and never the file:line).
 
 **The window is KOSync-only on the raw port-80 pump** — no upload page, no `/chunk`, no
 WebServer: an open hotspot that opens itself on a book close must not offer an SD-card writer,

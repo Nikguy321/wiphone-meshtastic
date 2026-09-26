@@ -21,8 +21,11 @@ literal and the BOOKS_POS_FILE macro, and both are banned in a carrier.
 
   (a) none of the CARRIER files (CARRIERS below) references savePosition(, booksSaveOpenPosition(,
       applyPending(, epubLocate(, store->put( or BOOKS_POS_FILE in code, nor positions.cbs in code
-      or in a string. 🛑 A NEW CARRIER FILE (UDP 8083, ESP-NOW) GOES ON THAT LIST the day it is
-      created, or this guard does not cover it - the list is the contract's reach.
+      or in a string. The list is the whole path a position takes from the air to the inbox: the
+      record and the inbox, the KOSync protocol, window and home client, the LoRa receive that
+      parks (meshtastic_service.cpp) and the :80 pump that carries every KOSync request to the
+      window (app_gbc_xfer.cpp). 🛑 A NEW CARRIER FILE (UDP 8083, ESP-NOW) GOES ON THAT LIST the
+      day it is created, or this guard does not cover it - the list is the contract's reach.
   (b) in app_books.cpp: store->put( has exactly ONE call site and it is inside
       BooksApp::savePosition(); applyPending( is CALLED from exactly ONE place - the sync card's
       OK branch (`case BOOKS_SYNCCARD:` ... `if (LOGIC_BUTTON_OK(event))`) in
@@ -41,10 +44,16 @@ literal and the BOOKS_POS_FILE macro, and both are banned in a carrier.
       second store->put(, a second applyPending() call, an epubLocate() outside applyPending, a
       missing arming guard and a menu row that applies directly into a scratch app_books.cpp, and
       requires the guard to trip; a mention in a comment, or an identifier inside a string, must
-      NOT.
+      NOT. 🛑 THE REAL SOURCES ARE CHECKED FIRST AND EACH PLANT IS JUDGED AS A DELTA against them
+      (what the mutation ADDS, with line numbers ignored so a plant that shifts the lines below it
+      moves nothing). The first version ran the self-test first, on absolute presence: a genuine
+      savePosition(true) in kosync_sync.cpp made the three "comments and strings do not trip"
+      cases fail, the run stopped there, and the output was three SELF-TEST FAILED lines and never
+      the CONTRACT BROKEN file:line - a guard that hid the very thing it was for.
 
 Wired into tests/run_tests.sh next to the other source guards; exit 1 fails the suite.
 """
+from collections import Counter
 import pathlib
 import re
 import sys
@@ -67,6 +76,8 @@ CARRIERS = [
     "kosync.h",
     "kosync_sync.cpp",      # the KOSync window and home client (sockets, the radio, the card)
     "kosync_sync.h",
+    "meshtastic_service.cpp",   # the LoRa receive: bookSyncIsSyncText -> bookSyncInboxPush (the park)
+    "app_gbc_xfer.cpp",         # the :80 pump the window rides: every KOSync request -> kosyncWindowServe
 ]
 
 # The writers and the way to them, as code (matched on strip_code text).
@@ -237,15 +248,30 @@ def check_all(texts):
 
 # ── (c) self-test: plant each banned spelling; comments and strings must not trip ────────────
 
-def selftest(texts):
+LINE_NO = re.compile(r"^(\S+):\d+ ")
+
+
+def keyed(problems):
+    """The problems as a multiset without line numbers: a plant is judged by what it ADDS, and a
+    line it pushes down is the same problem, not a new one."""
+    return Counter(LINE_NO.sub(r"\1 ", p) for p in problems)
+
+
+def selftest(texts, baseline):
+    """`baseline`: check_all(texts) of the real sources, already reported. Each mutation is judged
+    against it: a plant must ADD a message naming `want`; a comment or a string must add nothing."""
     ok = True
+    base = keyed(baseline)
 
     def expect(label, mutated, want, holds=False):
         nonlocal ok
-        got = check_all(mutated)
-        hit = any(want in g for g in got)
-        if hit == holds:
-            print(f"  SELF-TEST FAILED: {label} - {'tripped' if hit else 'did not trip'} '{want}'")
+        new = list((keyed(check_all(mutated)) - base).elements())
+        if holds:
+            if new:
+                print(f"  SELF-TEST FAILED: {label} - added '{new[0]}'")
+                ok = False
+        elif not any(want in g for g in new):
+            print(f"  SELF-TEST FAILED: {label} - did not add '{want}'")
             ok = False
 
     sync = texts["kosync_sync.cpp"]
@@ -264,7 +290,8 @@ def selftest(texts):
     for code, want in plants:
         expect(f"planting `{code}` in kosync_sync.cpp", dict(texts, **{"kosync_sync.cpp": sync[:at] + "  " + code + "\n" + sync[at:]}),
                want)
-    for name in ("booksync.cpp", "booksync_inbox.h"):
+    PLANTED_FILES = ("booksync.cpp", "booksync_inbox.h", "meshtastic_service.cpp", "app_gbc_xfer.cpp")
+    for name in PLANTED_FILES:
         src = texts[name]
         expect(f"planting savePosition( in {name}", dict(texts, **{name: src + "\nvoid x() { savePosition(true); }\n"}),
                "references savePosition(")
@@ -309,9 +336,10 @@ def selftest(texts):
            dict(texts, **{BOOKS: books[:e] + "enterState(BOOKS_READ)" + books[e + len("enterState(BOOKS_SYNCCARD)"):]}),
            "must ENTER the card")
     if ok:
-        print(f"  ok  self-test: each of the {len(plants) + 2} planted spellings trips the carrier guard, "
-              "comments and strings do not; a second writer, a second apply, a bare locate, a missing "
-              "arming guard and a menu row that applies each trip the app_books.cpp contract")
+        print(f"  ok  self-test: each of the {len(plants) + len(PLANTED_FILES)} planted spellings trips "
+              "the carrier guard, comments and strings do not; a second writer, a second apply, a bare "
+              "locate, a missing arming guard and a menu row that applies each trip the app_books.cpp "
+              "contract")
     return ok
 
 
@@ -321,12 +349,13 @@ def main():
         p = ROOT / name
         if p.exists():
             texts[name] = p.read_text(errors="replace")
-    if not selftest(texts):
-        return 1
+    # The real sources FIRST, and their verdict printed whatever the self-test then says: a real
+    # violation must come out as its file:line, never as a self-test that could not tell.
     problems = check_all(texts)
     for p in problems:
         print(f"  CONTRACT BROKEN: {p}")
-    if problems:
+    passed = selftest(texts, problems)
+    if problems or not passed:
         return 1
     print(f"  ok  no carrier ({', '.join(CARRIERS)}) writes, saves, applies, locates or names a "
           "reading position")

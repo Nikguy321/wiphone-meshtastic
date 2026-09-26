@@ -82,7 +82,9 @@ kosyncOfferFill, kosyncParkPending/kosyncOfferAnswered, the PUT log):
      ...)) {...} else {...}` holds every inline kosyncWindowOpen() in the ELSE (the not-waiting
      branch); the held ask is released (windowAfterHome, = requestWindow(s_afterBook,
      KOSYNC_WINDOW_SYNC_MS, ...)) from finishJob() - the verdict, whatever it is - AND from
-     kosyncLoop() under `if (s_afterWant && ... >= KOSYNC_WINDOW_AFTER_HOME_MAX_MS)`; and that
+     kosyncLoop() under `if (s_afterWant && ... >= KOSYNC_WINDOW_AFTER_HOME_MAX_MS)` AND in the
+     same block as every `s_pushWant = s_pullWant = false;` of clientStep()'s idle branch (an ask
+     dropped without a job - off WiFi, no memory - has no finishJob to release it); and that
      #define is one plain decimal that covers "home did not answer" (KS_DNS_GIVEUP_MS +
      KOSYNC_CLIENT_TRIES x KS_CONNECT_MS + kosyncRetryDelayMs's waits, read from the sources) and
      stays within 60 s. The window used to be opened first, and a hotspot window takes the station
@@ -173,6 +175,20 @@ def else_block(code, block_end):
 
 def brace_depth(code, pos):
     return code.count("{", 0, pos) - code.count("}", 0, pos)
+
+
+def block_end(code, pos):
+    """The index of the `}` that closes the block code[pos] stands in (nested blocks skipped), or
+    len(code)."""
+    depth = 0
+    for j in range(pos, len(code)):
+        if code[j] == "{":
+            depth += 1
+        elif code[j] == "}":
+            if depth == 0:
+                return j
+            depth -= 1
+    return len(code)
 
 
 def check(files):
@@ -775,6 +791,26 @@ def check_window_after_home(files):
     elif not any(within(c, fj) for c in calls):
         bad.append("finishJob() must release the held window (windowAfterHome) - the job's verdict, "
                    "whatever it is, opens it (5.2)")
+    # The two drops without a job (off WiFi, no memory): no finishJob follows, so each must
+    # release the held window itself, in the block that drops the ask. Deleting either release
+    # left this contract green until the mutations below were added (review, 2026-09-26).
+    cs = body(sync, "clientStep")
+    if cs is None:
+        bad.append("clientStep() not found - if it was renamed, update this contract")
+    else:
+        idle = ifs(sync, cs[0], cs[1], re.compile(r"\bs_cs\s*==\s*KS_IDLE\b"))
+        drops = [m for m in re.finditer(r"\bs_pushWant\s*=\s*s_pullWant\s*=\s*false\s*;", sync)
+                 if any(i[1] <= m.start() <= i[2] for i in idle)]
+        if not drops:
+            bad.append("clientStep()'s idle branch (`if (s_cs == KS_IDLE) {`) must drop an ask it cannot "
+                       "run with `s_pushWant = s_pullWant = false;` (off WiFi, no memory) - if that "
+                       "moved, update this contract")
+        for m in drops:
+            if not any(m.end() < c < block_end(sync, m.end()) for c in calls):
+                bad.append(f"{SYNC}:{line_of(sync, m.start())} clientStep()'s idle branch drops the ask "
+                           "(s_pushWant = s_pullWant = false) without releasing the held window "
+                           "(windowAfterHome) in the same block - no job starts, so no finishJob will, "
+                           "and the window would wait the whole bound (5.2)")
     if lp is None:
         bad.append("kosyncLoop() not found - if it was renamed, update this contract")
     else:
@@ -1113,6 +1149,11 @@ MUTATIONS = [
      r"&&\s*rememberWindowAfterHome\s*\(\s*b\s*,\s*millis\s*\(\s*\)\s*\)", "", 0),
     (SYNC, "finishJob() must release", r"(s_pushWant\s*=\s*false\s*;\s*)windowAfterHome\s*\(\s*\)\s*;",
      r"\1", 0),
+    # ...and the idle branch's two releases, each on its own (the drop's snprintf/log_e between).
+    (SYNC, "without releasing the held window",
+     r"(s_pushWant\s*=\s*s_pullWant\s*=\s*false\s*;[^{}]*?)windowAfterHome\s*\(\s*\)\s*;", r"\1", 0),
+    (SYNC, "without releasing the held window",
+     r"(s_pushWant\s*=\s*s_pullWant\s*=\s*false\s*;[^{}]*?)windowAfterHome\s*\(\s*\)\s*;", r"\1", 1),
     (SYNC, "kosyncLoop() must release",
      r"if\s*\(\s*s_afterWant\s*&&[^{]*KOSYNC_WINDOW_AFTER_HOME_MAX_MS\s*\)\s*\{\s*windowAfterHome\s*\(\s*\)\s*;\s*\}",
      "", 0),

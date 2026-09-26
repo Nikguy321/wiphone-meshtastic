@@ -1,14 +1,36 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-26 10:20)
+## ▶▶ STATE NOW (header refreshed 2026-09-26 10:50)
 
 Read this first; everything below it is narrative.
 
+🔧 **2026-09-26 10:50: THE REVIEW'S FIVE FINDINGS ON §5.1-5.3 ARE REPAIRED — LOCAL on `kosync`, NOT pushed, NOT
+flashed.** 🛑 **DEPLOY ORDER (the one system-level finding): FLASH BOTH PHONES WITH THIS BUILD BEFORE COVEY D-163 GOES
+LIVE.** The phone's own home client sent no marker (`kosyncBuildGet` was Accept/x-auth-user/x-auth-key/Connection, and
+`tests/test_kosync.cpp` pinned exactly those bytes); COVEY D-163 answers `{}` to an UNMARKED GET when the stored
+record has no XPointer — every record a phone wrote — so against D-163 a marker-less phone reads `{}` for its own
+place, decides "this book is not on the server yet" (`evaluateOffer`) and PUTs its older place over the newer one.
+Now `KOSYNC_MARKER_LINE` (`X-BookSync: 1`) goes on the phone's GET AND its PUT (one client, the same on both verbs,
+as the fork's `applyAuthHeaders` does); `test_kosync` pins the new bytes and that the phone's own requests pass
+`kosyncClientTakesPercentage` beside a valid x-auth pair; the string reads out of `firmware.bin`. The other four:
+**(1)** `check_positions_write.py` ran its self-test FIRST on absolute presence, so a real `savePosition(true)`
+planted in `windowAfterHome` came out as three `SELF-TEST FAILED` lines and never the file:line — now the real
+sources are checked first (`CONTRACT BROKEN: kosync_sync.cpp:710 references savePosition(` on that scratch, exit 1)
+and each plant is judged as a DELTA (line numbers ignored, a Counter of what it ADDS); **(2)** glue contract 12 now
+requires a `windowAfterHome(` in the same block as every `s_pushWant = s_pullWant = false;` of `clientStep()`'s idle
+branch (off WiFi, no memory) — deleting either release used to leave it green; both deletions are MUTATIONS (57 →
+59); **(3)** `meshtastic_service.cpp` (the LoRa receive that parks) and `app_gbc_xfer.cpp` (the :80 pump that carries
+every KOSync request) are on CARRIERS (both clean today; 10 → 12 plants); **(4)** "stock CrossPoint and Readest send
+Basic" was wrong — CrossPoint sends Basic BESIDE x-auth-*; Readest sends Basic INSTEAD and is 401'd by `kosyncAuthOk`
+before the marker is looked at, so nobody serves it on 0.9.79 (the plan's §5.5 "any account" is where that changes):
+`kosync.h`, CHANGELOG, `test_kosync` reworded, with a test that the Basic-only shape is not authorised.
+
 📗 **2026-09-26 10:20: THE PLAN'S §5.1-5.3 ARE BUILT ON THE PHONE — three commits, LOCAL on `kosync`, NOT pushed,
 NOT flashed (a host-side session: the serial bridge owns both phones).** `8867db1` **§5.1 reply per client**: the
-window's GET hands the record only to a reader carrying `X-BookSync` (the fork, once it sends it) or `Authorization`
-(stock CrossPoint, Readest); everyone else — KOReader sends `x-auth-*` only — gets `{}` for the book ("No progress
-found", never page 1); PUTs unchanged (a KOReader push still parks and raises the card); the screen says `! A reader
+window's GET hands the record only to a reader carrying `X-BookSync` (the fork, once it sends it; and, since the
+10:50 repair, the phone's own home client) or `Authorization` beside `x-auth-*` (stock CrossPoint; Readest sends Basic
+INSTEAD and is 401'd first — served by nobody until §5.5); everyone else — KOReader sends `x-auth-*` only — gets `{}`
+for the book ("No progress found", never page 1); PUTs unchanged (a KOReader push still parks and raises the card); the screen says `! A reader
 that can't take a percentage asked (x1) - told 'No progress found' (KOReader?)`, one serial line a window, and the
 close line counts `no-percentage=`. `9685d7c` **§5.2 window after home**: `kosyncSyncMyPlace` queues the home job
 FIRST and the window opens from the loop on `finishJob`'s verdict (or when the idle branch drops the ask) or after
@@ -17,18 +39,22 @@ FIRST and the window opens from the loop on `finishJob`'s verdict (or when the i
 first - the window opens after`, serial `kosync` says `window waits for home (N s of at most 25 s)`; off WiFi, no
 `home=`, or a home job that refused: the window opens at once as before. `ded2930` **§5.3 the position-write
 contract**: `tests/check_positions_write.py` (in run_tests.sh) — no carrier file (`booksync*`, `booksync_inbox*`,
-`kosync*`, `kosync_sync*`; a NEW carrier goes on its CARRIERS list) references savePosition / booksSaveOpenPosition /
+`kosync*`, `kosync_sync*`, and since 10:50 `meshtastic_service.cpp` + `app_gbc_xfer.cpp`; a NEW carrier goes on its
+CARRIERS list) references savePosition / booksSaveOpenPosition /
 applyPending / epubLocate / store->put / BOOKS_POS_FILE / positions.cbs; app_books.cpp has ONE `store->put(` (inside
 savePosition) and ONE `applyPending()` call (the card's OK after the arming guard; "Go to X's place" only enters the
-card); `epubLocate(` only inside applyPending. **PROVEN (host):** `./tests/run_tests.sh` exit 0 — 37 C++ suites + 11
-source guards; test_kosync 2070 → 2106; the glue guard's 57 mutations (the old window-first order among them) and
-the new guard's 10 plants + 6 app_books mutations all trip; `pio run` SUCCESS (RAM 27.5 %, flash 42.4 %) and the
-five new strings read out of `firmware.bin`. 🛑 **NOT PROVEN:** nothing has run on hardware — the deferred window,
+card); `epubLocate(` only inside applyPending. **PROVEN (host, re-run after the 10:50 repair):** `./tests/run_tests.sh`
+exit 0 — 37 C++ suites + 11 source guards; test_kosync 2070 → 2106 → 2110 (the marker on the phone's own GET and
+PUT, the Basic-only shape refused); the glue guard's 59 mutations (the old window-first order and the idle branch's
+two releases among them) and the position guard's 12 plants + 6 app_books mutations all trip, and it names a planted
+`savePosition(true)` by file:line; `pio run` SUCCESS (RAM 27.5 %, flash 42.4 %, 2,779,263 B) and the new strings —
+`X-BookSync: 1` twice, GET and PUT — read out of `firmware.bin`. 🛑 **NOT PROVEN:** nothing has run on hardware — the deferred window,
 the `{}` reply to a real KOReader (plan Bench 4), and **the hotspot has NEVER run on hardware**; **station windows
-STAY in 0.9.79** (hotspot-always is 0.9.80's). ⚠ **INTEROP UNTIL THE FORK CHANGE LANDS:** the X4 fork on the peer
-and hub networks omits Basic and does not yet send `X-BookSync`, so against this build its GET gets `{}` (it then
-shows no place from the phone; its PUT still parks) — on a network where it sends Basic it is unchanged. COVEY's
-§5.1 half (`{}` to an unmarked client only when its stored progress is empty) is the COVEY stream. ⚠ The deferred
+STAY in 0.9.79** (hotspot-always is 0.9.80's). ⚠ **INTEROP UNTIL THE FORK CHANGE IS ON THE X4:** fork `52e1ad9d`
+sends `X-BookSync: 1` on every request (built, not yet on the device); an X4 on an older fork build omits Basic on
+the peer and hub networks, so against this build its GET gets `{}` (it then shows no place from the phone; its PUT
+still parks) — on a network where it sends Basic it is unchanged. COVEY's §5.1 half (`{}` to an unmarked client only
+when its stored progress is empty) is COVEY `8b614f3` D-163 — 🛑 see the 10:50 DEPLOY ORDER above. ⚠ The deferred
 open obeys every deferred window's rules — refused during a SIP call — where the old inline open was not.
 
 📘 **2026-09-26 ~10:40: THE "BOOK SYNC FOR EVERYONE" PLAN IS `docs/booksync-simple-plan.md`** (Nick's ask: router-free

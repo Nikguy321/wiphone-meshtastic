@@ -506,7 +506,9 @@ static void testHeaders() {
      "any case, any value");
   ok(kosyncClientTakesPercentage("GET / HTTP/1.1\r\nX-BookSync:\r\n\r\n"), "an empty value still marks");
   ok(kosyncClientTakesPercentage("GET / HTTP/1.1\r\nAuthorization: Basic bmljazpwdw==\r\n\r\n"),
-     "Authorization: Basic (stock CrossPoint, Readest): yes");
+     "Authorization: Basic alone marks (Readest's shape - but it is 401'd before the marker is asked)");
+  ok(!kosyncAuthOk("GET / HTTP/1.1\r\nAuthorization: Basic bmljazpwYXNzd29yZA==\r\n\r\n", USER, KEY),
+     "...Basic INSTEAD of x-auth-* (Readest) is not authorised on 0.9.79: nobody serves it");
   ok(kosyncClientTakesPercentage("GET / HTTP/1.1\r\nAUTHORIZATION: Bearer x\r\n\r\n"),
      "any Authorization scheme, any case");
   ok(!kosyncClientTakesPercentage("GET / HTTP/1.1\r\nX-BookSync-Extra: 1\r\n\r\n"),
@@ -542,8 +544,14 @@ static void testRequests() {
         "Accept: application/vnd.koreader.v1+json\r\n"
         "x-auth-user: nick\r\n"
         "x-auth-key: 5f4dcc3b5aa765d61d8327deb882cf99\r\n"
+        "X-BookSync: 1\r\n"
         "Connection: close\r\n\r\n", "GET");
   eqInt((long long)n, (long long)strlen(out), "GET length");
+  /* 🛑 The phone's own GET carries the marker, judged by the window's own predicate: COVEY
+   * D-163 answers `{}` to an unmarked GET of a record with no XPointer - every record a phone
+   * wrote - and a phone reading `{}` for its own place PUTs an older one over the newer. */
+  ok(kosyncClientTakesPercentage(out), "the phone's own GET carries the marker (a D-163 home tells it its place, not {})");
+  ok(kosyncAuthOk(out, USER, KEY), "...beside the x-auth pair, not instead of it");
   char body[256];
   kosyncBuildPutBody(body, sizeof(body), "d1d6d400f5a32bfd6a3534f2a71c0ded", 0.61, "WiPhone-NICK",
                      "0123456789abcdef0123456789abcdef");
@@ -559,9 +567,11 @@ static void testRequests() {
            "Content-Type: application/json\r\n"
            "x-auth-user: nick\r\n"
            "x-auth-key: 5f4dcc3b5aa765d61d8327deb882cf99\r\n"
+           "X-BookSync: 1\r\n"
            "Content-Length: %u\r\n"
            "Connection: close\r\n\r\n%s", (unsigned)strlen(body), body);
   eqStr(out, want, "PUT (port 80 left off Host)");
+  ok(kosyncClientTakesPercentage(out), "the PUT carries the marker too: one client, the same on both verbs");
   KosyncProgress p;
   ok(kosyncParseProgress(body, strlen(body), &p) && p.hasPct && p.pct == 0.61, "our body parses back");
   eqStr(p.device, "WiPhone-NICK", "device survives");
