@@ -231,6 +231,14 @@ if ! python3 tests/check_kosync_glue.py; then
   fail=1
 fi
 
+# ── SOURCE GUARD: the web flasher's two parts never cover nvs ────────────────────────────
+# See tests/check_webflasher_split.py. Through 0.9.78 the one merged image, written from offset
+# 0, erased every updater's NVS (mesh key, booksync passcode, KOSync memo, WiFi calibration).
+echo "checking the web flasher split (nvs in neither part, the page flashes every part)"
+if ! python3 tests/check_webflasher_split.py; then
+  fail=1
+fi
+
 # ── SOURCE GUARD: the SIP message store never keeps a MESH clock's time (review SA-3) ─────
 # See tests/check_msg_clock.py. test_clocksrc proves clockMsgFinal/clockMeshCorrS; the glue that
 # makes a mesh stamp provisional - msgStamp() at every load and own stamp, the trusted-only

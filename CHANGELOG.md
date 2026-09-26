@@ -429,7 +429,17 @@ had had a fix. The rules are all in `clock_source.{h,cpp}` (host suite `tests/te
   install wiped the mesh identity key (other nodes then flag a key MISMATCH and DMs fail), the
   booksync passcode and name, and the KOSync memo. `tools/make_webflasher.sh` now stages two parts
   cut around nvs (`wiphone-boot.bin` @0x1000, `wiphone-app.bin` @0xe000); proven on both phones
-  (key, KOSync id and mute unchanged across the install).
+  (key, KOSync id and mute unchanged across the install). The cut is `tools/webflasher_split.py`
+  (reads nvs/otadata from the table INSIDE the image; `tests/check_webflasher_split.py` pins it),
+  and the installer page now flashes EVERY part of the manifest and refuses one that would cover
+  nvs (the range read from the partition table in the parts, 0x9000-0xe000 as the fallback) -
+  "Stopped: this installer build would overwrite the phone's settings - nothing was written".
+  **The live installer was republished on 2026-09-26 as 0.9.78 in two parts** cut from the very
+  image that had been live (byte-identical slices; the merged image is gone from gh-pages), so
+  updaters stop losing their settings before 0.9.79 ships. Proven: phone 1 flashed from the LIVE
+  parts booted `0.9.78` with its mesh key, node keys and mute intact. ⚠ Anyone who updated through
+  the old page has ALREADY lost the booksync passcode (Books > Sync settings shows "Passcode:
+  (none)"; set it again) and other nodes flag a key MISMATCH until they `pki forget` this phone.
 - **`pki forget <!node>`** re-trusts ONE node's key after it re-keyed, instead of "Clear nodes"
   (which wipes every node, name, key and star).
 - **One garbled radio register read is no longer "MESH RADIO LOST"** (all five on record were

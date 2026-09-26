@@ -47,7 +47,7 @@
     <div id="status"></div>
     <div id="bar"><div id="fill"></div></div>
     <p class="muted"><b>Your data stays.</b> Updating never touches saved WiFi networks,
-      SIP accounts, contacts, messages, or anything on the SD card.</p>
+      SIP accounts, contacts, messages, settings, or anything on the SD card.</p>
     <details>
       <summary>Advanced: factory reset install (erases ALL data)</summary>
       <p class="muted">This wipes every setting, contact and message on the phone before
@@ -117,6 +117,27 @@ async function fetchBinary(path) {
   return s;
 }
 
+/* 🛑 NEVER WRITE OVER NVS: it holds the mesh identity key, the book-sync passcode and name,
+ * the KOSync memo and the WiFi calibration. Through 0.9.78 the one merged image covered it
+ * with 0xFF padding and wiped every updater's settings. The range comes from the partition
+ * table inside the parts themselves (at 0x8000); the WiPhone's standard layout is the
+ * fallback when no part carries the table. */
+function nvsRange(files) {
+  const f = files.find(f => f.address <= 0x8000 && 0x8000 + 32 <= f.address + f.data.length);
+  if (f) {
+    const base = 0x8000 - f.address;
+    const u8 = (i) => f.data.charCodeAt(base + i) & 0xff;
+    const u32 = (i) => (u8(i) | u8(i + 1) << 8 | u8(i + 2) << 16 | u8(i + 3) << 24) >>> 0;
+    for (let i = 0; i + 32 <= 0xc00 && base + i + 32 <= f.data.length; i += 32) {
+      if (u8(i) !== 0xaa || u8(i + 1) !== 0x50) break;            // end of the table
+      if (u8(i + 2) === 0x01 && u8(i + 3) === 0x02) {               // data / nvs
+        return [u32(i + 4), u32(i + 4) + u32(i + 8)];
+      }
+    }
+  }
+  return [0x9000, 0xe000];
+}
+
 async function flash(eraseFirst) {
   const btns = [$("install"), $("erase")];
   btns.forEach(b => b.disabled = true);
@@ -135,17 +156,33 @@ async function flash(eraseFirst) {
       await loader.eraseFlash();
     }
 
-    const part = manifest.builds[0].parts[0];
+    // EVERY part, not just the first: the image comes in two pieces that step around nvs
+    // (make_webflasher.sh), and writing parts[0] alone would install only the bootloader.
     status("Downloading firmware…");
-    const data = await fetchBinary(part.path);
+    const files = [];
+    for (const part of manifest.builds[0].parts) {
+      files.push({ data: await fetchBinary(part.path), address: part.offset });
+    }
+    const nvs = nvsRange(files);
+    for (const f of files) {
+      if (f.address < nvs[1] && f.address + f.data.length > nvs[0]) {
+        throw new Error("this installer build would overwrite the phone's settings - "
+                        + "nothing was written. Please report it");
+      }
+    }
 
+    // Progress over all parts, weighted by size (esptool-js reports each part 0..100%).
+    const total = files.reduce((n, f) => n + f.data.length, 0);
+    let before = 0;
+    const starts = files.map(f => { const s = before; before += f.data.length; return s; });
     status("Installing… keep this page open");
     await loader.writeFlash({
-      fileArray: [{ data, address: part.offset }],
+      fileArray: files,
       flashSize: "keep", flashMode: "keep", flashFreq: "keep",
       eraseAll: false, compress: true,
-      reportProgress: (idx, written, total) =>
-        progress(Math.round(written / total * 100)),
+      reportProgress: (idx, written, size) =>
+        progress(Math.round((starts[idx] + files[idx].data.length * (size ? written / size : 0))
+                            / total * 100)),
     });
 
     status("Done - rebooting the phone…");
@@ -154,7 +191,9 @@ async function flash(eraseFirst) {
            + "whenever you like.");
   } catch (e) {
     const msg = String(e && e.message || e);
-    if (msg.includes("No port selected")) {
+    if (msg.includes("would overwrite the phone's settings")) {
+      status("Stopped: " + msg + ".");
+    } else if (msg.includes("No port selected")) {
       status("No port was chosen. Plug the phone in and try again.");
     } else if (msg.includes("open") && msg.includes("SerialPort")) {
       status("The port is held by another program (a serial monitor or IDE). Close it, "

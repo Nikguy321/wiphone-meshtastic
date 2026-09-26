@@ -4,6 +4,23 @@
 
 Read this first; everything below it is narrative.
 
+🛠 **2026-09-26 09:00: THE LIVE WEB FLASHER IS 0.9.78 IN TWO PARTS — the NVS wipe is stopped for today's updaters.**
+Nick: "republish first". The parts were cut from the very image that had been live (byte-identical slices, sha
+`71ba15e8…` → boot `6c0d3558…` @0x1000 + app `e87b9fba…` @0xe000; live == stage verified; the merged image now 404s).
+The cut is `tools/webflasher_split.py` (nvs/otadata read from the partition table INSIDE the image, refuses anything
+else; `tests/check_webflasher_split.py`, in run_tests.sh, suite exit 0), used by make_webflasher.sh. `webflasher/index.html`
+now flashes EVERY manifest part (the old page wrote `parts[0]` only — with a two-part manifest it would have written just
+the bootloader and said "Installed") and refuses a part covering nvs, the range read from the table in the parts (0x9000-
+0xe000 fallback): tested in the in-app browser against a mock esptool-js (`scratchpad/pagetest`): two files, right offsets,
+byte checksums equal, progress 0→100 %, eraseAll false; an old-style manifest → "Stopped: … nothing was written".
+HARDWARE: phone 1 flashed from the LIVE parts booted `0.9.78`, mesh key + 50 node keys + mute intact; both phones then
+back on the wf/ build of HEAD (the image's BOOT string is `build=Sep 26 2026 00:45:29`), keys/mute intact. ⚠ `ver`'s "built" stamp is
+serial_cmd.cpp's OWN compile time (an incremental build keeps the old object: it says 00:24:01 on the 00:45 image) — read
+the BOOT line for the image's stamp. ⚠ A page cached ≤10 min (GitHub Pages max-age 600) reads the new manifest with the
+old JS and flashes only the 32 KB boot part: harmless (same bytes), but it says "Installed" — reload and run again.
+Anyone who updated through the OLD page has already lost the booksync passcode (Sync settings "Passcode: (none)") and
+their mesh key (others need `pki forget`). Committed webflasher/ stage = the live 0.9.78 parts.
+
 🌒 **2026-09-26 00:50: BOTH PHONES RUN `kosync` ec25ce5 (two-part install, keys/mute kept).** **Overnight idle soak
 00:52-06:42 (5.8 h) PASSED on both:** 0 reboots/panics/RADIO LOST/WiFi drops, wifi=3 in all 1,402 HEALTH lines each, ~150
 frames each 0 timeouts, largest flat (p1 62-65 KB, p2 59,980). Phone 2's healthCheck absorbed 2 single-bit glitches
