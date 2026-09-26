@@ -545,6 +545,7 @@ public:
   // Maintenance (persisted immediately).
   void clearMessages();                      // wipe all stored messages
   void clearNodes();                         // wipe node DB (keeps this node)
+  bool forgetNodeKey(uint32_t nodeNum);      // serial `pki forget`: re-trust ONE node's next key
 
   // ---- Status --------------------------------------------------------------
   MeshRadioState getRadioState() const { return radioState; }

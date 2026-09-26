@@ -417,6 +417,22 @@ def check_review(files):
             bad.append("kosyncProblemLine() must count the other-book PUTs with kosyncPutLogDifferent() "
                        "- the X4 fork's second id is not 'a DIFFERENT book'")
     bad.extend(check_close_push(sync))
+    # ── N1: a join in progress is not "off WiFi" ─────────────────────────────────────────────
+    # clientStep()'s idle branch must HOLD an ask while a join younger than KOSYNC_JOIN_WAIT_MS is
+    # in flight (the first pass after a game or a window, before the rejoin completes), and only
+    # then drop it. Without the hold, a push queued at a book close before a game was lost.
+    cs = body(sync, "clientStep")
+    if cs is None:
+        bad.append("clientStep() not found - if it was renamed, update this contract")
+    else:
+        seg = sync[cs[0]:cs[1]]
+        hold = re.search(r"wifiJoinAgeMs\s*\(\s*now\s*,\s*lastWifiConnectAttemptMs\s*\(\s*\)\s*\)\s*<\s*"
+                         r"KOSYNC_JOIN_WAIT_MS", seg)
+        drop = re.search(r"\bs_pushWant\s*=\s*s_pullWant\s*=\s*false\s*;", seg)
+        if not hold or not drop or hold.start() > drop.start():
+            bad.append("clientStep() must hold an idle ask while a join is in progress "
+                       "(wifiJoinAgeMs(now, lastWifiConnectAttemptMs()) < KOSYNC_JOIN_WAIT_MS) BEFORE "
+                       "it drops it as not on WiFi - review N1")
     return bad
 
 
@@ -638,6 +654,9 @@ def selftest():
 # guard was rewritten, so the mutation needs rewriting with it. serial_cmd.cpp's replacement keeps
 # the text's length: its "reload" is found in the RAW text by offset.
 MUTATIONS = [
+    (SYNC, "hold an idle ask while a join is in progress",
+     r"wifiJoinAgeMs\s*\(\s*now\s*,\s*lastWifiConnectAttemptMs\s*\(\s*\)\s*\)\s*<\s*KOSYNC_JOIN_WAIT_MS",
+     "false", 0),
     (SYNC, "calls resolveDomain()", r"(staSsid\s*\(\s*T\s*->\s*jobSsid\s*\)\s*;)",
      r"resolveDomain(T->cfg.home); \1", 0),
     (BOOKS, "kosyncReloadConfig(true) - only serial", r"kosyncReloadConfig\s*\(\s*\)",

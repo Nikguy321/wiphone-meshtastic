@@ -1348,6 +1348,27 @@ void MeshtasticService::clearNodes() {
   log_i("Mesh: node DB cleared");
 }
 
+/* One node's key, not the whole database: serial `pki forget <!node>` (0.9.79). Until now
+ * "Clear nodes" was the only way past a MISMATCH, and it throws away every node, name, key and
+ * star to re-trust ONE peer. Found 2026-09-25: phone 1's NVS (so its keypair) was erased by the
+ * web flasher's merged image, and phone 2 flagged the new key and could not read its DMs.
+ * The next NodeInfo from that node is learned as its first key (trust-on-first-use, exactly as
+ * for a node never heard before). The session-key cache is cleared whole: it is two entries. */
+bool MeshtasticService::forgetNodeKey(uint32_t nodeNum) {
+  for (int i = 0; i < nodeCount; i++) {
+    if (nodes[i].nodeNum == nodeNum) {
+      memset(nodes[i].pubKey, 0, sizeof(nodes[i].pubKey));
+      nodes[i].pkiFlags &= (uint8_t)~(MESH_NODE_HAS_KEY | MESH_NODE_KEY_MISMATCH);
+      pkiCacheClear();
+      dbDirty = true;
+      log_e("MESH PKI: key for !%08x forgotten - its next NodeInfo is trusted as new",
+            (unsigned)nodeNum);
+      return true;
+    }
+  }
+  return false;
+}
+
 void MeshtasticService::scheduleRebroadcast(const uint8_t* pkt, uint8_t len) {
   /* 130..700 ms random jitter so relays don't all transmit at once. All four slots taken:
    * this packet is not relayed, as before. txPump() sends it once due and the own queue is

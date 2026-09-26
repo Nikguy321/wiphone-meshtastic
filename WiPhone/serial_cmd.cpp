@@ -181,6 +181,7 @@ static void help() {
     "  star [<!node>]  list starred nodes, or toggle one (top of list, evicted last)",
     "  send <i> <text>  send a channel text (index from `chans`) - proves the broadcast receipt",
     "  pki        DM crypto state: our key, who has keys, stack headroom",
+    "  pki forget <!node>  drop ONE node's key (a MISMATCH after it re-keyed) - not Clear nodes",
     "  announce   broadcast NodeInfo now, asking others to answer with theirs",
     "  dm <!node> <text>  send a direct message (PKI when the key is known)",
     "  heap       memory truth: internal/DMA/PSRAM free+largest+floor",
@@ -885,6 +886,28 @@ static void run(char* line) {
   }
   if (!strcasecmp(line, "pki")) {
     reportPki();
+    return;
+  }
+  /* `pki forget <!node>` — re-trust ONE node's key (MeshtasticService::forgetNodeKey) instead of
+   * "Clear nodes", which wipes every node, name and star to fix one MISMATCH. */
+  if (!strncasecmp(line, "pki forget", 10)) {
+    const char* a = line + 10;
+    while (*a == ' ') {
+      a++;
+    }
+    if (*a == '!') {
+      a++;
+    }
+    char* end = NULL;
+    const unsigned long node = strtoul(a, &end, 16);
+    if (!*a || !end || *end || node == 0) {
+      say("pki forget: usage `pki forget !xxxxxxxx` (a node from `pki`)\n");
+    } else if (meshService.forgetNodeKey((uint32_t)node)) {
+      say("pki forget: !%08lx's key dropped - the next NodeInfo it sends is trusted "
+          "(`announce` on that phone sends one now)\n", node);
+    } else {
+      say("pki forget: !%08lx is not in the node list\n", node);
+    }
     return;
   }
   /* Predictive text on/off from the console. The Settings row does the same thing; this

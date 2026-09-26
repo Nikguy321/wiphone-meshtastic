@@ -387,6 +387,26 @@ had had a fix. The rules are all in `clock_source.{h,cpp}` (host suite `tests/te
   The WiFi card gate no longer reads an event stamped later in the loop pass as ~49 days old, so a
   held `WIFI card:` count is no longer written early.
 
+
+**Found on the 2026-09-25 hardware pass:**
+- 🛑 **The web flasher no longer erases the phone's NVS.** Through 0.9.78 the one merged image was
+  written from offset 0 with the nvs partition (0x9000) padded to 0xFF inside it: every browser
+  install wiped the mesh identity key (other nodes then flag a key MISMATCH and DMs fail), the
+  booksync passcode and name, and the KOSync memo. `tools/make_webflasher.sh` now stages two parts
+  cut around nvs (`wiphone-boot.bin` @0x1000, `wiphone-app.bin` @0xe000); proven on both phones
+  (key, KOSync id and mute unchanged across the install).
+- **`pki forget <!node>`** re-trusts ONE node's key after it re-keyed, instead of "Clear nodes"
+  (which wipes every node, name, key and star).
+- **One garbled radio register read is no longer "MESH RADIO LOST"** (all five on record were
+  single-bit bus glitches; RADIO LOST now fails queued messages). Three reads must agree; glitches
+  are counted in `radio`.
+- **A full reading-position store evicts the book saved longest ago**, not the smallest time stamp
+  (0 for every save without a trusted clock, so last night's book in the woods went first).
+- **An NTP answer must be a real one** (from the server asked, mode 4, synchronised, sane date);
+  a stray datagram could set a trusted clock in 2036. Message-store repairs are stamped in UTC.
+- **A KOSync ask waits for a WiFi join in progress** (review N1): a push queued at a book close
+  before a Game Boy game was dropped "not on WiFi any more" on the first pass after the game.
+
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 
 Nick, after looking at OpenTopoMap one level deeper: *"So it seems like open topo has a native

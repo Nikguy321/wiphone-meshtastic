@@ -10,6 +10,7 @@
 #include "meshtastic_service.h"   // the default device name: the mesh long name
 #include "clock.h"                // ntpClock: UTC for timestamps
 #include "Networks.h"             // lastWifiLinkUpMs: an answered home= name lasts the join
+#include "wifi_policy.h"          // wifiJoinAgeMs: a join in progress holds an ask (review N1)
 #include "GUI.h"                  // gui.isAppRunning: no window under Settings > WiFi
 
 extern GUI gui;
@@ -231,6 +232,11 @@ const char* kosyncMyDeviceId() {
 }
 
 // On a network we joined ourselves — not our own hotspot, which has nothing behind it.
+/* Review N1: how long an ask waits for a join that has just begun, and the most it waits in all. */
+#define KOSYNC_JOIN_WAIT_MS      30000u
+#define KOSYNC_JOIN_WAIT_MAX_MS  60000u
+static uint32_t s_joinWaitSinceMs = 0;      // when the idle ask started waiting for a join; 0 = not
+
 static bool onWifi() {
   return WiFi.status() == WL_CONNECTED && !xferUsingAP();
 }
@@ -1195,6 +1201,25 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
     if (!mayUseNetwork) {
       return;                                  // held (the Game Boy owns the heap), not dropped
     }
+    /* 🛑 A JOIN IN PROGRESS IS NOT "OFF WIFI" (0.9.79 review N1). A push queued at a book close
+     * is held while the Games app is open (mayUseNetwork above); a game takes the radio away, and
+     * the first pass after ~GbcApp found WiFi.status() != CONNECTED because the rejoin had only
+     * just begun — so the push was dropped "not on WiFi any more" and COVEY kept the older place
+     * until the next close. Same after a hotspot window. So while the owner wants the station
+     * and a join started < 30 s ago, the ask waits; a phone still unjoined 60 s after it started
+     * waiting (out of range: the retry keeps re-stamping joins) gives up honestly below. */
+    if (T->cfg.ok && T->cfg.home[0] && !onWifi() && !xferUsingAP() && wifiStationWanted() &&
+        lastWifiConnectAttemptMs() != 0 &&
+        wifiJoinAgeMs(now, lastWifiConnectAttemptMs()) < KOSYNC_JOIN_WAIT_MS) {
+      if (!s_joinWaitSinceMs) {
+        s_joinWaitSinceMs = now ? now : 1;
+        snprintf(T->cliLast, sizeof(T->cliLast), "Home: waiting for WiFi to join");
+      }
+      if ((uint32_t)(now - s_joinWaitSinceMs) < KOSYNC_JOIN_WAIT_MAX_MS) {
+        return;                                // held while the station comes up
+      }
+    }
+    s_joinWaitSinceMs = 0;
     if (!T->cfg.ok || !T->cfg.home[0] || !onWifi()) {
       s_pushWant = s_pullWant = false;
       snprintf(T->cliLast, sizeof(T->cliLast), "Home: not on WiFi any more - nothing sent");
