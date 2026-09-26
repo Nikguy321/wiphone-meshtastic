@@ -231,6 +231,16 @@ if ! python3 tests/check_kosync_glue.py; then
   fail=1
 fi
 
+# ── SOURCE GUARD: no sync carrier writes, applies, locates or names a reading position ────
+# See tests/check_positions_write.py. The hard rule of every sync (docs/booksync-simple-plan.md): a
+# carrier ends at the card, and only "Go there" on it - BooksApp::applyPending() - writes a place.
+# golden_positions.h proves the parser; this proves who may call the writer, on comment-blanked
+# source (kosync*.h mention positions.cbs on purpose). A new carrier file goes on its CARRIERS list.
+echo "checking that only the sync card's OK writes a synced position (no carrier reaches the writer)"
+if ! python3 tests/check_positions_write.py; then
+  fail=1
+fi
+
 # ── SOURCE GUARD: the web flasher's two parts never cover nvs ────────────────────────────
 # See tests/check_webflasher_split.py. Through 0.9.78 the one merged image, written from offset
 # 0, erased every updater's NVS (mesh key, booksync passcode, KOSync memo, WiFi calibration).
