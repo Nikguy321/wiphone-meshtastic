@@ -2371,6 +2371,10 @@ static void run(char* line) {
         say("power i2s: audio is ON - stop it first\n");
         return;
       }
+      if (!audio || !audio->i2sReady()) {       // IDF 3.3's i2s_stop/start dereference NULL
+        say("power i2s: no I2S driver installed (a failed install) - the next Audio::start() installs one\n");
+        return;
+      }
       const esp_err_t r = stop ? i2s_stop(I2S_NUM_0) : i2s_start(I2S_NUM_0);
       if (r == ESP_OK) {
         s_i2sStopped = stop;

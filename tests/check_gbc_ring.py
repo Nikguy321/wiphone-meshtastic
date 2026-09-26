@@ -26,6 +26,13 @@ POSITIVELY:
   G6  reseatI2S()'s i2s_stop() only on an installed driver (IDF 3.3 dereferences NULL otherwise).
   G7  i2s_driver_install()/i2s_driver_uninstall() are called NOWHERE but Audio::installI2S(): its
       cache (and so the reseat, which goes through it) is only true while that holds.
+  G8  Audio::start() refuses with no driver (after one reinstall) BEFORE it powers the codec or calls
+      i2s_start(): a failed install - the reseat's among them - leaves none, IDF 3.3's i2s_start()
+      dereferences NULL, and playMusic() calls turnOn() before it installs its own ring.
+  G9  Audio::shutdown()'s i2s_stop() only with a driver installed (the same NULL, for every teardown).
+  G10 ~GbcApp's shutdown() asks `soundStarted` and NOT `soundOn`: the emu thread clears soundOn when
+      I2S starves and leaves the device ON, and skipping the shutdown there made the reseat refuse.
+  G11 startGame: `soundStarted = soundOn` right after `soundOn = audio->start()`.
 
 MUTATIONS then breaks each one in the REAL source, one at a time, and requires its own contract to
 report it (tests/check_wifi_restore.py's pattern): a guard rewritten so its mutation no longer
@@ -37,7 +44,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from check_wifi_restore import function_body, strip_code  # noqa: E402
-from check_call_audio import NEG, POS, contract_problem, line_of  # noqa: E402
+from check_call_audio import NEG, POS, contract_problem, if_blocks, line_of  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent / "WiPhone"
 
@@ -73,7 +80,55 @@ CONTRACTS = [
          pat=r"\bi2s_stop\s*\(", need=[POS(THIS + r"\bi2sInstalled\b")],
          what="reseatI2S()'s i2s_stop()",
          why="after a failed install there is no driver, and IDF 3.3's i2s_stop() dereferences NULL"),
+    dict(id="G8-start-needs-driver", file="Audio.cpp", fn="Audio::start", kind="refuses_before",
+         need=[NEG(THIS + r"\bi2sInstalled\b")],
+         later=r"\bcodec\s*\.\s*powerUp\s*\(|\bi2s_start\s*\(",
+         what="start() must refuse with no driver before it powers the codec or calls i2s_start()",
+         why="a failed install leaves no driver and IDF 3.3's i2s_start() dereferences NULL: the "
+             "next track after a failed reseat (playMusic() starts the device BEFORE its install) "
+             "was a LoadProhibited panic"),
+    dict(id="G9-shutdown-stop-guarded", file="Audio.cpp", fn="Audio::shutdown", kind="guarded",
+         pat=r"\bi2s_stop\s*\(", need=[POS(THIS + r"\bi2sInstalled\b")],
+         what="shutdown()'s i2s_stop()",
+         why="every teardown runs it, and with no driver IDF 3.3's i2s_stop() dereferences NULL "
+             "inside its critical section"),
+    dict(id="G11-start-flag-sound", file="app_gbc.cpp", fn="GbcApp::startGame", kind="sequence",
+         seq=[r"\bsoundOn\s*=(?!=)\s*audio\s*->\s*start\s*\(",
+              r"\bsoundStarted\s*=(?!=)\s*soundOn\b"],
+         what="soundStarted = soundOn right after soundOn = audio->start()",
+         why="without it the quit never shuts the device down, starved or not"),
 ]
+
+SHUTDOWN = r"\baudio\s*->\s*shutdown\s*\("
+QUIT = ("app_gbc.cpp", "GbcApp::~GbcApp")
+
+
+def quit_shutdown_problems(texts):
+    """G10: every audio->shutdown() in ~GbcApp sits in an `if` that asks soundStarted and does not
+    ask soundOn (the emu thread clears soundOn when I2S starves; the device is still ON then)."""
+    code = texts.get(QUIT[0])
+    span = function_body(code, QUIT[1]) if code is not None else None
+    if span is None:
+        return [f"G10-quit-shutdown-started: {QUIT[1]}() not found in WiPhone/{QUIT[0]} - if it was "
+                f"renamed or moved, update this check"]
+    bs, be = span
+    calls = list(re.finditer(SHUTDOWN, code[bs:be]))
+    if not calls:
+        return [f"G10-quit-shutdown-started: WiPhone/{QUIT[0]}: {QUIT[1]}: no audio->shutdown() - "
+                f"the game must turn the device off at quit"]
+    out = []
+    blocks = if_blocks(code, bs, be)
+    for m in calls:
+        pos = bs + m.start()
+        conds = [code[c_s:c_e] for c_s, c_e, b_bs, b_be in blocks if b_bs < pos < b_be]
+        ok = any(re.search(r"\bsoundStarted\b", c) for c in conds) and \
+            not any(re.search(r"\bsoundOn\b", c) for c in conds)
+        if not ok:
+            out.append(f"G10-quit-shutdown-started: WiPhone/{QUIT[0]}:{line_of(code, pos)}: "
+                       f"audio->shutdown() must sit in an `if` asking soundStarted and not soundOn - "
+                       f"the starved path leaves the device ON with soundOn false, so the reseat "
+                       f"refuses and the heap stays split")
+    return out
 
 DRIVER_RX = re.compile(r"\bi2s_driver_(?:un)?install\s*\(")
 INSTALLER = ("Audio.cpp", "Audio::installI2S")
@@ -109,7 +164,7 @@ def check(texts):
         if p:
             problems.append(f"{c['id']}: WiPhone/{c['file']}: {c['fn']}: {p}\n"
                             f"      (why it matters: {c['why']})")
-    return problems + installer_problems(texts)
+    return problems + installer_problems(texts) + quit_shutdown_problems(texts)
 
 
 # (file, the contract id that must be reported, pattern on the BLANKED source, replacement)
@@ -141,6 +196,21 @@ MUTATIONS = [
     ("Audio.cpp", "G7-one-installer",
      r"\bif\s*\(\s*i2s_stop\s*\(\s*i2s_num\s*\)\s*!=\s*ESP_OK\s*\)",
      "if (i2s_driver_uninstall(i2s_num)!=ESP_OK)"),
+    # start() without its no-driver guard, and with the guard's refusal gone (retry only)
+    ("Audio.cpp", "G8-start-needs-driver",
+     r"\bif\s*\(\s*!\s*this\s*->\s*i2sInstalled\s*\)\s*\{\s*this\s*->\s*configureI2S\s*\(\s*\)\s*;"
+     r"\s*if\s*\(\s*!\s*this\s*->\s*i2sInstalled\s*\)\s*\{[^{}]*\}\s*\}", ""),
+    ("Audio.cpp", "G8-start-needs-driver",
+     r"(\bif\s*\(\s*!\s*this\s*->\s*i2sInstalled\s*\)\s*\{[^{}]*?)\breturn\s+false\s*;", r"\1"),
+    ("Audio.cpp", "G9-shutdown-stop-guarded",
+     r"\bif\s*\(\s*this\s*->\s*i2sInstalled\s*\)\s*\{\s*(if\s*\(\s*i2s_stop\s*\(\s*i2s_num\s*\)\s*!=\s*ESP_OK"
+     r"\s*\)\s*\{\s*succ\s*=\s*false\s*;\s*\})\s*\}", r"\1"),
+    # the quit back on soundOn (the starved path skips the shutdown again), or asking both
+    ("app_gbc.cpp", "G10-quit-shutdown-started", r"\bif\s*\(\s*soundStarted\s*&&\s*audio\s*\)",
+     "if (soundOn && audio)"),
+    ("app_gbc.cpp", "G10-quit-shutdown-started", r"\bif\s*\(\s*soundStarted\s*&&\s*audio\s*\)",
+     "if (soundStarted && soundOn && audio)"),
+    ("app_gbc.cpp", "G11-start-flag-sound", r"\bsoundStarted\s*=\s*soundOn\s*;", ""),
 ]
 
 
@@ -162,6 +232,18 @@ def selftest():
     if not installer_problems({"Audio.cpp": strip_code(good),
                                "app_gbc.cpp": strip_code("void f() { i2s_driver_install(a, b, 0, 0); }\n")}):
         print("  SELF-TEST FAIL: G7 missed an install in another file")
+        ok = False
+    # G10: the quit's shutdown on soundStarted, never on soundOn (alone or alongside)
+    quit = ("GbcApp::~GbcApp() {\n gbcReleaseEmulator();\n if (%s) {\n  audio->shutdown();\n }\n}\n")
+    for cond, holds in (("soundStarted && audio", True), ("audio && soundStarted", True),
+                        ("soundOn && audio", False), ("soundStarted && soundOn && audio", False),
+                        ("audio", False)):
+        if (not quit_shutdown_problems({"app_gbc.cpp": strip_code(quit % cond)})) != holds:
+            print(f"  SELF-TEST FAIL: G10 on `{cond}` should {'hold' if holds else 'fail'}")
+            ok = False
+    if not quit_shutdown_problems({"app_gbc.cpp": strip_code(
+            "GbcApp::~GbcApp() {\n if (soundStarted && audio) {\n  x();\n }\n audio->shutdown();\n}\n")}):
+        print("  SELF-TEST FAIL: G10 missed an unguarded shutdown() after a guarded block")
         ok = False
     # G4's polarity: `this->audioOn` asserted, `!this->i2sInstalled` negated - not the other way
     g4 = next(c for c in CONTRACTS if c["id"] == "G4-refuse-powered")
@@ -206,8 +288,8 @@ def main():
         return 1
     if not mutation_test(texts):
         return 1
-    print(f"  ok  all {len(CONTRACTS)} ring contracts hold, and I2S is installed nowhere but "
-          f"{INSTALLER[1]}() ({len(files)} files)")
+    print(f"  ok  all {len(CONTRACTS)} ring contracts hold, the quit shuts the device down on "
+          f"soundStarted, and I2S is installed nowhere but {INSTALLER[1]}() ({len(files)} files)")
     return 0
 
 

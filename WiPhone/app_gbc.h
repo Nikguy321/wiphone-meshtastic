@@ -99,7 +99,8 @@ protected:
   bool confirmDelete = false;    // picker is asking to confirm a delete
   bool playing = false;          // false = picker on screen, true = game running
   bool enteredGaming = false;    // did we turn WiFi/mesh off? (restore on exit)
-  volatile bool soundOn = false; // did we start the audio codec? (feed I2S + restore)
+  volatile bool soundOn = false; // feed I2S? (the emu thread clears it when I2S starves)
+  bool soundStarted = false;     // did startGame turn the device on? (shut it down at quit, starved or not)
   int  audioStarve = 0;          // consecutive under-written I2S frames (emu thread only)
   bool routeSaved = false;       // did startGame move the codec's output? (put it back)
   bool ringReseat = false;       // startGame set the I2S ring up over the emulator's RAM (reseat at quit)

@@ -385,6 +385,10 @@ void GbcApp::startGame() {
     audio->chooseSpeaker(true);
 
     soundOn = audio->start();
+    /* Its own flag, for the quit: the emu thread clears soundOn when I2S starves, and the device is
+     * still ON then - ~GbcApp used to skip its shutdown() on that path, so the ring could not be
+     * reseated and the heap stayed split (review of the 0.9.79 reseat). */
+    soundStarted = soundOn;
     audioStarve = 0;
   }
 
@@ -482,18 +486,24 @@ GbcApp::~GbcApp() {
    * boot always has. */
   gbcReleaseEmulator();
 
-  if (soundOn && audio) {   // hand the audio path back to the phone
+  /* Hand the audio path back to the phone. 🛑 ON soundStarted, NOT soundOn (review of the 0.9.79
+   * reseat). The emu thread clears soundOn when I2S starves (60 short writes in a row) and leaves
+   * the device ON, and this used to skip the shutdown on that path: the reseat below then refused
+   * a powered codec ("LEFT where it is"), the heap stayed split, and the codec stayed powered until
+   * the idle watchdog - which a lit screen holds off. While gGbcActive is set the game is the
+   * device's only user (the pop is held, music is paused, the radio is off), so turning it off is
+   * the game's job on both paths. */
+  if (soundStarted && audio) {
     audio->shutdown();
     soundOn = false;
+    soundStarted = false;
   }
   if (routeSaved && audio) {
     /* Put the output back where startGame found it (see the note there). After shutdown()
      * on purpose: with the device off this is a flag write that the next start() reads.
-     * Two paths skip shutdown(). If the emu thread gave up on a starved I2S and cleared
-     * soundOn the codec is still up (audioOn), so chooseSpeaker() reconfigures it live:
-     * amplifier off, the old output back. If start() itself failed, audioOn is already
-     * false and this is the flag write again; either way the idle watchdog in WiPhone.ino
-     * releases the device once gGbcActive drops below. */
+     * One path skips shutdown(): start() failed, so the game never turned the device on and
+     * this is the flag write again (or a live reconfigure of a device something else left on,
+     * which the idle watchdog in WiPhone.ino releases once gGbcActive drops below). */
     audio->chooseSpeaker(savedLoudspeaker);
     audio->setVolumes(savedEar, savedHp, savedLoud);   // route first, then levels (Audio::restore's order)
     routeSaved = false;
@@ -506,16 +516,26 @@ GbcApp::~GbcApp() {
    * free back to normal. Reinstalled now, best fit sees the heap as it was before the game and the
    * ring goes back into the hole the old one left (Audio::reseatI2S() has the numbers).
    * ⚠ After gbcReleaseEmulator() - before it, the ring is placed over the same blocks again.
-   * ⚠ After shutdown() - reseatI2S() refuses a powered device (the starved path above leaves it
-   *   on: that ring stays where it is, and the log line says so).
+   * ⚠ After shutdown() - reseatI2S() refuses a powered device, and the shutdown above now runs on
+   *   the starved path too (soundStarted), so "LEFT where it is" means something ELSE had it on.
    * ⚠ Before wifiRestoreStation() - the station's own allocations then find the heap they left.
-   * One reinstall, freed before it allocates: free RAM never dips below where it stands here. */
+   * One reinstall, freed before it allocates: free RAM never dips below where it stands here.
+   * READING THE LINE: a game that set the ring up at start reads `~32,816 -> ~L` (phone 1). A game
+   * that found it already matching (a second game, nothing sounded between) reinstalled nothing at
+   * start - the emulator's blocks sat below free space and the release made the big block whole -
+   * so it reads `~L -> ~L`: a reinstall with nothing to fix, harmless at the loosest the heap gets,
+   * and it hands the next start() a fresh queue instead of shutdown()'s stale one. `X -> X` with X
+   * well below L means something ELSE was left in the big block, which no reseat can move. */
   if (ringReseat && audio) {
     ringReseat = false;
     const unsigned before = (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+    const bool hadDriver = audio->i2sReady();
     const bool moved = audio->reseatI2S();
     log_e("GBC: I2S ring %s: largest %u -> %u (free %u)",
-          moved ? "reinstalled after the emulator's release" : (audio->isOn() ? "LEFT where it is - device still on" : "not installed - no driver"),
+          moved             ? "reinstalled after the emulator's release"
+          : audio->isOn()   ? "LEFT where it is - device still on"
+          : !hadDriver      ? "not moved - there was no driver"
+          :                   "reinstall FAILED - no driver until the next start()",
           before, (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
           (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
   }

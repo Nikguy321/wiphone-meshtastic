@@ -430,6 +430,23 @@ back), so it goes back into the hole the old ring left. `GBC: I2S ring reinstall
 says what it did. `tests/check_gbc_ring.py` pins the order (release, shutdown, reseat, WiFi), the
 refusal under a powered codec, the fresh default install, and I2S installed nowhere but installI2S().
 
+Review of the reseat, three repairs:
+- **A game whose sound starved now also turns the device off at quit.** After 60 short
+  `i2s_write`s in a row, the emu thread clears `soundOn` and leaves the codec ON. The quit used to
+  skip `shutdown()` on that path, so the reseat refused it ("LEFT where it is"), the heap stayed
+  split, and the codec stayed powered until the idle watchdog, which a lit screen holds off. The quit
+  now asks `soundStarted` (did the game turn the device on) instead of `soundOn`.
+- **No I2S driver no longer means a panic at the next start.** A failed install leaves no driver,
+  because the old ring is freed first. That includes the reseat's own install, however unlikely. IDF
+  3.3's `i2s_start()`/`i2s_stop()` dereference NULL, and `playMusic()` starts the device BEFORE it
+  installs its ring. `Audio::start()` now puts the default back once and refuses if even that fails,
+  and `shutdown()` stops I2S only with a driver installed. The quit line says `reinstall FAILED`
+  rather than confusing it with having nothing to move.
+- **What the quit line reads:** `~32,816 -> ~L` for a game that set the ring up at start.
+  `~L -> ~L` for a second game that found it matching; that reinstall has nothing to fix and is
+  harmless, and it hands the next start a fresh queue. `X -> X` well below L means something else
+  was left in the big block.
+
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 
 Nick, after looking at OpenTopoMap one level deeper: *"So it seems like open topo has a native

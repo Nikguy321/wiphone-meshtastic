@@ -110,7 +110,9 @@ public:
    * leave it stopped the way shutdown() leaves one. For a borrower that installed the ring while
    * its own large internal blocks sat in the heap (the Game Boy): called once those are freed,
    * so the heap places the ring again with them gone (0.9.79, see Audio.cpp). Refuses while the
-   * device is on, and with no driver to move. True = a driver is installed after it. */
+   * device is on, and with no driver to move. True = the ring was reinstalled (and left stopped).
+   * False with i2sReady() still true = refused; false with it now false = the install FAILED and
+   * there is no driver until the next start() installs one. */
   bool reseatI2S();
   bool setSampleRate(int hz);         // TODO: which or these purely configuring, and which reset the configuration?
   bool setBitsPerSample(int bits);
@@ -282,6 +284,12 @@ public:
   uint32_t getFilePos();
   bool isOn() {
     return this->audioOn;
+  }
+  /* Is an I2S driver installed? False only after a failed install (installI2S() frees the old ring
+   * before it builds the new one). The Game Boy's quit line reads it to tell a reseat that failed
+   * from one that had nothing to move. */
+  bool i2sReady() const {
+    return this->i2sInstalled;
   }
   /* Is the device actually MOVING SAMPLES right now?
    *

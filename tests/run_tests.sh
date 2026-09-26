@@ -200,7 +200,9 @@ fi
 # stayed cut in two (63,716 -> 32,816). ~GbcApp now reinstalls it after the release and the
 # shutdown, before WiFi; the order and Audio::reseatI2S()'s guards live in files this suite cannot
 # compile, and I2S is installed nowhere but Audio::installI2S() (whose cache the reseat relies on).
-echo "checking the Game Boy's I2S reseat at quit (release, shutdown, reseat, WiFi; one installer)"
+# Also: the quit shuts the device down on soundStarted (a starved game leaves it on), and start() /
+# shutdown() never reach IDF 3.3's NULL-dereferencing i2s_start()/i2s_stop() with no driver.
+echo "checking the Game Boy's I2S reseat at quit (release, shutdown, reseat, WiFi; one installer; no-driver guards)"
 if ! python3 tests/check_gbc_ring.py; then
   fail=1
 fi

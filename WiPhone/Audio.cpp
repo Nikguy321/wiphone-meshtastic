@@ -156,7 +156,10 @@ void Audio::configureMusicI2S(bool fresh) {
  * Stopped after, if the device is off: i2s_driver_install() starts the DMA (i2s_set_clk ends in
  * i2s_start), and the ring it replaces was stopped by shutdown(). A stopped fresh ring has an
  * empty queue and the DMA at buffer 0, which is what the next start() expects.
- * ⚠ Only with the device OFF: a powered codec losing its clocks under it clicks. */
+ * ⚠ Only with the device OFF: a powered codec losing its clocks under it clicks.
+ * ⚠ A FAILED install here leaves NO driver (the old ring was freed first): false, with i2sReady()
+ * now false, which the caller's log line tells apart from a refusal. Not retried here - the heap
+ * that just refused would refuse again; start() installs one on the next use, or refuses. */
 bool Audio::reseatI2S() {
   if (this->audioOn || !this->i2sInstalled) {
     return false;
@@ -277,6 +280,24 @@ void Audio::report() {
 
 bool Audio::start() {
   bool succ = true;
+
+  /* 🛑 NO DRIVER, NO START (0.9.79, review of the Game Boy's reseat). IDF 3.3's i2s_start()
+   * dereferences p_i2s_obj[0] with no NULL check (checked in libdriver.a), and a FAILED install
+   * leaves no driver: installI2S() uninstalls the old ring before it builds the new one, and
+   * i2s_driver_install() uninstalls itself when its DMA allocation fails. Any install can fail that
+   * way - music's, a pop's, the Game Boy's reseat at quit - and playMusic() calls turnOn() BEFORE
+   * it installs its own ring, so the next track after a failed install was a LoadProhibited panic.
+   * Put the default back once (the heap may have moved since) and refuse, device off, if even
+   * that fails. A no-op whenever a driver is in, which is every other time. */
+  if (!this->i2sInstalled) {
+    this->configureI2S();
+    if (!this->i2sInstalled) {
+      log_e("AUDIO: no I2S driver and the install failed (internal free %u, largest %u) - not starting",
+            (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+            (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+      return false;
+    }
+  }
 
   // Turn on the audio codec IC
   log_v("turning ON audio codec");
@@ -454,8 +475,12 @@ bool Audio::shutdown() {
   amplifierEnable(0);
 
   // Turn off I2S peripheral
-  if (i2s_stop(i2s_num)!=ESP_OK) {
-    succ = false;
+  /* ⚠ Only with a driver: IDF 3.3's i2s_stop() dereferences p_i2s_obj[0] with no NULL check,
+   * inside its critical section, and after a failed install there is none (see start()). */
+  if (this->i2sInstalled) {
+    if (i2s_stop(i2s_num)!=ESP_OK) {
+      succ = false;
+    }
   }
 
   this->audioOn = false;
