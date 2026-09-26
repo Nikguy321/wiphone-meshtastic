@@ -4,6 +4,15 @@
 
 Read this first; everything below it is narrative.
 
+📘 **2026-09-26 ~10:40: THE "BOOK SYNC FOR EVERYONE" PLAN IS `docs/booksync-simple-plan.md`** (Nick's ask: router-free
+sync for public owners, on the go, with or without e-readers/LoRa; a 10-agent design pass + critic). Shape: phones+COVEY
+broadcast the signed CBS1 record on the WiFi (UDP 8083, verify-before-park, no discovery); e-readers ALWAYS meet the phone
+on its own WPA2 hotspot `WiPhone-Books-<mac4>` at 192.168.4.1 (windows on a station IP removed — closes the foreign-WiFi
+gap); LoRa/WiFi/E-readers are separate switches; help pages on the phone. 🛑 **Found on the way: KOReader jumps to PAGE 1
+when it pulls a WiPhone/COVEY place** (we send `progress ""`; `GotoXPointer("")` → crengine null → page 1) — fix per client
+(§5.1) BEFORE KOReader appears in any instruction; and the window must WAIT for the home push under a hotspot-always rule
+(`kosyncSyncMyPlace` opens the window first today). Pending Nick: go on §5.1-3 now vs after 0.9.79; the privacy choice §7.
+
 🛠 **2026-09-26 09:00: THE LIVE WEB FLASHER IS 0.9.78 IN TWO PARTS — the NVS wipe is stopped for today's updaters.**
 Nick: "republish first". The parts were cut from the very image that had been live (byte-identical slices, sha
 `71ba15e8…` → boot `6c0d3558…` @0x1000 + app `e87b9fba…` @0xe000; live == stage verified; the merged image now 404s).
