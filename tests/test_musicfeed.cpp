@@ -21,6 +21,13 @@
  *      stall is counted even where the ring is seldom full again (normalize()), a card read that
  *      fails mid-track is an error and not the end of the file, and a WAV's units keep the mono
  *      pair swap on its pairs.
+ *   8. (the phone's map-pan bench, 2026-09-25) The catch-up STAYS on the pass after a long one.
+ *      A rule that deferred it (c20ccbf: one frame there, the rest repaid by the passes after)
+ *      is replayed through budgetFor() to keep the two reasons it was rejected: a long pass
+ *      followed right away by a stall runs the ring dry where the shipping rule does not, and in
+ *      a map pan the longest push-to-push interval stayed the same while the worst frame after
+ *      it got longer — it only moved the catch-up off the LOOP STALL line's pass, because music
+ *      is fed AFTER the redraw has pushed the frame.
  *
  * Costs are the ones the replay was calibrated with: decode 7.65 ms/frame (5,103 us measured at
  * 240 MHz x 1.5 for 160 MHz), card read 330 us + 1.95 us/byte (1.33 ms per 512 B vs 1,281 us
@@ -41,6 +48,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <algorithm>
 #include <deque>
 #include <vector>
 
@@ -298,10 +306,14 @@ struct ModelSink : public MusicSink {
   DmaModel* m = nullptr;
   Clock* clk = nullptr;
   bool keepValues = false;
+  long shortWrites = 0;                // writes the DMA did not take whole: "the ring is full"
   size_t write(const int16_t* s, size_t n) override {
     m->advance(clk->us);
     const int w = m->write((int)n, keepValues ? s : nullptr);
     clk->us += 25;
+    if ((size_t)w < n) {
+      shortWrites++;
+    }
     return (size_t)w;
   }
   uint64_t nowUs() override {
@@ -319,16 +331,79 @@ struct RecSink : public ModelSink {
   }
 };
 
+/* THE REJECTED RULE (section 8; music_feed.h, "...AND THE CATCH-UP STAYS ON THE PASS AFTER A
+ * LONG ONE"), line for line from c20ccbf's MusicBudget and its constants: a pass that followed
+ * >= 150 ms elsewhere while the ring held half decodes ONE unit and owes the rest of its budget;
+ * the passes after it decode their own budget plus what is owed, up to 12; a long pass under
+ * half does the plain catch-up and repays only under 30%; a ring that refuses a write clears the
+ * debt. Kept only so the tests below can show they catch it. */
+struct DeferRule {
+  int owed = 0;
+  int base = 0;
+  int next(int32_t lo, uint32_t cap, uint64_t gapUs) {
+    const int64_t l = lo;
+    const int64_t c = cap;
+    base = l < c * MUSIC_CATCH_UP_BELOW_PCT / 100 ? MUSIC_UNITS_CATCH_UP : MUSIC_UNITS_PER_PASS;
+    const bool longPass = gapUs >= 150000;
+    if (longPass && l >= c * 50 / 100) {
+      owed += base - 1;
+      if (owed > MUSIC_UNITS_CATCH_UP) {
+        owed = MUSIC_UNITS_CATCH_UP;
+      }
+      return 1;
+    }
+    if (longPass && l >= c * 30 / 100) {
+      return base;
+    }
+    const int u = base + owed;
+    return u > 12 ? 12 : u;
+  }
+  void done(int units, bool full) {
+    if (full) {
+      owed = 0;
+      return;
+    }
+    if (units > base) {
+      const int paid = units - base;
+      owed = paid >= owed ? 0 : owed - paid;
+    }
+  }
+};
+
 struct SimFeed : public MusicFeed {
   Clock* clk = nullptr;
   double decodeUs = 7650;
+  /* Set: the pass budget is the rejected rule above, told what each pass did (the units charged
+   * here, and whether `seen` took a write short) when the next pass asks. Unset: the phone's. */
+  DeferRule* defer = nullptr;
+  const ModelSink* seen = nullptr;
 protected:
   void chargeDecode(int rc, size_t samples) override {
     (void)samples;
     if (clk) {
       clk->us += rc > 0 ? decodeUs + 150 : 40;       // + the mono/half-band conversion
     }
+    if (rc > 0) {
+      units++;
+    }
   }
+  int budgetFor(int32_t lo, uint32_t cap, uint64_t gapUs) override {
+    if (!defer) {
+      return MusicFeed::budgetFor(lo, cap, gapUs);
+    }
+    const long shorts = seen ? seen->shortWrites : 0;
+    if (asked) {
+      defer->done(units, shorts != shortsBefore);
+    }
+    asked = true;
+    units = 0;
+    shortsBefore = shorts;
+    return defer->next(lo, cap, gapUs);
+  }
+private:
+  int units = 0;
+  bool asked = false;
+  long shortsBefore = 0;
 };
 
 struct Scenario {
@@ -661,6 +736,300 @@ static void testOtherShapes() {
   const Scenario sc = {"20 ms passes, decode 11.5 ms", 20, 0, 0, 36};
   const Result r = runNew(s192, sc, 11500);
   ok(r.trueEpisodes == 0 && r.drops == 0, "a decode 1.5x slower than measured still keeps up");
+}
+
+// ─── 8: a long pass, then a stall — the catch-up stays on the pass after a long one ─────
+
+/* The rest of the loop, pass by pass: passes of `lightMs`; from `firstS` on, every `everyS`
+ * seconds, `heavy` passes of `heavyMs` back to back, then (if `thenMs`) `between` light passes
+ * and one pass of `thenMs` — a stall landing right after the long pass. */
+struct Plan {
+  double lightMs;
+  double heavyMs;
+  int heavy;
+  int between;
+  double thenMs;
+  double firstS, everyS, secs;
+};
+
+/* Per pass: the rest of the loop and then this pass's music, in ms. On the phone the frame is
+ * pushed at the end of the rest ("redraw") and music is fed after it ("audio-loop", the bottom of
+ * loop()), so the LOOP STALL line measures rest + music of ONE pass, while the eye gets push to
+ * push: the previous pass's music + this pass's rest. */
+struct PlanRun {
+  long episodes = 0;
+  uint32_t drops = 0;
+  int32_t minLeadMs = 0;
+  std::vector<double> rest, work;
+  std::vector<int> kind;                      // 0 light, 1 heavy, 2 the stall after
+  double maxIter() const {
+    double m = 0;
+    for (size_t i = 0; i < rest.size(); i++) {
+      m = std::max(m, rest[i] + work[i]);
+    }
+    return m;
+  }
+  long itersOver(double ms) const {
+    long n = 0;
+    for (size_t i = 0; i < rest.size(); i++) {
+      n += rest[i] + work[i] > ms;
+    }
+    return n;
+  }
+  double frame(size_t i) const {
+    return (i ? work[i - 1] : 0) + rest[i];
+  }
+  double maxFrame() const {
+    double m = 0;
+    for (size_t i = 0; i < rest.size(); i++) {
+      m = std::max(m, frame(i));
+    }
+    return m;
+  }
+  long framesOver(double ms) const {
+    long n = 0;
+    for (size_t i = 0; i < rest.size(); i++) {
+      n += frame(i) > ms;
+    }
+    return n;
+  }
+  /* The longest of the three frames after each burst of heavy passes: where a catch-up lands. */
+  double afterHeavy() const {
+    double m = 0;
+    for (size_t i = 1; i < rest.size(); i++) {
+      if (kind[i - 1] == 1 && kind[i] != 1) {
+        for (size_t k = i; k < i + 3 && k < rest.size(); k++) {
+          m = std::max(m, frame(k));
+        }
+      }
+    }
+    return m;
+  }
+  double heavyWork() const {
+    double m = 0;
+    for (size_t i = 0; i < rest.size(); i++) {
+      if (kind[i] == 1) {
+        m = std::max(m, work[i]);
+      }
+    }
+    return m;
+  }
+};
+
+static PlanRun runPlan(const Stream& st, const Plan& p, double decodeUs, bool deferral) {
+  PlanRun R;
+  Clock clk;
+  MemSource src;
+  src.d = &st.bytes;
+  src.clk = &clk;
+  Mp3Stream mp3;
+  mp3.begin();
+  static int16_t dec[2400];
+  DeferRule rule;
+  SimFeed feed;
+  feed.clk = &clk;
+  feed.decodeUs = decodeUs;
+  feed.defer = deferral ? &rule : nullptr;
+  feed.begin();
+  feed.swapPairs = false;
+  if (!feed.openMp3(&src, &mp3, dec, 0, 0)) {
+    ok(false, "the synthetic stream opens");
+    return R;
+  }
+  DmaModel m(MUSIC_DMA_BUFS, MUSIC_DMA_BUF_SAMPLES, feed.outRate());
+  m.t0us = clk.us;
+  ModelSink sink;
+  sink.m = &m;
+  sink.clk = &clk;
+  feed.seen = &sink;
+  MusicDma dma = {MUSIC_DMA_BUFS, MUSIC_DMA_BUF_SAMPLES, feed.outRate(), 1};
+  feed.start(&sink, dma);
+  const double t0 = clk.us;
+  double nextS = p.firstS;
+  int heavyLeft = 0, betweenLeft = 0;
+  bool thenDue = false;
+  while (clk.us - t0 < p.secs * 1e6) {
+    const double t = (clk.us - t0) / 1e6;
+    if (heavyLeft == 0 && betweenLeft == 0 && !thenDue && t >= nextS) {
+      heavyLeft = p.heavy;
+      thenDue = p.thenMs > 0;
+      betweenLeft = thenDue ? p.between : 0;
+      nextS += p.everyS;
+    }
+    double rest = p.lightMs;
+    int kind = 0;
+    if (heavyLeft > 0) {
+      heavyLeft--;
+      rest = p.heavyMs;
+      kind = 1;
+    } else if (betweenLeft > 0) {
+      betweenLeft--;
+    } else if (thenDue) {
+      thenDue = false;
+      rest = p.thenMs;
+      kind = 2;
+    }
+    clk.us += rest * 1000;
+    const double a = clk.us;
+    feed.pass(dma);
+    R.rest.push_back(rest);
+    R.work.push_back((clk.us - a) / 1000.0);
+    R.kind.push_back(kind);
+  }
+  m.advance(clk.us);
+  MusicStats s;
+  feed.stats(&s, (uint64_t)clk.us);
+  R.episodes = m.episodes;
+  R.drops = s.drops;
+  R.minLeadMs = s.minLeadMs;
+  return R;
+}
+
+/* The review of c20ccbf (2026-09-25), problem 1, as a test: a long pass (a tile + the redraw, a Files slice
+ * that ran over, a mesh send) and then, before any short pass, a stall. Nothing runs between the
+ * two, so what the ring holds at the second is what the long pass left it: a rule that decodes
+ * less on the long pass loses stalls this one survives. */
+static void testLongPassThenStall() {
+  group("a long pass, then a stall: the catch-up stays on the pass after a long one");
+  /* `envelopeMs`: the long pass and the stall after it together, up to which this rule keeps
+   * >= 20 ms in the ring in every case below (22.05 kHz: 27 ms at the worst; 24 kHz: 43; 32 kHz,
+   * a 384 ms ring that the long pass's 8 frames refill by 288 ms: 57). */
+  struct Src {
+    const char* name;
+    Stream s;
+    double envelopeMs;
+  };
+  const Src srcs[] = {
+    {"44.1k/192k (22.05 kHz out)", makeMpeg1(44100, 192, 400), 600},
+    {"48k/128k (24 kHz out)", makeMpeg1(48000, 128, 420), 530},
+    {"32k/128k (32 kHz, whole)", makeMpeg1(32000, 128, 300), 530},
+  };
+  const double costs[] = {7650, 9900};
+  const double bases[] = {10, 40, 77};
+  const double longs[] = {150, 190, 230};
+  const double stalls[] = {300, 400, 450};
+  long cases = 0, clean = 0, rescued = 0;
+  for (const Src& src : srcs) {
+    long deferLost = 0;                       // inside the envelope: clean here, dry deferred
+    for (double dc : costs) {
+      long inside = 0, lost = 0;
+      int32_t worst = 1 << 30;
+      for (double base : bases) {
+        for (double A : longs) {
+          for (int between = 0; between <= 1; between++) {
+            for (double B : stalls) {
+              /* ~3 s of passes to settle, the long pass, `between` short ones, the stall, and
+               * 1.5 s to hear the ring come back. */
+              const Plan p = {base, A, 1, between, B, 3.0, 100.0, 4.5};
+              const PlanRun o = runPlan(src.s, p, dc, false);
+              const PlanRun d = runPlan(src.s, p, dc, true);
+              const bool oClean = o.episodes == 0 && o.drops == 0;
+              const bool dClean = d.episodes == 0 && d.drops == 0;
+              cases++;
+              clean += oClean;
+              rescued += !oClean && dClean;
+              if (A + B <= src.envelopeMs) {
+                inside++;
+                worst = std::min(worst, o.minLeadMs);
+                if (!oClean || o.minLeadMs <= 0) {
+                  lost++;
+                  note("  LOST: %s @%.2f, %.0f ms passes, %.0f then %d short then %.0f: minLead %d", src.name,
+                       dc / 1000.0, base, A, between, B, (int)o.minLeadMs);
+                }
+                deferLost += oClean && !dClean;
+              }
+              if (getenv("MF_PAIRS")) {
+                note("%-26s @%.2f %2.0f ms, %3.0f then %d short then %3.0f: minLead %4d%s | deferral %4d%s",
+                     src.name, dc / 1000.0, base, A, between, B, (int)o.minLeadMs, oClean ? "" : " DROPOUT",
+                     (int)d.minLeadMs, dClean ? "" : " DROPOUT");
+              }
+            }
+          }
+        }
+      }
+      char what[220];
+      snprintf(what, sizeof(what),
+               "%s @%.2f: a long pass of 150-230 ms, 0-1 short passes, then a stall, together <= %.0f ms: "
+               "no dropout in %ld cases (least left %d ms)",
+               src.name, dc / 1000.0, src.envelopeMs, inside, (int)worst);
+      ok(lost == 0, what);
+      note("%-26s @%.2f: long pass + stall <= %.0f ms: %ld cases, %ld dropouts, least left %d ms", src.name,
+           dc / 1000.0, src.envelopeMs, inside, lost, (int)worst);
+    }
+    note("%-26s        the replayed deferral ran dry in %ld of them", src.name, deferLost);
+    char what[200];
+    snprintf(what, sizeof(what), "%s: (the replayed deferral runs dry in %ld of those: the test has teeth)",
+             src.name, deferLost);
+    ok(deferLost > 0, what);
+  }
+  note("all %ld cases, 300-450 ms stalls: this rule clean in %ld; the deferral clean in %ld that this rule lost",
+       cases, clean, rescued);
+  ok(rescued == 0, "(and deferring never rescues a case this rule loses)");
+}
+
+/* The map pan the phone measured (2026-09-25, Pulse.mp3 192k under `maps hold`): short passes and
+ * every so often a HEAVY one — a tile's last piece + the full redraw, ~190-210 ms. The LOOP STALL
+ * lines read 274-301 ms with 88-94 ms of music on top (9.9 ms a frame reproduces the 91). */
+static void testMapPan() {
+  group("a map pan: the catch-up after the heavy pass is expected, and deferring it hides nothing");
+  const Stream s = makeMpeg1(44100, 192, 2600);
+  const double costs[] = {7650, 9900};
+  struct Shape {
+    const char* name;
+    Plan p;
+  };
+  const Shape shapes[] = {
+    {"40 ms + a 190 ms pass every 2 s", {40, 190, 1, 0, 0, 2, 2, 60}},
+    {"77 ms + a 190 ms pass every 2 s", {77, 190, 1, 0, 0, 2, 2, 60}},
+    {"77 ms + a 210 ms pass every 2 s", {77, 210, 1, 0, 0, 2, 2, 60}},
+    {"100 ms + a 190 ms pass every 2 s", {100, 190, 1, 0, 0, 2, 2, 60}},
+  };
+  for (double dc : costs) {
+    const double frame = (dc + 2000) / 1000.0;                  // a frame's decode + its share of reads
+    for (const Shape& sh : shapes) {
+      const PlanRun o = runPlan(s, sh.p, dc, false);
+      const PlanRun d = runPlan(s, sh.p, dc, true);
+      note("%-34s @%.2f ms/frame", sh.name, dc / 1000.0);
+      note("  this rule: music on the heavy pass %5.1f ms | LOOP STALL pass max %5.1f, %3ld over 250 | "
+           "push to push max %5.1f, after the heavy one %5.1f, %3ld over 200 | minLead %d",
+           o.heavyWork(), o.maxIter(), o.itersOver(250), o.maxFrame(), o.afterHeavy(), o.framesOver(200),
+           (int)o.minLeadMs);
+      note("  deferral:  music on the heavy pass %5.1f ms | LOOP STALL pass max %5.1f, %3ld over 250 | "
+           "push to push max %5.1f, after the heavy one %5.1f, %3ld over 200 | minLead %d",
+           d.heavyWork(), d.maxIter(), d.itersOver(250), d.maxFrame(), d.afterHeavy(), d.framesOver(200),
+           (int)d.minLeadMs);
+      char what[200];
+      snprintf(what, sizeof(what), "%s @%.2f: clean, minLead > 200 ms", sh.name, dc / 1000.0);
+      ok(o.episodes == 0 && o.drops == 0 && o.minLeadMs > 200, what);
+      snprintf(what, sizeof(what),
+           "%s @%.2f: the heavy pass carries the whole catch-up and the LOOP STALL line names it: EXPECTED "
+           "(read music_feed.h before giving the long pass a rule of its own)",
+           sh.name, dc / 1000.0);
+      ok(o.heavyWork() > 7 * frame && o.itersOver(250) >= 25, what);
+      snprintf(what, sizeof(what),
+           "%s @%.2f: (the deferral clears that line, but the longest push to push is no shorter ...)",
+           sh.name, dc / 1000.0);
+      ok(d.itersOver(250) == 0 && d.maxFrame() >= o.maxFrame() - 0.5, what);
+      snprintf(what, sizeof(what), "%s @%.2f: (... and the worst frame after the heavy one is longer)", sh.name,
+               dc / 1000.0);
+      ok(d.afterHeavy() > o.afterHeavy() + 2 * frame, what);
+    }
+    /* Back to back: the map loads a tile in pieces a pass apart, so heavy passes are normally
+     * apart; two or three in a row are the hard case for the ring. */
+    const Plan pair = {40, 190, 2, 0, 0, 2, 2, 60};
+    const Plan three = {40, 230, 3, 0, 0, 3, 3, 60};
+    const PlanRun p = runPlan(s, pair, dc, false);
+    const PlanRun q = runPlan(s, three, dc, false);
+    note("40 ms + 2 x 190 ms back to back / 2 s @%.2f: minLead %d, push to push max %.1f", dc / 1000.0,
+         (int)p.minLeadMs, p.maxFrame());
+    note("40 ms + 3 x 230 ms back to back / 3 s @%.2f: minLead %d, push to push max %.1f", dc / 1000.0,
+         (int)q.minLeadMs, q.maxFrame());
+    char what[200];
+    snprintf(what, sizeof(what), "2 x 190 ms back to back @%.2f: clean, minLead > 200 ms", dc / 1000.0);
+    ok(p.episodes == 0 && p.drops == 0 && p.minLeadMs > 200, what);
+    snprintf(what, sizeof(what), "3 x 230 ms back to back @%.2f: clean, minLead > 50 ms", dc / 1000.0);
+    ok(q.episodes == 0 && q.drops == 0 && q.minLeadMs > 50, what);
+  }
 }
 
 // ─── the counter's honesty when it fails ────────────────────────────────────────────────
@@ -1684,6 +2053,8 @@ int main() {
   testLeadBounds();
   testOldVsNew();
   testOtherShapes();
+  testLongPassThenStall();
+  testMapPan();
   testDropsAreTrue();
   testLeadNormalize();
   testReadErrors();

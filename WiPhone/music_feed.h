@@ -58,6 +58,38 @@
  *     dropouts in 180 s at 77 ms + 300 ms every 10 s); at 80% it settles at ~430 ms and the same
  *     runs are clean. The work per second is set by the audio rate either way; only the level
  *     the ring settles at moves. (120 ms passes at 48 kHz still lose: 8 frames a pass is the CPU.)
+ *   - ...AND THE CATCH-UP STAYS ON THE PASS AFTER A LONG ONE. 🛑 Tried and rejected in review
+ *     2026-09-25 (c20ccbf, never flashed). Phone 2, Pulse.mp3 (192k) under `maps hold` pans:
+ *     drops=0, minLead 265 ms, but ~10 LOOP STALLs of 274-301 ms in 18 s — a tile's last piece
+ *     + the redraw (~190-210 ms), then this pass's 8-frame catch-up (88-94 ms). Deferring it (ONE
+ *     frame on a pass that followed >= 150 ms while the ring held half; the other seven repaid,
+ *     up to 12 a pass, by the passes after) cleared every such line in the host model. It was
+ *     wrong twice over:
+ *       - IT DROPS OUT WHERE THIS RULE DOES NOT. Nothing runs between a long pass and whatever
+ *         comes right after it, so a long pass that decodes less leaves the next stall less
+ *         audio. 77 ms passes, a 210 ms pass finding 324 ms queued, then 377 ms: this rule ends
+ *         the long pass at 460 ms queued and the 377 leaves 83 ms; the deferral ended it at 337
+ *         and ran dry. Of the suite's 324 "long pass, then a 300-450 ms stall" cases (22.05, 24
+ *         and 32 kHz out, both decode costs) this rule is clean in 219 and the deferral lost 63
+ *         of those, winning none; the review's wider sweep also lost 12 of 74 map pans with one
+ *         extra 300-400 ms stall every ~15 s. ANY rule that decodes less on the long pass has a
+ *         window of stalls it loses and this one survives; deferring fewer frames only narrows
+ *         it (4, 5 or 6 frames on the long pass still fail the suite's envelope at 9.9 ms/frame).
+ *       - IT HID NOTHING FROM THE EYE. Music is fed from Audio::loop() at the BOTTOM of loop()
+ *         ("audio-loop"), AFTER "redraw" has pushed the frame. So a LOOP STALL line with music
+ *         under the map is the heavy frame, already on screen, PLUS the catch-up that follows
+ *         it — not a freeze of that length. What the eye gets is push-to-push time: the previous
+ *         pass's music + this pass's work. In the model's pans the longest of those was the SAME
+ *         under both rules (the heavy frame itself, 219-301 ms), and the worst frame AFTER it
+ *         got longer under the deferral, because the repay lands there (a 77 ms pan: 150 -> 187
+ *         ms at 7.65 ms/frame, 168 -> 214 at the phone's 9.9). Only two heavy passes back to
+ *         back gained (263 -> 219 ms), for minLead 292 -> 175.
+ *     So a LOOP STALL line naming 'redraw' while music plays under the map is EXPECTED and is
+ *     not the budget's to fix. What would move the pan: a lighter heavy frame (the map's tile
+ *     pieces and redraw), or decoding while the loop is blocked (a task of its own, which must
+ *     share the card and the SPI bus with the map and the LCD — a bench job, not a rule).
+ *     tests/test_musicfeed.cpp ("a long pass, then a stall" and "a map pan") keeps both
+ *     findings, with that rule replayed through budgetFor().
  *   - tests/test_musicfeed.cpp, with the real decoder on a 192 kbps-shaped stream against a model
  *     of the IDF 3.3 DMA: zero true dropouts at passes of 5-80 ms, at 10 ms + a 100 ms stall
  *     every second, 300 ms every 10 s and 450 ms every 5 s, and at 77 or 100 ms passes + 300 ms
@@ -292,6 +324,11 @@ public:
 protected:
   /* The host suite charges simulated decode time here. Nothing on the phone. */
   virtual void chargeDecode(int rc, size_t samplesOut) { (void)rc; (void)samplesOut; }
+  /* The units this pass may decode: 4, or 8 under MUSIC_CATCH_UP_BELOW_PCT. `lo` = the lead's
+   * lower bound now; `gapUs` = how long the rest of the loop held music since this feed's last
+   * pass (0 = not known), which the rule deliberately ignores. The host suite replays a rejected
+   * rule here to prove its tests catch it; nothing on the phone overrides it. */
+  virtual int budgetFor(int32_t lo, uint32_t cap, uint64_t gapUs);
 
 private:
   void   reset();

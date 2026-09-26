@@ -729,6 +729,16 @@ void MusicFeed::start(MusicSink* s, const MusicDma& dma) {
   lastPassUs = sink->nowUs();
 }
 
+/* The budget: normally a few frames, so a pass that finds the ring hungry does not hold the loop
+ * for long; more when the ring is low, so a stall is recovered from in a pass or two. It is the
+ * same on EVERY pass, the one that follows a long one included: see "...AND THE CATCH-UP STAYS
+ * ON THE PASS AFTER A LONG ONE" in music_feed.h before making `gapUs` count for anything. */
+int MusicFeed::budgetFor(int32_t lo, uint32_t cap, uint64_t gapUs) {
+  (void)gapUs;
+  const int64_t lowWater = (int64_t)cap * MUSIC_CATCH_UP_BELOW_PCT / 100;
+  return (int64_t)lo < lowWater ? MUSIC_UNITS_CATCH_UP : MUSIC_UNITS_PER_PASS;
+}
+
 void MusicFeed::pass(const MusicDma& dma) {
   if (kind == NONE || !sink || readFailed) {
     return;
@@ -740,8 +750,10 @@ void MusicFeed::pass(const MusicDma& dma) {
     dmaGen = dma.gen;
     ringBase = lead.writtenTotal();   // (a new install holds no half buffer)
   }
-  if (lastPassUs && now > lastPassUs && now - lastPassUs > maxGapUs) {
-    maxGapUs = now - lastPassUs;
+  /* How long the rest of the loop held music since this feed's last pass ended. */
+  const uint64_t gap = (lastPassUs && now > lastPassUs) ? now - lastPassUs : 0;
+  if (gap > maxGapUs) {
+    maxGapUs = gap;
   }
   nPasses++;
   if (isEnded) {
@@ -749,10 +761,7 @@ void MusicFeed::pass(const MusicDma& dma) {
     return;
   }
   lead.check(now);
-  /* The budget: normally a few frames, so a pass that finds the ring hungry does not hold the
-   * loop for long; more when the ring is low, so a stall is recovered from in a pass or two. */
-  const int64_t lowWater = (int64_t)lead.cap() * MUSIC_CATCH_UP_BELOW_PCT / 100;
-  run(lead.lo(now) < lowWater ? MUSIC_UNITS_CATCH_UP : MUSIC_UNITS_PER_PASS);
+  run(budgetFor(lead.lo(now), lead.cap(), gap));
   const uint64_t done = sink->nowUs();
   const uint64_t work = done > now ? done - now : 0;
   sumWorkUs += work;
