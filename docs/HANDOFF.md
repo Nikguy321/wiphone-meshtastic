@@ -4,7 +4,11 @@
 
 Read this first; everything below it is narrative.
 
-🌒 **2026-09-26 00:50: BOTH PHONES RUN `kosync` ec25ce5 (two-part install, keys/mute kept); overnight idle soak running.**
+🌒 **2026-09-26 00:50: BOTH PHONES RUN `kosync` ec25ce5 (two-part install, keys/mute kept).** **Overnight idle soak
+00:52-06:42 (5.8 h) PASSED on both:** 0 reboots/panics/RADIO LOST/WiFi drops, wifi=3 in all 1,402 HEALTH lines each, ~150
+frames each 0 timeouts, largest flat (p1 62-65 KB, p2 59,980). Phone 2's healthCheck absorbed 2 single-bit glitches
+(ver=0x1A; op=0x87) that 0.9.78 would have called RADIO LOST. Stalls: one 'mesh-ui' 257 ms, one 'battery' 722 ms (the
+health.log card append — SD write latency, pre-existing class).
 The 2-hour soak on 160b2a0 (19:57-21:57) PASSED: 0 reboots/panics/RADIO LOST/WiFi drops/STALLs, wifi=3 in all 481 HEALTH
 lines per phone, 60 + 56 frames 0 timeouts, largest flat. Integration review 3 (56b56ad..160b2a0) confirmed 10, all fixed +
 verified + repaired (2e84e1b, 9c1887a, 772b855, 340e2f9, ec25ce5): 🛑 **A1 — the notification CHIRP was erased before it could
