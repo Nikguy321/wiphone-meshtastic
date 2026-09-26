@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.79 (dev build, not released) - reading-position sync over KOSync (Xteink X4, KOReader, COVEY)
+## 0.9.79-NH (2026-09-26) - reading-position sync over KOSync (Xteink X4, KOReader, COVEY), music rebuilt, the web installer keeps your settings
 
 **The version is `0.9.79-NH` from here on** (Nick: "add something to differentiate it from the default
 firmware"): the `-NH` suffix shows on the splash (with a second line, "Custom firmware by Nick H."),

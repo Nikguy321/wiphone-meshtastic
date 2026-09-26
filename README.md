@@ -93,6 +93,20 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.79-NH** — the version now carries **`-NH`** and the splash says whose firmware this is.
+  **Reading positions sync over KOSync** (an Xteink X4 running the fork, KOReader, or COVEY as
+  the home server): *Sync my place* pushes to home first and then opens a 5-minute window an
+  e-reader can pull from or push to, and a place from another device arrives as the same
+  *Go there / Stay* card the LoRa sync uses — nothing moves a saved place but *Go there*. A
+  KOReader that pulls from the phone gets "No progress found" instead of being sent to page 1.
+  **The web installer no longer erases the phone's settings** (mesh key, book-sync passcode,
+  KOSync memo; it wrote over NVS through 0.9.78). **Music rebuilt**: mono at half rate through
+  its own half-second ring — clean through map pans and page turns, an honest `drops` counter, a
+  resume that no longer bursts, titles that stop overlapping, and a notification chirp that lets
+  the song carry on. **Phone 1's WiFi drops are gone** (the CPU-clock switch under the radio),
+  **mesh transmits never stall the phone**, a Game Boy game gives the heap back whole at quit, the
+  notification chirp is audible again (it had been erased since 0.9.66), and `pki forget <node>`
+  re-trusts one node's key.
 - **0.9.78** — **OpenTopoMap's real z17 is downloadable**, 2 to 20 km, throttled to at least
   2 s between z17 requests, and **built to run for days**: the job survives a WiFi drop, a
   call, a game or a restart, and resumes by itself on the network it started on. Stop takes two

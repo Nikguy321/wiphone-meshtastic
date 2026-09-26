@@ -4,6 +4,14 @@
 
 Read this first; everything below it is narrative.
 
+🚀 **2026-09-26 13:10: 0.9.79-NH RELEASED** (Nick: "push and commit and publish"; splash "looks good", ringtone "sounds
+good"). `kosync` fast-forwarded into `main`, pushed; the installer stage regenerated from the release build
+(make_webflasher.sh; `Ver. 0.9.79-NH` read out of the app part) and published to gh-pages as the two parts; live shas
+verified against the stage (see the block below this one for the flasher's two-part story). Both phones run the
+12:48:05 build of the same source. The X4 Pro arrives Sunday 2026-09-27 (the [[x4-reader-sync-idea]] memory and
+docs/booksync-simple-plan.md Bench 5: `http://covey.local:8088` as the hub URL first). Not released: the OTA path
+(`ota/` is 0.9.2 since Aug; the transport cannot work on this heap), unchanged as in 0.9.78.
+
 🏷 **2026-09-26 12:50: THE VERSION IS `0.9.79-NH`** (Nick's ask: mark his firmware apart from stock). Suffix, not
 prefix — ota.cpp's `compVersions()` sscanf's `%u.%u.%u` and ignores the rest; a prefix parses as 0.0.0 and every server
 version looks newer. Never `rc`/`db` in a tag (they mean things there). The splash draws "Custom firmware by Nick H."
