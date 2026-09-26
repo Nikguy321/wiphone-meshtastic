@@ -430,6 +430,9 @@ protected:
   bool  deletePin(int idx);
   void  beginMeshOp(uint8_t op, uint32_t txId, int idx);
   bool  settleMeshOp(bool final);   // true = the note or a pin changed (redraw)
+  /* Is pin idx's retraction still waiting for the radio (mapPinRetractionQueued)? Then nothing
+   * may re-share it, and nothing may settle that frame early (review M1 follow-up). */
+  bool  retractionQueued(int idx) const;
   int   pinByWaypoint(uint32_t wpId) const;   // -1 when no pin carries it
   void  stepPin(int delta);
   void  scanAreaExtent(MapArea* a);   // scanAreas: the tiles' bounding box at zMin

@@ -167,6 +167,7 @@ protected:
   uint32_t syncTxId;
   int      syncTxCh, syncTxPct;  // ...what the note names (chapter, %), fixed at the send
   bool     syncNoteSettle();     // re-word syncNote from the frame's outcome; true = changed
+  void     armMenuTick();        // BOOKS_MENU's tick: KOSync's, or a frame's answer, or none
 
   /* ---- KOSync (kosync_sync.h): a SECOND transport beside LoRa, and OFF unless
    * /books/kosync.txt exists — without it "Sync my place" does exactly what it always did.

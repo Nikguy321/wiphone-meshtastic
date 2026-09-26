@@ -302,3 +302,10 @@ uint8_t mapPinMeshSettle(uint8_t op, uint8_t outcome, bool final) {
   /* No word (UNKNOWN, or QUEUED with no more waiting). */
   return op == MAP_PINOP_DELETE ? MAP_PINACT_DONE : MAP_PINACT_KEEP_ID;
 }
+
+/* See map_pins.h. QUEUED is spelled as mapPinMeshSettle spells it (pinned by test_maptiles). */
+bool mapPinRetractionQueued(uint8_t op, uint8_t outcome, uint32_t opWpId, uint32_t pinWpId) {
+  const uint8_t QUEUED = 1;
+  return (op == MAP_PINOP_UNSHARE || op == MAP_PINOP_DELETE) && outcome == QUEUED &&
+         opWpId != 0 && opWpId == pinWpId;
+}

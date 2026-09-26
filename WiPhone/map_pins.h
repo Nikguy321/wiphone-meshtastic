@@ -116,4 +116,19 @@ enum MapPinMeshAct : uint8_t {
 
 uint8_t mapPinMeshSettle(uint8_t op, uint8_t outcome, bool final);
 
+/* 🛑 A RETRACTION STILL IN THE QUEUE IS NOT SETTLED BY THE NEXT OPERATION ON THE SAME PIN
+ * (integration review of M1, 2026-09-25). The id is kept until the retraction is reported
+ * SENT, so for the second or so it waits, the pin still carries its waypoint id — and Move
+ * here and Rename re-share any pin that carries one. That re-share settles the old frame
+ * first with no more waiting (final), a final QUEUED unshare is KEEP_ID above, and the update
+ * then goes out in the queue RIGHT BEHIND the retraction: the place comes back on every other
+ * radio, which is the one thing "Take it off the mesh" was pressed to prevent (before M1 the
+ * id was cleared at once, so neither handler re-shared). The settle rule is right — no word
+ * keeps the id — so the guard is a separate question asked BEFORE it: is a retraction of
+ * THIS pin's waypoint still waiting? True only for an unshare or a delete, still QUEUED, of a
+ * non-zero waypoint id equal to the pin's. The map then refuses the re-share (sharePin) and
+ * Move/Rename change the pin here only, leaving the retraction to finish. Pure, like the
+ * settle: tests/test_maptiles.cpp. `outcome` is the MeshTxOutcome value. */
+bool mapPinRetractionQueued(uint8_t op, uint8_t outcome, uint32_t opWpId, uint32_t pinWpId);
+
 #endif // MAP_PINS_H

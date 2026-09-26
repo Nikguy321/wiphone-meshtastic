@@ -874,6 +874,35 @@ int main() {
       }
     }
     CHECK(neverForgets, "FORGET_ID comes from exactly one answer: a retraction reported SENT");
+
+    /* The integration review's follow-up: Move here / Rename re-share a pin that carries an id,
+     * and the id is now kept while its retraction waits — so the question "is a retraction of
+     * THIS waypoint still queued?" must be asked before any re-share settles it. */
+    const uint32_t WP = 0x5eed1234u, OTHER = 0x0badf00du;
+    CHECK(mapPinRetractionQueued(MAP_PINOP_UNSHARE, Q, WP, WP),
+          "'Take it off the mesh' still queued, same waypoint: a retraction is waiting");
+    CHECK(mapPinRetractionQueued(MAP_PINOP_DELETE, Q, WP, WP),
+          "a shared pin's delete (restorable) still queued: a retraction is waiting");
+    CHECK(!mapPinRetractionQueued(MAP_PINOP_UNSHARE, S, WP, WP) &&
+          !mapPinRetractionQueued(MAP_PINOP_UNSHARE, F, WP, WP) &&
+          !mapPinRetractionQueued(MAP_PINOP_UNSHARE, UNK, WP, WP),
+          "answered (sent, failed) or forgotten: nothing is waiting any more");
+    CHECK(!mapPinRetractionQueued(MAP_PINOP_SHARE, Q, WP, WP) &&
+          !mapPinRetractionQueued(MAP_PINOP_RESHARE, Q, WP, WP),
+          "a share or an update still queued is not a retraction: an update may follow it");
+    CHECK(!mapPinRetractionQueued(MAP_PINOP_UNSHARE, Q, WP, OTHER),
+          "another pin's retraction does not hold THIS pin back");
+    CHECK(!mapPinRetractionQueued(MAP_PINOP_UNSHARE, Q, 0, 0) &&
+          !mapPinRetractionQueued(0, Q, 0, 0),
+          "an unshared pin (id 0) and an empty op never match");
+    /* The trap itself, as a sequence: Move here on a pin whose retraction is queued. The re-share
+     * would settle it with no more waiting — which KEEPS the id, so the pin still reads shared
+     * and the update would be queued behind the retraction. The guard must say "waiting" in
+     * exactly the state where the settle says "keep". */
+    const uint32_t pinIdAfterSettle =
+        mapPinMeshSettle(MAP_PINOP_UNSHARE, Q, true) == MAP_PINACT_KEEP_ID ? WP : 0;
+    CHECK(pinIdAfterSettle == WP && mapPinRetractionQueued(MAP_PINOP_UNSHARE, Q, WP, pinIdAfterSettle),
+          "a still-queued retraction keeps the id to a settle, and the guard refuses the re-share");
   }
 
   printf("\n%d checks, %d failures\n", checks, failures);

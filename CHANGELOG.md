@@ -170,6 +170,9 @@ from the real source to prove its contract trips).
   retraction's waypoint id is kept until it has really left). A game or legacy upload started mid-frame no
   longer leaves the radio deaf. `meshdb cut`/`wifi calreset`/`wifi restore` run the power-off saves first;
   `meshdb cut` and both `power` sleeps refuse while a frame is on the air or waiting.
+  Follow-up: moving or renaming a pin while "Take it off the mesh" is still queued changes it here only
+  (it used to re-share right behind the retraction), and the Reading menu ticks while its frame waits,
+  so "Queued" becomes "Sent" on the same visit without KOSync.
 
 ### Calls and music stop fighting over the codec; the SIP audit's leftovers (0.9.79 dev, 2026-09-25)
 

@@ -32,6 +32,11 @@ one layer further out:
     pump's DONE path SENT; its TIMEOUT path and txDropAll FAILED), and the words are chosen from it
     - "Take it off the mesh" never clears the waypoint id itself (only a retraction reported SENT
     does, in settleMeshOp), sharePin says "Sending", Books' sendMyPlace says "Queued";
+    and its follow-up: because the id now stays while a retraction waits, sharePin refuses
+    `if (retractionQueued(idx))` BEFORE its settle, and Move here / Rename ask first (else a move
+    in that second re-shares the place right behind its retraction); and the Reading menu arms
+    its tick on syncTxId (armMenuTick, after buildMenu) so "Queued" becomes "Sent" on the same
+    visit without KOSync;
   - M2, THE FRAME ON THE AIR IS FINISHED WHERE loop() CANNOT RUN: txPump() starts with
     txComplete(), which never starts a frame, and a Game Boy game (WiPhone.ino) and the legacy
     upload (app_gbc_xfer.cpp handleUpload) call it - else the chip sits deaf in STANDBY for all of it;
@@ -112,6 +117,44 @@ def refuses_before(code, blk, call_rx):
         return False
     return any(h[0] < call.start() and re.search(r"\breturn\b", code[h[1]:h[2] + 1])
                for h in ifs(code, a, z, IDLE_REFUSAL))
+
+
+RQ_IDX = re.compile(r"\bretractionQueued\s*\(\s*idx\s*\)")
+RQ_SEL = re.compile(r"\bretractionQueued\s*\(\s*pinSel\s*\)")
+SETTLE = re.compile(r"\bsettleMeshOp\s*\(")
+SHARE_CALL = re.compile(r"\bsharePin\s*\(")
+ARM_TICK = re.compile(r"\barmMenuTick\s*\(\s*\)\s*;")
+
+
+def case_block(code, label, next_label, within=None):
+    """(start, end) from `label` to the next `next_label` (or the end of `within`), or None."""
+    a0, z0 = within if within else (0, len(code))
+    a = code.find(label, a0, z0)
+    if a < 0:
+        return None
+    z = code.find(next_label, a + len(label), z0)
+    return a, (z if z >= 0 else z0)
+
+
+def guarded_before(code, blk, guard_rx, call_rx, need_return=False):
+    """Inside blk: an `if (... guard ...)` before the first call_rx, and that call NOT inside the
+    guard's own block (it must sit on the other branch, or after a guard that returned)."""
+    a, z = blk
+    call = call_rx.search(code, a, z)
+    if not call:
+        return False
+    for h in ifs(code, a, z, guard_rx):
+        if h[0] < call.start() and not (h[1] <= call.start() <= h[2]) and \
+                (not need_return or re.search(r"\breturn\b", code[h[1]:h[2] + 1])):
+            return True
+    return False
+
+
+def call_after(code, blk, first_pat, then_rx):
+    """Inside blk: then_rx comes after the first match of first_pat."""
+    a, z = blk
+    f = re.compile(first_pat).search(code, a, z)
+    return bool(f) and then_rx.search(code, f.end(), z) is not None
 
 
 def check(files):
@@ -357,6 +400,22 @@ def check(files):
             re.search(r'"Shared ', maps_raw[sp[0]:sp[1]]):
         bad.append("app_maps.cpp: sharePin() must beginMeshOp() and say 'Sending' - \"Shared\" is "
                    "said only once the radio reports the frame SENT (review M1)")
+    # M1 follow-up: the id is KEPT while a retraction waits, so nothing may re-share over it. The
+    # guard is asked BEFORE the settle (which would read the queued retraction as "no word", keep
+    # the id, and let the update go out right behind it - the place back on every radio).
+    if sp is None or not guarded_before(maps, sp, RQ_IDX, SETTLE, need_return=True):
+        bad.append("app_maps.cpp: sharePin() must refuse `if (retractionQueued(idx)) { ... return }` "
+                   "before settleMeshOp() - a re-share over a queued retraction puts the place back "
+                   "on every radio (review M1 follow-up)")
+    mv = case_block(maps, "case ROW_P_MOVE", "case ROW_P_")
+    if mv is None or not guarded_before(maps, mv, RQ_SEL, SHARE_CALL):
+        bad.append("app_maps.cpp: Move here (ROW_P_MOVE) must ask `if (retractionQueued(pinSel))` "
+                   "before it re-shares - moving a pin being taken off the mesh re-shares it")
+    mpe = function_body(maps, "MapsApp::processEvent")
+    rn = case_block(maps, "case MAPS_RENAME", "case MAPS_", mpe) if mpe else None
+    if rn is None or not guarded_before(maps, rn, RQ_SEL, SHARE_CALL):
+        bad.append("app_maps.cpp: Rename (MAPS_RENAME) must ask `if (retractionQueued(pinSel))` "
+                   "before it re-shares - renaming a pin being taken off the mesh re-shares it")
     books = files.get("app_books.cpp", "")
     books_raw = files.get("app_books.cpp.raw", "")
     sm = function_body(books, "BooksApp::sendMyPlace")
@@ -364,6 +423,23 @@ def check(files):
             not re.search(r"\blastQueuedPacketId\s*\(", books[sm[0]:sm[1]]):
         bad.append("app_books.cpp: sendMyPlace() must say 'Queued' and keep lastQueuedPacketId() - "
                    "'Sent' only once the radio reports it (syncNoteSettle, review M1)")
+    # M1 follow-up: the Reading menu TICKS while its frame waits - KOSync or not - or "Queued" is
+    # all a phone without /books/kosync.txt ever shows on that visit.
+    at = function_body(books, "BooksApp::armMenuTick")
+    atb = books[at[0]:at[1]] if at else ""
+    es = function_body(books, "BooksApp::enterState")
+    em = case_block(books, "case BOOKS_MENU:", "case BOOKS_", es) if es else None
+    pe = function_body(books, "BooksApp::processEvent")
+    sy = case_block(books, "case BOOKS_MENU_SYNC:", "case BOOKS_MENU_", pe) if pe else None
+    tick_ok = (
+        re.search(r"msAppTimerEventPeriod\s*=\s*syncTxId\s*\?", atb) is not None
+        and em is not None and call_after(books, em, r"\bbuildMenu\s*\(", ARM_TICK)
+        and sy is not None and call_after(books, sy, r"\bsyncMyPlace\s*\(", ARM_TICK))
+    if not tick_ok:
+        bad.append("app_books.cpp: the Reading menu must arm its tick on syncTxId - armMenuTick() "
+                   "(`msAppTimerEventPeriod = syncTxId ? ...`) after buildMenu() in enterState's "
+                   "BOOKS_MENU and after syncMyPlace() - else 'Queued' never becomes 'Sent' on the "
+                   "visit without KOSync (review M1 follow-up)")
 
     # ── M3: bench commands safe to type on a daily phone ──────────────────────────────────────
     ser = files.get("serial_cmd.cpp", "")
@@ -578,6 +654,9 @@ def selftest():
             "TIMEOUT path must noteOwnOutcome", "DONE path must noteOwnOutcome",
             "meshTxEnqueue() must", "txDropAll() must", "(ROW_P_UNSHARE) clears",
             "ROW_P_UNSHARE must beginMeshOp", "sharePin() must", "sendMyPlace() must",
+            # review M1 follow-up: no re-share over a queued retraction; the menu ticks for its frame
+            "sharePin() must refuse", "Move here (ROW_P_MOVE) must", "Rename (MAPS_RENAME) must",
+            "the Reading menu must arm its tick",
             # review M3: bench commands safe on a daily phone
             "benchReboot() not found", "`meshdb cut` must refuse", "`power sleep` must refuse",
             "`power lora sleep` must refuse", "txCutShort() must read"]
@@ -629,6 +708,22 @@ MUTATIONS = [
     # the bench cut calling a finished frame cut
     ("mesh_phy.cpp", "txCutShort() must read",
      r"if\s*\(\s*\(\s*irq\s*&\s*IRQ_TX_DONE_MASK\s*\)", "if ((irq & 0)"),
+    # ── the M1 follow-up (integration review, 2026-09-25) ──
+    # sharePin re-sharing over a still-queued retraction (the place back on every radio)
+    ("app_maps.cpp", "sharePin() must refuse",
+     r"if\s*\(\s*retractionQueued\s*\(\s*idx\s*\)\s*\)", "if (false)"),
+    # Move here without its question (the first retractionQueued(pinSel) in the file)
+    ("app_maps.cpp", "Move here (ROW_P_MOVE) must",
+     r"if\s*\(\s*retractionQueued\s*\(\s*pinSel\s*\)\s*\)", "if (false)", 0),
+    # Rename without it (the third: Move, "Take it off" again, Rename)
+    ("app_maps.cpp", "Rename (MAPS_RENAME) must",
+     r"if\s*\(\s*retractionQueued\s*\(\s*pinSel\s*\)\s*\)", "if (false)", 2),
+    # the Reading menu ticking for KOSync only again ("Queued" for the whole visit)
+    ("app_books.cpp", "the Reading menu must arm its tick",
+     r"msAppTimerEventPeriod\s*=\s*syncTxId\s*\?", "msAppTimerEventPeriod = false ?"),
+    # ...or arming it BEFORE buildMenu() (a settled note would leave the watch running forever)
+    ("app_books.cpp", "the Reading menu must arm its tick",
+     r"buildMenu\s*\(\s*\)\s*;\s*armMenuTick\s*\(\s*\)\s*;", "armMenuTick(); buildMenu();"),
 ]
 
 

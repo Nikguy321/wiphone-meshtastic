@@ -2237,6 +2237,17 @@ bool MapsApp::dropPin() {
 }
 
 bool MapsApp::sharePin(int idx, char* why, size_t whyCap) {
+  /* 🛑 NOT OVER ITS OWN RETRACTION (mapPinRetractionQueued, map_pins.h). The pin keeps its id
+   * until "Take it off the mesh" is reported SENT, so the settle below would read the
+   * still-queued retraction as "no word", keep the id, and this would queue the place again
+   * right behind it — back on every other radio. Asked BEFORE the settle, which is left
+   * pending: the retraction's own answer still decides the id. Every re-share comes through
+   * here (Update, Move here, Rename, the channel picker), so this is the one gate; Move and
+   * Rename also ask first, so they can say what they did instead. */
+  if (retractionQueued(idx)) {
+    strlcpy(why, "Still being taken off the mesh - try again in a second", whyCap);
+    return false;
+  }
   settleMeshOp(true);                    // one pin frame at a time: the last one settled first
   if (idx < 0 || idx >= pinCount || !pins) {
     strlcpy(why, "no pin", whyCap);
@@ -2362,6 +2373,14 @@ void MapsApp::beginMeshOp(uint8_t op, uint32_t txId, int idx) {
   armTimer();                // the redraw after this arms it too; a menu state needs it now
 }
 
+bool MapsApp::retractionQueued(int idx) const {
+  if (!meshOp.txId || !pins || idx < 0 || idx >= pinCount) {
+    return false;
+  }
+  return mapPinRetractionQueued(meshOp.op, meshService.txOutcome(meshOp.txId), meshOp.wpId,
+                                pins[idx].sharedId);
+}
+
 bool MapsApp::settleMeshOp(bool final) {
   if (!meshOp.txId) {
     return false;
@@ -2391,7 +2410,8 @@ bool MapsApp::settleMeshOp(bool final) {
       pinsDirty = true;
       savePins();
     }
-    setNote("Taken '%s' off the mesh", was.name);
+    // The pin's name NOW: it may have been renamed while its retraction waited (retractionQueued).
+    setNote("Taken '%s' off the mesh", i >= 0 ? pins[i].name : was.name);
     break;
   case MAP_PINACT_ROLL_BACK: {
     /* A FIRST share that never left: the pin goes back to plainly local, and the local
@@ -4232,7 +4252,13 @@ appEventResult MapsApp::processEvent(EventType event) {
         pins[pinSel].lonI = mapDegToI7(lon);
         pinsDirty = true;
         savePins();
-        if (pins[pinSel].sharedId) {
+        if (retractionQueued(pinSel)) {
+          /* 🛑 Its retraction is still in the queue: the person asked for it OFF the mesh, so
+           * the move is this phone's alone. A re-share here would go out right behind the
+           * retraction and put the place back on every radio (mapPinRetractionQueued). If the
+           * retraction then fails, the id stays and the pin stays yellow — "Take it off" again. */
+          setNote("Moved '%s' - still taking it off the mesh...", pins[pinSel].name);
+        } else if (pins[pinSel].sharedId) {
           /* It was shared from its old spot, so the mesh is holding the old one. Moving it
            * here and not there would leave two truths. */
           char why[72];
@@ -4275,6 +4301,13 @@ appEventResult MapsApp::processEvent(EventType event) {
          * a frame that then timed out, or was dropped with a dying pack, stranded the place
          * exactly as above. The id is now forgotten only when the radio reports the retraction
          * SENT (settleMeshOp -> MAP_PINACT_FORGET_ID); no word keeps it. */
+        if (retractionQueued(pinSel)) {
+          /* Pressed again while the first is still queued: that one is left to answer (settling
+           * it early would read "no word"), and no second frame is spent on the air. */
+          setNote("Still taking '%s' off the mesh...", pins[pinSel].name);
+          enterState(MAPS_VIEW);
+          return REDRAW_ALL;
+        }
         settleMeshOp(true);                  // one pin frame at a time: the last one first
         if (!pins[pinSel].sharedId) {
           enterState(MAPS_VIEW);             // that settle took it off: its note says so
@@ -4413,7 +4446,10 @@ appEventResult MapsApp::processEvent(EventType event) {
         }
         pinsDirty = true;
         savePins();
-        if (pins[pinSel].sharedId) {
+        if (retractionQueued(pinSel)) {
+          // Being taken off the mesh: renamed here only (Move here's rule, mapPinRetractionQueued).
+          setNote("Named '%s' - still taking it off the mesh...", pins[pinSel].name);
+        } else if (pins[pinSel].sharedId) {
           char why[72];
           sharePin(pinSel, why, sizeof(why));   // the mesh holds the old name otherwise
           setNote("Renamed. %s", why);

@@ -53,6 +53,11 @@
  * delayed: declining is safe, and making the safe answer feel broken teaches the wrong habit. */
 #define BOOKS_SYNCCARD_ARM_MS  600
 
+/* The Reading menu's tick while "Sync my place"'s LoRa frame waits for the radio (armMenuTick):
+ * "Queued" becomes "Sent" or "NOT sent" at most this long after the radio answers, and the tick
+ * stands down as soon as it has — a second or two, once per press. */
+#define BOOKS_SYNC_WATCH_MS    500
+
 // How long "Undo the jump" stays on offer. See the note in app_books.h.
 #define BOOKS_UNDO_TTL_MS      (5UL * 60UL * 1000UL)
 
@@ -1193,6 +1198,21 @@ bool BooksApp::syncNoteSettle() {
   return true;
 }
 
+/* 🛑 THE READING MENU TICKS WHILE ITS FRAME WAITS, NOT ONLY WHEN KOSYNC IS SET UP (integration
+ * review of M1, 2026-09-25). The menu used to tick only for KOSync, so on the ordinary setup —
+ * LoRa booksync, no /books/kosync.txt, which is how the phones run until KOSync credentials go
+ * in — "Queued: ch N, X%" stood for as long as the menu was open, and "Sent" appeared only
+ * after leaving and coming back: the one confirmation the old blocking send gave, lost on the
+ * commonest setup. Now: BOOKS_SYNC_WATCH_MS while syncTxId waits, KOSync's 1 s otherwise, and
+ * NO tick at all on a settled menu without KOSync (a menu left open must not keep the CPU
+ * waking). Called AFTER buildMenu() everywhere — its syncNoteSettle() may already have
+ * answered, and a watch armed on a stale syncTxId would never stand down — and on every tick,
+ * so the watch ends with the answer. Touches no position: the note and the tick only. */
+void BooksApp::armMenuTick() {
+  controlState.msAppTimerEventPeriod = syncTxId ? BOOKS_SYNC_WATCH_MS
+                                                : (kosyncConfigured() ? 1000 : 0);
+}
+
 /* Anything parked for the book that is open? Called on opening one, on the reading screen's
  * one-second tick whenever the inbox has changed, and after a passcode edit — because a LoRa
  * round trip does not fit inside the moment you press Sync, and because the person reading
@@ -2191,10 +2211,8 @@ void BooksApp::enterState(BooksState_t state) {
   case BOOKS_MENU:
     header->setTitle("Reading");
     footer->setButtons("Select", "Back");
-    if (kosyncConfigured()) {
-      controlState.msAppTimerEventPeriod = 1000;   // KOSync's live lines + the card (see above)
-    }
     buildMenu();
+    armMenuTick();         // KOSync's live lines + the card, or a sync frame's answer (after buildMenu)
     break;
   case BOOKS_TOC:
     header->setTitle("Chapters");
@@ -2494,12 +2512,14 @@ appEventResult BooksApp::processEvent(EventType event) {
       enterState(BOOKS_READ);
       return REDRAW_ALL;
     }
-    /* KOSync's tick (set in enterState only when KOSync is configured): a peer's place that
-     * lands while this menu is up raises the card HERE — "Sync my place" was just pressed on
-     * this very screen, and the reply is what the person is waiting for — and the window's
-     * countdown and the home line refresh. The menu is rebuilt only when their text changed. */
+    /* The menu's tick (armMenuTick): KOSync's, and "Sync my place"'s frame until the radio
+     * answers. With KOSync, a peer's place that lands while this menu is up raises the card
+     * HERE — "Sync my place" was just pressed on this very screen, and the reply is what the
+     * person is waiting for — and the window's countdown and the home line refresh. Without
+     * KOSync the card is left to the reading screen as it always was (the tick here is only
+     * the second or two of the frame's watch). The menu is rebuilt only when its text changed. */
     if (event == APP_TIMER_EVENT) {
-      if (syncSeqSeen != bookSyncInboxSeq()) {
+      if (kosyncConfigured() && syncSeqSeen != bookSyncInboxSeq()) {
         checkForPending();
         if (pendingIdx >= 0) {
           enterState(BOOKS_SYNCCARD);
@@ -2514,8 +2534,10 @@ appEventResult BooksApp::processEvent(EventType event) {
         freeWidgets();
         buildMenu();
         menu->select(k);
+        armMenuTick();                       // the answer is in: the watch stands down
         return REDRAW_SCREEN;
       }
+      armMenuTick();
       return DO_NOTHING;
     }
     menu->processEvent(event);
@@ -2544,6 +2566,7 @@ appEventResult BooksApp::processEvent(EventType event) {
         freeWidgets();
         buildMenu();
         menu->select(BOOKS_MENU_SYNC);
+        armMenuTick();                       // "Queued" -> "Sent" on THIS visit (KOSync or not)
         return REDRAW_SCREEN;
       case BOOKS_MENU_PENDING:
         if (pendingIdx >= 0) {
