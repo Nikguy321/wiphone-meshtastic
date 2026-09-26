@@ -61,6 +61,10 @@ the real music_player.cpp and Audio.cpp and requires its contract to trip. NOT p
 order of adoptStopPlace()'s refusal terms, musicTakeStopPlace() clearing the flag and stopMusic()'s
 clear. The take, stopMusic() and playMusic() all clear the place, so breaking any one of those changes
 nothing a phone can do today (equivalent mutants; a contract on one would only be noise).
+Its verification found the path's MIDDLE still open: `*pos = this->musicStopPos;` deleted or zeroed in
+musicTakeStopPlace(), and musicFilePos() returning 0 while playing, each passed - the same 0:00 restart,
+one function over. Both are pinned now (the take hands over pos and stoppedMs after its no-place refusal;
+a playing track's place comes from feed->playingPos()), with five more mutations.
 """
 import pathlib
 import re
@@ -497,6 +501,25 @@ CONTRACTS = [
          why="the feed computes the place from its own frame log and the ring's lead: stopped first it "
              "has neither and musicTakeStopPlace() has nothing to hand the player, and after closeRing() "
              "its padding zeros count as lead the track never wrote (the place slips back up to a buffer)"),
+    # ...and the two links between (R3-4's verification: `*pos = this->musicStopPos` deleted or zeroed,
+    # and musicFilePos() returning 0 while playing, each passed every contract above)
+    dict(file="Audio.cpp", fn="Audio::musicTakeStopPlace", kind="sequence",
+         seq=[r"\bif\s*\(\s*!\s*this\s*->\s*musicStopValid\s*\)\s*\{\s*return\s+false\s*;",
+              r"\*\s*pos\s*=(?!=)\s*this\s*->\s*musicStopPos\s*;",
+              r"\*\s*stoppedMs\s*=(?!=)\s*this\s*->\s*musicStopMs\s*;", r"\breturn\s+true\b"],
+         what="the stop's place handed to the player: no place, false; else *pos = musicStopPos and "
+              "*stoppedMs = musicStopMs, then true",
+         why="adoptStopPlace() keeps whatever comes back as s_resumePos: a pos not handed over is 0:00 "
+             "for every track a pop, the ring or a call cut, and a stoppedMs not handed over throws the "
+             "on-screen clock (s_elapsedBase) out"),
+    dict(file="Audio.cpp", fn="Audio::musicFilePos", kind="sequence",
+         seq=[r"\bif\s*\(\s*this\s*->\s*musicPlaying\s*\(\s*\)\s*&&\s*this\s*->\s*feed\s*\)\s*\{\s*"
+              r"return\s+this\s*->\s*feed\s*->\s*playingPos\s*\(\s*\(\s*uint64_t\s*\)\s*esp_timer_get_time\s*"
+              r"\(\s*\)\s*\)\s*;"],
+         what="a playing track's place read from the feed: `if (musicPlaying() && feed) { return "
+              "feed->playingPos(now); }`",
+         why="musicPlayerPause() keeps it as s_resumePos: 0 is a resume from 0:00, and the file's READ "
+             "position is some way ahead of the ear (the feed's frame log is what was playing)"),
     # ── 0.9.79 review round: the pop, the ring's queue, the install, the microphone ──
     dict(file="music_player.cpp", fn="startTrack", kind="sequence",
          seq=[r"\bnotifyPopFinishFor\s*\(", r"\bplayMusic\s*\("],
@@ -1262,7 +1285,19 @@ MUTATIONS = [
     ("Audio.cpp", "recorded (and marked valid) BEFORE", r"\bthis\s*->\s*musicStopValid\s*=\s*true\s*;", ""),
     ("Audio.cpp", "recorded (and marked valid) BEFORE",
      r"(if\s*\(\s*this\s*->\s*feed\s*&&\s*this\s*->\s*feed\s*->\s*active\s*\(\s*\)\s*\)\s*\{[^{}]*\})(\s*)"
-     r"(if\s*\(\s*this\s*->\s*feed\s*\)\s*\{[^{}]*\})", r"\3\2\1"),
+     r"(if\s*\(\s*this\s*->\s*feed\s*\)\s*\{(?:[^{}]|\{[^{}]*\})*\})", r"\3\2\1"),   # closeRing's own `if` inside
+    # R3-4's verification: the MIDDLE of the path - the stop's place handed over, and the pause's place
+    # read from the feed. Each of these passed 772b855 and restarts a cut or paused track at 0:00.
+    ("Audio.cpp", "the stop's place handed to the player", r"\*\s*pos\s*=\s*this\s*->\s*musicStopPos\s*;", ""),
+    ("Audio.cpp", "the stop's place handed to the player", r"\*\s*pos\s*=\s*this\s*->\s*musicStopPos\s*;",
+     "*pos = 0;"),
+    ("Audio.cpp", "the stop's place handed to the player", r"\*\s*stoppedMs\s*=\s*this\s*->\s*musicStopMs\s*;",
+     ""),
+    ("Audio.cpp", "a playing track's place read from the feed",
+     r"\breturn\s+this\s*->\s*feed\s*->\s*playingPos\s*\([^;]*\)\s*;", "return 0;"),
+    ("Audio.cpp", "a playing track's place read from the feed",
+     r"\breturn\s+this\s*->\s*feed\s*->\s*playingPos\s*\([^;]*\)\s*;",
+     "return (uint32_t)this->playbackFile.position();"),
 ]
 
 

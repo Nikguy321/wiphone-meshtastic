@@ -270,7 +270,12 @@ void callLevelsFlushNow(const char* who) {
   }
 }
 
-static void applyStoredCallVolumes(const char* who) {
+/* noinline: its CriticalFile would otherwise sit in its caller's frame - and one caller,
+ * callTakesAudioDevice(), is itself inlined into loop(), so a second-hand inline puts it in
+ * loop()'s 8 KB-task frame for the whole pass. GCC keeps it out of line today (96 B frame of its
+ * own, loop() at 240 B - objdump, 2026-09-26); the attribute is what keeps it there the day
+ * startRingtone() stops calling it (tests/check_health_log.py, integration review 3). */
+static void __attribute__((noinline)) applyStoredCallVolumes(const char* who) {
   if (!audio) {
     return;
   }
@@ -2306,8 +2311,12 @@ static uint32_t meshPopupShownMs = 0;
  * ⚠ Runs every ~9 hours (MAX - KEEP = 128 KB of growth at ~232 bytes a minute; the numbers
  * this said, 64 KB at ~130 bytes, were for the old caps), copying KEEP = 128 KB each time.
  * Returns false if anything went wrong, and the caller then falls back to deleting —
- * an unbounded log is worse than a lost one. */
-static bool healthLogTrim() {
+ * an unbounded log is worse than a lost one.
+ * noinline: it has ONE caller, healthLogLine(), which every durable line goes through - GUI's
+ * app-open heap probe among them, under an app's constructor. Inlined, buf[512] would be in that
+ * frame on EVERY log line, not just the one in ~9 hours that trims. Out of line today (its own
+ * 608 B frame, healthLogLine() 80 B - objdump, 2026-09-26); pinned by tests/check_health_log.py. */
+static bool __attribute__((noinline)) healthLogTrim() {
   File in = SD.open(HEALTH_LOG_PATH, FILE_READ);
   if (!in) {
     return false;

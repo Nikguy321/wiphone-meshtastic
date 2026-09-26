@@ -51,6 +51,18 @@ And (review 3, R3-4 on R3-2) those refusals only protect the writers behind them
       its G13 return), playSample() nowhere but playChunk() (and the caller-less playSampleChunk(), which
       nothing may call), and i2s_write() nowhere but playSample(),
       music's AudioMusicI2s sink and the Game Boy's emuThread (behind soundOn = audio->start(), G8).
+      The sink is reached only through the feed's three public writers - pass(), start() and
+      closeRing() - so each of those has ONE allowed site, and `s_musicI2s` is named only at start():
+  G18 Audio::ceasePlayback()'s feed->closeRing() sits inside `if (i2sInstalled)`.
+  G19 Audio::playMusic() refuses with no driver (its `!i2sInstalled || i2sBufs != MUSIC_DMA_BUFS`
+      check) BEFORE feed->start(), whose prefill writes the ring.
+      🛑 G17 as 772b855 committed it claimed "every writer behind a refusal" while ceasePlayback()'s
+      closeRing() had none: after F1 resumed a track inside the Recorder and its Record setters' three
+      reinstalls all failed (an exhausted internal heap), the next F1 or any shutdown() topped up the
+      ring through IDF 3.3's NULL p_i2s_obj[0] - a LoadProhibited panic. The allowance was the whole
+      AudioMusicI2s class, and only feed->pass() call sites were restricted; a closeRing(), a start()
+      or a direct s_musicI2s.write() anywhere, or playMusic()'s start() moved above its install check
+      (the pre-fix crash shape), all passed.
 
 MUTATIONS then breaks each one in the REAL source, one at a time, and requires its own contract to
 report it (tests/check_wifi_restore.py's pattern): a guard rewritten so its mutation no longer
@@ -158,6 +170,16 @@ CONTRACTS = [
               r"\bsoundStarted\s*=(?!=)\s*soundOn\b"],
          what="soundStarted = soundOn right after soundOn = audio->start()",
          why="without it the quit never shuts the device down, starved or not"),
+    # G18/G19 (R3-4's verification): the music feed's other two writers, each behind a refusal
+    dict(id="G18-closering-needs-driver", file="Audio.cpp", fn="Audio::ceasePlayback", kind="guarded",
+         pat=r"\bfeed\s*->\s*closeRing\s*\(", need=[POS(THIS + r"\bi2sInstalled\b")],
+         what="ceasePlayback()'s feed->closeRing() (its zeros go through i2s_write())",
+         why="a reinstall that failed under a playing track (the Recorder's setters after F1 resumed "
+             "it) left no driver: the next F1 or any shutdown() panicked in IDF 3.3's i2s_write()"),
+    dict(id="G19-feed-start-after-install", file="Audio.cpp", fn="Audio::playMusic", kind="refuses_before",
+         need=[NEG(THIS + r"\bi2sInstalled\b")], later=r"\bfeed\s*->\s*start\s*\(",
+         what="playMusic() refusing a failed install before feed->start()'s prefill writes the ring",
+         why="the prefill's i2s_write() on a failed install is the 2026-09-25 LoadProhibited panic"),
 ]
 
 SHUTDOWN = r"\baudio\s*->\s*shutdown\s*\("
@@ -235,8 +257,18 @@ WRITER_SITES = [
     (r"\bi2s_write\s*\(", "i2s_write()",
      {("Audio.cpp", "Audio::playSample"), ("Audio.cpp", CLASS + "AudioMusicI2s"),
       ("app_gbc.cpp", "GbcApp::emuThread")},
-     "each of those writes only behind a refusal: playChunk's loop (G13), the music feed's pass and "
-     "playMusic()'s install check, the game's soundOn = audio->start() (G8)"),
+     "each of those writes only behind a refusal: playChunk's loop (G13), the game's soundOn = "
+     "audio->start() (G8), and the AudioMusicI2s sink only through the feed's pass() (G13), start() "
+     "(G19) and closeRing() (G18) - the three rows below"),
+    # (R3-4's verification) the sink's three ways in, and the sink itself, each at ONE site
+    (r"\bfeed\s*->\s*closeRing\s*\(", "the music feed's closeRing()", {("Audio.cpp", "Audio::ceasePlayback")},
+     "ceasePlayback() calls it only inside `if (i2sInstalled)` (G18)"),
+    (r"\bfeed\s*->\s*start\s*\(", "the music feed's start()", {("Audio.cpp", "Audio::playMusic")},
+     "playMusic() refuses a failed install before it (G19)"),
+    (r"\bs_musicI2s\b", "the music sink s_musicI2s", {("Audio.cpp", "Audio::playMusic")},
+     "only feed->start() there hands it to the feed (G19); written directly, or handed over anywhere "
+     "else, it is an i2s_write() behind nothing",
+     r"^\s*static\s+AudioMusicI2s\s+$"),
 ]
 
 
@@ -249,8 +281,12 @@ def class_span(code, name):
 
 
 def writer_problems(texts):
+    """G17. A row's optional fifth element is its DECLARATION: a match whose line starts with it
+    (`static AudioMusicI2s  s_musicI2s;`) is the object being defined, not a use."""
     out = []
-    for pat, what, sites, why in WRITER_SITES:
+    for row in WRITER_SITES:
+        pat, what, sites, why = row[:4]
+        decl = re.compile(row[4]) if len(row) > 4 else None
         spans = {}
         for fname, fn in sites:
             code = texts.get(fname)
@@ -268,6 +304,8 @@ def writer_problems(texts):
                 line = texts[name][texts[name].rfind("\n", 0, m.start()) + 1:m.start()]
                 if name.endswith(".h") and re.search(r"\b(?:bool|void|int|size_t)\s+$", line):
                     continue                                    # the member's declaration
+                if decl is not None and decl.search(line):
+                    continue                                    # the object's own definition
                 if texts[name][m.start() - 2:m.start()] == "::" or \
                         any(a < m.start() < z for a, z in spans.get(name, [])):
                     continue                                    # its definition, or an allowed site
@@ -372,6 +410,20 @@ MUTATIONS = [
     ("Audio.cpp", "G17-writers", r"(this\s*->\s*feed\s*->\s*start\s*\()", r"this->feed->pass(1); \1"),
     ("Audio.cpp", "G17-writers", r"(bool\s+Audio::turnMicOn\s*\(\s*\)\s*\{)", r"\1 this->playSample();"),
     ("Audio.cpp", "G17-writers", r"(bool\s+Audio::turnMicOn\s*\(\s*\)\s*\{)", r"\1 this->playSampleChunk();"),
+    # G17-G19 (R3-4's verification - each of these passed 772b855): the sink reached through the
+    # feed's other writers, or written directly, from a function with no refusal; ceasePlayback()'s
+    # closeRing() unguarded (the Recorder panic); playMusic()'s start() above its install check (the
+    # 2026-09-25 crash shape)
+    ("Audio.cpp", "G17-writers", r"(void\s+Audio::resume\s*\(\s*\)\s*\{)", r"\1 this->feed->closeRing();"),
+    ("Audio.cpp", "G17-writers", r"(void\s+Audio::resume\s*\(\s*\)\s*\{)",
+     r"\1 this->feed->start(0, this->musicDma());"),
+    ("Audio.cpp", "G17-writers", r"(void\s+Audio::resume\s*\(\s*\)\s*\{)", r"\1 s_musicI2s.write(0, 0);"),
+    ("Audio.cpp", "G18-closering-needs-driver",
+     r"\bif\s*\(\s*this\s*->\s*i2sInstalled\s*\)\s*\{\s*(this\s*->\s*feed\s*->\s*closeRing\s*\(\s*\)\s*;)\s*\}",
+     r"\1"),
+    ("Audio.cpp", "G19-feed-start-after-install",
+     r"(this\s*->\s*configureMusicI2S\s*\(\s*!\s*ringWasRunning\s*\)\s*;)([\s\S]*?)"
+     r"(this\s*->\s*feed\s*->\s*start\s*\([^;]*\)\s*;)", r"\3 \1\2"),
 ]
 
 
@@ -451,7 +503,8 @@ def main():
         return 1
     print(f"  ok  all {len(CONTRACTS)} ring contracts hold, the quit shuts the device down on "
           f"soundStarted, I2S is installed nowhere but {INSTALLER[1]}(), and written or read only behind the "
-          f"no-driver refusals (G17) ({len(files)} files)")
+          f"no-driver refusals - music's sink only through the feed's pass, start and closeRing, each "
+          f"guarded (G17-G19) ({len(files)} files)")
     return 0
 
 

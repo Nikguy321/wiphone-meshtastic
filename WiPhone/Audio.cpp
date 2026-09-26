@@ -902,8 +902,17 @@ void Audio::ceasePlayback() {
       this->musicStopMs = millis();
       this->musicStopValid = true;
     }
+    /* 🛑 closeRing() WRITES I2S (its zeros go through the sink's i2s_write()), so ONLY WITH A
+     * DRIVER. A reinstall can fail under a playing track and leave none - the Recorder's setters
+     * after F1 resumed music inside it, with the internal heap exhausted - and IDF 3.3's
+     * i2s_write() dereferences p_i2s_obj[0] with no NULL check: the next F1, or any shutdown(),
+     * panicked here (integration review 3, R3-4 verification). With no driver there is no
+     * current buffer to top up either: the next install starts with none held. The place above
+     * is still recorded, and the feed still stops. */
     if (this->feed) {
-      this->feed->closeRing();              // leave IDF's current buffer full: see closeRing()
+      if (this->i2sInstalled) {
+        this->feed->closeRing();            // leave IDF's current buffer full: see closeRing()
+      }
       this->feed->stop();
     }
     /* WAV too: until 0.9.79 only an MP3's file was closed here, so a pop over a WAV left it

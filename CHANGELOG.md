@@ -288,6 +288,12 @@ Both phones register now (`sip=1`), which made the 2026-08-15 audit's "unreachab
   the terms of `joinInProgress()`, `wifiMarkLink()`'s noinline (without it loop()'s frame is 288 B, not
   240 - objdump) and three more helpers' with a rule for every static loop helper, `txCutShort()`'s RX_DONE
   half, and the I2S writers reachable only behind the no-driver refusals (`check_gbc_ring.py` G17).
+  Its verification's repair: **a stopped track no longer tops up an I2S ring that failed to reinstall**
+  (`ceasePlayback()`'s `closeRing()` only with a driver; F1 inside the Recorder, then Record on an
+  exhausted heap, then F1 again was a LoadProhibited panic), pinned as G18/G19 with the feed's three
+  writers at one site each; the place's middle link (`musicTakeStopPlace()`, `musicFilePos()`); the
+  noinline rule file-wide (`applyStoredCallVolumes()` and `healthLogTrim()` gained the attribute; loop()
+  still 240 B); the KOSync join-wait constants themselves (cap 120 s or less).
 
 ### WiFi drops explain themselves; a station wedged mid-connect now cures itself (0.9.79 dev, 2026-09-25)
 

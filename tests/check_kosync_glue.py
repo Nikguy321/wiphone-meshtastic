@@ -72,6 +72,9 @@ kosyncOfferFill, kosyncParkPending/kosyncOfferAnswered, the PUT log):
      `!xferUsingAP() && wifiStationWanted() &&` both survived. So also: joinInProgress() is ONE `&&`
      chain holding every term (JOIN_TERMS); the wait returns only under the cap, starts only
      `if (!s_joinWaitSinceMs)`, and is zeroed on the way past it before the ask can be dropped.
+     Its verification then made the cap 0xFFFFFFFFu through the #define and contract 11 held (it
+     pinned the comparison, not the constant), so the two #defines are read too: plain decimal
+     literals, each defined once, KOSYNC_JOIN_WAIT_MS < KOSYNC_JOIN_WAIT_MAX_MS <= 120 s.
 
 A contract that cannot find its function fails too - a rename must update it, not silently
 retire it. A self-test replays the pre-fix shapes first, then REMOVES each guard from the real
@@ -479,6 +482,7 @@ def check_join_wait(sync):
             bad.append(f"{SYNC}:{line_of(sync, m.start())} starts the join wait outside the idle "
                        "branch's `if (joinInProgress(now))` - it is non-zero only while that holds")
     bad.extend(check_join_wait_cap(sync, lo, hi, waits))
+    bad.extend(check_join_wait_constants(sync))
     bad.extend(check_join_terms(sync, jp))
     # 11c (review 3, KOS-N1a): a job past KS_IDLE that finds the station down gives up only when
     # heldOffWifi() says nothing is coming. It used to give up in KS_RETRY (a back-off begun in the
@@ -615,6 +619,39 @@ def check_join_wait_cap(sync, lo, hi, waits):
                    "0;`) before it can drop the ask - left set, the next close's wait inherits a start "
                    "60 s old and gives up on its first pass (review 3, R3-4)")
     return bad
+
+
+# 11f (R3-4's verification): the cap's SIZE. check_join_wait_cap() pins the comparison's form, so
+# `#define KOSYNC_JOIN_WAIT_MAX_MS 0xFFFFFFFFu` passed it - the b1 failure (an out-of-range phone holds
+# the ask for ever) reached through the define. A join takes seconds and the wait is for ONE; two
+# minutes is double today's cap, and anything longer should be decided here, with its reason.
+JOIN_WAIT_BOUND_MS = 120000
+
+
+def join_wait_define(sync, name):
+    """The value of `#define name <decimal>[u]`, or a problem string: it must be defined exactly once,
+    as a plain decimal literal (an expression or a hex value is refused, not evaluated)."""
+    ds = list(re.finditer(r"^[ \t]*#[ \t]*define[ \t]+" + name + r"\b[ \t]*([^\n]*)$", sync, re.M))
+    if len(ds) != 1 or re.search(r"^[ \t]*#[ \t]*undef[ \t]+" + name + r"\b", sync, re.M):
+        return None, f"{name} must be #defined exactly once in {SYNC} (found {len(ds)}, or an #undef)"
+    m = re.fullmatch(r"\s*(\d+)[uU]?[lL]?\s*", ds[0].group(1))
+    if not m:
+        return None, (f"{name} must be a plain decimal literal (`{ds[0].group(1).strip()}`) - this check "
+                      "reads its value, it does not evaluate expressions")
+    return int(m.group(1)), None
+
+
+def check_join_wait_constants(sync):
+    wait, p1 = join_wait_define(sync, "KOSYNC_JOIN_WAIT_MS")
+    cap, p2 = join_wait_define(sync, "KOSYNC_JOIN_WAIT_MAX_MS")
+    bad = [p for p in (p1, p2) if p]
+    if bad:
+        return bad
+    if not 0 < wait < cap <= JOIN_WAIT_BOUND_MS:
+        return [f"KOSYNC_JOIN_WAIT_MS ({wait}) < KOSYNC_JOIN_WAIT_MAX_MS ({cap}) <= {JOIN_WAIT_BOUND_MS} "
+                "must hold - the cap is what lets an out-of-range phone drop the ask, and a join younger "
+                "than the cap is the only thing held (review 3, R3-4 verification)"]
+    return []
 
 
 def check_close_push(sync):
@@ -875,6 +912,16 @@ MUTATIONS = [
     (SYNC, "must be ONE `&&` chain", r"!\s*onWifi\s*\(\s*\)\s*&&\s*!\s*xferUsingAP", "!onWifi() || !xferUsingAP", 0),
     (SYNC, "must start only `if (!s_joinWaitSinceMs)`",
      r"if\s*\(\s*!\s*s_joinWaitSinceMs\s*\)\s*\{\s*(s_joinWaitSinceMs\s*=[^;]*;)", r"\1 {", 0),
+    # R3-4's verification: the cap passed the comparison's form at any size - made huge through the
+    # define (either one), or no longer above the join-age window
+    (SYNC, "KOSYNC_JOIN_WAIT_MAX_MS (4294967295)", r"(#define\s+KOSYNC_JOIN_WAIT_MAX_MS\s+)\w+",
+     r"\g<1>4294967295u", 0),
+    (SYNC, "must be a plain decimal literal", r"(#define\s+KOSYNC_JOIN_WAIT_MAX_MS\s+)\w+", r"\g<1>0xFFFFFFFFu", 0),
+    (SYNC, "KOSYNC_JOIN_WAIT_MS (4294967295)", r"(#define\s+KOSYNC_JOIN_WAIT_MS\s+)\w+", r"\g<1>4294967295u", 0),
+    (SYNC, "KOSYNC_JOIN_WAIT_MS (30000) < KOSYNC_JOIN_WAIT_MAX_MS (20000)",
+     r"(#define\s+KOSYNC_JOIN_WAIT_MAX_MS\s+)\w+", r"\g<1>20000u", 0),
+    (SYNC, "must be #defined exactly once", r"(#define\s+KOSYNC_JOIN_WAIT_MAX_MS\s+\w+)",
+     r"\1\n#undef KOSYNC_JOIN_WAIT_MAX_MS\n#define KOSYNC_JOIN_WAIT_MAX_MS 60000u", 0),
     (SYNC, "past the join wait the idle branch must zero it",
      r"(\}\s*)s_joinWaitSinceMs\s*=\s*0\s*;(\s*if\s*\(\s*!\s*T\s*->\s*cfg\s*\.\s*ok)", r"\1\2", 0),
     (SYNC, "calls resolveDomain()", r"(staSsid\s*\(\s*T\s*->\s*jobSsid\s*\)\s*;)",
@@ -991,7 +1038,7 @@ def main():
     print("  ok  no push's first PUT goes out over a place from another device still waiting on "
           "the card (the close's push behind the pull on open)")
     print("  ok  N1: a WiFi join in progress, or a game holding the radio, keeps a home ask in every "
-          "state; the wait is for ONE join (the Games-app hold ends it)")
+          "state; the wait is for ONE join (the Games-app hold ends it), capped at 120 s or less")
     return 0
 
 
