@@ -4,6 +4,11 @@
 
 Read this first; everything below it is narrative.
 
+🏷 **2026-09-26 12:50: THE VERSION IS `0.9.79-NH`** (Nick's ask: mark his firmware apart from stock). Suffix, not
+prefix — ota.cpp's `compVersions()` sscanf's `%u.%u.%u` and ignores the rest; a prefix parses as 0.0.0 and every server
+version looks newer. Never `rc`/`db` in a tag (they mean things there). The splash draws "Custom firmware by Nick H."
+above the version line (GUI.cpp SplashApp). make_webflasher.sh reads the tag from config.h into the manifest.
+
 🎵 **2026-09-26 11:55: NICK'S LISTENING PASS PASSED ("Music works good! Passed all the tests you listed") — and his
 photo showed TWO Now-playing TITLE bugs, both fixed and proven on phone 1 (build 11:49:47), phone 2 flashed after.**
 (1) Titles overlapped after next ("Pulse" over "Space Explorer"): the two title lines were redrawn at 1 Hz with NO

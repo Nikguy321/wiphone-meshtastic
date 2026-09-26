@@ -2,6 +2,13 @@
 
 ## 0.9.79 (dev build, not released) - reading-position sync over KOSync (Xteink X4, KOReader, COVEY)
 
+**The version is `0.9.79-NH` from here on** (Nick: "add something to differentiate it from the default
+firmware"): the `-NH` suffix shows on the splash (with a second line, "Custom firmware by Nick H."),
+in Settings, in `ver` and in the installer's manifest. A suffix, not a prefix, because the updater's
+`compVersions()` reads `%u.%u.%u` and ignores what follows — a prefix would parse as 0.0.0 and make
+every server version look newer. Never `rc` or `db` in the tag: `compVersions()` gives those letters
+meanings.
+
 Nick: *"push 'sync location' on the device I was just reading and have it ready when I open it
 on another device"* — and, the one hard rule: *"we can't let it screw up the position people are
 at in their own wiphones after they update"*.

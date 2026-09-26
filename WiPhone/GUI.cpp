@@ -8168,6 +8168,7 @@ void SplashApp::redrawScreen(bool redrawAll) {
     lcd.setTextDatum(TL_DATUM);
     lcd.setTextSize(1);
     lcd.setTextFont(1);
+    lcd.drawString("Custom firmware by Nick H.", 5, 298);   // see FIRMWARE_VERSION's "-NH"
     lcd.drawString("Ver. " FIRMWARE_VERSION, 5, 310);
     delete icon;
   }

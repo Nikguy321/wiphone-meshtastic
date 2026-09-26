@@ -38,7 +38,12 @@ governing permissions and limitations under the License.
  * Leave it OFF: it defeats the sleep timeout and pins the CPU high.
 //#define SCREEN_ALWAYS_ON_TEST */
 
-#define FIRMWARE_VERSION "0.9.79"
+/* "-NH" marks Nick Howe's firmware apart from the stock WiPhone releases, on the splash, in
+ * Settings, in `ver` and in the installer's manifest. A SUFFIX on purpose: the updater's
+ * compVersions() (ota.cpp) reads "%u.%u.%u" and ignores what follows, so the check against the
+ * server still compares numbers; a prefix would parse as 0.0.0 and make every server version
+ * look newer. Never "rc" or "db" in the tag: compVersions() gives those letters meanings. */
+#define FIRMWARE_VERSION "0.9.79-NH"
 
 #define BUILD_GAMES
 
