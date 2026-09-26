@@ -4,6 +4,19 @@
 
 Read this first; everything below it is narrative.
 
+🌒 **2026-09-26 00:50: BOTH PHONES RUN `kosync` ec25ce5 (two-part install, keys/mute kept); overnight idle soak running.**
+The 2-hour soak on 160b2a0 (19:57-21:57) PASSED: 0 reboots/panics/RADIO LOST/WiFi drops/STALLs, wifi=3 in all 481 HEALTH
+lines per phone, 60 + 56 frames 0 timeouts, largest flat. Integration review 3 (56b56ad..160b2a0) confirmed 10, all fixed +
+verified + repaired (2e84e1b, 9c1887a, 772b855, 340e2f9, ec25ce5): 🛑 **A1 — the notification CHIRP was erased before it could
+sound on a fresh ring since 0.9.66** (the IDF 3.3 TX free queue starts EMPTY: a fresh ring reaches the DAC one full trip,
+512 ms at 8 kHz, after install; the pop tore down at 360 ms) — the stop now waits the ring's lead (872 ms on a fresh ring);
+NEEDS NICK'S EAR (mute off; phone 1's notify mode is buzz-only, `mode=1`). R3-1: in-call UP/DOWN no longer rewrites
+configs.ini per press (persisted once, 3 s after the call). A2: no I2S writer runs without a driver. A3-A6 audio ordering
+(stash rule for call levels under music, the jack re-read, rings stopped when installed with the device off — the BOOT
+ring is now stopped until first use). KOSync N1 hold: one join per wait; a job past idle waits for the rejoin. R3-4: the
+guards' surviving hand mutations now trip. Benched on ec25ce5: music after boot drops 0 / minLead 409 ms; a Game Boy game
+with sound, reseat `26704 -> 59980`, WiFi JOIN in 6 s.
+
 🌙 **2026-09-25 NIGHT (Nick away, full permission): BOTH PHONES NOW RUN `kosync` 160b2a0 (built 19:52), same two-part
 install, keys/mute/GPS kept.** Added since the block below: **SA-1/SA-2** (e87eeb0, 6900e63 — in-call UP/DOWN moves only the
 route in use and stores under its own key; the ring and a call apply the stored levels; a call picks its own route, the
