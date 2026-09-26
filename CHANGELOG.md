@@ -265,6 +265,9 @@ Both phones register now (`sip=1`), which made the 2026-08-15 audit's "unreachab
   its level behind); a game puts back the levels its F1/F2 moved. **Outgoing calls start on the
   EARPIECE** (they played on the loudspeaker the ring's code picked), and the Loud Spkr key is reset
   every call. 12 more contracts in `check_call_audio.py`.
+  Its verification: **connect no longer reads configs.ini** (a 0.5-1.6 s SPIFFS open with the RTP port
+  still shut could lose the far end's "Hello?"; the dial or the ring already applied those levels), and
+  the checker now pins the stored key, the store itself and the Loud Spkr key's record (54 -> 56).
 
 ### WiFi drops explain themselves; a station wedged mid-connect now cures itself (0.9.79 dev, 2026-09-25)
 

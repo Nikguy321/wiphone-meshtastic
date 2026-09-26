@@ -223,10 +223,20 @@ static void applyStoredCallVolumes(const char* who) {
  * use (SA-1), and again at connect, because a pop can start while the far end rings.
  * ⚠ The caller finishes a pop in flight FIRST (notifyPopFinishFor) - the ring's order: the pop's
  * restore() would put its snapshot back over all of this. This is not the loop-level yield;
- * that one waits for a pop to end, these end it. */
-static void callTakesAudioDevice(const char* who) {
+ * that one waits for a pop to end, these end it.
+ * 🛑 `readStoredLevels` IS FALSE AT CONNECT. applyStoredCallVolumes() opens configs.ini, and a
+ * SPIFFS open on these phones has measured 0.5-1.6 s: at connect that stall lands with the RTP
+ * port still closed, so the far end's first words ("Hello?") are lost for its length. And it
+ * gains nothing there: the same stored levels went in moments earlier - when dialling for a
+ * caller (before the INVITE, off the audio path), at the ring for a callee - and nothing in
+ * between leaves them changed: the call screen's UP/DOWN stores what it applies, a pop is
+ * finished first and puts back its own snapshot of them, and music's yield gives back the ones
+ * it saved. Connect still yields and still chooses the route - both are RAM and bus writes. */
+static void callTakesAudioDevice(const char* who, bool readStoredLevels) {
   musicPlayerYieldForCall();
-  applyStoredCallVolumes(who);
+  if (readStoredLevels) {
+    applyStoredCallVolumes(who);
+  }
   audio->chooseSpeaker(gui.state.callLoudspeaker);
 }
 
@@ -4711,7 +4721,7 @@ void loop() {
            * callTakesAudioDevice(). Before connect, so the call screen's UP/DOWN steps the
            * level of the route this call will use, not a stale one (SA-1). */
           notifyPopFinishFor("a call is being dialled");
-          callTakesAudioDevice("dial");
+          callTakesAudioDevice("dial", true);    // the stored levels read HERE, before the INVITE
           sip.startCall(gui.state.calleeUriDyn, now);
           // Proceed to next state
           gui.state.setSipState(CallState::InvitedCallee);
@@ -4798,8 +4808,11 @@ void loop() {
              * own route (review SA-2, 2026-09-25) - see callTakesAudioDevice(). A caller's call
              * used to play on the loudspeaker the CallApp constructor picked for the ring. Here,
              * not after: the loop's own yield runs later in this pass and would put music's
-             * saved route back over a route chosen before it. */
-            callTakesAudioDevice("call");
+             * saved route back over a route chosen before it.
+             * ⚠ WITHOUT the stored-level read (`false`): a 0.5-1.6 s SPIFFS open here, with the
+             * RTP port still closed, would lose the far end's first words, and the levels it
+             * would read went in at dial or at the ring - see callTakesAudioDevice(). */
+            callTakesAudioDevice("call", false);
             audio->openRtpConnection(rtpLocalPort);
             audio->sendRtpStreamFromMic(audioFormat, rtpRemoteIP, rtpRemotePort);
             audio->playRtpStream(audioFormat, rtpRemotePort);

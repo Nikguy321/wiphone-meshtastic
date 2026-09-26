@@ -36,6 +36,11 @@ ring 12 dB quieter, across reboots); the ring and a call read the stored call le
 yields; a call chooses its own route where it takes the device (dialling and connect), from the
 call screen's key, which the CallApp constructor resets and no longer overrides with the ring's
 LOUDSPEAKER; and the Game Boy puts back the levels its F1/F2 moved, not just the route.
+Its verification round pinned what that let slip: the stored KEY (levelField) is chosen like the
+level and written after the clamp (an earpiece press stored under loudspeaker_vol passed), the
+Loud Spkr key records the route it picks, and connect reads NO file (a 0.5-1.6 s SPIFFS open
+there, RTP port shut, for levels the dial or the ring already applied) - `sequence_within` takes
+a `forbid` pattern for that.
 """
 import pathlib
 import re
@@ -170,6 +175,10 @@ def contract_problem(code, c, raw=None):
             p = sequence_problem(code, b[2], b[3], c["seq"], c["what"])
             if p:
                 return f"line {line_of(code, b[0])}: {p}"
+            if c.get("forbid"):
+                m = re.compile(c["forbid"]).search(code, b[2], b[3])
+                if m:
+                    return f"line {line_of(code, m.start())}: {c['forbid_what']}"
         return None
     if kind == "guarded":
         calls = list(re.compile(c["pat"]).finditer(code, bs, be))
@@ -278,6 +287,8 @@ POP = r"\bmeshPopPlaying\b"
 KEY_END = r"\bkeyPressed\s*==\s*WIPHONE_KEY_END\b"
 CALL_ROUTE = r"\baudio\s*->\s*chooseSpeaker\s*\(\s*gui\s*\.\s*state\s*\.\s*callLoudspeaker\s*\)"
 TAKES_DEVICE = r"\bcallTakesAudioDevice\s*\("
+TAKES_DEVICE_READ = r"\bcallTakesAudioDevice\s*\([^;]*,\s*true\s*\)"      # dialling: stored levels read
+TAKES_DEVICE_KEEP = r"\bcallTakesAudioDevice\s*\([^;]*,\s*false\s*\)"     # connect: no file read
 
 CONTRACTS = [
     # ── Audio.cpp: the per-call silence clock is wired, not just written ──
@@ -472,8 +483,12 @@ CONTRACTS = [
               r"\bonLoudspeaker\s*=\s*!\s*onHeadphones\s*&&\s*audio\s*->\s*isLoudspeaker\s*\(\s*\)",
               r"\bint8_t\s*&\s*level\s*=\s*onHeadphones\s*\?\s*headphonesVol\s*:\s*\(\s*onLoudspeaker\s*\?"
               r"\s*loudspeakerVol\s*:\s*earpieceVol\s*\)",
-              r"\blevel\s*\+=", r"\baudio\s*->\s*setVolumes\s*\("],
-         what="UP/DOWN stepping the level of the route in use (headphones > loudspeaker > earpiece)",
+              r"\blevelField\s*=\s*onHeadphones\s*\?\s*headphonesVolField\s*:\s*\(\s*onLoudspeaker\s*\?"
+              r"\s*loudspeakerVolField\s*:\s*earpieceVolField\s*\)",
+              r"\blevel\s*\+=", r"\baudio\s*->\s*setVolumes\s*\(",
+              r"\bini\s*\[[^\]]*\]\s*\[\s*levelField\s*\]\s*=(?!=)\s*level\b"],
+         what="UP/DOWN stepping the level of the route in use (headphones > loudspeaker > earpiece), "
+              "and storing it under THAT route's key, after the driver's clamp",
          why="it moved all three and the loudspeaker level is the RING's: two presses on a loud "
              "earpiece left every later ring 12 dB quieter, across reboots"),
     dict(file="GUI.cpp", fn="CallApp::processEvent", kind="not_calls",
@@ -509,17 +524,37 @@ CONTRACTS = [
          what="music yields, the stored levels, THEN the call's route (the call screen's key)",
          why="a caller's call played on the LOUDSPEAKER the CallApp constructor picked for the "
              "ring, or on music's saved route (the yield restores it) when a track had played"),
+    dict(file="WiPhone.ino", fn="callTakesAudioDevice", kind="guarded",
+         pat=r"\bapplyStoredCallVolumes\s*\(", need=[POS(r"\breadStoredLevels\b")],
+         what="the stored-level read only when the caller asks for it",
+         why="at connect the configs.ini open (0.5-1.6 s) stalls the loop with the RTP port shut"),
     dict(file="WiPhone.ino", fn="loop", kind="sequence_within", outer=CALL_SETUP,
          has=r"\bopenRtpConnection\s*\(",
-         seq=[r"\bnotifyPopFinishFor\s*\(", TAKES_DEVICE, r"\bopenRtpConnection\s*\("],
-         what="connect: the pop finished, THEN the call takes the device, THEN RTP",
+         seq=[r"\bnotifyPopFinishFor\s*\(", TAKES_DEVICE_KEEP, r"\bopenRtpConnection\s*\("],
+         forbid=r"\bapplyStoredCallVolumes\s*\(|\bCriticalFile\b|\bSPIFFS\b|" + TAKES_DEVICE_READ,
+         forbid_what="connect reading configs.ini: a 0.5-1.6 s SPIFFS open with the RTP port still "
+                     "shut loses the far end's first words, for levels applied at dial or at the ring",
+         what="connect: the pop finished, THEN the call takes the device (no file read), THEN RTP",
          why="nothing chose a caller's route; the loop's own yield later in the pass would put "
-             "music's route back over one chosen before it"),
+             "music's route back over one chosen before it; and a configs.ini read here is a "
+             "0.5-1.6 s stall with the RTP port still shut"),
     dict(file="WiPhone.ino", fn="loop", kind="sequence_within", outer=[POS(r"\bcalleeUriDyn\b")],
          has=r"\bsip\s*\.\s*startCall\s*\(",
-         seq=[r"\bnotifyPopFinishFor\s*\(", TAKES_DEVICE, r"\bsip\s*\.\s*startCall\s*\("],
-         what="dialling: the pop finished, THEN the call takes the device, before the INVITE",
-         why="before connect UP/DOWN stepped the level of a stale route - often the ring's"),
+         seq=[r"\bnotifyPopFinishFor\s*\(", TAKES_DEVICE_READ, r"\bsip\s*\.\s*startCall\s*\("],
+         what="dialling: the pop finished, THEN the call takes the device and the stored levels, "
+              "before the INVITE",
+         why="before connect UP/DOWN stepped the level of a stale route - often the ring's; and "
+             "dialling is the only place a CALLER's levels are read (connect no longer reads them)"),
+    dict(file="GUI.cpp", fn="CallApp::processEvent", kind="sequence_within",
+         outer=[POS(r"\bsipState\s*==\s*CallState\s*::\s*Call\b")],
+         has=r"\bcallLoudspeaker\b",
+         seq=[r"\bchooseSpeaker\s*\(\s*!\s*EARSPEAKER\s*\)",
+              r"\bcontrolState\s*\.\s*callLoudspeaker\s*=(?!=)\s*true\b",
+              r"\bchooseSpeaker\s*\(\s*EARSPEAKER\s*\)",
+              r"\bcontrolState\s*\.\s*callLoudspeaker\s*=(?!=)\s*false\b"],
+         what="the Loud Spkr / Ear Spkr key recording the route it chose",
+         why="the key's next press and its label read it: moving the speaker without recording "
+             "it made the next press a silent no-op and ran the labels backwards (the pre-SA-2 key)"),
     dict(file="GUI.cpp", fn="CallApp::CallApp", kind="not_calls",
          pat=r"\baudio\s*->\s*chooseSpeaker\s*\(",
          what="the CallApp constructor choosing a route",
@@ -733,6 +768,18 @@ def selftest():
     expect(pre, step, False, "the pre-SA-1 all-three step fails")
     expect(good.replace("!onHeadphones && audio->isLoudspeaker()", "!onHeadphones"), step, False,
            "the loudspeaker picked without asking the codec's route fails")
+    expect(good.replace("(onLoudspeaker ? loudspeakerVolField : earpieceVolField)",
+                        "(onLoudspeaker ? loudspeakerVolField : loudspeakerVolField)"), step, False,
+           "an earpiece press STORED under the ring's loudspeaker key fails")
+    expect(good.replace("headphonesVolField :\n", "loudspeakerVolField :\n"), step, False,
+           "a headphones press stored under the loudspeaker key fails")
+    expect(good.replace("   ini[\"audio\"][levelField] = level;\n", ""), step, False,
+           "UP/DOWN that stores nothing fails")
+    expect(good.replace("   ini[\"audio\"][levelField] = level;\n", "").replace(
+           "  level += (event", "  if (loaded) { ini[\"audio\"][levelField] = level; }\n  level += (event"),
+           step, False, "the key stored BEFORE the step and the driver's clamp fails")
+    expect(good.replace("ini[\"audio\"][levelField] = level;", "ini[\"audio\"][levelField] == level;"),
+           step, False, "a comparison is not the store")
     nstep = C("CallApp::processEvent", "not_calls", pat=r"\b(?:earpiece|headphones|loudspeaker)Vol\s*\+=")
     expect(good, nstep, True, "no named level stepped holds")
     expect(pre, nstep, False, "earpieceVol/headphonesVol/loudspeakerVol += d fails")
@@ -785,8 +832,16 @@ def selftest():
 
     # ── SA-2: a call takes its own route, after music yields, at dial and at connect ──
     tk = C("callTakesAudioDevice", "sequence")
-    good = ("static void callTakesAudioDevice(const char* who) {\n musicPlayerYieldForCall();\n"
-            " applyStoredCallVolumes(who);\n audio->chooseSpeaker(gui.state.callLoudspeaker);\n}\n")
+    good = ("static void callTakesAudioDevice(const char* who, bool readStoredLevels) {\n"
+            " musicPlayerYieldForCall();\n if (readStoredLevels) {\n  applyStoredCallVolumes(who);\n }\n"
+            " audio->chooseSpeaker(gui.state.callLoudspeaker);\n}\n")
+    tg = C("callTakesAudioDevice", "guarded")
+    expect(good, tg, True, "the stored-level read on the caller's say-so holds")
+    expect(good.replace(" if (readStoredLevels) {\n  applyStoredCallVolumes(who);\n }\n",
+                        " applyStoredCallVolumes(who);\n"), tg, False,
+           "the read on every take (connect included) fails")
+    expect(good.replace("if (readStoredLevels)", "if (!readStoredLevels)"), tg, False,
+           "the read on the wrong say-so fails")
     expect(good, tk, True, "the call taking the device in order holds")
     expect(good.replace(" audio->chooseSpeaker(gui.state.callLoudspeaker);\n", ""), tk, False,
            "a call that chooses no route (pre-SA-2) fails")
@@ -796,26 +851,53 @@ def selftest():
            "the route chosen BEFORE the yield (music's route lands on top) fails")
     expect(good.replace("gui.state.callLoudspeaker", "true"), tk, False,
            "the call put on the loudspeaker regardless of its key fails")
-    cn = next(c for c in CONTRACTS if c["kind"] == "sequence_within" and TAKES_DEVICE in c["seq"]
+    cn = next(c for c in CONTRACTS if c["kind"] == "sequence_within" and TAKES_DEVICE_KEEP in c["seq"]
               and c["has"].startswith(r"\bopenRtp"))
     good = ("void loop() {\n if (callEstablished) {\n  if ((uint32_t)rtpRemoteIP && rtpRemotePort && "
-            "audioFormat != N) {\n   notifyPopFinishFor(\"c\");\n   callTakesAudioDevice(\"call\");\n"
+            "audioFormat != N) {\n   notifyPopFinishFor(\"c\");\n   callTakesAudioDevice(\"call\", false);\n"
             "   audio->openRtpConnection(p);\n   audio->sendRtpStreamFromMic(f, ip, rtpRemotePort);\n"
             "   audio->playRtpStream(f, p);\n  }\n }\n}\n")
     expect(good, cn, True, "connect taking the device before RTP holds")
-    expect(good.replace("   callTakesAudioDevice(\"call\");\n", ""), cn, False,
+    expect(good.replace("   callTakesAudioDevice(\"call\", false);\n", ""), cn, False,
            "connect with no route of its own (pre-SA-2) fails")
-    expect(good.replace("   notifyPopFinishFor(\"c\");\n   callTakesAudioDevice(\"call\");\n",
-                        "   callTakesAudioDevice(\"call\");\n   notifyPopFinishFor(\"c\");\n"), cn, False,
+    expect(good.replace("   notifyPopFinishFor(\"c\");\n   callTakesAudioDevice(\"call\", false);\n",
+                        "   callTakesAudioDevice(\"call\", false);\n   notifyPopFinishFor(\"c\");\n"), cn, False,
            "the device taken before the pop is finished (its restore() lands on top) fails")
-    dl = next(c for c in CONTRACTS if c["kind"] == "sequence_within" and TAKES_DEVICE in c["seq"]
+    expect(good.replace("callTakesAudioDevice(\"call\", false)", "callTakesAudioDevice(\"call\", true)"),
+           cn, False, "connect reading configs.ini through the helper (e87eeb0) fails")
+    expect(good.replace("   audio->openRtpConnection(p);\n",
+                        "   applyStoredCallVolumes(\"call\");\n   audio->openRtpConnection(p);\n"), cn, False,
+           "connect reading configs.ini beside the helper fails")
+    expect(good.replace("   audio->openRtpConnection(p);\n",
+                        "   CriticalFile ini(Storage::ConfigsFile);\n   audio->openRtpConnection(p);\n"), cn, False,
+           "connect opening a SPIFFS file of its own fails")
+    dl = next(c for c in CONTRACTS if c["kind"] == "sequence_within" and TAKES_DEVICE_READ in c["seq"]
               and "startCall" in c["has"])
     good = ("void loop() {\n if (s == InvitingCallee) {\n  if (strchr(gui.state.calleeUriDyn, '@') != NULL) {\n"
-            "   notifyPopFinishFor(\"d\");\n   callTakesAudioDevice(\"dial\");\n"
+            "   notifyPopFinishFor(\"d\");\n   callTakesAudioDevice(\"dial\", true);\n"
             "   sip.startCall(gui.state.calleeUriDyn, now);\n  }\n }\n}\n")
     expect(good, dl, True, "dialling taking the device holds")
-    expect(good.replace("   callTakesAudioDevice(\"dial\");\n", ""), dl, False,
+    expect(good.replace("   callTakesAudioDevice(\"dial\", true);\n", ""), dl, False,
            "dialling on a stale route fails")
+    expect(good.replace("callTakesAudioDevice(\"dial\", true)", "callTakesAudioDevice(\"dial\", false)"),
+           dl, False, "dialling without the stored levels (a caller would never read them) fails")
+
+    sel = next(c for c in CONTRACTS if c.get("fn") == "CallApp::processEvent" and
+               c["kind"] == "sequence_within")
+    good = ("appEventResult CallApp::processEvent(EventType event) {\n if (event == WIPHONE_KEY_SELECT) {\n"
+            "  if (controlState.sipState == CallState::Call) {\n   if (controlState.callLoudspeaker == false){\n"
+            "    footer->setButtons(\"Ear Spkr\", \"Hang up\");\n    audio->chooseSpeaker(!EARSPEAKER);\n"
+            "    controlState.callLoudspeaker = true;\n   } else {\n"
+            "    footer->setButtons(\"Loud Spkr\", \"Hang up\");\n    audio->chooseSpeaker(EARSPEAKER);\n"
+            "    controlState.callLoudspeaker = false;\n   }\n  }\n }\n}\n")
+    expect(good, sel, True, "the key recording its route holds")
+    expect(good.replace("    controlState.callLoudspeaker = true;\n", ""), sel, False,
+           "the key moving to the loudspeaker without recording it fails")
+    expect(good.replace("    controlState.callLoudspeaker = false;\n   }", "   }"), sel, False,
+           "the key moving to the earpiece without recording it fails")
+    expect(good.replace("callLoudspeaker = true;", "callLoudspeaker = X;").replace(
+           "callLoudspeaker = false;", "callLoudspeaker = true;").replace("callLoudspeaker = X;",
+           "callLoudspeaker = false;"), sel, False, "the key recording the OTHER route fails")
     cc = C("CallApp::CallApp", "not_calls")
     cr = C("CallApp::CallApp", "calls")
     good = ("CallApp::CallApp(Audio* audio, LCD& lcd, ControlState& state, bool c, HeaderWidget* h, FooterWidget* f)\n"
