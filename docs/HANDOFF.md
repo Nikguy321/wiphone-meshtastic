@@ -4,6 +4,11 @@
 
 Read this first; everything below it is narrative.
 
+✅ **2026-09-26 13:40: 0.9.79-NH IS LIVE AND PROVEN THROUGH A REAL BROWSER.** Nick's second install on phone 1 from the
+republished page: "Works!" — phone 1 boots the exact published bytes (BOOT `build=Sep 26 2026 12:58:56`), mesh key
+`mpHJ…`, KOSync id `52de577b…` and mute all intact. `main` = `a6aca39` pushed; live shas of all six files verified
+against the stage. Both phones on 0.9.79-NH (phone 2 by cable, same bytes). The X4 Pro arrives Sunday 2026-09-27.
+
 🩹 **2026-09-26 13:25: THE FIRST REAL BROWSER INSTALL FOUND A PAGE BUG — FIXED AND REPUBLISHED.** Nick's install
 ended "Failed: loader.after is not a function": the write had finished, the page's reset call named a method esptool-js
 0.4.5 does not have (`after()`; it has `hardReset()`), the catch said "Failed" and phone 1 sat dark in the bootloader with
