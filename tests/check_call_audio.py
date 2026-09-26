@@ -410,6 +410,24 @@ CONTRACTS = [
          need=[POS(IN_CALL), NEG(POP)], what="the loop-level musicPlayerYieldForCall()",
          why="gui.inCall(), not the teardown states (HangUp stuck = music never plays); and not "
              "under a pop, whose restore() would put the music level back over the call's"),
+    # ── WiPhone.ino: the pop's teardown carries on the track it cut (2026-09-26) ──
+    dict(file="WiPhone.ino", fn="loop", kind="guarded", pat=r"\bmusicPlayerResumeAfterPop\s*\(",
+         need=[POS(r"\bmeshPopCutMusic\b")], what="the pop's resume of the track it cut",
+         why="only a track that was PLAYING when the pop started; a call's branch never asks, and "
+             "a pause the user made is the player's own refusal (s_pausedByStop)"),
+    dict(file="WiPhone.ino", fn="loop", kind="sequence",
+         seq=[r"\baudio\s*->\s*ceasePlayback\s*\(\s*\)\s*;\s*audio\s*->\s*restore\s*\(\s*\)",
+              r"\bmeshPopPlaying\s*=\s*false\s*;\s*if\s*\(\s*meshPopCutMusic\s*\)",
+              r"\bmusicPlayerResumeAfterPop\s*\("],
+         what="the pop's teardown restore()s BEFORE it carries the track on",
+         why="the 'pop first, then the music' rule: restore() puts the pre-pop ring and levels "
+             "back, and the resume installs music's own over that - the other order restores the "
+             "pop's snapshot over the running track; and meshPopPlaying is down first, or "
+             "startTrack()'s notifyPopFinishFor() tears the finished pop down a second time"),
+    dict(file="music_player.cpp", fn="musicPlayerResumeAfterPop", kind="refuses_before",
+         need=[NEG(r"\bs_pausedByStop\b")], later=r"\bmusicPlayerResume\s*\(",
+         what="musicPlayerResumeAfterPop() refuses a pause the user made",
+         why="F1's pause must survive a chirp; only a stop the player adopted is undone"),
     # ── WiPhone.ino: the hot-mic backstop ──
     dict(file="WiPhone.ino", fn="loop", kind="cond_needs", sel=r"\brtpOrphanCheck\s*\(",
          body=r"\baudio\s*->\s*shutdown\s*\(", before=r"\brtpOrphanCheck\s*\(",
@@ -1266,6 +1284,15 @@ def selftest():
 # and replace the first match; a pattern that no longer matches fails too - the guard was rewritten,
 # so its mutation needs rewriting with it.
 MUTATIONS = [
+    # the pop's teardown carrying the track on (2026-09-26): unguarded, before restore(), or undoing
+    # a pause the user made
+    ("WiPhone.ino", "the pop's resume of the track it cut", r"if\s*\(\s*meshPopCutMusic\s*\)\s*\{", "{"),
+    ("WiPhone.ino", "restore()s BEFORE it carries the track on",
+     r"(\s*)(audio\s*->\s*ceasePlayback\s*\(\s*\)\s*;\s*audio\s*->\s*restore\s*\(\s*\)\s*;\s*log_e\()",
+     r"\1if (meshPopCutMusic) { musicPlayerResumeAfterPop(); }\1\2"),
+    ("WiPhone.ino", "restore()s BEFORE it carries the track on",
+     r"meshPopPlaying\s*=\s*false\s*;(\s*if\s*\(\s*meshPopCutMusic\s*\))", r"\1"),
+    ("music_player.cpp", "refuses a pause the user made", r"\|\|\s*!s_pausedByStop\s*", ""),
     # adoptStopPlace(): the place dropped (the review's own mutation), zeroed, the pause not made,
     # the clock not carried
     ("music_player.cpp", "the taken place made the pause", r"\bs_resumePos\s*=\s*pos\s*;", ""),

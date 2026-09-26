@@ -2627,6 +2627,7 @@ static bool     chordFired = false;    // one sleep per hold, not one every loop
 // sizeof(pop_pcm), not a literal: see notify_timing.h for why the flash buffer (plays once)
 // and the SPIFFS file (loops) need OPPOSITE margins, and tests/test_notify.cpp for the numbers.
 static bool     meshPopPlaying = false;
+static bool     meshPopCutMusic = false; // the pop stopped a PLAYING track: its teardown carries it on
 static uint32_t meshPopStartMs = 0;
 static uint32_t meshPopStopMs  = 0;     // set per pop from notifyPopStopMs()
 /* MESH_POP_MS used to be a literal 280u here — the looping file's number, which happened to
@@ -3046,11 +3047,13 @@ static void notifyMessageArrived(uint8_t mode) {
        * from pop_pcm[] in flash and the file is only the fallback; the line says which, and
        * a "took" in the hundreds of ms names the codec/I2S start, not the file. */
       const uint32_t t0 = millis();
+      const bool cutsMusic = audio->musicPlaying();   // BEFORE playPop() ceases it
       const bool played = audio->playPop(pop_pcm, sizeof(pop_pcm), &SPIFFS, gui.state.notifyVolume);
       const uint32_t t1 = millis();
       if (played) {
         const bool fromFlash = audio->popFromMemory();
         meshPopPlaying = true;
+        meshPopCutMusic = cutsMusic;
         /* 🛑 THE STOP WAITS FOR THE RING'S LEAD (review 3, A1; notify_timing.h). playPop() installs
          * a FRESH ring on almost every pop, and a fresh ring plays itself (zeros) once before the
          * first written sample reaches the DAC: the chirp was due at ~512 ms and the teardown at
@@ -5251,6 +5254,7 @@ void loop() {
       if (gui.state.sipState == CallState::Call || gui.state.ringing) {
         audio->restore();
         meshPopPlaying = false;
+        meshPopCutMusic = false;             // the call has the device: musicPlayerYieldForCall's job
         log_e("NOTIFY: pop cut after %lu ms (call/ringing)", (unsigned long)(tNow - meshPopStartMs));
       } else if (elapsedMillis(tNow, meshPopStartMs, MESH_POP_MS)) {
         if (audio->musicPlaying()) {
@@ -5260,12 +5264,30 @@ void loop() {
            * pulled its ring and levels out from under it. Its configuration stands; only the
            * snapshot goes, or the next pop would restore this one's instead of its own. */
           audio->discardPreserved();
+          meshPopCutMusic = false;
           log_e("NOTIFY: pop already replaced by music after %lu ms - snapshot dropped",
                 (unsigned long)(tNow - meshPopStartMs));
         } else {
           audio->ceasePlayback();
           audio->restore();
           log_e("NOTIFY: pop stopped after %lu ms", (unsigned long)(tNow - meshPopStartMs));
+          /* 🛑 THE TRACK THE POP CUT CARRIES ON - AFTER restore() (the "pop first, then the music"
+           * rule: restore() puts the pre-pop levels and ring back, and the resume then installs
+           * music's own ring over that, exactly what F1 did). Until 2026-09-26 the cut was kept
+           * as a pause at its place and waited for F1 - Nick's first chirp over music: "it
+           * stopped playing the song". Only a track that was PLAYING when the pop started
+           * (meshPopCutMusic): a pause the user made stays a pause (music_player's
+           * s_pausedByStop), and a call that cut the pop takes the other branch.
+           * ⚠ meshPopPlaying goes false BEFORE the resume: startTrack() finishes "a pop in
+           * flight" first (notifyPopFinishFor), and with the flag still up that was a second
+           * ceasePlayback()+restore() on a pop already torn down (seen on the first bench). */
+          meshPopPlaying = false;
+          if (meshPopCutMusic) {
+            meshPopCutMusic = false;
+            if (musicPlayerResumeAfterPop()) {
+              log_e("NOTIFY: the track the pop cut carries on at its place");
+            }
+          }
         }
         meshPopPlaying = false;
       }

@@ -48,6 +48,7 @@ bool musicPlayerPlay(int libraryIndex);
 void musicPlayerStop();               // stop and forget the position
 void musicPlayerPause();              // stop the audio, remember the track
 void musicPlayerResume();             // start the remembered track again
+bool musicPlayerResumeAfterPop();     // the pop's teardown: carry on the track it cut (not a user's pause)
 bool musicPlayerTogglePause();        // returns true if now playing
 
 void musicPlayerNext();

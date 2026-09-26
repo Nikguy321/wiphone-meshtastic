@@ -212,6 +212,16 @@ two bugs in the Now playing title, both fixed:
   the photo was the "e" of "Pulse"): the pixel-width probe ran `k < len` and never measured the whole
   title, so a title that fit still split. The measuring is `WiPhone/music_title.h` now
   (`musicTitleFit`/`musicTitleBreak`, host-tested in `tests/test_music_title.cpp`).
+- **A notification chirp no longer stops the music** ("it stopped playing the song after the
+  chirp"). The pop's cut was kept as a pause at the exact place — 0.9.79's fix for "every mesh
+  message restarted the song at 0:00" — but then waited for F1. The pop's own teardown now carries
+  the track on (`musicPlayerResumeAfterPop()`), after its `restore()` and with `meshPopPlaying`
+  already down (or `startTrack()`'s finish-the-pop backstop tore it down a second time — seen on
+  the first bench). Only a track that was PLAYING when the pop started: a pause the user made
+  stays paused through a chirp (`s_pausedByStop`), and a call that cut the pop takes its own
+  branch. Proven on phone 2: chirp over *Pulse* → `the track the pop cut carries on at its place`,
+  Nick: "Works on this one!"; paused by hand, chirp → still paused. Three contracts and three
+  mutations in `tests/check_call_audio.py`.
 
 Nick: music *"has always been bad"*; *"Lower audio quality and having to take time to load in-between
 tracks are things I can live with."* Four faults, measured on both phones and replayed on the Mac

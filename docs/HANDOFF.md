@@ -12,8 +12,17 @@ cleared; `titleShown` is -2 after a panel clear and -1 for "Nothing playing" (wh
 `tests/check_music_title.py` pins the shape (3 mutations trip). (2) EVERY title lost its last character to line two
 ("My_Name_I" / "s" — the stray letter under Nick's title was the "e" of "Pulse"): the pixel probe loop ran `k < len`
 and never measured the whole title. The measuring is `WiPhone/music_title.h` (`musicTitleFit`/`musicTitleBreak`,
-`tests/test_music_title.cpp` 13 checks). Still owed by ear: the tone A/B (`audio tone old|clean|flat`) incl. a
-ringtone, `music swap on|off`, the notification chirp — all need me live with the phone unmuted.
+`tests/test_music_title.cpp` 13 checks). **12:25 the live A/B on the SPEAKER (headphones out; on headphones he could not
+tell): tone → "clean seems the best" (default kept); `music swap` → "couldn't really tell a difference" (swap=on kept);
+the chirp sounded (phone 2's notifications had been buzz-only, mode=1 — Nick set a sound mode) — and "it stopped
+playing the song after the chirp": the pop's cut was kept as a pause at its place (0.9.79's fix for "every mesh message
+restarted the song") and waited for F1. FIXED 12:35: the pop's teardown carries the track on (`musicPlayerResumeAfterPop`,
+after `restore()`, `meshPopPlaying` down first — with it up, `startTrack()`'s notifyPopFinishFor tore the pop down a
+second time on the first bench); a user's pause stays paused (`s_pausedByStop`); three contracts + mutations in
+check_call_audio.py (18). Phone 2 proven: "Works on this one!". Ringtone by ear: Settings > Diagnostics, key 2 (Nick).
+⚠ BENCH TRAPS learnt today: `key select` on Now playing opens the options MENU (the top side button `key f1` is
+play/pause; `key 6`/`4` next/prev); a dimmed screen eats the first key; and NEVER drive menus blind on phone 2 — a
+`key back, key select, 7×down, key ok` path walked Phonebook → contact → the CALL row (Nick took control).**
 
 ✅ **2026-09-26 11:35: §5.1-5.3 ARE ON BOTH PHONES AND PROVEN ON HARDWARE; COVEY D-163 IS DEPLOYED (in the right
 order).** Both phones run `kosync` 76e4886 (build 11:04:27, two-part install, keys/mute kept; the 10:50 repair is squashed

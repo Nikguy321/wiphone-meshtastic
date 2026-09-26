@@ -27,6 +27,10 @@ static uint32_t    s_elapsedBase = 0;    // seconds already played before the la
 static uint32_t    s_resumePos = 0;
 static const char* s_error = NULL;
 static bool        s_began = false;
+/* The pause is a STOP the player adopted (a pop, the ring, a call - adoptStopPlace()), not F1.
+ * Only such a pause may be undone by the pop's teardown (musicPlayerResumeAfterPop()): a track
+ * the user paused stays paused through a chirp. */
+static bool        s_pausedByStop = false;
 
 /* Volume, in dB, RAM-only — see music_player.h. */
 static int         s_vol = MUSIC_VOL_DEFAULT_DB;
@@ -293,6 +297,7 @@ void musicPlayerPause() {
     audio->stopMusic();
     restoreCallVolume();
     s_paused = s_loaded >= 0;
+    s_pausedByStop = false;                  // the user's pause: nothing undoes it for them
   }
 }
 
@@ -314,10 +319,12 @@ void musicPlayerResume() {
     const uint32_t at = s_resumePos;
     if (startTrack(s_loaded, at)) {
       s_resumePos = 0;
+      s_pausedByStop = false;
     } else if (startTrack(s_loaded)) {
       // The offset was refused for some reason; falling back to the start still plays.
       s_resumePos = 0;
       s_elapsedBase = 0;
+      s_pausedByStop = false;
     }
   }
 }
@@ -339,8 +346,25 @@ static bool adoptStopPlace() {
   s_elapsedBase += (stoppedMs - s_startedAt) / 1000;
   s_resumePos = pos;
   s_paused = true;
+  s_pausedByStop = true;
   s_error = audio->musicError();   // "Card read failed"; NULL for a pop or a call, which are not faults
   return true;
+}
+
+/* The notification pop's teardown carries on the track it cut (Nick, 2026-09-26, the first
+ * listening pass: "it stopped playing the song after the chirp" - the cut was kept as a pause at
+ * its place, and then waited for F1). Only a pause the player ADOPTED from a stop, with no fault
+ * ("Card read failed" stays stopped) - never one the user made - and only when the pop's own
+ * branch asks, AFTER its restore() (WiPhone.ino: the "pop first, then the music" rule; a call
+ * that cut the pop never asks). musicPlayerLoop() adopts the stop within a pass of the cut, so
+ * the adoption here is for the pass the pop ends in. True when the track is running again. */
+bool musicPlayerResumeAfterPop() {
+  adoptStopPlace();
+  if (!s_paused || !s_pausedByStop || s_error || s_loaded < 0) {
+    return false;
+  }
+  musicPlayerResume();
+  return musicPlayerIsPlaying();
 }
 
 bool musicPlayerTogglePause() {
