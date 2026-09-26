@@ -4,8 +4,21 @@
 
 Read this first; everything below it is narrative.
 
-🔧 **2026-09-26 10:50: THE REVIEW'S FIVE FINDINGS ON §5.1-5.3 ARE REPAIRED — LOCAL on `kosync`, NOT pushed, NOT
-flashed.** 🛑 **DEPLOY ORDER (the one system-level finding): FLASH BOTH PHONES WITH THIS BUILD BEFORE COVEY D-163 GOES
+✅ **2026-09-26 11:35: §5.1-5.3 ARE ON BOTH PHONES AND PROVEN ON HARDWARE; COVEY D-163 IS DEPLOYED (in the right
+order).** Both phones run `kosync` 76e4886 (build 11:04:27, two-part install, keys/mute kept; the 10:50 repair is squashed
+into that one commit because the marker commit alone did not compile `test_kosync.cpp`). Proven on phone 2 (Leviathan
+Wakes, window on the station IP 192.168.1.59): an x-auth-only GET (KOReader's shape) → `{}`, the same GET with
+`X-BookSync: 1` or with `Authorization: Basic` → the record; the status line counted `no-percentage=2` and the reader
+menu showed the `!` warning. The reader menu's **Sync my place** logged, in order, `the window ... waits for the home job
+(at most 25 s)` → `home answered the push - opening the window ... now` → `KOSYNC window OPEN 300s` (⚠ serial
+`kosync sync` is `kosyncSyncHome` ONLY — it never opens a window; the menu row is the path). COVEY was then deployed
+(`8b614f3` + follow-ups `efa70cc`/`a801f9e`/`1b2c851`, 11:33; `test_kosync` 382 checks PASSED ON THE DEVICE, its first
+run there) and the marker proven against it: phone 2's own pull read its record back (`nothing newer from another
+device`, not "not on the server yet"), an unmarked curl of the same record got `{}`, a marked one the record. 🛑 Still
+not on hardware: the hotspot window (needs a client — the X4 on Sunday), a real KOReader (Bench 3/4).
+
+🔧 **2026-09-26 10:50: THE REVIEW'S FIVE FINDINGS ON §5.1-5.3 ARE REPAIRED — LOCAL on `kosync`, NOT pushed (now
+FLASHED, see above).** 🛑 **DEPLOY ORDER (the one system-level finding): FLASH BOTH PHONES WITH THIS BUILD BEFORE COVEY D-163 GOES
 LIVE.** The phone's own home client sent no marker (`kosyncBuildGet` was Accept/x-auth-user/x-auth-key/Connection, and
 `tests/test_kosync.cpp` pinned exactly those bytes); COVEY D-163 answers `{}` to an UNMARKED GET when the stored
 record has no XPointer — every record a phone wrote — so against D-163 a marker-less phone reads `{}` for its own

@@ -134,7 +134,10 @@ no space before it (`pass#word`) is part of the value.
   newer. 🛑 **DEPLOY ORDER: flash both phones with this build BEFORE COVEY D-163 goes live** — a
   D-163 COVEY facing marker-less phones takes their stale PUTs. Pinned in `tests/test_kosync.cpp`:
   the request bytes, and the phone's own GET and PUT pass `kosyncClientTakesPercentage` beside a
-  valid `x-auth-*` pair.
+  valid `x-auth-*` pair. **Proven on hardware 2026-09-26** (phone 2, a window on its WiFi
+  address): an x-auth-only GET → `{}`, the same GET with `X-BookSync: 1` or `Authorization: Basic`
+  → the record, `no-percentage=2` on the close line; and against COVEY D-163, deployed after both
+  phones were flashed: the phone's own pull read its record back, an unmarked curl got `{}`.
 - **"Sync my place" asks home FIRST; the window opens after (2026-09-26, the plan's §5.2).** On
   WiFi with `home=` the press used to open the window and queue the push behind it. A window on
   the phone's WiFi address (all of 0.9.79) leaves the station alone, but the coming
@@ -149,7 +152,10 @@ no space before it (`pass#word`) is part of the value.
   deferred open follows every deferred window's rules (none during a call, under a game or
   Settings > WiFi). Serial `kosync` says `window waits for home (N s of at most 25 s)`. Pinned:
   `kosyncWindowWaitsForHome` in `tests/test_kosync.cpp`; the order, the two release paths and
-  the bound in `tests/check_kosync_glue.py` (contract 12 — the old order trips it).
+  the bound in `tests/check_kosync_glue.py` (contract 12 — the old order trips it). **Proven on
+  hardware 2026-09-26** (phone 2, the reader menu's Sync my place, home = COVEY): `waits for the
+  home job (at most 25 s)` → `home answered the push - opening the window ... now` → `window OPEN
+  300s`. ⚠ Serial `kosync sync` is the home half only (`kosyncSyncHome`) and opens no window.
 - **The sync hotspot is OPEN unless `hotspot_pass=` is set.** With 8-63 plain-ASCII characters
   (spaces inside are fine; spaces at either end are trimmed) the window's `WiPhone-Books` is
   WPA2-PSK. A stock CrossPoint then needs that password typed once when it joins the hotspot;
