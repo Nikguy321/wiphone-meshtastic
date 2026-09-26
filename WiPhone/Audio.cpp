@@ -133,6 +133,41 @@ void Audio::configureMusicI2S(bool fresh) {
   this->installI2S(true, fresh);
 }
 
+/* 🛑 WHERE THE RING SITS IS DECIDED WHEN IT IS INSTALLED, AND A GAME INSTALLS IT OVER ITS OWN RAM
+ * (0.9.79). IDF 3.3's heap is BEST FIT: every DMA buffer (4 KB in the default ring: 4 TX + 4 RX)
+ * goes into the SMALLEST free block that holds it, at that block's low end, and multi_heap never
+ * moves it after. The Game Boy's startGame() allocates its task stacks, VRAM and audio buffer
+ * (32 KB) at the bottom of the phone's one big free block BEFORE its setMonoOutput() reinstalls
+ * this ring. On phone 1 (the boot ring before the game) what was left of the big block, 30,896 B,
+ * was then SMALLER than the 32,860 B hole the old ring left, so best fit put 7 of the 8 new
+ * buffers right on top of the emulator's blocks and the 8th in the old hole (in-game largest
+ * 28,740 = that hole less one buffer, to the byte). When the game ends the emulator's blocks free
+ * BELOW the ring and the big block stays cut in two for the rest of the boot: largest 63,716 ->
+ * 32,816 on phone 1 (exactly the four emulator blocks, 32,768 + 4 x 12 B of heap poisoning) and
+ * 64,152 -> 28,732 on phone 2, with free back where it was. Proven by music's own install on
+ * phone 2 moving the ring away: largest 28,732 -> 64,316, so nothing else was left in the block.
+ *
+ * Reinstalled here once the borrower's blocks are gone, best fit sees the heap the way it was
+ * before the game: the old ring's hole (the smaller block) takes the buffers again and the big
+ * block is whole. ⚠ Through installI2S(), never a bare uninstall: its cache must stay true (see
+ * the note there). It FREES before it installs, so free RAM never dips below where it started
+ * and the new buffers always have a home (the eight they just left, at least).
+ *
+ * Stopped after, if the device is off: i2s_driver_install() starts the DMA (i2s_set_clk ends in
+ * i2s_start), and the ring it replaces was stopped by shutdown(). A stopped fresh ring has an
+ * empty queue and the DMA at buffer 0, which is what the next start() expects.
+ * ⚠ Only with the device OFF: a powered codec losing its clocks under it clicks. */
+bool Audio::reseatI2S() {
+  if (this->audioOn || !this->i2sInstalled) {
+    return false;
+  }
+  this->installI2S(false, true);            // DEFAULT geometry, fresh: uninstall, then install
+  if (this->i2sInstalled) {
+    i2s_stop(i2s_num);                      // as shutdown() left the ring it replaces
+  }
+  return this->i2sInstalled;
+}
+
 void Audio::installI2S(bool music, bool fresh) {
   /* ── DO NOT REINSTALL THE DRIVER TO CHANGE NOTHING ────────────────────────────────────
    * The TODO that used to sit here ("does it create pop noise? if so - reduce number of

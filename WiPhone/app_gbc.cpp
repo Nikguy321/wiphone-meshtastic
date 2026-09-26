@@ -339,6 +339,10 @@ void GbcApp::startGame() {
      * Every other consumer (music, calls) sets what it needs on the way in, so there is
      * nothing to restore on the way out. */
     audio->setMonoOutput(false);
+    /* The ring setSampleRate()/setMonoOutput() above (re)installed was placed with the stacks, VRAM
+     * and audio buffer already in the heap; ~GbcApp reinstalls it once they are freed, or it
+     * splits the phone's largest block for the rest of the boot (Audio::reseatI2S()). */
+    ringReseat = true;
 
     /* ⚠ CHOOSE THE OUTPUT TOO, FOR THE SAME REASON: NOTHING HERE CHOSE, SO A GAME INHERITED
      * WHATEVER THE LAST USER LEFT. start() builds the codec's power mask from
@@ -493,6 +497,27 @@ GbcApp::~GbcApp() {
     audio->chooseSpeaker(savedLoudspeaker);
     audio->setVolumes(savedEar, savedHp, savedLoud);   // route first, then levels (Audio::restore's order)
     routeSaved = false;
+  }
+  /* 🛑 THE I2S RING IS REINSTALLED HERE, AFTER THE EMULATOR'S RAM IS FREED AND THE DEVICE IS OFF
+   * (0.9.79). startGame's setMonoOutput() installed it with the stacks, VRAM and audio buffer
+   * (32 KB) already at the bottom of the phone's big free block, and best fit put it straight on
+   * top of them: gbcReleaseEmulator() above freed them BELOW the ring and the block stayed cut in
+   * two for the rest of the boot - largest 63,716 -> 32,816 (phone 1), 64,152 -> 28,732 (phone 2),
+   * free back to normal. Reinstalled now, best fit sees the heap as it was before the game and the
+   * ring goes back into the hole the old one left (Audio::reseatI2S() has the numbers).
+   * ⚠ After gbcReleaseEmulator() - before it, the ring is placed over the same blocks again.
+   * ⚠ After shutdown() - reseatI2S() refuses a powered device (the starved path above leaves it
+   *   on: that ring stays where it is, and the log line says so).
+   * ⚠ Before wifiRestoreStation() - the station's own allocations then find the heap they left.
+   * One reinstall, freed before it allocates: free RAM never dips below where it stands here. */
+  if (ringReseat && audio) {
+    ringReseat = false;
+    const unsigned before = (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+    const bool moved = audio->reseatI2S();
+    log_e("GBC: I2S ring %s: largest %u -> %u (free %u)",
+          moved ? "reinstalled after the emulator's release" : (audio->isOn() ? "LEFT where it is - device still on" : "not installed - no driver"),
+          before, (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
+          (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
   }
   gbcXferStop();            // in case the app dies while the transfer screen is up
 

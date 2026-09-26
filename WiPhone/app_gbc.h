@@ -102,6 +102,7 @@ protected:
   volatile bool soundOn = false; // did we start the audio codec? (feed I2S + restore)
   int  audioStarve = 0;          // consecutive under-written I2S frames (emu thread only)
   bool routeSaved = false;       // did startGame move the codec's output? (put it back)
+  bool ringReseat = false;       // startGame set the I2S ring up over the emulator's RAM (reseat at quit)
   bool savedLoudspeaker = false; // the output the phone was on before the game
   int8_t savedEar = 0, savedHp = 0, savedLoud = 0;  // its levels too: F1/F2 move all three (SA-1)
 

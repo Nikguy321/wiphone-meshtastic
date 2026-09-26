@@ -194,6 +194,17 @@ if ! python3 tests/check_call_audio.py; then
   fail=1
 fi
 
+# ── SOURCE GUARD: a Game Boy game's exit puts the I2S ring back where the heap wants it ───
+# See tests/check_gbc_ring.py. The game (re)installs the ring with its own 32 KB already in the heap,
+# and best fit put it on top of them: at quit they freed below it and the phone's largest block
+# stayed cut in two (63,716 -> 32,816). ~GbcApp now reinstalls it after the release and the
+# shutdown, before WiFi; the order and Audio::reseatI2S()'s guards live in files this suite cannot
+# compile, and I2S is installed nowhere but Audio::installI2S() (whose cache the reseat relies on).
+echo "checking the Game Boy's I2S reseat at quit (release, shutdown, reseat, WiFi; one installer)"
+if ! python3 tests/check_gbc_ring.py; then
+  fail=1
+fi
+
 # ── SOURCE GUARD: the LoRa radio never waits for the air on the loop task ─────────────────
 # See tests/check_mesh_tx.py. test_txq proves the queue; the guards that make it safe - no blocking
 # send, healthCheck() true mid-frame, TxDone before the deadline, txPump() first in loop(), the

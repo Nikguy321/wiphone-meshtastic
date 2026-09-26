@@ -106,6 +106,12 @@ public:
   /* Install I2S as every consumer but music expects it: TX+RX, 4 x 1024, channel format from
    * monoOut. A no-op when that is what is installed. */
   void configureI2S();
+  /* Uninstall the ring and install the DEFAULT one again, fresh, at the current settings, and
+   * leave it stopped the way shutdown() leaves one. For a borrower that installed the ring while
+   * its own large internal blocks sat in the heap (the Game Boy): called once those are freed,
+   * so the heap places the ring again with them gone (0.9.79, see Audio.cpp). Refuses while the
+   * device is on, and with no driver to move. True = a driver is installed after it. */
+  bool reseatI2S();
   bool setSampleRate(int hz);         // TODO: which or these purely configuring, and which reset the configuration?
   bool setBitsPerSample(int bits);
   void setMonoOutput(bool mono);      // TODO: force Mono and not force mono

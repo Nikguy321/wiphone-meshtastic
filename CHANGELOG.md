@@ -416,6 +416,20 @@ had had a fix. The rules are all in `clock_source.{h,cpp}` (host suite `tests/te
 - **A KOSync ask waits for a WiFi join in progress** (review N1): a push queued at a book close
   before a Game Boy game was dropped "not on WiFi any more" on the first pass after the game.
 
+### A Game Boy game no longer leaves the internal heap split for the rest of the boot (0.9.79 dev, 2026-09-25)
+
+After a game, free RAM came back but the **largest block stayed at 32,816 (phone 1) / 28,732
+(phone 2) against ~64 KB before** — the number that predicts this phone's panics. The game installs
+its I2S ring (8 x 4 KB of DMA RAM) with its own stacks, VRAM and audio buffer (32 KB) already at the
+bottom of the big free block, and IDF 3.3's best-fit heap put the ring straight on top of them; at
+quit they freed BELOW it. (Phone 1, to the byte: the hole after quit is exactly those four blocks,
+32,768 + 4 x 12 B of heap poisoning; phone 2's music install moving the ring away gave 64,316 back,
+so nothing else was left there.) **The game's exit now reinstalls the ring once the emulator's RAM is
+freed and the codec is off** (`Audio::reseatI2S()`, one uninstall-then-install, before WiFi comes
+back), so it goes back into the hole the old ring left. `GBC: I2S ring reinstalled ... largest A -> B`
+says what it did. `tests/check_gbc_ring.py` pins the order (release, shutdown, reseat, WiFi), the
+refusal under a powered codec, the fresh default install, and I2S installed nowhere but installI2S().
+
 ## 0.9.78 (2026-09-23) - OpenTopoMap's z17, and the most detailed tile there is, on all three devices
 
 Nick, after looking at OpenTopoMap one level deeper: *"So it seems like open topo has a native
