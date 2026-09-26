@@ -12,10 +12,12 @@
  *
  *   "Sync my place" (reader menu) opens a WINDOW for 5 minutes: the phone serves KOSync for
  *     THIS book — on its own open hotspot 'WiPhone-Books' (http://192.168.4.1) when it is not
- *     on WiFi, or on its WiFi address when it is — and, on WiFi with home= set, also READS the
+ *     on WiFi, or on its WiFi address when it is. On WiFi with home= set it FIRST READS the
  *     home server and then PUTs the place there — unless the server holds a place from another
  *     device that the offer rule (kosync.h, D1) says is news: that is OFFERED as the card
- *     instead, and ours is not sent over it (pressing again after declining it sends ours).
+ *     instead, and ours is not sent over it (pressing again after declining it sends ours) —
+ *     and the window opens once that job has its verdict, or after 25 s (kosync.h,
+ *     kosyncWindowWaitsForHome: "Asking home first - the window opens after").
  *     While a KOSync place for the book is still on the card, unanswered, it sends nothing.
  *     An X4 (or anything that speaks KOSync) joins and syncs; the
  *     window closes 10 s after a PUT for the book, 120 s after a GET (the peer may be waiting
@@ -98,9 +100,11 @@ const char* kosyncMyDevice();                  // device= or "WiPhone-<booksync 
 const char* kosyncMyDeviceId();
 
 // ---------------------------------------------------------------- from the reader
-/* "Sync my place". Opens the 5-minute window now (and queues a push when on WiFi with a
- * home). False with `note` saying why when nothing could be done; on success `note` is left
- * empty — the live lines (kosyncWindowLine/kosyncClientLine) say what is happening. */
+/* "Sync my place". On WiFi with a home= it queues the home job FIRST and the 5-minute window
+ * opens from the loop once that job has its verdict (or after KOSYNC_WINDOW_AFTER_HOME_MAX_MS),
+ * with `note` "Asking home first - the window opens after"; otherwise it opens the window now.
+ * False with `note` saying why when nothing could be done; on success with no wait `note` is
+ * left empty — the live lines (kosyncWindowLine/kosyncClientLine) say what is happening. */
 bool kosyncSyncMyPlace(const KosyncBook* b, char* note, size_t cap);
 void kosyncBookOpened(const KosyncBook* b);   // pull (on WiFi, or once it comes up) / window
 void kosyncBookClosed(const KosyncBook* b);   // auto=on: window + push (if moved, or unsent)

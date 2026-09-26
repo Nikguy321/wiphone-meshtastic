@@ -124,6 +124,21 @@ no space before it (`pass#word`) is part of the value.
   first (a wrong key is a 401 with or without the marker), `/users/create` stays 402, an unknown
   document stays `{}` for everyone, and the phone's own PUT body to `home=` is untouched.
   Host-tested in `tests/test_kosync.cpp` (`kosyncClientTakesPercentage`, the window's answers).
+- **"Sync my place" asks home FIRST; the window opens after (2026-09-26, the plan's §5.2).** On
+  WiFi with `home=` the press used to open the window and queue the push behind it. A window on
+  the phone's WiFi address (all of 0.9.79) leaves the station alone, but the coming
+  hotspot-always rule takes the station down under the push, which then dies "not on WiFi any
+  more" — so the order is flipped now, while it costs nothing: the home job is queued first, the
+  reader menu says `Asking home first - the window opens after` (and `Window waits for home -
+  opens after its answer` until it does), and the window opens from the loop when the job has its
+  verdict — sent, offered as a card, gave up — or after 25 s (`KOSYNC_WINDOW_AFTER_HOME_MAX_MS`,
+  which covers the longest verdict that matters: a DNS name's 6 s give-up plus three 3 s
+  connects 1 s and 4 s apart, "did not answer (3 tries)", = 20 s). Off WiFi, with no `home=`, or
+  when the home job could not start (its note is kept), the window opens at once as before. The
+  deferred open follows every deferred window's rules (none during a call, under a game or
+  Settings > WiFi). Serial `kosync` says `window waits for home (N s of at most 25 s)`. Pinned:
+  `kosyncWindowWaitsForHome` in `tests/test_kosync.cpp`; the order, the two release paths and
+  the bound in `tests/check_kosync_glue.py` (contract 12 — the old order trips it).
 - **The sync hotspot is OPEN unless `hotspot_pass=` is set.** With 8-63 plain-ASCII characters
   (spaces inside are fine; spaces at either end are trimmed) the window's `WiPhone-Books` is
   WPA2-PSK. A stock CrossPoint then needs that password typed once when it joins the hotspot;

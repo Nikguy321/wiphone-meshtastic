@@ -1198,6 +1198,11 @@ bool kosyncWindowWaitsForSta(bool radioOff, bool userDisabled, bool staMode, uin
   return joining || wasUp;
 }
 
+bool kosyncWindowWaitsForHome(bool onWifi, bool homeConfigured, bool homeStarted) {
+  // All three, or the window opens now: a home nobody asked is nothing to wait for.
+  return onWifi && homeConfigured && homeStarted;
+}
+
 size_t kosyncWindowProblems(uint32_t otherBook, const char* docId, uint32_t unauth,
                             uint32_t unmarked, char* out, size_t cap) {
   if (!cap) {

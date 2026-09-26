@@ -1487,6 +1487,15 @@ static void testClientAndTransport() {
   ok(kosyncWindowWaitsForSta(false, false, true, 5, 0, 0xFFFFFF00u), "up just before the wrap");
   ok(!kosyncWindowWaitsForSta(true, false, true, 3600300u, 60000u, 3600000u),
      "switched off a moment after being up: no wait (nothing will associate)");
+
+  group("5.2: Sync my place asks home first - the window waits only when home was really asked");
+  ok(kosyncWindowWaitsForHome(true, true, true), "on WiFi, a home, the job queued: the window waits");
+  ok(!kosyncWindowWaitsForHome(false, true, true), "off WiFi: the window opens now (the hotspot)");
+  ok(!kosyncWindowWaitsForHome(true, false, true), "no home= in kosync.txt: nothing to wait for");
+  ok(!kosyncWindowWaitsForHome(true, true, false), "the home job refused to start: open now, keep its note");
+  ok(!kosyncWindowWaitsForHome(false, false, false), "nothing: open now");
+  ok(!kosyncWindowWaitsForHome(false, true, false) && !kosyncWindowWaitsForHome(false, false, true) &&
+     !kosyncWindowWaitsForHome(true, false, false), "any one thing missing: open now (all eight cases)");
 }
 
 /* #6: what went wrong in a window, on the SCREEN; #7: settings files are not books. */

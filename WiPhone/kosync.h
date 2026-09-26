@@ -443,6 +443,18 @@ int kosyncStationWindowCheck(bool switchedOff, bool connected, uint32_t ipNow, u
 bool kosyncWindowWaitsForSta(bool radioOff, bool userDisabled, bool staMode, uint32_t now,
                              uint32_t lastJoinMs, uint32_t lastUpMs);
 
+/* ── "SYNC MY PLACE": HOME FIRST, THE WINDOW AFTER (docs/booksync-simple-plan.md §5.2) ─────
+ * On WiFi with a home= configured, and the home job actually STARTED (kosyncSyncHome took the
+ * ask), the window is not opened on the press: it opens from the loop when that job has its
+ * verdict — pushed, offered a card, gave up — or after KOSYNC_WINDOW_AFTER_HOME_MAX_MS
+ * (kosync_sync.cpp), whichever is first. Off WiFi, with no home, or when the job could not be
+ * queued (its note says why), the window opens at once, as it always did. 🛑 WHY: the window
+ * used to be opened FIRST and the push queued behind it; a window on the phone's own WiFi
+ * address (0.9.79) leaves the station alone, but the coming hotspot-always rule takes the
+ * station down under the push, which then dies "not on WiFi any more". Home is asked first
+ * BECAUSE the phone is on WiFi now. */
+bool kosyncWindowWaitsForHome(bool onWifi, bool homeConfigured, bool homeStarted);
+
 /* What went wrong in a window, for the SCREEN (the X4 says "Upload complete" either way):
  * a PUT for a different document (not the same file on both? `docId` is the start of its
  * id), requests with the wrong user/password, and GETs for the book from a reader that cannot

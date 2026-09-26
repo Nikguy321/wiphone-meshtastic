@@ -76,6 +76,18 @@ kosyncOfferFill, kosyncParkPending/kosyncOfferAnswered, the PUT log):
      pinned the comparison, not the constant), so the two #defines are read too: plain decimal
      literals, each defined once, KOSYNC_JOIN_WAIT_MS < KOSYNC_JOIN_WAIT_MAX_MS <= 120 s.
 
+ 12. The plan's 5.2 (docs/booksync-simple-plan.md, 2026-09-26) - "Sync my place" asks home FIRST
+     and the window waits for the job's verdict: kosyncSyncMyPlace() calls kosyncSyncHome() before
+     any kosyncWindowOpen(); its ONE `if (kosyncWindowWaitsForHome(...) && rememberWindowAfterHome(
+     ...)) {...} else {...}` holds every inline kosyncWindowOpen() in the ELSE (the not-waiting
+     branch); the held ask is released (windowAfterHome, = requestWindow(s_afterBook,
+     KOSYNC_WINDOW_SYNC_MS, ...)) from finishJob() - the verdict, whatever it is - AND from
+     kosyncLoop() under `if (s_afterWant && ... >= KOSYNC_WINDOW_AFTER_HOME_MAX_MS)`; and that
+     #define is one plain decimal that covers "home did not answer" (KS_DNS_GIVEUP_MS +
+     KOSYNC_CLIENT_TRIES x KS_CONNECT_MS + kosyncRetryDelayMs's waits, read from the sources) and
+     stays within 60 s. The window used to be opened first, and a hotspot window takes the station
+     the push needs; test_kosync pins the predicate, this pins the order.
+
 A contract that cannot find its function fails too - a rename must update it, not silently
 retire it. A self-test replays the pre-fix shapes first, then REMOVES each guard from the real
 sources one at a time (the review's experiment among them) and requires its contract to trip.
@@ -92,6 +104,8 @@ SYNC = "kosync_sync.cpp"
 SYNC_H = "kosync_sync.h"
 BOOKS = "app_books.cpp"
 SERIAL = "serial_cmd.cpp"
+KOSYNC = "kosync.cpp"            # contract 12 reads the retry waits from it
+KOSYNC_H = "kosync.h"            # ...and KOSYNC_CLIENT_TRIES
 
 BLOCKING = [
     (re.compile(r"\bresolveDomain\s*\("), "resolveDomain() (blocks >= 0.5 s; never found a .local name)"),
@@ -327,6 +341,7 @@ def check(files):
                    "a new window starts with no 'DIFFERENT book' warning")
 
     bad.extend(check_review(files))
+    bad.extend(check_window_after_home(files))
     return bad
 
 
@@ -698,9 +713,113 @@ def check_close_push(sync):
     return bad
 
 
+# ── 12. the plan's 5.2: "Sync my place" asks home FIRST; the window opens on the job's verdict ──
+# The most a person waits at the reader menu for the window: the bound must cover "home did not
+# answer" (computed below from the client's own clocks) and stay under this.
+WINDOW_AFTER_HOME_BOUND_MS = 60000
+
+
+def const_ms(code, name):
+    """`static const uint32_t NAME = 3000;` -> 3000, or None."""
+    m = re.search(r"\b" + name + r"\s*=\s*(\d+)\s*;", code)
+    return int(m.group(1)) if m else None
+
+
+def check_window_after_home(files):
+    """Contract 12: the home job before any window; the inline open only in the not-waiting
+    branch; the held ask released from the job's finish AND from the loop's timeout; the timeout
+    exists, is used, and covers the longest verdict that matters."""
+    bad = []
+    sync = files.get(SYNC, "")
+    kos = files.get(KOSYNC, "")
+    kosh = files.get(KOSYNC_H, "")
+    sm = body(sync, "kosyncSyncMyPlace")
+    if sm is None:
+        bad.append("kosyncSyncMyPlace() not found - if it was renamed, update this contract")
+    else:
+        homes = [m.start() for m in re.compile(r"\bkosyncSyncHome\s*\(").finditer(sync, sm[0], sm[1])]
+        opens = [m.start() for m in re.compile(r"\bkosyncWindowOpen\s*\(").finditer(sync, sm[0], sm[1])]
+        if not homes or not opens or min(homes) > min(opens):
+            bad.append("kosyncSyncMyPlace() must queue the home job (kosyncSyncHome) BEFORE any "
+                       "kosyncWindowOpen() - a hotspot window takes the station the push needs (5.2)")
+        gates = ifs(sync, sm[0], sm[1], re.compile(r"\bkosyncWindowWaitsForHome\s*\("))
+        e = else_block(sync, gates[0][2]) if len(gates) == 1 else None
+        if e is None:
+            bad.append("kosyncSyncMyPlace(): ONE `if (kosyncWindowWaitsForHome(...) ...) {...} else {...}` "
+                       "not found - the inline window open lives in its else branch (5.2)")
+        else:
+            if not re.search(r"\brememberWindowAfterHome\s*\(", sync[gates[0][0]:gates[0][2] + 1]):
+                bad.append("kosyncSyncMyPlace(): the waiting branch must keep the ask "
+                           "(rememberWindowAfterHome) - or the window never opens")
+            for o in opens:
+                if not within(o, e):
+                    bad.append(f"{SYNC}:{line_of(sync, o)} kosyncWindowOpen() outside the not-waiting "
+                               "branch (the else of `if (kosyncWindowWaitsForHome(...))`) - on WiFi with "
+                               "a home the window opens only after the job's verdict (5.2)")
+    wa = body(sync, "windowAfterHome")
+    fj = body(sync, "finishJob")
+    lp = body(sync, "kosyncLoop")
+    calls = [m.start() for m in re.finditer(r"\bwindowAfterHome\s*\(", sync)
+             if not is_definition(sync, m.start())]
+    if wa is None:
+        bad.append("windowAfterHome() not found - if it was renamed, update this contract")
+    else:
+        rq = [m for m in re.finditer(r"\brequestWindow\s*\(", sync) if within(m.start(), wa)]
+        a = call_args(sync, rq[0].end() - 1) if rq else None
+        if not a or len(a) != 3 or a[0] != "s_afterBook" or a[1] != "KOSYNC_WINDOW_SYNC_MS":
+            bad.append("windowAfterHome() must open the held ask through requestWindow(s_afterBook, "
+                       "KOSYNC_WINDOW_SYNC_MS, ...) - the 5-minute window the press asked for, opened "
+                       "from the loop (a call, a game or Settings > WiFi still refuse it there)")
+    if fj is None:
+        bad.append("finishJob() not found - if it was renamed, update this contract")
+    elif not any(within(c, fj) for c in calls):
+        bad.append("finishJob() must release the held window (windowAfterHome) - the job's verdict, "
+                   "whatever it is, opens it (5.2)")
+    if lp is None:
+        bad.append("kosyncLoop() not found - if it was renamed, update this contract")
+    else:
+        tos = ifs(sync, lp[0], lp[1],
+                  re.compile(r"\bs_afterWant\b[\s\S]*>=\s*KOSYNC_WINDOW_AFTER_HOME_MAX_MS\b"))
+        if not tos or not any(t[1] <= c <= t[2] for t in tos for c in calls):
+            bad.append("kosyncLoop() must release the held window after the bound - `if (s_afterWant && "
+                       "(uint32_t)(now - s_afterSinceMs) >= KOSYNC_WINDOW_AFTER_HOME_MAX_MS) { "
+                       "windowAfterHome(...); }` - a job that never finishes must not hold it (5.2)")
+    cap_ms, p = join_wait_define(sync, "KOSYNC_WINDOW_AFTER_HOME_MAX_MS")
+    if p:
+        bad.append(p)
+        return bad
+    dns = const_ms(sync, "KS_DNS_GIVEUP_MS")
+    conn = const_ms(sync, "KS_CONNECT_MS")
+    tries = re.search(r"#\s*define\s+KOSYNC_CLIENT_TRIES\s+(\d+)", kosh)
+    waits = re.search(r"\bWAIT\s*\[\s*KOSYNC_CLIENT_TRIES\s*-\s*1\s*\]\s*=\s*\{([^}]*)\}", kos)
+    if dns is None or conn is None or not tries or not waits:
+        bad.append("the home client's clocks not all found (KS_DNS_GIVEUP_MS and KS_CONNECT_MS in "
+                   f"{SYNC}, KOSYNC_CLIENT_TRIES in {KOSYNC_H}, kosyncRetryDelayMs's WAIT table in "
+                   f"{KOSYNC}) - update this contract")
+    else:
+        n = int(tries.group(1))
+        pause = sum(int(x) for x in re.findall(r"\d+", waits.group(1)))
+        floor = dns + n * conn + pause
+        if not floor <= cap_ms <= WINDOW_AFTER_HOME_BOUND_MS:
+            bad.append(f"KOSYNC_WINDOW_AFTER_HOME_MAX_MS ({cap_ms}) must cover 'home did not answer' - "
+                       f"the DNS give-up ({dns}) + {n} connects of {conn} + the retry waits ({pause}) = "
+                       f"{floor} ms - and stay within {WINDOW_AFTER_HOME_BOUND_MS} ms (a person is "
+                       "waiting at the reader menu)")
+    return bad
+
+
 # ── self-test: the pre-fix shapes must break the contracts ─────────────────────────────────────
 
 OLD_SYNC = """
+bool kosyncSyncMyPlace(const KosyncBook* b, char* note, size_t cap) {
+  const bool wifi = onWifi();
+  const bool opened = kosyncWindowOpen(b, KOSYNC_WINDOW_SYNC_MS, note, cap);
+  bool pushed = false;
+  if (wifi && T->cfg.home[0]) {
+    pushed = kosyncSyncHome(b, pn, sizeof(pn));
+  }
+  return opened || pushed;
+}
 static uint32_t s_other = 0, s_unauth = 0;
 static void clearWindowProblems();
 static void reloadDone(bool asked) {
@@ -856,7 +975,8 @@ def selftest():
             "Back branch must call kosyncCardAnswered", "only the two ANSWERS",
             "with kosyncPutLogOwn()", "with kosyncPutLogOther()",
             "kosyncProblemLine() must count", "parkAwaitsAnswer() must ask kosyncParkPending",
-            "must refuse a job's first PUT"]
+            "must refuse a job's first PUT", "BEFORE any kosyncWindowOpen()",
+            "ONE `if (kosyncWindowWaitsForHome"]
     missing = [w for w in want if not any(w in g for g in got)]
     if missing:
         for w in missing:
@@ -981,6 +1101,28 @@ MUTATIONS = [
     (SYNC, "must come AFTER `if (!mayUseNetwork)",
      r"(if\s*\(\s*!\s*mayUseNetwork\s*\)\s*\{[^{}]*\})(\s*)(if\s*\(\s*!\s*s_phaseGet[^{]*\{[^{}]*\})",
      r"\3\2\1", 0),
+    # 12 (the plan's 5.2): the window opened before the home job (the pre-fix order, by hand); an
+    # open added to the waiting branch; the ask no longer kept; the release gone from finishJob and
+    # from the loop's timeout; the bound below "home did not answer", or huge through the define;
+    # the held ask opened as a 60 s window.
+    (SYNC, "BEFORE any kosyncWindowOpen()", r"(const\s+bool\s+wifi\s*=\s*onWifi\s*\(\s*\)\s*;)",
+     r"\1 kosyncWindowOpen(b, KOSYNC_WINDOW_SYNC_MS, note, cap);", 0),
+    (SYNC, "outside the not-waiting branch", r"(opened\s*=\s*true\s*;)",
+     r"\1 kosyncWindowOpen(b, KOSYNC_WINDOW_SYNC_MS, note, cap);", 0),
+    (SYNC, "waiting branch must keep the ask",
+     r"&&\s*rememberWindowAfterHome\s*\(\s*b\s*,\s*millis\s*\(\s*\)\s*\)", "", 0),
+    (SYNC, "finishJob() must release", r"(s_pushWant\s*=\s*false\s*;\s*)windowAfterHome\s*\(\s*\)\s*;",
+     r"\1", 0),
+    (SYNC, "kosyncLoop() must release",
+     r"if\s*\(\s*s_afterWant\s*&&[^{]*KOSYNC_WINDOW_AFTER_HOME_MAX_MS\s*\)\s*\{\s*windowAfterHome\s*\(\s*\)\s*;\s*\}",
+     "", 0),
+    (SYNC, "must cover 'home did not answer'", r"(#define\s+KOSYNC_WINDOW_AFTER_HOME_MAX_MS\s+)\w+",
+     r"\g<1>5000u", 0),
+    (SYNC, "must be a plain decimal literal", r"(#define\s+KOSYNC_WINDOW_AFTER_HOME_MAX_MS\s+)\w+",
+     r"\g<1>0xFFFFFFFFu", 0),
+    (SYNC, "requestWindow(s_afterBook, KOSYNC_WINDOW_SYNC_MS",
+     r"requestWindow\s*\(\s*s_afterBook\s*,\s*KOSYNC_WINDOW_SYNC_MS",
+     "requestWindow(s_afterBook, KOSYNC_WINDOW_OPEN_MS", 0),
 ]
 
 
@@ -1015,7 +1157,7 @@ def main():
     if not selftest():
         return 1
     texts = {}
-    for name in (SYNC, SYNC_H, BOOKS, SERIAL):
+    for name in (SYNC, SYNC_H, BOOKS, SERIAL, KOSYNC, KOSYNC_H):
         texts[name] = (ROOT / name).read_text(errors="replace")
     # Every other caller of kosyncReloadConfig in the tree is held to "no argument" too.
     for p in sorted(list(ROOT.glob("*.cpp")) + list(ROOT.glob("*.ino"))):
@@ -1039,6 +1181,8 @@ def main():
           "the card (the close's push behind the pull on open)")
     print("  ok  N1: a WiFi join in progress, or a game holding the radio, keeps a home ask in every "
           "state; the wait is for ONE join (the Games-app hold ends it), capped at 120 s or less")
+    print("  ok  5.2: Sync my place asks home before any window; the window opens on the job's verdict "
+          "or after a bound that covers 'home did not answer'")
     return 0
 
 

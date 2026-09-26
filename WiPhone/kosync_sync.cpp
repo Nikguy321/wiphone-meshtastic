@@ -414,6 +414,7 @@ bool kosyncWindowActive() {
 
 static bool s_askInBlip = false;   // a window was asked for while its WiFi was blipping
 static void requestWindow(const KosyncBook* b, uint32_t durMs, const char* why);
+static void windowAfterHome(const char* how);   // "Sync my place": the window the home job holds
 
 /* A window on the phone's WiFi address, checked by the ONE rule (kosyncStationWindowCheck) from
  * both the loop's once-a-second look and a new ask (`asking`): closed when the WiFi is LOST
@@ -666,6 +667,52 @@ static void requestWindow(const KosyncBook* b, uint32_t durMs, const char* why) 
   s_reqWant = true;
   s_reqDurMs = durMs;
   s_reqWhy = why;
+}
+
+/* ── "SYNC MY PLACE" ON WIFI WITH A HOME: THE WINDOW WAITS FOR THE HOME JOB (kosync.h,
+ * kosyncWindowWaitsForHome; the plan's §5.2). The ask is kept here — its own PSRAM copy of the
+ * book, like every other window ask — and turned into an ordinary deferred request
+ * (requestWindow) when the job has its verdict (finishJob: pushed, offered, gave up), when the
+ * idle branch drops the ask without a job (off WiFi, no memory), or when
+ * KOSYNC_WINDOW_AFTER_HOME_MAX_MS has passed (kosyncLoop), whichever is first. The loop's own
+ * rules then apply to the open: not during a call, not under a game, not under Settings > WiFi.
+ *
+ * THE BOUND, against clientStep()'s own clocks. The verdict that takes longest and matters is
+ * "home did not answer": a DNS name's lookup gives up at KS_DNS_GIVEUP_MS (6 s; an mDNS name at
+ * KS_MDNS_GIVEUP_MS, 2 s; an IP address looks nothing up), then the job's KOSYNC_CLIENT_TRIES
+ * connects each time out at KS_CONNECT_MS (3 s), 1 s and 4 s apart (kosyncRetryDelayMs):
+ * 6 + 3x3 + 1 + 4 = 20 s, inside this bound (tests/check_kosync_glue.py reads those constants
+ * and holds the bound above their sum). A home that answers takes a few hundred ms a request,
+ * four requests (GET both ids, then PUT both). The theoretical worst — every request stalling to
+ * KS_TOTAL_MS (12 s) without failing, ~56 s with the lookup — and a join wait (off WiFi only,
+ * up to KOSYNC_JOIN_WAIT_MAX_MS) are cut off here: the window then opens under the running job,
+ * which is what every press did before this change (a 0.9.79 window on WiFi serves on the
+ * station and leaves the push alone; off WiFi the window belongs on the hotspot anyway). */
+#define KOSYNC_WINDOW_AFTER_HOME_MAX_MS 25000u
+static KosyncBook* s_afterBook = NULL;        // PSRAM: the book the held ask is for
+static bool        s_afterWant = false;
+static uint32_t    s_afterSinceMs = 0;
+
+static bool rememberWindowAfterHome(const KosyncBook* b, uint32_t now) {
+  if (!allocBook(&s_afterBook)) {
+    return false;                             // no memory to hold the ask: open it now instead
+  }
+  memcpy(s_afterBook, b, sizeof(*b));
+  s_afterWant = true;
+  s_afterSinceMs = now;
+  snprintf(T->winLast, sizeof(T->winLast), "Window waits for home - opens after its answer");
+  log_e("KOSYNC: the window for '%s' waits for the home job (at most %lu s)", b->title,
+        (unsigned long)(KOSYNC_WINDOW_AFTER_HOME_MAX_MS / 1000));
+  return true;
+}
+
+static void windowAfterHome(const char* how) {
+  if (!s_afterWant) {
+    return;
+  }
+  s_afterWant = false;
+  log_e("KOSYNC: %s - opening the window for '%s' now", how, s_afterBook->title);
+  requestWindow(s_afterBook, KOSYNC_WINDOW_SYNC_MS, "sync my place, after home");
 }
 
 // ================================================================ the home client
@@ -977,6 +1024,7 @@ static void finishJob(const char* fmt, ...) {
   // Only retire the ask this job answered: a newer one made meanwhile still runs.
   if (s_curPush && s_pushGen == s_jobGen) {
     s_pushWant = false;
+    windowAfterHome("home answered the push");   // whatever the verdict: the window opens now
   } else if (!s_curPush && s_pullGen == s_jobGen) {
     s_pullWant = false;
   }
@@ -1285,6 +1333,7 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
       s_pushWant = s_pullWant = false;
       snprintf(T->cliLast, sizeof(T->cliLast), "Home: not on WiFi any more - nothing sent");
       log_e("KOSYNC home: %s", T->cliLast);
+      windowAfterHome("home not asked (off WiFi)");   // a window off WiFi is the hotspot: now
       return;
     }
     if (!s_w) {
@@ -1292,6 +1341,7 @@ static void clientStep(bool mayUseNetwork, uint32_t now) {
       if (!s_w) {
         s_pushWant = s_pullWant = false;
         snprintf(T->cliLast, sizeof(T->cliLast), "Home: no memory");
+        windowAfterHome("home not asked (no memory)");
         return;
       }
     }
@@ -1550,14 +1600,24 @@ bool kosyncSyncMyPlace(const KosyncBook* b, char* note, size_t cap) {
     return false;
   }
   const bool wifi = onWifi();
-  const bool opened = kosyncWindowOpen(b, KOSYNC_WINDOW_SYNC_MS, note, cap);
+  const bool home = T->cfg.home[0] != '\0';
   bool pushed = false;
-  if (wifi && T->cfg.home[0]) {
+  char pn[80] = "";
+  if (wifi && home) {
     /* D2: an explicit sync always SENDS — but it READS home first, and a newer place from
-     * another device is offered as the card instead of being overwritten. */
-    char pn[80];
+     * another device is offered as the card instead of being overwritten.
+     * 🛑 QUEUED BEFORE THE WINDOW (§5.2, kosyncWindowWaitsForHome): the window used to be
+     * opened first, and a hotspot window takes the station this job needs from under it. */
     pushed = kosyncSyncHome(b, pn, sizeof(pn));
-    if (!pushed && note && !note[0]) {
+  }
+  bool opened;
+  if (kosyncWindowWaitsForHome(wifi, home, pushed) && rememberWindowAfterHome(b, millis())) {
+    setNote(note, cap, "Asking home first - the window opens after");
+    opened = true;                             // it will: from the loop, on the job's verdict
+  } else {
+    // Off WiFi, no home, home refused (its note stays), or no memory to hold the ask: now.
+    opened = kosyncWindowOpen(b, KOSYNC_WINDOW_SYNC_MS, note, cap);
+    if (wifi && home && !pushed && note && !note[0]) {
       setNote(note, cap, "%s", pn);
     }
   }
@@ -1711,6 +1771,8 @@ size_t kosyncWindowLine(char* out, size_t cap) {
     } else {
       snprintf(out, cap, "Window open, %s left - on WiFi at %s", left, xferAddr());
     }
+  } else if (s_afterWant) {
+    snprintf(out, cap, "Window waits for home - opens after its answer");
   } else {
     snprintf(out, cap, "%s", T->winLast);
   }
@@ -1766,6 +1828,11 @@ void kosyncDumpStatus(void (*emit)(const char* line)) {
     snprintf(l, sizeof(l), "kosync: serving '%s' partial=%s name=%s pct=%.6f",
              s_win->title, s_win->partial[0] ? s_win->partial : "-", s_win->byName, s_win->pct);
     emit(l);
+  } else if (s_afterWant) {
+    snprintf(l, sizeof(l), "kosync: window waits for home (%lu s of at most %lu s) - opens on the "
+             "job's verdict, for '%s'", (unsigned long)((millis() - s_afterSinceMs) / 1000),
+             (unsigned long)(KOSYNC_WINDOW_AFTER_HOME_MAX_MS / 1000), s_afterBook->title);
+    emit(l);
   } else {
     snprintf(l, sizeof(l), "kosync: window closed%s%s", T->winLast[0] ? " - " : "", T->winLast);
     emit(l);
@@ -1814,10 +1881,15 @@ void kosyncDumpStatus(void (*emit)(const char* line)) {
 void kosyncLoop(bool mayUseNetwork, bool callActive) {
   // The common case, every pass, for every phone: nothing asked, nothing open.
   if (!s_reqWant && !s_winArmed && !s_parkWant && s_cs == KS_IDLE && !s_pushWant && !s_pullWant &&
-      !s_waitWifi) {
+      !s_waitWifi && !s_afterWant) {
     return;
   }
   const uint32_t now = millis();
+
+  // "Sync my place" waiting on the home job (windowAfterHome): the bound, if the job has not.
+  if (s_afterWant && (uint32_t)(now - s_afterSinceMs) >= KOSYNC_WINDOW_AFTER_HOME_MAX_MS) {
+    windowAfterHome("home took too long");
+  }
 
   /* The ask a book open could not make because the WiFi was not up yet: made once it is (a
    * second's look at most; the ask itself is the ordinary non-blocking pull). */
