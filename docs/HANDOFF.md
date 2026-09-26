@@ -4,6 +4,17 @@
 
 Read this first; everything below it is narrative.
 
+🎵 **2026-09-26 11:55: NICK'S LISTENING PASS PASSED ("Music works good! Passed all the tests you listed") — and his
+photo showed TWO Now-playing TITLE bugs, both fixed and proven on phone 1 (build 11:49:47), phone 2 flashed after.**
+(1) Titles overlapped after next ("Pulse" over "Space Explorer"): the two title lines were redrawn at 1 Hz with NO
+clear — every other line of that screen clears its strip. Now drawn only when `cur != titleShown`, over both strips
+cleared; `titleShown` is -2 after a panel clear and -1 for "Nothing playing" (which clears the whole panel).
+`tests/check_music_title.py` pins the shape (3 mutations trip). (2) EVERY title lost its last character to line two
+("My_Name_I" / "s" — the stray letter under Nick's title was the "e" of "Pulse"): the pixel probe loop ran `k < len`
+and never measured the whole title. The measuring is `WiPhone/music_title.h` (`musicTitleFit`/`musicTitleBreak`,
+`tests/test_music_title.cpp` 13 checks). Still owed by ear: the tone A/B (`audio tone old|clean|flat`) incl. a
+ringtone, `music swap on|off`, the notification chirp — all need me live with the phone unmuted.
+
 ✅ **2026-09-26 11:35: §5.1-5.3 ARE ON BOTH PHONES AND PROVEN ON HARDWARE; COVEY D-163 IS DEPLOYED (in the right
 order).** Both phones run `kosync` 76e4886 (build 11:04:27, two-part install, keys/mute kept; the 10:50 repair is squashed
 into that one commit because the marker commit alone did not compile `test_kosync.cpp`). Proven on phone 2 (Leviathan

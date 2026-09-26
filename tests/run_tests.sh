@@ -137,6 +137,9 @@ for src in tests/test_*.cpp; do
     test_marquee)  deps=() ;;
     # Header-only: a display-only menu note broken into rows that fit (WiPhone/menu_wrap.h).
     test_wrap)     deps=() ;;
+    # Header-only: where the Now playing title breaks into its two lines (WiPhone/music_title.h).
+    # The loop it replaced stopped one character short and split EVERY title (2026-09-26).
+    test_music_title) deps=() ;;
     # Header-only: the Files app's folder copy/move/delete path questions (files_paths.h).
     test_filepaths) deps=() ;;
     # Header-only: the notification pop's stop timer (notify_timing.h) against the shipping
@@ -238,6 +241,14 @@ fi
 # source (kosync*.h mention positions.cbs on purpose). A new carrier file goes on its CARRIERS list.
 echo "checking that only the sync card's OK writes a synced position (no carrier reaches the writer)"
 if ! python3 tests/check_positions_write.py; then
+  fail=1
+fi
+
+# ── SOURCE GUARD: the Now playing title is redrawn only on a track change, over cleared strips ──
+# See tests/check_music_title.py. "Pulse" painted over "Space Explorer" after the side button's next
+# (0.9.79, Nick's first listening pass): the two title lines had no clear under the 1 Hz refresh.
+echo "checking the Now playing title (drawn on a track change only, both strips cleared first)"
+if ! python3 tests/check_music_title.py; then
   fail=1
 fi
 

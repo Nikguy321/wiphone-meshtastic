@@ -4,6 +4,7 @@
 
 #include "app_music.h"
 #include "app_gbc_xfer.h"
+#include "music_title.h"
 #include "Arduino.h"
 #include "SD.h"
 
@@ -37,6 +38,7 @@ MusicApp::MusicApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterW
   menu = NULL;
   xferClean = false;
   nowClean = false;
+  titleShown = -2;
   headerTitle[0] = '\0';
 
   /* The library lives in the player, not here, so opening this screen while a track is
@@ -112,6 +114,17 @@ void MusicApp::buildMenu() {
 
 // ---------------------------------------------------------------- drawing
 
+/* music_title.h's width callback: the panel's own measure of the first n characters. */
+static uint16_t titleWidth(const char* s, size_t n, void* ctx) {
+  char probe[MUSIC_NAME_MAX];
+  if (n >= sizeof(probe)) {
+    n = sizeof(probe) - 1;
+  }
+  memcpy(probe, s, n);
+  probe[n] = '\0';
+  return ((LCD*)ctx)->textWidth(probe);
+}
+
 void MusicApp::drawNowPlaying() {
   SmoothFont* font = fonts[AKROBAT_BOLD_18];
   const int top = header->height();
@@ -121,6 +134,7 @@ void MusicApp::drawNowPlaying() {
   if (!nowClean) {
     lcd.fillRect(0, top, lcd.width(), bottom - top, BLACK);
     nowClean = true;
+    titleShown = -2;                          // the panel is blank: the title goes back on
   }
   lcd.setTextFont(font);
   lcd.setTextDatum(TL_DATUM);
@@ -130,70 +144,63 @@ void MusicApp::drawNowPlaying() {
   const MusicTrack* t = cur >= 0 ? musicPlayerTrack(cur) : NULL;
 
   if (!t) {
-    lcd.setTextColor(WHITE, BLACK);
-    lcd.drawString("Nothing playing", MUSIC_MARGIN, y);
+    if (titleShown != -1) {
+      /* The lines below belong to the track that just ended: the whole panel goes. */
+      lcd.fillRect(0, top, lcd.width(), bottom - top, BLACK);
+      lcd.setTextColor(WHITE, BLACK);
+      lcd.drawString("Nothing playing", MUSIC_MARGIN, y);
+      titleShown = -1;
+    }
     return;
   }
 
   /* The title over two lines. Track names are long and the header would run under the
-   * clock — the same trap the reader hit, and the reason HeaderWidget is not used here. */
-  lcd.setTextColor(TFT_YELLOW, BLACK);
-  /* ⚠ The buffers hold the WHOLE remainder, so the only truncation is the
-   * ellipsizer's — and it says so with "..". They used to be 32 bytes with the
-   * second line capped at 24 chars, which silently dropped everything past
-   * ~48 characters: "Creedence Clearwater Revival - Have You Ever Seen the
-   * Rain" showed the artist and lost the song. */
-  char l1[MUSIC_NAME_MAX], l2[MUSIC_NAME_MAX];
-  const char* nm = t->name;
-  const size_t len = strlen(nm);
-  /* Break where the line actually RUNS OUT, measured in pixels, not at a fixed
-   * 24 characters. With a character count the first line could be ellipsized
-   * down to ~20 glyphs while the second still resumed at 24 — the characters
-   * between the two were shown nowhere at all. */
-  const uint16_t lineW = lcd.width() - 2 * MUSIC_MARGIN;
-  lcd.setTextFont(fonts[AKROBAT_BOLD_18]);
-  size_t cut = 0;
-  {
-    char probe[MUSIC_NAME_MAX];
-    for (size_t k = 1; k < len && k < sizeof(probe); k++) {
-      memcpy(probe, nm, k);
-      probe[k] = '\0';
-      if (lcd.textWidth(probe) > lineW) {
-        break;
-      }
-      cut = k;
+   * clock — the same trap the reader hit, and the reason HeaderWidget is not used here.
+   * 🛑 Drawn ONLY when the track changes, over CLEARED strips. The title was painted over
+   * itself on every 1 Hz pass without a clear — harmless while the track stayed the same,
+   * but the side button's next track drew "Pulse" over "Space Explorer" (a proportional
+   * face: the new glyphs cover only their own pixels), and a one-line title left the second
+   * line of the two-line title before it standing. Both strips are cleared, so a shorter
+   * title takes the second line with it. Seen by Nick on 0.9.79, 2026-09-26. */
+  if (cur != titleShown) {
+    lcd.fillRect(MUSIC_MARGIN, y, (int)lcd.width() - MUSIC_MARGIN, 2 * lh, BLACK);
+    titleShown = cur;
+    lcd.setTextColor(TFT_YELLOW, BLACK);
+    /* ⚠ The buffers hold the WHOLE remainder, so the only truncation is the
+     * ellipsizer's — and it says so with "..". They used to be 32 bytes with the
+     * second line capped at 24 chars, which silently dropped everything past
+     * ~48 characters: "Creedence Clearwater Revival - Have You Ever Seen the
+     * Rain" showed the artist and lost the song. */
+    char l1[MUSIC_NAME_MAX], l2[MUSIC_NAME_MAX];
+    const char* nm = t->name;
+    const size_t len = strlen(nm);
+    /* Break where the line actually RUNS OUT, measured in pixels, not at a fixed
+     * 24 characters. With a character count the first line could be ellipsized
+     * down to ~20 glyphs while the second still resumed at 24 — the characters
+     * between the two were shown nowhere at all. The measuring is music_title.h's
+     * (host-tested; its loop used to stop one short and split EVERY title). */
+    const uint16_t lineW = lcd.width() - 2 * MUSIC_MARGIN;
+    lcd.setTextFont(fonts[AKROBAT_BOLD_18]);
+    const size_t cut = musicTitleFit(nm, len, lineW, titleWidth, &lcd);
+    if (len <= cut) {
+      snprintf(l1, sizeof(l1), "%s", nm);
+      l2[0] = '\0';
+    } else {
+      const size_t br = musicTitleBreak(nm, cut);
+      snprintf(l1, sizeof(l1), "%.*s", (int)br, nm);
+      // The WHOLE remainder — the ellipsizer below decides what fits, and marks it.
+      snprintf(l2, sizeof(l2), "%s", nm + br);
     }
-    if (cut == 0) {
-      cut = 1;
+    /* Ellipsized, not silently cut: the two 24-char halves dropped everything
+     * past ~48 characters of a track name with no sign anything was missing —
+     * and 24 chars of this font already overruns the 240px panel. */
+    const uint16_t trackW = lcd.width() - 2 * MUSIC_MARGIN;
+    guiDrawEllipsized(lcd, l1, trackW, MUSIC_MARGIN, y);
+    if (l2[0]) {
+      guiDrawEllipsized(lcd, l2, trackW, MUSIC_MARGIN, y + lh);
     }
   }
-  if (len <= cut) {
-    snprintf(l1, sizeof(l1), "%s", nm);
-    l2[0] = '\0';
-  } else {
-    /* Break on a space if there is one near the cut, so a title splits between words
-     * rather than mid-syllable. */
-    size_t br = cut;
-    for (size_t i = cut; i > cut / 2; i--) {
-      if (nm[i] == ' ') {
-        br = i;
-        break;
-      }
-    }
-    snprintf(l1, sizeof(l1), "%.*s", (int)br, nm);
-    // The WHOLE remainder — the ellipsizer below decides what fits, and marks it.
-    snprintf(l2, sizeof(l2), "%s", nm + br);
-  }
-  /* Ellipsized, not silently cut: the two 24-char halves dropped everything
-   * past ~48 characters of a track name with no sign anything was missing —
-   * and 24 chars of this font already overruns the 240px panel. */
-  const uint16_t trackW = lcd.width() - 2 * MUSIC_MARGIN;
-  guiDrawEllipsized(lcd, l1, trackW, MUSIC_MARGIN, y);
-  y += lh;
-  if (l2[0]) {
-    guiDrawEllipsized(lcd, l2, trackW, MUSIC_MARGIN, y);
-  }
-  y += lh + 6;
+  y += 2 * lh + 6;                            // two title strips, drawn or kept
 
   /* ⚠ Every line below CHANGES and is redrawn once a second over the top of itself, so
    * each one clears its own strip first.

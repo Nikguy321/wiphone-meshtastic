@@ -42,6 +42,7 @@ protected:
   MenuWidget*  menu;
   bool         xferClean;      // transfer screen already painted (the 1 Hz refresh overdraws)
   bool         nowClean;       // same, for the now-playing screen
+  int          titleShown;     // track whose title is on the panel (-1 none playing, -2 nothing drawn)
   char         headerTitle[64];  // ⚠ HeaderWidget::setTitle KEEPS THE POINTER, it does not copy
 
   void freeWidgets();

@@ -202,6 +202,17 @@ Host suite: `tests/test_kosync.cpp` reproduces every number in `tests/vectors_ko
 
 ### Music: mono, half rate, half a second of ring, and a gap counter that tells the truth (0.9.79 dev, 2026-09-25)
 
+**Nick's listening pass (2026-09-26): "Music works good! Passed all the tests"** — and one photo with
+two bugs in the Now playing title, both fixed:
+- **Titles overlapped after the side button's next** ("Pulse" painted over "Space Explorer"): the two
+  title lines were redrawn on every 1 Hz pass with no clear — every OTHER line of that screen clears
+  its strip first. The title is now drawn only when the track changes, over both strips cleared
+  (`titleShown`), and "Nothing playing" clears the whole panel. Pinned by `tests/check_music_title.py`.
+- **Every title lost its last character to a second line** ("My_Name_I" / "s"; the stray letter in
+  the photo was the "e" of "Pulse"): the pixel-width probe ran `k < len` and never measured the whole
+  title, so a title that fit still split. The measuring is `WiPhone/music_title.h` now
+  (`musicTitleFit`/`musicTitleBreak`, host-tested in `tests/test_music_title.cpp`).
+
 Nick: music *"has always been bad"*; *"Lower audio quality and having to take time to load in-between
 tracks are things I can live with."* Four faults, measured on both phones and replayed on the Mac
 against the real decoder (`WiPhone/music_feed.h` has the numbers):
