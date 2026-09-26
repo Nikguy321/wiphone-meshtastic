@@ -519,6 +519,16 @@ had had a fix. The rules are all in `clock_source.{h,cpp}` (host suite `tests/te
   and the installer page now flashes EVERY part of the manifest and refuses one that would cover
   nvs (the range read from the partition table in the parts, 0x9000-0xe000 as the fallback) -
   "Stopped: this installer build would overwrite the phone's settings - nothing was written".
+  **Release day, 2026-09-26 13:20 — the page's reset step was wrong and is fixed:** after a good
+  write it called `loader.after()`, which esptool-js 0.4.5 does not have, so the page said
+  "Failed: loader.after is not a function" and left the phone dark in the bootloader with the new
+  firmware already on it (Nick's first browser install; phone 1 came up on a hard reset with its
+  mesh key and KOSync id intact). Now `loader.hardReset()`; a reset that fails can no longer turn
+  an install into "Failed" (the message says: installed, unplug and replug); and esptool-js is
+  **served from this site** (`webflasher/esptool-js-0.4.5.bundle.js`, `THIRD_PARTY.md`) instead
+  of a CDN, so `tests/check_webflasher_split.py` proves every `loader.*(` / `transport.*(` the page
+  calls exists in the bytes actually served. A mock could not catch this — it copied the page's
+  assumption — which is why the guard reads the served library.
   **The live installer was republished on 2026-09-26 as 0.9.78 in two parts** cut from the very
   image that had been live (byte-identical slices; the merged image is gone from gh-pages), so
   updaters stop losing their settings before 0.9.79 ships. Proven: phone 1 flashed from the LIVE

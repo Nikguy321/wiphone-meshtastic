@@ -16,7 +16,13 @@ below nvs and a part above it, reading the extents from the table INSIDE the ima
   4. the committed installer page reads every part of the manifest and refuses one that would cover
      nvs - the page's own guard, matched by text, since no JS runs here;
   5. make_webflasher.sh stages through webflasher_split.py and publish_webflasher.sh copies the two
-     parts and not a merged image.
+     parts and not a merged image;
+  6. the page imports esptool-js from THIS site (a vendored bundle, webflasher/THIRD_PARTY.md), never a
+     CDN, publish copies that bundle, and EVERY `loader.X(` / `transport.X(` the page calls is defined in
+     the bundle it serves. The 0.9.79-NH page called `loader.after()` - 0.4.5 has `hardReset()` - so a
+     finished install reported "Failed" and left the phone dark in the bootloader (Nick's first browser
+     install, 2026-09-26). A mock could not catch it: the mock copied the page's assumption. Only the
+     served bytes can. A self-test plants `loader.after(` and shows it trips.
 """
 import os
 import re
@@ -128,6 +134,51 @@ pub = open(os.path.join(ROOT, "tools", "publish_webflasher.sh")).read()
 check("wiphone-boot.bin" in pub and "wiphone-app.bin" in pub, "publish copies both parts")
 check("cp " not in "".join(l for l in pub.splitlines() if "wiphone-merged.bin" in l),
       "publish never copies a merged image")
+
+# 6. the page's library: served from here, and every method it calls exists in it
+WEB = os.path.join(ROOT, "webflasher")
+
+
+def library_problems(page_text):
+    """The page's esptool-js import and calls, checked against the vendored bundle."""
+    out = []
+    m = re.search(r'import\s*\{[^}]*\}\s*from\s*"([^"]+)"', page_text)
+    if not m:
+        return ["the page has no `import {...} from \"...\"`"]
+    src = m.group(1)
+    if not src.startswith("./") or "://" in src:
+        out.append("the page imports esptool-js from %r, not from this site" % src)
+        return out
+    path = os.path.join(WEB, src[2:])
+    if not os.path.isfile(path):
+        out.append("the page imports %r, which is not in webflasher/" % src)
+        return out
+    bundle = open(path, encoding="utf-8", errors="replace").read()
+    # calls in CODE: the page's comments explain the bug by naming `loader.after()`
+    code = re.sub(r"/\*.*?\*/", " ", page_text, flags=re.S)
+    code = re.sub(r"(?<![:\"'])//[^\n]*", " ", code)          # line comments, not the // of a URL
+    for obj, name in sorted(set(re.findall(r"\b(loader|transport)\.([A-Za-z_]\w*)\s*\(", code))):
+        if not re.search(r"\b" + re.escape(name) + r"\s*\([^)]*\)\s*\{", bundle):
+            out.append("the page calls %s.%s(), which the served bundle does not define" % (obj, name))
+    return out
+
+
+probs = library_problems(page)
+for p in probs:
+    print("  FAIL:", p)
+fails += len(probs)
+check("esptool-js-" in "".join(os.listdir(WEB)), "a vendored esptool-js bundle sits in webflasher/")
+check("esptool-js-*.bundle.js" in pub, "publish copies the vendored bundle")
+check("unpkg.com" not in page and "cdn." not in page, "no CDN in the page")
+# the self-test: the 0.9.79-NH shape, and a method the bundle really has
+bad = page.replace("loader.hardReset(", "loader.after(", 1)
+check(bad != page and any("loader.after()" in p for p in library_problems(bad)),
+      "self-test: a page calling loader.after() trips")
+check(not library_problems(page.replace("loader.hardReset(", "loader.eraseFlash(", 1)),
+      "self-test: a method the bundle defines passes")
+check(any("not from this site" in p for p in library_problems(
+    page.replace('from "./esptool-js', 'from "https://unpkg.com/esptool-js', 1))),
+      "self-test: a CDN import trips")
 
 if fails:
     print("check_webflasher_split: %d FAILED" % fails)

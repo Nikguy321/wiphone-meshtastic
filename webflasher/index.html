@@ -89,7 +89,12 @@
  * test lost the tester's WiFi networks, SIP account, contacts and message history.
  * Driving esptool-js ourselves means erase happens exactly when the user explicitly
  * chooses it below, and never otherwise. */
-import { ESPLoader, Transport } from "https://unpkg.com/esptool-js@0.4.5/bundle.js";
+/* The library is SERVED FROM THIS SITE (webflasher/THIRD_PARTY.md), not fetched from a CDN:
+ * the installer then works when the CDN does not, and tests/check_webflasher_split.py checks
+ * every `loader.*(` / `transport.*(` this page calls against the bytes actually served. The
+ * 0.9.79-NH page called `loader.after()`, which 0.4.5 does not have: the write had finished,
+ * the reset threw, the page said "Failed" and the phone sat dark in the bootloader. */
+import { ESPLoader, Transport } from "./esptool-js-0.4.5.bundle.js";
 
 const $ = (id) => document.getElementById(id);
 let manifest = null;
@@ -185,10 +190,20 @@ async function flash(eraseFirst) {
                             / total * 100)),
     });
 
+    /* The firmware is on the phone from here on. Whatever the reset below does, the message
+     * must say so: a failed reset is a phone sitting dark in the bootloader with a good
+     * install, and "Failed... try again" sent a tester through the whole install twice. */
     status("Done - rebooting the phone…");
-    await loader.after();                // hard reset into the new firmware
-    status("✅ Installed " + manifest.version + ". The phone is restarting - unplug it "
-           + "whenever you like.");
+    let restarted = true;
+    try {
+      await loader.hardReset();          // RTS pulse: EN low, then high - into the new firmware
+    } catch (e) {
+      restarted = false;
+    }
+    status(restarted
+      ? "✅ Installed " + manifest.version + ". The phone is restarting - unplug it whenever you like."
+      : "✅ Installed " + manifest.version + ", but the phone did not restart by itself: unplug it "
+        + "and plug it back in (or hold the power button) and it will boot the new firmware.");
   } catch (e) {
     const msg = String(e && e.message || e);
     if (msg.includes("would overwrite the phone's settings")) {

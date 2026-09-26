@@ -4,6 +4,16 @@
 
 Read this first; everything below it is narrative.
 
+🩹 **2026-09-26 13:25: THE FIRST REAL BROWSER INSTALL FOUND A PAGE BUG — FIXED AND REPUBLISHED.** Nick's install
+ended "Failed: loader.after is not a function": the write had finished, the page's reset call named a method esptool-js
+0.4.5 does not have (`after()`; it has `hardReset()`), the catch said "Failed" and phone 1 sat dark in the bootloader with
+the new firmware on it (esptool `--after hard_reset chip_id` brought it up: 0.9.79-NH, mesh key + KOSync id intact — the
+two parts kept NVS through a REAL browser). Fixed: `hardReset()`; a failed reset now reports "installed, unplug and replug";
+esptool-js is VENDORED (`webflasher/esptool-js-0.4.5.bundle.js`, sha `ac4fab0d…`, THIRD_PARTY.md) and publish copies it;
+`check_webflasher_split.py` §6 proves every `loader.*(`/`transport.*(` the page calls is defined in the served bundle
+(comments stripped — the guard first tripped on its own explanatory comment). ⚠ LESSON: a mock that mirrors the page's
+assumptions proves nothing about the library — my mock had `after()`. Test against the served bytes, or the real thing.
+
 🚀 **2026-09-26 13:10: 0.9.79-NH RELEASED** (Nick: "push and commit and publish"; splash "looks good", ringtone "sounds
 good"). `kosync` fast-forwarded into `main`, pushed; the installer stage regenerated from the release build
 (make_webflasher.sh; `Ver. 0.9.79-NH` read out of the app part) and published to gh-pages as the two parts; live shas

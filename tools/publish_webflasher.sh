@@ -19,9 +19,10 @@ VER=$(python3 -c "import json;print(json.load(open('webflasher/manifest.json'))[
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-# The two parts make_webflasher.sh cut around nvs (never the old merged image: it erased NVS).
+# The two parts make_webflasher.sh cut around nvs (never the old merged image: it erased NVS),
+# and the vendored esptool-js the page imports (webflasher/THIRD_PARTY.md).
 cp webflasher/index.html webflasher/manifest.json webflasher/wiphone-boot.bin \
-   webflasher/wiphone-app.bin "$TMP/"
+   webflasher/wiphone-app.bin webflasher/esptool-js-*.bundle.js webflasher/THIRD_PARTY.md "$TMP/"
 touch "$TMP/.nojekyll"
 
 git -C "$TMP" init -q -b gh-pages
