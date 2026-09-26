@@ -41,6 +41,15 @@ level and written after the clamp (an earpiece press stored under loudspeaker_vo
 Loud Spkr key records the route it picks, and connect reads NO file (a 0.5-1.6 s SPIFFS open
 there, RTP port shut, for levels the dial or the ring already applied) - `sequence_within` takes
 a `forbid` pattern for that.
+
+Integration review 3 (2026-09-25) reshaped the UP/DOWN contract and added its neighbours: the press
+touches NO file (R3-1: it loaded and stored configs.ini on the loop task - 1.5-5 s of no call audio per
+press) and records its one level for WiPhone.ino to write once, after the call, off the audio path,
+refusing a file that did not load; a waiting level overrides the file for the next ring or dial and
+is written before Settings > Audio reads; the press finishes a pop first (A4) and takes the CALL's
+route and music's stash (A3), not whoever holds the codec. The mic apps finish a pop first (A6); the
+jack is a sensor restore() re-reads, with one writer (A5, ONLY_IN); and the pop's stop timer carries
+the ring's lead (A1, arithmetic in notify_timing.h, test_notify). `args` picks an overload.
 """
 import pathlib
 import re
@@ -150,7 +159,7 @@ def contract_problem(code, c, raw=None):
     if kind == "egg":
         return egg_problem(code, raw, c)
 
-    span = function_body(code, c["fn"])
+    span = function_body_args(code, c["fn"], c["args"]) if c.get("args") else function_body(code, c["fn"])
     if span is None:
         return f"{c['fn']}() not found - if it was renamed or moved, update this contract"
     bs, be = span
@@ -241,6 +250,20 @@ def contract_problem(code, c, raw=None):
     return f"unknown contract kind {kind}"
 
 
+def function_body_args(code, name, args_rx):
+    """function_body() for one OVERLOAD: the definition of `name` whose parameter list matches
+    args_rx (Audio::playPop has two; function_body() returns the first)."""
+    rx = re.compile(r"(?<![\w:~.>])" + re.escape(name) + r"\s*\(")
+    for m in rx.finditer(code):
+        close = match_close(code, m.end() - 1)
+        if close < 0 or not re.search(args_rx, code[m.end():close]):
+            continue
+        span = function_body(code[m.start():], name)
+        if span is not None:
+            return m.start() + span[0], m.start() + span[1]
+    return None
+
+
 def sequence_problem(code, start, end, seq, what):
     last, prev = -1, None
     for p in seq:
@@ -289,6 +312,25 @@ CALL_ROUTE = r"\baudio\s*->\s*chooseSpeaker\s*\(\s*gui\s*\.\s*state\s*\.\s*callL
 TAKES_DEVICE = r"\bcallTakesAudioDevice\s*\("
 TAKES_DEVICE_READ = r"\bcallTakesAudioDevice\s*\([^;]*,\s*true\s*\)"      # dialling: stored levels read
 TAKES_DEVICE_KEEP = r"\bcallTakesAudioDevice\s*\([^;]*,\s*false\s*\)"     # connect: no file read
+CALL_ROUTE_LOUD = (r"\bonLoudspeaker\s*=\s*!\s*onHeadphones\s*&&\s*\(\s*controlState\s*\.\s*ringing\s*\|\|"
+                   r"\s*controlState\s*\.\s*callLoudspeaker\s*\)")
+SA1_STEP = [r"\bnotifyPopFinishFor\s*\(",                   # A4: a pop's snapshot holds the levels
+            r"\bif\s*\(\s*!\s*musicPlayerCallVolumes\s*\(",    # A3: the stash while music holds them
+            r"\bonHeadphones\s*=\s*audio\s*->\s*getHeadphones\s*\(\s*\)",
+            CALL_ROUTE_LOUD,                                  # A3/A4: the call's route, not the codec's
+            r"\bint8_t\s*&\s*level\s*=\s*onHeadphones\s*\?\s*headphonesVol\s*:\s*\(\s*onLoudspeaker\s*\?"
+            r"\s*loudspeakerVol\s*:\s*earpieceVol\s*\)",
+            r"\blevelRoute\s*=\s*onHeadphones\s*\?\s*CALL_LEVEL_HEADPHONES\s*:\s*\(\s*onLoudspeaker\s*\?"
+            r"\s*CALL_LEVEL_LOUDSPEAKER\s*:\s*CALL_LEVEL_EARPIECE\s*\)",
+            r"\blevel\s*\+=",
+            r"\bif\s*\(\s*level\s*>\s*levelMax\s*\)",            # clamped: the stash does not clamp
+            r"\bif\s*\(\s*!\s*musicPlayerSetCallVolumes\s*\(",
+            r"\baudio\s*->\s*setVolumes\s*\(",
+            r"\bcallLevelStepped\s*\(\s*levelRoute\s*,\s*level\s*\)"]
+FILE_IO = r"\bini\s*\.\s*(?:load|store|restore)\s*\(|\bCriticalFile\b|\bIniFile\b|\bSPIFFS\b"
+POP_PCM_ARGS = r"\bpcmLen\b"        # Audio::playPop(const uint8_t* pcm, size_t pcmLen, ...), not playPop(fs, vol)
+APPLY_OVERLAY = [r"\bloud\s*=\s*ini\s*\[[^\]]*\]\s*\.\s*getIntValueSafe\s*\(", r"\bcallLevelsOverlay\s*\(",
+                 r"\baudio\s*->\s*setVolumes\s*\("]
 
 CONTRACTS = [
     # ── Audio.cpp: the per-call silence clock is wired, not just written ──
@@ -465,40 +507,61 @@ CONTRACTS = [
          what="a playing track stopped (place kept) before the microphone's install",
          why="configureI2S() swapped music's 534 ms ring for 186 ms under a playing track"),
     dict(file="GUI.cpp", fn="MicTestApp::MicTestApp", kind="sequence",
-         seq=[r"\bmusicPlayerPause\s*\(", r"\baudio\s*->\s*start\s*\("],
-         what="music paused before the Mic test takes the device",
+         seq=[r"\bnotifyPopFinishFor\s*\(", r"\bmusicPlayerPause\s*\(", r"\baudio\s*->\s*start\s*\("],
+         what="a pop finished (review 3, A6), then music paused, before the Mic test takes the device",
          why="start() restarts I2S and turnMicOn() swaps the ring under a playing track"),
     dict(file="GUI.cpp", fn="RecorderApp::RecorderApp", kind="sequence",
-         seq=[r"\bmusicPlayerPause\s*\(", r"\baudio\s*->\s*start\s*\("],
-         what="music paused before the Recorder takes the device",
+         seq=[r"\bnotifyPopFinishFor\s*\(", r"\bmusicPlayerPause\s*\(", r"\baudio\s*->\s*start\s*\("],
+         what="a pop finished (review 3, A6), then music paused, before the Recorder takes the device",
          why="start() restarts I2S and turnMicOn() swaps the ring under a playing track"),
     dict(file="GUI.cpp", fn="LedMicApp::LedMicApp", kind="sequence",
-         seq=[r"\bmusicPlayerPause\s*\(", r"\baudio\s*->\s*setSampleRate\s*\(",
+         seq=[r"\bnotifyPopFinishFor\s*\(", r"\bmusicPlayerPause\s*\(", r"\baudio\s*->\s*setSampleRate\s*\(",
               r"\baudio\s*->\s*start\s*\("],
-         what="music paused before the LED mic app sets 16 kHz",
+         what="a pop finished (review 3, A6), then music paused, before the LED mic app sets 16 kHz",
          why="the rate change played the track at 0.73x, then the ring was swapped under it"),
     # ── review SA-1 (2026-09-25): the call screen's keys step ONE level, the ring reads its own ──
-    dict(file="GUI.cpp", fn="CallApp::processEvent", kind="sequence",
-         seq=[r"\bonHeadphones\s*=\s*audio\s*->\s*getHeadphones\s*\(\s*\)",
-              r"\bonLoudspeaker\s*=\s*!\s*onHeadphones\s*&&\s*audio\s*->\s*isLoudspeaker\s*\(\s*\)",
-              r"\bint8_t\s*&\s*level\s*=\s*onHeadphones\s*\?\s*headphonesVol\s*:\s*\(\s*onLoudspeaker\s*\?"
-              r"\s*loudspeakerVol\s*:\s*earpieceVol\s*\)",
-              r"\blevelField\s*=\s*onHeadphones\s*\?\s*headphonesVolField\s*:\s*\(\s*onLoudspeaker\s*\?"
-              r"\s*loudspeakerVolField\s*:\s*earpieceVolField\s*\)",
-              r"\blevel\s*\+=", r"\baudio\s*->\s*setVolumes\s*\(",
-              r"\bini\s*\[[^\]]*\]\s*\[\s*levelField\s*\]\s*=(?!=)\s*level\b"],
-         what="UP/DOWN stepping the level of the route in use (headphones > loudspeaker > earpiece), "
-              "and storing it under THAT route's key, after the driver's clamp",
+    # Reshaped by review 3 (A3/A4/R3-1): the pop finished first, the call levels from music's stash
+    # while it holds the codec, the route from the CALL's state, and the step recorded in RAM for
+    # WiPhone.ino to write once after the call - no configs.ini on the loop task per press.
+    dict(file="GUI.cpp", fn="CallApp::processEvent", kind="sequence", seq=SA1_STEP,
+         what="UP/DOWN: the pop finished, the call levels (music's stash first), the CALL's route "
+              "(headphones > ringing/Loud Spkr key > earpiece), ONE level stepped and clamped, "
+              "applied, then recorded under THAT route for the file",
          why="it moved all three and the loudspeaker level is the RING's: two presses on a loud "
-             "earpiece left every later ring 12 dB quieter, across reboots"),
+             "earpiece left every later ring 12 dB quieter, across reboots; a pop's or a track's "
+             "loudspeaker flag stepped and stored the ring's level with the phone at your ear"),
     dict(file="GUI.cpp", fn="CallApp::processEvent", kind="not_calls",
          pat=r"\b(?:earpiece|headphones|loudspeaker)Vol\s*\+=",
          what="a named level stepped (the three used to move together)",
          why="an earpiece press moved the ring's loudspeaker level"),
-    dict(file="GUI.cpp", fn="CallApp::processEvent", kind="not_calls",
-         pat=r"\]\s*\[\s*(?:earpiece|headphones|loudspeaker)VolField\s*\]\s*=(?!=)",
-         what="a named level key stored (all three were written back on every press)",
-         why="storing the levels that did not move wrote whatever the codec held over the ring's"),
+    # ── review 3 R3-1: no configs.ini on the loop task per press; A3: music's stash, not the codec ──
+    dict(file="GUI.cpp", fn="CallApp::processEvent", kind="not_calls", pat=FILE_IO,
+         what="the call screen reading or writing a file (configs.ini) on the loop task",
+         why="every UP/DOWN loaded and stored configs.ini: three SPIFFS opens at 0.5-1.6 s each with "
+             "Audio::loop() not pumped - 1.5-5 s of silence both ways, mid-call, per press"),
+    dict(file="GUI.cpp", fn="CallApp::processEvent", kind="guarded",
+         pat=r"\baudio\s*->\s*setVolumes\s*\(", need=[NEG(r"\bmusicPlayerSetCallVolumes\s*\(")],
+         what="UP/DOWN's audio->setVolumes()",
+         why="after a call F1 can resume a track under the call screen: the press wrote the call "
+             "levels under it (~24 dB on headphones), and music's stash later undid the press"),
+    dict(file="WiPhone.ino", fn="loop", kind="guarded", pat=r"\bcallLevelsFlush\s*\(",
+         need=[NEG(IN_CALL), NEG(r"\bgui\s*\.\s*state\s*\.\s*ringing\b"),
+               NEG(r"\baudio\s*->\s*movingSamples\s*\("), NEG(r"\baudio\s*->\s*rtpSessionArmed\s*\("),
+               POS(r"\bCALL_LEVEL_SETTLE_MS\b")],
+         what="the call screen's levels written to configs.ini",
+         why="a 1.5-5 s SPIFFS stall under a call, the ring or a track is a gap in it; after the call, "
+             "settled, once"),
+    dict(file="WiPhone.ino", fn="callLevelsFlush", kind="refuses_before",
+         need=[NEG(r"\bloaded\b")], later=r"\bini\s*\.\s*store\s*\(",
+         what="the write refusing a configs.ini that did not load",
+         why="a failed load stored a three-key file: every other setting wiped (the 0.9.52 find)"),
+    dict(file="WiPhone.ino", fn="applyStoredCallVolumes", kind="sequence", seq=APPLY_OVERLAY,
+         what="a stepped level not yet written overriding the file, before the levels are applied",
+         why="a ring or a dial before the write applied the file's older level over the press"),
+    dict(file="GUI.cpp", fn="AudioConfigApp::AudioConfigApp", kind="sequence",
+         seq=[r"\bcallLevelsFlushNow\s*\(", r"\bini\s*\.\s*load\s*\("],
+         what="Settings > Audio writing a waiting in-call level before it reads the file",
+         why="its sliders showed the older level, and the waiting write then landed on top of its Save"),
     dict(file="WiPhone.ino", fn="startRingtone", kind="sequence",
          seq=[r"\bmusicPlayerYieldForCall\s*\(", r"\bapplyStoredCallVolumes\s*\(",
               r"\baudio\s*->\s*chooseSpeaker\s*\(\s*true\s*\)", r"\baudio\s*->\s*start\s*\(\s*\)"],
@@ -565,6 +628,57 @@ CONTRACTS = [
          what="controlState.callLoudspeaker = false (every call starts on the earpiece)",
          why="the old global was never reset: after a call ended on speaker the next call's key "
              "labels ran backwards"),
+    # ── review 3 A5: the jack is a sensor, not a setting a pop's snapshot puts back ──
+    dict(file="Audio.cpp", fn="Audio::restore", kind="calls",
+         pat=r"\bsetHeadphones\s*\(\s*this\s*->\s*jackHeadphones\s*\)",
+         what="restore() routing to the jack's reading (jackHeadphones)",
+         why="an unplug inside a pop changed nothing live, and the snapshot's `true` came back: the "
+             "ring, music and the next call went to an empty jack until the next edge"),
+    dict(file="Audio.h", fn="discardPreserved", kind="calls",
+         pat=r"\bsetHeadphones\s*\(\s*this\s*->\s*jackHeadphones\s*\)",
+         what="discardPreserved() routing to the jack's reading",
+         why="a track that took over a pop kept the pop's forced 'no headphones' with a headset in"),
+    dict(file="Audio.cpp", fn="Audio::jackSensed", kind="sequence",
+         seq=[r"\bjackHeadphones\s*=(?!=)\s*plugged\b", r"\bsetHeadphones\s*\(\s*plugged\s*\)"],
+         what="jackSensed() recording the pin's reading, then routing to it",
+         why="restore() puts back what it recorded"),
+    dict(file="WiPhone.ino", fn="headphoneServiceInterrupt", kind="calls",
+         pat=r"\baudio\s*->\s*jackSensed\s*\(", what="the jack's edge through audio->jackSensed()",
+         why="a reading that bypasses it is not what restore() puts back"),
+    # ── review 3 A1: the pop's stop waits for the ring's lead ──
+    dict(file="WiPhone.ino", fn="notifyMessageArrived", kind="sequence",
+         seq=[r"\bleadMs\s*=\s*audio\s*->\s*popLeadMs\s*\(", r"\bmeshPopStopMs\s*=(?!=)",
+              r"\baudio\s*->\s*loop\s*\("],
+         what="the ring's lead taken from playPop(), then the stop timer, then the pump",
+         why="the chirp reached the DAC one trip (512 ms) after a fresh ring started; the 360 ms "
+             "teardown zeroed it first - a buzz with no chirp"),
+    dict(file="WiPhone.ino", fn="notifyMessageArrived", kind="assign_needs", name="meshPopStopMs",
+         need=[POS(r"\bnotifyPopTimerMs\s*\("), POS(r"\bleadMs\b")],
+         what="the stop timer carrying the lead (notify_timing.h's notifyPopTimerMs)",
+         why="notifyPopStopMs() alone is the sound's length, not when it is heard"),
+    dict(file="Audio.cpp", fn="Audio::playPop", args=POP_PCM_ARGS, kind="sequence",
+         seq=[r"\bgen0\s*=\s*this\s*->\s*i2sGen\b", r"\bwasOn\s*=\s*this\s*->\s*audioOn\b",
+              r"\bpreserve\s*\(", r"\bsetSampleRate\s*\(", r"\bturnOn\s*\(", r"\bpopRing\s*=(?!=)"],
+         what="the ring's generation and power taken BEFORE the pop's setters, its state set after turnOn()",
+         why="taken after the setters, every pop reads as RUNNING (no lead) and the chirp is erased again"),
+    dict(file="Audio.cpp", fn="Audio::playPop", args=POP_PCM_ARGS, kind="assign_needs", name="popRing",
+         need=[POS(r"\bi2sGen\s*!=\s*gen0\b"), POS(r"\bNOTIFY_RING_FRESH\b"), NEG(r"\bwasOn\b"),
+               POS(r"\bNOTIFY_RING_RESTARTED\b")],
+         what="FRESH on a new ring generation, RESTARTED when the device was off",
+         why="the lead is one trip on a fresh ring and up to one on a restarted one"),
+    dict(file="Audio.cpp", fn="Audio::popLeadMs", kind="calls",
+         pat=r"\bnotifyPopLeadMs\s*\([^;]*\bpopRing\b",
+         what="popLeadMs() through notify_timing.h's notifyPopLeadMs(popRing, ...)",
+         why="the arithmetic test_notify pins is the arithmetic the phone runs"),
+]
+
+# (pattern, file, function): the pattern may appear in that function and nowhere else in the tree.
+# (pattern, file, function, what, declaration): a match whose line so far matches `declaration` is
+# the member's own declaration with its initializer, not a write.
+ONLY_IN = [
+    (r"\bjackHeadphones\s*=(?!=)", "Audio.cpp", "Audio::jackSensed",
+     "jackHeadphones written outside Audio::jackSensed() - it is the pin's reading, nothing else's (A5)",
+     r"^\s*bool\s+$"),
 ]
 
 BANNED = [
@@ -574,6 +688,11 @@ BANNED = [
     (r"\brtpSilentScan\b", "the boot-long rtpSilentScan - silence is counted per call (rtp_watch.h)"),
     (r"\bloudSpkr\b", "the file-scope loudSpkr - nothing reset it per call and the call's audio never "
                        "read it (ControlState::callLoudspeaker, SA-2)"),
+    (r"\bpresHeadphones\b", "a pop snapshot of the jack (presHeadphones) - restore() puts back the jack's "
+                             "reading, jackHeadphones (review 3, A5)"),
+    (r"\baudio\s*->\s*setHeadphones\s*\(", "audio->setHeadphones() from outside Audio - the jack goes "
+                                           "through audio->jackSensed(), which records what restore() puts "
+                                           "back (review 3, A5)"),
 ]
 
 
@@ -593,7 +712,30 @@ def check(texts, raws):
             m = re.search(pat, code)
             if m:
                 problems.append(f"WiPhone/{name}:{line_of(code, m.start())}: {what}")
+    problems += only_in_problems(texts)
     return problems
+
+
+def only_in_problems(texts):
+    out = []
+    for pat, fname, fn, what, decl in ONLY_IN:
+        code = texts.get(fname)
+        span = function_body(code, fn) if code is not None else None
+        if span is None:
+            out.append(f"WiPhone/{fname}: {fn}() not found - if it was renamed or moved, update ONLY_IN")
+            continue
+        seen = False
+        for name, text in sorted(texts.items()):
+            for m in re.finditer(pat, text):
+                if name == fname and span[0] < m.start() < span[1]:
+                    seen = True
+                    continue
+                if re.search(decl, text[text.rfind("\n", 0, m.start()) + 1:m.start()]):
+                    continue
+                out.append(f"WiPhone/{name}:{line_of(text, m.start())}: {what}")
+        if not seen:
+            out.append(f"WiPhone/{fname}: {fn}(): /{pat}/ not found in it - {what}")
+    return out
 
 
 def selftest():
@@ -741,59 +883,127 @@ def selftest():
                         "#ifdef AUDIO_DEBUG_EGGS\n"),
            egg, False, "a mic stream moved out of the egg region fails")
 
-    # ── SA-1: the call screen's UP/DOWN steps one level and stores one key ──
+    # ── SA-1, reshaped by review 3 (A3/A4/R3-1): one level, the call's route, no file per press ──
     step = C("CallApp::processEvent", "sequence")
     good = ("appEventResult CallApp::processEvent(EventType event) {\n"
             " if (event == WIPHONE_KEY_UP || event == WIPHONE_KEY_DOWN) {\n"
+            "  notifyPopFinishFor(\"the call screen's volume key\");\n"
             "  int8_t earpieceVol, headphonesVol, loudspeakerVol;\n"
-            "  audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"
+            "  if (!musicPlayerCallVolumes(earpieceVol, headphonesVol, loudspeakerVol)) {\n"
+            "   audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n  }\n"
             "  const bool onHeadphones = audio->getHeadphones();\n"
-            "  const bool onLoudspeaker = !onHeadphones && audio->isLoudspeaker();\n"
+            "  const bool onLoudspeaker = !onHeadphones && (controlState.ringing || controlState.callLoudspeaker);\n"
             "  int8_t& level = onHeadphones ? headphonesVol : (onLoudspeaker ? loudspeakerVol : earpieceVol);\n"
-            "  const char* levelField = onHeadphones ? headphonesVolField :\n"
-            "                           (onLoudspeaker ? loudspeakerVolField : earpieceVolField);\n"
+            "  const uint8_t levelRoute = onHeadphones ? CALL_LEVEL_HEADPHONES :\n"
+            "                             (onLoudspeaker ? CALL_LEVEL_LOUDSPEAKER : CALL_LEVEL_EARPIECE);\n"
             "  level += (event == WIPHONE_KEY_UP) ? 6 : -6;\n"
-            "  audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"
-            "  audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"
-            "  if (loaded) {\n   ini[\"audio\"][levelField] = level;\n   ini.store();\n  }\n }\n}\n")
+            "  const int8_t levelMax = onLoudspeaker ? (int8_t)Audio::MaxLoudspeakerVolume : (int8_t)Audio::MaxVolume;\n"
+            "  if (level > levelMax) {\n   level = levelMax;\n  }\n"
+            "  if (!musicPlayerSetCallVolumes(earpieceVol, headphonesVol, loudspeakerVol)) {\n"
+            "   audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"
+            "   audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n  }\n"
+            "  callLevelStepped(levelRoute, level);\n }\n}\n")
+    # the shape e87eeb0 (SA-1) shipped: the codec's route, and configs.ini loaded and stored per press
+    sa1 = ("appEventResult CallApp::processEvent(EventType event) {\n"
+           " if (event == WIPHONE_KEY_UP || event == WIPHONE_KEY_DOWN) {\n"
+           "  int8_t earpieceVol, headphonesVol, loudspeakerVol;\n"
+           "  audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"
+           "  const bool loaded = (ini.load() || ini.restore()) && !ini.isEmpty();\n"
+           "  const bool onHeadphones = audio->getHeadphones();\n"
+           "  const bool onLoudspeaker = !onHeadphones && audio->isLoudspeaker();\n"
+           "  int8_t& level = onHeadphones ? headphonesVol : (onLoudspeaker ? loudspeakerVol : earpieceVol);\n"
+           "  const char* levelField = onHeadphones ? headphonesVolField :\n"
+           "                           (onLoudspeaker ? loudspeakerVolField : earpieceVolField);\n"
+           "  level += (event == WIPHONE_KEY_UP) ? 6 : -6;\n"
+           "  audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"
+           "  audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"
+           "  if (loaded) {\n   ini[\"audio\"][levelField] = level;\n   ini.store();\n  }\n }\n}\n")
     pre = (good.replace("  int8_t& level = onHeadphones ? headphonesVol : (onLoudspeaker ? loudspeakerVol : earpieceVol);\n", "")
                .replace("  level += (event == WIPHONE_KEY_UP) ? 6 : -6;\n",
                         "  int8_t d = event == WIPHONE_KEY_UP ? 6 : -6;\n  earpieceVol += d;\n"
-                        "  headphonesVol += d;\n  loudspeakerVol += d;\n")
-               .replace("   ini[\"audio\"][levelField] = level;\n",
-                        "   ini[\"audio\"][earpieceVolField] = earpieceVol;\n"
-                        "   ini[\"audio\"][headphonesVolField] = headphonesVol;\n"
-                        "   ini[\"audio\"][loudspeakerVolField] = loudspeakerVol;\n"))
-    expect(good, step, True, "UP/DOWN stepping the route's level holds")
+                        "  headphonesVol += d;\n  loudspeakerVol += d;\n"))
+    expect(good, step, True, "UP/DOWN stepping the call route's level holds")
+    expect(sa1, step, False, "the SA-1 shape (the codec's route, a file load+store per press) fails")
     expect(pre, step, False, "the pre-SA-1 all-three step fails")
-    expect(good.replace("!onHeadphones && audio->isLoudspeaker()", "!onHeadphones"), step, False,
-           "the loudspeaker picked without asking the codec's route fails")
-    expect(good.replace("(onLoudspeaker ? loudspeakerVolField : earpieceVolField)",
-                        "(onLoudspeaker ? loudspeakerVolField : loudspeakerVolField)"), step, False,
-           "an earpiece press STORED under the ring's loudspeaker key fails")
-    expect(good.replace("headphonesVolField :\n", "loudspeakerVolField :\n"), step, False,
-           "a headphones press stored under the loudspeaker key fails")
-    expect(good.replace("   ini[\"audio\"][levelField] = level;\n", ""), step, False,
-           "UP/DOWN that stores nothing fails")
-    expect(good.replace("   ini[\"audio\"][levelField] = level;\n", "").replace(
-           "  level += (event", "  if (loaded) { ini[\"audio\"][levelField] = level; }\n  level += (event"),
-           step, False, "the key stored BEFORE the step and the driver's clamp fails")
-    expect(good.replace("ini[\"audio\"][levelField] = level;", "ini[\"audio\"][levelField] == level;"),
-           step, False, "a comparison is not the store")
+    expect(good.replace("(controlState.ringing || controlState.callLoudspeaker)", "audio->isLoudspeaker()"),
+           step, False, "the route read off the codec (a pop's or a track's loudspeaker flag) fails")
+    expect(good.replace("(controlState.ringing || controlState.callLoudspeaker)", "(controlState.callLoudspeaker)"),
+           step, False, "the ring's loudspeaker forgotten while it rings fails")
+    expect(good.replace("  notifyPopFinishFor(\"the call screen's volume key\");\n", ""), step, False,
+           "a press inside a pop (its snapshot holds the levels, its restore() undoes the press) fails")
+    expect(good.replace("  if (!musicPlayerCallVolumes(earpieceVol, headphonesVol, loudspeakerVol)) {\n"
+                        "   audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n  }\n",
+                        "  audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"), step, False,
+           "the levels read off the codec under a resumed track (the MUSIC level) fails")
+    expect(good.replace("(onLoudspeaker ? CALL_LEVEL_LOUDSPEAKER : CALL_LEVEL_EARPIECE)",
+                        "(onLoudspeaker ? CALL_LEVEL_LOUDSPEAKER : CALL_LEVEL_LOUDSPEAKER)"), step, False,
+           "an earpiece press recorded under the ring's loudspeaker level fails")
+    expect(good.replace("onHeadphones ? CALL_LEVEL_HEADPHONES :", "onHeadphones ? CALL_LEVEL_LOUDSPEAKER :"),
+           step, False, "a headphones press recorded under the loudspeaker level fails")
+    expect(good.replace("  if (level > levelMax) {\n   level = levelMax;\n  }\n", ""), step, False,
+           "an unclamped level (the stash does not clamp) fails")
+    expect(good.replace("  callLevelStepped(levelRoute, level);\n", ""), step, False,
+           "a press recorded for no file (lost at the next ring and reboot) fails")
+    expect(good.replace("  callLevelStepped(levelRoute, level);\n", "").replace(
+           "  level += (event", "  callLevelStepped(levelRoute, level);\n  level += (event"), step, False,
+           "the level recorded BEFORE the step and the clamp fails")
     nstep = C("CallApp::processEvent", "not_calls", pat=r"\b(?:earpiece|headphones|loudspeaker)Vol\s*\+=")
     expect(good, nstep, True, "no named level stepped holds")
     expect(pre, nstep, False, "earpieceVol/headphonesVol/loudspeakerVol += d fails")
     expect(good.replace("  level += (event", "  loudspeakerVol += 6;\n  level += (event"), nstep, False,
            "the ring's level stepped beside the route's fails")
-    nstore = next(c for c in CONTRACTS if c.get("fn") == "CallApp::processEvent" and c["kind"] == "not_calls"
-                  and "VolField" in c["pat"])
-    expect(good, nstore, True, "storing only the moved key holds")
-    expect(good.replace("   ini[\"audio\"][levelField] = level;\n",
-                        "   ini[\"audio\"][levelField] = level;\n"
-                        "   ini[\"audio\"][loudspeakerVolField] = loudspeakerVol;\n"), nstore, False,
-           "the loudspeaker key stored beside the moved one fails")
-    expect(good.replace("ini[\"audio\"][levelField] = level;", "if (x[loudspeakerVolField] == 1) {}"),
-           nstore, True, "a comparison is not a store")
+    nio = C("CallApp::processEvent", "not_calls", pat=FILE_IO)
+    expect(good, nio, True, "a press touching no file holds")
+    expect(sa1, nio, False, "ini.load() + ini.store() per press (1.5-5 s of no call audio) fails")
+    expect(good.replace("  callLevelStepped(levelRoute, level);\n",
+                        "  CriticalFile f(Storage::ConfigsFile);\n  callLevelStepped(levelRoute, level);\n"),
+           nio, False, "a CriticalFile of its own fails")
+    expect(good.replace("  callLevelStepped(levelRoute, level);\n",
+                        "  callLevelStepped(levelRoute, level);\n  x = SPIFFS.open(p);\n"), nio, False,
+           "a SPIFFS open fails")
+    stash = C("CallApp::processEvent", "guarded")
+    expect(good, stash, True, "the press into music's stash while it holds the codec holds")
+    expect(good.replace("  if (!musicPlayerSetCallVolumes(earpieceVol, headphonesVol, loudspeakerVol)) {\n"
+                        "   audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n",
+                        "  musicPlayerSetCallVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n  {\n"
+                        "   audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);\n"), stash, False,
+           "the codec written under a playing track as well (a ~24 dB jump on headphones) fails")
+
+    # ── R3-1: the write, once, after the call ──
+    fl = C("loop", "guarded", pat=r"\bcallLevelsFlush\s*\(")
+    good = ("void loop() {\n if (s_callLevelDirty && audio && !gui.inCall() && !gui.state.ringing &&\n"
+            "     !audio->movingSamples() && !audio->rtpSessionArmed() &&\n"
+            "     elapsedMillis(millis(), s_callLevelStepMs, CALL_LEVEL_SETTLE_MS)) {\n"
+            "  callLevelsFlush(\"after the call\");\n }\n}\n")
+    expect(good, fl, True, "the write after the call, off the audio path, holds")
+    for gone, label in (("!gui.inCall() && ", "under a live call"), ("!gui.state.ringing &&\n", "while it rings"),
+                        ("!audio->movingSamples() && ", "under a playing track or a pop"),
+                        ("!audio->rtpSessionArmed() &&\n", "with an RTP session armed")):
+        expect(good.replace(gone, ""), fl, False, f"the write {label} fails")
+    expect(good.replace("elapsedMillis(millis(), s_callLevelStepMs, CALL_LEVEL_SETTLE_MS)", "true"), fl, False,
+           "a write per press (no settle) fails")
+    expect(good.replace("!gui.inCall()", "gui.inCall()"), fl, False, "the write only DURING a call fails")
+    lf = C("callLevelsFlush", "refuses_before")
+    good = ("static void callLevelsFlush(const char* who) {\n CriticalFile ini(Storage::ConfigsFile);\n"
+            " const bool loaded = (ini.load() || ini.restore()) && !ini.isEmpty();\n"
+            " if (!loaded) {\n  log_e(\"x\");\n  return;\n }\n ini[\"audio\"][k] = v;\n ini.store();\n}\n")
+    expect(good, lf, True, "the write refusing a file that did not load holds")
+    expect(good.replace(" if (!loaded) {\n  log_e(\"x\");\n  return;\n }\n", ""), lf, False,
+           "a three-key file stored over every other setting (the 0.9.52 find) fails")
+    ov = C("applyStoredCallVolumes", "sequence", seq=APPLY_OVERLAY)
+    good = ("static void applyStoredCallVolumes(const char* who) {\n CriticalFile ini(F);\n"
+            " ear = ini[\"audio\"].getIntValueSafe(\"speaker_vol\", ear);\n"
+            " loud = ini[\"audio\"].getIntValueSafe(\"loudspeaker_vol\", loud);\n"
+            " callLevelsOverlay(ear, hp, loud);\n audio->setVolumes(ear, hp, loud);\n}\n")
+    expect(good, ov, True, "a press not yet written overriding the file holds")
+    expect(good.replace(" callLevelsOverlay(ear, hp, loud);\n", ""), ov, False,
+           "the next ring applying the file's older level over the press fails")
+    ac = C("AudioConfigApp::AudioConfigApp", "sequence")
+    good = ("AudioConfigApp::AudioConfigApp(Audio* a, LCD& l)\n  : WindowedApp(l), ini(F) {\n"
+            " callLevelsFlushNow(\"Settings > Audio\");\n if ((ini.load() || ini.restore()) && !ini.isEmpty()) { x(); }\n}\n")
+    expect(good, ac, True, "Settings > Audio writing a waiting press before it reads holds")
+    expect(good.replace(" callLevelsFlushNow(\"Settings > Audio\");\n", ""), ac, False,
+           "Settings > Audio reading under a waiting press (its Save then overwritten by it) fails")
 
     rs = C("startRingtone", "sequence", seq=[r"\bmusicPlayerYieldForCall\s*\(", r"\bapplyStoredCallVolumes\s*\(",
                                              r"\baudio\s*->\s*chooseSpeaker\s*\(\s*true\s*\)",
@@ -806,7 +1016,8 @@ def selftest():
     expect(good.replace(" musicPlayerYieldForCall();\n applyStoredCallVolumes(\"ring\");\n",
                         " applyStoredCallVolumes(\"ring\");\n musicPlayerYieldForCall();\n"), rs, False,
            "the stored levels applied BEFORE the yield (its stash lands on top) fails")
-    ap = C("applyStoredCallVolumes", "sequence")
+    ap = C("applyStoredCallVolumes", "sequence", seq=[r"\bini\s*\.\s*load\s*\(", r"\bgetIntValueSafe\s*\(",
+                                                    r"\baudio\s*->\s*setVolumes\s*\("])
     good = ("static void applyStoredCallVolumes(const char* who) {\n CriticalFile ini(F);\n"
             " if (!((ini.load() || ini.restore()) && !ini.isEmpty())) { return; }\n"
             " ear = ini[\"audio\"].getIntValueSafe(\"speaker_vol\", ear);\n audio->setVolumes(ear, hp, loud);\n}\n")
@@ -911,9 +1122,78 @@ def selftest():
     expect(good.replace(" controlState.callLoudspeaker = false;\n", ""), cr, False,
            "a route key never reset per call (pre-SA-2) fails")
 
+    # ── review 3: the mic apps finish a pop first (A6) ──
+    for fn, body in (("MicTestApp::MicTestApp", ""), ("RecorderApp::RecorderApp", ""),
+                     ("LedMicApp::LedMicApp", " audio->setSampleRate(16000);\n")):
+        mc = C(fn, "sequence")
+        good = (f"{fn}(Audio* audio, LCD& lcd)\n  : WindowedApp(lcd), audio(audio) {{\n"
+                f" notifyPopFinishFor(\"m\");\n musicPlayerPause();\n{body} audio->start();\n audio->turnMicOn();\n}}\n")
+        expect(good, mc, True, f"{fn}: the pop finished, then music, then the device holds")
+        expect(good.replace(" notifyPopFinishFor(\"m\");\n", ""), mc, False,
+               f"{fn}: a pop's restore() re-clocking the app's ring under it fails")
+        expect(good.replace(" notifyPopFinishFor(\"m\");\n musicPlayerPause();\n",
+                            " musicPlayerPause();\n notifyPopFinishFor(\"m\");\n"), mc, False,
+               f"{fn}: the pop finished after music (its snapshot is music's) fails")
+
+    # ── review 3 A5: the jack ──
+    rst = C("Audio::restore", "calls")
+    good = ("void Audio::restore() {\n if (!this->presValid) { return; }\n this->presValid = false;\n"
+            " this->setHeadphones(this->jackHeadphones);\n this->chooseSpeaker(this->presLoudspeaker);\n}\n")
+    expect(good, rst, True, "restore() routing to the jack's reading holds")
+    expect(good.replace("this->jackHeadphones", "this->presHeadphones"), rst, False,
+           "restore() putting the snapshot's jack back (the unplug-inside-a-pop fault) fails")
+    only = {"Audio.cpp": strip_code("void Audio::jackSensed(bool plugged) {\n this->jackHeadphones = plugged;\n"
+                                    " this->setHeadphones(plugged);\n}\n"
+                                    "void Audio::restore() {\n if (this->jackHeadphones == x) {}\n}\n")}
+    if only_in_problems(only):
+        print("  SELF-TEST FAIL: ONLY_IN reported the one writer, or a comparison")
+        ok = False
+    if only_in_problems(dict(only, **{"Audio.h": strip_code("class Audio {\n  bool        jackHeadphones = false;\n};\n")})):
+        print("  SELF-TEST FAIL: ONLY_IN took the member's declaration for a write")
+        ok = False
+    only["Audio.cpp"] += strip_code("bool Audio::playPop() {\n this->jackHeadphones = false;\n}\n")
+    if not only_in_problems(only):
+        print("  SELF-TEST FAIL: ONLY_IN missed a second writer of jackHeadphones")
+        ok = False
+    if not only_in_problems({"Audio.cpp": strip_code("void Audio::jackSensed(bool plugged) {\n"
+                                                     " this->setHeadphones(plugged);\n}\n")}):
+        print("  SELF-TEST FAIL: ONLY_IN missed a jackSensed() that records nothing")
+        ok = False
+
+    # ── review 3 A1: the stop timer carries the ring's lead ──
+    nm = C("notifyMessageArrived", "sequence")
+    na = C("notifyMessageArrived", "assign_needs")
+    good = ("static void notifyMessageArrived(uint8_t mode) {\n if (played) {\n"
+            "  const uint32_t leadMs = audio->popLeadMs(!fromFlash);\n"
+            "  meshPopStopMs = notifyPopTimerMs(sizeof(pop_pcm), R, M, !fromFlash, leadMs);\n"
+            "  audio->loop();\n }\n}\n")
+    expect(good, nm, True, "the lead, the timer, the pump holds")
+    expect(good, na, True, "the timer carrying the lead holds")
+    old360 = good.replace("notifyPopTimerMs(sizeof(pop_pcm), R, M, !fromFlash, leadMs)",
+                          "notifyPopStopMs(sizeof(pop_pcm), R, M, !fromFlash)")
+    expect(old360, na, False, "the 360 ms timer with no lead (the chirp zeroed before it sounds) fails")
+    expect(good.replace("!fromFlash, leadMs)", "!fromFlash, 0)"), na, False, "a lead of 0 written in fails")
+    pp = C("Audio::playPop", "sequence")
+    pa = C("Audio::playPop", "assign_needs")
+    good = ("bool Audio::playPop(fs::FS *fs, int8_t vol) {\n return this->playPop(nullptr, 0, fs, vol);\n}\n"
+            "bool Audio::playPop(const uint8_t* pcm, size_t pcmLen, fs::FS *fs, int8_t vol) {\n"
+            " const uint32_t gen0 = this->i2sGen;\n const bool wasOn = this->audioOn;\n this->preserve();\n"
+            " this->setSampleRate(8000);\n this->setMonoOutput(true);\n if (!this->turnOn()) { return false; }\n"
+            " this->popRing = (this->i2sGen != gen0) ? NOTIFY_RING_FRESH\n"
+            "   : (!wasOn ? NOTIFY_RING_RESTARTED : NOTIFY_RING_RUNNING);\n}\n")
+    expect(good, pp, True, "the generation read before the setters holds")
+    expect(good, pa, True, "FRESH / RESTARTED / RUNNING holds")
+    expect(good.replace(" const uint32_t gen0 = this->i2sGen;\n", "").replace(
+           " if (!this->turnOn())", " const uint32_t gen0 = this->i2sGen;\n if (!this->turnOn())"), pp, False,
+           "the generation read AFTER the setters (every pop RUNNING, no lead) fails")
+    expect(good.replace("(this->i2sGen != gen0) ? NOTIFY_RING_FRESH", "false ? NOTIFY_RING_FRESH"), pa, False,
+           "a fresh ring never reported fails")
+    expect(good.replace("!wasOn ?", "wasOn ?"), pa, False, "RESTARTED on the wrong power state fails")
+
     for pat, what in BANNED:
         if not re.search(pat, strip_code("audio->setVolumes(restoreSpeakerVol, h, l); rtpSilentCnt++; "
-                                         "rtpSilentScan = 0; loudSpkr = true;")):
+                                         "rtpSilentScan = 0; loudSpkr = true; x = presHeadphones; "
+                                         "audio->setHeadphones(pin);")):
             print(f"  SELF-TEST FAIL: banned pattern matches nothing: {what}")
             ok = False
     return ok

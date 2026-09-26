@@ -268,6 +268,16 @@ Both phones register now (`sip=1`), which made the 2026-08-15 audit's "unreachab
   Its verification: **connect no longer reads configs.ini** (a 0.5-1.6 s SPIFFS open with the RTP port
   still shut could lose the far end's "Hello?"; the dial or the ring already applied those levels), and
   the checker now pins the stored key, the store itself and the Loud Spkr key's record (54 -> 56).
+- Integration review 3 (audio): **the message chirp can be heard again** — a freshly installed I2S ring
+  plays itself once (512 ms) before the first written sample reaches the speaker, and the pop's 360 ms
+  teardown zeroed the chirp first; the stop now waits for the ring's lead (`NOTIFY: pop start took ...
+  (flash, fresh ring, lead 512 ms, stop at 872 ms)`). **In-call UP/DOWN no longer loads and stores
+  configs.ini per press** (1.5-5 s of silence both ways); it applies at once and is written once after
+  the call (`AUDIO: after the call: the call screen's level saved`). The press finishes a pop first and
+  steps the CALL's route, into music's stash while a track holds the codec. A pop's restore() re-reads
+  the jack (an unplug inside a pop sent the ring to an empty jack), a ring installed with the device off
+  is left stopped, the mic apps finish a pop first, and a failed I2S reinstall with the device on is
+  refused by every writer instead of panicking. `test_notify` models IDF's TX ring.
 
 ### WiFi drops explain themselves; a station wedged mid-connect now cures itself (0.9.79 dev, 2026-09-25)
 

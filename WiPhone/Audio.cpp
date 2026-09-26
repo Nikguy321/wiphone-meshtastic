@@ -221,6 +221,12 @@ void Audio::installI2S(bool music, bool fresh) {
   if (this->i2sInstalled) {
     i2s_driver_uninstall(i2s_num);
     this->i2sInstalled = false;
+    /* ⚠ THE GEOMETRY GOES WITH THE DRIVER (review 3, A2). If the install below fails there is no
+     * ring, and a cache still saying "RX, 4 x 1024" let the loop's mic block i2s_read() a NULL
+     * driver (LedMicApp after a game or a call). Set again only by a successful install. */
+    this->i2sRx = false;
+    this->i2sBufs = 0;
+    this->i2sLen = 0;
   }
   i2s_config_t i2s_config = {
     .mode = static_cast<i2s_mode_t> (rx ? (I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_RX)
@@ -247,6 +253,19 @@ void Audio::installI2S(bool music, bool fresh) {
     this->i2sRx   = rx;
     this->i2sQueueStale = false;          // a fresh ring: empty queue, DMA at buffer 0 — they agree
     this->i2sGen++;
+    /* 🛑 A RING INSTALLED WITH THE DEVICE OFF IS LEFT STOPPED (review 3, A6), the way shutdown()
+     * leaves one. i2s_driver_install() STARTS the DMA (i2s_set_clk ends in i2s_start), and
+     * several installs happen with the device off: the constructor's at boot, a pop's restore()
+     * after something shut the device down inside the pop (hanging up while the far end rang,
+     * closing a mic app), the Game Boy's reseat. Each left a clocked ring - APLL, I2S and ~16-31
+     * end-of-buffer interrupts a second - running with audioOn false, which the idle watchdog
+     * cannot see (it zeroes its clock whenever !isOn()) and nothing stopped until the next sound.
+     * A stopped fresh ring has an empty queue and the DMA at buffer 0: what start() expects.
+     * ⚠ Only with the device OFF - a powered codec losing its clocks clicks; with it on, the new
+     * ring must run (the caller is mid-sound). reseatI2S() still stops its own (harmless twice). */
+    if (!this->audioOn) {
+      i2s_stop(i2s_num);
+    }
   }
   log_d("Audio::Audio: after driver install %d", ESP.getFreeHeap());
   this->report();
@@ -493,6 +512,24 @@ Audio::~Audio() {
 }
 
 bool Audio::turnOn() {
+  /* 🛑 NO DRIVER, NO WRITER - WHETHER OR NOT THE DEVICE IS ON (review 3, A2). fd2c54f put this
+   * check in start(), but start() runs only when audioOn is false, and a reinstall can fail with
+   * the device ON: a pop, the ring or a call's setters swap music's ring for the default one
+   * under a playing track (installI2S() frees the old ring first). turnOn() then said yes, the
+   * caller armed its source, and the next audio->loop() pump's i2s_write() dereferenced IDF 3.3's
+   * NULL p_i2s_obj[0] - a LoadProhibited panic (an incoming call over music rebooted the phone).
+   * One reinstall (the heap may have moved), then refuse. With the device on, the new ring runs
+   * (i2s_driver_install() starts it); off, start() below starts it. */
+  if (!this->i2sInstalled) {
+    this->configureI2S();
+    if (!this->i2sInstalled) {
+      log_e("AUDIO: no I2S driver and the install failed (internal free %u, largest %u) - refused",
+            (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+            (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+      return false;
+    }
+  }
+
   // Start audio systems
   if (!this->audioOn && !this->start()) {
     return false;
@@ -1015,7 +1052,17 @@ bool Audio::playRingtone(fs::FS *fs) {
   this->setMonoOutput(true);
   this->setBitsPerSample(16);
 
+  /* 🛑 NO DRIVER, NO RING (review 3, A2). startRingtone() has already start()ed the device on
+   * whatever ring was in - music's, when a call comes in over a track - and the setters above
+   * swap it out (freeing it first). If that install failed, the first ring pass wrote a NULL
+   * driver: an incoming call rebooted the phone. The motor still rings. */
+  if (!this->i2sInstalled) {
+    log_e("AUDIO: ringtone refused - no I2S driver (the install failed)");
+    this->playback = Playback::Nothing;
+    return false;
+  }
   if (!this->turnOn()) {
+    this->playback = Playback::Nothing;
     return false;
   }
   return this->playFile(fs, "/ringtone.pcm");
@@ -1056,7 +1103,6 @@ void Audio::preserve() {
   this->presBps            = this->bps;
   this->presDataChannels   = this->dataChannels;
   this->presMonoOut        = this->monoOut;
-  this->presHeadphones     = this->headphones;
   this->presLoudspeaker    = this->loudspeaker;
   this->presEarpieceVol    = this->earpieceVol;
   this->presHeadphonesVol  = this->headphonesVol;
@@ -1088,10 +1134,29 @@ void Audio::restore() {
   }
   /* Speaker routing before volume: setVolumes() picks earpiece-vs-headphones off
    * this->headphones, so it has to see the restored value. Both setters below already
-   * no-op when unchanged. */
-  this->setHeadphones(this->presHeadphones);
+   * no-op when unchanged.
+   * 🛑 THE JACK AS IT IS NOW, NOT AS THE SNAPSHOT SAW IT (review 3, A5). The pin is read only on
+   * its edge (WiPhone.ino), and playPop() forces headphones off: an unplug inside the pop wrote
+   * false over false - no change - and the snapshot's `true` came back here, with nothing to read
+   * the pin again until the next edge. The ring then went to the empty jack (start() builds
+   * DAC_HEADPHONES whenever `headphones` is set - motor only, a missed call), and so did music
+   * and the next call's far end. Plugging in inside a pop did the reverse. */
+  this->setHeadphones(this->jackHeadphones);
   this->chooseSpeaker(this->presLoudspeaker);
   this->setVolumes(this->presEarpieceVol, this->presHeadphonesVol, this->presLoudspeakerVol);
+}
+
+void Audio::jackSensed(bool plugged) {
+  this->jackHeadphones = plugged;
+  this->setHeadphones(plugged);
+}
+
+uint32_t Audio::popLeadMs(bool sourceLoops) const {
+  if (!this->i2sInstalled) {
+    return 0;
+  }
+  const MusicDma d = this->musicDma();       // the ring as installed, IDF's per-buffer cap applied
+  return notifyPopLeadMs(this->popRing, d.bufs, d.len, d.rate, sourceLoops);
 }
 
 bool Audio::playPop(fs::FS *fs, int8_t vol) {
@@ -1100,6 +1165,11 @@ bool Audio::playPop(fs::FS *fs, int8_t vol) {
 
 bool Audio::playPop(const uint8_t* pcm, size_t pcmLen, fs::FS *fs, int8_t vol) {
   this->popProblem = nullptr;
+  /* For the lead (review 3, A1; notify_timing.h): did this pop install the ring, restart a stopped
+   * one, or find one running? i2sGen moves on every install and every rate change - and a rate
+   * change always reinstalls below (it marks the queue stale). */
+  const uint32_t gen0 = this->i2sGen;
+  const bool wasOn = this->audioOn;
   this->preserve();          // ⚠ BEFORE anything below changes it
   this->ceasePlayback();
   this->playback = Playback::LocalPcm;
@@ -1113,6 +1183,16 @@ bool Audio::playPop(const uint8_t* pcm, size_t pcmLen, fs::FS *fs, int8_t vol) {
   this->setSampleRate(8000);
   this->setMonoOutput(true);
   this->setBitsPerSample(16);
+  /* 🛑 NO DRIVER, NO POP (review 3, A2): the setters above free the old ring before they install
+   * the pop's, twice over (setMonoOutput(), then setBitsPerSample()'s retry). Over a playing track
+   * the device is still ON, so turnOn() would have said yes and the notify pump's first
+   * i2s_write() dereferenced a NULL driver. (turnOn() refuses too now; this names the reason.) */
+  if (!this->i2sInstalled) {
+    this->popProblem = "no I2S driver (the install failed)";
+    this->playback = Playback::Nothing;
+    this->restore();
+    return false;
+  }
   this->setHeadphones(false);                       // force speaker path (not headphones)
   this->chooseSpeaker(true);                        // loudspeaker (not the tiny earpiece)
   /* ⚠ The loudspeaker level is the caller's, not a constant. This line used to force
@@ -1126,9 +1206,12 @@ bool Audio::playPop(const uint8_t* pcm, size_t pcmLen, fs::FS *fs, int8_t vol) {
 
   if (!this->turnOn()) {
     this->popProblem = "turnOn failed (codec/I2S start)";
+    this->playback = Playback::Nothing;
     this->restore();      // nothing will call restore() for us if the pop never starts
     return false;
   }
+  this->popRing = (this->i2sGen != gen0) ? NOTIFY_RING_FRESH
+                  : (!wasOn ? NOTIFY_RING_RESTARTED : NOTIFY_RING_RUNNING);
   /* The buffer first; the file only when there is no buffer. Not "if the buffer fails":
    * playPcm() cannot fail once turnOn() has succeeded, and a fallback that could run after
    * a partial start would be exactly the kind of silent second path this codebase keeps
@@ -1186,7 +1269,12 @@ void Audio::loop() {
 //  if (this->loopCnt % 1000 == 0) {
 //    log_d("%d / run=%d / rtp=%d", this->loopCnt, this->runCnt, this->rtpCnt);
 //  }
-  if (!this->audioLoop || !this->audioOn) {
+  /* ⚠ AND NOTHING WITHOUT A DRIVER (review 3, A2). Every branch below reaches IDF 3.3's i2s_write()
+   * or i2s_read(), which dereference p_i2s_obj[0] with no NULL check (checked in libdriver.a),
+   * and a failed reinstall leaves the device ON with no driver: a restore() at a pop's end, a
+   * pop or the ring swapping music's ring out. The music feed had its own guard; LocalPcm,
+   * RtpStream, Record and the microphone did not. */
+  if (!this->audioLoop || !this->audioOn || !this->i2sInstalled) {
     return;  // don't do anything if audio systems (I2S peripheral and audio codec) are turned off
   }
 //  this->runCnt++;   // remove
@@ -1816,6 +1904,15 @@ bool Audio::playRtpStream(uint8_t payloadType, uint16_t remotePort) {
   this->setSampleRate(sampleRate);
   this->setDataChannels(1);
   this->setMonoOutput(true);      // this should be called last (since it shows all the configs via Serial)   TODO
+
+  /* 🛑 NO DRIVER, NO STREAM (review 3, A2). A caller dialling over a playing track leaves the
+   * device ON (the yield pauses the track, not the codec), and the reinstall above frees music's
+   * ring first: if it failed, the first RTP packet's playChunk() wrote a NULL driver. No audio
+   * for this call beats a reboot in the middle of it. */
+  if (!this->i2sInstalled) {
+    log_e("AUDIO: call audio refused - no I2S driver (the install failed)");
+    return false;
+  }
 
   // Start the audio systems (if not started)
   if (!this->turnOn()) {

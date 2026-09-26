@@ -28,6 +28,9 @@ governing permissions and limitations under the License.
 #include "kosync_sync.h"   // kosyncWindowClose: the WiFi settings screens end any sync window
 #include "app_gbc_xfer.h"  // xferStop: ...and any headless uploader's hotspot
 extern volatile bool gGbcActive;   // WiPhone.ino: the emulator owns the screen and the audio device
+/* WiPhone.ino: end a notification chirp in flight before its device is taken - its restore() would
+ * land on top of the new owner (the call screen's volume keys, the mic apps; review 3, A4/A6). */
+extern void notifyPopFinishFor(const char* why);
 #include "menu_marquee.h"  // the scrolling selected menu row: phase clock + glyph stepping
 #include "menu_wrap.h"     // a display-only note broken into rows that fit
 
@@ -3988,6 +3991,12 @@ AudioConfigApp::AudioConfigApp(Audio* audio, LCD& lcd, ControlState& state, Head
    * this one no longer draws it. */
 
   // Load preferences
+  /* A level the call screen stepped and has not written yet goes into the file FIRST (review
+   * R3-1): it is newer than the file this screen is about to read, and a Save here must be the
+   * newer write, not one a later write of the older step lands on top of. One store, only when a
+   * step is waiting; this screen's own load is the same kind of SPIFFS wait. */
+  callLevelsFlushNow("Settings > Audio");
+
   /* ⚠ THE SEED IS THE CALL LEVELS, NOT WHATEVER THE CODEC HOLDS. While music plays the codec
    * carries the MUSIC level and the call levels sit in the player's stash; seeding from the
    * codec put the music level on these sliders wherever configs.ini lacked a key or would not
@@ -6086,7 +6095,7 @@ void SipAccountsApp::redrawScreen(bool redrawAll) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Call app  - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 CallApp::CallApp(Audio* audio, LCD& lcd, ControlState& state, bool isCaller, HeaderWidget* header, FooterWidget* footer)
-  : WindowedApp(lcd, state, header, footer), FocusableApp(2), audio(audio),ini(Storage::ConfigsFile), caller(isCaller) {
+  : WindowedApp(lcd, state, header, footer), FocusableApp(2), audio(audio), caller(isCaller) {
   log_d("CallApp create");
   const char* s;
 
@@ -6233,35 +6242,37 @@ appEventResult CallApp::processEvent(EventType event) {
 
   } else if (event == WIPHONE_KEY_UP || event == WIPHONE_KEY_DOWN) {
 
-    /* Seeded from the live driver FIRST: with the INI missing (fresh flash, corrupt file)
-     * or any single key absent, these used to stay UNINITIALIZED and then be passed as the
-     * getIntValueSafe defaults — the in-call volume keys started from stack garbage. */
+    /* 🛑 NO FILE HERE (review R3-1). Every press used to ini.load() and ini.store() configs.ini on
+     * the loop task - three SPIFFS opens at 0.5-1.6 s each, and Audio::loop() is pumped only from
+     * loop(): 1.5-5 s of silence both ways, mid-call, after every volume press (the far end's RTP
+     * overflowing its mailbox, no microphone packets out). The same stall 6900e63 took out of
+     * connect. The stored levels are already in the codec - applied at dial or at the ring
+     * (SA-1) - so the press steps what the device holds and hands the one level that moved to
+     * callLevelStepped() (WiPhone.ino), which writes it to configs.ini ONCE, after the call and
+     * off the audio path, with the `loaded` guard (a file that will not load is never replaced
+     * by three keys - the 0.9.52 review's find). RAM only here, so nothing here can fail.
+     *
+     * ⚠ A NOTIFICATION POP IS FINISHED FIRST (review 3, A4) - the pop-first rule every owner of
+     * the device follows. A message that arrives while the far end rings plays a pop, which
+     * forces the loudspeaker (headphones off) and holds the pre-pop levels in its snapshot for up
+     * to ~0.9 s; a press inside it read the POP's levels, and the pop's restore() then wrote the
+     * old levels back over it (connect reads no file, so the press did nothing for the call). */
+    notifyPopFinishFor("the call screen's volume key");
+
+    /* ⚠ THE CALL LEVELS ARE WHERE MUSIC KEEPS THEM (review 3, A3). After a call ends this screen
+     * stays up with no call owning the device (HungUp 2.65 s; HangUp stuck with no WiFi or no
+     * account, indefinitely), and F1 may resume a track under it: the codec then holds the MUSIC
+     * level and the call levels sit in the player's stash. A press wrote all three stored levels
+     * into the codec under the playing track (up to ~24 dB in the ears on headphones - the jump
+     * 9213fc0 fixed for Settings > Audio) and the stash later undid it. Settings > Audio's rule:
+     * while music holds the codec the call levels are read from, and stepped into, its stash, and
+     * the codec is left alone. Seeded before anything else: never from stack garbage. */
     int8_t earpieceVol, headphonesVol, loudspeakerVol;
-    audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
-    /* ⚠ `loaded` GATES THE STORE BELOW. This handler used to load() (never restore(), unlike
-     * every other writer of this file) and then store() UNCONDITIONALLY — so a load that
-     * failed for any reason left `ini` empty, addSection("audio") made it three keys, and
-     * store() wrote that as the whole of configs.ini: notify modes, buzz, screen config,
-     * everything else, gone, with no error. Found by the 0.9.52 review, fixed 2026-09-02.
-     * A failed load now still moves the volume (the driver is the truth) but persists
-     * nothing; losing one keypress's worth of persistence beats losing the file. */
-    const bool loaded = (ini.load() || ini.restore()) && !ini.isEmpty();
-    if (loaded) {
-      if (ini.hasSection("audio")) {
-          log_d("getting audio info");
-          earpieceVol = ini["audio"].getIntValueSafe(earpieceVolField, earpieceVol);
-          headphonesVol = ini["audio"].getIntValueSafe(headphonesVolField, headphonesVol);
-          loudspeakerVol = ini["audio"].getIntValueSafe(loudspeakerVolField, loudspeakerVol);
-        }
-      //}
-      else {
-        log_e("configs file corrup or unknown format");
-        IF_LOG(VERBOSE)
-        ini.show();
-      }
+    if (!musicPlayerCallVolumes(earpieceVol, headphonesVol, loudspeakerVol)) {
+      audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
     }
     log_d("Volumes are earspkr %d headphone %d loudspkr %d", earpieceVol,headphonesVol,loudspeakerVol );
-    
+
     /* 🛑 ONE LEVEL: THE ROUTE YOU ARE LISTENING ON (review SA-1, 2026-09-25). These keys used
      * to move the earpiece, headphones AND loudspeaker levels together and store all three -
      * and the loudspeaker level is the RING's (startRingtone() rings on the loudspeaker at the
@@ -6269,43 +6280,41 @@ appEventResult CallApp::processEvent(EventType event) {
      * presses down on a loud earpiece left every later ring 12 dB quieter, across reboots,
      * with nothing on the call screen saying so; a third made it -18. It stayed hidden only
      * while every call end reset the codec to 0/0/0 dB (the never-written restore* globals,
-     * removed in 9213fc0). Headphones win (Audio's precedence), then the codec's speaker
-     * choice: the call's own from dialling on (WiPhone.ino takes the device for it), the
-     * ring's loudspeaker while it rings. ONLY that level is stepped, and only its key stored. */
+     * removed in 9213fc0). ONLY that level is stepped, and only it is recorded for the file.
+     * ⚠ THE ROUTE IS THE CALL'S, NOT THE CODEC'S (review 3, A3/A4): headphones from the jack
+     * (Audio's precedence - headphones win; after the pop's finish the flag is the jack's), then
+     * the ring's loudspeaker while it rings, then the call screen's own Loud Spkr key. The
+     * codec's speaker flag belongs to whoever holds the device NOW - a pop's forced loudspeaker,
+     * a resumed track's - and reading it stepped and stored the ring's level with the phone at
+     * your ear, labelled "Loudspeaker". */
     const bool onHeadphones = audio->getHeadphones();
-    const bool onLoudspeaker = !onHeadphones && audio->isLoudspeaker();
+    const bool onLoudspeaker = !onHeadphones && (controlState.ringing || controlState.callLoudspeaker);
     int8_t& level = onHeadphones ? headphonesVol : (onLoudspeaker ? loudspeakerVol : earpieceVol);
-    const char* levelField = onHeadphones ? headphonesVolField :
-                             (onLoudspeaker ? loudspeakerVolField : earpieceVolField);
+    const uint8_t levelRoute = onHeadphones ? CALL_LEVEL_HEADPHONES :
+                               (onLoudspeaker ? CALL_LEVEL_LOUDSPEAKER : CALL_LEVEL_EARPIECE);
     level += (event == WIPHONE_KEY_UP) ? 6 : -6;
+    /* Clamped HERE, the way Audio::setVolumes() clamps: music's stash does not, and what is
+     * recorded for the file must be what the driver accepts (a held key once grew the stored
+     * number without bound, int8 wrap and all, while the driver clamped silently). */
+    const int8_t levelMax = onLoudspeaker ? (int8_t)Audio::MaxLoudspeakerVolume : (int8_t)Audio::MaxVolume;
+    if (level > levelMax) {
+      level = levelMax;
+    }
+    if (level < (int8_t)Audio::MuteVolume) {
+      level = (int8_t)Audio::MuteVolume;
+    }
     uint8_t precentage = 0x0;
     uint8_t precentageLoud = 0x0;
-    //audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);
-    //audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
     char buff[50];
 
- 
-    /* Apply FIRST, then persist what the driver actually accepted. Storing the raw ±6 sums
-     * meant a held key grew the stored numbers without bound (int8 wrap and all) while the
-     * driver clamped silently — the file and the hardware disagreed a little more with
-     * every press. The readback below is the clamped truth. */
-    audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);
-    audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
-    log_d("New Volumes are earspkr %d headphone %d loudspkr %d", earpieceVol,headphonesVol,loudspeakerVol );
-
-    if (loaded) {
-      if (!ini.hasSection("audio")) {
-        ini.addSection("audio");
-      }
-      ini["audio"][levelField] = level;     // the one that moved - see ONE LEVEL above
-      if (ini.store()) {
-        log_d("new audio settings are saved");
-      }
-    } else {
-      log_e("in-call volume: configs.ini did not load - applied to the driver, NOT persisted "
-            "(storing now would have wiped every other setting in the file)");
+    /* Apply: into music's stash while it holds the codec (applied when it lets go), otherwise to
+     * the codec, whose readback is the clamped truth. Then record the one level that moved. */
+    if (!musicPlayerSetCallVolumes(earpieceVol, headphonesVol, loudspeakerVol)) {
+      audio->setVolumes(earpieceVol, headphonesVol, loudspeakerVol);
+      audio->getVolumes(earpieceVol, headphonesVol, loudspeakerVol);
     }
-    ini.unload();
+    log_d("New Volumes are earspkr %d headphone %d loudspkr %d", earpieceVol,headphonesVol,loudspeakerVol );
+    callLevelStepped(levelRoute, level);    // RAM only: WiPhone.ino writes it once, after the call
     
     if (level == -69){
       precentage = 0x0;
@@ -9333,8 +9342,13 @@ MicTestApp::MicTestApp(Audio* audio, LCD& lcd, ControlState& state, HeaderWidget
   state.msAppTimerEventLast = millis();
   state.msAppTimerEventPeriod = 33;    // 30 fps
 
-  /* Music first (review, 2026-09-25): start() restarts I2S and turnMicOn() swaps music's own
+  /* A pop first, then music (review 3, A6): a notification chirp in flight holds a snapshot of
+   * the pre-pop rate, format, route and levels, and its teardown's restore() re-clocked this
+   * app's ring under it (32 kHz stereo after a game). The pop-first rule the ring, a call, a
+   * track and a game already follow.
+   * Music first (review, 2026-09-25): start() restarts I2S and turnMicOn() swaps music's own
    * ring for the microphone's under a playing track. Paused, so it keeps its place. */
+  notifyPopFinishFor("the Mic test");
   musicPlayerPause();
   audio->start();
   audio->turnMicOn();
@@ -9424,8 +9438,10 @@ RecorderApp::RecorderApp(Audio* audio, LCD& lcd, ControlState& state, HeaderWidg
 
   label = new LabelWidget(0, 195, lcd.width(), 35, "Not recording", WP_COLOR_1, WP_COLOR_0, fonts[AKROBAT_BOLD_22], LabelWidget::CENTER, 8);
 
-  /* Music first (review, 2026-09-25): start() restarts I2S and turnMicOn() swaps music's own
-   * ring for the microphone's under a playing track. Paused, so it keeps its place. */
+  /* A pop first (review 3, A6 - see MicTestApp), then music (review, 2026-09-25): start()
+   * restarts I2S and turnMicOn() swaps music's own ring for the microphone's under a playing
+   * track. Paused, so it keeps its place. */
+  notifyPopFinishFor("the Recorder");
   musicPlayerPause();
   audio->start();
   audio->turnMicOn();
@@ -12150,8 +12166,10 @@ LedMicApp::LedMicApp(Audio* audio, LCD& lcd, ControlState& state, HeaderWidget* 
   }
 
   // Turn on microphone
-  /* Music first (review, 2026-09-25): start() restarts I2S and turnMicOn() swaps music's own
-   * ring for the microphone's under a playing track. Paused, so it keeps its place. */
+  /* A pop first (review 3, A6 - see MicTestApp), then music (review, 2026-09-25): start()
+   * restarts I2S and turnMicOn() swaps music's own ring for the microphone's under a playing
+   * track. Paused, so it keeps its place. */
+  notifyPopFinishFor("the LED mic app");
   musicPlayerPause();
   audio->setSampleRate(16000);         // (the rate change reached a playing track too: 0.73x)
   audio->start();

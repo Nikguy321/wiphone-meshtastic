@@ -33,6 +33,19 @@ POSITIVELY:
   G10 ~GbcApp's shutdown() asks `soundStarted` and NOT `soundOn`: the emu thread clears soundOn when
       I2S starves and leaves the device ON, and skipping the shutdown there made the reseat refuse.
   G11 startGame: `soundStarted = soundOn` right after `soundOn = audio->start()`.
+Review 3 (A2) made the driver a precondition of EVERY writer, not just start() (a reinstall can fail
+with the device ON - a pop, the ring or a call swapping music's ring out - and turnOn() skipped
+start() then):
+  G12 turnOn() refuses with no driver (after one reinstall) BEFORE its `if (!audioOn ...)`: whether
+      or not the device is on.
+  G13 Audio::loop() returns with no driver before its first writer (LocalPcm, RtpStream, Record and
+      the microphone reach i2s_write/i2s_read, which dereference NULL).
+  G14 installI2S() forgets the geometry with the driver (i2sRx, i2sBufs, i2sLen) when it uninstalls:
+      a stale i2sRx let the mic block read a NULL driver.
+  G15 playPop() (the pcm overload), playRingtone() and playRtpStream() refuse with no driver after
+      their setters and before turnOn(); playPop's refusal names it and restore()s its snapshot.
+And (A6) a ring installed with the device OFF is left stopped, the way shutdown() leaves one:
+  G16 installI2S(): i2s_stop() inside the successful install, only when !audioOn.
 
 MUTATIONS then breaks each one in the REAL source, one at a time, and requires its own contract to
 report it (tests/check_wifi_restore.py's pattern): a guard rewritten so its mutation no longer
@@ -92,6 +105,49 @@ CONTRACTS = [
          what="shutdown()'s i2s_stop()",
          why="every teardown runs it, and with no driver IDF 3.3's i2s_stop() dereferences NULL "
              "inside its critical section"),
+    dict(id="G12-turnon-needs-driver", file="Audio.cpp", fn="Audio::turnOn", kind="refuses_before",
+         need=[NEG(THIS + r"\bi2sInstalled\b")], later=r"\bif\s*\(\s*!\s*" + THIS + r"\baudioOn\b",
+         what="turnOn() must refuse with no driver before (and so whether or not) the device is on",
+         why="a reinstall that failed under a playing track left the device ON: turnOn() said yes and "
+             "the next pump's i2s_write() dereferenced NULL (a mesh pop or an incoming call over music)"),
+    dict(id="G13-loop-needs-driver", file="Audio.cpp", fn="Audio::loop", kind="refuses_before",
+         need=[NEG(THIS + r"\bi2sInstalled\b")], later=r"\bplayChunk\s*\(",
+         what="Audio::loop() must return with no driver before its first writer",
+         why="LocalPcm, RtpStream, Record and the microphone reach i2s_write()/i2s_read() on a NULL driver"),
+    dict(id="G14-uninstall-forgets", file="Audio.cpp", fn="Audio::installI2S", kind="sequence_within",
+         outer=[POS(THIS + r"\bi2sInstalled\b")], has=r"\bi2s_driver_uninstall\s*\(",
+         seq=[r"\bi2s_driver_uninstall\s*\(", r"\bi2sInstalled\s*=(?!=)\s*false\b",
+              r"\bi2sRx\s*=(?!=)\s*false\b", r"\bi2sBufs\s*=(?!=)\s*0\b", r"\bi2sLen\s*=(?!=)\s*0\b"],
+         what="the uninstall forgetting RX and the geometry with the driver",
+         why="after a failed reinstall a stale i2sRx let the loop's mic block i2s_read() a NULL driver"),
+    dict(id="G15-pop-needs-driver", file="Audio.cpp", fn="Audio::playPop", args=r"\bpcmLen\b",
+         kind="refuses_before", need=[NEG(THIS + r"\bi2sInstalled\b")], later=r"\bturnOn\s*\(",
+         what="playPop() refusing with no driver after its setters, before turnOn()",
+         why="over a playing track the device is on: the notify pump wrote a NULL driver"),
+    dict(id="G15-pop-refusal-restores", file="Audio.cpp", fn="Audio::playPop", args=r"\bpcmLen\b",
+         kind="sequence_within", outer=[NEG(THIS + r"\bi2sInstalled\b")], has=r"\breturn\s+false\b",
+         seq=[r"\bpopProblem\s*=(?!=)", r"\brestore\s*\(", r"\breturn\s+false\b"],
+         what="the refusal naming the reason and putting the snapshot back",
+         why="nothing else calls restore() for a pop that never starts"),
+    dict(id="G15-ring-needs-driver", file="Audio.cpp", fn="Audio::playRingtone", kind="refuses_before",
+         need=[NEG(THIS + r"\bi2sInstalled\b")], later=r"\bturnOn\s*\(",
+         what="playRingtone() refusing with no driver after its setters, before turnOn()",
+         why="startRingtone() start()s the device on music's ring first: a failed swap rebooted the "
+             "phone on the first ring pass"),
+    dict(id="G15-rtp-needs-driver", file="Audio.cpp", fn="Audio::playRtpStream", kind="refuses_before",
+         need=[NEG(THIS + r"\bi2sInstalled\b")], later=r"\bturnOn\s*\(",
+         what="playRtpStream() refusing with no driver after its setters, before turnOn()",
+         why="dialling over a track leaves the device on: the first RTP packet wrote a NULL driver"),
+    dict(id="G16-install-off-stopped", file="Audio.cpp", fn="Audio::installI2S", kind="guarded",
+         pat=r"\bi2s_stop\s*\(", need=[NEG(THIS + r"\baudioOn\b")],
+         what="installI2S()'s i2s_stop() of a ring installed with the device off",
+         why="a restore() after a hang-up or a closed mic app left a clocked ring running with the "
+             "device off - invisible to the idle watchdog - and stopping one under a powered codec clicks"),
+    dict(id="G16-install-off-stopped", file="Audio.cpp", fn="Audio::installI2S", kind="sequence_within",
+         outer=[POS(r"\bi2s_driver_install\s*\(")], has=r"\bi2s_stop\s*\(",
+         seq=[r"\bi2sInstalled\s*=(?!=)\s*true\b", r"\bi2s_stop\s*\("],
+         what="the stop inside the SUCCESSFUL install, after it is recorded",
+         why="a failed install leaves no driver, and IDF 3.3's i2s_stop() dereferences NULL"),
     dict(id="G11-start-flag-sound", file="app_gbc.cpp", fn="GbcApp::startGame", kind="sequence",
          seq=[r"\bsoundOn\s*=(?!=)\s*audio\s*->\s*start\s*\(",
               r"\bsoundStarted\s*=(?!=)\s*soundOn\b"],
@@ -211,6 +267,34 @@ MUTATIONS = [
     ("app_gbc.cpp", "G10-quit-shutdown-started", r"\bif\s*\(\s*soundStarted\s*&&\s*audio\s*\)",
      "if (soundStarted && soundOn && audio)"),
     ("app_gbc.cpp", "G11-start-flag-sound", r"\bsoundStarted\s*=\s*soundOn\s*;", ""),
+    # turnOn() without its no-driver refusal, and with it moved under `!audioOn` (the fd2c54f gap)
+    ("Audio.cpp", "G12-turnon-needs-driver",
+     r"(bool\s+Audio::turnOn\s*\(\s*\)\s*\{)\s*if\s*\(\s*!\s*this\s*->\s*i2sInstalled\s*\)\s*\{\s*this\s*->"
+     r"\s*configureI2S\s*\(\s*\)\s*;\s*if\s*\(\s*!\s*this\s*->\s*i2sInstalled\s*\)\s*\{[^{}]*\}\s*\}", r"\1"),
+    ("Audio.cpp", "G12-turnon-needs-driver",
+     r"(bool\s+Audio::turnOn\s*\(\s*\)\s*\{\s*)if\s*\(\s*!\s*this\s*->\s*i2sInstalled\s*\)",
+     r"\1if (!this->audioOn && !this->i2sInstalled)"),
+    ("Audio.cpp", "G13-loop-needs-driver",
+     r"(\bif\s*\(\s*!\s*this\s*->\s*audioLoop\s*\|\|\s*!\s*this\s*->\s*audioOn\s*)\|\|\s*!\s*this\s*->"
+     r"\s*i2sInstalled\s*\)", r"\1)"),
+    ("Audio.cpp", "G14-uninstall-forgets", r"\bthis\s*->\s*i2sRx\s*=\s*false\s*;", ""),
+    ("Audio.cpp", "G15-pop-needs-driver",
+     r"\bif\s*\(\s*!\s*this\s*->\s*i2sInstalled\s*\)\s*\{\s*this\s*->\s*popProblem\s*=[^{}]*\}", ""),
+    ("Audio.cpp", "G15-pop-refusal-restores",
+     r"(\bthis\s*->\s*popProblem\s*=\s*;\s*this\s*->\s*playback\s*=\s*Playback::Nothing\s*;\s*)"   # string blanked
+     r"this\s*->\s*restore\s*\(\s*\)\s*;", r"\1"),
+    ("Audio.cpp", "G15-ring-needs-driver",
+     r"\bif\s*\(\s*!\s*this\s*->\s*i2sInstalled\s*\)\s*\{\s*log_e\s*\([^;]*\)\s*;\s*this\s*->\s*playback\s*="
+     r"\s*Playback::Nothing\s*;\s*return\s+false\s*;\s*\}", ""),
+    ("Audio.cpp", "G15-rtp-needs-driver",
+     r"(setMonoOutput\s*\(\s*true\s*\)\s*;\s*)if\s*\(\s*!\s*this\s*->\s*i2sInstalled\s*\)\s*\{\s*log_e\s*"
+     r"\([^;]*\)\s*;\s*return\s+false\s*;\s*\}", r"\1"),
+    # the ring left running with the device off, and stopped under a powered codec
+    ("Audio.cpp", "G16-install-off-stopped",
+     r"\bif\s*\(\s*!\s*this\s*->\s*audioOn\s*\)\s*\{\s*i2s_stop\s*\(\s*i2s_num\s*\)\s*;\s*\}", ""),
+    ("Audio.cpp", "G16-install-off-stopped",
+     r"\bif\s*\(\s*!\s*this\s*->\s*audioOn\s*\)\s*\{\s*i2s_stop\s*\(\s*i2s_num\s*\)\s*;\s*\}",
+     "i2s_stop(i2s_num);"),
 ]
 
 

@@ -2648,6 +2648,18 @@ protected:
   bool isOn = false;
 };
 
+/* The call levels by route, as the call screen's UP/DOWN steps them (review R3-1). WiPhone.ino
+ * keeps what was stepped and writes it to configs.ini [audio] once the call is over - the press
+ * itself touches only RAM (it used to load and store the file on the loop task: 1.5-5 s of no
+ * call audio per press). See callLevelStepped() there. */
+enum CallLevelRoute : uint8_t {
+  CALL_LEVEL_EARPIECE    = 0,     // speaker_vol
+  CALL_LEVEL_HEADPHONES  = 1,     // headphones_vol
+  CALL_LEVEL_LOUDSPEAKER = 2,     // loudspeaker_vol (also the RING's level)
+};
+void callLevelStepped(uint8_t route, int8_t level);   // RAM only; WiPhone.ino writes it later
+void callLevelsFlushNow(const char* who);             // Settings > Audio, before it reads the file
+
 class CallApp : public WindowedApp, FocusableApp {
 public:
   CallApp(Audio* audio, LCD& disp, ControlState& state, bool isCaller, HeaderWidget* header, FooterWidget* footer);
@@ -2663,11 +2675,8 @@ public:
 
 protected:
   Audio* audio;
-  static const constexpr char* headphonesVolField = "headphones_vol";
-  static const constexpr char* earpieceVolField = "speaker_vol";
-  static const constexpr char* loudspeakerVolField = "loudspeaker_vol";
-
-  CriticalFile ini;
+  /* No CriticalFile and no configs.ini key names here any more (review R3-1): UP/DOWN writes
+   * nothing - WiPhone.ino's callLevelStepped() keeps the step and writes it after the call. */
   bool caller;
   bool screenInited = false;
   uint32_t reasonHash;

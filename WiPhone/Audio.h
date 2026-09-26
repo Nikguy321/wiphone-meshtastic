@@ -39,6 +39,7 @@ governing permissions and limitations under the License.
 #include "mp3_stream.h"
 #include "wav_reader.h"
 #include "music_feed.h"
+#include "notify_timing.h"   // NotifyRing: how playPop() found the I2S ring (its stop timer's lead)
 
 #define AUDIO_INLINE inline __attribute__((always_inline))
 
@@ -141,6 +142,12 @@ public:
     return muted;
   }
   void setHeadphones(bool plugged);
+  /* THE JACK, AND ONLY THE JACK (review 3, A5): the headphone-detect pin's reading, at boot and on
+   * every edge (WiPhone.ino). Records it - `jackHeadphones` is written nowhere else - and routes
+   * to it. restore() puts THIS back after a pop, not the flag the pop's snapshot saw: the pop
+   * forces headphones off, and an unplug inside it changed nothing live, so the snapshot's `true`
+   * came back and the next ring, track and call went to an empty jack until the next edge. */
+  void jackSensed(bool plugged);
   bool getHeadphones(void);
   void chooseSpeaker(bool loudspeaker);
   bool isLoudspeaker() {
@@ -225,6 +232,15 @@ public:
   bool popFromMemory() const {
     return this->pcmMem != nullptr;
   }
+  /* After a successful playPop(): how long after it returned the first sample it wrote reaches
+   * the DAC, for the caller's stop timer (notify_timing.h: notifyPopLeadMs(), notifyPopTimerMs()).
+   * 🛑 One whole trip round a ring the pop installed (512 ms): the teardown used to zero the
+   * buffers at 360 ms, 150 ms before the chirp could sound (review 3, A1). `sourceLoops` = the
+   * SPIFFS fallback (stop early); false = the pop_pcm buffer (stop late). */
+  uint32_t popLeadMs(bool sourceLoops) const;
+  NotifyRing popRingState() const {
+    return this->popRing;
+  }
   bool rewind() {
     return this->playFile(this->playbackFS, this->playbackFilename.c_str());
   }
@@ -262,9 +278,12 @@ public:
   void restore();         // restore preserved state
   /* Forget the snapshot without putting it back: the pop's teardown, when something else has
    * taken the device since (its configuration stands; restore() would pull it out from under
-   * it, and a snapshot left held would be restored by the NEXT pop instead of its own). */
+   * it, and a snapshot left held would be restored by the NEXT pop instead of its own).
+   * ⚠ Except the jack's reading: the pop forced headphones off, and a sensor is not a setting
+   * the new owner chose - a track that took over the pop follows the jack (review 3, A5). */
   void discardPreserved() {
     this->presValid = false;
+    this->setHeadphones(this->jackHeadphones);
   }
   /* Every write of an output volume to the codec goes through here, so the mute cannot be
    * undone by a volume change from any app (and codec.setVolume() itself clears the DAC
@@ -441,7 +460,8 @@ protected:
   uint8_t     presBps = 16;
   uint8_t     presDataChannels = 2;
   bool        presMonoOut = false;
-  bool        presHeadphones = false;
+  /* No presHeadphones (review 3, A5): the jack is a sensor, not a setting to snapshot. */
+  bool        jackHeadphones = false;       // the pin's last reading: written by jackSensed() ONLY
   bool        presLoudspeaker = false;
   int8_t      presEarpieceVol = 0;
   int8_t      presHeadphonesVol = 0;
@@ -462,6 +482,7 @@ protected:
   size_t      pcmMemLen = 0;
   size_t      pcmMemPos = 0;
   const char* popProblem = nullptr;         // playPop()'s reason for a false, see popError()
+  NotifyRing  popRing = NOTIFY_RING_RUNNING;   // how the last playPop() found the ring, see popLeadMs()
 
   String      artist;
   String      title;

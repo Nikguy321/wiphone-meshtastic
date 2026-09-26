@@ -140,7 +140,8 @@ for src in tests/test_*.cpp; do
     # Header-only: the Files app's folder copy/move/delete path questions (files_paths.h).
     test_filepaths) deps=() ;;
     # Header-only: the notification pop's stop timer (notify_timing.h) against the shipping
-    # pop_pcm[] bytes. WiPhone.ino cannot be compiled here, same reason as above.
+    # pop_pcm[] bytes. WiPhone.ino cannot be compiled here, same reason as above. Review 3 (A1): the
+    # ring's lead too, with a model of IDF 3.3's TX ring - the old 360 ms stop erased the chirp.
     test_notify)   deps=() ;;
     *)             deps=() ;;
   esac
@@ -201,8 +202,10 @@ fi
 # shutdown, before WiFi; the order and Audio::reseatI2S()'s guards live in files this suite cannot
 # compile, and I2S is installed nowhere but Audio::installI2S() (whose cache the reseat relies on).
 # Also: the quit shuts the device down on soundStarted (a starved game leaves it on), and start() /
-# shutdown() never reach IDF 3.3's NULL-dereferencing i2s_start()/i2s_stop() with no driver.
-echo "checking the Game Boy's I2S reseat at quit (release, shutdown, reseat, WiFi; one installer; no-driver guards)"
+# shutdown() never reach IDF 3.3's NULL-dereferencing i2s_start()/i2s_stop() with no driver. Review 3
+# (A2/A6): nor do turnOn(), Audio::loop(), a pop, the ring or a call's stream (a reinstall can fail with
+# the device ON), and a ring installed with the device off is left stopped.
+echo "checking the Game Boy's I2S reseat at quit (release, shutdown, reseat, WiFi; one installer; no-driver guards on every writer; a ring installed with the device off is stopped)"
 if ! python3 tests/check_gbc_ring.py; then
   fail=1
 fi

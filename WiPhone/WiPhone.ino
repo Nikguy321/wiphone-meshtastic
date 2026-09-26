@@ -185,7 +185,91 @@ void notifyPopFinishFor(const char* why);   // defined with the pop, further dow
  * which would land on top of these.
  * A missing key keeps what the codec holds; a file that will not load changes nothing and says
  * so. The line that matters on the bench is the other one: "...held X, stored Y - applied"
- * means a borrower left its level behind, and it names who took the device next. */
+ * means a borrower left its level behind, and it names who took the device next.
+ * ⚠ A level the call screen stepped and has not written yet (callLevelStepped() below) is
+ * NEWER than the file, so it wins over the file here. */
+static void callLevelsOverlay(int8_t& ear, int8_t& hp, int8_t& loud);   // just below
+
+/* ── THE CALL SCREEN'S UP/DOWN: APPLIED AT ONCE, WRITTEN ONCE, OFF THE AUDIO PATH (review R3-1) ──
+ * 🛑 EVERY PRESS USED TO READ AND REWRITE configs.ini ON THE LOOP TASK: ini.load() (SPIFFS.exists()
+ * opens the file, then SPIFFS.open()) and ini.store() - three SPIFFS opens, measured at 0.5-1.6 s
+ * EACH on these phones. Audio::loop() is pumped only from loop(), so for 1.5-5 s after every volume
+ * press nothing played, no microphone packet went out and the far end's RTP overflowed its mailbox:
+ * a gap both ways, mid-call, on the key you press BECAUSE you are listening. The same stall 6900e63
+ * took out of connect. (Pre-existing on main; SA-1 narrowed what it stored, not what it cost.)
+ * Now the press touches only RAM: the call screen steps the level the codec (or music's stash)
+ * already holds - the stored levels went in at dial or at the ring - and records it here. It is
+ * written ONCE: CALL_LEVEL_SETTLE_MS after the last press, with no call live or imminent, the
+ * phone not ringing, and the device neither moving samples nor holding an RTP session - one
+ * CriticalFile load + store, with the `loaded` guard 8b93e72 gave the old handler (a file that
+ * will not load is never overwritten with three keys). Until then it overrides the file for the
+ * next ring or dial (applyStoredCallVolumes), and Settings > Audio writes it first when it opens
+ * (it is about to read the file itself, and its Save must be the newer write). */
+#define CALL_LEVEL_SETTLE_MS 3000u
+static uint8_t  s_callLevelDirty = 0;             // bit per CallLevelRoute (GUI.h)
+static int8_t   s_callLevel[3] = {0, 0, 0};       // dB, indexed by CallLevelRoute
+static uint32_t s_callLevelStepMs = 0;
+static const char* const kCallLevelKey[3] = {"speaker_vol", "headphones_vol", "loudspeaker_vol"};
+
+void callLevelStepped(uint8_t route, int8_t level) {
+  if (route > CALL_LEVEL_LOUDSPEAKER) {
+    return;
+  }
+  s_callLevel[route] = level;
+  s_callLevelDirty |= (uint8_t)(1u << route);
+  s_callLevelStepMs = millis();
+}
+
+static void callLevelsOverlay(int8_t& ear, int8_t& hp, int8_t& loud) {
+  if (s_callLevelDirty & (1u << CALL_LEVEL_EARPIECE)) {
+    ear = s_callLevel[CALL_LEVEL_EARPIECE];
+  }
+  if (s_callLevelDirty & (1u << CALL_LEVEL_HEADPHONES)) {
+    hp = s_callLevel[CALL_LEVEL_HEADPHONES];
+  }
+  if (s_callLevelDirty & (1u << CALL_LEVEL_LOUDSPEAKER)) {
+    loud = s_callLevel[CALL_LEVEL_LOUDSPEAKER];
+  }
+}
+
+/* The one write. Tried ONCE per batch of presses: a file that will not load is not retried on
+ * every pass (each try is a SPIFFS open), and the levels still hold for this boot.
+ * noinline: loop() calls it, and the CriticalFile stays out of loop()'s 8 KB-task frame. */
+static void __attribute__((noinline)) callLevelsFlush(const char* who) {
+  const uint8_t dirty = s_callLevelDirty;
+  if (!dirty) {
+    return;
+  }
+  s_callLevelDirty = 0;
+  CriticalFile ini(Storage::ConfigsFile);
+  const bool loaded = (ini.load() || ini.restore()) && !ini.isEmpty();
+  if (!loaded) {
+    log_e("AUDIO: %s: configs.ini did not load - the call screen's level is applied, NOT saved "
+          "(storing now would have wiped every other setting in the file)", who);
+    return;
+  }
+  if (!ini.hasSection("audio")) {
+    ini.addSection("audio");
+  }
+  for (uint8_t r = 0; r <= CALL_LEVEL_LOUDSPEAKER; r++) {
+    if (dirty & (1u << r)) {
+      ini["audio"][kCallLevelKey[r]] = (int32_t)s_callLevel[r];   // only the ones that moved (SA-1)
+    }
+  }
+  const bool stored = ini.store();
+  log_e("AUDIO: %s: the call screen's level%s %s (ear/hp/loud mask %u)", who,
+        (dirty & (dirty - 1)) ? "s" : "", stored ? "saved" : "NOT saved - the store failed",
+        (unsigned)dirty);
+}
+
+/* Settings > Audio, before it reads the file: never under a call (none can be open there - the
+ * call screen owns the keys - but the rule is the rule). */
+void callLevelsFlushNow(const char* who) {
+  if (!gui.inCall() && !gui.state.ringing) {
+    callLevelsFlush(who);
+  }
+}
+
 static void applyStoredCallVolumes(const char* who) {
   if (!audio) {
     return;
@@ -201,6 +285,7 @@ static void applyStoredCallVolumes(const char* who) {
   ear = ini["audio"].getIntValueSafe("speaker_vol", ear);
   hp = ini["audio"].getIntValueSafe("headphones_vol", hp);
   loud = ini["audio"].getIntValueSafe("loudspeaker_vol", loud);
+  callLevelsOverlay(ear, hp, loud);           // a press not written yet is newer than the file
   if (ear == e0 && hp == h0 && loud == l0) {
     return;                                   // the codec already holds them: no bus traffic
   }
@@ -343,7 +428,7 @@ void headphoneServiceInterrupt() {
   bool headphones = false;      // TODO: maybe make headphone detect for version 1.3
 #endif // HEADPHONE_DETECT_PIN
   log_d("Headphones event = %d", headphones);
-  audio->setHeadphones(headphones);
+  audio->jackSensed(headphones);          // the ONE writer of the jack's reading: see Audio.h (A5)
   headphoneEvent = false;
 }
 
@@ -1868,7 +1953,7 @@ void setup() {
   pinMode(HEADPHONE_DETECT_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(HEADPHONE_DETECT_PIN), headphoneInterrupt, CHANGE);
   bool headphones = allDigitalRead(HEADPHONE_DETECT_PIN);
-  audio->setHeadphones(headphones);
+  audio->jackSensed(headphones);
 #endif // HEADPHONE_DETECT_PIN
 
   log_v("Free memory after audio: %d %d", ESP.getFreeHeap(), heap_caps_get_free_size(MALLOC_CAP_32BIT));
@@ -2846,7 +2931,8 @@ bool notifyBenchArrival(bool sip) {
  * 44.1 kHz track) through the pre-pop route and levels, or the call's I2S reconfigured under its
  * microphone. startRingtone() and the call's audio setup finish it first, so
  * their own configuration lands last. `why` names the new owner in the log line.
- * Costs one I2S reinstall only when a pop genuinely overlaps (a ~300 ms window).
+ * Costs one I2S reinstall only when a pop genuinely overlaps (up to ~0.9 s: a fresh ring's
+ * 512 ms lead plus the sound - review 3, A1).
  *
  * ⚠ notifyPopFinishNow() keeps its old no-argument signature: app_gbc.cpp declares it extern
  * by that shape, and a default argument would clash with the .ino prototype generator. */
@@ -2954,19 +3040,29 @@ static void notifyMessageArrived(uint8_t mode) {
       if (played) {
         const bool fromFlash = audio->popFromMemory();
         meshPopPlaying = true;
-        meshPopStopMs  = notifyPopStopMs(sizeof(pop_pcm), NOTIFY_POP_RATE_HZ, NOTIFY_POP_MARGIN_MS,
-                                         !fromFlash);
+        /* 🛑 THE STOP WAITS FOR THE RING'S LEAD (review 3, A1; notify_timing.h). playPop() installs
+         * a FRESH ring on almost every pop, and a fresh ring plays itself (zeros) once before the
+         * first written sample reaches the DAC: the chirp was due at ~512 ms and the teardown at
+         * 360 ms zeroed it first - silence, except when a stall pushed the teardown late. The
+         * lead is 0 on a ring that was already running; the early finishes (the ring, a call, a
+         * track, a game) still cut it whenever they come. */
+        const uint32_t leadMs = audio->popLeadMs(!fromFlash);
+        meshPopStopMs  = notifyPopTimerMs(sizeof(pop_pcm), NOTIFY_POP_RATE_HZ, NOTIFY_POP_MARGIN_MS,
+                                          !fromFlash, leadMs);
         meshPopStartMs = t1;             // AFTER the start, for the motor stamp's reason
-        /* ⚠ HAND THE FIRST CHUNK TO THE DMA NOW (review, 2026-09-19). playPop() only arms
-         * the source; the samples reach I2S in audio->loop() at the BOTTOM of the pass. The
-         * text paths (SIP, the mirror, serial `notify`) announce ABOVE the mesh block, so a
-         * DB save or (before 0.9.79) a LoRa airtime in the same pass could run the stop timer
-         * out before a single sample was queued — a buzz with no chirp, deterministically. One
-         * pump here queues the whole 300 ms chunk into the 512 ms DMA with zero-tick writes; a
-         * stall after that only ever cuts the silence padding. */
+        /* ⚠ PUMP ONCE NOW (review, 2026-09-19). playPop() only arms the source; the samples reach
+         * I2S in audio->loop() at the BOTTOM of the pass, and the text paths (SIP, the mirror,
+         * serial `notify`) announce ABOVE the mesh block. On a ring that was already RUNNING this
+         * queues the chirp at once. ⚠ On a FRESH ring (the usual case) it queues NOTHING: the
+         * free-buffer queue is empty until the first buffer has played out (~128 ms), and the
+         * first written samples play one trip later - which is why the stop above carries the
+         * lead, and why a stall can no longer cut the chirp: only the padding after it. */
         audio->loop();
-        log_e("NOTIFY: pop start took %lu ms (%s, stop at %lu ms)", (unsigned long)(t1 - t0),
-              fromFlash ? "flash" : "SPIFFS fallback", (unsigned long)meshPopStopMs);
+        log_e("NOTIFY: pop start took %lu ms (%s, %s ring, lead %lu ms, stop at %lu ms)",
+              (unsigned long)(t1 - t0), fromFlash ? "flash" : "SPIFFS fallback",
+              audio->popRingState() == NOTIFY_RING_FRESH ? "fresh" :
+              (audio->popRingState() == NOTIFY_RING_RESTARTED ? "restarted" : "running"),
+              (unsigned long)leadMs, (unsigned long)meshPopStopMs);
       } else {
         log_e("NOTIFY: pop NOT started (%lu ms): %s", (unsigned long)(t1 - t0),
               audio->popError() ? audio->popError() : "no reason recorded");
@@ -5030,11 +5126,11 @@ void loop() {
      * on every pass of a call is two flag reads.
      * 🛑 NOT WHILE A POP IS IN FLIGHT — the same "pop first, then the music" rule startRingtone()
      * follows. A pop that cut a track holds a snapshot of the MUSIC level and route; dial inside
-     * its 360 ms and this yield would hand the call levels back and clear the stash, then the
-     * pop's teardown below restore()s the music snapshot over them, and nothing re-applies them
-     * — the outgoing call runs at the music level on the loudspeaker. Held off, the yield runs on
-     * the pass after the pop's restore(); and if the call connects first, the call-audio setup
-     * finishes the pop (notifyPopFinishFor) and this runs in that same pass. */
+     * its window (up to ~0.9 s) and this yield would hand the call levels back and clear the
+     * stash, then the pop's teardown below restore()s the music snapshot over them, and nothing
+     * re-applies them — the outgoing call runs at the music level on the loudspeaker. Held off,
+     * the yield runs on the pass after the pop's restore(); and if the call connects first, the
+     * call-audio setup finishes the pop (notifyPopFinishFor) and this runs in that same pass. */
     if (gui.inCall() && !meshPopPlaying) {
       musicPlayerYieldForCall();
     }
@@ -5193,6 +5289,17 @@ void loop() {
       }
     }
 
+    /* The call screen's UP/DOWN, written to configs.ini ONCE the call is over (review R3-1; the
+     * note at callLevelStepped()): never with a call live or imminent, never while it rings, never
+     * while the device moves samples or holds an RTP session (a 1.5-5 s SPIFFS stall there is a
+     * gap in the call, the ring or the track), and CALL_LEVEL_SETTLE_MS after the last press so a
+     * run of presses is one write. millis(), not `now`: the press was stamped later in this pass. */
+    if (s_callLevelDirty && audio && !gui.inCall() && !gui.state.ringing &&
+        !audio->movingSamples() && !audio->rtpSessionArmed() &&
+        elapsedMillis(millis(), s_callLevelStepMs, CALL_LEVEL_SETTLE_MS)) {
+      callLevelsFlush("after the call");
+    }
+
     /* 🛑 NO RTP SESSION WITHOUT A CALL TO OWN IT — the hot-mic backstop. See rtp_watch.h.
      * The watchdog above cannot do this job: an armed RtpStream counts as moving samples, so an
      * orphaned session looks busy to it forever. Checked whether or not the device is powered —
@@ -5205,7 +5312,7 @@ void loop() {
      * a device shut down under it. The motor and pop tests come FIRST so rtpOrphanCheck() is
      * not even asked on those passes: its clock keeps the stamp, and it fires on the first
      * pass after the pulse or the pop ends, rather than starting over (a buzz is at most
-     * 650 ms, a ring pulse 500 ms by default, a pop 360 ms; the ring alternates on and off). */
+     * 650 ms, a ring pulse 500 ms by default, a pop up to ~0.9 s; the ring alternates on and off). */
     if (audio && !meshVibroActive && !gui.state.vibroOn && !meshPopPlaying &&
         rtpOrphanCheck(rtpOrphan, audio->rtpSessionArmed(), rtpSessionEntitled(), now)) {
       log_e("AUDIO: RTP session armed with no live call (sip=%d, mic=%d stream=%d port=%u) for "
