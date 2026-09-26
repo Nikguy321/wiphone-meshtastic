@@ -88,6 +88,22 @@ bool kosyncHeader(const char* hdrs, const char* name, char* out, size_t cap);
  * configured user or key authorises nobody. */
 bool kosyncAuthOk(const char* hdrs, const char* user, const char* keyHex);
 
+/* ── WHO MAY BE TOLD A PERCENTAGE (docs/booksync-simple-plan.md §5.1, 2026-09-26) ─────────
+ * The window's GET reply carries `percentage` and `"progress":""` — the phone has no XPointer
+ * to give. CrossPoint and the X4 fork fall back to the percentage; Readest ignores an empty
+ * progress; KOReader does NOT: its kosync plugin takes a body WITH `percentage` and an empty
+ * `progress` to syncToProgress("") = GotoXPointer("") — a crengine null pointer — and lands on
+ * PAGE 1 (plugins/kosync.koplugin/main.lua:705-711), and a manual pull applies WITHOUT asking.
+ * A body of `{}` gives it "No progress found" instead, and nothing at all on an automatic pull.
+ * So the record goes only to a reader that SAYS it can take a percentage: the X4 fork sends
+ * `X-BookSync: 1` (KOReaderSyncClient.cpp applyAuthHeaders), and stock CrossPoint and Readest
+ * send an `Authorization: Basic` header (KOReader sends x-auth-* only). Either header, with any
+ * value, is the marker; names match case-insensitively (kosyncHeader). 🛑 Two shortcuts are
+ * WRONG: "`{}` unless Basic" blanks the fork, which omits Basic on the peer and hub networks;
+ * "a DocFragment pointer for everyone" sends the X4 to page 0 of the chapter (its
+ * ProgressMapper maps a chapter-start XPointer there). Auth comes first: a 401 needs no marker. */
+bool kosyncClientTakesPercentage(const char* hdrs);
+
 // "HTTP/1.1 200 OK" -> 200; anything else -> -1.
 int kosyncStatusCode(const char* statusLine);
 
@@ -144,6 +160,10 @@ struct KosyncServeOut {
   char   putDeviceId[KOSYNC_DEV_MAX];
   bool   otherDoc;                   // a PUT for some other book: answered 200, discarded
   char   otherDocId[16];             // ...and the start of ITS id, for the screen ("" if none)
+  /* A GET of the window's book from a reader that has not said it can take a percentage
+   * (kosyncClientTakesPercentage): answered `{}`, so KOReader shows "No progress found" instead
+   * of jumping to page 1. Still a pick-up (it may PUT next). One log line a window. */
+  bool   unmarkedGet;
 };
 
 /* Answer one request. `reply` receives the JSON body. `nowUnix` is 0 when the phone has no
@@ -425,9 +445,11 @@ bool kosyncWindowWaitsForSta(bool radioOff, bool userDisabled, bool staMode, uin
 
 /* What went wrong in a window, for the SCREEN (the X4 says "Upload complete" either way):
  * a PUT for a different document (not the same file on both? `docId` is the start of its
- * id), and requests with the wrong user/password. "" when neither happened. */
+ * id), requests with the wrong user/password, and GETs for the book from a reader that cannot
+ * take a percentage (`unmarked`: it was told "No progress found" — KOReader, see
+ * kosyncClientTakesPercentage). "" when none of them happened. */
 size_t kosyncWindowProblems(uint32_t otherBook, const char* docId, uint32_t unauth,
-                            char* out, size_t cap);
+                            uint32_t unmarked, char* out, size_t cap);
 
 /* ── A READER'S SECOND ID IS NOT ANOTHER BOOK (KS-3) ──────────────────────────────────────
  * The CrossPoint fork with booksync PUTs every upload under BOTH its ids when they differ: the

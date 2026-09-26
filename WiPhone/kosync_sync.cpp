@@ -388,6 +388,8 @@ static char*              s_reply = NULL;     // PSRAM: the JSON answer
 static bool               s_winArmed = false;
 static KosyncWindowClock  s_clock;
 static uint32_t           s_gets = 0, s_puts = 0, s_parked = 0, s_unauth = 0;
+// GETs for the book from a reader that cannot take a percentage (KOReader): told `{}`, §5.1.
+static uint32_t           s_unmarked = 0;
 static uint32_t           s_healthMs = 0;
 // A window on the phone's WiFi address: the address it opened on, and the loss watch (W1).
 static uint32_t           s_winIp = 0;        // 0 = on our own hotspot
@@ -542,14 +544,16 @@ void kosyncWindowClose(const char* why) {
   uint32_t second = 0;
   const uint32_t diff = kosyncPutLogDifferent(&T->puts, NULL, &second);
   log_e("KOSYNC window CLOSED (%s): gets=%u puts=%u parked=%u other-book=%u second-id=%u "
-        "unauthorised=%u", why ? why : "", (unsigned)s_gets, (unsigned)s_puts,
-        (unsigned)s_parked, (unsigned)diff, (unsigned)second, (unsigned)s_unauth);
+        "unauthorised=%u no-percentage=%u", why ? why : "", (unsigned)s_gets, (unsigned)s_puts,
+        (unsigned)s_parked, (unsigned)diff, (unsigned)second, (unsigned)s_unauth,
+        (unsigned)s_unmarked);
 }
 
 /* The window's warnings (a PUT for another book, a wrong password): cleared by a NEW window,
  * or by a reload that was asked for or found the file changed (reloadDone). kosync.h. */
 static void clearWindowProblems() {
   s_unauth = 0;
+  s_unmarked = 0;
   memset(&T->puts, 0, sizeof(T->puts));        // the PUTs for another book (KS-3's log)
 }
 
@@ -580,6 +584,13 @@ const char* kosyncWindowServe(const char* method, const char* path, const char* 
   if (o.gotPut) {
     snprintf(T->peer, sizeof(T->peer), "%s", o.putDevice[0] ? o.putDevice : "a KOSync reader");
     kosyncPutLogOwn(&T->puts, o.putDevice, o.putDeviceId);   // KS-3: this device syncs THIS book
+  }
+  if (o.unmarkedGet && !s_unmarked++) {
+    /* ONE line a window (the count is cleared with the window's other warnings): the reader
+     * was told `{}` — "No progress found" — because our reply's empty `progress` would have
+     * sent it to page 1 (kosync.h, kosyncClientTakesPercentage; the plan's §5.1). */
+    log_e("KOSYNC window: a reader that cannot take a percentage asked for '%s' - answered {} "
+          "(KOReader? see docs/booksync-simple-plan.md 5.1)", s_win->title);
   }
   if (o.park && !allocBook(&s_parkBook)) {
     log_e("KOSYNC: no memory to hold %s's place - not offered", o.putDevice);
@@ -1662,7 +1673,7 @@ size_t kosyncProblemLine(char* out, size_t cap) {
    * or a reload that was asked for (or found the file changed) clears them. */
   const char* doc = "";
   const uint32_t diff = kosyncPutLogDifferent(&T->puts, &doc, NULL);   // KS-3: not a second id
-  return kosyncWindowProblems(diff, doc, s_unauth, out, cap);
+  return kosyncWindowProblems(diff, doc, s_unauth, s_unmarked, out, cap);
 }
 
 bool kosyncPeerPctFor(uint32_t inboxId, double* pct) {
@@ -1745,12 +1756,12 @@ void kosyncDumpStatus(void (*emit)(const char* line)) {
     uint32_t second = 0;
     const uint32_t diff = kosyncPutLogDifferent(&T->puts, NULL, &second);
     snprintf(l, sizeof(l), "kosync: window OPEN %lus left at %s%s%s  gets=%u puts=%u parked=%u "
-             "other-book=%u second-id=%u unauthorised=%u%s%s",
+             "other-book=%u second-id=%u unauthorised=%u no-percentage=%u%s%s",
              (unsigned long)(kosyncClockRemainingMs(&s_clock, millis()) / 1000), xferAddr(),
              xferUsingAP() ? " hotspot " : " (on WiFi)", xferUsingAP() ? xferApName() : "",
              (unsigned)s_gets, (unsigned)s_puts, (unsigned)s_parked, (unsigned)diff,
-             (unsigned)second, (unsigned)s_unauth, s_clock.picked ? "  picked up" : "",
-             T->peer[0] ? T->peer : "");
+             (unsigned)second, (unsigned)s_unauth, (unsigned)s_unmarked,
+             s_clock.picked ? "  picked up" : "", T->peer[0] ? T->peer : "");
     emit(l);
     snprintf(l, sizeof(l), "kosync: serving '%s' partial=%s name=%s pct=%.6f",
              s_win->title, s_win->partial[0] ? s_win->partial : "-", s_win->byName, s_win->pct);

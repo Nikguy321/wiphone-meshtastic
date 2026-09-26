@@ -408,6 +408,13 @@ bool kosyncAuthOk(const char* hdrs, const char* user, const char* keyHex) {
   return userOk && keyOk;
 }
 
+bool kosyncClientTakesPercentage(const char* hdrs) {
+  // Presence is the marker (kosync.h): the fork's `X-BookSync: 1`, or a Basic header.
+  char v[4];
+  return kosyncHeader(hdrs, "x-booksync", v, sizeof(v)) ||
+         kosyncHeader(hdrs, "authorization", v, sizeof(v));
+}
+
 int kosyncStatusCode(const char* line) {
   if (!line || strncmp(line, "HTTP/1.", 7) != 0) {
     return -1;
@@ -1192,12 +1199,12 @@ bool kosyncWindowWaitsForSta(bool radioOff, bool userDisabled, bool staMode, uin
 }
 
 size_t kosyncWindowProblems(uint32_t otherBook, const char* docId, uint32_t unauth,
-                            char* out, size_t cap) {
+                            uint32_t unmarked, char* out, size_t cap) {
   if (!cap) {
     return 0;
   }
   out[0] = '\0';
-  char a[96] = "", b[64] = "";
+  char a[96] = "", b[64] = "", c[96] = "";
   if (otherBook) {
     snprintf(a, sizeof(a), "! A place for a DIFFERENT book arrived%s%s%s - not the same file here?",
              (docId && docId[0]) ? " (id " : "", (docId && docId[0]) ? docId : "",
@@ -1211,7 +1218,13 @@ size_t kosyncWindowProblems(uint32_t otherBook, const char* docId, uint32_t unau
   if (unauth) {
     snprintf(b, sizeof(b), "! Wrong user/password from the reader (x%u)", (unsigned)unauth);
   }
-  snprintf(out, cap, "%s%s%s", a, (a[0] && b[0]) ? "  " : "", b);
+  if (unmarked) {
+    // The reader shows "No progress found" and does not know why; this line says why.
+    snprintf(c, sizeof(c), "! A reader that can't take a percentage asked (x%u) - told "
+             "'No progress found' (KOReader?)", (unsigned)unmarked);
+  }
+  snprintf(out, cap, "%s%s%s%s%s", a, (a[0] && b[0]) ? "  " : "", b,
+           ((a[0] || b[0]) && c[0]) ? "  " : "", c);
   return strlen(out);
 }
 
@@ -1352,6 +1365,15 @@ void kosyncServe(const char* method, const char* path, const char* hdrs,
       return;
     }
     out->pickedUp = true;               // our book, whatever we can say about it
+    if (!kosyncClientTakesPercentage(hdrs)) {
+      /* 🛑 A reader that has not said it can take a percentage (no X-BookSync, no Authorization
+       * — KOReader) gets `{}`, "No progress found", not the record: our reply's empty `progress`
+       * would send it to PAGE 1 (kosyncClientTakesPercentage, kosync.h). Still a pick-up: it
+       * may PUT its own place next, and that lands as the card as ever. */
+      out->unmarkedGet = true;
+      ksReply(reply, replyCap, "{}");
+      return;
+    }
     if (!book->pctOk) {
       /* The phone is somewhere it cannot express as a KOSync percentage (a chapter CrossPoint
        * does not list). `{}` is the honest answer — "nothing to offer" — where a 0 or the

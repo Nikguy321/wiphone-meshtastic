@@ -313,9 +313,9 @@ def check(files):
         dones = [m for m in re.finditer(r"\breloadDone\s*\(", sync) if within(m.start(), rc)]
         if not dones or any(call_args(sync, m.end() - 1) != ["asked"] for m in dones):
             bad.append("kosyncReloadConfig() must pass `asked` through to every reloadDone(asked)")
-    for m in re.finditer(r"\bs_(?:other|unauth)\s*=(?!=)", sync):
+    for m in re.finditer(r"\bs_(?:other|unauth|unmarked)\s*=(?!=)", sync):
         if brace_depth(sync, m.start()) > 0 and not within(m.start(), cw):
-            bad.append(f"{SYNC}:{line_of(sync, m.start())} zeroes s_other/s_unauth outside "
+            bad.append(f"{SYNC}:{line_of(sync, m.start())} zeroes s_other/s_unauth/s_unmarked outside "
                        "clearWindowProblems() - every clear of the warnings goes through it")
     puts_clears = list(re.finditer(r"\bmemset\s*\(\s*&\s*T\s*->\s*puts\b", sync))
     for m in puts_clears:

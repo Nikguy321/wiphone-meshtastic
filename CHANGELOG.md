@@ -110,6 +110,20 @@ no space before it (`pass#word`) is part of the value.
   A hotspot that comes up with the station already restarted beside it (the core's handler can be
   past its check when the hold is taken) switches the station off and says so on serial.
 - The phone only ever HOSTS: it never scans for or joins another device's hotspot.
+- **A KOReader that pulls from the window gets "No progress found", never page 1 (2026-09-26,
+  the plan's §5.1).** The phone has no XPointer to offer, so its reply carried `percentage` and
+  `"progress":""` — and KOReader's kosync plugin takes exactly that body to `GotoXPointer("")`,
+  a crengine null pointer, and lands the book on PAGE 1 (a manual pull applies without asking).
+  The record now goes only to a reader that says it can take a percentage: the X4 fork sends
+  `X-BookSync: 1`, stock CrossPoint and Readest an `Authorization: Basic` header; everyone else
+  (KOReader sends `x-auth-*` only) is answered `{}` for the book — "No progress found" on a
+  manual pull, nothing on an automatic one. A KOReader PUT to the window is unchanged (parked,
+  the card). The window says so on the screen (`! A reader that can't take a percentage asked
+  (x1) - told 'No progress found' (KOReader?)`, cleared with the window's other warnings) and
+  once per window on serial; the close line counts them as `no-percentage=`. Auth still comes
+  first (a wrong key is a 401 with or without the marker), `/users/create` stays 402, an unknown
+  document stays `{}` for everyone, and the phone's own PUT body to `home=` is untouched.
+  Host-tested in `tests/test_kosync.cpp` (`kosyncClientTakesPercentage`, the window's answers).
 - **The sync hotspot is OPEN unless `hotspot_pass=` is set.** With 8-63 plain-ASCII characters
   (spaces inside are fine; spaces at either end are trimmed) the window's `WiPhone-Books` is
   WPA2-PSK. A stock CrossPoint then needs that password typed once when it joins the hotspot;

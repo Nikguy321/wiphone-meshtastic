@@ -494,6 +494,27 @@ static void testHeaders() {
   ok(!kosyncAuthOk(HDRS_OK, USER, "5F4DCC3B5AA765D61D8327DEB882CF99"), "the key is exact (lower case)");
   ok(!kosyncAuthOk(HDRS_OK, "", ""), "nothing configured authorises nobody");
   ok(!kosyncAuthOk("GET /users/auth HTTP/1.1\r\nx-auth-user: nick\r\n\r\n", USER, KEY), "no key header");
+
+  group("5.1: which readers may be told a percentage (the marker headers)");
+  ok(kosyncClientTakesPercentage(HDRS_OK), "a stock CrossPoint request (x-auth + Authorization: Basic): yes");
+  ok(!kosyncClientTakesPercentage("GET / HTTP/1.1\r\nx-auth-user: nick\r\nx-auth-key: 5f4dcc3b5aa765d6"
+                                  "1d8327deb882cf99\r\nAccept: application/vnd.koreader.v1+json\r\n\r\n"),
+     "x-auth only (KOReader): no");
+  ok(kosyncClientTakesPercentage("GET / HTTP/1.1\r\nx-auth-user: nick\r\nX-BookSync: 1\r\n\r\n"),
+     "X-BookSync: 1 (the X4 fork): yes");
+  ok(kosyncClientTakesPercentage("GET / HTTP/1.1\r\nx-booksync: yes\r\n\r\n"),
+     "any case, any value");
+  ok(kosyncClientTakesPercentage("GET / HTTP/1.1\r\nX-BookSync:\r\n\r\n"), "an empty value still marks");
+  ok(kosyncClientTakesPercentage("GET / HTTP/1.1\r\nAuthorization: Basic bmljazpwdw==\r\n\r\n"),
+     "Authorization: Basic (stock CrossPoint, Readest): yes");
+  ok(kosyncClientTakesPercentage("GET / HTTP/1.1\r\nAUTHORIZATION: Bearer x\r\n\r\n"),
+     "any Authorization scheme, any case");
+  ok(!kosyncClientTakesPercentage("GET / HTTP/1.1\r\nX-BookSync-Extra: 1\r\n\r\n"),
+     "a longer name is not the marker");
+  ok(!kosyncClientTakesPercentage("GET / HTTP/1.1\r\nX-Book: Sync\r\n\r\n"), "nor a shorter one");
+  ok(!kosyncClientTakesPercentage("GET / HTTP/1.1\r\n\r\nX-BookSync: 1\r\n"),
+     "a header after the blank line is body, not a marker");
+  ok(!kosyncClientTakesPercentage(NULL) && !kosyncClientTakesPercentage(""), "no headers: no");
   eqInt(kosyncStatusCode("HTTP/1.1 200 OK"), 200, "status 200");
   eqInt(kosyncStatusCode("HTTP/1.0 401 Unauthorized"), 401, "status 401");
   eqInt(kosyncStatusCode("garbage"), -1, "not a status line");
@@ -562,7 +583,9 @@ static void testServe() {
   KosyncServeOut o;
   char reply[512];
   char hdrs[512];
-  snprintf(hdrs, sizeof(hdrs), "X HTTP/1.1\r\nx-auth-user: %s\r\nx-auth-key: %s\r\n\r\n", USER, KEY);
+  // The fork's marker (5.1): these requests may be told the record. The unmarked shapes are below.
+  snprintf(hdrs, sizeof(hdrs), "X HTTP/1.1\r\nx-auth-user: %s\r\nx-auth-key: %s\r\nX-BookSync: 1\r\n\r\n",
+           USER, KEY);
   const char* noAuth = "X HTTP/1.1\r\nHost: 192.168.4.1\r\n\r\n";
 
   ok(kosyncIsPath("/users/auth") && kosyncIsPath("/syncs/progress") && kosyncIsPath("/healthcheck"),
@@ -599,6 +622,58 @@ static void testServe() {
      "our book by filename id, echoed");
   serve("GET", "/syncs/progress/7db24c08211c49e8e0c2b8522e9efc1b", noAuth, NULL, &o, reply);
   ok(o.code == 401 && !o.pickedUp, "no auth, no place");
+
+  /* 5.1: the record only to a reader that can take a percentage. The `hdrs` above carry the
+   * marker for the rest of this function; here, each shape of request. */
+  {
+    char ko[512], fork[512], basic[512], wrong[512];
+    snprintf(ko, sizeof(ko), "X HTTP/1.1\r\nx-auth-user: %s\r\nx-auth-key: %s\r\n"
+             "Accept: application/vnd.koreader.v1+json\r\n\r\n", USER, KEY);
+    snprintf(fork, sizeof(fork), "X HTTP/1.1\r\nx-auth-user: %s\r\nx-auth-key: %s\r\n"
+             "X-BookSync: 1\r\n\r\n", USER, KEY);
+    snprintf(basic, sizeof(basic), "X HTTP/1.1\r\nx-auth-user: %s\r\nx-auth-key: %s\r\n"
+             "Authorization: Basic bmljazpwdw==\r\n\r\n", USER, KEY);
+    snprintf(wrong, sizeof(wrong), "X HTTP/1.1\r\nx-auth-user: %s\r\nx-auth-key: "
+             "5f4dcc3b5aa765d61d8327deb882cf98\r\nX-BookSync: 1\r\n\r\n", USER);
+    serve("GET", "/syncs/progress/7db24c08211c49e8e0c2b8522e9efc1b", ko, NULL, &o, reply);
+    eqInt(o.code, 200, "x-auth only (KOReader): 200");
+    eqStr(reply, "{}", "...and {} for OUR book - 'No progress found', never page 1");
+    ok(o.pickedUp && o.unmarkedGet, "...still a pick-up (it may PUT next), and flagged for the log");
+    serve("GET", "/syncs/progress/ad7a1fcd11740eb658e5cd1742a8bfed", ko, NULL, &o, reply);
+    ok(o.code == 200 && !strcmp(reply, "{}") && o.unmarkedGet, "the same under the file-name id");
+    serve("GET", "/syncs/progress/7db24c08211c49e8e0c2b8522e9efc1b", fork, NULL, &o, reply);
+    ok(o.code == 200 && o.pickedUp && !o.unmarkedGet, "x-auth + X-BookSync (the fork): the record");
+    eqStr(reply, "{\"document\":\"7db24c08211c49e8e0c2b8522e9efc1b\",\"percentage\":0.61,\"progress\":\"\","
+                 "\"device\":\"WiPhone-NICK\",\"device_id\":\"wiphone-id\",\"timestamp\":1790000100}",
+          "...today's reply, progress \"\" included (the fork falls back to the percentage)");
+    serve("GET", "/syncs/progress/7db24c08211c49e8e0c2b8522e9efc1b", basic, NULL, &o, reply);
+    ok(o.code == 200 && !o.unmarkedGet && strstr(reply, "\"percentage\":0.61"),
+       "x-auth + Authorization: Basic (stock CrossPoint): the record");
+    serve("GET", "/syncs/progress/7db24c08211c49e8e0c2b8522e9efc1b", wrong, NULL, &o, reply);
+    ok(o.code == 401 && !o.pickedUp && !o.unmarkedGet, "wrong key + X-BookSync: 401 - auth comes first");
+    eqStr(reply, "{\"message\":\"Unauthorized\",\"code\":2001}", "...the 401 body");
+    serve("GET", "/syncs/progress/0000000000000000000000000000beef", ko, NULL, &o, reply);
+    ok(o.code == 200 && !strcmp(reply, "{}") && !o.pickedUp && !o.unmarkedGet,
+       "an unknown document stays {} for an unmarked reader (and is not 'no percentage')");
+    serve("GET", "/syncs/progress/0000000000000000000000000000beef", fork, NULL, &o, reply);
+    ok(o.code == 200 && !strcmp(reply, "{}") && !o.pickedUp, "...and for a marked one");
+    serve("GET", "/syncs/progress/0000000000000000000000000000beef", basic, NULL, &o, reply);
+    ok(o.code == 200 && !strcmp(reply, "{}") && !o.pickedUp, "...and for a Basic one");
+    serve("PUT", "/syncs/progress", ko,
+          "{\"document\":\"7db24c08211c49e8e0c2b8522e9efc1b\",\"progress\":\"/body/DocFragment[8]\","
+          "\"percentage\":0.7,\"device\":\"KOReader\"}", &o, reply);
+    ok(o.code == 200 && o.gotPut && o.park && !o.unmarkedGet,
+       "a KOReader PUT is unchanged: parked, a card (the marker is about GETs only)");
+    eqStr(reply, "{\"document\":\"7db24c08211c49e8e0c2b8522e9efc1b\",\"timestamp\":1790000200}",
+          "...and answered as before");
+    serve("GET", "/users/auth", ko, NULL, &o, reply);
+    ok(o.code == 200 && !strcmp(reply, "{\"authorized\":\"OK\"}"), "an unmarked reader still logs in");
+    KosyncServed lost = { PARTIAL, BYNAME, false, 0.61, "WiPhone-NICK", "wiphone-id", 1790000100u };
+    kosyncServe("GET", "/syncs/progress/7db24c08211c49e8e0c2b8522e9efc1b", ko, NULL, 0, USER, KEY,
+                &lost, 1790000200u, &o, reply, 512);
+    ok(o.code == 200 && !strcmp(reply, "{}") && o.unmarkedGet,
+       "no place of ours AND an unmarked reader: {} (and the reader is still named in the log)");
+  }
 
   serve("PUT", "/syncs/progress", hdrs,
         "{\"document\":\"7db24c08211c49e8e0c2b8522e9efc1b\",\"progress\":\"/body/DocFragment[8]\","
@@ -1418,20 +1493,28 @@ static void testClientAndTransport() {
 static void testProblemsAndLibrary() {
   group("#6: a window's silent failures, said on the screen");
   char l[200];
-  eqInt((long long)kosyncWindowProblems(0, "", 0, l, sizeof(l)), 0, "nothing wrong: nothing said");
+  eqInt((long long)kosyncWindowProblems(0, "", 0, 0, l, sizeof(l)), 0, "nothing wrong: nothing said");
   eqStr(l, "", "empty");
-  kosyncWindowProblems(1, "0c9a1f7e", 0, l, sizeof(l));
+  kosyncWindowProblems(1, "0c9a1f7e", 0, 0, l, sizeof(l));
   eqStr(l, "! A place for a DIFFERENT book arrived (id 0c9a1f7e..) - not the same file here?",
         "a PUT for another document");
-  kosyncWindowProblems(3, "", 0, l, sizeof(l));
+  kosyncWindowProblems(3, "", 0, 0, l, sizeof(l));
   eqStr(l, "! A place for a DIFFERENT book arrived - not the same file here? (x3)", "three, no id");
-  kosyncWindowProblems(0, NULL, 2, l, sizeof(l));
+  kosyncWindowProblems(0, NULL, 2, 0, l, sizeof(l));
   eqStr(l, "! Wrong user/password from the reader (x2)", "wrong password");
-  kosyncWindowProblems(1, "abc", 1, l, sizeof(l));
+  kosyncWindowProblems(1, "abc", 1, 0, l, sizeof(l));
   ok(strstr(l, "DIFFERENT book") && strstr(l, "Wrong user/password"), "both at once");
   char tiny[10];
-  kosyncWindowProblems(1, "abc", 1, tiny, sizeof(tiny));
+  kosyncWindowProblems(1, "abc", 1, 0, tiny, sizeof(tiny));
   eqInt((long long)strlen(tiny), 9, "cut to the buffer, never past it");
+  kosyncWindowProblems(0, "", 0, 1, l, sizeof(l));
+  eqStr(l, "! A reader that can't take a percentage asked (x1) - told 'No progress found' (KOReader?)",
+        "5.1: a reader told {} instead of the record - the reader itself only says 'No progress found'");
+  kosyncWindowProblems(1, "abc", 0, 2, l, sizeof(l));
+  ok(strstr(l, "DIFFERENT book") && strstr(l, "(x2) - told"), "with another warning, after it");
+  kosyncWindowProblems(1, "abc", 1, 1, l, sizeof(l));
+  ok(strstr(l, "DIFFERENT book") && strstr(l, "Wrong user/password") && strstr(l, "percentage"),
+     "all three at once");
 
   group("#7: settings files beside the books are not books");
   ok(kosyncNotABook("kosync.txt"), "kosync.txt");
@@ -2167,9 +2250,9 @@ static void testSecondId() {
     eqInt(kosyncPutLogDifferent(&w, &doc, &second), 0, k ? "other id FIRST: still not a different book"
                                                            : "the partial PUT, then the name PUT: not a different book");
     eqInt(second, 1, "...it is counted as the reader's second id");
-    kosyncWindowProblems(kosyncPutLogDifferent(&w, &doc, NULL), doc, 0, l, sizeof(l));
+    kosyncWindowProblems(kosyncPutLogDifferent(&w, &doc, NULL), doc, 0, 0, l, sizeof(l));
     eqStr(l, "", "and the screen says nothing is wrong");
-    kosyncWindowProblems(oldCount, "0c9a1f7e", 0, l, sizeof(l));
+    kosyncWindowProblems(oldCount, "0c9a1f7e", 0, 0, l, sizeof(l));
     ok(strstr(l, "DIFFERENT book") != NULL, "(the old count said '! A place for a DIFFERENT book')");
   }
 
@@ -2182,7 +2265,7 @@ static void testSecondId() {
   eqInt(kosyncPutLogDifferent(&w, &doc, &second), 1, "another device's PUT for another book");
   eqStr(doc, "abcdef01", "...with its id for the screen");
   eqInt(second, 0, "no second id");
-  kosyncWindowProblems(kosyncPutLogDifferent(&w, &doc, NULL), doc, 0, l, sizeof(l));
+  kosyncWindowProblems(kosyncPutLogDifferent(&w, &doc, NULL), doc, 0, 0, l, sizeof(l));
   eqStr(l, "! A place for a DIFFERENT book arrived (id abcdef01..) - not the same file here?", "said");
   memset(&w, 0, sizeof(w));
   kosyncPutLogOther(&w, "CrossPoint", "x4-id", "0c9a1f7e");
