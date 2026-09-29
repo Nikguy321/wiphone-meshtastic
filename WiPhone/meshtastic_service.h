@@ -493,9 +493,27 @@ public:
    * service kept answering "GPS" with coordinates from a receiver that had
    * been switched off up to two minutes earlier. It writes nothing and blocks
    * on nothing. */
-  void gpsUpdate(bool valid, int32_t latI, int32_t lonI, int sats, int hdopX10);
+  /* altM = the GGA antenna altitude (NmeaFix::altM, -10000 = unknown); speedKnX100/courseX10 =
+   * the last RMC's own motion (NmeaFix, -1 = absent in that sentence). All three are kept WITH
+   * the fix: they are stored only when `valid`, so they describe the same moment as
+   * gpsLatI/gpsLonI and age with it. */
+  /* `rmc`: the sentence that just completed was an RMC (else a GGA). The motion is taken ONLY
+   * from an RMC and the altitude ONLY from a GGA, each stamped with its own sentence's time: the
+   * reader hands both sentences the whole NmeaFix, so a GGA carries the last RMC's speed and an
+   * RMC the last GGA's altitude, and stamping those as new kept an old speed "current" while RMCs
+   * were being lost (review 2026-09-27). */
+  void gpsUpdate(bool valid, int32_t latI, int32_t lonI, int sats, int hdopX10,
+                 int altM, int32_t speedKnX100, int32_t courseX10, bool rmc);
   bool getGpsFix(int32_t* latI, int32_t* lonI, uint32_t* ageMs,
                  int* sats, int* hdopX10) const;
+  /* The Almanac's Position screen (0.9.80): the last GGA's altitude (m, -10000 = unknown) and
+   * that GGA's age, the last RMC's speed over ground (knots x100, -1 = unknown) and course over
+   * ground (degrees true x10, -1 = unknown) and that RMC's age, and how old the fix is. False
+   * (nothing written) when there has never been a fix. An age with nothing behind it is
+   * UINT32_MAX. A separate accessor rather than a wider getGpsFix(), which has three call sites.
+   * It says nothing about the receiver being on: ask isGpsEnabled(). */
+  bool getGpsMotion(int* altM, uint32_t* altAgeMs, int32_t* speedKnX100, int32_t* courseX10,
+                    uint32_t* motionAgeMs, uint32_t* ageMs) const;
   bool gpsEverFixed() const { return gpsFixMs != 0; }
   void setGpsEnabled(bool on) { gpsEnabled = on; }
   bool isGpsEnabled() const { return gpsEnabled; }
@@ -734,6 +752,11 @@ private:
   int32_t      gpsLatI, gpsLonI;          // last VALID GPS fix (1e-7 deg)
   uint32_t     gpsFixMs;                  // millis() of that fix; 0 = never
   int          gpsSats, gpsHdopX10;       // -1 = unknown
+  int          gpsAltM;                   // the last GGA's altitude, m (-10000 = unknown)
+  uint32_t     gpsAltMs;                  // ...millis() of that GGA; 0 = none
+  int32_t      gpsSpeedKnX100;            // the last RMC's speed over ground, knots x100 (-1 = unknown)
+  int32_t      gpsCourseX10;              // the last RMC's course over ground, deg true x10 (-1 = unknown)
+  uint32_t     gpsMotionMs;               // ...millis() of that RMC; 0 = none
   /* Mirror of WiPhone.ino's gGpsNmea, set by setGpsEnabled() from the two
    * places that toggle it (the My node row and serial `gps on|off`). Read here
    * rather than extern'd because gGpsNmea is not visible in this translation

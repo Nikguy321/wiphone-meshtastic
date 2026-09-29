@@ -22,6 +22,8 @@ void NmeaReader::reset() {
   f.altM = -10000;
   f.rmcHms = -1;
   f.rmcDmy = -1;
+  f.speedKnX100 = -1;
+  f.courseX10 = -1;
   nBytes = nSentences = nBadChecksum = nOverrun = 0;
 }
 
@@ -160,6 +162,51 @@ static bool parseHmsStrict(const char* p, int n, int32_t* hms, int16_t* ms) {
   return true;
 }
 
+/* An unsigned decimal "ddd" or "ddd.fff" as a fixed-point integer with `decimals` places
+ * (decimals 2: "0.36" -> 36, "5" -> 500, "12.345" -> 1234 - digits past `decimals` are
+ * truncated, legal and ignored). Empty, a sign, a second dot, a bare "." or any other
+ * character is -1: a speed we did not understand is no speed, never a guess. At most 6 whole
+ * digits, so the result always fits an int32 (a knot figure that long is not a speed). */
+static int32_t parseFixed(const char* p, int n, int decimals) {
+  if (n <= 0) {
+    return -1;
+  }
+  int i = 0;
+  int32_t whole = 0;
+  int wholeDigits = 0;
+  while (i < n && p[i] >= '0' && p[i] <= '9') {
+    if (++wholeDigits > 6) {
+      return -1;
+    }
+    whole = whole * 10 + (p[i] - '0');
+    i++;
+  }
+  int32_t frac = 0;
+  int fracDigits = 0;
+  if (i < n && p[i] == '.') {
+    i++;
+    while (i < n && p[i] >= '0' && p[i] <= '9') {
+      if (fracDigits < decimals) {
+        frac = frac * 10 + (p[i] - '0');
+        fracDigits++;
+      }
+      i++;
+    }
+  }
+  if (i != n || (wholeDigits == 0 && fracDigits == 0)) {
+    return -1;                          // trailing junk, or "." / "" with no digit at all
+  }
+  while (fracDigits < decimals) {       // "5" -> 500, "5.4" -> 540
+    frac *= 10;
+    fracDigits++;
+  }
+  int32_t scale = 1;
+  for (int k = 0; k < decimals; k++) {
+    scale *= 10;
+  }
+  return whole * scale + frac;
+}
+
 /* One verified sentence body: "GNRMC,123519,A,4807.038,N,...". Talker (GP/GN/GL/
  * GA/GB...) is ignored — the M100 is multi-constellation and answers as GN. */
 bool NmeaReader::parseSentence(const char* body, NmeaFix* f) {
@@ -230,6 +277,18 @@ bool NmeaReader::parseSentence(const char* body, NmeaFix* f) {
     }
     const char* mode = fieldAt(body, 11);   // 9=magvar 10=E/W 11=mode (NMEA 2.3+)
     f->rmcMode = (mode && fieldLen(mode) == 1) ? mode[0] : 0;
+    /* Motion (0.9.80): this sentence's own speed and course, or -1 - never the last RMC's
+     * (the rule above: rewritten by every RMC, present or not). */
+    const char* sog = fieldAt(body, 6);
+    f->speedKnX100 = sog ? parseFixed(sog, fieldLen(sog), 2) : -1;
+    const char* cog = fieldAt(body, 7);
+    int32_t c = cog ? parseFixed(cog, fieldLen(cog), 1) : -1;
+    if (c == 3600) {
+      c = 0;                            // "360.0" is north, the same as "0.0"
+    } else if (c > 3600) {
+      c = -1;                           // not a bearing
+    }
+    f->courseX10 = c;
     return true;
   }
 

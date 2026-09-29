@@ -73,6 +73,7 @@
 #include "map_pins.h"
 #include "meshtastic_service.h"   // MeshChannel: a pin remembers the channel it is shared on
 #include "tile_fetch.h"           // TileJobStatus: a download filling the area on screen
+#include "elev_text.h"            // ElevTextIn: the altitude row's words (0.9.80)
 
 #define MAPS_ROOT          "/maps"
 #define MAPS_PINS_FILE     "/maps/pins.txt"
@@ -97,6 +98,7 @@
 #define MAPS_SELF_PIN      2       // the position the user declared by hand
 #define MAPS_SELF_OLD_GPS  3       // a fix, but an old one: drawn grey, wearing its age
 #define MAPS_SELF_POOR_GPS 4       // fresh, but under 4 satellites / HDOP over 10: grey, and says so
+#define MAPS_ELEV_YOU_REF  5       // (altitude only) no position of your own: the reference place
 
 /* Set while a MapsApp exists. WiPhone.ino's music transport leaves F1-F3 alone while it is
  * up (the Game Boy's gGbcActive rule): on the map the top buttons are zoom and the third is
@@ -117,6 +119,10 @@ bool mapsSaveOpenView();
  * is; `maps goto` moves it. Both drive the same code the keypad does. */
 bool mapsConsoleStatus(char* out, size_t cap);
 bool mapsConsoleGoto(double lat, double lon, int z, const char* area, char* why, size_t whyCap);
+/* Serial `elev` (0.9.80): the altitude layer, the setting, and - with the app open - the last
+ * samples of the crosshair's ground and "you", as the strip would word them. Several lines,
+ * each under 192 bytes (print with sayLines). Reads the map's CACHE only: no card I/O. */
+bool mapsConsoleElev(char* out, size_t cap);
 
 /* One marker the arrows can stop on: which kind (SNAP_PIN / SNAP_PLACE / SNAP_NODE) and its
  * index in that kind's table. Indices are only good for the press they were found in — the
@@ -289,6 +295,7 @@ protected:
   int      dlSource;        // index into tileSource()
   int      dlRadiusIdx;     // into MAPS_DL_RADII
   int      dlDepth;         // deepest zoom WISHED for (NVS); shown and used clamped to the source (tilePlanDepthShown)
+  bool     dlElev;          // "Elevation too: ON/off" (NVS maps/dlelev, default ON): the job fetches /maps/elev as well
   bool     dlHeld;          // the screen is being held awake for the progress display
   uint32_t dlLastMs;        // last progress rebuild
   MenuOption::keyType dlKeep;   // the row to re-select after a progress rebuild
@@ -324,6 +331,54 @@ protected:
   int      chanPending;     // the PUBLIC row awaiting its second press (0 = none)
   int      chanForPin;      // which pin the picked channel is for
 
+  // ════ ALTITUDE (0.9.80): the ground under the crosshair, and against you ════════════════
+  /* The elevation layer is /maps/elev on the card (elev_sd.h, docs/maps.md "Altitude"). Every
+   * height on this screen is READ ON THE APP TIMER, one sample a tick, and cached here: never
+   * in a draw, never in a key handler (a sample is card I/O - up to two tile opens). The draw
+   * paths only read these members. A cached point is `valid` for the place it was taken at
+   * (and the crosshair's for the VIEW it was taken in); anything else reads as not sampled.
+   * 🛑 BOTH HEIGHTS OF A COMPARISON COME FROM THE TILES, never one from the GPS's own altitude:
+   * a phone GPS is +-10-20 m vertically and a different datum from the terrain model, so "35m
+   * above you" from a GPS height against a tile height is mostly the GPS's error. Two readings
+   * of one surface are consistent with each other; that is the question being answered. */
+  struct ElevPoint {
+    bool     valid;         // sampled at (latI, lonI)
+    int32_t  latI, lonI;
+    int      rc;            // elevSample: 1 ok, -1 no data, 0 no tile; or ELEV_TXT_IOERR
+    double   m;             // metres (rc == 1)
+    int      z;             // the layer that answered, -1 none
+    uint32_t costUs;        // what the sample took, for the serial `elev`
+  };
+  bool      altOn;          // Menu "Altitude: ON/off", NVS maps/alt (default ON)
+  bool      elevPresent;    // /maps/elev is on the card (checked with the areas: scanAreas)
+  ElevPoint elevHere;       // the crosshair's ground...
+  int       elevHereZoom;   // ...for THIS view (zoom, cx, cy); zoom -1 = none
+  int32_t   elevHereCx, elevHereCy;
+  int       elevSeenZoom;   // the view as last seen, and since when: a sample waits until
+  int32_t   elevSeenCx, elevSeenCy;   // the view has been still for MAPS_ELEV_SETTLE_MS
+  uint32_t  elevSeenMs;
+  ElevPoint elevYou;        // "you": selfPosition(), else the reference place (named)
+  int       elevYouKind;    // MAPS_SELF_* it was taken for, or MAPS_ELEV_YOU_REF
+  char      elevYouName[24];  // the reference's name, when elevYouKind == MAPS_ELEV_YOU_REF
+  ElevPoint elevMeas;       // the ruler's anchor
+  ElevPoint elevPin;        // the pin on the options screen
+  /* A download writing the layer (tileFetchElevWritten) since the map last looked: the layer is
+   * there now and a height that a new tile could change is read again - no restart, no Rescan. */
+  uint32_t  elevJobSeen;
+  bool  elevActive() const;                        // the setting is on and the layer is there
+  bool  elevHereCurrent() const;                   // elevHere is for the view on the screen
+  int   elevYouNow(int32_t* la, int32_t* lo, char* name, size_t cap) const;
+  bool  elevYouUsable(ElevTextIn* in) const;       // fill in's comparison from elevYou, if usable
+  enum { ELEV_DUE_NONE = 0, ELEV_DUE_HERE, ELEV_DUE_YOU, ELEV_DUE_MEAS, ELEV_DUE_PIN };
+  int   elevDue() const;                           // which sample is owed now (armTimer, the tick)
+  bool  elevStep(bool now = false);                // the tick: take ONE owed sample; true = redraw
+                                                   // (now: no settle wait, no tile-piece gate - the
+                                                   // Follow me re-centre, which is not a thumb)
+  void  elevSampleInto(ElevPoint* p, double lat, double lon);
+  void  elevNoteView();                            // the settle clock: has the view moved?
+  void  elevJobCheck();                            // a download wrote elevation tiles? (no card I/O)
+  int   elevRowText(char* out, size_t cap, const char* label, const ElevPoint* p, bool current,
+                    int fitW);                     // fitW > 0: fitted to that many px of Akrobat 16
   // ---- setup / teardown ----
   bool  allocSlots();
   void  freeSlots();
@@ -461,6 +516,7 @@ protected:
   const MeshChannel* pinChannel(int idx) const;
   friend bool mapsSaveOpenView();
   friend bool mapsConsoleStatus(char* out, size_t cap);   // serial `maps`: the areas' boxes
+  friend bool mapsConsoleElev(char* out, size_t cap);     // serial `elev`: the cached samples
 
   appEventResult onMapKey(EventType event);
 };

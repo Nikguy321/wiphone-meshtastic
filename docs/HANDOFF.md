@@ -1,8 +1,30 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-26 10:50)
+## ▶▶ STATE NOW (header refreshed 2026-09-27 18:00)
 
 Read this first; everything below it is narrative.
+
+🌙 **2026-09-27: 0.9.80-NH BUILT, UNCOMMITTED (branch `kosync`) - THE ALMANAC, ALTITUDE ON THE MAP, METRIC/US UNITS,
+ELEVATION DOWNLOADS. Phone 2 runs a snapshot of it; phone 1 is with Nick on 0.9.79-NH. Commit/push/publish only when
+Nick says.** Spec `docs/almanac.md`; CHANGELOG 0.9.80-NH has the user-facing list. COVEY got the same app (its D-164,
+DEPLOYED, device 79/79) and `tools/almanac_crosscheck.py` there proves its Python == this C++ (0 differences - re-run it
+whenever astro/wmm/geo_grid change). Ground truth: `tests/vectors_almanac.{h,json}` from `tools/gen_almanac_vectors.py`
+(`pip install --user ephem utm mgrs`; NOAA's WMM file in `tools/data/`) - regenerate and copy the JSON to COVEY's
+`tests/fixtures/` together. **Proven on phone 2:** `almanac 47.4957,-121.7868` == COVEY == PyEphem (every event within
+1 s); the day's tables = ~154 ms CPU at 160 MHz, now sliced (longest measured slice 27.8 ms; minute-tick rebuild 10 ms;
+it WAS a 334 ms LOOP STALL); map row "Elev 116m"; `elev` reads ~10 ms; a real `maps dl 2 46.853 -121.760 2 12 1` fetched
+4 terrain tiles from S3 over HTTPS (heap floor 37.7 KB, stack floor 3,324 of 8,192) and Rainier's summit reads 4,391.2 m
+== the Mac-built tile (true 4,392 m); GPS SET THE CLOCK at boot (`clock: source gps`). Elevation master
+`~/elev-master/elev` (2,532 tiles, 317 MB) is on phone 2's card and on COVEY (/root/covey-elev); phone 1 gets it on
+card day (`cardday.sh` step 4) or `wiphone_send.py --app maps --tree ~/elev-master/elev`. 🛑 **The phone's clock is a
+fixed offset**: days past a US clock change are shown in the offset they WILL have (a review found Nov 7 seen from Oct 27
+read legal light an hour late); new setting `wpmesh/almdst`. Legal light default = WA 30-min rule, rounded INWARD.
+Bench: unlock over the cable = `key ok *`; `maps dl` takes a source INDEX (2 = OTM); `shot` itself is a ~4 s stall.
+FINAL build (17:51, 0.9.80-NH) on phone 2: six Left/Right day steps, NO LOOP STALL; longest slice 28 ms, a day 147 ms CPU in
+6 slices (on screen 0.42 s after the key), builds ~10 ms, paints 27-32 ms + the band push (~48 ms, estimated). ⚠ OPEN (0.9.79's
+GPS time, not this work): at this boot GPS set the clock 4 s AHEAD and NTP moved it back 30 s later ("GPS disagrees with a
+fresh NTP by 3998 ms"); at 11:18 the gap was +0.8 s (NTP's dropped fraction). Suspect the first 'A' RMC pair after a warm
+start - look at it before trusting a GPS-only clock to the second (legal light rounds inward to the minute, so not urgent).
 
 ✅ **2026-09-26 13:40: 0.9.79-NH IS LIVE AND PROVEN THROUGH A REAL BROWSER.** Nick's second install on phone 1 from the
 republished page: "Works!" — phone 1 boots the exact published bytes (BOOT `build=Sep 26 2026 12:58:56`), mesh key

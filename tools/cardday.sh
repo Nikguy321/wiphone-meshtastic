@@ -20,11 +20,19 @@
 # replace one), and the backup is an --ignore-existing rsync. The only thing removed is the
 # covey pull's own staging copies in <master>/.incoming.
 #
-# CARDDAY_MASTER, CARDDAY_CARDS and CARDDAY_COVEY_HOST override the master tree, the card
-# backups and the ssh host.
+# ELEVATION (0.9.80): the maps' altitude readout reads /maps/elev/<z>/<x>/<y>.elv on a card and
+# /root/covey-elev/<z>/<x>/<y>.elv on COVEY. Their master is ~/elev-master/elev, built by
+# tools/make_elev_tiles.py - NOT under the tile master, where push_band would convert it into a
+# map area. card_clone.sh --no-tiles skips every numbered folder under /maps, elev included, so
+# without the step below a card swap would silently drop the layer: push copies it, covey push
+# rsyncs it. (Pull does not: the Mac's copy is the master, the card's is a copy of it.)
+#
+# CARDDAY_MASTER, CARDDAY_CARDS, CARDDAY_ELEV and CARDDAY_COVEY_HOST override the master tree, the
+# card backups, the elevation master and the ssh host.
 set -u -o pipefail   # pipefail: `step | tee -a "$LOG" || die` tests the step, not tee
 REPO=/Users/nickhowe/wiphone
 M=${CARDDAY_MASTER:-~/tiles-master}
+ELEV=${CARDDAY_ELEV:-~/elev-master/elev}
 CARDS=${CARDDAY_CARDS:-~/wiphone-cards}
 COVEY=${CARDDAY_COVEY_HOST:-covey}
 LOG=$M/cardday.log
@@ -158,9 +166,31 @@ push() {          # $1 = phone tag, $2 = card volume
     say "step 3: the master's z17 ($(gb "$need") to write, $(gb "$free") free)"
     push_band "$card" 17 17
   fi
+  push_elev "$card"
   dot_clean -m "$card" 2>/dev/null
   say "=== PUSH $tag done: $(count_565 "$card/maps") tiles, $(df -h "$card" | tail -1 | awk '{print $4}') free (z17 $z17) ==="
   say "Eject it:  diskutil eject $card    then: phone on, Maps, Menu > Rescan card"
+}
+
+push_elev() {     # $1 = card volume: the altitude layer, after the maps (it is the smaller loss)
+  local card=$1 need free n
+  if [ ! -d "$ELEV" ]; then
+    say "step 4: no elevation master at $ELEV - the altitude readout will say so (tools/make_elev_tiles.py all)"
+    return 0
+  fi
+  n=$(find "$ELEV" -type f -name '*.elv' -size ${TILE}c | wc -l | tr -d ' ')
+  need=$(( $(du -sk "$ELEV" | cut -f1) * 1024 )); free=$(card_free "$card")
+  if [ "$need" -gt $((free - CARD_KEEP)) ]; then
+    say "⚠ step 4: elevation NOT written - it needs up to $(gb "$need") and the card has $(gb "$free") left"
+    return 0
+  fi
+  say "step 4: elevation, $n tiles (up to $(gb "$need"))"
+  mkdir -p "$card/maps/elev" || die "could not make $card/maps/elev"
+  # -rt --ignore-existing: FAT32 keeps no owners, and a tile already there at any size is left
+  # (make_elev_tiles.py never changes a tile's bytes for the same source PNG).
+  rsync -rt --ignore-existing --exclude '._*' --exclude '*.tmp' "$ELEV/" "$card/maps/elev/" 2>&1 | tail -2 | tee -a "$LOG"
+  [ "${PIPESTATUS[0]}" = 0 ] || die "elevation: the copy STOPPED - re-run this same command, it carries on"
+  say "  elev: $(find "$card/maps/elev" -type f -name '*.elv' -size ${TILE}c | wc -l | tr -d ' ') tiles on the card"
 }
 
 push_band() {     # $1 = card volume, $2-$3 = zoom band
@@ -213,6 +243,16 @@ covey_push() {
     [ "${PIPESTATUS[0]}" = 0 ] || die "$area: the rsync to COVEY did not finish — re-run this same command"
     say "  $area: $(ssh -o BatchMode=yes "$COVEY" "sudo find /root/covey-tiles/$area -type f -name '*.png' -size +0 | wc -l" | tr -d ' ') tiles on COVEY ($((SECONDS - t0))s)"
   done
+  if [ -d "$ELEV" ]; then
+    t0=$SECONDS
+    # Beside the tile tree, never inside it: /root/covey-tiles is the tile store's, and its
+    # janitor judges every file there as a tile.
+    rsync -rt --ignore-existing --exclude '._*' --exclude '*.tmp' --rsync-path='sudo rsync' "$ELEV/" "$COVEY:/root/covey-elev/" 2>&1 | tail -2 | tee -a "$LOG"
+    [ "${PIPESTATUS[0]}" = 0 ] || die "elevation: the rsync to COVEY did not finish - re-run this same command"
+    say "  elev: $(ssh -o BatchMode=yes "$COVEY" "sudo find /root/covey-elev -type f -name '*.elv' -size ${TILE}c | wc -l" | tr -d ' ') tiles on COVEY ($((SECONDS - t0))s)"
+  else
+    say "  elev: no elevation master at $ELEV - skipped (tools/make_elev_tiles.py all)"
+  fi
   [ -z "$refused" ] || die "=== PUSH covey: NOT pushed for want of room on COVEY:$refused ==="
   say "=== PUSH covey done ==="
 }

@@ -23,7 +23,7 @@ mesh has shared and the last position of everyone who has spoken.
 | **Side button 3** | centre on me: a live GPS fix (4+ satellites), else the pin you declared by hand. Also `0` |
 | **Side button 4** (bottom) | the next map type — the same switch as **Menu → Map area**, one press at a time, round and round (`usgs-topo` → `usgs-img` → `otm` → …). The ground under the crosshair stays put; the strip says which map you are on. With one map on the card it says so |
 | **OK** | drop a pin on the crosshair and name it — or, with a pin under the crosshair, open it (rename / move / share / delete). Also `5` |
-| **Menu** (top-left soft key) | **What the buttons do...** is its first row — the phone's buttons drawn with what each does. Then download maps, go to coordinates, follow me, measure (an anchor at the crosshair; scroll away and the strip reads the distance and bearing), **Snap to markers: ON/off**, pins, places, nodes — the three lists are **nearest-first** with distance and bearing on every row |
+| **Menu** (top-left soft key) | **What the buttons do...** is its first row — the phone's buttons drawn with what each does. Then download maps, go to coordinates, follow me, measure (an anchor at the crosshair; scroll away and the strip reads the distance and bearing), **Snap to markers: ON/off**, **Altitude: ON/off** and **Units: metric / US (ft, mi, mph)** (both below), pins, places, nodes — the three lists are **nearest-first** with distance and bearing on every row |
 | **7 / 9** | previous / next pin, centring the map on it |
 | **Back** | leave. Where you were looking is saved — also on power-off |
 
@@ -160,6 +160,104 @@ services answer 404 at z17, so over USGS COVEY stretches z16 online and offline 
 
 ---
 
+## Altitude
+
+With an elevation layer on the card (0.9.80), the strip under the map gains a row, under the
+coordinates, saying how high the ground under the crosshair is — and how that compares with
+the ground under **you**:
+
+| The row says | When |
+|---|---|
+| `Elev 1,352ft, 394ft above you` / `Elev 412m, 35m below you` | the crosshair's ground against yours |
+| `Elev 412m, level with you` | the two are under 1 m apart |
+| `Elev 412m, 35m above Camp` | you have no position of your own (no fix, no pin): the mesh's reference place, by name |
+| `Elev 412m, 35m above poor fix` / `... below old fix` | "you" is a fix under 4 satellites or over HDOP 10 (one was measured 20 km off), or one over two minutes old - named for what it is, never "you" (the marker already says `me?` / `me, 12m ago`) |
+| `Elev 412m` | nothing to compare with, or no tile under you |
+| `Elev 412m (coarse)` / `Elev* 1800m, 1300m above you` | a height came from the coarse ~100 m layer (below). `(coarse)` when it fits the strip, the star when it does not — the map's own mark for borrowed, coarser data, as in `z17*` |
+| `Elev: no tile here` / `Elev: no data here` | no elevation tile at the crosshair / a tile with a hole there |
+| `Elev: card read error` | the card could not be read (not the same as no tile); the next move asks again |
+| `Elev ...` | the map is moving: the height is read once the view has been still ~150 ms (under **Follow me** it is read in the same tick as each re-centre, so the frame that moves the map already shows it - no `Elev ...`, no second redraw. At most ONE card read a fix: while the fix stays within 5 m of the last sample - GPS noise moving the crosshair a pixel - that height stands and the card is not touched, and "you" is the crosshair's own sample, since the view is centred on you. Review 2026-09-27: every fix read the crosshair and you, up to four tile opens in the frame's pass) |
+
+**"You"** is exactly who the white ring and side button 3 mean: a GPS fix under two minutes
+old, else your declared pin, else a poor or an old fix (named on the row: `poor fix`, `old fix`)
+— and only with none of those the reference place, named on the row. **Both heights come from the tiles, never from the GPS's
+own altitude.** A phone GPS is ±10–20 m vertically and measures from a different surface than
+the terrain model; "35 m above you" made from a GPS height and a tile height would be mostly the
+GPS's error. Two readings of one surface are consistent with each other, and that is the
+question the row answers: is that ridge above me, and by how much.
+
+The row also shows up in three other places:
+- **Measure** (the ruler): `Ruler: 1.2km SE, climb +85m` — from the anchor's ground to the
+  crosshair's, when both have a height (`climb -40m` is downhill; `climb* +85m` when either end
+  came from the coarse z10 layer, the strip's star); otherwise the old
+  `Ruler: 1.2km SE of the anchor`.
+- **A pin's options** end with its ground: `Ground 412m, 35m above you`.
+- **Go to coordinates** repeats the crosshair's height under its `Crosshair:` line.
+
+A two-row message on the strip takes the altitude row's place until the next key, as it takes
+the coordinates'. **Menu → Altitude: ON/off** turns the whole thing off (nothing is read from
+the layer at all); it is on by default, and does nothing without the layer.
+
+Each height is read on the app's timer, one at a time, after the tiles on the screen — never
+while drawing, never on a keypress, never while an arrow is held. A read is one small file open
+and one or two 4-byte reads per layer; `elev 47.49643 -121.79` on the serial console times one.
+
+### The tiles, and where they come from
+
+```
+/maps/elev/<z>/<x>/<y>.elv
+```
+
+256×256 **little-endian int16 metres**, row-major, 131072 bytes — the same z/x/y grid and the
+same byte count as a map tile, and the same rule: a file of any other length is not a tile.
+Two layers: **z13** (~13 m pixels at 47 N) under every area the maps hold at zoom 11 or finer,
+and a coarse **z10** (~100 m) under everything down to zoom 8, so a zoomed-out view still reads
+a height. A point tries z13 first, then z10. The heights are the AWS Open Data **Terrain
+Tiles** (USGS 3DEP/NED in the US, SRTM, GMTED, ETOPO elsewhere; attribution in the README),
+checked against USGS's own point service near North Bend: within ~1 m on flat ground.
+The format and the sampling are in [almanac.md](almanac.md), "Elevation".
+
+🛑 **`elev` is a reserved name under `/maps`.** The map never lists it as a map area (nor does
+the `maps` console command, which reports it on a line of its own), whatever its case. Do not
+name a map area `elev`. Firmware before 0.9.80 does not know this and would offer an empty
+"elev" map — push the layer only to phones that run 0.9.80 or later.
+
+Making and copying it, on the Mac:
+
+```bash
+python3 tools/make_elev_tiles.py all          # ~/elev-master/elev: z13 under the tile master's
+                                              #   areas + the z10 layer (plan / fetch / build)
+python3 tools/make_elev_tiles.py all --bbox 47.3,-122.0,47.6,-121.5   # an ad-hoc area
+
+# onto a phone over WiFi (the maps uploader, `up on maps`): lands at /maps/elev/...
+python3 tools/wiphone_send.py --app maps --tree ~/elev-master/elev
+
+# or on card day: `tools/cardday.sh <phone> push` copies it as its step 4 (after the maps),
+# and `tools/cardday.sh covey push` rsyncs it to COVEY's /root/covey-elev
+```
+
+Or **on the phone**: `Menu → Download maps...` with **Elevation too: ON** (the default) fetches
+the layer for the area it downloads, from the same source, and the phone's decode gives the
+same bytes as the Mac's (`tests/test_tilepng.cpp` checks a real tile, all 131072 bytes). A layer
+a download writes is picked up by an open map as it lands — no Rescan needed.
+
+Then **Menu → Rescan the card** (the layer is looked for when the map opens and on Rescan).
+`tools/card_clone.sh --no-tiles` skips it like every numbered folder under `/maps`, so a card
+swap needs the cardday step to bring it back.
+
+## Units
+
+**Menu → Units: metric / US (ft, mi, mph)** — one setting (the same row, word for word, as the
+Almanac's Settings: `unitsSettingRow`) for the whole phone (NVS `wpmesh/units`;
+serial `units metric|us`). Metric is exactly what the phone has always printed. US is feet and
+miles: the scale bar (`500ft`, `2000ft`, `0.5mi`, `2mi`), every distance on the strip and in
+the Pins / Places / Nodes lists (`850ft`, `1.4mi`), the Meshtastic app's node lines, the
+altitude row (`1,352ft`, with a thousands comma), and the download form's radius
+(`Radius: 5 km (3.1mi)` — the radii themselves stay COVEY's round kilometres). The Almanac
+follows the same setting. The formats are in [almanac.md](almanac.md), "Units".
+
+---
+
 ## The tiles
 
 ```
@@ -169,7 +267,8 @@ services answer 404 at z17, so over USGS COVEY stretches z16 online and offline 
 Standard slippy-map `z/x/y` numbering — the same numbering every tile downloader and every
 `z/x/y` cache on a computer already uses, COVEY's included. `<area>` is whatever you want the
 map called on the phone (letters, digits, `-`, `_`, `.`; at most 31 characters; not starting
-with a dot). You can have several; the Maps menu lists them when there is more than one.
+with a dot; not `elev`, which is the altitude layer — see "Altitude"). You can have several;
+the Maps menu lists them when there is more than one.
 
 **A tile is 256×256 pixels, RGB565, little-endian, 131072 bytes exactly.** Raw. Not PNG, not
 JPEG.
@@ -424,10 +523,12 @@ card in the raw format above, so the viewer never learns where a tile came from.
 |---|---|
 | Source | **USGS Topo** (contours, roads, labels — the hunt map), **USGS Aerial**, **OpenTopoMap** (denser contours, CC-BY-SA, slow server). The form opens on the source of the map you are looking at |
 | Radius | 2 / 5 / 10 / 20 km around the crosshair, at every depth |
-| Detail | to z13, z14, z15 or z16, and **z17 for OpenTopoMap only** (`Detail: z17 (4x z16's cost)`). z15 is 3 m per pixel; USGS z16 is the same drawing scaled up and costs four times as much. USGS has no z17, so on USGS the row stops at z16, and a press never lands on a step that shows the same depth twice. The depth shown is the depth used |
+| Detail | to z13, z14, z15 or z16, and **z17 for OpenTopoMap only** (`Detail: z17 (4x z16's cost)`). z15 is ~3 m per pixel at 47 N, and the row says it in the Units setting (`Detail: z15 (3m/pixel)`, US `(11ft/pixel)`, at the area's latitude); USGS z16 is the same drawing scaled up and costs four times as much. USGS has no z17, so on USGS the row stops at z16, and a press never lands on a step that shows the same depth twice. The depth shown is the depth used |
+| Elevation too | **ON** (the default) / off (0.9.80): the same square's **altitude layer** as well — z13 and the coarse z10, from the AWS Terrain Tiles, into `/maps/elev` (see [Altitude](#altitude)). A 5 km area adds 18 tiles, 20 km adds 175 (22 MB). Kept with the other choices (NVS `maps/dlelev`) when you press Start |
 
 The line under them is the honest estimate: tiles, size on the card, and time, e.g. `50451
-tiles, 6.2 GB, up to about 36 h` (OpenTopoMap, 20 km, z17). It uses the rates measured on the
+tiles + 175 elevation, 6.2 GB, up to about 36 h` (OpenTopoMap, 20 km, z17; the size and the time
+include the elevation tiles, at 131072 bytes and a guessed 2 s each - not measured yet). It uses the rates measured on the
 phone: USGS about a second a tile, OpenTopoMap about four to z16, and OpenTopoMap's z17 at the
 2.0 s interval plus 0.1 s (phone 2 measured ~2.07 s). It says **"up to"** because tiles
 already on the card are skipped in milliseconds. Over 4 h it adds `Keep it on USB: about 36 h
@@ -435,8 +536,12 @@ of downloading`; off USB the job would stop at the battery floor and wait.
 **Start download** needs WiFi and either USB power or a battery above 3.8 V, and says which is
 missing. It is also refused during a game, a Files folder job, or within a minute of a call.
 
-While it runs, the screen shows THAT job, read-only:
-- `Downloading 24 of 271`, the zoom level it is on, the bytes, the seconds and the failures;
+While it runs, the screen shows THAT job, read-only (`USGS Topo, 5 km to z15 + elevation, ...`):
+- **the elevation layer first**, when the job has it: `Downloading elevation 12 of 18`, then
+  `Elevation z13, ...` with its own failures (it is small, and it makes the altitude readout work
+  minutes into a job that may run for days);
+- `Downloading 24 of 271`, the zoom level it is on, the bytes, the seconds and the failures,
+  and under them what the elevation layer came to (`Elevation: 16 new, 2 already had, 0 failed`);
 - `About N left`, from the mean of the last 200 tiles fetched;
 - `Server busy - trying again in N min` when the server has asked it to slow down;
 - `Resumes by itself after a WiFi drop or a restart`.
@@ -451,7 +556,20 @@ and the clock all still work.
 Re-running the same area only fetches what is missing. A tile is "there" only when it is
 exactly 131072 bytes, so a power-off mid-tile leaves nothing the next run will not repair. When
 a run is over the screen keeps its account (`Last run: 5517 new, 7332 already had, 4 failed,
-7013 s`). If anything failed, it adds `Last problem:` with the last tile that did and why. Every
+7013 s`), and the elevation layer's under it (`Elevation: 173 new, 2 already had, 3 failed (last:
+z13 1330/2862: HTTP 403)`). If anything failed, it adds `Last problem:` with the last map tile
+that did and why.
+
+**The elevation layer never costs you the map.** It has its own connection (to
+`s3.amazonaws.com`, HTTPS only), its own counts, and its own failures: a tile that does not come
+is counted as an elevation failure and never as a map tile's, never toward the twelve-in-a-row
+stops, never toward the RAM strikes. Four failures in a row and the layer is left for the next
+run (`- stopped trying this run`); the map tiles start either way. It has no cursor: every run,
+a resume included, walks it first, and a tile already on the card at 131072 bytes costs one
+look, so a resume or **Start download** again is its retry. The job's own rules do apply to it:
+Stop, a call or a game pausing it, a WiFi drop, the battery floor. A job started before 0.9.80
+resumes without the layer. While a job with the layer runs or waits, the Files app refuses to
+delete or move `/maps/elev` too. Every
 line on this screen **wraps** onto more rows rather than ending in `..` (0.9.68).
 
 **A download is built to run for days (0.9.78).** A 20 km OpenTopoMap area to z17 is about 36
@@ -567,7 +685,7 @@ short version: the downloader runs on its own task with an 8 KB stack, redirects
 allocator into PSRAM once (`mbedtls_platform_set_calloc_free`), keeps one connection alive for
 the whole area, decodes each tile with the decoders already in the ESP32's ROM (TJpgDec for
 USGS's JPEG, the `tinfl` inflater for OpenTopoMap's PNG — `tile_png.cpp` is the 300 lines of
-PNG around it, proven against 52 host checks), and writes the raw file to a temporary name
+PNG around it, proven against 92 host checks - the elevation download's RGB rows among them), and writes the raw file to a temporary name
 before renaming it into place.
 
 Internal RAM is the thing to watch: the task's stack is 8 KB for the life of the firmware
@@ -584,10 +702,19 @@ high-water mark.
 maps dl                                  what the last / current run did, with the heap floor,
                                          the stack floor, ms a tile, and the saved job's resume
                                          state (network, cursor, strikes, last stop reason)
-maps dl 0 47.42 -121.75 5 15             start: source 0=USGS Topo 1=USGS Aerial 2=OpenTopoMap;
+maps dl 0 47.42 -121.75 5 15 [elev 1|0]  start: source 0=USGS Topo 1=USGS Aerial 2=OpenTopoMap;
                                          the depth is capped at the source's (USGS 16, OTM 17)
                                          and the start line prints the depth actually used.
-                                         The job is kept and resumes by itself
+                                         The last number (the word `elev` before it optional):
+                                         the elevation layer too (1) or not (0); left out, the
+                                         form's "Elevation too" (ON); anything else is the
+                                         usage line, never "left out". A resume counts the
+                                         layer in its card-space check only until a run has
+                                         had it whole (the job record's elev byte, 2). The job
+                                         is kept and resumes by itself. The status has a line
+                                         of its own for it: `  elevation: 18/18 seen - 16 new,
+                                         2 had, 0 no-tile, 0 failed` (`RUNNING z13, ...` while
+                                         it goes)
 maps dl stop                             finish the tile in hand and quit; the job is
                                          forgotten and will not resume
 maps dlurl http://192.168.1.17:8765/{z}/{x}/{y}.jpg    a plain-HTTP relay as source 3
@@ -610,6 +737,11 @@ So the serial console can drive the whole thing:
 ```
 maps                          what the card holds, the saved view, the pins file
 maps goto 47.6062 -122.3321 15 home     set where Maps opens next
+elev                          the altitude layer, the setting, and (Maps open) the last
+                              samples of the crosshair and "you" as the strip words them
+elev 47.49643 -121.79         sample the elevation tiles at any point, timed:
+                              elev: 47.49643,-121.79000 -> 412.3 m (z13) [<t> ms]
+units / units us              the unit setting / switch it
 ```
 
 `maps goto` writes the same saved view the app itself writes, so you can put a known

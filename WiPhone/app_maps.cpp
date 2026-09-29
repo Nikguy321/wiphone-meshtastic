@@ -9,7 +9,12 @@
 #include "menu_wrap.h"      // the strip's note, broken into rows that fit
 #include <WiFi.h>
 #include "tile_fetch.h"
+#include "elev_sd.h"        // the altitude layer on the card (0.9.80)
+#include "units.h"          // metric or US: the scale bar, every distance, every height
+#include "prefs_almanac.h"  // gUnits, unitsSetPref
 #include <stdarg.h>
+#include <string.h>
+#include <strings.h>        // strcasecmp: the reserved folder name, whatever its case
 #include <sys/stat.h>
 
 extern bool uiKeyStillHeld(uint32_t mask);   // WiPhone.ino: is this key physically down right now?
@@ -70,6 +75,16 @@ extern bool gGpsNmea;         // WiPhone.ino: is the NMEA receiver switched on a
 
 static const char MAPS_NVS[] = "maps";
 
+/* ALTITUDE (0.9.80). The crosshair's ground is sampled once the view has been still this long:
+ * a tap's nudge settles in one or two ticks, a hold's sweep never does until it stops, so no
+ * sample is spent on ground the map is only passing over. "You" is sampled again when you have
+ * moved this far (or become somebody else: GPS -> pin -> the reference), and a comparison is
+ * still drawn from the last sample while the new one is owed, if it is no further than
+ * MAPS_ELEV_YOU_SHOW_M from where you are now - the next tick replaces it. */
+#define MAPS_ELEV_SETTLE_MS    150u
+#define MAPS_ELEV_YOU_MOVE_M   5.0
+#define MAPS_ELEV_YOU_SHOW_M   100.0
+
 /* Row keys. 🛑 NEVER 0 — MenuWidget::addOption() refuses a key of 0 outright and adds no row
  * at all (see the note on addNote() in GUI.h, and tests/check_menu_keys.py, which exists
  * because eight sites got this wrong on the same day). Display-only rows use addNote(). */
@@ -89,6 +104,8 @@ enum {
   ROW_M_FOLLOW     = ROW_ACT + 11,
   ROW_M_MEASURE    = ROW_ACT + 12,
   ROW_M_SNAP       = ROW_ACT + 13,
+  ROW_M_ALT        = ROW_ACT + 14,     // Altitude: ON/off (0.9.80)
+  ROW_M_UNITS      = ROW_ACT + 15,     // Units: metric / US
   ROW_P_RENAME     = ROW_ACT + 20,
   ROW_P_MOVE       = ROW_ACT + 21,
   ROW_P_SHARE      = ROW_ACT + 22,
@@ -106,6 +123,7 @@ enum {
   ROW_D_STOP       = ROW_ACT + 44,
   ROW_D_BACK       = ROW_ACT + 45,
   ROW_D_RESUME     = ROW_ACT + 46,     // a waiting download: start it now, on this network
+  ROW_D_ELEV       = ROW_ACT + 47,     // Elevation too: ON/off (0.9.80)
   ROW_C_CANCEL     = ROW_ACT + 59,
   ROW_C_BASE       = ROW_ACT + 60,     // channel i is ROW_C_BASE + i
 };
@@ -125,6 +143,11 @@ static const int MAPS_DL_RADII[] = { 2, 5, 10, 20 };
  * since tiles already on the card are skipped. ⚠ OTM z17 is not measured yet: it renders on
  * demand more often, so re-measure on the first z17 run (`maps dl` prints ms/tile). */
 static const float MAPS_DL_SEC_PER_TILE[] = { 1.2f, 1.2f, 4.0f, 0.6f };
+/* An elevation tile (0.9.80): ~120 KB over kept-alive HTTPS from S3, an RGB PNG inflated and
+ * converted, a 128 KB write. ⚠ NOT MEASURED ON THE PHONE: a guess from the USGS figure scaled by
+ * the bytes; `maps dl` prints the run's seconds - re-measure on the first real run. */
+#define MAPS_DL_ELEV_SEC_PER_TILE 2.0
+#define MAPS_DL_ELEV_ROW          192     // the form's elevation account (PSRAM, not the loop's stack)
 #define MAPS_DL_HOLD_MS    (2u * 60u * 1000u)   // the running form holds the screen this long after a key
 #define MAPS_DL_STOP_ARM_MS 3000u              // Stop is a second press inside this
 
@@ -213,6 +236,7 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   dlSource = 0;
   dlRadiusIdx = 1;                 // 5 km
   dlDepth = 15;
+  dlElev = true;
   dlHeld = false;
   dlLastMs = 0;
   dlKeep = ROW_D_START;
@@ -229,6 +253,20 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   followLastStamp = 0;
   measuring = false;
   measLatI = measLonI = 0;
+  altOn = true;
+  elevPresent = false;
+  memset(&elevHere, 0, sizeof(elevHere));
+  memset(&elevYou, 0, sizeof(elevYou));
+  memset(&elevMeas, 0, sizeof(elevMeas));
+  memset(&elevPin, 0, sizeof(elevPin));
+  elevHereZoom = -1;
+  elevHereCx = elevHereCy = 0;
+  elevSeenZoom = -1;
+  elevSeenCx = elevSeenCy = 0;
+  elevSeenMs = 0;
+  elevYouKind = MAPS_SELF_NONE;
+  elevYouName[0] = '\0';
+  elevJobSeen = tileFetchElevWritten();   // what a download wrote before this open, scanAreas sees
   {
     /* The last download choices, so a second area is two presses. Same namespace as the view. */
     Preferences p;
@@ -236,7 +274,9 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
       dlSource = p.getInt("dlsrc", dlSource);
       dlRadiusIdx = p.getInt("dlrad", dlRadiusIdx);
       dlDepth = p.getInt("dldep", dlDepth);
+      dlElev = p.getInt("dlelev", 1) != 0;
       snapPins = p.getInt("snap", 1) != 0;
+      altOn = p.getInt("alt", 1) != 0;
       p.end();
     }
     if (dlSource < 0 || dlSource >= tileSourceCount()) dlSource = 0;
@@ -389,9 +429,22 @@ static const char* baseName(const char* path) {
   return s ? s + 1 : path;
 }
 
+/* A folder under /maps that is NOT a map area, whatever it holds. `elev` (ELEV_DIR) is the
+ * altitude layer: numbered zoom folders of .elv tiles, which scanAreas would otherwise list as a
+ * map with nothing drawable in it. Case-blind: FAT is, so "Elev" is the same folder. Every loop
+ * that takes the folders of /maps for areas asks this (scanAreas, mapsConsoleStatus). */
+static bool mapsReservedName(const char* name) {
+  return name && strcasecmp(name, ELEV_DIR) == 0;
+}
+
 void MapsApp::scanAreas() {
   areaCount = 0;
   areaSel = -1;
+  /* The altitude layer is judged with the areas: the same card, read at the same moments (the
+   * app opening, Rescan), and every height cached from the card before is forgotten with it. */
+  elevPresent = false;
+  elevHere.valid = elevYou.valid = elevMeas.valid = elevPin.valid = false;
+  elevHereZoom = -1;
   /* Is there a card at all? "No map tiles on the card" sends somebody to the computer to
    * convert tiles; "No SD card" sends them to find the card. Getting those two the wrong way
    * round costs a trip. */
@@ -405,6 +458,7 @@ void MapsApp::scanAreas() {
   if (!cardOk) {
     return;
   }
+  elevPresent = elevCardPresent();
   if (!SD.exists(MAPS_ROOT)) {
     /* Make the folder so the message can name a place that exists. A user told "put tiles in
      * /maps" who then cannot find /maps has been given a puzzle, not an instruction. */
@@ -421,7 +475,7 @@ void MapsApp::scanAreas() {
   File f;
   while ((f = dir.openNextFile())) {
     const char* nm = baseName(f.name());
-    if (!f.isDirectory() || !mapAreaNameOk(nm)) {
+    if (!f.isDirectory() || !mapAreaNameOk(nm) || mapsReservedName(nm)) {
       f.close();
       continue;
     }
@@ -561,7 +615,7 @@ void MapsApp::areaWhere(int idx, double lat, double lon, char* out, size_t n) co
   areaCentre(idx, &cl, &co);
   const int32_t a0 = mapDegToI7(lat), o0 = mapDegToI7(lon), a1 = mapDegToI7(cl), o1 = mapDegToI7(co);
   char d[16];
-  meshPosFmtDist(meshPosDistanceM(a0, o0, a1, o1), d, sizeof(d));
+  unitsFmtDist(meshPosDistanceM(a0, o0, a1, o1), gUnits, d, sizeof(d));
   snprintf(out, n, "%s %s", d, meshPosCompass8(meshPosBearingDeg(a0, o0, a1, o1)));
 }
 
@@ -1826,6 +1880,12 @@ int MapsApp::noteRows(SmoothFont* fnt, uint16_t maxW, char (*rows)[72]) {
   return c.n;
 }
 
+/* ElevTextMeasureFn over a SmoothFont itself (not the LCD's current font): the altitude row is
+ * fitted in the font it is drawn in, whoever set the LCD's font last. */
+static int elevMeasure(void* ctx, const char* s) {
+  return (int)((SmoothFont*)ctx)->textWidth(s);
+}
+
 void MapsApp::drawBottomStrip() {
   SmoothFont* fnt = fonts[AKROBAT_BOLD_16];
   if (!fnt) {
@@ -1835,10 +1895,18 @@ void MapsApp::drawBottomStrip() {
   const int th = (int)fnt->height();
   /* Row 1 is the scale bar; the note takes one row, or two when it needs them (noteRows).
    * The strip grows upward over the map for the second row, and shrinks back when the note
-   * is retired by the next key. */
+   * is retired by the next key.
+   * ALTITUDE (0.9.80): one more row, under the coordinates (or under a one-row note), while the
+   * layer is on the card and the setting is on. A TWO-row note takes the room and the altitude
+   * row is dropped for it - the note wins, as it wins over the coordinates. The strip is at
+   * most three rows either way, and nothing else on the map depends on its height: the
+   * crosshair, the pin pick and the snap are at the middle of the viewport, the chips at its
+   * top, and labels are placed without regard to the strip, which paints over them (as it did
+   * at three rows for a two-row note). */
   char nrows[MAPS_NOTE_ROWS][72];
   const int noteN = noteRows(fnt, (uint16_t)(vpW - 8), nrows);
-  const int stripH = th * (1 + (noteN > 1 ? noteN : 1)) + 6;
+  const bool altRow = elevActive() && noteN < 2;
+  const int stripH = th * (1 + (noteN > 1 ? noteN : 1) + (altRow ? 1 : 0)) + 6;
   const int sy = vpY + vpH - stripH;
   if (stripH >= vpH) {
     return;
@@ -1848,20 +1916,18 @@ void MapsApp::drawBottomStrip() {
   // Row 1: the scale bar, and how far the crosshair is from the reference place.
   double lat = 0, lon = 0;
   mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &lat, &lon);
+  /* unitsScaleBar: in metric it IS mapScaleBar(mpp, 84, &px) and the label this drew from its
+   * metres ("%dm" under 1000, else "%dkm") - same arguments, same bar, same pixels
+   * (tests/test_units.cpp compares the two over a sweep of scales). */
   int barPx = 0;
-  const int barM = mapScaleBar(mapMetersPerPixel(lat, zoom), 84, &barPx);
+  char sb[24];
+  const int barM = unitsScaleBar(mapMetersPerPixel(lat, zoom), 84, gUnits, &barPx, sb, sizeof(sb));
   const int by = sy + 3;
   int usedLeft = vpX + 4;               // how far along row 1 the scale bar reaches
   if (barM > 0 && barPx > 0) {
     fillClipped(vpX + 4, by + th / 2, barPx, 2, MAP_C_ME);
     fillClipped(vpX + 4, by + th / 2 - 3, 2, 8, MAP_C_ME);
     fillClipped(vpX + 4 + barPx - 2, by + th / 2 - 3, 2, 8, MAP_C_ME);
-    char sb[24];
-    if (barM >= 1000) {
-      snprintf(sb, sizeof(sb), "%dkm", barM / 1000);
-    } else {
-      snprintf(sb, sizeof(sb), "%dm", barM);
-    }
     lcd.setTextColor(MAP_C_ME, MAP_C_STRIP);
     lcd.drawString(sb, vpX + 8 + barPx, by);
     usedLeft = vpX + 8 + barPx + lcd.textWidth(sb);
@@ -1873,7 +1939,7 @@ void MapsApp::drawBottomStrip() {
     const int32_t cLat = mapDegToI7(lat), cLon = mapDegToI7(lon);
     const double m = meshPosDistanceM(rLat, rLon, cLat, cLon);
     char d[16];
-    meshPosFmtDist(m, d, sizeof(d));
+    unitsFmtDist(m, gUnits, d, sizeof(d));
     char right[44];
     snprintf(right, sizeof(right), "%s %s %s", d,
              meshPosCompass8(meshPosBearingDeg(rLat, rLon, cLat, cLon)), rName);
@@ -1899,27 +1965,43 @@ void MapsApp::drawBottomStrip() {
       guiDrawEllipsized(lcd, nrows[i], (uint16_t)(vpW - 8), (int16_t)(vpX + 4),
                         (int16_t)(sy + th * (1 + i) + 4));
     }
-    return;
-  } else if (measuring) {
-    /* The whole row, not the right end of row 1: "1.2km SE" plus a word does not fit beside
-     * a 1 km scale bar, and a measurement that is silently dropped for width is the one
-     * failure a ruler must not have. */
-    const int32_t cLat = mapDegToI7(lat), cLon = mapDegToI7(lon);
-    char d[16];
-    meshPosFmtDist(meshPosDistanceM(measLatI, measLonI, cLat, cLon), d, sizeof(d));
-    snprintf(line, sizeof(line), "Ruler: %s %s of the anchor", d,
-             meshPosCompass8(meshPosBearingDeg(measLatI, measLonI, cLat, cLon)));
-    lcd.setTextColor(MAP_C_ME, MAP_C_STRIP);
   } else {
-    snprintf(line, sizeof(line), "%.5f, %.5f", lat, lon);
+    if (measuring) {
+      /* The whole row, not the right end of row 1: "1.2km SE" plus a word does not fit beside
+       * a 1 km scale bar, and a measurement that is silently dropped for width is the one
+       * failure a ruler must not have. With both ends' ground known the row says the climb
+       * ("Ruler: 1.2km SE, climb +85m": the anchor's ground to the crosshair's, both from the
+       * tiles), else the old words. */
+      const int32_t cLat = mapDegToI7(lat), cLon = mapDegToI7(lon);
+      const bool climb = elevActive() && elevHereCurrent() && elevHere.rc == 1 &&
+                         elevMeas.valid && elevMeas.latI == measLatI && elevMeas.lonI == measLonI &&
+                         elevMeas.rc == 1;
+      /* "climb*" when either end came from the coarse z10 layer, as the strip's "Elev*" does
+       * (review 2026-09-27: a ~100 m-pixel climb looked as exact as a z13 one). */
+      const bool coarse = climb && (elevHere.z == ELEV_Z_COARSE || elevMeas.z == ELEV_Z_COARSE);
+      elevRulerText(line, sizeof(line), meshPosDistanceM(measLatI, measLonI, cLat, cLon),
+                    meshPosCompass8(meshPosBearingDeg(measLatI, measLonI, cLat, cLon)), climb,
+                    climb ? elevHere.m - elevMeas.m : 0.0, gUnits, coarse);
+    } else {
+      snprintf(line, sizeof(line), "%.5f, %.5f", lat, lon);
+    }
     lcd.setTextColor(MAP_C_ME, MAP_C_STRIP);
+    /* ⚠ ELLIPSIZED, NOT drawString. This row carries a note this app composed from a pin name,
+     * a place name or a node name — all of them other people's text — and plain drawString does
+     * not clip: it paints to the screen edge and beyond. guiDrawEllipsized exists for exactly
+     * this (GUI.h), cuts on a character boundary and appends ".." so a truncated string looks
+     * truncated instead of looking complete. */
+    guiDrawEllipsized(lcd, line, (uint16_t)(vpW - 8), (int16_t)(vpX + 4), (int16_t)(sy + th + 4));
   }
-  /* ⚠ ELLIPSIZED, NOT drawString. This row carries a note this app composed from a pin name,
-   * a place name or a node name — all of them other people's text — and plain drawString does
-   * not clip: it paints to the screen edge and beyond. guiDrawEllipsized exists for exactly
-   * this (GUI.h), cuts on a character boundary and appends ".." so a truncated string looks
-   * truncated instead of looking complete. */
-  guiDrawEllipsized(lcd, line, (uint16_t)(vpW - 8), (int16_t)(vpX + 4), (int16_t)(sy + th + 4));
+  if (altRow) {
+    /* The last row: "Elev 412m, 35m above you" - composed from the CACHE (elevRowText), fitted
+     * to the row by measuring (a coarse height turns "(coarse)" into "Elev*", a long reference
+     * name is cut), and ellipsized as a backstop like every row here. */
+    elevRowText(line, sizeof(line), NULL, &elevHere, elevHereCurrent(), vpW - 8);
+    lcd.setTextColor(MAP_C_ME, MAP_C_STRIP);
+    guiDrawEllipsized(lcd, line, (uint16_t)(vpW - 8), (int16_t)(vpX + 4),
+                      (int16_t)(sy + th * (1 + (noteN > 0 ? noteN : 1)) + 4));
+  }
 }
 
 void MapsApp::drawNoMapPage() {
@@ -2715,6 +2797,8 @@ void MapsApp::buildMenu() {
   menu->addOption(followMe ? "Follow me: ON (scroll stops it)" : "Follow me: off", ROW_M_FOLLOW);
   menu->addOption(measuring ? "Stop measuring" : "Measure from here...", ROW_M_MEASURE);
   menu->addOption(snapPins ? "Snap to markers: ON" : "Snap to markers: off", ROW_M_SNAP);
+  menu->addOption(altOn ? "Altitude: ON" : "Altitude: off", ROW_M_ALT);
+  menu->addOption(unitsSettingRow(gUnits), ROW_M_UNITS);   // the Almanac's row, word for word
   menu->addOption(tileFetchActive() ? "Downloading maps..." : "Download maps...", ROW_M_DOWNLOAD);
   if (areaCount > 1) {
     snprintf(row, sizeof(row), "Map area: %s", areaSel >= 0 ? areas[areaSel].name : "-");
@@ -2782,7 +2866,7 @@ void MapsApp::buildList() {
       MapsListRow* r = &rows[n++];
       r->id = (uint32_t)i;                     // this app owns the pin array; index is identity
       r->dist = meshPosDistanceM(rLat, rLon, pins[i].latI, pins[i].lonI);
-      meshPosFmtDist(r->dist, d, sizeof(d));
+      unitsFmtDist(r->dist, gUnits, d, sizeof(d));
       snprintf(r->text, sizeof(r->text), "%s %s  %s%s", d,
                meshPosCompass8(meshPosBearingDeg(rLat, rLon, pins[i].latI, pins[i].lonI)),
                pins[i].name, pins[i].sharedId ? " (shared)" : "");
@@ -2797,7 +2881,7 @@ void MapsApp::buildList() {
       MapsListRow* r = &rows[n++];
       r->id = w->id;                           // the waypoint table compacts; the id does not
       r->dist = meshPosDistanceM(rLat, rLon, w->latI, w->lonI);
-      meshPosFmtDist(r->dist, d, sizeof(d));
+      unitsFmtDist(r->dist, gUnits, d, sizeof(d));
       snprintf(r->text, sizeof(r->text), "%s %s  %s", d,
                meshPosCompass8(meshPosBearingDeg(rLat, rLon, w->latI, w->lonI)), w->name);
     }
@@ -2816,7 +2900,7 @@ void MapsApp::buildList() {
       MapsListRow* r = &rows[n++];
       r->id = nd->nodeNum;
       r->dist = meshPosDistanceM(rLat, rLon, nd->latI, nd->lonI);
-      meshPosFmtDist(r->dist, d, sizeof(d));
+      unitsFmtDist(r->dist, gUnits, d, sizeof(d));
       const unsigned mins = (unsigned)((now - nd->posHeardMs) / 60000u);
       snprintf(r->text, sizeof(r->text), "%s %s  %s, %um ago", d,
                meshPosCompass8(meshPosBearingDeg(rLat, rLon, nd->latI, nd->lonI)),
@@ -2876,6 +2960,38 @@ void MapsApp::buildPinOpts() {
   snprintf(row, sizeof(row), "%.5f, %.5f",
            mapI7ToDeg(pins[pinSel].latI), mapI7ToDeg(pins[pinSel].lonI));
   menu->addNote(row);
+  if (elevActive()) {
+    /* The pin's ground, from the CACHE: "Ground 412m, 35m above you", or "Ground ..." until
+     * the app timer has read it (elevStep rebuilds this screen then, keeping the thumb's row).
+     * Nothing here reads the card - this runs from key handlers. Wrapped, not fitted: a menu
+     * note has the rows to spare. */
+    const bool current = elevPin.valid && elevPin.latI == pins[pinSel].latI &&
+                         elevPin.lonI == pins[pinSel].lonI;
+    elevRowText(row, sizeof(row), "Ground", &elevPin, current, 0);
+    menu->addNoteWrapped(row);
+  }
+}
+
+/* The elevation layer's account of a run (0.9.80), for the form: its own counts - an elevation
+ * failure is never one of the map's - and, when it gave up, why. "" when the job has no layer. */
+static void dlElevSummary(char* row, size_t cap, const TileJobStatus& st) {
+  row[0] = '\0';
+  if (!st.elev) {
+    return;
+  }
+  int w = snprintf(row, cap, "Elevation: %d new, %d already had", st.elevDone, st.elevSkipped);
+  if (w > 0 && (size_t)w < cap && st.elevNoTile > 0) {
+    w += snprintf(row + w, cap - (size_t)w, ", %d none there", st.elevNoTile);
+  }
+  if (w > 0 && (size_t)w < cap) {
+    w += snprintf(row + w, cap - (size_t)w, ", %d failed", st.elevFailed);
+  }
+  if (w > 0 && (size_t)w < cap && st.elevGaveUp) {
+    w += snprintf(row + w, cap - (size_t)w, " - stopped trying this run");
+  }
+  if (w > 0 && (size_t)w < cap && st.elevFailed > 0 && st.elevErr[0]) {
+    snprintf(row + w, cap - (size_t)w, " (last: %s)", st.elevErr);
+  }
 }
 
 void MapsApp::buildDownload() {
@@ -2897,9 +3013,11 @@ void MapsApp::buildDownload() {
    * among the deepest the loop has, and its measured floor is a few hundred bytes. */
   static TileJobStatus*    s_dlSt = NULL;
   static TileFetchJobInfo* s_dlJob = NULL;
+  static char*             s_dlElevRow = NULL;   // the elevation account, with its last error: ~150 chars
   if (!s_dlSt) s_dlSt = (TileJobStatus*)ps_malloc(sizeof(TileJobStatus));
   if (!s_dlJob) s_dlJob = (TileFetchJobInfo*)ps_malloc(sizeof(TileFetchJobInfo));
-  if (!s_dlSt || !s_dlJob) {
+  if (!s_dlElevRow) s_dlElevRow = (char*)ps_malloc(MAPS_DL_ELEV_ROW);
+  if (!s_dlSt || !s_dlJob || !s_dlElevRow) {
     menu->addNoteWrapped("No memory for the download form");
     menu->addOption("Back", ROW_D_BACK);
     menu->select(ROW_D_BACK);
@@ -2924,8 +3042,8 @@ void MapsApp::buildDownload() {
     /* ── A JOB IS RUNNING OR WAITING TO RESUME: show THAT job, read-only. The choice rows are
      * for the next Start, and a Start now would replace a multi-day job whose centre was the
      * map centre days ago — so Start is not offered until this one is stopped or done. */
-    snprintf(row, sizeof(row), "%s, %d km to z%d, around %.2f, %.2f",
-             job.label, job.radiusKm, job.zMax, job.lat, job.lon);
+    snprintf(row, sizeof(row), "%s, %d km to z%d%s, around %.2f, %.2f",
+             job.label, job.radiusKm, job.zMax, job.elev ? " + elevation" : "", job.lat, job.lon);
     menu->addNoteWrapped(row);
     if (running) {
       if (st.pass == 2) {
@@ -2936,9 +3054,22 @@ void MapsApp::buildDownload() {
         if (st.paused) {
           what = st.pauseWhy == 2 ? "Paused for the game" : (st.pauseWhy == 3 ? "Paused: no WiFi" : "Paused for a call");
         }
-        snprintf(row, sizeof(row), "%s %d of %d%s", what,
-                 st.before + st.done + st.skipped + st.noTile + st.failed, st.total,
-                 st.stopping ? " (stopping)" : "");
+        if (st.elevRunning) {
+          /* The elevation layer goes first in every run (tile_fetch.h): its own count, labelled,
+           * so "0 of 4567" does not sit there looking stuck while it runs. */
+          const int seen = st.elevDone + st.elevSkipped + st.elevNoTile + st.elevFailed;
+          if (!st.paused && !st.waitingRam) {
+            snprintf(row, sizeof(row), "Downloading elevation %d of %d%s", seen, st.elevTotal,
+                     st.stopping ? " (stopping)" : "");
+          } else {
+            snprintf(row, sizeof(row), "%s (elevation %d of %d)%s", what, seen, st.elevTotal,
+                     st.stopping ? " (stopping)" : "");
+          }
+        } else {
+          snprintf(row, sizeof(row), "%s %d of %d%s", what,
+                   st.before + st.done + st.skipped + st.noTile + st.failed, st.total,
+                   st.stopping ? " (stopping)" : "");
+        }
       }
       menu->addNoteWrapped(row);
       if (st.serverWaitSec) {
@@ -2956,9 +3087,18 @@ void MapsApp::buildDownload() {
                  (unsigned)(st.ramLargest / 1024), (unsigned)(((st.ramLargest % 1024) * 10) / 1024));
         menu->addNoteWrapped(row);
       }
-      snprintf(row, sizeof(row), "z%d, %u KB, %u s, %d failed",
-               st.curZ, (unsigned)(st.bytes / 1024), (unsigned)(st.elapsedMs / 1000), st.failed);
+      if (st.elevRunning) {
+        snprintf(row, sizeof(row), "Elevation z%d, %u KB, %u s, %d failed",
+                 st.elevZ, (unsigned)(st.bytes / 1024), (unsigned)(st.elapsedMs / 1000), st.elevFailed);
+      } else {
+        snprintf(row, sizeof(row), "z%d, %u KB, %u s, %d failed",
+                 st.curZ, (unsigned)(st.bytes / 1024), (unsigned)(st.elapsedMs / 1000), st.failed);
+      }
       menu->addNoteWrapped(row);
+      if (st.elev && !st.elevRunning) {
+        dlElevSummary(s_dlElevRow, MAPS_DL_ELEV_ROW, st);   // the layer is done for this run: what it came to
+        menu->addNoteWrapped(s_dlElevRow);
+      }
       /* The live time left: what is left of the square times the mean all-in time of the last
        * 200 tiles actually FETCHED (skips take milliseconds and are left out). An upper bound:
        * tiles already on the card ahead of the cursor go by in milliseconds too. */
@@ -3024,13 +3164,28 @@ void MapsApp::buildDownload() {
     // ── No job: the choices, the estimate, and what the last run came to. ──
     snprintf(row, sizeof(row), "Source: %s", src->label);
     menu->addOption(row, ROW_D_SOURCE);
-    snprintf(row, sizeof(row), "Radius: %d km", MAPS_DL_RADII[dlRadiusIdx]);
+    if (gUnits == UNITS_US) {
+      /* The radii are COVEY's round kilometres (the plan is in km); US says what that is. */
+      char mi[16];
+      unitsFmtDist(MAPS_DL_RADII[dlRadiusIdx] * 1000.0, UNITS_US, mi, sizeof(mi));
+      snprintf(row, sizeof(row), "Radius: %d km (%s)", MAPS_DL_RADII[dlRadiusIdx], mi);
+    } else {
+      snprintf(row, sizeof(row), "Radius: %d km", MAPS_DL_RADII[dlRadiusIdx]);
+    }
     menu->addOption(row, ROW_D_RADIUS);
     /* The depth SHOWN is the depth USED: the wish clamped to what this source has. */
     const int depth = tilePlanDepthShown(dlDepth, src->zMax);
-    snprintf(row, sizeof(row), "Detail: z%d (%s)", depth,
-             depth >= 17 ? "4x z16's cost" : (depth == 16 ? "4x z15's cost" : (depth == 15 ? "3 m/pixel" : "coarser")));
+    /* z15's pixel at this latitude in the Units setting (~3 m, 11 ft at 47 N; review
+     * 2026-09-27: it was a metric literal) - tile_plan.cpp, host-tested. */
+    {
+      double cLat = 0, cLon = 0;
+      mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &cLat, &cLon);
+      tilePlanDetailText(row, sizeof(row), depth, cLat, gUnits);
+    }
     menu->addOption(row, ROW_D_DEPTH);
+    /* 0.9.80: the altitude layer over the same square (z13 + z10 from the AWS Terrain Tiles), so an
+     * area downloaded on the phone has heights too. ON by default; a few percent of the job. */
+    menu->addOption(dlElev ? "Elevation too: ON" : "Elevation too: off", ROW_D_ELEV);
 
     TileJobSpec spec;
     memset(&spec, 0, sizeof(spec));
@@ -3038,15 +3193,23 @@ void MapsApp::buildDownload() {
     mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &spec.lat, &spec.lon);
     spec.radiusKm = MAPS_DL_RADII[dlRadiusIdx];
     spec.zMax = depth;
+    spec.elev = dlElev;
     uint64_t card = 0, net = 0;
-    const int tiles = tileFetchEstimate(&spec, &card, &net);
+    int elevTiles = 0;
+    const int tiles = tileFetchEstimate(&spec, &card, &net, &elevTiles);
     const double secs = tilePlanSeconds(spec.lat, spec.lon, spec.radiusKm, depth,
-                                        MAPS_DL_SEC_PER_TILE[dlSource < 4 ? dlSource : 3], src->key);
+                                        MAPS_DL_SEC_PER_TILE[dlSource < 4 ? dlSource : 3], src->key) +
+                        (double)elevTiles * MAPS_DL_ELEV_SEC_PER_TILE;
     char size[24], t[24];
     tilePlanBytes(card, size, sizeof(size));
     tilePlanDuration(secs, t, sizeof(t));
-    /* "up to": tiles already on the card are skipped in milliseconds, so this is a ceiling. */
-    snprintf(row, sizeof(row), "%d tiles, %s, up to about %s", tiles, size, t);
+    /* "up to": tiles already on the card are skipped in milliseconds, so this is a ceiling. The
+     * size and the time include the elevation tiles; the count names them apart. */
+    if (elevTiles > 0) {
+      snprintf(row, sizeof(row), "%d tiles + %d elevation, %s, up to about %s", tiles, elevTiles, size, t);
+    } else {
+      snprintf(row, sizeof(row), "%d tiles, %s, up to about %s", tiles, size, t);
+    }
     menu->addNoteWrapped(row);
     const bool tooMany = tiles > TILE_JOB_MAX_TILES;
     if (tooMany) {
@@ -3062,6 +3225,10 @@ void MapsApp::buildDownload() {
       snprintf(row, sizeof(row), "Last run: %d new, %d already had, %d failed, %u s",
                st.done, st.skipped, st.failed, (unsigned)(st.elapsedMs / 1000));
       menu->addNoteWrapped(row);
+      if (st.elev) {
+        dlElevSummary(s_dlElevRow, MAPS_DL_ELEV_ROW, st);   // "Elevation: 38 new, 2 already had, 3 failed"
+        menu->addNoteWrapped(s_dlElevRow);
+      }
       if (st.p2Tried > 0) {
         snprintf(row, sizeof(row), "Second pass: %d tried again, %d fixed", st.p2Tried, st.p2Fixed);
         menu->addNoteWrapped(row);
@@ -3108,6 +3275,9 @@ void MapsApp::buildDownload() {
   menu->addOption("Back", ROW_D_BACK);
   if (src->credit[0] && !job.exists) {
     menu->addNoteWrapped(src->credit);
+  }
+  if (dlElev && !job.exists) {
+    menu->addNoteWrapped("Elevation: AWS Terrain Tiles (USGS 3DEP, SRTM, GMTED, ETOPO)");
   }
   dlShownRunning = running;
   dlShownJob = job.exists;
@@ -3168,10 +3338,18 @@ void MapsApp::drawGoto() {
   y += (int)small->height() + 8;
   double lat = 0, lon = 0;
   mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &lat, &lon);
-  char now[48];
+  char now[64];
   snprintf(now, sizeof(now), "Crosshair: %.5f, %.5f", lat, lon);
   lcd.setTextColor(WHITE, BLACK);
   lcd.drawString(now, 12, y);
+  /* ...and its ground, when the map had read it for this view before Go to was opened (the
+   * cache only: this is a draw). Not read here otherwise - the view does not move on this
+   * screen, and the map reads it again when you are back. */
+  if (elevActive() && elevHereCurrent()) {
+    y += (int)small->height() + 2;
+    elevRowText(now, sizeof(now), NULL, &elevHere, true, lcd.width() - 24);
+    guiDrawEllipsized(lcd, now, (uint16_t)(lcd.width() - 24), 12, (int16_t)y);
+  }
 }
 
 const MeshChannel* MapsApp::pinChannel(int idx) const {
@@ -3314,6 +3492,15 @@ static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "  until you scroll", WHITE },
   { "Measure - drops an anchor; scroll", WHITE },
   { "  away and the bar reads it", WHITE },
+  /* 0.9.80. Measured with SmoothFont::textWidth's rule over the Akrobat_Bold16 table (the one
+   * tests/test_elevtext.cpp reads): 173-217 px. No '~': the font has no glyph for it. */
+  { "  (and the climb, with Altitude on)", WHITE },
+  { "Altitude - the ground's height", WHITE },
+  { "  under the crosshair, and how far", WHITE },
+  { "  above or below you. Elev* = the", WHITE },
+  { "  coarse 100 m layer. Tiles go in", WHITE },
+  { "  /maps/elev (docs/maps.md)", WHITE },
+  { "Units - metric, or US (ft, mi)", WHITE },
   { "", WHITE },
   { "orange dot   your pin", MAP_C_PIN },
   { "yellow ring  your pin, shared", MAP_C_PIN_SH },
@@ -3753,6 +3940,14 @@ appEventResult MapsApp::processEvent(EventType event) {
         }
       }
     }
+    /* ALTITUDE (0.9.80): one owed height a tick, once the view has settled (elevStep). Only
+     * with no hold running - a held arrow's ticks do nothing but the hold, the blip-wait tick
+     * above all (it has returned already) - and never ahead of a tile piece (elevStep waits
+     * for those). */
+    if (!panHoldMask && elevStep()) {
+      armTimer();                              // stands the tick down once nothing more is owed
+      return (appState == MAPS_VIEW || appState == MAPS_PIN_OPTS) ? REDRAW_SCREEN : DO_NOTHING;
+    }
     /* A pin's frame (review M1): the radio's answer, when it comes — "Shared", "Taken off",
      * or the roll-back / restore / kept id when it never left. One ring lookup a tick. */
     if (meshOp.txId) {
@@ -3791,6 +3986,16 @@ appEventResult MapsApp::processEvent(EventType event) {
         if (stamp - followLastStamp > 500u) {
           followLastStamp = stamp;
           centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
+          /* ALTITUDE: the new crosshair's ground, and yours when that is owed too, in THIS tick
+           * (elevStep(true)) so the one redraw below shows them. At most ONE card read a fix
+           * (~5-20 ms, estimated) ahead of the ~77 ms frame, and none while the fix stays within
+           * 5 m of the last sample (GPS noise): "you" is the crosshair's own sample here (review
+           * 2026-09-27: each fix read the crosshair AND you, up to four tile opens, every second).
+           * Both steps run - the first reads nothing when the view has not really moved. The
+           * card is reached from this frame at the depth the settle-wait path above reaches it
+           * (elevStep from processEvent in both). */
+          elevStep(true);
+          elevStep(true);
           return REDRAW_SCREEN;
         }
       }
@@ -3903,6 +4108,33 @@ appEventResult MapsApp::processEvent(EventType event) {
         enterState(MAPS_VIEW);
         return REDRAW_ALL;
       }
+      case ROW_M_ALT: {
+        altOn = !altOn;
+        Preferences p;
+        if (p.begin(MAPS_NVS, false)) {
+          p.putInt("alt", altOn ? 1 : 0);
+          p.end();
+        }
+        /* The card is NOT looked at here (a key handler): elevPresent is what the last scan
+         * found, and Rescan looks again. */
+        if (!altOn) {
+          setNote("Altitude off - the elevation tiles are not read");
+        } else if (!elevPresent) {
+          setNote("Altitude on - but there is no /maps/elev on the card (docs/maps.md)");
+        } else {
+          setNote("Altitude on - the ground under the crosshair, and against you");
+        }
+        enterState(MAPS_VIEW);
+        return REDRAW_ALL;
+      }
+      case ROW_M_UNITS:
+        /* One device-wide setting (prefs_almanac.h): the Meshtastic lists, the console and the
+         * Almanac follow it too. NVS, not the card. */
+        unitsSetPref(gUnits == UNITS_US ? UNITS_METRIC : UNITS_US);
+        setNote(gUnits == UNITS_US ? "Units: US - feet and miles, on every screen"
+                                   : "Units: metric - metres and km, on every screen");
+        enterState(MAPS_VIEW);
+        return REDRAW_ALL;
       case ROW_M_MEASURE:
         measuring = !measuring;
         if (measuring) {
@@ -3983,6 +4215,11 @@ appEventResult MapsApp::processEvent(EventType event) {
         buildDownload();
         menu->select(sel);
         return REDRAW_SCREEN;
+      case ROW_D_ELEV:
+        dlElev = !dlElev;                // kept in NVS at Start, with the other choices
+        buildDownload();
+        menu->select(sel);
+        return REDRAW_SCREEN;
       case ROW_D_DEPTH: {
         /* Through the depths THIS source has, and nothing else: raising the form's top to z17
          * without this gave USGS a fifth press that still read "z16" — a key that looks dead.
@@ -4001,6 +4238,7 @@ appEventResult MapsApp::processEvent(EventType event) {
         mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &spec.lat, &spec.lon);
         spec.radiusKm = MAPS_DL_RADII[dlRadiusIdx];
         spec.zMax = tilePlanDepthShown(dlDepth, s ? s->zMax : MAPS_DL_DEPTH_MIN);   // the depth SHOWN
+        spec.elev = dlElev;
         char why[96];
         dlKeep = ROW_D_STOP;             // BEFORE the rebuild: Start is gone from a running form
         dlWhy[0] = '\0';
@@ -4010,6 +4248,7 @@ appEventResult MapsApp::processEvent(EventType event) {
             p.putInt("dlsrc", dlSource);
             p.putInt("dlrad", dlRadiusIdx);
             p.putInt("dldep", dlDepth);
+            p.putInt("dlelev", dlElev ? 1 : 0);
             p.end();
           }
           setNote("Downloading %s", tileSource(dlSource)->label);
@@ -4546,6 +4785,9 @@ void MapsApp::redrawScreen(bool redrawAll) {
 }
 
 void MapsApp::armTimer() {
+  /* A download that has written elevation tiles since the last look (no card I/O: a counter).
+   * Here because every draw and every tick that changes what is owed ends in armTimer. */
+  elevJobCheck();
   const bool busy = (appState == MAPS_VIEW) && (loadActive || (wantAny && !tileMemFail));
   /* The download screen ticks at 4 Hz for its progress line only while a job is running:
    * a finished screen must not keep the CPU awake either. */
@@ -4563,8 +4805,286 @@ void MapsApp::armTimer() {
   /* A pin's frame waiting for the radio's answer (review M1): 4 Hz for the second or two it
    * takes, then nothing. Any state — the answer can change a pin under a menu too. */
   const bool meshWatch = meshOp.txId != 0;
-  controlState.msAppTimerEventPeriod = busy ? 25 : (holding ? 50 : ((progress || meshWatch) ? 250 :
+  /* A height owed to the screen (elevDue): 50 ms ticks until it is read - the first waits for
+   * the view to settle (MAPS_ELEV_SETTLE_MS), each takes one sample - then nothing. The settle
+   * clock is told about the view every draw, which is where this is called from. */
+  elevNoteView();
+  const bool elevOwed = elevDue() != ELEV_DUE_NONE;
+  controlState.msAppTimerEventPeriod = busy ? 25 : ((holding || elevOwed) ? 50 :
+                                       ((progress || meshWatch) ? 250 :
                                        (following ? 1000 : (jobPoll ? MAPS_JOB_POLL_MS : 0))));
+}
+
+// ---------------------------------------------------------------- altitude (0.9.80)
+
+/* The layer is read only while the setting is on and the last card scan found /maps/elev
+ * (elevDue also leaves the no-map page alone: it has no strip to put a height on). */
+bool MapsApp::elevActive() const {
+  return altOn && elevPresent && cardOk;
+}
+
+bool MapsApp::elevHereCurrent() const {
+  return elevHere.valid && elevHereZoom == zoom && elevHereCx == cx && elevHereCy == cy;
+}
+
+/* Who "you" is for the comparison: selfPosition()'s answer (a fresh GPS fix, else your pin,
+ * else a poor or an old fix - the same ranking as the marker and the `0` key), else the mesh's
+ * reference place, named. MAPS_SELF_NONE when there is neither. */
+int MapsApp::elevYouNow(int32_t* la, int32_t* lo, char* name, size_t cap) const {
+  uint32_t age = 0;
+  const int kind = selfPosition(la, lo, &age);
+  if (name && cap) {
+    name[0] = '\0';
+  }
+  if (kind != MAPS_SELF_NONE) {
+    return kind;
+  }
+  if (meshService.resolveReference(la, lo, name, cap)) {
+    return MAPS_ELEV_YOU_REF;
+  }
+  return MAPS_SELF_NONE;
+}
+
+/* The comparison half of a row: the cached "you" if it is a height (rc 1) for who "you" is
+ * NOW - the same kind, the same named place - and within MAPS_ELEV_YOU_SHOW_M of where that is
+ * (a resample is owed past MAPS_ELEV_YOU_MOVE_M and comes on the next tick). */
+bool MapsApp::elevYouUsable(ElevTextIn* in) const {
+  if (!elevYou.valid || elevYou.rc != 1) {
+    return false;
+  }
+  int32_t la = 0, lo = 0;
+  char nm[24];
+  const int kind = elevYouNow(&la, &lo, nm, sizeof(nm));
+  if (kind == MAPS_SELF_NONE || kind != elevYouKind ||
+      (kind == MAPS_ELEV_YOU_REF && strcmp(nm, elevYouName) != 0) ||
+      meshPosDistanceM(elevYou.latI, elevYou.lonI, la, lo) > MAPS_ELEV_YOU_SHOW_M) {
+    return false;
+  }
+  if (in) {
+    in->haveRef = true;
+    in->refM = elevYou.m;
+    in->refZ = elevYou.z;
+    /* "you" only for a fresh usable fix or your own pin. A poor or an old fix is named for what it
+     * is (review 2026-09-27: "35m above you" from a 3-satellite fix that can be 20 km off, or from
+     * where you were an hour ago) - the marker already says "me?" / "me, 12m ago". */
+    in->refName = (kind == MAPS_ELEV_YOU_REF) ? elevYouName
+                : (kind == MAPS_SELF_POOR_GPS) ? "poor fix"
+                : (kind == MAPS_SELF_OLD_GPS) ? "old fix" : NULL;
+  }
+  return true;
+}
+
+/* One row about a cached point (the strip's "Elev ...", the pin screen's "Ground ..."): the
+ * point's height, and against "you" when that is known. `current` false = not sampled for what
+ * is on the screen yet ("Elev ..."). fitW > 0 measures the row against that many pixels of
+ * AKROBAT_BOLD_16 (the strip's vpW - 8) so "(coarse)" and a long name give way before the
+ * numbers (elevTextRow). Reads members only - no card I/O, safe from a draw. */
+int MapsApp::elevRowText(char* out, size_t cap, const char* label, const ElevPoint* p,
+                         bool current, int fitW) {
+  ElevTextIn in;
+  memset(&in, 0, sizeof(in));
+  in.label = label;
+  in.units = gUnits;
+  in.refZ = -1;
+  if (!p || !p->valid || !current) {
+    in.rc = ELEV_TXT_PENDING;
+  } else {
+    in.rc = p->rc;
+    in.m = p->m;
+    in.z = p->z;
+    if (p->rc == 1) {
+      elevYouUsable(&in);
+    }
+  }
+  SmoothFont* fnt = fonts[AKROBAT_BOLD_16];
+  if (fitW > 0 && fnt) {
+    return elevTextRow(out, cap, &in, elevMeasure, fnt, fitW);
+  }
+  return elevTextRow(out, cap, &in);
+}
+
+/* The settle clock. Called after every draw (armTimer) and on every tick: a view that differs
+ * from the one last seen restarts it. */
+void MapsApp::elevNoteView() {
+  if (elevSeenZoom != zoom || elevSeenCx != cx || elevSeenCy != cy) {
+    elevSeenZoom = zoom;
+    elevSeenCx = cx;
+    elevSeenCy = cy;
+    elevSeenMs = millis();
+  }
+}
+
+/* A download writes /maps/elev tiles while the map is open (tile_fetch.h, "Elevation too"): pick
+ * them up without a restart or a Rescan. The layer is there once one tile has been renamed into
+ * place, so elevPresent turns on without a look at the card; and a cached height a new tile
+ * could change - no tile, no data, a card error, or one from the coarse z10 - is forgotten, so
+ * elevDue asks for it again on the next tick. A fine z13 height stays: its tile was already
+ * there. A counter compare when nothing has landed; safe from the draw path (no I/O, no redraw). */
+void MapsApp::elevJobCheck() {
+  const uint32_t n = tileFetchElevWritten();
+  if (n == elevJobSeen) {
+    return;
+  }
+  elevJobSeen = n;
+  if (cardOk) {
+    elevPresent = true;
+  }
+  ElevPoint* const pts[] = { &elevHere, &elevYou, &elevMeas, &elevPin };
+  for (size_t i = 0; i < sizeof(pts) / sizeof(pts[0]); i++) {
+    if (pts[i]->valid && !(pts[i]->rc == 1 && pts[i]->z == ELEV_Z)) {
+      pts[i]->valid = false;
+    }
+  }
+  if (!elevHere.valid) {
+    elevHereZoom = -1;
+  }
+}
+
+/* Which sample is owed, most important first: the crosshair's ground (what the row is about),
+ * then "you", then the ruler's anchor; on the pin screen, the pin. ELEV_DUE_NONE when every
+ * height the screen shows is cached for what it shows - then the timer stands down (armTimer). */
+int MapsApp::elevDue() const {
+  if (!elevActive()) {
+    return ELEV_DUE_NONE;
+  }
+  if (appState == MAPS_VIEW) {
+    if (areaSel < 0 && pinCount == 0 && meshService.getWaypointCount() == 0) {
+      return ELEV_DUE_NONE;                // the no-map page: no strip to put a height on
+    }
+    if (!elevHereCurrent()) {
+      return ELEV_DUE_HERE;
+    }
+    int32_t la = 0, lo = 0;
+    char nm[24];
+    const int kind = elevYouNow(&la, &lo, nm, sizeof(nm));
+    if (kind != MAPS_SELF_NONE &&
+        (!elevYou.valid || kind != elevYouKind ||
+         (kind == MAPS_ELEV_YOU_REF && strcmp(nm, elevYouName) != 0) ||
+         meshPosDistanceM(elevYou.latI, elevYou.lonI, la, lo) > MAPS_ELEV_YOU_MOVE_M)) {
+      return ELEV_DUE_YOU;
+    }
+    if (measuring && (!elevMeas.valid || elevMeas.latI != measLatI || elevMeas.lonI != measLonI)) {
+      return ELEV_DUE_MEAS;
+    }
+    return ELEV_DUE_NONE;
+  }
+  if (appState == MAPS_PIN_OPTS && pins && pinSel >= 0 && pinSel < pinCount &&
+      (!elevPin.valid || elevPin.latI != pins[pinSel].latI || elevPin.lonI != pins[pinSel].lonI)) {
+    return ELEV_DUE_PIN;
+  }
+  return ELEV_DUE_NONE;
+}
+
+/* One sample, into a cached point. The ONLY place the map reads the elevation layer. */
+void MapsApp::elevSampleInto(ElevPoint* p, double lat, double lon) {
+  double m = 0;
+  int z = -1;
+  bool ioErr = false;
+  const uint32_t t0 = micros();
+  int rc = elevSampleCard(lat, lon, &m, &z, &ioErr);
+  p->costUs = micros() - t0;
+  if (rc != 1 && ioErr) {
+    /* "Not on the card" and "the card had a moment" are different sentences. Not retried by
+     * itself (a pulled card would be re-read 20 times a second): the next move of the view, or
+     * Rescan, asks again. */
+    rc = ELEV_TXT_IOERR;
+    log_e("MAPS: elevation at %.5f,%.5f: the card could not be read", lat, lon);
+  }
+  p->valid = true;
+  p->latI = mapDegToI7(lat);
+  p->lonI = mapDegToI7(lon);
+  p->rc = rc;
+  p->m = (rc == 1) ? m : 0.0;
+  p->z = (rc == 1) ? z : -1;
+}
+
+/* The app timer's altitude work: at most ONE sample a tick (a tile piece is another tick's
+ * work - the map's pixels go first), only while the view has been still MAPS_ELEV_SETTLE_MS,
+ * and never under a held arrow (processEvent calls this only with no hold running: the
+ * blip-wait tick in particular must do nothing else). True = something changed on the screen.
+ * `now`: the view was moved by Follow me for a new fix, not by a thumb - there is nothing to
+ * wait out, and the sample is taken in the SAME tick as the re-centre so its one redraw shows it
+ * (review 2026-09-27: the settle rule showed "Elev ..." and then paid a second full redraw 150 ms
+ * later, for every fix - two redraws a second and a flickering row). */
+bool MapsApp::elevStep(bool now) {
+  const int due = elevDue();
+  if (due == ELEV_DUE_NONE || panHoldMask) {
+    return false;
+  }
+  if (due == ELEV_DUE_PIN) {
+    elevSampleInto(&elevPin, mapI7ToDeg(pins[pinSel].latI), mapI7ToDeg(pins[pinSel].lonI));
+    elevPin.latI = pins[pinSel].latI;      // the key is the pin's own position, not re-rounded
+    elevPin.lonI = pins[pinSel].lonI;
+    /* The note is part of the menu: rebuild it where the thumb is. buildPinOpts only reads the
+     * cache (it runs from key handlers too). */
+    const MenuOption::keyType keep = menu ? menu->currentKey() : 0;
+    buildPinOpts();
+    if (menu && keep && keep != MENU_ROW_NOTE) {
+      menu->select(keep);
+    }
+    return true;
+  }
+  if (!now && (loadActive || wantAny)) {
+    return false;                          // a tile piece first; this waits a tick or two
+  }
+  elevNoteView();
+  if (due == ELEV_DUE_HERE) {
+    if (!now && (uint32_t)(millis() - elevSeenMs) < MAPS_ELEV_SETTLE_MS) {
+      return false;                        // still moving (or just stopped): wait for it
+    }
+    double lat = 0, lon = 0;
+    mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &lat, &lon);
+    /* Follow me (`now`): GPS noise moves the crosshair a pixel on most fixes, and each of those
+     * was a card read in the frame's own pass, once a second (review 2026-09-27). Within
+     * MAPS_ELEV_YOU_MOVE_M of the last sample - the distance "you" is re-read at - its height
+     * stands for the new view (the layer's pixels are ~13 m) and the card is not touched. A card
+     * error is not held: the next fix asks again, as a moved view always has. */
+    if (now && elevHere.valid && elevHere.rc != ELEV_TXT_IOERR &&
+        meshPosDistanceM(elevHere.latI, elevHere.lonI, mapDegToI7(lat), mapDegToI7(lon)) <=
+            MAPS_ELEV_YOU_MOVE_M) {
+      elevHereZoom = zoom;
+      elevHereCx = cx;
+      elevHereCy = cy;
+      return false;                        // nothing read, nothing on the screen changed
+    }
+    elevSampleInto(&elevHere, lat, lon);
+    elevHereZoom = zoom;
+    elevHereCx = cx;
+    elevHereCy = cy;
+    return true;
+  }
+  if (due == ELEV_DUE_YOU) {
+    int32_t la = 0, lo = 0;
+    char nm[24];
+    const int kind = elevYouNow(&la, &lo, nm, sizeof(nm));
+    if (kind == MAPS_SELF_NONE) {
+      return false;
+    }
+    if (now && kind == MAPS_SELF_GPS && elevHereCurrent() &&
+        meshPosDistanceM(elevHere.latI, elevHere.lonI, la, lo) <= MAPS_ELEV_YOU_MOVE_M) {
+      /* Follow me: the crosshair IS you (the view was just centred on this fix) - its sample is
+       * yours, and the same ground is not read twice in the frame's pass (review 2026-09-27). */
+      elevYou = elevHere;
+    } else {
+      elevSampleInto(&elevYou, mapI7ToDeg(la), mapI7ToDeg(lo));
+    }
+    elevYou.latI = la;                     // the key is the position as given, not re-rounded
+    elevYou.lonI = lo;
+    elevYouKind = kind;
+    strlcpy(elevYouName, nm, sizeof(elevYouName));
+    return true;
+  }
+  if (due == ELEV_DUE_MEAS) {
+    if (elevHereCurrent() && elevHere.latI == measLatI && elevHere.lonI == measLonI) {
+      elevMeas = elevHere;                 // "Measure from here": the crosshair's own sample
+      return true;
+    }
+    elevSampleInto(&elevMeas, mapI7ToDeg(measLatI), mapI7ToDeg(measLonI));
+    elevMeas.latI = measLatI;
+    elevMeas.lonI = measLonI;
+    return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------- the serial console
@@ -4602,13 +5122,16 @@ bool mapsConsoleStatus(char* out, size_t cap) {
   char first[32];
   first[0] = '\0';
   int zMin = -1, zMax = -1;
+  bool elevSeen = false;
   if (SD.exists(MAPS_ROOT)) {
     File dir = SD.open(MAPS_ROOT);
     if (dir && dir.isDirectory()) {
       File f;
       while ((f = dir.openNextFile())) {
         const char* nm = baseName(f.name());
-        if (f.isDirectory() && mapAreaNameOk(nm)) {
+        if (f.isDirectory() && mapsReservedName(nm)) {
+          elevSeen = true;                 // the altitude layer: reported below, never an area
+        } else if (f.isDirectory() && mapAreaNameOk(nm)) {
           if (!first[0]) {
             strlcpy(first, nm, sizeof(first));
             char zp[96];
@@ -4646,6 +5169,9 @@ bool mapsConsoleStatus(char* out, size_t cap) {
   if (first[0]) {
     w = sayInto(out, cap, w, "; first '%s' z%d-%d", first, zMin, zMax);
   }
+  // Second, so a long list of areas below cannot push it out of the buffer.
+  w = sayInto(out, cap, w, "\nelev: %s/%s %s (the altitude layer, not an area - `elev`)", MAPS_ROOT,
+              ELEV_DIR, elevSeen ? "is on the card" : "is NOT on the card");
   if (s_instance) {
     /* With the app open, its scan knows where each area's tiles ARE (scanAreaExtent). */
     for (int i = 0; i < s_instance->areaCount; i++) {
@@ -4735,6 +5261,78 @@ bool mapsConsoleStatus(char* out, size_t cap) {
                 pinN, badN, MAPS_PINS_FILE);
     (void)w;
   }
+  return true;
+}
+
+/* Serial `elev`: what the map would say about altitude, from its CACHE (no card I/O but the
+ * one stat that says whether the layer is there when the app is closed). Lines under 192 B. */
+bool mapsConsoleElev(char* out, size_t cap) {
+  if (!out || cap == 0) {
+    return false;
+  }
+  out[0] = '\0';
+  size_t w = 0;
+  MapsApp* a = s_instance;
+  bool altOn = true;
+  if (a) {
+    altOn = a->altOn;
+  } else {
+    Preferences p;
+    if (p.begin(MAPS_NVS, true)) {
+      altOn = p.getInt("alt", 1) != 0;
+      p.end();
+    }
+  }
+  const bool present = a ? a->elevPresent : elevCardPresent();
+  w = sayInto(out, cap, w, "elev: %s/%s %s (%s); Altitude %s; units %s; the map is %s",
+              MAPS_ROOT, ELEV_DIR, present ? "is on the card" : "is NOT on the card",
+              a ? "as the map's last scan found it" : "looked just now",
+              altOn ? "ON" : "off", gUnits == UNITS_US ? "US" : "metric",
+              a ? "open" : "closed - `elev <lat> <lon>` samples any point");
+  if (!a) {
+    return true;
+  }
+  char t[48];
+  const MapsApp::ElevPoint* h = &a->elevHere;
+  if (!h->valid) {
+    w = sayInto(out, cap, w, "\nelev: crosshair: not sampled yet%s",
+                a->elevActive() ? "" : " (nothing is read while the layer is off or absent)");
+  } else {
+    elevSampleText(t, sizeof(t), h->rc, h->m, h->z);
+    w = sayInto(out, cap, w, "\nelev: crosshair %.5f,%.5f -> %s, %lu.%lu ms%s", mapI7ToDeg(h->latI),
+                mapI7ToDeg(h->lonI), t, (unsigned long)(h->costUs / 1000u),
+                (unsigned long)((h->costUs % 1000u) / 100u),
+                a->elevHereCurrent() ? "" : " (the view has moved since: not current)");
+  }
+  const MapsApp::ElevPoint* y = &a->elevYou;
+  if (!y->valid) {
+    w = sayInto(out, cap, w, "\nelev: you: not sampled (no GPS fix, no pin, no reference - or not yet)");
+  } else {
+    const int k = a->elevYouKind;
+    char who[40];
+    if (k == MAPS_ELEV_YOU_REF) {
+      snprintf(who, sizeof(who), "the reference '%s'", a->elevYouName);
+    } else {
+      strlcpy(who, k == MAPS_SELF_GPS ? "GPS fix" : k == MAPS_SELF_PIN ? "your pin"
+                   : k == MAPS_SELF_POOR_GPS ? "a poor fix" : "an old fix", sizeof(who));
+    }
+    elevSampleText(t, sizeof(t), y->rc, y->m, y->z);
+    w = sayInto(out, cap, w, "\nelev: you = %s %.5f,%.5f -> %s, %lu.%lu ms%s", who,
+                mapI7ToDeg(y->latI), mapI7ToDeg(y->lonI), t, (unsigned long)(y->costUs / 1000u),
+                (unsigned long)((y->costUs % 1000u) / 100u),
+                (y->rc != 1 || a->elevYouUsable(NULL)) ? ""
+                  : " (not usable now: you moved, or 'you' is somebody else now)");
+  }
+  if (a->measuring && a->elevMeas.valid) {
+    elevSampleText(t, sizeof(t), a->elevMeas.rc, a->elevMeas.m, a->elevMeas.z);
+    w = sayInto(out, cap, w, "\nelev: ruler anchor -> %s", t);
+  }
+  if (a->elevActive()) {
+    char row[64];
+    a->elevRowText(row, sizeof(row), NULL, &a->elevHere, a->elevHereCurrent(), a->vpW - 8);
+    w = sayInto(out, cap, w, "\nelev: the strip reads \"%s\"", row);
+  }
+  (void)w;
   return true;
 }
 

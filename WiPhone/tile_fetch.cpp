@@ -5,6 +5,7 @@
 #include "tile_decode.h"
 #include "tile_plan.h"
 #include "map_tiles.h"
+#include "elev_tiles.h"
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -62,6 +63,19 @@ extern volatile bool gGbcActive;          // WiPhone.ino: the emulator owns the 
  * was fine at 20,000 tiles; at 100,000 a run could fill the card to the last few MB and starve
  * health.log, the mesh DB, the pins and the Game Boy's saves. */
 #define TF_SPACE_MARGIN_MIN (256ull << 20)
+/* The elevation layer (tile_fetch.h, "THE ELEVATION LAYER"). The AWS Open Data Terrain Tiles:
+ * HTTPS only (plain http answers 403), ~120 KB an 8-bit RGB PNG, no politeness rule beyond S3's
+ * own - a short pace keeps the loop fed. Four failures in a row leave the rest for the next run. */
+#define TF_ELEV_URL      "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+#define TF_ELEV_MAX_FAILS 4
+#define TF_REC_ELEV_ON    1              // JobRec.elev: the job fetches the elevation layer
+#define TF_REC_ELEV_WHOLE 2              // ...and a run already had all of it on the card
+#define TF_ELEV_PACE_MS  50u
+#define TF_ELEV_FAIL_PACE_MS 2000u
+#define TF_USER_AGENT    "WiPhone-maps/0.1 (wiphone-meshtastic)"
+/* One .elv and one map tile are the same 131,072 bytes: the run's pixel buffer holds either, and
+ * tileOnCard / writeTile / tilePlanCardBytes serve both. */
+static_assert(ELEV_TILE_BYTES == MAP_TILE_BYTES, "an elevation tile must fit the run's pixel buffer exactly");
 #define TF_NVS_NS        "maps"            // == MAPS_NVS in app_maps.cpp: the map's one namespace
 #define TF_NVS_JOB       "dljob"
 #define TF_REC_VER       1
@@ -96,6 +110,7 @@ static volatile bool  s_noWifi = false;    // the network is gone: let go within
 static volatile bool  s_stop  = false;
 static bool           s_hookInstalled = false;
 static volatile uint32_t s_runsEnded = 0;  // bumped by the worker as each JOB run ends (the tick settles it)
+static volatile uint32_t s_elevWritten = 0; // elevation tiles written since boot (tileFetchElevWritten)
 
 // ── sources ─────────────────────────────────────────────────────────────────────────────
 static char s_customUrl[200] = "";
@@ -187,9 +202,10 @@ static int sourceByKey(const char* key) {
 }
 
 // ── geometry (tile_plan.cpp: the square, the count, the order) ──────────────────────────
-int tileFetchEstimate(const TileJobSpec* s, uint64_t* cardBytes, uint64_t* netBytes) {
+int tileFetchEstimate(const TileJobSpec* s, uint64_t* cardBytes, uint64_t* netBytes, int* elevTiles) {
   if (cardBytes) *cardBytes = 0;
   if (netBytes) *netBytes = 0;
+  if (elevTiles) *elevTiles = 0;
   const TileSource* src = tileSource(s ? s->source : -1);
   if (!s || !src || s->radiusKm <= 0) {
     return 0;
@@ -198,8 +214,10 @@ int tileFetchEstimate(const TileJobSpec* s, uint64_t* cardBytes, uint64_t* netBy
   if (zMax > src->zMax) zMax = src->zMax;
   int64_t total = tilePlanTiles(s->lat, s->lon, s->radiusKm, zMax);
   if (total > 1000000) total = 1000000;      // the caller refuses far below this; keep the int an int
-  if (cardBytes) *cardBytes = tilePlanCardBytes(total);
-  if (netBytes)  *netBytes  = tilePlanNetBytes(total, src->kbPerTile);
+  const int64_t elev = s->elev ? tilePlanElevTiles(s->lat, s->lon, s->radiusKm) : 0;
+  if (cardBytes) *cardBytes = tilePlanCardBytes(total + elev);
+  if (netBytes)  *netBytes  = tilePlanNetBytes(total, src->kbPerTile) + tilePlanNetBytes(elev, TILE_PLAN_ELEV_KB);
+  if (elevTiles) *elevTiles = (int)elev;
   return (int)total;
 }
 
@@ -672,6 +690,31 @@ static void makeColumn(RunCtx* c, int xi, const char* dir) {
 
 enum { OUT_DONE = 0, OUT_NOTILE, OUT_FAILED, OUT_STOPPED };
 
+/* writeTile, with the card's busy pauses waited out. `tag` names the layer in the log line.
+ * 🛑 A CARD THAT IS BUSY IS NOT A CARD THAT IS BROKEN. "card refused the write" is a short
+ * f.write(): the SD layer gives a card 500 ms to come out of busy before a block (sd_diskio.cpp
+ * sdWriteBytes) and some cards pause longer than that for their own housekeeping. Phone 2's
+ * 12,853-tile run lost 4 tiles to it; phone 1's card does it to ONE WRITE IN EIGHT (2026-09-21: 35
+ * rescued on a second try, 7 lost, in the first 311 tiles) — and every tile lost had already
+ * crossed the network. So the write is tried again after a pause that grows — 200 ms, then a
+ * second, then three — long enough for any card's pause to end; the pixels are still in PSRAM,
+ * nothing is fetched twice. Only a card that refuses for five seconds counts the tile as failed.
+ * The retries are counted (cardRetries) and shown, because they are the measure of the card. */
+static bool writeTileRetrying(Job* j, const char* tag, const char* path, const char* tmpPath,
+                              const uint16_t* px, int z, int x, int y, char* err, size_t errCap) {
+  static const uint16_t WRITE_WAIT_MS[] = { 200, 1000, 3000 };
+  bool wrote = writeTile(path, tmpPath, px, err, errCap);
+  for (int t = 0; !wrote && !s_stop && t < 3; t++) {
+    vTaskDelay(pdMS_TO_TICKS(WRITE_WAIT_MS[t]));
+    wrote = writeTile(path, tmpPath, px, err, errCap);
+    if (wrote) {
+      j->st.cardRetries++;
+      log_e("%s: z%d %d/%d written on try %d", tag, z, x, y, t + 2);
+    }
+  }
+  return wrote;
+}
+
 /* A failure is counted on the FIRST pass only: the second pass's "tried again / fixed" say what
  * became of them, and counting a tile twice would make the summary lie. */
 static void countFail(Job* j, int pass) {
@@ -808,27 +851,7 @@ static int processTile(Job* j, RunCtx* c, int pass, int z, int x, int xi, int y,
       out = OUT_FAILED;
     } else {
       makeColumn(c, xi, dir);
-      /* 🛑 A CARD THAT IS BUSY IS NOT A CARD THAT IS BROKEN. "card refused the write" is a
-       * short f.write(): the SD layer gives a card 500 ms to come out of busy before a
-       * block (sd_diskio.cpp sdWriteBytes) and some cards pause longer than that for
-       * their own housekeeping. Phone 2's 12,853-tile run lost 4 tiles to it; phone 1's
-       * card does it to ONE WRITE IN EIGHT (2026-09-21: 35 rescued on a second try, 7
-       * lost, in the first 311 tiles) — and every tile lost had already crossed the
-       * network. So the write is tried again after a pause that grows — 200 ms, then a
-       * second, then three — long enough for any card's pause to end; the pixels are
-       * still in PSRAM, nothing is fetched twice. Only a card that refuses for five
-       * seconds counts the tile as failed. The retries are counted (cardRetries) and
-       * shown, because they are the measure of the card. */
-      static const uint16_t WRITE_WAIT_MS[] = { 200, 1000, 3000 };
-      bool wrote = writeTile(path, tmpPath, c->px, err, sizeof(err));
-      for (int t = 0; !wrote && !s_stop && t < 3; t++) {
-        vTaskDelay(pdMS_TO_TICKS(WRITE_WAIT_MS[t]));
-        wrote = writeTile(path, tmpPath, c->px, err, sizeof(err));
-        if (wrote) {
-          st->cardRetries++;
-          log_e("TILES: z%d %d/%d written on try %d", z, x, y, t + 2);
-        }
-      }
+      const bool wrote = writeTileRetrying(j, "TILES", path, tmpPath, c->px, z, x, y, err, sizeof(err));
       if (!wrote) {
         /* A card that refuses twice is not going to accept the next 800 tiles either: a
          * full, absent or pulled card counts the same way the network does, and the run
@@ -939,21 +962,175 @@ static void walkLevel(Job* j, RunCtx* c, int pass, int z, int32_t fromOrd) {
   c->cols = NULL;
 }
 
-/* The whole run. A function of its own so that everything with a destructor — HTTPClient
- * and its Strings, the clients — is torn down by a normal return BEFORE the task deletes
- * itself: vTaskDelete(NULL) never returns, so locals of the task function itself would leak
- * their internal-heap buffers on every run. */
-static void runJob(Job* j) {
-  TileJobStatus* st = &j->st;
+// ── the elevation layer (0.9.80; tile_fetch.h, "THE ELEVATION LAYER") ────────────────────
 
-  uint8_t*  body = (uint8_t*)heap_caps_malloc(TF_BODY_CAP, MALLOC_CAP_SPIRAM);
-  uint16_t* px   = (uint16_t*)heap_caps_malloc(MAP_TILE_BYTES, MALLOC_CAP_SPIRAM);
-  if (!body || !px) {
-    stopWith(j, TILE_STOP_RAM, "no PSRAM for the tile buffers");
-    free(body);
-    free(px);
-    return;
+/* One elevation tile that is not on the card: the terrarium PNG, turned into the .elv bytes in
+ * the run's pixel buffer (tileDecodeElev: nothing allocated for the output), written the map
+ * tiles' way. The walker counts the outcome in the elev* fields ONLY: nothing here touches
+ * `failed`, consecutiveFails or ramFails, so an elevation failure can never stop the map tiles. */
+static int elevTile(Job* j, RunCtx* c, int z, int x, int xi, int y,
+                    const char* dir, const char* path, const char* tmpPath) {
+  TileJobStatus* st = &j->st;
+  char url[112], err[64];
+  if (!expandUrl(TF_ELEV_URL, z, x, y, url, sizeof(url))) {
+    strlcpy(st->elevErr, "URL too long", sizeof(st->elevErr));
+    return OUT_FAILED;
   }
+  /* The same room a map tile's reconnect waits for (and the same wait for a call or a WiFi drop,
+   * which can stop the JOB - that is the job's rule, not this tile's). No room in 30 s is this
+   * tile's failure; the map's three-strikes RAM stop is not counted here. */
+  const bool reconnecting = !c->client->connected() || s_pause || s_noWifi;
+  if (!waitReady(j, reconnecting, c->client)) {
+    if (s_stop) {
+      return OUT_STOPPED;
+    }
+    snprintf(st->elevErr, sizeof(st->elevErr), "no RAM to connect (%u.%u KB block)",
+             kbWhole(st->ramLargest), kbTenth(st->ramLargest));
+    waitSliced(j, TF_ELEV_FAIL_PACE_MS, c->client, false);
+    return OUT_FAILED;
+  }
+  size_t got = 0;
+  err[0] = '\0';
+  const int code = fetchOne(*c->http, *c->client, url, c->body, TF_BODY_CAP, &got, err, sizeof(err));
+  int out;
+  if (code == 404 || code == 410) {
+    out = OUT_NOTILE;                      // nothing there: not a failure
+  } else if (code != 200) {
+    /* A busy answer (S3's 503 SlowDown) included: at this layer's size a wait of minutes would
+     * cost more than the tile; it is a failure, paced, and the next run asks again. */
+    snprintf(st->elevErr, sizeof(st->elevErr), "z%d %d/%d: %s", z, x, y, err);
+    out = OUT_FAILED;
+  } else {
+    st->bytes += (uint64_t)got;
+    const TileDecodeResult dr = tileDecodeElev(c->body, got, (uint8_t*)c->px, err, sizeof(err));
+    if (dr == TILE_DECODE_BLANK) {
+      out = OUT_NOTILE;                    // every pixel transparent: write nothing
+    } else if (dr != TILE_DECODE_OK) {
+      snprintf(st->elevErr, sizeof(st->elevErr), "z%d %d/%d: %s", z, x, y, err);
+      out = OUT_FAILED;
+    } else {
+      makeColumn(c, xi, dir);
+      if (writeTileRetrying(j, "ELEV", path, tmpPath, c->px, z, x, y, err, sizeof(err))) {
+        s_elevWritten++;                   // after the rename: the map may read it now
+        out = OUT_DONE;
+      } else {
+        snprintf(st->elevErr, sizeof(st->elevErr), "z%d %d/%d: %s", z, x, y, err);
+        out = OUT_FAILED;
+      }
+    }
+  }
+  uint32_t f, l, m;
+  heapNow(&f, &l, &m);
+  if (l < c->floorLargest) c->floorLargest = l;
+  st->elapsedMs = millis() - j->startMs;
+  waitSliced(j, out == OUT_FAILED ? TF_ELEV_FAIL_PACE_MS : TF_ELEV_PACE_MS, c->client, false);
+  return out;
+}
+
+/* One elevation level over the job's square, centre-out like the map's (tile_plan.h), skipping
+ * what is on the card. `fails` runs across both levels: TF_ELEV_MAX_FAILS in a row give the
+ * layer up for this run. */
+static bool walkElevLevel(Job* j, RunCtx* c, int z, int* fails) {
+  TileJobStatus* st = &j->st;
+  st->elevZ = z;
+  TilePlanOrder o;
+  tilePlanLevelOrder(&o, j->spec.lat, j->spec.lon, j->spec.radiusKm, z);
+  const int n = 1 << z;
+  c->colX0 = o.x0;
+  c->cols = (uint8_t*)heap_caps_calloc((size_t)(o.w + 7) / 8, 1, MALLOC_CAP_SPIRAM);
+  char dir[48], path[64], tmpPath[64];
+  int idle = 0;
+  int x, y;
+  bool ended = false;                      // the level's last tile was visited
+  for (;;) {
+    if (s_stop || st->elevGaveUp) {
+      break;
+    }
+    if ((s_pause || s_noWifi) && !waitReady(j, false, c->client)) {
+      break;                               // before the card is touched: walkLevel's rule
+    }
+    if (!tilePlanOrderNext(&o, &x, &y)) {
+      ended = true;
+      break;
+    }
+    const int wx = ((x % n) + n) % n;
+    snprintf(dir, sizeof(dir), "%s/%s/%d/%d", TILE_MAPS_ROOT, ELEV_DIR, z, wx);
+    snprintf(path, sizeof(path), "%s/%d.elv", dir, y);
+    snprintf(tmpPath, sizeof(tmpPath), "%s/%d.tmp", dir, y);
+    if (tileOnCard(path)) {                // 131,072 bytes: the same test as a map tile
+      st->elevSkipped++;
+      if (++idle % 16 == 0) {
+        vTaskDelay(1);
+      }
+      continue;
+    }
+    idle = 0;
+    const int out = elevTile(j, c, z, wx, x, y, dir, path, tmpPath);
+    if (out == OUT_STOPPED) {
+      break;
+    }
+    if (out == OUT_FAILED) {
+      st->elevFailed++;
+      if (++*fails >= TF_ELEV_MAX_FAILS) {
+        st->elevGaveUp = true;
+        log_e("ELEV: %d failures in a row - the rest of the layer waits for the next run (%s)",
+              *fails, st->elevErr);
+      }
+    } else {
+      *fails = 0;
+      if (out == OUT_DONE) {
+        st->elevDone++;
+      } else {
+        st->elevNoTile++;
+      }
+    }
+  }
+  free(c->cols);
+  c->cols = NULL;
+  return ended;
+}
+
+/* The layer, both levels, on a TLS client of its own that is gone before the map tiles' is made
+ * (the kept-alive socket must never carry a request to the other host). A sibling of runJob
+ * under jobRun, not inside it: the two HTTPClients and their clients are never on the stack or
+ * in the heap together. */
+static void runElev(Job* j, uint8_t* body, uint16_t* px, uint32_t* floorLargest) {
+  TileJobStatus* st = &j->st;
+  st->elevRunning = true;
+  WiFiClientSecure* secure = new WiFiClientSecure();
+  secure->setInsecure();                   // the map sources' trust model (runJob)
+  {
+    HTTPClient http;
+    http.setReuse(true);
+    http.setTimeout(15000);
+    http.setUserAgent(TF_USER_AGENT);
+    RunCtx c;
+    memset(&c, 0, sizeof(c));
+    c.http = &http;
+    c.client = secure;
+    c.body = body;
+    c.px = px;
+    c.floorLargest = *floorLargest;
+    int fails = 0;
+    const bool fine = walkElevLevel(j, &c, ELEV_Z, &fails);        // the fine layer first, centre-out
+    const bool coarse = walkElevLevel(j, &c, ELEV_Z_COARSE, &fails);
+    /* Every tile of both levels visited and none failed: all on the card (or no tile there).
+     * recSave() keeps it in the job record, so the next resume asks no card space for it. */
+    st->elevWhole = fine && coarse && st->elevFailed == 0 && !st->elevGaveUp;
+    http.end();
+    *floorLargest = c.floorLargest;
+  }                                        // ~HTTPClient stops its client HERE, while it still exists
+  secure->stop();
+  delete secure;
+  st->elevRunning = false;
+}
+
+/* The map tiles of the run: both passes on the source's own client. `body`/`px` are jobRun's.
+ * The HTTPClient lives in an inner block that closes BEFORE the client is deleted: its destructor
+ * calls _client->stop(), and until 0.9.80 that ran on the client already deleted above it (a
+ * WiFiClientSecure's stop() then zeroed mbedTLS contexts inside freed memory, at every run's end). */
+static void runJob(Job* j, uint8_t* body, uint16_t* px, uint32_t* floorLargest) {
+  TileJobStatus* st = &j->st;
 
   const bool https = !strncmp(j->src->url, "https", 5);
   WiFiClientSecure* secure = NULL;
@@ -967,50 +1144,53 @@ static void runJob(Job* j) {
     plain = new WiFiClient();
     client = plain;
   }
-  HTTPClient http;
-  http.setReuse(true);
-  http.setTimeout(15000);
-  http.setUserAgent("WiPhone-maps/0.1 (wiphone-meshtastic)");
+  {
+    HTTPClient http;
+    http.setReuse(true);
+    http.setTimeout(15000);
+    http.setUserAgent(TF_USER_AGENT);
 
-  RunCtx c;
-  memset(&c, 0, sizeof(c));
-  c.http = &http;
-  c.client = client;
-  c.body = body;
-  c.px = px;
-  c.floorLargest = 0xFFFFFFFFu;
+    RunCtx c;
+    memset(&c, 0, sizeof(c));
+    c.http = &http;
+    c.client = client;
+    c.body = body;
+    c.px = px;
+    c.floorLargest = *floorLargest;
 
-  // Pass 1, from the cursor: every level, centre-out.
-  if (j->startPass <= 1) {
-    st->pass = 1;
-    for (int z = j->startZ; z <= j->zMax && !s_stop; z++) {
-      walkLevel(j, &c, 1, z, z == j->startZ ? j->startOrd : 0);
-    }
-  }
-  /* THE ONE AUTOMATIC SECOND PASS. A run that reaches the end without being stopped, with
-   * tiles that did not land (server hiccups over two days, a card that was busy five seconds),
-   * looks at those again before it calls itself finished — otherwise the holes stay until
-   * someone presses Start again, which after a multi-day run nobody does (Nick's "I leave on
-   * the trip with holes"). Once: a tile that fails twice is reported, not chased. */
-  if (!s_stop) {
-    int fromZ = TILE_ZOOM_BASE;
-    int32_t fromOrd = 0;
-    if (j->startPass == 2) {
-      fromZ = j->startZ;
-      fromOrd = j->startOrd;
-    }
-    st->p2Total = unsettledIn(j->levelBase[fromZ - TILE_ZOOM_BASE] + fromOrd, st->total);
-    if (st->p2Total > 0) {
-      st->pass = 2;
-      for (int z = fromZ; z <= j->zMax && !s_stop; z++) {
-        walkLevel(j, &c, 2, z, z == fromZ ? fromOrd : 0);
+    // Pass 1, from the cursor: every level, centre-out.
+    if (j->startPass <= 1) {
+      st->pass = 1;
+      for (int z = j->startZ; z <= j->zMax && !s_stop; z++) {
+        walkLevel(j, &c, 1, z, z == j->startZ ? j->startOrd : 0);
       }
     }
-  }
-  if (!s_stop) {
-    st->stopReason = TILE_STOP_FINISHED;
-  }
-  http.end();
+    /* THE ONE AUTOMATIC SECOND PASS. A run that reaches the end without being stopped, with
+     * tiles that did not land (server hiccups over two days, a card that was busy five seconds),
+     * looks at those again before it calls itself finished — otherwise the holes stay until
+     * someone presses Start again, which after a multi-day run nobody does (Nick's "I leave on
+     * the trip with holes"). Once: a tile that fails twice is reported, not chased. */
+    if (!s_stop) {
+      int fromZ = TILE_ZOOM_BASE;
+      int32_t fromOrd = 0;
+      if (j->startPass == 2) {
+        fromZ = j->startZ;
+        fromOrd = j->startOrd;
+      }
+      st->p2Total = unsettledIn(j->levelBase[fromZ - TILE_ZOOM_BASE] + fromOrd, st->total);
+      if (st->p2Total > 0) {
+        st->pass = 2;
+        for (int z = fromZ; z <= j->zMax && !s_stop; z++) {
+          walkLevel(j, &c, 2, z, z == fromZ ? fromOrd : 0);
+        }
+      }
+    }
+    if (!s_stop) {
+      st->stopReason = TILE_STOP_FINISHED;
+    }
+    http.end();
+    *floorLargest = c.floorLargest;
+  }                                        // ~HTTPClient runs here, on a client that still exists
   if (secure) {
     secure->stop();
     delete secure;
@@ -1019,15 +1199,32 @@ static void runJob(Job* j) {
     plain->stop();
     delete plain;
   }
-  free(body);
-  free(px);
-  st->heapFloorLargest = (c.floorLargest == 0xFFFFFFFFu) ? 0 : c.floorLargest;
 }
 
+/* The whole run: the elevation layer first when the job asks for it, then the map tiles. The two
+ * PSRAM buffers every tile goes through - the body as it arrives, and the decoded tile (a map
+ * tile's RGB565 or an elevation tile's int16 metres, 131,072 bytes either way) - are made once a
+ * run, here, and shared by both. Everything with a destructor is torn down by the time
+ * runElev/runJob return (the worker loops; its locals must not hold internal-heap buffers). */
 static void jobRun(Job* j) {
   TileJobStatus* st = &j->st;
   j->startMs = millis();
-  runJob(j);                              // every destructor has run by here
+  uint8_t*  body = (uint8_t*)heap_caps_malloc(TF_BODY_CAP, MALLOC_CAP_SPIRAM);
+  uint16_t* px   = (uint16_t*)heap_caps_malloc(MAP_TILE_BYTES, MALLOC_CAP_SPIRAM);
+  uint32_t floorLargest = 0xFFFFFFFFu;
+  if (!body || !px) {
+    stopWith(j, TILE_STOP_RAM, "no PSRAM for the tile buffers");
+  } else {
+    if (j->spec.elev && !s_stop) {
+      runElev(j, body, px, &floorLargest);
+    }
+    if (!s_stop) {
+      runJob(j, body, px, &floorLargest);
+    }
+  }
+  free(body);
+  free(px);
+  st->heapFloorLargest = (floorLargest == 0xFFFFFFFFu) ? 0 : floorLargest;
   {
     uint32_t f, l, m;
     heapNow(&f, &l, &m);
@@ -1044,6 +1241,7 @@ static void jobRun(Job* j) {
   st->paused = false;
   st->serverWaitSec = 0;
   st->waitingRam = false;
+  st->elevRunning = false;
   st->finished = true;
   st->active = false;
 }
@@ -1105,10 +1303,30 @@ struct JobRec {
   uint16_t radiusKm;
   char     key[16];        // the source's KEY ("otm"), never its index
   char     ssid[33];       // the network it started on; it resumes only there
+  /* 0.9.80: TF_REC_ELEV_ON = the job fetches the elevation layer too; TF_REC_ELEV_WHOLE = ...and
+   * a run already had the whole layer on the card (the resume's space check leaves it out). It
+   * sits in what was the padding before `lat`, so the record is the SAME SIZE and an older
+   * firmware's record still loads (the getBytesLength check): those were written from a zeroed
+   * record, so they read 0 - an old job resumes as it was started, without the layer. Anything
+   * but ON/WHOLE is read as 0. */
+  uint8_t  elev;
   double   lat, lon;
   int32_t  curZ, curOrd;   // cursor: the next tile to visit
   int32_t  written;        // tiles this job has written over all its runs (the resume's space check)
 };
+/* The 0.9.78 layout, to prove the byte above did not move anything (a size change would make
+ * every waiting job "could not be read" after an upgrade, and drop it). */
+struct JobRecV1Shape {
+  uint8_t  ver, pass, strikes, giveUp, reason, zMax;
+  uint16_t radiusKm;
+  char     key[16];
+  char     ssid[33];
+  double   lat, lon;
+  int32_t  curZ, curOrd;
+  int32_t  written;
+};
+static_assert(sizeof(JobRec) == sizeof(JobRecV1Shape) && offsetof(JobRec, lat) == offsetof(JobRecV1Shape, lat),
+              "JobRec.elev must live in the old padding: the persisted record's size is its version check");
 
 static TileResume s_rs;                    // tile_plan.h's bookkeeping for the one job there can be
 static JobRec     s_rec;                   // what NVS holds, when s_persist
@@ -1134,6 +1352,13 @@ static int32_t    s_writtenBase = 0;       // rec.written when this run started
 static int32_t    s_doneSeen = 0;          // the running job's `done` the tick last saw
 
 static void recSave() {
+  /* A run that had the elevation layer whole says so in the record (every save goes through
+   * here: the tick's cursor saves, a run's end, power-off). Only ever ON -> WHOLE: the layer
+   * does not leave the card (the Files app refuses /maps/elev while the job runs or waits).
+   * s_job is this record's job - a Start resets it before its first save. */
+  if (s_rec.elev == TF_REC_ELEV_ON && s_job && s_job->spec.elev && s_job->st.elevWhole) {
+    s_rec.elev = TF_REC_ELEV_WHOLE;
+  }
   Preferences p;
   if (p.begin(TF_NVS_NS, false)) {
     p.putBytes(TF_NVS_JOB, &s_rec, sizeof(s_rec));
@@ -1201,6 +1426,7 @@ static void loadPersisted(uint32_t now) {
     dropJob("the saved download could not be read");
     return;
   }
+  r.elev = (r.elev == TF_REC_ELEV_ON || r.elev == TF_REC_ELEV_WHOLE) ? r.elev : 0;
   s_rec = r;
   s_persist = true;
   tileResumeLoaded(&s_rs, r.strikes, r.giveUp, r.reason, now);
@@ -1377,6 +1603,11 @@ static bool startJob(const TileJobSpec* s, bool resume, bool automatic, char* wh
       if (left > past) left = past;
       if (left < 0) left = 0;
     }
+    /* The elevation layer, when the job has it, in full: which of its tiles are on the card is
+     * not known without a stat each, and this runs on the loop (the honest direction again) -
+     * unless the record says a run already had it whole (tilePlanElevSpaceTiles). */
+    left += tilePlanElevSpaceTiles(s->lat, s->lon, s->radiusKm, s->elev, resume,
+                                   s_rec.elev == TF_REC_ELEV_WHOLE);
     const uint64_t need = tilePlanCardBytes(left);
     const uint64_t freeB = cardFreeBytes();
     if (freeB < need + margin) {
@@ -1398,6 +1629,8 @@ static bool startJob(const TileJobSpec* s, bool resume, bool automatic, char* wh
   j->src = src;
   j->zMax = zMax;
   j->st.total = total;
+  j->st.elev = s->elev;
+  j->st.elevTotal = s->elev ? (int)tilePlanElevTiles(s->lat, s->lon, s->radiusKm) : 0;
   j->busyWaitMs = TF_BUSY_FIRST_MS;
   tilePlanRateReset(&j->rate);
   {
@@ -1450,6 +1683,7 @@ static bool startJob(const TileJobSpec* s, bool resume, bool automatic, char* wh
       s_rec.curZ = TILE_ZOOM_BASE;
       s_rec.curOrd = 0;
       s_rec.written = 0;
+      s_rec.elev = s->elev ? TF_REC_ELEV_ON : 0;
     }
   }
   if (persist) {
@@ -1503,6 +1737,7 @@ static bool recSpec(TileJobSpec* spec) {
   spec->lon = s_rec.lon;
   spec->radiusKm = s_rec.radiusKm;
   spec->zMax = s_rec.zMax;
+  spec->elev = s_rec.elev != 0;
   return true;
 }
 
@@ -1821,6 +2056,7 @@ void tileFetchJobInfo(TileFetchJobInfo* out) {
     out->total = j->st.total;
     const Cursor cur = readCursor();
     out->reached = cur.pass == 1 ? j->levelBase[cur.z - TILE_ZOOM_BASE] + cur.ord : j->st.total;
+    out->elev = j->spec.elev;
   } else {
     const int idx = sourceByKey(s_rec.key);
     strlcpy(out->label, idx >= 0 ? SOURCES[idx].label : s_rec.key, sizeof(out->label));
@@ -1831,6 +2067,7 @@ void tileFetchJobInfo(TileFetchJobInfo* out) {
     out->total = (int)tilePlanTiles(s_rec.lat, s_rec.lon, s_rec.radiusKm, s_rec.zMax);
     out->reached = s_rec.pass == 1 ? reachOf(s_rec.lat, s_rec.lon, s_rec.radiusKm, s_rec.curZ, s_rec.curOrd)
                                    : out->total;
+    out->elev = s_rec.elev != 0;
     gateWords(out->why, sizeof(out->why));
   }
   if (s_persist) {
@@ -1853,6 +2090,21 @@ const char* tileFetchJobKey(bool* running) {
     return s_rec.key;
   }
   return NULL;
+}
+
+bool tileFetchJobElev() {
+  if (!s_loaded) {
+    loadPersisted(millis());
+  }
+  settleEnded(millis());
+  if (s_busy && s_kind == 1 && s_job) {
+    return s_job->spec.elev;
+  }
+  return s_persist && s_rs.pending && s_rec.elev != 0;
+}
+
+uint32_t tileFetchElevWritten() {
+  return s_elevWritten;
 }
 
 void tileFetchStatus(TileJobStatus* out) {
@@ -1890,7 +2142,17 @@ static void reportResume(void (*emit)(const char* line), char* l, size_t cap) {
 
 void tileFetchReport(void (*emit)(const char* line)) {
   char l[256];
-  TileJobStatus st;
+  /* The status copy is ~400 bytes: PSRAM, made once, not the loop task's 8 KB stack (the console
+   * runs on it, under the rest of the command's frames). */
+  static TileJobStatus* s_rep = NULL;
+  if (!s_rep) {
+    s_rep = (TileJobStatus*)heap_caps_calloc(1, sizeof(TileJobStatus), MALLOC_CAP_SPIRAM);
+    if (!s_rep) {
+      emit("maps dl: no PSRAM for the report");
+      return;
+    }
+  }
+  TileJobStatus& st = *s_rep;
   tileFetchStatus(&st);
   if (!s_loaded) {
     loadPersisted(millis());
@@ -1921,6 +2183,24 @@ void tileFetchReport(void (*emit)(const char* line)) {
     snprintf(l, sizeof(l), "  second pass: %d/%d looked at, %d tried again, %d fixed",
              st.p2Seen, st.p2Total, st.p2Tried, st.p2Fixed);
     emit(l);
+  }
+  /* The elevation layer: its own counts (never in the map's `failed`), and whether it is being
+   * walked now. Seen = the tiles of both levels this run has looked at. */
+  if (st.elev) {
+    const int seen = st.elevDone + st.elevSkipped + st.elevNoTile + st.elevFailed;
+    if (st.elevRunning) {
+      snprintf(l, sizeof(l), "  elevation: RUNNING z%d, %d/%d seen - %d new, %d had, %d no-tile, %d failed%s%s",
+               st.elevZ, seen, st.elevTotal, st.elevDone, st.elevSkipped, st.elevNoTile, st.elevFailed,
+               st.elevErr[0] ? " | last: " : "", st.elevErr);
+    } else {
+      snprintf(l, sizeof(l), "  elevation: %d/%d seen - %d new, %d had, %d no-tile, %d failed%s%s%s",
+               seen, st.elevTotal, st.elevDone, st.elevSkipped, st.elevNoTile, st.elevFailed,
+               st.elevGaveUp ? ", gave up for this run" : "",
+               st.elevErr[0] ? " | last: " : "", st.elevErr);
+    }
+    emit(l);
+  } else {
+    emit("  elevation: not part of this job");
   }
   snprintf(l, sizeof(l), "  %u KB down in %u s; card busy %d time%s; internal largest floor %u, min-ever %u; task stack floor %u of %u%s%s",
            (unsigned)(st.bytes / 1024), (unsigned)(st.elapsedMs / 1000),
@@ -1970,38 +2250,41 @@ static void runBench(BenchJob* j) {
     plain = new WiFiClient();
     client = plain;
   }
-  HTTPClient http;
-  http.setReuse(true);
-  http.setTimeout(15000);
-  http.setUserAgent("WiPhone-maps/0.1 (wiphone-meshtastic)");
   uint32_t minDuring = 0xFFFFFFFFu;
-  for (int i = 0; i < j->count; i++) {
-    const uint32_t t0 = millis();
-    size_t got = 0;
-    char err[64];
-    const int code = fetchOne(http, *client, j->url, body, TF_BODY_CAP, &got, err, sizeof(err));
-    j->lastCode = code;
-    if (code != 200) {
-      snprintf(j->lastErr, sizeof(j->lastErr), "%s", err);
-      j->failed++;
-    } else {
-      const uint32_t dt = millis() - t0;
-      if (i == 0) j->tFirstMs = dt;
-      j->tSumMs += dt;
-      if (dt < j->tMinMs) j->tMinMs = dt;
-      if (dt > j->tMaxMs) j->tMaxMs = dt;
-      j->bytes += (uint32_t)got;
-      j->done++;
-      const TileFormat f = tileSniff(body, got);
-      if (f != TILE_FMT_JPEG && f != TILE_FMT_PNG) j->wrongMagic++;
+  {
+    /* An inner block: ~HTTPClient calls stop() on its client, which must still exist (runJob). */
+    HTTPClient http;
+    http.setReuse(true);
+    http.setTimeout(15000);
+    http.setUserAgent(TF_USER_AGENT);
+    for (int i = 0; i < j->count; i++) {
+      const uint32_t t0 = millis();
+      size_t got = 0;
+      char err[64];
+      const int code = fetchOne(http, *client, j->url, body, TF_BODY_CAP, &got, err, sizeof(err));
+      j->lastCode = code;
+      if (code != 200) {
+        snprintf(j->lastErr, sizeof(j->lastErr), "%s", err);
+        j->failed++;
+      } else {
+        const uint32_t dt = millis() - t0;
+        if (i == 0) j->tFirstMs = dt;
+        j->tSumMs += dt;
+        if (dt < j->tMinMs) j->tMinMs = dt;
+        if (dt > j->tMaxMs) j->tMaxMs = dt;
+        j->bytes += (uint32_t)got;
+        j->done++;
+        const TileFormat f = tileSniff(body, got);
+        if (f != TILE_FMT_JPEG && f != TILE_FMT_PNG) j->wrongMagic++;
+      }
+      uint32_t f, l, m;
+      heapNow(&f, &l, &m);
+      if (l < minDuring) minDuring = l;
+      vTaskDelay(1);
     }
-    uint32_t f, l, m;
-    heapNow(&f, &l, &m);
-    if (l < minDuring) minDuring = l;
-    vTaskDelay(1);
+    j->minEverDuring = minDuring;
+    http.end();
   }
-  j->minEverDuring = minDuring;
-  http.end();
   if (secure) { secure->stop(); delete secure; }
   if (plain)  { plain->stop();  delete plain; }
   free(body);

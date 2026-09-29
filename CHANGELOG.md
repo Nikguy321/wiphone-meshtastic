@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.9.80-NH (unreleased, 2026-09-27) - the Almanac, altitude on the map, metric/US units, elevation downloads
+
+Nick: *"expand that app ... moon cycle, date, altitude and so on (and whatever else you can think of)"*,
+*"altitude measurement on map center ... relative to where I am"*, *"also put this on covey too as an app"*.
+COVEY got the same app the same day (its D-164) - both devices compute from ONE spec, `docs/almanac.md`,
+and are tested against ONE vector file, `tests/vectors_almanac.{h,json}` (PyEphem, NOAA's WMM2025 test
+values, utm + mgrs), and COVEY's `tools/almanac_crosscheck.py` proves its Python port gives the phone's
+C++ answers to the second.
+
+- **Menu > Almanac** (new, with its own icon). TODAY: the legal-light countdown, the legal window, sun,
+  moon phase, the solunar rating and the next period, the place. SUN: legal light, sunrise, solar noon,
+  sunset, civil twilight, day length and its change, the sun's altitude/azimuth now. MOON: rise, overhead,
+  set, underfoot, phase, illumination, age, the next four quarters, the moon now. SOLUNAR: J. A. Knight's
+  major/minor periods and a 0-4 rating (labelled as folk tables). POSITION: source and age, lat/lon,
+  degrees + minutes, UTM, MGRS, ground elevation from the tiles, GPS altitude, speed and course (the NMEA
+  reader now parses RMC speed/course), satellites/HDOP, **magnetic declination** (NOAA WMM2025, valid to
+  2030 - North Bend 14.8 E). DATE: day of year, ISO week, the clock's source, the US clock-change reminder,
+  the next equinox/solstice. Left/Right = another day (+-365).
+- **Legal light defaults to Washington's big-game rule** (sunrise - 30 min to sunset + 30 min); civil
+  twilight is a setting. At 47 N civil twilight runs up to 36 min in December - earlier AND later than the
+  law. Legal times round INWARD (first light up, last light down) so the minute shown is always legal. The
+  Meshtastic "Sun & legal light" screen and the serial `sun` use the same rule and code (sun_times.cpp is
+  gone; its independent checks moved to `test_sun_astro`).
+- **Days past a US clock change are shown in the offset they will have** ("Times in UTC-8 (after the Nov 1
+  change)"): stepping from Oct 27 to Nov 7 used to show legal light ending an hour late. New setting "US
+  daylight saving: yes / no (HI, AZ)". The phone's clock itself is unchanged (a fixed offset).
+- **Place:** GPS / pin / chosen waypoint as before, then the last GPS fix of this boot, then the map's saved
+  view - each labelled.
+- **Cost, measured on phone 2 (160 MHz):** the day's tables are ~154 ms of software-double maths, now cut
+  into slices of <= ~28 ms on the app timer (it was one 148 ms block in the key handler plus a 174 ms
+  rebuild - a 334 ms LOOP STALL); the minute tick rebuilds in ~10 ms from saved results.
+- **Altitude on the map:** a strip row "Elev 1,352ft, 394ft above you" - the ground under the crosshair
+  against the ground under you (GPS / pin), both from elevation tiles, never the GPS's own altitude. The
+  ruler says the climb. Menu: "Altitude: ON/off". Tiles: `/maps/elev/<z>/<x>/<y>.elv` (int16 metres; z13
+  ~13 m + a coarse z10 layer; `elev` is a RESERVED name, never a map area), built on the Mac by
+  `tools/make_elev_tiles.py` from the AWS Open Data Terrain Tiles (USGS 3DEP / SRTM; ~1 m against USGS's
+  own point service on flat ground). `tools/cardday.sh` copies them (step 4).
+- **The phone downloads elevation too:** "Elevation too: ON" on the download form fetches the area's
+  terrain tiles over HTTPS with the map tiles (proven on phone 2: Mount Rainier's summit reads 4,391.2 m,
+  identical to the Mac-built tile; true height 4,392 m).
+- **Units: metric / US** (Maps menu and Almanac settings; `units` over the cable): scale bar, distances,
+  heights, speed. Metric output is byte-identical to before.
+- Serial: `almanac [lat,lon] [+-N]`, `almanac cost`, `almanac bench`, `elev`, `elev <lat> <lon>`,
+  `units`, `maps dl ... [elev 1|0]`, `open almanac`.
+- Fixed on the way: the downloader's HTTP client wrote into freed memory once per run (it closed a TLS
+  client after deleting it).
+
 ## 0.9.79-NH (2026-09-26) - reading-position sync over KOSync (Xteink X4, KOReader, COVEY), music rebuilt, the web installer keeps your settings
 
 **The version is `0.9.79-NH` from here on** (Nick: "add something to differentiate it from the default

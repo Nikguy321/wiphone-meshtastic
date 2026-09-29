@@ -15,6 +15,7 @@
 #include "files_paths.h"   // within / join / reroot: the safety of the folder operations
 #include "music_player.h"  // a shorter slice while music plays: the I2S DMA holds ~90 ms
 #include "tile_fetch.h"    // a running map download owns its area: no delete/move under it
+#include "elev_tiles.h"    // ELEV_DIR: ...and /maps/elev when it fetches the elevation layer too
 #include "Audio.h"
 #include <new>
 #include <unistd.h>        // unlink / rmdir straight through the VFS: no stat+open first
@@ -62,9 +63,20 @@ static bool downloadWritesUnder(const char* path, bool* waiting) {
     return false;
   }
   if (waiting) *waiting = !running;
+  /* Case-blind: the card is FAT, so the job writing "/maps/elev" writes into a folder spelt
+   * "Elev" or "ELEV" just the same (files_paths.h, filePathWithinNoCase). */
   char root[64];
   snprintf(root, sizeof(root), "%s/%s", TILE_MAPS_ROOT, key);
-  return filePathWithin(root, path) || filePathWithin(path, root);
+  if (filePathWithinNoCase(root, path) || filePathWithinNoCase(path, root)) {
+    return true;
+  }
+  /* 0.9.80: a job with "Elevation too" writes /maps/elev as well - first in every run, a resume
+   * included - so that folder is the job's too while it runs or waits. */
+  if (tileFetchJobElev()) {
+    snprintf(root, sizeof(root), "%s/%s", TILE_MAPS_ROOT, ELEV_DIR);
+    return filePathWithinNoCase(root, path) || filePathWithinNoCase(path, root);
+  }
+  return false;
 }
 static const char* downloadRefusal(bool waiting) {
   return waiting ? "A map download will resume there - stop it first (Maps > Download)"

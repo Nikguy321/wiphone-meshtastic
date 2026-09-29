@@ -43,6 +43,7 @@ governing permissions and limitations under the License.
 #include "esp_task_wdt.h"   // DIAGNOSTIC: loop-stall watchdog, see setup()
 #include "tile_fetch.h"      // the map downloader: DFS hold, pause-for-calls (below)
 #include "app_maps.h"        // gMapsActive: the map owns the side buttons while it is open
+#include "prefs_almanac.h"   // gUnits / gLegalRule: loaded at boot beside the GPS switch (0.9.80)
 #include "esp_wifi.h"       // esp_wifi_get_ps/set_ps: the modem-sleep invariant in loop()
 #include "esp_bt.h"         // esp_bt_controller_mem_release: the Bluetooth reserve, given back at boot
 #include "Test.h"
@@ -1722,6 +1723,12 @@ void setup() {
 //  esp_err_t err;
 //  err = esp_pm_configure((const void*) &conf);
 //  log_d("Power management: %d", (int) err);
+
+  /* The Almanac release's two device-wide settings, beside the GPS switch's read below and from
+   * the same NVS namespace: metric/US (every app's distances and heights) and the legal-light
+   * rule. One home, prefs_almanac.h, so every screen reads the same value. Outside USER_SERIAL:
+   * they have nothing to do with the port. */
+  almanacPrefsLoad();
 
 #ifdef USER_SERIAL
   //allDigitalWrite(EXTENDER_PIN_B0, HIGH);     // TODO: why do we do this?
@@ -4574,7 +4581,13 @@ void loop() {
         gGpsRawSeen++;
         if (gGpsReader.feed(ch)) {
           const NmeaFix& fx = gGpsReader.fix();
-          meshService.gpsUpdate(fx.valid, fx.latI, fx.lonI, fx.sats, fx.hdopX10);
+          /* feed() completes on an RMC or a GGA; rmcCount moving says which (Clock::gpsSentence
+           * reads it the same way). The motion is an RMC's, the altitude a GGA's (gpsUpdate). */
+          static uint32_t sRmcSeen = 0;
+          const bool rmc = fx.rmcCount != sRmcSeen;
+          sRmcSeen = fx.rmcCount;
+          meshService.gpsUpdate(fx.valid, fx.latI, fx.lonI, fx.sats, fx.hdopX10,
+                                fx.altM, fx.speedKnX100, fx.courseX10, rmc);
           /* GPS TIME (0.9.79): a new RMC with a fix may set the clock — two consecutive agreeing
            * readings, never over a fresh NTP; the rules are clock_source.h's. millis() here,
            * not the pass's `now`: the stamp is WHEN THE SENTENCE ARRIVED, and this loop drains

@@ -356,6 +356,11 @@ MeshtasticService::MeshtasticService()
   gpsLatI = gpsLonI = 0;
   gpsFixMs = 0;
   gpsSats = gpsHdopX10 = -1;
+  gpsAltM = -10000;
+  gpsAltMs = 0;
+  gpsSpeedKnX100 = -1;
+  gpsCourseX10 = -1;
+  gpsMotionMs = 0;
   gpsEnabled = false;
   /* Beacon: off, aimed nowhere, never transmitted. setup() may load a stored
    * choice over the top, but a construction that armed anything would arm it
@@ -602,7 +607,8 @@ bool MeshtasticService::referenceIsStaleGps(uint32_t* ageMs) const {
  * The first fix ever is log_e'd once: that is the moment the woods plate's
  * GPS half is PROVEN, and it should be visible in a release build's log. */
 void MeshtasticService::gpsUpdate(bool valid, int32_t latI, int32_t lonI,
-                                  int sats, int hdopX10) {
+                                  int sats, int hdopX10,
+                                  int altM, int32_t speedKnX100, int32_t courseX10, bool rmc) {
   if (sats >= 0) {
     gpsSats = sats;
   }
@@ -616,6 +622,18 @@ void MeshtasticService::gpsUpdate(bool valid, int32_t latI, int32_t lonI,
     gpsFixMs = millis();
     if (gpsFixMs == 0) {
       gpsFixMs = 1;                     // millis()==0 must not read as "never"
+    }
+    /* With the fix, never apart from it - and each from ITS OWN sentence, stamped with that
+     * sentence's time (review 2026-09-27): the motion from an RMC (nmea.h - -1 when that sentence
+     * had none), the altitude from a GGA. The fix above is stamped by both, so stamping the motion
+     * with it let a GGA-only stretch (RMCs lost to checksum errors) keep an old speed "current". */
+    if (rmc) {
+      gpsSpeedKnX100 = speedKnX100;
+      gpsCourseX10 = courseX10;
+      gpsMotionMs = gpsFixMs;
+    } else {
+      gpsAltM = altM;
+      gpsAltMs = gpsFixMs;
     }
     if (first) {
       log_e("GPS: FIRST FIX %d.%05d,%d.%05d sats=%d hdop=%d.%d",
@@ -646,6 +664,34 @@ bool MeshtasticService::getGpsFix(int32_t* latI, int32_t* lonI, uint32_t* ageMs,
   }
   if (ageMs) {
     *ageMs = (uint32_t)(millis() - gpsFixMs);
+  }
+  return true;
+}
+
+bool MeshtasticService::getGpsMotion(int* altM, uint32_t* altAgeMs, int32_t* speedKnX100,
+                                     int32_t* courseX10, uint32_t* motionAgeMs,
+                                     uint32_t* ageMs) const {
+  if (gpsFixMs == 0) {
+    return false;
+  }
+  const uint32_t now = millis();
+  if (altM) {
+    *altM = gpsAltMs ? gpsAltM : -10000;
+  }
+  if (altAgeMs) {
+    *altAgeMs = gpsAltMs ? (uint32_t)(now - gpsAltMs) : UINT32_MAX;
+  }
+  if (speedKnX100) {
+    *speedKnX100 = gpsMotionMs ? gpsSpeedKnX100 : -1;
+  }
+  if (courseX10) {
+    *courseX10 = gpsMotionMs ? gpsCourseX10 : -1;
+  }
+  if (motionAgeMs) {
+    *motionAgeMs = gpsMotionMs ? (uint32_t)(now - gpsMotionMs) : UINT32_MAX;
+  }
+  if (ageMs) {
+    *ageMs = (uint32_t)(now - gpsFixMs);
   }
   return true;
 }

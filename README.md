@@ -398,6 +398,65 @@ cannot (`Needs 14 KB free (has 13.6)...`); the same release gave the phone 40 KB
 RAM, so on both phones a download now runs with ~50 KB to spare. Details and the measured
 numbers are in [docs/maps.md](docs/maps.md).
 
+## Almanac
+
+**Menu → Almanac** — sun, moon, solunar tables, where you are and what day it is, all
+**offline** (pure arithmetic on the phone; nothing needs a network). The details, the formulas
+and the accuracy are in **[docs/almanac.md](docs/almanac.md)**.
+
+- **Today**, on one screen: the countdown a hunting day actually asks (`LEGAL LIGHT: 3h 12m
+  left`, `First light in 5h 02m`, `Dark - first light 06:34`), today's legal light and sunrise
+  to sunset with the day's length, the moon's phase, the solunar rating and the next period, and
+  which place it is all for (your GPS, your pin, or a waypoint chosen in Meshtastic > Places;
+  with none of those, the last GPS fix since the phone started — `At last GPS 2h 5m ago`, if it
+  had 4+ satellites and HDOP 10 or better, the bar every screen of the phone uses — and then
+  where the map was last looking, `At map view`).
+  **Left/Right** move a day at a time, a year either way; a day not worked out yet says
+  `Computing...` for a moment (the phone works it out a slice at a time, so nothing else
+  stalls). A day across a US clock change is given in the clock time that day will have, and
+  says so (`Times in UTC-8 (after the Nov 1 change)`) — on Oct 27 at UTC-7, Nov 7's end of
+  legal light reads 17:10, as the clock will on Nov 7, not 18:10. On the change day itself
+  every day screen says to check the Time offset (the phone's clock is a fixed offset: it cannot
+  change itself, and cannot know whether you have).
+- **Sun**: first and last legal light, sunrise, solar noon, sunset, civil twilight, the day's
+  length and how much it changed since yesterday, and where the sun is right now.
+- **Moon**: rise, overhead, set and underfoot in time order, phase, illumination, age, and the
+  next new moon, quarters and full moon with their dates (each on the clock of its own date,
+  across a US clock change too).
+- **Solunar**: John Alden Knight's major and minor periods and the day's rating — **labelled as
+  the folk tables they are**, not as science.
+- **Position & GPS**: latitude/longitude, degrees and minutes, **UTM and MGRS**, the ground's
+  height from the elevation tiles on the card, the GPS's altitude, speed and course, satellites,
+  and the **magnetic declination** with how to use it (`true = magnetic + 14.8`).
+- **Date & seasons**: day of the year, ISO week, the clock and who set it, the next equinox or
+  solstice, and a reminder in the three weeks before the US clocks change (`US clocks go back 1 h
+  Sun Nov 1 - set Time offset then`; on the day, `US clocks went back 1 h at 2 AM today - check
+  Time offset`). It never names an offset: the phone's offset alone cannot say whether the change
+  has been made (-8 on Nov 1 is Pacific done or Alaska not yet). Hawaii and Arizona, whose clocks
+  never change, set **Almanac → Settings → US daylight saving: no**, which turns off the reminder
+  and the clock-change shift above.
+
+**Legal light has two rules**, chosen in Almanac → Settings: **30 minutes before sunrise to 30
+minutes after sunset** (the default — Washington's big-game rule), or **civil twilight** (the
+sun 6° below the horizon; longer than 30 minutes from about October at 47° N). Every screen that
+counts it down says which rule it used, and the times are rounded **inward** — first light up,
+last light down — so the window shown is never wider than the real one. It is only as good as
+the clock and the place, and the screen names both; a clock set from the mesh is flagged. The
+Meshtastic "Sun & legal light" screen and the serial `sun` use the same computation and rule.
+
+**Units**: metric or US (feet, miles, mph), one setting (Almanac → Settings) shared with the
+map's scale bar, distances and heights.
+
+**Where the numbers come from**: the sun and moon are the standard published theories (NOAA /
+Meeus; the moon is Meeus's ELP-2000/82 series), checked in the host tests against independent
+PyEphem values — sun and moon events to well under a minute (17 s worst, at 71° N). The declination is
+NOAA's **World Magnetic Model 2025** (public domain), which is **valid 2025.0 to 2030.0**: after
+that the screen says the model has expired instead of showing a number that has quietly drifted.
+UTM/MGRS are WGS84, checked against the `utm` and `mgrs` packages. Ground heights come from the
+AWS Open Data **Terrain Tiles** (USGS 3DEP/NED, SRTM, GMTED and ETOPO, via Mapzen/Nextzen),
+converted into `/maps/elev` on the card on the Mac, or fetched by the phone itself with a map download
+("Elevation too", on by default) — see [docs/maps.md](docs/maps.md), "Altitude".
+
 ## E-reader
 
 - **EPUB and plain text** from the card, with **pictures inline**. Menu > Books.
@@ -434,8 +493,10 @@ numbers are in [docs/maps.md](docs/maps.md).
 - **"I'm here (announce)"** — declare yourself at a waypoint; the phone
   broadcasts one position so other devices' maps show it (preferring a private
   channel over public LongFast, and admitting it honestly when the send failed).
-- **Sun & legal light** — dawn / sunrise / sunset / dusk and a countdown
-  ("LEGAL LIGHT: 13h 34m left") for the reference place, computed offline.
+- **Sun & legal light** — first and last legal light (under the Almanac's rule:
+  30 minutes either side of the sun by default, or civil twilight), sunrise,
+  sunset and a countdown ("LEGAL LIGHT: 13h 34m left") for the reference place,
+  computed offline.
 - **GPS** — a receiver on the expansion header gives the phone its own live
   position; the toggle is in My node, and everything above works without it.
   The receiver rides on the **[woods backplate](#woods-backplate)** — built,

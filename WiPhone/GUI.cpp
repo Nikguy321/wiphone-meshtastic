@@ -22,6 +22,7 @@ governing permissions and limitations under the License.
 #include "app_files.h"
 #include "app_photos.h"
 #include "app_maps.h"
+#include "app_almanac.h"   // Menu > Almanac (0.9.80)
 #include "sms_mirror_rx.h"   // sipCompleteAddress: bare number -> full SIP URI
 #include "app_music.h"
 #include "music_player.h"   // Settings > Audio: while music plays, the call levels live in its stash
@@ -2497,6 +2498,9 @@ void GUI::enterApp(ActionID_t app) {
     break;
   case GUI_APP_MAPS:
     runningApp = new MapsApp(*screen, state, header, footer);
+    break;
+  case GUI_APP_ALMANAC:
+    runningApp = new AlmanacApp(*screen, state, header, footer);
     break;
   case GUI_APP_MUSIC:
     runningApp = new MusicApp(*screen, state, header, footer);

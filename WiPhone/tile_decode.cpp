@@ -3,6 +3,7 @@
  */
 #include "tile_decode.h"
 #include "tile_png.h"
+#include "elev_tiles.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -163,6 +164,43 @@ TileDecodeResult tileDecode(const uint8_t* data, size_t len, uint16_t* out, char
     return TILE_DECODE_ERROR;
   default:
     snprintf(why, whyCap, "not a JPEG or PNG");
+    return TILE_DECODE_ERROR;
+  }
+}
+
+/* One row of a terrarium tile into the .elv bytes (tileDecodeElev). */
+static void elevRow(void* ctx, int y, const uint8_t* rgb, const uint8_t* clear) {
+  uint8_t* o = (uint8_t*)ctx + (size_t)y * (ELEV_TILE_PX * 2);
+  for (int x = 0; x < ELEV_TILE_PX; x++, rgb += 3) {
+    const int16_t m = (clear && clear[x]) ? (int16_t)ELEV_NODATA : elevFromTerrarium(rgb[0], rgb[1], rgb[2]);
+    const uint16_t u = (uint16_t)m;
+    o[x * 2]     = (uint8_t)(u & 0xFF);          // little-endian, whatever the host is
+    o[x * 2 + 1] = (uint8_t)(u >> 8);
+  }
+}
+
+TileDecodeResult tileDecodeElev(const uint8_t* data, size_t len, uint8_t* out, char* why, size_t whyCap) {
+  if (!why || whyCap == 0) {
+    return TILE_DECODE_ERROR;
+  }
+  why[0] = '\0';
+  if (!data || !out || len < 8) {
+    snprintf(why, whyCap, "empty body");
+    return TILE_DECODE_ERROR;
+  }
+  switch (tileSniff(data, len)) {
+  case TILE_FMT_PNG: {
+    bool blank = false;
+    if (!tilePngDecodeRgb(data, len, elevRow, out, why, whyCap, &blank)) {
+      return TILE_DECODE_ERROR;
+    }
+    return blank ? TILE_DECODE_BLANK : TILE_DECODE_OK;
+  }
+  case TILE_FMT_HTML:
+    snprintf(why, whyCap, "the server sent a page, not a tile");
+    return TILE_DECODE_ERROR;
+  default:
+    snprintf(why, whyCap, "not a terrarium PNG");
     return TILE_DECODE_ERROR;
   }
 }

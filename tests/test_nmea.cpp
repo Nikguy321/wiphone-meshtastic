@@ -47,6 +47,20 @@ static const char* GGA_Q0_SATS3 = "$GNGGA,081836.00,,,,,0,03,,,M,,M,,*51\r\n";
 static const char* GLL = "$GNGLL,4738.96912,N,12220.35817,W,123519.00,A,A*6E\r\n";
 static const char* SEA_RMC_BADCK = "$GNRMC,123519.00,A,4738.96912,N,12220.35817,W,0.36,,130826,,,A*4D\r\n";
 
+/* Motion (0.9.80): RMC field 6 = speed over ground (knots), 7 = course over ground (deg true).
+ * Checksums computed in Python (XOR of the body between '$' and '*'); the expected fixed-point
+ * values by hand: 5.43 kn -> 543, 212.5 deg -> 2125, "12.345" truncated at 2 places -> 1234,
+ * "7.25" at 1 place -> 72, "5" -> 500, "360.0" -> 0 (north). */
+static const char* MOVING_RMC = "$GNRMC,123521.00,A,4738.96912,N,12220.35817,W,5.43,212.5,130826,,,A*6A\r\n";
+static const char* NOCOURSE_RMC = "$GNRMC,123522.00,A,4738.96912,N,12220.35817,W,0.02,,130826,,,A*43\r\n";
+static const char* VSTATUS_RMC = "$GNRMC,123523.00,V,,,,,,,130826,,,N*69\r\n";
+static const char* GARBLED_RMC = "$GNRMC,123524.00,A,4738.96912,N,12220.35817,W,5.4x,21a.5,130826,,,A*77\r\n";
+static const char* WHOLE_RMC = "$GNRMC,123525.00,A,4738.96912,N,12220.35817,W,5,360.0,130826,,,A*46\r\n";
+static const char* LONGFRAC_RMC = "$GNRMC,123526.00,A,4738.96912,N,12220.35817,W,12.345,7.25,130826,,,A*5A\r\n";
+static const char* BADCOURSE_RMC = "$GNRMC,123527.00,A,4738.96912,N,12220.35817,W,-1.0,361.0,130826,,,A*72\r\n";
+static const char* DOTS_RMC = "$GNRMC,123528.00,A,4738.96912,N,12220.35817,W,.,1.2.3,130826,,,A*4B\r\n";
+static const char* SHORT_RMC = "$GNRMC,123529.00,A,4738.96912,N,12220.35817,W*1B\r\n";
+
 int main() {
   printf("test_nmea\n");
 
@@ -155,6 +169,54 @@ int main() {
     buf[n - 2] = '\n';                          // "...A*4C\n" (drop the \r)
     buf[n - 1] = 0;
     CHECK(feedAll(r, buf) == 1, "bare \\n terminates a sentence too");
+  }
+
+  // ---- motion: speed and course over ground, from THIS RMC only (0.9.80) ----
+  {
+    NmeaReader r;
+    CHECK(r.fix().speedKnX100 == -1 && r.fix().courseX10 == -1, "motion unknown before any RMC");
+    CHECK(feedAll(r, MOVING_RMC) == 1 && r.fix().valid, "moving RMC parses as a fix");
+    CHECK(r.fix().speedKnX100 == 543, "speed 5.43 kn = 543 x100");
+    CHECK(r.fix().courseX10 == 2125, "course 212.5 deg = 2125 x10");
+    feedAll(r, SEA_GGA);
+    CHECK(r.fix().speedKnX100 == 543 && r.fix().courseX10 == 2125, "a GGA leaves the motion alone");
+
+    CHECK(feedAll(r, NOCOURSE_RMC) == 1, "RMC with an empty course parses");
+    CHECK(r.fix().speedKnX100 == 2, "speed 0.02 kn = 2");
+    CHECK(r.fix().courseX10 == -1, "empty course = -1, NOT the last RMC's 212.5");
+
+    feedAll(r, MOVING_RMC);
+    CHECK(feedAll(r, VSTATUS_RMC) == 1 && !r.fix().valid, "a 'V' RMC after a moving one");
+    CHECK(r.fix().speedKnX100 == -1 && r.fix().courseX10 == -1,
+          "'V' with empty fields: speed and course -1, never inherited");
+
+    feedAll(r, MOVING_RMC);
+    CHECK(feedAll(r, GARBLED_RMC) == 1 && r.fix().valid, "garbled motion fields: still a fix");
+    CHECK(r.fix().speedKnX100 == -1, "garbled speed '5.4x' = -1");
+    CHECK(r.fix().courseX10 == -1, "garbled course '21a.5' = -1");
+
+    feedAll(r, WHOLE_RMC);
+    CHECK(r.fix().speedKnX100 == 500, "whole-number speed '5' = 500");
+    CHECK(r.fix().courseX10 == 0, "course '360.0' = 0 (north)");
+
+    feedAll(r, LONGFRAC_RMC);
+    CHECK(r.fix().speedKnX100 == 1234, "'12.345' kn truncated to 1234");
+    CHECK(r.fix().courseX10 == 72, "'7.25' deg truncated to 72");
+
+    feedAll(r, BADCOURSE_RMC);
+    CHECK(r.fix().speedKnX100 == -1, "a signed speed '-1.0' is not a speed");
+    CHECK(r.fix().courseX10 == -1, "course 361.0 is not a bearing");
+
+    feedAll(r, MOVING_RMC);
+    feedAll(r, DOTS_RMC);
+    CHECK(r.fix().speedKnX100 == -1 && r.fix().courseX10 == -1, "'.' and '1.2.3' are -1");
+
+    feedAll(r, MOVING_RMC);
+    CHECK(feedAll(r, SHORT_RMC) == 1 && r.fix().valid, "an RMC cut after E/W still parses");
+    CHECK(r.fix().speedKnX100 == -1 && r.fix().courseX10 == -1, "absent fields 6/7 = -1");
+
+    r.reset();
+    CHECK(r.fix().speedKnX100 == -1 && r.fix().courseX10 == -1, "reset() forgets the motion");
   }
 
   printf("\n%d checks, %d failures\n", checks, failures);

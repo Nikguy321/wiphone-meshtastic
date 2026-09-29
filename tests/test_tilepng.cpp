@@ -12,6 +12,7 @@
  */
 #include "../WiPhone/tile_png.h"
 #include "../WiPhone/tile_decode.h"
+#include "../WiPhone/elev_tiles.h"
 
 #include <zlib.h>
 #include <stdio.h>
@@ -221,6 +222,84 @@ static bool decodeMatches(const std::vector<uint8_t>& png, const Img& im, char* 
   return true;
 }
 
+// ---- the RGB-row path (tilePngDecodeRgb), gathered back into an image -----------------------
+struct RgbImage {
+  std::vector<uint8_t> rgb;        // 256*256*3
+  std::vector<uint8_t> clear;      // 256*256 flags
+  std::vector<int>     seen;       // how many times each row was delivered
+  int                  nullClearRows;
+};
+static void rgbCollect(void* ctx, int y, const uint8_t* rgb, const uint8_t* clear) {
+  RgbImage* im = (RgbImage*)ctx;
+  if (y < 0 || y >= 256) {
+    return;
+  }
+  im->seen[y]++;
+  memcpy(im->rgb.data() + (size_t)y * 768, rgb, 768);
+  if (clear) {
+    memcpy(im->clear.data() + (size_t)y * 256, clear, 256);
+  } else {
+    memset(im->clear.data() + (size_t)y * 256, 0, 256);
+    im->nullClearRows++;
+  }
+}
+/* The RGB path, packed the way the 565 path packs, must be the 565 path's output exactly -
+ * and say blank exactly when it does. */
+static bool rgbAgreesWith565(const std::vector<uint8_t>& png, char* why, size_t cap) {
+  std::vector<uint16_t> want(256 * 256, 0xFFFF);
+  bool blank565 = false;
+  if (!tilePngDecode(png.data(), png.size(), want.data(), TILE_PNG_NODATA_565, why, cap, &blank565)) {
+    return false;
+  }
+  RgbImage im;
+  im.rgb.assign(256 * 256 * 3, 0);
+  im.clear.assign(256 * 256, 0);
+  im.seen.assign(256, 0);
+  im.nullClearRows = 0;
+  bool blankRgb = false;
+  if (!tilePngDecodeRgb(png.data(), png.size(), rgbCollect, &im, why, cap, &blankRgb)) {
+    return false;
+  }
+  for (int y = 0; y < 256; y++) {
+    if (im.seen[y] != 1) {
+      snprintf(why, cap, "row %d delivered %d times", y, im.seen[y]);
+      return false;
+    }
+  }
+  for (size_t i = 0; i < want.size(); i++) {
+    const uint16_t got = im.clear[i] ? TILE_PNG_NODATA_565
+                                     : tileColor565(im.rgb[i * 3], im.rgb[i * 3 + 1], im.rgb[i * 3 + 2]);
+    if (got != want[i]) {
+      snprintf(why, cap, "pixel %zu: rgb path %04x, 565 path %04x", i, got, want[i]);
+      return false;
+    }
+  }
+  if (blankRgb != blank565) {
+    snprintf(why, cap, "blank: rgb path %d, 565 path %d", (int)blankRgb, (int)blank565);
+    return false;
+  }
+  return true;
+}
+
+static std::vector<uint8_t> readFile(const char* path) {
+  std::vector<uint8_t> v;
+  FILE* f = fopen(path, "rb");
+  if (!f) {
+    return v;
+  }
+  uint8_t buf[4096];
+  size_t n;
+  while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+    v.insert(v.end(), buf, buf + n);
+  }
+  fclose(f);
+  return v;
+}
+static int16_t elvAt(const std::vector<uint8_t>& elv, int x, int y) {
+  const size_t i = ((size_t)y * 256 + (size_t)x) * 2;
+  return (int16_t)(uint16_t)(elv[i] | (elv[i + 1] << 8));
+}
+
 int main() {
   group("every supported colour type and depth round-trips pixel for pixel");
   const struct { int ctype, depth; const char* name; } CASES[] = {
@@ -406,6 +485,164 @@ int main() {
     std::vector<uint8_t> pngh = makePng(half, zh, 256, 256, 0, 0, 0);
     ok(tileDecode(pngh.data(), pngh.size(), out.data(), why, sizeof(why)) == TILE_DECODE_OK,
        "a tile half transparent (a coverage edge) is OK");
+  }
+
+  /* The elevation download (0.9.80) reads the SAMPLES, not a 565: tilePngDecodeRgb. Every image
+   * the 565 path is proven on above must come out of the RGB path as the same picture, with the
+   * same pixels transparent and the same blank verdict. */
+  group("the RGB-row path agrees with the 565 path on every colour type, depth and tRNS");
+  {
+    const struct { int ctype, depth; const char* name; } RC[] = {
+      { 3, 8, "palette 8-bit" }, { 3, 4, "palette 4-bit" }, { 3, 2, "palette 2-bit" }, { 3, 1, "palette 1-bit" },
+      { 2, 8, "RGB 8-bit" }, { 6, 8, "RGBA 8-bit" }, { 0, 8, "grey 8-bit" }, { 0, 4, "grey 4-bit" },
+      { 0, 2, "grey 2-bit" }, { 0, 1, "grey 1-bit" }, { 4, 8, "grey+alpha 8-bit" },
+    };
+    for (size_t i = 0; i < sizeof(RC) / sizeof(RC[0]); i++) {
+      Img im = makeImg(RC[i].ctype, RC[i].depth);
+      std::vector<uint8_t> z = filterAndDeflate(im, -1, 6);
+      std::vector<uint8_t> png = makePng(im, z, 256, 256, 0, 0, 3000);
+      char why[96];
+      const bool m = rgbAgreesWith565(png, why, sizeof(why));
+      char what[160];
+      snprintf(what, sizeof(what), "%s: RGB rows == 565%s%s", RC[i].name, m ? "" : " - ", m ? "" : why);
+      ok(m, what);
+    }
+    char why[96];
+    Img grey = makeImg(0, 8);
+    grey.trns = { 0x00, 0x40 };
+    std::vector<uint8_t> zg = filterAndDeflate(grey, -1, 6);
+    ok(rgbAgreesWith565(makePng(grey, zg, 256, 256, 0, 0, 0), why, sizeof(why)), "grey tRNS: RGB rows == 565");
+    Img rgb = makeImg(2, 8);
+    uint8_t tr, tg, tb;
+    rgbAt(10, 20, &tr, &tg, &tb);
+    rgb.trns = { 0, tr, 0, tg, 0, tb };
+    std::vector<uint8_t> zr = filterAndDeflate(rgb, -1, 6);
+    ok(rgbAgreesWith565(makePng(rgb, zr, 256, 256, 0, 0, 0), why, sizeof(why)), "RGB tRNS: RGB rows == 565");
+    Img clear = makeImg(6, 8);
+    for (int y = 0; y < 256; y++) {
+      for (int x = 0; x < 256; x++) clear.raw[(size_t)y * clear.rowBytes + x * 4 + 3] = 0;
+    }
+    std::vector<uint8_t> zc = filterAndDeflate(clear, -1, 6);
+    std::vector<uint8_t> pngc = makePng(clear, zc, 256, 256, 0, 0, 0);
+    ok(rgbAgreesWith565(pngc, why, sizeof(why)), "all-transparent RGBA: both paths say blank");
+    for (int f = 0; f < 5; f++) {
+      Img one = makeImg(2, 8);
+      std::vector<uint8_t> z1 = filterAndDeflate(one, f, f == 4 ? 0 : 9);
+      char what[64];
+      snprintf(what, sizeof(what), "filter %d alone: RGB rows == 565", f);
+      ok(rgbAgreesWith565(makePng(one, z1, 256, 256, 0, 0, 0), why, sizeof(why)), what);
+    }
+
+    // An 8-bit RGB image without tRNS (a terrarium tile) comes straight from the row: no clear flags.
+    RgbImage im;
+    im.rgb.assign(256 * 256 * 3, 0);
+    im.clear.assign(256 * 256, 0);
+    im.seen.assign(256, 0);
+    im.nullClearRows = 0;
+    Img plain = makeImg(2, 8);
+    std::vector<uint8_t> zp = filterAndDeflate(plain, -1, 6);
+    std::vector<uint8_t> pngp = makePng(plain, zp, 256, 256, 0, 0, 0);
+    ok(tilePngDecodeRgb(pngp.data(), pngp.size(), rgbCollect, &im, why, sizeof(why)) && im.nullClearRows == 256 &&
+       memcmp(im.rgb.data(), plain.raw.data(), plain.raw.size()) == 0,
+       "plain RGB: every row handed over as it is, clear = NULL");
+
+    // The refusals are the 565 path's.
+    std::vector<uint8_t> big = makePng(plain, zp, 512, 512, 0, 0, 0);
+    ok(!tilePngDecodeRgb(big.data(), big.size(), rgbCollect, &im, why, sizeof(why)) && strstr(why, "512x512"),
+       "RGB path: a 512 px tile is refused and named");
+    std::vector<uint8_t> cut = makePng(plain, std::vector<uint8_t>(zp.begin(), zp.begin() + zp.size() / 2), 256, 256, 0, 0, 0);
+    ok(!tilePngDecodeRgb(cut.data(), cut.size(), rgbCollect, &im, why, sizeof(why)), "RGB path: a truncated stream is refused");
+    std::vector<uint8_t> filt;
+    filt.push_back(7);
+    filt.insert(filt.end(), plain.raw.begin(), plain.raw.begin() + plain.rowBytes);
+    for (int y = 1; y < 256; y++) {
+      filt.push_back(0);
+      filt.insert(filt.end(), plain.raw.begin() + (size_t)y * plain.rowBytes, plain.raw.begin() + (size_t)(y + 1) * plain.rowBytes);
+    }
+    uLongf cap = compressBound((uLong)filt.size());
+    std::vector<uint8_t> zz(cap);
+    compress2(zz.data(), &cap, filt.data(), (uLong)filt.size(), 6);
+    zz.resize(cap);
+    std::vector<uint8_t> badf = makePng(plain, zz, 256, 256, 0, 0, 0);
+    ok(!tilePngDecodeRgb(badf.data(), badf.size(), rgbCollect, &im, why, sizeof(why)) && strstr(why, "filter"),
+       "RGB path: a bad filter byte is refused and named");
+    Img pal = makeImg(3, 8);
+    pal.plte.resize(3 * 16);                                     // indices 16..255 now past the palette
+    pal.trns.clear();
+    std::vector<uint8_t> zq = filterAndDeflate(pal, -1, 6);
+    std::vector<uint8_t> pngq = makePng(pal, zq, 256, 256, 0, 0, 0);
+    ok(!tilePngDecodeRgb(pngq.data(), pngq.size(), rgbCollect, &im, why, sizeof(why)) && strstr(why, "past the palette"),
+       "RGB path: a palette index past the palette is refused");
+    ok(!tilePngDecodeRgb(pngp.data(), pngp.size(), NULL, NULL, why, sizeof(why)), "RGB path: no row callback, no decode");
+  }
+
+  /* A REAL terrarium tile, fetched from the AWS source the phone uses
+   * (https://s3.amazonaws.com/elevation-tiles-prod/terrarium/13/1330/2862.png, North Bend, WA),
+   * decoded the phone's way, must be the SAME BYTES as the Mac-built ~/elev-master/elev/13/1330/2862.elv
+   * (tools/make_elev_tiles.py, 2026-09-27): its CRC-32 and five pixels are pinned here, so the
+   * test needs nothing outside the repo. Byte for byte, or the phone and COVEY would disagree
+   * about the same ground depending on who downloaded it. */
+  group("a real terrarium tile decodes to the Mac's .elv bytes exactly (tileDecodeElev)");
+  {
+    std::vector<uint8_t> png = readFile("tests/fixtures/terrarium_13_1330_2862.png");
+    ok(png.size() == 128487, "the fixture tests/fixtures/terrarium_13_1330_2862.png is there (128487 bytes)");
+    std::vector<uint8_t> elv(ELEV_TILE_BYTES, 0xAA);
+    char why[96];
+    const TileDecodeResult r = png.empty() ? TILE_DECODE_ERROR
+                             : tileDecodeElev(png.data(), png.size(), elv.data(), why, sizeof(why));
+    ok(r == TILE_DECODE_OK, "tileDecodeElev: OK");
+    const uint32_t crc = (uint32_t)crc32(0, elv.data(), (uInt)elv.size());
+    char what[128];
+    snprintf(what, sizeof(what), "all 131072 bytes: CRC-32 %08x == the Mac's bfc51667", (unsigned)crc);
+    ok(crc == 0xbfc51667u, what);
+    const struct { int x, y, m; } PX[] = {
+      { 0, 0, 909 }, { 255, 0, 451 }, { 128, 128, 370 }, { 0, 255, 342 }, { 255, 255, 757 },
+    };
+    for (size_t i = 0; i < sizeof(PX) / sizeof(PX[0]); i++) {
+      const int got = elvAt(elv, PX[i].x, PX[i].y);
+      snprintf(what, sizeof(what), "pixel (%d,%d) = %d m, the Mac's %d m", PX[i].x, PX[i].y, got, PX[i].m);
+      ok(got == PX[i].m, what);
+    }
+  }
+
+  group("tileDecodeElev: little-endian int16 through elevFromTerrarium, transparent = no data");
+  {
+    // An RGBA "terrarium" with known heights: (r,g,b) = (128, x, y) -> 32768 + x + y/256 - 32768.
+    Img im = makeImg(6, 8);
+    for (int y = 0; y < 256; y++) {
+      for (int x = 0; x < 256; x++) {
+        uint8_t* p = im.raw.data() + (size_t)y * im.rowBytes + x * 4;
+        p[0] = 128; p[1] = (uint8_t)x; p[2] = (uint8_t)y; p[3] = (x == 7 && y == 9) ? 0 : 255;
+      }
+    }
+    std::vector<uint8_t> z = filterAndDeflate(im, -1, 6);
+    std::vector<uint8_t> png = makePng(im, z, 256, 256, 0, 0, 0);
+    std::vector<uint8_t> elv(ELEV_TILE_BYTES, 0);
+    char why[96];
+    ok(tileDecodeElev(png.data(), png.size(), elv.data(), why, sizeof(why)) == TILE_DECODE_OK, "an RGBA terrarium decodes");
+    bool all = true;
+    for (int y = 0; y < 256 && all; y++) {
+      for (int x = 0; x < 256 && all; x++) {
+        const int want = (x == 7 && y == 9) ? ELEV_NODATA : elevFromTerrarium(128, (uint8_t)x, (uint8_t)y);
+        if (elvAt(elv, x, y) != want) all = false;
+      }
+    }
+    ok(all, "every pixel is elevFromTerrarium(r,g,b); the one transparent pixel is ELEV_NODATA");
+    ok(elv[0] == 0 && elv[1] == 0 && elvAt(elv, 255, 0) == 255, "(0,0) = 0 m and (255,0) = 255 m, low byte first");
+    ok(elvAt(elv, 0, 128) == 1, "(0,128): 32768 + 0 + 128/256 - 32768 = 0.5 m rounds half away from zero to 1");
+    for (int y = 0; y < 256; y++) {
+      for (int x = 0; x < 256; x++) im.raw[(size_t)y * im.rowBytes + x * 4 + 3] = 0;
+    }
+    std::vector<uint8_t> zc = filterAndDeflate(im, -1, 6);
+    std::vector<uint8_t> pngc = makePng(im, zc, 256, 256, 0, 0, 0);
+    ok(tileDecodeElev(pngc.data(), pngc.size(), elv.data(), why, sizeof(why)) == TILE_DECODE_BLANK,
+       "every pixel transparent: BLANK (nothing to write)");
+    const char* html = "<?xml version=\"1.0\"?><Error><Code>AccessDenied</Code></Error>";
+    ok(tileDecodeElev((const uint8_t*)html, strlen(html), elv.data(), why, sizeof(why)) == TILE_DECODE_ERROR,
+       "S3's XML error body is an ERROR, not a tile");
+    const uint8_t jpg[16] = { 0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, 'J', 'F', 'I', 'F', 0, 1, 1, 0, 0, 1 };
+    ok(tileDecodeElev(jpg, sizeof(jpg), elv.data(), why, sizeof(why)) == TILE_DECODE_ERROR,
+       "a JPEG is not a terrarium tile");
   }
 
   printf("\n%s%d passed, %d failed%s\n", g_fail ? "\033[31m" : "\033[32m", g_pass, g_fail, "\033[0m");

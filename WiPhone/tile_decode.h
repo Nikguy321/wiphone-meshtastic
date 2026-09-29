@@ -57,6 +57,18 @@ typedef enum { TILE_DECODE_ERROR = 0, TILE_DECODE_OK, TILE_DECODE_BLANK } TileDe
  * it after an ERROR (or a BLANK: it is all nodata grey then). */
 TileDecodeResult tileDecode(const uint8_t* data, size_t len, uint16_t* out, char* why, size_t whyCap);
 
+/* A terrarium ELEVATION tile (the AWS Terrain Tiles, docs/almanac.md "Elevation") into the
+ * .elv bytes the map reads: out[ELEV_TILE_BYTES] = 256 x 256 LITTLE-ENDIAN int16 metres,
+ * row-major, each pixel through elevFromTerrarium() - the Mac's tools/make_elev_tiles.py rounds
+ * the same way, so a tile made on either is the same file (tests/test_tilepng.cpp checks a real
+ * one against the Mac's bytes). A transparent pixel (none in a real terrarium tile) is
+ * ELEV_NODATA. The bytes are written explicitly low-then-high: `out` is the downloader's 128 KB
+ * pixel buffer, reused - nothing is allocated for the output.
+ *   OK     a tile: `out` holds it.
+ *   BLANK  every pixel transparent: nothing there, write nothing (the map tiles' rule).
+ *   ERROR  not a PNG (a terrarium tile never is anything else), damaged, the wrong size; `why`. */
+TileDecodeResult tileDecodeElev(const uint8_t* data, size_t len, uint8_t* out, char* why, size_t whyCap);
+
 /* The packing, spelled once: TFT_eSPI::color565 without a display object. */
 static inline uint16_t tileColor565(uint8_t r, uint8_t g, uint8_t b) {
   return (uint16_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));

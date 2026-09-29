@@ -5,6 +5,10 @@
 #include "kosync_sync.h"     // the `kosync` command: the window, the home client, the config
 #include "app_photos.h"      // photosSetWallpaper, the `wallpaper set` command
 #include "app_maps.h"        // mapsConsoleStatus/Goto, the `maps` command
+#include "elev_sd.h"         // elevSampleCard, the `elev <lat> <lon>` command
+#include "elev_text.h"       // elevSampleText: the console's words for one sample
+#include "units.h"           // unitsFmtDist/Alt: distances and heights in the chosen units
+#include "prefs_almanac.h"   // gUnits, unitsSetPref: the `units` command
 #include "tile_fetch.h"      // the `tlstest` bench: TLS from a task with mbedTLS in PSRAM
 #include "config.h"          // WIPHONE_KEY_*, the `key` command
 #include "Storage.h"         // CriticalFile / ConfigsFile, the `lock` command
@@ -16,7 +20,7 @@ extern uint32_t uiKeyMaskFor(char code);                                    // W
 #include "meshtastic_service.h"
 #include "t9_extra.h"            // the `t9` command reports the extra dictionary   // applyChannelUrl, the `chan` command
 #include "mesh_pos.h"             // distance/bearing for the `pos` command
-#include "sun_times.h"            // legal light, the `sun` command
+#include "app_almanac.h"          // almanacLegalToday / almanacConsole: `sun` and `almanac`
 #include "clock.h"                // ntpClock
 #include "GUI.h"                  // gui.state, the `sip` command
 #include <SD.h>                   // the `wallpaper` command reads both filesystems
@@ -208,12 +212,24 @@ static void help() {
     "  gps on|off route the user UART (38/32) to the NMEA reader (persists)",
     "  gps baud <n>  GPS baud, persists (115200 = the M100 Mini, measured; not 9600)",
     "  gps raw    hex+ASCII of the last bytes off the wire - tells wrong-baud from binary",
-    "  sun        legal light at the reference place: dawn/sunrise/sunset/dusk",
+    "  sun        legal light at the reference place: first light/sunrise/sunset/last light",
+    "             by the Almanac's legal-light rule (30 min, or civil twilight), and the countdown",
+    "  almanac [lat,lon] [+N|-N]  everything Menu > Almanac shows for that day (default: the",
+    "             app's place, today), then the exact instants in UNIX seconds. ONE pass, ~0.4 s",
+    "             at 160 MHz (a bench command: the app computes in slices); prints its own time",
+    "  almanac cost  what the Almanac measured: its slices, each part of the day, its builds",
+    "  almanac bench  each piece of the Almanac timed now (one pass, ~0.3 s)",
     "  clock      (or `time`) the time, WHO set it (ntp/gps/mesh) and how long ago, and",
     "             what the GPS and mesh paths last decided about it - see clock_source.h",
     "  maps       what the card holds under /maps, the saved view, and the pins file",
     "  maps goto <lat> <lon> [z] [area]  set where the Maps app opens next (persists)",
     "  maps hold up|down|left|right [ms [blip]]  press an arrow and hold it (hold-to-scroll bench)",
+    "  maps dl [src lat lon km zmax [elev 1|0] | stop]  the tile download: its status (map tiles and",
+    "             the elevation layer's own counts), start one, or stop it (elev: /maps/elev too)",
+    "  elev       the map's altitude readout: /maps/elev on the card?, the setting, and (Maps",
+    "             open) the crosshair's and your last samples, which layer answered, what they cost",
+    "  elev <lat> <lon>  sample the elevation tiles at any point, timed (z13, else coarse z10)",
+    "  units [metric|us]  distances and heights: metric (m, km) or US (ft, mi); persists",
     "  key hold <key> [ms [blip]]  press any key and HOLD it (the F2/digit/'#' holds, from the cable)",
     "  gbc        the Game Boy: is a game up, which ROM, Screen mode, its two state files",
     "  gbc autosave  write the running game's resume point the way power-off does (parks it)",
@@ -241,7 +257,7 @@ static void help() {
     "  key <names>  press keys: select/menu back ok up down left right call end f1-f4,",
     "             or a single character. `key menu`, `key down down ok`. Real presses -",
     "             they go into the keypad buffer, so the whole UI path runs unchanged",
-    "  open <app>  jump into an app: maps photos books music mesh gbc files clock, or",
+    "  open <app>  jump into an app: maps almanac photos books music mesh gbc files clock, or",
     "             wifi (Settings > WiFi's list) / wifiedit (edit the current network - there",
     "             `key select` is its Connect/Disconnect). Leaving (`open clock`) runs the exit",
     "             path Back does - for the WiFi screens, the `WIFI restore` line",
@@ -293,7 +309,7 @@ static void reportPos() {
     char extra[40] = "";
     if (haveRef) {
       double m = meshPosDistanceM(refLat, refLon, n->latI, n->lonI);
-      meshPosFmtDist(m, dist, sizeof(dist));
+      unitsFmtDist(m, gUnits, dist, sizeof(dist));
       snprintf(extra, sizeof(extra), "  %s %s of %s", dist,
                meshPosCompass8(meshPosBearingDeg(refLat, refLon, n->latI, n->lonI)), refName);
     }
@@ -1271,7 +1287,9 @@ static void run(char* line) {
   /* `sun` — legal light at the reference place, offline. The most-asked
    * question of a hunting day, answered from pure math + the coordinates the
    * mesh already delivered. Times print in LOCAL clock (the tz offset is
-   * whatever the phone's clock is configured with). */
+   * whatever the phone's clock is configured with). Since 0.9.80 the same computation as the
+   * Almanac and the Meshtastic Sun screen (almanacLegalToday: astro.cpp + the legal-light rule
+   * of Almanac > Settings, which the header line names); `almanac` prints the whole day. */
   if (!strcasecmp(line, "sun") || !strncasecmp(line, "sun ", 4)) {
     if (!ntpClock.isTimeKnown()) {
       say("sun: clock not set yet (needs NTP on WiFi, a GPS fix, or mesh time - see `clock`)\n");
@@ -1284,58 +1302,59 @@ static void run(char* line) {
     }
     int32_t refLat, refLon;
     char refName[20];
+    double la = 0, lo = 0;
     if (line[3] == ' ') {
       // `sun 47.6062,-122.3321` — explicit coordinates, for the bench.
-      double la = 0, lo = 0;
       if (sscanf(line + 4, "%lf,%lf", &la, &lo) != 2) {
         say("sun: usage sun [lat,lon]\n");
         return;
       }
-      refLat = (int32_t)(la * 1e7);
-      refLon = (int32_t)(lo * 1e7);
       strlcpy(refName, "given", sizeof(refName));
     } else if (!meshService.resolveReference(&refLat, &refLon, refName, sizeof(refName))) {
       say("sun: no place to compute for - hear a waypoint or set a pin first\n");
       return;
+    } else {
+      la = refLat * 1e-7;
+      lo = refLon * 1e-7;
     }
-    uint32_t utc = ntpClock.getExactUtcTime();
-    int tzMin = (int)(((int64_t)ntpClock.getExactUnixTime() - (int64_t)utc) / 60);
-    int y, m, d;
-    sunUnixToDate(utc, &y, &m, &d);
-    SunTimes t;
-    if (!sunTimesUtc(y, m, d, refLat * 1e-7, refLon * 1e-7, &t)) {
+    AlmanacLegal L;
+    const int rc = almanacLegalToday(la, lo, &L);
+    if (rc == ALM_SUN_BAD_DATE) {
+      say("sun: the clock's date is outside %d-%d - refused\n", ALM_YEAR_MIN, ALM_YEAR_MAX);
+      return;
+    }
+    if (rc != ALM_SUN_OK) {
       say("sun: computation refused (bad coordinates?)\n");
       return;
     }
-    say("sun: %04d-%02d-%02d at '%s' (local, UTC%+d:%02d)\n", y, m, d, refName,
-        tzMin / 60, abs(tzMin % 60));
-    struct Row { const char* label; int16_t utcMin; };
-    const Row rows[4] = { { "first light", t.dawnMin }, { "sunrise", t.riseMin },
-                          { "sunset", t.setMin }, { "last light", t.duskMin } };
+    const int tzMin = L.tzS / 60;
+    say("sun: %04d-%02d-%02d at '%s' (local, UTC%+d:%02d) - legal rule: %s\n", L.y, L.m, L.d,
+        refName, tzMin / 60, abs(tzMin % 60),
+        L.rule == ASTRO_LEGAL_CIVIL ? "civil twilight" : "30 min before/after the sun");
+    struct Row { const char* label; int64_t at; int round; };
+    const Row rows[4] = { { "first light", L.first, ALM_ROUND_UP },
+                          { "sunrise", L.sun.rise, ALM_ROUND_NEAREST },
+                          { "sunset", L.sun.set, ALM_ROUND_NEAREST },
+                          { "last light", L.last, ALM_ROUND_DOWN } };
     for (int i = 0; i < 4; i++) {
-      if (rows[i].utcMin < 0) {
+      if (!rows[i].at) {
         say("  %-11s (does not occur today)\n", rows[i].label);
       } else {
-        int loc = ((int)rows[i].utcMin + tzMin + 2880) % 1440;
-        say("  %-11s %02d:%02d\n", rows[i].label, loc / 60, loc % 60);
+        char hm[8];
+        almFmtClock(rows[i].at, L.tzS, rows[i].round, hm, sizeof(hm));
+        say("  %-11s %s\n", rows[i].label, hm);
       }
     }
-    if (t.dawnMin >= 0 && t.duskMin >= 0) {
-      /* Countdown on an unwrapped ladder from dawn: now, then dusk after it. */
-      int nowU = (int)((utc % 86400u) / 60u);
-      int dawn = t.dawnMin;
-      int now2 = nowU + (nowU < dawn ? 1440 : 0);
-      int dusk = t.duskMin + (t.duskMin < dawn ? 1440 : 0);
-      if (now2 < dawn + 1) {
-        int dm = dawn - now2;
-        say("sun: first light in %dh %02dm\n", dm / 60, dm % 60);
-      } else if (now2 < dusk) {
-        int dm = dusk - now2;
-        say("sun: LEGAL LIGHT NOW - ends in %dh %02dm\n", dm / 60, dm % 60);
-      } else {
-        say("sun: dark - tomorrow's times shift ~1-2 min\n");
-      }
-    }
+    say("sun: %s\n", L.countdown);
+    return;
+  }
+  /* `almanac [lat,lon] [+N|-N]` — everything the Almanac app shows for that day (TODAY, SUN, MOON,
+   * SOLUNAR, POSITION, DATE), then the exact instants as UNIX seconds: the bench's proof against
+   * PyEphem - in ONE pass (a bench command; the app computes in slices). `almanac cost` — what the
+   * app's slices and builds measured on this phone; `almanac bench` — each piece timed now
+   * (app_almanac.h). */
+  if (!strcasecmp(line, "almanac") || !strncasecmp(line, "almanac ", 8)) {
+    almanacConsole(line + 7, sayLine);
     return;
   }
   /* `unread` — why is the white message icon lit? Counts the truth from the
@@ -2506,6 +2525,7 @@ static void run(char* line) {
     while (*arg == ' ') arg++;
     ActionID_t app = GUI_APP_CLOCK;
     if (!strcasecmp(arg, "maps"))        app = GUI_APP_MAPS;
+    else if (!strcasecmp(arg, "almanac")) app = GUI_APP_ALMANAC;
     else if (!strcasecmp(arg, "photos")) app = GUI_APP_PHOTOS;
     else if (!strcasecmp(arg, "books"))  app = GUI_APP_BOOKS;
     else if (!strcasecmp(arg, "music"))  app = GUI_APP_MUSIC;
@@ -2520,7 +2540,7 @@ static void run(char* line) {
     else if (!strcasecmp(arg, "wifiedit")) app = GUI_APP_EDITWIFI;
     else if (!strcasecmp(arg, "clock") || !*arg) app = GUI_APP_CLOCK;
     else {
-      say("open: maps | photos | books | music | mesh | gbc | files | wifi | wifiedit | clock\n");
+      say("open: maps | almanac | photos | books | music | mesh | gbc | files | wifi | wifiedit | clock\n");
       return;
     }
     if (gui.openAppFromConsole(app)) {
@@ -2561,9 +2581,11 @@ static void run(char* line) {
     }
     /* `maps dl` — the on-phone tile downloader, driven without a thumb (tile_fetch.h).
      *   maps dl                                  status of the last/current run
-     *   maps dl <src> <lat> <lon> <km> <zmax>    start: src 0=USGS Topo 1=USGS Aerial 2=OTM 3=custom
+     *   maps dl <src> <lat> <lon> <km> <zmax> [elev]  start: src 0=USGS Topo 1=USGS Aerial 2=OTM 3=custom
      *                                            (zmax is capped at the source's deepest: USGS 16,
-     *                                            OTM 17); the job is kept and resumes by itself
+     *                                            OTM 17); the job is kept and resumes by itself.
+     *                                            elev 1/0 = the elevation layer too, or not; left
+     *                                            out = the form's "Elevation too" (NVS maps/dlelev, ON)
      *   maps dl stop                             finish the current tile and exit; the job is
      *                                            forgotten (it will not resume)
      *   maps dlurl <template>|clear              set the custom source (a plain-http relay)
@@ -2658,21 +2680,40 @@ static void run(char* line) {
       }
       TileJobSpec spec;
       memset(&spec, 0, sizeof(spec));
-      const int got = sscanf(arg, "%d %lf %lf %d %d", &spec.source, &spec.lat, &spec.lon,
-                             &spec.radiusKm, &spec.zMax);
-      if (got < 5) {
-        say("usage: maps dl <src> <lat> <lon> <radiusKm> <zmax>   (maps dl | maps dl stop)\n");
+      /* The five numbers, then the elevation tail through tilePlanParseElevArg (host-tested):
+       * "[elev] 1|0" or nothing. Anything else is the usage line - never quietly "absent", which
+       * is how `... 15 elev 0` used to download elevation (review 2026-09-27). */
+      int used = 0;
+      const int got = sscanf(arg, "%d %lf %lf %d %d%n", &spec.source, &spec.lat, &spec.lon,
+                             &spec.radiusKm, &spec.zMax, &used);
+      const int elevArg = (got == 5) ? tilePlanParseElevArg(arg + used) : -2;
+      if (got < 5 || elevArg == -2) {
+        say("usage: maps dl <src> <lat> <lon> <radiusKm> <zmax> [elev 1|0]   (maps dl | maps dl stop)\n");
         return;
       }
+      if (elevArg >= 0) {
+        spec.elev = elevArg == 1;
+      } else {
+        Preferences p;                     // the form's own choice ("Elevation too"), ON by default
+        spec.elev = true;
+        if (p.begin("maps", true)) {
+          spec.elev = p.getInt("dlelev", 1) != 0;
+          p.end();
+        }
+      }
       uint64_t card = 0, net = 0;
-      const int n = tileFetchEstimate(&spec, &card, &net);
+      int elevTiles = 0;
+      const int n = tileFetchEstimate(&spec, &card, &net, &elevTiles);
       char why[96];
       if (tileFetchStart(&spec, why, sizeof(why))) {
         const TileSource* src = tileSource(spec.source);
         /* The depth USED: a z17 asked of USGS fetches to z16, and says so. */
-        say("maps dl: started %s to z%d - %d tiles, ~%u MB down, %u MB on the card\n",
+        say("maps dl: started %s to z%d - %d tiles%s, ~%u MB down, %u MB on the card\n",
             src->label, spec.zMax > src->zMax ? src->zMax : spec.zMax, n,
-            (unsigned)(net >> 20), (unsigned)(card >> 20));
+            spec.elev ? " + elevation" : ", no elevation", (unsigned)(net >> 20), (unsigned)(card >> 20));
+        if (spec.elev) {
+          say("maps dl: elevation first - %d tiles (z13 + z10) to /maps/elev\n", elevTiles);
+        }
       } else {
         say("maps dl: NOT started - %s\n", why);
       }
@@ -2699,10 +2740,99 @@ static void run(char* line) {
     }
     char buf[320];
     if (mapsConsoleStatus(buf, sizeof(buf))) {
-      say("%s\n", buf);
+      sayLines(buf);                       // one say() per line: say() holds 192 bytes
     } else {
       say("maps: could not read the card\n");
     }
+    return;
+  }
+
+  /* `elev` — the map's altitude readout from its cache (0.9.80, docs/maps.md "Altitude"), and
+   * `elev <lat> <lon>` — the elevation tiles sampled at any point, through the same reader the
+   * map uses (elevSampleCard), timed: the one place the cost of a sample on this card is
+   * measured. Card I/O from the console is fine (a bench command on the loop, as `ls` is). */
+  if (!strcasecmp(line, "elev") || !strncasecmp(line, "elev ", 5)) {
+    const char* arg = line + 4;
+    while (*arg == ' ') {
+      arg++;
+    }
+    if (!*arg) {
+      /* ~500 bytes of report: PSRAM for the moment it takes, not the loop task's stack (8 KB,
+       * a few hundred bytes of floor) and not a static in internal RAM. */
+      const size_t cap = 640;
+      char* buf = (char*)ps_malloc(cap);
+      if (!buf) {
+        say("elev: no memory for the report\n");
+        return;
+      }
+      if (mapsConsoleElev(buf, cap)) {
+        sayLines(buf);
+      }
+      free(buf);
+      return;
+    }
+    char tmp[64];
+    strlcpy(tmp, arg, sizeof(tmp));
+    for (char* q = tmp; *q; q++) {
+      if (*q == ',') {
+        *q = ' ';                          // "47.49643,-121.79" or "47.49643 -121.79"
+      }
+    }
+    double la = 0, lo = 0;
+    char extra = 0;
+    if (sscanf(tmp, "%lf %lf %c", &la, &lo, &extra) != 2 || la < -90 || la > 90 || lo < -180 ||
+        lo > 180) {
+      say("elev: usage elev [<lat> <lon>]  (degrees, e.g. elev 47.49643 -121.79)\n");
+      return;
+    }
+    double m = 0;
+    int z = -1;
+    bool ioErr = false;
+    const uint32_t t0 = micros();
+    int rc = elevSampleCard(la, lo, &m, &z, &ioErr);
+    const uint32_t us = micros() - t0;
+    if (rc != 1 && ioErr) {
+      rc = ELEV_TXT_IOERR;
+    }
+    char t[48], alt[24];
+    elevSampleText(t, sizeof(t), rc, m, z);
+    alt[0] = '\0';
+    if (rc == 1 && gUnits == UNITS_US) {
+      alt[0] = ',';
+      alt[1] = ' ';
+      unitsFmtAlt(m, UNITS_US, false, alt + 2, sizeof(alt) - 2);
+    }
+    say("elev: %.5f,%.5f -> %s%s [%lu.%lu ms%s]%s\n", la, lo, t, alt, (unsigned long)(us / 1000u),
+        (unsigned long)((us % 1000u) / 100u), ioErr ? ", a read failed" : "",
+        (rc == 0 && !elevCardPresent()) ? " - there is no /maps/elev on the card" : "");
+    return;
+  }
+
+  /* `units` / `units metric|us` — the one device-wide setting (prefs_almanac.h): the map's scale
+   * bar and distances, its altitude row, the Meshtastic lists, this console and the Almanac. */
+  if (!strcasecmp(line, "units") || !strncasecmp(line, "units ", 6)) {
+    const char* arg = line + 5;
+    while (*arg == ' ') {
+      arg++;
+    }
+    if (*arg) {
+      if (!strcasecmp(arg, "metric") || !strcasecmp(arg, "m")) {
+        unitsSetPref(UNITS_METRIC);
+      } else if (!strcasecmp(arg, "us") || !strcasecmp(arg, "imperial")) {
+        unitsSetPref(UNITS_US);
+      } else {
+        say("units: usage units [metric|us]\n");
+        return;
+      }
+      say("units: now %s - saved (NVS wpmesh/units); an open screen shows it at its next redraw\n",
+          gUnits == UNITS_US ? "US (ft, mi, mph)" : "metric (m, km, km/h)");
+      return;
+    }
+    char d[16], a[24];
+    unitsFmtDist(1400.0, gUnits, d, sizeof(d));
+    unitsFmtAlt(412.0, gUnits, false, a, sizeof(a));
+    say("units: %s - 1400 m reads \"%s\", 412 m of height \"%s\" (`units %s` to switch)\n",
+        gUnits == UNITS_US ? "US" : "metric", d, a, gUnits == UNITS_US ? "metric" : "us");
     return;
   }
 

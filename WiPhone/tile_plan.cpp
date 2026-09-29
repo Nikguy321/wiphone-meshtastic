@@ -3,10 +3,13 @@
  */
 #include "tile_plan.h"
 #include "map_tiles.h"
+#include "elev_tiles.h"                   // ELEV_Z, ELEV_Z_COARSE: macros only
+#include "units.h"                        // the Detail row in the Units setting
 
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>                      // strncasecmp
 
 // ── what a job covers ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +54,42 @@ uint64_t tilePlanNetBytes(int64_t tiles, int kbPerTile) {
   return (tiles > 0 && kbPerTile > 0) ? (uint64_t)tiles * (uint64_t)kbPerTile * 1024u : 0;
 }
 
+int64_t tilePlanElevTiles(double lat, double lon, int radiusKm) {
+  if (radiusKm <= 0) {
+    return 0;
+  }
+  return tilePlanLevelTiles(lat, lon, radiusKm, ELEV_Z) + tilePlanLevelTiles(lat, lon, radiusKm, ELEV_Z_COARSE);
+}
+
+int64_t tilePlanElevSpaceTiles(double lat, double lon, int radiusKm, bool elev, bool resume,
+                               bool layerWhole) {
+  if (!elev || (resume && layerWhole)) {
+    return 0;
+  }
+  return tilePlanElevTiles(lat, lon, radiusKm);
+}
+
+int tilePlanParseElevArg(const char* rest) {
+  if (!rest) {
+    return -1;
+  }
+  while (*rest == ' ' || *rest == '\t') rest++;
+  if (!*rest) {
+    return -1;
+  }
+  if (strncasecmp(rest, "elev", 4) == 0 && (rest[4] == ' ' || rest[4] == '\t')) {
+    rest += 4;
+    while (*rest == ' ' || *rest == '\t') rest++;
+  }
+  if (*rest != '0' && *rest != '1') {
+    return -2;
+  }
+  const int v = *rest - '0';
+  rest++;
+  while (*rest == ' ' || *rest == '\t') rest++;
+  return *rest ? -2 : v;
+}
+
 // ── the Detail row ───────────────────────────────────────────────────────────────────────
 
 int tilePlanDepthTop(int srcZMax) {
@@ -68,6 +107,28 @@ int tilePlanDepthShown(int wish, int srcZMax) {
 int tilePlanDepthNext(int wish, int srcZMax) {
   const int shown = tilePlanDepthShown(wish, srcZMax);
   return shown >= tilePlanDepthTop(srcZMax) ? MAPS_DL_DEPTH_MIN : shown + 1;
+}
+
+void tilePlanDetailText(char* out, size_t cap, int depth, double lat, int units) {
+  if (!out || !cap) {
+    return;
+  }
+  char px[16], buf[48];
+  if (depth >= 17) {
+    snprintf(buf, sizeof(buf), "Detail: z%d (4x z16's cost)", depth);
+  } else if (depth == 16) {
+    snprintf(buf, sizeof(buf), "Detail: z16 (4x z15's cost)");
+  } else if (depth == 15) {
+    unitsFmtDist(mapMetersPerPixel(lat, 15), units, px, sizeof(px));
+    snprintf(buf, sizeof(buf), "Detail: z15 (%s/pixel)", px);
+  } else {
+    snprintf(buf, sizeof(buf), "Detail: z%d (coarser)", depth);
+  }
+  if (strlen(buf) >= cap) {
+    out[0] = '\0';
+    return;
+  }
+  strcpy(out, buf);
 }
 
 // ── the time it takes ────────────────────────────────────────────────────────────────────

@@ -65,6 +65,28 @@
  *     exiting (that can be 20 s: a 15 s HTTP timeout plus the card's write retries).
  * Every NVS read and write happens on the LOOP task (the tick, Start, Stop): the worker only
  * publishes its cursor, under a spinlock, for the tick to save.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════
+ * THE ELEVATION LAYER (0.9.80, "Elevation too" on the Download form)
+ * ══════════════════════════════════════════════════════════════════════════════════════════
+ * A job with TileJobSpec.elev also fetches the altitude layer the map reads (docs/almanac.md,
+ * "Elevation"): its own +-radius square at z13 and z10 (tilePlanElevTiles) from the AWS Terrain
+ * Tiles, https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png (HTTPS only: plain
+ * http is refused there with a 403), decoded by tileDecodeElev into the run's own 128 KB pixel
+ * buffer and written as /maps/elev/<z>/<x>/<y>.elv with the map tiles' .tmp -> size check ->
+ * rename, skipped when already on the card at 131,072 bytes. Why these rules:
+ *   - IT GOES FIRST IN EVERY RUN, before the map tiles: ~20-200 tiles, so the altitude is there
+ *     minutes into a job that may run for days. It has no cursor: a resumed run walks it again,
+ *     and what is on the card costs one stat a tile. That is also its only retry.
+ *   - ITS OWN CONNECTION, torn down before the map's is made. HTTPClient reuses any CONNECTED
+ *     socket whatever host the next URL names (HTTPClient::connect), so one kept-alive client
+ *     shared between two servers would send the next request to the wrong one.
+ *   - A FAILURE THERE NEVER FAILS OR STOPS THE MAP TILES. It is counted in the elev* fields only
+ *     (never `failed`, the consecutive-failure stops, or the RAM strikes); four in a row and the
+ *     layer is left for the next run (elevGaveUp) and the map tiles start. The job's own rules
+ *     still hold throughout: Stop, a call or a game pausing it, a WiFi drop, the battery.
+ *   - Its tiles count in the card-space check and the form's estimate (131,072 bytes each, like
+ *     a map tile) but never in the job's tile count, cursor, second pass or TILE_JOB_MAX_TILES.
  */
 #ifndef TILE_FETCH_H
 #define TILE_FETCH_H
@@ -100,6 +122,7 @@ typedef struct {
   double lat, lon;        // centre
   int    radiusKm;        // the +-radius square around it
   int    zMax;            // TILE_ZOOM_BASE..zMax
+  bool   elev;            // also the elevation layer over the same square (see above); every caller memsets the spec
 } TileJobSpec;
 
 typedef struct {
@@ -133,11 +156,27 @@ typedef struct {
   uint32_t stackFloor;         // the task's unused stack at the end of the run (bytes)
   char     lastErr[96];   // "stopped: no RAM to connect: 13.6/14 KB free, 10.5/10 KB block" and its like
   char     source[24];
+  /* The elevation layer (spec.elev): its own counts, never mixed into the map's above. */
+  bool     elev;          // this job fetches it
+  bool     elevRunning;   // ...and is doing so now (it goes first in every run)
+  int      elevZ;         // the layer being walked: ELEV_Z, then ELEV_Z_COARSE
+  int      elevTotal;     // tiles in both layers over the job's square
+  int      elevDone;      // written this run
+  int      elevSkipped;   // already on the card at the right size
+  int      elevNoTile;    // 404/410, or a PNG with every pixel transparent
+  int      elevFailed;    // network, decode or write failures (never counted in `failed`)
+  bool     elevGaveUp;    // TF_ELEV_MAX_FAILS in a row: the rest is left for the next run
+  bool     elevWhole;     // this run walked both levels to their end with nothing failed: the
+                          // layer is all on the card (the job record keeps it - a resume's space
+                          // check then asks no room for it, tilePlanElevSpaceTiles)
+  char     elevErr[64];   // the last elevation problem
 } TileJobStatus;
 
 /* Tiles in the job and the bytes it will put on the card / pull from the network. 64-bit: 20 km
- * to z17 is 6.7 GB on the card, and a uint32 saturated at 4095 MB on the form. */
-int  tileFetchEstimate(const TileJobSpec* s, uint64_t* cardBytes, uint64_t* netBytes);
+ * to z17 is 6.7 GB on the card, and a uint32 saturated at 4095 MB on the form. The return is the
+ * MAP tiles; with spec.elev the elevation tiles are in *elevTiles (may be NULL) and in both byte
+ * counts. */
+int  tileFetchEstimate(const TileJobSpec* s, uint64_t* cardBytes, uint64_t* netBytes, int* elevTiles = NULL);
 /* Start a NEW job (it replaces any waiting one). False with `why` filled: a run is already
  * going, no WiFi, a game or a Files folder job, a call under a minute ago, no RAM, no room... */
 bool tileFetchStart(const TileJobSpec* s, char* why, size_t whyCap);
@@ -184,6 +223,7 @@ typedef struct {
   int      gate;          // TileGate, when not running
   int      giveUp;        // TileGiveUp
   bool     otherNet;      // WiFi is up, on a different network from the job's
+  bool     elev;          // it fetches the elevation layer too
   char     why[112];      // one sentence: what it waits for, or why it stopped resuming
   /* Why the last automatic resume was refused — or why a waiting job was DROPPED (the card has
    * no room for the rest, its source is gone, the saved record was unreadable). Set even when
@@ -197,6 +237,13 @@ bool tileFetchResumeNow(char* why, size_t whyCap);
 /* The /maps/<key> a running or waiting job writes under, or NULL: the Files app refuses to
  * delete or move a folder at or above it. `running` says which it is. */
 const char* tileFetchJobKey(bool* running);
+/* That job fetches the elevation layer too, so it writes under /maps/elev as well (every run
+ * walks it first, a resume included). False when there is no such job. */
+bool tileFetchJobElev();
+/* Elevation tiles written by downloads since boot. The map compares it with what it last saw to
+ * pick up a layer that a job has just made or filled in, without an app restart or a rescan: a
+ * plain counter, bumped by the worker after each rename, read with no lock. */
+uint32_t tileFetchElevWritten();
 /* One line per call of `emit`, for the serial console. */
 void tileFetchReport(void (*emit)(const char* line));
 

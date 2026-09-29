@@ -60,6 +60,28 @@ int64_t tilePlanTiles(double lat, double lon, int radiusKm, int zMax);   // TILE
 uint64_t tilePlanCardBytes(int64_t tiles);                  // 131,072 a tile, raw RGB565
 uint64_t tilePlanNetBytes(int64_t tiles, int kbPerTile);    // the source's rough compressed size
 
+/* ── the elevation layer a job also fetches (0.9.80, "Elevation too" on the Download form) ──
+ * The job's same +-radius square at ELEV_Z (13) and at ELEV_Z_COARSE (10), from the terrarium
+ * source (docs/almanac.md, "Elevation"), written as /maps/elev/<z>/<x>/<y>.elv. One .elv is
+ * 131,072 bytes on the card - exactly a map tile, so tilePlanCardBytes counts them as tiles -
+ * and ~120 KB off the network (a real z13 tile at North Bend: 128,487 bytes). 20 km at 47.5 N
+ * is 169 + 6 = 175 tiles (22 MB); they are never part of a job's map-tile count, cursor or
+ * TILE_JOB_MAX_TILES. */
+#define TILE_PLAN_ELEV_KB   120
+int64_t tilePlanElevTiles(double lat, double lon, int radiusKm);
+/* What a run's card-space check counts for the layer: all of it (the honest direction: which
+ * tiles are on the card is not known without a stat each, and Start runs on the loop) - EXCEPT on
+ * a resume whose job record says an earlier run already walked the whole layer with nothing
+ * failed (`layerWhole`): then it is all on the card, and asking 22 MB for it again (20 km) could
+ * refuse a resume on a nearly full card that needed no room for it (review 2026-09-27). */
+int64_t tilePlanElevSpaceTiles(double lat, double lon, int radiusKm, bool elev, bool resume,
+                               bool layerWhole);
+/* The serial `maps dl ... <zmax> [elev] [1|0]` tail, after the five numbers: -1 = absent (spaces
+ * only: the form's setting), 0 or 1, the word "elev" (any case) optional before it; -2 = anything
+ * else - refused with the usage line, never quietly read as "absent" (review 2026-09-27: the help
+ * said "[elev 1|0]", the parser took a bare digit, and `... 15 elev 0` downloaded elevation). */
+int     tilePlanParseElevArg(const char* rest);
+
 // ── the Detail row ───────────────────────────────────────────────────────────────────────
 /* `wish` is what the user last picked (kept in NVS as it is); what is SHOWN and USED is the
  * wish clamped to what the source has. The press steps through the SHOWN depths only: without
@@ -67,6 +89,11 @@ uint64_t tilePlanNetBytes(int64_t tiles, int kbPerTile);    // the source's roug
 int tilePlanDepthTop(int srcZMax);                  // deepest the form offers for the source
 int tilePlanDepthShown(int wish, int srcZMax);
 int tilePlanDepthNext(int wish, int srcZMax);       // the wish after one press of Detail
+/* The form's row for the depth shown: "Detail: z15 (3m/pixel)" - z15's metres a pixel at the
+ * area's latitude in the Units setting (US: "Detail: z15 (11ft/pixel)"; review 2026-09-27: it was a
+ * metric literal), "Detail: z16 (4x z15's cost)", "Detail: z17 (4x z16's cost)", "Detail: z14
+ * (coarser)". units.h's formatter, so "" rather than a cut number when cap is short. */
+void tilePlanDetailText(char* out, size_t cap, int depth, double lat, int units);
 
 // ── the time it takes ────────────────────────────────────────────────────────────────────
 /* The throttle for this source and level: TILE_PLAN_THROTTLE_MS for "otm" at z17 and deeper

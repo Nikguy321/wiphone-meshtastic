@@ -163,9 +163,13 @@ const XferConfig* xferT9Config() { return &SERIAL_T9_CFG; }
  * `<area>/<z>/<x>/<y>.565` — hundreds of files in nested folders — and the alternative is
  * pulling the card. tools/wiphone_send.py --app maps --tree <dir> walks a converted tree and
  * sends each file under its relative path; chunkSafeTreeName decides what a path may look
- * like and chunkOpenFor creates the folders. `.txt` is for pins.txt. */
+ * like and chunkOpenFor creates the folders. `.txt` is for pins.txt. `.elv` (0.9.80) is the
+ * altitude layer: `wiphone_send.py --app maps --tree ~/elev-master/elev` lands at
+ * /maps/elev/<z>/<x>/<y>.elv - the same tree shape, 131072 bytes a tile like a .565. (A push
+ * is not filtered by this list - see the top of this file - but a URL pull is, and the page
+ * shows it.) */
 static const XferConfig SERIAL_MAPS_CFG = {
-  "/maps", "Add map tiles", ".565,.txt", "tiles", "tile.565", "WiPhone-Maps", true
+  "/maps", "Add map tiles", ".565,.elv,.txt", "tiles", "tile.565", "WiPhone-Maps", true
 };
 const XferConfig* xferMapsConfig() { return &SERIAL_MAPS_CFG; }
 static const XferConfig* s_cfg = &ROM_CFG;

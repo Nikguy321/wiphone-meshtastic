@@ -24,6 +24,18 @@ int main() {
   ok(!filePathWithin("/maps", "maps/x"), "a relative path is refused");
   ok(!filePathWithin(NULL, "/x") && !filePathWithin("/x", NULL), "NULLs are refused");
 
+  printf("\n\033[1mfilePathWithinNoCase\033[0m (the map download's guard: FAT is case-blind)\n");
+  ok(filePathWithinNoCase("/maps/elev", "/maps/Elev"), "the card's 'Elev' IS the job's 'elev'");
+  ok(filePathWithinNoCase("/maps/elev", "/MAPS/ELEV/13/1330/2862.elv"), "...and a tile under 'ELEV'");
+  ok(filePathWithinNoCase("/MAPS/ELEV", "/maps/elev"), "either way round");
+  ok(filePathWithinNoCase("/maps/Elev", "/maps") == 0 && filePathWithinNoCase("/maps", "/maps/Elev"),
+     "parent/child as filePathWithin: the parent holds the child, not the reverse");
+  ok(!filePathWithinNoCase("/maps/elev", "/maps/Elevation"), "the boundary still holds ('Elevation' is not 'elev')");
+  ok(!filePathWithinNoCase("/maps/usgs", "/maps/usgsimg"), "...for a source key too");
+  ok(filePathWithinNoCase("/", "/X") && !filePathWithinNoCase("maps", "/maps") &&
+     !filePathWithinNoCase(NULL, "/x") && !filePathWithinNoCase("/x", NULL),
+     "the root, relative paths and NULLs as filePathWithin");
+
   printf("\n\033[1mfilePathJoin\033[0m\n");
   char out[32];
   ok(filePathJoin("/", "maps", out, sizeof(out)) && !strcmp(out, "/maps"), "root + name has one slash");

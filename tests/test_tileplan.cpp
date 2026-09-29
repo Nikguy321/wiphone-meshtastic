@@ -10,6 +10,7 @@
  */
 #include "../WiPhone/tile_plan.h"
 #include "../WiPhone/map_tiles.h"
+#include "../WiPhone/units.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -146,6 +147,46 @@ int main() {
     ok(!strcmp(b, "70 MB"), "566 tiles reads \"70 MB\"");
   }
 
+  /* "Elevation too" (0.9.80): the same square at z13 and z10, 131,072 bytes a tile like a map
+   * tile. The 20 km figure is what the form's estimate adds to a 20 km job. */
+  group("the elevation layer a job adds: the square at z13 + z10");
+  {
+    ok(tilePlanElevTiles(47.5, -121.8, 2) == 6 + 2, "2 km: 6 z13 + 2 z10 tiles");
+    ok(tilePlanElevTiles(47.5, -121.8, 5) == 16 + 2, "5 km: 16 z13 + 2 z10 tiles");
+    ok(tilePlanElevTiles(47.5, -121.8, 20) == 169 + 6, "20 km: 169 z13 + 6 z10 tiles");
+    ok(tilePlanElevTiles(47.5, -121.8, 20) == tilePlanLevelTiles(47.5, -121.8, 20, 13) +
+                                              tilePlanLevelTiles(47.5, -121.8, 20, 10),
+       "...exactly the job's own square at those two levels (tilePlanLevelTiles)");
+    ok(tilePlanElevTiles(47.5, -121.8, 0) == 0 && tilePlanElevTiles(47.5, -121.8, -3) == 0, "no radius, no tiles");
+    ok(tilePlanCardBytes(175) == 175ull * 131072ull, "175 elevation tiles are 175 x 131,072 bytes on the card");
+    ok(tilePlanNetBytes(175, TILE_PLAN_ELEV_KB) == 175ull * 120ull * 1024ull, "...and ~120 KB each off the network");
+    // The run's space check (review 2026-09-27): all of it, but not again once a run had it whole.
+    ok(tilePlanElevSpaceTiles(47.5, -121.8, 20, true, false, false) == 175, "space: a fresh job asks for the whole layer");
+    ok(tilePlanElevSpaceTiles(47.5, -121.8, 20, true, false, true) == 175,
+       "space: a fresh START asks for it all even over a whole layer (a new job, a new record)");
+    ok(tilePlanElevSpaceTiles(47.5, -121.8, 20, true, true, false) == 175,
+       "space: a resume whose layer is not known whole asks for all of it (the honest direction)");
+    ok(tilePlanElevSpaceTiles(47.5, -121.8, 20, true, true, true) == 0,
+       "space: a resume over a layer a run already had whole asks for none of it");
+    ok(tilePlanElevSpaceTiles(47.5, -121.8, 20, false, false, false) == 0, "space: no layer, nothing");
+  }
+
+  /* `maps dl <src> <lat> <lon> <km> <zmax> [elev] [1|0]` - review 2026-09-27: the help showed
+   * "[elev 1|0]", the parser took only a bare digit, and "... 15 elev 0" fell back to the form's
+   * ON with no word said. */
+  group("maps dl: the elevation argument");
+  {
+    ok(tilePlanParseElevArg("") == -1 && tilePlanParseElevArg("   ") == -1 && tilePlanParseElevArg(NULL) == -1,
+       "absent: the form's setting");
+    ok(tilePlanParseElevArg(" 0") == 0 && tilePlanParseElevArg(" 1") == 1, "a bare 0 / 1 (docs/maps.md's form)");
+    ok(tilePlanParseElevArg(" elev 0") == 0 && tilePlanParseElevArg(" elev 1 ") == 1 &&
+       tilePlanParseElevArg(" ELEV  0") == 0, "the help's form, 'elev 0' / 'elev 1', any case");
+    ok(tilePlanParseElevArg(" elev") == -2 && tilePlanParseElevArg(" elev 2") == -2 &&
+       tilePlanParseElevArg(" 01") == -2 && tilePlanParseElevArg(" 0 x") == -2 &&
+       tilePlanParseElevArg(" off") == -2 && tilePlanParseElevArg(" elev0") == -2 &&
+       tilePlanParseElevArg(" 1.5") == -2, "anything else is refused, never read as absent");
+  }
+
   group("the Detail row: only the depths the source has, and the one shown is the one used");
   {
     int d = 13, seq[6];
@@ -162,6 +203,24 @@ int main() {
     ok(tilePlanDepthShown(17, 17) == 17, "the same wish on OpenTopoMap shows 17");
     ok(tilePlanDepthTop(19) == 17 && tilePlanDepthShown(19, 19) == 17, "the custom relay (z19) is offered to z17, no further");
     ok(tilePlanDepthShown(9, 17) == MAPS_DL_DEPTH_MIN, "a wish under the form's floor shows the floor");
+
+    /* The row itself (review 2026-09-27: "z15 (3 m/pixel)" was a literal the US setting never
+     * reached): z15's pixel at the area's latitude, through the units formatter. */
+    char row[48];
+    tilePlanDetailText(row, sizeof(row), 15, 47.5, UNITS_METRIC);
+    ok(!strcmp(row, "Detail: z15 (3m/pixel)"), "Detail z15 at 47.5 N, metric: 3m/pixel (3.23 m)");
+    tilePlanDetailText(row, sizeof(row), 15, 47.5, UNITS_US);
+    ok(!strcmp(row, "Detail: z15 (11ft/pixel)"), "...US: 11ft/pixel (10.6 ft) - the setting reaches it");
+    tilePlanDetailText(row, sizeof(row), 15, 0.0, UNITS_METRIC);
+    ok(!strcmp(row, "Detail: z15 (5m/pixel)"), "...the equator: 5m/pixel (4.78 m) - the latitude counts");
+    tilePlanDetailText(row, sizeof(row), 16, 47.5, UNITS_US);
+    ok(!strcmp(row, "Detail: z16 (4x z15's cost)"), "Detail z16: the cost");
+    tilePlanDetailText(row, sizeof(row), 17, 47.5, UNITS_METRIC);
+    ok(!strcmp(row, "Detail: z17 (4x z16's cost)"), "Detail z17: the cost");
+    tilePlanDetailText(row, sizeof(row), 13, 47.5, UNITS_METRIC);
+    ok(!strcmp(row, "Detail: z13 (coarser)"), "Detail z13: coarser");
+    tilePlanDetailText(row, 12, 15, 47.5, UNITS_US);
+    ok(row[0] == '\0', "a short buffer writes \"\", never a cut number");
   }
 
   group("the throttle and the time");

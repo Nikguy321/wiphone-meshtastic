@@ -17,6 +17,7 @@
 
 #include <stddef.h>
 #include <string.h>
+#include <strings.h>   /* strncasecmp */
 #include <stdio.h>
 
 /* Is `path` the same as `dir`, or inside it? Paths are absolute, "/"-separated, no trailing
@@ -33,6 +34,24 @@ static inline int filePathWithin(const char* dir, const char* path) {
     return 0;
   }
   return path[dl] == '\0' || path[dl] == '/';  /* the boundary must be the end or a slash */
+}
+
+/* filePathWithin, blind to ASCII case - the card is FAT, where "/maps/ELEV" IS "/maps/elev": a
+ * guard over a folder the firmware names in lower case (the map download's /maps/<key> and
+ * /maps/elev) must match it however it is spelt on the card (review 2026-09-27: a card's "Elev"
+ * slipped past the Files app's download guard; the map's own scan is case-blind already). */
+static inline int filePathWithinNoCase(const char* dir, const char* path) {
+  if (!dir || !path || dir[0] != '/' || path[0] != '/') {
+    return 0;
+  }
+  if (dir[1] == '\0') {
+    return 1;
+  }
+  const size_t dl = strlen(dir);
+  if (strncasecmp(dir, path, dl) != 0) {
+    return 0;
+  }
+  return path[dl] == '\0' || path[dl] == '/';
 }
 
 /* dir + "/" + name into out. 1 = fits; 0 = it would not, and out is left "" — a truncated

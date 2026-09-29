@@ -41,6 +41,15 @@ struct NmeaFix {
   int32_t  rmcHms;       // hhmmss, -1 when absent or not exactly "hhmmss[.f...]"
   int16_t  rmcMs;        // the time's fraction in ms (0 when none) - 0 at the M100's 1 Hz
   int32_t  rmcDmy;       // ddmmyy, -1 when absent or not exactly six digits
+
+  /* ── MOTION, ALSO READ ONLY FROM THE LAST RMC (0.9.80, the Almanac's Position screen) ────
+   * Speed over ground (RMC field 6, knots) and course over ground (field 7, degrees TRUE), in
+   * fixed point - no floats here (see the file header). The rmc* rule above applies: EVERY RMC
+   * rewrites both, and a field that is empty, absent or unreadable in THAT sentence is -1, so a
+   * receiver that stops reporting a course (it does, when you stand still) can never show the
+   * last walk's course as if it were now. A GGA never touches them. */
+  int32_t  speedKnX100;  // knots x100: "0.36" -> 36, "5" -> 500, "12.345" -> 1234 (truncated); -1 = absent
+  int32_t  courseX10;    // degrees true x10, 0..3599: "212.5" -> 2125, "360.0" -> 0; -1 = absent or > 360
 };
 
 class NmeaReader {

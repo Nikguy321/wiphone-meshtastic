@@ -69,16 +69,36 @@ for src in tests/test_*.cpp; do
     # a 'V' sentence refused, two consecutive readings, a fresh NTP never overridden, and the
     # mesh only into an unknown clock (two nodes on a public channel, one on a private one).
     test_clocksrc) deps=(WiPhone/clock_source.cpp WiPhone/nmea.cpp) ;;
-    # Sunrise/sunset/civil twilight (NOAA method) — almanac anchors + geometry.
-    test_sun)      deps=(WiPhone/sun_times.cpp) ;;
+    # Sunrise/sunset/civil twilight - the old test_sun's implementation-independent checks
+    # (almanac anchors, equinox/solstice day lengths, the longitude shift, ordering, polar night),
+    # moved onto astro.cpp when sun_times.cpp was retired (0.9.80: one source of legal light).
+    test_sun_astro) deps=(WiPhone/astro.cpp) ;;
+    # The Almanac (0.9.80): sun/moon/phases/seasons/solunar against PyEphem, WMM2025 against NOAA's
+    # own test values, UTM/MGRS against utm+mgrs - one vector file, tests/vectors_almanac.h, that
+    # COVEY's Python port is tested against too (tools/gen_almanac_vectors.py).
+    test_almanac)  deps=(WiPhone/astro.cpp) ;;
+    test_wmm)      deps=(WiPhone/wmm.cpp) ;;
+    test_geogrid)  deps=(WiPhone/geo_grid.cpp) ;;
+    # What the Almanac SAYS (almanac_lines.cpp): every screen's rows, the inward rounding of legal
+    # light, the countdown, the US DST reminder - and every row measured against the phone's own
+    # Akrobat_Bold20 (fonts.h) over six places, two years of days, both rules and both units.
+    test_almanac_lines) deps=(WiPhone/almanac_lines.cpp WiPhone/astro.cpp WiPhone/units.cpp WiPhone/mesh_pos.cpp
+                              WiPhone/geo_grid.cpp WiPhone/wmm.cpp) ;;
+    # Elevation tiles (sampling, the z13 -> z10 fallback, terrarium decode) and the metric/US
+    # formatters; map_tiles.cpp and mesh_pos.cpp are linked as the ORACLES they must equal.
+    test_elev)     deps=(WiPhone/elev_tiles.cpp WiPhone/map_tiles.cpp) ;;
+    # The map's altitude words (elev_text.cpp): every wording in metric and US, and the rows
+    # measured with the firmware's own Akrobat_Bold16 glyph table (fonts.h) against the strip.
+    test_elevtext) deps=(WiPhone/elev_text.cpp WiPhone/units.cpp) ;;
+    test_units)    deps=(WiPhone/units.cpp WiPhone/map_tiles.cpp WiPhone/mesh_pos.cpp) ;;
     # The map: Web Mercator, the slippy-tile grid, the blit rectangles, and the pins
     # file. Pure arithmetic on purpose — a map that is one tile out looks fine on a
     # 240x320 screen, so this is the only place that error can be caught.
     test_maptiles) deps=(WiPhone/map_tiles.cpp WiPhone/map_pins.cpp) ;;
-    test_tilepng)  deps=(WiPhone/tile_png.cpp WiPhone/tile_decode.cpp); extra=(-lz) ;;
+    test_tilepng)  deps=(WiPhone/tile_png.cpp WiPhone/tile_decode.cpp WiPhone/elev_tiles.cpp); extra=(-lz) ;;
     # The map download's arithmetic and decisions (tile_plan.cpp): tile counts, 64-bit bytes,
     # the Detail row's depths, the centre-out block order, the time, and the auto-resume table.
-    test_tileplan) deps=(WiPhone/tile_plan.cpp WiPhone/map_tiles.cpp) ;;
+    test_tileplan) deps=(WiPhone/tile_plan.cpp WiPhone/map_tiles.cpp WiPhone/units.cpp) ;;
     # Voltage -> SOC off phone 1's recorded discharge (tests/fixtures/p1_discharge_2026-09-03.tsv).
     # Scores the table AND the CW2015's own number against time-linear truth.
     test_battery)  deps=(WiPhone/battery_curve.cpp) ;;
@@ -277,6 +297,20 @@ fi
 # which no host test can see.
 echo "checking the HEALTH helper and the WiFi card gate"
 if ! python3 tests/check_health_log.py; then
+  fail=1
+fi
+
+# ── SOURCE GUARD: the 0.9.80 review's fixes that live in device files (2026-09-27) ────────
+# See tests/check_almanac_review.py. test_almanac_lines/test_elevtext/test_tileplan/test_filepaths
+# prove the pure halves; this pins where they are USED - the GPS motion taken only from an RMC, the
+# Time offset save recorded for the DST reminder, ONE countdown for the Sun screen and `sun`, the
+# resume's space check and the whole-layer record, `maps dl`'s parsed tail, the case-blind Files
+# guard, the ruler's coarse climb and the Follow me sample in its own tick; and the second review's:
+# the same-place tolerance (day slots, the Sun screen's cache), one thing a timer pass (a slice or
+# its repaint, the gap counted from the slice's end, the band push), the poor fix refused / named,
+# Follow me's one card read a fix, the scroll kept, the measured titles, the shared units row.
+echo "checking the Almanac/altitude review fixes in the device files (GPS motion, DST record, one countdown, ...)"
+if ! python3 tests/check_almanac_review.py; then
   fail=1
 fi
 

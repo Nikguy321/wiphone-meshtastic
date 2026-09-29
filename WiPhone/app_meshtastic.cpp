@@ -9,9 +9,11 @@
 #include "app_meshtastic.h"
 #include "meshtastic_service.h"
 #include "mesh_pos.h"           // distance/bearing for the Nodes and Places lists
+#include "units.h"              // unitsFmtDist: metric or US, the device-wide setting (0.9.80)
+#include "prefs_almanac.h"      // gUnits
 #include "mesh_airtime.h"       // meshComposeCap: how much text one frame (and the other apps) allow
 #include "clock.h"              // ntpClock, for the Sun screen
-#include "sun_times.h"          // legal light math (host-tested; the serial `sun` core)
+#include "app_almanac.h"        // almanacLegalToday: the Sun screen's legal light (astro.cpp + the rule)
 
 #ifdef USER_SERIAL              // the GPS toggle's plumbing (WiPhone.ino owns the flag)
 #include <Preferences.h>
@@ -507,7 +509,7 @@ void MeshtasticApp::buildNodes() {
           snprintf(line, sizeof(line), "here - GPS fix, %d sats", mySats);
         } else {
           char dist[16];
-          meshPosFmtDist(d, dist, sizeof(dist));
+          unitsFmtDist(d, gUnits, dist, sizeof(dist));
           snprintf(line, sizeof(line), "%s %s of %s, GPS now", dist,
                    meshPosCompass8(meshPosBearingDeg(refLat, refLon, myLat, myLon)), refName);
         }
@@ -523,7 +525,7 @@ void MeshtasticApp::buildNodes() {
      * mattered ("wrap, don't clip" — field request 2026-08-19). */
     if (haveRef && n->posHeardMs != 0) {
       char dist[16];
-      meshPosFmtDist(meshPosDistanceM(refLat, refLon, n->latI, n->lonI), dist, sizeof(dist));
+      unitsFmtDist(meshPosDistanceM(refLat, refLon, n->latI, n->lonI), gUnits, dist, sizeof(dist));
       /* Age BEFORE the reference name: the name is the part that varies in
        * length, so trailing it pushed "(old)"/"(4m)" — the freshness, which is
        * what makes the distance trustworthy — off the end first. */
@@ -627,10 +629,12 @@ void MeshtasticApp::buildPlaceOpts() {
   menu->addOption("I'm here (announce)", MESH_KEY_IMHERE, 1);
 }
 
-/* The serial `sun`, on screen: dawn/sunrise/sunset/dusk at the reference place
- * plus the countdown a hunting day actually asks. Same math, same UTC ladder —
- * the almanac-verified core in sun_times.cpp does the work. Static per entry;
- * the "Refresh" soft key (OK) rebuilds, and re-entering does too. */
+/* The serial `sun`, on screen: legal light, sunrise and sunset at the reference place plus the
+ * countdown a hunting day actually asks. ONE source of truth since 0.9.80: almanacLegalToday()
+ * (astro.cpp, the Almanac's own tables, and the legal-light rule set in Almanac > Settings -
+ * which this screen names). "First light"/"Last light" ARE legal light under that rule (the
+ * 30-minute rule by default; before 0.9.80 they were civil twilight, whatever the rule), rounded
+ * inward like the Almanac's. Static per entry; the "Refresh" soft key (OK) rebuilds. */
 void MeshtasticApp::buildSun() {
   menu = newMenu(NULL);
   char line[48];
@@ -651,60 +655,48 @@ void MeshtasticApp::buildSun() {
     menu->addOption("My node > GPS receiver", 4, 1);
     return;
   }
-  uint32_t utc = ntpClock.getExactUtcTime();
-  int tzMin = (int)(((int64_t)ntpClock.getExactUnixTime() - (int64_t)utc) / 60);
-  int y, m, d;
-  sunUnixToDate(utc, &y, &m, &d);
-  SunTimes t;
-  if (!sunTimesUtc(y, m, d, latI * 1e-7, lonI * 1e-7, &t)) {
-    menu->addOption("Computation refused", 1, 1);
-    menu->addOption("(bad coordinates?)", 2, 1);
+  AlmanacLegal L;
+  const int rc = almanacLegalToday(latI * 1e-7, lonI * 1e-7, &L);
+  if (rc != ALM_SUN_OK) {
+    menu->addOption(rc == ALM_SUN_BAD_DATE ? "Date out of range" : "Computation refused", 1, 1);
+    menu->addOption(rc == ALM_SUN_BAD_DATE ? "(1970-2099)" : "(bad coordinates?)", 2, 1);
     return;
   }
 
   snprintf(line, sizeof(line), "At %s", refName);
   menu->addOption(line, 1, 1);
 
-  /* Countdown FIRST — it is the question. The four times below are the paper
-   * almanac for planning tomorrow. Ladder unwraps exactly as the serial does. */
-  if (t.dawnMin >= 0 && t.duskMin >= 0) {
-    int nowU = (int)((utc % 86400u) / 60u);
-    int dawn = t.dawnMin;
-    int now2 = nowU + (nowU < dawn ? 1440 : 0);
-    int dusk = t.duskMin + (t.duskMin < dawn ? 1440 : 0);
-    if (now2 < dawn + 1) {
-      int dm = dawn - now2;
-      snprintf(line, sizeof(line), "First light in %dh %02dm", dm / 60, dm % 60);
-    } else if (now2 < dusk) {
-      int dm = dusk - now2;
-      snprintf(line, sizeof(line), "LEGAL LIGHT: %dh %02dm left", dm / 60, dm % 60);
-    } else {
-      strlcpy(line, "Dark now", sizeof(line));
-    }
-    menu->addOption(line, 2, 1);
-  }
+  /* Countdown FIRST - it is the question. The four times below are the paper almanac. */
+  menu->addOption(L.countdown, 2, 1);
 
-  struct SunRow { const char* label; int16_t utcMin; };
-  const SunRow rows[4] = { { "First light", t.dawnMin }, { "Sunrise", t.riseMin },
-                           { "Sunset", t.setMin }, { "Last light", t.duskMin } };
+  struct SunRow { const char* label; int64_t at; int round; };
+  const SunRow rows[4] = { { "First light", L.first, ALM_ROUND_UP },
+                           { "Sunrise", L.sun.rise, ALM_ROUND_NEAREST },
+                           { "Sunset", L.sun.set, ALM_ROUND_NEAREST },
+                           { "Last light", L.last, ALM_ROUND_DOWN } };
   for (int i = 0; i < 4; i++) {
-    if (rows[i].utcMin < 0) {
+    if (!rows[i].at) {
       snprintf(line, sizeof(line), "%s: none today", rows[i].label);
     } else {
-      int loc = ((int)rows[i].utcMin + tzMin + 2880) % 1440;
-      snprintf(line, sizeof(line), "%s: %02d:%02d", rows[i].label, loc / 60, loc % 60);
+      char hm[8];
+      almFmtClock(rows[i].at, L.tzS, rows[i].round, hm, sizeof(hm));
+      snprintf(line, sizeof(line), "%s: %s", rows[i].label, hm);
     }
     menu->addOption(line, 3 + i, 1);
   }
+  menu->addOption(L.rule == ASTRO_LEGAL_CIVIL ? "Legal rule: civil twilight" : "Legal rule: 30 min",
+                  10, 1);
   /* WHO set the clock (0.9.79): every time above is only as good as it. A mesh clock gets a
    * row of its own - legal light is the one number on this screen someone might act on, and
    * a mesh time is adopted from packets nobody vouched for (clock_source.h). */
+  const int tzMin = L.tzS / 60;
   snprintf(line, sizeof(line), "Clock UTC%+d:%02d via %s", tzMin / 60, abs(tzMin % 60),
            clockSourceName(ntpClock.getSource()));
   menu->addOption(line, 7, 1);
   if (ntpClock.getSource() == CLOCK_SRC_MESH) {
     menu->addOption("Mesh time: check it!", 8, 1);
   }
+  menu->addOption("More: Menu > Almanac", 11, 1);
 }
 
 void MeshtasticApp::buildStatus() {
