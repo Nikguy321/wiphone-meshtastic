@@ -93,6 +93,13 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.80-NH** — **Menu → Almanac**: legal light (Washington's big-game rule by default,
+  civil twilight as a setting) with a countdown, sun, moon, solunar periods, your position as
+  lat/lon, UTM and MGRS with ground elevation and **magnetic declination** (NOAA WMM2025), and
+  the date's details; Left/Right steps a day, and days past a US clock change show the time they
+  will have. **Altitude on the map**: the ground under the crosshair against the ground under
+  you, from elevation tiles the downloader now fetches with the map. **Metric or US units** for
+  distances, heights and speed. COVEY has the same Almanac, checked against this one to the second.
 - **0.9.79-NH** — the version now carries **`-NH`** and the splash says whose firmware this is.
   **Reading positions sync over KOSync** (an Xteink X4 running the fork, KOReader, or COVEY as
   the home server): *Sync my place* pushes to home first and then opens a 5-minute window an
@@ -438,7 +445,7 @@ and the accuracy are in **[docs/almanac.md](docs/almanac.md)**.
 
 **Legal light has two rules**, chosen in Almanac → Settings: **30 minutes before sunrise to 30
 minutes after sunset** (the default — Washington's big-game rule), or **civil twilight** (the
-sun 6° below the horizon; longer than 30 minutes from about October at 47° N). Every screen that
+sun 6° below the horizon; at 47° N that is 31 to 41 minutes, longer than 30 all year). Every screen that
 counts it down says which rule it used, and the times are rounded **inward** — first light up,
 last light down — so the window shown is never wider than the real one. It is only as good as
 the clock and the place, and the screen names both; a clock set from the mesh is flagged. The

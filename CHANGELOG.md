@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.80-NH (unreleased, 2026-09-27) - the Almanac, altitude on the map, metric/US units, elevation downloads
+## 0.9.80-NH (2026-10-01) - the Almanac, altitude on the map, metric/US units, elevation downloads
 
 Nick: *"expand that app ... moon cycle, date, altitude and so on (and whatever else you can think of)"*,
 *"altitude measurement on map center ... relative to where I am"*, *"also put this on covey too as an app"*.
@@ -19,8 +19,8 @@ C++ answers to the second.
   2030 - North Bend 14.8 E). DATE: day of year, ISO week, the clock's source, the US clock-change reminder,
   the next equinox/solstice. Left/Right = another day (+-365).
 - **Legal light defaults to Washington's big-game rule** (sunrise - 30 min to sunset + 30 min); civil
-  twilight is a setting. At 47 N civil twilight runs up to 36 min in December - earlier AND later than the
-  law. Legal times round INWARD (first light up, last light down) so the minute shown is always legal. The
+  twilight is a setting. At 47 N civil twilight runs 31-41 min (31 at the equinoxes, 36 in December, 41 in
+  June) - always earlier AND later than the law. Legal times round INWARD (first light up, last light down) so the minute shown is always legal. The
   Meshtastic "Sun & legal light" screen and the serial `sun` use the same rule and code (sun_times.cpp is
   gone; its independent checks moved to `test_sun_astro`).
 - **Days past a US clock change are shown in the offset they will have** ("Times in UTC-8 (after the Nov 1

@@ -166,9 +166,10 @@ Two rules, a setting on each device:
 
 - **30 min** (default): first legal light = sunrise - 30 min, last = sunset + 30 min.
   Washington's big-game rule ("one-half hour before sunrise to one-half hour after sunset").
-- **Civil twilight**: sun centre 6 deg below the horizon. Longer than 30 min from about
-  October on at 47 N (36 min at the winter solstice) - earlier in the morning and later in the
-  evening than the 30-minute rule, which is the direction that matters.
+- **Civil twilight**: sun centre 6 deg below the horizon. Longer than 30 min all year at 47 N:
+  about 31 min at the equinoxes, 36 at the winter solstice and 41 at the summer solstice - so
+  it starts earlier in the morning and ends later in the evening than the 30-minute rule, which
+  is the direction that matters.
 
 The countdown says which rule it used. It is only as good as the clock and the place: the screen
 names both (clock source; GPS / pin / waypoint).
