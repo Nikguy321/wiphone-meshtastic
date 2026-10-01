@@ -1,8 +1,21 @@
 # WiPhone — session handoff
 
-## ▶▶ STATE NOW (header refreshed 2026-09-27 18:00)
+## ▶▶ STATE NOW (header refreshed 2026-10-01 07:30)
 
 Read this first; everything below it is narrative.
+
+🚀 **2026-10-01 07:2x: 0.9.80-NH RELEASED** (Nick: "Push commit and update web flasher"). Clean build (BOOT
+`build=Oct  1 2026 06:46:39`, RAM 27.6 %, flash 43.7 %), suite exit 0, stage regenerated (make_webflasher.sh; the boot
+part is byte-identical to 0.9.79's), four independent read-only reviewers passed (stage bytes == a fresh merge+split,
+nvs in neither part, bootloader 16MB/dio/80m; privacy: nothing new public; docs claims vs code; page/manifest shape).
+One doc fix from the review: civil twilight at 47 N is 31-41 min (31 equinoxes, 36 December, 41 June), longer than 30
+all year - README/CHANGELOG/almanac.md said "from about October"/"up to 36" (COVEY D-164 text corrected too, cf88984).
+`main` = `eb87221` pushed (10a81a6 + the release commit); gh-pages republished; ALL SIX live files sha-match the stage
+on plain and cache-busted URLs (app `5c3be7a1…`, manifest `67df7805…`); the page reads "Latest version: 0.9.80-NH", no
+console errors. NOT yet proven by a real browser install. Phone 1 is on the Mac's USB (025A3F65) still on 0.9.79-NH -
+Nick's to install from the page; phone 2 runs the 09-27 17:51 build of the same source (not the published bytes).
+Phone 1 still needs the elevation tiles (card day step 4 or `wiphone_send.py --app maps --tree ~/elev-master/elev`).
+COVEY D-164 pushed (cc03066, cf88984). The panicwatch bridges are NOT running.
 
 🌙 **2026-09-27: 0.9.80-NH BUILT, UNCOMMITTED (branch `kosync`) - THE ALMANAC, ALTITUDE ON THE MAP, METRIC/US UNITS,
 ELEVATION DOWNLOADS. Phone 2 runs a snapshot of it; phone 1 is with Nick on 0.9.79-NH. Commit/push/publish only when
