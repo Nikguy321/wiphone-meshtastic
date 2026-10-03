@@ -71,6 +71,7 @@ const char* xferStartError();                   // why the last start was refuse
 const XferConfig* xferPhotosConfig();            // /photos, for `up on photos`
 const XferConfig* xferT9Config();                // /t9, for `up on t9`
 const XferConfig* xferMapsConfig();              // /maps, tree mode, for `up on maps`
+const XferConfig* xferKeysConfig();              // /API Keys, for `up on keys`
 const char* xferApName();                       // SSID of the hotspot, when we made one
 int         xferFilesAdded();                   // files added this session (uploads + fetches)
 

@@ -91,4 +91,29 @@ static inline int filePathReroot(const char* srcRoot, const char* dstRoot, const
   return 1;
 }
 
+/* Is `path` a KEY FILE - anything inside a folder named "API Keys" (any case, any depth: FAT is
+ * case-blind and a card may be laid out by hand), or a file named gemini.txt anywhere (where the
+ * T-Deck firmware keeps one, at the card's root)? The Files viewer refuses to draw these (Menu >
+ * AI's key, README "AI"): a screenshot of a key is a leaked key. */
+static inline int filePathIsKeyFile(const char* path) {
+  if (!path) {
+    return 0;
+  }
+  const char* p = path;
+  while (*p) {
+    while (*p == '/') p++;
+    const char* e = p;
+    while (*e && *e != '/') e++;
+    const size_t n = (size_t)(e - p);
+    if (*e == '/' && n == 8 && strncasecmp(p, "API Keys", 8) == 0) {
+      return 1;                                /* a folder on the way down */
+    }
+    if (*e == '\0' && n == 10 && strncasecmp(p, "gemini.txt", 10) == 0) {
+      return 1;
+    }
+    p = e;
+  }
+  return 0;
+}
+
 #endif /* FILES_PATHS_H */

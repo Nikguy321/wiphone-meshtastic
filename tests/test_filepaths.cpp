@@ -61,6 +61,20 @@ int main() {
   ok(!filePathReroot("/maps/home", "/backup/home", "/maps/home/15/1.565", o, 20) && o[0] == '\0',
      "a result that would not fit is refused, and out is empty");
 
+  printf("\n\033[1mfilePathIsKeyFile\033[0m (the Files viewer never draws a key)\n");
+  ok(filePathIsKeyFile("/API Keys/gemini.txt"), "the AI's key");
+  ok(filePathIsKeyFile("/api keys/Gemini.TXT") && filePathIsKeyFile("/API KEYS/other.txt"),
+     "any case (FAT), any file in the folder");
+  ok(filePathIsKeyFile("/API Keys/gemini.pem") && filePathIsKeyFile("/books/API Keys/x.txt"),
+     "any file type in it, and a folder of that name anywhere");
+  ok(filePathIsKeyFile("/gemini.txt") && filePathIsKeyFile("/roms/GEMINI.txt"),
+     "gemini.txt anywhere (the T-Deck keeps it at the root)");
+  ok(!filePathIsKeyFile("/API Keysx/a.txt") && !filePathIsKeyFile("/my API Keys/a.txt") &&
+     !filePathIsKeyFile("/books/gemini.txt.epub") && !filePathIsKeyFile("/books/notes.txt"),
+     "only the exact names");
+  ok(!filePathIsKeyFile("/API Keys") && !filePathIsKeyFile(NULL) && !filePathIsKeyFile("/"),
+     "the folder itself is not a file in it; nothing");
+
   printf("\n%d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;
 }

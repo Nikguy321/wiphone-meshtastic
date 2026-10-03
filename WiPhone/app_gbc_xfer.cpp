@@ -159,6 +159,14 @@ static const XferConfig SERIAL_T9_CFG = {
   "/t9", "Add T9 words", ".txt", "word lists", "extra.txt", "WiPhone-T9"
 };
 const XferConfig* xferT9Config() { return &SERIAL_T9_CFG; }
+/* The API-key uploader (`up on keys`): gemini.txt for the AI terminal, from
+ * tools/wiphone_send.py --app keys, into the folder the boot makes (WiPhone.ino). On the phone
+ * the same thing is Files > API Keys > [ Upload into this folder ]. A key file is only ever
+ * stored on the card; nothing here logs what is in it. */
+static const XferConfig SERIAL_KEYS_CFG = {
+  "/API Keys", "Add API keys", ".txt", "key files", "gemini.txt", "WiPhone-Keys"
+};
+const XferConfig* xferKeysConfig() { return &SERIAL_KEYS_CFG; }
 /* The map-tile uploader (`up on maps`): the ONE tree-mode config. A converted area is
  * `<area>/<z>/<x>/<y>.565` — hundreds of files in nested folders — and the alternative is
  * pulling the card. tools/wiphone_send.py --app maps --tree <dir> walks a converted tree and

@@ -1539,6 +1539,8 @@ static void testProblemsAndLibrary() {
   ok(kosyncNotABook("kosync.txt"), "kosync.txt");
   ok(kosyncNotABook("KOSync.TXT"), "any case (FAT)");
   ok(kosyncNotABook("smsmirror.txt"), "smsmirror.txt");
+  ok(kosyncNotABook("gemini.txt") && kosyncNotABook("Gemini.txt"),
+     "gemini.txt, any case (the AI's key - the T-Deck keeps it at the card's root)");
   ok(!kosyncNotABook("my-notes.txt"), "a real .txt book");
   ok(!kosyncNotABook("kosync.txt.epub") && !kosyncNotABook("my kosync.txt"), "only the exact names");
   ok(!kosyncNotABook(NULL) && !kosyncNotABook(""), "nothing");

@@ -322,6 +322,11 @@ static void installHook() {
   }
 }
 
+/* The same hook for any other TLS user (tile_fetch.h). Idempotent; never uninstalled. */
+void tlsInstallPsramHook() {
+  installHook();
+}
+
 
 /* One HTTP GET into `body`. Returns the HTTP code (200 = *got bytes are the tile), 0 for a
  * transport failure. `http`/`client` are the kept-alive pair for the whole run. */
@@ -1340,6 +1345,10 @@ static uint32_t   s_wifiUpSinceMs = 0;
 static volatile bool s_callNow = false;    // tileFetchPause's call flag, this pass
 static bool       s_callSeen = false;      // ...and when one was last seen (the resume's quiet minute)
 static uint32_t   s_callLastMs = 0;
+
+bool tileFetchCallRecent() {
+  return s_callNow || (s_callSeen && (uint32_t)(millis() - s_callLastMs) < TILE_PLAN_CALL_QUIET_MS);
+}
 static char       s_ssidNow[33] = "";      // the network the phone is on (the tick copies it)
 static TileFetchWorld s_world;             // the last world the tick saw
 static int        s_gate = TILE_GATE_IDLE;

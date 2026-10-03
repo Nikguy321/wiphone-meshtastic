@@ -10,6 +10,7 @@
 #include "units.h"           // unitsFmtDist/Alt: distances and heights in the chosen units
 #include "prefs_almanac.h"   // gUnits, unitsSetPref: the `units` command
 #include "tile_fetch.h"      // the `tlstest` bench: TLS from a task with mbedTLS in PSRAM
+#include "ai_net.h"          // the `ai` command: Menu > AI from the cable (never the key)
 #include "config.h"          // WIPHONE_KEY_*, the `key` command
 #include "Storage.h"         // CriticalFile / ConfigsFile, the `lock` command
 
@@ -144,6 +145,7 @@ static void help() {
     "  up on      start the WiFi uploader (files land in /roms; refused during a Game Boy game)",
     "  up on books|photos  same, into /books or /photos",
     "  up on maps          same, into /maps - accepts <area>/<z>/<x>/<y>.565 paths",
+    "  up on keys          same, into /API Keys (gemini.txt)",
     "  up off     stop the uploader",
     "  up         where to point a browser",
     "  sync       poll COVEY for mirrored texts now",
@@ -219,6 +221,11 @@ static void help() {
     "             at 160 MHz (a bench command: the app computes in slices); prints its own time",
     "  almanac cost  what the Almanac measured: its slices, each part of the day, its builds",
     "  almanac bench  each piece of the Almanac timed now (one pass, ~0.3 s)",
+    "  ai         Menu > AI: the key file (its LENGTH, never the key), the chat, the daily",
+    "             limits, the last question's HTTP code/model/time/stack floor",
+    "  ai ask <q> ask Gemini through the app's own path (500 chars); `ai` shows progress",
+    "  ai last    the newest question and its answer, in full",
+    "  ai topic | ai clear | ai reload  new topic / delete the saved chat / re-read gemini.txt",
     "  clock      (or `time`) the time, WHO set it (ntp/gps/mesh) and how long ago, and",
     "             what the GPS and mesh paths last decided about it - see clock_source.h",
     "  maps       what the card holds under /maps, the saved view, and the pins file",
@@ -257,7 +264,7 @@ static void help() {
     "  key <names>  press keys: select/menu back ok up down left right call end f1-f4,",
     "             or a single character. `key menu`, `key down down ok`. Real presses -",
     "             they go into the keypad buffer, so the whole UI path runs unchanged",
-    "  open <app>  jump into an app: maps almanac photos books music mesh gbc files clock, or",
+    "  open <app>  jump into an app: maps almanac ai photos books music mesh gbc files clock, or",
     "             wifi (Settings > WiFi's list) / wifiedit (edit the current network - there",
     "             `key select` is its Connect/Disconnect). Leaving (`open clock`) runs the exit",
     "             path Back does - for the WiFi screens, the `WIFI restore` line",
@@ -580,6 +587,15 @@ static void run(char* line) {
   if (!strcasecmp(line, "up on t9")) {
     /* Upload a T9 word list, then `t9 reload` to pick it up without a reboot. */
     xferStart(xferT9Config());
+    if (!gbcXferOn() && xferStartError()) {
+      say("up: NOT started - %s\n", xferStartError());
+    }
+    reportUploader();
+    return;
+  }
+  if (!strcasecmp(line, "up on keys")) {
+    /* API keys (gemini.txt) into /API Keys: tools/wiphone_send.py --app keys gemini.txt. */
+    xferStart(xferKeysConfig());
     if (!gbcXferOn() && xferStartError()) {
       say("up: NOT started - %s\n", xferStartError());
     }
@@ -985,6 +1001,48 @@ static void run(char* line) {
       say("tlstest: NOT started -\n");
       tileFetchBenchReport(sayLine);
     }
+    return;
+  }
+  /* `ai` / `ai last` / `ai ask <question>` / `ai topic` / `ai clear` / `ai reload` - Menu > AI
+   * from the cable (ai_net.h). `ai ask` takes the app's own path (the gates, the worker, the
+   * saved chat); `ai` then says how it went, `ai last` prints the answer. 🛑 NOTHING HERE TAKES
+   * OR PRINTS A KEY: panicwatch keeps every console byte in /tmp for good. `ai` gives the key's
+   * LENGTH and where the file is, and the question fits the console's 512-byte line. */
+  if (!strncasecmp(line, "ai", 2) && (line[2] == '\0' || line[2] == ' ')) {
+    const char* p = line + 2;
+    while (*p == ' ') p++;
+    if (!*p || !strcasecmp(p, "reload")) {
+      if (*p) {
+        aiKeyReload();
+      }
+      aiReport(sayLine);
+      return;
+    }
+    if (!strcasecmp(p, "last")) {
+      aiReportLast(sayLine);
+      return;
+    }
+    if (!strcasecmp(p, "topic")) {
+      aiChatNewTopic();
+      say("ai: the next question starts a new topic\n");
+      return;
+    }
+    if (!strcasecmp(p, "clear")) {
+      aiChatClear();
+      say("ai: chat cleared, %s removed\n", AI_CHAT_FILE);
+      return;
+    }
+    if (!strncasecmp(p, "ask ", 4)) {
+      const char* q = p + 4;
+      char why[96];
+      if (aiAsk(q, why, sizeof(why))) {
+        say("ai: asking (%u chars) - `ai` for progress, `ai last` for the answer\n", (unsigned)strlen(q));
+      } else {
+        say("ai: NOT asked - %s\n", why);
+      }
+      return;
+    }
+    say("ai: ai | ai ask <question> | ai last | ai topic | ai clear | ai reload\n");
     return;
   }
   /* `replay` — the mesh-history replay's whole state in one line (the feature
@@ -2526,6 +2584,7 @@ static void run(char* line) {
     ActionID_t app = GUI_APP_CLOCK;
     if (!strcasecmp(arg, "maps"))        app = GUI_APP_MAPS;
     else if (!strcasecmp(arg, "almanac")) app = GUI_APP_ALMANAC;
+    else if (!strcasecmp(arg, "ai"))     app = GUI_APP_AI;
     else if (!strcasecmp(arg, "photos")) app = GUI_APP_PHOTOS;
     else if (!strcasecmp(arg, "books"))  app = GUI_APP_BOOKS;
     else if (!strcasecmp(arg, "music"))  app = GUI_APP_MUSIC;
@@ -2540,7 +2599,7 @@ static void run(char* line) {
     else if (!strcasecmp(arg, "wifiedit")) app = GUI_APP_EDITWIFI;
     else if (!strcasecmp(arg, "clock") || !*arg) app = GUI_APP_CLOCK;
     else {
-      say("open: maps | almanac | photos | books | music | mesh | gbc | files | wifi | wifiedit | clock\n");
+      say("open: maps | almanac | ai | photos | books | music | mesh | gbc | files | wifi | wifiedit | clock\n");
       return;
     }
     if (gui.openAppFromConsole(app)) {

@@ -162,6 +162,12 @@ for src in tests/test_*.cpp; do
     test_music_title) deps=() ;;
     # Header-only: the Files app's folder copy/move/delete path questions (files_paths.h).
     test_filepaths) deps=() ;;
+    # Menu > AI's pure half (gemini.cpp): the key file (a superset of the T-Deck's), the request
+    # body, Google's answers on fixtures in the shapes measured live (200, MAX_TOKENS with no text,
+    # thought parts, 400/404/503, the free tier's 429 per DAY and per MINUTE, blockReason, \u
+    # escapes), the chunked body, the screen's ASCII, the model ladder, the saved chat and its
+    # topic breaks - and the fake key never in any text built. Fake keys only, no network.
+    test_gemini)   deps=(WiPhone/gemini.cpp) ;;
     # Header-only: the notification pop's stop timer (notify_timing.h) against the shipping
     # pop_pcm[] bytes. WiPhone.ino cannot be compiled here, same reason as above. Review 3 (A1): the
     # ring's lead too, with a model of IDF 3.3's TX ring - the old 360 ms stop erased the chirp.

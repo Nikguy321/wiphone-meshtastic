@@ -93,6 +93,10 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
+- **0.9.81-NH** (in development) — **Menu → AI**: ask Google's **Gemini** a question from
+  the keypad, on WiFi, with **your own free API key** in `gemini.txt` in the new **API Keys**
+  folder on the card. The chat is saved, a topic breaks by itself after two hours, the free
+  tier's daily limit falls back to the faster model, and the key is never shown on screen.
 - **0.9.80-NH** — **Menu → Almanac**: legal light (Washington's big-game rule by default,
   civil twilight as a setting) with a countdown, sun, moon, solunar periods, your position as
   lat/lon, UTM and MGRS with ground elevation and **magnetic declination** (NOAA WMM2025), and
@@ -464,6 +468,98 @@ AWS Open Data **Terrain Tiles** (USGS 3DEP/NED, SRTM, GMTED and ETOPO, via Mapze
 converted into `/maps/elev` on the card on the Mac, or fetched by the phone itself with a map download
 ("Elevation too", on by default) — see [docs/maps.md](docs/maps.md), "Altitude".
 
+## AI (Gemini)
+
+**Menu → AI** (the speech-bubble icon on the main screen) asks Google's Gemini anything you type
+on the keypad, over WiFi. It needs **your own API key**. A key is free, and nothing is built into
+the firmware: this repo is public, so the key lives only on your phone's card.
+
+### 1. Get a free key
+
+1. On a computer or phone browser, open **[aistudio.google.com](https://aistudio.google.com)** and
+   sign in with a Google account.
+2. Choose **Get API key**, then **Create API key**, and copy it. (Keys made since 2025 may look like
+   `AQ.Ab8…` rather than the older `AIza…`; both work.)
+3. Keep it to yourself, like a password: anyone holding it can use your allowance. If it leaks,
+   delete it in AI Studio and make a new one.
+
+The free tier is enough for the phone: about **20 answers a day from Gemini Flash**, then the
+phone switches to **Flash-Lite**, which has its own, larger daily allowance. You can see your
+exact limits in AI Studio under **Rate limits**.
+
+### 2. Put the key on the phone
+
+Make a plain text file named **`gemini.txt`** containing one line:
+
+```
+key=YOUR_KEY
+```
+
+and put it in the **`API Keys`** folder on the card. The phone makes that folder every time it
+starts. Any one of these works, easiest first:
+
+- **Over WiFi from a browser:** on the phone, **Files → API Keys → [ Upload into this folder ]**,
+  then open the address the phone shows (or `http://wiphone.local/`) on a computer or phone on the
+  same WiFi and pick the file. **AI → Menu → Key info → Add key file over WiFi** does the same.
+  Use your home WiFi: if the phone has no network it makes its own hotspot, and that hotspot is
+  **open**.
+- **With a card reader:** copy `gemini.txt` into `API Keys` on the card.
+- **From a computer on the USB cable:** `up on keys` on the serial console, then
+  `tools/wiphone_send.py --app keys gemini.txt`.
+
+Then open **AI → Menu → Key info**: it should say **`key: set (N chars)`** (the length only - the
+key itself is never shown). The phone reads the file each time the app opens and before every
+question, so a new or replaced key works at once, no restart.
+
+The same file works on a T-Deck running the T-UI firmware, which reads `gemini.txt` from the
+card's root (the phone looks there too, after `API Keys`).
+
+**Optional lines** in `gemini.txt`: `model=` (default `gemini-flash-latest`), `thinking=0` to
+`8192` (how long the model may think before answering; default 1024, `0` = off - faster but
+plainer) and `fallback=` (default `gemini-flash-lite-latest`, or `none`). `#` comment lines, a BOM,
+Windows line endings, quotes and spaces around `=` are all fine.
+
+### 3. Use it
+
+- **Ask:** press **OK** to open the question box and type. Predictive text works as in Messages:
+  **`#`** switches T9 → Abc → ABC → 123, **`*`** gives punctuation, **`0`** is a space, **Up/Down**
+  picks another word, **Back** deletes. Send with **Ask** (the left soft key) or **Call**;
+  **End** cancels the question.
+- **Wait:** the status shows what is happening (`Asking Gemini...`, `Google is busy - trying
+  again...`) and the seconds so far. A question usually takes **4-15 seconds**. **End** cancels;
+  **Back** leaves the app and the question carries on - the answer is in the chat when you come
+  back. If music is playing it **pauses** for the question (the phone needs its full speed for the
+  secure connection); press Play in Music to carry on.
+- **Read:** answers are plain text. **Up/Down** pages through the chat; under each answer it says
+  which model wrote it (`Flash` or `Flash-Lite`).
+- **Follow-ups:** Gemini remembers the **current topic** - your last four questions - so "and how
+  long is it?" works. After two hours without a question the next one starts a new topic by
+  itself; **Menu → New topic** starts one now, and **Menu → Clear chat** deletes the whole chat.
+- The chat is saved on the card (`/ai/chat.txt`, the last 20 questions) and survives a restart.
+
+### When something goes wrong
+
+| The phone says | What it means |
+|---|---|
+| `No key - put gemini.txt in API Keys` | No key file was found - see step 2. |
+| `Key rejected` | Google refused the key: check it was copied whole, or make a new one. |
+| `No WiFi - join a network first` / `WiFi is off` | Join a network in Settings → WiFi. |
+| `Google is busy - trying again...` | Normal at busy times: it retries twice, then asks Flash-Lite. |
+| `Daily free limit for Flash reached - using Flash-Lite until about 17:00` | Flash's 20 a day are used; answers come from Flash-Lite until the time Google gave. |
+| `Today's free Gemini limit is used up` | Both models' daily allowances are used; it says when to try again. |
+| `Secure connection failed` | The connection to Google did not complete: try again; if it keeps happening, check the WiFi. |
+| `A map download is running` (or a call, a game, the uploader) | One thing at a time: ask again when that is finished. |
+| A question marked failed in the chat | It stays there for reference and is never sent back to Gemini. |
+
+### Safety of the key
+
+The phone checks Google's certificate against Google's own root certificates (built in, and
+nothing on the card can replace them), and sends the key in a header, never in a web address. It
+is never printed on the serial console (`ai` shows only its length), never logged and never
+drawn: the Files viewer refuses to open anything in `API Keys`, Books never lists `gemini.txt`,
+and `tools/card_clone.sh` leaves the folder out of a cloned card. A key pasted on the `model=` line
+by mistake is ignored rather than used as a model name, and Key info says so.
+
 ## E-reader
 
 - **EPUB and plain text** from the card, with **pictures inline**. Menu > Books.
@@ -751,7 +847,10 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `maps dlurl <template> \| clear` | a plain-HTTP relay as tile source 3 (`{z}/{x}/{y}`) |
 | `tlstest <url> [n]` | the TLS bench: n kept-alive GETs from the fetch task, heap and timing |
 | `up on maps` | the tile uploader: `tools/wiphone_send.py --app maps --tree <dir>` |
-| `open <app>` | jump into maps / photos / books / music / mesh / gbc / clock, whatever screen is up (`gbc` is the ROM picker; `key ok` starts the first game) |
+| `up on keys` | the API-key uploader into `/API Keys`: `tools/wiphone_send.py --app keys gemini.txt` |
+| `ai` / `ai ask <question>` / `ai last` | Menu → AI from the cable: the key file (its length, never the key), the chat, the daily limits, the last question's HTTP code, model, time and stack floor; ask through the app's own path; print the newest answer |
+| `ai topic` / `ai clear` / `ai reload` | start a new topic / delete the saved chat / re-read `gemini.txt` |
+| `open <app>` | jump into maps / almanac / ai / photos / books / music / mesh / gbc / clock, whatever screen is up (`gbc` is the ROM picker; `key ok` starts the first game) |
 | `hold on \| off` | keep the screen awake and unlocked for a scripted bench session |
 | `notify [sip]` | fire the real message-arrival announcement (buzz + chirp) from the cable; the log prints `buzz off after N ms`, `pop start took N ms`, `pop stopped after N ms` |
 | `maps hold up\|down\|left\|right [ms [blip]]` | press an arrow on the map and hold it for that long — the hold-to-scroll bench; `blip` ms in, fake the chip's release-and-re-press under a held finger |

@@ -35,3 +35,11 @@ tests/fixtures/_store*.tsv
 
 # Claude Code worktrees and local settings
 .claude/
+
+# API keys live on the device cards and outside every repo - never in this public repo
+gemini.txt
+Gemini.txt
+GEMINI.txt
+/API Keys/
+chutes.txt
+Chutes.txt

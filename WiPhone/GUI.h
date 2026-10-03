@@ -672,6 +672,7 @@ typedef enum ActionID : uint16_t {
   GUI_APP_MAPS,         // ⚠ likewise: append, never insert
   GUI_APP_MUTE,         // ⚠ likewise: Settings > Mute all sounds (0.9.75)
   GUI_APP_ALMANAC,      // ⚠ likewise: the main screen's Almanac (0.9.80)
+  GUI_APP_AI,           // ⚠ likewise: the main screen's AI (Gemini, 0.9.81)
 
 } ActionID_t;
 
@@ -3150,8 +3151,8 @@ public:
 protected:
   /* ⚠ The size must match the entries exactly, like menu[] below: more entries than the size is
    * a compile error, a size larger than the entries is SILENT - the tail zero-fills into rows
-   * with ID 0 and no icon, which findMenuIcons() then finds for ID 0. 11 since the Almanac. */
-  GUIMenuItemIcons menuIcons[11] PROGMEM = {
+   * with ID 0 and no icon, which findMenuIcons() then finds for ID 0. 12 since the AI. */
+  GUIMenuItemIcons menuIcons[12] PROGMEM = {
     { 2,    icon_Phonebook_w, sizeof (icon_Phonebook_w), icon_Phonebook_b, sizeof (icon_Phonebook_b) },
     { 20,   icon_Messages_w, sizeof (icon_Messages_w), icon_Messages_b, sizeof (icon_Messages_b) },
     { 39,   icon_Meshtastic_w, sizeof (icon_Meshtastic_w), icon_Meshtastic_b, sizeof (icon_Meshtastic_b) },
@@ -3159,6 +3160,7 @@ protected:
     { 42,   icon_Music_w, sizeof (icon_Music_w), icon_Music_b, sizeof (icon_Music_b) },
     { 50,   icon_Maps_w, sizeof (icon_Maps_w), icon_Maps_b, sizeof (icon_Maps_b) },
     { 52,   icon_Almanac_w, sizeof (icon_Almanac_w), icon_Almanac_b, sizeof (icon_Almanac_b) },
+    { 53,   icon_AI_w, sizeof (icon_AI_w), icon_AI_b, sizeof (icon_AI_b) },
     { 3,    icon_Tools_w, sizeof (icon_Tools_w), icon_Tools_b, sizeof (icon_Tools_b) },
     { 4,    icon_Games_w, sizeof (icon_Games_w), icon_Games_b, sizeof (icon_Games_b) },
     { 13,   icon_Reboot_w, sizeof (icon_Reboot_w), icon_Reboot_b, sizeof (icon_Reboot_b) },
@@ -3170,7 +3172,7 @@ protected:
    * too FEW is silent — the tail zero-fills into entries with ID 0, parent 0 and a NULL
    * title, which then appear as children of the Clock menu. It was one short before Books was
    * added. enterMenu() now skips title-less rows so a miscount stays cosmetic. */
-  GUIMenuItem menu[49] PROGMEM = {  // increment size by one to add a new app
+  GUIMenuItem menu[50] PROGMEM = {  // increment size by one to add a new app
 
     // TODO: button names can be removed
 
@@ -3189,6 +3191,9 @@ protected:
     /* 52: 0-51 are taken (51 is Mute all sounds). COUNT UP - never fill 8 or 25. The Almanac sits
      * beside Maps: both answer "where, and when is it light" (0.9.80). */
     { 52, 1, "Almanac", "Select", "Back", GUI_APP_ALMANAC },
+    /* 53: 0-52 are taken. COUNT UP - never fill 8 or 25. Ask Google's Gemini from the keypad, with
+     * the owner's own key from /API Keys/gemini.txt (0.9.81, app_ai.h). */
+    { 53, 1, "AI", "Select", "Back", GUI_APP_AI },
     { 3, 1, "Tools", "Select", "Back", GUI_ACTION_SUBMENU },
     { 4, 1, "Games", "Select", "Back", GUI_ACTION_SUBMENU },
     { 5, 1, "Settings", "Select", "Back", GUI_ACTION_SUBMENU },

@@ -6,8 +6,11 @@
 #
 # Everything on the card is copied - configs, roms, books, photos, messages, the maps - except
 # what macOS itself leaves on a FAT volume (._sidecars, .DS_Store, .Spotlight-V100, .fseventsd,
-# .Trashes). Nothing is ever deleted at the destination, so a push onto a card that already has
-# files adds to them. Both directions end with a count of files on each side so a copy that
+# .Trashes) and the owner's API KEYS: any "API Keys" folder and any gemini.txt (Menu > AI; the
+# T-Deck firmware keeps it at the card's root). A card cloned for somebody else must not carry your key; copy a key on purpose,
+# by hand. (A `cardday.sh pull` backup is a different tool and DOES hold the key - keep those
+# folders private.) Nothing is ever deleted at the destination, so a push onto a card that
+# already has files adds to them. Both directions end with a count of files on each side so a copy that
 # stopped early cannot pass for a finished one.
 #
 # The card must be FAT32 (the phone does not read exFAT). A fresh 32 GB card comes that way;
@@ -21,6 +24,7 @@ set -u
 usage() {
   echo "usage: $0 pull [--no-tiles] /Volumes/<card> <folder>" >&2
   echo "       $0 push [--no-tiles] <folder> /Volumes/<card>" >&2
+  echo "  API keys are never copied: any 'API Keys' folder and any gemini.txt are left out." >&2
   exit 2
 }
 
@@ -53,7 +57,8 @@ if [ "$mode" = push ] && [ ! -d "$folder" ]; then
 fi
 
 EXCL=(--exclude '._*' --exclude '.DS_Store' --exclude '.Spotlight-V100' --exclude '.fseventsd'
-      --exclude '.Trashes' --exclude '.TemporaryItems' --exclude '.metadata_never_index')
+      --exclude '.Trashes' --exclude '.TemporaryItems' --exclude '.metadata_never_index'
+      --exclude '[Aa][Pp][Ii] [Kk][Ee][Yy][Ss]/' --exclude '[Gg][Ee][Mm][Ii][Nn][Ii].[Tt][Xx][Tt]')
 
 # --no-tiles leaves the map TILES out (the numbered zoom folders under /maps/<area>) and takes
 # everything else, `pins.txt` included. For the tile pool that is the right trade: the master
@@ -71,7 +76,9 @@ count() {   # files this run is responsible for, not counting the macOS leftover
   # (/Volumes with a card mounted), find failed, both counts read 0 and "b < a" passed.
   local tiles=()
   [ "$no_tiles" = 1 ] && tiles=(! -path '*/maps/*/[0-9]*')
+  # The keys are left out of the count on both sides, as they are out of the copy.
   find "$1" -type f ! -name '._*' ! -name '.DS_Store' ! -name '.metadata_never_index' \
+       ! -ipath '*/API Keys/*' ! -iname 'gemini.txt' \
        ${tiles[@]+"${tiles[@]}"} \
        ! -path '*/.Spotlight-V100/*' ! -path '*/.fseventsd/*' ! -path '*/.Trashes/*' \
        ! -path '*/.TemporaryItems/*' | wc -l | tr -d ' '
@@ -83,7 +90,7 @@ if [ "$mode" = push ]; then
   touch "$card/.metadata_never_index" 2>/dev/null || true
 fi
 
-echo "$mode: $src -> $dst$([ "$no_tiles" = 1 ] && printf '%s' '  (map tiles left out)')"
+echo "$mode: $src -> $dst$([ "$no_tiles" = 1 ] && printf '%s' '  (map tiles left out)')  (API Keys left out)"
 before=$(count "$dst")
 t0=$(date +%s)
 rsync -rt --no-perms --no-owner --no-group "${EXCL[@]}" "$src/" "$dst/"

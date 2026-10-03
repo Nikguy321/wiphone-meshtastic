@@ -4,6 +4,19 @@
 
 Read this first; everything below it is narrative.
 
+🧪 **2026-10-03: BOTH PHONES RUN AN UNCOMMITTED 0.9.81-NH DEV BUILD** (app only @0x10000, hash verified). It adds
+the **AI app** (Gemini; `app_ai`, `ai_net`, `gemini.{h,cpp}`, tests/test_gemini.cpp), the `/API Keys` folder made at
+boot (WiPhone.ino, after SD.begin) and `up on keys` (`tools/wiphone_send.py --app keys gemini.txt`). The key is NEVER
+in this repo: it lives on the cards (`/API Keys/gemini.txt`) and outside every repo on the Mac. `.gitignore` ignores
+gemini.txt / chutes.txt / `/API Keys/`. The roots are pinned (GTS R1 + R4) with NO override file on purpose (the
+keys uploader has no password and can run on an open hotspot). Free Flash = 20 answers a DAY per key: bench with
+Flash-Lite. Web flasher still serves 0.9.80-NH.
+✅ **Bench 2026-10-03 13:00-14:00:** both phones answer real questions (pinned-root TLS verifies; worker stack
+floor ~3.1 KB of 8 KB). 🛑 The handshake is ~4.5 s of software ECC and Google resets one that takes > ~10 s
+(`start_ssl_client: -80`): with the screen on and a 1-tick loop it failed 3/3; the loop now sleeps 10 ms a pass while
+a question is in flight (3/3 answered, 3.9-7.6 s) and a playing track PAUSES for the question (Nick's call; with music
+the handshake still failed). README "AI (Gemini)" is a get-a-key / add-it / use-it guide. NOT committed.
+
 🚀 **2026-10-01 07:2x: 0.9.80-NH RELEASED** (Nick: "Push commit and update web flasher"). Clean build (BOOT
 `build=Oct  1 2026 06:46:39`, RAM 27.6 %, flash 43.7 %), suite exit 0, stage regenerated (make_webflasher.sh; the boot
 part is byte-identical to 0.9.79's), four independent read-only reviewers passed (stage bytes == a fresh merge+split,

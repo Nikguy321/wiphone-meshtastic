@@ -247,6 +247,16 @@ uint32_t tileFetchElevWritten();
 /* One line per call of `emit`, for the serial console. */
 void tileFetchReport(void (*emit)(const char* line));
 
+/* mbedTLS's allocator pointed at PSRAM (see "WHY A TASK, AND WHY THE ALLOCATOR HOOK" above): global
+ * and idempotent, installed by the first TLS user that needs it - a map job, `tlstest`, or the AI
+ * worker (ai_net.cpp), which may well be the first since boot. Call it BEFORE the first
+ * WiFiClientSecure, or the two 16.7 KB record buffers land on the internal heap (-32512). */
+void tlsInstallPsramHook();
+/* A call is up, or ended under a minute ago (TILE_PLAN_CALL_QUIET_MS) - what tileFetchPause has been
+ * told by the loop. The AI worker's start gate reads it: a handshake's ~12 KB internal dip is the
+ * reason a download waits out a call, and a question waits the same way. */
+bool tileFetchCallRecent();
+
 /* app_files.cpp: a Files folder copy/move/delete is running (it and a download must not race
  * over /maps). Declared here because tile_fetch.cpp and the loop both read it. */
 bool filesJobActive();

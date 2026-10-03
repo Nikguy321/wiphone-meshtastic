@@ -1,5 +1,65 @@
 # Changelog
 
+## 0.9.81-NH (in development) - Menu > AI (Gemini), the API Keys folder
+
+Nick: *"I'd like to add a similar ai terminal to my wiphones ... I'd want the API to be inputable
+for other users in a sort of easy way"*, *"Can you make an API key folder on each device in root"*,
+then *"I prefer some thinking and then just a longer answer limit"* and *"I'll let you decide how ai
+chat history should be saved or reset"*. Modelled on the Gemini app of the T-UI T-Deck firmware
+(same `gemini.txt`), without its shortcuts: the key in the URL, no certificate check, the error
+body thrown away, one `strstr` for the answer, sticky fallbacks, no history.
+
+- **Menu > AI** (new, with its own icon): ask Gemini from the keypad (predictive text, 500
+  characters; Ask = the left soft key or Call, End cancels, OK never sends a half-typed question).
+  The answer is paged like the Files viewer, with the model that wrote it under it. A status line
+  says the stage and the seconds; Back leaves and the question carries on.
+- **The key is the owner's own**, in `gemini.txt` (`key=...`, optional `model=`, `thinking=`,
+  `fallback=`) in **`/API Keys`**, which the phone makes at boot (or `/gemini.txt`, where the T-Deck
+  keeps it). Read on every open and before every question; a failed card read keeps the last good
+  key rather than becoming "no key". Key info explains aistudio.google.com and offers "Add key file
+  over WiFi" (the uploader into `/API Keys`, with the warning that the phone's own hotspot is open).
+  Also `up on keys` + `tools/wiphone_send.py --app keys`.
+- **A key on the wrong line is never a model name**: `model=` and `fallback=` take only
+  `[a-z0-9][a-z0-9.-]*` (an optional `models/` first) that is not the key itself. Anything else is
+  dropped when the file is read - the default model is used and Key info / `ai` say "model= line
+  ignored (not a model name)" - so it is never sent in the URL, drawn or printed.
+- **Thinking, bounded**: `gemini-flash-latest` with `thinkingBudget` 1024 inside `maxOutputTokens`
+  4096 (measured: with a small cap the thoughts ate the whole budget and the answer was empty).
+  `gemini-flash-lite-latest` rejects thinkingConfig (400) and is never sent one.
+- **The free tier's daily limit** (20 Flash answers a day, measured): a 429 naming a PerDay quota
+  is not retried - the phone asks Flash-Lite at once and remembers "Flash used up" until Google's
+  limit lifts (`/ai/state.txt`, from Google's own retryDelay), so later questions go straight
+  there. The notice gives Google's deadline in local time ("using Flash-Lite until about 17:00",
+  "tomorrow" when it is), "for about 4 h" without a trusted clock, "for now" when Google gave no
+  time - never a time the phone made up. A
+  per-minute 429 is waited out once; a 503 is retried twice 2.5 s apart, then Flash-Lite with its
+  own two. Every new question starts on the configured model again. Each answer records its model.
+- **A question gets the core** (measured on phone 1, 2026-10-03): the TLS handshake to Google is
+  ~4.5 s of software ECC on the AI worker, and Google resets a handshake that takes over ~10 s
+  (`start_ssl_client: -80`). With the 1-tick main loop sharing the core it took 5.6-10 s and failed
+  3 of 3 with the screen on; now the loop sleeps 10 ms a pass while a question is in flight -
+  3 of 3 answered, 3.9-7.6 s. A playing track **pauses** for the question (Nick: *"make music turn
+  off when doing ai"*): with music decoding beside it the handshake still failed; Play in Music
+  carries on where it stopped.
+- **The chat is saved** (`/ai/chat.txt`: the last 20 exchanges or 16 KB, whichever is smaller; a
+  file that is not whole loads as an empty chat, never half of one). Only the **current topic** is
+  sent: the last 4 exchanges since a topic break - automatic after two hours, or Menu > New topic.
+  Failed questions stay in the transcript, marked, and are never sent. Menu > Clear chat deletes it.
+- **TLS with Google's roots pinned** (GTS Root R1 + R4, built in; no override file), the key in
+  an `x-goog-api-key` header, the chunked answer de-chunked into PSRAM, on a persistent worker of
+  its own with mbedTLS in PSRAM (tile_fetch's hook, now exported). Refused - with the reason on
+  screen - without WiFi, during a call or the minute after, a game, a map download, the uploader,
+  a sync window, a Files folder job, or with the internal heap under the handshake's bar. The
+  request holds the CPU at full speed (160 MHz with WiFi on).
+- **The key is never shown**: the Files viewer refuses anything in an `API Keys` folder (and any
+  `gemini.txt`), Books never lists `gemini.txt`, `tools/card_clone.sh` leaves keys off a cloned card,
+  and the serial `ai` prints the key's length only. Google's error messages are kept (shortened) and
+  scrubbed of the key - a 400 is never just called a bad key.
+- Serial: `ai`, `ai ask <question>`, `ai last`, `ai topic`, `ai clear`, `ai reload`, `open ai`,
+  `up on keys`. Host tests: `tests/test_gemini.cpp` (the key file, the body, Google's answers in the
+  shapes measured live, the chunked body, the ladder with the daily limit, the saved chat and its
+  topics; fake keys only).
+
 ## 0.9.80-NH (2026-10-01) - the Almanac, altitude on the map, metric/US units, elevation downloads
 
 Nick: *"expand that app ... moon cycle, date, altitude and so on (and whatever else you can think of)"*,

@@ -80,7 +80,8 @@ def bridge_say(cmd_file, log_file, command, wait=4.0):
 def phone_ip_via_bridge(cmd_file, log_file, app):
     out = bridge_say(cmd_file, log_file, 'up')
     m = re.search(r'uploader: ON\s+http://([0-9.]+)/', out)
-    wanted = {'books': '/books', 'photos': '/photos', 'roms': '/roms', 'maps': '/maps'}[app]
+    wanted = {'books': '/books', 'photos': '/photos', 'roms': '/roms', 'maps': '/maps',
+              'keys': '/API Keys'}[app]
     if m and wanted.split('/')[-1] in out:
         return m.group(1)
     if m:
@@ -196,7 +197,7 @@ def push_file(ip, path, verbose=True, name=None, replace=False):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('files', nargs='*')
-    ap.add_argument('--app', choices=('books', 'photos', 'roms', 'maps'), default='books',
+    ap.add_argument('--app', choices=('books', 'photos', 'roms', 'maps', 'keys'), default='books',
                     help='which folder the phone puts them in (default books)')
     ap.add_argument('--tree', help='send every file under this folder, keeping the relative '
                                    'path (maps: a converted <area> folder -> /maps/<area>/...)')

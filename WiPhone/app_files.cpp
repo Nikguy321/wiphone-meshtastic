@@ -921,7 +921,11 @@ void FilesApp::openEntry(int idx) {
            (strcmp(curPath, "/") == 0) ? "" : "/", entries[idx].name);
 
   const uint32_t size = entries[idx].size;
-  const bool wantText = textishName(viewName);
+  /* 🛑 A KEY FILE IS NEVER DRAWN: Menu > AI's gemini.txt and anything else in an API Keys folder
+   * (files_paths.h, filePathIsKeyFile). A screenshot of it would be a leaked key. It still lists,
+   * copies and deletes like any file; only its contents stay off the screen. */
+  const bool keyFile = filePathIsKeyFile(path);
+  const bool wantText = !keyFile && textishName(viewName);
   bool loaded = false;
   bool clipped = false;
 
@@ -983,7 +987,9 @@ void FilesApp::openEntry(int idx) {
     viewLen = snprintf(viewText, 256,
                        "%s\n\n%lu bytes\n\n%s",
                        viewName, (unsigned long)size,
-                       wantText ? "This file could not be read as text."
+                       keyFile ? "Key file - not shown.\n\nThe apps that need it read it from "
+                                 "the card (Menu > AI reads gemini.txt)."
+                       : wantText ? "This file could not be read as text."
                                 : "No viewer for this file type.\n\nText files "
                                   "(.txt .log .ini .md .json ...) open as pages.");
   }

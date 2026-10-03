@@ -42,6 +42,7 @@ governing permissions and limitations under the License.
 #include "esp_ota_ops.h"
 #include "esp_task_wdt.h"   // DIAGNOSTIC: loop-stall watchdog, see setup()
 #include "tile_fetch.h"      // the map downloader: DFS hold, pause-for-calls (below)
+#include "ai_net.h"          // Menu > AI: the question's worker, folded into the chat each pass
 #include "app_maps.h"        // gMapsActive: the map owns the side buttons while it is open
 #include "prefs_almanac.h"   // gUnits / gLegalRule: loaded at boot beside the GPS switch (0.9.80)
 #include "esp_wifi.h"       // esp_wifi_get_ps/set_ps: the modem-sleep invariant in loop()
@@ -1604,6 +1605,11 @@ void setup() {
 
   if (SD.begin(SD_CARD_CS_PIN, SPI, SD_CARD_FREQUENCY)) {
     log_d("Card mounted");
+    /* The home of the user's API keys (gemini.txt for the AI terminal). Made at boot so the
+     * Files app can upload into it before any app needs it: Files > API Keys > [ Upload into
+     * this folder ]. Quiet when it already exists. A key is only ever read from the card, never
+     * compiled in - this repo is public. */
+    SD.mkdir("/API Keys");
   } /*else {
     log_d("Card mount FAILED");
   }*/
@@ -5596,11 +5602,15 @@ void loop() {
         tw.filesJob = filesJobActive();
         tileFetchTick(&tw);
       }
+      /* Menu > AI: a question the worker has finished goes into the saved chat (and the card) here,
+       * on the loop task - whether or not the app is open (ai_net.h). A flag test when idle. */
+      aiLoopTick();
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
                         gGpsNmea ||            // see the deadlock note above — NOT perf
                         xferOn() ||            // the UPLOADER; a KOSync window needs no full speed (app_gbc_xfer.cpp)
                         tileFetchActive() ||   // tiles: HTTPS + decode + card, see tile_fetch.h
+                        aiRequestActive() ||   // an AI question: its TLS handshake on the AI worker (ai_net.h)
                         musicPlayerIsPlaying() ||
                         sipNeedsFullSpeed();   // NOT sipCallActive() — see the note on it
       /* Anything with a deadline stays at FULL SPEED REGARDLESS of the screen: the emulator,
@@ -5610,6 +5620,7 @@ void loop() {
        * So the uploader, a SIP call, tiles and music with WiFi up all run at 160 now; 240 is
        * left to work done with the radio off (the Game Boy turns it off first). */
       const bool hardBusy = gGbcActive || gGpsNmea || xferOn() || tileFetchActive() ||
+                            aiRequestActive() ||   // the handshake at full speed (160 with WiFi on), never 80
                             musicPlayerIsPlaying() || sipNeedsFullSpeed();
       extern volatile uint32_t gUiWorkMs;      // GUI.cpp: stamped by every redraw
       const bool uiWorking = (uint32_t)(millis() - gUiWorkMs) < UI_WORK_HOLD_MS;
@@ -5665,7 +5676,17 @@ void loop() {
      * latency is 4 ms — on keypad wake (interrupt-latched), on a LoRa packet that spent
      * >100 ms on air, on sockets that already ride network jitter. Nothing a person or a
      * protocol can perceive, for roughly a fifth of the idle wakeups. */
-    vTaskDelay(idleTickStretch ? 5 : 1);
+    /* TEN ticks while an AI question is in flight (0.9.81). Its TLS handshake is ~4.5 s of
+     * software ECC on the AI worker, which shares this core at this task's priority - and
+     * Google resets a handshake that takes more than ~10 s. With the 1-tick delay above the two
+     * tasks split the core about evenly: MEASURED 2026-10-03 on phone 1, a question took 5.6-10 s
+     * a request with the screen off and FAILED 3 of 3 with it on (`start_ssl_client: -80`,
+     * connection reset by peer). Sleeping 10 ms a pass hands the worker ~90 % of the core for the
+     * few seconds a question lasts; the keypad is interrupt-latched and nothing else that a
+     * question allows (aiAsk refuses during a call, a game, a download, the uploader) needs a
+     * finer tick. (A question also pauses the music: aiAsk.) */
+    const bool aiNeedsCore = aiRequestActive();
+    vTaskDelay(aiNeedsCore ? 10 : (idleTickStretch ? 5 : 1));
 
     //esp_sleep_enable_timer_wakeup(1000000); // 0.001 s
     //int ret = esp_light_sleep_start();
