@@ -2116,7 +2116,7 @@ pass/fail line alone would have missed it.**
 |---|---|
 | boot | `reset_reason=1`, `node=!00449334`, `firmware 0.9.55`, `MESH RADIO READY`, `ANNOUNCE SENT`, DB 200 nodes / 47 msgs intact |
 | TX → independent stack | `send 1 wire test 0.9.55` → COVEY `/root/.covey/messages.json` ch:1 gained it, sender `WiPhone-Nick2` |
-| **Position RX on the hardened parser** | `pos` at `up=2min`: **`!1ec2bca2 'Nick Howe Rak' 47.49640,-122.37488 (0m ago)`** — COVEY's own RAK, full precision — plus two public nodes at `precision_bits`-quantized coordinates, i.e. exactly the stock-shaped packet the vector models |
+| **Position RX on the hardened parser** | `pos` at `up=2min`: **`!1ec2bca2 'Nick Howe Rak' <its full-precision position> (0m ago)`** — COVEY's own RAK, full precision — plus two public nodes at `precision_bits`-quantized coordinates, i.e. exactly the stock-shaped packet the vector models |
 | Position TX | ⏸ **not provable right now** — phone 2's GPS has no current fix indoors (`sats=0`), and the beacon refuses under `MESH_POS_MIN_SATS`. Needs sky. |
 
 ⚠ **The CallApp fix cannot be hardware-verified** (needs a completed SIP call). It is strictly

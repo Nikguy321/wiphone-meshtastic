@@ -3809,7 +3809,7 @@ came out of looking at why.
   `A SLOT IS OWED - it will send the moment a fresh fix arrives` after one full interval.
 - 🛑 **NEW GATE: A FIX HAS TO BE WORTH BELIEVING, and this one is measured.** On 2026-08-25 an
   indoor WiPhone reported `sats=3 hdop=6.4` at **47.33821,-122.16501** while the phone was in
-  fact at **47.4965,-122.3749 — about 20 km away** — and nothing on the beacon path would have
+  fact at a known spot **about 20 km away** — and nothing on the beacon path would have
   refused it. Had that landed on a tick, COVEY's map would have shown Nick 20 km from where he
   was, with no hint anything was wrong. **Three satellites is a 2D fix**: it solves lat/lon by
   *assuming* an altitude, and a wrong assumption pushes the error sideways, into the one number

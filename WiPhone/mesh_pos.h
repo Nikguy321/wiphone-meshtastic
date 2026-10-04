@@ -118,7 +118,7 @@ void meshPosFmtDist(double meters, char* out, size_t cap);
  * ⚠ THREE SATELLITES IS A 2D FIX: it solves lat/lon by ASSUMING an altitude, and a wrong
  * assumption pushes the error SIDEWAYS — into the one number a hunting party reads. MEASURED
  * 2026-08-25: an indoor WiPhone reported `sats=3 hdop=6.4` at 47.33821,-122.16501 while the
- * phone was actually at 47.4965,-122.3749 — **about 20 km out**, and nothing would have
+ * phone was actually at a known spot **about 20 km away**, and nothing would have
  * refused it. Four is the arithmetic minimum for a real 3D fix, so this is the standard bar
  * and not a strict one; under canopy a working receiver tracks five to ten. HDOP 10 is the
  * usual "poor" boundary and is a backstop, not the main gate. */

@@ -194,7 +194,7 @@ int main() {
   /* ---- the fix-quality gate ------------------------------------------------
    * 🛑 THIS RULE HAS A MEASUREMENT BEHIND IT, not a preference. On 2026-08-25 an
    * indoor WiPhone reported `sats=3 hdop=6.4` at 47.33821,-122.16501 while the
-   * phone was actually at 47.4965,-122.3749 — about 20 km out. Three satellites
+   * phone was actually at a known spot about 20 km away. Three satellites
    * is a 2D fix: it assumes an altitude, and a wrong assumption puts the error
    * into the horizontal, which is the one number a hunting party reads. Nothing
    * on the beacon path refused it before this gate existed. */

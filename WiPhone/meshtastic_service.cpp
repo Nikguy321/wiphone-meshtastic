@@ -1051,7 +1051,7 @@ const char* MeshtasticService::posBlockedReason() const {
    *
    * 🛑 MEASURED 2026-08-25, and it is why this gate exists: WiPhone 2 indoors produced
    * `FIRST FIX 47.33821,-122.16501 sats=3 hdop=6.4` while the phone was in fact at
-   * 47.4965,-122.3749 — **about 20 km out**. Nothing here would have refused it. Had that
+   * a known spot **about 20 km away**. Nothing here would have refused it. Had that
    * landed on a beacon tick, COVEY's map would have shown Nick 20 km from where he was, with
    * no hint anything was wrong. Every other rule on this path exists to avoid "a confident
    * wrong dot on somebody else's map"; this was the hole in that argument.
