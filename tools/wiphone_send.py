@@ -203,7 +203,8 @@ def main():
                                    'path (maps: a converted <area> folder -> /maps/<area>/...)')
     ap.add_argument('--replace', action='store_true',
                     help='send every file from byte 0 even if the phone holds one of the same '
-                         'size (a re-converted tile tree: every tile is the same size)')
+                         'size (a re-converted tile tree: every tile is the same size); '
+                         'always on for --app keys')
     ap.add_argument('--ip', help='phone address; otherwise bridge, then wiphone.local')
     ap.add_argument('--port-tag', help='bridge tag when two phones are attached '
                                        '(e.g. 025A3F65)')
@@ -249,11 +250,15 @@ def main():
                 raise SystemExit('no --ip, no serial bridge, wiphone.local not '
                                  'resolving. Start tools/panicwatch.py or pass --ip.')
 
+    # A key file is always sent whole: resume-by-size would skip a NEW key of the same length
+    # (every AIza key is 39 characters) and print "verified" with the old key still on the card,
+    # or append a longer key's tail to the old one.
+    replace = args.replace or args.app == 'keys'
     fails = 0
     done = 0
     t_all = time.time()
     for p, name in jobs:
-        ok, msg = push_file(ip, p, verbose=not args.tree, name=name, replace=args.replace)
+        ok, msg = push_file(ip, p, verbose=not args.tree, name=name, replace=replace)
         done += 1
         if args.tree:
             # hundreds of files: one line per failure, a running count otherwise

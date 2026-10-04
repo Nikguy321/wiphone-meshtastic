@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.81-NH (in development) - Menu > AI (Gemini), the API Keys folder, weather on the Almanac
+## 0.9.81-NH (2026-10-04) - Menu > AI (Gemini), the API Keys folder, weather on the Almanac
 
 Nick: *"I'd like to add a similar ai terminal to my wiphones ... I'd want the API to be inputable
 for other users in a sort of easy way"*, *"Can you make an API key folder on each device in root"*,
@@ -18,7 +18,7 @@ body thrown away, one `strstr` for the answer, sticky fallbacks, no history.
   keeps it). Read on every open and before every question; a failed card read keeps the last good
   key rather than becoming "no key". Key info explains aistudio.google.com and offers "Add key file
   over WiFi" (the uploader into `/API Keys`, with the warning that the phone's own hotspot is open).
-  Also `up on keys` + `tools/wiphone_send.py --app keys`.
+  Also `up on keys` + `tools/wiphone_send.py --app keys` (over WiFi; a key file is always sent whole).
 - **A key on the wrong line is never a model name**: `model=` and `fallback=` take only
   `[a-z0-9][a-z0-9.-]*` (an optional `models/` first) that is not the key itself. Anything else is
   dropped when the file is read - the default model is used and Key info / `ai` say "model= line
@@ -43,7 +43,7 @@ body thrown away, one `strstr` for the answer, sticky fallbacks, no history.
   carries on where it stopped.
 - **The chat is saved** (`/ai/chat.txt`: the last 20 exchanges or 16 KB, whichever is smaller; a
   file that is not whole loads as an empty chat, never half of one). Only the **current topic** is
-  sent: the last 4 exchanges since a topic break - automatic after two hours, or Menu > New topic.
+  sent: the last 4 exchanges since a topic break - automatic after two hours (on an NTP or GPS clock), or Menu > New topic.
   Failed questions stay in the transcript, marked, and are never sent. Menu > Clear chat deletes it.
 - **TLS with Google's roots pinned** (GTS Root R1 + R4, built in; no override file), the key in
   an `x-goog-api-key` header, the chunked answer de-chunked into PSRAM, on a persistent worker of
@@ -60,7 +60,7 @@ body thrown away, one `strstr` for the answer, sticky fallbacks, no history.
   shapes measured live, the chunked body, the ladder with the daily limit, the saved chat and its
   topics; fake keys only).
 
-### Weather on the Almanac (0.9.81-NH, in development)
+### Weather on the Almanac (0.9.81-NH)
 
 Nick: *"weather info from a free source on the almanacs of each device?"* -> (Open-Meteo + NWS
 alerts, cached for offline) -> *"Yes and yes! I like where you are thinking!"* One spec for both

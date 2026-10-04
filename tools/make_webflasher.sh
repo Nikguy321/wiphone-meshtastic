@@ -26,8 +26,10 @@ VER=$(sed -n 's/#define FIRMWARE_VERSION "\(.*\)"/\1/p' WiPhone/config.h)
 # lesson of the first field test (black screen, boot loop): `pio upload` runs esptool
 # with --flash_size detect, which PATCHES THE BOOTLOADER HEADER on the wire to 16MB; the
 # raw SDK bootloader says 4MB, and a 4MB-believing bootloader rejects the 16MB partition
-# layout and reset-loops. merge_bin applies exactly the same header patching (and fixes
-# the appended hash), so the browser writes what the cable would have written.
+# layout and reset-loops. merge_bin applies exactly the same header patching, so the browser
+# writes what the cable would have written. (esptool 3.1 rewrites header bytes 2-3 only and
+# leaves the bootloader's appended SHA-256 stale - in BOTH paths; the ROM does not check it
+# without Secure Boot, and every cable flash and the 0.9.79+ browser installs boot this way.)
 ESPTOOL=$(ls -d "$HOME/.platformio/packages/tool-esptoolpy"*/esptool.py | head -1)
 MERGED=$(mktemp -t wiphone-merged)
 trap 'rm -f "$MERGED"' EXIT

@@ -4,6 +4,19 @@
 
 Read this first; everything below it is narrative.
 
+🚀 **2026-10-04 08:2x: 0.9.81-NH RELEASED** (Nick: "Yes do both" - the release and the X4 Crossword). Clean build (BOOT
+`build=Oct  4 2026 08:20:41`, RAM 27.8 %, flash 45.0 %), suite exit 0, stage regenerated (boot part byte-identical to
+0.9.80's; app sha `95ff9d55…`, = boot_app0 + firmware.bin). BOTH PHONES flashed by cable with this build (app @0x10000,
+hash verified): 0.9.81-NH, mute ON, mesh names and the Gemini key intact. Four read-only reviewers: bytes PASS (fresh
+merge+split == stage, nvs in neither part, header 16MB/dio/80m), page/publish PASS (only manifest + app change on
+gh-pages), docs PASS after fixes, privacy: the BINARY and diff are clean, but the full-tree scan found OLD public
+personal data - the home position in 4 comments + this file (scrubbed in cdbc119; still in HISTORY) and the voip.ms
+sub-account + the SMS-mirror phone number in code comments, tests, CHANGELOG and this file (NOT scrubbed - asked Nick:
+tree scrub to a 555-01xx number, and whether to rewrite history). Fixed before publishing: `wiphone_send.py --app keys`
+resumed by size (a same-length new key was skipped and "verified"; now always sent whole), README key/WiFi/Files paths,
+the 3-hourly wording, the 2-hour topic needs a trusted clock, the 20-question/16 KB cap. OWED next round: WX_USER_AGENT
+in weather.h hard-codes "0.9.81" (build it from FIRMWARE_VERSION); make_webflasher's gate checks timestamps only.
+
 🧪 **2026-10-03: BOTH PHONES RUN AN UNCOMMITTED 0.9.81-NH DEV BUILD** (app only @0x10000, hash verified). It adds
 the **AI app** (Gemini; `app_ai`, `ai_net`, `gemini.{h,cpp}`, tests/test_gemini.cpp), the `/API Keys` folder made at
 boot (WiPhone.ino, after SD.begin) and `up on keys` (`tools/wiphone_send.py --app keys gemini.txt`). The key is NEVER

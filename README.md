@@ -93,11 +93,11 @@ a card, but the apps above will be empty or refuse politely.
 Full detail in **[CHANGELOG.md](CHANGELOG.md)** — every release, including the
 bug fixes and why each one happened. Recent highlights:
 
-- **0.9.81-NH** (in development) — **Menu → AI**: ask Google's **Gemini** a question from
+- **0.9.81-NH** — **Menu → AI**: ask Google's **Gemini** a question from
   the keypad, on WiFi, with **your own free API key** in `gemini.txt` in the new **API Keys**
   folder on the card. The chat is saved, a topic breaks by itself after two hours, the free
   tier's daily limit falls back to the faster model, and the key is never shown on screen.
-  **Weather on the Almanac**: Open-Meteo's forecast (now, the next day by the hour, a week of
+  **Weather on the Almanac**: Open-Meteo's forecast (now, the next day every 3 hours, a week of
   days) and the **NWS's active alerts** in their own colours, fetched on WiFi when the Almanac
   opens and **kept on the card for offline** — the Weather screen says how old it is.
 - **0.9.80-NH** — **Menu → Almanac**: legal light (Washington's big-game rule by default,
@@ -531,14 +531,16 @@ key=YOUR_KEY
 and put it in the **`API Keys`** folder on the card. The phone makes that folder every time it
 starts. Any one of these works, easiest first:
 
-- **Over WiFi from a browser:** on the phone, **Files → API Keys → [ Upload into this folder ]**,
+- **Over WiFi from a browser:** on the phone, **Menu → Tools → Files → API Keys → [ Upload into this folder ]**,
   then open the address the phone shows (or `http://wiphone.local/`) on a computer or phone on the
   same WiFi and pick the file. **AI → Menu → Key info → Add key file over WiFi** does the same.
   Use your home WiFi: if the phone has no network it makes its own hotspot, and that hotspot is
   **open**.
 - **With a card reader:** copy `gemini.txt` into `API Keys` on the card.
-- **From a computer on the USB cable:** `up on keys` on the serial console, then
-  `tools/wiphone_send.py --app keys gemini.txt`.
+- **From a computer with this repo (developers):** `up on keys` on the serial console, then
+  `tools/wiphone_send.py --app keys --ip <the phone's address> gemini.txt`. The file goes over
+  WiFi (the cable only starts the uploader), and a key file is always sent whole, so a replaced
+  key of the same length takes.
 
 Then open **AI → Menu → Key info**: it should say **`key: set (N chars)`** (the length only - the
 key itself is never shown). The phone reads the file each time the app opens and before every
@@ -567,8 +569,10 @@ Windows line endings, quotes and spaces around `=` are all fine.
   which model wrote it (`Flash` or `Flash-Lite`).
 - **Follow-ups:** Gemini remembers the **current topic** - your last four questions - so "and how
   long is it?" works. After two hours without a question the next one starts a new topic by
-  itself; **Menu → New topic** starts one now, and **Menu → Clear chat** deletes the whole chat.
-- The chat is saved on the card (`/ai/chat.txt`, the last 20 questions) and survives a restart.
+  itself (when the phone's clock is set from the network or GPS); **Menu → New topic** starts one
+  now, and **Menu → Clear chat** deletes the whole chat.
+- The chat is saved on the card (`/ai/chat.txt`, up to the last 20 questions or 16 KB, whichever
+  is less) and survives a restart.
 
 ### When something goes wrong
 
@@ -576,7 +580,7 @@ Windows line endings, quotes and spaces around `=` are all fine.
 |---|---|
 | `No key - put gemini.txt in API Keys` | No key file was found - see step 2. |
 | `Key rejected` | Google refused the key: check it was copied whole, or make a new one. |
-| `No WiFi - join a network first` / `WiFi is off` | Join a network in Settings → WiFi. |
+| `No WiFi - join a network first` / `WiFi is off` | Join a network in **Settings → Scan WiFi networks**; `WiFi is off` means turn on **Settings → WiFi** first. |
 | `Google is busy - trying again...` | Normal at busy times: it retries twice, then asks Flash-Lite. |
 | `Daily free limit for Flash reached - using Flash-Lite until about 17:00` | Flash's 20 a day are used; answers come from Flash-Lite until the time Google gave. |
 | `Today's free Gemini limit is used up` | Both models' daily allowances are used; it says when to try again. |
@@ -880,7 +884,7 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `maps dlurl <template> \| clear` | a plain-HTTP relay as tile source 3 (`{z}/{x}/{y}`) |
 | `tlstest <url> [n]` | the TLS bench: n kept-alive GETs from the fetch task, heap and timing |
 | `up on maps` | the tile uploader: `tools/wiphone_send.py --app maps --tree <dir>` |
-| `up on keys` | the API-key uploader into `/API Keys`: `tools/wiphone_send.py --app keys gemini.txt` |
+| `up on keys` | the API-key uploader into `/API Keys` (over WiFi): `tools/wiphone_send.py --app keys --ip <addr> gemini.txt` (always sent whole) |
 | `ai` / `ai ask <question>` / `ai last` | Menu → AI from the cable: the key file (its length, never the key), the chat, the daily limits, the last question's HTTP code, model, time and stack floor; ask through the app's own path; print the newest answer |
 | `ai topic` / `ai clear` / `ai reload` | start a new topic / delete the saved chat / re-read `gemini.txt` |
 | `wx` / `wx fetch` / `wx show` / `wx clear` | the Almanac's weather: the cache's age, place source and rounded point, each host's code, bytes and handshake time, the worker's stack and heap floors (never a URL); fetch now (Refresh's path); print the Weather screen's rows; delete the cache. Refused while a game runs (it owns the card) |
