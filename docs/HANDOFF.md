@@ -11,8 +11,9 @@ hash verified): 0.9.81-NH, mute ON, mesh names and the Gemini key intact. Four r
 merge+split == stage, nvs in neither part, header 16MB/dio/80m), page/publish PASS (only manifest + app change on
 gh-pages), docs PASS after fixes, privacy: the BINARY and diff are clean, but the full-tree scan found OLD public
 personal data - the home position in 4 comments + this file (scrubbed in cdbc119; still in HISTORY) and the voip.ms
-sub-account + the SMS-mirror phone number in code comments, tests, CHANGELOG and this file (NOT scrubbed - asked Nick:
-tree scrub to a 555-01xx number, and whether to rewrite history). Fixed before publishing: `wiphone_send.py --app keys`
+sub-account + the SMS-mirror phone number in code comments, tests, CHANGELOG and this file (SCRUBBED in 981acab on
+Nick's "Sure swap it": 425-555-0142 / 100000_sample, vectors regenerated from COVEY's smsmirror.py; HISTORY still holds
+both - no rewrite unless Nick asks; COVEY's private repo keeps the real ones). Fixed before publishing: `wiphone_send.py --app keys`
 resumed by size (a same-length new key was skipped and "verified"; now always sent whole), README key/WiFi/Files paths,
 the 3-hourly wording, the 2-hour topic needs a trusted clock, the 20-question/16 KB cap. OWED next round: WX_USER_AGENT
 in weather.h hard-codes "0.9.81" (build it from FIRMWARE_VERSION); make_webflasher's gate checks timestamps only.
