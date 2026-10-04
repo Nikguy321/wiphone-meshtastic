@@ -34,7 +34,7 @@ bool sipCompleteAddress(const char* input, char* out, size_t cap) {
     return false;
   }
   /* See through what earlier layers wrap a number in: the phonebook's save normaliser
-   * prefixes "sip:" (so a contact stored as a bare number reads "sip:4257604281" — a
+   * prefixes "sip:" (so a contact stored as a bare number reads "sip:4255550142" — a
    * hostless URI that calls nothing and texts nothing), and people type numbers with a
    * leading '+'. Both still mean "this is a phone number, finish it for me". */
   const char* core = input;
@@ -63,12 +63,12 @@ bool sipCompleteAddress(const char* input, char* out, size_t cap) {
  *
  * ⚠ This matters more than it looks. `TinySIP::sendMessage()` uses the address VERBATIM —
  * unlike calling, which auto-appends the server for a bare number — so a stored correspondent
- * of "4257604281" would call fine and silently fail to text. That trap is already written up
+ * of "4255550142" would call fine and silently fail to text. That trap is already written up
  * in the handoff, and storing a bare number here would walk straight back into it.
  *
  * The host comes from the phone's own account rather than from anything COVEY sent, because
- * COVEY reaches VoIP.ms over a REST API and has no SIP host to offer. `565611_nikguy@
- * seattle1.voip.ms` therefore yields `14257604281@seattle1.voip.ms`, which is exactly the
+ * COVEY reaches VoIP.ms over a REST API and has no SIP host to offer. `100000_sample@
+ * seattle1.voip.ms` therefore yields `14255550142@seattle1.voip.ms`, which is exactly the
  * phonebook form that is known to work for both calling and texting.
  */
 static bool buildPeerUri(const char* digits, const char* ownUri, char* out, size_t cap) {

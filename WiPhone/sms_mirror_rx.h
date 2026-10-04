@@ -55,7 +55,7 @@ bool smsMirrorTakeNews(bool* inbound);
 
 /* Complete a BARE PHONE NUMBER into a full SIP address using the phone's OWN account.
  *
- *   "4257604281"              -> "14257604281@seattle1.voip.ms"   (host from YOUR account)
+ *   "4255550142"              -> "14255550142@seattle1.voip.ms"   (host from YOUR account)
  *   "alice@sip.example.com"   -> untouched (returns false)
  *   "LORA:00449040" / letters -> untouched (returns false)
  *

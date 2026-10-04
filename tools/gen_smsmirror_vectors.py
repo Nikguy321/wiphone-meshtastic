@@ -28,21 +28,21 @@ def load(path):
 
 # label, id, peer-as-COVEY-would-hold-it, out, ts, text
 CASES = [
-    ("plain_in",      884451201, "4257604281", False, 0x68A1B2C3, "on my way, be there in ten"),
-    ("plain_out",     884451202, "4257604281", True,  0x68A1B2D0, "ok see you then"),
-    ("spaces",        884451203, "4257604281", True,  0x68A1B2D1, "sure  -  see you at 5 (bring the  map)"),
-    ("leading_space", 884451204, "4257604281", True,  0x68A1B2D2, " leading space matters"),
-    ("empty_text",    884451205, "4257604281", False, 0x68A1B2D3, ""),
-    ("looks_nested",  884451206, "4257604281", False, 0x68A1B2D4, "CSM1 99 5551234567 o 1 gotcha"),
-    ("multiline",     884451207, "4257604281", False, 0x68A1B2D5, "line one\nline two\r\nline three"),
-    ("backslash",     884451208, "4257604281", True,  0x68A1B2D6, "C:\\path\\n not a newline"),
-    ("unicode",       884451209, "4257604281", False, 0x68A1B2D7, "cafe\u0301 \u2014 na\u00efve resume\u0301"),
-    ("max_len",       2147483647, "4257604281", False, 0xFFFFFFFF, "W" * 160),
+    ("plain_in",      884451201, "4255550142", False, 0x68A1B2C3, "on my way, be there in ten"),
+    ("plain_out",     884451202, "4255550142", True,  0x68A1B2D0, "ok see you then"),
+    ("spaces",        884451203, "4255550142", True,  0x68A1B2D1, "sure  -  see you at 5 (bring the  map)"),
+    ("leading_space", 884451204, "4255550142", True,  0x68A1B2D2, " leading space matters"),
+    ("empty_text",    884451205, "4255550142", False, 0x68A1B2D3, ""),
+    ("looks_nested",  884451206, "4255550142", False, 0x68A1B2D4, "CSM1 99 5551234567 o 1 gotcha"),
+    ("multiline",     884451207, "4255550142", False, 0x68A1B2D5, "line one\nline two\r\nline three"),
+    ("backslash",     884451208, "4255550142", True,  0x68A1B2D6, "C:\\path\\n not a newline"),
+    ("unicode",       884451209, "4255550142", False, 0x68A1B2D7, "cafe\u0301 \u2014 na\u00efve resume\u0301"),
+    ("max_len",       2147483647, "4255550142", False, 0xFFFFFFFF, "W" * 160),
     # The number as it is spelled elsewhere: COVEY normalises before it reaches the wire, so
     # all three of these must come out identical to plain_out's peer field.
-    ("peer_e164",     884451210, "+14257604281", True, 0x68A1B2D8, "typed with a country code"),
-    ("peer_pretty",   884451211, "(425) 760-4281", True, 0x68A1B2D9, "typed by a human"),
-    ("peer_sipuri",   884451212, "sip:+14257604281@seattle1.voip.ms", False, 0x68A1B2DA, "off the wire"),
+    ("peer_e164",     884451210, "+14255550142", True, 0x68A1B2D8, "typed with a country code"),
+    ("peer_pretty",   884451211, "(425) 555-0142", True, 0x68A1B2D9, "typed by a human"),
+    ("peer_sipuri",   884451212, "sip:+14255550142@seattle1.voip.ms", False, 0x68A1B2DA, "off the wire"),
 ]
 
 

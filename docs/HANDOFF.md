@@ -3750,7 +3750,7 @@ min and SIX HOURS at `sip=6` when the proxy is unreachable. **That is the differ
 phones: PHONE 1 has the account (registered to voip.ms), PHONE 2 has none.**
 ⚠ **CORRECTED 2026-08-26 — this sentence had the phones the wrong way round, and line ~908 of
 this same file always had it right.** Measured over the cable, `sip` on each:
-`025A3EAF` (phone 1) → `account LOADED (sip:565611_nikguy@seattle1.voip.ms)`;
+`025A3EAF` (phone 1) → `account LOADED (sip:100000_sample@seattle1.voip.ms)`;
 `025A3F65` (phone 2) → `account NOT LOADED`. The mechanism above is unchanged; only the label
 on the phone was wrong.
 
@@ -4978,7 +4978,7 @@ recycling leaked position+pubkey, serial help() truncated at 192B for releases.*
 
 **Verified on hardware tonight:** boot clean, v2→v3 migration kept 32 nodes + PKC key,
 `unread` found and named the white-icon cause (31 real unread from the re-mirrored
-history, oldest in the 14257604281 thread — buried past the old 120-message read-marking
+history, oldest in the 14255550142 thread — buried past the old 120-message read-marking
 cap; thread-open now scans full depth while unread exist), live PKC key-learns from two
 more nodes.
 
@@ -5236,7 +5236,7 @@ own mobile.
 | | |
 |---|---|
 | **Number** | **425-320-0782** (Everett WA), VoIP.ms |
-| **Sub-account** | `565611_nikguy` · POP **`seattle1.voip.ms`** · UDP-SIP · G.711U only |
+| **Sub-account** | `100000_sample` · POP **`seattle1.voip.ms`** · UDP-SIP · G.711U only |
 | **Outbound call** | ✅ works, audio described as "ok" |
 | **Outbound text** | ✅ arrives with the right caller ID |
 | **Inbound call** | ✅ rings (and vibrates) |
@@ -5246,11 +5246,11 @@ own mobile.
 `[main account]` while the phone registers as the SUB-account, so inbound calls hit an account
 with nothing registered on it (**busy signal**) and inbound SMS had nowhere to go (**silence**).
 Fixed entirely in the portal: **DID Numbers → Manage DIDs → edit the DID → route SIP/IAX to
-`565611_nikguy`, set POP to Seattle 1, enable SMS and point its delivery at the same
+`100000_sample`, set POP to Seattle 1, enable SMS and point its delivery at the same
 sub-account.** Outbound worked all along because it uses the sub-account's own registration.
 
 ⚠ **Phonebook entry that works for BOTH calling and texting:** put the FULL URI in the SIP URI
-field — `14257604281@seattle1.voip.ms`. Calling auto-appends the server for a bare number
+field — `14255550142@seattle1.voip.ms`. Calling auto-appends the server for a bare number
 (`ControlState::setRemoteNameUri`), but **`TinySIP::sendMessage()` uses the address verbatim**,
 so a bare number calls fine and silently fails to text.
 
@@ -5780,7 +5780,7 @@ is not.
    SIP. It uses the VoIP.ms **REST API** (`https://voip.ms/api/v1/rest.php`, `getSMS` /
    `sendSMS`) with the account email + an API password, IP allow-list opened to `0.0.0.0`.
    That was deliberate: VoIP.ms overwrites a registration when the same sub-account is used
-   twice, so registering COVEY as `565611_nikguy` would have **taken the registration off
+   twice, so registering COVEY as `100000_sample` would have **taken the registration off
    this phone** and killed its inbound calls and texts. Nothing in the portal changed —
    the DID still routes SMS to this sub-account, and this phone's SIP is untouched.
 

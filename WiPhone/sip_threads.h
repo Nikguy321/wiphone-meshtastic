@@ -24,7 +24,7 @@
  * ⚠ IDENTITY IS DIGITS, NOT THE URI STRING
  * ══════════════════════════════════════════════════════════════════════════════════
  *
- * The same correspondent reaches this store under several spellings — `14257604281@
+ * The same correspondent reaches this store under several spellings — `14255550142@
  * seattle1.voip.ms` from the phonebook, `+1...` off an inbound SIP MESSAGE, a bare number
  * typed by hand, and whatever COVEY mirrored in. Grouping on the raw string would split one
  * person into three threads. `smsMirrorDigits()` is the one normaliser, shared with the
@@ -54,7 +54,7 @@
  * that actually kills this phone — but it still comes off the ~20 KB of contiguous internal
  * heap the SIP stack and the emulator compete for, so they are kept deliberately small.
  * 16 correspondents and 40 messages is a personal phone's texting, not a limit anyone will
- * meet; the URI is 64 because `14257604281@seattle1.voip.ms` is 28 characters.
+ * meet; the URI is 64 because `14255550142@seattle1.voip.ms` is 28 characters.
  * The message TEXT does not appear here at all — it lives in PSRAM (see the .cpp). */
 #define SIP_THREADS_MAX        16    // conversations listed
 #define SIP_THREAD_MSGS_MAX    40    // messages shown in one thread

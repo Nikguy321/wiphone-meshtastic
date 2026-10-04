@@ -2921,7 +2921,7 @@ phone number and expected you to know the person.
   have each contact member number memorized, I have to keep clicking the conversation to see
   who is who."
   - ⚠ **Matched on the grouping IDENTITY, never on the string.** The same person reaches the
-    message store as `14257604281@seattle1.voip.ms`, `+14257604281` or a bare `4257604281`
+    message store as `14255550142@seattle1.voip.ms`, `+14255550142` or a bare `4255550142`
     depending on which way the message came in, and the phonebook holds a fourth spelling
     again. `sipThreadIdentity()` — the normaliser the threads are already grouped by — is the
     one rule, so a name can never attach to a row the identity says is somebody else. Both
@@ -5219,7 +5219,7 @@ now reachable over WiFi, not just ROMs and books.
 
 ### ☎️ Type just the number
 
-New contact or new text: type `4257604281` and the phone completes it to a full SIP
+New contact or new text: type `4255550142` and the phone completes it to a full SIP
 address using **your own account's server** — so it adapts to any provider with nothing
 to configure. Addresses with `@` or letters pass through untouched. Also understands a
 leading `+` and entries older versions saved as bare numbers.

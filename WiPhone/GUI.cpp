@@ -8514,7 +8514,7 @@ void MessagesApp::buildChats() {
  *     You  ·  2 min ago
  *     on my way, be there in ten
  *
- *     4257604281  ·  1 min ago
+ *     4255550142  ·  1 min ago
  *     see you there
  *
  * ⚠ BOUNDED BY CHARACTERS, NOT BY MESSAGE COUNT, and it is the newest that survive.
@@ -8949,7 +8949,7 @@ appEventResult CreateMessageApp::processEvent(EventType event) {
       const char* fromUri  = controlState.fromUriDyn;
       const char* toUri    = addr->getText();
       /* A bare typed number becomes a full SIP address from the phone's own account —
-       * before classification, so "4257604281" counts as SIP rather than falling through
+       * before classification, so "4255550142" counts as SIP rather than falling through
        * to the LoRa branch. Anything with '@', letters or a LORA: prefix is untouched. */
       char completedAddr[128];
       if (sipCompleteAddress(toUri, completedAddr, sizeof(completedAddr))) {
@@ -14577,8 +14577,8 @@ MenuOption::MenuOption(MenuOption::keyType pId, uint16_t pStyle, const char* tit
 /* The phonebook name for a correspondent, or NULL when they are not in it.
  *
  * ⚠ MATCHED ON THE GROUPING IDENTITY, NEVER ON THE STRING. The same person reaches
- * the message store as `14257604281@seattle1.voip.ms`, `+14257604281` or a bare
- * `4257604281` depending on which way the message came in, and the phonebook holds
+ * the message store as `14255550142@seattle1.voip.ms`, `+14255550142` or a bare
+ * `4255550142` depending on which way the message came in, and the phonebook holds
  * a fourth spelling again. sipThreadIdentity() is the one normaliser that makes all
  * of those one person — the same one the threads are grouped by, so a name can never
  * attach to a row the identity says is somebody else.
@@ -14635,7 +14635,7 @@ static const char* sipContactName(Storage& flash, const char* peer, const char* 
  *
  * The name is the point — Nick, 2026-08-28: "I don't have each contact member number
  * memorized, I have to keep clicking the conversation to see who is who." A row that
- * says `4257604281` is a lookup task; one that says `Covey` is an answer.
+ * says `4255550142` is a lookup task; one that says `Covey` is an answer.
  *
  * `peer` is the GROUPING IDENTITY (sipThreadIdentity): bare digits for a phone
  * number — the nice form — but for a long address it is a bounded, hash-suffixed

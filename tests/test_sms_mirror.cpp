@@ -8,8 +8,8 @@
  *
  * The three that would actually bite:
  *
- *   - THE NUMBER SPELLINGS. The same person reaches this store as `4257604281` (COVEY),
- *     `14257604281@seattle1.voip.ms` (phonebook) and `+1 (425) 760-4281` (typed). If they
+ *   - THE NUMBER SPELLINGS. The same person reaches this store as `4255550142` (COVEY),
+ *     `14255550142@seattle1.voip.ms` (phonebook) and `+1 (425) 555-0142` (typed). If they
  *     do not reduce to one identity, one correspondent becomes three threads.
  *   - THE MULTI-LINE TEXT. A raw newline in a last-position field splits a record in half
  *     on a line-oriented transport and takes the NEXT record down with it.
@@ -76,25 +76,25 @@ static void testDigits() {
 
   char d[SMS_MIRROR_PEER_MAX];
 
-  smsMirrorDigits("4257604281", d, sizeof(d));
-  eqStr(d, "4257604281", "bare ten digits");
+  smsMirrorDigits("4255550142", d, sizeof(d));
+  eqStr(d, "4255550142", "bare ten digits");
 
-  smsMirrorDigits("14257604281", d, sizeof(d));
-  eqStr(d, "4257604281", "leading country code dropped");
+  smsMirrorDigits("14255550142", d, sizeof(d));
+  eqStr(d, "4255550142", "leading country code dropped");
 
-  smsMirrorDigits("+1 (425) 760-4281", d, sizeof(d));
-  eqStr(d, "4257604281", "as a human types it");
+  smsMirrorDigits("+1 (425) 555-0142", d, sizeof(d));
+  eqStr(d, "4255550142", "as a human types it");
 
-  smsMirrorDigits("14257604281@seattle1.voip.ms", d, sizeof(d));
-  eqStr(d, "4257604281", "as the phonebook holds it");
+  smsMirrorDigits("14255550142@seattle1.voip.ms", d, sizeof(d));
+  eqStr(d, "4255550142", "as the phonebook holds it");
 
-  smsMirrorDigits("sip:+14257604281@seattle1.voip.ms", d, sizeof(d));
-  eqStr(d, "4257604281", "as an inbound SIP MESSAGE arrives");
+  smsMirrorDigits("sip:+14255550142@seattle1.voip.ms", d, sizeof(d));
+  eqStr(d, "4255550142", "as an inbound SIP MESSAGE arrives");
 
   /* The host is not identity, and this is the case that proves it: an IP host is full of
    * digits that would otherwise be appended to the number. */
-  smsMirrorDigits("4257604281@192.168.1.55", d, sizeof(d));
-  eqStr(d, "4257604281", "an IP host contributes no digits");
+  smsMirrorDigits("4255550142@192.168.1.55", d, sizeof(d));
+  eqStr(d, "4255550142", "an IP host contributes no digits");
 
   ok(smsMirrorDigits("", d, sizeof(d)) == 0, "empty string has no identity");
   ok(smsMirrorDigits("nobody", d, sizeof(d)) == 0, "a digitless string has no identity");
@@ -110,7 +110,7 @@ static void testDigits() {
 static void testRoundTrip() {
   group("a record survives the wire unchanged");
 
-  SmsMirrorRecord in = rec(884451201LL, "4257604281", false, 0x68a1b2c3UL,
+  SmsMirrorRecord in = rec(884451201LL, "4255550142", false, 0x68a1b2c3UL,
                            "on my way, be there in ten");
   char line[SMS_MIRROR_LINE_MAX];
   ok(smsMirrorPack(&in, line, sizeof(line)), "packs");
@@ -119,16 +119,16 @@ static void testRoundTrip() {
   SmsMirrorRecord got;
   ok(smsMirrorUnpack(line, &got), "unpacks");
   eqI64((long long)got.id, 884451201LL, "id");
-  eqStr(got.peer, "4257604281", "peer");
+  eqStr(got.peer, "4255550142", "peer");
   ok(got.out == false, "direction: received");
   eqI64((long long)got.ts, 0x68a1b2c3LL, "timestamp");
   eqStr(got.text, "on my way, be there in ten", "text");
 
-  SmsMirrorRecord sent = rec(884451202LL, "+1 (425) 760-4281", true, 1, "ok");
+  SmsMirrorRecord sent = rec(884451202LL, "+1 (425) 555-0142", true, 1, "ok");
   ok(smsMirrorPack(&sent, line, sizeof(line)), "packs a sent one");
   ok(smsMirrorUnpack(line, &got), "unpacks it");
   ok(got.out == true, "direction: sent");
-  eqStr(got.peer, "4257604281", "peer normalised on the way out");
+  eqStr(got.peer, "4255550142", "peer normalised on the way out");
 }
 
 static void testTextIsTakenVerbatim() {
@@ -138,25 +138,25 @@ static void testTextIsTakenVerbatim() {
   SmsMirrorRecord got;
 
   // Spaces need no escaping precisely because nothing is parsed after the text.
-  SmsMirrorRecord spaces = rec(1, "4257604281", true, 2,
+  SmsMirrorRecord spaces = rec(1, "4255550142", true, 2,
                                "sure  -  see you at 5 (bring the  map)");
   ok(smsMirrorPack(&spaces, line, sizeof(line)), "packs a text full of spaces");
   ok(smsMirrorUnpack(line, &got), "unpacks it");
   eqStr(got.text, "sure  -  see you at 5 (bring the  map)", "runs of spaces are preserved");
 
   // A leading space is part of the message: only ONE separator is consumed.
-  SmsMirrorRecord lead = rec(2, "4257604281", true, 2, " leading space");
+  SmsMirrorRecord lead = rec(2, "4255550142", true, 2, " leading space");
   ok(smsMirrorPack(&lead, line, sizeof(line)), "packs a leading space");
   ok(smsMirrorUnpack(line, &got), "unpacks it");
   eqStr(got.text, " leading space", "a leading space is not eaten");
 
-  SmsMirrorRecord empty = rec(3, "4257604281", false, 2, "");
+  SmsMirrorRecord empty = rec(3, "4255550142", false, 2, "");
   ok(smsMirrorPack(&empty, line, sizeof(line)), "packs an empty text");
   ok(smsMirrorUnpack(line, &got), "an empty text is not a parse failure");
   eqStr(got.text, "", "and comes back empty");
 
   // A text that itself looks like a record must not be re-parsed as one.
-  SmsMirrorRecord nested = rec(4, "4257604281", false, 2, "CSM1 99 5551234567 o 1 gotcha");
+  SmsMirrorRecord nested = rec(4, "4255550142", false, 2, "CSM1 99 5551234567 o 1 gotcha");
   ok(smsMirrorPack(&nested, line, sizeof(line)), "packs a text that looks like a record");
   ok(smsMirrorUnpack(line, &got), "unpacks it");
   eqStr(got.text, "CSM1 99 5551234567 o 1 gotcha", "the nested record stays text");
@@ -166,7 +166,7 @@ static void testTextIsTakenVerbatim() {
 static void testMultiLine() {
   group("a multi-line text cannot break the line-oriented transport");
 
-  SmsMirrorRecord in = rec(77, "4257604281", false, 9, "line one\nline two\r\nline three");
+  SmsMirrorRecord in = rec(77, "4255550142", false, 9, "line one\nline two\r\nline three");
   char line[SMS_MIRROR_LINE_MAX];
   ok(smsMirrorPack(&in, line, sizeof(line)), "packs");
 
@@ -178,14 +178,14 @@ static void testMultiLine() {
   eqStr(got.text, "line one\nline two\r\nline three", "and the newlines come back exactly");
 
   // A backslash the user actually typed must survive being the escape character.
-  SmsMirrorRecord slash = rec(78, "4257604281", true, 9, "C:\\path\\n not a newline");
+  SmsMirrorRecord slash = rec(78, "4255550142", true, 9, "C:\\path\\n not a newline");
   ok(smsMirrorPack(&slash, line, sizeof(line)), "packs a literal backslash");
   ok(smsMirrorUnpack(line, &got), "unpacks it");
   eqStr(got.text, "C:\\path\\n not a newline", "a typed \\n stays two characters");
 
   /* The transport strips the CRLF an HTTP body puts on each line. That is only safe
    * because a real newline is escaped, which is the whole point of the escaping. */
-  SmsMirrorRecord plain = rec(79, "4257604281", true, 9, "no newlines here");
+  SmsMirrorRecord plain = rec(79, "4255550142", true, 9, "no newlines here");
   char withCrlf[SMS_MIRROR_LINE_MAX + 4];
   ok(smsMirrorPack(&plain, line, sizeof(line)), "packs");
   snprintf(withCrlf, sizeof(withCrlf), "%s\r\n", line);
@@ -205,7 +205,7 @@ static void testFits() {
   text[sizeof(text) - 1] = '\0';
   ok(strlen(text) == 160, "a maximum-length SMS is 160 characters");
 
-  SmsMirrorRecord big = rec(2147483647LL, "4257604281", false, 0xffffffffUL, text);
+  SmsMirrorRecord big = rec(2147483647LL, "4255550142", false, 0xffffffffUL, text);
   char line[SMS_MIRROR_LINE_MAX];
   ok(smsMirrorPack(&big, line, sizeof(line)), "packs");
   ok(strlen(line) <= SMS_MIRROR_MESH_MAX,
@@ -222,7 +222,7 @@ static void testFits() {
   memset(concat, 'C', sizeof(concat) - 1);
   concat[sizeof(concat) - 1] = '\0';
   ok(strlen(concat) == 320, "an inbound concatenated SMS can be 320 characters");
-  SmsMirrorRecord longIn = rec(5, "4257604281", false, 7, concat);
+  SmsMirrorRecord longIn = rec(5, "4255550142", false, 7, concat);
   char meshOnly[SMS_MIRROR_MESH_MAX];
   ok(!smsMirrorPack(&longIn, meshOnly, sizeof(meshOnly)),
      "...which will not fit a LoRa packet");
@@ -240,7 +240,7 @@ static void testFits() {
     nl[i] = '\n';
   }
   nl[sizeof(nl) - 1] = '\0';
-  SmsMirrorRecord pathological = rec(1, "4257604281", false, 1, nl);
+  SmsMirrorRecord pathological = rec(1, "4255550142", false, 1, nl);
   char meshBuf[SMS_MIRROR_MESH_MAX];
   ok(!smsMirrorPack(&pathological, meshBuf, sizeof(meshBuf)),
      "160 newlines will not fit a packet, and pack says so");
@@ -258,21 +258,21 @@ static void testRejects() {
   ok(!smsMirrorUnpack("", &got), "empty");
   ok(!smsMirrorUnpack("hello there", &got), "an ordinary chat message");
   ok(!smsMirrorUnpack("CSM1", &got), "the prefix alone");
-  ok(!smsMirrorUnpack("CSM1x 1 4257604281 o 1 hi", &got), "a prefix that only looks right");
-  ok(!smsMirrorUnpack("CSM2 1 4257604281 o 1 hi", &got), "a future version");
-  ok(!smsMirrorUnpack("CSM1 1 4257604281 o", &got), "a truncated record");
-  ok(!smsMirrorUnpack("CSM1 abc 4257604281 o 1 hi", &got), "a non-numeric id");
+  ok(!smsMirrorUnpack("CSM1x 1 4255550142 o 1 hi", &got), "a prefix that only looks right");
+  ok(!smsMirrorUnpack("CSM2 1 4255550142 o 1 hi", &got), "a future version");
+  ok(!smsMirrorUnpack("CSM1 1 4255550142 o", &got), "a truncated record");
+  ok(!smsMirrorUnpack("CSM1 abc 4255550142 o 1 hi", &got), "a non-numeric id");
   ok(!smsMirrorUnpack("CSM1 1 nobody o 1 hi", &got), "a peer with no digits");
-  ok(!smsMirrorUnpack("CSM1 1 4257604281 x 1 hi", &got), "an unknown direction");
-  ok(!smsMirrorUnpack("CSM1 1 4257604281 o zz hi", &got), "a non-hex timestamp");
-  ok(!smsMirrorUnpack("CSM1 1 4257604281 o 123456789 hi", &got), "an over-long timestamp");
+  ok(!smsMirrorUnpack("CSM1 1 4255550142 x 1 hi", &got), "an unknown direction");
+  ok(!smsMirrorUnpack("CSM1 1 4255550142 o zz hi", &got), "a non-hex timestamp");
+  ok(!smsMirrorUnpack("CSM1 1 4255550142 o 123456789 hi", &got), "an over-long timestamp");
 
   ok(!smsMirrorIsMirrorText(NULL), "NULL is not mirror traffic");
   ok(!smsMirrorIsMirrorText("CSM1"), "the bare prefix is not mirror traffic");
-  ok(smsMirrorIsMirrorText("CSM1 1 4257604281 o 1 hi"), "a real record is");
+  ok(smsMirrorIsMirrorText("CSM1 1 4255550142 o 1 hi"), "a real record is");
 
   // COVEY writes a negative id for a text it has sent but not yet seen echoed back.
-  ok(smsMirrorUnpack("CSM1 -5 4257604281 o 1 pending", &got), "a negative id parses");
+  ok(smsMirrorUnpack("CSM1 -5 4255550142 o 1 pending", &got), "a negative id parses");
   eqI64((long long)got.id, -5, "and keeps its sign");
 }
 
@@ -280,31 +280,31 @@ static void testRejects() {
 static void testSameMessage() {
   group("pairing a mirrored text against the phone's own copy");
 
-  SmsMirrorRecord fromCovey = rec(900, "4257604281", true, 1000, "running late");
-  SmsMirrorRecord ownCopy   = rec(0, "14257604281@seattle1.voip.ms", true, 4000, "running late");
+  SmsMirrorRecord fromCovey = rec(900, "4255550142", true, 1000, "running late");
+  SmsMirrorRecord ownCopy   = rec(0, "14255550142@seattle1.voip.ms", true, 4000, "running late");
   ok(smsMirrorSameMessage(&fromCovey, &ownCopy),
      "same text and direction, different spelling of the number, different clock");
 
   /* The clock is deliberately not consulted. COVEY measured VoIP.ms dates landing up to an
    * HOUR in the future, so any window tight enough to discriminate would reject real
    * matches. This asserts that a three-hour gap still pairs. */
-  SmsMirrorRecord muchLater = rec(0, "4257604281", true, 1000 + 3 * 3600, "running late");
+  SmsMirrorRecord muchLater = rec(0, "4255550142", true, 1000 + 3 * 3600, "running late");
   ok(smsMirrorSameMessage(&fromCovey, &muchLater), "a three-hour clock difference still pairs");
 
-  SmsMirrorRecord otherWay = rec(0, "4257604281", false, 1000, "running late");
+  SmsMirrorRecord otherWay = rec(0, "4255550142", false, 1000, "running late");
   ok(!smsMirrorSameMessage(&fromCovey, &otherWay), "the other direction is a different message");
 
   SmsMirrorRecord otherPeer = rec(0, "5551234567", true, 1000, "running late");
   ok(!smsMirrorSameMessage(&fromCovey, &otherPeer), "another correspondent is a different message");
 
-  SmsMirrorRecord otherText = rec(0, "4257604281", true, 1000, "running late!");
+  SmsMirrorRecord otherText = rec(0, "4255550142", true, 1000, "running late!");
   ok(!smsMirrorSameMessage(&fromCovey, &otherText), "one character of difference is a different message");
 
   /* Two identical texts to the same person ARE two messages. This predicate cannot tell
    * them apart and is not supposed to — the ingest side pairs them off oldest-first, which
    * is why it must never be used to decide "already have it" on its own. */
-  SmsMirrorRecord ok1 = rec(1, "4257604281", true, 10, "ok");
-  SmsMirrorRecord ok2 = rec(2, "4257604281", true, 20, "ok");
+  SmsMirrorRecord ok1 = rec(1, "4255550142", true, 10, "ok");
+  SmsMirrorRecord ok2 = rec(2, "4255550142", true, 20, "ok");
   ok(smsMirrorSameMessage(&ok1, &ok2),
      "two genuinely separate identical texts look the same here, by design");
 }

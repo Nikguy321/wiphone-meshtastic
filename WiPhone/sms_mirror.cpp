@@ -51,7 +51,7 @@ size_t smsMirrorDigits(const char* s, char* out, size_t cap) {
   buf[n] = '\0';
 
   const char* d = buf;
-  if (n == 11 && buf[0] == '1') {       // 1-425-760-4281 and 425-760-4281 are one person
+  if (n == 11 && buf[0] == '1') {       // 1-425-555-0142 and 425-555-0142 are one person
     d++;
     n--;
   }

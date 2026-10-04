@@ -2364,7 +2364,7 @@ bool MeshtasticService::loop() {
          * Chats list. It goes straight into the SIP message store instead.
          *
          * ⚠ Recognised by PREFIX, before anything else. A packet that merely claims to be
-         * one is dropped, not displayed — showing "CSM1 109970452 4257604281 i ..." as a
+         * one is dropped, not displayed — showing "CSM1 109970452 4255550142 i ..." as a
          * chat message would be worse than losing it.
          *
          * Returns FALSE, like book-sync: a mirrored record must not raise the MESH

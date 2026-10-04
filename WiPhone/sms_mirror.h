@@ -6,7 +6,7 @@
  * ══════════════════════════════════════════════════════════════════════════════════
  *
  * COVEY and this phone share one number (425-320-0782) but reach it two different ways.
- * The phone registers SIP as sub-account `565611_nikguy`. COVEY deliberately does not —
+ * The phone registers SIP as sub-account `100000_sample`. COVEY deliberately does not —
  * VoIP.ms overwrites a registration when the same sub-account is used twice, so a second
  * registration would TAKE inbound calls and texts off this phone. COVEY therefore reads
  * the account's history through the VoIP.ms REST API instead.
@@ -120,9 +120,9 @@ struct SmsMirrorRecord {
 /* A phone number or SIP URI reduced to comparable digits.
  *
  * ⚠ THIS IS THE ONLY SAFE WAY TO COMPARE TWO CORRESPONDENTS HERE, because the same
- * person reaches this store under at least four spellings: COVEY sends `4257604281`,
- * the phonebook holds `14257604281@seattle1.voip.ms`, an inbound SIP MESSAGE arrives
- * from something like `+14257604281@seattle1.voip.ms`, and a human types `(425) 760-4281`.
+ * person reaches this store under at least four spellings: COVEY sends `4255550142`,
+ * the phonebook holds `14255550142@seattle1.voip.ms`, an inbound SIP MESSAGE arrives
+ * from something like `+14255550142@seattle1.voip.ms`, and a human types `(425) 555-0142`.
  * A leading country-code 1 is dropped so all of those reduce to the same 10 digits.
  * Anything at or past '@' is ignored — a SIP URI's host is not part of the identity.
  *
