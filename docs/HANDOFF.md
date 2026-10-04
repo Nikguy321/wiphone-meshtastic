@@ -16,6 +16,10 @@ tree scrub to a 555-01xx number, and whether to rewrite history). Fixed before p
 resumed by size (a same-length new key was skipped and "verified"; now always sent whole), README key/WiFi/Files paths,
 the 3-hourly wording, the 2-hour topic needs a trusted clock, the 20-question/16 KB cap. OWED next round: WX_USER_AGENT
 in weather.h hard-codes "0.9.81" (build it from FIRMWARE_VERSION); make_webflasher's gate checks timestamps only.
+✅ **LIVE 2026-10-04 ~08:55:** `main` = `2f1d2c8` pushed (cdbc119 privacy + the release commit); gh-pages republished;
+ALL SIX live files sha-match the stage on plain and cache-busted URLs (app `95ff9d55…`, manifest `db9377a9…`, index/boot/
+bundle/THIRD_PARTY unchanged); the page reads "Latest version: 0.9.81-NH", no console errors. Not yet installed through
+a real browser (both phones got the same build by cable).
 
 🧪 **2026-10-03: BOTH PHONES RUN AN UNCOMMITTED 0.9.81-NH DEV BUILD** (app only @0x10000, hash verified). It adds
 the **AI app** (Gemini; `app_ai`, `ai_net`, `gemini.{h,cpp}`, tests/test_gemini.cpp), the `/API Keys` folder made at
