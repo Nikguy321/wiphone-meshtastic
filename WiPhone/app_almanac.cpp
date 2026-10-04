@@ -16,6 +16,8 @@
 #include "meshtastic_service.h" // resolveReference, the GPS fix and its motion
 #include "prefs_almanac.h"      // gUnits, gLegalRule, gUsDst and their setters
 #include "units.h"
+#include "weather_lines.h"      // the WEATHER screen's rows, TODAY's two weather rows
+#include "weather_net.h"        // the cache, the fetch (the timer only), `wx`
 #include "wmm.h"                // `almanac bench`
 
 #include <Preferences.h>        // the Maps app's saved view (A2), read once when the app opens
@@ -41,6 +43,19 @@ AlmanacCost gAlmanacCost;
  * draws is measured to fit 232 px of this face (tests/test_almanac_lines.cpp). */
 #define ALM_FONT        AKROBAT_BOLD_20
 #define ALM_WRAP_W      220            // addNoteWrapped's width: 240 - leftOffset 8 - 12
+
+/* The weather (0.9.81). wxWant: what the next timer pass decides. The poll: while a fetch is out,
+ * the timer looks for weather_net's new generation this often (the AI app's AI_POLL_MS). */
+#define ALM_WX_NONE        0
+#define ALM_WX_AUTO        1          // the Almanac or WEATHER opened: wxFetchDue's automatic rule
+#define ALM_WX_REFRESH     2          // the Refresh soft key: an explicit ask
+#define ALM_WX_POLL_MS     250
+#define ALM_WX_LOAD_TRIES  4          // timer passes that ask the card for the cache before giving up
+/* Row styles: a plain row, and an alert's two colours (MenuWidget style 2 is the yellow one; the
+ * red one is AlmRedOption, below - MenuWidget has two styles and an alert needs three looks). */
+#define ALM_STYLE_PLAIN    1
+#define ALM_STYLE_WARN     2
+#define ALM_STYLE_DANGER   3
 
 #define ALM_ELEV_MOVE_E7   1000        // re-read the ground after ~11 m of movement (1e-4 deg)
 #define ALM_ELEV_RETRY_MS  30000u      // ...or 30 s after a card error / no layer
@@ -256,6 +271,12 @@ int almanacLegalToday(double lat, double lon, AlmanacLegal* out) {
 
 // ---- the app ------------------------------------------------------------------------------------
 
+static bool s_openAtWeather = false;     // serial `open weather`: the next open lands on WEATHER
+
+void almanacOpenAtWeather(bool on) {
+  s_openAtWeather = on;
+}
+
 AlmanacApp::AlmanacApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer)
   : WindowedApp(disp, state, header, footer) {
   log_d("create AlmanacApp");
@@ -286,7 +307,18 @@ AlmanacApp::AlmanacApp(LCD& disp, ControlState& state, HeaderWidget* header, Foo
   rowsHash = shownHash = 0;
   owed = false;
   landed = false;
-  enter(ALM_SCREEN_TODAY, ALM_ENTRY_SUN);
+  memset(&wxView, 0, sizeof(wxView));
+  wxLoaded = false;                 // the card's cache: the timer's first pass, never here
+  wxLoadTries = 0;
+  wxWant = ALM_WX_AUTO;             // opening the Almanac is the automatic fetch's moment
+  wxShownGen = 0;
+  wxNote[0] = '\0';
+  if (s_openAtWeather) {
+    s_openAtWeather = false;        // serial `open weather`
+    enter(ALM_SCREEN_WEATHER, 0);
+  } else {
+    enter(ALM_SCREEN_TODAY, ALM_ENTRY_SUN);
+  }
 }
 
 AlmanacApp::~AlmanacApp() {
@@ -355,12 +387,28 @@ MenuWidget* AlmanacApp::newMenu() {
                               lcd.height() - header->height() - footer->height(),
                               fonts[ALM_FONT], N_MAX_ITEMS, 8);
   m->setStyle(MenuWidget::DEFAULT_STYLE, WHITE, BLACK, BLACK, GREEN);
+  /* An alert's yellow (Moderate, Minor, unknown severity): style 2's defaults are black on GRAY_95,
+   * MAGENTA when selected (GUI.h), so it is set here, explicitly. Red is AlmRedOption's. */
+  m->setStyle(MenuWidget::ALTERNATE_STYLE, YELLOW, BLACK, BLACK, YELLOW);
   return m;
 }
+
+/* A Severe or Extreme alert's row: red on black, white on red when selected. MenuWidget has only two
+ * styles (white and the yellow above), so this row draws its own colours over whatever it is handed. */
+class AlmRedOption : public MenuOption {
+public:
+  AlmRedOption(MenuOption::keyType id, const char* t) : MenuOption(id, MenuWidget::ALTERNATE_STYLE, t) {}
+  void redraw(LCD& lcd, uint16_t x, uint16_t y, uint16_t w, uint16_t h, colorType fg, colorType bg,
+              bool opaque, bool selected, SmoothFont* font, uint16_t left) override {
+    MenuOption::redraw(lcd, x, y, w, h, selected ? WHITE : RED, selected ? RED : BLACK, opaque, selected,
+                       font, left);
+  }
+};
 
 struct AlmWrapCtx {
   AlmanacApp* app;
   SmoothFont* font;
+  int         style;             // ALM_STYLE_*: every row of the sentence in it (an alert keeps its colour)
 };
 
 static size_t almWrapFit(const char* s, void* ctx) {
@@ -380,7 +428,34 @@ static void almWrapRow(const char* s, size_t len, void* ctx) {
   }
   memcpy(line, s, len);
   line[len] = '\0';
-  AlmanacApp::emitRow(((AlmWrapCtx*)ctx)->app, ALM_ROW_INFO, line);
+  AlmWrapCtx* c = (AlmWrapCtx*)ctx;
+  AlmanacApp::wrapPiece(c->app, c->style, line);
+}
+
+void AlmanacApp::wrapPiece(void* ctx, int style, const char* text) {
+  AlmanacApp* a = (AlmanacApp*)ctx;
+  if (style == ALM_STYLE_PLAIN) {
+    a->addRow(ALM_ROW_INFO, text);              // as a plain wrap always was
+    return;
+  }
+  if (!a->menu || !text) {
+    return;
+  }
+  uint32_t h = a->rowsHash ^ (uint32_t)(0x100 + style);
+  h *= 16777619u;
+  for (const char* p = text; *p; p++) {
+    h = (h ^ (uint8_t)*p) * 16777619u;
+  }
+  a->rowsHash = h;
+  const MenuOption::keyType key = (MenuOption::keyType)(a->infoKey++);
+  if (style == ALM_STYLE_DANGER) {
+    MenuOption* o = new AlmRedOption(key, text);
+    if (o && !a->menu->addOption(o)) {
+      delete o;
+    }
+  } else {
+    a->menu->addOption(text, key, MenuWidget::ALTERNATE_STYLE);
+  }
 }
 
 void AlmanacApp::addRow(int kind, const char* text) {
@@ -395,10 +470,12 @@ void AlmanacApp::addRow(int kind, const char* text) {
   rowsHash = h;
   if (kind == ALM_ROW_INFO) {
     menu->addOption(text, (MenuOption::keyType)(infoKey++), 1);
-  } else if (kind == ALM_ROW_WRAP) {
+  } else if (kind == ALM_ROW_WRAP || kind == ALM_ROW_WARN || kind == ALM_ROW_DANGER) {
     AlmWrapCtx c;
     c.app = this;
     c.font = fonts[ALM_FONT];
+    c.style = kind == ALM_ROW_WARN ? ALM_STYLE_WARN : kind == ALM_ROW_DANGER ? ALM_STYLE_DANGER
+                                                                            : ALM_STYLE_PLAIN;
     wrapNote(text, almWrapFit, almWrapRow, &c, 6);
   } else if (kind > 0) {
     menu->addOption(text, (MenuOption::keyType)kind, 1);
@@ -434,6 +511,13 @@ void AlmanacApp::fillCtx(AlmCtx* c) {
   c->usDst = gUsDst != 0;
   c->moonAge = &moonAge;
   c->noSearch = true;            // a builder here never searches: the timer's slices fill the caches
+  /* The weather as weather_net holds it (memory only: the card was read on the timer, if at all). */
+  wxView.d = wxData();
+  wxView.unreadable = wxLoaded && !wxCacheLoaded();
+  wxView.fetching = wxRequestActive() || wxWant == ALM_WX_REFRESH;
+  wxView.clockTrusted = ntpClock.isTimeTrusted();
+  wxView.note = wxNote[0] ? wxNote : wxLastNote();
+  c->wx = &wxView;
 }
 
 /* The shown day's slot, keyed for (the day's local midnight, its offset, the place). A place is
@@ -504,9 +588,61 @@ void AlmanacApp::armTimer(uint32_t workedMs) {
       controlState.msAppTimerEventLast = millis();   // off until now: count from here
     }
     controlState.msAppTimerEventPeriod = workedMs + ALM_SLICE_GAP_MS;
+  } else if (wxTimerWanted()) {
+    /* The weather: the card's cache to read, a fetch to decide (the next pass), or one out - then a
+     * poll every ALM_WX_POLL_MS for its result (weather_net folds it on the loop, whatever is open). */
+    if (controlState.msAppTimerEventPeriod == 0) {
+      controlState.msAppTimerEventLast = millis();
+    }
+    const bool polling = wxLoaded && wxWant == ALM_WX_NONE && wxGen() == wxShownGen;
+    controlState.msAppTimerEventPeriod = polling ? ALM_WX_POLL_MS : workedMs + ALM_SLICE_GAP_MS;
   } else {
     controlState.msAppTimerEventPeriod = 0;
   }
+}
+
+bool AlmanacApp::wxTimerWanted() {
+  return !wxLoaded || wxWant != ALM_WX_NONE || wxRequestActive() || wxGen() != wxShownGen;
+}
+
+/* APP TIMER ONLY: the weather's share of a pass that ran no slice. A decision waiting (wxWant) is
+ * made now - the automatic rule or the Refresh - and, when a fetch is due, the ground under the
+ * place is read (the elevation tiles: card I/O, so never in the key handler that set wxWant) and
+ * the job queued on the shared worker. Otherwise: has a fetch landed (a new generation)? True =
+ * the rows change (the NEXT pass rebuilds: ONE THING A PASS). */
+bool AlmanacApp::wxStep(const AlmCtx* c) {
+  if (wxWant != ALM_WX_NONE) {
+    const bool explicitAsk = wxWant == ALM_WX_REFRESH;
+    wxWant = ALM_WX_NONE;
+    const bool placeOk = placeKind != ALM_PLACE_NONE;
+    const int due = wxDecide(c->lat, c->lon, placeOk, explicitAsk);
+    if (due != WX_DUE_YES) {
+      if (explicitAsk) {
+        strlcpy(wxNote, wxDueWhy(due), sizeof(wxNote));   // an automatic refusal says nothing
+      }
+      return explicitAsk;
+    }
+    WxAsk a;
+    memset(&a, 0, sizeof(a));
+    a.lat = c->lat;
+    a.lon = c->lon;
+    a.placeKind = placeKind;
+    a.placeName = placeName;
+    double m = 0;
+    int z = -1;
+    a.haveElev = almReadElevation(c->lat, c->lon, &m, &z) == ALM_ELEV_OK;   // never the GPS altitude
+    a.elevM = m;
+    char why[96];
+    if (!wxRequest(&a, explicitAsk, why, sizeof(why))) {
+      if (explicitAsk) {
+        strlcpy(wxNote, why, sizeof(wxNote));
+      }
+      return explicitAsk;
+    }
+    wxNote[0] = '\0';
+    return true;                                  // "Fetching the weather..."
+  }
+  return wxGen() != wxShownGen;
 }
 
 void AlmanacApp::setHeader() {
@@ -557,10 +693,14 @@ void AlmanacApp::build() {
   case ALM_SCREEN_DATE:
     almLinesDate(&c, emitRow, this);
     break;
+  case ALM_SCREEN_WEATHER:
+    almLinesWeather(&c, emitRow, this);
+    break;
   default:
     almLinesSettings(&c, emitRow, this);
     break;
   }
+  wxShownGen = wxGen();            // the weather these rows were built from
   gAlmanacCost.rowsUs = micros() - tr;
   setHeader();
   owed = owedFor(&c, s);
@@ -619,9 +759,13 @@ void AlmanacApp::enter(int newScreen, MenuOption::keyType selectKey) {
   } else {
     controlState.msAppTimerEventPeriod = 0;
   }
+  if (screen == ALM_SCREEN_WEATHER && wxWant == ALM_WX_NONE) {
+    wxWant = ALM_WX_AUTO;          // opening WEATHER: the automatic rule again (WiFi may be up now)
+  }
   switch (screen) {
   case ALM_SCREEN_TODAY:    footer->setButtons("Select", "Back"); break;
   case ALM_SCREEN_SETTINGS: footer->setButtons("Change", "Back"); break;
+  case ALM_SCREEN_WEATHER:  footer->setButtons("Refresh", "Back"); break;
   case ALM_SCREEN_SUN:
   case ALM_SCREEN_MOON:
   case ALM_SCREEN_SOLUNAR:  footer->setButtons("Today", "Back"); break;
@@ -711,6 +855,17 @@ appEventResult AlmanacApp::slice() {
     armTimer((uint32_t)(millis() - passMs) + (changed ? ALM_PAINT_EST_MS : 0));
     return changed ? REDRAW_SCREEN : DO_NOTHING;
   }
+  if (!wxLoaded) {
+    /* The weather cache, on the timer's first pass (card I/O; once a boot - weather_net keeps it in
+     * memory after). It is this pass's one thing: the next pass shows it. A card that would not
+     * answer is asked again on the next passes, ALM_WX_LOAD_TRIES in all (review 2026-10-03: one
+     * failed read showed "No weather yet" over a good cache); then the screen says it was not read. */
+    wxCacheLoadCard();
+    wxLoaded = wxCacheLoaded() || ++wxLoadTries >= ALM_WX_LOAD_TRIES;
+    landed = true;
+    armTimer((uint32_t)(millis() - passMs));
+    return DO_NOTHING;
+  }
   refreshPlace();
   AlmCtx c;
   fillCtx(&c);
@@ -790,6 +945,11 @@ appEventResult AlmanacApp::slice() {
     landed = true;                                // shown by the next timer pass, not this one
   } else {
     owed = owedFor(&c, s);
+    /* Nothing of the day left to compute: the weather's turn (a fetch only once the day's core has
+     * landed - the slices and the TLS worker share core 1). */
+    if (!worked && !owed && wxStep(&c)) {
+      landed = true;
+    }
   }
   armTimer((uint32_t)(millis() - passMs));
   return DO_NOTHING;
@@ -830,11 +990,13 @@ appEventResult AlmanacApp::processEvent(EventType event) {
     if (screen == ALM_SCREEN_TODAY) {
       return EXIT_APP;
     }
-    static const MenuOption::keyType ENTRY_OF[7] = {
+    /* Indexed by screen: GROWN with the enum (an index past it falls back to [0], which would
+     * land Back from WEATHER on "Sun..."). */
+    static const MenuOption::keyType ENTRY_OF[ALM_SCREEN_COUNT] = {
       ALM_ENTRY_SUN, ALM_ENTRY_SUN, ALM_ENTRY_MOON, ALM_ENTRY_SOLUNAR,
-      ALM_ENTRY_POSITION, ALM_ENTRY_DATE, ALM_ENTRY_SETTINGS,
+      ALM_ENTRY_POSITION, ALM_ENTRY_DATE, ALM_ENTRY_SETTINGS, ALM_ENTRY_WEATHER,
     };
-    const MenuOption::keyType back = ENTRY_OF[(screen >= 0 && screen < 7) ? screen : 0];
+    const MenuOption::keyType back = ENTRY_OF[(screen >= 0 && screen < ALM_SCREEN_COUNT) ? screen : 0];
     enter(ALM_SCREEN_TODAY, back);
     return REDRAW_ALL;
   }
@@ -861,6 +1023,15 @@ appEventResult AlmanacApp::processEvent(EventType event) {
   }
 
   if (LOGIC_BUTTON_OK(event)) {
+    if (screen == ALM_SCREEN_WEATHER) {
+      /* Refresh (the left soft key, or OK on any row): ONLY queued - the next timer pass decides,
+       * reads the ground and starts the fetch. No card, no network, no TLS in a key handler. */
+      wxWant = ALM_WX_REFRESH;
+      wxNote[0] = '\0';
+      rebuildKeepingSelection();                  // "Fetching the weather..."
+      armTimer();
+      return REDRAW_SCREEN;
+    }
     const MenuOption::keyType k = menu->currentKey();
     switch (k) {
     case ALM_ENTRY_SUN:      enter(ALM_SCREEN_SUN, 0);      return REDRAW_ALL;
@@ -869,6 +1040,7 @@ appEventResult AlmanacApp::processEvent(EventType event) {
     case ALM_ENTRY_POSITION: enter(ALM_SCREEN_POSITION, 0); return REDRAW_ALL;
     case ALM_ENTRY_DATE:     enter(ALM_SCREEN_DATE, 0);     return REDRAW_ALL;
     case ALM_ENTRY_SETTINGS: enter(ALM_SCREEN_SETTINGS, 0); return REDRAW_ALL;
+    case ALM_ENTRY_WEATHER:  enter(ALM_SCREEN_WEATHER, 0);  return REDRAW_ALL;
     case ALM_SET_LEGAL:
       legalRuleSetPref(gLegalRule == LEGAL_RULE_CIVIL ? LEGAL_RULE_30MIN : LEGAL_RULE_CIVIL);
       rebuildKeepingSelection();
@@ -1264,4 +1436,109 @@ void almanacConsole(const char* args, void (*out)(const char*)) {
           (unsigned)(gAlmanacCost.serialUs / 1000), (unsigned)(gAlmanacCost.serialUs % 1000),
           (unsigned)gAlmanacCost.serialMhz);
   heap_caps_free(d);
+}
+
+// ---- the serial `wx` (0.9.81) -------------------------------------------------------------------
+
+static void wxConsoleRow(void* ctx, int kind, const char* text) {
+  if (kind >= ALM_ENTRY_SUN) {
+    return;
+  }
+  char line[160];
+  /* The colour is the bench's to see too: the screen draws these rows yellow / red. */
+  snprintf(line, sizeof(line), "  %s%s", text,
+           kind == ALM_ROW_DANGER ? "   [red]" : kind == ALM_ROW_WARN ? "   [yellow]" : "");
+  ((AlmConsoleCtx*)ctx)->out(line);
+}
+
+void almanacWeatherConsole(const char* args, void (*out)(const char*)) {
+  extern volatile bool gGbcActive;
+  while (*args == ' ') args++;
+  /* ⚠ Not while a game runs: every sub-command can touch the card (the cache's first read, the
+   * clear, the ground read) and the game's blit task owns the SPI bus the card shares with the
+   * screen - the console runs on the loop beside it (meshdb cut's rule; review 2026-10-03). A
+   * fetch would be refused anyway: the game turns WiFi off. */
+  if (gGbcActive) {
+    out("wx: refused - a game owns the card right now");
+    return;
+  }
+  if (!*args) {
+    wxReport(out);
+    return;
+  }
+  if (!strcasecmp(args, "clear")) {
+    wxClear();
+    out("wx: cache cleared (" WX_FILE ")");
+    return;
+  }
+  const bool fetch = !strcasecmp(args, "fetch");
+  const bool show = !strcasecmp(args, "show");
+  if (!fetch && !show) {
+    out("wx: wx | wx fetch | wx show | wx clear");
+    return;
+  }
+  // The app's place, the same fallbacks (A2): reference, last GPS fix, the map's view.
+  int32_t vLa = 0, vLo = 0;
+  const bool vOk = almReadMapView(&vLa, &vLo);
+  AlmPlace pl;
+  almPlaceNow(vOk, vLa, vLo, &pl);
+  const double lat = pl.latI * 1e-7, lon = pl.lonI * 1e-7;
+  if (fetch) {
+    /* The Refresh path: the same decision (an explicit ask), the same ground read, the same gates. */
+    const int due = wxDecide(lat, lon, pl.kind != ALM_PLACE_NONE, true);
+    if (due != WX_DUE_YES) {
+      almOutf(out, "wx: NOT fetched - %s", wxDueWhy(due));
+      return;
+    }
+    WxAsk a;
+    memset(&a, 0, sizeof(a));
+    a.lat = lat;
+    a.lon = lon;
+    a.placeKind = pl.kind;
+    a.placeName = pl.name;
+    double m = 0;
+    int z = -1;
+    a.haveElev = almReadElevation(lat, lon, &m, &z) == ALM_ELEV_OK;
+    a.elevM = m;
+    char why[96];
+    if (wxRequest(&a, true, why, sizeof(why))) {
+      almOutf(out, "wx: fetching for %s (%s ground) - `wx` for progress, `wx show` for the rows",
+              pl.name[0] ? pl.name : "?", a.haveElev ? "with the" : "no");
+    } else {
+      almOutf(out, "wx: NOT fetched - %s", why);
+    }
+    return;
+  }
+  // `wx show`: the WEATHER screen's rows, through the same builder, at the app's place and clock.
+  wxCacheLoadCard();
+  AlmCtx c;
+  memset(&c, 0, sizeof(c));
+  c.clockKnown = ntpClock.isTimeKnown();
+  c.now = (int64_t)ntpClock.getExactUtcTime();
+  c.tzS = almanacTzOffsetS();
+  c.clockSrc = clockSourceName(ntpClock.getSource());
+  c.clockMesh = ntpClock.getSource() == CLOCK_SRC_MESH;
+  c.placeKind = pl.kind;
+  c.placeName = pl.name;
+  c.placeAgeMs = pl.ageMs;
+  c.lat = lat;
+  c.lon = lon;
+  c.rule = (gLegalRule == LEGAL_RULE_CIVIL) ? ASTRO_LEGAL_CIVIL : ASTRO_LEGAL_30MIN;
+  c.units = gUnits;
+  c.usDst = gUsDst != 0;
+  WxView v;
+  memset(&v, 0, sizeof(v));
+  v.d = wxData();
+  v.unreadable = wxCacheTried() && !wxCacheLoaded();
+  v.fetching = wxRequestActive();
+  v.clockTrusted = ntpClock.isTimeTrusted();
+  v.note = wxLastNote();
+  c.wx = &v;
+  AlmConsoleCtx cc;
+  cc.out = out;
+  almOutf(out, "-- weather (units %s) --", c.units == UNITS_US ? "US" : "metric");
+  almLinesWeather(&c, wxConsoleRow, &cc);
+  out("-- today's weather rows --");
+  wxTodayAlertRow(&c, wxConsoleRow, &cc);
+  wxTodaySummaryRow(&c, wxConsoleRow, &cc);
 }

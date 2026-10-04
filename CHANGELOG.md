@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.81-NH (in development) - Menu > AI (Gemini), the API Keys folder
+## 0.9.81-NH (in development) - Menu > AI (Gemini), the API Keys folder, weather on the Almanac
 
 Nick: *"I'd like to add a similar ai terminal to my wiphones ... I'd want the API to be inputable
 for other users in a sort of easy way"*, *"Can you make an API key folder on each device in root"*,
@@ -59,6 +59,90 @@ body thrown away, one `strstr` for the answer, sticky fallbacks, no history.
   `up on keys`. Host tests: `tests/test_gemini.cpp` (the key file, the body, Google's answers in the
   shapes measured live, the chunked body, the ladder with the daily limit, the saved chat and its
   topics; fake keys only).
+
+### Weather on the Almanac (0.9.81-NH, in development)
+
+Nick: *"weather info from a free source on the almanacs of each device?"* -> (Open-Meteo + NWS
+alerts, cached for offline) -> *"Yes and yes! I like where you are thinking!"* One spec for both
+Almanacs (2026-10-03); COVEY gets the same screen from the same rules.
+
+- **Almanac → Weather...** (a new screen, key 107; Refresh / Back): alerts first, then now, the
+  next day of hours (every 3 h, past ones dropped), seven days labelled by their MIDPOINT on the
+  phone's clock (`daily.time` is the place's midnight - a phone an hour behind it would show
+  yesterday's high), the as-of line and the credit. *Now* comes from Open-Meteo's `current` only
+  within an hour of the fetch; then it is the hourly entry, labelled *Forecast for 14:00*. Past
+  the last day: *No forecast after Fri Oct 9 - refresh on Wi-Fi*. A warning when the place's
+  offset is not the phone's (*Local time here is UTC-7 - check the clock setting*); no clock is
+  ever set from a response. TODAY carries the most severe alert in force near the top (in its
+  colour) and a summary row over the entries: *Weather: 52F, rain 60% this afternoon* within an
+  hour of the fetch, *Forecast: ...* after it (*Forecast 12 km away: ...* from elsewhere). A fetch of
+  unknown time is never *Now*; alerts held without a forecast carry their own *Alerts as of*.
+- **The alerts' four answers**, never a bare "No alerts": *No alerts at 07:10* (an empty 200 - an
+  offshore marine zone answers that too); *Alerts: US only (NWS)* (the 400 "out of bounds", and
+  only that 400); *Alerts not checked (no answer)* keeping the last ones with their own as-of; and
+  *Alerts: 9+ (too many to list)* when a body outgrows the 64 KB buffer - an empty answer is ~230 B,
+  so that size proves alerts exist, and a streaming counter that sees every byte gives the number.
+  `&status=actual` (a "Test" is never a warning); urgency "Past" and cancellations dropped; most
+  severe first; shown until `ends` (`expires` is the MESSAGE's - it can fall before onset). Alert
+  rows are coloured on every wrapped row: yellow (Moderate, Minor) through MenuWidget's second
+  style, red (Severe, Extreme) through a row of its own.
+- **One canonical cache**, `/wx/weather.txt` (`wiphone-wx 1` ... `end`, SI units; tmp + rename;
+  a file it cannot read set aside as `weather.bad`): the rounded point and the place source, the
+  fetch time (the trusted clock, else the HTTP Date header, else NWS's `updated` - never Open-Meteo's
+  `current.time`, a 15-minute model slot), each host's status, 48 hours, 7 days and the alerts.
+  The forecast is replaced only when Open-Meteo's body parses (a captive portal's HTML 200 never
+  does); an alerts failure keeps the old alerts - unless the place moved over 5 km. The alerts
+  keep their OWN point (at the end of the `alerts` line; a file without it loads with the
+  forecast's): a fetch 127 km on whose forecast failed but whose alerts answered holds THAT
+  place's alerts beside the old forecast, and each says its own distance (*Alert 127 km away:
+  ...*, *Alerts for a place 127 km from here*, *Forecast for a place ...*).
+- **When**: on opening the Almanac (and Weather) with WiFi up, once the day's core has landed, when
+  the forecast is over an hour old or over 5 km away; 10 minutes after a FAILED try (stamped before
+  the request) before the next automatic one; never automatically while music plays. **Refresh**
+  fetches now and pauses the music, as an AI question does. The card read and the fetch run on the
+  Almanac's timer - the key only queues - and the result is folded on the loop (`wxLoopTick`) even if
+  the Almanac was left, never while a game owns the SPI bus.
+- **One HTTPS worker for the AI and the weather** (`https_worker.cpp`): the AI's worker generalised
+  into job kinds on one 8 KB stack and one request helper (DNS first, a FRESH WiFiClientSecure per
+  host, the body de-chunked into a shared 64 KB PSRAM sink and read to its end). The AI's job is
+  the AI's as it was - its ladder, key wipe, music pause and gates; the two queue behind each other,
+  never two handshakes at once (a question asked during a weather fetch waits "Waiting for the
+  weather fetch..." and the worker checks aiAsk's gates and the heap bar when its turn comes). The weather's GETs
+  connect FIRST - after `http.begin()`, which would otherwise stop the connected client and make
+  `sendRequest` handshake again - so each host costs ONE handshake, timed alone (`wx`); they
+  re-check the 10 KB / 14 KB internal heap bar before EACH handshake, and the worker asks aiAsk's
+  gates again before each host (a job queued behind the AI can meet a call or a download).
+  Serial `wx` refuses while a game owns the card. `netRequestActive()` replaces `aiRequestActive()` in the loop's
+  busy, hardBusy (160 MHz) and 10-tick sleep.
+- **P-256 first in every ClientHello** (`-Wl,--wrap=mbedtls_ecp_grp_id_list`, `tls_curves.cpp`):
+  mbedTLS 2.16 offered P-521 first, and api.open-meteo.com takes the client's first curve - a
+  software P-521 ECDHE is ~6-9x a P-256 one. The wrap lists exactly the 11 curves of the linked
+  table (secp256r1, secp384r1, secp521r1, then the rest): this build's ClientHello writer returns
+  MBEDTLS_ERR_SSL_BAD_CONFIG on any id it does not know (read off ssl_cli.o), which would fail EVERY
+  handshake. Global: the AI (Google picks P-256 anyway), the map downloader and OTA see it too.
+- **Roots**: ISRG Root X1 (moved out of ota.cpp into `isrg_roots.h`, the same bytes, re-hashed
+  96:BC:EC...DF:08:C6) + the self-signed **ISRG Root YR** (E5:7B:7E...A8:6F), second-sourced by its
+  key: it equals the X1-signed Root YR cross certificate both hosts serve today. Both hosts serve
+  leaf <- YR1/YR2 <- Root YR (cross by X1); Root YR covers the day they drop the cross-sign. No
+  override file. The test suite re-hashes both PEMs.
+- **Units**: US now also means F, mph, inHg and inches: `unitsFmtTemp` ("52F", never "-0"),
+  `unitsFmtWind` (whole), `unitsFmtPressure`, `unitsFmtPrecip` ("<0.1 mm" for a trace); the shared
+  Settings / Maps row reads **"Units: US (ft, mi, mph, F)"**.
+- **json_read.cpp**: gemini.cpp's no-allocation reader, moved unchanged, plus numbers and `null`.
+- **Privacy**: no URL or coordinate is ever logged - one line a fetch (`weather: ok 200/200 4.1 s`,
+  `weather: failed tls`); `wx` prints the rounded point the cache holds.
+- Serial: `wx` (cache age, place source, rounded point, each host's code / bytes / handshake ms,
+  the worker's stack floor, the heap floors, the policy), `wx fetch` (Refresh's path), `wx show`
+  (the screen's rows through the same builder, colours tagged), `wx clear`, `open weather`.
+- Host tests: `tests/test_weather.cpp` (224 checks - the parsers on fixtures captured at public
+  points only (Seattle, offshore 45,-130) with the echoed point scrubbed and SYNTHETIC alert bodies,
+  nulls, a chunked body byte by byte, the 400 out of bounds, an empty 200, a Test filtered, a null
+  `ends`, a 14.7 KB two-alert body, an HTML 200, an overflow; the midpoint across the Nov 1 change
+  and a phone-zone/place-zone mismatch; the cache round trip and every corrupt file; the fetch policy
+  over thousands of frames; every row measured against Akrobat Bold 20 with all 111 NWS event names;
+  the curve order; the roots' SHA-256), `test_units` (the new formatters), and
+  `tests/check_almanac_review.py` (no card, HTTP or TLS call in the Almanac's key handlers, builds
+  or entries; the loop's hooks on netRequestActive; no insecure client; no URL in a log).
 
 ## 0.9.80-NH (2026-10-01) - the Almanac, altitude on the map, metric/US units, elevation downloads
 

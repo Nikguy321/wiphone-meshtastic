@@ -5,6 +5,7 @@
 #include "geo_grid.h"
 #include "mesh_pos.h"        // meshPosFixUsable: the fix-quality bar every screen of the phone uses
 #include "units.h"
+#include "weather_lines.h"   // TODAY's alert and summary rows (0.9.81)
 #include "wmm.h"
 
 #include <math.h>
@@ -391,6 +392,7 @@ void entries(AlmEmitFn emit, void* ctx) {
   emit(ctx, ALM_ENTRY_SUN, "Sun...");
   emit(ctx, ALM_ENTRY_MOON, "Moon...");
   emit(ctx, ALM_ENTRY_SOLUNAR, "Solunar...");
+  emit(ctx, ALM_ENTRY_WEATHER, "Weather...");         // 0.9.81 (weather_lines.cpp)
   emit(ctx, ALM_ENTRY_POSITION, "Position & GPS...");
   emit(ctx, ALM_ENTRY_DATE, "Date & seasons...");
   emit(ctx, ALM_ENTRY_SETTINGS, "Settings...");
@@ -704,7 +706,7 @@ void almScreenWant(int screen, const AlmCtx* c, AlmWant* out) {
   case ALM_SCREEN_SOLUNAR:
     break;
   default:
-    return;                                       // POSITION, DATE, SETTINGS: no day
+    return;                                       // POSITION, DATE, SETTINGS, WEATHER: no day
   }
   if (!c->clockKnown || c->placeKind == ALM_PLACE_NONE) {
     return;
@@ -1115,7 +1117,8 @@ void almTitle(int screen, bool clockKnown, int64_t now, int tzS, int dayOffset, 
   if (!dayScreen || !clockKnown) {
     snprintf(buf, sizeof(buf), "%s", screen == ALM_SCREEN_POSITION ? "Position & GPS"
                                    : screen == ALM_SCREEN_DATE ? "Date & seasons"
-                                   : screen == ALM_SCREEN_SETTINGS ? "Settings" : "Almanac");
+                                   : screen == ALM_SCREEN_SETTINGS ? "Settings"
+                                   : screen == ALM_SCREEN_WEATHER ? "Weather" : "Almanac");
   } else {
     int y, m, d, wd;
     almDateOf(almMidnight(now, tzS, dayOffset), tzS, &y, &m, &d, &wd, NULL);
@@ -1202,6 +1205,9 @@ void almLinesToday(const AlmCtx* c, AlmEmitFn emit, void* ctx) {
     }
   }
   meshWarning(c, emit, ctx);
+  if (isToday(c)) {
+    wxTodayAlertRow(c, emit, ctx);      // an active NWS alert, in its colour, near the top (0.9.81)
+  }
   if (place) {
     dstTodayRow(c, emit, ctx);          // a change day: over the clock times it qualifies
   }
@@ -1230,6 +1236,9 @@ void almLinesToday(const AlmCtx* c, AlmEmitFn emit, void* ctx) {
     placeRow(c, emit, ctx);
   } else {
     noPlaceRows(emit, ctx);
+  }
+  if (isToday(c)) {
+    wxTodaySummaryRow(c, emit, ctx);    // "Weather: 52F, rain 60% this afternoon" (0.9.81)
   }
   entries(emit, ctx);
 }

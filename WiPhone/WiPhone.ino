@@ -43,6 +43,8 @@ governing permissions and limitations under the License.
 #include "esp_task_wdt.h"   // DIAGNOSTIC: loop-stall watchdog, see setup()
 #include "tile_fetch.h"      // the map downloader: DFS hold, pause-for-calls (below)
 #include "ai_net.h"          // Menu > AI: the question's worker, folded into the chat each pass
+#include "weather_net.h"     // the Almanac's weather: a fetch folded into the cache each pass (0.9.81)
+#include "https_worker.h"    // netRequestActive: an AI question or a weather fetch on the shared worker
 #include "app_maps.h"        // gMapsActive: the map owns the side buttons while it is open
 #include "prefs_almanac.h"   // gUnits / gLegalRule: loaded at boot beside the GPS switch (0.9.80)
 #include "esp_wifi.h"       // esp_wifi_get_ps/set_ps: the modem-sleep invariant in loop()
@@ -5605,12 +5607,15 @@ void loop() {
       /* Menu > AI: a question the worker has finished goes into the saved chat (and the card) here,
        * on the loop task - whether or not the app is open (ai_net.h). A flag test when idle. */
       aiLoopTick();
+      /* The Almanac's weather the same way (weather_net.h): a finished fetch folded into the cache
+       * and written to the card here, whether or not the Almanac is open. A flag test when idle. */
+      wxLoopTick();
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
                         gGpsNmea ||            // see the deadlock note above — NOT perf
                         xferOn() ||            // the UPLOADER; a KOSync window needs no full speed (app_gbc_xfer.cpp)
                         tileFetchActive() ||   // tiles: HTTPS + decode + card, see tile_fetch.h
-                        aiRequestActive() ||   // an AI question: its TLS handshake on the AI worker (ai_net.h)
+                        netRequestActive() ||  // an AI question or a weather fetch: TLS on the shared worker (https_worker.h)
                         musicPlayerIsPlaying() ||
                         sipNeedsFullSpeed();   // NOT sipCallActive() — see the note on it
       /* Anything with a deadline stays at FULL SPEED REGARDLESS of the screen: the emulator,
@@ -5620,7 +5625,7 @@ void loop() {
        * So the uploader, a SIP call, tiles and music with WiFi up all run at 160 now; 240 is
        * left to work done with the radio off (the Game Boy turns it off first). */
       const bool hardBusy = gGbcActive || gGpsNmea || xferOn() || tileFetchActive() ||
-                            aiRequestActive() ||   // the handshake at full speed (160 with WiFi on), never 80
+                            netRequestActive() ||  // the handshake at full speed (160 with WiFi on), never 80
                             musicPlayerIsPlaying() || sipNeedsFullSpeed();
       extern volatile uint32_t gUiWorkMs;      // GUI.cpp: stamped by every redraw
       const bool uiWorking = (uint32_t)(millis() - gUiWorkMs) < UI_WORK_HOLD_MS;
@@ -5684,9 +5689,11 @@ void loop() {
      * connection reset by peer). Sleeping 10 ms a pass hands the worker ~90 % of the core for the
      * few seconds a question lasts; the keypad is interrupt-latched and nothing else that a
      * question allows (aiAsk refuses during a call, a game, a download, the uploader) needs a
-     * finer tick. (A question also pauses the music: aiAsk.) */
-    const bool aiNeedsCore = aiRequestActive();
-    vTaskDelay(aiNeedsCore ? 10 : (idleTickStretch ? 5 : 1));
+     * finer tick. (A question also pauses the music: aiAsk.) Since 0.9.81 the same for a weather
+     * fetch on the same worker (https_worker.h: netRequestActive) - two handshakes, the same cost,
+     * the same gates (a Refresh pauses the music; an automatic fetch never starts beside it). */
+    const bool netNeedsCore = netRequestActive();
+    vTaskDelay(netNeedsCore ? 10 : (idleTickStretch ? 5 : 1));
 
     //esp_sleep_enable_timer_wakeup(1000000); // 0.001 s
     //int ret = esp_light_sleep_start();

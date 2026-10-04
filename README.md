@@ -97,6 +97,9 @@ bug fixes and why each one happened. Recent highlights:
   the keypad, on WiFi, with **your own free API key** in `gemini.txt` in the new **API Keys**
   folder on the card. The chat is saved, a topic breaks by itself after two hours, the free
   tier's daily limit falls back to the faster model, and the key is never shown on screen.
+  **Weather on the Almanac**: Open-Meteo's forecast (now, the next day by the hour, a week of
+  days) and the **NWS's active alerts** in their own colours, fetched on WiFi when the Almanac
+  opens and **kept on the card for offline** — the Weather screen says how old it is.
 - **0.9.80-NH** — **Menu → Almanac**: legal light (Washington's big-game rule by default,
   civil twilight as a setting) with a countdown, sun, moon, solunar periods, your position as
   lat/lon, UTM and MGRS with ground elevation and **magnetic declination** (NOAA WMM2025), and
@@ -455,8 +458,38 @@ last light down — so the window shown is never wider than the real one. It is 
 the clock and the place, and the screen names both; a clock set from the mesh is flagged. The
 Meshtastic "Sun & legal light" screen and the serial `sun` use the same computation and rule.
 
-**Units**: metric or US (feet, miles, mph), one setting (Almanac → Settings) shared with the
-map's scale bar, distances and heights.
+**Units**: metric or US (feet, miles, mph — and for the weather °F, inHg and inches), one
+setting (Almanac → Settings) shared with the map's scale bar, distances and heights.
+
+### Weather
+
+**Almanac → Weather...** — the forecast for the Almanac's place, and the US weather alerts for it.
+
+- **Where it comes from**: [Open-Meteo](https://open-meteo.com)'s free forecast (no account, no
+  key; **Weather data by Open-Meteo.com, CC BY 4.0** — the screen says so) and the **US National
+  Weather Service**'s active alerts (public domain). The phone sends only the place rounded to
+  about a kilometre (and ~10 m for the NWS), the ground height under it from the elevation tiles
+  on the card (mountain temperatures depend on it), and a User-Agent naming this project. Both
+  are fetched over HTTPS with the Let's Encrypt roots built in.
+- **When**: on opening the Almanac (and the Weather screen) with WiFi up, when what is on the card
+  is over an hour old or was fetched more than ~5 km away — once the day's tables are done, never
+  while music plays, and not again for 10 minutes after a failed try. **Refresh** (the left soft
+  key on Weather) fetches now, pausing the music as the AI does. Nothing runs in the background.
+- **Offline**: the last forecast is kept on the card (`/wx/weather.txt`) and carried into the
+  woods: hours that have passed drop off, *Now* becomes *Forecast for 14:00* an hour after the
+  fetch, days are labelled on the phone's own clock, and past the last day it says **No forecast
+  after Fri Oct 9 - refresh on Wi-Fi**. Above its credit the Weather screen says **As of 07:10 (3h 05m
+  ago) for GPS** (the age only on a clock set from NTP or GPS) and it warns when the place's time zone is not the
+  phone's.
+- **Alerts come first, in colour** (red for Severe/Extreme, yellow otherwise) — and **only in the
+  US**: elsewhere the screen says **Alerts: US only (NWS)**. It never says a bare "No alerts": an
+  empty answer is **No alerts at 07:10**; a failed check is **Alerts not checked**, keeping the
+  last ones with their own time; a storm day too big for the phone's buffer is **Alerts: 9+ (too
+  many to list)**. An alert past its end is hidden offline. TODAY shows the most severe alert in
+  force near the top, and a one-line summary: `Weather: 52F, rain 60% this afternoon` within an
+  hour of the fetch, `Forecast: ...` after it, and `Forecast 12 km away: ...` read from elsewhere.
+- Wind is where it blows **from** (`Wind from NW 14 km/h, gusts 30`). Serial: `wx`, `wx fetch`,
+  `wx show`, `wx clear`, `open weather`.
 
 **Where the numbers come from**: the sun and moon are the standard published theories (NOAA /
 Meeus; the moon is Meeus's ELP-2000/82 series), checked in the host tests against independent
@@ -850,7 +883,8 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `up on keys` | the API-key uploader into `/API Keys`: `tools/wiphone_send.py --app keys gemini.txt` |
 | `ai` / `ai ask <question>` / `ai last` | Menu → AI from the cable: the key file (its length, never the key), the chat, the daily limits, the last question's HTTP code, model, time and stack floor; ask through the app's own path; print the newest answer |
 | `ai topic` / `ai clear` / `ai reload` | start a new topic / delete the saved chat / re-read `gemini.txt` |
-| `open <app>` | jump into maps / almanac / ai / photos / books / music / mesh / gbc / clock, whatever screen is up (`gbc` is the ROM picker; `key ok` starts the first game) |
+| `wx` / `wx fetch` / `wx show` / `wx clear` | the Almanac's weather: the cache's age, place source and rounded point, each host's code, bytes and handshake time, the worker's stack and heap floors (never a URL); fetch now (Refresh's path); print the Weather screen's rows; delete the cache. Refused while a game runs (it owns the card) |
+| `open <app>` | jump into maps / almanac / weather / ai / photos / books / music / mesh / gbc / clock, whatever screen is up (`gbc` is the ROM picker; `key ok` starts the first game; `weather` is the Almanac opened on Weather) |
 | `hold on \| off` | keep the screen awake and unlocked for a scripted bench session |
 | `notify [sip]` | fire the real message-arrival announcement (buzz + chirp) from the cable; the log prints `buzz off after N ms`, `pop start took N ms`, `pop stopped after N ms` |
 | `maps hold up\|down\|left\|right [ms [blip]]` | press an arrow on the map and hold it for that long — the hold-to-scroll bench; `blip` ms in, fake the chip's release-and-re-press under a held finger |

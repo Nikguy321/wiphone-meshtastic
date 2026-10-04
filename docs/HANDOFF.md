@@ -11,6 +11,13 @@ in this repo: it lives on the cards (`/API Keys/gemini.txt`) and outside every r
 gemini.txt / chutes.txt / `/API Keys/`. The roots are pinned (GTS R1 + R4) with NO override file on purpose (the
 keys uploader has no password and can run on an open hotspot). Free Flash = 20 answers a DAY per key: bench with
 Flash-Lite. Web flasher still serves 0.9.80-NH.
+🌦 **2026-10-03 evening: WEATHER on the Almanac (0.9.81-NH dev), both phones flashed + proven.** Open-Meteo + NWS alerts
+through ONE shared HTTPS worker (https_worker.cpp: AI and WX job kinds, netRequestActive in busy/hardBusy/10-tick); pinned
+ISRG Root X1 + Root YR; `-Wl,--wrap=mbedtls_ecp_grp_id_list` puts P-256 first (an unknown curve id would fail EVERY
+handshake - keep the list exact). Bench: `wx fetch` -> ok in 5.6-6.0 s (Open-Meteo connect+handshake 2.7-3.1 s, NWS
+2.0-2.1 s), worker stack floor ~3.2 KB. AI (Google), OTM tiles and GitHub still connect; OTM accepts ONLY P-256/X25519,
+so tiles negotiate the same curve before and after the wrap (phone timings are noisy: 7-15 s first GET incl. the
+phone-side ECDSA work). Cache /wx/weather.txt. `wx`, `wx fetch`, `wx show`, `wx clear`, `open weather`.
 ✅ **Bench 2026-10-03 13:00-14:00:** both phones answer real questions (pinned-root TLS verifies; worker stack
 floor ~3.1 KB of 8 KB). 🛑 The handshake is ~4.5 s of software ECC and Google resets one that takes > ~10 s
 (`start_ssl_client: -80`): with the screen on and a 1-tick loop it failed 3/3; the loop now sleeps 10 ms a pass while

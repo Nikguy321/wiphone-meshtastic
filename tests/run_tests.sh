@@ -83,7 +83,8 @@ for src in tests/test_*.cpp; do
     # light, the countdown, the US DST reminder - and every row measured against the phone's own
     # Akrobat_Bold20 (fonts.h) over six places, two years of days, both rules and both units.
     test_almanac_lines) deps=(WiPhone/almanac_lines.cpp WiPhone/astro.cpp WiPhone/units.cpp WiPhone/mesh_pos.cpp
-                              WiPhone/geo_grid.cpp WiPhone/wmm.cpp) ;;
+                              WiPhone/geo_grid.cpp WiPhone/wmm.cpp WiPhone/weather_lines.cpp WiPhone/weather.cpp
+                              WiPhone/json_read.cpp) ;;
     # Elevation tiles (sampling, the z13 -> z10 fallback, terrarium decode) and the metric/US
     # formatters; map_tiles.cpp and mesh_pos.cpp are linked as the ORACLES they must equal.
     test_elev)     deps=(WiPhone/elev_tiles.cpp WiPhone/map_tiles.cpp) ;;
@@ -167,7 +168,15 @@ for src in tests/test_*.cpp; do
     # thought parts, 400/404/503, the free tier's 429 per DAY and per MINUTE, blockReason, \u
     # escapes), the chunked body, the screen's ASCII, the model ladder, the saved chat and its
     # topic breaks - and the fake key never in any text built. Fake keys only, no network.
-    test_gemini)   deps=(WiPhone/gemini.cpp) ;;
+    test_gemini)   deps=(WiPhone/gemini.cpp WiPhone/json_read.cpp) ;;
+    # The Almanac's weather (0.9.81): weather.cpp (the URLs, the Open-Meteo and NWS parsers on the
+    # fixtures in tests/fixtures/wx - public points only, the alert bodies synthetic - the streaming
+    # alert counter, the cache file, the fold, the fetch policy) and weather_lines.cpp (every row,
+    # measured against Akrobat_Bold20 with all 111 NWS event names), json_read's numbers and null,
+    # the curve order (tls_curves.h) and the pinned roots' SHA-256 (isrg_roots.h). No network.
+    test_weather)  deps=(WiPhone/weather.cpp WiPhone/weather_lines.cpp WiPhone/json_read.cpp WiPhone/gemini.cpp
+                         WiPhone/almanac_lines.cpp WiPhone/astro.cpp WiPhone/units.cpp WiPhone/mesh_pos.cpp
+                         WiPhone/geo_grid.cpp WiPhone/wmm.cpp WiPhone/book_hash.cpp) ;;
     # Header-only: the notification pop's stop timer (notify_timing.h) against the shipping
     # pop_pcm[] bytes. WiPhone.ino cannot be compiled here, same reason as above. Review 3 (A1): the
     # ring's lead too, with a model of IDF 3.3's TX ring - the old 360 ms stop erased the chirp.
@@ -314,8 +323,11 @@ fi
 # guard, the ruler's coarse climb and the Follow me sample in its own tick; and the second review's:
 # the same-place tolerance (day slots, the Sun screen's cache), one thing a timer pass (a slice or
 # its repaint, the gap counted from the slice's end, the band push), the poor fix refused / named,
-# Follow me's one card read a fix, the scroll kept, the measured titles, the shared units row.
-echo "checking the Almanac/altitude review fixes in the device files (GPS motion, DST record, one countdown, ...)"
+# Follow me's one card read a fix, the scroll kept, the measured titles, the shared units row. And the
+# weather's (0.9.81): no card, HTTP or TLS call in a key handler, a build or an entry (the cache and the
+# fetch on the timer, Refresh only queues), Back's table grown, the loop's hooks on netRequestActive(),
+# the fold waiting out a game, no insecure client, no URL or coordinate in a log line.
+echo "checking the Almanac/altitude review fixes and the weather's in the device files (GPS motion, DST record, one countdown, no I/O in key handlers, ...)"
 if ! python3 tests/check_almanac_review.py; then
   fail=1
 fi

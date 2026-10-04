@@ -3,7 +3,8 @@
  * (docs/almanac.md, "On the phone"; README "Almanac").
  *
  * Seven screens, all MenuWidget lists built from almanac_lines.cpp - the same lines the serial
- * `almanac` prints: TODAY (the first), SUN, MOON, SOLUNAR, POSITION, DATE, SETTINGS.
+ * `almanac` prints: TODAY (the first), SUN, MOON, SOLUNAR, POSITION, DATE, SETTINGS - and an
+ * eighth since 0.9.81, WEATHER (weather_lines.cpp's rows, the same ones serial `wx show` prints).
  * Keys: Up/Down scroll; Left/Right step the day (-365..+365) on TODAY/SUN/MOON/SOLUNAR; OK
  * opens an entry or toggles a setting (and on SUN/MOON/SOLUNAR the left soft key goes back to
  * today); Back goes up, then exits.
@@ -42,12 +43,26 @@
  *     with the same words, else the same position.
  * Every slice, every build, every paint and each part of the day is timed with micros() into
  * gAlmanacCost: `almanac cost` prints them; `almanac bench` times each piece now, in one pass.
+ *
+ * ── THE WEATHER (0.9.81; weather_net.h has the fetch, weather_lines.h the words) ─────────────
+ *   - The cache is read from the card on the app timer's FIRST pass (once a boot - later opens
+ *     find it in memory), never in a key handler or the constructor.
+ *   - A fetch is decided on the timer too, and only once the open screen's day has landed (its
+ *     ~6 slices share core 1 with the TLS worker): on opening the Almanac or WEATHER (wxFetchDue's
+ *     automatic rule: WiFi, stale or far, no music, not within 10 min of a failure) or on the
+ *     Refresh soft key (WEATHER's OK). The KEY only sets wxWant; the timer pass that follows reads
+ *     the ground under the place (the elevation tiles: card I/O) and queues the job - no SD, HTTP
+ *     or TLS call in a key handler, a build or an entry (tests/check_almanac_review.py).
+ *   - While a fetch is out the timer polls weather_net's generation every ALM_WX_POLL_MS; a new
+ *     one is a `landed` part like any other (ONE THING A PASS: the next pass rebuilds).
+ *   - Alert rows carry their colour (ALM_ROW_WARN yellow, ALM_ROW_DANGER red) on every wrapped row.
  */
 #ifndef APP_ALMANAC_H
 #define APP_ALMANAC_H
 
 #include "GUI.h"
 #include "almanac_lines.h"
+#include "weather_lines.h"     // WxView: the weather the screens are shown
 
 /* What the Almanac measured on this phone (serial `almanac cost`). Microseconds; 0 = never. */
 struct AlmanacCost {
@@ -102,6 +117,12 @@ int almanacLegalToday(double lat, double lon, AlmanacLegal* out);   // ALM_SUN_*
 /* The clock's UTC offset now, in seconds (two clock reads, rounded to the minute). */
 int almanacTzOffsetS();
 
+/* (0.9.81) Serial `wx`, `wx fetch`, `wx show`, `wx clear` (weather_net.h; `wx show` prints the
+ * WEATHER screen's rows through the same builder). `out` once per line, under 190 bytes. */
+void almanacWeatherConsole(const char* args, void (*out)(const char* line));
+/* Serial `open weather`: the next Almanac opens on WEATHER (Back still goes to TODAY); false undoes it. */
+void almanacOpenAtWeather(bool on);
+
 class AlmanacApp : public WindowedApp {
 public:
   AlmanacApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget* footer);
@@ -121,6 +142,8 @@ public:
   /* The AlmEmitFn every builder writes through (ctx = this app): one row into the open menu.
    * Public for the wrap callback, which feeds the pieces of a long sentence back through it. */
   static void emitRow(void* ctx, int kind, const char* text);
+  /* One piece of a wrapped sentence, in `style` (ALM_STYLE_*: plain, an alert's yellow or red). */
+  static void wrapPiece(void* ctx, int style, const char* text);
 
   /* One shown day: its tables, the slices computing them, and the key they are for. */
   struct Slot {
@@ -174,6 +197,14 @@ protected:
   bool        landed;              // a slice finished a part: the NEXT timer pass rebuilds and
                                    // repaints, and runs no slice (review 2026-09-27, finding 3)
 
+  // The weather (0.9.81).
+  WxView      wxView;              // what the builders are shown (filled by fillCtx)
+  bool        wxLoaded;            // the timer has asked weather_net for the card's cache (this open)
+  int         wxLoadTries;         // ...passes that asked and got no answer from the card
+  int         wxWant;              // ALM_WX_*: a fetch to decide on the timer (none, automatic, Refresh)
+  uint32_t    wxShownGen;          // weather_net's generation the rows were built from
+  char        wxNote[96];          // why the last Refresh did not start ("" = none)
+
   void        freeMenu();
   MenuWidget* newMenu();
   void        enter(int newScreen, MenuOption::keyType selectKey);
@@ -187,6 +218,8 @@ protected:
   void        armTimer(uint32_t workedMs = 0);  // slices while owed; POSITION's 1 Hz; else off
   appEventResult slice();                       // APP TIMER: one slice, OR the rebuild after one
   void        sampleElevation();                // APP TIMER only (card I/O)
+  bool        wxStep(const AlmCtx* c);          // APP TIMER only: decide / queue a fetch, or see one land
+  bool        wxTimerWanted();                  // the weather needs the timer (load, a decision, a poll)
   void        addRow(int kind, const char* text);
   static bool isDayScreen(int s) {
     return s == ALM_SCREEN_TODAY || s == ALM_SCREEN_SUN || s == ALM_SCREEN_MOON ||

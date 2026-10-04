@@ -5,6 +5,8 @@
  */
 #include "ai_net.h"
 #include "gemini.h"
+#include "https_worker.h"       // the worker, shared with the weather since 0.9.81, and netHttps
+#include "weather_net.h"        // wxRequestActive: a question asked behind a weather fetch
 #include "tile_fetch.h"         // tlsInstallPsramHook, tileFetchActive, tileFetchCallRecent, filesJobActive
 #include "app_gbc_xfer.h"       // xferOn / xferWindowUp: the uploader or a sync window holds the radio
 #include "kosync_sync.h"        // kosyncWindowActive
@@ -14,28 +16,24 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiClientSecure.h>
-#include <HTTPClient.h>
 #include <SD.h>
 #include <esp_heap_caps.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <freertos/semphr.h>
-#include <new>
 #include <string.h>
 
 extern volatile bool gGbcActive;          // WiPhone.ino: the emulator owns the card and turns WiFi off
 
 /* The worker's stack: internal RAM, carved on the first question and kept (tile_fetch.cpp's rule
- * and its reasons). The tile worker's deepest path - a handshake, then a tile through decode and
+ * and its reasons) - since 0.9.81 the shared HTTPS worker's (https_worker.h, NET_STACK_BYTES), the
+ * weather's too. The tile worker's deepest path - a handshake, then a tile through decode and
  * the card - used ~5.2 KB of its 8 KB; this one does a handshake against a PINNED root (an
  * RSA-4096 signature check the insecure tile client never makes) and parses JSON that is read
  * with no recursion (gemini.cpp). `ai` prints the floor after every question: under ~1,500 B,
- * raise it. */
-#define AI_STACK_BYTES      8192
-#define AI_SINK_CAP         (64u * 1024u)   // a de-chunked body: 4096 tokens of answer is ~16 KB of JSON-escaped text
+ * raise it. The de-chunked body goes into the worker's shared PSRAM sink (NET_SINK_CAP, 64 KB: a
+ * 4096-token answer is ~16 KB of JSON-escaped text). */
+#define AI_SINK_CAP         NET_SINK_CAP
 #define AI_TEXT_CAP         (24u * 1024u)   // the joined answer before cleaning (cleaned and cut to GEM_A_MAX)
-#define AI_READ_BUF         1024u
 #define AI_KEY_READ_MAX     2048u
 #define AI_CHAT_READ_MAX    (GEM_CHAT_FILE_MAX + 4096u)
 #define AI_CONNECT_MS       10000           // TCP connect AND the TLS handshake (WiFiClientSecure's handshake_timeout)
@@ -43,9 +41,8 @@ extern volatile bool gGbcActive;          // WiPhone.ino: the emulator owns the 
 #define AI_BODY_IDLE_MS     30000u          // the body arrives in one go once the headers have; this is a dead socket
 #define AI_SLICE_MS         200u            // every wait is cut into these, and honours Cancel
 /* The internal heap a handshake may start from: tile_fetch.cpp's TF_CONNECT_LARGEST/FREE (the
- * handshake dips ~12 KB of lwIP buffers), plus the stack while it is not carved yet. */
-#define AI_CONNECT_LARGEST  (10u * 1024u)
-#define AI_CONNECT_FREE     (14u * 1024u)
+ * handshake dips ~12 KB of lwIP buffers), plus the stack while it is not carved yet
+ * (https_worker.h: NET_CONNECT_LARGEST / NET_CONNECT_FREE, netHeapOkForHandshake). */
 #define AI_USER_AGENT       "WiPhone-ai/0.1 (wiphone-meshtastic)"
 
 /* GOOGLE'S ROOTS, PINNED. generativelanguage.googleapis.com chains leaf <- WR2 <- GTS Root R1
@@ -126,6 +123,10 @@ struct AiReq {
   GeminiQuota  quota;                     // the remembered limits in; the worker marks it; folded back
   GeminiQuota  quotaIn;                   // ...as it went in (a changed one is saved)
   bool         musicPaused;               // aiAsk paused a playing track for this question
+  /* Asked while a weather fetch held the worker (0.9.81): aiAsk could not judge the heap then (the
+   * weather's handshake was dipping it), so the worker checks the bar itself before the first
+   * request. Otherwise aiAsk's check stands, as it always has. */
+  bool         heapCheckAtStart;
 };
 /* What the worker found. The worker's while s_busy; the loop's after (it stays for `ai`). */
 struct AiRes {
@@ -139,11 +140,10 @@ struct AiRes {
   uint32_t bodyBytes;
   uint32_t largestFloor, minEver, stackFloor;
 };
-/* The worker's buffers - PSRAM, so its 8 KB stack is left to the handshake. */
+/* The worker's buffers - PSRAM, so its 8 KB stack is left to the handshake. (The body itself goes
+ * into the shared worker's sink: netWorkerSink().) */
 struct AiWork {
-  char         sink[AI_SINK_CAP + 1];
   char         text[AI_TEXT_CAP];
-  uint8_t      rbuf[AI_READ_BUF];
   GeminiLadder ladder;
   char         label[GEM_LABEL_MAX];
   char         primaryLabel[GEM_LABEL_MAX];
@@ -156,11 +156,7 @@ static AiWork*  s_work = NULL;
 static char*    s_body = NULL;            // the request body, grown as needed (PSRAM)
 static size_t   s_bodyCap = 0;
 
-static StaticTask_t      s_tcb;
-static StackType_t*      s_stack = NULL;
-static TaskHandle_t      s_task  = NULL;
-static SemaphoreHandle_t s_go    = NULL;
-static volatile bool     s_busy   = false;   // asked; the worker has it
+static volatile bool     s_busy   = false;   // asked; the worker has it (or will: queued behind a weather fetch)
 static volatile bool     s_done   = false;   // the worker finished; the loop has not folded it yet
 static volatile bool     s_cancel = false;
 static bool              s_haveRes = false;  // s_res holds a finished question (for `ai`)
@@ -208,11 +204,7 @@ static uint32_t s_asked = 0, s_answered = 0, s_failed = 0;
 // ── small helpers ────────────────────────────────────────────────────────────────────────
 
 static void heapNow(uint32_t* freeB, uint32_t* largest, uint32_t* minEver) {
-  multi_heap_info_t h;
-  heap_caps_get_info(&h, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-  if (freeB)   *freeB   = h.total_free_bytes;
-  if (largest) *largest = h.largest_free_block;
-  if (minEver) *minEver = h.minimum_free_bytes;
+  netHeapNow(freeB, largest, minEver);
 }
 
 static int64_t utcNow() {
@@ -600,152 +592,47 @@ size_t aiQuotaNote(char* out, size_t cap) {
 
 // ── the wire (WORKER) ────────────────────────────────────────────────────────────────────
 
-static void floorNow() {
-  uint32_t l;
-  heapNow(NULL, &l, NULL);
-  if (l < s_res->largestFloor) {
-    s_res->largestFloor = l;
-  }
-}
-
-/* The body after the headers: de-chunked by hand into the PSRAM sink. True with the whole body
- * in s_work->sink[*got] (NUL-terminated); false with *net saying why. */
-static bool readBody(HTTPClient& http, bool chunked, int size, size_t* got, int* net) {
-  WiFiClient* s = http.getStreamPtr();
-  *got = 0;
-  if (!s) {
-    *net = GEM_NET_LOST;
-    return false;
-  }
-  GeminiDechunk d;
-  geminiDechunkInit(&d);
-  bool overflow = false;
-  uint32_t idle = millis();
-  for (;;) {
-    if (s_cancel) {
-      *net = GEM_NET_LOST;
-      return false;
-    }
-    const int avail = s->available();
-    if (avail > 0) {
-      const int want = avail < (int)AI_READ_BUF ? avail : (int)AI_READ_BUF;
-      const int r = s->read(s_work->rbuf, (size_t)want);
-      if (r > 0) {
-        idle = millis();
-        if (chunked) {
-          if (!geminiDechunkFeed(&d, s_work->rbuf, (size_t)r, s_work->sink, AI_SINK_CAP, got)) {
-            *net = GEM_NET_BAD_BODY;
-            return false;
-          }
-          if (d.done) {
-            break;
-          }
-        } else {
-          size_t put = (size_t)r;
-          if (*got + put > AI_SINK_CAP) {
-            put = AI_SINK_CAP - *got;
-            overflow = true;
-          }
-          memcpy(s_work->sink + *got, s_work->rbuf, put);
-          *got += put;
-          if (size >= 0 && *got >= (size_t)size) {
-            break;
-          }
-        }
-      }
-    } else if (!s->connected()) {
-      break;                              // closed: complete only if the framing says so (below)
-    } else if (millis() - idle > AI_BODY_IDLE_MS) {
-      *net = GEM_NET_TIMEOUT;
-      return false;
-    } else {
-      vTaskDelay(pdMS_TO_TICKS(5));       // never spin: the loop task shares this core
-    }
-  }
-  if ((chunked && !d.done) || (!chunked && size >= 0 && *got < (size_t)size)) {
-    *net = GEM_NET_LOST;
-    return false;
-  }
-  if (overflow || d.overflow) {
-    *net = GEM_NET_TOO_BIG;
-    return false;
-  }
-  s_work->sink[*got] = '\0';
-  return true;
-}
-
-/* One POST. The HTTP code (> 0), or 0 with *net saying what failed. A body that could not be
- * read is a failure even under a 200. */
+/* One POST, through the shared worker's exchange (https_worker.cpp: netHttps - the code that was
+ * this file's postOnce/readBody until 0.9.81, the same steps in the same order: DNS first, a new
+ * WiFiClientSecure with Google's roots, HTTPClient's own connect under AI_CONNECT_MS, the key in a
+ * header, the chunked body de-chunked by hand into the PSRAM sink). The HTTP code (> 0), or 0 with
+ * *net saying what failed. A body that could not be read is a failure even under a 200, and so is
+ * one past the sink (GEM_NET_TOO_BIG, as before). */
 static int postOnce(const char* model, size_t bodyLen, size_t* got, int* net) {
   *got = 0;
   *net = GEM_NET_OK;
-  s_work->sink[0] = '\0';
-  IPAddress ip;
-  if (!WiFi.hostByName(GEM_HOST, ip)) {   // asked first, so "no internet" is told apart from a refusal
-    *net = GEM_NET_DNS;
-    return 0;
-  }
-  WiFiClientSecure* c = new (std::nothrow) WiFiClientSecure();
-  if (!c) {
-    *net = GEM_NET_NOMEM;
-    return 0;
-  }
-  c->setCACert(AI_ROOTS_PEM);
   char url[sizeof(GEM_URL_PREFIX) + GEM_MODEL_MAX + sizeof(GEM_URL_SUFFIX)];
   snprintf(url, sizeof(url), "%s%s%s", GEM_URL_PREFIX, model, GEM_URL_SUFFIX);
-  int code = 0;
-  {
-    /* An inner block: ~HTTPClient calls stop() on its client, which must still exist. */
-    HTTPClient http;
-    http.setReuse(false);
-    http.setConnectTimeout(AI_CONNECT_MS);
-    http.setTimeout(AI_TIMEOUT_MS);
-    http.setUserAgent(AI_USER_AGENT);
-    static const char* WANT[] = { "Transfer-Encoding" };
-    http.collectHeaders(WANT, 1);
-    if (!http.begin(*c, url)) {
-      *net = GEM_NET_CONNECT;
-    } else {
-      http.addHeader("Content-Type", "application/json");
-      http.addHeader("x-goog-api-key", s_req->cfg.key);   // ⚠ a header, never the URL
-      code = http.sendRequest("POST", (uint8_t*)s_body, bodyLen);
-      floorNow();
-      if (code > 0) {
-        const bool chunked = http.header("Transfer-Encoding").equalsIgnoreCase("chunked");
-        if (!readBody(http, chunked, http.getSize(), got, net)) {
-          code = 0;
-        }
-      } else if (code == HTTPC_ERROR_CONNECTION_REFUSED) {
-        char eb[64];
-        const int le = c->lastError(eb, sizeof(eb));
-        if (le == -0x2700) {                       // MBEDTLS_ERR_X509_CERT_VERIFY_FAILED
-          *net = GEM_NET_TLS;
-        } else if (le == -0x7F00) {                // MBEDTLS_ERR_SSL_ALLOC_FAILED
-          *net = GEM_NET_NOMEM;
-        } else if (le < -1) {
-          *net = GEM_NET_TLS_OTHER;
-        } else {
-          *net = GEM_NET_CONNECT;                  // refused, unreachable, or the 10 s handshake cap
-        }
-        code = 0;
-      } else if (code == HTTPC_ERROR_READ_TIMEOUT) {
-        *net = GEM_NET_TIMEOUT;
-        code = 0;
-      } else if (code == HTTPC_ERROR_TOO_LESS_RAM) {
-        *net = GEM_NET_NOMEM;
-        code = 0;
-      } else if (code == HTTPC_ERROR_ENCODING) {
-        *net = GEM_NET_BAD_BODY;
-        code = 0;
-      } else {
-        *net = GEM_NET_LOST;
-        code = 0;
-      }
-    }
-    http.end();
+  NetHttpReq q;
+  memset(&q, 0, sizeof(q));
+  q.method = "POST";
+  q.host = GEM_HOST;
+  q.url = url;
+  q.rootsPem = AI_ROOTS_PEM;
+  q.userAgent = AI_USER_AGENT;
+  q.hdrName[0] = "Content-Type";
+  q.hdrValue[0] = "application/json";
+  q.hdrName[1] = "x-goog-api-key";               // ⚠ a header, never the URL
+  q.hdrValue[1] = s_req->cfg.key;
+  q.body = (const uint8_t*)s_body;
+  q.bodyLen = bodyLen;
+  q.connectMs = AI_CONNECT_MS;
+  q.timeoutMs = AI_TIMEOUT_MS;
+  q.bodyIdleMs = AI_BODY_IDLE_MS;
+  q.cancel = &s_cancel;
+  q.sink = netWorkerSink();
+  q.cap = AI_SINK_CAP;
+  NetHttpRes r;
+  int code = netHttps(&q, &r);
+  if (r.largestAfterSend && r.largestAfterSend < s_res->largestFloor) {
+    s_res->largestFloor = r.largestAfterSend;
   }
-  c->stop();
-  delete c;
+  *net = r.net;
+  *got = r.got;
+  if (code > 0 && r.overflow) {
+    *net = GEM_NET_TOO_BIG;
+    code = 0;
+  }
   return code;
 }
 
@@ -760,6 +647,40 @@ static bool waitSliced(uint32_t ms) {
   return !s_cancel;
 }
 
+/* aiAsk's gates, and its reasons: WiFi, then the gates of a map download's Start (tile_fetch.cpp):
+ * a running download keeps a TLS session of its own (two handshakes ~24 KB); the uploader and a
+ * sync window run the radio as a server; a call's audio cannot share the handshake's heap dip; a
+ * game owns the card and the SPI bus; a Files folder job is the card's too. NULL = clear. Cheap
+ * flag reads: aiAsk asks on the loop, and the worker again before the first request of a question
+ * that waited behind a weather fetch (final review 2026-10-03: that wait can be a minute). */
+static const char* aiGateWhy() {
+  if (wifiState.radioOff()) {
+    return "WiFi is off (Settings > WiFi)";
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    return "No WiFi - join a network first";
+  }
+  if (tileFetchActive()) {
+    return "A map download is running";
+  }
+  if (xferOn()) {
+    return "The WiFi uploader is on - stop it first";
+  }
+  if (kosyncWindowActive() || xferWindowUp()) {
+    return "A book sync window is open";
+  }
+  if (tileFetchCallRecent()) {
+    return "A call is on, or ended under a minute ago";
+  }
+  if (gGbcActive) {
+    return "A game is running";
+  }
+  if (filesJobActive()) {
+    return "A Files folder job is running - let it finish";
+  }
+  return NULL;
+}
+
 /* The ladder for one question: a LOOP (the T-Deck's first retry called itself mid-TLS and died). */
 static void aiRun() {
   AiReq* q = s_req;
@@ -770,6 +691,24 @@ static void aiRun() {
   for (int i = 0; i < q->nCtx; i++) {
     ctx[i].q = q->ctxQ[i];
     ctx[i].a = q->ctxA[i];
+  }
+  if (q->heapCheckAtStart) {
+    /* Asked while a weather fetch held the worker: aiAsk's gates again (the wait was long enough for
+     * a call to ring in or a download to start), then its heap gate, here, now that it is done. */
+    const char* gate = aiGateWhy();
+    if (gate) {
+      strlcpy(r->fail, gate, sizeof(r->fail));
+      r->ms = millis() - t0;
+      return;
+    }
+    uint32_t f = 0, lg = 0;
+    if (!netHeapOkForHandshake(&f, &lg)) {
+      r->net = GEM_NET_NOMEM;
+      snprintf(r->fail, sizeof(r->fail), "Phone low on memory (%u KB block, %u KB free) - reboot first",
+               (unsigned)(lg / 1024), (unsigned)(f / 1024));
+      r->ms = millis() - t0;
+      return;
+    }
   }
   char* label = s_work->label;
   char* primaryLabel = s_work->primaryLabel;
@@ -832,7 +771,7 @@ static void aiRun() {
     r->bodyBytes = (uint32_t)got;
     progSet(NULL, NULL, 0, r->attempts);
     if (code > 0) {
-      geminiParseReply(s_work->sink, got, s_work->text, sizeof(s_work->text), rep);
+      geminiParseReply(netWorkerSink(), got, s_work->text, sizeof(s_work->text), rep);
     } else {
       memset(rep, 0, sizeof(*rep));
       rep->retryDelayS = -1;
@@ -878,42 +817,15 @@ static void aiRun() {
   r->ms = millis() - t0;
 }
 
-static void aiWorker(void*) {
-  for (;;) {
-    xSemaphoreTake(s_go, portMAX_DELAY);
-    aiRun();                              // returns, so its locals are destructed
-    memset(s_req->cfg.key, 0, sizeof(s_req->cfg.key));
-    s_res->stackFloor = (uint32_t)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t));
-    heapNow(NULL, NULL, &s_res->minEver);
-    s_done = true;                        // before s_busy drops: aiRequestActive never blinks
-    s_busy = false;                       // back on the semaphore: nothing else runs on this stack
-  }
-}
-
-static bool ensureWorker(char* why, size_t whyCap) {
-  if (!s_stack) {
-    s_stack = (StackType_t*)heap_caps_malloc(AI_STACK_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (!s_stack) {
-      strlcpy(why, "No internal RAM for the AI task - reboot first", whyCap);
-      return false;
-    }
-  }
-  if (!s_go) {
-    s_go = xSemaphoreCreateBinary();
-    if (!s_go) {
-      strlcpy(why, "No RAM for the AI task", whyCap);
-      return false;
-    }
-  }
-  if (!s_task) {
-    s_task = xTaskCreateStaticPinnedToCore(aiWorker, "aiworker", AI_STACK_BYTES, NULL, 1, s_stack,
-                                           &s_tcb, 1);
-    if (!s_task) {
-      strlcpy(why, "Could not start the AI task", whyCap);
-      return false;
-    }
-  }
-  return true;
+/* The AI's job on the shared worker (https_worker.h): the question's ladder, then the key wiped -
+ * exactly what the AI's own worker did per question before 0.9.81. */
+static void aiJob() {
+  aiRun();                                // returns, so its locals are destructed
+  memset(s_req->cfg.key, 0, sizeof(s_req->cfg.key));
+  s_res->stackFloor = netWorkerStackFloor();
+  heapNow(NULL, NULL, &s_res->minEver);
+  s_done = true;                          // before s_busy drops: aiRequestActive never blinks
+  s_busy = false;                         // the worker goes on to a queued weather fetch, or sleeps
 }
 
 // ── the loop side ────────────────────────────────────────────────────────────────────────
@@ -1040,48 +952,20 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
     }
     return false;
   }
-  if (wifiState.radioOff()) {
-    strlcpy(why, "WiFi is off (Settings > WiFi)", whyCap);
-    return false;
-  }
-  if (WiFi.status() != WL_CONNECTED) {
-    strlcpy(why, "No WiFi - join a network first", whyCap);
-    return false;
-  }
-  /* The gates of a map download's Start (tile_fetch.cpp), and the reasons: a running download
-   * keeps a TLS session of its own (two handshakes ~24 KB); the uploader and a sync window run the
-   * radio as a server; a call's audio cannot share the handshake's heap dip; a game owns the card
-   * and the SPI bus; a Files folder job is the card's too. */
-  if (tileFetchActive()) {
-    strlcpy(why, "A map download is running", whyCap);
-    return false;
-  }
-  if (xferOn()) {
-    strlcpy(why, "The WiFi uploader is on - stop it first", whyCap);
-    return false;
-  }
-  if (kosyncWindowActive() || xferWindowUp()) {
-    strlcpy(why, "A book sync window is open", whyCap);
-    return false;
-  }
-  if (tileFetchCallRecent()) {
-    strlcpy(why, "A call is on, or ended under a minute ago", whyCap);
-    return false;
-  }
-  if (gGbcActive) {
-    strlcpy(why, "A game is running", whyCap);
-    return false;
-  }
-  if (filesJobActive()) {
-    strlcpy(why, "A Files folder job is running - let it finish", whyCap);
-    return false;
-  }
   {
-    uint32_t f, l, m;
-    heapNow(&f, &l, &m);
-    const uint32_t needL = AI_CONNECT_LARGEST + (s_stack ? 0u : (uint32_t)AI_STACK_BYTES);
-    const uint32_t needF = AI_CONNECT_FREE + (s_stack ? 0u : (uint32_t)AI_STACK_BYTES);
-    if (l < needL || f < needF) {
+    const char* gate = aiGateWhy();
+    if (gate) {
+      strlcpy(why, gate, whyCap);
+      return false;
+    }
+  }
+  /* The heap bar - unless a weather fetch holds the worker: its handshake is dipping the heap right
+   * now, so the reading would refuse a question that would have been fine. Then the worker checks
+   * the bar itself when the question's turn comes (heapCheckAtStart). */
+  const bool behindWeather = wxRequestActive();
+  if (!behindWeather) {
+    uint32_t f, l;
+    if (!netHeapOkForHandshake(&f, &l)) {
       snprintf(why, whyCap, "Phone low on memory (%u KB block, %u KB free) - reboot first",
                (unsigned)(l / 1024), (unsigned)(f / 1024));
       return false;
@@ -1092,7 +976,7 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
     strlcpy(why, "No memory for the question", whyCap);
     return false;
   }
-  if (!ensureWorker(why, whyCap)) {
+  if (!netWorkerReady(why, whyCap)) {
     return false;
   }
   if (!s_sessionInit) {
@@ -1118,6 +1002,7 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
   }
   s_req->quota = s_m->quota;
   s_req->quotaIn = s_m->quota;
+  s_req->heapCheckAtStart = behindWeather;
   memset(s_res, 0, sizeof(*s_res));
   s_haveRes = false;
   /* MUSIC PAUSES FOR A QUESTION (Nick, 2026-10-03: "make music turn off when doing ai"). The
@@ -1133,7 +1018,8 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
   portENTER_CRITICAL(&s_mux);
   memset(&s_m->prog, 0, sizeof(s_m->prog));
   s_m->prog.startMs = millis();
-  strlcpy(s_m->prog.stage, pausedMusic ? "Music paused - connecting..." : "Connecting...",
+  strlcpy(s_m->prog.stage, behindWeather ? "Waiting for the weather fetch..."
+                           : (pausedMusic ? "Music paused - connecting..." : "Connecting..."),
           sizeof(s_m->prog.stage));
   s_m->prog.gen = 1;
   portEXIT_CRITICAL(&s_mux);
@@ -1142,7 +1028,7 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
   s_cancel = false;
   s_done = false;
   s_busy = true;
-  xSemaphoreGive(s_go);
+  netWorkerSubmit(NET_JOB_AI, aiJob);
   return true;
 }
 
@@ -1217,7 +1103,7 @@ void aiReport(void (*emit)(const char* line)) {
     }
     emit(l);
     snprintf(l, sizeof(l), "    worker stack floor %u of %u | internal largest floor %u, min-ever %u",
-             (unsigned)s_res->stackFloor, (unsigned)AI_STACK_BYTES, (unsigned)s_res->largestFloor,
+             (unsigned)s_res->stackFloor, (unsigned)NET_STACK_BYTES, (unsigned)s_res->largestFloor,
              (unsigned)s_res->minEver);
     emit(l);
   } else {

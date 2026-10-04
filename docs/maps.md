@@ -23,7 +23,7 @@ mesh has shared and the last position of everyone who has spoken.
 | **Side button 3** | centre on me: a live GPS fix (4+ satellites), else the pin you declared by hand. Also `0` |
 | **Side button 4** (bottom) | the next map type — the same switch as **Menu → Map area**, one press at a time, round and round (`usgs-topo` → `usgs-img` → `otm` → …). The ground under the crosshair stays put; the strip says which map you are on. With one map on the card it says so |
 | **OK** | drop a pin on the crosshair and name it — or, with a pin under the crosshair, open it (rename / move / share / delete). Also `5` |
-| **Menu** (top-left soft key) | **What the buttons do...** is its first row — the phone's buttons drawn with what each does. Then download maps, go to coordinates, follow me, measure (an anchor at the crosshair; scroll away and the strip reads the distance and bearing), **Snap to markers: ON/off**, **Altitude: ON/off** and **Units: metric / US (ft, mi, mph)** (both below), pins, places, nodes — the three lists are **nearest-first** with distance and bearing on every row |
+| **Menu** (top-left soft key) | **What the buttons do...** is its first row — the phone's buttons drawn with what each does. Then download maps, go to coordinates, follow me, measure (an anchor at the crosshair; scroll away and the strip reads the distance and bearing), **Snap to markers: ON/off**, **Altitude: ON/off** and **Units: metric / US (ft, mi, mph, F)** (both below), pins, places, nodes — the three lists are **nearest-first** with distance and bearing on every row |
 | **7 / 9** | previous / next pin, centring the map on it |
 | **Back** | leave. Where you were looking is saved — also on power-off |
 
@@ -247,7 +247,7 @@ swap needs the cardday step to bring it back.
 
 ## Units
 
-**Menu → Units: metric / US (ft, mi, mph)** — one setting (the same row, word for word, as the
+**Menu → Units: metric / US (ft, mi, mph, F)** — one setting (the same row, word for word, as the
 Almanac's Settings: `unitsSettingRow`) for the whole phone (NVS `wpmesh/units`;
 serial `units metric|us`). Metric is exactly what the phone has always printed. US is feet and
 miles: the scale bar (`500ft`, `2000ft`, `0.5mi`, `2mi`), every distance on the strip and in

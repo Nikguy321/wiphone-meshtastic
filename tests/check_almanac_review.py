@@ -53,6 +53,22 @@ The second review of 2026-09-27 (its pure halves in test_almanac_lines / test_el
  14. A rebuild keeps the list's scroll (rebuildKeepingSelection: almMenuTop -> setTop).
  15. The titles are almTitle's (setHeader); the units row is unitsSettingRow in the Almanac's
      Settings AND the Maps menu; `almanac bench` zeroes its AlmDay (heap_caps_calloc).
+The weather (0.9.81; its pure half in test_weather):
+ 16. NO card, HTTP or TLS in the guarded functions: the six A1 functions (key handlers, build, entry,
+     the rebuild, bindDay, owedFor) and fillCtx call no SD.*, HTTPClient, WiFiClientSecure, netHttps,
+     wxRequest, wxCacheLoadCard, wxClear, wxReport, almReadElevation or elevSampleCard. The card's
+     cache is read on the TIMER (AlmanacApp::slice: wxCacheLoadCard), the fetch is queued there too
+     (wxStep: the ground read, then wxRequest), and WEATHER's Refresh only sets wxWant. Back's
+     ENTRY_OF table is sized ALM_SCREEN_COUNT (an index past it lands on "Sun...").
+ 17. The loop: WiPhone.ino folds the fetch (wxLoopTick) and keys busy, hardBusy and the 10-tick
+     sleep on netRequestActive() - no bare aiRequestActive() left there (a weather handshake at the
+     80 MHz idle clock against a 1-tick loop is the AI's 3-of-3 failure); wxLoopTick returns while
+     gGbcActive (the card write vs the game's SPI bus); weather_net and https_worker never call
+     setInsecure, and weather_net's log lines never carry the URL or a coordinate.
+ 18. The second weather review (2026-10-03): netHttps calls http.begin() BEFORE the client's own
+     connect (begin on a connected client stop()s it - a second, untimed handshake past the heap
+     bar); wxJob asks the gates again (wxGateWhy) before each host, not only at submit time; the
+     serial `wx` refuses while gGbcActive before it can touch the card.
 
 A self-test plants one hand mutation per contract into the real text and shows each trips.
 """
@@ -66,7 +82,11 @@ from check_wifi_restore import function_body, ifs, match_close, rx, strip_code  
 
 FILES = ["meshtastic_service.cpp", "WiPhone.ino", "app_almanac.cpp", "almanac_lines.cpp",
          "prefs_almanac.cpp", "tile_fetch.cpp", "serial_cmd.cpp", "app_files.cpp", "app_maps.cpp",
-         "app_almanac.h"]
+         "app_almanac.h", "weather_net.cpp", "https_worker.cpp"]
+
+# What a key handler, a build or an entry must never do (the weather, 0.9.81): the card, HTTP, TLS.
+NO_IO = (r"\bSD\s*\.|\bHTTPClient\b|\bWiFiClientSecure\b|\b(?:netHttps|wxRequest|wxCacheLoadCard|wxClear|"
+         r"wxReport|almReadElevation|elevSampleCard)\s*\(")
 
 # What a key handler or a screen builder must never do (A1): a table, a search or a scan.
 HEAVY = (r"\b(?:almDayCompute|almDayEnsure|astroSunDay|astroMoonDay|astroNextMoonPhase|"
@@ -122,6 +142,15 @@ def problems(texts):
             if m:
                 out.append("app_almanac.cpp: %s calls %s - a table or a search outside the slices "
                            "(the 148 ms pass, phone 2)" % (fn, m.group(0).rstrip("( ")))
+    for fn in ("AlmanacApp::processEvent", "AlmanacApp::build", "AlmanacApp::enter",
+               "AlmanacApp::rebuildKeepingSelection", "AlmanacApp::bindDay", "AlmanacApp::owedFor",
+               "AlmanacApp::fillCtx"):
+        span = body(c, fn, out, "app_almanac.cpp")
+        if span:
+            m = rx(NO_IO).search(c, span[0], span[1])
+            if m:
+                out.append("app_almanac.cpp: %s calls %s - card, HTTP or TLS outside the timer (16)"
+                           % (fn, m.group(0).rstrip("( .")))
     span = body(c, "AlmanacApp::fillCtx", out, "app_almanac.cpp")
     if span and not rx(r"\bnoSearch\s*=\s*true\b").search(c, span[0], span[1]):
         out.append("AlmanacApp::fillCtx: noSearch is not set - a builder would search in a key handler")
@@ -295,7 +324,9 @@ def problems(texts):
         if not rx(r"\blanded\s*=\s*true\b").search(c, bs, be):
             out.append("AlmanacApp::slice: a landed part never sets `landed`")
         after = blocks[0][2] if len(blocks) == 1 else bs
-        if not rx(r"\barmTimer\s*\([^;]*millis\s*\(\s*\)\s*-\s*passMs").search(c, after, be):
+        # The LAST arming in the pass (the slice's own) - the weather's early return arms its own too.
+        arms = [m for m in rx(r"\barmTimer\s*\([^;]*;").finditer(c, after, be)]
+        if not arms or not rx(r"\barmTimer\s*\([^;]*millis\s*\(\s*\)\s*-\s*passMs").match(c, arms[-1].start()):
             out.append("AlmanacApp::slice: the slice's timer is not re-armed with the pass's own work (the gap is fake)")
     span = body(c, "AlmanacApp::armTimer", out, "app_almanac.cpp")
     if span and not rx(r"\bmsAppTimerEventPeriod\s*=\s*workedMs\s*\+\s*ALM_SLICE_GAP_MS\b").search(c, span[0], span[1]):
@@ -360,6 +391,78 @@ def problems(texts):
         bs, be = span
         if not rx(r"\bheap_caps_calloc\s*\(").search(c, bs, be) or rx(r"\bheap_caps_malloc\s*\(").search(c, bs, be):
             out.append("almConsoleBench: its AlmDay is not zeroed (heap_caps_calloc) - the builders read garbage")
+
+    # 16. the weather: the card and the fetch on the timer only, Refresh only queues, Back's table
+    span = body(c, "AlmanacApp::slice", out, "app_almanac.cpp")
+    if span:
+        bs, be = span
+        if not rx(r"\bwxCacheLoadCard\s*\(").search(c, bs, be):
+            out.append("AlmanacApp::slice: the weather cache is not read on the timer (wxCacheLoadCard)")
+        if not rx(r"\bwxStep\s*\(").search(c, bs, be):
+            out.append("AlmanacApp::slice: the weather's step (wxStep) is not on the timer")
+    span = body(c, "AlmanacApp::wxStep", out, "app_almanac.cpp")
+    if span:
+        bs, be = span
+        if not rx(r"\bwxRequest\s*\(").search(c, bs, be) or not rx(r"\balmReadElevation\s*\(").search(c, bs, be):
+            out.append("AlmanacApp::wxStep: the fetch is not queued here with the ground read (wxRequest, almReadElevation)")
+    span = body(c, "AlmanacApp::processEvent", out, "app_almanac.cpp")
+    if span:
+        bs, be = span
+        if not rx(r"\bwxWant\s*=\s*ALM_WX_REFRESH\b").search(c, bs, be):
+            out.append("AlmanacApp::processEvent: WEATHER's Refresh does not set wxWant = ALM_WX_REFRESH")
+        if not rx(r"\bENTRY_OF\s*\[\s*ALM_SCREEN_COUNT\s*\]").search(c, bs, be):
+            out.append("AlmanacApp::processEvent: Back's ENTRY_OF is not sized ALM_SCREEN_COUNT - Back from "
+                       "WEATHER lands on Sun")
+
+    # 17. the loop's hooks, the game, no insecure TLS, no URL in a log
+    c = code["WiPhone.ino"]
+    if not rx(r"\bwxLoopTick\s*\(\s*\)\s*;").search(c):
+        out.append("WiPhone.ino: wxLoopTick() is not called - a finished fetch is never folded")
+    if rx(r"\baiRequestActive\s*\(").search(c):
+        out.append("WiPhone.ino: a bare aiRequestActive() - busy/hardBusy/the sleep must be netRequestActive() "
+                   "(a weather handshake at 80 MHz against a 1-tick loop)")
+    n = len(rx(r"\bnetRequestActive\s*\(\s*\)").findall(c))
+    if n < 3:
+        out.append("WiPhone.ino: netRequestActive() in %d place(s) - busy, hardBusy and the 10-tick sleep need it" % n)
+    w = code["weather_net.cpp"]
+    span = body(w, "wxLoopTick", out, "weather_net.cpp")
+    if span and not rx(r"\bif\s*\(\s*!s_done\s*\|\|\s*gGbcActive\s*\)\s*\{\s*return\s*;").search(w, span[0], span[1]):
+        out.append("wxLoopTick: does not wait out a game (gGbcActive) before writing the card")
+    for f in ("weather_net.cpp", "https_worker.cpp"):
+        if rx(r"\bsetInsecure\s*\(").search(code[f]):
+            out.append("%s: setInsecure() - the weather is pinned to ISRG X1 + Root YR, never insecure" % f)
+    raw_w = texts["weather_net.cpp"]
+    for m in re.finditer(r"\blog_[a-z]\s*\(", raw_w):
+        call = raw_w[m.start():raw_w.find(";", m.end())]
+        if re.search(r"Url|url\b|\blat\b|\blon\b|latE2|lonE2|%f|%\.\d+f", call):
+            out.append("weather_net.cpp: a log line carries the URL or a coordinate: %s" % call[:80])
+
+    # 18. one handshake a request; the gates on the worker; `wx` off the card during a game
+    h = code["https_worker.cpp"]
+    span = body(h, "netHttps", out, "https_worker.cpp")
+    if span:
+        bs, be = span
+        b = rx(r"\bhttp\s*\.\s*begin\s*\(").search(h, bs, be)
+        k = rx(r"\bc\s*->\s*connect\s*\(").search(h, bs, be)
+        if not b:
+            out.append("netHttps: http.begin() not found")
+        elif k and k.start() < b.start():
+            out.append("netHttps: the client connects BEFORE http.begin() - begin stop()s it and sendRequest "
+                       "handshakes a second time, untimed and past the heap bar")
+    span = body(w, "wxJob", out, "weather_net.cpp")
+    if span:
+        n = len(rx(r"\bwxGateWhy\s*\(\s*\)").findall(w, span[0], span[1]))
+        if n < 2:
+            out.append("wxJob: the gates asked %d time(s) on the worker - before EACH host (a job queued "
+                       "behind the AI can meet a call or a download)" % n)
+    a = code["app_almanac.cpp"]
+    span = body(a, "almanacWeatherConsole", out, "app_almanac.cpp")
+    if span:
+        bs, be = span
+        g = rx(r"\bif\s*\(\s*gGbcActive\s*\)\s*\{[^}]*\breturn\s*;").search(a, bs, be)
+        first = rx(r"\b(?:wxReport|wxClear|wxCacheLoadCard|almReadElevation|wxRequest)\s*\(").search(a, bs, be)
+        if not g or (first and first.start() < g.start()):
+            out.append("almanacWeatherConsole: no gGbcActive refusal before the card - `wx` beside a game's blit task")
     return out
 
 
@@ -437,9 +540,36 @@ MUTATIONS = [
     ("the map's own units words", "app_maps.cpp",
      lambda t: t.replace("menu->addOption(unitsSettingRow(gUnits), ROW_M_UNITS);",
                          'menu->addOption(gUnits == UNITS_US ? "Units: US (ft, mi)" : "Units: metric", ROW_M_UNITS);', 1)),
+    # the weather (0.9.81)
+    ("the weather's card read in Refresh's key handler", "app_almanac.cpp",
+     lambda t: t.replace("      wxWant = ALM_WX_REFRESH;\n", "      wxWant = ALM_WX_REFRESH;\n      wxCacheLoadCard();\n", 1)),
+    ("the fetch started in the key handler", "app_almanac.cpp",
+     lambda t: t.replace("      wxWant = ALM_WX_REFRESH;\n", "      wxWant = ALM_WX_REFRESH;\n      wxRequest(NULL, true, wxNote, sizeof(wxNote));\n", 1)),
+    ("the ground read in the build", "app_almanac.cpp",
+     lambda t: t.replace("  wxShownGen = wxGen();", "  { double em; int ez; almReadElevation(0, 0, &em, &ez); }\n  wxShownGen = wxGen();", 1)),
+    ("the cache read off the timer", "app_almanac.cpp",
+     lambda t: t.replace("    wxCacheLoadCard();\n    wxLoaded = wxCacheLoaded()", "    wxLoaded = wxCacheLoaded()", 1)),
+    ("Back's table not grown", "app_almanac.cpp",
+     lambda t: t.replace("ENTRY_OF[ALM_SCREEN_COUNT]", "ENTRY_OF[7]", 1)),
+    ("the handshake at the idle clock", "WiPhone.ino",
+     lambda t: t.replace("netRequestActive() ||  // the handshake at full speed", "aiRequestActive() ||  // the handshake at full speed", 1)),
+    ("the fold forgetting the game", "weather_net.cpp",
+     lambda t: t.replace("if (!s_done || gGbcActive) {\n    return;", "if (!s_done) {\n    return;", 1)),
+    ("an insecure weather client", "https_worker.cpp",
+     lambda t: t.replace("  c->setCACert(q->rootsPem);", "  c->setInsecure();", 1)),
+    ("the URL in the log", "weather_net.cpp",
+     lambda t: t.replace('log_e("weather: failed http %d", s_r->om.code);', 'log_e("weather: failed http %d %s", s_r->om.code, s_q->omUrl);', 1)),
     ("the bench over garbage", "app_almanac.cpp",
      lambda t: t.replace("AlmDay* d = (AlmDay*)heap_caps_calloc(1, sizeof(AlmDay), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);\n  if (!d) {\n    out(\"almanac bench",
                          "AlmDay* d = (AlmDay*)heap_caps_malloc(sizeof(AlmDay), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);\n  if (!d) {\n    out(\"almanac bench", 1)),
+    # the second weather review (2026-10-03)
+    ("the client connected before http.begin()", "https_worker.cpp",
+     lambda t: t.replace("    if (!http.begin(*c, q->url)) {\n      r->net = GEM_NET_CONNECT;\n    } else {\n      bool connected = true;\n      if (q->connectFirst) {\n        const uint32_t th = millis();\n        connected = c->connect(q->host, 443, (int32_t)q->connectMs) == 1;",
+                         "    c->connect(q->host, 443, (int32_t)q->connectMs);\n    if (!http.begin(*c, q->url)) {\n      r->net = GEM_NET_CONNECT;\n    } else {\n      bool connected = true;\n      if (q->connectFirst) {\n        const uint32_t th = millis();\n        connected = true;", 1)),
+    ("the gates asked once, at submit time only", "weather_net.cpp",
+     lambda t: t.replace("  if (!r->skipped[0] && (gate = wxGateWhy()) != NULL) {", "  if (false) {", 1)),
+    ("`wx` beside a game", "app_almanac.cpp",
+     lambda t: t.replace('  if (gGbcActive) {\n    out("wx: refused - a game owns the card right now");\n    return;\n  }\n', "", 1)),
 ]
 
 
@@ -462,8 +592,8 @@ def main():
             failed = True
     if failed:
         return 1
-    print("  ok  the 2026-09-27 review's device-side fixes are in place (%d hand mutations trip)"
-          % len(MUTATIONS))
+    print("  ok  the 2026-09-27 review's device-side fixes and the weather's (0.9.81) are in place "
+          "(%d hand mutations trip)" % len(MUTATIONS))
     return 0
 
 

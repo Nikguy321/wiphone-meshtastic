@@ -468,10 +468,79 @@ int main() {
   }
 
   // The setting's own row: ONE wording for the Maps menu and the Almanac's Settings (review
-  // 2026-09-27: the map said "US (ft, mi)", the Almanac "US (ft, mi, mph)").
-  CHECK(is(unitsSettingRow(UNITS_US), "Units: US (ft, mi, mph)") &&
+  // 2026-09-27: the map said "US (ft, mi)", the Almanac "US (ft, mi, mph)"). 0.9.81: US is
+  // Fahrenheit (and inHg, inches) for the weather too, and the row says so.
+  CHECK(is(unitsSettingRow(UNITS_US), "Units: US (ft, mi, mph, F)") &&
         is(unitsSettingRow(UNITS_METRIC), "Units: metric") && is(unitsSettingRow(7), "Units: metric"),
-        "the setting's row: US names all three units; anything not US is metric");
+        "the setting's row: US names its units, Fahrenheit included; anything not US is metric");
+
+  // ── the weather's formatters (0.9.81): fetched in SI, written in the setting ────────────────
+  {
+    char b[32];
+    unitsFmtTemp(11.2, UNITS_METRIC, b, sizeof(b));
+    CHECK(is(b, "11C"), "temp: 11.2 C -> \"11C\" (no degree glyph)");
+    unitsFmtTemp(11.2, UNITS_US, b, sizeof(b));
+    CHECK(is(b, "52F"), "temp: 11.2 C -> \"52F\"");
+    unitsFmtTemp(-0.4, UNITS_METRIC, b, sizeof(b));
+    CHECK(is(b, "0C"), "temp: -0.4 C -> \"0C\", never \"-0C\"");
+    unitsFmtTemp(-17.9, UNITS_US, b, sizeof(b));
+    CHECK(is(b, "0F"), "temp: -17.9 C = -0.2 F -> \"0F\", never \"-0F\"");
+    unitsFmtTemp(-18.1, UNITS_US, b, sizeof(b));
+    CHECK(is(b, "-1F"), "temp: -18.1 C -> \"-1F\"");
+    unitsFmtTemp(-2.5, UNITS_METRIC, b, sizeof(b));
+    CHECK(is(b, "-3C"), "temp: half away from zero (-2.5 -> -3)");
+    unitsFmtTemp(NAN, UNITS_METRIC, b, sizeof(b));
+    CHECK(is(b, "--"), "temp: NaN -> \"--\"");
+    unitsFmtTemp(1e9, UNITS_METRIC, b, sizeof(b));
+    CHECK(is(b, "9999C"), "temp: held to 9999");
+    unitsFmtTemp(11.2, UNITS_METRIC, b, 3);
+    CHECK(is(b, ""), "temp: no room -> \"\", never a cut number");
+    unitsFmtWind(3.9, UNITS_METRIC, true, b, sizeof(b));
+    CHECK(is(b, "14 km/h"), "wind: 3.9 m/s -> \"14 km/h\" (whole)");
+    unitsFmtWind(3.9, UNITS_US, true, b, sizeof(b));
+    CHECK(is(b, "9 mph"), "wind: 3.9 m/s -> \"9 mph\"");
+    unitsFmtWind(8.3, UNITS_METRIC, false, b, sizeof(b));
+    CHECK(is(b, "30"), "wind: bare (the gusts after it): 8.3 m/s -> \"30\"");
+    unitsFmtWind(-1.0, UNITS_US, true, b, sizeof(b));
+    CHECK(is(b, "0 mph"), "wind: negative reads as 0");
+    unitsFmtWind(NAN, UNITS_US, true, b, sizeof(b));
+    CHECK(is(b, "--"), "wind: NaN -> \"--\"");
+    unitsFmtPressure(1017.9, UNITS_METRIC, b, sizeof(b));
+    CHECK(is(b, "1018 hPa"), "pressure: 1017.9 hPa -> \"1018 hPa\"");
+    unitsFmtPressure(1017.9, UNITS_US, b, sizeof(b));
+    CHECK(is(b, "30.06 inHg"), "pressure: 1017.9 hPa -> \"30.06 inHg\"");
+    unitsFmtPressure(1013.25, UNITS_US, b, sizeof(b));
+    CHECK(is(b, "29.92 inHg"), "pressure: the standard atmosphere -> \"29.92 inHg\"");
+    unitsFmtPressure(0, UNITS_METRIC, b, sizeof(b));
+    CHECK(is(b, "--"), "pressure: 0 -> \"--\"");
+    unitsFmtPrecip(2.7, UNITS_METRIC, b, sizeof(b));
+    CHECK(is(b, "2.7 mm"), "precip: \"2.7 mm\"");
+    unitsFmtPrecip(2.7, UNITS_US, b, sizeof(b));
+    CHECK(is(b, "0.11 in"), "precip: 2.7 mm -> \"0.11 in\"");
+    unitsFmtPrecip(0.0, UNITS_US, b, sizeof(b));
+    CHECK(is(b, "0 in"), "precip: none -> \"0 in\"");
+    unitsFmtPrecip(0.02, UNITS_METRIC, b, sizeof(b));
+    CHECK(is(b, "<0.1 mm"), "precip: a trace that rounds to 0 -> \"<0.1 mm\" (\"0\" would say dry)");
+    unitsFmtPrecip(0.1, UNITS_US, b, sizeof(b));
+    CHECK(is(b, "<0.01 in"), "precip: 0.1 mm -> \"<0.01 in\"");
+    unitsFmtPrecip(0.127, UNITS_US, b, sizeof(b));
+    CHECK(is(b, "0.01 in"), "precip: 0.127 mm = 0.005 in rounds once, in integers -> \"0.01 in\"");
+    unitsFmtPrecip(25.4, UNITS_US, b, sizeof(b));
+    CHECK(is(b, "1.00 in"), "precip: 25.4 mm -> \"1.00 in\"");
+    unitsFmtPrecip(-3, UNITS_METRIC, b, sizeof(b));
+    CHECK(is(b, "0 mm"), "precip: negative reads as 0");
+    // A sweep: Fahrenheit read back is within half a degree of the exact conversion, never "-0".
+    int bad = 0;
+    for (double c = -60.0; c <= 60.0; c += 0.01) {
+      unitsFmtTemp(c, UNITS_US, b, sizeof(b));
+      const double f = c * 9.0 / 5.0 + 32.0;
+      const long got = strtol(b, NULL, 10);
+      if (fabs(got - f) > 0.5 + 1e-9 || !strcmp(b, "-0F") || b[strlen(b) - 1] != 'F') bad++;
+      unitsFmtTemp(c, UNITS_METRIC, b, sizeof(b));
+      if (fabs(strtol(b, NULL, 10) - c) > 0.5 + 1e-9 || !strcmp(b, "-0C")) bad++;
+    }
+    CHECK(bad == 0, "temp sweep -60..60 C by 0.01: both units within half a degree, never -0");
+  }
 
   if (failures) {
     printf("test_units: %d FAILURE(S)\n", failures);

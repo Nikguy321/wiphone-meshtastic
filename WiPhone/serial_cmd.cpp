@@ -21,7 +21,7 @@ extern uint32_t uiKeyMaskFor(char code);                                    // W
 #include "meshtastic_service.h"
 #include "t9_extra.h"            // the `t9` command reports the extra dictionary   // applyChannelUrl, the `chan` command
 #include "mesh_pos.h"             // distance/bearing for the `pos` command
-#include "app_almanac.h"          // almanacLegalToday / almanacConsole: `sun` and `almanac`
+#include "app_almanac.h"          // almanacLegalToday / almanacConsole / almanacWeatherConsole: `sun`, `almanac`, `wx`
 #include "clock.h"                // ntpClock
 #include "GUI.h"                  // gui.state, the `sip` command
 #include <SD.h>                   // the `wallpaper` command reads both filesystems
@@ -221,6 +221,9 @@ static void help() {
     "             at 160 MHz (a bench command: the app computes in slices); prints its own time",
     "  almanac cost  what the Almanac measured: its slices, each part of the day, its builds",
     "  almanac bench  each piece of the Almanac timed now (one pass, ~0.3 s)",
+    "  wx         the Almanac's weather: cache age, place source, rounded point, each host's",
+    "             status/code/handshake ms, worker stack and heap floors (never a URL)",
+    "  wx fetch | wx show | wx clear  Refresh's path / the WEATHER screen's rows / delete the cache",
     "  ai         Menu > AI: the key file (its LENGTH, never the key), the chat, the daily",
     "             limits, the last question's HTTP code/model/time/stack floor",
     "  ai ask <q> ask Gemini through the app's own path (500 chars); `ai` shows progress",
@@ -264,7 +267,8 @@ static void help() {
     "  key <names>  press keys: select/menu back ok up down left right call end f1-f4,",
     "             or a single character. `key menu`, `key down down ok`. Real presses -",
     "             they go into the keypad buffer, so the whole UI path runs unchanged",
-    "  open <app>  jump into an app: maps almanac ai photos books music mesh gbc files clock, or",
+    "  open <app>  jump into an app: maps almanac weather ai photos books music mesh gbc files",
+    "             clock (`weather` = the Almanac opened on Weather), or",
     "             wifi (Settings > WiFi's list) / wifiedit (edit the current network - there",
     "             `key select` is its Connect/Disconnect). Leaving (`open clock`) runs the exit",
     "             path Back does - for the WiFi screens, the `WIFI restore` line",
@@ -1413,6 +1417,16 @@ static void run(char* line) {
    * (app_almanac.h). */
   if (!strcasecmp(line, "almanac") || !strncasecmp(line, "almanac ", 8)) {
     almanacConsole(line + 7, sayLine);
+    return;
+  }
+  /* `wx` / `wx fetch` / `wx show` / `wx clear` — the Almanac's weather from the cable (0.9.81,
+   * weather_net.h). `wx`: the cache's age, the place source and the ROUNDED point it was fetched
+   * for, each host's status and last code, the handshake ms per host, the worker's stack and the
+   * heap floors. `wx fetch` takes the Refresh path (the gates, the ground read, the worker) - the
+   * line it prints never holds the URL or the coordinates; `wx show` prints the WEATHER screen's
+   * rows through the same builder; `wx clear` deletes /wx/weather.txt. */
+  if (!strncasecmp(line, "wx", 2) && (line[2] == '\0' || line[2] == ' ')) {
+    almanacWeatherConsole(line + 2, sayLine);
     return;
   }
   /* `unread` — why is the white message icon lit? Counts the truth from the
@@ -2584,6 +2598,10 @@ static void run(char* line) {
     ActionID_t app = GUI_APP_CLOCK;
     if (!strcasecmp(arg, "maps"))        app = GUI_APP_MAPS;
     else if (!strcasecmp(arg, "almanac")) app = GUI_APP_ALMANAC;
+    else if (!strcasecmp(arg, "weather")) {               // the Almanac, opened on WEATHER (0.9.81)
+      almanacOpenAtWeather(true);
+      app = GUI_APP_ALMANAC;
+    }
     else if (!strcasecmp(arg, "ai"))     app = GUI_APP_AI;
     else if (!strcasecmp(arg, "photos")) app = GUI_APP_PHOTOS;
     else if (!strcasecmp(arg, "books"))  app = GUI_APP_BOOKS;
@@ -2599,12 +2617,13 @@ static void run(char* line) {
     else if (!strcasecmp(arg, "wifiedit")) app = GUI_APP_EDITWIFI;
     else if (!strcasecmp(arg, "clock") || !*arg) app = GUI_APP_CLOCK;
     else {
-      say("open: maps | almanac | ai | photos | books | music | mesh | gbc | files | wifi | wifiedit | clock\n");
+      say("open: maps | almanac | weather | ai | photos | books | music | mesh | gbc | files | wifi | wifiedit | clock\n");
       return;
     }
     if (gui.openAppFromConsole(app)) {
       say("open: %s\n", arg[0] ? arg : "clock");
     } else {
+      almanacOpenAtWeather(false);                        // a refused open leaves no WEATHER for later
       extern volatile bool gGbcActive;   // a game cannot coexist with a call: startGame turns WiFi off
       say("open: refused - %s\n", gGbcActive ? "a game is running (END, then Quit)" : "a call is up");
     }
@@ -2884,7 +2903,7 @@ static void run(char* line) {
         return;
       }
       say("units: now %s - saved (NVS wpmesh/units); an open screen shows it at its next redraw\n",
-          gUnits == UNITS_US ? "US (ft, mi, mph)" : "metric (m, km, km/h)");
+          gUnits == UNITS_US ? "US (ft, mi, mph, F)" : "metric (m, km, km/h, C)");
       return;
     }
     char d[16], a[24];

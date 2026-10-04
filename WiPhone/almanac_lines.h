@@ -1,6 +1,7 @@
 /*
  * almanac_lines.h - what the Almanac SAYS, line by line, for every screen: TODAY, SUN, MOON,
- * SOLUNAR, POSITION, DATE and SETTINGS (docs/almanac.md, "On the phone").
+ * SOLUNAR, POSITION, DATE and SETTINGS (docs/almanac.md, "On the phone") - and, since 0.9.81,
+ * WEATHER, whose rows are weather_lines.cpp's (the same emitter, the same measuring).
  *
  * The phone's Almanac (app_almanac.cpp) turns each line into a menu row; the serial `almanac`
  * command prints the SAME lines, one say() each. So the bench proof against PyEphem is a proof
@@ -47,12 +48,18 @@
 enum {
   ALM_ROW_INFO = 1,            // one display-only line, measured to fit 232 px of Akrobat Bold 20
   ALM_ROW_WRAP = 2,            // a display-only sentence the screen breaks into rows (serial: 1 line)
+  /* (0.9.81) A weather ALERT: a sentence broken into rows as ALM_ROW_WRAP is, every row drawn in
+   * the alert's colour - yellow for Moderate/Minor (and an alert of unknown severity), red for
+   * Severe/Extreme (app_almanac.cpp: a wrapped alert keeps its colour on every row). */
+  ALM_ROW_WARN = 3,
+  ALM_ROW_DANGER = 4,
   ALM_ENTRY_SUN = 101,         // "Sun..." - OK opens it
   ALM_ENTRY_MOON = 102,
   ALM_ENTRY_SOLUNAR = 103,
   ALM_ENTRY_POSITION = 104,
   ALM_ENTRY_DATE = 105,
   ALM_ENTRY_SETTINGS = 106,
+  ALM_ENTRY_WEATHER = 107,     // "Weather..." (0.9.81)
   ALM_SET_LEGAL = 111,         // Settings: OK toggles the legal-light rule
   ALM_SET_UNITS = 112,         // Settings: OK toggles metric / US
   ALM_SET_DST = 113,           // Settings: OK toggles "US daylight saving" (the reminder, the shift)
@@ -211,6 +218,8 @@ bool almPlaceOk(double lat, double lon);
 /* The local calendar date of t0 + tzS; false (y/m/d still written) outside ALM_YEAR_MIN..MAX. */
 bool almDateOf(int64_t t, int tzS, int* y, int* m, int* d, int* wday, int* yday);
 
+struct WxView;                 // weather_lines.h: the weather the screens show (0.9.81)
+
 /* Everything a builder needs besides the AlmDay. */
 struct AlmCtx {
   bool          clockKnown;    // ntpClock.isTimeKnown()
@@ -231,6 +240,9 @@ struct AlmCtx {
   const AlmMoonAge* moonAge;   // MOON's age without a search; NULL = search (the serial command)
   bool          noSearch;      // the app: never search or scan in a builder - a part not in
                                // `day`/`moonAge` is a "Computing..." row (the timer fills it)
+  const WxView* wx;            // the weather (cache + fetch state); NULL = no weather rows at all.
+                               // TODAY shows an active alert near the top and a summary row from
+                               // it; WEATHER is almLinesWeather (weather_lines.h)
 };
 
 /* The device facts only the POSITION screen reads (the GPS receiver and the elevation card). */
@@ -266,10 +278,12 @@ struct AlmPos {
 enum {
   ALM_SCREEN_TODAY = 0, ALM_SCREEN_SUN, ALM_SCREEN_MOON, ALM_SCREEN_SOLUNAR,
   ALM_SCREEN_POSITION, ALM_SCREEN_DATE, ALM_SCREEN_SETTINGS,
+  ALM_SCREEN_WEATHER,          // 0.9.81 - appended: the values above are the Back table's indexes
+  ALM_SCREEN_COUNT
 };
 /* Everything the open screen shows, for the slices: the core on a day screen (every day screen
  * asks for it, so Back to TODAY finds it done), NEXT once the sun says the countdown needs it,
- * PREV on SUN, PHASES and AGE on MOON (moonFirst). parts 0 on POSITION, DATE, SETTINGS. */
+ * PREV on SUN, PHASES and AGE on MOON (moonFirst). parts 0 on POSITION, DATE, SETTINGS, WEATHER. */
 void    almScreenWant(int screen, const AlmCtx* c, AlmWant* out);
 int64_t almPhaseFrom(const AlmCtx* c);                 // "next quarter after": now today, else the day's t0
 /* The offset the shown day's times are given in, and that day's local midnight - today's offset,
@@ -356,7 +370,7 @@ bool almDayTzNote(int64_t now, int tzS, int dayOffset, bool usDst, char* out, si
  * carry the shown day's date: TODAY "Sep 27 (Sun)", SUN "Sun: Sep 27", MOON "Moon: Sep 27",
  * SOLUNAR "Solunar: Sep 27" (review 2026-09-27: TODAY's "Sun Sep 27" and SUN's "Sun: Sep 27" differed
  * by a colon on a Sunday, and SOLUNAR alone had none); with no clock "Almanac". The others:
- * "Position & GPS", "Date & seasons", "Settings". Every title is <= ALM_TITLE_MAX_W px for every
+ * "Position & GPS", "Date & seasons", "Settings", "Weather". Every title is <= ALM_TITLE_MAX_W px for every
  * date (test_almanac_lines measures them): the room GUI.cpp's header leaves with WiFi, one kind of
  * unread message and the widest clock (240 - 8 - 6 - (3+25+3 battery, 17+6 WiFi, 19+3 message,
  * 3+38 "00:00") = 109). Both message kinds, or the mute icon, take 7 or 17 px more: the header

@@ -5,7 +5,7 @@
  * Almanac's legal-light countdown looks at gLegalRule. docs/almanac.md, "Units" and "Legal light".
  *
  * NVS namespace "wpmesh" (the GPS switch's), keys <= 15 characters:
- *   "units"      0 = metric (the default: what the firmware always printed), 1 = US (ft, mi, mph)
+ *   "units"      0 = metric (the default: what the firmware always printed), 1 = US (ft, mi, mph; F, inHg, in for the weather)
  *   "legalrule"  0 = 30 minutes either side of sunrise/sunset (the default, Washington's
  *                big-game rule), 1 = civil twilight (sun centre 6 deg below the horizon)
  *   "almdst"     1 = US daylight saving applies here (the default): the Almanac's DATE reminds

@@ -232,7 +232,7 @@ static bool fitsAll(const Rows& r, const char* where) {
       printf("    an empty row (%s)\n", where);
       ok = false;
     }
-    if (r.kind[i] == ALM_ROW_WRAP) {
+    if (r.kind[i] == ALM_ROW_WRAP || r.kind[i] == ALM_ROW_WARN || r.kind[i] == ALM_ROW_DANGER) {
       if (!wrapsWhole(r.text[i])) {
         printf("    \"%s\" does not wrap whole into 6 rows of %d px (%s)\n", r.text[i], WRAP_W, where);
         ok = false;
@@ -711,7 +711,12 @@ int main() {
     CHECK(find(r, "At GPS") > 0, "TODAY: the place");
     int e = find(r, "Sun...");
     CHECK(e > 0 && r.kind[e] == ALM_ENTRY_SUN && r.kind[r.n - 1] == ALM_ENTRY_SETTINGS &&
-          r.n - e == 6, "TODAY: the six entries last, with their keys");
+          r.n - e == 7, "TODAY: the seven entries last, with their keys");
+    const int we = find(r, "Weather...");
+    CHECK(we == e + 3 && r.kind[we] == ALM_ENTRY_WEATHER,
+          "TODAY: \"Weather...\" (0.9.81) after Solunar..., key ALM_ENTRY_WEATHER");
+    CHECK(find(r, "Weather: ") < 0 && find(r, "Alert: ") < 0,
+          "TODAY: no weather view (AlmCtx.wx NULL) - no weather rows (test_weather has them)");
     CHECK(fitsAll(r, "TODAY"), "TODAY: every row fits 232 px");
 
     // The countdown's value against the tables.
@@ -847,7 +852,7 @@ int main() {
     cs.units = UNITS_US;
     memset(&r, 0, sizeof(r));
     almLinesSettings(&cs, collect, &r);
-    CHECK(is(r.text[0], "Legal light: civil twilight") && find(r, "Units: US (ft, mi, mph)") > 0 &&
+    CHECK(is(r.text[0], "Legal light: civil twilight") && find(r, "Units: US (ft, mi, mph, F)") > 0 &&
           is(r.text[find(r, "Units: ")], unitsSettingRow(UNITS_US)),
           "SETTINGS: the other values (the units row is units.cpp's, the Maps menu's words)");
     CHECK(fitsAll(r, "SETTINGS"), "SETTINGS: every row fits");
@@ -1584,13 +1589,15 @@ int main() {
     almTitle(ALM_SCREEN_POSITION, true, now, PDT, 0, t, sizeof(t));
     almTitle(ALM_SCREEN_DATE, true, now, PDT, 0, u, sizeof(u));
     CHECK(is(t, "Position & GPS") && is(u, "Date & seasons"), "titles: POSITION, DATE");
+    almTitle(ALM_SCREEN_WEATHER, true, now, PDT, 0, t, sizeof(t));
+    CHECK(is(t, "Weather"), "titles: WEATHER (0.9.81)");
     almTitle(ALM_SCREEN_TODAY, true, now, PDT, 0, t, 8);
     CHECK(!t[0], "titles: a short buffer writes \"\"");
     int widest = 0;
     char wide[32] = "";
     bool fit = true;
     for (int day = -1; day < 366 + 7; day++) {
-      for (int sc = ALM_SCREEN_TODAY; sc <= ALM_SCREEN_SETTINGS; sc++) {
+      for (int sc = ALM_SCREEN_TODAY; sc < ALM_SCREEN_COUNT; sc++) {
         almTitle(sc, true, unixOf(2026, 1, 1, 12, 0, 0, 0), 0, day, t, sizeof(t));
         const int w = textWidth(&f18, t);
         if (w > widest) {

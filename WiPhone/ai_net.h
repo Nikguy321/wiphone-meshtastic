@@ -15,6 +15,11 @@
  *     before the first WiFiClientSecure - an AI question may be the first TLS since boot.
  *   - Its OWN worker, not tile_fetch's: a map job holds that one for days. A question is refused
  *     while a download runs (two handshakes would dip the internal heap ~24 KB) - see aiAsk.
+ *   - (0.9.81) That worker is now SHARED with the Almanac's weather (https_worker.h: job kinds on
+ *     one stack, one request helper, netRequestActive() in the loop's hooks). The AI's job is what
+ *     this worker did before - the ladder, the key wipe, the music pause, the gates; a question
+ *     asked while a weather fetch holds the worker waits its turn ("Waiting for the weather
+ *     fetch...") and the heap bar is checked by the worker when it starts, not by aiAsk.
  * Per question: a new WiFiClientSecure with Google's roots pinned (setCACert: GTS Root R1 + R4,
  * built in and the only ones - no override file), setConnectTimeout(10000) - which also caps the
  * handshake, 120 s by default - and setTimeout(60000) for the answer (uint16: never past 65535),
@@ -91,8 +96,9 @@ void aiChatClear();                       // the saved file goes too
  * a game / a Files folder job, the internal heap under the handshake's bar, one already asked. */
 bool aiAsk(const char* question, char* why, size_t whyCap);
 void aiCancel();                          // the answer is thrown away when it lands
-/* Asked and not yet in the chat. WiPhone.ino puts it in `busy` and `hardBusy`: the handshake
- * runs at full speed (160 MHz with WiFi on), never at the 80 MHz idle clock. */
+/* Asked and not yet in the chat (queued behind a weather fetch included). WiPhone.ino puts it -
+ * through netRequestActive() - in `busy` and `hardBusy`: the handshake runs at full speed (160 MHz
+ * with WiFi on), never at the 80 MHz idle clock. */
 bool aiRequestActive();
 typedef struct {
   bool     active;

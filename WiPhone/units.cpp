@@ -228,6 +228,89 @@ int unitsScaleBar(double metresPerPx, int maxPx, int units, int* barPx, char* la
   return r < 1 ? 1 : (int)r;
 }
 
+void unitsFmtTemp(double celsius, int units, char* out, size_t cap) {
+  if (!out || cap == 0) {
+    return;
+  }
+  if (!isFiniteD(celsius)) {
+    wholeOrEmpty(out, cap, snprintf(out, cap, "--"));
+    return;
+  }
+  const bool us = units == UNITS_US;
+  double v = us ? celsius * 9.0 / 5.0 + 32.0 : celsius;
+  if (v > 9999.0) {
+    v = 9999.0;
+  }
+  if (v < -9999.0) {
+    v = -9999.0;
+  }
+  // Half away from zero; a value that rounds to 0 prints bare "0" (fmtWhole's rule: never "-0C").
+  fmtWhole(llround(v), false, false, us ? "F" : "C", out, cap);
+}
+
+void unitsFmtWind(double metresPerSec, int units, bool withUnit, char* out, size_t cap) {
+  if (!out || cap == 0) {
+    return;
+  }
+  if (!isFiniteD(metresPerSec)) {
+    wholeOrEmpty(out, cap, snprintf(out, cap, "--"));
+    return;
+  }
+  const bool us = units == UNITS_US;
+  double v = us ? metresPerSec / UNITS_MPS_PER_MPH : metresPerSec * 3.6;
+  if (!(v > 0.0)) {
+    v = 0.0;
+  }
+  if (v > 99999.0) {
+    v = 99999.0;
+  }
+  fmtWhole(llround(v), false, false, withUnit ? (us ? " mph" : " km/h") : "", out, cap);
+}
+
+void unitsFmtPressure(double hPa, int units, char* out, size_t cap) {
+  if (!out || cap == 0) {
+    return;
+  }
+  if (!isFiniteD(hPa) || !(hPa > 0.0) || hPa > 1e6) {
+    wholeOrEmpty(out, cap, snprintf(out, cap, "--"));
+    return;
+  }
+  if (units == UNITS_US) {
+    const long long q = llround(hPa / UNITS_HPA_PER_INHG * 100.0);   // hundredths, rounded once
+    wholeOrEmpty(out, cap, snprintf(out, cap, "%lld.%02lld inHg", q / 100, q % 100));
+    return;
+  }
+  fmtWhole(llround(hPa), false, false, " hPa", out, cap);
+}
+
+void unitsFmtPrecip(double mm, int units, char* out, size_t cap) {
+  if (!out || cap == 0) {
+    return;
+  }
+  if (!isFiniteD(mm)) {
+    wholeOrEmpty(out, cap, snprintf(out, cap, "--"));
+    return;
+  }
+  if (!(mm > 0.0)) {
+    wholeOrEmpty(out, cap, snprintf(out, cap, units == UNITS_US ? "0 in" : "0 mm"));
+    return;
+  }
+  if (mm > 1e6) {
+    mm = 1e6;
+  }
+  /* Hundredths of an inch / tenths of a mm, rounded once in integers (printf's "%.2f" of a
+   * value on a half rounds by its binary neighbour: 0.127 mm could print "0.00 in"). */
+  const bool us = units == UNITS_US;
+  const long long q = llround(us ? mm / UNITS_MM_PER_IN * 100.0 : mm * 10.0);
+  if (q == 0) {
+    wholeOrEmpty(out, cap, snprintf(out, cap, us ? "<0.01 in" : "<0.1 mm"));
+  } else if (us) {
+    wholeOrEmpty(out, cap, snprintf(out, cap, "%lld.%02lld in", q / 100, q % 100));
+  } else {
+    wholeOrEmpty(out, cap, snprintf(out, cap, "%lld.%lld mm", q / 10, q % 10));
+  }
+}
+
 const char* unitsSettingRow(int units) {
-  return units == UNITS_US ? "Units: US (ft, mi, mph)" : "Units: metric";
+  return units == UNITS_US ? "Units: US (ft, mi, mph, F)" : "Units: metric";
 }
