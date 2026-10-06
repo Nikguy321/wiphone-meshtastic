@@ -90,6 +90,51 @@ int tilePlanParseElevArg(const char* rest) {
   return *rest ? -2 : v;
 }
 
+int tilePlanAreaWritable(const char* name) {
+  if (!mapAreaNameOk(name)) {
+    return 0;
+  }
+  const size_t n = strlen(name);
+  return name[n - 1] != '.' && strcasecmp(name, ELEV_DIR) != 0;
+}
+
+int tilePlanParseDlurl(const char* arg, char* tmpl, size_t tcap, char* area, size_t acap) {
+  if (!arg || !tmpl || !area || tcap == 0 || acap == 0) {
+    return 0;
+  }
+  tmpl[0] = '\0';
+  area[0] = '\0';
+  while (*arg == ' ' || *arg == '\t') arg++;
+  const char* t = arg;
+  while (*arg && *arg != ' ' && *arg != '\t') arg++;
+  const size_t tn = (size_t)(arg - t);
+  if (tn == 0 || tn >= tcap) {
+    return 0;
+  }
+  while (*arg == ' ' || *arg == '\t') arg++;
+  const char* a = arg;
+  while (*arg && *arg != ' ' && *arg != '\t') arg++;
+  size_t an = (size_t)(arg - a);
+  while (*arg == ' ' || *arg == '\t') arg++;
+  if (*arg) {
+    return 0;                             // a third word: a mistake to be told about
+  }
+  const char* name = an ? a : "custom";
+  if (!an) an = strlen(name);
+  if (an >= acap) {
+    return 0;
+  }
+  memcpy(area, name, an);
+  area[an] = '\0';
+  if (!tilePlanAreaWritable(area)) {
+    area[0] = '\0';
+    return 0;
+  }
+  memcpy(tmpl, t, tn);
+  tmpl[tn] = '\0';
+  return 1;
+}
+
 // ── the Detail row ───────────────────────────────────────────────────────────────────────
 
 int tilePlanDepthTop(int srcZMax) {

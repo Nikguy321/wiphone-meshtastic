@@ -236,6 +236,8 @@ static void help() {
     "  maps hold up|down|left|right [ms [blip]]  press an arrow and hold it (hold-to-scroll bench)",
     "  maps dl [src lat lon km zmax [elev 1|0] | stop]  the tile download: its status (map tiles and",
     "             the elevation layer's own counts), start one, or stop it (elev: /maps/elev too)",
+    "  maps dlurl <template> [area] | clear  source 3 = a plain-http relay (a Mac's tile pool)",
+    "             writing into /maps/<area> (default custom; otm = the OpenTopoMap map; never elev)",
     "  elev       the map's altitude readout: /maps/elev on the card?, the setting, and (Maps",
     "             open) the crosshair's and your last samples, which layer answered, what they cost",
     "  elev <lat> <lon>  sample the elevation tiles at any point, timed (z13, else coarse z10)",
@@ -2666,7 +2668,9 @@ static void run(char* line) {
      *                                            out = the form's "Elevation too" (NVS maps/dlelev, ON)
      *   maps dl stop                             finish the current tile and exit; the job is
      *                                            forgotten (it will not resume)
-     *   maps dlurl <template>|clear              set the custom source (a plain-http relay)
+     *   maps dlurl <template> [area]|clear       set the custom source (a plain-http relay) and the
+     *                                            map area it fills (default "custom"; "otm" = the
+     *                                            phone's OpenTopoMap map, from a Mac's tile pool)
      *   maps hold up|down|left|right <ms> [blip] press an arrow and HOLD it for <ms> — the
      *                                            bench for hold-to-scroll, where no finger
      *                                            is on the key (uiKeyBenchHold); <blip> ms
@@ -2732,13 +2736,22 @@ static void run(char* line) {
       while (*arg == ' ') arg++;
       char why[80];
       if (!*arg || !strcasecmp(arg, "clear")) {
-        if (tileSetCustomUrl("", why, sizeof(why))) {
+        if (tileSetCustomUrl("", NULL, why, sizeof(why))) {
           say("maps dlurl: custom source cleared\n");
         } else {
           say("maps dlurl: NOT cleared - %s\n", why);
         }
-      } else if (tileSetCustomUrl(arg, why, sizeof(why))) {
-        say("maps dlurl: custom source = %s (source index %d)\n", arg, TILE_SRC_CUSTOM);
+        return;
+      }
+      /* `<template> [area]` (tilePlanParseDlurl, host-tested): the area is the map the relay's
+       * tiles go into - "otm" fills the real OpenTopoMap map - and "custom" when left out. */
+      char tmpl[200], area[32];
+      if (!tilePlanParseDlurl(arg, tmpl, sizeof(tmpl), area, sizeof(area))) {
+        say("usage: maps dlurl <http://host:port/.../{z}/{x}/{y}.png> [area]   (area: a map folder, not elev)\n");
+        return;
+      }
+      if (tileSetCustomUrl(tmpl, area, why, sizeof(why))) {
+        say("maps dlurl: custom source = %s into /maps/%s (source index %d)\n", tmpl, area, TILE_SRC_CUSTOM);
       } else {
         say("maps dlurl: REFUSED - %s\n", why);
       }

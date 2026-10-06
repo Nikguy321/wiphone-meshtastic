@@ -512,6 +512,42 @@ that goes phone → master → other phone passes through both. ⚠ COVEY's aeri
 bytes under `.png` names (its downloader keeps whatever the server sent, and the map loads by
 content) — `--jpeg` writes the same, at a third of the bytes of a true-colour PNG of a photo.
 
+### Without opening a phone: the Mac's pool over WiFi (0.9.82)
+
+The uploader is too slow for tiles (above), but the phone's own downloader can fetch from the Mac
+instead of the internet. `tools/tile_relay.py` serves the pool read-only on the home network, and
+the custom source (source 3) can now write into a **real map's folder**:
+
+```bash
+python3 tools/tile_relay.py                  # on the Mac: prints http://<mac>:8765/<src>/{z}/{x}/{y}.png
+```
+```
+maps dlurl http://<mac>:8765/otm/{z}/{x}/{y}.png otm      # on the phone's console: into /maps/otm
+maps dl 3 <lat> <lon> <km> 17 elev 0                      # the area; skips what the card has
+```
+
+- **The area word is new in 0.9.82.** Left out, it is `custom` (a map of its own, as before). Any
+  map folder name works (`otm`, `usgs-topo`, `usgs-img`). Refused: `elev` in any case, and any name
+  ending in `.`. The card is FAT, which ignores case and drops trailing dots, so `ELEV` and `elev.`
+  are both the altitude layer's folder, and `otm.` is `otm` under a spelling the Files app's guard
+  would not recognise. The form and the status call the source `Custom -> otm`.
+- **Only the folder changes.** The source is still "custom" wherever it means the server: no
+  OpenTopoMap z17 interval (that is for OpenTopoMap's servers, not a LAN), and a custom job is
+  never saved for resuming. A restart or a stop ends it: send both lines again, and the re-run
+  skips every tile already there.
+- **The relay answers only `/<otm|usgs-img|usgs-topo>/<z>/<x>/<y>.png`**, from the pool as it is
+  (USGS JPEG under the `.png` name; the phone reads the magic). It binds the Wi-Fi address only and
+  has no TLS: home network only. A tile the pool lacks is a 404, which the phone counts as "no tile",
+  so run the job again once the pool has the rest.
+- **What it buys, measured on phone 1 (2026-10-05).** One z17 OpenTopoMap tile: 124 ms from the
+  Mac against 1,220 ms from OpenTopoMap (`tlstest`, 20 GETs each). A whole job ran at **1.2 s a
+  tile**, the rest being the phone's own decode and card write, against OpenTopoMap's 2.07 s at z17
+  (the interval) and ~4 s below it. A 20 km z17 area (39,000-51,000 tiles, more the further north)
+  is about 13-17 hours from the Mac, against 28-37 from OpenTopoMap. **USGS gains little**: 252 ms
+  from the Mac against 382 ms over TLS, when a USGS tile costs the phone 1.2-2.1 s all in, so USGS
+  is as quick from the internet.
+- A card in the Mac's reader is still the fast way for a whole pool (minutes, not hours).
+
 ---
 
 ## Download maps on the phone
@@ -717,7 +753,9 @@ maps dl 0 47.42 -121.75 5 15 [elev 1|0]  start: source 0=USGS Topo 1=USGS Aerial
                                          it goes)
 maps dl stop                             finish the tile in hand and quit; the job is
                                          forgotten and will not resume
-maps dlurl http://192.168.1.17:8765/{z}/{x}/{y}.jpg    a plain-HTTP relay as source 3
+maps dlurl http://192.168.1.17:8765/otm/{z}/{x}/{y}.png otm    a plain-HTTP relay as source 3,
+                                         writing into /maps/<area> (default custom; otm = the
+                                         OpenTopoMap map; never elev) - tools/tile_relay.py
 tlstest <url> [n]                        the TLS bench: n kept-alive GETs, heap and timing
 open maps                                jump into the app; `hold on` keeps the screen awake
 maps hold right 1500 [300]               hold an arrow for 1500 ms from the cable; with the

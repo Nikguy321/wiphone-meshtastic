@@ -223,6 +223,52 @@ int main() {
     ok(row[0] == '\0', "a short buffer writes \"\", never a cut number");
   }
 
+  group("maps dlurl <template> [area] (0.9.82: a relay into a real map)");
+  {
+    char t[200], a[32];
+    ok(tilePlanParseDlurl("http://192.168.1.17:8765/otm/{z}/{x}/{y}.png otm", t, sizeof(t), a, sizeof(a)) == 1 &&
+           !strcmp(t, "http://192.168.1.17:8765/otm/{z}/{x}/{y}.png") && !strcmp(a, "otm"),
+       "template + area: the relay fills /maps/otm");
+    ok(tilePlanParseDlurl("  http://h/{z}/{x}/{y}.png  ", t, sizeof(t), a, sizeof(a)) == 1 &&
+           !strcmp(t, "http://h/{z}/{x}/{y}.png") && !strcmp(a, "custom"),
+       "no area: \"custom\", as before 0.9.82 (spaces around ignored)");
+    ok(tilePlanParseDlurl("http://h/{z}/{x}/{y}.png\tusgs-topo", t, sizeof(t), a, sizeof(a)) == 1 && !strcmp(a, "usgs-topo"),
+       "a tab separates too; usgs-topo is a map folder");
+    ok(tilePlanParseDlurl("http://h/{z}/{x}/{y}.png elev", t, sizeof(t), a, sizeof(a)) == 0 &&
+           tilePlanParseDlurl("http://h/{z}/{x}/{y}.png ELEV", t, sizeof(t), a, sizeof(a)) == 0 &&
+           tilePlanParseDlurl("http://h/{z}/{x}/{y}.png Elev", t, sizeof(t), a, sizeof(a)) == 0,
+       "elev in any case is refused: map tiles would land in the altitude layer's folder (FAT is case-blind)");
+    ok(tilePlanParseDlurl("http://h/{z}/{x}/{y}.png elevation", t, sizeof(t), a, sizeof(a)) == 1 && !strcmp(a, "elevation"),
+       "...but only the reserved name itself");
+    ok(tilePlanParseDlurl("http://h/{z}/{x}/{y}.png ../x", t, sizeof(t), a, sizeof(a)) == 0 &&
+           tilePlanParseDlurl("http://h/{z}/{x}/{y}.png .hidden", t, sizeof(t), a, sizeof(a)) == 0 &&
+           tilePlanParseDlurl("http://h/{z}/{x}/{y}.png a/b", t, sizeof(t), a, sizeof(a)) == 0,
+       "no path tricks: '/' and a leading '.' are not area names (mapAreaNameOk)");
+    ok(tilePlanParseDlurl("http://h/{z}/{x}/{y}.png otm extra", t, sizeof(t), a, sizeof(a)) == 0,
+       "a third word is a mistake to be told about, never ignored");
+    ok(tilePlanParseDlurl("", t, sizeof(t), a, sizeof(a)) == 0 && tilePlanParseDlurl("   ", t, sizeof(t), a, sizeof(a)) == 0 &&
+           tilePlanParseDlurl(NULL, t, sizeof(t), a, sizeof(a)) == 0,
+       "nothing: refused (clear is the console's own word, before this)");
+    ok(tilePlanParseDlurl("http://h/{z}/{x}/{y}.png abcdefghijabcdefghijabcdefghij12", t, sizeof(t), a, sizeof(a)) == 0 &&
+           a[0] == '\0',
+       "a 32-character area does not fit 31 + NUL: refused, nothing half-copied");
+    ok(tilePlanParseDlurl("http://h/{z}/{x}/{y}.png abcdefghijabcdefghijabcdefghij1", t, sizeof(t), a, sizeof(a)) == 1,
+       "31 characters: the longest area name the map lists");
+    char small[10];
+    ok(tilePlanParseDlurl("http://h/{z}/{x}/{y}.png otm", small, sizeof(small), a, sizeof(a)) == 0 && small[0] == '\0',
+       "a template too long for the buffer: refused, never cut");
+    ok(tilePlanParseDlurl("http://h/{z}/{x}/{y}.png elev.", t, sizeof(t), a, sizeof(a)) == 0 &&
+           tilePlanParseDlurl("http://h/{z}/{x}/{y}.png ELEV..", t, sizeof(t), a, sizeof(a)) == 0 &&
+           tilePlanParseDlurl("http://h/{z}/{x}/{y}.png otm.", t, sizeof(t), a, sizeof(a)) == 0,
+       "a trailing '.' is refused: FatFs drops it, so 'elev.' IS /maps/elev and 'otm.' is otm misspelt (review)");
+    ok(tilePlanAreaWritable("otm") && tilePlanAreaWritable("usgs-topo") && tilePlanAreaWritable("v1.2") &&
+           !tilePlanAreaWritable("Elev") && !tilePlanAreaWritable("x.") && !tilePlanAreaWritable("") &&
+           !tilePlanAreaWritable(NULL),
+       "tilePlanAreaWritable: a dot inside is fine, at the end it is not; never elev; never empty");
+    ok(tilePlanMinIntervalMs("custom", 17) == 0,
+       "the relay is source \"custom\": OpenTopoMap's z17 interval is for its servers, not the LAN");
+  }
+
   group("the throttle and the time");
   {
     ok(tilePlanMinIntervalMs("otm", 17) == 2000, "OpenTopoMap z17: 2.0 s between request starts");

@@ -47,8 +47,10 @@
 #define WX_OM_HOST        "api.open-meteo.com"
 #define WX_NWS_HOST       "api.weather.gov"
 /* NWS wants a User-Agent that names the application; the docs suggest a contact. The repo is
- * PUBLIC: its URL is the contact, never an e-mail. */
-#define WX_USER_AGENT     "WiPhone/0.9.81 (+https://github.com/Nikguy321/wiphone-meshtastic)"
+ * PUBLIC: its URL is the contact, never an e-mail. The version comes from config.h's
+ * FIRMWARE_VERSION where the request is built (weather_net.cpp, WX_USER_AGENT) - this header is
+ * host-tested and does not include config.h. 0.9.81 hard-coded "0.9.81" here (release review). */
+#define WX_UA_CONTACT     "(+https://github.com/Nikguy321/wiphone-meshtastic)"
 
 #define WX_HOURS          48     // forecast_hours=48: tonight's fetch still covers tomorrow evening
 #define WX_DAYS           7

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi
+
+Nick: the phones should get new OpenTopoMap tiles *"over WiFi from the Mac"* rather than by
+opening them for the SD card.
+
+- **`maps dlurl <template> [area]`**: the custom source (source 3, a plain-HTTP relay) can write
+  into a real map's folder - `otm` fills the phone's OpenTopoMap map. Left out, the area is
+  `custom`, as before. `elev` (any case) and any name ending in `.` are refused: on the FAT card
+  both would open the altitude layer's folder or another map's under a different spelling. Only the
+  folder changes: the OpenTopoMap z17 interval stays with OpenTopoMap's servers, and a custom job
+  is still never saved for resuming. The form and status call it `Custom -> otm`, and `maps dl`
+  says which relay and which map the run used (`custom source <template> into /maps/otm`).
+- The Download form's time for the custom source is 1.2 s a tile (measured), not 0.6 (a guess).
+- **`tools/tile_relay.py`**: serves the Mac's tile pool read-only on the home network (only
+  `/<source>/<z>/<x>/<y>.png`; the Wi-Fi address only). Measured on phone 1: a z17 tile 124 ms from
+  the Mac against 1,220 ms from OpenTopoMap; a 20 km z17 area at ~1.2 s a tile, roughly half the
+  time it takes from OpenTopoMap (docs/maps.md, "Without opening a phone").
+- The weather's User-Agent is built from the firmware version (it read "0.9.81" whatever ran).
+
 ## 0.9.81-NH (2026-10-04) - Menu > AI (Gemini), the API Keys folder, weather on the Almanac
 
 Nick: *"I'd like to add a similar ai terminal to my wiphones ... I'd want the API to be inputable

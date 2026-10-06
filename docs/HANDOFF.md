@@ -4,6 +4,19 @@
 
 Read this first; everything below it is narrative.
 
+🛰 **2026-10-05 evening: 0.9.82-NH DEV - map tiles from the Mac over WiFi, on BOTH PHONES by cable (NOT released; the
+web flasher still serves 0.9.81-NH).** Nick chose "over WiFi from the Mac" over pulling the SD cards. `maps dlurl <template>
+[area]`: the custom source (3) writes into a chosen map folder (`otm` = the real OpenTopoMap map); only the FOLDER changes
+(Job.area / Job.url copies; the OTM z17 throttle stays keyed on the server key "custom"; custom jobs still never persist, so a
+reboot or stop ends one - re-send both lines, the re-run skips what is on the card). Refused areas: `elev` any case and any
+name ending in `.` (FatFs drops trailing dots: `elev.` IS /maps/elev). `tools/tile_relay.py` serves ~/tiles-master read-only
+on en0 (only /<src>/z/x/y.png; 404 = the phone's "no tile"). MEASURED on phone 1: a z17 tile 124 ms from the Mac vs 1,220 ms
+from OTM (tlstest x20); a whole relay job 1.2-1.3 s/tile (decode + 128 KB card write dominate) vs OTM 2.07 s at z17 / ~4 s
+below; USGS gains little (252 vs 382 ms GET, 1.2-2.1 s all in). Review: 5 dimensions + skeptics, 8 real findings fixed
+(trailing-dot alias, st.source/label widths, report showing the live relay, form preselect by folder, 1.2 s estimate, a
+404-ing docs example, privacy wording), a second pass confirmed all fixed. Also: WX User-Agent built from FIRMWARE_VERSION
+(the owed item). Suite exit 0; test_tileplan 177/177.
+
 🚀 **2026-10-04 08:2x: 0.9.81-NH RELEASED** (Nick: "Yes do both" - the release and the X4 Crossword). Clean build (BOOT
 `build=Oct  4 2026 08:20:41`, RAM 27.8 %, flash 45.0 %), suite exit 0, stage regenerated (boot part byte-identical to
 0.9.80's; app sha `95ff9d55…`, = boot_app0 + firmware.bin). BOTH PHONES flashed by cable with this build (app @0x10000,

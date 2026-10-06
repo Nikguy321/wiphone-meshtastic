@@ -5,6 +5,7 @@
  */
 #include "weather_net.h"
 #include "weather.h"
+#include "config.h"             // FIRMWARE_VERSION, for the User-Agent
 #include "https_worker.h"       // the shared worker, netHttps
 #include "isrg_roots.h"         // ISRG Root X1 + the self-signed Root YR
 #include "gemini.h"             // GEM_NET_*: the worker's one vocabulary for a failed request
@@ -21,6 +22,9 @@
 #include <SD.h>
 #include <esp_heap_caps.h>
 #include <string.h>
+
+/* NWS asks for a User-Agent naming the app (weather.h, WX_UA_CONTACT): the running version. */
+#define WX_USER_AGENT "WiPhone/" FIRMWARE_VERSION " " WX_UA_CONTACT
 
 extern volatile bool gGbcActive;          // WiPhone.ino: the emulator owns the card and turns WiFi off
 
@@ -336,7 +340,7 @@ static void wxGet(const char* host, const char* url, const char* accept, NetTapF
   q.host = host;
   q.url = url;                            // ⚠ never logged: the place is in it
   q.rootsPem = WX_ROOTS_PEM;
-  q.userAgent = WX_USER_AGENT;
+  q.userAgent = WX_USER_AGENT;          // "WiPhone/<FIRMWARE_VERSION> (+<repo>)"
   q.hdrName[0] = "Accept";
   q.hdrValue[0] = accept;
   q.connectMs = WX_CONNECT_MS;

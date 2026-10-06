@@ -81,6 +81,19 @@ int64_t tilePlanElevSpaceTiles(double lat, double lon, int radiusKm, bool elev, 
  * else - refused with the usage line, never quietly read as "absent" (review 2026-09-27: the help
  * said "[elev 1|0]", the parser took a bare digit, and `... 15 elev 0` downloaded elevation). */
 int     tilePlanParseElevArg(const char* rest);
+/* A map area a download may WRITE into (0.9.82, the custom source's `[area]`): a name the map
+ * lists (mapAreaNameOk), not ending in '.', and not the reserved `elev` in any case. Both extra
+ * rules are the card's: FAT is case-blind AND FatFs drops trailing dots from every path part, so
+ * "ELEV" and "elev." both open /maps/elev (the altitude layer), and "otm." opens /maps/otm under
+ * a spelling the Files app's guard and the map's own refresh would not recognise (review). */
+int     tilePlanAreaWritable(const char* name);
+/* The serial `maps dlurl <template> [area]` argument (0.9.82): the template (the first word) into
+ * `tmpl`, the map area its tiles go into into `area` - "custom" when none is given, as before.
+ * The area must pass tilePlanAreaWritable. A third word, a template too long for `tcap` or an area
+ * too long for `acap` is refused (0); 1 = both filled. Nick, 2026-10-05: the phones should take new
+ * OpenTopoMap tiles "over WiFi from the Mac" - `maps dlurl http://<mac>:8765/otm/{z}/{x}/{y}.png otm`
+ * writes the Mac's relay (tools/tile_relay.py) into /maps/otm. */
+int     tilePlanParseDlurl(const char* arg, char* tmpl, size_t tcap, char* area, size_t acap);
 
 // ── the Detail row ───────────────────────────────────────────────────────────────────────
 /* `wish` is what the user last picked (kept in NVS as it is); what is SHOWN and USED is the

@@ -142,7 +142,10 @@ static const int MAPS_DL_RADII[] = { 2, 5, 10, 20 };
  * this or the level's throttle interval (OTM z17: 2.0 s), whichever is longer — a CEILING,
  * since tiles already on the card are skipped. ⚠ OTM z17 is not measured yet: it renders on
  * demand more often, so re-measure on the first z17 run (`maps dl` prints ms/tile). */
-static const float MAPS_DL_SEC_PER_TILE[] = { 1.2f, 1.2f, 4.0f, 0.6f };
+static const float MAPS_DL_SEC_PER_TILE[] = { 1.2f, 1.2f, 4.0f, 1.2f };
+/* [3] the custom source, a LAN relay: 1.2 s, measured 2026-10-05 on phone 1 over a whole
+ * OpenTopoMap job from a Mac (tools/tile_relay.py) - the fetch is 0.12 s, the rest is the
+ * phone's own decode and card write. It was a 0.6 s guess. */
 /* An elevation tile (0.9.80): ~120 KB over kept-alive HTTPS from S3, an RGB PNG inflated and
  * converted, a 128 KB write. ⚠ NOT MEASURED ON THE PHONE: a guess from the USGS figure scaled by
  * the bytes; `maps dl` prints the run's seconds - re-measure on the first real run. */
@@ -1023,7 +1026,8 @@ bool MapsApp::jobTilesLanded() {
     return false;
   }
   tileFetchStatus(&jobSt);
-  if (!(jobSt.active || jobSt.finished) || strcmp(jobSt.source, areas[areaSel].name) != 0) {
+  /* Case-blind, as the card is: a relay told to fill "OTM" writes into the folder "otm". */
+  if (!(jobSt.active || jobSt.finished) || strcasecmp(jobSt.source, areas[areaSel].name) != 0) {
     jobSeen = false;             // no job, or it is filling another folder
     return false;
   }
@@ -2706,8 +2710,10 @@ void MapsApp::enterState(MapsState_t st) {
      * saved only by a Start. */
     if (areaSel >= 0 && areaSel < areaCount) {
       for (int i = 0; i < tileSourceCount(); i++) {
-        const TileSource* s = tileSource(i);
-        if (s && !strcmp(s->key, areas[areaSel].name)) {
+        /* The FOLDER each source writes (0.9.82: the custom source's is its chosen area). The
+         * fixed sources come first, so a relay into "otm" never displaces OpenTopoMap here. */
+        const char* folder = tileSourceFolder(i);
+        if (folder && !strcasecmp(folder, areas[areaSel].name)) {
           dlSource = i;
           break;
         }

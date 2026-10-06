@@ -114,7 +114,24 @@ static volatile uint32_t s_elevWritten = 0; // elevation tiles written since boo
 
 // ── sources ─────────────────────────────────────────────────────────────────────────────
 static char s_customUrl[200] = "";
-static bool customSourceBusy();           // below: is a running job reading s_customUrl?
+/* The map area the custom source's tiles go into (0.9.82): "custom" unless `maps dlurl <template>
+ * <area>` names one - e.g. "otm", so new OpenTopoMap tiles relayed from the Mac land in the
+ * phone's real OpenTopoMap map. 🔑 Only the FOLDER changes: the source's identity stays "custom"
+ * everywhere it means the SERVER - the throttle (tilePlanMinIntervalMs: OpenTopoMap's z17 interval
+ * is for OpenTopoMap's servers, never a LAN relay), the estimates, and a custom job is still never
+ * persisted. Read through sourceArea(). */
+static char s_customArea[32] = "custom";
+/* What the form and `maps dl: started ...` call it: "Custom (serial)", or "Custom -> otm" once it
+ * fills a named map, so a Start from the keypad says where its tiles will go (review). */
+static char s_customLabel[48] = "Custom (serial)";
+static void setCustomLabel() {
+  if (!strcmp(s_customArea, "custom")) {
+    strlcpy(s_customLabel, "Custom (serial)", sizeof(s_customLabel));
+  } else {
+    snprintf(s_customLabel, sizeof(s_customLabel), "Custom -> %s", s_customArea);
+  }
+}
+static bool customSourceBusy();           // below: is a running job reading s_customUrl / s_customArea?
 
 static const TileSource SOURCES[] = {
   { "usgs-topo", "USGS Topo",
@@ -126,7 +143,7 @@ static const TileSource SOURCES[] = {
   { "otm", "OpenTopoMap",
     "http://a.tile.opentopomap.org/{z}/{x}/{y}.png",
     600, 35, 17, "(c) OpenStreetMap contributors, SRTM | OpenTopoMap (CC-BY-SA)" },
-  { "custom", "Custom (serial)", s_customUrl, 20, 24, 19, "" },
+  { "custom", s_customLabel, s_customUrl, 20, 24, 19, "" },
 };
 
 int tileSourceCount() {
@@ -140,7 +157,17 @@ const TileSource* tileSource(int i) {
   return &SOURCES[i];
 }
 
-bool tileSetCustomUrl(const char* templ, char* why, size_t whyCap) {
+/* The /maps/<folder> a source's tiles go into: its key, or the custom source's chosen area. */
+static const char* sourceArea(const TileSource* src) {
+  return src == &SOURCES[TILE_SRC_CUSTOM] ? s_customArea : src->key;
+}
+
+const char* tileSourceFolder(int i) {
+  const TileSource* s = tileSource(i);
+  return s ? sourceArea(s) : NULL;
+}
+
+bool tileSetCustomUrl(const char* templ, const char* area, char* why, size_t whyCap) {
   if (why && whyCap) why[0] = '\0';
   if (!templ || !templ[0]) {
     if (customSourceBusy()) {
@@ -148,7 +175,18 @@ bool tileSetCustomUrl(const char* templ, char* why, size_t whyCap) {
       return false;
     }
     s_customUrl[0] = '\0';
+    strlcpy(s_customArea, "custom", sizeof(s_customArea));
+    setCustomLabel();
     return true;
+  }
+  if (!area || !area[0]) {
+    area = "custom";
+  }
+  /* The same rule tilePlanParseDlurl applies (the console's parser), held here too for any other
+   * caller: a name the map lists, no trailing '.', never the altitude layer's folder. */
+  if (strlen(area) >= sizeof(s_customArea) || !tilePlanAreaWritable(area)) {
+    if (why) strlcpy(why, "area must be a map folder name (letters, digits, - _ .), not elev", whyCap);
+    return false;
   }
   if (strlen(templ) >= sizeof(s_customUrl)) {
     if (why) snprintf(why, whyCap, "template longer than %u characters", (unsigned)(sizeof(s_customUrl) - 1));
@@ -167,6 +205,8 @@ bool tileSetCustomUrl(const char* templ, char* why, size_t whyCap) {
     return false;
   }
   strlcpy(s_customUrl, templ, sizeof(s_customUrl));
+  strlcpy(s_customArea, area, sizeof(s_customArea));
+  setCustomLabel();
   return true;
 }
 
@@ -237,6 +277,11 @@ struct Job {
   int            busyShift;      // the server said busy this many times: pace and interval doubled
   uint32_t       busyWaitMs;     // the next busy wait before the same tile again
   TilePlanRate   rate;           // the last 200 fetched tiles' all-in times
+  /* The job's OWN copies of the folder and the URL template (0.9.82): the custom source's live
+   * buffers may be changed by `maps dlurl` as soon as a run ends, and the report goes on
+   * describing the run after that (review: it named a relay and folder the job never used). */
+  char           area[32];
+  char           url[200];
 };
 static Job* s_job = NULL;                  // PSRAM
 
@@ -736,7 +781,7 @@ static int processTile(Job* j, RunCtx* c, int pass, int z, int x, int xi, int y,
   TileJobStatus* st = &j->st;
   char url[300], err[64];
   const uint32_t t0 = millis();
-  if (!expandUrl(j->src->url, z, x, y, url, sizeof(url))) {
+  if (!expandUrl(j->url, z, x, y, url, sizeof(url))) {
     strlcpy(st->lastErr, "URL template too long", sizeof(st->lastErr));
     countFail(j, pass);
     return OUT_FAILED;
@@ -935,7 +980,7 @@ static void walkLevel(Job* j, RunCtx* c, int pass, int z, int32_t fromOrd) {
       st->p2Seen++;
     }
     const int wx = ((x % n) + n) % n;
-    snprintf(dir, sizeof(dir), "%s/%s/%d/%d", TILE_MAPS_ROOT, j->src->key, z, wx);
+    snprintf(dir, sizeof(dir), "%s/%s/%d/%d", TILE_MAPS_ROOT, j->area, z, wx);
     snprintf(path, sizeof(path), "%s/%d.565", dir, y);
     snprintf(tmpPath, sizeof(tmpPath), "%s/%d.tmp", dir, y);
     if (tileOnCard(path)) {
@@ -1137,7 +1182,7 @@ static void runElev(Job* j, uint8_t* body, uint16_t* px, uint32_t* floorLargest)
 static void runJob(Job* j, uint8_t* body, uint16_t* px, uint32_t* floorLargest) {
   TileJobStatus* st = &j->st;
 
-  const bool https = !strncmp(j->src->url, "https", 5);
+  const bool https = !strncmp(j->url, "https", 5);
   WiFiClientSecure* secure = NULL;
   WiFiClient*       plain  = NULL;
   WiFiClient*       client = NULL;
@@ -1558,7 +1603,7 @@ static bool startJob(const TileJobSpec* s, bool resume, bool automatic, char* wh
       return false;
     }
   }
-  if (!mapAreaNameOk(src->key)) {
+  if (!tilePlanAreaWritable(sourceArea(src))) {
     strlcpy(why, "source folder name refused", whyCap);
     return false;
   }
@@ -1636,6 +1681,8 @@ static bool startJob(const TileJobSpec* s, bool resume, bool automatic, char* wh
   j->spec = *s;
   j->spec.zMax = zMax;
   j->src = src;
+  strlcpy(j->area, sourceArea(src), sizeof(j->area));
+  strlcpy(j->url, src->url, sizeof(j->url));
   j->zMax = zMax;
   j->st.total = total;
   j->st.elev = s->elev;
@@ -1663,11 +1710,16 @@ static bool startJob(const TileJobSpec* s, bool resume, bool automatic, char* wh
   j->st.pass = j->startPass;
   j->st.before = j->startPass == 1 ? j->levelBase[j->startZ - TILE_ZOOM_BASE] + j->startOrd : 0;
   j->st.curZ = j->startZ;
-  strlcpy(j->st.source, src->key, sizeof(j->st.source));
+  /* st.source is the FOLDER: the map on the screen compares it with its area to see its own
+   * holes being filled (MapsApp::jobTilesLanded), so a relay into "otm" must say "otm". */
+  strlcpy(j->st.source, j->area, sizeof(j->st.source));
   {
-    /* The settled bits carry over only to a resume of the SAME job in the same boot. */
+    /* The settled bits carry over only to a resume of the SAME job in the same boot. A custom
+     * job's ident says so: its "no tile" (the relay's 404) must never mark a tile settled for a
+     * later OpenTopoMap resume over the same square, whose second pass would then skip it. */
     char ident[80];
-    snprintf(ident, sizeof(ident), "%s %.6f %.6f %d %d", src->key, s->lat, s->lon, s->radiusKm, zMax);
+    snprintf(ident, sizeof(ident), "%s%s %.6f %.6f %d %d", src == &SOURCES[TILE_SRC_CUSTOM] ? "custom:" : "",
+             j->area, s->lat, s->lon, s->radiusKm, zMax);
     if (!resume || strcmp(ident, s_settledFor) != 0) {
       memset(s_settled, 0, TF_SETTLED_BYTES);
       strlcpy(s_settledFor, ident, sizeof(s_settledFor));
@@ -2092,7 +2144,7 @@ const char* tileFetchJobKey(bool* running) {
   settleEnded(millis());         // as tileFetchJobInfo: the Files app's guard must see a waiting job too
   if (s_busy && s_kind == 1 && s_job) {
     if (running) *running = true;
-    return s_job->src->key;
+    return s_job->area;                   // the folder it writes: what the Files app guards
   }
   if (s_persist && s_rs.pending) {
     if (running) *running = false;
@@ -2188,6 +2240,12 @@ void tileFetchReport(void (*emit)(const char* line)) {
            TILE_ZOOM_BASE, s_job->zMax, st.before, (unsigned)st.msPerTile,
            st.serverBusy, st.serverBusy == 1 ? "" : "s", st.serverWaitSec ? " (waiting now)" : "");
   emit(l);
+  if (s_job->src == &SOURCES[TILE_SRC_CUSTOM]) {
+    /* Which relay, into which map: the template is the owner's own LAN address, typed at this
+     * same console - never a public server's key. */
+    snprintf(l, sizeof(l), "  custom source %s into /maps/%s", s_job->url, s_job->area);
+    emit(l);
+  }
   if (st.pass == 2 || st.p2Total) {
     snprintf(l, sizeof(l), "  second pass: %d/%d looked at, %d tried again, %d fixed",
              st.p2Seen, st.p2Total, st.p2Tried, st.p2Fixed);

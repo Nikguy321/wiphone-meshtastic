@@ -109,9 +109,15 @@ typedef struct {
 #define TILE_SRC_CUSTOM 3                 // the serial-settable template (a LAN relay)
 int               tileSourceCount();      // the fixed ones, plus custom when it is set
 const TileSource* tileSource(int i);      // NULL past the end
-/* `maps dlurl <template>` — a plain-HTTP relay for USGS (COVEY's cache, a Mac) when TLS is
- * not wanted. Empty string clears it. */
-bool              tileSetCustomUrl(const char* templ, char* why, size_t whyCap);
+/* `maps dlurl <template> [area]` — a plain-HTTP relay (COVEY's cache, a Mac's tile pool) when TLS
+ * is not wanted, and the map area its tiles go into: /maps/<area>, "custom" when none is given
+ * (NULL or ""). 0.9.82: an area may be a real map's folder ("otm", "usgs-topo") - the relay then
+ * fills that map, at LAN speed and with no throttle, since the throttle belongs to OpenTopoMap's
+ * servers (measured 2026-10-05 on phone 1: a z17 tile from the Mac 124 ms, from OpenTopoMap
+ * 1,220 ms plus the 2.0 s interval). Never `elev`. An empty template clears both. Refused while a
+ * job of this source runs. */
+bool              tileSetCustomUrl(const char* templ, const char* area, char* why, size_t whyCap);
+const char*       tileSourceFolder(int i); // /maps/<folder> source i writes: its key, or the custom area
 
 // ── the job ─────────────────────────────────────────────────────────────────────────────
 #define TILE_ZOOM_BASE TILE_PLAN_ZOOM_BASE   // every area starts here, like COVEY's downloader
@@ -155,7 +161,7 @@ typedef struct {
   uint32_t heapMinEver;        // the allocator's own low-water mark when the run ended
   uint32_t stackFloor;         // the task's unused stack at the end of the run (bytes)
   char     lastErr[96];   // "stopped: no RAM to connect: 13.6/14 KB free, 10.5/10 KB block" and its like
-  char     source[24];
+  char     source[32];    // the FOLDER the job writes (0.9.82: a custom area is up to 31 characters)
   /* The elevation layer (spec.elev): its own counts, never mixed into the map's above. */
   bool     elev;          // this job fetches it
   bool     elevRunning;   // ...and is doing so now (it goes first in every run)
@@ -214,7 +220,7 @@ typedef struct {
   bool     exists;        // a job is running, or persisted and waiting (or given up)
   bool     running;
   bool     resumable;     // it is in NVS: a WiFi drop or a restart does not lose it
-  char     label[24];     // "OpenTopoMap"
+  char     label[48];     // "OpenTopoMap", or "Custom -> <area>" (0.9.82: an area of up to 31 characters)
   char     ssid[33];      // the network it resumes on
   double   lat, lon;
   int      radiusKm, zMax;
