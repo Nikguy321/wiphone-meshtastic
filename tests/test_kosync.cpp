@@ -1050,6 +1050,62 @@ static void testInboundChain() {
   bookSyncInboxInit();
 }
 
+/* `mv` (2026-10-09): a renamed book file keeps its KOSync memory and its parked offer. */
+static void testRekey() {
+  group("a renamed book keeps its KOSync memory (mv)");
+  static KosyncMemo m;
+  memset(&m, 0, sizeof(m));
+  const char* oldId = "0123456789abcdef0123456789abcdef";
+  const char* newId = "fedcba9876543210fedcba9876543210";
+  const char* other = "11111111111111111111111111111111";
+  KosyncMemoEntry* e = kosyncMemoGet(&m, oldId, true);
+  e->movedAt = 1790000000u; e->offeredSig = 42; e->unsent = true;
+  kosyncMemoGet(&m, other, true)->movedAt = 7;
+  m.dirty = false;
+  ok(!kosyncRekeyBook(&m, NULL, oldId, oldId), "same name: nothing to do");
+  ok(!kosyncRekeyBook(&m, NULL, "", newId) && !kosyncRekeyBook(&m, NULL, oldId, NULL), "no id: nothing");
+  ok(!m.dirty, "...and the memo is untouched");
+  ok(kosyncRekeyBook(&m, NULL, oldId, newId), "moved");
+  ok(m.dirty, "the memo must be saved");
+  ok(kosyncMemoGet(&m, oldId, false) == NULL, "nothing left under the old name");
+  KosyncMemoEntry* n = kosyncMemoGet(&m, newId, false);
+  ok(n && n->movedAt == 1790000000u && n->offeredSig == 42 && n->unsent, "the last move, the answered offer and unsent follow");
+  ok(kosyncMemoGet(&m, other, false) && kosyncMemoGet(&m, other, false)->movedAt == 7, "another book is left alone");
+  ok(!kosyncRekeyBook(&m, NULL, "22222222222222222222222222222222", newId), "a book with no memory: nothing moves");
+
+  // An entry already under the new name is replaced by the renamed file's.
+  memset(&m, 0, sizeof(m));
+  kosyncMemoGet(&m, newId, true)->movedAt = 5;
+  kosyncMemoGet(&m, oldId, true)->movedAt = 9;
+  ok(kosyncRekeyBook(&m, NULL, oldId, newId), "moved over a stale entry");
+  int count = 0;
+  for (int i = 0; i < KOSYNC_MEMO_MAX; i++) {
+    count += !strcmp(m.e[i].book, newId);
+  }
+  eqInt(count, 1, "one entry for the book, not two");
+  ok(kosyncMemoGet(&m, newId, false)->movedAt == 9, "...the renamed file's");
+  static uint8_t blob[KOSYNC_MEMO_BLOB_MAX];
+  const size_t len = kosyncMemoPack(&m, blob, sizeof(blob));
+  static KosyncMemo back;
+  ok(kosyncMemoUnpack(&back, blob, len) && kosyncMemoGet(&back, newId, false) &&
+     kosyncMemoGet(&back, newId, false)->movedAt == 9 && !kosyncMemoGet(&back, oldId, false),
+     "survives a restart under the new name");
+
+  // The park ledger: a parked offer follows the book; a live one under the new name wins.
+  static KosyncParkLedger L;
+  memset(&L, 0, sizeof(L));
+  strcpy(L.book[0], newId); L.id[0] = 0;          // a spent slot under the new name
+  strcpy(L.book[1], oldId); L.id[1] = 77; L.sig[1] = 5;
+  ok(kosyncRekeyBook(NULL, &L, oldId, newId), "a parked offer moves");
+  ok(!strcmp(L.book[1], newId) && L.id[1] == 77 && L.sig[1] == 5, "...with its record and signature");
+  ok(!L.book[0][0], "...and the spent slot no longer shadows it");
+  memset(&L, 0, sizeof(L));
+  strcpy(L.book[0], newId); L.id[0] = 88;
+  strcpy(L.book[1], oldId); L.id[1] = 77;
+  ok(!kosyncRekeyBook(NULL, &L, oldId, newId), "a live offer under the new name stays the one");
+  ok(!strcmp(L.book[0], newId) && L.id[0] == 88 && !strcmp(L.book[1], oldId), "...nothing changes");
+}
+
 /* (5) The inbox holds FOUR records for every book and both transports. A peer PUTting
  * over and over, or the same book opened again and again, must replace its own KOSync offer,
  * never push another book's LoRa position out of the far end. */
@@ -2361,6 +2417,7 @@ int main() {
   testOfferRule();
   testAutoPush();
   testMemo();
+  testRekey();
   testClientAndTransport();
   testProblemsAndLibrary();
   testHomeByName();

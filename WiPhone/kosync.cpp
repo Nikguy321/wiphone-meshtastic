@@ -706,6 +706,52 @@ bool kosyncClosePushWanted(const KosyncMemoEntry* e, bool pctOk, double pct) {
 }
 
 // ---------------------------------------------------------------- the per-book memo
+bool kosyncRekeyBook(KosyncMemo* m, KosyncParkLedger* l, const char* oldBook, const char* newBook) {
+  if (!oldBook || !newBook || !oldBook[0] || !newBook[0] || !strcmp(oldBook, newBook)) {
+    return false;
+  }
+  bool moved = false;
+  if (m) {
+    KosyncMemoEntry* from = NULL;
+    for (int i = 0; i < KOSYNC_MEMO_MAX; i++) {
+      if (m->e[i].book[0] && !strcmp(m->e[i].book, oldBook)) {
+        from = &m->e[i];
+      }
+    }
+    if (from) {
+      for (int i = 0; i < KOSYNC_MEMO_MAX; i++) {
+        if (&m->e[i] != from && m->e[i].book[0] && !strcmp(m->e[i].book, newBook)) {
+          memset(&m->e[i], 0, sizeof(m->e[i]));
+        }
+      }
+      ksCopy(from->book, sizeof(from->book), newBook);
+      m->dirty = true;
+      moved = true;
+    }
+  }
+  if (l) {
+    /* A parked offer follows the book, unless one is parked under the new name already: one
+     * offer per book is the ledger's rule, and that one is the newer park. */
+    bool newHas = false;
+    for (int i = 0; i < KOSYNC_LEDGER_MAX; i++) {
+      newHas = newHas || (l->id[i] && !strcmp(l->book[i], newBook));
+    }
+    for (int i = 0; i < KOSYNC_LEDGER_MAX && !newHas; i++) {
+      if (!strcmp(l->book[i], newBook)) {         // a spent slot (id 0): ledgerFind must not
+        l->book[i][0] = '\0';                     // find it ahead of the one moving in
+        l->sig[i] = 0;
+      }
+    }
+    for (int i = 0; i < KOSYNC_LEDGER_MAX && !newHas; i++) {
+      if (l->id[i] && !strcmp(l->book[i], oldBook)) {
+        ksCopy(l->book[i], sizeof(l->book[i]), newBook);
+        moved = true;
+      }
+    }
+  }
+  return moved;
+}
+
 void kosyncMemoOpened(KosyncMemoEntry* e, bool pctOk, double pct) {
   if (!e) {
     return;

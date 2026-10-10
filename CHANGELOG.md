@@ -18,6 +18,11 @@ opening them for the SD card.
   the Mac against 1,220 ms from OpenTopoMap; a 20 km z17 area at ~1.2 s a tile, roughly half the
   time it takes from OpenTopoMap (docs/maps.md, "Without opening a phone").
 - The weather's User-Agent is built from the firmware version (it read "0.9.81" whatever ran).
+- **`mv </from> </to>`** on the serial console renames one file in place (a FAT rename: nothing
+  is copied or deleted). Quote paths that have spaces. It never overwrites, refuses folders, and
+  waits until Books, Music, Files, Photos and the Game Boy are closed. It is for giving a book the
+  same file name it has on another reader: KOSync's second document id is the md5 of the file
+  name. Reading places are kept, because the position store keys on the book's epub ids.
 
 ## 0.9.81-NH (2026-10-04) - Menu > AI (Gemini), the API Keys folder, weather on the Almanac
 

@@ -115,6 +115,9 @@ void     kosyncNoteMoved(const char* byName, uint32_t nowUtc);
 uint32_t kosyncMovedAt(const char* byName);    // 0 = unknown
 // Write the per-book memo to NVS now if it changed (a book close does this itself).
 void     kosyncSaveState();
+/* A book file was renamed (the console's `mv`; basenames, not paths): the per-book memo and any
+ * parked offer follow it to the new file-name id, and the memo is saved. True when anything moved. */
+bool     kosyncBookRenamed(const char* oldBasename, const char* newBasename);
 // Someone wants the live place of this book: a window serving it, or an ask waiting for WiFi.
 bool kosyncWantsPosition();
 // The reader moved: a window serving this book answers GETs with the new place.

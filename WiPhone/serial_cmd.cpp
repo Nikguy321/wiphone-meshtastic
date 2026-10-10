@@ -2,6 +2,7 @@
 #include "app_gbc_xfer.h"
 #include "sms_mirror_poll.h"
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
+#include "music_player.h"    // musicPlayerIsPlaying/Paused: `mv` leaves a loaded track alone
 #include "kosync_sync.h"     // the `kosync` command: the window, the home client, the config
 #include "app_photos.h"      // photosSetWallpaper, the `wallpaper set` command
 #include "app_maps.h"        // mapsConsoleStatus/Goto, the `maps` command
@@ -252,6 +253,9 @@ static void help() {
     "  ls [<dir>] list a card folder, HIDDEN entries included (marked *) - the one view",
     "             that shows dotfiles; the Files app and the pickers never do",
     "  rm </path> delete ONE file by full path (refuses folders and relative names)",
+    "  mv </from> </to>  rename ONE file in place (quote paths with spaces; never",
+    "             overwrites; Books/Files/Photos/Game Boy closed, no track loaded,",
+    "             uploader off); a book's KOSync memory follows it to the new name",
     "  power      the USB-power-meter bench: state of every switch below, and the method",
     "  power lcd sleep|wake   ST7789 DISPOFF+SLPIN / SLPOUT+DISPON (backlight untouched)",
     "  power i2s stop|start   the I2S peripheral+DMA that runs from boot whether or not",
@@ -2269,6 +2273,96 @@ static void run(char* line) {
       return;
     }
     say("rm: %s: %s\n", path, SD.remove(path) ? "deleted" : "FAILED");
+    return;
+  }
+
+  /* `mv </path/from> </path/to>` — rename ONE file in place: a FAT rename, so the bytes never
+   * move and nothing is deleted. Quote a path that has spaces ("..."). Refuses folders, relative
+   * names and an existing destination (never overwrites). An app that holds card files open
+   * (Books, Music, Files, Photos, the Game Boy) must be closed first: FatFs must not rename an
+   * open file. Added 2026-10-09 to bring a book's file name in line with COVEY's and the X4's
+   * copy - KOSync's second document id is the md5 of the file name, so two readers only match
+   * on it when the names agree. Reading places survive: the position store keys on epub ids.
+   * KOSync's own per-book memory (last move, answered offer, a move home never had) is keyed by
+   * the file name, so it is carried to the new name (kosyncBookRenamed). Also refused while a
+   * track is loaded in the music player (it outlives its screen and reopens by path) and while
+   * the uploader is up (a chunked upload holds its file open between passes). */
+  if (!strncasecmp(line, "mv ", 3)) {
+    char from[160], to[160];
+    const char* p = line + 3;
+    char* outs[2] = {from, to};
+    for (int k = 0; k < 2; k++) {
+      while (*p == ' ') {
+        p++;
+      }
+      const bool quoted = *p == '"';
+      if (quoted) {
+        p++;
+      }
+      size_t n = 0;
+      while (*p && (quoted ? *p != '"' : *p != ' ') && n + 1 < sizeof(from)) {
+        outs[k][n++] = *p++;
+      }
+      outs[k][n] = '\0';
+      if (quoted) {
+        if (*p != '"') {
+          say("mv: a quoted path has no closing \" (or is too long)\n");
+          return;
+        }
+        p++;
+      } else if (*p && *p != ' ') {
+        say("mv: a path is too long (%u characters at most)\n", (unsigned)(sizeof(from) - 1));
+        return;
+      }
+    }
+    while (*p == ' ') {
+      p++;
+    }
+    if (from[0] != '/' || to[0] != '/' || *p) {
+      say("usage: mv </path/from> </path/to>   (full paths; quote one with spaces: \"/books/a b.epub\")\n");
+      return;
+    }
+    extern GUI gui;
+    if (gui.isAppRunning(GUI_APP_BOOKS) || gui.isAppRunning(GUI_APP_MUSIC) || gui.isAppRunning(GUI_APP_FILES) ||
+        gui.isAppRunning(GUI_APP_PHOTOS) || gui.isAppRunning(GUI_APP_GBC)) {
+      say("mv: refused - an app with card files open is on screen (`open clock` first)\n");
+      return;
+    }
+    if (musicPlayerIsPlaying() || musicPlayerIsPaused()) {
+      say("mv: refused - the music player holds a track (stop it first)\n");
+      return;
+    }
+    if (gbcXferOn()) {
+      say("mv: refused - the uploader is running (`up off` first)\n");
+      return;
+    }
+    File f = SD.open(from);
+    if (!f) {
+      say("mv: %s: not found\n", from);
+      return;
+    }
+    const bool isDir = f.isDirectory();
+    f.close();
+    if (isDir) {
+      say("mv: %s is a folder - refused\n", from);
+      return;
+    }
+    if (SD.exists(to)) {
+      say("mv: %s already exists - refused (never overwrites)\n", to);
+      return;
+    }
+    const bool ok = SD.rename(from, to);
+    say("mv: %s\n", ok ? "renamed" : "FAILED");   // the verdict first: say() cuts long lines
+    say("  %s\n", from);
+    say("  -> %s\n", to);
+    if (ok) {
+      const char* a = strrchr(from, '/') + 1;
+      const char* b = strrchr(to, '/') + 1;
+      if (strcmp(a, b)) {
+        say("mv: KOSync memory for this file %s\n",
+            kosyncBookRenamed(a, b) ? "moved to the new name" : "- none kept (nothing to move)");
+      }
+    }
     return;
   }
 

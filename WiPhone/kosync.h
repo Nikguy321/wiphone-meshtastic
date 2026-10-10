@@ -319,6 +319,14 @@ KosyncMemoEntry* kosyncMemoGet(KosyncMemo* m, const char* book, bool create);
  *   Moved   a real move (never a save or a close): the session's flag, the persisted `unsent`,
  *           and the last-move stamp when the clock is known (`nowUtc` 0 = unknown, kept as is);
  *   Sent    a PUT of `pct` succeeded: it is both the session's reference and what home has. */
+struct KosyncParkLedger;                     // (the park ledger, below)
+/* A book's FILE was renamed (the console's `mv`): the memo is keyed by the md5 of the file name,
+ * so without this the book would come back with an empty entry. The last move, the answered offer
+ * and `unsent` would be lost: an older home place could be offered again, and a move home never
+ * had would not be pushed at the next close. The entry, and any parked offer in `l` (may be NULL),
+ * move from `oldBook` to `newBook`. An entry already under `newBook` is dropped: the renamed file's
+ * history is the one that describes these bytes now. True when anything moved (the memo is dirty). */
+bool kosyncRekeyBook(KosyncMemo* m, KosyncParkLedger* l, const char* oldBook, const char* newBook);
 void kosyncMemoOpened(KosyncMemoEntry* e, bool pctOk, double pct);
 void kosyncMemoMoved(KosyncMemo* m, KosyncMemoEntry* e, uint32_t nowUtc);
 void kosyncMemoSent(KosyncMemo* m, KosyncMemoEntry* e, double pct);

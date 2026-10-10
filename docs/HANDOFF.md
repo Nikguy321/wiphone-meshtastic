@@ -4,6 +4,18 @@
 
 Read this first; everything below it is narrative.
 
+📁 **2026-10-09 evening: `mv </from> </to>` on the console, BOTH PHONES flashed by cable (0.9.82-NH DEV, BOOT
+`build=Oct  9 2026 18:58:21`, hash verified, mute ON).** Nick wanted a book's file name to match on every reader. KOSync's
+second document id is md5(basename), so a book whose names differ across readers only matches on the partial MD5. The phones
+had no rename, and `rm` plus a re-upload would delete a file, so `mv` does a FAT rename in place. It quotes paths with spaces,
+never overwrites, and refuses folders and relative names. It also refuses while Books/Music/Files/Photos/the Game Boy are on
+screen, a track is loaded (the player outlives its screen and reopens by path) or the uploader is up (a chunked upload holds
+its file between passes; FF_FS_LOCK is 0 here). It prints the verdict first, because say() cuts lines at 192 bytes. 🔑 Reading
+places survive a rename, since positions.cbs keys on epub ids. KOSync's per-book NVS memo (movedAt, offeredSig, unsent) and
+the park ledger key on md5(basename), so `kosyncBookRenamed` -> `kosyncRekeyBook` (host-tested, test_kosync 2129/0) carries
+them to the new name. Run on both phones: one book renamed to the COVEY/X4 spelling, "KOSync memory ... moved" on each.
+A two-lens review found 0 blockers and 5 LOW items; all fixed.
+
 🛰 **2026-10-05 evening: 0.9.82-NH DEV - map tiles from the Mac over WiFi, on BOTH PHONES by cable (NOT released; the
 web flasher still serves 0.9.81-NH).** Nick chose "over WiFi from the Mac" over pulling the SD cards. `maps dlurl <template>
 [area]`: the custom source (3) writes into a chosen map folder (`otm` = the real OpenTopoMap map); only the FOLDER changes

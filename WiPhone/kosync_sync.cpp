@@ -323,6 +323,19 @@ void kosyncSaveState() {
   }
 }
 
+bool kosyncBookRenamed(const char* oldBasename, const char* newBasename) {
+  char from[EPUB_KOSYNC_ID_CHARS], to[EPUB_KOSYNC_ID_CHARS];
+  epubKosyncFilenameMd5(oldBasename, from);
+  epubKosyncFilenameMd5(newBasename, to);
+  if (!ksAlloc()) {
+    return false;
+  }
+  KosyncMemo* m = memo();                       // loads it from NVS first, if not yet this boot
+  const bool moved = kosyncRekeyBook(m, &T->ledger, from, to);
+  memoSaveIfDirty();
+  return moved;
+}
+
 uint32_t kosyncMovedAt(const char* byName) {
   const KosyncMemoEntry* e = memoFor(byName, false);
   return e ? e->movedAt : 0;
