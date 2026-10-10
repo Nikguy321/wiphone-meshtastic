@@ -76,13 +76,17 @@ enum {
   ALM_PLACE_WAYPOINT,          // a waypoint chosen in Meshtastic > Places
   ALM_PLACE_GIVEN,             // typed on the serial console
   ALM_PLACE_MAP_VIEW,          // the Maps app's saved view (NVS maps/lat,lon): nothing better known
+  ALM_PLACE_PHONE,             // a fresh fix from the hotspot phone's GPS (0.9.82, self_pos.h)
+  ALM_PLACE_LAST_PHONE,        // ...a stale one ("last phone 5m ago")
 };
 
 /* WHICH PLACE (measured on phone 2, 2026-09-27: no fix since a reboot and no pin, so every
  * screen said "No place known yet" - COVEY's Almanac falls back instead). In order:
  *   1. resolveReference() - a fresh GPS fix, a chosen waypoint, the pin, or the explicit GPS
  *      reference with a stale fix - as every other screen of the phone uses;
- *   2. the last GPS fix of this boot, however old ("last GPS 2h 5m ago");
+ *   2. the newest USABLE fix of this boot, however old: the receiver's ("last GPS 2h 5m ago")
+ *      or the hotspot phone's ("last phone GPS") - each judged by its OWN sats/HDOP, so a fresh
+ *      poor phone fix never hides an older good GPS one (review 2026-10-10);
  *   3. the map's saved view ("map view") - where the user last looked;
  *   4. nothing: the guidance rows.
  * An almanac for a place a few km off is still right to the minute (1 km moves sunrise ~4 s),
@@ -90,23 +94,29 @@ enum {
  * "nothing to show" view), is skipped. */
 struct AlmPlaceIn {
   bool        refOk;           // resolveReference() answered...
-  int         refKind;         // ...as ALM_PLACE_GPS / LAST_GPS / PIN / WAYPOINT
+  int         refKind;         // ...as ALM_PLACE_GPS / LAST_GPS / PIN / WAYPOINT / PHONE / LAST_PHONE
   int32_t     refLatI, refLonI;
-  const char* refName;         // its name ("GPS", "last GPS", "me", "Camp")
+  const char* refName;         // its name ("GPS", "last GPS", "me", "Camp", "phone")
+  uint32_t    refAgeMs;        // PHONE / LAST_PHONE: that fix's age (the GPS kinds use gpsAgeMs)
   bool        gpsFix;          // getGpsFix(): a fix this boot...
   int32_t     gpsLatI, gpsLonI;
-  uint32_t    gpsAgeMs;        // ...and its age
+  uint32_t    gpsAgeMs;        // ...and its age - ALWAYS the receiver's own (GPS / LAST_GPS age)
   int         gpsSats, gpsHdopX10;   // ...and the receiver's sats / HDOP x10 (-1 = not said)
+  bool        phoneFix;        // the hotspot phone's fix of this boot (getSourceFix(SELF_PHONE))...
+  int32_t     phoneLatI, phoneLonI;
+  uint32_t    phoneAgeMs;      // ...its age
+  int         phoneSats, phoneHdopX10;   // ...and ITS sats / HDOP x10, from its own sentence
   bool        viewOk;          // the map's saved view (NVS maps/saved == 1)...
   int32_t     viewLatI, viewLonI;
 };
-/* Step 2 takes a fix only when meshPosFixUsable(gpsSats, gpsHdopX10) - the bar resolveReference()
+/* Step 2 takes a fix only when meshPosFixUsable(its sats, its HDOP) - the bar resolveReference()
  * and the map's "me" use (review 2026-09-27: a 3-satellite fix measured 20 km off was shown as
- * "At last GPS 0s ago"). A poor fix is no place; the map's view, or the guidance, is next. */
+ * "At last GPS 0s ago"). Of the two that pass, the newer; a tie keeps the GPS (it outranks the
+ * phone everywhere else). A poor fix is no place; the map's view, or the guidance, is next. */
 struct AlmPlace {
   int      kind;               // ALM_PLACE_*
   int32_t  latI, lonI;         // 1e-7 deg
-  uint32_t ageMs;              // LAST_GPS: the fix's age
+  uint32_t ageMs;              // LAST_GPS / PHONE / LAST_PHONE: the fix's age
   char     name[24];
 };
 void almPickPlace(const AlmPlaceIn* in, AlmPlace* out);
@@ -243,6 +253,12 @@ struct AlmCtx {
   const WxView* wx;            // the weather (cache + fetch state); NULL = no weather rows at all.
                                // TODAY shows an active alert near the top and a summary row from
                                // it; WEATHER is almLinesWeather (weather_lines.h)
+  /* The SERIAL console at a MEASURED place (this phone's or the hotspot phone's fix): POSITION
+   * prints it to 2 decimals (~1 km) and leaves out the degrees-minutes, UTM and MGRS rows, which
+   * name it to the metre. Console captures get pasted into notes in a PUBLIC repo, and with
+   * Phone location on by default the `almanac` line would otherwise carry the home position to
+   * ~1 m on the first bench at home (review 2026-10-10). The screen keeps full precision. */
+  bool          coordsCoarse;
 };
 
 /* The device facts only the POSITION screen reads (the GPS receiver and the elevation card). */

@@ -14,6 +14,7 @@
 #include "mesh_airtime.h"       // meshComposeCap: how much text one frame (and the other apps) allow
 #include "clock.h"              // ntpClock, for the Sun screen
 #include "app_almanac.h"        // almanacLegalToday: the Sun screen's legal light (astro.cpp + the rule)
+#include "phone_pos.h"          // My node's "Phone location" row: the switch and its status line
 
 #ifdef USER_SERIAL              // the GPS toggle's plumbing (WiPhone.ino owns the flag)
 #include <Preferences.h>
@@ -50,6 +51,7 @@ extern void gpsApplyBaud(bool gpsOn);   // WiPhone.ino: the GPS and the GUI path
 #define MESH_MYNODE_NEIGHBOR   11     // neighbour-info announce: off / 1h / 4h
 #define MESH_MYNODE_POSINT     12     // position reporting: off / 15m / 5m / 30m
 #define MESH_MYNODE_POSCHAN    13     // ...and which channel it goes to
+#define MESH_MYNODE_PHONELOC   14     // the hotspot phone's GPS: auto / off (phone_pos.h)
 
 /* Send-position picker rows are keyed by channel index + 1 (never 0: addOption
  * refuses it). The clear row sits far above any possible channel index. */
@@ -491,27 +493,31 @@ void MeshtasticApp::buildNodes() {
      * excludes self. With a fix, the most useful line on this screen is how far
      * YOU are from camp — the question the GPS newly makes answerable and the
      * pin never could.
-     * 🛑 Read live from getGpsFix(). The fix is deliberately NOT mirrored into
+     * 🛑 Read live from getSelfFix() (this phone's GPS, else the hotspot phone's —
+     * the same pick as the map's "me"). The fix is deliberately NOT mirrored into
      * nodes[self].latI: that field's only writers are setMyPin()/clearMyPin(),
      * and writing it per fix would set dbDirty on every NMEA epoch and drag the
      * database save (~0.1 s on the card, seconds on SPIFFS) into a 1 Hz loop. */
     if (n->nodeNum == meshService.getMyNodeNum()) {
-      int32_t myLat = 0, myLon = 0;
-      uint32_t myAge = 0;
-      int mySats = -1;
-      if (meshService.getGpsFix(&myLat, &myLon, &myAge, &mySats, NULL) &&
-          myAge < MESH_GPS_FRESH_MS && meshService.isGpsEnabled()) {
-        const double d = haveRef ? meshPosDistanceM(refLat, refLon, myLat, myLon) : 0.0;
+      SelfFix me;
+      if (meshService.getSelfFix(&me, false) != SELF_NONE) {
+        const double d = haveRef ? meshPosDistanceM(refLat, refLon, me.latI, me.lonI) : 0.0;
+        const char* src = me.src == SELF_PHONE ? "phone" : "GPS";
         /* Testing the computed distance against 5 m catches "the reference IS
-         * my GPS" without asking which reference mode is active — it is true in
-         * explicit-GPS mode and in automatic mode with a fresh fix alike. */
+         * my fix" without asking which reference mode is active — it is true in
+         * explicit-Here mode and in automatic mode with a fresh fix alike. */
         if (!haveRef || d < 5.0) {
-          snprintf(line, sizeof(line), "here - GPS fix, %d sats", mySats);
+          if (me.sats >= 0) {
+            snprintf(line, sizeof(line), "here - %s fix, %d sats", src, me.sats);
+          } else {
+            snprintf(line, sizeof(line), "here - %s fix", src);   // GPS 2 IP may not say
+          }
         } else {
           char dist[16];
           unitsFmtDist(d, gUnits, dist, sizeof(dist));
-          snprintf(line, sizeof(line), "%s %s of %s, GPS now", dist,
-                   meshPosCompass8(meshPosBearingDeg(refLat, refLon, myLat, myLon)), refName);
+          snprintf(line, sizeof(line), "%s %s of %s, %s now", dist,
+                   meshPosCompass8(meshPosBearingDeg(refLat, refLon, me.latI, me.lonI)), refName,
+                   src);
         }
       } else {
         snprintf(line, sizeof(line), "!%08x", n->nodeNum);   // today's behaviour
@@ -525,7 +531,14 @@ void MeshtasticApp::buildNodes() {
      * mattered ("wrap, don't clip" — field request 2026-08-19). */
     if (haveRef && n->posHeardMs != 0) {
       char dist[16];
-      unitsFmtDist(meshPosDistanceM(refLat, refLon, n->latI, n->lonI), gUnits, dist, sizeof(dist));
+      /* "~" leads an APPROXIMATE position's distance (it sent precision_bits: the point is the
+       * middle of a cell, mesh_pos.h) — one character, so the row's budget is not spent on it. */
+      const bool approx = meshPosIsApprox(n->posPrec);
+      if (approx) {
+        dist[0] = '~';
+      }
+      unitsFmtDist(meshPosDistanceM(refLat, refLon, n->latI, n->lonI), gUnits,
+                   dist + (approx ? 1 : 0), sizeof(dist) - (approx ? 1 : 0));
       /* Age BEFORE the reference name: the name is the part that varies in
        * length, so trailing it pushed "(old)"/"(4m)" — the freshness, which is
        * what makes the distance trustworthy — off the end first. */
@@ -565,36 +578,42 @@ void MeshtasticApp::buildPlaces() {
    * come from. */
 #ifdef USER_SERIAL
   {
+    /* "Here" = this phone's live MEASURED fix since 0.9.82: its own GPS, else the hotspot
+     * phone's (self_pos.h). Never the pin — that is what Automatic falls back to. */
     char sub[48];
     const bool isRef = (refId == MESH_REF_GPS);
-    int32_t la = 0, lo = 0;
-    uint32_t age = 0;
-    int sats = -1;
-    const bool haveFix = meshService.getGpsFix(&la, &lo, &age, &sats, NULL);
-    /* ⚠ THE SELECTED STATE HAS TO SURVIVE THE GPS BEING OFF OR UNFIXED. These two
+    SelfFix fx;
+    const bool live = meshService.getSelfFix(&fx, false) != SELF_NONE;
+    const bool haveFix = live || meshService.getSelfNewest(&fx) != SELF_NONE;
+    const char* src = fx.src == SELF_PHONE ? "phone " : "";
+    /* ⚠ THE SELECTED STATE HAS TO SURVIVE THE SOURCES BEING OFF OR UNFIXED. These two
      * branches used to read identically whether or not this row was the chosen
      * reference, so the one screen that lists references marked NONE of them as
      * selected in exactly the states where the user is most likely to be asking. */
-    if (!gGpsNmea) {
-      snprintf(sub, sizeof(sub), "GPS is off (My node)%s", isRef ? " - SELECTED" : "");
+    if (!meshService.anySourceEnabled()) {
+      snprintf(sub, sizeof(sub), "GPS/phone location off%s", isRef ? " - SELECTED" : "");
     } else if (!haveFix) {
       snprintf(sub, sizeof(sub), "no fix yet%s", isRef ? " - SELECTED" : "");
-    } else if (isRef && age >= MESH_GPS_FRESH_MS) {
+    } else if (isRef && !live) {
       /* Named "last fix" and not "fix": in this mode the frame deliberately
        * stops moving rather than falling back to the pin, and the row has to
        * say which of those is happening. */
-      snprintf(sub, sizeof(sub), "from here - last fix %lu min ago",
-               (unsigned long)(age / 60000UL));
+      snprintf(sub, sizeof(sub), "from here - last %sfix %lu min ago", src,
+               (unsigned long)(fx.ageMs / 60000UL));
     } else if (isRef) {
-      snprintf(sub, sizeof(sub), "from here - fix %lus old", (unsigned long)(age / 1000UL));
+      snprintf(sub, sizeof(sub), "from here - %sfix %lus old", src,
+               (unsigned long)(fx.ageMs / 1000UL));
+    } else if (fx.sats >= 0) {
+      snprintf(sub, sizeof(sub), "%sfix %lus old, %d sats", src,
+               (unsigned long)(fx.ageMs / 1000UL), fx.sats);
     } else {
-      snprintf(sub, sizeof(sub), "fix %lus old, %d sats", (unsigned long)(age / 1000UL), sats);
+      snprintf(sub, sizeof(sub), "%sfix %lus old", src, (unsigned long)(fx.ageMs / 1000UL));
     }
-    menu->addOption("Here (GPS)", sub, MESH_PLACES_KEY_GPS, 1);
+    menu->addOption("Here (live fix)", sub, MESH_PLACES_KEY_GPS, 1);
   }
 #endif
   menu->addOption("Automatic",
-                  refId == 0 ? "measuring from here" : "GPS when fresh, else your pin",
+                  refId == 0 ? "measuring from here" : "live fix when fresh, else your pin",
                   MESH_PLACES_KEY_AUTO, 1);
 
   int count = meshService.getWaypointCount();
@@ -726,28 +745,33 @@ void MeshtasticApp::buildStatus() {
   menu->addOption(line, 5, 1);
   {
     char refName[20];
+    uint8_t refKind = MESH_REFK_NONE;
     // "From:" not "Distances from:" — the 16-char prefix left ~3 characters
     // for the place name, which is the only part carrying information.
-    if (meshService.resolveReference(NULL, NULL, refName, sizeof(refName))) {
-      /* The reference name already says "last GPS" when the fix has gone
-       * stale; this is where the precise age lives, because putting a number
+    if (meshService.resolveReferenceEx(NULL, NULL, refName, sizeof(refName), &refKind)) {
+      /* The reference name already says "last GPS"/"last phone" when the fix has
+       * gone stale; this is where the precise age lives, because putting a number
        * on every distance line would have meant two ages in one sentence. */
       uint32_t staleMs = 0;
+      SelfFix ph;
       if (meshService.referenceIsStaleGps(&staleMs)) {
         snprintf(line, sizeof(line), "From: %s (%lu min old)", refName,
                  (unsigned long)(staleMs / 60000UL));
+      } else if (refKind == MESH_REFK_PHONE && meshService.getSourceFix(SELF_PHONE, &ph) &&
+                 ph.sats >= 0) {
+        snprintf(line, sizeof(line), "From: phone (%d sats)", ph.sats);
       } else {
         snprintf(line, sizeof(line), "From: %s", refName);
       }
     } else if (meshService.getReferenceId() == MESH_REF_GPS) {
       /* ⚠ THE REFERENCE IS SET; IT SIMPLY CANNOT RESOLVE. resolveReference()
-       * returns false here on purpose (a GPS reference must never silently fall
+       * returns false here on purpose (a Here reference must never silently fall
        * back to the pin — that is how a distance ends up measured from somewhere
        * the user did not choose). But this is the one screen whose whole job is
        * to answer "what am I measuring from", and "(nowhere yet)" answers the
        * wrong question: it reads as "you never picked one". */
-      snprintf(line, sizeof(line), "From: GPS (%s)",
-               gGpsNmea ? "no fix" : "receiver off");
+      snprintf(line, sizeof(line), "From: here (%s)",
+               meshService.anySourceEnabled() ? "no fix" : "GPS/phone off");
     } else {
       snprintf(line, sizeof(line), "From: (nowhere yet)");
     }
@@ -826,18 +850,31 @@ void MeshtasticApp::buildMyNode() {
     snprintf(line, sizeof(line), "GPS receiver: %s", gs);
     menu->addOption(line, MESH_MYNODE_GPS, 1);
   }
+  {
+    /* The hotspot phone's GPS (0.9.82, phone_pos.h): "auto" asks whichever network this phone
+     * has joined for a location app (gpsdRelay / Share GPS on 10110, GPS 2 IP on 11123), and
+     * the small line says what came of it — "this network: fix, 9 sats", "no app found on this
+     * network", "no fix (indoors?)". Written when the screen is built, like every row here.
+     * Pressing it is the on-screen consent the cable's `phonepos auto` defers to. */
+    char sub[64];
+    phonePosStatusLine(sub, sizeof(sub));
+    snprintf(line, sizeof(line), "Phone location: %s", phonePosAuto() ? "auto" : "off");
+    menu->addOption(line, phonePosAuto() ? sub : "tap to use a hotspot phone's GPS",
+                    MESH_MYNODE_PHONELOC, 1);
+  }
   /* ── Reporting this phone's position to the mesh ────────────────────────────
-   * Shown when the GPS is on OR when reporting is armed. NOT simply "when the
-   * GPS is on": a location broadcaster that is switched on must never become
-   * invisible, and turning the receiver off must not hide the fact that the
-   * beacon is still armed and waiting. With the shipping defaults (GPS off,
-   * reporting off) My node keeps its current eleven rows and nothing changes.
+   * Shown when a location source is on (the GPS, or Phone location) OR when
+   * reporting is armed. NOT simply "when a source is on": a location broadcaster
+   * that is switched on must never become invisible, and turning the sources off
+   * must not hide the fact that the beacon is still armed and waiting. Since
+   * 0.9.82 Phone location is on by default, so a phone with no GPS plate (phone 1)
+   * can reach these rows at all — it used to have no way to turn reporting on.
    *
    * Two lines per row: the cadence in the large font, the honest state in the
    * small one. The house rule from the neighbour row above — say the state AND
    * the destination, and say the true thing when the destination does not
    * exist — matters more here, because the thing being broadcast is a person. */
-  if (gGpsNmea || meshService.getPosInterval() != 0) {
+  if (meshService.anySourceEnabled() || meshService.getPosInterval() != 0) {
     char sub[64];                     // channel names run to MESH_NAME_LEN (24)
     const uint32_t pi = meshService.getPosInterval();
     if (pi == 0) {
@@ -1412,6 +1449,14 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
         meshService.setGpsEnabled(gGpsNmea);
         buildMyNode();
         menu->select(MESH_MYNODE_GPS);
+      } else if (sel == MESH_MYNODE_PHONELOC) {
+        pendingClear = 0;
+        /* Persists and tells the service (phone_pos.cpp). Off closes the socket and forgets the
+         * phone's last fix; it never transmits anything either way — a beacon still needs the
+         * interval and the channel below. */
+        phonePosSetAuto(!phonePosAuto());
+        buildMyNode();
+        menu->select(MESH_MYNODE_PHONELOC);
       } else if (sel == MESH_MYNODE_POSINT) {
         pendingClear = 0;
         /* off -> 15 min -> 5 min -> 30 min -> off, the neighbour row's shape:

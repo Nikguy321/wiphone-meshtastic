@@ -55,6 +55,7 @@ governing permissions and limitations under the License.
 #include "app_gbc_xfer.h"
 #include "sms_mirror_poll.h"   // pulls mirrored texts from COVEY over the LAN
 #include "kosync_sync.h"      // KOSync: the reading-position sync window + home client
+#include "phone_pos.h"        // the hotspot phone's GPS as a location source (NMEA over WiFi)
 #include "sms_mirror_rx.h"     // smsMirrorTakeNews: the mirror's arrival announcements
 #include "serial_cmd.h"        // debug console on USB serial (uploader on/off, mirror sync)
 #include "mp3_stream.h"
@@ -1996,6 +1997,7 @@ void setup() {
    * was exactly that, and it is the reason this line is above the call and not below it. */
   meshService.setCardPresent(gui.state.cardPresent);
   meshService.setup();
+  phonePosSetup();      // the hotspot phone's GPS: its custom port (the on/off is the service's)
 
   /* The user's own T9 words, if the card has any. Here because the card verdict above is
    * finally trustworthy, and because this is the ONLY place the file is ever read — one
@@ -3392,6 +3394,14 @@ void loop() {
      * Same socket gate as the mirror; and no automatic window into a live or ringing call. */
     loopPhase("kosync");
     kosyncLoop(sipMayPoll(), sipNeedsFullSpeed());
+
+    /* The hotspot phone's GPS (phone_pos.h): one bounded, non-blocking step at most every
+     * 100 ms - a connect polled, or up to 512 B read and fed. Same socket gate as the two above
+     * (closed under a Game Boy game). 🛑 Deliberately NOT in `busy`/`hardBusy` below: a 1 Hz
+     * trickle needs no full speed, and a clock switch under a running radio is phone 1's WiFi
+     * drop. It never sets the clock and never touches gGpsReader. */
+    loopPhase("phonepos");
+    phonePosLoop(sipMayPoll());
 
     /* THE MIRROR'S ANNOUNCER — one place, both transports. smsMirrorIngestLine() latches
      * news whenever it stores a text (whether the line rode in over LoRa or the LAN poll

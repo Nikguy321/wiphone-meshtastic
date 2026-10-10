@@ -138,6 +138,13 @@ void placeRow(const AlmCtx* c, AlmEmitFn emit, void* ctx) {
     fmtAgo(c->placeAgeMs, ago, sizeof(ago));
     emitf(emit, ctx, ALM_ROW_INFO, "At last GPS %s", ago);
     break;
+  case ALM_PLACE_PHONE:
+    emit(ctx, ALM_ROW_INFO, "At phone GPS");          // the hotspot phone's fix (self_pos.h)
+    break;
+  case ALM_PLACE_LAST_PHONE:
+    fmtAgo(c->placeAgeMs, ago, sizeof(ago));
+    emitf(emit, ctx, ALM_ROW_INFO, "At last phone %s", ago);
+    break;
   case ALM_PLACE_MAP_VIEW:
     emit(ctx, ALM_ROW_INFO, "At map view");
     break;
@@ -1078,14 +1085,28 @@ void almPickPlace(const AlmPlaceIn* in, AlmPlace* out) {
     out->kind = in->refKind != ALM_PLACE_NONE ? in->refKind : ALM_PLACE_PIN;
     out->latI = in->refLatI;
     out->lonI = in->refLonI;
-    out->ageMs = in->gpsAgeMs;
+    const bool phone = out->kind == ALM_PLACE_PHONE || out->kind == ALM_PLACE_LAST_PHONE;
+    out->ageMs = phone ? in->refAgeMs : in->gpsAgeMs;
     snprintf(out->name, sizeof(out->name), "%s", in->refName ? in->refName : "?");
     return;
   }
   /* ⚠ The bar resolveReference() and the map's "me" use (meshPosFixUsable): under 4 satellites
-   * or over HDOP 10 a fix was measured 20 km off. Such a fix is no place here either. */
-  if (in->gpsFix && meshPosFixUsable(in->gpsSats, in->gpsHdopX10) &&
-      Ok::at(in->gpsLatI, in->gpsLonI)) {
+   * or over HDOP 10 a fix was measured 20 km off. Such a fix is no place here either — and it is
+   * judged per source BEFORE the newer one is chosen, so a fresh 3-satellite phone fix indoors
+   * cannot push a usable 20-minute-old GPS fix aside and leave only the map's view. */
+  const bool gpsOk = in->gpsFix && meshPosFixUsable(in->gpsSats, in->gpsHdopX10) &&
+                     Ok::at(in->gpsLatI, in->gpsLonI);
+  const bool phOk = in->phoneFix && meshPosFixUsable(in->phoneSats, in->phoneHdopX10) &&
+                    Ok::at(in->phoneLatI, in->phoneLonI);
+  if (phOk && (!gpsOk || in->phoneAgeMs < in->gpsAgeMs)) {
+    out->kind = ALM_PLACE_LAST_PHONE;
+    out->latI = in->phoneLatI;
+    out->lonI = in->phoneLonI;
+    out->ageMs = in->phoneAgeMs;
+    strcpy(out->name, "last phone GPS");
+    return;
+  }
+  if (gpsOk) {
     out->kind = ALM_PLACE_LAST_GPS;
     out->latI = in->gpsLatI;
     out->lonI = in->gpsLonI;
@@ -1461,6 +1482,14 @@ void almLinesPosition(const AlmCtx* c, const AlmPos* p, AlmEmitFn emit, void* ct
       fmtAge(p->gpsAgeMs, a, sizeof(a));
       emitf(emit, ctx, ALM_ROW_INFO, "Source: last GPS %s", a);
       break;
+    case ALM_PLACE_PHONE:
+      fmtAge(c->placeAgeMs, a, sizeof(a));
+      emitf(emit, ctx, ALM_ROW_INFO, "Source: phone GPS %s", a);
+      break;
+    case ALM_PLACE_LAST_PHONE:
+      fmtAge(c->placeAgeMs, a, sizeof(a));
+      emitf(emit, ctx, ALM_ROW_INFO, "Source: last phone %s", a);
+      break;
     case ALM_PLACE_MAP_VIEW:
       emit(ctx, ALM_ROW_INFO, "Source: map view");
       break;
@@ -1475,21 +1504,27 @@ void almLinesPosition(const AlmCtx* c, const AlmPos* p, AlmEmitFn emit, void* ct
       emit(ctx, ALM_ROW_INFO, "Source: typed in");
       break;
     }
-    emitf(emit, ctx, ALM_ROW_INFO, "%.5f, %.5f", c->lat, c->lon);
-    geoFmtDdm(c->lat, true, a, sizeof(a));
-    geoFmtDdm(c->lon, false, b, sizeof(b));
-    emitf(emit, ctx, ALM_ROW_INFO, "%s %s", a, b);
     GeoUtm u;
-    if (geoToUtm(c->lat, c->lon, &u)) {
-      // Truncated to the metre, as the MGRS digits are (a grid reference names the square).
-      emitf(emit, ctx, ALM_ROW_INFO, "UTM %d%c %ldE %ldN", u.zone, u.band,
-            (long)floor(u.e + 1e-6), (long)floor(u.n + 1e-6));
-      char mgrs[24];
-      if (geoToMgrs(c->lat, c->lon, mgrs, sizeof(mgrs))) {
-        emitf(emit, ctx, ALM_ROW_INFO, "MGRS %s", mgrs);
-      }
+    if (c->coordsCoarse) {
+      // The console at a measured place (AlmCtx.coordsCoarse): ~1 km, and nothing finer.
+      emitf(emit, ctx, ALM_ROW_INFO, "~%.2f, %.2f (rounded here)", c->lat, c->lon);
+      emit(ctx, ALM_ROW_INFO, "UTM/MGRS: on the screen only");
     } else {
-      emit(ctx, ALM_ROW_INFO, "UTM/MGRS: none (polar)");
+      emitf(emit, ctx, ALM_ROW_INFO, "%.5f, %.5f", c->lat, c->lon);
+      geoFmtDdm(c->lat, true, a, sizeof(a));
+      geoFmtDdm(c->lon, false, b, sizeof(b));
+      emitf(emit, ctx, ALM_ROW_INFO, "%s %s", a, b);
+      if (geoToUtm(c->lat, c->lon, &u)) {
+        // Truncated to the metre, as the MGRS digits are (a grid reference names the square).
+        emitf(emit, ctx, ALM_ROW_INFO, "UTM %d%c %ldE %ldN", u.zone, u.band,
+              (long)floor(u.e + 1e-6), (long)floor(u.n + 1e-6));
+        char mgrs[24];
+        if (geoToMgrs(c->lat, c->lon, mgrs, sizeof(mgrs))) {
+          emitf(emit, ctx, ALM_ROW_INFO, "MGRS %s", mgrs);
+        }
+      } else {
+        emit(ctx, ALM_ROW_INFO, "UTM/MGRS: none (polar)");
+      }
     }
     switch (p->elevState) {
     case ALM_ELEV_OK:

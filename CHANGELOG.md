@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi
+## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi, the phone's location from a hotspot
 
 Nick: the phones should get new OpenTopoMap tiles *"over WiFi from the Mac"* rather than by
 opening them for the SD card.
@@ -23,6 +23,78 @@ opening them for the SD card.
   waits until Books, Music, Files, Photos and the Game Boy are closed. It is for giving a book the
   same file name it has on another reader: KOSync's second document id is the md5 of the file
   name. Reading places are kept, because the position store keys on the book's epub ids.
+
+**Phone location: a phone's GPS over its hotspot** (phone 1 has no GPS plate):
+
+- **Meshtastic > My node > Phone location: auto** (new, on by default on a new phone). When the WiPhone has
+  joined a phone's hotspot and that phone runs a GPS-sharing app, the WiPhone uses the phone's
+  GPS as its own position. The apps: **gpsdRelay** (Android, F-Droid) or **Share GPS** (Android)
+  set to port 10110, relaying the receiver's own NMEA; **GPS 2 IP** (iPhone) on its own port
+  11123. Nothing is typed: the WiPhone asks the network's gateway (on a hotspot, the phone) on
+  those ports, remembers the one that answers, and on a network where nothing answers (a home
+  router) asks a few times and then once every 5 minutes. The line under the row says what is
+  happening: "this network: fix, 9 sats", "no app found on this network", "no fix (indoors?)",
+  "fix found, checking it", "fixes jump about: not used". `phonepos port <n>` adds a port of
+  your own. **No IP-based location is used anywhere.**
+- **Upgrading:** a phone whose position reporting was armed (an interval and a channel) while
+  "GPS is off" held it, or aimed at a public channel, comes up with Phone location **off** - so
+  the first hotspot does not start a beacon nobody re-confirmed. My node turns it on.
+- **Who it trusts (read this):** whatever answers on the joined network's gateway. On your own
+  hotspot that is your phone; on a hotel's, a campground's or a boat's network (marine NMEA
+  gateways use 10110 too) it can be anything, and a device there serving well-formed NMEA can
+  set the map's "me (phone)", the distances, the Almanac's place and - with reporting armed and
+  no live fix from the plate - the position the beacon sends as a phone GPS fix. It can never
+  set the clock or outrank the plate's own fix, and nothing is stored. Switch Phone location
+  off on networks you do not control. (The first design paired it to one hotspot name; zero
+  configuration traded that away, and a per-network confirm is the known next step.)
+- **What counts as a fix:** the position, fix quality, satellites and HDOP all come from one GGA
+  sentence (nothing is carried over from an older one). No fix, dead reckoning, manual and
+  simulated positions are refused. Four satellites and HDOP 10 or better are needed to send it,
+  as for the GPS. When an app leaves satellites and HDOP empty (GPS 2 IP can), an RMC of the same
+  second has to say the fix is valid, and such a fix is **shown but never sent**: iOS builds it
+  from CoreLocation, which can be a Wi-Fi/cell guess, or kilometres off on purpose with Precise
+  Location off (docs/phone-location.md's GPS 2 IP step turns that on). GPS 2 IP fills the fields in instead:
+  every GGA says 8 satellites and HDOP 0.9, whatever the fix is worth (its own NMEA docs). So that
+  exact pair is read as "not said" at once on GPS 2 IP's port 11123, and after five GGAs running
+  on any other port. The line says "iPhone app gives no accuracy: shown, not sent". The first
+  2 s after each connect are ignored (gpsdRelay
+  replays up to 30 old lines), and with a trusted clock a sentence more than 5 s off is dropped.
+  Two fixes in a row must agree: gpsdRelay's *generated* sentences can print a coordinate
+  kilometres off that still looks valid. They may be up to 10 s apart (the dead-link limit), so
+  an app sending every 5-8 s works too. The phone's data never sets the clock.
+- **Where it shows:** the map's "me (phone)" (grey "me (phone), N m ago" once it is old), the
+  distances, the Almanac ("At phone GPS") and its weather, the Nodes self row ("here - phone
+  fix, 9 sats") and Status ("From: phone (9 sats)"). The Almanac's fallback takes the newer
+  *usable* of the two fixes, so a fresh poor phone fix indoors never hides a good older GPS one. The woods plate's GPS still comes first
+  when both have a fix. Places > **Here (live fix)** (was "Here (GPS)") measures from either,
+  never from the pin.
+- **Position reporting** works from Phone location too: the Position and Send to rows show when
+  either source is on, so phone 1 can switch reporting on from the screen at last. A beacon now
+  says where its fix came from (Meshtastic `location_source`: the woods plate's GPS "internal",
+  a phone's "external", full precision): 20 bytes, 559 ms on air (was 15 B, 518 ms). The pin
+  announce is unchanged. A poor or old fix no longer spends the owed slot; it waits for a good one.
+- **Other nodes' approximate positions:** a node that sends a reduced precision (stock channels
+  can cut a position to a ~2.9 km cell) is drawn on the map with a dotted ring of that size, and
+  its distance has a "~" in front (Nodes, the map's lists; `pos` says "approx +-N m").
+- **Serial bench:** `pos` lists each source and why it is or is not used. `pos inject
+  gps|phone <lat> <lon> [sats hdop]` and `pos inject clear` set a bench fix (RAM only, never
+  sent by the schedule; `pos now` with one logs INJECTED and sends it as Meshtastic MANUAL with
+  no precision, so no receiver takes it for a measurement). `phonepos` (state, port, bytes,
+  sentences, bad checksums, stale lines, last fix age, connects), `phonepos auto|off`,
+  `phonepos port <n>`, `phonepos at <ip>[:port]` (a Mac standing in for the phone; its fixes
+  are bench fixes).
+- **The cable never starts a location going out on a public channel:** `pos every <n>`, `gps
+  on` and `phonepos auto` are refused while reporting is aimed at a public (or vanished)
+  channel, and `pos now` never sends to a public channel at all - a public channel confirmed
+  once survives "Position: off" on the screen, and a line on the cable is not that consent. **`tools/nmea_phone_stub.py`** is that Mac side: RMC+GGA at
+  a dummy position, with switches for poor fixes, the stale burst, no line endings, a stall,
+  gpsdRelay's generated sentences and GPS 2 IP's empty fields.
+- **Privacy:** the beacon's log line and the first-fix line give coordinates to 2 decimals
+  (about 1 km) now, and the phone-location lines give none (no SSID or address either). The
+  console's `almanac` (at a measured place: no UTM/MGRS, 2 decimals; a typed place stays exact),
+  `almanac bench`, the Almanac's day log and `elev`'s "you" line are rounded the same way. The
+  real measured position that sat in two code comments is gone from the tree (git history
+  still has it).
 
 ## 0.9.81-NH (2026-10-04) - Menu > AI (Gemini), the API Keys folder, weather on the Almanac
 
@@ -3832,9 +3904,9 @@ came out of looking at why.
   **Verified on the handset:** with no fix, `pos` reports nothing owed at t+0 and
   `A SLOT IS OWED - it will send the moment a fresh fix arrives` after one full interval.
 - 🛑 **NEW GATE: A FIX HAS TO BE WORTH BELIEVING, and this one is measured.** On 2026-08-25 an
-  indoor WiPhone reported `sats=3 hdop=6.4` at **47.33821,-122.16501** while the phone was in
-  fact at a known spot **about 20 km away** — and nothing on the beacon path would have
-  refused it. Had that landed on a tick, COVEY's map would have shown Nick 20 km from where he
+  indoor WiPhone reported `sats=3 hdop=6.4` at a position (scrubbed from this public repo)
+  while the phone was in fact at a known spot **about 20 km away** — and nothing on the beacon
+  path would have refused it. Had that landed on a tick, COVEY's map would have shown Nick 20 km from where he
   was, with no hint anything was wrong. **Three satellites is a 2D fix**: it solves lat/lon by
   *assuming* an altitude, and a wrong assumption pushes the error sideways, into the one number
   a hunting party reads. Four is the arithmetic minimum for a real 3D fix, so `MESH_POS_MIN_SATS

@@ -9,11 +9,17 @@
  *     PL=255: ceil(2040/44)=47 -> 243 symbols, the same block -> 2156.544 ms
  *     PL=249: ceil(1992/44)=46 -> 238 symbols -> 1949.696 + 165.888 = 2115.584 ms
  *     PL= 60: ceil( 480/44)=11 ->  63 symbols ->  516.096 + 165.888 =  681.984 ms
+ *     PL= 45: ceil( 360/44)= 9 ->  53 symbols ->  434.176 + 165.888 =  600.064 ms
+ *     PL= 44: ceil( 352/44)= 8 ->  48 symbols ->  393.216 + 165.888 =  559.104 ms
+ *     PL= 42: ceil( 336/44)= 8 ->  48 symbols ->  393.216 + 165.888 =  559.104 ms
  *     PL= 37: ceil( 296/44)= 7 ->  43 symbols ->  352.256 + 165.888 =  518.144 ms
  *     PL= 20: ceil( 160/44)= 4 ->  28 symbols ->  229.376 + 165.888 =  395.264 ms
  *     PL=  1: ceil(   8/44)= 1 ->  13 symbols ->  106.496 + 165.888 =  272.384 ms
  * 37 B is the position beacon this repo's comments have called "518 ms" since 0.9.2x; the
- * hand figure agrees, and the rounded-up millisecond the timeout uses is 519.
+ * hand figure agrees, and the rounded-up millisecond the timeout uses is 519. 42 B is the
+ * same beacon once it says where its fix came from (0.9.82: location_source + precision_bits,
+ * a 20 B Position, mesh_pos.h's MESH_POS_BUILD_EX_MAX): 559 ms, and 44 B (22 B) still is —
+ * 45 B is where the next block of symbols starts.
  *
  * The budget half does not trust the arithmetic in meshDataOverhead(): it builds the Data
  * with the shipping meshBuildData() and measures the frame.
@@ -53,7 +59,10 @@ static void testAirtime() {
   checkAir(255, 2156544u, 2157u);   // same 243-symbol block as 254
   checkAir(249, 2115584u, 2116u);   // stock's own worst case: DATA_PAYLOAD_LEN + header
   checkAir(60,   681984u,  682u);
-  checkAir(37,   518144u,  519u);   // the position beacon
+  checkAir(45,   600064u,  601u);   // a 23 B Position: one block more (why no altitude is sent)
+  checkAir(44,   559104u,  560u);   // a 22 B Position: the largest at the beacon's airtime
+  checkAir(42,   559104u,  560u);   // the beacon with location_source + precision_bits (mesh_pos.h)
+  checkAir(37,   518144u,  519u);   // the pin announce: meshPosBuild's 15 B
   checkAir(20,   395264u,  396u);
   checkAir(1,    272384u,  273u);
   checkAir(0,    231424u,  232u);   // numerator 0: the max(...,0) branch, 8 payload symbols

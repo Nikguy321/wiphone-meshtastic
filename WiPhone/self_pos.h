@@ -1,0 +1,388 @@
+/*
+ * self_pos.h — WHERE THIS PHONE IS: which source to believe, and the phone-over-WiFi source.
+ *
+ * Until 0.9.82 "my position" meant one thing, the woods plate's GPS on the UART, and phone 1
+ * (no plate) never had one. Now a second source can stand in for it: the GPS of the Android or
+ * iPhone whose hotspot this phone has joined, read as NMEA from an app on that phone —
+ *
+ *   gpsdRelay  (Android, F-Droid)  TCP server, we tell people to use port 10110 (IANA nmea-0183)
+ *   Share GPS  (Android, Play)     TCP server, ditto 10110
+ *   GPS 2 IP   (iPhone)            socket/server mode, its own default 11123
+ *
+ * — and, reserved for the next round and picked by NOTHING here, a Wi-Fi scan location.
+ * 🛑 NO IP GEOLOCATION, ANYWHERE, EVER: on a phone hotspot it answers with the carrier's
+ * internet exit, typically 180-200 km away, with no hint that it is wrong.
+ *
+ * Ranking, best first: GPS (this phone's own receiver) > PHONE (relayed) > [NET, reserved].
+ * The user's hand-set pin is not a source here: it stays where meshtastic_service/app_maps rank
+ * it, above a stale or poor measured fix and below any live one.
+ *
+ * WHAT IS PURE HERE, AND WHY: every rule that decides whether a position is put on somebody
+ * else's map — freshness, quality, the stale-data guards, which port to try — runs on a Mac in
+ * tests/test_selfpos.cpp. The socket, the service slots and the screens are the glue
+ * (phone_pos.cpp, meshtastic_service.cpp), and they only ask these functions.
+ *
+ * 🛑 THE PHONE'S NMEA NEVER SETS THE CLOCK (never ntpClock.gpsSentence) and never touches the
+ * woods plate's reader (gGpsNmea / gGpsReader). Unauthenticated bytes from a LAN do not get to
+ * be a TRUSTED time (clock_source.h); NTP already runs on any network that has a gateway.
+ */
+#ifndef SELF_POS_H
+#define SELF_POS_H
+
+#include <stddef.h>
+#include <stdint.h>
+#include "nmea.h"
+#include "mesh_pos.h"
+
+// ---------------------------------------------------------------- sources and slots
+enum SelfSrc {
+  SELF_NONE  = 0,
+  SELF_GPS   = 1,      // the woods plate's receiver (UART NMEA)
+  SELF_PHONE = 2,      // the hotspot phone's GPS, relayed as NMEA over WiFi
+  SELF_NET   = 3,      // RESERVED: a Wi-Fi scan location (next round). selfPick never picks it.
+};
+#define SELF_SRC_COUNT   3          // slots[] is indexed src - 1
+
+/* Freshness — the same two bars the GPS has always had (meshtastic_service.h's MESH_GPS_FRESH_MS
+ * and MESH_POS_TX_FRESH_MS must equal these; tests/test_selfpos.cpp reads that header and fails if
+ * they drift). SHOW: on this phone's own screens (its owner knows where they are). SEND: worth
+ * other people's trust — 30 missed 1 Hz epochs is a guess dressed as a measurement. */
+#define SELF_SHOW_FRESH_MS  120000UL
+#define SELF_TX_FRESH_MS     30000UL
+
+/* One source's last fix. ~24 B, RAM only: nothing here is ever written to NVS (a position kept
+ * across a restart would come back "fresh" with no receiver behind it). */
+struct SelfSlot {
+  int32_t  latI, lonI;   // 1e-7 deg
+  uint32_t fixMs;        // millis() of the fix; 0 = never (selfSlotSet turns a 0 stamp into 1)
+  int      sats;         // from the SAME sentence as the position; -1 = it did not say
+  int      hdopX10;      // ditto
+  bool     enabled;      // the source is switched on (GPS: gpsen; PHONE: "Phone location: auto")
+  bool     injected;     // written by `pos inject`: shown, never sent by the schedule
+};
+
+// Write a whole fix at once — there is no partial update, so nothing can be inherited from an
+// older sentence. `enabled` is left as it is.
+void selfSlotSet(SelfSlot* s, int32_t latI, int32_t lonI, int sats, int hdopX10,
+                 uint32_t nowMs, bool injected);
+void selfSlotClear(SelfSlot* s);                 // forget the fix (`enabled` kept)
+
+/* Why a slot is or is not usable for a purpose, checked in this order. */
+enum SelfState {
+  SELF_ST_LIVE = 0,      // fresh enough and good enough
+  SELF_ST_RESERVED,      // not a source this firmware picks (NET)
+  SELF_ST_OFF,           // switched off
+  SELF_ST_NEVER,         // on, no fix since boot (or since cleared)
+  SELF_ST_INJECTED,      // a bench fix, and this purpose refuses them (the scheduled beacon)
+  SELF_ST_OLD,           // older than the purpose allows
+  SELF_ST_POOR,          // fresh, but its own sentence said sats < 4 or HDOP > 10
+  SELF_ST_UNRATED,       // SENDING only: a phone fix whose sentence gave neither sats nor HDOP
+};
+
+/* Purpose flags. 0 = show it on this phone's screens. */
+#define SELF_PICK_TX        0x01    // the 30 s bar: it is going on the air
+#define SELF_PICK_INJECTED  0x02    // a `pos inject` fix may be used (screens; `pos now`)
+
+/* ── UNRATED: SHOWN, NEVER SENT ─────────────────────────────────────────────────────────────
+ * A PHONE fix with no satellite count AND no HDOP (the gate's RMC-vouched path) says nothing
+ * about how good it is. iOS gives apps no raw NMEA: GPS 2 IP builds its sentences from
+ * CoreLocation, whose position can be Wi-Fi or cell based (tens of metres to kilometres) or,
+ * with Precise Location off for the app, fuzzed by kilometres on purpose — and it would go out
+ * as EXTERNAL at full precision, a sharp dot on every receiver. So it is good enough for this
+ * phone's own screens (its owner knows where they are) and never for SELF_PICK_TX. A bench fix
+ * is exempt: it is sent as MANUAL (selfPick below), which claims no measurement at all. The
+ * woods plate's GPS is not touched by this: a receiver that has not said is not a failure. */
+int selfSlotState(const SelfSlot* s, int src, uint32_t nowMs, unsigned flags);
+
+struct SelfFix {
+  int      src;          // SELF_* (SELF_NONE: nothing)
+  int      state;        // SELF_ST_* of that slot for the purpose asked
+  int32_t  latI, lonI;
+  uint32_t ageMs;
+  int      sats, hdopX10;
+  bool     injected;
+  /* The mesh location_source and precision_bits a beacon from this fix carries: the source's
+   * own (GPS INTERNAL, PHONE EXTERNAL, 32 bits) — except a bench fix (`pos inject`, `phonepos
+   * at`), which is MANUAL with field 23 left out, like the hand-set pin. INTERNAL/EXTERNAL is
+   * a claim of a MEASUREMENT that stock receivers take the packet's time on (mesh_pos.h), and
+   * a typed 40.0,-100.0 must not reach COVEY looking like a live phone-GPS fix. */
+  uint8_t  locSrc;
+  uint8_t  precBits;
+};
+
+/* THE ONE RULE every caller asks: the best-ranked source whose slot is LIVE for the purpose.
+ * Returns its SELF_* (out filled), or SELF_NONE (out->src = SELF_NONE, the rest zero). No
+ * hysteresis: a 1 Hz stream either keeps a source alive or lets it age out, and that is the
+ * switch. slots[] is indexed src - 1. */
+int selfPick(const SelfSlot slots[SELF_SRC_COUNT], uint32_t nowMs, unsigned flags, SelfFix* out);
+
+/* The most recently stamped slot of any enabled source, whatever its age or quality — the grey
+ * "last GPS" / "last phone" marker and the `pos` lines. out->state says LIVE/OLD/POOR for the
+ * purpose. SELF_NONE when no enabled source has a fix. */
+int selfNewest(const SelfSlot slots[SELF_SRC_COUNT], uint32_t nowMs, unsigned flags, SelfFix* out);
+
+/* One source's own fix, whatever its age or quality (`pos`, the Almanac's "last ..." place):
+ * false when that source is not GPS/PHONE, is off, or has no fix; out->state for `flags`. */
+bool selfSource(const SelfSlot slots[SELF_SRC_COUNT], int src, uint32_t nowMs, unsigned flags,
+                SelfFix* out);
+
+// Is any source switched on (the Position/Send-to rows, the beacon's "nothing to send")?
+bool selfAnyEnabled(const SelfSlot slots[SELF_SRC_COUNT]);
+
+// ---------------------------------------------------------------- labels
+const char* selfSrcName(int src);        // "GPS" "phone" "Wi-Fi" "none"
+const char* selfSrcLastName(int src);    // "last GPS" "last phone" ... (a fix past its bar)
+const char* selfMapLabel(int src);       // "me" "me (phone)"
+const char* selfBeaconTag(int src);      // the log's provenance: "gps beacon" "phone beacon"
+const char* selfStateName(int state);    // "live" "off" "no fix yet" "too old" "poor fix" ...
+uint8_t     selfSrcLocSource(int src);   // GPS INTERNAL, PHONE EXTERNAL, else UNSET
+uint8_t     selfSrcPrecBits(int src);    // 32 for a measured source, else 0 (never sent)
+
+// ---------------------------------------------------------------- the phone stream
+/* Which ports, in order: 10110, 11123, then the user's own (NVS phport; 0 = none) unless it
+ * repeats one. Returns the count (2 or 3). */
+#define SELF_PHONE_PORT_NMEA     10110   // IANA nmea-0183: gpsdRelay and Share GPS, as we tell people
+#define SELF_PHONE_PORT_GPS2IP   11123   // GPS 2 IP's default (iPhone)
+#define SELF_PHONE_PORTS_MAX     3
+int selfPhonePorts(uint16_t custom, uint16_t out[SELF_PHONE_PORTS_MAX]);
+
+#define SELF_PHONE_POLL_MS        100UL    // read the socket this often, not every pass
+#define SELF_PHONE_CONNECT_MS    3000UL    // a connect not finished by then counts as refused
+#define SELF_PHONE_SETTLE_MS     2000UL    // after every connect, sentences are dropped this long
+#define SELF_PHONE_SILENT_MS    10000UL    // no checksum-good sentence this long: the link is dead
+#define SELF_PHONE_PEND_MS       2000UL    // how long a GGA without sats/HDOP waits for its RMC
+#define SELF_PHONE_TIME_TOL_S       5      // a sentence's UTC second vs a trusted clock
+
+/* ── THE STALE-DATA GUARDS ─────────────────────────────────────────────────────────────────
+ * gpsdRelay keeps ONE 30-line queue for all its TCP clients, and its `connected` flag never
+ * resets: after a reconnect the first thing that arrives is up to 30 lines of the PAST, which
+ * a stamp-on-arrival would call a fresh fix. Two guards, both cheap:
+ *   1. SETTLE — everything in the first 2 s of a connection is dropped (the backlog is written
+ *      the moment the socket is accepted).
+ *   2. TIME OF DAY — while the clock is TRUSTED (NTP/GPS, clock_source.h), a sentence that
+ *      could write or confirm a fix must carry a UTC time within 5 s of now, compared across
+ *      midnight (23:59:58 vs 00:00:01 is 3 s, not 86,397). One with no readable time is
+ *      dropped: it cannot be shown to be current. With an untrusted clock only the settle
+ *      applies — a mesh-set clock is not good enough to judge someone else's GPS by. */
+int32_t selfHmsToSod(int32_t hms);                 // hhmmss -> second of day; -1 absent/out of range
+int32_t selfSodDiff(int32_t a, int32_t b);         // across midnight: 0..43200
+bool    selfPhoneSettled(uint32_t connMs, uint32_t nowMs);
+// utcSod < 0 = the clock is not trusted: true. Otherwise the sentence's own hhmmss must be
+// present, in range, and within SELF_PHONE_TIME_TOL_S.
+bool    selfPhoneTimeOk(int32_t hms, int32_t utcSod);
+
+/* An RMC's NMEA 2.3 mode: E (estimated/dead reckoning), N (not valid), M (manual input) and
+ * S (simulator) are not measurements; absent (0, pre-2.3) and A/D/F/P/R are. */
+bool    selfRmcModeOk(char mode);
+
+/* ── THE PHONE'S QUALITY GATE (one GGA, nothing inherited) ─────────────────────────────────
+ * Position, fix quality, sats and HDOP are all taken from ONE GGA (nmea.h's gga* fields):
+ *   quality 0 / empty / no coordinates   NOFIX         nothing written
+ *   quality 6+ (6 dead reckoning,        NOT_MEASURED  nothing written: an estimate, not a fix
+ *     7 manual input, 8 simulator)
+ *   sats or HDOP present but unreadable  GARBLED       nothing written
+ *   the same second's RMC said V, or a   NOFIX         nothing written (only when that RMC came
+ *     mode E/N/M/S                                       FIRST; one that follows cannot retract)
+ *   sats present and < 4, or HDOP        POOR          written WITH those numbers: the slot is
+ *     present and > 10.0                                 then refused for sending, and drawn grey
+ *   neither sats nor HDOP present        FIX only when an RMC with status A and a measurement
+ *     (GPS 2 IP can send them empty)       mode carries the same hhmmss — before the GGA, or
+ *                                          after it within SELF_PHONE_PEND_MS (WAIT meanwhile);
+ *                                          such a fix is shown, never sent (SELF_ST_UNRATED)
+ *   otherwise (quality 1 GPS, 2 DGPS,    FIX
+ *     3 PPS, 4/5 RTK fixed/float)
+ * The trusted-clock time check (above) and the settle window come first for anything that
+ * could write. HDOP is compared in tenths, truncated — "10.05" passes as 10.0, exactly as the
+ * woods plate's own HDOP always has (nmea.cpp).
+ * gpsdRelay's GENERATED GGA (mock locations) puts the accuracy in METRES in the HDOP field and
+ * always says 12 satellites: that passes when the accuracy is 10 m or better, which is the
+ * right answer for a different reason. Its Double.toString can print "5.0E-4", which the
+ * strict readers refuse (GARBLED, or a coordinate that does not parse) rather than misread. */
+enum SelfPhoneVerdict {
+  SELF_PV_NONE = 0,      // nothing judged yet
+  SELF_PV_FIX,
+  SELF_PV_POOR,
+  SELF_PV_NOFIX,
+  SELF_PV_NOT_MEASURED,
+  SELF_PV_GARBLED,
+  SELF_PV_WAIT,
+  SELF_PV_STALE,
+  /* Set by selfPhoneKeep(), after the gate: the gate let a fix through but it was not kept. */
+  SELF_PV_CHECKING,      // a connection's first fix, waiting for the next to agree with it
+  SELF_PV_JUMPED,        // it did not agree with the fix before it (self_pos.h, two in a row)
+};
+const char* selfPhoneVerdictName(int v);
+
+struct SelfPhoneGate {
+  uint32_t seenRmc, seenGga;   // the reader's rmcCount/ggaCount already judged
+  int32_t  rmcHms;             // the last current RMC's hhmmss (-1 none)
+  bool     rmcOk;              // ...it said A with a measurement mode
+  bool     pend;               // a GGA without sats/HDOP waiting for its RMC
+  int32_t  pendHms, pendLatI, pendLonI;
+  uint32_t pendMs;
+};
+
+/* A position the gate let through, for the glue to write into the PHONE slot. */
+struct SelfPhoneOut {
+  int      verdict;            // SELF_PV_FIX or SELF_PV_POOR
+  int32_t  latI, lonI;
+  int      sats, hdopX10;      // from the SAME sentence; -1 = it did not say
+};
+
+/* One connection's reader, gate and counters. ~0.3 KB; the glue keeps one in BSS. The reader
+ * is NOT gGpsReader: the woods UART's reader never sees a byte from the network. */
+struct SelfPhoneStream {
+  NmeaReader    reader;
+  SelfPhoneGate gate;
+  uint32_t connMs;             // millis() this connection began (the settle window)
+  uint32_t lastSentenceMs;     // last checksum-good sentence (or connMs): the silence watchdog
+  uint32_t rmcSeen, ggaSeen;   // this connection
+  /* The last GGA judged (SELF_PV_*), this connection — and after selfPhoneKeep(), whether that
+   * fix was KEPT: the screen's "fix" means a fix is in the PHONE slot, not just that the gate
+   * liked a sentence (CHECKING / JUMPED say why one was not). */
+  int      lastVerdict;
+  int      lastSats, lastHdopX10;   // ...and its numbers, when it wrote a fix (-1 = not said)
+  /* The last fix the gate let through on THIS connection, kept or not: the next must agree
+   * with it (selfPhoneAgrees). Reset by selfPhoneBegin — a new connection's first fix waits. */
+  bool     candOk;
+  int32_t  candLatI, candLonI;
+  uint32_t candMs;
+  // since boot (the `phonepos` line):
+  uint32_t sentBase, badBase;  // the reader's counts folded in at each new connection
+  uint32_t nFix, nPoor, nNoFix, nNotMeasured, nGarbled, nStale, nDisagree;
+  /* GPS 2 IP's stand-in numbers (selfPhoneSetPort, below): the port this connection is on, how
+   * many GGAs running carried exactly 8 sats / HDOP 0.9, and whether this connection's numbers
+   * are known to be stand-ins (the status line says so). */
+  uint16_t port;
+  uint8_t  placeholderRun;
+  bool     placeholder;
+};
+
+void     selfPhoneInit(SelfPhoneStream* s);                  // boot: everything zero
+void     selfPhoneBegin(SelfPhoneStream* s, uint32_t nowMs); // a new connection
+/* ── GPS 2 IP's STAND-IN NUMBERS ────────────────────────────────────────────────────────────
+ * iOS gives apps neither a satellite count nor a DOP, so GPS 2 IP writes every GGA with 8
+ * satellites and HDOP 0.9 (its own NMEA docs), whatever the fix is really worth - an indoor
+ * Wi-Fi position included. Taken at face value that is an excellent fix and it would go out as
+ * a sharp dot. So the pair is read as "not said" (UNRATED: shown on this phone, never sent):
+ * at once on GPS 2 IP's default port, and after five GGAs running with exactly that pair on
+ * any other port (a real receiver's HDOP moves; one that sits on 8 / 0.9 for five seconds
+ * only waits a while to be sent). The glue tells the stream its port after selfPhoneBegin. */
+#define SELF_PHONE_PLACEHOLDER_SATS     8
+#define SELF_PHONE_PLACEHOLDER_HDOPX10  9
+#define SELF_PHONE_PLACEHOLDER_RUN      5
+void     selfPhoneSetPort(SelfPhoneStream* s, uint16_t port);
+/* Feed one chunk read from the socket. `utcSod` = the trusted UTC second of the day, or -1 when
+ * the clock is not trusted. True when a GGA in the chunk wrote a fix (FIX or POOR): *out is the
+ * LAST such, which is what the per-sentence loop would have left in the slot. */
+bool     selfPhoneFeed(SelfPhoneStream* s, const uint8_t* buf, size_t n, uint32_t nowMs,
+                       int32_t utcSod, SelfPhoneOut* out);
+uint32_t selfPhoneSentences(const SelfPhoneStream* s);       // checksum-good, since boot
+uint32_t selfPhoneBadChecksums(const SelfPhoneStream* s);    // since boot
+bool     selfPhoneSilent(const SelfPhoneStream* s, uint32_t nowMs);
+
+/* ── TWO FIXES IN A ROW MUST AGREE (the glue's last check, phone_pos.cpp) ──────────────────
+ * One GGA can be well-formed, checksum-good, quality 1 with 12 satellites — and ~11 km wrong.
+ * gpsdRelay's GENERATED sentences build each coordinate with ddToDDMM: Kotlin's
+ * Double.toString of the minutes, split at the '.', the fraction cut to 6 characters. Minutes
+ * under 0.001 print in E notation, so 40 deg 0.00006 min becomes "5.999999998E-5" and then
+ * "4005.999999" — 40 deg 6 min, a coordinate the strict reader has no way to refuse (one with
+ * fewer digits keeps its 'E' and IS refused). It happens within ~1.85 m of every whole minute
+ * of latitude or longitude, and the error is 1 to 9 minutes (1.9-17 km). The receiver's own
+ * relayed NMEA does not do this; generation is the default in gpsdRelay's add-server dialog.
+ * So a phone fix is kept only when the GGA before it on the same connection was at most
+ * SELF_PHONE_AGREE_GAP_MS earlier and within SLACK + MAX_SPEED x dt of it: a glitch costs
+ * that fix and the one after it, and the first fix of a connection waits one epoch. Moving
+ * through such a strip is caught; standing still inside one, with the same leading digit every
+ * second, is not — the setup instructions say to relay the receiver's own NMEA.
+ * ⚠ THE GAP IS THE SILENCE WATCHDOG'S (review): at 5 s, an app sending every 5-10 s (gpsdRelay
+ * with its generation interval raised, a slower GPS 2 IP setting) stayed connected — a sentence
+ * inside every 10 s — and never produced one kept fix, while the screen said "fix". The bound
+ * still grows with dt: at a 1 Hz stream it is 350 m, so the km-scale glitch is caught there. */
+#define SELF_PHONE_AGREE_GAP_MS     SELF_PHONE_SILENT_MS
+#define SELF_PHONE_AGREE_SLACK_M      50.0
+#define SELF_PHONE_MAX_SPEED_MPS     300.0
+bool selfPhoneAgrees(int32_t prevLatI, int32_t prevLonI, uint32_t prevMs,
+                     int32_t latI, int32_t lonI, uint32_t nowMs);
+/* The glue's question for each fix selfPhoneFeed() let through: keep it (write the PHONE slot)?
+ * True when it agrees with the connection's previous candidate; either way it becomes the next
+ * candidate. When it is not kept, lastVerdict says why (CHECKING for a connection's first fix,
+ * JUMPED for one that disagreed, counted in nDisagree), so the screen never says "fix" over an
+ * empty slot. */
+bool selfPhoneKeep(SelfPhoneStream* s, const SelfPhoneOut* out, uint32_t nowMs);
+
+/* ── THE '\n' BEFORE EVERY '$' ──────────────────────────────────────────────────────────────
+ * NmeaReader completes a sentence only on CR or LF, and a '$' throws the partial line away
+ * (nmea.cpp). Android does not document whether the strings its NMEA listener hands an app end
+ * in CRLF, and gpsdRelay relays them as they are — so a stream with no line endings would be
+ * discarded whole, sentence by sentence, in silence. A '\n' fed before each '$' completes the
+ * sentence in hand; outside a sentence a '\n' is ignored, so a stream that has CRLF loses
+ * nothing. True when an RMC or GGA completed (reader->fix() holds it). At most one completes per
+ * call: the '\n' can finish one, the '$' only starts the next. A line cut short now counts as
+ * a bad checksum instead of vanishing — visible corruption, which is better. ⚠ The reader's
+ * bytes() counts the '\n's added here: the glue counts what the socket delivered itself. */
+bool selfNmeaStreamFeed(NmeaReader* r, char c);
+
+// ---------------------------------------------------------------- finding the app
+/* ── WHICH PORT, AND HOW OFTEN TO ASK ────────────────────────────────────────────────────────
+ * Zero configuration: on ANY station network the client asks the DHCP gateway (on a hotspot,
+ * the phone itself) on each port in turn. The first port that delivers a checksum-good sentence
+ * is remembered for that association (assoc = lastWifiLinkUpMs(), the GOT_IP stamp), so no
+ * SSID is stored and nothing is typed. A gateway that answers on no port backs off:
+ *   failures in a row (rounds, drops)   1: 2 s  2: 5 s  3: 10 s  4: 30 s  5+: 60 s
+ *   3 full rounds with no answer        5 min from then on — a home router is asked 3 times
+ *                                       in ~10 s, then once every 5 minutes (a round of 2-3
+ *                                       non-blocking connects, each refused in a few ms or
+ *                                       given up at SELF_PHONE_CONNECT_MS).
+ * A good sentence resets the failures; a new association resets everything. The remembered
+ * port failing to connect SELF_PHONE_CACHE_FAILS times in a row is forgotten (the app may have
+ * changed, gpsdRelay -> GPS 2 IP), and the rounds start again. */
+#define SELF_PHONE_DEAD_ROUNDS      3
+#define SELF_PHONE_DEAD_WAIT_MS   300000UL
+#define SELF_PHONE_CACHE_FAILS      3
+
+struct SelfProbe {
+  uint32_t assoc;              // the association this belongs to (0 = none yet)
+  uint16_t port;               // the port that delivered on it; 0 = none found yet
+  uint8_t  idx;                // next port in the round (while port == 0)
+  uint8_t  fails;              // failures in a row since the last good sentence
+  uint8_t  deadRounds;         // rounds on this association with no port answering
+  uint8_t  portFails;          // the remembered port's connect failures in a row
+  bool     wait;               // nextMs is armed
+  uint32_t nextMs;             // no attempt before this millis()
+};
+uint32_t selfProbeDelayMs(int fails, int deadRounds);
+void     selfProbeStart(SelfProbe* p, uint32_t assoc);       // a new association: ask now
+bool     selfProbeDue(const SelfProbe* p, uint32_t nowMs);
+uint16_t selfProbePort(const SelfProbe* p, uint16_t custom); // the port to try now
+// A connect refused or timed out, or a stream that ended before any good sentence.
+void     selfProbeFailed(SelfProbe* p, uint16_t custom, uint32_t nowMs);
+// A checksum-good sentence arrived on `port`: remember it, forget the failures.
+void     selfProbeGood(SelfProbe* p, uint16_t port);
+// A stream that HAD delivered ended (closed, or silent SELF_PHONE_SILENT_MS).
+void     selfProbeDropped(SelfProbe* p, uint32_t nowMs);
+// "no app found on this network": a whole round failed and nothing has delivered since.
+bool     selfProbeNoApp(const SelfProbe* p);
+
+/* Should the client run at all? On ANY station network that is up — never on this phone's own
+ * softAP (the uploader / a KOSync window) and never with the radio switched off. */
+bool selfPhoneMayRun(bool autoOn, bool staConnected, bool ownAp, bool radioOff);
+
+/* `phonepos at <ip>[:port]` (bench, RAM only): a dotted quad and an optional port 1..65535.
+ * ip[] in written order; *port 0 when absent (the usual ports are probed at that address). */
+bool selfPhoneParseAt(const char* s, uint8_t ip[4], uint16_t* port);
+
+// ---------------------------------------------------------------- the screen's words
+enum SelfPhoneLink {
+  SELF_LINK_OFF = 0,           // "Phone location: off"
+  SELF_LINK_NO_WIFI,           // not on a station network (or on our own hotspot, radio off)
+  SELF_LINK_LOOKING,           // asking the gateway's ports
+  SELF_LINK_NO_APP,            // selfProbeNoApp()
+  SELF_LINK_STREAM,            // connected; the stream's own state says the rest
+};
+/* The small line under "Phone location" (Meshtastic > My node). Plain words, no coordinates,
+ * no SSID, no address. Returns the length written (truncated to cap - 1). */
+size_t selfPhoneStatusText(char* out, size_t cap, int link, const SelfPhoneStream* s,
+                           uint32_t nowMs);
+
+#endif // SELF_POS_H

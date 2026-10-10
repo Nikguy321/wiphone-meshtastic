@@ -42,17 +42,26 @@ int main() {
           lat == SEA_LAT && lon == SEA_LON && t == 1766000000u, "position parses");
 
     /* A REAL stock-firmware Position: high-numbered fields use TWO-byte varint
-     * tags. sats_in_view = field 19 (tag 0x98 0x01), precision_bits = field 22
-     * (tag 0xB0 0x01) — stock appends the latter to every channel broadcast.
-     * A one-byte tag reader shears apart here (the adversarial review's catch). */
+     * tags. sats_in_view = field 19 (tag 0x98 0x01), seq_number = field 22
+     * (tag 0xB0 0x01) and precision_bits = field 23 (tag 0xB8 0x01) — stock
+     * appends precision_bits to every channel broadcast. A one-byte tag reader
+     * shears apart here (the adversarial review's catch).
+     * ⚠ Until 0.9.82 this comment called 0xB0 0x01 precision_bits. It is 22,
+     * seq_number; mesh.proto puts precision_bits at 23. Nothing read either field
+     * then, so the mislabel cost nothing — meshPosParseEx reads 23 now, and the
+     * two values below differ so a 22/23 mix-up shows. */
     uint8_t stock[64];
     size_t sn = 0;
     stock[sn++] = 0x98; stock[sn++] = 0x01; stock[sn++] = 0x07;   // sats_in_view=7
     sn += putF32(stock + sn, 0x0d, (uint32_t)SEA_LAT);
     sn += putF32(stock + sn, 0x15, (uint32_t)SEA_LON);
-    stock[sn++] = 0xB0; stock[sn++] = 0x01; stock[sn++] = 0x20;   // precision_bits=32
+    stock[sn++] = 0xB0; stock[sn++] = 0x01; stock[sn++] = 0x05;   // seq_number=5 (field 22)
+    stock[sn++] = 0xB8; stock[sn++] = 0x01; stock[sn++] = 0x20;   // precision_bits=32 (field 23)
     CHECK(meshPosParse(stock, sn, &lat, &lon, &t) &&
-          lat == SEA_LAT && lon == SEA_LON, "field>=16 tags (stock precision_bits) survive");
+          lat == SEA_LAT && lon == SEA_LON, "field>=16 tags (stock seq_number, precision_bits) survive");
+    MeshPosMsg pm;
+    CHECK(meshPosParseEx(stock, sn, &pm) && pm.precBits == 32 && pm.locSrc == 0,
+          "precision_bits read from field 23, never from seq_number (22)");
 
     CHECK(!meshPosParse(b, 5, &lat, &lon, &t), "lat-only position refused");
     CHECK(!meshPosParse(b, 3, &lat, &lon, &t), "truncated fixed32 refused");
@@ -193,7 +202,8 @@ int main() {
 
   /* ---- the fix-quality gate ------------------------------------------------
    * 🛑 THIS RULE HAS A MEASUREMENT BEHIND IT, not a preference. On 2026-08-25 an
-   * indoor WiPhone reported `sats=3 hdop=6.4` at 47.33821,-122.16501 while the
+   * indoor WiPhone reported `sats=3 hdop=6.4` at a position (40.0,-100.0 stands in
+   * for it; real fixes are not kept in this public repo) while the
    * phone was actually at a known spot about 20 km away. Three satellites
    * is a 2D fix: it assumes an altitude, and a wrong assumption puts the error
    * into the horizontal, which is the one number a hunting party reads. Nothing
@@ -339,6 +349,164 @@ int main() {
           strlen(wp.name) == MESH_WP_NAME_LEN - 1, "an over-long name is cut to the field");
   }
 
+  /* ---- where a fix came from, and how sharp it is (0.9.82) ------------------------------
+   * Dummy coordinates only from here down (40.0,-100.0 and friends): this repo is public. */
+  const int32_t D_LAT = 400000000, D_LON = -1000000000;
+
+  // ---- meshPosTruncate: the firmware's cut, by hand and against a second formula ----------
+  {
+    CHECK(meshPosTruncate(D_LAT, 0) == D_LAT && meshPosTruncate(D_LAT, 32) == D_LAT &&
+          meshPosTruncate(D_LAT, 33) == D_LAT, "0 and >= 32 bits leave a coordinate alone");
+    /* 17 bits: a cell of 2^15 = 32768 units. 400012345 // 32768 = 12207, so the cell starts at
+     * 399,998,976 and its middle is +16384 = 400,015,360 (worked by hand). */
+    CHECK(meshPosTruncate(400012345, 17) == 400015360, "17 bits: the cell's middle, by hand");
+    /* 1 bit: only the sign survives, then the middle of that half: +-2^30. */
+    CHECK(meshPosTruncate(0, 1) == 1073741824 && meshPosTruncate(-1, 1) == -1073741824 &&
+          meshPosTruncate(2147483647, 1) == 1073741824, "1 bit: the middle of each half");
+
+    /* The mask on two's-complement bits IS floor division for a negative number. Every value
+     * below, at every depth, against floor(v / cell) * cell + cell / 2 in int64 — and the cut
+     * is idempotent and never moves a point more than half a cell. */
+    const int32_t probes[] = { 0, 1, -1, 7, -7, 2147483647, (int32_t)0x80000000, D_LAT, D_LON,
+                               -338688200, 1512092900, 899999999, -899999999, 1799999999,
+                               -1799999999, 123456789, -123456789 };
+    bool allOk = true;
+    for (uint32_t p = 1; p < 32; p++) {
+      const int64_t cell = (int64_t)1 << (32 - p);
+      for (size_t k = 0; k < sizeof(probes) / sizeof(probes[0]); k++) {
+        const int64_t v = probes[k];
+        const int64_t q = v >= 0 ? v / cell : -((-v + cell - 1) / cell);
+        const int64_t want = q * cell + cell / 2;
+        const int32_t got = meshPosTruncate((int32_t)v, p);
+        const int64_t moved = (int64_t)got - v;
+        if (got != want || meshPosTruncate(got, p) != got ||
+            moved > cell / 2 || moved < -(cell / 2)) {
+          allOk = false;
+          printf("    p=%u v=%lld: got %d want %lld\n", (unsigned)p, (long long)v, got, (long long)want);
+        }
+      }
+    }
+    CHECK(allOk, "every depth 1..31 equals floor division, is idempotent, moves <= half a cell");
+  }
+
+  // ---- precision_bits -> the circle a receiver draws -----------------------------------------
+  {
+    /* The Android app's table (core/model/.../util/PositionPrecision.kt, carried over from its
+     * OSMdroid marker): the formula must land within 1.2 cm of every entry. */
+    const double table[10] = { 23345.484932, 11672.7369, 5836.36288, 2918.175876,
+                               1459.0823719999053, 729.53562, 364.7622, 182.375556,
+                               91.182212, 45.58554 };
+    bool near = true;
+    for (int p = 10; p <= 19; p++) {
+      if (fabs(meshPosPrecisionRadiusM((uint32_t)p) - table[p - 10]) > 0.012) {
+        near = false;
+      }
+    }
+    CHECK(near, "radius 10..19 bits within 1.2 cm of Android's table");
+    CHECK(meshPosPrecisionRadiusM(0) == 0.0 && meshPosPrecisionRadiusM(32) == 0.0 &&
+          meshPosPrecisionRadiusM(40) == 0.0, "0 and >= 32 bits draw no circle");
+    CHECK(!meshPosIsApprox(0) && meshPosIsApprox(1) && meshPosIsApprox(13) &&
+          meshPosIsApprox(MESH_POS_APPROX_MAX_BITS) && !meshPosIsApprox(MESH_POS_APPROX_MAX_BITS + 1) &&
+          !meshPosIsApprox(32), "approx: 1..20 bits, not 0, 21+ or 32");
+  }
+
+  // ---- meshPosBuildEx: by hand first, then against the runtime ----------------------------
+  {
+    uint8_t b[MESH_POS_BUILD_EX_MAX];
+    const uint32_t T = 1766000000u;
+    size_t n = meshPosBuildEx(b, sizeof(b), D_LAT, D_LON, T, MESH_LOC_EXTERNAL, MESH_POS_PREC_FULL);
+    /* 🔑 THE AIRTIME CONTRACT (mesh_pos.h): a measured fix with a clock is 20 B, 42 on air,
+     * 559 ms — tests/test_airtime.cpp holds the 559. */
+    const uint8_t tail[] = { 0x28, 0x03, 0xb8, 0x01, 0x20 };   // field 5 = 3, field 23 = 32
+    CHECK(n == 20 && n == MESH_POS_BUILD_EX_MAX && memcmp(b + 15, tail, 5) == 0,
+          "the phone beacon: 20 B ending 28 03 b8 01 20");
+    uint8_t legacy[16];
+    size_t ln = meshPosBuild(legacy, D_LAT, D_LON, T);
+    CHECK(memcmp(b, legacy, 15) == 0, "...and its first 15 B are meshPosBuild's");
+    n = meshPosBuildEx(b, sizeof(b), D_LAT, D_LON, T, 0, 0);
+    CHECK(n == ln && memcmp(b, legacy, n) == 0, "source 0, precision 0: exactly meshPosBuild (timed)");
+    ln = meshPosBuild(legacy, D_LAT, D_LON, 0);
+    n = meshPosBuildEx(b, sizeof(b), D_LAT, D_LON, 0, 0, 0);
+    CHECK(n == ln && n == 10 && memcmp(b, legacy, n) == 0, "...and untimed");
+
+    // Refusals write NOTHING.
+    uint8_t guard[MESH_POS_BUILD_EX_MAX];
+    memset(guard, 0xa5, sizeof(guard));
+    CHECK(meshPosBuildEx(guard, sizeof(guard), D_LAT, D_LON, T, 4, 32) == 0 && guard[0] == 0xa5,
+          "location_source 4 refused, nothing written");
+    CHECK(meshPosBuildEx(guard, sizeof(guard), D_LAT, D_LON, T, 3, 33) == 0 && guard[0] == 0xa5,
+          "precision_bits 33 refused, nothing written");
+    CHECK(meshPosBuildEx(guard, 19, D_LAT, D_LON, T, 3, 32) == 0 && guard[0] == 0xa5,
+          "a 19-byte buffer for a 20-byte position: refused, nothing written");
+    CHECK(meshPosBuildEx(guard, 15, D_LAT, D_LON, 0, 3, 32) == 15,
+          "...while 15 bytes hold the untimed one exactly");
+    CHECK(meshPosBuildEx(NULL, 64, D_LAT, D_LON, T, 3, 32) == 0, "a NULL buffer is refused");
+
+    /* 1..31 bits: the builder cuts the coordinates itself, so raw and pre-cut inputs give the
+     * same bytes — the payload can never claim fewer bits than it carries. */
+    uint8_t raw[MESH_POS_BUILD_EX_MAX], cut[MESH_POS_BUILD_EX_MAX];
+    size_t rn = meshPosBuildEx(raw, sizeof(raw), 400012345, -1000067891, T, 0, 17);
+    size_t cn = meshPosBuildEx(cut, sizeof(cut), meshPosTruncate(400012345, 17),
+                               meshPosTruncate(-1000067891, 17), T, 0, 17);
+    MeshPosMsg m;
+    CHECK(rn == 18 && rn == cn && memcmp(raw, cut, rn) == 0 && meshPosParseEx(raw, rn, &m) &&
+          m.latI == 400015360 && m.precBits == 17 && m.locSrc == 0,
+          "17 bits: 18 B, the coordinates cut by the builder itself");
+
+    printf("  [meshPosBuildEx / meshPosParseEx vs upstream, meshtastic %s]\n", POS_VEC_MESHTASTIC_VERSION);
+    char nm[112];
+    for (int i = 0; i < POS_ENCX_N; i++) {
+      const PosEncXVec* v = &POS_ENCX[i];
+      uint8_t out[MESH_POS_BUILD_EX_MAX];
+      size_t on = meshPosBuildEx(out, sizeof(out), (int32_t)v->latI, (int32_t)v->lonI,
+                                 (uint32_t)v->time, (uint32_t)v->locSrc, (uint32_t)v->precBits);
+      snprintf(nm, sizeof(nm), "encode '%s' bytes == upstream", v->label);
+      bool same = ((int)on == v->len) && memcmp(out, v->bytes, on) == 0;
+      CHECK(same, nm);
+      if (!same) {
+        printf("    ours  :"); for (size_t k = 0; k < on; k++) printf(" %02x", out[k]); printf("\n");
+        printf("    theirs:"); for (int k = 0; k < v->len; k++) printf(" %02x", v->bytes[k]); printf("\n");
+      }
+      MeshPosMsg back;
+      snprintf(nm, sizeof(nm), "encode '%s' reads back (cut coords, source, precision)", v->label);
+      CHECK(meshPosParseEx(out, on, &back) && back.latI == (int32_t)v->cutLatI &&
+            back.lonI == (int32_t)v->cutLonI && back.time == (uint32_t)v->time &&
+            back.locSrc == v->locSrc && back.precBits == v->precBits, nm);
+    }
+    for (int i = 0; i < POS_DECX_N; i++) {
+      const PosDecXVec* v = &POS_DECX[i];
+      MeshPosMsg dm;
+      memset(&dm, 0x5a, sizeof(dm));
+      bool ok = meshPosParseEx(v->bytes, (size_t)v->len, &dm);
+      snprintf(nm, sizeof(nm), "decodeEx '%s' accepted == %d", v->label, v->expectOk);
+      CHECK(ok == (v->expectOk != 0), nm);
+      if (v->expectOk) {
+        snprintf(nm, sizeof(nm), "decodeEx '%s' lat/lon/time/source/precision", v->label);
+        CHECK(dm.latI == (int32_t)v->latI && dm.lonI == (int32_t)v->lonI &&
+              dm.time == (uint32_t)v->time && dm.locSrc == v->locSrc &&
+              dm.precBits == v->precBits, nm);
+        int32_t la = 0, lo = 0;
+        uint32_t tt = 0;
+        snprintf(nm, sizeof(nm), "decode '%s' through the old meshPosParse too", v->label);
+        CHECK(meshPosParse(v->bytes, (size_t)v->len, &la, &lo, &tt) && la == dm.latI &&
+              lo == dm.lonI && tt == dm.time, nm);
+      }
+    }
+    // The stock-shaped vector of 0.9.7x carried location_source 2 and precision_bits 32 all along.
+    MeshPosMsg sm;
+    CHECK(meshPosParseEx(POS_DEC[1].bytes, (size_t)POS_DEC[1].len, &sm) && sm.locSrc == 2 &&
+          sm.precBits == 32, "the stock-shaped Position's source (INTERNAL) and precision (32) are read");
+    CHECK(!meshPosParseEx(NULL, 5, &sm) && sm.latI == 0 && !meshPosParseEx(b, 5, NULL),
+          "NULL input or output refused");
+  }
+
+  /* 🛑 Until 0.9.82 this line printed "all passed" and returned 0 whatever the blocks after
+   * the early return above had found: a failing waypoint-build CHECK printed FAIL and still
+   * passed the suite. */
+  if (failures) {
+    printf("test_pos: %d FAILURE(S)\n", failures);
+    return 1;
+  }
   printf("test_pos: all passed\n");
   return 0;
 }

@@ -4,6 +4,38 @@
 
 Read this first; everything below it is narrative.
 
+📍 **2026-10-10: PHONE LOCATION, BOTH PHONES flashed by cable (0.9.82-NH dev, BOOT `build=Oct 10 2026 13:07:40`, mute ON).**
+Read `docs/phone-location.md` first. It has the user steps for gpsdRelay, Share GPS and GPS 2 IP, plus every status line.
+- **Rule** (owner): own GPS > the phone's GPS over its hotspot > nothing. NEVER IP geolocation: on a phone hotspot it
+  lands at the carrier's internet exit, hundreds of km off.
+- **Code.** `self_pos.{h,cpp}` is the pure part, test_selfpos 168/0:
+  - slots, pick, freshness;
+  - the per-GGA phone gate, with no sticky values;
+  - 2 s settle plus a time check;
+  - two fixes in a row must agree (gpsdRelay's generated coordinates can be about 11 km off);
+  - probe/back-off;
+  - GPS 2 IP's stand-in 8 sats / HDOP 0.9, read as "not said", so iPhone fixes are shown and never sent.
+- `phone_pos.{h,cpp}` is the non-blocking socket glue. It never sets the clock and never joins busy/hardBusy.
+- `meshPosBuildEx` encodes location_source + precision_bits: phone = EXTERNAL/32, plate = INTERNAL/32.
+  Inbound fields 5/23 are parsed.
+- Consent:
+  - bench fixes (`pos inject`, `phonepos at`) are never beaconed and are sent as MANUAL;
+  - the cable can never arm a public channel;
+  - the upgrade turns Phone location OFF where a beacon was armed with the GPS off or to a public channel.
+- Built by workflow wf_817d618e-4cd: core, integrate, 3 reviewers, 9 findings, all fixed. Plus the GPS 2 IP rule (mine).
+- **Bench** with the Mac stub: `tools/nmea_phone_stub.py --port 10111 --bind <mac>`, then `phonepos at <mac>:10111`.
+  - Normal stream: "this network: fix, 9 sats", map "me (phone)", `pos` source = phone [BENCH].
+  - The stub's GPS 2 IP mode on 11123: "iPhone app gives no accuracy: shown, not sent".
+  - Home router: "no app found on this network", backs off to 5 min.
+  - 45-min soak on phone 1 (stub at 1 Hz): 5,946 sentences, 0 bad checksums, 0 WiFi disconnects, 0 LOOP STALLs,
+    internal heap flat (free 63,204, largest 61,404), CPU 80 MHz, 0 PLL re-locks with the radio on.
+- **Owed:**
+  - a real Note 20 + gpsdRelay test (Nick installed it 10-10), then `pos now` on a private channel: COVEY should show
+    "External";
+  - COVEY reading precision_bits;
+  - round 2 = Wi-Fi location (BeaconDB two-half agreement), map-only until receivers draw rings. The e-reader fork
+    already has it (e852a9fc).
+
 📁 **2026-10-09 evening: `mv </from> </to>` on the console, BOTH PHONES flashed by cable (0.9.82-NH DEV, BOOT
 `build=Oct  9 2026 18:58:21`, hash verified, mute ON).** Nick wanted a book's file name to match on every reader. KOSync's
 second document id is md5(basename), so a book whose names differ across readers only matches on the partial MD5. The phones

@@ -99,32 +99,55 @@ static bool almReadMapView(int32_t* la, int32_t* lo) {
   return ok;
 }
 
-/* Which place (almanac_lines.h, almPickPlace): resolveReference() and which of its four answers it
- * was; else the last GPS fix of this boot, however old; else the map's saved view. */
+/* Which place (almanac_lines.h, almPickPlace): resolveReference() and which of its answers it
+ * was (its own MESH_REFK_* — the display name is not compared any more: "phone" would have read
+ * as the pin); else the newest USABLE fix of this boot, however old (this phone's GPS or the
+ * hotspot phone's, each by its own sats/HDOP); else the map's saved view. */
 static void almPlaceNow(bool viewOk, int32_t viewLatI, int32_t viewLonI, AlmPlace* out) {
   AlmPlaceIn in;
   memset(&in, 0, sizeof(in));
   char name[24];
   name[0] = '\0';
-  in.refOk = meshService.resolveReference(&in.refLatI, &in.refLonI, name, sizeof(name));
+  uint8_t kind = MESH_REFK_NONE;
+  in.refOk = meshService.resolveReferenceEx(&in.refLatI, &in.refLonI, name, sizeof(name), &kind);
   if (in.refOk) {
-    const uint32_t ref = meshService.getReferenceId();
-    if (ref == MESH_REF_GPS) {
-      in.refKind = strcmp(name, "GPS") == 0 ? ALM_PLACE_GPS : ALM_PLACE_LAST_GPS;
-    } else if (ref != 0 && meshService.findWaypoint(ref)) {
-      in.refKind = ALM_PLACE_WAYPOINT;
-    } else {
-      // Automatic mode: a fresh GPS fix says "GPS", the pin says "me".
-      in.refKind = strcmp(name, "GPS") == 0 ? ALM_PLACE_GPS : ALM_PLACE_PIN;
+    switch (kind) {
+      case MESH_REFK_GPS:        in.refKind = ALM_PLACE_GPS; break;
+      case MESH_REFK_LAST_GPS:   in.refKind = ALM_PLACE_LAST_GPS; break;
+      case MESH_REFK_PHONE:      in.refKind = ALM_PLACE_PHONE; break;
+      case MESH_REFK_LAST_PHONE: in.refKind = ALM_PLACE_LAST_PHONE; break;
+      case MESH_REFK_WAYPOINT:   in.refKind = ALM_PLACE_WAYPOINT; break;
+      default:                   in.refKind = ALM_PLACE_PIN; break;
     }
     in.refName = name;
+    SelfFix ph;
+    if (kind == MESH_REFK_PHONE || kind == MESH_REFK_LAST_PHONE) {
+      /* "phone" is right on a distance line ("1.4km NE of phone"); as a PLACE ("Weather ... for
+       * phone") it needs its noun. */
+      in.refName = kind == MESH_REFK_PHONE ? "phone GPS" : "last phone GPS";
+      if (meshService.getSourceFix(SELF_PHONE, &ph)) {
+        in.refAgeMs = ph.ageMs;
+      }
+    }
   }
   uint32_t age = 0;
   int sats = -1, hdop = -1;
   in.gpsFix = meshService.getGpsFix(&in.gpsLatI, &in.gpsLonI, &age, &sats, &hdop);
-  in.gpsAgeMs = age;
+  in.gpsAgeMs = age;              // the receiver's own: a GPS / LAST_GPS place is aged by it
   in.gpsSats = sats;              // almPickPlace refuses a poor fix (meshPosFixUsable)
   in.gpsHdopX10 = hdop;
+  /* Step 2's other candidate, apart from the receiver's (review 2026-10-10: it used to OVERWRITE
+   * the GPS fields when newer, so a fresh poor phone fix pushed a usable GPS fix out, and a
+   * LAST_GPS reference was aged by the phone). almPickPlace takes the newer USABLE one. */
+  SelfFix ph;
+  in.phoneFix = meshService.getSourceFix(SELF_PHONE, &ph);
+  if (in.phoneFix) {
+    in.phoneLatI = ph.latI;
+    in.phoneLonI = ph.lonI;
+    in.phoneAgeMs = ph.ageMs;
+    in.phoneSats = ph.sats;
+    in.phoneHdopX10 = ph.hdopX10;
+  }
   in.viewOk = viewOk;
   in.viewLatI = viewLatI;
   in.viewLonI = viewLonI;
@@ -932,8 +955,9 @@ appEventResult AlmanacApp::slice() {
       gAlmanacCost.dayMaxUs = s->maxUs;
       gAlmanacCost.dayWallMs = millis() - s->begunMs;
       /* ONE line per day, so the real cost can be read off the device. log_e, not log_i: this
-       * build's log level DROPS log_i (docs/HANDOFF.md, the `meshdb` note). */
-      log_e("ALMANAC: day %+d at %.3f,%.3f whole in %u slices: CPU %u us (sun %u, moon %u, sol %u), "
+       * build's log level DROPS log_i (docs/HANDOFF.md, the `meshdb` note). The place to 2
+       * decimals (~1 km): it is often this phone's own fix now, and logs end up in notes. */
+      log_e("ALMANAC: day %+d at %.2f,%.2f whole in %u slices: CPU %u us (sun %u, moon %u, sol %u), "
             "longest slice %u us, %u ms after it was asked (%u MHz)",
             dayOffset, c.lat, c.lon, (unsigned)s->slices, (unsigned)s->cpuUs,
             (unsigned)gAlmanacCost.partUs[3], (unsigned)gAlmanacCost.partUs[4],
@@ -1195,7 +1219,8 @@ static void almConsoleBench(void (*out)(const char*)) {
   uint32_t t, total = micros();
   double al = 0, az = 0;
   AstroMoonPhase ph;
-  almOutf(out, "almanac bench at %.4f,%.4f (%s), %u MHz - ONE pass, a bench command:", lat, lon,
+  // ~1 km is plenty to say where a timing ran (and the place is often this phone's own fix).
+  almOutf(out, "almanac bench at %.2f,%.2f (%s), %u MHz - ONE pass, a bench command:", lat, lon,
           pl.kind == ALM_PLACE_NONE ? "no place: North Bend" : pl.name, (unsigned)getCpuFrequencyMhz());
   t = micros(); astroSunPos(now, lat, lon, &al, &az);
   almOutf(out, "  sun now (astroSunPos, ~27 libm calls)            %s ms", almMs(micros() - t, a, sizeof(a)));
@@ -1326,6 +1351,11 @@ void almanacConsole(const char* args, void (*out)(const char*)) {
     c.placeAgeMs = pl.ageMs;
     c.lat = pl.latI * 1e-7;
     c.lon = pl.lonI * 1e-7;
+    /* A MEASURED place (this phone's GPS or the hotspot phone's) is printed to 2 decimals here
+     * and nowhere finer (AlmCtx.coordsCoarse): a typed place is the bench's own and stays exact,
+     * which is what the PyEphem comparison uses (`almanac 40.0,-100.0`). */
+    c.coordsCoarse = pl.kind == ALM_PLACE_GPS || pl.kind == ALM_PLACE_LAST_GPS ||
+                     pl.kind == ALM_PLACE_PHONE || pl.kind == ALM_PLACE_LAST_PHONE;
   }
   c.placeName = pl.name;
   c.clockKnown = true;
@@ -1355,7 +1385,8 @@ void almanacConsole(const char* args, void (*out)(const char*)) {
   if (c.clockMesh) {
     out("almanac: WARNING the clock came from the MESH (lower trust) - check it before relying on this");
   }
-  almOutf(out, "almanac: %s %d (%+d days) at %s %.5f,%.5f; %s via %s; legal rule %s; units %s",
+  almOutf(out, c.coordsCoarse ? "almanac: %s %d (%+d days) at %s ~%.2f,%.2f; %s via %s; legal rule %s; units %s"
+                               : "almanac: %s %d (%+d days) at %s %.5f,%.5f; %s via %s; legal rule %s; units %s",
           date, y, off, c.placeKind == ALM_PLACE_NONE ? "(no place)" : pl.name, c.lat, c.lon, tz,
           c.clockSrc, c.rule == ASTRO_LEGAL_CIVIL ? "civil twilight" : "30 min",
           c.units == UNITS_US ? "US" : "metric");
@@ -1405,7 +1436,9 @@ void almanacConsole(const char* args, void (*out)(const char*)) {
     int64_t f30 = 0, l30 = 0, fc = 0, lc = 0;
     astroLegalLight(&D.sun, ASTRO_LEGAL_30MIN, &f30, &l30);
     astroLegalLight(&D.sun, ASTRO_LEGAL_CIVIL, &fc, &lc);
-    almOutf(out, "raw: t0=%lld tz=%d lat=%.6f lon=%.6f (UNIX s; 0 = none that day)",
+    almOutf(out, c.coordsCoarse ? "raw: t0=%lld tz=%d lat~%.2f lon~%.2f (UNIX s; 0 = none that day; a "
+                                  "measured place is rounded here - type one for the exact run)"
+                                : "raw: t0=%lld tz=%d lat=%.6f lon=%.6f (UNIX s; 0 = none that day)",
             (long long)D.t0, D.tzS, D.lat, D.lon);
     almOutf(out, "raw sun: dawn=%lld rise=%lld noon=%lld set=%lld dusk=%lld",
             (long long)D.sun.dawn, (long long)D.sun.rise, (long long)D.sun.noon,

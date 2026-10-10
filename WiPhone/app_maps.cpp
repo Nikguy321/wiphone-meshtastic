@@ -20,7 +20,6 @@
 extern bool uiKeyStillHeld(uint32_t mask);   // WiPhone.ino: is this key physically down right now?
 extern uint32_t uiKeyUpAgeMs(uint32_t mask); // ...and how long ago its last release was decoded
 
-extern bool gGpsNmea;         // WiPhone.ino: is the NMEA receiver switched on at all
 
 // ── colours ───────────────────────────────────────────────────────────────────────────────
 // Deliberately loud. These sit on top of an aerial or topo tile, which can be any colour at
@@ -833,12 +832,13 @@ void MapsApp::restoreView() {
 
   if (!have) {
     int32_t la = 0, lo = 0;
-    uint32_t age = 0;
-    if (gGpsNmea && meshService.getGpsFix(&la, &lo, &age, NULL, NULL)) {
-      lat = mapI7ToDeg(la);
-      lon = mapI7ToDeg(lo);
+    SelfFix nw;
+    if (meshService.getSelfNewest(&nw) != SELF_NONE) {
+      // This phone's newest fix from a source that is on (its own GPS, or the hotspot phone's).
+      lat = mapI7ToDeg(nw.latI);
+      lon = mapI7ToDeg(nw.lonI);
       have = true;
-      setNote("Opened on the GPS fix");
+      setNote(nw.src == SELF_PHONE ? "Opened on the phone's GPS fix" : "Opened on the GPS fix");
     } else if (meshService.resolveReference(&la, &lo, NULL, 0)) {
       lat = mapI7ToDeg(la);
       lon = mapI7ToDeg(lo);
@@ -1515,38 +1515,39 @@ void MapsApp::drawMap() {
   drawOverlays();
 }
 
-/* Where this phone thinks it is, for the marker and for "centre on me". Returns 0 when there
- * is nothing to draw, 1 for a live GPS fix, 2 for the user's declared pin. One function so
- * the marker, the label and the key never disagree about which of the two is being shown. */
-int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs) const {
-  uint32_t age = 0;
-  int32_t la = 0, lo = 0;
-  int sats = 0, hdopX10 = 0;
-  const bool haveFix = gGpsNmea && meshService.getGpsFix(&la, &lo, &age, &sats, &hdopX10);
-  /* ⚠ THE SAME BAR THE DISTANCE LINES USE. resolveReference() refuses a fix under four
-   * satellites or over HDOP 10 (meshPosFixUsable — the "twenty kilometres wrong" fix), and a
-   * "centre on me" that trusted one would draw a confident white ring about YOU on the wrong
-   * ridge. A fresh but poor fix ranks below a declared pin and is drawn grey, saying why. */
-  const bool usable = haveFix && meshPosFixUsable(sats, hdopX10);
-  /* 🛑 getGpsFix() RETURNS TRUE FOR A FIX FROM HOURS AGO — it reports "there has ever been
-   * one", and the age is the caller's to judge. Drawing that as a live white ring is the same
-   * lie the grey node dots exist to avoid, and worse, because it is a lie about YOU: a person
-   * checking they are on the right ridge would be looking at where they were before the
-   * canopy closed. MESH_GPS_FRESH_MS is the service's own bar and this uses it rather than
-   * inventing a second one; past it the ring goes grey and wears its age.
+/* Where this phone thinks it is, for the marker and for "centre on me". Returns MAPS_SELF_NONE
+ * when there is nothing to draw, MAPS_SELF_GPS for a live measured fix (this phone's GPS or the
+ * hotspot phone's: *src says which), MAPS_SELF_PIN for the user's declared pin, then the poor
+ * and the old fix. One function so the marker, the label and the key never disagree. */
+int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs, int* src) const {
+  if (src) {
+    *src = SELF_NONE;
+  }
+  /* ⚠ THE SAME BAR THE DISTANCE LINES USE: meshService.getSelfFix() is self_pos.h's selfPick,
+   * which resolveReference() and the beacon ask too. It refuses a fix under four satellites or
+   * over HDOP 10 (meshPosFixUsable — the "twenty kilometres wrong" fix), and a "centre on me"
+   * that trusted one would draw a confident white ring about YOU on the wrong ridge.
+   * 🛑 AND IT JUDGES AGE: a fix from hours ago drawn as a live white ring is the same lie the
+   * grey node dots exist to avoid, and worse, because it is a lie about YOU — a person checking
+   * they are on the right ridge would be looking at where they were before the canopy closed.
+   * MESH_GPS_FRESH_MS is the service's own bar; past it the ring goes grey and wears its age.
    *
-   * The order after that is resolveReference()'s, deliberately: a fresh fix beats everything,
-   * then the pin the user declared by hand, then the stale fix. A phone with a pin set this
-   * morning and a fix from yesterday should show the pin. */
-  if (usable && age < MESH_GPS_FRESH_MS) {
+   * The order after that is resolveReference()'s, deliberately: a live fix beats everything,
+   * then the pin the user declared by hand, then the poor or stale fix. A phone with a pin set
+   * this morning and a fix from yesterday should show the pin. */
+  SelfFix fx;
+  if (meshService.getSelfFix(&fx, false) != SELF_NONE) {
     if (latI) {
-      *latI = la;
+      *latI = fx.latI;
     }
     if (lonI) {
-      *lonI = lo;
+      *lonI = fx.lonI;
     }
     if (ageMs) {
-      *ageMs = age;
+      *ageMs = fx.ageMs;
+    }
+    if (src) {
+      *src = fx.src;
     }
     return MAPS_SELF_GPS;
   }
@@ -1556,33 +1557,59 @@ int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs) const {
     }
     return MAPS_SELF_PIN;
   }
-  if (haveFix && !usable && age < MESH_GPS_FRESH_MS) {
-    if (latI) {
-      *latI = la;
-    }
-    if (lonI) {
-      *lonI = lo;
-    }
+  /* Nothing live and no pin: the NEWEST fix of a source that is on, whatever its age or
+   * quality — fresh but poor (grey, saying why) or simply old (grey, wearing its age). */
+  if (meshService.getSelfNewest(&fx) == SELF_NONE) {
+    return MAPS_SELF_NONE;
+  }
+  if (latI) {
+    *latI = fx.latI;
+  }
+  if (lonI) {
+    *lonI = fx.lonI;
+  }
+  if (src) {
+    *src = fx.src;
+  }
+  if (fx.state == SELF_ST_POOR) {
     if (ageMs) {
       /* For this kind the "age" slot carries the REASON: sats in the low byte, HDOP x10
        * above it. Whichever failed the bar is what the label names. */
-      *ageMs = ((uint32_t)(hdopX10 < 0 ? 0 : hdopX10) << 8) | (uint32_t)(sats & 0xFF);
+      *ageMs = ((uint32_t)(fx.hdopX10 < 0 ? 0 : fx.hdopX10) << 8) | (uint32_t)(fx.sats & 0xFF);
     }
     return MAPS_SELF_POOR_GPS;
   }
-  if (haveFix) {
-    if (latI) {
-      *latI = la;
-    }
-    if (lonI) {
-      *lonI = lo;
-    }
-    if (ageMs) {
-      *ageMs = age;
-    }
-    return MAPS_SELF_OLD_GPS;
+  if (ageMs) {
+    *ageMs = fx.ageMs;
   }
-  return MAPS_SELF_NONE;
+  return MAPS_SELF_OLD_GPS;
+}
+
+/* A dotted ring, clipped to the map like every marker (fillClipped): the midpoint circle, every
+ * other step, each dot 2x2 with its colour over a black one offset by a pixel, so it reads on a
+ * pale tile and a dark one alike. ~5.7 r dots a ring; the caller keeps r within the screen. */
+void MapsApp::drawRing(int x, int y, int r, uint16_t colour) {
+  if (r < 2) {
+    return;
+  }
+  int dx = r, dy = 0, err = 1 - r, step = 0;
+  while (dx >= dy) {
+    if ((step++ & 1) == 0) {
+      const int px[8] = { x + dx, x - dx, x + dx, x - dx, x + dy, x - dy, x + dy, x - dy };
+      const int py[8] = { y + dy, y + dy, y - dy, y - dy, y + dx, y + dx, y - dx, y - dx };
+      for (int k = 0; k < 8; k++) {
+        fillClipped(px[k], py[k], 2, 2, BLACK);
+        fillClipped(px[k], py[k], 1, 1, colour);
+      }
+    }
+    dy++;
+    if (err < 0) {
+      err += 2 * dy + 1;
+    } else {
+      dx--;
+      err += 2 * (dy - dx) + 1;
+    }
+  }
 }
 
 /* ── TWO PASSES, AND THE ORDERS ARE DELIBERATELY OPPOSITE ─────────────────────────────────
@@ -1616,7 +1643,8 @@ void MapsApp::drawOverlays() {
   const uint32_t now = millis();
   int32_t selfLat = 0, selfLon = 0;
   uint32_t selfAge = 0;
-  const int selfKind = selfPosition(&selfLat, &selfLon, &selfAge);
+  int selfSrc = SELF_NONE;
+  const int selfKind = selfPosition(&selfLat, &selfLon, &selfAge, &selfSrc);
 
   if (measuring) {
     /* The anchor and a dashed line to the crosshair. The anchor may be far off-screen —
@@ -1662,6 +1690,18 @@ void MapsApp::drawOverlays() {
       continue;
     }
     const bool stale = (uint32_t)(now - nd->posHeardMs) > MAP_STALE_MS;
+    /* AN APPROXIMATE POSITION IS A CIRCLE, NOT A DOT (0.9.82). A node that sent precision_bits
+     * (a stock channel's position precision: 13 bits is a ~2.9 km cell) put its point in the
+     * middle of that cell; the dot says "here" and the ring says "somewhere in here". Radius
+     * per mesh_pos.h (the Android app's own formula). Drawn under the marker; skipped when it
+     * would hide inside the marker or be bigger than the screen, where it says nothing. */
+    if (meshPosIsApprox(nd->posPrec)) {
+      const double mpp = mapMetersPerPixel(mapI7ToDeg(nd->latI), zoom);
+      const double rp = mpp > 0 ? meshPosPrecisionRadiusM(nd->posPrec) / mpp : 0;
+      if (rp >= 7.0 && rp <= 400.0) {
+        drawRing(vpX + vx, vpY + vy, (int)(rp + 0.5), stale ? MAP_C_NODE_OLD : MAP_C_NODE);
+      }
+    }
     drawMarker(vpX + vx, vpY + vy, stale ? MAP_C_NODE_OLD : MAP_C_NODE, MAP_SHAPE_DOT);
   }
   for (int i = 0; i < wpN; i++) {
@@ -1714,7 +1754,7 @@ void MapsApp::drawOverlays() {
       char sl[24];
       uint16_t sc = MAP_C_ME;
       if (selfKind == MAPS_SELF_GPS) {
-        strlcpy(sl, "me", sizeof(sl));
+        strlcpy(sl, selfMapLabel(selfSrc), sizeof(sl));     // "me", or "me (phone)"
       } else if (selfKind == MAPS_SELF_PIN) {
         strlcpy(sl, "my pin", sizeof(sl));
       } else if (selfKind == MAPS_SELF_POOR_GPS) {
@@ -1726,7 +1766,7 @@ void MapsApp::drawOverlays() {
         }
       } else {
         const unsigned mins = (unsigned)(selfAge / 60000u);
-        snprintf(sl, sizeof(sl), "me, %um ago", mins);
+        snprintf(sl, sizeof(sl), "%s, %um ago", selfMapLabel(selfSrc), mins);
         sc = MAP_C_NODE_OLD;
       }
       drawLabel(vpX + vx, vpY + vy, sl, sc);
@@ -2092,16 +2132,18 @@ void MapsApp::centreOnMe() {
    * reference is still offered as a last resort, and then the screen names it. */
   int32_t la = 0, lo = 0;
   uint32_t age = 0;
-  const int kind = selfPosition(&la, &lo, &age);
+  int src = SELF_NONE;
+  const int kind = selfPosition(&la, &lo, &age, &src);
   if (kind == MAPS_SELF_GPS) {
     centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
-    setNote("Centred on the GPS fix (%us old)", (unsigned)(age / 1000u));
+    setNote(src == SELF_PHONE ? "Centred on the phone's GPS (%us old)"
+                              : "Centred on the GPS fix (%us old)", (unsigned)(age / 1000u));
     return;
   }
   if (kind == MAPS_SELF_PIN) {
     centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
-    setNote(gGpsNmea ? "No fresh GPS fix - centred on your pin"
-                     : "GPS is off - centred on your pin");
+    setNote(meshService.anySourceEnabled() ? "No fresh fix - centred on your pin"
+                                           : "GPS and phone location off - centred on your pin");
     return;
   }
   if (kind == MAPS_SELF_POOR_GPS) {
@@ -2122,8 +2164,8 @@ void MapsApp::centreOnMe() {
     setNote("Nothing of your own - centred on %s", nm);
     return;
   }
-  if (!gGpsNmea) {
-    setNote("GPS is off - turn it on in Meshtastic > My node");
+  if (!meshService.anySourceEnabled()) {
+    setNote("GPS and phone location are off - Meshtastic > My node");
   } else {
     setNote("No fix yet, and no pin of your own to fall back on");
   }
@@ -2908,7 +2950,9 @@ void MapsApp::buildList() {
       r->dist = meshPosDistanceM(rLat, rLon, nd->latI, nd->lonI);
       unitsFmtDist(r->dist, gUnits, d, sizeof(d));
       const unsigned mins = (unsigned)((now - nd->posHeardMs) / 60000u);
-      snprintf(r->text, sizeof(r->text), "%s %s  %s, %um ago", d,
+      // "~": an approximate position (precision_bits), the same mark the Meshtastic lists use.
+      snprintf(r->text, sizeof(r->text), "%s%s %s  %s, %um ago",
+               meshPosIsApprox(nd->posPrec) ? "~" : "", d,
                meshPosCompass8(meshPosBearingDeg(rLat, rLon, nd->latI, nd->lonI)),
                nd->name[0] ? nd->name : "?", mins);
     }
@@ -4092,8 +4136,8 @@ appEventResult MapsApp::processEvent(EventType event) {
         followLastStamp = 0;
         if (followMe) {
           centreOnMe();                  // one honest centre now; the timer keeps it there
-          if (!gGpsNmea) {
-            setNote("GPS is off - following waits for it");
+          if (!meshService.anySourceEnabled()) {
+            setNote("GPS and phone location off - following waits");
           } else {
             setNote("Following you - any scroll stops it");
           }
@@ -4801,7 +4845,7 @@ void MapsApp::armTimer() {
    * (a callApp takes them all) is noticed and the Stop row becomes Start again. */
   const bool progress = (appState == MAPS_DOWNLOAD);
   /* Following polls the fix once a second — a slow tick, and only on the map. */
-  const bool following = followMe && (appState == MAPS_VIEW) && gGpsNmea;
+  const bool following = followMe && (appState == MAPS_VIEW) && meshService.anySourceEnabled();
   /* A held arrow polls the key every 50 ms until the finger comes off — a bounded burst, and
    * the map is being scrolled, so the CPU is awake for it anyway. */
   const bool holding = panHoldMask && (appState == MAPS_VIEW);
@@ -5319,11 +5363,14 @@ bool mapsConsoleElev(char* out, size_t cap) {
     if (k == MAPS_ELEV_YOU_REF) {
       snprintf(who, sizeof(who), "the reference '%s'", a->elevYouName);
     } else {
-      strlcpy(who, k == MAPS_SELF_GPS ? "GPS fix" : k == MAPS_SELF_PIN ? "your pin"
+      strlcpy(who, k == MAPS_SELF_GPS ? "live fix" : k == MAPS_SELF_PIN ? "your pin"
                    : k == MAPS_SELF_POOR_GPS ? "a poor fix" : "an old fix", sizeof(who));
     }
     elevSampleText(t, sizeof(t), y->rc, y->m, y->z);
-    w = sayInto(out, cap, w, "\nelev: you = %s %.5f,%.5f -> %s, %lu.%lu ms%s", who,
+    /* "You" to 2 decimals (~1 km): it is this phone's own fix (the woods plate's, or the hotspot
+     * phone's - on by default since 0.9.82), and console captures get pasted into notes in a
+     * PUBLIC repo. The sample's answer is what this line is for; `elev <lat> <lon>` is exact. */
+    w = sayInto(out, cap, w, "\nelev: you = %s ~%.2f,%.2f -> %s, %lu.%lu ms%s", who,
                 mapI7ToDeg(y->latI), mapI7ToDeg(y->lonI), t, (unsigned long)(y->costUs / 1000u),
                 (unsigned long)((y->costUs % 1000u) / 100u),
                 (y->rc != 1 || a->elevYouUsable(NULL)) ? ""

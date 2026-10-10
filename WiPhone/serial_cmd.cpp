@@ -4,6 +4,7 @@
 #include "app_books.h"       // booksDebugDumpPage, the `bookpage` command
 #include "music_player.h"    // musicPlayerIsPlaying/Paused: `mv` leaves a loaded track alone
 #include "kosync_sync.h"     // the `kosync` command: the window, the home client, the config
+#include "phone_pos.h"       // the `phonepos` command: the hotspot phone's GPS (no coordinates)
 #include "app_photos.h"      // photosSetWallpaper, the `wallpaper set` command
 #include "app_maps.h"        // mapsConsoleStatus/Goto, the `maps` command
 #include "elev_sd.h"         // elevSampleCard, the `elev <lat> <lon>` command
@@ -207,12 +208,26 @@ static void help() {
     "             and the longest the chip sat deaf after a frame (TxDone to back in RX)",
     "  nbr        neighbours heard DIRECTLY + announce state (My node > Neighbor info)",
     "  nbr on|4h|off|now  set the announce cadence (1h/4h) or announce right now",
-    "  pos        positions: waypoints, node fixes, our pin, the reference, our beacon",
-    "  pos every <secs>|off  GPS position reporting cadence (persists; 300s floor)",
+    "  pos        positions: waypoints, node fixes, our pin, the reference, where this phone",
+    "             is (each source: GPS, the hotspot phone), our beacon",
+    "  pos every <secs>|off  position reporting cadence (persists; 300s floor; refused",
+    "             while it would go to a PUBLIC or missing channel - arm that on the phone)",
     "  pos now    force one beacon: obeys the channel/fix/spacing rules but NOT",
-    "             the on/off switch - it sends with reporting OFF",
+    "             the on/off switch - it sends with reporting OFF. Never to a public",
+    "             channel; a bench fix goes out logged INJECTED, as MANUAL",
+    "  pos inject gps|phone <lat> <lon> [sats hdop]  a BENCH fix for that source, RAM only:",
+    "             drawn and measured from, never sent by the schedule (use dummy",
+    "             coordinates, e.g. 40.0 -100.0); `pos inject clear` drops them",
+    "  phonepos   the hotspot phone's GPS: state, port, bytes, sentences, bad checksums,",
+    "             stale lines dropped, last fix age, connects (never a coordinate or address)",
+    "  phonepos auto|off  My node > Phone location (persists; auto is refused here while",
+    "             reporting goes to a PUBLIC channel - that is chosen on the phone)",
+    "  phonepos port <n>  an extra port to try after 10110 and 11123 (0 = none; persists)",
+    "  phonepos at <ip>[:port] | at off  BENCH, RAM only: ask that address instead of the",
+    "             gateway (tools/nmea_phone_stub.py on a Mac); its fixes are bench fixes",
     "  gps        woods-plate GPS state: fix, sats, reader counters",
-    "  gps on|off route the user UART (38/32) to the NMEA reader (persists)",
+    "  gps on|off route the user UART (38/32) to the NMEA reader (persists; `on` is refused",
+    "             while reporting is armed to a PUBLIC channel - switch it on the phone)",
     "  gps baud <n>  GPS baud, persists (115200 = the M100 Mini, measured; not 9600)",
     "  gps raw    hex+ASCII of the last bytes off the wire - tells wrong-baud from binary",
     "  sun        legal light at the reference place: first light/sunrise/sunset/last light",
@@ -291,6 +306,63 @@ static void help() {
   }
 }
 
+/* 🛑 THE CONSENT RULE, for every serial line that could START a location going out (review
+ * 2026-10-10). What makes a location beacon safe is the picker's two-press confirm on the
+ * screen, where PUBLIC is in the large font; `pos chan` is refused for that reason, and so is
+ * anything here that arms reporting (`pos every`) or switches a source on (`gps on`, `phonepos
+ * auto`) while reporting is aimed at a PUBLIC channel — or at one gone from this phone (unknown
+ * fails safe, as channelIsPublic(NULL) does). No channel named is safe: nothing goes out until
+ * one is chosen ON the phone. pospub (a public channel confirmed once) survives "Position: off"
+ * on the screen, so without this a cable line re-armed a broadcast the owner had stopped.
+ * NULL = allowed; else the reason to print. */
+static const char* serialPosConsentRefusal() {
+  if (!meshService.getPosChannelName()[0]) {
+    return NULL;
+  }
+  const MeshChannel* pc = meshService.getPosChannel();
+  if (!pc) {
+    return "the reporting channel is gone from this phone";
+  }
+  return meshService.channelIsPublic(pc) ? "position reporting goes to a PUBLIC channel" : NULL;
+}
+
+/* `pos`'s "where is THIS phone" block (self_pos.h): which source the screens use now, and one
+ * line per source with why it is or is not used. 🛑 No coordinates here — what is wanted on the
+ * bench is WHICH and WHY, and these lines get pasted into notes that live in a public repo. */
+static void reportSelfSources() {
+  SelfFix fx;
+  const int src = meshService.getSelfFix(&fx, false);
+  SelfFix tx;
+  const int txSrc = meshService.getSelfFix(&tx, true);
+  if (src != SELF_NONE) {
+    say("pos: source = %s%s (%s on the map); a beacon now would send %s\n",
+        selfSrcName(src), fx.injected ? " [BENCH]" : "", selfMapLabel(src),
+        txSrc != SELF_NONE ? selfBeaconTag(txSrc) : "nothing (see below)");
+  } else {
+    say("pos: source = none live (the pin, or nothing, stands in)\n");
+  }
+  for (int s = SELF_GPS; s <= SELF_PHONE; s++) {
+    SelfFix f;
+    if (!meshService.getSourceFix(s, &f)) {
+      const bool on = (s == SELF_GPS) ? meshService.isGpsEnabled() : meshService.isPhoneEnabled();
+      say("pos:   %-5s %s\n", selfSrcName(s), on ? "no fix yet" : "off");
+      continue;
+    }
+    char q[40];
+    if (f.sats >= 0 && f.hdopX10 >= 0) {
+      snprintf(q, sizeof(q), "%d sats, HDOP %d.%d", f.sats, f.hdopX10 / 10, f.hdopX10 % 10);
+    } else if (f.sats >= 0) {
+      snprintf(q, sizeof(q), "%d sats", f.sats);
+    } else if (f.hdopX10 >= 0) {
+      snprintf(q, sizeof(q), "HDOP %d.%d", f.hdopX10 / 10, f.hdopX10 % 10);
+    } else {
+      strlcpy(q, "sats/HDOP not said", sizeof(q));
+    }
+    say("pos:   %-5s %s, %lus old, %s%s\n", selfSrcName(s), selfStateName(f.state),
+        (unsigned long)(f.ageMs / 1000u), q, f.injected ? " [BENCH: pos inject / phonepos at]" : "");
+  }
+}
+
 /* `pos` — the whole positions picture in one paste: every waypoint heard, every
  * node with a fix (age in minutes), our own pin, which reference distances are
  * measured from, and — since the woods plate — what this phone is telling the
@@ -308,6 +380,8 @@ static void reportPos() {
       : meshService.getWaypointCount() > 0
           ? "NONE - waypoints heard but none chosen (Places > pick > set reference)"
           : "NONE (no waypoints heard, no pin set)");
+
+  reportSelfSources();
 
   for (int i = 0; i < meshService.getWaypointCount(); i++) {
     const MeshWaypoint* w = meshService.getWaypoint(i);
@@ -337,10 +411,15 @@ static void reportPos() {
     } else {
       snprintf(age, sizeof(age), "%um ago", (unsigned)((nowMs - n->posHeardMs) / 60000u));
     }
-    say("  !%08x '%s'  %d.%05d,%d.%05d%s  (%s)\n", (unsigned)n->nodeNum, n->name,
+    char approx[24] = "";
+    if (meshPosIsApprox(n->posPrec)) {
+      // The sender cut its position to a cell (precision_bits): the point is its middle.
+      snprintf(approx, sizeof(approx), " approx +-%.0fm", meshPosPrecisionRadiusM(n->posPrec));
+    }
+    say("  !%08x '%s'  %d.%05d,%d.%05d%s  (%s)%s\n", (unsigned)n->nodeNum, n->name,
         (int)(n->latI / 10000000), abs((int)((n->latI % 10000000) / 100)),
         (int)(n->lonI / 10000000), abs((int)((n->lonI % 10000000) / 100)),
-        extra, age);
+        extra, age, approx);
   }
 
   int32_t pinLat, pinLon;
@@ -1186,6 +1265,12 @@ static void run(char* line) {
         say("pos: interval out of range (300..86400 seconds, or off)\n");
         return;
       }
+      const char* no = serialPosConsentRefusal();
+      if (no) {
+        say("pos: refused - %s;\n", no);
+        say("pos: set reporting on the phone (Meshtastic > My node > Position)\n");
+        return;
+      }
       meshService.setPosInterval(s);
       say("pos: reporting every %lus - first send is a full interval away\n",
           (unsigned long)s);
@@ -1202,22 +1287,164 @@ static void run(char* line) {
       return;
     }
     /* `pos now` — bench only: force one beacon regardless of the interval and
-     * the movement gate. It still obeys every SAFETY rule (receiver on, channel
+     * the movement gate. It still obeys every SAFETY rule (a source on, channel
      * named, channel present, channel not silently public, fix fresh enough),
-     * because those are what the feature is for.
+     * because those are what the feature is for — and since 0.9.82 it never
+     * sends to a public channel at all, confirmed or not: the cable is not the
+     * on-screen consent (meshService.posNowBlockedReason).
      * It QUEUES the frame (mesh_txq.h); it no longer blocks ~518 ms in a send. */
     if (!strcasecmp(arg, "now")) {
-      const bool ok = meshService.sendGpsPositionNow();
-      say("pos: forced beacon %s%s\n", ok ? "QUEUED" : "NOT SENT",
-          ok ? " (37 B on air with the clock set - see the MESH POSITION log line, then `radio`)"
-             : "");
+      bool bench = false;
+      const bool ok = meshService.sendSelfPositionNow(&bench);
+      say("pos: forced beacon %s%s%s\n", ok ? "QUEUED" : "NOT SENT",
+          ok && bench ? " - an INJECTED bench fix, sent as MANUAL (not a measurement)" : "",
+          !ok ? "" : bench ? " (39 B on air with the clock set - see the MESH POSITION log line, then `radio`)"
+                           : " (42 B on air with the clock set - see the MESH POSITION log line, then `radio`)");
       if (!ok) {
-        const char* why = meshService.posBlockedReason();
+        const char* why = meshService.posNowBlockedReason();
         say("pos: %s\n", why ? why : "radio not ready, or no channels");
       }
       return;
     }
-    say("pos: usage - pos | pos every <secs>|off | pos now  (channel: on the phone)\n");
+    /* `pos inject` — a BENCH fix (self_pos.h's `injected`): the map, the distances, the Almanac
+     * and `pos now` on a private channel can be exercised with no sky and no phone. RAM only.
+     * 🛑 The schedule never sends one, and `pos now` refuses a public channel with one: a
+     * serial line is not the on-screen consent a location on a public channel needs. Nothing
+     * typed here is echoed back — use dummy coordinates anyway (40.0 -100.0). */
+    if (!strncasecmp(arg, "inject", 6)) {
+      const char* a = arg + 6;
+      while (*a == ' ') {
+        a++;
+      }
+      if (!strcasecmp(a, "clear")) {
+        say("pos: %d bench fix(es) dropped\n", meshService.clearInjectedFixes());
+        return;
+      }
+      int src = SELF_NONE;
+      if (!strncasecmp(a, "gps ", 4)) {
+        src = SELF_GPS;
+        a += 4;
+      } else if (!strncasecmp(a, "phone ", 6)) {
+        src = SELF_PHONE;
+        a += 6;
+      }
+      char* e = NULL;
+      const double lat = src ? strtod(a, &e) : 0.0;
+      const bool latOk = src && e && e != a;
+      const char* b = latOk ? e : a;
+      const double lon = latOk ? strtod(b, &e) : 0.0;
+      const bool lonOk = latOk && e && e != b;
+      int sats = -1, hdopX10 = -1;
+      if (lonOk) {
+        const char* c = e;
+        char* e2 = NULL;
+        const long sv = strtol(c, &e2, 10);
+        if (e2 && e2 != c) {
+          sats = (int)sv;
+          const char* d = e2;
+          const double hv = strtod(d, &e2);
+          if (e2 && e2 != d && hv >= 0.0 && hv < 100.0) {
+            hdopX10 = (int)(hv * 10.0 + 0.5);
+          }
+        }
+      }
+      if (!lonOk || lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0 ||
+          (lat == 0.0 && lon == 0.0) || sats < -1 || sats > 99) {
+        say("pos: usage - pos inject gps|phone <lat> <lon> [sats hdop] | pos inject clear\n");
+        return;
+      }
+      const bool on = (src == SELF_GPS) ? meshService.isGpsEnabled() : meshService.isPhoneEnabled();
+      if (!on) {
+        say("pos: refused - %s is off (`%s` first)\n",
+            src == SELF_GPS ? "the GPS" : "Phone location",
+            src == SELF_GPS ? "gps on" : "phonepos auto");
+        return;
+      }
+      meshService.injectSelfFix(src, (int32_t)(lat * 1e7 + (lat < 0 ? -0.5 : 0.5)),
+                                (int32_t)(lon * 1e7 + (lon < 0 ? -0.5 : 0.5)), sats, hdopX10);
+      say("pos: bench %s fix set (RAM only; never sent by the schedule; `pos inject clear`)\n",
+          selfSrcName(src));
+      return;
+    }
+    say("pos: usage - pos | pos every <secs>|off | pos now | pos inject ...  (channel: on the phone)\n");
+    return;
+  }
+  /* `phonepos` — the hotspot phone's GPS (phone_pos.h). Status prints counters and words only:
+   * never a coordinate, an SSID or the gateway's address. */
+  if (!strcasecmp(line, "phonepos") || !strncasecmp(line, "phonepos ", 9)) {
+    const char* arg = line[8] ? line + 9 : "";
+    while (*arg == ' ') {
+      arg++;
+    }
+    if (!*arg) {
+      phonePosDumpStatus(sayLine);
+      return;
+    }
+    if (!strcasecmp(arg, "off")) {
+      phonePosSetAuto(false);
+      say("phonepos: Phone location OFF (persists)\n");
+      return;
+    }
+    if (!strcasecmp(arg, "auto") || !strcasecmp(arg, "on")) {
+      /* 🛑 THE CONSENT RULE (serialPosConsentRefusal). With reporting armed to a PUBLIC channel,
+       * switching a source on can start a location going out in the clear: that is decided on
+       * the phone, where My node says PUBLIC in the large font, never by a line on the cable. */
+      const char* no = (!meshService.isPhoneEnabled() && meshService.getPosInterval() != 0)
+                           ? serialPosConsentRefusal() : NULL;
+      if (no) {
+        say("phonepos: refused - reporting is armed and %s;\n", no);
+        say("phonepos: switch Phone location on from the phone (Meshtastic > My node)\n");
+        return;
+      }
+      phonePosSetAuto(true);
+      say("phonepos: Phone location AUTO (persists) - asks the gateway on 10110, 11123%s\n",
+          phonePosCustomPort() ? " and your port" : "");
+      return;
+    }
+    if (!strncasecmp(arg, "port", 4)) {
+      const char* n = arg + 4;
+      while (*n == ' ') {
+        n++;
+      }
+      if (!*n) {
+        say("phonepos: custom port %u%s\n", (unsigned)phonePosCustomPort(),
+            phonePosCustomPort() ? "" : " (none)");
+        return;
+      }
+      char* e = NULL;
+      const long v = strtol(n, &e, 10);
+      if (!e || e == n || *e || v < 0 || v > 65535) {
+        say("phonepos: port out of range (0..65535; 0 = none)\n");
+        return;
+      }
+      phonePosSetCustomPort((uint16_t)v);
+      say("phonepos: custom port %ld%s (persists) - asking again from the top\n", v,
+          v ? "" : " (none)");
+      return;
+    }
+    if (!strncasecmp(arg, "at", 2) && (arg[2] == ' ' || !arg[2])) {
+      const char* a = arg + 2;
+      while (*a == ' ') {
+        a++;
+      }
+      if (!strcasecmp(a, "off") || !*a) {
+        phonePosBenchClear();
+        say("phonepos: bench address cleared - asking the network's gateway again\n");
+        return;
+      }
+      uint8_t ip[4];
+      uint16_t port = 0;
+      if (!selfPhoneParseAt(a, ip, &port)) {
+        say("phonepos: usage - phonepos at <a.b.c.d>[:port] | phonepos at off\n");
+        return;
+      }
+      phonePosBenchAt(ip, port);
+      // The address was typed by whoever is at the cable; it is not repeated back.
+      say("phonepos: BENCH address set (RAM only)%s; its fixes are bench fixes - `phonepos` to watch\n",
+          port ? ", its port tried with 10110/11123" : "");
+      return;
+    }
+    say("phonepos: usage - phonepos | auto | off | port <n> | at <ip>[:port] | at off\n");
     return;
   }
   /* `gps` — the woods backplate's GPS half, dormant until `gps on`. The status
@@ -1240,6 +1467,16 @@ static void run(char* line) {
         say("gps on: refused - cpu method is OLD, whose next clock switch would take the APB-callback\n");
         say("  deadlock with the reader streaming (WiPhone.ino, the gGpsNmea note) - `cpu method new` first\n");
         return;
+      }
+      /* 🛑 The consent rule (serialPosConsentRefusal): the receiver is a location source, and a
+       * beacon armed to a public channel that "GPS is off" was holding must not start from here. */
+      if (!strcasecmp(arg, "on") && !gGpsNmea && meshService.getPosInterval() != 0) {
+        const char* no = serialPosConsentRefusal();
+        if (no) {
+          say("gps on: refused - reporting is armed and %s;\n", no);
+          say("  switch the GPS on from the phone (Meshtastic > My node), or `pos every off` first\n");
+          return;
+        }
       }
       gGpsNmea = !strcasecmp(arg, "on");
       Preferences p;

@@ -16,7 +16,9 @@
 
 #include <Arduino.h>
 #include <stdint.h>
+#include <stddef.h>         // offsetof (MeshNode's layout guard)
 #include "mesh_txq.h"       // the radio's send queue and relay slots (pure, host-tested)
+#include "self_pos.h"       // where this phone is: GPS, the hotspot phone's GPS (pure, host-tested)
 
 #define MESH_MSG_CAP        1000     // total message capacity (allocated in PSRAM)
 #define MESH_MAX_PER_CHAT    150     // max stored messages per conversation
@@ -90,8 +92,12 @@
  * straight epochs, is a guess dressed as a measurement. Skipping costs nothing:
  * the next slot is minutes away and honest silence beats a confident wrong dot
  * on somebody else's map. */
-#define MESH_GPS_FRESH_MS    120000UL
-#define MESH_POS_TX_FRESH_MS  30000UL
+/* ⚠ ONE number each, kept in self_pos.h since 0.9.82: every source of "where this phone is"
+ * (the woods plate's GPS, the hotspot phone's GPS) answers to the same two bars, and the pure
+ * picker that applies them is the one the host suite proves (tests/test_selfpos.cpp reads these
+ * two lines and fails if they stop being those). */
+#define MESH_GPS_FRESH_MS    SELF_SHOW_FRESH_MS
+#define MESH_POS_TX_FRESH_MS SELF_TX_FRESH_MS
 
 /* Fix-quality limits live in mesh_pos.h, beside the movement rule and the host tests
  * that prove both. A second copy here is how two thresholds drift apart. */
@@ -104,6 +110,20 @@
  * only writer of `refwp` is setReferenceId() from a real waypoint id or 0, so no
  * previously-shipped firmware can have stored this value. */
 #define MESH_REF_GPS         0xFFFFFFFFu
+
+/* What resolveReferenceEx() resolved to — what the screens need to say WHICH answer it was
+ * without comparing the display name against "GPS" (the Almanac did; a second measured source
+ * would have read as the pin). Since 0.9.82 explicit "Here" (MESH_REF_GPS) means this phone's
+ * live MEASURED fix — its own GPS, else the hotspot phone's — and still never the pin. */
+enum {
+  MESH_REFK_NONE = 0,
+  MESH_REFK_GPS,              // a live fix from this phone's own receiver ("GPS")
+  MESH_REFK_PHONE,            // a live fix relayed from the hotspot phone ("phone")
+  MESH_REFK_LAST_GPS,         // explicit Here, the fix has gone stale ("last GPS")
+  MESH_REFK_LAST_PHONE,       // ...ditto from the phone ("last phone")
+  MESH_REFK_WAYPOINT,         // a waypoint chosen in Places (its own name)
+  MESH_REFK_PIN,              // the hand-set pin ("me")
+};
 
 typedef enum {
   MESH_RADIO_UNINITIALIZED = 0,
@@ -173,6 +193,16 @@ typedef struct {
    * another kilobyte of internal RAM — RAM is what panics this phone. */
   uint8_t  pubKey[MESH_KEY_LEN];
   uint8_t  pkiFlags;                // MESH_NODE_HAS_KEY | MESH_NODE_KEY_MISMATCH
+  /* The precision_bits its last position carried (Position field 23, mesh_pos.h): 0 = absent or
+   * full; 1..31 = the sender cut the point to a cell (a stock channel set to 13 bits sends a
+   * ~2.9 km one) and the map draws a ring of meshPosPrecisionRadiusM() round it.
+   * 🛑 IN THE PADDING BYTE THAT WAS ALREADY HERE (before the int32 below), so sizeof(MeshNode)
+   * and every on-card database stay exactly as they were — loadDb() refuses a file whose node
+   * size differs, which would cost Nick his nodes, messages and waypoints. The static_asserts
+   * under the struct hold it there. Every node table this firmware ever saved has a 0 in this
+   * byte (the table is zeroed when allocated, a slot when evicted, a loaded record before it is
+   * read), i.e. "not degraded" — exactly what those positions were. */
+  uint8_t  posPrec;
   /* Last heard position (port 3 broadcasts — COVEY sends one every 5 min).
    * posHeardMs==0 means never heard. Appended after the v2 fields; DB migrates
    * v1/v2 in place.
@@ -185,6 +215,9 @@ typedef struct {
   int32_t  latI, lonI;              // 1e-7 degrees
   uint32_t posHeardMs;              // millis() when the position arrived
 } MeshNode;
+static_assert(offsetof(MeshNode, posPrec) == offsetof(MeshNode, pkiFlags) + 1 &&
+              offsetof(MeshNode, latI) == offsetof(MeshNode, posPrec) + 1,
+              "MeshNode::posPrec must sit in the padding before latI: the DB's node size is fixed");
 
 // A waypoint shared over the mesh (port 8) — camp, the truck, a stand. The
 // reference point for every distance the UI shows.
@@ -456,23 +489,27 @@ public:
   bool takePlacesNews() { bool n = placesNews; placesNews = false; return n; }
 
   /* Which place distances are measured FROM. Three modes, persisted as `refwp`:
-   *   MESH_REF_GPS  — explicitly this phone's GPS. NEVER falls through to
-   *                   anything else: a stale fix keeps its coordinates and
-   *                   renames itself "last GPS", and no fix at all returns
-   *                   false so the UI shows no distances. A reference frame
-   *                   that moves on its own is the failure this mode exists
-   *                   to rule out.
+   *   MESH_REF_GPS  — explicitly "where I am": this phone's live MEASURED fix
+   *                   (its own GPS, else the hotspot phone's; since 0.9.82).
+   *                   NEVER falls through to the pin: a stale fix keeps its
+   *                   coordinates and renames itself "last GPS"/"last phone",
+   *                   and no fix at all returns false so the UI shows no
+   *                   distances. A reference frame that moves on its own is
+   *                   the failure this mode exists to rule out.
    *   a waypoint id — that place, always.
-   *   0 (automatic, the shipping default) — a fresh GPS fix, else the pin.
-   * resolveReference() gives the coords + a display name, false if none exist. */
+   *   0 (automatic, the shipping default) — a live measured fix, else the pin.
+   * resolveReference() gives the coords + a display name, false if none exist;
+   * resolveReferenceEx() also says which of those it was (MESH_REFK_*). */
   uint32_t getReferenceId() const { return refWaypointId; }
   void     setReferenceId(uint32_t id);
   bool     resolveReference(int32_t* latI, int32_t* lonI,
                             char* name, size_t nameCap) const;
-  /* True when the reference is the GPS and its fix has gone stale — the Status
-   * screen wants the precise age, which resolveReference() only hints at by
-   * calling itself "last GPS". A separate accessor rather than a wider
-   * signature, because resolveReference() has seven call sites. */
+  bool     resolveReferenceEx(int32_t* latI, int32_t* lonI, char* name, size_t nameCap,
+                              uint8_t* kind) const;
+  /* True when the reference is explicit Here and its fix has gone stale — the
+   * Status screen wants the precise age, which resolveReference() only hints at
+   * by calling itself "last GPS"/"last phone". (The name is from when the GPS
+   * was the only source.) */
   bool     referenceIsStaleGps(uint32_t* ageMs) const;
 
   /* ---- The woods backplate's GPS (nmea.h) ----------------------------------
@@ -515,13 +552,58 @@ public:
   bool getGpsMotion(int* altM, uint32_t* altAgeMs, int32_t* speedKnX100, int32_t* courseX10,
                     uint32_t* motionAgeMs, uint32_t* ageMs) const;
   bool gpsEverFixed() const { return gpsFixMs != 0; }
-  void setGpsEnabled(bool on) { gpsEnabled = on; }
+  void setGpsEnabled(bool on) { gpsEnabled = on; selfSlots[SELF_GPS - 1].enabled = on; }
   bool isGpsEnabled() const { return gpsEnabled; }
 
-  /* ---- Periodic GPS position beacon ---------------------------------------
+  /* ---- WHERE THIS PHONE IS, from every source (self_pos.h, 0.9.82) ----------
+   * The woods plate's GPS (gpsUpdate, above — still the receiver's own story for
+   * `gps`, the GPS receiver row and the Almanac's satellite details) and the GPS
+   * of the phone whose hotspot this one has joined, relayed as NMEA by an app on
+   * it (phone_pos.cpp feeds phoneUpdate, through self_pos's one-GGA quality gate).
+   * Every "where am I" on a screen or on the air asks getSelfFix(), which is
+   * self_pos.h's selfPick(): GPS outranks the phone, 120 s to show, 30 s to send,
+   * a poor fix never counts as live.
+   * 🛑 RAM ONLY, like the GPS fields: nothing here writes NVS or sets dbDirty (the
+   * note on MeshNode's latI — a 1 Hz stream would drag the database save into
+   * the loop), and the phone's bytes never reach the clock (self_pos.h). */
+  /* `bench` = the fix came from a `phonepos at` address (a Mac running tools/nmea_phone_stub.py
+   * standing in for the phone): it is kept as a BENCH fix, exactly like `pos inject` — drawn,
+   * never sent by the schedule, never to a public channel — so a test stream can never put a
+   * made-up position on the air as a measurement. */
+  void phoneUpdate(int32_t latI, int32_t lonI, int sats, int hdopX10, bool bench = false);
+  /* "Phone location: auto | off" (NVS wpmesh/phloc; phone_pos.h owns the writes). Auto on a new
+   * phone; the first boot of an UPGRADED one decides once (loadPosSettings): off when a beacon
+   * was armed with the GPS off or to a public channel, so nothing starts going out unasked. */
+  void setPhoneEnabled(bool on);
+  bool isPhoneEnabled() const { return selfSlots[SELF_PHONE - 1].enabled; }
+  /* The best LIVE fix (selfPick). forTx: the 30 s bar and NEVER a `pos inject` fix — the
+   * scheduled beacon's question. Otherwise the 120 s bar, bench fixes included — the
+   * screens'. SELF_NONE (out->src too) when nothing qualifies. */
+  int  getSelfFix(SelfFix* out, bool forTx) const;
+  /* The most recently stamped fix of any enabled source, whatever its age or quality (the
+   * grey "last GPS"/"last phone" marker): out->state says LIVE/OLD/POOR on the 120 s bar. */
+  int  getSelfNewest(SelfFix* out) const;
+  /* One source's own fix, whatever its age or quality, bench fixes included (`pos`, the
+   * Almanac's "last ..." place). False when that source is off or has no fix. */
+  bool getSourceFix(int src, SelfFix* out) const;
+  bool anySourceEnabled() const { return selfAnyEnabled(selfSlots); }
+  /* May anything be SENT from a source that is switched on? The same set today; it exists so
+   * a coarse source added later (a Wi-Fi location, self_pos.h's reserved SELF_NET) can be
+   * shown on this phone's map without being put on the air by the same switch. */
+  bool anySourceEnabledForTx() const { return selfAnyEnabled(selfSlots); }
+  /* `pos inject <gps|phone> ...` (bench, RAM only): write a fix into that source's slot,
+   * flagged injected — drawn and measured from like a real one, NEVER sent by the schedule,
+   * and `pos now` with one logs INJECTED, sends it as MANUAL (not a measurement) and refuses a
+   * public channel. The next real fix of that source replaces it. False when `src` is not GPS
+   * or PHONE. */
+  bool injectSelfFix(int src, int32_t latI, int32_t lonI, int sats, int hdopX10);
+  int  clearInjectedFixes();               // `pos inject clear`: how many were dropped
+
+  /* ---- Periodic position beacon -------------------------------------------
    * OFF by default, with NO channel chosen by default. Three separate things
-   * must be true before one byte goes out: the GPS receiver is on, an interval
-   * is chosen, and a channel is named. See loop()'s beacon block.
+   * must be true before one byte goes out: a location source is on (the GPS
+   * receiver, or Phone location), an interval is chosen, and a channel is
+   * named. See loop()'s beacon block.
    *
    * setPosInterval() re-arms (posNextTxMs = 0) exactly as setNeighborInterval
    * does, so the keypress that switches reporting on NEVER transmits — the
@@ -557,8 +639,13 @@ public:
   int         getPosSkipRuns() const { return posSkipRuns; }
   /* Bench only (serial `pos now`): build and queue one beacon immediately,
    * ignoring the interval and the movement gate but NOT the safety rules.
-   * (It used to BLOCK ~518 ms in meshPhy.send(); since 0.9.79 nothing does.) */
-  bool        sendGpsPositionNow();
+   * (It used to BLOCK ~518 ms in meshPhy.send(); since 0.9.79 nothing does.)
+   * Unlike the schedule it may send a `pos inject` fix — logged INJECTED and
+   * sent as MANUAL. NEVER to a public channel, whatever the fix: the cable is
+   * not the on-screen consent (0.9.82). *usedInjected says whether it did. */
+  bool        sendSelfPositionNow(bool* usedInjected = NULL);
+  // Why `pos now` would not send right now (the forced send's own gate), or NULL.
+  const char* posNowBlockedReason() const;
 
   // Maintenance (persisted immediately).
   void clearMessages();                      // wipe all stored messages
@@ -764,6 +851,10 @@ private:
    * the next such flag ends up out of sync too. Seeded in setup() from the same
    * NVS key the .ino reads, so there is no boot-order dependency between them. */
   bool         gpsEnabled;
+  /* Every source's last fix, indexed src - 1 (self_pos.h). The GPS slot mirrors the gps*
+   * fields above, written in gpsUpdate() (or by `pos inject gps`); the PHONE slot is written
+   * only by phoneUpdate() and the bench; SELF_NET stays off. ~70 B of BSS. */
+  SelfSlot     selfSlots[SELF_SRC_COUNT];
 
   /* ---- Periodic position beacon state -------------------------------------
    * ~48 bytes of BSS, no heap, nothing allocated per broadcast. */
@@ -788,6 +879,12 @@ private:
    * manual pin announce and the GPS beacon go through it, so there is exactly
    * one set of bytes and one log line to reason about. */
   bool sendPositionOn(int32_t latI, int32_t lonI, const MeshChannel* ch, const char* why);
+  /* ...and with where a MEASURED fix came from (mesh_pos.h's location_source / precision_bits;
+   * 0/0 sends meshPosBuild's bytes, which is what sendPositionOn does). */
+  bool sendPositionOnEx(int32_t latI, int32_t lonI, const MeshChannel* ch, const char* why,
+                        uint8_t locSrc, uint8_t precBits);
+  // posBlockedReason() for a purpose (SELF_PICK_TX, plus SELF_PICK_INJECTED for `pos now`).
+  const char* posBlockedReasonFor(unsigned flags) const;
   /* The one place a Waypoint payload is built and handed to the radio, mirroring
    * sendPositionOn so both have one set of bytes and one log line. */
   bool sendWaypointOn(const uint8_t* payload, size_t len, const MeshChannel* ch,
@@ -795,7 +892,9 @@ private:
   /* The private channel the announce path prefers; NULL is impossible (it falls back to
    * channels[0]) but the caller still checks, because channelCount can be 0. */
   const MeshChannel* announceChannel() const;
-  bool sendGpsPosition();                  // the scheduled beacon (safety rules inside)
+  /* The beacon (safety rules inside): the scheduled one (forced false: never a bench fix) or
+   * `pos now` (forced true). */
+  bool sendSelfPosition(bool forced, bool* usedInjected = NULL);
 
   void upsertWaypoint(uint32_t id, int32_t latI, int32_t lonI,
                       uint32_t expire, uint32_t lockedTo, const char* name);

@@ -59,12 +59,22 @@ for src in tests/test_*.cpp; do
     # playing the RAK's side of the exchange.
     test_pki)      deps=(WiPhone/mesh_pki.cpp WiPhone/book_hash.cpp)
                    csrc=(WiPhone/src/crypto/curve25519_donna.c WiPhone/src/crypto/tiny_aes.c) ;;
-    # Position/Waypoint payloads + the distance/bearing math (python-checked).
+    # Position/Waypoint payloads + the distance/bearing math (python-checked), and since 0.9.82
+    # location_source/precision_bits both ways and the firmware's cell cut (meshPosBuildEx,
+    # meshPosParseEx, meshPosTruncate; regenerate with tools/gen_pos_vectors.py).
     test_pos)      deps=(WiPhone/mesh_pos.cpp) ;;
     # Which chat messages survive a reboot: newest-per-conversation, capped.
     test_retain)   deps=(WiPhone/mesh_retain.cpp) ;;
     # The woods plate's GPS: NMEA assembly, checksums, fixed-point coords.
     test_nmea)     deps=(WiPhone/nmea.cpp) ;;
+    # Where this phone is (0.9.82, self_pos.cpp): which source to believe (GPS > the hotspot
+    # phone's GPS; Wi-Fi reserved, never picked), the 120 s / 30 s bars, bench-injected fixes
+    # never sent by the schedule - and the phone-over-WiFi stream through the shipping NMEA
+    # reader: one GGA judged with nothing inherited, the RMC cross-check, the settle and
+    # time-of-day stale guards across midnight, the '\n' before every '$', the port search
+    # and its back-off, the status words, two fixes in a row agreeing (gpsdRelay's generated
+    # coordinates can be km off and still parse). Reads meshtastic_service.h to hold the bars equal.
+    test_selfpos)  deps=(WiPhone/self_pos.cpp WiPhone/mesh_pos.cpp WiPhone/nmea.cpp) ;;
     # Who may set the clock: GPS time (fed through the shipping NMEA reader) and mesh time —
     # a 'V' sentence refused, two consecutive readings, a fresh NTP never overridden, and the
     # mesh only into an unknown clock (two nodes on a public channel, one on a private one).
@@ -329,6 +339,18 @@ fi
 # the fold waiting out a game, no insecure client, no URL or coordinate in a log line.
 echo "checking the Almanac/altitude review fixes and the weather's in the device files (GPS motion, DST record, one countdown, no I/O in key handlers, ...)"
 if ! python3 tests/check_almanac_review.py; then
+  fail=1
+fi
+
+# ── SOURCE GUARD: the hotspot phone's GPS keeps its rules (0.9.82) ────────────────────────
+# See tests/check_phonepos_review.py. test_selfpos proves self_pos.cpp; this pins the glue: no IP
+# geolocation anywhere under WiPhone/, phone_pos.cpp never sets the clock or touches the woods
+# plate's reader and never waits (MSG_DONTWAIT, O_NONBLOCK before the connect, a {0,0} select, no
+# CPU hold), no coordinate/MAC/SSID in its log lines, the beacon's location_source/precision_bits,
+# a bench fix never sent by the schedule nor to a public channel, serial `phonepos auto` refused
+# while reporting goes to a public channel, and the real 2026-08-25 fix kept out of the tree.
+echo "checking the phone-location glue (no IP geolocation, never the clock, never waits, no coordinates in logs, bench fixes stay home)"
+if ! python3 tests/check_phonepos_review.py; then
   fail=1
 fi
 

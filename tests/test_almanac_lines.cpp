@@ -945,6 +945,25 @@ int main() {
     }
     CHECK(is(r.text[dc + 2], "WMM2025, valid to 2030"), "POSITION: the model and its end");
     CHECK(fitsAll(r, "POSITION"), "POSITION: every row fits");
+    /* Review 2026-10-10: the serial console at a MEASURED place says ~1 km and nothing finer
+     * (console captures land in notes in a public repo); the screen keeps every digit. */
+    {
+      AlmCtx cc = c;
+      cc.lat = 40.0012345;
+      cc.lon = -100.0098765;
+      cc.coordsCoarse = true;
+      Rows rc;
+      memset(&rc, 0, sizeof(rc));
+      almLinesPosition(&cc, &p, collect, &rc);
+      CHECK(is(rc.text[0], "Source: GPS 3s") && is(rc.text[1], "~40.00, -100.01 (rounded here)") &&
+            is(rc.text[2], "UTM/MGRS: on the screen only"), "POSITION console: 2 decimals at a measured place");
+      bool fine = false;
+      for (int k = 0; k < rc.n; k++) {
+        fine = fine || strstr(rc.text[k], "UTM 1") || strstr(rc.text[k], "MGRS 1") ||
+               strstr(rc.text[k], "40.001") || strstr(rc.text[k], "40 0");
+      }
+      CHECK(!fine, "POSITION console: no UTM, MGRS, degrees-minutes or 3rd decimal anywhere");
+    }
 
     c.units = UNITS_US;
     p.elevZ = ELEV_Z_COARSE;
@@ -1291,6 +1310,81 @@ int main() {
     in.viewOk = false;
     almPickPlace(&in, &pl);
     CHECK(pl.kind == ALM_PLACE_NONE, "place: nothing at all: none (the guidance rows)");
+
+    /* 0.9.82: the hotspot phone's GPS (self_pos.h). Dummy coordinates (40.0, -100.0). A live
+     * phone fix ages from its OWN fix, not the receiver's; the step-2 fallback can be the
+     * phone's and says so; the poor-fix bar is the same for it. */
+    memset(&in, 0, sizeof(in));
+    in.refOk = true;
+    in.refKind = ALM_PLACE_PHONE;
+    in.refLatI = 400000000;
+    in.refLonI = -1000000000;
+    in.refName = "phone GPS";
+    in.refAgeMs = 3000;
+    in.gpsAgeMs = 999000;
+    almPickPlace(&in, &pl);
+    CHECK(pl.kind == ALM_PLACE_PHONE && pl.ageMs == 3000 && is(pl.name, "phone GPS"),
+          "place: a live phone fix, aged from the phone's own fix");
+    in.refKind = ALM_PLACE_LAST_PHONE;
+    in.refAgeMs = 600000;
+    almPickPlace(&in, &pl);
+    CHECK(pl.kind == ALM_PLACE_LAST_PHONE && pl.ageMs == 600000, "place: explicit Here, the phone's stale fix");
+    in.refOk = false;
+    in.phoneFix = true;
+    in.phoneLatI = 400000000;
+    in.phoneLonI = -1000000000;
+    in.phoneAgeMs = 120000;
+    in.phoneSats = 9;
+    in.phoneHdopX10 = 9;
+    almPickPlace(&in, &pl);
+    CHECK(pl.kind == ALM_PLACE_LAST_PHONE && is(pl.name, "last phone GPS") && pl.ageMs == 120000,
+          "place: else the newest fix of this boot - the phone's, named so");
+    in.phoneSats = 3;
+    almPickPlace(&in, &pl);
+    CHECK(pl.kind == ALM_PLACE_NONE, "place: ...and a 3-satellite phone fix is no place either");
+
+    /* Review 2026-10-10: step 2 used to OVERWRITE the GPS fields with a newer phone fix before
+     * judging it. Indoors on the hotspot: the GPS fixed well 20 minutes ago, the phone sends
+     * fresh 3-satellite fixes - the usable GPS fix must win, aged by ITS OWN age. */
+    in.gpsFix = true;
+    in.gpsLatI = 400100000;
+    in.gpsLonI = -1000100000;
+    in.gpsAgeMs = 20 * 60000;
+    in.gpsSats = 8;
+    in.gpsHdopX10 = 11;
+    in.phoneAgeMs = 2000;
+    in.phoneSats = 3;
+    in.viewOk = true;
+    in.viewLatI = 410000000;
+    in.viewLonI = -1010000000;
+    almPickPlace(&in, &pl);
+    CHECK(pl.kind == ALM_PLACE_LAST_GPS && pl.latI == 400100000 && pl.ageMs == 20 * 60000u &&
+          is(pl.name, "last GPS"), "place: a fresh POOR phone fix does not hide an older usable GPS fix");
+    in.phoneSats = 9;
+    almPickPlace(&in, &pl);
+    CHECK(pl.kind == ALM_PLACE_LAST_PHONE && pl.latI == 400000000 && pl.ageMs == 2000,
+          "place: both usable - the newer (the phone's), its own age");
+    in.phoneAgeMs = 30 * 60000;
+    almPickPlace(&in, &pl);
+    CHECK(pl.kind == ALM_PLACE_LAST_GPS && pl.ageMs == 20 * 60000u, "place: both usable - the newer (the GPS's)");
+    in.phoneAgeMs = in.gpsAgeMs;
+    almPickPlace(&in, &pl);
+    CHECK(pl.kind == ALM_PLACE_LAST_GPS, "place: a tie keeps the GPS (it outranks the phone)");
+    in.gpsSats = 3;
+    in.phoneSats = 2;
+    almPickPlace(&in, &pl);
+    CHECK(pl.kind == ALM_PLACE_MAP_VIEW, "place: both poor - the map's view");
+    /* Explicit Here resolved to the GPS's stale fix while the phone has a NEWER (poor) one: the
+     * row says the GPS fix's own age, not the phone's ("At last GPS 2s ago" was the bug). */
+    in.refOk = true;
+    in.refKind = ALM_PLACE_LAST_GPS;
+    in.refLatI = 400100000;
+    in.refLonI = -1000100000;
+    in.refName = "last GPS";
+    in.phoneAgeMs = 2000;
+    almPickPlace(&in, &pl);
+    CHECK(pl.kind == ALM_PLACE_LAST_GPS && pl.ageMs == 20 * 60000u,
+          "place: a LAST_GPS reference is aged by the GPS fix, not by a newer phone fix");
 
     const int64_t now = unixOf(2026, 9, 27, 14, 5, 0, PDT);
     static AlmDay dd;
@@ -1646,6 +1740,33 @@ int main() {
     CHECK(ok && wrapsWhole("Source: waypoint WWWWWWWWWWWWWWWWWWWWWWW", &rows) && rows <= 3,
           "waypoint names: 'At <name>' and 'Source: waypoint <name>' are wrapped sentences, whole, "
           "23 characters at their widest - no row is cut to '..'");
+  }
+
+  // ── 0.9.82: the phone places' rows fit, at their widest ages ──────────────────────────────
+  {
+    const int64_t now = unixOf(2026, 9, 27, 14, 5, 0, PDT);
+    static AlmDay dd;
+    const int kinds[2] = { ALM_PLACE_PHONE, ALM_PLACE_LAST_PHONE };
+    const uint32_t ages[3] = { 59000u, (47u * 3600u + 59u * 60u) * 1000u, 9u * 86400u * 1000u };
+    bool ok = true, sawAt = true;
+    for (int ki = 0; ki < 2; ki++) {
+      for (int ai = 0; ai < 3; ai++) {
+        AlmCtx c = ctxFor(&dd, now, PDT, 0, 40.0, -100.0, ASTRO_LEGAL_30MIN, UNITS_US, kinds[ki],
+                          kinds[ki] == ALM_PLACE_PHONE ? "phone GPS" : "last phone GPS");
+        c.placeAgeMs = ages[ai];
+        AlmPos p;
+        memset(&p, 0, sizeof(p));
+        p.elevState = ALM_ELEV_PENDING;
+        Rows r;
+        memset(&r, 0, sizeof(r)); almLinesToday(&c, collect, &r); ok &= fitsAll(r, "phone place");
+        sawAt = sawAt && find(r, kinds[ki] == ALM_PLACE_PHONE ? "At phone GPS" : "At last phone") >= 0;
+        memset(&r, 0, sizeof(r)); almLinesSun(&c, collect, &r); ok &= fitsAll(r, "phone place");
+        memset(&r, 0, sizeof(r)); almLinesPosition(&c, &p, collect, &r); ok &= fitsAll(r, "phone place");
+        ok = ok && !strncmp(r.text[0], kinds[ki] == ALM_PLACE_PHONE ? "Source: phone GPS " : "Source: last phone ", 17);
+      }
+    }
+    CHECK(ok && sawAt, "phone places: 'At phone GPS' / 'At last phone <age>' and 'Source: ...' rows "
+                       "fit 232 px at every age");
   }
 
   // ── the sweep: every row of every screen fits, everywhere, all year ────────────────────────

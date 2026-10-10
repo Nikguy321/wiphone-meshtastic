@@ -50,6 +50,24 @@ struct NmeaFix {
    * last walk's course as if it were now. A GGA never touches them. */
   int32_t  speedKnX100;  // knots x100: "0.36" -> 36, "5" -> 500, "12.345" -> 1234 (truncated); -1 = absent
   int32_t  courseX10;    // degrees true x10, 0..3599: "212.5" -> 2125, "360.0" -> 0; -1 = absent or > 360
+
+  /* ── THE LAST GGA, READ ONLY FROM THAT ONE SENTENCE (the phone-over-WiFi gate, self_pos.h) ──
+   * 🛑 sats/hdopX10/latI/lonI above are STICKY: a GGA overwrites each only when its field
+   * parses, `valid` changes only on an RMC, and a quality-0 GGA leaves the last coordinates
+   * standing. The UART path lives with that (its RMC and GGA come from one receiver, a few ms
+   * apart). A stream relayed by an app on another phone does not: a run of GGAs with no RMC
+   * (gpsdRelay's TCP clients share ONE queue, so a ghost connection can take every RMC) would
+   * re-stamp the last good coordinates, with the last good sats and HDOP, as a fresh fix. So
+   * every GGA rewrites ALL of these from itself, present or not — the rmc* rule above. A GGA
+   * never touches the rmc* fields, and an RMC never touches these. */
+  uint32_t ggaCount;     // GGA sentences parsed; a change means a NEW one completed
+  int32_t  ggaQuality;   // fix quality digit (0 none, 1 GPS, 2 DGPS, 4/5 RTK, 6 dead reckoning...); -1 absent/garbled
+  bool     ggaHasPos;    // THIS sentence carried readable coordinates (whatever its quality said)
+  int32_t  ggaLatI, ggaLonI;   // 1e-7 deg; 0 unless ggaHasPos
+  int32_t  ggaSats;      // satellites in use; -1 = empty field, -2 = present but not plain digits
+  int32_t  ggaHdopX10;   // HDOP x10 by the strict reader ("1.23" -> 12, "12" -> 120);
+                         // -1 = empty, -2 = present but not understood ("1.2E-4", "-1", "1.2.3")
+  int32_t  ggaHms;       // hhmmss by the strict reader (as rmcHms), -1 = absent/garbled
 };
 
 class NmeaReader {

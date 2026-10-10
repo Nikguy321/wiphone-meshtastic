@@ -15,6 +15,16 @@ Covers:
     two-byte tags), altitude, DOPs, ground speed and the presence-tracked fields
   * Waypoint DECODE — full, deletion marker (id only), long name, unknown fields 7/8
   * Negative: a Position missing longitude must be refused
+  * Position ENCODE with provenance (0.9.82) — meshPosBuildEx(lat, lon, time, location_source,
+    precision_bits) must equal python byte for byte, with the coordinates cut to the cell's
+    centre for 1..31 bits by a Python port of the firmware's truncateCoordinate
+    (src/mesh/PositionPrecision.cpp), itself checked here against an independent
+    floor-division form before any vector is written
+  * Position DECODE of fields 5 and 23 — meshPosParseEx must read location_source and
+    precision_bits (and must not mistake seq_number, field 22, for either)
+
+Dummy coordinates only (40.0,-100.0 and friends) in everything added since 0.9.82: this repo
+is public, and a vector is no place for anybody's real position.
 
     python3 tools/gen_pos_vectors.py --out tests/vectors_pos.h
 """
@@ -31,6 +41,41 @@ except ImportError:
 SEA_LAT, SEA_LON = 476062000, -1223321000     # 47.6062, -122.3321
 PDX_LAT, PDX_LON = 455152000, -1226784000     # 45.5152, -122.6784
 CAMP_LAT, CAMP_LON = 474432800, -1222946200   # the woods, roughly
+
+
+DUMMY_LAT, DUMMY_LON = 400000000, -1000000000  # 40.0, -100.0: obviously nobody's position
+
+
+def truncate(v: int, p: int) -> int:
+    """Firmware truncateCoordinate: keep the top p bits of the two's-complement coordinate and
+    move it to the middle of the cell. p == 0 or p >= 32 leaves it alone."""
+    if p == 0 or p >= 32:
+        return v
+    u = v & 0xFFFFFFFF
+    u = (u & ((0xFFFFFFFF << (32 - p)) & 0xFFFFFFFF)) + (1 << (31 - p))
+    u &= 0xFFFFFFFF
+    return u - (1 << 32) if u >= (1 << 31) else u
+
+
+def truncate_by_floor(v: int, p: int) -> int:
+    """The same cell found a second way: floor division by the cell size (which is what a mask
+    on two's-complement bits does to a negative number) plus half a cell."""
+    if p == 0 or p >= 32:
+        return v
+    cell = 1 << (32 - p)
+    return (v // cell) * cell + cell // 2
+
+
+def check_truncate():
+    probes = [0, 1, -1, 7, -7, 2**31 - 1, -2**31, DUMMY_LAT, DUMMY_LON, -338688200, 1512092900,
+              123456789, -123456789, 899999999, -899999999, 1799999999, -1799999999]
+    for p in range(0, 33):
+        for v in probes:
+            a, b = truncate(v, p), truncate_by_floor(v, p)
+            if a != b:
+                sys.exit(f"truncate mismatch p={p} v={v}: mask {a} vs floor {b}")
+            if truncate(a, p) != a:
+                sys.exit(f"truncate not idempotent p={p} v={v}")
 
 
 def c_bytes(b: bytes) -> str:
@@ -167,6 +212,108 @@ def emit(out):
           f'{exp}UL, {lock}UL, "{c_str(name)}" }},\n')
     w("};\n")
     w(f"#define WP_DEC_N {len(wps)}\n\n")
+
+    # ---- Position encode WITH PROVENANCE: what meshPosBuildEx must produce ----------------
+    # (label, lat, lon, time, location_source, precision_bits). The INPUT coordinates are the
+    # raw ones: meshPosBuildEx cuts them itself for 1..31 bits, so the bytes prove the cut too.
+    encx = [
+        ("encx_phone_timed",      DUMMY_LAT, DUMMY_LON, 1766000000, 3, 32),  # 20 B: the phone beacon
+        ("encx_gps_timed",        DUMMY_LAT, DUMMY_LON, 1766000000, 2, 32),  # 20 B: the woods plate
+        ("encx_phone_untimed",    DUMMY_LAT, DUMMY_LON, 0,          3, 32),  # 15 B: clock unknown
+        ("encx_unset_17",         400012345, -1000067891, 1766000000, 0, 17),  # 18 B: a cut cell
+        ("encx_negative_13",     -338688200, -708546000, 1766000000, 0, 13),  # both axes negative
+        ("encx_legacy_shape",     DUMMY_LAT, DUMMY_LON, 1766000000, 0, 0),   # == meshPosBuild's 15
+        ("encx_manual_zero",      0,         0,         5,          1, 32),  # 0,0 is still sent
+        ("encx_one_bit",          123456789, -123456789, 0,         0, 1),   # the coarsest cut
+        ("encx_31_bits",          DUMMY_LAT + 3, DUMMY_LON - 3, 1766000000, 3, 31),
+        ("encx_time_max_ext",     DUMMY_LAT, DUMMY_LON, 0xFFFFFFFF, 3, 32),
+    ]
+    rows = []
+    for (label, lat, lon, t, src, prec) in encx:
+        p = mesh_pb2.Position()
+        p.latitude_i = truncate(lat, prec); p.longitude_i = truncate(lon, prec)
+        if t:
+            p.time = t
+        if src:
+            p.location_source = src
+        if prec:
+            p.precision_bits = prec
+        b = p.SerializeToString()
+        back = mesh_pb2.Position.FromString(b)       # the runtime reads its own bytes back
+        assert back.latitude_i == p.latitude_i and back.longitude_i == p.longitude_i
+        assert back.time == t and back.location_source == src and back.precision_bits == prec
+        rows.append((label, lat, lon, t, src, prec, b, p.latitude_i, p.longitude_i))
+    w("/* meshPosBuildEx: RAW input coordinates; cutLat/cutLon are what the bytes carry. */\n")
+    w("typedef struct {\n  const char* label;\n  long latI;\n  long lonI;\n  unsigned long time;\n"
+      "  int locSrc;\n  int precBits;\n  long cutLatI;\n  long cutLonI;\n"
+      "  const unsigned char* bytes;\n  int len;\n} PosEncXVec;\n\n")
+    for i, r in enumerate(rows):
+        w(f"static const unsigned char POS_ENCX_B_{i}[] = {{ {c_bytes(r[6])} }};\n")
+    w("\nstatic const PosEncXVec POS_ENCX[] = {\n")
+    for i, (label, lat, lon, t, src, prec, b, clat, clon) in enumerate(rows):
+        w(f'  {{ "{label}", {lat}L, {lon}L, {t}UL, {src}, {prec}, {clat}L, {clon}L, '
+          f'POS_ENCX_B_{i}, {len(b)} }},\n')
+    w("};\n")
+    w(f"#define POS_ENCX_N {len(rows)}\n\n")
+
+    # ---- Position decode of fields 5 and 23: what meshPosParseEx must read ----------------
+    # (label, bytes, expectOk, lat, lon, time, locSrc, precBits) — the expected precBits is
+    # clamped to 32 and the expected locSrc to 255, the way the parser keeps them.
+    decx = []
+    p = mesh_pb2.Position()
+    p.latitude_i = DUMMY_LAT; p.longitude_i = DUMMY_LON; p.time = 1766000000
+    decx.append(("pdecx_plain", p.SerializeToString(), 1, DUMMY_LAT, DUMMY_LON, 1766000000, 0, 0))
+    # A stock node on a channel cut to 13 bits: the coordinates arrive already at the cell's
+    # centre, with the high-numbered fields around them (sats 19, seq_number 22 = 23 on purpose:
+    # a reader that mistook field 22 for 23 would report 23 bits).
+    p = mesh_pb2.Position()
+    p.latitude_i = truncate(DUMMY_LAT + 98765, 13); p.longitude_i = truncate(DUMMY_LON - 4321, 13)
+    p.time = 1766000300; p.location_source = 2; p.sats_in_view = 8; p.seq_number = 23
+    p.precision_bits = 13; p.altitude = 412; p.PDOP = 180
+    decx.append(("pdecx_stock_13_bits", p.SerializeToString(), 1, p.latitude_i, p.longitude_i,
+                 1766000300, 2, 13))
+    # What the official apps send for a phone's GPS: EXTERNAL (firmware then adds precision).
+    p = mesh_pb2.Position()
+    p.latitude_i = DUMMY_LAT; p.longitude_i = DUMMY_LON; p.time = 1766000400
+    p.location_source = 3; p.precision_bits = 32; p.altitude = 300
+    decx.append(("pdecx_external_full", p.SerializeToString(), 1, DUMMY_LAT, DUMMY_LON,
+                 1766000400, 3, 32))
+    # seq_number (22) carrying 32 and NO precision_bits: precBits must stay 0.
+    p = mesh_pb2.Position()
+    p.latitude_i = -DUMMY_LAT; p.longitude_i = -DUMMY_LON; p.seq_number = 32
+    decx.append(("pdecx_seq_not_precision", p.SerializeToString(), 1, -DUMMY_LAT, -DUMMY_LON,
+                 0, 0, 0))
+    # A precision above 32 reads as 32 (the firmware's own min(p, 32)).
+    p = mesh_pb2.Position()
+    p.latitude_i = DUMMY_LAT; p.longitude_i = DUMMY_LON; p.precision_bits = 40
+    decx.append(("pdecx_precision_40", p.SerializeToString(), 1, DUMMY_LAT, DUMMY_LON, 0, 0, 32))
+    # An enum value this firmware does not know is kept as sent (it is not a MESH_LOC_*).
+    p = mesh_pb2.Position()
+    p.latitude_i = DUMMY_LAT; p.longitude_i = DUMMY_LON; p.location_source = 7
+    decx.append(("pdecx_locsrc_7", p.SerializeToString(), 1, DUMMY_LAT, DUMMY_LON, 0, 7, 0))
+    # A NEGATIVE enum is a ten-byte varint; the reader keeps 32 bits and clamps to 255.
+    try:
+        p = mesh_pb2.Position()
+        p.latitude_i = DUMMY_LAT; p.longitude_i = DUMMY_LON; p.location_source = -1
+        p.precision_bits = 17
+        decx.append(("pdecx_locsrc_negative", p.SerializeToString(), 1, DUMMY_LAT, DUMMY_LON,
+                     0, 255, 17))
+    except ValueError:
+        pass                                          # a runtime that refuses it: no vector
+    # NEGATIVE: precision and source with no longitude is still no position.
+    p = mesh_pb2.Position()
+    p.latitude_i = DUMMY_LAT; p.location_source = 3; p.precision_bits = 32
+    decx.append(("pdecx_no_longitude", p.SerializeToString(), 0, 0, 0, 0, 0, 0))
+    w("typedef struct {\n  const char* label;\n  const unsigned char* bytes;\n  int len;\n"
+      "  int expectOk;\n  long latI;\n  long lonI;\n  unsigned long time;\n  int locSrc;\n"
+      "  int precBits;\n} PosDecXVec;\n\n")
+    for i, row in enumerate(decx):
+        w(f"static const unsigned char POS_DECX_B_{i}[] = {{ {c_bytes(row[1])} }};\n")
+    w("\nstatic const PosDecXVec POS_DECX[] = {\n")
+    for i, (label, b, ok, lat, lon, t, src, prec) in enumerate(decx):
+        w(f'  {{ "{label}", POS_DECX_B_{i}, {len(b)}, {ok}, {lat}L, {lon}L, {t}UL, {src}, {prec} }},\n')
+    w("};\n")
+    w(f"#define POS_DECX_N {len(decx)}\n\n")
     w("#endif // VECTORS_POS_H\n")
 
 
@@ -174,6 +321,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
+    check_truncate()
     with open(a.out, "w") as f:
         emit(f)
     print(f"wrote {a.out} (meshtastic {_pkgver('meshtastic')})")

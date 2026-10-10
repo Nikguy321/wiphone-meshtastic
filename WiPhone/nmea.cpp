@@ -24,6 +24,10 @@ void NmeaReader::reset() {
   f.rmcDmy = -1;
   f.speedKnX100 = -1;
   f.courseX10 = -1;
+  f.ggaQuality = -1;
+  f.ggaSats = -1;
+  f.ggaHdopX10 = -1;
+  f.ggaHms = -1;
   nBytes = nSentences = nBadChecksum = nOverrun = 0;
 }
 
@@ -342,6 +346,46 @@ bool NmeaReader::parseSentence(const char* body, NmeaFix* f) {
       long hms = parseHms(t, fieldLen(t));
       if (hms >= 0) {
         f->timeHms = (uint32_t)hms;
+      }
+    }
+
+    /* THIS GGA's own fields (nmea.h): every one rewritten, present or not, so nothing here is
+     * ever inherited from an older sentence. Lengths are capped before parseUInt, which would
+     * overflow a long on a long digit run — harmless from the woods UART, not from a socket. */
+    f->ggaCount++;
+    f->ggaQuality = (q && fieldLen(q) >= 1 && fieldLen(q) <= 2) ? (int32_t)quality : -1;
+    f->ggaSats = -1;
+    if (s && fieldLen(s) > 0) {
+      long v = fieldLen(s) <= 3 ? parseUInt(s, fieldLen(s)) : -1;
+      f->ggaSats = v >= 0 ? (int32_t)v : -2;
+    }
+    f->ggaHdopX10 = -1;
+    if (h && fieldLen(h) > 0) {
+      int32_t v = parseFixed(h, fieldLen(h), 1);
+      f->ggaHdopX10 = v >= 0 ? v : -2;
+    }
+    f->ggaHasPos = false;
+    f->ggaLatI = f->ggaLonI = 0;
+    {
+      const char* lat = fieldAt(body, 1);
+      const char* ns  = fieldAt(body, 2);
+      const char* lon = fieldAt(body, 3);
+      const char* ew  = fieldAt(body, 4);
+      int32_t la, lo;
+      if (lat && ns && lon && ew &&
+          parseCoord(lat, fieldLen(lat), 2, ns[0], &la) &&
+          parseCoord(lon, fieldLen(lon), 3, ew[0], &lo)) {
+        f->ggaHasPos = true;
+        f->ggaLatI = la;
+        f->ggaLonI = lo;
+      }
+    }
+    f->ggaHms = -1;
+    if (t) {
+      int32_t hms;
+      int16_t ms;
+      if (parseHmsStrict(t, fieldLen(t), &hms, &ms)) {
+        f->ggaHms = hms;
       }
     }
     return true;

@@ -641,6 +641,26 @@ by mistake is ignored rather than used as a model name, and Key info says so.
   position; the toggle is in My node, and everything above works without it.
   The receiver rides on the **[woods backplate](#woods-backplate)** — built,
   fitted and holding a fix, with a full build guide below.
+- **Phone location** (0.9.82). No GPS plate? Join your phone's hotspot and let an app on
+  the phone share its GPS. The WiPhone finds it by itself (**My node → Phone location: auto**,
+  on by default). It uses it for the map's "me (phone)", distances, the Almanac and, if you
+  turned position reporting on, the mesh. The GPS plate still wins when both have a fix. It
+  never guesses a location from your internet address.
+  - **Android:** *gpsdRelay* (F-Droid, free) as a TCP server on port **10110**, relaying the
+    receiver's own NMEA. Or *Share GPS* (Play) as a TCP server on port 10110.
+  - **iPhone:** *GPS 2 IP* in Socket mode (port **11123**). It is shown on the WiPhone but not
+    sent to the mesh, because iOS gives apps no accuracy figure.
+  - **Step-by-step setup for each app, the hotspot settings and what every status line means:
+    [docs/phone-location.md](docs/phone-location.md).**
+  - Only a fresh fix with 4+ satellites and HDOP 10 or better is ever sent. It is marked as
+    coming from a phone (External), and the clock is never set from it.
+  - **Who it trusts:** whatever answers on the joined network's gateway. On your own hotspot
+    that is your phone. On someone else's WiFi (a hotel, a campground, a boat's NMEA gateway) a
+    device serving NMEA could set where the WiPhone thinks it is. Turn Phone location **off**
+    on networks you do not control.
+  - Upgrading with position reporting switched on but the GPS off (or aimed at a public
+    channel)? Phone location starts **off**, so nothing begins going out by itself. Turn it on
+    in My node.
 - **Node list** with friendly names (learned from NodeInfo), an **editable node
   name** (long and 4-character short), and a **configurable hop limit**.
 - **Mesh client role** — relays/rebroadcasts other nodes' packets to extend the
@@ -904,9 +924,13 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `chan <url>` / `chans` | apply a Meshtastic channel invite link; list channels |
 | `dm <!node> <text>` | send a direct message (encrypted when the key is known) |
 | `announce` / `pki` | broadcast NodeInfo now; DM crypto state |
-| `pos` | the whole positions picture: places, node fixes, pin, reference |
+| `pos` | the whole positions picture: places, node fixes, pin, reference, and where this phone is (each source: GPS, the hotspot phone) |
+| `pos every <secs>\|off` / `pos now` | reporting cadence / one beacon now. From the cable, neither ever goes to a public channel: that is armed on the phone |
+| `pos inject gps\|phone <lat> <lon> [sats hdop]` / `pos inject clear` | a bench fix for that source, RAM only: drawn and measured from, never sent by the schedule (`pos now` with one says INJECTED and sends it as MANUAL, not as a measurement). Use dummy coordinates |
+| `phonepos` / `phonepos auto\|off` / `phonepos port <n>` | Phone location: state, port, bytes, sentences, stale lines, last fix age (never a coordinate or an address); switch it (`auto` is refused while reporting goes to a public channel); an extra port to try |
+| `phonepos at <ip>[:port]` / `phonepos at off` | bench: ask a Mac running `tools/nmea_phone_stub.py` instead of the gateway (RAM only; its fixes are bench fixes) |
 | `sun` | legal light at the reference place (or `sun <lat>,<lon>`) |
-| `gps` / `gps on\|off` | GPS receiver state / route the user UART to it |
+| `gps` / `gps on\|off` | GPS receiver state / route the user UART to it (`on` is refused from the cable while reporting goes to a public channel) |
 | `unread` / `unread clear` | recount + repair unread counters; mark all read |
 | `bookpage` | dump the open reader page's layout (debugging) |
 

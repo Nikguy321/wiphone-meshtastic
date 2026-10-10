@@ -54,8 +54,8 @@ static bool pbWalk(const uint8_t* d, size_t len, const PbWalk* w) {
   while (i < len) {
     /* ⚠ The tag is a VARINT, not a byte. Field numbers >= 16 need two tag bytes
      * and REAL packets carry them: stock firmware appends precision_bits
-     * (field 22/23) to every channel Position broadcast, and sats_in_view is
-     * field 19. A one-byte read misparses everything after such a field —
+     * (field 23; 22 is seq_number) to every channel Position broadcast, and
+     * sats_in_view is field 19. A one-byte read misparses everything after such a field —
      * caught by the adversarial review before it met a real packet. */
     uint32_t tag = rdVarint(d, len, &i);
     uint32_t fieldNo = tag >> 3;
@@ -85,32 +85,77 @@ static bool pbWalk(const uint8_t* d, size_t len, const PbWalk* w) {
 // ---------------------------------------------------------------- Position
 
 typedef struct {
-  int32_t lat, lon;
-  uint32_t time;
+  MeshPosMsg* out;
   bool hasLat, hasLon;
 } PosCtx;
 
 static void posField(void* vctx, uint32_t f, uint8_t wire,
                      uint32_t vv, uint32_t vf, const uint8_t* p, uint32_t plen) {
-  (void)vv; (void)p; (void)plen;
+  (void)p; (void)plen;
   PosCtx* c = (PosCtx*)vctx;
-  if (wire != 5) return;
-  if (f == 1)      { c->lat = (int32_t)vf; c->hasLat = true; }
-  else if (f == 2) { c->lon = (int32_t)vf; c->hasLon = true; }
-  else if (f == 4) { c->time = vf; }
+  if (wire == 5) {
+    if (f == 1)      { c->out->latI = (int32_t)vf; c->hasLat = true; }
+    else if (f == 2) { c->out->lonI = (int32_t)vf; c->hasLon = true; }
+    else if (f == 4) { c->out->time = vf; }
+  } else if (wire == 0) {
+    /* rdVarint keeps the low 32 bits, so an enum sent negative (sign-extended to ten bytes)
+     * reads as a huge value here and is clamped like any other out-of-range one: it is not a
+     * MESH_LOC_* and no caller compares it to one. */
+    if (f == 5) {
+      c->out->locSrc = (uint8_t)(vv > 255u ? 255u : vv);
+    } else if (f == 23) {
+      c->out->precBits = (uint8_t)(vv > MESH_POS_PREC_FULL ? MESH_POS_PREC_FULL : vv);
+    }
+  }
+}
+
+bool meshPosParseEx(const uint8_t* pl, size_t len, MeshPosMsg* out) {
+  if (!out) {
+    return false;
+  }
+  memset(out, 0, sizeof(*out));
+  if (!pl || len == 0) {
+    return false;
+  }
+  PosCtx c = { out, false, false };
+  PbWalk w = { posField, &c };
+  return pbWalk(pl, len, &w) && c.hasLat && c.hasLon;
 }
 
 bool meshPosParse(const uint8_t* pl, size_t len,
                   int32_t* latI, int32_t* lonI, uint32_t* timeOut) {
-  if (!pl || len == 0) return false;
-  PosCtx c;
-  memset(&c, 0, sizeof(c));
-  PbWalk w = { posField, &c };
-  if (!pbWalk(pl, len, &w) || !c.hasLat || !c.hasLon) return false;
-  if (latI) *latI = c.lat;
-  if (lonI) *lonI = c.lon;
-  if (timeOut) *timeOut = c.time;
+  MeshPosMsg m;
+  if (!meshPosParseEx(pl, len, &m)) {
+    return false;
+  }
+  if (latI) *latI = m.latI;
+  if (lonI) *lonI = m.lonI;
+  if (timeOut) *timeOut = m.time;
   return true;
+}
+
+double meshPosPrecisionRadiusM(uint32_t precBits) {
+  if (precBits == 0 || precBits >= MESH_POS_PREC_FULL) {
+    return 0.0;
+  }
+  return 23905787.925008 / ldexp(1.0, (int)precBits);
+}
+
+bool meshPosIsApprox(uint32_t precBits) {
+  return precBits >= 1 && precBits <= MESH_POS_APPROX_MAX_BITS;
+}
+
+int32_t meshPosTruncate(int32_t v, uint32_t p) {
+  if (p == 0 || p >= MESH_POS_PREC_FULL) {
+    return v;
+  }
+  /* On the unsigned bits, as the firmware does: a negative coordinate's cell is found in its
+   * two's-complement form, so the cut moves it toward -infinity before the half-cell is added —
+   * the same cell a stock node puts it in, which is the whole point. The add cannot carry out
+   * of the kept bits: they end in (32-p) zeros and the half-cell is one bit below them. */
+  uint32_t u = (uint32_t)v & (0xFFFFFFFFu << (32 - p));
+  u += (uint32_t)1 << (31 - p);
+  return (int32_t)u;
 }
 
 // ---------------------------------------------------------------- Waypoint
@@ -174,16 +219,62 @@ size_t meshPosBuild(uint8_t* out, int32_t latI, int32_t lonI, uint32_t time) {
   return d;
 }
 
-/* A protobuf varint. ⚠ Never called with a value that needs more than five bytes: every
- * field below is a uint32, and a uint32's varint is at most five bytes. */
-static size_t wrVarint(uint8_t* out, uint8_t tag, uint32_t v) {
+/* The varint body alone, at most five bytes for a uint32. */
+static size_t wrRawVarint(uint8_t* out, uint32_t v) {
   size_t d = 0;
-  out[d++] = tag;
   while (v >= 0x80) {
     out[d++] = (uint8_t)(v | 0x80);
     v >>= 7;
   }
   out[d++] = (uint8_t)v;
+  return d;
+}
+
+/* A protobuf varint. ⚠ Never called with a value that needs more than five bytes: every
+ * field below is a uint32, and a uint32's varint is at most five bytes. ⚠ The tag is ONE byte
+ * here, which only holds field numbers 1..15: field 16 and up goes through wrFieldVarint. */
+static size_t wrVarint(uint8_t* out, uint8_t tag, uint32_t v) {
+  out[0] = tag;
+  return 1 + wrRawVarint(out + 1, v);
+}
+
+/* A varint field with its tag written as the varint it is: precision_bits is field 23, tag
+ * (23 << 3) | 0 = 184 = 0xB8 0x01. Through the one-byte wrVarint, 0xB8 would go out alone —
+ * and 0xB8 is not a whole tag (its top bit says another tag byte follows), so the receiver
+ * would read the VALUE byte as the rest of the tag and misparse everything after it. */
+static size_t wrFieldVarint(uint8_t* out, uint32_t fieldNo, uint32_t v) {
+  size_t d = wrRawVarint(out, fieldNo << 3);     // wire type 0
+  return d + wrRawVarint(out + d, v);
+}
+
+size_t meshPosBuildEx(uint8_t* out, size_t cap, int32_t latI, int32_t lonI, uint32_t time,
+                      uint32_t locSrc, uint32_t precBits) {
+  if (!out || locSrc > MESH_LOC_EXTERNAL || precBits > MESH_POS_PREC_FULL) {
+    return 0;
+  }
+  if (precBits > 0 && precBits < MESH_POS_PREC_FULL) {
+    latI = meshPosTruncate(latI, precBits);
+    lonI = meshPosTruncate(lonI, precBits);
+  }
+  /* Measure first, write second (meshWaypointBuild's rule): a short buffer gets nothing,
+   * never the first half of a position. */
+  uint8_t tmp[MESH_POS_BUILD_EX_MAX];
+  size_t d = 0;
+  d += wrFixed32(tmp + d, 0x0d, (uint32_t)latI);         // field 1, sfixed32
+  d += wrFixed32(tmp + d, 0x15, (uint32_t)lonI);         // field 2, sfixed32
+  if (time) {
+    d += wrFixed32(tmp + d, 0x25, time);                 // field 4, fixed32
+  }
+  if (locSrc) {
+    d += wrFieldVarint(tmp + d, 5, locSrc);              // field 5, enum: 0x28 + one byte
+  }
+  if (precBits) {
+    d += wrFieldVarint(tmp + d, 23, precBits);           // field 23: 0xB8 0x01 + one byte
+  }
+  if (d > cap) {
+    return 0;
+  }
+  memcpy(out, tmp, d);
   return d;
 }
 

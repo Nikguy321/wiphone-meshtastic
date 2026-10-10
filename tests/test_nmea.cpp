@@ -61,6 +61,17 @@ static const char* BADCOURSE_RMC = "$GNRMC,123527.00,A,4738.96912,N,12220.35817,
 static const char* DOTS_RMC = "$GNRMC,123528.00,A,4738.96912,N,12220.35817,W,.,1.2.3,130826,,,A*4B\r\n";
 static const char* SHORT_RMC = "$GNRMC,123529.00,A,4738.96912,N,12220.35817,W*1B\r\n";
 
+/* THIS GGA's own fields (0.9.82, the phone-over-WiFi gate). Dummy coordinates (40.0,-100.0 is
+ * "4000.00000,N,10000.00000,W": 400000000 / -1000000000 exactly); checksums by Python. */
+static const char* D_GGA      = "$GPGGA,120000.00,4000.00000,N,10000.00000,W,1,09,0.9,100.0,M,,M,,*67\r\n";
+static const char* D_GGA_BARE = "$GPGGA,120001.00,4000.00000,N,10000.00000,W,1,,,100.0,M,,M,,*48\r\n";
+static const char* D_GGA_GARB = "$GPGGA,120002.00,4000.00000,N,10000.00000,W,1,1x,1.2E-4,100.0,M,,M,,*73\r\n";
+static const char* D_GGA_DR   = "$GPGGA,120003.00,4000.00000,N,10000.00000,W,6,05,1.5,100.0,M,,M,,*62\r\n";
+static const char* D_GGA_LONGQ = "$GPGGA,120004,4000.00000,N,10000.00000,W,123,05,12.34,100.0,M,,M,,*4D\r\n";
+static const char* D_GGA_EMPTY = "$GPGGA,,,,,,0,,,,,,,,*66\r\n";
+static const char* D_RMC      = "$GPRMC,120005.00,A,4000.00000,N,10000.00000,W,0.0,,101026,,,A*65\r\n";
+static const char* SOUTH_EAST_GGA = "$GNGGA,235959.50,3000.00000,S,05000.00000,E,2,12,1.0,5.0,M,,M,,*77\r\n";
+
 int main() {
   printf("test_nmea\n");
 
@@ -217,6 +228,64 @@ int main() {
 
     r.reset();
     CHECK(r.fix().speedKnX100 == -1 && r.fix().courseX10 == -1, "reset() forgets the motion");
+  }
+
+  /* ---- THIS GGA's own fields: nothing inherited (0.9.82) -----------------------------
+   * The sticky fields above keep the last good sats/HDOP/coordinates across a GGA that lacks
+   * them — fine for the UART, wrong for a relayed stream (nmea.h). The gga* fields are each
+   * rewritten by every GGA, from that sentence alone. */
+  {
+    NmeaReader r;
+    CHECK(r.fix().ggaCount == 0 && r.fix().ggaQuality == -1 && r.fix().ggaSats == -1 &&
+          r.fix().ggaHdopX10 == -1 && r.fix().ggaHms == -1 && !r.fix().ggaHasPos,
+          "gga*: unknown before any GGA");
+    CHECK(feedAll(r, D_GGA) == 1 && r.fix().ggaCount == 1, "a GGA counts");
+    CHECK(r.fix().ggaQuality == 1 && r.fix().ggaHasPos && r.fix().ggaLatI == 400000000 &&
+          r.fix().ggaLonI == -1000000000, "gga quality and position from the sentence");
+    CHECK(r.fix().ggaSats == 9 && r.fix().ggaHdopX10 == 9 && r.fix().ggaHms == 120000,
+          "gga sats 9, HDOP 0.9 -> 9, time 120000");
+
+    CHECK(feedAll(r, D_GGA_BARE) == 1, "a GGA with empty sats and HDOP parses");
+    CHECK(r.fix().sats == 9 && r.fix().hdopX10 == 9, "...the sticky sats/HDOP keep the last (as before)");
+    CHECK(r.fix().ggaSats == -1 && r.fix().ggaHdopX10 == -1 && r.fix().ggaHasPos &&
+          r.fix().ggaHms == 120001, "...the gga* ones say THIS sentence had none");
+
+    feedAll(r, D_GGA_GARB);
+    CHECK(r.fix().ggaSats == -2 && r.fix().ggaHdopX10 == -2,
+          "'1x' sats and '1.2E-4' HDOP are present-but-unreadable (-2), not a number");
+
+    feedAll(r, D_GGA_DR);
+    CHECK(r.fix().ggaQuality == 6 && r.fix().ggaHasPos, "quality 6 (dead reckoning) is reported as 6");
+
+    feedAll(r, D_GGA_LONGQ);
+    CHECK(r.fix().ggaQuality == -1 && r.fix().ggaHdopX10 == 123 && r.fix().ggaHms == 120004,
+          "a 3-digit quality is garbled (-1); '12.34' -> 123; whole-second time");
+
+    feedAll(r, D_GGA);
+    CHECK(feedAll(r, D_GGA_EMPTY) == 1, "an all-empty no-fix GGA parses");
+    CHECK(r.fix().ggaQuality == 0 && !r.fix().ggaHasPos && r.fix().ggaLatI == 0 &&
+          r.fix().ggaSats == -1 && r.fix().ggaHdopX10 == -1 && r.fix().ggaHms == -1,
+          "...and inherits NOTHING from the good GGA before it");
+    CHECK(r.fix().latI == 400000000, "...while the sticky latI keeps the last fix (the UART's rule)");
+
+    const uint32_t gc = r.fix().ggaCount;
+    feedAll(r, D_RMC);
+    CHECK(r.fix().ggaCount == gc && r.fix().ggaQuality == 0 && r.fix().rmcHms == 120005,
+          "an RMC leaves every gga* field alone");
+    const uint32_t rc = r.fix().rmcCount;
+    feedAll(r, D_GGA);
+    CHECK(r.fix().rmcCount == rc && r.fix().rmcHms == 120005 && r.fix().rmcStatus == 'A',
+          "a GGA leaves every rmc* field alone");
+
+    feedAll(r, SOUTH_EAST_GGA);
+    CHECK(r.fix().ggaLatI == -300000000 && r.fix().ggaLonI == 500000000 &&
+          r.fix().ggaQuality == 2 && r.fix().ggaSats == 12 && r.fix().ggaHms == 235959,
+          "south/east GGA, DGPS, 12 sats, 23:59:59.5 -> 235959");
+
+    r.reset();
+    CHECK(r.fix().ggaCount == 0 && r.fix().ggaQuality == -1 && r.fix().ggaSats == -1 &&
+          r.fix().ggaHdopX10 == -1 && r.fix().ggaHms == -1 && !r.fix().ggaHasPos,
+          "reset() forgets the gga* fields");
   }
 
   printf("\n%d checks, %d failures\n", checks, failures);

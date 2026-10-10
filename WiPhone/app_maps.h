@@ -94,7 +94,9 @@
 
 // What selfPosition() found. See the note on it.
 #define MAPS_SELF_NONE     0
-#define MAPS_SELF_GPS      1       // a fix fresher than MESH_GPS_FRESH_MS
+/* "GPS" in these names is history: since 0.9.82 a fix is this phone's own GPS OR the hotspot
+ * phone's (self_pos.h), and selfPosition()'s `src` out-parameter says which. */
+#define MAPS_SELF_GPS      1       // a LIVE measured fix (fresher than MESH_GPS_FRESH_MS, good enough)
 #define MAPS_SELF_PIN      2       // the position the user declared by hand
 #define MAPS_SELF_OLD_GPS  3       // a fix, but an old one: drawn grey, wearing its age
 #define MAPS_SELF_POOR_GPS 4       // fresh, but under 4 satellites / HDOP over 10: grey, and says so
@@ -462,9 +464,13 @@ protected:
   /* Where this phone thinks it is, and how sure. One answer, so the marker, its label and the
    * `0` key can never disagree about which of the three they are showing.
    * ⚠ MESH_GPS_FRESH_MS is the bar, and it is the SERVICE'S bar, not a second one invented
-   * here: getGpsFix() returns true for a fix from hours ago, and a stale fix drawn as a live
-   * one is a lie about where YOU are. */
-  int   selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs) const;
+   * here (meshService.getSelfFix, self_pos.h's selfPick): a fix from hours ago drawn as a live
+   * one is a lie about where YOU are. `src` (optional): SELF_GPS or SELF_PHONE for a measured
+   * kind, SELF_NONE for the pin or nothing. */
+  int   selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs, int* src = NULL) const;
+  /* A dotted ring of radius r px round (x, y), clipped to the map: an APPROXIMATE position (a
+   * node that sent precision_bits, mesh_pos.h) is a circle, not a dot. */
+  void  drawRing(int x, int y, int r, uint16_t colour);
   void  centreOnMe();
   void  centreOn(double lat, double lon);
   int   pinUnderCrosshair();
