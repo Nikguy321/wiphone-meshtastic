@@ -58,7 +58,7 @@ Read this first; everything below it is narrative.
   - A Diagnostics timeline; dark-mode switch and checkbox tints.
   - Installed on Nick's phone by adb, and running.
 - X4 fork `5e8e2b77` (local; push after this repo): Locate Me waits up to 30 s while the phone answers "no fix yet".
-  Built as `~/x4pro/builds/1011-warmgps.bin`, NOT flashed (X4 not docked).
+  `~/x4pro/builds/1011-warmgps.bin` FLASHED 11:27, bench PASS with `nmea_phone_stub.py --warm 15` (pushed).
 
 🛰 **2026-10-11 morning: the woods GPS stale-fix fix + the phone-hotspot retry + the FIRST REAL gpsdRelay TEST. BOTH PHONES flashed (`Oct 11 2026 06:22:47`).**
 - **GPS plate (phone 2):** `selfGpsApply` (self_pos) owns the UART fix. Only a sentence that measured a position stamps it
