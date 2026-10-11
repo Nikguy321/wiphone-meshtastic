@@ -6,6 +6,7 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -56,7 +57,10 @@ public final class MainActivity extends Activity {
     private Row rowBattery;
     private Row rowBackground;
     private Row rowHotspot;
+    private Row rowStill;
     private CheckBox atBoot;
+    private TextView counts;
+    private TextView timeline;
     /** "Set up everything" in progress: the step to continue from when Android hands control back. */
     private int setupStep = -1;
     /** Android's notification question was asked during this run of the flow (it may answer at once). */
@@ -200,6 +204,12 @@ public final class MainActivity extends Activity {
                         GpsService.start(this);
                     }
                     break;
+                case 5:
+                    if (Setup.samsung() && !Setup.fullGnssTracking(this)) {
+                        explainFullGnss();
+                        return;
+                    }
+                    break;
                 default:
                     setupStep = -1;
                     if (Setup.preciseLocation(this) && Setup.hotspotAddress(this) == null) {
@@ -210,6 +220,33 @@ public final class MainActivity extends Activity {
                     return;
             }
         }
+    }
+
+    /**
+     * Samsung's "stop GPS when still" rule (Setup.fullGnssTracking). Apps cannot change that
+     * setting, so this explains it and opens Developer options, or About phone when they are off.
+     */
+    private void explainFullGnss() {
+        final boolean dev = Settings.Global.getInt(getContentResolver(), Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1;
+        new AlertDialog.Builder(this)
+                .setTitle("Keep the GPS on while the phone lies still")
+                .setMessage("Samsung phones switch the GPS off for every app a few minutes after the phone is "
+                        + "put down with the screen off, unless it is charging. Your devices then lose the position.\n\n"
+                        + "The fix is one switch in Developer options: \"Force full GNSS measurements\". It uses a "
+                        + "little more battery, only while something uses the GPS.\n\n"
+                        + (dev ? "On the next screen, find \"Force full GNSS measurements\" and turn it on."
+                        : "Developer options are hidden. On the next screen: Software information → tap "
+                        + "\"Build number\" 7 times. Then Settings → Developer options → "
+                        + "\"Force full GNSS measurements\". Leave Developer options on afterwards: turning "
+                        + "them off resets the switch."))
+                .setPositiveButton(dev ? "Open Developer options" : "Open About phone", (d, w) -> {
+                    if (!dev || !tryStart(new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))) {
+                        tryStart(new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS));
+                    }
+                })
+                .setNegativeButton("Not now", (d, w) -> continueSetup())
+                .setOnCancelListener(d -> continueSetup())
+                .show();
     }
 
     private void askLocation() {
@@ -412,12 +449,22 @@ public final class MainActivity extends Activity {
             rowBackground.set(Setup.backgroundLocation(this),
                     "Optional. Starts sharing by itself after the phone restarts. Without it, tap the reminder.");
         }
+        if (rowStill != null) {
+            rowStill.set(Setup.fullGnssTracking(this), Setup.fullGnssTracking(this)
+                    ? "On: \"Force full GNSS measurements\" is set in Developer options."
+                    : "Samsung switches the GPS off when the phone lies still with the screen off. "
+                    + "Turn on \"Force full GNSS measurements\" in Developer options to stop that.");
+        }
         final String hs = Setup.hotspotAddress(this);
         rowHotspot.set(hs != null, hs != null
                 ? "On. Devices find this phone at " + hs + "."
                 : "Turn on Mobile Hotspot: band 2.4 GHz, security WPA2, never turn off automatically.");
         rowHotspot.button.setVisibility(View.VISIBLE);    // always useful: the settings page
         atBoot.setChecked(Prefs.startAtBoot(this));
+        counts.setText("From Android since the app started: " + Status.nmeaCount + " NMEA messages, "
+                + Status.gpsFixCount + " GPS fixes");
+        final String t = Diag.text();
+        timeline.setText(t.isEmpty() ? "(nothing yet)" : t);
     }
 
     private View buildUi() {
@@ -456,6 +503,7 @@ public final class MainActivity extends Activity {
             }
             refresh();
         });
+        tintSwitch(share);
         card.addView(share, margins(0, 0, 0, dp(8)));
         statusTitle = text("", 17, true);
         statusTitle.setTextColor(accent());
@@ -499,12 +547,30 @@ public final class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 29) {
             rowBackground = addRow(col, "Location all the time", "Allow", v -> askBackground());
         }
+        if (Setup.samsung()) {
+            rowStill = addRow(col, "Samsung: GPS on while the phone lies still", "Open", v -> explainFullGnss());
+        }
         rowHotspot = addRow(col, "Mobile Hotspot", "Settings", v -> openHotspotSettings());
 
         atBoot = new CheckBox(this);
         atBoot.setText("Start sharing again after the phone restarts");
         atBoot.setOnCheckedChangeListener((b, c) -> Prefs.setStartAtBoot(this, c));
+        atBoot.setButtonTintList(onOff(accent(), night ? 0xFF9E9E9E : 0xFF757575));
         col.addView(atBoot, margins(0, dp(12), 0, 0));
+
+        // ---- diagnostics (what Android did to the GPS; never a position)
+        final TextView diagTitle = text("Diagnostics", 18, true);
+        col.addView(diagTitle, margins(0, dp(20), 0, dp(2)));
+        final TextView diagHint = text("What Android did to the GPS and to this app, newest first. "
+                + "After a test with the phone locked, a screenshot of this shows what happened.", 13, false);
+        diagHint.setAlpha(0.7f);
+        col.addView(diagHint);
+        counts = text("", 12, false);
+        counts.setAlpha(0.7f);
+        col.addView(counts, margins(0, dp(4), 0, dp(4)));
+        timeline = text("", 12, false);
+        timeline.setTypeface(Typeface.MONOSPACE);
+        col.addView(timeline);
 
         // ---- footer
         final Button guide = new Button(this);
@@ -570,6 +636,17 @@ public final class MainActivity extends Activity {
         bg.setColor(night ? 0xFF1F2A22 : 0xFFEEF4EF);
         card.setBackground(bg);
         return card;
+    }
+
+    /** Checked / unchecked colours. Samsung's dark theme drew the "on" switch and a ticked box near-invisibly. */
+    private static ColorStateList onOff(int on, int off) {
+        return new ColorStateList(new int[][] {{android.R.attr.state_checked}, {}}, new int[] {on, off});
+    }
+
+    private void tintSwitch(Switch sw) {
+        final int off = night ? 0xFF9E9E9E : 0xFF757575;
+        sw.setThumbTintList(onOff(accent(), night ? 0xFFE0E0E0 : 0xFFFAFAFA));
+        sw.setTrackTintList(onOff((accent() & 0x00FFFFFF) | 0x80000000, (off & 0x00FFFFFF) | 0x80000000));
     }
 
     private int accent() {

@@ -42,7 +42,21 @@ Read this first; everything below it is narrative.
   - Keep-alive is GGA only (a "V" RMC could veto a same-second fix); mock locations are never sent;
     setupStep survives rotation; the setup flow no longer stalls on switched-off notifications.
   - 32 unit tests. dist APK sha256 `9e0392e3...`, cert SHA-256 `0af3ab08...`.
-- **OWED:** the real Note 20 test, phone 1 on its hotspot with the screen locked for 15+ min. That is the whole point.
+- **REAL NOTE 20 TEST, same day (Note 20 Ultra SM-N986U, Android 13; over adb + an on-phone logcat recorder):**
+  - 1.0 kept its process and socket alive when locked (keep-alives flowed; gpsdRelay could not), but GPS data
+    stopped a few minutes after the phone was put down. On unlock it came straight back.
+  - CAUSE: Samsung nsflp `OldStopController_FLP` "stop GPS by sensor". It switches GPS off for ALL apps when the
+    phone is stationary, the screen is off and it is unplugged, unless `isMeasurementsMode` is true. That flag is
+    Developer options → "Force full GNSS measurements" (Global `enable_gnss_raw_meas_full_tracking`).
+  - With it ON: a live fix for 16 min, locked, unplugged and still.
+  - Did NOT help: the fused-provider helper; the app's own raw-measurements registration (even with full
+    tracking). Both were removed.
+  - Plugged-in tests never trigger it (`isPlugged`), and `dumpsys battery unplug` doesn't fool it.
+- **1.2 (versionCode 3), pushed as `android/dist/nh-companion.apk`** (stable name).
+  - A Samsung setup row and a "Set up everything" step explain the switch and open Developer options. They warn
+    that turning Developer options off resets it.
+  - A Diagnostics timeline; dark-mode switch and checkbox tints.
+  - Installed on Nick's phone by adb, and running.
 - X4 fork `5e8e2b77` (local; push after this repo): Locate Me waits up to 30 s while the phone answers "no fix yet".
   Built as `~/x4pro/builds/1011-warmgps.bin`, NOT flashed (X4 not docked).
 

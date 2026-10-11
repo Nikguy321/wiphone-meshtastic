@@ -652,9 +652,10 @@ by mistake is ignored rather than used as a model name, and Key info says so.
   never guesses a location from your internet address.
   - **Android:** **NH Devices Companion**, a small free app in this repo
     ([`android/`](android/README.md),
-    [download the APK](https://github.com/Nikguy321/wiphone-meshtastic/raw/main/android/dist/nh-companion-1.0.apk)).
+    [download the APK](https://github.com/Nikguy321/wiphone-meshtastic/raw/main/android/dist/nh-companion.apk)).
     One button sets it up; only devices on your hotspot can read the position, and the GPS is
-    on only while one is connected. Or *gpsdRelay* (F-Droid) / *Share GPS* (Play) as a TCP
+    on only while one is connected. On Samsung phones, also turn on Developer options → **Force
+    full GNSS measurements**: otherwise Samsung switches the GPS off when the phone lies still. Or *gpsdRelay* (F-Droid) / *Share GPS* (Play) as a TCP
     server on port **10110**. gpsdRelay stops when a Samsung phone's screen locks.
   - **iPhone:** *GPS 2 IP* in Socket mode (port **11123**). It is shown on the WiPhone but not
     sent to the mesh, because iOS gives apps no accuracy figure. Other iPhone apps are listed,

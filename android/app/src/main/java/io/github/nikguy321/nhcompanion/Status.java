@@ -18,6 +18,8 @@ final class Status {
     static volatile int satsUsed = -1;
     static volatile float accuracyM = -1f;
     static volatile long lastFixAt;        // SystemClock.elapsedRealtime() of the last GPS fix, 0 = none
+    static volatile long nmeaCount;        // NMEA messages from Android, since the app started
+    static volatile long gpsFixCount;      // GPS fixes from Android
     static volatile boolean mock;          // the last fix came from a mock-location app: not sent
     static volatile long refused;
     static volatile String lastRefusal;

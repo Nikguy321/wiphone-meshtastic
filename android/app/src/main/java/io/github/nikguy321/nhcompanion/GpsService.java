@@ -5,8 +5,10 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
 import android.location.GnssStatus;
 import android.location.Location;
@@ -75,6 +77,11 @@ public final class GpsService extends Service {
     private long shownAt;
     /** Set first thing in onDestroy: nothing may redraw the notification after the service has gone. */
     private volatile boolean destroyed;
+    // The diagnostics timeline (Diag).
+    private long lastGpsData;               // last NMEA text or GPS fix from Android
+    private boolean quietLogged;
+    private int lastDeviceCount;
+    private BroadcastReceiver systemEvents;
 
     static void start(Context c) {
         Prefs.setEnabled(c, true);
@@ -109,7 +116,8 @@ public final class GpsService extends Service {
         hub = new Hub(PORT, MAX_DEVICES, events);
         handler.post(openPort);
         handler.post(tick);
-        Log.i(TAG, "sharing on");
+        listenToSystem();
+        Diag.add("sharing on");
     }
 
     @Override
@@ -138,6 +146,11 @@ public final class GpsService extends Service {
         Status.deviceList = "";
         Status.gpsOn = false;
         Status.mode = Status.MODE_NONE;
+        if (systemEvents != null) {
+            unregisterReceiver(systemEvents);
+            systemEvents = null;
+        }
+        Diag.add("sharing off");
         if (handler != null) {
             handler.removeCallbacksAndMessages(null);
             hub.stop();                       // closes the port and every device now
@@ -146,7 +159,6 @@ public final class GpsService extends Service {
             final NotificationManager nm = getSystemService(NotificationManager.class);
             nm.cancel(NOTIFICATION_ID);
         }
-        Log.i(TAG, "sharing off");
         super.onDestroy();
     }
 
@@ -210,9 +222,9 @@ public final class GpsService extends Service {
             if (why != null) {
                 Status.refused++;
                 Status.lastRefusal = who + ": " + why;
-                Log.i(TAG, "refused " + who + " on " + localIf + ": " + why);
+                Diag.add("refused " + who + ": " + why);
             } else {
-                Log.i(TAG, "device " + who + " connected on " + localIf);
+                Diag.add("device " + who + " connected (" + localIf + ")");
             }
             return why;
         }
@@ -238,6 +250,10 @@ public final class GpsService extends Service {
         if (n > 0) {
             lastDeviceAt = now;
         }
+        if (n < lastDeviceCount) {
+            Diag.add("a device left (" + n + " connected)");
+        }
+        lastDeviceCount = n;
         if (n > 0 && !gpsOn) {
             startGps();
         } else if (n == 0 && gpsOn && now - lastDeviceAt > LINGER_MS) {
@@ -266,6 +282,7 @@ public final class GpsService extends Service {
                 return;
             }
             evaluate.run();
+            watchForQuiet();
             if (hub.clientCount() > 0 && SystemClock.elapsedRealtime() - lastSent > KEEPALIVE_MS) {
                 final long utc = System.currentTimeMillis();
                 // GGA only: a "V" RMC stamped with this second could veto the device's first real fix
@@ -285,9 +302,7 @@ public final class GpsService extends Service {
             return;
         }
         try {
-            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, locationListener, thread.getLooper());
-            lm.addNmeaListener(nmeaListener, handler);
-            lm.registerGnssStatusCallback(gnssCallback, handler);
+            requestGps();
         } catch (SecurityException e) {
             Status.problem = "Location permission was taken away";
             Log.w(TAG, "no location permission", e);
@@ -304,8 +319,79 @@ public final class GpsService extends Service {
         Status.gpsOn = true;
         gpsOnAt = SystemClock.elapsedRealtime();
         lastReceiverGga = 0;
+        lastGpsData = 0;
+        quietLogged = false;
         wake.acquire(2 * 60_000L);
-        Log.i(TAG, "GPS on");
+        Diag.add("GPS on" + (Setup.samsung() ? (Setup.fullGnssTracking(this)
+                ? " (full GNSS measurements on: Samsung keeps it running when still)"
+                : " (full GNSS measurements OFF: Samsung may stop it when the phone lies still)") : ""));
+    }
+
+    /**
+     * The registrations themselves: the GPS, its NMEA text and satellite status. The caller checks
+     * precise location first and catches the SecurityException.
+     */
+    @android.annotation.SuppressLint("MissingPermission")
+    private void requestGps() {
+        lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, locationListener, thread.getLooper());
+        lm.addNmeaListener(nmeaListener, handler);
+        lm.registerGnssStatusCallback(gnssCallback, handler);
+    }
+
+    /**
+     * No GPS data for a while although devices are connected: say so. On a Samsung phone this is
+     * usually its "stop GPS by sensor" rule (Setup.fullGnssTracking).
+     */
+    private void watchForQuiet() {
+        if (!gpsOn || hub.clientCount() == 0) {
+            return;
+        }
+        final long now = SystemClock.elapsedRealtime();
+        final long quiet = now - Math.max(lastGpsData, gpsOnAt);
+        if (quiet > 8_000L && !quietLogged) {
+            quietLogged = true;
+            Diag.add("GPS data stopped: Android is not sending any");
+        }
+    }
+
+    /** NMEA text or a fix arrived. */
+    private void gpsData() {
+        final long now = SystemClock.elapsedRealtime();
+        if (quietLogged) {
+            quietLogged = false;
+            Diag.add("GPS data back after " + (now - lastGpsData) / 1000 + " s");
+        }
+        lastGpsData = now;
+    }
+
+    /** Screen, Doze and power saving, for the timeline. */
+    private void listenToSystem() {
+        final PowerManager pm = getSystemService(PowerManager.class);
+        systemEvents = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context c, Intent i) {
+                final String a = i.getAction();
+                if (Intent.ACTION_SCREEN_OFF.equals(a)) {
+                    Diag.add("screen off");
+                } else if (Intent.ACTION_SCREEN_ON.equals(a)) {
+                    Diag.add("screen on");
+                } else if (PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED.equals(a)) {
+                    Diag.add(pm.isDeviceIdleMode() ? "Doze: deep sleep" : "Doze: awake");
+                } else if (PowerManager.ACTION_POWER_SAVE_MODE_CHANGED.equals(a)) {
+                    Diag.add(pm.isPowerSaveMode() ? "power saving ON" : "power saving off");
+                }
+            }
+        };
+        final IntentFilter f = new IntentFilter();
+        f.addAction(Intent.ACTION_SCREEN_OFF);
+        f.addAction(Intent.ACTION_SCREEN_ON);
+        f.addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED);
+        f.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(systemEvents, f, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(systemEvents, f);
+        }
     }
 
     private void stopGps() {
@@ -321,7 +407,7 @@ public final class GpsService extends Service {
         if (wake.isHeld()) {
             wake.release();
         }
-        Log.i(TAG, "GPS off");
+        Diag.add("GPS off");
     }
 
     private void removeGps() {
@@ -346,6 +432,8 @@ public final class GpsService extends Service {
         if (Status.forceMade) {
             return;
         }
+        gpsData();
+        Status.nmeaCount++;
         final List<String> lines = Nmea.relayable(message);
         for (String line : lines) {
             final long now = SystemClock.elapsedRealtime();
@@ -375,7 +463,7 @@ public final class GpsService extends Service {
     private static void setMode(int m) {
         if (Status.mode != m) {
             Status.mode = m;
-            Log.i(TAG, m == Status.MODE_RECEIVER ? "sending the GPS chip's own sentences" : "sending sentences made from Android's fix");
+            Diag.add(m == Status.MODE_RECEIVER ? "sending the GPS chip's own sentences" : "sending sentences made from Android's fix");
         }
     }
 
@@ -403,6 +491,8 @@ public final class GpsService extends Service {
                 return;
             }
             Status.mock = false;
+            gpsData();
+            Status.gpsFixCount++;
             Status.lastFixAt = now;
             Status.accuracyM = l.hasAccuracy() ? l.getAccuracy() : -1f;
             if (now - gpsOnAt < WARMUP_MS || now - lastReceiverGga < RECEIVER_QUIET_MS) {
@@ -446,11 +536,18 @@ public final class GpsService extends Service {
         }
 
         @Override
+        public void onStarted() {
+            Diag.add("GPS engine started");
+        }
+
+        @Override
         public void onStopped() {
             satsUsed = -1;
             Status.satsUsed = -1;
+            Diag.add("GPS engine stopped");
         }
     };
+
 
     // ------------------------------------------------------------------ the notification
 

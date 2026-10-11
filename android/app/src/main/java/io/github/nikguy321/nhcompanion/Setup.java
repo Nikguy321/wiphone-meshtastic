@@ -10,6 +10,7 @@ import android.net.LinkProperties;
 import android.net.Network;
 import android.os.Build;
 import android.os.PowerManager;
+import android.provider.Settings;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -47,6 +48,23 @@ final class Setup {
     static boolean unrestrictedBattery(Context c) {
         final PowerManager pm = c.getSystemService(PowerManager.class);
         return pm != null && pm.isIgnoringBatteryOptimizations(c.getPackageName());
+    }
+
+    static boolean samsung() {
+        return "samsung".equalsIgnoreCase(Build.MANUFACTURER);
+    }
+
+    /**
+     * Developer options → "Force full GNSS measurements". On a Samsung phone this is what keeps the
+     * GPS running while the phone lies still with the screen off and no charger: Samsung's location
+     * service ("OldStopController_FLP" in nsflp) otherwise switches the GPS off for every app once
+     * the motion sensor says "stationary" ("onCheckGpsStopBySensor ... so stop gps"), and skips that
+     * only when isMeasurementsMode is true, which is this setting. Proven 2026-10-11 on a Galaxy
+     * Note 20 Ultra (Android 13): GPS stopped ~3 min after the phone went still; with the setting on
+     * it ran 16 min without a gap. An app asking for raw measurements itself did not count.
+     */
+    static boolean fullGnssTracking(Context c) {
+        return Settings.Global.getInt(c.getContentResolver(), "enable_gnss_raw_meas_full_tracking", 0) == 1;
     }
 
     /** Interface names and address keys of every network the phone USES (Wi-Fi, mobile data, VPN). */

@@ -96,18 +96,23 @@ other devices on NH firmware (file transfer is planned); today it does the GPS.
 - It shows a notification while sharing and asks Android to let it run with the screen off.
   gpsdRelay never asks for notification permission, so on Android 13+ its notification can't
   show, and on a Samsung it stops when the screen locks (see [3b](#3b-android-gpsdrelay)).
+- On Samsung phones it checks one more setting, described under **Samsung phones** below.
 
-**Status: 1.0 beta, 2026-10-11.**
-- Tested on the Android emulator (Android 15): setup, sharing with the screen off and in deep
-  Doze, restart after a reboot or a crash, and refusing other networks and other apps on the
-  phone. Every sentence was checked with the WiPhone's own code
-  (`tools/phone_stream_check.cpp`). Its code was reviewed independently before release.
-- A test on a real phone (Galaxy Note 20) is next.
+**Status: 1.2, 2026-10-11.**
+- Tested on a Galaxy Note 20 Ultra (Android 13) with a WiPhone on its hotspot. With the phone
+  locked, unplugged and lying still by a window, the WiPhone had a live fix the whole time.
+- Also tested on the Android emulator (Android 15): setup, sharing in deep Doze, restart after a
+  reboot or a crash, and refusing other networks and other apps on the phone. Every sentence was
+  checked with the WiPhone's own code (`tools/phone_stream_check.cpp`).
+- The code was reviewed independently before release.
 
 **Install**
 1. On the phone, download
-   **[nh-companion-1.0.apk](https://github.com/Nikguy321/wiphone-meshtastic/raw/main/android/dist/nh-companion-1.0.apk)**
-   (29 KB). Its SHA-256 is in [`android/dist/SHA256SUMS`](../android/dist/SHA256SUMS).
+   **[nh-companion.apk](https://github.com/Nikguy321/wiphone-meshtastic/raw/main/android/dist/nh-companion.apk)**
+   (32 KB, version 1.2). Its SHA-256 is in [`android/dist/SHA256SUMS`](../android/dist/SHA256SUMS).
+   - If Chrome sits at "Downloading…" with the full size shown, it is still checking the file:
+     open **My Files → Downloads** and tap the APK there.
+   - To update, install the new APK over the old one. Your settings stay.
 2. Open the downloaded file. Android asks once whether your browser (or Files) may install
    apps: allow it, go back, and tap **Install**.
 3. Google Play Protect may say it doesn't recognise the developer. The app isn't from the Play
@@ -134,10 +139,38 @@ Every row on the setup list has a tick when it is done. A row without a tick has
 Turning the **Share location on the hotspot** switch off closes the port and turns the GPS off.
 The notification's **Stop sharing** button does the same.
 
-**On Samsung phones** (One UI), if sharing still stops when the screen locks:
-- Settings → Battery → Background usage limits → **Never sleeping apps** → add NH Companion;
-- turn **Power saving** off while you need the position. Power saving can turn the GPS off
-  while the screen is off. The app warns you when it is on.
+**Samsung phones: turn on "Force full GNSS measurements".** Without it, Samsung switches the
+GPS off for *every* app a few minutes after the phone is put down: when the screen is off, it
+isn't charging, and its motion sensor says the phone is lying still. The WiPhone then shows the
+last position as too old, and stops sending it to the mesh. The position comes back the moment
+the phone moves.
+
+Samsung's location service skips that rule only when this developer setting is on. Found and
+proven on 2026-10-11 from Samsung's own log on a Galaxy Note 20 Ultra (`OldStopController_FLP:
+onCheckGpsStopBySensor ... isStationary = TRUE ... isPlugged = false, isMeasurementsMode = false
+... so stop gps`):
+- without the setting, the GPS stopped about 3 minutes after the phone was put down;
+- with it, it ran for 16 minutes without a gap.
+
+NH Companion's setup list has a **Samsung** row for this, and **Set up everything** walks you to
+it:
+1. If Developer options are hidden: Settings → About phone → Software information → tap
+   **Build number** 7 times and enter your PIN.
+2. Settings → **Developer options** → turn on **Force full GNSS measurements**.
+3. **Leave Developer options on.** Turning them off resets this switch. USB debugging, if you
+   used it, can be turned off on its own.
+
+It makes the GPS chip track continuously instead of in short bursts, so it uses a little more
+battery, but only while something is using the GPS. NH Companion uses it only while a device is
+connected.
+
+Also on Samsung: keep **Power saving** off while you need the position. Power saving can turn
+the GPS off while the screen is off, and the app warns you when it is on.
+
+**If something still stops:** the bottom of the app's screen has a **Diagnostics** timeline.
+It records screen on/off, Doze, power saving, the GPS engine starting and stopping, and "GPS
+data stopped / back after N s". It never records a position. A screenshot of it after a locked
+test shows what Android did.
 
 **Battery:** the GPS adds a few percent an hour while a device is connected, on top of the
 hotspot itself. With no device connected, the app costs next to nothing.

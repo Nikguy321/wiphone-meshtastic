@@ -1,7 +1,7 @@
 # NH Devices Companion (Android)
 
 The companion app for devices on NH firmware: the WiPhone, the X4 e-reader (CrossPoint NH fork)
-and others to come. Version 1.0 does one job. It **shares the phone's GPS with devices on the
+and others to come. Version 1.2 does one job. It **shares the phone's GPS with devices on the
 phone's Wi-Fi hotspot**, as NMEA 0183 over TCP on port 10110, the port those devices look for.
 File transfer and per-device management are planned.
 
@@ -10,7 +10,7 @@ This page is for building and changing it.
 
 - Package `io.github.nikguy321.nhcompanion`; it shows as **NH Companion** on the home screen.
 - Android 8.0+ (minSdk 26), targetSdk 35. Java, framework APIs only: no AndroidX, no Google Play
-  services, no network libraries. The release APK is about 29 KB.
+  services, no network libraries. The release APK is about 32 KB.
 - **It makes no outgoing connections.** It needs INTERNET only to listen on its port.
 
 ## How it works
@@ -22,6 +22,7 @@ This page is for building and changing it.
 | `Policy.java` | Who may read. Refused:<br>• anything from the phone itself: loopback, and also an app connecting to the phone's own hotspot address, which Linux delivers locally;<br>• a connection that arrived on a network the phone *uses* (Wi-Fi it joined, mobile data, a VPN);<br>• Wi-Fi Direct and Wi-Fi Aware peers;<br>• a device outside the subnet of the interface it connected on.<br>Tethering interfaces (hotspot, USB, Bluetooth) are not networks the phone uses, so their devices are let in. |
 | `Nmea.java` | Relays the chip's GGA/RMC/GSA/GST/VTG from `OnNmeaMessageListener`: split at every `$`, checksums checked, CRLF added, GSV and proprietary lines dropped. Builds GGA/RMC from a `Location` with integer arithmetic only: no locale commas, no E notation, minutes carried at 60. |
 | `MainActivity.java` | The one screen. **Set up everything** walks through precise location, notifications, the battery exemption and "all the time" location, then starts sharing and opens the hotspot settings. |
+| `Diag.java` | The timeline at the bottom of the screen: screen on/off, Doze, power saving, the GPS engine starting and stopping, "GPS data stopped / back after N s", devices connecting and leaving. Never a position. |
 | `BootReceiver.java` | Restarts sharing after a reboot or an app update, if it was on. Android lets a location service started from the background read the GPS only with "all the time" location. Without it, the app posts a "tap to start" notification instead. The same notification appears when Android restarts the service after killing the process and cannot give it the GPS. |
 
 **Which sentences:**
@@ -36,6 +37,38 @@ This page is for building and changing it.
   treats 10 s of silence as a dead link. It is a GGA only, because a "V" RMC stamped with the same
   second as a real fix would make the WiPhone discard that fix.
 - Positions from a mock-location app are never sent, and the screen says so.
+
+## Samsung: the GPS stops when the phone lies still
+
+Found on 2026-10-11 on a Galaxy Note 20 Ultra (Android 13, One UI 5). Samsung's location service
+(`nsflp`, log tag `OldStopController_FLP`) switches the GPS off for every app when all of these
+hold:
+- the motion sensor says stationary;
+- the screen is off;
+- the phone is not plugged in.
+
+```
+OldStopController_FLP: onCheckGpsStopBySensor, isGpsStopped= false , isStationary =  TRUE ,
+  available = true , throttling= false ,isPlugged = false , isMeasurementsMode = false,
+  isAllowedInterval = true , ShouldTrackingApp = false , mDisableController = false
+OldStopController_FLP: onCheckGpsStopBySensor, changed to true, so stop gps
+GnssLocationProvider: setRequest ProviderRequest[OFF]
+```
+
+What we found:
+- **When it happens.** The app's request stays registered and the app stays "foreground", but
+  Android logs the request as inactive. The GPS comes back the moment the phone moves.
+- **What fixes it.** `isMeasurementsMode` is Developer options → **Force full GNSS
+  measurements** (`Settings.Global` `enable_gnss_raw_meas_full_tracking`). With it on, the GPS
+  ran 16 minutes without a gap, locked, unplugged and still. Apps cannot set it, so the Samsung
+  row on the setup list explains it and opens Developer options.
+- **What did not work** (tested the same day):
+  - also requesting the fused provider (Google Play services);
+  - the app registering for raw GNSS measurements itself, even with `setFullTracking(true)`:
+    `isMeasurementsMode` stayed false.
+- **Why it was hard to see.** A phone on USB never triggers the rule (`isPlugged`). The test needs
+  the phone unplugged, with a recorder started on the phone first:
+  `adb shell nohup logcat -f /data/local/tmp/x.log ...`.
 
 ## Build
 
@@ -127,6 +160,10 @@ silent. It prints coordinates only with `--show`, so leave that off when reading
 - A phone maker's own battery management (Samsung's app sleeping, for example).
 
 Both need a real phone.
+
+**Tested 2026-10-11 on a Galaxy Note 20 Ultra (Android 13)** with WiPhone 1 on its hotspot: a
+live fix for 16 minutes with the phone locked, unplugged and still, once Force full GNSS
+measurements was on (see above). The chip's own NMEA reached the WiPhone with 12+ satellites.
 
 **Tested 2026-10-11 on an Android 15 emulator:**
 - setup, start at boot, restart after a crash;
