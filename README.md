@@ -650,10 +650,15 @@ by mistake is ignored rather than used as a model name, and Key info says so.
   on by default). It uses it for the map's "me (phone)", distances, the Almanac and, if you
   turned position reporting on, the mesh. The GPS plate still wins when both have a fix. It
   never guesses a location from your internet address.
-  - **Android:** *gpsdRelay* (F-Droid, free) as a TCP server on port **10110**, relaying the
-    receiver's own NMEA. Or *Share GPS* (Play) as a TCP server on port 10110.
+  - **Android:** **NH Devices Companion**, a small free app in this repo
+    ([`android/`](android/README.md),
+    [download the APK](https://github.com/Nikguy321/wiphone-meshtastic/raw/main/android/dist/nh-companion-1.0.apk)).
+    One button sets it up; only devices on your hotspot can read the position, and the GPS is
+    on only while one is connected. Or *gpsdRelay* (F-Droid) / *Share GPS* (Play) as a TCP
+    server on port **10110**. gpsdRelay stops when a Samsung phone's screen locks.
   - **iPhone:** *GPS 2 IP* in Socket mode (port **11123**). It is shown on the WiPhone but not
-    sent to the mesh, because iOS gives apps no accuracy figure.
+    sent to the mesh, because iOS gives apps no accuracy figure. Other iPhone apps are listed,
+    untested, in the guide.
   - **Step-by-step setup for each app, the hotspot settings and what every status line means:
     [docs/phone-location.md](docs/phone-location.md).**
   - Only a fresh fix with 4+ satellites and HDOP 10 or better is ever sent. It is marked as

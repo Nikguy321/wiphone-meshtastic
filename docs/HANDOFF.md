@@ -4,6 +4,48 @@
 
 Read this first; everything below it is narrative.
 
+📱 **2026-10-11 ~08:40: NH DEVICES COMPANION, the Android app (`android/`), 1.0 beta. Replaces gpsdRelay for the phone hotspot.**
+- **Why:** gpsdRelay stops sending within 1-3 min of a Samsung screen lock (no POST_NOTIFICATIONS). Nick asked for a
+  small app, as automatic as possible, which can grow into the companion app for all NH-firmware devices (file
+  transfer later). Display name **NH Companion**; package `io.github.nikguy321.nhcompanion` (permanent).
+- **Design (android/README.md):**
+  - Location foreground service with a real notification, port 10110.
+  - Admits only connections that arrive on a tethering interface. Refuses the networks Android says the phone uses,
+    and loopback (debug builds allow loopback).
+  - GPS on only while a device is connected, plus 5 min. Partial wake lock while the GPS is on.
+  - Relays the chip's NMEA; builds GGA/RMC from the fix only when the chip gives no text.
+  - Sends a "no fix" pair after 4 s of silence.
+  - Setup button: location, notifications, battery exemption, "all the time", then the hotspot page.
+- **Toolchain:** JDK 17 + SDK + emulator in `~/android-dev` (env `JAVA_HOME=~/android-dev/jdk/Contents/Home`,
+  `ANDROID_HOME=~/android-dev/sdk`, AVD `hgps35` in `~/android-dev/avd`). Build with
+  `~/android-dev/gradle-8.10.2/bin/gradle` (or `./gradlew`).
+  - 🔑 The release key is `~/android-dev/private/nhcompanion-release.jks`, passwords in `~/.gradle/gradle.properties`
+    (both mode 600, never in a repo). **Losing it means no updates over installed copies:** Nick should back it up.
+- **Proven on the Android 15 emulator:**
+  - 28 unit tests;
+  - setup flow;
+  - `tools/phone_stream_check.cpp` (the firmware's gate on the Mac) kept 77-81 fixes per 90 s with the screen off and
+    in forced deep Doze, over a non-loopback connection;
+  - reboot auto-start and crash restart;
+  - mobile-data side refused; release build refuses loopback.
+  - The emulator never passes chip NMEA text to apps, so the relay path is proven only by unit tests.
+- **Independent review, then fixed (2026-10-11 ~08:45):**
+  - HIGH: an app on the phone could read the position by connecting to the phone's own hotspot address
+    (local delivery, neither end loopback). Now refused when the remote is one of the phone's own or upstream
+    addresses; Wi-Fi Direct/Aware peers are refused; the device must be in the local interface's subnet.
+    Proven on the emulator: `nc` from adb shell to 10.0.2.15 is refused "from an app on this phone".
+  - The reminder extra is acted on once and only when sharing is still switched on. The PendingIntents have
+    distinct request codes.
+  - A sticky restart without "all the time" location posts the "paused, tap" reminder instead of failing
+    silently. Proven: on Android 15 the restart's startForeground throws, the reminder shows, one tap resumes.
+  - Hub add/stop fenced; onDestroy stops the hub directly; a `destroyed` flag guards every runnable.
+  - Keep-alive is GGA only (a "V" RMC could veto a same-second fix); mock locations are never sent;
+    setupStep survives rotation; the setup flow no longer stalls on switched-off notifications.
+  - 32 unit tests. dist APK sha256 `9e0392e3...`, cert SHA-256 `0af3ab08...`.
+- **OWED:** the real Note 20 test, phone 1 on its hotspot with the screen locked for 15+ min. That is the whole point.
+- X4 fork `5e8e2b77` (local; push after this repo): Locate Me waits up to 30 s while the phone answers "no fix yet".
+  Built as `~/x4pro/builds/1011-warmgps.bin`, NOT flashed (X4 not docked).
+
 🛰 **2026-10-11 morning: the woods GPS stale-fix fix + the phone-hotspot retry + the FIRST REAL gpsdRelay TEST. BOTH PHONES flashed (`Oct 11 2026 06:22:47`).**
 - **GPS plate (phone 2):** `selfGpsApply` (self_pos) owns the UART fix. Only a sentence that measured a position stamps it
   (RMC A + measuring mode, or GGA quality 1-5 with its own coordinates). A no-fix GGA can only make a fix look worse. An

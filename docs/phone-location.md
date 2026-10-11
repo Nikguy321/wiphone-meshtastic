@@ -32,9 +32,11 @@ away.
 
 | Phone | App | Where | Cost | Port | Sent to the mesh? |
 |---|---|---|---|---|---|
-| Android | **gpsdRelay** (recommended) | F-Droid | free, open source | 10110 | yes |
+| Android | **NH Devices Companion** (recommended) | this repo ([download](#3a-android-nh-devices-companion-recommended)) | free, open source | 10110 | yes |
+| Android | gpsdRelay | F-Droid | free, open source | 10110 | yes |
 | Android | Share GPS | Google Play | free (ads) | 10110 (set it) | yes |
-| iPhone | GPS 2 IP | App Store | $7.99 (free Lite trial) | 11123 (its default) | **no**, see below |
+| iPhone | GPS 2 IP | App Store | $7.99 | 11123 (its usual port) | **no**, see below |
+| iPhone | GPS Metrics, NMEAconnect | App Store | free / $3.99 | set it to 11123 | **untested**, see [3e](#3e-iphone-other-apps-untested) |
 
 The WiPhone asks the hotspot's gateway, which is your phone, on port 10110 and then on 11123.
 You can add one more port under My node, or with `phonepos port <n>` on the serial console.
@@ -76,9 +78,79 @@ turn the hotspot off when nothing has been connected for a while.
 
 ---
 
-## 3a. Android: gpsdRelay (recommended)
+## 3a. Android: NH Devices Companion (recommended)
 
-gpsdRelay is not on Google Play. It is on **F-Droid**, a store for free open-source apps.
+A small app made for this: it shares the phone's GPS with the WiPhone and the X4 e-reader
+on its hotspot, and sets itself up. Its source is in [`android/`](../android/) in this repo.
+It shows as **NH Companion** on the home screen. It will grow into the companion app for the
+other devices on NH firmware (file transfer is planned); today it does the GPS.
+
+- **Only your hotspot's devices can read the position.** The port answers devices on the
+  phone's hotspot (or USB/Bluetooth tethering) and refuses everything else: a café's Wi-Fi the
+  phone joined, mobile data, a VPN, and other apps on the phone itself.
+- **It makes no internet connections** and keeps no location history.
+- **The GPS is on only while a device is connected,** and for 5 minutes after the last one
+  leaves. While no device is connected it just waits.
+- It relays the GPS chip's own NMEA sentences, which carry real satellite counts. Only on a
+  phone whose chip gives Android no NMEA text does it build GGA/RMC from Android's GPS fix.
+- It shows a notification while sharing and asks Android to let it run with the screen off.
+  gpsdRelay never asks for notification permission, so on Android 13+ its notification can't
+  show, and on a Samsung it stops when the screen locks (see [3b](#3b-android-gpsdrelay)).
+
+**Status: 1.0 beta, 2026-10-11.**
+- Tested on the Android emulator (Android 15): setup, sharing with the screen off and in deep
+  Doze, restart after a reboot or a crash, and refusing other networks and other apps on the
+  phone. Every sentence was checked with the WiPhone's own code
+  (`tools/phone_stream_check.cpp`). Its code was reviewed independently before release.
+- A test on a real phone (Galaxy Note 20) is next.
+
+**Install**
+1. On the phone, download
+   **[nh-companion-1.0.apk](https://github.com/Nikguy321/wiphone-meshtastic/raw/main/android/dist/nh-companion-1.0.apk)**
+   (29 KB). Its SHA-256 is in [`android/dist/SHA256SUMS`](../android/dist/SHA256SUMS).
+2. Open the downloaded file. Android asks once whether your browser (or Files) may install
+   apps: allow it, go back, and tap **Install**.
+3. Google Play Protect may say it doesn't recognise the developer. The app isn't from the Play
+   Store, so this is expected. Tap **More details → Install anyway**. You can instead build it
+   yourself from [`android/`](../android/README.md).
+
+**Set it up (one button)**
+1. **If gpsdRelay is installed, stop it first**: tap its stop (X) button, or switch its server
+   off. Only one app can hold port 10110. NH Companion says **Port 10110 is in use** until it is
+   free.
+2. Open **NH Companion** and tap **Set up everything**. Answer Android's questions in turn:
+   - Location: **While using the app**, with **Precise** on;
+   - Notifications: **Allow**;
+   - Let app always run in background: **Allow**;
+   - Start after a restart: **Continue**, then choose **Allow all the time** and go back. This
+     step is optional. Without it, after the phone restarts, a notification asks for one tap.
+3. It turns sharing on and opens the hotspot settings if the hotspot is off. Set up the hotspot
+   as in [section 2](#2-the-phones-hotspot) and turn it on.
+4. Join the WiPhone (or the e-reader) to the hotspot. The app's screen and its notification say
+   **Sharing with 1 device**, then **GPS fix: 9 satellites, ±4 m** once it has a fix. On the
+   WiPhone, Phone location says `this network: fix, 9 sats`.
+
+Every row on the setup list has a tick when it is done. A row without a tick has its own button.
+Turning the **Share location on the hotspot** switch off closes the port and turns the GPS off.
+The notification's **Stop sharing** button does the same.
+
+**On Samsung phones** (One UI), if sharing still stops when the screen locks:
+- Settings → Battery → Background usage limits → **Never sleeping apps** → add NH Companion;
+- turn **Power saving** off while you need the position. Power saving can turn the GPS off
+  while the screen is off. The app warns you when it is on.
+
+**Battery:** the GPS adds a few percent an hour while a device is connected, on top of the
+hotspot itself. With no device connected, the app costs next to nothing.
+
+**The X4 e-reader** (CrossPoint NH fork) reads it the same way with **Locate Me**. From fork
+build 1011 on, it waits up to 30 s while the phone's GPS warms up.
+
+## 3b. Android: gpsdRelay
+
+The alternative if you would rather use an app from a store. It is not on Google Play; it is on
+**F-Droid**, a store for free open-source apps. On a Samsung phone it stops sending when the
+screen locks (see the known limit below), so [NH Companion](#3a-android-nh-devices-companion-recommended)
+is the better choice there.
 
 **Install**
 1. On the phone, open **f-droid.org** in Chrome and tap **Download F-Droid**. Open the
@@ -134,7 +206,7 @@ indoors. Without a fix the WiPhone says **no fix (indoors?)** and reports nothin
 When you are done, tap the stop button. Anything on a network the phone has joined can read
 the position while gpsdRelay runs, including a hotel's WiFi.
 
-## 3b. Android: Share GPS (Google Play)
+## 3c. Android: Share GPS (Google Play)
 
 Share GPS is older (last updated around 2016). It did **not** appear in the Play Store on a Galaxy
 Note 20 (Android 13) in October 2026. On older phones that still list it, it works the same way.
@@ -146,12 +218,15 @@ Note 20 (Android 13) in October 2026. On older phones that still list it, it wor
 5. Settings → Apps → Share GPS → Battery → **Unrestricted**. Share GPS's own help says
    battery optimisation makes the WiFi sleep in the background.
 
-## 3c. iPhone: GPS 2 IP
+## 3d. iPhone: GPS 2 IP
 
-1. Install **GPS 2 IP** from the App Store ($7.99, or try **GPS2IP Lite** first).
+1. Install **GPS 2 IP** from the App Store ($7.99). The free **GPS2IP Lite** won't work: it
+   sends RMC only, with no GGA, and stops after 4 minutes. The WiPhone then says
+   **the app sends no GGA**.
 2. Settings (in the app):
    - **Connection Method: Socket**. The iPhone listens and the WiPhone connects.
-   - **Network → port 11123**, the default.
+   - **Network → port 11123**. Every one of GPS 2 IP's own examples uses it; if yours shows another
+     number, set 11123.
    - **Protocol Type: NMEA**, with **GGA** and **RMC** turned on.
    - **Time between sending positions:** 1 s (or *No delay*).
    - **Disable when Static: off**. When it is on, GPS 2 IP goes quiet while you stand still,
@@ -168,6 +243,29 @@ satellite count and no accuracy. GPS 2 IP's documentation says it always writes 
 and HDOP 0.9, so an indoor WiFi-based position looks exactly like a good GPS fix. The WiPhone
 recognises those stand-in numbers and won't broadcast a position it can't grade. The status
 line says **iPhone app gives no accuracy: shown, not sent**.
+
+## 3e. iPhone: other apps (untested)
+
+These apps say they serve the iPhone's GPS as NMEA over TCP. **None has been tested with a
+WiPhone or the e-reader.** If you try one, please report how it went.
+
+| App | Price (US, Oct 2026) | What its listing says |
+|---|---|---|
+| **GPS Metrics** (Berend Hartman) | free | TCP server or UDP; sends RMC, GGA, GSA, VTG, GLL; can run in the background. |
+| **NMEAconnect** (zapfware) | $3.99 | serves the internal GPS as NMEA over TCP/UDP, with background updates. |
+
+Set the app to a **TCP server** on port **11123** (or 10110), sending **GGA and RMC** every
+second, with location **Always** and **Precise** on. Then join the WiPhone to the iPhone's hotspot.
+
+⚠ **Turn position reports off, or use a private channel, while you try one.** iOS gives apps no
+satellite count or accuracy, so every iPhone app writes stand-in numbers. The WiPhone knows GPS 2
+IP's stand-ins and never sends those fixes to the mesh. Another app's stand-ins can look like a
+good fix, and the WiPhone would send it.
+
+These won't work:
+- **GPS2IP Lite**: RMC only, no GGA.
+- **NMEA Send Location**: sends UDP only, and the WiPhone connects over TCP.
+- **GPS Server**: not NMEA.
 
 ---
 
@@ -346,14 +444,14 @@ The line under **Meshtastic → My node → Phone location**:
 | It says | What it means / what to do |
 |---|---|
 | `this network: fix, 9 sats` | Working. |
-| `no app found on this network` | Nothing answered on 10110 / 11123. Is the app running, on the right port, and is the WiPhone on *this phone's* hotspot? gpsdRelay: is the server's **switch** on, and was the service restarted (X, then play) after adding it? It asks again every few minutes. |
+| `no app found on this network` | Nothing answered on 10110 / 11123. Is the app running, on the right port, and is the WiPhone on *this phone's* hotspot? NH Companion: is **Share location on the hotspot** on, and does it say **Ready** (not *Port 10110 is in use*)? gpsdRelay: is the server's **switch** on, and was the service restarted (X, then play) after adding it? It asks again every 30 s on a phone hotspot. |
 | `looking for a location app` | Asking now. |
-| `connected, waiting for data` | The app accepted the connection but has sent nothing yet (gpsdRelay: is the service started?). |
+| `connected, waiting for data` | The app accepted the connection but has sent nothing yet (gpsdRelay: is the service started?). NH Companion sends within 4 s, so seeing this for long means another app is on the port. |
 | `old data dropped, waiting` | gpsdRelay replays old lines when the WiPhone connects. They are skipped on purpose. Wait a few seconds. |
 | `fix found, checking it` | A fix needs a second, agreeing fix before it is used. One more second. |
-| `no fix (indoors?)` | The phone has no GPS fix. Go outside or near a window. |
+| `no fix (indoors?)` | The phone has no GPS fix. Go outside or near a window. NH Companion turns the GPS on only when the WiPhone connects, so a first fix can take up to a minute. |
 | `weak fix: not sent` | Fewer than 4 satellites or HDOP above 10. Shown, not reported. |
-| `iPhone app gives no accuracy: shown, not sent` | GPS 2 IP. See [3c](#3c-iphone-gps-2-ip). |
+| `iPhone app gives no accuracy: shown, not sent` | GPS 2 IP. See [3d](#3d-iphone-gps-2-ip). |
 | `fix, accuracy unknown: not sent` | The app sends no satellite count or HDOP. |
 | `estimate only, not a GPS fix` | The app marked the position as an estimate (dead reckoning). Not used. |
 | `fixes jump about: not used` | Two fixes in a row disagree. Often gpsdRelay with **NMEA generation** on: untick it, tick **NMEA relaying**. |
@@ -366,6 +464,13 @@ sentences, bad checksums, stale lines dropped, reconnects. It never prints a coo
 address.
 
 ## For developers: testing without a phone
+
+**The Android app** has its own notes in [`android/README.md`](../android/README.md): unit tests,
+the emulator recipe, and `tools/phone_stream_check.cpp`. That tool reads any app's stream
+through the WiPhone's own gate (`self_pos.cpp`, unchanged) on the Mac, and says what the
+WiPhone would keep.
+
+**The WiPhone side:**
 
 `tools/nmea_phone_stub.py` is a stand-in for the phone apps (standard library only):
 
