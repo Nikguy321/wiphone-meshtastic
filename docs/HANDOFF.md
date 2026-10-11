@@ -17,7 +17,16 @@ Read this first; everything below it is narrative.
   - ⚠ With the screen locked, gpsdRelay stopped sending within about a minute (connections accepted, no data).
   - Separately, phone 1's auto-switch then hopped to the stronger home WiFi, because the stream was no longer live.
   - Second test running: generation ticked + "Keep open" in Recents.
-  - Phone 1's WiFi auto-switch is left OFF for the test. TURN IT BACK ON after (Settings > WiFi auto-switch).
+  - Second test (generation ticked + Keep open + every Samsung battery setting): the fix was live ~3 min after
+    the lock, then gone. The port alternated refused / accepted-no-data, which looks like Samsung stopping and
+    restarting the service.
+  - Root cause found in gpsdRelay 2.2's manifest: it targets SDK 35 with no POST_NOTIFICATIONS, so its FGS
+    notification can never show (App info has no Notifications row).
+  - Works whenever the Note 20 is awake; that is enough for tz Auto (2 looks) and the map's "last phone".
+  - Share GPS is not in the Play Store for the Note 20.
+  - Later (Nick: "we can work on this later"): a tiny purpose-built Android app (a proper location FGS +
+    notification), or a gpsdRelay patch/issue upstream.
+  - Phone 1's WiFi auto-switch was turned back ON after the test (log `[autosw] ... en=1`).
 
 📶 **2026-10-11 ~00:05: WI-FI LOCATION (round 2), BOTH PHONES flashed by cable (0.9.82-NH dev; phone 1 BOOT `Oct 11 2026 00:01:25`, phone 2 `Oct 10 2026 23:40:59`, the same source), mute ON.**
 - **Setting:** My node > Wi-Fi location = off (default) / map only / map + mesh. The serial console may set only off|map.

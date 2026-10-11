@@ -116,6 +116,18 @@ gpsdRelay is not on Google Play. It is on **F-Droid**, a store for free open-sou
    apps. That is fine: Unrestricted is the setting that matters, and the running relay keeps its
    notification up.
 
+**Known limit, tested 2026-10-11 on a Samsung Galaxy Note 20 (Android 13):** with the phone's screen
+locked, gpsdRelay 2.2 stops sending within 1-3 minutes. This happened even with Battery set to
+Unrestricted, "Keep open" in Recents, location allowed all the time and NMEA generation on. It
+comes back within seconds of waking the phone. gpsdRelay never asks Android for permission to show
+notifications, so its "relay is running" notification can never appear, and Samsung then treats it
+as an ordinary background app. In practice:
+- the WiPhone gets your position whenever your phone is awake;
+- two fixes a couple of minutes apart are enough for its automatic time zone;
+- the map and Almanac keep the last phone position, marked with its age.
+
+A steady position for the mesh needs the phone awake. This may differ on other phones.
+
 gpsdRelay reads the phone's real GPS only. Expect a fix outdoors or by a window, not deep
 indoors. Without a fix the WiPhone says **no fix (indoors?)** and reports nothing.
 
@@ -124,8 +136,8 @@ the position while gpsdRelay runs, including a hotel's WiFi.
 
 ## 3b. Android: Share GPS (Google Play)
 
-Share GPS is older (last updated around 2016) and may not appear in the Play Store on newer
-phones. If it installs, it works the same way.
+Share GPS is older (last updated around 2016). It did **not** appear in the Play Store on a Galaxy
+Note 20 (Android 13) in October 2026. On older phones that still list it, it works the same way.
 
 1. Install **Share GPS** from Google Play. Allow location (**Allow all the time**, Precise).
 2. Open **Connections** and add a new connection: type **NMEA**, method **TCP/IP**.
