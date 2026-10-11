@@ -96,7 +96,7 @@ Read this first; everything below it is narrative.
 - **Owed:** a real located fix in a busy place (hotel/office), and a map + mesh beacon arriving at COVEY with precision 17.
 
 🕑 **2026-10-10 night: AUTOMATIC TIME ZONE, BOTH PHONES flashed by cable (0.9.82-NH dev, BOOT `build=Oct 10 2026 20:28:13`, mute ON).**
-- **Why:** Nick flies to Ohio next week. The clock was a typed offset with no DST, so every time and legal light would
+- **Why:** for travel across time zones. The clock was a typed offset with no DST, so every time and legal light would
   have been 3 h off. Settings > Time zone (was "Time offset") now has three modes:
   - **Auto** (default): a zone from a MEASURED fix only (own GPS, or the phone over the hotspot). Never a bench, IP or
     Wi-Fi fix. Same zone on two looks ≥ 2 min apart; never near a zone line or at sea. iPhone fixes need 10 km clear.
