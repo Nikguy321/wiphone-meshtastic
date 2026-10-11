@@ -4620,13 +4620,11 @@ void loop() {
         gGpsRawSeen++;
         if (gGpsReader.feed(ch)) {
           const NmeaFix& fx = gGpsReader.fix();
-          /* feed() completes on an RMC or a GGA; rmcCount moving says which (Clock::gpsSentence
-           * reads it the same way). The motion is an RMC's, the altitude a GGA's (gpsUpdate). */
-          static uint32_t sRmcSeen = 0;
-          const bool rmc = fx.rmcCount != sRmcSeen;
-          sRmcSeen = fx.rmcCount;
-          meshService.gpsUpdate(fx.valid, fx.latI, fx.lonI, fx.sats, fx.hdopX10,
-                                fx.altM, fx.speedKnX100, fx.courseX10, rmc);
+          /* feed() completes on an RMC or a GGA (fx.lastKind says which). The WHOLE fix goes in,
+           * and self_pos.h's selfGpsApply reads only that sentence's own fields: handing over the
+           * reader's sticky valid/latI/sats let a run of no-fix GGAs, with the RMCs lost,
+           * re-stamp the last position as a fix taken now (review 2026-10-10). */
+          meshService.gpsUpdate(fx);
           /* GPS TIME (0.9.79): a new RMC with a fix may set the clock — two consecutive agreeing
            * readings, never over a fresh NTP; the rules are clock_source.h's. millis() here,
            * not the pass's `now`: the stamp is WHEN THE SENTENCE ARRIVED, and this loop drains

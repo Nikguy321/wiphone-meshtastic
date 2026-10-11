@@ -59,7 +59,13 @@ struct NmeaFix {
    * (gpsdRelay's TCP clients share ONE queue, so a ghost connection can take every RMC) would
    * re-stamp the last good coordinates, with the last good sats and HDOP, as a fresh fix. So
    * every GGA rewrites ALL of these from itself, present or not — the rmc* rule above. A GGA
-   * never touches the rmc* fields, and an RMC never touches these. */
+   * never touches the rmc* fields, and an RMC never touches these.
+   * ⚠ "The UART lives with that" was wrong (review 2026-10-10): the same sticky fields let a
+   * run of no-fix GGAs with the RMCs lost re-stamp the plate's last fix as NOW. The UART is
+   * judged per sentence too since 0.9.82 (self_pos.h, selfGpsApply), which reads valid/latI/
+   * lonI only right after an RMC (then they are that RMC's own) and the gga* fields for a GGA.
+   * Nothing in the firmware reads sats/hdopX10/altM/timeHms/dateDmy any more; they stay as the
+   * tests pin them. */
   uint32_t ggaCount;     // GGA sentences parsed; a change means a NEW one completed
   int32_t  ggaQuality;   // fix quality digit (0 none, 1 GPS, 2 DGPS, 4/5 RTK, 6 dead reckoning...); -1 absent/garbled
   bool     ggaHasPos;    // THIS sentence carried readable coordinates (whatever its quality said)
@@ -68,7 +74,21 @@ struct NmeaFix {
   int32_t  ggaHdopX10;   // HDOP x10 by the strict reader ("1.23" -> 12, "12" -> 120);
                          // -1 = empty, -2 = present but not understood ("1.2E-4", "-1", "1.2.3")
   int32_t  ggaHms;       // hhmmss by the strict reader (as rmcHms), -1 = absent/garbled
+  /* The woods UART's gate (self_pos.h, selfGpsApply) stamps the altitude with a GGA's own fix,
+   * so it takes the altitude from that GGA alone too: altM above survives a GGA whose field was
+   * empty. Whole metres toward zero ("-3.2" -> -3), strict ("1.2E3" is no number); -10000 =
+   * empty or unreadable. */
+  int32_t  ggaAltM;
+
+  /* Which sentence completed LAST: NMEA_LAST_RMC or NMEA_LAST_GGA (NMEA_LAST_NONE before either).
+   * What feed() returning true just completed, said outright: the count comparisons above need a
+   * remembered count, and that memory goes wrong across reset() (`gps on`, a baud retune), where
+   * a GGA with the RMC count back at 0 read as "an RMC". */
+  uint8_t  lastKind;
 };
+#define NMEA_LAST_NONE  0
+#define NMEA_LAST_RMC   1
+#define NMEA_LAST_GGA   2
 
 class NmeaReader {
 public:

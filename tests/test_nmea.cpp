@@ -71,6 +71,10 @@ static const char* D_GGA_LONGQ = "$GPGGA,120004,4000.00000,N,10000.00000,W,123,0
 static const char* D_GGA_EMPTY = "$GPGGA,,,,,,0,,,,,,,,*66\r\n";
 static const char* D_RMC      = "$GPRMC,120005.00,A,4000.00000,N,10000.00000,W,0.0,,101026,,,A*65\r\n";
 static const char* SOUTH_EAST_GGA = "$GNGGA,235959.50,3000.00000,S,05000.00000,E,2,12,1.0,5.0,M,,M,,*77\r\n";
+/* This GGA's own altitude (ggaAltM, 0.9.82): "1.2E3" is no number to the strict reader (the
+ * lenient altM reads 1 from it), "-0.4" is 0 m toward zero. Checksums by Python. */
+static const char* D_GGA_ALT_E = "$GPGGA,120006.00,4000.00000,N,10000.00000,W,1,09,0.9,1.2E3,M,,M,,*15\r\n";
+static const char* D_GGA_ALT_NEG0 = "$GPGGA,120007.00,4000.00000,N,10000.00000,W,1,09,0.9,-0.4,M,,M,,*48\r\n";
 
 int main() {
   printf("test_nmea\n");
@@ -284,8 +288,36 @@ int main() {
 
     r.reset();
     CHECK(r.fix().ggaCount == 0 && r.fix().ggaQuality == -1 && r.fix().ggaSats == -1 &&
-          r.fix().ggaHdopX10 == -1 && r.fix().ggaHms == -1 && !r.fix().ggaHasPos,
-          "reset() forgets the gga* fields");
+          r.fix().ggaHdopX10 == -1 && r.fix().ggaHms == -1 && !r.fix().ggaHasPos &&
+          r.fix().ggaAltM == -10000, "reset() forgets the gga* fields");
+  }
+
+  /* ---- THIS GGA's own altitude, and which sentence completed last (0.9.82) -------------------
+   * The woods UART's gate (self_pos.h) stamps a GGA's fix with that GGA's own altitude: the
+   * sticky altM survives an empty field. lastKind says outright what feed() just completed, so
+   * the gate needs no remembered count (one that reset() would make lie). */
+  {
+    NmeaReader r;
+    CHECK(r.fix().ggaAltM == -10000 && r.fix().lastKind == NMEA_LAST_NONE, "nothing yet: no altitude, no kind");
+    feedAll(r, D_GGA);
+    CHECK(r.fix().ggaAltM == 100 && r.fix().lastKind == NMEA_LAST_GGA, "'100.0' -> 100 m; the last was a GGA");
+    feedAll(r, GGA_HDOP2_ALTNEG);
+    CHECK(r.fix().ggaAltM == -3 && r.fix().altM == -3, "'-3.2' -> -3 m, the same as the sticky altM");
+    feedAll(r, D_GGA_EMPTY);
+    CHECK(r.fix().ggaAltM == -10000 && r.fix().altM == -3,
+          "an empty altitude: -10000 (THIS sentence had none) while the sticky altM keeps -3");
+    feedAll(r, D_GGA_ALT_E);
+    CHECK(r.fix().ggaAltM == -10000, "'1.2E3' is no number to the strict reader");
+    feedAll(r, D_GGA_ALT_NEG0);
+    CHECK(r.fix().ggaAltM == 0, "'-0.4' -> 0 m (toward zero)");
+    feedAll(r, D_RMC);
+    CHECK(r.fix().lastKind == NMEA_LAST_RMC && r.fix().ggaAltM == 0, "an RMC: the last was an RMC; ggaAltM untouched");
+    feedAll(r, GSV);
+    CHECK(r.fix().lastKind == NMEA_LAST_RMC, "a GSV (not read) leaves lastKind alone");
+    feedAll(r, D_GGA);
+    CHECK(r.fix().lastKind == NMEA_LAST_GGA, "a GGA again");
+    r.reset();
+    CHECK(r.fix().lastKind == NMEA_LAST_NONE && r.fix().ggaAltM == -10000, "reset() forgets both");
   }
 
   printf("\n%d checks, %d failures\n", checks, failures);

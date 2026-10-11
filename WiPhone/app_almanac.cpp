@@ -157,8 +157,8 @@ static void almPlaceNow(bool viewOk, int32_t viewLatI, int32_t viewLonI, AlmPlac
   int sats = -1, hdop = -1;
   in.gpsFix = meshService.getGpsFix(&in.gpsLatI, &in.gpsLonI, &age, &sats, &hdop);
   in.gpsAgeMs = age;              // the receiver's own: a GPS / LAST_GPS place is aged by it
-  in.gpsSats = sats;              // almPickPlace refuses a poor fix (meshPosFixUsable)
-  in.gpsHdopX10 = hdop;
+  in.gpsSats = sats;              // almPickPlace refuses a poor fix (meshPosFixUsable) - by THE FIX'S
+  in.gpsHdopX10 = hdop;           // own rating (getGpsFix), never the sky's last word (getGpsSky)
   /* Step 2's other candidate, apart from the receiver's (review 2026-10-10: it used to OVERWRITE
    * the GPS fields when newer, so a fresh poor phone fix pushed a usable GPS fix out, and a
    * LAST_GPS reference was aged by the phone). almPickPlace takes the newer USABLE one. */
@@ -181,7 +181,7 @@ static void almFillPos(AlmPos* p, int elevState, double elevM, int elevZ) {
   memset(p, 0, sizeof(*p));
   p->gpsOn = meshService.isGpsEnabled();
   int sats = -1, hdop = -1;
-  meshService.getGpsFix(NULL, NULL, NULL, &sats, &hdop);
+  meshService.getGpsSky(&sats, &hdop);     // the sky now ("Sats 7, HDOP 1.2"), not the fix's rating
   p->sats = sats;
   p->hdopX10 = hdop;
   int alt = -10000;

@@ -4,6 +4,21 @@
 
 Read this first; everything below it is narrative.
 
+🛰 **2026-10-11 morning: the woods GPS stale-fix fix + the phone-hotspot retry + the FIRST REAL gpsdRelay TEST. BOTH PHONES flashed (`Oct 11 2026 06:22:47`).**
+- **GPS plate (phone 2):** `selfGpsApply` (self_pos) owns the UART fix. Only a sentence that measured a position stamps it
+  (RMC A + measuring mode, or GGA quality 1-5 with its own coordinates). A no-fix GGA can only make a fix look worse. An
+  RMC is rated by its paired GGA (3 s), and a bad older rating carries. The Almanac rates "last GPS" by the fix's own
+  rating. test_selfpos 289 (22 failed on the old rule).
+- **Hotspot retry:** a joined network whose BSSID is locally administered (a phone hotspot) is asked again every 30 s,
+  never the 5-min dead-round wait. Proven live: after gpsdRelay restarted, phone 1 found it in about 20 s.
+- **REAL TEST, Nick's Note 20 + gpsdRelay, phone 1 on its hotspot:**
+  - "this network: fix, 12 sats, HDOP 0.7"; tz "confirmed by phone GPS".
+  - ⚠ gpsdRelay adds servers switched OFF (port refused); now in docs.
+  - ⚠ With the screen locked, gpsdRelay stopped sending within about a minute (connections accepted, no data).
+  - Separately, phone 1's auto-switch then hopped to the stronger home WiFi, because the stream was no longer live.
+  - Second test running: generation ticked + "Keep open" in Recents.
+  - Phone 1's WiFi auto-switch is left OFF for the test. TURN IT BACK ON after (Settings > WiFi auto-switch).
+
 📶 **2026-10-11 ~00:05: WI-FI LOCATION (round 2), BOTH PHONES flashed by cable (0.9.82-NH dev; phone 1 BOOT `Oct 11 2026 00:01:25`, phone 2 `Oct 10 2026 23:40:59`, the same source), mute ON.**
 - **Setting:** My node > Wi-Fi location = off (default) / map only / map + mesh. The serial console may set only off|map.
 - **Rule** (the owner's): >= 4 DEVICES at -85 dBm or stronger, split into two halves, both beaconDB answers HTTP 200 with

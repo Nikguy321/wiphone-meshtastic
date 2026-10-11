@@ -7,6 +7,7 @@
 #include "self_pos.h"
 #include "meshtastic_service.h"   // phoneUpdate / setPhoneEnabled: the PHONE slot
 #include "clock.h"                // ntpClock: only to ASK whether the clock is trusted (never set)
+#include <esp_wifi.h>               // esp_wifi_sta_get_ap_info: is the joined network a phone hotspot
 #include "Networks.h"             // wifiState.radioOff, lastWifiLinkUpMs: one cache per association
 #include "app_gbc_xfer.h"         // xferUsingAP: our own hotspot is not a network with a phone on it
 
@@ -82,6 +83,20 @@ static void dropSocket() {
 }
 
 // Start a non-blocking connect. False: no socket, or refused on the spot.
+/* Does the joined network look like a phone's hotspot? Its BSSID's locally administered bit is
+ * the shape Android and iOS hotspots use (a home router's is a universal address). Only decides
+ * how soon a dead round is asked again (SelfProbe.hotspot) - never what is trusted. */
+static bool joinedLooksLikeHotspot() {
+  wifi_ap_record_t info;
+  return WiFi.status() == WL_CONNECTED && esp_wifi_sta_get_ap_info(&info) == ESP_OK &&
+         (info.bssid[0] & 0x02) != 0;
+}
+
+static void probeRestart(uint32_t assoc) {
+  selfProbeStart(&s_probe, assoc);
+  selfProbeSetHotspot(&s_probe, joinedLooksLikeHotspot());
+}
+
 static bool startConnect(uint32_t ip, uint16_t port) {
   const int fd = socket(AF_INET, SOCK_STREAM, 0);
   if (fd < 0) {
@@ -205,7 +220,7 @@ void phonePosLoop(bool mayUseNetwork) {
   const uint32_t assoc = lastWifiLinkUpMs();
   if (s_probe.assoc != assoc) {
     dropSocket();
-    selfProbeStart(&s_probe, assoc);
+    probeRestart(assoc);
     s_saidNoApp = false;
   }
 
@@ -295,7 +310,7 @@ void phonePosSetCustomPort(uint16_t port) {
   p.end();
   // Ask again from the top on the next poll: the new port may be the one that answers.
   dropSocket();
-  selfProbeStart(&s_probe, s_probe.assoc);
+  probeRestart(s_probe.assoc);
 }
 
 void phonePosBenchAt(const uint8_t ip[4], uint16_t port) {
@@ -303,7 +318,7 @@ void phonePosBenchAt(const uint8_t ip[4], uint16_t port) {
   s_benchPort = port;
   s_benchOn = true;
   dropSocket();
-  selfProbeStart(&s_probe, s_probe.assoc);
+  probeRestart(s_probe.assoc);
   s_saidNoApp = false;
 }
 
@@ -312,7 +327,7 @@ void phonePosBenchClear() {
   s_benchIp = 0;
   s_benchPort = 0;
   dropSocket();
-  selfProbeStart(&s_probe, s_probe.assoc);
+  probeRestart(s_probe.assoc);
   s_saidNoApp = false;
 }
 

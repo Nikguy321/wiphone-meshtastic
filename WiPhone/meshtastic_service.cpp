@@ -354,14 +354,7 @@ MeshtasticService::MeshtasticService()
   announceOutcome = MESH_TXO_UNKNOWN;
   lastSendErr = NULL;
   nextWpSweepMs = 0;
-  gpsLatI = gpsLonI = 0;
-  gpsFixMs = 0;
-  gpsSats = gpsHdopX10 = -1;
-  gpsAltM = -10000;
-  gpsAltMs = 0;
-  gpsSpeedKnX100 = -1;
-  gpsCourseX10 = -1;
-  gpsMotionMs = 0;
+  selfGpsInit(&gpsRx);
   gpsEnabled = false;
   memset(selfSlots, 0, sizeof(selfSlots));
   for (int i = 0; i < SELF_SRC_COUNT; i++) {
@@ -655,59 +648,24 @@ bool MeshtasticService::referenceIsStaleGps(uint32_t* ageMs) const {
   return true;
 }
 
-/* Fed from the loop whenever the NMEA reader completes an RMC/GGA (nmea.h).
- * Sats/HDOP flow even without a fix — "0 fix, 7 sats" is bench information.
- * The first fix ever is log_e'd once: that is the moment the woods plate's
- * GPS half is PROVEN, and it should be visible in a release build's log. */
-void MeshtasticService::gpsUpdate(bool valid, int32_t latI, int32_t lonI,
-                                  int sats, int hdopX10,
-                                  int altM, int32_t speedKnX100, int32_t courseX10, bool rmc) {
-  if (sats >= 0) {
-    gpsSats = sats;
-  }
-  if (hdopX10 >= 0) {
-    gpsHdopX10 = hdopX10;
-  }
-  if (valid) {
-    bool first = (gpsFixMs == 0);
-    gpsLatI = latI;
-    gpsLonI = lonI;
-    gpsFixMs = millis();
-    if (gpsFixMs == 0) {
-      gpsFixMs = 1;                     // millis()==0 must not read as "never"
-    }
-    /* With the fix, never apart from it - and each from ITS OWN sentence, stamped with that
-     * sentence's time (review 2026-09-27): the motion from an RMC (nmea.h - -1 when that sentence
-     * had none), the altitude from a GGA. The fix above is stamped by both, so stamping the motion
-     * with it let a GGA-only stretch (RMCs lost to checksum errors) keep an old speed "current". */
-    if (rmc) {
-      gpsSpeedKnX100 = speedKnX100;
-      gpsCourseX10 = courseX10;
-      gpsMotionMs = gpsFixMs;
-    } else {
-      gpsAltM = altM;
-      gpsAltMs = gpsFixMs;
-    }
-    if (first) {
-      /* Two decimals (~1 km), not five: this line lands in serial captures and the bench notes
-       * that get pasted into a PUBLIC repo, and "the plate has a fix" is the whole message. */
-      log_e("GPS: FIRST FIX ~%.2f,%.2f sats=%d hdop=%d.%d",
-            latI / 1e7, lonI / 1e7,
-            gpsSats, gpsHdopX10 >= 0 ? gpsHdopX10 / 10 : -1,
-            gpsHdopX10 >= 0 ? gpsHdopX10 % 10 : 0);
-    }
-  }
-  /* The GPS's slot in the source table (self_pos.h) tells the same story as the fields above,
-   * sticky sats/HDOP included: the woods plate's RMC and GGA come from one receiver a few ms
-   * apart, and these are the numbers every gate on this path has always judged it by. A bench
-   * fix (`pos inject gps`) is replaced by the next valid sentence, and is not re-scored by an
-   * invalid one meanwhile. */
-  SelfSlot* g = &selfSlots[SELF_GPS - 1];
-  if (valid) {
-    selfSlotSet(g, gpsLatI, gpsLonI, gpsSats, gpsHdopX10, gpsFixMs, false);
-  } else if (!g->injected) {
-    g->sats = gpsSats;
-    g->hdopX10 = gpsHdopX10;
+/* Fed from the loop whenever the woods plate's NMEA reader completes an RMC/GGA (nmea.h).
+ * Every decision is selfGpsApply's (self_pos.h, tests/test_selfpos.cpp): which sentence stamps
+ * the fix, its rating, the motion and the altitude, the GPS slot — and the receiver's own word
+ * on its sky, which flows without a fix ("0 fix, 7 sats" is bench information).
+ * 🛑 THE OLD RULE STAMPED THE FIX ON `valid`, an RMC's word that a GGA never changes, with the
+ * reader's sticky coordinates and sats/HDOP: with the RMCs lost, every no-fix GGA re-stamped the
+ * last position as NOW (review 2026-10-10). Do not hand this the sticky fields again.
+ * The first fix ever is log_e'd once: that is the moment the woods plate's GPS half is PROVEN,
+ * and it should be visible in a release build's log. */
+void MeshtasticService::gpsUpdate(const NmeaFix& fx) {
+  const unsigned r = selfGpsApply(&gpsRx, &selfSlots[SELF_GPS - 1], fx, millis());
+  if (r & SELF_GPS_FIRST) {
+    /* Two decimals (~1 km), not five: this line lands in serial captures and the bench notes
+     * that get pasted into a PUBLIC repo, and "the plate has a fix" is the whole message. */
+    log_e("GPS: FIRST FIX ~%.2f,%.2f sats=%d hdop=%d.%d",
+          gpsRx.latI / 1e7, gpsRx.lonI / 1e7,
+          gpsRx.fixSats, gpsRx.fixHdopX10 >= 0 ? gpsRx.fixHdopX10 / 10 : -1,
+          gpsRx.fixHdopX10 >= 0 ? gpsRx.fixHdopX10 % 10 : 0);
   }
 }
 
@@ -784,9 +742,9 @@ int MeshtasticService::clearInjectedFixes() {
       continue;
     }
     n++;
-    if (src == SELF_GPS && gpsFixMs != 0) {
-      // Back to what the receiver itself last said, at its own time.
-      selfSlotSet(s, gpsLatI, gpsLonI, gpsSats, gpsHdopX10, gpsFixMs, false);
+    if (src == SELF_GPS && gpsRx.fixMs != 0) {
+      // Back to the receiver's own last fix, at its own time and with its own rating.
+      selfSlotSet(s, gpsRx.latI, gpsRx.lonI, gpsRx.fixSats, gpsRx.fixHdopX10, gpsRx.fixMs, false);
     } else {
       selfSlotClear(s);
     }
@@ -799,23 +757,29 @@ int MeshtasticService::clearInjectedFixes() {
 
 bool MeshtasticService::getGpsFix(int32_t* latI, int32_t* lonI, uint32_t* ageMs,
                                   int* sats, int* hdopX10) const {
+  /* sats/HDOP: THIS fix's rating (fixSats/fixHdopX10, what the GPS slot holds, a "00"-sky GGA's
+   * POOR re-score included), -1 when there has never been a fix. 🛑 Not the sky's last word
+   * (getGpsSky): one no-fix GGA with empty fields reads -1/-1 there, which meshPosFixUsable
+   * passes, and almPlaceNow judged the fix by it - a 3-satellite fix (20 km off, 2026-08-25)
+   * became "last GPS" for the Almanac's sun and weather while the slot, the map and the beacon
+   * still said POOR (review 2026-10-11). */
   if (sats) {
-    *sats = gpsSats;
+    *sats = gpsRx.fixSats;
   }
   if (hdopX10) {
-    *hdopX10 = gpsHdopX10;
+    *hdopX10 = gpsRx.fixHdopX10;
   }
-  if (gpsFixMs == 0) {
+  if (gpsRx.fixMs == 0) {
     return false;
   }
   if (latI) {
-    *latI = gpsLatI;
+    *latI = gpsRx.latI;
   }
   if (lonI) {
-    *lonI = gpsLonI;
+    *lonI = gpsRx.lonI;
   }
   if (ageMs) {
-    *ageMs = (uint32_t)(millis() - gpsFixMs);
+    *ageMs = (uint32_t)(millis() - gpsRx.fixMs);
   }
   return true;
 }
@@ -823,27 +787,27 @@ bool MeshtasticService::getGpsFix(int32_t* latI, int32_t* lonI, uint32_t* ageMs,
 bool MeshtasticService::getGpsMotion(int* altM, uint32_t* altAgeMs, int32_t* speedKnX100,
                                      int32_t* courseX10, uint32_t* motionAgeMs,
                                      uint32_t* ageMs) const {
-  if (gpsFixMs == 0) {
+  if (gpsRx.fixMs == 0) {
     return false;
   }
   const uint32_t now = millis();
   if (altM) {
-    *altM = gpsAltMs ? gpsAltM : -10000;
+    *altM = gpsRx.altMs ? gpsRx.altM : -10000;
   }
   if (altAgeMs) {
-    *altAgeMs = gpsAltMs ? (uint32_t)(now - gpsAltMs) : UINT32_MAX;
+    *altAgeMs = gpsRx.altMs ? (uint32_t)(now - gpsRx.altMs) : UINT32_MAX;
   }
   if (speedKnX100) {
-    *speedKnX100 = gpsMotionMs ? gpsSpeedKnX100 : -1;
+    *speedKnX100 = gpsRx.motionMs ? gpsRx.speedKnX100 : -1;
   }
   if (courseX10) {
-    *courseX10 = gpsMotionMs ? gpsCourseX10 : -1;
+    *courseX10 = gpsRx.motionMs ? gpsRx.courseX10 : -1;
   }
   if (motionAgeMs) {
-    *motionAgeMs = gpsMotionMs ? (uint32_t)(now - gpsMotionMs) : UINT32_MAX;
+    *motionAgeMs = gpsRx.motionMs ? (uint32_t)(now - gpsRx.motionMs) : UINT32_MAX;
   }
   if (ageMs) {
-    *ageMs = (uint32_t)(now - gpsFixMs);
+    *ageMs = (uint32_t)(now - gpsRx.fixMs);
   }
   return true;
 }

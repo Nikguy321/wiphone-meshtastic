@@ -95,6 +95,25 @@ opening them for the SD card.
   `almanac bench`, the Almanac's day log and `elev`'s "you" line are rounded the same way. The
   real measured position that sat in two code comments is gone from the tree (git history
   still has it).
+- **Phone 2's GPS plate: an old position no longer comes back as "live"** (found by the
+  phone-location review). When the receiver's RMC sentences went missing (lost to line noise, or
+  switched off), every "no fix" GGA after them stamped the last position, with the last
+  satellite count and HDOP, as a fix taken that second - for as long as GGAs kept coming. The
+  map, the Almanac, the position beacon and Auto time zone all took that old place as where you
+  are, and it outranked a live fix from the phone's hotspot. Now only a sentence that itself
+  carries a measured position counts: an RMC that says "valid" in a real measuring mode, or a
+  GGA with a GPS fix quality and its own coordinates. Dead-reckoned, manual and simulated
+  positions never count. A lost fix keeps its own time and goes old on schedule (30 s for
+  sending, 2 minutes on screen). Satellites and HDOP come from the sentence itself (an RMC, which
+  has none, borrows the GGA of the second before), and the altitude from the GGA that made the
+  fix. An older rating is carried only when it is a bad one: a fix rated poor (fewer than 4
+  satellites or HDOP over 10) stays poor until a GGA says better, even when GGAs go missing or
+  leave their fields empty, and the Almanac judges "last GPS" by that same rating, not by the
+  last sentence's satellite count. A receiver that sends only GGA
+  sentences now gets a fix. With the plate's normal RMC + GGA every second nothing changes, and
+  a lost fix still turns grey at once when the receiver reports 0 satellites. Host tests:
+  `test_selfpos` (the stale re-stamp reproduced against the old rule: 22 checks failed, 0 now),
+  `test_tzauto` (the old zone kept over the phone's live fix), `test_nmea`.
 
 
 **Time zones: the clock follows a MEASURED position** (until now the clock was a fixed typed

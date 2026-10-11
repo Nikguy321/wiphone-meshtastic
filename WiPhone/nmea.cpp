@@ -28,6 +28,8 @@ void NmeaReader::reset() {
   f.ggaSats = -1;
   f.ggaHdopX10 = -1;
   f.ggaHms = -1;
+  f.ggaAltM = -10000;
+  f.lastKind = NMEA_LAST_NONE;
   nBytes = nSentences = nBadChecksum = nOverrun = 0;
 }
 
@@ -293,6 +295,7 @@ bool NmeaReader::parseSentence(const char* body, NmeaFix* f) {
       c = -1;                           // not a bearing
     }
     f->courseX10 = c;
+    f->lastKind = NMEA_LAST_RMC;
     return true;
   }
 
@@ -388,6 +391,18 @@ bool NmeaReader::parseSentence(const char* body, NmeaFix* f) {
         f->ggaHms = hms;
       }
     }
+    /* This GGA's own altitude (nmea.h): parseFixed's strict reading of the digits after an
+     * optional '-', whole metres toward zero - the same number altM gives a well-formed field. */
+    f->ggaAltM = -10000;
+    if (a && fieldLen(a) > 0) {
+      const int n = fieldLen(a);
+      const bool neg = a[0] == '-';
+      const int32_t v = parseFixed(a + (neg ? 1 : 0), n - (neg ? 1 : 0), 0);
+      if (v >= 0) {
+        f->ggaAltM = neg ? -v : v;
+      }
+    }
+    f->lastKind = NMEA_LAST_GGA;
     return true;
   }
 

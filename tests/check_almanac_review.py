@@ -11,9 +11,14 @@ and deleting a call spells nothing a test can see. So each is stated POSITIVELY 
 comment-and-string-blanked source (tests/check_wifi_restore.py's helpers), with a function that
 cannot be found failing too:
 
-  1. MeshtasticService::gpsUpdate takes the motion ONLY under `if (rmc)` (speed, course and their
-     own stamp) and the altitude only outside it; WiPhone.ino tells an RMC from a GGA by
-     rmcCount and passes `rmc`. (A GGA used to re-stamp the last RMC's speed as current.)
+  1. The plate's GPS fix, its motion and its altitude are self_pos.cpp's selfGpsApply since 0.9.82
+     (test_selfpos: the motion only from a stamping RMC, the altitude only from a stamping GGA,
+     each with its own stamp; only a sentence that carries a fix stamps it). What stays glue:
+     MeshtasticService::gpsUpdate hands the reader's fix to selfGpsApply(&gpsRx, &selfSlots[SELF_GPS
+     - 1], fx, ...) and meshtastic_service.cpp writes no gpsRx field itself; WiPhone.ino passes the
+     whole fix (meshService.gpsUpdate(fx)) and reads none of the reader's sticky fields (fx.valid,
+     latI, lonI, sats, hdopX10, altM). (A GGA used to re-stamp the last RMC's speed as current, and
+     a no-fix GGA with the RMCs lost the last position - review 2026-10-10.)
   2. A1 (phone 2: the core day was 148 ms in ONE pass, a 334 ms LOOP STALL): the Almanac's key
      handlers, its build and its entry compute NO table and never search - no almDayCompute,
      almDayEnsure, astroSunDay/MoonDay, a phase or season search, astroMoonPhaseAt, and no
@@ -45,8 +50,11 @@ The second review of 2026-09-27 (its pure halves in test_almanac_lines / test_el
      `landed`; its timer period is its own work + the gap (armTimer(millis() - passMs), and
      armTimer sets `workedMs + ALM_SLICE_GAP_MS`); the Almanac pushes only the band
      (drewInsideBand returns true).
- 12. Poor fixes: almPlaceNow hands almPickPlace the receiver's sats and HDOP; the map's altitude
-     row names a poor or an old fix ("poor fix" / "old fix", elevYouUsable) instead of "you".
+ 12. Poor fixes: almPlaceNow hands almPickPlace THE FIX'S OWN rating - getGpsFix's sats and HDOP,
+     which are gpsRx.fixSats/fixHdopX10 (the slot's) - and never asks getGpsSky (the last GGA's
+     word on the sky: one empty no-fix GGA after a 3-satellite fix reads -1/-1 there, "usable" -
+     review 2026-10-11); the map's altitude row names a poor or an old fix ("poor fix" / "old
+     fix", elevYouUsable) instead of "you".
  13. Follow me reads the card at most once a fix: elevStep's `now` path keeps the crosshair's
      height within MAPS_ELEV_YOU_MOVE_M of its last sample, and "you" is the crosshair's own
      sample there (elevYou = elevHere).
@@ -105,32 +113,23 @@ def problems(texts):
     out = []
     code = {f: strip_code(t) for f, t in texts.items()}
 
-    # 1. the GPS motion / altitude split
+    # 1. the GPS fix, its motion and altitude: selfGpsApply's (host-tested); the glue hands it over
     c = code["meshtastic_service.cpp"]
     span = body(c, "MeshtasticService::gpsUpdate", out, "meshtastic_service.cpp")
     if span:
         bs, be = span
-        blocks = ifs(c, bs, be, rx(r"(?<![\w!.>])rmc(?!\w)"))
-        if len(blocks) != 1:
-            out.append("gpsUpdate: expected one `if (rmc)` block, found %d" % len(blocks))
-        else:
-            _, kb, ke = blocks[0]
-            for field in ("gpsSpeedKnX100", "gpsCourseX10", "gpsMotionMs"):
-                sites = [m.start() for m in rx(r"\b%s\s*=(?!=)" % field).finditer(c, bs, be)]
-                if not sites:
-                    out.append("gpsUpdate: %s is never set" % field)
-                elif any(not (kb <= p < ke) for p in sites):
-                    out.append("gpsUpdate: %s is set OUTSIDE `if (rmc)` - a GGA would re-stamp the motion" % field)
-            for field in ("gpsAltM", "gpsAltMs"):
-                sites = [m.start() for m in rx(r"\b%s\s*=(?!=)" % field).finditer(c, bs, be)]
-                if not sites:
-                    out.append("gpsUpdate: %s is never set" % field)
-                elif any(kb <= p < ke for p in sites):
-                    out.append("gpsUpdate: %s is set INSIDE `if (rmc)` - an RMC would re-stamp the altitude" % field)
+        if not rx(r"\bselfGpsApply\s*\(\s*&\s*gpsRx\s*,\s*&\s*selfSlots\s*\[\s*SELF_GPS\s*-\s*1\s*\]\s*,"
+                  r"\s*fx\s*,").search(c, bs, be):
+            out.append("gpsUpdate: selfGpsApply(&gpsRx, &selfSlots[SELF_GPS - 1], fx, ...) not found")
+    for m in rx(r"\bgpsRx\s*\.\s*\w+\s*(?:[-+*/|&]?=(?!=)|\+\+|--)").finditer(c):
+        out.append("meshtastic_service.cpp writes `%s` itself - only selfGpsApply stamps the GPS fix"
+                   % m.group(0).strip())
     c = code["WiPhone.ino"]
-    if not rx(r"\bgpsUpdate\s*\([^;]*,\s*rmc\s*\)\s*;").search(c) or \
-            not rx(r"\brmc\s*=\s*fx\.rmcCount\s*!=").search(c):
-        out.append("WiPhone.ino: gpsUpdate(..., rmc) with `rmc = fx.rmcCount != ...` not found")
+    if not rx(r"\bmeshService\s*\.\s*gpsUpdate\s*\(\s*fx\s*\)\s*;").search(c):
+        out.append("WiPhone.ino: meshService.gpsUpdate(fx) - the whole fix - not found")
+    for m in rx(r"\bfx\s*\.\s*(valid|latI|lonI|sats|hdopX10|altM)\b").finditer(c):
+        out.append("WiPhone.ino reads the reader's sticky fx.%s - a stale no-fix GGA re-stamped the "
+                   "last position that way" % m.group(1))
 
     # 2. A1: no table, search or scan in a key handler, a build or a builder; the slices do it
     c = code["app_almanac.cpp"]
@@ -343,6 +342,22 @@ def problems(texts):
         bs, be = span
         if not rx(r"\bin\.gpsSats\s*=").search(c, bs, be) or not rx(r"\bin\.gpsHdopX10\s*=").search(c, bs, be):
             out.append("almPlaceNow: almPickPlace is not handed the receiver's sats/HDOP - a poor fix passes")
+        elif not rx(r"\bin\.gpsFix\s*=\s*meshService\s*\.\s*getGpsFix\s*\([^;]*,\s*&\s*sats\s*,\s*&\s*hdop\s*\)\s*;"
+                    ).search(c, bs, be) or not rx(r"\bin\.gpsSats\s*=\s*sats\s*;").search(c, bs, be) or \
+                not rx(r"\bin\.gpsHdopX10\s*=\s*hdop\s*;").search(c, bs, be):
+            out.append("almPlaceNow: the fix is not judged by getGpsFix's own sats/HDOP (its rating)")
+        if rx(r"\bgetGpsSky\s*\(").search(c, bs, be):
+            out.append("almPlaceNow asks getGpsSky - the sky's last word is no rating for a fix (an empty "
+                       "no-fix GGA after a 3-satellite fix reads -1/-1 = usable)")
+    cs = code["meshtastic_service.cpp"]
+    span = body(cs, "MeshtasticService::getGpsFix", out, "meshtastic_service.cpp")
+    if span:
+        bs, be = span
+        if not rx(r"\*\s*sats\s*=\s*gpsRx\s*\.\s*fixSats\s*;").search(cs, bs, be) or \
+                not rx(r"\*\s*hdopX10\s*=\s*gpsRx\s*\.\s*fixHdopX10\s*;").search(cs, bs, be) or \
+                rx(r"\bgpsRx\s*\.\s*(?:sats|hdopX10)\b").search(cs, bs, be):
+            out.append("getGpsFix: sats/hdopX10 are not the fix's own rating (gpsRx.fixSats/fixHdopX10) - "
+                       "the Almanac judges the fix by them")
     raw_m = texts["app_maps.cpp"]
     sv = function_body(code["app_maps.cpp"], "MapsApp::elevYouUsable")
     if not sv:
@@ -467,9 +482,16 @@ def problems(texts):
 
 
 MUTATIONS = [
-    ("the RMC speed stamped outside `if (rmc)`", "meshtastic_service.cpp",
-     lambda t: t.replace("    if (rmc) {\n      gpsSpeedKnX100 = speedKnX100;",
-                         "    gpsSpeedKnX100 = speedKnX100;\n    if (rmc) {", 1)),
+    ("the GPS fix stamped by the service itself", "meshtastic_service.cpp",
+     lambda t: t.replace("  const unsigned r = selfGpsApply(&gpsRx, &selfSlots[SELF_GPS - 1], fx, millis());\n",
+                         "  const unsigned r = selfGpsApply(&gpsRx, &selfSlots[SELF_GPS - 1], fx, millis());\n"
+                         "  if (fx.valid) gpsRx.fixMs = millis();\n", 1)),
+    ("the GPS slot left out of the gate", "meshtastic_service.cpp",
+     lambda t: t.replace("selfGpsApply(&gpsRx, &selfSlots[SELF_GPS - 1], fx, millis())",
+                         "selfGpsApply(&gpsRx, NULL, fx, millis())", 1)),
+    ("the reader's sticky fields handed over again", "WiPhone.ino",
+     lambda t: t.replace("          meshService.gpsUpdate(fx);\n",
+                         "          if (fx.valid) meshService.gpsUpdate(fx);\n", 1)),
     ("a day computed in the Left/Right key handler", "app_almanac.cpp",
      lambda t: t.replace("    rebuildKeepingSelection();   // queues the day",
                          "    almDayCompute(&slotOther.day, 0, 0, 0.0, 0.0);\n    rebuildKeepingSelection();   // queues the day", 1)),
@@ -527,6 +549,10 @@ MUTATIONS = [
      lambda t: t.replace("  bool drewInsideBand() {\n    return true;", "  bool drewInsideBand() {\n    return false;", 1)),
     ("a poor fix handed over as good", "app_almanac.cpp",
      lambda t: t.replace("  in.gpsSats = sats;", "", 1)),
+    ("getGpsFix rating the fix by the sky's last word", "meshtastic_service.cpp",
+     lambda t: t.replace("    *sats = gpsRx.fixSats;", "    *sats = gpsRx.sats;", 1)),
+    ("the Almanac judging the fix by the sky's last word", "app_almanac.cpp",
+     lambda t: t.replace("  in.gpsSats = sats;", "  meshService.getGpsSky(&sats, &hdop);\n  in.gpsSats = sats;", 1)),
     ("'above you' about a poor fix", "app_maps.cpp",
      lambda t: t.replace('(kind == MAPS_SELF_POOR_GPS) ? "poor fix"', '(kind == MAPS_SELF_POOR_GPS) ? NULL', 1)),
     ("Follow me reading every noise pixel", "app_maps.cpp",

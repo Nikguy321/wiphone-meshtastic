@@ -445,8 +445,8 @@ public:
    * went on air — the UI must not imply otherwise.
    * 🛑 NOTHING ON THE GPS PATH WRITES THE PIN. setMyPin() does an NVS write and
    * an unconditional announce, so "let the GPS update the pin" would mean a
-   * flash write and a transmission on every fix. The beacon reads gpsLatI/
-   * gpsLonI directly and the pin is left exactly where the user put it. */
+   * flash write and a transmission on every fix. The beacon reads the GPS's
+   * own slot (getSelfFix) and the pin is left exactly where the user put it. */
   bool getMyPin(int32_t* latI, int32_t* lonI, uint32_t* pinnedAtUnix) const;
   bool setMyPin(int32_t latI, int32_t lonI);              // persist + announce
   void clearMyPin();
@@ -535,28 +535,42 @@ public:
    * service kept answering "GPS" with coordinates from a receiver that had
    * been switched off up to two minutes earlier. It writes nothing and blocks
    * on nothing. */
-  /* altM = the GGA antenna altitude (NmeaFix::altM, -10000 = unknown); speedKnX100/courseX10 =
-   * the last RMC's own motion (NmeaFix, -1 = absent in that sentence). All three are kept WITH
-   * the fix: they are stored only when `valid`, so they describe the same moment as
-   * gpsLatI/gpsLonI and age with it. */
-  /* `rmc`: the sentence that just completed was an RMC (else a GGA). The motion is taken ONLY
-   * from an RMC and the altitude ONLY from a GGA, each stamped with its own sentence's time: the
-   * reader hands both sentences the whole NmeaFix, so a GGA carries the last RMC's speed and an
-   * RMC the last GGA's altitude, and stamping those as new kept an old speed "current" while RMCs
-   * were being lost (review 2026-09-27). */
-  void gpsUpdate(bool valid, int32_t latI, int32_t lonI, int sats, int hdopX10,
-                 int altM, int32_t speedKnX100, int32_t courseX10, bool rmc);
+  /* One completed RMC or GGA from the woods UART (the reader's fix() right after feed() returned
+   * true). WHAT it may change is self_pos.h's selfGpsApply, host-tested, and nothing else (0.9.82,
+   * the phone-location review of 2026-10-10): only a sentence that itself carries a measured
+   * position stamps the fix — so a run of no-fix GGAs with the RMCs lost can no longer re-stamp
+   * the last position, with the last good sats/HDOP, as NOW (the map, the Almanac, the beacon and
+   * the time zone all believed it). The motion comes only from a stamping RMC and the altitude
+   * only from a stamping GGA, each with its own sentence's time (review 2026-09-27). Stamped with
+   * millis() here, not the loop pass's `now`: the loop drains a whole UART buffer per pass. */
+  void gpsUpdate(const NmeaFix& fx);
+  /* The plate's last fix (false when there has never been one), its age, and ITS OWN rating
+   * (sats/hdopX10 as the GPS slot holds them, -1 = not said or no fix): the numbers to judge
+   * that fix by (meshPosFixUsable - the Almanac's "last GPS"). Not the sky now: getGpsSky. */
   bool getGpsFix(int32_t* latI, int32_t* lonI, uint32_t* ageMs,
                  int* sats, int* hdopX10) const;
-  /* The Almanac's Position screen (0.9.80): the last GGA's altitude (m, -10000 = unknown) and
-   * that GGA's age, the last RMC's speed over ground (knots x100, -1 = unknown) and course over
-   * ground (degrees true x10, -1 = unknown) and that RMC's age, and how old the fix is. False
+  /* The receiver's own last word on its sky: the last GGA's sats and HDOP x10 whatever its
+   * quality, -1 where that sentence left a field empty (or before any GGA), with or without a
+   * fix - "sats in view" on `gps` and the Almanac's satellite rows. ⚠ NEVER A RATING FOR A FIX:
+   * after a POOR fix one empty no-fix GGA says -1/-1 here, which meshPosFixUsable passes
+   * (review 2026-10-11); judge a fix by getGpsFix's numbers. */
+  void getGpsSky(int* sats, int* hdopX10) const {
+    if (sats) {
+      *sats = gpsRx.sats;
+    }
+    if (hdopX10) {
+      *hdopX10 = gpsRx.hdopX10;
+    }
+  }
+  /* The Almanac's Position screen (0.9.80): the last fix GGA's own altitude (m, -10000 = unknown)
+   * and that GGA's age, the last fix RMC's speed over ground (knots x100, -1 = unknown) and course
+   * over ground (degrees true x10, -1 = unknown) and that RMC's age, and how old the fix is. False
    * (nothing written) when there has never been a fix. An age with nothing behind it is
    * UINT32_MAX. A separate accessor rather than a wider getGpsFix(), which has three call sites.
    * It says nothing about the receiver being on: ask isGpsEnabled(). */
   bool getGpsMotion(int* altM, uint32_t* altAgeMs, int32_t* speedKnX100, int32_t* courseX10,
                     uint32_t* motionAgeMs, uint32_t* ageMs) const;
-  bool gpsEverFixed() const { return gpsFixMs != 0; }
+  bool gpsEverFixed() const { return gpsRx.fixMs != 0; }
   void setGpsEnabled(bool on) { gpsEnabled = on; selfSlots[SELF_GPS - 1].enabled = on; }
   bool isGpsEnabled() const { return gpsEnabled; }
 
@@ -854,14 +868,11 @@ private:
   uint8_t      announceOutcome;           // ...and what became of it (MeshTxOutcome)
   const char*  lastSendErr;               // see lastSendError(); a literal or NULL
   uint32_t     nextWpSweepMs;             // next local waypoint-expiry sweep
-  int32_t      gpsLatI, gpsLonI;          // last VALID GPS fix (1e-7 deg)
-  uint32_t     gpsFixMs;                  // millis() of that fix; 0 = never
-  int          gpsSats, gpsHdopX10;       // -1 = unknown
-  int          gpsAltM;                   // the last GGA's altitude, m (-10000 = unknown)
-  uint32_t     gpsAltMs;                  // ...millis() of that GGA; 0 = none
-  int32_t      gpsSpeedKnX100;            // the last RMC's speed over ground, knots x100 (-1 = unknown)
-  int32_t      gpsCourseX10;              // the last RMC's course over ground, deg true x10 (-1 = unknown)
-  uint32_t     gpsMotionMs;               // ...millis() of that RMC; 0 = none
+  /* The woods plate's receiver (self_pos.h, SelfGpsRx): its last fix — position, time, rating,
+   * the stamping GGA's altitude and the stamping RMC's motion, each with its own stamp — and its
+   * own last word on the sky (the last GGA's sats/HDOP). Written ONLY by selfGpsApply, from
+   * gpsUpdate(). ~70 B, RAM only. */
+  SelfGpsRx    gpsRx;
   /* Mirror of WiPhone.ino's gGpsNmea, set by setGpsEnabled() from the two
    * places that toggle it (the My node row and serial `gps on|off`). Read here
    * rather than extern'd because gGpsNmea is not visible in this translation
@@ -869,8 +880,8 @@ private:
    * the next such flag ends up out of sync too. Seeded in setup() from the same
    * NVS key the .ino reads, so there is no boot-order dependency between them. */
   bool         gpsEnabled;
-  /* Every source's last fix, indexed src - 1 (self_pos.h). The GPS slot mirrors the gps*
-   * fields above, written in gpsUpdate() (or by `pos inject gps`); the PHONE slot is written
+  /* Every source's last fix, indexed src - 1 (self_pos.h). The GPS slot mirrors gpsRx's fix,
+   * written in gpsUpdate() (or by `pos inject gps`); the PHONE slot is written
    * only by phoneUpdate() and the bench; SELF_NET (Wi-Fi location, geoloc.h) only by
    * geoloc_net.cpp, switched by setNetLocSetting(). ~110 B of BSS. */
   SelfSlot     selfSlots[SELF_SRC_COUNT];

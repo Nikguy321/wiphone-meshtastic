@@ -422,6 +422,138 @@ void selfNetTxCell(const SelfNetTxMem* m, const SelfFix* fx, int32_t* latI, int3
   *lonI = meshPosTruncate(fx->lonI, SELF_NET_PREC_BITS);
 }
 
+// ---------------------------------------------------------------- the woods plate's GPS (UART)
+
+void selfGpsInit(SelfGpsRx* rx) {
+  if (!rx) {
+    return;
+  }
+  memset(rx, 0, sizeof(*rx));
+  rx->sats = rx->hdopX10 = -1;
+  rx->rmcHms = rx->ggaHms = -1;
+  rx->fixSats = rx->fixHdopX10 = -1;
+  rx->altM = -10000;
+  rx->speedKnX100 = rx->courseX10 = -1;
+}
+
+/* The gga* fields' "present but unreadable" (-2) is no number either: for a rating, -1. */
+static int ggaWord(int32_t v) {
+  return v >= 0 ? (int)v : -1;
+}
+
+/* Is THIS sentence a measured fix (self_pos.h)? Each test reads the sentence's own fields only —
+ * never the reader's sticky latI/sats/valid as they stood before it. The same-second veto is the
+ * caller's. */
+static bool rmcSaysFix(const NmeaFix& f) {
+  /* `valid` after an RMC is THAT RMC's: status A with coordinates that parsed (nmea.cpp), and
+   * then latI/lonI are its own. rmcStatus is checked as well, so the rule reads whole here. */
+  return f.rmcStatus == 'A' && f.valid && selfRmcModeOk(f.rmcMode);
+}
+
+static bool ggaSaysFix(const NmeaFix& f) {
+  return f.ggaQuality >= 1 && f.ggaQuality <= 5 && f.ggaHasPos;   // 6 DR, 7 manual, 8 sim: not measured
+}
+
+static bool sameSecond(int32_t a, int32_t b) {
+  return a >= 0 && b >= 0 && a == b;
+}
+
+unsigned selfGpsApply(SelfGpsRx* rx, SelfSlot* slot, const NmeaFix& f, uint32_t nowMs) {
+  if (!rx || (f.lastKind != NMEA_LAST_RMC && f.lastKind != NMEA_LAST_GGA)) {
+    return 0;
+  }
+  const uint32_t stampMs = nowMs ? nowMs : 1;            // millis() == 0 must not read as "never"
+  const bool rmc = f.lastKind == NMEA_LAST_RMC;
+  bool stamp = false;
+  int sats = -1, hdop = -1;                              // the stamp's rating
+  int32_t latI = 0, lonI = 0;
+
+  if (rmc) {
+    const bool fix = rmcSaysFix(f);
+    /* Vetoed by a GGA of the same second that came FIRST and said no fix (a GGA-first receiver;
+     * the M100's GGA for this second has not arrived yet, so it never meets this). */
+    stamp = fix && !(sameSecond(rx->ggaHms, f.rmcHms) && !rx->ggaFix);
+    rx->rmcHms = f.rmcHms;
+    rx->rmcFix = fix;
+    if (stamp) {
+      latI = f.latI;
+      lonI = f.lonI;
+      /* No sats/HDOP in an RMC: the last GGA's own words, while they are this epoch's or the
+       * one before (self_pos.h - a no-fix GGA's "00" included, which is the point). */
+      if (rx->ggaMs != 0 && (uint32_t)(nowMs - rx->ggaMs) <= SELF_GPS_GGA_PAIR_MS) {
+        sats = rx->sats;
+        hdop = rx->hdopX10;
+      }
+      /* ...but a borrowed rating may only make the fix look WORSE (review 2026-10-11). Where it
+       * passes - "not said" included: an empty GGA, or none within the window - while the last
+       * word on record FAILS, that failing word stands: the last GGA's own (its "00" from before
+       * a cold start's lost GGAs), else the fix this one replaces (3 satellites, then GGAs lost
+       * or a GGA with empty fields). Only a GGA that says better lifts it. -1 above let a 20 km
+       * fix go LIVE - and out on the beacon - after 3 s of lost GGAs. */
+      if (meshPosFixUsable(sats, hdop)) {
+        if (rx->ggaMs != 0 && !meshPosFixUsable(rx->sats, rx->hdopX10)) {
+          sats = rx->sats;
+          hdop = rx->hdopX10;
+        } else if (rx->fixMs != 0 && !meshPosFixUsable(rx->fixSats, rx->fixHdopX10)) {
+          sats = rx->fixSats;
+          hdop = rx->fixHdopX10;
+        }
+      }
+    }
+  } else {
+    const bool fix = ggaSaysFix(f);
+    /* The receiver's word on its sky is this GGA's, whatever its quality: what `gps` shows and
+     * what the next RMC is rated by. */
+    rx->sats = ggaWord(f.ggaSats);
+    rx->hdopX10 = ggaWord(f.ggaHdopX10);
+    rx->ggaMs = stampMs;
+    const bool garbled = f.ggaSats == -2 || f.ggaHdopX10 == -2;
+    stamp = fix && !garbled && !(sameSecond(rx->rmcHms, f.ggaHms) && !rx->rmcFix);
+    rx->ggaHms = f.ggaHms;
+    rx->ggaFix = fix;
+    if (stamp) {
+      latI = f.ggaLatI;
+      lonI = f.ggaLonI;
+      sats = rx->sats;
+      hdop = rx->hdopX10;
+    } else if (rx->fixMs != 0 && !meshPosFixUsable(rx->sats, rx->hdopX10)) {
+      /* No fix in this sentence, and its OWN numbers say the sky is poor (the M100's "00",
+       * 99.99): the last fix reads POOR from now on — as the plate always has — at its own
+       * time. Only a failing rating is copied, so nothing here can make a fix look better. */
+      rx->fixSats = rx->sats;
+      rx->fixHdopX10 = rx->hdopX10;
+      if (slot && !slot->injected && slot->fixMs != 0) {
+        slot->sats = rx->fixSats;          // a bench fix is the bench's: the next stamp replaces it
+        slot->hdopX10 = rx->fixHdopX10;
+      }
+    }
+  }
+  if (!stamp) {
+    return 0;
+  }
+
+  const bool first = rx->fixMs == 0;
+  rx->latI = latI;
+  rx->lonI = lonI;
+  rx->fixMs = stampMs;
+  rx->fixSats = sats;
+  rx->fixHdopX10 = hdop;
+  /* Each from ITS OWN sentence, with that sentence's stamp (review 2026-09-27): the motion only
+   * from a stamping RMC (-1 where it had none), the altitude only from a stamping GGA. */
+  if (rmc) {
+    rx->speedKnX100 = f.speedKnX100;
+    rx->courseX10 = f.courseX10;
+    rx->motionMs = stampMs;
+  } else {
+    rx->altM = f.ggaAltM;
+    rx->altMs = stampMs;
+  }
+  if (slot) {
+    selfSlotSet(slot, latI, lonI, sats, hdop, stampMs, false);   // replaces a bench fix too
+  }
+  return SELF_GPS_STAMPED | (first ? SELF_GPS_FIRST : 0);
+}
+
 // ---------------------------------------------------------------- the stream's small rules
 
 int selfPhonePorts(uint16_t custom, uint16_t out[SELF_PHONE_PORTS_MAX]) {
@@ -788,6 +920,18 @@ void selfProbeStart(SelfProbe* p, uint32_t assoc) {
   p->assoc = assoc;
 }
 
+void selfProbeSetHotspot(SelfProbe* p, bool hotspot) {
+  if (p) {
+    p->hotspot = hotspot;
+  }
+}
+
+// The ladder, with a phone hotspot's dead rounds asked again sooner (SelfProbe.hotspot).
+static uint32_t probeDelay(const SelfProbe* p) {
+  const uint32_t d = selfProbeDelayMs(p->fails, p->deadRounds);
+  return (p->hotspot && d > SELF_PHONE_HOTSPOT_WAIT_MS) ? SELF_PHONE_HOTSPOT_WAIT_MS : d;
+}
+
 bool selfProbeDue(const SelfProbe* p, uint32_t nowMs) {
   // Signed difference: right across the millis() wrap, for any wait under 24 days.
   return p && (!p->wait || (int32_t)(nowMs - p->nextMs) >= 0);
@@ -817,7 +961,7 @@ void selfProbeFailed(SelfProbe* p, uint16_t custom, uint32_t nowMs) {
       p->idx = 0;
       p->portFails = 0;
     }
-    arm(p, nowMs, selfProbeDelayMs(p->fails, p->deadRounds));
+    arm(p, nowMs, probeDelay(p));
     return;
   }
   uint16_t ports[SELF_PHONE_PORTS_MAX];
@@ -830,7 +974,7 @@ void selfProbeFailed(SelfProbe* p, uint16_t custom, uint32_t nowMs) {
   p->idx = 0;                                     // the whole round failed
   p->fails = inc8(p->fails);
   p->deadRounds = inc8(p->deadRounds);
-  arm(p, nowMs, selfProbeDelayMs(p->fails, p->deadRounds));
+  arm(p, nowMs, probeDelay(p));
 }
 
 void selfProbeGood(SelfProbe* p, uint16_t port) {
@@ -850,7 +994,7 @@ void selfProbeDropped(SelfProbe* p, uint32_t nowMs) {
     return;
   }
   p->fails = inc8(p->fails);
-  arm(p, nowMs, selfProbeDelayMs(p->fails, p->deadRounds));
+  arm(p, nowMs, probeDelay(p));
 }
 
 bool selfProbeNoApp(const SelfProbe* p) {

@@ -1762,15 +1762,20 @@ static void run(char* line) {
     }
     int32_t la = 0, lo = 0;
     uint32_t age = 0;
-    int sats = -1, hdop = -1;
+    int sats = -1, hdop = -1, skySats = -1, skyHdop = -1;
+    /* Two different numbers since 0.9.82 (review 2026-10-11): the fix's own rating - what the
+     * map, the beacon and the Almanac judge it by - and the last GGA's word on the sky now. */
+    meshService.getGpsSky(&skySats, &skyHdop);
     if (meshService.getGpsFix(&la, &lo, &age, &sats, &hdop)) {
       say("gps: fix %d.%05d,%d.%05d  age %lus  sats=%d hdop=%d.%d\n",
           (int)(la / 10000000), abs((int)((la % 10000000) / 100)),
           (int)(lo / 10000000), abs((int)((lo % 10000000) / 100)),
           (unsigned long)(age / 1000), sats,
           hdop >= 0 ? hdop / 10 : -1, hdop >= 0 ? hdop % 10 : 0);
+      say("gps: sky now (last GGA): sats=%d hdop=%d.%d\n", skySats,
+          skyHdop >= 0 ? skyHdop / 10 : -1, skyHdop >= 0 ? skyHdop % 10 : 0);
     } else {
-      say("gps: no fix yet (sats in view: %d)\n", sats);
+      say("gps: no fix yet (sats in view: %d)\n", skySats);
     }
     /* GPS TIME (0.9.79): what the last RMC did to the clock, in one line. `clock` has the rest. */
     say("gps: time -> %s (`clock` for the rest)\n",

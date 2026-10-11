@@ -70,6 +70,84 @@ static void live(SelfPhoneStream* s) {
 }
 static const uint32_t T = 1000 + SELF_PHONE_SETTLE_MS;     // the first settled millisecond
 
+// ---------------------------------------------------------------- the woods plate's UART
+/* Sentences as the plate's M100 sends them (talker GN), with any position: P1 = 40.0,-100.0,
+ * P2 = 40.01,-100.0 (40 deg 0.6 min), NOPOS = four empty fields. Every field a string. */
+static const char* P1 = "4000.00000,N,10000.00000,W";
+static const char* P2 = "4000.60000,N,10000.00000,W";
+static const char* NOPOS = ",,,";
+static const int32_t P2_LAT = 400100000;
+
+static const char* uGga(const char* hms, const char* pos, const char* q, const char* sats,
+                        const char* hdop, const char* alt = "100.0") {
+  static char buf[4][160];
+  static int k = 0;
+  char body[140];
+  snprintf(body, sizeof(body), "GNGGA,%s,%s,%s,%s,%s,%s,M,,M,,", hms, pos, q, sats, hdop, alt);
+  char* out = buf[k++ & 3];
+  ck(out, 160, body, true);
+  return out;
+}
+
+static const char* uRmc(const char* hms, const char* status, const char* pos, const char* mode,
+                        const char* sog = "0.50") {
+  static char buf[4][160];
+  static int k = 0;
+  char body[140];
+  snprintf(body, sizeof(body), "GNRMC,%s,%s,%s,%s,,101026,,,%s", hms, status, pos, sog, mode);
+  char* out = buf[k++ & 3];
+  ck(out, 160, body, true);
+  return out;
+}
+
+// "12mmss.00" for second `s` of the hour (s < 3600).
+static const char* hmsAt(int s) {
+  static char buf[8][16];
+  static int k = 0;
+  char* out = buf[k++ & 7];
+  snprintf(out, 16, "12%02d%02d.00", (s / 60) % 60, s % 60);
+  return out;
+}
+
+/* The loop's woods-UART path, as WiPhone.ino runs it: every byte into the plate's reader, and
+ * each RMC/GGA it completes handed to selfGpsApply with the GPS slot. */
+struct Uart {
+  NmeaReader r;
+  SelfGpsRx  rx;
+  SelfSlot   sl[SELF_SRC_COUNT];
+  unsigned   stamps, firsts;
+};
+static void uInit(Uart* u) {
+  u->r.reset();
+  selfGpsInit(&u->rx);
+  memset(u->sl, 0, sizeof(u->sl));
+  for (int i = 0; i < SELF_SRC_COUNT; i++) selfSlotClear(&u->sl[i]);
+  u->sl[SELF_GPS - 1].enabled = true;
+  u->stamps = u->firsts = 0;
+}
+static unsigned uFeed(Uart* u, const char* text, uint32_t now) {
+  unsigned all = 0;
+  for (const char* p = text; *p; p++) {
+    if (u->r.feed(*p)) {
+      const unsigned f = selfGpsApply(&u->rx, &u->sl[SELF_GPS - 1], u->r.fix(), now);
+      u->stamps += (f & SELF_GPS_STAMPED) ? 1 : 0;
+      u->firsts += (f & SELF_GPS_FIRST) ? 1 : 0;
+      all |= f;
+    }
+  }
+  return all;
+}
+static SelfSlot* uGps(Uart* u) { return &u->sl[SELF_GPS - 1]; }
+static int uState(Uart* u, uint32_t now, unsigned flags) {
+  return selfSlotState(uGps(u), SELF_GPS, now, flags);
+}
+/* One M100 second: its RMC, then its GGA 40 ms later (the order u-blox sends them). */
+static void uSecond(Uart* u, int s, uint32_t t, const char* pos = P1, const char* sats = "09",
+                    const char* hdop = "0.9") {
+  uFeed(u, uRmc(hmsAt(s), "A", pos, "A"), t);
+  uFeed(u, uGga(hmsAt(s), pos, "1", sats, hdop), t + 40);
+}
+
 /* #define NAME <number | SELF_*_FRESH_MS> in a header this suite cannot compile. */
 static long readDefine(const char* path, const char* name) {
   FILE* f = fopen(path, "r");
@@ -1067,6 +1145,333 @@ int main() {
     CHECK(o.sats == 11 && o.hdopX10 == 7 && !s.placeholder, "a moving pair is a real rating again");
     feedS(&s, gga("160011.00", "1", "8", "0.9"), T + 11000u, -1, &o);
     CHECK(o.sats == 8 && o.hdopX10 == 9, "...and the run starts over");
+  }
+
+  /* ════ THE WOODS PLATE'S UART: only a sentence that carries a fix stamps it (0.9.82) ════════
+   * The 2026-10-10 review: the loop handed the service the reader's sticky fields on every RMC
+   * or GGA and the fix was stamped whenever `valid` (an RMC's word) was true — so with the RMCs
+   * lost, every no-fix GGA re-stamped the last position, with the last good sats/HDOP, as NOW. */
+  static Uart u;
+
+  // ---- the M100 at 1 Hz, RMC then GGA: every sentence stamps, nothing changes for it -------
+  {
+    uInit(&u);
+    CHECK(u.rx.fixMs == 0 && u.rx.sats == -1 && u.rx.altM == -10000 && u.rx.speedKnX100 == -1 &&
+          uState(&u, 1000, 0) == SELF_ST_NEVER, "boot: no fix, nothing heard");
+    uFeed(&u, uRmc(hmsAt(0), "A", P1, "A"), 10000);
+    CHECK(u.rx.fixMs == 10000 && u.rx.fixSats == -1 && u.rx.fixHdopX10 == -1 &&
+          uState(&u, 10000, SELF_PICK_TX) == SELF_ST_LIVE,
+          "the very first RMC, no GGA heard yet: a fix, not rated (unknown is not failure)");
+    uFeed(&u, uGga(hmsAt(0), P1, "1", "09", "0.9"), 10040);
+    for (int s = 1; s < 10; s++) {
+      const uint32_t t = 10000 + 1000u * s;
+      uFeed(&u, uRmc(hmsAt(s), "A", P1, "A"), t);
+      if (s == 5) {
+        CHECK(u.rx.fixMs == t && uGps(&u)->fixMs == t && uGps(&u)->sats == 9 &&
+              uGps(&u)->hdopX10 == 9 && uState(&u, t, SELF_PICK_TX) == SELF_ST_LIVE,
+              "an RMC stamps the fix, rated by the GGA of the second before (9 sats, HDOP 0.9)");
+      }
+      uFeed(&u, uGga(hmsAt(s), P1, "1", "09", "0.9"), t + 40);
+    }
+    CHECK(u.stamps == 20 && u.firsts == 1, "ten seconds: all 20 sentences stamped, FIRST once");
+    CHECK(u.rx.fixMs == 19040 && uGps(&u)->fixMs == 19040 && uGps(&u)->latI == D_LAT &&
+          uGps(&u)->lonI == D_LON && uGps(&u)->sats == 9 && uGps(&u)->hdopX10 == 9 &&
+          !uGps(&u)->injected, "the slot: the last GGA's own position, time and rating");
+    CHECK(u.rx.altM == 100 && u.rx.altMs == 19040 && u.rx.speedKnX100 == 50 &&
+          u.rx.motionMs == 19000 && u.rx.sats == 9 && u.rx.hdopX10 == 9,
+          "altitude from the GGA, motion from the RMC, each at its own sentence's time");
+  }
+
+  // ---- 🛑 THE BUG: RMCs lost, a run of no-fix GGAs with empty fields ------------------------
+  {
+    uInit(&u);
+    for (int s = 0; s < 5; s++) uSecond(&u, s, 10000 + 1000u * s);
+    const uint32_t fixAt = 14040;                       // the last GGA with a fix
+    bool kept = true;
+    for (int s = 5; s < 205; s++) {                     // 200 s, GGAs only, quality 0, all empty
+      const uint32_t t = 10040 + 1000u * s;
+      uFeed(&u, uGga(hmsAt(s), NOPOS, "0", "", "", ""), t);
+      kept = kept && u.rx.fixMs == fixAt && uGps(&u)->fixMs == fixAt;
+      if (t == fixAt + 31000) {
+        SelfFix fx;
+        CHECK(uState(&u, t, SELF_PICK_TX) == SELF_ST_OLD && selfPick(u.sl, t, SELF_PICK_TX, &fx) == SELF_NONE,
+              "RMCs lost + no-fix GGAs: OLD for sending 31 s after the last fix (the beacon finds nothing)");
+      }
+      if (t == fixAt + 121000) {
+        CHECK(uState(&u, t, 0) == SELF_ST_OLD, "...and OLD for the screens at 121 s");
+      }
+    }
+    CHECK(kept && u.stamps == 10, "...200 no-fix GGAs: the fix keeps its OWN time (never re-stamped)");
+    CHECK(uGps(&u)->latI == D_LAT && uGps(&u)->sats == 9 && uGps(&u)->hdopX10 == 9 && u.rx.altMs == fixAt,
+          "...the slot keeps the fix's own rating, the altitude its own stamp");
+    CHECK(u.rx.sats == -1 && u.rx.hdopX10 == -1,
+          "...the receiver's word is the last GGA's own: it said nothing (-1), not the old 9 / 0.9");
+    /* What the stale stamp cost: the GPS outranks the phone, so an old GPS position "live" hid
+     * the hotspot phone's real one from the map, the beacon and the time zone. */
+    SelfSlot* ph = &u.sl[SELF_PHONE - 1];
+    ph->enabled = true;
+    const uint32_t now = 10040 + 1000u * 204;
+    selfSlotSet(ph, P2_LAT, D_LON, 9, 9, now - 500, false);
+    SelfFix fx;
+    CHECK(selfPick(u.sl, now, 0, &fx) == SELF_PHONE && selfPick(u.sl, now, SELF_PICK_TX, &fx) == SELF_PHONE,
+          "...so a live phone fix is picked over the old GPS one (show and send)");
+  }
+
+  // ---- the same with the M100's own no-fix words ("00" satellites, HDOP 99.99) -------------
+  {
+    uInit(&u);
+    for (int s = 0; s < 5; s++) uSecond(&u, s, 10000 + 1000u * s);
+    const uint32_t fixAt = 14040;
+    uFeed(&u, uGga(hmsAt(5), NOPOS, "0", "00", "99.99", ""), 15040);
+    CHECK(u.rx.fixMs == fixAt && uState(&u, 15040, 0) == SELF_ST_POOR && uGps(&u)->sats == 0 &&
+          uGps(&u)->hdopX10 == 999 && uGps(&u)->latI == D_LAT,
+          "RMC lost, a '00 satellites' GGA: not re-stamped, the last fix POOR at once (as always)");
+    for (int s = 6; s <= 45; s++) uFeed(&u, uGga(hmsAt(s), NOPOS, "0", "00", "99.99", ""), 10040 + 1000u * s);
+    CHECK(u.rx.fixMs == fixAt && uState(&u, 55040, SELF_PICK_TX) == SELF_ST_OLD,
+          "...and 41 s on, OLD for sending (the bar), not a fresh POOR fix every second");
+  }
+
+  // ---- the M100 losing its fix the ordinary way (V + quality 0), and getting it back -------
+  {
+    uInit(&u);
+    for (int s = 0; s < 5; s++) uSecond(&u, s, 10000 + 1000u * s);
+    const uint32_t fixAt = 14040;
+    for (int s = 5; s < 135; s++) {
+      const uint32_t t = 10000 + 1000u * s;
+      uFeed(&u, uRmc(hmsAt(s), "V", NOPOS, "N", ""), t);
+      uFeed(&u, uGga(hmsAt(s), NOPOS, "0", "00", "99.99", ""), t + 40);
+      if (s == 5) {
+        CHECK(uState(&u, t + 40, 0) == SELF_ST_POOR, "a lost fix (V, then quality 0 '00'): POOR at once");
+      }
+    }
+    CHECK(u.rx.fixMs == fixAt && uGps(&u)->latI == D_LAT && uState(&u, fixAt + 30000, SELF_PICK_TX) == SELF_ST_OLD &&
+          uState(&u, fixAt + 120000, 0) == SELF_ST_OLD && u.rx.speedKnX100 == 50 && u.rx.motionMs == 14000,
+          "...its position and motion kept, OLD at 30 s to send and 120 s to show");
+    CHECK(u.rx.sats == 0 && u.rx.hdopX10 == 999, "...the receiver's word: 0 satellites, HDOP 99.9");
+    uFeed(&u, uRmc(hmsAt(135), "A", P2, "A"), 145000);
+    CHECK(u.rx.fixMs == 145000 && uGps(&u)->latI == P2_LAT && uGps(&u)->sats == 0 &&
+          uState(&u, 145000, 0) == SELF_ST_POOR,
+          "back: the first RMC stamps the new place, POOR - the GGA before it said 00 satellites");
+    uFeed(&u, uGga(hmsAt(135), P2, "1", "08", "1.1"), 145040);
+    CHECK(uState(&u, 145040, SELF_PICK_TX) == SELF_ST_LIVE && uGps(&u)->sats == 8 && uGps(&u)->hdopX10 == 11,
+          "...and its own GGA rates it: LIVE, 8 sats, HDOP 1.1");
+  }
+
+  // ---- a cold start: never LIVE on the RMC before the first fix's own GGA ------------------
+  {
+    uInit(&u);
+    for (int s = 0; s < 5; s++) {
+      uFeed(&u, uRmc(hmsAt(s), "V", NOPOS, "N", ""), 10000 + 1000u * s);
+      uFeed(&u, uGga(hmsAt(s), NOPOS, "0", "00", "99.99", ""), 10040 + 1000u * s);
+    }
+    CHECK(u.rx.fixMs == 0 && u.stamps == 0, "no fix yet: nothing stamped");
+    SelfFix fx;
+    uFeed(&u, uRmc(hmsAt(5), "A", P1, "A"), 15000);
+    CHECK(u.rx.fixMs == 15000 && uState(&u, 15000, 0) == SELF_ST_POOR &&
+          selfPick(u.sl, 15000, SELF_PICK_TX, &fx) == SELF_NONE,
+          "the first RMC with a fix: POOR (the GGA a second ago said 00), so an owed beacon waits");
+    uFeed(&u, uGga(hmsAt(5), P1, "1", "03", "6.4"), 15040);
+    CHECK(uState(&u, 15040, 0) == SELF_ST_POOR, "its GGA: 3 satellites, HDOP 6.4 (2026-08-25: 20 km off) - POOR");
+    uFeed(&u, uRmc(hmsAt(6), "A", P1, "A"), 16000);
+    CHECK(uState(&u, 16000, 0) == SELF_ST_POOR && uGps(&u)->sats == 3, "the next RMC: still rated by that GGA, POOR");
+    uFeed(&u, uGga(hmsAt(6), P1, "1", "07", "1.3"), 16040);
+    CHECK(uState(&u, 16040, SELF_PICK_TX) == SELF_ST_LIVE, "7 satellites: LIVE");
+  }
+
+  // ---- an RMC's rating is the last GGA's, for SELF_GPS_GGA_PAIR_MS, then not said ---------
+  {
+    uInit(&u);
+    uSecond(&u, 0, 10000);                              // GGA at 10040: 9 / 0.9
+    uFeed(&u, uRmc(hmsAt(1), "A", P1, "A"), 10040 + 1000);
+    CHECK(u.rx.fixSats == 9, "an RMC 1 s after the GGA: its 9 sats");
+    uFeed(&u, uRmc(hmsAt(3), "A", P1, "A"), 10040 + SELF_GPS_GGA_PAIR_MS);
+    CHECK(u.rx.fixSats == 9 && u.rx.fixHdopX10 == 9, "...3.000 s after (two GGAs lost): still its numbers");
+    uFeed(&u, uRmc(hmsAt(4), "A", P1, "A"), 10040 + SELF_GPS_GGA_PAIR_MS + 1);
+    CHECK(u.rx.fixSats == -1 && u.rx.fixHdopX10 == -1 && uGps(&u)->sats == -1 &&
+          u.rx.fixMs == 10040 + SELF_GPS_GGA_PAIR_MS + 1,
+          "...3.001 s after: a fix, not rated (-1) - never numbers that old");
+  }
+
+  // ---- receivers that send only one of the two -----------------------------------------
+  {
+    uInit(&u);
+    for (int s = 0; s < 5; s++) uFeed(&u, uRmc(hmsAt(s), "A", P1, "A"), 10000 + 1000u * s);
+    CHECK(u.stamps == 5 && uState(&u, 14000, SELF_PICK_TX) == SELF_ST_LIVE && uGps(&u)->sats == -1,
+          "RMC only (no GGA ever): fixes, unrated, LIVE - refusing on silence breaks such receivers");
+    uInit(&u);
+    for (int s = 0; s < 5; s++) uFeed(&u, uGga(hmsAt(s), P1, "1", "09", "0.9"), 10000 + 1000u * s);
+    CHECK(u.stamps == 5 && u.rx.fixMs == 14000 && uState(&u, 14000, SELF_PICK_TX) == SELF_ST_LIVE &&
+          u.rx.altMs == 14000 && u.rx.motionMs == 0,
+          "GGA only (no RMC): a quality-1 GGA is a measurement, so it fixes (altitude, no motion)");
+    for (int s = 5; s < 40; s++) uFeed(&u, uGga(hmsAt(s), NOPOS, "0", "", "", ""), 10000 + 1000u * s);
+    CHECK(u.rx.fixMs == 14000 && uState(&u, 49000, SELF_PICK_TX) == SELF_ST_OLD, "...and a lost fix goes OLD");
+  }
+
+  // ---- what a GGA has to say to stamp ------------------------------------------------------
+  {
+    uInit(&u);
+    uSecond(&u, 0, 10000);
+    const uint32_t fixAt = 10040;
+    const char* notMeasured[] = { "0", "6", "7", "8", "" };
+    bool none = true;
+    for (int i = 0; i < 5; i++) {
+      uFeed(&u, uGga(hmsAt(1 + i), P2, notMeasured[i], "05", "1.5"), 11000 + 1000u * i);
+      none = none && u.rx.fixMs == fixAt && uGps(&u)->latI == D_LAT;
+    }
+    CHECK(none, "a GGA WITH coordinates but quality 0, 6 (dead reckoning), 7 (manual), 8 (simulator) or "
+                "none: never stamps, never moves the fix");
+    uFeed(&u, uGga(hmsAt(10), P2, "3", "05", "1.5"), 20000);
+    CHECK(u.rx.fixMs == 20000 && uGps(&u)->latI == P2_LAT, "quality 3 (PPS) is a measurement, as in the phone gate");
+    uFeed(&u, uGga(hmsAt(11), P1, "1", "1x", "1.5"), 21000);
+    CHECK(u.rx.fixMs == 20000 && u.rx.sats == -1 && uGps(&u)->latI == P2_LAT,
+          "garbled satellites ('1x'): not stamped, and the receiver's word is 'not said'");
+    uFeed(&u, uGga(hmsAt(12), P1, "1", "", "", ""), 22000);
+    CHECK(u.rx.fixMs == 22000 && u.rx.fixSats == -1 && u.rx.fixHdopX10 == -1 && uGps(&u)->sats == -1,
+          "a fix GGA with sats/HDOP empty is rated by itself (-1), not by the GGA before it");
+    uFeed(&u, uGga(hmsAt(13), P1, "1", "09", "0.9", ""), 23000);
+    CHECK(u.rx.altM == -10000 && u.rx.altMs == 23000,
+          "a fix GGA with no altitude: altitude unknown as of now, not the last one re-stamped");
+  }
+
+  // ---- what an RMC has to say to stamp, and its motion ------------------------------------
+  {
+    uInit(&u);
+    uSecond(&u, 0, 10000);
+    const char* modes[] = { "E", "N", "M", "S" };
+    bool none = true;
+    for (int i = 0; i < 4; i++) {
+      uFeed(&u, uRmc(hmsAt(1 + i), "A", P2, modes[i], "5.00"), 11000 + 1000u * i);
+      none = none && u.rx.fixMs == 10040 && uGps(&u)->latI == D_LAT && u.rx.speedKnX100 == 50;
+    }
+    CHECK(none, "an 'A' RMC in mode E (u-blox dead reckoning), N, M or S: no stamp, no motion");
+    uFeed(&u, uRmc(hmsAt(5), "V", P2, "A", "5.00"), 15000);
+    CHECK(u.rx.fixMs == 10040 && u.rx.speedKnX100 == 50, "a 'V' RMC: no stamp, no motion");
+    uFeed(&u, uRmc(hmsAt(6), "A", P2, "", "5.00"), 16000);
+    CHECK(u.rx.fixMs == 16000 && uGps(&u)->latI == P2_LAT && u.rx.speedKnX100 == 500 && u.rx.motionMs == 16000,
+          "no mode field (NMEA before 2.3): a fix, with its motion");
+    uFeed(&u, uRmc(hmsAt(7), "A", P1, "D", "1.00"), 17000);
+    CHECK(u.rx.fixMs == 17000 && uGps(&u)->latI == D_LAT, "mode D (differential): a fix");
+  }
+
+  // ---- the same second's other sentence, arriving first, can say no ------------------------
+  {
+    uInit(&u);
+    uSecond(&u, 0, 10000);
+    uFeed(&u, uRmc(hmsAt(1), "V", NOPOS, "N", ""), 11000);
+    uFeed(&u, uGga(hmsAt(1), P2, "1", "09", "0.9"), 11040);
+    CHECK(u.rx.fixMs == 10040 && uGps(&u)->latI == D_LAT, "RMC 'V' then a quality-1 GGA of the same second: vetoed");
+    uFeed(&u, uGga(hmsAt(2), P2, "1", "09", "0.9"), 12040);
+    CHECK(u.rx.fixMs == 12040 && uGps(&u)->latI == P2_LAT, "...the next second's GGA (its RMC lost): a fix");
+    uFeed(&u, uGga(hmsAt(3), NOPOS, "0", "", "", ""), 13000);
+    uFeed(&u, uRmc(hmsAt(3), "A", P1, "A"), 13040);
+    CHECK(u.rx.fixMs == 12040 && uGps(&u)->latI == P2_LAT,
+          "a receiver that sends the GGA first: quality 0, then 'A' for the same second - vetoed");
+  }
+
+  // ---- a no-fix GGA can only make the last fix look worse, and never touches a bench fix ---
+  {
+    uInit(&u);
+    uFeed(&u, uRmc(hmsAt(0), "A", P1, "A"), 10000);
+    uFeed(&u, uGga(hmsAt(0), P1, "1", "03", "6.4"), 10040);
+    uFeed(&u, uGga(hmsAt(1), NOPOS, "0", "09", "0.9", ""), 11040);
+    CHECK(uState(&u, 11040, 0) == SELF_ST_POOR && uGps(&u)->sats == 3 && u.rx.fixMs == 10040,
+          "a 3-satellite fix, then a no-fix GGA claiming 9 / 0.9: the fix stays POOR (never improved)");
+    uInit(&u);
+    uSecond(&u, 0, 10000);
+    selfSlotSet(uGps(&u), P2_LAT, D_LON, 9, 9, 10500, true);           // `pos inject gps`
+    uFeed(&u, uGga(hmsAt(1), NOPOS, "0", "00", "99.99", ""), 11040);
+    CHECK(uGps(&u)->injected && uGps(&u)->sats == 9 && uGps(&u)->latI == P2_LAT && uGps(&u)->fixMs == 10500,
+          "a bench fix: a '00 satellites' GGA does not re-score it");
+    CHECK(u.rx.fixSats == 0, "...while the receiver's own last fix is marked POOR (what `pos inject clear` restores)");
+    uFeed(&u, uRmc(hmsAt(2), "A", P1, "A"), 12000);
+    CHECK(!uGps(&u)->injected && uGps(&u)->latI == D_LAT && uGps(&u)->fixMs == 12000,
+          "...and the next measured sentence replaces it");
+  }
+
+  /* ---- a POOR fix stays POOR on silence: an unsaid rating may not make it look better ------
+   * The 2026-10-11 review of this gate: the rating that travels with the fix (rx.fixSats /
+   * fixHdopX10, what the GPS slot holds and what getGpsFix hands the Almanac) is not the sky's
+   * last word (rx.sats / hdopX10, -1 when a GGA left the fields empty) - and an RMC, which has no
+   * rating of its own, may not turn "3 satellites" into "not said" (= usable) by borrowing one
+   * that is empty or too old. Before 0.9.82 the sticky sats/HDOP kept such a fix POOR. */
+  {
+    // (1) the 2026-08-25 fix (3 sats, HDOP 6.4), then the empty no-fix GGA ("0,,,").
+    uInit(&u);
+    uFeed(&u, uRmc(hmsAt(0), "A", P1, "A"), 10000);
+    uFeed(&u, uGga(hmsAt(0), P1, "1", "03", "6.4"), 10040);
+    uFeed(&u, uGga(hmsAt(1), NOPOS, "0", "", "", ""), 11040);
+    CHECK(u.rx.sats == -1 && u.rx.hdopX10 == -1, "an empty no-fix GGA: the sky's last word is 'not said'");
+    CHECK(u.rx.fixSats == 3 && u.rx.fixHdopX10 == 64 && !meshPosFixUsable(u.rx.fixSats, u.rx.fixHdopX10) &&
+          uState(&u, 11040, 0) == SELF_ST_POOR,
+          "...the FIX's own rating is still 3 / 6.4, refused - what the Almanac must judge it by");
+    uFeed(&u, uRmc(hmsAt(2), "A", P1, "A"), 12000);
+    CHECK(u.rx.fixSats == 3 && u.rx.fixHdopX10 == 64 && uState(&u, 12000, SELF_PICK_TX) == SELF_ST_POOR,
+          "...an RMC 1 s after that empty GGA borrows no 'not said': the failing rating carries, POOR");
+    uFeed(&u, uGga(hmsAt(2), P1, "1", "08", "1.1"), 12040);
+    CHECK(uState(&u, 12040, SELF_PICK_TX) == SELF_ST_LIVE && u.rx.fixSats == 8,
+          "...until a GGA with a fix rates it itself: LIVE");
+
+    // (2) the same POOR GGA, then RMCs only (GGAs lost) for longer than the pair window.
+    uInit(&u);
+    uFeed(&u, uRmc(hmsAt(0), "A", P1, "A"), 10000);
+    uFeed(&u, uGga(hmsAt(0), P1, "1", "03", "6.4"), 10040);
+    bool poor = true;
+    SelfFix fx;
+    for (int s = 1; s <= 8; s++) {
+      const uint32_t t = 10000 + 1000u * s;
+      uFeed(&u, uRmc(hmsAt(s), "A", P1, "A"), t);
+      poor = poor && u.rx.fixMs == t && uState(&u, t, SELF_PICK_TX) == SELF_ST_POOR &&
+             selfPick(u.sl, t, SELF_PICK_TX, &fx) == SELF_NONE;
+    }
+    CHECK(poor && u.rx.fixSats == 3 && u.rx.fixHdopX10 == 64,
+          "a 3-satellite GGA, then 8 s of RMCs only: every RMC stamps, every one POOR, never sent");
+
+    // (3) a cold start whose GGAs ("00") stop before the first 'A' RMC: still not LIVE.
+    uInit(&u);
+    uFeed(&u, uRmc(hmsAt(0), "V", NOPOS, "N", ""), 10000);
+    uFeed(&u, uGga(hmsAt(0), NOPOS, "0", "00", "99.99", ""), 10040);
+    uFeed(&u, uRmc(hmsAt(5), "A", P1, "A"), 15000);
+    CHECK(u.rx.fixMs == 15000 && u.rx.fixSats == 0 && uState(&u, 15000, SELF_PICK_TX) == SELF_ST_POOR,
+          "a first fix 5 s after the last GGA said '00': POOR, not 'not said' (an owed beacon waits)");
+
+    // (4) only failing words are carried: a good last rating still lapses to 'not said'.
+    uInit(&u);
+    uSecond(&u, 0, 10000);
+    uFeed(&u, uRmc(hmsAt(5), "A", P1, "A"), 15000);
+    CHECK(u.rx.fixSats == -1 && u.rx.fixHdopX10 == -1 && uState(&u, 15000, SELF_PICK_TX) == SELF_ST_LIVE,
+          "a 9-satellite GGA 5 s ago: the RMC's fix is unrated (-1), not given those old 9 sats");
+  }
+
+  // ---- `gps on` / a baud retune resets the reader: a GGA is still a GGA -----------------
+  {
+    uInit(&u);
+    for (int s = 0; s < 5; s++) uFeed(&u, uRmc(hmsAt(s), "A", P1, "A"), 10000 + 1000u * s);
+    u.r.reset();
+    uFeed(&u, uGga(hmsAt(5), P2, "1", "09", "0.9"), 15000);
+    CHECK(u.rx.fixMs == 15000 && u.rx.altMs == 15000 && u.rx.motionMs == 14000 && u.rx.sats == 9,
+          "after reset(): the first GGA stamps the altitude, not the motion (the RMC count went back to 0)");
+  }
+
+  // ---- a phone hotspot's dead rounds are asked again in 30 s, a router's in 5 min -------------
+  {
+    SelfProbe a, b;
+    selfProbeStart(&a, 111);
+    selfProbeStart(&b, 111);
+    selfProbeSetHotspot(&a, true);                 // e.g. 86:4b:df:... - locally administered
+    uint32_t now = 1000;
+    for (int round = 0; round < SELF_PHONE_DEAD_ROUNDS; round++) {
+      for (int k = 0; k < 2; k++) {                // two ports a round (no custom port)
+        selfProbeFailed(&a, 0, now);
+        selfProbeFailed(&b, 0, now);
+      }
+      now += 100000;                               // past any ladder step
+    }
+    CHECK(a.wait && (uint32_t)(a.nextMs - (now - 100000)) == SELF_PHONE_HOTSPOT_WAIT_MS,
+          "hotspot: after three dead rounds the next ask is 30 s away, not 5 min");
+    CHECK(b.wait && (uint32_t)(b.nextMs - (now - 100000)) == SELF_PHONE_DEAD_WAIT_MS,
+          "router: after three dead rounds the next ask is still 5 min away");
+    selfProbeStart(&a, 222);
+    CHECK(!a.hotspot, "a new association starts unmarked (the glue marks it again)");
   }
 
   printf("\n%d checks, %d failures\n", checks, failures);

@@ -106,10 +106,15 @@ gpsdRelay is not on Google Play. It is on **F-Droid**, a store for free open-sou
      count, and gpsdRelay can misprint a generated coordinate. The WiPhone checks for both, but
      relaying is better.
    - Tap **Add**. The list shows `T:0.0.0.0:10110`.
-4. Tap the **play** button at the top. A notification says **NMEA relay is running**.
-5. Keep Android from stopping it: Settings → Apps → gpsdRelay → **Battery → Unrestricted**.
-   On Samsung also: Settings → Battery → Background usage limits → add gpsdRelay to **Never
-   sleeping apps**.
+4. **Turn on the switch to the right of `T:0.0.0.0:10110`.** gpsdRelay adds every new server switched
+   *off*, and an off server never listens: the WiPhone then says **no app found on this network**.
+5. Tap the **play** button at the top. A notification says **NMEA relay is running**. gpsdRelay reads
+   its server list only when it starts, so after adding or switching a server, tap **stop (X)**, then
+   **play** again.
+6. Keep Android from stopping it: Settings → Apps → gpsdRelay → **Battery → Unrestricted**.
+   On Samsung, an Unrestricted app may not appear in Background usage limits → Never sleeping
+   apps. That is fine: Unrestricted is the setting that matters, and the running relay keeps its
+   notification up.
 
 gpsdRelay reads the phone's real GPS only. Expect a fix outdoors or by a window, not deep
 indoors. Without a fix the WiPhone says **no fix (indoors?)** and reports nothing.
@@ -329,7 +334,7 @@ The line under **Meshtastic → My node → Phone location**:
 | It says | What it means / what to do |
 |---|---|
 | `this network: fix, 9 sats` | Working. |
-| `no app found on this network` | Nothing answered on 10110 / 11123. Is the app running, on the right port, and is the WiPhone on *this phone's* hotspot? It asks again every few minutes. |
+| `no app found on this network` | Nothing answered on 10110 / 11123. Is the app running, on the right port, and is the WiPhone on *this phone's* hotspot? gpsdRelay: is the server's **switch** on, and was the service restarted (X, then play) after adding it? It asks again every few minutes. |
 | `looking for a location app` | Asking now. |
 | `connected, waiting for data` | The app accepted the connection but has sent nothing yet (gpsdRelay: is the service started?). |
 | `old data dropped, waiting` | gpsdRelay replays old lines when the WiPhone connects. They are skipped on purpose. Wait a few seconds. |

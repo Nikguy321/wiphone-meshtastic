@@ -77,6 +77,11 @@ for src in tests/test_*.cpp; do
     # last confirming one, gone after), sent only with "map + mesh", after two agreeing scans
     # 60 s apart and a confirming scan within 60 s, as a 17-bit cell stamped with that scan's
     # UTC; the cell kept while the fix stays put; a precise beacon of the last hour wins.
+    # The woods plate's UART (selfGpsApply, the 2026-10-10 review): only a sentence that itself
+    # carries a measured fix stamps the GPS slot - a run of no-fix GGAs with the RMCs lost no longer
+    # re-stamps the last position as now (reproduced against the old rule: 22 checks failed); the
+    # M100's RMC+GGA at 1 Hz, a lost fix going OLD on the bars, the cold-start RMC kept POOR, and
+    # (review 2026-10-11) a POOR fix kept POOR when its GGAs go missing or come back empty.
     # Reads meshtastic_service.h to hold the bars equal.
     test_selfpos)  deps=(WiPhone/self_pos.cpp WiPhone/mesh_pos.cpp WiPhone/nmea.cpp) ;;
     # Wi-Fi location (0.9.82, geoloc.cpp): the X4 e-reader's beaconDB vectors ported onto
@@ -119,8 +124,9 @@ for src in tests/test_*.cpp; do
     # live, never a border, a phone
     # fix - rated or not - only 10 km from any other clock, checked against brute-force sampling of
     # the grid), the offset at every zoneinfo vector instant, reboot memory, the manual override and
-    # the way back to Auto (never an old zone), and every Settings line measured with the
-    # firmware's Akrobat_Bold16.
+    # the way back to Auto (never an old zone), the plate's GPS through its UART gate (a stale
+    # no-fix GGA run no longer holds the old zone over the phone's live fix), and every Settings
+    # line measured with the firmware's Akrobat_Bold16.
     test_tzauto)   deps=(WiPhone/tz_auto.cpp WiPhone/tz_grid.cpp WiPhone/self_pos.cpp WiPhone/mesh_pos.cpp
                          WiPhone/nmea.cpp) ;;
     test_geogrid)  deps=(WiPhone/geo_grid.cpp) ;;

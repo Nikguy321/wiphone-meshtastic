@@ -328,6 +328,76 @@ static void testPick() {
   CHECK(tzaPickFix(NULL, now, NULL, &why) == SELF_NONE && why == TZA_WHY_NO_FIX, "NULL slots");
 }
 
+/* ── the woods plate's GPS, through its UART gate (selfGpsApply, 0.9.82) ───────────────────────
+ * Auto takes a live GPS fix. Until the 2026-10-10 review the plate's fix was stamped on an RMC's
+ * `valid` with the reader's sticky fields, so with the RMCs lost every no-fix GGA re-stamped the
+ * last place as NOW: the GPS outranks the hotspot phone, and the clock stayed in the old zone
+ * whatever the phone's real fix said. Driven here through the shipping NMEA reader. */
+static void nmeaCoord(char* out, size_t cap, int32_t e7, bool lat) {
+  const char hemi = lat ? (e7 < 0 ? 'S' : 'N') : (e7 < 0 ? 'W' : 'E');
+  const int64_t a = e7 < 0 ? -(int64_t)e7 : e7;
+  const int deg = (int)(a / 10000000);
+  const int64_t minE5 = (a % 10000000) * 60 / 100;          // minutes x 1e5
+  snprintf(out, cap, lat ? "%02d%02d.%05d,%c" : "%03d%02d.%05d,%c", deg, (int)(minE5 / 100000),
+           (int)(minE5 % 100000), hemi);
+}
+
+static void uartFeed(NmeaReader* r, SelfGpsRx* rx, SelfSlot* slots, const char* body, uint32_t t) {
+  unsigned x = 0;
+  for (const char* p = body; *p; p++) x ^= (unsigned char)*p;
+  char line[160];
+  snprintf(line, sizeof(line), "$%s*%02X\r\n", body, x);
+  for (const char* p = line; *p; p++) {
+    if (r->feed(*p)) selfGpsApply(rx, &slots[SELF_GPS - 1], r->fix(), t);
+  }
+}
+
+static void testUartGps() {
+  printf("the plate's GPS through its UART gate\n");
+  const TzvLookup* chi = place("Chicago IL");
+  const TzvLookup* col = place("Harrisburg PA");
+  if (!chi || !col) { failures++; return; }
+  const int EAST = col->answer, CENT = chi->answer;
+  char la[24], lo[24], body[140];
+  nmeaCoord(la, sizeof(la), chi->lat, true);
+  nmeaCoord(lo, sizeof(lo), chi->lon, false);
+  SelfSlot s[SELF_SRC_COUNT];
+  noSlots(s);
+  s[SELF_GPS - 1].enabled = true;
+  static NmeaReader r;
+  r.reset();
+  SelfGpsRx rx;
+  selfGpsInit(&rx);
+  TzAuto a;
+  tzaInit(&a, EAST, SELF_PHONE);
+  uint32_t t = 0;
+  for (int sec = 0; sec <= 150; sec++) {            // the M100 at 1 Hz in Chicago, looks every 30 s
+    t = 1000 + 1000u * sec;
+    snprintf(body, sizeof(body), "GNRMC,%02d%02d%02d.00,A,%s,%s,0.10,,101026,,,A", 12, sec / 60, sec % 60, la, lo);
+    uartFeed(&r, &rx, s, body, t);
+    snprintf(body, sizeof(body), "GNGGA,%02d%02d%02d.00,%s,%s,1,09,0.9,180.0,M,,M,,", 12, sec / 60, sec % 60, la, lo);
+    uartFeed(&r, &rx, s, body, t + 40);
+    if (sec % 30 == 0) tzaStep(&a, TZ_MODE_AUTO, s, t + 40);
+  }
+  CHECK(a.zone == CENT && a.zoneSrc == SELF_GPS, "the M100 at 1 Hz in Chicago, RMC + GGA: Central, from GPS");
+
+  /* Then its RMCs are lost and its GGAs say "no fix" with every field empty, while the hotspot
+   * phone has a live fix in Harrisburg. */
+  SelfFix fx;
+  uint8_t why = 0;
+  for (int sec = 151; sec <= 340; sec++) {
+    t = 1000 + 1000u * sec;
+    snprintf(body, sizeof(body), "GNGGA,%02d%02d%02d.00,,,,,0,,,,M,,M,,", 12, sec / 60, sec % 60);
+    uartFeed(&r, &rx, s, body, t);
+    setFix(s, SELF_PHONE, col->lat, col->lon, 9, 9, t);
+    if (sec % 30 == 0) tzaStep(&a, TZ_MODE_AUTO, s, t);
+  }
+  CHECK(rx.fixMs == 151040 && tzaPickFix(s, t, &fx, &why) == SELF_PHONE,
+        "...RMCs lost, 190 s of no-fix GGAs: the GPS fix is not re-stamped, the phone's live fix is used");
+  CHECK(a.zone == EAST && a.zoneSrc == SELF_PHONE,
+        "...so the clock follows the phone to Eastern (the old re-stamp kept Chicago 'live')");
+}
+
 /* ── the 10 km margin, against brute force ─────────────────────────────────────────────────── */
 static int g_nearLat = 0, g_nearLon = 0;     // a point the GPS's plain lookup answers and a phone fix does not
 static bool g_haveNear = false;
@@ -1067,6 +1137,7 @@ int main() {
   printf("test_tzauto\n");
   testSetting();
   testPick();
+  testUartGps();
   testMargin();
   testDecide();
   testOffset();

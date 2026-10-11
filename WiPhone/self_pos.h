@@ -254,6 +254,81 @@ bool selfNetPreciseWins(const SelfNetTxMem* m, const SelfFix* fx, uint32_t nowMs
 // The coordinates to send for a NET pick: the kept cell, or the fix cut to SELF_NET_PREC_BITS.
 void selfNetTxCell(const SelfNetTxMem* m, const SelfFix* fx, int32_t* latI, int32_t* lonI);
 
+// ---------------------------------------------------------------- the woods plate's GPS (UART)
+/* ── WHICH SENTENCE MAY STAMP THE GPS FIX (0.9.82, the phone-location review of 2026-10-10) ──
+ * The plate's receiver (phone 2's M100) sends an RMC and then a GGA every second. Until this,
+ * the loop handed the service the reader's STICKY fields (nmea.h) on every RMC or GGA, and the
+ * fix was stamped NOW whenever `valid` was true — but `valid` changes only on an RMC, a quality-0
+ * GGA leaves the last coordinates standing, and sats/HDOP survive a GGA whose fields are empty.
+ * So with the RMCs lost (checksum errors on this garbling UART) or switched off, every no-fix GGA
+ * re-stamped the LAST position, with the last good sats and HDOP, as a fix taken now: the map's
+ * "me", the Almanac, the beacon and the time zone (tz_auto takes a live GPS fix) saw an old
+ * position as live for as long as GGAs kept coming. The phone's stream never could (its gate
+ * judges one GGA alone, below). The same rule for the UART, one sentence at a time:
+ *   - ONLY A SENTENCE THAT ITSELF CARRIES A MEASURED POSITION STAMPS THE FIX:
+ *       an RMC with status A, readable coordinates and a measurement mode (selfRmcModeOk), or
+ *       a GGA with quality 1-5 and its own readable coordinates, sats/HDOP not garbled
+ *       (0 no fix, 6 dead reckoning, 7 manual and 8 simulator are not measurements; 3 PPS is,
+ *       as in the phone gate);
+ *     and not when the OTHER sentence of the same second, arriving first, said there was no fix
+ *     (the phone gate's veto, both ways: some receivers send the GGA first).
+ *   - The position is that sentence's own. A GGA's sats and HDOP are its own (-1 = not said).
+ *     An RMC carries none, so it takes the LAST GGA's own words when that GGA arrived within
+ *     SELF_GPS_GGA_PAIR_MS (the epoch before, at 1 Hz; one lost GGA and some loop jitter), and
+ *     -1 after that — never older GOOD numbers.
+ *     ⚠ The last GGA's words WHATEVER ITS QUALITY: at a first fix the GGA before the RMC said
+ *     "00 satellites", and that keeps the RMC's fix POOR until its own GGA rates it, tens of
+ *     ms later. With -1 there it would be LIVE in between, and an owed beacon slot fires on the
+ *     first usable fix — the 2026-08-25 first fix at 3 satellites was 20 km off.
+ *     ⚠ AND A BORROWED RATING MAY ONLY MAKE IT WORSE (review 2026-10-11): where what the RMC
+ *     would take passes meshPosFixUsable — "not said" included (an empty GGA, or none within
+ *     the window) — but the last word on record fails (the last GGA's own, else the fix this
+ *     one replaces), the failing one stands. A 3-satellite fix followed by 3 s of lost GGAs, or
+ *     by one empty no-fix GGA, went LIVE (and out on the beacon) on the next RMC otherwise. Only
+ *     a GGA that itself says better lifts a POOR fix; a good rating still lapses to -1.
+ *   - The motion is the stamping RMC's own, the altitude the stamping GGA's own (ggaAltM), each
+ *     with its own stamp (review 2026-09-27: a GGA re-stamped the last RMC's speed).
+ *   - A sentence that stamps nothing leaves the fix's TIME alone: a receiver that loses its fix
+ *     goes OLD on the bars (30 s to send, 120 s to show). One thing it may do: a GGA whose OWN
+ *     sats/HDOP fail meshPosFixUsable (the M100's no-fix "00" satellites, HDOP 99.99) marks the
+ *     last fix POOR at once, as the plate always has. It can only make a fix look worse, and it
+ *     never re-scores a bench fix (`pos inject gps`), which the next stamp replaces.
+ * TWO PAIRS OF NUMBERS, never to be swapped: the fix's rating (fixSats/fixHdopX10 = the slot's,
+ * getGpsFix - what every gate judges the fix by) and the receiver's own word on its sky (sats/
+ * hdopX10, getGpsSky - `gps`, the Almanac's satellite rows): the last GGA's own, -1 where that
+ * sentence left a field empty, so after a POOR fix one empty no-fix GGA reads -1/-1 = "usable"
+ * there (review 2026-10-11: the Almanac judged the fix by it). The clock's use of the RMC is
+ * clock_source.h's and does not pass through here. */
+#define SELF_GPS_GGA_PAIR_MS  3000UL
+
+struct SelfGpsRx {
+  /* The receiver's word on its sky: the LAST GGA's own sats and HDOP (-1 = empty or unreadable
+   * in that sentence), whatever its quality, and when it arrived (millis; 0 = none yet). */
+  int      sats, hdopX10;
+  uint32_t ggaMs;
+  /* The same second's veto: the last RMC's and the last GGA's hhmmss (-1 = none / no time) and
+   * whether each said it had a fix (RMC: A with a measurement mode; GGA: quality 1-5 with
+   * coordinates). */
+  int32_t  rmcHms, ggaHms;
+  bool     rmcFix, ggaFix;
+  /* THE FIX, written only by a sentence that carried one. RAM only, like the slots. */
+  int32_t  latI, lonI;           // 1e-7 deg
+  uint32_t fixMs;                // millis() of that sentence; 0 = never
+  int      fixSats, fixHdopX10;  // its rating as the GPS slot holds it (-1 = not said)
+  int      altM;                 // the last stamping GGA's own altitude, m (-10000 = it had none)
+  uint32_t altMs;                // ...that GGA's millis(); 0 = none
+  int32_t  speedKnX100, courseX10;   // the last stamping RMC's own motion (-1 = it had none)
+  uint32_t motionMs;             // ...that RMC's millis(); 0 = none
+};
+void selfGpsInit(SelfGpsRx* rx);                 // boot: no fix, nothing heard
+#define SELF_GPS_STAMPED  0x01    // the sentence carried a measured position: the fix is now
+#define SELF_GPS_FIRST    0x02    // ...and it was the first since boot
+/* One completed RMC or GGA from the woods UART (NmeaReader::feed() returned true; f.lastKind
+ * says which), at millis() `nowMs`. Updates rx and the GPS slot (NULL: rx only): a stamp writes
+ * the whole slot (selfSlotSet, replacing a bench fix); a POOR-sky GGA re-scores a measured
+ * slot's sats/HDOP; nothing else touches it. Returns SELF_GPS_* flags. */
+unsigned selfGpsApply(SelfGpsRx* rx, SelfSlot* slot, const NmeaFix& f, uint32_t nowMs);
+
 // ---------------------------------------------------------------- the phone stream
 /* Which ports, in order: 10110, 11123, then the user's own (NVS phport; 0 = none) unless it
  * repeats one. Returns the count (2 or 3). */
@@ -455,6 +530,10 @@ bool selfNmeaStreamFeed(NmeaReader* r, char c);
  * changed, gpsdRelay -> GPS 2 IP), and the rounds start again. */
 #define SELF_PHONE_DEAD_ROUNDS      3
 #define SELF_PHONE_DEAD_WAIT_MS   300000UL
+/* 2026-10-11, the first real test: the WiPhone joined the owner's hotspot before gpsdRelay's
+ * server was switched on, three rounds were refused in ~17 s, and the next ask was 5 min away.
+ * A home router never grows an app; a phone hotspot does, a minute later. */
+#define SELF_PHONE_HOTSPOT_WAIT_MS 30000UL
 #define SELF_PHONE_CACHE_FAILS      3
 
 struct SelfProbe {
@@ -466,9 +545,15 @@ struct SelfProbe {
   uint8_t  portFails;          // the remembered port's connect failures in a row
   bool     wait;               // nextMs is armed
   uint32_t nextMs;             // no attempt before this millis()
+  /* The joined network looks like a phone's hotspot (its BSSID is locally administered, the
+   * shape Android and iOS hotspots use): its app may simply not be started YET, so a dead round
+   * is asked again every SELF_PHONE_HOTSPOT_WAIT_MS, never SELF_PHONE_DEAD_WAIT_MS. Set by the
+   * glue after every selfProbeStart (selfProbeSetHotspot). */
+  bool     hotspot;
 };
 uint32_t selfProbeDelayMs(int fails, int deadRounds);
 void     selfProbeStart(SelfProbe* p, uint32_t assoc);       // a new association: ask now
+void     selfProbeSetHotspot(SelfProbe* p, bool hotspot);   // see SelfProbe.hotspot
 bool     selfProbeDue(const SelfProbe* p, uint32_t nowMs);
 uint16_t selfProbePort(const SelfProbe* p, uint16_t custom); // the port to try now
 // A connect refused or timed out, or a stream that ended before any good sentence.
