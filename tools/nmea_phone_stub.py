@@ -24,6 +24,9 @@ DUMMY position (40.0, -100.0 by default: a field in Kansas; never put a real one
   --no-crlf             no line endings at all (the phone feeds a '\\n' before every '$')
   --stall S             go silent for S seconds, 5 s into each connection (the phone gives up a
                         silent link after 10 s and reconnects)
+  --warm S              "no fix yet" (RMC V, GGA quality 0) for the first S seconds of each
+                        connection, then the fix: NH Companion turning the phone's GPS on when a
+                        device connects. The X4's Locate Me waits up to 30 s for this (8 s before)
   --talker GP|GN        the talker id of the real sentences
   --generated           gpsdRelay's GENERATED sentences (its mock-location path): $GNGGA with 12
                         satellites always and the ACCURACY IN METRES where HDOP goes (--acc), and
@@ -152,12 +155,14 @@ def serve(conn, peer, a):
             sent += a.burst
         t0 = time.time()
         stalled = False
+        cold = argparse.Namespace(**dict(vars(a), status="V")) if a.warm else None
         while True:
             if a.stall and not stalled and time.time() - t0 >= 5:
                 print("%s  %s: stalling %.0f s" % (stamp(), peer, a.stall), flush=True)
                 time.sleep(a.stall)
                 stalled = True
-            for ln in epoch_lines(a, time.time(), crlf):
+            now = time.time()
+            for ln in epoch_lines(cold if cold and now - t0 < a.warm else a, now, crlf):
                 conn.sendall(ln.encode())
                 sent += 1
             time.sleep(a.rate)
@@ -193,6 +198,7 @@ def main():
     ap.add_argument("--burst", type=int, default=0)
     ap.add_argument("--no-crlf", action="store_true")
     ap.add_argument("--stall", type=float, default=0.0)
+    ap.add_argument("--warm", type=float, default=0.0)
     ap.add_argument("--talker", choices=["GP", "GN"], default="GP")
     ap.add_argument("--rate", type=float, default=1.0)
     ap.add_argument("--generated", action="store_true")
