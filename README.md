@@ -555,8 +555,9 @@ card's root (the phone looks there too, after `API Keys`).
 
 **Optional lines** in `gemini.txt`: `model=` (default `gemini-flash-latest`), `thinking=0` to
 `8192` (how long the model may think before answering; default 1024, `0` = off - faster but
-plainer) and `fallback=` (default `gemini-flash-lite-latest`, or `none`). `#` comment lines, a BOM,
-Windows line endings, quotes and spaces around `=` are all fine.
+plainer), `fallback=` (default `gemini-flash-lite-latest`, or `none`) and `lookup=off` (no
+Wikipedia lookup before each question - see **Current facts** below; on by default). `#` comment
+lines, a BOM, Windows line endings, quotes and spaces around `=` are all fine.
 
 ### 3. Use it
 
@@ -564,13 +565,41 @@ Windows line endings, quotes and spaces around `=` are all fine.
   **`#`** switches T9 → Abc → ABC → 123, **`*`** gives punctuation, **`0`** is a space, **Up/Down**
   picks another word, **Back** deletes. Send with **Ask** (the left soft key) or **Call**;
   **End** cancels the question.
-- **Wait:** the status shows what is happening (`Asking Gemini...`, `Google is busy - trying
-  again...`) and the seconds so far. A question usually takes **4-15 seconds**. **End** cancels;
+- **Wait:** the status shows what is happening (`Looking up Wikipedia...`, `Asking Gemini...`,
+  `Google is busy - trying again...`) and the seconds so far. The free Flash model has been slow
+  lately - **30-90 seconds** for an answer is common, Flash-Lite is quicker - and the phone waits up
+  to **2.5 minutes**. If nothing comes in that time (or the connection drops before the answer is
+  whole), it asks **once more** (`No answer in time - trying again (2 of 2)...`), and if that fails
+  too it asks **Flash-Lite once** (`Asking Flash-Lite instead...`) - the answer then says
+  `Flash-Lite` under it. That is the **Retry if it times out** setting in **Menu** (on by default;
+  OK on the row turns it off and on, and the phone remembers it). Off, a timeout is reported at
+  once. It never retries a refused key, a daily limit or anything you cancelled, and the Wikipedia
+  background found for the question is reused, not looked up again. **End** cancels (so does a call coming in);
   **Back** leaves the app and the question carries on - the answer is in the chat when you come
   back. If music is playing it **pauses** for the question (the phone needs its full speed for the
   secure connection); press Play in Music to carry on.
 - **Read:** answers are plain text. **Up/Down** pages through the chat; under each answer it says
   which model wrote it (`Flash` or `Flash-Lite`).
+- **Current facts:** the model's own knowledge is a year or more old, so every question tells
+  Gemini **today's date and time** (only when the phone's clock is set from the network or GPS -
+  otherwise none, rather than a wrong one), and before each question the phone **looks it up on
+  Wikipedia itself**: it takes the question's key words (`has the new tomb raider legacy of
+  atlantis come out` -> `tomb raider legacy atlantis`; `what's` and `baldur's` count as `what` and
+  `baldur`; accents and dashes are folded the same way COVEY and the X4 fold them, so
+  `navier–stokes` is `navier stokes` and `gauß` is `gauss`; a follow-up like `and when?` or `how long is it?` borrows the words of the newest
+  earlier question in the topic that named something), asks Wikipedia's search for the top two
+  pages, keeps only those whose **title or description** has one of the key words in it, and gives
+  Gemini their first few sentences along with the question, marked as background to use only if it
+  fits.
+  An answer that came with background ends with a **`Wikipedia:`** line naming the pages
+  (`Wikipedia: Tomb Raider: Legacy of Atlantis; Tomb Raider: Catalyst`); with none, the answer is
+  from the model's own memory, which can be out of date - it is told to say so rather than guess.
+  **Only those key words go to Wikipedia** - never the whole question, the chat or the key - over a
+  checked secure connection, once per question (it adds a few seconds). If Wikipedia does not
+  answer, or finds nothing, the question is asked without it. `lookup=off` in `gemini.txt` turns
+  the lookup off. (Google's own Search grounding is not free on the current models, and Gemini's
+  web-page reading tool made the free Flash go silent for minutes, so the phone does the looking
+  up.)
 - **Follow-ups:** Gemini remembers the **current topic** - your last four questions - so "and how
   long is it?" works. After two hours without a question the next one starts a new topic by
   itself (when the phone's clock is set from the network or GPS); **Menu → New topic** starts one
@@ -585,20 +614,33 @@ Windows line endings, quotes and spaces around `=` are all fine.
 | `No key - put gemini.txt in API Keys` | No key file was found - see step 2. |
 | `Key rejected` | Google refused the key: check it was copied whole, or make a new one. |
 | `No WiFi - join a network first` / `WiFi is off` | Join a network in **Settings → Scan WiFi networks**; `WiFi is off` means turn on **Settings → WiFi** first. |
-| `Google is busy - trying again...` | Normal at busy times: it retries twice, then asks Flash-Lite. |
+| `Google is busy - trying again...` | Normal at busy times: it retries twice, then asks Flash-Lite. Any server-side error (500, 502, 503, 504) is treated this way. |
 | `Daily free limit for Flash reached - using Flash-Lite until about 17:00` | Flash's 20 a day are used; answers come from Flash-Lite until the time Google gave. |
 | `Today's free Gemini limit is used up` | Both models' daily allowances are used; it says when to try again. |
 | `Secure connection failed` | The connection to Google did not complete: try again; if it keeps happening, check the WiFi. |
+| `Phone low on memory (...) - reboot first` | Too little unbroken memory is left for a secure connection (checked before every one, the Wikipedia lookup's included): restart the phone, then ask again. |
+| `No answer in time - trying again (2 of 2)...` / `Asking Flash-Lite instead...` | Flash sent nothing in 2.5 minutes: the phone is asking once more, then Flash-Lite (**Menu → Retry if it times out**). |
+| `Gemini did not answer in time` | No answer after the retries (or with **Retry if it times out** off): ask again, or ask for less. |
+| `Gemini sent an empty answer - ask again` | It stumbled twice in a row (it is asked again once by itself): ask again. |
+| `A call came in - ask again after it` | A call rang while the phone was waiting: the question was stopped for it. |
+| No `Wikipedia:` line under an answer | Nothing was found, no page found was about the question's key words, Wikipedia did not answer (the serial `ai` says why), or `lookup=off` is set. |
 | `A map download is running` (or a call, a game, the uploader) | One thing at a time: ask again when that is finished. |
 | A question marked failed in the chat | It stays there for reference and is never sent back to Gemini. |
 
 ### Safety of the key
 
 The phone checks Google's certificate against Google's own root certificates (built in, and
-nothing on the card can replace them), and sends the key in a header, never in a web address. It
+nothing on the card can replace them), and sends the key in a header, never in a web address. The
+Wikipedia lookup is checked against the Let's Encrypt roots the phone already carries, and it is
+sent nothing but the question's key words (and a User-Agent naming this project, as Wikipedia
+asks): no key, no chat, not the whole question. The key
 is never printed on the serial console (`ai` shows only its length), never logged and never
 drawn: the Files viewer refuses to open anything in `API Keys`, Books never lists `gemini.txt`,
-and `tools/card_clone.sh` leaves the folder out of a cloned card. A key pasted on the `model=` line
+and `tools/card_clone.sh` leaves the folder out of a cloned card. The WiFi uploader only ever
+WRITES into `API Keys`: it never reads, lists or resumes a key file (nobody on the network - which
+may be the phone's open hotspot - can learn whether a key is there or how long it is), and a key
+file is always written whole, so a browser upload of a new key the same length as the old one
+takes too. A key pasted on the `model=` line
 by mistake is ignored rather than used as a model name, and Key info says so.
 
 ## E-reader

@@ -17,6 +17,7 @@
 
 #include "app_gbc_xfer.h"
 #include "chunk_proto.h"
+#include "files_paths.h"   // filePathIsKeyFile: the key folder is write-only here
 #include "Arduino.h"
 #include <stdarg.h>        // windowRefused()'s message
 #include "WiFi.h"
@@ -673,6 +674,41 @@ static uint32_t s_chunkPieces = 0;          // pieces committed to the open file
 static size_t   s_fileFloorLargest = 0;     // per-FILE heap floors (the acceptance bar)
 static size_t   s_fileFloorFree = 0;
 
+/* 🛑 THE KEY FOLDER IS WRITE-ONLY HERE (2026-10-11). A key file - anything inside an "API Keys"
+ * folder, or a gemini.txt anywhere (files_paths.h, filePathIsKeyFile: what the Files viewer will
+ * not draw) - is never stat'd, read or served by this server, which may be an OPEN hotspot. No
+ * route reads one (the page, /log = /health.log only, /chunk, /fetch, /upload write), but the
+ * RESUME machinery did: GET /chunk?name=gemini.txt answered a key's existence and length to anyone
+ * on the network (the keys uploader, or the Files uploader in /API Keys or at the card's root), a
+ * POST at off > 0 opened it for append and answered "have <its length>" - and a NEW key the same
+ * length as the old (an AIza key is always 39 characters) read as "already held", so the browser
+ * said sent and sent nothing. Now the resume question is answered from THIS session's upload alone
+ * (xferHeld), and a resume of a key file this session is not writing is told "have 0"
+ * (chunkOpenFor): a key is always written fresh, from its first byte. */
+static bool xferKeyPath(const String& path) {
+  return filePathIsKeyFile(path.c_str()) != 0;
+}
+
+/* GET /chunk?name= (both transports): how many bytes of <name> the card holds - buffered bytes
+ * included for the file being written (an acked piece is as good as written short of a reboot,
+ * and after a reboot the buffer is empty so the durable number comes out anyway). A key file the
+ * session is not writing: 0, never stat'd. */
+static size_t xferHeld(const char* name) {
+  if (s_chunkFile && !strcmp(name, s_chunkName)) {
+    return s_chunkDurable + s_sdLen;   // counted, not stat'd — size() lies while open
+  }
+  const String path = String(s_cfg->dir) + "/" + name;
+  if (xferKeyPath(path)) {
+    return 0;                          // the key folder is write-only
+  }
+  File f = SD.open(path.c_str());
+  const size_t held = f ? (size_t)f.size() : 0;
+  if (f) {
+    f.close();
+  }
+  return held;
+}
+
 /* Flush the buffered block into the open chunk file. False = the SD lied or
  * failed; the caller must fall back to durable truth (the client resyncs). */
 static bool chunkFlush() {
@@ -768,9 +804,16 @@ static bool chunkOpenFor(const char* name, size_t off, int* code, char* reply, s
     }
   }
   if (!s_chunkFile || strcmp(name, s_chunkName) || off == 0) {
+    String path = String(s_cfg->dir) + "/" + name;
+    if (off != 0 && xferKeyPath(path)) {
+      /* A key file is never resumed from the card (xferKeyPath): its length is not told, nothing
+       * is appended to it. The client starts it again at 0, which truncates. */
+      *code = 409;
+      strlcpy(reply, "have 0", replyCap);
+      return false;
+    }
     chunkFinalize();
     strlcpy(s_chunkName, name, sizeof(s_chunkName));
-    String path = String(s_cfg->dir) + "/" + name;
     if (off == 0) {
       SD.mkdir(s_cfg->dir);
       /* Tree mode: create each folder on the way down. SD.mkdir is one level at a time and
@@ -816,10 +859,8 @@ static bool xferFlushBlock() {
   return ok;
 }
 
-/* GET /chunk?name= — how many bytes of <name> this card holds. The client's
- * resync question, answered with buffered bytes included (an acked piece is
- * as good as written short of a reboot, and after a reboot the buffer is
- * empty so the durable number comes out anyway). */
+/* GET /chunk?name= — how many bytes of <name> this card holds (xferHeld: a key
+ * file is never stat'd). The client's resync question. */
 static void handleChunkGet() {
   s_server->sendHeader("Connection", "close");
   char name[sizeof(s_chunkName)];
@@ -827,16 +868,7 @@ static void handleChunkGet() {
     s_server->send(400, "text/plain", "bad name");
     return;
   }
-  size_t held;
-  if (s_chunkFile && !strcmp(name, s_chunkName)) {
-    held = s_chunkDurable + s_sdLen;   // counted, not stat'd — size() lies while open
-  } else {
-    File f = SD.open((String(s_cfg->dir) + "/" + name).c_str());
-    held = f ? (size_t)f.size() : 0;
-    if (f) {
-      f.close();
-    }
-  }
+  const size_t held = xferHeld(name);
   char out[16];
   snprintf(out, sizeof(out), "%u", (unsigned)held);
   s_server->send(200, "text/plain", out);
@@ -1282,16 +1314,7 @@ static void rawOnRequest() {
     return;
   }
   if (!strcmp(method, "GET")) {
-    size_t held;
-    if (s_chunkFile && !strcmp(name, s_chunkName)) {
-      held = s_chunkDurable + s_sdLen;
-    } else {
-      File f = SD.open((String(s_cfg->dir) + "/" + name).c_str());
-      held = f ? (size_t)f.size() : 0;
-      if (f) {
-        f.close();
-      }
-    }
+    const size_t held = xferHeld(name);   // a key file: never stat'd
     char out[16];
     snprintf(out, sizeof(out), "%u", (unsigned)held);
     rawReply(200, out);

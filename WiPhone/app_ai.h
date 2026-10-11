@@ -8,7 +8,8 @@
  *               ONE PSRAM buffer): "> question" in blue, the answer in white, under it the model
  *               that answered ("Flash") in grey, a grey "New topic" line where a topic starts.
  *               Opens on the newest page. Up/Down page; OK asks; Select = the menu; Back leaves.
- *   MENU        Ask a question / New topic / Clear chat... / Key info.
+ *   MENU        Ask a question / New topic / Clear chat... / Key info / Retry if it times out:
+ *               On|Off (OK flips it; NVS - ai_net.h aiRetryTimeouts; on by default).
  *   CONFIRM     Clear chat: "Yes, delete it" / "No".
  *   COMPOSE     the Meshtastic compose screen's rules: a MultilineTextWidget (500 characters),
  *               predictive text claimed AFTER setInputState, the counter strip. Send = CALL or the

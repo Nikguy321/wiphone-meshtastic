@@ -590,8 +590,8 @@ MUTATIONS = [
                          "AlmDay* d = (AlmDay*)heap_caps_malloc(sizeof(AlmDay), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);\n  if (!d) {\n    out(\"almanac bench", 1)),
     # the second weather review (2026-10-03)
     ("the client connected before http.begin()", "https_worker.cpp",
-     lambda t: t.replace("    if (!http.begin(*c, q->url)) {\n      r->net = GEM_NET_CONNECT;\n    } else {\n      bool connected = true;\n      if (q->connectFirst) {\n        const uint32_t th = millis();\n        connected = c->connect(q->host, 443, (int32_t)q->connectMs) == 1;",
-                         "    c->connect(q->host, 443, (int32_t)q->connectMs);\n    if (!http.begin(*c, q->url)) {\n      r->net = GEM_NET_CONNECT;\n    } else {\n      bool connected = true;\n      if (q->connectFirst) {\n        const uint32_t th = millis();\n        connected = true;", 1)),
+     lambda t: t.replace("    if (!http.begin(*c, q->url)) {\n      r->net = GEM_NET_CONNECT;\n    } else {\n      bool connected = true;\n      if (q->connectFirst) {\n        const uint32_t th = millis();\n        connected = c->connect(q->host, 443, (int32_t)connectMs) == 1;",
+                         "    c->connect(q->host, 443, (int32_t)connectMs);\n    if (!http.begin(*c, q->url)) {\n      r->net = GEM_NET_CONNECT;\n    } else {\n      bool connected = true;\n      if (q->connectFirst) {\n        const uint32_t th = millis();\n        connected = true;", 1)),
     ("the gates asked once, at submit time only", "weather_net.cpp",
      lambda t: t.replace("  if (!r->skipped[0] && (gate = wxGateWhy()) != NULL) {", "  if (false) {", 1)),
     ("`wx` beside a game", "app_almanac.cpp",

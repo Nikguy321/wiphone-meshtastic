@@ -20,6 +20,7 @@ static const MenuOption::keyType ROW_YES     = 5;
 static const MenuOption::keyType ROW_NO      = 6;
 static const MenuOption::keyType ROW_UPLOAD  = 7;
 static const MenuOption::keyType ROW_RELOAD  = 8;
+static const MenuOption::keyType ROW_RETRY   = 9;
 
 #define AI_FONT         AKROBAT_BOLD_18        // the transcript: the Files viewer's face
 #define AI_SMALL_FONT   AKROBAT_BOLD_16        // the model under an answer, the strips, the status box
@@ -179,8 +180,13 @@ void AiApp::buildMenu() {
   menu->addOption("New topic", ROW_TOPIC);
   menu->addOption("Clear chat...", ROW_CLEAR);
   menu->addOption("Key info", ROW_KEYINFO);
+  /* Round 3: a toggle, OK flips it (NVS, ai_net.h). Its words come from gemini.h, where the suite
+   * measures both states against this menu's Akrobat 20 (one row, 183 of 220 px). */
+  menu->addOption(aiRetryTimeouts() ? GEM_RETRY_LABEL ": On" : GEM_RETRY_LABEL ": Off", ROW_RETRY);
   menu->addNoteWrapped("New topic: Gemini forgets the earlier questions (they stay on screen). A "
                        "topic also starts by itself two hours after the last question.");
+  menu->addNoteWrapped("Retry if it times out: when Gemini sends nothing in time, ask once more, then "
+                       "Flash-Lite once.");
 }
 
 void AiApp::buildConfirm() {
@@ -221,12 +227,17 @@ void AiApp::buildKeyInfo() {
                        "choose Get API key, then Create API key.");
   menu->addNoteWrapped("2. Make a text file named gemini.txt with one line: key=YOUR_KEY");
   menu->addNoteWrapped("Optional lines: model=gemini-flash-latest, thinking=0 to 8192 (0 = off), "
-                       "fallback=none.");
+                       "fallback=none, lookup=off.");
   menu->addNoteWrapped("3. Put it in the API Keys folder on the card: card reader, Files > API "
                        "Keys > Upload, or the row above. Use your home WiFi - the phone's own "
                        "hotspot is open.");
   menu->addNoteWrapped("The key stays on the card. It is never shown on screen and goes only to "
                        "Google.");
+  /* The Wikipedia lookup (wiki_lookup.h), in two short notes: addNoteWrapped stops at 8 rows. */
+  menu->addNoteWrapped("Before each question a few of its words - only those - are looked up on "
+                       "Wikipedia, and Gemini is given what it finds.");
+  menu->addNoteWrapped("Such an answer ends with a Wikipedia: line. lookup=off in gemini.txt "
+                       "stops the lookup.");
   menu->select(ROW_UPLOAD);
 }
 
@@ -671,6 +682,14 @@ appEventResult AiApp::processEvent(EventType event) {
         enterState(AI_CONFIRM);
       } else if (k == ROW_KEYINFO) {
         enterState(AI_KEYINFO);
+      } else if (k == ROW_RETRY) {
+        /* Flipped and saved; the menu is built again with the row's new words, the row kept. The
+         * question in flight (if any) keeps the setting it was asked with. */
+        aiSetRetryTimeouts(!aiRetryTimeouts());
+        enterState(AI_MENU);
+        if (menu) {
+          menu->select(ROW_RETRY);
+        }
       } else {
         return DO_NOTHING;                // a note row
       }

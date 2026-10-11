@@ -5,6 +5,8 @@
  */
 #include "ai_net.h"
 #include "gemini.h"
+#include "wiki_lookup.h"        // the Wikipedia lookup before each question: keywords, URL, parse, background
+#include "isrg_roots.h"         // ...and the roots en.wikipedia.org chains to (X1 + X2 + Root YE)
 #include "https_worker.h"       // the worker, shared with the weather since 0.9.81, and netHttps
 #include "weather_net.h"        // wxRequestActive: a question asked behind a weather fetch
 #include "tile_fetch.h"         // tlsInstallPsramHook, tileFetchActive, tileFetchCallRecent, filesJobActive
@@ -12,11 +14,13 @@
 #include "kosync_sync.h"        // kosyncWindowActive
 #include "Networks.h"           // wifiState.radioOff()
 #include "clock.h"              // ntpClock: the exchanges' times, the daily limits' deadlines
+#include "tz_service.h"         // tzSvcEffective: the zone's name in the request's date sentence
 #include "music_player.h"       // a question pauses the music (it needs the core for the handshake)
 
 #include <Arduino.h>
 #include <WiFi.h>
 #include <SD.h>
+#include <Preferences.h>        // "Retry if it times out" (NVS, the firmware's "wpmesh" namespace)
 #include <esp_heap_caps.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -37,13 +41,34 @@ extern volatile bool gGbcActive;          // WiPhone.ino: the emulator owns the 
 #define AI_KEY_READ_MAX     2048u
 #define AI_CHAT_READ_MAX    (GEM_CHAT_FILE_MAX + 4096u)
 #define AI_CONNECT_MS       10000           // TCP connect AND the TLS handshake (WiFiClientSecure's handshake_timeout)
-#define AI_TIMEOUT_MS       60000           // the wait for the answer's headers: a thinking model takes ~6-12 s, a busy one longer. uint16 - never past 65535
+/* The wait for the answer's headers (2026-10-11: was 60 s, the most HTTPClient's uint16_t timeout can
+ * hold). A non-streaming answer's headers come only once the WHOLE answer is written: a thinking
+ * model took ~6-12 s on 2026-10-03, but free-tier 3.8 Flash now takes 30-90 s (84 s for one
+ * sentence, measured 2026-10-11) and COVEY logged two timeouts at its 60 s. https_worker's client
+ * waits for the first byte itself, in AI_SLICE_MS slices that honour Cancel and a call
+ * (NetHttpReq.waitSliceMs, .stopFn), so 150 s works. Nothing else watches the wait: the worker is
+ * on no task watchdog (only the loop task and core 0's idle task are) and sleeps between slices,
+ * the loop runs on beside it (LOOP STALL times the loop's own passes), and the WAITING screen only
+ * counts the seconds. */
+#define AI_TIMEOUT_MS       150000u
 #define AI_BODY_IDLE_MS     30000u          // the body arrives in one go once the headers have; this is a dead socket
 #define AI_SLICE_MS         200u            // every wait is cut into these, and honours Cancel
 /* The internal heap a handshake may start from: tile_fetch.cpp's TF_CONNECT_LARGEST/FREE (the
  * handshake dips ~12 KB of lwIP buffers), plus the stack while it is not carved yet
  * (https_worker.h: NET_CONNECT_LARGEST / NET_CONNECT_FREE, netHeapOkForHandshake). */
 #define AI_USER_AGENT       "WiPhone-ai/0.1 (wiphone-meshtastic)"
+
+/* THE WIKIPEDIA LOOKUP (2026-10-11, wiki_lookup.h): one GET to en.wikipedia.org before each question,
+ * never retried, its failures silent. Its own budget: 10 s for TCP + the handshake (the weather's and
+ * beaconDB's cap), 20 s for the whole of it, DNS to the last byte (NetHttpReq.totalMs) - a question
+ * is not held up long by a lookup that is not coming. The response is read into the shared sink up
+ * to WIKI_RESPONSE_CAP (24 KB; two pages of six sentences is ~2 KB) and parsed before Gemini's
+ * request reuses the sink. The roots are the ones Wi-Fi location pins (isrg_roots.h; the chain is
+ * in wiki_lookup.h) - a literal, so the linker can share it with geoloc_net.cpp's. */
+#define AI_WIKI_CONNECT_MS  10000u
+#define AI_WIKI_TOTAL_MS    20000u
+#define AI_WIKI_IDLE_MS     5000u           // a body that stops this long (it comes in one go)
+#define AI_WIKI_ROOTS_PEM   ISRG_ROOT_X1_PEM ISRG_ROOT_X2_PEM ISRG_ROOT_YE_PEM
 
 /* GOOGLE'S ROOTS, PINNED. generativelanguage.googleapis.com chains leaf <- WR2 <- GTS Root R1
  * (checked live with openssl, ECDHE-ECDSA and ECDHE-RSA, 2026-10); R4 (P-384) is here in case the
@@ -120,9 +145,11 @@ struct AiReq {
   bool         topic;                     // this question starts a topic (nothing earlier sent)
   int64_t      askedUtc;                  // 0 = the clock is not trusted
   int          tzS;
+  char         zone[24];                  // the zone's name for the date sentence ("Pacific"), "" = none
   GeminiQuota  quota;                     // the remembered limits in; the worker marks it; folded back
   GeminiQuota  quotaIn;                   // ...as it went in (a changed one is saved)
   bool         musicPaused;               // aiAsk paused a playing track for this question
+  bool         retryTimeouts;             // "Retry if it times out" as it was when asked (the ladder's rule 6)
   /* Asked while a weather fetch held the worker (0.9.81): aiAsk could not judge the heap then (the
    * weather's handshake was dipping it), so the worker checks the bar itself before the first
    * request. Otherwise aiAsk's check stands, as it always has. */
@@ -138,6 +165,13 @@ struct AiRes {
   uint32_t ms;                            // ask to result
   uint32_t lastMs;                        // the last request alone
   uint32_t bodyBytes;
+  bool     wikiAsked;                     // the Wikipedia lookup's GET was made
+  int      wikiPages;                     // pages that went with the question (0 = no background)
+  uint32_t wikiMs;                        // the lookup, start to end
+  char     wikiWhy[48];                   // why it gave no background ("" = it did, or none was asked)
+  /* ...and why no GET was made (a literal; `ai` prints it - review 2026-10-11: a question that ended
+   * before its lookup read "lookup off, or no keywords"). aiRun sets the "ended before" one first. */
+  const char* wikiNot;
   uint32_t largestFloor, minEver, stackFloor;
 };
 /* The worker's buffers - PSRAM, so its 8 KB stack is left to the handshake. (The body itself goes
@@ -148,6 +182,12 @@ struct AiWork {
   char         label[GEM_LABEL_MAX];
   char         primaryLabel[GEM_LABEL_MAX];
   char         stage[128];
+  char         sys[GEM_SYS_MAX];            // the system instruction, built for each request
+  char         kw[WIKI_KW_CAP];             // the question's keywords: ALL that goes to Wikipedia
+  char         wikiUrl[WIKI_URL_MAX];
+  WikiResult   wiki;                        // the pages read (~3.9 KB)
+  char         bg[WIKI_BG_MAX + 1];         // the background for the question's turn ("" = none)
+  char         src[WIKI_SRC_MAX + 1];       // "Wikipedia: A; B" under the answer (with bg only)
 };
 
 static AiReq*   s_req  = NULL;
@@ -170,6 +210,8 @@ struct AiMem {
   AiKeyInfo     key;                     // what the last read found
   GeminiQuota   quota;                   // the remembered daily limits
   GeminiSession session;                 // models that refuse thinkingConfig (this boot)
+  bool          retryLoaded;             // "Retry if it times out" read from NVS (once)
+  bool          retryOn;                 // ...and what it says (absent = ON)
 };
 static AiMem* s_m = NULL;
 
@@ -215,6 +257,16 @@ static int tzNow() {
   const int32_t d = (int32_t)(ntpClock.getExactUnixTime() - ntpClock.getExactUtcTime());
   const int32_t m = (d >= 0) ? (d + 30) / 60 : -((-d + 30) / 60);
   return (int)(m * 60);
+}
+
+/* "Phone low on memory (11 KB block, 30 KB free) - reboot first": aiAsk's refusal, and the worker's
+ * when the heap bar or a handshake's allocation failed later in a question (review 2026-10-11: after
+ * the Wikipedia lookup's handshake a fragmented heap read as a generic failure). The numbers now. */
+static void lowMemText(char* out, size_t cap) {
+  uint32_t f = 0, lg = 0;
+  netHeapOkForHandshake(&f, &lg);
+  snprintf(out, cap, "Phone low on memory (%u KB block, %u KB free) - reboot first", (unsigned)(lg / 1024),
+           (unsigned)(f / 1024));
 }
 
 /* A small file into buf (NUL-terminated), retried once after 20 ms: the card shares the SPI bus
@@ -287,6 +339,7 @@ static void keyInfoFrom(const GeminiConfig* c, int rc) {
   strlcpy(s_m->key.model, c->model, sizeof(s_m->key.model));
   strlcpy(s_m->key.fallback, c->fallback, sizeof(s_m->key.fallback));
   s_m->key.thinking = c->thinking;
+  s_m->key.lookup = c->lookup;
 }
 
 void aiKeyReload() {
@@ -590,6 +643,44 @@ size_t aiQuotaNote(char* out, size_t cap) {
   return geminiQuotaNotice(a, s_m->key.fallback[0] ? b : "", until, now, tzNow(), remain, out, cap);
 }
 
+// ── "Retry if it times out" (round 3) ────────────────────────────────────────────────────
+
+#define AI_PREFS_NS     "wpmesh"                 // the firmware's settings namespace (prefs_almanac.cpp)
+#define AI_PREFS_RETRY  "ai_retry"               // uchar: 1 on, 0 off; absent = ON
+
+bool aiRetryTimeouts() {
+  if (!memOk()) {
+    return true;                                   // the default
+  }
+  if (!s_m->retryLoaded) {
+    s_m->retryLoaded = true;
+    s_m->retryOn = true;
+    Preferences p;
+    /* Read-only begin() FAILS when the namespace was never written (a new phone): ON stands. */
+    if (p.begin(AI_PREFS_NS, true)) {
+      s_m->retryOn = p.getUChar(AI_PREFS_RETRY, 1) != 0;
+      p.end();
+    }
+  }
+  return s_m->retryOn;
+}
+
+void aiSetRetryTimeouts(bool on) {
+  if (!memOk()) {
+    return;
+  }
+  s_m->retryLoaded = true;
+  s_m->retryOn = on;
+  Preferences p;
+  if (p.begin(AI_PREFS_NS, false)) {
+    p.putUChar(AI_PREFS_RETRY, on ? 1 : 0);
+    p.end();
+  } else {
+    log_e("AI: could not open NVS '%s' to save %s=%d (kept for this boot only)", AI_PREFS_NS, AI_PREFS_RETRY,
+          on ? 1 : 0);
+  }
+}
+
 // ── the wire (WORKER) ────────────────────────────────────────────────────────────────────
 
 /* One POST, through the shared worker's exchange (https_worker.cpp: netHttps - the code that was
@@ -617,9 +708,20 @@ static int postOnce(const char* model, size_t bodyLen, size_t* got, int* net) {
   q.body = (const uint8_t*)s_body;
   q.bodyLen = bodyLen;
   q.connectMs = AI_CONNECT_MS;
+  /* The heap bar again right before EVERY Gemini handshake (review 2026-10-11): the Wikipedia
+   * lookup's handshake - or a retry's wait - can leave the heap fragmented since aiAsk looked, and
+   * a handshake started under the bar fails as a generic TLS error. Under it: GEM_NET_NOMEM, and
+   * aiRun says "reboot first" with the numbers. */
+  q.heapCheck = true;
   q.timeoutMs = AI_TIMEOUT_MS;
+  q.waitSliceMs = AI_SLICE_MS;                   // the wait for the answer: the client's own, cancellable
   q.bodyIdleMs = AI_BODY_IDLE_MS;
   q.cancel = &s_cancel;
+  /* ...and a CALL ends it too (review 2026-10-11): tileFetchCallRecent is the loop's per-pass
+   * flag from the SIP state (a live or ringing call, or the minute after one - which aiAsk's
+   * gate already refused, so true here means one rang in). Up to 150 s behind a ringing phone
+   * was the alternative; aiRun says "A call came in". */
+  q.stopFn = tileFetchCallRecent;
   q.sink = netWorkerSink();
   q.cap = AI_SINK_CAP;
   NetHttpRes r;
@@ -681,12 +783,118 @@ static const char* aiGateWhy() {
   return NULL;
 }
 
+/* The topic's earlier questions - the context aiAsk copied, oldest first - as pointers for
+ * wikiKeywords. Returns how many (0 when the question starts a topic). */
+static int topicQuestions(const AiReq* q, const char* out[GEM_CONTEXT]) {
+  int n = 0;
+  for (int i = 0; i < q->nCtx && i < GEM_CONTEXT; i++) {
+    out[n++] = q->ctxQ[i];
+  }
+  return n;
+}
+
+/* THE WIKIPEDIA LOOKUP (WORKER; once a question, before its first request - never per retry; see
+ * wiki_lookup.h). ONE GET, never retried whatever happens: Wikipedia answered 429 after ~8 quick
+ * requests, and the question is worth asking without it. PRIVACY: the URL is built from the
+ * question's KEYWORDS alone - no key (no header but the User-Agent), no whole question, no chat.
+ * Fills s_work->bg and ->src, or leaves both "" with r->wikiWhy saying why (aiLoopTick logs it):
+ * any failure is silent and harmless, and the question goes to Gemini as it would have.
+ * noinline ON PURPOSE: inlined (as it was, into aiRun), its request and response would sit in
+ * aiRun's frame under every Gemini handshake that follows, on the worker's 8 KB stack. */
+static void __attribute__((noinline)) aiWikiLookup(const AiReq* q, AiRes* r) {
+  s_work->bg[0] = '\0';
+  s_work->src[0] = '\0';
+  r->wikiWhy[0] = '\0';
+  r->wikiPages = 0;
+  if (!q->cfg.lookup) {
+    r->wikiNot = "lookup=off in gemini.txt";
+    return;                                        // gemini.txt: lookup=off
+  }
+  /* A follow-up ("and when?") borrows from the topic's newest question that named something
+   * (round 3: wikiKeywords walks back) - the questions sent as context, oldest first; none when
+   * this question starts a topic. */
+  const char* earlier[GEM_CONTEXT];
+  const int nEarlier = topicQuestions(q, earlier);
+  if (wikiKeywords(q->question, earlier, nEarlier, s_work->kw, sizeof(s_work->kw)) == 0) {
+    r->wikiNot = "no keywords in the question";
+    return;                                        // nothing to search for: no lookup at all
+  }
+  if (wikiUrl(s_work->kw, s_work->wikiUrl, sizeof(s_work->wikiUrl)) >= sizeof(s_work->wikiUrl)) {
+    r->wikiNot = "the keywords did not fit the URL";
+    strlcpy(r->wikiWhy, r->wikiNot, sizeof(r->wikiWhy));
+    return;
+  }
+  progSet("Looking up Wikipedia...", NULL, 0, -1);
+  const uint32_t t0 = millis();
+  NetHttpReq w;
+  memset(&w, 0, sizeof(w));
+  w.method = "GET";
+  w.host = WIKI_HOST;
+  w.url = s_work->wikiUrl;                         // ⚠ never logged: the question's words are in it
+  w.rootsPem = AI_WIKI_ROOTS_PEM;
+  w.userAgent = WIKI_USER_AGENT;                   // Wikimedia's policy: a name and a contact
+  w.connectMs = AI_WIKI_CONNECT_MS;
+  w.timeoutMs = AI_WIKI_TOTAL_MS;
+  w.waitSliceMs = AI_SLICE_MS;                     // the client's own first-byte wait: Cancel and a call end it
+  w.bodyIdleMs = AI_WIKI_IDLE_MS;
+  w.totalMs = AI_WIKI_TOTAL_MS;                    // the whole lookup, DNS included
+  w.connectFirst = true;                           // the handshake timed alone, under its cap
+  w.heapCheck = true;                              // the bar again before THIS handshake
+  w.cancel = &s_cancel;
+  w.stopFn = tileFetchCallRecent;                  // a call rang in: stop (aiRun then says so)
+  w.sink = netWorkerSink();
+  w.cap = WIKI_RESPONSE_CAP;
+  NetHttpRes res;
+  int code = netHttps(&w, &res);
+  r->wikiAsked = true;
+  r->wikiMs = millis() - t0;
+  if (res.largestAfterSend && res.largestAfterSend < r->largestFloor) {
+    r->largestFloor = res.largestAfterSend;
+  }
+  int net = res.net;
+  if (code > 0 && res.overflow) {
+    code = 0;
+    net = GEM_NET_TOO_BIG;
+  }
+  if (s_cancel) {
+    strlcpy(r->wikiWhy, "cancelled", sizeof(r->wikiWhy));
+    return;
+  }
+  if (tileFetchCallRecent()) {
+    strlcpy(r->wikiWhy, "a call came in", sizeof(r->wikiWhy));
+    return;
+  }
+  if (code != 200) {
+    wikiSkipWhy(code, net, WIKI_BAD, r->wikiWhy, sizeof(r->wikiWhy));
+    return;
+  }
+  const int parsed = wikiParse(netWorkerSink(), res.got, &s_work->wiki);
+  if (parsed != WIKI_OK) {
+    wikiSkipWhy(200, GEM_NET_OK, parsed, r->wikiWhy, sizeof(r->wikiWhy));
+    return;
+  }
+  /* Only the pages ABOUT the keywords (round 3), the background, and the sources line naming exactly
+   * them - all or nothing: no page left, none that fits, or no title the line can show, and neither
+   * goes (wikiCompose). */
+  int why = WIKI_OK;
+  const int used = wikiCompose(&s_work->wiki, s_work->kw, WIKI_BG_MAX, s_work->bg, sizeof(s_work->bg), s_work->src,
+                               sizeof(s_work->src), &why);
+  if (used <= 0) {
+    s_work->bg[0] = '\0';
+    s_work->src[0] = '\0';
+    wikiSkipWhy(200, GEM_NET_OK, why, r->wikiWhy, sizeof(r->wikiWhy));
+    return;
+  }
+  r->wikiPages = used;
+}
+
 /* The ladder for one question: a LOOP (the T-Deck's first retry called itself mid-TLS and died). */
 static void aiRun() {
   AiReq* q = s_req;
   AiRes* r = s_res;
   const uint32_t t0 = millis();
   heapNow(NULL, &r->largestFloor, NULL);
+  r->wikiNot = "the question ended before the lookup";   // aiWikiLookup says otherwise once it runs
   GeminiTurnPair ctx[GEM_CONTEXT];
   for (int i = 0; i < q->nCtx; i++) {
     ctx[i].q = q->ctxQ[i];
@@ -701,11 +909,9 @@ static void aiRun() {
       r->ms = millis() - t0;
       return;
     }
-    uint32_t f = 0, lg = 0;
-    if (!netHeapOkForHandshake(&f, &lg)) {
+    if (!netHeapOkForHandshake(NULL, NULL)) {
       r->net = GEM_NET_NOMEM;
-      snprintf(r->fail, sizeof(r->fail), "Phone low on memory (%u KB block, %u KB free) - reboot first",
-               (unsigned)(lg / 1024), (unsigned)(f / 1024));
+      lowMemText(r->fail, sizeof(r->fail));
       r->ms = millis() - t0;
       return;
     }
@@ -717,12 +923,27 @@ static void aiRun() {
   geminiModelLabel(q->cfg.model, primaryLabel, GEM_LABEL_MAX);
   GeminiLadder& l = s_work->ladder;
   int step = geminiLadderStart(&l, &q->cfg, &s_m->session, &q->quota, utcNow(), millis());
+  l.retryTimeouts = q->retryTimeouts;     // "Retry if it times out" (the ladder's rule 6): the setting
   if (step == GEM_STEP_FAIL) {
     geminiFailText(0, GEM_NET_OK, NULL, &l, q->cfg.key, q->tzS, r->fail, sizeof(r->fail));
     r->ms = millis() - t0;
     return;
   }
   geminiModelLabel(l.model, label, GEM_LABEL_MAX);
+  /* What Wikipedia says, looked up once before the first request (a model is there to ask: the
+   * ladder started). A Cancel or a call during it ends the question here. */
+  progSet(NULL, label, 0, 0);
+  aiWikiLookup(q, r);
+  if (s_cancel) {
+    r->cancelled = true;
+    r->ms = millis() - t0;
+    return;
+  }
+  if (tileFetchCallRecent()) {
+    strlcpy(r->fail, "A call came in - ask again after it", sizeof(r->fail));
+    r->ms = millis() - t0;
+    return;
+  }
   if (l.quotaSwitch) {
     geminiQuotaNotice(primaryLabel, label, l.primaryUntil, l.nowUtc, q->tzS, l.primaryRemainS, stageBuf, stageCap);
     progSet(stageBuf, label, 0, 0);
@@ -746,7 +967,12 @@ static void aiRun() {
       strlcpy(r->fail, "A call came in - ask again after it", sizeof(r->fail));
       break;
     }
-    const size_t n = geminiBuildRequest(ctx, q->nCtx, q->question, GEM_SYSTEM_INSTRUCTION, l.budget,
+    /* The system instruction NOW (2026-10-11): today's date from the clock as it is when this request
+     * goes - only a trusted one (utcNow() is 0 otherwise: no date beats a wrong one). The lookup's
+     * background goes in the QUESTION'S turn (s_work->bg), never in here; the context turns are the
+     * chat's plain questions. */
+    geminiSystemText(utcNow(), q->tzS, q->zone, s_work->sys, sizeof(s_work->sys));
+    const size_t n = geminiBuildRequest(ctx, q->nCtx, q->question, s_work->bg, s_work->sys, l.budget,
                                         NULL, 0);
     if (n + 1 > s_bodyCap) {
       free(s_body);
@@ -759,7 +985,7 @@ static void aiRun() {
       }
       s_bodyCap = n + 1;
     }
-    geminiBuildRequest(ctx, q->nCtx, q->question, GEM_SYSTEM_INSTRUCTION, l.budget, s_body, s_bodyCap);
+    geminiBuildRequest(ctx, q->nCtx, q->question, s_work->bg, s_work->sys, l.budget, s_body, s_bodyCap);
     const uint32_t ta = millis();
     size_t got = 0;
     int net = GEM_NET_OK;
@@ -770,6 +996,18 @@ static void aiRun() {
     r->attempts++;
     r->bodyBytes = (uint32_t)got;
     progSet(NULL, NULL, 0, r->attempts);
+    if (code <= 0 && s_cancel) {
+      /* Ended by Cancel (the client stop()s and reads LOST): the user's word - never a timeout
+       * for rule 6 to retry. */
+      r->cancelled = true;
+      break;
+    }
+    if (code <= 0 && !s_cancel && tileFetchCallRecent()) {
+      /* The wait was ended by a call (postOnce's stopFn) - or one rang in as the request failed:
+       * no answer is coming, and no retry is made under a call. */
+      strlcpy(r->fail, "A call came in - ask again after it", sizeof(r->fail));
+      break;
+    }
     if (code > 0) {
       geminiParseReply(netWorkerSink(), got, s_work->text, sizeof(s_work->text), rep);
     } else {
@@ -779,11 +1017,19 @@ static void aiRun() {
     uint32_t delayMs = 0;
     const char* stage = NULL;
     const bool wasFallback = l.onFallback;
-    step = geminiLadderNext(&l, &s_m->session, &q->quota, code, rep, utcNow(), millis(), &delayMs, &stage);
+    /* `net` says why there was no HTTP answer: a timeout or a lost connection is rule 6's (once more,
+     * then the fallback once - with the background found above, never a second lookup). */
+    step = geminiLadderNext(&l, &s_m->session, &q->quota, code, net, rep, utcNow(), millis(), &delayMs, &stage);
     if (step == GEM_STEP_DONE) {
+      /* The answer, and - when background went with the question - the "Wikipedia: A; B" line
+       * under it (the pages that went; cut off again before it is ever sent back as context). */
       if (rep->kind == GEM_REPLY_TEXT &&
-          geminiAnswerText(rep, s_work->text, r->answer, sizeof(r->answer)) > 0) {
+          geminiAnswerText(rep, s_work->text, s_work->bg[0] ? s_work->src : NULL, r->answer,
+                           sizeof(r->answer)) > 0) {
         r->ok = true;
+        /* Google's text is drawn, saved and sent back: the scrub every other text from Google gets
+         * (the key never goes in a request's text - but a model can echo what it was sent). */
+        geminiScrub(r->answer, sizeof(r->answer), q->cfg.key);
         /* Just the model under each answer: the daily-limit notice was already on the waiting
          * screen, and "Flash-Lite - daily Flash limit reached" took two rows under EVERY answer. */
         geminiModelLabel(l.model, r->label, sizeof(r->label));
@@ -793,7 +1039,11 @@ static void aiRun() {
       break;
     }
     if (step == GEM_STEP_FAIL) {
-      geminiFailText(code, net, rep, &l, q->cfg.key, q->tzS, r->fail, sizeof(r->fail));
+      if (code <= 0 && net == GEM_NET_NOMEM) {
+        lowMemText(r->fail, sizeof(r->fail));    // the heap bar (q.heapCheck) or the handshake's alloc
+      } else {
+        geminiFailText(code, net, rep, &l, q->cfg.key, q->tzS, r->fail, sizeof(r->fail));
+      }
       break;
     }
     geminiModelLabel(l.model, label, GEM_LABEL_MAX);
@@ -887,11 +1137,16 @@ void aiLoopTick() {
     s_failed++;
   }
   s_haveRes = true;
-  /* ⚠ Never the key, the question or the answer: sizes, codes, the model, the time. */
-  log_e("AI: %s in %u ms, %d request(s), HTTP %d, %s, question %u chars, answer %u chars, stack floor %u",
+  /* ⚠ Never the key, the question, its keywords or the answer: sizes, codes, the model, the time. */
+  if (s_res->wikiWhy[0]) {
+    log_e("AI: Wikipedia lookup skipped: %s", s_res->wikiWhy);   // one line; the question went without it
+  }
+  log_e("AI: %s in %u ms, %d request(s), HTTP %d, %s, question %u chars, answer %u chars, "
+        "Wikipedia %d page(s) in %u ms, stack floor %u",
         cancelled ? "cancelled" : (ok ? "answered" : "failed"), (unsigned)s_res->ms, s_res->attempts,
         s_res->lastCode, s_res->label[0] ? s_res->label : "-", (unsigned)strlen(s_req->question),
-        (unsigned)(ok ? strlen(s_res->answer) : 0), (unsigned)s_res->stackFloor);
+        (unsigned)(ok ? strlen(s_res->answer) : 0), s_res->wikiPages, (unsigned)s_res->wikiMs,
+        (unsigned)s_res->stackFloor);
   s_cancel = false;
   s_done = false;
 }
@@ -963,13 +1218,9 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
    * now, so the reading would refuse a question that would have been fine. Then the worker checks
    * the bar itself when the question's turn comes (heapCheckAtStart). */
   const bool behindWeather = wxRequestActive();
-  if (!behindWeather) {
-    uint32_t f, l;
-    if (!netHeapOkForHandshake(&f, &l)) {
-      snprintf(why, whyCap, "Phone low on memory (%u KB block, %u KB free) - reboot first",
-               (unsigned)(l / 1024), (unsigned)(f / 1024));
-      return false;
-    }
+  if (!behindWeather && !netHeapOkForHandshake(NULL, NULL)) {
+    lowMemText(why, whyCap);
+    return false;
   }
   GeminiChat* chat = chatGet();
   if (!chat) {
@@ -989,6 +1240,16 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
   memcpy(&s_req->cfg, s_cfg, sizeof(s_req->cfg));
   s_req->askedUtc = utcNow();
   s_req->tzS = tzNow();
+  {
+    /* The zone's name for the date sentence - only when it is the offset the clock is on now (a
+     * zone whose DST waits for a clock, or a typed offset, gives just "local time (UTC-7)"). */
+    TzEff e;
+    tzSvcEffective(&e);
+    s_req->zone[0] = '\0';
+    if (e.ok && e.name && e.minutes * 60 == s_req->tzS) {
+      strlcpy(s_req->zone, e.name, sizeof(s_req->zone));
+    }
+  }
   s_req->topic = geminiChatTopicDue(chat, s_req->askedUtc);
   s_req->nCtx = 0;
   if (!s_req->topic) {
@@ -1003,6 +1264,7 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
   s_req->quota = s_m->quota;
   s_req->quotaIn = s_m->quota;
   s_req->heapCheckAtStart = behindWeather;
+  s_req->retryTimeouts = aiRetryTimeouts();       // NVS, read once: the setting as the question is asked
   memset(s_res, 0, sizeof(*s_res));
   s_haveRes = false;
   /* MUSIC PAUSES FOR A QUESTION (Nick, 2026-10-03: "make music turn off when doing ai"). The
@@ -1081,6 +1343,10 @@ void aiReport(void (*emit)(const char* line)) {
   if (!anyOut) {
     emit("    daily limits: none reached");
   }
+  emit(s_m->key.lookup ? "    Wikipedia lookup: on (keywords only; gemini.txt lookup=off stops it)"
+                       : "    Wikipedia lookup: OFF (gemini.txt lookup=off)");
+  emit(aiRetryTimeouts() ? "    " GEM_RETRY_LABEL ": on (once more, then the fallback once; `ai retry off`)"
+                         : "    " GEM_RETRY_LABEL ": OFF (a timeout is shown at once; `ai retry on`)");
   if (aiRequestActive()) {
     AiProgress p;
     aiProgress(&p);
@@ -1093,6 +1359,17 @@ void aiReport(void (*emit)(const char* line)) {
              s_res->label[0] ? s_res->label : "-", (unsigned)s_res->ms, (unsigned)s_res->lastMs,
              s_res->attempts, (unsigned)s_res->bodyBytes);
     emit(l);
+    if (!s_res->wikiAsked) {
+      snprintf(l, sizeof(l), "    Wikipedia: not asked (%s)", s_res->wikiNot ? s_res->wikiNot : "-");
+      emit(l);
+    } else if (s_res->wikiPages > 0) {
+      snprintf(l, sizeof(l), "    Wikipedia: %d page(s) went with it, %u ms", s_res->wikiPages,
+               (unsigned)s_res->wikiMs);
+      emit(l);
+    } else {
+      snprintf(l, sizeof(l), "    Wikipedia: skipped after %u ms - %s", (unsigned)s_res->wikiMs, s_res->wikiWhy);
+      emit(l);
+    }
     if (s_res->ok) {
       snprintf(l, sizeof(l), "    answer (%u chars): %.100s", (unsigned)strlen(s_res->answer), s_res->answer);
       for (char* p = l; *p; p++) {

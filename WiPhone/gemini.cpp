@@ -91,8 +91,13 @@ static size_t wEnd(GemW* w) {
   return w->n;
 }
 
-static void wEsc(GemW* w, const char* s) {
-  for (const unsigned char* p = (const unsigned char*)s; p && *p; p++) {
+/* JSON-escaped, the first `n` bytes of `s` at most (it stops at a NUL too). */
+static void wEscN(GemW* w, const char* s, size_t n) {
+  if (!s) {
+    return;
+  }
+  const unsigned char* end = (const unsigned char*)s + n;
+  for (const unsigned char* p = (const unsigned char*)s; p < end && *p; p++) {
     const unsigned char c = *p;
     if (c == '"') {
       wStr(w, "\\\"");
@@ -112,6 +117,10 @@ static void wEsc(GemW* w, const char* s) {
       wChar(w, (char)c);
     }
   }
+}
+
+static void wEsc(GemW* w, const char* s) {
+  wEscN(w, s, s ? strlen(s) : 0);
 }
 
 // ── the key file ─────────────────────────────────────────────────────────────────────────
@@ -177,6 +186,7 @@ int geminiParseConfig(const char* text, size_t len, GeminiConfig* out) {
   gCopy(out->model, sizeof(out->model), GEM_DEFAULT_MODEL);
   gCopy(out->fallback, sizeof(out->fallback), GEM_LITE_MODEL);
   out->thinking = GEM_THINKING;
+  out->lookup = true;
   if (!text) {
     len = 0;
   }
@@ -276,6 +286,19 @@ int geminiParseConfig(const char* text, size_t len, GeminiConfig* out) {
         gCopy(out->fallback, sizeof(out->fallback), GEM_LITE_MODEL);
         out->warn |= GEM_WARN_FALLBACK;
       }
+    } else if (gEqNoCase(ns, nl, "lookup")) {
+      /* The Wikipedia lookup before each question (wiki_lookup.h): `off` stops it, `on` (and an
+       * empty value) is the default; anything else is a typo - the default, and Key info says so. */
+      if (gEqNoCase(vs, (size_t)(ve - vs), "off")) {
+        out->lookup = false;
+        out->warn &= ~GEM_WARN_LOOKUP;
+      } else if (vs == ve || gEqNoCase(vs, (size_t)(ve - vs), "on")) {
+        out->lookup = true;
+        out->warn &= ~GEM_WARN_LOOKUP;
+      } else {
+        out->lookup = true;
+        out->warn |= GEM_WARN_LOOKUP;
+      }
     }
     // Anything else: a line for another device, or a typo - ignored, like the T-Deck does.
   }
@@ -333,34 +356,59 @@ int geminiParseConfig(const char* text, size_t len, GeminiConfig* out) {
   return GEM_CFG_OK;
 }
 
+/* geminiConfigLine's writer. Unlike GemW - a request body that does not fit is left EMPTY - a
+ * status line that does not fit is CUT, "..." at its end (review 2026-10-11: two long model names
+ * and ", Wikipedia lookup off" passed Key info's 200 bytes, and the whole line came out EMPTY).
+ * Pieces go in while there is room; *n counts them all. */
+static void lineAdd(char* out, size_t cap, size_t* n, const char* s) {
+  const size_t l = strlen(s);
+  if (out && cap && *n + 1 < cap) {
+    const size_t room = cap - 1 - *n;
+    memcpy(out + *n, s, l < room ? l : room);
+  }
+  *n += l;
+}
+
 size_t geminiConfigLine(const GeminiConfig* c, int parsed, char* out, size_t cap) {
-  GemW w = { out, cap, 0 };
+  size_t n = 0;
   char num[48];
   if (parsed == GEM_CFG_OK) {
     snprintf(num, sizeof(num), "key: set (%d chars)", c->keyLen);
-    wStr(&w, num);
+    lineAdd(out, cap, &n, num);
   } else if (parsed == GEM_CFG_BAD_KEY) {
-    wStr(&w, "key: refused - ");
-    wStr(&w, c->problem ? c->problem : "unreadable");
+    lineAdd(out, cap, &n, "key: refused - ");
+    lineAdd(out, cap, &n, c->problem ? c->problem : "unreadable");
   } else {
-    wStr(&w, "key: none");
+    lineAdd(out, cap, &n, "key: none");
   }
-  wStr(&w, ", model ");
-  wStr(&w, c->model);
+  lineAdd(out, cap, &n, ", model ");
+  lineAdd(out, cap, &n, c->model);
   if (c->thinking) {
     snprintf(num, sizeof(num), ", thinking %d", c->thinking);
-    wStr(&w, num);
+    lineAdd(out, cap, &n, num);
   } else {
-    wStr(&w, ", thinking off");
+    lineAdd(out, cap, &n, ", thinking off");
   }
-  wStr(&w, ", fallback ");
-  wStr(&w, c->fallback[0] ? c->fallback : "none");
-  if (c->warn & GEM_WARN_SHAPE)    wStr(&w, "; the key's shape is unusual (sent anyway)");
-  if (c->warn & GEM_WARN_TDECK)    wStr(&w, "; 80+ chars (a T-Deck keeps 79)");
-  if (c->warn & GEM_WARN_MODEL)    wStr(&w, "; model= line ignored (not a model name)");
-  if (c->warn & GEM_WARN_THINKING) wStr(&w, "; thinking= must be 0-8192 (default used)");
-  if (c->warn & GEM_WARN_FALLBACK) wStr(&w, "; fallback= line ignored (not a model name)");
-  return wEnd(&w);
+  lineAdd(out, cap, &n, ", fallback ");
+  lineAdd(out, cap, &n, c->fallback[0] ? c->fallback : "none");
+  if (!c->lookup)                  lineAdd(out, cap, &n, ", Wikipedia lookup off");
+  if (c->warn & GEM_WARN_SHAPE)    lineAdd(out, cap, &n, "; the key's shape is unusual (sent anyway)");
+  if (c->warn & GEM_WARN_TDECK)    lineAdd(out, cap, &n, "; 80+ chars (a T-Deck keeps 79)");
+  if (c->warn & GEM_WARN_MODEL)    lineAdd(out, cap, &n, "; model= line ignored (not a model name)");
+  if (c->warn & GEM_WARN_THINKING) lineAdd(out, cap, &n, "; thinking= must be 0-8192 (default used)");
+  if (c->warn & GEM_WARN_FALLBACK) lineAdd(out, cap, &n, "; fallback= line ignored (not a model name)");
+  if (c->warn & GEM_WARN_LOOKUP)   lineAdd(out, cap, &n, "; lookup= must be on or off (on used)");
+  if (out && cap) {
+    if (n < cap) {
+      out[n] = '\0';
+    } else {
+      out[cap - 1] = '\0';
+      if (cap >= 4) {
+        memcpy(out + cap - 4, "...", 3);         // cut, and says so: never an empty line
+      }
+    }
+  }
+  return n;
 }
 
 void geminiModelLabel(const char* model, char* out, size_t cap) {
@@ -626,27 +674,140 @@ const char GEM_SYSTEM_INSTRUCTION[] =
   "characters, no emoji. Be accurate. Answer fully but concisely: a few short paragraphs at "
   "most unless the user asks for more.";
 
+/* After the date, before the device text, every request (2026-10-11): the model's own knowledge
+ * stops at its training cut-off and it does not know that - it called a game due in 2027
+ * "rumoured, may come out in 2025" in late 2026. The background it is told about is the phone's
+ * Wikipedia lookup, sent in the question's own turn (geminiBuildRequest).
+ * ⚠ NEVER a tool, a URL or a "function" in here: an instruction that named a "URL tool" the
+ * request did not declare made 3.8 Flash answer MALFORMED_FUNCTION_CALL, no text, after 84 s.
+ * Short: these are input tokens on every request of a free allowance. */
+static const char GEM_SYS_FRESH[] =
+  "Your own knowledge ends earlier than today, so things may have changed since. When background "
+  "from Wikipedia comes with a question, prefer it for anything recent and ignore it if it is "
+  "about something else. If you cannot confirm something recent, say so plainly; never present a "
+  "guess as a fact. ";
+
+#define GEM_SANE_UTC 1577836800LL                // 2020-01-01: a "trusted" clock before this is not
+
+/* Days since 1970-01-01 to a civil date (Howard Hinnant's civil_from_days): exact for
+ * every date this phone will see, no tables, no time.h (whose time_t is 32-bit on the phone). */
+static void gCivil(int64_t days, int* y, int* m, int* d) {
+  const int64_t z = days + 719468;
+  const int64_t era = (z >= 0 ? z : z - 146096) / 146097;
+  const int64_t doe = z - era * 146097;                                   // [0, 146096]
+  const int64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;  // [0, 399]
+  const int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);            // [0, 365]
+  const int64_t mp = (5 * doy + 2) / 153;                                 // [0, 11], March first
+  *d = (int)(doy - (153 * mp + 2) / 5 + 1);
+  *m = (int)(mp < 10 ? mp + 3 : mp - 9);
+  *y = (int)(yoe + era * 400 + (*m <= 2 ? 1 : 0));
+}
+
+/* "Today is Sunday 11 October 2026, about 2:05 PM Pacific time (UTC-7). " */
+static void wDateSentence(GemW* w, int64_t nowUtc, int tzOffsetS, const char* zone) {
+  static const char* const DAYS[7] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
+                                       "Friday", "Saturday" };
+  static const char* const MONTHS[12] = { "January", "February", "March", "April", "May", "June",
+                                          "July", "August", "September", "October", "November",
+                                          "December" };
+  const int64_t local = nowUtc + tzOffsetS;
+  const int64_t day = (local >= 0 ? local : local - 86399) / 86400;
+  const int sod = (int)(local - day * 86400);
+  int y, m, d;
+  gCivil(day, &y, &m, &d);
+  const int wd = (int)(((day % 7) + 7 + 4) % 7);         // 1970-01-01 was a Thursday
+  const int h = sod / 3600;
+  char t[96];
+  snprintf(t, sizeof(t), "Today is %s %d %s %d, about %d:%02d %s ", DAYS[wd], d, MONTHS[m - 1], y,
+           (h % 12) ? h % 12 : 12, (sod % 3600) / 60, h < 12 ? "AM" : "PM");
+  wStr(w, t);
+  /* The zone's name, up to a comma ("Mountain, no DST" -> "Mountain"), letters and spaces only -
+   * the plain-ASCII rule, and nothing from a setting can become an instruction. A name that IS an
+   * offset - the zone table's "UTC+12" and "UTC-11", or anything with a digit in it - would read
+   * "UTC time (UTC+12)" once its digits went: "local time" instead (review 2026-10-11). */
+  bool offsetName = zone && !strncasecmp(zone, "UTC", 3);
+  for (const char* p = zone; p && *p && !offsetName; p++) {
+    offsetName = isdigit((unsigned char)*p) != 0;
+  }
+  char name[24];
+  size_t n = 0;
+  for (const char* p = zone; p && !offsetName && *p && *p != ',' && *p != '(' && n + 1 < sizeof(name);
+       p++) {
+    if (isalpha((unsigned char)*p) || *p == ' ') {
+      name[n++] = *p;
+    }
+  }
+  while (n > 0 && name[n - 1] == ' ') n--;
+  name[n] = '\0';
+  wStr(w, name[0] ? name : "local");
+  const int off = tzOffsetS >= 0 ? (tzOffsetS + 30) / 60 : -((-tzOffsetS + 30) / 60);  // minutes
+  const int a = off < 0 ? -off : off;
+  if (off == 0) {
+    snprintf(t, sizeof(t), " time (UTC). ");
+  } else if (a % 60) {
+    snprintf(t, sizeof(t), " time (UTC%c%d:%02d). ", off < 0 ? '-' : '+', a / 60, a % 60);
+  } else {
+    snprintf(t, sizeof(t), " time (UTC%c%d). ", off < 0 ? '-' : '+', a / 60);
+  }
+  wStr(w, t);
+}
+
+size_t geminiSystemText(int64_t nowUtc, int tzOffsetS, const char* zone, char* out, size_t cap) {
+  GemW w = { out, cap, 0 };
+  if (nowUtc >= GEM_SANE_UTC) {
+    wDateSentence(&w, nowUtc, tzOffsetS, zone);
+  }
+  wStr(&w, GEM_SYS_FRESH);
+  wStr(&w, GEM_SYSTEM_INSTRUCTION);
+  return wEnd(&w);
+}
+
 size_t geminiJsonEscape(const char* in, char* out, size_t cap) {
   GemW w = { out, cap, 0 };
   wEsc(&w, in ? in : "");
   return wEnd(&w);
 }
 
-static void wTurn(GemW* w, const char* role, const char* text) {
+static void wTurnN(GemW* w, const char* role, const char* text, size_t n) {
   wStr(w, "{\"role\":\"");
   wStr(w, role);
   wStr(w, "\",\"parts\":[{\"text\":\"");
-  wEsc(w, text ? text : "");
+  wEscN(w, text ? text : "", n);
   wStr(w, "\"}]}");
 }
 
+static void wTurn(GemW* w, const char* role, const char* text) {
+  wTurnN(w, role, text, text ? strlen(text) : 0);
+}
+
+/* A stored answer as it goes back as context: without its own "Wikipedia: ..." line
+ * (geminiAnswerText's last line, GEM_SRC_SEP). Sent back, it would teach the model to end answers
+ * with one - naming pages it was never given. Only the LAST line, and only after a blank one: a
+ * "Wikipedia:" anywhere else is the answer's own words. */
+static size_t gContextLen(const char* a) {
+  if (!a) {
+    return 0;
+  }
+  const char* last = NULL;
+  for (const char* p = strstr(a, GEM_SRC_SEP); p; p = strstr(p + 1, GEM_SRC_SEP)) {
+    last = p;
+  }
+  if (last && !strchr(last + sizeof(GEM_SRC_SEP) - 1, '\n')) {
+    return (size_t)(last - a);
+  }
+  return strlen(a);
+}
+
 size_t geminiBuildRequest(const GeminiTurnPair* ctx, int nCtx, const char* question,
-                          const char* sysInstr, int thinkingBudget, char* out, size_t cap) {
-  // The newest exchanges that fit the cap with the question; the oldest go first.
-  size_t total = question ? strlen(question) : 0;
+                          const char* background, const char* sysInstr, int thinkingBudget,
+                          char* out, size_t cap) {
+  const bool bg = background && background[0];
+  // The newest exchanges that fit the cap with the question (and its background); the oldest go first.
+  size_t total = (question ? strlen(question) : 0) +
+                 (bg ? strlen(background) + sizeof(GEM_BG_QUESTION) - 1 : 0);
   int first = nCtx;
   for (int i = nCtx - 1; i >= 0; i--) {
-    const size_t add = (ctx[i].q ? strlen(ctx[i].q) : 0) + (ctx[i].a ? strlen(ctx[i].a) : 0);
+    const size_t add = (ctx[i].q ? strlen(ctx[i].q) : 0) + gContextLen(ctx[i].a);
     if (total + add > GEM_SEND_TEXT_CAP) {
       break;
     }
@@ -660,12 +821,24 @@ size_t geminiBuildRequest(const GeminiTurnPair* ctx, int nCtx, const char* quest
   for (int i = first; i < nCtx; i++) {
     wTurn(&w, "user", ctx[i].q);
     wChar(&w, ',');
-    wTurn(&w, "model", ctx[i].a);
+    wTurnN(&w, "model", ctx[i].a, gContextLen(ctx[i].a));
     wChar(&w, ',');
   }
-  wTurn(&w, "user", question);
+  if (bg) {
+    /* The question's own turn - and only it - carries the lookup's background, labelled as such
+     * (wikiBackground's first line) and the question after it: Wikipedia's text is data, never
+     * the system instruction. The context turns above are the chat's: plain questions. */
+    wStr(&w, "{\"role\":\"user\",\"parts\":[{\"text\":\"");
+    wEsc(&w, background);
+    wEsc(&w, GEM_BG_QUESTION);
+    wEsc(&w, question ? question : "");
+    wStr(&w, "\"}]}");
+  } else {
+    wTurn(&w, "user", question);
+  }
+  wChar(&w, ']');                                  // and never "tools" (gemini.h, CURRENT FACTS)
   char num[64];
-  snprintf(num, sizeof(num), "],\"generationConfig\":{\"maxOutputTokens\":%d,\"temperature\":%s",
+  snprintf(num, sizeof(num), ",\"generationConfig\":{\"maxOutputTokens\":%d,\"temperature\":%s",
            GEM_MAX_TOKENS, GEM_TEMPERATURE);
   wStr(&w, num);
   if (thinkingBudget >= 0) {
@@ -967,44 +1140,56 @@ static const char* gFold(uint32_t cp) {
   return "";                                     // anything else: dropped
 }
 
+const char* geminiFoldNext(const char** sp, char one[2]) {
+  const unsigned char* s = (const unsigned char*)*sp;
+  const unsigned char c = *s;
+  if (!c) {
+    return NULL;
+  }
+  uint32_t cp;
+  int n;
+  if (c < 0x80) { cp = c; n = 1; }
+  else if ((c & 0xE0) == 0xC0) { cp = c & 0x1Fu; n = 2; }
+  else if ((c & 0xF0) == 0xE0) { cp = c & 0x0Fu; n = 3; }
+  else if ((c & 0xF8) == 0xF0) { cp = c & 0x07u; n = 4; }
+  else {                                         // a stray continuation byte
+    *sp = (const char*)(s + 1);
+    return "";
+  }
+  int k = 1;
+  for (; k < n; k++) {                           // never past the NUL: it is no continuation byte
+    if ((s[k] & 0xC0) != 0x80) break;
+    cp = (cp << 6) | (s[k] & 0x3Fu);
+  }
+  if (k < n) {                                   // a cut sequence: skip its lead byte
+    *sp = (const char*)(s + 1);
+    return "";
+  }
+  *sp = (const char*)(s + n);
+  if (cp < 0x80) {
+    one[0] = (char)cp;
+    one[1] = '\0';
+    return one;
+  }
+  return gFold(cp);
+}
+
 size_t geminiCleanText(const char* in, char* out, size_t cap, bool* truncated) {
   bool trunc = false;
   if (!out || cap == 0) {
     if (truncated) *truncated = true;
     return 0;
   }
-  // Pass 1: to ASCII, control characters out (only \n survives; \t is a space).
+  // Pass 1: to ASCII (geminiFoldNext), control characters out (only \n survives; \t is a space).
   size_t o = 0;
-  const unsigned char* s = (const unsigned char*)(in ? in : "");
-  while (*s) {
-    const unsigned char c = *s;
-    uint32_t cp;
-    int n;
-    if (c < 0x80) { cp = c; n = 1; }
-    else if ((c & 0xE0) == 0xC0) { cp = c & 0x1Fu; n = 2; }
-    else if ((c & 0xF0) == 0xE0) { cp = c & 0x0Fu; n = 3; }
-    else if ((c & 0xF8) == 0xF0) { cp = c & 0x07u; n = 4; }
-    else { s++; continue; }                     // a stray continuation byte
-    int k = 1;
-    for (; k < n; k++) {
-      if ((s[k] & 0xC0) != 0x80) break;
-      cp = (cp << 6) | (s[k] & 0x3Fu);
-    }
-    if (k < n) {                                 // a cut sequence: skip its lead byte
-      s++;
-      continue;
-    }
-    s += n;
-    const char* rep;
-    char one[2];
-    if (cp < 0x80) {
-      if (cp == '\t') cp = ' ';
+  const char* s = in ? in : "";
+  char one[2];
+  const char* rep;
+  while ((rep = geminiFoldNext(&s, one)) != NULL) {
+    if (rep == one) {
+      if (one[0] == '\t') one[0] = ' ';
+      const unsigned char cp = (unsigned char)one[0];
       if ((cp < 0x20 && cp != '\n') || cp == 0x7F) continue;
-      one[0] = (char)cp;
-      one[1] = '\0';
-      rep = one;
-    } else {
-      rep = gFold(cp);
     }
     const size_t rl = strlen(rep);
     if (o + rl >= cap) {
@@ -1091,7 +1276,8 @@ size_t geminiCleanText(const char* in, char* out, size_t cap, bool* truncated) {
 
 #define GEM_CUT_NOTE " (cut short)"
 
-size_t geminiAnswerText(const GeminiReply* r, const char* text, char* out, size_t cap) {
+size_t geminiAnswerText(const GeminiReply* r, const char* text, const char* sources, char* out,
+                        size_t cap) {
   if (!out || cap == 0) {
     return 0;
   }
@@ -1100,8 +1286,14 @@ size_t geminiAnswerText(const GeminiReply* r, const char* text, char* out, size_
   if (cap <= note + 1) {
     return 0;
   }
+  /* The sources line ("Wikipedia: A; B", wikiSources - already capped and ASCII) after a blank
+   * line: its room is kept first, so the cap cuts the answer, never the line. */
+  size_t slen = (sources && sources[0]) ? strlen(sources) + 2 : 0;   // + "\n\n"
+  if (cap <= note + slen + 1) {
+    slen = 0;                                    // no room for both: the answer, never the line
+  }
   bool trunc = false;
-  size_t n = geminiCleanText(text, out, cap - note + 1, &trunc);
+  size_t n = geminiCleanText(text, out, cap - note - slen + 1, &trunc);
   if (n == 0) {
     out[0] = '\0';
     return 0;
@@ -1109,6 +1301,11 @@ size_t geminiAnswerText(const GeminiReply* r, const char* text, char* out, size_
   if (trunc || (r && (r->textTruncated || !strcmp(r->finish, "MAX_TOKENS")))) {
     memcpy(out + n, GEM_CUT_NOTE, sizeof(GEM_CUT_NOTE));
     n += sizeof(GEM_CUT_NOTE) - 1;
+  }
+  if (slen) {
+    memcpy(out + n, "\n\n", 2);
+    memcpy(out + n + 2, sources, slen - 2 + 1);
+    n += slen;
   }
   return n;
 }
@@ -1124,6 +1321,9 @@ size_t geminiNoTextMessage(const GeminiReply* r, char* out, size_t cap) {
   } else if (!strcmp(r->finish, "MAX_TOKENS")) {
     wStr(&w, "Gemini ran out of room before answering (MAX_TOKENS) - ask for less, or set "
              "thinking= lower in gemini.txt");
+  } else if (!strcmp(r->finish, "MALFORMED_FUNCTION_CALL")) {
+    /* Not a refusal: no tool is ever sent, the model stumbled (twice - the ladder's rule 0). */
+    wStr(&w, "Gemini sent an empty answer - ask again");
   } else if (r->finish[0] && strcmp(r->finish, "STOP")) {
     wStr(&w, "Gemini declined to answer (");
     wStr(&w, r->finish);
@@ -1422,6 +1622,7 @@ int geminiLadderStart(GeminiLadder* l, const GeminiConfig* cfg, const GeminiSess
   }
   l->thinking = cfg->thinking;
   l->nowUtc = nowUtc;
+  l->retryTimeouts = true;                       // the setting's default: the caller sets it after
   if (!geminiQuotaOut(q, l->primary, nowUtc, nowMs)) {
     ladderUse(l, s, l->primary, false);
     return GEM_STEP_RETRY;
@@ -1455,16 +1656,59 @@ static int ladderFallback(GeminiLadder* l, GeminiSession* s, GeminiQuota* q, int
   return GEM_STEP_FAIL;
 }
 
-int geminiLadderNext(GeminiLadder* l, GeminiSession* s, GeminiQuota* q, int httpCode,
+/* Rule 6 (round 3, "Retry if it times out"): an attempt that got NO answer because nothing came in
+ * time or the connection went. The model was not refused - it was slow (free-tier 3.8 Flash took
+ * 30-90 s, past 150 s now and then): once more on it, then once on the fallback. Never a daily
+ * limit (nothing is marked), and never a loop: two flags a question and the attempt cap. */
+static int ladderNoAnswer(GeminiLadder* l, GeminiSession* s, GeminiQuota* q, int net, int64_t nowUtc,
+                          uint32_t nowMs, uint32_t* delayMs, const char** stage) {
+  if (!l->retryTimeouts || (net != GEM_NET_TIMEOUT && net != GEM_NET_LOST) || l->attempts >= GEM_MAX_ATTEMPTS) {
+    return GEM_STEP_FAIL;                        // DNS, a refused connect, TLS, memory...: as before
+  }
+  if (!l->timeoutRetried) {
+    l->timeoutRetried = true;
+    *stage = GEM_TIMEOUT_AGAIN;                  // the same model, its thinking kept, at once
+    return GEM_STEP_RETRY;
+  }
+  if (l->onFallback || l->timeoutSwitch) {
+    return GEM_STEP_FAIL;                        // already the fallback: "did not answer in time"
+  }
+  char lab[GEM_LABEL_MAX];
+  geminiModelLabel(l->fallback, lab, sizeof(lab));
+  snprintf(l->note, sizeof(l->note), "Asking %s instead...", lab);
+  /* At once (no GEM_LITE_DELAY_MS): after a delay aiRun says "Asking again...", and this line is
+   * what should stay up through the fallback's request. */
+  const int step = ladderFallback(l, s, q, nowUtc, nowMs, 0, l->note, delayMs, stage);
+  if (step == GEM_STEP_RETRY) {
+    l->timeoutSwitch = true;
+  } else {
+    l->allOut = false;                           // the PRIMARY is not used up: it timed out
+  }
+  return step;
+}
+
+int geminiLadderNext(GeminiLadder* l, GeminiSession* s, GeminiQuota* q, int httpCode, int net,
                      const GeminiReply* r, int64_t nowUtc, uint32_t nowMs,
                      uint32_t* delayMs, const char** stage) {
   *delayMs = 0;
   *stage = NULL;
   l->attempts++;
   if (httpCode == 200) {
+    /* 0. MALFORMED_FUNCTION_CALL and no text (2026-10-11: 3.8 Flash, 84 s, a system instruction
+     * that named a tool it was not given - none is named now): the model stumbled, it did not
+     * refuse. Once more, the same model, at once; a second time it is an empty answer. */
+    if (r && r->kind == GEM_REPLY_EMPTY && !strcmp(r->finish, "MALFORMED_FUNCTION_CALL") &&
+        !l->askedAgainEmpty && l->attempts < GEM_MAX_ATTEMPTS) {
+      l->askedAgainEmpty = true;
+      *stage = "Empty answer - asking again...";
+      return GEM_STEP_RETRY;
+    }
     return GEM_STEP_DONE;
   }
-  if (httpCode <= 0 || l->attempts >= GEM_MAX_ATTEMPTS) {
+  if (httpCode <= 0) {
+    return ladderNoAnswer(l, s, q, net, nowUtc, nowMs, delayMs, stage);   // 6.
+  }
+  if (l->attempts >= GEM_MAX_ATTEMPTS) {
     return GEM_STEP_FAIL;
   }
   // 1. A model that will not take thinkingConfig: once without it, and remembered.
@@ -1511,8 +1755,11 @@ int geminiLadderNext(GeminiLadder* l, GeminiSession* s, GeminiQuota* q, int http
                             "Still limited - trying the faster model...", delayMs, stage);
     }
   }
-  // 5. Busy: two retries 2.5 s apart, then the fallback with its own two.
-  if (httpCode == 503 || httpCode == 429) {
+  /* 5. Busy: two retries 2.5 s apart, then the fallback with its own two. EVERY 5xx is busy
+   * (2026-10-11, shared with COVEY and the X4): 503 UNAVAILABLE is the one measured, but 500
+   * INTERNAL, a proxy's 502 and 504 DEADLINE_EXCEEDED are Google's side too - a retry is what helps,
+   * never "Gemini error 500" on the first one. */
+  if ((httpCode >= 500 && httpCode <= 599) || httpCode == 429) {
     if (l->busyTries < 2) {
       l->busyTries++;
       *delayMs = GEM_BUSY_RETRY_MS;

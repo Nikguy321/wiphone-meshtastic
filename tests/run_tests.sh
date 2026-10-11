@@ -218,8 +218,30 @@ for src in tests/test_*.cpp; do
     # body, Google's answers on fixtures in the shapes measured live (200, MAX_TOKENS with no text,
     # thought parts, 400/404/503, the free tier's 429 per DAY and per MINUTE, blockReason, \u
     # escapes), the chunked body, the screen's ASCII, the model ladder, the saved chat and its
-    # topic breaks - and the fake key never in any text built. Fake keys only, no network.
+    # topic breaks - and the fake key never in any text built. Fake keys only, no network. Since
+    # 2026-10-11: today's date in the system instruction (only from a trusted clock, a zone named
+    # like an offset said as "local time"), NO tool ever sent or named, the Wikipedia background in
+    # the question's own turn only, the "Wikipedia:" sources line shown and cut off as context,
+    # lookup=off, and the ladder's rule 0 (MALFORMED_FUNCTION_CALL with no text: once more). Round 3:
+    # rule 6, "Retry if it times out" (a timeout or a lost connection: once more on the model, then
+    # the fallback once - never a daily limit booked, never a loop, the setting off = as before), its
+    # menu row measured in Akrobat 20, and Key info's line CUT rather than emptied when it is long.
+    # Then (shared with COVEY and the X4): every 5xx is busy (500/502/504 the 503 ladder), and the
+    # fold table one character at a time (geminiFoldNext - the keywords' and relevance's fold).
     test_gemini)   deps=(WiPhone/gemini.cpp WiPhone/json_read.cpp) ;;
+    # Menu > AI's Wikipedia lookup (wiki_lookup.cpp, 2026-10-11): the question's keywords (the
+    # stopwords, digits kept, contractions to their stems, a follow-up borrowing the topic's newest
+    # question that named something), relevance (a keyword in a title or description, whole words)
+    # and wikiCompose's all-or-nothing (no sources line, no background), the one URL,
+    # Wikipedia's response on fixtures in the shapes measured live (pages in no order - "index" is
+    # the rank - "" descriptions, no "query" when nothing matched, errors, cut bodies), the
+    # background block and its caps (a sentence end, UTF-8 whole), the sources line, the log line's
+    # reasons, and the round trip with gemini.cpp: background in the question's turn only, never in
+    # the history or the saved chat. Then THE SHARED FOLD (gemini.cpp's table before the keywords
+    # and the relevance match, every other non-[a-z0-9'] a separator: "navier–stokes" is two
+    # words), the contraction before the 40-letter limit, and the vectors all three devices share.
+    # No network.
+    test_wiki)     deps=(WiPhone/wiki_lookup.cpp WiPhone/gemini.cpp WiPhone/json_read.cpp) ;;
     # The Almanac's weather (0.9.81): weather.cpp (the URLs, the Open-Meteo and NWS parsers on the
     # fixtures in tests/fixtures/wx - public points only, the alert bodies synthetic - the streaming
     # alert counter, the cache file, the fold, the fetch policy) and weather_lines.cpp (every row,
@@ -419,6 +441,24 @@ fi
 # look starts, and "map + mesh" on the air only once the My node screen is left.
 echo "checking the Wi-Fi location glue (no IP geolocation, the request, the roots, no MACs in logs, the switcher, the beacon, off, the guards)"
 if ! python3 tests/check_geoloc_review.py; then
+  fail=1
+fi
+
+# ── SOURCE GUARD: Menu > AI's current facts and patience (2026-10-11) ────────────────────
+# See tests/check_ai_glue.py. test_gemini and test_wiki prove the pure halves; this pins the glue:
+# 150 s past HTTPClient's uint16 through the client's own first-byte wait (armed only once the
+# request is written, Cancel AND a call honoured, asleep between slices, stop() at the deadline,
+# never the virtual connected()), the date from the TRUSTED clock built per request, the Wikipedia
+# lookup (one GET, never retried, keywords only, the policy User-Agent, X1 + X2 + Root YE, 24 KB,
+# a 20 s budget, lookup=off honoured, before the ladder's loop) and its background in the
+# question's turn only, the sources line only with background, the answer scrubbed. Round 3: the
+# "Retry if it times out" setting (NVS, absent = on) reaching the ladder with each attempt's `net`,
+# a Cancel never retried, the lookup's walk back and wikiCompose, the heap bar before every Gemini
+# handshake ("reboot first"), the budget's clamp right before the request and the client's reading
+# guard after the first byte. And the key's home: the uploader (app_gbc_xfer.cpp) never stats,
+# reads, resumes or lists a file in "/API Keys" (or a gemini.txt) - it writes them, fresh.
+echo "checking the AI glue (150 s wait, a call ends it, the trusted date, the Wikipedia lookup, the timeout retry, the write-only key folder)"
+if ! python3 tests/check_ai_glue.py; then
   fail=1
 fi
 

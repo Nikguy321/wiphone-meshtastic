@@ -22,10 +22,21 @@
  *     fetch...") and the heap bar is checked by the worker when it starts, not by aiAsk.
  * Per question: a new WiFiClientSecure with Google's roots pinned (setCACert: GTS Root R1 + R4,
  * built in and the only ones - no override file), setConnectTimeout(10000) - which also caps the
- * handshake, 120 s by default - and setTimeout(60000) for the answer (uint16: never past 65535),
- * the key in an `x-goog-api-key` header, the chunked body de-chunked by hand into PSRAM (never
- * getString(), which grows on the internal heap), then http.end(), the block closes, stop(),
+ * handshake, 120 s by default - and up to 150 s for the answer (2026-10-11: HTTPClient's own
+ * timeout is a uint16 and stops at 65.5 s, so https_worker's client waits for the first byte
+ * itself, in AI_SLICE_MS slices that honour Cancel - and a call that rings in), the system
+ * instruction built per request with today's date (a trusted clock only; gemini.h, "CURRENT
+ * FACTS"), the key in an `x-goog-api-key` header, the chunked body de-chunked by hand into PSRAM
+ * (never getString(), which grows on the internal heap), then http.end(), the block closes, stop(),
  * delete. The connection is closed after every answer.
+ * Before the first request of a question (2026-10-11), unless gemini.txt says `lookup=off`: ONE
+ * GET to en.wikipedia.org with the question's KEYWORDS (wiki_lookup.h - never the question, the key
+ * or the chat), ISRG X1 + X2 + Root YE pinned, 20 s at most, never retried; what it finds about the
+ * keywords goes in the question's own turn as labelled background, and the answer ends "Wikipedia:
+ * A; B". Any failure is one log line and no background - the question is asked all the same. A
+ * request that gets no answer in time is asked once more, then the fallback once (round 3, "Retry if
+ * it times out", on by default: aiRetryTimeouts) - with the background already found, never a
+ * second lookup.
  *
  * WHO OWNS WHAT. The question, its context and a copy of the key go into a module-static PSRAM
  * request on the LOOP (aiAsk) and belong to the worker until it finishes; the worker writes only
@@ -58,6 +69,7 @@
 #define AI_STATE_TMP      "/ai/state.tmp"
 
 // ── the key ──────────────────────────────────────────────────────────────────────────────
+#define AI_KEY_LINE_MAX   256
 enum {
   AI_KEY_NOT_READ = 0,
   AI_KEY_NONE,              // no gemini.txt, or no key in it
@@ -69,10 +81,13 @@ typedef struct {
   int         state;        // AI_KEY_*
   bool        usable;       // a key a question can use (OK, or a kept good one)
   const char* path;         // the file it came from, or NULL
-  char        line[200];    // geminiConfigLine: the key's LENGTH, the model... never the key
+  /* geminiConfigLine: the key's LENGTH, the model... never the key. 256 since review 2026-10-11
+   * (two 63-character model names and the lookup note passed 200); a longer line is cut "...". */
+  char        line[AI_KEY_LINE_MAX];
   char        model[GEM_MODEL_MAX];
   char        fallback[GEM_MODEL_MAX];
   int         thinking;
+  bool        lookup;       // the Wikipedia lookup is on (gemini.txt `lookup=off`: false)
 } AiKeyInfo;
 /* LOOP TASK. Read gemini.txt now. */
 void aiKeyReload();
@@ -83,6 +98,15 @@ void aiKeyInfo(AiKeyInfo* out);           // what the last read found (no card a
  * when the configured model is remembered as used up for today; 0 (and "") when it is not. For
  * Key info. */
 size_t aiQuotaNote(char* out, size_t cap);
+
+/* LOOP TASK. "Retry if it times out" (round 3, Menu > AI > Menu): when Gemini sends nothing in time
+ * or the connection drops, ask once more, then the fallback once (gemini.h, the ladder's rule 6).
+ * ON unless set off. Kept in NVS ("wpmesh" / "ai_retry", the namespace every other on/off setting of
+ * this firmware uses - the Almanac's units, Books, Wi-Fi location), so it survives a card swap and a
+ * flash; read once, on first use. aiAsk copies it into the question (a change applies to the NEXT
+ * question). */
+bool aiRetryTimeouts();
+void aiSetRetryTimeouts(bool on);
 
 // ── the chat (LOOP TASK) ─────────────────────────────────────────────────────────────────
 const GeminiChat* aiChat();               // /ai/chat.txt is read on first use; NULL without PSRAM

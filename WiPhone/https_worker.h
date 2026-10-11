@@ -31,7 +31,11 @@
  * Content-Length one - goes into the caller's PSRAM sink, never getString() (which grows on the
  * internal heap), and is READ TO ITS END even past the sink's cap (the cap's excess is dropped and
  * flagged; a tap sees every byte - the weather counts alerts it cannot keep). mbedTLS allocates
- * from PSRAM through tile_fetch's hook, installed before the first WiFiClientSecure.
+ * from PSRAM through tile_fetch's hook, installed before the first WiFiClientSecure. A request that
+ * must wait longer than HTTPClient's uint16 header timeout (the AI's, 2026-10-11) has its client
+ * wait for the answer's first byte instead, in slices that honour `cancel` and `stopFn`
+ * (https_worker.cpp, NetClient); a request with a `totalMs` budget (the AI's Wikipedia lookup) has
+ * its connect shortened and its waits ended to fit it. Every other request is exactly what it was.
  */
 #ifndef HTTPS_WORKER_H
 #define HTTPS_WORKER_H
@@ -45,6 +49,7 @@
  * NET_STACK_BYTES while the worker's stack is not carved yet. */
 #define NET_CONNECT_LARGEST   (10u * 1024u)
 #define NET_CONNECT_FREE      (14u * 1024u)
+#define NET_HTTP_TIMEOUT_MAX  65535u          // HTTPClient::setTimeout(uint16_t): its header wait's ceiling
 
 /* The worker runs the lowest queued kind first: a question a person is staring at, then the
  * weather they asked for, then Wi-Fi location (geoloc_net.h, 0.9.82: nobody waits on it). */
@@ -78,6 +83,7 @@ uint32_t netWorkerStackFloor();
 
 // ── one HTTPS exchange (WORKER) ──────────────────────────────────────────────────────────
 typedef void (*NetTapFn)(void* ctx, const char* p, size_t n);
+typedef bool (*NetStopFn)(void);
 struct NetHttpReq {
   const char*  method;           // "GET" / "POST"
   const char*  host;             // for DNS and, with connectFirst, the handshake
@@ -89,11 +95,28 @@ struct NetHttpReq {
   const uint8_t* body;           // POST body, NULL for a GET
   size_t       bodyLen;
   uint32_t     connectMs;        // TCP connect + the TLS handshake
-  uint16_t     timeoutMs;        // the wait for the response headers (uint16: never past 65535)
+  /* The wait for the response headers. HTTPClient's own is a uint16_t (NET_HTTP_TIMEOUT_MAX) and
+   * never sees `cancel`; with waitSliceMs set, or a timeoutMs past that, the CLIENT waits for the
+   * answer's first byte itself - in waitSliceMs slices (10 ms when 0), honouring `cancel` and
+   * `stopFn` - up to timeoutMs (2026-10-11, for Gemini's long answers: the AI asks 150 s). */
+  uint32_t     timeoutMs;
+  uint32_t     waitSliceMs;
   uint32_t     bodyIdleMs;       // a body that stops arriving this long is a dead socket
+  /* The whole exchange, DNS to the last body byte, at most this (0 = no budget): checked after
+   * DNS (none left: GEM_NET_TIMEOUT, nothing sent), the connect shortened to what is left, checked
+   * again before the request is written, HTTPClient's own header wait clamped to what is left right
+   * before it (round-2 review), and - armed - the first-byte wait, the header lines (NetClient's
+   * reading guard) and the body ended at it (GEM_NET_TIMEOUT). DNS itself cannot be cut short
+   * (lwIP's own ~14 s), nor the handshake once started - hence "shortened", not "interrupted". */
+  uint32_t     totalMs;
   bool         connectFirst;     // connect the client before http.begin(): the handshake timed alone
   bool         heapCheck;        // the internal-heap bar again, right before the handshake
   volatile bool* cancel;         // set from the loop: the request ends (GEM_NET_LOST)
+  /* A second reason to end it, polled with `cancel` - after DNS, in the client's first-byte wait
+   * and while the answer's header lines are read (when armed), and between body reads; true =
+   * GEM_NET_LOST, as a Cancel. Called on the WORKER: a cheap flag read only (the AI passes
+   * tileFetchCallRecent: a call rang in). May be NULL. */
+  NetStopFn    stopFn;
   char*        sink;             // PSRAM; NUL-terminated on success
   size_t       cap;              // body bytes kept (the rest read and dropped: res.overflow)
   NetTapFn     tap;              // every DE-CHUNKED body byte, kept or not (may be NULL)

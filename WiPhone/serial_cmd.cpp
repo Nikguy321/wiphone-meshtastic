@@ -257,6 +257,7 @@ static void help() {
     "  ai ask <q> ask Gemini through the app's own path (500 chars); `ai` shows progress",
     "  ai last    the newest question and its answer, in full",
     "  ai topic | ai clear | ai reload  new topic / delete the saved chat / re-read gemini.txt",
+    "  ai retry on|off  Menu > AI's \"Retry if it times out\" (NVS; on by default)",
     "  clock      (or `time`) the time, WHO set it (ntp/gps/mesh) and how long ago, and",
     "             what the GPS and mesh paths last decided about it - see clock_source.h",
     "  tz         the time zone: setting, zone, offset, where it came from, Auto's last look",
@@ -1274,6 +1275,11 @@ static void run(char* line) {
       say("ai: chat cleared, %s removed\n", AI_CHAT_FILE);
       return;
     }
+    if (!strcasecmp(p, "retry on") || !strcasecmp(p, "retry off")) {
+      aiSetRetryTimeouts(!strcasecmp(p, "retry on"));      // the menu row's setting, saved the same way
+      say("ai: retry if it times out: %s (the next question)\n", aiRetryTimeouts() ? "on" : "off");
+      return;
+    }
     if (!strncasecmp(p, "ask ", 4)) {
       const char* q = p + 4;
       char why[96];
@@ -1284,7 +1290,7 @@ static void run(char* line) {
       }
       return;
     }
-    say("ai: ai | ai ask <question> | ai last | ai topic | ai clear | ai reload\n");
+    say("ai: ai | ai ask <question> | ai last | ai topic | ai clear | ai reload | ai retry on|off\n");
     return;
   }
   /* `replay` — the mesh-history replay's whole state in one line (the feature

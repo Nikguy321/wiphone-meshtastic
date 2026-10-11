@@ -170,9 +170,24 @@ static void put(const NetHttpReq* q, NetHttpRes* r, const char* p, size_t n) {
   }
 }
 
+/* `cancel`, or the request's other reason to end (stopFn: a call rang in). */
+static bool netStopped(const NetHttpReq* q) {
+  return (q->cancel && *q->cancel) || (q->stopFn && q->stopFn());
+}
+
+/* What is left of the request's totalMs budget since t0; UINT32_MAX when it has none. */
+static uint32_t netLeft(const NetHttpReq* q, uint32_t t0) {
+  if (!q->totalMs) {
+    return 0xFFFFFFFFu;
+  }
+  const uint32_t used = millis() - t0;
+  return used < q->totalMs ? q->totalMs - used : 0u;
+}
+
 /* The body after the headers: de-chunked by hand, read to its END whatever the cap (an overflow is
  * flagged, its bytes dropped). True with the whole body read; false with r->net saying why. */
-static bool readBody(const NetHttpReq* q, NetHttpRes* r, HTTPClient& http, bool chunked, int size) {
+static bool readBody(const NetHttpReq* q, NetHttpRes* r, HTTPClient& http, bool chunked, int size,
+                     uint32_t t0) {
   WiFiClient* s = http.getStreamPtr();
   r->got = 0;
   if (!s) {
@@ -184,8 +199,12 @@ static bool readBody(const NetHttpReq* q, NetHttpRes* r, HTTPClient& http, bool 
   size_t seen = 0;                                   // a Content-Length body's bytes, kept or not
   uint32_t idle = millis();
   for (;;) {
-    if (q->cancel && *q->cancel) {
+    if (netStopped(q)) {
       r->net = GEM_NET_LOST;
+      return false;
+    }
+    if (netLeft(q, t0) == 0) {
+      r->net = GEM_NET_TIMEOUT;                      // the request's whole budget is spent
       return false;
     }
     const int avail = s->available();
@@ -234,6 +253,129 @@ static bool readBody(const NetHttpReq* q, NetHttpRes* r, HTTPClient& http, bool 
   return true;
 }
 
+/* THE WAIT FOR AN ANSWER'S FIRST BYTE, PAST HTTPClient's uint16 (2026-10-11). HTTPClient waits for
+ * the response in handleHeaderResponse(), polling _client->available() every 10 ms against
+ * _tcpTimeout - a uint16_t (setTimeout(uint16_t): 65,535 ms at most; arduino-esp32 1.0.6
+ * HTTPClient.h) - and never looks at a Cancel. A Gemini answer is not sent until it is whole, and
+ * one that reads a web page first, or thinks long, ran past COVEY's 60 s. So a request that asks
+ * (waitSliceMs, or a timeoutMs past NET_HTTP_TIMEOUT_MAX) is made on this client: once the request
+ * has been WRITTEN, its available() itself waits for the first byte - in slices, honouring
+ * `cancel`, up to timeoutMs from the write - and from that byte on it is a plain WiFiClientSecure
+ * again (the gaps between header lines and the body keep HTTPClient's and readBody's timeouts).
+ *   - "Once written": HTTPClient calls available() through connected() BEFORE it writes too
+ *     (connect(), sendHeader()); a wait there would hold the request itself. Every byte of the
+ *     request goes through write(buf, size) - the headers, then the body - and a short write
+ *     disarms the wait (the request failed; WiFiClientSecure stop()s on an error).
+ *   - The deadline or a Cancel: the client stop()s, so HTTPClient's next connected() is false and
+ *     sendRequest returns at once (HTTPC_ERROR_NOT_CONNECTED); netHttps asks timedOut() to say
+ *     TIMEOUT rather than LOST. Without the stop HTTPClient would start a 65 s wait of its own.
+ *   - Nothing in the wait calls a virtual that comes back here (WiFiClientSecure::connected()
+ *     reads through available()): it reads _connected (WiFiClient's, protected) instead.
+ *   - (review 2026-10-11) A CALL ends the wait too: `stopFn` is polled with the Cancel every slice
+ *     (the AI passes tileFetchCallRecent - a flag the loop sets every pass from the SIP state), so
+ *     a call that rings in during a 2.5-minute wait is not kept waiting behind it; the AI then
+ *     says "A call came in".
+ *   - (round-2 review, 2026-10-11) AFTER the first byte HTTPClient reads the header lines, waiting
+ *     between them up to its own timeout (netHttps clamps it to what is left of a budget) - and
+ *     never looks at a Cancel. So while the answer is being read, every time nothing is waiting
+ *     (available() would say 0) a Cancel, a call or the request's budget end (budgetEnds: the
+ *     Wikipedia lookup's 20 s) stop()s the client too - HTTPClient's next connected() is false and
+ *     it returns at once. Data that IS waiting is never cut: readBody checks the same between reads.
+ * Unarmed - the weather, Wi-Fi location - it is WiFiClientSecure exactly. */
+class NetClient : public WiFiClientSecure {
+public:
+  void armFirstByte(uint32_t waitMs, uint32_t sliceMs, volatile bool* cancel, NetStopFn stopFn) {
+    m_armed = true;
+    m_sent = false;
+    m_answered = false;
+    m_waitMs = waitMs;
+    m_sliceMs = sliceMs ? sliceMs : 10u;
+    m_cancel = cancel;
+    m_stopFn = stopFn;
+  }
+  /* The request's budget ends at millis() == atMs (an armed request with a totalMs). */
+  void budgetEnds(uint32_t atMs) {
+    m_hasEnd = true;
+    m_endMs = atMs;
+  }
+  bool timedOut() const {
+    return m_timedOut;
+  }
+
+  /* (No `using WiFiClientSecure::write`: it re-exports Print's overloads, private there. Nothing
+   * writes through a NetClient*: HTTPClient holds a WiFiClient*.) */
+  size_t write(const uint8_t* buf, size_t size) override {
+    const size_t n = WiFiClientSecure::write(buf, size);
+    if (m_armed) {
+      if (size > 0 && n == size) {
+        m_sent = true;
+        m_sentMs = millis();                       // the deadline runs from the LAST byte sent
+      } else {
+        m_armed = false;
+      }
+    }
+    return n;
+  }
+
+  int available() override {
+    const int n = WiFiClientSecure::available();
+    if (!m_armed || !m_sent) {
+      return n;
+    }
+    if (m_answered) {
+      /* Reading the answer: nothing waiting now - a Cancel, a call or the budget's end stops it here
+       * (HTTPClient's header loop would sit out its own timeout, blind to all three). */
+      if (n == 0 && _connected) {
+        const bool told = (m_cancel && *m_cancel) || (m_stopFn && m_stopFn());
+        const bool spent = m_hasEnd && (int32_t)(millis() - m_endMs) >= 0;
+        if (told || spent) {
+          m_armed = false;
+          m_timedOut = !told;
+          stop();
+          return 0;
+        }
+      }
+      return n;
+    }
+    if (n != 0 || !_connected) {
+      m_answered = true;                           // the answer began (or the socket is gone)
+      return n;
+    }
+    for (;;) {
+      if ((m_cancel && *m_cancel) || (m_stopFn && m_stopFn())) {
+        m_armed = false;
+        stop();
+        return 0;
+      }
+      if ((uint32_t)(millis() - m_sentMs) >= m_waitMs) {
+        m_armed = false;
+        m_timedOut = true;
+        stop();
+        return 0;
+      }
+      vTaskDelay(pdMS_TO_TICKS(m_sliceMs));        // the loop task shares this core: never spin
+      const int k = WiFiClientSecure::available();
+      if (k != 0 || !_connected) {
+        m_answered = true;                         // ...the reading guard above from here on
+        return k;
+      }
+    }
+  }
+
+private:
+  bool           m_armed = false;
+  bool           m_sent = false;
+  bool           m_answered = false;             // the first byte came: the reading guard
+  bool           m_timedOut = false;
+  bool           m_hasEnd = false;
+  uint32_t       m_endMs = 0;
+  uint32_t       m_waitMs = 0;
+  uint32_t       m_sliceMs = 10;
+  uint32_t       m_sentMs = 0;
+  volatile bool* m_cancel = NULL;
+  NetStopFn      m_stopFn = NULL;
+};
+
 /* A refused / failed connect, by WiFiClientSecure::lastError(). */
 static int netOfTls(int le) {
   if (le == -0x2700) return GEM_NET_TLS;             // MBEDTLS_ERR_X509_CERT_VERIFY_FAILED
@@ -258,12 +400,26 @@ int netHttps(const NetHttpReq* q, NetHttpRes* r) {
     return 0;
   }
   r->dnsMs = millis() - t0;
+  /* DNS can take lwIP's ~14 s: a Cancel, a call or a spent budget meanwhile ends it here, before
+   * a handshake starts (one that has started runs to its connect cap). */
+  if (netStopped(q)) {
+    r->net = GEM_NET_LOST;
+    r->ms = millis() - t0;
+    return 0;
+  }
+  const uint32_t left = netLeft(q, t0);
+  if (left == 0) {
+    r->net = GEM_NET_TIMEOUT;
+    r->ms = millis() - t0;
+    return 0;
+  }
+  const uint32_t connectMs = q->connectMs < left ? q->connectMs : left;   // the budget's rest, at most
   if (q->heapCheck && !netHeapOkForHandshake(NULL, NULL)) {
     r->net = GEM_NET_NOMEM;                          // the bar again, right before THIS handshake
     r->ms = millis() - t0;
     return 0;
   }
-  WiFiClientSecure* c = new (std::nothrow) WiFiClientSecure();
+  NetClient* c = new (std::nothrow) NetClient();   // a WiFiClientSecure; armed only for a long wait
   if (!c) {
     r->net = GEM_NET_NOMEM;
     r->ms = millis() - t0;
@@ -275,8 +431,8 @@ int netHttps(const NetHttpReq* q, NetHttpRes* r) {
     /* An inner block: ~HTTPClient calls stop() on its client, which must still exist. */
     HTTPClient http;
     http.setReuse(false);
-    http.setConnectTimeout((int32_t)q->connectMs);
-    http.setTimeout(q->timeoutMs);
+    http.setConnectTimeout((int32_t)connectMs);
+    http.setTimeout((uint16_t)(q->timeoutMs < NET_HTTP_TIMEOUT_MAX ? q->timeoutMs : NET_HTTP_TIMEOUT_MAX));
     http.setUserAgent(q->userAgent);
     static const char* WANT[] = { "Transfer-Encoding", "Date" };
     http.collectHeaders(WANT, 2);
@@ -292,7 +448,7 @@ int netHttps(const NetHttpReq* q, NetHttpRes* r) {
       bool connected = true;
       if (q->connectFirst) {
         const uint32_t th = millis();
-        connected = c->connect(q->host, 443, (int32_t)q->connectMs) == 1;
+        connected = c->connect(q->host, 443, (int32_t)connectMs) == 1;
         r->hsMs = millis() - th;
         if (!connected) {
           char eb[64];
@@ -300,18 +456,51 @@ int netHttps(const NetHttpReq* q, NetHttpRes* r) {
           r->net = netOfTls(r->tlsErr);
         }
       }
+      /* What is left of a budget now that DNS and the handshake are done (UINT32_MAX: none). */
+      const uint32_t rest = netLeft(q, t0);
+      if (connected && rest == 0) {
+        r->net = GEM_NET_TIMEOUT;                    // spent before a byte was sent: nothing goes
+        connected = false;
+      }
       if (connected) {
         for (int i = 0; i < 3 && q->hdrName[i]; i++) {
           http.addHeader(q->hdrName[i], q->hdrValue[i] ? q->hdrValue[i] : "");
+        }
+        if (q->totalMs) {
+          /* A budget: HTTPClient's own wait (a uint16 - its header loop's gap between lines, and the
+           * whole wait when the client is not armed) clamped HERE, right before the request, to what
+           * is left of it (round-2 review, 2026-10-11: set only at the start, a header stall could run
+           * the 20 s lookup well past 20). The reading guard (NetClient) ends it at the budget too,
+           * and at a Cancel or a call. Requests without one keep the wait set above, as before. */
+          uint32_t hw = q->timeoutMs < NET_HTTP_TIMEOUT_MAX ? q->timeoutMs : NET_HTTP_TIMEOUT_MAX;
+          if (rest < hw) {
+            hw = rest;
+          }
+          http.setTimeout((uint16_t)hw);
+        }
+        if (q->waitSliceMs || q->timeoutMs > NET_HTTP_TIMEOUT_MAX) {
+          /* NetClient, above: up to timeoutMs - or what is left of totalMs, if that is less - and,
+           * with a budget, its end for the reading guard. */
+          const uint32_t wait = q->timeoutMs < rest ? q->timeoutMs : rest;
+          c->armFirstByte(wait, q->waitSliceMs, q->cancel, q->stopFn);
+          if (q->totalMs) {
+            c->budgetEnds(t0 + q->totalMs);
+          }
         }
         code = http.sendRequest(q->method, (uint8_t*)q->body, q->bodyLen);
         netHeapNow(NULL, &r->largestAfterSend, NULL);
         if (code > 0) {
           strlcpy(r->date, http.header("Date").c_str(), sizeof(r->date));
           const bool chunked = http.header("Transfer-Encoding").equalsIgnoreCase("chunked");
-          if (!readBody(q, r, http, chunked, http.getSize())) {
+          if (!readBody(q, r, http, chunked, http.getSize(), t0)) {
+            if (c->timedOut()) {
+              r->net = GEM_NET_TIMEOUT;              // the reading guard met the budget's end
+            }
             code = 0;
           }
+        } else if (c->timedOut()) {
+          r->net = GEM_NET_TIMEOUT;                // the client's own wait ran out (it stop()ped)
+          code = 0;
         } else if (code == HTTPC_ERROR_CONNECTION_REFUSED) {
           char eb[64];
           r->tlsErr = c->lastError(eb, sizeof(eb));

@@ -1,6 +1,31 @@
 # Changelog
 
-## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi, the phone's location from a hotspot, automatic time zones, Wi-Fi location
+## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi, the phone's location from a hotspot, automatic time zones, Wi-Fi location, AI answers that know today
+
+### AI: today's date, a Wikipedia lookup, longer waits, retry if it times out (0.9.82-NH)
+
+Nick (2026-10-11): COVEY's Gemini said Tomb Raider: Legacy of Atlantis was "rumoured, may come out in 2025", and his Witcher 3
+questions timed out. Measured that day on his free-tier key:
+- Google Search grounding isn't free on the current models.
+- The free url_context tool hung on Flash.
+- Free Flash often takes 30-90 s and answers 503.
+
+What changed:
+- **The system instruction starts with today's date and time** (only from a trusted clock), and says the model's own knowledge
+  is older than that. It never mentions a tool: doing so made Flash return MALFORMED_FUNCTION_CALL with no text.
+- **Wikipedia background.** Before each question the phone makes ONE request to Wikipedia with the question's keywords only
+  (stopwords and contractions removed, a short follow-up borrows the topic's last real question). It hands Gemini the intros of
+  the top two relevant articles as labelled background, and shows "Wikipedia: ..." under the answer. If anything fails, the
+  question goes ahead without it. `lookup=off` in gemini.txt turns it off. The pinned ISRG roots cover en.wikipedia.org.
+  COVEY and the X4 Pro e-reader use byte-identical rules.
+- **Longer waits.** The wait for Gemini's reply is now up to 150 s, in 200 ms slices that honour Cancel and an incoming call.
+  HTTPClient's own 65 s ceiling (a uint16) is gone.
+- **Retry if it times out** (AI menu, or `ai retry on|off`; on by default). With no answer in time, the question is asked once
+  more, then once to Flash-Lite. Every HTTP 5xx is now "busy". MALFORMED_FUNCTION_CALL is retried once.
+- **Key file privacy.** The uploader's resume check no longer says whether a key file exists or how long it is.
+- **Proven 2026-10-11 on phone 1:** "has the new tomb raider legacy of atlantis come out yet" -> Wikipedia 2 pages in 5.6 s,
+  Flash answered in 11.6 s total ("No ... an upcoming game revealed at The Game Awards 2025"). Internal heap min-ever dipped
+  to 8.5 KB across the two handshakes: watch it. Both phones flashed.
 
 Nick: the phones should get new OpenTopoMap tiles *"over WiFi from the Mac"* rather than by
 opening them for the SD card.
