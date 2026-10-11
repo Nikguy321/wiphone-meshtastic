@@ -298,7 +298,27 @@ static void testPick() {
   noSlots(s);
   s[SELF_NET - 1].enabled = true;
   selfSlotSet(&s[SELF_NET - 1], col->lat, col->lon, 12, 5, now - 10, false);
-  CHECK(tzaPickFix(s, now, &fx, &why) == SELF_NONE, "the Wi-Fi slot (reserved) is never a source");
+  CHECK(tzaPickFix(s, now, &fx, &why) == SELF_NONE, "the Wi-Fi slot (written GNSS-style) is never a source");
+  /* 0.9.82's Wi-Fi location: a REAL Wi-Fi fix - two agreeing scans 61 s apart, the last 1 s ago,
+   * "map + mesh", a fix the beacon itself would send - still never chooses the zone. */
+  noSlots(s);
+  s[SELF_NET - 1].enabled = true;
+  s[SELF_NET - 1].noTx = false;
+  selfNetSet(&s[SELF_NET - 1], col->lat, col->lon, 50, now - 62000, 0, false);
+  selfNetConfirm(&s[SELF_NET - 1], now - 1000, 0);
+  CHECK(selfSlotState(&s[SELF_NET - 1], SELF_NET, now, SELF_PICK_TX) == SELF_ST_LIVE &&
+        selfPick(s, now, SELF_PICK_TX, &fx) == SELF_NET,
+        "(a live, sendable Wi-Fi fix: the beacon would pick it)");
+  CHECK(tzaPickFix(s, now, &fx, &why) == SELF_NONE && fx.src == SELF_NONE,
+        "...and the time zone still refuses it: never a Wi-Fi fix");
+  TzAuto wa;
+  tzaInit(&wa, -1, SELF_NONE);
+  bool wsw = false;
+  for (uint32_t t = now; t < now + 300000; t += 10000) {
+    selfNetConfirm(&s[SELF_NET - 1], t, 0);
+    wsw = wsw || tzaStep(&wa, TZ_MODE_AUTO, s, t);
+  }
+  CHECK(!wsw && wa.zone < 0, "five minutes of a confirmed Wi-Fi fix: no zone, no switch");
 
   noSlots(s);
   setFix(s, SELF_GPS, col->lat, col->lon, 3, 64, now - 100);

@@ -14,6 +14,7 @@ extern uint32_t heapDelta(const char* what, uint32_t before);  // WiPhone.ino - 
 #include "config.h"            // MESHTASTIC_PHY toggle
 #include "mesh_pki.h"          // PKC keypair/derive (portable — used in stub builds too)
 #include "mesh_pos.h"
+#include "geoloc.h"          // Wi-Fi location: the setting's values (GEO_SET_*)
 #include "replay_proto.h"   // mesh history replay (docs/replay-spec.md)
 #include "neighbor_info.h"  // NeighborInfo (portnum 71) encoding
 #include "mesh_wire.h"      // Data protobuf + PacketHeader (host-tested against upstream)
@@ -366,6 +367,7 @@ MeshtasticService::MeshtasticService()
   for (int i = 0; i < SELF_SRC_COUNT; i++) {
     selfSlotClear(&selfSlots[i]);          // every source off, no fix (setup() switches them on)
   }
+  selfNetTxInit(&netTx);
   /* Beacon: off, aimed nowhere, never transmitted. setup() may load a stored
    * choice over the top, but a construction that armed anything would arm it
    * before setup() has decided whether the radio even exists. */
@@ -552,6 +554,17 @@ static void putRef(int32_t* latI, int32_t* lonI, char* name, size_t nameCap, uin
   if (kind) *kind = k;
 }
 
+/* A live pick as the reference: its coordinates, its name ("GPS", "phone", "Wi-Fi +/-60 m" - a
+ * Wi-Fi fix never appears without its size, self_pos.h's selfFixName) and its kind. */
+static void putPick(int32_t* latI, int32_t* lonI, char* name, size_t nameCap, uint8_t* kind,
+                    const SelfFix& fx) {
+  char nm[24];
+  selfFixName(nm, sizeof(nm), &fx);
+  putRef(latI, lonI, name, nameCap, kind, fx.latI, fx.lonI, nm,
+         fx.src == SELF_PHONE ? MESH_REFK_PHONE
+         : fx.src == SELF_NET ? MESH_REFK_NET : MESH_REFK_GPS);
+}
+
 bool MeshtasticService::resolveReferenceEx(int32_t* latI, int32_t* lonI, char* name,
                                            size_t nameCap, uint8_t* kind) const {
   if (kind) *kind = MESH_REFK_NONE;
@@ -564,19 +577,21 @@ bool MeshtasticService::resolveReferenceEx(int32_t* latI, int32_t* lonI, char* n
    * coordinates and says so in the NAME — "last GPS" rides along on every
    * distance line — and a source that is off, or has never fixed, returns
    * false so nothing is drawn at all.
-   * Since 0.9.82 "where I am" is MEASURED from either source (self_pos.h: this
-   * phone's own GPS outranks the hotspot phone's); the pin is still never it. */
+   * Since 0.9.82 "where I am" is the owner's ranking (self_pos.h): this phone's own
+   * GPS, else the hotspot phone's, else a Wi-Fi location two agreeing lookups and the
+   * scans since stand behind - named with its size, "Wi-Fi +/-60 m", on every line it
+   * is measured from. The pin is still never it. */
   if (refWaypointId == MESH_REF_GPS) {
     SelfFix fx;
     if (selfPick(selfSlots, now, SELF_PICK_INJECTED, &fx) != SELF_NONE) {
       /* A word, not a number: the distance lines already carry the position's own
        * age ("1.4km NE of last GPS, 4 min ago") and two ages in one line reads as
        * a puzzle. The precise age lives on the Status screen. */
-      putRef(latI, lonI, name, nameCap, kind, fx.latI, fx.lonI, selfSrcName(fx.src),
-             fx.src == SELF_PHONE ? MESH_REFK_PHONE : MESH_REFK_GPS);
+      putPick(latI, lonI, name, nameCap, kind, fx);
       return true;
     }
-    /* Nothing live: the NEWEST stale fix that was good enough when it was taken.
+    /* Nothing live: the NEWEST stale fix that was good enough when it was taken - GPS or
+     * phone only: an expired Wi-Fi fix is gone, not "last Wi-Fi" (self_pos.h).
      * 🛑 THE FIX-QUALITY GATE BELONGS HERE TOO. meshPosFixUsable() had exactly ONE production
      * caller — the TRANSMIT path — under a measured note that a `sats=3 hdop=6.4` fix was
      * TWENTY KILOMETRES WRONG. So the phone refused to put that fix on the air and then computed
@@ -612,11 +627,11 @@ bool MeshtasticService::resolveReferenceEx(int32_t* latI, int32_t* lonI, char* n
    * upgraded phone is in: a live measured fix — the same selfPick() the map's "me"
    * and the beacon ask, so they cannot disagree about whether a source is working
    * (an `enabled` term in it: this once answered "GPS" for up to MESH_GPS_FRESH_MS
-   * after the receiver was switched off) — else the pin. */
+   * after the receiver was switched off) — else the pin. A live Wi-Fi fix is a live fix
+   * here too, ranked last and named with its size. */
   SelfFix fx;
   if (selfPick(selfSlots, now, SELF_PICK_INJECTED, &fx) != SELF_NONE) {
-    putRef(latI, lonI, name, nameCap, kind, fx.latI, fx.lonI, selfSrcName(fx.src),
-           fx.src == SELF_PHONE ? MESH_REFK_PHONE : MESH_REFK_GPS);
+    putPick(latI, lonI, name, nameCap, kind, fx);
     return true;
   }
   if (myPinSet) {
@@ -722,6 +737,20 @@ void MeshtasticService::setPhoneEnabled(bool on) {
   }
 }
 
+/* "Wi-Fi location: off | map only | map + mesh" (geoloc_net.cpp persists it and calls this). The
+ * slot's two switches, and nothing else: OFF forgets the fix at once - like Phone location's off,
+ * "off" means its last fix is not anybody's position either. */
+void MeshtasticService::setNetLocSetting(int setting) {
+  SelfSlot* s = &selfSlots[SELF_NET - 1];
+  const bool on = setting == GEO_SET_MAP || setting == GEO_SET_MESH;
+  s->enabled = on;
+  s->noTx = setting != GEO_SET_MESH;                      // only "map + mesh" may go on the air
+  if (!on && s->fixMs != 0) {
+    selfSlotClear(s);
+    placesNews = true;
+  }
+}
+
 int MeshtasticService::getSelfFix(SelfFix* out, bool forTx) const {
   return selfPick(selfSlots, millis(), forTx ? SELF_PICK_TX : SELF_PICK_INJECTED, out);
 }
@@ -747,7 +776,9 @@ bool MeshtasticService::injectSelfFix(int src, int32_t latI, int32_t lonI, int s
 
 int MeshtasticService::clearInjectedFixes() {
   int n = 0;
-  for (int src = SELF_GPS; src <= SELF_PHONE; src++) {
+  /* NET too: a `netloc answer` bench fix is dropped with the others (its next real look, or a
+   * scan that no longer hears its access points, would replace or clear it anyway). */
+  for (int src = SELF_GPS; src <= SELF_NET; src++) {
     SelfSlot* s = &selfSlots[src - 1];
     if (!s->injected) {
       continue;
@@ -841,15 +872,19 @@ bool MeshtasticService::channelIsPublic(const MeshChannel* ch) const {
  * the mesh where I am". Nothing here allocates; `pos` is 16 stack bytes. */
 bool MeshtasticService::sendPositionOn(int32_t latI, int32_t lonI,
                                        const MeshChannel* ch, const char* why) {
-  return sendPositionOnEx(latI, lonI, ch, why, MESH_LOC_UNSET, 0);
+  return sendPositionOnEx(latI, lonI, ch, why, MESH_LOC_UNSET, 0, ntpClock.getTrustedUtcTime());
 }
 
 /* `locSrc`/`precBits` (mesh_pos.h): a MEASURED fix says where it came from — the woods plate
  * INTERNAL, the hotspot phone EXTERNAL, both 32 bits (self_pos.h's selfSrcLocSource/PrecBits).
  * The pin goes out as 0/0, i.e. meshPosBuild's bytes exactly: a hand-set position must not
- * claim to be a measurement, because stock receivers take a packet's TIME on that claim. */
+ * claim to be a measurement, because stock receivers take a packet's TIME on that claim.
+ * A Wi-Fi fix goes out UNSET at SELF_NET_PREC_BITS, already cut to its cell.
+ * `timeUtc` = field 4 (0 = left out): the caller's, because a Wi-Fi fix is AS OF the scan that
+ * last confirmed it, not the send (self_pos.h's selfFixSendTime, review item 2). */
 bool MeshtasticService::sendPositionOnEx(int32_t latI, int32_t lonI, const MeshChannel* ch,
-                                         const char* why, uint8_t locSrc, uint8_t precBits) {
+                                         const char* why, uint8_t locSrc, uint8_t precBits,
+                                         uint32_t timeUtc) {
 #ifdef MESHTASTIC_PHY
   if (!ch || radioState != MESH_RADIO_READY || channelCount == 0) {
     log_e("MESH POSITION NOT SENT (%s): chan=%s radio=%d channels=%d",
@@ -873,9 +908,10 @@ bool MeshtasticService::sendPositionOnEx(int32_t latI, int32_t lonI, const MeshC
    * 🛑 TRUSTED, not merely known (0.9.79): a clock set FROM the mesh is never put back ON the
    * mesh. Another phone's mesh vote counts two different nodes as two witnesses; our
    * second-hand copy of node A's time would be a forged second witness for A. With an
-   * NTP/GPS clock this is the time it always was; with a mesh one it is 0, as before. */
-  const size_t n = meshPosBuildEx(pos, sizeof(pos), latI, lonI, ntpClock.getTrustedUtcTime(),
-                                  locSrc, precBits);
+   * NTP/GPS clock this is the time it always was; with a mesh one it is 0, as before.
+   * (0.9.82: the caller passes it - every caller's is getTrustedUtcTime() but a Wi-Fi fix's,
+   * which is its confirming scan's trusted UTC.) */
+  const size_t n = meshPosBuildEx(pos, sizeof(pos), latI, lonI, timeUtc, locSrc, precBits);
   if (n == 0) {
     log_e("MESH POSITION NOT SENT (%s): bad source %u / precision %u", why, (unsigned)locSrc,
           (unsigned)precBits);
@@ -896,7 +932,7 @@ bool MeshtasticService::sendPositionOnEx(int32_t latI, int32_t lonI, const MeshC
         latI / 1e7, lonI / 1e7, (unsigned)locSrc, (unsigned)precBits, (unsigned)n);
   return ok;
 #else
-  (void)latI; (void)lonI; (void)ch; (void)why; (void)locSrc; (void)precBits;
+  (void)latI; (void)lonI; (void)ch; (void)why; (void)locSrc; (void)precBits; (void)timeUtc;
   return false;
 #endif
 }
@@ -1191,6 +1227,10 @@ static const char* const POS_REFUSED_PUBLIC = "REFUSED - that channel is public"
  * not even on a channel the owner confirmed as public for the real thing. */
 static const char* const POS_REFUSED_BENCH = "REFUSED - a bench fix never goes to a public channel";
 
+/* A Wi-Fi cell would replace a precise dot of the last hour about the same place (self_pos.h,
+ * selfNetPreciseWins). Not a refusal: the slot simply has nothing better to say. */
+static const char* const POS_SKIP_PRECISE = "a precise fix went out: Wi-Fi held";
+
 const char* MeshtasticService::posBlockedReason() const {
   return posBlockedReasonFor(SELF_PICK_TX);
 }
@@ -1215,7 +1255,10 @@ const char* MeshtasticService::posBlockedReasonFor(unsigned flags) const {
    * used by both callers cannot drift out of step with itself. The UI asks
    * this only when an interval is set. */
   if (!anySourceEnabledForTx()) {
-    return "GPS and phone location are off - nothing sent";
+    /* "map only" is a Wi-Fi location this phone SHOWS and never sends (self_pos.h): it is not a
+     * source for the air, and the row says so rather than "off". */
+    return selfSlots[SELF_NET - 1].enabled ? "Wi-Fi is map only - nothing sent"
+                                           : "GPS and phone location are off - nothing sent";
   }
   if (!posChanName[0]) {
     return "no channel picked - nothing sent";
@@ -1236,6 +1279,12 @@ const char* MeshtasticService::posBlockedReasonFor(unsigned flags) const {
   if (selfPick(selfSlots, now, flags, &fx) != SELF_NONE) {
     if (fx.injected && channelIsPublic(ch)) {
       return POS_REFUSED_BENCH;
+    }
+    /* PRECISE FIX WINS (self_pos.h): a receiver keeps the LAST position it heard, so a Wi-Fi
+     * cell sent after a GPS/phone dot of the last hour, about the same place, would replace the
+     * better answer with a worse one. The slot resolves without sending (the beacon tick). */
+    if (fx.src == SELF_NET && selfNetPreciseWins(&netTx, &fx, now)) {
+      return POS_SKIP_PRECISE;
     }
     return NULL;
   }
@@ -1264,14 +1313,36 @@ const char* MeshtasticService::posBlockedReasonFor(unsigned flags) const {
    * not told us (they come from GGA), and an unknown is NOT treated as a failure. The phone's
    * stream earns that only through an RMC of the same second (self_pos.h's gate). */
   SelfFix nw;
-  if (selfNewest(selfSlots, now, flags, &nw) == SELF_NONE) {
-    for (int src = SELF_GPS; src <= SELF_PHONE; src++) {
+  int newest = selfNewest(selfSlots, now, flags, &nw);
+  if (newest == SELF_NET && nw.state == SELF_ST_MAP_ONLY) {
+    /* A "map only" Wi-Fi fix is no candidate for the air at all: explain the sources that are
+     * (a GPS that lost its fix 40 s ago is the news, not the Wi-Fi setting). */
+    SelfSlot tx[SELF_SRC_COUNT];
+    memcpy(tx, selfSlots, sizeof(tx));
+    tx[SELF_NET - 1].enabled = false;
+    newest = selfNewest(tx, now, flags, &nw);
+  }
+  if (newest == SELF_NONE) {
+    for (int src = SELF_GPS; src <= SELF_NET; src++) {
       if (selfSlotState(&selfSlots[src - 1], src, now, flags) == SELF_ST_INJECTED) {
         return "only a bench fix - the schedule never sends one";
       }
     }
-    const bool gps = selfSlots[SELF_GPS - 1].enabled;
-    return gps ? "no fix yet - nothing sent" : "no phone location yet - nothing sent";
+    if (selfSlots[SELF_GPS - 1].enabled) {
+      return "no fix yet - nothing sent";
+    }
+    return selfSlots[SELF_PHONE - 1].enabled ? "no phone location yet - nothing sent"
+                                             : "no Wi-Fi fix yet - nothing sent";
+  }
+  if (nw.src == SELF_NET) {
+    /* The Wi-Fi slot's own sending bars (self_pos.h, "THE WI-FI SLOT"): these WAIT - a scan
+     * finishing settles or confirms the fix, and geoloc_net.cpp asks for one while a slot is
+     * owed. A fix whose accuracy is out of range is POOR. */
+    switch (nw.state) {
+      case SELF_ST_SETTLING:    return "Wi-Fi fix: waiting for a second scan";
+      case SELF_ST_UNCONFIRMED: return "Wi-Fi fix: waiting for a fresh scan";
+      default:                  return "Wi-Fi fix too vague - nothing sent";
+    }
   }
   const bool phone = (nw.src == SELF_PHONE);
   if (nw.state == SELF_ST_UNRATED) {
@@ -1321,9 +1392,20 @@ bool MeshtasticService::sendSelfPosition(bool forced, bool* usedInjected) {
     log_e("POSITION BEACON: INJECTED bench fix (%s) - `pos inject`, not a measurement; sent as MANUAL",
           selfSrcName(fx.src));
   }
-  const bool ok = sendPositionOnEx(fx.latI, fx.lonI, ch,
+  /* A Wi-Fi fix goes out as its CELL (self_pos.h): the cell sent last time while this fix lies
+   * within the larger accuracy of the one that produced it (review item 15: no flip-flop between
+   * neighbouring cells), else the fix cut to SELF_NET_PREC_BITS. A measured fix as it is. */
+  int32_t latI = fx.latI, lonI = fx.lonI;
+  if (fx.src == SELF_NET) {
+    selfNetTxCell(&netTx, &fx, &latI, &lonI);
+  }
+  /* Field 4: a GPS/phone fix is current, so the send's own trusted clock; a Wi-Fi fix is AS OF
+   * the scan that last confirmed it (within 60 s, or it would not be LIVE for the air) - that
+   * scan's trusted UTC, or nothing (review item 2). */
+  const uint32_t whenUtc = selfFixSendTime(&fx, ntpClock.getTrustedUtcTime());
+  const bool ok = sendPositionOnEx(latI, lonI, ch,
                                    fx.injected ? "INJECTED bench" : selfBeaconTag(fx.src),
-                                   fx.locSrc, fx.precBits);
+                                   fx.locSrc, fx.precBits, whenUtc);
   posLastTxMs = millis();
   posLastOk = ok;
   /* QUEUED, not sent (review M1). If the frame then fails to leave, noteOwnOutcome() takes
@@ -1335,11 +1417,18 @@ bool MeshtasticService::sendSelfPosition(bool forced, bool* usedInjected) {
     /* The movement gate measures from what actually WENT OUT, not from the last
      * fix: a failed send must not make the next slot think the mesh already
      * knows this position. A bench fix is not where anybody is, so it is not a
-     * "last sent" the next real slot should measure from. */
-    posLastLatI = fx.latI;
-    posLastLonI = fx.lonI;
+     * "last sent" the next real slot should measure from. (A Wi-Fi beacon's is its cell.) */
+    posLastLatI = latI;
+    posLastLonI = lonI;
     posLastValid = true;
     posSkipRuns = 0;
+    /* The Wi-Fi slot's memory of the air (self_pos.h, SelfNetTxMem): the cell and the fix it
+     * came from, or the precise dot that a Wi-Fi cell must not replace for the next hour. */
+    if (fx.src == SELF_NET) {
+      selfNetTxNoteSent(&netTx, &fx, latI, lonI);
+    } else {
+      selfNetTxNotePrecise(&netTx, fx.latI, fx.lonI, millis());
+    }
   }
   return ok;
 }
@@ -2325,8 +2414,14 @@ bool MeshtasticService::loop() {
        * second the tick happened to land on — the very thing owing a slot exists to prevent. */
       SelfFix tx;
       if (selfPick(selfSlots, now, SELF_PICK_TX, &tx) != SELF_NONE) {
+        /* Measured on what would GO OUT: a Wi-Fi fix's cell (sendSelfPosition), so jitter inside
+         * the kept cell is "not moved" and costs the band nothing. */
+        int32_t txLat = tx.latI, txLon = tx.lonI;
+        if (tx.src == SELF_NET) {
+          selfNetTxCell(&netTx, &tx, &txLat, &txLon);
+        }
         if (!meshPosShouldBeacon(posLastValid, posLastLatI, posLastLonI,
-                                 tx.latI, tx.lonI, posSkipRuns)) {
+                                 txLat, txLon, posSkipRuns)) {
           posSkipRuns++;          // parked: this slot costs the band nothing
         } else {
           /* sendSelfPosition() re-checks EVERY safety rule itself (a source on,

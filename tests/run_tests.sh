@@ -68,13 +68,32 @@ for src in tests/test_*.cpp; do
     # The woods plate's GPS: NMEA assembly, checksums, fixed-point coords.
     test_nmea)     deps=(WiPhone/nmea.cpp) ;;
     # Where this phone is (0.9.82, self_pos.cpp): which source to believe (GPS > the hotspot
-    # phone's GPS; Wi-Fi reserved, never picked), the 120 s / 30 s bars, bench-injected fixes
-    # never sent by the schedule - and the phone-over-WiFi stream through the shipping NMEA
-    # reader: one GGA judged with nothing inherited, the RMC cross-check, the settle and
-    # time-of-day stale guards across midnight, the '\n' before every '$', the port search
-    # and its back-off, the status words, two fixes in a row agreeing (gpsdRelay's generated
-    # coordinates can be km off and still parse). Reads meshtastic_service.h to hold the bars equal.
+    # phone's GPS > a Wi-Fi location), the 120 s / 30 s bars, bench-injected fixes never sent by
+    # the schedule - and the phone-over-WiFi stream through the shipping NMEA reader: one GGA
+    # judged with nothing inherited, the RMC cross-check, the settle and time-of-day stale guards
+    # across midnight, the '\n' before every '$', the port search and its back-off, the status
+    # words, two fixes in a row agreeing (gpsdRelay's generated coordinates can be km off and
+    # still parse). The Wi-Fi slot's own rules: its clock is the scans (12 min shown after the
+    # last confirming one, gone after), sent only with "map + mesh", after two agreeing scans
+    # 60 s apart and a confirming scan within 60 s, as a 17-bit cell stamped with that scan's
+    # UTC; the cell kept while the fix stays put; a precise beacon of the last hour wins.
+    # Reads meshtastic_service.h to hold the bars equal.
     test_selfpos)  deps=(WiPhone/self_pos.cpp WiPhone/mesh_pos.cpp WiPhone/nmea.cpp) ;;
+    # Wi-Fi location (0.9.82, geoloc.cpp): the X4 e-reader's beaconDB vectors ported onto
+    # json_read.cpp (the request bodies with the IP fallback off twice and no SSID, the privacy
+    # filters, the -85 dBm floor, halves dealt by device, the parser, the two-half agreement and
+    # the moved access point it catches) - no IP lookup to test, none exists - and this phone's
+    # rules: the scan snapshot, when a look runs (every gate, the 10/2-minute gaps, 3 attempts
+    # an hour, dry looks), later scans confirming or dropping a fix, the fold into the real
+    # self_pos NET slot end to end down to the beacon's bytes, the auto-switcher's scan mode
+    # (never its disconnect machinery for a geo scan), the row's words, the bench's canned answers
+    # (`netloc answer`: stamped now, never sent, the schedule untouched) and the three pinned roots
+    # (ISRG X1 + X2 + Root YE, by SHA-256). And what two agreeing halves cannot see: the 300 m/s
+    # jump from this boot's last GPS/phone fix, a scan that lands while the look is out, a fix
+    # HELD when the WiFi link drops or changes, an expired fix cleared (no millis()-wrap revival),
+    # when a scan is asked for, and a look abandoned when the setting is switched off.
+    test_geoloc)   deps=(WiPhone/geoloc.cpp WiPhone/json_read.cpp WiPhone/self_pos.cpp WiPhone/mesh_pos.cpp
+                         WiPhone/nmea.cpp WiPhone/book_hash.cpp) ;;
     # Who may set the clock: GPS time (fed through the shipping NMEA reader) and mesh time —
     # a 'V' sentence refused, two consecutive readings, a fresh NTP never overridden, and the
     # mesh only into an unknown clock (two nodes on a public channel, one on a private one).
@@ -96,7 +115,8 @@ for src in tests/test_*.cpp; do
     # runs the same vectors.
     test_tzgrid)   deps=(WiPhone/tz_grid.cpp WiPhone/book_hash.cpp) ;;
     # The clock's time zone (tz_auto.cpp, 0.9.82): the setting, Auto's decision through the real
-    # self_pos slots (two looks 2 min apart, never a bench/poor/old fix, never a border, a phone
+    # self_pos slots (two looks 2 min apart, never a bench/poor/old fix, never a Wi-Fi fix however
+    # live, never a border, a phone
     # fix - rated or not - only 10 km from any other clock, checked against brute-force sampling of
     # the grid), the offset at every zoneinfo vector instant, reboot memory, the manual override and
     # the way back to Auto (never an old zone), and every Settings line measured with the
@@ -376,6 +396,23 @@ fi
 # awake screen, no coordinate past 2 decimals on the console, the ODbL credit on the screen.
 echo "checking the time zone glue (no SPIFFS in the loop, never a bench fix, the boot order, the credit)"
 if ! python3 tests/check_tz_glue.py; then
+  fail=1
+fi
+
+# ── SOURCE GUARD: Wi-Fi location keeps its rules (0.9.82) ──────────────────────────────────
+# See tests/check_geoloc_review.py. test_geoloc proves geoloc.cpp and test_selfpos the Wi-Fi slot;
+# this pins the glue: no IP geolocation host and the IP fallback off twice ("considerIp":false and
+# "ipf":false), no SSID in a body, Content-Type JSON, a generic User-Agent, ISRG X1 + X2 + Root YE
+# pinned, the look inside netRequestActive() with the PSRAM hook first, no MAC/SSID/coordinate in
+# its logs or `netloc`, the cable never choosing "map + mesh", the auto-switcher's copy before
+# scanDelete and no hop/disconnect from a Wi-Fi location scan, the beacon sending the cell with the
+# confirming scan's time and the precise-fix-wins rule, the time zone never taking a Wi-Fi fix,
+# no automatic look beside the music; and (the 2026-10-10 review) "off" reaching a look already
+# out, no scan beside a handshake nor a look beside a scan, a geo ask never a FULL switcher round,
+# the jump anchor and the latest scan handed to the fold, the joined AP asked about again when a
+# look starts, and "map + mesh" on the air only once the My node screen is left.
+echo "checking the Wi-Fi location glue (no IP geolocation, the request, the roots, no MACs in logs, the switcher, the beacon, off, the guards)"
+if ! python3 tests/check_geoloc_review.py; then
   fail=1
 fi
 

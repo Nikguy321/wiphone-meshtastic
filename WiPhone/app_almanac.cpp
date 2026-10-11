@@ -136,10 +136,14 @@ static void almPlaceNow(bool viewOk, int32_t viewLatI, int32_t viewLonI, AlmPlac
       case MESH_REFK_PHONE:      in.refKind = ALM_PLACE_PHONE; break;
       case MESH_REFK_LAST_PHONE: in.refKind = ALM_PLACE_LAST_PHONE; break;
       case MESH_REFK_WAYPOINT:   in.refKind = ALM_PLACE_WAYPOINT; break;
+      case MESH_REFK_NET:        in.refKind = ALM_PLACE_NET; break;    // "Wi-Fi +/-60 m"
       default:                   in.refKind = ALM_PLACE_PIN; break;
     }
     in.refName = name;
     SelfFix ph;
+    if (kind == MESH_REFK_NET && meshService.getSourceFix(SELF_NET, &ph)) {
+      in.refAgeMs = ph.ageMs;    // since its last confirming scan (self_pos.h)
+    }
     if (kind == MESH_REFK_PHONE || kind == MESH_REFK_LAST_PHONE) {
       /* "phone" is right on a distance line ("1.4km NE of phone"); as a PLACE ("Weather ... for
        * phone") it needs its noun. */
@@ -1372,11 +1376,12 @@ void almanacConsole(const char* args, void (*out)(const char*)) {
     c.placeAgeMs = pl.ageMs;
     c.lat = pl.latI * 1e-7;
     c.lon = pl.lonI * 1e-7;
-    /* A MEASURED place (this phone's GPS or the hotspot phone's) is printed to 2 decimals here
-     * and nowhere finer (AlmCtx.coordsCoarse): a typed place is the bench's own and stays exact,
-     * which is what the PyEphem comparison uses (`almanac 40.0,-100.0`). */
+    /* A MEASURED place (this phone's GPS or the hotspot phone's) or a Wi-Fi location is printed
+     * to 2 decimals here and nowhere finer (AlmCtx.coordsCoarse): a typed place is the bench's
+     * own and stays exact, which is what the PyEphem comparison uses (`almanac 40.0,-100.0`). */
     c.coordsCoarse = pl.kind == ALM_PLACE_GPS || pl.kind == ALM_PLACE_LAST_GPS ||
-                     pl.kind == ALM_PLACE_PHONE || pl.kind == ALM_PLACE_LAST_PHONE;
+                     pl.kind == ALM_PLACE_PHONE || pl.kind == ALM_PLACE_LAST_PHONE ||
+                     pl.kind == ALM_PLACE_NET;
   }
   c.placeName = pl.name;
   c.clockKnown = true;

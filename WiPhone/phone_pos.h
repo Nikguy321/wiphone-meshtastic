@@ -78,6 +78,18 @@ void     phonePosBenchAt(const uint8_t ip[4], uint16_t port);
 void     phonePosBenchClear();
 bool     phonePosBenchOn();
 
+/* For Wi-Fi location (geoloc_net.cpp) and the auto-switcher (Networks.cpp), 0.9.82:
+ *  - phonePosStreamLive(): a stream is connected and has delivered checksum-good sentences (the
+ *    gateway's, or the bench address's). The auto-switcher does not hop to a stronger saved
+ *    network while it is (geoloc.h, geoSwitcherMode): that would throw away the better source;
+ *  - phonePosGatewayServedNmea(): THIS association's gateway (not a bench address) has answered
+ *    with NMEA - it is a phone's hotspot, so its own access point travels with it and is left out
+ *    of every Wi-Fi location lookup (geoJoinedLeftOut). STICKY for the association: the app being
+ *    stopped, the probe forgetting its port, or Phone location switched off afterwards do not
+ *    make the hotspot local. Never asked while Phone location was off (a hotspot's usual locally
+ *    administered BSSID is left out anyway). */
+bool     phonePosStreamLive();
+bool     phonePosGatewayServedNmea();
 // The small line under "Phone location" (self_pos.h's words; no coordinates, SSID or address).
 size_t   phonePosStatusLine(char* out, size_t cap);
 // `phonepos`: state, port, counters. Coordinates, SSIDs and the gateway's address never appear.

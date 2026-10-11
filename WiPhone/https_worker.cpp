@@ -8,6 +8,7 @@
 #include "gemini.h"             // GEM_NET_*, and the de-chunker (geminiDechunkFeed)
 #include "ai_net.h"             // aiRequestActive (netRequestActive)
 #include "weather_net.h"        // wxRequestActive (netRequestActive)
+#include "geoloc_net.h"         // geoRequestActive (netRequestActive)
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -31,8 +32,8 @@ static uint8_t*          s_raw   = NULL;    // a read off the socket (PSRAM)
 static char*             s_dec   = NULL;    // ...de-chunked (PSRAM): never more bytes than were read
 
 /* The queue: one flag a kind (set on the loop, cleared by the worker as it starts the job). */
-static volatile bool     s_queued[NET_JOB_KINDS] = { false, false };
-static NetJobFn          s_run[NET_JOB_KINDS] = { NULL, NULL };
+static volatile bool     s_queued[NET_JOB_KINDS] = { false, false, false };
+static NetJobFn          s_run[NET_JOB_KINDS] = { NULL, NULL, NULL };
 static volatile int      s_running = -1;
 
 void netHeapNow(uint32_t* freeB, uint32_t* largest, uint32_t* minEver) {
@@ -57,7 +58,7 @@ static void workerTask(void*) {
     xSemaphoreTake(s_go, portMAX_DELAY);
     for (;;) {
       int k = -1;
-      for (int i = 0; i < NET_JOB_KINDS; i++) {      // the AI first: a person is waiting on it
+      for (int i = 0; i < NET_JOB_KINDS; i++) {      // the AI first: a person is waiting on it (then WX, GEO)
         if (s_queued[i] && s_run[i]) {
           k = i;
           break;
@@ -138,7 +139,9 @@ bool netWorkerQueued(int kind) {
 }
 
 bool netRequestActive() {
-  return aiRequestActive() || wxRequestActive();
+  /* Every kind, or one of them runs its handshake at the 80 MHz idle clock beside a 1-tick loop
+   * (tests/check_geoloc_review.py pins the Wi-Fi location term). */
+  return aiRequestActive() || wxRequestActive() || geoRequestActive();
 }
 
 char* netWorkerSink() {

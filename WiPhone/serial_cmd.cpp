@@ -5,6 +5,8 @@
 #include "music_player.h"    // musicPlayerIsPlaying/Paused: `mv` leaves a loaded track alone
 #include "kosync_sync.h"     // the `kosync` command: the window, the home client, the config
 #include "phone_pos.h"       // the `phonepos` command: the hotspot phone's GPS (no coordinates)
+#include "geoloc.h"          // the `netloc` command: Wi-Fi location's setting and verdict names
+#include "geoloc_net.h"      // ...its status, `netloc now`, the bench's canned answers
 #include "app_photos.h"      // photosSetWallpaper, the `wallpaper set` command
 #include "app_maps.h"        // mapsConsoleStatus/Goto, the `maps` command
 #include "elev_sd.h"         // elevSampleCard, the `elev <lat> <lon>` command
@@ -226,6 +228,15 @@ static void help() {
     "  phonepos port <n>  an extra port to try after 10110 and 11123 (0 = none; persists)",
     "  phonepos at <ip>[:port] | at off  BENCH, RAM only: ask that address instead of the",
     "             gateway (tools/nmea_phone_stub.py on a Mac); its fixes are bench fixes",
+    "  netloc     Wi-Fi location (beaconDB): the setting, the last scan (counts only), the last",
+    "             look's verdict and accuracy, the fix, each half's HTTP/handshake (never a MAC",
+    "             or a coordinate)",
+    "  netloc off|map  My node > Wi-Fi location (persists). `map + mesh` is chosen on the",
+    "             phone only: it puts a position on other people's maps",
+    "  netloc now  look as soon as the gates allow (2-min gap, 3 attempts an hour; may pause",
+    "             the music, as a weather Refresh does)",
+    "  netloc answer <A> <B>  BENCH: fold two canned halves - each {...} as beaconDB's 200",
+    "             body, a 3-digit HTTP status, or - (not asked); the fix is a bench fix",
     "  gps        woods-plate GPS state: fix, sats, reader counters",
     "  gps on|off route the user UART (38/32) to the NMEA reader (persists; `on` is refused",
     "             while reporting is armed to a PUBLIC channel - switch it on the phone)",
@@ -351,11 +362,22 @@ static void reportSelfSources() {
   } else {
     say("pos: source = none live (the pin, or nothing, stands in)\n");
   }
-  for (int s = SELF_GPS; s <= SELF_PHONE; s++) {
+  for (int s = SELF_GPS; s <= SELF_NET; s++) {
     SelfFix f;
     if (!meshService.getSourceFix(s, &f)) {
-      const bool on = (s == SELF_GPS) ? meshService.isGpsEnabled() : meshService.isPhoneEnabled();
+      const bool on = (s == SELF_GPS) ? meshService.isGpsEnabled()
+                    : (s == SELF_PHONE) ? meshService.isPhoneEnabled()
+                    : geolocSetting() != GEO_SET_OFF;
       say("pos:   %-5s %s\n", selfSrcName(s), on ? "no fix yet" : "off");
+      continue;
+    }
+    if (s == SELF_NET) {
+      /* The accuracy and the sending state, never where (`netloc` has the rest). */
+      SelfFix t;
+      const bool txKnown = selfSource(meshService.getSelfSlots(), SELF_NET, millis(), SELF_PICK_TX, &t);
+      say("pos:   %-5s %s, +/-%u m, last confirming scan %lus ago; to send: %s%s\n", selfSrcName(s),
+          selfStateName(f.state), (unsigned)f.accM, (unsigned long)(f.ageMs / 1000u),
+          txKnown ? selfStateName(t.state) : "-", f.injected ? " [BENCH: netloc answer]" : "");
       continue;
     }
     char q[40];
@@ -1498,6 +1520,54 @@ static void run(char* line) {
       return;
     }
     say("pos: usage - pos | pos every <secs>|off | pos now | pos inject ...  (channel: on the phone)\n");
+    return;
+  }
+  /* `netloc` — Wi-Fi location (geoloc_net.h). Status prints counts, verdicts and accuracies only:
+   * never a MAC, an SSID or a coordinate.
+   * 🛑 THE CONSENT RULE: the cable may set only off or map (geoSettingSerialOk). "map + mesh" puts
+   * a position on other people's maps and is chosen on the phone's screen, like `pos chan`. */
+  if (!strcasecmp(line, "netloc") || !strncasecmp(line, "netloc ", 7)) {
+    const char* arg = line[6] ? line + 7 : "";
+    while (*arg == ' ') {
+      arg++;
+    }
+    if (!*arg) {
+      geolocReport(sayLine);
+      return;
+    }
+    if (!strncasecmp(arg, "answer", 6) && (arg[6] == ' ' || !arg[6])) {
+      int v = GEO_V_NONE;
+      char why[96];
+      if (!geolocBenchAnswer(arg + 6, &v, why, sizeof(why))) {
+        say("netloc: %s\n", why);
+        return;
+      }
+      say("netloc: BENCH answer folded - %s%s\n", geoVerdictName(v),
+          v == GEO_V_LOCATED ? " (a bench fix: on the map, never sent by the schedule)" : "");
+      return;
+    }
+    if (!strcasecmp(arg, "now")) {
+      if (geolocSetting() == GEO_SET_OFF) {
+        say("netloc: Wi-Fi location is off - `netloc map` first\n");
+        return;
+      }
+      geolocAskNow();
+      say("netloc: asked - a look runs when the gates allow (`netloc` to watch)\n");
+      return;
+    }
+    const int v = geoSettingParse(arg);
+    if (v < 0) {
+      say("netloc: usage - netloc | off | map | now | answer <A> <B>\n");
+      return;
+    }
+    if (!geoSettingSerialOk(v)) {
+      say("netloc: refused - `map + mesh` is chosen on the phone (Meshtastic > My node >\n");
+      say("netloc: Wi-Fi location): it puts a position on other people's maps\n");
+      return;
+    }
+    geolocSetSetting(v);
+    say("netloc: Wi-Fi location %s (persists)%s\n", geoSettingName(v),
+        v == GEO_SET_OFF ? "" : " - sends nearby Wi-Fi IDs to beaconDB when a position is wanted");
     return;
   }
   /* `phonepos` — the hotspot phone's GPS (phone_pos.h). Status prints counters and words only:

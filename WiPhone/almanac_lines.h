@@ -78,6 +78,8 @@ enum {
   ALM_PLACE_MAP_VIEW,          // the Maps app's saved view (NVS maps/lat,lon): nothing better known
   ALM_PLACE_PHONE,             // a fresh fix from the hotspot phone's GPS (0.9.82, self_pos.h)
   ALM_PLACE_LAST_PHONE,        // ...a stale one ("last phone 5m ago")
+  ALM_PLACE_NET,               // a live Wi-Fi location (0.9.82, geoloc.h), named with its size
+                               // ("Wi-Fi +/-60 m"); never a "last" one - an expired fix is gone
 };
 
 /* WHICH PLACE (measured on phone 2, 2026-09-27: no fix since a reboot and no pin, so every
@@ -94,10 +96,10 @@ enum {
  * "nothing to show" view), is skipped. */
 struct AlmPlaceIn {
   bool        refOk;           // resolveReference() answered...
-  int         refKind;         // ...as ALM_PLACE_GPS / LAST_GPS / PIN / WAYPOINT / PHONE / LAST_PHONE
+  int         refKind;         // ...as ALM_PLACE_GPS / LAST_GPS / PIN / WAYPOINT / PHONE / LAST_PHONE / NET
   int32_t     refLatI, refLonI;
-  const char* refName;         // its name ("GPS", "last GPS", "me", "Camp", "phone")
-  uint32_t    refAgeMs;        // PHONE / LAST_PHONE: that fix's age (the GPS kinds use gpsAgeMs)
+  const char* refName;         // its name ("GPS", "last GPS", "me", "Camp", "phone", "Wi-Fi +/-60 m")
+  uint32_t    refAgeMs;        // PHONE / LAST_PHONE / NET: that fix's age (the GPS kinds use gpsAgeMs)
   bool        gpsFix;          // getGpsFix(): a fix this boot...
   int32_t     gpsLatI, gpsLonI;
   uint32_t    gpsAgeMs;        // ...and its age - ALWAYS the receiver's own (GPS / LAST_GPS age)

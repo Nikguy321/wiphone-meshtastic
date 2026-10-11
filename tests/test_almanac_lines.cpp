@@ -1787,6 +1787,44 @@ int main() {
                        "fit 232 px at every age");
   }
 
+  // ── 0.9.82: a Wi-Fi location place (geoloc.h) - named with its size, at its widest ─────────
+  {
+    const int64_t now = unixOf(2026, 9, 27, 14, 5, 0, PDT);
+    static AlmDay dd;
+    const char* names[2] = { "Wi-Fi +/-50 m", "Wi-Fi +/-100 m" };
+    bool ok = true, sawAt = true, sawSrc = true;
+    for (int ni = 0; ni < 2; ni++) {
+      AlmCtx c = ctxFor(&dd, now, PDT, 0, 40.0, -100.0, ASTRO_LEGAL_30MIN, UNITS_US, ALM_PLACE_NET, names[ni]);
+      c.placeAgeMs = 11u * 60000u;
+      AlmPos p;
+      memset(&p, 0, sizeof(p));
+      p.elevState = ALM_ELEV_PENDING;
+      Rows r;
+      char want[40];
+      memset(&r, 0, sizeof(r)); almLinesToday(&c, collect, &r); ok &= fitsAll(r, "Wi-Fi place");
+      snprintf(want, sizeof(want), "At %s", names[ni]);
+      sawAt = sawAt && find(r, want) >= 0;
+      memset(&r, 0, sizeof(r)); almLinesSun(&c, collect, &r); ok &= fitsAll(r, "Wi-Fi place");
+      memset(&r, 0, sizeof(r)); almLinesPosition(&c, &p, collect, &r); ok &= fitsAll(r, "Wi-Fi place");
+      snprintf(want, sizeof(want), "Source: %s", names[ni]);
+      sawSrc = sawSrc && is(r.text[0], want);
+    }
+    CHECK(ok && sawAt && sawSrc, "Wi-Fi place: 'At Wi-Fi +/-100 m' and 'Source: Wi-Fi +/-100 m' fit 232 px");
+    AlmPlaceIn in;
+    memset(&in, 0, sizeof(in));
+    in.refOk = true;
+    in.refKind = ALM_PLACE_NET;
+    in.refLatI = 400000000;
+    in.refLonI = -1000000000;
+    in.refName = "Wi-Fi +/-60 m";
+    in.refAgeMs = 90000;
+    in.gpsAgeMs = 999000;
+    AlmPlace pl;
+    almPickPlace(&in, &pl);
+    CHECK(pl.kind == ALM_PLACE_NET && pl.ageMs == 90000 && is(pl.name, "Wi-Fi +/-60 m"),
+          "place: a live Wi-Fi fix, aged from its own last confirming scan, named with its size");
+  }
+
   // ── the sweep: every row of every screen fits, everywhere, all year ────────────────────────
   {
     struct Place { const char* name; double lat, lon; int tzS; };

@@ -9,11 +9,16 @@
  *   Share GPS  (Android, Play)     TCP server, ditto 10110
  *   GPS 2 IP   (iPhone)            socket/server mode, its own default 11123
  *
- * — and, reserved for the next round and picked by NOTHING here, a Wi-Fi scan location.
+ * — and, last and coarsest, a Wi-Fi location: beaconDB's answer for the access points this phone
+ * hears, believed only when two independent lookups agree (geoloc.h), and only while later scans
+ * still hear those access points (the NET rules below).
  * 🛑 NO IP GEOLOCATION, ANYWHERE, EVER: on a phone hotspot it answers with the carrier's
  * internet exit, typically 180-200 km away, with no hint that it is wrong.
  *
- * Ranking, best first: GPS (this phone's own receiver) > PHONE (relayed) > [NET, reserved].
+ * Ranking, best first: GPS (this phone's own receiver) > PHONE (relayed) > NET (Wi-Fi). A wrong
+ * location is worse than none (the owner's rule), so NET has the most rules and the least trust:
+ * shown on this phone only while scans confirm it, sent only when the owner chose "map + mesh"
+ * on the screen, only as a ~182 m cell, and never past a precise fix.
  * The user's hand-set pin is not a source here: it stays where meshtastic_service/app_maps rank
  * it, above a stale or poor measured fix and below any live one.
  *
@@ -39,7 +44,7 @@ enum SelfSrc {
   SELF_NONE  = 0,
   SELF_GPS   = 1,      // the woods plate's receiver (UART NMEA)
   SELF_PHONE = 2,      // the hotspot phone's GPS, relayed as NMEA over WiFi
-  SELF_NET   = 3,      // RESERVED: a Wi-Fi scan location (next round). selfPick never picks it.
+  SELF_NET   = 3,      // a Wi-Fi location (geoloc.h): two agreeing beaconDB lookups
 };
 #define SELF_SRC_COUNT   3          // slots[] is indexed src - 1
 
@@ -50,33 +55,91 @@ enum SelfSrc {
 #define SELF_SHOW_FRESH_MS  120000UL
 #define SELF_TX_FRESH_MS     30000UL
 
-/* One source's last fix. ~24 B, RAM only: nothing here is ever written to NVS (a position kept
+/* One source's last fix. ~36 B, RAM only: nothing here is ever written to NVS (a position kept
  * across a restart would come back "fresh" with no receiver behind it). */
 struct SelfSlot {
   int32_t  latI, lonI;   // 1e-7 deg
-  uint32_t fixMs;        // millis() of the fix; 0 = never (selfSlotSet turns a 0 stamp into 1)
+  /* millis() of the fix; 0 = never (selfSlotSet turns a 0 stamp into 1). NET: of the LATEST scan
+   * that still heard the fix's access points (selfNetConfirm) — the freshness clock. */
+  uint32_t fixMs;
   int      sats;         // from the SAME sentence as the position; -1 = it did not say
   int      hdopX10;      // ditto
-  bool     enabled;      // the source is switched on (GPS: gpsen; PHONE: "Phone location: auto")
-  bool     injected;     // written by `pos inject`: shown, never sent by the schedule
+  bool     enabled;      // the source is switched on (GPS: gpsen; PHONE: "Phone location: auto";
+                         // NET: "Wi-Fi location" is not off)
+  bool     injected;     // written by `pos inject` (or `netloc answer`): shown, never sent by the schedule
+  // ---- NET only (0 / false for the GNSS sources) ----
+  bool     noTx;         // "map only": shown on this phone, never sent. A setting: kept by clear.
+  uint16_t accM;         // the fix's accuracy, metres (geoloc's max(50, accA, accB, apart))
+  uint32_t firstMs;      // millis() of the scan the fix was computed from
+  uint32_t scanUtc;      // the trusted UTC of the latest confirming scan (0 = clock not trusted)
 };
 
 // Write a whole fix at once — there is no partial update, so nothing can be inherited from an
-// older sentence. `enabled` is left as it is.
+// older sentence. `enabled` (and `noTx`) are left as they are; the NET fields are zeroed.
 void selfSlotSet(SelfSlot* s, int32_t latI, int32_t lonI, int sats, int hdopX10,
                  uint32_t nowMs, bool injected);
-void selfSlotClear(SelfSlot* s);                 // forget the fix (`enabled` kept)
+void selfSlotClear(SelfSlot* s);                 // forget the fix (`enabled`, `noTx` kept)
+
+/* ── THE WI-FI SLOT (SELF_NET) ──────────────────────────────────────────────────────────────
+ * A Wi-Fi fix is not a measurement of where the phone is: it is where some access points are,
+ * true only while the phone still hears them. So its clock is the SCANS, not the lookup:
+ *   - selfNetSet stamps it with the scan the lookup was computed from (firstMs = fixMs);
+ *   - every later scan that still hears 2/3 of those devices CONFIRMS it (selfNetConfirm: fixMs
+ *     and scanUtc become that scan's); one that does not CLEARS it at once (geoloc.h, geoOnScan)
+ *     — review item 2: carried on a walk or a drive, an old Wi-Fi fix is a confident wrong dot;
+ *   - SHOWN while the last confirming scan is under SELF_NET_SHOW_MS old: the auto-switcher's
+ *     own 10-minute cadence while connected, plus room for that scan to be late. A scan held off
+ *     (the heap gate, a join's hold-off, a call) would expire a fix that is still true and cost
+ *     two more lookups, so at SELF_NET_REFRESH_AT_MS with no scan yet the glue asks for one
+ *     (selfNetWantsRefresh) — a scan, not a lookup. Expired is GONE: no grey "last Wi-Fi" marker,
+ *     unlike the GNSS sources (selfNewest skips it);
+ *   - SENT only when (a) the setting is "map + mesh" (noTx clear), (b) TWO agreeing scans at
+ *     least SELF_NET_SETTLE_MS apart stand behind it (fixMs - firstMs: a fix taken while moving
+ *     never goes out), and (c) the latest confirming scan finished under SELF_NET_CONFIRM_MS
+ *     before the send. Field 4 (time) carries THAT scan's UTC, never the send's (selfFixSendTime)
+ *     — the position is as of the scan;
+ *   - sent as location_source UNSET (a network guess claims no measurement, and stock receivers
+ *     then take no time from it) and precision_bits SELF_NET_PREC_BITS, cut to the cell's centre
+ *     (receivers draw ~182 m: the WiPhone map and COVEY now draw rings). 17, not 18: at 18 the
+ *     ring is 91 m, no bigger than the floored accuracy, and it ignores the snap to the cell
+ *     centre (a half-diagonal of ~115 m at 40 deg). */
+#define SELF_NET_SHOW_MS        720000UL   // 12 min after the latest confirming scan
+#define SELF_NET_REFRESH_AT_MS  630000UL   // the cadence's scan 30 s late: ask for one
+#define SELF_NET_CONFIRM_MS      60000UL   // sending: a confirming scan this recent
+#define SELF_NET_SETTLE_MS       60000UL   // sending: two agreeing scans at least this far apart
+#define SELF_NET_PREC_BITS          17
+#define SELF_NET_MAX_ACC_M         100     // geoloc never claims more; anything else is not a fix
+/* A fix from the lookup on the scan at `scanMs` (millis; 0 reads as 1), whose trusted UTC was
+ * `scanUtc` (0 = not trusted). `accM` outside 1..SELF_NET_MAX_ACC_M is stored and refused as
+ * POOR. Nothing is written when the slot is switched off. */
+void selfNetSet(SelfSlot* s, int32_t latI, int32_t lonI, uint16_t accM, uint32_t scanMs,
+                uint32_t scanUtc, bool injected);
+/* A later scan still heard the fix's devices: it is now the fix's clock. False (nothing changed)
+ * when there is no fix or the scan is not later than the last one. */
+bool selfNetConfirm(SelfSlot* s, uint32_t scanMs, uint32_t scanUtc);
+/* Is the fix still showing, but its last confirming scan SELF_NET_REFRESH_AT_MS old (the
+ * auto-switcher's 10-minute scan is late)? The glue then asks for a scan (geoScanRequestOk) while
+ * the position is wanted, so a fix that is still true does not expire into a new lookup. */
+bool selfNetWantsRefresh(const SelfSlot* s, uint32_t nowMs);
+/* Would a scan finished NOW make the NET fix sendable (the owed beacon slot asks for one)? True
+ * when there is a fix, the first scan is at least SELF_NET_SETTLE_MS old, and the fix is not
+ * already confirmed within SELF_NET_CONFIRM_MS by a scan SELF_NET_SETTLE_MS after the first. */
+bool selfNetScanUseful(const SelfSlot* s, uint32_t nowMs);
 
 /* Why a slot is or is not usable for a purpose, checked in this order. */
 enum SelfState {
   SELF_ST_LIVE = 0,      // fresh enough and good enough
-  SELF_ST_RESERVED,      // not a source this firmware picks (NET)
+  SELF_ST_RESERVED,      // not a source at all (an src out of range)
   SELF_ST_OFF,           // switched off
   SELF_ST_NEVER,         // on, no fix since boot (or since cleared)
   SELF_ST_INJECTED,      // a bench fix, and this purpose refuses them (the scheduled beacon)
   SELF_ST_OLD,           // older than the purpose allows
-  SELF_ST_POOR,          // fresh, but its own sentence said sats < 4 or HDOP > 10
+  SELF_ST_POOR,          // fresh, but its own sentence said sats < 4 or HDOP > 10 (NET: accM out of range)
   SELF_ST_UNRATED,       // SENDING only: a phone fix whose sentence gave neither sats nor HDOP
+  // SENDING only, NET only (the Wi-Fi slot's rules, above):
+  SELF_ST_MAP_ONLY,      // "Wi-Fi location: map only"
+  SELF_ST_SETTLING,      // no second agreeing scan SELF_NET_SETTLE_MS after the first yet
+  SELF_ST_UNCONFIRMED,   // the latest confirming scan is over SELF_NET_CONFIRM_MS old
 };
 
 /* Purpose flags. 0 = show it on this phone's screens. */
@@ -98,16 +161,19 @@ struct SelfFix {
   int      src;          // SELF_* (SELF_NONE: nothing)
   int      state;        // SELF_ST_* of that slot for the purpose asked
   int32_t  latI, lonI;
-  uint32_t ageMs;
+  uint32_t ageMs;        // NET: since the latest confirming scan
   int      sats, hdopX10;
   bool     injected;
   /* The mesh location_source and precision_bits a beacon from this fix carries: the source's
-   * own (GPS INTERNAL, PHONE EXTERNAL, 32 bits) — except a bench fix (`pos inject`, `phonepos
-   * at`), which is MANUAL with field 23 left out, like the hand-set pin. INTERNAL/EXTERNAL is
-   * a claim of a MEASUREMENT that stock receivers take the packet's time on (mesh_pos.h), and
-   * a typed 40.0,-100.0 must not reach COVEY looking like a live phone-GPS fix. */
+   * own (GPS INTERNAL, PHONE EXTERNAL, 32 bits; NET UNSET, SELF_NET_PREC_BITS) — except a bench
+   * fix (`pos inject`, `phonepos at`, `netloc answer`), which is MANUAL with field 23 left out
+   * like the hand-set pin (a bench NET fix keeps its 17 bits: coarse stays coarse).
+   * INTERNAL/EXTERNAL is a claim of a MEASUREMENT that stock receivers take the packet's time on
+   * (mesh_pos.h), and a typed 40.0,-100.0 must not reach COVEY looking like a live phone-GPS fix. */
   uint8_t  locSrc;
   uint8_t  precBits;
+  uint16_t accM;         // NET: the fix's accuracy (the map's ring, "Wi-Fi +/-60 m"); 0 otherwise
+  uint32_t scanUtc;      // NET: the latest confirming scan's trusted UTC (0 = unknown); 0 otherwise
 };
 
 /* THE ONE RULE every caller asks: the best-ranked source whose slot is LIVE for the purpose.
@@ -118,25 +184,75 @@ int selfPick(const SelfSlot slots[SELF_SRC_COUNT], uint32_t nowMs, unsigned flag
 
 /* The most recently stamped slot of any enabled source, whatever its age or quality — the grey
  * "last GPS" / "last phone" marker and the `pos` lines. out->state says LIVE/OLD/POOR for the
- * purpose. SELF_NONE when no enabled source has a fix. */
+ * purpose. SELF_NONE when no enabled source has a fix. A NET fix past SELF_NET_SHOW_MS is not
+ * a candidate: an expired Wi-Fi fix is gone, not "last Wi-Fi". */
 int selfNewest(const SelfSlot slots[SELF_SRC_COUNT], uint32_t nowMs, unsigned flags, SelfFix* out);
 
-/* One source's own fix, whatever its age or quality (`pos`, the Almanac's "last ..." place):
- * false when that source is not GPS/PHONE, is off, or has no fix; out->state for `flags`. */
+/* One source's own fix, whatever its age or quality (`pos`, the Almanac's "last ..." place, the
+ * Wi-Fi row): false when that source is not GPS/PHONE/NET, is off, or has no fix; out->state
+ * for `flags`.
+ * ⚠ tz_auto.cpp's tzaPickFix asks this for GPS and PHONE only, by its loop's bound: a Wi-Fi fix
+ * never chooses the clock's zone (a network guess near a zone line is an hour wrong all day). */
 bool selfSource(const SelfSlot slots[SELF_SRC_COUNT], int src, uint32_t nowMs, unsigned flags,
                 SelfFix* out);
 
-// Is any source switched on (the Position/Send-to rows, the beacon's "nothing to send")?
+/* Is any source switched on — for SHOWING (the map's "no fresh fix" note, follow-me, the rows)?
+ * NET counts when "Wi-Fi location" is not off. */
 bool selfAnyEnabled(const SelfSlot slots[SELF_SRC_COUNT]);
+/* ...for SENDING (the Position/Send-to block, the beacon's "nothing to send"): GPS, PHONE, and NET
+ * only with "map + mesh" (review item 16) — "map only" never makes the beacon think it has a
+ * source. */
+bool selfAnyEnabledForTx(const SelfSlot slots[SELF_SRC_COUNT]);
 
 // ---------------------------------------------------------------- labels
 const char* selfSrcName(int src);        // "GPS" "phone" "Wi-Fi" "none"
 const char* selfSrcLastName(int src);    // "last GPS" "last phone" ... (a fix past its bar)
-const char* selfMapLabel(int src);       // "me" "me (phone)"
+const char* selfMapLabel(int src);       // "me" "me (phone)" "me (Wi-Fi)" (selfFixLabel adds the size)
 const char* selfBeaconTag(int src);      // the log's provenance: "gps beacon" "phone beacon"
 const char* selfStateName(int state);    // "live" "off" "no fix yet" "too old" "poor fix" ...
 uint8_t     selfSrcLocSource(int src);   // GPS INTERNAL, PHONE EXTERNAL, else UNSET
-uint8_t     selfSrcPrecBits(int src);    // 32 for a measured source, else 0 (never sent)
+uint8_t     selfSrcPrecBits(int src);    // 32 for a measured source, SELF_NET_PREC_BITS for NET, else 0
+/* "me" "me (phone)" "me +/-60 m Wi-Fi" — the map's label for a pick (the accuracy is part of the
+ * NET label: a Wi-Fi fix never appears without its size). "+/-" because the phone's fonts are
+ * printable ASCII only. Returns the length (cut to cap - 1). */
+size_t      selfFixLabel(char* out, size_t cap, const SelfFix* fx);
+/* "GPS" "phone" "Wi-Fi +/-60 m" — a pick's name on the distance lines, the Nodes self row, the
+ * Status screen's "From:". */
+size_t      selfFixName(char* out, size_t cap, const SelfFix* fx);
+/* Field 4 of a beacon from this pick: a NET fix is AS OF ITS LATEST CONFIRMING SCAN, so that
+ * scan's UTC (0: leave the field out — the clock was not trusted then); a GNSS fix is current,
+ * so the send's own trusted clock `trustedUtcNow` (0 = not trusted). */
+uint32_t    selfFixSendTime(const SelfFix* fx, uint32_t trustedUtcNow);
+
+// ---------------------------------------------------------------- sending a Wi-Fi fix
+/* ── THE BEACON'S MEMORY FOR THE WI-FI SLOT ─────────────────────────────────────────────────
+ * Two rules need what was SENT before, which no slot holds:
+ *  - PRECISE FIX WINS: no Wi-Fi beacon while a GPS or phone beacon went out in the last
+ *    SELF_NET_PRECISE_WINS_MS within the Wi-Fi fix's accuracy + SELF_NET_PRECISE_SLACK_M of it.
+ *    A receiver keeps the LAST position it heard: a coarse cell after a precise dot replaces the
+ *    better answer with a worse one about the same place.
+ *  - KEEP THE CELL (review item 15): a parked Wi-Fi fix near a cell edge would alternate between
+ *    cells 182-364 m apart and beat the 100 m movement gate every slot. So while a new fix lies
+ *    within the larger accuracy of it and the fix that produced the last cell sent, the SAME cell
+ *    is sent (and the movement gate then sees no movement). */
+#define SELF_NET_PRECISE_WINS_MS  3600000UL
+#define SELF_NET_PRECISE_SLACK_M       50
+struct SelfNetTxMem {
+  bool     cellOk;                 // a Wi-Fi cell has gone out
+  int32_t  cellLatI, cellLonI;     // ...that cell's centre (what was sent)
+  int32_t  srcLatI, srcLonI;       // ...the Wi-Fi fix it was cut from
+  uint16_t srcAccM;
+  bool     preciseOk;              // a GPS/phone beacon (not a bench one) has gone out
+  uint32_t preciseMs;
+  int32_t  preciseLatI, preciseLonI;
+};
+void selfNetTxInit(SelfNetTxMem* m);
+void selfNetTxNotePrecise(SelfNetTxMem* m, int32_t latI, int32_t lonI, uint32_t nowMs);
+// After a Wi-Fi beacon went out: `fx` the NET pick, (cellLatI, cellLonI) what selfNetTxCell gave.
+void selfNetTxNoteSent(SelfNetTxMem* m, const SelfFix* fx, int32_t cellLatI, int32_t cellLonI);
+bool selfNetPreciseWins(const SelfNetTxMem* m, const SelfFix* fx, uint32_t nowMs);
+// The coordinates to send for a NET pick: the kept cell, or the fix cut to SELF_NET_PREC_BITS.
+void selfNetTxCell(const SelfNetTxMem* m, const SelfFix* fx, int32_t* latI, int32_t* lonI);
 
 // ---------------------------------------------------------------- the phone stream
 /* Which ports, in order: 10110, 11123, then the user's own (NVS phport; 0 = none) unless it

@@ -141,6 +141,17 @@ public:
   bool scanBusy(void) {          // a scan is in flight or starting: hold off reconnect
     return _scanning || _scanPending;   // (connectToWiFi hard-cycles WiFi, killing scans)
   }
+  /* Wi-Fi location (geoloc_net.cpp, 0.9.82) asks for ONE scan: the next autoSwitchTick starts
+   * it through every rule the switcher's own scans obey - the heap gate (wifiScanMemoryOk: each
+   * scan's allocation is the one that has rebooted phone 1), the 10 s join hold-off, and the
+   * call / game / softAP skips (the tick is not run then) - and waits while a handshake is on the
+   * HTTPS worker (geolocScanMayStart). Only while CONNECTED; it never starts the disconnected
+   * branch (WiFi.disconnect(), the deaf-radio bounce), and it is a scan and nothing else - never
+   * evaluated for a hop, never the INI reload - unless the switcher's own cadence was due anyway
+   * (geoloc.h, geoSwitcherMode; autoSwitchTick's geoOnly). Spent when the round starts; geoloc
+   * spaces its asks GEO_SCAN_REQ_GAP_MS apart. */
+  void requestGeoScan(void) { _geoScanReq = true; }
+  bool geoScanRequested(void) const { return _geoScanReq; }
 
   /* Why the station dropped (2026-09-25): diagTick() drains the event task's record into
    * `WIFI LOST` / `WIFI disc` / `WIFI JOIN` lines (LOST and JOIN also to health.log) — call it
@@ -242,6 +253,9 @@ protected:
   bool     _scanPending = false;    // scan requested; keep retrying start briefly
   uint32_t _msScanPendingSince = 0;
   bool     _scanPreMarked = false;  // this pending round's heapEvent("scan-pre") is taken
+  bool     _geoScanReq = false;     // Wi-Fi location asked for a scan (requestGeoScan)
+  bool     _scanFull = true;        // the scan in flight may be evaluated for a hop (GEO_SW_FULL)
+  bool     _scanKeepCadence = false;  // ...a Wi-Fi location round under FULL: _msLastScan untouched
   bool     _prevScreenOn = true;    // for the wake-up edge
   uint32_t _msLastScan = 0;
   uint32_t currentDiscPeriod() const;               // 2 min, easing to 5 — see the .cpp

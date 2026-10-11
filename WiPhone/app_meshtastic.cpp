@@ -15,6 +15,8 @@
 #include "clock.h"              // ntpClock, for the Sun screen
 #include "app_almanac.h"        // almanacLegalToday: the Sun screen's legal light (astro.cpp + the rule)
 #include "phone_pos.h"          // My node's "Phone location" row: the switch and its status line
+#include "geoloc.h"             // My node's "Wi-Fi location" row: the setting's names and order
+#include "geoloc_net.h"         // ...its switch and its status line
 
 #ifdef USER_SERIAL              // the GPS toggle's plumbing (WiPhone.ino owns the flag)
 #include <Preferences.h>
@@ -52,6 +54,7 @@ extern void gpsApplyBaud(bool gpsOn);   // WiPhone.ino: the GPS and the GUI path
 #define MESH_MYNODE_POSINT     12     // position reporting: off / 15m / 5m / 30m
 #define MESH_MYNODE_POSCHAN    13     // ...and which channel it goes to
 #define MESH_MYNODE_PHONELOC   14     // the hotspot phone's GPS: auto / off (phone_pos.h)
+#define MESH_MYNODE_WIFILOC    15     // Wi-Fi location: off / map only / map + mesh (geoloc_net.h)
 
 /* Send-position picker rows are keyed by channel index + 1 (never 0: addOption
  * refuses it). The clear row sits far above any possible channel index. */
@@ -91,6 +94,9 @@ MeshtasticApp::MeshtasticApp(LCD& disp, ControlState& state, HeaderWidget* heade
 
 MeshtasticApp::~MeshtasticApp() {
   log_d("destroy MeshtasticApp");
+  if (appState == MESH_MYNODE) {
+    geolocScreenLeft();          // the app closed ON My node: a "map + mesh" chosen there commits
+  }
   freeWidgets();
 }
 
@@ -164,6 +170,12 @@ static void meshNodeLabel(uint32_t node, char* out, size_t cap) {
 }
 
 void MeshtasticApp::enterState(MeshAppState_t state) {
+  /* LEAVING My node commits a "map + mesh" chosen there (geoloc_net.h): the row's cycle passes
+   * through it on the way from "map only" to "off", and only a choice the owner walked away
+   * with may put a position on the air. */
+  if (appState == MESH_MYNODE && state != MESH_MYNODE) {
+    geolocScreenLeft();
+  }
   appState = state;
   freeWidgets();
   clearInputClaims();          // Compose re-claims it in buildCompose(); nothing else may
@@ -502,16 +514,28 @@ void MeshtasticApp::buildNodes() {
       SelfFix me;
       if (meshService.getSelfFix(&me, false) != SELF_NONE) {
         const double d = haveRef ? meshPosDistanceM(refLat, refLon, me.latI, me.lonI) : 0.0;
-        const char* src = me.src == SELF_PHONE ? "phone" : "GPS";
+        /* "GPS", "phone", or "Wi-Fi +/-60 m" (self_pos.h's selfFixName): a Wi-Fi fix never
+         * appears without its size. */
+        char src[24];
+        selfFixName(src, sizeof(src), &me);
         /* Testing the computed distance against 5 m catches "the reference IS
          * my fix" without asking which reference mode is active — it is true in
          * explicit-Here mode and in automatic mode with a fresh fix alike. */
         if (!haveRef || d < 5.0) {
-          if (me.sats >= 0) {
+          if (me.src == SELF_NET) {
+            snprintf(line, sizeof(line), "here - %s (beaconDB)", src);
+          } else if (me.sats >= 0) {
             snprintf(line, sizeof(line), "here - %s fix, %d sats", src, me.sats);
           } else {
             snprintf(line, sizeof(line), "here - %s fix", src);   // GPS 2 IP may not say
           }
+        } else if (me.src == SELF_NET) {
+          /* The size first, the reference's name LAST (the ellipsis takes the variable part):
+           * "Wi-Fi +/-60 m: 1.4km NE of Camp". */
+          char dist[16];
+          unitsFmtDist(d, gUnits, dist, sizeof(dist));
+          snprintf(line, sizeof(line), "%s: %s %s of %s", src, dist,
+                   meshPosCompass8(meshPosBearingDeg(refLat, refLon, me.latI, me.lonI)), refName);
         } else {
           char dist[16];
           unitsFmtDist(d, gUnits, dist, sizeof(dist));
@@ -585,13 +609,13 @@ void MeshtasticApp::buildPlaces() {
     SelfFix fx;
     const bool live = meshService.getSelfFix(&fx, false) != SELF_NONE;
     const bool haveFix = live || meshService.getSelfNewest(&fx) != SELF_NONE;
-    const char* src = fx.src == SELF_PHONE ? "phone " : "";
+    const char* src = fx.src == SELF_PHONE ? "phone " : fx.src == SELF_NET ? "Wi-Fi " : "";
     /* ⚠ THE SELECTED STATE HAS TO SURVIVE THE SOURCES BEING OFF OR UNFIXED. These two
      * branches used to read identically whether or not this row was the chosen
      * reference, so the one screen that lists references marked NONE of them as
      * selected in exactly the states where the user is most likely to be asking. */
     if (!meshService.anySourceEnabled()) {
-      snprintf(sub, sizeof(sub), "GPS/phone location off%s", isRef ? " - SELECTED" : "");
+      snprintf(sub, sizeof(sub), "location sources off%s", isRef ? " - SELECTED" : "");
     } else if (!haveFix) {
       snprintf(sub, sizeof(sub), "no fix yet%s", isRef ? " - SELECTED" : "");
     } else if (isRef && !live) {
@@ -600,9 +624,13 @@ void MeshtasticApp::buildPlaces() {
        * say which of those is happening. */
       snprintf(sub, sizeof(sub), "from here - last %sfix %lu min ago", src,
                (unsigned long)(fx.ageMs / 60000UL));
+    } else if (isRef && fx.src == SELF_NET) {
+      snprintf(sub, sizeof(sub), "from here - Wi-Fi +/-%u m", (unsigned)fx.accM);
     } else if (isRef) {
       snprintf(sub, sizeof(sub), "from here - %sfix %lus old", src,
                (unsigned long)(fx.ageMs / 1000UL));
+    } else if (fx.src == SELF_NET) {
+      snprintf(sub, sizeof(sub), "Wi-Fi location +/-%u m", (unsigned)fx.accM);
     } else if (fx.sats >= 0) {
       snprintf(sub, sizeof(sub), "%sfix %lus old, %d sats", src,
                (unsigned long)(fx.ageMs / 1000UL), fx.sats);
@@ -760,6 +788,10 @@ void MeshtasticApp::buildStatus() {
       } else if (refKind == MESH_REFK_PHONE && meshService.getSourceFix(SELF_PHONE, &ph) &&
                  ph.sats >= 0) {
         snprintf(line, sizeof(line), "From: phone (%d sats)", ph.sats);
+      } else if (refKind == MESH_REFK_NET) {
+        /* "From: Wi-Fi +/-60 m" - the name carries the size; whether it is also SENT (map only,
+         * or a ~182 m cell) is the Report row's and My node's business. */
+        snprintf(line, sizeof(line), "From: %s", refName);
       } else {
         snprintf(line, sizeof(line), "From: %s", refName);
       }
@@ -771,7 +803,7 @@ void MeshtasticApp::buildStatus() {
        * to answer "what am I measuring from", and "(nowhere yet)" answers the
        * wrong question: it reads as "you never picked one". */
       snprintf(line, sizeof(line), "From: here (%s)",
-               meshService.anySourceEnabled() ? "no fix" : "GPS/phone off");
+               meshService.anySourceEnabled() ? "no fix" : "sources off");
     } else {
       snprintf(line, sizeof(line), "From: (nowhere yet)");
     }
@@ -861,6 +893,17 @@ void MeshtasticApp::buildMyNode() {
     snprintf(line, sizeof(line), "Phone location: %s", phonePosAuto() ? "auto" : "off");
     menu->addOption(line, phonePosAuto() ? sub : "tap to use a hotspot phone's GPS",
                     MESH_MYNODE_PHONELOC, 1);
+  }
+  {
+    /* Wi-Fi location (0.9.82, geoloc_net.h): off -> map only -> map + mesh -> off. OFF by
+     * default, and the small line SAYS what turning it on does ("sends nearby Wi-Fi IDs to
+     * beaconDB"): pressing it is the consent, and "map + mesh" is only ever chosen HERE (the
+     * cable may set off or map). On, the line says what came of it: "+/-60 m, 3 min ago",
+     * "not enough known Wi-Fi here", "used while Maps or Almanac is open". */
+    char sub[64];
+    geolocRowText(sub, sizeof(sub));
+    snprintf(line, sizeof(line), "Wi-Fi location: %s", geoSettingName(geolocSetting()));
+    menu->addOption(line, sub, MESH_MYNODE_WIFILOC, 1);
   }
   /* ── Reporting this phone's position to the mesh ────────────────────────────
    * Shown when a location source is on (the GPS, or Phone location) OR when
@@ -1457,6 +1500,17 @@ appEventResult MeshtasticApp::processEvent(EventType event) {
         phonePosSetAuto(!phonePosAuto());
         buildMyNode();
         menu->select(MESH_MYNODE_PHONELOC);
+      } else if (sel == MESH_MYNODE_WIFILOC) {
+        pendingClear = 0;
+        /* off -> map only -> map + mesh -> off (geoSettingNext). Persists and tells the service
+         * (geoloc_net.cpp); off forgets the fix (and calls off a look that is out). It never
+         * transmits by itself either way: the beacon still needs the interval and the channel
+         * below, and "map + mesh" adds the Wi-Fi slot's own sending bars (self_pos.h) - and is
+         * not on the air at all until this screen is left (enterState -> geolocScreenLeft), so
+         * the tap that passes through it on the way to "off" can never send. */
+        geolocSetSetting(geoSettingNext(geolocSetting()));
+        buildMyNode();
+        menu->select(MESH_MYNODE_WIFILOC);
       } else if (sel == MESH_MYNODE_POSINT) {
         pendingClear = 0;
         /* off -> 15 min -> 5 min -> 30 min -> off, the neighbour row's shape:

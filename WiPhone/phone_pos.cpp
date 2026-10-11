@@ -40,6 +40,13 @@ static uint32_t  s_benchIp = 0;         // in the byte order (uint32_t)IPAddress
 static uint16_t  s_benchPort = 0;
 static int       s_link = SELF_LINK_OFF;
 static bool      s_saidNoApp = false;   // "no app answered" logged once per association
+/* The association whose GATEWAY delivered a checksum-good sentence (0 = none): a phone's hotspot,
+ * whose own access point travels with it (phonePosGatewayServedNmea, for Wi-Fi location). STICKY
+ * for the association on purpose - NOT s_probe.port, which three refused reconnects, a new custom
+ * port or Phone location switched off all clear (the review, 2026-10-10): a hotspot whose app
+ * was stopped is still a hotspot, and its BSSID must not then reach beaconDB or a fix's yardstick
+ * (a device that travels with the phone always counts as "still heard"). */
+static uint32_t  s_nmeaAssoc = 0;
 // Since boot, for `phonepos` (no coordinates anywhere in here):
 static uint32_t  s_bytes = 0, s_connects = 0, s_drops = 0, s_refused = 0;
 
@@ -162,6 +169,9 @@ static void readStream(uint32_t now) {
   if (!s_delivered && selfPhoneSentences(&s_stream) != sent0) {
     s_delivered = true;
     selfProbeGood(&s_probe, s_port);           // remembered for this association
+    if (!s_benchOn) {
+      s_nmeaAssoc = s_probe.assoc;             // the gateway itself answered (not a bench address)
+    }
     log_e("PHONE LOCATION: a location app answers on port %u", (unsigned)s_port);
   }
   if (!ended && selfPhoneSilent(&s_stream, now)) {
@@ -308,6 +318,18 @@ void phonePosBenchClear() {
 
 bool phonePosBenchOn() {
   return s_benchOn;
+}
+
+bool phonePosStreamLive() {
+  return meshService.isPhoneEnabled() && s_state == PP_STREAM && s_delivered &&
+         !selfPhoneSilent(&s_stream, millis());
+}
+
+bool phonePosGatewayServedNmea() {
+  /* Set by the gateway's first checksum-good sentence on this association, and kept for as long
+   * as the association lasts - whatever the probe forgets meanwhile (s_nmeaAssoc, above). A new
+   * GOT_IP (or the drop that ends a spell) moves lastWifiLinkUpMs(), and the answer is no again. */
+  return s_nmeaAssoc != 0 && s_nmeaAssoc == lastWifiLinkUpMs();
 }
 
 size_t phonePosStatusLine(char* out, size_t cap) {

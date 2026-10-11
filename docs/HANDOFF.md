@@ -4,6 +4,31 @@
 
 Read this first; everything below it is narrative.
 
+📶 **2026-10-11 ~00:05: WI-FI LOCATION (round 2), BOTH PHONES flashed by cable (0.9.82-NH dev; phone 1 BOOT `Oct 11 2026 00:01:25`, phone 2 `Oct 10 2026 23:40:59`, the same source), mute ON.**
+- **Setting:** My node > Wi-Fi location = off (default) / map only / map + mesh. The serial console may set only off|map.
+- **Rule** (the owner's): >= 4 DEVICES at -85 dBm or stronger, split into two halves, both beaconDB answers HTTP 200 with
+  no fallback, each accurate to 1-100 m, and agreeing within the larger accuracy. Otherwise NOTHING.
+  - Also checked against the last measured fix (300 m/s jump check).
+  - Never IP: considerIp false, ipf false.
+  - The phone hotspot's BSSID is never sent.
+- **Mesh** (only "map + mesh", chosen on the screen):
+  - precision_bits 17, location_source unset, the cell centre;
+  - sent only after a confirming scan within 60 s, and two agreeing scans >= 60 s apart before the first send;
+  - "precise fix wins"; tz_auto still refuses Wi-Fi fixes.
+- **Code:** geoloc.{h,cpp} (pure: filters, sameDevice, split, parser, judge, schedule) + geoloc_net.{h,cpp} (NVS, scan copy,
+  HTTPS job NET_JOB_GEO), plus roots ISRG X1+X2+YE in isrg_roots.h (YE checked by its key, like YR).
+- Workflow wf_159e9994-ae3: core, integrate, 3 reviewers, 12 findings, all fixed. test_geoloc 278, suite exit 0.
+- **Bench:**
+  - Home: phone 1 "24 heard ... 3 devices: too few", phone 2 "1 device". Nothing sent, nothing shown.
+  - The TRANSPORT was proven with a temporary build (min devices 2, -95 dBm; NOT committed, phone 1 re-flashed with the
+    real build after): half A HTTP 404 notFound, dns 34 ms, connect+handshake 5,837 ms (the P-384 chain verifies), worker
+    stack floor 2,960 of 8,192, internal largest floor 42,864. Half B was skipped as designed. Verdict no-fix, nothing
+    reported.
+  - `netloc answer` (bench, never sent): the map draws "Wi-Fi +/-70 m" with a dotted ring.
+- **Both phones left on "map only"** (Nick asked for network location when accurate). "Map + mesh" is his choice on the
+  screen.
+- **Owed:** a real located fix in a busy place (hotel/office), and a map + mesh beacon arriving at COVEY with precision 17.
+
 🕑 **2026-10-10 night: AUTOMATIC TIME ZONE, BOTH PHONES flashed by cable (0.9.82-NH dev, BOOT `build=Oct 10 2026 20:28:13`, mute ON).**
 - **Why:** Nick flies to Ohio next week. The clock was a typed offset with no DST, so every time and legal light would
   have been 3 h off. Settings > Time zone (was "Time offset") now has three modes:

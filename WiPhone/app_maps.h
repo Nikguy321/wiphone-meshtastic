@@ -465,9 +465,11 @@ protected:
    * `0` key can never disagree about which of the three they are showing.
    * ⚠ MESH_GPS_FRESH_MS is the bar, and it is the SERVICE'S bar, not a second one invented
    * here (meshService.getSelfFix, self_pos.h's selfPick): a fix from hours ago drawn as a live
-   * one is a lie about where YOU are. `src` (optional): SELF_GPS or SELF_PHONE for a measured
-   * kind, SELF_NONE for the pin or nothing. */
-  int   selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs, int* src = NULL) const;
+   * one is a lie about where YOU are. `src` (optional): SELF_GPS, SELF_PHONE or SELF_NET for a
+   * live kind, SELF_NONE for the pin or nothing. `accM` (optional): a Wi-Fi fix's accuracy (the
+   * ring the map draws round it, and its label), 0 for every other kind. */
+  int   selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs, int* src = NULL,
+                     uint16_t* accM = NULL) const;
   /* A dotted ring of radius r px round (x, y), clipped to the map: an APPROXIMATE position (a
    * node that sent precision_bits, mesh_pos.h) is a circle, not a dot. */
   void  drawRing(int x, int y, int r, uint16_t colour);

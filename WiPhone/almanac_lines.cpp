@@ -146,6 +146,10 @@ void placeRow(const AlmCtx* c, AlmEmitFn emit, void* ctx) {
     fmtAgo(c->placeAgeMs, ago, sizeof(ago));
     emitf(emit, ctx, ALM_ROW_INFO, "At last phone %s", ago);
     break;
+  case ALM_PLACE_NET:
+    // "At Wi-Fi +/-60 m": the name carries the size (self_pos.h's selfFixName), never cut.
+    emitf(emit, ctx, ALM_ROW_INFO, "At %s", n);
+    break;
   case ALM_PLACE_MAP_VIEW:
     emit(ctx, ALM_ROW_INFO, "At map view");
     break;
@@ -1222,8 +1226,9 @@ void almPickPlace(const AlmPlaceIn* in, AlmPlace* out) {
     out->kind = in->refKind != ALM_PLACE_NONE ? in->refKind : ALM_PLACE_PIN;
     out->latI = in->refLatI;
     out->lonI = in->refLonI;
-    const bool phone = out->kind == ALM_PLACE_PHONE || out->kind == ALM_PLACE_LAST_PHONE;
-    out->ageMs = phone ? in->refAgeMs : in->gpsAgeMs;
+    const bool own = out->kind == ALM_PLACE_PHONE || out->kind == ALM_PLACE_LAST_PHONE ||
+                     out->kind == ALM_PLACE_NET;
+    out->ageMs = own ? in->refAgeMs : in->gpsAgeMs;
     snprintf(out->name, sizeof(out->name), "%s", in->refName ? in->refName : "?");
     return;
   }
@@ -1626,6 +1631,10 @@ void almLinesPosition(const AlmCtx* c, const AlmPos* p, AlmEmitFn emit, void* ct
     case ALM_PLACE_LAST_PHONE:
       fmtAge(c->placeAgeMs, a, sizeof(a));
       emitf(emit, ctx, ALM_ROW_INFO, "Source: last phone %s", a);
+      break;
+    case ALM_PLACE_NET:
+      // "Source: Wi-Fi +/-60 m": the age is its last confirming scan's, kept off this row.
+      emitf(emit, ctx, ALM_ROW_INFO, "Source: %s", c->placeName ? c->placeName : "Wi-Fi");
       break;
     case ALM_PLACE_MAP_VIEW:
       emit(ctx, ALM_ROW_INFO, "Source: map view");

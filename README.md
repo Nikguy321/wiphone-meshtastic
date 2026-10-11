@@ -665,6 +665,16 @@ by mistake is ignored rather than used as a model name, and Key info says so.
   - Upgrading with position reporting switched on but the GPS off (or aimed at a public
     channel)? Phone location starts **off**, so nothing begins going out by itself. Turn it on
     in My node.
+- **Wi-Fi location** (0.9.82, **off** by default). With no GPS and no phone fix, the WiPhone can
+  ask beaconDB where the WiFi access points around it are (**My node → Wi-Fi location: off / map
+  only / map + mesh**). It sends only access point addresses and signal strengths, never names,
+  and turns beaconDB's internet-address fallback off. It believes an answer only when two separate
+  lookups (the access points split in two halves) agree within 100 m, and drops it the moment a
+  scan no longer hears those access points (or the WiFi drops), or when it lands far from your last
+  GPS fix. The map shows `me +/-60 m Wi-Fi` with a ring. **map + mesh** (it starts when you leave
+  My node) may also send it as a ~182 m cell after two confirming scans. It often finds nothing:
+  beaconDB knows few homes and campsites, and that is by design. Details:
+  [docs/phone-location.md, Wi-Fi location](docs/phone-location.md#wi-fi-location).
 - **Node list** with friendly names (learned from NodeInfo), an **editable node
   name** (long and 4-character short), and a **configurable hop limit**.
 - **Mesh client role** — relays/rebroadcasts other nodes' packets to extend the
@@ -928,11 +938,13 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `chan <url>` / `chans` | apply a Meshtastic channel invite link; list channels |
 | `dm <!node> <text>` | send a direct message (encrypted when the key is known) |
 | `announce` / `pki` | broadcast NodeInfo now; DM crypto state |
-| `pos` | the whole positions picture: places, node fixes, pin, reference, and where this phone is (each source: GPS, the hotspot phone) |
+| `pos` | the whole positions picture: places, node fixes, pin, reference, and where this phone is (each source: GPS, the hotspot phone, Wi-Fi location) |
 | `pos every <secs>\|off` / `pos now` | reporting cadence / one beacon now. From the cable, neither ever goes to a public channel: that is armed on the phone |
 | `pos inject gps\|phone <lat> <lon> [sats hdop]` / `pos inject clear` | a bench fix for that source, RAM only: drawn and measured from, never sent by the schedule (`pos now` with one says INJECTED and sends it as MANUAL, not as a measurement). Use dummy coordinates |
 | `phonepos` / `phonepos auto\|off` / `phonepos port <n>` | Phone location: state, port, bytes, sentences, stale lines, last fix age (never a coordinate or an address); switch it (`auto` is refused while reporting goes to a public channel); an extra port to try |
 | `phonepos at <ip>[:port]` / `phonepos at off` | bench: ask a Mac running `tools/nmea_phone_stub.py` instead of the gateway (RAM only; its fixes are bench fixes) |
+| `netloc` / `netloc off\|map` / `netloc now` | Wi-Fi location: the setting, the last scan (counts), the last look's verdict and accuracy, the fix, each half's HTTP and handshake time (never an address or a coordinate); switch it (`map + mesh` only on the phone); look as soon as allowed |
+| `netloc answer <A> <B>` | bench: fold two canned beaconDB answers (`{...}`, a 3-digit status, or `-`) through the agreement rule; the fix is a bench fix, never sent by the schedule |
 | `tz` / `tz auto\|custom [offset]\|<zone>` / `tz test <lat> <lon>` / `tz forget` | the time zone: what is in force, where it came from, Auto's last look and why, the next DST change (never a coordinate); set it (zones: pacific mountain arizona central eastern atlantic newfoundland alaska hawaii saskatchewan); look a place up without changing anything; drop the zone Auto found |
 | `sun` | legal light at the reference place (or `sun <lat>,<lon>`) |
 | `gps` / `gps on\|off` | GPS receiver state / route the user UART to it (`on` is refused from the cable while reporting goes to a public channel) |

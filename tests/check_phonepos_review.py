@@ -316,7 +316,7 @@ MUTATIONS = [
      lambda t: t.replace("  char st[64];\n  phonePosStatusLine(st, sizeof(st));",
                          "  char st[64];\n  (void)s_benchIp;\n  phonePosStatusLine(st, sizeof(st));", 1)),
     ("the pin's fields on a measured fix", "meshtastic_service.cpp",
-     lambda t: t.replace("fx.locSrc, fx.precBits);", "MESH_LOC_UNSET, 0);", 1)),
+     lambda t: t.replace("fx.locSrc, fx.precBits, whenUtc);", "MESH_LOC_UNSET, 0, whenUtc);", 1)),
     ("the schedule sending a bench fix", "meshtastic_service.cpp",
      lambda t: t.replace("sendSelfPosition(false);", "sendSelfPosition(true);", 1)),
     ("a bench fix to a public channel", "meshtastic_service.cpp",

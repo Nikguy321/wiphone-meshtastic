@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi, the phone's location from a hotspot, automatic time zones
+## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi, the phone's location from a hotspot, automatic time zones, Wi-Fi location
 
 Nick: the phones should get new OpenTopoMap tiles *"over WiFi from the Mac"* rather than by
 opening them for the SD card.
@@ -171,6 +171,113 @@ Almanac's sunrise, sunset and legal light came out hours off):
   clock), and `tests/check_tz_glue.py` (the glue - no SPIFFS in the loop, back to Auto, the look's
   own millis(), a failed INI write never undone at boot, the soft key's word - with 22 mutations
   caught).
+
+**Wi-Fi location: beaconDB, believed only when two lookups agree** (Nick's rule: own GPS, then the
+phone's GPS over its hotspot, then a Wi-Fi location only when it is genuinely local and accurate,
+otherwise nothing; never an internet-address guess; a wrong location is worse than none):
+
+- **Meshtastic > My node > Wi-Fi location: off | map only | map + mesh** (NVS `wpmesh/netloc`,
+  **off** by default). Its line says what turning it on does: `if on: sends Wi-Fi IDs to
+  beaconDB`. On, it says what came of it: `+/-60 m, 3 min ago, map only`, `not enough known
+  Wi-Fi here`, `too few Wi-Fi networks (2 of 4)`, `lookups disagree: not used`, `used while Maps
+  or Almanac is open`. The serial console may set only `off` or `map`: **map + mesh** puts a
+  position on other people's maps and is chosen on the screen.
+- **What is sent:** to `api.beacondb.net`, the BSSIDs and signal strengths of up to 20 access
+  points per request - no SSIDs, a generic `WiPhone-NH` User-Agent with no version, Content-Type
+  JSON, `"considerIp":false` and `"fallbacks":{"ipf":false}` (beaconDB's own IP fallback off
+  twice), and any answer carrying a `fallback` key is refused. Never sent: hidden and
+  `_nomap`/`_optout` networks, locally administered (randomised, most phone hotspots), group,
+  all-zero and VRRP addresses, the joined network when it is a phone's hotspot (a location app
+  answered on it) or locally administered, and anything under -85 dBm. TLS is pinned to ISRG
+  Root X1 + X2 + the self-signed Root YE (beaconDB serves leaf <- YE1 <- Root YE <- X2 <- X1;
+  Root YE second-sourced by its key like Root YR - `isrg_roots.h`).
+- **The two-half agreement (the review's item 1):** beaconDB's answer is a weighted average of
+  the access points it knows, and its accuracy is how far each is usually heard - one access
+  point that moved drags the answer kilometres while it still reads ~50 m. So at least 4
+  separate devices (a router's several BSSIDs count once) at -85 dBm or stronger are dealt into
+  two halves by signal rank and asked about separately; both must be HTTP 200 with no fallback,
+  each 1-100 m, and within the larger claim of each other. The result is the midpoint at
+  max(50 m, either claim, their distance). The X4 Pro e-reader runs the same protocol.
+- **When it looks:** no live GPS or phone fix; the position wanted (Maps or the Almanac on screen
+  in the last 10 minutes, a beacon armed with map + mesh, or `netloc now`); the access points
+  changed, never looked on this network, or the fix ran out; 10 minutes since the last look (2
+  for `netloc now`), at most 3 an hour; the weather's gates (no download, uploader, sync window,
+  call, game, Files job); no music playing (`netloc now` pauses it). A look needs a scan of this
+  network under 2 minutes old: it asks the auto-switcher for one, at most every 2 minutes, through
+  the same heap gate and skips as its own scans.
+- **The auto-switcher (the review's item 8):** a Wi-Fi location scan with auto-switch **off** is a
+  scan and nothing else - no hop, never the disconnected branch (its `WiFi.disconnect()` and the
+  deaf-radio bounce), and its result does not count as the switcher's join evidence. While a
+  phone's NMEA stream is live on the hotspot, auto-switch does not hop away from it. A scan in
+  flight is always polled to its end and a round only pending is called off, so `scanBusy()` can
+  never hold the rejoin loop off. The snapshot (BSSID, RSSI, flags) is copied with
+  `WiFi.getScanInfoByIndex()` before `scanDelete()`; nothing is copied while the setting is off.
+- **Freshness (the review's item 2):** a Wi-Fi fix is true only while its access points are still
+  heard. Every later scan that still hears 2/3 of its devices confirms it; one that does not
+  drops it at once. Shown 12 minutes after the last confirming scan, then gone (no grey "last
+  Wi-Fi"); a scan is asked for at 10.5 minutes if the switcher's own is late.
+- **On the mesh (map + mesh only):** after two agreeing scans at least 60 s apart, and only when a
+  confirming scan finished within the 60 s before the send - an owed report asks for that scan
+  and sends on it. Sent as a 17-bit cell (~182 m, the point moved to the cell's middle) with no
+  `location_source`, field 4 = the confirming scan's trusted UTC. The last cell is kept while a
+  new fix lies within the accuracy of the one that produced it (no flip-flop at a cell edge), and
+  no Wi-Fi report goes out while a GPS/phone report of the last hour lies within its accuracy +
+  50 m (a precise dot is never replaced by a coarse cell). The public-channel rules are as
+  before. The time zone never takes a Wi-Fi fix.
+- **Where it shows:** the map's `me +/-60 m Wi-Fi` with a dotted ring at that size (`0` centres:
+  "Centred on the Wi-Fi location, +/-60 m"), distances (`From: Wi-Fi +/-60 m`; Places > Here
+  includes it, named with its size), the Almanac (`At Wi-Fi +/-60 m`, `Source: Wi-Fi +/-60 m`)
+  and its weather, the Nodes self row (`here - Wi-Fi +/-60 m (beaconDB)`), `pos`.
+- **Serial:** `netloc` (the setting, the last scan's counts, the last look's verdict and accuracy,
+  the fix, each half's HTTP code and handshake time - never a MAC or a coordinate), `netloc
+  off|map`, `netloc now`, `netloc answer <A> <B>` (two canned halves through the same rule; the
+  fix is a bench fix, never sent by the schedule).
+- **Code:** `geoloc.{h,cpp}` (pure: the filters, the bodies, the parser on `json_read.h`, the
+  agreement, when to look, the freshness), the Wi-Fi slot's rules in `self_pos.{h,cpp}`,
+  `geoloc_net.{h,cpp}` (the glue: a third job kind on the shared HTTPS worker, inside
+  `netRequestActive()`), the auto-switcher's modes in `Networks.cpp`. PSRAM for the snapshot and
+  the request bodies (~3.9 KB).
+- **What two agreeing halves cannot see (the second review: 12 findings, two of them the same, all fixed):**
+  - *The jump check* (the first review's item 1 kept it as a backstop): routers that moved
+    together agree perfectly, at the old address. An answer that could not be reached from this
+    boot's newest GPS/phone fix of the last 6 h at 300 m/s (beyond its accuracy + 50 m) is refused:
+    `far from your last fix: not used`. A bench fold is held to bench fixes too (`pos inject`).
+  - *A scan during the lookup:* a look queued behind a weather fetch can wait ~40 s; a scan that
+    finished meanwhile and no longer hears 2/3 of the look's devices refuses the answer (`moved
+    during the lookup`); one that still hears them confirms it.
+  - *The WiFi link:* a drop or a new network takes the fix off the map at once; the next scan
+    brings it back or drops it (`WiFi changed: waiting for a scan`). With Maps or the Almanac open
+    a live fix is re-checked by a scan every 2 minutes, so a fix carried off on a hotspot that
+    stays connected goes within ~2 minutes, not 10.
+  - *Expired is gone:* a fix 12 minutes past its last confirming scan is cleared, not left to age
+    (its age is `millis()`-based and would read fresh again after 49.7 days on a charger).
+  - *The phone hotspot's BSSID:* "its gateway served NMEA" is now sticky for the association
+    (it was the probe's remembered port, which three refused reconnects clear), and the joined
+    access point is asked about again when a look starts; a look waits 15 s after a join so the
+    phone's app can answer first.
+  - *Off means off:* switching it off reaches a look that is queued or out - the worker checks
+    before each half, the request in flight is cancelled, and nothing is kept (a half that went out
+    still counts against the hour's cap). The request bodies are wiped after every fold.
+  - *map + mesh starts when the My node screen is left* (`mesh starts when you leave here`): the
+    row's way from map only to off passes through it, and an owed report could send a Wi-Fi cell
+    between the two taps.
+  - *Scans:* a Wi-Fi location scan never starts while an AI question, a weather fetch or a look is
+    connecting (a scan's allocation inside a handshake's heap dip is the 2026-08-28 reboot), and a
+    look never starts while a scan is running. With auto-switch on, a scan Wi-Fi location asks for
+    is a scan only - no hop and no `/networks.ini` reload (a second or more of SPIFFS on the loop
+    task per ask); the switcher's own 10-minute round still evaluates on time.
+  - *Names:* the map's height line and its lists name a Wi-Fi "you" with its size (`35m below
+    Wi-Fi +/-60 m`, `nearest first, from Wi-Fi +/-60 m`); `maps` prints the saved view to 2
+    decimals.
+- Host tests: `test_geoloc` (278 checks: the e-reader's beaconDB vectors minus anything
+  IP, the schedule, the bench fold, the jump check, a scan during the look, the held fix, expiry,
+  when a scan is asked for, a cancelled look, the three roots by SHA-256, every row line measured
+  in the firmware's font), `test_selfpos` (the Wi-Fi slot), `test_tzauto` (a live Wi-Fi fix
+  refused), `test_almanac_lines` (the Wi-Fi place), and `tests/check_geoloc_review.py` (the glue:
+  no IP lookup, the request, the roots, no MAC in a log, the cable never choosing mesh, the
+  switcher, the beacon's cell and time, the music, off reaching the worker, no scan beside a
+  handshake, the fold's guard, map + mesh committed on leaving the screen - 13 contracts, 36
+  mutations caught).
 
 ## 0.9.81-NH (2026-10-04) - Menu > AI (Gemini), the API Keys folder, weather on the Almanac
 

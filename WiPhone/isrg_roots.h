@@ -1,8 +1,9 @@
 /*
  * isrg_roots.h - the Let's Encrypt roots this firmware trusts, as string literals that
- * concatenate: ISRG_ROOT_X1_PEM alone (the OTA check, ota.cpp) or ISRG_ROOT_X1_PEM ISRG_ROOT_YR_PEM
- * (the Almanac's weather, weather_net.cpp - mbedTLS takes several PEMs in one buffer:
- * ssl_client.cpp's mbedtls_x509_crt_parse of the whole string).
+ * concatenate: ISRG_ROOT_X1_PEM alone (the OTA check, ota.cpp), ISRG_ROOT_X1_PEM ISRG_ROOT_YR_PEM
+ * (the Almanac's weather, weather_net.cpp) or X1 + X2 + YE (Wi-Fi location, geoloc.h's
+ * GEO_ROOTS_PEM) - mbedTLS takes several PEMs in one buffer: ssl_client.cpp's
+ * mbedtls_x509_crt_parse of the whole string.
  *
  * WHY BOTH, FOR THE WEATHER (checked 2026-10-03). api.open-meteo.com and api.weather.gov both
  * serve leaf <- Let's Encrypt YR1 / YR2 (RSA-2048) <- "Root YR" CROSS-SIGNED by ISRG Root X1
@@ -33,6 +34,32 @@
  * change in what the servers send can break X1-only trust.
  * ⚠ NO OVERRIDE FILE for the weather (ai_net.cpp's reason: the uploader has no password and runs
  * on the phone's own open hotspot). New roots are a firmware update.
+ *
+ * WHY X1 + X2 + YE, FOR WI-FI LOCATION (beaconDB, geoloc_net.cpp; checked 2026-10-10, the review's
+ * item 6). api.beacondb.net serves an ECDSA chain: leaf (P-256) <- Let's Encrypt YE1 (P-384) <-
+ * "Root YE" CROSS-SIGNED by ISRG Root X2 <- X2 CROSS-SIGNED by ISRG Root X1. An X1-only pin works
+ * only while the server keeps sending both cross certificates; X1 + X2 survives the X1 cross
+ * going; and a server that sends the SHORT chain (leaf <- YE1 <- Root YE, the same day the weather
+ * hosts may drop theirs) fails both - so the self-signed Root YE is pinned too, the way Root YR
+ * is. With YE pinned mbedTLS stops at it: no P-384 verify of the YE cross and no RSA-4096 one of
+ * the X2 cross, in a handshake that is all software ECC on this core.
+ *
+ *   ISRG Root X2  SHA-256 69:72:9B:8E:15:A8:6E:FC:17:7A:57:AF:B7:17:1D:FC:64:AD:D2:8C:2F:CA:8C:F1:50:7E:34:45:3C:CB:14:70
+ *                 ECDSA P-384, 2020-09-04 .. 2040-09-17. Byte-identical in the macOS system
+ *                 keychain (SystemRootCertificates), certifi and letsencrypt.org/certs/
+ *                 isrg-root-x2.pem (2026-10-10). Its key (SubjectPublicKeyInfo SHA-256
+ *                 762195c2...cce68332) is the one in the X2 cross certificate beaconDB serves,
+ *                 and that cross verifies under the X1 above.
+ *   ISRG Root YE  SHA-256 E1:4F:FC:AD:5B:00:25:73:10:06:CA:A4:3A:12:1A:22:D8:E9:70:0F:4F:B9:CF:85:2F:02:A7:08:AA:5D:56:66
+ *                 ECDSA P-384, 2025-09-03 .. 2045-09-02, from letsencrypt.org/certs/gen-y/root-ye.pem.
+ *                 In NO trust store yet (not macOS, not certifi), so SECOND-SOURCED by its key
+ *                 like Root YR (2026-10-10, python `cryptography` 48): its public key
+ *                 (SubjectPublicKeyInfo SHA-256 b0292ae5...c71d47bc) and subject equal those of
+ *                 the "Root YE" cross certificate api.beacondb.net serves (SHA-256
+ *                 0F:C0:90:1C...C4:85:F0), whose signature verifies under the X2 above; its own
+ *                 self-signature verifies; and the served YE1 verifies under it, the leaf under
+ *                 YE1. A forged Root YE would need X2's key to have a matching cross certificate.
+ * tests/test_geoloc.cpp decodes GEO_ROOTS_PEM (geoloc.h: X1 + X2 + YE) and checks all three.
  *
  * Pure: no Arduino or IDF headers (the host suite includes it).
  */
@@ -104,6 +131,38 @@
   "awuw1EawTDrs13VUlJVEsbQ0/O/1aaV73mCdOQ8azqL2KTv1Ewu1xbquE2S+kdQU\n" \
   "To9TUwat3wUA6cwXh1EfpS/3fJ0aGah5hdpRyoCLDlsSn8tkrjMfFFX0viC+GxHc\n" \
   "sI1ANRYvqSFC2X1VRZfDg+wD6E21BccmifG4yWc=\n" \
+  "-----END CERTIFICATE-----\n"
+
+// ISRG Root X2 (self-signed, ECDSA P-384) - SHA-256 69:72:9B:...:CB:14:70
+#define ISRG_ROOT_X2_PEM \
+  "-----BEGIN CERTIFICATE-----\n" \
+  "MIICGzCCAaGgAwIBAgIQQdKd0XLq7qeAwSxs6S+HUjAKBggqhkjOPQQDAzBPMQsw\n" \
+  "CQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFyY2gg\n" \
+  "R3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMjAeFw0yMDA5MDQwMDAwMDBaFw00\n" \
+  "MDA5MTcxNjAwMDBaME8xCzAJBgNVBAYTAlVTMSkwJwYDVQQKEyBJbnRlcm5ldCBT\n" \
+  "ZWN1cml0eSBSZXNlYXJjaCBHcm91cDEVMBMGA1UEAxMMSVNSRyBSb290IFgyMHYw\n" \
+  "EAYHKoZIzj0CAQYFK4EEACIDYgAEzZvVn4CDCuwJSvMWSj5cz3es3mcFDR0HttwW\n" \
+  "+1qLFNvicWDEukWVEYmO6gbf9yoWHKS5xcUy4APgHoIYOIvXRdgKam7mAHf7AlF9\n" \
+  "ItgKbppbd9/w+kHsOdx1ymgHDB/qo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0T\n" \
+  "AQH/BAUwAwEB/zAdBgNVHQ4EFgQUfEKWrt5LSDv6kviejM9ti6lyN5UwCgYIKoZI\n" \
+  "zj0EAwMDaAAwZQIwe3lORlCEwkSHRhtFcP9Ymd70/aTSVaYgLXTWNLxBo1BfASdW\n" \
+  "tL4ndQavEi51mI38AjEAi/V3bNTIZargCyzuFJ0nN6T5U6VR5CmD1/iQMVtCnwr1\n" \
+  "/q4AaOeMSQ+2b1tbFfLn\n" \
+  "-----END CERTIFICATE-----\n"
+
+// ISRG Root YE (self-signed, ECDSA P-384) - SHA-256 E1:4F:FC:...:5D:56:66
+#define ISRG_ROOT_YE_PEM \
+  "-----BEGIN CERTIFICATE-----\n" \
+  "MIIB2TCCAWCgAwIBAgIRAKQCa6LvbHwg1AR+XmWmk4AwCgYIKoZIzj0EAwMwLjEL\n" \
+  "MAkGA1UEBhMCVVMxDTALBgNVBAoTBElTUkcxEDAOBgNVBAMTB1Jvb3QgWUUwHhcN\n" \
+  "MjUwOTAzMDAwMDAwWhcNNDUwOTAyMjM1OTU5WjAuMQswCQYDVQQGEwJVUzENMAsG\n" \
+  "A1UEChMESVNSRzEQMA4GA1UEAxMHUm9vdCBZRTB2MBAGByqGSM49AgEGBSuBBAAi\n" \
+  "A2IABDwS/6vhrcVqcbBo+wgdI3fwn9x7DNJJOY/lTOti0vkwuRN87RhEhTH17E7X\n" \
+  "yFjWsPYhIPt/wzOqxTd2b+4ZJNy9ID04YywF9U5zasDVyGSNErVNtz8uSGh5izW8\n" \
+  "7j77GaNCMEAwDgYDVR0PAQH/BAQDAgEGMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0O\n" \
+  "BBYEFKPIJlqOoUzQNWP8myPIOq5W809WMAoGCCqGSM49BAMDA2cAMGQCMHhMr8N9\n" \
+  "LdL1VQKs9BdV81r76eXRB6mtjuNjzk6/lBsPNToWLTDzGYgtQKO1jl63uAIwGV7m\n" \
+  "onyF377c+MM1oqVNs17sgu7F9YKZwgLmVbeOMDbKAXHtKMDLbiGllCcs8f47\n" \
   "-----END CERTIFICATE-----\n"
 
 #endif // ISRG_ROOTS_H

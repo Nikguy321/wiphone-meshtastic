@@ -1,6 +1,7 @@
 /*
  * https_worker.h - the ONE task that talks HTTPS for the phone's apps (0.9.81): Menu > AI's
- * questions (ai_net.cpp) and the Almanac's weather (weather_net.cpp), as JOB KINDS on one worker.
+ * questions (ai_net.cpp), the Almanac's weather (weather_net.cpp) and, since 0.9.82, Wi-Fi
+ * location's beaconDB lookups (geoloc_net.cpp), as JOB KINDS on one worker.
  * The map downloader keeps its own (tile_fetch.cpp: a map job holds that one for days).
  *
  * WHY ONE, SHARED (generalised from the AI's own worker, 2026-10-03):
@@ -45,7 +46,9 @@
 #define NET_CONNECT_LARGEST   (10u * 1024u)
 #define NET_CONNECT_FREE      (14u * 1024u)
 
-enum { NET_JOB_AI = 0, NET_JOB_WX, NET_JOB_KINDS };
+/* The worker runs the lowest queued kind first: a question a person is staring at, then the
+ * weather they asked for, then Wi-Fi location (geoloc_net.h, 0.9.82: nobody waits on it). */
+enum { NET_JOB_AI = 0, NET_JOB_WX, NET_JOB_GEO, NET_JOB_KINDS };
 
 typedef void (*NetJobFn)(void);
 
@@ -58,8 +61,8 @@ bool netWorkerCarved();                    // the stack exists (the heap bar nee
 void netWorkerSubmit(int kind, NetJobFn run);
 int  netWorkerRunning();                   // the kind on the worker now, -1 = none
 bool netWorkerQueued(int kind);            // submitted, not started yet
-/* Anything asked and not yet folded by its module: aiRequestActive() || wxRequestActive().
- * WiPhone.ino's busy, hardBusy and the 10-tick sleep. */
+/* Anything asked and not yet folded by its module: aiRequestActive() || wxRequestActive() ||
+ * geoRequestActive(). WiPhone.ino's busy, hardBusy and the 10-tick sleep. */
 bool netRequestActive();
 
 /* The internal heap now (MALLOC_CAP_INTERNAL | 8BIT). */

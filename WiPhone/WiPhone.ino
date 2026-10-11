@@ -44,7 +44,8 @@ governing permissions and limitations under the License.
 #include "tile_fetch.h"      // the map downloader: DFS hold, pause-for-calls (below)
 #include "ai_net.h"          // Menu > AI: the question's worker, folded into the chat each pass
 #include "weather_net.h"     // the Almanac's weather: a fetch folded into the cache each pass (0.9.81)
-#include "https_worker.h"    // netRequestActive: an AI question or a weather fetch on the shared worker
+#include "https_worker.h"    // netRequestActive: an AI question, a weather fetch or a Wi-Fi location look on the shared worker
+#include "geoloc_net.h"      // Wi-Fi location: geolocSetup / geolocLoop (0.9.82)
 #include "app_maps.h"        // gMapsActive: the map owns the side buttons while it is open
 #include "prefs_almanac.h"   // gUnits / gLegalRule: loaded at boot beside the GPS switch (0.9.80)
 #include "esp_wifi.h"       // esp_wifi_get_ps/set_ps: the modem-sleep invariant in loop()
@@ -2007,6 +2008,7 @@ void setup() {
   meshService.setCardPresent(gui.state.cardPresent);
   meshService.setup();
   phonePosSetup();      // the hotspot phone's GPS: its custom port (the on/off is the service's)
+  geolocSetup();        // Wi-Fi location: the setting (OFF by default) told to the service's slot
 
   /* The user's own T9 words, if the card has any. Here because the card verdict above is
    * finally trustworthy, and because this is the ONLY place the file is ever read — one
@@ -5652,12 +5654,18 @@ void loop() {
       /* The Almanac's weather the same way (weather_net.h): a finished fetch folded into the cache
        * and written to the card here, whether or not the Almanac is open. A flag test when idle. */
       wxLoopTick();
+      /* Wi-Fi location (geoloc_net.h): a finished beaconDB look folded into the service's Wi-Fi
+       * slot (a flag test when idle), then once a second the decisions - look, ask the
+       * auto-switcher for a scan, a dry look. The position is "wanted" while Maps or the Almanac
+       * is on a lit screen (and 10 min after). Its handshake rides netRequestActive() below. */
+      geolocLoop(gui.state.screenBrightness > 0 &&
+                 (gui.isAppRunning(GUI_APP_MAPS) || gui.isAppRunning(GUI_APP_ALMANAC)));
       const bool busy = (gui.state.screenBrightness > 0) ||
                         gGbcActive ||
                         gGpsNmea ||            // see the deadlock note above — NOT perf
                         xferOn() ||            // the UPLOADER; a KOSync window needs no full speed (app_gbc_xfer.cpp)
                         tileFetchActive() ||   // tiles: HTTPS + decode + card, see tile_fetch.h
-                        netRequestActive() ||  // an AI question or a weather fetch: TLS on the shared worker (https_worker.h)
+                        netRequestActive() ||  // an AI question, a weather fetch or a Wi-Fi location look: TLS on the shared worker (https_worker.h)
                         musicPlayerIsPlaying() ||
                         sipNeedsFullSpeed();   // NOT sipCallActive() — see the note on it
       /* Anything with a deadline stays at FULL SPEED REGARDLESS of the screen: the emulator,

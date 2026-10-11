@@ -14,8 +14,9 @@
  * one of these holds; otherwise the zone in use (or, before any, the typed offset) stays:
  *   1. A LIVE fix by the 30 s bar beaconing uses (SELF_TX_FRESH_MS), GPS ranked first. Never a
  *      bench fix (`pos inject`, `phonepos at`): SELF_ST_INJECTED. Never a POOR one (sats < 4 or
- *      HDOP > 10, the bar every screen uses). Never the Wi-Fi slot (SELF_NET: selfSource refuses
- *      it) and never an IP guess - there is none anywhere in this firmware (self_pos.h).
+ *      HDOP > 10, the bar every screen uses). Never the Wi-Fi slot (SELF_NET: tzaPickFix asks
+ *      GPS and PHONE only, however live and sendable a Wi-Fi fix is) and never an IP guess -
+ *      there is none anywhere in this firmware (self_pos.h).
  *   2. The grid answers a ZONE: not TZ_BORDER (within one cell, >= 5.6 km N-S, of a change of
  *      clock), not TZ_NOT_COVERED (sea, outside the grid, Cuba and Greenland's rules).
  *   3. ⚠ EVERY PHONE FIX COUNTS ONLY WELL INSIDE A ZONE - rated or not. A phone fix can be

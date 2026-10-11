@@ -838,7 +838,8 @@ void MapsApp::restoreView() {
       lat = mapI7ToDeg(nw.latI);
       lon = mapI7ToDeg(nw.lonI);
       have = true;
-      setNote(nw.src == SELF_PHONE ? "Opened on the phone's GPS fix" : "Opened on the GPS fix");
+      setNote(nw.src == SELF_PHONE ? "Opened on the phone's GPS fix"
+              : nw.src == SELF_NET ? "Opened on the Wi-Fi location" : "Opened on the GPS fix");
     } else if (meshService.resolveReference(&la, &lo, NULL, 0)) {
       lat = mapI7ToDeg(la);
       lon = mapI7ToDeg(lo);
@@ -1519,9 +1520,13 @@ void MapsApp::drawMap() {
  * when there is nothing to draw, MAPS_SELF_GPS for a live measured fix (this phone's GPS or the
  * hotspot phone's: *src says which), MAPS_SELF_PIN for the user's declared pin, then the poor
  * and the old fix. One function so the marker, the label and the key never disagree. */
-int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs, int* src) const {
+int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs, int* src,
+                          uint16_t* accM) const {
   if (src) {
     *src = SELF_NONE;
+  }
+  if (accM) {
+    *accM = 0;
   }
   /* ⚠ THE SAME BAR THE DISTANCE LINES USE: meshService.getSelfFix() is self_pos.h's selfPick,
    * which resolveReference() and the beacon ask too. It refuses a fix under four satellites or
@@ -1549,6 +1554,9 @@ int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs, int* sr
     if (src) {
       *src = fx.src;
     }
+    if (accM) {
+      *accM = fx.accM;                 // a Wi-Fi fix's size (self_pos.h); 0 for GPS / phone
+    }
     return MAPS_SELF_GPS;
   }
   if (meshService.getMyPin(latI, lonI, NULL)) {
@@ -1560,6 +1568,11 @@ int MapsApp::selfPosition(int32_t* latI, int32_t* lonI, uint32_t* ageMs, int* sr
   /* Nothing live and no pin: the NEWEST fix of a source that is on, whatever its age or
    * quality — fresh but poor (grey, saying why) or simply old (grey, wearing its age). */
   if (meshService.getSelfNewest(&fx) == SELF_NONE) {
+    return MAPS_SELF_NONE;
+  }
+  if (fx.src == SELF_NET) {
+    /* A Wi-Fi fix is never drawn grey: past its bar it is GONE (self_pos.h - selfNewest already
+     * skips an expired one), and one that is not LIVE above is not a fix worth a marker. */
     return MAPS_SELF_NONE;
   }
   if (latI) {
@@ -1644,7 +1657,8 @@ void MapsApp::drawOverlays() {
   int32_t selfLat = 0, selfLon = 0;
   uint32_t selfAge = 0;
   int selfSrc = SELF_NONE;
-  const int selfKind = selfPosition(&selfLat, &selfLon, &selfAge, &selfSrc);
+  uint16_t selfAcc = 0;
+  const int selfKind = selfPosition(&selfLat, &selfLon, &selfAge, &selfSrc, &selfAcc);
 
   if (measuring) {
     /* The anchor and a dashed line to the crosshair. The anchor may be far off-screen —
@@ -1737,6 +1751,17 @@ void MapsApp::drawOverlays() {
       if (selfKind == MAPS_SELF_PIN) {
         drawMarker(vpX + vx, vpY + vy, MAP_C_ME, MAP_SHAPE_DIAMOND);
       } else {
+        /* A WI-FI FIX IS A CIRCLE, NOT A DOT (0.9.82, geoloc.h): "somewhere in here", at the
+         * accuracy two agreeing lookups gave (50-100 m). Drawn under the marker like a node's
+         * precision ring; skipped where it would hide inside the marker or outgrow the screen.
+         * The label below carries the same number, so the size is never only in the picture. */
+        if (selfKind == MAPS_SELF_GPS && selfSrc == SELF_NET && selfAcc > 0) {
+          const double mpp = mapMetersPerPixel(mapI7ToDeg(selfLat), zoom);
+          const double rp = mpp > 0 ? (double)selfAcc / mpp : 0;
+          if (rp >= 7.0 && rp <= 400.0) {
+            drawRing(vpX + vx, vpY + vy, (int)(rp + 0.5), MAP_C_ME);
+          }
+        }
         const uint16_t c = (selfKind == MAPS_SELF_GPS) ? MAP_C_ME : MAP_C_NODE_OLD;
         drawBlob(vpX + vx, vpY + vy, 6, BLACK, false);
         drawBlob(vpX + vx, vpY + vy, 5, c, false);
@@ -1754,7 +1779,13 @@ void MapsApp::drawOverlays() {
       char sl[24];
       uint16_t sc = MAP_C_ME;
       if (selfKind == MAPS_SELF_GPS) {
-        strlcpy(sl, selfMapLabel(selfSrc), sizeof(sl));     // "me", or "me (phone)"
+        /* "me", "me (phone)", or "me +/-60 m Wi-Fi": a Wi-Fi fix never appears without its
+         * size (self_pos.h, selfFixLabel). */
+        SelfFix lf;
+        memset(&lf, 0, sizeof(lf));
+        lf.src = selfSrc;
+        lf.accM = selfAcc;
+        selfFixLabel(sl, sizeof(sl), &lf);
       } else if (selfKind == MAPS_SELF_PIN) {
         strlcpy(sl, "my pin", sizeof(sl));
       } else if (selfKind == MAPS_SELF_POOR_GPS) {
@@ -2133,17 +2164,23 @@ void MapsApp::centreOnMe() {
   int32_t la = 0, lo = 0;
   uint32_t age = 0;
   int src = SELF_NONE;
-  const int kind = selfPosition(&la, &lo, &age, &src);
+  uint16_t acc = 0;
+  const int kind = selfPosition(&la, &lo, &age, &src, &acc);
   if (kind == MAPS_SELF_GPS) {
     centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
-    setNote(src == SELF_PHONE ? "Centred on the phone's GPS (%us old)"
-                              : "Centred on the GPS fix (%us old)", (unsigned)(age / 1000u));
+    if (src == SELF_NET) {
+      // The age of a Wi-Fi fix is its last confirming scan's (self_pos.h): it is true while heard.
+      setNote("Centred on the Wi-Fi location, +/-%u m (beaconDB)", (unsigned)acc);
+    } else {
+      setNote(src == SELF_PHONE ? "Centred on the phone's GPS (%us old)"
+                                : "Centred on the GPS fix (%us old)", (unsigned)(age / 1000u));
+    }
     return;
   }
   if (kind == MAPS_SELF_PIN) {
     centreOn(mapI7ToDeg(la), mapI7ToDeg(lo));
     setNote(meshService.anySourceEnabled() ? "No fresh fix - centred on your pin"
-                                           : "GPS and phone location off - centred on your pin");
+                                           : "Location sources off - centred on your pin");
     return;
   }
   if (kind == MAPS_SELF_POOR_GPS) {
@@ -2165,7 +2202,7 @@ void MapsApp::centreOnMe() {
     return;
   }
   if (!meshService.anySourceEnabled()) {
-    setNote("GPS and phone location are off - Meshtastic > My node");
+    setNote("GPS, phone and Wi-Fi location are off - Meshtastic > My node");
   } else {
     setNote("No fix yet, and no pin of your own to fall back on");
   }
@@ -2888,9 +2925,16 @@ void MapsApp::buildList() {
   // Where distances are measured from, and what to call it.
   int32_t rLat = 0, rLon = 0;
   uint32_t age = 0;
-  const int selfKind = selfPosition(&rLat, &rLon, &age);
+  int selfSrc = SELF_NONE;
+  uint16_t selfAcc = 0;
+  const int selfKind = selfPosition(&rLat, &rLon, &age, &selfSrc, &selfAcc);
   const char* from = "you";
-  if (selfKind == MAPS_SELF_NONE) {
+  char fromNet[24];
+  if (selfKind == MAPS_SELF_GPS && selfSrc == SELF_NET) {
+    /* "nearest first, from Wi-Fi +/-60 m": every distance below is that circle's, not a point's. */
+    snprintf(fromNet, sizeof(fromNet), "Wi-Fi +/-%u m", (unsigned)selfAcc);
+    from = fromNet;
+  } else if (selfKind == MAPS_SELF_NONE) {
     double lat = 0, lon = 0;
     mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, &lat, &lon);
     rLat = mapDegToI7(lat);
@@ -4137,7 +4181,7 @@ appEventResult MapsApp::processEvent(EventType event) {
         if (followMe) {
           centreOnMe();                  // one honest centre now; the timer keeps it there
           if (!meshService.anySourceEnabled()) {
-            setNote("GPS and phone location off - following waits");
+            setNote("Location sources off - following waits");
           } else {
             setNote("Following you - any scroll stops it");
           }
@@ -4882,9 +4926,16 @@ bool MapsApp::elevHereCurrent() const {
  * reference place, named. MAPS_SELF_NONE when there is neither. */
 int MapsApp::elevYouNow(int32_t* la, int32_t* lo, char* name, size_t cap) const {
   uint32_t age = 0;
-  const int kind = selfPosition(la, lo, &age);
+  int src = SELF_NONE;
+  uint16_t acc = 0;
+  const int kind = selfPosition(la, lo, &age, &src, &acc);
   if (name && cap) {
     name[0] = '\0';
+  }
+  if (kind == MAPS_SELF_GPS && src == SELF_NET && name && cap) {
+    /* A Wi-Fi fix is "you" give or take its size, and says so (self_pos.h: never without it):
+     * "35m below Wi-Fi +/-60 m" - 60 m across a 30-degree slope is ~35 m of height. */
+    snprintf(name, cap, "Wi-Fi +/-%u m", (unsigned)acc);
   }
   if (kind != MAPS_SELF_NONE) {
     return kind;
@@ -4917,9 +4968,17 @@ bool MapsApp::elevYouUsable(ElevTextIn* in) const {
     /* "you" only for a fresh usable fix or your own pin. A poor or an old fix is named for what it
      * is (review 2026-09-27: "35m above you" from a 3-satellite fix that can be 20 km off, or from
      * where you were an hour ago) - the marker already says "me?" / "me, 12m ago". */
+    /* ...and a Wi-Fi fix by its size ("Wi-Fi +/-60 m", elevYouNow): a 100 m circle is not a "you"
+     * to state a height difference from as if it were exact. Copied: in->refName outlives this
+     * call (one MapsApp at a time, so one buffer). */
+    static char s_netYou[24];
+    if (kind == MAPS_SELF_GPS && nm[0]) {
+      strlcpy(s_netYou, nm, sizeof(s_netYou));
+    }
     in->refName = (kind == MAPS_ELEV_YOU_REF) ? elevYouName
                 : (kind == MAPS_SELF_POOR_GPS) ? "poor fix"
-                : (kind == MAPS_SELF_OLD_GPS) ? "old fix" : NULL;
+                : (kind == MAPS_SELF_OLD_GPS) ? "old fix"
+                : (kind == MAPS_SELF_GPS && nm[0]) ? s_netYou : NULL;
   }
   return true;
 }
@@ -5247,7 +5306,10 @@ bool mapsConsoleStatus(char* out, size_t cap) {
       area[0] = '\0';
       p.getBytes("area", area, sizeof(area));
       area[sizeof(area) - 1] = '\0';
-      w = sayInto(out, cap, w, "\nlast view: %.5f,%.5f z%d area '%s'",
+      /* ~2 decimals and no finer (the almanac console's coordsCoarse rule): the saved view is
+       * often centred on a measured or Wi-Fi fix - roughly where the phone sits, often a home -
+       * and this line is the kind pasted into bench notes in a public repo. */
+      w = sayInto(out, cap, w, "\nlast view: ~%.2f,%.2f z%d area '%s'",
                   mapI7ToDeg(p.getInt("lat", 0)), mapI7ToDeg(p.getInt("lon", 0)),
                   p.getInt("z", 0), area);
     } else {

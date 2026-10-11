@@ -18,6 +18,9 @@ governing permissions and limitations under the License.
 #include "wifi_diag.h"
 #include "wifi_policy.h"   // wifiRestoreDecision: may the station come back, and how
 #include "app_gbc_xfer.h"  // xferServing()/xferUsingAP(): a live hotspot owns the radio
+#include "geoloc.h"        // geoSwitcherMode: what the auto-switcher's scan may do (0.9.82)
+#include "geoloc_net.h"    // geolocOnScan: Wi-Fi location's copy of a finished scan
+#include "phone_pos.h"     // phonePosStreamLive: no hop away from a live phone stream
 
 extern void heapEvent(const char* what);   // WiPhone.ino - the ratchet instrument
 extern void healthLogLine(const char* line);   // WiPhone.ino - the durable log; LOOP TASK ONLY
@@ -1291,9 +1294,43 @@ void Networks::autoSwitchTick(bool screenOn) {
     _drySpellStartMs = millis() | 1u;
   }
 
+  /* A Wi-Fi location scan is asked for a CONNECTED station only (requestGeoScan): one asked
+   * before a drop is not carried into the disconnected machinery or the next association. */
+  if (!connected) {
+    _geoScanReq = false;
+  }
+
   /* stationAllowed(), not _userDisabled alone (0.9.79): with the switch OFF and the per-network
-   * flag cleared by an Edit > Save, this scanned — and wifiScanStart() starts the radio. */
-  if (!stationAllowed() || !reconnect || !autoSwitchEnabled()) {
+   * flag cleared by an Edit > Save, this scanned — and wifiScanStart() starts the radio.
+   *
+   * ── WHAT THIS TICK MAY DO (0.9.82: geoloc.h's geoSwitcherMode, the review's item 8) ─────────
+   *   FULL       the switcher exactly as it always was (auto-switch on): scan on its cadence,
+   *              evaluate a hop, and the disconnected branch below.
+   *   SCAN_ONLY  scan and hand the snapshot to Wi-Fi location (geolocOnScan), NEVER evaluate a
+   *              hop and NEVER the disconnected branch (its WiFi.disconnect() and the deaf-radio
+   *              bounce): auto-switch OFF with a Wi-Fi location scan asked while CONNECTED - the
+   *              owner switched the switcher off, and a location feature must not start its
+   *              disconnect-and-retry machinery - or auto-switch ON while the hotspot phone's
+   *              NMEA stream is live (a stronger saved network would trade the better position
+   *              source for a worse one).
+   *   NONE       nothing: the station not allowed, reconnect off, or auto-switch off with no scan
+   *              asked - the gates the reconnect loop honours, as before.
+   * A Wi-Fi location round already begun (pending or in flight, !_scanFull) still "wants a
+   * scan": the ask is spent when the round starts, and without this the very next tick would
+   * read NONE with auto-switch off and abandon the round half-started.
+   * ⚠ scanBusy() HOLDS THE RECONNECT LOOP OFF, so a round must never be left hanging: when the
+   * mode reads NONE, a scan IN FLIGHT is polled to its end (pollOnly - e.g. a Wi-Fi location
+   * scan whose link dropped mid-scan) and a round still only PENDING is called off. Either way
+   * nothing new starts. (Polling only while the station is allowed and reconnect is on, as
+   * before: the radio-on paths finish the rest.) */
+  const bool geoRound = (_scanPending || _scanning) && !_scanFull;
+  const int mode = geoSwitcherMode(stationAllowed(), reconnect, autoSwitchEnabled(),
+                                   _geoScanReq || geoRound, connected, phonePosStreamLive());
+  if (mode == GEO_SW_NONE && _scanPending) {
+    _scanPending = false;               // never started: nothing to poll, nothing held off
+  }
+  const bool pollOnly = mode == GEO_SW_NONE && _scanning && stationAllowed() && reconnect;
+  if (mode == GEO_SW_NONE && !pollOnly) {
     return;                             // same gates as the reconnect loop honors
   }
 
@@ -1305,18 +1342,36 @@ void Networks::autoSwitchTick(bool screenOn) {
       return;
     }
     _scanning = false;
+    /* May THIS scan move the station? Only when its round began in FULL mode and the tick is
+     * still FULL now (a phone stream that came up meanwhile holds the hop too). Otherwise it is
+     * a look at the air for Wi-Fi location and nothing else: the switcher's join evidence
+     * (_scanDoneMs, _savedSeenLastScan - never evaluated, so never true) and its deaf-radio
+     * count are left exactly as they were. */
+    const bool full = _scanFull && mode == GEO_SW_FULL;
     if (n > 0) {
-      log_e("[autosw] scan done: n=%d", n);
+      log_e("[autosw] scan done: n=%d%s", n, full ? "" : " (for Wi-Fi location: no hop)");
       wifiScanNoteResult(n);          // size the next scan's heap estimate to THIS air
       heapEvent("scan-post");         // pairs with scan-pre: did this scan cost anything permanent?
       _dryScans = 0;
       _dryBounced = false;
-      _scanDoneMs = now | 1u;           // evidence: a scan completed; evaluate says what it saw
-      /* Cleared BEFORE evaluate and set inside it, so the flag always describes THIS scan.
-       * Setting it after would leave the previous scan's answer standing whenever evaluate
-       * takes one of its early returns. */
-      _savedSeenLastScan = false;
-      autoSwitchEvaluate(n);
+      /* Wi-Fi location's copy (geoloc_net.h): {BSSID, RSSI, flags} read through
+       * WiFi.getScanInfoByIndex() - no Strings - BEFORE WiFi.scanDelete() below frees the
+       * records. Nothing at all when Wi-Fi location is off. Before the evaluate: a hop changes
+       * the association the snapshot is stamped with. */
+      geolocOnScan(n);
+      if (full) {
+        _scanDoneMs = now | 1u;         // evidence: a scan completed; evaluate says what it saw
+        /* Cleared BEFORE evaluate and set inside it, so the flag always describes THIS scan.
+         * Setting it after would leave the previous scan's answer standing whenever evaluate
+         * takes one of its early returns. */
+        _savedSeenLastScan = false;
+        autoSwitchEvaluate(n);
+      }
+    } else if (n == 0 && !full) {
+      log_e("[autosw] scan done: n=0 (for Wi-Fi location: not counted)");
+      if (!_scanKeepCadence) {
+        _msLastScan = now;
+      }
     } else if (n == 0) {
       /* 🛑 A COMPLETED SCAN THAT FOUND NOTHING IS the out-of-range case — OR THE DEAF
        * RADIO (2026-08-27): after hours of disconnected retry churn the driver can reach a
@@ -1339,18 +1394,67 @@ void Networks::autoSwitchTick(bool screenOn) {
        * about the MACHINERY (2026-08-27, the booksync wedge): the mid-connect churn that
        * presents as deafness alternates 0 and -2 completions, and counting only the zeros
        * let the wedge outlive the detector for a whole afternoon. Disconnected, a failed
-       * completion counts toward the bounce like an empty one. */
-      if (!connected && _dryScans < 1000) {
+       * completion counts toward the bounce like an empty one. (Not a Wi-Fi location scan's:
+       * the bounce is the FULL switcher's business - `full` above.) */
+      if (full && !connected && _dryScans < 1000) {
         _dryScans++;
       }
       log_e("[autosw] scan done: n=%d dry=%u", n, (unsigned)_dryScans);
-      scheduleScanRetry(now, connected);
+      /* A Wi-Fi location round answered under the FULL switcher (below) leaves the switcher's
+       * clock alone: a retry here would be a FULL round 30 s on, with its evaluate. Wi-Fi
+       * location asks again GEO_SCAN_REQ_GAP_MS later if it still wants one. */
+      if (!_scanKeepCadence) {
+        scheduleScanRetry(now, connected);
+      }
     }
     WiFi.scanDelete();
     return;
   }
 
-  if (!_scanPending) {
+  if (mode == GEO_SW_NONE) {
+    return;                             // pollOnly: the scan in flight was the only business
+  }
+
+  /* A Wi-Fi location ask under the FULL switcher BEFORE its own cadence makes a round due is
+   * answered with a SCAN_ONLY round too (the review, 2026-10-10): a FULL round runs
+   * autoSwitchEvaluate(), whose ini.unload()/load() of /networks.ini is 0.5-1.6 s of SPIFFS per
+   * open on the loop task plus a String per access point - a LOOP STALL (and music dropouts) for
+   * every ask, when all Wi-Fi location needs is the snapshot. It also cannot hop: right after
+   * joining a phone's hotspot, before its NMEA has arrived (phonePosStreamLive() still false), a
+   * geo-asked FULL round could move the station to a stronger saved network. Such a round leaves
+   * _msLastScan alone (_scanKeepCadence): the switcher's own 10-minute evaluate still comes on
+   * time, however often Wi-Fi location asks. Connected only, as every geo ask is. */
+  const bool geoOnly = mode == GEO_SW_FULL && connected && _geoScanReq &&
+                       now - _msLastScan < AUTO_SCAN_PERIOD_MS;
+  if (!_scanPending && (mode == GEO_SW_SCAN_ONLY || geoOnly)) {
+    /* CONNECTED by construction (geoSwitcherMode, and geoOnly): none of the disconnected
+     * machinery below can run from here. Due on the switcher's own cadence while auto-switch is
+     * on and a live phone stream holds the HOP (the scans still confirm a Wi-Fi fix), or when
+     * Wi-Fi location asked. The start that follows obeys the same heap gate as every other scan.
+     * ⚠ A Wi-Fi location ask WAITS while an AI question, a weather fetch or a look is on the
+     * HTTPS worker (geolocScanMayStart): this scan's driver allocations and _scanDone's
+     * `new wifi_ap_record_t[n]` land 1-4 s after the start, on the WiFi event task where a throw
+     * cannot be caught, and inside a handshake's ~12 KB internal-heap dip that is the 2026-08-28
+     * reboot. The ask stays pending; the round starts when the worker is idle. */
+    const bool cadence = mode == GEO_SW_SCAN_ONLY && autoSwitchEnabled() &&
+                         now - _msLastScan >= AUTO_SCAN_PERIOD_MS;
+    const bool asked = _geoScanReq && geolocScanMayStart();
+    if (!cadence && !asked) {
+      return;
+    }
+    if (!geoOnly) {
+      _msLastScan = now;
+    }
+    _discScans = 0;                     // on a network, as the FULL path's connected round does
+    _dryScans = 0;
+    _dryBounced = false;
+    _geoScanReq = false;                // spent: geoloc asks again GEO_SCAN_REQ_GAP_MS later
+    _scanFull = false;
+    _scanKeepCadence = geoOnly;
+    _scanPending = true;
+    _msScanPendingSince = now;
+    _scanPreMarked = false;
+  } else if (!_scanPending) {
     /* ⚠ Back off when there is plainly nothing to join. Disconnected, this scanned every
      * two minutes forever, and a scan lights up the radio for a few hundred milliseconds
      * — so a phone carried out of range all afternoon paid for thirty scans an hour to
@@ -1374,6 +1478,8 @@ void Networks::autoSwitchTick(bool screenOn) {
         discPeriod > AUTO_SCAN_RETRY_MS) {
       discPeriod = AUTO_SCAN_RETRY_MS;
     }
+    /* (A Wi-Fi location ask is never what makes this round due: connected, it was answered above
+     * as a SCAN_ONLY round unless the cadence was due anyway, and disconnected it was dropped.) */
     bool due = (now - _msLastScan >= (connected ? AUTO_SCAN_PERIOD_MS : discPeriod));
     if (wake && !connected) {
       /* Screen woke with no WiFi: scan right away. Backdating instead of a bare due=true
@@ -1401,9 +1507,12 @@ void Networks::autoSwitchTick(bool screenOn) {
       _discScans = 0;                   // on a network: forget the dry spell
       _dryScans = 0;
       _dryBounced = false;
+      _geoScanReq = false;              // this round answers a Wi-Fi location ask too
     } else if (_discScans < 1000) {
       _discScans++;
     }
+    _scanFull = true;                   // a FULL round: its result may move the station
+    _scanKeepCadence = false;
     _scanPending = true;                // scanBusy() now holds the reconnect loop off
     _msScanPendingSince = now;
     _scanPreMarked = false;             // this round's scan-pre mark is still to be taken
@@ -1459,7 +1568,9 @@ void Networks::autoSwitchTick(bool screenOn) {
    * Skipping a round costs nothing — we stay on the AP we already have. See helpers.h. */
   if (!wifiScanMemoryOk("autosw")) {
     _scanPending = false;
-    scheduleScanRetry(now, WiFi.status() == WL_CONNECTED);
+    if (!_scanKeepCadence) {            // a Wi-Fi location round: geoloc asks again later
+      scheduleScanRetry(now, WiFi.status() == WL_CONNECTED);
+    }
     return;
   }
   /* ⚠ ONCE PER ROUND, NOT ONCE PER ATTEMPT (2026-09-25). A refused start is retried on EVERY
@@ -1501,7 +1612,9 @@ void Networks::autoSwitchTick(bool screenOn) {
           (int)WiFi.status(), (unsigned long)(uint32_t)startErr, wifiErrName(startErr),
           (unsigned)_dryScans);
     _scanPending = false;               // give up; normal backoff retries soon
-    scheduleScanRetry(now, WiFi.status() == WL_CONNECTED);
+    if (!_scanKeepCadence) {            // (a Wi-Fi location round: geoloc asks again later)
+      scheduleScanRetry(now, WiFi.status() == WL_CONNECTED);
+    }
   }
 }
 

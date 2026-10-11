@@ -114,7 +114,8 @@
 /* What resolveReferenceEx() resolved to — what the screens need to say WHICH answer it was
  * without comparing the display name against "GPS" (the Almanac did; a second measured source
  * would have read as the pin). Since 0.9.82 explicit "Here" (MESH_REF_GPS) means this phone's
- * live MEASURED fix — its own GPS, else the hotspot phone's — and still never the pin. */
+ * live fix — its own GPS, else the hotspot phone's, else a Wi-Fi location that two agreeing
+ * lookups and the scans since stand behind (named with its size) — and still never the pin. */
 enum {
   MESH_REFK_NONE = 0,
   MESH_REFK_GPS,              // a live fix from this phone's own receiver ("GPS")
@@ -123,6 +124,7 @@ enum {
   MESH_REFK_LAST_PHONE,       // ...ditto from the phone ("last phone")
   MESH_REFK_WAYPOINT,         // a waypoint chosen in Places (its own name)
   MESH_REFK_PIN,              // the hand-set pin ("me")
+  MESH_REFK_NET,              // a Wi-Fi location (geoloc.h), named with its size ("Wi-Fi +/-60 m")
 };
 
 typedef enum {
@@ -489,15 +491,18 @@ public:
   bool takePlacesNews() { bool n = placesNews; placesNews = false; return n; }
 
   /* Which place distances are measured FROM. Three modes, persisted as `refwp`:
-   *   MESH_REF_GPS  — explicitly "where I am": this phone's live MEASURED fix
-   *                   (its own GPS, else the hotspot phone's; since 0.9.82).
+   *   MESH_REF_GPS  — explicitly "where I am": this phone's live fix (its own
+   *                   GPS, else the hotspot phone's, else a live Wi-Fi location
+   *                   named "Wi-Fi +/-N m"; since 0.9.82 - the owner's ranking).
    *                   NEVER falls through to the pin: a stale fix keeps its
    *                   coordinates and renames itself "last GPS"/"last phone",
    *                   and no fix at all returns false so the UI shows no
    *                   distances. A reference frame that moves on its own is
    *                   the failure this mode exists to rule out.
    *   a waypoint id — that place, always.
-   *   0 (automatic, the shipping default) — a live measured fix, else the pin.
+   *   0 (automatic, the shipping default) — a live fix (GPS, phone, Wi-Fi), else the pin.
+   *   An expired Wi-Fi fix is gone, never a "last Wi-Fi" (self_pos.h): the stale fall-back of
+   *   explicit Here is a GPS or phone fix only.
    * resolveReference() gives the coords + a display name, false if none exist;
    * resolveReferenceEx() also says which of those it was (MESH_REFK_*). */
   uint32_t getReferenceId() const { return refWaypointId; }
@@ -591,10 +596,19 @@ public:
    * its OWN question of them (tzaPickFix - the 30 s bar, never a bench fix, an iPhone fix only
    * far from any zone line), which is none of the questions above. */
   const SelfSlot* getSelfSlots() const { return selfSlots; }
-  /* May anything be SENT from a source that is switched on? The same set today; it exists so
-   * a coarse source added later (a Wi-Fi location, self_pos.h's reserved SELF_NET) can be
-   * shown on this phone's map without being put on the air by the same switch. */
-  bool anySourceEnabledForTx() const { return selfAnyEnabled(selfSlots); }
+  /* May anything be SENT from a source that is switched on? GPS, phone, and the Wi-Fi slot only
+   * with "map + mesh" (self_pos.h, selfAnyEnabledForTx): "map only" shows a Wi-Fi location on
+   * this phone's map without the beacon counting it as something to put on the air. */
+  bool anySourceEnabledForTx() const { return selfAnyEnabledForTx(selfSlots); }
+  /* ---- Wi-Fi location (geoloc_net.h, 0.9.82): the SELF_NET slot -------------
+   * "Wi-Fi location: off | map only | map + mesh" (NVS wpmesh/netloc, geoloc_net.cpp owns the
+   * writes): the slot is ENABLED unless off and SENDABLE only with "map + mesh" (noTx otherwise -
+   * self_pos.h's MAP_ONLY). OFF forgets the fix at once. geoloc_net.cpp is the slot's only
+   * writer (geoloc.h's fold and geoOnScan, through netSlot()); RAM only like every slot. */
+  void      setNetLocSetting(int setting);
+  SelfSlot* netSlot() { return &selfSlots[SELF_NET - 1]; }
+  // A position or place changed outside this service (a Wi-Fi fix came or went): open lists redraw.
+  void      notePlacesChanged() { placesNews = true; }
   /* `pos inject <gps|phone> ...` (bench, RAM only): write a fix into that source's slot,
    * flagged injected — drawn and measured from like a real one, NEVER sent by the schedule,
    * and `pos now` with one logs INJECTED, sends it as MANUAL (not a measurement) and refuses a
@@ -857,8 +871,13 @@ private:
   bool         gpsEnabled;
   /* Every source's last fix, indexed src - 1 (self_pos.h). The GPS slot mirrors the gps*
    * fields above, written in gpsUpdate() (or by `pos inject gps`); the PHONE slot is written
-   * only by phoneUpdate() and the bench; SELF_NET stays off. ~70 B of BSS. */
+   * only by phoneUpdate() and the bench; SELF_NET (Wi-Fi location, geoloc.h) only by
+   * geoloc_net.cpp, switched by setNetLocSetting(). ~110 B of BSS. */
   SelfSlot     selfSlots[SELF_SRC_COUNT];
+  /* What the beacon SENT before, for the Wi-Fi slot's two rules (self_pos.h, SelfNetTxMem): the
+   * last Wi-Fi cell and the fix it came from (keep the cell while the fix stays put - review item
+   * 15), and the last GPS/phone beacon (a precise fix of the last hour wins). ~36 B, RAM only. */
+  SelfNetTxMem netTx;
 
   /* ---- Periodic position beacon state -------------------------------------
    * ~48 bytes of BSS, no heap, nothing allocated per broadcast. */
@@ -884,9 +903,10 @@ private:
    * one set of bytes and one log line to reason about. */
   bool sendPositionOn(int32_t latI, int32_t lonI, const MeshChannel* ch, const char* why);
   /* ...and with where a MEASURED fix came from (mesh_pos.h's location_source / precision_bits;
-   * 0/0 sends meshPosBuild's bytes, which is what sendPositionOn does). */
+   * 0/0 sends meshPosBuild's bytes, which is what sendPositionOn does) and field 4's time (0 =
+   * left out; a Wi-Fi fix's is its confirming scan's, self_pos.h's selfFixSendTime). */
   bool sendPositionOnEx(int32_t latI, int32_t lonI, const MeshChannel* ch, const char* why,
-                        uint8_t locSrc, uint8_t precBits);
+                        uint8_t locSrc, uint8_t precBits, uint32_t timeUtc);
   // posBlockedReason() for a purpose (SELF_PICK_TX, plus SELF_PICK_INJECTED for `pos now`).
   const char* posBlockedReasonFor(unsigned flags) const;
   /* The one place a Waypoint payload is built and handed to the radio, mirroring

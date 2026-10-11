@@ -188,10 +188,15 @@ int tzaPickFix(const SelfSlot slots[SELF_SRC_COUNT], uint32_t nowMs, SelfFix* ou
   out->sats = out->hdopX10 = -1;
   uint8_t worst = TZA_WHY_NO_FIX;
   if (slots) {
+    /* 🛑 GPS AND PHONE ONLY - THE LOOP'S BOUND IS THE RULE. Since 0.9.82's Wi-Fi location the
+     * slots hold a third source (SELF_NET) that selfSource() answers for like the others; a
+     * Wi-Fi fix never chooses the clock's zone (a network guess near a zone line is an hour wrong
+     * all day, and it is not a measurement - the owner's rule). test_tzauto proves a fully live,
+     * sendable NET slot is still refused. */
     for (int src = SELF_GPS; src <= SELF_PHONE; src++) {     // rank order IS src order
       SelfFix fx;
       /* SELF_PICK_TX: the 30 s bar, and no SELF_PICK_INJECTED - a bench fix is SELF_ST_INJECTED.
-       * selfSource returns false for a source that is off or has never fixed (and for NET). */
+       * selfSource returns false for a source that is off or has never fixed. */
       if (!selfSource(slots, src, nowMs, SELF_PICK_TX, &fx)) {
         continue;
       }

@@ -165,16 +165,34 @@ int main() {
     CHECK(selfSlotState(&gps, SELF_GPS, now, 0) == SELF_ST_NEVER && selfPick(sl, now, 0, &fx) == SELF_PHONE,
           "GPS on but never fixed: the phone");
 
-    // NET is reserved: a perfect, fresh, enabled NET slot is never anybody's position.
+    /* NET (Wi-Fi location, 0.9.82): ranked LAST. A slot written the GNSS way (selfSlotSet, no
+     * accuracy) is not a Wi-Fi fix: POOR, never picked. */
     selfSlotClear(&ph);
     net.enabled = true;
     selfSlotSet(&net, D_LAT, D_LON, 12, 5, now - 10, false);
-    CHECK(selfSlotState(&net, SELF_NET, now, 0) == SELF_ST_RESERVED &&
-          selfPick(sl, now, SELF_PICK_INJECTED, &fx) == SELF_NONE &&
-          selfNewest(sl, now, SELF_PICK_INJECTED, &fx) == SELF_NONE,
-          "NET (reserved): never picked, never newest");
-    gps.enabled = ph.enabled = false;
-    CHECK(!selfAnyEnabled(sl), "NET alone does not count as a source switched on");
+    CHECK(selfSlotState(&net, SELF_NET, now, 0) == SELF_ST_POOR &&
+          selfPick(sl, now, SELF_PICK_INJECTED, &fx) == SELF_NONE,
+          "NET written without an accuracy (selfSlotSet): POOR, never picked");
+    selfNetSet(&net, D_LAT + 300, D_LON, 60, now - 10, 0, false);
+    gps.enabled = true;
+    selfSlotSet(&gps, D_LAT, D_LON, 9, 12, now - 1000, false);
+    CHECK(selfPick(sl, now, 0, &fx) == SELF_GPS, "GPS live and NET live: GPS");
+    ph.enabled = true;
+    gps.enabled = false;
+    selfSlotSet(&ph, D_LAT + 100, D_LON, 8, 9, now - 500, false);
+    CHECK(selfPick(sl, now, 0, &fx) == SELF_PHONE, "phone live and NET live: the phone");
+    selfSlotClear(&ph);
+    CHECK(selfPick(sl, now, 0, &fx) == SELF_NET && fx.latI == D_LAT + 300 && fx.accM == 60 &&
+          fx.locSrc == MESH_LOC_UNSET && fx.precBits == SELF_NET_PREC_BITS,
+          "nothing measured: the Wi-Fi fix is shown (UNSET, 17 bits, its accuracy)");
+    ph.enabled = false;
+    CHECK(selfAnyEnabled(sl) && selfAnyEnabledForTx(sl),
+          "NET alone ('map + mesh'): a source for the screens and for sending");
+    net.noTx = true;
+    CHECK(selfAnyEnabled(sl) && !selfAnyEnabledForTx(sl),
+          "NET alone, 'map only': a source for the screens, NOT for sending (review item 16)");
+    net.enabled = false;
+    CHECK(!selfAnyEnabled(sl) && !selfAnyEnabledForTx(sl), "everything off: nothing either way");
   }
 
   // ---- freshness edges and millis() wrap -----------------------------------------------------
@@ -261,9 +279,12 @@ int main() {
     CHECK(selfSource(sl, SELF_PHONE, 500000, 0, &fx) && fx.state == SELF_ST_OLD && fx.sats == 3 &&
           fx.ageMs == 499000 && fx.locSrc == MESH_LOC_EXTERNAL, "old and poor: still that source's fix");
     sl[SELF_NET - 1].enabled = true;
-    selfSlotSet(&sl[SELF_NET - 1], D_LAT, D_LON, 9, 9, 1000, false);
-    CHECK(!selfSource(sl, SELF_NET, 1000, 0, &fx) && !selfSource(sl, SELF_NONE, 1000, 0, &fx),
-          "NET (reserved) and NONE: never");
+    CHECK(!selfSource(sl, SELF_NET, 1000, 0, &fx), "NET on, never fixed: none");
+    selfNetSet(&sl[SELF_NET - 1], D_LAT, D_LON, 70, 1000, 0, false);
+    CHECK(selfSource(sl, SELF_NET, 1000 + SELF_NET_SHOW_MS, 0, &fx) && fx.state == SELF_ST_OLD &&
+          fx.accM == 70, "NET: its own fix, OLD past the 12-minute bar (the `pos` line still sees it)");
+    CHECK(!selfSource(sl, SELF_NONE, 1000, 0, &fx) && !selfSource(sl, 4, 1000, 0, &fx),
+          "NONE and out of range: never");
   }
 
   // ---- the newest fix (grey "last phone" marker) ---------------------------------------------
@@ -294,10 +315,275 @@ int main() {
           "source names");
     CHECK(!strcmp(selfBeaconTag(SELF_PHONE), "phone beacon") && !strcmp(selfBeaconTag(SELF_GPS), "gps beacon"),
           "the log's provenance");
-    CHECK(selfSrcLocSource(SELF_NET) == MESH_LOC_UNSET && selfSrcPrecBits(SELF_NET) == 0 &&
-          selfSrcLocSource(SELF_NONE) == MESH_LOC_UNSET, "only GNSS sources claim a measurement");
+    CHECK(selfSrcLocSource(SELF_NET) == MESH_LOC_UNSET && selfSrcPrecBits(SELF_NET) == 17 &&
+          selfSrcLocSource(SELF_NONE) == MESH_LOC_UNSET && selfSrcPrecBits(SELF_NONE) == 0,
+          "only GNSS sources claim a measurement; Wi-Fi is a 17-bit cell");
     CHECK(!strcmp(selfStateName(SELF_ST_POOR), "poor fix") && !strcmp(selfStateName(SELF_ST_OLD), "too old"),
           "state names");
+  }
+
+  // ---- the Wi-Fi slot (SELF_NET): its clock is the scans ---------------------------------
+  {
+    SelfSlot n;
+    memset(&n, 0, sizeof(n));
+    selfSlotClear(&n);
+    selfNetSet(&n, D_LAT, D_LON, 60, 5000, 1760000000u, false);
+    CHECK(n.fixMs == 0, "a switched-off Wi-Fi slot keeps nothing (setting turned off mid-lookup)");
+    n.enabled = true;
+    n.noTx = true;
+    selfNetSet(&n, D_LAT, D_LON, 60, 0, 1760000000u, false);
+    CHECK(n.fixMs == 1 && n.firstMs == 1 && n.accM == 60 && n.scanUtc == 1760000000u &&
+          n.sats == -1 && n.hdopX10 == -1 && !n.injected,
+          "selfNetSet: as of its scan (millis 0 kept as 1), no satellites, the accuracy and UTC kept");
+    selfSlotClear(&n);
+    CHECK(n.fixMs == 0 && n.accM == 0 && n.firstMs == 0 && n.scanUtc == 0 && n.enabled && n.noTx,
+          "clear forgets the fix and its scan stamps, keeps 'enabled' and 'map only'");
+    selfNetSet(&n, D_LAT, D_LON, 60, 5000, 7, false);
+    selfSlotSet(&n, D_LAT, D_LON, 9, 9, 6000, false);
+    CHECK(n.accM == 0 && n.firstMs == 0 && n.scanUtc == 0,
+          "a GNSS-style write (selfSlotSet) leaves no Wi-Fi accuracy behind");
+  }
+  {
+    SelfSlot n;
+    memset(&n, 0, sizeof(n));
+    selfSlotClear(&n);
+    n.enabled = true;
+    const uint32_t t0 = 1000000;
+    selfNetSet(&n, D_LAT, D_LON, 60, t0, 100, false);
+    // shown: 12 minutes from the LATEST confirming scan
+    CHECK(selfSlotState(&n, SELF_NET, t0 + SELF_NET_SHOW_MS - 1, 0) == SELF_ST_LIVE &&
+          selfSlotState(&n, SELF_NET, t0 + SELF_NET_SHOW_MS, 0) == SELF_ST_OLD,
+          "shown: 11:59.999 after its scan live, 12:00 old (gone)");
+    CHECK(!selfNetConfirm(&n, t0, 101) && n.scanUtc == 100, "the same scan twice confirms nothing");
+    CHECK(!selfNetConfirm(&n, t0 - 5, 99) && n.fixMs == t0, "an older scan confirms nothing");
+    CHECK(selfNetConfirm(&n, t0 + 600000, 700) && n.fixMs == t0 + 600000 && n.scanUtc == 700 &&
+          n.firstMs == t0, "a later scan confirms: it becomes the clock and the time; the first stays");
+    CHECK(selfSlotState(&n, SELF_NET, t0 + 600000 + SELF_NET_SHOW_MS - 1, 0) == SELF_ST_LIVE,
+          "...and the 12 minutes run from it");
+    SelfSlot e;
+    memset(&e, 0, sizeof(e));
+    selfSlotClear(&e);
+    e.enabled = true;
+    CHECK(!selfNetConfirm(&e, t0, 1) && e.fixMs == 0, "confirming an empty slot writes nothing");
+    // the cadence's scan late: ask for one before the fix expires (a scan, not a lookup)
+    const uint32_t c = t0 + 600000;
+    CHECK(!selfNetWantsRefresh(&n, c + SELF_NET_REFRESH_AT_MS - 1) && selfNetWantsRefresh(&n, c + SELF_NET_REFRESH_AT_MS) &&
+          selfNetWantsRefresh(&n, c + SELF_NET_SHOW_MS - 1) && !selfNetWantsRefresh(&n, c + SELF_NET_SHOW_MS),
+          "10:30 after its last scan with none since: a scan is asked for; after 12:00 it is gone, no rescue");
+    CHECK(SELF_NET_REFRESH_AT_MS > 600000UL && SELF_NET_REFRESH_AT_MS + 60000UL < SELF_NET_SHOW_MS,
+          "the refresh waits out the switcher's own 10-minute scan, and leaves a minute and more for one");
+    CHECK(!selfNetWantsRefresh(&e, c + SELF_NET_REFRESH_AT_MS) && !selfNetWantsRefresh(NULL, 5), "no fix: no scan");
+    n.enabled = false;
+    CHECK(!selfNetWantsRefresh(&n, c + SELF_NET_REFRESH_AT_MS), "switched off: no scan");
+    n.enabled = true;
+  }
+  // sending: map only, two scans 60 s apart, a confirming scan within 60 s, the accuracy bar
+  {
+    SelfSlot n;
+    memset(&n, 0, sizeof(n));
+    selfSlotClear(&n);
+    n.enabled = true;
+    const uint32_t t0 = 2000000;
+    selfNetSet(&n, D_LAT, D_LON, 60, t0, 100, false);
+    CHECK(selfSlotState(&n, SELF_NET, t0 + 1000, 0) == SELF_ST_LIVE &&
+          selfSlotState(&n, SELF_NET, t0 + 1000, SELF_PICK_TX) == SELF_ST_SETTLING,
+          "one scan: shown, and NOT sent (a fix taken while moving never goes out)");
+    selfNetConfirm(&n, t0 + SELF_NET_SETTLE_MS - 1, 101);
+    CHECK(selfSlotState(&n, SELF_NET, t0 + SELF_NET_SETTLE_MS, SELF_PICK_TX) == SELF_ST_SETTLING,
+          "a second scan 59.999 s on: still settling");
+    selfNetConfirm(&n, t0 + SELF_NET_SETTLE_MS, 102);
+    CHECK(selfSlotState(&n, SELF_NET, t0 + SELF_NET_SETTLE_MS, SELF_PICK_TX) == SELF_ST_LIVE,
+          "a second agreeing scan 60.000 s on: sendable");
+    const uint32_t c = t0 + SELF_NET_SETTLE_MS;
+    CHECK(selfSlotState(&n, SELF_NET, c + SELF_NET_CONFIRM_MS, SELF_PICK_TX) == SELF_ST_LIVE &&
+          selfSlotState(&n, SELF_NET, c + SELF_NET_CONFIRM_MS + 1, SELF_PICK_TX) == SELF_ST_UNCONFIRMED &&
+          selfSlotState(&n, SELF_NET, c + SELF_NET_CONFIRM_MS + 1, 0) == SELF_ST_LIVE,
+          "sent within 60.000 s of its confirming scan; 60.001 s on it needs a fresh scan (still shown)");
+    n.noTx = true;
+    CHECK(selfSlotState(&n, SELF_NET, c + 1, SELF_PICK_TX) == SELF_ST_MAP_ONLY &&
+          selfSlotState(&n, SELF_NET, c + 1, SELF_PICK_TX | SELF_PICK_INJECTED) == SELF_ST_MAP_ONLY &&
+          selfSlotState(&n, SELF_NET, c + SELF_NET_SHOW_MS + 5, SELF_PICK_TX) == SELF_ST_MAP_ONLY &&
+          selfSlotState(&n, SELF_NET, c + 1, 0) == SELF_ST_LIVE,
+          "'map only': never sent, `pos now` included, whatever its age; shown on the screens");
+    n.noTx = false;
+    n.accM = 0;
+    CHECK(selfSlotState(&n, SELF_NET, c + 1, 0) == SELF_ST_POOR, "accuracy 0: not a fix (POOR)");
+    n.accM = SELF_NET_MAX_ACC_M + 1;
+    CHECK(selfSlotState(&n, SELF_NET, c + 1, 0) == SELF_ST_POOR, "accuracy 101 m: POOR");
+    n.accM = SELF_NET_MAX_ACC_M;
+    CHECK(selfSlotState(&n, SELF_NET, c + 1, SELF_PICK_TX) == SELF_ST_LIVE, "accuracy 100 m: live");
+    n.accM = 1;
+    CHECK(selfSlotState(&n, SELF_NET, c + 1, SELF_PICK_TX) == SELF_ST_LIVE, "accuracy 1 m: live");
+    // across the millis() wrap
+    SelfSlot w;
+    memset(&w, 0, sizeof(w));
+    selfSlotClear(&w);
+    w.enabled = true;
+    selfNetSet(&w, D_LAT, D_LON, 50, 0xFFFFC000u, 1, false);
+    CHECK(selfNetConfirm(&w, 0x0000C000u, 2) &&
+          selfSlotState(&w, SELF_NET, 0x0000D000u, SELF_PICK_TX) == SELF_ST_LIVE,
+          "millis() wrap: a confirming scan 64 s later, across the wrap, settles and sends");
+  }
+  // the scan an owed beacon slot asks for
+  {
+    SelfSlot n;
+    memset(&n, 0, sizeof(n));
+    selfSlotClear(&n);
+    n.enabled = true;
+    CHECK(!selfNetScanUseful(&n, 5000), "no fix: no scan wanted");
+    const uint32_t t0 = 3000000;
+    selfNetSet(&n, D_LAT, D_LON, 60, t0, 0, false);
+    CHECK(!selfNetScanUseful(&n, t0 + SELF_NET_SETTLE_MS - 1),
+          "under 60 s since the first scan: a scan now could not settle it");
+    CHECK(selfNetScanUseful(&n, t0 + SELF_NET_SETTLE_MS), "60 s on: a scan now would be the second");
+    selfNetConfirm(&n, t0 + 70000, 0);
+    CHECK(!selfNetScanUseful(&n, t0 + 80000), "settled and confirmed 10 s ago: nothing to add");
+    CHECK(selfNetScanUseful(&n, t0 + 70000 + SELF_NET_CONFIRM_MS + 1),
+          "settled, confirming scan over 60 s old: a fresh one is wanted");
+  }
+  // injected (`netloc answer`): shown, never by the schedule, MANUAL but still a 17-bit cell
+  {
+    SelfSlot sl[SELF_SRC_COUNT];
+    for (int i = 0; i < SELF_SRC_COUNT; i++) { selfSlotClear(&sl[i]); sl[i].enabled = false; }
+    SelfSlot& net = sl[SELF_NET - 1];
+    net.enabled = true;
+    const uint32_t t0 = 4000000;
+    selfNetSet(&net, D_LAT, D_LON, 80, t0, 0, true);
+    selfNetConfirm(&net, t0 + 61000, 0);
+    SelfFix fx;
+    CHECK(selfPick(sl, t0 + 62000, SELF_PICK_TX, &fx) == SELF_NONE &&
+          selfSlotState(&net, SELF_NET, t0 + 62000, SELF_PICK_TX) == SELF_ST_INJECTED,
+          "the schedule never sends a bench Wi-Fi fix");
+    CHECK(selfPick(sl, t0 + 62000, SELF_PICK_TX | SELF_PICK_INJECTED, &fx) == SELF_NET &&
+          fx.injected && fx.locSrc == MESH_LOC_MANUAL && fx.precBits == SELF_NET_PREC_BITS && fx.accM == 80,
+          "`pos now` may: MANUAL, and still a 17-bit cell (coarse stays coarse)");
+    CHECK(selfPick(sl, t0 + 62000, SELF_PICK_INJECTED, &fx) == SELF_NET, "the screens show it");
+  }
+  // the pick to SEND, and the newest
+  {
+    SelfSlot sl[SELF_SRC_COUNT];
+    for (int i = 0; i < SELF_SRC_COUNT; i++) { selfSlotClear(&sl[i]); sl[i].enabled = true; }
+    SelfSlot& net = sl[SELF_NET - 1];
+    const uint32_t t0 = 5000000;
+    selfNetSet(&net, D_LAT, D_LON, 60, t0, 1760000100u, false);
+    SelfFix fx;
+    CHECK(selfPick(sl, t0 + 1000, SELF_PICK_TX, &fx) == SELF_NONE && selfPick(sl, t0 + 1000, 0, &fx) == SELF_NET,
+          "one scan: nothing to send, the Wi-Fi fix on the screens");
+    CHECK(selfNewest(sl, t0 + 1000, SELF_PICK_TX, &fx) == SELF_NET && fx.state == SELF_ST_SETTLING,
+          "the beacon's 'why not' names the Wi-Fi fix: waiting for a second scan");
+    selfNetConfirm(&net, t0 + 65000, 1760000165u);
+    CHECK(selfPick(sl, t0 + 70000, SELF_PICK_TX, &fx) == SELF_NET && fx.scanUtc == 1760000165u &&
+          fx.ageMs == 5000 && fx.locSrc == MESH_LOC_UNSET && fx.precBits == 17,
+          "two scans 65 s apart, the last 5 s ago: sent (UNSET, 17 bits), as of that scan");
+    CHECK(selfFixSendTime(&fx, 1760000170u) == 1760000165u,
+          "field 4 = the confirming scan's UTC, not the send's (review item 2)");
+    // a phone fix outranks it even for sending
+    selfSlotSet(&sl[SELF_PHONE - 1], D_LAT + 50, D_LON, 9, 9, t0 + 69000, false);
+    CHECK(selfPick(sl, t0 + 70000, SELF_PICK_TX, &fx) == SELF_PHONE &&
+          selfFixSendTime(&fx, 1760000170u) == 1760000170u,
+          "a live phone fix wins; its time is the send's own");
+    selfSlotClear(&sl[SELF_PHONE - 1]);
+    // expired is gone: no 'last Wi-Fi'
+    selfSlotSet(&sl[SELF_GPS - 1], D_LAT, D_LON, 9, 9, t0 - 400000, false);
+    CHECK(selfNewest(sl, t0 + 65000 + SELF_NET_SHOW_MS, 0, &fx) == SELF_GPS && fx.state == SELF_ST_OLD,
+          "an expired Wi-Fi fix is not the newest - the old GPS fix is (grey 'last GPS')");
+    selfSlotClear(&sl[SELF_GPS - 1]);
+    CHECK(selfNewest(sl, t0 + 65000 + SELF_NET_SHOW_MS, 0, &fx) == SELF_NONE &&
+          selfNewest(sl, t0 + 65000 + SELF_NET_SHOW_MS, SELF_PICK_TX | SELF_PICK_INJECTED, &fx) == SELF_NONE,
+          "...and alone, nothing: no grey 'last Wi-Fi' marker, for any purpose");
+    selfNetSet(&net, D_LAT, D_LON, 60, 0, 0, false);
+    CHECK(selfFixSendTime(NULL, 5) == 0, "no pick: no time");
+    SelfFix nf;
+    memset(&nf, 0, sizeof(nf));
+    nf.src = SELF_NET;
+    nf.scanUtc = 0;
+    CHECK(selfFixSendTime(&nf, 1760000170u) == 0,
+          "a Wi-Fi fix whose scan had no trusted clock: field 4 left out, never the send's time");
+  }
+  // the words
+  {
+    SelfFix fx;
+    memset(&fx, 0, sizeof(fx));
+    char b[40];
+    fx.src = SELF_NET;
+    fx.accM = 60;
+    CHECK(selfFixLabel(b, sizeof(b), &fx) == strlen("me +/-60 m Wi-Fi") && !strcmp(b, "me +/-60 m Wi-Fi"),
+          "the map's Wi-Fi label carries its size: 'me +/-60 m Wi-Fi'");
+    CHECK(selfFixName(b, sizeof(b), &fx) && !strcmp(b, "Wi-Fi +/-60 m"), "its name: 'Wi-Fi +/-60 m'");
+    for (const char* p = b; *p; p++) {
+      if ((unsigned char)*p < 0x20 || (unsigned char)*p > 0x7e) { CHECK(false, "printable ASCII only"); break; }
+    }
+    fx.src = SELF_PHONE;
+    CHECK(selfFixLabel(b, sizeof(b), &fx) && !strcmp(b, "me (phone)") &&
+          selfFixName(b, sizeof(b), &fx) && !strcmp(b, "phone"), "the phone: 'me (phone)', 'phone'");
+    fx.src = SELF_GPS;
+    CHECK(selfFixLabel(b, sizeof(b), &fx) && !strcmp(b, "me") && selfFixName(b, sizeof(b), &fx) &&
+          !strcmp(b, "GPS"), "the GPS: 'me', 'GPS'");
+    fx.src = SELF_NET;
+    fx.accM = 100;
+    char s[8];
+    CHECK(selfFixLabel(s, sizeof(s), &fx) == 7 && !strcmp(s, "me +/-1"), "cut to fit, NUL kept");
+    CHECK(selfFixLabel(s, 0, &fx) == 0 && selfFixLabel(NULL, 5, &fx) == 0, "no room: nothing");
+    CHECK(strcmp(selfStateName(SELF_ST_MAP_ONLY), "?") && strcmp(selfStateName(SELF_ST_SETTLING), "?") &&
+          strcmp(selfStateName(SELF_ST_UNCONFIRMED), "?"), "the new states have names");
+  }
+  // keep the cell; the precise fix wins
+  {
+    // a 17-bit cell is 2^15 = 32768 units of 1e-7 deg (~364 m) of latitude
+    const int32_t edge = (int32_t)(((uint32_t)D_LAT & 0xFFFF8000u) + 0x8000u);
+    const int32_t m15 = 135;                         // ~15 m of latitude in 1e-7 deg
+    SelfFix a, b;
+    memset(&a, 0, sizeof(a));
+    a.src = SELF_NET;
+    a.latI = edge - m15;
+    a.lonI = D_LON;
+    a.accM = 60;
+    b = a;
+    b.latI = edge + m15;
+    SelfNetTxMem m;
+    selfNetTxInit(&m);
+    int32_t la = 0, lo = 0, lb = 0, lob = 0;
+    selfNetTxCell(&m, &a, &la, &lo);
+    CHECK(la == meshPosTruncate(a.latI, 17) && lo == meshPosTruncate(a.lonI, 17),
+          "the first Wi-Fi beacon: the fix cut to its 17-bit cell's centre");
+    selfNetTxCell(NULL, &b, &lb, &lob);
+    CHECK(lb != la && meshPosDistanceM(la, lo, lb, lob) > 300.0,
+          "30 m apart across a cell edge: two cells ~364 m apart (the flip-flop, review item 15)");
+    selfNetTxNoteSent(&m, &a, la, lo);
+    selfNetTxCell(&m, &b, &lb, &lob);
+    CHECK(lb == la && lob == lo, "...so within the fixes' accuracy of the last one, the SAME cell is sent");
+    uint8_t p1[MESH_POS_BUILD_EX_MAX], p2[MESH_POS_BUILD_EX_MAX];
+    const size_t n1 = meshPosBuildEx(p1, sizeof(p1), la, lo, 1760000000u, MESH_LOC_UNSET, 17);
+    const size_t n2 = meshPosBuildEx(p2, sizeof(p2), a.latI, a.lonI, 1760000000u, MESH_LOC_UNSET, 17);
+    CHECK(n1 == 18 && n1 == n2 && !memcmp(p1, p2, n1),
+          "the cell's bytes are the raw fix's bytes at 17 bits (the cut is idempotent): 18 B");
+    SelfFix far = a;
+    far.latI = a.latI + 9000;                         // ~100 m on
+    selfNetTxCell(&m, &far, &lb, &lob);
+    CHECK(lb == meshPosTruncate(far.latI, 17), "100 m on (accuracy 60): a new cell, honestly");
+    SelfFix g;
+    memset(&g, 0, sizeof(g));
+    g.src = SELF_GPS;
+    SelfNetTxMem m2 = m;
+    selfNetTxNoteSent(&m2, &g, 1, 2);
+    CHECK(m2.cellLatI == m.cellLatI, "a GPS beacon is not a Wi-Fi cell sent");
+
+    // precise fix wins: no Wi-Fi beacon within accM + 50 m of a GPS/phone beacon of the last hour
+    selfNetTxInit(&m);
+    const uint32_t t0 = 9000000;
+    CHECK(!selfNetPreciseWins(&m, &a, t0), "no precise beacon yet: Wi-Fi may go");
+    selfNetTxNotePrecise(&m, a.latI + 900, a.lonI, t0);          // ~10 m off
+    CHECK(selfNetPreciseWins(&m, &a, t0 + 1000), "a precise beacon 10 m away a second ago: it wins");
+    selfNetTxNotePrecise(&m, a.latI + 9800, a.lonI, t0);         // ~109 m: within 60 + 50
+    CHECK(selfNetPreciseWins(&m, &a, t0 + 1000), "109 m away (inside 60 + 50): it still wins");
+    selfNetTxNotePrecise(&m, a.latI + 10350, a.lonI, t0);        // ~115 m: outside
+    CHECK(!selfNetPreciseWins(&m, &a, t0 + 1000), "115 m away (outside 60 + 50): the Wi-Fi fix may go");
+    selfNetTxNotePrecise(&m, a.latI, a.lonI, t0);
+    CHECK(selfNetPreciseWins(&m, &a, t0 + SELF_NET_PRECISE_WINS_MS - 1) &&
+          !selfNetPreciseWins(&m, &a, t0 + SELF_NET_PRECISE_WINS_MS),
+          "the same place: it wins for 59:59.999, not at 60:00");
+    CHECK(!selfNetPreciseWins(&m, &g, t0 + 1000) && !selfNetPreciseWins(NULL, &a, t0 + 1000),
+          "only a Wi-Fi pick is ever held back");
   }
 
   // ---- the stale guards' arithmetic ----------------------------------------------------------

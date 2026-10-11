@@ -19,6 +19,9 @@ void selfSlotSet(SelfSlot* s, int32_t latI, int32_t lonI, int sats, int hdopX10,
   s->hdopX10 = hdopX10 < 0 ? -1 : hdopX10;
   s->fixMs = nowMs ? nowMs : 1;             // millis() == 0 must not read as "never"
   s->injected = injected;
+  s->accM = 0;                              // the NET fields belong to selfNetSet's fixes only
+  s->firstMs = 0;
+  s->scanUtc = 0;
 }
 
 void selfSlotClear(SelfSlot* s) {
@@ -29,12 +32,89 @@ void selfSlotClear(SelfSlot* s) {
   s->fixMs = 0;
   s->sats = s->hdopX10 = -1;
   s->injected = false;
+  s->accM = 0;
+  s->firstMs = 0;
+  s->scanUtc = 0;
+}
+
+// ---------------------------------------------------------------- the Wi-Fi slot
+
+void selfNetSet(SelfSlot* s, int32_t latI, int32_t lonI, uint16_t accM, uint32_t scanMs,
+                uint32_t scanUtc, bool injected) {
+  if (!s || !s->enabled) {
+    return;                                 // switched off while the lookup was out: not kept
+  }
+  selfSlotSet(s, latI, lonI, -1, -1, scanMs, injected);   // no satellites: a network guess
+  s->accM = accM;
+  s->firstMs = s->fixMs;                    // the scan it was computed from (0 read as 1)
+  s->scanUtc = scanUtc;
+}
+
+bool selfNetConfirm(SelfSlot* s, uint32_t scanMs, uint32_t scanUtc) {
+  if (!s || s->fixMs == 0) {
+    return false;
+  }
+  const uint32_t ms = scanMs ? scanMs : 1;
+  /* Signed: right across the millis() wrap. A scan from before the fix's own (an old snapshot
+   * folded late) says nothing new; the same scan twice changes nothing. */
+  if ((int32_t)(ms - s->fixMs) <= 0) {
+    return false;
+  }
+  s->fixMs = ms;
+  s->scanUtc = scanUtc;
+  return true;
+}
+
+bool selfNetWantsRefresh(const SelfSlot* s, uint32_t nowMs) {
+  if (!s || !s->enabled || s->fixMs == 0) {
+    return false;
+  }
+  const uint32_t age = (uint32_t)(nowMs - s->fixMs);
+  return age >= SELF_NET_REFRESH_AT_MS && age < SELF_NET_SHOW_MS;   // expired is gone: no rescue
+}
+
+bool selfNetScanUseful(const SelfSlot* s, uint32_t nowMs) {
+  if (!s || s->fixMs == 0) {
+    return false;
+  }
+  if ((uint32_t)(nowMs - s->firstMs) < SELF_NET_SETTLE_MS) {
+    return false;                           // a scan now could not be the second, 60 s on
+  }
+  const bool settled = (uint32_t)(s->fixMs - s->firstMs) >= SELF_NET_SETTLE_MS;
+  const bool recent = (uint32_t)(nowMs - s->fixMs) <= SELF_NET_CONFIRM_MS;
+  return !(settled && recent);              // already sendable: a scan adds nothing
+}
+
+static bool netAccOk(uint16_t accM) {
+  return accM >= 1 && accM <= SELF_NET_MAX_ACC_M;
+}
+
+/* The Wi-Fi slot's own states (self_pos.h, "THE WI-FI SLOT"): its clock is the scans, its
+ * quality is the accuracy two agreeing lookups gave, and sending has three more bars. */
+static int netSlotState(const SelfSlot* s, uint32_t nowMs, unsigned flags) {
+  const bool tx = (flags & SELF_PICK_TX) != 0;
+  if (tx && s->noTx) {
+    return SELF_ST_MAP_ONLY;                // "map only" is a promise about the air, whatever its age
+  }
+  if ((uint32_t)(nowMs - s->fixMs) >= SELF_NET_SHOW_MS) {
+    return SELF_ST_OLD;
+  }
+  if (!netAccOk(s->accM)) {
+    return SELF_ST_POOR;
+  }
+  if (tx) {
+    if ((uint32_t)(s->fixMs - s->firstMs) < SELF_NET_SETTLE_MS) {
+      return SELF_ST_SETTLING;              // one scan, or two too close together: maybe moving
+    }
+    if ((uint32_t)(nowMs - s->fixMs) > SELF_NET_CONFIRM_MS) {
+      return SELF_ST_UNCONFIRMED;           // still on the map, too old to tell anybody else
+    }
+  }
+  return SELF_ST_LIVE;
 }
 
 int selfSlotState(const SelfSlot* s, int src, uint32_t nowMs, unsigned flags) {
-  /* NET is a slot with a number and no rules yet: until its own gates exist (enough access
-   * points, an accuracy bar, two agreeing lookups), nothing it holds is anybody's position. */
-  if (!s || (src != SELF_GPS && src != SELF_PHONE)) {
+  if (!s || (src != SELF_GPS && src != SELF_PHONE && src != SELF_NET)) {
     return SELF_ST_RESERVED;
   }
   if (!s->enabled) {
@@ -45,6 +125,9 @@ int selfSlotState(const SelfSlot* s, int src, uint32_t nowMs, unsigned flags) {
   }
   if (s->injected && !(flags & SELF_PICK_INJECTED)) {
     return SELF_ST_INJECTED;
+  }
+  if (src == SELF_NET) {
+    return netSlotState(s, nowMs, flags);
   }
   const uint32_t bar = (flags & SELF_PICK_TX) ? SELF_TX_FRESH_MS : SELF_SHOW_FRESH_MS;
   if ((uint32_t)(nowMs - s->fixMs) >= bar) {
@@ -74,7 +157,11 @@ static void fillFix(SelfFix* out, const SelfSlot* s, int src, int state, uint32_
   out->injected = s->injected;
   /* A bench fix is not a measurement, so it does not say it is one (self_pos.h, SelfFix). */
   out->locSrc = s->injected ? MESH_LOC_MANUAL : selfSrcLocSource(src);
-  out->precBits = s->injected ? 0 : selfSrcPrecBits(src);
+  /* ...but a bench Wi-Fi fix stays a CELL: "coarse" is about how the position was made, and a
+   * typed or canned Wi-Fi answer is no sharper than a real one. */
+  out->precBits = (s->injected && src != SELF_NET) ? 0 : selfSrcPrecBits(src);
+  out->accM = (src == SELF_NET) ? s->accM : 0;
+  out->scanUtc = (src == SELF_NET) ? s->scanUtc : 0;
 }
 
 static void noFix(SelfFix* out) {
@@ -117,6 +204,11 @@ int selfNewest(const SelfSlot slots[SELF_SRC_COUNT], uint32_t nowMs, unsigned fl
         st == SELF_ST_INJECTED) {
       continue;
     }
+    /* An expired Wi-Fi fix is GONE (self_pos.h): there is no "last Wi-Fi" to draw grey. Asked
+     * on the show bar, so a sending question cannot resurrect one either. */
+    if (src == SELF_NET && selfSlotState(s, src, nowMs, flags & SELF_PICK_INJECTED) == SELF_ST_OLD) {
+      continue;
+    }
     const uint32_t age = (uint32_t)(nowMs - s->fixMs);
     if (best == SELF_NONE || age < bestAge) {            // a tie keeps the better rank
       best = src;
@@ -132,7 +224,7 @@ int selfNewest(const SelfSlot slots[SELF_SRC_COUNT], uint32_t nowMs, unsigned fl
 bool selfSource(const SelfSlot slots[SELF_SRC_COUNT], int src, uint32_t nowMs, unsigned flags,
                 SelfFix* out) {
   noFix(out);
-  if (!slots || (src != SELF_GPS && src != SELF_PHONE)) {
+  if (!slots || (src != SELF_GPS && src != SELF_PHONE && src != SELF_NET)) {
     return false;
   }
   const SelfSlot* s = &slots[src - 1];
@@ -150,7 +242,17 @@ bool selfAnyEnabled(const SelfSlot slots[SELF_SRC_COUNT]) {
   if (!slots) {
     return false;
   }
-  return slots[SELF_GPS - 1].enabled || slots[SELF_PHONE - 1].enabled;   // NET: reserved
+  return slots[SELF_GPS - 1].enabled || slots[SELF_PHONE - 1].enabled ||
+         slots[SELF_NET - 1].enabled;
+}
+
+bool selfAnyEnabledForTx(const SelfSlot slots[SELF_SRC_COUNT]) {
+  if (!slots) {
+    return false;
+  }
+  const SelfSlot* net = &slots[SELF_NET - 1];
+  return slots[SELF_GPS - 1].enabled || slots[SELF_PHONE - 1].enabled ||
+         (net->enabled && !net->noTx);
 }
 
 // ---------------------------------------------------------------- labels
@@ -193,13 +295,16 @@ const char* selfBeaconTag(int src) {
 const char* selfStateName(int state) {
   switch (state) {
     case SELF_ST_LIVE:     return "live";
-    case SELF_ST_RESERVED: return "not used yet";
+    case SELF_ST_RESERVED: return "not a source";
     case SELF_ST_OFF:      return "off";
     case SELF_ST_NEVER:    return "no fix yet";
     case SELF_ST_INJECTED: return "bench fix, not sent";
     case SELF_ST_OLD:      return "too old";
     case SELF_ST_POOR:     return "poor fix";
     case SELF_ST_UNRATED:  return "no sats/HDOP given, not sent";
+    case SELF_ST_MAP_ONLY: return "map only, not sent";
+    case SELF_ST_SETTLING: return "waiting for a second scan";
+    case SELF_ST_UNCONFIRMED: return "needs a fresh scan to send";
     default:               return "?";
   }
 }
@@ -215,7 +320,106 @@ uint8_t selfSrcLocSource(int src) {
 }
 
 uint8_t selfSrcPrecBits(int src) {
+  if (src == SELF_NET) {
+    return SELF_NET_PREC_BITS;
+  }
   return (src == SELF_GPS || src == SELF_PHONE) ? MESH_POS_PREC_FULL : 0;
+}
+
+static size_t cutLen(int n, size_t cap, char* out) {
+  if (n < 0) {
+    out[0] = 0;
+    return 0;
+  }
+  return (size_t)n < cap ? (size_t)n : cap - 1;
+}
+
+size_t selfFixLabel(char* out, size_t cap, const SelfFix* fx) {
+  if (!out || cap == 0) {
+    return 0;
+  }
+  const int src = fx ? fx->src : SELF_NONE;
+  /* "+/-", not the plus-minus sign: the phone's fonts (Akrobat, src/assets/fonts.h) carry
+   * printable ASCII only, and a missing glyph draws as a hollow box. */
+  if (src == SELF_NET) {
+    return cutLen(snprintf(out, cap, "me +/-%u m Wi-Fi", (unsigned)fx->accM), cap, out);
+  }
+  return cutLen(snprintf(out, cap, "%s", selfMapLabel(src)), cap, out);
+}
+
+size_t selfFixName(char* out, size_t cap, const SelfFix* fx) {
+  if (!out || cap == 0) {
+    return 0;
+  }
+  const int src = fx ? fx->src : SELF_NONE;
+  if (src == SELF_NET) {
+    return cutLen(snprintf(out, cap, "Wi-Fi +/-%u m", (unsigned)fx->accM), cap, out);
+  }
+  return cutLen(snprintf(out, cap, "%s", selfSrcName(src)), cap, out);
+}
+
+uint32_t selfFixSendTime(const SelfFix* fx, uint32_t trustedUtcNow) {
+  if (!fx) {
+    return 0;
+  }
+  return fx->src == SELF_NET ? fx->scanUtc : trustedUtcNow;
+}
+
+// ---------------------------------------------------------------- sending a Wi-Fi fix
+
+void selfNetTxInit(SelfNetTxMem* m) {
+  if (m) {
+    memset(m, 0, sizeof(*m));
+  }
+}
+
+void selfNetTxNotePrecise(SelfNetTxMem* m, int32_t latI, int32_t lonI, uint32_t nowMs) {
+  if (!m) {
+    return;
+  }
+  m->preciseOk = true;
+  m->preciseMs = nowMs;
+  m->preciseLatI = latI;
+  m->preciseLonI = lonI;
+}
+
+void selfNetTxNoteSent(SelfNetTxMem* m, const SelfFix* fx, int32_t cellLatI, int32_t cellLonI) {
+  if (!m || !fx || fx->src != SELF_NET) {
+    return;
+  }
+  m->cellOk = true;
+  m->cellLatI = cellLatI;
+  m->cellLonI = cellLonI;
+  m->srcLatI = fx->latI;
+  m->srcLonI = fx->lonI;
+  m->srcAccM = fx->accM;
+}
+
+bool selfNetPreciseWins(const SelfNetTxMem* m, const SelfFix* fx, uint32_t nowMs) {
+  if (!m || !fx || fx->src != SELF_NET || !m->preciseOk) {
+    return false;
+  }
+  if ((uint32_t)(nowMs - m->preciseMs) >= SELF_NET_PRECISE_WINS_MS) {
+    return false;
+  }
+  const double reach = (double)fx->accM + SELF_NET_PRECISE_SLACK_M;
+  return meshPosDistanceM(m->preciseLatI, m->preciseLonI, fx->latI, fx->lonI) <= reach;
+}
+
+void selfNetTxCell(const SelfNetTxMem* m, const SelfFix* fx, int32_t* latI, int32_t* lonI) {
+  if (!fx || !latI || !lonI) {
+    return;
+  }
+  if (m && m->cellOk) {
+    const double reach = (double)(fx->accM > m->srcAccM ? fx->accM : m->srcAccM);
+    if (meshPosDistanceM(m->srcLatI, m->srcLonI, fx->latI, fx->lonI) <= reach) {
+      *latI = m->cellLatI;                  // the same place, give or take its own error
+      *lonI = m->cellLonI;
+      return;
+    }
+  }
+  *latI = meshPosTruncate(fx->latI, SELF_NET_PREC_BITS);
+  *lonI = meshPosTruncate(fx->lonI, SELF_NET_PREC_BITS);
 }
 
 // ---------------------------------------------------------------- the stream's small rules
