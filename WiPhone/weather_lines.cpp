@@ -329,7 +329,7 @@ void asOfRows(const AlmCtx* c, const WxView* v, const WxData* d, AlmEmitFn emit,
    * by any US change in between) - review 2026-10-03: a cache fetched on Oct 31 in PDT told a phone
    * correctly set to UTC-8 on Nov 2 to "check the clock setting". The offset named is the place's
    * now, moved by the same change. */
-  const int phoneThen = d->fetchedUtc > 0 ? almTzAt(c->now, c->tzS, c->usDst, d->fetchedUtc) : c->tzS;
+  const int phoneThen = d->fetchedUtc > 0 ? almCtxTzAt(c, d->fetchedUtc) : c->tzS;   // a zone's rule too (0.9.82)
   if (d->fc.haveOffset && d->fc.utcOffsetS != phoneThen) {
     char off[16];
     almFmtUtcOffset(d->fc.utcOffsetS + (c->tzS - phoneThen), off, sizeof(off));

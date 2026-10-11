@@ -430,8 +430,10 @@ and the accuracy are in **[docs/almanac.md](docs/almanac.md)**.
   stalls). A day across a US clock change is given in the clock time that day will have, and
   says so (`Times in UTC-8 (after the Nov 1 change)`) — on Oct 27 at UTC-7, Nov 7's end of
   legal light reads 17:10, as the clock will on Nov 7, not 18:10. On the change day itself
-  every day screen says to check the Time offset (the phone's clock is a fixed offset: it cannot
-  change itself, and cannot know whether you have).
+  every day screen says so: with a **time zone** set (Settings → Time zone: Auto or a named
+  zone, 0.9.82) the phone changes its own clock and the screens say it did; with a typed offset
+  they say to check the Time offset (a fixed offset cannot change itself, and the phone cannot
+  know whether you have).
 - **Sun**: first and last legal light, sunrise, solar noon, sunset, civil twilight, the day's
   length and how much it changed since yesterday, and where the sun is right now.
 - **Moon**: rise, overhead, set and underfoot in time order, phase, illumination, age, and the
@@ -448,7 +450,9 @@ and the accuracy are in **[docs/almanac.md](docs/almanac.md)**.
   Time offset`). It never names an offset: the phone's offset alone cannot say whether the change
   has been made (-8 on Nov 1 is Pacific done or Alaska not yet). Hawaii and Arizona, whose clocks
   never change, set **Almanac → Settings → US daylight saving: no**, which turns off the reminder
-  and the clock-change shift above.
+  and the clock-change shift above. With a time zone (0.9.82) none of that applies: the zone's
+  own rule decides, to the second, and the reminder reads `Clocks go back 1 h Sun Nov 1 - the
+  phone changes by itself`.
 
 **Legal light has two rules**, chosen in Almanac → Settings: **30 minutes before sunrise to 30
 minutes after sunset** (the default — Washington's big-game rule), or **civil twilight** (the
@@ -929,6 +933,7 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `pos inject gps\|phone <lat> <lon> [sats hdop]` / `pos inject clear` | a bench fix for that source, RAM only: drawn and measured from, never sent by the schedule (`pos now` with one says INJECTED and sends it as MANUAL, not as a measurement). Use dummy coordinates |
 | `phonepos` / `phonepos auto\|off` / `phonepos port <n>` | Phone location: state, port, bytes, sentences, stale lines, last fix age (never a coordinate or an address); switch it (`auto` is refused while reporting goes to a public channel); an extra port to try |
 | `phonepos at <ip>[:port]` / `phonepos at off` | bench: ask a Mac running `tools/nmea_phone_stub.py` instead of the gateway (RAM only; its fixes are bench fixes) |
+| `tz` / `tz auto\|custom [offset]\|<zone>` / `tz test <lat> <lon>` / `tz forget` | the time zone: what is in force, where it came from, Auto's last look and why, the next DST change (never a coordinate); set it (zones: pacific mountain arizona central eastern atlantic newfoundland alaska hawaii saskatchewan); look a place up without changing anything; drop the zone Auto found |
 | `sun` | legal light at the reference place (or `sun <lat>,<lon>`) |
 | `gps` / `gps on\|off` | GPS receiver state / route the user UART to it (`on` is refused from the cable while reporting goes to a public channel) |
 | `unread` / `unread clear` | recount + repair unread counters; mark all read |
@@ -941,6 +946,18 @@ a bench instead. **No authentication:** whoever holds the cable holds the phone.
 
 ## Phone improvements
 
+- **Time zone** (Settings, 0.9.82; was "Time offset"). **Auto** sets the zone from where the
+  phone *measures* it is - the woods plate's GPS, or your phone's GPS over its hotspot (Phone
+  location) - and daylight saving then changes by itself, after a reboot too. It never uses
+  your internet address or a bench fix, and when it is not sure (no good fix, near a zone line,
+  at sea, outside North America and the Caribbean, or a new zone seen only once) it changes
+  nothing: a new zone must be seen on two looks two minutes apart, and a banner says when it
+  changes. Or pick **Pacific, Mountain, Arizona, Central, Eastern, Atlantic, Newfoundland,
+  Alaska, Hawaii or Saskatchewan** (each with its own DST rule), or **Custom** - the typed
+  offset, as before, which Auto also uses until it finds a zone. Going back to Auto from a zone
+  picked by hand keeps that zone until a fix finds another. Serial `tz` says what is in force
+  and why; `tz test <lat> <lon>` looks a place up. The zone map is
+  timezone-boundary-builder's, © OpenStreetMap contributors (ODbL 1.0; see Credits).
 - **Mute all sounds** (Settings, 0.9.75) — a master mute at the audio chip: nothing comes
   out of the loudspeaker — ring, message chirp, mesh pop, music, Game Boy — while a call in
   the earpiece, headphones and the vibrate motor keep working, so "Vibrate only" behaves as
@@ -1141,6 +1158,11 @@ RealNetworks RPSL, which the FSF lists as GPL-incompatible). For a phone you bui
 flash yourself this is moot — every obligation involved is about distribution, and the
 source is public. It would need resolving before the project could be redistributed as one
 clean work; that file says how.
+
+The time zone grid (`WiPhone/tz_grid_data.h`) is **data, under the ODbL 1.0**. It is derived
+from [timezone-boundary-builder](https://github.com/evansiroky/timezone-boundary-builder),
+© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors. It is a derivative
+database, remade by `tools/gen_tz_grid.py`. Details are in THIRD-PARTY-NOTICES.md.
 
 Meshtastic is a trademark of Meshtastic LLC; this is an independent, community project,
 not affiliated with or endorsed by Meshtastic.

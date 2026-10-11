@@ -88,13 +88,28 @@ for src in tests/test_*.cpp; do
     # COVEY's Python port is tested against too (tools/gen_almanac_vectors.py).
     test_almanac)  deps=(WiPhone/astro.cpp) ;;
     test_wmm)      deps=(WiPhone/wmm.cpp) ;;
+    # The time zone grid (tz_grid.cpp + its generated tz_grid_data.h, ODbL data from
+    # timezone-boundary-builder): the lookup, the US/Canada rule from first principles, every
+    # DST change 2026-2030 of every zone against zoneinfo, the named places against the clock
+    # zoneinfo gives the polygon they are in, the content hash COVEY's tzgrid.bin also carries
+    # (book_hash.cpp's SHA-256). Regenerate with tools/gen_tz_grid.py; COVEY's covey_ui/tzgrid.py
+    # runs the same vectors.
+    test_tzgrid)   deps=(WiPhone/tz_grid.cpp WiPhone/book_hash.cpp) ;;
+    # The clock's time zone (tz_auto.cpp, 0.9.82): the setting, Auto's decision through the real
+    # self_pos slots (two looks 2 min apart, never a bench/poor/old fix, never a border, a phone
+    # fix - rated or not - only 10 km from any other clock, checked against brute-force sampling of
+    # the grid), the offset at every zoneinfo vector instant, reboot memory, the manual override and
+    # the way back to Auto (never an old zone), and every Settings line measured with the
+    # firmware's Akrobat_Bold16.
+    test_tzauto)   deps=(WiPhone/tz_auto.cpp WiPhone/tz_grid.cpp WiPhone/self_pos.cpp WiPhone/mesh_pos.cpp
+                         WiPhone/nmea.cpp) ;;
     test_geogrid)  deps=(WiPhone/geo_grid.cpp) ;;
     # What the Almanac SAYS (almanac_lines.cpp): every screen's rows, the inward rounding of legal
     # light, the countdown, the US DST reminder - and every row measured against the phone's own
     # Akrobat_Bold20 (fonts.h) over six places, two years of days, both rules and both units.
     test_almanac_lines) deps=(WiPhone/almanac_lines.cpp WiPhone/astro.cpp WiPhone/units.cpp WiPhone/mesh_pos.cpp
                               WiPhone/geo_grid.cpp WiPhone/wmm.cpp WiPhone/weather_lines.cpp WiPhone/weather.cpp
-                              WiPhone/json_read.cpp) ;;
+                              WiPhone/json_read.cpp WiPhone/tz_grid.cpp) ;;
     # Elevation tiles (sampling, the z13 -> z10 fallback, terrarium decode) and the metric/US
     # formatters; map_tiles.cpp and mesh_pos.cpp are linked as the ORACLES they must equal.
     test_elev)     deps=(WiPhone/elev_tiles.cpp WiPhone/map_tiles.cpp) ;;
@@ -186,7 +201,7 @@ for src in tests/test_*.cpp; do
     # the curve order (tls_curves.h) and the pinned roots' SHA-256 (isrg_roots.h). No network.
     test_weather)  deps=(WiPhone/weather.cpp WiPhone/weather_lines.cpp WiPhone/json_read.cpp WiPhone/gemini.cpp
                          WiPhone/almanac_lines.cpp WiPhone/astro.cpp WiPhone/units.cpp WiPhone/mesh_pos.cpp
-                         WiPhone/geo_grid.cpp WiPhone/wmm.cpp WiPhone/book_hash.cpp) ;;
+                         WiPhone/geo_grid.cpp WiPhone/wmm.cpp WiPhone/book_hash.cpp WiPhone/tz_grid.cpp) ;;
     # Header-only: the notification pop's stop timer (notify_timing.h) against the shipping
     # pop_pcm[] bytes. WiPhone.ino cannot be compiled here, same reason as above. Review 3 (A1): the
     # ring's lead too, with a model of IDF 3.3's TX ring - the old 360 ms stop erased the chirp.
@@ -351,6 +366,16 @@ fi
 # while reporting goes to a public channel, and the real 2026-08-25 fix kept out of the tree.
 echo "checking the phone-location glue (no IP geolocation, never the clock, never waits, no coordinates in logs, bench fixes stay home)"
 if ! python3 tests/check_phonepos_review.py; then
+  fail=1
+fi
+
+# ── SOURCE GUARD: the clock's time zone keeps its rules (0.9.82) ───────────────────────────
+# See tests/check_tz_glue.py. test_tzauto proves tz_auto.cpp; this pins the glue: no SPIFFS write
+# from the loop (the INI only when a person types an offset), Auto's own question over the slots
+# and never under a game, never a bench fix, the boot order after the INI, the notice only to an
+# awake screen, no coordinate past 2 decimals on the console, the ODbL credit on the screen.
+echo "checking the time zone glue (no SPIFFS in the loop, never a bench fix, the boot order, the credit)"
+if ! python3 tests/check_tz_glue.py; then
   fail=1
 fi
 

@@ -15,6 +15,7 @@
 #include "menu_wrap.h"          // wrapNote: a long sentence broken into rows that fit
 #include "meshtastic_service.h" // resolveReference, the GPS fix and its motion
 #include "prefs_almanac.h"      // gUnits, gLegalRule, gUsDst and their setters
+#include "tz_service.h"         // tzSvcZoneRules: a zone with rules decides DST (0.9.82)
 #include "units.h"
 #include "weather_lines.h"      // the WEATHER screen's rows, TODAY's two weather rows
 #include "weather_net.h"        // the cache, the fetch (the timer only), `wx`
@@ -73,6 +74,24 @@ AlmanacCost gAlmanacCost;
 #define ALM_PAINT_EST_MS   50
 
 // ---- shared helpers (the app and the serial `almanac`) ------------------------------------------
+
+/* The clock's time zone when it has RULES (tz_service.h, 0.9.82): a named zone, or the zone Auto
+ * found from a measured fix. The Almanac then gives every DST answer by the zone's rule, exact to
+ * the second, and says the change happens by itself (almanac_lines.h, AlmCtx.tzZoned). A typed
+ * offset leaves tzZoned false: the US guess on the bare offset, and Settings' switch, as before. */
+static void almCtxZone(AlmCtx* c) {
+  int stdMin = 0;
+  uint8_t rule = TZ_RULE_NONE;
+  const char* name = NULL;
+  int64_t since = 0;
+  c->tzZoned = tzSvcZoneRules(&stdMin, &rule, &name, &since);
+  if (c->tzZoned) {
+    c->tzStdS = stdMin * 60;
+    c->tzRule = rule;
+    c->tzName = name;
+    c->tzSince = since;
+  }
+}
 
 /* The UTC offset in seconds. Two clock reads; a second can tick between them, so the difference
  * is rounded to the minute (every real offset is whole minutes). */
@@ -532,6 +551,7 @@ void AlmanacApp::fillCtx(AlmCtx* c) {
   c->rule = (gLegalRule == LEGAL_RULE_CIVIL) ? ASTRO_LEGAL_CIVIL : ASTRO_LEGAL_30MIN;
   c->units = gUnits;
   c->usDst = gUsDst != 0;
+  almCtxZone(c);                 // a zone with rules (Settings > Time zone): DST by the rule
   c->moonAge = &moonAge;
   c->noSearch = true;            // a builder here never searches: the timer's slices fill the caches
   /* The weather as weather_net holds it (memory only: the card was read on the timer, if at all). */
@@ -1271,6 +1291,7 @@ static void almConsoleBench(void (*out)(const char*)) {
   c.rule = (gLegalRule == LEGAL_RULE_CIVIL) ? ASTRO_LEGAL_CIVIL : ASTRO_LEGAL_30MIN;
   c.units = gUnits;
   c.usDst = gUsDst != 0;
+  almCtxZone(&c);
   c.day = d;
   c.moonAge = &age;
   c.noSearch = true;
@@ -1367,6 +1388,7 @@ void almanacConsole(const char* args, void (*out)(const char*)) {
   c.rule = (gLegalRule == LEGAL_RULE_CIVIL) ? ASTRO_LEGAL_CIVIL : ASTRO_LEGAL_30MIN;
   c.units = gUnits;
   c.usDst = gUsDst != 0;
+  almCtxZone(&c);
 
   // The day's tables are ~330 bytes: PSRAM, not this (loop task) stack.
   AlmDay* d = (AlmDay*)heap_caps_malloc(sizeof(AlmDay), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -1559,6 +1581,7 @@ void almanacWeatherConsole(const char* args, void (*out)(const char*)) {
   c.rule = (gLegalRule == LEGAL_RULE_CIVIL) ? ASTRO_LEGAL_CIVIL : ASTRO_LEGAL_30MIN;
   c.units = gUnits;
   c.usDst = gUsDst != 0;
+  almCtxZone(&c);
   WxView v;
   memset(&v, 0, sizeof(v));
   v.d = wxData();

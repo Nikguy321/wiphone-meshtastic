@@ -18,6 +18,33 @@ it, and they are called out rather than papered over.
 | g711 / g722 / dr_wav | `WiPhone/src/audio/` | WiPhone Public License v1.0 | Yes |
 | **gnuboy** (via the retro-go fork) | `WiPhone/gnuboy/` | **GPL v2** (`gnuboy/COPYING`) | ⚠️ **Unclear.** No "or any later version" clause appears in the sources here, and GPLv2-only does not combine with GPLv3-only code. If the upstream grant is "v2 or later" this resolves; nobody has established that. |
 | **Helix MP3 decoder** | `WiPhone/src/audio/helix-mp3/` | **RPSL 1.0 / RCSL 1.0**, RealNetworks | ❌ **No.** The FSF lists the RPSL as GPL-incompatible: it requires derivative works to be licensed under the RPSL, and mandates litigation in Seattle. |
+| Time zone grid (**data**, not code) | `WiPhone/tz_grid_data.h`, `tests/vectors_tzgrid.*` (made by `tools/gen_tz_grid.py`) | **ODbL 1.0**: derived from timezone-boundary-builder, © OpenStreetMap contributors | Not a code licence question. The ODbL governs the database and the GPL the code around it; see [below](#the-time-zone-grid-odbl-10). |
+
+## The time zone grid (ODbL 1.0)
+
+`WiPhone/tz_grid_data.h` holds the arrays the phone uses to find which time zone a measured
+position is in. The test vectors in `tests/vectors_tzgrid.json` and `tests/vectors_tzgrid.h`
+come from the same data. Both are a **Derivative Database** of
+[timezone-boundary-builder](https://github.com/evansiroky/timezone-boundary-builder) (release
+2026d, `combined.json`). That dataset is derived from **OpenStreetMap** data,
+**© OpenStreetMap contributors**, and is made available under the
+[Open Database License (ODbL) 1.0](https://opendatacommons.org/licenses/odbl/1-0/). These
+files are offered under ODbL 1.0 as well.
+
+What the licence asks of this repository:
+
+- **Attribution.** The notice above. The same notice is compiled into the firmware as
+  `TZGRID_ATTRIBUTION_TEXT` (`tzGridInfo()->attribution`), so every image that contains the
+  grid carries it. That image is a *Produced Work* under the ODbL. A screen that shows a time
+  zone found this way should credit "© OpenStreetMap contributors" or show the full string.
+- **Share-alike for the database.** The grid itself is published here under ODbL 1.0. So is
+  the means to remake it: `tools/gen_tz_grid.py` turns the public input release into these
+  exact bytes (the output is deterministic, and its SHA-256 is in the header).
+- **The code is not data.** `WiPhone/tz_grid.cpp`, `tz_grid.h` and `tools/gen_tz_grid.py` are
+  GPL v3 like the rest of the repository. The ODbL reaches the database contents only.
+
+COVEY ships the same grid as `covey_ui/data/tzgrid.bin` (same content hash) under the same
+terms.
 
 ## What that means in practice
 

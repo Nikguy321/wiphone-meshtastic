@@ -56,6 +56,7 @@ governing permissions and limitations under the License.
 #include "sms_mirror_poll.h"   // pulls mirrored texts from COVEY over the LAN
 #include "kosync_sync.h"      // KOSync: the reading-position sync window + home client
 #include "phone_pos.h"        // the hotspot phone's GPS as a location source (NMEA over WiFi)
+#include "tz_service.h"       // the clock's time zone: Auto from a measured fix, a named zone, or typed
 #include "sms_mirror_rx.h"     // smsMirrorTakeNews: the mirror's arrival announcements
 #include "serial_cmd.h"        // debug console on USB serial (uploader on/off, mirror sync)
 #include "mp3_stream.h"
@@ -1908,6 +1909,8 @@ void setup() {
   gui.state.codecInited = !audio->error();
 
   // Load phone configs
+  bool tzIniHad = false;          // configs.ini [time] zone: the TYPED offset (tz_service.h)
+  float tzIniHours = 0;
   {
     CriticalFile ini(Storage::ConfigsFile);
     if ((ini.load() || ini.restore()) && !ini.isEmpty()) {
@@ -1929,6 +1932,8 @@ void setup() {
         if (ini.hasSection("time")) {
           float tz = ini["time"].getFloatValueSafe("zone", 0);
           ntpClock.setTimeZone(tz);
+          tzIniHad = ini["time"].hasKey("zone");
+          tzIniHours = tz;
         }
 
         // Load screen dimming & sleeping config
@@ -1971,6 +1976,10 @@ void setup() {
     }
     gui.setAudio(audio);
   }
+  /* The time zone (0.9.82): the setting from NVS - Auto (the default, the upgrade too), a named
+   * zone, or the typed offset just applied above. Auto keeps the typed offset until a MEASURED fix
+   * finds a zone (tz_auto.h); a zone's DST offset waits for the clock (tzSvcLoop). */
+  tzSvcBegin(tzIniHad, tzIniHours);
 
 #ifdef HEADPHONE_DETECT_PIN
   pinMode(HEADPHONE_DETECT_PIN, INPUT_PULLUP);
@@ -4353,6 +4362,16 @@ void loop() {
       // resolveMdns(host);
     }*/
 
+    /* The time zone (tz_service.h): the offset re-computed once a second - a DST change, the clock
+     * just set, a zone Auto found - and Auto's look at the measured fix every 30 s. `quiet` under a
+     * Game Boy game: no NVS write under it (the offset still follows DST). A change repaints what
+     * shows the time exactly as the minute tick does; nothing else needs telling, because every
+     * reader takes ntpClock's offset at the moment it reads. */
+    loopPhase("tz");
+    if (tzSvcLoop(now, gGbcActive)) {
+      redrawWhat |= gui.processEvent(now, TIME_UPDATE_EVENT);
+    }
+
     // Clock update
     loopPhase("ntp");
     if (ntpClock.isUpdated()) {
@@ -5394,6 +5413,19 @@ void loop() {
             (unsigned)audio->rtpPeerPort(), (unsigned)RTP_ORPHAN_RELEASE_MS);
       audio->shutdown();
       audioBusyStampMs = 0;
+    }
+
+    /* A time zone change, told ONCE (tz_service.h): the mesh popup's banner, held until it can be
+     * seen - the screen awake (brightness 0 = asleep: a banner drawn then is never seen), no game
+     * (a GUI draw under one deadlocks the LCD's SPI), no mesh banner up. Quiet otherwise: no buzz,
+     * no unread mark - the clock changing is news, not a message. */
+    if (!meshPopupActive && !gGbcActive && gui.state.screenBrightness > 0 && !gui.state.locked) {
+      char tzTitle[40], tzBody[48];
+      if (tzSvcTakeNotice(tzTitle, sizeof(tzTitle), tzBody, sizeof(tzBody))) {
+        gui.showMeshPopup(tzTitle, tzBody);
+        meshPopupActive = true;
+        meshPopupShownMs = millis();
+      }
     }
 
     // Auto-dismiss the mesh popup: repaint the screen to erase it after a moment.

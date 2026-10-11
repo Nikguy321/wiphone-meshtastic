@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi, the phone's location from a hotspot
+## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi, the phone's location from a hotspot, automatic time zones
 
 Nick: the phones should get new OpenTopoMap tiles *"over WiFi from the Mac"* rather than by
 opening them for the SD card.
@@ -95,6 +95,82 @@ opening them for the SD card.
   `almanac bench`, the Almanac's day log and `elev`'s "you" line are rounded the same way. The
   real measured position that sat in two code comments is gone from the tree (git history
   still has it).
+
+
+**Time zones: the clock follows a MEASURED position** (until now the clock was a fixed typed
+offset with no DST rules: carried across the country it kept the old zone's time, and the
+Almanac's sunrise, sunset and legal light came out hours off):
+
+- **Settings > Time zone** (was "Time offset"). The first row: **Auto** (the default, the upgrade
+  included), a **named zone** - Pacific, Mountain, Arizona, Central, Eastern, Atlantic,
+  Newfoundland, Alaska, Hawaii, Saskatchewan, each with its own daylight-saving rule, so the
+  clock changes by itself - or **Custom** (the typed offset, no DST: the old screen). The typed
+  offset is the row below it; Custom uses it, and Auto uses it until a zone is found, so an
+  upgraded phone reads exactly what it did until a measured fix says where it is. Under a ruler,
+  what is in force now: `Eastern, UTC-4` / `From phone GPS` (`Set by hand`, `Typed offset, no
+  DST`), the next change (`DST ends Sun Nov 1 (UTC-5)`), and Auto's last look (`Auto: near a time
+  zone line`, `Auto: checking Central`). Save applies at once, no reboot: the status bar, the
+  Almanac, the weather and message times all read the clock's offset when they draw.
+- **What Auto trusts (the owner's rule: a wrong answer is worse than none - when unsure, change
+  nothing).** Only a live fix by the beacon's 30 s bar - the woods plate's GPS first, then the
+  hotspot phone's - with 4+ satellites and HDOP 10 or better when the fix says. **Never a bench
+  fix** (`pos inject`, `phonepos at`), never the internet address (there is no IP location
+  anywhere in the firmware), never a Wi-Fi guess. The zone comes from the zone map
+  (timezone-boundary-builder 2026d, (c) OpenStreetMap contributors, ODbL 1.0 - credited on the
+  screen): no answer within a map cell (at least 5.6 km north-south) of a change of clock, at sea
+  or outside North America and the Caribbean. The same new zone must be seen on two looks at
+  least 2 minutes apart (every 30 s; anything else between them starts over), so two separate
+  fixes agree before anything changes. A zone with the same clock as the one in use (Detroit and
+  Windsor) is not a change.
+- **A phone's fix counts, but only well inside a zone.** GPS 2 IP gives no accuracy, and even a
+  phone fix with good numbers can be kilometres off (GPS 2 IP's stand-in 8 satellites / HDOP 0.9
+  off its own port; gpsdRelay's generated sentences, 2-17 km off near every whole arc-minute). A
+  town-sized error does not change a time zone, but near a line it could. So a phone fix, from
+  any app, sets the zone only when nothing within 10 km has another clock (measured: 15 km also
+  refused Honolulu, San Juan and Bermuda, where the edge of territorial waters is near; 10 km
+  still refuses Knox IN, the Hopi villages, Victoria BC, Atikokan and Dawson Creek). The woods
+  plate's own GPS is metres off and only has to be clear of the line itself. Not covered, and
+  written down as accepted: gpsdRelay with generation on (the setup says to turn it off), the
+  phone standing still within ~2 m of a whole arc-minute, 12-17 km from a line.
+- **Back to Auto never brings back an old zone.** While the setting is a named zone or Custom,
+  Auto looks at nothing, so the zone it found before says where the phone *was*. Choosing Auto
+  again starts from what the clock already shows: from a named zone, that zone (`Set by hand,
+  Auto checks it`, its DST still running); from Custom, the typed offset. The clock does not move
+  at the Save; two looks that find another clock change it, with the banner.
+- **Told once, kept across a reboot:** a zone change shows a banner when the screen is next awake
+  (`Time zone: Eastern` / `Now UTC-4, from phone GPS`; never over a game). The zone is saved by
+  name in NVS, so daylight saving keeps changing at the right second after a reboot with no fix.
+  The offset is re-computed once a second and the moment the clock is set; a DST zone waits for
+  the clock (nothing shows a time before it).
+- **Who it trusts, again:** Phone location's warning applies here too - a device on a hotel's or
+  a boat's network that serves well-formed NMEA can set the zone (only to a real zone at the
+  place it claims, after two looks, and the banner says so). Choose a named zone on networks you
+  do not control.
+- **The Almanac:** with a zone (named or Auto), daylight saving is the zone's own rule, exact to
+  the second (Newfoundland's -3:30 too, which the old offset guess could not do), and the
+  reminders say it happens by itself: `Clocks go back 1 h Sun Nov 1 - the phone changes by
+  itself`, `Clocks went back 1 h at 2 AM today - the phone changed by itself`. Its Settings row
+  reads `Daylight saving: automatic` (`none here` for Arizona and Hawaii); the old "US daylight
+  saving" switch still applies to a typed offset. With a typed offset everything is as before.
+- **Where things live:** NVS `wptime` (mode, named zone, typed offset, Auto's zone by IANA name).
+  configs.ini's `[time] zone` keeps the TYPED offset and is written only when you type one (never
+  from the loop: SPIFFS is ~1.6 s to open) - an older firmware flashed over this one comes up on
+  the typed offset, as before; a typed offset changed under another firmware wins at the next boot.
+  NVS remembers what it last saw in the file, so if the file write fails the typed offset is kept
+  in NVS and still wins at the next boot (the file is not mistaken for a newer edit).
+- **Serial:** `tz` (setting, zone, offset, source, Auto's last look and why, the next change - never
+  a coordinate), `tz auto`, `tz custom [offset]`, `tz <zone>` (pacific ... saskatchewan), `tz test
+  <lat> <lon>` (the lookup alone: zone, border or not covered, the offset, whether a phone fix
+  there would count; changes nothing), `tz forget`. `clock` names the zone too.
+- **Size:** the zone map is 81.5 KB of flash once used (firmware 46.9 % of the app partition);
+  RAM unchanged.
+- Host tests: `test_tzauto` (5,048 checks: the decision through the real position slots, the 10 km
+  margin against brute-force sampling and for rated phone fixes too, every zoneinfo offset of
+  2026-2030 through a named and an Auto zone, reboot memory, the manual override and the way back
+  to Auto, every Settings line measured in the firmware's font), `test_almanac_lines` +21 (a zoned
+  clock), and `tests/check_tz_glue.py` (the glue - no SPIFFS in the loop, back to Auto, the look's
+  own millis(), a failed INI write never undone at boot, the soft key's word - with 22 mutations
+  caught).
 
 ## 0.9.81-NH (2026-10-04) - Menu > AI (Gemini), the API Keys folder, weather on the Almanac
 

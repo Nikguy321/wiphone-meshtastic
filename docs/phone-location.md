@@ -6,10 +6,16 @@ the app by itself and uses that position:
 
 - for **"me (phone)" on the map**, distances and bearings, the Almanac and the weather;
 - for **position reports to the mesh**, if you turned those on (My node → Position) and the fix
-  is good enough. See [what gets sent](#what-gets-sent-to-the-mesh).
+  is good enough. See [what gets sent](#what-gets-sent-to-the-mesh);
+- for the **time zone** when Settings → Time zone is on Auto (0.9.82): the zone where the phone's
+  fix is, after two looks two minutes apart, never near a zone line. A phone's fix counts only
+  when no other clock is within 10 km, whatever app sends it: even a fix with good satellite
+  numbers can be kilometres off (gpsdRelay with NMEA generation on, GPS 2 IP on another port).
+  The backplate GPS only has to be clear of the line itself.
 
 No Bluetooth is involved. The WiPhone only reads: it never sends anything to the app, and it
-never uses the phone's data to set its clock.
+never uses the phone's data to set its clock's time (UTC) - only, on Auto, which zone to show
+it in.
 
 **Which source wins:**
 1. The WiPhone's own GPS backplate, when it has a fix.
@@ -166,8 +172,9 @@ Never sent:
 **Who it trusts.** Whatever answers on the joined network's gateway. On your own hotspot
 that is your phone. On someone else's WiFi (a hotel, a campground, a boat's NMEA gateway) a
 device serving NMEA on those ports could set where the WiPhone thinks it is. Turn Phone
-location **off** on networks you don't control if that matters to you. The backplate GPS
-always wins, and the clock is never touched.
+location **off** on networks you don't control if that matters to you (or pick a named zone in
+Settings → Time zone, so the clock's zone cannot follow it). The backplate GPS always wins, and
+the clock's time is never touched.
 
 ## Troubleshooting
 

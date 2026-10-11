@@ -587,6 +587,10 @@ public:
    * Almanac's "last ..." place). False when that source is off or has no fix. */
   bool getSourceFix(int src, SelfFix* out) const;
   bool anySourceEnabled() const { return selfAnyEnabled(selfSlots); }
+  /* The slots themselves, read-only, for the clock's time zone (tz_auto.h, 0.9.82): Auto asks
+   * its OWN question of them (tzaPickFix - the 30 s bar, never a bench fix, an iPhone fix only
+   * far from any zone line), which is none of the questions above. */
+  const SelfSlot* getSelfSlots() const { return selfSlots; }
   /* May anything be SENT from a source that is switched on? The same set today; it exists so
    * a coarse source added later (a Wi-Fi location, self_pos.h's reserved SELF_NET) can be
    * shown on this phone's map without being put on the air by the same switch. */

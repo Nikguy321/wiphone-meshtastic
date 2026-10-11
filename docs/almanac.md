@@ -355,7 +355,17 @@ to be on the new side already, and every day screen carries the day's `check Tim
 sentence. A SHOWN day is on the side of its date (the change day itself: the new one). The
 test holds the reminder's `go`/`went` and the stepped day's offset to one rule at every 10
 minutes of both change days, from both offsets each can have. The phone's clock is never
-touched. **OK** opens an entry or toggles a setting; on SUN, MOON and
+touched. **A zoned clock (0.9.82):** with Settings → Time zone on Auto (a zone found from a
+measured fix) or a named zone, the PHONE changes its own offset at the zone's DST changes
+(`tz_service.cpp`), so the Almanac takes the zone's rule instead of all of the above
+(`AlmCtx.tzZoned`, `almCtxTzAt`/`almZone*`): a stepped day's offset is the rule's at that day's
+local noon, an instant's offset (MOON's quarters, DATE's season, the weather's fetch) is the
+rule's at that instant, Newfoundland's -3:30 is handled, and the sentences say it happens by
+itself (`Clocks go back 1 h Sun Nov 1 - the phone changes by itself`; on the day `... at 2 AM
+today - the phone changes by itself` / `... changed by itself`). Settings' row reads `Daylight
+saving: automatic` (`none here`); OK still toggles the switch a typed offset goes by. A typed
+offset (Custom, or Auto before a zone is found) is everything above, unchanged. **OK** opens an
+entry or toggles a setting; on SUN, MOON and
 SOLUNAR the left soft key (`Today`) returns to today. **Back** goes up to TODAY, then exits.
 
 **Which place** (measured on phone 2, 2026-09-27: no fix since a reboot and no pin, so every

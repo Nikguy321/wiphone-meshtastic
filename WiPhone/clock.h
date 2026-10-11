@@ -33,6 +33,15 @@ public:
   void setTimeZone(float tz)                  {
     setTimeOffset(tz*ONE_HOUR_IN_SECONDS);
   }
+  /* The offset in whole minutes east of UTC (tz_service.cpp: a zone's offset is computed, never
+   * typed). Applied under the lock like setTimeZone, so every reader - the status bar, the
+   * Almanac, message times, getExactUnixTime() - has it on its next read, without a reboot. */
+  void setOffsetMinutes(int minutes)          {
+    setTimeOffset((long)minutes * 60);
+  }
+  int getOffsetMinutes()                      {
+    return (int)(int32_t)timeOffsetSeconds / 60;     // one aligned 32-bit read: atomic here
+  }
 
   void begin(int port = NTP_DEFAULT_LOCAL_PORT);
   void sendNtpPacket();

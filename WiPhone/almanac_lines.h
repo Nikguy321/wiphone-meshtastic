@@ -259,6 +259,16 @@ struct AlmCtx {
    * Phone location on by default the `almanac` line would otherwise carry the home position to
    * ~1 m on the first bench at home (review 2026-10-10). The screen keeps full precision. */
   bool          coordsCoarse;
+  /* 0.9.82: the clock follows a time zone with RULES (Settings > Time zone: a named zone, or Auto's
+   * zone from a measured fix - tz_service.h), so the phone changes its own offset at the zone's
+   * DST changes. Then every DST answer here is the ZONE'S RULE (tz_grid.h), exact to the second,
+   * not the US guess on a bare offset; and the reminders say the change happens by itself instead
+   * of "set Time offset". false (the memset default): a typed offset, everything as before. */
+  bool          tzZoned;
+  int           tzStdS;        // the zone's standard offset (s)
+  int           tzRule;        // TZ_RULE_NONE / TZ_RULE_USCAN
+  int64_t       tzSince;       // UTC s the rule took over (BC/Alberta 2026); earlier: as before (0 = always)
+  const char*   tzName;        // "Eastern" (the Settings row); may be NULL
 };
 
 /* The device facts only the POSITION screen reads (the GPS receiver and the elevation card). */
@@ -381,6 +391,21 @@ int  almTzAt(int64_t now, int tzS, bool usDst, int64_t t);
  * "Times in UTC-8 (after the Nov 1 change)", "Times in UTC-7 (before the Nov 1 change)".
  * False (out = "") when the day is in today's offset. */
 bool almDayTzNote(int64_t now, int tzS, int dayOffset, bool usDst, char* out, size_t cap);
+
+/* ── A ZONED CLOCK (0.9.82, AlmCtx.tzZoned) ──────────────────────────────────────────────────
+ * The offset the clock has at the instant t: the zone's rule when tzZoned (and t is not before
+ * tzSince), else almTzAt(now, tzS, usDst, t). Every "the offset THEN" on the screens asks this:
+ * MOON's quarters, DATE's season, the weather's fetch time. */
+int  almCtxTzAt(const AlmCtx* c, int64_t t);
+/* The zone's DST sentences - the phone changes its OWN clock, so nothing says to set anything:
+ *   DATE, 1..21 days before:  "Clocks go back 1 h Sun Nov 1 - this phone changes by itself"
+ *   on the day, before:       "Clocks go back 1 h at 2 AM today - this phone changes by itself"
+ *   on the day, after:        "Clocks went back 1 h at 2 AM today - this phone did it"
+ *   ("go forward"/"went forward" in March). False for a zone with no DST, or not zoned. */
+bool almZoneDstReminder(const AlmCtx* c, char* out, size_t cap);
+bool almZoneDstTodayNote(const AlmCtx* c, char* out, size_t cap);   // the change day only
+/* almDayTzNote for a zoned clock: the shown day's offset by the rule, the change between named. */
+bool almZoneDayTzNote(const AlmCtx* c, char* out, size_t cap);
 
 /* The header's title for a screen (HeaderWidget::setTitle, AKROBAT_BOLD_18). The day screens
  * carry the shown day's date: TODAY "Sep 27 (Sun)", SUN "Sun: Sep 27", MOON "Moon: Sep 27",

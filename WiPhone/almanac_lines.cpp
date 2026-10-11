@@ -4,6 +4,7 @@
 #include "elev_tiles.h"      // ELEV_Z_COARSE: "coarse" on a z10 height
 #include "geo_grid.h"
 #include "mesh_pos.h"        // meshPosFixUsable: the fix-quality bar every screen of the phone uses
+#include "tz_grid.h"         // a ZONED clock's DST rule (0.9.82: Settings > Time zone)
 #include "units.h"
 #include "weather_lines.h"   // TODAY's alert and summary rows (0.9.81)
 #include "wmm.h"
@@ -224,7 +225,8 @@ int usSideNow(int64_t now, int tzS, int64_t* effDay) {
  * 06:31-17:10 - a legal-light end an hour late, with nothing on the screen to say so. */
 void dstShiftRow(const AlmCtx* c, AlmEmitFn emit, void* ctx) {
   char note[64];
-  if (almDayTzNote(c->now, c->tzS, c->dayOffset, c->usDst, note, sizeof(note))) {
+  if (c->tzZoned ? almZoneDayTzNote(c, note, sizeof(note))
+                 : almDayTzNote(c->now, c->tzS, c->dayOffset, c->usDst, note, sizeof(note))) {
     emit(ctx, ALM_ROW_WRAP, note);              // 297 px of Bold 20: two rows, the words whole
   }
 }
@@ -233,7 +235,8 @@ void dstShiftRow(const AlmCtx* c, AlmEmitFn emit, void* ctx) {
  * have been changed, and only the user knows whether it was. */
 void dstTodayRow(const AlmCtx* c, AlmEmitFn emit, void* ctx) {
   char note[96];
-  if (almDstTodayNote(c->now, c->tzS, c->usDst, note, sizeof(note))) {
+  if (c->tzZoned ? almZoneDstTodayNote(c, note, sizeof(note))
+                 : almDstTodayNote(c->now, c->tzS, c->usDst, note, sizeof(note))) {
     emit(ctx, ALM_ROW_WRAP, note);
   }
 }
@@ -694,7 +697,141 @@ int64_t almPhaseFrom(const AlmCtx* c) {
 }
 
 int almDayTzS(const AlmCtx* c) {
+  if (c->tzZoned) {
+    /* The shown day's offset by the zone's rule, at that day's local noon: on a change day that
+     * is the new side, as the bare-offset rule has it (a change is at 2 AM). Today is the clock's
+     * own offset, whatever the hour. */
+    if (c->dayOffset == 0) {
+      return c->tzS;
+    }
+    const int64_t d2 = floorDiv(c->now + c->tzS, 86400) + c->dayOffset;
+    return almCtxTzAt(c, d2 * 86400 + 43200 - c->tzStdS);
+  }
   return almDayTz(c->now, c->tzS, c->dayOffset, c->usDst, NULL);
+}
+
+int almCtxTzAt(const AlmCtx* c, int64_t t) {
+  if (c->tzZoned && t >= c->tzSince) {
+    const int m = tzRuleOffsetMinutes(c->tzStdS / 60, (uint8_t)c->tzRule, t);
+    if (m != TZ_NO_OFFSET) {
+      return m * 60;
+    }
+  }
+  return almTzAt(c->now, c->tzS, c->usDst, t);
+}
+
+namespace {
+
+/* A zoned clock's two changes in the local year y: the UTC instant, and the local date the clock
+ * shows when it happens (2 AM on the OLD side). None for a zone without DST. */
+struct ZoneChange {
+  int64_t at;
+  int64_t day;
+  bool    forward;
+};
+
+int zoneChanges(const AlmCtx* c, int year, ZoneChange out[2]) {
+  if (!c->tzZoned || c->tzRule != TZ_RULE_USCAN) {
+    return 0;
+  }
+  const int stdMin = c->tzStdS / 60;
+  out[0].at = tzUsCanDstStart(year, stdMin);
+  out[0].day = floorDiv(out[0].at + c->tzStdS, 86400);
+  out[0].forward = true;
+  out[1].at = tzUsCanDstEnd(year, stdMin);
+  out[1].day = floorDiv(out[1].at + c->tzStdS + 3600, 86400);
+  out[1].forward = false;
+  return 2;
+}
+
+bool putIfFits(const char* buf, char* out, size_t cap) {
+  if (strlen(buf) >= cap) {
+    return false;
+  }
+  strcpy(out, buf);
+  return true;
+}
+
+}  // namespace
+
+bool almZoneDstTodayNote(const AlmCtx* c, char* out, size_t cap) {
+  if (!out || !cap) {
+    return false;
+  }
+  out[0] = '\0';
+  const int64_t today = floorDiv(c->now + c->tzS, 86400);
+  int y = 0;
+  astroCivil(today * 86400, &y, NULL, NULL, NULL, NULL);
+  ZoneChange ch[2];
+  const int n = zoneChanges(c, y, ch);
+  for (int k = 0; k < n; k++) {
+    if (ch[k].day == today) {
+      const bool before = c->now < ch[k].at;
+      char buf[96];
+      snprintf(buf, sizeof(buf), "Clocks %s %s 1 h at 2 AM today - the phone %s by itself",
+               before ? "go" : "went", ch[k].forward ? "forward" : "back",
+               before ? "changes" : "changed");
+      return putIfFits(buf, out, cap);
+    }
+  }
+  return false;
+}
+
+bool almZoneDstReminder(const AlmCtx* c, char* out, size_t cap) {
+  if (!out || !cap) {
+    return false;
+  }
+  out[0] = '\0';
+  if (almZoneDstTodayNote(c, out, cap)) {
+    return true;
+  }
+  const int64_t today = floorDiv(c->now + c->tzS, 86400);
+  int y = 0;
+  astroCivil(today * 86400, &y, NULL, NULL, NULL, NULL);
+  ZoneChange ch[2];
+  const int n = zoneChanges(c, y, ch);
+  for (int k = 0; k < n; k++) {
+    if (ch[k].day - today >= 1 && ch[k].day - today <= 21) {
+      int m = 0, d = 0, wd = 0;
+      astroCivil(ch[k].day * 86400, NULL, &m, &d, &wd, NULL);
+      char buf[96];
+      snprintf(buf, sizeof(buf), "Clocks go %s 1 h %s %s %d - the phone changes by itself",
+               ch[k].forward ? "forward" : "back", WDAY3[wd % 7], MON3[(m - 1) % 12], d);
+      return putIfFits(buf, out, cap);
+    }
+  }
+  return false;
+}
+
+bool almZoneDayTzNote(const AlmCtx* c, char* out, size_t cap) {
+  if (!out || !cap) {
+    return false;
+  }
+  out[0] = '\0';
+  if (!c->tzZoned || c->dayOffset == 0) {
+    return false;
+  }
+  const int tz = almDayTzS(c);
+  if (tz == c->tzS) {
+    return false;
+  }
+  /* The change between today and the shown day: the first after now (a day ahead), or the first
+   * after the shown day (a day behind). Its date is the clock's just before it. */
+  const int64_t d2 = floorDiv(c->now + c->tzS, 86400) + c->dayOffset;
+  const int64_t from = c->dayOffset > 0 ? c->now : d2 * 86400 + 43200 - c->tzStdS;
+  const int stdMin = c->tzStdS / 60;
+  const int64_t at = tzRuleNextTransition(stdMin, (uint8_t)c->tzRule, from, NULL);
+  const int before = at ? tzRuleOffsetMinutes(stdMin, (uint8_t)c->tzRule, at - 1) : TZ_NO_OFFSET;
+  if (!at || before == TZ_NO_OFFSET) {
+    return false;
+  }
+  int m = 0, d = 0;
+  astroCivil(floorDiv(at + (int64_t)before * 60, 86400) * 86400, NULL, &m, &d, NULL, NULL);
+  char off[16], buf[64];
+  almFmtUtcOffset(tz, off, sizeof(off));
+  snprintf(buf, sizeof(buf), "Times in %s (%s the %s %d change)", off,
+           c->dayOffset > 0 ? "after" : "before", MON3[(m - 1) % 12], d);
+  return putIfFits(buf, out, cap);
 }
 
 int64_t almDayT0(const AlmCtx* c) {
@@ -1414,7 +1551,7 @@ void almLinesMoon(const AlmCtx* c, AlmEmitFn emit, void* ctx) {
       }
       /* Each in the offset the clock will have THEN (almTzAt): a quarter past a US change is in
        * that side's time, date and all (Oct 25 at -7: new moon Sun Nov 8 23:02, not Mon Nov 9). */
-      const int qtz = almTzAt(c->now, c->tzS, c->usDst, day->phase[q]);
+      const int qtz = almCtxTzAt(c, day->phase[q]);
       almFmtDate(day->phase[q], qtz, date, sizeof(date));
       almFmtClock(day->phase[q], qtz, ALM_ROUND_NEAREST, t, sizeof(t));
       emitf(emit, ctx, ALM_ROW_INFO, "%s %s %s", QUARTER[q], date, t);
@@ -1632,7 +1769,8 @@ void almLinesDate(const AlmCtx* c, AlmEmitFn emit, void* ctx) {
   emitf(emit, ctx, ALM_ROW_INFO, "Time %s %s (%s)", t, off, c->clockSrc ? c->clockSrc : "?");
   meshWarning(c, emit, ctx);
   char dst[96];
-  if (almDstReminder(c->now, c->tzS, c->usDst, dst, sizeof(dst))) {
+  if (c->tzZoned ? almZoneDstReminder(c, dst, sizeof(dst))
+                 : almDstReminder(c->now, c->tzS, c->usDst, dst, sizeof(dst))) {
     emit(ctx, ALM_ROW_WRAP, dst);
   }
   if (c->seasons) {
@@ -1644,7 +1782,7 @@ void almLinesDate(const AlmCtx* c, AlmEmitFn emit, void* ctx) {
     }
     if (best >= 0) {
       const int64_t at = c->seasons[best];
-      const int stz = almTzAt(c->now, c->tzS, c->usDst, at);   // its date on the clock THEN
+      const int stz = almCtxTzAt(c, at);                        // its date on the clock THEN
       int sy, sm, sd;
       almDateOf(at, stz, &sy, &sm, &sd, NULL, NULL);
       const int64_t days = astroDaysFromCivil(sy, sm, sd) - astroDaysFromCivil(y, m, d);
@@ -1674,10 +1812,22 @@ void almLinesSettings(const AlmCtx* c, AlmEmitFn emit, void* ctx) {
   }
   emit(ctx, ALM_SET_UNITS, unitsSettingRow(c->units));   // the Maps menu's row, word for word
   emit(ctx, ALM_ROW_WRAP, "The map uses these units too.");
-  emit(ctx, ALM_SET_DST, c->usDst ? "US daylight saving: yes" : "US daylight saving: no (HI, AZ)");
-  emit(ctx, ALM_ROW_WRAP, c->usDst
-       ? "Reminds you before US clocks change, and gives a day across a change in that day's "
-         "clock time. No for Hawaii and Arizona."
-       : "No reminder, and every day in today's offset (Hawaii and Arizona do not change).");
+  if (c->tzZoned) {
+    /* The zone's rule decides (Settings > Time zone): the phone changes its own clock, and a day
+     * across a change is in that day's time. OK still flips the switch below, which is what a
+     * TYPED offset (Custom, or Auto before a zone is found) goes by - the row says which it is. */
+    emit(ctx, ALM_SET_DST, c->tzRule == TZ_RULE_USCAN ? "Daylight saving: automatic"
+                                                      : "Daylight saving: none here");
+    char why[128];
+    snprintf(why, sizeof(why), "Set by the time zone (%s) in Settings. With a typed offset the US "
+             "reminder is %s.", c->tzName ? c->tzName : "a named zone", c->usDst ? "on" : "off");
+    emit(ctx, ALM_ROW_WRAP, why);
+  } else {
+    emit(ctx, ALM_SET_DST, c->usDst ? "US daylight saving: yes" : "US daylight saving: no (HI, AZ)");
+    emit(ctx, ALM_ROW_WRAP, c->usDst
+         ? "Reminds you before US clocks change, and gives a day across a change in that day's "
+           "clock time. No for Hawaii and Arizona."
+         : "No reminder, and every day in today's offset (Hawaii and Arizona do not change).");
+  }
   emit(ctx, ALM_ROW_WRAP, "OK changes a setting; each is saved.");
 }

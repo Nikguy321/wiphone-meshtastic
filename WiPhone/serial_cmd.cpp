@@ -25,6 +25,7 @@ extern uint32_t uiKeyMaskFor(char code);                                    // W
 #include "mesh_pos.h"             // distance/bearing for the `pos` command
 #include "app_almanac.h"          // almanacLegalToday / almanacConsole / almanacWeatherConsole: `sun`, `almanac`, `wx`
 #include "clock.h"                // ntpClock
+#include "tz_service.h"           // the `tz` command: Auto / a named zone / the typed offset
 #include "GUI.h"                  // gui.state, the `sip` command
 #include <SD.h>                   // the `wallpaper` command reads both filesystems
 #include "mesh_phy.h"             // meshPhy.benchSleep, the `power lora` toggle
@@ -247,6 +248,15 @@ static void help() {
     "  ai topic | ai clear | ai reload  new topic / delete the saved chat / re-read gemini.txt",
     "  clock      (or `time`) the time, WHO set it (ntp/gps/mesh) and how long ago, and",
     "             what the GPS and mesh paths last decided about it - see clock_source.h",
+    "  tz         the time zone: setting, zone, offset, where it came from, Auto's last look",
+    "             and why, the next DST change (never a coordinate)",
+    "  tz auto|custom [offset]|<zone>  Auto (from a measured fix; until one, the zone or offset",
+    "             the clock had - never one found before), the typed offset (-7, -3:30;",
+    "             persists in configs.ini too), or a named zone: pacific mountain arizona central",
+    "             eastern atlantic newfoundland alaska hawaii saskatchewan (each with its DST)",
+    "  tz test <lat> <lon>  look a place up: zone, border or not covered, its offset now, and",
+    "             whether a phone fix there would count (10 km margin). Changes nothing",
+    "  tz forget  drop the zone Auto found (Auto uses the typed offset until a fix finds one)",
     "  maps       what the card holds under /maps, the saved view, and the pins file",
     "  maps goto <lat> <lon> [z] [area]  set where the Maps app opens next (persists)",
     "  maps hold up|down|left|right [ms [blip]]  press an arrow and hold it (hold-to-scroll bench)",
@@ -587,6 +597,13 @@ static void reportClock() {
     Clock::unixToHuman(utc, u);
     Clock::unixToHuman(loc, l);
     say("clock: %s UTC  (local %s, UTC%+d:%02d)\n", u, l, tzMin / 60, abs(tzMin % 60));
+    {
+      TzEff e;
+      tzSvcEffective(&e);
+      char st[72];
+      tzStatusText(&e, tzSvcAuto()->zoneSrc, st, sizeof(st));
+      say("clock: time zone: %s (`tz` for why)\n", st);
+    }
     fmtAge(ntpClock.msSinceSet(nowMs), age, sizeof(age));
     say("clock: source %s, set %s ago - %s\n", clockSourceName(ntpClock.getSource()), age,
         ntpClock.isTimeTrusted()
@@ -642,6 +659,120 @@ static void reportClock() {
     say("clock: mesh: last timed position %s ago: %s (%lu held)\n", age,
         clockVerdictText(d.meshVerdict), (unsigned long)d.meshHeld);
   }
+}
+
+/* `tz` - the clock's time zone (tz_service.h; the rules are tz_auto.h's). 🛑 No coordinate in any
+ * line: the zone, the offset and the SOURCE say enough, and console captures land in notes. */
+static const char* tzModeWord(uint8_t m) {
+  return m == TZ_MODE_AUTO ? "Auto" : m == TZ_MODE_NAMED ? "named zone" : "Custom";
+}
+
+static void reportTz() {
+  const uint32_t nowMs = millis();
+  TzEff e;
+  tzSvcEffective(&e);
+  const TzAuto* a = tzSvcAuto();
+  char st[72], off[16], age[16];
+  tzStatusText(&e, a->zoneSrc, st, sizeof(st));
+  say("tz: %s - %s%s\n", tzModeWord(tzSvcMode()), st,
+      e.ok ? "" : " (the offset waits for the clock: a DST zone needs the date)");
+  if (e.iana) {
+    const TzZone* gz = tzGridZone(tzGridFindZone(e.iana));
+    say("tz: zone %s, %s now%s\n", e.iana,
+        !e.ok ? "?" : (gz ? (e.dst ? gz->abbrDst : gz->abbrStd) : "-"),
+        e.rule == TZ_RULE_USCAN ? ", US/Canada DST rule" : ", no DST");
+  }
+  if (e.kind == TZK_AUTO && a->zoneSrc == TZA_SRC_HAND) {
+    say("tz: Auto started on the zone set by hand before it (saved); two looks that find another"
+        " clock change it\n");
+  } else if (e.kind == TZK_AUTO) {
+    const uint32_t at = tzSvcAutoSetUtc();
+    const uint32_t utc = ntpClock.isTimeKnown() ? ntpClock.getExactUtcTime() : 0;
+    if (at && utc >= at) {
+      fmtAge((utc - at) > 4000000u ? 4000000000u : (utc - at) * 1000u, age, sizeof(age));
+      say("tz: Auto found it %s, %s ago (saved: kept across a reboot)\n", tzSrcWords(a->zoneSrc), age);
+    } else {
+      say("tz: Auto found it %s (saved: kept across a reboot)\n", tzSrcWords(a->zoneSrc));
+    }
+  }
+  tzFmtOffset(ntpClock.getOffsetMinutes(), off, sizeof(off));
+  if (tzSvcLastChangeMs()) {
+    char was[16];
+    tzFmtOffset(tzSvcLastChangeFrom(), was, sizeof(was));
+    fmtAge(nowMs - tzSvcLastChangeMs(), age, sizeof(age));
+    say("tz: clock offset %s (changed from %s %s ago)\n", off, was, age);
+  } else {
+    say("tz: clock offset %s (not changed since boot)\n", off);
+  }
+  char nx[64];
+  tzNextText(&e, nx, sizeof(nx));
+  if (e.ok && e.next) {
+    char u[24];
+    Clock::unixToHuman((uint32_t)e.next, u);
+    say("tz: next: %s, at %s UTC\n", nx, u);
+  } else if (nx[0]) {
+    say("tz: next: %s\n", nx);
+  }
+  if (a->whyMs) {
+    fmtAge(nowMs - a->whyMs, age, sizeof(age));
+    char w[64];
+    tzaWhyText(a, w, sizeof(w));
+    say("tz: last look %s ago: %s [%s]%s%s\n", age, w, tzaWhyName(a->why),
+        a->lastSrc == SELF_GPS ? " - GPS fix" : a->lastSrc == SELF_PHONE ? " - phone fix (10 km margin" : "",
+        a->lastSrc != SELF_PHONE ? "" : a->lastUnrated ? ", no accuracy given)" : ")");
+  } else {
+    say("tz: Auto has not looked yet (every %lus)\n", (unsigned long)(TZA_CHECK_MS / 1000));
+  }
+  const TzZone* cz = tzGridZone(a->cand);
+  if (cz) {
+    fmtAge(nowMs - a->candFirstMs, age, sizeof(age));
+    const uint32_t seen = nowMs - a->candFirstMs;
+    say("tz: waiting: %s first seen %s ago - switches on a look %lus or more after that\n",
+        cz->display, age, (unsigned long)((seen >= TZA_CONFIRM_MS ? 0 : TZA_CONFIRM_MS - seen) / 1000));
+  }
+  char typed[16];
+  tzFmtOffset(tzSvcCustomMinutes(), typed, sizeof(typed));
+  const TzNamed* nz = tzNamed(tzSvcNamed());
+  say("tz: typed offset %s (configs.ini + NVS); named zone %s; %lu looks, %lu switches since boot\n",
+      typed, nz ? nz->key : "none", (unsigned long)a->checks, (unsigned long)a->switches);
+  const TzGridInfo* g = tzGridInfo();
+  say("tz: zone map timezone-boundary-builder %s, tzdata %s, (c) OpenStreetMap contributors, ODbL 1.0\n",
+      g->release, g->tzdata);
+}
+
+/* `tz test <lat> <lon>`: the lookup alone. Prints the place to 2 decimals only (~1 km). */
+static void tzTest(const char* arg) {
+  while (*arg == ' ') arg++;
+  char* end = NULL;
+  const double lat = strtod(arg, &end);
+  const char* p = end;
+  while (p && (*p == ' ' || *p == ',')) p++;
+  char* end2 = NULL;
+  const double lon = (p && *p) ? strtod(p, &end2) : 0.0;
+  if (!end || end == arg || !end2 || end2 == p || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    say("tz: usage tz test <lat> <lon>  (decimal degrees, e.g. tz test 40.26 -76.88)\n");
+    return;
+  }
+  const int32_t la = (int32_t)(lat * 1e7 + (lat >= 0 ? 0.5 : -0.5));
+  const int32_t lo = (int32_t)(lon * 1e7 + (lon >= 0 ? 0.5 : -0.5));
+  uint8_t why = 0;
+  const int z = tzGridLookup(la, lo, &why);
+  if (z < 0) {
+    say("tz test %.2f,%.2f: %s - Auto would change nothing there\n", lat, lon, tzWhyText(why));
+    return;
+  }
+  const TzZone* zz = tzGridZone(z);
+  TzEff e;
+  const bool known = ntpClock.isTimeKnown();
+  tzEffective(TZ_MODE_AUTO, -1, z, 0, known, (int64_t)ntpClock.getExactUtcTime(), &e);
+  char off[16], nx[64];
+  tzFmtOffset(e.ok ? e.minutes : zz->stdMinutes, off, sizeof(off));
+  tzNextText(&e, nx, sizeof(nx));
+  say("tz test %.2f,%.2f: %s (%s), %s %s%s%s\n", lat, lon, zz->display, zz->iana, off,
+      e.ok ? "now" : "standard (clock not set)", nx[0] ? "; " : "", nx);
+  const int m = tzGridLookupMargin(la, lo, TZA_PHONE_MARGIN_M, NULL);
+  say("tz test: a GPS fix there would count; a phone fix (any app) %s\n",
+      m >= 0 ? "too - no other clock within 10 km" : "would NOT: another clock or the map's edge within 10 km");
 }
 
 static void run(char* line) {
@@ -1587,6 +1718,69 @@ static void run(char* line) {
    * the first fix, and then sits on "kept - agrees within 2 s". */
   if (!strcasecmp(line, "clock") || !strcasecmp(line, "time")) {
     reportClock();
+    return;
+  }
+  /* `tz` — the clock's time zone (0.9.82): Auto from a MEASURED fix (never a bench fix, never near
+   * a zone line, two looks 2 min apart), a named zone with its DST rule, or the typed offset. The
+   * setting commands are the Settings screen's own calls (tzSvcSetMode / tzSvcSetCustomMinutes):
+   * saved, and applied at once. `tz test` is the lookup alone; it changes nothing. */
+  if (!strcasecmp(line, "tz") || !strncasecmp(line, "tz ", 3)) {
+    const char* arg = line + 2;
+    while (*arg == ' ') {
+      arg++;
+    }
+    if (!*arg) {
+      reportTz();
+      return;
+    }
+    if (!strncasecmp(arg, "test", 4) && (arg[4] == '\0' || arg[4] == ' ')) {
+      tzTest(arg + 4);
+      return;
+    }
+    if (!strcasecmp(arg, "auto")) {
+      tzSvcSetMode(TZ_MODE_AUTO, -1);
+      say("tz: Auto - saved. The zone comes from a measured fix; until one, what the clock showed"
+          " (a named zone stays, Custom's typed offset stays)\n");
+      reportTz();
+      return;
+    }
+    if (!strcasecmp(arg, "forget")) {
+      tzSvcForgetAuto();
+      say("tz: Auto's zone forgotten (NVS too)\n");
+      reportTz();
+      return;
+    }
+    if (!strncasecmp(arg, "custom", 6) && (arg[6] == '\0' || arg[6] == ' ')) {
+      const char* off = arg + 6;
+      while (*off == ' ') {
+        off++;
+      }
+      if (*off) {
+        float h = 0;
+        const char* err = NULL;
+        const int m = Clock::parseTimeZone(off, h, err) ? tzHoursToMinutes(h) : 1000000;
+        if (!tzCustomOk(m)) {
+          say("tz: '%s' is not an offset (-12 to +14 hours: -7, -3:30, 5.75)%s%s\n", off,
+              err ? " - " : "", err ? err : "");
+          return;
+        }
+        const bool stored = tzSvcSetCustomMinutes(m, true);
+        say("tz: typed offset saved%s\n", stored ? " (configs.ini + NVS)" : " in NVS only - configs.ini not written");
+      }
+      tzSvcSetMode(TZ_MODE_CUSTOM, -1);
+      say("tz: Custom - the typed offset, no DST\n");
+      reportTz();
+      return;
+    }
+    const int n = tzNamedFind(arg);
+    if (n >= 0) {
+      tzSvcSetMode(TZ_MODE_NAMED, n);
+      say("tz: %s - saved; its DST changes happen by themselves\n", tzNamed(n)->display);
+      reportTz();
+      return;
+    }
+    say("tz: usage tz | tz auto | tz custom [offset] | tz <zone> | tz test <lat> <lon> | tz forget\n");
+    say("tz: zones: pacific mountain arizona central eastern atlantic newfoundland alaska hawaii saskatchewan\n");
     return;
   }
   /* `sun` — legal light at the reference place, offline. The most-asked

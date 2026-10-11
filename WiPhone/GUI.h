@@ -2999,9 +2999,25 @@ protected:
 
   // Widgets
   RectWidget* clearRect;
-  LabelWidget* timeZoneLabel;
+  LabelWidget* zoneLabel;           // "Time zone": Auto / a named zone / Custom (tz_auto.h)
+  ChoiceWidget* zoneChoice;
+  LabelWidget* hintLabel;           // what the choice looked at would do (not saved yet)
+  LabelWidget* timeZoneLabel;       // "Time offset": the TYPED offset (Custom; Auto until a fix)
   TextInputWidget* timeZoneInput;
+  RulerWidget* ruler1;
+  LabelWidget* nowZoneLabel;        // in force now: "Eastern, UTC-4"
+  LabelWidget* nowSourceLabel;      // "From phone GPS" / "Set by hand" / "Typed offset, no DST"
+  LabelWidget* nextLabel;           // "DST ends Sun Nov 1 (UTC-5)"
+  LabelWidget* autoLabel;           // Auto's last look: "Auto: near a time zone line"
+  RulerWidget* ruler2;
+  LabelWidget* creditLabel1;        // the zone map's ODbL credit (THIRD-PARTY-NOTICES.md)
+  LabelWidget* creditLabel2;
   LabelWidget* errorLabel;
+
+  uint16_t shownChoice;             // the choice the hint was written for
+  void refreshInfo();               // the four "now" lines, from tz_service
+  void refreshHint();
+  void footerForFocus();            // the soft keys' words for the focused row
 
   bool screenInited;
 };
@@ -3281,7 +3297,7 @@ protected:
     { 51, 5, "Mute all sounds", "", "", GUI_APP_MUTE },
     { 49, 5, "Predictive text", "Select", "Back", GUI_ACTION_T9_TOGGLE },
     { 33, 5, "Screen config", "", "", GUI_APP_SCREEN_CONFIG },
-    { 32, 5, "Time offset", "", "", GUI_APP_TIME_CONFIG },
+    { 32, 5, "Time zone", "", "", GUI_APP_TIME_CONFIG },     // was "Time offset" (0.9.82: Auto/named/custom)
     {37, 5, "Firmware update", "", "", GUI_APP_OTA}   // now a USB how-to; OTA cannot work (see OtaApp)
   };
 

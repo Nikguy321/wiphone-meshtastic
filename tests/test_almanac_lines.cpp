@@ -15,6 +15,7 @@
 #include "../WiPhone/elev_tiles.h"
 #include "../WiPhone/menu_wrap.h"
 #include "../WiPhone/units.h"
+#include "../WiPhone/tz_grid.h"
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -313,6 +314,23 @@ static bool alwaysMore(void* ctx) {
 
 static int64_t unixOf(int y, int m, int d, int hh, int mm, int ss, int tzS) {
   return astroDaysFromCivil(y, m, d) * 86400 + hh * 3600 + mm * 60 + ss - tzS;
+}
+
+/* A context whose clock follows a time zone with rules (0.9.82, Settings > Time zone), the day
+ * computed in ITS offset by that rule - as app_almanac.cpp's almCtxZone fills it. */
+static AlmCtx zonedFor(AlmDay* day, int64_t now, int tzS, int off, double lat, double lon,
+                       int stdS, int tzRule, const char* name) {
+  AlmCtx c = ctxFor(NULL, now, tzS, off, lat, lon, ASTRO_LEGAL_30MIN, UNITS_METRIC);
+  c.tzZoned = true;
+  c.tzStdS = stdS;
+  c.tzRule = tzRule;
+  c.tzName = name;
+  if (day) {
+    almDayCompute(day, almDayT0(&c), almDayTzS(&c), lat, lon);
+    almDayEnsure(day, ALM_NEED_PREV | ALM_NEED_NEXT | ALM_NEED_PHASES, almPhaseFrom(&c));
+  }
+  c.day = day;
+  return c;
 }
 
 int main() {
@@ -1826,6 +1844,134 @@ int main() {
     snprintf(msg, sizeof(msg), "sweep: %d screens (6 places x 82 days x 2 rules) - every row fits, "
              "every glyph exists (widest %d px: \"%s\")", screens, g_widest, g_widestText);
     CHECK(ok, msg);
+  }
+
+  // ── a ZONED clock (0.9.82): the zone's rule decides, and the phone changes by itself ──────
+  {
+    /* Settings > Time zone = Eastern (named, or Auto at Harrisburg PA, a state capital). The phone
+     * changes its own offset at the zone's DST changes (tz_service.cpp), so the reminders must not
+     * say "set Time offset", and a day across a change is in that day's offset BY THE RULE. */
+    const int EDT = -4 * 3600, EST = -5 * 3600;
+    const double LAT = 40.2640, LON = -76.8840;
+    char zs[128];                    // the app's buffers are 96 (dstTodayRow, DATE)
+    const int64_t oct15 = unixOf(2026, 10, 15, 12, 0, 0, EDT);
+    AlmCtx c = zonedFor(NULL, oct15, EDT, 0, LAT, LON, EST, TZ_RULE_USCAN, "Eastern");
+    CHECK(almZoneDstReminder(&c, zs, sizeof(zs)) &&
+          is(zs, "Clocks go back 1 h Sun Nov 1 - the phone changes by itself"),
+          "zoned: 17 days before Nov 1: the change is automatic, nothing to set");
+    Rows r;
+    memset(&r, 0, sizeof(r));
+    almLinesDate(&c, collect, &r);
+    const int dr = find(r, "Clocks go back 1 h Sun Nov 1");
+    CHECK(dr > 0 && r.kind[dr] == ALM_ROW_WRAP && find(r, "US clocks") < 0 && fitsAll(r, "DATE zoned"),
+          "zoned: DATE carries it (wrapped), never 'set Time offset'");
+    c.usDst = false;
+    CHECK(almZoneDstReminder(&c, zs, sizeof(zs)), "zoned: the zone decides, not the typed-offset switch");
+    c.usDst = true;
+    c.now = unixOf(2026, 10, 10, 23, 59, 0, EDT);
+    CHECK(!almZoneDstReminder(&c, zs, sizeof(zs)) && !s[0], "zoned: 22 days before: none");
+    c.now = unixOf(2026, 11, 1, 1, 30, 0, EDT);       // 05:30 UTC, before the change
+    CHECK(almZoneDstTodayNote(&c, zs, sizeof(zs)) &&
+          is(zs, "Clocks go back 1 h at 2 AM today - the phone changes by itself"),
+          "zoned: on the day, before 2 AM EDT: it will");
+    c.now = unixOf(2026, 11, 1, 1, 30, 0, EST);       // 06:30 UTC: the SECOND 01:30, after it
+    c.tzS = EST;
+    CHECK(almZoneDstTodayNote(&c, zs, sizeof(zs)) &&
+          is(zs, "Clocks went back 1 h at 2 AM today - the phone changed by itself"),
+          "zoned: the repeated hour, after the change: it did (the clock is EST)");
+    c.dayOffset = 1;
+    CHECK(almDayTzS(&c) == EST && !almZoneDayTzNote(&c, zs, sizeof(zs)) &&
+          almDayTz(c.now, EST, 1, true, NULL) == -6 * 3600,
+          "zoned: from that hour, tomorrow is EST too - no note (the bare-offset rule said -6 here)");
+    c.dayOffset = 0;
+    c.now = unixOf(2026, 11, 2, 9, 0, 0, EST);
+    CHECK(!almZoneDstReminder(&c, zs, sizeof(zs)) && !almZoneDstTodayNote(&c, zs, sizeof(zs)),
+          "zoned: the day after: nothing");
+    c.now = unixOf(2027, 3, 1, 12, 0, 0, EST);
+    CHECK(almZoneDstReminder(&c, zs, sizeof(zs)) &&
+          is(zs, "Clocks go forward 1 h Sun Mar 14 - the phone changes by itself"), "zoned: March, forward");
+    c.now = unixOf(2027, 3, 14, 10, 0, 0, EDT);
+    c.tzS = EDT;
+    CHECK(almZoneDstTodayNote(&c, zs, sizeof(zs)) &&
+          is(zs, "Clocks went forward 1 h at 2 AM today - the phone changed by itself"),
+          "zoned: March 14 after the change");
+    // A zone with no DST (Arizona, named or Auto at Phoenix): no reminder, no shift, ever.
+    AlmCtx az = zonedFor(NULL, oct15, -7 * 3600, 11, 33.4480, -112.0740, -7 * 3600, TZ_RULE_NONE, "Arizona");
+    CHECK(!almZoneDstReminder(&az, zs, sizeof(zs)) && almDayTzS(&az) == -7 * 3600 &&
+          !almZoneDayTzNote(&az, zs, sizeof(zs)), "zoned Arizona: no reminder, no shift");
+    // Newfoundland's -3:30: the bare-offset rule refuses part-hour offsets; the zone's rule does not.
+    const int NDT = -150 * 60, NST = -210 * 60;
+    AlmCtx nf = zonedFor(NULL, unixOf(2026, 10, 27, 12, 0, 0, NDT), NDT, 11, 47.5615, -52.7126, NST,
+                         TZ_RULE_USCAN, "Newfoundland");
+    CHECK(almDayTzS(&nf) == NST && almZoneDayTzNote(&nf, zs, sizeof(zs)) &&
+          is(zs, "Times in UTC-3:30 (after the Nov 1 change)"),
+          "zoned Newfoundland: Nov 7 from Oct 27 is in -3:30 and says so");
+    nf.dayOffset = 0;
+    nf.now = unixOf(2026, 10, 20, 12, 0, 0, NDT);
+    CHECK(almZoneDstReminder(&nf, zs, sizeof(zs)) && is(zs, "Clocks go back 1 h Sun Nov 1 - the phone changes by itself"),
+          "zoned Newfoundland: reminded (by itself)");
+
+    // The day shift, by the rule, on the screens - and it equals the day's own table.
+    static AlmDay dz, refz;
+    const int64_t oct27 = unixOf(2026, 10, 27, 12, 0, 0, EDT);
+    AlmCtx cz = zonedFor(&dz, oct27, EDT, 11, LAT, LON, EST, TZ_RULE_USCAN, "Eastern");
+    AlmCtx crz = zonedFor(&refz, unixOf(2026, 11, 7, 9, 0, 0, EST), EST, 0, LAT, LON, EST, TZ_RULE_USCAN,
+                          "Eastern");
+    (void)crz;
+    CHECK(almDayTzS(&cz) == EST && dz.t0 == refz.t0 && !memcmp(&dz.sun, &refz.sun, sizeof(dz.sun)),
+          "zoned shift: Nov 7 from Oct 27 IS Nov 7's own table");
+    memset(&r, 0, sizeof(r));
+    almLinesToday(&cz, collect, &r);
+    CHECK(is(r.text[1], "Times in UTC-5 (after the Nov 1 change)") && fitsAll(r, "TODAY zoned across"),
+          "zoned shift: TODAY says it under the date, and fits");
+    AlmCtx back = zonedFor(NULL, unixOf(2026, 11, 7, 12, 0, 0, EST), EST, -11, LAT, LON, EST, TZ_RULE_USCAN,
+                           "Eastern");
+    CHECK(almDayTzS(&back) == EDT && almZoneDayTzNote(&back, zs, sizeof(zs)) &&
+          is(zs, "Times in UTC-4 (before the Nov 1 change)"), "zoned shift: stepping back across it");
+    CHECK(almCtxTzAt(&cz, unixOf(2026, 11, 9, 0, 2, 0, EST)) == EST &&
+          almCtxTzAt(&cz, unixOf(2026, 10, 31, 23, 0, 0, EDT)) == EDT &&
+          almCtxTzAt(&cz, unixOf(2026, 11, 1, 5, 59, 59, 0)) == EDT &&
+          almCtxTzAt(&cz, unixOf(2026, 11, 1, 6, 0, 0, 0)) == EST,
+          "zoned: the offset THEN (MOON's quarters, DATE's season, the weather) changes at 06:00:00 UTC");
+    // Before a zone's rule took over (BC/Alberta 2026): the bare-offset rule, as before.
+    AlmCtx van = zonedFor(NULL, oct15, -7 * 3600, 0, LAT, LON, -7 * 3600, TZ_RULE_NONE, "Mountain, no DST");
+    van.tzSince = 1772964000LL;
+    CHECK(almCtxTzAt(&van, unixOf(2026, 1, 15, 12, 0, 0, 0)) == -8 * 3600 &&
+          almCtxTzAt(&van, unixOf(2026, 6, 15, 12, 0, 0, 0)) == -7 * 3600,
+          "zoned with a since: an instant before it is the US rule on the offset (PST then)");
+
+    // Settings: the row says DST is the zone's, and still fits.
+    memset(&r, 0, sizeof(r));
+    almLinesSettings(&c, collect, &r);
+    const int k = find(r, "Daylight saving: automatic");
+    CHECK(k > 0 && r.kind[k] == ALM_SET_DST && strstr(r.text[k + 1], "Eastern") &&
+          strstr(r.text[k + 1], "reminder is on") && fitsAll(r, "SETTINGS zoned"),
+          "zoned Settings: 'Daylight saving: automatic', named, OK still the typed-offset switch");
+    memset(&r, 0, sizeof(r));
+    almLinesSettings(&az, collect, &r);
+    CHECK(find(r, "Daylight saving: none here") > 0 && fitsAll(r, "SETTINGS zoned no DST"),
+          "zoned Settings, Arizona: 'Daylight saving: none here'");
+
+    // Every screen, every day around both changes, fits.
+    bool ok = true;
+    static AlmDay dw;
+    for (int dd = -3; dd <= 25; dd++) {
+      const int64_t now = unixOf(2026, 10, 29, 1, 30, 0, EDT) + (int64_t)dd * 6 * 3600;
+      const int tzNow = now < unixOf(2026, 11, 1, 6, 0, 0, 0) ? EDT : EST;
+      for (int off = -2; off <= 9; off += 3) {
+        AlmCtx w = zonedFor(&dw, now, tzNow, off, LAT, LON, EST, TZ_RULE_USCAN, "Eastern");
+        int64_t seasons[4];
+        for (int q = 0; q < 4; q++) seasons[q] = astroNextSeason(now, q);
+        w.seasons = seasons;
+        Rows rw;
+        memset(&rw, 0, sizeof(rw)); almLinesToday(&w, collect, &rw); ok &= fitsAll(rw, "zoned TODAY");
+        memset(&rw, 0, sizeof(rw)); almLinesSun(&w, collect, &rw); ok &= fitsAll(rw, "zoned SUN");
+        memset(&rw, 0, sizeof(rw)); almLinesMoon(&w, collect, &rw); ok &= fitsAll(rw, "zoned MOON");
+        memset(&rw, 0, sizeof(rw)); almLinesDate(&w, collect, &rw); ok &= fitsAll(rw, "zoned DATE");
+        for (int i = 0; i < rw.n; i++) if (strstr(rw.text[i], "Time offset")) ok = false;
+      }
+    }
+    CHECK(ok, "zoned: every screen around the change fits, and none says 'Time offset'");
   }
 
   printf("\n%d checks, %d failures\n", checks, failures);

@@ -35,6 +35,7 @@ extern volatile bool gGbcActive;   // WiPhone.ino: the emulator owns the screen 
 extern void notifyPopFinishFor(const char* why);
 #include "menu_marquee.h"  // the scrolling selected menu row: phase clock + glyph stepping
 #include "menu_wrap.h"     // a display-only note broken into rows that fit
+#include "tz_service.h"    // Settings > Time zone: Auto / a named zone / the typed offset (0.9.82)
 
 // Defined further down, used by the Messages screens above it.
 static const char* sipDisplayLabel(Storage& flash, const char* peer, const char* uri);
@@ -7025,8 +7026,38 @@ void EditNetworkApp::redrawScreen(bool redrawAll) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -  TimeConfig app  - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+/* Settings > Time zone (0.9.82; "Time offset" before it). The first row chooses:
+ *   Auto        the zone of a MEASURED position - this phone's GPS or the hotspot phone's - by
+ *               tz_auto.h's rules (never a bench fix, never near a zone line, two looks 2 min
+ *               apart); until one is found, the typed offset below, so an upgrade changes nothing
+ *   Pacific ... Saskatchewan   a named zone with its DST rule: the clock changes by itself
+ *   Custom      the typed offset below, no DST - exactly the old screen
+ * The typed offset is the second row, always there: Custom uses it, Auto falls back to it. Under a
+ * ruler, what is IN FORCE (which may not be what the first row shows until Save): the zone and
+ * offset, where it came from, the next DST change, and Auto's last look. Then the zone map's ODbL
+ * credit (THIRD-PARTY-NOTICES.md): this is the screen that shows a zone the map found.
+ * Every line was measured against the firmware's Akrobat Bold 16 on 228 px (test_tzauto). */
+
+// The typed offset as Clock::parseTimeZone reads it back exactly: "-7", "-3.5", "5.75".
+static void timeConfigFmtTyped(int minutes, char* out, size_t cap) {
+  if (minutes % 60 == 0) {
+    snprintf(out, cap, "%d", minutes / 60);
+    return;
+  }
+  char b[16];
+  snprintf(b, sizeof(b), "%.2f", minutes / 60.0);
+  size_t n = strlen(b);
+  while (n && b[n - 1] == '0') {
+    b[--n] = '\0';
+  }
+  if (n && b[n - 1] == '.') {
+    b[--n] = '\0';
+  }
+  strlcpy(out, b, cap);
+}
+
 TimeConfigApp::TimeConfigApp(LCD& lcd, ControlState& state, HeaderWidget* header, FooterWidget* footer)
-  : WindowedApp(lcd, state, header, footer), FocusableApp(1), ini(Storage::ConfigsFile) {
+  : WindowedApp(lcd, state, header, footer), FocusableApp(2), ini(Storage::ConfigsFile) {
   log_d("TimeConfigApp");
 
   if (ini.load() || ini.restore()) {
@@ -7046,30 +7077,58 @@ TimeConfigApp::TimeConfigApp(LCD& lcd, ControlState& state, HeaderWidget* header
     ini["time"]["zone"] = "-0";
   }
 
-  // Create and arrange general widgets
-  header->setTitle("Time setting");
-  footer->setButtons("Save", "Clear");
+  // Create and arrange general widgets (the footer's words follow the focus: footerForFocus)
+  header->setTitle("Time zone");
 
   clearRect = new RectWidget(0, header->height(), lcd.width(), lcd.height() - header->height() - footer->height(), WP_COLOR_1);
 
-  uint16_t yOff = header->height() + 5;
+  uint16_t yOff = header->height() + 4;
+  const uint16_t labelW = 100;
+  SmoothFont* f16 = fonts[AKROBAT_BOLD_16];
 
   // Add form
-  this->addInlineLabelInput(yOff, 120, timeZoneLabel, timeZoneInput, "Time offset:", 9);
+  zoneLabel = new LabelWidget(0, yOff, labelW, 25, "Time zone", WP_ACCENT_1, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::RIGHT_TO_LEFT, 8);
+  zoneChoice = new ChoiceWidget(labelW, yOff, lcd.width() - labelW, 25, fonts[AKROBAT_BOLD_18]);
+  for (int c = 0; c < TZ_CHOICE_COUNT; c++) {
+    zoneChoice->addChoice(tzChoiceName(c));
+  }
+  zoneChoice->setValue(tzChoiceOf(tzSvcMode(), tzSvcNamed()));
+  yOff += 25;
+  hintLabel = new LabelWidget(0, yOff, lcd.width(), 20, "", WP_DISAB_0, WP_COLOR_1, f16, LabelWidget::LEFT_TO_RIGHT, 6);
+  yOff += 22;
+  this->addInlineLabelInput(yOff, labelW, timeZoneLabel, timeZoneInput, "Time offset", 9);
+  this->addRuler(yOff, ruler1, 3);
+  nowZoneLabel = new LabelWidget(0, yOff, lcd.width(), 20, "", WP_COLOR_0, WP_COLOR_1, f16, LabelWidget::LEFT_TO_RIGHT, 6);
+  yOff += 20;
+  nowSourceLabel = new LabelWidget(0, yOff, lcd.width(), 20, "", WP_COLOR_0, WP_COLOR_1, f16, LabelWidget::LEFT_TO_RIGHT, 6);
+  yOff += 20;
+  nextLabel = new LabelWidget(0, yOff, lcd.width(), 20, "", WP_COLOR_0, WP_COLOR_1, f16, LabelWidget::LEFT_TO_RIGHT, 6);
+  yOff += 20;
+  autoLabel = new LabelWidget(0, yOff, lcd.width(), 20, "", WP_DISAB_0, WP_COLOR_1, f16, LabelWidget::LEFT_TO_RIGHT, 6);
+  yOff += 20;
+  this->addRuler(yOff, ruler2, 3);
+  creditLabel1 = new LabelWidget(0, yOff, lcd.width(), 18, "Zone map (c) OpenStreetMap", WP_DISAB_0, WP_COLOR_1, f16, LabelWidget::LEFT_TO_RIGHT, 6);
+  yOff += 18;
+  creditLabel2 = new LabelWidget(0, yOff, lcd.width(), 18, "contributors, ODbL 1.0", WP_DISAB_0, WP_COLOR_1, f16, LabelWidget::LEFT_TO_RIGHT, 6);
+  yOff += 20;
   this->errorLabel = new LabelWidget(0, yOff, lcd.width(), 25, "", TFT_RED, WP_COLOR_1, fonts[AKROBAT_BOLD_18], LabelWidget::LEFT_TO_RIGHT, 8);
   yOff += this->errorLabel->height();
 
-  // Load password / populate text
-  if (ini.hasSection("time") && ini["time"].hasKey("zone")) {
-    timeZoneInput->setText(ini["time"]["zone"]);
-  } else {
-    timeZoneInput->setText("");
-  }
+  /* The typed offset as tz_service holds it: NVS "cust", which boot keeps equal to configs.ini's
+   * [time] zone (the INI wins when the two differ). */
+  char typed[16];
+  timeConfigFmtTyped(tzSvcCustomMinutes(), typed, sizeof(typed));
+  timeZoneInput->setText(typed);
 
   // Focusables
+  addFocusableWidget(zoneChoice);
   addFocusableWidget(timeZoneInput);
-  setFocus(timeZoneInput);
+  setFocus(zoneChoice);
+  footerForFocus();
 
+  shownChoice = 0xFFFF;
+  refreshHint();
+  refreshInfo();
   screenInited = false;
 }
 
@@ -7078,49 +7137,128 @@ TimeConfigApp::~TimeConfigApp() {
 
   ini.backup();
 
+  delete zoneLabel;
+  delete zoneChoice;
+  delete hintLabel;
   delete timeZoneLabel;
   delete timeZoneInput;
+  delete ruler1;
+  delete nowZoneLabel;
+  delete nowSourceLabel;
+  delete nextLabel;
+  delete autoLabel;
+  delete ruler2;
+  delete creditLabel1;
+  delete creditLabel2;
   delete errorLabel;
+}
+
+void TimeConfigApp::refreshHint() {
+  const uint16_t c = zoneChoice->getValue();
+  if (c == shownChoice) {
+    return;
+  }
+  shownChoice = c;
+  char b[64];
+  tzChoiceHint(c, ntpClock.isTimeKnown(), (int64_t)ntpClock.getExactUtcTime(), b, sizeof(b));
+  hintLabel->setText(b);
+}
+
+/* The right soft key is BACK, and what it does depends on the row: on the zone choice it leaves
+ * without saving, in the offset field it deletes a character. The footer says which (review,
+ * 2026-10-10: it said "Clear" over the choice row, where pressing it threw the choice away). */
+void TimeConfigApp::footerForFocus() {
+  footer->setButtons("Save", getFocused() == (FocusableWidget*) zoneChoice ? "Back" : "Clear");
+}
+
+void TimeConfigApp::refreshInfo() {
+  TzEff e;
+  tzSvcEffective(&e);
+  char b[64];
+  tzZoneText(&e, b, sizeof(b));
+  nowZoneLabel->setText(b);
+  tzSourceText(&e, tzSvcAuto()->zoneSrc, b, sizeof(b));
+  nowSourceLabel->setText(b);
+  tzNextText(&e, b, sizeof(b));
+  nextLabel->setText(b);
+  if (tzSvcMode() == TZ_MODE_AUTO) {
+    tzaWhyText(tzSvcAuto(), b, sizeof(b));
+  } else {
+    b[0] = '\0';
+  }
+  autoLabel->setText(b);
 }
 
 appEventResult TimeConfigApp::processEvent(EventType event) {
   log_v("<-- enter function");
 
   bool quit = false;
+  appEventResult res = REDRAW_SCREEN;
 
   FocusableWidget* focusedWidget = getFocused();
 
   if (event == WIPHONE_KEY_DOWN || event == WIPHONE_KEY_UP) {
 
-    // Change focus
+    // Change focus, and the right soft key's word with it ("Back" on the choice, "Clear" below)
     nextFocus(event == WIPHONE_KEY_DOWN);
+    footerForFocus();
+    res |= REDRAW_FOOTER;
 
-  } else if (event == WIPHONE_KEY_END) {
+  } else if (event == WIPHONE_KEY_END ||
+             (event == WIPHONE_KEY_BACK && focusedWidget == (FocusableWidget*) zoneChoice)) {
 
+    /* END leaves without saving, as it always did. So does Back on the zone row - the footer
+     * says "Back" there (footerForFocus): the screen now opens on that row, and Back on a choice
+     * has nothing else to do (in the offset field it is still the backspace, "Clear"). */
     quit = true;
+
+  } else if (event == TIME_UPDATE_EVENT) {
+
+    // The minute tick, or tz_service changed the offset (a DST change, a zone Auto found)
+    refreshInfo();
+    shownChoice = 0xFFFF;               // a named zone's hint says its offset NOW
+    refreshHint();
 
   } else if (LOGIC_BUTTON_OK(event)) {
 
     log_d("Save button pressed");
 
-    // Convert/Check user input
+    uint8_t mode = TZ_MODE_AUTO;
+    int named = -1;
+    tzChoiceTo(zoneChoice->getValue(), &mode, &named);
+
+    // Convert/Check user input: the typed offset (Custom uses it, Auto falls back to it)
     const char* tzText = timeZoneInput->getText();
     const char* error = NULL;
     float tz = -25;
-    if (Clock::parseTimeZone(tzText, tz, error)) {
+    const bool parsed = Clock::parseTimeZone(tzText, tz, error);
+    const int minutes = parsed ? tzHoursToMinutes(tz) : 0;
+    const bool typedOk = parsed && tzCustomOk(minutes);
+    /* A named zone never reads the typed offset, so a field left empty or wrong does not stop it
+     * being saved (the old typed offset stays); Auto and Custom need a good one. */
+    if (!typedOk && mode != TZ_MODE_NAMED) {
 
-      // Set time offset in the GUI
-      ntpClock.setTimeZone(tz);
-
-      // Save user input
-      ini["time"]["zone"] = tz;
-      ini.store();
-
-      quit = true;
+      // Error message
+      errorLabel->setText(parsed ? "Offset: -12 to +14 hours" : error);
 
     } else {
-      // Error message
-      errorLabel->setText(error);
+
+      if (typedOk) {
+        /* Save user input: configs.ini as always (older firmware reads it), and tz_service's NVS.
+         * NVS takes it either way; tzSvcIniStored only when the file write worked, so a failed
+         * write leaves NVS the newer one and the boot keeps it (tz_service.h, THE UPGRADE). */
+        ini["time"]["zone"] = tz;
+        const bool stored = ini.store();
+        tzSvcSetCustomMinutes(minutes, false);
+        if (stored) {
+          tzSvcIniStored(minutes);
+        } else {
+          log_e("TZ: configs.ini not written - the typed offset is kept in NVS (and at boot)");
+        }
+      }
+      tzSvcSetMode(mode, named);           // saved and applied now: no reboot
+
+      quit = true;
     }
 
   } else {
@@ -7130,21 +7268,36 @@ appEventResult TimeConfigApp::processEvent(EventType event) {
     if (focusedWidget != NULL) {
       focusedWidget->processEvent(event);
     }
+    refreshHint();
 
   }
 
-  return quit ? EXIT_APP : REDRAW_SCREEN;
+  return quit ? EXIT_APP : res;
 }
 
 void TimeConfigApp::redrawScreen(bool redrawAll) {
   log_d("redrawScreen TimeConfigApp");
 
-  if (!screenInited || redrawAll) {
-    ((GUIWidget*) clearRect)->redraw(lcd);
-    ((GUIWidget*) timeZoneLabel)->redraw(lcd);
+  if (!screenInited) {
+    redrawAll = true;
   }
-  ((GUIWidget*) timeZoneInput)->redraw(lcd);
-  ((GUIWidget*) errorLabel)->redraw(lcd);
+  if (redrawAll) {
+    ((GUIWidget*) clearRect)->redraw(lcd);
+    ((GUIWidget*) zoneLabel)->redraw(lcd);
+    ((GUIWidget*) timeZoneLabel)->redraw(lcd);
+    ((GUIWidget*) ruler1)->redraw(lcd);
+    ((GUIWidget*) ruler2)->redraw(lcd);
+    ((GUIWidget*) creditLabel1)->redraw(lcd);
+    ((GUIWidget*) creditLabel2)->redraw(lcd);
+  }
+  ((GUIWidget*) zoneChoice)->refresh(lcd, redrawAll);
+  ((GUIWidget*) hintLabel)->refresh(lcd, redrawAll);
+  ((GUIWidget*) timeZoneInput)->refresh(lcd, redrawAll);
+  ((GUIWidget*) nowZoneLabel)->refresh(lcd, redrawAll);
+  ((GUIWidget*) nowSourceLabel)->refresh(lcd, redrawAll);
+  ((GUIWidget*) nextLabel)->refresh(lcd, redrawAll);
+  ((GUIWidget*) autoLabel)->refresh(lcd, redrawAll);
+  ((GUIWidget*) errorLabel)->refresh(lcd, redrawAll);
 
   screenInited = true;
 }
