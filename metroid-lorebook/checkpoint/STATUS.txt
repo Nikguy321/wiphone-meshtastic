@@ -12,6 +12,7 @@ fusion: draft, verify, revise
 hunters: draft, verify
 manga: draft, verify, revise
 metroids: draft, verify, revise
+metroids-x-late: 
 phazon: draft, verify, revise
 prime-era: 
 prime1: draft, verify, revise
@@ -26,7 +27,7 @@ suits: draft, verify, revise
 super-metroid: draft, verify, revise
 tech: draft, verify, revise
 timeline: draft, verify, revise
-weapons: draft, verify
+weapons: draft, verify, revise
 who-where: 
 x-parasite: draft, verify
 zebes: draft, verify, revise

@@ -1,0 +1,30 @@
+CLUSTER metroids-x-late
+EDITED ['metroids.json', 'x-parasite.json', 'sr388.json', 'fusion.json', 'dread.json', 'adam-other-m.json']
+FIXES 31
+
+CROSS-CLUSTER ISSUES:
+1) samus-bio, 'Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become' (The awakening paragraph) has the events in the wrong order. It says that on Itorash she destroyed the X that had taken Raven Beak with the Hyper Beam 'and she drained Itorash until it crashed into ZDR'. In fact she drained Raven Beak and Itorash first. The ship crashed, and only then did an X (the one that had worn Kraid's corpse) take Raven Beak at the crash site. She destroyed that Raven Beak X there, and its destruction set off ZDR's self-destruct. Suggested wording: '...she drained Raven Beak and then Itorash itself until it crashed onto ZDR, where she destroyed the X that had taken Raven Beak, the same X that had worn Kraid's corpse, with the Hyper Beam.' Sources: https://omegametroid.com/metroid-dread-walkthrough/raven-beak/ (crash, then 'you'll see an X parasite infect Raven Beak'; destroying it 'will also trigger a self destruct sequence') and https://en.wikipedia.org/wiki/Metroid_Dread. The dread and x-parasite entries now agree with this order.
+2) samus-bio, 'Samus: Samus Aran – Galactic Federation service and the bounty hunter years' says she 'defied the Federation's attempt to preserve the X and the Metroids there'. The Restricted Laboratory Metroids had already been jettisoned and destroyed before she defied anyone. What she defied was the plan to capture the SA-X ('Capturing the SA-X, of course.'). Suggested wording: 'defied the Federation's plan to capture the SA-X'. Source: https://metroid.retropixel.net/games/metroid4/transcript.php ; https://www.metroidwiki.org/wiki/Restricted_Laboratory
+3) Key 'hatchling' still sits on three entries: Metroids: The baby Metroid (kept, it is the subject), samus-rp 'Attitudes toward the Federation, Chozo, Pirates and Metroids', and federation-force 'The Metroid egg and Sylux's break-in'. Suggest removing it from samus-rp and using something more specific on federation-force (e.g. 'Sylux's hatchlings').
+4) Key 'Federation Police' is still on three entries outside my files after I removed it from sr388: samus-bio service entry, federation 'Federation Police and military command', and manga 'Samus's Federation Police years'. Each is about the subject, but the samus-rp and federation owners may want to confirm.
+5) samus-bio reference (no change needed): its Thoha-plus-Mawkin DNA statements are supported (SVG/Looper Dread ending explainer; Wikipedia character list), even though the dread tribes entry's notes call the Thoha donation unsourced. The dread entry's content only leaves the Thoha out, so nothing contradicts.
+
+NOTES:
+Backups of the six editable files before this pass are in /tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/backup_consistency/. All six files were re-validated with json.load. No entries were deleted and no titles changed; every edited entry got a 'Consistency pass:' note and any newly used source URL.
+
+Checked and left alone:
+- Raven Beak's plan. 'Return to SR388 once the Metroids had eliminated the X' (sr388, per Metroid Wiki's Raven Beak page) and 'house/raise Metroids on ZDR' (dread; a Wikitroid snippet via search) can both be true, so neither was changed.
+- Who released the X from Elun. Sources disagree: Metroid Wiki's Quiet Robe page and Wikipedia's plot say Samus; Wikipedia's character list says Raven Beak. The x-parasite entry keeps 'Adam concluded Raven Beak released them' as an attributed line, and the dread entries stay neutral.
+- Phaaze. Metroid Wiki and Wikipedia describe its destruction as a consequence, not a goal, so the Fusion line 'the first [world] she deliberately set on that course' stands.
+- Original Metroid II counts. The 16 Gamma and 4 Omega figures check out on Metroid Wiki.
+- Gunship 'moved on its own'. The transcript supports this ('the ship moved on its own, guided by someone's hands').
+- B.O.X. order. Super Missile download first, then the Data Room wrecked, per Metroid Wiki's B.O.X. page; consistent across entries.
+
+Remaining shared keys:
+- After this pass, no primary key in the editable files sits on more than two entries except 'hatchling', which stays on The baby Metroid because that is its subject.
+- Two-entry overlaps were left in place because both entries cover the subject: Quarantine Bay, Omega Metroid, Restricted Laboratory, Sector Zero, Elun, Raven Beak X, Metroid DNA, and the Phazon-strain names.
+- Bare 'Adam'/'ADAM', 'Anthony', 'Princess' and 'Nightmare' all sit on entries that require a secondary key, which the key rules allow.
+
+Not acted on:
+- The Adam Malkovich entry's phrase 'styled General in Federation records' gives an unverified source for the rank. Metroid Wiki says only 'General' in its lead.
+- Item reward numbers in the X biology entry ('ten units of energy', etc.) are gameplay-flavoured, but none of the banned words appear, so they were kept.
