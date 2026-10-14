@@ -1,0 +1,205 @@
+{
+ "run": "wf_75a38b55-7ed",
+ "label": "verify:gap4",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Samus: Samus's reputation: how troopers, Pirates, hunters and the Federation see her",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "style",
+      "claim": "Prophecy: the Chozo of Tallon IV foretold her as the Entrusted One, U-Mos told her for the Luminoth \"You're our only hope, Samus\", and the Lamorn hailed her as the Chosen One.",
+      "problem": "U-Mos's line is a plea, not a prophecy, but it sits under a bullet labelled 'Prophecy'. The drafter's notes admit the Luminoth have no prophecy title for her. Also, the Tallon IV Chozo foretold an Entrusted One and only hoped the Newborn (Samus) was that Defender ('Is the Newborn the Defender of which the seers spoke?'). 'Foretold her' slightly overstates this.",
+      "correction": "Rename the bullet 'Prophecy and hope': 'The Chozo of Tallon IV foretold an Entrusted One and believed the child they had raised was that one; the Lamorn named her their Chosen One; the Luminoth had no prophecy, but U-Mos told her plainly, \"You're our only hope, Samus.\"'",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Lore"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"heard of you\", \"heard about you\", \"it's really her\", \"your reputation\"",
+      "problem": "These are generic chat phrases. 'I've heard of you' said to any NPC (Sylux, Myles, a Luminoth), 'your reputation' about anyone, and 'it's really her' about any woman will all fire this Samus-reputation entry. It has no secondary gating.",
+      "correction": "Keep the multi-word Samus-specific keys (Samus's reputation, the Samus Aran, legendary hunter, living legend, famous bounty hunter, greatest hunter). Either drop 'it's really her', or make the entry selective with secondaries such as Samus / Aran / Hunter / bounty hunter so that 'heard of you' and 'your reputation' only fire in Samus context."
+     },
+     {
+      "severity": "missing",
+      "claim": "Some doubt the stories: PFC I. Crany of Bravo Squad dismissed tales of one person taking out an entire Pirate base as \"fairy tales\"...",
+      "problem": "The quotes are verified verbatim. But the log's other half is left out: the tale Crany scoffed at was SPC M. Angseth's story that Samus 'blew up a planet full of Space Pirates', and Angseth herself idolized Samus ('This wouldn't happen to Samus Aran... She'd be out there take care of business'). That one clause is useful for NPC roleplay, since the stories are mess-hall talk among troopers and the believers outnumber the doubters.",
+      "correction": "'...PFC I. Crany scoffed when comms specialist M. Angseth, who wished she could be out \"taking care of business\" like Samus, told how one hunter blew up a planet full of Space Pirates: he \"didn't believe in fairy tales like that\" and lumped \"this Samus\" with \"Bigfoot, or Santa Claus.\"'",
+      "source_url": "https://www.metroidwiki.org/wiki/Trooper_Logs"
+     },
+     {
+      "severity": "style",
+      "claim": "Crany/Angseth material; Gandrayda's 'bloody helmet' vow; manual's 'greatest of all the space hunters'",
+      "problem": "Duplicate check: there is partial overlap but not substantial duplication. The Crany/Angseth point is already in 'Galactic Federation: Federation Marines and trooper culture' and 'Prime 2: GFS Tyr and Bravo Squad'. The helmet vow appears in 'Dark Samus: The return – Colossus, Phaaze and the Norion attack', 'Space Pirates: The Pirates and Samus (the Hunter)' and 'Space Pirates: Pirate Homeworld'. The manual line is in 'Technology: Bounty hunting in the Metroid galaxy'. Each is acceptable as one clause because the brief asked for this quote to be checked. Keep them to one clause each and do not expand them.",
+      "correction": "No change needed beyond keeping each to one clause."
+     },
+     {
+      "severity": "nit",
+      "claim": "On Tanamaar, soldiers pinned down by Space Pirates called out \"It's Samus. She's punching through\"",
+      "problem": "Both lines are verbatim from the Shinesparkers transcript, which shows the soldiers ambushed ('How'd they get the drop on us?'). 'Pinned down' is an inference, though a fair one.",
+      "correction": "'On Tanamaar, soldiers ambushed by Space Pirates called out...'",
+      "source_url": "https://shinesparkers.net/metroid-prime-4-beyond-transcript/"
+     },
+     {
+      "severity": "nit",
+      "claim": "Galactic Federation leadership: it hires her ... (Zebes as a last resort, ...)",
+      "problem": "Per the manual, the 'last resort' decision was the Federation Police's ('As a last resort, the Federation Police have decided on this strategy'). This matches the existing overview entry, so it is fine as written. Noted only for precision.",
+      "correction": "Optional: '(Zebes, when the Federation Police turned to a space hunter as a last resort, ...)'",
+      "source_url": "https://metroiddatabase.com/old_site/m1/manual.php"
+     },
+     {
+      "severity": "nit",
+      "claim": "On the Bottle Ship the 07th Platoon received her coolly; only Anthony Higgs greeted her as a friend.",
+      "problem": "No Other M script was available to check this. Secondary summaries say the platoon first treated her as a threat (guns raised) until Anthony recognized her ('Ah...Fancy meeting you here, Princess. Remember me?'), and Adam accepted her only on condition she follow his orders. The point is consistent with the existing 'Other M: Anthony Higgs' and '07th Platoon' entries, so keep it, and the greeting quote could anchor it.",
+      "correction": "Optional: 'On the Bottle Ship the 07th Platoon met her with raised guns until Anthony Higgs greeted her (\"Fancy meeting you here, Princess\"); Adam let her join only under his orders.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Anthony_Higgs"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Humans and Earth",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "...as are many of the people Samus has served and worked beside: ... and the engineer Myles MacKenzie and the soldiers stranded with him on Viewros.",
+      "problem": "No source gives a species for Myles MacKenzie, Reger Tokabi, Ezra Duke or Nora Armstrong. The in-game Biology logbook lists none, and Tokabi is described only as a former hunter from 'remote worlds', devoted to the god Sollan. The castaways also include VUE-995, a battle android built to replace human pilots, so 'the soldiers stranded with him' are not all human even in principle. Metroid Wiki has no Prime 4 character pages. Calling the Viewros group human is therefore an inference from their appearance.",
+      "correction": "Drop the Viewros clause, or hedge it: '...Madeline Bergman, and Federation personnel such as those stranded on Viewros (among them the combat android VUE-995).' Keep Adam, Anthony, Dane and Madeline, whose infoboxes list them as Human.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: Earth, humans ... secondary_keys: Federation, colony, Chozo, K-2L, species, galaxy, DNA, Metroid (AND_ANY)",
+      "problem": "In a Metroid roleplay, 'Metroid', 'galaxy' and 'Federation' are in nearly every context window, so the AND_ANY gate does almost nothing. Bare 'Earth' will then fire on idioms like 'what on Earth' or 'down to earth', and 'humans' on any mention of people, such as 'the X infected the humans'. The brief wanted the selectivity to keep ordinary chat from firing the entry.",
+      "correction": "Remove 'Metroid', 'galaxy' and 'DNA' from the secondaries (keep Federation, colony, Chozo, K-2L, species). Consider replacing bare 'Earth' with 'planet Earth', 'from Earth', 'on Earth', 'Earth colony' and 'back to Earth'."
+     },
+     {
+      "severity": "unverified",
+      "claim": "Its old stories travel with the Federation, whose warships bear names from ancient Earth mythology: the Olympus, the Valhalla, the Tyr, the Theseus.",
+      "problem": "The ship classes are correct: the Olympus and Valhalla are Olympus-class battleships, the Tyr is an Anhur-class warship and the Theseus is a Griffin-class frigate. But 'named after ancient Earth mythology' comes from Metroid Wiki's real-world Etymology sections, not from any in-game text. 'Its old stories travel with the Federation' builds an in-universe claim on that trivia. The existing Federation overview and Navy entries make the same claim, so this is consistent but thinly sourced.",
+      "correction": "Tone it down to an observation: 'Federation warships such as the Olympus, the Valhalla, the Tyr and the Theseus carry names from Earth myth.' Drop 'Its old stories travel with the Federation.'",
+      "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Tyr"
+     },
+     {
+      "severity": "nit",
+      "claim": "Earth is humanity's homeworld.",
+      "problem": "No game states this outright. Metroid Wiki's Human page says only 'presumably originating on the planet Earth', and its Earth page is an unsourced stub. The claim is implied by the manual's Metroid being brought 'back to Earth' and by the manga's Earth-colony framing of K-2L. Acceptable, but it rests on inference.",
+      "correction": "'Earth is, by every indication, humanity's homeworld:' and then the manual and manga evidence that follows.",
+      "source_url": "https://www.metroidwiki.org/wiki/Human"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Chozo gave her their DNA when she was three",
+      "problem": "The age comes from the manga. The games and manuals confirm the Chozo DNA (Dread names Thoha and Mawkin donors) but give no age. The entry labels the K-2L sentence 'per the manga' but not this one.",
+      "correction": "'per the manga, the Chozo gave her their DNA when she was three'"
+     },
+     {
+      "severity": "missing",
+      "claim": "Humans are ... the backbone of the Galactic Federation's military, research and colonies.",
+      "problem": "The entry gives no hint that non-humans serve the Federation, which matters if an NPC asks whether the Federation is human-only. Per the manga, Samus's Federation comrades Kreatz and Mauk were non-human. Other existing entries cover the Elysians and Bryyo as Federation partners or protectorates.",
+      "correction": "Add one clause: '...though not exclusively: per the manga, her Federation comrades Kreatz and Mauk were not human (see Kreatz and Mauk).'",
+      "source_url": "https://www.metroidwiki.org/wiki/Human"
+     },
+     {
+      "severity": "nit",
+      "claim": "Humans predominate on Federation worlds such as Norion",
+      "problem": "This rests only on the 'race=Humans' infobox field of Metroid Wiki's unsourced Norion stub. The existing Federation overview says the same, so it is consistent.",
+      "correction": "Keep it, or say 'Norion's Federation base is crewed by humans'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Norion"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Exotic materials: Cordite, Bendezium, Denzium, Talloric Alloy, Brinstone, Radion and Urithic Ore",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "carved into statues and wall hangings in the Chozo Ruins and Phendrana Drifts that often hide Power Conduits",
+      "problem": "Only one scan, the Phendrana Shorelines statue, mentions a Power Conduit behind Cordite. The Sun Tower wall hanging scan says only that it is 'slightly cracked'. The wiki's general prose says Cordite structures 'frequently conceal important objects, such as Power Conduits or Runic Symbols'.",
+      "correction": "'...that often conceal Power Conduits or Runic Symbols'",
+      "source_url": "https://www.metroidwiki.org/wiki/Cordite"
+     },
+     {
+      "severity": "nit",
+      "claim": "Brinstone shaped a Chozo shaman bust and pillars on Tallon IV, walls, pillars and a statue on Aether and Dark Aether",
+      "problem": "On Tallon IV the list leaves out the Brinstone wall in the Ruined Gallery (Chozo Ruins). On Aether the scans show one wall (the fractured half-pipe section in Sand Processing), not 'walls'.",
+      "correction": "'...a wall, a Chozo shaman bust and pillars on Tallon IV; a wall section, pillars and a statue on Aether and Dark Aether...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Brinstone"
+     },
+     {
+      "severity": "nit",
+      "claim": "Samus met it in the shrines and tunnels of Magmoor Caverns and the gates of the Phazon Mines",
+      "problem": "The located scans are one shrine (Warrior Shrine), one tunnel (Shore Tunnel) and one named gate (Security Access A). The plurals overstate this slightly.",
+      "correction": "'...in Magmoor Caverns' Warrior Shrine and Shore Tunnel and at Phazon Mines gates such as Security Access A'",
+      "source_url": "https://www.metroidwiki.org/wiki/Bendezium"
+     },
+     {
+      "severity": "nit",
+      "claim": "Per O-Lir, Sentinel of the Sanctuary Fortress",
+      "problem": "His hologram calls him the 'last Sentinel of the Fortress Temple'. His statements check out: he built the mechanical sentinels, the Ing corrupted them, and 'The machines have fashioned a new alloy ... to block access to key areas'.",
+      "correction": "'Per O-Lir, last Sentinel of the Fortress Temple, ...'",
+      "source_url": "https://www.metroidwiki.org/wiki/O-Lir"
+     },
+     {
+      "severity": "nit",
+      "claim": "used by Federation, Pirate, Chozo and Bryyonian builders alike",
+      "problem": "This comes from the wiki's hedged prose ('seems to be a common material'). It is still supportable: Talloric Alloy blocks the Morph Ball entrance of the Federation frigate G.F.S. Theseus on Bryyo. No change is strictly needed.",
+      "correction": "Optional: '...including the Morph Ball hatch of the downed Federation frigate G.F.S. Theseus on Bryyo'.",
+      "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Theseus"
+     },
+     {
+      "severity": "style",
+      "problem": "At about 360 words the entry runs over the brief's 250-300-word target. The Cordite and Brinstone/Radion bullets could each lose a clause. The Urithic Ore line repeats the Zebes overview's crust sentence, which is acceptable at one line.",
+      "correction": "Trim the location lists (e.g., drop the Elite Pirate stasis-tank aside or the Pirate-lab list) to land near 300 words."
+     }
+    ]
+   }
+  ],
+  "overall": "Batch gap4 is in good shape. All three entries ship after small fixes, and I found no hard canon errors. Quotes checked against primary transcriptions all held up: the original NES manual lines, including the Earth-bound Metroid capsule ('were bringing it back to Earth'), 'greatest of all the space hunters', 'absolutely impossible', 'shrouded in mystery' and 'last resort'; PFC I. Crany's 'fairy tales' and 'this Samus, or Bigfoot, or Santa Claus'; both 'accursed Hunter, Samus Aran' Pirate logs; the Prime 1 Pirate bounty order; Gandrayda's Federation data ('chief rival ... intends to surpass') and the Pirate 'bloody helmet' log; the Hunters line 'Disposition of rival interests is presumed hostile'; the Tanamaar soldiers' and Myles's 'You know her. She's... she's famous' lines; and Nora Armstrong's 'famously unshakable demeanor'. All six material pages match their scan data: the Cordite/Bendezium hatch-cover terminal line, the Elite Pirate stasis tank, O-Lir's Denzium line, the two Radion sites and the Artifact of Elder, and the 'Urthic ore' planetary text. Main fixes: (1) Humans: the Viewros castaways have no stated species and include the android VUE-995, so hedge or drop that clause. Its AND_ANY secondaries ('Metroid', 'galaxy', 'Federation') are near-universal in a Metroid roleplay, so bare 'Earth' and 'humans' will misfire. The 'ancient Earth mythology' ship naming is wiki etymology, not in-game text. Label the age-three DNA detail 'per the manga'. (2) Reputation: the U-Mos plea is mislabelled as prophecy; several keys ('heard of you', 'your reputation', 'it's really her') are generic and ungated; Angseth's admiration would balance Crany. (3) Materials: only wording nits (plural overstatements, O-Lir's exact title) and length. No substantial duplication of existing entries and no key collisions. The schema has no 'duplicate' severity, so the partial overlaps are reported under 'style'. Two cross-entry inconsistencies outside this batch stand, as the drafter noted: 'Samus: Personality and temperament' still says Samus answered Myles's 'Teammates?' with a nod, which the Prime 4 squad entry removed as unsourced; and the Shinesparkers transcript has Myles say 'I worked on her back at base' about Betsy, while the Prime 4 entry says 'a model he knew well'.",
+  "sources_consulted": [
+   "https://metroiddatabase.com/old_site/m1/manual.php",
+   "https://shinesparkers.net/metroid-prime-4-beyond-transcript/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/",
+   "https://www.metroidwiki.org/wiki/Trooper_Logs",
+   "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
+   "https://www.metroidwiki.org/wiki/Gandrayda",
+   "https://www.metroidwiki.org/wiki/Rundas",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters",
+   "https://www.metroidwiki.org/wiki/07th_Platoon",
+   "https://www.metroidwiki.org/wiki/Anthony_Higgs",
+   "https://www.metroidwiki.org/wiki/James_Pierce",
+   "https://www.metroidwiki.org/wiki/Lamorn",
+   "https://www.metroidwiki.org/wiki/Chozo_Lore",
+   "https://www.metroidwiki.org/wiki/Fleet_Admiral_Castor_Dane",
+   "https://www.metroidwiki.org/wiki/Earth",
+   "https://www.metroidwiki.org/wiki/Human",
+   "https://www.metroidwiki.org/wiki/K-2L",
+   "https://www.metroidwiki.org/wiki/G.F.S._Tyr",
+   "https://www.metroidwiki.org/wiki/G.F.S._Olympus",
+   "https://www.metroidwiki.org/wiki/G.F.S._Valhalla",
+   "https://www.metroidwiki.org/wiki/G.F.S._Theseus",
+   "https://www.metroidwiki.org/wiki/Norion",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation_Marine",
+   "https://www.metroidwiki.org/wiki/Madeline_Bergman",
+   "https://www.metroidwiki.org/wiki/Cordite",
+   "https://www.metroidwiki.org/wiki/Bendezium",
+   "https://www.metroidwiki.org/wiki/Denzium",
+   "https://www.metroidwiki.org/wiki/Talloric_Alloy",
+   "https://www.metroidwiki.org/wiki/Brinstone",
+   "https://www.metroidwiki.org/wiki/Radion",
+   "https://www.metroidwiki.org/wiki/Zebes",
+   "https://www.metroidwiki.org/wiki/Planetary_Classifications",
+   "https://www.metroidwiki.org/wiki/O-Lir",
+   "https://www.metroidwiki.org/wiki/Luminoth_Technology",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+   "/home/user/wiphone-meshtastic/metroid-lorebook/build/index.txt",
+   "/home/user/wiphone-meshtastic/metroid-lorebook/build/gapB.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/*.json"
+  ]
+ }
+}
