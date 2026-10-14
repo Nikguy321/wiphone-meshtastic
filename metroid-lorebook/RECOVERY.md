@@ -14,7 +14,9 @@ so nothing finished is lost if the session or usage limit cuts out.
 - `checkpoint/verify/<domain>.json` — the adversarial fact-check report for that draft.
 - `checkpoint/revise/<domain>.json` — the reviser's final output (same content as `entries/`, plus a changelog).
 - `checkpoint/STATUS.txt` — which stages each domain has completed.
-- `tools/workflow-shard.js` — the workflow script (30 domains; pass `args.slugs` to run a subset).
+- `tools/workflow-shard.js` — the original research workflow (draft, verify, revise; 30 domains; `args.slugs` picks a subset).
+- `tools/workflow-finish.js` — finishes domains from the saved checkpoint files without redoing research:
+  `args = {"slugs": [...], "verify": [slugs that still need a fact-check]}`. Use this after an interruption.
 - `tools/build_lorebook.py` — assembles `entries/*.json` into the SillyTavern JSON:
   `python3 tools/build_lorebook.py entries <out-dir> "Metroid Canon Lorebook"`
 - `tools/simulate.py` — checks which entries fire on sample chat lines.
@@ -28,8 +30,8 @@ phazon, federation-force, prime4, timeline, bestiary-2d, bestiary-prime, tech, m
 ## Resuming after an interruption
 
 1. A domain with a file in `entries/` is done.
-2. A domain with only `draft` (+ maybe `verify`) needs the remaining stages. In the same session, re-run the workflow with
-   `resumeFromRunId` (cached agents return instantly). In a new session, re-run `tools/workflow-shard.js` with
-   `args.slugs` set to the unfinished domains, or have Claude run the verify/revise steps by hand from the checkpoint files.
+2. A domain with only `draft` (+ maybe `verify`) needs the remaining stages: run `tools/workflow-finish.js` with those slugs
+   (list the ones without a verify file under `verify`). Do NOT resume `workflow-shard.js` with a different slug list:
+   its cache replays by call order, so a changed list silently re-drafts everything.
 3. After all 30 are done: a gap-finding pass, a cross-entry consistency pass, then `build_lorebook.py`, `simulate.py`,
    and the README (`tools/README_template.md`).

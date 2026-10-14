@@ -24,7 +24,9 @@ for j in sorted(glob.glob(os.path.join(WF, "wf_*", "journal.jsonl"))):
             d = os.path.join(OUT, "checkpoint", stage); os.makedirs(d, exist_ok=True)
             p = os.path.join(d, slug + ".json")
             txt = json.dumps({"run": run, "label": labels[ev["key"]], "result": ev.get("result")}, ensure_ascii=False, indent=1)
-            if not os.path.exists(p) or open(p, encoding="utf-8").read() != txt:
+            if stage in ("draft", "verify") and os.path.exists(p):
+                pass                    # first completed draft/verify wins; never overwrite the inputs of a revision
+            elif not os.path.exists(p) or open(p, encoding="utf-8").read() != txt:
                 open(p, "w", encoding="utf-8").write(txt)
             status.setdefault(slug, set()).add(stage)
 lines = [f"{slug}: {', '.join(s for s in ('draft','verify','revise') if s in st)}" for slug, st in sorted(status.items())]
