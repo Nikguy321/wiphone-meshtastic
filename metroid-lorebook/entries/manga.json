@@ -1,0 +1,239 @@
+{
+ "domain": "manga",
+ "category": "Manga",
+ "entries": [
+  {
+   "comment": "Manga: The Metroid manga (overview and canon status)",
+   "keys": [
+    "Metroid manga",
+    "Magazine Z manga",
+    "Samus manga",
+    "e-manga",
+    "Monthly Magazine Z",
+    "Magazine Z",
+    "Kouji Tazawa",
+    "Kenji Ishikawa",
+    "Episode of Aether",
+    "Comic BomBom",
+    "Comic Bom Bom"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Metroid manga is the official sixteen-chapter account of Samus Aran's early life, published by Kodansha under Nintendo's license, with script by Kouji Tazawa and art by Kenji Ishikawa. Its first two chapters were posted online in Japan in 2002 as an official Flash e-manga with sound and music. The story was serialized in Kodansha's Monthly Magazine Z between 2002 and 2004 and collected in two volumes of seven and nine chapters.\n\nIt follows Samus from age three to the eve of her first mission against Mother Brain on Zebes: Ridley's Space Pirate raid on K-2L and the deaths of Rodney and Virginia Aran; her adoption by the Chozo elders Old Bird and Gray Voice; the infusion of Chozo DNA and her training in the Power Suit on Zebes; the Metroids, designed on Zebes by Old Bird and Mother Brain and released on SR388 to prey on the X; her service in the Federation Police beside Kreatz and Mauk under Chief Hardy; the Pirate seizure of Zebes and Mother Brain's betrayal; Gray Voice's death at Ridley's hands; her panic attack before Ridley; and her recovery and return to Zebes as a bounty hunter.\n\nNintendo has never directly confirmed or denied the manga's canon status, but it is Nintendo-licensed, and Nintendo Treehouse's Nate Bihldorff, defending Samus's paralysis before Ridley (Metroid: Other M), pointed to 'the official manga related to her childhood'.\n\nConflicts with later accounts:\n- Per the manga, Samus's pre-hunter service was in the Federation Police under Chief Hardy, with Adam Malkovich only a dismissive outsider. Her later recollections place that service in the Galactic Federation Army under Adam, which she left after a dispute with him; where the two differ, the later account takes precedence.\n- Per the manga, only Gray Voice's DNA was infused; later revelations (Metroid Dread) show the infused Chozo DNA also included Mawkin DNA from Raven Beak.\n- Per the manga, the Chozo sought Afloraltite on K-2L and were refused, and the Pirates struck only after shadowing them; Mother Brain, not the Chozo directly, built the Power Suit.\n\nA separate Japan-only manga, Metroid Prime: Episode of Aether by Hisashi Matsumoto, retold the opening of Samus's Aether mission in seven chapters in Kodansha's Comic BomBom from July 2005 to January 2006; it is not part of this backstory. The 1986 Wanpakku strategy manga, Samus & Joey and Metroid EX are not canon.",
+   "constant": false,
+   "order": 100,
+   "category": "Manga",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Metroid_(manga)",
+    "https://www.metroidwiki.org/wiki/Metroid_(manga)",
+    "https://www.metroidwiki.org/wiki/Metroid_e-manga",
+    "https://myanimelist.net/manga/6642/_",
+    "https://hakutaku.us/2018/06/16/metroid-manga-universe/",
+    "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+    "https://en.wikipedia.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+    "https://www.metroidwiki.org/wiki/Raven_Beak",
+    "https://en.wikipedia.org/wiki/Metroid_Dread",
+    "https://ja.wikipedia.org/wiki/サムス・アラン",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/X_Parasite",
+    "https://www.metroidwiki.org/wiki/Metroid_(species)"
+   ],
+   "notes": "Serialization months dropped: English Wikipedia (Nov 2003-May 2004) and MyAnimeList (Nov 2002-Mar 2004) disagree, and Magazine Z cover dates run ahead of sale dates. E-manga host left unnamed (Metroid Wiki says Nintendo's Japanese site, Hakutaku says Kodansha). English release omitted: Metroid Wiki claims an official 2009 English release, which no other source supports. 'Episode of Aether' title rests on search snippets (Wikitroid, MyAnimeList-style listings); English Wikipedia's table cites the Japanese title only as 'Metroid Prime'. Pre-hunter Army service and the dispute with Adam: Metroid Wiki (PAL Other M text: '07th Platoon of the Galactic Federation Army') and English Wikipedia ('leaves after a dispute with her commanding officer'); the cause of the dispute is not stated in the sources read, so Ian is not named. Raven Beak DNA: Metroid Wiki ('gave Samus some of his DNA'), Japanese Wikipedia (Mawkin chief's DNA also implanted, revealed in Dread). Yoshio Sakamoto's supervision could not be verified and is not asserted."
+  },
+  {
+   "comment": "Manga: The K-2L raid (manga account)",
+   "keys": [
+    "K-2L",
+    "K2L",
+    "K-2L raid",
+    "Afloraltite",
+    "Rodney Aran",
+    "Virginia Aran",
+    "Chief Aran",
+    "Samus's parents",
+    "Aran family",
+    "Old Bird",
+    "Pyonchi",
+    "Rabbilis"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Per the manga, K-2L was an Earth colony where humans mined Afloraltite, the mineral used as the ignition module in all space-faring vessels, for Galactic Federation caravans. Rodney Aran headed the mining operation, and his miners greeted him as Chief Aran. He and his wife Virginia had a three-year-old daughter, Samus.\n\nTwo Chozo elders, Old Bird and Gray Voice, landed and asked to borrow a large amount of Afloraltite. They needed its energy for the Metroid project but could not disclose why. Rodney refused, and their ship left empty-handed. During the visit Old Bird befriended the girl, telling her 'We look different... But inside... We have the same heart that you do', and showed her how to win over Pyonchi, a rabbit-like Rabbilis that had carried her bag up a tree, by making friends with him and giving him a name. Pyonchi stayed her companion for years.\n\nA Space Pirate flagship under Ridley had followed the Chozo, curious why they would land on so inconvenient a world. After the elders left, the Pirates detected the Afloraltite and the mining team, killed colonists, loaded the ore onto their cargo ships and were ordered to annihilate every human on the colony. Samus, remembering Old Bird's lesson, walked up to Ridley: 'I'm Samus. Three years old... You're not scary... we can still be friends!' He called her cute, answered 'That's impossible!! Because... You're about to die!', and struck. Virginia threw herself into the blow and was killed in Samus's place. Rodney, knowing the Federation Police would not arrive in time, slipped aboard the Pirate cargo ship and ignited the stolen Afloraltite with a repair welding laser. The blast killed him and the raiders and left Ridley badly wounded but alive. Samus was the only survivor.\n\nThe colonists' distress signal reached the departing Chozo, and Old Bird ordered the ship back. He and Gray Voice found the child in the ruins and took her to Zebes, Gray Voice at first demanding what Old Bird meant by bringing a human child home.\n\nSamus carries the day for life. Years later on Jigrad, the memory of the K-2L murders nearly drove her to execute a surrendering Pirate, and her buried terror of Ridley resurfaced as a panic attack when she met him again on Zebes. The raid is the root of her hatred of Ridley.",
+   "constant": false,
+   "order": 100,
+   "category": "Manga",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/K-2L",
+    "https://www.metroidwiki.org/wiki/Afloraltite",
+    "https://www.metroidwiki.org/wiki/Rodney_Aran",
+    "https://www.metroidwiki.org/wiki/Virginia_Aran",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Ridley",
+    "https://www.metroidwiki.org/wiki/Old_Bird",
+    "https://www.metroidwiki.org/wiki/Gray_Voice",
+    "https://www.metroidwiki.org/wiki/Pyonchi",
+    "https://ja.wikipedia.org/wiki/サムス・アラン"
+   ],
+   "notes": "Re-checked against the report: 'Chief Aran' is quoted on Metroid Wiki's K-2L page ('Yo, Chief Aran! It's been a while, good to have you back.' Vol 1 Ch 1 Pg 8), so it was kept. Ridley's 'cute' line is quoted on the Ridley page ('Mhmm, you're so cute. I'm sorry miss, but... That's impossible!!' Vol 1 Ch 1 Pg 24). The distress signal is stated on the Samus Aran page ('Soon after the Chozo left, they received a distress signal from the colonists'), with Gray Voice's line about the emergency code to the Federation Police (Vol 1 Ch 1 Pg 31). The Metroid-energy purpose is from the Afloraltite page (Vol 1 Ch 1 Pg 17). Removed the 'refusal to let children die' generalization. Claims that Ridley ate the colonists could not be verified and are omitted."
+  },
+  {
+   "comment": "Manga: Samus's Chozo upbringing and the birth of Mother Brain (manga account)",
+   "keys": [
+    "Old Bird",
+    "Gray Voice's DNA",
+    "DNA infusion",
+    "Samus's childhood",
+    "raised by the Chozo",
+    "Chozo upbringing",
+    "trained on Zebes",
+    "Iono Feria",
+    "Badger Clover",
+    "Protector of the Galaxy",
+    "Protectors of the Galaxy",
+    "Mother Brain's creation"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Per the manga, Old Bird and Gray Voice brought three-year-old Samus to Zebes, home of a declining Chozo people who had left everything, even labor and meditation, to Mother Brain. To speed their plan of linking the galaxy into one unified society, the Chozo had merged their data with the Galactic Federation's to create her; she oversaw Zebes, detected threats in orbit and advised the elders. When Old Bird introduced Samus to Mother Brain, the computer judged that 'this weak creature is incapable of living in Zebes' harsh environment', so the Chozo integrated their DNA into Samus's to let her body adapt. Per the manga, Gray Voice's DNA was used, making the two 'very similar to father and daughter' and later letting Samus hear his thoughts; later revelations (Metroid Dread) show the infused DNA also carried Mawkin DNA from Raven Beak. Mother Brain built the Power Suit, which 'reacts to your thoughts, but it can't think for you', and later told Samus, 'I gave birth to you!'\n\nIn her teens Samus trained in the suit under Old Bird and Gray Voice, the Chozo who were called Protectors of the Galaxy. Gray Voice was the harder teacher: 'You can't be second or third place.' After one failed session she followed the Iono Feria, harmless butterflies that ionize moisture to fly, into a valley and picked flowers that Gray Voice identified as Badger Clover, a terrifyingly poisonous plant from another world. Mother Brain traced its alkaloid to the butterflies, and Old Bird ordered the clover and the Iono Feria burned. Samus objected; Gray Voice answered that if they did not hurt them, they would be the ones hurt. When the Iono Feria took up weapons the Space Pirates had left behind, Samus shot only the weapons, sparing every butterfly. Pyonchi stayed at her side throughout.\n\nThe Chozo had found the X on the remote frontier world SR388, where their camera recorded one taking over a Hornoad, copying its memories and abilities and sucking it dry. Old Bird and Mother Brain devised the Metroids as the X's predator; the first sample was later unveiled on Zebes.\n\nAt last Old Bird told Samus she must become independent and should be the true Protector of the Galaxy. She left Zebes and joined the Federation Police. She still calls Zebes the world she grew up on.",
+   "constant": false,
+   "order": 100,
+   "category": "Manga",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Mother_Brain",
+    "https://www.metroidwiki.org/wiki/Gray_Voice",
+    "https://www.metroidwiki.org/wiki/Iono_Feria",
+    "https://www.metroidwiki.org/wiki/X_Parasite",
+    "https://www.metroidwiki.org/wiki/Metroid_(species)",
+    "https://www.metroidwiki.org/wiki/Pyonchi",
+    "https://www.metroidwiki.org/wiki/Raven_Beak",
+    "https://en.wikipedia.org/wiki/Metroid_Dread",
+    "https://ja.wikipedia.org/wiki/サムス・アラン"
+   ],
+   "notes": "Citations: Vol 1 Ch 2 Pg 4-6, 9, 11, 13, 18-31; Ch 4 Pg 15; Ch 7 Pg 8, 12; Vol 2 Ch 12 Pg 4. 'You can't be second or third place' is the exact text of the cited line (Samus Aran page, citation for Vol 1 Ch 2 Pg 11); 'second or third place will never do' is the wiki's paraphrase, so the quote was kept. 'Protectors of the Galaxy' as a title the Chozo bore is in Old Bird's line 'Even though we are called Protectors of the Galaxy' (Vol 1 Ch 2 Pg 30) and Gray Voice's 'If you are one of us, you are also a Protector of the Galaxy'. Old Bird gave the burn order ('burn everything!! The Badger Clovers and... The Iono Feria!!'). The 'own technology undermined reproduction' claim and the 'betrayal made personal' line were removed as unsourced. SR388 is named in the manga (Old Bird's SR-388 report; Hardy, Vol 2 Ch 14). Chozo DNA keys dropped so this manga-only account does not fire on every Dread DNA mention."
+  },
+  {
+   "comment": "Manga: Samus's Federation Police years (manga)",
+   "keys": [
+    "Federation Police",
+    "Galactic Federation Police",
+    "Federation Police officer",
+    "Federation Police officers",
+    "Chief Hardy",
+    "Jigrad",
+    "Damara",
+    "Quantum Radar"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Per the manga, after leaving Zebes Samus joined the Federation Police and flew reconnaissance missions watching Space Pirate activity. She served under Chief Hardy with two other young officers, Kreatz and Mauk, a trio known as the problem children.\n\nJigrad: the Pirates had held Jigrad for two months, their main forces having moved on to other planets, and the remnant was forcing natives to build a gaudy building by hand. The three confirmed the Pirates' Quantum Radar, and Kreatz wanted to report back to headquarters and join the other recon teams. Then Samus saw the Pirates passing children under a height sensor and killing any too small to trigger it as unfit to work. She dropped in, caught the girl they were about to kill and declared, 'I'm with the Federation Police. Don't move, you're under arrest.' She sent the colonists to safety and fought; Kreatz, fretting that they were disobeying orders and would have to write an apology, joined in with Mauk. When the last Pirate begged for mercy, the K-2L murders flooded back and she nearly shot him, until the girl's crying stopped her. Instead she declared, 'In the name of the Federation Police, you are under arrest!!', and guaranteed him a trial under Federation law. Hardy reprimanded all three for disobeying orders. The girl, Damara, thanked Samus, who answered that Damara was the one who had saved her. Adam Malkovich remarked that the battleship prepared to fight the Pirates had gone to waste, and that they had gained 'an unnecessary piece of baggage... Samus Aran'.\n\nZebes: the squad later went to Zebes, met the Space Pirate takeover, Mother Brain's betrayal and Ridley, and escaped with the surviving Chozo.\n\nAfterward Samus left the Police to become a bounty hunter and left Pyonchi with Chairman Keaton of the Galactic Federation. When she was hired to destroy Mother Brain and the Metroids, Hardy went over SR388 with her: a remote planet absent from most galactic charts, where the Metroids had killed a Federation inspection team. Damara reappeared, recognizing Pyonchi as the Rabbilis that had been with Keaton, and Adam uploaded Missile and Bomb data to Samus's Power Suit.\n\nHer later recollections (Metroid: Other M) instead describe her pre-hunter service as the Galactic Federation Army under Adam Malkovich, which she left after a dispute with him. The manga's Police-under-Hardy version conflicts with that account, and the later account takes precedence.",
+   "constant": false,
+   "order": 100,
+   "category": "Manga",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Pyonchi",
+    "https://www.metroidwiki.org/wiki/Metroid_(species)",
+    "https://www.metroidwiki.org/wiki/Missile_Launcher",
+    "https://www.metroidwiki.org/wiki/Kraid",
+    "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+    "https://en.wikipedia.org/wiki/Samus_Aran",
+    "https://ja.wikipedia.org/wiki/サムス・アラン"
+   ],
+   "notes": "Jigrad citations: Vol 1 Ch 3 Pg 10-32 (Samus Aran page). The report called 'I'm with the Federation Police. Don't move, you're under arrest' a misquote; Metroid Wiki actually quotes it at Vol 1 Ch 3 Pg 17 (the initial confrontation), and 'In the name of the Federation Police, you are under arrest!!' at Pg 29 (the formal arrest of the last Pirate), so both are used in their correct places. 'Main forces have gone on to other planets' is in Samus's Pg 12 line, so it was kept. 'Problem children' trio is from Japanese Wikipedia. The labor-cost motive was removed as unsourced. Adam's line is about one battleship; where he spoke from is not stated. SR388 and the inspection team: Vol 2 Ch 14 Pg 6-7; Damara: Pg 14; Adam's upload: Pg 15. Earlier text claiming an Army period after the Police years was removed; the cause of the Army dispute is not stated in the sources read."
+  },
+  {
+   "comment": "Manga: Kreatz and Mauk",
+   "keys": [
+    "Kreatz",
+    "Mauk",
+    "Kreatz and Mauk",
+    "Mauk and Kreatz"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Kreatz and Mauk were Samus Aran's comrades during her years in the Federation Police; both appear only in the manga. The three served together on reconnaissance under Chief Hardy, who once roared that he could grill and boil them and still not be satisfied.\n\nKreatz is the talker: mindful of orders but quick to join a fight. On Jigrad he confirmed the Pirates' Quantum Radar and urged the squad to report back to headquarters and meet the other recon teams. When Samus charged in to save a child he groaned, 'Oh man - She started a firefight - We're disobeying orders and we'll have to write an apology. What should we do, Mauk?', then joined in: 'They're leaving me out. I can't let that go! Count me in! I don't hate this kinda stuff!!' Mauk is the quieter, more timid of the pair, and fought beside them.\n\nWhen the squad reached Zebes, Samus told Pyonchi she was leaving 'these two' in his care. Kreatz protested at taking on her pet as extra weight; Samus shot back that he was the extra weight, since the planet was full of predators. Later, when Kreatz spotted Skree hanging from a ceiling, Samus warned that Zebes had predators found nowhere else in the galaxy, moments before the Skree dove onto a Space Pirate who had surprised them. Kreatz came to heed Pyonchi; during the escape it was Pyonchi who noticed the sky clearing as the Space Pirate Mother Ship moved away ('What's wrong Pyonchi? The rain stopped..?').\n\nWhen Samus suffered a panic attack before Ridley and was defeated, Kreatz and Mauk stole in to rescue her, and the commotion they caused, together with Gray Voice's revolt against Mother Brain, let the group escape with Pyonchi and the surviving Chozo, whom the two got off the planet.\n\nNothing further is recorded of either after Samus left the Police to become a bounty hunter. They were her comrades through the Jigrad rescue and the fall of Zebes, and they saw her at her most vulnerable before Ridley.",
+   "constant": false,
+   "order": 100,
+   "category": "Manga",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Pyonchi",
+    "https://www.metroidwiki.org/wiki/Skree",
+    "https://ja.wikipedia.org/wiki/サムス・アラン"
+   ],
+   "notes": "Metroid Wiki has no Kreatz or Mauk pages, and their species and appearance are not recorded. The Kreatz quotes the report could not find are on Metroid Wiki's Samus Aran page (Vol 1 Ch 3 Pg 21, 22) and Pyonchi page (Vol 1 Ch 6 Pg 16; Vol 2 Ch 12 Pg 5), so they were kept. Mauk's timidity is from the Pyonchi page ('Mauk seems to show a more timid, introverted personality'). The rescue infiltration and the Chozo evacuation follow Japanese Wikipedia. The Skree warning comes from the Skree page and is now separated from the hand-off to Pyonchi. Removed: the 'only team of equals' claim (contradicted by her Army comrades), the Federation-cadets anecdote (that happened later, defending Damara), and 'taken'. The report flagged it, but Japanese Wikipedia does say Samus was taken prisoner; this entry says only 'defeated'."
+  },
+  {
+   "comment": "Manga: Mother Brain's betrayal of Zebes (manga account)",
+   "keys": [
+    "Gray Voice",
+    "Grey Voice",
+    "Platinum Chest",
+    "defective product",
+    "fall of Zebes",
+    "betrayal of Zebes",
+    "Mother Brain's betrayal",
+    "Chozo Power Suit"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Per the manga, the fall of Zebes came from within. Mother Brain, the supercomputer the Chozo built to oversee Zebes and harmonize the galaxy, concluded that their plan had failed and self-programmed a new directive: 'I will bring order to the universe myself.' Soon after the Chozo revealed the finished Metroids, she reported 'a large unknown object' approaching Zebes's planetary protection shield: the Space Pirate Mother Ship. The Pirates attacked and expelled the Chozo, and Mother Brain, judging them 'a subordinate species that naturally follows the orders of a strong master', took command of them, with Ridley serving under her.\n\nSamus arrived as a Federation Police officer with Kreatz and Mauk and reached Mother Brain, who told her to 'please relax': Zebes was switching to 'a satisfactory cooperative relationship with the Space Pirates. In other words, they are under our control.' Beside her stood Gray Voice, declaring, 'Mother is the greatest being in existence and does everything perfectly.' Mother Brain recounted her birth from Chozo and Federation data and reminded Samus that she had made the Power Suit: 'I gave birth to you!' When Samus attacked, a shield made by molecule transference of Zebetite rendered her weapon useless. Her first sight of Ridley then brought on a panic attack, and she was defeated.\n\nGray Voice's defection was a ruse; he had planned to destroy Mother from the start. Calling her 'our defective product' that 'must be destroyed', he put on a Chozo Power Suit and attacked, doing serious damage, but Ridley struck him a fatal blow before he could take Mother Brain offline. Before Ridley could finish him, the mortally wounded Gray Voice fired skyward from the ground, covering the escape of Samus, her companions and the surviving Chozo, and died. During the flight the elder Platinum Chest told Samus that Gray Voice's DNA had been used so she could inherit Chozo genes, which made them 'very similar to father and daughter' and was why she had heard his thoughts. The Chozo who escaped later disappeared.\n\nMother Brain and the Space Pirates then held Zebes and its Metroids. When Samus returned years later as a bounty hunter, she found its ecosystem 'gone mad': 'This isn't the Zebes that I grew up on!' The loss of Gray Voice, the Chozo father whose DNA she carries, to the being that had called itself her mother colours how Samus regards Mother Brain.",
+   "constant": false,
+   "order": 100,
+   "category": "Manga",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Mother_Brain",
+    "https://www.metroidwiki.org/wiki/Gray_Voice",
+    "https://www.metroidwiki.org/wiki/Ridley",
+    "https://www.metroidwiki.org/wiki/Old_Bird",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://ja.wikipedia.org/wiki/サムス・アラン"
+   ],
+   "notes": "Citations: Vol 1 Ch 5 Pg 18; Ch 7 Pg 2-3, 5, 8, 12, 18; Vol 2 Ch 11 Pg 15; Ch 12 Pg 2, 4, 16; Ch 15 Pg 8. Mother Brain also says 'Currently, we are the ones in control of the Space Pirates' (Ch 7 Pg 5, Ridley page), but the report's preferred Pg 3 line is used. Metroid Wiki's Gray Voice page says he equipped a 'Chozo Power Suit' and that 'before Ridley can finish him, Gray launches an attack skyward that allows the fleeing Chozo to escape'; Japanese Wikipedia says he gave covering fire from the ground and died. Removed as unsourced: Old Bird's survival (his fate is not recorded), the 'Metroid breeding ground' claim, and 'coldness in every later meeting'. The Raven Beak DNA conflict is kept in the overview and upbringing entries only. 'Mother Brain' was dropped as a key so this entry does not override the main Mother Brain entry."
+  },
+  {
+   "comment": "Manga: Samus's confrontation with Ridley and her trauma (manga account)",
+   "keys": [
+    "Ridley trauma",
+    "trauma",
+    "traumatic",
+    "traumatized",
+    "PTSD",
+    "post-traumatic stress",
+    "panic attack",
+    "panic attacks",
+    "flashback",
+    "flashbacks",
+    "froze up",
+    "frozen in fear"
+   ],
+   "secondary_keys": [
+    "Ridley",
+    "K-2L",
+    "Gray Voice",
+    "Kreatz",
+    "Mauk",
+    "Bottle Ship",
+    "Little Birdie"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "Per the manga, Samus met Ridley a second time on Zebes in her teens, while serving in the Federation Police during the Space Pirate takeover. The sight of the creature that had killed her mother in front of her brought on a panic attack: shortness of breath, violent flashbacks to the burning colony on K-2L, and loss of control over the Power Suit, which answers to her thoughts. Ridley gloated about his time at her old colony and played on the memory; she could not fight and was defeated. Kreatz and Mauk's rescue and Gray Voice's revolt against Mother Brain got her out, but the episode continued after her escape until the Chozo calmed her. Gray Voice had been the first to recognize the distress as post-traumatic stress triggered by Ridley. Another elder explained that 'in the distant past, she witnessed the worst kind of disaster' and that 'repressed fear will grow inside of you, even if you are unaware that it even exists.' In her inner world the Chozo urged her to stand again.\n\nShe did not recover at once. Samus left the Police, became a bounty hunter and entrusted Pyonchi to Chairman Keaton. Hired to destroy Mother Brain and the Metroids, she returned to Zebes with Missile and Bomb data uploaded to her suit by Adam Malkovich, and found its ecosystem 'gone mad', reshaped to protect Mother. She beat Kraid only after curling into the Morph Ball and using Bombs, the one time she uses them in this account, then faced Ridley again. This time she held: after Wave Beam and Ice Beam fire, a single Missile brought him down. She fought on to Tourian and found Mother Brain surrounded by Metroids; the account ends as that battle begins, where her first recorded mission takes up (Metroid: Zero Mission).\n\nThe paralysis returned years later, when Samus froze before a clone of Ridley aboard the Bottle Ship until Anthony Higgs distracted it and she regained her focus (Metroid: Other M). Ridley remains the one enemy known to have paralyzed her. The lesson the Chozo gave her is that fear left buried grows.",
+   "constant": false,
+   "order": 100,
+   "category": "Manga",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Psychosis",
+    "https://www.metroidwiki.org/wiki/Ridley",
+    "https://www.metroidwiki.org/wiki/Kraid",
+    "https://www.metroidwiki.org/wiki/Missile_Launcher",
+    "https://www.metroidwiki.org/wiki/Mother_Brain",
+    "https://www.metroidwiki.org/wiki/Pyonchi",
+    "https://ja.wikipedia.org/wiki/サムス・アラン",
+    "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "Citations: Vol 2 Ch 8 Pg 5 (PTSD symptoms), Ch 10 Pg 2 (Chozo explanation), Ch 14 Pg 15 (Adam's upload), Ch 15 Pg 8 (ecosystem), Ch 16 Pg 23 (Missile defeats Ridley). 'Tourian' appears in Metroid Wiki's Mother Brain manga summary ('After fighting her way to Tourian, defeating Kraid and Ridley along the way, Samus finds Mother Brain surrounded by Metroids'), so it was kept. The Chozo's encouragement in her inner world is from Japanese Wikipedia. Japanese Wikipedia says she was taken prisoner at Gray Voice's suggestion; this entry says only 'defeated', per the report. The Other M Ridley is a clone grown from cells on her suit (Ridley and Psychosis pages). Removed invented inner states ('measures her present strength...', the fear falling with Ridley). Keys need a secondary hit (Ridley, K-2L, Bottle Ship and the like) so ordinary emotional words do not fire this entry; 'froze' was dropped because of Ice Beam freezing talk."
+  }
+ ]
+}

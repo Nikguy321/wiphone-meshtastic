@@ -10,7 +10,7 @@ federation: draft, verify, revise
 federation-force: draft, verify, revise
 fusion: draft, verify, revise
 hunters: draft, verify
-manga: draft, verify
+manga: draft, verify, revise
 metroids: draft, verify, revise
 phazon: draft, verify, revise
 prime1: draft, verify, revise
@@ -23,7 +23,7 @@ space-pirates: draft, verify, revise
 sr388: draft, verify, revise
 suits: draft, verify, revise
 super-metroid: draft, verify, revise
-tech: draft, verify
+tech: draft, verify, revise
 timeline: draft, verify, revise
 weapons: draft, verify
 x-parasite: draft, verify
