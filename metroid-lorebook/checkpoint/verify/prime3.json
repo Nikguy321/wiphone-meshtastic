@@ -1,0 +1,471 @@
+{
+ "run": "wf_7ead2614-160",
+ "label": "verify:prime3",
+ "result": {
+  "overall": "Checked all ten entries against ~48 Metroid Wiki/Wikipedia fetches (WebSearch budget was exhausted after the first batch, so Wikitroid-only details could not be cross-checked by search). The drafts are broadly faithful, but share a few systematic problems: (1) the Norion generator attribution is wrong in the Rundas and Norion entries (Metroid Wiki's main MP3 page and Generator C page both have Rundas restoring Generator B and Samus restoring Generator C, with Gandrayda clearing the Pirates at C; the Rundas page's \"Generator C\" line is an internal wiki inconsistency); (2) three entries credit Aurora Unit 242 with identifying Phaaze, whereas Metroid Wiki's Phaaze and AU 217 pages credit AU 217/SkyTown's Elysian data; (3) the Elysia entry's \"five months after the impact\" follows the SkyTown wiki page but contradicts the in-game SkyTown Data (five months = the distant-world strike; Elysia was hit one week after the Aurora virus, about a month before Samus) and the MP3 page's chronology; (4) several Wikitroid-sourced specifics (NZG41, Craneyard, Proving Grounds, Jovian-steel Control Tower door, Rundas destroying ATCs) have no support on Metroid Wiki, where those pages are 404 or stubs; (5) Metroid Wiki also contradicts \"Meta Ridley led the Norion attack\" (Dark Samus led it; Ridley was defeated and \"presumed destroyed\", not driven off). Metroid Prime 4: Beyond (Metroid Wiki and Wikipedia) makes no reference to Dark Samus, Phazon, Phaaze or the three hunters, so \"no sign of survival\" and the Sylux ending stand; note the Sylux ship appears only in the 100% secret ending. Word counts: Bryyo 547, Elysians 471, Olympus 465, Phaaze 459, overview 455, Elysia 420; the non-core planet/ship entries should be trimmed toward 400. Pages that returned 404 on Metroid Wiki: Bryyo_Ice, Generator_A, Generator_B, Pirate_Research, Spire_Dock, Hall_of_the_Golems, Leviathan_Battleship, Cargo_Hub, Docking_Bay_(Norion).",
+  "reports": [
+   {
+    "entry_comment": "Prime 3: The Phazon crisis (Metroid Prime 3: Corruption events)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Aurora Unit 242 identified Phaaze as the source and Aurora Unit 313 as Dark Samus's instrument.",
+      "problem": "Metroid Wiki credits Aurora Unit 217 (via SkyTown's Elysian records) with locating Phaaze; the Phaaze page lists '217 (located Phaaze)' and the AU 217 page says it 'apparently discovered Phaaze'. 242 relayed objectives but is not credited with the discovery.",
+      "correction": "Aurora Unit 217's SkyTown data located Phaaze as the source of the Leviathans; the Federation then learned Dark Samus was using the stolen Aurora Unit 313 to control it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phaaze"
+     },
+     {
+      "severity": "nit",
+      "claim": "destroying the unit triggered a chain reaction that annihilated Dark Samus and Phaaze itself",
+      "problem": "No source uses 'chain reaction'; the Phaaze page says the planet became unstable and collapsed after AU 313 was terminated.",
+      "correction": "destroying the unit left Phaaze unstable; the planet collapsed, taking Dark Samus with it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phaaze"
+     },
+     {
+      "severity": "missing",
+      "problem": "Meta Ridley's attack on Norion and his free-fall duel with Samus in the Generator C shaft (after which he was presumed destroyed, later returning as Omega Ridley) is absent from the overview; a Samus-centered roleplay would expect her nemesis in the crisis summary.",
+      "source_url": "https://www.metroidwiki.org/wiki/Meta_Ridley"
+     },
+     {
+      "severity": "missing",
+      "problem": "The other three hunters woke several weeks before Samus and were dispatched while she was still unconscious; the entry implies the four were treated in parallel.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Sylux ship appears only in the 100%-completion secret ending (confirmed as Sylux by Tanabe in 2015); worth one clause so the roleplay knows it is the secret ending rather than the default one.",
+      "source_url": "https://www.metroidwiki.org/wiki/Sylux"
+     },
+     {
+      "severity": "keys",
+      "claim": "\"Colossus\"",
+      "problem": "Bare 'Colossus' will also fire on Bryyo's Colossus Vista and on ordinary uses of the word; the ship is a passing mention here.",
+      "correction": "Drop 'Colossus' or move it to an entry that owns the ship; keep the crisis/virus/hunter keys."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 3: Rundas",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "activated Generator C on his own initiative",
+      "problem": "Metroid Wiki's Metroid Prime 3 page has Rundas activate Generator B and Samus activate Generator C after the Meta Ridley fight; the Generator C page says it was 'activated by Samus in a series of Bomb Slot puzzles'. The Rundas page's own 'Generator C' line is an internal wiki inconsistency.",
+      "correction": "restored Generator B while Samus restored Generators A and C",
+      "source_url": "https://www.metroidwiki.org/wiki/Generator_C"
+     },
+     {
+      "severity": "unverified",
+      "claim": "He destroyed the Pirate ATC gunships closing on her",
+      "problem": "Neither the Rundas page nor the Space Pirate ATC page mentions Rundas destroying ATCs; the Rundas page says only that he saved Samus and others during the generator mission. Metroid Wiki has no Cargo Hub or Docking Bay page to confirm the scene.",
+      "correction": "Soften to 'came to her aid against Pirate forces when she reached the surface' or omit.",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_ATC"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Phazon had thickened his armor, leaving only his neck exposed under heavy stress.",
+      "problem": "The Rundas page says his ice armor is durable with the neck as its one weak point, removable under serious physical stress; nothing says Phazon thickened it.",
+      "correction": "His ice armor was nearly impenetrable; only his neck, exposed under heavy stress, was vulnerable.",
+      "source_url": "https://www.metroidwiki.org/wiki/Rundas"
+     },
+     {
+      "severity": "nit",
+      "claim": "\"Between the two of us, this should be a breeze.\" (placed after the Ridley rescue)",
+      "problem": "The quote is confirmed, but its placement implies he said it after catching Samus; the source gives no context and in sequence it belongs to his first meeting with her on Norion.",
+      "correction": "Move the quote to his arrival on Norion or present it without implied timing."
+     },
+     {
+      "severity": "missing",
+      "problem": "Rundas is the only Phrygisian Samus has ever encountered, and after corruption he entered Hypermode freely to boost his ice attacks with Phazon.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phrygisian"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 3: Ghor",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "gentle, logical and compassionate",
+      "problem": "Federation records say 'gentle, logical, and empathetic'; and he 'championed the poor' (the entry adds 'the weak' and 'the downtrodden').",
+      "correction": "gentle, logical and empathetic; a champion of the poor",
+      "source_url": "https://www.metroidwiki.org/wiki/Galactic_Federation_Data"
+     },
+     {
+      "severity": "keys",
+      "claim": "\"armorsuit\"",
+      "problem": "'Armorsuit' is a generic Metroid term (Marine PED armorsuits, Samus's armorsuit) and will misfire on any suit discussion.",
+      "correction": "Replace with 'Ghor's armorsuit' / 'Ghor's suit' or drop it."
+     },
+     {
+      "severity": "missing",
+      "problem": "His armorsuit's high-speed ramming charge, which is risky on slippery surfaces, is the reason the frozen Fuel Gel trick works; one clause would make the fight description self-explanatory.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ghor"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 3: Gandrayda",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "disguised as a Federation Marine with the registration NZG41, claiming he had been captured in the Norion raid and offering a back way into the Craneyard",
+      "problem": "The Gandrayda page says only that she 'disguises herself as a Federation Marine in an attempt to outwit and destroy Samus'; the Federation Marine and Pirate Homeworld pages have nothing on NZG41, the Norion capture claim or the Craneyard, and the Pirate Research page is 404. These rest solely on search snippets.",
+      "correction": "Gandrayda contacted her disguised as a captured Federation Marine offering a way in; (drop NZG41 and Craneyard unless a script source is cited).",
+      "source_url": "https://www.metroidwiki.org/wiki/Gandrayda"
+     },
+     {
+      "severity": "unverified",
+      "claim": "In the Proving Grounds of the Pirate Research sector",
+      "problem": "No Metroid Wiki page names the room; the MP3 page says only that Samus defeats her 'atop a tower in the Acid Rain'.",
+      "correction": "atop a tower in the Homeworld's research sector, open to the acid rain",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "nit",
+      "claim": "She tore open the roof to let in the acid rain, turned invisible, and cycled through Phazon-charged shapes of a Berserker Knight, an Aerotrooper, a Swarmbot, Rundas, Ghor and finally Samus",
+      "problem": "The Gandrayda page says she opens part of the roof 'later in the battle', after the early Pirate-form phases; the entry has the roof opened first.",
+      "correction": "...cycled through Pirate shapes, then tore open part of the roof to let in the acid rain before taking the forms of Rundas, Ghor and Samus.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gandrayda"
+     },
+     {
+      "severity": "missing",
+      "problem": "Space Pirate Data ('Mistress Gandrayda') calls her 'the last of our leader's field commanders' and records that disloyal disciples were killed under her watch; good roleplay color for her time as a Pirate officer.",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Data"
+     },
+     {
+      "severity": "missing",
+      "problem": "Her own-form attacks (homing energy blades, a shockwave, close-range clawing) and the fact that Phazon enhanced her shape-shifting are omitted.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gandrayda"
+     },
+     {
+      "severity": "keys",
+      "claim": "\"Sammy\", \"shapeshifter\", \"shape-shifter\", \"Proving Grounds\", \"NZG41\"",
+      "problem": "'Sammy' fires on any character named Sammy; 'shapeshifter' is generic in roleplay; 'Proving Grounds' is generic and the room name is unverified; 'NZG41' should go if removed from content.",
+      "correction": "Keep Gandrayda, Jovia XII; drop or gate 'Sammy' and 'shapeshifter' variants; remove 'Proving Grounds' and 'NZG41'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 3: Norion",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Ghor destroyed a Berserker Knight to open the way to Generator C, which Rundas then activated.",
+      "problem": "Samus activated Generator C herself ('activated by Samus in a series of Bomb Slot puzzles'); Rundas activated Generator B; Gandrayda, disguised as a Pirate, killed the Pirates in Generator C's room.",
+      "correction": "She restored Generator A alone; Rundas restored Generator B; Ghor destroyed a Berserker Knight on the way to Generator C, where Gandrayda, disguised as a Pirate, cut down the guards and Samus restored the generator.",
+      "source_url": "https://www.metroidwiki.org/wiki/Generator_C"
+     },
+     {
+      "severity": "error",
+      "claim": "a Space Pirate force led by Meta Ridley struck Norion",
+      "problem": "Metroid Wiki's Dark Samus page says she 'personally led the Norion assault', and Space Pirate Data names Dark Samus as leader of the Vanguard offensive; the Meta Ridley page says only that he attacked a Marine platoon. (Wikipedia says 'led by Ridley'; prefer the in-game Pirate Data.)",
+      "correction": "a Space Pirate assault directed by Dark Samus, with Meta Ridley among the attackers,",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "error",
+      "claim": "she drove him off",
+      "problem": "Samus defeated Meta Ridley in free fall and he was 'presumed destroyed'; he later returned as Omega Ridley.",
+      "correction": "she defeated him before they hit bottom and he was presumed destroyed (he later returned as Omega Ridley)",
+      "source_url": "https://www.metroidwiki.org/wiki/Meta_Ridley"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a Control Tower whose Jovian-steel door opens only when all three are powered",
+      "problem": "Metroid Wiki has no Control Tower (Norion) article (red link) and no page mentions a Jovian-steel door; the detail rests on a search snippet.",
+      "correction": "a Control Tower that only unlocks once all three generators are powered (drop 'Jovian-steel').",
+      "source_url": "https://www.metroidwiki.org/wiki/Control_Tower"
+     },
+     {
+      "severity": "unverified",
+      "claim": "after Rundas destroyed the Pirate ATC gunships hunting her",
+      "problem": "Not supported by the Rundas or Space Pirate ATC pages.",
+      "correction": "Soften or omit as in the Rundas entry.",
+      "source_url": "https://www.metroidwiki.org/wiki/Rundas"
+     },
+     {
+      "severity": "missing",
+      "problem": "Space Pirate Data records the Norion strike as part of the 'Vanguard' offensive against Elysia, Bryyo and Norion and calls it 'a failure' blamed on Samus Aran; useful for Pirate-perspective roleplay.",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Data"
+     },
+     {
+      "severity": "missing",
+      "problem": "The other three hunters woke several weeks before Samus; the entry's 'She lay in a coma for a month' leaves the reader assuming all four were out equally long.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 3: Bryyo and the Reptilicus",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Fuel Gel carried them into space",
+      "problem": "The in-game Bryyonian lore ('Decline') has the last Lord of Science discover the natural energy source he calls Fuel Gel only after the war, while restoring the wastelands; the Golden Age/Age of Science entries speak of starships without Fuel Gel. Only Metroid Wiki's 2013 Bryyo stub links Fuel Gel to the early space age, so the entry contradicts the primary lore it elsewhere follows.",
+      "correction": "Their starships carried them into space... (and later: 'the last Lord discovered the energy source he named Fuel Gel while restoring the land')",
+      "source_url": "https://www.metroidwiki.org/wiki/Bryyo_Data"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the frozen half, Bryyo Ice, is reached through a warp terminal",
+      "problem": "Metroid Wiki has no Bryyo Ice or Hall of the Golems page (404); the warp-terminal access could not be confirmed.",
+      "correction": "Omit the access detail or say simply 'the frozen half, Bryyo Ice'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Bryyo"
+     },
+     {
+      "severity": "nit",
+      "claim": "where the Pirates were tapping the Fuel Gel lake",
+      "problem": "The Temple of Bryyo page says the Pirate storage crates only 'suggest' they used the lake to supply their ships.",
+      "correction": "where the Pirates had apparently been drawing Fuel Gel from the lake",
+      "source_url": "https://www.metroidwiki.org/wiki/Temple_of_Bryyo"
+     },
+     {
+      "severity": "nit",
+      "claim": "The Reptilicus are the Primals' descendants",
+      "problem": "The Reptilicus page says they 'appear to be' descendants of the Primals.",
+      "correction": "The Reptilicus appear to be the Primals' descendants",
+      "source_url": "https://www.metroidwiki.org/wiki/Reptilicus"
+     },
+     {
+      "severity": "style",
+      "problem": "547 words, well over the 400-word guideline for a non-core subject; the war narrative and the Cliffside/Thorn Jungle/Hall of the Golems sentence can be compressed.",
+      "correction": "Trim to roughly 400 words."
+     },
+     {
+      "severity": "missing",
+      "problem": "Bryyus the First, 'the Liberator', celebrated in the Golden Age lore, and the fact that friends from the stars tried and failed to stop the war.",
+      "source_url": "https://www.metroidwiki.org/wiki/Bryyo_Data"
+     },
+     {
+      "severity": "keys",
+      "claim": "\"Theseus\", \"Primals\"",
+      "problem": "Bare 'Theseus' fires on Greek-myth chat; 'Primals' is a generic word. Missing aliases: 'Bryyo Fire', 'Bryyo Ice', 'Reptilicus Hunter', 'Bryyonian Data'.",
+      "correction": "Use 'G.F.S. Theseus'/'GFS Theseus'; add the region/species aliases."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 3: Elysia and SkyTown",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "less than half remained when Samus arrived five months after the impact",
+      "problem": "In the SkyTown Data lore the 'five months' refers to the meteor that struck a distant world; the Aurora was disabled 'about one month ago' and Elysia was hit 'one week after we had lost communication with the Aurora Unit'. The MP3 page likewise has Bryyo and Elysia struck around the Norion attack with Samus waking a month later. Metroid Wiki's SkyTown page's 'five months before Samus arrived' conflicts with the in-game lore.",
+      "correction": "less than half remained when Samus arrived about a month after the impact",
+      "source_url": "https://www.metroidwiki.org/wiki/SkyTown_Data"
+     },
+     {
+      "severity": "error",
+      "claim": "the three components of a Theronian Bomb scattered through SkyTown, including the Seeker Missile held in the Xenoresearch Laboratories",
+      "problem": "The Seeker Missile is not a bomb component; it is the upgrade needed to obtain the second component. The components are a large spike and two rings gathered with the Ship Grapple.",
+      "correction": "the three components of a Theronian Bomb scattered through SkyTown; reaching the second required the Seeker Missile held in the Xenoresearch Laboratories, where Phazon Metroids broke loose.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "nit",
+      "claim": "From the Spire Dock she dropped the assembled bomb with her ship's grapple, shattering the shield.",
+      "problem": "Per the Theronian Bomb and MP3 pages the components were assembled in the Spire itself, 217 moved SkyTown over the Seed, and the bomb-laden Spire was dropped while Samus guarded it and escaped by escape pod; the Ship Grapple gathered the parts rather than dropping the bomb.",
+      "correction": "The Spire, fitted with the bomb, was dropped from the Spire Dock onto the shield while Samus fled in an escape pod.",
+      "source_url": "https://www.metroidwiki.org/wiki/Theronian_Bomb"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Elysian Defense Drone, one of Elysia's three main guardians alongside Ghor and Helios, is omitted.",
+      "source_url": "https://www.metroidwiki.org/wiki/Elysia"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Pirates destroyed Elysians in great numbers after seizing the eastern district.",
+      "source_url": "https://www.metroidwiki.org/wiki/SkyTown"
+     },
+     {
+      "severity": "keys",
+      "claim": "\"Helios\"",
+      "problem": "Bare 'Helios' fires on the Greek sun god and other franchises. Missing aliases: 'AU 217', 'Elysian Seed', 'Theonian Bomb' (alt spelling used on the 217 page).",
+      "correction": "Keep 'Helios' only if acceptable risk; add 'AU 217' and 'Elysian Seed'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 3: Elysians",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "In Year 400 the Chozo left for Tallon IV",
+      "problem": "The 'Alone' lore says only that 'the time for our Chozo creators to leave had arrived'; the Tallon IV link is Metroid Wiki's annotation of 'our creators' planet', not the lore text.",
+      "correction": "In Year 400 the Chozo departed Elysia and entrusted SkyTown to the Elysians",
+      "source_url": "https://www.metroidwiki.org/wiki/SkyTown_Data"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the Leviathan's collision with Tallon IV registered on them as dream-like data",
+      "problem": "The 'Slumber' entry says only that 'the data collected by the station's equipment was fed to us in dreams'; nothing about Tallon IV or a Leviathan impact.",
+      "correction": "Remove the clause.",
+      "source_url": "https://www.metroidwiki.org/wiki/SkyTown_Data"
+     },
+     {
+      "severity": "style",
+      "problem": "471 words, over the 400-word guideline; the final paragraph duplicates the Elysia entry's mourning note.",
+      "correction": "Trim to about 400 words."
+     },
+     {
+      "severity": "missing",
+      "problem": "The reason for hibernation: the mechanoids could not produce enough fuel from Elysia's atmosphere ('Slumber').",
+      "source_url": "https://www.metroidwiki.org/wiki/SkyTown_Data"
+     },
+     {
+      "severity": "missing",
+      "problem": "Metroid Wiki's Elysian page states the Chozo tasked them specifically with researching the planet Phaaze.",
+      "source_url": "https://www.metroidwiki.org/wiki/Elysian"
+     },
+     {
+      "severity": "keys",
+      "claim": "\"Data Pods\", \"Elysian\"",
+      "problem": "'Data Pods' is generic; bare 'Elysian' also matches 'Elysian Fields' and the adjective in ordinary chat (low risk, worth noting).",
+      "correction": "Drop 'Data Pods' or use 'Elysian Data Pod'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 3: The assault on Phaaze and the end of Phazon",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "After the Seeds on Bryyo, Elysia and the Pirate Homeworld were destroyed, Aurora Unit 242 revealed that Phaaze was the origin of the Leviathans",
+      "problem": "Metroid Wiki credits Aurora Unit 217 (SkyTown's Elysian data) with locating Phaaze, which happened after Elysia, before the Pirate Homeworld; the Phaaze page lists '217 (located Phaaze)'.",
+      "correction": "Phaaze had already been identified from SkyTown's records by Aurora Unit 217; after the Pirate Homeworld fell, the Federation learned Dark Samus was using the stolen Aurora Unit 313, implanted on Phaaze, to spread Phazon and Leviathans.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phaaze"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The Space Pirates had armed a fifth Leviathan orbiting their Homeworld as a battleship",
+      "problem": "No source numbers it; Space Pirate Data says the Pirates built 'the Leviathan', a dreadnought, from the star-beast Dark Samus brought back from Phaaze.",
+      "correction": "The Space Pirates had armed a Leviathan orbiting their Homeworld as a battleship",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Data"
+     },
+     {
+      "severity": "unverified",
+      "claim": "she reached the transporter that put the Leviathan Battleship under Federation control. Fleet Admiral Castor Dane learned that the codes ... were aboard the lost G.F.S. Valhalla",
+      "problem": "The order is not supported: the MP3 page sequence is Pirate Homeworld Seed, then Energy Cells and the Valhalla codes, then a Leviathan opening the wormhole; the Castor Dane page has him order the infiltration of the Leviathan starship after the Seeds. Neither confirms the transporter came before the Valhalla.",
+      "correction": "Present the Valhalla codes before the boarding of the Leviathan Battleship, or avoid implying an order.",
+      "source_url": "https://www.metroidwiki.org/wiki/Castor_Dane"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the discarded husks of Metroid Prime",
+      "problem": "The Genesis Chamber page says scans show husks on the walls that 'resemble the Metroid Prime from Tallon IV'; the identification is not stated as fact.",
+      "correction": "husks resembling Metroid Prime",
+      "source_url": "https://www.metroidwiki.org/wiki/Genesis_Chamber"
+     },
+     {
+      "severity": "missing",
+      "problem": "Samus destroyed the Infant Leviathan in Phaaze's Genesis Chamber (the entry says she merely 'passed' it), and vented excess Phazon through the Hyper Grapple into Phaz-Ings.",
+      "source_url": "https://www.metroidwiki.org/wiki/Leviathan"
+     },
+     {
+      "severity": "style",
+      "claim": "Phazon then seeped back into her energy reserves",
+      "problem": "Gameplay-flavored (Energy Tank mechanics); 459 words is also over the guideline for a non-core subject, and 'chain reaction' is unsourced wording.",
+      "correction": "Rephrase to in-universe terms and trim slightly."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 3: GFS Olympus and the Federation fleet at Norion",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "it was 242 that identified Phaaze as the source of all Phazon and Aurora Unit 313 as Dark Samus's instrument",
+      "problem": "Metroid Wiki's Phaaze and AU 217 pages credit Aurora Unit 217 with locating Phaaze; the AU 242 page does not mention Phaaze at all.",
+      "correction": "242 relayed each objective, while SkyTown's Aurora Unit 217 located Phaaze.",
+      "source_url": "https://www.metroidwiki.org/wiki/Aurora_Unit_242"
+     },
+     {
+      "severity": "unverified",
+      "claim": "it was ambushed by an outnumbering Pirate fleet of Phazon-powered starships",
+      "problem": "Federation records say it was 'likely' ambushed by a superior Pirate fleet; Space Pirate Data ('Taking Valhalla') says the Colossus disabled it. Stated as fact, the entry overreaches.",
+      "correction": "Federation intelligence believed it was ambushed by a superior Pirate fleet of Phazon-powered starships; Pirate records say the Colossus disabled it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Galactic_Federation_Data"
+     },
+     {
+      "severity": "missing",
+      "problem": "On Dark Samus's orders the Valhalla's crew were jettisoned into space as a warning to the Federation.",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Data"
+     },
+     {
+      "severity": "style",
+      "problem": "465 words, over the guideline; the 'Other Federation vessels' paragraph is padding that belongs in the Bryyo/federation entries.",
+      "correction": "Cut the last paragraph and trim to about 400 words."
+     },
+     {
+      "severity": "keys",
+      "claim": "\"Olympus\", \"Valhalla\", \"Energy Cells\", \"Energy Cell\"",
+      "problem": "Bare 'Olympus' and 'Valhalla' fire on Mount Olympus, Norse myth and ordinary chat; 'Energy Cell(s)' is generic. 'GFS Olympus', 'G.F.S. Olympus', 'GFS Valhalla', 'Olympus-class', 'AU 242' already cover the real triggers.",
+      "correction": "Drop the bare forms (or gate them with secondary keys such as 'Federation'/'Dane'), and drop the Energy Cell keys."
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Rundas",
+   "https://www.metroidwiki.org/wiki/Ghor",
+   "https://www.metroidwiki.org/wiki/Gandrayda",
+   "https://www.metroidwiki.org/wiki/Norion",
+   "https://www.metroidwiki.org/wiki/Bryyo",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
+   "https://www.metroidwiki.org/wiki/SkyTown_Data",
+   "https://www.metroidwiki.org/wiki/Bryyo_Data",
+   "https://www.metroidwiki.org/wiki/Elysia",
+   "https://www.metroidwiki.org/wiki/SkyTown",
+   "https://www.metroidwiki.org/wiki/Elysian",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit_217",
+   "https://www.metroidwiki.org/wiki/Phaaze",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit_313",
+   "https://www.metroidwiki.org/wiki/G.F.S._Valhalla",
+   "https://www.metroidwiki.org/wiki/G.F.S._Olympus",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit_242",
+   "https://www.metroidwiki.org/wiki/Dark_Samus",
+   "https://www.metroidwiki.org/wiki/Pirate_Homeworld",
+   "https://www.metroidwiki.org/wiki/Reptilicus",
+   "https://www.metroidwiki.org/wiki/Mogenar",
+   "https://www.metroidwiki.org/wiki/Temple_of_Bryyo",
+   "https://www.metroidwiki.org/wiki/G.F.S._Theseus",
+   "https://www.metroidwiki.org/wiki/Helios",
+   "https://www.metroidwiki.org/wiki/Steamlord",
+   "https://www.metroidwiki.org/wiki/Phrygisian",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Leviathan",
+   "https://www.metroidwiki.org/wiki/Theronian_Bomb",
+   "https://www.metroidwiki.org/wiki/Generator_C",
+   "https://www.metroidwiki.org/wiki/Control_Tower",
+   "https://www.metroidwiki.org/wiki/Space_Pirate_ATC",
+   "https://www.metroidwiki.org/wiki/Meta_Ridley",
+   "https://www.metroidwiki.org/wiki/Federation_Marine",
+   "https://www.metroidwiki.org/wiki/Genesis_Chamber",
+   "https://www.metroidwiki.org/wiki/Hypermode",
+   "https://www.metroidwiki.org/wiki/Gunship",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Colossus",
+   "https://www.metroidwiki.org/wiki/Phazon_Enhancement_Device",
+   "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Omega_Ridley",
+   "https://www.metroidwiki.org/wiki/Castor_Dane",
+   "https://www.metroidwiki.org/wiki/Sanctum",
+   "https://www.metroidwiki.org/wiki/Sylux",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+  ]
+ }
+}

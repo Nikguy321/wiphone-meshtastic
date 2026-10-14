@@ -1,0 +1,316 @@
+{
+ "run": "wf_79cba15a-9c3",
+ "label": "verify:x-parasite",
+ "result": {
+  "overall": "Checked all seven entries against Metroid Wiki, the Metroid Recon Fusion transcript, Wikipedia and the Omega Metroid Dread walkthrough (about 45 fetches). The WebSearch budget for this turn was already exhausted by other agents, so every check used WebFetch only; Wikitroid, TV Tropes (403), game8 (empty) and the Metroid Wiki pages Chozo_Memories / Robot_Chozo_Soldier / Experiment Z-57 (404) could not be read, and no Dread transcript or Chozo Archives text was obtainable, so the Thoha backstory wording remains partly unverified. Fusion material is largely sound: Hornoad killed with a Missile, Biologic's vessel recovering the pod, Yellow X infecting Samus, Arachnus-X on the Main Deck, Fake Chozo Statue / Charge Beam, all Core-X rewards, the 'no fewer than 10 SA-X' and 'endless potential applications' lines, Adam proposing the orbit change, Escue = Quetzoa and Golzuna = Muzby, seven E.M.M.I., 'all Chozo except Raven Beak and Quiet Robe infected', the Elun Chozo Soldier's beak mutation and mouth-blast finish, and Raven Beak being fused with Kraid's body all check out. Main problems: SA-X given a Wave Beam (unsupported), the SA-X PYR heating claim (single wiki page only), Nightmare asserted as the Bottle Ship unit (Fusion calls it a military bio-mechanical organism kept by researchers; wiki treats the link as a suggestion), the Elun release motive (Adam says 'for reasons unknown'), 'silver, red and gold' X-mimicked Chozo Soldiers (silver/gold twins are robots; no red variant found), the final SA-X fight misplaced in the Docking Bay, and the closing line of the Samus entry implying she chose to destroy ZDR. Several entries exceed 400 words (465-519) and the colour-X / 'Yakuza' / 'doppelganger' keys are likely to misfire. No non-canon contamination found.",
+  "reports": [
+   {
+    "entry_comment": "X Parasite: X Parasites (species overview)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "The Thoha ... met the X there and found no way to fight them, so they engineered the Metroids",
+      "problem": "The Chozo Archives text could not be obtained from any reachable source; Metroid Wiki's Metroid (species) and Chozo pages say only that the Chozo created Metroids to combat the X (manga: because they feared the X could spread to the Federation), not that they had 'no way to fight them'.",
+      "correction": "Drop 'found no way to fight them': 'The Thoha, a Chozo tribe of scientists, met the X there and engineered the Metroids as artificial predators to exterminate them.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(species)"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Years later a living X was recorded on planet ZDR",
+      "problem": "No source gives the interval between Fusion and Dread; Metroid Wiki's X Parasite page lists Dread with no timeline.",
+      "correction": "'Some time later a living X was recorded on planet ZDR'.",
+      "source_url": "https://www.metroidwiki.org/wiki/X_Parasite"
+     },
+     {
+      "severity": "nit",
+      "claim": "The Metroids ... later mutated beyond the Thoha's control",
+      "problem": "Sources say the Metroids 'grew feral', multiplied and became SR388's top predator; 'mutated' is not what they say.",
+      "correction": "'later multiplied and evolved beyond the Thoha's control'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(species)"
+     },
+     {
+      "severity": "nit",
+      "claim": "Per the manga, it was the Chozo who first discovered and named the X, after recording one mimicking a Hornoad",
+      "problem": "Metroid Wiki: the Chozo first discovered and named the X on SR388, and a camera they placed 'revealed the Xs' destructive nature as one mimicked a Hornoad'; the recording revealed the danger, it is not given as the reason for the naming.",
+      "correction": "'Per the manga, the Chozo discovered and named the X on SR388, and a camera they placed revealed its nature when it mimicked a Hornoad.'",
+      "source_url": "https://www.metroidwiki.org/wiki/X_Parasite"
+     },
+     {
+      "severity": "nit",
+      "claim": "they adjusted a sector's atmosphere to suit their breeding",
+      "problem": "The computer's line is that the X invaded Sector 1's atmospheric stabilizers and 'must want to alter the environment to their needs'; breeding is not stated.",
+      "correction": "'they seized a sector's atmospheric stabilizers to alter the environment to their needs'.",
+      "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+     },
+     {
+      "severity": "missing",
+      "problem": "Per the manga, Old Bird conferred with Mother Brain on the method to exterminate the X and the first Metroid was the result; the manga also has the Chozo keep the X secret from the Galactic Federation. Worth one 'per the manga' clause given the entry already cites the manga.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(species)"
+     }
+    ]
+   },
+   {
+    "entry_comment": "X Parasite: X biology, mimicry and Core-X",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "The X animated ... the frozen body of Ridley aboard the BSL station",
+      "problem": "Metroid Wiki says a Core-X 'mimicked and cloned' Ridley's frozen, probably dead body; Neo-Ridley is a clone built from it, not the body reanimated.",
+      "correction": "'cloned Ridley's frozen body aboard the BSL station'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley-X"
+     },
+     {
+      "severity": "nit",
+      "claim": "lived only in the frozen Sector 5 (ARC) and Sector 6 (NOC)",
+      "problem": "Metroid Wiki: Blue X from the frozen Sector 5 spread into Sector 6; NOC itself is the nocturnal sector, not frozen.",
+      "correction": "'lived only in the frozen Sector 5 (ARC) and, having spread from it, Sector 6 (NOC)'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "missing",
+      "problem": "The golden Chozo Statue mimic deserves one more clause: it was a Hard Core-X in Sector 1 (SRX) posing as a statue holding an Item Sphere, met during the stabilizer mission, and absorbing it returned the Charge Beam.",
+      "source_url": "https://www.metroidwiki.org/wiki/Fake_Chozo_Statue"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Red X', 'Blue X', 'Green X', 'Yellow X' are short generic phrases ('a red X on the map', 'the blue X icon') that can fire in ordinary chat.",
+      "correction": "Keep them only if the lorebook uses whole-word matching with a Metroid-only chat; otherwise prefer 'Red X Parasite' style keys or make the colours secondary keys gated on 'X'."
+     },
+     {
+      "severity": "style",
+      "problem": "509 words, above the 400-word guideline for a non-core entry; the colour list could be tightened."
+     }
+    ]
+   },
+   {
+    "entry_comment": "X Parasite: SA-X",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "armed with the Ice Beam, Wave Beam, Super Missiles, Power Bombs and Screw Attack",
+      "problem": "Metroid Wiki lists the SA-X's weapons as Ice Beam, Super Missiles, Power Bombs and Screw Attack; Wikipedia names no individual beams. No source gives it the Wave Beam.",
+      "correction": "Remove 'Wave Beam'.",
+      "source_url": "https://www.metroidwiki.org/wiki/SA-X"
+     },
+     {
+      "severity": "unverified",
+      "claim": "interfered with the heating systems of Sector 3 (PYR)",
+      "problem": "Asserted only by Metroid Wiki's SA-X page. The Fusion transcript's Sector 3 events (rogue security robot, the Main Boiler cooling shut down by the human-mimic Core-X) never attribute heating tampering to the SA-X; the drafter also could not cross-check it.",
+      "correction": "Remove the PYR heating clause, or attribute the boiler sabotage to the mimicked crewman as the other entries do.",
+      "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+     },
+     {
+      "severity": "nit",
+      "claim": "an SA-X cornered her on the Main Deck",
+      "problem": "Metroid Wiki places the forced fight in the Control Room (Operations Deck); that is within the Main Deck, so not wrong, just imprecise.",
+      "correction": "'cornered her on the Operations Deck'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "keys",
+      "problem": "'doppelganger' / 'doppelgänger' and 'X copy' are generic words likely to fire in unrelated chat.",
+      "correction": "Drop the doppelganger keys or make them secondary keys gated on 'Samus'/'SA-X'."
+     },
+     {
+      "severity": "missing",
+      "problem": "Metroid Wiki notes the Varia Suit protects Samus against the SA-X's Ice Beam (why the 'just run' order loses its force later), and the Fusion page says the Federation had withheld upgrades to keep her from fighting the SA-X; both are useful for roleplay about why she could not fight it earlier.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     }
+    ]
+   },
+   {
+    "entry_comment": "X Parasite: The X outbreak aboard the BSL station",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Samus survived a final SA-X and an Omega Metroid in the Docking Bay",
+      "problem": "As written both fights are in the Docking Bay. Metroid Wiki: the final SA-X battle takes place in the Control Room (Operations Deck) on her way to change the orbit; only the Omega Metroid waits in the Docking Bay.",
+      "correction": "'Samus survived a final SA-X on the Operations Deck and an Omega Metroid in the Docking Bay'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "nit",
+      "claim": "in Sector 1 (SRX) they manipulated the ventilation to create breeding conditions",
+      "problem": "The X invaded the five atmospheric stabilizers; the computer says 'They must want to alter the environment to their needs.' Neither 'ventilation' nor 'breeding' is stated.",
+      "correction": "'in Sector 1 (SRX) they seized the atmospheric stabilizers to alter the environment to their needs'.",
+      "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+     },
+     {
+      "severity": "nit",
+      "claim": "Nightmare was turned loose in Sector 5 (ARC)",
+      "problem": "Nightmare was kept by the researchers in Sector 5 and became an X host that wrecked the sector; nothing says the X 'turned it loose'.",
+      "correction": "'Nightmare, kept in Sector 5 (ARC), became an X host and wrecked the sector'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Nightmare"
+     },
+     {
+      "severity": "nit",
+      "claim": "The security system ejected her in an escape pod",
+      "problem": "Transcript: 'The ship's emergency systems automatically ejected the escape pod before impact.'",
+      "correction": "'The ship's emergency systems ejected her escape pod before impact'.",
+      "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+     },
+     {
+      "severity": "missing",
+      "problem": "Adam's explanation for why the SA-X went for the Restricted Laboratory, 'The X has smelled out its natural enemy', is the line that makes the X-Metroid relationship concrete and is absent.",
+      "source_url": "https://www.metroidwiki.org/wiki/Restricted_Laboratory"
+     },
+     {
+      "severity": "style",
+      "problem": "494 words, above the 400-word guideline; the first paragraph repeats the Samus entry almost verbatim."
+     }
+    ]
+   },
+   {
+    "entry_comment": "X Parasite: X-mimicked creatures of the BSL",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Nightmare (Sector 5, ARC): the gravity-manipulating Federation weapon from the Bottle Ship",
+      "problem": "Fusion's computer calls it 'a bio-mechanical organism designed for military applications' that the researchers kept in Sector 5; Metroid Wiki says BSL researchers created it and presents the Bottle Ship connection only as a suggestion (a second unit or a rebuilt one). Fusion never identifies it as the Other M unit.",
+      "correction": "'a bio-mechanical weapon of the kind Samus had destroyed on the Bottle Ship, now an X-host' or simply 'a gravity-manipulating bio-mechanical weapon kept by the researchers'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Nightmare"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Fake Chozo Statue is omitted: a Hard Core-X posing as a Chozo Statue holding an Item Sphere in Sector 1 (SRX), met during the stabilizer mission, which attacked by ramming and firing beams from a red eye and whose core returned the Charge Beam. The entry's opening claim that each ability came from such a core is incomplete without it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Fake_Chozo_Statue"
+     },
+     {
+      "severity": "nit",
+      "claim": "a hybrid whose organic neural network the X claimed. It first ambushed Samus with fire bombs after destroying the PYR Data Room",
+      "problem": "Metroid Wiki says the robot was not yet infected at the PYR ambush (the computer calls it a 'rogue Security Robot'); the X had claimed its organic neural network by the NOC fight.",
+      "correction": "'It first ambushed Samus with fire bombs in PYR after destroying the Data Room and fled; by the time it fought her again in NOC the X had claimed the organic neural network ... '.",
+      "source_url": "https://www.metroidwiki.org/wiki/B.O.X."
+     },
+     {
+      "severity": "keys",
+      "problem": "'Yakuza' is a common real-world word (and a game series) and will fire in unrelated chat.",
+      "correction": "Make 'Yakuza' a secondary key gated on 'X'/'BSL'/'Fusion', or key it as 'Yakuza (Fusion)' alongside 'Reactor Silo'."
+     },
+     {
+      "severity": "style",
+      "problem": "519 words, the longest entry; 'Every powerful creature ... each held a Core-X carrying one of the abilities' overstates, since the first B.O.X. fight yields nothing and the Charge Beam came from the statue mimic."
+     }
+    ]
+   },
+   {
+    "entry_comment": "X Parasite: The X on ZDR",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "deliberately loosing the X across ZDR to push her Metroid powers to awaken",
+      "problem": "Adam's in-game line (quoted by the walkthrough) is that Raven Beak 'released the X from their confinement for reasons unknown'; Raven Beak's own speech ties the awakening of her Metroid DNA to his sparing her at the start, not to the X release. Note Wikipedia instead describes the release as inadvertent on Samus's part, so the attribution to Raven Beak is itself secondary-source only.",
+      "correction": "'As she left, the quarantine door opened behind her and the X poured out across ZDR; Adam concluded that Raven Beak had released them, for reasons he could not explain.'",
+      "source_url": "https://omegametroid.com/metroid-dread-walkthrough/the-forest-of-ghavoran/"
+     },
+     {
+      "severity": "unverified",
+      "claim": "X-mimicked Chozo Soldiers in silver, red and gold Elite forms met her in several regions",
+      "problem": "The silver and gold pair are the Twin Robot Chozo Soldiers (machines, not X hosts); no source reachable attests a red X-mimicked variant; the attested X-infected forms are the spear soldier, a shield-bearing spear soldier, and a golden spear warrior.",
+      "correction": "'X-mimicked Chozo Soldiers, including a shield-bearing variant and a golden one, met her in several regions'.",
+      "source_url": "https://omegametroid.com/metroid-dread-walkthrough/bosses/"
+     },
+     {
+      "severity": "nit",
+      "claim": "Aboard Itorash, Samus drained Raven Beak ... As he rose to fight again, a purple X ... infected him",
+      "problem": "After she drained him Itorash crashed toward the surface; the X infection and the Raven Beak X fight happen at the crash site, not aboard the ship. The X's colour was not confirmed by any source fetched.",
+      "correction": "'Aboard Itorash, Samus drained Raven Beak with her awakened Metroid powers and the ship fell to the surface. As he rose to fight again at the crash site, an X ... '.",
+      "source_url": "https://omegametroid.com/metroid-dread-walkthrough/raven-beak/"
+     },
+     {
+      "severity": "nit",
+      "claim": "Elun, a fortress-like quarantine in a rocky cavern below the surface",
+      "problem": "Sources describe Elun as a sealed fortress / facility used to quarantine the outbreak; 'rocky cavern' is the drafter's description.",
+      "correction": "'Elun, a sealed fortress he used as a quarantine'.",
+      "source_url": "https://www.metroidwiki.org/wiki/ZDR"
+     },
+     {
+      "severity": "missing",
+      "problem": "The walkthrough notes Quiet Robe X 'retains some of himself' despite being an X host, which explains the bow and the sacrifice; and the planet's end is a self-destruct sequence after Raven Beak X is destroyed, not something Samus triggered. One clause each would stop roleplay drift.",
+      "source_url": "https://omegametroid.com/metroid-dread-walkthrough/raven-beak/"
+     }
+    ]
+   },
+   {
+    "entry_comment": "X Parasite: Samus and the X",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "She chose to destroy a planet rather than let the X leave it.",
+      "problem": "Placed after the Dread paragraph, this reads as ZDR. ZDR's destruction was a self-destruct sequence triggered after Raven Beak X was destroyed and Itorash crashed; Samus did not choose it. Only SR388's destruction was her (and Adam's) decision.",
+      "correction": "Move the sentence to the Fusion paragraph and make it 'She chose to destroy SR388 along with the station rather than let a single X leave it.'",
+      "source_url": "https://omegametroid.com/metroid-dread-walkthrough/raven-beak/"
+     },
+     {
+      "severity": "nit",
+      "claim": "she has watched them adjust a sector's air for breeding",
+      "problem": "Same as the overview entry: the computer said the X in the atmospheric stabilizers 'must want to alter the environment to their needs'; breeding is not stated.",
+      "correction": "'seize a sector's atmospheric stabilizers to reshape its environment'.",
+      "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+     },
+     {
+      "severity": "keys",
+      "problem": "'vulnerable to cold', 'weakness to cold' and 'absorb X' are generic phrases that can fire in unrelated chat.",
+      "correction": "Make them secondary keys gated on 'Samus' or 'X', or drop them."
+     },
+     {
+      "severity": "style",
+      "problem": "465 words and most of paragraphs 1, 3 and 4 restate the outbreak and SA-X entries; trim to what is specific to Samus's immunity and attitude."
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/X_Parasite",
+   "https://www.metroidwiki.org/wiki/SA-X",
+   "https://www.metroidwiki.org/wiki/Core-X",
+   "https://www.metroidwiki.org/wiki/Blue_X",
+   "https://metroid.retropixel.net/games/metroid4/transcript.php",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Human_Core-X",
+   "https://www.metroidwiki.org/wiki/B.O.X.",
+   "https://www.metroidwiki.org/wiki/Nettori",
+   "https://www.metroidwiki.org/wiki/Mega_Core-X",
+   "https://www.metroidwiki.org/wiki/Arachnus",
+   "https://www.metroidwiki.org/wiki/Zazabi",
+   "https://www.metroidwiki.org/wiki/Yakuza",
+   "https://www.metroidwiki.org/wiki/Ridley-X",
+   "https://www.metroidwiki.org/wiki/Nightmare",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://en.wikipedia.org/wiki/SA-X",
+   "https://www.metroidwiki.org/wiki/ZDR",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://www.metroidwiki.org/wiki/Quiet_Robe",
+   "https://www.nintendo.com/en-gb/News/2021/September/Metroid-Dread-Report-Vol-7-Secrets-of-the-Chozo-2036191.html",
+   "https://www.metroidwiki.org/wiki/Hornoad",
+   "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+   "https://www.metroidwiki.org/wiki/Serris",
+   "https://www.metroidwiki.org/wiki/Sector_1_(SRX)",
+   "https://www.metroidwiki.org/wiki/Fake_Chozo_Statue",
+   "https://www.metroidwiki.org/wiki/Chozo",
+   "https://www.metroidwiki.org/wiki/Kraid",
+   "https://www.metroidwiki.org/wiki/E.M.M.I.",
+   "https://www.metroidwiki.org/wiki/Metroid_(species)",
+   "https://www.metroidwiki.org/wiki/SR388",
+   "https://www.inverse.com/gaming/metroid-dread-ending-explained-metroid-suit-rewards",
+   "https://omegametroid.com/metroid-dread-walkthrough/",
+   "https://omegametroid.com/metroid-dread-walkthrough/the-mystery-of-elun/",
+   "https://omegametroid.com/metroid-dread-walkthrough/frozen-planet/",
+   "https://omegametroid.com/metroid-dread-walkthrough/chozo-archives/",
+   "https://omegametroid.com/metroid-dread-walkthrough/raven-beak/",
+   "https://omegametroid.com/metroid-dread-walkthrough/bosses/",
+   "https://omegametroid.com/metroid-dread-walkthrough/the-forest-of-ghavoran/",
+   "https://omegametroid.com/metroid-dread-walkthrough/endings/",
+   "https://omegametroid.com/metroid-dread-walkthrough/zdrs-secrets/",
+   "https://omegametroid.com/metroid-dread-walkthrough/to-the-surface/"
+  ]
+ }
+}

@@ -1,0 +1,347 @@
+{
+ "run": "wf_79cba15a-9c3",
+ "label": "verify:super-metroid",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Super Metroid: Ceres Space Colony and the theft of the baby",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "problem": "'the Space Pirates had rebuilt much of their subterranean network' — Metroid Wiki's wording is 'reestablished much of their subterranean network' (the entry-2 overview already uses 'reestablished').",
+      "claim": "the Space Pirates had rebuilt much of their subterranean network",
+      "correction": "the Space Pirates had reestablished much of their subterranean network",
+      "source_url": "https://www.metroidwiki.org/wiki/Zebes"
+     },
+     {
+      "severity": "nit",
+      "problem": "'unable to bring him down, she watched him trigger the station's self-destruct' is slightly at odds with the wiki's framing: the Super Metroid page says 'after a brief fight Samus drives him off'; the Ceres page says Ridley 'triggers the station's self-destruct sequence and flees, leaving Samus no choice but to retreat'. Neither says she was unable to hurt him. Suggest neutral wording ('after a brief fight Ridley broke off, triggered the self-destruct and fled').",
+      "claim": "unable to bring him down",
+      "correction": "after a brief fight Ridley broke off, triggered the station's self-destruct and fled",
+      "source_url": "https://www.metroidwiki.org/wiki/Super_Metroid"
+     },
+     {
+      "severity": "keys",
+      "problem": "'space colony' is a generic two-word key likely to fire on any sci-fi colony talk (Bottle Ship, BSL, K-2L, etc.). The other keys ('Ceres', 'Ceres Station', 'Ceres Space Colony', 'stole the baby') already cover the subject; consider dropping 'space colony'.",
+      "claim": "space colony",
+      "correction": "remove 'space colony' or replace with 'Ceres research station'"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Super Metroid: The return to Zebes (mission overview)",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "problem": "'a monument to four high-ranking members' — the Golden Statue page never calls it a monument; it says only that the statue 'blocks entry into Tourian' and depicts four 'high-ranking member[s] of the Space Pirate force on Zebes'. 'Monument' is harmless colour but not sourced.",
+      "claim": "a monument to four high-ranking members of the Pirate force",
+      "correction": "a statue of four high-ranking members of the Pirate force on Zebes",
+      "source_url": "https://www.metroidwiki.org/wiki/Golden_Statue"
+     },
+     {
+      "severity": "nit",
+      "problem": "Freeing the Dachora and Etecoons is optional in the game (Etecoon page: Samus 'can choose' to go to the Torizo room; Wikipedia: 'If the player rescues the Dachora and Etecoons'). Treating it as what happened is defensible given Fusion, but the sentence could hedge ('took the time to free') so the roleplay does not assert it as the only possible outcome.",
+      "claim": "freed the Dachora and Etecoons on her way",
+      "source_url": "https://www.metroidwiki.org/wiki/Etecoon"
+     },
+     {
+      "severity": "nit",
+      "problem": "'the Metroids the Pirates had bred' — the Super Metroid and Metroid Hatchling pages describe the Tourian Metroids as products of the Pirates' cloning effort using the hatchling's genetic material (and Wikipedia says Metroids 'that have reproduced'); 'cloned' is the sourced verb.",
+      "claim": "the Metroids the Pirates had bred",
+      "correction": "the Metroids the Pirates had cloned",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Hatchling"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Super Metroid: Phantoon and the Wrecked Ship",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "problem": "Source attribution: the sentence beginning 'Per the manual, Coverns are the souls of shipwrecked creatures...' runs on into '...and they appear only while the ship's power is out', but that last clause comes from the Super Metroid Player's Guide (p. 16: 'They will appear only when the power is off'), not the instruction booklet. Split the sentence or re-attribute.",
+      "claim": "Per the manual, Coverns ... appear only while the ship's power is out",
+      "correction": "Per the manual, Coverns are the souls of shipwrecked creatures turned into evil spirits that wrap themselves around intruders. Per the Player's Guide they appear only while the power is off.",
+      "source_url": "https://www.metroidwiki.org/wiki/Covern"
+     },
+     {
+      "severity": "nit",
+      "problem": "'hurled crescent waves of flame' — the wiki says the enraged Phantoon fires 'eight crescent waves of phantom eyes' (the flaming eyeballs), not waves of flame.",
+      "claim": "hurled crescent waves of flame",
+      "correction": "hurled crescent waves of phantom eyes",
+      "source_url": "https://www.metroidwiki.org/wiki/Phantoon"
+     },
+     {
+      "severity": "nit",
+      "problem": "'the four Pirate leaders honored on the Golden Statue' — the wiki calls them 'high-ranking member[s]', not leaders, and nothing says the statue 'honors' them. Same wording issue recurs in the Draygon entry.",
+      "claim": "four Pirate leaders honored on the Golden Statue",
+      "correction": "four high-ranking Pirates depicted on the Golden Statue",
+      "source_url": "https://www.metroidwiki.org/wiki/Golden_Statue"
+     },
+     {
+      "severity": "nit",
+      "problem": "'drift toward anyone who stands still' — the Covern page says a Covern 'tries to appear directly on top of Samus but is always slow' and poses little threat 'unless she holds still or backtracks suddenly'. Minor behavioural rewording; fine to keep but the real behaviour is materialising at her position, not drifting.",
+      "claim": "drift toward anyone who stands still",
+      "correction": "materialize at an intruder's position, slowly enough to be outrun unless one stands still",
+      "source_url": "https://www.metroidwiki.org/wiki/Covern"
+     },
+     {
+      "severity": "missing",
+      "problem": "Metroid Wiki's Work Robot page states the Work Robots were designed by the Chozo (sourced only to a fan bestiary, so not official). Not an error in the entry's 'origin unrecorded' stance, but a drafter note could record that the wiki hints at Chozo design so the lorebook maintainer knows the claim exists.",
+      "source_url": "https://www.metroidwiki.org/wiki/Work_Robot"
+     },
+     {
+      "severity": "keys",
+      "problem": "'ghost ship', 'derelict ship', 'crashed ship', 'haunted ship' are generic and will fire on other wrecks in the series (Frigate Orpheon, G.F.S. Valhalla, the crashed Pirate frigate on Tallon IV). If other domains cover those, consider trimming to 'Wrecked Ship', 'Phantoon', 'Covern(s)', 'Work Robot(s)'. Also add singular 'Work Robot'.",
+      "claim": "ghost ship; derelict ship; crashed ship; haunted ship",
+      "correction": "keep 'Wrecked Ship', 'Phantoon', 'Covern', 'Coverns', 'Work Robot', 'Work Robots'; drop or reduce the generic ship phrases"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Super Metroid: Draygon and Maridia",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "The Brinstar-epidemic origin of Maridia is tagged 'citation needed' on the Maridia page and appears in no manual or game text; the page compares it to Torvus Bog, which reads as editor speculation. Even hedged with 'it is said', this is wiki speculation and should be removed.",
+      "claim": "it is said to have once been part of Brinstar before an epidemic flooded its caverns",
+      "correction": "Remove the clause.",
+      "source_url": "https://www.metroidwiki.org/wiki/Maridia"
+     },
+     {
+      "severity": "nit",
+      "problem": "Two wiki pages disagree on the first way into Maridia: the Maridia page says the first access point is a Power Bomb tunnel in the middle of Brinstar (as the entry has it), while the Crateria page calls the Wrecked Ship 'the initial entrance into Maridia'. Not an error, but the entry could mention both routes.",
+      "claim": "first reached it through a Power Bomb tunnel from Brinstar",
+      "correction": "reached it through a Power Bomb tunnel from Brinstar (the Wrecked Ship's far side also opens into Maridia)",
+      "source_url": "https://www.metroidwiki.org/wiki/Crateria"
+     },
+     {
+      "severity": "nit",
+      "problem": "'Draygon, the ruler of the region' — sources call Draygon 'the boss of Maridia'; 'ruler' is an in-world embellishment. Also 'four Pirate leaders' should be 'high-ranking members' per the Golden Statue page.",
+      "claim": "the ruler of the region ... one of the four Pirate leaders",
+      "correction": "the dominant creature of the region ... one of the four high-ranking Pirates on the Golden Statue",
+      "source_url": "https://www.metroidwiki.org/wiki/Golden_Statue"
+     },
+     {
+      "severity": "nit",
+      "problem": "The Draygon page refers to Draygon as 'her' (it produces Evir hatchlings, so the wiki infers it is female); the entry uses 'it' throughout. Harmless, but a roleplay might want the implied sex.",
+      "claim": "it",
+      "source_url": "https://www.metroidwiki.org/wiki/Draygon"
+     },
+     {
+      "severity": "missing",
+      "problem": "Evirs reappear in Metroid Fusion as X-mimicked orange versions in Sector 4 (AQA) whose projectiles rotate around them; worth one clause for continuity with the BSL incident.",
+      "source_url": "https://www.metroidwiki.org/wiki/Evir"
+     },
+     {
+      "severity": "keys",
+      "problem": "'flooded caverns' and 'underwater caverns' are generic and will fire on Torvus Bog, Sector 4 (AQA), Artaria's flooded areas, etc. 'Maridia', 'Draygon', 'Evir(s)', 'Mochtroid(s)' already cover the entry.",
+      "claim": "flooded caverns; underwater caverns",
+      "correction": "drop the two generic cavern keys"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Super Metroid: Crocomire, Golden Torizo and the guardians of Norfair",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "problem": "Metroid Wiki's Screw Attack page says the Screw Attack is obtained 'in Norfair after defeating Ridley in his hideout', which conflicts with the Torizo page (Screw Attack listed as a Torizo reward) and the entry. The Torizo page matches the game; no change needed, but note the wiki inconsistency so a later checker does not 'correct' it.",
+      "claim": "the Golden Torizo descended from the ceiling to bar her way to the Screw Attack",
+      "source_url": "https://www.metroidwiki.org/wiki/Screw_Attack"
+     },
+     {
+      "severity": "nit",
+      "problem": "'settling in Morph Ball form into the hands of another Chozo Statue' — the Torizo page says only that Samus sits on a statue in Morph Ball form and 'it crumbles a wall'; 'hands' is not in the source (though accurate to the game).",
+      "claim": "into the hands of another Chozo Statue",
+      "correction": "onto another Chozo Statue",
+      "source_url": "https://www.metroidwiki.org/wiki/Torizo"
+     },
+     {
+      "severity": "nit",
+      "problem": "'the fourth leader whose death opened Tourian' — order of the four is player-dependent; the Ridley page frames his as 'the fourth and final boss battle needed', so acceptable, but 'leader' should be 'high-ranking Pirate' per the Golden Statue page.",
+      "claim": "the fourth leader whose death opened Tourian",
+      "correction": "the last of the four high-ranking Pirates whose deaths opened Tourian",
+      "source_url": "https://www.metroidwiki.org/wiki/Golden_Statue"
+     },
+     {
+      "severity": "keys",
+      "problem": "Bare 'Torizo', 'Torizos' and 'Bomb Torizo' duplicate the chozo domain's Torizo entry (acknowledged in the notes); both entries will inject on every mention. Recommend keeping 'Golden Torizo'/'Gold Torizo' here and leaving bare 'Torizo' to the chozo entry.",
+      "claim": "Torizo; Torizos; Bomb Torizo",
+      "correction": "remove 'Torizo', 'Torizos', 'Bomb Torizo' from this entry"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Super Metroid: Spore Spawn and Botwoon",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "problem": "'swinging across the whole chamber on its vines' — the Spore Spawn page says it is highly mobile and able to 'zoom across the room'; it does not describe swinging on the vines.",
+      "claim": "swinging across the whole chamber on its vines",
+      "correction": "moving rapidly across the whole chamber",
+      "source_url": "https://www.metroidwiki.org/wiki/Spore_Spawn"
+     },
+     {
+      "severity": "nit",
+      "problem": "'spores that burn on contact' — the source says only that spores 'damage Samus on contact'; 'burn' is unsupported colour.",
+      "claim": "spores that burn on contact",
+      "correction": "spores that damage on contact",
+      "source_url": "https://www.metroidwiki.org/wiki/Spore_Spawn"
+     },
+     {
+      "severity": "nit",
+      "problem": "'Each hit darkened its pale underside' — the Botwoon page says the underside gets 'redder and redder till it is the same color as its overside'.",
+      "claim": "darkened its pale underside",
+      "correction": "reddened its pale underside",
+      "source_url": "https://www.metroidwiki.org/wiki/Botwoon"
+     },
+     {
+      "severity": "keys",
+      "problem": "'giant plant', 'sea serpent' and 'aquatic serpent' are generic enough to fire on unrelated creatures (Flaahgra, Serris, Fusion's Serris/Yakuza chat). 'Spore Spawn', 'Botwoon', 'Brinstar plant', 'Maridia serpent' suffice.",
+      "claim": "giant plant; sea serpent; aquatic serpent",
+      "correction": "drop the three generic keys"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Super Metroid: Mother Brain's final battle and the baby's sacrifice",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "'Years later, during the BSL incident' — no source read gives the gap between Other M/Super Metroid and Fusion in years (Metroid Fusion and Samus Aran pages state no interval). The Samus Aran page says only that Other M is 'a few months after Zebes'.",
+      "claim": "Years later, during the BSL incident",
+      "correction": "Later, during the BSL incident",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'it is why she calls the hatchling simply the baby' presents a developer decision as Samus's in-character motive: the Metroid Hatchling page attributes the name to Yoshio Sakamoto asking localizers to use 'the baby' and not 'Baby Metroid'. No in-game line gives the sacrifice as her reason.",
+      "claim": "it is why she calls the hatchling simply the baby",
+      "correction": "she refers to the hatchling simply as 'the baby'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Hatchling"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'a quarantine officer sent her to a training room to confirm her abilities before she reported her mission' — the Other M page says the officer directs her to a training room where her abilities are tested; nothing about reporting her mission afterward.",
+      "claim": "before she reported her mission",
+      "correction": "drop 'before she reported her mission'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "nit",
+      "problem": "'her first thought was: why am I still alive' — the Other M manual narration simply reads 'Why am I still alive...' after the Mother Brain passage; it is not described as her first thought. Also the spirit's-light line reads 'which was close to going out', not 'had been'.",
+      "claim": "her first thought was: why am I still alive ... which had been close to going out",
+      "correction": "she later asked herself why she was still alive, and said the strangest thing began to restore vigor to her spirit's light, which was close to going out",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "missing",
+      "problem": "Why she owes the hatchling her life 'twice over' is never explained: per Fusion, the Federation preserved a cell culture from the last infant Metroid, and the vaccine made from the hatchling's DNA cured her of the X. One clause would close the loop.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Hatchling"
+     },
+     {
+      "severity": "missing",
+      "problem": "Per Other M (MB's dialogue), Metroid remnants were attached to Samus's suit when she returned from Zebes and the Federation reproduced them from salvaged cell structure; the hatchling's genetic basis thus seeded the Bottle Ship Metroids. Relevant to the entry's 'bound up with her own survival' theme and to why the species was not in fact extinct.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "keys",
+      "problem": "Secondary keys are so generic ('body', 'death', 'died', 'killed', 'final', 'escape', 'saved', 'Metroid', 'Metroids', 'Zebes', 'Tourian', 'baby') that 'Mother Brain' will almost always find one in context, defeating the gating; and primary keys 'new body', 'lost the baby', 'giant Metroid' will fire in ordinary chat. Tighten secondaries to specific ones ('hatchling', 'Hyper Beam', 'sacrifice', 'Tourian', 'Ceres', 'bipedal') and drop 'new body'.",
+      "claim": "secondary_keys: baby, hatchling, sacrifice, died, death, killed, body, Metroid, Metroids, saved, Ceres, final, escape, Zebes, Tourian; primary 'new body'",
+      "correction": "secondary_keys: hatchling, sacrifice, Hyper Beam, Tourian, Ceres, bipedal; remove primary 'new body'"
+     },
+     {
+      "severity": "style",
+      "problem": "At 516 words this is at the upper end even for a core subject; the last paragraph (Federation facility, training room, dreams, Baby's Cry) largely belongs to the adam-other-m domain and could be cut to one sentence.",
+      "claim": "516 words"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Super Metroid: Dachora and Etecoons",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "problem": "'they fled the exploding planet beside her ship' — Wikipedia's plot summary says the rescued animals 'are shown leaving the planet in the distance', not alongside the Gunship.",
+      "claim": "they fled the exploding planet beside her ship as Zebes blew apart",
+      "correction": "their small craft could be seen leaving the planet in the distance as Zebes blew apart",
+      "source_url": "https://en.wikipedia.org/wiki/Super_Metroid"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'Years later, during the BSL incident' — no fetched source states the interval between Super Metroid/Other M and Fusion.",
+      "claim": "Years later",
+      "correction": "Later",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "nit",
+      "problem": "'they are presumably the same animals' — the Etecoon page says they 'may be' the same; the Dachora page says 'presumably the same one'. Fine, but the sentence 'she has done it twice' then rests on that inference; consider 'apparently'.",
+      "claim": "presumably the same animals",
+      "source_url": "https://www.metroidwiki.org/wiki/Etecoon"
+     },
+     {
+      "severity": "missing",
+      "problem": "Samus's own Fusion line on finding them, 'Etecoons and Dachoras. I've met these intelligent beings before.', is the kind of first-person recognition a Samus roleplay wants.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "keys",
+      "problem": "No key for 'Habitation Deck' (the Fusion location where they are found) although the entry covers it; 'Wall Jump' and 'Shinespark' are also absent (acceptable if another domain owns them).",
+      "claim": "keys lack 'Habitation Deck'",
+      "correction": "add 'Habitation Deck'"
+     }
+    ]
+   }
+  ],
+  "overall": "Research constraints: the shared WebSearch budget was already exhausted (three searches attempted, none executed), so all checking used 37 WebFetch calls against Metroid Wiki and Wikipedia; metroid-database.com redirected to an unrelated domain and was not followed. Overall the drafts are close to Metroid Wiki's text; no non-canon contamination (Smash, comics, fan games) was found. The only outright contradiction found is the animals leaving 'beside her ship' (Wikipedia: 'in the distance'). The recurring soft spots are (a) 'Years later' for Fusion, which no source quantifies, (b) wiki speculation tagged citation-needed (Maridia's Brinstar-epidemic origin), (c) a developer statement (Sakamoto on 'the baby') dressed as Samus's motive, (d) 'Pirate leaders'/'monument'/'honored' where the Golden Statue page says only 'high-ranking member', and (e) over-generic keys, especially the Mother Brain entry's secondary list which neutralises its own gating. Wiki-internal conflicts noted for maintainers: Screw Attack page says it is obtained after Ridley (Torizo page and game say Golden Torizo); Crateria page calls the Wrecked Ship the initial Maridia entrance while the Maridia page says the Brinstar Power Bomb tunnel. Unverifiable and therefore not raised: the Super Metroid opening narration text; the Mochtroid page's listing of a Metroid Prime 4: Beyond appearance (the Prime 4 page does not mention Mochtroids). Entry word counts: 313, 394, 346, 324, 399, 294, 516, 300.",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Ceres_Space_Colony",
+   "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+   "https://www.metroidwiki.org/wiki/Super_Metroid",
+   "https://www.metroidwiki.org/wiki/Golden_Statue",
+   "https://www.metroidwiki.org/wiki/Phantoon",
+   "https://www.metroidwiki.org/wiki/Wrecked_Ship",
+   "https://www.metroidwiki.org/wiki/Covern",
+   "https://www.metroidwiki.org/wiki/Draygon",
+   "https://www.metroidwiki.org/wiki/Evir",
+   "https://www.metroidwiki.org/wiki/Mochtroid",
+   "https://www.metroidwiki.org/wiki/Maridia",
+   "https://www.metroidwiki.org/wiki/Crocomire",
+   "https://www.metroidwiki.org/wiki/Torizo",
+   "https://www.metroidwiki.org/wiki/Spore_Spawn",
+   "https://www.metroidwiki.org/wiki/Botwoon",
+   "https://www.metroidwiki.org/wiki/Mother_Brain",
+   "https://www.metroidwiki.org/wiki/Hyper_Beam_(Mother_Brain)",
+   "https://www.metroidwiki.org/wiki/Dachora",
+   "https://www.metroidwiki.org/wiki/Etecoon",
+   "https://www.metroidwiki.org/wiki/Gravity_Suit",
+   "https://www.metroidwiki.org/wiki/Tourian",
+   "https://www.metroidwiki.org/wiki/Crateria",
+   "https://www.metroidwiki.org/wiki/Norfair",
+   "https://www.metroidwiki.org/wiki/Brinstar",
+   "https://www.metroidwiki.org/wiki/Ridley",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://en.wikipedia.org/wiki/Super_Metroid",
+   "https://www.metroidwiki.org/wiki/Kraid",
+   "https://www.metroidwiki.org/wiki/Zebes",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Chozo_Statue",
+   "https://www.metroidwiki.org/wiki/Baby%27s_Cry",
+   "https://www.metroidwiki.org/wiki/Screw_Attack",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Atomic",
+   "https://www.metroidwiki.org/wiki/Work_Robot",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroid-database.com/metroid-other-m/script/"
+  ]
+ }
+}

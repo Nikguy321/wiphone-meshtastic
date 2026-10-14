@@ -1,0 +1,466 @@
+{
+ "run": "wf_223f2f6f-0a5",
+ "label": "verify:adam-other-m",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Other M: Adam Malkovich",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "in the Japanese script she admits it mildly annoyed her; the English script says this pierced her heart, the Japanese that it merely stung",
+      "problem": "Both Japanese/English contrasts rest only on unfetchable Wikitroid search snippets. Metroid Wiki's Adam page quotes the Fusion line as 'He called me \"Lady\" on missions; from anyone else, it would've sounded sarcastic, but Adam made it sound dignified' and says nothing about annoyance; neither Metroid Wiki nor Wikipedia mentions a 'pierced/stung' difference. WebSearch was unavailable this run, so no further check was possible.",
+      "correction": "Drop both JP/EN contrasts, or keep only the English-script version without a comparison.",
+      "source_url": "https://www.metroidwiki.org/wiki/Adam_Malkovich"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Samus pleaded, \"Adam, wait! There's still time! I can make it! Please let me go!\"",
+      "problem": "Metroid Wiki's Ian page quotes only 'Adam, wait! There's still time!'; the continuation 'I can make it! Please let me go!' is not on any fetched page.",
+      "correction": "Quote only 'Adam, wait! There's still time!' and paraphrase the rest (she begged to be allowed to try to reach him).",
+      "source_url": "https://www.metroidwiki.org/wiki/Ian_Malkovich"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a faction within the Federation Army had proceeded anyway",
+      "problem": "Wikipedia and Metroid Wiki record only that HQ asked him for the report and that he argued against the operation because of its dangers; the 'Federation Army faction' wording comes from an unverified Wikitroid snippet (the only fetched text with that phrasing is the non-canon PAL Smash trophy).",
+      "correction": "Soften to 'and that the plan's backers had gone ahead regardless', or drop the clause.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"Adam\"; secondary_keys include \"CO\", \"Federation\", \"computer\", \"AI\", \"brother\", \"helmet\"",
+      "problem": "Bare 'Adam' is on the forbidden list and is only gated by secondaries ('Federation', 'computer', 'AI') that appear in almost every Samus conversation, so it fires effectively bare. 'CO' is a two-letter token that will match constantly if whole-word matching is off in the lorebook settings.",
+      "correction": "Remove bare 'Adam' (keep 'Adam Malkovich', 'Malkovich', 'Commander Malkovich'), or restrict secondaries to 'Malkovich', 'Bottle Ship', 'Sector Zero', '07th', 'Lady', 'objections'; drop 'CO' or require whole-word matching."
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Adam's only other canon appearance, the manga, is omitted: per the manga he was Samus's commanding officer in the Galactic Federation Police and, when he learned she had disobeyed orders on Jigrad, called her an unnecessary 'piece of baggage'. Useful for roleplay about their early friction.",
+      "correction": "Add one sentence: 'Per the manga, Adam was already her commanding officer in the Federation Police, where he once dismissed her as unnecessary \"baggage\".'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "nit",
+      "claim": "He ended his briefings with the question",
+      "problem": "Metroid Wiki's quoted Fusion line is 'He would end orders by saying, \"Any objections, Lady?\"'.",
+      "correction": "'He ended his orders with...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Adam_Malkovich"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Other M: The Adam AI (BSL computer)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "It reported that the SA-X had multiplied to roughly ten",
+      "problem": "Every fetched source gives the figure as a floor, not an estimate: 'at least 10 SA-X aboard the station' (Wikipedia), 'at least ten SA-X are aboard' (Metroid Wiki Fusion page), 'at least 10 SA-X on board' (Metroid Wiki SA-X page).",
+      "correction": "'...that there were at least ten SA-X aboard.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "unverified",
+      "claim": "closed with the real Adam's words: \"Move quickly, and stay alive. That's an order! Any objections, Lady?\"",
+      "problem": "Only 'Any objections, Lady?' is attested (Metroid Wiki Fusion page; Wikipedia). The preceding 'Move quickly, and stay alive. That's an order!' is not on any fetched page.",
+      "correction": "Quote only 'Any objections, Lady?' and paraphrase the order to adjust the orbit from the Operations Room and escape.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Its warnings, \"Be careful,\" \"Proceed with extreme caution,\" grew steadily more human. ... Samus has contrasted the computer's early lack of compassion with the man she knew, whose criticism had always carried care.",
+      "problem": "'Be careful' lines are confirmed (Adam page refs 5-6). 'Proceed with extreme caution', the 'grew steadily more human' reading, and the 'lack of compassion'/'criticism carried care' contrast were not found on Metroid Wiki or Wikipedia.",
+      "correction": "Keep 'Be careful'; drop the second quote and the compassion sentence, or reduce to 'Samus found it blunt'. (Metroid Wiki Fusion page: 'Samus finds it blunt').",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"Adam\", \"ship's computer\", \"ship computer\", \"navigation computer\", \"gunship computer\" with secondary \"computer\", \"navigation\", \"AI\"",
+      "problem": "Bare 'Adam' is forbidden and the secondaries 'computer'/'AI'/'Lady' make it fire in any Fusion/Dread chat whether or not the AI is meant. The generic primaries ('ship's computer', 'navigation computer', 'gunship AI') contain their own secondary keys, so AND_ANY gives no gating at all for them.",
+      "correction": "Drop bare 'Adam'; keep 'Adam AI', 'Computerized Adam', 'ADAM'; if generic computer phrases stay, pair them with secondaries that are not substrings of the primaries (e.g. 'BSL', 'Fusion', 'ZDR', 'Lady')."
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "The entry omits that the Federation, through the computer, withheld support data and weapon upgrades (including trying to withhold the Diffusion Missile) to keep Samus from engaging the SA-X; this is a key beat for roleplaying Samus's distrust of the computer.",
+      "correction": "Add: 'On Federation orders it withheld data and upgrades to keep her away from the SA-X; she tracked down the Diffusion Missile anyway.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "style",
+      "claim": "category: \"Other M\"",
+      "problem": "The entry is almost entirely about Metroid Fusion/Dread; filing it under 'Other M' is only an organizational quibble but may confuse maintenance.",
+      "correction": "Category 'Fusion' (or keep, if the domain allocation requires it)."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Other M: Anthony Higgs",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Samus later wondered whether he had been conscious as he burned",
+      "problem": "Not on Metroid Wiki's Anthony, Pyrosphere, Ridley or Other M pages, nor Wikipedia. Sounds like an invented or TV-Tropes-style paraphrase.",
+      "correction": "Remove; 'He was presumed dead' is sufficient.",
+      "source_url": "https://www.metroidwiki.org/wiki/Anthony_Higgs"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the one trooper who did not bristle when Samus opened a shielded door with a single Missile after Lyle Smithsonian had proposed burning through it",
+      "problem": "The door/Missile incident is confirmed (Lyle page), and Metroid Wiki's Samus page says Anthony 'was the only platoon member who treated her amicably', but no fetched page ties his reaction to that specific door scene.",
+      "correction": "'...and was the only trooper who treated her warmly from the start.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "At the Exam Center, when the lizard-like Mystery Creature (young Ridley) pinned Samus, it was Anthony's plasma fire that drove it off; the entry skips his first act of saving her.",
+      "correction": "Add: 'In the Biosphere's Exam Center his plasma gun drove off the reptilian creature that had pinned Samus, the creature that later proved to be Ridley.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"Princess\", \"Anthony\"; secondary_keys include \"Samus\", \"Federation\", \"Adam\", \"Ridley\"",
+      "problem": "'Princess' and bare 'Anthony' are both on the forbidden list and are gated only by secondaries ('Samus', 'Federation', 'Adam', 'Ridley') present in nearly every Samus chat, so they fire effectively bare.",
+      "correction": "Drop 'Princess' and 'Anthony' as primaries (keep 'Anthony Higgs', 'Higgs'), or restrict secondaries to 'Higgs', '07th', 'platoon', 'Bottle Ship', 'Remember me', 'trooper'."
+     },
+     {
+      "severity": "nit",
+      "claim": "carried its heavy plasma gun",
+      "problem": "Metroid Wiki calls it 'Plasma weapons' / 'Anthony's Plasma Cannon'.",
+      "correction": "'plasma cannon'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Other M: Madeline Bergman and MB (Melissa Bergman)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Because Samus's bond with the hatchling had shown that a Metroid accepts a mother figure, MB was given a female android body",
+      "problem": "Metroid Wiki says only that MB was given a living humanoid form so the first experimental hatchling would accept her as its mother and be controlled through that bond; the Samus/hatchling precedent and the 'female' rationale are not stated on the MB or Madeline pages.",
+      "correction": "'MB was given a humanoid body so that the first experimentally grown hatchling would accept her as its mother and could be controlled through that bond.'",
+      "source_url": "https://www.metroidwiki.org/wiki/MB"
+     },
+     {
+      "severity": "unverified",
+      "claim": "saying, \"...because of you, I failed.\"",
+      "problem": "The quoted line is not on Metroid Wiki's MB, Madeline, Bioweapon Research Center or Other M pages.",
+      "correction": "Remove the quotation; keep 'MB came for Madeline with a Freeze Gun, intent on revenge.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Madeline_Bergman"
+     },
+     {
+      "severity": "nit",
+      "claim": "MB pushed Madeline aside and was frozen by the blast",
+      "problem": "Reads as if MB shielded Madeline. Metroid Wiki: Madeline called her Melissa, 'MB pushed her away violently', and then an ice shot froze MB as the soldiers rushed in; the push is a rejection, not a rescue.",
+      "correction": "'MB shoved Madeline away; as Federation troops burst in, a Freeze Gun shot froze her.'",
+      "source_url": "https://www.metroidwiki.org/wiki/MB"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "The Cryosphere meeting is compressed: Samus tracked the woman to a storage room and persuaded her she meant no harm before the RB176 Ferrocrusher (driven by an unseen figure in Federation uniform) ambushed them and separated them; this is the scene that convinces Samus a platoon member is a killer.",
+      "correction": "Add one clause about the Ferrocrusher ambush separating them before the Research Center meeting.",
+      "source_url": "https://www.metroidwiki.org/wiki/RB176_Ferrocrusher"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"MB\"",
+      "problem": "'MB' is safe only with whole-word matching enabled; as a substring it matches 'bomb', 'number', 'climb', 'Zebes' plurals etc. and would fire on almost every message.",
+      "correction": "Keep 'MB' only if the lorebook uses whole-word matching; otherwise rely on 'Melissa', 'Melissa Bergman', 'Madeline', 'Bergman'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Other M: The 07th Platoon and the Deleter",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "once the Bioweapon Research Center's records showed that the planners meant to \"delete\" everything and everyone who knew the secret, she named the hidden killer the Deleter",
+      "problem": "Samus coins the name in the Cryosphere, right after the woman (MB) tells her a Federation soldier killed Maurice and after the Ferrocrusher attack, well before she reaches the Bioweapon Research Center. Metroid Wiki's Other M plot: 'an unidentified woman who says a soldier killed Maurice. Samus names the unseen killer \"the Deleter\"'; Wikipedia: in the Cryosphere 'Samus concludes there is a traitor in the platoon and calls him the \"Deleter\"'. The 'delete'-from-records origin is not given by any fetched source.",
+      "correction": "'In the Cryosphere, after the woman told her a Federation soldier had killed Maurice, Samus concluded the killer was a thinking being, not the fauna, and named the traitor in the platoon the Deleter.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a Federation plant inside the platoon sent to silence witnesses",
+      "problem": "Metroid Wiki describes the Deleter only as 'a traitor among the Galactic Federation 07th Platoon'; that he was placed there by the Federation to silence witnesses is inference.",
+      "correction": "'a traitor inside the platoon killing the witnesses one by one'",
+      "source_url": "https://www.metroidwiki.org/wiki/The_Deleter"
+     },
+     {
+      "severity": "noncanon",
+      "claim": "His Freeze Gun passed to MB and then to Madeline.",
+      "problem": "Metroid Wiki states this only as speculation: MB used a Freeze Gun 'likely Pierce's', and the MB page says Madeline firing MB's gun 'may indicate the gun belonged to Pierce'. Presented here as fact.",
+      "correction": "'MB came away with a Freeze Gun, presumably his, which later passed to Madeline.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Freeze_Gun"
+     },
+     {
+      "severity": "unverified",
+      "claim": "James Pierce ... hacked the Exam Center computer, which afterward exploded",
+      "problem": "Metroid Wiki's Pierce page says Maurice told James he would need to hack the fragmented data and James said it would 'take some time'; it does not say he completed the hack, and it notes only that the Center 'conveniently' explodes later. The draft's juxtaposition implies he caused the explosion.",
+      "correction": "'...was asked to hack the Exam Center's fragmented data; the Center later exploded by unknown means.'",
+      "source_url": "https://www.metroidwiki.org/wiki/James_Pierce"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "It was Lyle who shot the Brug hiding under the dead scientist in the Control Room, which triggered the Brug Mass attack; and Adam ordered James to check the Control Bridge for electrical interference. Both are small but useful for roleplaying the platoon's early scenes.",
+      "correction": "Add 'Lyle killed a Brug found under a scientist's corpse, provoking the Brug Mass' and 'James was sent to the Control Bridge to check for electrical interference'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Brug_Mass"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"the Deleter\"",
+      "problem": "'Deleter' is on the forbidden bare list; 'the Deleter' with article is acceptable but will still match any chat about 'the Deleter' in another context. Low risk in a Metroid lorebook.",
+      "correction": "Keep 'the Deleter' but consider adding 'Deleter' only under AND_ANY with 'platoon'/'Bottle Ship'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Other M: The Bottle Ship",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Its sectors are simulated environments, each a dome divided into four blocks, reached by the Main Elevator.",
+      "problem": "Metroid Wiki: the Main Sector 'is the largest sector and the only one without a simulated environment'; only Sectors 1-3 are domed habitats of four blocks (12 blocks total), and the Main Elevator reaches every sector except Sector Zero.",
+      "correction": "'Three sectors are simulated environments, each a dome divided into four blocks; the Main Elevator reaches every sector except Sector Zero.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Bottle_Ship"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Samus felt it was crying specifically for her",
+      "problem": "Not on Metroid Wiki's Bottle Ship or Other M pages nor Wikipedia.",
+      "correction": "Remove, or soften to 'Samus answered it at once.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "The ship's history is omitted: per the Exam Center computer it was one of three vessels built for colonists; the first two were retired and the last was refitted by the Federation into three closed habitats. This is the only canonical explanation of why a 'decommissioned' ship has habitat domes.",
+      "correction": "Add one sentence with that history.",
+      "source_url": "https://www.metroidwiki.org/wiki/Bottle_Ship"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"Biosphere\", \"Geothermal Power Plant\", \"Exam Center\", \"Main Sector\", plus \"Bottle Ship\", \"Sector Zero\", \"Baby's Cry\"",
+      "problem": "'Biosphere', 'Geothermal Power Plant', 'Exam Center' and 'Main Sector' are ordinary English phrases that can misfire; 'Bottle Ship', 'Sector Zero' and 'Baby's Cry' are duplicated on the incident entry so both ~500-word entries always inject together (~1,000 words).",
+      "correction": "Make the generic ones AND_ANY with 'Bottle Ship'/'Sector'; decide which entry owns 'Bottle Ship'/'Sector Zero'/'Baby's Cry'."
+     },
+     {
+      "severity": "nit",
+      "claim": "Cryosphere: snowfall, icicles and frozen lakes",
+      "problem": "Metroid Wiki says 'icicle stalactites'; trivial.",
+      "correction": "'icicle stalactites'",
+      "source_url": "https://www.metroidwiki.org/wiki/Cryosphere"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Other M: The Bottle Ship incident",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Anthony Higgs was knocked toward the lava and presumed dead, and contact with Adam ceased. Samus saw a Federation-armored figure incinerate K.G. Misawa's frozen body and named the hidden killer the Deleter. In the Cryosphere she found Favreau's body and glimpsed a woman...",
+      "problem": "Chronology is reversed. After the Exam Center, Samus's first Pyrosphere visit is brief (Vorash); she is redirected to the Cryosphere, where she finds Favreau's body, meets the woman, is attacked by the Ferrocrusher and names the Deleter. Only then does she return to the Pyrosphere for the Rhedogian/Anthony rescue, Ridley, Anthony's fall, loss of contact with Adam and the Misawa incineration. Wikipedia: 'Samus is first ordered toward the Pyrosphere ... but is quickly redirected to the Cryosphere ... Back in the Pyrosphere, the lizard creature is revealed to be a juvenile Ridley.' Metroid Wiki Pyrosphere page: 'She later returns after a brief assignment to the Cryosphere.'",
+      "correction": "Reorder: Pyrosphere (Vorash) -> Cryosphere (Favreau's body, the woman, Ferrocrusher, Deleter named) -> Pyrosphere (Rhedogian, Ridley, Anthony presumed dead, Adam lost, Misawa incinerated) -> Research Center.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The planners intended to keep the Metroids and \"delete\" everything else, witnesses included.",
+      "problem": "No fetched page records a 'delete' plan; Metroid Wiki's Deleter page explicitly does not explain the alias's origin.",
+      "correction": "Remove the sentence or soften to 'and that whoever knew of the project was being killed off.'",
+      "source_url": "https://www.metroidwiki.org/wiki/The_Deleter"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a faction of the Federation Army, the ringleaders, had gone ahead regardless",
+      "problem": "'Ringleaders' and the Army-faction attribution come from an unverified Wikitroid snippet; Wikipedia and Metroid Wiki say only that HQ requested the report and he argued against the operation.",
+      "correction": "'...and that the plan's backers had gone ahead regardless.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"ringleaders\", \"Bottle Ship\", \"Sector Zero\", \"Baby's Cry\"",
+      "problem": "'ringleaders' is an everyday word and will misfire; the other three duplicate the Bottle Ship entry so both fire together.",
+      "correction": "Drop 'ringleaders'; keep 'Bottle Ship incident', 'Other M', 'Project Metroid Warriors', 'Brug Mass', 'Federation cover-up' and let the location entry own the place names."
+     },
+     {
+      "severity": "style",
+      "claim": "entry length",
+      "problem": "About 560 words, above the 550 ceiling even for a core subject, and the ending duplicates the Bottle Ship entry's epilogue verbatim (helmet, Phantoon, Zero Suit).",
+      "correction": "Trim the epilogue to one clause and cut the redundant Research Center exposition that the MB entry already carries."
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "After Sector Zero detached, the Bottle Ship's propulsion activated and the PA counted down to an 'orbital interception' that was averted only when the engines were cut; the entry never explains why Federation troops suddenly boarded.",
+      "correction": "Add: 'With Sector Zero gone the ship's engines fired on their own; a PA countdown to orbital interception was cut short when the engines stopped, and Federation troops boarded.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Other M: Nightmare (origin and the Bottle Ship)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "It rose again to bar the way to Sector Zero, now tearing open black holes",
+      "problem": "The second fight happens after Samus returns from Sector Zero, on her way out, not on the way in. Metroid Wiki Nightmare page: 'In the second fight, after Samus returns from the sector, it creates black holes'; Other M page: after Sector Zero detaches, 'Samus defeats Nightmare for good and finds James Pierce's body'.",
+      "correction": "'It rose again to block her way back out after Sector Zero was lost, now tearing open black holes...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Nightmare"
+     },
+     {
+      "severity": "noncanon",
+      "claim": "by the time the Bottle Ship incident was over it had vanished, evidently recovered by the Federation",
+      "problem": "Metroid Wiki states only that the body 'disappears by the post-credits sequence' and 'presumes' it was moved to the B.S.L.; the recovery is wiki speculation presented as fact.",
+      "correction": "'...its body had vanished by the time Samus returned for Adam's helmet; what became of it is never shown.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Nightmare"
+     },
+     {
+      "severity": "unverified",
+      "claim": "exposing a swollen, baby-like face",
+      "problem": "Metroid Wiki says only that the mask shatters 'revealing a face'.",
+      "correction": "'exposing the face beneath'",
+      "source_url": "https://www.metroidwiki.org/wiki/Nightmare"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The Japanese account of that mission credits its creation to an old faction of the Federation Army rather than the Federation as a whole.",
+      "problem": "Unverifiable here; the only fetched text with similar wording is the PAL Super Smash Bros. trophy ('a radical group within Galactic Federation Army'), which is non-canon. Metroid Wiki's Fusion page gives the computer's line as a 'bio-mechanical organism designed for military applications' kept by the station's researchers.",
+      "correction": "Remove the Japanese-script sentence.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "style",
+      "claim": "Samus learned on the Bottle Ship how far the Federation's bioweapon ambitions had outrun its own laws, and Nightmare is the clearest surviving proof of it.",
+      "problem": "Editorial conclusion rather than a canon fact; also implies the Other M Nightmare is the Fusion one, which the entry elsewhere avoids.",
+      "correction": "Delete the sentence."
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"Nightmare\" with secondary \"creature\", \"organism\", \"gravity\", \"mask\", \"Federation\", \"Fusion\"",
+      "problem": "Bare 'Nightmare' is on the forbidden list; the secondaries are broad enough that a line like 'I had a nightmare about the Federation' triggers it.",
+      "correction": "Restrict secondaries to 'Bottle Ship', 'Cryosphere', 'Sector Zero', 'Sector 5', 'ARC', 'BSL', 'Nightmare-X', 'gravity generator'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Other M: Chairman Keaton",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "during an attempt on Keaton's life, Pyonchi's agitation exposed a disguised Mimicuria assassin",
+      "problem": "Metroid Wiki has no Mimicuria page (404) and its Pyonchi page, the only Keaton coverage, does not mention any assassination attempt; the claim rests solely on Wikitroid search snippets that could not be checked.",
+      "correction": "Remove.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pyonchi"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Keaton, Samus and Adam Malkovich together visited the Galactic Federation Academy's research facility, where Samus left Pyonchi before setting out for Zebes",
+      "problem": "Not on the Pyonchi page (which never mentions Adam) and the Academy page does not exist on Metroid Wiki; Wikitroid-snippet only.",
+      "correction": "Remove, or reduce to the verified version: 'After becoming a bounty hunter she left Pyonchi in Keaton's care.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Pyonchi"
+     },
+     {
+      "severity": "unverified",
+      "claim": "whom she had caught as a small child on K-2L",
+      "problem": "Metroid Wiki says Samus met Pyonchi at age three with Old Bird's help after he stole her sack, and that the species is 'probably' native to K-2L; it does not state where she found him.",
+      "correction": "'whom she had befriended at three years old, with Old Bird's help'",
+      "source_url": "https://www.metroidwiki.org/wiki/Pyonchi"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the head of its civilian government",
+      "problem": "No fetched source describes the chairman's office; Metroid Wiki's Galactic Federation page describes only a congress and a Federation Bureau.",
+      "correction": "'the Chairman of the Galactic Federation' without the gloss."
+     },
+     {
+      "severity": "nit",
+      "claim": "When Samus left the Federation military to become a bounty hunter",
+      "problem": "In the manga she served in the Galactic Federation Police (recon with Kreatz and Mauk, Chief Hardy); 'military' is Other M's framing.",
+      "correction": "'When Samus left the Federation Police to become a bounty hunter (per the manga)'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"Keaton\"",
+      "problem": "Bare surname shared with well-known real people; low risk in a Metroid lorebook but worth gating.",
+      "correction": "Keep 'Chairman Keaton'; make 'Keaton' AND_ANY with 'Chairman', 'Federation', 'Pyonchi'."
+     },
+     {
+      "severity": "style",
+      "claim": "category: \"Other M\"; second paragraph",
+      "problem": "The entry is manga backstory with a speculative tie to an unnamed Other M chairman; the second paragraph mostly restates Anthony's scene already covered in his entry.",
+      "correction": "Shorten the Other M paragraph to one sentence noting the chairman there is unnamed."
+     }
+    ]
+   }
+  ],
+  "overall": "Checked all nine entries against Metroid Wiki (about 45 page fetches, including Adam, Ian, Computerized Adam, Anthony, MB, Madeline, 07th Platoon, Deleter, each platoon member, Bottle Ship and all its sectors, Sector Zero, Nightmare, Pyonchi, Freeze Gun, Brug Mass, Rhedogian, Ridley, Queen Metroid, Desbrachian, Little Birdie, Ferrocrusher, Vorash, Zebesian, Etecoon, Restricted Laboratory, SA-X, Metroid species, Mother Brain, Metroid Fusion, Metroid Dread) plus Wikipedia (Other M, Fusion, Dread, Samus Aran, Characters). WebSearch was unavailable this run (shared budget exhausted), so every Japanese/English script claim and 'ringleaders' that the drafter sourced from Wikitroid snippets remains unverified and is flagged for removal rather than confirmed. Metroid Wiki pages that do not exist: Lava Golem, Magdollite, Mimicuria, Galactic Federation Army, Exam Center, Geothermal Power Plant, Kreatz, Gigafraug; one attempt each at GameFAQs (403) and Legends of Localization/Metroid Recon (404) for script text failed.\n\nHard errors found: (1) the incident entry reverses the Pyrosphere/Cryosphere chronology and ties the naming of the Deleter to the Misawa scene; (2) the platoon entry ties the naming to Research Center records, but Samus names him in the Cryosphere; (3) Nightmare's second fight is on the way OUT after Sector Zero, not barring the way in; (4) SA-X count is 'at least ten', not 'roughly ten'; (5) the Main Sector has no simulated environment and the Main Elevator does not reach Sector Zero. Speculation presented as fact: Nightmare 'recovered by the Federation'; Pierce's Freeze Gun passing to MB/Madeline. Several unverifiable quotes (extended Ian plea, 'Move quickly, and stay alive', 'because of you, I failed') should be trimmed to the attested fragments. Key hygiene: bare 'Adam', 'Anthony', 'Princess', 'Nightmare' are gated only by near-universal secondaries ('Federation', 'Samus', 'computer'), so they fire effectively bare; 'ringleaders' and 'CO'/'MB' are misfire risks. 'Project Metroid Warriors' is confirmed by Metroid Wiki's Bioweapon Research Center page; Phantoon on the Control Bridge, Brug Mass in the Control Room, the Baby's Cry manual definition, 'at least 10 SA-X', 'They lent me a hand', Raven Beak's impersonation, and the Chairman-authorization line are all confirmed.",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+   "https://www.metroidwiki.org/wiki/Ian_Malkovich",
+   "https://www.metroidwiki.org/wiki/Computerized_Adam",
+   "https://www.metroidwiki.org/wiki/Anthony_Higgs",
+   "https://www.metroidwiki.org/wiki/MB",
+   "https://www.metroidwiki.org/wiki/Madeline_Bergman",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation_07th_Platoon",
+   "https://www.metroidwiki.org/wiki/The_Deleter",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Bottle_Ship",
+   "https://www.metroidwiki.org/wiki/Sector_Zero",
+   "https://www.metroidwiki.org/wiki/Nightmare",
+   "https://www.metroidwiki.org/wiki/Pyonchi",
+   "https://www.metroidwiki.org/wiki/Freeze_Gun",
+   "https://www.metroidwiki.org/wiki/James_Pierce",
+   "https://www.metroidwiki.org/wiki/Lyle_Smithsonian",
+   "https://www.metroidwiki.org/wiki/Maurice_Favreau",
+   "https://www.metroidwiki.org/wiki/K.G._Misawa",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Bioweapon_Research_Center",
+   "https://www.metroidwiki.org/wiki/Cryosphere",
+   "https://www.metroidwiki.org/wiki/Pyrosphere",
+   "https://www.metroidwiki.org/wiki/Biosphere",
+   "https://www.metroidwiki.org/wiki/Main_Sector",
+   "https://www.metroidwiki.org/wiki/Phantoon",
+   "https://www.metroidwiki.org/wiki/Little_Birdie",
+   "https://www.metroidwiki.org/wiki/Brug_Mass",
+   "https://www.metroidwiki.org/wiki/Rhedogian",
+   "https://www.metroidwiki.org/wiki/Queen_Metroid",
+   "https://www.metroidwiki.org/wiki/Desbrachian",
+   "https://www.metroidwiki.org/wiki/Ridley",
+   "https://www.metroidwiki.org/wiki/Zebesian",
+   "https://www.metroidwiki.org/wiki/Etecoon",
+   "https://www.metroidwiki.org/wiki/RB176_Ferrocrusher",
+   "https://www.metroidwiki.org/wiki/Vorash",
+   "https://www.metroidwiki.org/wiki/SA-X",
+   "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+   "https://www.metroidwiki.org/wiki/Metroid_(species)",
+   "https://www.metroidwiki.org/wiki/Mother_Brain",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation",
+   "https://www.metroidwiki.org/wiki/Old_Bird",
+   "https://www.metroidwiki.org/wiki/Metroid_(manga)",
+   "https://www.metroidwiki.org/wiki/Navigation_Booth",
+   "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+   "https://en.wikipedia.org/wiki/Metroid_Fusion",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://en.wikipedia.org/wiki/Samus_Aran",
+   "https://en.wikipedia.org/wiki/Characters_of_the_Metroid_series"
+  ]
+ }
+}

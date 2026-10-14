@@ -1,0 +1,455 @@
+{
+ "run": "wf_223f2f6f-0a5",
+ "label": "verify:dread",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Dread: Planet ZDR",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "The X she unwittingly freed from Elun overran the planet's ecosystem",
+      "problem": "Wikipedia's Metroid Dread plot supports this ('inadvertently releases them'), but Wikipedia's List of Metroid characters (X Parasites section) says 'The parasites are released by Raven Beak to hinder Samus.' The two sources conflict on agency.",
+      "correction": "Keep Samus's lack of intent but leave room for Raven Beak's orchestration, e.g. 'the X loosed from Elun as she fought her way through it'.",
+      "source_url": "https://en.wikipedia.org/wiki/List_of_Metroid_characters"
+     },
+     {
+      "severity": "missing",
+      "problem": "Nintendo's Dread Report Vol. 8 states ZDR's temperature, humidity, atmosphere and gravity closely resemble SR388, which is why Samus could operate there as before. Useful world-building for roleplay.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol8/index.html"
+     },
+     {
+      "severity": "missing",
+      "problem": "Same report: a central system circulates magma around the planet to generate energy for the Chozo facilities, which is the in-universe reason for the super-heated zones. The entry mentions the heat but not its cause.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol8/index.html"
+     },
+     {
+      "severity": "keys",
+      "problem": "'ZDR incident' and 'ZDR mission' are also primary keys on the 'Dread: The ZDR mission' entry, so both entries (about 870 words combined) inject together on those triggers.",
+      "correction": "Keep those two keys on the mission entry only, or demote them to secondary keys here."
+     },
+     {
+      "severity": "nit",
+      "claim": "Native ZDR wildlife is ferocious",
+      "problem": "Supported: Nintendo's official JP site describes ZDR's native creatures as ferocious (凶暴な固有生物). Add the source to the entry's source list; no content change needed.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/dread/index.html"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dread: Areas of ZDR",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "the X-infected Experiment Z-57 also lurked here [Cataris]",
+      "problem": "Z-57 being an X is supported (Wikipedia: 'Escue, Golzuna, Experiment No. Z-57, and the Chozo Soldiers are all X'), but no fetched source places it in Cataris. Metroid Wiki's ZDR page lists only Kraid for Cataris; Wikipedia only calls Kraid 'the first and most significant boss of Cataris', which implies others without naming them.",
+      "correction": "Keep only if a source confirms Cataris; otherwise drop the Cataris placement.",
+      "source_url": "https://www.metroidwiki.org/wiki/ZDR"
+     },
+     {
+      "severity": "missing",
+      "problem": "Artaria also held the white E.M.M.I.-02SM: Metroid Wiki's Spider Magnet page says the Spider Magnet is obtained in Artaria by defeating E.M.M.I.-02SM, and the Charge Beam page says the Charge Beam is recovered in Artaria in a Chozo Statue room reached after exiting the White E.M.M.I. room. The entry lists only 01P for Artaria and omits both items.",
+      "source_url": "https://www.metroidwiki.org/wiki/Spider_Magnet"
+     },
+     {
+      "severity": "missing",
+      "problem": "Ferenia: Nintendo's Dread Report Vol. 8 describes it as a ruined sanctuary where the Chozo held rituals, almost entirely artificial structures. Dairon is described as full of armored Chozo robots.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol8/index.html"
+     },
+     {
+      "severity": "missing",
+      "problem": "Burenia's connections per Metroid Wiki: two shuttles to Dairon, elevators to Artaria and Ghavoran, teleporters to Ghavoran and Ferenia. The entry gives connections only for Artaria.",
+      "source_url": "https://www.metroidwiki.org/wiki/ZDR"
+     },
+     {
+      "severity": "missing",
+      "problem": "Cataris's magma is pumped around the planet by a central system to power the facilities (Dread Report Vol. 8), which is why its heat 'spreads into neighboring areas'.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol8/index.html"
+     },
+     {
+      "severity": "nit",
+      "claim": "The red E.M.M.I. (Power Bomb)",
+      "problem": "Metroid Wiki is internally inconsistent: its Power Bomb page says the Power Bomb 'can be found in Hanubia, after defeating another Red Chozo Soldier', while its E.M.M.I. and ZDR pages credit E.M.M.I.-07PB (and the 'PB' designation). The draft follows the two pages that agree; note the conflict in notes only.",
+      "source_url": "https://www.metroidwiki.org/wiki/Power_Bomb"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dread: E.M.M.I. (Extraplanetary Multiform Mobile Identifiers)",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "missing",
+      "claim": "research robots built by the Galactic Federation for surveying unexplored worlds",
+      "problem": "Nintendo's Dread Report Vol. 1 says the E.M.M.I. were Federation survey robots originally built to capture unknown creatures and extract their DNA. The DNA-extraction function is native to their design, not something Raven Beak added; the entry's 'begins extracting her DNA' reads as if it were. This is the single most useful missing fact for the entry.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol1/index.html"
+     },
+     {
+      "severity": "missing",
+      "problem": "Dread Report Vol. 2: E.M.M.I. Zones are separated from normal areas by gates only Samus can pass, and the gates close temporarily when an E.M.M.I. spots her; the Phantom Cloak also silences her and lets her pass gates that detect a body. The 05IM 'could not close the zone doors' line in the units entry presupposes this mechanic but it is never stated.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol2/index.html"
+     },
+     {
+      "severity": "nit",
+      "claim": "She has only an instant to break the hold with a Melee Counter",
+      "problem": "Wikipedia says there are two narrow windows to counter and escape; Dread Report Vol. 9 adds the timing changes each time. 'Only an instant' is not wrong but 'two fleeting chances' is more precise.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "keys",
+      "problem": "'research robot' and 'research robots' are generic and will fire on any mention of research robots in ordinary chat. 'Federation research robots' already covers the Metroid sense.",
+      "correction": "Drop the two bare forms."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dread: The E.M.M.I. units (01P-07PB) and Central Units",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Faster than the earlier units, though Samus could still outrun it",
+      "problem": "Metroid Wiki says only that 04SB 'runs at high speed'; nothing supports Samus outrunning it. Metroid Wiki's Speed Booster page says she detours to Burenia for the Flash Shift and uses it to evade the Yellow E.M.M.I.",
+      "correction": "Replace with 'Samus had to detour for the Flash Shift to evade it' or drop the clause.",
+      "source_url": "https://www.metroidwiki.org/wiki/Speed_Booster"
+     },
+     {
+      "severity": "unverified",
+      "claim": "it smashed through a Chozo mural to seize Samus",
+      "problem": "No fetched source mentions a mural. Metroid Wiki's E.M.M.I. and Quiet Robe pages say only that it grabbed Samus in Ferenia and Quiet Robe deactivated it.",
+      "correction": "Soften to 'it seized Samus in Ferenia' unless a source for the mural is found.",
+      "source_url": "https://www.metroidwiki.org/wiki/E.M.M.I."
+     },
+     {
+      "severity": "missing",
+      "claim": "02SM's area is left unstated",
+      "problem": "02SM was in Artaria: Metroid Wiki's Spider Magnet page says the Spider Magnet is obtained in Artaria by defeating E.M.M.I.-02SM, and its Charge Beam page places the 'White E.M.M.I. room' in Artaria.",
+      "source_url": "https://www.metroidwiki.org/wiki/Spider_Magnet"
+     },
+     {
+      "severity": "missing",
+      "problem": "Metroid Wiki's E.M.M.I. page: the first Central Unit (Artaria) was already defeated when Samus reached it; she simply absorbed its energy and shot 01P as it came through the door. Worth stating since the entry describes Central Units as things Samus must break open.",
+      "source_url": "https://www.metroidwiki.org/wiki/E.M.M.I."
+     },
+     {
+      "severity": "missing",
+      "problem": "Same page: draining 07PB also destroyed its Central Unit, so Samus never fought the Hanubia Central Unit or used an Omega Cannon there.",
+      "source_url": "https://www.metroidwiki.org/wiki/E.M.M.I."
+     },
+     {
+      "severity": "nit",
+      "claim": "each identified by a number and a letter code for the Federation ability module it carried ... [01P] carried no module",
+      "problem": "Internal contradiction: the intro says every unit's letter names its module, then 01P has none.",
+      "correction": "Say 'six of the seven carried an ability module named by their letter code'."
+     },
+     {
+      "severity": "nit",
+      "claim": "Yielded the Power Bomb",
+      "problem": "Metroid Wiki's Power Bomb page attributes the Power Bomb to 'defeating another Red Chozo Soldier' in Hanubia, conflicting with its E.M.M.I. and ZDR pages (07PB). The draft's reading matches the majority and the 'PB' code; record the conflict in notes.",
+      "source_url": "https://www.metroidwiki.org/wiki/Power_Bomb"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dread: Raven Beak",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "He wears a Chozo Power Suit of his own that mirrors Samus's, with an arm cannon of its own",
+      "problem": "Now sourceable: Nintendo's Dread Report Vol. 7 describes 'a large Chozo warrior with an arm cannon similar to Samus's' who overpowers her on ZDR, and says one Samus Returns Chozo Memory depicts a figure resembling him. Add the source and remove the 'from the task brief only' hedge in notes.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol7/index.html"
+     },
+     {
+      "severity": "nit",
+      "claim": "To Samus he is a figure from her own childhood turned enemy",
+      "problem": "Sources say only that he was present at her adoption and donated DNA; nothing says Samus remembers him. Harmless, but 'a figure from her own childhood' implies a memory she is never shown to have.",
+      "correction": "'a Chozo who stood at her adoption and gave her part of his DNA'."
+     },
+     {
+      "severity": "missing",
+      "problem": "Dread Report Vol. 7: Galactic Federation archives record a 'warrior-type' Chozo tribe, which is how the Federation knows of the Mawkin's existence. Small but useful context for how Samus/the Federation would react to a hostile Chozo.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol7/index.html"
+     },
+     {
+      "severity": "nit",
+      "problem": "Metroid Wiki writes the motto as 'Hadar… sen olmen.' with the pause; the draft's 'Hadar sen olmen' is fine as a key but the quoted line in content could include the ellipsis.",
+      "source_url": "https://www.metroidwiki.org/wiki/Raven_Beak"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dread: Quiet Robe",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "The purple E.M.M.I., 06WB, had smashed through a Chozo mural and seized her",
+      "problem": "No fetched source mentions a mural; Metroid Wiki's Quiet Robe page says only that a purple E.M.M.I. nearly attacks Samus and Quiet Robe disables it, and the E.M.M.I. page says it grabbed her in Ferenia.",
+      "correction": "'The purple E.M.M.I., 06WB, had seized her in Ferenia'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Quiet_Robe"
+     },
+     {
+      "severity": "nit",
+      "claim": "the only one who helped her",
+      "problem": "Interpretive; the real ADAM also aided her at the end, and the entry itself says so. Consider 'the only Chozo who helped her'."
+     },
+     {
+      "severity": "missing",
+      "problem": "Ferenia, where he kept to, is described by Nintendo's Dread Report Vol. 8 as a ruined sanctuary where the Chozo held rituals; a one-clause setting detail that fits his character.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol8/index.html"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dread: Chozo Soldiers of the Mawkin",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "missing",
+      "problem": "Nintendo's Dread Report Vol. 7 describes the Chozo soldier as spear-wielding, highly agile and a strong fighter. The entry never says what they fight with.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol7/index.html"
+     },
+     {
+      "severity": "missing",
+      "problem": "Same report: the Chozo-made combat robot uses electromagnetic blade arms and fires light-orb blasts. Gives the Robot Chozo Soldiers a physical description the entry lacks.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol7/index.html"
+     },
+     {
+      "severity": "missing",
+      "problem": "Same report: Galactic Federation archives record a 'warrior-type' Chozo race, i.e. the Federation knew of a martial Chozo tribe before ZDR.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol7/index.html"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Chozo warrior' / 'Chozo warriors' will also fire whenever Raven Beak is called a Chozo warrior (as Wikipedia and the mission entry do) and on Metroid Prime's Chozo Warrior bust. Low risk, but consider dropping or making them secondary."
+     },
+     {
+      "severity": "nit",
+      "problem": "Metroid Wiki's Raven Beak page calls them 'Chozo Robot Soldiers'; Wikipedia's plot uses 'Robot Chozo Soldiers'. Both are keys already; no change needed.",
+      "source_url": "https://www.metroidwiki.org/wiki/Raven_Beak"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dread: The ZDR mission (Metroid Dread events)",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "He sealed the exit",
+      "problem": "Wikipedia says the Chozo warrior 'destroys the exit'.",
+      "correction": "'He destroyed the only exit'.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "nit",
+      "claim": "reachable only from shielded communication rooms",
+      "problem": "No source says the rooms are shielded; Nintendo's JP site says a jamming signal blocks wireless radio so communication needs a dedicated facility.",
+      "correction": "'dedicated communication rooms'.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/exploration/index.html"
+     },
+     {
+      "severity": "nit",
+      "claim": "In Elun she unknowingly released the X Raven Beak had quarantined",
+      "problem": "Supported by Wikipedia's Dread plot ('inadvertently releases'), but Wikipedia's character list says Raven Beak released them to hinder her. Phrase so both readings survive.",
+      "source_url": "https://en.wikipedia.org/wiki/List_of_Metroid_characters"
+     },
+     {
+      "severity": "style",
+      "problem": "510 words, above the 400-word guideline for a non-profile entry; the Itorash and Gunship paragraphs duplicate the Itorash, ADAM and Quiet Robe entries almost verbatim.",
+      "correction": "Trim the last two paragraphs to a few sentences and let the dedicated entries carry the detail."
+     },
+     {
+      "severity": "keys",
+      "problem": "'ZDR incident' and 'ZDR mission' duplicate primary keys on the Planet ZDR entry, so both entries inject together.",
+      "correction": "Keep them on one entry only."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dread: The Chozo of ZDR – Thoha, Mawkin and Raven Beak's coup",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "both contributed to the Chozo DNA given to the orphaned Samus Aran, Raven Beak among the donors",
+      "problem": "Every fetched source (Metroid Wiki Raven Beak, Wikipedia Chozo and character list) says only that Raven Beak gave her some of his DNA; none says the Thoha contributed. The drafter's own notes concede the Thoha-DNA point was not found.",
+      "correction": "'Raven Beak, a Mawkin, was among the Chozo who gave her their DNA' and drop 'both contributed'.",
+      "source_url": "https://en.wikipedia.org/wiki/Chozo"
+     },
+     {
+      "severity": "nit",
+      "claim": "The X were eliminated",
+      "problem": "Wikipedia's Samus Returns article does say the Chozo lived in peace 'once the X parasites were gone', but Metroid Fusion canon has the X surviving on SR388 and resurging after the Metroids' extinction; Nintendo's Dread Reports call Metroids the X's natural predators. 'Eliminated' overstates what the Metroids achieved.",
+      "correction": "'The X were driven back' or 'suppressed'.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns"
+     },
+     {
+      "severity": "nit",
+      "claim": "With ZDR's destruction, both tribes are gone",
+      "problem": "The Thoha ended with Quiet Robe's death before the planet exploded; only the Mawkin remnant (Raven Beak) died with ZDR.",
+      "correction": "'By the time ZDR exploded, both tribes were gone.'"
+     },
+     {
+      "severity": "missing",
+      "problem": "Nintendo's Dread Report Vol. 7: Galactic Federation archives record a 'warrior-type' Chozo tribe, contrasting with the peaceful image of the Chozo; good hook for how the Federation and Samus regard the Mawkin.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol7/index.html"
+     },
+     {
+      "severity": "missing",
+      "problem": "Wikipedia's Samus Returns article: the final Chozo Memory follows a discussion between the two Chozo leaders, i.e. the killing came after a confrontation rather than an ambush. One clause would sharpen the 'alliance broke' paragraph.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dread: Creatures of Dread: Corpius, Drogyga, Escue, Golzuna, Experiment Z-57",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Samus killed him a second time",
+      "problem": "Metroid Wiki's Kraid page has Samus defeating Kraid in Metroid / Zero Mission (Depths of Brinstar) and again in Super Metroid (same lair, Varia Suit reward) before Dread, so ZDR is at least the third time.",
+      "correction": "'Samus killed him once more, having already beaten him twice on Zebes.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Kraid"
+     },
+     {
+      "severity": "unverified",
+      "claim": "A giant with a skull-like face, two powerful arms on which it walks, and a long tail ending in a sharp point. Its exposed ribs leave a gap Samus can slide beneath.",
+      "problem": "Sources confirm only a giant skull-faced creature Samus can slide under (Metroid Wiki ZDR page) and attacks of tail stab, tail sweep and acid spit (Nintendo Dread Report Vol. 11). The walking-on-arms and exposed-ribs details have no support.",
+      "correction": "'A giant skull-faced creature with a stabbing tail and acid spit; Samus can slide beneath it.'",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol11/index.html"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Experiment Z-57 ... a creature of Cataris",
+      "problem": "Its X status is confirmed by Wikipedia ('Escue, Golzuna, Experiment No. Z-57, and the Chozo Soldiers are all X'), but no fetched source places it in Cataris.",
+      "correction": "Keep 'an X mimic' and drop or hedge the Cataris placement until sourced.",
+      "source_url": "https://en.wikipedia.org/wiki/List_of_Metroid_characters"
+     },
+     {
+      "severity": "missing",
+      "problem": "Kraid was the second major creature Samus faced on ZDR, after Corpius, and the first boss of Cataris (Wikipedia character list). The entry orders the list that way but never says it.",
+      "source_url": "https://en.wikipedia.org/wiki/List_of_Metroid_characters"
+     },
+     {
+      "severity": "missing",
+      "problem": "Corpius's attack repertoire (tail stab, tail sweep, acid spit) from Nintendo's Dread Report Vol. 11 would replace the unverified anatomy with sourced detail.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/report/vol11/index.html"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dread: Itorash and the end of ZDR",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "her suit changed into the Metroid Suit",
+      "problem": "No fetched source names a 'Metroid Suit': Wikipedia says only that 'the Metroid abilities within her grant her incredible power', Metroid Wiki has no Metroid Suit page and its Power Suit page is silent on Dread. The name is widely used and likely official, but it was not verified here.",
+      "correction": "Keep hedged as the drafter did, or write 'her suit transformed' and leave the name to the suits domain.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "nit",
+      "claim": "the voice of ADAM that had guided her from the communication rooms had been his",
+      "problem": "Fine, but note the real ADAM's first instruction after the ambush ('find another path to the surface') is attributed to Adam by Wikipedia without saying whether it was already Raven Beak; the entry's 'guided her' blanket claim is slightly broader than the sources.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dread: ADAM on ZDR and Raven Beak's impersonation",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "keys",
+      "problem": "'Adam' and 'ADAM' are the same key under SillyTavern's default case-insensitive matching. The secondary keys 'fake' and 'false' are so generic that, under AND_ANY, any sentence containing 'Adam' and 'false' fires this Dread-specific entry even in Other M or Fusion conversations.",
+      "correction": "Keep one of Adam/ADAM, drop bare 'fake'/'false'/'impersonated' as secondaries and rely on the 'fake Adam'/'false Adam' primaries plus ZDR/Raven Beak/Itorash."
+     },
+     {
+      "severity": "nit",
+      "claim": "shielded communication rooms",
+      "problem": "No source says shielded; Nintendo's JP site says a jamming signal blocks wireless radio so a dedicated facility is required.",
+      "correction": "'dedicated communication rooms'.",
+      "source_url": "https://www.nintendo.com/jp/switch/ayl8a/exploration/index.html"
+     },
+     {
+      "severity": "nit",
+      "claim": "the computer of her Gunship that carries the mind of her former commanding officer Adam Malkovich",
+      "problem": "Supported: Wikipedia's character list says the ship's Navigation Computer is revealed in Fusion to be his consciousness. Add the source; no change needed.",
+      "source_url": "https://en.wikipedia.org/wiki/List_of_Metroid_characters"
+     }
+    ]
+   }
+  ],
+  "overall": "WebSearch budget was exhausted for this turn, so verification used WebFetch only: Metroid Wiki (ZDR, E.M.M.I., Raven Beak, Quiet Robe, Central Unit, Omega Cannon, Kraid, Gunship, Samus Aran, Chozo, X Parasite, Metroid (species), Adam Malkovich, and the per-ability pages for Dread locations), Wikipedia (Metroid Dread, List of Metroid characters, Chozo, Samus Returns, Fusion, Samus Aran, Kraid), and Nintendo's official Japanese Dread site including all eleven Dread Report volumes, which turned out to be the richest official source (E.M.M.I. built to capture creatures and extract DNA; Raven Beak described as a large Chozo warrior with an arm cannon like Samus's; spear-wielding Chozo soldiers; blade-armed Chozo robots; ZDR's SR388-like environment; magma circulated by a central system; Ferenia a ritual sanctuary). Metroid Wiki still has no pages for Corpius, Drogyga, Escue, Golzuna, Experiment No. Z-57, Chozo Soldier/Robot Soldier, Elite Chozo Soldier, Itorash, Thoha, Mawkin, Metroid Suit, Phantom Cloak, Flash Shift, Storm Missile, Cross Bomb, Network Station or Melee Counter; StrategyWiki returned 403. Only one hard error was found: the creatures entry says Samus killed Kraid 'a second time' on ZDR when she had already beaten him twice on Zebes. The remaining problems are embellishments with no source (E.M.M.I.-06WB smashing a 'Chozo mural', Samus 'outrunning' 04SB, Corpius walking on its arms with exposed ribs, Thoha contributing DNA to Samus, the 'Metroid Suit' name, Z-57 placed in Cataris) and two source conflicts worth noting rather than fixing (Wikipedia's character list says Raven Beak released the X from Elun whereas the Dread plot says Samus did so inadvertently; Metroid Wiki's Power Bomb page credits a Red Chozo Soldier rather than E.M.M.I.-07PB). Verified additions the drafter flagged as unknown: E.M.M.I.-02SM was in Artaria (Spider Magnet and Charge Beam pages), and Raven Beak's Samus-like arm cannon is confirmed by Nintendo's Dread Report Vol. 7. Key hygiene: 'ZDR incident'/'ZDR mission' are duplicated across two entries, 'research robot(s)' is too generic, and the ADAM entry's secondary keys 'fake'/'false' are generic enough to defeat the selective logic. The mission entry is 510 words and largely repeats the Itorash, ADAM and Quiet Robe entries. No non-canon contamination was found in any entry.",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/ZDR",
+   "https://www.metroidwiki.org/wiki/E.M.M.I.",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://www.metroidwiki.org/wiki/Quiet_Robe",
+   "https://www.metroidwiki.org/wiki/Central_Unit",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Omega_Cannon_(Metroid_Dread)",
+   "https://www.metroidwiki.org/wiki/Kraid",
+   "https://www.metroidwiki.org/wiki/Gunship",
+   "https://www.metroidwiki.org/wiki/Chozo",
+   "https://www.metroidwiki.org/wiki/X_Parasite",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+   "https://www.metroidwiki.org/wiki/Metroid_(species)",
+   "https://www.metroidwiki.org/wiki/Spider_Magnet",
+   "https://www.metroidwiki.org/wiki/Charge_Beam",
+   "https://www.metroidwiki.org/wiki/Morph_Ball",
+   "https://www.metroidwiki.org/wiki/Speed_Booster",
+   "https://www.metroidwiki.org/wiki/Ice_Missile",
+   "https://www.metroidwiki.org/wiki/Wave_Beam",
+   "https://www.metroidwiki.org/wiki/Power_Bomb",
+   "https://www.metroidwiki.org/wiki/Grapple_Beam",
+   "https://www.metroidwiki.org/wiki/Screw_Attack",
+   "https://www.metroidwiki.org/wiki/Plasma_Beam",
+   "https://www.metroidwiki.org/wiki/Super_Missile",
+   "https://www.metroidwiki.org/wiki/Bomb",
+   "https://www.metroidwiki.org/wiki/Wide_Beam",
+   "https://www.metroidwiki.org/wiki/Diffusion_Beam",
+   "https://www.metroidwiki.org/wiki/Gravity_Suit",
+   "https://www.metroidwiki.org/wiki/Space_Jump",
+   "https://www.metroidwiki.org/wiki/Varia_Suit",
+   "https://www.metroidwiki.org/wiki/Core-X",
+   "https://www.metroidwiki.org/wiki/Aeion",
+   "https://www.metroidwiki.org/wiki/Power_Suit",
+   "https://www.metroidwiki.org/wiki/Chozo_Warrior",
+   "https://www.metroidwiki.org/wiki/Chozo_Statue",
+   "https://www.metroidwiki.org/wiki/Save_Station",
+   "https://www.metroidwiki.org/wiki/Category:Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Category:Aeion",
+   "https://www.metroidwiki.org/wiki/Category:Bosses",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://en.wikipedia.org/wiki/List_of_Metroid_characters",
+   "https://en.wikipedia.org/wiki/Chozo",
+   "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns",
+   "https://en.wikipedia.org/wiki/Metroid_Fusion",
+   "https://en.wikipedia.org/wiki/Samus_Aran",
+   "https://en.wikipedia.org/wiki/Kraid",
+   "https://www.nintendo.com/jp/switch/ayl8a/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/dread/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/exploration/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/report/vol1/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/report/vol2/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/report/vol3/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/report/vol4/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/report/vol5/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/report/vol6/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/report/vol7/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/report/vol8/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/report/vol9/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/report/vol10/index.html",
+   "https://www.nintendo.com/jp/switch/ayl8a/report/vol11/index.html",
+   "https://www.nintendo.com/us/store/products/metroid-dread-switch/"
+  ]
+ }
+}

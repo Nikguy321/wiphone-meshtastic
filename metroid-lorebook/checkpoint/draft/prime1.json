@@ -1,0 +1,295 @@
+{
+ "run": "wf_223f2f6f-0a5",
+ "label": "draft:prime1",
+ "result": {
+  "entries": [
+   {
+    "comment": "Prime: The Tallon IV incident (Metroid Prime events)",
+    "keys": [
+     "Tallon IV incident",
+     "Tallon IV mission",
+     "mission to Tallon IV",
+     "mission on Tallon IV",
+     "Metroid Prime incident",
+     "Metroid Prime mission",
+     "events of Metroid Prime",
+     "story of Metroid Prime",
+     "Orpheon distress signal"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "The Tallon IV incident was Samus Aran's first encounter with Phazon and with the creature Metroid Prime (Metroid Prime; set shortly after her first Zebes mission and before her extermination campaign on SR388). It began when she tracked a distress beacon to a derelict Space Pirate research frigate, the Orpheon, in orbit above Tallon IV in the FS-176 system.\n\nAboard, she found a crew slaughtered by its own experiments: Tallon IV Parasites mutated with Phazon into Parasite Queens. She killed the surviving Queen in the Reactor Core; its body fell into the reactor and the ship began to self-destruct. On her way out she met Ridley, rebuilt by the Pirates as the cybernetic Meta Ridley. An explosion in an elevator shaft reduced her Power Suit to basic functions, and she pursued Ridley to the surface in her Gunship while the frigate fell from orbit behind her.\n\nOn the planet she pieced its history together from Chozo Lore and Pirate Data. Chozo settlers from Zebes had lived there in deliberate harmony with nature until a meteor, a Leviathan, struck decades earlier and released the Great Poison, which the Pirates named Phazon. Before leaving, the Chozo built the Artifact Temple over the Impact Crater and sealed it with the Cipher, a lock of twelve Chozo Artifacts, and their inscriptions foretold a savior, the Entrusted One, who would gather their armor and weapons and cleanse the land. After the fall of Zebes the Space Pirates had made Tallon IV a secondary headquarters, mining Phazon and experimenting on Metroids, on their own troops and on the native life.\n\nSamus crossed the planet's regions recovering her abilities and the Artifacts. In the Chozo Ruins she killed Flaahgra, the mutant plant poisoning the water. In Magmoor Caverns she passed the Pirates' geothermal works. In Phendrana Drifts she broke into the research outpost Glacier One and destroyed Thardus, the living Phazon ore of Project Titan. She explored the flooded wreck of the Orpheon, then the Phazon Mines, where the dying Omega Pirate collapsed onto her and its Phazon fused with her armor into the Phazon Suit.\n\nWith all twelve Artifacts set in the Artifact Temple, Meta Ridley attacked and shattered the Chozo Totems. Samus beat him with help from the temple's own defenses, which blasted him into the abyss. Twelve Chozo Ghosts then took the totems' places and opened the way into the Impact Crater. There she destroyed Metroid Prime's armored exoskeleton and then its core essence, turning its own Phazon against it through the Phazon Suit. The dying creature seized her and tore the Phazon Suit from her body before it exploded. She escaped the collapsing crater, removed her helmet aboard her Gunship and watched the Artifact Temple fall. Unseen by her, the Phazon left behind drew in the stolen suit and a hand rose from it: the birth of Dark Samus.\n\nThe Pirate operation on Tallon IV was broken and the planet's decline halted; later Galactic Federation records call it recovered. For Samus it was the beginning of a conflict with Phazon and Dark Samus that ended only with the Phazon crisis (Metroid Prime 3: Corruption).",
+    "constant": false,
+    "order": 100,
+    "category": "Prime",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Metroid_Prime",
+     "https://www.metroidwiki.org/wiki/Tallon_IV",
+     "https://www.metroidwiki.org/wiki/Frigate_Orpheon",
+     "https://www.metroidwiki.org/wiki/Artifact_Temple",
+     "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)",
+     "https://en.wikipedia.org/wiki/Metroid_Prime"
+    ],
+    "notes": "Overview entry; keys deliberately avoid the bare planet name so it does not double-fire with the Tallon IV entry (which cross-references 'Tallon IV incident' for recursive scanning). The Dark Samus hand scene is shown only when Samus has recovered all of her equipment; it is treated as the canonical outcome since Dark Samus appears in Echoes."
+   },
+   {
+    "comment": "Prime: Tallon IV",
+    "keys": [
+     "Tallon IV",
+     "Tallon 4",
+     "Tallon",
+     "FS-176",
+     "Wanderer-class",
+     "Spiral Sector"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "Tallon IV is a Wanderer-class planet in the FS-176 system of the Spiral Sector, a neighbor of Zebes, Oormine II, Twin Tabula and Bilium; the Space Pirates charted it at heading mark 40.08.02. It is slightly smaller than Earth, with a mass of 5.1 trillion teratons according to Samus's scans, and most of its explored surface is rain-soaked forest.\n\nChozo from Zebes settled it long ago and chose to leave advanced technology behind, building in stone, branch and water and living in harmony with the world. Their colony became the Chozo Ruins, and they raised shrines as far as the ice of Phendrana Drifts. Decades before Samus's arrival a meteor, later identified as a Leviathan from Phaaze, struck the planet and released what the Chozo called the Great Poison and the Pirates named Phazon. It fouled the water, mutated the wildlife and drove many Chozo mad, leaving behind the spectral Chozo Ghosts. The survivors built the Artifact Temple, the Cradle, over the Impact Crater, locked it with the Cipher of twelve Chozo Artifacts, and departed, leaving their weapons and armor for a foretold Entrusted One. Accounts of the timing differ: the Pirates reckoned the planet had about twenty-five years before all life died, while Federation records placed the impact roughly fifty years before Samus came.\n\nAfter the fall of Zebes the Pirates' scans found an energy spike on Tallon IV and they made it a secondary headquarters. They sank the Phazon Mines, built the research outpost Glacier One in Phendrana Drifts, tapped the magma of Magmoor Caverns for power and began terraforming the Chozo Ruins, with plans for a combat base and a starport; Command expected to dominate the sector within a deca-cycle. Phazon yields rose by forty-four percent near the crater, at the cost of madness among the miners: loss of balance, spasms and hallucinations.\n\nSamus came following the Orpheon's distress beacon and ended the Tallon IV incident by breaking the Pirate operation and destroying Metroid Prime in the Impact Crater. The planet's decline halted; by the time of the Phazon crisis, Federation records described Tallon IV as recovered from the impact (Metroid Prime 3: Corruption). The Chozo of Tallon IV had foreseen her: she is the Entrusted One of their Chozo Lore, and it was on this world that she first wore Phazon in her armor and first met the thing that would become Dark Samus.",
+    "constant": false,
+    "order": 100,
+    "category": "Prime",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Tallon_IV",
+     "https://www.metroidwiki.org/wiki/Pirate_Data",
+     "https://www.metroidwiki.org/wiki/Chozo_Ruins",
+     "https://en.wikipedia.org/wiki/Metroid_Prime"
+    ],
+    "notes": "The 25-year (Pirate estimate) vs 50-year (Federation data in Corruption) figures are two different measurements, not strictly a contradiction; both are given as the sources give them. 'Tallon' as a bare key is a proper noun with little misfire risk."
+   },
+   {
+    "comment": "Prime: Regions of Tallon IV",
+    "keys": [
+     "Tallon Overworld",
+     "Chozo Ruins",
+     "Magmoor Caverns",
+     "Magmoor",
+     "Phendrana Drifts",
+     "Phendrana",
+     "Phazon Mines",
+     "Glacier One",
+     "Life Grove",
+     "Chozo Ice Temple",
+     "Hall of the Elders",
+     "regions of Tallon IV"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "The explored surface of Tallon IV divides into five linked regions, joined by Chozo and Pirate transport elevators, plus the sealed Impact Crater beneath the Artifact Temple.\n\nTallon Overworld: a rainforest under constant overcast and rain, where Samus's Gunship set down at the Landing Site. Glowing Spidervines and Red Starbursts form the canopy; Blastcaps, Tangle Weed, Venom Weed and Sap Sacs cover the floor; Beetles, Zoomers and Geemers roam, with Jelzaps, Aqua Reapers and Tallon Crabs in the water. It holds the Artifact Temple above the Impact Crater, the Life Grove (an ancient Chozo religious site holding the Artifact of Chozo), the Great Tree Hall and the flooded Frigate Crash Site where the Orpheon fell.\n\nChozo Ruins: the first Chozo colony, built of stone, woven branches and channeled water around ancient trees, with Half Pipes, runic carvings and holobanners; its stone defies carbon dating. The Great Poison fouled its water, and Flaahgra nested in the Sacred Fountain of the Sunchamber. Chozo Ghosts, the Turned, haunt it, above all the Hall of the Elders. Twelve of the planet's sixteen Chozo Lore inscriptions are here, with the Artifacts of Wild, World and Lifegiver. The Pirates meant to terraform the Ruins and harvest Chozo relics, but Ghost attacks forced them to restrict access.\n\nMagmoor Caverns: a subterranean volcanic crossway linking every other region except the crater; lava lakes, flame jets, Magmoors, Triclops, Puffers and Grizbys, and no plant life at all. The Pirates ran a geothermal processing operation at the Monitor Station and eyed its Red Magma Crystals. The Warrior Shrine and the Lava Lake hid the Artifacts of Strength and Nature.\n\nPhendrana Drifts: frozen mountains stalked by Sheegoths and cold-adapted offshoots of the planet's fauna, with Tallon Metroids and Hunter Metroids from the Pirate labs. It was a center of Chozo worship: the Chozo Ice Temple, with its busts of a Chozo Philosopher, Warrior, Architect and Shaman, and the Chapel of the Elders. The Pirates made it their research headquarters, Glacier One: Research Lab Hydra, Research Lab Aether, the Research Core, the Observatory, the Control Tower and the Quarantine Cave that held Thardus. The cold kept their Metroid specimens sluggish. Artifacts of Sun, Elder and Spirit.\n\nPhazon Mines: the Pirates' Tallon IV headquarters, entered through the Orpheon's wreck or from Magmoor. Three tiers descend from the Main Quarry and Ore Processing through Elite Research, Elite Control, Omega Research and the Central Dynamo to the Elite Quarters, the Metroid Quarantines, the Phazon Processing Center and the Phazon Mining Tunnel. Project Helix bred the Elite Pirates and the Omega Pirate here, and Troopers carried beams reverse-engineered from Chozo weapons. Artifacts of Warrior and Newborn.\n\nSamus crossed all of them during the Tallon IV incident, reclaiming the armor and weapons the Chozo had left for her.",
+    "constant": false,
+    "order": 100,
+    "category": "Prime",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Tallon_Overworld",
+     "https://www.metroidwiki.org/wiki/Chozo_Ruins",
+     "https://www.metroidwiki.org/wiki/Magmoor_Caverns",
+     "https://www.metroidwiki.org/wiki/Phendrana_Drifts",
+     "https://www.metroidwiki.org/wiki/Phazon_Mines",
+     "https://www.metroidwiki.org/wiki/Glacier_One",
+     "https://www.metroidwiki.org/wiki/Pirate_Data"
+    ],
+    "notes": "'Chozo Ruins' is also the name of a Zero Mission area in the zebes domain; the key is kept because it is the canonical Tallon IV region name. Creature names are mentioned only in passing (bestiary-prime owns them)."
+   },
+   {
+    "comment": "Prime: Frigate Orpheon and the Parasite Queen",
+    "keys": [
+     "Orpheon",
+     "Frigate Orpheon",
+     "Parasite Queen",
+     "Parasite Queens",
+     "Siriacus",
+     "Vol Paragom",
+     "Frigate Crash Site",
+     "crashed frigate",
+     "derelict frigate",
+     "Vortex Outpost"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "The Orpheon was one of three Space Pirate research frigates, with the Siriacus and the Vol Paragom, that escaped orbit when Samus destroyed the Pirate facilities on Zebes. It docked at Vortex Outpost with its Metroid cargo intact, then took station above Tallon IV to collect native life for Phazon mutagen experiments: Parasites, Plated Parasites, Shriekbats, Ice Shriekbats, Plazmites, War Wasps and Zoomers.\n\nThe Parasites answered best. Phazon infusion enlarged and strengthened them and grew poison sacs and a second ring of mandibles, though the fourth infusion killed every subject. From this program came the Parasite Queen, a Parasite female enhanced by means the Pirate logs never specify: massive jaws ringed with sacs of corrosive bile, galvanized legs that pierce alloy, a tail orifice for birthing young, and the ability to fire weapon-grade energy from its mouth, which ordinary Parasites cannot. Two Queens broke containment and killed most of the crew. The survivors destroyed one, lit the distress beacon and abandoned ship, leaving the badly wounded behind; Samus's scans still found faint life signs when she arrived.\n\nShe tracked the beacon to the derelict, boarded it, read the terminals that first told her of Phazon and Tallon IV, and in the Reactor Core met the last Queen inside a spinning energy barrier that reflected fire. She shot through the gaps with the Power Beam and Missiles until it died and fell into the reactor, which went critical. During her escape she came face to face with Meta Ridley, who fled to the planet, and an explosion in an elevator shaft stripped her Power Suit of most of its functions before she reached her Gunship (Metroid Prime).\n\nThe Orpheon fell to Tallon IV and came to rest half-drowned at the Frigate Crash Site in the Tallon Overworld. Once Samus had the Gravity Suit she went back in: Aqua Reapers, Tallon Crabs and Aqua Sacs had colonized the hull, Aqua Pirates were combing it, apparently for survivors, and she had to restore the Power Conduits with the Wave Beam, tracing them through the Thermal Visor, to pass through. The wreck was her route into the Phazon Mines. Two more Parasite Queen corpses turned up years later in the Pirates' laboratories in Eastern SkyTown on Elysia, one of them noted as resembling the parasitic life of Tallon IV.",
+    "constant": false,
+    "order": 100,
+    "category": "Prime",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Frigate_Orpheon",
+     "https://www.metroidwiki.org/wiki/Parasite_Queen",
+     "https://www.metroidwiki.org/wiki/Pirate_Data",
+     "https://www.metroidwiki.org/wiki/Metroid_Prime"
+    ],
+    "notes": "Metroid Wiki spells the third frigate both 'Vol Paragom' (logbook) and 'Vol Paragon' (navigation); the logbook spelling is used. Super Smash Bros. trophy text about the Queen was ignored as non-canon."
+   },
+   {
+    "comment": "Prime: The Chozo of Tallon IV and the Chozo Lore prophecy",
+    "keys": [
+     "Chozo Lore",
+     "Entrusted One",
+     "Great Poison",
+     "Worm prophecy",
+     "Chozo prophecy",
+     "the Turned",
+     "Prophecy of Light",
+     "Shining One",
+     "Tallon Chozo",
+     "Chozo of Tallon IV",
+     "Chozo settlers",
+     "harmonization"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "The Chozo who settled Tallon IV came from Zebes and chose, by design, to leave advanced technology behind: they knew it but did not worship it, and they built their sanctuary of stone, branches and water around the ancient trees (Chozo Lore inscriptions \"Beginnings\" and \"Purification\"). As the years passed many began to see beyond ordinary perception, visions of past and future they read as harmonization with the infinite. The darkest and most common vision was of the Worm, an evil \"born from parasites, nurtured in a poisoned womb\" that would devour the world from within; the inscriptions note that not every prophecy comes to pass.\n\nThen an unforeseen meteor fell. From its crater spread the Great Poison, an energy that seemed almost sentient, corrupting trees and water and birthing mutated beasts, one of which defiled the sacred fountain. The Chozo could not destroy the poison and debated its nature, an alien weapon or the fragment of a shattered world, hoping it existed only on Tallon IV so that it might one day be eradicated. They resolved to contain it: a temple, the Cradle, rose over the crater, and at its heart a Cipher, \"a mystical lock powered by twelve Artifacts,\" which they hid across the land. The seal slowed the poison but did not stop it, and the Chozo knew its strength was finite.\n\nNot all endured. The Turned, Chozo whose minds the poison corrupted, kept their forms as ghostly shapes caught in limbo, driven only by an instinct to guard the land; these are the Chozo Ghosts that haunt the Chozo Ruins. The rest withdrew beyond the illusion of the physical world, promising to keep watch (\"Exodus\").\n\nTheir final inscriptions are a prophecy. A savior would come. They would leave their ancient weapons and armor for that soul, and whoever gathered them would become the Entrusted One, the only being able to reverse the evil, and the true Entrusted One once the monsters that sought to harness the poison were defeated. The \"Prophecy of Light\" sees a light chasing the poison's shadows, sometimes in the shape of a woman; when it recedes, the Chozo's long vigil will end. The \"Shining One\" is a human figure shining in the toxic dark. In another rendering of the same inscriptions she is the Hatchling or Newborn, a ghostlike figure in Chozo armor hunting the corrupted, whom the elders hoped would be their great Defender against the Worm.\n\nSamus, raised by the Chozo of Zebes and wearing their armor, is the Entrusted One they foresaw. She read these inscriptions one by one as she crossed Tallon IV during the Tallon IV incident, and her Logbook preserves them. The Chozo Lore also warns that Chozo Statues across the solar system reward those who respect them with friendship and answer those who destroy them with wrath.",
+    "constant": false,
+    "order": 100,
+    "category": "Prime",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Chozo_Lore",
+     "https://www.metroidwiki.org/wiki/Chozo_Ruins",
+     "https://www.metroidwiki.org/wiki/Chozo_Ghost",
+     "https://www.metroidwiki.org/wiki/Tallon_IV"
+    ],
+    "notes": "The Chozo Lore exists in two official texts: the original North American version (Hatchling/Newborn/Defender) and the PAL/Trilogy/Remastered version (Entrusted One/Shining One/Prophecy of Light). The newer text is treated as primary and the older terms noted as 'another rendering'. 'Hatchling' and 'Newborn' are omitted from keys to avoid firing on baby-Metroid talk. The chozo domain also covers the Chozo Lore records; this entry focuses on the prophecy and the Tallon IV settlers' story."
+   },
+   {
+    "comment": "Prime: Chozo Artifacts and the Artifact Temple",
+    "keys": [
+     "Chozo Artifact",
+     "Chozo Artifacts",
+     "Artifact Temple",
+     "Cipher",
+     "the Cradle",
+     "Chozo Totem",
+     "Chozo Totems",
+     "twelve Artifacts",
+     "Artifacts",
+     "Artifact of Truth",
+     "Artifact of Newborn",
+     "Artifact of Chozo"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "The Chozo Artifacts are twelve relics into which the Chozo of Tallon IV poured their will, forming the Cipher: a mystical lock that seals the Great Poison within the Impact Crater. They hid them across the planet, in places only items spiritually linked to Chozo civilization could reach, so the source of the poison would not fall into the wrong hands, and carved clues to each resting place in the Chozo tongue on twelve pillars, the Chozo Totems, in the Artifact Temple.\n\nThe Artifact Temple, which the Chozo called the Cradle, is the holiest Chozo site on Tallon IV. It hangs over the Impact Crater in the Tallon Overworld, a courtyard of Chozo Statues ringed by the totems, and holds the inscriptions \"Contain\" and \"Prophecy of Light.\" The seal it anchors slowed the spread of Phazon but could not stop it.\n\nThe twelve, and where Samus found them:\n- Truth: the Artifact Temple itself, at the center of the courtyard.\n- Chozo: the Life Grove, beneath the water.\n- Wild: the Sunchamber of the Chozo Ruins, in Flaahgra's nest.\n- World: a chamber beneath the statue in the Hall of the Elders.\n- Lifegiver: the Tower Chamber of the Chozo Ruins.\n- Strength: the Warrior Shrine of Magmoor Caverns.\n- Nature: the shattered column at the center of the Lava Lake.\n- Sun: the Chozo Ice Temple, under thawed ice.\n- Elder: the Control Tower atop the Pirate base in Phendrana Drifts.\n- Spirit: a hidden entrance at Phendrana's Edge.\n- Warrior: Elite Research in the Phazon Mines, guarded by a corrupted creature.\n- Newborn: the Phazon Mining Tunnel, through a vein of raw Phazon.\n\nThe Space Pirates' Phazon Program ran into the seal at once: a containment field over the crater that no tunnelling could breach. Their records show they identified the Artifacts as its keys, theorized that there were twelve matching the temple statues, tried to fuse the ones they found with Phazon, could not decipher the totem inscriptions, planned to dismantle the temple and destroy the Artifacts if necessary, and were attacked by Chozo Ghosts whenever they dug at Chozo sites. Command grew impatient; they never succeeded.\n\nSamus gathered all twelve. When she set them in place, Meta Ridley swept down and shattered the totems, and the temple's own defenses, red light burning in the eyes of its statues, helped her strike him into the abyss. Twelve Chozo Ghosts then rose where the totems had stood and activated the Cipher, opening a shaft of blue light down to the Crater Entry Point. After Metroid Prime died, the temple was torn apart in the explosions that collapsed the crater, and Samus watched it fall from her Gunship.",
+    "constant": false,
+    "order": 100,
+    "category": "Prime",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Chozo_Artifact",
+     "https://www.metroidwiki.org/wiki/Artifact_Temple",
+     "https://www.metroidwiki.org/wiki/Pirate_Data",
+     "https://www.metroidwiki.org/wiki/Chozo_Ghost",
+     "https://www.metroidwiki.org/wiki/Tallon_Overworld"
+    ],
+    "notes": "'Cipher' and 'Artifacts' are single words but unlikely to misfire in a Metroid roleplay; drop them if the lorebook is used more broadly. The 'corrupted creature' guarding the Artifact of Warrior is the Phazon Elite (not named to avoid overlap with space-pirates)."
+   },
+   {
+    "comment": "Prime: Flaahgra, Thardus and the Omega Pirate",
+    "keys": [
+     "Flaahgra",
+     "Thardus",
+     "Omega Pirate",
+     "Project Titan",
+     "Project Helix",
+     "Sunchamber",
+     "Quarantine Cave",
+     "Elite Quarters",
+     "Elite Pirate Upsilon",
+     "Sacred Fountain",
+     "Mirror Array",
+     "Mirror Arrays"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "Three of the mutated or manufactured creatures Samus destroyed during the Tallon IV incident guarded the places where the Chozo had left her armor and abilities, or where the Pirates kept what they had stolen.\n\nFlaahgra was a specimen of an unknown species of giant flower, grotesquely mutated by Phazon, rooted in the Sunchamber, the Sacred Fountain of the Chozo Ruins. Its growth cycle had accelerated so far that it needed near-constant sunlight, fed to its base by four Mirror Arrays, and its toxins were the source of the poisoned water throughout the Ruins; a Chozo inscription records a beast defiling the sacred fountain. Its insectoid core swung scythe-like claws and sprayed toxic fluid that sprouted poisonous plants, and its thick, sun-hardened shell was proof against weapons. Samus knocked the mirrors out of alignment with Missiles and the Charge Beam until it wilted, then rolled in Morph Ball to its exposed root system and set Morph Ball Bombs there, repeating this as it revived until its central mass burned. The fountain ran clean afterward, and the Varia Suit lay beyond it.\n\nThardus was the one major success of Project Titan, the Space Pirates' attempt to animate inanimate matter with Phazon radiation: a colossal, sentient creature of Phazon ore held together by Phazon energy. It proved so violent, with security breaches costing massive casualties, that the project was suspended indefinitely and the thing was confined in the Quarantine Cave of Glacier One in Phendrana Drifts, pending relocation. It hurled boulders telekinetically, rolled, and encased Samus in ice, and its radiation disrupted her targeting. The Pirates' own research had found that thermal imaging exposed weak points in its shell; Samus used the Thermal Visor to find them and shattered the creature, then claimed the Spider Ball.\n\nThe Omega Pirate, designated Elite Pirate Upsilon, was the apex of Project Helix, which fused the Phazon strain \"Vertigo\" with Pirate DNA to breed the Elite Pirates. Pushed far beyond safety limits, it grew enormously in mass yet kept its mind, wielding a Plasma Incendiary Launcher, Wave Quake Generators and the Chameleon Manta cloak, and healing instantly by coating itself in Phazon. Its absorption system failed against Missiles, and simulations gave such subjects less than two deca-cycles to live, so the Pirates built no more. Samus woke it from its Cryosleep Tank in the Elite Quarters of the Phazon Mines. She broke the Phazon plating on its shoulders and knees, tracked it with the X-Ray Visor as it cloaked to regenerate at the Phazon veins while summoning Troopers, and killed it. Its body fell onto her and disintegrated, and its Phazon corrupted her armor into the Phazon Suit, the one weapon that could later harm Metroid Prime.",
+    "constant": false,
+    "order": 100,
+    "category": "Prime",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Flaahgra",
+     "https://www.metroidwiki.org/wiki/Thardus",
+     "https://www.metroidwiki.org/wiki/Omega_Pirate",
+     "https://www.metroidwiki.org/wiki/Glacier_One",
+     "https://www.metroidwiki.org/wiki/Pirate_Data",
+     "https://www.metroidwiki.org/wiki/Chozo_Lore"
+    ],
+    "notes": "Slightly over 400 words because it covers three subjects. 'Omega Pirate' is also allocated to the space-pirates domain (Elite Pirates and the Omega Pirate); this entry keeps it brief and Tallon IV-focused."
+   },
+   {
+    "comment": "Prime: Metroid Prime (the creature)",
+    "keys": [
+     "Metroid Prime",
+     "the Worm",
+     "unholy Worm",
+     "Test Subject Z-d",
+     "core essence",
+     "Prime's exoskeleton",
+     "Worm of Tallon IV"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "Metroid Prime was the creature the Chozo of Tallon IV prophesied as the Worm, \"born from parasites, nurtured in a poisoned womb,\" that would devour the world from within. It came to the planet with the meteor, the Leviathan, decades before Samus: a Metroid of unknown origin that absorbed the Leviathan's core and gestated in the Impact Crater, feeding on Phazon from the core and producing more with no outlet. The Chozo raised the Artifact Temple, the Cradle, over its prison and locked it with the Cipher, doubting the lock would hold forever.\n\nThe Space Pirates never reached it. Their records show every tunnelling attempt stopped by an impermeable shield of strange energy, while life-form readings revealed a massive creature gestating inside and absorbing Phazon from the crater's core. An earlier, since-superseded version of their records instead described a captured Test Subject Z-d that killed its miners, escaped stasis by drinking raw Phazon and assimilated the weapons of fallen security units. Samus's own scans agreed on the essentials: a highly evolved life-form genetically like a Metroid, with unlimited Phazon absorption and no Phazon degeneration, armor plating, mechanical outgrowths projecting defense screens, and Pirate weaponry built into its body.\n\nIn its armored exoskeleton it fought Samus in the Phazon Core and down through the Metroid Prime Lair. Its screens had a flaw: at any instant it was vulnerable to a single beam, shown by its armor's color, purple for the Wave Beam, yellow for the Power Beam, white for the Ice Beam and red for the Plasma Beam, and it shifted them rapidly to compensate. It attacked with Ultrafrigid Breath, Multi-Missiles, Snare Beams and Particle Wave Projectors and charged her bodily; its head was its weak point. When the exoskeleton broke apart the creature fell down a long shaft, and Samus followed.\n\nIts core essence, a dark form that could turn invisible, released shock waves and spawned Metroids, and no ordinary weapon touched it. It left pools of Phazon as it moved, and only by standing in them and channeling the Phazon through her Phazon Suit as the Phazon Beam could Samus wound it. Dying, it seized her and tore the Phazon Suit from her body, then exploded, and the Impact Crater collapsed.\n\nIt did not truly die. The Phazon it left drew in the stolen suit and fused elements of itself, the suit and Samus into a new being; a hand rose from the pool. This was the birth of Dark Samus, who never again bore the name Metroid Prime and who next crossed Samus's path on Aether (Metroid Prime; Metroid Prime 2: Echoes). Husks of a nearly identical creature were later found in the Genesis Chamber on Phaaze, their origin unexplained. For Samus, Metroid Prime was the first enemy she could only kill with Phazon itself, and the seed of a conflict that followed her through the Phazon crisis.",
+    "constant": false,
+    "order": 100,
+    "category": "Prime",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)",
+     "https://www.metroidwiki.org/wiki/Pirate_Data",
+     "https://www.metroidwiki.org/wiki/Dark_Samus",
+     "https://www.metroidwiki.org/wiki/Metroid_Prime",
+     "https://en.wikipedia.org/wiki/Metroid_Prime"
+    ],
+    "notes": "The 'Test Subject Z-d' Pirate Data entries (Prime Mutations, Prime Breach, Metroid Prime) exist only in the original North American release and were removed from PAL/Trilogy/Remastered; Metroid Wiki treats them as no longer canon, so they are flagged as superseded. 'the Worm' is a two-word key and will only match that exact phrase."
+   },
+   {
+    "comment": "Prime: Impact Crater",
+    "keys": [
+     "Impact Crater",
+     "Phazon Core",
+     "Orange Phazon",
+     "Tallon IV's Scar",
+     "Phazon Infusion Chamber",
+     "Crater Entry Point",
+     "Metroid Prime Lair",
+     "Subchamber"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "The Impact Crater is the wound left when the Leviathan from Phaaze struck Tallon IV decades before Samus came, afterward called Tallon IV's Scar. Its depths are the only known source of Orange Phazon, which Samus's scans rated eighty-six percent more mutagenic than ordinary Phazon. Phazon there is so concentrated that almost nothing survives: only Lumigeks and Fission Metroids live inside, and nowhere else on the planet. Metroid Prime gestated at its heart, drawing Phazon from the core and producing more that had no outlet, so the concentration climbed without limit.\n\nThe Chozo built the Artifact Temple, the Cradle, directly above the crater and sealed it with the Cipher of twelve Chozo Artifacts, which slowed the Great Poison's spread across the planet. The Space Pirates, drawn to Tallon IV by the energy spike their scans picked up from the crater, could not get in: every tunnelling attempt met an impermeable shield of strange energy, and their records speak only of a massive creature gestating within. Their Phazon yields rose by forty-four percent the closer they dug to it, and the miners went mad.\n\nSamus entered after the twelve Chozo Ghosts activated the Cipher at the temple, descending in a beam of light to the Crater Entry Point, then through Crater Tunnels A and B past a Crater Missile Station into the Phazon Core, a cavern of glowing Phazon growths where she first fought Metroid Prime's exoskeleton. Beyond lay the Phazon Infusion Chamber and the Metroid Prime Lair with its five Subchambers, down which the broken creature fell and where she destroyed its core essence. The crater exploded and collapsed when the creature died, taking the Artifact Temple with it (Metroid Prime). It was the deepest immersion in Phazon Samus experienced before the Phazon crisis, and the place where Dark Samus was born from the Phazon Suit it tore from her.",
+    "constant": false,
+    "order": 100,
+    "category": "Prime",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Impact_Crater",
+     "https://www.metroidwiki.org/wiki/Pirate_Data",
+     "https://www.metroidwiki.org/wiki/Metroid_Prime",
+     "https://www.metroidwiki.org/wiki/Artifact_Temple",
+     "https://www.metroidwiki.org/wiki/Tallon_IV"
+    ],
+    "notes": "Metroid Wiki's Impact Crater page is a stub; room order (Entry Point, Tunnels, Missile Station, Phazon Core, Infusion Chamber, Lair, Subchambers) is taken from its room list and the creature page. 'Subchamber' is included as a key since it is unique to this location."
+   }
+  ],
+  "research_notes": "Sources used: 23 Metroid Wiki pages plus Wikipedia's Metroid Prime article; Wikitroid was not attempted. The WebSearch budget for this turn was already exhausted when I tried one cross-check search, so all facts rest on the fetched pages.\n\nPoints of conflict or caution:\n1. Chozo Lore exists in two official texts. The original North American release uses Hatchling/Newborn/great Defender and a 'Binding' entry; the PAL, Trilogy and Remastered releases use Entrusted One/Shining One/Prophecy of Light. Per the brief, the newer text is primary and older terms are given as 'another rendering'. Remastered is based on the Trilogy version (Metroid Wiki), so its lore matches PAL.\n2. Pirate Data about 'Test Subject Z-d' (Metroid Prime captured, escaping stasis, assimilating weapons) appears only in the North American original and was replaced in PAL/Trilogy/Remastered by entries saying the Pirates never breached the crater and only detected a gestating creature. Metroid Wiki calls the older entries no longer canon; the entries present both with the newer as primary.\n3. Timing of the Leviathan impact: the Pirates estimated 25 years until the planet's life died; Federation data in Corruption places the impact about 50 years before; Wikipedia says 'five decades'. Both figures are reported as the sources give them.\n4. The Dark Samus hand scene is only shown when Samus has recovered all of her equipment. It is treated as canonical because Dark Samus exists in Echoes; the entries describe it in-universe without referencing collection.\n5. Metroid Wiki states, without a citation, that losing the Phazon Suit freed Samus from Phazon corruption; the entries only say the suit was torn from her.\n6. Whether Samus 'knew' Metroid Prime survived is not documented; entries only say she next met Dark Samus on Aether.\n7. Samus's personal feelings about Tallon IV, the prophecy or the Chozo there are not recorded in canon; entries limit themselves to what she read, did and scanned.\n8. The third escaped frigate is spelled 'Vol Paragom' in the logbook and 'Vol Paragon' in Metroid Wiki navigation; the logbook spelling is used.\n9. Super Smash Bros. trophy text (e.g. Parasite Queen) and Metroid Prime Pinball appearances were ignored as non-canon.\n10. Key overlaps with other domains that could not be avoided: 'Chozo Ruins' (also a Zero Mission area, zebes), 'Chozo Lore' (chozo domain), 'Omega Pirate'/'Project Helix' (space-pirates). The Chozo Ghost subject is referenced only in passing.",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Tallon_IV",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)",
+   "https://www.metroidwiki.org/wiki/Frigate_Orpheon",
+   "https://www.metroidwiki.org/wiki/Chozo_Lore",
+   "https://www.metroidwiki.org/wiki/Chozo_Artifact",
+   "https://www.metroidwiki.org/wiki/Impact_Crater",
+   "https://www.metroidwiki.org/wiki/Parasite_Queen",
+   "https://www.metroidwiki.org/wiki/Flaahgra",
+   "https://www.metroidwiki.org/wiki/Thardus",
+   "https://www.metroidwiki.org/wiki/Omega_Pirate",
+   "https://www.metroidwiki.org/wiki/Artifact_Temple",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime",
+   "https://www.metroidwiki.org/wiki/Tallon_Overworld",
+   "https://www.metroidwiki.org/wiki/Chozo_Ruins",
+   "https://www.metroidwiki.org/wiki/Magmoor_Caverns",
+   "https://www.metroidwiki.org/wiki/Phendrana_Drifts",
+   "https://www.metroidwiki.org/wiki/Phazon_Mines",
+   "https://www.metroidwiki.org/wiki/Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Dark_Samus",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Remastered",
+   "https://www.metroidwiki.org/wiki/Chozo_Ghost",
+   "https://www.metroidwiki.org/wiki/Hall_of_the_Elders",
+   "https://www.metroidwiki.org/wiki/Glacier_One",
+   "https://en.wikipedia.org/wiki/Metroid_Prime"
+  ]
+ }
+}

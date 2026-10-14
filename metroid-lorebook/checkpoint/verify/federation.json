@@ -1,0 +1,427 @@
+{
+ "run": "wf_223f2f6f-0a5",
+ "label": "verify:federation",
+ "result": {
+  "overall": "Fact-check of 9 Galactic Federation entries. 45 WebFetch calls were made against Metroid Wiki and Wikipedia; the shared WebSearch budget was already exhausted when this check started, so every WebSearch attempt (9) returned no results and no fan-wiki snippets could be re-verified. Findings: three genuine chronology/plot errors (Federation Force egg placed after Metroid II instead of before it; a nonexistent Federation 'emergency directive' sending Samus to Zebes in Super Metroid; AU 217's vaccine/Ghor sequence reversed), one source-preference error (Sylux's rank per Prime 4: Beyond is field captain, sole survivor of his platoon), and a cluster of unverified claims the drafter had already flagged (Daiban description, Samus 'stationed at Headquarters', Aurora Unit '20 years' origin, G.F.S. Aegis, the 'don't know what they got themselves into' trooper line). No Smash/Captain N/comic contamination found; the Shinesparkers feature's 'HQ on Earth' claim was correctly kept out. Key hygiene problems: bare 'trooper(s)' (Metroid Prime has 'Pirate Troopers'), bare 'contract'/'contracted', and bare 'headquarters' will misfire. Word counts: overview 405, Police/Army 334, Marines 369, Navy 397, Dane 329, Metroid policy 429, Hunters 375, Daiban 290, Aurora 387; all within tolerance (overview is a core subject). Entries 2 and 5 are accurate apart from nits; the rest need targeted fixes, none needs a rewrite. Metroid Wiki pages Keaton, Galactic_Federation_Army, Chairman_Keaton, Daiban returned 404; the Metroid_(manga) page is a stub.",
+  "reports": [
+   {
+    "entry_comment": "Galactic Federation: Galactic Federation (overview)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Federation Headquarters is where Samus once served under Adam Malkovich",
+      "problem": "Metroid Wiki's Other M, Adam Malkovich and Samus Aran articles never say Samus was stationed at Federation Headquarters; the only support is the Shinesparkers fan feature (which also asserts HQ is on Earth, a claim the drafter rightly excluded). Fusion's HQ (treatment) part is supported.",
+      "correction": "Soften to 'Federation Headquarters is where Samus was treated after the X infection; she served under Adam Malkovich during her Federation years' unless an Other M script line is confirmed.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "nit",
+      "claim": "a fleet of Olympus-class battleships ... under flag officers such as Fleet Admiral Castor Dane",
+      "problem": "Dane is the only flag officer named anywhere in canon; 'flag officers such as' implies others are known.",
+      "correction": "'under Fleet Admiral Castor Dane' or 'commanded from the flagship by Fleet Admiral Castor Dane'.",
+      "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Olympus"
+     },
+     {
+      "severity": "missing",
+      "problem": "Bryyo's status is omitted: Metroid Wiki's Fuel Gel page (Prime 3 logbook) says Bryyo is a Federation protectorate and the largest supplier of Fuel Gel, that 'Proceeds from Bryyonian gel sales go directly to the Federation military forces protecting that sector of space', and that 20 years of rising piracy against gel shipments drove the Federation to expand antipiracy patrols. This explains the Federation's economic stake in the Phazon crisis.",
+      "correction": "Add one clause: 'Bryyo, a Federation protectorate, is the largest supplier of Fuel Gel and its gel sales fund the Federation forces guarding that sector.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Fuel_Gel"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Federation's trade with Elysia is stated but its mechanism is not: per Metroid Wiki, the Federation proposed that if the Elysian drones gathered information in SkyTown it would supply parts and fuel, and then brought an Aurora Unit there to collect it. Also absent: the Elysian arrangement is dated by the Treaty of Elysia 14 years before the crisis.",
+      "correction": "'the Elysians of SkyTown gather information for the Federation in exchange for parts and fuel, an arrangement sealed by the Treaty of Elysia fourteen years before the Phazon crisis'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Elysia"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Galactic Federation: Federation Police and Army",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "The Federation's attempt to retake Zebes from the Pirates by force was repelled",
+      "problem": "The Federation never held Zebes (it was the Chozo's world); Metroid Wiki's summary of the manual says the Federation 'attacked Zebes but was driven back'. 'Retake' implies prior Federation control.",
+      "correction": "'The Federation's attempt to take Zebes from the Pirates by force was driven back'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(game)"
+     },
+     {
+      "severity": "nit",
+      "claim": "On the planet Jigrad she disobeyed orders to protect children from Space Pirates; Hardy reprimanded all three, and Adam dismissed her as an unnecessary 'piece of baggage'",
+      "problem": "Per Metroid Wiki's Samus Aran article, Samus rescued one little girl (named Damara there) whom the Pirates would have killed, and the 'baggage' line was Adam's remark to Chief Hardy that, with the Pirates gone, he now had 'another piece of baggage: Samus Aran', i.e. about her presence in a quiet period rather than a verdict delivered after the reprimand.",
+      "correction": "'...she disobeyed orders to save a girl the Pirates were about to kill; Hardy reprimanded all three, and Adam told Hardy that with the Pirates gone he was stuck with an unnecessary \"piece of baggage\", Samus Aran.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "nit",
+      "claim": "Galactic Federation Army. The Federation's ground service; in Samus's own recollections it is the force she belonged to under Adam",
+      "problem": "Sources disagree on the branch name: Metroid Wiki's Galactic Federation page says Samus 'spent time affiliated with the Galactic Federation Marines'; the 'Galactic Federation Army' wording on the Adam page comes only from PAL trophy text; Metroid Wiki's Other M article says 'Galactic Federation soldiers'. 'The Federation's ground service' is an invention.",
+      "correction": "Drop 'The Federation's ground service' and hedge: 'The Federation's soldiery, called the Galactic Federation Army in some official text (Metroid Wiki also calls Samus's old unit the Marines)...'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Galactic_Federation"
+     },
+     {
+      "severity": "missing",
+      "problem": "Ian Malkovich's death, the key emotional event of Samus's Federation years, is mentioned without its substance. Metroid Wiki: Ian was repairing a civilian spacecraft attached to a Federation vessel's overheating drive unit with about 300 lives at stake; Adam ordered the unit detached despite Samus pleading 'Adam, wait! There's still time! I can make it! Please let me go!', and Ian died in the explosion.",
+      "correction": "Add two sentences with those details after 'Adam's younger brother Ian died during this period'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ian_Malkovich"
+     },
+     {
+      "severity": "keys",
+      "problem": "No bare 'Hardy' key; users will usually say 'Hardy' rather than 'Chief Hardy'. Consider also 'Federation Police officer'.",
+      "correction": "Add 'Hardy'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Galactic Federation: Federation Marines and trooper culture",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "tell her the Pirates \"don't know what they got themselves into,\" and cover her retreat to her gunship during raids",
+      "problem": "Only 'Stand to, Samus!' is on Metroid Wiki's Galactic Federation Marine page. The second quoted line and the 'cover her retreat to her gunship' detail appear on none of the Marine, Norion or G.F.S. Olympus pages, and the drafter sourced them to search snippets that could not be re-checked (search budget exhausted).",
+      "correction": "Keep 'Stand to, Samus!' and drop the second quotation and the retreat claim, or replace with the sourced fact that the four hunters 'assisted by the Federation military' stopped the Norion attack.",
+      "source_url": "https://www.metroidwiki.org/wiki/Galactic_Federation_Marine"
+     },
+     {
+      "severity": "nit",
+      "claim": "Demolition Troopers, lightly armed engineers who blasted Samus a path to the Leviathan",
+      "problem": "Metroid Wiki says Demolition Troopers carry large explosives and have 'a very small level of firepower'; nothing calls them engineers.",
+      "correction": "'Demolition Troopers, who carry heavy explosives but little firepower and blasted Samus a path to the Leviathan on the Pirate Homeworld'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Galactic_Federation_Marine"
+     },
+     {
+      "severity": "nit",
+      "claim": "Samus found their bodies eight days after contact was lost",
+      "problem": "The mission file says contact was lost '8 days ago' at the time Samus was assigned; the interval before she actually reached the GFMC compound is not stated.",
+      "correction": "'Contact had been lost eight days before Samus was assigned; she found their bodies at the GFMC compound and stood over Exeter's remains.'",
+      "source_url": "https://www.metroidwiki.org/wiki/GFMC_Task_Force_Herakles"
+     },
+     {
+      "severity": "keys",
+      "problem": "Bare 'trooper' and 'troopers' will misfire: 'Pirate Trooper' is a Space Pirate enemy class in Metroid Prime and the word is used generically. Missing useful aliases: 'Exeter', 'Herakles', 'Demolition Trooper', 'PED Marine', 'Federation Marine Corps', 'Brouda', 'Angseth'.",
+      "correction": "Remove bare 'trooper'/'troopers' (keep 'Federation trooper(s)'); add 'Exeter', 'Herakles', 'Demolition Trooper', 'PED Marine', 'Federation Marine Corps'."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Federation Force, the Marines' elite Mech unit, is only name-dropped in the Navy entry. Wikipedia: 'a group of elite marines equipped with gigantic mechanized armorsuits called Mechs' modeled on Samus's Power Suit, formed under Operation Golem, led by General Alex Miles and sent to the Bermuda System.",
+      "correction": "Add one sentence on the Federation Force to the specialized-classes paragraph.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Valhalla massacre is the Marines' other defining loss and is absent here: Metroid Wiki describes Marine remains impaled by Pirate melee weapons, killed by grenades from both sides, crushed by elevators, and consumed by Phazon bioforms.",
+      "correction": "Add a clause after the Squad Bravo paragraph: 'The Valhalla's Marines died the same way, boarded and overrun by Pirates during a training exercise.'",
+      "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Valhalla"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Galactic Federation: Federation Navy and notable ships",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "The Federation Force squad operated from the G.F.S. Aegis under General Alex Miles",
+      "problem": "General Alex Miles is confirmed by Wikipedia, but neither Wikipedia's nor Metroid Wiki's Federation Force page names any ship; 'G.F.S. Aegis' rests only on a search snippet that could not be re-checked.",
+      "correction": "'The Federation Force squad served under General Alex Miles' (add the Aegis back only with a primary source).",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+     },
+     {
+      "severity": "nit",
+      "claim": "Olympus-class battleships are the backbone: flagships commanded by flag-rank officers",
+      "problem": "Only the Olympus is a flagship under a Fleet Admiral; the Valhalla had no named flag officer. Generalizing all Olympus-class ships as flag-officer-commanded flagships is unsupported.",
+      "correction": "'Olympus-class battleships are the backbone of the fleet; the Olympus itself is the flagship, commanded by Fleet Admiral Dane.'",
+      "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Olympus"
+     },
+     {
+      "severity": "nit",
+      "claim": "Delano 7: an experimental Federation gunship believed stolen by Sylux",
+      "problem": "Metroid Wiki calls it 'the Delta-class gunship flown by the Bounty Hunter Sylux' that 'is believed to be a stolen Federation prototype'; 'experimental' and 'Federation gunship' as fact overstate it, and the Valhalla's crew is 'presumed dead' rather than confirmed.",
+      "correction": "'Delano 7: Sylux's Delta-class gunship, believed to be a stolen Federation prototype.' Also 'the entire crew is presumed dead'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Delano_7"
+     },
+     {
+      "severity": "nit",
+      "claim": "G.F.S. Anhur: namesake of the Anhur class",
+      "problem": "No page calls the Anhur the class namesake; the Tyr page defines Anhur-class ships, the Anhur page does not mention a class at all.",
+      "correction": "'G.F.S. Anhur: a patrol vessel (Anhur-class ships police and defend planetary systems).'",
+      "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Anhur"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Olympus 'was the first Federation capital ship designed to use an onboard Aurora Unit' (Metroid Wiki), a good hook for the entry's Aurora-Unit crew point.",
+      "correction": "Add to the Olympus bullet.",
+      "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Olympus"
+     },
+     {
+      "severity": "missing",
+      "problem": "Valhalla detail useful for scene-setting: Samus had to collect at least six of the ship's ten Energy Cells to power it up, and AU 313's log on board reads 'It is obvious now that they intend to extract us from the Valhalla.'",
+      "correction": "Add to the Valhalla bullet.",
+      "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Valhalla"
+     },
+     {
+      "severity": "keys",
+      "problem": "Ships named in the content have no keys: 'Enkidu', 'Delano 7', 'Theseus' is present but 'Griffin-class', 'Anhur-class', 'Naval Base Demeter', 'Demeter' are absent.",
+      "correction": "Add 'Enkidu', 'Delano 7', 'Griffin-class', 'Anhur-class', 'Naval Base Demeter'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Galactic Federation: Fleet Admiral Castor Dane",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "where Samus alone restored the planet's energy cannon and destroyed the incoming Leviathan",
+      "problem": "Metroid Wiki's Norion page credits 'bounty hunters Samus Aran, Ghor, Gandrayda and Rundas assisted by the Federation military' with stopping the attack; Samus fired the cannon after Dark Samus downed the other hunters, but did not act alone throughout.",
+      "correction": "'where the four hunters and the Federation garrison fought the Pirates off and Samus, the last on her feet after Dark Samus struck them down, fired the planet's cannon and destroyed the incoming Leviathan'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Norion"
+     },
+     {
+      "severity": "nit",
+      "claim": "the fleet lost contact with Samus until a trooper reported a transmission from her gunship: mission complete",
+      "problem": "Wikipedia: the fleet 'loses contact with Samus', then 'Samus later appears in her gunship and reports the mission is accomplished'. The 'a trooper reported' framing is unsourced.",
+      "correction": "'the fleet lost contact with Samus until her gunship reappeared and she reported the mission accomplished'.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Leviathan battleship in orbit over the Pirate Homeworld",
+      "problem": "Metroid Wiki's Dane page says 'Leviathan starship'; Wikipedia says 'Leviathan battleship'. Spelling of the proper noun is inconsistent across sources; either is acceptable, but pick one and match the Navy entry.",
+      "correction": "Use 'Leviathan battleship' consistently (Wikipedia) or 'Leviathan starship' (Metroid Wiki).",
+      "source_url": "https://www.metroidwiki.org/wiki/Castor_Dane"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Galactic Federation: Metroid policy and secret programs",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Even between the SR388 extermination and the return to Zebes, a Federation research station kept a Metroid egg in stasis; Sylux broke in and hacked its tube (Federation Force)",
+      "problem": "Wikipedia's Federation Force article states 'The events of Metroid Prime: Federation Force take place after Metroid Prime 3: Corruption' and its chronology box places it between Corruption and Metroid II, i.e. BEFORE the SR388 extermination. (Metroid Wiki's stub still repeats an older Kotaku-era placement between Metroid II and Super Metroid; the task's rule prefers the current official ordering.) Wikipedia also notes the egg had been taken from the Space Pirates by the Federation Force and hatched when the intruder fired a beam at it.",
+      "correction": "'Before the SR388 extermination, a Federation facility already held a Metroid egg the Federation Force had taken from the Space Pirates; Sylux broke in and hatched it (Federation Force).' Remove 'between the SR388 extermination and the return to Zebes'.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+     },
+     {
+      "severity": "unverified",
+      "claim": "recovered data confirmed Metroids there",
+      "problem": "Not found on Metroid Wiki's Metroid II or Samus Returns pages or on Wikipedia's Metroid II page, which says only that the Federation 'sent several teams' that disappeared, after which it 'contracts Samus to finish the mission'.",
+      "correction": "'It then sent teams to SR388; when they vanished, the Federation ordered Samus to wipe out the species.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_II:_Return_of_Samus"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Sector Zero, modeled on Tourian",
+      "problem": "Only support is Metroid Wiki's hedged editorial line that Sector Zero is 'apparently modeled after Tourian'; Metroid Wiki's Other M article does not say so. Presenting a wiki inference as fact.",
+      "correction": "Drop 'modeled on Tourian' or hedge: 'Sector Zero, which Samus likened to Tourian'. Also note the freezing immunity is stated as Adam's belief ('Adam believes its Metroids can resist freezing').",
+      "source_url": "https://www.metroidwiki.org/wiki/Bottle_Ship"
+     },
+     {
+      "severity": "nit",
+      "claim": "a deep-space research vessel brought one back from SR388 and Space Pirates seized it",
+      "problem": "The Metroid never reached the Federation: Pirates attacked the ship on its return and took the capsule to Zebes.",
+      "correction": "'a deep-space research vessel found one on SR388 and Space Pirates attacked the ship on its way home, carrying the capsule to their fortress on Zebes'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(game)"
+     },
+     {
+      "severity": "nit",
+      "claim": "a Federation facility refitted to raise bioweapons against Federation protocol; ... Afterward the Federation built the E.M.M.I.",
+      "problem": "'Refitted' is unsourced (Metroid Wiki: the Bottle Ship was 'designed to grow bioweapons'); the E.M.M.I. page does not date their construction relative to Fusion.",
+      "correction": "'a Federation facility built to raise bioweapons against Federation protocol' and 'The Federation's E.M.M.I. robots were sent to ZDR when it received video of a living X...'.",
+      "source_url": "https://www.metroidwiki.org/wiki/E.M.M.I."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Federation's own role in MB's rebellion is absent: Metroid Wiki says the Federation 'decided to reprogram MB after she began to develop emotions', which triggered her revolt and the Bottle Ship disaster. Also missing: the Bottle Ship program's goal was 'a special forces-unit composed of bioweapons' with Zebesians (Space Pirate clones) at its core, not only Metroids.",
+      "correction": "Add: 'The program aimed at a bioweapon special-forces unit built around cloned Zebesians as well as Metroids; when MB began to develop emotions the Federation ordered her reprogrammed, and she rebelled.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Madeline_Bergman"
+     },
+     {
+      "severity": "missing",
+      "problem": "Fusion's second withheld upgrade: the computer says the Federation 'tried to withhold the Diffusion Missile upgrade because they didn't want you to grow too powerful' (quoted on Metroid Wiki's Samus Aran page). It sharpens the entry's point about the Federation managing Samus.",
+      "correction": "Add after the Plasma Beam clause.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "keys",
+      "problem": "'exterminate', 'extermination', 'cover-up', 'secret program', 'secret programs' are generic words that will fire on any plot talk of extermination or secrets (Chozo, Pirates, Raven Beak). 'Federation secrets' and 'Metroid program' are fine.",
+      "correction": "Drop 'cover-up', 'secret program(s)'; keep 'extermination order' and 'exterminate' only if paired with 'Metroid' as secondary key."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Galactic Federation: Bounty hunters and the Federation",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "An emergency directive sent her back to Zebes when the baby was stolen",
+      "problem": "No Federation directive exists in Super Metroid. Per Metroid Wiki, Samus left Ceres, 'recieved a distress signal from the Station and returned to investigate', fought Ridley, and 'Ridley flees to Zebes, and Samus goes after him' on her own initiative.",
+      "correction": "'A distress signal from Ceres, not a Federation order, sent her after Ridley to Zebes when the baby was stolen; the Federation later dispatched her to Tanamaar and to ZDR.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Super_Metroid"
+     },
+     {
+      "severity": "error",
+      "claim": "Sylux, once a Federation trooper who disobeyed an order to wait for Samus, lost his whole squad and deserted",
+      "problem": "The most recent official source, Prime 4: Beyond's completion cutscene (per Wikipedia), makes him 'a Federation field captain' who 'recklessly disobeys an order to maintain position and await Samus's arrival', leaving him 'the sole survivor of his platoon'; the task's rule is to prefer the newest official version over Metroid Wiki's older 'Trooper'/squad wording. Wikipedia's Prime 4 summary also does not mention desertion (that is Metroid Wiki's phrasing).",
+      "correction": "'Sylux, once a Federation field captain who disobeyed an order to hold position and wait for Samus, lost his whole platoon, left the Federation with stolen prototype technology, and hates both the Federation and her'.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "missing",
+      "problem": "Why the Hunters contract was covert is omitted: the Federation hired Samus as a covert agent because the Tetra Galaxy lies outside Federation space, so 'This operation must remain covert.'",
+      "correction": "Add to the Rogue Contract bullet: 'kept covert because the Alimbic Cluster lies outside Federation space'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters"
+     },
+     {
+      "severity": "missing",
+      "problem": "'the other three were corrupted by Phazon, lost and killed' hides that Samus herself defeated them (e.g. Metroid Wiki: 'After Samus defeats Ghor, she repairs the connection'). For a Samus-centered roleplay this is the emotional core of the Prime 3 contract.",
+      "correction": "'the other three were corrupted by Phazon and Samus had to kill each of them herself'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Aurora_Unit_217"
+     },
+     {
+      "severity": "keys",
+      "problem": "'contract' and 'contracted' are ordinary English words and will misfire constantly (e.g. 'Samus contracted the X parasite', 'the contract between the Chozo...'); 'bounty'/'bounties' are borderline. 'mercenary'/'mercenaries' are fine.",
+      "correction": "Remove 'contract' and 'contracted' (or demote to secondary keys gated on 'Federation'); keep 'Rogue Contract', 'bounty hunter(s)', 'space hunter(s)', 'mission file'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Galactic Federation: Daiban and Federation Headquarters",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "it is called the capital of the Milky Way. Per the manga, Daiban is a world of heavy ship traffic with cities covering much of its surface, and its Federation Meeting Assembly Hall is where representatives of the member worlds gather; Chairman Keaton and the Chozo elder Old Bird are among those present when the Space Pirate threat is debated",
+      "problem": "No primary page could be fetched: Metroid Wiki has no Daiban or Keaton article (404), its Metroid (manga) article is a stub, and its Old Bird article says nothing about the Federation assembly. All these descriptive details rest on unverifiable Wikitroid search snippets (the drafter concedes this).",
+      "correction": "Reduce to what can be stated safely: 'Daiban is the Galactic Federation's capital planet, seen only in the manga, where the Federation's representatives assemble and Chairman Keaton presides.' Drop 'capital of the Milky Way', the traffic/cities description and the 'Meeting Assembly Hall' name unless a primary source is found.",
+      "source_url": "https://www.metroidwiki.org/wiki/Old_Bird"
+     },
+     {
+      "severity": "unverified",
+      "claim": "She was stationed at Headquarters under Adam Malkovich during her Federation service, per her own recollections during the Bottle Ship incident",
+      "problem": "Metroid Wiki's Other M, Adam Malkovich and Samus Aran articles and Wikipedia's Other M plot never say she was stationed at Headquarters; only the Shinesparkers fan feature claims it.",
+      "correction": "Replace with 'She served under Adam Malkovich during her Federation years' and keep the HQ bullets that are sourced (post-Bottle Ship, Adam's report, Fusion treatment).",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "style",
+      "claim": "For Samus, Headquarters is where the Federation remakes her and sends her out again; Daiban is a place she associates with Adam and with the politics she never wanted any part of.",
+      "problem": "Interpretive framing presented as fact; nothing in canon ties Samus's feelings to Daiban (the drafter flagged this). Also 'its Japanese name is rendered Daiban' is garbled: Daiban is an unofficial transliteration of the Japanese name.",
+      "correction": "Cut the Daiban half of the final sentence; reword the opening to 'It appears only in the manga; \"Daiban\" is a transliteration of its Japanese name.'"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Federation Chairman is not manga-only: in Other M, Anthony Higgs 'uses his orders from Adam and the Federation chairman to secure Madeline's safety' (Metroid Wiki, Madeline Bergman). This is the one place the Chairman affects a game plot and belongs here.",
+      "correction": "Add: 'The Chairman also figures in the Bottle Ship incident, where Anthony Higgs invoked orders from Adam and the Chairman to protect Madeline Bergman.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Madeline_Bergman"
+     },
+     {
+      "severity": "keys",
+      "problem": "Bare 'headquarters' will fire on 'Space Pirate headquarters', 'Pirate HQ on Zebes', 'Chozo headquarters' etc.",
+      "correction": "Remove bare 'headquarters' (keep 'Federation Headquarters', 'Federation HQ', 'Galactic Federation Headquarters', 'GF HQ')."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Galactic Federation: Aurora Units",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "A Pirate-made virus corrupted it and the Phazon-corrupted hunter Ghor severed its link to SkyTown; Samus defeated Ghor, restored the connection and uploaded the Federation vaccine, after which 217 guided her",
+      "problem": "The order is reversed. Metroid Wiki: 217 'was cured by Samus when she came to SkyTown'; later Ghor 'severs the connection 217 has with Skytown', and 'After Samus defeats Ghor, she repairs the connection.' The vaccine came first, the Ghor fight and repair afterward.",
+      "correction": "'Samus uploaded the Federation vaccine on reaching SkyTown; when the Phazon-corrupted hunter Ghor then severed 217's link to SkyTown, she defeated him and repaired the connection, after which 217 guided her...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Aurora_Unit_217"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Federation records describe them as created for scientific research about twenty years before the Phazon crisis and since grown into the hub of Federation communications, military coordination, commerce and research",
+      "problem": "Metroid Wiki's Aurora Unit page gives no creation date and none of those roles; the claim and the number come only from the Shinesparkers fan feature's paraphrase of a Federation logbook that could not be fetched. The '20 years' figure in Metroid Wiki's Fuel Gel entry refers to piracy, not Aurora Units.",
+      "correction": "Soften to 'Originally built for research, they have grown into the hub of the Federation's networks' and drop 'about twenty years before' unless the in-game Federation Data text is confirmed.",
+      "source_url": "https://www.metroidwiki.org/wiki/Aurora_Unit"
+     },
+     {
+      "severity": "unverified",
+      "claim": "supplied tactical and stellar research data in a productive partnership with the Elysian mechanoids",
+      "problem": "The 217 page says only that it 'has interfaced well with the Elysian mechanoids and enjoys a productive working arrangement with them'; the Elysia page says the drones gather information in exchange for parts and fuel. 'tactical and stellar research data' is not on either page.",
+      "correction": "'collected the information the Elysians gathered in a productive working arrangement with the Elysian mechanoids'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Elysia"
+     },
+     {
+      "severity": "missing",
+      "problem": "Voices: Metroid Wiki's Aurora Unit page gives 242 a female voice and 217 a male voice; the entry notes only 242's. Useful for roleplay dialogue.",
+      "correction": "Add 'speaking with a man's voice' to the 217 bullet.",
+      "source_url": "https://www.metroidwiki.org/wiki/Aurora_Unit"
+     },
+     {
+      "severity": "missing",
+      "problem": "313's own voice is absent: its Valhalla log reads 'It is obvious now that they intend to extract us from the Valhalla.' Pairs well with the '...Darkness coming' line.",
+      "correction": "Add the quotation to the 313 bullet.",
+      "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Valhalla"
+     },
+     {
+      "severity": "keys",
+      "problem": "'AU 486' is missing while 'Aurora Unit 486' is present; bare 'Aurora' may fire on unrelated uses (aurora borealis) but is acceptable in context.",
+      "correction": "Add 'AU 486'; optionally demote bare 'Aurora' to a secondary key."
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Galactic_Federation",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation_Marine",
+   "https://www.metroidwiki.org/wiki/GFMC_Task_Force_Herakles",
+   "https://www.metroidwiki.org/wiki/G.F.S._Olympus",
+   "https://www.metroidwiki.org/wiki/G.F.S._Valhalla",
+   "https://www.metroidwiki.org/wiki/G.F.S._Tyr",
+   "https://www.metroidwiki.org/wiki/G.F.S._Anhur",
+   "https://www.metroidwiki.org/wiki/G.F.S._Theseus",
+   "https://www.metroidwiki.org/wiki/G.F.S._Enkidu",
+   "https://www.metroidwiki.org/wiki/Delano_7",
+   "https://www.metroidwiki.org/wiki/Castor_Dane",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit_242",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit_217",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit_313",
+   "https://www.metroidwiki.org/wiki/Bounty_Hunter",
+   "https://www.metroidwiki.org/wiki/Norion",
+   "https://www.metroidwiki.org/wiki/Metroid_(game)",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Bottle_Ship",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Sylux",
+   "https://www.metroidwiki.org/wiki/E.M.M.I.",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation_07th_Platoon",
+   "https://www.metroidwiki.org/wiki/Super_Metroid",
+   "https://www.metroidwiki.org/wiki/Metroid_II:_Return_of_Samus",
+   "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+   "https://www.metroidwiki.org/wiki/Metroid_(manga)",
+   "https://www.metroidwiki.org/wiki/Phazon_Enhancement_Device",
+   "https://www.metroidwiki.org/wiki/Fuel_Gel",
+   "https://www.metroidwiki.org/wiki/Ian_Malkovich",
+   "https://www.metroidwiki.org/wiki/Old_Bird",
+   "https://www.metroidwiki.org/wiki/Elysia",
+   "https://www.metroidwiki.org/wiki/Madeline_Bergman",
+   "https://www.metroidwiki.org/wiki/Keaton (404)",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation_Army (404)",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+   "https://en.wikipedia.org/wiki/Metroid_Fusion",
+   "https://en.wikipedia.org/wiki/Metroid_II:_Return_of_Samus",
+   "https://shinesparkers.net/features/the-galactic-federation/"
+  ]
+ }
+}

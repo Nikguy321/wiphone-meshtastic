@@ -1,0 +1,369 @@
+{
+ "run": "wf_7ead2614-160",
+ "label": "verify:phazon",
+ "result": {
+  "overall": "Checked all six entries against 57 Metroid Wiki page fetches plus Wikipedia (WebSearch was unavailable: the shared per-turn search budget was already exhausted, so no searches ran). No non-canon contamination (Smash, comics, Pinball, First Hunt, fan material) was found in any entry; the drafter's PAL-only and wiki-name caveats are correct. No entry needs a rewrite. The large majority of quoted lines were verified verbatim: \"Leviathans are the children of Phaaze\" (Leviathan logbook), \"...Darkness coming.\" (Valhalla page), \"at least 86% greater\" (Orange Phazon scan), \"Phazon was discovered two stellar years ago\" (Our Mission), the Colossus revival/allegiance lines, \"We took her great star-beast...\" and the skull crew-quarters line (Samus Aran page ref 82), Ghor's \"Don't you feel the power?\" taunt, the Gunship \"near total corruption\" scan, Miniroid/Liquid Phazon/Phazon Metroid/Hopping Metroid logbooks, the Project Helix brain-tissue and overdependence lines, the Anhur recovery, the Norion marine test, waking on the Olympus after a month, Bryyo's two shield generators, Rundas impaled by his own ice, Gandrayda's death-throes shapeshifts, and the Metroid Creche room (confirmed as a Metroid Hatcher location on the Pirate Homeworld). Two factual errors: entry 3 says the Tallon IV Chozo \"themselves became the Turned\" (Federation Data says many died and the survivors abandoned the planet; the lore line is a prediction), and entry 5 says the Metroid Hatcher \"dies only when every tentacle is torn away\" (a Nova Beam shot through the X-Ray Visor also kills it in one hit). Recurring softer problems: (a) Metroid Wiki prose quoted as if it were in-game text: Norion's \"the only recorded event where a Leviathan has been stopped...\" (entry 3) and the PED stub's \"harness the destructive power of Phazon for use in battle\" (entries 4 and 7; the real Federation Data line is \"designed to harness the energy of Phazon minerals, originally discovered on Aether\"); (b) \"destroying the core reverses a planet's corruption\" (entries 3 and 4) is stronger than any source, which only say further corruption is halted; (c) the AU 217 triangulation claim rests solely on the uncited Phaaze page, while SkyTown Data credits the Elysians with tracing a Leviathan through its wormhole to Phaaze; (d) \"Phazon Puffers\" (entry 5) has no Metroid Wiki article (red link only), while Phazon Shriekbat is confirmed; (e) \"No subject lived longer than 2 deca-cycles\" is Omega Pirate life-span data, not a Project Helix-wide result. Missing essentials worth adding: the Pirates' Phazon virus that infected the Federation's Aurora Units (the reason the four hunters were hired) for entry 7; Omega Ridley as a Phazon-revived creature for entry 5; \"Corrupt Hypermode\" as a term/key for entry 4; the SkyTown Data account of Phaaze's detection for entry 2. Word counts are all in range (entry 2: 400, 4: 393, 5: 393, 6: 391, 7: 382; entries 1 and 3 are core subjects under 550). Pages that returned 404 and could not be checked: Parasite_Larva, Phazon_Shriekbat, Metroid_Creche, Phazon_Puffer, Phazon_Hopper, Phazon_Leech, and the Prime 3 creature category pages.",
+  "reports": [
+   {
+    "entry_comment": "Phazon: Phazon",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "In the Pirates' Project Helix simulations, \"No subject lived longer than 2 deca-cycles.\"",
+      "problem": "The line is from the Omega Pirate research data, paired with \"Data suggests that Omega Pirate life spans are critically low.\" It is not a general Project Helix result; the Elite Pirates entry says the latest batch \"reached maturity successfully.\"",
+      "correction": "Attribute it to the Omega Pirate: in Pirate simulations of the Omega Pirate's life span, \"No subject lived longer than 2 deca-cycles.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Project_Helix"
+     },
+     {
+      "severity": "nit",
+      "claim": "Pirate records date their own discovery of it to two stellar years before the Phazon crisis.",
+      "problem": "The quote (\"Phazon was discovered two stellar years ago\") is in the Colossus crew's \"Our Mission\" log, written as they set out to seize Aether's remaining Phazon, i.e. before Dark Samus's revival and the crisis; it also conflicts with the Pirates' decades-old Tallon IV operation. The phrasing slightly misdates it and hides the inconsistency.",
+      "correction": "\"The Colossus's crew, setting out for Aether, wrote that Phazon had been discovered two stellar years earlier\" (by their own, inconsistent reckoning).",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Data"
+     },
+     {
+      "severity": "nit",
+      "claim": "Unshielded exposure causes \"radical mutation\" within seconds",
+      "problem": "\"Radical mutation\" is lifted from the Hopping Metroid logbook, not from any general Phazon text; the Phazon page's own 'mutation within seconds' claim is in its uncited Morphology section.",
+      "correction": "Drop the quotation marks or cite the Hopping Metroid scan for the phrase.",
+      "source_url": "https://www.metroidwiki.org/wiki/Hopping_Metroid"
+     },
+     {
+      "severity": "style",
+      "claim": "No one has been touched by Phazon more than Samus Aran",
+      "problem": "Editorial superlative with no source; Dark Samus is made of Phazon and Rundas, Ghor and Gandrayda were wholly consumed by it.",
+      "correction": "Rephrase to something defensible, e.g. \"Samus has carried Phazon in her body and armor twice and survived it.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Space Pirates estimated that life on Tallon IV would perish within 25 years from the spreading Phazon, a vivid gauge of how fast a Phazon-seeded world dies.",
+      "correction": "Add one clause to the Ecology or History section.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_(game)"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Phazon: Phaaze",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Long after, Aurora Unit 217 triangulated its position from the trajectories of the Leviathan attacks",
+      "problem": "Only the Phaaze page says this, and the whole page is flagged as lacking sources. The Aurora Unit 217 page says only that 217 \"apparently discovered Phaaze.\" SkyTown Data instead credits the Elysians with tracing a Leviathan back through its wormhole to Phaaze and says their attempts to transmit the data to the Federation failed because the Aurora Unit had been disabled by a virus.",
+      "correction": "Soften to: \"Long after, the Elysians traced a Leviathan back through its wormhole to Phaaze; their findings reached the Federation only once Samus cured SkyTown's Aurora Unit 217.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/SkyTown_Data"
+     },
+     {
+      "severity": "missing",
+      "problem": "Aurora Unit 217 is never identified as SkyTown's own Aurora Unit on Elysia, corrupted by the Pirates' Phazon virus and cured by Samus; without that the sentence reads as if 217 were a Federation fleet unit.",
+      "correction": "Name 217 as the Aurora Unit maintaining SkyTown in Elysia.",
+      "source_url": "https://www.metroidwiki.org/wiki/Aurora_Unit_217"
+     },
+     {
+      "severity": "missing",
+      "problem": "SkyTown Data gives the canon account of Phaaze's detection: a long-lost Chozo satellite returned data on a distant world that was \"in many ways, a planet - and yet also sentient\"; the Chozo tasked the Elysians to keep searching; the Elysians later found \"the living planet\" was \"aggressively attacking the other worlds,\" hurling pieces of itself across space \"like Missiles,\" and that the object came through a wormhole.",
+      "correction": "Add two sentences from the Discovery/Loss entries.",
+      "source_url": "https://www.metroidwiki.org/wiki/SkyTown_Data"
+     },
+     {
+      "severity": "nit",
+      "claim": "led the Pirates through a rift to Phaaze",
+      "problem": "The log (\"The Source Discovered\") says Dark Samus led the crew through a wormhole.",
+      "correction": "\"through a wormhole to Phaaze\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Data"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Pirate Homeworld, which had been \"slowly becoming like Phaaze,\" was spared that fate.",
+      "problem": "Inference: the Homeworld's Seed core had already been destroyed by Samus before Phaaze; the game page says that destruction is what stopped Phazon \"spreading to planets.\"",
+      "correction": "\"the Pirate Homeworld, whose Seed Samus had already destroyed, stopped 'slowly becoming like Phaaze.'\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Phazon: Leviathans (Leviathan Seeds)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "and themselves became the Turned, the Chozo Ghosts.",
+      "problem": "Federation Data says the Chozo \"were able to stave off the spread of Phazon, at the cost of many Chozo lives. The survivors abandoned the planet, fleeing to an unknown location.\" The Chozo Lore line is a prediction (\"Soon we will all be like the Turned\"), and the Chozo Ghost page says Phazon drove \"most\" of the Chozo insane, not all.",
+      "correction": "\"many of those who stayed were driven mad and became the Turned, the Chozo Ghosts, while the survivors abandoned Tallon IV.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Leviathan"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Destroying the core reverses the corruption of that world.",
+      "problem": "No source says corruption is reversed. The Leviathan page is silent; the game page says destroying Bryyo's core frees the planet \"of further Corruption\" and the Homeworld core's destruction means Phazon \"has stopped spreading to planets.\"",
+      "correction": "\"Destroying the core halts the corruption of that world.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "unverified",
+      "claim": "\"the only recorded event where a Leviathan has been stopped from making contact with a planet.\"",
+      "problem": "This sentence is Metroid Wiki's own article prose on the Norion page, not an in-game quotation; it does not appear in Federation Data or the Leviathan logbook.",
+      "correction": "Remove the quotation marks and state it as a plain fact, or drop it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Norion"
+     },
+     {
+      "severity": "nit",
+      "claim": "she killed the Leviathan Infant in the Genesis Chamber by tearing the Phazon growth from its womb with the Grapple Lasso.",
+      "problem": "The Grapple Lasso only rips away the womb tissue to expose the infant; the kill is by Nova Beam shots on weak points targeted through the X-Ray Visor.",
+      "correction": "\"by tearing open its womb with the Grapple Lasso and destroying the exposed infant with the Nova Beam.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Leviathan"
+     },
+     {
+      "severity": "nit",
+      "claim": "Every known Leviathan died with Phaaze.",
+      "problem": "Misleading: Tallon IV's, Aether's, Bryyo's, Elysia's, the Homeworld's and Norion's Leviathans were all destroyed by Samus before Phaaze. The wiki says \"All known Leviathan seeds are destroyed by Samus, along with their parent planet Phaaze.\"",
+      "correction": "\"Every known Leviathan was destroyed by Samus, the last of them along with Phaaze itself.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Leviathan"
+     },
+     {
+      "severity": "nit",
+      "claim": "Dark Samus had a Leviathan brought down to seal her control of the Pirates",
+      "problem": "Motive is inferred. The \"Purification\" log says the Seed makes the Homeworld become like Phaaze so that \"there will be thousands of new disciples for her to command.\"",
+      "correction": "\"Dark Samus sent a Seed to the Homeworld to corrupt the whole Pirate species into her disciples.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Data"
+     },
+     {
+      "severity": "keys",
+      "problem": "The wiki's room page and the Phaaze article use \"Infant Leviathan\" (the logbook title is \"Leviathan Infant\"); only one form is keyed.",
+      "correction": "Add \"Infant Leviathan\" and \"Infant Leviathans\".",
+      "source_url": "https://www.metroidwiki.org/wiki/Genesis_Chamber"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Elysians recorded that the Space Pirates built a shield around Elysia's fallen Leviathan and were the ones who called it a \"Seed\" (Invader entry); useful origin of the Seed name that the entry attributes only to the Pirates in general.",
+      "correction": "One clause in the Elysia bullet.",
+      "source_url": "https://www.metroidwiki.org/wiki/SkyTown_Data"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Phazon: Phazon corruption and Hypermode",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "A planet's corruption is reversed by destroying its Leviathan's core",
+      "problem": "No source says reversed; the game page says destroying a core frees the planet \"of further Corruption\" (halts it).",
+      "correction": "\"A planet's corruption is halted by destroying its Leviathan's core.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "unverified",
+      "claim": "to \"harness the destructive power of Phazon for use in battle.\"",
+      "problem": "This is the uncited prose of Metroid Wiki's PED stub, not in-game text. The actual Federation Data entry says the device \"is designed to harness the energy of Phazon minerals, originally discovered on Aether.\"",
+      "correction": "Quote the Federation Data line instead.",
+      "source_url": "https://www.metroidwiki.org/wiki/Federation_Data"
+     },
+     {
+      "severity": "nit",
+      "claim": "Rundas, Ghor and Gandrayda overused their devices and fell to Dark Samus",
+      "problem": "Only Rundas (overused his PED) and Ghor (misused his PED Suit) are described as overusing; Gandrayda's page says she was corrupted by Phazon at the Homeworld's Research Facility.",
+      "correction": "\"Rundas and Ghor overused their devices; Gandrayda was corrupted on the Pirate Homeworld; all three fell to Dark Samus.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Gandrayda"
+     },
+     {
+      "severity": "missing",
+      "problem": "The overload state has an official name, Corrupt Hypermode: it is triggered when the Phazon gauge fills or a Phazon Grenade hits, and if not vented it ends with Phazon overtaking Samus entirely. The entry describes it but never names it, and it is not a key.",
+      "correction": "Name it and add \"Corrupt Hypermode\" to keys.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "keys",
+      "problem": "\"Hyper Beam\" is also the name of Super Metroid's final weapon (granted by the baby Metroid), so this Phazon entry will fire in Super Metroid scenes; \"PED\" is a common real-world acronym.",
+      "correction": "Consider keying \"Hyper Beam\" only together with Hypermode/PED via secondary keys, and keep \"PED\" only if misfires stay rare.",
+      "source_url": "https://www.metroidwiki.org/wiki/Hypermode"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Phazon: Phazon Metroids and Phazon-corrupted creatures",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "It spawns Phazon Metroids from its mouth and dies only when every tentacle is torn away.",
+      "problem": "The Metroid Hatcher page lists a second kill method: a single Nova Beam shot through the X-Ray Visor kills it outright. Tearing off all tentacles is one way, not the only way.",
+      "correction": "\"It dies when every tentacle is torn away, or from a single Nova Beam shot aimed through the X-Ray Visor.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Hatcher"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Phazon-enhanced fauna such as Phazon Puffers and Phazon Shriekbats",
+      "problem": "Metroid Wiki has no Phazon Puffer article (it is a red link on the Puffer page) and the Phazon_Puffer URL returns 404; the only Prime 3 Puffer variant with a page is the Pirates' Puffer Mine. Phazon Shriekbat is confirmed as a subspecies on the Shriekbat page.",
+      "correction": "Drop \"Phazon Puffers\" or replace with a verified Phaaze native such as the Jelsac (Genesis Chamber page).",
+      "source_url": "https://www.metroidwiki.org/wiki/Puffer"
+     },
+     {
+      "severity": "unverified",
+      "claim": "their Phazon experiments on Tallon Metroids produced the Hunter and Fission Metroids of Tallon IV",
+      "problem": "The Hunter Metroid page gives no origin beyond the logbook's hint of maturation (\"As Metroids develop\"); the Fission Metroid page attributes them to Phazon mutation in the Impact Crater (spawned by Metroid Prime), not to Pirate experiments. Both are called \"Phazon mutated Metroids,\" but the experiment attribution is unsupported.",
+      "correction": "\"Phazon exposure on Tallon IV produced the Hunter and Fission Metroids.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Hunter_Metroid"
+     },
+     {
+      "severity": "missing",
+      "problem": "Omega Ridley is omitted from the corrupted-creatures list even though Ridley, beaten on Norion, was revived and regenerated through Phazon exposure with Phazon-enhanced armor and guards the Pirate Homeworld's Leviathan; a Samus roleplay will want her archenemy's Phazon form here.",
+      "correction": "Add Omega Ridley to the 'Corrupted natives and machines' list.",
+      "source_url": "https://www.metroidwiki.org/wiki/Omega_Ridley"
+     },
+     {
+      "severity": "keys",
+      "problem": "Plural forms missing for several creature keys.",
+      "correction": "Add \"Metroid Hatchers\", \"Phazon Grubs\", \"Phaz-Ings\".",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Hatcher"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Phazon: Samus and Phazon (corruption and purge)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "she is the only known being to have come back from it.",
+      "problem": "No source makes this claim. Aurora Unit 217 was cured of the Pirates' Phazon virus by Samus, and Ghor \"regains his senses\" after his defeat before Dark Samus takes him; the superlative is the drafter's inference.",
+      "correction": "\"and she survived it both times\" or \"no other corrupted hunter survived.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Aurora_Unit_217"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The Federation fitted her with the PED Suit and warned her it might corrupt her.",
+      "problem": "The PED Suit page attributes no warning to the Federation; its danger text (\"Frequent use of the PED mode is extremely dangerous\") is wiki prose, and the Samus Aran page says the medics saw no ill effects.",
+      "correction": "Drop the warning clause, or state only that the suit's own data warns that frequent use is extremely dangerous.",
+      "source_url": "https://www.metroidwiki.org/wiki/PED_Suit"
+     },
+     {
+      "severity": "missing",
+      "problem": "Metroid Wiki's Dark Samus page states outright that Samus's destruction of Aurora Unit 313 \"purged the Phazon from her,\" which would let the purge paragraph be slightly firmer than the hedged \"threat disappeared.\" Caveat: that page is not cited to in-game text, so phrase it as the wiki's reading.",
+      "correction": "Optionally add: \"the wiki records that destroying 313 purged the Phazon from her.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "keys",
+      "problem": "\"Phazon exposure\" is generic within Metroid chat (any Pirate, Metroid or planet discussion) and will pull this Samus-specific entry into unrelated scenes.",
+      "correction": "Drop \"Phazon exposure\" or pair it with a secondary key such as Samus/her.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Phazon: Pirate Phazon operations and the Federation's PED program",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "\"enabling an individual to harness the destructive power of Phazon for use in battle.\"",
+      "problem": "This is the uncited prose of the Metroid Wiki PED stub, not official text. The in-game Federation Data entry says the device \"is designed to harness the energy of Phazon minerals, originally discovered on Aether.\"",
+      "correction": "Replace with the Federation Data quotation.",
+      "source_url": "https://www.metroidwiki.org/wiki/Federation_Data"
+     },
+     {
+      "severity": "nit",
+      "claim": "Project Titan (Thardus, shut down)",
+      "problem": "Pirate Data says \"Project Titan is suspended indefinitely\" after security breaches with massive casualties.",
+      "correction": "\"Project Titan (Thardus, suspended indefinitely)\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Thardus"
+     },
+     {
+      "severity": "nit",
+      "claim": "The Colossus's Phazon-powered weapons took the G.F.S. Valhalla",
+      "problem": "Federation Data says the Pirates used \"upgraded starships powered by Phazon; that plus superior numbers\"; the Valhalla page says the ship was boarded via Space Pirate Boarding Pods during a training exercise and the crew left to die in space. The weapons themselves are not described as Phazon-powered.",
+      "correction": "\"Phazon-powered Pirate starships and superior numbers overwhelmed the G.F.S. Valhalla, and the Colossus's boarding parties took her Aurora Unit.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Valhalla"
+     },
+     {
+      "severity": "nit",
+      "claim": "Metroids (the Hunter and Fission strains)",
+      "problem": "Same as entry 5: the Hunter and Fission Metroids are Phazon mutations but are not sourced as products of deliberate Pirate experiments.",
+      "correction": "\"Metroids (yielding the Phazon-mutated Hunter and Fission strains)\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Fission_Metroid"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Pirates' Phazon virus against the Federation's Aurora Units is absent: it is the reason the Federation hired Samus, Rundas, Ghor and Gandrayda, it disabled SkyTown's Aurora Unit 217 (blocking the Elysians' Phaaze data), and Samus cured 217. A central Pirate Phazon operation for any Prime 3 roleplay.",
+      "correction": "Add one or two sentences on the Aurora Unit virus.",
+      "source_url": "https://www.metroidwiki.org/wiki/Aurora_Unit_217"
+     },
+     {
+      "severity": "missing",
+      "problem": "Project Helix also produced the Phazon Elite (an Elite Pirate infused with energized Phazon, short-lived, guarding the Artifact of Warrior); the entry lists only Elite Pirates and the Omega Pirate.",
+      "correction": "Add \"Phazon Elite\" to the Helix products.",
+      "source_url": "https://www.metroidwiki.org/wiki/Project_Helix"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Phazon",
+   "https://www.metroidwiki.org/wiki/Phaaze",
+   "https://www.metroidwiki.org/wiki/Leviathan",
+   "https://www.metroidwiki.org/wiki/Hypermode",
+   "https://www.metroidwiki.org/wiki/Phazon_Metroid",
+   "https://www.metroidwiki.org/wiki/Federation_Data",
+   "https://www.metroidwiki.org/wiki/Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Orange_Phazon",
+   "https://www.metroidwiki.org/wiki/Phazite",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit_313",
+   "https://www.metroidwiki.org/wiki/G.F.S._Valhalla",
+   "https://www.metroidwiki.org/wiki/Genesis_Chamber",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Rundas",
+   "https://www.metroidwiki.org/wiki/Ghor",
+   "https://www.metroidwiki.org/wiki/Gandrayda",
+   "https://www.metroidwiki.org/wiki/Dark_Aether",
+   "https://www.metroidwiki.org/wiki/Project_Helix",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit_217",
+   "https://www.metroidwiki.org/wiki/Norion",
+   "https://www.metroidwiki.org/wiki/Pirate_Homeworld",
+   "https://www.metroidwiki.org/wiki/Mogenar",
+   "https://www.metroidwiki.org/wiki/Helios",
+   "https://www.metroidwiki.org/wiki/Bryyo",
+   "https://www.metroidwiki.org/wiki/Phazon_Enhancement_Device",
+   "https://www.metroidwiki.org/wiki/PED_Suit",
+   "https://www.metroidwiki.org/wiki/Phazon_Grenade",
+   "https://www.metroidwiki.org/wiki/Hunter_Metroid",
+   "https://www.metroidwiki.org/wiki/Fission_Metroid",
+   "https://www.metroidwiki.org/wiki/Miniroid",
+   "https://www.metroidwiki.org/wiki/Hopping_Metroid",
+   "https://www.metroidwiki.org/wiki/Metroid_Hatcher",
+   "https://www.metroidwiki.org/wiki/Liquid_Phazon",
+   "https://www.metroidwiki.org/wiki/Phaz-Ing",
+   "https://www.metroidwiki.org/wiki/Phaazoid",
+   "https://www.metroidwiki.org/wiki/Chozo_Lore",
+   "https://www.metroidwiki.org/wiki/Phazon_Suit",
+   "https://www.metroidwiki.org/wiki/Thardus",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Omega_Pirate",
+   "https://www.metroidwiki.org/wiki/Dark_Samus",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Shriekbat",
+   "https://www.metroidwiki.org/wiki/Artifact_Temple",
+   "https://www.metroidwiki.org/wiki/Phazon_Beam",
+   "https://www.metroidwiki.org/wiki/Sanctum_(Phaaze)",
+   "https://www.metroidwiki.org/wiki/Hyper_Grapple",
+   "https://www.metroidwiki.org/wiki/Colossus",
+   "https://www.metroidwiki.org/wiki/Elysian",
+   "https://www.metroidwiki.org/wiki/Chozo_Ghost",
+   "https://www.metroidwiki.org/wiki/Puffer",
+   "https://www.metroidwiki.org/wiki/Phazon_Grub",
+   "https://www.metroidwiki.org/wiki/Omega_Ridley",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_(game)",
+   "https://www.metroidwiki.org/wiki/SkyTown_Data",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)",
+   "404 (not available): https://www.metroidwiki.org/wiki/Parasite_Larva",
+   "404 (not available): https://www.metroidwiki.org/wiki/Phazon_Shriekbat",
+   "404 (not available): https://www.metroidwiki.org/wiki/Metroid_Creche",
+   "404 (not available): https://www.metroidwiki.org/wiki/Phazon_Puffer",
+   "404 (not available): https://www.metroidwiki.org/wiki/Phazon_Hopper",
+   "404 (not available): https://www.metroidwiki.org/wiki/Phazon_Leech"
+  ]
+ }
+}

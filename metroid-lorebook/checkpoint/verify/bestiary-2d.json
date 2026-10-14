@@ -1,0 +1,444 @@
+{
+ "run": "wf_819a7ec7-9c3",
+ "label": "verify:bestiary-2d",
+ "result": {
+  "overall": "Checked all seven entries against Metroid Wiki, the Metroid Database bestiary (fan-maintained, used only where Metroid Wiki lacks a page), Nintendo's official Metroid Dread Report Vol. 8 and two Dread guide sites. WebSearch was unavailable (shared per-turn budget already exhausted), IGN and game8 were unreachable, and Metroid Wiki returned 404 for many creature and area pages (Zeb, Geega, Beetom, Yapping Maw, Samus Eater, Fireflea, Geruta, Multiviola, Magdollite, Halzyn, Sciser, Choot, Mella, Kyratian, every Dread area/creature page), so a number of Other M and Dread details could only be marked unverified rather than confirmed or refuted. No outright canon errors or non-canon contamination were found except one Metroid Wiki trivia speculation presented as Chozo fact (Hornoad); the main problems are (1) a handful of claims with no support in any source reached (Zoomer \"sticky fluid per the manual\", Geruta purple/red, Maridia \"ancient flood\", Zoa \"dart in threes\", the six Dread creatures outside Nintendo's report, the Samus Returns-specific behaviors, Dragotix/Little Birdie, several Other M native descriptions), (2) every entry exceeding the 400-word cap (421-504 words), and (3) several bare keys that are common English words or slang (Zoomer, Ripper, Waver, Nova, Moto, Zoro). Placement checks came out well: the Fusion sector lists match Metroid Wiki's sector categories, the Other M sector placements for Kyratian, Ghalmanian, Griptian, Gigafraug and Groganch are supported by the sector pages, the Rhedogian/Anthony/Seeker Missile chronology is confirmed, MB loosing Desbrachians on Federation soldiers is confirmed, and the Super Metroid page confirms a submerged Space Pirate research facility in Maridia.",
+  "reports": [
+   {
+    "entry_comment": "Creatures: Fauna of Crateria and Brinstar",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "\"per the manual they excrete a sticky fluid from their feet\" (Zoomer/Geemer). Metroid Wiki's Zoomer and Geemer pages quote the Metroid, Zero Mission and Super Metroid manual entries and none mention a sticky fluid; the Metroid Database Zoomer (b=4) and Geemer (b=143) entries do not either. The only 'sticky legs' manual line in the series is Metroid II's Tsumuri entry, so this looks like a conflation.",
+      "claim": "per the manual they excrete a sticky fluid from their feet",
+      "correction": "Remove the clause, or replace with a verified manual line such as the Super Metroid manual's \"Geemers crawl on floors and walls.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Zoomer"
+     },
+     {
+      "severity": "nit",
+      "problem": "The manga framing is slightly off. Per Metroid Wiki's Skree page, Samus's line \"this planet has predators found nowhere else in the galaxy\" is her reply when Kreatz points out a Skree hanging from the ceiling; the Skree diving at the group (and tearing through a Space Pirate) is a separate scene.",
+      "claim": "when a Skree dove at her companions she warned that the planet \"has predators found nowhere else in the galaxy.\"",
+      "correction": "\"per the manga, when Kreatz spotted a Skree hanging overhead she remarked that the planet 'has predators found nowhere else in the galaxy'; one later tore through a Space Pirate travelling with them.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Skree"
+     },
+     {
+      "severity": "style",
+      "problem": "Content is 502 words, well over the 400-word cap for a non-core entry.",
+      "correction": "Trim roughly 100 words (e.g. drop the Reo/Waver/Zeela colour details and the closing Skultera/Sciser/Alcoon sentence, which the Norfair and Maridia entries already cover)."
+     },
+     {
+      "severity": "style",
+      "problem": "Manual-only details are unlabeled: the Reo colour ranking (\"red ones are stronger than yellow\") and the Ripper 'no brains' description come only from the Metroid manual.",
+      "correction": "Add \"per the manual\" to those clauses or drop them.",
+      "source_url": "https://www.metroidwiki.org/wiki/Reo"
+     },
+     {
+      "severity": "keys",
+      "problem": "Bare keys likely to misfire in ordinary chat: \"Zoomer\"/\"Zoomers\" (common Gen-Z slang), \"Ripper\"/\"Rippers\" and \"Waver\"/\"Wavers\" (ordinary English words), \"Zeb\"/\"Zebs\" (a common given name). The entry also has no key for \"Metaree\" plural form issues aside, \"Ripper II\" and \"Tripper\" are described in content but not keyed.",
+      "correction": "Move Zoomer/Ripper/Waver/Zeb to secondary_keys gated on a primary like \"Zebes\"/\"Brinstar\"/\"Crateria\" (selective_logic AND_ANY), or accept the risk knowingly; add \"Ripper II\" and \"Tripper\" as keys."
+     },
+     {
+      "severity": "missing",
+      "problem": "Omits the one Sidehopper moment that matters for a Samus-centred roleplay: in Super Metroid's Tourian three oversized Sidehoppers can only be hurt by Super Missiles, and the baby Metroid kills the third one before Samus can.",
+      "correction": "Add one clause under Sidehopper.",
+      "source_url": "https://www.metroidwiki.org/wiki/Sidehopper"
+     },
+     {
+      "severity": "missing",
+      "problem": "The entry treats Zoomer and Geemer as two species without noting that \"Zoomer\" is the mistranslated name of the same Japanese creature later rendered Geemer (only the Prime series treats them as separate species); the drafter's notes acknowledge this but the content does not.",
+      "correction": "Add: \"'Zoomer' is the older English rendering of the creature Super Metroid and later games call the Geemer; only the Prime series treats them as distinct.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Zoomer"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of Norfair",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "\"purple is standard, red more resilient\" (Geruta). Metroid Wiki has no Geruta page; the Metroid Database entries (b=18, b=117) describe red and pink Gerutas, with red twice as strong as pink, and never mention purple.",
+      "claim": "purple is standard, red more resilient",
+      "correction": "Soften to \"red ones are the stronger kind\" or drop the colour clause.",
+      "source_url": "https://metroiddatabase.com/bestiary/bestiary.php?b=18"
+     },
+     {
+      "severity": "style",
+      "problem": "\"red Gamets have twice the strength\" is a manual-only detail (Metroid Instruction Booklet p. 34) but is not labeled \"per the manual\" the way the Nova wool quote is.",
+      "correction": "\"per the manual, red Gamets have twice the strength of the others\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Gamet"
+     },
+     {
+      "severity": "style",
+      "problem": "Content is 473 words, over the 400-word cap for a non-core entry.",
+      "correction": "Trim ~75 words (e.g. the Holtz, Tripper and Dessgeega hideout detail)."
+     },
+     {
+      "severity": "keys",
+      "problem": "\"Nova\"/\"Novas\" is a common word (astronomy, cars, the TV series) and \"Holtz\" is a common surname; both will misfire in ordinary chat. \"Tripper\" and \"Ripper Ride\" are described in content but not keyed.",
+      "correction": "Gate Nova/Holtz as secondary keys behind \"Norfair\"/\"Zebes\", and add \"Tripper\"/\"Trippers\" as keys."
+     },
+     {
+      "severity": "nit",
+      "problem": "\"Fune and Namihe: eyeless serpents\" - the Metroid Database describes only the Fune as eyeless (relying on hearing); nothing says the Namihe is.",
+      "correction": "\"serpents (the Fune eyeless, hunting by hearing)\"",
+      "source_url": "https://metroiddatabase.com/bestiary/bestiary.php?b=130"
+     },
+     {
+      "severity": "missing",
+      "problem": "Two Samus-relevant Norfair facts are absent: by her second mission Norfair had been heavily flooded with lava compared with the first, and Ridley's Lair is where she found the baby Metroid's broken capsule.",
+      "correction": "Add one sentence covering both.",
+      "source_url": "https://www.metroidwiki.org/wiki/Norfair"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of Maridia and the Wrecked Ship",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "\"submerged by an ancient flood\". Metroid Wiki's Maridia page says only (uncited) that the area was once part of Brinstar and that \"an epidemic flooded the caverns\"; no source reached describes an ancient flood. The \"sunken research facility\" claim, by contrast, is supported (Super Metroid page: \"submerged Space Pirate research facility in Maridia\").",
+      "claim": "submerged by an ancient flood",
+      "correction": "\"flooded caverns that were once part of Brinstar\" (drop the cause).",
+      "source_url": "https://www.metroidwiki.org/wiki/Maridia"
+     },
+     {
+      "severity": "unverified",
+      "problem": "\"Zoa: translucent blue shrimp that emerge from the sand one at a time and dart in threes\". The Metroid Database Zoa entry (the only source) says they hover on gas pouches, appear in groups and rise from the sand one at a time; nothing about 'threes' or translucent blue.",
+      "claim": "translucent blue shrimp ... dart in threes",
+      "correction": "\"shrimp-like hoverers that rise from the sand one after another in groups\"",
+      "source_url": "https://metroiddatabase.com/bestiary/bestiary.php?b=144"
+     },
+     {
+      "severity": "nit",
+      "problem": "\"the Pirates were breeding Metroids on Zebes\" - the manual and Metroid Wiki frame Mochtroids as evidence of the Pirates' Metroid cloning effort, not breeding.",
+      "correction": "\"cloning Metroids on Zebes\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Mochtroid"
+     },
+     {
+      "severity": "nit",
+      "problem": "\"beneath Brinstar\" - Metroid Wiki says Maridia borders Brinstar and Crateria and is entered through a tunnel in the middle of Brinstar, not that it lies beneath it.",
+      "correction": "\"east of Brinstar, entered through a tunnel in its midst\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Maridia"
+     },
+     {
+      "severity": "style",
+      "problem": "Content is 437 words, over the 400-word cap.",
+      "correction": "Trim ~40 words."
+     },
+     {
+      "severity": "missing",
+      "problem": "Omits what Samus actually took from Maridia (Space Jump, Plasma Beam, Spring Ball) and that she had to Power Bomb open the Brinstar tunnel to enter, which a Samus-centred roleplay would want for chronology.",
+      "correction": "Add one clause in the intro.",
+      "source_url": "https://www.metroidwiki.org/wiki/Maridia"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of SR388",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "noncanon",
+      "problem": "\"Per Chozo observation, the Hornoad was the first creature ever seen taken over by an X.\" This is an uncited Trivia line on Metroid Wiki (\"apparently the first creature observed by intelligent life forms to be taken over by X\"); no game, manga or manual says so, and 'Chozo observation' is an invented attribution. The actual manga detail is that Old Bird calls it a \"silly creature that hops around\" and explains it becomes hostile when an X mimics it (Metroid manga Vol. 1 Ch. 4).",
+      "claim": "Per Chozo observation, the Hornoad was the first creature ever seen taken over by an X.",
+      "correction": "\"Per the manga, Old Bird dismissed it to the young Samus as a 'silly creature that hops around', warning that it turns hostile once an X mimics it.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Hornoad"
+     },
+     {
+      "severity": "unverified",
+      "problem": "Samus Returns-specific behaviours rest on search snippets only: Gullugg 'hurled themselves like spiked bullets', Chute Leech 'boiled out of ground fissures', 'Blob Swarms, insect-like', Ramulken 'rolls into a ball to charge', Gunzoo 'later riding laser rails'. Metroid Wiki's Samus Returns page names none of these creatures, and no other source was reachable.",
+      "claim": "on the later mission they hurled themselves like spiked bullets / boiled out of ground fissures / Blob Swarms / rolls into a ball / riding laser rails",
+      "correction": "Remove the five 'later mission' clauses or soften to 'behaved more aggressively on her later mission'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns"
+     },
+     {
+      "severity": "nit",
+      "problem": "\"the Yumbo's spinning spiked face\" - Metroid Wiki describes a spinning spiked appendage in front of the face, not a spiked face.",
+      "correction": "\"the Yumbo's spinning spiked frontal appendage\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Yumbo"
+     },
+     {
+      "severity": "nit",
+      "problem": "\"Shirk (spiked ramming drones)\" - the Metroid Database entry notes Shirks circle like Gulluggs and do not actively ram; \"Gravitt ... stabs with clawed feet\" is likewise unsupported (it digs and scuttles away).",
+      "correction": "\"Shirk (spiked circling drones)\"; \"a crab that hides in sand disguised as spikes and scuttles off when disturbed\"",
+      "source_url": "https://metroiddatabase.com/bestiary/bestiary.php?b=51"
+     },
+     {
+      "severity": "keys",
+      "problem": "\"Moto\"/\"Motos\" (phones, motorcycles) and to a lesser degree \"Needler\" (a Halo weapon) will misfire in ordinary chat. \"Seerook\" is listed as a source but appears neither in content nor keys. \"Octroll\", \"Autom\" and \"Shirk\" are in content; Autom is unkeyed.",
+      "correction": "Gate \"Moto\" as a secondary key behind \"SR388\"; either add Seerook to content and keys or drop the source; add \"Autom\"/\"Automs\"."
+     },
+     {
+      "severity": "style",
+      "problem": "Content is 464 words, over the 400-word cap.",
+      "correction": "Trim ~65 words (the unverified 'later mission' clauses are the obvious cut)."
+     },
+     {
+      "severity": "missing",
+      "problem": "Omits that the Metroids were created by the Chozo to counter the X, which spread across SR388 'like a plague' - the fact that explains why the planet's fauna and the X matter to Samus.",
+      "correction": "Add one sentence to the intro.",
+      "source_url": "https://www.metroidwiki.org/wiki/SR388"
+     },
+     {
+      "severity": "missing",
+      "problem": "Omits the Samus Returns post-credits beat: after Samus leaves, a Hornoad tries to eat one of Proteus Ridley's severed arms and an X emerges and infects it, the canonical lead-in to Fusion.",
+      "correction": "Add one clause under Hornoad.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of ZDR",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "Dropter, Caterzilla (\"also in Cataris\"), Daivo/Daivo Swarm (\"also in Ferenia\"), Sabotoru (\"Ferenia and Hanubia\"), Blindfly (\"of Ferenia ... hardier variant seen after the X outbreak\") and Slidle (\"here, in Burenia and in Ghavoran\") appear in none of the sources reachable: Nintendo's Dread Report Vol. 8, Metroid Wiki's ZDR/Metroid Dread pages, samurai-gamers and miketendo64 all list only the fifteen Report creatures plus Chozo enemies. The drafter admits these rest on search snippets.",
+      "claim": "Dropter / Caterzilla / Daivo / Sabotoru / Blindfly / Slidle descriptions and area placements",
+      "correction": "Either cut these six to bare name mentions without placements and behaviours, or keep only names with 'also seen' and no area claims.",
+      "source_url": "https://www.nintendo.com/au/news-and-articles/metroid-dread-report-vol-8-surveying-planet-zdr"
+     },
+     {
+      "severity": "nit",
+      "problem": "\"Autclast: Chozo robots\" overstates Nintendo's wording, which is \"a robot believed to have been created with advanced Chozo technology\" (the same hedge applies to Dairon's robots).",
+      "correction": "\"robots thought to be of Chozo make\"",
+      "source_url": "https://www.nintendo.com/au/news-and-articles/metroid-dread-report-vol-8-surveying-planet-zdr"
+     },
+     {
+      "severity": "keys",
+      "problem": "\"Blindflyer\" is kept as a key even though the notes say the name was not found anywhere; \"Yampa\" matches the Yampa River/Valley (low risk).",
+      "correction": "Drop \"Blindflyer\" unless a source is found; otherwise keys are acceptable."
+     },
+     {
+      "severity": "style",
+      "problem": "Content is 459 words, over the 400-word cap.",
+      "correction": "Trim ~60 words; cutting the unverified six creatures does most of it."
+     },
+     {
+      "severity": "missing",
+      "problem": "Omits the one link between the common fauna and the bosses: Golzuna is a Muzby mutated by the X and Escue a mutated Quetzoa (Metroid Wiki ZDR page), which lets a roleplay connect the ordinary creatures to what Samus absorbed.",
+      "correction": "Add one clause to the Muzby and Quetzoa lines.",
+      "source_url": "https://www.metroidwiki.org/wiki/Artaria"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of the Bottle Ship",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "\"a Little Birdie's shriek once roused one [Dragotix]\". Metroid Wiki's Biosphere page says Little Birdie's roar drives other creatures into a frenzy, but no source names a Dragotix; Dragotix has no wiki page and is not mentioned on the Other M, Biosphere or Pyrosphere pages.",
+      "claim": "a Little Birdie's shriek once roused one",
+      "correction": "Move the detail to the intro as \"Little Birdie's roar drove nearby creatures into a frenzy\" and leave Dragotix as 'docile unless approached'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Sector_1_(Biosphere)"
+     },
+     {
+      "severity": "unverified",
+      "problem": "Descriptions for Himella, Fumbleye, Joulion, Volfon (\"packs of three\"), Mighty Griptian (\"withstands even the Screw Attack\") and Groganch (\"yellow orb is their weak point\") have no Metroid Wiki page and were not confirmable in any reachable source; the sector pages confirm only that Kyratians, Groganch and Gigafraug are in the Cryosphere and Ghalmanians/Griptians in the Biosphere. Also \"Desbrachian ... teleport\": the wiki says they move at high speed, not that they teleport.",
+      "claim": "Fumbleye, Joulion, Volfon and Gigafraug, all of the Cryosphere ... packs of three ... withstands even the Screw Attack ... yellow orb ... teleport",
+      "correction": "Keep names and sectors that the sector pages support, soften the attack specifics to 'per observation', and change 'teleport' to 'lunge at great speed'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Sector_2_(Cryosphere)"
+     },
+     {
+      "severity": "style",
+      "problem": "Content is 504 words, over the 400-word cap (and only just under the 550 core allowance, which a fauna entry does not get).",
+      "correction": "Trim ~100 words, starting with the unverified native descriptions."
+     },
+     {
+      "severity": "missing",
+      "problem": "Omits the Gigafraug found in the Cryosphere as a Metroid predation victim - the moment that told Samus Metroids were loose aboard - and that the recurring Rhedogian first attacked her on a Cryosphere elevator after she fought seven Super Zebesians.",
+      "correction": "Add one clause to the Gigafraug and Rhedogian lines.",
+      "source_url": "https://www.metroidwiki.org/wiki/Bottle_Ship"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of the BSL station",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "problem": "\"Zoro\" is never tied to the Zero of the other entries. Metroid Wiki treats Zoro as the Fusion rendering of Zero (its page redirects and calls the mimics Zero-X), so the three entries do not cross-link.",
+      "correction": "\"Zoro (the Zero larvae of Zebes, as Fusion renders the name)\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Zoro"
+     },
+     {
+      "severity": "nit",
+      "problem": "\"Memu, one-eyed swarmers that pass through walls\" - the Metroid Database Memu-X entry (the only Fusion source) describes a single giant eyeball and swarming but nothing about passing through walls in Fusion; that trait is from the original Metroid.",
+      "correction": "\"Memu, one-eyed swarmers\"",
+      "source_url": "https://metroiddatabase.com/bestiary/bestiary.php?b=219"
+     },
+     {
+      "severity": "keys",
+      "problem": "\"Zoro\"/\"Zoros\" collides with One Piece's Roronoa Zoro in fandom chat; \"Geron\" is a biotech company (low risk). Missing alias: \"Zero-X\" (Metroid Wiki's name for the Zoro-X).",
+      "correction": "Add \"Zero-X\"; consider gating \"Zoro\" behind \"BSL\"/\"Fusion Suit\" as a secondary key."
+     },
+     {
+      "severity": "style",
+      "problem": "Content is 421 words, slightly over the 400-word cap.",
+      "correction": "Trim ~25 words."
+     },
+     {
+      "severity": "missing",
+      "problem": "Adam's remark that some X creatures were evolving to resist Samus's weapons (given alongside his Zombie Researcher assessment) is omitted; it is the in-fiction reason the copies grow 'newly armed' as the entry says.",
+      "correction": "Add one clause to the Zombie Researcher line.",
+      "source_url": "https://www.metroidwiki.org/wiki/Zombie_Researcher"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Brinstar",
+   "https://www.metroidwiki.org/wiki/Skree",
+   "https://www.metroidwiki.org/wiki/Ripper",
+   "https://www.metroidwiki.org/wiki/Geemer",
+   "https://www.metroidwiki.org/wiki/Zoomer",
+   "https://www.metroidwiki.org/wiki/Sidehopper",
+   "https://www.metroidwiki.org/wiki/Dessgeega",
+   "https://www.metroidwiki.org/wiki/Nova",
+   "https://www.metroidwiki.org/wiki/Reo",
+   "https://www.metroidwiki.org/wiki/Crateria",
+   "https://www.metroidwiki.org/wiki/Cacatac",
+   "https://www.metroidwiki.org/wiki/Zeela",
+   "https://www.metroidwiki.org/wiki/Waver",
+   "https://www.metroidwiki.org/wiki/Kago",
+   "https://www.metroidwiki.org/wiki/Gamet",
+   "https://www.metroidwiki.org/wiki/Squeept",
+   "https://www.metroidwiki.org/wiki/Fune",
+   "https://www.metroidwiki.org/wiki/Maridia",
+   "https://www.metroidwiki.org/wiki/Mochtroid",
+   "https://www.metroidwiki.org/wiki/Wrecked_Ship",
+   "https://www.metroidwiki.org/wiki/Evir",
+   "https://www.metroidwiki.org/wiki/Owtch",
+   "https://www.metroidwiki.org/wiki/Puyo",
+   "https://www.metroidwiki.org/wiki/Powamp",
+   "https://www.metroidwiki.org/wiki/Tatori",
+   "https://www.metroidwiki.org/wiki/Covern",
+   "https://www.metroidwiki.org/wiki/Atomic",
+   "https://www.metroidwiki.org/wiki/Work_Robot",
+   "https://www.metroidwiki.org/wiki/Skultera",
+   "https://www.metroidwiki.org/wiki/Hornoad",
+   "https://www.metroidwiki.org/wiki/Moto",
+   "https://www.metroidwiki.org/wiki/Septogg",
+   "https://www.metroidwiki.org/wiki/Gullugg",
+   "https://www.metroidwiki.org/wiki/Seerook",
+   "https://www.metroidwiki.org/wiki/Autoad",
+   "https://www.metroidwiki.org/wiki/Autrack",
+   "https://www.metroidwiki.org/wiki/Wallfire",
+   "https://www.metroidwiki.org/wiki/Tsumuri",
+   "https://www.metroidwiki.org/wiki/Moheek",
+   "https://www.metroidwiki.org/wiki/Needler",
+   "https://www.metroidwiki.org/wiki/Yumbo",
+   "https://www.metroidwiki.org/wiki/Senjoo",
+   "https://www.metroidwiki.org/wiki/Mumbo",
+   "https://www.metroidwiki.org/wiki/SR388",
+   "https://www.metroidwiki.org/wiki/Rhedogian",
+   "https://www.metroidwiki.org/wiki/Desbrachian",
+   "https://www.metroidwiki.org/wiki/Brug",
+   "https://www.metroidwiki.org/wiki/Zero",
+   "https://www.metroidwiki.org/wiki/Rinka",
+   "https://www.metroidwiki.org/wiki/Bottle_Ship",
+   "https://www.metroidwiki.org/wiki/Zombie_Researcher",
+   "https://www.metroidwiki.org/wiki/Zoro",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Category:Sector_2_(TRO)_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Category:Sector_1_(SRX)_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Category:Sector_3_(PYR)_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Category:Sector_4_(AQA)_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Category:Sector_5_(ARC)_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Category:Sector_6_(NOC)_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Category:Main_Deck_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Category:Sector_2_(Cryosphere)_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Category:Bottle_Ship_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Category:Sector_3_(Pyrosphere)_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Category:Sector_1_(Biosphere)_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Super_Metroid",
+   "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+   "https://www.metroidwiki.org/wiki/Anthony_Higgs",
+   "https://www.metroidwiki.org/wiki/Little_Birdie",
+   "https://www.metroidwiki.org/wiki/Sector_1_(Biosphere)",
+   "https://www.metroidwiki.org/wiki/Sector_2_(Cryosphere)",
+   "https://www.metroidwiki.org/wiki/Sector_3_(Pyrosphere)",
+   "https://www.metroidwiki.org/wiki/Artaria",
+   "https://www.metroidwiki.org/wiki/Norfair",
+   "https://www.metroidwiki.org/wiki/07th_Platoon",
+   "https://metroiddatabase.com/bestiary/",
+   "https://metroiddatabase.com/bestiary/bestiary.php?g=1",
+   "https://metroiddatabase.com/bestiary/bestiary.php?g=3",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=2",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=3",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=4",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=8",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=14",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=18",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=30",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=46",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=47",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=48",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=50",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=51",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=52",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=53",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=54",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=55",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=83",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=86",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=87",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=89",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=94",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=95",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=96",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=100",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=101",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=102",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=104",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=105",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=109",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=117",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=126",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=130",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=132",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=137",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=140",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=141",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=143",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=144",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=147",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=149",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=150",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=152",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=155",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=158",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=159",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=160",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=164",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=177",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=184",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=186",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=187",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=189",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=219",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=238",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=243",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=250",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=251",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=253",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=256",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=257",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=260",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=262",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=266",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=267",
+   "https://metroiddatabase.com/bestiary/bestiary.php?b=291",
+   "https://www.nintendo.com/au/news-and-articles/metroid-dread-report-vol-8-surveying-planet-zdr",
+   "https://samurai-gamers.com/metroid-dread/enemies-3/",
+   "https://miketendo64.com/2021/09/23/guide-metroid-dread-ememies-and-areas/"
+  ]
+ }
+}

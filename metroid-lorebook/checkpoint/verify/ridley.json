@@ -1,0 +1,468 @@
+{
+ "run": "wf_79cba15a-9c3",
+ "label": "verify:ridley",
+ "result": {
+  "overall": "Checked all 8 entries against ~55 Metroid Wiki/Wikipedia/Omega Metroid pages (list below; several wiki pages 404ed: Geothermal_Power_Station, Exam_Center, Biosphere_Test_Area, Kreatz, Mauk, Lava_Golem, Super_Metroid_manual). The shared WebSearch budget for this turn was already exhausted, so three manga/script claims (Ridley eating the colonists, Adam's 'Samus. Follow it!', Prime 4 fan reports) could only be tested against wiki pages, not re-searched. Headline problems: (1) the manga line 'That's impossible!! Because... You're about to die!' is RIDLEY's line to three-year-old Samus at K-2L (Metroid Wiki Ridley page, Vol 1 Ch 1 p24), not Samus's retort on Zebes; the overview and the drafter's notes both misattribute it. (2) The overview says Samus 'beat' Ridley at Ceres; the Ceres page says he was not defeated and fled. (3) The Neo-Ridley entry's 'third time she had to kill something wearing his shape' and 'first time the thing inside was not Ridley' are both wrong (Mecha Ridley came first; she had killed Ridley at least five times before Fusion). (4) The 'at least eight occasions' tally in the history entry is invented. (5) Several inferences are stated as fact and should be softened: the Queen Metroid 'bred in Sector Zero', Omega Ridley's unhealed wound being 'from the earlier fights', the Leviathan 'compelling' him, his 'remains taken to the Pirate Homeworld', Proteus Ridley 'regrowing flesh', the X Parasite rising from the limb. (6) Keys: 'the dragon' is generic; 'Pirate commander' collides with the Pirate Commander enemy class in Corruption; 'Mecha-Ridley' is duplicated; 'mechanical Ridley' substring-matches 'half-mechanical Ridley' in the Proteus entry; 'Ridley's body' will misfire on appearance talk. New verified fact worth adding: Metroid Wiki's Metroid Prime 4: Beyond page (released 4 Dec 2025, Viewros/Tanamaar, Sylux leading the Pirates) lists no Ridley in any form, so the history entry can safely say he is absent there too. Also missing from the overview: per the manga Ridley killed the Chozo Gray Voice, one of Samus's mentors, on Zebes (Vol 2 Ch 12). Word counts are all within limits (268-426).",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Ridley",
+   "https://www.metroidwiki.org/wiki/Meta_Ridley",
+   "https://www.metroidwiki.org/wiki/Omega_Ridley",
+   "https://www.metroidwiki.org/wiki/Proteus_Ridley",
+   "https://www.metroidwiki.org/wiki/Little_Birdie",
+   "https://www.metroidwiki.org/wiki/Mystery_Creature",
+   "https://www.metroidwiki.org/wiki/Neo-Ridley",
+   "https://www.metroidwiki.org/wiki/Mecha_Ridley",
+   "https://www.metroidwiki.org/wiki/Sub-Zero_Containment",
+   "https://www.metroidwiki.org/wiki/Pirate_Data",
+   "https://www.metroidwiki.org/wiki/K-2L",
+   "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Pyrosphere",
+   "https://www.metroidwiki.org/wiki/Anthony_Higgs",
+   "https://www.metroidwiki.org/wiki/Bioweapon_Research_Center",
+   "https://www.metroidwiki.org/wiki/Rundas",
+   "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission",
+   "https://www.metroidwiki.org/wiki/Virginia_Aran",
+   "https://www.metroidwiki.org/wiki/Rodney_Aran",
+   "https://www.metroidwiki.org/wiki/Ceres_Space_Colony",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime",
+   "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns",
+   "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+   "https://en.wikipedia.org/wiki/Ridley_(Metroid)",
+   "https://www.metroidwiki.org/wiki/Queen_Metroid",
+   "https://www.metroidwiki.org/wiki/Norfair",
+   "https://www.metroidwiki.org/wiki/Metroid_Manga",
+   "https://www.metroidwiki.org/wiki/Metroid_(manga)",
+   "https://www.metroidwiki.org/wiki/Metroid_e-manga",
+   "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+   "https://www.metroidwiki.org/wiki/Gray_Voice",
+   "https://www.metroidwiki.org/wiki/Old_Bird",
+   "https://www.metroidwiki.org/wiki/Zebes",
+   "https://www.metroidwiki.org/wiki/Mother_Brain",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Space_Pirate_Mother_Ship",
+   "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+   "https://www.metroidwiki.org/wiki/Super_Metroid",
+   "https://omegametroid.com/metroid-prime-walkthrough/pirate-data/",
+   "https://www.metroidwiki.org/wiki/Phazite",
+   "https://www.metroidwiki.org/wiki/Leviathan",
+   "https://www.metroidwiki.org/wiki/Lyle_Smithsonian",
+   "https://www.metroidwiki.org/wiki/Artifact_Temple",
+   "https://www.metroidwiki.org/wiki/Nightmare",
+   "https://www.metroidwiki.org/wiki/Armstrong_Houston",
+   "https://www.metroidwiki.org/wiki/MB",
+   "https://www.metroidwiki.org/wiki/Pirate_Commander",
+   "https://www.metroidwiki.org/wiki/Ridley's_Lair",
+   "https://www.metroidwiki.org/wiki/Bottle_Ship",
+   "https://www.metroidwiki.org/wiki/Sector_Zero"
+  ],
+  "reports": [
+   {
+    "entry_comment": "Ridley: Ridley (overview and relationship with Samus)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "...and she answered, \"That's impossible!! Because... you're about to die!\"",
+      "problem": "Metroid Wiki's Ridley page quotes this line as RIDLEY's, to three-year-old Samus at K-2L (Metroid manga Vol 1 Ch 1 p24): after she says \"You're not scary...\", Ridley replies \"Mhmm, you're so cute. I'm sorry miss, but... That's impossible!! Because... You're about to die!\" The draft gives it to Samus years later on Zebes; the drafter's note guessing the Vol 1 Ch 1 label was a mislabel is wrong.",
+      "correction": "Move the line to the K-2L paragraph as Ridley's reply to the child (\"Mhmm, you're so cute. I'm sorry miss, but... That's impossible!! Because... You're about to die!\"), and drop it from the Zebes confrontation unless a direct manga source shows Samus repeating it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "error",
+      "claim": "Since then Samus has beaten him ... at Ceres Space Colony",
+      "problem": "Ridley was not beaten at Ceres. The Ceres Space Colony page: he fought Samus briefly, 'was not defeated', fled with the hatchling and triggered the self-destruct; the Samus Aran page says she 'cannot defeat him before he flees'; the Super Metroid page says she only 'drives him off'.",
+      "correction": "Remove Ceres from the list of places she beat him, or reword: '...failed to stop him at Ceres Space Colony, and finally killed the original in Norfair...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ceres_Space_Colony"
+     },
+     {
+      "severity": "unverified",
+      "claim": "claiming he had survived his wounds by eating the colonists' corpses and hinting her mother was among them",
+      "problem": "No Metroid Wiki page read (Ridley, K-2L, Virginia Aran, Rodney Aran, Samus Aran, Gray Voice, Mother Brain) mentions corpse-eating or the mother hint; the Ridley page's Personality section says only that he 'gloats about his time at her old colony'. The drafter's only source was a search snippet, and the web-search budget was exhausted so it could not be re-checked.",
+      "correction": "Soften to 'per the manga he gloated to her about K-2L' unless the manga chapter can be read directly.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "nit",
+      "claim": "intelligent, vain and deliberately cruel",
+      "problem": "'Vain' comes from the wiki's hedged 'may be narcissistic, based on Mecha Ridley'. Sakamoto's statement that Ridley had Mecha Ridley built as a display of his power gives some support, but the wiki itself hedges.",
+      "correction": "Keep only if the Mecha Ridley rationale is cited; otherwise 'intelligent, proud and deliberately cruel' or drop 'vain'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Mecha_Ridley"
+     },
+     {
+      "severity": "style",
+      "claim": "Every defeat has been undone by Pirate reconstruction, Phazon or cloning.",
+      "problem": "Overclaim: the Norfair death was the original's final death (the entry says so itself) and Neo-Ridley's destruction was never undone.",
+      "correction": "'Until Norfair, every defeat was undone by Pirate reconstruction or Phazon; afterward only his cells and his corpse remained to be exploited.'"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys 'the dragon', 'Pirate commander', 'Space Pirate commander'",
+      "problem": "'the dragon' is a bare generic phrase. 'Pirate Commander' is an actual Space Pirate enemy class in Metroid Prime 3: Corruption (Red Phazite armor, personal teleporter), so the key fires whenever those troops are discussed. Missing alias: 'Ridley's' possessive is covered by substring, but 'Meta Ridley', 'Omega Ridley' etc. are deliberately split off, which is fine.",
+      "correction": "Drop 'the dragon' and 'Pirate commander' (keep 'Space Pirate commander' only if the lorebook will not discuss Corruption's Pirate Commanders); consider adding 'Ridley's lair' and 'Geoform 187' plural/alternate 'geoform-187'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Commander"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Per the manga, Ridley struck the fatal blow to the Chozo Gray Voice, one of Samus's mentors, when Gray Voice attacked Mother Brain during the Pirate takeover of Zebes (Vol 2 Ch 12). This is a second personal grievance the roleplay would want.",
+      "correction": "Add one clause: 'per the manga he also killed Gray Voice, the Chozo who helped raise her, during the Pirates' takeover of Zebes.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Gray_Voice"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Pirate Data (Meta Ridley log) adds that the Pirates expect he 'will certainly relish the job' of security mainstay, a canon line supporting the sadism characterization.",
+      "correction": "Optional: '...the Pirates noted he would relish the work.'",
+      "source_url": "https://omegametroid.com/metroid-prime-walkthrough/pirate-data/"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Ridley: Ridley – history across every encounter",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Samus has had to kill him, in one form or another, on at least eight occasions.",
+      "problem": "No source gives a tally (Ridley and Samus Aran pages explicitly do not). Reaching eight requires counting SR388 (he was only 'subdued'/'put out of commission', not killed), Ceres (not defeated) or the robot Mecha Ridley, none of which are kills of 'him'.",
+      "correction": "Remove the number: 'Samus has had to put him down again and again, in one form or another.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "unverified",
+      "claim": "was later killed by the Queen Metroid",
+      "problem": "Metroid Wiki is split: the Ridley, Queen Metroid and Bottle Ship pages say the Queen killed the clone, but the Other M page says he was 'killed by unknown means' and the Bioweapon Research Center page gives no cause. The game shows only the drained husk.",
+      "correction": "'...and was later found dead, a dried husk apparently drained by the Queen Metroid.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "nit",
+      "claim": "reconstruction by Space Pirate Science Team",
+      "problem": "The Meta Ridley Pirate Data log is written by the Pirate researchers as 'we'; neither it nor the Meta Ridley page names Science Team for the rebuild.",
+      "correction": "'reconstruction by the Space Pirates'",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     },
+     {
+      "severity": "missing",
+      "claim": "Ridley did not appear during the ZDR mission (Metroid Dread).",
+      "problem": "Metroid Wiki's Metroid Prime 4: Beyond page (released 4 December 2025; Planet Viewros / Tanamaar; Sylux leads the Space Pirates; fights against Aberax and Sylux) lists no Ridley in any form, so the entry can now state his absence there too, and the drafter's note can be retired.",
+      "correction": "'Ridley did not appear during the Viewros mission (Metroid Prime 4: Beyond) or the ZDR mission (Metroid Dread).'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Between K-2L and the first Zebes mission the manga has Ridley kill Gray Voice during the Pirate takeover of Zebes (Vol 2 Ch 12), which belongs in a chronological history.",
+      "correction": "Add a bullet: '- Zebes, Pirate takeover (per the manga): Ridley struck down the Chozo Gray Voice as he attacked Mother Brain, and the surviving Chozo fled.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Gray_Voice"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys list",
+      "problem": "No alias for the common phrasings 'Ridley keeps coming back', 'Ridley comes back', 'Ridley is back', 'how many times'. Not a misfire risk, just coverage.",
+      "correction": "Add 'Ridley comes back', 'Ridley is back', 'Ridley keeps coming back', 'Ridley's resurrection'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Ridley: Meta Ridley and Omega Ridley",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "One wound, the chest injury from the earlier fights, never healed",
+      "problem": "The Omega Ridley logbook (quoted on the wiki) says only that 'a recent injury has not fully healed', which is why the chest is exposed; the page explicitly does not say what caused it.",
+      "correction": "'A recent wound to his chest had not healed; after stunning him Samus tore it open with the Grapple Lasso...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Omega_Ridley"
+     },
+     {
+      "severity": "unverified",
+      "claim": "His remains were taken to the Pirate Homeworld, where the Phazon of the Leviathan Seed there revived and regenerated him",
+      "problem": "No source says his remains were transported there. The logbook says he was 'revived and regenerated through Phazon exposure'; the Corruption page simply has him attack Samus inside the Seed.",
+      "correction": "'He next appeared on the Pirate Homeworld, revived and regenerated through Phazon exposure as Omega Ridley.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the Leviathan compelled him to guard its core",
+      "problem": "The Omega Ridley page does not say this; only the Leviathan logbook's general pattern (a Leviathan attracts a large predator, mutates it and compels it to protect the core) supports it, and that is not stated for the Pirate Homeworld specifically.",
+      "correction": "'...and he guarded the Seed's core, as the Leviathans' mutated guardians do.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Leviathan"
+     },
+     {
+      "severity": "nit",
+      "claim": "Per Pirate Data recovered on Tallon IV, the reconstruction of geoform 187, code-named Ridley, was completed aboard the research frigate Orpheon",
+      "problem": "The Pirate Data log (found in Research Lab Aether, Phendrana Drifts) does not mention the Orpheon; 'aboard the Orpheon' is the Meta Ridley wiki page's statement. The log also attributes the mainstay prediction to the Pirate researchers ('we'), not 'Science Team'.",
+      "correction": "'The Pirates rebuilt him aboard the research frigate Orpheon; per their own records, the reconstruction of geoform 187... The researchers expected him to become the mainstay of their security force and to relish the job.'",
+      "source_url": "https://omegametroid.com/metroid-prime-walkthrough/pirate-data/"
+     },
+     {
+      "severity": "style",
+      "claim": "Samus hunted him across all three worlds",
+      "problem": "Ambiguous: Corruption's three Leviathan worlds are Bryyo, Elysia and the Pirate Homeworld, and Ridley appears on none but the last. Read as Tallon IV/Norion/Pirate Homeworld it is true but 'hunted' overstates (she was ambushed each time).",
+      "correction": "'Samus faced him on Tallon IV, Norion and the Pirate Homeworld; no incarnation...'"
+     },
+     {
+      "severity": "nit",
+      "claim": "She glimpsed his shadow over Phendrana Drifts",
+      "problem": "Minor: Ridley page says Phendrana Shorelines; Meta Ridley page says over Phendrana Drifts flying toward the Phazon Mines. Consistent enough.",
+      "correction": "Optional: 'his shadow passing over Phendrana toward the Phazon Mines'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Meta_Ridley"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "On Norion Meta Ridley was first seen attacking a Galactic Federation Marine platoon, and he harried Samus in Morph Ball form in the confined passages before Generator C (she shook him off with Bombs) — useful texture for the Norion scene.",
+      "correction": "Add: 'first seen tearing into a Federation Marine platoon, he harried Samus through the base's cramped passages before Generator C.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Meta_Ridley"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Ridley: Proteus Ridley",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "grafted onto a body that was otherwise regrowing its natural flesh",
+      "problem": "No source describes regrowth. The wiki calls him 'the final incarnation of Ridley's cybernetic form' and says the Meta Ridley cybernetics were kept 'to preserve a minimum level of consistency in the timeline' (Sakamoto); Wikipedia says only 'half-mechanical'.",
+      "correction": "'...most visibly a mechanical arm ending in a claw, on a body that was otherwise organic.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Proteus_Ridley"
+     },
+     {
+      "severity": "unverified",
+      "claim": "an X Parasite rose from it and took the creature",
+      "problem": "Neither Metroid Wiki ('An X Parasite emerges and turns the Hornoad into a Hornoad-X') nor Wikipedia ('killed and copied... by an X Parasite') says the X came out of the limb.",
+      "correction": "'an X Parasite appeared and took the creature'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns"
+     },
+     {
+      "severity": "nit",
+      "claim": "Samus beat him down and left him broken on the surface",
+      "problem": "Fine, but note the wiki's wording is 'permanently puts Proteus Ridley out of commission' / 'subdued'; 'broken' is a fair paraphrase given he returns at Ceres.",
+      "correction": "No change required; 'subdued and left him on the surface' is closest to the source.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys 'Ridley's claw', 'Ridley's mechanical arm'",
+      "problem": "'Ridley's claw' will fire on any mention of Ridley's claws (the appearance entry covers 'Ridley's claws'; 'Ridley's claw' is its substring in the singular-to-plural direction only, but ordinary chat like 'Ridley's claw raked her' will pull this SR388 entry).",
+      "correction": "Drop 'Ridley's claw'; keep 'Ridley's mechanical claw' / 'Ridley's mechanical arm'."
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "The entry omits that Sakamoto called Ridley's presence a retcon added at MercurySteam's proposal and that there is 'no direct link' between the 2D and Prime stories — not roleplay-facing, so optional; more useful is the in-universe fact that the fight grants her access back to her Gunship.",
+      "correction": "Optional, no change required.",
+      "source_url": "https://www.metroidwiki.org/wiki/Proteus_Ridley"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Ridley: Ridley clone of the Bottle Ship (Little Birdie)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "the Queen Metroid bred in Sector Zero's program",
+      "problem": "The Queen Metroid page says Bottle Ship researchers manipulated genes from clones of the Metroid Hatchling so one could grow into a Queen, used as a control specimen for the cold-resistant Metroids; neither it nor the Sector Zero page places the Queen in Sector Zero (Sector Zero held the unfreezable Metroids and the MB prototype).",
+      "correction": "'...the Queen Metroid the Federation had bred as a control specimen killed the clone...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Queen_Metroid"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Adam Malkovich ordered, \"Samus. Follow it!\"",
+      "problem": "Not found on the Mystery Creature, Adam Malkovich, Metroid: Other M, MB or Little Birdie pages; the Biosphere Test Area and Geothermal pages 404ed and the search budget was exhausted. The drafter gives no source for the exact wording.",
+      "correction": "Paraphrase: 'Adam ordered Samus to go after it.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Adam_Malkovich"
+     },
+     {
+      "severity": "nit",
+      "claim": "as Madeline Bergman and MB later told Samus",
+      "problem": "The explanation of the accidental cloning is MB's dialogue, delivered while posing as Madeline Bergman in the Bioweapon Research Center; the real Madeline later only identifies her as MB.",
+      "correction": "'as MB, posing as Madeline Bergman, told Samus in the Bioweapon Research Center'",
+      "source_url": "https://www.metroidwiki.org/wiki/MB"
+     },
+     {
+      "severity": "nit",
+      "claim": "killed the wounded clone",
+      "problem": "Supported by the Ridley, Queen Metroid and Bottle Ship pages, but the Other M page says 'killed by unknown means' and the Bioweapon Research Center page gives no cause; 'wounded' is also unsourced.",
+      "correction": "'...the Queen Metroid ... killed the clone (Samus found only his dried husk, drained like a Metroid's prey)'",
+      "source_url": "https://www.metroidwiki.org/wiki/Bioweapon_Research_Center"
+     },
+     {
+      "severity": "nit",
+      "claim": "a purple, scaled, quadrupedal lizard with a longer beak",
+      "problem": "The Mystery Creature page says 'carnivorous purple lizard' with a 'razor-sharp tail' and leftover white feathers; 'scaled', 'quadrupedal' and 'beak' are the drafter's descriptors.",
+      "correction": "'a purple, carnivorous lizard with a razor-sharp tail, still carrying a few white feathers on its back'",
+      "source_url": "https://www.metroidwiki.org/wiki/Mystery_Creature"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Per MB's own account (cited on the Samus Aran page), the researchers kept Little Birdie as a pet, and it played dead to lure a scientist into its cage before attacking him — the moment the clone first turned on its keepers; the Lyle Smithsonian page also says the platoon found Lyle 'in a pool of blood and ripped to shreds'.",
+      "correction": "Add: 'The researchers had kept it as a pet until it played dead, lured a scientist into its cage and attacked him.' and 'Lyle's body had been torn apart.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "The Ridley page notes the adult clone 'hides in a shell that only Super Missiles can break, then retreats when badly damaged' — i.e. Samus drove it off rather than it simply escaping.",
+      "correction": "'...before she fought back and drove him off badly hurt.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Ridley: Neo-Ridley / Ridley-X",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "the BSL was the third time she had to kill something wearing his shape",
+      "problem": "Before Fusion Samus had already killed or destroyed Ridley on Zebes (Zero Mission), Tallon IV, Norion, the Pirate Homeworld and in Norfair, plus Mecha Ridley; and she did not kill the Bottle Ship clone at all (the Queen Metroid did). The count is wrong on both ends.",
+      "correction": "Delete the tally: 'Samus had killed the original in Norfair and found his clone's husk on the Bottle Ship; on the BSL she had to destroy his shape once more.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "error",
+      "claim": "the first time the thing inside it was not Ridley at all",
+      "problem": "Mecha Ridley, a robot built in his image, was destroyed by Samus on Zebes years earlier (Zero Mission).",
+      "correction": "'...and, apart from the robot Mecha Ridley, the first time the thing inside the shape was not Ridley at all.' or simply drop the clause.",
+      "source_url": "https://www.metroidwiki.org/wiki/Mecha_Ridley"
+     },
+     {
+      "severity": "style",
+      "claim": "the only incarnation of Ridley to fight her on behalf of something other than the Space Pirates",
+      "problem": "Shaky 'only' claim: the Bottle Ship clone was a Federation creation with no Pirate ties and fought on no one's behalf. The sentence adds little.",
+      "correction": "'...an X-made Ridley in full flesh attacked her, driven by the parasite rather than by any Pirate command.'"
+     },
+     {
+      "severity": "nit",
+      "claim": "There the frozen Ridley's eyes lit, a Core-X burst from the body and slipped away.",
+      "problem": "Supported loosely (Fusion page: 'Its eyes glow when Samus approaches'; Sub-Zero page: 'a Core-X emerges from Ridley's body and leaves the room'). Note the Fusion page oddly calls the Sector 1 body 'a copy' and says the actual corpse was 'destroyed by a Hard Core-X earlier'; wiki inconsistency, no change needed.",
+      "correction": "No change.",
+      "source_url": "https://www.metroidwiki.org/wiki/Sub-Zero_Containment"
+     },
+     {
+      "severity": "style",
+      "claim": "Only charged Plasma Beam shots, Super Missiles and Diffusion Missiles hurt it; Bombs, Power Bombs and uncharged beams did nothing.",
+      "problem": "Reads as a boss-strategy list; wiki says 'uncharged Plasma Beam shots', not all uncharged beams.",
+      "correction": "'It shrugged off bombs and uncharged beam fire; only her charged Plasma Beam and heavy missiles bit.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Neo-Ridley"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys 'Ridley's body', 'Ridley's corpse'",
+      "problem": "'Ridley's body' fires on ordinary appearance talk ('Ridley's body is covered in...'), pulling the Fusion entry alongside the appearance entry.",
+      "correction": "Drop 'Ridley's body'; keep 'Ridley's corpse', 'Ridley's husk', 'frozen Ridley', 'Ridley's frozen body'."
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "The Sub-Zero Containment page notes it was unknown whether Ridley was dead or alive before the X attacked, and that Samus could only cross the room safely after regaining the Varia Suit — the first pass is the forced detour through the stalled elevator shaft.",
+      "correction": "Optional: 'the Federation records did not say whether what they stored was dead or alive.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Sub-Zero_Containment"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Ridley: Mecha Ridley",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "escaped in a Space Pirate escape pod",
+      "problem": "Metroid Wiki is inconsistent: the Zero Mission page says 'escape pod', the Space Pirate Mother Ship page says she 'steals one of the small scout ships'.",
+      "correction": "'escaped in a small Space Pirate craft'",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Mother_Ship"
+     },
+     {
+      "severity": "nit",
+      "claim": "ending Pirate rule over Zebes",
+      "problem": "Overstates: by Super Metroid the Pirates had rebuilt their underground network on Zebes (Zebes page).",
+      "correction": "'breaking the Pirates' hold on Zebes for the time being'",
+      "source_url": "https://www.metroidwiki.org/wiki/Zebes"
+     },
+     {
+      "severity": "style",
+      "claim": "only Missiles and Super Missiles could crack it, in the instant the robot raised its neck to slam its claw down",
+      "problem": "Boss-mechanics phrasing; acceptable in-universe but borderline.",
+      "correction": "'...only missile fire could crack it, and only in the instant the robot lifted its neck to bring its claw down.'"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys 'Mecha-Ridley' (listed twice), 'mechanical Ridley'",
+      "problem": "'Mecha-Ridley' is duplicated. 'mechanical Ridley' is a substring of the Proteus entry's key 'half-mechanical Ridley', so any mention of 'half-mechanical Ridley' also fires this robot entry.",
+      "correction": "Remove the duplicate; drop 'mechanical Ridley' (Proteus entry already owns 'half-mechanical Ridley'), or change it to 'mechanical Ridley robot'."
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "The Space Pirate Mother Ship page notes the ship landed in Chozodia shortly before Samus entered Ridley's Lair, i.e. the same vessel she later infiltrates is the one that brought Ridley to Zebes; the Zero Mission page adds that the Pirates she fights inside wield the Plasma Beam-era gear and that defeating Mecha Ridley leaves a large energy drop.",
+      "correction": "Optional: 'the same Mother Ship that had landed in Chozodia to deliver Ridley to his lair.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Mother_Ship"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Ridley: Ridley – appearance, abilities and intelligence",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "per the manga he recovered from the K-2L explosion by eating the dead",
+      "problem": "Same as the overview: no Metroid Wiki page read supports corpse-eating; the Rodney Aran page says only that the explosion 'spared him and Samus' and the Samus Aran page that he was 'severely wounded but survived'. Search budget was exhausted so the Wikitroid snippet could not be re-checked.",
+      "correction": "'per the manga he survived the K-2L explosion despite grave wounds'",
+      "source_url": "https://www.metroidwiki.org/wiki/Rodney_Aran"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the clone on the Bottle Ship flew within minutes of reaching adulthood",
+      "problem": "No source states when the clone reached adulthood or how soon it flew; Samus only meets it already adult in the Geothermal Power Plant.",
+      "correction": "'the Bottle Ship clone was already airborne when Samus first saw its adult form'",
+      "source_url": "https://www.metroidwiki.org/wiki/Pyrosphere"
+     },
+     {
+      "severity": "unverified",
+      "claim": "slit eyes",
+      "problem": "No source read describes his eyes; the wiki gives wings, beak, tail, color only.",
+      "correction": "Drop 'slit eyes' or replace with 'glowing eyes'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "nit",
+      "claim": "on the BSL his tail could not be damaged by any of Samus's weapons",
+      "problem": "That was Neo-Ridley, the X copy, not Ridley himself.",
+      "correction": "'the X copy of him on the BSL had a tail that none of Samus's weapons could damage'",
+      "source_url": "https://www.metroidwiki.org/wiki/Neo-Ridley"
+     },
+     {
+      "severity": "nit",
+      "claim": "though the Ridley she first fought on Zebes has been recorded with blue and brown coloring",
+      "problem": "Correct per the Ridley page (blue in Metroid, brown in Zero Mission, changing color as he takes damage) — the wiki also notes his wings are too small to lift him in most 2D games, which clashes slightly with 'fully airborne'. No change needed; noting for awareness.",
+      "correction": "No change.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "The Pirate Data log records that the Meta Ridley rebuild greatly increased his strength, mobility and offensive capability, and the Meta Ridley page says Ice attacks work especially well (Brawl trophy — non-canon, skip) while the Omega Ridley page says he registers as multiple creatures on Samus's radar; the canon-safe addition is the Omega-era mouth weak point: 'his mouth can be attacked only while he is attacking from it'.",
+      "correction": "Optional: 'As Meta and Omega Ridley his mouth was exposed only while he was firing from it.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Omega_Ridley"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys list",
+      "problem": "No misfires, but missing obvious variants: 'Ridley's scream', 'Ridley's eyes', 'Ridley's beak', 'Ridley's wingspan', 'how big is Ridley'.",
+      "correction": "Add 'Ridley's scream', 'Ridley's beak', 'Ridley's eyes', 'how big is Ridley'."
+     }
+    ]
+   }
+  ]
+ }
+}

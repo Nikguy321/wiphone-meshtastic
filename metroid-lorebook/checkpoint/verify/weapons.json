@@ -1,0 +1,491 @@
+{
+ "run": "wf_9122c4e6-699",
+ "label": "verify:weapons",
+ "result": {
+  "overall": "Checked all 12 entries against Metroid Wiki (primary), Wikipedia (Prime 4, Samus Returns, Dread) and Nintendo's Prime 4 page: 46 WebFetch calls; the shared WebSearch budget was already exhausted on my single search attempt, so no searches were possible. Wikitroid not used. 404s: Metroid Wiki Diggernaut, Melee_Counter, Chozo_Soldier; strategywiki returned 403. Confirmed errors: (1) Paralyzer listed as unchargeable (it charges, self-charging in Zero Mission and manually in Other M); (2) Bombs entry says both Zebes missions had Bombs in Brinstar then says Crateria for the return mission (Super Metroid Bombs are in Crateria with the Torizo); (3) Power Bombs \"first met on her return to Zebes\" contradicts in-universe chronology (she obtained them in Chozodia on her first mission, as the same paragraph says); (4) Hyper Grapple attributed to Bryyo's Leviathan instead of the Pirate Homeworld's. Notable omission: Metroid Wiki's Upgrade page DOES document a Dread-ending \"Hyper Beam\" (\"Samus fully awakens her metroid genes... a huge laser that destroys anything and kills enemies in one shot\"), contrary to the drafter's note that no source names it; the Hyper Beam entry should add it. Recurring unverified items: the \"Ice, Wave and Plasma on Ridley\" manga claim (the wiki only records one brief Ice Beam shot at Ridley), the Fusion \"energy slash\", \"Finish Counter\", Spider Magnet countering, Nova Beam as Space Pirate work, Dread \"Wide Beam Blocks\" requiring a charge, Other M Adam's \"vaporize a human\" rationale, Fusion Power Bombs \"to hold off the SA-X\". Style: the multi-subject equipment entries (Charge Beam, Wave/Spazer/Plasma, Luminoth/Phazon beams) run roughly 520-600 words and would be easier to trigger and read if split; a few in-content citations in parentheses; some generic keys (Bombs, melee, grapple/grappling, frozen solid, Flamethrower, Sunburst, Sonic Boom, Red Door) may misfire in ordinary roleplay chat. Super Metroid's first Power Bomb location could not be settled: Metroid Wiki's infobox says Crateria, common knowledge says Brinstar; recommend omitting the area or re-verifying.",
+  "reports": [
+   {
+    "entry_comment": "Equipment: Arm Cannon and Power Beam",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Its only built-in function is the Power Beam",
+      "problem": "Metroid Wiki says the Arm Cannon 'houses few basic abilities, most notably the Power Beam' and also lists map downloading and device interfacing as built-in properties; 'only' is an overstatement not supported by the page.",
+      "correction": "'Its basic built-in weapon is the Power Beam (also called the Normal Beam)...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Arm_Cannon"
+     },
+     {
+      "severity": "unverified",
+      "claim": "per the original manual it combined with the Wave Beam as a Long Wave Beam",
+      "problem": "The Long Beam page mentions no 'Long Wave Beam' or any manual naming. Could not verify.",
+      "correction": "Remove the parenthetical, or source it to the actual manual text before keeping it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Long_Beam"
+     },
+     {
+      "severity": "unverified",
+      "claim": "On Viewros, after taking up a psychic crystal in the Chrono Tower, she gained the Control Beam",
+      "problem": "Wikipedia confirms Samus acquires 'a crystal with psychic capabilities' in the Chrono Tower and that psychic powers let her 'fire guided shots at enemies'; Nintendo's page lists the Control Beam as a psychic ability. Neither source states that the Control Beam specifically came from that crystal; the causal link is the drafter's inference.",
+      "correction": "'On Viewros she gained psychic abilities, among them the Control Beam, which lets her steer the trajectory of her projectiles with her mind.' (Keep the Chrono Tower crystal only as the source of her psychic power generally, if at all.)",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Long Beam ... added half again the Power Beam's force",
+      "problem": "True of Zero Mission ('by half the Power Beam's normal strength'); the wiki says that in the original Metroid beams gained 'no increase in offensive power'. Fine if the entry is treating Zero Mission as the canonical account, but it should not be phrased as a general fact.",
+      "correction": "'...and, in the retelling of that mission, added half again the Power Beam's force'",
+      "source_url": "https://www.metroidwiki.org/wiki/Long_Beam"
+     },
+     {
+      "severity": "style",
+      "problem": "In-content citation '(Metroid Prime 4: Beyond)' at the end of the Control Beam paragraph; drop game-title citations from roleplay text.",
+      "correction": "Remove the parenthetical title."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Charge Beam and Charge Combos",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Only Mother Brain's Hyper Beam, the Phazon Beam and the Paralyzer cannot be charged.",
+      "problem": "Metroid Wiki's Paralyzer page says the Zero Mission Paralyzer 'is self charging and will stun opponents when it is fully charged', and in Other M 'Samus must charge it herself like a regular Charge Beam'. The Paralyzer does charge. (The Charge Beam page's sentence on exceptions is truncated and cannot support the claim.)",
+      "correction": "'Only Mother Brain's Hyper Beam and the Phazon Beam cannot be charged.' (Optionally: 'the Paralyzer pistol charges on its own.')",
+      "source_url": "https://www.metroidwiki.org/wiki/Paralyzer"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a charged shot at point-blank range became an energy slash",
+      "problem": "Nothing on the Charge Beam page describes a Fusion 'energy slash'; the page only says uncharged shots became wide bursts that act as two shots and that the double-shot property also applies to charged shots.",
+      "correction": "Remove the energy-slash clause.",
+      "source_url": "https://www.metroidwiki.org/wiki/Charge_Beam"
+     },
+     {
+      "severity": "unverified",
+      "claim": "charging with Power Bombs in hand produced beam shields",
+      "problem": "The wiki says Charge Beam + Power Bombs in Super Metroid yields a Charge Combo 'based on her current beam'; only the Spazer (Spazer Shield) and Plasma (Plasma Shield) produce shields. 'beam shields' generalises incorrectly.",
+      "correction": "'charging with Power Bombs selected unleashed a special attack keyed to whichever beam she had equipped'",
+      "source_url": "https://www.metroidwiki.org/wiki/Spazer_Beam"
+     },
+     {
+      "severity": "nit",
+      "claim": "Charging also exerts a tractor pull that draws loose energy and ammunition toward her.",
+      "problem": "Wiki attributes the pickup-pulling tractor effect to the Prime series specifically; stated here as universal.",
+      "correction": "'On Tallon IV, Aether and during the Phazon crisis, charging also exerted a tractor pull that drew loose energy and ammunition toward her.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Charge_Beam"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Flamethrower', 'Sunburst' and 'Sonic Boom' are ordinary English words/phrases that can fire on unrelated chat (a flamethrower in a non-Metroid scene, a sunburst pattern, a sonic boom). They are the real combo names, so keep them only if the lorebook is used strictly for Metroid roleplay; otherwise drop the bare words.",
+      "correction": "Consider removing 'Flamethrower', 'Sunburst', 'Sonic Boom' or accepting the misfire risk."
+     },
+     {
+      "severity": "style",
+      "problem": "Roughly 560 words for a non-core subject, and 'Charge Combos were a feature of...' is meta phrasing. Consider splitting Charge Combos into their own entry (keys Wavebuster, Ice Spreader, Flamethrower, Darkburst, Sunburst, Sonic Boom, Charge Combo).",
+      "correction": "Split into 'Charge Beam' and 'Charge Combos'; replace 'were a feature of' with 'were used on'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Ice Beam",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Per the manga, a single panel shows her pouring Ice, Wave and Plasma fire into Ridley.",
+      "problem": "Metroid Wiki's Ice Beam page says only that the Ice Beam 'made one extremely brief appearance in the Metroid Manga' where Samus fires it once at Ridley. The Wave Beam and Plasma Beam pages mention no manga appearance, and the manga article is a stub. The Wave/Plasma part is unsupported.",
+      "correction": "'Per the manga, she fired the Ice Beam once at Ridley.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ice_Beam"
+     },
+     {
+      "severity": "nit",
+      "claim": "On Zebes it waited in Brinstar and in a hidden corner of Norfair during her first mission, reached with the Power Grip",
+      "problem": "Conflates two accounts: the original game places Ice Beams in Brinstar and a hidden upper-right corner of Norfair (both needing Bombs); the retelling (Zero Mission) has it in Norfair only, reached by using 'the Power Grip to traverse over blocks above a sea of magma'. Scope says prefer the most recent official version.",
+      "correction": "'On her first Zebes mission it waited in Norfair, beyond blocks above a sea of magma she crossed with the Power Grip.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ice_Beam"
+     },
+     {
+      "severity": "unverified",
+      "claim": "and another in the deepest region, where juvenile Metroids could only be hurt while frozen",
+      "problem": "The Ice Beam page gives only the early Metroid II location ('within Chozo ruins behind a Red Door') and no Samus Returns details; the second location and larval-Metroid detail were not found on any fetched page.",
+      "correction": "Soften to 'and again deeper in' or remove until sourced.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ice_Beam"
+     },
+     {
+      "severity": "keys",
+      "problem": "'frozen solid', 'frozen enemies' and 'freeze ray' are generic phrases likely to trigger in any winter or combat scene unrelated to the Ice Beam.",
+      "correction": "Drop 'frozen solid' and 'frozen enemies'; keep 'freeze beam'/'freezing beam'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Wave Beam, Spazer and Plasma Beam",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Per the manga, she turned Ice, Wave and Plasma on Ridley together.",
+      "problem": "Only the Ice Beam page records a manga appearance (a single Ice Beam shot at Ridley); the Wave and Plasma pages have no manga mention.",
+      "correction": "Remove this sentence (the Ice Beam entry already carries the manga Ice Beam shot).",
+      "source_url": "https://www.metroidwiki.org/wiki/Plasma_Beam"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Super Zebesians fitted with Federation-made Wave Beams",
+      "problem": "The Wave Beam page says only that Super Zebesians trapped Samus in a glass cage in Sector 2 and fired Wave Beams at her; 'Federation-made' is not stated.",
+      "correction": "'Super Zebesians armed with Wave Beams'",
+      "source_url": "https://www.metroidwiki.org/wiki/Wave_Beam"
+     },
+     {
+      "severity": "missing",
+      "problem": "The entry never says where Samus regained the Wave Beam on the BSL station; Metroid Wiki places the Fusion Wave Beam in Sector 6 (NOC) (the rematch with Security Robot B.O.X.).",
+      "correction": "Add: 'On the BSL station she regained it in Sector 6 (NOC).'",
+      "source_url": "https://www.metroidwiki.org/wiki/Wave_Beam"
+     },
+     {
+      "severity": "unverified",
+      "claim": "In later missions its role passed to the Wide Beam, the Wave Beam and the Diffusion Beam.",
+      "problem": "Editorial inference; no source states the Spazer's role 'passed' to other beams. (The wiki does list a Samus Returns appearance for the Spazer, which the sentence also ignores.)",
+      "correction": "Replace with 'It reappeared on SR388 during the extermination mission; it has not been seen since.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Spazer_Beam"
+     },
+     {
+      "severity": "style",
+      "problem": "About 520 words across three subjects; the Plasma Beam paragraph alone is ~230 words and would trigger more cleanly as its own entry.",
+      "correction": "Split the Plasma Beam into a separate entry."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Wide, Diffusion and Hyper Beams",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "missing",
+      "problem": "Metroid Wiki's Upgrade page documents a Dread 'Hyper Beam': 'In the ending of Metroid Dread, Samus fully awakens her metroid genes during the fight against Raven Beak... The beam is a huge laser that destroys anything and kills enemies in one shot.' The entry (and the drafter's note) wrongly claims no source names it, and the sentence 'no later mission records the beam' should be qualified so readers know the name recurs on ZDR.",
+      "correction": "Add a sentence: 'On ZDR her fully awakened Metroid genes gave her a second Hyper Beam, a huge laser that destroyed anything in one shot, with which she finished the X that had seized Raven Beak's body.' And change 'no later mission records the beam' to 'the hatchling's gift died with the planet, though the name would return'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Upgrade"
+     },
+     {
+      "severity": "unverified",
+      "claim": "On ZDR she found it in Dairon, where combined with the Charge Beam it shatters Wide Beam Blocks.",
+      "problem": "The Wide Beam page has no Dread location or mechanics; the drafter's own notes say Wide Beam Covers were unverifiable, yet a 'Wide Beam Blocks' + Charge Beam claim appears in the text.",
+      "correction": "'On ZDR she found it in Dairon.' (drop the block/charge claim)",
+      "source_url": "https://www.metroidwiki.org/wiki/Wide_Beam"
+     },
+     {
+      "severity": "style",
+      "problem": "In-content citation '(Super Metroid)' in the Hyper Beam paragraph.",
+      "correction": "Remove the parenthetical."
+     },
+     {
+      "severity": "keys",
+      "problem": "'scatter shot' is generic and may misfire on other weapons; 'Hyper Beam' will also trigger on the Phazon Hyper Beam and Dread Hyper Beam, so make sure this entry covers all three (see missing issue).",
+      "correction": "Drop 'scatter shot' or accept the risk."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Luminoth and Phazon beams (Dark, Light, Annihilator, Phazon, Nova)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "The Nova Beam is Space Pirate work.",
+      "problem": "The Nova Beam page does not say who built it; it only says the Space Pirates use it to help mine Phazon and that it sits inside a mining mechanism.",
+      "correction": "'The Nova Beam was a tool of the Space Pirates' Phazon mining.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Nova_Beam"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Annihilator page states the Disruptor 'is the only weapon that can destroy Lightbringers'; the drafter omitted it as unverifiable, but the wiki supports it.",
+      "correction": "Add to the Annihilator bullet: 'and its Disruptor is the only weapon that destroys Lightbringers.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Annihilator_Beam"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the charged Lightblast is a shotgun spread",
+      "problem": "The Light Beam page describes the Lightblast's burning and fast homing but not a 'shotgun spread'.",
+      "correction": "'the charged Lightblast homes hard enough to knock Dark Samus out of her Boost Ball and leaves targets burning'",
+      "source_url": "https://www.metroidwiki.org/wiki/Light_Beam"
+     },
+     {
+      "severity": "style",
+      "problem": "About 575 words covering five weapons; well over the non-core guideline. Split the Luminoth beams from the Phazon/Nova beams.",
+      "correction": "Two entries: 'Luminoth beams (Dark, Light, Annihilator)' and 'Phazon Beam, Hyper Beam (Phazon) and Nova Beam'."
+     },
+     {
+      "severity": "keys",
+      "problem": "Bare 'Annihilator' and 'Disruptor' are generic sci-fi words that may misfire outside Metroid contexts.",
+      "correction": "Keep 'Annihilator Beam'; consider dropping bare 'Annihilator' and 'Disruptor' or accept the risk."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Missiles and Super Missiles",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "every Missile Expansion (Missile Tank) she recovers adds five more, up to 255 in most suits",
+      "problem": "Metroid Wiki's Missile Expansion page gives exceptions: Other M expansions 'increase the count by one Missile at a time', Hunters by ten, Zero Mission Hard Mode by three; and no wiki page lists per-game maxima. The Missile page's 'up to 255 in most games' is an unsourced generalization (255 is the original game's cap; later games cap lower).",
+      "correction": "'each Missile Expansion typically adds five more (one at a time aboard the Bottle Ship, ten in the Alimbic Cluster), to a ceiling of a few hundred.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Missile_Expansion"
+     },
+     {
+      "severity": "nit",
+      "claim": "Super Missiles are the bulkier, green-tipped successor",
+      "problem": "'green-tipped' not on the Super Missile page; harmless but unsourced.",
+      "correction": "'Super Missiles are the bulkier successor'",
+      "source_url": "https://www.metroidwiki.org/wiki/Super_Missile"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Red Door' and 'red hatch' can misfire on any mention of a red door in ordinary chat.",
+      "correction": "Drop 'Red Door'/'red hatch' or keep only 'red hatch'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Ice, Diffusion, Seeker and Storm Missiles",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "and once she had Super Missiles those froze as well",
+      "problem": "Chronology is reversed: on the BSL she downloaded Super Missiles in Sector 3 (PYR) before the Ice Missiles in Sector 5 (ARC); it was the Ice Missile data that gave her existing Super Missiles freezing ('enforced with Ice capabilities when Samus obtains the Ice Missiles').",
+      "correction": "'and the Super Missiles she already carried took on the same freezing'",
+      "source_url": "https://www.metroidwiki.org/wiki/Super_Missile"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a Phazon-packed warhead that flies straight without homing, blasts an area around the impact",
+      "problem": "The Hyper Missile page confirms Helios/Elysia's Leviathan, ten-Missile equivalence and half the Phazon level, but says nothing about homing or area damage.",
+      "correction": "'a Phazon-packed warhead that hits like ten ordinary Missiles while consuming half her Phazon reserve'",
+      "source_url": "https://www.metroidwiki.org/wiki/Hyper_Missile"
+     },
+     {
+      "severity": "nit",
+      "claim": "A-Voq's message urged her to \"claim this weapon from its sacred vault.\"",
+      "problem": "The wiki paraphrases ('telling Samus to claim the weapon from its sacred vault') and quotes a different sentence of the message; the exact wording is not verified as a direct quote.",
+      "correction": "Present as paraphrase: 'A-Voq's message urged her to claim the weapon from its sacred vault.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Seeker_Missile"
+     },
+     {
+      "severity": "unverified",
+      "claim": "breaks Storm Missile boxes and can hurt enemies sheathed in electricity",
+      "problem": "The Upgrade page gives only 'target up to five enemies' and 'three missiles are fired on each target'; boxes and electric enemies are not mentioned, and no dedicated Storm Missile article exists.",
+      "correction": "Drop the boxes/electricity clause or soften to 'and breaks certain seals'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Upgrade"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Bombs, Power Bombs and Cross Bombs",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "On both Zebes missions a Chozo Statue in Brinstar held them behind a Red Door; on her return she took them in Crateria and a Torizo rose to contest it.",
+      "problem": "Self-contradictory. Metroid Wiki: Metroid and Zero Mission place the Bombs in Brinstar behind a Missile-locked Red Door; in Super Metroid 'Samus can find the Bombs in Crateria', followed by the Torizo fight. Only the first mission (and its retelling) had them in Brinstar.",
+      "correction": "'On her first Zebes mission a Chozo Statue in Brinstar held them behind a Red Door; on her return she took them in Crateria, where a Torizo rose to contest it.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Bomb"
+     },
+     {
+      "severity": "error",
+      "claim": "She first met them on her return to Zebes, in Crateria, where they also fueled the Crystal Flash. On her first Zebes mission the Space Pirates stole hers...",
+      "problem": "In-universe chronology is wrong: she already obtained Power Bombs on her first mission (Zero Mission: 'shortly before reaching Mecha Ridley', from a statue in the Chozo Ruins of Chozodia), as the entry's own next sentence says. 'First met' follows release order, not Samus's timeline.",
+      "correction": "'She first used them on her first Zebes mission, when the Space Pirates stole the device, smashed its Chozo Statue and hid it in a statue in Chozodia; on her return to Zebes they also fueled the Crystal Flash.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Power_Bomb"
+     },
+     {
+      "severity": "unverified",
+      "claim": "on her return to Zebes, in Crateria",
+      "problem": "Metroid Wiki's Power Bomb infobox lists Crateria for Super Metroid, but no wiki text or other reachable page confirms it, and the first Power Bomb is commonly placed in Brinstar. Could not settle; recommend not naming the area.",
+      "correction": "Omit the area for the Super Metroid Power Bombs, or re-verify before naming Brinstar.",
+      "source_url": "https://www.metroidwiki.org/wiki/Power_Bomb"
+     },
+     {
+      "severity": "unverified",
+      "claim": "On the BSL station the Federation released it so she could hold off the SA-X",
+      "problem": "The Power Bomb page says only that the data is downloaded in a Data Room (infobox: Sector 5 ARC) and that the SA-X uses Power Bombs in the Quarantine Bay and Sector 6 (NOC); no reason for the release is given.",
+      "correction": "'On the BSL station she downloaded the data in a Sector 5 (ARC) Data Room; the SA-X used Power Bombs of its own...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Power_Bomb"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Adam Malkovich forbade its use because its heat wave can vaporize a human instantly",
+      "problem": "The wiki says only that Adam 'has no intention of authorizing the use of Power Bombs' and that Samus first uses them against the Queen Metroid without being told she can; the vaporization rationale is not on the page.",
+      "correction": "'Adam Malkovich never authorized its use; she first used it against the Queen Metroid on her own judgment.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Power_Bomb"
+     },
+     {
+      "severity": "nit",
+      "claim": "on Aether the Power Bomb Guardian beneath Torvus Bog held them",
+      "problem": "Wiki infobox: Undertemple of Dark Torvus Bog.",
+      "correction": "'beneath Dark Torvus Bog'",
+      "source_url": "https://www.metroidwiki.org/wiki/Power_Bomb"
+     },
+     {
+      "severity": "keys",
+      "problem": "Bare 'Bombs' will fire on any mention of bombs in chat; 'Bomb Block'/'Bomb Blocks' are fine.",
+      "correction": "Replace 'Bombs' with 'Morph Ball Bombs' only, or accept the misfire risk."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Grapple Beam",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Hyper Grapple (Phazon-colored), taken after Omega Ridley in Bryyo's Leviathan",
+      "problem": "Metroid Wiki: 'It is obtained after defeating Omega Ridley in the Pirate Homeworld's Leviathan.' Bryyo's Leviathan held Mogenar (Hyper Ball), Elysia's held Helios (Hyper Missile); Omega Ridley guarded the Pirate Homeworld's.",
+      "correction": "'taken after Omega Ridley in the Pirate Homeworld's Leviathan'",
+      "source_url": "https://www.metroidwiki.org/wiki/Hyper_Grapple"
+     },
+     {
+      "severity": "nit",
+      "claim": "On Aether the Grapple Guardian in Torvus Bog held it.",
+      "problem": "Wiki infobox gives Dark Torvus Bog (the page text is inconsistent); the Grapple Guardian is fought on the dark side.",
+      "correction": "'the Grapple Guardian in Dark Torvus Bog'",
+      "source_url": "https://www.metroidwiki.org/wiki/Grapple_Beam"
+     },
+     {
+      "severity": "unverified",
+      "claim": "where she used it to vent excess Phazon into Phaz-Ings and keep her own corruption in check",
+      "problem": "The Hyper Grapple page says she can 'expel Phazon into her enemies' on Phaaze to counter 'the constant accumulation of Phazon'; Phaz-Ings are not named.",
+      "correction": "'where she used it to vent excess Phazon into her enemies and keep her own corruption in check'",
+      "source_url": "https://www.metroidwiki.org/wiki/Hyper_Grapple"
+     },
+     {
+      "severity": "unverified",
+      "claim": "refilling her slowly, or forces her energy into it, draining her quickly",
+      "problem": "The Grapple Voltage page confirms taking in energy replenishes Samus and sending it out damages her, but gives no relative speeds.",
+      "correction": "'refilling her, or forces her energy into it at a cost to herself'",
+      "source_url": "https://www.metroidwiki.org/wiki/Grapple_Voltage"
+     },
+     {
+      "severity": "keys",
+      "problem": "Bare 'grapple' and especially 'grappling' misfire on idioms ('grappling with a decision') and on any wrestling/climbing scene.",
+      "correction": "Drop 'grappling'; keep 'grapple' only if misfires are acceptable."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Melee Counter",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "a missed Finish Counter against them throws her back hard, survivable only while she has energy to spare",
+      "problem": "No fetched source (Metroid Wiki Dread, E.M.M.I., Upgrade pages; Wikipedia Dread) uses the term 'Finish Counter' or describes knockback on a failed counter against Chozo Soldiers or Raven Beak; the Chozo_Soldier and Melee_Counter wiki pages return 404.",
+      "correction": "Remove the 'Finish Counter' sentence, or reduce to 'The Chozo Soldiers of the Mawkin, and Raven Beak himself, make attacks she can counter in the same way.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "unverified",
+      "claim": "She can counter even while clinging to a magnetic surface with the Spider Magnet.",
+      "problem": "The Upgrade page's Spider Magnet section says only that she can cling to magnetic surfaces and combine it with the Grapple Beam; nothing about countering while attached.",
+      "correction": "Remove the sentence.",
+      "source_url": "https://www.metroidwiki.org/wiki/Upgrade"
+     },
+     {
+      "severity": "keys",
+      "problem": "'melee', 'counterattack', 'counter-attack', 'parry', 'parried', 'parrying' and 'melee strike' are generic combat words that will fire in any fight scene, including ones where Samus is using beams. Also 'Finish Counter' as a key depends on an unverified term.",
+      "correction": "Keep 'Melee Counter'/'Melee Counters'; drop bare 'melee', 'counterattack', 'counter-attack' and 'Finish Counter'; keep 'parry' forms only if desired."
+     },
+     {
+      "severity": "style",
+      "problem": "Gameplay phrasing: 'telegraph a physical attack with a brief flash', 'given one extremely brief window, then a second', 'survivable only while she has energy to spare'.",
+      "correction": "Rephrase in-world, e.g. 'a creature's lunge betrays itself an instant before it lands; if she swings then...'. Wikipedia confirms two chances against an E.M.M.I., which can be stated plainly."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Omega Cannon (Dread)",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "missing",
+      "problem": "Metroid Wiki's E.M.M.I. page says E.M.M.I.-01P itself was the first machine she destroyed with the cannon: after taking the Omega Cannon from 'the already-defeated Central Unit in the next room', 01P 'walked through the door, only to be shot with the Omega Cannon and destroyed.' The entry implies 02SM was the first real target.",
+      "correction": "Add: 'E.M.M.I.-01P, already crippled, was the first machine she destroyed with it, in a single shot.'",
+      "source_url": "https://www.metroidwiki.org/wiki/E.M.M.I."
+     },
+     {
+      "severity": "nit",
+      "claim": "beside the already-fallen Central Unit of E.M.M.I.-01P",
+      "problem": "The wiki describes it only as 'the already-defeated Central Unit in the next room' in Artaria; it does not assign it to 01P.",
+      "correction": "'beside an already-fallen Central Unit in Artaria'",
+      "source_url": "https://www.metroidwiki.org/wiki/E.M.M.I."
+     },
+     {
+      "severity": "style",
+      "problem": "'A Blaster shot that lands anywhere but the exposed cores is wasted, so the pattern is fixed' reads as a strategy guide.",
+      "correction": "'A Blaster shot anywhere but the exposed cores is wasted, so she strips the faceplate with the stream before planting the blast.'"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Arm_Cannon",
+   "https://www.metroidwiki.org/wiki/Power_Beam",
+   "https://www.metroidwiki.org/wiki/Long_Beam",
+   "https://www.metroidwiki.org/wiki/Charge_Beam",
+   "https://www.metroidwiki.org/wiki/Charge_Combo",
+   "https://www.metroidwiki.org/wiki/Ice_Beam",
+   "https://www.metroidwiki.org/wiki/Wave_Beam",
+   "https://www.metroidwiki.org/wiki/Spazer_Beam",
+   "https://www.metroidwiki.org/wiki/Plasma_Beam",
+   "https://www.metroidwiki.org/wiki/Wave_Beam_(Metroid_Prime)",
+   "https://www.metroidwiki.org/wiki/Plasma_Beam_(Metroid_Prime)",
+   "https://www.metroidwiki.org/wiki/Wide_Beam",
+   "https://www.metroidwiki.org/wiki/Diffusion_Beam",
+   "https://www.metroidwiki.org/wiki/Hyper_Beam_(Mother_Brain)",
+   "https://www.metroidwiki.org/wiki/Dark_Beam",
+   "https://www.metroidwiki.org/wiki/Light_Beam",
+   "https://www.metroidwiki.org/wiki/Annihilator_Beam",
+   "https://www.metroidwiki.org/wiki/Nova_Beam",
+   "https://www.metroidwiki.org/wiki/Phazon_Beam",
+   "https://www.metroidwiki.org/wiki/Hyper_Beam_(Phazon)",
+   "https://www.metroidwiki.org/wiki/Missile",
+   "https://www.metroidwiki.org/wiki/Super_Missile",
+   "https://www.metroidwiki.org/wiki/Ship_Missile",
+   "https://www.metroidwiki.org/wiki/Ice_Missile",
+   "https://www.metroidwiki.org/wiki/Diffusion_Missile",
+   "https://www.metroidwiki.org/wiki/Seeker_Missile",
+   "https://www.metroidwiki.org/wiki/Hyper_Missile",
+   "https://www.metroidwiki.org/wiki/Bomb",
+   "https://www.metroidwiki.org/wiki/Power_Bomb",
+   "https://www.metroidwiki.org/wiki/Grapple_Beam",
+   "https://www.metroidwiki.org/wiki/Grapple_Lasso",
+   "https://www.metroidwiki.org/wiki/Grapple_Voltage",
+   "https://www.metroidwiki.org/wiki/Hyper_Grapple",
+   "https://www.metroidwiki.org/wiki/Omega_Cannon_(Metroid_Dread)",
+   "https://www.metroidwiki.org/wiki/Central_Unit",
+   "https://www.metroidwiki.org/wiki/E.M.M.I.",
+   "https://www.metroidwiki.org/wiki/Upgrade",
+   "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.nintendo.com/us/whatsnew/available-now-explore-and-battle-across-an-unknown-planet-in-metroid-prime-4-beyond/",
+   "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Paralyzer",
+   "https://www.metroidwiki.org/wiki/Missile_Expansion",
+   "https://www.metroidwiki.org/wiki/ZDR",
+   "https://www.metroidwiki.org/wiki/Metroid_(manga)",
+   "https://www.metroidwiki.org/wiki/Brinstar",
+   "https://www.metroidwiki.org/wiki/Crateria",
+   "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+   "https://www.metroidwiki.org/wiki/Aeion",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Super_Metroid",
+   "https://www.metroidwiki.org/wiki/Diggernaut (404)",
+   "https://www.metroidwiki.org/wiki/Melee_Counter (404)",
+   "https://www.metroidwiki.org/wiki/Chozo_Soldier (404)",
+   "https://strategywiki.org/wiki/Super_Metroid/Brinstar (403)"
+  ]
+ }
+}

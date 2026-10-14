@@ -1,0 +1,566 @@
+{
+ "run": "wf_79cba15a-9c3",
+ "label": "verify:space-pirates",
+ "result": {
+  "overall": "Checked all ten entries against Metroid Wiki (about 45 page fetches; four pages 404'd: Command_Courtyard, Urtraghus, Super_Metroid_manual, Leviathan_Battleship). WebSearch was unavailable this turn (shared search budget exhausted), so Metroid Prime 4: Beyond, Urtraghus/SN-883 and the Super Metroid manual wording could only be checked against Metroid Wiki/Wikipedia pages, not search snippets. The drafts are broadly solid: the Prime/Echoes/Corruption logbook and Pirate Data material is almost all confirmed (Vol Paragom, Vortex Outpost, 100% Metroid survival, 44% yield, EPG-8642 'Elite Pirate Alpha', 2 deca-cycles, Dark Samus killing a third of the Colossus crew, Homeworld 'first world to receive this blessing', Gandrayda's tower fight in acid rain, the Commander badly wounding Samus, the Phaaze fleet battle, Boarding Pod 'Space Coffin', all the Corruption quotes). Recurring defects: (1) the 74% Elite Pirate figure is misread in two entries (High Command was pleased, not dissatisfied); (2) the quote 'Failure to comply with Command decree is not an option' could not be found in any Pirate Data/Log page; (3) 'officers' walking in disguise is wrong (Gandrayda herself did); (4) the Kihunter 'manual' quote is the wiki's wording, not the manual's; (5) Federation Force outcome (fleet, not the Force, destroyed the Doomseye) and Beyond geography (Tanamaar is a planet) are off; (6) Dark Pirate Commandos are placed in Agon though they appear in Torvus/Temple Grounds/Ing Hive; (7) a few wiki inferences (Aqua Pirates 'searching for survivors', Colossus 'scrapped') are presented as lore; (8) Militia promotion comes from cut content; (9) Militia are not recorded on the Homeworld; (10) Fission/Hunter Metroids are not attributed to Pirate work. Two Super Metroid manual attributions ('seizing trading ships and stranding crews', 'to finish them off') could not be verified. Style: the Projects entry runs 530 words for a non-core subject; the Ships entry lacks keys for Colossus, Vol Paragom, ATC and Space Coffin; the Prime/Echoes troop entry lacks Aqua Pirate and Beam Trooper variant keys.",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Space_Pirates",
+   "https://www.metroidwiki.org/wiki/Zebesian",
+   "https://www.metroidwiki.org/wiki/Kihunter",
+   "https://www.metroidwiki.org/wiki/Elite_Pirate",
+   "https://www.metroidwiki.org/wiki/Omega_Pirate",
+   "https://www.metroidwiki.org/wiki/Phazon_Elite",
+   "https://www.metroidwiki.org/wiki/Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Pirate_Logs",
+   "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Frigate_Orpheon",
+   "https://www.metroidwiki.org/wiki/Pirate_Homeworld",
+   "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://www.metroidwiki.org/wiki/Pirate_Trooper",
+   "https://www.metroidwiki.org/wiki/Flying_Pirate",
+   "https://www.metroidwiki.org/wiki/Shadow_Pirate",
+   "https://www.metroidwiki.org/wiki/Aerotrooper",
+   "https://www.metroidwiki.org/wiki/Pirate_Commando",
+   "https://www.metroidwiki.org/wiki/Pirate_Grenadier",
+   "https://www.metroidwiki.org/wiki/Dark_Pirate_Trooper",
+   "https://www.metroidwiki.org/wiki/Dark_Pirate_Commando",
+   "https://www.metroidwiki.org/wiki/Commando_Pirate",
+   "https://www.metroidwiki.org/wiki/Pirate_Commander",
+   "https://www.metroidwiki.org/wiki/Pirate_Militia",
+   "https://www.metroidwiki.org/wiki/Colossus",
+   "https://www.metroidwiki.org/wiki/Space_Pirate_Mother_Ship",
+   "https://www.metroidwiki.org/wiki/Space_Pirate_Boarding_Pod",
+   "https://www.metroidwiki.org/wiki/Pirate_ATC",
+   "https://www.metroidwiki.org/wiki/Project_Helix",
+   "https://www.metroidwiki.org/wiki/Science_Team",
+   "https://www.metroidwiki.org/wiki/High_Command",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Thardus",
+   "https://www.metroidwiki.org/wiki/Gandrayda",
+   "https://www.metroidwiki.org/wiki/Glacier_One",
+   "https://www.metroidwiki.org/wiki/Trooper_Pirate",
+   "https://www.metroidwiki.org/wiki/Aqua_Pirate",
+   "https://www.metroidwiki.org/wiki/Vortex_Outpost",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Gronkat",
+   "https://www.metroidwiki.org/wiki/Phazon_Fever",
+   "https://www.metroidwiki.org/wiki/Fission_Metroid",
+   "https://www.metroidwiki.org/wiki/Hunter_Metroid",
+   "https://www.metroidwiki.org/wiki/Super_Metroid",
+   "https://www.metroidwiki.org/wiki/K-2L",
+   "https://www.metroidwiki.org/wiki/Phazon_Mines",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes",
+   "https://www.metroidwiki.org/wiki/Biostorage_Station",
+   "https://www.metroidwiki.org/wiki/Weavel",
+   "https://www.metroidwiki.org/wiki/Command_Courtyard (404)",
+   "https://www.metroidwiki.org/wiki/Urtraghus (404)",
+   "https://www.metroidwiki.org/wiki/Super_Metroid_manual (404)",
+   "https://www.metroidwiki.org/wiki/Leviathan_Battleship (404)"
+  ],
+  "reports": [
+   {
+    "entry_comment": "Space Pirates: Space Pirates (overview)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "survivors regrouping in the Bermuda System built the battleship Doomseye, destroyed by the Federation Force",
+      "problem": "Wikipedia's plot: the Federation Force boarded the Doomseye, defeated the brainwashed Samus and disabled the ship's shield; it was the surviving Federation Fleet that then attacked and destroyed the Doomseye. The Ships entry gets this right; the overview contradicts it.",
+      "correction": "...built the battleship Doomseye; the Federation Force disabled its shield and the Federation fleet destroyed it.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+     },
+     {
+      "severity": "error",
+      "claim": "against Federation research stations such as Tanamaar",
+      "problem": "Metroid Wiki's Beyond storyline: 'Now, on Planet Tanamaar in the Desolan System, another Federation Research Facility is being attacked.' Tanamaar is a planet, not a station.",
+      "correction": "against Federation research facilities, including one on the planet Tanamaar in the Desolan System.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Sylux led an army of Space Pirates, controlled through Metroids",
+      "problem": "Metroid Wiki presents Metroid control as belief, not fact: 'it is believed the Space Pirates are being controlled by Metroids' (Metroids 'fuse with other life-forms and control their minds'). Stated as fact in the entry.",
+      "correction": "Soften to 'Space Pirates apparently controlled through Metroids, which fuse with and dominate other life-forms'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Aether: ... ended with the Pirates overrun by the Ing and driven off",
+      "problem": "Metroid Wiki says the Ing possessed Pirate Troopers in numbers and that 'the Galactic Federation later dismantled their mining facility'; nothing says the Pirates were driven off the planet.",
+      "correction": "'...ended with many Pirates possessed by the Ing, Dark Samus raiding the base, and the Federation later dismantling the mining facility.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirates"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Per the Super Metroid manual they are \"the scourge of the Galaxy,\" seizing trading ships and stranding crews in space",
+      "problem": "Only 'These feared aliens are known as the scourge of the Galaxy' is confirmed on Metroid Wiki; the manual itself could not be fetched (manual page 404) so the trading-ships/stranded-crews clause is unverified.",
+      "correction": "Keep the confirmed quote; drop or hedge the trading-ships clause unless the manual text is confirmed.",
+      "source_url": "https://www.metroidwiki.org/wiki/Zebesian"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a Pirate flagship under Ridley raided the colony K-2L",
+      "problem": "Metroid Wiki's manga summary says Ridley led the raid and Rodney Aran infiltrated 'the pirate ship'; nothing calls it a flagship.",
+      "correction": "'a Pirate ship under Ridley' or 'Pirates led by Ridley'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "missing",
+      "problem": "Weavel is omitted. Metroid Wiki's leaders list includes Weavel; the official site calls him 'Once a powerful Space Pirate General', 'Badly injured in a past battle with Samus Aran' and rebuilt as a cyborg (Metroid Prime Hunters). A one-clause mention belongs in the overview even if his profile lives in the hunters domain.",
+      "correction": "Add: 'The Pirate general Weavel, left for dead after a battle with Samus and rebuilt as a cyborg, later operated as a bounty hunter.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Weavel"
+     },
+     {
+      "severity": "missing",
+      "problem": "Echoes backstory omitted: a Space Pirate frigate crash-landed on Aether after a clash with the Federation task force, with orders to 'establish a base on planet Aether and evaluate local Phazon resources'; the Aether bullet should say how they got there.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Space Pirates: Organization, High Command and Science Team",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "(\"Failure to comply with Command decree is not an option\")",
+      "problem": "This sentence appears in none of the sources: not on the Command page, not in any of the 29 Metroid Prime Pirate Data logs, not in the 10 Echoes Pirate Logs, not in the 12 Corruption entries. The closest confirmed lines are 'Command grows impatient regarding this matter: results must be produced soon' and 'this mission cannot fail'.",
+      "correction": "Replace with a confirmed quote, e.g. 'Command grows more impatient by the day' (Artifact log) or 'this mission cannot fail' (Phazon Raids).",
+      "source_url": "https://www.metroidwiki.org/wiki/High_Command"
+     },
+     {
+      "severity": "error",
+      "claim": "under Gandrayda's command officers walked among the troops in disguise to find and execute traitors",
+      "problem": "The 'Mistress Gandrayda' log says Gandrayda herself 'moves among us in our form' and that 'several unfaithful disciples have been ended...violently'. No officers are involved.",
+      "correction": "'Gandrayda herself moved among the troops in their form, and disciples found disloyal were ended violently.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Data"
+     },
+     {
+      "severity": "noncanon",
+      "claim": "Proven Militia could be promoted into the regular army",
+      "problem": "Promotion of Militia is only described in unused logbook data for the cut Advanced/Assault Pirate Militia variants (cited from The Cutting Room Floor). The drafter's own notes say cut content was omitted, but this claim slipped through.",
+      "correction": "Remove, or restrict to the confirmed line that Militia obey superiors 'to gain survival and trust'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Militia"
+     },
+     {
+      "severity": "unverified",
+      "claim": "No individual member of High Command is ever named.",
+      "problem": "Metroid Wiki lists no named members, but no source asserts the negative; an absolute claim the lorebook cannot support.",
+      "correction": "'The logs never name individual members of High Command' is safer, or drop.",
+      "source_url": "https://www.metroidwiki.org/wiki/High_Command"
+     },
+     {
+      "severity": "nit",
+      "claim": "a whole shift of deranged miners reassigned as training adversaries for the Elite Pirates",
+      "problem": "Pirate Data says 'an entire shift of Dynamo workers' afflicted with Phazon madness was transferred to serve as training adversaries; they were Dynamo (power plant) workers, not miners.",
+      "correction": "'an entire shift of Phazon-maddened Dynamo workers'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Project_Helix"
+     },
+     {
+      "severity": "nit",
+      "claim": "Phazon workers driven to hallucinations and violence by \"Phazon madness\"",
+      "problem": "The Mining Status log lists loss of equilibrium, erratic respiration, muscle spasms and, in extreme cases, hallucinations; violence is not among the recorded symptoms.",
+      "correction": "'...driven to spasms and hallucinations by Phazon madness'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     },
+     {
+      "severity": "nit",
+      "claim": "Notes: 'The pet ban (Gronkat scan) was confirmed only via a search snippet quoting the Echoes scan text.'",
+      "problem": "The pet ban scan ('All Gronkats and Olbaps must be disposed of immediately') is a Metroid Prime scan in the Phazon Mines' Central Dynamo, not an Echoes scan. The content sentence is fine; the note is wrong.",
+      "correction": "Correct the note to Metroid Prime, Central Dynamo.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gronkat"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Echoes Metroid Handling Protocols (07.202.02) give a perfect roleplay line that the entry paraphrases away: 'Metroids are not pets. Metroids are not target practice.' and 'unauthorized feeding of Metroids is still strictly prohibited.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Biostorage_Station"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Space Pirates: Zebesians and Kihunters",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Kihunters (Keyhunters in the Super Metroid manual) are \"insect-like Space Pirates from another galaxy\"",
+      "problem": "The quoted phrase is Metroid Wiki's own intro wording. The Super Metroid manual's Keyhunter text reads: 'These creatures are pirates from another galactic system who helped rebuild Zebes. When they lose their wings, they spit powerful acid.' The entry attributes the wiki's words to the manual.",
+      "correction": "Quote the manual correctly: 'pirates from another galactic system who helped rebuild Zebes', and describe them as insect-like in the entry's own voice.",
+      "source_url": "https://www.metroidwiki.org/wiki/Kihunter"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Per the Super Metroid manual the Space Pirates are \"the scourge of the Galaxy,\" seizing trading ships and stranding their crews in space",
+      "problem": "Only 'These feared aliens are known as the scourge of the Galaxy' is confirmed; the trading-ships clause could not be checked (manual page 404).",
+      "correction": "Keep the confirmed quote; hedge or remove the rest.",
+      "source_url": "https://www.metroidwiki.org/wiki/Zebesian"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Zebesians were the Pirate rank and file on Zebes during Samus's first mission there (Metroid: Zero Mission)",
+      "problem": "Metroid Wiki's Zebesian article lists appearances only in Super Metroid, Other M and Fusion; it does not classify Zero Mission's Space Pirates as Zebesians.",
+      "correction": "Attribute Zebesians to Super Metroid (the rebuilt fortress) and say the Zero Mission Pirates were of the same crab-clawed type only if a source supports it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Zebesian"
+     },
+     {
+      "severity": "nit",
+      "claim": "black Zebesians are fast and resilient and can be hurt only for a moment after their jumping kick",
+      "problem": "Metroid Wiki: black Zebesians are 'only vulnerable to the Charge Beam' and 'can only be truly damaged for a short time after an aerial jump kick, when they share the Yellow variant's weaknesses'. The Charge Beam detail is dropped.",
+      "correction": "'...vulnerable only to the Charge Beam, and truly damaged only briefly after their jumping kick.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Zebesian"
+     },
+     {
+      "severity": "missing",
+      "problem": "Other M King Kihunter detail with a Ridley tie-in: the hive hangs from Missile flower pods Samus must destroy, and a screech that Samus later realizes came from young Ridley scares off the Zoros and aggravates the Kihunters. Useful for Samus-centered roleplay.",
+      "source_url": "https://www.metroidwiki.org/wiki/Kihunter"
+     },
+     {
+      "severity": "missing",
+      "problem": "Fusion has a Gold Zebesian (resembling Super Metroid's Silver Zebesian) in addition to the purple mimics and Aqua Zebesians.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Trooper"
+     },
+     {
+      "severity": "keys",
+      "problem": "No key for 'Zoro'/'Zoros' or 'Aqua Zebesian', both discussed in the content.",
+      "correction": "Add 'Zoro', 'Zoros', 'Aqua Zebesian'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Space Pirates: Troop types of Tallon IV and Aether",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Dark Pirate Troopers and Dark Pirate Commandos ... fought Samus across the Agon Wastes, Dark Agon and the Temple Grounds",
+      "problem": "Dark Pirate Commandos appear in Torvus Bog (Forgotten Bridge, Great Bridge, Torvus Grove, Torvus Arena), Dark Torvus Bog, Temple Grounds, Sky Temple Grounds and the Ing Hive; none in Agon. Unpossessed Pirate Commandos are first met at Torvus Grove and later in Sanctuary Fortress.",
+      "correction": "Dark Pirate Troopers fought in Agon Wastes, Dark Agon and the Temple Grounds; Dark Pirate Commandos in Torvus Bog, Dark Torvus, the Temple Grounds and the Ing Hive.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Pirate_Commando"
+     },
+     {
+      "severity": "noncanon",
+      "claim": "Aqua Pirates were the underwater counterpart, found prowling the flooded Orpheon wreck",
+      "problem": "Fine as far as it goes, but the companion Ships entry adds 'apparently searching for survivors', which the Frigate Orpheon article flags as its own inference ('most likely searching for survivors'). The Aqua Pirate article says nothing of the sort. Keep this entry's neutral wording and do not import the inference.",
+      "correction": "No change here; see Ships entry.",
+      "source_url": "https://www.metroidwiki.org/wiki/Aqua_Pirate"
+     },
+     {
+      "severity": "keys",
+      "problem": "Content covers Aqua Pirates, the four Beam Trooper variants and Dark Pirate Commandos, but none are keyed; Metroid Wiki's page title for Beam Troopers is 'Trooper Pirate'.",
+      "correction": "Add 'Aqua Pirate', 'Aqua Pirates', 'Power Trooper', 'Wave Trooper', 'Ice Trooper', 'Plasma Trooper', 'Trooper Pirate', 'Dark Pirate Commando' (drop a singular/plural pair if the 12-key cap bites)."
+     },
+     {
+      "severity": "missing",
+      "problem": "Locations for the Prime units are available and useful: Flying Pirates in Tallon Overworld, Magmoor Caverns and Phendrana Drifts; Shadow Pirates in Phendrana Drifts and the Phazon Mines; Aqua Pirates ram their target when their armor fails, like Flying Pirates.",
+      "source_url": "https://www.metroidwiki.org/wiki/Flying_Pirate"
+     },
+     {
+      "severity": "missing",
+      "problem": "Pirate Grenadiers appear only twice: two in the Agon Wastes Command Center (after the first Dark Samus fight) and two on the Temple Grounds' Path of Eyes.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Grenadier"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Space Pirates: Pirate military of the Phazon crisis (Militia, Commandos, Commanders)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "in the Phazon crisis they flew lighter packs",
+      "problem": "Metroid Wiki says the Corruption Aerotrooper's jetpack design 'allows greater evasion' at the cost of durability because the units lack armor; nothing says the packs are lighter.",
+      "correction": "'...traded armor for evasion, fighting with twin Remote Attack Pods...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Aerotrooper"
+     },
+     {
+      "severity": "nit",
+      "claim": "They died in droves during the raid on the G.F.S. Olympus and the invasion of Norion, where Samus first met them.",
+      "problem": "Militia are first encountered aboard the G.F.S. Olympus during the raid, which precedes Norion; the sentence reads as if Norion was the first meeting.",
+      "correction": "'...first met aboard the Olympus, then on Norion.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Militia"
+     },
+     {
+      "severity": "nit",
+      "claim": "Armored Tactical Carriers (Pirate ATCs)",
+      "problem": "Metroid Wiki's full name is 'Space Pirate Armored Tactical Carrier'.",
+      "correction": "'Space Pirate Armored Tactical Carriers (ATCs)'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_ATC"
+     },
+     {
+      "severity": "missing",
+      "problem": "Aerotrooper weakness that Samus uses in the field: igniting the jetpack with the Plasma Beam 'will allow the pack to be separated from the pilot' (Grapple Lasso), and Ice Missiles counter the spinning final attack.",
+      "source_url": "https://www.metroidwiki.org/wiki/Aerotrooper"
+     },
+     {
+      "severity": "missing",
+      "problem": "Commando Pirates lose their cloak and fight like ordinary Troopers once the Phazite armor is stripped, and Hypermode interferes with the X-Ray Visor lock-on; Phazon-based attacks hurt both Commandos and Commanders.",
+      "source_url": "https://www.metroidwiki.org/wiki/Commando_Pirate"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Space Pirates: Elite Pirates and the Omega Pirate",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "in simulations scored a 74% success ratio against Samus Aran, which High Command considered too low",
+      "problem": "Pirate Data: High Command was pleased with the 74% ratio but 'expects a higher ratio by project's end'. Metroid Wiki explicitly notes the source does not describe the result as too low.",
+      "correction": "'...a 74% success ratio that pleased High Command, which nonetheless expected a higher figure by the project's end.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Project_Helix"
+     },
+     {
+      "severity": "error",
+      "claim": "Phazon exposure was killing every simulated subject within two deca-cycles, so Science Team doubted it could ever be cost-effective",
+      "problem": "The Omega Pirate scan says no simulated subject lived beyond 2 deca-cycles and that lifespans had to improve for the project to be cost-effective; it does not say the team doubted it could ever be cost-effective.",
+      "correction": "'...no simulated subject lived beyond two deca-cycles, so lifespans had to be extended before the design could be cost-effective.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Omega_Pirate"
+     },
+     {
+      "severity": "nit",
+      "claim": "trained by being allowed to kill miners driven mad by Phazon",
+      "problem": "The transferred training adversaries were 'an entire shift of Dynamo workers', not miners.",
+      "correction": "'...Dynamo workers driven mad by Phazon.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Project_Helix"
+     },
+     {
+      "severity": "nit",
+      "claim": "Command planned mass production alongside Flying Pirates and Troopers",
+      "problem": "The Special Forces log predicts Elites forming a 'near-indestructible backbone' alongside 'normal and Flying Pirates'; it does not explicitly speak of mass production.",
+      "correction": "'Command expected Elites, alongside ordinary and Flying Pirates, to form a near-indestructible backbone.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     },
+     {
+      "severity": "nit",
+      "claim": "Seven Elites lay in stasis in the Mines",
+      "problem": "Metroid Wiki says 'a total of seven Elite Pirates located throughout the Mines', three of them fought; it does not say seven were in stasis, and the count may include the Phazon Elite. Phrase as 'seven in the Mines in all'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phazon_Mines"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Omega Pirate's Pirate Data also names the Plasma Incendiary Launcher among its Elite weapons, and its death gave Samus the Phazon Beam as well as the Phazon Suit; the Phazon Elite scan adds 'batch 23'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Omega_Pirate"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Space Pirates: Projects and Phazon research on Tallon IV and Aether",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "the Metroids rescued from Zebes were infused with Phazon and dissected, producing Fission and Hunter Metroid strains",
+      "problem": "Neither strain is attributed to Pirate work. Metroid Wiki describes Fission Metroids as Phazon-mutated Metroids found in the Impact Crater's Phazon Core (and spawned by Metroid Prime), and Hunter Metroids as naturally matured Metroids ('As Metroids develop, they become more efficient predators'). Pirate Data only says 'Initial Phazon infusion testing is under way'.",
+      "correction": "Remove 'producing Fission and Hunter Metroid strains'; say Phazon infusion testing on the Zebes Metroids showed 'considerable growth in power and size'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Hunter_Metroid"
+     },
+     {
+      "severity": "error",
+      "claim": "Phazon madness, from loss of balance to hallucinations and violence, forced stricter life-support rules",
+      "problem": "Mining Status lists loss of equilibrium, erratic respiration, muscle spasms and hallucinations in extreme cases; violence is not listed.",
+      "correction": "'...from loss of balance and muscle spasms to hallucinations...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     },
+     {
+      "severity": "unverified",
+      "claim": "one stricken technician held his comrades at gunpoint over a Phazon deposit",
+      "problem": "Medical Report 07.199.09: Technician 12 was relieved after showing symptoms of Phazon Fever 'in where he claimed the Phazon as his own' and threatened staff with a weapon until security arrived. 'Over a Phazon deposit' is not supported.",
+      "correction": "'...one technician, Technician 12, claimed the Phazon as his own and held off the staff with a weapon until security arrived.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Phazon_Fever"
+     },
+     {
+      "severity": "unverified",
+      "claim": "raided Dark Aether for ore while breeding Metroids as a power source",
+      "problem": "Metroid Wiki says the Aether Pirates held captive Tallon Metroids for Phazon experimentation, domestication and bio-energy harvesting (one was 'energy-drained repeatedly over the last 3 cycles'); breeding as a power source is not stated.",
+      "correction": "'...while experimenting on captive Tallon Metroids, trying to domesticate them and draining them for bio-energy.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes"
+     },
+     {
+      "severity": "nit",
+      "claim": "The Phazon Mines, the headquarters proper, reached only through the crashed Orpheon",
+      "problem": "The Frigate Orpheon article says the crashed frigate is 'the only way to reach the Phazon Mines without Power Bombs'.",
+      "correction": "'reached through the crashed Orpheon'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Frigate_Orpheon"
+     },
+     {
+      "severity": "style",
+      "problem": "530 words for a non-core subject (limit about 400). The Metroid Prime creature bullet and the Aether paragraph could be trimmed since both are owned by other domains."
+     },
+     {
+      "severity": "missing",
+      "problem": "Chozo Ghost security breaches: 'it is unlikely that we will ever achieve full extermination' (Security Breaches, Research Lab Hydra) ties the Chozo Studies bullet to the Ghosts the entry mentions.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Space Pirates: Ships and the Frigate Orpheon",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Samus answered the beacon, destroyed the remaining Queen in the reactor core, triggered the frigate's self-destruct",
+      "problem": "The defeated Parasite Queen fell into the reactor, which triggered the self-destruct sequence; Samus did not trigger it.",
+      "correction": "'...destroyed the remaining Queen, whose body fell into the reactor and set off the self-destruct...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Frigate_Orpheon"
+     },
+     {
+      "severity": "noncanon",
+      "claim": "the Colossus itself is rumored to have been scrapped for its parts",
+      "problem": "The 'The Leviathan' log does not mention scrapping the Colossus; the Colossus article says 'It is purported that the vessel was scrapped', which is wiki conjecture, not an in-universe rumor.",
+      "correction": "Replace with the confirmed fact: the Colossus was upgraded under Dark Samus but she wanted a stronger flagship; its later fate is unknown.",
+      "source_url": "https://www.metroidwiki.org/wiki/Colossus"
+     },
+     {
+      "severity": "noncanon",
+      "claim": "prowled by Aqua Pirates apparently searching for survivors",
+      "problem": "The Frigate Orpheon article's own inference ('most likely searching for survivors'); no scan supports a motive.",
+      "correction": "'prowled by Aqua Pirates'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Frigate_Orpheon"
+     },
+     {
+      "severity": "unverified",
+      "claim": "with Phazon weapons it crippled the G.F.S. Valhalla",
+      "problem": "The 'Taking Valhalla' log confirms the Valhalla was captured, its Aurora Unit seized and the crew jettisoned 'into the frigid depths of space'; the 'Phazon weapons' detail was not confirmed in the fetched text.",
+      "correction": "'it crippled and boarded the G.F.S. Valhalla, seized Aurora Unit 313, and jettisoned the crew into space.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Data"
+     },
+     {
+      "severity": "nit",
+      "claim": "became the only road into the Phazon Mines",
+      "problem": "Only route without Power Bombs per Metroid Wiki.",
+      "correction": "'became the road into the Phazon Mines'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Frigate_Orpheon"
+     },
+     {
+      "severity": "nit",
+      "claim": "Pirate Armored Tactical Carriers (ATCs)",
+      "problem": "Metroid Wiki: 'Space Pirate Armored Tactical Carrier'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_ATC"
+     },
+     {
+      "severity": "keys",
+      "problem": "Named vessels in the content have no keys: Colossus, Vol Paragom, ATC/Pirate ATC, Space Coffin, Leviathan (if not owned elsewhere).",
+      "correction": "Add 'Colossus', 'Vol Paragom', 'Pirate ATC', 'ATC', 'Space Coffin', 'Space Coffins'."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Echoes Pirate frigate that crash-landed on Aether after a clash with the Federation task force is the one Pirate ship Samus explores on Aether and is absent from a ships entry.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes"
+     },
+     {
+      "severity": "missing",
+      "problem": "Colossus backstory: the crew first planned to attack Federation forces on Aether, then to intercept the G.F.S. Anhur, which failed, before salvaging the Phazon the Federation abandoned.",
+      "source_url": "https://www.metroidwiki.org/wiki/Colossus"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Space Pirates: Pirate Homeworld",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Unused Federation text, not part of the canon record, labelled it SN-883 and gave the Pirate name Urtraghus, describing an inconspicuous world far from Federation space",
+      "problem": "Metroid Wiki has no Urtraghus page (404) and the Pirate Homeworld article does not mention either name; the drafter sourced them from search snippets only. The 'unused/non-canon' framing is also unverified: if 'Urtraghus' is in fact the Japanese-version name it would be an official localization, not cut text.",
+      "correction": "Remove both names until a fetchable source confirms their status.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Homeworld"
+     },
+     {
+      "severity": "error",
+      "claim": "defended by ... Militia drawn from its slave population",
+      "problem": "Metroid Wiki lists Pirate Militia only on the G.F.S. Olympus, Norion, Bryyo and Elysia; the Homeworld is named only as where the slaves and criminals come from, not as a place Militia are encountered.",
+      "correction": "Drop Militia from the Homeworld's defenders; keep Commandos, Commanders and (per the Corruption plot) the defense shield.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Militia"
+     },
+     {
+      "severity": "nit",
+      "claim": "sectors such as Pirate Research, Pirate Mines and Pirate Command, whose hub is the Command Courtyard",
+      "problem": "Pirate Command and Pirate Mines are confirmed area names (Pirate Trooper locations); 'Pirate Research' and the Command Courtyard being the 'hub' are not on any fetched page.",
+      "correction": "'...sectors such as Pirate Mines and Pirate Command, where the Command Courtyard lies.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Trooper"
+     },
+     {
+      "severity": "missing",
+      "problem": "Gandrayda's end is incomplete: after her defeat she uncontrollably shapeshifted into a Space Pirate, Ghor, Rundas and Samus and was assimilated by Dark Samus, 'the last of Samus's comrades to die'. Also, she was corrupted by Phazon at the Homeworld's Research Facility after being sent to locate the planet.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gandrayda"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Hazard Shield is itself obtained on the Homeworld (acid rain blocks the Command Courtyard until then), and the planetary shield is disabled with the Nova Beam and X-Ray Visor.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "keys",
+      "problem": "'acid rain' is a plain-English phrase that can fire in unrelated weather/environment chat.",
+      "correction": "Replace with 'acid rain of the Pirate Homeworld' style compound or make it a secondary key."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Space Pirates: The Pirates and Samus (the Hunter)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "reporting a 74% success ratio that High Command found inadequate",
+      "problem": "High Command was pleased with the 74% ratio but expected a higher one by the project's end.",
+      "correction": "'...a 74% success ratio that pleased High Command, which still wanted better.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Project_Helix"
+     },
+     {
+      "severity": "nit",
+      "claim": "Security Command issued an all-points alert describing \"the Hunter clad in metal,\"",
+      "problem": "'the Hunter clad in metal' is from the 'Fall of Zebes' log; the Security Command all-points alert ('The Hunter', Elite Control) describes 'a female hominid', heavily armed, 'in a powered armorsuit of unknown design'.",
+      "correction": "Attribute 'Hunter clad in metal' to the Fall of Zebes report and keep the bounty quote with the alert.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a Pirate flagship under Ridley raided the colony",
+      "problem": "'Flagship' is unsupported; Metroid Wiki says Ridley led the raid and Rodney Aran ignited the Afloraltite aboard 'the pirate ship'.",
+      "correction": "'a Pirate ship under Ridley'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the Pirate Commander of the Homeworld came closer than any Pirate to killing her",
+      "problem": "Editorial superlative; the source only says the Commander 'badly wounds Samus'. Ridley, Meta Ridley and the Omega Pirate are not weighed.",
+      "correction": "'...and the Pirate Commander of the Homeworld badly wounded her before she killed him.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "unverified",
+      "claim": "resolving, per the Super Metroid manual, \"to finish them off,\"",
+      "problem": "The phrase 'to finish them off' is Metroid Wiki's summary wording (citing the manual); the manual text itself could not be fetched, so it should not be in quotation marks as a manual quote.",
+      "correction": "Remove the quotation marks or drop the manual attribution.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "nit",
+      "claim": "they never grasped that the Dark Hunter was Dark Samus, a being of living Phazon, and not Samus at all",
+      "problem": "Inference from silence: the Echoes logs simply never identify the Dark Hunter; by Corruption the Pirates know and serve her as Dark Samus, so 'never' overreaches.",
+      "correction": "'...the logs never identify the Dark Hunter as Dark Samus, a being of living Phazon.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Logs"
+     },
+     {
+      "severity": "missing",
+      "problem": "Jigrad context: Samus arrested the Pirate as a Federation Police officer ('In the name of the Federation Police, you are under arrest!!'), which frames her early anti-Pirate work for roleplay.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "missing",
+      "problem": "Weavel: 'Once a powerful Space Pirate General', 'Badly injured in a past battle with Samus Aran' and rebuilt as a cyborg, is the one named Pirate with a personal history against Samus and is absent from an entry about the Pirates and Samus.",
+      "source_url": "https://www.metroidwiki.org/wiki/Weavel"
+     },
+     {
+      "severity": "keys",
+      "problem": "With AND_ANY, 'Dark Hunter' and 'hunting the Hunter' also require a secondary key (Pirate/Ridley/etc.) to fire; probably intended, but 'Dark Hunter' alone is specific enough to be safe as a standalone trigger and may be missed in Dark Samus conversations.",
+      "correction": "Consider a second, non-selective entry stub or accept the trade-off."
+     }
+    ]
+   }
+  ]
+ }
+}

@@ -1,0 +1,30 @@
+abilities: draft
+adam-other-m: draft, verify
+bestiary-2d: draft, verify
+bestiary-prime: draft, verify
+chozo: draft
+dark-samus: draft, verify
+dread: draft, verify
+echoes: draft, verify
+federation: draft, verify
+federation-force: draft, verify
+fusion: draft, verify
+hunters: draft, verify
+manga: draft
+metroids: draft, verify
+phazon: draft, verify
+prime1: draft, verify
+prime3: draft, verify
+prime4: draft, verify
+ridley: draft, verify
+samus-bio: draft, verify
+samus-rp: draft, verify
+space-pirates: draft, verify
+sr388: draft, verify
+suits: draft, verify
+super-metroid: draft, verify
+tech: draft
+timeline: draft, verify
+weapons: draft, verify
+x-parasite: draft, verify
+zebes: draft, verify

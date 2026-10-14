@@ -1,0 +1,330 @@
+{
+ "domain": "metroids",
+ "category": "Metroids",
+ "entries": [
+  {
+   "comment": "Metroids: Metroids (species overview)",
+   "keys": [
+    "Metroid",
+    "Metroids",
+    "Metroid species",
+    "ultimate warrior",
+    "Metroid creature",
+    "Metroid creatures"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Metroids are energy-siphoning predators the Chozo engineered on the planet SR388. The Thoha tribe of the Chozo, working with Mother Brain, created them to hunt the X Parasite, a shape-stealing organism the Chozo feared would spread beyond SR388. Per the Fusion manual, the word Metroid in the Chozo language translates roughly as \"ultimate warrior\". The Metroids nearly wiped out the X, then turned feral and became SR388's dominant predator. The Thoha resolved to destroy the planet to be rid of them; Raven Beak of the Mawkin, who coveted Metroids as weapons of galactic conquest, slaughtered the Thoha to stop that plan, sparing only Quiet Robe because only the Thoha could control Metroids.\n\nEssentials (see Metroid biology and weaknesses, Metroid life cycle):\n- A larval Metroid is a floating, translucent, jellyfish-like organism with red nuclei and four talon-like claws; it latches onto prey, drains its life energy and leaves a dried husk.\n- Metroids shrug off most weapons; the dependable method is to freeze one with the Ice Beam and shatter it with Missiles.\n- On SR388 they mature through Alpha, Gamma, Zeta and Omega forms to the egg-laying Queen Metroid. Away from SR388 they ordinarily remain larvae.\n- Per the manual, Metroids can be replicated in vast numbers by exposing them to beta rays.\n\nHistory in brief. The Galactic Federation collected specimens for research; Space Pirates seized them and bred them on Zebes under Mother Brain, which first sent Samus to Zebes. Pirates also carried Metroids to Tallon IV and Aether, where Phazon produced the Hunter and Fission mutations of the Tallon Metroid strain and, in the Impact Crater, the creature called Metroid Prime; later Pirate experiments yielded the Phazon Metroids (see Tallon Metroids and the Phazon mutations; Phazon Metroids and Metroid Hatchers). The Federation then ordered the species exterminated at its source; Samus did so on SR388, destroying every form up to the Queen, but spared a newly hatched larva that imprinted on her (see The baby Metroid). Ridley stole that hatchling from Ceres; it died on Zebes saving Samus from Mother Brain, leaving the species extinct in nature. The Phazon-mutated strains died with Phaaze. Later programs recreated Metroids: from preserved cells aboard the Bottle Ship and in the BSL station's Restricted Laboratory, from Samus's own DNA on ZDR under Raven Beak, and from secretly stored eggs that Sylux forcibly hatched to breed the host-controlling strain he used on Tanamaar and Viewros (see Metroid breeding and cloning programs).\n\nBoth the Federation and the Space Pirates prize Metroids as bioweapons; Pirate records on Tallon IV claimed \"a small force of disciplined Metroids could wipe out entire armies\". Federation scientists also valued their energy-producing properties, the reason Samus delivered the hatchling to Ceres alive.\n\nSamus has killed Metroids by the dozen and was the Federation's instrument of their extermination, yet she spared the last larva, grieved its death, and owes it her life twice: once in Mother Brain's chamber and once when a vaccine cultured from its cells cured her X infection (Metroid Fusion). Since that vaccine she shares the species' weakness to cold. On ZDR her Metroid DNA awoke into an energy-draining power, which was neutralised when she absorbed the X that had taken Quiet Robe's form; she still carries Metroid DNA (see Samus as the last Metroid).",
+   "constant": false,
+   "order": 110,
+   "category": "Metroids",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid_(species)",
+    "https://www.metroidwiki.org/wiki/Raven_Beak",
+    "https://www.metroidwiki.org/wiki/Quiet_Robe",
+    "https://www.metroidwiki.org/wiki/Tallon_Metroid",
+    "https://www.metroidwiki.org/wiki/Baby_Metroid",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Metroid_(game)",
+    "https://en.wikipedia.org/wiki/Metroid_Dread",
+    "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+   ],
+   "notes": "The 'ultimate warrior' translation is sourced to the Metroid Fusion instruction booklet (p. 40) via Metroid Wiki, not to in-game dialogue. Beta-ray replication follows the Zero Mission manual (p. 6) as quoted on Metroid Wiki; the '24 hours' figure could not be verified and was removed. Post-ZDR status follows Wikipedia's Dread plot ('neutralize her Metroid abilities'). Sylux's strain came from stored eggs per Nintendo Today (via NWR)."
+  },
+  {
+   "comment": "Metroids: Metroid biology and weaknesses",
+   "keys": [
+    "Metroid biology",
+    "Metroid anatomy",
+    "Metroid weakness",
+    "Metroid weaknesses",
+    "vulnerable to cold",
+    "weakness to cold",
+    "Metroid larva",
+    "Metroid larvae",
+    "larval Metroid",
+    "freeze and shatter"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "A Metroid in its common larval form is a floating, jellyfish-like organism: a translucent membrane enclosing red nuclei, with four talon-like claws hanging beneath. The outer claws grip prey; the inner claws draw out its life energy. Samus's Logbook classifies the Metroid as an \"energy-based parasitic predator\". Space Pirate autopsies on Tallon IV found the internal organs \"limited to nucleonic absorption cells and massive energy reservoirs\"; the Tallon strain has no discernible sensory organs or circulatory system and feeds through twin mandibles wired by energy conduits to a quadripartite nucleus. Metroids refuse synthetic sustenance and must feed on living prey. Victims are left as desiccated husks, as Samus found strewn through Tourian on Zebes. Feeding makes a Metroid grow, and gorging can kill it. Alone among the strains outside SR388, Metroid Prime and the Ing-possessed Dark Tallon Metroids show a visible eye.\n\nA Metroid attacks by latching onto a target and draining it. Once attached it is nearly impossible to pull off; the proven remedy is a Morph Ball Bomb, which forces it to release.\n\nWeaknesses:\n- Cold is the species' mortal weakness. Pirate data records that \"temperatures below 10° centigrade will render Metroids docile\". A Metroid frozen solid by the Ice Beam shatters under Missiles; a frozen larva of the Zebes stock takes several, while the weaker Tallon strain shatters at one.\n- Ice Missiles, and the Dark Beam that freezes Dark Tallon Metroids, exploit the same cold weakness. A Phazon Metroid can instead be killed by a Nova Beam shot through its core.\n- Only Missiles harmed the Alpha, Gamma, Zeta and Omega Metroids of SR388; the Omega's chest is its vulnerable spot, yet the Omega Samus met on the BSL station fell to the Ice Beam.\n- Federation genetic manipulation aboard the Bottle Ship produced Metroids said to be unfreezable (see Metroid breeding and cloning programs).\n\nPer the original manual, the first Metroid was found in suspended animation on SR388, and the Space Pirates stole the Federation's samples meaning to replicate them by exposure to beta rays.\n\nSamus has relied on the freeze-and-shatter method since her first Zebes mission. After the Metroid vaccine saved her from the X, the BSL computer warned her, \"Like Metroids, you can be frozen by an Ice Beam\", and cold-based weapons became a danger to her. In the BSL's Restricted Laboratory the captive Metroids ignored her entirely while swarming the SA-X.",
+   "constant": false,
+   "order": 100,
+   "category": "Metroids",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid_(species)",
+    "https://www.metroidwiki.org/wiki/Tallon_Metroid",
+    "https://www.metroidwiki.org/wiki/Dark_Tallon_Metroid",
+    "https://www.metroidwiki.org/wiki/Phazon_Metroid",
+    "https://www.metroidwiki.org/wiki/Omega_Metroid",
+    "https://www.metroidwiki.org/wiki/Alpha_Metroid",
+    "https://www.metroidwiki.org/wiki/Metroid_(game)",
+    "https://en.wikipedia.org/wiki/Metroid_(video_game)",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "Nucleus count left unstated because sources disagree (three vs four). Omega cold resistance (Metroid Egg stub only) conflicts with the Omega Metroid page's Ice Beam weakness and the BSL kill, so it is no longer asserted. Nova Beam core shot stated as a separate weakness, not a cold attack. Missile hit-counts softened. '24 hours'/'reactivate' beta-ray details removed as unverifiable. Generic keys (life energy, energy drain, energy-draining) dropped."
+  },
+  {
+   "comment": "Metroids: Metroid life cycle (Alpha, Gamma, Zeta, Omega, Queen)",
+   "keys": [
+    "Alpha Metroid",
+    "Alpha Metroids",
+    "Gamma Metroid",
+    "Gamma Metroids",
+    "Zeta Metroid",
+    "Zeta Metroids",
+    "Metroid life cycle",
+    "Metroid growth cycle",
+    "Metroid molt",
+    "Metroid forms",
+    "Metroid stages",
+    "beta rays"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "On SR388, and nowhere else naturally, a Metroid passes through a chain of molts that turn a floating larva into a reptilian giant; the forms carry Greek-letter names.\n\n- Larva: the jellyfish-like form, hatched from an egg laid and tended by a Queen Metroid. A fully developed larva stops floating and lies motionless for a time before it molts.\n- Alpha Metroid: rips its way out of its juvenile form and takes a winged shape. It flies, attacks by diving and ramming, and falls to a few Missiles.\n- Gamma Metroid: grows much larger and heavier, fires lightning bolts and rams; its head and back are vulnerable to Missiles, and it takes far more of them than an Alpha.\n- Zeta Metroid: sheds two legs and becomes an upright, faster, stronger reptilian form that spits energy and rams; only Missiles at the face or back harm it.\n- Omega Metroid: huge, nearly full-grown, vulnerable at the chest (see Omega Metroid).\n- Queen Metroid: an Omega carrying a specific gene matures into the egg-laying Queen, roughly twice an Omega's size (see Metroid Queen). Because the gene is rare, few Metroids ever reach the end of the cycle; most Samus has met were larvae or adolescents.\n\nThe cycle depends on SR388 itself. The hatchling Samus carried away from the planet grew enormous but never molted, because away from SR388 it could not follow the normal growth cycle. When the Galactic Federation wanted Alpha, Gamma, Zeta and Omega Metroids for its secret BSL program, it had to build \"a faithful replica of the SR388 ecosystem\", and its researchers developed rapid-growth techniques said to raise an Omega from a larva within days. Separately, per the manual, Metroids can be replicated in vast numbers by exposure to beta rays; that is reproduction, not maturation.\n\nSamus is the only person known to have fought every form. In the original account of her extermination of SR388 she destroyed sixteen Gamma, three Zeta and four Omega Metroids on her way down to the Queen (Metroid II); the later retelling of the mission counts fifty Metroids in all (Metroid: Samus Returns). The only grown Metroids she has seen since were the captive Alpha, Gamma and Zeta specimens in the BSL's Restricted Laboratory, the Omega that met her at the BSL docking bay, and the Queen the Federation raised aboard the Bottle Ship.",
+   "constant": false,
+   "order": 100,
+   "category": "Metroids",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Alpha_Metroid",
+    "https://www.metroidwiki.org/wiki/Gamma_Metroid",
+    "https://www.metroidwiki.org/wiki/Zeta_Metroid",
+    "https://www.metroidwiki.org/wiki/Omega_Metroid",
+    "https://www.metroidwiki.org/wiki/Metroid_Egg",
+    "https://www.metroidwiki.org/wiki/Baby_Metroid",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+    "https://www.metroidwiki.org/wiki/Metroid_(species)",
+    "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns"
+   ],
+   "notes": "The Metroid II manual phrase 'an even larger and more powerful adversary' could not be verified on any reachable page and was removed. Per-form counts are from the Metroid II pages and are labelled as the original account; Samus Returns gives only a total of 50 (Trivia). 'Winged' Alpha is descriptive (artwork), not quoted. The 'Beta Metroid' on the Metroid Egg stub is omitted as unverified in any game. Bare keys 'life cycle', 'molt', 'molting', 'molted' replaced with Metroid-prefixed forms."
+  },
+  {
+   "comment": "Metroids: Tallon Metroids and the Phazon mutations (Tallon IV and Aether)",
+   "keys": [
+    "Tallon Metroid",
+    "Tallon Metroids",
+    "Infant Tallon Metroid",
+    "Infant Tallon Metroids",
+    "Hunter Metroid",
+    "Hunter Metroids",
+    "Fission Metroid",
+    "Fission Metroids",
+    "Dark Tallon Metroid",
+    "Dark Tallon Metroids"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Outside SR388 Metroids never follow their natural life cycle, but Space Pirate research and Phazon exposure on Tallon IV and Aether produced a family of mutant strains that Samus catalogued in her Logbook during the Phazon crisis.\n\n- Tallon Metroid: the strain that developed after the Pirates shipped Metroids from Zebes to the Glacier One laboratories in Phendrana Drifts on Tallon IV. Smaller and weaker than the Zebes stock (a frozen one shatters under a single Missile), it feeds through twin mandibles linked to a quadripartite nucleus. Phazon infusion trials increased mass and aggression and mutated the mandibles, but also caused organ degeneration and deaths. The Pirates' Metroid Handling Protocols on Tallon IV insisted that \"Metroids are not pets. Metroids are not for target practice.\" On Aether the Pirates bred Tallon Metroids for bio-energy; the Aether-raised ones are red. There one Metroid refused commands and killed a handler before it was subdued, three Metroids were stolen, and a later security report suspected the Dark Hunter, Dark Samus, of the theft.\n- Infant Tallon Metroid: docile hatchlings the Pirates carried in cocoons as portable \"organic batteries\"; on contact with Phazon they mature rapidly into full Tallon Metroids.\n- Hunter Metroid: a further development seen in the Phazon Mines and Phendrana's Frost Cave. \"Quick to anger\", it charges prey to ram it and drains energy at range through a long tentacle. Cold still subdues it.\n- Fission Metroid: found in the Phazon Core of the Impact Crater, a mutant \"capable of splitting in two\"; each half becomes invulnerable to all but the beam matching its colour (yellow Power, purple Wave, white Ice, red Plasma), a randomness attributed to Phazon's chaotic mutation. A Power Bomb or the Phazon Beam destroys one instantly.\n- Dark Tallon Metroid: Tallon Metroids possessed by Ing darklings on Dark Aether, \"powerful soldiers of the Horde\" even though Metroids attack Ing on sight. The Light Beam harms them; the Dark Beam freezes them for Missiles.\n\nThe most extreme Phazon mutation, the guardian creature in Tallon IV's Impact Crater, could spawn Hunter and Fission Metroids to defend itself; it is covered under Metroid Prime (the creature), and its remnant became Dark Samus. The Phazon Metroids the Pirates bred afterward, and the Hatchers that spawn them, are covered under Phazon Metroids and Metroid Hatchers.\n\nSamus fought every one of these strains on Tallon IV and Aether, scanning the Pirates' own breeding and handling records as she went.",
+   "constant": false,
+   "order": 100,
+   "category": "Metroids",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Tallon_Metroid",
+    "https://www.metroidwiki.org/wiki/Infant_Tallon_Metroid",
+    "https://www.metroidwiki.org/wiki/Hunter_Metroid",
+    "https://www.metroidwiki.org/wiki/Fission_Metroid",
+    "https://www.metroidwiki.org/wiki/Dark_Tallon_Metroid",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)"
+   ],
+   "notes": "Split from the former 'Metroid variants of the Prime era' entry to stay within key and length limits. Handling Protocols are a Metroid Prime (Tallon IV) scan; the single handler death and the three-Metroid theft with the 'Perhaps she is behind the Metroid theft' suspicion are Echoes scans. Metroid Wiki's Hunter Metroid page lists no Prime 3 appearance, so none is claimed. Fission Metroids' PAL/Trilogy Phazon Mines appearance is omitted as a version difference."
+  },
+  {
+   "comment": "Metroids: Phazon Metroids, Miniroids, Hopping Metroids and Metroid Hatchers",
+   "keys": [
+    "Phazon Metroid",
+    "Phazon Metroids",
+    "Miniroid",
+    "Miniroids",
+    "Hopping Metroid",
+    "Hopping Metroids",
+    "Metroid Hatcher",
+    "Metroid Hatchers",
+    "Metroid Creche"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "In the final phase of the Phazon crisis the Space Pirates bred a new Metroid line by combining Metroids with Phazon. Samus catalogued its forms in her Logbook (Metroid Prime 3: Corruption).\n\n- Miniroid: tiny, flocking Phazon-corrupted Metroids, the immature form of the Phazon Metroid.\n- Phazon Metroid: the adult form. It phases through solid matter to pass through walls and dodge attacks, emits bursts of Phazon energy and drains the life energy of prey. Extreme cold still works against it, so Ice Missiles immobilise it; its Phazon core, visible to the X-Ray Visor, is vulnerable to the Nova Beam, which kills it in one shot, and in Hypermode the Hyper Ball can destroy many at once. Samus first met them kept in tanks in SkyTown on Elysia, then in large holding cells with eggs on the Pirate Homeworld, and finally on Phaaze.\n- Hopping Metroid: a strain that lost flight and runs on legs edged with Phazite, able to enter Hypermode; seen at Norion's Cargo Dock B and on Phaaze.\n- Metroid Hatcher: a floating head with four energy-leeching tentacles and a Phazite-hard shell protecting its heart. Unable to phase, it spawns Phazon Metroids from its mouth and dies once every tentacle is torn off. Samus fought Hatchers at Norion's Generator B, in the Metroid Creche of the Pirate Homeworld and aboard the GFS Valhalla.\n\nThese strains died with Phaaze when Samus destroyed that planet and, with it, the Phazon of the galaxy. The earlier Tallon IV and Aether strains are covered under Tallon Metroids and the Phazon mutations, and the Impact Crater's guardian under Metroid Prime (the creature).\n\nSamus fought this line while herself corrupted by Phazon, tearing the Hatchers' energy-leeching tentacles off one by one, and she ended it when she destroyed Phaaze.",
+   "constant": false,
+   "order": 100,
+   "category": "Metroids",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Phazon_Metroid",
+    "https://www.metroidwiki.org/wiki/Miniroid",
+    "https://www.metroidwiki.org/wiki/Hopping_Metroid",
+    "https://www.metroidwiki.org/wiki/Metroid_Hatcher",
+    "https://www.metroidwiki.org/wiki/Metroid_(species)"
+   ],
+   "notes": "Split from the former Prime-era entry. Phazon Metroid egg-laying without a Queen is stated only loosely on Metroid Wiki ('has allowed them to produce eggs') and is not asserted; only the presence of eggs in the holding cells is. Fate of the strains follows the species page (Phazon 'apparently eliminated' with Phaaze)."
+  },
+  {
+   "comment": "Metroids: The baby Metroid (the hatchling)",
+   "keys": [
+    "baby Metroid",
+    "Metroid hatchling",
+    "the hatchling",
+    "hatchling",
+    "the baby",
+    "Baby's Cry",
+    "Metroid baby"
+   ],
+   "secondary_keys": [
+    "Metroid",
+    "Metroids",
+    "SR388",
+    "Ceres",
+    "Zebes",
+    "Mother Brain",
+    "Hyper Beam",
+    "Ridley",
+    "Bottle Ship"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "The baby Metroid, also called the hatchling or simply \"the baby\" (Samus's own word for it), was the last Metroid born on SR388. Its egg hatched in front of Samus moments after she destroyed the Queen Metroid at the bottom of the planet. Per the Other M manual, \"As I was the first thing the baby saw, it took me to be its mother.\" Ordered to exterminate every Metroid, Samus could not bring herself to kill it; it followed her toward the surface and cleared obstacles from her path (Metroid II). When Proteus Ridley ambushed her at the landing site to seize it, the hatchling drained Ridley's energy and poured it into Samus, letting her beat him off.\n\nSamus delivered it to the Galactic Research Station at Ceres, where scientists determined that its energy-producing qualities could benefit civilization. For a brief moment, \"The last Metroid is in captivity. The galaxy is at peace.\" Shortly after Samus left, the scientists were slaughtered and Ridley carried the hatchling off to the rebuilt Space Pirate base on Zebes.\n\nOn Zebes, after killing Ridley in Norfair, Samus found the hatchling's container broken in two. In Tourian, among the husks of drained creatures, she met a Metroid far larger than any larva she had seen: the baby, which had kept growing without molting because it was away from SR388. It drained her almost to death before recognising her, then fled. In Mother Brain's chamber, as Mother Brain's Hyper Beam was killing Samus, the hatchling returned, latched onto Mother Brain and drained her, then transferred the stolen energy into Samus, healing her. Mother Brain recovered and shot the baby to pieces; its remains fell onto Samus and gave her the Hyper Beam, with which she destroyed Mother Brain. Its death left the species extinct in nature.\n\nIts cells outlived it. A culture the Galactic Federation preserved became the vaccine that saved Samus from the X, and cells salvaged from her Power Suit seeded the Bottle Ship's cloned Metroids (see Metroid breeding and cloning programs). The \"Baby's Cry\" distress signal that later drew her to the Bottle Ship was only a code name for an urgent SOS, yet to Samus it was as though it was crying specifically for her. During the BSL incident Samus stated, \"I owe the Metroid hatchling my life twice over\", and aboard the Bottle Ship she was reminded of it constantly; its memory has never left her.",
+   "constant": false,
+   "order": 100,
+   "category": "Metroids",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Baby_Metroid",
+    "https://www.metroidwiki.org/wiki/Super_Metroid",
+    "https://en.wikipedia.org/wiki/Super_Metroid",
+    "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://www.metroidwiki.org/wiki/Metroid_Vaccine"
+   ],
+   "notes": "Selective entry: bare 'hatchling'/'the baby'/'Baby's Cry' require a disambiguating secondary key (Metroid-containing primaries satisfy it on their own). 'Baby's Cry' corrected: per the Other M manual it is a common SOS code name 'with the urgency of a baby crying', not a reference to the hatchling. Secondary keys 'mother', 'hatched', 'sacrifice', 'imprinted' dropped; 'last Metroid' and 'infant Metroid' removed from this entry ('last Metroid' lives on the Samus-as-last-Metroid entry)."
+  },
+  {
+   "comment": "Metroids: Metroid Queen",
+   "keys": [
+    "Queen Metroid",
+    "Metroid Queen",
+    "Queen Metroids",
+    "Metroid Queens",
+    "Metroid egg",
+    "Metroid eggs",
+    "Queen's nest",
+    "Metroid nest"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Queen Metroid is the final form of the Metroid life cycle and the only Metroid that lays eggs; a Queen propagates the entire species. Only an Omega Metroid carrying a specific gene can mature into one, which makes Queens rare, as Samus noted aboard the Bottle Ship. A Queen is roughly twice the size of an Omega: a vast armoured bulk with three-clawed paws and a long neck she extends to bite or ram. She spits bursts of energy, and her face, neck and the inside of her stomach are her vulnerable points; Missiles, Morph Ball Bombs and Power Bombs can hurt her. She lays her eggs in a nest and tends them; a larva hatches from the egg and, on SR388, grows until it molts into an Alpha Metroid.\n\nThe SR388 Queen. During her extermination mission Samus found the Queen at the deepest point of the planet's caverns, past the Omega Metroids guarding the approach. Missiles to her face and into her open mouth stunned her, and Samus finished her from inside, in Morph Ball. The Queen's death should have ended the species; instead one last egg hatched in front of Samus and the hatchling imprinted on her (see The baby Metroid).\n\nThe Bottle Ship Queen (Metroid: Other M). Galactic Federation researchers, cloning Metroids from cells the Federation had salvaged, genetically manipulated hatchling clones so that at least one could grow into a Queen, and used her as a control specimen for their cold-resistant Metroids. This Queen killed the Bottle Ship's Ridley clone. In the Bioweapon Research Center, as the ship bore down on Federation-controlled orbit, a scientist opened the hatch onto the Queen's chamber; Samus fought her, used the Grapple Beam to pull herself into the Queen's mouth and set off a Power Bomb in her stomach.\n\nSamus is the only known person to have killed a Queen Metroid, and she has done it twice. Metroid eggs have otherwise been seen in the Space Pirates' Phazon Metroid holding cells on the Pirate Homeworld, and in Galactic Federation storage, where an egg the Federation Force had taken from the Space Pirates was later hacked open in its stasis tube and hatched by Sylux (see Metroid breeding and cloning programs).",
+   "constant": false,
+   "order": 100,
+   "category": "Metroids",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid_Queen",
+    "https://www.metroidwiki.org/wiki/Metroid_Egg",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://www.metroidwiki.org/wiki/Metroid_II:_Return_of_Samus",
+    "https://www.metroidwiki.org/wiki/Phazon_Metroid",
+    "https://www.metroidwiki.org/wiki/Sylux",
+    "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+   ],
+   "notes": "Metroid Wiki's Queen page gives no Samus Returns-specific encounter details, so the SR388 account is hedged to the elements common to both tellings (Missiles to the face/open mouth, finished from inside in Morph Ball). 'Twice the size of an Omega' is from the Metroid Egg stub only and kept as 'roughly'. The Federation Force egg's Pirate origin is per Wikipedia's plot ('stolen a Metroid egg from the Space Pirates')."
+  },
+  {
+   "comment": "Metroids: Omega Metroid",
+   "keys": [
+    "Omega Metroid",
+    "Omega Metroids",
+    "Omega-class Metroid"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Omega Metroid is the largest growth form of the Metroid life cycle, the molt that follows the Zeta and precedes the Queen. Omegas are nearly full-grown Metroids; those carrying a specific gene mature into Queens. The manual for Samus's first SR388 mission describes the Omega as \"absolutely huge; its power, incredible!\" It is a towering bipedal reptilian with massive claws, and it attacks with energy bursts, by ramming and by slashing. Its chest is the vulnerable point; on SR388 only Missiles harmed Omegas, and Samus needed dozens to the chest or back to bring one down, yet the Omega she met on the BSL station fell to the Ice Beam.\n\nOn SR388 four Omega Metroids held the deepest caverns just above the Queen's nest, and Samus destroyed all four during the extermination mission (Metroid II). Within the Galactic Federation's secret program aboard the BSL research station, the station computer boasted that its replica of SR388's ecosystem was \"ideal for raising Alpha, Gamma, Zeta, and even Omega Metroids\" and that rapid-growth techniques could take a larva to Omega within days.\n\nThe BSL Omega. At the end of the BSL incident Samus reached the docking bay to find her gunship gone and an Omega Metroid in its place. At that moment it was invulnerable to every weapon she carried, and it clawed her down to the edge of death. An SA-X attacked and wounded it, only to be killed by the Omega; Samus absorbed the SA-X's Core-X, recovered the Ice Beam and destroyed the Omega with it, the cold the species fears being its undoing (Metroid Fusion). The full account belongs under Omega Metroid of the BSL.\n\nNo Omega Metroid existed on ZDR; the Metroid power that awoke in Samus there was her own (see Samus as the last Metroid). Samus knows the Omega as the last barrier before a Queen and as the only Metroid that has ever stood over her with her weapons useless.",
+   "constant": false,
+   "order": 100,
+   "category": "Metroids",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Omega_Metroid",
+    "https://www.metroidwiki.org/wiki/Metroid_Egg",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+    "https://en.wikipedia.org/wiki/Metroid_Dread"
+   ],
+   "notes": "'Highly resistant to cold' (Metroid Egg stub only) removed because the Omega Metroid page lists the Ice Beam as a weakness and the BSL Omega died to it. 'Thirty Missiles' softened to 'dozens'. Verified: Metroid Wiki's Omega Metroid page and the Dread page record no Omega Metroid in Dread. Bipedal/clawed description is drawn from artwork and the Fusion encounter; the page has no prose description."
+  },
+  {
+   "comment": "Metroids: Metroid breeding and cloning programs",
+   "keys": [
+    "Metroid cloning",
+    "Metroid clone",
+    "Metroid clones",
+    "cloned Metroids",
+    "Metroid breeding",
+    "Metroid breeding program",
+    "Mochtroid",
+    "Mochtroids",
+    "Sector Zero",
+    "Restricted Laboratory",
+    "Restricted Lab",
+    "unfreezable"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Every power that has handled Metroids has tried to breed them; nearly every program has ended in Samus's hands.\n\nSpace Pirates. The original Pirate plan on Zebes was to replicate the Galactic Federation's stolen specimens by beta-ray exposure (per the original manual) and use them as biological weapons; Samus destroyed the Metroids of Tourian. The Pirates' first Metroid clones, the Mochtroids of Maridia, could drain energy but not latch onto prey, and their fragile bodies died easily (per the manual of the Zebes mission). On Tallon IV and Aether the Pirates ran Phazon infusion trials and bred Tallon Metroids for bio-energy; on the Pirate Homeworld they kept Phazon Metroids and their eggs in a Metroid Creche (see Tallon Metroids and the Phazon mutations; Phazon Metroids and Metroid Hatchers).\n\nThe Bottle Ship. The Federation reproduced Metroids \"from a piece of cell structure salvaged by the Federation\", material taken from Samus's Power Suit after the baby's death on Zebes, and kept them in Sector Zero, a unit absent from the ship's map data. Adam Malkovich judged it likely that \"the Metroid's mortal weakness, the vulnerability to cold, has been overcome through genetic manipulation\", leaving Samus no way to kill them. The Federation built MB, an AI reproducing Mother Brain's thought processes to command the ship's bioweapon forces, and gave her a human form so the first hatchling would accept her as its mother; the colony also produced a Queen Metroid. In Sector Zero Samus found an infant Metroid and was about to kill it when Adam shot her in the back with a Freeze Gun; he went deeper alone, and the sector detached and exploded with him and the Metroids inside, ending the program.\n\nThe BSL station. The station computer told Samus, \"the Federation has been secretly working on a Metroid breeding program. For peaceful application only, of course.\" In the Restricted Laboratory, within a replica of SR388's ecosystem, researchers raised larvae and Alpha, Gamma and Zeta Metroids and developed rapid-growth techniques. An SA-X broke in; the captive Metroids ignored Samus and swarmed it, the laboratory was jettisoned and exploded, and only Samus's account survives.\n\nZDR. Raven Beak had meant to bring Metroids to ZDR; after Samus exterminated them he reprogrammed the E.M.M.I. units to harvest her Metroid DNA and clone an army of the most powerful Metroid from her. An X consumed him, and Samus destroyed what it made of him before ZDR exploded.\n\nSylux. Sylux hacked open a stasis tube holding a Metroid egg the Federation Force had taken from the Space Pirates; per Nintendo's official account, \"Metroid eggs secretly stored in a certain research center of the Galactic Federation were forcibly hatched\" by him. Exploiting the imprinting instinct of newborn Metroids, he \"cultured and multiplied\" them and gave them \"a new ability - to merge with and control other organisms\". Through them he controlled officer-class Space Pirates and struck the Federation facility on Tanamaar, where a Metroid fused with Aberax; on Viewros he infused Metroids into the guardians of the master teleporter's keys (Metroid Prime 4: Beyond).\n\nSamus has destroyed, or watched the destruction of, every program here except Sylux's, whose Metroids' fate is unrecorded. The Federation's secrecy at the BSL drove her to defy its orders outright (see Samus's defiance of the Federation at the BSL).",
+   "constant": false,
+   "order": 100,
+   "category": "Metroids",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid_(species)",
+    "https://www.metroidwiki.org/wiki/Mochtroid",
+    "https://www.metroidwiki.org/wiki/Tallon_Metroid",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://www.metroidwiki.org/wiki/Sector_Zero",
+    "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+    "https://www.metroidwiki.org/wiki/MB",
+    "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Raven_Beak",
+    "https://en.wikipedia.org/wiki/Metroid_Dread",
+    "https://www.metroidwiki.org/wiki/Sylux",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+    "https://www.metroidwiki.org/wiki/Aberax",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+    "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+    "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+   ],
+   "notes": "The 'mortal weakness' line was verified on Metroid Wiki's Other M page as Adam's dialogue (note 14) and is kept as a quotation. Aberax is described only as 'fused with Aberax' because Metroid Wiki's stub does not say what Aberax is. The Federation Force egg and the Nintendo Today 'eggs' passage are stated side by side without asserting they are the same egg. Sylux quotes are from a Nintendo Today app entry as quoted by Nintendo World Report. MB wording follows Metroid Wiki's MB page; Raven Beak's fate follows Wikipedia's Dread plot. Key 'breeding program' replaced with 'Metroid breeding program'."
+  },
+  {
+   "comment": "Metroids: Samus as the last Metroid",
+   "keys": [
+    "last Metroid",
+    "the last Metroid",
+    "Metroid DNA",
+    "Metroid powers",
+    "Metroid abilities",
+    "Metroid genes",
+    "becoming a Metroid",
+    "Metroid transformation",
+    "Metroid vaccine",
+    "Metroid cells",
+    "part Metroid",
+    "half Metroid"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "\"The last Metroid is in captivity. The galaxy is at peace.\" Those words marked the delivery of the SR388 hatchling to Ceres; when Mother Brain killed it on Zebes, the Metroid species was extinct in the wild. Every Metroid since has come from preserved cells or from eggs the Galactic Federation secretly kept in storage: the Phazon strains died with Phaaze, the Bottle Ship and BSL colonies were destroyed, and the fate of Sylux's host-fusing strain is unrecorded. What remains of the original line lives in Samus Aran.\n\nThe vaccine. When an X Parasite infected Samus on SR388, the Federation \"had managed to preserve a cell culture from the last infant Metroid\" and injected her with a serum made from it. The Metroid cells overran and destroyed the X, transformed her Power Suit by giving it Metroid properties, and left her able to absorb free X and vulnerable to cold like any Metroid (see Fusion Suit). Per the Fusion manual, \"As the inheritor of the Metroids' powers, Samus becomes the only being capable of opposing the X parasite horde\". In the BSL's Restricted Laboratory, captive Metroids ignored her and attacked the SA-X instead. She has said she owes the hatchling her life twice over.\n\nZDR. Raven Beak lured Samus to ZDR so that his reprogrammed E.M.M.I. could extract her Metroid DNA for cloning. As the X were loosed from Elun, the Metroid DNA within her began to awaken: she manifested an energy-sapping power, destroyed the last E.M.M.I. by draining it with her bare hand, and was slowly turning into a Metroid. Raven Beak revealed he had spared her so that this power would awaken before he cloned her at full strength. On Itorash, near death, her Metroid nature fully awoke; her suit took on an organic, Metroid-like form (see Metroid Suit), her assault on Raven Beak drained the energy of Itorash itself and sent the ship crashing into ZDR, and she destroyed the X that then seized Raven Beak's body. At her gunship, Adam warned her that touching the controls would drain the ship. An X mimicking Quiet Robe bowed to her and let itself be absorbed, neutralising her Metroid abilities so that she could fly (Metroid Dread).\n\nStatus. SR388 and the BSL were destroyed together, and ZDR exploded behind her. The X she absorbed suppressed her Metroid powers, but she still carries Metroid DNA alongside her human and Chozo heritage, and Raven Beak saw in her the seed of an army of the most powerful Metroids. How she herself regards that is covered under Samus Aran – Metroid DNA, Chozo DNA and what she has become.",
+   "constant": false,
+   "order": 100,
+   "category": "Metroids",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid_(species)",
+    "https://www.metroidwiki.org/wiki/Metroid_Vaccine",
+    "https://www.metroidwiki.org/wiki/Baby_Metroid",
+    "https://en.wikipedia.org/wiki/Metroid_Dread",
+    "https://www.metroidwiki.org/wiki/Metroid_Dread",
+    "https://www.metroidwiki.org/wiki/Raven_Beak",
+    "https://www.metroidwiki.org/wiki/Quiet_Robe",
+    "https://www.inverse.com/gaming/metroid-dread-ending-explained-metroid-suit-rewards",
+    "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+   ],
+   "notes": "Dread final-battle dialogue could not be verified verbatim, so Raven Beak's words are paraphrased (Wikipedia: he spared her so her Metroid powers would awaken, then planned to clone her). 'Slowly becoming a Metroid' and 'neutralize her Metroid abilities' follow Wikipedia's wording; Inverse says 'stabilizing'. The 'last ultimate warrior' framing (Metroid Wiki's own text) and the unsupported post-Dread 'cold remains her weakness'/'halted but not undone' claims were removed. 'last Metroid' keys live only on this entry."
+  }
+ ]
+}

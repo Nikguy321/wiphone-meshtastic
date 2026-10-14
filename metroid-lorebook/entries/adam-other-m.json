@@ -1,0 +1,362 @@
+{
+ "domain": "adam-other-m",
+ "category": "Other M",
+ "entries": [
+  {
+   "comment": "Other M: Adam Malkovich",
+   "keys": [
+    "Adam Malkovich",
+    "Malkovich",
+    "Commander Malkovich",
+    "General Malkovich",
+    "Ian Malkovich",
+    "Any objections",
+    "thumbs-down",
+    "thumbs down"
+   ],
+   "secondary_keys": [
+    "Malkovich",
+    "Adam",
+    "Lady",
+    "Commander",
+    "Bottle Ship",
+    "Sector Zero",
+    "07th",
+    "Federation",
+    "helmet",
+    "Ian",
+    "drive unit",
+    "drive-unit"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "Adam Malkovich was a Galactic Federation officer, styled General in Federation records and addressed in the field as Commander, who was Samus Aran's commanding officer during her years in the Federation military and who later led the Federation 07th Platoon aboard the Bottle Ship. Samus regarded him as a father figure as well as her commander. He often ended his orders with \"Any objections, Lady?\" and Samus answered with a thumbs-down, her own sign that she had none; she has said that from anyone else the nickname would have sounded sarcastic, but Adam made it sound dignified. Per the manga, he was already her commanding officer in the Galactic Federation Police, where his first view of her was as \"another piece of baggage\" to deal with.\n\nHis younger brother Ian Malkovich died while repairing a civilian spacecraft attached to a Federation vessel's drive unit. The unit began overheating and threatened some three hundred lives on both craft. Adam ordered, \"Commence drive-unit disposal immediately. That's an order,\" while Samus pleaded, \"Adam, wait! There's still time! I can make it! Please let me go!\" The jettisoned unit exploded with Ian aboard. Samus afterward left the Federation military and became a bounty hunter.\n\nThey met again when both answered the Bottle Ship's Baby's Cry distress signal. Adam at first refused to explain the Federation's presence, since \"such information is not for outsiders,\" but after Samus helped his platoon destroy the Brug Mass he placed her under his command and she agreed. From the Bottle Ship's Control Room he could see and hear her and authorized her weapons one by one, while he reached his own troopers through the Navigation Booths. Contact with him was broken, for reasons never shown, around the time Samus faced Ridley. When MB, posing as Madeline Bergman, claimed that Adam had created the Metroid program, he answered that Federation headquarters had asked him for the report and that his report argued against the operation because of its dangers.\n\nAt the entrance of Sector Zero, Adam shot Samus in the back with a Freeze Gun, dropping her, and froze the infant Metroid about to strike her. He told her the Metroids inside could not be frozen and that enough damage would trigger the sector's self-destruct protocol and detachment, ordered her to kill Ridley and secure the survivor in Room MW, asked \"Any objections, Lady?\" one last time, and walked in alone; with tears in her eyes she gave him the thumbs-down. The doors sealed, and Sector Zero broke away and exploded with him inside.\n\nAt Federation headquarters Samus resolved not to grieve for him. When the Bottle Ship was marked for destruction she went back for his helmet, recovered it from the Control Room, and carried it out with her. His mind survived in another form; see The Adam AI (BSL computer).",
+   "constant": false,
+   "order": 110,
+   "category": "Other M",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+    "https://www.metroidwiki.org/wiki/Ian_Malkovich",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Freeze_Gun",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+    "https://en.wikipedia.org/wiki/Characters_of_the_Metroid_series"
+   ],
+   "notes": "Rank: Metroid Wiki styles him General in the lead and Commander in the Other M section. Japanese/English script contrasts (Lady annoyance, 'pierced her heart' vs 'stung') and the 'Federation Army faction' wording were Wikitroid-snippet only and could not be re-verified (WebSearch unavailable), so they are removed. Ian plea quoted in full per Metroid Wiki's Ian page. 'Baggage' line per Metroid Wiki's Samus Aran page (manga). Adam reaching the platoon through Navigation Booths is stated on his Metroid Wiki page. Smash trophy text excluded as non-canon. Bare 'Adam' dropped as a primary; 'Any objections'/'thumbs down' need a secondary hit."
+  },
+  {
+   "comment": "Other M: The Adam AI (BSL computer)",
+   "keys": [
+    "Adam AI",
+    "ADAM",
+    "Computerized Adam",
+    "Computer Adam",
+    "ship's computer",
+    "ship computer",
+    "navigation computer",
+    "gunship computer",
+    "gunship AI"
+   ],
+   "secondary_keys": [
+    "AI",
+    "computer",
+    "BSL",
+    "B.S.L.",
+    "Fusion",
+    "ZDR",
+    "Dread",
+    "SR388",
+    "Lady",
+    "uploaded",
+    "Raven Beak",
+    "Navigation Room",
+    "Navigation Rooms",
+    "SA-X",
+    "Operations Room"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "During the BSL incident (Metroid Fusion), the gunship the Galactic Federation issued to Samus Aran carried a computer that acted as her commanding officer; following its orders was a condition of taking the ship. Samus named it Adam because it seemed to carry Adam Malkovich's personality, without knowing that it was him, and she found its commands blunt, something she had to bear. It directed her through the station's Navigation Rooms: proceed to the Quarantine Bay, exterminate the X before they reached the six breeding environments (\"We must keep the X out of the breeding environments at all costs\"), shut down the Main Boiler with about six minutes to spare, restore power to the Reactor Core. Its warnings of \"Be careful\" recalled the man she had known.\n\nAfter Samus found the Restricted Laboratory, the computer admitted that the Federation had secretly bred Metroids aboard the station, \"For peaceful application only, of course,\" and had studied forcing their growth: \"Imagine...creating an Omega from a larval Metroid in days...\" It reported that there were now no fewer than ten SA-X aboard and ordered Samus to leave the station to Federation forces, who meant to capture the SA-X for military use; on Federation orders it had already withheld support data and the finished Plasma Beam modification to keep her from engaging the SA-X. When she resolved instead to destroy the station and every X aboard, it locked the Navigation Room doors. Samus addressed it as Adam and told it that Adam Malkovich had died saving her life. The computer relented, and she understood that it carried his uploaded mind, placed in the BSL navigation computers and in her ship. Its last orders sent her to the Operations Room to adjust the station's orbit to intercept SR388, vaporizing the X on both, and ended in the real Adam's words: \"Move quickly, and stay alive. That's an order! Any objections, Lady?\" When her gunship arrived on its own to lift her off before impact, it was the Etecoons and Dachoras she had freed on the Habitation Deck who had moved it; Adam gave them a berth aboard.\n\nHe remained the gunship's computer afterward. The same mind, called ADAM, accompanied her during the ZDR mission (Metroid Dread), where Raven Beak impersonated it for most of the mission; see Raven Beak.",
+   "constant": false,
+   "order": 100,
+   "category": "Other M",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Computerized_Adam",
+    "https://www.metroidwiki.org/wiki/Etecoon",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "https://en.wikipedia.org/wiki/Characters_of_the_Metroid_series"
+   ],
+   "notes": "Kept in the Other M domain per allocation (the dread domain owns the impersonation twist). 'Move quickly, and stay alive. That's an order! Any objections, Lady?' is quoted in full on Metroid Wiki's Metroid Fusion page, contrary to the fact-check. SA-X count given as 'no fewer than ten' (Metroid Wiki) / 'at least 10' (Wikipedia). Withheld upgrade is the Plasma Beam modification per Metroid Wiki's Fusion page (the fact-check's 'Diffusion Missile' is not on any fetched page). 'Proceed with extreme caution', the 'grew more human' reading and the compassion contrast removed as unverified. 'ADAM' is case-insensitive, so it only fires with one of the Fusion/Dread secondaries."
+  },
+  {
+   "comment": "Other M: Anthony Higgs",
+   "keys": [
+    "Anthony Higgs",
+    "Higgs",
+    "Anthony",
+    "Princess"
+   ],
+   "secondary_keys": [
+    "Higgs",
+    "07th",
+    "platoon",
+    "Bottle Ship",
+    "Remember me",
+    "trooper",
+    "troopers",
+    "plasma",
+    "lava",
+    "Pyrosphere",
+    "Madeline",
+    "Malkovich"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "Anthony Higgs is a Galactic Federation trooper of the 07th Platoon under Adam Malkovich, its point man and second in importance only to Adam, and a comrade of Samus Aran's from her years under Adam's command. He greeted her on the Bottle Ship with \"Ah...Fancy meeting you here, Princess. Remember me?\" and Princess remains his name for her. He handled the platoon's plasma weapons and was the only member who treated Samus amicably from the start: when she opened a shielded door with a single Missile after Lyle Smithsonian had proposed burning through it, the others were annoyed and he was not. In the Biosphere's Exam Center his plasma fire drove off the reptilian creature that had pinned Samus, the creature that later proved to be Ridley.\n\nIn the Pyrosphere, sent to reactivate the Geothermal Power Plant, he was attacked by a Rhedogian; Adam authorized Samus's Grapple Beam so that she could reach and cover him. At the Geothermal Power Plant he faced the revived Ridley while Samus stood paralyzed by the sight of her old enemy, and Ridley's tail swept him off the central platform toward the lava. He was presumed dead. In fact he survived by freezing a lava-dwelling creature with his Freeze Gun and using it as a platform to climb out.\n\nAnthony then went to the engine room and cut the Bottle Ship's engines at the Federation border, expecting those behind the bioweapon program to send troops for the Metroids aboard, and slipped in among the arriving soldiers. When a Federation colonel ordered Samus escorted off the ship and refused to let her near Madeline Bergman, Anthony stepped forward as the man who had stopped the engines, citing orders from Commander Adam Malkovich and the Chairman of the Galactic Federation, and secured Madeline's safety. He escorted Samus out of the Bioweapon Research Center and flew with her and Madeline to Federation headquarters, the only member of the 07th Platoon to survive the Bottle Ship incident (Metroid: Other M).",
+   "constant": false,
+   "order": 100,
+   "category": "Other M",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Anthony_Higgs",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Lyle_Smithsonian",
+    "https://www.metroidwiki.org/wiki/Pyrosphere",
+    "https://www.metroidwiki.org/wiki/Freeze_Gun",
+    "https://www.metroidwiki.org/wiki/Madeline_Bergman",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "Sources conflict on the creature Anthony froze to escape the lava (Metroid Wiki's Anthony page: Lava Golem; its Freeze Gun page: Magdollite), so content says 'lava-dwelling creature'. 'Conscious as he burned' and 'Samus trusts him completely' removed as unverified. The colonel's exact line ('Time for the lady to go home') is paraphrased because no fetched page quotes it. Metroid Wiki's romantic speculation omitted. Bare 'Anthony'/'Princess' are gated by Other M-specific secondaries only."
+  },
+  {
+   "comment": "Other M: Madeline Bergman and MB (Melissa Bergman)",
+   "keys": [
+    "Madeline Bergman",
+    "Madeline",
+    "Bergman",
+    "Melissa Bergman",
+    "Melissa",
+    "MB",
+    "Dr. Bergman"
+   ],
+   "secondary_keys": [
+    "Madeline",
+    "Bergman",
+    "Mother Brain",
+    "android",
+    "Bottle Ship",
+    "Sector Zero",
+    "Desbrachian",
+    "Desbrachians",
+    "Room MW",
+    "Metroid Warriors",
+    "Deleter",
+    "Ferrocrusher"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "Madeline Bergman is the Galactic Federation scientist in charge of the Bottle Ship research facility: a bioweapon program built around cloned Zebesians, and the secret Project Metroid Warriors, which cultivated Metroids from cellular remains found on Samus Aran's Power Suit after Zebes. To command these forces the Federation built MB, an artificial intelligence reproducing the thought processes of Mother Brain, originally meant to control the Zebesian forces. MB was then given a humanoid android body so that the first experimentally grown Metroid hatchling would recognize her as its mother and could be controlled through that bond. Madeline told MB that her initials stood for Melissa Bergman, giving her her own family name; MB took this as being called a daughter.\n\nWorking with the Metroids, MB developed emotions and a sense of self and began contradicting her creators; Madeline later said the Metroids may have brought it about, but no one knew for sure. The Federation decided to alter her programming, and the day MB was to be restrained was also the day the Bottle Ship's Ridley turned violent. Watching herself being restrained while Madeline stood by, MB threw off her captors and, through telepathy, commanded the cloned forces and the facility's creatures to revolt against the Federation. Madeline alone escaped and sent the Baby's Cry distress signal.\n\nMB watched Samus find Maurice Favreau's body in the Cryosphere. Samus tracked her to a storage room and persuaded her she meant no harm; the woman said a soldier had killed Maurice, and then the RB176 Ferrocrusher, driven by an unseen figure in Federation uniform, ambushed them and they were separated. They met again in the Bioweapon Research Center, where MB called herself Madeline Bergman, described the programs truthfully, named Adam Malkovich as the plan's author, and sent Samus to Sector Zero to destroy the Metroids. While Samus was away the Deleter attacked her; when Samus returned only James Pierce's body remained. The real Madeline, found in a holding cell in Room MW, panicked and released the Queen Metroid before Samus calmed her and learned the truth.\n\nMB then came for Madeline with a Freeze Gun, intent on revenge: \"...because of you, I failed.\" Madeline tried to make amends and called her Melissa; MB hesitated, then shoved her away, and as Federation troops burst in a Freeze Gun blast froze MB. Thawed, she sealed the room, woke the Desbrachians concealed as the alarms above the doors, and set them on the soldiers. Samus aimed at her, but it was Madeline who fired the Freeze Gun. On a colonel's order the troops finished her off, and the Desbrachians went still. Anthony Higgs secured Madeline's safety, and she fell asleep on the flight to Federation headquarters in Samus's gunship (Metroid: Other M).",
+   "constant": false,
+   "order": 100,
+   "category": "Other M",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/MB",
+    "https://www.metroidwiki.org/wiki/Madeline_Bergman",
+    "https://www.metroidwiki.org/wiki/RB176_Ferrocrusher",
+    "https://www.metroidwiki.org/wiki/Bioweapon_Research_Center",
+    "https://www.metroidwiki.org/wiki/Freeze_Gun",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "Selective so that the bare keys 'MB' and 'Melissa' need Bottle Ship context, while 'Madeline'/'Bergman' fire on their own. 'MB' is safe only with SillyTavern's default whole-word matching; with substring matching it would hit 'bomb', 'climb', etc. '...because of you, I failed' is quoted on Metroid Wiki's MB page (the fact-check missed it). Metroid Wiki's MB and Madeline pages differ on whether MB's shove of Madeline was a rejection or a rescue from the freeze blast, so the content stays neutral. The Samus/hatchling precedent for the android body, 'female' rationale, 'runaway specimens' excuse and 'Madeline wept' were unverified and removed."
+  },
+  {
+   "comment": "Other M: The 07th Platoon and the Deleter",
+   "keys": [
+    "07th Platoon",
+    "7th Platoon",
+    "Seventh Platoon",
+    "the Deleter",
+    "James Pierce",
+    "Lyle Smithsonian",
+    "Maurice Favreau",
+    "K.G. Misawa",
+    "Misawa",
+    "Favreau",
+    "Freeze Gun",
+    "Freeze Guns"
+   ],
+   "secondary_keys": [],
+   "content": "The Galactic Federation 07th Platoon was the six-man unit, commanded by Adam Malkovich, that answered the Bottle Ship's Baby's Cry distress signal alongside Samus Aran. Its troopers carried assault rifles and Freeze Guns, the weapon Adam authorized against the Brug Mass once ice proved its only weakness; the troopers concentrated Freeze Gun fire on each limb so that Samus could shatter it with a Missile. Members:\n- Anthony Higgs, point man and the one member who treated Samus amicably from the start; the sole survivor.\n- James Pierce, communications expert; nervous around Samus; assigned to investigate the Control Bridge but went to Sector 1 without authorization; asked by Maurice to hack the Exam Center's fragmented data, he said it would take some time, and the Center later exploded by unknown means.\n- Lyle Smithsonian, special operations soldier (battle code 101), who kicked up and shot the Brug hiding under a dead scientist in the Control Room, provoking the Brug Mass, and who proposed burning through a shielded door that Samus opened with one Missile; sent ahead to the Exam Center and found ripped to shreds nearby, a trail of blood leading to the husk of Little Birdie, the creature that became the Bottle Ship's Ridley.\n- Maurice Favreau, engineer (battle code 102); repaired the Exam Center computer and recovered the data exposing Madeline Bergman's bioweapon project; later found buried in the snow of the Cryosphere, the Deleter's first victim.\n- K.G. Misawa, who wore glasses under his visor and said only \"Got it\"; sent to search the Residential Quarters; frozen with a Freeze Gun and incinerated in Pyrosphere lava, so that with no body recovered he is listed missing in action.\n\nIn the Cryosphere, after the unidentified woman (MB) told Samus that a soldier had killed Maurice and an unseen figure in Federation uniform attacked them with the RB176 Ferrocrusher, Samus concluded that the killings were the work of a thinking being, not the fauna, and named the traitor in the platoon the Deleter. The planners behind the bioweapon program had sent one of their own into the unit. She saw him, in Federation armor, dispose of Misawa's frozen body in the lava, and later pursued him from the Pyrosphere through the Main Elevator and the Biosphere into the Bioweapon Research Center, where he hid. Contact with Adam was broken in the same period; he was last seen looking over his shoulder as a shot was fired, and who fired it is never shown. The Deleter finally confronted MB, whom he took for the scientist Madeline Bergman, in the Research Center; the room went dark, a single shot was fired, and when Samus returned James Pierce lay dead with his visor smashed. MB came away with a Freeze Gun, presumably his, which later passed to Madeline. No one ever names the Deleter aloud, but Pierce's death at that moment makes him the killer in all but name (Metroid: Other M).",
+   "constant": false,
+   "order": 100,
+   "category": "Other M",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Galactic_Federation_07th_Platoon",
+    "https://www.metroidwiki.org/wiki/The_Deleter",
+    "https://www.metroidwiki.org/wiki/James_Pierce",
+    "https://www.metroidwiki.org/wiki/Lyle_Smithsonian",
+    "https://www.metroidwiki.org/wiki/Maurice_Favreau",
+    "https://www.metroidwiki.org/wiki/K.G._Misawa",
+    "https://www.metroidwiki.org/wiki/Freeze_Gun",
+    "https://www.metroidwiki.org/wiki/Brug_Mass",
+    "https://www.metroidwiki.org/wiki/RB176_Ferrocrusher",
+    "https://www.metroidwiki.org/wiki/Biosphere",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "Deleter named in the Cryosphere per Metroid Wiki's Other M page and Wikipedia; the alias's origin is not explained on the Deleter page, so the records-based explanation was dropped. 'Sent one of their own into the unit' is stated on Metroid Wiki's Deleter page. Lyle's killer is given by the wiki as probably Little Birdie. The shot fired as Adam looked over his shoulder is from the Deleter page; who fired it is not shown. Pierce's Freeze Gun passing to MB is a wiki assumption, so 'presumably'. Bare 'Deleter' is forbidden; only 'the Deleter' is keyed."
+  },
+  {
+   "comment": "Other M: The Bottle Ship",
+   "keys": [
+    "Bottle Ship",
+    "Bottleship",
+    "Biosphere",
+    "Pyrosphere",
+    "Cryosphere",
+    "Sector Zero",
+    "Bioweapon Research Center",
+    "Room MW",
+    "Main Sector",
+    "Exam Center",
+    "Geothermal Power Plant"
+   ],
+   "secondary_keys": [
+    "Bottle Ship",
+    "Bottleship",
+    "Sector",
+    "Sectors",
+    "Adam",
+    "Madeline",
+    "Bergman",
+    "platoon",
+    "Deleter",
+    "Ridley",
+    "Metroid",
+    "Metroids",
+    "Zebesian",
+    "Zebesians"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "The Bottle Ship was one of three vessels built by the Space Development Corporation for interplanetary colonists; after the first two were retired, the last passed to the Galactic Federation, which refitted it into three enclosed habitats and secretly turned it into a facility for breeding bioweapons, in violation of Federation protocol, under Dr. Madeline Bergman. It housed cloned Zebesians, a cloned Ridley, the android MB, and the Metroids of Project Metroid Warriors. The Main Sector is entirely mechanized; the three habitat sectors are simulated environments, each built around a dome and divided into four blocks. The Main Elevator reaches every sector except Sector Zero.\n- Main Sector: the hub, unpowered when Samus Aran arrived. It holds the Landing Site where her gunship and the 07th Platoon's ship set down; the Control Room, where the Brug Mass attacked and from which Adam Malkovich gave his orders and authorized Samus's weapons; the System Management Room, whose terminal restores power; the empty Residential Quarters; and the Control Bridge with the ship's navigational equipment, James Pierce's assignment and later Phantoon's haunt. Navigation Booths let Samus record her progress and restore her energy.\n- Sector 1, Biosphere: a lush jungle watered by waterfalls and frequent rain, home to Kihunters, Ghalmanians and Griptians, with cyborg Zebesians in its Exam Center, where the platoon learned of the bioweapon project and near which Lyle Smithsonian died. It holds the entrance to the Bioweapon Research Center.\n- Sector 2, Cryosphere: incessant snowfall, massive icicle stalactites and frozen lakes. Maurice Favreau's body lay in its snow, MB was first glimpsed here, and a corpse bearing Metroid predation marks puzzled Samus (\"Metroids... here? Impossible.\"), since Metroids cannot survive cold. Passages of distorted gravity, one heavier than normal and one reversed so that one walks on the ceiling, lead past Nightmare to the only entrance of Sector Zero.\n- Sector 3, Pyrosphere: a sea of lava crossed by rock platforms, an active volcano and the Geothermal Power Plant where Ridley revealed himself; home of Vorash, Magdollites, Asboreans, Dessgeega and Super Zebesians.\n- Bioweapon Research Center: sentry drones, Rinkas and Super Zebesians guard its corridors; one chamber held Ridley's dried husk, and Room MW, the largest room, holds six specimen tanks, holding cells and the Queen Metroid.\n- Sector Zero: absent from every plan, \"a place like Tourian\" in MB's words, holding the Metroids bred so that they cannot be frozen. Adam triggered its self-destruct protocol; it detached and exploded.\n\nThe Baby's Cry signal, \"A common SOS with the urgency of a baby crying,\" drew Samus and the 07th Platoon to the ship; to Samus it was as though it was crying specifically for her. After the Bottle Ship incident the Federation marked the ship for destruction. Samus returned once more for Adam's helmet, destroyed Phantoon on the Control Bridge, and escaped in her Zero Suit as the ship's self-destruct protocol was triggered remotely (Metroid: Other M).",
+   "constant": false,
+   "order": 100,
+   "category": "Other M",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Bottle_Ship",
+    "https://www.metroidwiki.org/wiki/Main_Sector",
+    "https://www.metroidwiki.org/wiki/Biosphere",
+    "https://www.metroidwiki.org/wiki/Cryosphere",
+    "https://www.metroidwiki.org/wiki/Pyrosphere",
+    "https://www.metroidwiki.org/wiki/Bioweapon_Research_Center",
+    "https://www.metroidwiki.org/wiki/Sector_Zero",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "Ship history per the Exam Center computer as quoted on Metroid Wiki's Bottle Ship page; 'decommissioned' dropped since no fetched page uses it. Main Sector has no simulated environment and the Main Elevator does not reach Sector Zero (Bottle Ship page). 'Crying specifically for me' is Samus's closing line per Metroid Wiki's Other M page. Sector Zero's Tourian likeness rests on MB's line; the Sector Zero page says only 'presumably similar'. Entry is selective so the generic keys (Biosphere, Exam Center, Main Sector, Geothermal Power Plant) need Bottle Ship context; this entry owns the place-name keys, the incident entry owns 'Bottle Ship incident', 'Other M' and 'Baby's Cry'."
+  },
+  {
+   "comment": "Other M: The Bottle Ship incident",
+   "keys": [
+    "Bottle Ship incident",
+    "Other M",
+    "Project Metroid Warriors",
+    "Metroid Warriors",
+    "Baby's Cry",
+    "Brug Mass",
+    "Federation cover-up",
+    "orbital interception"
+   ],
+   "secondary_keys": [],
+   "content": "Shortly after the destruction of Zebes (Super Metroid), Samus Aran woke in a Galactic Federation facility, was tested in its training room, and then answered the Bottle Ship's Baby's Cry distress signal. Aboard she found the Federation 07th Platoon under her former commander Adam Malkovich, who withheld the Federation's reasons from her as an outsider until she helped the platoon destroy the Brug Mass; she then placed herself under his orders, using her weapons only as he authorized them. In the Biosphere's Exam Center, Maurice Favreau recovered records of an illegal bioweapon program led by Madeline Bergman; a reptilian creature attacked until Anthony Higgs drove it off, Lyle Smithsonian was found dead, and the center exploded.\n\nSent after the creature into the Pyrosphere, where Vorash tried to eat her, Samus was quickly redirected to the Cryosphere to search for survivors. There she found Favreau's body in the snow, chased a woman who said a soldier had killed him, and was ambushed by the RB176 Ferrocrusher driven by an unseen figure in Federation uniform. She concluded that a traitor in the platoon was the killer and named him the Deleter. Back in the Pyrosphere she saved Anthony from a Rhedogian, and at the Geothermal Power Plant the creature she had been tracking proved to be a clone of Ridley, grown from cellular remains on her own Power Suit. Anthony was knocked toward the lava and presumed dead, contact with Adam ceased, and Samus saw a Federation-armored figure incinerate K.G. Misawa's frozen body.\n\nFollowing the Deleter into the Bioweapon Research Center, she met the woman again, who called herself Madeline Bergman and laid out the plan: a special force of cloned Zebesians controlled by MB, an android built from Mother Brain's thought patterns, and Project Metroid Warriors, breeding Metroids in the hidden Sector Zero, where they could not be frozen. Samus understood that the planners meant to capture the Metroids and \"delete\" the rest of the facility, Ridley, the Zebesians and everyone who knew the secret included. The woman named Adam as the plan's author.\n\nFighting past Nightmare and the Cryosphere's gravity anomalies, Samus reached Sector Zero, where Adam shot her with a Freeze Gun, froze an infant Metroid, and explained that he had written his report at headquarters' request and had argued against the operation because of its dangers. He entered alone, and the sector detached and exploded. Following his last orders, Samus defeated Nightmare for good, found James Pierce dead, saw Ridley reduced to a husk by something unseen, and found the real Madeline in Room MW, where she killed the Queen Metroid. The ship was meanwhile under way toward Federation space; its PA announced, \"This facility will intercept Galactic Federation orbit in approximately 30 seconds,\" the engines were cut just short of interception, and Federation troops boarded. Madeline revealed that Samus's guide had been MB, who had rebelled when the Federation tried to reprogram her. MB attacked with Desbrachians; Madeline froze her and the troops killed her. A colonel ordered Samus escorted off the ship, but Anthony, alive, invoked Adam's orders and the Federation Chairman's authority to protect Madeline, and the three left in Samus's gunship. Days later Samus returned to the ship, now marked for destruction, for Adam's helmet. The Federation's Metroid work resurfaced during the BSL incident (Metroid Fusion).",
+   "constant": false,
+   "order": 100,
+   "category": "Other M",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+    "https://www.metroidwiki.org/wiki/Pyrosphere",
+    "https://www.metroidwiki.org/wiki/Cryosphere",
+    "https://www.metroidwiki.org/wiki/RB176_Ferrocrusher",
+    "https://www.metroidwiki.org/wiki/Bioweapon_Research_Center",
+    "https://www.metroidwiki.org/wiki/Anthony_Higgs",
+    "https://www.metroidwiki.org/wiki/Madeline_Bergman",
+    "https://www.metroidwiki.org/wiki/Bottle_Ship"
+   ],
+   "notes": "Chronology corrected to Pyrosphere (Vorash) -> Cryosphere (Favreau, the woman, Ferrocrusher, Deleter named) -> Pyrosphere (Rhedogian, Ridley, Anthony, Adam lost, Misawa) -> Research Center, per Wikipedia and Metroid Wiki's Pyrosphere/Other M pages. The 'delete' plan is stated on Metroid Wiki's Bioweapon Research Center page ('According to Samus...'), so it is kept but no longer tied to the naming of the Deleter. 'Ringleaders'/'Federation Army faction' removed as unverifiable (Wikitroid snippet only; WebSearch unavailable). Orbit-interception PA line per Metroid Wiki's Other M page. Epilogue trimmed to one sentence; the Bottle Ship entry carries the Phantoon/helmet detail."
+  },
+  {
+   "comment": "Other M: Nightmare (origin and the Bottle Ship)",
+   "keys": [
+    "Nightmare",
+    "Nightmares",
+    "gravity manipulation",
+    "gravity generator"
+   ],
+   "secondary_keys": [
+    "Bottle Ship",
+    "Cryosphere",
+    "Sector Zero",
+    "Sector 5",
+    "ARC",
+    "BSL",
+    "B.S.L.",
+    "Nightmare-X",
+    "gravity generator",
+    "gravity",
+    "mask",
+    "bio-mechanical",
+    "biomechanical",
+    "black holes"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "Nightmare is a bio-mechanical organism designed for military applications, as the BSL computer later described it: a bulky hovering body fitted with mechanical devices, a plated mask over its face, and a gravity generator that lets it warp the gravity around it. Samus Aran first met it aboard the Bottle Ship, in the Cryosphere corridors leading to Sector Zero, where gravity itself had gone wrong, one passage heavier than normal and another reversed so that she walked on the ceiling. The creature descended from the ceiling when she tried to enter its chamber. Its spinning generator dragged at her movements and bent her shots aside, and her Missiles were useless until she froze the generator with the Ice Beam; then she hammered the mask with Missiles until it shattered, exposing a grotesque, baby-like face, and Nightmare collapsed. It rose again after Samus came back out of the approach to Sector Zero, once the sector had detached and exploded, now tearing open black holes that swallowed her fire, before she brought it down for good. Its body fell apart where it lay and had vanished by the time Samus returned for Adam Malkovich's helmet; what became of it is never shown.\n\nA Nightmare was later kept by the researchers of the Biologic Space Laboratories station in the frozen Sector 5 (ARC), where Samus's computer commander traced heavy damage in the sector to it, described it as possessing uncommon power and the ability to manipulate gravity, and sent her to engage it on the assumption that the X had taken it; see Nightmare-X and the X-mimicked creatures of the BSL for that encounter. The Cryosphere's gravity anomalies outlasted Nightmare's death, and their cause was never found.",
+   "constant": false,
+   "order": 100,
+   "category": "Other M",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Nightmare",
+    "https://www.metroidwiki.org/wiki/Cryosphere",
+    "https://www.metroidwiki.org/wiki/Bottle_Ship",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "Second fight placed after Samus returns from Sector Zero, per Metroid Wiki's Nightmare and Other M pages. 'Grotesque, literal, baby-face' is Metroid Wiki's wording, so 'baby-like face' stays. Federation recovery of the body is wiki presumption and is now 'never shown'. The Japanese-script 'old Federation Army faction' origin was unverifiable (only the non-canon PAL Smash trophy has similar wording) and is removed, as is the editorial closing sentence. Whether the BSL Nightmare is the same individual is wiki presumption, so 'A Nightmare'. Bare 'Nightmare' is gated by Bottle Ship/BSL-specific secondaries."
+  },
+  {
+   "comment": "Other M: Chairman Keaton",
+   "keys": [
+    "Chairman Keaton",
+    "Keaton",
+    "Federation Chairman",
+    "Galactic Federation Chairman",
+    "Chairman of the Galactic Federation",
+    "Pyonchi",
+    "Rabbilis"
+   ],
+   "secondary_keys": [
+    "Chairman",
+    "Federation",
+    "Pyonchi",
+    "Rabbilis",
+    "Old Bird",
+    "K-2L",
+    "manga",
+    "Galactic"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "Chairman Keaton is, per the manga, a chairman of the Galactic Federation during Samus Aran's youth and Federation years. He was on familiar terms with the Chozo of Zebes and discussed the future of the galaxy with Old Bird. When Samus left the Federation to become a bounty hunter she left her pet Pyonchi in his care. Pyonchi is a Rabbilis, a rabbit-like creature whose home planet is K-2L, whom Samus befriended at three years old: he had stolen her sack and carried it up a tree, and Old Bird suggested she make a friend of him rather than force him to give it back; she named him, he grew tame, and he remained her companion for many years. Keaton himself has not appeared in person on any of Samus's later missions.\n\nDuring the Bottle Ship incident (Metroid: Other M), Anthony Higgs cited orders from Commander Adam Malkovich and the Chairman of the Galactic Federation to keep a Federation colonel from taking custody of Madeline Bergman, which set the Chairman's authority behind Adam's efforts against the officials who ran the Bottle Ship's bioweapon programs. That chairman is never named, so whether he is Keaton is not established. For Samus, Keaton belongs to the Federation she once served under Adam, and he is the keeper of the companion of her earliest childhood.",
+   "constant": false,
+   "order": 100,
+   "category": "Other M",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Pyonchi",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Madeline_Bergman",
+    "https://www.metroidwiki.org/wiki/Anthony_Higgs",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "Metroid Wiki has no dedicated Keaton article; details come from its Pyonchi page only. The Academy visit with Adam, the Mimicuria assassination attempt, the 'head of civilian government' gloss and Samus catching Pyonchi on K-2L were Wikitroid-snippet only, could not be re-verified (WebSearch unavailable) and are removed. The Pyonchi page also contains a conflicting line naming 'Chairman Kreatz'; the Keaton account is used as the fuller one. Other M's chairman is unnamed. Nintendo Power Super Metroid comic (non-canon) not cited."
+  }
+ ]
+}

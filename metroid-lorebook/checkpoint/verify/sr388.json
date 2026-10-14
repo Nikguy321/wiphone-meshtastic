@@ -1,0 +1,417 @@
+{
+ "run": "wf_223f2f6f-0a5",
+ "label": "verify:sr388",
+ "result": {
+  "overall": "Six entries checked against Metroid Wiki, Wikipedia, the Metroid II and Metroid manuals (metroiddatabase transcription), Nintendo's official Japanese Samus Returns site, and the omegametroid walkthrough the drafter cited. No non-canon contamination (Smash, comics, fan games, manga-as-fact) was found, and the broad story beats are sound. The real problems are a handful of overreaches: Ridley is said to be beaten \"for good\" though he survives to raid Ceres; the Federation's Sector 1 of the BSL is conflated with the Restricted Laboratory breeding program; the Metroid threat is described as \"already demonstrated\" where the manual only says one Metroid \"could\" wipe out a civilization; Area 6 is given a single Omega when it also holds a Zeta; Samus is said to tear off Ridley's wing when the wiki says she shoots it off. Several colorful specifics (eleven seal icons lit purple, DNA fed through the Arm Cannon, Gammas fleeing through \"sacs\", Gunzoos on overhead tracks, Autracks firing charged shots, the Diggernaut alias \"Chozo Robot\", \"Special Squadron ... small sampling of data\", Aeion-rich rock) have no support in any source fetched and should be softened or cut. Metroid Wiki has no pages for Diggernaut, Chozo Seal, Gunzoo, Gullug, Glow Fly, Thoha, Mawkin, Teleport Station or Metroid Counter (all 404), so those details rest on the fan walkthrough; the walkthrough's per-area counts (Surface 1, A1 4, A2 8, A3 10, A4 4, A5 7, A6 2, A7 3, Queen 1) do sum to the 40-count, confirming the tally includes the Queen and excludes the ten nest larvae, which no entry mentions. Entries 3, 4, 5 and 6 exceed the word targets and entries 5 and 6 use markdown-style bullet lists; entry 2 contains meta language (\"which this lorebook prefers\"). Several generic keys (\"research vessel\", \"search and rescue party\", \"mining robot\", \"excavation machine\") are likely to misfire outside SR388 contexts. Cross-references point to entries (\"Fauna of SR388\", \"Metroid life cycle\", \"Chozo tribes – Thoha and Mawkin\", etc.) whose existence could not be checked. WebSearch was unavailable (session budget exhausted), so Wikitroid snippets could not be re-checked.",
+  "reports": [
+   {
+    "entry_comment": "SR388: SR388 (planet overview)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "the rock is rich in Aeion, an energy the Chozo learned to extract and harness",
+      "problem": "Metroid Wiki describes Aeion as a resource 'emitted by SR388' that the Chozo first extracted from the planet's creatures (second Chozo Memory); no source ties it to the rock. Entry 5 of this same set says 'extracted from SR388's creatures', so the two entries disagree.",
+      "correction": "'...and the planet itself emits Aeion, an energy the Chozo learned to extract from its creatures and harness.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Aeion"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the colonists were scientists of the Thoha tribe, with warriors of the Mawkin tribe alongside them",
+      "problem": "Sources say the scientific Thoha and the warrior Mawkin 'joined forces to confine the Metroids on SR388' (Wikipedia) / the Mawkin 'contained the Metroids on SR388' working with the Thoha (Metroid Wiki, Raven Beak). The Mawkin are presented as brought in to contain the Metroids, not as original co-colonists; the draft's framing invents a settlement chronology.",
+      "correction": "'The colonists were scientists of the Thoha tribe; when the Metroids they made ran wild, warriors of the Mawkin tribe were brought in to contain them, as Quiet Robe later told Samus on ZDR.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "nit",
+      "claim": "he slaughtered the Thoha on SR388",
+      "problem": "Metroid Wiki says Raven Beak 'murdered the Thoha of SR388' but no fetched page states where the massacre took place; the Samus Returns Chozo Memories imply SR388, so this is probably right but not explicit.",
+      "correction": "'he slaughtered the Thoha of SR388, sparing only Quiet Robe'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "nit",
+      "claim": "Hornoads, Gullugs, Glow Flies and Arachnus",
+      "problem": "Metroid Wiki has no 'Gullug' or 'Glow Fly' page (404), so these spellings could only be checked against the fan walkthrough, which uses 'Gullugs' and 'Glow Flies'. Hornoad and Arachnus match the wiki.",
+      "correction": "Keep, but note the spellings are walkthrough-attested only.",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/return-to-sr388"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Nothing says what became of SR388's ecosystem between the extermination and Fusion: per the Fusion manual (quoted on Metroid Wiki), 'Since Samus Aran exterminated the Metroids on SR388, the X have overrun and infected most of the life-forms on the planet,' and the Chozo first learned the X's nature from a camera recording of an X mimicking a Hornoad. Both are useful for a Samus-centered roleplay that visits the planet after Samus Returns.",
+      "correction": "Add one sentence: once the Metroids were gone the X recovered and overran most of SR388's life-forms, which is why the Hornoad that attacked Samus in Fusion was an X mimic.",
+      "source_url": "https://www.metroidwiki.org/wiki/X_Parasite"
+     },
+     {
+      "severity": "style",
+      "claim": "",
+      "problem": "Six parenthetical '(see ...)' cross-references in a 493-word entry; several point to entries ('Fauna of SR388', 'The destruction of the BSL and SR388') whose existence could not be confirmed. Length is within the core-subject ceiling.",
+      "correction": "Trim cross-references to the two or three entries that certainly exist."
+     }
+    ]
+   },
+   {
+    "entry_comment": "SR388: The Federation's lost expeditions to SR388 and the extermination order",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "whose capacity to multiply under beta rays and drain the life from whole worlds had already been demonstrated",
+      "problem": "The Metroid II manual states the threat as potential, not demonstrated: 'Even one living Metroid could easily wipe out an entire planetary civilization.' No Metroid had drained a world at this point in the timeline.",
+      "correction": "'...whose ability to multiply under beta rays meant, in the Federation's words, that even one living Metroid could easily wipe out an entire planetary civilization.'",
+      "source_url": "https://metroiddatabase.com/old_site/m2/manual.php"
+     },
+     {
+      "severity": "error",
+      "claim": "it secretly rebuilt the SR388 ecosystem in Sector 1 of the BSL station to breed Metroids again",
+      "problem": "Sector 1 (SRX) 'reproduces the environment of planet SR388' for studies of SR388 creatures (Fusion manual via Metroid Wiki); the secret Metroid breeding program was housed in the Restricted Laboratory in the station's Restricted Zone, which the wiki does not place in Sector 1. The draft fuses two separate facilities and purposes.",
+      "correction": "'...and it reproduced SR388's environment in Sector 1 (SRX) of the BSL station for study, while secretly breeding Metroids in a restricted laboratory elsewhere on the station.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Restricted_Laboratory"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the Federation sent its Special Squadron, elite soldiers, to SR388; the squadron lost contact but first transmitted a small sampling of data confirming that Metroids remained",
+      "problem": "Wikipedia says only that contact was lost with 'an elite squadron'; Nintendo's official Japanese site says a 'unit' (部隊) sent to investigate 'went missing' and that it was 'revealed that many Metroids still exist deep underground', with no mention of transmitted data. 'Special Squadron' as a capitalized proper name and the 'small sampling of data' detail are unsupported by anything fetched (the drafter also admits the narration was not retrieved).",
+      "correction": "'the Federation sent a squad of elite soldiers to SR388; it went missing, but the Federation learned that many Metroids still lived deep underground and commissioned Samus to wipe out the species.' Drop 'Special Squadron' as a proper name unless the narration can be quoted.",
+      "source_url": "https://www.nintendo.co.jp/3ds/a9aj/introduction/index.html"
+     },
+     {
+      "severity": "nit",
+      "claim": "The remains of Federation personnel lie near the landing site",
+      "problem": "The walkthrough describes a single Galactic Federation soldier's corpse facing a door near the start; 'personnel' implies several.",
+      "correction": "'A dead Federation soldier lies near the landing site where she set down.'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/return-to-sr388"
+     },
+     {
+      "severity": "nit",
+      "claim": "it sent a second research ship to SR388",
+      "problem": "The manual says 'another research ship'; 'second' is an inference (the first being the 20X5 ship).",
+      "correction": "'another research ship'",
+      "source_url": "https://metroiddatabase.com/old_site/m2/manual.php"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "The entry follows the hatchling to Ceres and to the vaccine but skips the step between: Ridley raided Ceres, killed the scientists and stole the hatchling, which later died saving Samus on Zebes (the first of the 'twice over' debts). Without it, 'which later saved her life as the X vaccine' reads as the hatchling's only service.",
+      "correction": "Add one clause: Ridley later stole the hatchling from Ceres and it died on Zebes saving Samus; only its preserved cell culture survived to become the vaccine.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "keys",
+      "claim": "\"research vessel\", \"deep-space research ship\", \"search and rescue party\", \"lost research team\", \"missing research team\"",
+      "problem": "These are generic phrases that will fire in any sci-fi or rescue conversation unrelated to SR388 (a 'research vessel' in a Prime-era or Federation Force chat, a 'search and rescue party' anywhere). The entry has no secondary gating.",
+      "correction": "Keep 'Special Squadron', 'extermination order', 'Federation Police squad'; either drop 'research vessel' and 'search and rescue party' or move the generic phrases behind secondary keys ('SR388', 'Metroid', 'Metroids')."
+     },
+     {
+      "severity": "style",
+      "claim": "The later retelling (Metroid: Samus Returns), which this lorebook prefers, condenses the account",
+      "problem": "'which this lorebook prefers' is meta commentary about the document itself, not in-world content.",
+      "correction": "'The later account condenses this:'"
+     }
+    ]
+   },
+   {
+    "entry_comment": "SR388: The Metroid extermination mission on SR388 (Samus Returns)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "she beat him for good and left SR388 with the last Metroid",
+      "problem": "Proteus Ridley was 'subdued', not killed: Metroid Wiki's Ridley page has him go on to raid Ceres Space Colony, kill the scientists and steal the hatchling in Super Metroid. 'For good' tells a roleplayer Ridley is dead after SR388.",
+      "correction": "'she drove him off and left SR388 with the last Metroid'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "error",
+      "claim": "Samus tore off one of his wings",
+      "problem": "Metroid Wiki's Samus Returns summary: 'Samus shoots off one of Ridley's wings, forcing a crash landing.'",
+      "correction": "'Samus shot off one of his wings and brought him down'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a golden disc marked with a Metroid insignia whose icons lit purple",
+      "problem": "The only description found (walkthrough) is 'a golden circle with a Metroid insignia in the center and a number of orbs along the side' that 'light up'; no source gives the color.",
+      "correction": "'a golden disc marked with a Metroid insignia, ringed with orbs that lit to show how many Metroids remained there'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/return-to-sr388"
+     },
+     {
+      "severity": "unverified",
+      "claim": "feeding the collected DNA into the seal through her Arm Cannon drained the liquid",
+      "problem": "The walkthrough says the seal activates when Samus stands on the platform beneath it; no source describes the Arm Cannon as the conduit.",
+      "correction": "'offering the collected DNA at the seal drained the liquid'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/return-to-sr388"
+     },
+     {
+      "severity": "unverified",
+      "claim": "wounded Gammas fled through sacs in the walls, and husks of shed skin marked their passage",
+      "problem": "The walkthrough confirms a wounded Gamma fleeing to another room and an 'old Metroid husk' in Area 6, but nothing describes 'sacs in the walls'. Metroid Wiki's Gamma Metroid page says nothing about fleeing.",
+      "correction": "'wounded Gammas and Zetas fled to other chambers to be hunted down, and husks of shed skin marked their molting'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-4-crystal-caverns"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Samus lowered her Arm Cannon and held out her hand",
+      "problem": "No fetched source describes the gesture; the Metroid Hatchling page says only that the hatchling saw Samus first and took her for its mother.",
+      "correction": "'Samus lowered her Arm Cannon; the hatchling bonded to her...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Hatchling"
+     },
+     {
+      "severity": "nit",
+      "claim": "The Chozo had left a Chozo Seal in every region",
+      "problem": "Contradicted two paragraphs later by 'Area 8, the nest, had no seal'.",
+      "correction": "'in every region but the nest'"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "The ten larval Metroids of Area 8 are absent: the walkthrough records the counter jumping from one to eleven when the inner sanctum activates, ten larvae spread through the nest, then back to one for the Queen. This also explains the 40-vs-50 discrepancy the notes worry about: the 40 tally includes the Queen and excludes the nest larvae (walkthrough per-area counts Surface 1, A1 4, A2 8, A3 10, A4 4, A5 7, A6 2, A7 3, Queen 1 = 40).",
+      "correction": "Add: in the nest Samus first had to kill ten newly hatched larval Metroids before reaching the Queen; the forty on her tally counted the Queen but not these.",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-8-the-nest"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Super Missiles, which the entry relies on for the Queen fight, are never said to be acquired; the walkthrough places the first Super Missile in Area 4.",
+      "correction": "Mention Super Missiles among the Area 4 acquisitions.",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-4-crystal-caverns"
+     },
+     {
+      "severity": "style",
+      "claim": "Forty Metroids registered on her suit's tally ... a melee counter against her bite",
+      "problem": "579 words, above the 550 ceiling for a core subject. 'suit's tally' is HUD language; 'melee counter' is the official ability name and should be the proper noun 'Melee Counter'. Eight '(see ...)' cross-references.",
+      "correction": "Cut to ~500 words, capitalize Melee Counter, trim cross-references."
+     }
+    ]
+   },
+   {
+    "entry_comment": "SR388: Diggernaut",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "the deadliest thing Samus Aran met on SR388 that was not a Metroid",
+      "problem": "Proteus Ridley, the game's final boss, is fought on SR388's surface and is not a Metroid; the superlative is contradicted by the same lorebook's Ridley material.",
+      "correction": "Drop the superlative: 'the most dangerous survivor of the colony's machine works.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Proteus_Ridley"
+     },
+     {
+      "severity": "unverified",
+      "claim": "also recorded as the Chozo Robot",
+      "problem": "Metroid Wiki has neither a Diggernaut nor a Chozo Robot page (both 404) and no fetched source uses this alias; it also invites confusion with Dread's Chozo Robot Soldiers.",
+      "correction": "Remove the alias (and the 'Chozo Robot' key) unless an official source can be cited."
+     },
+     {
+      "severity": "unverified",
+      "claim": "Samus faced it in a chamber of Area 6 near the elevator to Area 7",
+      "problem": "The walkthrough places the fight in Area 6 but says only that after it you go left through a door and later reach the elevator by heading right; proximity to the elevator is not stated.",
+      "correction": "'Samus faced it in a chamber deep in Area 6.'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-6-diggernauts-domain"
+     },
+     {
+      "severity": "unverified",
+      "claim": "She recovered the Power Bomb from the wreck and used one to blast the hulk apart",
+      "problem": "Sources say Samus destroys the Diggernaut and gains the Power Bombs (Metroid Wiki) / the final shot yields the Power Bomb (walkthrough); nothing describes blowing up the remains.",
+      "correction": "'She recovered the Power Bomb from the wreck.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a wind vortex strong enough to drag her to her death",
+      "problem": "The walkthrough says to use the Spider Ball so you are not sucked in; it does not describe the vortex as instantly fatal (unlike the chase drill, which it does call a one-hit kill).",
+      "correction": "'a wind vortex that dragged her toward its drills'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-6-diggernauts-domain"
+     },
+     {
+      "severity": "keys",
+      "claim": "\"mining robot\", \"mining machine\", \"excavation machine\", \"digging machine\", \"drill robot\", \"Chozo Robot\"",
+      "problem": "The five generic machine phrases will fire in any mining or sci-fi chat; 'Chozo Robot' collides with Dread's Chozo Robot Soldiers if that entry exists. The entry has no secondary gating.",
+      "correction": "Keep 'Diggernaut'/'Diggernauts'; gate the generic phrases behind secondary keys ('SR388', 'Chozo', 'Samus Returns') or drop them; drop 'Chozo Robot'."
+     },
+     {
+      "severity": "style",
+      "claim": "",
+      "problem": "420 words for a non-core subject (target 120-400); the closing line ('Samus learned on SR388 that their ruins are never empty') is editorial flourish.",
+      "correction": "Trim to under 400 words."
+     }
+    ]
+   },
+   {
+    "entry_comment": "SR388: The Chozo laboratories of SR388",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Autracks, fixed turrets that fire charged shots",
+      "problem": "Metroid Wiki: Autracks have 'a long neck that stays retracted, then extends quickly to fire a single laser shot'; nothing about charged shots.",
+      "correction": "'Autracks, neck-extending turrets that fire laser shots'",
+      "source_url": "https://www.metroidwiki.org/wiki/Autrack"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Wallfires, wall-mounted flame and laser machines",
+      "problem": "Metroid Wiki says Wallfires shoot fireballs and explicitly contrasts them with the laser-firing Autrack; the walkthrough mentions 'silver Wallfires' in Samus Returns but does not say they fire lasers.",
+      "correction": "'Wallfires, wall-mounted sentries that spit fireballs'",
+      "source_url": "https://www.metroidwiki.org/wiki/Wallfire"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Gunzoos riding overhead tracks",
+      "problem": "Metroid Wiki has no Gunzoo page (404); the walkthrough only says 'Gunzoo-patrolled vertical shafts'. No source mentions tracks.",
+      "correction": "'Gunzoos patrolling the shafts'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-5-flooded-greenhouse"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a Chozo Statue holds not a weapon but Arachnus, kept as a guardian",
+      "problem": "The walkthrough says the statue holds Arachnus in an orb and shooting the orb releases it; Metroid Wiki (Metroid II) says Arachnus 'mimicked an Item Sphere' on a statue. 'Kept as a guardian' is the drafter's interpretation of the creature's motive.",
+      "correction": "'a Chozo Statue cradles not a weapon but Arachnus, curled in an orb in place of an item'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-2-hydroelectric-station"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the apparatus used to make the Metroids visible in the walls ... The Chozo engineered the Metroids on SR388 to hunt the X Parasites, and the laboratory is where that work was done",
+      "problem": "The walkthrough describes vats of green ooze and Metroid imagery and a planetarium; no source identifies Metroid-making apparatus or states the Metroids were made in Area 7. The drafter's own note concedes this is 'strongly implied ... not stated outright', yet the content states it as fact.",
+      "correction": "'...chambers of vats filled with green ooze beneath Metroid imagery, and a great planetarium dome. The vats and imagery suggest this is where the Thoha made the Metroids that hunted the X.'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-7-chozo-laboratory"
+     },
+     {
+      "severity": "unverified",
+      "claim": "eleven Metroid icons, one large and ten small; the small icons light purple",
+      "problem": "Only description found: 'a golden circle with a Metroid insignia in the center and a number of orbs along the side' that light up. No count, no color. (Area 3's seal does need ten DNA, so ten orbs is plausible, but it is unattested.)",
+      "correction": "'a golden disc bearing a Metroid insignia ringed with orbs that light to count the Metroids in that region'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/return-to-sr388"
+     },
+     {
+      "severity": "nit",
+      "claim": "Spring Ball in Area 2 ... every weapon she carried out of SR388 came from the hands of their kin's statues",
+      "problem": "Internally inconsistent: Spring Ball is dropped by Arachnus, and the entry itself says the Diggernaut carried off the Space Jump and Power Bomb, so not every weapon came from a statue's hands.",
+      "correction": "'Spring Ball, won from Arachnus, in Area 2' and 'nearly every weapon she carried out of SR388 came from their kin's statues'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-2-hydroelectric-station"
+     },
+     {
+      "severity": "nit",
+      "claim": "Teleport Stations",
+      "problem": "Metroid Wiki has no page under this name (404); the walkthrough calls them 'Teleportals'. Could not confirm the official in-game term.",
+      "correction": "Verify the map-legend name before shipping."
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Super Missiles (first obtained in Area 4) are omitted from the per-area Power Suit list.",
+      "correction": "Add 'Super Missiles and Spazer Beam in Area 4'.",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-4-crystal-caverns"
+     },
+     {
+      "severity": "style",
+      "claim": "",
+      "problem": "519 words for a sub-topic (target 120-400); uses a markdown-style '- ' bulleted list; the closing 'see Save, Recharge, Map and Navigation stations' cross-reference is a station-mechanics entry that reads as gameplay.",
+      "correction": "Convert bullets to prose, cut to ~400 words."
+     }
+    ]
+   },
+   {
+    "entry_comment": "SR388: Areas of SR388",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Area 6: ... An Omega Metroid, and the Diggernaut's final chamber",
+      "problem": "The walkthrough records two Metroid fights in Area 6, a Zeta Metroid and an Omega Metroid, with two Chozo Seals each needing one piece of DNA; and 'only four remain' after Area 6 (Area 7's three Omegas plus the Queen) confirms two kills there.",
+      "correction": "'A Zeta and an Omega Metroid, and the Diggernaut's final chamber.'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-6-diggernauts-domain"
+     },
+     {
+      "severity": "unverified",
+      "claim": "with a second seal that reflooded its lower half as it opened a new path",
+      "problem": "The walkthrough confirms two seals in Area 6 but says nothing about reflooding.",
+      "correction": "'with two seals, each demanding one Metroid's DNA'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-6-diggernauts-domain"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Area 3: ... Ten Metroids, mostly Gammas",
+      "problem": "The walkthrough confirms ten Metroids 'harvested' in Area 3 and both Alpha and Gamma types, but gives no breakdown supporting 'mostly Gammas'.",
+      "correction": "'Ten Metroids, Alphas and Gammas'",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-3-aeion-mines"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a lush, sunlit cave (Area 1) ... sandy stretches (Area 6) ... the Diggernaut's final chamber near the elevator to Area 7",
+      "problem": "None of 'sunlit', sand, or elevator proximity appears in the walkthrough pages the entry cites; the Diggernaut arena's position relative to the elevator is not stated.",
+      "correction": "Drop 'sunlit', 'sandy stretches', and 'near the elevator to Area 7'.",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-1-ancient-chozo-ruins"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Area 8 omits the ten larval Metroids Samus kills in the nest before the Queen (counter 1 -> 11 -> 1), and Areas 4-6 give no Metroid counts though the walkthrough supplies them (Area 4: four, one then three per its two seals; Area 5: seven; Area 6: two; Area 7: three).",
+      "correction": "Add 'ten newly hatched larvae guard the nest' to Area 8 and the per-area counts for Areas 4-7.",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-8-the-nest"
+     },
+     {
+      "severity": "style",
+      "claim": "",
+      "problem": "440 words for a non-core subject (target 120-400); markdown-style '- ' bullet list; three different game titles named (Samus Returns, Metroid II: Return of Samus, Metroid Fusion), above the two-mention guideline.",
+      "correction": "Convert to prose, trim to ~400 words, drop the Fusion title from the closing sentence ('see The destruction of the BSL and SR388' already covers it)."
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/SR388",
+   "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Proteus_Ridley",
+   "https://www.metroidwiki.org/wiki/Quiet_Robe",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://www.metroidwiki.org/wiki/Metroid_II:_Return_of_Samus",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Aeion",
+   "https://www.metroidwiki.org/wiki/Queen_Metroid",
+   "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+   "https://www.metroidwiki.org/wiki/Arachnus",
+   "https://www.metroidwiki.org/wiki/Omega_Metroid",
+   "https://www.metroidwiki.org/wiki/Gamma_Metroid",
+   "https://www.metroidwiki.org/wiki/Alpha_Metroid",
+   "https://www.metroidwiki.org/wiki/Zeta_Metroid",
+   "https://www.metroidwiki.org/wiki/Autoad",
+   "https://www.metroidwiki.org/wiki/Autrack",
+   "https://www.metroidwiki.org/wiki/Wallfire",
+   "https://www.metroidwiki.org/wiki/Metroid_(species)",
+   "https://www.metroidwiki.org/wiki/X_Parasite",
+   "https://www.metroidwiki.org/wiki/Hornoad",
+   "https://www.metroidwiki.org/wiki/Chozo",
+   "https://www.metroidwiki.org/wiki/Chozo_Statue",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation",
+   "https://www.metroidwiki.org/wiki/Ceres_Space_Colony",
+   "https://www.metroidwiki.org/wiki/Ridley",
+   "https://www.metroidwiki.org/wiki/Sector_1_(SRX)",
+   "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+   "https://www.metroidwiki.org/wiki/Power_Bomb",
+   "https://www.metroidwiki.org/wiki/Spring_Ball",
+   "https://www.metroidwiki.org/wiki/Space_Jump",
+   "https://www.metroidwiki.org/wiki/Screw_Attack",
+   "https://www.metroidwiki.org/wiki/Category:Chozo_Mechanoids",
+   "https://www.metroidwiki.org/wiki/Category:Metroid:_Samus_Returns",
+   "https://www.metroidwiki.org/wiki/Category:SR388",
+   "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://en.wikipedia.org/wiki/Metroid_II:_Return_of_Samus",
+   "https://metroiddatabase.com/old_site/m2/manual.php",
+   "https://metroiddatabase.com/old_site/m1/manual.php",
+   "https://www.nintendo.co.jp/3ds/a9aj/introduction/index.html",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/return-to-sr388",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/area-1-ancient-chozo-ruins",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/area-2-hydroelectric-station",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/area-3-aeion-mines",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/area-4-crystal-caverns",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/area-5-flooded-greenhouse",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/area-6-diggernauts-domain",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/area-7-chozo-laboratory",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/area-8-the-nest",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/the-last-metroid"
+  ]
+ }
+}

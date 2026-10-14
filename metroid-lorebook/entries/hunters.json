@@ -1,0 +1,351 @@
+{
+  "domain": "hunters",
+  "category": "Prime Hunters",
+  "entries": [
+    {
+      "comment": "Prime Hunters: The Alimbic Cluster incident",
+      "keys": [
+        "Alimbic Cluster",
+        "Alimbic Cluster incident",
+        "Tetra Galaxy",
+        "Prime Hunters",
+        "Metroid Prime Hunters",
+        "rival hunters",
+        "Alimbic System",
+        "Mission File 79109",
+        "Rogue Contract",
+        "Federation Empaths",
+        "Neural Thread"
+      ],
+      "secondary_keys": [],
+      "selective_logic": "AND_ANY",
+      "content": "The Alimbic Cluster incident took place after the Tallon IV mission and before Samus's work on Aether (Metroid Prime Hunters). The Galactic Federation, through its Federation Empaths, intercepted and translated a repeating telepathic Neural Thread originating in the Alimbic Cluster, a largely uncharted region of the Tetra Galaxy outside Federation control. It read: \"The secret to ULTIMATE POWER lies in the ALIMBIC CLUSTER.\" The Federation hired Samus Aran under a covert Rogue Contract (Mission File 79109): discover the meaning of the message, secure the power for Federation control, or failing that keep it secret or destroy it. The disposition of rival interests was presumed hostile.\n\nSix other bounty hunters had intercepted the same message: Kanden, Weavel, Spire, Noxus, Trace and Sylux. Samus found only the ruins of the extinct Alimbics across four sites: the Celestial Archives, Alinos, the Vesper Defense Outpost and Arcterra. Scanning Alimbic Datashades, she learned that a shapeshifting entity, Gorea, had destroyed the Alimbic civilization and that the Alimbics had bound it in the Seal Sphere aboard the Oubliette, a prison hidden in the Infinity Void. The message had almost certainly come from Gorea itself. Samus nevertheless gathered the eight Octoliths, each guarded by a Cretaphid or a Slench and contested by the rival hunters, who took an Octolith from her whenever they bested her. In the same ruins she recovered the six rivals' own affinity weapons: the Volt Driver and Shock Coil in the Celestial Archives, the Magmaul on Alinos, the Battlehammer on the Vesper Defense Outpost, and the Judicator and Imperialist on Arcterra. With all eight Octoliths in the Cannon Control Room on Alinos she fired the Alimbic Cannon and opened the way to the Oubliette.\n\nThe rivals reached the Oubliette first, meaning to destroy the threat, but shattered Gorea's confinement. Gorea rose, drained their energy and turned their own weapons against Samus. She crippled it, used the six affinity weapons to fulfill the Alimbic Prophecy, and took up the Alimbic Omega Cannon, the only weapon able to destroy Gorea's final form. The Oubliette exploded as the hunters fled in their ships. In a vision, three Alimbic spirits appeared before Samus, unarmored, and expressed their gratitude; she then returned to her gunship and departed. The \"Ultimate Power\" was gone, so the Federation's fallback objective was met.\n\nSamus defeated every one of the six rivals at least once during the incident and knows each by name, weapon and alternate form. Of the six, only Sylux is known to have kept pursuing her afterward.",
+      "constant": false,
+      "order": 100,
+      "category": "Prime Hunters",
+      "sources": [
+        "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters",
+        "https://www.metroidwiki.org/wiki/Alimbic_Cluster",
+        "https://www.metroidwiki.org/wiki/Tetra_Galaxy",
+        "https://en.wikipedia.org/wiki/Metroid_Prime_Hunters",
+        "https://www.metroidwiki.org/wiki/Gorea",
+        "https://www.metroidwiki.org/wiki/Octolith",
+        "https://www.metroidwiki.org/wiki/Affinity_Weapon",
+        "https://www.metroidwiki.org/wiki/Volt_Driver",
+        "https://www.metroidwiki.org/wiki/Battlehammer",
+        "https://www.metroidwiki.org/wiki/Magmaul",
+        "https://www.metroidwiki.org/wiki/Judicator",
+        "https://www.metroidwiki.org/wiki/Shock_Coil",
+        "https://www.metroidwiki.org/wiki/Imperialist"
+      ],
+      "notes": "Message wording and the Rogue Contract objectives are quoted on Metroid Wiki's Alimbic Cluster page from the in-game introduction (the wiki spells it ALEMBIC in the quote; ALIMBIC used here for consistency). Metroid Wiki's MPH plot says Gorea 'must have sent the false message', supporting 'almost certainly'. Affinity-weapon pickup sites are from the six weapon pages (Volt Driver and Shock Coil: Celestial Archives; Magmaul: Alinos after the Fire Spawn; Battlehammer: VDO Cortex CPU; Judicator: Arcterra; Imperialist: Arcterra Fault Line). No canon source records Samus's feelings; the ending vision is a 'salute' (Wikipedia), rendered as 'expressed their gratitude'. Timeline placement (between Prime and Echoes) is press/fan consensus."
+    },
+    {
+      "comment": "Prime Hunters: The Alimbics",
+      "keys": [
+        "Alimbics",
+        "Alimbic race",
+        "Alimbic people",
+        "Alimbic civilization",
+        "Alimbic Order",
+        "Order of Elders",
+        "Alimbic Elders",
+        "Almiiak",
+        "Arctherus",
+        "Essence Transference",
+        "Datashade",
+        "Datashades"
+      ],
+      "secondary_keys": [],
+      "selective_logic": "AND_ANY",
+      "content": "The Alimbics were a technologically advanced race of the Tetra Galaxy, beings of superior mental prowess, now extinct. Eons ago they colonized the region still called the Alimbic Cluster, settling the hot planet Alinos and the frigid Arcterra and building stations such as the Celestial Archives and the Vesper Defense Outpost. An Alimbic had three legs, two arms, a single eye and a floating head; a very durable exoskeleton let them endure both worlds' extremes. They could alter their form, and ultimately dissolve it, through a technique called Essence Transference.\n\nTheir records survive as Alimbic Datashades, blue packets of telepathic data scattered across the Cluster, invisible to the eye but readable with a Scan Visor and built to keep their integrity indefinitely. They tell the Alimbics' history. A peaceful tribal era ended when an alien invasion caught them unprepared; the survivors vowed never to be caught unprepared again and turned to military science, developing weapons, including bioweapons, that outpaced every enemy. General Almiiak led them to victory in the Tetra Border Wars, which his tomb inscription places two thousand years before it was written, long before the Alimbic War; he later formed the Alimbic Order of Elders, an eight-member council and the only government their records name, though another record says the eight Elders gathered to create the Order during the war against Gorea. The scientist Arctherus's discovery of Neurogenesis opened an age of peace, prosperity and advances in telepathy, telekinesis and extradimensional exploration. Their own scriptures admit that confidence became overconfidence: \"Our pride was a veil over our eyes.\"\n\nThen Gorea fell from the sky, first mistaken for a comet. The Alimbic War lasted three standard galactic months; death swept across their worlds, every weapon was turned back on its makers, and the Alimbics feared Gorea would consume the whole galaxy. Unable to destroy it, and with the death toll rising, the Order of Elders chose containment. They lured Gorea into a trap, bound it in the Seal Sphere, placed the sphere in the Oubliette and used the Alimbic Cannon to hurl that prison into the Infinity Void. To power the seal, the surviving citizens reduced themselves to pure telepathic energy through Essence Transference, and each of the eight Elders placed their essence in one of the eight Octoliths. The race vanished from the physical world, leaving its last recorded messages across the Cluster; the one in Echo Hall on Alinos reads, \"We depart from this place of death.\" They asked that their disappearance not be investigated and warned any who came after not to seek Gorea unless they could destroy it.\n\nOn Alinos's High Ground stand the sarcophagi of Almiiak and Arctherus and the Interment Chamber of warriors buried so their spirits could return to the planet's core. Samus read these records during the Alimbic Cluster incident (Metroid Prime Hunters), and when Gorea finally died, three Alimbic spirits appeared to her in a vision to express their gratitude.",
+      "constant": false,
+      "order": 100,
+      "category": "Prime Hunters",
+      "sources": [
+        "https://www.metroidwiki.org/wiki/Alimbic",
+        "https://www.metroidwiki.org/wiki/Alimbic_Lore",
+        "https://www.metroidwiki.org/wiki/Alimbic_Datashade",
+        "https://www.metroidwiki.org/wiki/Gorea",
+        "https://www.metroidwiki.org/wiki/Seal_Sphere",
+        "https://en.wikipedia.org/wiki/Metroid_Prime_Hunters"
+      ],
+      "notes": "Lore details (Tetra Border Wars, Almiiak, Arctherus, Neurogenesis, eight Elders, 'Our pride was a veil over our eyes') come from Metroid Wiki's Alimbic Lore page summarizing the in-game Datashade scans. The Battle Sarcophagus scan dates the Tetra Border Wars 'two thousand years ago' relative to the inscription, not to Samus's era; Alimbic War 09 separately says eight elders gathered to create the Order against Gorea, so both are given. No scan gives a casualty number; 'Death swept across our worlds' (Alimbic War 04) and 'As the death toll rose' (Sealing Gorea 02) are used instead. Metroid Wiki's Alimbic page calls them 'beings with superior mental prowess' rather than 'telepathic'; the Datashades, Essence Transference and the Neural Thread are all described as telepathic. Bare 'Alimbic' dropped as a key to stop this entry firing with every other entry in the domain."
+    },
+    {
+      "comment": "Prime Hunters: Gorea",
+      "keys": [
+        "Gorea",
+        "Alimbic War",
+        "Seal Sphere",
+        "Trocra"
+      ],
+      "secondary_keys": [],
+      "selective_logic": "AND_ANY",
+      "content": "Gorea is the shapeshifting entity that destroyed the Alimbic civilization and the true author of the message promising \"Ultimate Power\" in the Alimbic Cluster. Its origin is unknown. It arrived without warning, mistaken for a comet, and crashed on an Alimbic world, most likely Alinos. It landed as a vapor, then copied the Alimbics' cellular structure to take solid form, gaining an intellect equal to theirs. Gorea can change its shape, cellular structure and atomic structure at will, so it has no fixed form. It devours the life force of its prey and grows stronger, and it replicates its victims' cellular structure and absorbs their technology to turn it back on them. During the three-month Alimbic War every weapon the Alimbics used against it was turned against its makers, and nothing they had could destroy it. As the death toll rose, the Alimbic Order of Elders chose containment: Gorea was lured into a trap and bound by the Seal Sphere, which bonded to it when it tried to absorb the device, then sealed inside the Oubliette and hurled into the Infinity Void by the Alimbic Cannon. There it lay immobilized for thousands of years.\n\nAs its containment declined, Gorea's psychic power reached across dimensions as a repeating telepathic lure, drawing the galaxy's most dangerous hunters to the Cluster in the hope that one would free it. When the six rival hunters forced their way into the Oubliette and broke its confinement, Gorea rose, drained their energy and absorbed their weapons. In its first form it stood as an armored giant whose arms wielded the hunters' own weapons, cycling from one to the next. Its shoulders were its weak points, each vulnerable to the weapon opposed to the one Gorea was then wielding: the Magmaul against its Judicator form, the Shock Coil against its Imperialist form, the Imperialist against its Shock Coil form. With both arms destroyed it hung inverted beneath the freed Seal Sphere, lashing with a tentacle that chased Samus and lifting Trocra from the chamber's edge with psionic tentacles to hurl as living bombs. When the Alimbic Prophecy was fulfilled, Gorea took a second, faster and tougher form in a lower chamber, immune to every weapon except the Alimbic Omega Cannon; six glowing points on its body went dark one by one under that weapon's fire until it was destroyed and the Oubliette exploded.\n\nSamus is the only being ever to kill Gorea (Metroid Prime Hunters). She did so despite the Alimbics' final wish that no one seek Gorea without the means to destroy it, having read their records and gone on regardless.",
+      "constant": false,
+      "order": 100,
+      "category": "Prime Hunters",
+      "sources": [
+        "https://www.metroidwiki.org/wiki/Gorea",
+        "https://www.metroidwiki.org/wiki/Alimbic_Lore",
+        "https://www.metroidwiki.org/wiki/Seal_Sphere",
+        "https://www.metroidwiki.org/wiki/Oubliette",
+        "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters"
+      ],
+      "notes": "Shoulder rule corrected per Metroid Wiki's Gorea page: arms are destroyed with the Magmaul, Shock Coil and Imperialist against the Judicator, Imperialist and Shock Coil forms respectively. 'Containment declined' is Metroid Wiki's own wording ('the containment system in place on Gorea eventually declined enough'). The claim that the Omega Cannon failed during the Alimbic War is wiki editorial, not in any scan, and is removed; the scans say only that no weapon could defeat Gorea. 'Thousands' slaughtered appears only as wiki prose and is softened to 'as the death toll rose' (Sealing Gorea 02). The Metroid/X Parasite comparison framing (wiki analysis) is dropped; the underlying abilities are kept. Metroid Wiki mentions 'an additional Seal Sphere' immobilizing Gorea; the Seal Sphere page does not corroborate two spheres, so only one is described. The alternate ending in which Samus dies is omitted."
+    },
+    {
+      "comment": "Prime Hunters: Alimbic Cluster locations",
+      "keys": [
+        "Celestial Archives",
+        "Alinos",
+        "Arcterra",
+        "Vesper Defense Outpost",
+        "VDO",
+        "Alimbic ruins",
+        "Echo Hall",
+        "Sic Transit",
+        "Cannon Control Room"
+      ],
+      "secondary_keys": [],
+      "selective_logic": "AND_ANY",
+      "content": "The Alimbic Cluster, in the Tetra Galaxy beyond Federation space, holds four sites that Samus explored during the incident there (Metroid Prime Hunters). Each hides two Octoliths, so she had to visit each at least twice.\n\nCelestial Archives: an Alimbic space station built as a vast data-storage facility to keep their knowledge safe, filled with automated defenses. It was Samus's first stop, and she recovered the Volt Driver and the Shock Coil there. Its Docking Bay holds the records of the Alimbic Order and the Octoliths, and its Celestial Gateway and Synergy Core carry verses of the Alimbic Prophecy. Kanden, the first rival she met, ambushed her here, and the first Stronghold Void she entered lay within the station.\n\nAlinos: a rocky planet with a considerable volume of magma flowing beneath its crust, settled by the Alimbics, who harnessed its heat. Its ultra-high temperatures once powered an Alimbic city (per the manual), and thermal-energy machines still dot the surface; one of the Alimbics' last recorded messages, left in Echo Hall, calls it a place of death. The High Ground holds the sarcophagi of General Almiiak and the scientist Arctherus and the Interment Chamber of their warriors, and it is where Spire first confronted Samus; the Alimbic Gardens and Council Chamber hold accounts of Gorea; the Cannon Control Room houses the Alimbic Cannon. Weavel ambushed Samus at the top of Echo Hall, and the Fire Spawn lives in the magma; Samus took the Magmaul after defeating it.\n\nArcterra: a bitterly cold yet habitable planet settled by the Alimbics, where the Arctic Spawn and other cold-adapted creatures survive among Alimbic ruins. The Sanctorus, Fault Line and Subterranean chambers preserve the history of the Alimbic War and the Seal Sphere; the Ice Hive records their advances in telepathy and telekinesis. Samus found the Judicator here and the Imperialist in the Fault Line. Noxus and Trace were both first met in Sic Transit: Noxus confronted her directly while Trace sniped from a perch at the back of the same chamber.\n\nVesper Defense Outpost (VDO): a station built during the Alimbics' brief militant period after the invasion that ended their tribal era; it held no cultural significance for them. Kept at subzero temperatures and deserted since their extinction, its automated systems attack anyone who approaches. Its Weapons Complex, Fuel Stack, Stasis Bunker and Compression Chamber preserve the Alimbics' accounts of the Oubliette, the Infinity Void and the Octolith guardians. Samus recovered the Battlehammer in its Cortex CPU, Sylux first confronted her in the Weapons Complex, and two Stronghold Portals here lead to Octoliths.\n\nThe fifth site, the Oubliette, is Gorea's prison in the Infinity Void and can be reached only by the Alimbic Cannon.",
+      "constant": false,
+      "order": 100,
+      "category": "Prime Hunters",
+      "sources": [
+        "https://www.metroidwiki.org/wiki/Celestial_Archives",
+        "https://www.metroidwiki.org/wiki/Alinos",
+        "https://www.metroidwiki.org/wiki/High_Ground",
+        "https://www.metroidwiki.org/wiki/Arcterra",
+        "https://www.metroidwiki.org/wiki/Vesper_Defense_Outpost",
+        "https://www.metroidwiki.org/wiki/Sic_Transit",
+        "https://www.metroidwiki.org/wiki/Alimbic_Lore",
+        "https://www.metroidwiki.org/wiki/Alimbic_Cluster",
+        "https://www.metroidwiki.org/wiki/Sylux",
+        "https://www.metroidwiki.org/wiki/Battlehammer",
+        "https://www.metroidwiki.org/wiki/Magmaul",
+        "https://www.metroidwiki.org/wiki/Imperialist",
+        "https://omegametroid.com/?p=14836"
+      ],
+      "notes": "Metroid Wiki location pages are stubs; room names come from the lore-scan locations on the Alimbic Lore page. Hunter encounter sites: Spire at the High Ground (Metroid Wiki High Ground page); Noxus and Trace first encountered in Sic Transit (Metroid Wiki Sic Transit page, with the Omega Metroid walkthrough placing Trace on a perch at the back of that room); Weavel at the top of Echo Hall on Alinos (walkthrough); Sylux at the VDO Weapons Complex (Metroid Wiki Sylux page). Kanden at the Celestial Archives is an inference from the walkthrough calling him the first hunter encounter and Metroid Wiki calling the Archives the first area; no page names his room. 'Homeworld' dropped: Metroid Wiki says the Alimbics colonized and settled Alinos and Arcterra. Generic keys 'High Ground' and 'Weapons Complex' removed."
+    },
+    {
+      "comment": "Prime Hunters: Octoliths and the Alimbic Cannon",
+      "keys": [
+        "Octolith",
+        "Octoliths",
+        "Alimbic Cannon",
+        "Cretaphid",
+        "Cretaphids",
+        "Slench",
+        "Slenches",
+        "Stronghold Void",
+        "Stronghold Voids",
+        "Stronghold Portal",
+        "Alimbic Artifact",
+        "Alimbic Artifacts"
+      ],
+      "secondary_keys": [],
+      "selective_logic": "AND_ANY",
+      "content": "The Octoliths are eight large crystals the Alimbics created as the keys to Gorea's prison. Each holds the transferred essence of one of the eight Alimbic Elders and carries unique coordinates, frequencies and codes needed to operate the Alimbic Cannon; without all eight, neither the Infinity Void nor the Oubliette can be reached. The Alimbic Order scattered them across four heavily defended territories, the Celestial Archives, Alinos, the Vesper Defense Outpost and Arcterra, with no more than two on any one planet or station. Each was hidden in a Stronghold Void, a concealed chamber holding the Alimbics' most sacred relics, accessible only by extraordinary means: a Stronghold Portal controlled by three Alimbic Artifacts and guarded by the Alimbics' most formidable cybernetic security systems. \"Beware our guardians,\" their records warn.\n\nThose guardians are the Cretaphid and the Slench, each built in four increasingly advanced versions. A Cretaphid is a tall defense column split into three rotating sections studded with spots that fire homing plasma or lasers; a spot can be destroyed only while it glows blue, and once all are gone a central crystal rises from the top as the only vulnerable point. Later versions mix lasers and plasma, and the fourth roams its chamber. A Slench is a giant mechanical eye anchored to a wall or ceiling by three tentacle-like synapses that control its energy blasters; a forcefield shields its body until the synapses are damaged, after which it detaches, floats, fires and rams, moving faster the more it is hurt. Later Slenches fire superheated magma, high-voltage bolts whose electromagnetic pulse disrupts the Combat Visor, or supercooled plasma.\n\nThe Alimbic Cannon stands in the Cannon Control Room on Alinos. It fires polarized antimatter faster than light to tear a dimensional rift, the Infinity Void, between this dimension and a parallel one of formless antimatter, emitting blue rings as it works. The Alimbics used it to hurl the Oubliette, with Gorea sealed inside, into that void, then sealed the rift. Gathering all eight Octoliths in the control room reactivates it.\n\nDuring the Alimbic Cluster incident (Metroid Prime Hunters) Samus recovered all eight despite the Alimbics' warnings; each one brought her a telepathic message from the Alimbic spirits. The rival hunters sought them too, and whenever one of them defeated her he took an Octolith that she had to win back by beating him again. With the cannon restored she opened the way to the Oubliette and to Gorea.",
+      "constant": false,
+      "order": 100,
+      "category": "Prime Hunters",
+      "sources": [
+        "https://www.metroidwiki.org/wiki/Octolith",
+        "https://www.metroidwiki.org/wiki/Alimbic_Cannon",
+        "https://www.metroidwiki.org/wiki/Infinity_Void",
+        "https://www.metroidwiki.org/wiki/Cretaphid",
+        "https://www.metroidwiki.org/wiki/Slench",
+        "https://www.metroidwiki.org/wiki/Alimbic_Lore"
+      ],
+      "notes": "Metroid Wiki's Octolith stub says they were hidden 'inside the Infinity Void using teleporters'; the lore scans instead describe Stronghold Voids reached by portals, which is what is used here. The Stronghold Void scan itself says 'accessible only by extraordinary means' and 'our most formidable cybernetic security systems', so 'cybernetic security' is scan-supported. Metroid Wiki's Slench page says the three synapses 'control the Energy Blasters', so that clause is kept. The Alimbic Cannon's location comes from the lore-scan locations (Alimbic Cannon 01-04 in the Alinos Control Room); 'dimensional rift known as the Infinity Void' is the Alimbic Cannon 01 scan's wording. Singular 'Alimbic Artifact' added as a key."
+    },
+    {
+      "comment": "Prime Hunters: The Oubliette, the Seal Sphere and the Alimbic Omega Cannon",
+      "keys": [
+        "Oubliette",
+        "Seal Sphere",
+        "Infinity Void",
+        "Alimbic Omega Cannon",
+        "Omega Cannon",
+        "Alimbic Prophecy",
+        "Gorea's prison"
+      ],
+      "secondary_keys": [
+        "Oubliette",
+        "Seal Sphere",
+        "Infinity Void",
+        "Alimbic Omega Cannon",
+        "Alimbic Prophecy",
+        "Gorea",
+        "Alimbic",
+        "Alimbics"
+      ],
+      "selective_logic": "AND_ANY",
+      "content": "The Oubliette is the Alimbic station built to hold Gorea forever. The Alimbics sent it into the Infinity Void, a parallel dimension of formless antimatter outside this galaxy that only the Alimbic Cannon can open, so that Gorea could neither escape nor be freed by accident. Its entrance halls hold Alimbic Datashades recording how Gorea was lured into a trap, sealed and sent away.\n\nThe Seal Sphere is the device at the heart of the prison. After every weapon failed, the Alimbic Order of Elders built it from the spirits of their surviving citizens, who reduced themselves to pure telepathic energy through Essence Transference. The sphere bonded to Gorea when the creature tried to absorb it, and it draws on both the Alimbics' combined psychic energy and Gorea's own captive psychic power, so that Gorea cannot escape while ensnared. It rested on the central island of the Oubliette's main chamber, ringed by a lethal pool. When the six rival hunters forced their way in ahead of Samus, meaning to destroy the threat, they broke Gorea's confinement instead and were drained. In the battle that followed Samus destroyed Gorea's arms, the sphere rose free, and she wounded it with whichever of the hunters' weapons Gorea was then vulnerable to, which weakened Gorea at the cost of the Alimbic presence within the sphere.\n\nThe Alimbic Prophecy, left in eight verses across the four sites' gateways and other chambers, foretold that the Alimbic power would materialize when six frequencies shimmered in a divine spectral order: Yellow Lightning (the Volt Driver), then the Greenwood (Battlehammer), an Orange Blaze (Magmaul), Blue Smoke (Shock Coil), Violet Crystal (Judicator) and a Red Stain (Imperialist). Striking six wall devices in the main chamber in that order with those weapons carried Samus and Gorea into a lower chamber where the Alimbic Omega Cannon waited at the bottom.\n\nThe Alimbic Omega Cannon was built by the Alimbics and left in the Oubliette, apparently as a last resort should the seal fail; their surviving records never mention it, saying only that no weapon of theirs could defeat Gorea. It has no ammunition limit, does not harm its wielder, and was the only thing that could hurt Gorea's final form; its shots blacked out the six glowing points on Gorea's body until the creature died and the Oubliette tore itself apart. Samus wielded it once, during the Alimbic Cluster incident (Metroid Prime Hunters), and it presumably perished with the Oubliette. It is a different weapon from the Omega Cannon she later gained temporarily from E.M.M.I. Central Units on ZDR (Metroid Dread).",
+      "constant": false,
+      "order": 100,
+      "category": "Prime Hunters",
+      "sources": [
+        "https://www.metroidwiki.org/wiki/Oubliette",
+        "https://www.metroidwiki.org/wiki/Seal_Sphere",
+        "https://www.metroidwiki.org/wiki/Omega_Cannon",
+        "https://www.metroidwiki.org/wiki/Infinity_Void",
+        "https://www.metroidwiki.org/wiki/Alimbic_Lore",
+        "https://www.metroidwiki.org/wiki/Gorea",
+        "https://en.wikipedia.org/wiki/Metroid_Prime_Hunters"
+      ],
+      "notes": "Prophecy colors/weapons from Metroid Wiki's Alimbic Lore and Gorea pages. The prophecy is paraphrased rather than quoted to avoid the word 'sequence'. Metroid Wiki's Omega Cannon page says only that the Alimbics created it and placed it in the Oubliette; no scan mentions it, so the claim that it failed during the Alimbic War is removed. The Seal Sphere page says Samus's damage reduced Gorea's power 'but eliminating the Alimbic presence within', and that the sphere was 'presumably destroyed'. Entry made selective so that bare 'Omega Cannon' fires only alongside a Hunters context word (Gorea, Oubliette, Alimbic); the other primary keys are repeated as secondaries so they still fire on their own. 'Colored Panels' dropped as a generic key. The Dread Omega Cannon is mentioned in one sentence only; the weapons domain owns it."
+    },
+    {
+      "comment": "Prime Hunters: Weavel",
+      "keys": [
+        "Weavel",
+        "Battlehammer",
+        "Halfturret",
+        "Pirate cyborg",
+        "cyborg Pirate"
+      ],
+      "secondary_keys": [],
+      "selective_logic": "AND_ANY",
+      "content": "Weavel is a Space Pirate turned cyborg and one of the six rival hunters drawn to the Alimbic Cluster (Metroid Prime Hunters). Before his transformation he served in a Space Pirate special unit, and the official site calls him a once-powerful Space Pirate General. He was critically wounded in a past clash between the Space Pirates and Samus Aran; the manual says he was badly injured in a past battle with her. Only his brain and spinal cord remained functional, and they were fused to a mobile life-support system (per the official site); the manual describes his body as reconstructed and fused with a Power Suit. The result is a formidable and ferocious warrior. Like the other hunters he came for the Ultimate Power; whether he would have delivered it to the Space Pirates or kept it for himself is unknown.\n\nHis weapon of choice is the Battlehammer, a heavy-duty repeating weapon powered by a miniature nuclear reactor whose rounds have a lethal blast radius; the records of the incident advise keeping one's distance from him. In Weavel's hands its rounds explode on impact for additional damage, with markedly larger blasts than when anyone else fires it. His cybernetic body can split into the Halfturret: the upper half walks on its arms while the detached legs remain as a turret carrying powerful projectile weapons, and both halves attack independently. He is most vulnerable to Kanden's Volt Driver.\n\nIn the Cluster, Weavel ambushed Samus at the top of Echo Hall on Alinos and lost to her. He was among the six who broke into the Oubliette ahead of her, was drained by Gorea, and fled in his ship when Gorea died. He has no recorded appearance after the incident.\n\nSamus is the cause of his condition: she is the reason there is more machine than Pirate left of him, and the Alimbic Cluster was at least their second clash. He knows her as the hunter who nearly killed him; she knows him as a Pirate she once critically wounded.",
+      "constant": false,
+      "order": 100,
+      "category": "Prime Hunters",
+      "sources": [
+        "https://www.metroidwiki.org/wiki/Weavel",
+        "https://www.metroidwiki.org/wiki/Battlehammer",
+        "https://www.metroidwiki.org/wiki/Affinity_Weapon",
+        "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters",
+        "https://omegametroid.com/?p=14836"
+      ],
+      "notes": "Rank conflict: Metroid Wiki cites both 'special unit' (manual) and 'Once a powerful Space Pirate General' (official site); both are given. 'Left for dead' (Smash Bros. Brawl trophy) replaced with the official site's 'critically wounded' and the manual's 'badly injured'. Battlehammer differences from the Battlehammer page (manual: 'it explodes, causing additional damage'; wiki: 'explosions will be noticeably larger'). Weakness to the Volt Driver inferred from Metroid Wiki's Affinity Weapon opposing-weapon table. Encounter site from the Omega Metroid walkthrough."
+    },
+    {
+      "comment": "Prime Hunters: Kanden",
+      "keys": [
+        "Kanden",
+        "Enoema",
+        "Volt Driver",
+        "Stinglarva",
+        "failed supersoldier"
+      ],
+      "secondary_keys": [],
+      "selective_logic": "AND_ANY",
+      "content": "Kanden is an Enoema and the product of a failed attempt to engineer the ultimate soldier, immortal and relentless (per the manual); he gives his origin only as \"a sinister laboratory.\" The stress of the neural combat encoding forced on his still-mortal brain was more than it could handle (per the official site), leaving a ferocious, deadly and dangerously unpredictable being, unbound by morals or conscience and driven by an instinct to hunt. He broke out of the laboratory and killed those responsible for his neurological alterations and surgical enhancements, then made himself a bounty hunter to prove he is the finest in the galaxy. The message from the Alimbic Cluster was his chance: he came for the Ultimate Power like the rest.\n\nHis weapon is the Volt Driver, an electrically charged weapon. In Kanden's hands its shots home in slightly on a target and briefly distort the Combat Visor on impact, though they travel more slowly than the same weapon fired by anyone else. His own electromagnetic field carries voltage comparable to lightning and can likewise disrupt a visor. His alternate form is the Stinglarva, a serpentine, segmented insect bioengineered from predatory insects; its tail detaches, regenerates, homes in on a target and explodes, and its sting is dangerous to anyone who comes close. The form handles sharp turns well and suits evasion. He is most vulnerable to Weavel's Battlehammer.\n\nKanden was the first rival Samus met during the Alimbic Cluster incident (Metroid Prime Hunters), ambushing her in the Celestial Archives, where she beat him. He reached the Oubliette with the other hunters, was drained by Gorea and fled in his ship when Gorea died. He has no recorded appearance afterward.\n\nTo Samus he is one of six rivals she has fought and beaten; nothing in the record suggests any dealings between them before or after the Cluster.",
+      "constant": false,
+      "order": 100,
+      "category": "Prime Hunters",
+      "sources": [
+        "https://www.metroidwiki.org/wiki/Kanden",
+        "https://www.metroidwiki.org/wiki/Volt_Driver",
+        "https://www.metroidwiki.org/wiki/Affinity_Weapon",
+        "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters",
+        "https://www.metroidwiki.org/wiki/Celestial_Archives",
+        "https://omegametroid.com/?p=14836"
+      ],
+      "notes": "The Metroid Wiki Enoema page returned 404; species name taken from the Kanden infobox and introduction ('Species: Enoema'). Manual wording 'immortal and relentless' added. Metroid Wiki's Kanden page gives no encounter location; the Celestial Archives placement is an inference from the Omega Metroid walkthrough ('our first Hunter encounter') plus Metroid Wiki calling the Archives the first area Samus visits and the Volt Driver being found there. The Smash trophy is non-canon and unused. The 'Enoema Living Weapons project' name appears only in fan-wiki snippets and is omitted."
+    },
+    {
+      "comment": "Prime Hunters: Spire",
+      "keys": [
+        "Spire",
+        "Diamont",
+        "Diamonts",
+        "Magmaul",
+        "Dialanche",
+        "Mondreus"
+      ],
+      "secondary_keys": [
+        "Diamont",
+        "Diamonts",
+        "bounty hunter",
+        "Magmaul",
+        "Dialanche",
+        "Mondreus",
+        "Alimbic",
+        "Alimbics",
+        "Alinos"
+      ],
+      "selective_logic": "AND_ANY",
+      "content": "Spire is a Diamont, a member of an ancient silicon-based race from the planet Mondreus whose bodies are composed of organic rock containing molten ferrous compounds normally found only in a planet's core. He is believed to be the sole surviving Diamont, and he took up bounty hunting to solve the mystery of his people's disappearance, searching the galaxy for any clue to where they went or what became of them. The message from the Alimbic Cluster drew him because he hoped the Alimbics' source of ultimate power would also explain his own race's fate.\n\nHe withstands extreme heat and is the only one of the hunters who can walk in lava. His weapon is the Magmaul, made by the Diamonts and handed down through generations to him; it lobs cohesive bursts of superheated magma, and in Spire's hands its blasts are far more devastating, though the splash can burn him as well. He can transform at will, without any technology, into the Dialanche, a hypercondensed ferrous orb bristling with spikes that rolls at high speed over terrain and climbs flat surfaces, and which extends two retractable titanium limbs to spin and batter enemies; this appears to be a natural Diamont ability. He is most vulnerable to the cold of Noxus's Judicator.\n\nSamus met and defeated Spire on the High Ground of Alinos, among the Alimbic sarcophagi, during the Alimbic Cluster incident (Metroid Prime Hunters). He was among the six who broke into the Oubliette ahead of her, was drained by Gorea and escaped in his ship when Gorea died. His search for the Diamonts has no recorded resolution, and he has no recorded appearance after the incident.\n\nSamus knows him as a rival she has beaten; his quest for his lost people echoes nothing she has said aloud, though she herself was raised by a race, the Chozo, that has all but vanished.",
+      "constant": false,
+      "order": 100,
+      "category": "Prime Hunters",
+      "sources": [
+        "https://www.metroidwiki.org/wiki/Spire",
+        "https://www.metroidwiki.org/wiki/Diamont",
+        "https://www.metroidwiki.org/wiki/Magmaul",
+        "https://www.metroidwiki.org/wiki/High_Ground",
+        "https://www.metroidwiki.org/wiki/Affinity_Weapon"
+      ],
+      "notes": "'Spire' is a forbidden bare key, so the entry is selective: it fires only when a primary key co-occurs with a disambiguating secondary key; 'rock', 'lava' and bare 'hunter' removed from the secondary list to stop misfires on ordinary prose. 'Organic rock' is the official site's wording (Metroid Wiki's own prose says 'hardened rock'). Encounter site confirmed by Metroid Wiki's High Ground page ('This room is where Spire is first encountered'). Spire's Magmaul differences from the Magmaul page ('blast radius is even more devastating', 'the shooter can be burned by the splash'). Weakness to the Judicator inferred from the Affinity Weapon opposing-weapon table."
+    },
+    {
+      "comment": "Prime Hunters: Noxus",
+      "keys": [
+        "Noxus",
+        "Vhozon",
+        "Vhozons",
+        "Judicator",
+        "Vhoscythe",
+        "Vho"
+      ],
+      "secondary_keys": [],
+      "selective_logic": "AND_ANY",
+      "content": "Noxus is a Vhozon from the cold planet Vho. The Vhozon are a proud, reclusive race of the galaxy's outer rim; little is known of their culture beyond what Noxus himself shows. They are purple with rounded features, their skin has extraordinary insulating properties developed in a frigid climate, and they can manipulate ice to some degree. The official account calls Noxus a spiritual being who walks a harsh, righteous path. He became a bounty hunter to bring justice to the galaxy's criminals and evildoers and to keep the balance of order from collapsing into instability and chaos. He pursued the Ultimate Power of the Alimbic Cluster so that it would not fall into the hands of lawbreakers or the unworthy, which in practice meant ensuring that no one else obtained it.\n\nHis weapon is the Judicator, which fires a beam of supercooled plasma that freezes what it strikes; in Noxus's hands it throws up a short-range wall of ice that freezes anything in its path. His alternate form is the Vhoscythe, an evolutionary defense mechanism of the Vhozon rather than a technological enhancement, serving both attack and defense. He is most vulnerable to the heat of Spire's Magmaul.\n\nDuring the Alimbic Cluster incident (Metroid Prime Hunters) Noxus confronted Samus in Sic Transit on Arcterra, with Trace sniping from the back of the same chamber, and lost to her. He was among the six who broke into the Oubliette ahead of her, was drained by Gorea, which then wielded the hunters' weapons against Samus, and fled in his ship when Gorea died. He has no recorded appearance afterward.\n\nOf the six rivals, his stated aim came closest to Samus's own orders, which were to keep the power out of hostile hands or destroy it; he nonetheless treated her as one more competitor and fought her.",
+      "constant": false,
+      "order": 100,
+      "category": "Prime Hunters",
+      "sources": [
+        "https://www.metroidwiki.org/wiki/Noxus",
+        "https://www.metroidwiki.org/wiki/Vhozon",
+        "https://www.metroidwiki.org/wiki/Judicator",
+        "https://www.metroidwiki.org/wiki/Sic_Transit",
+        "https://www.metroidwiki.org/wiki/Affinity_Weapon",
+        "https://omegametroid.com/?p=14836"
+      ],
+      "notes": "Encounter site from Metroid Wiki's Sic Transit page ('Trace and Noxus are first encountered here', on Arcterra) and the Omega Metroid walkthrough. Noxus's Judicator effect from Metroid Wiki's Judicator page ('a short range ice wall that freezes anything in its path'). 'Proud, reclusive' matches the manual; Metroid Wiki's own wording is 'proud and elitist'. Weakness to the Magmaul inferred from the Affinity Weapon table. The claim that Gorea used the Judicator's freezing effect appears only in a fan-wiki snippet and is generalized to 'the hunters' weapons'."
+    },
+    {
+      "comment": "Prime Hunters: Trace",
+      "keys": [
+        "Trace",
+        "Kriken",
+        "Krikens",
+        "Kriken Empire",
+        "Imperialist",
+        "Triskelion"
+      ],
+      "secondary_keys": [
+        "Kriken",
+        "Krikens",
+        "Kriken Empire",
+        "bounty hunter",
+        "Imperialist",
+        "Triskelion",
+        "Alimbic",
+        "Alimbics",
+        "Arcterra"
+      ],
+      "selective_logic": "AND_ANY",
+      "content": "Trace is a Kriken, a vicious race that ranks among the most hated and feared in the galaxy for its ruthless imperialism; the Kriken Empire covers much of the galaxy. When a Kriken reaches a certain age its clan exiles it as a rite of passage, and the exile is not accepted back until it has expanded the Empire. Trace is such an exile, roaming the galaxy to find planets for the Kriken to conquer. The quest for ultimate power consumes him (per the manual): his every thought is bent toward bringing supremacy to the Krikens and honor to himself, and he saw the Alimbic Cluster's promise as the way to both.\n\nHis weapon is the Imperialist, a long-range quantum cascade laser with precision targeting that suits the sniper's role he prefers; while he holds still with it he can cloak himself and vanish from sight. His alternate form is the Triskelion, a three-legged war machine with a powerful lunge attack into which sophisticated Kriken military biotechnology lets him biomorph; it dashes at damaging speeds and can likewise cloak while motionless. His slender exoskeleton may not be as durable as it appears, which may be why he fights from a distance. He is most vulnerable to Sylux's Shock Coil.\n\nDuring the Alimbic Cluster incident (Metroid Prime Hunters) Trace perched at the back of Sic Transit on Arcterra, above the fight between Samus and Noxus, and sniped at her until she beat him. He was among the six who broke into the Oubliette ahead of her, was drained by Gorea and fled in his ship when Gorea died. He has no recorded appearance afterward.\n\nTo Samus he is a rival she has beaten and a scout for an empire that conquers worlds; nothing in the record shows any contact between them outside the Cluster.",
+      "constant": false,
+      "order": 100,
+      "category": "Prime Hunters",
+      "sources": [
+        "https://www.metroidwiki.org/wiki/Trace",
+        "https://www.metroidwiki.org/wiki/Kriken",
+        "https://www.metroidwiki.org/wiki/Triskelion",
+        "https://www.metroidwiki.org/wiki/Imperialist",
+        "https://www.metroidwiki.org/wiki/Sic_Transit",
+        "https://www.metroidwiki.org/wiki/Affinity_Weapon",
+        "https://omegametroid.com/?p=14836"
+      ],
+      "notes": "'Trace' is a forbidden bare key, so the entry is selective; bare 'hunter', 'sniper' and 'exile' removed from the secondary list to stop misfires on ordinary prose. 'Heroic status' removed: the manual says only 'supremacy to the Krikens and honor to himself'. Triskelion wording follows the logbook ('biotechnology that allows Trace to biomorph into a three-legged war machine with a powerful lunge attack'). Exoskeleton line follows the logbook ('may not be as durable as it appears'). Trace's homeworld is not named by any source consulted and is omitted. Encounter site from Metroid Wiki's Sic Transit page and the Omega Metroid walkthrough ('perched at the back of the map'). Weakness to the Shock Coil inferred from the Affinity Weapon table."
+    }
+  ]
+}

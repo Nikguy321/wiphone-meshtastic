@@ -1,0 +1,288 @@
+{
+ "run": "wf_7ead2614-160",
+ "label": "verify:federation-force",
+ "result": {
+  "overall": "Research constraints: WebSearch was unavailable for this run (per-turn budget already exhausted), so every check below is WebFetch-only (about 45 fetches, ~30 successful). Wikitroid/nintendo.fandom (402), metroid.wiki.gg (401), TV Tropes, StrategyWiki, speedrun.com, GodisaGeek (403), GamesRadar, VideoGamer, de.wikipedia (404), and fr/it Wikipedia (no plot section) were unreachable or empty. Metroid Wiki still has only the short game page (placing the game 'between Metroid II and Super Metroid', which traces to a 2015 Kotaku Tanabe quote); its Samus Aran, Metroid Egg and category pages contain nothing on this title.\n\nBiggest findings: (1) The 'Master Brain' the drafter could not verify IS attested in Nintendo Life's official-series recap guide: the Doomseye is 'controlled by an entity known as Master Brain'; after giant Samus is defeated she is 'buried under rubble', the Force then 'confronts Master Brain' and Samus returns and 'proves to be pivotal in the eventual defeat of Master Brain'. All five story entries end the campaign with Samus's defeat and give the Marines the decisive win; entries 1 and 5 state this explicitly and need correcting. (2) English Wikipedia's actual wording is that the Force 'is sucked into the vacuum of space BEFORE the Fleet destroys the Doomseye', so the drafts' 'the blast hurled/threw the Force into space' (entries 1 and 5) is contradicted. (3) The Metroid-egg mission is 'M-17: Infestation' and Wikipedia confirms the egg was 'stolen ... from the Space Pirates'. (4) 'Project Golem', 'sensor bombs', and 'captured for study' have no support in any reachable source. (5) Verified as correct: Cosmic Year 20X6, Operation Golem, Mechs based on Samus's Power Suit (JP Wikipedia, Shinesparkers, Nintendo Life recap), General Alex Miles (EN/ES Wikipedia) = Commander Alex (JP), Aegis orbiting Excelcion, Mech specs 4.3 m / 3.2 t / 27.2 km/h and back-of-torso entry, Lone Wolf doubling attack and halving damage, up to three drones, Blast Ball 3v3, ~20-year-old meteorite on Excelcion, Orbs on Bion, Talvania's machine civilization leaving centuries ago, Sokeen enlarged and controlled by the Pirates' Hugenate Beam, Samus destroying all but one missile base alone, Goliath stopped by her gunship's missiles, giant Samus's Morph Ball/Bomb/Boost/Spider/Power Bomb attacks, Delano 7 tailing Samus in Corruption's 100% ending, and the Prime 4 claims (Sylux-led Pirate attacks on Federation research facilities; Metroids that fuse with and control hosts). Do NOT add the 'moon-sized Doomseye with a planet-destroying laser' text from Nintendo Life's 2017 feature: it is a faux 'PIRATE DATA' log in a comedic retrospective (the game has no scanning or logs, per Tanabe in Kotaku). Note for sibling entries: English Wikipedia places Metroid Prime 4: Beyond between Other M and Fusion, not directly after Federation Force. Key hygiene across the set: bare 'Bermuda' (entries 1 and 4) is a real-world word; bare 'Mech'/'Mechs' (entry 2) are generic; 'Federation Force' + 'Operation Golem' + 'Project Golem' trigger entries 1 and 2 together (~870 words).",
+  "reports": [
+   {
+    "entry_comment": "Federation Force: The Bermuda System incident (Federation Force events)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "The surviving fleet then destroyed the warship; the blast hurled the Force into open space, where Samus recovered them",
+      "problem": "English Wikipedia's plot (the entry's own source) says the opposite order: 'the Force is sucked into the vacuum of space before the Fleet destroys the Doomseye'. Spanish Wikipedia likewise has Samus rescue them before the fleet destroys the ship. The Force was not thrown out by the destruction blast.",
+      "correction": "During the final battle aboard the Doomseye the Marines were sucked out into open space; Samus picked them up in her gunship and the surviving fleet then destroyed the warship.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+     },
+     {
+      "severity": "error",
+      "claim": "The Force beat her down, which returned her to normal size and collapsed the Doomseye's shield. The surviving fleet then destroyed the warship",
+      "problem": "This makes Samus's defeat the climax and omits the Pirate entity running the ship. Nintendo Life's series recap: Samus finds the Doomseye 'controlled by an entity known as Master Brain'; after her defeat she 'is defeated and subsequently buried under rubble'; the Force then 'confronts Master Brain' and Samus returns and 'proves to be pivotal in the eventual defeat of Master Brain'. The drafter's note that no Pirate leader could be verified is now superseded.",
+      "correction": "After beating the giant Samus (who was buried under rubble), the Force pressed on to confront the Master Brain, the entity controlling the Doomseye; Samus recovered and returned to help, and was key to its defeat. Keep the Wikipedia detail that her defeat restored her size and brought down the force field, but do not end the fight there.",
+      "source_url": "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond"
+     },
+     {
+      "severity": "nit",
+      "claim": "a giant armored creature",
+      "problem": "JP Wikipedia describes the Goliath only as a 'massive creature' on Bion stopped by a starship missile barrage; 'armored' is unsupported.",
+      "correction": "'a giant creature' (or name it Goliath, as JP Wikipedia does).",
+      "source_url": "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9"
+     },
+     {
+      "severity": "nit",
+      "claim": "fought soon after the Phazon crisis",
+      "problem": "Nintendo Life and NWR say directly after Corruption and the game itself gives Cosmic Year 20X6, but Shinesparkers' synopsis says 'Several years have passed since Samus Aran eradicated Phazon'. No official source fixes the gap.",
+      "correction": "Use neutral wording: 'fought after the Phazon crisis and the destruction of Phaaze'.",
+      "source_url": "https://shinesparkers.net/games/metroid-prime-federation-force/"
+     },
+     {
+      "severity": "style",
+      "claim": "the official Japanese website opens its account in Cosmic Year 20X6",
+      "problem": "Citation phrased inside roleplay content; also the entry is 480 words (acceptable for the core event but long).",
+      "correction": "'The campaign opened in Cosmic Year 20X6 (per the official site).' Trim the second paragraph's planet detail, which duplicates the Bermuda System entry."
+     },
+     {
+      "severity": "keys",
+      "claim": "\"Bermuda\", \"Federation Force\", \"Operation Golem\", \"Project Golem\"",
+      "problem": "Bare 'Bermuda' is a common real-world word (Bermuda Triangle, Bermuda shorts). 'Federation Force', 'Operation Golem' and 'Project Golem' are also primary keys on the unit entry, so any mention injects both entries (~870 words); 'Project Golem' is not attested anywhere.",
+      "correction": "Drop bare 'Bermuda'; keep 'Bermuda System incident'/'Bermuda System' here and move 'Federation Force'/'Operation Golem' to the unit entry only (or make them secondary here)."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Metroid egg the entry cross-references was stolen from the Space Pirates during mission M-17: Infestation (Nintendo Life Sylux guide; Wikipedia: 'successfully stolen a Metroid egg from the Space Pirates').",
+      "correction": "One clause: 'in one operation (Infestation) the Force also stole a Metroid egg from the Pirates'.",
+      "source_url": "https://www.nintendolife.com/guides/metroid-prime-4-beyond-who-is-sylux"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Federation Force: The Federation Force and their Mechs",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Operation Golem (also called Project Golem)",
+      "problem": "No reachable source uses 'Project Golem': the official JP site has オペレーション「ゴーレム」, and Wikipedia, Shinesparkers and Nintendo Life all say 'Operation Golem'.",
+      "correction": "Remove the parenthetical (the key can stay harmlessly).",
+      "source_url": "https://www.nintendo.co.jp/3ds/bcaj/index.html"
+     },
+     {
+      "severity": "unverified",
+      "claim": "decoys and sensor bombs",
+      "problem": "Nintendo Life's mech field guide lists 'Decoys, Mines and Force Fields'; NWR lists decoys and proximity mines; the official JP mech page lists Missile, Super Missile, Fire Shot, Freeze Shot, Slow Beam, Scan Shot, Repair Capsule, Shield Generator. Nothing names a 'sensor bomb'.",
+      "correction": "'decoys and mines'. Consider adding the Shock Shot, which shorts out Talvania's automated defenses (Nintendo Life guide).",
+      "source_url": "https://www.nintendolife.com/news/2016/08/guide_meching_sweet_chaos_in_metroid_prime_federation_force"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Samus never piloted a Mech",
+      "problem": "Absolute claim that reaches beyond this game. Metroid Prime 4: Beyond features 'Mechsuits resembling those from Metroid Prime: Federation Force' and 'a larger version of said suit' (Metroid Wiki), and Wikipedia says Myles repairs 'a giant Federation mech to breach a forcefield' at the Chrono Tower; neither source says who pilots it.",
+      "correction": "'Samus did not pilot a Mech during the Bermuda campaign'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "nit",
+      "claim": "walking at roughly 27 km/h",
+      "problem": "Official JP mech page gives 27.2 km/h.",
+      "correction": "'27.2 km/h'.",
+      "source_url": "https://www.nintendo.co.jp/3ds/bcaj/mech/index.html"
+     },
+     {
+      "severity": "nit",
+      "claim": "a medic carrying Repair Capsules, a heavy gunner loaded with ordnance, an assist pilot with disruptive weapons",
+      "problem": "Invented role labels. The official JP multiplay page names the roles Attacker, Assister, Healer and All-Rounder; Nintendo Life's guide gives the in-lobby voice-command roles Assault, Heavy Weapons, Area Defense and Mechanic. Repair Capsule restores 50 energy (Nintendo Life).",
+      "correction": "Use the attested role names, e.g. 'attackers, assisters, healers and all-rounders'.",
+      "source_url": "https://www.nintendo.co.jp/3ds/bcaj/multiplay/index.html"
+     },
+     {
+      "severity": "style",
+      "claim": "(figures per the official Japanese website)",
+      "problem": "Citation inside content.",
+      "correction": "Drop the parenthetical or shorten to 'per Federation specifications'."
+     },
+     {
+      "severity": "keys",
+      "claim": "\"Mech\", \"Mechs\", \"Mech suit\", \"Mech suits\", \"Mechsuit\", \"Federation Force\", \"Operation Golem\"",
+      "problem": "Bare 'Mech'/'Mechs' fire on any mecha talk; 'Federation Force' and 'Operation Golem' duplicate entry 1's primary keys and cause a double injection.",
+      "correction": "Keep 'Federation Force', 'Operation Golem', 'Golem Mech', 'Mech suit(s)', 'G.F.S. Aegis', 'Blast Ball'; drop bare 'Mech'/'Mechs' or accept the misfire risk knowingly; remove them from entry 1."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Lone Wolf MOD is explicitly barred from squad deployment (Nintendo Life guide: 'forbidden within Squad deployment'), which the entry implies but does not state; and the drones are 'AI Combat Drones', small autonomous flying units.",
+      "correction": "'...the Lone Wolf MOD, barred from squad deployment, ... and may bring up to three AI Combat Drones.'",
+      "source_url": "https://www.nintendolife.com/news/2016/08/guide_meching_sweet_chaos_in_metroid_prime_federation_force"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Federation Force: General Alex Miles",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "missing",
+      "problem": "The entry ends his campaign with Samus's defeat and the shield breaking. Nintendo Life's recap adds that the Doomseye was controlled by the Master Brain, that the Force confronted it after Samus's defeat, and that Samus returned and was pivotal in defeating it.",
+      "correction": "'...defeated the brainwashed and enlarged Samus, then confronted the Master Brain that controlled the ship, with Samus returning to help bring it down.'",
+      "source_url": "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond"
+     },
+     {
+      "severity": "missing",
+      "problem": "JP Wikipedia notes his uniform follows the design of Adam Malkovich's from Other M, a detail a Samus-centered roleplay could use (a general in an Adam-style uniform).",
+      "correction": "Optional clause: 'His uniform is cut like Adam Malkovich's.'",
+      "source_url": "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9"
+     },
+     {
+      "severity": "style",
+      "claim": "Official Japanese material names him simply Commander Alex.",
+      "problem": "Citation phrased inside content.",
+      "correction": "'He is also addressed simply as Commander Alex.'"
+     },
+     {
+      "severity": "nit",
+      "claim": "she answered to the Federation's commission rather than to his chain of command",
+      "problem": "Inference; no source describes Samus's reporting line. Harmless but unsupported.",
+      "correction": "'she worked under a Federation contract, not as one of Miles's Marines'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Federation Force: Bermuda System (Excelcion, Bion, Talvania)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Ice Titans ... that the Force captured for study",
+      "problem": "The official JP mission page says only 'capture an Ice Beast roaming near the Federation biology research institute' (Mission 04); Nintendo Life says they are herded into cages. No source gives the purpose.",
+      "correction": "'that the Force was sent to capture near the biological research institute'.",
+      "source_url": "https://www.nintendo.co.jp/3ds/bcaj/mission/index.html"
+     },
+     {
+      "severity": "nit",
+      "claim": "Their temples and ruins are guarded by stone golems",
+      "problem": "JP Wikipedia describes the Bion guardian (Colossan) as a spherical guardian that teleports while rolling; 'stone golems' is the drafter's gloss.",
+      "correction": "'guarded by huge rolling spherical guardians'.",
+      "source_url": "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9"
+     },
+     {
+      "severity": "nit",
+      "claim": "an artificial life form sleeping under hardened lava that woke to shake the ground",
+      "problem": "JP Wikipedia: Shiranon is an artificial lifeform with three cores wrapped in a lava shell, accompanied by Sentinel tentacles; 'woke to shake the ground' is unsupported colour.",
+      "correction": "'an artificial life form with three cores sheathed in a lava shell, attended by tentacled sentinels'."
+     },
+     {
+      "severity": "nit",
+      "claim": "a world of toxic gas",
+      "problem": "Sources say 'gaseous planet' (Nintendo Life) / 'gas' (Destructoid); 'toxic' is unverified. Likewise 'layered' automated defense: JP Wikipedia says only that the Mainframe guards the transfer device.",
+      "correction": "'a gas-shrouded world of abandoned industry'; 'guarded a transfer device behind an automated defense system'."
+     },
+     {
+      "severity": "missing",
+      "problem": "JP Wikipedia says the Hopper Nest's endless production of Ice Hoppers is what forced the Federation to evacuate Excelcion, which bears on why the base was abandoned.",
+      "correction": "'...a living nest in the old base endlessly spawned hostile hoppers, which had helped drive the Federation out.'",
+      "source_url": "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9"
+     },
+     {
+      "severity": "keys",
+      "claim": "\"Bermuda\", \"Bermuda System\"",
+      "problem": "Bare 'Bermuda' misfires on the real-world word; 'Bermuda System' is also primary on entry 1, so both long entries inject together.",
+      "correction": "Drop bare 'Bermuda'; let this entry own 'Bermuda System'/'Bermuda planets' and entry 1 own 'Bermuda System incident'."
+     },
+     {
+      "severity": "style",
+      "problem": "421 words, slightly over the 400 guideline for a non-core subject; the final Samus paragraph repeats entry 1.",
+      "correction": "Trim the creature colour and the closing paragraph to bring it under 400."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Federation Force: The Doomseye",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "The blast threw the Force out into open space, where Samus recovered them. ... The Force was nearly lost in the ship's destruction",
+      "problem": "English Wikipedia: 'the Force is sucked into the vacuum of space before the Fleet destroys the Doomseye'. The Marines were lost in space during the battle, not by the ship's destruction.",
+      "correction": "'During the final battle the Marines were sucked out into open space; Samus recovered them, and the surviving fleet then destroyed the Doomseye.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+     },
+     {
+      "severity": "error",
+      "claim": "where Federation Marines rather than the Hunter herself won the decisive fight",
+      "problem": "Nintendo Life's recap: the Doomseye was 'controlled by an entity known as Master Brain'; after giant Samus was defeated and buried under rubble, the Force 'confronts Master Brain' and Samus 'proves to be pivotal in the eventual defeat of Master Brain'. The decisive fight was against the Master Brain and Samus took part in it.",
+      "correction": "'where the Marines beat the brainwashed Samus and then, with her help once she recovered, destroyed the Master Brain that controlled the ship.' Add the Master Brain to the first paragraph as the Doomseye's controlling entity.",
+      "source_url": "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Master Brain, the entity controlling the Doomseye, is the ship's single most important canon fact and is absent (covered by the error above); Samus being buried under rubble after her defeat is also attested.",
+      "correction": "See corrections above.",
+      "source_url": "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond"
+     },
+     {
+      "severity": "keys",
+      "claim": "\"Pirate warship\", \"Pirate battleship\"",
+      "problem": "Generic; will fire on talk of the Orpheon or other Pirate vessels from Prime/Echoes/Corruption.",
+      "correction": "Keep them only if the Doomseye should surface on any Pirate-warship mention; otherwise rely on 'Doomseye' and 'cloaking generator(s)'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Federation Force: The Metroid egg and the Bermuda System epilogue",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "missing",
+      "problem": "The egg was extracted in mission 'M-17: Infestation' (Nintendo Life Sylux guide), and Wikipedia confirms it was 'stolen ... from the Space Pirates', which supports the entry's framing.",
+      "correction": "'in one operation (the Infestation mission) the Federation Force stole a Metroid egg from them'.",
+      "source_url": "https://www.nintendolife.com/guides/metroid-prime-4-beyond-who-is-sylux"
+     },
+     {
+      "severity": "style",
+      "claim": "(the post-credits scene of Metroid Prime: Federation Force) ... Whether the Force brought the egg back determines what the record shows next",
+      "problem": "'post-credits scene' is meta/gameplay language and the branching sentence reads as a game-condition note.",
+      "correction": "'In the record where the Force brought the egg back, a brief epilogue follows the incident: ...'"
+     },
+     {
+      "severity": "nit",
+      "claim": "The intruder is shown only in silhouette",
+      "problem": "Sources say 'an unseen individual bearing a striking resemblance to Sylux' (Wikipedia) and that the camera zooms out to show a figure with a shoulder spike (Metroid Wiki); 'silhouette' is a reasonable but unattested description.",
+      "correction": "'The intruder is never clearly seen, but ...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Sylux"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://www.metroidwiki.org/wiki/Sylux",
+   "https://www.metroidwiki.org/wiki/Delano_7",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Timeline",
+   "https://www.metroidwiki.org/wiki/Category:Metroid_Prime:_Federation_Force",
+   "https://www.metroidwiki.org/wiki/Metroid_Egg",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.nintendo.co.jp/3ds/bcaj/index.html",
+   "https://www.nintendo.co.jp/3ds/bcaj/mech/index.html",
+   "https://www.nintendo.co.jp/3ds/bcaj/mission/index.html",
+   "https://www.nintendo.co.jp/3ds/bcaj/multiplay/index.html",
+   "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://en.wikipedia.org/wiki/List_of_Metroid_characters",
+   "https://es.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://fr.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://it.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://shinesparkers.net/games/metroid-prime-federation-force/",
+   "https://www.nintendolife.com/reviews/3ds/metroid_prime_federation_force",
+   "https://www.nintendolife.com/games/3ds/metroid_prime_federation_force",
+   "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond",
+   "https://www.nintendolife.com/guides/metroid-prime-4-beyond-who-is-sylux",
+   "https://www.nintendolife.com/news/2016/08/guide_meching_sweet_chaos_in_metroid_prime_federation_force",
+   "https://www.nintendolife.com/news/2017/08/feature_a_long_journey_through_metroid_prime_federation_force",
+   "https://kotaku.com/everything-we-could-find-out-about-that-new-metroid-gam-1712003930",
+   "http://www.nintendoworldreport.com/review/43215/metroid-prime-federation-force-review",
+   "https://www.destructoid.com/reviews/review-metroid-prime-federation-force/",
+   "https://www.thegamer.com/nintendo-metroid-games-timeline-chronological-order/"
+  ]
+ }
+}

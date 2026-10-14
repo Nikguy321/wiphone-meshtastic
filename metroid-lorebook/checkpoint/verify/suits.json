@@ -1,0 +1,492 @@
+{
+ "run": "wf_9122c4e6-699",
+ "label": "verify:suits",
+ "result": {
+  "overall": "Checked all ten entries against Metroid Wiki (Power Suit, Legendary Power Suit, Varia Suit, Gravity Suit, Phazon Suit, PED Suit, Phazon Enhancement Device, G.F.S. Anhur, Phazon Grenade, Hypermode, Hazard Shield, Dark Suit, Light Suit, Fusion Suit, SA-X, Mega Core-X, Zero Suit, Paralyzer, Energy, Energy Tank, Reserve Tank, Energy Part, Navigation Booth/Save Station, Ruins Test, Chozodia, Chozo Ruins, Dryn [404], E.M.M.I.-07PB, Quiet Robe, Raven Beak, Samus Aran, and the game pages for Zero Mission, Prime, Echoes, Corruption, Fusion, Other M, Dread, Prime 4), Wikipedia (Fusion, Corruption, Dread, Prime 4), Nintendo's Dread Reports Vol. 3 and Vol. 8, the Gamereactor Prime 4 suit guide and its Green Energy Crystals/Altar of Legacy guide, and Inverse's Dread ending article. The WebSearch budget was exhausted on the first call, so everything is WebFetch-based; Metroid Wiki has no Legacy Suit, Memory Fruit, Burenia, Cataris, Itorash, Hyper Beam (Dread) or Dryn pages (404s), and IGN/Game8 were unreachable, so Prime 4 and Dread Metroid Suit details remain the thinnest-sourced. Confirmed errors that must be fixed: (1) Varia Suit data in Fusion was taken by the Mega Core-X in Sector 6 (NOC), not Sector 2 (appears in both the Varia and Fusion entries); (2) the claim that the Power Suit dissolves and leaves Samus in the Zero Suit whenever she is knocked unconscious contradicts Fusion, Corruption and Zero Mission (appears in the Power Suit and Zero Suit entries; only Other M's death sequence shows it); (3) Corruption is the one mission where Samus loses nothing, so the Norion strike did not strip her suit; (4) the pauldron claim is backwards for Prime and Super Metroid, where the pauldrons come with the Varia Suit; (5) Prime 4 entry: the Luminoth Dark/Light Suits (and the Pirate-made Hazard Shield) are also non-Chozo, non-Federation armor; (6) Dread chronology: the energy-drain power surfaced against the last E.M.M.I. before Raven Beak's revelations; (7) Paralyzer/Zebesian sentence misreads the wiki trivia. Word counts are all in range (Power Suit 542, the rest 308-381). No non-canon contamination found. Keys are generally sound; note 'her armor'/'her suit' on the Power Suit entry will fire on any suit talk, and the Metroid Suit entry lacks a 'Hyper Beam' key.",
+  "reports": [
+   {
+    "entry_comment": "Equipment: Power Suit (Samus's Chozo armor)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "when she is struck down and loses consciousness the armor dissolves and leaves her in the Zero Suit",
+      "problem": "Contradicted by canon in three games. In Fusion Samus says the suit's organic components 'could not be removed while I was unconscious' (it stayed on and had to be surgically cut); on Norion Dark Samus's blast 'knocks them unconscious' and Samus wakes a month later still suited, then fitted with the PED; in Zero Mission the crash leaves 'Samus's Power Suit in need of repair', not dissolved. Only Other M's death sequence shows Zero Suit Samus.",
+      "correction": "Replace with: 'She can withdraw the suit at will, but it does not simply vanish when she is knocked out: after the X infection and after Dark Samus's Phazon blast on Norion she lay unconscious still armored. (On the Bottle Ship, her death would have left her in the Zero Suit.)'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "error",
+      "claim": "Nearly every mission has begun with the suit stripped of its enhancements, whether by ... Dark Samus's Phazon strike on Norion",
+      "problem": "Metroid Wiki's Corruption page states that, unlike the earlier Prime games, Samus 'progresses through the entire game without any weapons and items being lost'. No source attributes any loss of enhancements to the Norion strike; the PED Suit was added, nothing was taken.",
+      "correction": "Drop Norion from the list (keep the Frigate Orpheon malfunction, Raven Beak's assault, the Tanamaar artifact), and optionally note that the Phazon crisis was the rare mission where nothing was lost.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "error",
+      "claim": "the pauldroned design she has worn ever since",
+      "problem": "In Prime the Orpheon explosion reduced the suit to basic functionality and the un-Varia'd Power Suit has no pauldrons; the Varia Suit page says 'Metroid II added the now-standard pauldrons' as part of the Varia, and the Legendary Power Suit page says the suit was 'effectively' lost in Fusion's prologue when the Fusion Suit replaced it. 'Ever since' is wrong on both counts.",
+      "correction": "'the pauldroned look later associated with her Varia Suit. She kept this suit until the X infection on SR388 forced its replacement.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Varia_Suit"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the Ruins Test, a trial the Chozo left to judge whether she was worthy",
+      "problem": "The Ruins Test page calls it 'something that Samus must face in order to regain her Power Suit' and the Zero Mission page says 'a test handed down by the Chozo'; neither says it judged worthiness.",
+      "correction": "'passed the Ruins Test, a trial handed down by the Chozo'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ruins_Test"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The Legendary Power Suit (also called the Fully Powered Suit)",
+      "problem": "Neither the Legendary Power Suit page nor the Zero Mission page uses 'Fully Powered Suit'; the drafter admits it appears only in fan sources.",
+      "correction": "Keep the key but drop the in-content parenthetical, or hedge: 'sometimes called the Fully Powered Suit'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Legendary_Power_Suit"
+     },
+     {
+      "severity": "unverified",
+      "claim": "which over the following years gradually returned toward its mechanical form",
+      "problem": "Dread Report Vol. 3 says only that the organic suit was 'gradually returning to its original, mechanical Power Suit form' by Dread; no timeframe is given anywhere.",
+      "correction": "'which by the time of her ZDR mission had gradually returned toward its mechanical form'",
+      "source_url": "https://www.nintendo.com/en-gb/News/2021/July/Metroid-Dread-Report-Vol-3-Seven-points-that-define-the-2D-saga-2007780.html"
+     },
+     {
+      "severity": "nit",
+      "claim": "so integrated with her nervous system that the suit could not be fully removed",
+      "problem": "Samus's own words are 'the organic components of my Power Suit had become so integrated with my system'; it was the X that invaded her central nervous system.",
+      "correction": "'so integrated with her body'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "nit",
+      "claim": "Inside the Chozo Ruins of Chozodia, beneath the Space Pirate Mother Ship",
+      "problem": "On Metroid Wiki 'Chozo Ruins' is the Tallon IV region; Chozodia 'contains the ruins of a Chozo city' and 'is the landing site of the Space Pirate Mother Ship'. 'Beneath' is not sourced.",
+      "correction": "'In the Chozo ruins of Chozodia, where the Space Pirate Mother Ship had landed'",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozodia"
+     },
+     {
+      "severity": "missing",
+      "problem": "The lineage list skips the SR388 extermination mission (Metroid II / Samus Returns), which falls between the Phazon crisis and the return to Zebes; a reader following the list will mis-order her career.",
+      "correction": "Insert 'on SR388 during the Metroid extermination' between the Phazon crisis and the return to Zebes.",
+      "source_url": "https://www.metroidwiki.org/wiki/Varia_Suit"
+     },
+     {
+      "severity": "keys",
+      "problem": "'her armor' and 'her suit' will trigger this 542-word entry on any mention of any suit (Fusion, Varia, Zero Suit conversations), inflating context every turn.",
+      "correction": "Consider dropping 'her armor'/'her suit' or moving them to a short constant summary; keep 'Power Suit', 'Chozo armor', 'battle suit'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Varia Suit",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "recovered its data on the BSL station by absorbing the Mega Core-X in Sector 2 that had consumed it",
+      "problem": "The Mega Core-X 'steals the Varia Suit from NOC's Data Room'; its location is Sector 6 (NOC), and the Metroid Fusion page places the Varia Suit recovery in Sector 6.",
+      "correction": "'absorbing the Mega Core-X in Sector 6 (NOC) that had stolen it from the Data Room'",
+      "source_url": "https://www.metroidwiki.org/wiki/Mega_Core-X"
+     },
+     {
+      "severity": "error",
+      "claim": "the broad rounded pauldrons people associate with it belong to the Legendary suit itself",
+      "problem": "Metroid Wiki: 'Metroid II added the now-standard pauldrons' as part of the Varia Suit, and in Prime/Super Metroid the plain Power Suit lacks them until the Varia is added (Prime: lost in the Orpheon malfunction, regained from Flaahgra). Zero Mission's Legendary Power Suit merely borrows that look to explain it.",
+      "correction": "'Since Zero Mission the Varia has usually been an orange recoloring with broad rounded pauldrons; the Legendary Power Suit already carries that pauldroned look, which is why on Tallon IV losing the Varia left her suit bare-shouldered until Flaahgra fell.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Varia_Suit"
+     },
+     {
+      "severity": "unverified",
+      "claim": "On the Fusion Suit it showed as yellow-green over magenta",
+      "problem": "The Fusion Suit and Varia Suit pages give only gallery images; no fetched text describes the colors, and the drafter admits the figure comes from fan-wiki snippets.",
+      "correction": "Soften to 'On the Fusion Suit it appeared as a recolored palette' or drop the color names.",
+      "source_url": "https://www.metroidwiki.org/wiki/Fusion_Suit"
+     },
+     {
+      "severity": "nit",
+      "claim": "Her original armor turned pink with the Varia",
+      "problem": "True only of the 1986 game; the canon-preferred retelling (Zero Mission) recolors the first suit orange with the Varia ('the first keeps the original palette swap (now orange)').",
+      "correction": "'On her first Zebes mission the Varia simply recolored her original armor (pink in the first telling, orange in the retelling).'",
+      "source_url": "https://www.metroidwiki.org/wiki/Varia_Suit"
+     },
+     {
+      "severity": "missing",
+      "problem": "The entry says it is 'usually the first armor enhancement she recovers' but omits that in the Alimbic Cluster, on Aether and through the Phazon crisis the Varia was active from the start and never lost (Varia Suit page: 'Samus never acquires the Varia Suit because it is active from the start').",
+      "correction": "Add one clause: 'in the Alimbic Cluster, on Aether and during the Phazon crisis it was active from the start.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Varia_Suit"
+     },
+     {
+      "severity": "missing",
+      "problem": "Roleplay-relevant Fusion detail omitted: the Varia's cold protection is what stops the SA-X's Ice Beam from freezing her and lets her absorb Blue X.",
+      "correction": "Add: 'on the BSL station it also kept the SA-X's Ice Beam from freezing her.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Varia_Suit"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Gravity Suit",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "On ZDR she took it from Burenia",
+      "problem": "Metroid Wiki's Gravity Suit page has an empty Dread section, the Burenia page returns 404, and Dread Report Vol. 8 mentions only that Burenia is mostly underwater; the location could not be confirmed from any fetched source (it is plausible, and the cold-immunity property is confirmed).",
+      "correction": "Keep only if another source is found; otherwise 'On ZDR it returned to her in the flooded depths of the planet'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gravity_Suit"
+     },
+     {
+      "severity": "unverified",
+      "claim": "on the Fusion Suit it wore a purple scheme",
+      "problem": "No fetched page describes the Fusion-Gravity colors (gallery image only); drafter notes sources disagree.",
+      "correction": "Drop the color or soften to 'a recolored palette'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Fusion_Suit"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Hazard Shield, a unit she stole on the Pirate Homeworld",
+      "problem": "The Hazard Shield page says it is found in the Pirate Homeworld; 'stole' is editorial.",
+      "correction": "'a Space Pirate unit she took on the Pirate Homeworld'",
+      "source_url": "https://www.metroidwiki.org/wiki/Hazard_Shield"
+     },
+     {
+      "severity": "missing",
+      "problem": "The BSL bullet omits where the suit came from: Nightmare's defeat in Sector 5 (ARC) 'provides Samus with the Gravity Suit'.",
+      "correction": "Add 'won from Nightmare in Sector 5 (ARC)'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "missing",
+      "problem": "Super Metroid numbers are available and useful for the 'fraction' claim: Gravity alone cuts damage 25%, with the Varia 75%.",
+      "correction": "Optionally: 'on Zebes the two together cut damage by three quarters'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gravity_Suit"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Phazon Suit and PED Suit (Hypermode)",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "missing",
+      "problem": "Hypermode's duration is documented: it ends after 25 seconds or when the Phazon gauge empties; the entry says only 'until the Phazon was spent'.",
+      "correction": "'lasting about twenty-five seconds or until the Phazon was spent'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "missing",
+      "problem": "Wikipedia adds that the PED was also based on captured Space Pirate Phazon armaments/technology, complementing the Anhur ore origin.",
+      "correction": "'developed from Phazon ore recovered by the crew of the G.F.S. Anhur and from captured Space Pirate technology'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "nit",
+      "claim": "a Space Pirate Phazon Grenade could force her into runaway Hypermode",
+      "problem": "Metroid Wiki's wording is 'Phazon overloaded Hypermode' (Wikipedia: 'Corrupt Hypermode'); 'runaway' is a paraphrase.",
+      "correction": "'into a Phazon-overloaded, corrupt Hypermode'",
+      "source_url": "https://www.metroidwiki.org/wiki/Phazon_Grenade"
+     },
+     {
+      "severity": "keys",
+      "problem": "Bare 'PED' is safe only if SillyTavern's whole-word matching stays on; with substring matching it fires on 'pedestal', 'stopped', etc.",
+      "correction": "Keep 'PED' but ensure whole-word matching, or rely on 'PED Suit' and 'Phazon Enhancement Device'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Dark Suit and Light Suit",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "The Dark Suit is darker and more muted than her other armor, with disc-like shoulder protrusions",
+      "problem": "The Dark Suit page gives no written description of the suit's appearance, only images; drafter sourced this from search snippets.",
+      "correction": "Soften to 'The Dark Suit is a darker, more muted armor' or drop the shoulder detail.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Suit"
+     },
+     {
+      "severity": "unverified",
+      "claim": "It is pearl-colored, with ... four circles on the chest that glow brightly in Dark Aether",
+      "problem": "The Light Suit page confirms only 'several holes on it, from which beams of light are emitted' and the colorless transparent visor; no main color or chest circles are described.",
+      "correction": "'It is a pale, light-colored suit with openings that emit beams of light, and its visor is colorless and transparent.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Light_Suit"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Dark Suit's reduction is also expressed on the wiki as an 80% cut in Dark Aether's atmospheric damage, which is a handy roleplay figure beside the 5-to-1 units.",
+      "correction": "Optionally add '(an eighty percent reduction)'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Suit"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Fusion Suit",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "The Varia Suit data, swallowed by the Mega Core-X in Sector 2",
+      "problem": "The Mega Core-X is in Sector 6 (NOC) and 'steals the Varia Suit from NOC's Data Room'; the Fusion page also places the Varia recovery in Sector 6.",
+      "correction": "'swallowed by the Mega Core-X in Sector 6 (NOC)'",
+      "source_url": "https://www.metroidwiki.org/wiki/Mega_Core-X"
+     },
+     {
+      "severity": "unverified",
+      "claim": "blue over bright yellow ... recolored the suit yellow-green over magenta; the Gravity Suit added a purple scheme",
+      "problem": "Only 'turns blue' is sourced (Fusion Suit trophy text); the yellow, yellow-green/magenta and purple details come from fan-wiki snippets the drafter could not confirm.",
+      "correction": "Keep 'blue' and drop or hedge the other color names.",
+      "source_url": "https://www.metroidwiki.org/wiki/Fusion_Suit"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Over the years that followed it gradually returned toward its original mechanical Power Suit form",
+      "problem": "Dread Report Vol. 3 gives no timeframe; 'years' is invented.",
+      "correction": "'By the time of her ZDR mission it had gradually returned toward its original mechanical Power Suit form'",
+      "source_url": "https://www.nintendo.com/en-gb/News/2021/July/Metroid-Dread-Report-Vol-3-Seven-points-that-define-the-2D-saga-2007780.html"
+     },
+     {
+      "severity": "missing",
+      "problem": "Omits that her gunship's emergency systems ejected her in an escape pod before the ship crashed into an asteroid belt, and that the Gravity Suit came from Nightmare in Sector 5 (ARC).",
+      "correction": "Add 'her ship ejected her in an escape pod and crashed into an asteroid belt' and 'the Gravity Suit, won from Nightmare in Sector 5 (ARC)'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "missing",
+      "problem": "Omits that the Federation had preserved a cell culture from the baby Metroid, which is why a vaccine could be made at all (a point the Other M entry relies on too).",
+      "correction": "'A vaccine made from a cell culture the Federation had preserved from the baby Metroid'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Metroid Suit (Dread)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "After Quiet Robe's death and Raven Beak's revelations, Samus found she could drain the energy of other beings by touch ... she used it to destroy the last E.M.M.I.",
+      "problem": "Chronology is reversed. The drain power first surfaced when the final E.M.M.I. (07PB, Hanubia) was about to extract her DNA; Raven Beak's revelation that he spared her and planned to clone her came afterward (Wikipedia places it with Raven Beak 'masquerading as Adam' and on Itorash). Metroid Wiki also ties the powers' emergence to the X being released from quarantine.",
+      "correction": "'After Quiet Robe's death and the release of the X, Samus's Metroid power first surfaced when the last E.M.M.I. cornered her in Hanubia: she drained it by touch, as a Metroid does. Only then did Raven Beak reveal...'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "unverified",
+      "claim": "an organic armor with claw-like natural spikes and glowing patches of green and red",
+      "problem": "Inverse says only 'Her suit transforms and becomes more organic-looking, just like a Metroid'; no fetched source describes spikes or green/red patches, and Metroid Wiki has no Metroid Suit page.",
+      "correction": "'an organic, Metroid-like armor'",
+      "source_url": "https://www.inverse.com/gaming/metroid-dread-ending-explained-metroid-suit-rewards"
+     },
+     {
+      "severity": "unverified",
+      "claim": "all of her Arm Cannon's powers merged into the Hyper Beam, a wide red-pink beam that pierces terrain",
+      "problem": "Metroid Wiki's Hyper Beam page is a disambiguation with no Dread entry (the Dread subpage 404s); no fetched source describes the beam's color, width or terrain piercing.",
+      "correction": "'her Arm Cannon fired the Hyper Beam, a weapon far beyond her normal beams'",
+      "source_url": "https://www.metroidwiki.org/wiki/Hyper_Beam"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the Thoha genes it carried stabilized her Metroid DNA ... Samus left ZDR knowing the Thoha's gift is all that keeps it in check",
+      "problem": "Wikipedia says the Quiet Robe X 'neutralizes her Metroid abilities'; Inverse says it 'somehow' stabilized the Metroid DNA; the Quiet Robe page says only that it let her control the ship without draining it. The Thoha-gene mechanism and the closing inference are not sourced.",
+      "correction": "'let itself be absorbed into her, neutralizing her Metroid powers; the Metroid Suit reverted ... The Metroid within her remains, held in check since the Quiet Robe X was absorbed.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Quiet_Robe"
+     },
+     {
+      "severity": "missing",
+      "problem": "The X that infected Raven Beak was the one that had earlier possessed Kraid's corpse, and Raven Beak claimed during the battle to be her 'father' (he gave her some of his DNA as a child); both are strong roleplay hooks.",
+      "correction": "Add 'the X that had taken Kraid's corpse' and, if the Raven Beak entry does not already cover it, his claim of fatherhood.",
+      "source_url": "https://www.metroidwiki.org/wiki/Raven_Beak"
+     },
+     {
+      "severity": "keys",
+      "problem": "No 'Hyper Beam' key, though the entry describes it; and 'energy drain'/'drain energy'/'draining energy' will also fire on ordinary talk of Metroids feeding, which belongs to the Metroid overview.",
+      "correction": "Add 'Hyper Beam' (and 'Metroid DNA' if not reserved for the Samus profile); consider narrowing the drain keys to 'Samus drains' / 'drain its energy' or accept the overlap."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Zero Suit and Paralyzer",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "It is also what she is left in when a battle knocks her unconscious and the armor dissolves.",
+      "problem": "Contradicted by Fusion (suit 'could not be removed while I was unconscious'), Corruption (knocked unconscious on Norion, wakes suited) and Zero Mission (crash leaves the suit 'in need of repair'). Only Other M's death sequence shows her in the Zero Suit.",
+      "correction": "'On the Bottle Ship, a fatal blow would have left her in the Zero Suit; elsewhere the armor has stayed on her when she fell unconscious.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "error",
+      "claim": "It can shatter certain blocks, yet it could not harm the Zebesians of the Mother Ship, where only her Bombs could.",
+      "problem": "Misreads the wiki trivia, which contrasts the Paralyzer with Morph Ball Bombs: both break Bomb Blocks, but the Paralyzer 'cannot damage Zebesians, while Morph Ball Bombs can'. Bombs are not the only thing that harms Zebesians.",
+      "correction": "'It can even break Bomb Blocks, but unlike her Bombs it cannot hurt a Zebesian, only stun it.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Paralyzer"
+     },
+     {
+      "severity": "unverified",
+      "claim": "when she returned days later to recover Adam Malkovich's helmet",
+      "problem": "The Other M page says only that the Bottle Ship was 'marked for destruction' and Samus went back to rescue 'something that can't be replaced'; no 'days' figure is given.",
+      "correction": "'when she later returned, before the Federation destroyed the ship, to recover Adam Malkovich's helmet'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "unverified",
+      "claim": "she must crawl or slide beneath obstacles",
+      "problem": "Sliding is confirmed for Other M; the Zero Suit page says nothing about crawling in Zero Mission, only that she is no more agile and loses the suit's jumping ability.",
+      "correction": "'she must slide beneath obstacles (on the Bottle Ship) and rely on stealth'",
+      "source_url": "https://www.metroidwiki.org/wiki/Zero_Suit"
+     },
+     {
+      "severity": "missing",
+      "problem": "Two sourced details a Samus roleplay would want: once in the Zero Suit on the Bottle Ship she could not regain her Power Suit, and the Other M Paralyzer was not self-charging (she had to charge it manually, like a Charge Beam), unlike on Zebes.",
+      "correction": "Add both clauses to the Bottle Ship sentences.",
+      "source_url": "https://www.metroidwiki.org/wiki/Paralyzer"
+     },
+     {
+      "severity": "nit",
+      "claim": "Space Pirates shot down her gunship over Chozodia",
+      "problem": "Zero Mission page: 'Space Pirate fighters ambush her gunship, causing Samus to crashland back on the planet's surface, near the Space Pirate Mothership'.",
+      "correction": "'Space Pirate fighters shot down her gunship, and she crash-landed near their Mother Ship in Chozodia'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Energy Tanks and suit energy",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "The Chozo-built Energy Tank",
+      "problem": "The Energy Tank page never attributes the tank to the Chozo; no fetched source does.",
+      "correction": "'The Energy Tank is the most common expansion to the suit'",
+      "source_url": "https://www.metroidwiki.org/wiki/Energy_Tank"
+     },
+     {
+      "severity": "missing",
+      "problem": "Documented and roleplay-useful: aboard the G.F.S. Olympus one Energy Tank is unavoidable, so during the Phazon crisis Samus 'always has an Energy Tank to inject when entering Hypermode'.",
+      "correction": "Add to the Phazon paragraph.",
+      "source_url": "https://www.metroidwiki.org/wiki/Energy_Tank"
+     },
+     {
+      "severity": "missing",
+      "problem": "Super Metroid's four Reserve Tanks give a 400-unit reserve in total and lie in Brinstar, Norfair, the Wrecked Ship and Maridia; the entry gives the count but not the total.",
+      "correction": "Optionally: 'four hundred units of reserve in all'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Reserve_Tank"
+     },
+     {
+      "severity": "nit",
+      "claim": "Each raises her maximum energy by 100 units",
+      "problem": "True except Zero Mission's Hard Mode, where each adds 50 (page notes the exception). Harmless for roleplay.",
+      "correction": "No change needed, or add 'normally'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Energy_Tank"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Vi-O-La Suit and Legacy Suit (Viewros)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "the only armor in her career of neither Chozo nor Galactic Federation make",
+      "problem": "The Dark Suit is Luminoth xenotech (first worn by A-Kul), the Light Suit a Luminoth-Chozo fusion, and the Hazard Shield is Space Pirate equipment worn by Assault Pirate Troopers; none are Chozo or Federation work.",
+      "correction": "'the first armor she had worn that was neither Chozo, Federation, Luminoth nor Space Pirate work' or simply 'suits fabricated from Lamorn technology'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Suit"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a Lamorn design altered from the IC Suit, conceived in their Machine Era and refined in their Psychic Era",
+      "problem": "Metroid Wiki has no Legacy Suit page and its Lamorn page mentions no eras; Gamereactor calls it only 'the ultimate suit of the game' in 'silver and black'. Source is a fan-wiki snippet.",
+      "correction": "'a silver-and-black Lamorn design, the last and finest suit the fabricators produced for her'",
+      "source_url": "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-what-are-the-green-energy-crystals-for-and-how-to-upgrade-the-psychic-beam-1642693/"
+     },
+     {
+      "severity": "unverified",
+      "claim": "She received it at the Altar of Legacy in Fury Green together with the Memory Fruit, after she had deposited enough of the Green Energy Crystals",
+      "problem": "Gamereactor confirms the Altar of Legacy sits early in Fury Green, that crystals are banked there at 25/50/75/100% milestones, that rewards include armor and the Memory Fruit, and that the Legacy Suit comes 'only at the absolute end'; it does not say the suit and the fruit arrive together, and the Memory Fruit is needed before the final assault on the Chrono Tower.",
+      "correction": "'Both it and the Memory Fruit were rewards from the Altar of Legacy in Fury Green, where she banked the Green Energy Crystals she had gathered; the suit was the altar's final gift.'",
+      "source_url": "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-what-are-the-green-energy-crystals-for-and-how-to-upgrade-the-psychic-beam-1642693/"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Through the Psychic Visor the Legacy Suit converts a store of her Missiles into a protective barrier ... destroys most lesser creatures on contact; the barrier lasts only briefly, burns out faster the more it absorbs, and collapses if she curls into the Morph Ball",
+      "problem": "Gamereactor confirms a barrier raised by holding a trigger 'at the cost of 35 Missile Ammo' and that the suit adds a crystal compass to the visor; the Psychic Visor link, creature-killing, decay and Morph Ball details are unsourced.",
+      "correction": "'The Legacy Suit lets her spend a store of her Missiles (thirty-five at a time) to raise a protective barrier against hazards, and its visor senses nearby Green Energy Crystals.'",
+      "source_url": "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-what-are-the-green-energy-crystals-for-and-how-to-upgrade-the-psychic-beam-1642693/"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the Vi-O-La, the Lamorn neural motorcycle ... the machine answers to its rider through the suit",
+      "problem": "Gamereactor says only that the printed 'riding suit' lets her interface with the Vi-O-La bike; 'neural' and 'answers through the suit' are embellishments. Wikipedia places the bike's acquisition in Fury Green.",
+      "correction": "'the Vi-O-La, the Lamorn motorcycle she found in Fury Green and rode across Sol Valley'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the Green Energy Crystals, the life energy the Lamorn had spread across the planet ... Samus carried the Lamorn's legacy off their dying world and planted the Memory Fruit",
+      "problem": "Gamereactor says the crystals are 'pretty much exclusively found in the open desert area of Sol Valley' and are smashed with the Vi-O-La; Wikipedia says the Lamorn's green energy made wildlife aggressive and turned the Lamorn into grievers, and that Samus plants the fruit at the end using the psychic crystal, without saying where.",
+      "correction": "'the Green Energy Crystals she smashed with the Vi-O-La in Sol Valley, remnants of the energy the Lamorn had used to nurture their world' and 'At the end Samus planted the Memory Fruit and used the psychic crystal to hasten its growth'.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "missing",
+      "problem": "Sourced details omitted: the Legacy Suit is silver and black; the Altar's other rewards strengthen the Psychic Beam and Control Beam; the IC Suit arrives as 'a brand new Samus suit' needed to cross Flare Pool's lava sea.",
+      "correction": "Add the color and the altar's beam rewards in one sentence.",
+      "source_url": "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-to-all-of-samus-arans-upgrades-and-suits-1645383/"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Power_Suit",
+   "https://www.metroidwiki.org/wiki/Legendary_Power_Suit",
+   "https://www.metroidwiki.org/wiki/Varia_Suit",
+   "https://www.metroidwiki.org/wiki/Gravity_Suit",
+   "https://www.metroidwiki.org/wiki/Phazon_Suit",
+   "https://www.metroidwiki.org/wiki/PED_Suit",
+   "https://www.metroidwiki.org/wiki/Phazon_Enhancement_Device",
+   "https://www.metroidwiki.org/wiki/G.F.S._Anhur",
+   "https://www.metroidwiki.org/wiki/Phazon_Grenade",
+   "https://www.metroidwiki.org/wiki/Hypermode",
+   "https://www.metroidwiki.org/wiki/Hazard_Shield",
+   "https://www.metroidwiki.org/wiki/Dark_Suit",
+   "https://www.metroidwiki.org/wiki/Light_Suit",
+   "https://www.metroidwiki.org/wiki/Fusion_Suit",
+   "https://www.metroidwiki.org/wiki/SA-X",
+   "https://www.metroidwiki.org/wiki/Mega_Core-X",
+   "https://www.metroidwiki.org/wiki/Zero_Suit",
+   "https://www.metroidwiki.org/wiki/Paralyzer",
+   "https://www.metroidwiki.org/wiki/Energy",
+   "https://www.metroidwiki.org/wiki/Energy_Tank",
+   "https://www.metroidwiki.org/wiki/Reserve_Tank",
+   "https://www.metroidwiki.org/wiki/Energy_Part",
+   "https://www.metroidwiki.org/wiki/Navigation_Booth",
+   "https://www.metroidwiki.org/wiki/Ruins_Test",
+   "https://www.metroidwiki.org/wiki/Chozodia",
+   "https://www.metroidwiki.org/wiki/Chozo_Ruins",
+   "https://www.metroidwiki.org/wiki/E.M.M.I.-07PB",
+   "https://www.metroidwiki.org/wiki/Quiet_Robe",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://www.metroidwiki.org/wiki/Lamorn",
+   "https://www.metroidwiki.org/wiki/Vi-O-La_Suit",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://en.wikipedia.org/wiki/Metroid_Fusion",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.nintendo.com/en-gb/News/2021/July/Metroid-Dread-Report-Vol-3-Seven-points-that-define-the-2D-saga-2007780.html",
+   "https://www.nintendo.com/en-gb/News/2021/September/Metroid-Dread-Report-Vol-8-Surveying-Planet-ZDR-2043940.html",
+   "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-to-all-of-samus-arans-upgrades-and-suits-1645383/",
+   "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-what-are-the-green-energy-crystals-for-and-how-to-upgrade-the-psychic-beam-1642693/",
+   "https://www.gamereactor.eu/metroid-prime-4-beyond-fury-green-guide-to-missile-expansions-elemental-shot-expansions-and-energy-tanks-1646463/",
+   "https://www.inverse.com/gaming/metroid-dread-ending-explained-metroid-suit-rewards"
+  ]
+ }
+}
