@@ -23,6 +23,7 @@ prime3: draft, verify, revise
 prime4: draft, verify, revise
 ridley: draft, verify, revise
 samus-bio: draft, verify, revise
+samus-origins: 
 samus-rp: draft, verify, revise
 space-pirates: draft, verify, revise
 sr388: draft, verify, revise

@@ -175,7 +175,8 @@
     "lost your powers",
     "lose your abilities",
     "physical amnesia",
-    "stripped of her"
+    "stripped of her",
+    "authorize"
    ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
