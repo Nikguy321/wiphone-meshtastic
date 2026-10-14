@@ -1,0 +1,199 @@
+{
+ "run": "wf_85562c76-8cf",
+ "label": "consistency:factions-recent-prime",
+ "result": {
+  "files_edited": [
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/prime4.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/federation-force.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/federation.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/space-pirates.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/ridley.json"
+  ],
+  "fixes": [
+   {
+    "entry": "Prime 4: The Viewros incident (Metroid Prime 4: Beyond events)",
+    "kind": "contradiction",
+    "before": "Sylux had bred it from a Metroid stolen from a Federation base in Cosmic Year 20X5.",
+    "after": "Sylux had bred it from a Metroid stolen from a Federation base in Cosmic Year 20X6.",
+    "source_url": "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+   },
+   {
+    "entry": "Prime 4: Sylux",
+    "kind": "contradiction",
+    "before": "After the Bermuda System incident he broke into a Federation research station and hatched the Metroid egg the Federation Force had recovered. His theft of a Metroid from a Federation base is dated to Cosmic Year 20X5, and he has long run covert operations...",
+    "after": "After the Bermuda System incident, in Cosmic Year 20X6, he broke into a Federation research station and hatched the Metroid egg the Federation Force had recovered. He has long run covert operations...",
+    "source_url": "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+   },
+   {
+    "entry": "Prime 4: Sylux",
+    "kind": "contradiction",
+    "before": "a Federation officer in command of a squad ... It annihilated his squad",
+    "after": "a Federation officer in command of a platoon ... It annihilated his platoon (matches federation domain and Wikipedia's 'sole survivor of his platoon')",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   },
+   {
+    "entry": "Prime 4: Aberax and Sylux's Metroids",
+    "kind": "contradiction",
+    "before": "his theft of a Metroid from a Federation base is dated to Cosmic Year 20X5.",
+    "after": "his theft of a Metroid from a Federation base is dated to Cosmic Year 20X6.",
+    "source_url": "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+   },
+   {
+    "entry": "Federation Force: The Metroid egg and Sylux's break-in",
+    "kind": "contradiction",
+    "before": "Sylux ... later surfaced leading Space Pirates who wielded Metroids able to take over a host (notes called the egg-to-strain link speculation, while prime4 and metroids state it)",
+    "after": "the break-in, which Nintendo's official account dates to Cosmic Year 20X6. Per that account, Sylux ... exploited the hatchling's imprinting to breed a strain of Metroids able to merge with and control a host; leading Space Pirates under their control, he later attacked a Federation facility on Tanamaar...",
+    "source_url": "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+   },
+   {
+    "entry": "Federation Force: The Metroid egg and Sylux's break-in",
+    "kind": "keys",
+    "before": "keys include 'hatchling' (also on the baby Metroid and samus-rp entries)",
+    "after": "'hatchling' replaced with 'Sylux hatched'"
+   },
+   {
+    "entry": "Federation Force: The Bermuda System incident",
+    "kind": "duplication",
+    "before": "Full Doomseye battle paragraph (~120 words, nearly word for word the same as 'The Doomseye')",
+    "after": "Two-sentence summary ending '(see The Doomseye)'; its unique Morph Ball sentence moved into 'The Doomseye'"
+   },
+   {
+    "entry": "Ridley: Ridley (overview and relationship with Samus)",
+    "kind": "contradiction",
+    "before": "During her first mission to Zebes, Samus destroyed Ridley in his lair ... Per the manga, the sight of him triggered a trauma-induced panic attack and he beat her down, gloating about K-2L...",
+    "after": "Per the manga, she met him again in her teens, when she came to Zebes with the Federation Police during the Pirate takeover: the sight of him triggered a trauma-induced panic attack and he beat her down... He then dealt a fatal blow to the Chozo Gray Voice... / During her first mission to Zebes as a bounty hunter, Samus destroyed Ridley in his lair...",
+    "source_url": "https://www.metroidwiki.org/wiki/Pyonchi"
+   },
+   {
+    "entry": "Ridley: Ridley's history across every encounter",
+    "kind": "contradiction",
+    "before": "- Zebes, Pirate takeover (per the manga): Ridley struck down the Chozo Gray Voice as he moved to take Mother Brain offline.",
+    "after": "- Zebes, Pirate takeover (per the manga): Samus, there with the Federation Police, was paralyzed by a panic attack at the sight of him and beaten; Ridley then struck down the Chozo Gray Voice as he moved to take Mother Brain offline.",
+    "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+   },
+   {
+    "entry": "Ridley: Ridley (overview and relationship with Samus)",
+    "kind": "keys",
+    "before": "keys include \"Ridley's Lair\" (on 3 entries; already matched by bare 'Ridley')",
+    "after": "\"Ridley's Lair\" removed"
+   },
+   {
+    "entry": "Ridley: Ridley's appearance, abilities and intelligence",
+    "kind": "duplication",
+    "before": "As Meta Ridley he also carried a Multi-Missile System, a Kinetic Breath Weapon, an Ultrathermal Flamestrike Projector and a Meson Bomb Launcher.",
+    "after": "As Meta Ridley he also carried built-in missile, breath, flame and bomb weapons (see Meta Ridley and Omega Ridley)."
+   },
+   {
+    "entry": "Ridley: Bottle Ship Ridley clone (Little Birdie)",
+    "kind": "style",
+    "before": "(Metroid Other M)",
+    "after": "(Metroid: Other M)"
+   },
+   {
+    "entry": "Ridley: Mecha Ridley",
+    "kind": "style",
+    "before": "(Metroid Zero Mission)",
+    "after": "(Metroid: Zero Mission)"
+   },
+   {
+    "entry": "Galactic Federation: Galactic Federation (overview)",
+    "kind": "contradiction",
+    "before": "has since sent her to SR388, the Alimbic Cluster, Aether, the Phazon crisis, the BSL station, Tanamaar and ZDR",
+    "after": "has since sent her to the Alimbic Cluster, Aether, the Phazon crisis, SR388, Tanamaar, the BSL station and ZDR (timeline order; Beyond falls between Other M and Fusion)",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   },
+   {
+    "entry": "Galactic Federation: Galactic Federation (overview)",
+    "kind": "contradiction",
+    "before": "commanded from the flagship G.F.S. Olympus by Fleet Admiral Castor Dane (present tense, while federation-force calls the G.F.S. Aegis the flagship in the later Bermuda campaign)",
+    "after": "commanded during the Phazon crisis from the flagship G.F.S. Olympus by Fleet Admiral Castor Dane",
+    "source_url": "https://www.nintendolife.com/reviews/3ds/metroid_prime_federation_force"
+   },
+   {
+    "entry": "Galactic Federation: Federation Navy and notable ships",
+    "kind": "contradiction",
+    "before": "The Federation fleet is commanded from the flagship G.F.S. Olympus by Fleet Admiral Castor Dane and operates from...",
+    "after": "During the Phazon crisis the Federation fleet was commanded from the flagship G.F.S. Olympus by Fleet Admiral Castor Dane; it operates from...",
+    "source_url": "https://www.nintendolife.com/reviews/3ds/metroid_prime_federation_force"
+   },
+   {
+    "entry": "Galactic Federation: Federation Navy and notable ships",
+    "kind": "duplication",
+    "before": "Three-to-four-sentence G.F.S. Olympus and G.F.S. Valhalla bullets repeating prime3's 'GFS Olympus and the Valhalla' (briefing, coma, Energy Cells, 'Darkness coming')",
+    "after": "One-sentence bullets for each, each ending '(see GFS Olympus and the Valhalla)'"
+   },
+   {
+    "entry": "Galactic Federation: Federation Police and military command",
+    "kind": "duplication",
+    "before": "Long 'Samus's service' paragraph (Kreatz, Mauk, Chief Hardy, Jigrad, 'piece of baggage', 'Any objections, Lady?', Ian's death). It implied Adam was already her CO at Jigrad, while samus-bio says that came later.",
+    "after": "One-sentence pointer: she served (Army per Nintendo's profile, Police per the manga) under Adam Malkovich before becoming a bounty hunter; see Samus Aran – Galactic Federation service and the bounty hunter years and Adam Malkovich. Manual founding story also trimmed to a pointer to the overview."
+   },
+   {
+    "entry": "Galactic Federation: Federation contracts and bounty hunters",
+    "kind": "duplication",
+    "before": "Full retelling of the manual's 'space hunters' origin, already in the overview and the Police entry",
+    "after": "One-clause version ending '(see Galactic Federation (overview))'"
+   },
+   {
+    "entry": "Galactic Federation: Federation contracts and bounty hunters",
+    "kind": "contradiction",
+    "before": "Later missions: ... investigate the BSL station, dispatched her to Tanamaar ..., and sent her to ZDR.",
+    "after": "Later missions: ... dispatched her to Tanamaar ..., sent her to investigate the BSL station, and sent her to ZDR.",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   },
+   {
+    "entry": "Galactic Federation: Federation contracts and bounty hunters",
+    "kind": "keys",
+    "before": "keys 'space hunter', 'space hunters', 'bounty hunters', 'mercenaries' (also on the tech bounty-hunting entry, samus-bio and timeline; 'space hunters' and 'bounty hunters' sat on 3 entries)",
+    "after": "removed; 8 Federation-specific keys remain"
+   },
+   {
+    "entry": "Galactic Federation: Aurora Units",
+    "kind": "keys",
+    "before": "keys 'Aurora Unit 242', 'Aurora Unit 217', 'Aurora Unit 313', 'Aurora Unit 486', 'AU 313' (duplicating prime3/dark-samus; the numbered forms are already matched as whole words by the 'Aurora Unit' key)",
+    "after": "removed; keys now Aurora Unit, Aurora Units, AU 242, AU 217, AU 486, organic supercomputer, biological supercomputer"
+   },
+   {
+    "entry": "Space Pirates: Space Pirates (overview)",
+    "kind": "contradiction",
+    "before": "History bullets listed Sylux's Tanamaar attack before Ridley's theft from Ceres and the destruction of Zebes; 'Ceres Station'",
+    "after": "Order is now Doomseye, then Ceres/Zebes, then a 'Later' bullet (Bottle Ship Cyborg Zebesians; Sylux's Pirates at Tanamaar; X mimics on the BSL); 'Ceres Space Colony'",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   },
+   {
+    "entry": "Space Pirates: The Pirates and Samus (the Hunter)",
+    "kind": "contradiction",
+    "before": "...freed her; fought Sylux's Pirates at the Federation facility on Tanamaar; and pursued Ridley to a rebuilt Zebes...",
+    "after": "...freed her; pursued Ridley to a rebuilt Zebes ... destruction; and fought Sylux's Pirates at the Federation facility on Tanamaar.",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   },
+   {
+    "entry": "Space Pirates: Ships and the Frigate Orpheon",
+    "kind": "contradiction",
+    "before": "the Pirates seized Aurora Unit 313 and jettisoned the crew into space. (stated as fact, while federation and prime3 entries describe Marines' bodies found aboard the wreck)",
+    "after": "the Pirates seized Aurora Unit 313 and, by their own account, jettisoned the crew into space.",
+    "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Valhalla"
+   },
+   {
+    "entry": "Space Pirates: Ships and the Frigate Orpheon",
+    "kind": "duplication",
+    "before": "Two-sentence Doomseye bullet repeating federation-force 'The Doomseye'; key 'Doomseye'",
+    "after": "One-sentence bullet ending '(see The Doomseye)'; 'Doomseye' key removed so the subject has one home"
+   },
+   {
+    "entry": "Space Pirates: Organization, High Command and Science Team",
+    "kind": "duplication",
+    "before": "Four-bullet caste list (Militia dinner rumor, slaves and criminals, Commanders' ten-year tenure) that repeats 'Pirate military of the Phazon crisis'",
+    "after": "One sentence: caste system rising from the expendable Pirate Militia through Pirate Troopers and Commando Pirates to the Pirate Commanders (see Pirate military of the Phazon crisis)"
+   },
+   {
+    "entry": "Space Pirates: Zebesians and Kihunters",
+    "kind": "style",
+    "before": "after Ridley stole the baby Metroid from Ceres Station.",
+    "after": "after Ridley stole the baby Metroid from the Ceres Space Colony."
+   }
+  ],
+  "cross_cluster_issues": "1) samus-bio, 'Samus: Samus Aran – raised by the Chozo on Zebes', last paragraph: 'When she returned years later as a bounty hunter, Mother Brain had turned against her makers, the Space Pirates held the planet...' This implies she first learned of the fall then. Per the manga, she came to Zebes with Kreatz and Mauk as a Federation Police officer during the Pirate takeover. There she confronted Mother Brain, was beaten by Ridley during a panic attack, saw Gray Voice die and escaped; only later did she leave the Federation and return as a bounty hunter. Suggested wording: 'She saw Zebes fall once already, as a Federation Police officer during the Pirate takeover (per the manga); when she returned years later as a bounty hunter, ...'. Sources: https://www.metroidwiki.org/wiki/Pyonchi ('Samus returned to Zebes with them [Kreatz and Mauk] ... the two escape Zebes'; Pyonchi went to Keaton only 'after Samus left the Federation'), plus the manga domain entries 'Mother Brain's betrayal of Zebes' and 'Samus's confrontation with Ridley and her trauma'.\n2) dark-samus, 'Dark Samus: The return – Colossus, Phaaze and the Norion attack': 'raiders extracted Aurora Unit 313 and jettisoned the crew into space' is stated as fact. That is only the Pirates' own claim in the 'Taking Valhalla' log ('At the command of Dark Samus, we jettisoned the crew...'). Samus found many Marines' bodies aboard the wreck. It should be attributed to Pirate records, as prime3 'GFS Olympus and the Valhalla' already does. Sources: https://www.metroidwiki.org/wiki/G.F.S._Valhalla and https://www.metroidwiki.org/wiki/Space_Pirate_Data\n3) timeline, 'Universe: Timeline of Samus's missions', Prime 4 line: 'flings Samus and Federation marines to Viewros ... the marines restrain him'. The five castaways included an engineer (Myles MacKenzie) and an android (VUE-995), so 'Federation personnel' or 'Federation companions' is more accurate (https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond). Minor.\n4) phazon, 'Phazon: Pirate Phazon operations and the Federation's PED program': says Pirate Metroid experiments 'yielded the Phazon-mutated Hunter and Fission strains'. The space-pirates fact-check found that Metroid Wiki credits neither strain to Pirate work, so the claim was removed there. Please verify, or hedge it.\n5) Keys still on 3 entries, left as acceptable because each entry is about that subject: 'Federation Police' (federation Police entry, manga 'Samus's Federation Police years', samus-bio service entry) and 'Bermuda System' (federation-force Bermuda System entry, bestiary-prime 'Fauna of the Bermuda System', tech planets index). If a stricter cap is wanted, drop 'Federation Police' from samus-bio and 'Bermuda System' from the tech index.\n6) Dating note for the timeline owner: official sources conflict on the year Sylux stole the Metroid. Nintendo's in-game Sylux logbook says Cosmic Year 20X5; Nintendo's 'The World' Databook prologue and the Nintendo Today text say 20X6. The timeline entry's 20X6 agrees with the databook and with Federation Force; no change needed there.",
+  "notes": "Contradiction calls:\n- Sylux theft year: set to 20X6 in prime4 (3 entries) to match federation-force (Bermuda incident 20X6), the timeline entries, the Databook and Nintendo Today. The in-game logbook's 20X5 is also the year of the first Zebes mission, which comes before the whole Prime series. The conflict is recorded in each entry's notes.\n- The egg-to-strain link is official (Databook prologue: Sylux took the hatchlings from eggs stored by the Federation, exploiting their imprinting, then cultured them into the host-controlling strain), so federation-force [5] now agrees with prime4 and metroids.\n- Doomseye shield: no change. Wikipedia says the Force 'disables the Doomseye's force field' after defeating Samus, which fits the space-pirates wording.\n- G.F.S. Aegis: real (Nintendo Life review); the Olympus is now dated as flagship 'during the Phazon crisis' instead of removing either ship.\n- Prime 4 placement: both the Wikipedia/Nintendo position (between Other M and Fusion) and Retro's 'after Super Metroid' put Tanamaar after Ceres/Zebes. The space-pirates and federation lists were reordered on that basis.\n- Checked and left alone: Ridley 'original life form of Zebes' (Metroid Wiki cites the Metroid manual p.39); Anthony freezing a Lava Golem (Metroid Wiki Anthony Higgs page); Delano 7 as a 'believed stolen Federation prototype' (Metroid Wiki Delano 7 page); Valhalla codes, then Leviathan battleship, then wormhole order (agrees with prime3).\n- Prime 4 overlap among its own entries (Tanamaar attack, Chrono Tower ending) is spread out in 1–3 sentences per entry rather than whole paragraphs, so I did not trim it.\n\nStyle: no 'player', 'boss', 'level', 'cutscene', 'unlock' or 'upgrade' wording, no markdown emphasis and no bracketed citations remain in the editable files. 'Scan Visor logbook' is kept as in-universe equipment.\n\nAll five files reload with json.load. No titles changed, no entries deleted, all entries constant=false, key counts are 5–12. Other URLs used: https://www.metroidwiki.org/wiki/Sylux, https://www.metroidwiki.org/wiki/Delano_7, https://www.metroidwiki.org/wiki/Space_Pirate_Data, https://www.metroidwiki.org/wiki/Anthony_Higgs, https://www.metroidwiki.org/wiki/Gray_Voice, https://www.metroidwiki.org/wiki/Samus_Aran, https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force, https://www.nintendo.co.jp/3ds/bcaj/index.html, https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/ (confirms the logbook's 20X5 wording)."
+ }
+}

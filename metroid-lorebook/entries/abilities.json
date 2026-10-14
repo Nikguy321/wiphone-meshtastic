@@ -1,0 +1,208 @@
+{
+ "domain": "abilities",
+ "category": "Equipment",
+ "entries": [
+  {
+   "comment": "Equipment: Morph Ball and Spring Ball",
+   "keys": ["Morph Ball", "Morph Balls", "Morphing Ball", "Maru Mari", "morphball", "Spring Ball", "Spring Balls", "Jumpball", "Hyper Ball", "ball form"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Morph Ball is the function of Samus Aran's Power Suit that collapses her into an armored metallic sphere roughly one meter across, small enough to roll through passages she could never enter standing. On her first mission it was called the Maru Mari, from the Japanese for \"to roll into a ball\"; per the original manual she simply \"grows small and round like a ball\". On the return to Zebes it was the Morphing Ball. The sphere takes on the look of whatever suit she wears (the Gravity and Phazon forms are visibly different), gravity still acts on it so inclines take effort, and it is the base for a family of Chozo-built extensions: the Morph Ball Bomb and Power Bomb, the Spring Ball, the Boost Ball and Spider Ball, and the Hyper Ball, which looses streams of Phazon electricity in Hypermode and which she gained on Bryyo by destroying Mogenar during the Phazon crisis.\n\nSamus has carried the Morph Ball on practically every mission, and it is usually among the first systems she recovers when her suit is stripped. She found it on a pedestal in Brinstar on her first Zebes mission and on the same pedestal years later. Aboard the Frigate Orpheon an explosion knocked it offline and she regained it in the Ruined Shrine of the Chozo Ruins on Tallon IV; on Aether the Ing stole most of her systems but she kept the ball; on the BSL station she won it back on the Main Deck by destroying the X mimicking Arachnus; on ZDR she reclaimed it by destroying E.M.M.I.-03MB in Cataris with the Omega Cannon; on Viewros it still served her. Adam Malkovich never restricted it on the Bottle Ship, only the bombs it lays. The technique is not hers alone: each rival hunter of the Alimbic Cluster incident had an alternate form of their own.\n\nThe Spring Ball (the Jumpball on the BSL station) lets the Morph Ball hop without laying a bomb. On SR388 and on the return to Zebes it was a separate find; on her first Zebes mission and the BSL station it came built into the Hi-Jump Boots; during the Phazon crisis it came with the Morph Ball Bombs; it returned on the SR388 extermination mission.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Morph_Ball",
+    "https://www.metroidwiki.org/wiki/Spring_Ball",
+    "https://www.metroidwiki.org/wiki/E.M.M.I.",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   ],
+   "notes": "The claim that only Samus among humans can use the Morph Ball could not be verified; Metroid Wiki says other creatures and hunters use similar systems, so it is omitted. Morph Ball Bombs and Power Bombs have their own entry (Bombs, Power Bombs and Cross Bombs) in the weapons domain."
+  },
+  {
+   "comment": "Equipment: Boost Ball, Spider Ball and Spider Magnet",
+   "keys": ["Boost Ball", "Boost Balls", "Spider Ball", "Spider Balls", "Spider Magnet", "Spider Ball Track", "Spider Ball Tracks", "magnetic rail", "magnetic rails", "sticky ball"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Boost Ball is a Chozo extension of the Morph Ball that served Samus through the Prime-era missions. She builds a charge while rolling and releases it to accelerate hard in her direction of travel; the longer the charge, the faster the burst. A charged boost damages most creatures it strikes, carries her up half-pipes, spins the Spinner devices of Tallon IV and launches her off magnetic rails. She found it in Phendrana Canyon on Tallon IV; a Warrior Ing stole it on Aether and she took it back from the Boost Guardian in Dark Torvus Bog; during the Phazon crisis she recovered it in SkyTown after destroying a Defense Drone, and needed it to free Aurora Unit 217 and to bring down Ghor. During the Alimbic Cluster incident she had it from the start.\n\nThe Spider Ball first came to her on SR388, where per the manual it is a \"sticky ball\" that crosses walls and ceilings unhindered by gravity; there it could scale nearly any surface not covered in spikes, and it returned on the later extermination mission. The Prime-era version is magnetic and clings only to Spider Ball Tracks; on a track the ball's sides turn to a hardened clear material that glows green, blue or red depending on her suit. She took it from Thardus in the Quarantine Cave near Glacier One, in Phendrana Drifts. On Aether the Ing stole it and she regained it from the Spider Guardian, a possessed Pillbug in Sanctuary Fortress, where leaping between rails with Spider Ball and Boost Ball together was essential against Quadraxis and the Emperor Ing. In SkyTown it sat in the hands of a Chozo Statue. A bomb laid on a track still bomb-jumps her off it.\n\nThe Spider Magnet of ZDR applies the same idea to her whole body. She took it from E.M.M.I.-02SM in Artaria, which climbed by the same system. It lets her cling to the blue magnetic surfaces of walls and ceilings: she snaps on when close, crawls along them, hauls herself over ledges, and can still fire and counter while attached. The Grapple Beam drags her onto any magnetic surface, magnetic plates on doors and platforms can be pulled down, and she can wall-jump off one surface and cling again. It does not work in Morph Ball form.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Boost_Ball",
+    "https://www.metroidwiki.org/wiki/Spider_Ball",
+    "https://www.metroidwiki.org/wiki/Spider_Magnet",
+    "https://www.metroidwiki.org/wiki/Metroid_II:_Return_of_Samus",
+    "https://www.metroidwiki.org/wiki/E.M.M.I."
+   ],
+   "notes": "Whether a Spider Ball or Boost Ball served on Viewros could not be settled: TheGamer and Gamereactor list 'Psychic' Boost and Spider Balls, but the fact-checker judged that list unreliable, so nothing is claimed."
+  },
+  {
+   "comment": "Equipment: Hi-Jump Boots, Space Jump and Wall Jump",
+   "keys": ["Hi-Jump Boots", "High Jump Boots", "Hi-Jump", "Space Jump", "Space Jumps", "Space Jump Boots", "Space Jumping", "Wall Jump", "Wall Jumps", "wall jumping", "Kick Climb", "wall-jump"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Hi-Jump Boots (formerly written High Jump Boots) raise Samus's jump height: per the original manual by half again, per the SR388 manual to more than twice the height. She found them in Norfair on both her Zebes missions and regained them on the BSL station by destroying Zazabi in Sector 2 (TRO); on her first Zebes mission and the BSL station they also gave the Morph Ball its Spring Ball hop. On ZDR her second jump in mid-air came instead from the Spin Boost, held by a Chozo Statue in Ghavoran.\n\nThe Space Jump lets Samus keep somersaulting through the air, chaining spin jumps indefinitely; each new jump engages just after the last one peaks. It first came to her on SR388 and has served on nearly every mission since. On the return to Zebes it lay in Maridia. On her first Zebes mission the Chozo cache in Kraid's domain held it, but her suit read only \"Unknown item\" until she wore the Legendary Power Suit from Chozodia. On the BSL station she took it from Yakuza, a spider-like X mimic in the Reactor Silo of the Main Deck. On the Bottle Ship she switched it on herself, with the Screw Attack, while chasing the Deleter, though that suit's version only sustained her height. On the extermination mission the Area 4 Chozo Statue stood broken and empty, and the Diggernaut left the Space Jump behind after she tricked it into thinking she was dead. On ZDR it waited in Ferenia. The Prime-era Space Jump Boots give a single extra jump in mid-air, only after a jump from the ground; she found them in the Alcove of Tallon Overworld, lost them to a Warrior Ing on Aether, reclaimed them from the Jump Guardian in Dark Agon Wastes, and wore them throughout the Phazon crisis.\n\nThe Wall Jump is technique, not equipment: Samus kicks off a wall for extra height. On Zebes, on both missions, she could chain kicks up a single wall, a move the Etecoons of Brinstar also perform. She did the same on the BSL station, on ZDR, where she can also kick off a Spider Magnet surface and cling again, and aboard the Bottle Ship, where it was called the Kick Climb. On Aether and during the Phazon crisis she managed it only through the Screw Attack, on designated Wall Jump Surfaces.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Hi-Jump_Boots",
+    "https://www.metroidwiki.org/wiki/Space_Jump",
+    "https://www.metroidwiki.org/wiki/Space_Jump_Boots",
+    "https://www.metroidwiki.org/wiki/Wall_Jump",
+    "https://www.metroidwiki.org/wiki/Yakuza",
+    "https://www.metroidwiki.org/wiki/Dachora",
+    "https://www.metroidwiki.org/wiki/ZDR",
+    "https://www.metroidwiki.org/wiki/Metroid_II:_Return_of_Samus",
+    "https://www.metroidwiki.org/wiki/Spider_Magnet",
+    "https://www.nintendolife.com/guides/metroid-dread-spin-boost-location",
+    "https://omegametroid.com/metroid-dread-walkthrough/the-forest-of-ghavoran/",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-4-crystal-caverns"
+   ],
+   "notes": "Metroid Wiki's Wall Jump page does not list Dread, but the Spider Magnet page documents wall-jumping on ZDR. The ZDR Spin Boost is also covered in the Dread-era movement entry. Whether the Diggernaut itself broke the Area 4 statue is only implied, so it is not claimed."
+  },
+  {
+   "comment": "Equipment: Screw Attack",
+   "keys": ["Screw Attack", "Screw Attacks", "screw attacking", "screwattack", "ball of deadly energy"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Screw Attack turns Samus's spin jump into a weapon. While she somersaults, her suit wraps her in a field of destructive energy (her suit's data on Aether says she can \"transform into a mobile ball of deadly energy\"; the ZDR data describes an electric coating during spin jumps), and most creatures she passes through are destroyed outright. Per the original manual it \"spins in flight to attack the enemy\"; per the manual for her return to Zebes she can \"somersault into enemies and blast them out of the air\". Some things can only be destroyed with it. Few creatures resist: Rippers, which shrug off nearly everything else, are shredded by it, while Omega Ridley leaps clear of it and takes no harm from a hit. It generally fails underwater unless she wears the Gravity Suit, though the Bottle Ship suit could use it there regardless; on Aether, underwater, the Luminoth Gravity Boost always took its place. In the Aether and Phazon-crisis suits it also chains several extra spinning jumps after a Space Jump and lets her kick off Wall Jump Surfaces to climb great heights.\n\nSamus has recovered the Screw Attack on nearly every mission, usually late. On her first Zebes mission it waited in Norfair past Ridley's hideout; on the return to Zebes it lay deep in Lower Norfair, the region of Ridley's lair. On the BSL station she regained it by destroying Ridley-X in Sector 1 (SRX), her suit reporting \"Screw Attack ability regained\". On Aether it rested in a Luminoth vault chamber; during the Phazon crisis it was on Bryyo and let her clear enormous gaps. On the Bottle Ship she switched it on herself, together with the Space Jump, while chasing the Deleter rather than wait for Adam Malkovich's authorization. On ZDR it lay in Artaria. It also served her on SR388 during the extermination mission.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Screw_Attack",
+    "https://www.metroidwiki.org/wiki/Space_Jump",
+    "https://www.metroidwiki.org/wiki/Wall_Jump",
+    "https://www.metroidwiki.org/wiki/ZDR",
+    "https://www.metroidwiki.org/wiki/Artaria"
+   ],
+   "notes": "Metroid Wiki places the Super Metroid Screw Attack 'in the same place' as the original (Norfair after Ridley), but on Zebes's return it can be taken in Lower Norfair before Ridley is faced, so the entry says only 'deep in Lower Norfair'. Samus Returns and Dread acquisition circumstances are not documented on Metroid Wiki and are omitted."
+  },
+  {
+   "comment": "Equipment: Speed Booster and Shinespark",
+   "keys": ["Speed Booster", "Speed Boosters", "Speed Boost", "speed boosting", "Shinespark", "Shinesparks", "Shine Spark", "shinesparking", "shinesparked", "boost blocks"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Speed Booster lets Samus run at supersonic speed. After a short build-up at a full sprint her suit flares and she becomes a projectile: she smashes through Speed Booster blocks and barriers of rock, ice and metal, obliterates most creatures she touches, clears wide gaps and charges up steep inclines. Per the manuals for her first Zebes mission and the BSL mission, she can \"dash at supersonic speeds and crash through certain barriers and enemies\"; the ZDR data calls it super-human speed.\n\nThe Shinespark is its secondary technique, one the Dachora of Brinstar demonstrated on the return to Zebes. At full speed Samus crouches to store the charge, then releases it to launch herself at hyper speed in a straight line: left, right, straight up or diagonally (in the Bottle Ship suit, vertically or in any direction). Sparking into a sloped surface drops her straight back into a boosted run, which reaches places that look unreachable. With the Hi-Jump Boots on her first Zebes mission she could even spark in Morph Ball form. On the return to Zebes the spark bled energy from her suit for as long as it lasted, a cost that never recurred. During the BSL incident the station computer once remarked on her use of the Shinespark after she used it to skip an item she had been sent to collect first.\n\nOn her first Zebes mission the Speed Booster sat in the hands of a Chozo Statue beyond Kraid's lair; on the return to Zebes it was in Norfair. On the BSL station she regained it by absorbing the core of the X that had mimicked Serris, an aquatic creature that moved at \"ultra-high speed\" (\"Speed Booster was regained. Run until speed boost begins.\"). On the Bottle Ship Adam Malkovich authorized it in Sector 2, the Cryosphere, where it broke open a shortcut; that suit uniquely let her turn mid-boost, as through a spiral structure in the Biosphere. It was absent from her SR388 extermination mission. On ZDR she first detoured to Burenia for the Flash Shift, then reached the Central Unit in Dairon, took up the Omega Cannon and destroyed E.M.M.I.-04SB, the yellow unit that held the Speed Booster.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Speed_Booster",
+    "https://www.metroidwiki.org/wiki/Shinespark",
+    "https://www.metroidwiki.org/wiki/Dachora",
+    "https://www.metroidwiki.org/wiki/E.M.M.I.",
+    "https://www.metroidwiki.org/wiki/ZDR",
+    "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns"
+   ],
+   "notes": "The fact-check said the 'supersonic speeds... crash through certain barriers and enemies' quote was Fusion-only, but Metroid Wiki's Speed Booster page attributes it to both the Zero Mission booklet (p. 26) and the Fusion booklet (p. 30), so it is credited to both. The Biosphere spiral, flagged as unverified, is on the same page and was kept. Metroid Wiki's Shinespark page also says Dread allows Morph Ball sparks after 'the Hi-Jump', which does not fit Dread's equipment; that claim was left out."
+  },
+  {
+   "comment": "Equipment: Flash Shift, Phantom Cloak, Slide and Spin Boost (Dread-era movement)",
+   "keys": ["Flash Shift", "Flash Shifts", "Flash Shifting", "Phantom Cloak", "Phantom Cloaked", "Phantom Cloaking", "Spin Boost", "Spin Boosts", "E.M.M.I. Zone", "E.M.M.I. Zones", "EMMI Zone"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "On ZDR (Metroid Dread) Samus moved differently from any earlier mission. Raven Beak defeated her on arrival and stripped her suit of most of its abilities, so she rebuilt her mobility piece by piece, and two of the pieces drew on Aeion rather than on suit power.\n\nThe Slide needs no equipment. Samus drops into a sliding run that carries her through tight gaps and under obstacles; in Artaria she could slide beneath the ribs of Corpius. The Morph Ball later took over the smallest holes.\n\nThe Phantom Cloak makes her fully invisible and silent, at the price of slowed movement, and it is her answer to the E.M.M.I. She claimed it by defeating Corpius in Artaria, a creature that had swallowed the ability and turned invisible against her. The hunting units track her by sight and by the noise she makes; the cloak hides her from their optical sensors and silences her steps, though it cannot save her if one runs straight into her. It also fools other creatures and lets her pass doors built to close when they detect humans. It drains Aeion, faster while she moves, and once the gauge runs dry she can hold the cloak only by burning her own Energy.\n\nThe Flash Shift, found in Burenia, is an Aeion ability that moves her to either side almost instantly, a short-range teleport she can chain up to three times in quick succession, for getting away from a strike, across a gap or past a threat. She needed it before she could reach the Central Unit in Dairon that stood between her and the Speed Booster.\n\nThe Spin Boost, held by a Chozo Statue in Ghavoran, gave her a second jump in mid-air before she found the Space Jump in Ferenia.\n\nThe rest of her ZDR mobility came from elsewhere: the Spider Magnet from E.M.M.I.-02SM in Artaria, the Morph Ball from E.M.M.I.-03MB in Cataris, the Speed Booster from E.M.M.I.-04SB in Dairon, the Screw Attack in Artaria, and the Pulse Radar, her third Aeion ability, in Ghavoran. The gauge rules that govern the cloak and the shift belong to Aeion itself.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Aeion",
+    "https://www.metroidwiki.org/wiki/ZDR",
+    "https://www.metroidwiki.org/wiki/Artaria",
+    "https://www.metroidwiki.org/wiki/Speed_Booster",
+    "https://www.metroidwiki.org/wiki/E.M.M.I.",
+    "https://www.metroidwiki.org/wiki/Metroid_Dread",
+    "https://en.wikipedia.org/wiki/Metroid_Dread",
+    "https://www.nintendo.com/en-gb/News/2021/June/Metroid-Dread-Report-Vol-2-Researching-the-E-M-M-I-1997672.html",
+    "https://www.nintendolife.com/guides/metroid-dread-spin-boost-location",
+    "https://www.nintendolife.com/guides/metroid-dread-pulse-radar-location",
+    "https://omegametroid.com/metroid-dread-walkthrough/the-forest-of-ghavoran/"
+   ],
+   "notes": "The Corpius/Phantom Cloak link comes from search-result snippets of Wikitroid's Corpius page and several walkthroughs (Metroid Wiki has no Corpius page). That a colliding E.M.M.I. still captures a cloaked Samus comes from the fact-checker's Wikitroid snippet. 'Phase Shift (Dread)' from the task brief does not exist in any source consulted; the nearest real ability is Phase Drift (Samus Returns), covered in the Aeion entry."
+  },
+  {
+   "comment": "Equipment: Aeion and the Aeion abilities",
+   "keys": ["Aeion", "Aeion Gauge", "Aeion Tanks", "Aeion Orbs", "Aeion Recharge", "Scan Pulse", "Lightning Armor", "Lightning Armour", "Beam Burst", "Phase Drift", "Pulse Radar"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Aeion is an energy that SR388 itself emits; the data Samus gathered on the extermination mission calls it a mystical and powerful resource. The Chozo of SR388 first discovered it by extracting it from the planet's creatures (the second of the Chozo Memories shows the process) and used it to build the Aeion Abilities and other machinery. It can be integrated into a Power Suit: Samus's, and the armor Raven Beak wore on ZDR.\n\nOn the SR388 extermination mission (Metroid: Samus Returns) Samus gained each Aeion Ability by rolling in Morph Ball form into an Aeion Ability Artifact; Chozo Statues could also project them. An Aeion Gauge in her suit powers them: it drains while an ability runs, faster if several run at once, and an ability cuts out when the gauge empties. It refills from Aeion Orbs shed by slain creatures and successful melee counters, from Chozo Statues and from Aeion Recharge stations; each Aeion Tank she found raised its capacity by 50 and refilled it. The four abilities were:\n- Scan Pulse: a sweep that fills in part of her map and reveals breakable blocks and hidden routes around her.\n- Lightning Armor: a charged shell that makes incoming damage drain Aeion instead of her energy.\n- Beam Burst: pours Aeion into the Arm Cannon to turn her beam into a rapid-fire stream.\n- Phase Drift: slows time around her, letting her cross disintegrating blocks before they fall.\n\nOn ZDR (Metroid Dread) she gathered only three abilities: the Phantom Cloak, claimed by defeating Corpius in Artaria; the Flash Shift, from Burenia; and the Pulse Radar, from a Chozo Statue in Ghavoran, which works like the Scan Pulse to expose hidden blocks and pathways. There the gauge regenerated on its own once she acted, but she could not draw on it while it refilled, a deactivated ability could not be restarted until the gauge was full, and no Aeion Tanks existed to expand it. The Phantom Cloak could keep running after the gauge emptied, at the cost of her own Energy.\n\nBoth worlds where Samus used Aeion were Chozo worlds, and both times the technology came from the civilization that raised her and built her suit.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Aeion",
+    "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+    "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns",
+    "https://www.metroidwiki.org/wiki/Phase_Drift",
+    "https://www.nintendo.com/en-gb/News/2021/June/Metroid-Dread-Report-Vol-2-Researching-the-E-M-M-I-1997672.html",
+    "https://www.nintendolife.com/guides/metroid-dread-flash-shift-location",
+    "https://www.nintendolife.com/guides/metroid-dread-pulse-radar-location"
+   ],
+   "notes": "The key 'Aeion' already matches compound terms such as Aeion Tank, Aeion Orb and Aeion Ability, so only a few compounds are listed explicitly. The SR388 area in which each Aeion ability is found could not be verified and is omitted. Metroid Wiki says Dread abilities come in 'special cubes', which does not fit the Corpius case, so the cube detail was dropped. Metroid Wiki says Aeion abilities cease when Aeion is drained; Nintendo's Dread Report says the Phantom Cloak continues on Energy, and the more specific official source was followed."
+  },
+  {
+   "comment": "Equipment: Combat Visor, Scan Visor and the helmet HUD",
+   "keys": ["Combat Visor", "Scan Visor", "heads-up display", "HUD", "Logbook", "targeting reticle", "Search View", "visor display", "helmet display"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "A Visor is an interface system built into Samus's Power Suit, a display inside her helmet. In every suit it has shown her remaining energy and her missile count; her later suits added an area map and selectors for Power Bombs, Super Missiles and other secondary weapons. In the Prime-era suits the display is far more active: it changes with the visor she selects, distorts under interference, and reacts to her surroundings.\n\nThe Combat Visor is her default and the only visor that shows the normal light spectrum while letting her fire the Arm Cannon, which makes it the one she lives in. It carries an energy meter and Energy Tank count, missile count, a caution meter for environmental threats, the area map and radar, and her current visor and beam selections (on Aether it also tracked beam ammunition). Its targeting reticle locks on to most creatures so she can circle them while firing. On the Bottle Ship it took the form of the first-person Search View, and on Viewros the display simulates the inside of her helmet with radar, a mini-map, energy and ammunition.\n\nThe Scan Visor is her instrument of investigation. Sweeping it over a creature, a person, a machine, a carving or a terminal records data in her Logbook: creature profiles and weaknesses, research notes, and lore such as the Chozo Lore and Pirate Data of Tallon IV, the Alimbic Lore of the Alimbic Cluster, the Luminoth Lore, Space Pirate Logs and Trooper Logs of Aether, and the Galactic Federation, Bryyonian, SkyTown and Space Pirate Data of the Phazon crisis. Scanning activation panels operates elevators, gates and other devices across Chozo, Luminoth and Pirate installations. On the Bottle Ship scanning worked only from that first-person view and gave a one- or two-word identification and what it would take to break or bypass the object. On Viewros her scanning passed to the Psychic Visor, an enhanced scanning visor born of the psychic crystal, which also reveals and works psychic objects.\n\nHer Thermal, X-Ray, Dark, Echo and Command Visors are specialized systems she switches to as the situation demands, several of them in the middle of a fight.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Combat_Visor",
+    "https://www.metroidwiki.org/wiki/Scan_Visor",
+    "https://www.metroidwiki.org/wiki/Visor",
+    "https://www.metroidwiki.org/wiki/HUD",
+    "https://www.metroidwiki.org/wiki/Logbook",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+    "https://www.thegamer.com/metroid-prime-4-beyond-psychic-abilities-guide/"
+   ],
+   "notes": "Samus's face reflected in the visor and rain or steam effects on it are not documented on the fetched pages and are not claimed. 'HUD' is kept as a key because in a Samus roleplay it almost always means her visor display; bare 'visor', 'helmet', 'scanning' and 'lock on' were dropped as too generic."
+  },
+  {
+   "comment": "Equipment: Thermal, X-Ray, Dark, Echo and Command Visors",
+   "keys": ["Thermal Visor", "X-Ray Visor", "X-Ray Scope", "Dark Visor", "Echo Visor", "Command Visor", "Ship Grapple", "Ship Missile", "Ship Missiles", "echo gate", "echo gates"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Beyond the Combat and Scan Visors, Samus has fitted five specialized visors, most of them taken from the worlds she fought on, and several serve her in the middle of a fight.\n\nThermal Visor (Tallon IV). Found in the Research Core, a Space Pirate lab in Phendrana Drifts. It renders heat signatures: she can see in darkness and foul weather, pick out Shriekbats hiding above her, counter the cloaking of Shadow Pirates, and spot Power Conduits that \"radiate some heat that is invisible in the normal spectrum\" so she can energize them with the Wave Beam. Bright light, explosions and intense heat impair it, and in the superheated Magmoor Caverns it is nearly useless. The Pirates used the same thermal imaging to find the weak points in Thardus's casing.\n\nX-Ray Visor (Tallon IV, later the Pirate Homeworld). Taken from the Life Grove of the Tallon Overworld. It looks through walls and hollow structures, exposes hidden passages and Chozo Artifacts, reveals invisible platforms, and tracks cloaked foes: the Omega Pirate, the intermittently invisible Metroid Prime, and Chozo Ghosts, which \"phase in and out of existence\". During the Phazon crisis she obtained it again on the Pirate Homeworld, where it also reads the hidden passwords of Pirate consoles and, paired with the Nova Beam, sees through Phazite to weak points. A similar device, the X-Ray Scope, served her later on the return to Zebes; it showed hidden passages and the composition of objects but rooted her in place while in use.\n\nDark Visor (Aether). Luminoth work, once worn by A-Kul, the Champion of Aether: \"Our champion wore a visor that pierced the veil of Dark Aether's eternal night.\" Samus received it after destroying Chykka in the Dark Torvus Temple. It shows whatever is in transdimensional flux: hidden platforms, Dark Pirate Commandos, Ing in their amorphous state, Flying Ing Caches and Dark Samus during their clash in Sanctuary Fortress.\n\nEcho Visor (Aether). Also the champion's: \"The last of our champion's visors used sound to target the unseen.\" The Luminoth built this sonic imaging to let their blind see. Samus found it in the Aerie of Sanctuary Fortress after driving off Dark Samus. It renders sound waves, exposing Shriekers and other unseen enemies, disarming sonic security, opening echo gates with the Annihilator Beam, revealing the link between Quadraxis's body and its head, and tracking Dark Samus when Phazon hid her from the Dark Visor.\n\nCommand Visor (Phazon crisis). A link to her Gunship rather than a sensor: through it she calls the ship down to land, orders Ship Missile strikes and bombing runs, and has it lift heavy objects with the Ship Grapple. It was offline during the attack on Norion until Rundas pulled her clear of Space Pirate ATCs; she later used it to destroy the shield generators on Bryyo, assemble the Theronian Bomb on Elysia and reach the Leviathan on the Pirate Homeworld.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Thermal_Visor",
+    "https://www.metroidwiki.org/wiki/X-Ray_Visor",
+    "https://www.metroidwiki.org/wiki/X-Ray_Scope",
+    "https://www.metroidwiki.org/wiki/Dark_Visor",
+    "https://www.metroidwiki.org/wiki/Echo_Visor",
+    "https://www.metroidwiki.org/wiki/Command_Visor"
+   ],
+   "notes": "Largest subject in the domain; kept under the 550-word allowance for big subjects. The Command Visor overlaps the Gunship entry in the technology domain, which also keys on 'Command Visor'."
+  },
+  {
+   "comment": "Equipment: Psychic abilities (Viewros)",
+   "keys": ["psychic crystal", "Psychic Visor", "Psychic Glove", "Control Beam", "Psychic Beam", "Psychic Mote", "Psychic Motes"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "On Viewros (Metroid Prime 4: Beyond) Samus gained powers no earlier mission had given her. In the Chrono Tower she acquired a crystal with psychic capabilities, and once it bonded with her she could manipulate objects at a distance, operate specialized Lamorn mechanisms and perceive hidden platforms.\n\nHer psychic powers run through the Psychic Visor, an enhanced scanning visor that took over the work of her Scan Visor and also reveals and handles psychic objects. Two further powers build on it:\n- Psychic Glove: telekinetic handling of Psychic Motes, which serve the Lamorn as keys, and of other psychic objects.\n- Control Beam: lets her steer a charged Psychic Beam shot after firing it, in slowed time, toward control switches or an enemy's weak point.\n\nThe powers are of a piece with the Lamorn, the vanished people of Viewros. Many of their structures need psychic power to operate, some of their statues house Psychic Motes, and their prophecy named Samus the \"Chosen One\". At the end of the mission she used the psychic crystal to accelerate the growth of the Lamorn Memory Fruit.\n\nViewros also gave her a vehicle. The Vi-O-La is a bike invented by the Lamorn, which she rides across Sol Valley and fights from the saddle, wearing the Vi-O-La Suit that lets her ride it. Its Boost gives a burst of speed that scatters creatures and smashes ore, a sideways Power Slide during a boost sweeps a wide area, and its target-seeking shots lock on to as many as five enemies and return like boomerangs.\n\nHer established systems travelled with her: the Morph Ball, Missiles, the Charge Beam and Bombs all served on Viewros.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+    "https://www.metroidwiki.org/wiki/Lamorn",
+    "https://www.nintendo.com/us/store/products/metroid-prime-4-beyond-switch/",
+    "https://www.gamespot.com/articles/metroid-prime-4-beyond-hands-on-samuss-psychic-abilities-are-more-than-a-gimmick/1100-6536193/",
+    "https://www.thegamer.com/metroid-prime-4-beyond-psychic-abilities-guide/",
+    "https://shinesparkers.net/features/the-vi-o-la-bike/"
+   ],
+   "notes": "Refocused on psychic powers: the Vi-O-La and Sol Valley have a full entry in the Prime 4 domain ('Prime 4: Vi-O-La and Sol Valley') and the Vi-O-La Suit one in the suits domain, so Vi-O-La and Sol Valley keys were removed to avoid double injection. Where the crystal sits is disputed (forehead per Wikitroid and TheGamer, helmet per GameSpot and GamesRadar), so the entry says only that it bonded with her. TheGamer and Gamereactor also list Psychic Bomb, Psychic Boost Ball, Psychic Spider Ball, Psychic Boots, Psychic Grapple and Psychic Lasso, but the fact-checker judged that list unreliable, so none are used. A claim that Samus fought Sylux from the Vi-O-La was removed as unsupported."
+  }
+ ]
+}
