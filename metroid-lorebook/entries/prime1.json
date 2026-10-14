@@ -40,7 +40,6 @@
     "Tallon 4",
     "Tallon Four",
     "planet Tallon",
-    "FS-176",
     "Wanderer-class"
    ],
    "secondary_keys": [],
@@ -56,7 +55,7 @@
     "https://www.metroidwiki.org/wiki/Chozo_Ruins",
     "https://en.wikipedia.org/wiki/Metroid_Prime"
    ],
-   "notes": "The 25-year figure is Samus's Logbook decay projection (not a Pirate estimate) and the 50-year figure is Federation data on time since impact; they measure different things. Bare 'Tallon' dropped as a key to stop double-firing with Tallon Overworld/Tallon Metroid entries."
+   "notes": "The 25-year figure is Samus's Logbook decay projection (not a Pirate estimate) and the 50-year figure is Federation data on time since impact; they measure different things. Bare 'Tallon' dropped as a key to stop double-firing with Tallon Overworld/Tallon Metroid entries. Consistency pass: 'FS-176' key removed (it sat on three entries; the system's home is the Zebes overview, and the technology index also lists it)."
   },
   {
    "comment": "Prime: Regions of Tallon IV",

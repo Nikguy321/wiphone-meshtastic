@@ -1,0 +1,41 @@
+CLUSTER prime-era
+EDITED ['phazon.json', 'dark-samus.json', 'echoes.json', 'prime1.json']
+FIXES 19
+
+CROSS-CLUSTER ISSUES:
+I found no contradictions in the read-only reference files samus-bio.json and timeline.json that touch these six domains. I checked the Tallon IV, Alimbic Cluster, Aether and Phazon crisis lines in Timeline of Samus's missions, In-universe dating and Why Samus loses her abilities against my entries, and they agree.
+
+Minor points from other domains I can't edit:
+(1) Space Pirates: Ships and the Frigate Orpheon says the Colossus's "Phazon-powered weapons" overpowered the G.F.S. Valhalla. Phazon: Pirate Phazon operations (using Federation Data) and Prime 3: GFS Olympus and the Valhalla instead say Phazon-powered starships and superior numbers, which the Federation believed. These may come from two different in-game texts (Pirate Data vs Federation Data), so the space-pirates owner should check before anyone harmonizes them.
+(2) Several entries still say Aurora Unit 217 found Phaaze by triangulating the Leviathans' trajectories: four Prime 3 entries (The Phazon crisis, Elysia and SkyTown, The assault on Phaaze, GFS Olympus and the Valhalla) and Dark Samus: Dark Samus (overview). The only source is Metroid Wiki's Phaaze page, which carries a references-needed warning and gives no citation. The Aurora Unit 217 page says only that 217 "apparently discovered Phaaze", and Wikipedia and Metroid Wiki's Metroid Prime 3 page don't say how Phaaze was found. I left it because nothing in the lorebook contradicts it, but it is weakly sourced.
+(3) Several entries state as fact that destroying Aurora Unit 313 purged the Phazon from Samus: Phazon: Phazon, Phazon: Samus and Phazon, Dark Samus: Dark Samus (overview), Dark Samus: The Phazon crisis and her end, and Equipment: Phazon Suit and PED Suit. That rests on Metroid Wiki's Dark Samus page. Wikipedia only says Phaaze's end "possibly" made all Phazon inert. The Prime 3 entries stay silent on it, so there is no contradiction, but it is a soft point.
+
+NOTES:
+I made 19 fixes across 4 files: 9 contradictions, 5 duplications and 5 key changes, all verified with Metroid Wiki fetches. prime3.json and hunters.json needed no edits: no contradictions survived checking, there were no meta words, and no keys sat on 3 or more entries.
+
+I checked these suspected contradictions and they turned out to be consistent, so I left them:
+- **Doubters shot:** Prime 3 says Pirates who refused to follow Dark Samus were shot; Dark Samus says those who said she abandoned them were shot. The Pirate Data has both lines.
+- **Mogenar:** the Phazon entries call it a "Reptilicus War Golem" and the Bryyo entry says the last Lord of Science built the Mogenars. The first is the logbook's wording and the second is Bryyo lore ("I built mighty Mogenars out of stone"), both official.
+- **Gunship refusing Samus on Phaaze:** confirmed by Metroid Wiki's Samus Aran page and the in-game "near total corruption" Gunship scan.
+- **Metroid Prime's origin:** Prime 1 says a Metroid absorbed the Leviathan's core; Metroid Wiki states this without a citation. It does not contradict the trimmed Dark Samus wording ("Phazon-mutated Metroid").
+
+Choices I made:
+- **Dash lists:** I left the plain-text "- " lists in place (prime1 Artifacts, two Dark Samus entries, three Phazon entries) because the constant timeline entry uses the same format; they contain no bold, headers or links.
+- **Notes fields:** each edited entry's notes now has a "Consistency pass:" line saying what changed and why.
+- **Backup:** a copy of all entry files from before my edits is at /tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries_backup_consistency/.
+- **Shared scratchpad:** another agent is using the same scratchpad and overwrote my keys.py helper while I was working. My final key check used a uniquely named script, ccx_prime_keys_check.py, and I wrote only to my four edited files. All six files load as valid JSON.
+
+Sources used:
+- https://www.metroidwiki.org/wiki/Tallon_IV
+- https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)
+- https://www.metroidwiki.org/wiki/Mogenar
+- https://www.metroidwiki.org/wiki/Phaaze
+- https://www.metroidwiki.org/wiki/Samus_Aran
+- https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption
+- https://www.metroidwiki.org/wiki/Keybearer
+- https://www.metroidwiki.org/wiki/Dark_Samus_2
+- https://www.metroidwiki.org/wiki/Pirate_Data
+- https://www.metroidwiki.org/wiki/Aurora_Unit_217
+- https://www.metroidwiki.org/wiki/Bryyo_Data
+- https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption
+- WebSearch snippets (fan wiki and Giant Bomb) for the "near total corruption" Gunship scan and for the Federation triangulating Phaaze.
