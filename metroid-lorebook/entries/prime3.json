@@ -1,326 +1,337 @@
 {
-  "domain": "prime3",
-  "category": "Prime 3",
-  "entries": [
-    {
-      "comment": "Prime 3: The Phazon crisis",
-      "keys": [
-        "Phazon crisis",
-        "Metroid Prime 3",
-        "Prime 3",
-        "Metroid Prime 3: Corruption",
-        "Corruption incident",
-        "Aurora virus",
-        "Phazon virus",
-        "Aurora Unit virus",
-        "the four hunters",
-        "fellow hunters"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "The Phazon crisis erupted about six months after the Aether incident (Metroid Prime 2: Echoes). The Space Pirate battleship Colossus had carried off the last Phazon from Aether, and inside its Phazon stores Dark Samus re-formed herself. She killed a third of the crew, enthralled the rest, flew alone to Phaaze, the living planet that is the source of all Phazon, and returned riding a Leviathan; the Pirates followed her through a wormhole, and those who refused were shot. Her forces captured the G.F.S. Valhalla and took its Aurora Unit 313, which she implanted on Phaaze to direct the Leviathan Seeds. Seeds struck the Pirate Homeworld, Bryyo and Elysia, another bore down on Norion, and a Pirate-made virus crippled the Galactic Federation's Aurora Unit network.\n\nThe Federation hired four bounty hunters: Samus Aran, Rundas, Ghor and Gandrayda. Fleet Admiral Castor Dane was briefing them aboard the G.F.S. Olympus on the vaccine they were to deliver when Pirate boarding pods struck the ship. Dark Samus personally led the Pirate assault on Norion. The hunters restored the base's three generators; Meta Ridley ambushed Samus at Generator C, and she defeated him in free fall down its shaft, leaving him presumed destroyed. At the Control Tower Dark Samus blasted all four hunters with Phazon, but Samus fired the defense cannon that destroyed the incoming Leviathan before she collapsed.\n\nShe woke aboard the Olympus a month later; the others had woken weeks earlier. The blast had left the hunters' bodies generating their own Phazon, and the Federation had fitted each with a Phazon Enhancement Device (PED) to harness it. Rundas had gone to Bryyo, Ghor to Elysia and Gandrayda to find the Pirate stronghold, and contact with all three had been lost.\n\nSamus followed. On Bryyo she killed the corrupted Rundas and the war golem Mogenar in the Seed's core. On Elysia she cured Aurora Unit 217 in SkyTown, killed the corrupted Ghor and broke the Seed's shield with a Theronian Bomb before destroying its guardian Helios; 217 then located Phaaze by triangulating the trajectories of the Leviathan attacks. On the Pirate Homeworld she killed Gandrayda, now a Pirate field commander, dropped the planetary shield for a Federation assault, and destroyed the Seed guarded by Omega Ridley, the revived Meta Ridley. Each Seed she overloaded deepened her own corruption, and Dark Samus drained the Phazon from each fallen hunter.\n\nSamus recovered wormhole codes from the wreck of the Valhalla, and a captured Pirate Leviathan carried the fleet to Phaaze. In its Sanctum she defeated Dark Samus, who merged with Aurora Unit 313; when Samus destroyed the unit, Phaaze became unstable and collapsed as she escaped, and Dark Samus perished with it. The Federation celebrated the end of Phazon corruption, won at the cost of many troopers and ships and the lives of the three hunters. For Samus the crisis meant killing three colleagues she had fought beside at Norion while carrying the enemy's own substance in her body. She returned to SkyTown to mourn them, then flew on alone; an unidentified ship, later identified as Sylux's, followed her.",
-      "constant": false,
-      "order": 100,
-      "category": "Prime 3",
-      "sources": [
-        "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
-        "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption",
-        "https://www.metroidwiki.org/wiki/Dark_Samus",
-        "https://www.metroidwiki.org/wiki/Samus_Aran",
-        "https://www.metroidwiki.org/wiki/Aurora_Unit_313",
-        "https://www.metroidwiki.org/wiki/Phaaze",
-        "https://www.metroidwiki.org/wiki/Meta_Ridley",
-        "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
-        "https://www.metroidwiki.org/wiki/Sylux"
-      ],
-      "notes": "Fixed: Phaaze located by Aurora Unit 217 (triangulation of Leviathan trajectories, per Metroid Wiki Phaaze page), not AU 242; 'chain reaction' replaced with the planet becoming unstable and collapsing; added Meta Ridley at Norion (presumed destroyed, returns as Omega Ridley); added that the other hunters woke weeks before Samus; Dark Samus personally led the Norion assault per Space Pirate Data. Dropped the 'Colossus' key. The Sylux ship appears only in the secret ending shown after full completion (identified as Sylux by Tanabe in 2015); kept as fact in-universe without the condition. Whether Samus's own Phazon was purged is not stated as fact."
-    },
-    {
-      "comment": "Prime 3: Rundas",
-      "keys": [
-        "Rundas",
-        "Phrygisian",
-        "Phrygisians",
-        "Phrygis",
-        "Bes III",
-        "ice hunter"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "Rundas was a Phrygisian bounty hunter from Phrygis, a moon of Bes III known chiefly for ice mining. Like all Phrygisians he generated and shaped ice at will: he glided on sheets of ice formed beneath his feet, hurled chunks of ice, froze objects and missiles in flight, and raised ice floes and stalagmites to trap enemies, making him dangerous at any range. Galactic Federation records called him proud, cocky and arrogant, a hunter who considered himself without rivals and kept a trophy from every target he captured or killed. He preferred to work alone and rarely cooperated well, though he was quiet and dutiful on his own and looked after his allies' safety.\n\nHired by the Federation with Samus, Ghor and Gandrayda to deliver the vaccine for the Aurora virus (Metroid Prime 3: Corruption), Rundas met Samus on Norion's surface when Space Pirate ATC gunships had her cornered, and he destroyed four of them. \"Between the two of us, this should be a breeze.\" He restored Generator B, and after Samus defeated Meta Ridley in free fall down the Generator C shaft he caught her on a slide of ice. At the Control Tower, Dark Samus's Phazon blast felled him with the others.\n\nFitted with a Phazon Enhancement Device, Rundas was sent to Bryyo to halt the Leviathan's corruption of the planet. He overused the device and fell to a Phazon-induced illness; Samus tracked him by scanning his ice, which showed rising concentrations of Phazon. At the Temple of Bryyo he froze a wave of Pirates that was overwhelming her, then sealed her exit with ice and attacked. Corrupted, he entered Hypermode freely to charge his ice attacks with Phazon. His durable ice armor had one weak point, the neck, exposed only when heavy stress broke the armor away. Samus defeated him, and as he fell he was impaled on one of his own ice formations. A silhouette of Dark Samus drew the remaining Phazon from his body, which disintegrated, and Samus recovered the Ice Missile from his shattered ice.\n\nRundas was the first of Samus's fellow hunters to die and the first she was forced to kill. She mourned him with Ghor and Gandrayda at SkyTown when the crisis ended.",
-      "constant": false,
-      "order": 100,
-      "category": "Prime 3",
-      "sources": [
-        "https://www.metroidwiki.org/wiki/Rundas",
-        "https://www.metroidwiki.org/wiki/Phrygisian",
-        "https://www.metroidwiki.org/wiki/Temple_of_Bryyo",
-        "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
-        "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
-        "https://www.metroidwiki.org/wiki/Generator_C"
-      ],
-      "notes": "Generator attribution follows the Metroid Prime 3 and Generator C pages (Rundas restored B, Samus restored C); the Rundas page's own 'Generator C' line is an internal wiki inconsistency. The four ATC kills are confirmed on the Metroid Prime 3 page. 'Phazon thickened his armor' removed (unsupported). Quote moved to his arrival. Added Hypermode use. Metroid Wiki speculation that his impalement was 'accident or humiliation' omitted. 'Only Phrygisian Samus has met' not added (not confirmed on the Rundas page)."
-    },
-    {
-      "comment": "Prime 3: Ghor",
-      "keys": [
-        "Ghor",
-        "Hunter Ghor",
-        "Ghor's armorsuit",
-        "Wotan VII",
-        "cyborg hunter",
-        "cybernetic hunter"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "Ghor was a cybernetic bounty hunter hired by the Galactic Federation with Samus, Rundas and Gandrayda during the Phazon crisis (Metroid Prime 3: Corruption). A veteran of the liberation war of Wotan VII, he lost about 94 percent of his original body protecting that world; only 6 percent of his birth-body remained, the rest cyberware. Federation records described him as gentle, logical and empathetic, not the most skilled of fighters, with a sense of humor. A champion of the poor, he often worked for free or gave his bounty money to his targets' victims. He was highly proficient with mechanical systems and computer infiltration and had an unusual mechanical empathy with artificial intelligences.\n\nGhor could merge his body into larger machines. His giant robotic armorsuit, built for his cyborg body, doubled as his gunship and carried plasma beams, attack claws and a multimissile system he could fire together as an alpha strike. An energy shield repelled fire from the front, leaving his back-mounted generator exposed, and he could charge at high speed, a risky maneuver on slippery ground. Merged with the suit, his calm demeanor gave way to aggression and violence.\n\nOn Norion he cleared the way to Generator C by destroying a Berserker Knight, before Dark Samus's Phazon blast struck down all four hunters. Fitted with a Phazon Enhancement Device, he was sent to Elysia to cure Aurora Unit 217 and destroy the Leviathan. He arrived two weeks after the impact, misused the device and was corrupted; the last Elysians recorded him leading the hunt for their survivors. He severed the lines linking 217 to the Federation network, then met Samus at SkyTown's landing site, seized her Gunship, damaged it and hurled it at her. \"Don't you feel the power? Soon everything will be corrupted. Including you.\" Samus broke his generator, sent him skidding across frozen Fuel Gel, and beat him down even after he entered Hypermode. Coming to his senses, he tried to convert the ruined armorsuit into a gunship; it exploded, leaving him hanging helpless in the air, and Dark Samus drained the Phazon from him until his remains decayed and vanished. Samus recovered the Plasma Beam from him.\n\nGhor was the second of Samus's comrades to die. She grieved for him with the others at SkyTown when the crisis ended.",
-      "constant": false,
-      "order": 100,
-      "category": "Prime 3",
-      "sources": [
-        "https://www.metroidwiki.org/wiki/Ghor",
-        "https://www.metroidwiki.org/wiki/SkyTown",
-        "https://www.metroidwiki.org/wiki/SkyTown_Data",
-        "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
-        "https://www.metroidwiki.org/wiki/Aurora_Unit_217",
-        "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
-      ],
-      "notes": "Personality wording corrected to Federation records ('empathetic', 'champion of the poor'). Added the high-speed charge to explain the frozen Fuel Gel tactic. Generic 'armorsuit' key replaced with \"Ghor's armorsuit\"."
-    },
-    {
-      "comment": "Prime 3: Gandrayda",
-      "keys": [
-        "Gandrayda",
-        "Mistress Gandrayda",
-        "NZG41",
-        "Jovia XII",
-        "shapeshifting hunter",
-        "shape-shifting hunter"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "Gandrayda was a shape-shifting humanoid bounty hunter of unknown homeworld and species, hired by the Galactic Federation with Samus, Rundas and Ghor during the Phazon crisis (Metroid Prime 3: Corruption). Federation records likened her to the bioforms of Jovia XII: she could assume the form and abilities of most living things, including creatures far larger than herself, though each borrowed form carried that form's weaknesses. Her age could not be determined, though she seemed young. A mistress of stealth, she used a personal cloaking field to set up her attacks. She treated bounty hunting as a sport, regarded Samus Aran as the rival she meant to surpass, and teased her with the nickname \"Sammy.\"\n\nOn Norion, disguised as a Space Pirate, she cut down the Pirates guarding Generator C from within and left the generator for Samus to restore. Dark Samus's Phazon blast at the Control Tower left her generating her own Phazon; the Federation fitted her with a PED worn around her neck and sent her to locate the Pirate stronghold. She found the Pirate Homeworld and was corrupted there. Pirate records name \"Mistress Gandrayda\" the last of their leader's field commanders and note that unfaithful disciples were ended violently when she tested their loyalty.\n\nOn the Homeworld a distress call from a Federation Marine designated NZG41 led Samus to a man she rescued from Pirate militia. As they rode an elevator into the Proving Grounds atop a tower, the Marine revealed himself as Gandrayda: \"You know, you should never trust strangers, Sammy. This is going to be fun.\" Phazon had enhanced her shape-shifting. She turned invisible, attacked in her own form with homing energy blades, shockwaves and close-range claws, and took Phazon-charged forms of a Berserker Knight, an Aerotrooper and a Swarmbot. Later she tore open part of the roof to let in the acid rain, then took the shapes of Rundas, Ghor and finally Samus herself in her Varia Suit before entering Hypermode. Samus defeated her. Dying, Gandrayda shifted uncontrollably between the forms of a Pirate, Ghor, Rundas and Samus until Dark Samus assimilated her.\n\nGandrayda was the last of Samus's three comrades to die. Samus gained the Grapple Voltage from her and later mourned her with the others at SkyTown.",
-      "constant": false,
-      "order": 100,
-      "category": "Prime 3",
-      "sources": [
-        "https://www.metroidwiki.org/wiki/Gandrayda",
-        "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
-        "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
-        "https://www.metroidwiki.org/wiki/Pirate_Homeworld",
-        "https://www.metroidwiki.org/wiki/Generator_C",
-        "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
-      ],
-      "notes": "Generator C confirmed as hers by the Generator C and Metroid Prime 3 pages. NZG41 designation, the rescue from Pirate militia, the distress call and the elevator into the Proving Grounds confirmed only by a WebSearch snippet quoting Wikitroid's NZG41 article (breezewiki mirror was bot-blocked); the 'captured on Norion' claim and the Craneyard route were dropped as unconfirmed. Battle order fixed (roof opened later in the fight). Added Space Pirate Data 'Mistress Gandrayda' and her own-form attacks. Keys 'Sammy', 'shapeshifter' and 'Proving Grounds' dropped as generic."
-    },
-    {
-      "comment": "Prime 3: Norion",
-      "keys": [
-        "Norion",
-        "Planet Norion",
-        "Norion base",
-        "battle of Norion",
-        "Norion attack",
-        "Generator A",
-        "Generator B",
-        "Generator C",
-        "Aurora Unit 486",
-        "Kalandor Region",
-        "Kalandor",
-        "Vanguard offensive"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "Norion is a human-dominated planet on the fringe of Galactic Federation space in the Kalandor Region, neighbor to Bryyo and Elysia. Once barren and unable to support life, it was transformed into a hardy forest world by a terraforming project designed by Aurora Unit 486. The Federation regards it as strategically vital and keeps a heavy military presence there; its base is often the first line of defense against enemies operating outside Federation territory. A planetary defense cannon protects the base, fed by three generators, A, B and C, and fired from a Control Tower once all three are powered. Federation Marines in the Norion system were the first to test the Phazon Enhancement Device.\n\nDuring the Phazon crisis (Metroid Prime 3: Corruption) Dark Samus personally led a Space Pirate assault on Norion, part of the Pirates' Vanguard offensive against Norion, Bryyo and Elysia, while the G.F.S. Olympus lay in orbit and her Leviathan bore down on the planet. The Pirates shut down the generators and Meta Ridley attacked a Marine platoon. Samus, delayed aboard the Olympus by a Berserker Lord, was cornered on the surface until Rundas destroyed four Pirate ATC gunships. She restored Generator A; Rundas restored Generator B; Ghor destroyed a Berserker Knight to open the way to Generator C, where Gandrayda, disguised as a Pirate, cut down the guards and Samus restored the generator. Meta Ridley then dropped on her and dragged her down the Generator C shaft; she defeated him in free fall and he was presumed destroyed, and Rundas caught her on a slide of ice. At the Control Tower Dark Samus blasted the four hunters with Phazon. Samus stayed conscious long enough to fire the cannon, which destroyed the Leviathan moments before impact, and then collapsed. The other hunters recovered within weeks; Samus lay unconscious aboard the Olympus for a month.\n\nNorion's Leviathan is the only one recorded as destroyed before impact, and Pirate records call the attack \"a failure...all thanks to the accursed Hunter, Samus Aran.\" The Phazon that infused the hunters there changed all four: Rundas, Ghor and Gandrayda were corrupted and died, and Samus carried self-generating Phazon in her body for the rest of the crisis. For Samus, Norion is where she last fought beside the three hunters as allies.",
-      "constant": false,
-      "order": 100,
-      "category": "Prime 3",
-      "sources": [
-        "https://www.metroidwiki.org/wiki/Norion",
-        "https://www.metroidwiki.org/wiki/Generator_C",
-        "https://www.metroidwiki.org/wiki/Meta_Ridley",
-        "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
-        "https://www.metroidwiki.org/wiki/Dark_Samus",
-        "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
-        "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
-        "https://www.metroidwiki.org/wiki/Samus_Aran",
-        "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
-      ],
-      "notes": "Fixed: Dark Samus led the assault (Space Pirate Data; Wikipedia says Ridley led it, in-game data preferred); generator attribution per the Metroid Prime 3 and Generator C pages; Meta Ridley defeated and presumed destroyed rather than driven off. Rundas's ATC rescue confirmed on the Metroid Prime 3 page. 'Jovian-steel' Control Tower door dropped (unconfirmed). Added the Vanguard offensive and the Pirates' verdict, and that the other hunters woke weeks before Samus."
-    },
-    {
-      "comment": "Prime 3: Bryyo and the Reptilicus",
-      "keys": [
-        "Bryyo",
-        "Bryyonian",
-        "Bryyonians",
-        "Reptilicus",
-        "Mogenar",
-        "Mogenars",
-        "Lords of Science",
-        "Lord of Science",
-        "Sfimas",
-        "Fuel Gel",
-        "GFS Theseus",
-        "G.F.S. Theseus"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "Bryyo is a planet of the Kalandor Region, neighbor to Norion and Elysia. Its orbit leaves 48 percent of the surface in permanent sunlight and 48 percent in permanent night; only a 4 percent equatorial jungle band is habitable. It is the largest known natural source of Fuel Gel, which powers Federation capital ships, and Bryyonian gel sales fund the military forces guarding the region. Its scorched half, Bryyo Fire, holds the Temple of Bryyo above a lake of Fuel Gel; its frozen half is Bryyo Ice.\n\nBryyonian lore records a golden age that celebrated Bryyus the First, the Liberator, and the launch of a first ship to the stars; the Bryyonians then found stellar brethren in the Chozo, the Luminoth and the Ylla. The Lords of Science ignored Chozo warnings to balance old and new ways. When Sfimas, First Lord of Science, denounced the Primals and their Traditions, schism became war, and friends from the stars tried in vain to end it. The Primals turned to ancient dark powers and won, but the land was poisoned and dying. The exiled Science Lords launched purification machines that saved the planet but split its climate forever into scorched and icy halves. The last Lord of Science, hunted by Primal war bands, found a natural energy source he named Fuel Gel, built stone Mogenars to guard his home, and sheltered a young Primal prophetess who dreamed of a starborne death. When his refuge was discovered he stayed behind so she could flee with their records: \"Save our world from the starborne plague.\"\n\nThe Reptilicus appear to be the Primals' descendants: tall four-armed reptiles who wield whips and chakrams, tame Warp Hounds and teleport to corner prey. Phazon hardened them against heat and Fuel Gel; their strongest are the Reptilicus Hunters. They attacked Samus on sight.\n\nDark Samus's Leviathan struck Bryyo during the Phazon crisis (Metroid Prime 3: Corruption), and Rundas, sent to halt the corruption, was consumed by it. Samus found the downed frigate G.F.S. Theseus at the Crash Site. At the Temple of Bryyo, where the Pirates had apparently been drawing Fuel Gel from the lake, she killed Rundas. She destroyed the generators shielding the Seed and in its core faced Mogenar, an ancient war golem reanimated with Phazon and fed through orbs of pure Phazon socketed in its body. Overloading the core cleansed Bryyo but deepened Samus's own corruption.",
-      "constant": false,
-      "order": 100,
-      "category": "Prime 3",
-      "sources": [
-        "https://www.metroidwiki.org/wiki/Bryyo",
-        "https://www.metroidwiki.org/wiki/Bryyo_Data",
-        "https://www.metroidwiki.org/wiki/Reptilicus",
-        "https://www.metroidwiki.org/wiki/Mogenar",
-        "https://www.metroidwiki.org/wiki/Temple_of_Bryyo",
-        "https://www.metroidwiki.org/wiki/G.F.S._Theseus",
-        "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
-        "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
-      ],
-      "notes": "Fixed: Fuel Gel did not carry the Bryyonians into space; per the 'Decline' lore the last Lord of Science found and named it after the war. Removed the unconfirmed warp-terminal route to Bryyo Ice. Softened Pirate gel-tapping and Reptilicus descent per their pages. Added Bryyus the First and the failed peace efforts of 'friends from the stars'. Trimmed. Keys: bare 'Theseus' and 'Primals' replaced; 'Reptilicus' and 'Bryyo' already match 'Reptilicus Hunters', 'Bryyo Fire' and 'Bryyo Ice' as whole words; 'Reptilicus Hunter(s)' keys also live in bestiary-prime."
-    },
-    {
-      "comment": "Prime 3: Elysia and SkyTown",
-      "keys": [
-        "Elysia",
-        "SkyTown",
-        "Sky Town",
-        "Aurora Unit 217",
-        "AU 217",
-        "Helios",
-        "Theronian Bomb",
-        "Theonian Bomb",
-        "Elysian Seed",
-        "Spire Dock",
-        "Aurora Chamber",
-        "Xenoresearch Laboratories"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "Elysia is a cloud-shrouded planet of the Kalandor Region, neighbor to Norion and Bryyo, uninhabitable by most organisms; its atmosphere is too dangerous for human researchers. Its dominant inhabitants are the Elysians, mechanoids built by the Chozo. SkyTown, the research facility the Chozo built above its clouds, is a network of Research Pods held aloft by rocket-like engines and joined by skybridges and ziplines. Under the Treaty of Elysia the Federation installed Aurora Unit 217, originally built for GF Naval Base Demeter, in a floating pod linked to the station's network, giving it control of the facility and of the Elysians. As administrator, 217 supplied the Federation with tactical intelligence and stellar research.\n\nDuring the Phazon crisis (Metroid Prime 3: Corruption) 217 was disabled by the Pirate-made virus, and about a week later Dark Samus's Leviathan tore through Elysia's clouds. Most of SkyTown was destroyed. Space Pirates seized the eastern district, destroyed Elysians in great numbers, raised a shield around the Seed and stationed Phazon Metroids in the Xenoresearch Laboratories, while a Phazon virus bound most surviving Elysians to Pirate control. Ghor, sent to cure 217, was corrupted himself. Less than half of SkyTown remained when Samus arrived.\n\nSamus carried the vaccine to 217 in the Aurora Chamber. Ghor cut 217's lines and wrecked her Gunship at the landing site; she killed him and repaired the connection. 217 then guided her to the three components of a Theronian Bomb, the only means of breaking the Seed's shield, which she hauled with her Gunship's grapple; freeing the second required the Seeker Missile from the Xenoresearch Laboratories, where Phazon Metroids pursued her. She fitted the bomb to the Spire Dock while 217 moved all of SkyTown over the Seed. The Spire Dock then descended on its own; Samus defended it alone against Pirate troopers and Assault Skiffs and escaped by pod as the bomb detonated behind her and shattered the shield. In the Seed she destroyed Helios, a corrupted Elysian machine with four tentacle-like arms that led a swarm of Phazon-energized Swarmbots, and overloaded the core. She also faced the Elysian Defense Drone, which with Ghor and Helios was one of Elysia's three great guardians.\n\nRestored, 217 located Phaaze by triangulating the trajectories of the Leviathan attacks and guided Samus through the rest of the crisis. After the crisis, Samus returned to SkyTown to mourn Rundas, Ghor and Gandrayda.",
-      "constant": false,
-      "order": 100,
-      "category": "Prime 3",
-      "sources": [
-        "https://www.metroidwiki.org/wiki/Elysia",
-        "https://www.metroidwiki.org/wiki/SkyTown",
-        "https://www.metroidwiki.org/wiki/SkyTown_Data",
-        "https://www.metroidwiki.org/wiki/Aurora_Unit_217",
-        "https://www.metroidwiki.org/wiki/Helios",
-        "https://www.metroidwiki.org/wiki/Theronian_Bomb",
-        "https://www.metroidwiki.org/wiki/Phaaze",
-        "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
-        "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
-      ],
-      "notes": "Fixed: the 'five months' in SkyTown Data refers to the meteor strike on a distant world, not Elysia's impact; Elysia was hit one week after the Aurora was disabled, so no arrival interval is stated. Theronian Bomb sequence corrected per the Metroid Prime 3 page (Seeker Missile frees the second component; bomb fitted to the Spire Dock, which descends on its own while Samus defends it and escapes by pod). Added the Elysian Defense Drone, Pirate slaughter of Elysians, and 217's triangulation of Phaaze. Aurora Unit 217's tenure (14 vs about 65 years across pages) not used. 'Theronian' spelling follows the SkyTown and Metroid Prime 3 pages; 'Theonian' kept as an alternate key. Steamlord keys left to bestiary-prime."
-    },
-    {
-      "comment": "Prime 3: Elysians",
-      "keys": [
-        "Elysian",
-        "Elysians",
-        "Elysian mechanoid",
-        "Elysian mechanoids",
-        "Treaty of Elysia",
-        "First Elysian",
-        "Chozo Searcher",
-        "SkyTown Data",
-        "Elysian lore",
-        "Elysian Data Pod"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "The Elysians are robotic sentients built by the Chozo on Elysia, custodians of SkyTown and keepers of their own history, recorded in data pods. About 1,500 years before the Phazon crisis the Chozo began building SkyTown; some fifty years in, strained by storms and upkeep, they created the First Elysian, gave it self-awareness and let it share that gift with the others. The Elysians count this as Year One. A Chozo Searcher launched from the station found a far-off planet that was itself sentient, but its data was lost before the world could be identified. That world was Phaaze, and the Chozo charged the Elysians with continuing to research it.\n\nIn Year 400 the time came for the Chozo to leave, and they entrusted SkyTown to the Elysians, asking them to keep searching for the sentient planet's secrets. Their own verdict: \"We failed.\" By Year 600 supplies and fuel ran critically low, and the smaller mechanoids they built to process fuel from the atmosphere could not produce enough, so they hibernated for 835 years, station data reaching them only in dreams. In Year 1435 armed aliens tripped SkyTown's defenses and woke them. The resulting Treaty of Elysia had the Galactic Federation supply fuel and parts in exchange for the station's scientific systems and databanks. Because the atmosphere was lethal to human researchers, the Federation installed Aurora Unit 217 instead, with control of the facility and the Elysians; the Elysians called what followed a peaceful life.\n\nIn their final months the Elysians detected a meteor-like object strike a planet in a nearby galaxy and traced it to the world the Chozo Searcher had sought. Their warning to the Federation failed when 217 was crippled by an unknown virus. A week later a Leviathan struck Elysia, identical to the object they had seen devour their creators' planet, and their sensors identified Phazon. Space Pirates overran SkyTown, and within two weeks a Phazon virus bound most Elysians to Pirate control. Ghor, sent to restore the Aurora, was corrupted and hunted the survivors. \"There is no hope left for us.\" The last of them transferred their memories to a data pod and waited \"before the brink of history's end.\"\n\nSamus fought corrupted Elysian machines, among them Steamlords, Steambots and the Seed's guardian Helios (Metroid Prime 3: Corruption). Raised by the Chozo herself, she read the records of this other Chozo creation in SkyTown's data pods.",
-      "constant": false,
-      "order": 100,
-      "category": "Prime 3",
-      "sources": [
-        "https://www.metroidwiki.org/wiki/Elysian",
-        "https://www.metroidwiki.org/wiki/SkyTown_Data",
-        "https://www.metroidwiki.org/wiki/SkyTown",
-        "https://www.metroidwiki.org/wiki/Phaaze",
-        "https://www.metroidwiki.org/wiki/Helios",
-        "https://www.metroidwiki.org/wiki/Elysia"
-      ],
-      "notes": "Fixed: the lore does not name the Chozo's destination, so 'left for Tallon IV' removed; the 'Leviathan collision with Tallon IV in dreams' clause removed. The Loss entry's 'identical to the one we saw devour our creators' planet' is used verbatim in substance without naming the planet (Metroid Wiki links it to Tallon IV). 'Five months before Samus's arrival' replaced with 'in their final months' since the lore's five months is relative to the writing. Added the fuel shortfall behind the hibernation and the Chozo's charge to research Phaaze (Elysian and Phaaze pages). Duplicate mourning paragraph cut. 'Data Pods' key replaced with 'Elysian Data Pod'."
-    },
-    {
-      "comment": "Prime 3: The assault on Phaaze and the end of Phazon",
-      "keys": [
-        "assault on Phaaze",
-        "Aurora Unit 313",
-        "AU 313",
-        "end of Phazon",
-        "destruction of Phaaze",
-        "Phaaze destroyed",
-        "Leviathan Battleship",
-        "Phaaze wormhole",
-        "Sanctum of Phaaze",
-        "Genesis Chamber",
-        "Darkness coming"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "The Phazon crisis (Metroid Prime 3: Corruption) ended with a Galactic Federation assault on Phaaze, the living planet that is the source of all Phazon. Aurora Unit 217 had located Phaaze by triangulating the trajectories of the Leviathan attacks, and the Federation learned that Dark Samus was using the stolen Aurora Unit 313, implanted on the planet, to spread Phazon and Leviathans across the galaxy. After Samus destroyed the Seed on the Pirate Homeworld, she powered the wreck of the G.F.S. Valhalla with Energy Cells, heard Aurora Unit 313's last recording, which ended \"...Darkness coming,\" and recovered codes that could activate a wormhole. The Space Pirates had fitted a Leviathan, the star-beast Dark Samus brought back from Phaaze, with cybernetic weapon systems as a dreadnought. Samus fed the codes into its launch center, the Leviathan Battleship tore open a wormhole, and the Federation fleet, led by the G.F.S. Olympus, followed it through to fight the Pirates above Phaaze.\n\nThe moment Samus entered the planet, its Phazon drove her corruption to the brink. To survive she vented her suit's energy stores and entered permanent Hypermode, wielding maximum firepower at a price: every shot, every wound and every moment on Phaaze raised the Phazon in her body, and had it filled her completely, the overload would most likely have killed her before she fully turned. In the Genesis Chamber, among husks resembling Metroid Prime, she killed an Infant Leviathan that might otherwise have gone on to another world, then descended to the Sanctum at the planet's core, where Dark Samus abided.\n\nThere Dark Samus attacked her, generating echoes of herself in battle. Beaten, Dark Samus merged with Aurora Unit 313, which Phazon had mutated into a tentacled organism fused with her bioessence and bound to the planet. Samus tore open its armored hatch and destroyed the core. With the unit gone Phaaze became unstable; Dark Samus perished, and the collapsing planet was wiped from the galaxy as Samus fled. The fleet feared the worst until her Gunship emerged and she reported the mission complete. The Federation celebrated the extinction of Phazon corruption.\n\nThe victory cost many Federation troopers and ships and the lives of Rundas, Ghor and Gandrayda, and left Samus in evident distress. She returned to SkyTown on Elysia to mourn the three hunters, then departed alone. As she entered hyperspace an unidentified ship, later identified as Sylux's, followed her.",
-      "constant": false,
-      "order": 100,
-      "category": "Prime 3",
-      "sources": [
-        "https://www.metroidwiki.org/wiki/Phaaze",
-        "https://www.metroidwiki.org/wiki/Aurora_Unit_313",
-        "https://www.metroidwiki.org/wiki/G.F.S._Valhalla",
-        "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
-        "https://www.metroidwiki.org/wiki/Genesis_Chamber",
-        "https://www.metroidwiki.org/wiki/Dark_Samus",
-        "https://www.metroidwiki.org/wiki/Samus_Aran",
-        "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
-        "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
-      ],
-      "notes": "Fixed: Phaaze located by AU 217, not 242; 'fifth Leviathan' dropped; event order follows the Metroid Prime 3 page (Pirate Homeworld Seed, then Valhalla codes, then the Leviathan opening the wormhole); 'husks of Metroid Prime' softened to 'resembling'; Samus killed (not merely passed) the Infant Leviathan; 'chain reaction' replaced with the Phaaze page's instability and collapse. Phazon build-up on Phaaze described per the Metroid Prime 3 page; the 'Gunship no longer recognized her' claim and the Anti-Phazon purge detail removed as unconfirmed; the Hyper Grapple/Phaz-Ing venting detail not added (unverified). 'Permanent Hypermode' and 'Infant Leviathan' keys left to the phazon domain. Sylux ship occurs only in the secret ending after full completion; whether all Phazon became inert is not claimed."
-    },
-    {
-      "comment": "Prime 3: GFS Olympus and the Valhalla",
-      "keys": [
-        "Olympus",
-        "Valhalla",
-        "GFS Olympus",
-        "G.F.S. Olympus",
-        "Olympus-class",
-        "GFS Valhalla",
-        "G.F.S. Valhalla",
-        "Aurora Unit 242",
-        "AU 242",
-        "Klar Nebula"
-      ],
-      "secondary_keys": [
-        "Federation",
-        "Dane",
-        "Admiral",
-        "flagship",
-        "battleship",
-        "Aurora",
-        "Norion",
-        "Phaaze"
-      ],
-      "selective_logic": "AND_ANY",
-      "content": "The G.F.S. Olympus is the Olympus-class battleship that served as the Galactic Federation flagship during the Phazon crisis (Metroid Prime 3: Corruption), commanded by Fleet Admiral Castor Dane. Olympus-class ships were the first Federation capital ships designed around an onboard Aurora Unit, an organic supercomputer that lets them run with smaller crews and devote the saved space to battle systems; they burn scarce Fuel Gel, which makes each one of extreme value to the military, and they are usually led by an officer of flag rank. The Olympus carries Aurora Unit 242, the first Aurora Unit to receive the vaccine against the Pirate-made virus. 242 then directed Samus through the crisis, appearing as a hologram aboard her Gunship with each new objective, while SkyTown's Aurora Unit 217 located Phaaze.\n\nSamus was summoned to the Olympus in orbit of Norion, where Dane briefed her, Rundas, Ghor and Gandrayda on the virus crippling the Aurora network, then seven days old, and ordered them to deliver the vaccine. Space Pirate boarding pods and troopers stormed the ship mid-briefing, and a Berserker Lord delayed Samus's departure for Norion. After Dark Samus's attack she lay unconscious aboard the Olympus for a month and woke there fitted with a PED Suit. The Olympus later carried the fleet to the Pirate Homeworld, where its assault broke the Pirate forces once Samus dropped the planetary shield, and it followed the captured Leviathan Battleship through the wormhole to Phaaze.\n\nIts sister ship, the G.F.S. Valhalla, had vanished four months before the briefing. Newly crewed with green recruits at Tivus, it was on a training mission in the Klar Nebula when it was lost. Federation intelligence believed a superior Pirate fleet of Phazon-powered starships had ambushed it; Pirate records credit the battleship Colossus with disabling it and claim the crew were jettisoned into space on Dark Samus's orders. Aurora Unit 313 was removed and carried by Dark Samus to Phaaze. Samus found the drifting wreck in the Gaflar region: Marines impaled on Pirate blades, killed by grenades, crushed by elevators or half-eaten by Phazon bioforms, some crumbling to dust when she opened the doors. After restoring its systems with Energy Cells, she heard 313's final warning about Phaaze in the Control Room, ending \"...Darkness coming,\" and recovered the codes the fleet needed to open the wormhole.",
-      "constant": false,
-      "order": 100,
-      "category": "Prime 3",
-      "sources": [
-        "https://www.metroidwiki.org/wiki/G.F.S._Olympus",
-        "https://www.metroidwiki.org/wiki/G.F.S._Valhalla",
-        "https://www.metroidwiki.org/wiki/Aurora_Unit_242",
-        "https://www.metroidwiki.org/wiki/Aurora_Unit_313",
-        "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
-        "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
-        "https://www.metroidwiki.org/wiki/Phaaze",
-        "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
-      ],
-      "notes": "Retitled from 'GFS Olympus and the Federation fleet at Norion'. Fixed: AU 242 relayed objectives; AU 217 located Phaaze. Valhalla ambush now attributed to Federation intelligence, with the Pirate account (Colossus, crew jettisoned on Dark Samus's orders) added. 'Other Federation vessels' paragraph cut (Theseus lives in the Bryyo entry). Selective entry: bare 'Olympus' and 'Valhalla' are mythological words, so every primary key requires one Federation/fleet context word. Klar Nebula and 'four months earlier' come from the Metroid Prime 3 page; the wreck's location (Gaflar region) from the Valhalla page."
-    }
-  ]
+ "domain": "prime3",
+ "category": "Prime 3",
+ "entries": [
+  {
+   "comment": "Prime 3: The Phazon crisis",
+   "keys": [
+    "Phazon crisis",
+    "Metroid Prime 3",
+    "Prime 3",
+    "Metroid Prime 3: Corruption",
+    "Corruption incident",
+    "Aurora virus",
+    "Phazon virus",
+    "Aurora Unit virus",
+    "the four hunters",
+    "fellow hunters"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Phazon crisis erupted about six months after the Aether incident (Metroid Prime 2: Echoes). The Space Pirate battleship Colossus had carried off the last Phazon from Aether, and inside its Phazon stores Dark Samus re-formed herself. She killed a third of the crew, enthralled the rest, flew alone to Phaaze, the living planet that is the source of all Phazon, and returned riding a Leviathan; the Pirates followed her through a wormhole, and those who refused were shot. Her forces captured the G.F.S. Valhalla and took its Aurora Unit 313, which she implanted on Phaaze to direct the Leviathan Seeds. Seeds struck the Pirate Homeworld, Bryyo and Elysia, another bore down on Norion, and a Pirate-made virus crippled the Galactic Federation's Aurora Unit network.\n\nThe Federation hired four bounty hunters: Samus Aran, Rundas, Ghor and Gandrayda. Fleet Admiral Castor Dane was briefing them aboard the G.F.S. Olympus on the vaccine they were to deliver when Pirate boarding pods struck the ship. Dark Samus personally led the Pirate assault on Norion. The hunters restored the base's three generators; Meta Ridley ambushed Samus at Generator C, and she defeated him in free fall down its shaft, leaving him presumed destroyed. At the Control Tower Dark Samus blasted all four hunters with Phazon, but Samus fired the defense cannon that destroyed the incoming Leviathan before she collapsed.\n\nShe woke aboard the Olympus a month later; the others had woken weeks earlier. The blast had left the hunters' bodies generating their own Phazon, and the Federation had fitted each with a Phazon Enhancement Device (PED) to harness it. Rundas had gone to Bryyo, Ghor to Elysia and Gandrayda to find the Pirate stronghold, and contact with all three had been lost.\n\nSamus followed. On Bryyo she killed the corrupted Rundas and the war golem Mogenar in the Seed's core. On Elysia she cured Aurora Unit 217 in SkyTown, killed the corrupted Ghor and broke the Seed's shield with a Theronian Bomb before destroying its guardian Helios; 217 then located Phaaze by triangulating the trajectories of the Leviathan attacks. On the Pirate Homeworld she killed Gandrayda, now a Pirate field commander, dropped the planetary shield for a Federation assault, and destroyed the Seed guarded by Omega Ridley, the revived Meta Ridley. Each Seed she overloaded deepened her own corruption, and Dark Samus drained the Phazon from each fallen hunter.\n\nSamus recovered wormhole codes from the wreck of the Valhalla, and a captured Pirate Leviathan carried the fleet to Phaaze. In its Sanctum she defeated Dark Samus, who merged with Aurora Unit 313; when Samus destroyed the unit, Phaaze became unstable and collapsed as she escaped, and Dark Samus perished with it. The Federation celebrated the end of Phazon corruption, won at the cost of many troopers and ships and the lives of the three hunters. For Samus the crisis meant killing three colleagues she had fought beside at Norion while carrying the enemy's own substance in her body. She returned to SkyTown to mourn them, then flew on alone; an unidentified ship, later identified as Sylux's, followed her.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://www.metroidwiki.org/wiki/Dark_Samus",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Aurora_Unit_313",
+    "https://www.metroidwiki.org/wiki/Phaaze",
+    "https://www.metroidwiki.org/wiki/Meta_Ridley",
+    "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+    "https://www.metroidwiki.org/wiki/Sylux"
+   ],
+   "notes": "Fixed: Phaaze located by Aurora Unit 217 (triangulation of Leviathan trajectories, per Metroid Wiki Phaaze page), not AU 242; 'chain reaction' replaced with the planet becoming unstable and collapsing; added Meta Ridley at Norion (presumed destroyed, returns as Omega Ridley); added that the other hunters woke weeks before Samus; Dark Samus personally led the Norion assault per Space Pirate Data. Dropped the 'Colossus' key. The Sylux ship appears only in the secret ending shown after full completion (identified as Sylux by Tanabe in 2015); kept as fact in-universe without the condition. Whether Samus's own Phazon was purged is not stated as fact."
+  },
+  {
+   "comment": "Prime 3: Rundas",
+   "keys": [
+    "Rundas",
+    "Phrygisian",
+    "Phrygisians",
+    "Phrygis",
+    "Bes III",
+    "ice hunter"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Rundas was a Phrygisian bounty hunter from Phrygis, a moon of Bes III known chiefly for ice mining. Like all Phrygisians he generated and shaped ice at will: he glided on sheets of ice formed beneath his feet, hurled chunks of ice, froze objects and missiles in flight, and raised ice floes and stalagmites to trap enemies, making him dangerous at any range. Galactic Federation records called him proud, cocky and arrogant, a hunter who considered himself without rivals and kept a trophy from every target he captured or killed. He preferred to work alone and rarely cooperated well, though he was quiet and dutiful on his own and looked after his allies' safety.\n\nHired by the Federation with Samus, Ghor and Gandrayda to deliver the vaccine for the Aurora virus (Metroid Prime 3: Corruption), Rundas met Samus on Norion's surface when Space Pirate ATC gunships had her cornered, and he destroyed four of them. \"Between the two of us, this should be a breeze.\" He restored Generator B, and after Samus defeated Meta Ridley in free fall down the Generator C shaft he caught her on a slide of ice. At the Control Tower, Dark Samus's Phazon blast felled him with the others.\n\nFitted with a Phazon Enhancement Device, Rundas was sent to Bryyo to halt the Leviathan's corruption of the planet. He overused the device and fell to a Phazon-induced illness; Samus tracked him by scanning his ice, which showed rising concentrations of Phazon. At the Temple of Bryyo he froze a wave of Pirates that was overwhelming her, then sealed her exit with ice and attacked. Corrupted, he entered Hypermode freely to charge his ice attacks with Phazon. His durable ice armor had one weak point, the neck, exposed only when heavy stress broke the armor away. Samus defeated him, and as he fell he was impaled on one of his own ice formations. A silhouette of Dark Samus drew the remaining Phazon from his body, which disintegrated, and Samus recovered the Ice Missile from his shattered ice.\n\nRundas was the first of Samus's fellow hunters to die and the first she was forced to kill. She mourned him with Ghor and Gandrayda at SkyTown when the crisis ended.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Rundas",
+    "https://www.metroidwiki.org/wiki/Phrygisian",
+    "https://www.metroidwiki.org/wiki/Temple_of_Bryyo",
+    "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://www.metroidwiki.org/wiki/Generator_C"
+   ],
+   "notes": "Generator attribution follows the Metroid Prime 3 and Generator C pages (Rundas restored B, Samus restored C); the Rundas page's own 'Generator C' line is an internal wiki inconsistency. The four ATC kills are confirmed on the Metroid Prime 3 page. 'Phazon thickened his armor' removed (unsupported). Quote moved to his arrival. Added Hypermode use. Metroid Wiki speculation that his impalement was 'accident or humiliation' omitted. 'Only Phrygisian Samus has met' not added (not confirmed on the Rundas page)."
+  },
+  {
+   "comment": "Prime 3: Ghor",
+   "keys": [
+    "Ghor",
+    "Hunter Ghor",
+    "Ghor's armorsuit",
+    "Wotan VII",
+    "cyborg hunter",
+    "cybernetic hunter"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Ghor was a cybernetic bounty hunter hired by the Galactic Federation with Samus, Rundas and Gandrayda during the Phazon crisis (Metroid Prime 3: Corruption). A veteran of the liberation war of Wotan VII, he lost about 94 percent of his original body protecting that world; only 6 percent of his birth-body remained, the rest cyberware. Federation records described him as gentle, logical and empathetic, not the most skilled of fighters, with a sense of humor. A champion of the poor, he often worked for free or gave his bounty money to his targets' victims. He was highly proficient with mechanical systems and computer infiltration and had an unusual mechanical empathy with artificial intelligences.\n\nGhor could merge his body into larger machines. His giant robotic armorsuit, built for his cyborg body, doubled as his gunship and carried plasma beams, attack claws and a multimissile system he could fire together as an alpha strike. An energy shield repelled fire from the front, leaving his back-mounted generator exposed, and he could charge at high speed, a risky maneuver on slippery ground. Merged with the suit, his calm demeanor gave way to aggression and violence.\n\nOn Norion he cleared the way to Generator C by destroying a Berserker Knight, before Dark Samus's Phazon blast struck down all four hunters. Fitted with a Phazon Enhancement Device, he was sent to Elysia to cure Aurora Unit 217 and destroy the Leviathan. He arrived two weeks after the impact, misused the device and was corrupted; the last Elysians recorded him leading the hunt for their survivors. He severed the lines linking 217 to the Federation network, then met Samus at SkyTown's landing site, seized her Gunship, damaged it and hurled it at her. \"Don't you feel the power? Soon everything will be corrupted. Including you.\" Samus broke his generator, sent him skidding across frozen Fuel Gel, and beat him down even after he entered Hypermode. Coming to his senses, he tried to convert the ruined armorsuit into a gunship; it exploded, leaving him hanging helpless in the air, and Dark Samus drained the Phazon from him until his remains decayed and vanished. Samus recovered the Plasma Beam from him.\n\nGhor was the second of Samus's comrades to die. She grieved for him with the others at SkyTown when the crisis ended.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Ghor",
+    "https://www.metroidwiki.org/wiki/SkyTown",
+    "https://www.metroidwiki.org/wiki/SkyTown_Data",
+    "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
+    "https://www.metroidwiki.org/wiki/Aurora_Unit_217",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+   ],
+   "notes": "Personality wording corrected to Federation records ('empathetic', 'champion of the poor'). Added the high-speed charge to explain the frozen Fuel Gel tactic. Generic 'armorsuit' key replaced with \"Ghor's armorsuit\"."
+  },
+  {
+   "comment": "Prime 3: Gandrayda",
+   "keys": [
+    "Gandrayda",
+    "Mistress Gandrayda",
+    "NZG41",
+    "Jovia XII",
+    "shapeshifting hunter",
+    "shape-shifting hunter"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Gandrayda was a shape-shifting humanoid bounty hunter of unknown homeworld and species, hired by the Galactic Federation with Samus, Rundas and Ghor during the Phazon crisis (Metroid Prime 3: Corruption). Federation records likened her to the bioforms of Jovia XII: she could assume the form and abilities of most living things, including creatures far larger than herself, though each borrowed form carried that form's weaknesses. Her age could not be determined, though she seemed young. A mistress of stealth, she used a personal cloaking field to set up her attacks. She treated bounty hunting as a sport, regarded Samus Aran as the rival she meant to surpass, and teased her with the nickname \"Sammy.\"\n\nOn Norion, disguised as a Space Pirate, she cut down the Pirates guarding Generator C from within and left the generator for Samus to restore. Dark Samus's Phazon blast at the Control Tower left her generating her own Phazon; the Federation fitted her with a PED worn around her neck and sent her to locate the Pirate stronghold. She found the Pirate Homeworld and was corrupted there. Pirate records name \"Mistress Gandrayda\" the last of their leader's field commanders and note that unfaithful disciples were ended violently when she tested their loyalty.\n\nOn the Homeworld a distress call from a Federation Marine designated NZG41 led Samus to a man she rescued from Pirate militia. As they rode an elevator into the Proving Grounds atop a tower, the Marine revealed himself as Gandrayda: \"You know, you should never trust strangers, Sammy. This is going to be fun.\" Phazon had enhanced her shape-shifting. She turned invisible, attacked in her own form with homing energy blades, shockwaves and close-range claws, and took Phazon-charged forms of a Berserker Knight, an Aerotrooper and a Swarmbot. Later she tore open part of the roof to let in the acid rain, then took the shapes of Rundas, Ghor and finally Samus herself in her Varia Suit before entering Hypermode. Samus defeated her. Dying, Gandrayda shifted uncontrollably between the forms of a Pirate, Ghor, Rundas and Samus until Dark Samus assimilated her.\n\nGandrayda was the last of Samus's three comrades to die. Samus gained the Grapple Voltage from her and later mourned her with the others at SkyTown.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Gandrayda",
+    "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
+    "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+    "https://www.metroidwiki.org/wiki/Pirate_Homeworld",
+    "https://www.metroidwiki.org/wiki/Generator_C",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+   ],
+   "notes": "Generator C confirmed as hers by the Generator C and Metroid Prime 3 pages. NZG41 designation, the rescue from Pirate militia, the distress call and the elevator into the Proving Grounds confirmed only by a WebSearch snippet quoting Wikitroid's NZG41 article (breezewiki mirror was bot-blocked); the 'captured on Norion' claim and the Craneyard route were dropped as unconfirmed. Battle order fixed (roof opened later in the fight). Added Space Pirate Data 'Mistress Gandrayda' and her own-form attacks. Keys 'Sammy', 'shapeshifter' and 'Proving Grounds' dropped as generic."
+  },
+  {
+   "comment": "Prime 3: Norion",
+   "keys": [
+    "Norion",
+    "Planet Norion",
+    "Norion base",
+    "battle of Norion",
+    "Norion attack",
+    "Generator A",
+    "Generator B",
+    "Generator C",
+    "Aurora Unit 486",
+    "Kalandor Region",
+    "Kalandor",
+    "Vanguard offensive"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Norion is a human-dominated planet on the fringe of Galactic Federation space in the Kalandor Region, neighbor to Bryyo and Elysia. Once barren and unable to support life, it was transformed into a hardy forest world by a terraforming project designed by Aurora Unit 486. The Federation regards it as strategically vital and keeps a heavy military presence there; its base is often the first line of defense against enemies operating outside Federation territory. A planetary defense cannon protects the base, fed by three generators, A, B and C, and fired from a Control Tower once all three are powered. Federation Marines in the Norion system were the first to test the Phazon Enhancement Device.\n\nDuring the Phazon crisis (Metroid Prime 3: Corruption) Dark Samus personally led a Space Pirate assault on Norion, part of the Pirates' Vanguard offensive against Norion, Bryyo and Elysia, while the G.F.S. Olympus lay in orbit and her Leviathan bore down on the planet. The Pirates shut down the generators and Meta Ridley attacked a Marine platoon. Samus, delayed aboard the Olympus by a Berserker Lord, was cornered on the surface until Rundas destroyed four Pirate ATC gunships. She restored Generator A; Rundas restored Generator B; Ghor destroyed a Berserker Knight to open the way to Generator C, where Gandrayda, disguised as a Pirate, cut down the guards and Samus restored the generator. Meta Ridley then dropped on her and dragged her down the Generator C shaft; she defeated him in free fall and he was presumed destroyed, and Rundas caught her on a slide of ice. At the Control Tower Dark Samus blasted the four hunters with Phazon. Samus stayed conscious long enough to fire the cannon, which destroyed the Leviathan moments before impact, and then collapsed. The other hunters recovered within weeks; Samus lay unconscious aboard the Olympus for a month.\n\nNorion's Leviathan is the only one recorded as destroyed before impact, and Pirate records call the attack \"a failure...all thanks to the accursed Hunter, Samus Aran.\" The Phazon that infused the hunters there changed all four: Rundas, Ghor and Gandrayda were corrupted and died, and Samus carried self-generating Phazon in her body for the rest of the crisis. For Samus, Norion is where she last fought beside the three hunters as allies.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Norion",
+    "https://www.metroidwiki.org/wiki/Generator_C",
+    "https://www.metroidwiki.org/wiki/Meta_Ridley",
+    "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+    "https://www.metroidwiki.org/wiki/Dark_Samus",
+    "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+   ],
+   "notes": "Fixed: Dark Samus led the assault (Space Pirate Data; Wikipedia says Ridley led it, in-game data preferred); generator attribution per the Metroid Prime 3 and Generator C pages; Meta Ridley defeated and presumed destroyed rather than driven off. Rundas's ATC rescue confirmed on the Metroid Prime 3 page. 'Jovian-steel' Control Tower door dropped (unconfirmed). Added the Vanguard offensive and the Pirates' verdict, and that the other hunters woke weeks before Samus."
+  },
+  {
+   "comment": "Prime 3: Bryyo and the Reptilicus",
+   "keys": [
+    "Bryyo",
+    "Bryyonian",
+    "Bryyonians",
+    "Reptilicus",
+    "Mogenar",
+    "Mogenars",
+    "Lords of Science",
+    "Lord of Science",
+    "Sfimas",
+    "Fuel Gel",
+    "GFS Theseus",
+    "G.F.S. Theseus",
+    "Ylla",
+    "Bryyus",
+    "Bryyus the First",
+    "Bryyo Fire",
+    "Bryyo Ice",
+    "Temple of Bryyo"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Bryyo is a planet of the Kalandor Region, neighbor to Norion and Elysia. Its orbit leaves 48 percent of the surface in permanent sunlight and 48 percent in permanent night; only a 4 percent equatorial jungle band is habitable. It is the largest known natural source of Fuel Gel, which powers Federation capital ships, and Bryyonian gel sales fund the military forces guarding the region. Its scorched half, Bryyo Fire, holds the Temple of Bryyo above a lake of Fuel Gel; its frozen half is Bryyo Ice.\n\nBryyonian lore records a golden age that celebrated Bryyus the First, the Liberator, and the launch of a first ship to the stars; the Bryyonians then found stellar brethren in the Chozo, the Luminoth and the Ylla. The Lords of Science ignored Chozo warnings to balance old and new ways. When Sfimas, First Lord of Science, denounced the Primals and their Traditions, schism became war, and friends from the stars tried in vain to end it. The Primals turned to ancient dark powers and won, but the land was poisoned and dying. The exiled Science Lords launched purification machines that saved the planet but split its climate forever into scorched and icy halves. The last Lord of Science, hunted by Primal war bands, found a natural energy source he named Fuel Gel, built stone Mogenars to guard his home, and sheltered a young Primal prophetess who dreamed of a starborne death. When his refuge was discovered he stayed behind so she could flee with their records: \"Save our world from the starborne plague.\"\n\nThe Reptilicus appear to be the Primals' descendants: tall four-armed reptiles who wield whips and chakrams, tame Warp Hounds and teleport to corner prey. Phazon hardened them against heat and Fuel Gel; their strongest are the Reptilicus Hunters. They attacked Samus on sight.\n\nDark Samus's Leviathan struck Bryyo during the Phazon crisis (Metroid Prime 3: Corruption), and Rundas, sent to halt the corruption, was consumed by it. Samus found the downed frigate G.F.S. Theseus at the Crash Site. At the Temple of Bryyo, where the Pirates had apparently been drawing Fuel Gel from the lake, she killed Rundas. She destroyed the generators shielding the Seed and in its core faced Mogenar, an ancient war golem reanimated with Phazon and fed through orbs of pure Phazon socketed in its body. Overloading the core cleansed Bryyo but deepened Samus's own corruption.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Bryyo",
+    "https://www.metroidwiki.org/wiki/Bryyo_Data",
+    "https://www.metroidwiki.org/wiki/Reptilicus",
+    "https://www.metroidwiki.org/wiki/Mogenar",
+    "https://www.metroidwiki.org/wiki/Temple_of_Bryyo",
+    "https://www.metroidwiki.org/wiki/G.F.S._Theseus",
+    "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+   ],
+   "notes": "Fixed: Fuel Gel did not carry the Bryyonians into space; per the 'Decline' lore the last Lord of Science found and named it after the war. Removed the unconfirmed warp-terminal route to Bryyo Ice. Softened Pirate gel-tapping and Reptilicus descent per their pages. Added Bryyus the First and the failed peace efforts of 'friends from the stars'. Trimmed. Keys: bare 'Theseus' and 'Primals' replaced; 'Reptilicus' and 'Bryyo' already match 'Reptilicus Hunters', 'Bryyo Fire' and 'Bryyo Ice' as whole words; 'Reptilicus Hunter(s)' keys also live in bestiary-prime."
+  },
+  {
+   "comment": "Prime 3: Elysia and SkyTown",
+   "keys": [
+    "Elysia",
+    "SkyTown",
+    "Sky Town",
+    "Aurora Unit 217",
+    "AU 217",
+    "Helios",
+    "Theronian Bomb",
+    "Theonian Bomb",
+    "Elysian Seed",
+    "Spire Dock",
+    "Aurora Chamber",
+    "Xenoresearch Laboratories",
+    "Swarmbot",
+    "Swarmbots"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Elysia is a cloud-shrouded planet of the Kalandor Region, neighbor to Norion and Bryyo, uninhabitable by most organisms; its atmosphere is too dangerous for human researchers. Its dominant inhabitants are the Elysians, mechanoids built by the Chozo. SkyTown, the research facility the Chozo built above its clouds, is a network of Research Pods held aloft by rocket-like engines and joined by skybridges and ziplines. Under the Treaty of Elysia the Federation installed Aurora Unit 217, originally built for GF Naval Base Demeter, in a floating pod linked to the station's network, giving it control of the facility and of the Elysians. As administrator, 217 supplied the Federation with tactical intelligence and stellar research.\n\nDuring the Phazon crisis (Metroid Prime 3: Corruption) 217 was disabled by the Pirate-made virus, and about a week later Dark Samus's Leviathan tore through Elysia's clouds. Most of SkyTown was destroyed. Space Pirates seized the eastern district, destroyed Elysians in great numbers, raised a shield around the Seed and stationed Phazon Metroids in the Xenoresearch Laboratories, while a Phazon virus bound most surviving Elysians to Pirate control. Ghor, sent to cure 217, was corrupted himself. Less than half of SkyTown remained when Samus arrived.\n\nSamus carried the vaccine to 217 in the Aurora Chamber. Ghor cut 217's lines and wrecked her Gunship at the landing site; she killed him and repaired the connection. 217 then guided her to the three components of a Theronian Bomb, the only means of breaking the Seed's shield, which she hauled with her Gunship's grapple; freeing the second required the Seeker Missile from the Xenoresearch Laboratories, where Phazon Metroids pursued her. She fitted the bomb to the Spire Dock while 217 moved all of SkyTown over the Seed. The Spire Dock then descended on its own; Samus defended it alone against Pirate troopers and Assault Skiffs and escaped by pod as the bomb detonated behind her and shattered the shield. In the Seed she destroyed Helios, a corrupted Elysian machine with four tentacle-like arms that led a swarm of Phazon-energized Swarmbots, and overloaded the core. She also faced the Elysian Defense Drone, which with Ghor and Helios was one of Elysia's three great guardians.\n\nRestored, 217 located Phaaze by triangulating the trajectories of the Leviathan attacks and guided Samus through the rest of the crisis. After the crisis, Samus returned to SkyTown to mourn Rundas, Ghor and Gandrayda.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Elysia",
+    "https://www.metroidwiki.org/wiki/SkyTown",
+    "https://www.metroidwiki.org/wiki/SkyTown_Data",
+    "https://www.metroidwiki.org/wiki/Aurora_Unit_217",
+    "https://www.metroidwiki.org/wiki/Helios",
+    "https://www.metroidwiki.org/wiki/Theronian_Bomb",
+    "https://www.metroidwiki.org/wiki/Phaaze",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+   ],
+   "notes": "Fixed: the 'five months' in SkyTown Data refers to the meteor strike on a distant world, not Elysia's impact; Elysia was hit one week after the Aurora was disabled, so no arrival interval is stated. Theronian Bomb sequence corrected per the Metroid Prime 3 page (Seeker Missile frees the second component; bomb fitted to the Spire Dock, which descends on its own while Samus defends it and escapes by pod). Added the Elysian Defense Drone, Pirate slaughter of Elysians, and 217's triangulation of Phaaze. Aurora Unit 217's tenure (14 vs about 65 years across pages) not used. 'Theronian' spelling follows the SkyTown and Metroid Prime 3 pages; 'Theonian' kept as an alternate key. Steamlord keys left to bestiary-prime."
+  },
+  {
+   "comment": "Prime 3: Elysians",
+   "keys": [
+    "Elysian",
+    "Elysians",
+    "Elysian mechanoid",
+    "Elysian mechanoids",
+    "Treaty of Elysia",
+    "First Elysian",
+    "Chozo Searcher",
+    "SkyTown Data",
+    "Elysian lore",
+    "Elysian Data Pod"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Elysians are robotic sentients built by the Chozo on Elysia, custodians of SkyTown and keepers of their own history, recorded in data pods. About 1,500 years before the Phazon crisis the Chozo began building SkyTown; some fifty years in, strained by storms and upkeep, they created the First Elysian, gave it self-awareness and let it share that gift with the others. The Elysians count this as Year One. A Chozo Searcher launched from the station found a far-off planet that was itself sentient, but its data was lost before the world could be identified. That world was Phaaze, and the Chozo charged the Elysians with continuing to research it.\n\nIn Year 400 the time came for the Chozo to leave, and they entrusted SkyTown to the Elysians, asking them to keep searching for the sentient planet's secrets. Their own verdict: \"We failed.\" By Year 600 supplies and fuel ran critically low, and the smaller mechanoids they built to process fuel from the atmosphere could not produce enough, so they hibernated for 835 years, station data reaching them only in dreams. In Year 1435 armed aliens tripped SkyTown's defenses and woke them. The resulting Treaty of Elysia had the Galactic Federation supply fuel and parts in exchange for the station's scientific systems and databanks. Because the atmosphere was lethal to human researchers, the Federation installed Aurora Unit 217 instead, with control of the facility and the Elysians; the Elysians called what followed a peaceful life.\n\nIn their final months the Elysians detected a meteor-like object strike a planet in a nearby galaxy and traced it to the world the Chozo Searcher had sought. Their warning to the Federation failed when 217 was crippled by an unknown virus. A week later a Leviathan struck Elysia, identical to the object they had seen devour their creators' planet, and their sensors identified Phazon. Space Pirates overran SkyTown, and within two weeks a Phazon virus bound most Elysians to Pirate control. Ghor, sent to restore the Aurora, was corrupted and hunted the survivors. \"There is no hope left for us.\" The last of them transferred their memories to a data pod and waited \"before the brink of history's end.\"\n\nSamus fought corrupted Elysian machines, among them Steamlords, Steambots and the Seed's guardian Helios (Metroid Prime 3: Corruption). Raised by the Chozo herself, she read the records of this other Chozo creation in SkyTown's data pods.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Elysian",
+    "https://www.metroidwiki.org/wiki/SkyTown_Data",
+    "https://www.metroidwiki.org/wiki/SkyTown",
+    "https://www.metroidwiki.org/wiki/Phaaze",
+    "https://www.metroidwiki.org/wiki/Helios",
+    "https://www.metroidwiki.org/wiki/Elysia"
+   ],
+   "notes": "Fixed: the lore does not name the Chozo's destination, so 'left for Tallon IV' removed; the 'Leviathan collision with Tallon IV in dreams' clause removed. The Loss entry's 'identical to the one we saw devour our creators' planet' is used verbatim in substance without naming the planet (Metroid Wiki links it to Tallon IV). 'Five months before Samus's arrival' replaced with 'in their final months' since the lore's five months is relative to the writing. Added the fuel shortfall behind the hibernation and the Chozo's charge to research Phaaze (Elysian and Phaaze pages). Duplicate mourning paragraph cut. 'Data Pods' key replaced with 'Elysian Data Pod'."
+  },
+  {
+   "comment": "Prime 3: The assault on Phaaze and the end of Phazon",
+   "keys": [
+    "assault on Phaaze",
+    "Aurora Unit 313",
+    "AU 313",
+    "end of Phazon",
+    "destruction of Phaaze",
+    "Phaaze destroyed",
+    "Leviathan Battleship",
+    "Phaaze wormhole",
+    "Sanctum of Phaaze",
+    "Genesis Chamber",
+    "Darkness coming"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Phazon crisis (Metroid Prime 3: Corruption) ended with a Galactic Federation assault on Phaaze, the living planet that is the source of all Phazon. Aurora Unit 217 had located Phaaze by triangulating the trajectories of the Leviathan attacks, and the Federation learned that Dark Samus was using the stolen Aurora Unit 313, implanted on the planet, to spread Phazon and Leviathans across the galaxy. After Samus destroyed the Seed on the Pirate Homeworld, she powered the wreck of the G.F.S. Valhalla with Energy Cells, heard Aurora Unit 313's last recording, which ended \"...Darkness coming,\" and recovered codes that could activate a wormhole. The Space Pirates had fitted a Leviathan, the star-beast Dark Samus brought back from Phaaze, with cybernetic weapon systems as a dreadnought. Samus fed the codes into its launch center, the Leviathan Battleship tore open a wormhole, and the Federation fleet, led by the G.F.S. Olympus, followed it through to fight the Pirates above Phaaze.\n\nThe moment Samus entered the planet, its Phazon drove her corruption to the brink. To survive she vented her suit's energy stores and entered permanent Hypermode, wielding maximum firepower at a price: every shot, every wound and every moment on Phaaze raised the Phazon in her body, and had it filled her completely, the overload would most likely have killed her before she fully turned. In the Genesis Chamber, among husks resembling Metroid Prime, she killed an Infant Leviathan that might otherwise have gone on to another world, then descended to the Sanctum at the planet's core, where Dark Samus abided.\n\nThere Dark Samus attacked her, generating echoes of herself in battle. Beaten, Dark Samus merged with Aurora Unit 313, which Phazon had mutated into a tentacled organism fused with her bioessence and bound to the planet. Samus tore open its armored hatch and destroyed the core. With the unit gone Phaaze became unstable; Dark Samus perished, and the collapsing planet was wiped from the galaxy as Samus fled. The fleet feared the worst until her Gunship emerged and she reported the mission complete. The Federation celebrated the extinction of Phazon corruption.\n\nThe victory cost many Federation troopers and ships and the lives of Rundas, Ghor and Gandrayda, and left Samus in evident distress. She returned to SkyTown on Elysia to mourn the three hunters, then departed alone. As she entered hyperspace an unidentified ship, later identified as Sylux's, followed her.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Phaaze",
+    "https://www.metroidwiki.org/wiki/Aurora_Unit_313",
+    "https://www.metroidwiki.org/wiki/G.F.S._Valhalla",
+    "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+    "https://www.metroidwiki.org/wiki/Genesis_Chamber",
+    "https://www.metroidwiki.org/wiki/Dark_Samus",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+   ],
+   "notes": "Fixed: Phaaze located by AU 217, not 242; 'fifth Leviathan' dropped; event order follows the Metroid Prime 3 page (Pirate Homeworld Seed, then Valhalla codes, then the Leviathan opening the wormhole); 'husks of Metroid Prime' softened to 'resembling'; Samus killed (not merely passed) the Infant Leviathan; 'chain reaction' replaced with the Phaaze page's instability and collapse. Phazon build-up on Phaaze described per the Metroid Prime 3 page; the 'Gunship no longer recognized her' claim and the Anti-Phazon purge detail removed as unconfirmed; the Hyper Grapple/Phaz-Ing venting detail not added (unverified). 'Permanent Hypermode' and 'Infant Leviathan' keys left to the phazon domain. Sylux ship occurs only in the secret ending after full completion; whether all Phazon became inert is not claimed."
+  },
+  {
+   "comment": "Prime 3: GFS Olympus and the Valhalla",
+   "keys": [
+    "Olympus",
+    "Valhalla",
+    "GFS Olympus",
+    "G.F.S. Olympus",
+    "Olympus-class",
+    "GFS Valhalla",
+    "G.F.S. Valhalla",
+    "Aurora Unit 242",
+    "AU 242",
+    "Klar Nebula",
+    "Gaflar",
+    "Gaflar region",
+    "Tivus"
+   ],
+   "secondary_keys": [
+    "Federation",
+    "Dane",
+    "Admiral",
+    "flagship",
+    "battleship",
+    "Aurora",
+    "Norion",
+    "Phaaze"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "The G.F.S. Olympus is the Olympus-class battleship that served as the Galactic Federation flagship during the Phazon crisis (Metroid Prime 3: Corruption), commanded by Fleet Admiral Castor Dane. Olympus-class ships were the first Federation capital ships designed around an onboard Aurora Unit, an organic supercomputer that lets them run with smaller crews and devote the saved space to battle systems; they burn scarce Fuel Gel, which makes each one of extreme value to the military, and they are usually led by an officer of flag rank. The Olympus carries Aurora Unit 242, the first Aurora Unit to receive the vaccine against the Pirate-made virus. 242 then directed Samus through the crisis, appearing as a hologram aboard her Gunship with each new objective, while SkyTown's Aurora Unit 217 located Phaaze.\n\nSamus was summoned to the Olympus in orbit of Norion, where Dane briefed her, Rundas, Ghor and Gandrayda on the virus crippling the Aurora network, then seven days old, and ordered them to deliver the vaccine. Space Pirate boarding pods and troopers stormed the ship mid-briefing, and a Berserker Lord delayed Samus's departure for Norion. After Dark Samus's attack she lay unconscious aboard the Olympus for a month and woke there fitted with a PED Suit. The Olympus later carried the fleet to the Pirate Homeworld, where its assault broke the Pirate forces once Samus dropped the planetary shield, and it followed the captured Leviathan Battleship through the wormhole to Phaaze.\n\nIts sister ship, the G.F.S. Valhalla, had vanished four months before the briefing. Newly crewed with green recruits at Tivus, it was on a training mission in the Klar Nebula when it was lost. Federation intelligence believed a superior Pirate fleet of Phazon-powered starships had ambushed it; Pirate records credit the battleship Colossus with disabling it and claim the crew were jettisoned into space on Dark Samus's orders. Aurora Unit 313 was removed and carried by Dark Samus to Phaaze. Samus found the drifting wreck in the Gaflar region: Marines impaled on Pirate blades, killed by grenades, crushed by elevators or half-eaten by Phazon bioforms, some crumbling to dust when she opened the doors. After restoring its systems with Energy Cells, she heard 313's final warning about Phaaze in the Control Room, ending \"...Darkness coming,\" and recovered the codes the fleet needed to open the wormhole.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/G.F.S._Olympus",
+    "https://www.metroidwiki.org/wiki/G.F.S._Valhalla",
+    "https://www.metroidwiki.org/wiki/Aurora_Unit_242",
+    "https://www.metroidwiki.org/wiki/Aurora_Unit_313",
+    "https://www.metroidwiki.org/wiki/Galactic_Federation_Data",
+    "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+    "https://www.metroidwiki.org/wiki/Phaaze",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+   ],
+   "notes": "Retitled from 'GFS Olympus and the Federation fleet at Norion'. Fixed: AU 242 relayed objectives; AU 217 located Phaaze. Valhalla ambush now attributed to Federation intelligence, with the Pirate account (Colossus, crew jettisoned on Dark Samus's orders) added. 'Other Federation vessels' paragraph cut (Theseus lives in the Bryyo entry). Selective entry: bare 'Olympus' and 'Valhalla' are mythological words, so every primary key requires one Federation/fleet context word. Klar Nebula and 'four months earlier' come from the Metroid Prime 3 page; the wreck's location (Gaflar region) from the Valhalla page."
+  }
+ ]
 }

@@ -1,0 +1,134 @@
+{
+ "run": "wf_aaddcf9a-328",
+ "label": "consistency:bestiary-tech",
+ "result": {
+  "files_edited": [
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/bestiary-2d.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/bestiary-prime.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/tech.json"
+  ],
+  "fixes": [
+   {
+    "entry": "Creatures: Fauna of Crateria and Brinstar",
+    "kind": "contradiction",
+    "before": "Per the manga, when Kreatz spotted a Skree hanging overhead she warned that the planet \"has predators found nowhere else in the galaxy\"; it then ripped through a Space Pirate travelling with them.",
+    "after": "Per the manga, when her Federation Police comrade Kreatz spotted a Skree hanging overhead, Samus warned that the planet \"has predators found nowhere else in the galaxy\"; it then dove and ripped through a Space Pirate who had surprised them.",
+    "source_url": "https://www.metroidwiki.org/wiki/Skree"
+   },
+   {
+    "entry": "Creatures: Fauna of Crateria and Brinstar",
+    "kind": "style",
+    "before": "\"Zoomer\" began as a mistranslation of the Japanese name later rendered Geemer.",
+    "after": "(sentence removed: out-of-universe localization note)",
+    "source_url": ""
+   },
+   {
+    "entry": "Creatures: Fauna of Maridia and the Wrecked Ship",
+    "kind": "contradiction",
+    "before": "Samus Aran reached it only after taking the Gravity Suit from the Wrecked Ship, breaking open a tunnel in the middle of Brinstar with a Power Bomb, and came away with...",
+    "after": "Samus Aran first broke into it through a tunnel in the middle of Brinstar with a Power Bomb, but could explore it only after taking the Gravity Suit from the Wrecked Ship, and came away with... (now matches Super Metroid: Draygon and Maridia and Zebes: Regions of Zebes)",
+    "source_url": "https://www.metroidwiki.org/wiki/Maridia"
+   },
+   {
+    "entry": "Creatures: Fauna of the Bottle Ship",
+    "kind": "contradiction",
+    "before": "The Bottle Ship was a Galactic Federation vessel built, against Federation protocol, to cultivate bioweapons across its sectors:",
+    "after": "The Bottle Ship was a former colonist vessel that the Galactic Federation refitted, against Federation protocol, to cultivate bioweapons across its sectors: (matches Other M: The Bottle Ship, which follows the Space Development Corporation text from the Exam Center)",
+    "source_url": "https://www.metroidwiki.org/wiki/Bottle_Ship"
+   },
+   {
+    "entry": "Creatures: Fauna of the Bottle Ship",
+    "kind": "contradiction",
+    "before": "A Cryosphere Gigafraug corpse bearing signs of Metroid predation warned her that Metroids were loose aboard.",
+    "after": "A Cryosphere Gigafraug corpse bearing signs of Metroid predation, seemingly impossible since Metroids cannot survive the cold, was her first hint that Metroids were loose aboard. (matches Samus's disbelief in Other M: The Bottle Ship)",
+    "source_url": "https://www.metroidwiki.org/wiki/Bottle_Ship"
+   },
+   {
+    "entry": "Creatures: Fauna of the Bermuda System",
+    "kind": "contradiction",
+    "before": "...apart from Space Pirates and Metroids the only creature named in published accounts is the Goliath Beetle... No other native animals of Bermuda are recorded",
+    "after": "...besides Space Pirates and Metroids the Force fought Goliath Beetles, of whose biology nothing more is recorded. Excelcion's native Ice Titans and the other life of the three worlds are described under Bermuda System (Excelcion, Bion, Talvania). (The federation-force entry records Ice Titans, confirmed by search snippets of the Ice Titan page. The 'published accounts' wording was meta and is gone.)",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+   },
+   {
+    "entry": "Creatures: Fauna of the Bermuda System",
+    "kind": "duplication",
+    "before": "Two paragraphs retelling Sylux's egg break-in and how Samus was enlarged, made to fight the Force, then rescued them as the fleet destroyed the Doomseye",
+    "after": "Metroids...were in Space Pirate hands in the system, and the Force stole a Metroid egg from them. On Bion the Force learned that the Pirates had acquired an ancient technology for enlarging living things. The campaign itself, the Pirates' capture and enlargement of Samus, and the egg's later fate are covered under Bermuda System incident and The Metroid egg and Sylux's break-in.",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+   },
+   {
+    "entry": "Technology: Samus's Gunship",
+    "kind": "contradiction",
+    "before": "Every ship she has flown is Hunter-class: heavily armed craft... (the same entry then called the Tallon IV ship 'the first Hunter-class gunship', which contradicts this)",
+    "after": "Her gunships from the Tallon IV mission on are generally of the Hunter class: heavily armed craft... (the Zero Mission ship's class is never stated, and the Fusion ship cannot be scanned)",
+    "source_url": "https://www.metroidwiki.org/wiki/Gunship"
+   },
+   {
+    "entry": "Technology: Samus's Gunship",
+    "kind": "contradiction",
+    "before": "Space Pirate fighters shot it down as she left, stranding her in her Zero Suit until she escaped in a stolen Pirate craft.",
+    "after": "Space Pirate fighters shot it down as she left, stranding her in her Zero Suit beside the Space Pirate Mother Ship; she eventually left Zebes in a stolen Pirate craft. (The zebes entries say she regained the Legendary Power Suit in Chozodia before escaping.)",
+    "source_url": "https://www.metroidwiki.org/wiki/Gunship"
+   },
+   {
+    "entry": "Technology: Navigation Rooms, Data Rooms and Network Stations",
+    "kind": "contradiction",
+    "before": "Data Rooms on the same station let the Federation upload equipment data to her Power Suit,",
+    "after": "Data Rooms on the same station let the Federation upload equipment data to her Fusion Suit, (the Power Suit parts had been removed; see Fusion entries)",
+    "source_url": "https://www.metroidwiki.org/wiki/Data_Room"
+   },
+   {
+    "entry": "Technology: Navigation Rooms, Data Rooms and Network Stations",
+    "kind": "duplication",
+    "before": "ADAM briefed Samus before she landed, but after she fell to Raven Beak on the surface, the voice guiding her at the Network Stations was Raven Beak masquerading as ADAM to push her toward awakening her Metroid DNA, a deception exposed on Itorash.",
+    "after": "ADAM briefed Samus before she landed, but for much of the mission the voice answering her at the Network Stations was Raven Beak masquerading as ADAM, a deception he revealed on Itorash (see ADAM on ZDR and Raven Beak's impersonation). (The timing and location could not be verified, so the wording now matches the dread entry, which owns this subject.)",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+   },
+   {
+    "entry": "Technology: Bounty hunting in the Metroid galaxy",
+    "kind": "duplication",
+    "before": "It hired her to destroy Mother Brain and the Metroids on Zebes, to investigate the Alimbic message..., to find the missing G.F.S. Tyr at Aether, to join the G.F.S. Olympus..., to scout the Space Pirates of the Bermuda System, to eradicate the Metroids of SR388, to stop the Pirates at Tanamaar, to protect Biologic Space Labs researchers on SR388, and to investigate the lost E.M.M.I. on ZDR.",
+    "after": "After leaving Federation service Samus worked freelance, most often for the Federation itself, which has hired her for missions from the first Zebes campaign to ZDR (see Federation contracts and bounty hunters). (federation.json owns the contract list. This also removed the loose 'to stop the Pirates at Tanamaar'; Wikipedia says she was dispatched to keep the Pirates from stealing the artifact.)",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   },
+   {
+    "entry": "Technology: Bounty hunting in the Metroid galaxy",
+    "kind": "contradiction",
+    "before": "...shadowed her ship after the Phazon crisis, and led the Pirates at Tanamaar and on Viewros.",
+    "after": "...shadowed her ship after the Phazon crisis, led the Pirates at Tanamaar and fought her again on Viewros. (Neither Wikipedia nor the prime4 entries record Pirates on Viewros.)",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   },
+   {
+    "entry": "Technology: Species of the galaxy (index)",
+    "kind": "contradiction",
+    "before": "The green energy they drew from Viewros's crystals to ripen a memory fruit made the wildlife aggressive and turned them into grievers.",
+    "after": "The Green Energy they hoped would nurture Viewros made its wildlife aggressive and turned them into the Grievers. (matches Prime 4: The Lamorn, Prime 4: Grievers and Fauna of Viewros; the Memory Fruit was not the cause)",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   },
+   {
+    "entry": "Technology: Species of the galaxy (index)",
+    "kind": "contradiction",
+    "before": "Elysians: robotic sentients built by the Chozo to study Phaaze, dwelling in SkyTown.",
+    "after": "Elysians: robotic sentients the Chozo built on Elysia as keepers of SkyTown and charged with researching Phaaze. (Prime 3: Elysians says they were created for SkyTown's upkeep and later given the Phaaze research; Fauna of Elysia says they were built to run SkyTown.)",
+    "source_url": "https://www.metroidwiki.org/wiki/Elysian"
+   },
+   {
+    "entry": "Technology: Species of the galaxy (index)",
+    "kind": "contradiction",
+    "before": "Unclassified: Sylux, a former Federation field captain whose species is never stated;",
+    "after": "Unclassified: Sylux, a former Federation field captain, most likely human though early records list his species as unknown; (matches Prime 4: Sylux; the Metroid Wiki infobox says Human and the Hunters record says Unknown)",
+    "source_url": "https://www.metroidwiki.org/wiki/Sylux"
+   },
+   {
+    "entry": "Technology: Planets and places of the galaxy (index)",
+    "kind": "keys",
+    "before": "keys included 'Bermuda System' (also on Federation Force: Bermuda System and Creatures: Fauna of the Bermuda System, so 3 entries)",
+    "after": "'Bermuda System' replaced with 'Federation Solar System' (named in the content, keyed by no other entry). FS-176 kept: this is the only entry giving the planets' order, verified on Metroid Wiki.",
+    "source_url": "https://www.metroidwiki.org/wiki/FS-176"
+   }
+  ],
+  "cross_cluster_issues": "1) x-parasite.json, 'X Parasite: The X outbreak aboard the BSL station': 'The X outbreak began on SR388 shortly after Samus exterminated the planet's Metroids' conflicts with sr388.json 'SR388 (planet overview)' and bestiary-2d 'Fauna of SR388' ('Years later Samus returned as bodyguard...'). It also conflicts with timeline.json, which puts Super Metroid, Other M and Prime 4 (Cosmic Year 20X9) between the extermination and Fusion. Suggest replacing 'shortly after' with 'after' or 'some time after'. Metroid Wiki's SR388 page gives no interval. 2) Keys 'Ship Missile', 'Ship Missiles' and 'Ship Grapple' each sit on three entries: abilities.json 'Thermal, X-Ray, Dark, Echo and Command Visors', tech.json 'Samus's Gunship' and weapons.json ('Missiles and Super Missiles' / 'Grapple Beam'). The gunship and Command Visor entries are the natural homes. Suggest removing 'Ship Missile(s)' from weapons #7 and 'Ship Grapple' from weapons #10, which keeps 'Ship Grapple Beam'. 3) fusion.json 'Sectors of the BSL station' (Sector 3: B.O.X. 'wrecked the Data Room and fled') and x-parasite.json 'X-mimicked creatures of the BSL, part 1' ('after destroying the Data Room'): Metroid Wiki's Metroid Fusion page says only that B.O.X. escaped after Samus damaged it, and its Data Room page says the X destroy Data Rooms. The B.O.X. claim needs a source or should be removed. 4) timeline.json 'Why Samus loses her abilities' (ZDR bullet): 'ADAM could only attribute the loss to unexplained physical changes'. dread.json ('Itorash and the end of ZDR', 'ADAM on ZDR and Raven Beak's impersonation') and Wikipedia ('Raven Beak, who has been masquerading as Adam') say Raven Beak posed as ADAM for much of the mission. Suggest 'the voice she took for ADAM' (minor). 5) No contradictions with my files were found in zebes.json or prime1.json. Earlier triple-key collisions on FS-176 (prime1), 'space hunter(s)' and 'bounty hunters' (federation.json), and 'Mochtroid(s)' (metroids.json) were fixed by other editors during this pass; each now sits on at most 2 entries. The prime4 '20X5 theft' versus timeline 20X6 conflict also no longer appears.",
+  "notes": "Backups of the three files before editing are in /tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/work/*.bak.json. Each edited entry got a 'Consistency pass:' note, and the Elysian and Federation Force Metroid Wiki URLs were added to sources. Checked and left alone: tech's Data Room claims (SA-X blocked the Sector 2 route, Super Missiles from Sector 3, the 'destroyed all the Data Rooms you have used' warning), all confirmed on Metroid Wiki's Metroid Fusion page. Also unchanged: the Raven Beak impersonation (confirmed on Wikipedia), the FS-176 planet order (Metroid Wiki), Puffers native to the Pirate Homeworld while also living on Tallon IV (Metroid Wiki Puffer page), and 'killed everything like a plague' for the pre-Metroid X (Metroid Wiki SR388). The timeline's 'Metroid Ravenous (due 2027)' is also correct: it was announced 9 September 2026 for 28 January 2027. No meta words (player, boss, level, cutscene, unlock, upgrade), markdown or inline citations remain in the three files. Every key passes the forbidden and restricted key lists. Constant=false and orders 90/100 are correct. Known deviation left as is: the 14 bestiary entries carry 18-46 keys each (the Bermuda entry has 6), above the 3-12 guideline, because each must fire on its distinctive species names; their authors documented this, and all keys are species names or multi-word phrases. Not changed (judged not contradictions): Keratos and Phenoros detail in Fauna of Viewros overlaps Prime 4: Grievers but adds biology found nowhere else. Rinka is listed as a Bottle Ship clone, while Metroid Wiki calls Rinkas both 'fireball creatures' and launcher projectiles."
+ }
+}

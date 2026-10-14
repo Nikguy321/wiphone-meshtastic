@@ -24,7 +24,9 @@
     "War Wasps",
     "Shriekbat",
     "Shriekbats",
-    "Lumigek"
+    "Lumigek",
+    "Plated Beetle",
+    "Plated Beetles"
    ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
@@ -78,7 +80,9 @@
     "Lumite",
     "Lumites",
     "Mechlops",
-    "Kralee"
+    "Kralee",
+    "Rezbit",
+    "Rezbits"
    ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
@@ -178,7 +182,10 @@
     "Gel Rays",
     "Scorchbug",
     "Shelbug",
-    "Bryyonian Shriekbat"
+    "Bryyonian Shriekbat",
+    "Bryyo Cliffside",
+    "Grand Court",
+    "Thorn Jungle"
    ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",

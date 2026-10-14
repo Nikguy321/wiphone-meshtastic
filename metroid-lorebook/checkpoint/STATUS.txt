@@ -1,7 +1,9 @@
+: 
 abilities: draft, verify, revise
 adam-other-m: draft, verify
 bestiary-2d: draft, verify, revise
 bestiary-prime: draft, verify, revise
+bestiary-tech: 
 chozo: draft, verify, revise
 dark-samus: draft, verify, revise
 dread: draft, verify, revise
