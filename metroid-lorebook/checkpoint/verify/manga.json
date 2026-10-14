@@ -1,0 +1,405 @@
+{
+ "run": "wf_1c223e4c-a6e",
+ "label": "verify:manga",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Manga: The Metroid manga (overview and canon status)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "the full run was serialized in Monthly Magazine Z from November 2003 to May 2004",
+      "problem": "Only English Wikipedia gives this window, and the sources disagree. MyAnimeList lists publication from 26 Nov 2002 to 26 Mar 2004. A Wikitroid chapter listing (seen in search snippets) dates Chapter 1 to the January 2003 issue, with volumes released in 2003 and 2004. Sixteen chapters cannot run monthly in seven months. As written, the 2002 e-manga also looks like it came a year before the print run.",
+      "correction": "Say 'serialized in Kodansha's Monthly Magazine Z between 2002 and 2004' and drop the exact months, or check the dates against Kodansha before stating them.",
+      "source_url": "https://myanimelist.net/manga/6642/_"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Flash e-manga ... on Nintendo's Japanese Metroid website",
+      "problem": "The sources disagree on who hosted it. Metroid Wiki says Nintendo's Japanese Metroid site, but its own links point to Kodansha's site, and Hakutaku says Kodansha hosted the interactive e-manga.",
+      "correction": "Say 'an official Flash e-manga with sound and music was posted online in Japan' without naming the host.",
+      "source_url": "https://hakutaku.us/2018/06/16/metroid-manga-universe/"
+     },
+     {
+      "severity": "missing",
+      "problem": "The 'Known tensions' paragraph leaves out the biggest conflict for roleplay. Metroid: Other M (2010) has Samus serve before her bounty-hunting career in the Galactic Federation Army under Adam Malkovich, and she leaves after a dispute with him over Ian's death. The manga instead has her in the Federation Police under Chief Hardy. The canon rule prefers the later source, so this conflict must be stated.",
+      "correction": "Add one clause: 'Other M instead places her pre-hunter service in the Federation Army under Adam Malkovich; where the two differ, the later game account takes precedence.'",
+      "source_url": "https://en.wikipedia.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "missing",
+      "problem": "Metroid Dread (2021) contradicts the manga's statement that Gray Voice's DNA alone was infused. In Dread the Chozo DNA Samus received on Zebes is a mix of Thoha and Mawkin DNA, and the Mawkin part comes from Raven Beak. This tension should be listed.",
+      "correction": "Add: 'Dread later reveals the infused Chozo DNA also included Mawkin DNA from Raven Beak.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Raven_Beak"
+     },
+     {
+      "severity": "nit",
+      "claim": "the creation of the Metroids on SR388 as predators of the X",
+      "problem": "In the manga the first Metroid is shown on Zebes, as a joint design by Old Bird and Mother Brain (Vol 1 Ch 4 Pg 15). The Metroids are later released into SR388's environment. Saying they were 'created on SR388' misstates the manga's version.",
+      "correction": "Say 'the creation of the Metroids, designed on Zebes and released on SR388 to prey on the X'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(species)"
+     },
+     {
+      "severity": "missing",
+      "problem": "The content mentions the Comic BomBom Echoes adaptation but not its title, and the title can be checked. Hakutaku and Wikitroid search snippets both give it as 'Metroid Prime: Episode of Aether', by Hisashi Matsumoto, starting in the July 2005 issue and running seven chapters. 'Episode of Aether' is already a key, yet the content never names it.",
+      "correction": "Name it as Metroid Prime: Episode of Aether in the Comic BomBom sentence, or remove the key.",
+      "source_url": "https://hakutaku.us/2018/06/16/metroid-manga-universe/"
+     },
+     {
+      "severity": "keys",
+      "claim": "manga, backstory, origin story",
+      "problem": "'backstory' and 'origin story' are generic and will fire in ordinary chat, such as a user asking about their own character's backstory. A bare 'manga' fires on any mention of manga.",
+      "correction": "Drop 'backstory' and 'origin story'. Replace bare 'manga' with 'Metroid manga', 'Magazine Z manga' and 'Samus manga'."
+     },
+     {
+      "severity": "style",
+      "problem": "At 424 words it is slightly over the limit. The content also uses lorebook meta-language ('This lorebook treats it as canonical backstory; details found only here are labeled...'), which belongs in notes, not in the injected text.",
+      "correction": "Cut the meta sentence and tighten the summary paragraph."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Manga: The K-2L raid (manga account)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Rodney Aran, greeted by the miners as Chief Aran",
+      "problem": "The title 'Chief Aran' does not appear on Metroid Wiki's Rodney Aran, K-2L or Samus Aran pages, which only call him the colony or mining leader. It is also used as a key.",
+      "correction": "Say 'Rodney Aran led the mining operation' and remove the 'Chief Aran' key unless a manga page confirms it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Rodney_Aran"
+     },
+     {
+      "severity": "unverified",
+      "claim": "he answered that she was cute, that friendship was impossible",
+      "problem": "Metroid Wiki quotes only Ridley's reply 'That's impossible!! Because... You're about to die!'. The 'cute' line could not be found.",
+      "correction": "Drop 'that she was cute'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The colonists' distress call brought the Chozo back.",
+      "problem": "The sources say only that Old Bird and Gray Voice returned after the attack and found Samus as the sole survivor. No distress call is mentioned for the Chozo's return.",
+      "correction": "Say 'Old Bird and Gray Voice returned after the attack and found the child among the ruins.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Old_Bird"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The raid is the root of her hatred of Ridley and of her refusal to let children die in front of her.",
+      "problem": "The second half is the drafter's own generalization of a motive from the single Jigrad episode, and no source states it.",
+      "correction": "Keep the hatred of Ridley and drop the 'refusal to let children die' clause, or tie it explicitly to the Jigrad incident."
+     },
+     {
+      "severity": "keys",
+      "claim": "welding laser, Chief Aran",
+      "problem": "'welding laser' is generic and will misfire in sci-fi or mechanical chat. 'Chief Aran' cannot be verified. No entry in this domain has 'Old Bird' as a key, even though he is the central figure in this entry and the next.",
+      "correction": "Remove 'welding laser' and 'Chief Aran'. Add 'Old Bird', plus 'Samus's parents' and 'Aran family'."
+     },
+     {
+      "severity": "style",
+      "problem": "Slightly over length at 411 words.",
+      "correction": "Trim the closing paragraph."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Manga: Samus's Chozo upbringing and the birth of Mother Brain (manga account)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Gray Voice's DNA was the one used",
+      "problem": "Metroid Dread (2021), which is more recent, contradicts this. There the Chozo DNA Samus received as a child is a mix of Thoha and Mawkin DNA, and the Mawkin portion comes from Raven Beak. Metroid Wiki says Raven Beak 'gave Samus some of his DNA'. The canon rule prefers the later source, and the change affects roleplay.",
+      "correction": "Say 'Per the manga, Gray Voice's DNA was used ...' and add one clause: 'Dread later reveals the infused DNA also carried Mawkin DNA from Raven Beak.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Raven_Beak"
+     },
+     {
+      "severity": "error",
+      "claim": "The Chozo had discovered the X on that unnamed frontier world",
+      "problem": "This contradicts both the manga and the entry itself. The manga names the planet: Old Bird asks for 'the SR-388 report' (Vol 1 Ch 2 Pg 16), and Hardy calls SR-388 'a remote planet, not found on many Galactic charts' (Vol 2 Ch 14). The manga's 'It has no name but... We call it X' refers to the X creature, not the planet.",
+      "correction": "Say 'on the remote frontier world SR388'.",
+      "source_url": "https://www.metroidwiki.org/wiki/X_Parasite"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The first Metroid was unveiled on Zebes while Samus still lived there.",
+      "problem": "Metroid Wiki places the unveiling in Vol 1 Ch 4, which comes after the Jigrad chapter (Ch 3), where Samus is already a Federation Police officer. The companion entry on Mother Brain's betrayal dates the unveiling to around the Pirate approach (Ch 5). The two entries contradict each other, and no source says Samus still lived on Zebes at that point.",
+      "correction": "Say 'The first Metroid was later unveiled on Zebes' and remove 'while Samus still lived there'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(species)"
+     },
+     {
+      "severity": "style",
+      "claim": "When Old Bird presented the three-year-old Samus to her as 'the computer interface that oversees this planet'",
+      "problem": "The grammar makes Samus the 'computer interface'. The quoted phrase also does not appear on Metroid Wiki's Samus Aran or Mother Brain pages.",
+      "correction": "Say 'When Old Bird introduced the three-year-old Samus to Mother Brain, the computer that oversaw Zebes, ...' without quotation marks."
+     },
+     {
+      "severity": "unverified",
+      "claim": "Old Bird and Gray Voice, who called themselves Protectors of the Galaxy",
+      "problem": "The sources only record Old Bird telling Samus to become the true 'Protector of the Galaxy' (Samus Aran page, citation 33). No source has the elders using the title for themselves.",
+      "correction": "Keep only Old Bird's charge that she become the true Protector of the Galaxy.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "nit",
+      "claim": "('You can't be second or third place')",
+      "problem": "This is presented as a quote, but Metroid Wiki renders it as 'second or third place will never do.'",
+      "correction": "Use 'second or third place will never do.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "keys",
+      "claim": "Chozo DNA, Chozo blood, Chozo genes",
+      "problem": "These will also fire whenever the Dread or Fusion DNA storylines or the core Samus profile come up, and the manga-only Gray Voice account will be injected there. Neither 'Old Bird' nor 'Mother Brain's creation' is a key.",
+      "correction": "Add 'Old Bird' and 'Mother Brain's creation'. Consider moving the DNA keys to secondary keys combined with 'Gray Voice', 'childhood' or 'Zebes'."
+     },
+     {
+      "severity": "style",
+      "problem": "Over length at 429 words.",
+      "correction": "Shorten the Iono Feria episode."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Manga: Samus's Federation Police years (manga)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Adam's later standing as her commanding officer belongs to the Federation Army years that follow (Metroid: Other M)",
+      "problem": "The chronology is invented. In Other M and English Wikipedia's summary, Samus served in the Galactic Federation under Adam and left after a dispute with him (over Ian's death) before she became a freelance bounty hunter, so before her first Zebes mission. No Army period follows the manga's Police years. The two accounts conflict outright, and the canon rule prefers the later one.",
+      "correction": "Say: 'Other M instead describes her pre-hunter service as the Federation Army under Adam Malkovich, which she left after a dispute with him; the manga's Police-under-Hardy version conflicts with it, and the later account takes precedence.'",
+      "source_url": "https://en.wikipedia.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "error",
+      "claim": "She announced 'I'm with the Federation Police. Don't move, you're under arrest'",
+      "problem": "Metroid Wiki quotes the line as 'In the name of the Federation Police, you are under arrest!!', spoken together with 'According to Federation law, you have the right to a trial.'",
+      "correction": "Use 'In the name of the Federation Police, you are under arrest!!'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "error",
+      "claim": "From the arriving battleship Adam Malkovich remarked that the fleet readied against the Pirates had gone to waste",
+      "problem": "The cited line is 'The battleship prepared to fight the Space Pirates has gone to waste.' It names one battleship, not a fleet. No source confirms that Adam spoke from an arriving battleship.",
+      "correction": "Say: 'Adam Malkovich remarked that the battleship prepared to fight the Pirates had gone to waste ...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the main Pirate force had moved on after two months",
+      "problem": "The source line is 'The Space Pirates have been in control for two months', alongside 'easily took over the surrounding planets'. Neither says the main force had moved on.",
+      "correction": "Say 'the Pirates had held the system for two months'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "unverified",
+      "claim": "since on so remote a planet labor was worth less than its upkeep",
+      "problem": "No accessible source gives this motive. Metroid Wiki records only the height-sensor culling and Samus's outburst.",
+      "correction": "Drop the motive clause."
+     },
+     {
+      "severity": "nit",
+      "claim": "Samus left Kreatz and Mauk in Pyonchi's care and warned them of predators found nowhere else, such as the Skree",
+      "problem": "The warning ('It's a Skree! Be careful, this planet has predators found nowhere else in the galaxy!') comes when Kreatz spots Skree on a ceiling, not when Samus hands the pair to Pyonchi.",
+      "correction": "Separate the two moments.",
+      "source_url": "https://www.metroidwiki.org/wiki/Skree"
+     },
+     {
+      "severity": "keys",
+      "claim": "Hardy, height sensor, police squad, problem children",
+      "problem": "A bare 'Hardy' matches the common English word 'hardy'. 'police squad', 'problem children' and 'height sensor' are generic and will misfire in ordinary chat.",
+      "correction": "Keep 'Chief Hardy', 'Federation Police', 'Jigrad' and 'Damara'. Drop the generic keys."
+     },
+     {
+      "severity": "style",
+      "problem": "At 439 words it is the longest entry. The cross-reference '(see Mother Brain's betrayal of Zebes, manga account)' is lorebook meta-language inside content.",
+      "correction": "Remove the cross-reference and trim the Jigrad paragraph."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Manga: Kreatz and Mauk",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "For Samus they mark the one period when she worked as part of a team of equals rather than alone",
+      "problem": "Other M contradicts this. Samus served in a Federation unit under Adam with comrades such as Anthony Higgs, 'an old friend from her military career', and Japanese Wikipedia notes her teammates treated her like a little sister.",
+      "correction": "Say 'they were her comrades during her Police years'. Remove 'the one period ... rather than alone'.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Mauk is quiet, timid and introverted",
+      "problem": "The drafter's own notes say Metroid Wiki has no Kreatz or Mauk page and that their descriptions could not be checked. No accessible source characterizes Mauk.",
+      "correction": "Drop the personality description, or say only that Mauk tends to follow Kreatz's lead if a cited scene shows it."
+     },
+     {
+      "severity": "unverified",
+      "claim": "'started a firefight' ... 'They're leaving me out. I can't let that go! Count me in! I don't hate this kinda stuff!' ... 'What should we do, Mauk?'",
+      "problem": "None of these quotes appear on the Metroid Wiki pages consulted. The only Kreatz lines found there are 'We've confirmed the Quantum Radar and the Brethren', 'let's report back to headquarters', 'We're disobeying orders and we'll have to write an apology', 'Huh? What's that hanging from the ceiling?' and 'What's wrong Pyonchi?'.",
+      "correction": "Keep only the quotes that can be verified."
+     },
+     {
+      "severity": "unverified",
+      "claim": "he came to respect Pyonchi's usefulness ... Samus suffered a panic attack before Ridley and was taken",
+      "problem": "Kreatz 'coming to respect' Pyonchi is the drafter's reading. The sources say Samus was defeated by Ridley and rescued, but none states she was captured.",
+      "correction": "Say 'was defeated' instead of 'was taken', and drop the 'came to respect' framing.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "keys",
+      "claim": "squadmates, squad mates, police partners, recon team",
+      "problem": "These are generic and will fire in any military, police or squad roleplay, injecting manga-only characters.",
+      "correction": "Use only 'Kreatz', 'Mauk', 'Kreatz and Mauk' and 'Mauk and Kreatz'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Manga: Mother Brain's betrayal of Zebes (manga account)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "'we are the ones in control'",
+      "problem": "This is a misquote. Metroid Wiki gives the line (Vol 1 Ch 7 Pg 3) as 'In other words, they are under our control.'",
+      "correction": "Use 'In other words, they are under our control.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Mother_Brain"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Old Bird survived and left with the remnant",
+      "problem": "No source states what happened to Old Bird. The drafter's notes admit this is an inference, and Metroid Wiki's Old Bird stub says nothing about the takeover.",
+      "correction": "Remove the sentence, or say his fate is not recorded."
+     },
+     {
+      "severity": "unverified",
+      "claim": "some of the evacuated Chozo later vanished",
+      "problem": "Japanese Wikipedia says the surviving Chozo who escaped with Kreatz and Mauk went missing, without limiting it to 'some'. No English source is more specific.",
+      "correction": "Say 'the Chozo who escaped later disappeared'.",
+      "source_url": "https://ja.wikipedia.org/wiki/サムス・アラン"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Pirates, who turned it into a Metroid breeding ground",
+      "problem": "No manga source for this was found, and Metroid Wiki's Mother Brain and Metroid pages do not mention a breeding ground in the manga. The idea matches the games' and manuals' premise but is labeled 'per the manga'.",
+      "correction": "Say 'The Pirates then held Zebes and the Metroids' or move the breeding claim out of the per-the-manga framing."
+     },
+     {
+      "severity": "unverified",
+      "claim": "As Ridley closed in to finish him, Gray Voice fired upward",
+      "problem": "The sequence is embellished. The sources give only the line '...An attack from below...?!' after the fatal blow, and Japanese Wikipedia says Gray Voice gave covering fire from the ground so Samus's group could escape, then died.",
+      "correction": "Say 'Mortally wounded, Gray Voice gave covering fire from below so Samus, her companions and the surviving Chozo could escape, and died.'",
+      "source_url": "https://ja.wikipedia.org/wiki/サムス・アラン"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Platinum Chest scene states that Gray Voice's DNA was used, but there is no note that Metroid Dread later reveals the infused DNA also included Raven Beak's Mawkin DNA.",
+      "correction": "Add a one-clause conflict note, or keep it in the upbringing entry only.",
+      "source_url": "https://www.metroidwiki.org/wiki/Raven_Beak"
+     },
+     {
+      "severity": "unverified",
+      "claim": "underlie Samus's coldness toward Mother Brain in every later meeting",
+      "problem": "No source states this motive. Mother Brain also does not 'meet' Samus in most later games.",
+      "correction": "Soften to 'colour how Samus regards Mother Brain'."
+     },
+     {
+      "severity": "keys",
+      "claim": "primary 'Mother Brain' with secondary 'Zebes', 'Ridley', 'Chozo', 'betrayal'",
+      "problem": "'Mother Brain' plus 'Zebes' or 'Ridley' fires in almost any Mother Brain conversation, including Metroid 1 and Super Metroid scenes, so this manga-only entry will override the main Mother Brain overview. 'Gray Voice' also needs a secondary key, so a plain mention of him will not fire.",
+      "correction": "Remove 'Mother Brain' from the primary keys. Make 'Gray Voice', 'Grey Voice', 'Platinum Chest', 'defective product' and 'fall of Zebes' fire on their own (no secondary needed), and add 'Old Bird'."
+     },
+     {
+      "severity": "style",
+      "problem": "At 439 words it is over length. It contains the meta cross-reference '(see Samus's confrontation with Ridley, manga account)'.",
+      "correction": "Remove the cross-reference and trim."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Manga: Samus's confrontation with Ridley and her trauma (manga account)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Samus froze again before a resurrected Ridley aboard the Bottle Ship",
+      "problem": "The Ridley in Other M was not resurrected. He was a clone grown accidentally from cell fragments on Samus's suit, first appearing as Little Birdie.",
+      "correction": "Say 'before a clone of Ridley aboard the Bottle Ship until Anthony Higgs distracted it'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "unverified",
+      "claim": "she could not fight, was defeated and taken",
+      "problem": "The sources say she was defeated and then rescued through Kreatz and Mauk's diversion and Gray Voice's double-cross. None states that she was captured.",
+      "correction": "Say 'was defeated'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "unverified",
+      "claim": "She went on to Tourian and found Mother Brain surrounded by Metroids",
+      "problem": "Metroid Wiki's manga summary says only that she found Mother Brain surrounded by Metroids. 'Tourian' could not be confirmed as a manga detail.",
+      "correction": "Drop 'to Tourian' or label it as the game location.",
+      "source_url": "https://www.metroidwiki.org/wiki/Mother_Brain"
+     },
+     {
+      "severity": "unverified",
+      "claim": "she measures her present strength against the memory of the girl who could not move",
+      "problem": "This is an invented motive or inner state presented as character fact.",
+      "correction": "Cut it, or keep only the sourced lesson that buried fear grows."
+     },
+     {
+      "severity": "keys",
+      "claim": "trauma, traumatic, traumatized, PTSD, panic attack(s), flashback(s), breakdown, froze, repressed, nemesis, with secondary fear, parents, Pirates, Zebes",
+      "problem": "These are generic emotional words. Under AND_ANY, ordinary lines such as 'I froze in fear' or 'trauma from my parents' will fire this entry in unrelated chat.",
+      "correction": "Primary keys: 'Ridley trauma', 'Samus panic attack', 'Samus PTSD', 'froze before Ridley'. Or make the generic words secondary and require 'Ridley' as the primary key."
+     },
+     {
+      "severity": "style",
+      "problem": "The content includes meta labels ('For roleplay:') and is just over 400 words.",
+      "correction": "Rephrase the final paragraph as in-world character description."
+     }
+    ]
+   }
+  ],
+  "overall": "All seven entries are mostly grounded in Metroid Wiki citations to manga chapters, but every one needs fixes and none needs a rewrite.\n\n**Errors against sources:**\n1. **Federation Police entry:** it invents a chronology in which Adam's Federation Army command 'follows' the manga's Police years. Other M and English Wikipedia put her Federation service under Adam, ended by a dispute, before her bounty-hunting career. The Police-versus-Army conflict needs an explicit note, and the later account takes precedence.\n2. **Ridley trauma entry:** it calls the Other M Ridley 'resurrected'. He was a clone grown from cells, first appearing as Little Birdie.\n3. **DNA conflict:** the upbringing entry says flatly that only Gray Voice's DNA was used. Dread (2021) reveals the infused DNA was a Thoha/Mawkin mix that included Raven Beak's DNA, so a conflict note is needed. The overview's 'Known tensions' list also leaves out this conflict and the Army one.\n4. **Misquotes:** 'we are the ones in control' should be 'they are under our control'. 'I'm with the Federation Police. Don't move...' should be 'In the name of the Federation Police, you are under arrest!!'. Adam's 'fleet' line refers to a single battleship.\n5. **'Unnamed frontier world':** this contradicts the manga's own naming of SR-388.\n6. **Kreatz and Mauk:** the claim that they mark the only time Samus worked in a team of equals contradicts Other M's Army comrades.\n\n**Unverified details to cut or soften:**\n- 'Chief Aran'.\n- Ridley calling Samus 'cute'.\n- The distress call that brought the Chozo back.\n- Old Bird surviving the fall of Zebes.\n- Mauk's personality and several Kreatz quotes.\n- The elders calling themselves 'Protectors of the Galaxy'.\n- The first Metroid being unveiled 'while Samus still lived there'. This also conflicts with the betrayal entry's timing.\n- Samus being captured ('taken').\n- The Metroid breeding ground labeled 'per the manga'.\n- The serialization window 'November 2003 to May 2004'. MyAnimeList gives Nov 2002 to Mar 2004, and 16 monthly chapters cannot fit seven months.\n\n**Keys:**\n- Generic keys will misfire: backstory, origin story, Hardy, squadmates, recon team, police squad, problem children, welding laser, froze, breakdown, flashback, trauma.\n- 'Mother Brain' is a primary key of a manga-only entry, with Zebes, Ridley and Chozo as secondary keys, so it will override the main Mother Brain overview.\n- 'Old Bird' is not a key anywhere in the domain.\n\n**Style:** five of the seven entries run slightly over 400 words (411 to 439). Several contain lorebook meta-language ('This lorebook treats...', '(see ... entry)', 'For roleplay:').\n\n**What checked out against sources:** the Tazawa/Ishikawa credits, the 7+9 chapter split, the Comic BomBom Echoes adaptation by Hisashi Matsumoto (July 2005 to January 2006), the 1986 Wanpakku manga, the Bihldorff quote, Afloraltite and the welding-laser sacrifice, the Iono Feria episode, the Jigrad details, the Zebetite shield, the Kraid fight with Morph Ball Bombs, and Ridley finished with Wave Beam, Ice Beam and a Missile.\n\nNo non-canon contamination was found.",
+  "sources_consulted": [
+   "https://en.wikipedia.org/wiki/Metroid_(manga)",
+   "https://www.metroidwiki.org/wiki/Metroid_e-manga",
+   "https://www.metroidwiki.org/wiki/Metroid_(manga)",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Ridley",
+   "https://www.metroidwiki.org/wiki/K-2L",
+   "https://www.metroidwiki.org/wiki/Afloraltite",
+   "https://www.metroidwiki.org/wiki/Rodney_Aran",
+   "https://www.metroidwiki.org/wiki/Virginia_Aran",
+   "https://www.metroidwiki.org/wiki/Gray_Voice",
+   "https://www.metroidwiki.org/wiki/Old_Bird",
+   "https://ja.wikipedia.org/wiki/サムス・アラン",
+   "https://www.metroidwiki.org/wiki/Mother_Brain",
+   "https://www.metroidwiki.org/wiki/Metroid_(species)",
+   "https://www.metroidwiki.org/wiki/X_Parasite",
+   "https://www.metroidwiki.org/wiki/SR388",
+   "https://www.metroidwiki.org/wiki/Chozo",
+   "https://www.metroidwiki.org/wiki/Iono_Feria",
+   "https://www.metroidwiki.org/wiki/Pyonchi",
+   "https://www.metroidwiki.org/wiki/Psychosis",
+   "https://www.metroidwiki.org/wiki/Kraid",
+   "https://www.metroidwiki.org/wiki/Missile_Launcher",
+   "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+   "https://en.wikipedia.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Skree",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://hakutaku.us/2018/06/16/metroid-manga-universe/",
+   "https://myanimelist.net/manga/6642/_",
+   "https://www.looper.com/629936/the-ending-of-metroid-dread-explained/",
+   "https://kotaku.com/dear-metroid-dread-samus-doesn-t-need-to-be-an-emotion-1847875658",
+   "https://metroid.fandom.com/wiki/Metroid_Prime:_Episode_of_Aether (search snippet only)",
+   "https://metroid.fandom.com/wiki/Metroid_(Magazine_Z_manga) (search snippet only)"
+  ]
+ }
+}

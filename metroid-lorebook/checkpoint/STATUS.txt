@@ -7,23 +7,23 @@ dark-samus: draft, verify, revise
 dread: draft, verify
 echoes: draft, verify
 federation: draft, verify
-federation-force: draft, verify
+federation-force: draft, verify, revise
 fusion: draft, verify, revise
 hunters: draft, verify
-manga: draft
+manga: draft, verify
 metroids: draft, verify, revise
 phazon: draft, verify, revise
 prime1: draft, verify
 prime3: draft, verify
-prime4: draft, verify
+prime4: draft, verify, revise
 ridley: draft, verify, revise
 samus-bio: draft, verify
 samus-rp: draft, verify
-space-pirates: draft, verify
+space-pirates: draft, verify, revise
 sr388: draft, verify, revise
 suits: draft, verify
 super-metroid: draft, verify
-tech: draft
+tech: draft, verify
 timeline: draft, verify
 weapons: draft, verify
 x-parasite: draft, verify
