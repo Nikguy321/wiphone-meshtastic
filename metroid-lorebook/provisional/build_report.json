@@ -1,25 +1,22 @@
 {
   "entries": 257,
   "constant": 2,
-  "files": 5,
+  "files": 30,
   "final_domains": [
-    "adam-other-m",
-    "echoes",
-    "hunters",
-    "metroids",
-    "x-parasite"
-  ],
-  "draft_fallback_domains": [
     "abilities",
+    "adam-other-m",
     "bestiary-2d",
     "bestiary-prime",
     "chozo",
     "dark-samus",
     "dread",
-    "federation-force",
+    "echoes",
     "federation",
+    "federation-force",
     "fusion",
+    "hunters",
     "manga",
+    "metroids",
     "phazon",
     "prime1",
     "prime3",
@@ -34,10 +31,12 @@
     "tech",
     "timeline",
     "weapons",
+    "x-parasite",
     "zebes"
   ],
-  "total_words": 105100,
-  "approx_tokens": 141885,
+  "draft_fallback_domains": [],
+  "total_words": 99963,
+  "approx_tokens": 134950,
   "per_category": {
     "Universe": 6,
     "Samus": 15,
@@ -67,273 +66,117 @@
     "Creatures": 15
   },
   "key_collisions_gt2": {
-    "ultimate warrior": [
-      "Universe: Mission structure, the Hunter and the meaning of Metroid",
-      "Chozo: Chozo Memories and the Chozo of SR388",
-      "Metroids: Metroids (species overview)"
-    ],
-    "space hunters": [
-      "Universe: Mission structure, the Hunter and the meaning of Metroid",
-      "Galactic Federation: Bounty hunters and the Federation",
-      "Technology: Bounty hunting in the Metroid galaxy"
-    ],
-    "metroid fusion": [
-      "Universe: Timeline of Samus's missions",
-      "Prime 4: Aberax and Sylux's Metroids",
-      "Fusion: The BSL incident (Metroid Fusion events)"
-    ],
     "pyonchi": [
       "Samus: Samus Aran – early life on K-2L",
-      "Manga: The K-2L raid (manga account)",
-      "Other M: Chairman Keaton"
-    ],
-    "rabbilis": [
-      "Samus: Samus Aran – early life on K-2L",
-      "Manga: The K-2L raid (manga account)",
-      "Other M: Chairman Keaton"
+      "Chozo: Old Bird",
+      "Manga: The K-2L raid (manga account)"
     ],
     "federation police": [
       "Samus: Samus Aran – Galactic Federation service and the bounty hunter years",
-      "Galactic Federation: Federation Police and Army",
+      "Galactic Federation: Federation Police and military command",
       "Manga: Samus's Federation Police years (manga)"
     ],
-    "bounty hunter": [
-      "Samus: Samus Aran – Galactic Federation service and the bounty hunter years",
-      "Galactic Federation: Bounty hunters and the Federation",
-      "Technology: Bounty hunting in the Metroid galaxy"
-    ],
-    "mercenary": [
-      "Samus: Samus Aran – Galactic Federation service and the bounty hunter years",
-      "Galactic Federation: Bounty hunters and the Federation",
-      "Technology: Bounty hunting in the Metroid galaxy"
-    ],
-    "jigrad": [
-      "Samus: Samus Aran – Galactic Federation service and the bounty hunter years",
-      "Galactic Federation: Federation Police and Army",
-      "Manga: Samus's Federation Police years (manga)"
-    ],
-    "chief hardy": [
-      "Samus: Samus Aran – Galactic Federation service and the bounty hunter years",
-      "Galactic Federation: Federation Police and Army",
-      "Manga: Samus's Federation Police years (manga)"
-    ],
-    "metroid vaccine": [
-      "Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become",
-      "Equipment: Fusion Suit",
-      "Metroids: Samus as the last Metroid",
-      "X Parasite: Samus and the X"
-    ],
-    "chozo dna": [
-      "Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become",
-      "Samus: Samus Aran – raised by the Chozo on Zebes",
-      "Chozo: Gray Voice",
-      "Manga: Samus's Chozo upbringing and the birth of Mother Brain (manga account)"
-    ],
-    "weakness to cold": [
-      "Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become",
-      "Equipment: Fusion Suit",
-      "Metroids: Metroid biology and weaknesses"
-    ],
-    "becoming a metroid": [
-      "Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become",
-      "Equipment: Metroid Suit (Dread)",
-      "Metroids: Samus as the last Metroid"
-    ],
-    "metroid transformation": [
-      "Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become",
-      "Equipment: Metroid Suit (Dread)",
-      "Metroids: Samus as the last Metroid"
-    ],
-    "metroid powers": [
-      "Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become",
-      "Equipment: Metroid Suit (Dread)",
-      "Metroids: Samus as the last Metroid"
-    ],
-    "chozo blood": [
-      "Samus: Samus Aran – raised by the Chozo on Zebes",
-      "Chozo: Gray Voice",
-      "Manga: Samus's Chozo upbringing and the birth of Mother Brain (manga account)"
-    ],
-    "any objections": [
-      "Samus: Speech style and canonical quotes",
-      "Other M: Adam Malkovich",
-      "Fusion: Samus's defiance of the Federation at the BSL"
-    ],
-    "quiet robe x": [
-      "Equipment: Metroid Suit (Dread)",
-      "X Parasite: The X on ZDR",
-      "Dread: Quiet Robe"
-    ],
-    "hypermode": [
-      "Equipment: Phazon Suit and PED Suit (Hypermode)",
-      "Dark Samus: The Phazon crisis and her end",
-      "Phazon: Phazon corruption and Hypermode"
+    "ship grapple": [
+      "Equipment: Grapple Beam",
+      "Equipment: Thermal, X-Ray, Dark, Echo and Command Visors",
+      "Technology: Samus's Gunship"
     ],
     "hyper beam": [
+      "Equipment: Metroid Suit (Dread)",
       "Equipment: Wide, Diffusion and Hyper Beams",
-      "Phazon: Phazon corruption and Hypermode",
       "Super Metroid: Mother Brain's final battle and the baby's sacrifice"
     ],
-    "mochtroid": [
-      "Metroids: Metroid breeding and cloning programs",
-      "Super Metroid: Draygon and Maridia",
-      "Creatures: Fauna of Maridia and the Wrecked Ship"
+    "ship missile": [
+      "Equipment: Missiles and Super Missiles",
+      "Equipment: Thermal, X-Ray, Dark, Echo and Command Visors",
+      "Technology: Samus's Gunship"
     ],
-    "mochtroids": [
-      "Metroids: Metroid breeding and cloning programs",
-      "Super Metroid: Draygon and Maridia",
-      "Creatures: Fauna of Maridia and the Wrecked Ship"
+    "ship missiles": [
+      "Equipment: Missiles and Super Missiles",
+      "Equipment: Thermal, X-Ray, Dark, Echo and Command Visors",
+      "Technology: Samus's Gunship"
     ],
-    "hornoad": [
-      "X Parasite: The X outbreak aboard the BSL station",
-      "Fusion: The BSL incident (Metroid Fusion events)",
-      "Creatures: Fauna of SR388"
-    ],
-    "project helix": [
-      "Space Pirates: Elite Pirates and the Omega Pirate",
-      "Prime: Flaahgra, Thardus and the Omega Pirate",
-      "Phazon: Pirate Phazon operations and the Federation's PED program"
-    ],
-    "phazon mines": [
-      "Space Pirates: Projects and Phazon research on Tallon IV and Aether",
-      "Prime: Regions of Tallon IV",
-      "Phazon: Pirate Phazon operations and the Federation's PED program"
-    ],
-    "bounty": [
-      "Space Pirates: The Pirates and Samus (the Hunter)",
-      "Galactic Federation: Bounty hunters and the Federation",
-      "Technology: Bounty hunting in the Metroid galaxy"
-    ],
-    "aurora unit 313": [
-      "Galactic Federation: Aurora Units",
-      "Prime 3: The assault on Phaaze and the end of Phazon",
-      "Dark Samus: The Phazon crisis and her end"
-    ],
-    "au 313": [
-      "Galactic Federation: Aurora Units",
-      "Prime 3: The assault on Phaaze and the end of Phazon",
-      "Dark Samus: The Phazon crisis and her end"
-    ],
-    "space hunter": [
-      "Galactic Federation: Bounty hunters and the Federation",
-      "Zebes: Samus's first Zebes mission (Zero Mission)",
-      "Technology: Bounty hunting in the Metroid galaxy"
-    ],
-    "valhalla": [
-      "Galactic Federation: Federation Navy and notable ships",
-      "Prime 3: GFS Olympus and the Federation fleet at Norion",
-      "Dark Samus: The return – Colossus, Phaaze and the Norion attack"
-    ],
-    "mother brain": [
-      "Manga: Mother Brain's betrayal of Zebes (manga account)",
-      "Zebes: Mother Brain",
-      "Super Metroid: Mother Brain's final battle and the baby's sacrifice"
-    ],
-    "fs-176": [
-      "Zebes: Zebes (planet overview)",
-      "Prime: Tallon IV",
-      "Technology: Planets and places of the galaxy (index)"
-    ],
-    "gfs valhalla": [
-      "Prime 3: GFS Olympus and the Federation fleet at Norion",
-      "Dark Samus: The return – Colossus, Phaaze and the Norion attack",
-      "Creatures: Fauna of Phaaze and the G.F.S. Valhalla"
-    ],
-    "g.f.s. valhalla": [
-      "Prime 3: GFS Olympus and the Federation fleet at Norion",
-      "Dark Samus: The return – Colossus, Phaaze and the Norion attack",
-      "Creatures: Fauna of Phaaze and the G.F.S. Valhalla"
+    "old bird": [
+      "Chozo: Old Bird",
+      "Manga: Samus's Chozo upbringing and the birth of Mother Brain (manga account)",
+      "Manga: The K-2L raid (manga account)"
     ],
     "bermuda system": [
       "Federation Force: Bermuda System (Excelcion, Bion, Talvania)",
-      "Federation Force: The Bermuda System incident (Federation Force events)",
       "Technology: Planets and places of the galaxy (index)",
       "Creatures: Fauna of the Bermuda System"
     ]
   },
   "warnings": [
-    "KEY 'visor' removed from 'Equipment: Combat Visor, Scan Visor and the helmet HUD' (forbidden bare word)",
-    "KEY 'Nova' removed from 'Creatures: Fauna of Norfair' (forbidden bare word)",
-    "KEY 'backstory' removed from 'Manga: The Metroid manga (overview and canon status)' (forbidden bare word)",
-    "KEY 'childhood' removed from 'Samus: Samus Aran – early life on K-2L' (forbidden bare word)",
-    "KEY 'relationship' removed from 'Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux' (forbidden bare word)",
-    "KEY 'relationships' removed from 'Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux' (forbidden bare word)",
-    "KEY 'friend' removed from 'Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux' (forbidden bare word)",
-    "KEY 'friends' removed from 'Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux' (forbidden bare word)",
-    "KEY 'rival' removed from 'Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux' (forbidden bare word)",
-    "LONG (687 words) \"Technology: Samus's Gunship\"",
-    "KEY 'planet' removed from 'Technology: Planets and places of the galaxy (index)' (forbidden bare word)",
-    "KEY 'Missiles' removed from 'Equipment: Missiles and Super Missiles' (forbidden bare word)",
-    "KEY 'Bombs' removed from 'Equipment: Bombs, Power Bombs and Cross Bombs' (forbidden bare word)",
-    "KEY 'grapple' removed from 'Equipment: Grapple Beam' (forbidden bare word)",
-    "KEY 'melee' removed from 'Equipment: Melee Counter' (forbidden bare word)"
+    "KEY 'hatchling' removed from 'Samus: Attitudes toward the Federation, Chozo, Pirates and Metroids' (forbidden bare word)",
+    "KEY 'relationships' removed from 'Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux' (forbidden bare word)"
   ],
   "longest": [
     [
-      687,
-      "Technology: Samus's Gunship"
-    ],
-    [
-      597,
+      598,
       "Prime 2: The Aether incident (Metroid Prime 2: Echoes events)"
     ],
     [
-      596,
-      "Equipment: Charge Beam and Charge Combos"
-    ],
-    [
-      594,
-      "Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become"
-    ],
-    [
-      585,
-      "Prime 4: Sylux"
-    ],
-    [
-      579,
-      "SR388: The Metroid extermination mission on SR388 (Samus Returns)"
-    ],
-    [
-      579,
-      "Equipment: Luminoth and Phazon beams (Dark, Light, Annihilator, Phazon, Nova)"
+      564,
+      "Metroids: Metroids (species overview)"
     ],
     [
       552,
       "Other M: The Bottle Ship incident"
+    ],
+    [
+      550,
+      "Universe: Timeline of Samus's missions"
+    ],
+    [
+      550,
+      "Metroids: Metroid breeding and cloning programs"
+    ],
+    [
+      550,
+      "Equipment: Power Suit (Samus's Chozo armor)"
+    ],
+    [
+      549,
+      "Fusion: The BSL incident (Metroid Fusion events)"
+    ],
+    [
+      547,
+      "Prime 4: The Viewros incident (Metroid Prime 4: Beyond events)"
     ]
   ],
   "shortest": [
     [
-      168,
-      "Creatures: Fauna of the Bermuda System"
-    ],
-    [
-      195,
-      "Universe: Metroid universe primer"
-    ],
-    [
-      202,
-      "Federation Force: General Alex Miles"
-    ],
-    [
-      206,
-      "Zebes: The destruction of Zebes"
-    ],
-    [
-      221,
+      177,
       "Other M: Chairman Keaton"
     ],
     [
-      242,
-      "Federation Force: The Metroid egg and the Bermuda System epilogue"
+      193,
+      "Zebes: The destruction of Zebes"
     ],
     [
-      243,
-      "Federation Force: The Doomseye"
+      198,
+      "Creatures: Fauna of the Bermuda System"
     ],
     [
-      266,
-      "Fusion: Omega Metroid of the BSL"
+      229,
+      "Federation Force: General Alex Miles"
+    ],
+    [
+      229,
+      "Ridley: Proteus Ridley"
+    ],
+    [
+      238,
+      "Galactic Federation: Daiban and Federation Headquarters"
+    ],
+    [
+      248,
+      "Universe: Metroid universe primer"
+    ],
+    [
+      255,
+      "Federation Force: The Metroid egg and Sylux's break-in"
     ]
   ]
 }

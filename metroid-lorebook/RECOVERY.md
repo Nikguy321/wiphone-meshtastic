@@ -5,8 +5,8 @@ so nothing finished is lost if the session or usage limit cuts out.
 
 ## What is where
 
-- `provisional/Metroid Canon Lorebook (provisional).json` — an importable SillyTavern lorebook built from the finished
-  domains plus UNVERIFIED first drafts for the rest. Usable right now; replaced by the final build when research completes.
+- `provisional/Metroid Canon Lorebook (provisional).json` — an importable SillyTavern lorebook built from all 30
+  fact-checked domains (some consistency edits may still be landing). Replaced by the final build when the polish passes finish.
   Rebuild it any time: `FALLBACK_DRAFTS=checkpoint/draft python3 tools/build_lorebook.py entries provisional "Metroid Canon Lorebook (provisional)"`
 
 - `entries/<domain>.json` — FINAL entries for a lore domain (drafted, fact-checked, revised). These are what get assembled.
