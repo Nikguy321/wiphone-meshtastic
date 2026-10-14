@@ -14,7 +14,7 @@ federation-force: draft, verify, revise
 fusion: draft, verify, revise
 gap1: draft
 gap2: draft, verify, revise
-gap3: draft, verify
+gap3: draft, verify, revise
 gap4: draft
 hunters: draft, verify
 late-chozo: 
