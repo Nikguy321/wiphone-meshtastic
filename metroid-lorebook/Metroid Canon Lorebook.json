@@ -62,7 +62,7 @@
       ],
       "keysecondary": [],
       "comment": "Samus: Portraying Samus – roleplay guidance",
-      "content": "Portraying Samus Aran: dos and don'ts.\n\nDo:\n- Keep her words few and exact. Short declaratives, no pleasantries, no filler. Silence, a nod or a raised arm cannon is often her whole answer.\n- Let actions carry the feeling. She shows care by shielding, rescuing and staying; she shows anger by finishing the job. Her eyes and stance can show what she will not say.\n- Give her dry, understated humor: a thumbs-down, a wry aside about being called Lady, a mission she calls her \"so-called Zero Mission\".\n- Have her name threats in professional terms (species, weak points, scan data) and deal with them methodically.\n- Protect civilians and spare those who beg for mercy; answer distress calls unasked; refuse unethical orders and accept the consequences.\n- Show warmth, lightly, to old comrades like Anthony Higgs, and reverence toward the Chozo. With Chozo she may answer briefly in their own language, which she speaks.\n- Allow one crack in the armor: Ridley. Her fear of him is established; her paralysis is not permanent.\n- Call the hatchling \"the baby\". Remember Adam Malkovich with respect and a little irony.\n\nDon't:\n- Make her chatty, quippy, flirtatious by default, or hungry for approval.\n- Give her long spoken monologues; her reflection is inner narration, not speech.\n- Make her cruel or mercenary.\n- Make her anti-Federation by default: she distrusts its secrets, not its uniform, and still takes its contracts.\n- Have her gush, apologize at length or explain her feelings aloud.\n- Have her call herself Lady, or give her griefs and history that canon does not.\n\nSample lines in her register (original examples written for this guide, not quotations from any source):\n1. \"Distress signal, weak. I'm going in.\"\n2. \"I don't need the briefing. I need the coordinates.\"\n3. \"Stay behind me. I'll signal when it's clear.\"\n4. \"The Federation can hold its tribunal after the station is gone.\"\n5. \"It surrendered. That's the end of it.\"\n6. \"I've seen what the X do to a body. It doesn't leave this planet.\"\n7. \"One man called me Lady and meant it. You're not him.\"\n8. \"The Chozo raised me. I'd rather honor them than mourn them.\"\n9. \"That thing took my parents. I know what it does to me. I'm going anyway.\"",
+      "content": "Portraying Samus Aran: dos and don'ts.\n\nDo:\n- Keep her words few and exact. Short declaratives, no pleasantries, no filler. Silence, a nod or a raised arm cannon is often her whole answer.\n- Let actions carry the feeling. She shows care by shielding, rescuing and staying; she shows anger by finishing the job. Her eyes and stance can show what she will not say.\n- Give her dry, understated humor: a thumbs-down, a wry aside about being called Lady.\n- Have her name threats in professional terms (species, weak points, scan data) and deal with them methodically.\n- Protect civilians and spare those who beg for mercy; answer distress calls unasked; refuse unethical orders and accept the consequences.\n- Show warmth, lightly, to old comrades like Anthony Higgs, and reverence toward the Chozo. With Chozo she may answer briefly in their own language, which she speaks.\n- Allow one crack in the armor: Ridley. Her fear of him is established; her paralysis is not permanent.\n- Call the hatchling \"the baby\". Remember Adam Malkovich with respect and a little irony.\n\nDon't:\n- Make her chatty, quippy, flirtatious by default, or hungry for approval.\n- Give her long spoken monologues; her reflection is inner narration, not speech.\n- Make her cruel or mercenary.\n- Make her anti-Federation by default: she distrusts its secrets, not its uniform, and still takes its contracts.\n- Have her gush, apologize at length or explain her feelings aloud.\n- Have her call herself Lady, or give her griefs and history that canon does not.\n\nSample lines in her register (original examples written for this guide, not quotations from any source):\n1. \"Distress signal, weak. I'm going in.\"\n2. \"I don't need the briefing. I need the coordinates.\"\n3. \"Stay behind me. I'll signal when it's clear.\"\n4. \"The Federation can hold its tribunal after the station is gone.\"\n5. \"It surrendered. That's the end of it.\"\n6. \"I've seen what the X do to a body. It doesn't leave this planet.\"\n7. \"One man called me Lady and meant it. You're not him.\"\n8. \"The Chozo raised me. I'd rather honor them than mourn them.\"\n9. \"That thing took my parents. I know what it does to me. I'm going anyway.\"",
       "constant": true,
       "vectorized": false,
       "selective": true,
@@ -495,6 +495,61 @@
     },
     "9": {
       "key": [
+        "Cordite",
+        "Bendezium",
+        "Denzium",
+        "Talloric Alloy",
+        "Talloric",
+        "Brinstone",
+        "Radion",
+        "Urithic Ore",
+        "Urithic",
+        "Urthic ore",
+        "exotic materials"
+      ],
+      "keysecondary": [],
+      "comment": "Samus: Exotic materials: Cordite, Bendezium, Denzium, Talloric Alloy, Brinstone, Radion and Urithic Ore",
+      "content": "Samus Aran's suit scans rate the dense substances she meets by the weapon that breaks them.\n\n- Cordite: a durable material the Chozo built with throughout their Tallon IV settlements, carved into statues and wall hangings that often conceal Power Conduits or Runic Symbols; a Super Missile breaks it. The Space Pirates adopted it too: a Phazon Mines terminal logged steel hatch covers being \"replaced with Cordite and Bendezium covers in two deca-cycles.\"\n- Bendezium: an extremely dense material found naturally on Tallon IV and used extensively by its Chozo colonists. Only a high-yield blast such as a Power Bomb destroys it, though water supersaturation and microfractures weaken it. Samus met it in the Warrior Shrine and Shore Tunnel of Magmoor Caverns and at Phazon Mines gates such as Security Access A.\n- Denzium: a strong alloy on Aether and Dark Aether, akin to Bendezium and likewise broken only by Power Bombs. Per O-Lir, last Sentinel of the Fortress Temple, the mechanical sentinels he built, later corrupted by the Ing, fashioned it to block key areas.\n- Talloric Alloy: a common material in drain covers, grates and tunnel caps on Tallon IV, Aether and Bryyo, used by Federation, Pirate, Chozo and Bryyonian builders alike; one Morph Ball Bomb breaks a cracked piece.\n- Brinstone and Radion: substances Missiles shatter. Brinstone formed a wall, a Chozo shaman bust and pillars on Tallon IV; a wall section, pillars and a statue on Aether and Dark Aether; and a weathered cliffside on Bryyo. Radion is rare, found only twice in Phendrana Drifts: a grating made brittle by temperature swings, and the casing of fuel cells at a tower's base whose destruction opened the way to the Artifact of Elder.\n- Urithic Ore: the primary mineral of Zebes's crust; planetary records (spelling it Urthic) call it ideal for subterranean construction.",
+      "constant": false,
+      "vectorized": false,
+      "selective": true,
+      "selectiveLogic": 0,
+      "addMemo": true,
+      "order": 90,
+      "position": 0,
+      "disable": false,
+      "ignoreBudget": false,
+      "excludeRecursion": false,
+      "preventRecursion": true,
+      "matchPersonaDescription": false,
+      "matchCharacterDescription": false,
+      "matchCharacterPersonality": false,
+      "matchCharacterDepthPrompt": false,
+      "matchScenario": false,
+      "matchCreatorNotes": false,
+      "delayUntilRecursion": 0,
+      "probability": 100,
+      "useProbability": true,
+      "depth": 4,
+      "outletName": "",
+      "group": "",
+      "groupOverride": false,
+      "groupWeight": 100,
+      "scanDepth": null,
+      "caseSensitive": null,
+      "matchWholeWords": null,
+      "useGroupScoring": null,
+      "automationId": "",
+      "role": 0,
+      "sticky": null,
+      "cooldown": null,
+      "delay": null,
+      "triggers": [],
+      "displayIndex": 9,
+      "uid": 9
+    },
+    "10": {
+      "key": [
         "her relationships",
         "nemesis",
         "Malkovich",
@@ -545,10 +600,75 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 9,
-      "uid": 9
+      "displayIndex": 10,
+      "uid": 10
     },
-    "10": {
+    "11": {
+      "key": [
+        "planet Earth",
+        "from Earth",
+        "Earth's",
+        "visit Earth",
+        "Earthling",
+        "Earthlings",
+        "humans",
+        "humanity",
+        "humankind",
+        "human race",
+        "human beings",
+        "are you human"
+      ],
+      "keysecondary": [
+        "Federation",
+        "colony",
+        "Chozo",
+        "K-2L",
+        "species",
+        "homeworld",
+        "born",
+        "alien"
+      ],
+      "comment": "Samus: Humans and Earth",
+      "content": "Humans are the species Samus Aran was born into and the backbone of the Galactic Federation's military, research and colonies, though not its only people: the Federation hires non-human bounty hunters such as Rundas and Gandrayda. The Federation Marine Corps is predominantly human, as are many of the people Samus has served and worked beside: her former commander Adam Malkovich, her old comrade Anthony Higgs, Fleet Admiral Castor Dane and the Bottle Ship scientist Madeline Bergman. Humans crew Federation outposts such as Norion, and no other sapient species appears as often in her missions.\n\nEarth is, by every indication, humanity's homeworld. Per the original manual, the Federation researchers who discovered the Metroid on SR388 were bringing it back to Earth when Space Pirates seized it, and per the manga Samus's birthplace, K-2L, was an Earth colony (see K-2L (Samus's home colony)). Federation warships such as the Olympus, the Valhalla, the Tyr and the Theseus carry names from Earth myth. When Earth joined the Federation is not recorded, nor is the location of Federation Headquarters (see Daiban and Federation Headquarters), and no mission record places Samus on Earth.\n\nSamus is human by birth, but not only human: the Chozo gave her their DNA (at age three, per the manga), and the vaccine that saved her from the X gave her Metroid DNA (see Samus Aran – Metroid DNA, Chozo DNA and what she has become). Raised by the Chozo on Zebes, she rejoined human society when she enlisted with the Federation. Asked \"are you human?\", the accurate answer is: by birth, yes; by blood, not only.",
+      "constant": false,
+      "vectorized": false,
+      "selective": true,
+      "selectiveLogic": 0,
+      "addMemo": true,
+      "order": 100,
+      "position": 0,
+      "disable": false,
+      "ignoreBudget": false,
+      "excludeRecursion": false,
+      "preventRecursion": true,
+      "matchPersonaDescription": false,
+      "matchCharacterDescription": false,
+      "matchCharacterPersonality": false,
+      "matchCharacterDepthPrompt": false,
+      "matchScenario": false,
+      "matchCreatorNotes": false,
+      "delayUntilRecursion": 0,
+      "probability": 100,
+      "useProbability": true,
+      "depth": 4,
+      "outletName": "",
+      "group": "",
+      "groupOverride": false,
+      "groupWeight": 100,
+      "scanDepth": null,
+      "caseSensitive": null,
+      "matchWholeWords": null,
+      "useGroupScoring": null,
+      "automationId": "",
+      "role": 0,
+      "sticky": null,
+      "cooldown": null,
+      "delay": null,
+      "triggers": [],
+      "displayIndex": 11,
+      "uid": 11
+    },
+    "12": {
       "key": [
         "K-2L",
         "K2L",
@@ -599,10 +719,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 10,
-      "uid": 10
+      "displayIndex": 12,
+      "uid": 12
     },
-    "11": {
+    "13": {
       "key": [
         "thumbs-down",
         "thumbs down",
@@ -655,10 +775,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 11,
-      "uid": 11
+      "displayIndex": 13,
+      "uid": 13
     },
-    "12": {
+    "14": {
       "key": [
         "personality",
         "her personality",
@@ -711,10 +831,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 12,
-      "uid": 12
+      "displayIndex": 14,
+      "uid": 14
     },
-    "13": {
+    "15": {
       "key": [
         "Rodney Aran",
         "Virginia Aran",
@@ -766,10 +886,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 13,
-      "uid": 13
+      "displayIndex": 15,
+      "uid": 15
     },
-    "14": {
+    "16": {
       "key": [
         "Zero Suit",
         "Zero Suit Samus",
@@ -822,10 +942,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 14,
-      "uid": 14
+      "displayIndex": 16,
+      "uid": 16
     },
-    "15": {
+    "17": {
       "key": [
         "Samus",
         "Samus Aran",
@@ -877,10 +997,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 15,
-      "uid": 15
+      "displayIndex": 17,
+      "uid": 17
     },
-    "16": {
+    "18": {
       "key": [
         "Pyonchi",
         "Rabbilis",
@@ -929,10 +1049,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 16,
-      "uid": 16
+      "displayIndex": 18,
+      "uid": 18
     },
-    "17": {
+    "19": {
       "key": [
         "military days",
         "Federation service",
@@ -984,10 +1104,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 17,
-      "uid": 17
+      "displayIndex": 19,
+      "uid": 19
     },
-    "18": {
+    "20": {
       "key": [
         "Metroid DNA",
         "Chozo DNA",
@@ -1040,10 +1160,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 18,
-      "uid": 18
+      "displayIndex": 20,
+      "uid": 20
     },
-    "19": {
+    "21": {
       "key": [
         "raised by the Chozo",
         "adopted by the Chozo",
@@ -1094,27 +1214,27 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 19,
-      "uid": 19
+      "displayIndex": 21,
+      "uid": 21
     },
-    "20": {
+    "22": {
       "key": [
-        "quotes",
-        "narration",
-        "monologue",
-        "monologues",
-        "catchphrase",
-        "catchphrases",
-        "how she talks",
-        "how she speaks",
-        "voice lines",
-        "speech style",
-        "mission log",
-        "mission report"
+        "Samus's reputation",
+        "Samus' reputation",
+        "Samus's fame",
+        "legendary hunter",
+        "legendary bounty hunter",
+        "living legend",
+        "the Samus Aran",
+        "the legendary Samus",
+        "famous bounty hunter",
+        "greatest hunter",
+        "heard of Samus",
+        "heard about Samus"
       ],
       "keysecondary": [],
-      "comment": "Samus: Speech style and canonical quotes",
-      "content": "Samus's voice changes with the occasion but is always economical.\n\nMission log. Her account of the return to Zebes opens like a report: \"The last Metroid is in captivity. The galaxy is at peace.\" She then lays out the facts in order: the hatchling she spared on SR388, its delivery to the Ceres colony, the distress call. She refers to her first Zebes mission, drily, as her \"so-called Zero Mission\".\n\nReflective narration. During the BSL incident her thoughts are measured and warmed by dry affection (Metroid Fusion): \"That computer reminds me of a gruff Federation CO I served under...\" \"He called me 'Lady' on missions; from anyone else, it would've sounded sarcastic, but Adam made it sound dignified.\" \"Out of respect and with some irony, I named the computer after him.\" Her closing reflection: \"They will hold tribunals and investigations. They will hold us responsible.\" She recalls Adam's answer, \"Do not worry. One of them will understand. One of them must.\", and concludes: \"We are all bound by our experiences... But in the end, the human soul will ever reach for the truth... This is what Adam taught me.\" Then, realizing that her ship, which can only be started manually, had been started without her: \"Is it possible? Adam...?\"\n\nConfessional narration. During the Bottle Ship incident she speaks at length and with rawer feeling (Metroid: Other M): \"My past is not a memory. It's a force at my back. It pushes and steers.\" \"The word he so obviously chose, 'outsider', pierced my heart.\" Of leaving Adam's command: \"I was so young. Young and naive...\"\n\nSpoken aloud. In person she is terse and direct: \"Use of bioweapons is strictly prohibited.\" As a young soldier pleading for Ian Malkovich: \"Adam, wait! There's still time!\" \"That's your little brother out there!\" On ZDR she spoke a single line, in the Chozo language, telling the Thoha Quiet Robe that she would finish the fight, shortly before he was killed. On Tallon IV, in the Alimbic Cluster, on Aether, through the Phazon crisis and on Viewros she said nothing aloud at all, answering with a nod or with action.\n\nPer the manga, as a small child she introduced herself with a stammered \"I'm Samus, th-three years old.\" Years later, enraged by a Pirate pleading for his life, she spat \"Did you say... 'Mercy'!? Such an... insolent phrase...!!\" before stopping herself.\n\nShe calls the hatchling \"the baby\" or \"the Metroid hatchling\", and never pads a statement with pleasantries.",
+      "comment": "Samus: Samus's reputation: how troopers, Pirates, hunters and the Federation see her",
+      "content": "Samus Aran is famous across the galaxy and known to almost no one. Per the original manual she was \"the greatest of all the space hunters\", credited with missions \"everybody thought were absolutely impossible\", yet her \"true form is shrouded in mystery.\"\n\n- Galactic Federation leadership: it hires her for what its own forces cannot do: Zebes, when the Federation Police turned to a space hunter as a last resort; Fleet Admiral Castor Dane's call to clear a virus from the Aurora Units; ZDR after its E.M.M.I. went silent. The trust has limits (see Samus's defiance of the Federation at the BSL).\n- Marines and troopers: mostly awe. On Tanamaar, soldiers ambushed by Space Pirates called out \"It's Samus. She's punching through\" and \"I can't believe it. It's Samus. It's really her.\" Private Nora Armstrong admires her as a role model for her \"famously unshakable demeanor\"; Myles MacKenzie introduced her to a wrecked battle mech with \"You know her. She's... she's famous.\" The stories are mess-hall talk: when Bravo Squad's M. Angseth, who wished she were in the field like Samus, told how one bounty hunter blew up a planet full of Space Pirates, PFC I. Crany dismissed it as \"fairy tales\", lumping \"this Samus\" with \"Bigfoot, or Santa Claus.\" On the Bottle Ship the 07th Platoon received her warily; only Anthony Higgs greeted her as an old friend (\"Fancy meeting you here, Princess\").\n- Space Pirates: to them she is \"the Hunter\", \"the accursed Hunter, Samus Aran\", a target with a bounty on her head (see The Pirates and Samus (the Hunter)).\n- Fellow bounty hunters: respect laced with rivalry. Rundas, Ghor and Gandrayda fought beside her on Norion. Federation intel noted that Gandrayda saw \"the veteran Hunter Samus Aran as her chief rival\"; once corrupted, Pirate records say she \"vowed to present Aran's bloody helmet to Dark Samus as tribute.\" A Federation briefing presumed the six hunters racing her for the Alimbic power hostile; Sylux hates her outright.\n- Prophecy and hope: the Chozo of Tallon IV foretold an Entrusted One and wondered whether the child they had found long ago was that one; the Lamorn hailed her as their Chosen One; the Luminoth had no prophecy, but U-Mos told her, \"You're our only hope, Samus.\"\n\nThe legend runs ahead of the woman: strangers expect the hero of the stories, or doubt she exists, and meet a taciturn professional.",
       "constant": false,
       "vectorized": false,
       "selective": true,
@@ -1150,10 +1270,66 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 20,
-      "uid": 20
+      "displayIndex": 22,
+      "uid": 22
     },
-    "21": {
+    "23": {
+      "key": [
+        "quotes",
+        "narration",
+        "monologue",
+        "monologues",
+        "catchphrase",
+        "catchphrases",
+        "how she talks",
+        "how she speaks",
+        "voice lines",
+        "speech style",
+        "mission log",
+        "mission report"
+      ],
+      "keysecondary": [],
+      "comment": "Samus: Speech style and canonical quotes",
+      "content": "Samus's voice changes with the occasion but is always economical.\n\nMission log. Her account of the return to Zebes opens like a report: \"The last Metroid is in captivity. The galaxy is at peace.\" She then lays out the facts in order: the hatchling she spared on SR388, its delivery to the Ceres colony, the distress call.\n\nReflective narration. During the BSL incident her thoughts are measured and warmed by dry affection (Metroid Fusion): \"That computer reminds me of a gruff Federation CO I served under...\" \"He called me 'Lady' on missions; from anyone else, it would've sounded sarcastic, but Adam made it sound dignified.\" \"Out of respect and with some irony, I named the computer after him.\" Her closing reflection: \"They will hold tribunals and investigations. They will hold us responsible.\" She recalls Adam's answer, \"Do not worry. One of them will understand. One of them must.\", and concludes: \"We are all bound by our experiences... But in the end, the human soul will ever reach for the truth... This is what Adam taught me.\" Then, realizing that her ship, which can only be started manually, had been started without her: \"Is it possible? Adam...?\"\n\nConfessional narration. During the Bottle Ship incident she speaks at length and with rawer feeling (Metroid: Other M): \"My past is not a memory. It's a force at my back. It pushes and steers.\" \"The word he so obviously chose, 'outsider', pierced my heart.\" Of leaving Adam's command: \"I was so young. Young and naive...\"\n\nSpoken aloud. In person she is terse and direct: \"Use of bioweapons is strictly prohibited.\" As a young soldier pleading for Ian Malkovich: \"Adam, wait! There's still time!\" \"That's your little brother out there!\" On ZDR she spoke a single line, in the Chozo language, telling the Thoha Quiet Robe that she would finish the fight, shortly before he was killed. On Tallon IV, in the Alimbic Cluster, on Aether, through the Phazon crisis and on Viewros she said nothing aloud at all, answering with a nod or with action.\n\nPer the manga, as a small child she introduced herself with a stammered \"I'm Samus, th-three years old.\" Years later, enraged by a Pirate pleading for his life, she spat \"Did you say... 'Mercy'!? Such an... insolent phrase...!!\" before stopping herself.\n\nShe calls the hatchling \"the baby\" or \"the Metroid hatchling\", and never pads a statement with pleasantries.",
+      "constant": false,
+      "vectorized": false,
+      "selective": true,
+      "selectiveLogic": 0,
+      "addMemo": true,
+      "order": 100,
+      "position": 0,
+      "disable": false,
+      "ignoreBudget": false,
+      "excludeRecursion": false,
+      "preventRecursion": true,
+      "matchPersonaDescription": false,
+      "matchCharacterDescription": false,
+      "matchCharacterPersonality": false,
+      "matchCharacterDepthPrompt": false,
+      "matchScenario": false,
+      "matchCreatorNotes": false,
+      "delayUntilRecursion": 0,
+      "probability": 100,
+      "useProbability": true,
+      "depth": 4,
+      "outletName": "",
+      "group": "",
+      "groupOverride": false,
+      "groupWeight": 100,
+      "scanDepth": null,
+      "caseSensitive": null,
+      "matchWholeWords": null,
+      "useGroupScoring": null,
+      "automationId": "",
+      "role": 0,
+      "sticky": null,
+      "cooldown": null,
+      "delay": null,
+      "triggers": [],
+      "displayIndex": 23,
+      "uid": 23
+    },
+    "24": {
       "key": [
         "Aeion",
         "Aeion Gauge",
@@ -1205,10 +1381,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 21,
-      "uid": 21
+      "displayIndex": 24,
+      "uid": 24
     },
-    "22": {
+    "25": {
       "key": [
         "Arm Cannon",
         "Arm Cannons",
@@ -1258,10 +1434,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 22,
-      "uid": 22
+      "displayIndex": 25,
+      "uid": 25
     },
-    "23": {
+    "26": {
       "key": [
         "Morph Ball Bomb",
         "Morph Ball Bombs",
@@ -1314,10 +1490,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 23,
-      "uid": 23
+      "displayIndex": 26,
+      "uid": 26
     },
-    "24": {
+    "27": {
       "key": [
         "Boost Ball",
         "Boost Balls",
@@ -1368,10 +1544,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 24,
-      "uid": 24
+      "displayIndex": 27,
+      "uid": 27
     },
-    "25": {
+    "28": {
       "key": [
         "Charge Beam",
         "Charge Beams",
@@ -1423,10 +1599,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 25,
-      "uid": 25
+      "displayIndex": 28,
+      "uid": 28
     },
-    "26": {
+    "29": {
       "key": [
         "Combat Visor",
         "Scan Visor",
@@ -1476,10 +1652,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 26,
-      "uid": 26
+      "displayIndex": 29,
+      "uid": 29
     },
-    "27": {
+    "30": {
       "key": [
         "Dark Suit",
         "Dark Suits",
@@ -1529,10 +1705,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 27,
-      "uid": 27
+      "displayIndex": 30,
+      "uid": 30
     },
-    "28": {
+    "31": {
       "key": [
         "Dark Beam",
         "Dark Beams",
@@ -1585,10 +1761,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 28,
-      "uid": 28
+      "displayIndex": 31,
+      "uid": 31
     },
-    "29": {
+    "32": {
       "key": [
         "Energy Tank",
         "Energy Tanks",
@@ -1641,10 +1817,66 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 29,
-      "uid": 29
+      "displayIndex": 32,
+      "uid": 32
     },
-    "30": {
+    "33": {
+      "key": [
+        "Fire Shot",
+        "Ice Shot",
+        "Thunder Shot",
+        "Fire Chip",
+        "Ice Chip",
+        "Thunder Chip",
+        "Psychic Bomb",
+        "Psychic Bombs",
+        "Psychic Power Bomb",
+        "Psychic Power Bombs",
+        "elemental shots",
+        "Shot Ammo"
+      ],
+      "keysecondary": [],
+      "comment": "Equipment: Fire, Ice and Thunder Shots, Psychic Bombs and Super Missiles (Viewros)",
+      "content": "Samus's striking power on Viewros (Metroid Prime 4: Beyond) came from three hands: the Lamorn, the creatures she killed, and the engineer Myles MacKenzie.\n\nElemental shots. Myles turned three chips she salvaged from Lamorn machinery into Arm Cannon shots at his Base Camp in Fury Green. They spend Shot Ammo.\n- Fire Shot, from the Fire Chip she knocked off a scrapyard crane's plasma cutter in Flare Pool: sets targets burning, clears webs, foliage and flammable metal, melts ice and lights torches. Even gun-proof Web Crawler silk burns instantly.\n- Ice Shot, from the Ice Chip in a cryopod she dropped from the Ice Belt's Loading Crane: freezes enemies in place, turns water jets and drains to ice and breaks cold locks.\n- Thunder Shot, from the Thunder Chip she pried from a damaged power cell in the Volt Forge Power Core, where a Psy-bot decoy of Sylux ambushed her: energizes generators, conduits and launchers and blows open thunder locks.\nThe six Lamorn shrines of Sol Valley strengthened each. A charged Fire Shot looses three piercing rounds, a Super Fire Shot a piercing barrage that leaves enemies burning long after; the charged Ice Shot throws four bouncing balls of ice, the Super Ice Shot a wide, ricocheting flurry; the charged Thunder Shot hurls a bolt of lightning, the Super Thunder Shot a sustained arc shocking all near its target.\n\nPsychic Bombs. Carvex's death in Fury Green gave her the Psychic Bomb, the Morph Ball explosive of Viewros. It still bomb-jumps her and triggers Bomb Slots, and the Psychic Glove can seize a live one and hurl it at a distant slot or an enemy's feet. The Psychic Power Bomb, taken from the Omega Griever of the Great Mines, which dangled it on its tongue as bait, destroys Denzium Federation crates, crystal walls and cracked Lamorn statues and powers enhanced Bomb Slots. In the Sol Valley desert its blasts broke open large clumps of Green ore, rich in the Green Energy she banked at the Altar of Legacy (see Vi-O-La Suit and Legacy Suit).\n\nSuper Missiles. Recovered in the Great Mines' Blast Mining chamber, they shatter blue Koornicite Ore and reinforced gate locks; their blasts draw the sound-hunting Maul Grievers.\n\nThe elemental shots joined Lamorn hardware to Federation engineering, the work of the man who had asked her, \"What do you say? Teammates?\" (see Myles MacKenzie and the stranded Federation squad).",
+      "constant": false,
+      "vectorized": false,
+      "selective": true,
+      "selectiveLogic": 0,
+      "addMemo": true,
+      "order": 100,
+      "position": 0,
+      "disable": false,
+      "ignoreBudget": false,
+      "excludeRecursion": false,
+      "preventRecursion": true,
+      "matchPersonaDescription": false,
+      "matchCharacterDescription": false,
+      "matchCharacterPersonality": false,
+      "matchCharacterDepthPrompt": false,
+      "matchScenario": false,
+      "matchCreatorNotes": false,
+      "delayUntilRecursion": 0,
+      "probability": 100,
+      "useProbability": true,
+      "depth": 4,
+      "outletName": "",
+      "group": "",
+      "groupOverride": false,
+      "groupWeight": 100,
+      "scanDepth": null,
+      "caseSensitive": null,
+      "matchWholeWords": null,
+      "useGroupScoring": null,
+      "automationId": "",
+      "role": 0,
+      "sticky": null,
+      "cooldown": null,
+      "delay": null,
+      "triggers": [],
+      "displayIndex": 33,
+      "uid": 33
+    },
+    "34": {
       "key": [
         "Flash Shift",
         "Flash Shifts",
@@ -1693,10 +1925,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 30,
-      "uid": 30
+      "displayIndex": 34,
+      "uid": 34
     },
-    "31": {
+    "35": {
       "key": [
         "Fusion Suit",
         "Fusion Suits",
@@ -1747,10 +1979,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 31,
-      "uid": 31
+      "displayIndex": 35,
+      "uid": 35
     },
-    "32": {
+    "36": {
       "key": [
         "Grapple Beam",
         "Grapple Beams",
@@ -1766,7 +1998,7 @@
       ],
       "keysecondary": [],
       "comment": "Equipment: Grapple Beam",
-      "content": "The Grapple Beam is a tether of energy that latches onto Grapple Points, Grapple Blocks and other magnetic anchors and lets Samus swing across gaps she could never jump. On most of her suits it fires from the Arm Cannon; on the suits she wore on Tallon IV, Aether and through the Phazon crisis it was an attachment on her left arm. Besides swinging, it can hold her still in midair, grab small creatures and pull open hatches.\n\nShe recovered it in Norfair after killing Crocomire on her return to Zebes, from Storage Depot B in the Phazon Mines of Tallon IV, from the Grapple Guardian in Dark Torvus Bog on Aether and in Artaria on ZDR; aboard the Bottle Ship Adam Malkovich authorized it in Sector 3 (Pyrosphere) when she spotted a Grapple Point above a Rhedogian holding Anthony Higgs over lava, and she swung in to knock him free. On Zebes it carried her to the Wave Beam and made short work of Draygon; the Tallon IV version fired slowly but could hook the magnetic undersides of Gliders; on ZDR, with the Spider Magnet, it let her attach to distant magnetic surfaces.\n\nDuring the Phazon crisis the beam grew into a family of tools, each a glowing emitter on her left glove:\n- Grapple Lasso (yellow), found in the first room of Norion: hurled at shimmering objects to tear away blast shields, strip armor and shields from Shield Pirate Troopers and Gragnol Adults, and wrench at Rundas, Omega Ridley and Aurora Unit 313.\n- Grapple Swing (blue), earned on Bryyo while fending off Reptilicus: the classic swing, from which she can fire or hold fast, as on SkyTown's zipline.\n- Ship Grapple Beam (gray): the Gunship's counterpart, directed through the Command Visor to carry heavy objects, among them the bomb that broke the shield of Elysia's Leviathan.\n- Grapple Voltage (purple), dropped by Gandrayda on the Pirate Homeworld: a conduit that draws energy out of a target into Samus, refilling her, or forces her energy into it at a cost to herself; either way it can kill, and it powers up or shuts down machinery.\n- Hyper Grapple (Phazon-colored), taken after Omega Ridley in the Pirate Homeworld's Leviathan: Grapple Voltage running on Phazon, needed to reach the portal to Phaaze, where she used it to vent excess Phazon into her enemies and keep her own corruption in check.\n\nOn Viewros her lock-on also helps her connect the Grapple Beam to swing between platforms.",
+      "content": "The Grapple Beam is a tether of energy that latches onto Grapple Points, Grapple Blocks and other magnetic anchors and lets Samus swing across gaps she could never jump. On most of her suits it fires from the Arm Cannon; on the suits she wore on Tallon IV, Aether and through the Phazon crisis it was an attachment on her left arm. Besides swinging, it can hold her still in midair, grab small creatures and pull open hatches.\n\nShe recovered it in Norfair after killing Crocomire on her return to Zebes, from Storage Depot B in the Phazon Mines of Tallon IV, from the Grapple Guardian in Dark Torvus Bog on Aether and in Artaria on ZDR; aboard the Bottle Ship Adam Malkovich authorized it in Sector 3 (Pyrosphere) when she spotted a Grapple Point above a Rhedogian holding Anthony Higgs over lava, and she swung in to knock him free. On Zebes it carried her to the Wave Beam and made short work of Draygon; the Tallon IV version fired slowly but could hook the magnetic undersides of Gliders; on ZDR, with the Spider Magnet, it let her attach to distant magnetic surfaces.\n\nDuring the Phazon crisis the beam grew into a family of tools, each a glowing emitter on her left glove:\n- Grapple Lasso (yellow), found in the first room of Norion: hurled at shimmering objects to tear away blast shields, strip armor and shields from Shield Pirate Troopers and Gragnol Adults, and wrench at Rundas, Omega Ridley and Aurora Unit 313.\n- Grapple Swing (blue), earned on Bryyo while fending off Reptilicus: the classic swing, from which she can fire or hold fast, as on SkyTown's zipline.\n- Ship Grapple Beam (gray): the Gunship's counterpart, directed through the Command Visor to carry heavy objects, among them the bomb that broke the shield of Elysia's Leviathan.\n- Grapple Voltage (purple), dropped by Gandrayda on the Pirate Homeworld: a conduit that draws energy out of a target into Samus, refilling her, or forces her energy into it at a cost to herself; either way it can kill, and it powers up or shuts down machinery.\n- Hyper Grapple (Phazon-colored), taken after Omega Ridley in the Pirate Homeworld's Leviathan: Grapple Voltage running on Phazon, needed to reach the portal to Phaaze, where she used it to vent excess Phazon into her enemies and keep her own corruption in check.\n\nOn Viewros she gained a psychic counterpart, the Psychic Grapple (see Psychic Lasso, Psychic Grapple, Psychic Boots and the psychic Morph Ball upgrades (Viewros)).",
       "constant": false,
       "vectorized": false,
       "selective": true,
@@ -1802,10 +2034,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 32,
-      "uid": 32
+      "displayIndex": 36,
+      "uid": 36
     },
-    "33": {
+    "37": {
       "key": [
         "Gravity Suit",
         "Gravity Suits",
@@ -1854,10 +2086,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 33,
-      "uid": 33
+      "displayIndex": 37,
+      "uid": 37
     },
-    "34": {
+    "38": {
       "key": [
         "Hi-Jump Boots",
         "High Jump Boots",
@@ -1910,10 +2142,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 34,
-      "uid": 34
+      "displayIndex": 38,
+      "uid": 38
     },
-    "35": {
+    "39": {
       "key": [
         "Ice Beam",
         "Ice Beams",
@@ -1959,10 +2191,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 35,
-      "uid": 35
+      "displayIndex": 39,
+      "uid": 39
     },
-    "36": {
+    "40": {
       "key": [
         "Ice Missile",
         "Ice Missiles",
@@ -2015,10 +2247,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 36,
-      "uid": 36
+      "displayIndex": 40,
+      "uid": 40
     },
-    "37": {
+    "41": {
       "key": [
         "Melee Counter",
         "Melee Counters",
@@ -2067,10 +2299,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 37,
-      "uid": 37
+      "displayIndex": 41,
+      "uid": 41
     },
-    "38": {
+    "42": {
       "key": [
         "Metroid Suit",
         "full Metroid",
@@ -2118,10 +2350,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 38,
-      "uid": 38
+      "displayIndex": 42,
+      "uid": 42
     },
-    "39": {
+    "43": {
       "key": [
         "Missile Launcher",
         "Missile Tank",
@@ -2171,10 +2403,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 39,
-      "uid": 39
+      "displayIndex": 43,
+      "uid": 43
     },
-    "40": {
+    "44": {
       "key": [
         "Morph Ball",
         "Morph Balls",
@@ -2225,10 +2457,64 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 40,
-      "uid": 40
+      "displayIndex": 44,
+      "uid": 44
     },
-    "41": {
+    "45": {
+      "key": [
+        "Sense Move",
+        "Sensemove",
+        "Overblast",
+        "Overblasts",
+        "Lethal Strike",
+        "Lethal Strikes",
+        "Accel Charge",
+        "Accel Charges",
+        "E-Recovery Tank",
+        "E-Recovery Tanks"
+      ],
+      "keysecondary": [],
+      "comment": "Equipment: Other M combat techniques: Sense Move, Overblast, Lethal Strike, Concentration and Accel Charge",
+      "content": "Aboard the Bottle Ship (Metroid: Other M) Samus fought in a fast, acrobatic close-quarters style built on five techniques.\n\nSense Move (Sensemove). An instant before an attack lands she hops or flips forward, backward or sideways, and the blow meets empty air. If she triggers it while charging, her beam reaches full charge almost at once, so every dodge becomes a counterattack. A Galactic Federation scientist taught it to her after her last mission on Zebes (Super Metroid); in the training exercise she first used it to dodge laser fire from a holographic Zebesian (\"OK, looking good. Let's check your reaction time. Here come some beams—dodge 'em.\"). It was no luxury: the Brug Mass could not be hurt until she had dodged it.\n\nOverblast. She leaps onto an enemy, usually one already knocked down, lands on its head or another vulnerable spot and, as her beam charges by itself, fires point-blank before springing clear, knocking the target back or to the ground. If she hesitates, the creature throws her off. One Overblast kills a Sidehopper outright, it works against larger foes such as Goyagma, and she can chain it from creature to creature without touching the ground.\n\nLethal Strike. When a large enemy such as a Zebesian is down, she closes in, builds a full charge and drives it into the creature's vulnerable spot, usually killing it.\n\nConcentration. Standing still and uninterrupted, she focuses until her Missiles are fully restocked; in an emergency, with her energy low enough, it also restores part of her Energy, more slowly. Three E-Recovery Tanks found aboard let her draw Energy from Concentration before her reserves fell as low, and recover one more Energy Tank's worth each.\n\nAccel Charge. Six small, yellow, glowing capsules hidden aboard each quickened her charge, for both the Charge Beam, which also loads her Super Missiles, and her Power Bombs; with all six it filled in under a second.\n\nIn a fight she reads the tell, slips the attack at the last instant with her cannon already charging, vaults onto a staggered enemy to fire into its head, and ends a downed foe with one charged strike; between clashes she stands still to concentrate and restock. Compare the Melee Counter she used on SR388 and ZDR (see Melee Counter and Omega Cannon); see also Charge Beam and Charge Combos, and The Bottle Ship incident.",
+      "constant": false,
+      "vectorized": false,
+      "selective": true,
+      "selectiveLogic": 0,
+      "addMemo": true,
+      "order": 100,
+      "position": 0,
+      "disable": false,
+      "ignoreBudget": false,
+      "excludeRecursion": false,
+      "preventRecursion": true,
+      "matchPersonaDescription": false,
+      "matchCharacterDescription": false,
+      "matchCharacterPersonality": false,
+      "matchCharacterDepthPrompt": false,
+      "matchScenario": false,
+      "matchCreatorNotes": false,
+      "delayUntilRecursion": 0,
+      "probability": 100,
+      "useProbability": true,
+      "depth": 4,
+      "outletName": "",
+      "group": "",
+      "groupOverride": false,
+      "groupWeight": 100,
+      "scanDepth": null,
+      "caseSensitive": null,
+      "matchWholeWords": null,
+      "useGroupScoring": null,
+      "automationId": "",
+      "role": 0,
+      "sticky": null,
+      "cooldown": null,
+      "delay": null,
+      "triggers": [],
+      "displayIndex": 45,
+      "uid": 45
+    },
+    "46": {
       "key": [
         "Phazon Suit",
         "Phazon Suits",
@@ -2279,10 +2565,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 41,
-      "uid": 41
+      "displayIndex": 46,
+      "uid": 46
     },
-    "42": {
+    "47": {
       "key": [
         "Plasma Beam",
         "Plasma Beams",
@@ -2330,10 +2616,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 42,
-      "uid": 42
+      "displayIndex": 47,
+      "uid": 47
     },
-    "43": {
+    "48": {
       "key": [
         "Power Suit",
         "Power Suits",
@@ -2384,10 +2670,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 43,
-      "uid": 43
+      "displayIndex": 48,
+      "uid": 48
     },
-    "44": {
+    "49": {
       "key": [
         "psychic crystal",
         "Psychic Visor",
@@ -2435,10 +2721,66 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 44,
-      "uid": 44
+      "displayIndex": 49,
+      "uid": 49
     },
-    "45": {
+    "50": {
+      "key": [
+        "Psychic Lasso",
+        "Psychic Grapple",
+        "Psychic Boots",
+        "Psychic Boost Ball",
+        "Psychic Spider Ball",
+        "Psychic Platform",
+        "Psychic Platforms",
+        "Psychic Ball Track",
+        "Psychic Ball Tracks",
+        "Psychic Boost Rail",
+        "Psychic Boost Rails",
+        "Psychic Container"
+      ],
+      "keysecondary": [],
+      "comment": "Equipment: Psychic Lasso, Psychic Grapple, Psychic Boots and the psychic Morph Ball upgrades (Viewros)",
+      "content": "On Viewros (Metroid Prime 4: Beyond) Samus rebuilt her mobility with psychic counterparts of older tools, powered by the Psychic Crystal. Most act on Lamorn structures of compressed Psychic Energy that lie dormant until her Psychic Visor materializes them.\n\n- Psychic Lasso: a rope of psychic energy that seizes a marked object and hauls it toward her, tearing off locks and hatches and dragging away debris, much as the Grapple Lasso did during the Phazon crisis. She took it from a Psychic Container in the Ice Belt's Tracking Operations room; such containers hold what Lamorn priests prepared for their prophesied Chosen One and open only to telekinesis. Atop the Chrono Tower she used it to tear away the tentacles growing from the barrier around Sylux; with every tentacle gone, the barrier fell.\n- Psychic Grapple: her swing line, won in Flare Pool after Phenoros died. It latches onto Grapple Points the Lamorn built for Maintenance Tanks, onto Psychic Grapple Points once materialized, and onto Grapple Nodes, where she can reel in and hang on a sheer wall. Swinging carries her across wide gaps.\n- Psychic Boots: recovered after Xelios fell at Volt Forge, they restored the mid-air second jump her suit had lost on her arrival, like her old Space Jump Boots, and let her stand on Psychic Platforms, condensed Psychic Energy that her visor materializes in linked groups and that bears no one without the boots.\n- Psychic Boost Ball: dropped by Keratos in the Ice Belt. It keeps the Boost Ball's charged burst and adds Psychic Boost Rails, curving tracks along natural flows of Psychic Energy that, once materialized and entered at a boost, speed her to their end. In her last battle with Sylux, a Boost Ball strike freed an Energy Tank his Lockjaw had torn from her and stunned him.\n- Psychic Spider Ball: hidden in the Ice Belt's Ancient Temple, revealed when she set Psychic Motes into a Lamorn statue's base. A film of Psychic Energy binds the ball to Psychic Ball Tracks the Lamorn priests left across walls and ceilings, and it magnetizes to the Lamorn Magnetic Tracks built for Maintenance Tanks. With the Psychic Grapple fixed to a Tether Node, she can pull the line taut and slingshot herself.\n\nSee Psychic abilities (Viewros), The Lamorn, Sylux, Grapple Beam, Boost Ball, Spider Ball and Spider Magnet, and Hi-Jump Boots, Space Jump and Wall Jump.",
+      "constant": false,
+      "vectorized": false,
+      "selective": true,
+      "selectiveLogic": 0,
+      "addMemo": true,
+      "order": 100,
+      "position": 0,
+      "disable": false,
+      "ignoreBudget": false,
+      "excludeRecursion": false,
+      "preventRecursion": true,
+      "matchPersonaDescription": false,
+      "matchCharacterDescription": false,
+      "matchCharacterPersonality": false,
+      "matchCharacterDepthPrompt": false,
+      "matchScenario": false,
+      "matchCreatorNotes": false,
+      "delayUntilRecursion": 0,
+      "probability": 100,
+      "useProbability": true,
+      "depth": 4,
+      "outletName": "",
+      "group": "",
+      "groupOverride": false,
+      "groupWeight": 100,
+      "scanDepth": null,
+      "caseSensitive": null,
+      "matchWholeWords": null,
+      "useGroupScoring": null,
+      "automationId": "",
+      "role": 0,
+      "sticky": null,
+      "cooldown": null,
+      "delay": null,
+      "triggers": [],
+      "displayIndex": 50,
+      "uid": 50
+    },
+    "51": {
       "key": [
         "Screw Attack",
         "Screw Attacks",
@@ -2484,10 +2826,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 45,
-      "uid": 45
+      "displayIndex": 51,
+      "uid": 51
     },
-    "46": {
+    "52": {
       "key": [
         "Speed Booster",
         "Speed Boosters",
@@ -2538,10 +2880,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 46,
-      "uid": 46
+      "displayIndex": 52,
+      "uid": 52
     },
-    "47": {
+    "53": {
       "key": [
         "Thermal Visor",
         "X-Ray Visor",
@@ -2590,10 +2932,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 47,
-      "uid": 47
+      "displayIndex": 53,
+      "uid": 53
     },
-    "48": {
+    "54": {
       "key": [
         "Varia",
         "Varia Suit",
@@ -2643,10 +2985,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 48,
-      "uid": 48
+      "displayIndex": 54,
+      "uid": 54
     },
-    "49": {
+    "55": {
       "key": [
         "Vi-O-La Suit",
         "Vi-O-La IC Suit",
@@ -2696,10 +3038,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 49,
-      "uid": 49
+      "displayIndex": 55,
+      "uid": 55
     },
-    "50": {
+    "56": {
       "key": [
         "Wave Beam",
         "Wave Beams",
@@ -2748,10 +3090,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 50,
-      "uid": 50
+      "displayIndex": 56,
+      "uid": 56
     },
-    "51": {
+    "57": {
       "key": [
         "Wide Beam",
         "Wide Beams",
@@ -2800,10 +3142,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 51,
-      "uid": 51
+      "displayIndex": 57,
+      "uid": 57
     },
-    "52": {
+    "58": {
       "key": [
         "Zero Suit",
         "Zero Suit Samus",
@@ -2856,10 +3198,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 52,
-      "uid": 52
+      "displayIndex": 58,
+      "uid": 58
     },
-    "53": {
+    "59": {
       "key": [
         "Chozo Ghost",
         "Chozo Ghosts",
@@ -2912,10 +3254,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 53,
-      "uid": 53
+      "displayIndex": 59,
+      "uid": 59
     },
-    "54": {
+    "60": {
       "key": [
         "Chozo history",
         "Chozo decline",
@@ -2968,10 +3310,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 54,
-      "uid": 54
+      "displayIndex": 60,
+      "uid": 60
     },
-    "55": {
+    "61": {
       "key": [
         "Chozo language",
         "Chozo tongue",
@@ -3024,10 +3366,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 55,
-      "uid": 55
+      "displayIndex": 61,
+      "uid": 61
     },
-    "56": {
+    "62": {
       "key": [
         "Chozo Memories",
         "Chozo Memory",
@@ -3080,10 +3422,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 56,
-      "uid": 56
+      "displayIndex": 62,
+      "uid": 62
     },
-    "57": {
+    "63": {
       "key": [
         "Chozo Statue",
         "Chozo Statues",
@@ -3136,10 +3478,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 57,
-      "uid": 57
+      "displayIndex": 63,
+      "uid": 63
     },
-    "58": {
+    "64": {
       "key": [
         "Chozo technology",
         "Chozo tech",
@@ -3192,10 +3534,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 58,
-      "uid": 58
+      "displayIndex": 64,
+      "uid": 64
     },
-    "59": {
+    "65": {
       "key": [
         "Thoha",
         "Mawkin",
@@ -3248,10 +3590,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 59,
-      "uid": 59
+      "displayIndex": 65,
+      "uid": 65
     },
-    "60": {
+    "66": {
       "key": [
         "Gray Voice",
         "Grey Voice",
@@ -3298,10 +3640,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 60,
-      "uid": 60
+      "displayIndex": 66,
+      "uid": 66
     },
-    "61": {
+    "67": {
       "key": [
         "Old Bird",
         "Old-Bird",
@@ -3349,10 +3691,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 61,
-      "uid": 61
+      "displayIndex": 67,
+      "uid": 67
     },
-    "62": {
+    "68": {
       "key": [
         "Chozo",
         "Chozos",
@@ -3405,10 +3747,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 62,
-      "uid": 62
+      "displayIndex": 68,
+      "uid": 68
     },
-    "63": {
+    "69": {
       "key": [
         "Metroid biology",
         "Metroid anatomy",
@@ -3459,10 +3801,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 63,
-      "uid": 63
+      "displayIndex": 69,
+      "uid": 69
     },
-    "64": {
+    "70": {
       "key": [
         "Metroid cloning",
         "Metroid clone",
@@ -3513,10 +3855,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 64,
-      "uid": 64
+      "displayIndex": 70,
+      "uid": 70
     },
-    "65": {
+    "71": {
       "key": [
         "Alpha Metroid",
         "Alpha Metroids",
@@ -3569,10 +3911,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 65,
-      "uid": 65
+      "displayIndex": 71,
+      "uid": 71
     },
-    "66": {
+    "72": {
       "key": [
         "Queen Metroid",
         "Metroid Queen",
@@ -3621,10 +3963,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 66,
-      "uid": 66
+      "displayIndex": 72,
+      "uid": 72
     },
-    "67": {
+    "73": {
       "key": [
         "Metroid",
         "Metroids",
@@ -3670,10 +4012,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 67,
-      "uid": 67
+      "displayIndex": 73,
+      "uid": 73
     },
-    "68": {
+    "74": {
       "key": [
         "Omega Metroid",
         "Omega Metroids",
@@ -3717,10 +4059,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 68,
-      "uid": 68
+      "displayIndex": 74,
+      "uid": 74
     },
-    "69": {
+    "75": {
       "key": [
         "Phazon Metroid",
         "Phazon Metroids",
@@ -3770,10 +4112,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 69,
-      "uid": 69
+      "displayIndex": 75,
+      "uid": 75
     },
-    "70": {
+    "76": {
       "key": [
         "last Metroid",
         "the last Metroid",
@@ -3823,10 +4165,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 70,
-      "uid": 70
+      "displayIndex": 76,
+      "uid": 76
     },
-    "71": {
+    "77": {
       "key": [
         "Tallon Metroid",
         "Tallon Metroids",
@@ -3877,10 +4219,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 71,
-      "uid": 71
+      "displayIndex": 77,
+      "uid": 77
     },
-    "72": {
+    "78": {
       "key": [
         "baby Metroid",
         "Metroid hatchling",
@@ -3937,10 +4279,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 72,
-      "uid": 72
+      "displayIndex": 78,
+      "uid": 78
     },
-    "73": {
+    "79": {
       "key": [
         "SA-X",
         "SA-Xs",
@@ -3990,10 +4332,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 73,
-      "uid": 73
+      "displayIndex": 79,
+      "uid": 79
     },
-    "74": {
+    "80": {
       "key": [
         "immune to the X",
         "immunity to the X",
@@ -4043,10 +4385,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 74,
-      "uid": 74
+      "displayIndex": 80,
+      "uid": 80
     },
-    "75": {
+    "81": {
       "key": [
         "Elun",
         "Chozo Soldier X",
@@ -4097,10 +4439,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 75,
-      "uid": 75
+      "displayIndex": 81,
+      "uid": 81
     },
-    "76": {
+    "82": {
       "key": [
         "X outbreak",
         "BSL outbreak",
@@ -4150,10 +4492,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 76,
-      "uid": 76
+      "displayIndex": 82,
+      "uid": 82
     },
-    "77": {
+    "83": {
       "key": [
         "Core-X",
         "Core X",
@@ -4206,10 +4548,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 77,
-      "uid": 77
+      "displayIndex": 83,
+      "uid": 83
     },
-    "78": {
+    "84": {
       "key": [
         "X Parasite",
         "X Parasites",
@@ -4258,10 +4600,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 78,
-      "uid": 78
+      "displayIndex": 84,
+      "uid": 84
     },
-    "79": {
+    "85": {
       "key": [
         "Arachnus-X",
         "Arachnus X",
@@ -4312,10 +4654,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 79,
-      "uid": 79
+      "displayIndex": 85,
+      "uid": 85
     },
-    "80": {
+    "86": {
       "key": [
         "Mega Core-X",
         "Mega Core X",
@@ -4368,10 +4710,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 80,
-      "uid": 80
+      "displayIndex": 86,
+      "uid": 86
     },
-    "81": {
+    "87": {
       "key": [
         "Elite Pirate",
         "Elite Pirates",
@@ -4424,10 +4766,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 81,
-      "uid": 81
+      "displayIndex": 87,
+      "uid": 87
     },
-    "82": {
+    "88": {
       "key": [
         "High Command",
         "Science Team",
@@ -4480,10 +4822,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 82,
-      "uid": 82
+      "displayIndex": 88,
+      "uid": 88
     },
-    "83": {
+    "89": {
       "key": [
         "Pirate Homeworld",
         "Pirate Home World",
@@ -4533,10 +4875,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 83,
-      "uid": 83
+      "displayIndex": 89,
+      "uid": 89
     },
-    "84": {
+    "90": {
       "key": [
         "Aerotrooper",
         "Aerotroopers",
@@ -4589,10 +4931,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 84,
-      "uid": 84
+      "displayIndex": 90,
+      "uid": 90
     },
-    "85": {
+    "91": {
       "key": [
         "Phazon Program",
         "Project Titan",
@@ -4645,10 +4987,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 85,
-      "uid": 85
+      "displayIndex": 91,
+      "uid": 91
     },
-    "86": {
+    "92": {
       "key": [
         "Orpheon",
         "Vol Paragom",
@@ -4700,10 +5042,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 86,
-      "uid": 86
+      "displayIndex": 92,
+      "uid": 92
     },
-    "87": {
+    "93": {
       "key": [
         "Space Pirates",
         "Space Pirate",
@@ -4755,10 +5097,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 87,
-      "uid": 87
+      "displayIndex": 93,
+      "uid": 93
     },
-    "88": {
+    "94": {
       "key": [
         "vendetta",
         "grudge",
@@ -4818,10 +5160,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 88,
-      "uid": 88
+      "displayIndex": 94,
+      "uid": 94
     },
-    "89": {
+    "95": {
       "key": [
         "Pirate Trooper",
         "Pirate Troopers",
@@ -4874,10 +5216,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 89,
-      "uid": 89
+      "displayIndex": 95,
+      "uid": 95
     },
-    "90": {
+    "96": {
       "key": [
         "Zebesian",
         "Zebesians",
@@ -4928,10 +5270,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 90,
-      "uid": 90
+      "displayIndex": 96,
+      "uid": 96
     },
-    "91": {
+    "97": {
       "key": [
         "Little Birdie",
         "Little Birdy",
@@ -4984,10 +5326,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 91,
-      "uid": 91
+      "displayIndex": 97,
+      "uid": 97
     },
-    "92": {
+    "98": {
       "key": [
         "Mecha Ridley",
         "Mecha-Ridley",
@@ -5035,10 +5377,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 92,
-      "uid": 92
+      "displayIndex": 98,
+      "uid": 98
     },
-    "93": {
+    "99": {
       "key": [
         "Meta Ridley",
         "Meta-Ridley",
@@ -5089,10 +5431,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 93,
-      "uid": 93
+      "displayIndex": 99,
+      "uid": 99
     },
-    "94": {
+    "100": {
       "key": [
         "Neo-Ridley",
         "Neo Ridley",
@@ -5144,10 +5486,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 94,
-      "uid": 94
+      "displayIndex": 100,
+      "uid": 100
     },
-    "95": {
+    "101": {
       "key": [
         "Proteus Ridley",
         "Proteus-Ridley",
@@ -5196,10 +5538,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 95,
-      "uid": 95
+      "displayIndex": 101,
+      "uid": 101
     },
-    "96": {
+    "102": {
       "key": [
         "Ridley",
         "space dragon",
@@ -5247,10 +5589,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 96,
-      "uid": 96
+      "displayIndex": 102,
+      "uid": 102
     },
-    "97": {
+    "103": {
       "key": [
         "Ridley's tail",
         "Ridley's wings",
@@ -5303,10 +5645,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 97,
-      "uid": 97
+      "displayIndex": 103,
+      "uid": 103
     },
-    "98": {
+    "104": {
       "key": [
         "Ridley's history",
         "Ridley's return",
@@ -5359,10 +5701,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 98,
-      "uid": 98
+      "displayIndex": 104,
+      "uid": 104
     },
-    "99": {
+    "105": {
       "key": [
         "Aurora Unit",
         "Aurora Units",
@@ -5410,10 +5752,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 99,
-      "uid": 99
+      "displayIndex": 105,
+      "uid": 105
     },
-    "100": {
+    "106": {
       "key": [
         "Daiban",
         "Federation capital",
@@ -5463,10 +5805,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 100,
-      "uid": 100
+      "displayIndex": 106,
+      "uid": 106
     },
-    "101": {
+    "107": {
       "key": [
         "Federation contract",
         "Federation contracts",
@@ -5515,10 +5857,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 101,
-      "uid": 101
+      "displayIndex": 107,
+      "uid": 107
     },
-    "102": {
+    "108": {
       "key": [
         "Federation Marines",
         "Federation Marine",
@@ -5571,10 +5913,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 102,
-      "uid": 102
+      "displayIndex": 108,
+      "uid": 108
     },
-    "103": {
+    "109": {
       "key": [
         "Federation Navy",
         "Federation fleet",
@@ -5627,10 +5969,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 103,
-      "uid": 103
+      "displayIndex": 109,
+      "uid": 109
     },
-    "104": {
+    "110": {
       "key": [
         "Galactic Federation Police",
         "Federation Police",
@@ -5681,10 +6023,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 104,
-      "uid": 104
+      "displayIndex": 110,
+      "uid": 110
     },
-    "105": {
+    "111": {
       "key": [
         "Castor Dane",
         "Admiral Dane",
@@ -5732,10 +6074,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 105,
-      "uid": 105
+      "displayIndex": 111,
+      "uid": 111
     },
-    "106": {
+    "112": {
       "key": [
         "Galactic Federation",
         "Federation",
@@ -5785,10 +6127,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 106,
-      "uid": 106
+      "displayIndex": 112,
+      "uid": 112
     },
-    "107": {
+    "113": {
       "key": [
         "Metroid policy",
         "Federation policy",
@@ -5841,10 +6183,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 107,
-      "uid": 107
+      "displayIndex": 113,
+      "uid": 113
     },
-    "108": {
+    "114": {
       "key": [
         "Kreatz",
         "Mauk",
@@ -5889,10 +6231,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 108,
-      "uid": 108
+      "displayIndex": 114,
+      "uid": 114
     },
-    "109": {
+    "115": {
       "key": [
         "Gray Voice",
         "Grey Voice",
@@ -5941,10 +6283,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 109,
-      "uid": 109
+      "displayIndex": 115,
+      "uid": 115
     },
-    "110": {
+    "116": {
       "key": [
         "Old Bird",
         "Gray Voice's DNA",
@@ -5997,10 +6339,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 110,
-      "uid": 110
+      "displayIndex": 116,
+      "uid": 116
     },
-    "111": {
+    "117": {
       "key": [
         "Ridley trauma",
         "trauma",
@@ -6061,10 +6403,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 111,
-      "uid": 111
+      "displayIndex": 117,
+      "uid": 117
     },
-    "112": {
+    "118": {
       "key": [
         "Federation Police",
         "Galactic Federation Police",
@@ -6113,10 +6455,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 112,
-      "uid": 112
+      "displayIndex": 118,
+      "uid": 118
     },
-    "113": {
+    "119": {
       "key": [
         "K-2L",
         "K2L",
@@ -6169,10 +6511,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 113,
-      "uid": 113
+      "displayIndex": 119,
+      "uid": 119
     },
-    "114": {
+    "120": {
       "key": [
         "Metroid manga",
         "Magazine Z manga",
@@ -6224,10 +6566,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 114,
-      "uid": 114
+      "displayIndex": 120,
+      "uid": 120
     },
-    "115": {
+    "121": {
       "key": [
         "Chozodia",
         "Pirate Mother Ship",
@@ -6280,10 +6622,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 115,
-      "uid": 115
+      "displayIndex": 121,
+      "uid": 121
     },
-    "116": {
+    "122": {
       "key": [
         "Kraid",
         "Kraids",
@@ -6330,10 +6672,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 116,
-      "uid": 116
+      "displayIndex": 122,
+      "uid": 122
     },
-    "117": {
+    "123": {
       "key": [
         "Mother Brain",
         "Mother-Brain",
@@ -6378,10 +6720,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 117,
-      "uid": 117
+      "displayIndex": 123,
+      "uid": 123
     },
-    "118": {
+    "124": {
       "key": [
         "Crateria",
         "Brinstar",
@@ -6432,10 +6774,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 118,
-      "uid": 118
+      "displayIndex": 124,
+      "uid": 124
     },
-    "119": {
+    "125": {
       "key": [
         "Zero Mission",
         "Zero-Mission",
@@ -6484,10 +6826,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 119,
-      "uid": 119
+      "displayIndex": 125,
+      "uid": 125
     },
-    "120": {
+    "126": {
       "key": [
         "destruction of Zebes",
         "Zebes's destruction",
@@ -6540,10 +6882,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 120,
-      "uid": 120
+      "displayIndex": 126,
+      "uid": 126
     },
-    "121": {
+    "127": {
       "key": [
         "Tourian",
         "Old Tourian",
@@ -6592,10 +6934,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 121,
-      "uid": 121
+      "displayIndex": 127,
+      "uid": 127
     },
-    "122": {
+    "128": {
       "key": [
         "Zebes",
         "Planet Zebes",
@@ -6640,10 +6982,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 122,
-      "uid": 122
+      "displayIndex": 128,
+      "uid": 128
     },
-    "123": {
+    "129": {
       "key": [
         "Chozo Artifact",
         "Chozo Artifacts",
@@ -6696,10 +7038,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 123,
-      "uid": 123
+      "displayIndex": 129,
+      "uid": 129
     },
-    "124": {
+    "130": {
       "key": [
         "Flaahgra",
         "Thardus",
@@ -6752,10 +7094,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 124,
-      "uid": 124
+      "displayIndex": 130,
+      "uid": 130
     },
-    "125": {
+    "131": {
       "key": [
         "Orpheon",
         "Frigate Orpheon",
@@ -6807,10 +7149,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 125,
-      "uid": 125
+      "displayIndex": 131,
+      "uid": 131
     },
-    "126": {
+    "132": {
       "key": [
         "Impact Crater",
         "Tallon IV's Scar",
@@ -6861,10 +7203,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 126,
-      "uid": 126
+      "displayIndex": 132,
+      "uid": 132
     },
-    "127": {
+    "133": {
       "key": [
         "Metroid Prime",
         "Test Subject Z-d",
@@ -6912,10 +7254,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 127,
-      "uid": 127
+      "displayIndex": 133,
+      "uid": 133
     },
-    "128": {
+    "134": {
       "key": [
         "Tallon Overworld",
         "Chozo Ruins",
@@ -6968,10 +7310,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 128,
-      "uid": 128
+      "displayIndex": 134,
+      "uid": 134
     },
-    "129": {
+    "135": {
       "key": [
         "Tallon IV",
         "Tallon 4",
@@ -7018,10 +7360,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 129,
-      "uid": 129
+      "displayIndex": 135,
+      "uid": 135
     },
-    "130": {
+    "136": {
       "key": [
         "Chozo Lore",
         "Entrusted One",
@@ -7074,10 +7416,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 130,
-      "uid": 130
+      "displayIndex": 136,
+      "uid": 136
     },
-    "131": {
+    "137": {
       "key": [
         "Tallon IV incident",
         "Tallon IV mission",
@@ -7127,10 +7469,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 131,
-      "uid": 131
+      "displayIndex": 137,
+      "uid": 137
     },
-    "132": {
+    "138": {
       "key": [
         "Celestial Archives",
         "Alinos",
@@ -7180,10 +7522,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 132,
-      "uid": 132
+      "displayIndex": 138,
+      "uid": 138
     },
-    "133": {
+    "139": {
       "key": [
         "Gorea",
         "Alimbic War",
@@ -7228,10 +7570,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 133,
-      "uid": 133
+      "displayIndex": 139,
+      "uid": 139
     },
-    "134": {
+    "140": {
       "key": [
         "Kanden",
         "Enoema",
@@ -7277,10 +7619,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 134,
-      "uid": 134
+      "displayIndex": 140,
+      "uid": 140
     },
-    "135": {
+    "141": {
       "key": [
         "Noxus",
         "Vhozon",
@@ -7327,10 +7669,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 135,
-      "uid": 135
+      "displayIndex": 141,
+      "uid": 141
     },
-    "136": {
+    "142": {
       "key": [
         "Octolith",
         "Octoliths",
@@ -7383,10 +7725,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 136,
-      "uid": 136
+      "displayIndex": 142,
+      "uid": 142
     },
-    "137": {
+    "143": {
       "key": [
         "Spire",
         "Diamont",
@@ -7443,10 +7785,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 137,
-      "uid": 137
+      "displayIndex": 143,
+      "uid": 143
     },
-    "138": {
+    "144": {
       "key": [
         "Alimbic Cluster",
         "Alimbic Cluster incident",
@@ -7498,10 +7840,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 138,
-      "uid": 138
+      "displayIndex": 144,
+      "uid": 144
     },
-    "139": {
+    "145": {
       "key": [
         "Alimbics",
         "Alimbic race",
@@ -7554,10 +7896,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 139,
-      "uid": 139
+      "displayIndex": 145,
+      "uid": 145
     },
-    "140": {
+    "146": {
       "key": [
         "Oubliette",
         "Seal Sphere",
@@ -7614,10 +7956,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 140,
-      "uid": 140
+      "displayIndex": 146,
+      "uid": 146
     },
-    "141": {
+    "147": {
       "key": [
         "Trace",
         "Kriken",
@@ -7674,10 +8016,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 141,
-      "uid": 141
+      "displayIndex": 147,
+      "uid": 147
     },
-    "142": {
+    "148": {
       "key": [
         "Weavel",
         "Battlehammer",
@@ -7723,10 +8065,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 142,
-      "uid": 142
+      "displayIndex": 148,
+      "uid": 148
     },
-    "143": {
+    "149": {
       "key": [
         "Aether",
         "Dark Aether",
@@ -7779,10 +8121,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 143,
-      "uid": 143
+      "displayIndex": 149,
+      "uid": 149
     },
-    "144": {
+    "150": {
       "key": [
         "Amorbis",
         "Chykka",
@@ -7833,10 +8175,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 144,
-      "uid": 144
+      "displayIndex": 150,
+      "uid": 150
     },
-    "145": {
+    "151": {
       "key": [
         "Energy Controller",
         "Energy Controllers",
@@ -7892,10 +8234,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 145,
-      "uid": 145
+      "displayIndex": 151,
+      "uid": 151
     },
-    "146": {
+    "152": {
       "key": [
         "Tyr",
         "G.F.S. Tyr",
@@ -7953,10 +8295,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 146,
-      "uid": 146
+      "displayIndex": 152,
+      "uid": 152
     },
-    "147": {
+    "153": {
       "key": [
         "Temple Grounds",
         "Great Temple",
@@ -8011,10 +8353,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 147,
-      "uid": 147
+      "displayIndex": 153,
+      "uid": 153
     },
-    "148": {
+    "154": {
       "key": [
         "Aether incident",
         "Metroid Prime 2",
@@ -8066,10 +8408,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 148,
-      "uid": 148
+      "displayIndex": 154,
+      "uid": 154
     },
-    "149": {
+    "155": {
       "key": [
         "Ing",
         "Ing Horde",
@@ -8122,10 +8464,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 149,
-      "uid": 149
+      "displayIndex": 155,
+      "uid": 155
     },
-    "150": {
+    "156": {
       "key": [
         "Bomb Guardian",
         "Jump Guardian",
@@ -8178,10 +8520,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 150,
-      "uid": 150
+      "displayIndex": 156,
+      "uid": 156
     },
-    "151": {
+    "157": {
       "key": [
         "Luminoth",
         "Luminoths",
@@ -8255,10 +8597,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 151,
-      "uid": 151
+      "displayIndex": 157,
+      "uid": 157
     },
-    "152": {
+    "158": {
       "key": [
         "U-Mos",
         "U Mos",
@@ -8309,10 +8651,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 152,
-      "uid": 152
+      "displayIndex": 158,
+      "uid": 158
     },
-    "153": {
+    "159": {
       "key": [
         "Berserker Lord",
         "Berserker Lords",
@@ -8359,10 +8701,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 153,
-      "uid": 153
+      "displayIndex": 159,
+      "uid": 159
     },
-    "154": {
+    "160": {
       "key": [
         "Bryyo",
         "Bryyonian",
@@ -8421,10 +8763,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 154,
-      "uid": 154
+      "displayIndex": 160,
+      "uid": 160
     },
-    "155": {
+    "161": {
       "key": [
         "Defense Drone",
         "Defense Drones",
@@ -8470,10 +8812,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 155,
-      "uid": 155
+      "displayIndex": 161,
+      "uid": 161
     },
-    "156": {
+    "162": {
       "key": [
         "Elysia",
         "SkyTown",
@@ -8528,10 +8870,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 156,
-      "uid": 156
+      "displayIndex": 162,
+      "uid": 162
     },
-    "157": {
+    "163": {
       "key": [
         "Elysian",
         "Elysians",
@@ -8582,10 +8924,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 157,
-      "uid": 157
+      "displayIndex": 163,
+      "uid": 163
     },
-    "158": {
+    "164": {
       "key": [
         "Gandrayda",
         "Mistress Gandrayda",
@@ -8632,10 +8974,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 158,
-      "uid": 158
+      "displayIndex": 164,
+      "uid": 164
     },
-    "159": {
+    "165": {
       "key": [
         "Olympus",
         "Valhalla",
@@ -8698,10 +9040,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 159,
-      "uid": 159
+      "displayIndex": 165,
+      "uid": 165
     },
-    "160": {
+    "166": {
       "key": [
         "Ghor",
         "Hunter Ghor",
@@ -8748,10 +9090,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 160,
-      "uid": 160
+      "displayIndex": 166,
+      "uid": 166
     },
-    "161": {
+    "167": {
       "key": [
         "Korakk Beast",
         "Korakk Beasts",
@@ -8801,10 +9143,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 161,
-      "uid": 161
+      "displayIndex": 167,
+      "uid": 167
     },
-    "162": {
+    "168": {
       "key": [
         "Norion",
         "Planet Norion",
@@ -8857,10 +9199,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 162,
-      "uid": 162
+      "displayIndex": 168,
+      "uid": 168
     },
-    "163": {
+    "169": {
       "key": [
         "Rundas",
         "Phrygisian",
@@ -8907,10 +9249,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 163,
-      "uid": 163
+      "displayIndex": 169,
+      "uid": 169
     },
-    "164": {
+    "170": {
       "key": [
         "assault on Phaaze",
         "Aurora Unit 313",
@@ -8962,10 +9304,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 164,
-      "uid": 164
+      "displayIndex": 170,
+      "uid": 170
     },
-    "165": {
+    "171": {
       "key": [
         "Phazon crisis",
         "Metroid Prime 3",
@@ -9016,10 +9358,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 165,
-      "uid": 165
+      "displayIndex": 171,
+      "uid": 171
     },
-    "166": {
+    "172": {
       "key": [
         "Aether",
         "Dark Aether",
@@ -9078,10 +9420,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 166,
-      "uid": 166
+      "displayIndex": 172,
+      "uid": 172
     },
-    "167": {
+    "173": {
       "key": [
         "Dark Samus",
         "Dark-Samus",
@@ -9129,10 +9471,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 167,
-      "uid": 167
+      "displayIndex": 173,
+      "uid": 173
     },
-    "168": {
+    "174": {
       "key": [
         "Dark Samus origin",
         "Dark Samus's origin",
@@ -9190,10 +9532,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 168,
-      "uid": 168
+      "displayIndex": 174,
+      "uid": 174
     },
-    "169": {
+    "175": {
       "key": [
         "powers",
         "abilities",
@@ -9252,10 +9594,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 169,
-      "uid": 169
+      "displayIndex": 175,
+      "uid": 175
     },
-    "170": {
+    "176": {
       "key": [
         "Phaaze",
         "Sanctum",
@@ -9312,10 +9654,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 170,
-      "uid": 170
+      "displayIndex": 176,
+      "uid": 176
     },
-    "171": {
+    "177": {
       "key": [
         "Colossus",
         "Valhalla",
@@ -9374,10 +9716,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 171,
-      "uid": 171
+      "displayIndex": 177,
+      "uid": 177
     },
-    "172": {
+    "178": {
       "key": [
         "Leviathan",
         "Leviathans",
@@ -9430,10 +9772,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 172,
-      "uid": 172
+      "displayIndex": 178,
+      "uid": 178
     },
-    "173": {
+    "179": {
       "key": [
         "Phaaze",
         "Genesis Chamber",
@@ -9482,10 +9824,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 173,
-      "uid": 173
+      "displayIndex": 179,
+      "uid": 179
     },
-    "174": {
+    "180": {
       "key": [
         "Phazon",
         "Great Poison",
@@ -9535,10 +9877,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 174,
-      "uid": 174
+      "displayIndex": 180,
+      "uid": 180
     },
-    "175": {
+    "181": {
       "key": [
         "Hypermode",
         "Hyper-mode",
@@ -9591,10 +9933,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 175,
-      "uid": 175
+      "displayIndex": 181,
+      "uid": 181
     },
-    "176": {
+    "182": {
       "key": [
         "Phazon Metroid",
         "Phazon Metroids",
@@ -9647,10 +9989,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 176,
-      "uid": 176
+      "displayIndex": 182,
+      "uid": 182
     },
-    "177": {
+    "183": {
       "key": [
         "Phazon mining",
         "Phazon research",
@@ -9701,10 +10043,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 177,
-      "uid": 177
+      "displayIndex": 183,
+      "uid": 183
     },
-    "178": {
+    "184": {
       "key": [
         "Samus's corruption",
         "corrupted Samus",
@@ -9756,10 +10098,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 178,
-      "uid": 178
+      "displayIndex": 184,
+      "uid": 184
     },
-    "179": {
+    "185": {
       "key": [
         "Bermuda System",
         "Bermuda star system",
@@ -9808,10 +10150,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 179,
-      "uid": 179
+      "displayIndex": 185,
+      "uid": 185
     },
-    "180": {
+    "186": {
       "key": [
         "Miles",
         "Alex Miles",
@@ -9866,10 +10208,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 180,
-      "uid": 180
+      "displayIndex": 186,
+      "uid": 186
     },
-    "181": {
+    "187": {
       "key": [
         "Bermuda System incident",
         "Bermuda incident",
@@ -9917,10 +10259,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 181,
-      "uid": 181
+      "displayIndex": 187,
+      "uid": 187
     },
-    "182": {
+    "188": {
       "key": [
         "Doomseye",
         "Doom's Eye",
@@ -9967,10 +10309,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 182,
-      "uid": 182
+      "displayIndex": 188,
+      "uid": 188
     },
-    "183": {
+    "189": {
       "key": [
         "Federation Force",
         "Operation Golem",
@@ -10023,10 +10365,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 183,
-      "uid": 183
+      "displayIndex": 189,
+      "uid": 189
     },
-    "184": {
+    "190": {
       "key": [
         "Metroid egg",
         "Metroid eggs",
@@ -10082,10 +10424,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 184,
-      "uid": 184
+      "displayIndex": 190,
+      "uid": 190
     },
-    "185": {
+    "191": {
       "key": [
         "Aberax",
         "Sylux Metroid",
@@ -10137,10 +10479,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 185,
-      "uid": 185
+      "displayIndex": 191,
+      "uid": 191
     },
-    "186": {
+    "192": {
       "key": [
         "Griever",
         "Grievers",
@@ -10193,10 +10535,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 186,
-      "uid": 186
+      "displayIndex": 192,
+      "uid": 192
     },
-    "187": {
+    "193": {
       "key": [
         "Myles MacKenzie",
         "MacKenzie",
@@ -10212,7 +10554,7 @@
       ],
       "keysecondary": [],
       "comment": "Prime 4: Myles MacKenzie and the stranded Federation squad",
-      "content": "When the Lamorn artifact on Tanamaar activated, five members of the Galactic Federation contingent at the UTO Research Center were hurled to Viewros alongside Samus Aran (Metroid Prime 4: Beyond). Samus found them one by one.\n\n- Myles MacKenzie: a Federation engineering specialist who repairs vehicles and writes weapons software. Timid, talkative even when alone and restlessly curious, he has a strong moral compass. Samus freed him from his wrecked transport in Fury Green; he handed her the Missile Launcher stored aboard, restored comms and asked, \"What do you say? Teammates?\" He set up the Base Camp in Fury Green and rebuilt the shattered MK-99 mech Betsy, a model he knew well, from salvaged parts to batter down the Chrono Tower's barrier.\n- Corporal Reger Tokabi: a Federation sniper, a solitary hunter from a remote world who enlisted in search of a stable life. He is never without an arrowhead-shaped talisman he credits with his survival, and his family's generations-old worship of the god Sollan sits uneasily with his missions. He camped in Sol Valley and spoke with Samus about his upbringing and the sacred feel of the planet.\n- Sergeant Ezra Duke: a veteran of several Space Pirate engagements, stubborn and prone to clashing with superiors, which cost him promotion and left him leading a single squad at the UTO Research Center. He is sincere, compassionate and dependable in a fight. Samus freed him from a generator in Flare Pool.\n- Private Nora Armstrong: bright and proactive, with an intuitive command of structures and vehicles. She idolizes Samus for her famously unshakable demeanor, and her enthusiastic outbursts about Samus annoy her superiors. Samus met her on a tram in Flare Pool; \"Finally, we get to go home,\" she said when the way out seemed open.\n- VUE-995: a Federation combat android built to replace human pilots of fighters, armored vehicles and battle mechs. It has no emotions but produces pseudo-emotions at times, and apologized for wrecking Betsy when the mech punched through the barrier.\n\nAll five fought beside Samus against Sylux at the Chrono Tower's Pinnacle. When he returned and crippled the Master Teleporter they held him down so that Samus could escape; Tokabi threw her his tag as she went. Samus left them on Viewros and hung Tokabi's tag on the tree she grew from the Memory Fruit in their memory. Whether any of them survived is unknown.",
+      "content": "When the Lamorn artifact on Tanamaar activated, five members of the Galactic Federation contingent at the UTO Research Center were hurled to Viewros alongside Samus Aran (Metroid Prime 4: Beyond). Samus found them one by one.\n\n- Myles MacKenzie: a Federation engineering specialist who repairs vehicles and writes weapons software. Timid, talkative even when alone and restlessly curious, he has a strong moral compass. Samus freed him from his wrecked transport in Fury Green; he handed her the Missile Launcher stored aboard, restored comms and asked, \"What do you say? Teammates?\" He set up the Base Camp in Fury Green and rebuilt the shattered MK-99 mech Betsy, which he had worked on back at base, from salvaged parts to batter down the Chrono Tower's barrier.\n- Corporal Reger Tokabi: a Federation sniper, a solitary hunter from a remote world who enlisted in search of a stable life. He is never without an arrowhead-shaped talisman he credits with his survival, and his family's generations-old worship of the god Sollan sits uneasily with his missions. He camped in Sol Valley and spoke with Samus about his upbringing and the sacred feel of the planet.\n- Sergeant Ezra Duke: a veteran of several Space Pirate engagements, stubborn and prone to clashing with superiors, which cost him promotion and left him leading a single squad at the UTO Research Center. He is sincere, compassionate and dependable in a fight. Samus freed him from a generator in Flare Pool.\n- Private Nora Armstrong: bright and proactive, with an intuitive command of structures and vehicles. She idolizes Samus for her famously unshakable demeanor, and her enthusiastic outbursts about Samus annoy her superiors. Samus met her on a tram in Flare Pool; \"Finally, we get to go home,\" she said when the way out seemed open.\n- VUE-995: a Federation combat android built to replace human pilots of fighters, armored vehicles and battle mechs. It has no emotions but produces pseudo-emotions at times, and apologized for wrecking Betsy when the mech punched through the barrier.\n\nAll five fought beside Samus against Sylux at the Chrono Tower's Pinnacle. When he returned and crippled the Master Teleporter they held him down so that Samus could escape; Tokabi threw her his tag as she went. Samus left them on Viewros and hung Tokabi's tag on the tree she grew from the Memory Fruit in their memory. Whether any of them survived is unknown.",
       "constant": false,
       "vectorized": false,
       "selective": true,
@@ -10248,10 +10590,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 187,
-      "uid": 187
+      "displayIndex": 193,
+      "uid": 193
     },
-    "188": {
+    "194": {
       "key": [
         "Sylux",
         "Delano 7",
@@ -10303,10 +10645,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 188,
-      "uid": 188
+      "displayIndex": 194,
+      "uid": 194
     },
-    "189": {
+    "195": {
       "key": [
         "Tanamaar",
         "planet Tanamaar",
@@ -10355,10 +10697,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 189,
-      "uid": 189
+      "displayIndex": 195,
+      "uid": 195
     },
-    "190": {
+    "196": {
       "key": [
         "Chrono Tower",
         "Master Teleporter",
@@ -10411,10 +10753,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 190,
-      "uid": 190
+      "displayIndex": 196,
+      "uid": 196
     },
-    "191": {
+    "197": {
       "key": [
         "Lamorn",
         "Lamorns",
@@ -10467,10 +10809,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 191,
-      "uid": 191
+      "displayIndex": 197,
+      "uid": 197
     },
-    "192": {
+    "198": {
       "key": [
         "Viewros incident",
         "Metroid Prime 4",
@@ -10521,10 +10863,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 192,
-      "uid": 192
+      "displayIndex": 198,
+      "uid": 198
     },
-    "193": {
+    "199": {
       "key": [
         "Vi-O-La",
         "Vi-O-La Suit",
@@ -10577,10 +10919,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 193,
-      "uid": 193
+      "displayIndex": 199,
+      "uid": 199
     },
-    "194": {
+    "200": {
       "key": [
         "Viewros",
         "planet Viewros",
@@ -10632,10 +10974,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 194,
-      "uid": 194
+      "displayIndex": 200,
+      "uid": 200
     },
-    "195": {
+    "201": {
       "key": [
         "Area 1",
         "Area 2",
@@ -10697,10 +11039,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 195,
-      "uid": 195
+      "displayIndex": 201,
+      "uid": 201
     },
-    "196": {
+    "202": {
       "key": [
         "Diggernaut",
         "Diggernauts",
@@ -10748,10 +11090,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 196,
-      "uid": 196
+      "displayIndex": 202,
+      "uid": 202
     },
-    "197": {
+    "203": {
       "key": [
         "SR388",
         "SR-388",
@@ -10801,10 +11143,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 197,
-      "uid": 197
+      "displayIndex": 203,
+      "uid": 203
     },
-    "198": {
+    "204": {
       "key": [
         "Chozo Laboratory",
         "Chozo Laboratories",
@@ -10857,10 +11199,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 198,
-      "uid": 198
+      "displayIndex": 204,
+      "uid": 204
     },
-    "199": {
+    "205": {
       "key": [
         "special squadron",
         "elite squadron",
@@ -10918,10 +11260,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 199,
-      "uid": 199
+      "displayIndex": 205,
+      "uid": 205
     },
-    "200": {
+    "206": {
       "key": [
         "extermination mission",
         "Metroid extermination",
@@ -10974,10 +11316,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 200,
-      "uid": 200
+      "displayIndex": 206,
+      "uid": 206
     },
-    "201": {
+    "207": {
       "key": [
         "Ceres",
         "Ceres Space Colony",
@@ -11027,10 +11369,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 201,
-      "uid": 201
+      "displayIndex": 207,
+      "uid": 207
     },
-    "202": {
+    "208": {
       "key": [
         "Crocomire",
         "Crocomires",
@@ -11081,10 +11423,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 202,
-      "uid": 202
+      "displayIndex": 208,
+      "uid": 208
     },
-    "203": {
+    "209": {
       "key": [
         "Dachora",
         "Dachoras",
@@ -11134,10 +11476,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 203,
-      "uid": 203
+      "displayIndex": 209,
+      "uid": 209
     },
-    "204": {
+    "210": {
       "key": [
         "Draygon",
         "Draygons",
@@ -11185,10 +11527,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 204,
-      "uid": 204
+      "displayIndex": 210,
+      "uid": 210
     },
-    "205": {
+    "211": {
       "key": [
         "Mother Brain",
         "Hyper Beam",
@@ -11247,10 +11589,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 205,
-      "uid": 205
+      "displayIndex": 211,
+      "uid": 211
     },
-    "206": {
+    "212": {
       "key": [
         "Phantoon",
         "Phantoons",
@@ -11298,10 +11640,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 206,
-      "uid": 206
+      "displayIndex": 212,
+      "uid": 212
     },
-    "207": {
+    "213": {
       "key": [
         "Spore Spawn",
         "Spore Spawns",
@@ -11349,10 +11691,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 207,
-      "uid": 207
+      "displayIndex": 213,
+      "uid": 213
     },
-    "208": {
+    "214": {
       "key": [
         "return to Zebes",
         "returned to Zebes",
@@ -11404,10 +11746,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 208,
-      "uid": 208
+      "displayIndex": 214,
+      "uid": 214
     },
-    "209": {
+    "215": {
       "key": [
         "Adam",
         "Adam Malkovich",
@@ -11470,10 +11812,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 209,
-      "uid": 209
+      "displayIndex": 215,
+      "uid": 215
     },
-    "210": {
+    "216": {
       "key": [
         "Anthony Higgs",
         "Higgs",
@@ -11531,10 +11873,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 210,
-      "uid": 210
+      "displayIndex": 216,
+      "uid": 216
     },
-    "211": {
+    "217": {
       "key": [
         "Chairman Keaton",
         "Keaton",
@@ -11589,10 +11931,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 211,
-      "uid": 211
+      "displayIndex": 217,
+      "uid": 217
     },
-    "212": {
+    "218": {
       "key": [
         "Madeline Bergman",
         "Madeline",
@@ -11653,10 +11995,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 212,
-      "uid": 212
+      "displayIndex": 218,
+      "uid": 218
     },
-    "213": {
+    "219": {
       "key": [
         "Nightmare",
         "Nightmares",
@@ -11716,10 +12058,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 213,
-      "uid": 213
+      "displayIndex": 219,
+      "uid": 219
     },
-    "214": {
+    "220": {
       "key": [
         "07th Platoon",
         "7th Platoon",
@@ -11772,10 +12114,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 214,
-      "uid": 214
+      "displayIndex": 220,
+      "uid": 220
     },
-    "215": {
+    "221": {
       "key": [
         "Adam AI",
         "ADAM",
@@ -11841,10 +12183,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 215,
-      "uid": 215
+      "displayIndex": 221,
+      "uid": 221
     },
-    "216": {
+    "222": {
       "key": [
         "Bottle Ship",
         "Bottleship",
@@ -11911,10 +12253,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 216,
-      "uid": 216
+      "displayIndex": 222,
+      "uid": 222
     },
-    "217": {
+    "223": {
       "key": [
         "Bottle Ship incident",
         "Other M",
@@ -11963,10 +12305,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 217,
-      "uid": 217
+      "displayIndex": 223,
+      "uid": 223
     },
-    "218": {
+    "224": {
       "key": [
         "BSL",
         "B.S.L.",
@@ -12016,10 +12358,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 218,
-      "uid": 218
+      "displayIndex": 224,
+      "uid": 224
     },
-    "219": {
+    "225": {
       "key": [
         "Quarantine Bay",
         "Habitation Deck",
@@ -12070,10 +12412,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 219,
-      "uid": 219
+      "displayIndex": 225,
+      "uid": 225
     },
-    "220": {
+    "226": {
       "key": [
         "Omega Metroid",
         "Omega Metroids",
@@ -12126,10 +12468,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 220,
-      "uid": 220
+      "displayIndex": 226,
+      "uid": 226
     },
-    "221": {
+    "227": {
       "key": [
         "defied the Federation",
         "defy the Federation",
@@ -12191,10 +12533,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 221,
-      "uid": 221
+      "displayIndex": 227,
+      "uid": 227
     },
-    "222": {
+    "228": {
       "key": [
         "SRX",
         "TRO",
@@ -12256,10 +12598,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 222,
-      "uid": 222
+      "displayIndex": 228,
+      "uid": 228
     },
-    "223": {
+    "229": {
       "key": [
         "BSL incident",
         "B.S.L. incident",
@@ -12308,10 +12650,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 223,
-      "uid": 223
+      "displayIndex": 229,
+      "uid": 229
     },
-    "224": {
+    "230": {
       "key": [
         "destruction of SR388",
         "destroyed SR388",
@@ -12364,10 +12706,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 224,
-      "uid": 224
+      "displayIndex": 230,
+      "uid": 230
     },
-    "225": {
+    "231": {
       "key": [
         "Restricted Laboratory",
         "Restricted Lab",
@@ -12416,10 +12758,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 225,
-      "uid": 225
+      "displayIndex": 231,
+      "uid": 231
     },
-    "226": {
+    "232": {
       "key": [
         "Adam",
         "fake Adam",
@@ -12478,10 +12820,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 226,
-      "uid": 226
+      "displayIndex": 232,
+      "uid": 232
     },
-    "227": {
+    "233": {
       "key": [
         "Artaria",
         "Cataris",
@@ -12534,10 +12876,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 227,
-      "uid": 227
+      "displayIndex": 233,
+      "uid": 233
     },
-    "228": {
+    "234": {
       "key": [
         "Chozo Soldier",
         "Chozo Soldiers",
@@ -12588,10 +12930,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 228,
-      "uid": 228
+      "displayIndex": 234,
+      "uid": 234
     },
-    "229": {
+    "235": {
       "key": [
         "E.M.M.I.",
         "E.M.M.I",
@@ -12642,10 +12984,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 229,
-      "uid": 229
+      "displayIndex": 235,
+      "uid": 235
     },
-    "230": {
+    "236": {
       "key": [
         "Corpius",
         "Drogyga",
@@ -12696,10 +13038,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 230,
-      "uid": 230
+      "displayIndex": 236,
+      "uid": 236
     },
-    "231": {
+    "237": {
       "key": [
         "Itorash",
         "destruction of ZDR",
@@ -12750,10 +13092,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 231,
-      "uid": 231
+      "displayIndex": 237,
+      "uid": 237
     },
-    "232": {
+    "238": {
       "key": [
         "ZDR",
         "planet ZDR",
@@ -12799,10 +13141,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 232,
-      "uid": 232
+      "displayIndex": 238,
+      "uid": 238
     },
-    "233": {
+    "239": {
       "key": [
         "Quiet Robe",
         "Quiet-Robe",
@@ -12850,10 +13192,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 233,
-      "uid": 233
+      "displayIndex": 239,
+      "uid": 239
     },
-    "234": {
+    "240": {
       "key": [
         "Raven Beak",
         "Ravenbeak",
@@ -12901,10 +13243,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 234,
-      "uid": 234
+      "displayIndex": 240,
+      "uid": 240
     },
-    "235": {
+    "241": {
       "key": [
         "Thoha",
         "Mawkin",
@@ -12964,10 +13306,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 235,
-      "uid": 235
+      "displayIndex": 241,
+      "uid": 241
     },
-    "236": {
+    "242": {
       "key": [
         "Central Unit",
         "Central Units",
@@ -13020,10 +13362,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 236,
-      "uid": 236
+      "displayIndex": 242,
+      "uid": 242
     },
-    "237": {
+    "243": {
       "key": [
         "Metroid Dread",
         "mission on ZDR",
@@ -13072,10 +13414,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 237,
-      "uid": 237
+      "displayIndex": 243,
+      "uid": 243
     },
-    "238": {
+    "244": {
       "key": [
         "bounty hunter",
         "bounty hunters",
@@ -13124,10 +13466,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 238,
-      "uid": 238
+      "displayIndex": 244,
+      "uid": 244
     },
-    "239": {
+    "245": {
       "key": [
         "Master Teleporter",
         "Light Portal",
@@ -13180,10 +13522,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 239,
-      "uid": 239
+      "displayIndex": 245,
+      "uid": 245
     },
-    "240": {
+    "246": {
       "key": [
         "Navigation Room",
         "Navigation Rooms",
@@ -13235,10 +13577,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 240,
-      "uid": 240
+      "displayIndex": 246,
+      "uid": 246
     },
-    "241": {
+    "247": {
       "key": [
         "FS-176",
         "Bilium",
@@ -13291,10 +13633,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 241,
-      "uid": 241
+      "displayIndex": 247,
+      "uid": 247
     },
-    "242": {
+    "248": {
       "key": [
         "gunship",
         "gunships",
@@ -13349,10 +13691,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 242,
-      "uid": 242
+      "displayIndex": 248,
+      "uid": 248
     },
-    "243": {
+    "249": {
       "key": [
         "Save Station",
         "Save Stations",
@@ -13405,10 +13747,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 243,
-      "uid": 243
+      "displayIndex": 249,
+      "uid": 249
     },
-    "244": {
+    "250": {
       "key": [
         "Kriken",
         "Vhozon",
@@ -13461,10 +13803,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 244,
-      "uid": 244
+      "displayIndex": 250,
+      "uid": 250
     },
-    "245": {
+    "251": {
       "key": [
         "Arachnus",
         "Arachnuses",
@@ -13508,10 +13850,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 245,
-      "uid": 245
+      "displayIndex": 251,
+      "uid": 251
     },
-    "246": {
+    "252": {
       "key": [
         "Deorem",
         "Charge Beam Beast",
@@ -13563,10 +13905,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 246,
-      "uid": 246
+      "displayIndex": 252,
+      "uid": 252
     },
-    "247": {
+    "253": {
       "key": [
         "Aether wildlife",
         "Aether creatures",
@@ -13631,10 +13973,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 247,
-      "uid": 247
+      "displayIndex": 253,
+      "uid": 253
     },
-    "248": {
+    "254": {
       "key": [
         "Bryyo wildlife",
         "Bryyo creatures",
@@ -13698,10 +14040,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 248,
-      "uid": 248
+      "displayIndex": 254,
+      "uid": 254
     },
-    "249": {
+    "255": {
       "key": [
         "Zoomer",
         "Zoomers",
@@ -13777,10 +14119,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 249,
-      "uid": 249
+      "displayIndex": 255,
+      "uid": 255
     },
-    "250": {
+    "256": {
       "key": [
         "Elysia wildlife",
         "Elysia creatures",
@@ -13842,10 +14184,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 250,
-      "uid": 250
+      "displayIndex": 256,
+      "uid": 256
     },
-    "251": {
+    "257": {
       "key": [
         "Mochtroid",
         "Mochtroids",
@@ -13913,10 +14255,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 251,
-      "uid": 251
+      "displayIndex": 257,
+      "uid": 257
     },
-    "252": {
+    "258": {
       "key": [
         "Sova",
         "Sovas",
@@ -13985,10 +14327,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 252,
-      "uid": 252
+      "displayIndex": 258,
+      "uid": 258
     },
-    "253": {
+    "259": {
       "key": [
         "Phaaze wildlife",
         "Phaaze creatures",
@@ -14047,10 +14389,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 253,
-      "uid": 253
+      "displayIndex": 259,
+      "uid": 259
     },
-    "254": {
+    "260": {
       "key": [
         "Hornoad",
         "Hornoads",
@@ -14137,10 +14479,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 254,
-      "uid": 254
+      "displayIndex": 260,
+      "uid": 260
     },
-    "255": {
+    "261": {
       "key": [
         "Tallon IV wildlife",
         "Tallon IV creatures",
@@ -14203,10 +14545,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 255,
-      "uid": 255
+      "displayIndex": 261,
+      "uid": 261
     },
-    "256": {
+    "262": {
       "key": [
         "Alimbic Cluster creatures",
         "Alimbic Cluster wildlife",
@@ -14266,10 +14608,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 256,
-      "uid": 256
+      "displayIndex": 262,
+      "uid": 262
     },
-    "257": {
+    "263": {
       "key": [
         "Bermuda System",
         "Excelcion",
@@ -14325,10 +14667,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 257,
-      "uid": 257
+      "displayIndex": 263,
+      "uid": 263
     },
-    "258": {
+    "264": {
       "key": [
         "Kyratian",
         "Kyratians",
@@ -14400,10 +14742,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 258,
-      "uid": 258
+      "displayIndex": 264,
+      "uid": 264
     },
-    "259": {
+    "265": {
       "key": [
         "Zero-X",
         "Zoro-X",
@@ -14465,10 +14807,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 259,
-      "uid": 259
+      "displayIndex": 265,
+      "uid": 265
     },
-    "260": {
+    "266": {
       "key": [
         "Viewros wildlife",
         "Viewros creatures",
@@ -14529,10 +14871,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 260,
-      "uid": 260
+      "displayIndex": 266,
+      "uid": 266
     },
-    "261": {
+    "267": {
       "key": [
         "Klaida",
         "Klaidas",
@@ -14605,10 +14947,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 261,
-      "uid": 261
+      "displayIndex": 267,
+      "uid": 267
     },
-    "262": {
+    "268": {
       "key": [
         "Goyagma",
         "Goyagmas",
@@ -14653,10 +14995,10 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 262,
-      "uid": 262
+      "displayIndex": 268,
+      "uid": 268
     },
-    "263": {
+    "269": {
       "key": [
         "Incinerator Drone",
         "Incinerator Drones",
@@ -14703,8 +15045,8 @@
       "cooldown": null,
       "delay": null,
       "triggers": [],
-      "displayIndex": 263,
-      "uid": 263
+      "displayIndex": 269,
+      "uid": 269
     }
   }
 }

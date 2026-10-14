@@ -15,7 +15,7 @@ fusion: draft, verify, revise
 gap1: draft, verify, revise
 gap2: draft, verify, revise
 gap3: draft, verify, revise
-gap4: draft, verify
+gap4: draft, verify, revise
 hunters: draft, verify
 late-chozo: 
 manga: draft, verify, revise

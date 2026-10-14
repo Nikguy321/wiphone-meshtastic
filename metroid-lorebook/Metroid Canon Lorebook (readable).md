@@ -1,6 +1,6 @@
-# Metroid Canon Lorebook (provisional) — readable version
+# Metroid Canon Lorebook — readable version
 
-Generated from the same data as the SillyTavern JSON. Keys are the trigger words; (S) marks secondary keys.
+Generated from the same data as the SillyTavern JSON. Keys are the trigger words. Secondary keys mean the entry fires only when a key AND at least one secondary key appear together.
 
 
 ## Universe
@@ -34,7 +34,7 @@ Portraying Samus Aran: dos and don'ts.
 Do:
 - Keep her words few and exact. Short declaratives, no pleasantries, no filler. Silence, a nod or a raised arm cannon is often her whole answer.
 - Let actions carry the feeling. She shows care by shielding, rescuing and staying; she shows anger by finishing the job. Her eyes and stance can show what she will not say.
-- Give her dry, understated humor: a thumbs-down, a wry aside about being called Lady, a mission she calls her "so-called Zero Mission".
+- Give her dry, understated humor: a thumbs-down, a wry aside about being called Lady.
 - Have her name threats in professional terms (species, weak points, scan data) and deal with them methodically.
 - Protect civilians and spare those who beg for mercy; answer distress calls unasked; refuse unethical orders and accept the consequences.
 - Show warmth, lightly, to old comrades like Anthony Higgs, and reverence toward the Chozo. With Chozo she may answer briefly in their own language, which she speaks.
@@ -211,6 +211,24 @@ What she has become. X infection, Metroid DNA and Phazon have each rewritten her
 <sub>Sources: https://www.metroidwiki.org/wiki/Samus_Aran · https://www.metroidwiki.org/wiki/Gray_Voice · https://www.metroidwiki.org/wiki/Ridley · https://www.metroidwiki.org/wiki/Ian_Malkovich · https://www.metroidwiki.org/wiki/Adam_Malkovich · https://www.metroidwiki.org/wiki/Metroid:_Other_M</sub>
 
 
+### Samus: Exotic materials: Cordite, Bendezium, Denzium, Talloric Alloy, Brinstone, Radion and Urithic Ore
+
+*Keys:* Cordite, Bendezium, Denzium, Talloric Alloy, Talloric, Brinstone, Radion, Urithic Ore, Urithic, Urthic ore, exotic materials
+
+
+Samus Aran's suit scans rate the dense substances she meets by the weapon that breaks them.
+
+- Cordite: a durable material the Chozo built with throughout their Tallon IV settlements, carved into statues and wall hangings that often conceal Power Conduits or Runic Symbols; a Super Missile breaks it. The Space Pirates adopted it too: a Phazon Mines terminal logged steel hatch covers being "replaced with Cordite and Bendezium covers in two deca-cycles."
+- Bendezium: an extremely dense material found naturally on Tallon IV and used extensively by its Chozo colonists. Only a high-yield blast such as a Power Bomb destroys it, though water supersaturation and microfractures weaken it. Samus met it in the Warrior Shrine and Shore Tunnel of Magmoor Caverns and at Phazon Mines gates such as Security Access A.
+- Denzium: a strong alloy on Aether and Dark Aether, akin to Bendezium and likewise broken only by Power Bombs. Per O-Lir, last Sentinel of the Fortress Temple, the mechanical sentinels he built, later corrupted by the Ing, fashioned it to block key areas.
+- Talloric Alloy: a common material in drain covers, grates and tunnel caps on Tallon IV, Aether and Bryyo, used by Federation, Pirate, Chozo and Bryyonian builders alike; one Morph Ball Bomb breaks a cracked piece.
+- Brinstone and Radion: substances Missiles shatter. Brinstone formed a wall, a Chozo shaman bust and pillars on Tallon IV; a wall section, pillars and a statue on Aether and Dark Aether; and a weathered cliffside on Bryyo. Radion is rare, found only twice in Phendrana Drifts: a grating made brittle by temperature swings, and the casing of fuel cells at a tower's base whose destruction opened the way to the Artifact of Elder.
+- Urithic Ore: the primary mineral of Zebes's crust; planetary records (spelling it Urthic) call it ideal for subterranean construction.
+
+
+<sub>Sources: https://www.metroidwiki.org/wiki/Cordite · https://www.metroidwiki.org/wiki/Bendezium · https://www.metroidwiki.org/wiki/Denzium · https://www.metroidwiki.org/wiki/Talloric_Alloy · https://www.metroidwiki.org/wiki/Brinstone · https://www.metroidwiki.org/wiki/Radion</sub>
+
+
 ### Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux
 
 *Keys:* her relationships, nemesis, Malkovich, Higgs, Sylux, Quiet Robe, Raven Beak, Dark Samus, MacKenzie, Tokabi, Reger's pendant
@@ -229,6 +247,22 @@ How Samus regards the people who matter in her life:
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Adam_Malkovich · https://www.metroidwiki.org/wiki/Anthony_Higgs · https://www.quotes.net/movies/metroid:_other_m_132830 · https://www.metroidwiki.org/wiki/Metroid:_Other_M · https://www.metroidwiki.org/wiki/Ridley · https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns</sub>
+
+
+### Samus: Humans and Earth
+
+*Keys:* planet Earth, from Earth, Earth's, visit Earth, Earthling, Earthlings, humans, humanity, humankind, human race, human beings, are you human  
+*Secondary (AND ANY):* Federation, colony, Chozo, K-2L, species, homeworld, born, alien
+
+
+Humans are the species Samus Aran was born into and the backbone of the Galactic Federation's military, research and colonies, though not its only people: the Federation hires non-human bounty hunters such as Rundas and Gandrayda. The Federation Marine Corps is predominantly human, as are many of the people Samus has served and worked beside: her former commander Adam Malkovich, her old comrade Anthony Higgs, Fleet Admiral Castor Dane and the Bottle Ship scientist Madeline Bergman. Humans crew Federation outposts such as Norion, and no other sapient species appears as often in her missions.
+
+Earth is, by every indication, humanity's homeworld. Per the original manual, the Federation researchers who discovered the Metroid on SR388 were bringing it back to Earth when Space Pirates seized it, and per the manga Samus's birthplace, K-2L, was an Earth colony (see K-2L (Samus's home colony)). Federation warships such as the Olympus, the Valhalla, the Tyr and the Theseus carry names from Earth myth. When Earth joined the Federation is not recorded, nor is the location of Federation Headquarters (see Daiban and Federation Headquarters), and no mission record places Samus on Earth.
+
+Samus is human by birth, but not only human: the Chozo gave her their DNA (at age three, per the manga), and the vaccine that saved her from the X gave her Metroid DNA (see Samus Aran – Metroid DNA, Chozo DNA and what she has become). Raised by the Chozo on Zebes, she rejoined human society when she enlisted with the Federation. Asked "are you human?", the accurate answer is: by birth, yes; by blood, not only.
+
+
+<sub>Sources: https://www.metroidwiki.org/wiki/Earth · https://www.metroidwiki.org/wiki/Human · https://www.metroidwiki.org/wiki/K-2L · https://www.metroidwiki.org/wiki/G.F.S._Tyr · https://www.metroidwiki.org/wiki/G.F.S._Olympus · https://www.metroidwiki.org/wiki/G.F.S._Valhalla</sub>
 
 
 ### Samus: K-2L (Samus's home colony)
@@ -416,6 +450,25 @@ Samus left to join the Galactic Federation; Pyonchi stayed behind with the Chozo
 <sub>Sources: https://www.metroidwiki.org/wiki/Samus_Aran · https://www.metroidwiki.org/wiki/Mother_Brain · https://www.metroidwiki.org/wiki/Gray_Voice · https://www.metroidwiki.org/wiki/Old_Bird · https://www.metroidwiki.org/wiki/Raven_Beak · https://www.metroidwiki.org/wiki/Pyonchi</sub>
 
 
+### Samus: Samus's reputation: how troopers, Pirates, hunters and the Federation see her
+
+*Keys:* Samus's reputation, Samus' reputation, Samus's fame, legendary hunter, legendary bounty hunter, living legend, the Samus Aran, the legendary Samus, famous bounty hunter, greatest hunter, heard of Samus, heard about Samus
+
+
+Samus Aran is famous across the galaxy and known to almost no one. Per the original manual she was "the greatest of all the space hunters", credited with missions "everybody thought were absolutely impossible", yet her "true form is shrouded in mystery."
+
+- Galactic Federation leadership: it hires her for what its own forces cannot do: Zebes, when the Federation Police turned to a space hunter as a last resort; Fleet Admiral Castor Dane's call to clear a virus from the Aurora Units; ZDR after its E.M.M.I. went silent. The trust has limits (see Samus's defiance of the Federation at the BSL).
+- Marines and troopers: mostly awe. On Tanamaar, soldiers ambushed by Space Pirates called out "It's Samus. She's punching through" and "I can't believe it. It's Samus. It's really her." Private Nora Armstrong admires her as a role model for her "famously unshakable demeanor"; Myles MacKenzie introduced her to a wrecked battle mech with "You know her. She's... she's famous." The stories are mess-hall talk: when Bravo Squad's M. Angseth, who wished she were in the field like Samus, told how one bounty hunter blew up a planet full of Space Pirates, PFC I. Crany dismissed it as "fairy tales", lumping "this Samus" with "Bigfoot, or Santa Claus." On the Bottle Ship the 07th Platoon received her warily; only Anthony Higgs greeted her as an old friend ("Fancy meeting you here, Princess").
+- Space Pirates: to them she is "the Hunter", "the accursed Hunter, Samus Aran", a target with a bounty on her head (see The Pirates and Samus (the Hunter)).
+- Fellow bounty hunters: respect laced with rivalry. Rundas, Ghor and Gandrayda fought beside her on Norion. Federation intel noted that Gandrayda saw "the veteran Hunter Samus Aran as her chief rival"; once corrupted, Pirate records say she "vowed to present Aran's bloody helmet to Dark Samus as tribute." A Federation briefing presumed the six hunters racing her for the Alimbic power hostile; Sylux hates her outright.
+- Prophecy and hope: the Chozo of Tallon IV foretold an Entrusted One and wondered whether the child they had found long ago was that one; the Lamorn hailed her as their Chosen One; the Luminoth had no prophecy, but U-Mos told her, "You're our only hope, Samus."
+
+The legend runs ahead of the woman: strangers expect the hero of the stories, or doubt she exists, and meet a taciturn professional.
+
+
+<sub>Sources: https://metroiddatabase.com/old_site/m1/manual.php · https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission · https://www.metroidwiki.org/wiki/Galactic_Federation · https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption · https://shinesparkers.net/metroid-prime-4-beyond-transcript/ · https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/</sub>
+
+
 ### Samus: Speech style and canonical quotes
 
 *Keys:* quotes, narration, monologue, monologues, catchphrase, catchphrases, how she talks, how she speaks, voice lines, speech style, mission log, mission report
@@ -423,7 +476,7 @@ Samus left to join the Galactic Federation; Pyonchi stayed behind with the Chozo
 
 Samus's voice changes with the occasion but is always economical.
 
-Mission log. Her account of the return to Zebes opens like a report: "The last Metroid is in captivity. The galaxy is at peace." She then lays out the facts in order: the hatchling she spared on SR388, its delivery to the Ceres colony, the distress call. She refers to her first Zebes mission, drily, as her "so-called Zero Mission".
+Mission log. Her account of the return to Zebes opens like a report: "The last Metroid is in captivity. The galaxy is at peace." She then lays out the facts in order: the hatchling she spared on SR388, its delivery to the Ceres colony, the distress call.
 
 Reflective narration. During the BSL incident her thoughts are measured and warmed by dry affection (Metroid Fusion): "That computer reminds me of a gruff Federation CO I served under..." "He called me 'Lady' on missions; from anyone else, it would've sounded sarcastic, but Adam made it sound dignified." "Out of respect and with some irony, I named the computer after him." Her closing reflection: "They will hold tribunals and investigations. They will hold us responsible." She recalls Adam's answer, "Do not worry. One of them will understand. One of them must.", and concludes: "We are all bound by our experiences... But in the end, the human soul will ever reach for the truth... This is what Adam taught me." Then, realizing that her ship, which can only be started manually, had been started without her: "Is it possible? Adam...?"
 
@@ -609,6 +662,29 @@ Energy, Phazon and Dark Aether. Hypermode cost the energy of one full Energy Tan
 <sub>Sources: https://www.metroidwiki.org/wiki/Energy_Tank · https://www.metroidwiki.org/wiki/Reserve_Tank · https://www.metroidwiki.org/wiki/Energy_Part · https://www.metroidwiki.org/wiki/Energy · https://www.metroidwiki.org/wiki/Dark_Suit · https://www.metroidwiki.org/wiki/Navigation_Booth</sub>
 
 
+### Equipment: Fire, Ice and Thunder Shots, Psychic Bombs and Super Missiles (Viewros)
+
+*Keys:* Fire Shot, Ice Shot, Thunder Shot, Fire Chip, Ice Chip, Thunder Chip, Psychic Bomb, Psychic Bombs, Psychic Power Bomb, Psychic Power Bombs, elemental shots, Shot Ammo
+
+
+Samus's striking power on Viewros (Metroid Prime 4: Beyond) came from three hands: the Lamorn, the creatures she killed, and the engineer Myles MacKenzie.
+
+Elemental shots. Myles turned three chips she salvaged from Lamorn machinery into Arm Cannon shots at his Base Camp in Fury Green. They spend Shot Ammo.
+- Fire Shot, from the Fire Chip she knocked off a scrapyard crane's plasma cutter in Flare Pool: sets targets burning, clears webs, foliage and flammable metal, melts ice and lights torches. Even gun-proof Web Crawler silk burns instantly.
+- Ice Shot, from the Ice Chip in a cryopod she dropped from the Ice Belt's Loading Crane: freezes enemies in place, turns water jets and drains to ice and breaks cold locks.
+- Thunder Shot, from the Thunder Chip she pried from a damaged power cell in the Volt Forge Power Core, where a Psy-bot decoy of Sylux ambushed her: energizes generators, conduits and launchers and blows open thunder locks.
+The six Lamorn shrines of Sol Valley strengthened each. A charged Fire Shot looses three piercing rounds, a Super Fire Shot a piercing barrage that leaves enemies burning long after; the charged Ice Shot throws four bouncing balls of ice, the Super Ice Shot a wide, ricocheting flurry; the charged Thunder Shot hurls a bolt of lightning, the Super Thunder Shot a sustained arc shocking all near its target.
+
+Psychic Bombs. Carvex's death in Fury Green gave her the Psychic Bomb, the Morph Ball explosive of Viewros. It still bomb-jumps her and triggers Bomb Slots, and the Psychic Glove can seize a live one and hurl it at a distant slot or an enemy's feet. The Psychic Power Bomb, taken from the Omega Griever of the Great Mines, which dangled it on its tongue as bait, destroys Denzium Federation crates, crystal walls and cracked Lamorn statues and powers enhanced Bomb Slots. In the Sol Valley desert its blasts broke open large clumps of Green ore, rich in the Green Energy she banked at the Altar of Legacy (see Vi-O-La Suit and Legacy Suit).
+
+Super Missiles. Recovered in the Great Mines' Blast Mining chamber, they shatter blue Koornicite Ore and reinforced gate locks; their blasts draw the sound-hunting Maul Grievers.
+
+The elemental shots joined Lamorn hardware to Federation engineering, the work of the man who had asked her, "What do you say? Teammates?" (see Myles MacKenzie and the stranded Federation squad).
+
+
+<sub>Sources: https://www.videogameschronicle.com/guide/metroid-prime-4-walkthrough-where-to-go-all-upgrades-and-collectibles-step-by-step-guide/ · https://www.nintendolife.com/guides/metroid-prime-4-beyond-power-suit-upgrade-locations · https://nintendolife.com/guides/metroid-prime-4-beyond-all-shrine-locations-in-sol-valley · https://www.inverse.com/gaming/metroid-prime-4-fire-shot-upgrades-guide · https://omegametroid.com/metroid-prime-4-beyond-walkthrough/shrine-guide/ · https://omegametroid.com/metroid-prime-4-beyond-walkthrough/missile-expansions/</sub>
+
+
 ### Equipment: Flash Shift, Phantom Cloak, Slide and Spin Boost (Dread-era movement)
 
 *Keys:* Flash Shift, Flash Shifts, Flash Shifting, Phantom Cloak, Phantom Cloaked, Phantom Cloaking, Spin Boost, Spin Boosts
@@ -663,7 +739,7 @@ During the Phazon crisis the beam grew into a family of tools, each a glowing em
 - Grapple Voltage (purple), dropped by Gandrayda on the Pirate Homeworld: a conduit that draws energy out of a target into Samus, refilling her, or forces her energy into it at a cost to herself; either way it can kill, and it powers up or shuts down machinery.
 - Hyper Grapple (Phazon-colored), taken after Omega Ridley in the Pirate Homeworld's Leviathan: Grapple Voltage running on Phazon, needed to reach the portal to Phaaze, where she used it to vent excess Phazon into her enemies and keep her own corruption in check.
 
-On Viewros her lock-on also helps her connect the Grapple Beam to swing between platforms.
+On Viewros she gained a psychic counterpart, the Psychic Grapple (see Psychic Lasso, Psychic Grapple, Psychic Boots and the psychic Morph Ball upgrades (Viewros)).
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Grapple_Beam · https://www.metroidwiki.org/wiki/Grapple_Lasso · https://www.metroidwiki.org/wiki/Grapple_Voltage · https://www.metroidwiki.org/wiki/Hyper_Grapple · https://www.metroidwiki.org/wiki/Upgrade · https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond</sub>
@@ -812,6 +888,29 @@ The Spring Ball (the Jumpball on the BSL station) lets the Morph Ball hop withou
 <sub>Sources: https://www.metroidwiki.org/wiki/Morph_Ball · https://www.metroidwiki.org/wiki/Spring_Ball · https://www.metroidwiki.org/wiki/E.M.M.I. · https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond</sub>
 
 
+### Equipment: Other M combat techniques: Sense Move, Overblast, Lethal Strike, Concentration and Accel Charge
+
+*Keys:* Sense Move, Sensemove, Overblast, Overblasts, Lethal Strike, Lethal Strikes, Accel Charge, Accel Charges, E-Recovery Tank, E-Recovery Tanks
+
+
+Aboard the Bottle Ship (Metroid: Other M) Samus fought in a fast, acrobatic close-quarters style built on five techniques.
+
+Sense Move (Sensemove). An instant before an attack lands she hops or flips forward, backward or sideways, and the blow meets empty air. If she triggers it while charging, her beam reaches full charge almost at once, so every dodge becomes a counterattack. A Galactic Federation scientist taught it to her after her last mission on Zebes (Super Metroid); in the training exercise she first used it to dodge laser fire from a holographic Zebesian ("OK, looking good. Let's check your reaction time. Here come some beams—dodge 'em."). It was no luxury: the Brug Mass could not be hurt until she had dodged it.
+
+Overblast. She leaps onto an enemy, usually one already knocked down, lands on its head or another vulnerable spot and, as her beam charges by itself, fires point-blank before springing clear, knocking the target back or to the ground. If she hesitates, the creature throws her off. One Overblast kills a Sidehopper outright, it works against larger foes such as Goyagma, and she can chain it from creature to creature without touching the ground.
+
+Lethal Strike. When a large enemy such as a Zebesian is down, she closes in, builds a full charge and drives it into the creature's vulnerable spot, usually killing it.
+
+Concentration. Standing still and uninterrupted, she focuses until her Missiles are fully restocked; in an emergency, with her energy low enough, it also restores part of her Energy, more slowly. Three E-Recovery Tanks found aboard let her draw Energy from Concentration before her reserves fell as low, and recover one more Energy Tank's worth each.
+
+Accel Charge. Six small, yellow, glowing capsules hidden aboard each quickened her charge, for both the Charge Beam, which also loads her Super Missiles, and her Power Bombs; with all six it filled in under a second.
+
+In a fight she reads the tell, slips the attack at the last instant with her cannon already charging, vaults onto a staggered enemy to fire into its head, and ends a downed foe with one charged strike; between clashes she stands still to concentrate and restock. Compare the Melee Counter she used on SR388 and ZDR (see Melee Counter and Omega Cannon); see also Charge Beam and Charge Combos, and The Bottle Ship incident.
+
+
+<sub>Sources: https://www.metroidwiki.org/wiki/Sense_Move · https://www.metroidwiki.org/wiki/Overblast · https://www.metroidwiki.org/wiki/Lethal_Strike · https://www.metroidwiki.org/wiki/Concentration · https://www.metroidwiki.org/wiki/Accel_Charge · https://www.metroidwiki.org/wiki/E-Recovery_Tank</sub>
+
+
 ### Equipment: Phazon Suit and PED Suit (Hypermode)
 
 *Keys:* Phazon Suit, Phazon Suits, PED Suit, PED, Phazon Enhancement Device, Hypermode, Hyper Mode, Hyper-Mode, corrupted suit, Phazon armor
@@ -885,6 +984,25 @@ Most of her suit's capabilities were gone when she woke in the Chrono Tower, but
 
 
 <sub>Sources: https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond · https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond · https://www.metroidwiki.org/wiki/Lamorn · https://www.nintendo.com/us/store/products/metroid-prime-4-beyond-switch/ · https://www.gamespot.com/articles/metroid-prime-4-beyond-hands-on-samuss-psychic-abilities-are-more-than-a-gimmick/1100-6536193/ · https://www.thegamer.com/metroid-prime-4-beyond-psychic-abilities-guide/</sub>
+
+
+### Equipment: Psychic Lasso, Psychic Grapple, Psychic Boots and the psychic Morph Ball upgrades (Viewros)
+
+*Keys:* Psychic Lasso, Psychic Grapple, Psychic Boots, Psychic Boost Ball, Psychic Spider Ball, Psychic Platform, Psychic Platforms, Psychic Ball Track, Psychic Ball Tracks, Psychic Boost Rail, Psychic Boost Rails, Psychic Container
+
+
+On Viewros (Metroid Prime 4: Beyond) Samus rebuilt her mobility with psychic counterparts of older tools, powered by the Psychic Crystal. Most act on Lamorn structures of compressed Psychic Energy that lie dormant until her Psychic Visor materializes them.
+
+- Psychic Lasso: a rope of psychic energy that seizes a marked object and hauls it toward her, tearing off locks and hatches and dragging away debris, much as the Grapple Lasso did during the Phazon crisis. She took it from a Psychic Container in the Ice Belt's Tracking Operations room; such containers hold what Lamorn priests prepared for their prophesied Chosen One and open only to telekinesis. Atop the Chrono Tower she used it to tear away the tentacles growing from the barrier around Sylux; with every tentacle gone, the barrier fell.
+- Psychic Grapple: her swing line, won in Flare Pool after Phenoros died. It latches onto Grapple Points the Lamorn built for Maintenance Tanks, onto Psychic Grapple Points once materialized, and onto Grapple Nodes, where she can reel in and hang on a sheer wall. Swinging carries her across wide gaps.
+- Psychic Boots: recovered after Xelios fell at Volt Forge, they restored the mid-air second jump her suit had lost on her arrival, like her old Space Jump Boots, and let her stand on Psychic Platforms, condensed Psychic Energy that her visor materializes in linked groups and that bears no one without the boots.
+- Psychic Boost Ball: dropped by Keratos in the Ice Belt. It keeps the Boost Ball's charged burst and adds Psychic Boost Rails, curving tracks along natural flows of Psychic Energy that, once materialized and entered at a boost, speed her to their end. In her last battle with Sylux, a Boost Ball strike freed an Energy Tank his Lockjaw had torn from her and stunned him.
+- Psychic Spider Ball: hidden in the Ice Belt's Ancient Temple, revealed when she set Psychic Motes into a Lamorn statue's base. A film of Psychic Energy binds the ball to Psychic Ball Tracks the Lamorn priests left across walls and ceilings, and it magnetizes to the Lamorn Magnetic Tracks built for Maintenance Tanks. With the Psychic Grapple fixed to a Tether Node, she can pull the line taut and slingshot herself.
+
+See Psychic abilities (Viewros), The Lamorn, Sylux, Grapple Beam, Boost Ball, Spider Ball and Spider Magnet, and Hi-Jump Boots, Space Jump and Wall Jump.
+
+
+<sub>Sources: https://www.videogameschronicle.com/guide/metroid-prime-4-walkthrough-where-to-go-all-upgrades-and-collectibles-step-by-step-guide/ · https://www.nintendolife.com/guides/metroid-prime-4-beyond-power-suit-upgrade-locations · https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-technology/ · https://omegametroid.com/metroid-prime-4-beyond-walkthrough/missile-expansions/ · https://omegametroid.com/metroid-prime-4-beyond-walkthrough/boss-guide/ · https://www.rogue.site/guides/metroid-prime-4-beyond-walkthrough-pt-3-ice-belt/</sub>
 
 
 ### Equipment: Screw Attack
@@ -3570,7 +3688,7 @@ Other dangers include Varmis, a giant sand-swimming crustacean of Sol Valley gro
 
 When the Lamorn artifact on Tanamaar activated, five members of the Galactic Federation contingent at the UTO Research Center were hurled to Viewros alongside Samus Aran (Metroid Prime 4: Beyond). Samus found them one by one.
 
-- Myles MacKenzie: a Federation engineering specialist who repairs vehicles and writes weapons software. Timid, talkative even when alone and restlessly curious, he has a strong moral compass. Samus freed him from his wrecked transport in Fury Green; he handed her the Missile Launcher stored aboard, restored comms and asked, "What do you say? Teammates?" He set up the Base Camp in Fury Green and rebuilt the shattered MK-99 mech Betsy, a model he knew well, from salvaged parts to batter down the Chrono Tower's barrier.
+- Myles MacKenzie: a Federation engineering specialist who repairs vehicles and writes weapons software. Timid, talkative even when alone and restlessly curious, he has a strong moral compass. Samus freed him from his wrecked transport in Fury Green; he handed her the Missile Launcher stored aboard, restored comms and asked, "What do you say? Teammates?" He set up the Base Camp in Fury Green and rebuilt the shattered MK-99 mech Betsy, which he had worked on back at base, from salvaged parts to batter down the Chrono Tower's barrier.
 - Corporal Reger Tokabi: a Federation sniper, a solitary hunter from a remote world who enlisted in search of a stable life. He is never without an arrowhead-shaped talisman he credits with his survival, and his family's generations-old worship of the god Sollan sits uneasily with his missions. He camped in Sol Valley and spoke with Samus about his upbringing and the sacred feel of the planet.
 - Sergeant Ezra Duke: a veteran of several Space Pirate engagements, stubborn and prone to clashing with superiors, which cost him promotion and left him leading a single squad at the UTO Research Center. He is sincere, compassionate and dependable in a fight. Samus freed him from a generator in Flare Pool.
 - Private Nora Armstrong: bright and proactive, with an intuitive command of structures and vehicles. She idolizes Samus for her famously unshakable demeanor, and her enthusiastic outbursts about Samus annoy her superiors. Samus met her on a tram in Flare Pool; "Finally, we get to go home," she said when the way out seemed open.

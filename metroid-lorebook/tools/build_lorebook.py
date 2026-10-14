@@ -158,7 +158,7 @@ with open(json_path, "w", encoding="utf-8") as fh:
     json.dump(st, fh, ensure_ascii=False, indent=2)
 
 # --- readable markdown ---
-md = [f"# {NAME} — readable version\n", "Generated from the same data as the SillyTavern JSON. Keys are the trigger words; (S) marks secondary keys.\n"]
+md = [f"# {NAME} — readable version\n", "Generated from the same data as the SillyTavern JSON. Keys are the trigger words. Secondary keys mean the entry fires only when a key AND at least one secondary key appear together.\n"]
 cur = None
 for x in final:
     if x["cat"] != cur:

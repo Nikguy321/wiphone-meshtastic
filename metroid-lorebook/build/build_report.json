@@ -1,7 +1,7 @@
 {
-  "entries": 264,
+  "entries": 270,
   "constant": 2,
-  "files": 32,
+  "files": 34,
   "final_domains": [
     "abilities",
     "adam-other-m",
@@ -14,8 +14,10 @@
     "federation",
     "federation-force",
     "fusion",
+    "gap1",
     "gap2",
     "gap3",
+    "gap4",
     "hunters",
     "manga",
     "metroids",
@@ -37,12 +39,12 @@
     "zebes"
   ],
   "draft_fallback_domains": [],
-  "total_words": 101445,
-  "approx_tokens": 136950,
+  "total_words": 103602,
+  "approx_tokens": 139862,
   "per_category": {
     "Universe": 6,
-    "Samus": 15,
-    "Equipment": 32,
+    "Samus": 18,
+    "Equipment": 35,
     "Chozo": 10,
     "Metroids": 10,
     "X Parasite": 8,
