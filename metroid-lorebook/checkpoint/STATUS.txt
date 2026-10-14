@@ -6,7 +6,7 @@ chozo: draft, verify
 dark-samus: draft, verify, revise
 dread: draft, verify, revise
 echoes: draft, verify
-federation: draft, verify
+federation: draft, verify, revise
 federation-force: draft, verify, revise
 fusion: draft, verify, revise
 hunters: draft, verify

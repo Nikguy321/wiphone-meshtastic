@@ -1,0 +1,321 @@
+{
+ "domain": "suits",
+ "category": "Equipment",
+ "entries": [
+  {
+   "comment": "Equipment: Power Suit (Samus's Chozo armor)",
+   "keys": [
+    "Power Suit",
+    "Power Suits",
+    "Legendary Power Suit",
+    "Fully Powered Suit",
+    "Ruins Test",
+    "Chozo armor",
+    "Chozo armour",
+    "Samus's suit",
+    "Samus' suit",
+    "Samus's armor",
+    "battle suit"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Power Suit is the powered battle armor Samus Aran wears on every mission: a Chozo exoskeleton modified for a human body, largely developed by the Chozo scientist Dryn. Per the manga, the Chozo of Zebes infused the orphaned Samus with their own DNA so she could endure the planet, then armored and trained her; Mother Brain told her during that training that the Power Suit reacts to her thoughts but cannot think for her, and Samus once failed a trial because her focus wavered. The suit is bonded to her body and answers to her will. She can withdraw it into her body and summon it again at any time, leaving only the Zero Suit beneath (as in the manga and on the Bottle Ship), but it does not vanish when she is knocked out: after Dark Samus's Phazon blast on Norion she lay unconscious still armored, and after the X infection its partly organic components were so integrated with her body that Galactic Federation surgeons could not fully remove it while she was unconscious (Metroid Fusion).\n\nDesign: modular. Built around the Arm Cannon and Morph Ball technology, it accepts weapons, visors, climate resistance, defensive and maneuvering additions and uploaded data, and adapts to each immediately. It provides life support, and its shielding draws on suit energy that every hit depletes (see Energy Tanks).\n\nLineage:\n- The first suit. Samus's original armor, without shoulder pauldrons, was lost on her first Zebes mission when Space Pirate fighters shot down her gunship after she escaped Tourian; she crash-landed in Chozodia out of her damaged suit, with only an emergency pistol.\n- The Legendary Power Suit, sometimes called the Fully Powered Suit. In the Chozo ruins of Chozodia, Samus passed the Ruins Test, a trial handed down by the Chozo, and was granted this stronger armor, whose broad pauldrons match the look her Varia Suit gives on other missions. It restored everything she had gathered and could integrate advanced Chozo technology her first suit could only register as unknown: the Gravity Suit, Space Jump and Plasma Beam.\n- She kept this suit on Tallon IV, in the Alimbic Cluster, on Aether, through the Phazon crisis, on SR388 during the Metroid extermination, on her return to Zebes and aboard the Bottle Ship, until an X parasite infected it on SR388. The infected portions were cut away and replaced by the organic Fusion Suit, which by the time of her ZDR mission had gradually returned toward its mechanical form (Metroid Dread).\n\nVariants built onto it: Varia Suit, Gravity Suit, Phazon Suit, PED Suit, Dark Suit, Light Suit, Hazard Shield, Fusion Suit, Metroid Suit, and the Lamorn-made Vi-O-La Suit, Vi-O-La IC Suit and Legacy Suit. Most missions have begun with the suit stripped of its enhancements, by the crash on Zebes, the explosion aboard the Frigate Orpheon, the Ing on Aether, Raven Beak's ambush on ZDR or the events on Viewros, and Samus rebuilds them as she goes; during the Phazon crisis she lost nothing. Cellular material taken from her Power Suit supplied the Metroids the Galactic Federation bred on the Bottle Ship.\n\nThe armor was the gift of the people who raised her, and each time she has been parted from it she has been hunted and exposed: on the Space Pirate Mother Ship, and aboard the BSL station while the SA-X stalked her in her own image.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Power_Suit",
+    "https://www.metroidwiki.org/wiki/Legendary_Power_Suit",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Ruins_Test",
+    "https://www.metroidwiki.org/wiki/Chozodia",
+    "https://www.metroidwiki.org/wiki/Varia_Suit",
+    "https://www.metroidwiki.org/wiki/Zero_Suit",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "https://www.nintendo.com/en-gb/News/2021/July/Metroid-Dread-Report-Vol-3-Seven-points-that-define-the-2D-saga-2007780.html"
+   ],
+   "notes": "Dryn credit confirmed on Metroid Wiki's Power Suit page ('largely responsible for the development'). Mother Brain's 'reacts to your thoughts' line and the failed-focus trial are manga (Metroid Wiki Samus Aran page). The draft's 'armor dissolves when she is knocked unconscious' was removed (contradicted by Fusion and Corruption). 'Fully Powered Suit' is a fan/strategy-guide name, hedged with 'sometimes called'. 'Federation bred Metroids from cellular material taken from Samus's Power Suit' is from Metroid Wiki's Other M page. Pauldron claim reframed per Varia Suit page ('Metroid II added the now-standard pauldrons'). 'Chozo Battle Suit Ver SA1-4468-VM6-P' omitted: not confirmable. 'her armor'/'her suit' keys dropped as too broad."
+  },
+  {
+   "comment": "Equipment: Varia Suit",
+   "keys": [
+    "Varia",
+    "Varia Suit",
+    "Varia Suits",
+    "Varia Feature",
+    "Barrier Suit",
+    "heat protection",
+    "heat resistance",
+    "extreme heat",
+    "heat shielding"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Varia Suit is the Chozo enhancement that hardens Samus's Power Suit against hostile environments. Its name is a corruption of \"barrier\", and per the manual of her SR388 extermination mission it was once called the Barrier Suit. It appears on every mission and is usually among the first armor enhancements she recovers; in the Alimbic Cluster, on Aether and during the Phazon crisis it was active from the start.\n\nFunction: It reduces the damage she takes and lets her walk through superheated regions unharmed, such as Norfair on Zebes, the Magmoor Caverns of Tallon IV, Sector 3 (PYR) of the BSL station and Cataris on ZDR. It does not protect her when immersed in lava or acid, such as the deepest magma of Norfair or the liquid of Tourian; that belongs to the Gravity Suit. On the BSL station it also shielded her from intense cold, which mattered because the Metroid vaccine had made her vulnerable to it: it kept the SA-X's Ice Beam from freezing her and let her absorb Blue X. On ZDR, cold resistance came instead with the Gravity Suit.\n\nAppearance: On her first Zebes mission the Varia simply recolored her original armor (pink in the first telling, orange in the retelling). On most missions the broad rounded pauldrons now associated with Samus come with the Varia; the Legendary Power Suit carries them as part of the armor itself, and on it the Varia is an orange recoloring. On the Fusion Suit it showed as green and pink.\n\nHistory: Samus found it in Brinstar on her first Zebes mission; took it from Kraid's lair on her return to Zebes, where it halved incoming damage (three quarters together with the Gravity Suit); lost it with her other enhancements in the explosion aboard the Frigate Orpheon and regained it after destroying Flaahgra on Tallon IV; on the BSL station recovered its data by absorbing the Mega Core-X in Sector 6 (NOC) that had stolen it from the Data Room; and took it from Cataris on ZDR. On the Bottle Ship it was built in as the Varia Feature, but Samus waited for Adam Malkovich's authorization, which came only during the fight with Goyagma, after she had crossed the Pyrosphere's heat (Other M). She landed on Tanamaar wearing it, lost it soon after arriving on Viewros and regained it only at the very end (Metroid Prime 4: Beyond).",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Varia_Suit",
+    "https://www.metroidwiki.org/wiki/Mega_Core-X",
+    "https://www.metroidwiki.org/wiki/Legendary_Power_Suit",
+    "https://www.metroidwiki.org/wiki/Gravity_Suit",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://www.thegamer.com/metroid-all-samus-suits-chronological-order/",
+    "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-to-all-of-samus-arans-upgrades-and-suits-1645383/",
+    "https://www.nintendo.com/en-gb/News/2021/September/Metroid-Dread-Report-Vol-8-Surveying-Planet-ZDR-2043940.html"
+   ],
+   "notes": "Mega Core-X location corrected to Sector 6 (NOC) per Metroid Wiki Mega Core-X page. Fusion cold protection, SA-X Ice Beam and Blue X, Barrier Suit naming, 50% Super Metroid reduction and 'active from the start' in Hunters/Echoes/Corruption all from Metroid Wiki Varia Suit page. Fusion-Varia colors (green and pink) from TheGamer's suit article; Metroid Wiki shows only images. Goyagma timing of the Varia authorization kept from the draft (Metroid Wiki Other M page confirms only that authorization came after Samus reached her first Pyrosphere objective). Dread heat/cold split from Dread Report Vol. 8 and guides."
+  },
+  {
+   "comment": "Equipment: Gravity Suit",
+   "keys": [
+    "Gravity Suit",
+    "Gravity Suits",
+    "Gravity Feature",
+    "Gravity Boost",
+    "Hazard Shield",
+    "underwater movement",
+    "move underwater",
+    "purple suit",
+    "extreme cold"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Gravity Suit is the Chozo enhancement that frees Samus from the drag of liquids and gravity. Wearing it she moves, jumps and fires underwater as freely as on land, in most places she can cross magma unharmed, and incoming damage is reduced. It shades the armor purple; on the Bottle Ship, where it was built in as the Gravity Feature, it instead surrounded her with a purple aura.\n\nHistory and limits:\n- On her first Zebes mission a Chozo Statue in Chozodia held it, but her original armor could only register it as unknown; it activated once the Ruins Test granted her the Legendary Power Suit. It negated lava but not the liquid of Tourian (Metroid: Zero Mission).\n- On Tallon IV she took it from the Gravity Chamber in Phendrana Drifts; it sharpened her underwater vision and let her explore the sunken Frigate Orpheon, though magma still burned her there.\n- Aether had no Gravity Suit; the Luminoth Gravity Boost from Torvus Bog gave underwater lift and no protection. During the Phazon crisis the Hazard Shield, a Space Pirate unit she took on the Pirate Homeworld, filled the role: pulsing purple hexagonal plating on her shoulders and an orange outline let her endure Acid Rain and Fuel Gel.\n- On her return to Zebes it lay at the Wrecked Ship, reachable only after Phantoon fell and power returned; Maridia and Ridley's lair were impassable without it, and together with the Varia Suit it cut the damage she took by three quarters.\n- The Gravity Feature switched on when the module holding Sector Zero detached from the Bottle Ship; unusually, lava still hurt her there.\n- On the BSL station she won it by defeating Nightmare in Sector 5 (ARC). It let the Speed Booster and Space Jump work underwater and in the magma of Sector 3, and it tinted the Fusion Suit light blue and purple.\n- On ZDR she took it from a Chozo Statue in Burenia, the planet's flooded region. There it also shielded her from extreme cold and let her move through lava, and during the final battle with Raven Beak it became the Metroid Suit.\n\nAcross her missions the Gravity Suit is what opens the flooded and molten depths to her, from Maridia to the sunken Orpheon.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Gravity_Suit",
+    "https://www.metroidwiki.org/wiki/Hazard_Shield",
+    "https://www.metroidwiki.org/wiki/Legendary_Power_Suit",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.nintendolife.com/guides/metroid-dread-gravity-suit-location",
+    "https://www.thegamer.com/metroid-all-samus-suits-chronological-order/",
+    "https://www.nintendo.com/en-gb/News/2021/September/Metroid-Dread-Report-Vol-8-Surveying-Planet-ZDR-2043940.html"
+   ],
+   "notes": "Burenia location (Chozo Statue) and Dread cold/lava protection confirmed by Nintendo Life and other guide snippets; Metroid Wiki's Dread section is empty. Fusion-Gravity colors from TheGamer ('light blue with the arms and legs a brighter purple'); sources disagree, so kept general. Nightmare/Sector 5 source from Metroid Wiki Fusion page. 75% combined reduction (Super Metroid) per fact-check of Gravity Suit page. Metroid Suit forming from the Gravity Suit is from fan-wiki snippets and matches the Dread domain entries."
+  },
+  {
+   "comment": "Equipment: Phazon Suit and PED Suit (Hypermode)",
+   "keys": [
+    "Phazon Suit",
+    "Phazon Suits",
+    "PED Suit",
+    "PED",
+    "Phazon Enhancement Device",
+    "Hypermode",
+    "Hyper Mode",
+    "Hyper-Mode",
+    "corrupted suit",
+    "Phazon armor"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Two of Samus's suits were born of Phazon, the mutagenic substance seeded from Phaaze.\n\nPhazon Suit (Tallon IV). When the Omega Pirate collapsed onto Samus after their battle, the Phazon in its body seeped into her Power Suit and triggered a viral corruption that reshaped the armor, helmet and torso into a jet-black suit lined with red, the inverse of Phazon's blue-and-white glow. It made her immune to the blue Phazon of Tallon IV (more potent strains still burned), greatly strengthened her shielding, let her lift the Artifact of Newborn from its Phazon bed unharmed and, by drawing Phazon from the environment, let her fire the Phazon Beam that alone could destroy Metroid Prime in the Impact Crater. As Metroid Prime died it tore the Phazon Suit from her, leaving her in her Gravity Suit and free of corruption; the creature used the stolen suit and her DNA to remake itself as Dark Samus (Metroid Prime).\n\nPED Suit (the Phazon crisis). The Phazon Enhancement Device was a Galactic Federation technology developed from Phazon ore recovered by the crew of the G.F.S. Anhur and from captured Space Pirate technology. When Dark Samus's Phazon strike on Norion left Samus comatose for a month, the Federation fitted her suit with a PED aboard the G.F.S. Olympus. Federation PED Marines drew Phazon from backpacks; Samus, Rundas, Ghor and Gandrayda drew on the Phazon lodged in their own bodies. By injecting the energy of one Energy Tank she entered Hypermode: temporary invulnerability and vastly stronger beam, missiles, bombs and grapple, lasting about twenty-five seconds or until the Phazon was spent. The price was corruption. Every use deepened it, Phazon tendrils crept across her vision when she overused it, a Space Pirate Phazon Grenade could force her into a Phazon-overloaded, corrupt Hypermode, and with each Leviathan she destroyed the suit's colors darkened toward red and blue while her Morph Ball glowed Phazon-blue. On Phaaze the PED triggered an emergency vent that emptied her Energy Tanks to slow the corruption and left her locked in Hypermode, where total saturation meant death. Her three fellow hunters succumbed and were lost to Dark Samus. When Phaaze was destroyed the Phazon in her body dissipated with it and the corruption ended (Metroid Prime 3: Corruption).\n\nSamus has worn neither suit since. See Phazon, Phazon corruption and Hypermode, Samus and Phazon, and Dark Samus.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Phazon_Suit",
+    "https://www.metroidwiki.org/wiki/PED_Suit",
+    "https://www.metroidwiki.org/wiki/Phazon_Enhancement_Device",
+    "https://www.metroidwiki.org/wiki/G.F.S._Anhur",
+    "https://www.metroidwiki.org/wiki/Phazon_Grenade",
+    "https://www.metroidwiki.org/wiki/Hypermode",
+    "https://www.metroidwiki.org/wiki/Phazon",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+   ],
+   "notes": "Fact-check verdict: accurate. Added the 25-second Hypermode limit and the captured Space Pirate technology origin (Wikipedia), and changed 'runaway' to the wiki's 'Phazon overloaded' / Wikipedia's 'Corrupt Hypermode'. Wikipedia says only that Phaaze's destruction 'may have rendered Phazon inert'; 'dissipated' is a mild inference matching the series' outcome. 'black suit' key dropped as too generic. Bare 'PED' relies on SillyTavern whole-word matching."
+  },
+  {
+   "comment": "Equipment: Dark Suit and Light Suit",
+   "keys": [
+    "Dark Suit",
+    "Dark Suits",
+    "Light Suit",
+    "Light Suits",
+    "Luminoth suit",
+    "Luminoth armor",
+    "Luminoth xenotech",
+    "A-Kul",
+    "Champion of Aether"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "On Aether the Luminoth gave Samus two suits of their own xenotech, built to be worn with the Chozo Power Suit.\n\nDark Suit. The Luminoth made it so they could survive the toxic air of Dark Aether during their war with the Ing. It was first worn by A-Kul, the Champion of Aether; after her death the Ing took it, and I-Sha's message lamented that the mighty armor of the last champion lay in the clutches of the Ing. Samus recovered it after destroying Amorbis in the Dark Agon Temple, where the worms had sealed it inside a biogenerated Dark Sphere that fed them dark energy. The Dark Suit is a darker, more muted armor whose shoulder plates are shaped like discs. It lets her cross Dark Aether without clinging to Light Crystals and Light Beacons, cutting the atmosphere's drain from five units of energy a second to one, an eighty percent reduction, but it gives no protection against Ingstorms or Dark Water.\n\nLight Suit. A fusion of Luminoth and Chozo battlesuit technology, given to Samus by U-Mos in the Main Energy Controller as thanks for returning light energy to the Agon, Torvus and Sanctuary temples after Quadraxis fell. It is a stark white suit, slimmer than the Dark Suit and without its disc-shaped shoulders, with openings that emit beams of light, and its visor is colorless and transparent, showing her face. The Light Suit is fully resistant to Dark Aether: she can submerge in Dark Water and stand in Ingstorms unharmed, though light and dark attacks still hurt her. It also lets her ride the Luminoth light-based teleportation system between restored Energy Controllers, and it was needed to gather the Sky Temple Keys before the assault on the Emperor Ing (Metroid Prime 2: Echoes).\n\nNeither suit appears on later missions. Apart from its color, the Light Suit closely resembles the form Dark Samus took during the Phazon crisis. See The Luminoth, U-Mos, Aether and Dark Aether, and The Ing and the Emperor Ing.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Dark_Suit",
+    "https://www.metroidwiki.org/wiki/Light_Suit",
+    "https://www.thegamer.com/metroid-all-samus-suits-chronological-order/"
+   ],
+   "notes": "A-Kul's pronoun ('her'), I-Sha's message, the Dark Sphere 'which provided dark energy to them', and the 5-to-1 drain confirmed on Metroid Wiki's Dark Suit page; 'eighty percent' is the arithmetic of 5 to 1. The draft's 'impervious until repeated impacts burst it' detail was dropped. Dark Suit look (muted, wheel/disc-shaped shoulder pads) and Light Suit look (stark white, slimmer, no wheel shoulders) from TheGamer and fan-wiki snippets; Metroid Wiki gives only images plus the beams-of-light and transparent-visor details. Unconfirmed 'pearl' color and four glowing chest circles removed."
+  },
+  {
+   "comment": "Equipment: Fusion Suit",
+   "keys": [
+    "Fusion Suit",
+    "Fusion Suits",
+    "organic suit",
+    "Metroid vaccine",
+    "the vaccine",
+    "vulnerable to cold",
+    "weakness to cold",
+    "cold weakness",
+    "infected suit",
+    "surgically removed"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Fusion Suit is the organic armor Samus wore after the X parasites nearly killed her, so named for her fusion with Metroid cells.\n\nOrigin. While escorting Biologic Space Laboratories researchers on SR388, Samus was infected by an X parasite. She lost consciousness in flight; her gunship's emergency systems ejected her in an escape pod before the ship crashed into an asteroid belt, and she was recovered and brought to Galactic Federation surgeons. The X had invaded her central nervous system, and the organic components of her Power Suit had become so integrated with her body that the suit could not be fully removed while she was unconscious. Surgeons cut away large infected portions and sent them to the BSL station for study; the X inside that capsule later took her form as the SA-X. A vaccine made from a cell culture the Federation had preserved from the baby Metroid cured her, letting her absorb X for nourishment and leaving her with the Metroids' vulnerability to cold.\n\nThe suit. Rebuilt around what remained, the Fusion Suit is less bulky than the Power Suit, blue and yellow, and far weaker: most of its abilities and weapons were gone, she could not use the Ice Beam, cold struck her harder than before, and its Charge Beam fired medium-sized energy waves instead of one large burst. In exchange she could climb onto ledges without the Power Grip, and any X that touched her was absorbed, restoring energy and returning whatever abilities its host had carried. The Mega Core-X in Sector 6 (NOC) stole the Varia Suit data from the Data Room before she could download it; absorbing it restored the Varia and recolored the suit green and pink. The Gravity Suit, won from Nightmare in Sector 5 (ARC), tinted it light blue and purple. In the final hours of the BSL incident the SA-X attacked the Omega Metroid that had cornered her and was struck down; Samus absorbed its Core-X, regaining the Ice Beam, and her suit took on a look that recalled her old Varia Suit (Metroid Fusion).\n\nAftermath. Samus kept the organic suit after the station fell into SR388. By the time of her ZDR mission it had gradually returned toward its original mechanical Power Suit form (Metroid Dread). She was never cured of the Metroid in her. See Samus Aran – Metroid DNA, SA-X, X Parasites and The BSL incident.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Fusion_Suit",
+    "https://www.metroidwiki.org/wiki/SA-X",
+    "https://www.metroidwiki.org/wiki/Mega_Core-X",
+    "https://www.metroidwiki.org/wiki/Varia_Suit",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "https://www.thegamer.com/metroid-all-samus-suits-chronological-order/",
+    "https://www.nintendo.com/en-gb/News/2021/July/Metroid-Dread-Report-Vol-3-Seven-points-that-define-the-2D-saga-2007780.html"
+   ],
+   "notes": "Mega Core-X corrected to Sector 6 (NOC), stealing the Varia from the Data Room (Metroid Wiki). Charge Beam waves, ledge climbing without Power Grip, Ice Beam loss, less bulky build and 'turns blue' confirmed on Metroid Wiki Fusion Suit page. Yellow, green-and-pink Varia and light-blue-and-purple Gravity colors from TheGamer ('indigo and yellow', 'snot green and pink', 'light blue with purple arms and legs'), not Metroid Wiki. The draft's claim that the BSL crew brought her to hospital was softened to 'recovered'. 'Over the years' replaced with 'by the time of her ZDR mission' (Dread Report Vol. 3 gives no timeframe). Final-suit orange/yellow colors dropped as unverified."
+  },
+  {
+   "comment": "Equipment: Metroid Suit (Dread)",
+   "keys": [
+    "Metroid Suit",
+    "Hyper Beam",
+    "full Metroid",
+    "becoming a Metroid",
+    "Metroid transformation",
+    "Metroid powers",
+    "energy drain",
+    "draining energy",
+    "Quiet Robe X",
+    "QR-X"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Metroid Suit is the form Samus's armor took on ZDR when the Metroid DNA from her vaccine awakened in full.\n\nAwakening. Raven Beak, who lured Samus to ZDR and stripped her suit of most of its abilities on her arrival, wanted her Metroid genes active. After Quiet Robe was killed and the X were loosed from Elun across the planet, her Metroid power first surfaced when the last E.M.M.I. caught her and was about to extract her DNA: she drained its energy with her hand, as a Metroid feeds, and destroyed it. Only afterward, aboard his airship Itorash, did Raven Beak reveal that he had been posing as ADAM in her communications and had spared her so that her Metroid powers would surface, intending to clone her into an army of Metroids under his control.\n\nTransformation. During their final battle on Itorash the full awakening came: her Gravity Suit changed into the Metroid Suit, an organic, Metroid-like armor with a carapace of jagged ridges and folding plates. In it, all of her Arm Cannon's powers combined into the Hyper Beam, a massive continuous beam, and anything she touched was drained of its energy. She drained Raven Beak, then Itorash itself, sending it crashing onto ZDR. There the X that had possessed Kraid's corpse infected the broken Raven Beak, and she destroyed the Raven Beak X with the Hyper Beam.\n\nCost and cure. With ZDR self-destructing, the real ADAM warned her not to take the controls of her gunship: in that state her touch would drain the ship as it had drained Itorash. The X that had taken the body of Quiet Robe, a Thoha Chozo, appeared behind her. She raised her Arm Cannon; it bowed, and she lowered the weapon. The X returned to its base form and let itself be absorbed into her, neutralizing her Metroid powers; the Metroid Suit reverted to her normal armor, and she lifted off before the planet exploded (Metroid Dread).\n\nThe Metroid Suit has not appeared since. The Metroid within her remains, held in check since she absorbed the Quiet Robe X. See Samus as the last Metroid, Raven Beak, Quiet Robe, Itorash and the end of ZDR, and The X on ZDR.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Metroid_Dread",
+    "https://www.metroidwiki.org/wiki/Quiet_Robe",
+    "https://www.metroidwiki.org/wiki/Raven_Beak",
+    "https://www.metroidwiki.org/wiki/E.M.M.I.-07PB",
+    "https://www.metroidwiki.org/wiki/Metroid_Dread",
+    "https://www.inverse.com/gaming/metroid-dread-ending-explained-metroid-suit-rewards",
+    "https://www.thegamer.com/metroid-all-samus-suits-chronological-order/",
+    "https://www.svg.com/629936/the-ending-of-metroid-dread-explained/"
+   ],
+   "notes": "Metroid Wiki has no Metroid Suit page. Chronology fixed: the drain power surfaced against the last E.M.M.I. before Raven Beak's revelation aboard Itorash (Wikipedia; consistent with the Dread domain's Itorash and ADAM entries, which state Raven Beak posed as ADAM). Appearance from TheGamer ('carapace-like exterior, with jagged ridges and folding plates'); unverified green/red glow dropped. Hyper Beam described only as a massive continuous beam combining her Arm Cannon's powers (fan-wiki/SVG snippets); red-pink color and terrain piercing dropped. 'Thoha genes stabilized her DNA' replaced with Wikipedia's 'neutralizes her Metroid abilities'; Quiet Robe bow/absorption from Metroid Wiki Quiet Robe page. Raven Beak's 'father' claim left to the Raven Beak entry."
+  },
+  {
+   "comment": "Equipment: Zero Suit and Paralyzer",
+   "keys": [
+    "Zero Suit",
+    "Zero Suit Samus",
+    "Paralyzer",
+    "Paralyzer pistol",
+    "emergency pistol",
+    "stun pistol",
+    "bodysuit",
+    "undersuit",
+    "under-suit",
+    "skin-tight",
+    "skintight",
+    "without her suit"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Zero Suit is the skin-tight bodysuit Samus wears beneath the Power Suit and every variant of it. It is cyan-blue with magenta Chozo sigils and glowing light-red markings along the back, built for maximum flexibility, and it is what remains when she withdraws the armor into her body or loses it. In it Samus has no shielding, no Morph Ball, no Arm Cannon and a far shorter jump, and she must rely on stealth.\n\nZebes. After she escaped Tourian on her first mission, Space Pirate fighters shot down her gunship, and she crash-landed near their Mother Ship in Chozodia. Out of her damaged Power Suit, with only an emergency pistol, she infiltrated the Mother Ship on foot, evading and stunning Zebesians, until she passed the Chozo's Ruins Test and received the Legendary Power Suit (Metroid: Zero Mission).\n\nLater appearances. She is seen in the Zero Suit after the Alimbic, Aether and Phazon missions and aboard the G.F.S. Olympus. On the Bottle Ship her Zero Suit was a more metallic blue with higher heels and the Paralyzer strapped to her left thigh. When she later returned to the ship, marked for destruction, to recover Adam Malkovich's helmet, she escaped in the Zero Suit, sliding under hatches without the Morph Ball (Other M). On the Bottle Ship a fatal blow would have left her in the Zero Suit; elsewhere, when she has been knocked unconscious, the armor has stayed on her.\n\nThe Paralyzer. Samus's only secondary weapon, once called the emergency pistol, is a small sidearm she carries when she lacks the Power Suit. On Zebes it charged itself; a fully charged shot stunned a target but could not kill, and an uncharged shot did nothing to a living foe. It could even break Bomb Blocks, yet unlike her Bombs it could not hurt a Zebesian, only stun it. She carried it until the Ruins Test won her the Legendary Power Suit. On the Bottle Ship it did not charge itself and she had to charge it like a Charge Beam, but even an uncharged shot could paralyze an enemy, a charged shot held enemies longer, and it also opened certain hatches. See Samus Aran – appearance, physique and physiology, and Chozodia, the Ruins Test and the Space Pirate Mother Ship.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Zero_Suit",
+    "https://www.metroidwiki.org/wiki/Paralyzer",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Legendary_Power_Suit",
+    "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "Removed the draft's 'armor dissolves when she is knocked unconscious' (contradicted by Fusion, Corruption, Zero Mission); only Other M's death sequence shows Zero Suit Samus. Paralyzer details (self-charging and nonlethal on Zebes, uncharged shot does nothing, breaks Bomb Blocks but cannot damage Zebesians, not self-charging in Other M, uncharged shots still paralyze, opens hatches, left-thigh holster) confirmed on Metroid Wiki Paralyzer page. The draft's 'defeated the Ruins Test with it alone' was a misreading and was replaced. 'Days later' and 'crawl' dropped as unsourced; 'boarded her gunship wearing it' dropped. Metroid Wiki lists no Zero Suit appearance in Dread or Samus Returns."
+  },
+  {
+   "comment": "Equipment: Energy Tanks and suit energy",
+   "keys": [
+    "Energy Tank",
+    "Energy Tanks",
+    "E-Tank",
+    "E-Tanks",
+    "Reserve Tank",
+    "Reserve Tanks",
+    "Energy Part",
+    "Energy Parts",
+    "suit energy",
+    "energy capacity",
+    "low on energy",
+    "energy reserves"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Energy is the power Samus's Power Suit uses for every function; its shielding draws on it, and she needs it to keep the armor running and to survive. Every hit from a creature or hazard drains it, and if it falls to zero the suit fails and Samus goes down. Energy is replenished by the small energy orbs that destroyed creatures and broken objects release, by absorbed X parasites, by Phazon units during the Phazon crisis, by Recharge Stations and the Bottle Ship's Navigation Booths, and by Energy Tanks at the moment they are acquired.\n\nEnergy Tanks. The Energy Tank is the most common expansion to the suit and has turned up on every mission: in Chozo Statues, in hidden chambers on Tallon IV and Aether, in the sectors of the BSL station and across ZDR. Each normally raises her maximum energy by 100 units and refills her on acquisition (\"Energy Tank acquired. Energy capacity increased.\"). The tanks show as a row of small cells at the top of her visor display, and like her other enhancements they are lost whenever the suit is stripped.\n\nReserve Tanks. On her return to Zebes, Samus found four Reserve Tanks, her emergency energy source (per the manual), each holding 100 units, four hundred in all, and each empty when found. Set to automatic, a Reserve Tank poured itself into her suit the instant her energy hit zero; set to manual, she drew on it at will (Super Metroid).\n\nEnergy Parts. On the Bottle Ship and on ZDR the tanks also came in pieces: four Energy Parts made one Energy Tank.\n\nEnergy, Phazon and Dark Aether. The PED Suit demanded the energy of one full Energy Tank to enter Hypermode; she received a tank aboard the G.F.S. Olympus, so she always had one to inject. On Phaaze its emergency vent emptied every tank she carried to slow her corruption. On Dark Aether the atmosphere itself drank five units a second until the Dark Suit slowed it to one and the Light Suit stopped it. The Energy Cells of the Phazon crisis are unrelated: they are power units for the derelict G.F.S. Valhalla, not suit energy. See Save, Recharge, Map and Navigation stations.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Energy_Tank",
+    "https://www.metroidwiki.org/wiki/Reserve_Tank",
+    "https://www.metroidwiki.org/wiki/Energy_Part",
+    "https://www.metroidwiki.org/wiki/Energy",
+    "https://www.metroidwiki.org/wiki/Dark_Suit",
+    "https://www.metroidwiki.org/wiki/Navigation_Booth",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "'Chozo-built' dropped (no source attributes the tank to the Chozo). 'Normally' added because Zero Mission's harder setting halves the gain. Olympus tank and 400-unit Reserve total from the fact-check of the Energy Tank and Reserve Tank pages. The draft's meta line about tanks never being required, the 'item pods' wording and the Bottle Ship Energy Part count were removed. Starting energy and per-mission tank counts omitted as unverified. Energy Parts in Samus Returns not confirmed by Metroid Wiki."
+  },
+  {
+   "comment": "Equipment: Vi-O-La Suit and Legacy Suit (Viewros)",
+   "keys": [
+    "Vi-O-La Suit",
+    "Vi-O-La IC Suit",
+    "IC Suit",
+    "Legacy Suit",
+    "Lamorn suit",
+    "Lamorn armor",
+    "Altar of Legacy",
+    "Memory Fruit",
+    "Green Energy Crystals"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "On Viewros Samus wore three suits fabricated from the technology of the Lamorn.\n\nLoss and recovery. Samus landed on Tanamaar in her Varia Suit to defend the artifact unearthed at the Federation research facility there. When Sylux damaged the artifact, it activated and hurled everyone nearby to the unknown planet Viewros, and soon afterward her suit's enhancements, the Varia among them, were stripped away. She rebuilt them across the planet and regained the Varia only at the very end.\n\nVi-O-La Suit. After Samus restored the first tower at Volt Forge, a Lamorn fabrication platform printed a riding suit that let her interface with the Vi-O-La, the Lamorn motorcycle she found in Fury Green and rode across Sol Valley.\n\nVi-O-La IC Suit. A second printed suit. It let Samus withstand extreme heat and switched the Vi-O-La into its IC mode over lava, which carried her across the lava sea of Flare Pool.\n\nLegacy Suit. The last of the three and the finest armor she wore on Viewros, a silver-and-black Lamorn design. It and the Memory Fruit, a store of Lamorn knowledge and history, were rewards from the Altar of Legacy in Fury Green, where she banked the Green Energy Crystals she smashed from the Sol Valley desert on the Vi-O-La; earlier rewards there strengthened her Psychic Beam and Control Beam, and the suit was the altar's final gift. The Legacy Suit lets her spend a store of her Missiles, thirty-five at a time, to raise a protective barrier around herself, and its visor senses nearby Green Energy Crystals (Metroid Prime 4: Beyond).\n\nAt the end of her mission Samus planted the Memory Fruit and used the psychic crystal to hasten its growth; whether she kept the Lamorn suits afterward is not recorded. See The Lamorn, Viewros, Vi-O-La and Sol Valley, Tanamaar and the UTO Research Center, and Sylux.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-to-all-of-samus-arans-upgrades-and-suits-1645383/",
+    "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-what-are-the-green-energy-crystals-for-and-how-to-upgrade-the-psychic-beam-1642693/",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+    "https://www.metroidwiki.org/wiki/Vi-O-La_Suit"
+   ],
+   "notes": "Removed the false claim that these were her only non-Chozo, non-Federation armor (the Luminoth Dark/Light Suits and the Space Pirate Hazard Shield also qualify). Legacy Suit color, 35-Missile barrier, crystal-sensing visor, Altar of Legacy in Fury Green, Sol Valley crystals smashed with the Vi-O-La, the Psychic/Control Beam rewards and the Memory Fruit as Lamorn knowledge all from the Gamereactor crystals guide. Vi-O-La found in Fury Green and the Memory Fruit planting from Wikipedia. Dropped as unsourced: Machine/Psychic Era origin, 'neural' motorcycle, Psychic Visor activation, barrier killing creatures, decay and Morph Ball collapse, suit and fruit arriving together. Thinly sourced overall; the game is recent and Metroid Wiki has no Legacy Suit page."
+  }
+ ]
+}
