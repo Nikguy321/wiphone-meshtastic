@@ -12,8 +12,10 @@ factions-recent-prime:
 federation: draft, verify, revise
 federation-force: draft, verify, revise
 fusion: draft, verify, revise
-gap2: draft
+gap1: draft
+gap2: draft, verify, revise
 gap3: draft
+gap4: draft
 hunters: draft, verify
 manga: draft, verify, revise
 metroids: draft, verify, revise
@@ -38,3 +40,4 @@ what-when:
 who-where: 
 x-parasite: draft, verify
 zebes: draft, verify, revise
+zebes-equipment: 

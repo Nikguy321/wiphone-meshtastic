@@ -1,0 +1,85 @@
+{
+ "domain": "gap2",
+ "category": "Prime 3",
+ "entries": [
+  {
+   "comment": "Prime 3: Berserker Lords and Berserker Knights",
+   "keys": [
+    "Berserker Lord",
+    "Berserker Lords",
+    "Berserker Knight",
+    "Berserker Knights",
+    "Docking Bay 5",
+    "Turbine Chamber"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Berserkers are the heavy troops the Space Pirates fielded during the Phazon crisis (Metroid Prime 3: Corruption), saturated with Phazon far beyond the regular ranks. Like the Elite Pirates of Project Helix before them, they are Pirates transformed by Phazon.\n\nBerserker Knights are the common grade. Samus's logbook called the Knight a shocking example of how far the Pirates will go for dominance: \"Heavily mutated by Phazon exposure,\" it is \"nearly mindless, driven by battle lust.\" Berserker Lords are Knights pushed further. Only the few Knights that survive the most extreme corruption are promoted to Lord, and the logbook judged Lords \"a desperate measure, designed to exploit Phazon as much as possible.\" A Lord is far more resistant to damage than a Knight, marked by ornate Phazite plating and the Phazon reserves it carries on its back.\n\nBoth grades fight with ground shock waves and Phazon projectiles, and both wear Phazite plating over the head that only the Berserker's own Phazon projectiles can break; ordinary fire cannot damage a Knight at all until that armor is gone. Samus had to shoot those projectiles back at their maker until the plating shattered and the head lay open. Before that, a Lord's shoulders were the only unprotected area vulnerable to standard weapons. There were two other answers: late in the crisis the Nova Beam, aimed through the X-Ray Visor, could strike through the plating directly, and a Ship Missile strike from her gunship could also bring a Knight down.\n\nEncounters:\n- A Berserker Lord in Docking Bay 5 of the G.F.S. Olympus, met during the Pirate boarding raid, delayed Samus's departure for Norion.\n- On Norion, Ghor made quick work of a Berserker Knight to clear the path to Generator C.\n- Samus first scanned a Knight in the Ancient Courtyard of Bryyo Thorn Jungle.\n- A second Lord held the Turbine Chamber of SkyTown on Elysia, where the first component of the Theronian Bomb lay.\n- Knights defended Pirate Command on the Pirate Homeworld.\n- On the Homeworld the corrupted Gandrayda took a Berserker Knight's form, using Phazon-charged versions of its attacks and inheriting its weaknesses.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Berserker_Lord",
+    "https://www.metroidwiki.org/wiki/Berserker_Knight",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://www.metroidwiki.org/wiki/Ghor",
+    "https://www.metroidwiki.org/wiki/Gandrayda",
+    "https://www.metroidwiki.org/wiki/Phazite",
+    "https://www.metroidwiki.org/wiki/Nova_Beam",
+    "https://www.metroidwiki.org/wiki/Project_Helix"
+   ],
+   "notes": "Finalized after fact-check. The Knight weakness line now follows the full logbook: the armor 'must be removed before unit can be damaged', and only its own Phazon projectiles destroy it. The vague 'Phazon-based attacks hurt Knights' is gone. 'Orbs' became 'Phazon projectiles' (Knight infobox: Phazon Projectiles; Lord logbook: 'projectiles it fires'). The Ship Missile alternative was added from the Metroid Wiki Knight body text and infobox. Nova Beam plus X-Ray Visor rests on the Lord page ('easily killed using the Nova Beam in conjunction with the X-Ray Visor'), the Knight page ('fire through its head') and the Nova Beam page (penetrates Phazite and needs the X-Ray Visor). The Project Helix sentence was softened to the fact-checker's wording, and the Omega Pirate was dropped. 'Heavily mutated by Phazon exposure' and 'nearly mindless, driven by battle lust' are verbatim from the Knight logbook. The bare keys 'Berserker' and 'Berserkers' were dropped as generic words."
+  },
+  {
+   "comment": "Prime 3: Korakk Beast and the Pirate Hussars",
+   "keys": [
+    "Korakk Beast",
+    "Korakk Beasts",
+    "Korakk",
+    "Korakks",
+    "Pirate Hussar",
+    "Pirate Hussars",
+    "Jousting Field",
+    "Phazon Energy Lance",
+    "Phazon Energy Lances"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Korakk is an armored beast that the Space Pirates prize as a cavalry mount. Its Phazite armor \"will repel most damage.\" Its belly is occasionally vulnerable but guarded from all sides; the inside of its mouth and the tip of its tongue hold sensitive nerve clusters whose injury can briefly incapacitate it; and a nerve ending in its tail can be strained by grappling, but only while the tail is extended. A Korakk emits Phazon energy through its feet and tongue.\n\nPirate Hussars are its riders, \"unusually brave for Space Pirates, willing to ride the deadly Korakk beast into combat.\" Each carries a Phazon Energy Lance, \"deadly at any range,\" that fires bolts of Phazon energy and swings like a sword; otherwise a Hussar is no hardier than an ordinary Pirate trooper. Hussar and mount share what the logbook calls \"a strange bond\": \"If a Hussar is slain, his Korakk will fight to avenge his death.\"\n\nDuring the Phazon crisis (Metroid Prime 3: Corruption), after Samus downed a pair of Aerotroopers in the Jousting Field of Bryyo Thorn Jungle, a Korakk charged in carrying the only Hussar she ever encountered. The beast stayed largely passive while its rider fought. When Samus killed the Hussar, the Korakk went berserk: it rammed her, hurled Phazon energy and seized her with its tongue until she wrenched free. Shots to the tongue as it lashed out stunned the beast, letting her roll beneath it in Morph Ball form and bomb its belly; after enough blasts it reared up and bared its underside to Ice Missiles and Hypermode fire, and she killed it.\n\nThe Korakk's death opened the way to the Leviathan Shield Generator in the Thorn Jungle, one of the two generators shielding Bryyo's Leviathan Seed. Its Phazite, a hardened form of Phazon, is the same armor worn by the Berserker Knights and Commando Pirates Samus fought elsewhere in the crisis.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Korakk_Beast",
+    "https://www.metroidwiki.org/wiki/Pirate_Hussar",
+    "https://www.metroidwiki.org/wiki/Bryyo_Thorn_Jungle",
+    "https://www.metroidwiki.org/wiki/Phazite",
+    "https://www.metroidwiki.org/wiki/Commando_Pirate"
+   ],
+   "notes": "Finalized after fact-check. This fills the 'Korakk Beast ... recorded separately' promise in Creatures: Fauna of Bryyo. 'A Korakk guards its rider with its life' was removed: it is an uncited Metroid Wiki gloss that clashes with the Korakk staying passive while its rider lives. The verbatim logbook avenge line was kept. The Aerotrooper opening was added from the Metroid Wiki battle section ('begins after Samus defeats a pair of Aerotroopers'; the Korakk 'comes charging in with a Pirate Hussar riding'), and that merge removed the redundant 'lone ... only one' phrasing. Space_Pirate_Data was removed from sources because it does not cover the subject. Commando Pirate Phazite armor was confirmed by the Commando Pirate logbook and added as a source. 'Phazite is a form of Phazon with a stronger composition' (Phazite page) supports 'a hardened form of Phazon'. The bare keys 'Hussar' and 'Hussars' were dropped as real-world words."
+  },
+  {
+   "comment": "Prime 3: Defense Drone (Elysian guardian of the Boost Ball)",
+   "keys": [
+    "Defense Drone",
+    "Defense Drones",
+    "Elysian Defense Drone",
+    "Defence Drone",
+    "Ballista Storage"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Defense Drone is an Elysian security machine, one of the Chozo-made mechanoids of SkyTown on Elysia. Its logbook states that it \"is used to secure key areas within SkyTown.\" Its armor is immune to small-arms fire. Three externally mounted antennae feed its optic array, and destroying all of them overloads the array and leaves the machine briefly vulnerable. Its Control Unit is also vulnerable but must be exposed before it can be targeted.\n\nDuring the Phazon crisis (Metroid Prime 3: Corruption) a Defense Drone guarded the Boost Ball in Ballista Storage. It showed no sign of Phazon corruption, yet it attacked Samus all the same. As she approached the Boost Ball, an ornate cage closed around her and lowered her into the chamber. The Drone fought with missiles, a large plasma ball, leaping shock waves and later homing bombs. Samus shot down its three antennae, working fast, because a downed antenna came back at full strength if she was slow to drop the next one. With the Drone stunned, she used the Grapple Lasso to pry open its head and expose the core, then struck it with Ice Missiles and Hypermode fire whenever its shielding slid back. The machine repeatedly resealed itself and raised its antennae again, and dense smoke filled the room as it neared destruction. Destroyed, it left the Boost Ball behind for Samus to claim.",
+   "constant": false,
+   "order": 100,
+   "category": "Prime 3",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Defense_Drone",
+    "https://www.metroidwiki.org/wiki/Elysia",
+    "https://www.metroidwiki.org/wiki/Elysian",
+    "https://www.metroidwiki.org/wiki/Boost_Ball"
+   ],
+   "notes": "Finalized after fact-check. The 'Space Pirates never reached the room' inference was cut: it is wiki speculation, and a Phazon-corrupted Steamlord later appears in the same room. The plain observation that the Drone 'shows no signs of Phazon Corruption' is stated as fact on the Metroid Wiki Defense Drone page, so it was kept without the inference. The 'three great guardians' closing line was cut because it duplicates Prime 3: Elysia and SkyTown and rests on a meta 'main bosses' label. The antenna wording was corrected to match the wiki: downed antennae retract and return at full health. The cage detail ('an ornate cage closes around her') and the closing 'leaving the Boost Ball behind' come from the Metroid Wiki Defense Drone page. The entry does not retell Boost Ball mechanics, which belong to Equipment: Boost Ball, Spider Ball and Spider Magnet. The keys were kept as drafted."
+  }
+ ]
+}
