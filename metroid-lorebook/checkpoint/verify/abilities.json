@@ -1,0 +1,418 @@
+{
+ "run": "wf_9122c4e6-699",
+ "label": "verify:abilities",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Equipment: Morph Ball and Spring Ball",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "called the Maru Mari, from the Japanese for \"roll up\"",
+      "problem": "Metroid Wiki derives the name from the verb marumaru, 'to roll into a ball', not 'roll up'.",
+      "correction": "...from the Japanese for 'to roll into a ball'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Morph_Ball"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"roll into a ball\", \"rolled into a ball\", \"ball form\"",
+      "problem": "These are everyday phrases ('the cat rolled into a ball') and will misfire in ordinary chat. 'Hyper Ball' is covered in the content but has no key.",
+      "correction": "Drop or narrow 'roll into a ball' and 'rolled into a ball'. Add 'Hyper Ball', 'Morph Balls' and 'Spring Balls'."
+     },
+     {
+      "severity": "missing",
+      "claim": "on the BSL station it returned on the Main Deck",
+      "problem": "Metroid Wiki says the BSL Morph Ball is recovered by defeating Arachnus-X. The drafter avoided naming the creature because the wiki is inconsistent, but the same page names Arachnus X as the source.",
+      "correction": "...on the Main Deck, after she destroyed the X mimicking Arachnus.",
+      "source_url": "https://www.metroidwiki.org/wiki/Morph_Ball"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Boost Ball, Spider Ball and Spider Magnet",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "She took it from Thardus at the Glacier One outpost in Phendrana Drifts",
+      "problem": "The fight and the pickup happen in the Quarantine Cave, a cavern outside Glacier One, not at the outpost. The Metroid Wiki infobox names Quarantine Cave.",
+      "correction": "She took it from Thardus in the Quarantine Cave near Glacier One, in Phendrana Drifts.",
+      "source_url": "https://www.metroidwiki.org/wiki/Spider_Ball"
+     },
+     {
+      "severity": "missing",
+      "claim": "needed it to free Aurora Unit 217",
+      "problem": "Metroid Wiki also says the Corruption Boost Ball is needed to defeat Ghor, which is a key use during the Phazon crisis.",
+      "correction": "Add: ...needed it to free Aurora Unit 217 and to bring down Ghor.",
+      "source_url": "https://www.metroidwiki.org/wiki/Boost_Ball"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"half-pipe\", \"half pipe\", \"magnetic surface\", \"magnetic surfaces\", \"sticky ball\"",
+      "problem": "'half-pipe' and 'magnetic surface(s)' are generic (skateboarding, physics) and will misfire in unrelated chat.",
+      "correction": "Drop 'half-pipe', 'half pipe' and 'magnetic surface(s)', or move them to secondary keys under AND logic with 'Boost Ball' or 'Spider Ball'."
+     },
+     {
+      "severity": "style",
+      "problem": "Roughly 460 words, above the 400-word guideline for a non-core subject. The Spider Magnet paragraph repeats behaviour details that could be cut."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Hi-Jump Boots, Space Jump and Wall Jump",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "the Etecoons and the Dachora of Brinstar perform the same move",
+      "problem": "The Dachora demonstrate the Shinespark, not the Wall Jump. Only the Etecoons teach the Wall Jump.",
+      "correction": "...the Etecoons of Brinstar perform the same move (the Dachora instead demonstrate the Shinespark).",
+      "source_url": "https://www.metroidwiki.org/wiki/Dachora"
+     },
+     {
+      "severity": "style",
+      "claim": "she has done it on every mission since the return to Zebes without any special gear, apart from the Prime-era suits",
+      "problem": "The chronology is muddled. The Prime-era missions take place before the return to Zebes, so they cannot be an exception to 'every mission since' it. Metroid II's retelling (Samus Returns) has no Wall Jump, which also sits awkwardly with 'every mission'.",
+      "correction": "She has kicked off walls on her own since the return to Zebes (on the Bottle Ship, the BSL station and ZDR). In the earlier Aether and Phazon-crisis missions she did it only through the Screw Attack, on Wall Jump Surfaces."
+     },
+     {
+      "severity": "unverified",
+      "claim": "Yakuza... whose own leaps resembled the ability",
+      "problem": "The Yakuza page only says it is spider-like, lives in the Reactor Silo and yields the Space Jump. Nothing supports the claim that its leaps resembled the ability.",
+      "correction": "Remove the clause.",
+      "source_url": "https://www.metroidwiki.org/wiki/Yakuza"
+     },
+     {
+      "severity": "missing",
+      "problem": "On ZDR Samus has no Hi-Jump Boots. Her mid-air second jump is the Spin Boost, from a Chozo Statue in Ghavoran, which came before the Space Jump in Ferenia. The drafter could not verify it, but a walkthrough confirms it.",
+      "correction": "Add: On ZDR the Spin Boost, found in Ghavoran, gave her a second jump in mid-air before she found the Space Jump in Ferenia.",
+      "source_url": "https://omegametroid.com/metroid-dread-walkthrough/the-forest-of-ghavoran/"
+     },
+     {
+      "severity": "missing",
+      "claim": "the Diggernaut ejected the Space Jump after she hid from it in a cave in Area 4",
+      "problem": "More precisely, the Diggernaut took the item from a damaged Chozo Statue and left it behind after Samus tricked it into believing she was dead.",
+      "correction": "...the Diggernaut, which had robbed a Chozo Statue of it, left the Space Jump behind once she tricked it into thinking she was dead in the Area 4 mines.",
+      "source_url": "https://omegametroid.com/metroid-samus-returns-walkthrough/area-4-crystal-caverns"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"High Jump\", \"double jump\", \"spin jump\", \"somersault\"",
+      "problem": "'High Jump' (an athletics event), 'double jump' (a generic gaming term) and 'somersault' are generic and will misfire. 'spin jump' also overlaps the Screw Attack entry.",
+      "correction": "Drop 'High Jump', 'double jump' and 'somersault'. Add 'Spin Boost' if Dread content is added."
+     },
+     {
+      "severity": "style",
+      "problem": "Roughly 490 words, well above the 400-word guideline. The Space Jump paragraph lists every acquisition and could be trimmed."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Screw Attack",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "On both Zebes missions it waited in Norfair beyond Ridley's lair",
+      "problem": "Metroid Wiki says that on the first mission it is obtained in Norfair after defeating Ridley. For the return to Zebes it says only 'the same Norfair location as Ridley's hideout'. In that mission the Screw Attack sits in Lower Norfair past the Golden Torizo, where she can take it before facing Ridley, so 'beyond Ridley's lair' is not supported for both.",
+      "correction": "On her first Zebes mission it waited in Norfair past Ridley's hideout; on the return to Zebes it lay deep in Lower Norfair.",
+      "source_url": "https://www.metroidwiki.org/wiki/Screw_Attack"
+     },
+     {
+      "severity": "nit",
+      "claim": "per the manual for the Aether mission she becomes \"a mobile ball of deadly energy\"",
+      "problem": "Metroid Wiki cites this line as Echoes inventory text, not manual text.",
+      "correction": "per her suit's data on Aether...",
+      "source_url": "https://www.metroidwiki.org/wiki/Screw_Attack"
+     },
+     {
+      "severity": "nit",
+      "claim": "Without the Gravity Suit the attack fails underwater... on Aether the Luminoth Gravity Boost stood in for it below the surface",
+      "problem": "In the Aether suit the Screw Attack cannot be used underwater at all, even with the Gravity Boost, because the Gravity Boost activates instead. The phrasing implies the Gravity Suit makes it work everywhere.",
+      "correction": "Generally it fails underwater unless she wears the Gravity Suit (the Bottle Ship suit excepted); on Aether, underwater, the Gravity Boost always takes its place.",
+      "source_url": "https://www.metroidwiki.org/wiki/Screw_Attack"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"spinning attack\"",
+      "problem": "Generic phrase.",
+      "correction": "Drop it, or keep it only as a secondary key."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Speed Booster and Shinespark",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Per the manual of her first Zebes mission she can \"dash at supersonic speeds and crash through certain barriers and enemies\"",
+      "problem": "Metroid Wiki attributes this exact quote to the Fusion (BSL) manual. The Zero Mission manual says only that Samus 'is able to dash at supersonic speeds', and the original NES Metroid has no Speed Booster.",
+      "correction": "Per the manual of the BSL mission she can 'dash at supersonic speeds and crash through certain barriers and enemies'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Speed_Booster"
+     },
+     {
+      "severity": "unverified",
+      "claim": "as through the spiral structure of the Biosphere",
+      "problem": "Metroid Wiki says only that Adam authorized it in Sector 2 (Cryosphere), where it opened a shortcut, and that she could turn while boosting. The Biosphere spiral example is not supported.",
+      "correction": "Replace with the Cryosphere shortcut, or remove.",
+      "source_url": "https://www.metroidwiki.org/wiki/Speed_Booster"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Dachora of Brinstar are credited with teaching her the Shinespark on the return to Zebes. This is useful roleplay colour and corrects the misplacement in the Wall Jump entry.",
+      "source_url": "https://www.metroidwiki.org/wiki/Shinespark"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"supersonic\"",
+      "problem": "A generic adjective that will misfire in ordinary chat (jets, aircraft and so on).",
+      "correction": "Drop it."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Flash Shift, Phantom Cloak and Slide (Dread-era movement)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "dropping it, or running the Aeion gauge dry, exposes her again",
+      "problem": "Per Nintendo's official Dread Report, once her Aeion is fully drained Samus can keep the Phantom Cloak running at the cost of her Energy. An empty gauge does not automatically expose her.",
+      "correction": "...if the Aeion gauge runs dry she can hold the cloak only by burning her own Energy.",
+      "source_url": "https://www.nintendo.com/en-gb/News/2021/June/Metroid-Dread-Report-Vol-2-Researching-the-E-M-M-I-1997672.html"
+     },
+     {
+      "severity": "error",
+      "claim": "every one of them can be fooled by the cloak while it holds",
+      "problem": "Overstated. The cloak defeats the E.M.M.I.'s optical sensor and silences her movement, but it does not stop capture if a unit collides with her.",
+      "correction": "...the cloak hides her from their optical sensors and silences her steps, though it cannot save her if one walks straight into her.",
+      "source_url": "https://metroid.fandom.com/wiki/Phantom_Cloak"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the Federation's brief on the planet sums up her repertoire as parkour over obstacles, sliding through tight spaces and countering enemies",
+      "problem": "The source is Nintendo's store marketing copy, not an in-universe Federation brief. Attributing it to the Federation invents a document.",
+      "correction": "Remove the attribution and state the abilities directly."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Phantom Cloak was stolen by Corpius, which used it itself (housed in its tail). Samus claimed it by defeating Corpius in Artaria. The drafter could not verify this, but several sources confirm it.",
+      "correction": "Add: She claimed the Phantom Cloak by defeating Corpius in Artaria, the creature that had taken it and used it against her.",
+      "source_url": "https://metroid.fandom.com/wiki/Phantom_Cloak"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Phantom Cloak also lets her pass doors that close when they detect humans (official Dread Report). It slows her to a walk, and moving drains Aeion faster.",
+      "source_url": "https://www.nintendo.com/en-gb/News/2021/June/Metroid-Dread-Report-Vol-2-Researching-the-E-M-M-I-1997672.html"
+     },
+     {
+      "severity": "missing",
+      "problem": "The summary list of ZDR mobility omits the Spin Boost (Ghavoran) and gives no location for the Pulse Radar (Ghavoran).",
+      "source_url": "https://omegametroid.com/metroid-dread-walkthrough/the-forest-of-ghavoran/"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"cloaking\", \"invisibility\", \"slide under\", \"slide through\", \"sliding under\"",
+      "problem": "All generic. 'cloaking' also collides with Shadow Pirates and the Chameleon Manta material elsewhere, and 'slide under' will fire on ordinary prose.",
+      "correction": "Drop them, or make them secondary keys gated on 'Flash Shift', 'Phantom Cloak' or 'E.M.M.I.'."
+     },
+     {
+      "severity": "style",
+      "problem": "The fourth paragraph (Aeion regeneration rules) duplicates the Aeion entry almost word for word. Cut it to one clause and let the Aeion entry carry the mechanics."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Aeion and the Aeion abilities",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Samus collected only three abilities, each held in a special cube",
+      "problem": "Metroid Wiki says 'special cubes', but other sources say the Phantom Cloak was taken from Corpius, which had stolen it and kept it in its tail, and that the Flash Shift came from a giant statue in Burenia. 'Each held in a special cube' does not hold for all three.",
+      "correction": "...three abilities: the Phantom Cloak, taken back from Corpius; the Flash Shift, from Burenia; and the Pulse Radar, from Ghavoran.",
+      "source_url": "https://www.nintendolife.com/guides/metroid-dread-flash-shift-location"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Dread description leaves out that the Phantom Cloak can keep running on Samus's own Energy once Aeion is exhausted. This is the most dramatic Aeion rule on ZDR.",
+      "source_url": "https://www.nintendo.com/en-gb/News/2021/June/Metroid-Dread-Report-Vol-2-Researching-the-E-M-M-I-1997672.html"
+     },
+     {
+      "severity": "keys",
+      "problem": "Missing obvious related keys.",
+      "correction": "Add 'Aeion Orb', 'Aeion Orbs', 'Aeion Recharge' and 'Aeion Tanks'."
+     },
+     {
+      "severity": "style",
+      "problem": "Roughly 420 words, slightly above the guideline. The Dread paragraph overlaps the Flash Shift/Phantom Cloak entry; keep the mechanics here and cut them there, or the reverse."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Combat Visor, Scan Visor and the helmet HUD",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Her Thermal, X-Ray, Dark, Echo and Command Visors are specialized systems she switches to as the situation demands and switches away from the moment she needs to fight",
+      "problem": "Contradicted by the visor pages. Several visors are combat tools. The Dark Visor is needed to target Ing, Dark Pirate Commandos and Flying Ing Caches. The Echo Visor tracks Dark Samus in battle. The X-Ray Visor tracks the Omega Pirate and Metroid Prime. The Thermal Visor targets Shadow Pirates and Thardus's weak points.",
+      "correction": "...specialized systems she switches to as the situation demands, several of them in the middle of a fight.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Visor"
+     },
+     {
+      "severity": "unverified",
+      "claim": "an area map joined it on every mission after her first two",
+      "problem": "No source supports this. It is also chronologically wrong: the Prime-era missions (set between her first and second missions) and the retold first mission all have maps.",
+      "correction": "Remove, or say that her later suits added an area map and selectors for secondary weapons."
+     },
+     {
+      "severity": "missing",
+      "problem": "On Viewros the Scan Visor was upgraded into the Psychic Visor, which reads Lamorn constructs and runs her psychic abilities. That is a major change to her visor system.",
+      "source_url": "https://metroid.fandom.com/wiki/Psychic_Visor"
+     },
+     {
+      "severity": "nit",
+      "claim": "On the Bottle Ship the equivalent Search View",
+      "problem": "Metroid Wiki's Combat Visor page uses 'Search View' for Other M's first-person Combat Visor view. The Scan Visor page describes the limited scanning without that name. The entry assigns the Bottle Ship first-person view to both visors.",
+      "source_url": "https://www.metroidwiki.org/wiki/Combat_Visor"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"visor\", \"visors\", \"helmet\", \"HUD\", \"scanning\", \"lock on\", \"lock-on\"",
+      "problem": "Very generic in a Samus roleplay. 'helmet' and 'visor' will fire in almost every scene (for example 'she removes her helmet'), and 'scanning' and 'lock on' are everyday words.",
+      "correction": "Keep 'Combat Visor', 'Scan Visor', 'Logbook', 'heads-up display' and 'targeting reticle'. Move 'visor', 'helmet' and 'scanning' to secondary keys or drop them."
+     },
+     {
+      "severity": "style",
+      "problem": "Roughly 430 words, slightly above the guideline."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Thermal, X-Ray, Dark, Echo and Command Visors",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Its ancestor is the X-Ray Scope she found in Brinstar on the return to Zebes",
+      "problem": "The chronology is backwards. The return to Zebes takes place after the Prime-era missions, so the X-Ray Scope cannot be the X-Ray Visor's ancestor. Metroid Wiki says only that it works similarly.",
+      "correction": "A similar device, the X-Ray Scope, served her later on the return to Zebes; it revealed hidden passages and breakable blocks but rooted her in place while in use.",
+      "source_url": "https://www.metroidwiki.org/wiki/X-Ray_Scope"
+     },
+     {
+      "severity": "nit",
+      "claim": "During the Phazon crisis she regained it on the Pirate Homeworld",
+      "problem": "Metroid Wiki says only that it is obtained on the Pirate Homeworld. She did not have it earlier in that mission, so 'regained' implies a loss that never happened.",
+      "correction": "...she obtained it again on the Pirate Homeworld.",
+      "source_url": "https://www.metroidwiki.org/wiki/X-Ray_Visor"
+     },
+     {
+      "severity": "nit",
+      "claim": "Found in a Space Pirate research lab in Phendrana Drifts",
+      "problem": "Metroid Wiki names the room as the Research Core.",
+      "correction": "Found in the Research Core, a Space Pirate lab in Phendrana Drifts.",
+      "source_url": "https://www.metroidwiki.org/wiki/Thermal_Visor"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"x-ray\", \"xray\", \"heat signature\", \"heat signatures\", \"sound waves\", \"thermal imaging\"",
+      "problem": "Generic terms ('x-ray' is a medical term; 'heat signature' and 'sound waves' are common prose) that will misfire.",
+      "correction": "Drop them, or gate them as secondary keys with 'visor'."
+     },
+     {
+      "severity": "style",
+      "problem": "Roughly 620 words, over even the 550-word allowance for a large subject. Trim the Thermal Visor limitation list and the X-Ray target list."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Psychic abilities and the Vi-O-La (Viewros)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "She rode it into battle against Sylux.",
+      "problem": "Wikipedia says only that in Fury Green she 'acquires a motorcycle called Vi-O-La and battles Sylux'. It does not say the fight was on the bike, and no other fetched source does either.",
+      "correction": "She acquired it around the time of her clash with Sylux in Fury Green.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "style",
+      "claim": "The official brief describes them as... / In the official description, \"A technologically advanced bike...\"",
+      "problem": "Out-of-universe citations of marketing copy inside the content. The content should state the facts in-world.",
+      "correction": "Rewrite as in-universe description, for example 'The Vi-O-La is an advanced bike she can summon to cross open ground or fight from the saddle.'"
+     },
+     {
+      "severity": "missing",
+      "problem": "The psychic crystal fused to Samus's helmet, and it turned her Scan Visor into the Psychic Visor. Named abilities include the Psychic Glove (telekinetic handling of Psychic Motes, which act as keys) and the Control Beam (steering her shots).",
+      "source_url": "https://www.gamespot.com/articles/metroid-prime-4-beyond-hands-on-samuss-psychic-abilities-are-more-than-a-gimmick/1100-6536193/"
+     },
+     {
+      "severity": "missing",
+      "problem": "The drafter left the Vi-O-La's builder unverified, but Shinesparkers says it was invented by the Lamorn. Its listed maneuvers are a Boost that smashes ore and scatters enemies, a Power Slide, and homing shots that can lock onto up to five targets.",
+      "source_url": "https://shinesparkers.net/features/the-vi-o-la-bike/"
+     },
+     {
+      "severity": "missing",
+      "problem": "Metroid Wiki lists a 'Vi-O-La suit' among the upgrades, and guides say Samus needed it before she could ride. The entry should reconcile the suit with the bike instead of dropping it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"motorcycle\", \"motorbike\", \"psychic power\", \"psychic powers\", \"psychic ability\"",
+      "problem": "Generic words that will fire in unrelated conversation.",
+      "correction": "Drop 'motorcycle', 'motorbike' and the bare 'psychic' phrases. Add 'Psychic Visor', 'Psychic Glove', 'Control Beam', 'Psychic Crystal' and 'Vi-O-La suit'."
+     }
+    ]
+   }
+  ],
+  "overall": "The draft follows Metroid Wiki closely, and most specific claims check out. These all verified: the Theronian Bomb, Glacier One, the possessed Pillbug as the Spider Guardian, E.M.M.I.-02SM/03MB/04SB, Jumpball, Omega Ridley dodging the Screw Attack, Samus self-activating the Space Jump on the Bottle Ship, Yakuza in the Reactor Silo, the Fusion Shinespark secret message, and the NES manual quotes.\n\nConfirmed errors to fix:\n1. Dachora listed as Wall Jump users; they teach the Shinespark.\n2. The 'supersonic speeds... crash through barriers' quote is from the Fusion manual, not the first-mission manual.\n3. Phantom Cloak: an empty Aeion gauge does not end the cloak; it then runs on Energy. The cloak also does not prevent capture on contact.\n4. The X-Ray Scope called the X-Ray Visor's 'ancestor', which is chronologically backwards.\n5. Specialized visors described as switched off 'the moment she needs to fight'.\n\nUnverified framing to soften:\n- Marketing blurbs presented as 'the Federation's brief' and 'the official brief'.\n- 'Beyond Ridley's lair' for the Super Metroid Screw Attack.\n- Riding the Vi-O-La against Sylux.\n- 'Each held in a special cube' for the Dread Aeion abilities.\n\nSeveral items the drafter could not verify are confirmed elsewhere and should be added:\n- Corpius held the Phantom Cloak, and Samus claimed it by defeating Corpius in Artaria.\n- The Flash Shift comes from Burenia and the Pulse Radar from Ghavoran.\n- Dread's Spin Boost comes from Ghavoran.\n- Prime 4's psychic crystal fuses to her helmet, creating the Psychic Visor; named abilities include the Psychic Glove and Control Beam.\n- The Vi-O-La was invented by the Lamorn.\n\nKey hygiene is the biggest systemic problem. Many keys are everyday words that will misfire: helmet, visor, scanning, lock on, x-ray, heat signature, sound waves, motorcycle, motorbike, supersonic, half-pipe, cloaking, invisibility, slide under, roll into a ball, High Jump, double jump, somersault.\n\nLength: the multi-visor entry (about 620 words) is over the 550 allowance. The jump entry (about 490) and the Boost/Spider entry (about 460) are over 400. The Dread movement and Aeion entries duplicate the Aeion regeneration rules.\n\nPrime 4 coverage is thin because Metroid Wiki is sparse. Fandom and press snippets (GameSpot, Shinesparkers) supply the named psychic abilities. The Gamereactor upgrade list looks unreliable (it names a Psychic Lasso, Psychic Boots and Psychic Grapple) and should not be used.",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Morph_Ball",
+   "https://www.metroidwiki.org/wiki/Spring_Ball",
+   "https://www.metroidwiki.org/wiki/E.M.M.I.",
+   "https://www.metroidwiki.org/wiki/Boost_Ball",
+   "https://www.metroidwiki.org/wiki/Spider_Ball",
+   "https://www.metroidwiki.org/wiki/Spider_Magnet",
+   "https://www.metroidwiki.org/wiki/Space_Jump",
+   "https://www.metroidwiki.org/wiki/Screw_Attack",
+   "https://www.metroidwiki.org/wiki/Wall_Jump",
+   "https://www.metroidwiki.org/wiki/Yakuza",
+   "https://www.metroidwiki.org/wiki/Speed_Booster",
+   "https://www.metroidwiki.org/wiki/Shinespark",
+   "https://www.metroidwiki.org/wiki/Hi-Jump_Boots",
+   "https://www.metroidwiki.org/wiki/Dachora",
+   "https://www.metroidwiki.org/wiki/Aeion",
+   "https://www.metroidwiki.org/wiki/Lamorn",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Command_Visor",
+   "https://www.metroidwiki.org/wiki/Dark_Visor",
+   "https://www.metroidwiki.org/wiki/Echo_Visor",
+   "https://www.metroidwiki.org/wiki/X-Ray_Visor",
+   "https://www.metroidwiki.org/wiki/Thermal_Visor",
+   "https://www.metroidwiki.org/wiki/X-Ray_Scope",
+   "https://www.metroidwiki.org/wiki/Combat_Visor",
+   "https://www.metroidwiki.org/wiki/Logbook",
+   "https://www.metroidwiki.org/wiki/Visor",
+   "https://www.metroidwiki.org/wiki/Scan_Visor",
+   "https://www.metroidwiki.org/wiki/Space_Jump_Boots",
+   "https://www.metroidwiki.org/wiki/Artaria",
+   "https://www.metroidwiki.org/wiki/ZDR",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.nintendo.com/en-gb/News/2021/June/Metroid-Dread-Report-Vol-2-Researching-the-E-M-M-I-1997672.html",
+   "https://www.nintendolife.com/guides/metroid-dread-flash-shift-location",
+   "https://shinesparkers.net/features/the-vi-o-la-bike/",
+   "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-to-all-of-samus-arans-upgrades-and-suits-1645383/",
+   "https://metroiddatabase.com/old_site/m1/manual.php",
+   "https://metroid.fandom.com/wiki/Phantom_Cloak (search snippet only)",
+   "https://metroid.fandom.com/wiki/Psychic_Visor (search snippet only)",
+   "https://www.gamespot.com/articles/metroid-prime-4-beyond-hands-on-samuss-psychic-abilities-are-more-than-a-gimmick/1100-6536193/ (search snippet)",
+   "https://omegametroid.com/metroid-dread-walkthrough/the-forest-of-ghavoran/ (search snippet)",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/area-4-crystal-caverns (search snippet)",
+   "https://metroid.fandom.com/wiki/Quarantine_Cave (search snippet)"
+  ]
+ }
+}

@@ -1,0 +1,152 @@
+{
+ "domain": "sr388",
+ "category": "SR388",
+ "entries": [
+  {
+   "comment": "SR388: SR388 (planet overview)",
+   "keys": ["SR388", "SR-388", "SR 388", "planet SR388", "Metroid homeworld", "Metroid home world", "Metroid home planet", "homeworld of the Metroids", "Metroid planet"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "SR388 is a rocky frontier world in an unidentified star system near FS-176. It is the homeworld of the Metroids and of the X Parasites, and the site of a lost Chozo colony. Its surface is a stormy waste of rock under dark green cloud and lightning; the living planet lies beneath. Per the original manual, the underworld is \"a complicated structure of multi-layered domes and spaces,\" some holding ruins of an unknown civilization and many native life forms, with a dangerous liquid filling the tunnels between areas. The depths descend through flooded grottos, crystal caverns, superheated chambers and Chozo mining tunnels to the Metroid nest at the bottom, and corrosive purple liquid seals the lower passages until the Chozo Seals drain it. The planet emits Aeion, an energy the Chozo first extracted from its creatures and learned to harness. Chozo ruins and laboratories lie deep underground, still patrolled by the machines the colonists left behind.\n\nLong ago the Chozo colonized SR388. Its colonists, scientists of the Thoha tribe, found the X Parasites there, organisms that killed and copied the planet's creatures like a plague, and engineered the Metroids to hunt them. The Metroids nearly wiped out the X, then grew out of control and rose to the top of SR388's food chain. The Thoha and the warrior Mawkin tribe of Raven Beak joined forces to contain them on the planet. When the Thoha resolved to destroy SR388 to be rid of the Metroids, Raven Beak, who coveted them as weapons, massacred the Thoha and spared only the scientist Quiet Robe, intending to return once the Metroids had finished off the X. The colony was left in ruins, its story preserved in the Chozo Memories. Samus learned the tribes' names and the massacre only on ZDR, from Quiet Robe.\n\nIn cosmic year 20X5 a Galactic Federation deep-space research ship found a Metroid on SR388 and sealed a specimen in a stasis capsule; Space Pirates seized it in transit, which drew Samus Aran to Zebes. When the Federation's later expeditions to SR388 vanished, it ordered the species exterminated and gave the task to Samus. She hunted the Metroids through the caverns, killed the Queen Metroid, spared the newborn hatchling that took her for its mother, and fought off Proteus Ridley at her Gunship before leaving with it. Hornoads and Arachnus are among the native life (see Fauna of SR388).\n\nWith the Metroids gone, the X recovered; per the Fusion manual, they overran and infected most of the life-forms on the planet. Years later Samus returned as bodyguard to a Biologic Space Laboratories research team, and on the planet an X Parasite mimicking a Hornoad infected her. To end the X, she later altered the orbit of the BSL station, on the Adam AI's plan, so that it struck SR388, and the impact destroyed the planet (see The destruction of the BSL and SR388; Metroid Fusion). SR388 is the world where Samus spared the last Metroid, and the world she destroyed.",
+   "constant": false,
+   "order": 100,
+   "category": "SR388",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/SR388",
+    "https://www.metroidwiki.org/wiki/Aeion",
+    "https://www.metroidwiki.org/wiki/Raven_Beak",
+    "https://www.metroidwiki.org/wiki/Quiet_Robe",
+    "https://www.metroidwiki.org/wiki/X_Parasite",
+    "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Metroid_Dread",
+    "https://en.wikipedia.org/wiki/Metroid_Dread",
+    "https://metroiddatabase.com/old_site/m2/manual.php",
+    "https://metroiddatabase.com/old_site/m1/manual.php",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/return-to-sr388"
+   ],
+   "notes": "Aeion now described as emitted by the planet and first extracted from its creatures (Metroid Wiki), not rock. Mawkin no longer framed as co-colonists; they joined the Thoha to contain the Metroids (Metroid Wiki Raven Beak; Wikipedia). Massacre location not asserted. Added the X overrunning SR388 after the extermination (Fusion manual via Metroid Wiki) and the Hornoad-mimic infection. Unverified Fusion narration quote dropped; Gullug/Glow Fly spellings dropped (bestiary uses Gullugg). Cross-references trimmed."
+  },
+  {
+   "comment": "SR388: The Federation's lost expeditions to SR388 and the extermination order",
+   "keys": ["special squadron", "elite squadron", "extermination order", "order to exterminate", "Federation Police", "special combat group", "search and rescue party", "rescue party", "research ship", "lost expeditions"],
+   "secondary_keys": ["SR388", "SR-388", "SR 388", "Metroid", "Metroids", "extermination", "exterminate"],
+   "selective_logic": "AND_ANY",
+   "content": "After Samus Aran destroyed Mother Brain on Zebes, the Galactic Federation weighed how terrible and destructive the Metroid life form was, a creature that multiplied on mere exposure to beta rays, and sent another research ship to SR388 to make sure no Metroids were left on the planet. Per the original manual, an emergency notice soon came from the research base: contact had been lost and the research ship was missing. The base had already sent a search and rescue party, but after its initial contact the rescue ship was never heard from again. A special combat group of armed soldiers from the Federation Police was dispatched at once; it transmitted its primary landing data and then fell silent as well. Rumors spread fast, and the galaxy was again seized with fear of Metroids. Convinced that at least one Metroid survived deep underground, and that even one living Metroid could easily wipe out an entire planetary civilization, the Federation called its members to an urgent conference, which unanimously agreed to give Samus Aran the order to exterminate the Metroids.\n\nThe later account (Metroid: Samus Returns) condenses this: the Federation sent a special squadron of elite soldiers to investigate SR388, the squadron went missing, and after retrieving a small sampling of data confirming a Metroid presence within the planet, the Federation commissioned Samus to wipe out the species. A dead Federation soldier lay near a door by her landing site. The Space Pirates' interest in SR388 never lapsed: Proteus Ridley came to the planet to take the hatchling from Samus as she left.\n\nThe order was extermination, not capture. Samus carried it out through the last adult and the Queen Metroid, then set it aside for the newborn hatchling, which she delivered to the Galactic Research Station at Ceres so that Federation scientists could study its energy-producing qualities. Ridley later raided Ceres and stole it, and the grown hatchling died on Zebes saving Samus's life; the Federation had preserved a cell culture from it, which became the vaccine that saved her from the X Parasites. The Federation also reproduced SR388's environment in Sector 1 (SRX) of the BSL station to study the planet's creatures, while secretly breeding Metroids in a restricted laboratory on the same station (see Metroid policy and secret programs; Restricted Laboratory).",
+   "constant": false,
+   "order": 100,
+   "category": "SR388",
+   "sources": [
+    "https://metroiddatabase.com/old_site/m2/manual.php",
+    "https://metroiddatabase.com/old_site/m1/manual.php",
+    "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns",
+    "https://en.wikipedia.org/wiki/Metroid_II:_Return_of_Samus",
+    "https://www.nintendo.co.jp/3ds/a9aj/introduction/index.html",
+    "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+    "https://www.metroidwiki.org/wiki/Ridley",
+    "https://www.metroidwiki.org/wiki/Sector_1_(SRX)",
+    "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/return-to-sr388"
+   ],
+   "notes": "Manual passage re-read sentence by sentence: 'another research ship' (not 'second'); the emergency notice came from the research base; the Metroid threat is potential ('could easily wipe out'), not demonstrated. 'Special Squadron' lowercased and attributed to Wikipedia's plot ('a special squadron of elite soldiers'; 'a small sampling of data confirming a Metroid presence'). Sector 1 (SRX) separated from the Restricted Laboratory breeding program. Added the Ceres theft and the hatchling's death before the vaccine. Removed meta 'which this lorebook prefers'. Made selective: generic expedition phrases now need an SR388/Metroid/extermination word."
+  },
+  {
+   "comment": "SR388: The Metroid extermination mission on SR388 (Samus Returns)",
+   "keys": ["extermination mission", "Metroid extermination", "exterminate the Metroids", "exterminating the Metroids", "Metroid hunt", "hunting Metroids", "Samus Returns", "Return of Samus", "Metroid II", "Metroid 2", "mission on SR388", "SR388 mission"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Samus Aran's contract on SR388 was the extermination of the Metroid species at its source. This account follows the later retelling (Metroid: Samus Returns) where it differs from the original.\n\nSamus set her Gunship down on the stormy surface near a dead Federation soldier and descended alone. Forty Metroids awaited her (thirty-nine in the original account), spread from the Surface through eight underground areas. Corrosive purple liquid barred the way from each area to the next. In every area but the nest the Chozo had left a Chozo Seal, a golden disc bearing a Metroid insignia and ringed with orbs that lit to show how many Metroids remained there. Each kill yielded Metroid DNA, and offering it at the seal drained the liquid and opened the way deeper; in the original account, killing every Metroid in an area set off an earthquake that lowered the liquid instead. The prey grew as she went: most of the population had molted into Alpha, Gamma, Zeta and Omega forms, each larger and more dangerous than the last. Wounded Gammas fled to other chambers to be hunted down, and shed husks marked where Metroids had molted (see Metroid life cycle).\n\nChozo Statues in the ruins supplied her arsenal piece by piece, Super Missiles among them, and Aeion Ability Artifacts granted the Scan Pulse, Lightning Armor, Beam Burst and Phase Drift, drawing on the planet's Aeion. She recovered the Chozo Memories, the pictorial record of the colony's history, and in the mining tunnels reawakened the Diggernaut, a Chozo excavation machine she later had to destroy. The three Omega Metroids of the Chozo Laboratory were the last adults before the nest.\n\nIn the nest, ten newly hatched larval Metroids swarmed the passages; Samus froze them with the Ice Beam and shattered them with Super Missiles. Her forty counted the Queen but not these. In the Queen Metroid's chamber she stunned the Queen with shots into her open mouth, countered her lunges with the Melee Counter, dragged her head down with the Grapple Beam, rolled into her mouth to lay Bombs at her core, and finished her with one last Power Bomb.\n\nOn her way back, an egg she had passed hatched before her, and the newborn took her for its mother. Samus lowered her Arm Cannon and held out her hand, and the hatchling bonded to her, eating the crystals that barred the way as they climbed to the surface.\n\nAt the Gunship, Proteus Ridley ambushed them and seized the hatchling. Samus destroyed one of his wings and forced him into a crash landing, and after a long battle, in which the hatchling drained Ridley's energy to save her, she defeated him and left SR388 with the last Metroid; Ridley survived to strike again at Ceres (see Proteus Ridley). Her mission directives called for the hatchling's death; she took it instead to the Galactic Research Station at Ceres for study (see baby Metroid). Behind her, a Hornoad gnawing on Ridley's discarded mechanical claw was killed and copied by an X Parasite, the first sign that the Metroids' old prey had returned. Samus later said, \"I owe the Metroid hatchling my life twice over.\"",
+   "constant": false,
+   "order": 100,
+   "category": "SR388",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+    "https://www.metroidwiki.org/wiki/Metroid_II:_Return_of_Samus",
+    "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns",
+    "https://en.wikipedia.org/wiki/Metroid_II:_Return_of_Samus",
+    "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+    "https://www.metroidwiki.org/wiki/Queen_Metroid",
+    "https://www.metroidwiki.org/wiki/Ridley",
+    "https://www.metroidwiki.org/wiki/Aeion",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/return-to-sr388",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-4-crystal-caverns",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-8-the-nest",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/the-last-metroid",
+    "https://metroid.fandom.com/wiki/Chozo_Seal (search snippet only)"
+   ],
+   "notes": "Ridley no longer 'beaten for good' (he survives to raid Ceres); wing 'destroyed' per Metroid Wiki rather than torn off. Seal color and Arm Cannon conduit removed (seal: golden disc, Metroid insignia, orbs that light, per walkthrough). Gamma 'sacs' removed. Added the ten nest larvae (walkthrough counter 1 to 11; Metroid Wiki's 50 = 40 + 10) and Super Missiles. Hand gesture kept: walkthrough confirms Samus lowers her weapon and extends her hand. Melee Counter capitalized; HUD 'tally' language removed; cross-references trimmed; dropped keys 'last Metroid' (belongs to the Metroids domain) and 'purple liquid' (moved to Areas)."
+  },
+  {
+   "comment": "SR388: Diggernaut",
+   "keys": ["Diggernaut", "Diggernauts", "Chozo mining robot", "Chozo mining machine", "Chozo excavation machine", "Chozo drill robot", "Chozo digging machine"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Diggernaut is a colossal Chozo excavation machine that the colonists of SR388 left derelict in the planet's mining tunnels: a hulking body with a single red eye and two enormous drill arms. It is the most dangerous survivor of the colony's machine works. It belongs to the later retelling of Samus Aran's Metroid extermination mission (Metroid: Samus Returns); the original account does not mention it.\n\nSamus woke it herself. In the mining complex of Area 3, soon after acquiring the Grapple Beam, she found it deactivated and blocking her path under fallen rock; pulling the rubble away brought it to life, and it withdrew into the depths. In Area 4 she found a mutilated Chozo Statue with empty hands, then dropped into a cave where the Diggernaut was tunneling. It came after her along its mining route, its drills fatal at a touch, until she pressed into an alcove and it passed; as it wandered away it ejected the component it had torn from the statue, the Space Jump. In Area 6, in an orange cavern lined with the skeletons of giants, a second Chozo Statue was revealed and the machine destroyed it at once, carrying off the Power Bomb it held.\n\nOnce Samus had cleared Area 6 of Metroids, she faced it in a great chamber there. It emerged from the rock and attacked with sweeping drills, a rotating eye laser that later split into three beams, ceiling smashes that rained purple acid, a lock-on missile, a suction vortex that dragged her toward it, triple ground slams with shockwaves and an eight-beam laser pattern. The vortex was also its weakness: it swallowed the Bombs she laid and was stunned. She bombed the exposed slots in its drill arms, and at the end clung to its faceplate with the Spider Ball and bombed the three pink nodes beneath; a last shot to the face brought it down. She recovered the Power Bomb from the wreck and used one to blast the carcass apart, clearing the way onward to Area 7.\n\nIt is the one Chozo machine on SR388 that stole from Samus: twice it destroyed a Chozo Statue before she could claim what it held (see The Chozo laboratories of SR388).",
+   "constant": false,
+   "order": 100,
+   "category": "SR388",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-3-aeion-mines",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-4-crystal-caverns",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-6-diggernauts-domain"
+   ],
+   "notes": "Metroid Wiki has no Diggernaut page; encounter details from Metroid Wiki's Samus Returns page plus a fan walkthrough. Removed the unattested alias 'Chozo Robot' and the superlative 'deadliest non-Metroid' (Proteus Ridley is also fought on SR388). Vortex no longer called fatal. Blasting the carcass with a Power Bomb confirmed by the walkthrough (offset 100000), as is the route right to the Area 7 elevator. Generic machine keys replaced with Chozo-prefixed ones."
+  },
+  {
+   "comment": "SR388: The Chozo laboratories of SR388",
+   "keys": ["Chozo Laboratory", "Chozo Laboratories", "Chozo Seal", "Chozo Seals", "Thoha colony", "Thoha research colony", "Chozo colony on SR388", "Chozo settlement on SR388", "SR388 ruins", "ruins of SR388", "Aeion Ability Artifact", "Aeion Ability Artifacts"],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Chozo who colonized SR388, scientists of the Thoha tribe, built downward. Their works riddle the planet from just beneath the surface to the Metroid nest, and when Samus Aran came to exterminate the Metroids she found them abandoned but still running.\n\nArea 1 holds a Chozo settlement close to the surface, temple-like halls among water and plants. Area 2's flooded caverns contain Chozo ruins and heavy machinery; atop its largest installation a Chozo Statue cradles not an item but Arachnus, curled in an orb. Area 3 is a sprawling mining complex of Chozo robotics and digging equipment, where the Diggernaut lay buried. Area 7 is the Chozo Laboratory proper: dark vertical shafts, chambers of vats filled with green ooze beneath Metroid imagery, and a great planetarium dome, where three Omega Metroids laired. The vats and imagery suggest that this is where the Thoha made the Metroids that hunted the X Parasites.\n\nAutomated defenses still guard these places: Autracks, neck-extending turrets that fire laser shots; Wallfires, wall-mounted sentries that spit fireballs; hopping Autoads; and Gunzoos patrolling the shafts (see Fauna of SR388). Chozo Statues hold components of the Power Suit, and Samus took most of her arsenal from them, from the Bombs, Ice Beam and Spider Ball of Area 1 to the Plasma Beam, Gravity Suit and Screw Attack of Area 5; the Spring Ball she won from Arachnus, and the Space Jump and Power Bomb she had to wrest from the Diggernaut. Aeion Ability Artifacts conferred the Scan Pulse, Lightning Armor, Beam Burst and Phase Drift, all powered by Aeion, which SR388 emits and which the Chozo first extracted from the planet's creatures.\n\nThe Chozo Seals are the colony's locks. Each is a golden disc bearing a Metroid insignia, ringed with orbs that light to count the Metroids remaining in its area. A seal accepts Metroid DNA and drains the corrosive purple liquid flooding the way downward, so the colony's depths open only as its Metroids die. The Chozo Memories, the colony's pictorial record of its founding, its Aeion extraction, the X, the Metroids and a final confrontation between two Chozo leaders, are scattered through these ruins.\n\nSamus was raised by the Chozo of Zebes and armed herself on SR388 from the statues of their kin. Only on ZDR, from Quiet Robe, did she learn that this colony had been Thoha and that Raven Beak had slaughtered it.",
+   "constant": false,
+   "order": 100,
+   "category": "SR388",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Aeion",
+    "https://www.metroidwiki.org/wiki/Autrack",
+    "https://www.metroidwiki.org/wiki/Wallfire",
+    "https://www.metroidwiki.org/wiki/Arachnus",
+    "https://www.metroidwiki.org/wiki/Raven_Beak",
+    "https://www.metroidwiki.org/wiki/Quiet_Robe",
+    "https://en.wikipedia.org/wiki/Metroid_Dread",
+    "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/return-to-sr388",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-1-ancient-chozo-ruins",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-2-hydroelectric-station",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-3-aeion-mines",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-5-flooded-greenhouse",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-7-chozo-laboratory",
+    "https://metroid.fandom.com/wiki/Chozo_Seal (search snippet only)"
+   ],
+   "notes": "Autracks fire single laser shots (Metroid Wiki), Wallfires fireballs; Gunzoo 'overhead tracks' and Autoad specifics removed. Arachnus 'kept as a guardian' replaced with the observable orb. Metroid creation in Area 7 now framed as suggested by the vats and imagery, not stated. Seal icon count and purple color removed. Spring Ball attributed to Arachnus; 'every weapon' softened to 'most'. Teleport stations and station mechanics removed. Bullets converted to prose and trimmed; 'Chozo lab(s)' keys dropped to reduce misfires on other Chozo sites."
+  },
+  {
+   "comment": "SR388: Areas of SR388",
+   "keys": ["Area 1", "Area 2", "Area 3", "Area 4", "Area 5", "Area 6", "Area 7", "Area 8", "Nest Chamber", "caverns of SR388", "SR388 caverns", "purple liquid"],
+   "secondary_keys": ["SR388", "SR-388", "Metroid", "Metroids", "Chozo", "Samus Returns", "Diggernaut", "nest"],
+   "selective_logic": "AND_ANY",
+   "content": "SR388's underworld is a descent through layered caverns, each area cut off from the next by corrosive purple liquid until its Chozo Seal receives enough Metroid DNA to drain it. Elevators join the areas, and teleporters let Samus return to any she has opened. This is the layout of the later retelling (Metroid: Samus Returns); in the original account the same descent opened through earthquakes as each area's Metroids died.\n\n- Surface: Samus's landing site, a stormy waste of ledges and ruined passages where a dead Federation soldier lies near a door. One Alpha Metroid.\n- Area 1: acid caverns giving way to a lush cave of water, waterfalls and plants around a Chozo settlement. Four Alpha Metroids.\n- Area 2: watery caverns and Chozo ruins around a great machine installation, with a superheated zone and the lair of Arachnus. Eight Metroids, among them the first Gamma.\n- Area 3: one of the largest areas, a maze of Chozo robotics and mining equipment where the Diggernaut lay buried. Ten Metroids, Alphas and Gammas.\n- Area 4: crystal caverns lit by a crystalline glow, with a water pool, a superheated zone and the Diggernaut's tunnels. Four Metroids, including the first Zeta.\n- Area 5: another of the largest areas, mostly water with fully submerged stretches, jungle growth and superheated zones. Seven Metroids.\n- Area 6: purple acid caverns and orange-lit chambers lined with the skeletons of giants, with two seals; the first flooded the lower half as it opened a new path. A Zeta and an Omega Metroid, and the Diggernaut's final chamber.\n- Area 7: the Chozo Laboratory, dark shafts and vat-filled chambers beneath a planetarium. Three Omega Metroids.\n- Area 8: the Metroid nest, the only area without a seal. Passages wind through red weeds, crystals no weapon could break and pools of glowing liquid to the Nest Chamber, a vast tiered cavern above lakes of the same liquid. Ten newly hatched larval Metroids guard it, and beyond lies the Queen Metroid's chamber, strewn with hatched eggs.\n\nSamus cleared every area of Metroids, forty with the Queen. Years later, escorting a BSL research team, she was infected by an X Parasite on SR388, and the caverns perished with the planet when the BSL station struck it (see The destruction of the BSL and SR388).",
+   "constant": false,
+   "order": 100,
+   "category": "SR388",
+   "sources": [
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/return-to-sr388",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-1-ancient-chozo-ruins",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-2-hydroelectric-station",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-3-aeion-mines",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-4-crystal-caverns",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-5-flooded-greenhouse",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-6-diggernauts-domain",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-7-chozo-laboratory",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/area-8-the-nest",
+    "https://metroid.fandom.com/wiki/Chozo_Seal (search snippet only)",
+    "https://metroiddatabase.com/old_site/m2/manual.php",
+    "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+    "https://en.wikipedia.org/wiki/Metroid_II:_Return_of_Samus"
+   ],
+   "notes": "Selective entry: bare 'Area N' keys fire only alongside an SR388/Metroid/Chozo context word. Area 6 now holds a Zeta and an Omega with two seals; its reflooding is attested by a Wikitroid snippet surfaced via WebSearch. Area 3 'mostly Gammas' softened; 'sunlit', 'sandy', elevator proximity, the climbing elevator and Area 5's 'last Alpha' removed. Per-area counts (1/4/8/10/4/7/2/3 + Queen = 40) and the ten nest larvae added from the walkthrough. Fusion title dropped. Area descriptions rely on the fan walkthrough because Metroid Wiki has no area pages; unofficial walkthrough area titles are not used."
+  }
+ ]
+}
