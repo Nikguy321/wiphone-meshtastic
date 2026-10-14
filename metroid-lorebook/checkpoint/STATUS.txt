@@ -14,7 +14,7 @@ manga: draft, verify
 metroids: draft, verify, revise
 phazon: draft, verify, revise
 prime1: draft, verify, revise
-prime3: draft, verify
+prime3: draft, verify, revise
 prime4: draft, verify, revise
 ridley: draft, verify, revise
 samus-bio: draft, verify, revise
