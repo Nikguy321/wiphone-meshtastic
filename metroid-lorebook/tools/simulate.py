@@ -15,6 +15,16 @@ samples = [
   "I saw a Zoomer and a couple of Geemers in the cave. Also a Sheegoth.",
   "Phazon corrupted you during the fight with Dark Samus on Phaaze, didn't it?",
   "Just a normal evening. We talk about the weather, dinner, and my job at the station.",
+  "Do you ever think about Adam? I heard he died saving you.",
+  "What happened to the Luminoth after you saved Aether? Did U-Mos survive?",
+  "Tell me about the Thoha and the Mawkin. Was Quiet Robe the last of them?",
+  "I keep hearing marines talk about your reputation. Are you really a living legend?",
+  "How does the Screw Attack compare to the Shinespark and the Speed Booster?",
+  "Mother Brain built the Zebesians? Or did the Pirates come later?",
+  "Let's get dinner and watch a movie tonight, I'm tired after work.",
+  "Is Kraid really that big? What about Phantoon and the Wrecked Ship?",
+  "What did Gray Voice and Old Bird teach you when you were a kid?",
+  "Are you human? I mean, with all the Chozo and Metroid DNA.",
 ]
 def fires(ent, text):
     def hit(k):
@@ -28,11 +38,14 @@ def fires(ent, text):
         ok = {0: bool(s), 3: len(s) == len(sec), 1: len(s) != len(sec), 2: not s}[logic]
         if not ok: return []
     return prim
+tot = []
 for text in samples:
     print("\n>>", text)
-    n = 0
+    n = 0; words = 0
     for ent in book:
         f = fires(ent, text)
         if f:
-            n += 1; print(f"   - {ent['comment']}  <- {f}")
-    print(f"   ({n} entries)")
+            n += 1; words += len(ent["content"].split()); print(f"   - {ent['comment']}  <- {f}")
+    tot.append(words)
+    print(f"   ({n} entries, ~{int(words*1.35)} tokens before budget cap)")
+print(f"\nAverage ~{int(sum(tot)/len(tot)*1.35)} tokens per message, max ~{int(max(tot)*1.35)} (before recursion and the World Info budget cap)")

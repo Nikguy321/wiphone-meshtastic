@@ -12,7 +12,7 @@ TEMPLATE = {
     "key": [], "keysecondary": [], "comment": "", "content": "",
     "constant": False, "vectorized": False, "selective": True, "selectiveLogic": 0,
     "addMemo": True, "order": 100, "position": 0, "disable": False, "ignoreBudget": False,
-    "excludeRecursion": False, "preventRecursion": False,
+    "excludeRecursion": False, "preventRecursion": True,
     "matchPersonaDescription": False, "matchCharacterDescription": False,
     "matchCharacterPersonality": False, "matchCharacterDepthPrompt": False,
     "matchScenario": False, "matchCreatorNotes": False,

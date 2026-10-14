@@ -1,0 +1,114 @@
+{
+ "domain": "gap3",
+ "category": "Creatures",
+ "entries": [
+  {
+   "comment": "Creatures: Arachnus",
+   "keys": [
+    "Arachnus",
+    "Arachnuses",
+    "Marukara"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Arachnus (Marukara in Japanese records) is an armadillo-like native of SR388, rarely encountered among the planet's creatures. Per the manuals, it rolls its body up like an armadillo and rushes its prey.\n\nDuring the Metroid extermination mission Samus found one in the Chozo ruins of Area 2, curled into an orb in the hands of a Chozo Statue so that it passed for an Item Sphere. The Spring Ball the statue had guarded was in the creature's keeping. When Samus shot the orb, Arachnus burst out (in the retelling, smashing the statue) and attacked.\n\nThe two accounts of the fight differ:\n- In the original account it rammed her curled in its ball, stopping now and then to spit a fireball, and evaded every weapon but Bombs, which she had to lay squarely in its path (Metroid II: Return of Samus).\n- In the retelling it swiped its claws to send bursts of energy along the floor, spat fireballs in threes, hopped across the chamber in ball form, leapt and slammed down with a shockwave, and charged in a rolling ram. Missiles to its body and exposed face hurt it most, and Bombs dropped in its path just before a ram stunned it (Metroid: Samus Returns).\n\nWhen it died Samus claimed the Spring Ball, a Chozo item she had to take from a living creature rather than from a statue's hands.\n\nThe X later copied Arachnus aboard the BSL station (see Arachnus-X).",
+   "constant": false,
+   "order": 90,
+   "category": "Creatures",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Arachnus",
+    "https://www.metroidwiki.org/wiki/Spring_Ball",
+    "https://omegametroid.com/metroid-samus-returns-walkthrough/bosses",
+    "https://omegametroid.com/metroid-ii-return-of-samus-walkthrough/arachnus/"
+   ],
+   "notes": "Fills the dangling 'See also: Arachnus' in Fauna of SR388 and Fauna of the BSL station. Manual line paraphrases the Metroid II booklet ('roll up its body like an armadillo, then rush at Samus') and the Fusion booklet ('roll themselves into balls and attack'). Metroid II fight details from Metroid Wiki; Samus Returns attacks from the Omega Metroid boss walkthrough (Metroid Wiki's Samus Returns section is incomplete). Fact-check fixes: generic keys 'armadillo creature'/'armadillo-like creature' dropped (they collided with Griptian/Mighty Griptian and Keratos); Marukara now framed as the Japanese name per Metroid Wiki; the statue smashing is attributed to the retelling only (the Metroid II account has Arachnus simply pop out when shot); 'seen far less often' softened to 'rarely encountered'; the vague 'one of the few Chozo gifts' comparison and the interpretive 'gift' were removed rather than replaced with an unverifiable 'the only' superlative. Area 2 used for both tellings. Kept consistent with Chozo: Chozo Statues, Item Spheres and Torizo. Arachnus-X, Chozo Statue mechanics, Area 2 and Spring Ball mechanics are not repeated."
+  },
+  {
+   "comment": "Creatures: Deorem, the Acid Worm, Kiru Giru and Imago",
+   "keys": [
+    "Deorem",
+    "Charge Beam Beast",
+    "Acid Worm",
+    "Acid Worms",
+    "Mua",
+    "Kiru Giru",
+    "Kiru Girus",
+    "Ensnared Kiru Giru",
+    "Imago",
+    "Imago Larva",
+    "Imago Cocoon"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Besides Kraid and Ridley, lesser creatures of Zebes barred Samus's way during her first mission there (Metroid: Zero Mission).\n\nDeorem: a huge worm with spikes along its whole length and insect-like pincers around its eye. It burrows through Brinstar's rock, the ground trembling with its digging, and waits in the ceiling until prey comes close, then dives down and walls off the passage ahead and behind with sections of its own body. It struck with dives and pincers and, once wounded, shook loose a volley of spikes. Only its eye could be hurt, only while open, and only by Missiles; Samus met it soon after obtaining hers. Its death left the Charge Beam behind; if the fight dragged on it burrowed away, and she had to finish it elsewhere.\n\nAcid Worm (also recorded as Mua): a large worm-like creature living in an acid-flooded chamber of Kraid's lair. It showed no sign of serving the Space Pirates, but attacked anything entering its domain. As Samus crossed above the pit on handholds, it lunged up to strike her, seized her to drag her into the acid, spat projectiles when she was out of reach, and raised the acid itself. A missed lunge could lodge it in the rock, exposed, and the weak spot behind its jaw yields to any weapon. When it died, the acid drained from the chamber.\n\nKiru Giru: slug-like larvae of Norfair that charge at intruders. A thick shell covers the orange bulbs on their undersides, the only place they can be hurt; the Wave Beam's fire passes through rock and shell alike to reach them. Norfair's Tangle Vines attack the larvae and other creatures. One Kiru Giru hung trapped in their grip, flinging slow projectiles in eight directions; Samus froze a Ripper, stood on it and shot the vines apart. The creature fell and smashed a hole through the floor, plugging it with its body; when Samus came back the creature was gone, and the hole led on toward Ridley's lair.\n\nImago: the flying adult form. Below that hole, in Imago's Hideout between Norfair and Ridley's lair, an Imago waited. It attacked mainly by crashing its whole body into Samus and, as it weakened, fired stingers at her; the stinger-bearing rear of its body was its weak point. Its defeat gave her the Super Missiles she needed to blast her way out of its chamber.",
+   "constant": false,
+   "order": 90,
+   "category": "Creatures",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Deorem",
+    "https://www.metroidwiki.org/wiki/Mua",
+    "https://www.metroidwiki.org/wiki/Kiru_Giru",
+    "https://www.metroidwiki.org/wiki/Tangle_Vine",
+    "https://www.metroidwiki.org/wiki/Wave_Beam",
+    "https://www.metroidwiki.org/wiki/Super_Missile",
+    "https://www.metroidwiki.org/wiki/Charge_Beam",
+    "https://www.metroidwiki.org/wiki/Ridley_(area)",
+    "https://www.metroidwiki.org/wiki/Kraid_(area)",
+    "https://www.metroidwiki.org/wiki/Category:Metroid:_Zero_Mission_Bosses",
+    "https://omegametroid.com/metroid-zero-mission-walkthrough/ridleys-lair/",
+    "https://www.thonky.com/metroid-zero-mission/imago"
+   ],
+   "notes": "Fact-check fixes: 'recovering' her Missiles corrected to 'obtaining' (first acquisition on this mission); the fallen Kiru Giru now plugs the hole and is gone only when Samus returns (Metroid Wiki Kiru Giru page); the claim that the trapped larva itself matured into the Imago is removed (Metroid Wiki does not state it; only a fan walkthrough and Wikitroid snippets do, and Wikitroid's egg account conflicts), so the Imago is presented only as the adult form waiting below; Mua's non-affiliation hedged per Metroid Wiki ('doesn't appear to be affiliated'); Charge Beam drop reworded so it follows Deorem's death wherever it happens; Wave Beam sentence shortened to avoid repeating Equipment: Wave Beam and Spazer. Tangle Vines attacking Kiru Girus and other creatures is stated flatly on Metroid Wiki's Kiru Giru page ('which have been attacking other Kiru Girus and other enemies as well'), so it was kept, widened to match. Imago's attack order (ramming, then stingers as it weakened) is now supported by two independent guides (Omega Metroid; Thonky: 'later in the fight... will start shooting stingers'); Thonky places the weak point at the stinger-bearing rear of its body. Egg details from Wikitroid snippets were not used. 'Charge Beam Beast' is a key only (no official source). Metroid Wiki has no Imago page."
+  },
+  {
+   "comment": "Creatures: Goyagma and Vorash",
+   "keys": [
+    "Goyagma",
+    "Goyagmas",
+    "Vorash",
+    "Vorashes"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Two great monsters of Sector 3 (Pyrosphere) of the Bottle Ship confronted Samus there during the Bottle Ship incident (Metroid: Other M).\n\nVorash: a huge beast that lurks in the Pyrosphere's lava. Within minutes of Samus's arrival in the sector it tried to eat her, breaking a bridge, and it chased her as she leapt across the rock platforms after the creature she was tracking. It kept surfacing to swallow her, and at some point swallowed a Grapple Point instead. It finally attacked in earnest by launching itself at her as she grappled into a lava-filled chamber. It breached like a whale to rain fireballs around her and, as it weakened, spat fire with only its head above the lava and charged at her. A charged Ice Beam shot to its raised head made it roar and bared the Grapple Point lodged in its throat; Samus latched on with the Grapple Beam, hauled it out onto the rock, and hit its weak point with Missiles and the Ice Beam while it lay beached. Its soft underside was also open whenever it leapt. After the last blow it rose upright, roared and sank for good, and the lava in the chamber dropped far enough for her to go on.\n\nGoyagma: a massive monster that seems able to command lava to a degree. It rose against Samus just as Adam Malkovich authorized the Varia Feature. It seized her, and she broke free with a charged shot. She froze the glowing spots on its neck with the Ice Beam and shattered them with Missiles. It set its arms ablaze and slammed them down to send eruptions chasing her. When its hand glowed she froze it with a charged Ice Beam shot, ran up the frozen arm and Overblasted its head at point-blank range. It then sank and rose again to rain glowing fireballs and hurl larger ones, and she repeated the freeze and the Overblast. At the last it tried to snatch her with its other hand; she evaded, charged in midair, fired into the center of its head, and Goyagma exploded.\n\nSamus had crossed the Pyrosphere's superheated zones without the Varia, keeping her agreement to use nothing Adam had not authorized (see Varia Suit; Why Samus loses her abilities).",
+   "constant": false,
+   "order": 90,
+   "category": "Creatures",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Vorash",
+    "https://www.metroidwiki.org/wiki/Goyagma",
+    "https://www.metroidwiki.org/wiki/Pyrosphere",
+    "https://www.metroidwiki.org/wiki/Varia_Suit",
+    "https://www.metroidwiki.org/wiki/Overblast",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "Fact-check fixes: the closing 'one of the most debated choices of her career' line (real-world fan reception) replaced with a neutral in-universe sentence consistent with Why Samus loses her abilities and Samus: Mannerisms (she kept to Adam's rule to use only authorized equipment); the earlier duplicate mention of crossing the heat folded into that sentence. 'Pyrosphere boss/bosses/monster/monsters' keys dropped (Ridley and other Pyrosphere fauna would misfire); plural forms of the two names added to keep the 3-key minimum. Goyagma's lava control hedged per Metroid Wiki ('appears to be able to control lava to some degree'). Goyagma's battle reordered to Metroid Wiki's phase order (arm eruptions and first hand freeze/Overblast, then sinking and fireball rain, then repeat). Varia timing 'just as' matches Equipment: Varia Suit ('during the fight with Goyagma'). Smash Bros. trophy text not used. 'Lava level' rephrased (banned word)."
+  },
+  {
+   "comment": "Creatures: Incinerator Drone and Hive Mecha",
+   "keys": [
+    "Incinerator Drone",
+    "Incinerator Drones",
+    "Hive Mecha",
+    "Hive Mechas",
+    "Burn Dome",
+    "Hive Totem"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Two Chozo machines were still carrying out their duties in the Chozo Ruins of Tallon IV when Samus arrived, long after the Chozo who built them had withdrawn from the physical world (Metroid Prime). Both worked alongside War Wasps, both treated Samus as an intruder, and both fell to her as she rebuilt her arsenal.\n\nHive Mecha: a Chozo security unit in the Hive Totem, a chamber whose central island, carved with Chozo runes, stands in toxic water. Per Samus's Logbook scan, Hive Mechas are second-generation combat drones built to interface closely with organic creatures: they train, shelter and work with hive-dwelling predators, and being unarmed they rely on their hive beasts to handle threats. This one guarded the Missile Launcher. When Samus started across the bridge, the water rose to trap her on the island and the Mecha loosed swarms of Ram War Wasps from its access ports. A design flaw leaves its shielding weak around those ports, and only her Power Beam could breach it. Once all three ports were destroyed it shut down, the bridge returned, and the Missile Launcher was hers.\n\nIncinerator Drone: a Chozo high-temperature waste-disposal unit stationed in the Burn Dome, beneath a large War Wasp hive full of Barbed War Wasps. Its scan noted minimal combat programming, intense heat blasts that make up for its lack of battle prowess, and a high risk of malfunction if its internal power core is damaged. Sensing Samus as a threat to the Dome, it seared the hive with a jet of flame to drive the wasps against her, then swept the room with two independent flamethrower tanks. Whenever its power core surfaced Samus shot it, and each hit sent more wasps to its aid. Its final blast burned the hive as it died, and she recovered the Morph Ball Bomb from its wreck.",
+   "constant": false,
+   "order": 90,
+   "category": "Creatures",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Hive_Mecha",
+    "https://www.metroidwiki.org/wiki/Hive_Totem",
+    "https://www.metroidwiki.org/wiki/Incinerator_Drone",
+    "https://www.metroidwiki.org/wiki/Burn_Dome",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime",
+    "https://www.nintendolife.com/guides/metroid-prime-remastered-chozo-ruins-walkthrough"
+   ],
+   "notes": "Fact-check fixes: generic 'Chozo drone(s)' keys dropped (they collided with Gunzoo and Shirk in Fauna of SR388); 'whatever stronger weapons she carried' (sequence-break trivia) removed; 'in her Chozo armor' irony removed. The requested release caveat (Hive Mecha only in the original NTSC version) stays omitted: the fact-check confirmed the Hive Mecha fight in Metroid Prime Remastered and found no source for regional removal. Logbook text paraphrased from Metroid Wiki's quoted scans. 'At a higher level' rephrased (banned word). Plated Beetle, War Wasp biology, the Chozo Ruins description, Bomb and Missile mechanics and Flaahgra are not covered."
+  }
+ ]
+}

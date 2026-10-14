@@ -37,7 +37,7 @@ adversarially fact-checked by a second pass and revised; sources are listed per 
 |---|---|---|
 | Scan Depth | 4–6 messages | Enough context to catch topics without stale triggers |
 | Context % (budget) | 20–30 % | The lorebook is large; the cap keeps inserts proportional. 8k-context models: ~20 %. |
-| Recursive Scan | **On** | Entries name related subjects, so one entry can pull in its neighbours (e.g. "Raven Beak" → "Mawkin") |
+| Recursive Scan | Either | Every entry has "Prevent further recursion" set, because entries name each other so densely that recursion would cascade through the whole book. Only what the chat itself mentions gets inserted. |
 | Match Whole Words | On (default) | Keys were written for whole-word matching, plurals included |
 | Case Sensitive | Off (default) | |
 | Insertion Strategy | "Sorted Evenly" or "Character Lore First" | Either is fine |

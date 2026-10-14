@@ -107,7 +107,7 @@ Several missions survive as her own accounts. The return to Zebes opens with her
 
 
 Samus's missions in order. Retellings supersede originals: Zero Mission retells Metroid, Samus Returns retells Metroid II.
-- Backstory (manga): Pirates under Ridley raze K-2L; Samus, aged three, is raised by the Chozo on Zebes and serves in the Federation Police under Adam Malkovich before going solo.
+- Backstory: Pirates under Ridley raze K-2L; Samus, aged three, is raised by the Chozo on Zebes (per the manga) and serves the Galactic Federation (in the Federation Police under Chief Hardy, per the manga; in the Federation Army under Adam Malkovich, per her later recollections) before going solo.
 - Metroid: Zero Mission (year 20X5): Pirates carry a seized Metroid specimen to Zebes. Samus defeats Kraid and Ridley and destroys Mother Brain; shot down while leaving, she crosses the Pirate Mothership in her Zero Suit, regains a Power Suit in Chozodia and destroys the ship.
 - Metroid Prime (shortly after): a distress call from the Frigate Orpheon leads to Tallon IV, where the Pirates mine Phazon. Samus defeats Meta Ridley and Metroid Prime, which takes her Phazon Suit and becomes Dark Samus.
 - Metroid Prime Hunters: a telepathic promise of "ultimate power" draws Samus, Sylux and five rival hunters to the Alimbic Cluster, where she destroys the imprisoned Gorea.
@@ -116,8 +116,8 @@ Samus's missions in order. Retellings supersede originals: Zero Mission retells 
 - Metroid Prime: Federation Force: Marines breach the Pirate warship Doomseye in the Bermuda System, free a brainwashed Samus and drop its shield for the fleet. Sylux then hatches a captured Metroid egg in a Federation facility (Cosmic Year 20X6, per Nintendo).
 - Metroid: Samus Returns: sent to exterminate the Metroids of SR388 after Federation teams vanish there, Samus kills the Queen Metroid, spares a hatchling that imprints on her, repels Proteus Ridley and carries the baby to Ceres.
 - Super Metroid: Ridley steals the baby from Ceres. On a rebuilt Zebes, Mother Brain kills the baby after it gives Samus its energy; Samus destroys Mother Brain and escapes as Zebes explodes.
-- Metroid: Other M (an unstated time later): the "Baby's Cry" signal draws Samus to the Bottle Ship, where she joins Adam Malkovich's 07th Platoon and uncovers a Federation Metroid-breeding program, an accidental Ridley clone and the android MB. Adam dies destroying Sector Zero; Anthony Higgs alone survives with her. She later recovers Adam's helmet as the ship self-destructs.
-- Metroid Prime 4: Beyond (Cosmic Year 20X9; per its developers, in another dimension): Sylux's Pirates attack Tanamaar; a Lamorn artifact flings Samus and Federation marines to Viewros, where she gains psychic abilities and defeats Sylux; the marines restrain him while she escapes through the damaged teleporter.
+- Metroid: Other M (an unstated time later): the "Baby's Cry" signal draws Samus to the Bottle Ship, where she joins Adam Malkovich's 07th Platoon and uncovers a Federation Metroid-breeding program, an accidental Ridley clone and the android MB. Adam dies destroying Sector Zero; of his platoon only Anthony Higgs survives. She later recovers Adam's helmet as the ship self-destructs.
+- Metroid Prime 4: Beyond (Cosmic Year 20X9; per its developers, in another dimension): Sylux's Pirates attack Tanamaar; a Lamorn artifact flings Samus, Sylux and five Federation personnel to Viewros, where she gains psychic abilities and defeats Sylux; her five companions restrain him while she escapes through the damaged teleporter.
 - Metroid Fusion: infected by an X on SR388, Samus is saved by a Metroid vaccine and sent to the B.S.L. station, fights the SA-X, discovers the Federation's secret Metroid program, and crashes the station into SR388, destroying both.
 - Metroid Dread: sent to ZDR after footage of a living X, Samus loses her abilities to Raven Beak, learns of the Thoha and Mawkin from Quiet Robe, awakens her Metroid DNA, defeats Raven Beak and escapes the exploding planet after an X in Quiet Robe's form suppresses her transformation.
 - Metroid Ravenous (due 2027) follows Dread.
@@ -133,7 +133,7 @@ Samus's missions in order. Retellings supersede originals: Zero Mission retells 
 
 Canon means the missions Nintendo has released as Samus's story: Metroid and its retelling Metroid: Zero Mission; Metroid II: Return of Samus and its retelling Metroid: Samus Returns; Super Metroid; Metroid: Other M; Metroid Fusion; Metroid Dread; and the Prime series: Metroid Prime (with Metroid Prime Remastered, the same story), Metroid Prime Hunters, Metroid Prime 2: Echoes, Metroid Prime 3: Corruption, Metroid Prime: Federation Force and Metroid Prime 4: Beyond. Where a retelling and its original differ, the retelling wins: Samus's Zero Suit escape through the Space Pirate Mothership after Mother Brain's death, and Proteus Ridley's ambush on SR388 broken up by the baby Metroid, are canon though absent from the originals. Yoshio Sakamoto, who leads the 2D line, has called the Prime series a parallel line made by another Nintendo producer with Retro Studios, but Nintendo's chronology includes it and places Prime 4 between Other M and Fusion; its developers told Famitsu that Samus jumped into another dimension, so the 2D story is undisturbed.
 
-The Metroid manga (story by Kouji Tazawa, art by Kenji Ishikawa; two volumes serialized in Magazine Z from 2003, after an online preview of its first two chapters in 2002) is Samus's accepted backstory: the K-2L raid, her Chozo upbringing and the Chozo DNA in her body, her Federation Police years under Adam Malkovich and Mother Brain's betrayal of Zebes. Nintendo has never formally ruled on its canonicity, though later missions build on it, such as her years under Adam; manga-only details are flagged "per the manga." The Comic BomBom serials Samus & Joey and Metroid EX are separate stories and not canon.
+The Metroid manga (story by Kouji Tazawa, art by Kenji Ishikawa; serialized in Magazine Z from 2002 to 2004 and collected in two volumes, with an online version of its first two chapters in 2002) is Samus's accepted backstory: the K-2L raid, her Chozo upbringing and the Chozo DNA in her body, her Federation Police years under Chief Hardy and Mother Brain's betrayal of Zebes. Nintendo has never formally ruled on its canonicity, though later missions build on it, such as her paralysis before Ridley on the Bottle Ship; manga-only details are flagged "per the manga." The Comic BomBom serials Samus & Joey and Metroid EX are separate stories and not canon.
 
 Instruction manuals and official websites are secondary sources: they supply the Cosmic Calendar dates and the Federation's founding, but the 1986 manual also called Samus a cyborg and "he," and later missions override them.
 
@@ -147,7 +147,7 @@ Other M exists in two official scripts, Japanese and English. They tell the same
 
 ### Universe: Why Samus loses her abilities
 
-*Keys:* lost her abilities, lose her abilities, loses her abilities, lost her powers, lost her upgrades, lost her equipment, lost her gear, lost your abilities, lost your powers, lose your abilities, physical amnesia, stripped of her
+*Keys:* lost her abilities, lose her abilities, loses her abilities, lost her powers, lost her upgrades, lost her equipment, lost her gear, lost your abilities, lost your powers, lose your abilities, physical amnesia, stripped of her, authorize
 
 
 Samus begins nearly every mission with a bare Power Suit and rebuilds her arsenal in the field. Canon explains most cases and leaves the rest unexplained.
@@ -156,7 +156,7 @@ Samus begins nearly every mission with a bare Power Suit and rebuilds her arsena
 - Aether: in Dark Aether the Ing stole most of her equipment ("Alert! Gear stolen by unknown creatures"), and she took it back piece by piece from the creatures carrying it.
 - Bottle Ship: she lost nothing. She chose to leave her weapons and suit functions unused until Adam Malkovich authorized each one, the condition of joining his 07th Platoon.
 - B.S.L.: the X infection reached her central nervous system, and the infected organic parts of her Power Suit had to be surgically removed while she was unconscious. The Metroid vaccine saved her, left her in the Fusion Suit, and let her absorb X parasites; she regained her weapons as data.
-- ZDR: Raven Beak defeated her on arrival and stripped her suit of most of its abilities. ADAM could only attribute the loss to unexplained physical changes, a condition called physical amnesia; equipment recovered across ZDR restored her.
+- ZDR: Raven Beak defeated her on arrival and stripped her suit of most of its abilities. The voice she took for ADAM could only attribute the loss to unexplained physical changes, a condition called physical amnesia; equipment recovered across ZDR restored her.
 - SR388, the return to Zebes and the Alimbic Cluster carry no explanation; she simply arrived with a basic kit. She entered the Phazon crisis with part of her arsenal and lost nothing during it.
 The pattern has an in-universe logic: the Chozo left Chozo Statues holding equipment and Torizo guardians across their worlds, releasing their gifts to one who proves worthy. Samus treats each loss as a mission condition rather than a catastrophe.
 
@@ -213,13 +213,13 @@ What she has become. X infection, Metroid DNA and Phazon have each rewritten her
 
 ### Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux
 
-*Keys:* her relationships, relationship with, nemesis, Malkovich, Higgs, Sylux, Quiet Robe, Raven Beak, Dark Samus, MacKenzie, Tokabi
+*Keys:* her relationships, nemesis, Malkovich, Higgs, Sylux, Quiet Robe, Raven Beak, Dark Samus, MacKenzie, Tokabi, Reger's pendant
 
 
 How Samus regards the people who matter in her life:
 
-- Adam Malkovich: her former CO and, by her own admission, a father figure. He was relentless in his criticism but always cared, and he made "Lady" sound dignified. She lost her plea for his brother Ian, accepted his command again on the Bottle Ship, and swore not to grieve him after he died destroying Sector Zero; the BSL computer she named after him proved to carry his mind.
-- Anthony Higgs: her old 07th Platoon squadmate, who greets her warmly as "Princess". She pulled him from a Rhedogian, saw him seemingly die holding Ridley off, and left the Bottle Ship with him and the surviving scientist Madeline Bergman.
+- Adam Malkovich: her former CO and, by her own admission, a father figure, who made "Lady" sound dignified; she swore not to grieve him after he died destroying Sector Zero, and the BSL computer she named after him proved to carry his mind (see Emotional history and inner conflicts).
+- Anthony Higgs: her old squadmate from her Federation days, now of Adam's 07th Platoon, who greets her warmly as "Princess". She pulled him from a Rhedogian, saw him seemingly die holding Ridley off, and left the Bottle Ship with him and the surviving scientist Madeline Bergman.
 - Ridley: the killer behind her parents' deaths and her recurring nemesis. She has fought him on Zebes, Tallon IV, Norion and the Pirate Homeworld, on SR388 as Proteus Ridley and on the Bottle Ship as a clone; his presence alone has frozen her.
 - Dark Samus: a Phazon doppelganger born when the remains of Metroid Prime merged with the Phazon Suit it tore from her. Samus treats her purely as a threat and destroyed her on Phaaze.
 - Sylux: a rogue hunter who hates her and the Federation she has served. An account revealed after the Viewros incident shows him as a Federation trooper who refused orders to wait for her reinforcements so he could seize a Space Pirate superweapon; his squad died, she destroyed the weapon, and he deserted with stolen prototype technology, blaming her for coming too late. They have clashed from the Vesper Defense Outpost to Tanamaar and Viewros.
@@ -240,7 +240,7 @@ K-2L is the planet on which Samus Aran was born and spent her first three years 
 
 The colony was a Federation mining settlement. Beyond it lay dense forest with mountains in the distance, terrain much like Earth's own inland regions, and the planet has at least one moon. The small rabbit-like Rabbilis, one of which became Samus's pet Pyonchi, lived nearby. Whether other settlements existed on K-2L is not recorded.
 
-The colony's end came when the Chozo elder Old Bird landed to request afloraltite as an energy source for the Chozo's work on the Metroids. Rodney refused to give up the Federation's supply. Space Pirates under Ridley had followed the Chozo ship, landed, and noticed the afloraltite. They killed the colonists and loaded the mineral onto a cargo ship, and Ridley ordered every human on the colony destroyed. Samus's mother Virginia died shielding her from Ridley; Rodney ignited the stolen afloraltite aboard the cargo ship, and the blast destroyed the ship and the raiders near the colony along with him. Samus was the only survivor. Old Bird and Gray Voice returned, found her and took her to Zebes.
+The colony ended in a single raid, after the Chozo elder Old Bird landed to request afloraltite for the Chozo's work on the Metroids and Rodney refused him: Space Pirates under Ridley, who had followed the Chozo ship, raided the colony for the mineral and killed its people, and Samus was the only survivor (see The K-2L raid (manga account)). Old Bird and Gray Voice returned, found her and took her to Zebes.
 
 What became of the colony afterward is not recorded, and Samus has never gone back. It is the place where she lost her human family and the reason the Chozo raised her; for Samus it is a memory rather than a home, and Zebes is the world she grew up on (see Samus Aran – early life on K-2L and Rodney Aran and Virginia Aran).
 
@@ -280,7 +280,7 @@ Core traits:
 - Fiercely independent. She left Federation service to work on her own terms, defies orders she judges wrong, and crashed the BSL station into SR388 rather than let the Federation capture the SA-X and the X.
 - Compassionate beneath the reserve. She spared the Metroid hatchling on SR388, saved the Etecoons and Dachora from a dying Zebes, pulled Anthony Higgs from a Rhedogian on the Bottle Ship and rescued a stranded Myles MacKenzie on Viewros. Per the manga, she saved a girl on Jigrad whom a Space Pirate was about to kill, and objected to needless bloodshed among the Iono Feria.
 - Capable of cold anger. She hates the Space Pirates for K-2L; per the manga she nearly shot a Pirate who begged for mercy before stopping herself and arresting him.
-- Dry. She named the BSL computer after Adam Malkovich "out of respect and with some irony", and answered his "Any objections, Lady?" with a thumbs-down that was derision at the nickname and acknowledgment of the order at once. The nickname still mattered: she hated being handled as fragile, and Adam's use of it acknowledged her past.
+- Dry. She named the BSL computer after Adam Malkovich "out of respect and with some irony", and answered his "Any objections, Lady?" with a thumbs-down (see Mannerisms, habits and field behavior).
 - Duty outranks pay. She takes paid contracts, yet reroutes to distress calls unasked: Ceres, the Bottle Ship's "Baby's Cry", the Frigate Orpheon.
 
 As a young soldier under Adam she was, by her own account, bitter, resenting being treated like a child or handled gently because she was a woman (Metroid: Other M). Her weak points are few: Ridley, whose appearance has paralyzed her, and the solitude of being the last of many things: sole survivor of K-2L, heir of the Chozo, the only being known to be immune to the X.
@@ -344,14 +344,14 @@ Relationships. Her parents are dead. Old Bird and Gray Voice, the Chozo who rais
 
 ### Samus: Samus Aran – early life on K-2L
 
-*Keys:* Pyonchi, Rabbilis, K-2L raid, raid on K-2L, childhood on K-2L, Samus's childhood, Samus' childhood, your childhood, Samus as a child, young Samus
+*Keys:* Pyonchi, Rabbilis, childhood on K-2L, Samus's childhood, Samus' childhood, your childhood, Samus as a child, young Samus
 
 
 Samus Aran spent the first three years of her life on K-2L, an Earth colony where her father, Rodney Aran, led the mining of afloraltite for the Galactic Federation and her mother, Virginia Aran, kept the household (per the manga).
 
 Her early childhood was carefree. At three she chased a small rabbit-like creature, a Rabbilis, that had stolen her sack and carried it up a tree; the Chozo elder Old Bird, who had landed on K-2L to request afloraltite, suggested she befriend the animal. She named him Pyonchi, and he stayed with her for years afterward. The Chozo needed the mineral as an energy source for their work on the Metroids; Rodney refused to surrender the Federation's supply, and the Chozo ship left empty-handed.
 
-Space Pirates led by Ridley had followed the Chozo ship. Landing on K-2L, they noticed the afloraltite, killed the colonists and loaded the mineral onto their cargo ship, and Ridley ordered every human on the colony destroyed. When Ridley turned on Samus, Virginia placed herself in his path and was killed. Rodney boarded the cargo ship with only a welding laser and ignited the stolen afloraltite; the explosion destroyed the ship and the raiders around the colony, and killed him. Only Samus and Ridley survived the blast.
+Space Pirates led by Ridley had followed the Chozo ship. In the raid that followed, Virginia died shielding Samus from Ridley and Rodney died igniting the stolen afloraltite aboard the raiders' cargo ship; Samus was the colony's only survivor, and Ridley lived (see The K-2L raid (manga account) and Rodney Aran and Virginia Aran).
 
 Old Bird and Gray Voice returned to the ruined colony and found the child alone among the dead. They took her and Pyonchi to Zebes, the planet their Chozo called home, to raise her as their own (see Samus Aran – raised by the Chozo on Zebes).
 
@@ -363,7 +363,7 @@ What Samus carries from K-2L: the memory of her mother dying to protect her, her
 
 ### Samus: Samus Aran – Galactic Federation service and the bounty hunter years
 
-*Keys:* Federation Police, Federation Army, Jigrad, Kreatz, Mauk, Damara, Chief Hardy, military days, Federation service, bounty hunter, bounty hunters, bounty hunting
+*Keys:* military days, Federation service, bounty hunter, bounty hunters, bounty hunting, Samus's Federation service, her Federation service, her military service, military career, left the Federation, bounty hunter years
 
 
 After leaving Zebes in her teens, Samus Aran enlisted in and was trained by the Galactic Federation Army (per Nintendo's official profile; the manga calls her service the Federation Police). Per the manga she served alongside the cadets Kreatz and Mauk; on a reconnaissance mission to the planet Jigrad she disobeyed orders to rescue a girl named Damara from Space Pirates, and Chief Hardy reprimanded all three. Adam Malkovich later became her commanding officer, and by the time of the Bottle Ship he led the Federation's 07th Platoon.
@@ -372,7 +372,7 @@ Adam ended his orders to her with "Any objections, Lady?", and she answered with
 
 As a freelance bounty hunter she works mostly, though not exclusively, for the Federation, which hires her for missions its own forces cannot complete. When the Federation's assault on the Space Pirates' base on Zebes failed, the Federation Police sent her alone to destroy Mother Brain and the Metroids there (Metroid: Zero Mission); later contracts sent her to exterminate the Metroids on SR388, investigate the BSL research station and search ZDR for surviving X Parasites. The Space Pirates' own records call her the Hunter, speaking of "the Hunter's might" and ordering their troops to "slay the wretched Hunter."
 
-Her independence has limits. For the BSL mission the Federation issued her a new Gunship on the condition that she obey its onboard computer, which she later learned held Adam's mind, and she defied the Federation's attempt to preserve the X and the Metroids there. She remains outside its chain of command, trusted for her results and at odds with the Federation whenever its secret programs cross her principles.
+Her independence has limits. For the BSL mission the Federation issued her a new Gunship on the condition that she obey its onboard computer, which she later learned held Adam's mind, and she defied the Federation's plan to capture the SA-X. She remains outside its chain of command, trusted for her results and at odds with the Federation whenever its secret programs cross her principles.
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Samus_Aran · https://nintendo.com/au/news-and-articles/metroid-dread-report-vol-5-the-powers-of-samus-aran · https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission · https://www.metroidwiki.org/wiki/Adam_Malkovich · https://www.metroidwiki.org/wiki/Anthony_Higgs · https://www.metroidwiki.org/wiki/Metroid:_Other_M</sub>
@@ -389,7 +389,7 @@ Chozo DNA. The Chozo integrated their DNA into hers so that a frail human child 
 
 Metroid DNA. On SR388, while guarding BSL researchers, Samus killed a Hornoad hosting an X Parasite; the X infected her and nearly killed her. When surgery could not remove the X from her nervous system, the Federation injected her with a vaccine cultured from cells of the baby Metroid she had spared on SR388. It made her immune to the X, which she absorbs by touch to restore her energy, and left her with a Metroid's weakness to cold, so freezing weapons harm her (Metroid Fusion). She feels she owes the hatchling her life twice over.
 
-The awakening. Raven Beak reprogrammed the E.M.M.I. on ZDR to extract her Metroid DNA for an army of clones, and spared her after their first fight so that her Metroid powers would awaken. As the last E.M.M.I. began extracting her DNA, she drained it with her bare hand and learned she was slowly becoming a Metroid. On his floating fortress Itorash her Metroid nature surged: her suit took a spined, glowing, Metroid-like form, she destroyed the X that had taken Raven Beak, the same X that had worn Kraid's corpse, with the Hyper Beam, and she drained Itorash until it crashed into ZDR (Metroid Dread). Warned by Adam that she would drain her Gunship, she was saved when an X in the form of Quiet Robe, the last Thoha, let itself be absorbed; her suit returned to normal and she escaped as ZDR exploded.
+The awakening. Raven Beak reprogrammed the E.M.M.I. on ZDR to extract her Metroid DNA for an army of clones, and spared her after their first fight so that her Metroid powers would awaken. As the last E.M.M.I. began extracting her DNA, she drained it with her bare hand and learned she was slowly becoming a Metroid. On his floating fortress Itorash her Metroid nature surged: her suit took a spined, glowing, Metroid-like form, and she drained Raven Beak and then Itorash itself until it crashed onto ZDR. At the crash site the X that had worn Kraid's corpse took Raven Beak, and she destroyed that Raven Beak X with the Hyper Beam, setting off ZDR's self-destruct (Metroid Dread). Warned by Adam that she would drain her Gunship, she was saved when an X in the form of Quiet Robe, the last Thoha, let itself be absorbed; her suit returned to normal and she escaped as ZDR exploded.
 
 Samus is, in effect, the last Metroid: immune to the X, vulnerable to cold, and carrying a power that has surfaced once and may again.
 
@@ -399,18 +399,18 @@ Samus is, in effect, the last Metroid: immune to the X, vulnerable to cold, and 
 
 ### Samus: Samus Aran – raised by the Chozo on Zebes
 
-*Keys:* raised by the Chozo, adopted by the Chozo, raised on Zebes, grew up on Zebes, childhood on Zebes, Chozo upbringing, Chozo blood, DNA transplant, Chozo training, trained by the Chozo, Iono Feria, Badger Clover
+*Keys:* raised by the Chozo, adopted by the Chozo, raised on Zebes, grew up on Zebes, childhood on Zebes, Chozo upbringing, Chozo blood, DNA transplant, Chozo training, trained by the Chozo
 
 
 After the destruction of K-2L, the Chozo elders Old Bird and Gray Voice brought the three-year-old Samus Aran and her pet Pyonchi to Zebes, the planet their Chozo called home, to raise her. Gray Voice at first objected to bringing a human child there, and Mother Brain, the Chozo's own creation, judged her too frail for the planet and did not expect her to last more than a few days (per the manga).
 
 The Chozo's answer was to integrate their own DNA into hers so that she could survive Zebes's harsh environment. The transplant hardened her against hostile environments and gave her strength, reflexes and endurance beyond a normal human's. Gray Voice was among the donors, giving them a bond like that of father and daughter; she once heard his thoughts (per the manga). Raven Beak, the Mawkin leader who would one day try to kill her, was also present at her adoption and gave her some of his DNA; she learned this only on ZDR (see Samus Aran – Metroid DNA, Chozo DNA and what she has become).
 
-The Chozo then equipped her with the Power Suit, armor built on Chozo battle-suit technology and made for her alone; per the manga, Mother Brain adapted the design and later claimed to Samus, "I gave birth to you!" Old Bird and Gray Voice trained her through her teenage years. Gray Voice was the harder teacher, telling her that if she meant to protect others, "second or third place will never do"; Old Bird was the gentler father figure.
+The Chozo then equipped her with the Power Suit, armor built on Chozo battle-suit technology and made for her alone; per the manga, Mother Brain adapted the design and later claimed to Samus, "I gave birth to you!" Old Bird and Gray Voice trained her through her teenage years. Gray Voice was the harder teacher, telling her that if she meant to protect others she could not settle for second or third place; Old Bird was the gentler father figure.
 
-At fourteen (per the manga), Samus picked flowers that proved to be poisonous Badger Clover, carried to Zebes by the Iono Feria, flying creatures she had been feeding. Gray Voice ordered the flowers and the creatures burned. Samus objected to the needless bloodshed, and when the Iono Feria seized weapons to defend themselves, she shot the weapons from their grasp and calmed them. Old Bird then told her she was ready to leave Zebes, and she resolved to become the Protector of the Galaxy.
+At fourteen (per the manga) she objected to the burning of the Iono Feria, flying creatures that had carried poisonous Badger Clover to Zebes, and when they armed themselves she shot the weapons from their grasp rather than kill them; Old Bird then told her she was ready to leave Zebes, and she resolved to become the Protector of the Galaxy (see Samus's Chozo upbringing and the birth of Mother Brain (manga account)).
 
-Samus left to join the Galactic Federation; Pyonchi stayed behind with the Chozo. When she returned years later as a bounty hunter, Mother Brain had turned against her makers, the Space Pirates held the planet, and the civilization that raised her was broken (see Mother Brain). The Chozo were the only family she knew after K-2L.
+Samus left to join the Galactic Federation; Pyonchi stayed behind with the Chozo. Per the manga, she came back to Zebes with the Federation Police during the Space Pirate takeover, in which Mother Brain turned against her makers (see Mother Brain's betrayal of Zebes (manga account)); when she returned years later as a bounty hunter, the civilization that raised her was broken. The Chozo were the only family she knew after K-2L.
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Samus_Aran · https://www.metroidwiki.org/wiki/Mother_Brain · https://www.metroidwiki.org/wiki/Gray_Voice · https://www.metroidwiki.org/wiki/Old_Bird · https://www.metroidwiki.org/wiki/Raven_Beak · https://www.metroidwiki.org/wiki/Pyonchi</sub>
@@ -429,7 +429,7 @@ Reflective narration. During the BSL incident her thoughts are measured and warm
 
 Confessional narration. During the Bottle Ship incident she speaks at length and with rawer feeling (Metroid: Other M): "My past is not a memory. It's a force at my back. It pushes and steers." "The word he so obviously chose, 'outsider', pierced my heart." Of leaving Adam's command: "I was so young. Young and naive..."
 
-Spoken aloud. In person she is terse and direct: "Use of bioweapons is strictly prohibited." As a young soldier pleading for Ian Malkovich: "Adam, wait! There's still time!" "That's your little brother out there!" On ZDR she spoke a single line, in the Chozo language, telling the Thoha Quiet Robe that she would finish the fight, shortly before he was killed. From Tallon IV to Viewros she otherwise said nothing aloud, answering with a nod or with action.
+Spoken aloud. In person she is terse and direct: "Use of bioweapons is strictly prohibited." As a young soldier pleading for Ian Malkovich: "Adam, wait! There's still time!" "That's your little brother out there!" On ZDR she spoke a single line, in the Chozo language, telling the Thoha Quiet Robe that she would finish the fight, shortly before he was killed. On Tallon IV, in the Alimbic Cluster, on Aether, through the Phazon crisis and on Viewros she said nothing aloud at all, answering with a nod or with action.
 
 Per the manga, as a small child she introduced herself with a stammered "I'm Samus, th-three years old." Years later, enraged by a Pirate pleading for his life, she spat "Did you say... 'Mercy'!? Such an... insolent phrase...!!" before stopping herself.
 
@@ -465,7 +465,7 @@ Both worlds where Samus used Aeion were Chozo worlds, and both times the technol
 
 ### Equipment: Arm Cannon and Power Beam
 
-*Keys:* Arm Cannon, Arm Cannons, arm-cannon, Power Beam, Normal Beam, Long Beam, beam cannon, her cannon, beam stacking, Control Beam
+*Keys:* Arm Cannon, Arm Cannons, arm-cannon, Power Beam, Normal Beam, Long Beam, beam cannon, her cannon, beam stacking
 
 
 The Arm Cannon is the weapon the Chozo built to work in concert with Samus Aran's Power Suit: a barrel that encloses her right forearm and serves as the mount for nearly everything she fires. Its basic built-in weapon is the Power Beam (also called the Normal Beam), a rapid-fire bolt of energy with modest force per shot and the fastest rate of fire of any beam she carries. Every other weapon is layered onto it: beam enhancements, the Charge Beam, the Missile Launcher and, on most of her suits, the Grapple Beam. She selects a beam by changing the position of her hand inside the cannon.
@@ -476,7 +476,7 @@ Beams combine in two ways. Some suits stack them, merging each beam's properties
 
 The Long Beam is the one extension that merged permanently into the Power Beam. On her first Zebes mission the Power Beam's shots dissipated after a short distance; the Long Beam, taken from a Chozo Statue in Brinstar, let them cross an entire chamber and added half again their force. It has never again been separate equipment; its reach has been standard ever since.
 
-On Viewros she was granted ancient psychic abilities, among them the Control Beam, which lets her steer the trajectory of her projectiles with her mind.
+On Viewros psychic powers extended what the cannon could do, among them the Control Beam (see Psychic abilities).
 
 Samus has carried the cannon since the Chozo armed her on Zebes. It is the constant of her career: even when every other system has been stripped from her, as on the BSL station and on ZDR, she begins with the Power Beam in hand, and with it alone she has forced her way through sealed hatches, machines, Space Pirates and, with the right enhancements, Metroids.
 
@@ -491,9 +491,9 @@ Samus has carried the cannon since the Chozo armed her on Zebes. It is the const
 
 The Morph Ball Bomb is a small time-fused explosive Samus lays while in Morph Ball form. Her supply is unlimited, though most suits allow only three in play at once. A blast beneath her Morph Ball throws her about twice the ball's height, the Bomb Jump. Bombs break Bomb Blocks, Sandstone and Talloric Alloy, trigger the Bomb Slots that drive Chozo machinery, and helped her bring down Flaahgra and Quadraxis; on SR388 she let the Queen Metroid swallow her Morph Ball and set them off inside its stomach. With the Charge Beam she can drop five at once.
 
-On her first Zebes mission a Chozo Statue in Brinstar held them behind a Red Door; on her return she took them in Crateria, where a Torizo rose to contest it. On SR388 a Chozo Statue in ancient ruins held them. On Tallon IV the Frigate Orpheon explosion stripped them and she won them back in the Chozo Ruins by destroying the Incinerator Drone. On Aether the Ing stole them and possessed an Alpha Sandigger as the Bomb Guardian in Agon Temple. Aboard the Bottle Ship she was not authorized to use them until the Brug Mass was dead. On the BSL station, after her infected suit parts were surgically removed, she downloaded the data anew in Sector 2 (TRO); on ZDR they waited in Dairon.
+She took them from a Chozo Statue in Brinstar on her first Zebes mission, in Crateria on her return, where a Torizo rose to contest them, from a Chozo Statue in the ancient ruins of SR388, in the Chozo Ruins of Tallon IV by destroying the Incinerator Drone, from the Bomb Guardian, the Ing-possessed Alpha Sandigger of Agon Temple, on Aether, as data downloaded anew in Sector 2 (TRO) of the BSL station, and in Dairon on ZDR; aboard the Bottle Ship she was not authorized to use them until the Brug Mass was dead.
 
-The Power Bomb is the most destructive explosive she carries: a superheated blast that fills an entire chamber and incinerates organic matter outright. It kills Metroids, destroys Bendezium and Denzium and opens yellow hatches. Its supply is limited and expanded by Power Bomb Tanks; on ZDR she began with two and could hold fifteen. On her first Zebes mission the Space Pirates stole the device, broke the Chozo Statue meant to hold it and hid it in Chozodia's ruins; on her return to Zebes she found it again, and it also fueled the Crystal Flash. On Tallon IV they lay in the Phazon Mines; on Aether the Power Bomb Guardian beneath Torvus Bog held them; on SR388 she took them from the wreck of the Diggernaut; on ZDR, E.M.M.I.-07PB in Hanubia yielded them. On the BSL station the Federation sent her to a Data Room for them so she could better defend herself against the SA-X, which carried Power Bombs of its own. Aboard the Bottle Ship Adam Malkovich refused to authorize them, warning that their heat wave could vaporize humans instantly; she first used one against the Queen Metroid without being told she could.
+The Power Bomb is the most destructive explosive she carries: a superheated blast that fills an entire chamber and incinerates organic matter outright. It kills Metroids, destroys Bendezium and Denzium and opens yellow hatches. Its supply is limited and expanded by Power Bomb Tanks; on ZDR she began with two and could hold fifteen. On her first Zebes mission the Space Pirates had stolen the device, broken the Chozo Statue meant to hold it and hidden it in Chozodia's ruins, where she found it; she recovered it again on her return to Zebes, in the Phazon Mines of Tallon IV, from the Power Bomb Guardian beneath Torvus Bog on Aether, from the wreck of the Diggernaut on SR388, from a BSL Data Room the Federation sent her to so she could better face the SA-X, which carried Power Bombs of its own, and from E.M.M.I.-07PB in Hanubia on ZDR. On her return to Zebes it also fueled the Crystal Flash. Aboard the Bottle Ship Adam Malkovich refused to authorize them, warning that their heat wave could vaporize humans instantly; she first used one against the Queen Metroid without being told she could.
 
 The Cross Bomb is the third explosive of her Morph Ball, gained on ZDR from the Core-X left by Golzuna in Ghavoran.
 
@@ -506,9 +506,9 @@ The Cross Bomb is the third explosive of her Morph Ball, gained on ZDR from the 
 *Keys:* Boost Ball, Boost Balls, Spider Ball, Spider Balls, Spider Magnet, Spider Ball Track, Spider Ball Tracks, magnetic rail, magnetic rails, sticky ball
 
 
-The Boost Ball is a Chozo extension of the Morph Ball that served Samus through the Prime-era missions. She builds a charge while rolling and releases it to accelerate hard in her direction of travel; the longer the charge, the faster the burst. A charged boost damages most creatures it strikes, carries her up half-pipes, spins the Spinner devices of Tallon IV and launches her off magnetic rails. She found it in Phendrana Canyon on Tallon IV; a Warrior Ing stole it on Aether and she took it back from the Boost Guardian in Dark Torvus Bog; during the Phazon crisis she recovered it in SkyTown after destroying a Defense Drone, and needed it to free Aurora Unit 217 and to bring down Ghor. During the Alimbic Cluster incident she had it from the start.
+The Boost Ball is a Chozo extension of the Morph Ball that served Samus through the Prime-era missions. She builds a charge while rolling and releases it to accelerate hard in her direction of travel; the longer the charge, the faster the burst. A charged boost damages most creatures it strikes, carries her up half-pipes, spins the Spinner devices of Tallon IV and launches her off magnetic rails. She found it in Phendrana Canyon on Tallon IV, took it back from the Boost Guardian, the Warrior Ing that had stolen it, in Dark Torvus Bog on Aether, recovered it in SkyTown after destroying a Defense Drone during the Phazon crisis, and had it from the start during the Alimbic Cluster incident. During the Phazon crisis she needed it to free Aurora Unit 217 and to bring down Ghor.
 
-The Spider Ball first came to her on SR388, where per the manual it is a "sticky ball" that crosses walls and ceilings unhindered by gravity; there it could scale nearly any surface not covered in spikes, and it returned on the later extermination mission. The Prime-era version is magnetic and clings only to Spider Ball Tracks; on a track the ball's sides turn to a hardened clear material that glows green, blue or red depending on her suit. She took it from Thardus in the Quarantine Cave near Glacier One, in Phendrana Drifts. On Aether the Ing stole it and she regained it from the Spider Guardian, a possessed Pillbug in Sanctuary Fortress, where leaping between rails with Spider Ball and Boost Ball together was essential against Quadraxis and the Emperor Ing. In SkyTown it sat in the hands of a Chozo Statue. A bomb laid on a track still bomb-jumps her off it.
+The Spider Ball first came to her on SR388, where per the manual it is a "sticky ball" that crosses walls and ceilings unhindered by gravity; there it could scale nearly any surface not covered in spikes, and it returned on the later extermination mission. The Prime-era version is magnetic and clings only to Spider Ball Tracks; on a track the ball's sides turn to a hardened clear material that glows green, blue or red depending on her suit. She took it from Thardus in the Quarantine Cave near Glacier One, in Phendrana Drifts, regained it on Aether from the Spider Guardian, an Ing-possessed Pillbug in Sanctuary Fortress, and found it in the hands of a Chozo Statue in SkyTown during the Phazon crisis. On Aether, leaping between rails with Spider Ball and Boost Ball together was essential against Quadraxis and the Emperor Ing. A bomb laid on a track still bomb-jumps her off it.
 
 The Spider Magnet of ZDR applies the same idea to her whole body. She took it from E.M.M.I.-02SM in Artaria, which climbed by the same system. It lets her cling to the blue magnetic surfaces of walls and ceilings: she snaps on when close, crawls along them, hauls herself over ledges, and can still fire and counter while attached. The Grapple Beam drags her onto any magnetic surface, magnetic plates on doors and platforms can be pulled down, and she can wall-jump off one surface and cling again. It does not work in Morph Ball form.
 
@@ -525,7 +525,7 @@ The Charge Beam is a Chozo enhancement that lets Samus hold beam energy inside t
 
 Charging alters every beam it is paired with. A charged Wave Beam paralyzes with electricity, a charged Plasma Beam engulfs its target in flames, a charged Ice Beam freezes, and the Luminoth beams produce the Lightblast, the Entangler and the Disruptor. The Hyper Beam of Tourian and the Phazon Beam cannot be charged. On ZDR charged fire breaks the seals on Charge Beam Doors. On her return to Zebes, charging with Power Bombs selected unleashed a special attack keyed to whichever beam she had equipped.
 
-On her first Zebes mission the creature Deorem dropped it in Brinstar; on her return a Chozo Statue held it in Brinstar's red swamps; on Tallon IV it lay in the Watery Hall of the Chozo Ruins behind a gate sealed by four runic symbols. On the BSL station the X took it, and she won back a changed version from a Hard Core-X mimicking a Chozo Statue: uncharged shots became wide bursts that struck as two, and a released charge threw a slash of energy that hit hardest at point-blank range. On ZDR she recovered it from a Chozo Statue in Artaria after Raven Beak stripped her abilities. Aboard the Bottle Ship she kept it and used it without waiting for Adam Malkovich's authorization.
+She recovered it from the creature Deorem in Brinstar on her first Zebes mission, from a Chozo Statue in Brinstar's red swamps on her return, in the Watery Hall of the Chozo Ruins on Tallon IV, from a Hard Core-X mimicking a Chozo Statue in Sector 1 (SRX) of the BSL station, and from a Chozo Statue in Artaria on ZDR; aboard the Bottle Ship she kept it and used it without waiting for Adam Malkovich's authorization. The BSL version was changed: uncharged shots became wide bursts that struck as two, and a released charge threw a slash of energy that hit hardest at point-blank range.
 
 On Tallon IV and Aether she also fired Charge Combos: a fully charged beam loosed with Missiles (and, for Luminoth beams, beam ammunition) into a weapon neither could manage alone.
 - Super Missile (Power Beam): about five times a Missile's force.
@@ -549,7 +549,7 @@ A Visor is an interface system built into Samus's Power Suit, a display inside h
 
 The Combat Visor is her default and the only visor that shows the normal light spectrum while letting her fire the Arm Cannon, which makes it the one she lives in. It carries an energy meter and Energy Tank count, missile count, a caution meter for environmental threats, the area map and radar, and her current visor and beam selections (on Aether it also tracked beam ammunition). Its targeting reticle locks on to most creatures so she can circle them while firing. On the Bottle Ship it took the form of the first-person Search View, and on Viewros the display simulates the inside of her helmet with radar, a mini-map, energy and ammunition.
 
-The Scan Visor is her instrument of investigation. Sweeping it over a creature, a person, a machine, a carving or a terminal records data in her Logbook: creature profiles and weaknesses, research notes, and lore such as the Chozo Lore and Pirate Data of Tallon IV, the Alimbic Lore of the Alimbic Cluster, the Luminoth Lore, Space Pirate Logs and Trooper Logs of Aether, and the Galactic Federation, Bryyonian, SkyTown and Space Pirate Data of the Phazon crisis. Scanning activation panels operates elevators, gates and other devices across Chozo, Luminoth and Pirate installations. On the Bottle Ship scanning worked only from that first-person view and gave a one- or two-word identification and what it would take to break or bypass the object. On Viewros her scanning passed to the Psychic Visor, an enhanced scanning visor born of the psychic crystal, which also reveals and works psychic objects.
+The Scan Visor is her instrument of investigation. Sweeping it over a creature, a person, a machine, a carving or a terminal records data in her Logbook: creature profiles and weaknesses, research notes, and lore such as the Chozo Lore and Pirate Data of Tallon IV, the Alimbic Lore of the Alimbic Cluster, the Luminoth Lore, Space Pirate Logs and Trooper Logs of Aether, and the Galactic Federation, Bryyonian, SkyTown and Space Pirate Data of the Phazon crisis. Scanning activation panels operates elevators, gates and other devices across Chozo, Luminoth and Pirate installations. On the Bottle Ship scanning worked only from that first-person view and gave a one- or two-word identification and what it would take to break or bypass the object. On Viewros her scanning passed to the Psychic Visor, an enhanced scanning visor born of the Psychic Crystal, which also reveals and works psychic objects (see Psychic abilities).
 
 Her Thermal, X-Ray, Dark, Echo and Command Visors are specialized systems she switches to as the situation demands, several of them in the middle of a fight.
 
@@ -603,7 +603,7 @@ Reserve Tanks. On her return to Zebes, Samus found four Reserve Tanks, her emerg
 
 Energy Parts. On the Bottle Ship and on ZDR the tanks also came in pieces: four Energy Parts made one Energy Tank.
 
-Energy, Phazon and Dark Aether. The PED Suit demanded the energy of one full Energy Tank to enter Hypermode; she received a tank aboard the G.F.S. Olympus, so she always had one to inject. On Phaaze its emergency vent emptied every tank she carried to slow her corruption. On Dark Aether the atmosphere itself drank five units a second until the Dark Suit slowed it to one and the Light Suit stopped it. The Energy Cells of the Phazon crisis are unrelated: they are power units for the derelict G.F.S. Valhalla, not suit energy. See Save, Recharge, Map and Navigation stations.
+Energy, Phazon and Dark Aether. Hypermode cost the energy of one full Energy Tank, and Dark Aether's atmosphere drained suit energy until the Luminoth suits shielded her (see Phazon Suit and PED Suit, and Dark Suit and Light Suit). The Energy Cells of the Phazon crisis are unrelated: they are power units for the derelict G.F.S. Valhalla, not suit energy. See Save, Recharge, Map and Navigation stations.
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Energy_Tank · https://www.metroidwiki.org/wiki/Reserve_Tank · https://www.metroidwiki.org/wiki/Energy_Part · https://www.metroidwiki.org/wiki/Energy · https://www.metroidwiki.org/wiki/Dark_Suit · https://www.metroidwiki.org/wiki/Navigation_Booth</sub>
@@ -611,7 +611,7 @@ Energy, Phazon and Dark Aether. The PED Suit demanded the energy of one full Ene
 
 ### Equipment: Flash Shift, Phantom Cloak, Slide and Spin Boost (Dread-era movement)
 
-*Keys:* Flash Shift, Flash Shifts, Flash Shifting, Phantom Cloak, Phantom Cloaked, Phantom Cloaking, Spin Boost, Spin Boosts, E.M.M.I. Zone, E.M.M.I. Zones, EMMI Zone
+*Keys:* Flash Shift, Flash Shifts, Flash Shifting, Phantom Cloak, Phantom Cloaked, Phantom Cloaking, Spin Boost, Spin Boosts
 
 
 On ZDR (Metroid Dread) Samus moved differently from any earlier mission. Raven Beak defeated her on arrival and stripped her suit of most of its abilities, so she rebuilt her mobility piece by piece, and two of the pieces drew on Aeion rather than on suit power.
@@ -624,7 +624,7 @@ The Flash Shift, found in Burenia, is an Aeion ability that moves her to either 
 
 The Spin Boost, held by a Chozo Statue in Ghavoran, gave her a second jump in mid-air before she found the Space Jump in Ferenia.
 
-The rest of her ZDR mobility came from elsewhere: the Spider Magnet from E.M.M.I.-02SM in Artaria, the Morph Ball from E.M.M.I.-03MB in Cataris, the Speed Booster from E.M.M.I.-04SB in Dairon, the Screw Attack in Artaria, and the Pulse Radar, her third Aeion ability, in Ghavoran. The gauge rules that govern the cloak and the shift belong to Aeion itself.
+The rest of her ZDR mobility, from the Spider Magnet, Morph Ball and Speed Booster that E.M.M.I. units yielded to the Screw Attack, came back piece by piece (see The seven E.M.M.I. units and their Central Units); the Pulse Radar, her third Aeion ability, and the gauge rules that govern the cloak and the shift belong to Aeion itself.
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Aeion · https://www.metroidwiki.org/wiki/ZDR · https://www.metroidwiki.org/wiki/Artaria · https://www.metroidwiki.org/wiki/Speed_Booster · https://www.metroidwiki.org/wiki/E.M.M.I. · https://www.metroidwiki.org/wiki/Metroid_Dread</sub>
@@ -637,9 +637,9 @@ The rest of her ZDR mobility came from elsewhere: the Spider Magnet from E.M.M.I
 
 The Fusion Suit is the organic armor Samus wore after the X parasites nearly killed her, so named for her fusion with Metroid cells.
 
-Origin. While escorting Biologic Space Laboratories researchers on SR388, Samus was infected by an X parasite. She lost consciousness in flight; her gunship's emergency systems ejected her in an escape pod before the ship crashed into an asteroid belt, and she was recovered and brought to Galactic Federation surgeons. The X had invaded her central nervous system, and the organic components of her Power Suit had become so integrated with her body that the suit could not be fully removed while she was unconscious. Surgeons cut away large infected portions and sent them to the BSL station for study; the X inside that capsule later took her form as the SA-X. A vaccine made from a cell culture the Federation had preserved from the baby Metroid cured her, letting her absorb X for nourishment and leaving her with the Metroids' vulnerability to cold.
+Origin. After an X parasite infected Samus on SR388 and nearly killed her, Galactic Federation surgeons cut away large infected portions of her Power Suit, whose organic components had become too integrated with her body to remove fully while she was unconscious, and a vaccine made from a cell culture preserved from the baby Metroid cured her, letting her absorb X for nourishment and leaving her with the Metroids' vulnerability to cold (see The BSL incident and Samus and the X). The parts cut away went to the BSL station, where the X inside them took her form as the SA-X.
 
-The suit. Rebuilt around what remained, the Fusion Suit is less bulky than the Power Suit, blue and yellow, and far weaker: most of its abilities and weapons were gone, she could not use the Ice Beam, cold struck her harder than before, and its Charge Beam fired medium-sized energy waves instead of one large burst. In exchange she could climb onto ledges without the Power Grip, and any X that touched her was absorbed, restoring energy and returning whatever abilities its host had carried. The Mega Core-X in Sector 6 (NOC) stole the Varia Suit data from the Data Room before she could download it; absorbing it restored the Varia and recolored the suit green and pink. The Gravity Suit, won from Nightmare in Sector 5 (ARC), tinted it light blue and purple. In the final hours of the BSL incident the SA-X attacked the Omega Metroid that had cornered her and was struck down; Samus absorbed its Core-X, regaining the Ice Beam, and her suit took on a look that recalled her old Varia Suit (Metroid Fusion).
+The suit. Rebuilt around what remained, the Fusion Suit is less bulky than the Power Suit, blue and yellow, and far weaker: most of its abilities and weapons were gone, she could not use the Ice Beam, cold struck her harder than before, and its Charge Beam fired medium-sized energy waves instead of one large burst. In exchange she could climb onto ledges without the Power Grip, and any X that touched her was absorbed, restoring energy and returning whatever abilities its host had carried. Its colors changed as she recovered her abilities: green and pink with the Varia Suit, light blue and purple with the Gravity Suit, and, after she absorbed the SA-X's Core-X and regained the Ice Beam in the final hours of the BSL incident, a look that recalled her old Varia Suit (Metroid Fusion; see Varia Suit, Gravity Suit and Omega Metroid of the BSL).
 
 Aftermath. Samus kept the organic suit after the station fell into SR388. By the time of her ZDR mission it had gradually returned toward its original mechanical Power Suit form (Metroid Dread). She was never cured of the Metroid in her. See Samus Aran – Metroid DNA, SA-X, X Parasites and The BSL incident.
 
@@ -649,12 +649,12 @@ Aftermath. Samus kept the organic suit after the station fell into SR388. By the
 
 ### Equipment: Grapple Beam
 
-*Keys:* Grapple Beam, Grapple Beams, Grapple Lasso, Grapple Swing, Grapple Voltage, Hyper Grapple, Ship Grapple, Ship Grapple Beam, Grapple Point, Grapple Points, Grapple Block, Grapple Blocks
+*Keys:* Grapple Beam, Grapple Beams, Grapple Lasso, Grapple Swing, Grapple Voltage, Hyper Grapple, Ship Grapple Beam, Grapple Point, Grapple Points, Grapple Block, Grapple Blocks
 
 
 The Grapple Beam is a tether of energy that latches onto Grapple Points, Grapple Blocks and other magnetic anchors and lets Samus swing across gaps she could never jump. On most of her suits it fires from the Arm Cannon; on the suits she wore on Tallon IV, Aether and through the Phazon crisis it was an attachment on her left arm. Besides swinging, it can hold her still in midair, grab small creatures and pull open hatches.
 
-She recovered it in Norfair after killing Crocomire, on her return to Zebes, and with it crossed to the Wave Beam and made short work of Draygon. On Tallon IV the Frigate Orpheon explosion took it and she retrieved it from Storage Depot B in the Phazon Mines; that version fired slowly but could hook the magnetic undersides of Gliders. On Aether the Grapple Guardian in Dark Torvus Bog held it. Aboard the Bottle Ship, Adam Malkovich authorized it when she spotted a Grapple Point above a Rhedogian holding Anthony Higgs over lava in Sector 3 (Pyrosphere), and she swung in to knock him free. On ZDR it waited in Artaria, and with the Spider Magnet it let her attach to distant magnetic surfaces.
+She recovered it in Norfair after killing Crocomire on her return to Zebes, from Storage Depot B in the Phazon Mines of Tallon IV, from the Grapple Guardian in Dark Torvus Bog on Aether and in Artaria on ZDR; aboard the Bottle Ship Adam Malkovich authorized it in Sector 3 (Pyrosphere) when she spotted a Grapple Point above a Rhedogian holding Anthony Higgs over lava, and she swung in to knock him free. On Zebes it carried her to the Wave Beam and made short work of Draygon; the Tallon IV version fired slowly but could hook the magnetic undersides of Gliders; on ZDR, with the Spider Magnet, it let her attach to distant magnetic surfaces.
 
 During the Phazon crisis the beam grew into a family of tools, each a glowing emitter on her left glove:
 - Grapple Lasso (yellow), found in the first room of Norion: hurled at shimmering objects to tear away blast shields, strip armor and shields from Shield Pirate Troopers and Gragnol Adults, and wrench at Rundas, Omega Ridley and Aurora Unit 313.
@@ -671,19 +671,21 @@ On Viewros her lock-on also helps her connect the Grapple Beam to swing between 
 
 ### Equipment: Gravity Suit
 
-*Keys:* Gravity Suit, Gravity Suits, Gravity Feature, Gravity Boost, Hazard Shield, underwater movement, move underwater, purple suit, extreme cold
+*Keys:* Gravity Suit, Gravity Suits, Gravity Feature, Gravity Boost, Hazard Shield, underwater movement, move underwater, purple suit
 
 
 The Gravity Suit is the Chozo enhancement that frees Samus from the drag of liquids and gravity. Wearing it she moves, jumps and fires underwater as freely as on land, in most places she can cross magma unharmed, and incoming damage is reduced. It shades the armor purple; on the Bottle Ship, where it was built in as the Gravity Feature, it instead surrounded her with a purple aura.
 
-History and limits:
-- On her first Zebes mission a Chozo Statue in Chozodia held it, but her original armor could only register it as unknown; it activated once the Ruins Test granted her the Legendary Power Suit. It negated lava but not the liquid of Tourian (Metroid: Zero Mission).
-- On Tallon IV she took it from the Gravity Chamber in Phendrana Drifts; it sharpened her underwater vision and let her explore the sunken Frigate Orpheon, though magma still burned her there.
+History: she found it in Ridley's lair on her first Zebes mission, registered only as an unknown item until the Ruins Test granted her the Legendary Power Suit; at the Wrecked Ship on her return, once Phantoon fell; in the Gravity Chamber of Phendrana Drifts on Tallon IV; from Nightmare in Sector 5 (ARC) of the BSL station; and from a Chozo Statue in Burenia on ZDR; aboard the Bottle Ship the Gravity Feature switched on when the module holding Sector Zero detached.
+
+Limits and variations:
+- First Zebes mission: it negated lava but not the liquid of Tourian (Metroid: Zero Mission).
+- Tallon IV: it sharpened her underwater vision and let her explore the sunken Frigate Orpheon, though magma still burned her there.
+- Return to Zebes: Maridia and Ridley's lair were impassable without it, and together with the Varia Suit it cut the damage she took by three quarters.
+- Bottle Ship: unusually, lava still hurt her.
+- BSL station: it let the Speed Booster and Space Jump work underwater and in the magma of Sector 3, and it tinted the Fusion Suit light blue and purple.
+- ZDR: it also shielded her from extreme cold and let her move through lava, and during the final battle with Raven Beak it became the Metroid Suit.
 - Aether had no Gravity Suit; the Luminoth Gravity Boost from Torvus Bog gave underwater lift and no protection. During the Phazon crisis the Hazard Shield, a Space Pirate unit she took on the Pirate Homeworld, filled the role: pulsing purple hexagonal plating on her shoulders and an orange outline let her endure Acid Rain and Fuel Gel.
-- On her return to Zebes it lay at the Wrecked Ship, reachable only after Phantoon fell and power returned; Maridia and Ridley's lair were impassable without it, and together with the Varia Suit it cut the damage she took by three quarters.
-- The Gravity Feature switched on when the module holding Sector Zero detached from the Bottle Ship; unusually, lava still hurt her there.
-- On the BSL station she won it by defeating Nightmare in Sector 5 (ARC). It let the Speed Booster and Space Jump work underwater and in the magma of Sector 3, and it tinted the Fusion Suit light blue and purple.
-- On ZDR she took it from a Chozo Statue in Burenia, the planet's flooded region. There it also shielded her from extreme cold and let her move through lava, and during the final battle with Raven Beak it became the Metroid Suit.
 
 Across her missions the Gravity Suit is what opens the flooded and molten depths to her, from Maridia to the sunken Orpheon.
 
@@ -698,7 +700,7 @@ Across her missions the Gravity Suit is what opens the flooded and molten depths
 
 Hi-Jump Boots (formerly written High Jump Boots) raise Samus's jump height: per the original manual by half again, per the SR388 manual to more than twice the height. She found them in Norfair on both her Zebes missions and regained them on the BSL station by destroying Zazabi in Sector 2 (TRO); on her first Zebes mission and the BSL station they also gave the Morph Ball its Spring Ball hop. On ZDR her second jump in mid-air came instead from the Spin Boost, held by a Chozo Statue in Ghavoran.
 
-The Space Jump lets Samus keep somersaulting through the air, chaining spin jumps indefinitely; each new jump engages just after the last one peaks. It first came to her on SR388 and has served on nearly every mission since. On the return to Zebes it lay in Maridia. On her first Zebes mission the Chozo cache in Kraid's domain held it, but her suit read only "Unknown item" until she wore the Legendary Power Suit from Chozodia. On the BSL station she took it from Yakuza, a spider-like X mimic in the Reactor Silo of the Main Deck. On the Bottle Ship she switched it on herself, with the Screw Attack, while chasing the Deleter, though that suit's version only sustained her height. On the extermination mission the Area 4 Chozo Statue stood broken and empty, and the Diggernaut left the Space Jump behind after she tricked it into thinking she was dead. On ZDR it waited in Ferenia. The Prime-era Space Jump Boots give a single extra jump in mid-air, only after a jump from the ground; she found them in the Alcove of Tallon Overworld, lost them to a Warrior Ing on Aether, reclaimed them from the Jump Guardian in Dark Agon Wastes, and wore them throughout the Phazon crisis.
+The Space Jump lets Samus keep somersaulting through the air, chaining spin jumps indefinitely; each new jump engages just after the last one peaks. It first came to her on SR388 and has served on nearly every mission since: she found it in Kraid's lair on her first Zebes mission, registered only as an unknown item until she wore the Legendary Power Suit, in Maridia on her return, from Yakuza, a spider-like X mimic in the Reactor Silo of the BSL station, from the Diggernaut on the SR388 extermination mission, which ejected it as it passed her hiding place after she had found the Area 4 Chozo Statue broken and empty, and in Ferenia on ZDR. On the Bottle Ship she switched it on herself, with the Screw Attack, while chasing the Deleter, though that suit's version only sustained her height. The Prime-era Space Jump Boots give a single extra jump in mid-air, only after a jump from the ground; she found them in the Alcove of Tallon Overworld, lost them to a Warrior Ing on Aether, reclaimed them from the Jump Guardian in Dark Agon Wastes, and wore them throughout the Phazon crisis.
 
 The Wall Jump is technique, not equipment: Samus kicks off a wall for extra height. On Zebes, on both missions, she could chain kicks up a single wall, a move the Etecoons of Brinstar also perform. She did the same on the BSL station, on ZDR, where she can also kick off a Spider Magnet surface and cling again, and aboard the Bottle Ship, where it was called the Kick Climb. On Aether and during the Phazon crisis she managed it only through the Screw Attack, on designated Wall Jump Surfaces.
 
@@ -708,14 +710,14 @@ The Wall Jump is technique, not equipment: Samus kicks off a wall for extra heig
 
 ### Equipment: Ice Beam
 
-*Keys:* Ice Beam, Ice Beams, Ice-Beam, freeze beam, freezing beam, Freeze Gun, Freeze Guns
+*Keys:* Ice Beam, Ice Beams, Ice-Beam, freeze beam, freezing beam
 
 
 The Ice Beam is a Chozo enhancement for the Arm Cannon that fires frigid energy. A target that absorbs enough of it freezes solid; frozen enemies can be shattered with a Missile or used as footholds to reach otherwise unreachable heights. Because Metroids are acutely sensitive to cold, the Ice Beam is their classic counter: a frozen Metroid cracked open by Missiles is one of the few ways to kill one, and on her first Zebes mission Samus could not have cleared the Metroids of Tourian without it.
 
-The Chozo left it in several places. On her first Zebes mission it waited in Norfair, beyond blocks above a sea of magma that she crossed with the Power Grip; on her return it lay in Norfair past a stretch demanding the Speed Booster. On SR388 she found one in Chozo ruins behind a Red Door early on, and another at the entrance to the deepest region, where juvenile Metroids could only be hurt while frozen. On Tallon IV it lay in the Antechamber of the Chozo Ruins; that version fired slow shots, froze foes on a charged hit and fed the Ice Spreader. Aboard the Bottle Ship, Adam Malkovich authorized it in Sector 3 (Pyrosphere); there freezing was often partial, locking a Dessgeega's legs or a Zebesian's claws, and frozen bodies dropped under gravity rather than hanging in place. On Aether and during the Phazon crisis she carried no Ice Beam at all, relying on the Luminoth Dark Beam and on Ice Missiles instead.
+The Chozo left it in several places: in Norfair on both her Zebes missions, twice in the ruins of SR388 (the second at the entrance to the deepest region, where juvenile Metroids could only be hurt while frozen) and in the Antechamber of the Chozo Ruins on Tallon IV; aboard the Bottle Ship Adam Malkovich authorized it in Sector 3 (Pyrosphere). The Tallon IV version fired slow shots, froze foes on a charged hit and fed the Ice Spreader. On the Bottle Ship freezing was often partial, locking a Dessgeega's legs or a Zebesian's claws, and frozen bodies dropped under gravity rather than hanging in place. On Aether and during the Phazon crisis she carried no Ice Beam at all, relying on the Luminoth Dark Beam and on Ice Missiles instead.
 
-The BSL incident gave the weapon a personal edge. She arrived with it, lost it to the X that infected her suit, and then learned that the Metroid vaccine that had saved her life had also given her the Metroids' weakness to cold: she could not use an Ice Beam, so the Galactic Federation issued Ice Missiles in its place. The SA-X, wearing her stolen suit, turned the Ice Beam against her again and again, freezing her solid. Only after she absorbed the Core-X the SA-X left behind when it attacked the Omega Metroid could she wield it without harm, and she used it at once to freeze and kill the Omega Metroid in the station's docking bay.
+The BSL incident gave the weapon a personal edge. The Metroid vaccine that saved her life also gave her the Metroids' weakness to cold, so she could not use an Ice Beam and the Galactic Federation issued Ice Missiles in its place, while the SA-X, wearing her stolen suit, turned the Ice Beam against her again and again, freezing her solid. Only after she absorbed the Core-X the SA-X left behind when it attacked the Omega Metroid could she wield it without harm, and she used it at once to kill the Omega Metroid in the station's docking bay (see Omega Metroid of the BSL).
 
 Per the manga, she fired the Ice, Wave and Plasma Beams once together at Ridley. The Federation's 07th Platoon carried Freeze Guns as their equivalent aboard the Bottle Ship.
 
@@ -728,11 +730,11 @@ Per the manga, she fired the Ice, Wave and Plasma Beams once together at Ridley.
 *Keys:* Ice Missile, Ice Missiles, Diffusion Missile, Diffusion Missiles, Seeker Missile, Seeker Missiles, Seeker Launcher, Storm Missile, Storm Missiles, Hyper Missile, Hyper Missiles, Multi-Lock
 
 
-Ice Missiles freeze what they hit while delivering a Missile's blast, and Metroids are especially vulnerable to them. The Galactic Federation issued them to Samus on the BSL station, in a Sector 5 (ARC) Data Room, because the Metroid vaccine had left her unable to use an Ice Beam; frozen foes served her as stepping stones, and the Super Missiles she already carried took on the same freezing. During the Phazon crisis she took Ice Missiles from Rundas after defeating him in the Temple of Bryyo; they froze enemies and flowing Fuel Gel, broke White Blast Shields and set up frozen targets to be shattered by a charged beam. On ZDR, E.M.M.I.-05IM in Ghavoran yielded them.
+Ice Missiles freeze what they hit while delivering a Missile's blast, and Metroids are especially vulnerable to them. She received them from the Galactic Federation in a Sector 5 (ARC) Data Room on the BSL station, because the Metroid vaccine had left her unable to use an Ice Beam, took them from Rundas after defeating him in the Temple of Bryyo during the Phazon crisis, and claimed them from E.M.M.I.-05IM in Ghavoran on ZDR. On the BSL station frozen foes served her as stepping stones, and the Super Missiles she already carried took on the same freezing; during the Phazon crisis they froze enemies and flowing Fuel Gel, broke White Blast Shields and set up frozen targets to be shattered by a charged beam.
 
 The Diffusion Missile, downloaded on the BSL in Sector 4 (AQA) shortly after she destroyed Nightmare, is a charged Missile: held in the launcher and released, it bursts and damages every enemy within its radius, and fired with Ice Missiles it freezes every freezable creature in sight. Each shot costs one Missile.
 
-The Seeker Missile locks onto up to five targets at once, or five times onto one, and fires a Missile at each. Its Luminoth form, the Seeker Launcher, was once the weapon of the champion A-Kul and lay sealed in a vault in the Hall of Honored Dead; A-Voq's message urged her to claim it from its sacred vault. It breaks Multi-Lock Blast Shields and overwhelms regenerating weak points such as those of Mekenobites and the adult Chykka, though Pirate Commandos can evade it. During the Phazon crisis she recovered one in the Xenoresearch Labs of SkyTown. Aboard the Bottle Ship she took the Seeker Missile Launcher in Sector 1 (Biosphere) on her own, without Adam Malkovich's authorization; there a fully charged volley loosed a Super Missile at the main target while the extra Missiles found targets by themselves.
+The Seeker Missile locks onto up to five targets at once, or five times onto one, and fires a Missile at each. It breaks Multi-Lock Blast Shields and overwhelms regenerating weak points such as those of Mekenobites and the adult Chykka, though Pirate Commandos can evade it. Its Luminoth form, the Seeker Launcher, was once the weapon of the champion A-Kul; Samus claimed it from its sacred vault in the Hall of Honored Dead on Aether, as A-Voq's message urged, recovered the weapon again in the Xenoresearch Labs of SkyTown during the Phazon crisis, and took the Seeker Missile Launcher on her own, without Adam Malkovich's authorization, in Sector 1 (Biosphere) of the Bottle Ship. There a fully charged volley loosed a Super Missile at the main target while the extra Missiles found targets by themselves.
 
 The Storm Missile is the ZDR answer to the same need: absorbed from the Core-X left by Escue in Ferenia, it locks onto as many as five enemies and fires three Missiles at each in quick succession.
 
@@ -761,18 +763,18 @@ It fires two ways. The Omega Stream is a barrage of small projectiles, like a ro
 
 ### Equipment: Metroid Suit (Dread)
 
-*Keys:* Metroid Suit, Hyper Beam, full Metroid, becoming a Metroid, Metroid transformation, Metroid powers, energy drain, draining energy, Quiet Robe X, QR-X
+*Keys:* Metroid Suit, full Metroid, becoming a Metroid, Metroid transformation, Metroid powers, Quiet Robe X, QR-X
 
 
-The Metroid Suit is the form Samus's armor took on ZDR when the Metroid DNA from her vaccine awakened in full.
+The Metroid Suit is the form Samus's armor took on ZDR when the Metroid DNA from her vaccine awakened in full (Metroid Dread).
 
-Awakening. Raven Beak, who lured Samus to ZDR and stripped her suit of most of its abilities on her arrival, wanted her Metroid genes active. After Quiet Robe was killed and the X were loosed from Elun across the planet, her Metroid power first surfaced when the last E.M.M.I. caught her and was about to extract her DNA: she drained its energy with her hand, as a Metroid feeds, and destroyed it. Only afterward, aboard his airship Itorash, did Raven Beak reveal that he had been posing as ADAM in her communications and had spared her so that her Metroid powers would surface, intending to clone her into an army of Metroids under his control.
+Awakening. Raven Beak, who lured Samus to ZDR and stripped her suit of most of its abilities on her arrival, wanted her Metroid genes active so that he could clone an army of Metroids from her. Her Metroid power first surfaced in Hanubia, when she drained the energy of the last E.M.M.I. with her hand, and it awakened in full during her final battle with Raven Beak aboard his airship Itorash, when her Gravity Suit changed into the Metroid Suit (see Itorash and the end of ZDR).
 
-Transformation. During their final battle on Itorash the full awakening came: her Gravity Suit changed into the Metroid Suit, an organic, Metroid-like armor with a carapace of jagged ridges and folding plates. In it, all of her Arm Cannon's powers combined into the Hyper Beam, a massive continuous beam, and anything she touched was drained of its energy. She drained Raven Beak, then Itorash itself, sending it crashing onto ZDR. There the X that had possessed Kraid's corpse infected the broken Raven Beak, and she destroyed the Raven Beak X with the Hyper Beam.
+Form and powers. The Metroid Suit is an organic, Metroid-like armor with a carapace of jagged ridges and folding plates. In it, all of her Arm Cannon's powers combined into the Hyper Beam, a massive continuous beam, and anything she touched was drained of its energy: she drained Raven Beak, then Itorash itself, and destroyed the Raven Beak X with the Hyper Beam.
 
-Cost and cure. With ZDR self-destructing, the real ADAM warned her not to take the controls of her gunship: in that state her touch would drain the ship as it had drained Itorash. The X that had taken the body of Quiet Robe, a Thoha Chozo, appeared behind her. She raised her Arm Cannon; it bowed, and she lowered the weapon. The X returned to its base form and let itself be absorbed into her, neutralizing her Metroid powers; the Metroid Suit reverted to her normal armor, and she lifted off before the planet exploded (Metroid Dread).
+Cost and cure. In that state her touch would have drained her own gunship, as ADAM warned her when she reached it. The X that had taken the body of Quiet Robe, a Thoha Chozo, let itself be absorbed into her, neutralizing her Metroid powers; the Metroid Suit reverted to her normal armor, and she lifted off before the planet exploded (see Quiet Robe).
 
-The Metroid Suit has not appeared since. The Metroid within her remains, held in check since she absorbed the Quiet Robe X. See Samus as the last Metroid, Raven Beak, Quiet Robe, Itorash and the end of ZDR, and The X on ZDR.
+The Metroid Suit has not appeared since. The Metroid within her remains, held in check since she absorbed the Quiet Robe X. See Samus as the last Metroid, Raven Beak and The ZDR mission.
 
 
 <sub>Sources: https://en.wikipedia.org/wiki/Metroid_Dread · https://www.metroidwiki.org/wiki/Quiet_Robe · https://www.metroidwiki.org/wiki/Raven_Beak · https://www.metroidwiki.org/wiki/E.M.M.I.-07PB · https://www.metroidwiki.org/wiki/Metroid_Dread · https://www.inverse.com/gaming/metroid-dread-ending-explained-metroid-suit-rewards</sub>
@@ -780,14 +782,14 @@ The Metroid Suit has not appeared since. The Metroid within her remains, held in
 
 ### Equipment: Missiles and Super Missiles
 
-*Keys:* Missile Launcher, Missile Tank, Missile Tanks, Missile Expansion, Missile Expansions, Super Missile, Super Missiles, missile ammo, her missiles, Ship Missile, Ship Missiles
+*Keys:* Missile Launcher, Missile Tank, Missile Tanks, Missile Expansion, Missile Expansions, Super Missile, Super Missiles, missile ammo, her missiles
 
 
 Missiles are long-range concussive warheads, the one weapon Samus has carried on every mission. They require the Missile Launcher, an Arm Cannon attachment engaged by rotating her arm inside the housing, and each shot spends one unit of Missile Ammo. She normally begins able to hold five, and each Missile Expansion (Missile Tank) she recovers typically adds five more (one at a time aboard the Bottle Ship, ten in the Alimbic Cluster).
 
 Their job is to break what beams cannot: Red Doors and red hatch locks, rock, Radion and Brinstone, the shielding on armored creatures. A frozen target struck by a Missile shatters, which is why ice and Missiles together are a Metroid's bane. On the BSL station the tough casing of a Core-X had to be ruptured by Missile fire. On Tallon IV, Aether and the worlds of the Phazon crisis a locked-on Missile homed on its target, and in the Alimbic Cluster hers were the only homing Missiles in the field. On Viewros they are highly accurate, target-tracking projectiles. Aboard the Bottle Ship a Missile was a lock-on weapon, and a fully charged volley spent five to loose a Super Missile. Adam Malkovich once remarked that with Missiles her chance of survival "climbs to 20%".
 
-Super Missiles are the bulkier successor: roughly five times the force, with a shockwave that shakes a chamber and knocks wall-clinging creatures loose. They open green hatches and clear dense material such as Cordite. On her first Zebes mission the creature Imago yielded them; on her return a cache in Brinstar restored them. On Tallon IV and Aether they existed as a Charge Combo of the Power Beam, recovered in the Phendrana Drifts Observatory after she activated the Pirates' astronomical holographic projector, and in Torvus Temple. On the BSL station she downloaded them in a Sector 3 (PYR) Data Room and used them at once on the Security Robot B.O.X.; there they replaced her ordinary missile fire, each costing a single unit, and later took on the Ice Missiles' freezing. She also found them on SR388 during the extermination mission and on ZDR in Ghavoran.
+Super Missiles are the bulkier successor: roughly five times the force, with a shockwave that shakes a chamber and knocks wall-clinging creatures loose. They open green hatches and clear dense material such as Cordite. She recovered them from the creature Imago on her first Zebes mission, from a cache in Brinstar on her return, on SR388 during the extermination mission, from a Sector 3 (PYR) Data Room on the BSL station, where she used them at once on the Security Robot B.O.X., and in Ghavoran on ZDR; on Tallon IV and Aether they existed as a Charge Combo of the Power Beam, found in the Phendrana Drifts Observatory and in Torvus Temple. On the BSL station they replaced her ordinary missile fire, each costing a single unit, and later took on the Ice Missiles' freezing.
 
 Her Gunship has ordnance of its own. During the Phazon crisis the Galactic Federation furnished Ship Missiles at its landing site on Bryyo; targeted through the Command Visor, the ship made bombing runs against Maldium walls and other targets she could not reach, drawing on its own Ship Missile Ammo.
 
@@ -802,7 +804,7 @@ Her Gunship has ordnance of its own. During the Phazon crisis the Galactic Feder
 
 The Morph Ball is the function of Samus Aran's Power Suit that collapses her into an armored metallic sphere roughly one meter across, small enough to roll through passages she could never enter standing. On her first mission it was called the Maru Mari, from the Japanese for "to roll into a ball"; per the original manual she simply "grows small and round like a ball". On the return to Zebes it was the Morphing Ball. The sphere takes on the look of whatever suit she wears (the Gravity and Phazon forms are visibly different), gravity still acts on it so inclines take effort, and it is the base for a family of Chozo-built extensions: the Morph Ball Bomb and Power Bomb, the Spring Ball, the Boost Ball and Spider Ball, and the Hyper Ball, which looses streams of Phazon electricity in Hypermode and which she gained on Bryyo by destroying Mogenar during the Phazon crisis.
 
-Samus has carried the Morph Ball on practically every mission, and it is usually among the first systems she recovers when her suit is stripped. She found it on a pedestal in Brinstar on her first Zebes mission and on the same pedestal years later. Aboard the Frigate Orpheon an explosion knocked it offline and she regained it in the Ruined Shrine of the Chozo Ruins on Tallon IV; on Aether the Ing stole most of her systems but she kept the ball; on the BSL station she won it back on the Main Deck by destroying the X mimicking Arachnus; on ZDR she reclaimed it by destroying E.M.M.I.-03MB in Cataris with the Omega Cannon; on Viewros it still served her. Adam Malkovich never restricted it on the Bottle Ship, only the bombs it lays. The technique is not hers alone: each rival hunter of the Alimbic Cluster incident had an alternate form of their own.
+Samus has carried the Morph Ball on practically every mission, and it is usually among the first systems she recovers when her suit is stripped. She found it on the same pedestal in Brinstar on both her Zebes missions, regained it in the Ruined Shrine of the Chozo Ruins on Tallon IV after the Frigate Orpheon explosion knocked it offline, won it back from the X mimicking Arachnus on the BSL station's Main Deck and reclaimed it from E.M.M.I.-03MB in Cataris on ZDR; on Aether the Ing stole most of her systems but she kept the ball, Adam Malkovich never restricted it on the Bottle Ship, only the bombs it lays, and it served her on Viewros. The technique is not hers alone: each rival hunter of the Alimbic Cluster incident had an alternate form of their own.
 
 The Spring Ball (the Jumpball on the BSL station) lets the Morph Ball hop without laying a bomb. On SR388 and on the return to Zebes it was a separate find; on her first Zebes mission and the BSL station it came built into the Hi-Jump Boots; during the Phazon crisis it came with the Morph Ball Bombs; it returned on the SR388 extermination mission.
 
@@ -832,7 +834,7 @@ Samus has worn neither suit since. See Phazon, Phazon corruption and Hypermode, 
 *Keys:* Plasma Beam, Plasma Beams, Plasma Trooper, Plasma Troopers, Plasma Shield, Nova Beam, Nova Beams
 
 
-The Plasma Beam is the strongest Chozo beam: a blast that pierces any number of targets, and on SR388 even solid walls. On her first Zebes mission she found it in Crateria but could neither use nor identify it until she earned the Legendary Power Suit in Chozodia; on her return a Chozo Statue held it beyond Draygon in Maridia, and paired with a Power Bomb it produced a Plasma Shield. On the BSL station the X creature Nettori, resembling a Chozo Statue, fired it until she broke its Hard Core-X in Sector 2 (TRO) and absorbed the X. Aboard the Bottle Ship she carried it from the start but first used it against the fully mature Ridley clone in the Pyrosphere, and on ZDR she recovered it on Elun.
+The Plasma Beam is the strongest Chozo beam: a blast that pierces any number of targets, and on SR388 even solid walls. She found it in Crateria on her first Zebes mission, unusable and unidentified until the Legendary Power Suit, in the hands of a Chozo Statue beyond Draygon in Maridia on her return, from the X creature Nettori in Sector 2 (TRO) of the BSL station and in Elun on ZDR; aboard the Bottle Ship she carried it from the start but first used it against the fully mature Ridley clone in the Pyrosphere. On her return to Zebes, paired with a Power Bomb, it produced a Plasma Shield.
 
 The Tallon IV version fires superheated plasma that melts ice and frigidite, ignites foes, reduces most enemies to ash on a charged hit and opens Red Doors; its charged form fed the Flamethrower, and Pirate Plasma Troopers carried a weaker copy. During the Phazon crisis the hunter Ghor wielded a faster, longer-ranged Plasma Beam; Samus took it after defeating him in SkyTown's Main Docking Bay and used its heat to repair Aurora Unit 217 and other damaged circuitry, the beam doubling as an arc welder. Gandrayda, mimicking Ghor, and Dark Samus wielded it as well.
 
@@ -844,17 +846,17 @@ The Nova Beam was a tool of the Space Pirates' Phazon mining. On the Pirate Home
 
 ### Equipment: Power Suit (Samus's Chozo armor)
 
-*Keys:* Power Suit, Power Suits, Legendary Power Suit, Fully Powered Suit, Ruins Test, Chozo armor, Chozo armour, Samus's suit, Samus' suit, Samus's armor, battle suit
+*Keys:* Power Suit, Power Suits, Legendary Power Suit, Fully Powered Suit, Chozo armor, Chozo armour, Samus's suit, Samus' suit, Samus's armor, battle suit
 
 
-The Power Suit is the powered battle armor Samus Aran wears on every mission: a Chozo exoskeleton modified for a human body, largely developed by the Chozo scientist Dryn. Per the manga, the Chozo of Zebes infused the orphaned Samus with their own DNA so she could endure the planet, then armored and trained her; Mother Brain told her during that training that the Power Suit reacts to her thoughts but cannot think for her, and Samus once failed a trial because her focus wavered. The suit is bonded to her body and answers to her will. She can withdraw it into her body and summon it again at any time, leaving only the Zero Suit beneath (as in the manga and on the Bottle Ship), but it does not vanish when she is knocked out: after Dark Samus's Phazon blast on Norion she lay unconscious still armored, and after the X infection its partly organic components were so integrated with her body that Galactic Federation surgeons could not fully remove it while she was unconscious (Metroid Fusion).
+The Power Suit is the powered battle armor Samus Aran wears on every mission: a Chozo exoskeleton modified for a human body. Galactic Federation records name the Chozo scientist Dryn as a key figure in Power Suit technology, and per the manga Mother Brain adapted Chozo battlesuit technology into Samus's own suit. Also per the manga, the Chozo of Zebes infused the orphaned Samus with their own DNA so she could endure the planet, then armored and trained her; Mother Brain told her during that training that the Power Suit reacts to her thoughts but cannot think for her, and Samus once failed a trial because her focus wavered. The suit is bonded to her body and answers to her will. She can withdraw it into her body and summon it again at any time, leaving only the Zero Suit beneath (as in the manga and on the Bottle Ship), but it does not vanish when she is knocked out: after Dark Samus's Phazon blast on Norion she lay unconscious still armored, and after the X infection its partly organic components were so integrated with her body that Galactic Federation surgeons could not fully remove it while she was unconscious (Metroid Fusion).
 
 Design: modular, built around the Arm Cannon and Morph Ball, it accepts weapons, visors, climate resistance, defensive and maneuvering additions and uploaded data, adapting to each immediately. It provides life support; its shielding draws on suit energy that every hit depletes (see Energy Tanks).
 
 Lineage:
-- The first suit. Her original armor, without pauldrons, was lost on her first Zebes mission when Space Pirate fighters shot down her gunship after she escaped Tourian; she crash-landed in Chozodia out of her damaged suit, with only an emergency pistol.
-- The Legendary Power Suit, sometimes called the Fully Powered Suit. In the Chozo ruins of Chozodia, Samus passed the Ruins Test, a trial handed down by the Chozo, and was granted this stronger armor, whose broad pauldrons match the look her Varia Suit gives on other missions. It restored everything she had gathered and could integrate advanced Chozo technology her first suit could only register as unknown: the Gravity Suit, Space Jump and Plasma Beam.
-- She kept this suit on Tallon IV, in the Alimbic Cluster, on Aether, through the Phazon crisis, on SR388 during the Metroid extermination, on her return to Zebes and aboard the Bottle Ship, until an X parasite infected it on SR388. Its infected portions were cut away and it became the organic Fusion Suit, which had returned toward its mechanical form by her ZDR mission (Metroid Dread).
+- The first suit. Her original armor, without pauldrons, was lost when Space Pirate fighters shot down her gunship as she left Zebes after destroying Mother Brain (see Samus's first Zebes mission).
+- The Legendary Power Suit, sometimes called the Fully Powered Suit: the stronger Chozo armor the Ruins Test granted her in Chozodia (see Chozodia, the Ruins Test and the Space Pirate Mother Ship). Its broad pauldrons match the look her Varia Suit gives on other missions; it restored everything she had gathered and could integrate advanced Chozo technology her first suit could only register as unknown: the Gravity Suit, Space Jump and Plasma Beam.
+- She kept this suit on Tallon IV, in the Alimbic Cluster, on Aether, through the Phazon crisis, on SR388 during the Metroid extermination, on her return to Zebes, aboard the Bottle Ship and on Tanamaar and Viewros, until an X parasite infected it on SR388. Its infected portions were cut away and it became the organic Fusion Suit, which had returned toward its mechanical form by her ZDR mission (Metroid Dread).
 
 Variants built onto it: Varia Suit, Gravity Suit, Phazon Suit, PED Suit, Dark Suit, Light Suit, Hazard Shield, Fusion Suit, Metroid Suit, and the Lamorn-made Vi-O-La Suit, Vi-O-La IC Suit and Legacy Suit. Most missions have begun with the suit stripped of its enhancements, by the crash on Zebes, the explosion aboard the Frigate Orpheon, the Ing on Aether, Raven Beak's ambush on ZDR or the events on Viewros, and Samus rebuilds them as she goes; during the Phazon crisis she lost nothing. Cellular material taken from her Power Suit supplied the Metroids the Galactic Federation bred on the Bottle Ship.
 
@@ -869,17 +871,17 @@ The armor was the gift of the people who raised her; parted from it she has been
 *Keys:* psychic crystal, Psychic Visor, Psychic Glove, Control Beam, Psychic Beam, Psychic Mote, Psychic Motes
 
 
-On Viewros (Metroid Prime 4: Beyond) Samus gained powers no earlier mission had given her. In the Chrono Tower she acquired a crystal with psychic capabilities, and once it bonded with her she could manipulate objects at a distance, operate specialized Lamorn mechanisms and perceive hidden platforms.
+On Viewros (Metroid Prime 4: Beyond) Samus gained powers no earlier mission had given her. In the Chrono Tower she acquired the Psychic Crystal, and once it bonded with her she could manipulate objects at a distance, operate specialized Lamorn mechanisms and perceive hidden platforms.
 
 Her psychic powers run through the Psychic Visor, an enhanced scanning visor that took over the work of her Scan Visor and also reveals and handles psychic objects. Two further powers build on it:
 - Psychic Glove: telekinetic handling of Psychic Motes, which serve the Lamorn as keys, and of other psychic objects.
 - Control Beam: lets her steer a charged Psychic Beam shot after firing it, in slowed time, toward control switches or an enemy's weak point.
 
-The powers are of a piece with the Lamorn, the vanished people of Viewros. Many of their structures need psychic power to operate, some of their statues house Psychic Motes, and their prophecy named Samus the "Chosen One". At the end of the mission she used the psychic crystal to accelerate the growth of the Lamorn Memory Fruit.
+The powers are of a piece with the Lamorn, the vanished people of Viewros. Many of their structures need psychic power to operate, some of their statues house Psychic Motes, and their prophecy named Samus the "Chosen One". At the end of the mission she used the Psychic Crystal to accelerate the growth of the Lamorn Memory Fruit.
 
-Viewros also gave her a vehicle. The Vi-O-La is a bike invented by the Lamorn, which she rides across Sol Valley and fights from the saddle, wearing the Vi-O-La Suit that lets her ride it. Its Boost gives a burst of speed that scatters creatures and smashes ore, a sideways Power Slide during a boost sweeps a wide area, and its target-seeking shots lock on to as many as five enemies and return like boomerangs.
+Viewros also gave her a vehicle, the Lamorn motorcycle Vi-O-La, which she rode across Sol Valley in the Vi-O-La Suit (see Vi-O-La and Sol Valley, and Vi-O-La Suit and Legacy Suit).
 
-Her established systems travelled with her: the Morph Ball, Missiles, the Charge Beam and Bombs all served on Viewros.
+Most of her suit's capabilities were gone when she woke in the Chrono Tower, but familiar systems such as the Morph Ball, Missiles, the Charge Beam and Bombs served her again on Viewros.
 
 
 <sub>Sources: https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond · https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond · https://www.metroidwiki.org/wiki/Lamorn · https://www.nintendo.com/us/store/products/metroid-prime-4-beyond-switch/ · https://www.gamespot.com/articles/metroid-prime-4-beyond-hands-on-samuss-psychic-abilities-are-more-than-a-gimmick/1100-6536193/ · https://www.thegamer.com/metroid-prime-4-beyond-psychic-abilities-guide/</sub>
@@ -892,7 +894,7 @@ Her established systems travelled with her: the Morph Ball, Missiles, the Charge
 
 The Screw Attack turns Samus's spin jump into a weapon. While she somersaults, her suit wraps her in a field of destructive energy (her suit's data on Aether says she can "transform into a mobile ball of deadly energy"; the ZDR data describes an electric coating during spin jumps), and most creatures she passes through are destroyed outright. Per the original manual it "spins in flight to attack the enemy"; per the manual for her return to Zebes she can "somersault into enemies and blast them out of the air". Some things can only be destroyed with it. Few creatures resist: Rippers, which shrug off nearly everything else, are shredded by it, while Omega Ridley leaps clear of it and takes no harm from a hit. It generally fails underwater unless she wears the Gravity Suit, though the Bottle Ship suit could use it there regardless; on Aether, underwater, the Luminoth Gravity Boost always took its place. In the Aether and Phazon-crisis suits it also chains several extra spinning jumps after a Space Jump and lets her kick off Wall Jump Surfaces to climb great heights.
 
-Samus has recovered the Screw Attack on nearly every mission, usually late. On her first Zebes mission it waited in Norfair past Ridley's hideout; on the return to Zebes it lay deep in Lower Norfair, the region of Ridley's lair. On the BSL station she regained it by destroying Ridley-X in Sector 1 (SRX), her suit reporting "Screw Attack ability regained". On Aether it rested in a Luminoth vault chamber; during the Phazon crisis it was on Bryyo and let her clear enormous gaps. On the Bottle Ship she switched it on herself, together with the Space Jump, while chasing the Deleter rather than wait for Adam Malkovich's authorization. On ZDR it lay in Artaria. It also served her on SR388 during the extermination mission.
+Samus has recovered the Screw Attack on nearly every mission, usually late: in Norfair past Ridley's hideout on her first Zebes mission, deep in Lower Norfair, the region of Ridley's lair, on her return, from Neo-Ridley, the X copy of Ridley, in Sector 1 (SRX) of the BSL station, in a Luminoth vault chamber on Aether, on Bryyo during the Phazon crisis and in Artaria on ZDR; it also served her on SR388 during the extermination mission, and on the Bottle Ship she switched it on herself, together with the Space Jump, while chasing the Deleter rather than wait for Adam Malkovich's authorization.
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Screw_Attack · https://www.metroidwiki.org/wiki/Space_Jump · https://www.metroidwiki.org/wiki/Wall_Jump · https://www.metroidwiki.org/wiki/ZDR · https://www.metroidwiki.org/wiki/Artaria</sub>
@@ -905,9 +907,9 @@ Samus has recovered the Screw Attack on nearly every mission, usually late. On h
 
 The Speed Booster lets Samus run at supersonic speed. After a short build-up at a full sprint her suit flares and she becomes a projectile: she smashes through Speed Booster blocks and barriers of rock, ice and metal, obliterates most creatures she touches, clears wide gaps and charges up steep inclines. Per the manuals for her first Zebes mission and the BSL mission, she can "dash at supersonic speeds and crash through certain barriers and enemies"; the ZDR data calls it super-human speed.
 
-The Shinespark is its secondary technique, one the Dachora of Brinstar demonstrated on the return to Zebes. At full speed Samus crouches to store the charge, then releases it to launch herself at hyper speed in a straight line: left, right, straight up or diagonally (in the Bottle Ship suit, vertically or in any direction). Sparking into a sloped surface drops her straight back into a boosted run, which reaches places that look unreachable. With the Hi-Jump Boots on her first Zebes mission she could even spark in Morph Ball form. On the return to Zebes the spark bled energy from her suit for as long as it lasted, a cost that never recurred. During the BSL incident the station computer once remarked on her use of the Shinespark after she used it to skip an item she had been sent to collect first.
+The Shinespark is its secondary technique, one the Dachora of Brinstar demonstrated on the return to Zebes. At full speed Samus crouches to store the charge, then releases it to launch herself at hyper speed in a straight line: left, right, straight up or diagonally (in the Bottle Ship suit, vertically or in any direction). Sparking into a sloped surface drops her straight back into a boosted run, which reaches places that look unreachable. With the Hi-Jump Boots on her first Zebes mission she could even spark in Morph Ball form. On the return to Zebes the spark bled energy from her suit for as long as it lasted, a cost that never recurred.
 
-On her first Zebes mission the Speed Booster sat in the hands of a Chozo Statue beyond Kraid's lair; on the return to Zebes it was in Norfair. On the BSL station she regained it by absorbing the core of the X that had mimicked Serris, an aquatic creature that moved at "ultra-high speed" ("Speed Booster was regained. Run until speed boost begins."). On the Bottle Ship Adam Malkovich authorized it in Sector 2, the Cryosphere, where it broke open a shortcut; that suit uniquely let her turn mid-boost, as through a spiral structure in the Biosphere. It was absent from her SR388 extermination mission. On ZDR she first detoured to Burenia for the Flash Shift, then reached the Central Unit in Dairon, took up the Omega Cannon and destroyed E.M.M.I.-04SB, the yellow unit that held the Speed Booster.
+She took the Speed Booster from a Chozo Statue in Kraid's lair after Kraid fell on her first Zebes mission, in Norfair on her return, from the core of the X that had mimicked Serris, an aquatic creature that moved at "ultra-high speed", on the BSL station, and from E.M.M.I.-04SB, the yellow unit in Dairon, on ZDR; aboard the Bottle Ship Adam Malkovich authorized it in Sector 2 (Cryosphere), and it was absent from her SR388 extermination mission. The Bottle Ship suit uniquely let her turn mid-boost, as through a spiral structure in the Biosphere.
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Speed_Booster · https://www.metroidwiki.org/wiki/Shinespark · https://www.metroidwiki.org/wiki/Dachora · https://www.metroidwiki.org/wiki/E.M.M.I. · https://www.metroidwiki.org/wiki/ZDR · https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns</sub>
@@ -915,7 +917,7 @@ On her first Zebes mission the Speed Booster sat in the hands of a Chozo Statue 
 
 ### Equipment: Thermal, X-Ray, Dark, Echo and Command Visors
 
-*Keys:* Thermal Visor, X-Ray Visor, X-Ray Scope, Dark Visor, Echo Visor, Command Visor, Ship Grapple, Ship Missile, Ship Missiles, echo gate, echo gates
+*Keys:* Thermal Visor, X-Ray Visor, X-Ray Scope, Dark Visor, Echo Visor, Command Visor, echo gate, echo gates
 
 
 Beyond the Combat and Scan Visors, Samus has fitted five specialized visors, most of them taken from the worlds she fought on, and several serve her in the middle of a fight.
@@ -941,11 +943,11 @@ Command Visor (Phazon crisis). A link to her Gunship rather than a sensor: throu
 
 The Varia Suit is the Chozo enhancement that hardens Samus's Power Suit against hostile environments. Its name is a corruption of "barrier", and per the manual of her SR388 extermination mission it was once called the Barrier Suit. It appears on every mission and is usually among the first armor enhancements she recovers; in the Alimbic Cluster, on Aether and during the Phazon crisis it was active from the start.
 
-Function: It reduces the damage she takes and lets her walk through superheated regions unharmed, such as Norfair on Zebes, the Magmoor Caverns of Tallon IV, Sector 3 (PYR) of the BSL station and Cataris on ZDR. It does not protect her when immersed in lava or acid, such as the deepest magma of Norfair or the liquid of Tourian; that belongs to the Gravity Suit. On the BSL station it also shielded her from intense cold, which mattered because the Metroid vaccine had made her vulnerable to it: it kept the SA-X's Ice Beam from freezing her and let her absorb Blue X. On ZDR, cold resistance came instead with the Gravity Suit.
+Function: It reduces the damage she takes (on her return to Zebes it halved incoming damage, three quarters together with the Gravity Suit) and lets her walk through superheated regions unharmed, such as Norfair on Zebes, the Magmoor Caverns of Tallon IV, Sector 3 (PYR) of the BSL station and Cataris on ZDR. It does not protect her when immersed in lava or acid, such as the deepest magma of Norfair or the liquid of Tourian; that belongs to the Gravity Suit. On the BSL station it also shielded her from intense cold, which mattered because the Metroid vaccine had made her vulnerable to it: it kept the SA-X's Ice Beam from freezing her and let her absorb Blue X. On ZDR, cold resistance came instead with the Gravity Suit.
 
 Appearance: On her first Zebes mission the Varia simply recolored her original armor (pink in the first telling, orange in the retelling). On most missions the broad rounded pauldrons now associated with Samus come with the Varia; the Legendary Power Suit carries them as part of the armor itself, and on it the Varia is an orange recoloring. On the Fusion Suit it showed as green and pink.
 
-History: Samus found it in Brinstar on her first Zebes mission; took it from Kraid's lair on her return to Zebes, where it halved incoming damage (three quarters together with the Gravity Suit); lost it with her other enhancements in the explosion aboard the Frigate Orpheon and regained it after destroying Flaahgra on Tallon IV; on the BSL station recovered its data by absorbing the Mega Core-X in Sector 6 (NOC) that had stolen it from the Data Room; and took it from Cataris on ZDR. On the Bottle Ship it was built in as the Varia Feature, but Samus waited for Adam Malkovich's authorization, which came only during the fight with Goyagma, after she had crossed the Pyrosphere's heat (Other M). She landed on Tanamaar wearing it, lost it soon after arriving on Viewros and regained it only at the very end (Metroid Prime 4: Beyond).
+History: Samus found it in Brinstar on her first Zebes mission, in Kraid's lair on her return, after destroying Flaahgra on Tallon IV, from the Mega Core-X in Sector 6 (NOC) that had stolen its data on the BSL station, and in Artaria on ZDR; on the Bottle Ship, built in as the Varia Feature, it stayed off until Adam Malkovich authorized it during the fight with Goyagma, after she had already crossed the Pyrosphere's heat, and on Viewros she lost it soon after arriving and regained it only at the very end, when the Legacy Suit gave way to it.
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Varia_Suit · https://www.metroidwiki.org/wiki/Mega_Core-X · https://www.metroidwiki.org/wiki/Legendary_Power_Suit · https://www.metroidwiki.org/wiki/Gravity_Suit · https://www.metroidwiki.org/wiki/Metroid:_Other_M · https://www.thegamer.com/metroid-all-samus-suits-chronological-order/</sub>
@@ -958,18 +960,18 @@ History: Samus found it in Brinstar on her first Zebes mission; took it from Kra
 
 On Viewros Samus wore three suits fabricated from the technology of the Lamorn.
 
-Loss and recovery. Samus landed on Tanamaar in her Varia Suit to defend the artifact unearthed at the Federation research facility there. When Sylux damaged the artifact, it activated and hurled everyone nearby to the unknown planet Viewros, and soon afterward her suit's enhancements, the Varia among them, were stripped away. She rebuilt them across the planet and regained the Varia only at the very end.
+Loss and recovery. Samus arrived on Viewros in her Varia Suit after the Lamorn artifact on Tanamaar hurled her there, but lost it and most of her suit's capabilities soon after waking in the Chrono Tower, and rebuilt them across the planet (see The Viewros incident).
 
-Vi-O-La Suit. After Samus restored the first tower at Volt Forge, a Lamorn fabrication platform printed a riding suit that let her interface with the Vi-O-La, the Lamorn motorcycle she found in Fury Green and rode across Sol Valley.
+Vi-O-La Suit. After Samus restored the first tower at Volt Forge, a Lamorn fabrication platform printed a riding suit that let her interface with the Vi-O-La, the Lamorn motorcycle she found there and rode across Sol Valley.
 
 Vi-O-La IC Suit. A second printed suit. It let Samus withstand extreme heat and switched the Vi-O-La into its IC mode over lava, which carried her across the lava sea of Flare Pool.
 
-Legacy Suit. The last of the three and the finest armor she wore on Viewros, a silver-and-black Lamorn design. It and the Memory Fruit, a store of Lamorn knowledge and history, were rewards from the Altar of Legacy in Fury Green, where she banked the Green Energy Crystals she smashed from the Sol Valley desert on the Vi-O-La; earlier rewards there strengthened her Psychic Beam and Control Beam, and the suit was the altar's final gift. The Legacy Suit lets her spend a store of her Missiles, thirty-five at a time, to raise a protective barrier around herself, and its visor senses nearby Green Energy Crystals (Metroid Prime 4: Beyond).
+Legacy Suit. The last of the three and the finest armor she wore on Viewros, a white Lamorn design and the Lamorn's final gift to their Chosen One. It and the Memory Fruit, a store of Lamorn knowledge and history, came from the Altar of Legacy in Fury Green, where she banked the Green Energy Crystals she smashed from the Sol Valley desert on the Vi-O-La; earlier rewards there strengthened her Psychic Beam and Control Beam. The Legacy Suit lets her spend a store of her Missiles, thirty-five at a time, to raise a protective barrier around herself, and its visor senses nearby Green Energy Crystals (Metroid Prime 4: Beyond).
 
-At the end of her mission Samus planted the Memory Fruit and used the psychic crystal to hasten its growth; whether she kept the Lamorn suits afterward is not recorded. See The Lamorn, Viewros, Vi-O-La and Sol Valley, Tanamaar and the UTO Research Center, and Sylux.
+After escaping Viewros, Samus planted the Memory Fruit on a barren world and used her Psychic Crystal to hasten its growth; as the tree took root she gave up the Legacy Suit, and her armor returned to the Varia Suit. See The Lamorn, Viewros, Vi-O-La and Sol Valley, Tanamaar and the UTO Research Center, and Sylux.
 
 
-<sub>Sources: https://www.gamereactor.eu/metroid-prime-4-beyond-guide-to-all-of-samus-arans-upgrades-and-suits-1645383/ · https://www.gamereactor.eu/metroid-prime-4-beyond-guide-what-are-the-green-energy-crystals-for-and-how-to-upgrade-the-psychic-beam-1642693/ · https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond · https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond · https://www.metroidwiki.org/wiki/Vi-O-La_Suit</sub>
+<sub>Sources: https://www.gamereactor.eu/metroid-prime-4-beyond-guide-to-all-of-samus-arans-upgrades-and-suits-1645383/ · https://www.gamereactor.eu/metroid-prime-4-beyond-guide-what-are-the-green-energy-crystals-for-and-how-to-upgrade-the-psychic-beam-1642693/ · https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond · https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond · https://www.metroidwiki.org/wiki/Vi-O-La_Suit · https://www.nintendolife.com/guides/metroid-prime-4-beyond-volt-forge-guide</sub>
 
 
 ### Equipment: Wave Beam and Spazer
@@ -977,9 +979,9 @@ At the end of her mission Samus planted the Memory Fruit and used the psychic cr
 *Keys:* Wave Beam, Wave Beams, Spazer, Spazer Beam, Spazer Laser Beam, Spazer Shield, Wave Trooper, Wave Troopers
 
 
-The Wave Beam is a Chozo weapon made of energy waves that pass through solid matter and strike whatever lies behind, with a wider area of effect than the Power Beam. The Chozo left it in Norfair on Zebes and in the ruins of SR388. On her first Zebes mission a Kiru Giru larva she could not get past forced her to find a way around it to reach the beam. On her return it lay in Norfair again, reachable only with the Grapple Beam, and paired with the Plasma Beam it split that beam into two shots. On the BSL station she regained it in Sector 6 (NOC). Aboard the Bottle Ship, Super Zebesians armed with Wave Beams trapped Samus in a glass cage in Sector 2 (Cryosphere) and fired through it until Adam Malkovich authorized her own, which made them easy targets; there it crossed glass but not the ship's thick walls. On ZDR, E.M.M.I.-06WB carried it in Ferenia.
+The Wave Beam is a Chozo weapon made of energy waves that pass through solid matter and strike whatever lies behind, with a wider area of effect than the Power Beam. She found it in Norfair on both her Zebes missions, in the ruins of SR388, in the Chapel of the Elders in Phendrana Drifts on Tallon IV, in Sector 6 (NOC) of the BSL station and from E.M.M.I.-06WB in Ferenia on ZDR; aboard the Bottle Ship Adam Malkovich authorized it in Sector 2 (Cryosphere) while Super Zebesians armed with Wave Beams had her trapped in a glass cage, firing through it, which made them easy targets. On her return to Zebes, paired with the Plasma Beam, it split that beam into two shots; on the Bottle Ship it crossed glass but not the ship's thick walls.
 
-The Tallon IV version was different in kind: the only weapon of hers that fires electricity, as oscillating pulses that home on a locked target, paralyze on a charged hit, re-energize dead Power Conduits and open Purple Doors; its charged form fed the Wavebuster. It waited in the Chapel of the Elders in Phendrana Drifts, guarded by Sheegoths. The Space Pirates reverse-engineered it for their Wave Troopers, inferior copies vulnerable to the original, and the creature Metroid Prime absorbed the same power.
+The Tallon IV version was different in kind: the only weapon of hers that fires electricity, as oscillating pulses that home on a locked target, paralyze on a charged hit, re-energize dead Power Conduits and open Purple Doors; its charged form fed the Wavebuster. The Space Pirates reverse-engineered it for their Wave Troopers, inferior copies vulnerable to the original, and the creature Metroid Prime absorbed the same power.
 
 The Spazer Beam (originally the Spazer Laser Beam) splits each shot into three parallel beams. On SR388 the other two beams continued if one struck; on Zebes, where it waited in Brinstar during her return, the whole shot stopped on contact. There it could not be used together with the Plasma Beam, and with a Power Bomb it produced a Spazer Shield.
 
@@ -992,13 +994,13 @@ The Spazer Beam (originally the Spazer Laser Beam) splits each shot into three p
 *Keys:* Wide Beam, Wide Beams, Diffusion Beam, Diffusion Beams, FG-1000, Hyper Beam, Hyper Beams, rainbow beam
 
 
-The Wide Beam fires three beams at once across a swath roughly Samus's own height; it adds no force to each shot but makes a target far easier to hit. On the BSL station a Human Core-X, an X that had mimicked a recently dead crewman, attacked her with it before dropping its disguise in Sector 3 (PYR); Adam Malkovich observed that the X absorb the memories and knowledge of their prey. On ZDR she found it in Dairon. It stacks with the Charge Beam and Plasma Beam.
+The Wide Beam fires three beams at once across a swath roughly Samus's own height; it adds no force to each shot but makes a target far easier to hit. She took it on the BSL station from a Human Core-X, an X that had mimicked a recently dead crewman and fired it at her in Sector 3 (PYR), and found it again in Dairon on ZDR. It stacks with the Charge Beam and Plasma Beam.
 
-The Diffusion Beam is a charge enhancement. A fully charged shot scatters at the point of impact into a burst that strikes every enemy close enough, and the effect carries into every beam she acquires afterward. She obtained it aboard the Bottle Ship, in the Main Sector, after destroying three machines armed with the FG-1000 beam; it was one of only two pieces of equipment there she took on her own rather than through Adam's authorization, the other being the Seeker Missile Launcher. On ZDR it waited in Cataris, where its charged shots reach through walls to a degree.
+The Diffusion Beam is a charge enhancement. A fully charged shot scatters at the point of impact into a burst that strikes every enemy close enough, and the effect carries into every beam she acquires afterward. She took it on her own aboard the Bottle Ship, in the Main Sector, after destroying three machines armed with the FG-1000 beam, and found it again in Cataris on ZDR, where its charged shots reach through walls to a degree.
 
-The Hyper Beam was never Chozo work. In Tourian, as Mother Brain's beam was overwhelming Samus, the baby Metroid returned, drained Mother Brain to the brink, and poured that energy into Samus; a revived Mother Brain killed the hatchling with blasts from her mouth, and its remains fell onto Samus, who rose with the rainbow-colored Hyper Beam in her cannon. It destroyed any enemy in a single shot, could not be charged, and was the only thing that could kill Mother Brain. The hatchling's gift died with Zebes. The Phazon-fuelled Hyper Beam of her PED Suit during the Phazon crisis is a separate weapon (see Phazon Beam).
+The Hyper Beam was never Chozo work: it came to Samus in Tourian on her return to Zebes, from the remains of the baby Metroid that had poured Mother Brain's stolen energy into her before Mother Brain killed it (see Mother Brain's final battle and the baby's sacrifice). The rainbow-colored beam destroyed any enemy in a single shot, could not be charged, and was the only thing that could kill Mother Brain. The hatchling's gift died with Zebes. The Phazon-fuelled Hyper Beam of her PED Suit during the Phazon crisis is a separate weapon (see Phazon Beam).
 
-The name returned on ZDR. In her final battle with Raven Beak her Metroid genes awakened fully, her armor became the Metroid Suit, and she gained a second Hyper Beam, a huge laser that destroyed anything and killed enemies in one shot. With those powers she drained the fortress Itorash, sending it crashing into ZDR, and destroyed the X that had seized Raven Beak's body; the X mimicking Quiet Robe then let itself be absorbed into her, suppressing them.
+The name returned on ZDR, where her fully awakened Metroid genes turned her armor into the Metroid Suit during her final battle with Raven Beak and gave her a second Hyper Beam, a huge laser that destroyed anything and killed enemies in one shot (see Metroid Suit).
 
 After the BSL incident she reflected that she owed the hatchling her life twice over: once in Tourian, and once for the Metroid vaccine made from its cells that cured her of the X.
 
@@ -1013,9 +1015,9 @@ After the BSL incident she reflected that she owed the hatchling her life twice 
 
 The Zero Suit is the skin-tight bodysuit Samus wears beneath the Power Suit and every variant of it. It is cyan-blue with magenta Chozo sigils and glowing light-red markings along the back, built for maximum flexibility, and it is what remains when she withdraws the armor into her body or loses it. In it Samus has no shielding, no Morph Ball, no Arm Cannon and a far shorter jump, and she must rely on stealth.
 
-Zebes. After she escaped Tourian on her first mission, Space Pirate fighters shot down her gunship, and she crash-landed near their Mother Ship in Chozodia. Out of her damaged Power Suit, with only an emergency pistol, she infiltrated the Mother Ship on foot, evading and stunning Zebesians, until she passed the Chozo's Ruins Test and received the Legendary Power Suit (Metroid: Zero Mission).
+Zebes. After Space Pirate fighters shot down her gunship as she left Zebes on her first mission, she crossed the Space Pirate Mother Ship in the Zero Suit with only an emergency pistol, evading and stunning Zebesians, until the Ruins Test gave her the Legendary Power Suit (Metroid: Zero Mission; see Chozodia, the Ruins Test and the Space Pirate Mother Ship).
 
-Later appearances. She is seen in the Zero Suit after the Alimbic, Aether and Phazon missions and aboard the G.F.S. Olympus. On the Bottle Ship her Zero Suit was a more metallic blue with higher heels and the Paralyzer strapped to her left thigh. When she later returned to the ship, marked for destruction, to recover Adam Malkovich's helmet, she escaped in the Zero Suit, sliding under hatches without the Morph Ball (Other M). On the Bottle Ship a fatal blow would have left her in the Zero Suit; elsewhere, when she has been knocked unconscious, the armor has stayed on her.
+Later appearances. She is seen in the Zero Suit after the Alimbic, Aether and Phazon missions and aboard the G.F.S. Olympus. On the Bottle Ship her Zero Suit was a more metallic blue with higher heels and the Paralyzer strapped to her left thigh. When she later returned to the ship, marked for destruction, to recover Adam Malkovich's helmet, she escaped in the Zero Suit, sliding under hatches without the Morph Ball (Other M). When she has been knocked unconscious, the armor has stayed on her.
 
 The Paralyzer. Samus's only secondary weapon, once called the emergency pistol, is a small sidearm she carries when she lacks the Power Suit. On Zebes it charged itself; a fully charged shot stunned a target but could not kill, and an uncharged shot did nothing to a living foe. It could even break Bomb Blocks, yet unlike her Bombs it could not hurt a Zebesian, only stun it. She carried it until the Ruins Test won her the Legendary Power Suit. On the Bottle Ship it did not charge itself and she had to charge it like a Charge Beam, but even an uncharged shot could paralyze an enemy, a charged shot held enemies longer, and it also opened certain hatches. See Samus Aran – appearance, physique and physiology, and Chozodia, the Ruins Test and the Space Pirate Mother Ship.
 
@@ -1137,13 +1139,13 @@ The Chozo understood what technology costs. Per the manga, the science that gave
 *Keys:* Thoha, Mawkin, Thoha tribe, Mawkin tribe, Chozo tribe, Chozo tribes, Thoha massacre, massacre of the Thoha, Thoha scientist, Thoha scientists, Mawkin warrior, Mawkin warriors
 
 
-The Chozo were divided into tribes, two of which decided the fate of SR388 and ZDR (Metroid Dread). The Thoha were the peaceful scientist tribe. They colonized SR388, met the X Parasites there and genetically engineered the Metroids to prey on them, and only the Thoha could control the Metroids. The Mawkin were a warrior tribe led by Raven Beak, whose creed was "Hadar sen olmen", power is everything. When the Metroids grew beyond control, the two tribes banded together to contain them on SR388.
+The Chozo were divided into tribes, two of which decided the fate of SR388 and ZDR (Metroid Dread). The Thoha were the peaceful scientist tribe. They colonized SR388, met the X Parasites there, which use the planet's creatures as hosts, and genetically engineered the Metroids to prey on them; only the Thoha could control the Metroids. The Mawkin were a warrior tribe led by Raven Beak, whose creed was "Hadar sen olmen", power is everything. With the X suppressed the Chozo lived in peace for a time, but the Metroids grew beyond control and came to threaten the Chozo civilization itself, and the two tribes banded together to contain them on SR388.
 
-When the Thoha resolved to destroy SR388 to wipe out the Metroids for good, Raven Beak, who coveted the Metroids as weapons for galactic conquest, massacred them. He spared only the scientist Quiet Robe, whose control over the Metroids his plans required, and took him to the planet ZDR, intending to return to SR388 once the Metroids had wiped out the X. The last of the Chozo Memories of SR388 shows this moment: a Chozo warrior standing over another leader's body, his army arrayed below.
+When the Thoha resolved to destroy SR388 to wipe out the Metroids for good, Raven Beak, who coveted the Metroids as weapons for galactic conquest, massacred them. He spared only the scientist Quiet Robe, whose control over the Metroids his plans required, and took him to the planet ZDR, where he planned to house Metroids, intending to return to SR388 once the Metroids had wiped out the X. The last of the Chozo Memories of SR388 shows this moment: a Chozo warrior standing over another leader's body, his army arrayed below.
 
 On ZDR an X Parasite infected one of Raven Beak's soldiers, and every Chozo there except Raven Beak and Quiet Robe was taken. Raven Beak sealed the infected in the region of Elun and built robotic Chozo Soldiers to replace them. After Samus exterminated the SR388 Metroids for the Galactic Federation, he let footage of a living X reach the Federation, reprogrammed the E.M.M.I. units sent to investigate, and lured Samus to ZDR to harvest the Metroid DNA in her body and clone a Metroid army.
 
-Both tribes touched Samus directly. Raven Beak was present when the Chozo adopted her and gave her some of his own DNA. Quiet Robe disabled an E.M.M.I. that was about to kill her, told her the tribes' history, and was killed by one of Raven Beak's robot soldiers soon after; Samus pressed on to finish the fight. She defeated Raven Beak aboard his fortress Itorash and destroyed the X that seized his body, and ZDR exploded as she escaped. With them the Thoha and Mawkin are extinct. See also Raven Beak, Quiet Robe, Chozo Soldiers, E.M.M.I., Planet ZDR, Chozo Memories.
+Both tribes touched Samus directly. Raven Beak was present when the Chozo adopted her and gave her some of his own DNA. In Ferenia, Quiet Robe disabled an E.M.M.I. that was about to kill her, told her the tribes' history, and was killed by one of Raven Beak's robot soldiers soon after; Samus pressed on to finish the fight. She defeated Raven Beak aboard his fortress Itorash and destroyed the X that seized his body, and ZDR exploded as she escaped. With them the Thoha and Mawkin are extinct. See also Raven Beak, Quiet Robe, Chozo Soldiers, E.M.M.I., Planet ZDR, Chozo Memories.
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Raven_Beak · https://www.metroidwiki.org/wiki/Quiet_Robe · https://www.metroidwiki.org/wiki/Metroid_Dread · https://en.wikipedia.org/wiki/Metroid_Dread · https://en.wikipedia.org/wiki/List_of_Metroid_characters · https://en.wikipedia.org/wiki/Metroid:_Samus_Returns</sub>
@@ -1156,35 +1158,35 @@ Both tribes touched Samus directly. Raven Beak was present when the Chozo adopte
 
 Gray Voice (also spelled Grey Voice) is a male Chozo of Zebes who appears only in the Metroid manga. Pragmatic and demanding where Old Bird was gentle, he was the second guardian of Samus Aran's childhood and the Chozo whose genes she carries: when the Chozo gave Samus Chozo DNA so that she could survive Zebes, they used his. As she was told, "In order for you to inherit Chozo genes, we used his DNA." The two were said to be very like father and daughter, and on at least one occasion Samus could hear his thoughts. (Raven Beak of the Mawkin later revealed that he too had given her DNA; Metroid Dread.)
 
-Gray Voice travelled with Old Bird to K-2L for afloraltite and helped recover the orphaned Samus after the Space Pirate raid, but he opposed the adoption at first: "Old Bird!! What do you plan to do by bringing a human child here." He nonetheless went on, with Old Bird, to train her in the Power Suit through her teens, without softness; his standard was "You can't be second or third place." It was he who ordered the toxic Badger Clover and the Iono Feria that carried it burned, over Samus's objection.
+Gray Voice travelled with Old Bird to K-2L for afloraltite and helped recover the orphaned Samus after the Space Pirate raid, but he opposed the adoption at first: "Old Bird!! What do you plan to do by bringing a human child here." He nonetheless went on, with Old Bird, to train her in the Power Suit through her teens, without softness; his standard was "You can't be second or third place." It was he who recognized the toxic Badger Clover Samus had picked, which led to the clover and the Iono Feria that carried it being burned over her objection.
 
-He was also the Chozo who best understood Mother Brain. He once praised it as the greatest being in existence; after it turned, he called it a defective product that had self-programmed the directive to bring order to the universe itself. When Mother Brain seized control of Zebes and the Space Pirates, Gray Voice appeared to side with them, and Samus could only ask, "Gray... Voice... Why are you with the Space Pirates..." It was a ruse: he had planned from the start to destroy Mother Brain. He donned a Chozo Power Suit and attacked it, and was close to bringing it offline when Ridley intervened and struck him a fatal blow. With a last attack skyward he let the fleeing Chozo escape the Space Pirate assault. Samus understood only afterward: "Gray planned to destroy Mother from the start... is that right?!"
+He was also the Chozo who best understood Mother Brain. When Mother Brain seized control of Zebes and the Space Pirates, Gray Voice appeared to side with them, praising Mother as the greatest being in existence, and Samus could only ask, "Gray... Voice... Why are you with the Space Pirates..." It was a ruse: he had planned from the start to destroy Mother Brain, the defective product, as he called it, that had self-programmed the directive to bring order to the universe itself. He donned a Chozo Power Suit and attacked it, and was close to bringing it offline when Ridley intervened and struck him a fatal blow. With a last attack skyward he let the fleeing Chozo escape the Space Pirate assault. Samus understood only afterward: "Gray planned to destroy Mother from the start... is that right?!"
 
-Ridley, who had killed her parents, thus also killed the Chozo whose blood runs in Samus's veins. See also Old Bird, Mother Brain, Ridley, Power Suit, K-2L.
+Ridley, the raider behind her parents' deaths, thus also killed the Chozo whose blood runs in Samus's veins. See also Old Bird, Mother Brain, Ridley, Power Suit, K-2L.
 
 
-<sub>Sources: https://www.metroidwiki.org/wiki/Gray_Voice · https://www.metroidwiki.org/wiki/Mother_Brain · https://www.metroidwiki.org/wiki/Samus_Aran · https://en.wikipedia.org/wiki/List_of_Metroid_characters · https://www.metroidwiki.org/wiki/Raven_Beak</sub>
+<sub>Sources: https://www.metroidwiki.org/wiki/Gray_Voice · https://www.metroidwiki.org/wiki/Mother_Brain · https://www.metroidwiki.org/wiki/Samus_Aran · https://en.wikipedia.org/wiki/List_of_Metroid_characters · https://www.metroidwiki.org/wiki/Raven_Beak · https://www.metroidwiki.org/wiki/Iono_Feria</sub>
 
 
 ### Chozo: Old Bird
 
-*Keys:* Old Bird, Old-Bird, OldBird, Chozo father, Chozo foster father, Chozo foster parents, Chozo mentor, Pyonchi
+*Keys:* Old Bird, Old-Bird, OldBird, Chozo father, Chozo foster father, Chozo foster parents, Chozo mentor
 
 
 Old Bird is a male Chozo of Zebes and the closest thing Samus Aran has to a foster father. Nearly everything known about him comes from the Metroid manga; elsewhere he appears only in artwork showing him beside the child Samus (Metroid: Zero Mission).
 
 Per the manga, Old Bird travelled with Gray Voice to the human mining colony K-2L to request a quantity of afloraltite from Rodney Aran. There he met the three-year-old Samus, who approached him without fear, and told her: "We look different... but inside... we have the same 'heart' you do..." When the two Chozo returned after Ridley's Space Pirates had razed the colony, they found Samus the only survivor and brought her to Zebes to raise.
 
-On Zebes Old Bird oversaw her upbringing. Because Mother Brain predicted that her frail body could not withstand life on Zebes, the Chozo merged their DNA with hers and fitted her with a Power Suit. Old Bird taught her that befriending and understanding others can solve problems, showing her how to befriend the rabbit-like Pyonchi, who stayed her companion for years. Into her teens he and Gray Voice trained her in the ways of the Power Suit.
+On Zebes Old Bird oversaw her upbringing. Because Mother Brain predicted that her frail body could not withstand life on Zebes, the Chozo merged their DNA with hers and fitted her with a Power Suit. Old Bird taught her that befriending and understanding others can solve problems, as he had shown her on K-2L by teaching her to befriend the rabbit-like Pyonchi, who stayed her companion for years. Into her teens he and Gray Voice trained her in the ways of the Power Suit.
 
-The Badger Clover incident marked her coming of age. Samus showed Gray Voice flowers that proved to be Badger Clover, an extremely toxic plant carried to Zebes by the flying creatures called Iono Feria, and Gray Voice ordered flowers and creatures burned. Samus objected to the needless bloodshed, and when the Iono Feria took up discarded Space Pirate weapons she shot the weapons away to calm them rather than kill them. Old Bird then told her: "We gave you 'Power'!" What remained was for her to master discipline and her own heart. He added that the Chozo, having left labor and meditation to Mother Brain, were a declining species, and that she should become the true Protector of the Galaxy on her own.
+The Badger Clover incident marked her coming of age. When the toxic Badger Clover she had picked was traced to the Iono Feria, flying creatures that had carried it to Zebes, Old Bird ordered the clover and the creatures burned; Samus objected and, when the Iono Feria took up discarded Space Pirate weapons, shot the weapons away rather than kill them (see Samus's Chozo upbringing and the birth of Mother Brain (manga account)). Old Bird then told her: "We gave you 'Power'!" What remained was for her to master discipline and her own heart. He added that the Chozo, having left labor and meditation to Mother Brain, were a declining species, and that she should become the true Protector of the Galaxy on her own.
 
 Old Bird trusted Mother Brain as the interface overseeing Zebes and routinely asked it for its reports on SR388. His fate after Mother Brain's betrayal and the fall of Zebes is not recorded.
 
 For Samus, Old Bird is the gentle half of her Chozo upbringing, the heart to Gray Voice's discipline, and she left Zebes with his blessing. See also Gray Voice, K-2L, Rodney Aran, Mother Brain, Zebes.
 
 
-<sub>Sources: https://www.metroidwiki.org/wiki/Old_Bird · https://www.metroidwiki.org/wiki/Samus_Aran · https://www.metroidwiki.org/wiki/Mother_Brain · https://www.metroidwiki.org/wiki/Chozo · https://en.wikipedia.org/wiki/List_of_Metroid_characters</sub>
+<sub>Sources: https://www.metroidwiki.org/wiki/Old_Bird · https://www.metroidwiki.org/wiki/Samus_Aran · https://www.metroidwiki.org/wiki/Mother_Brain · https://www.metroidwiki.org/wiki/Chozo · https://en.wikipedia.org/wiki/List_of_Metroid_characters · https://www.metroidwiki.org/wiki/Iono_Feria</sub>
 
 
 ### Chozo: The Chozo (species and civilization)
@@ -1469,7 +1471,7 @@ Aboard Itorash, Samus drained Raven Beak with her awakened Metroid powers and th
 *Keys:* X outbreak, BSL outbreak, outbreak on the BSL, Quarantine Bay, infected by an X, infected by the X, X infection, infested suit, infected suit parts
 
 
-The X outbreak began on SR388 shortly after Samus exterminated the planet's Metroids. Guarding a Biologic Space Laboratories (BSL) research team on the surface for the Galactic Federation, Samus destroyed what appeared to be a Hornoad; the creature was an X mimic, and the freed X infected her. She survived only because the infested parts of her Power Suit were cut away and a vaccine made from the Metroid hatchling's cells destroyed the X inside her (see Samus and the X; The BSL incident).
+The X outbreak began on SR388 some time after Samus exterminated the planet's Metroids. Guarding a Biologic Space Laboratories (BSL) research team on the surface for the Galactic Federation, Samus destroyed what appeared to be a Hornoad; the creature was an X mimic, and the freed X infected her. She survived only because the infested parts of her Power Suit were cut away and a vaccine made from the Metroid hatchling's cells destroyed the X inside her (see Samus and the X; The BSL incident).
 
 The infested suit pieces and infected SR388 specimens were shipped to the BSL research station orbiting SR388. An explosion in the Quarantine Bay followed, and Samus, in the Fusion Suit and a new Gunship whose computer she nicknamed Adam, was sent to investigate (Metroid Fusion). The explosion had been the SA-X, born from her suit parts, breaking out with a Power Bomb and breaching the other capsules. The X spread through all six sectors, infecting the station's fauna and its remaining crew, and spread further as Samus lifted security locks to move through the station. They acted with purpose: in Sector 1 (SRX) they invaded the atmospheric stabilizers, which Adam read as an attempt to alter the environment to their needs; a mimicked crewman shut down the Main Boiler's cooling unit in Sector 3 (PYR) to trigger a meltdown; the security robot B.O.X. was taken through its organic neural network; and Nightmare, kept by the researchers in Sector 5 (ARC), became an X host and wrecked the sector. Samus reclaimed her abilities one Core-X at a time (see X-mimicked creatures of the BSL).
 
@@ -1654,7 +1656,7 @@ At the fall of Zebes three research frigates, Orpheon, Siriacus and Vol Paragom,
 Other Pirate craft:
 - The Space Pirate Mother Ship in Chozodia on Zebes, whose forces shot down Samus's gunship; she infiltrated it in her Zero Suit armed only with a Paralyzer, destroyed Mecha Ridley, and escaped in a Pirate ship as it self-destructed.
 - A Pirate frigate crippled by a Federation patrol, which crashed on Aether.
-- The battleship Colossus, "used for battle and storage purposes." Its crew failed to intercept the G.F.S. Anhur, salvaged the Phazon the Federation left behind, and revived Dark Samus. Improved under her, its "Phazon-powered weapons" rendered the G.F.S. Valhalla helpless; the Pirates seized Aurora Unit 313 and, by their own account, jettisoned the crew into space. Its later fate is unknown.
+- The battleship Colossus, "used for battle and storage purposes." Its crew failed to intercept the G.F.S. Anhur, salvaged the Phazon the Federation left behind, and revived Dark Samus. Improved under her, it rendered the G.F.S. Valhalla helpless with its "Phazon-powered weapons," per Pirate records, though the Federation believed a fleet of Phazon-powered starships with superior numbers had ambushed the ship; the Pirates seized Aurora Unit 313 and, by their own account, jettisoned the crew into space. Its later fate is unknown.
 - The Leviathan battleship: finding the Colossus not intimidating enough, Dark Samus had a Leviathan fitted with cybernetic weapons, its crew quarters and command consoles placed within the beast's skull. The Federation later seized it to reach Phaaze.
 - Boarding Pods, nicknamed Space Coffins: crude craft with an explosive nose cone that rams enemy hulls, as dangerous to their crews as to the target, used in the raid on the G.F.S. Olympus.
 - Space Pirate Armored Tactical Carriers (ATCs), troop craft with Tribeam cannons and a single vulnerable heat vent, deployed over Norion and SkyTown.
@@ -1844,7 +1846,7 @@ For Samus, SR388 was the first time Ridley tried to take the baby from her; at C
 
 Ridley is the leader of the Space Pirates' military and Samus Aran's lifelong nemesis. He is a huge dragon-like creature with leathery wings, taloned limbs, a long bladed tail and a toothed beak that spits plasma and fire. Per the original manual he is the original life form of the planet Zebes and is controlled by Mother Brain; on Zebes he served her alongside Kraid. Space Pirate records designate him geoform 187, code-named Ridley, and official Nintendo material calls him the Cunning God of Death. He is vicious, surprisingly intelligent, proud and deliberately cruel; the Pirate researchers who rebuilt him expected him to relish security work. He communicates in shrieks; per the manga he speaks and taunts his victims.
 
-Ridley led the Space Pirate raid on the human colony K-2L, seeking its Afloraltite fuel, when Samus was three. Per the manga, the child approached him trustingly ("A-are you... Mr. Ridley...?") and told him he was not scary; he answered, "Mhmm, you're so cute. I'm sorry miss, but... That's impossible!! Because... You're about to die!" and struck at her. Her mother Virginia Aran died pushing her out of the way. Her father Rodney Aran then set off the stolen Afloraltite, destroying the Pirate ship and himself; Ridley survived, gravely wounded. Samus was the colony's only survivor and was taken in by the Chozo. Per the manga, she met him again in her teens, when she came to Zebes with the Federation Police during the Pirate takeover: the sight of him triggered a trauma-induced panic attack and he beat her down, gloating about K-2L; he claimed he had healed his wounds by eating the colonists' bodies and taunted that her mother had been among them. He then dealt a fatal blow to the Chozo Gray Voice, whose DNA had been used to give Samus her Chozo genes, as Gray Voice moved to take Mother Brain offline.
+Ridley led the Space Pirate raid on the human colony K-2L when Samus was three; the Pirates had followed a Chozo ship there and seized the colony's afloraltite. Per the manga, the child approached him trustingly ("A-are you... Mr. Ridley...?") and told him he was not scary; he answered, "Mhmm, you're so cute. I'm sorry miss, but... That's impossible!! Because... You're about to die!" and struck at her. Her mother Virginia Aran died pushing her out of the way. Her father Rodney Aran then set off the stolen Afloraltite, destroying the Pirate ship and himself; Ridley survived, gravely wounded. Samus was the colony's only survivor and was taken in by the Chozo. Per the manga, she met him again in her teens, when she came to Zebes with the Federation Police during the Pirate takeover: the sight of him triggered a trauma-induced panic attack and he beat her down, gloating about K-2L; he claimed he had healed his wounds by eating the colonists' bodies, perhaps her mother's among them. He then dealt a fatal blow to the Chozo Gray Voice, whose DNA had been used to give Samus her Chozo genes, as Gray Voice moved to take Mother Brain offline.
 
 During her first mission to Zebes as a bounty hunter, Samus destroyed Ridley in his lair and wrecked Mecha Ridley, a robot built in his likeness, aboard the Space Pirate Mother Ship.
 
@@ -2178,7 +2180,7 @@ Her later recollections (Metroid: Other M) instead describe her pre-hunter servi
 
 ### Manga: The K-2L raid (manga account)
 
-*Keys:* K-2L, K2L, K-2L raid, Afloraltite, Rodney Aran, Virginia Aran, Chief Aran, Samus's parents, Aran family, Old Bird, Pyonchi, Rabbilis
+*Keys:* K-2L, K2L, K-2L raid, Afloraltite, Rodney Aran, Virginia Aran, Chief Aran, Samus's parents, Aran family, Pyonchi, Rabbilis, raid on K-2L
 
 
 Per the manga, K-2L was an Earth colony where humans mined Afloraltite, the mineral used as the ignition module in all space-faring vessels, for Galactic Federation caravans. Rodney Aran headed the mining operation, and his miners greeted him as Chief Aran. He and his wife Virginia had a three-year-old daughter, Samus.
@@ -2208,7 +2210,7 @@ Nintendo has never directly confirmed or denied the manga's canon status, but it
 
 Conflicts with later accounts:
 - Per the manga, Samus's pre-hunter service was in the Federation Police under Chief Hardy, with Adam Malkovich only a dismissive outsider. Her later recollections place that service in the Galactic Federation Army under Adam, which she left after a dispute with him; where the two differ, the later account takes precedence.
-- Per the manga, only Gray Voice's DNA was infused; later revelations (Metroid Dread) show the infused Chozo DNA also included Mawkin DNA from Raven Beak.
+- Per the manga, Gray Voice's is the only Chozo DNA named as infused; later revelations (Metroid Dread) show the infused Chozo DNA also included Mawkin DNA from Raven Beak.
 - Per the manga, the Chozo sought Afloraltite on K-2L and were refused, and the Pirates struck only after shadowing them; Mother Brain, not the Chozo directly, built the Power Suit.
 
 A separate Japan-only manga, Metroid Prime: Episode of Aether by Hisashi Matsumoto, retold the opening of Samus's Aether mission in seven chapters in Kodansha's Comic BomBom from July 2005 to January 2006; it is not part of this backstory. The 1986 Wanpakku strategy manga, Samus & Joey and Metroid EX are not canon.
@@ -2267,7 +2269,7 @@ When the Space Pirates came to Zebes, she concluded that her purpose had backfir
 
 In the Pirate fortress she directed Kraid, Ridley and every defense of the planet. The Galactic Federation described her as the mechanical life-form that controlled the fortress and its defenses, and sent Samus to destroy her. Shielded by turrets, Rinkas and five Zebetite barriers, she could close her eye to become momentarily invulnerable and fire a large purple blast from it. Samus broke through and destroyed her, triggering a time bomb that wrecked Tourian (Metroid: Zero Mission).
 
-The Pirates revived her. On Samus's return she rose from her shattered tank on a towering mechanical body and struck Samus with a Hyper Beam that drained her energy and left her paralyzed. The baby Metroid absorbed Mother Brain's energy and gave it to Samus, then died shielding her; its death left Samus wielding the Hyper Beam, and with it she destroyed Mother Brain for good before Zebes itself exploded (Super Metroid). Years later Federation scientists built MB, an android running an AI derived from Mother Brain's thought processes, to regenerate and control cloned Space Pirate special forces and raise cloned Metroids aboard the Bottle Ship; MB developed Mother Brain's consciousness and turned violent.
+The Pirates revived her. On Samus's return she rose from her shattered tank on a towering mechanical body and struck Samus with a Hyper Beam that drained her energy and left her paralyzed; the baby Metroid gave its life to save Samus, leaving her the Hyper Beam, and with it she destroyed Mother Brain for good before Zebes itself exploded (Super Metroid; see Mother Brain's final battle and the baby's sacrifice). Later, Federation scientists built MB, an android running an AI derived from Mother Brain's thought processes, to regenerate and control cloned Space Pirate special forces and raise cloned Metroids aboard the Bottle Ship; MB developed Mother Brain's consciousness and turned violent.
 
 Mother Brain knew Samus from childhood, and Samus has destroyed her twice.
 
@@ -2296,14 +2298,14 @@ Samus grew up on Zebes; on her first mission she worked down from Brinstar throu
 
 ### Zebes: Samus's first Zebes mission (Zero Mission)
 
-*Keys:* Zero Mission, Zero-Mission, first Zebes mission, first mission to Zebes, first mission on Zebes, first trip to Zebes, fall of Zebes, Zebes has fallen, 20X5
+*Keys:* Zero Mission, Zero-Mission, first Zebes mission, first mission to Zebes, first mission on Zebes, first trip to Zebes, Zebes has fallen, 20X5
 
 
 In the year 20X5 of the Cosmic Calendar, Space Pirates attacked a Galactic Federation deep-space research vessel returning from SR388, seized the Metroid it carried and took it to their fortress on Zebes. The Federation feared the Pirates would multiply the creature with beta rays and loose Metroids as biological weapons. It located the base and attacked, but the Pirates drove the Federation Police back. As a last resort the Federation sent a lone space hunter, Samus Aran, to exterminate the Metroids and destroy Mother Brain, the mechanical life-form that controlled the fortress and its defenses.
 
-Samus landed on Crateria and descended into Brinstar, the caverns of the world where the Chozo had raised her. Chozo Statues among the ruins yielded the relics she needed, among them the Morph Ball, Missiles, Bombs, the Power Grip and the Ice Beam, and in Crateria, Kraid's lair and Ridley's lair she found three devices her suit could not identify, the Unknown Items. She defeated Kraid; while she fought through Norfair the Space Pirate Mother Ship landed in Chozodia; in lower Norfair she killed Ridley. With both lieutenants dead the barrier to Tourian lifted. Inside, the Pirates' own Metroids had apparently killed their keepers. She froze them with the Ice Beam, shattered them with Missiles, broke the Zebetites, destroyed Mother Brain and outran the time bomb up the escape shaft to her ship.
+Samus landed on Crateria and descended into Brinstar, the caverns of the world where the Chozo had raised her. Chozo relics in the caverns gave her what she needed, among them the Morph Ball, Missiles, Bombs, the Power Grip and the Ice Beam, and in Crateria, Kraid's lair and Ridley's lair she found three devices her suit could not identify, the Unknown Items. She defeated Kraid; while she fought through Norfair the Space Pirate Mother Ship landed in Chozodia; in lower Norfair she killed Ridley. With both lieutenants dead the barrier to Tourian lifted. Inside, the Pirates' own Metroids had apparently killed their keepers. She froze them with the Ice Beam, shattered them with Missiles, broke the Zebetites, destroyed Mother Brain and outran the time bomb up the escape shaft to her ship.
 
-Pirate fighters ambushed the gunship as it left Zebes and brought it down beside the Mother Ship. "The timing of my escape couldn't have been worse," Samus later recalled. Without her Power Suit, wearing only the Zero Suit and armed with the Paralyzer, an auto-charging pistol that could stun but not kill, she slipped through the Mother Ship into Chozodia, where a Chozo trial, the Ruins Test, granted her the Legendary Power Suit. It restored everything she had lost and revealed the Unknown Items as the Plasma Beam, Space Jump and Gravity Suit. She fought back through the Mother Ship, destroyed Mecha Ridley at its summit, and escaped in a small Pirate craft as the self-destruct tore the vessel apart (Metroid: Zero Mission).
+Pirate fighters ambushed the gunship as it left Zebes and brought it down beside the Mother Ship. "The timing of my escape couldn't have been worse," Samus later recalled. Stripped to the Zero Suit and armed only with the Paralyzer, a pistol that could stun but not kill, she slipped through the Mother Ship into Chozodia, won the Legendary Power Suit in the Chozo's Ruins Test, which revealed the Unknown Items as the Plasma Beam, Space Jump and Gravity Suit, then destroyed Mecha Ridley at the ship's summit and escaped in a small Pirate craft as the vessel blew apart (Metroid: Zero Mission; see Chozodia, the Ruins Test and the Space Pirate Mother Ship).
 
 The Pirates' own logs read "Zebes has fallen": all ground personnel were presumed dead, killed by the Hunter or in the destruction of the base, but the research frigates Orpheon, Siriacus and Vol Paragom retreated from orbit with live Metroids, and Pirate Security Command issued an all-points alert on the Hunter. Per the manga, Adam Malkovich supported Samus during this mission. The Pirates later rebuilt on Zebes, and Samus returned for the baby Metroid (Super Metroid).
 
@@ -2332,14 +2334,14 @@ The world Samus grew up on died with Mother Brain, in the same battle in which s
 
 ### Zebes: Tourian
 
-*Keys:* Tourian, Old Tourian, New Tourian, Zebetite, Zebetites, Rinka, Rinkas, Golden Statue, escape shaft
+*Keys:* Tourian, Old Tourian, New Tourian, Zebetite, Zebetites, Rinka, Rinkas, escape shaft
 
 
 Tourian is the Space Pirate headquarters on Zebes and the seat of Mother Brain. Unlike the planet's natural caverns it is built, a complex of metal and synthetic materials housing the Pirates' Metroid laboratories, and it held most of the Metroids on the planet. Its long metal corridors have doors that must be forced with Missiles. Launchers spit a constant stream of Rinkas, ring-shaped fireballs that burn on contact; turrets cover the approaches; and before Mother Brain's chamber stand five Zebetite barriers, tubes of shielded, conduit-like material connected to Mother Brain. Zebetite shatters under Missiles but regrows; per the manga it is produced by the same molecule transference that generates Zebes's planetary shield. Mother Brain's tank stands above a pit of lava crossed by three platforms.
 
 The first Tourian was reached by a tall shaft in Brinstar, its way barred until Kraid and Ridley were both dead. When Samus entered on her first mission she found the corridors littered with dead Space Pirates; the Metroids had apparently turned on their keepers. She froze each Metroid with the Ice Beam and shattered it with Missiles, broke the Zebetites and destroyed Mother Brain. That armed a time bomb, and Samus fled up a long escape shaft to the surface before the base blew (Metroid: Zero Mission).
 
-The Pirates rebuilt Tourian deeper, entered by an elevator in western Crateria sealed by the Golden Statue: four statues of Kraid, Phantoon, Draygon and Ridley, each losing its eye and turning grey as its original fell, until the whole statue sank to open the way. The ruins of the old Tourian survived in Crateria's lowest depths, still occupied by Pirates, with Mother Brain's destroyed holding tank in plain view. The new Tourian kept the metal corridors, Metroids and Rinkas, but beyond them lay a zone of lifeless, decaying creatures, and there the grown baby Metroid seized Samus, nearly killed her, then spared her. Mother Brain's revival, the baby's death and the second detonation followed (Super Metroid); when the countdown began, Samus used the Hyper Beam to break through a wall into the original escape shaft and climb to her ship.
+The Pirates rebuilt Tourian deeper, entered by an elevator in western Crateria that the Golden Statue of Kraid, Phantoon, Draygon and Ridley kept sealed until all four were dead (see The return to Zebes). The ruins of the old Tourian survived in Crateria's lowest depths, still occupied by Pirates, with Mother Brain's destroyed holding tank in plain view. The new Tourian kept the metal corridors, Metroids and Rinkas, but beyond them lay a zone of lifeless, decaying creatures. What happened there, from the grown baby Metroid's attack to Mother Brain's last stand and Samus's climb up the original escape shaft, is told under Mother Brain's final battle and the baby's sacrifice (Super Metroid).
 
 Samus has walked out of Tourian alive twice, each time with the base exploding behind her.
 
@@ -2495,7 +2497,7 @@ Samus crossed all of them during the Tallon IV incident, reclaiming the armor an
 
 ### Prime: Tallon IV
 
-*Keys:* Tallon IV, Tallon 4, Tallon Four, planet Tallon, Wanderer-class
+*Keys:* Tallon IV, Tallon 4, Tallon Four, planet Tallon, Wanderer-class, Spiral Sector
 
 
 Tallon IV is a Wanderer-class planet in the FS-176 system of the Spiral Sector, a neighbor of Zebes, Oormine II, Twin Tabula and Bilium, with a mass of 5.1 trillion teratons according to Samus's scans. Most of its explored surface is rain-soaked forest.
@@ -2786,7 +2788,7 @@ Six lesser Ing Guardians, the Warrior Ing and Darklings that held her stolen abi
 
 ### Prime 2: Energy Controllers and the Light of Aether
 
-*Keys:* Energy Controller, Energy Controllers, Light of Aether, Transfer Module, planetary energy, Sky Temple Key, Sky Temple Keys, Dark Temple Key, Dark Agon Key, Dark Torvus Key, Ing Hive Key, Alpha Splinter
+*Keys:* Energy Controller, Energy Controllers, Light of Aether, Transfer Module, planetary energy, Sky Temple Key, Sky Temple Keys, Dark Temple Key, Dark Agon Key, Dark Torvus Key, Ing Hive Key, Alpha Splinter, I-Sha, A-Voq, O-Lir
 
 
 The Light of Aether is the planetary energy of Aether, the collected solar, bio and geothermal power that the Luminoth gathered when their sunless rogue world began to die. Their greatest minds built the Energy Controllers to preserve and regulate it: a Main Energy Controller in the Great Temple and three sub-controllers in the temples of Agon, Torvus and Sanctuary. Each region's share is bound to its own land. The Energy Controllers fed a planet-wide weather control system and a light-based teleportation network, and the Light brought peace and prosperity. The Luminoth venerate it; their farewells invoke it ("May the Light of Aether serve you well," "may the Light of Aether guide your aim").
@@ -2803,7 +2805,7 @@ Each Dark Temple was held fast by three locks; the Dark Agon Keys, Dark Torvus K
 
 ### Prime 2: GFS Tyr and Bravo Squad
 
-*Keys:* Tyr, G.F.S. Tyr, GFS Tyr, Bravo Squad, Squad Bravo, Exeter, Captain Exeter, Task Force Herakles, GFMC Compound, Dark Trooper, Dark Troopers, Angseth
+*Keys:* Tyr, G.F.S. Tyr, GFS Tyr, Bravo Squad, Squad Bravo, Exeter, Captain Exeter, Task Force Herakles, GFMC Compound, Dark Trooper, Dark Troopers, Angseth, Reevs, Triplette, Brouda, Denys, Crany
 
 
 The G.F.S. Tyr was an Anhur-class Galactic Federation warship, one of a line built to police and defend planetary systems and named, like other Federation vessels, for an Earth myth: Tyr, the Norse god of single combat. Its crew of Federation Marines was Squad Bravo of GFMC Task Force Herakles, a roster of twenty-two under Captain A.C. Exeter.
@@ -2818,7 +2820,7 @@ Contact was lost eight days before Samus Aran accepted the contract to locate th
 
 ### Prime 2: Regions of Aether (Temple Grounds, Agon Wastes, Torvus Bog, Sanctuary Fortress)
 
-*Keys:* Temple Grounds, Great Temple, Agon Wastes, Agon, Torvus Bog, Torvus, Sanctuary Fortress, Sky Temple, Ing Hive, Dark Agon, Dark Torvus, Sky Temple Grounds
+*Keys:* Temple Grounds, Great Temple, Agon Wastes, Agon, Torvus Bog, Torvus, Sanctuary Fortress, Sky Temple, Ing Hive, Dark Agon, Dark Torvus, Sky Temple Grounds, Ingsmasher, Ingsmashers
 
 
 Aether's habitable north holds four Luminoth domains, each with a dark reflection on Dark Aether.
@@ -2892,7 +2894,7 @@ The Luminoth also kept the gear of their champion A-Kul for whoever came after h
 
 ### Prime 2: The Luminoth
 
-*Keys:* Luminoth, Luminoths, Keybearer, Keybearers, A-Kul, Luminoth Lore, X-Qar, E-Btr, Sentinel of Aether, Sentinels of Aether, moth people, Hall of Honored Dead
+*Keys:* Luminoth, Luminoths, Keybearer, Keybearers, A-Kul, Luminoth Lore, X-Qar, E-Btr, Sentinel of Aether, Sentinels of Aether, moth people, Hall of Honored Dead, I-Sha, A-Voq, O-Lir, Temple Sentinel, Temple Sentinels, C-Pul, Ingslayer, D-Chr, B-Stz, K-Tch, J-Stl, B-Stl, S-Dly, G-Sch, S-Jrs, C-Rch, D-Isl, M-Dhe, J-Fme, Ylla, N'kren
 
 
 The Luminoth are a tall, winged, moth-like people who settled the rogue planet Aether. Their lore says they were born not of Aether but of the stars: nomads who roamed for generations and, after meeting other enlightened races such as the N'kren, the Ylla and the Chozo, resolved to bind themselves to a homeworld as those peoples had. The scout X-Qar found Aether and became the first Sentinel of Aether. Q-Cis, the first Sentinel born on Aether, protected it for three centicycles; V-Mos followed, then J-Gnk, who died in battle defending the Great Temple, and then U-Mos.
@@ -2909,7 +2911,7 @@ Samus Aran ended the war. The Luminoth woke, bowed to her as one, and she left t
 
 ### Prime 2: U-Mos
 
-*Keys:* U-Mos, U Mos, Umos, Sentinel of the Luminoth, V-Mos, J-Gnk, last Sentinel, Luminoth Sentinel
+*Keys:* U-Mos, U Mos, Umos, Sentinel of the Luminoth, V-Mos, J-Gnk, last Sentinel, Luminoth Sentinel, Translator Module, Translator Modules
 
 
 U-Mos is the fifth and last Sentinel of Aether, the one Luminoth who stayed awake through his people's long defeat. His mother V-Mos, the third Sentinel, died giving birth to him; he inherited the post when the fourth Sentinel, J-Gnk, died in battle defending the Great Temple. When the Ing had taken Agon, Torvus and Sanctuary and only the Great Temple's Energy Controller remained, the surviving Luminoth entered life-preserving stasis there; U-Mos remained on guard over the sleepers and the last of the Light of Aether, bracing for the Ing's last, terrible assault and praying for deliverance.
@@ -2927,9 +2929,32 @@ Like all Luminoth he is winged, psionic and able to shape energy on a par with t
 ## Prime 3
 
 
+### Prime 3: Berserker Lords and Berserker Knights
+
+*Keys:* Berserker Lord, Berserker Lords, Berserker Knight, Berserker Knights, Docking Bay 5, Turbine Chamber
+
+
+Berserkers are the heavy troops the Space Pirates fielded during the Phazon crisis (Metroid Prime 3: Corruption), saturated with Phazon far beyond the regular ranks. Like the Elite Pirates of Project Helix before them, they are Pirates transformed by Phazon.
+
+Berserker Knights are the common grade. Samus's logbook called the Knight a shocking example of how far the Pirates will go for dominance: "Heavily mutated by Phazon exposure," it is "nearly mindless, driven by battle lust." Berserker Lords are Knights pushed further. Only the few Knights that survive the most extreme corruption are promoted to Lord, and the logbook judged Lords "a desperate measure, designed to exploit Phazon as much as possible." A Lord is far more resistant to damage than a Knight, marked by ornate Phazite plating and the Phazon reserves it carries on its back.
+
+Both grades fight with ground shock waves and Phazon projectiles, and both wear Phazite plating over the head that only the Berserker's own Phazon projectiles can break; ordinary fire cannot damage a Knight at all until that armor is gone. Samus had to shoot those projectiles back at their maker until the plating shattered and the head lay open. Before that, a Lord's shoulders were the only unprotected area vulnerable to standard weapons. There were two other answers: late in the crisis the Nova Beam, aimed through the X-Ray Visor, could strike through the plating directly, and a Ship Missile strike from her gunship could also bring a Knight down.
+
+Encounters:
+- A Berserker Lord in Docking Bay 5 of the G.F.S. Olympus, met during the Pirate boarding raid, delayed Samus's departure for Norion.
+- On Norion, Ghor made quick work of a Berserker Knight to clear the path to Generator C.
+- Samus first scanned a Knight in the Ancient Courtyard of Bryyo Thorn Jungle.
+- A second Lord held the Turbine Chamber of SkyTown on Elysia, where the first component of the Theronian Bomb lay.
+- Knights defended Pirate Command on the Pirate Homeworld.
+- On the Homeworld the corrupted Gandrayda took a Berserker Knight's form, using Phazon-charged versions of its attacks and inheriting its weaknesses.
+
+
+<sub>Sources: https://www.metroidwiki.org/wiki/Berserker_Lord · https://www.metroidwiki.org/wiki/Berserker_Knight · https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption · https://www.metroidwiki.org/wiki/Ghor · https://www.metroidwiki.org/wiki/Gandrayda · https://www.metroidwiki.org/wiki/Phazite</sub>
+
+
 ### Prime 3: Bryyo and the Reptilicus
 
-*Keys:* Bryyo, Bryyonian, Bryyonians, Reptilicus, Mogenar, Mogenars, Lords of Science, Lord of Science, Sfimas, Fuel Gel, GFS Theseus, G.F.S. Theseus
+*Keys:* Bryyo, Bryyonian, Bryyonians, Reptilicus, Mogenar, Mogenars, Lords of Science, Lord of Science, Sfimas, Fuel Gel, GFS Theseus, G.F.S. Theseus, Ylla, Bryyus, Bryyus the First, Bryyo Fire, Bryyo Ice, Temple of Bryyo
 
 
 Bryyo is a planet of the Kalandor Region, neighbor to Norion and Elysia. Its orbit leaves 48 percent of the surface in permanent sunlight and 48 percent in permanent night; only a 4 percent equatorial jungle band is habitable. It is the largest known natural source of Fuel Gel, which powers Federation capital ships, and Bryyonian gel sales fund the military forces guarding the region. Its scorched half, Bryyo Fire, holds the Temple of Bryyo above a lake of Fuel Gel; its frozen half is Bryyo Ice.
@@ -2944,9 +2969,22 @@ Dark Samus's Leviathan struck Bryyo during the Phazon crisis (Metroid Prime 3: C
 <sub>Sources: https://www.metroidwiki.org/wiki/Bryyo · https://www.metroidwiki.org/wiki/Bryyo_Data · https://www.metroidwiki.org/wiki/Reptilicus · https://www.metroidwiki.org/wiki/Mogenar · https://www.metroidwiki.org/wiki/Temple_of_Bryyo · https://www.metroidwiki.org/wiki/G.F.S._Theseus</sub>
 
 
+### Prime 3: Defense Drone (Elysian guardian of the Boost Ball)
+
+*Keys:* Defense Drone, Defense Drones, Elysian Defense Drone, Defence Drone, Ballista Storage
+
+
+The Defense Drone is an Elysian security machine, one of the Chozo-made mechanoids of SkyTown on Elysia. Its logbook states that it "is used to secure key areas within SkyTown." Its armor is immune to small-arms fire. Three externally mounted antennae feed its optic array, and destroying all of them overloads the array and leaves the machine briefly vulnerable. Its Control Unit is also vulnerable but must be exposed before it can be targeted.
+
+During the Phazon crisis (Metroid Prime 3: Corruption) a Defense Drone guarded the Boost Ball in Ballista Storage. It showed no sign of Phazon corruption, yet it attacked Samus all the same. As she approached the Boost Ball, an ornate cage closed around her and lowered her into the chamber. The Drone fought with missiles, a large plasma ball, leaping shock waves and later homing bombs. Samus shot down its three antennae, working fast, because a downed antenna came back at full strength if she was slow to drop the next one. With the Drone stunned, she used the Grapple Lasso to pry open its head and expose the core, then struck it with Ice Missiles and Hypermode fire whenever its shielding slid back. The machine repeatedly resealed itself and raised its antennae again, and dense smoke filled the room as it neared destruction. Destroyed, it left the Boost Ball behind for Samus to claim.
+
+
+<sub>Sources: https://www.metroidwiki.org/wiki/Defense_Drone · https://www.metroidwiki.org/wiki/Elysia · https://www.metroidwiki.org/wiki/Elysian · https://www.metroidwiki.org/wiki/Boost_Ball</sub>
+
+
 ### Prime 3: Elysia and SkyTown
 
-*Keys:* Elysia, SkyTown, Sky Town, Aurora Unit 217, AU 217, Helios, Theronian Bomb, Theonian Bomb, Elysian Seed, Spire Dock, Aurora Chamber, Xenoresearch Laboratories
+*Keys:* Elysia, SkyTown, Sky Town, Aurora Unit 217, AU 217, Helios, Theronian Bomb, Theonian Bomb, Elysian Seed, Spire Dock, Aurora Chamber, Xenoresearch Laboratories, Swarmbot, Swarmbots
 
 
 Elysia is a cloud-shrouded planet of the Kalandor Region, neighbor to Norion and Bryyo, uninhabitable by most organisms; its atmosphere is too dangerous for human researchers. Its dominant inhabitants are the Elysians, mechanoids built by the Chozo. SkyTown, the research facility the Chozo built above its clouds, is a network of Research Pods held aloft by rocket-like engines and joined by skybridges and ziplines. Under the Treaty of Elysia the Federation installed Aurora Unit 217, originally built for GF Naval Base Demeter, in a floating pod linked to the station's network, giving it control of the facility and of the Elysians. As administrator, 217 supplied the Federation with tactical intelligence and stellar research.
@@ -2955,7 +2993,7 @@ During the Phazon crisis (Metroid Prime 3: Corruption) 217 was disabled by the P
 
 Samus carried the vaccine to 217 in the Aurora Chamber. Ghor cut 217's lines and wrecked her Gunship at the landing site; she killed him and repaired the connection. 217 then guided her to the three components of a Theronian Bomb, the only means of breaking the Seed's shield, which she hauled with her Gunship's grapple; freeing the second required the Seeker Missile from the Xenoresearch Laboratories, where Phazon Metroids pursued her. She fitted the bomb to the Spire Dock while 217 moved all of SkyTown over the Seed. The Spire Dock then descended on its own; Samus defended it alone against Pirate troopers and Assault Skiffs and escaped by pod as the bomb detonated behind her and shattered the shield. In the Seed she destroyed Helios, a corrupted Elysian machine with four tentacle-like arms that led a swarm of Phazon-energized Swarmbots, and overloaded the core. She also faced the Elysian Defense Drone, which with Ghor and Helios was one of Elysia's three great guardians.
 
-Restored, 217 located Phaaze by triangulating the trajectories of the Leviathan attacks and guided Samus through the rest of the crisis. After the crisis, Samus returned to SkyTown to mourn Rundas, Ghor and Gandrayda.
+Restored, 217 located Phaaze and guided Samus through the rest of the crisis. After the crisis, Samus returned to SkyTown to mourn Rundas, Ghor and Gandrayda.
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Elysia · https://www.metroidwiki.org/wiki/SkyTown · https://www.metroidwiki.org/wiki/SkyTown_Data · https://www.metroidwiki.org/wiki/Aurora_Unit_217 · https://www.metroidwiki.org/wiki/Helios · https://www.metroidwiki.org/wiki/Theronian_Bomb</sub>
@@ -2997,7 +3035,7 @@ Gandrayda was the last of Samus's three comrades to die. Samus gained the Grappl
 
 ### Prime 3: GFS Olympus and the Valhalla
 
-*Keys:* Olympus, Valhalla, GFS Olympus, G.F.S. Olympus, Olympus-class, GFS Valhalla, G.F.S. Valhalla, Aurora Unit 242, AU 242, Klar Nebula  
+*Keys:* Olympus, Valhalla, GFS Olympus, G.F.S. Olympus, Olympus-class, GFS Valhalla, G.F.S. Valhalla, Aurora Unit 242, AU 242, Klar Nebula, Gaflar, Gaflar region, Tivus  
 *Secondary (AND ANY):* Federation, Dane, Admiral, flagship, battleship, Aurora, Norion, Phaaze
 
 
@@ -3026,6 +3064,23 @@ Ghor was the second of Samus's comrades to die. She grieved for him with the oth
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Ghor · https://www.metroidwiki.org/wiki/SkyTown · https://www.metroidwiki.org/wiki/SkyTown_Data · https://www.metroidwiki.org/wiki/Galactic_Federation_Data · https://www.metroidwiki.org/wiki/Aurora_Unit_217 · https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption</sub>
+
+
+### Prime 3: Korakk Beast and the Pirate Hussars
+
+*Keys:* Korakk Beast, Korakk Beasts, Korakk, Korakks, Pirate Hussar, Pirate Hussars, Jousting Field, Phazon Energy Lance, Phazon Energy Lances
+
+
+The Korakk is an armored beast that the Space Pirates prize as a cavalry mount. Its Phazite armor "will repel most damage." Its belly is occasionally vulnerable but guarded from all sides; the inside of its mouth and the tip of its tongue hold sensitive nerve clusters whose injury can briefly incapacitate it; and a nerve ending in its tail can be strained by grappling, but only while the tail is extended. A Korakk emits Phazon energy through its feet and tongue.
+
+Pirate Hussars are its riders, "unusually brave for Space Pirates, willing to ride the deadly Korakk beast into combat." Each carries a Phazon Energy Lance, "deadly at any range," that fires bolts of Phazon energy and swings like a sword; otherwise a Hussar is no hardier than an ordinary Pirate trooper. Hussar and mount share what the logbook calls "a strange bond": "If a Hussar is slain, his Korakk will fight to avenge his death."
+
+During the Phazon crisis (Metroid Prime 3: Corruption), after Samus downed a pair of Aerotroopers in the Jousting Field of Bryyo Thorn Jungle, a Korakk charged in carrying the only Hussar she ever encountered. The beast stayed largely passive while its rider fought. When Samus killed the Hussar, the Korakk went berserk: it rammed her, hurled Phazon energy and seized her with its tongue until she wrenched free. Shots to the tongue as it lashed out stunned the beast, letting her roll beneath it in Morph Ball form and bomb its belly; after enough blasts it reared up and bared its underside to Ice Missiles and Hypermode fire, and she killed it.
+
+The Korakk's death opened the way to the Leviathan Shield Generator in the Thorn Jungle, one of the two generators shielding Bryyo's Leviathan Seed. Its Phazite, a hardened form of Phazon, is the same armor worn by the Berserker Knights and Commando Pirates Samus fought elsewhere in the crisis.
+
+
+<sub>Sources: https://www.metroidwiki.org/wiki/Korakk_Beast · https://www.metroidwiki.org/wiki/Pirate_Hussar · https://www.metroidwiki.org/wiki/Bryyo_Thorn_Jungle · https://www.metroidwiki.org/wiki/Phazite · https://www.metroidwiki.org/wiki/Commando_Pirate</sub>
 
 
 ### Prime 3: Norion
@@ -3065,7 +3120,7 @@ Rundas was the first of Samus's fellow hunters to die and the first she was forc
 *Keys:* assault on Phaaze, Aurora Unit 313, AU 313, end of Phazon, destruction of Phaaze, Phaaze destroyed, Leviathan Battleship, Phaaze wormhole, Sanctum of Phaaze, Genesis Chamber, Darkness coming
 
 
-The Phazon crisis (Metroid Prime 3: Corruption) ended with a Galactic Federation assault on Phaaze, the living planet that is the source of all Phazon. Aurora Unit 217 had located Phaaze by triangulating the trajectories of the Leviathan attacks, and the Federation learned that Dark Samus was using the stolen Aurora Unit 313, implanted on the planet, to spread Phazon and Leviathans across the galaxy. After Samus destroyed the Seed on the Pirate Homeworld, she powered the wreck of the G.F.S. Valhalla with Energy Cells, heard Aurora Unit 313's last recording, which ended "...Darkness coming," and recovered codes that could activate a wormhole. The Space Pirates had fitted a Leviathan, the star-beast Dark Samus brought back from Phaaze, with cybernetic weapon systems as a dreadnought. Samus fed the codes into its launch center, the Leviathan Battleship tore open a wormhole, and the Federation fleet, led by the G.F.S. Olympus, followed it through to fight the Pirates above Phaaze.
+The Phazon crisis (Metroid Prime 3: Corruption) ended with a Galactic Federation assault on Phaaze, the living planet that is the source of all Phazon. Aurora Unit 217 had located Phaaze, and the Federation learned that Dark Samus was using the stolen Aurora Unit 313, implanted on the planet, to spread Phazon and Leviathans across the galaxy. After Samus destroyed the Seed on the Pirate Homeworld, she powered the wreck of the G.F.S. Valhalla with Energy Cells, heard Aurora Unit 313's last recording, which ended "...Darkness coming," and recovered codes that could activate a wormhole. The Space Pirates had fitted a Leviathan, the star-beast Dark Samus brought back from Phaaze, with cybernetic weapon systems as a dreadnought. Samus fed the codes into its launch center, the Leviathan Battleship tore open a wormhole, and the Federation fleet, led by the G.F.S. Olympus, followed it through to fight the Pirates above Phaaze.
 
 The moment Samus entered the planet, its Phazon drove her corruption to the brink. To survive she vented her suit's energy stores and entered permanent Hypermode, wielding maximum firepower at a price: every shot, every wound and every moment on Phaaze raised the Phazon in her body, and had it filled her completely, the overload would most likely have killed her before she fully turned. In the Genesis Chamber, among husks resembling Metroid Prime, she killed an Infant Leviathan that might otherwise have gone on to another world, then descended to the Sanctum at the planet's core, where Dark Samus abided.
 
@@ -3088,7 +3143,7 @@ The Federation hired four bounty hunters: Samus Aran, Rundas, Ghor and Gandrayda
 
 She woke aboard the Olympus a month later; the others had woken weeks earlier. The blast had left the hunters' bodies generating their own Phazon, and the Federation had fitted each with a Phazon Enhancement Device (PED) to harness it. Rundas had gone to Bryyo, Ghor to Elysia and Gandrayda to find the Pirate stronghold, and contact with all three had been lost.
 
-Samus followed. On Bryyo she killed the corrupted Rundas and the war golem Mogenar in the Seed's core. On Elysia she cured Aurora Unit 217 in SkyTown, killed the corrupted Ghor and broke the Seed's shield with a Theronian Bomb before destroying its guardian Helios; 217 then located Phaaze by triangulating the trajectories of the Leviathan attacks. On the Pirate Homeworld she killed Gandrayda, now a Pirate field commander, dropped the planetary shield for a Federation assault, and destroyed the Seed guarded by Omega Ridley, the revived Meta Ridley. Each Seed she overloaded deepened her own corruption, and Dark Samus drained the Phazon from each fallen hunter.
+Samus followed. On Bryyo she killed the corrupted Rundas and the war golem Mogenar in the Seed's core. On Elysia she cured Aurora Unit 217 in SkyTown, killed the corrupted Ghor and broke the Seed's shield with a Theronian Bomb before destroying its guardian Helios; 217 then located Phaaze. On the Pirate Homeworld she killed Gandrayda, now a Pirate field commander, dropped the planetary shield for a Federation assault, and destroyed the Seed guarded by Omega Ridley, the revived Meta Ridley. Each Seed she overloaded deepened her own corruption, and Dark Samus drained the Phazon from each fallen hunter.
 
 Samus recovered wormhole codes from the wreck of the Valhalla, and a captured Pirate Leviathan carried the fleet to Phaaze. In its Sanctum she defeated Dark Samus, who merged with Aurora Unit 313; when Samus destroyed the unit, Phaaze became unstable and collapsed as she escaped, and Dark Samus perished with it. The Federation celebrated the end of Phazon corruption, won at the cost of many troopers and ships and the lives of the three hunters. For Samus the crisis meant killing three colleagues she had fought beside at Norion while carrying the enemy's own substance in her body. She returned to SkyTown to mourn them, then flew on alone; an unidentified ship, later identified as Sylux's, followed her.
 
@@ -3209,7 +3264,7 @@ Dark Samus returned about six months after the Aether incident, and she returned
 
 She went alone to Phaaze, the living source of all Phazon; crewmen who muttered that she had abandoned them were shot. She came back riding a "titanic starborne beast," a Leviathan, and led the Colossus through a wormhole to Phaaze. Her disciples turned the star-beast into a dreadnought with cybernetic weapons built into its skull.
 
-To command the living planet she wanted an Aurora Unit. The Colossus crippled the G.F.S. Valhalla, a Federation battleship "crewed with green recruits on a training mission"; raiders extracted Aurora Unit 313 and jettisoned the crew into space, and the Unit's last log ended "...Darkness coming." Implanted in Phaaze's core, Aurora Unit 313 gave Dark Samus control over the planet's biological functions and the power to launch Leviathan Seeds. The first struck the Pirate Homeworld and corrupted its Pirates into fresh disciples. Around the same time a Phazon-based virus, which the Federation believed to be of Space Pirate origin, began corrupting and disabling Aurora Units, and Fleet Admiral Castor Dane summoned Samus, Rundas, Ghor and Gandrayda to the G.F.S. Olympus to deliver a vaccine.
+To command the living planet she wanted an Aurora Unit. Per Pirate records, the Colossus crippled the G.F.S. Valhalla, a Federation battleship "crewed with green recruits on a training mission," and its raiders extracted Aurora Unit 313 and jettisoned the crew into space, though Samus later found Marines' bodies aboard the wreck; the Unit's last log ended "...Darkness coming." Implanted in Phaaze's core, Aurora Unit 313 gave Dark Samus control over the planet's biological functions and the power to launch Leviathan Seeds. The first struck the Pirate Homeworld and corrupted its Pirates into fresh disciples. Around the same time a Phazon-based virus, which the Federation believed to be of Space Pirate origin, began corrupting and disabling Aurora Units, and Fleet Admiral Castor Dane summoned Samus, Rundas, Ghor and Gandrayda to the G.F.S. Olympus to deliver a vaccine.
 
 Then came three strikes, each a Seed with an armada: Elysia, the Fuel Gel source of Bryyo and the military base at Norion. "Dark Samus herself will lead the attack on Norion." Samus and Rundas restored the generators of the planetary defense cannon, and Rundas caught Samus after her fall with Meta Ridley. At the cannon's control tower Dark Samus descended on the four hunters and knocked them unconscious with a Phazon blast. Samus alone struggled up to fire, destroying the Leviathan before impact, the only Seed ever stopped short of its target, then collapsed into a month-long coma (Metroid Prime 3: Corruption). The Pirates recorded: "Our great leader defeated Aran and her mongrel allies in battle." See also Phaaze, Leviathans, Aurora Unit 313, Norion, G.F.S. Olympus, Castor Dane, Meta Ridley.
 
@@ -3322,7 +3377,7 @@ Corrupted natives and machines: the Turned, Chozo Ghosts of Tallon IV "utterly c
 *Keys:* Phazon mining, Phazon research, Phazon experiments, Phazon weapons, Phazon-powered, Vertigo strain, Phazon Elite, PED program, Phazon virus, Phazon harvesting
 
 
-The Pirates (Space Pirate projects and Phazon research): Science Team codified Phazon as "a V-index mutagen" on Tallon IV and began mining near the Impact Crater, where it was most concentrated. The miners went mad. Experiments followed on Metroids, which yielded the Phazon-mutated Hunter and Fission strains, on Project Titan (Thardus, suspended indefinitely after deadly security breaches) and on Project Helix, which infused Pirate DNA with Phazon. Early Helix subjects suffered degenerated brain tissue; the Vertigo strain produced the Elite Pirates, the short-lived Phazon Elite and the Omega Pirate, whose "potential overdependence on Phazon" worried even Command. On Aether, Pirates ran Phazon extraction raids on Dark Aether, and Dark Samus stripped their stores: "She does not seek our destruction, but our Phazon." Aboard the warship Colossus they unknowingly carried Dark Samus's remains in their Phazon stores, and the survivors of her revival became her disciples (see The return – Colossus, Phaaze and the Norion attack). Phazon-powered Pirate starships and superior numbers overwhelmed the G.F.S. Valhalla, and the Pirates carried off its Aurora Unit 313. They created a Phazon-based virus that corrupted Aurora Units, among them SkyTown's Aurora Unit 217, which Samus later cured. They built the Leviathan dreadnought, mined Phazite for armor plating and door shields, bred Phazon Metroids in the Metroid Creche, entered Hypermode in battle and threw Phazon Grenades.
+The Pirates (Space Pirate projects and Phazon research): Science Team codified Phazon as "a V-index mutagen" on Tallon IV and began mining near the Impact Crater, where it was most concentrated. The miners went mad. Phazon exposure on Tallon IV also mutated Metroids into the Hunter and Fission strains. Experiments followed on Metroids, on Project Titan (Thardus, suspended indefinitely after deadly security breaches) and on Project Helix, which infused Pirate DNA with Phazon. Early Helix subjects suffered degenerated brain tissue; the Vertigo strain produced the Elite Pirates, the short-lived Phazon Elite and the Omega Pirate, whose "potential overdependence on Phazon" worried even Command. On Aether, Pirates ran Phazon extraction raids on Dark Aether, and Dark Samus stripped their stores: "She does not seek our destruction, but our Phazon." Aboard the warship Colossus they unknowingly carried Dark Samus's remains in their Phazon stores, and the survivors of her revival became her disciples (see The return – Colossus, Phaaze and the Norion attack). The Federation believed Phazon-powered Pirate starships in superior numbers had overwhelmed the G.F.S. Valhalla, while Pirate records credit the Phazon-powered weapons of the Colossus; either way the Pirates carried off its Aurora Unit 313. They created a Phazon-based virus that corrupted Aurora Units, among them SkyTown's Aurora Unit 217, which Samus later cured. They built the Leviathan dreadnought, mined Phazite for armor plating and door shields, bred Phazon Metroids in the Metroid Creche, entered Hypermode in battle and threw Phazon Grenades.
 
 The Galactic Federation: the G.F.S. Anhur recovered Phazon ore while dismantling a Pirate mining facility, and from it the Federation developed the Phazon Enhancement Device (see Phazon corruption and Hypermode). The Federation summoned Samus, Rundas, Ghor and Gandrayda to clear a virus from its Aurora Units; after Norion it fitted the four Phazon-generating hunters with PEDs and sent them against the Leviathans, and Demolition Troopers helped breach the Pirate Homeworld's Seed. The program ended with Phaaze, whose destruction stopped the flow of Phazon.
 
@@ -3847,7 +3902,7 @@ During the BSL incident (Metroid Fusion) the X Parasites mimicked Evirs in Secto
 
 The rebuilt Tourian lay deep beneath Crateria, behind the Golden Statue that sank only after Kraid, Phantoon, Draygon and Ridley were dead. Inside, the Space Pirates had produced new Metroids, and Samus Aran killed every one on her way in (the return to Zebes; Super Metroid). Past them the corridors gave way to a decayed cavern strewn with the dried husks of creatures, and there a giant Metroid fell on her. It was the hatchling from Ceres, grown enormous. It drained her almost to death before it stopped, apparently recognizing her, and fled.
 
-Mother Brain waited behind Zebetite barriers, Rinkas and turrets. Samus shattered its tank and battered the brain until it seemed dead. Then it rose on a large mechanical bipedal body and unleashed a beam that stripped away nearly all of Samus's energy and left her paralyzed. In her own words, Mother's overwhelming power brought her to the brink of death (Metroid: Other M).
+Mother Brain waited behind Zebetite barriers, Rinkas and turrets. Samus shattered her tank and battered the brain until she seemed dead. Then she rose on a large mechanical bipedal body and unleashed a beam that stripped away nearly all of Samus's energy and left her paralyzed. In her own words, Mother's overwhelming power brought her to the brink of death (Metroid: Other M).
 
 Before the killing blow, the hatchling returned. It latched onto Mother Brain and drained her, then settled over Samus and poured that energy into her; as Samus later put it, the baby protected her from Mother Brain's attack and gave her power. Mother Brain recovered, and as the baby tried once more to shield Samus, beams from Mother Brain's mouth tore it apart above her head. Its remains fell over her, and with them came the Hyper Beam, a devastating beam that destroys anything it strikes in a single shot and can even breach walls. Samus rose and destroyed Mother Brain with it. With the hatchling's death the Metroid species, as far as anyone then knew, was extinct.
 
@@ -3891,7 +3946,7 @@ Samus had never encountered either creature before this mission; both stood betw
 
 ### Super Metroid: The return to Zebes (mission overview)
 
-*Keys:* return to Zebes, returned to Zebes, back to Zebes, Super Metroid, Metroid 3, Golden Statue, Golden Statues, four guardians, second Zebes mission, Zebes mission, rebuilt Tourian, New Tourian
+*Keys:* return to Zebes, returned to Zebes, back to Zebes, Super Metroid, Metroid 3, Golden Statue, Golden Statues, four guardians, second Zebes mission, rebuilt Tourian, New Tourian
 
 
 Samus Aran's second mission to Zebes, undertaken in pursuit of Ridley after he stole the Metroid hatchling from Ceres Space Colony, ended with the planet's destruction (Super Metroid). She found that the Space Pirates had reestablished much of their subterranean network and rebuilt Tourian deeper inside the planet, its new entrance an elevator in western Crateria. That shaft was sealed by the Golden Statue, a statue of four high-ranking members of the Space Pirate force on Zebes: Kraid, Phantoon, Draygon and Ridley. Each figure lost its eye and turned gray when its living counterpart died, and once all four were dead the statue sank and opened the way.
@@ -3904,7 +3959,7 @@ Her route through the planet:
 - Norfair: volcanic depths flooded with far more lava than on her first visit. She killed Crocomire, fought through Ridley's Hideout in Lower Norfair past the Golden Torizo to the Screw Attack, and killed Ridley. The hatchling's casing lay there broken in two, the baby gone.
 - Tourian: she destroyed the Metroids the Pirates had cloned, survived an attack by the hatchling itself, now grown giant, and faced Mother Brain, who rose in a new mechanical body. The baby died shielding her; its remains gave her the Hyper Beam, with which she destroyed Mother Brain.
 
-A countdown then began. Samus broke through into the old Tourian escape shaft, took the time to free the Dachora and Etecoons trapped in Crateria, reached her Gunship and lifted off as Zebes exploded with nothing left behind. She had come to retrieve the hatchling; she left with the Pirates' base on Zebes destroyed and the baby dead.
+A countdown then began, and Samus escaped in her Gunship, freeing the Dachora and Etecoons on the way, as Zebes exploded behind her (see The destruction of Zebes). She had come to retrieve the hatchling; she left with the Pirates' base on Zebes destroyed and the baby dead.
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Super_Metroid · https://www.metroidwiki.org/wiki/Tourian · https://www.metroidwiki.org/wiki/Golden_Statue · https://www.metroidwiki.org/wiki/Zebes · https://www.metroidwiki.org/wiki/Crateria · https://www.metroidwiki.org/wiki/Brinstar</sub>
@@ -3915,7 +3970,7 @@ A countdown then began. Samus broke through into the old Tourian escape shaft, t
 
 ### Other M: Adam Malkovich
 
-*Keys:* Adam Malkovich, Malkovich, Commander Malkovich, General Malkovich, Ian Malkovich, Any objections, thumbs-down, thumbs down  
+*Keys:* Adam, Adam Malkovich, Malkovich, Commander Malkovich, General Malkovich, Ian Malkovich, Any objections, thumbs-down, thumbs down  
 *Secondary (AND ANY):* Malkovich, Adam, Lady, Commander, Bottle Ship, Sector Zero, 07th, Federation, helmet, Ian, drive unit, drive-unit
 
 
@@ -4243,9 +4298,9 @@ ADAM is the voice Samus relies on in the field, the echo of a commander she resp
 
 ZDR's underground is divided into regions joined by elevators, shuttles and teleporters. Several hold E.M.M.I. Zones, sealed districts each patrolled by a single E.M.M.I. and run by a Central Unit. Samus Aran crossed all of them on her way from the depths to the surface (Metroid Dread).
 
-- Artaria: the deep region where Raven Beak left Samus after defeating her, with one large super-heated zone and several smaller ones. Organic life survives here, including the creature Corpius. The damaged E.M.M.I.-01P and the white E.M.M.I.-02SM patrolled it; Samus recovered the Charge Beam, Spider Magnet, Varia Suit, Screw Attack and Grapple Beam here. Elevators lead to Cataris, Dairon and Burenia.
+- Artaria: the deep region where Raven Beak left Samus after defeating her, with one large super-heated zone and several smaller ones. Organic life survives here, including the creature Corpius, whose defeat yielded the Phantom Cloak. The damaged E.M.M.I.-01P and the white E.M.M.I.-02SM patrolled it; Samus recovered the Charge Beam, Spider Magnet, Varia Suit, Screw Attack and Grapple Beam here. Elevators lead to Cataris, Dairon and Burenia.
 - Cataris: northeast of Artaria and east of Dairon; the lava region, home of the central system that circulates ZDR's magma to power its facilities, so its heat spreads into neighboring areas. Kraid was chained here, and the X mimic Experiment Z-57, escaped from Dairon, attacked the central system here. The green E.M.M.I.-03MB patrolled its zone; the Diffusion Beam was recovered here.
-- Dairon: northwest of Cataris; an industrial region run from a generator and crowded with Chozo-made robots, with no major organic life. The yellow E.M.M.I.-04SB hunted here, and Samus recovered the Bomb.
+- Dairon: northwest of Cataris; an industrial region run from a generator and crowded with Chozo-made robots, with no major organic life. The yellow E.M.M.I.-04SB hunted here and yielded the Speed Booster; Samus also recovered the Wide Beam and the Bomb.
 - Burenia: a marine region, almost fully submerged and full of aquatic creatures found nowhere else, ruled by Drogyga. Shuttles run to Dairon, elevators to Artaria and Ghavoran, and teleporters to Ghavoran and Ferenia. The Flash Shift and Gravity Suit were recovered here.
 - Ferenia: a ruined Chozo sanctuary where rituals were once held, almost entirely artificial, and the home of Quiet Robe. The purple E.M.M.I.-06WB and the X-mutated Quetzoa Escue were here; the Space Jump and Storm Missiles were recovered here.
 - Ghavoran: an underground forest lit by sunlight from above, thick with Quetzoa and home to Golzuna, an X-mutated Muzby. The blue E.M.M.I.-05IM patrolled here; Super Missiles and Cross Bombs were found here.
@@ -4375,7 +4430,7 @@ Quiet Robe is the only Chozo of ZDR who helped Samus, and what remains of him tr
 
 Raven Beak is a male Chozo, leader of the Mawkin warrior tribe, and the enemy Samus Aran faced on ZDR (Metroid Dread). His creed is "Hadar... sen olmen": power is everything. He is markedly larger than Samus and than his own soldiers, and wears on his right arm a cannon like hers. He first appeared in the Chozo Memories of SR388, as the Chozo leader standing over the body of another leader while overlooking his army (Metroid: Samus Returns).
 
-Raven Beak was present when the Chozo adopted the orphaned Samus, and some of his DNA was given to her. On SR388 the Mawkin worked with the Thoha scientists to contain the Metroids the Thoha had engineered. When the Thoha resolved to destroy the planet, Metroids and all, Raven Beak, who coveted the Metroids as weapons for galactic conquest, massacred the Thoha, sparing only Quiet Robe because only the Thoha could control Metroids. He withdrew with his forces and his hostage to ZDR to raise Metroids there. An infected soldier brought the X among the Mawkin; Raven Beak locked the infected tribe in Elun and built Robot Chozo Soldiers to replace them, leaving himself and Quiet Robe the only living Chozo on the planet. He also captured Kraid and experimented on him.
+Raven Beak was present when the Chozo adopted the orphaned Samus, and some of his DNA was given to her. On SR388 the Mawkin worked with the Thoha scientists to contain the Metroids the Thoha had engineered. When the Thoha resolved to destroy the planet, Metroids and all, Raven Beak, who coveted the Metroids as weapons for galactic conquest, massacred the Thoha, sparing only Quiet Robe because only the Thoha could control Metroids. He withdrew with his forces and his hostage to ZDR, which he planned to use to house Metroids, meaning to return to SR388 once the Metroids had wiped out the X. An infected soldier brought the X among the Mawkin; Raven Beak locked the infected tribe in Elun and built Robot Chozo Soldiers to replace them, leaving himself and Quiet Robe the only living Chozo on the planet. He also captured Kraid and experimented on him.
 
 Samus's extermination of the Metroids on SR388 changed his plan rather than ending it: the Metroid DNA in her body would be his breeding stock. He let footage of a living X reach the Galactic Federation, reprogrammed the seven E.M.M.I. it sent to kill her and harvest her DNA, ambushed her on arrival, destroyed the exit, stripped her suit of most of its abilities and left her alive in the depths. Posing as her ship's computer ADAM, he steered her through ordeal after ordeal so that her Metroid nature would awaken. Aboard his airship Itorash he revealed himself, told her he had spared her for exactly this, and offered her a place beside him ruling the galaxy with an army of Metroids cloned from her. She refused and fought.
 
@@ -4391,15 +4446,13 @@ He nearly killed her. Her Metroid power saved her: she drained him, then drained
 *Secondary (AND ANY):* ZDR, Raven Beak, Quiet Robe, Elun, massacre, coup, SR388, tribe, Metroid Dread
 
 
-Two Chozo tribes shaped the history that ended on ZDR: the Thoha, peaceful scientists, and the Mawkin, a warrior tribe led by Raven Beak (Metroid Dread; Metroid: Samus Returns).
+Two Chozo tribes shaped the history that ended on ZDR: the Thoha, peaceful scientists who had engineered the Metroids on SR388 to fight the X Parasite, and the Mawkin, a warrior tribe led by Raven Beak (Metroid Dread). Their earlier history on SR388 is told under Chozo tribes – Thoha and Mawkin.
 
-The Thoha came to SR388 for research and there met the X Parasite, which uses the planet's creatures as hosts. To combat it they engineered the Metroids. The X were suppressed and the Chozo lived in peace for a time, but the Metroids grew out of control and came to threaten the Chozo civilization itself. The Mawkin worked with the Thoha to contain them.
+The two tribes had worked together to contain the Metroids. When the Thoha decided to destroy SR388 outright to end the Metroid threat, Raven Beak, who coveted the Metroids as weapons for galactic conquest, turned on his allies and killed the Thoha to the last, except for the scientist Quiet Robe, spared because only the Thoha could control Metroids.
 
-The alliance broke when the Thoha decided to destroy SR388 outright to end the Metroid threat. Raven Beak, who coveted the Metroids as weapons for galactic conquest, turned on his allies and killed the Thoha to the last, except for the scientist Quiet Robe, spared because only the Thoha could control Metroids. The Chozo Memories of SR388 preserve the moment: one Chozo leader standing over the body of the other, overlooking his army.
+Raven Beak took his warriors and his hostage to ZDR, which he planned to use to house Metroids, meaning to return to SR388 once the Metroids had wiped out the X. The X followed: one infected soldier spread the parasite through the Mawkin until only Raven Beak and Quiet Robe were untouched. Raven Beak sealed the infected tribe in the Elun facility and built Robot Chozo Soldiers to replace them. There the X stayed until Samus Aran's climb toward the surface took her through Elun and they were loosed across the planet.
 
-Raven Beak took his warriors and his hostage to ZDR to raise Metroids there. The X followed: one infected soldier spread the parasite through the Mawkin until only Raven Beak and Quiet Robe were untouched. Raven Beak sealed the infected tribe in the Elun facility and built Robot Chozo Soldiers to replace them. There the X stayed until Samus Aran's climb toward the surface took her through Elun and they were loosed across the planet.
-
-Samus, raised by the Chozo on Zebes, shares blood with the Mawkin: Raven Beak was present at her adoption and was among the Chozo who gave her their DNA. She learned this history from Quiet Robe in Ferenia. The Thoha ended when Quiet Robe died helping her; the Mawkin ended with Raven Beak, who died trying to use her Metroid DNA. By the time ZDR exploded, both tribes were gone.
+Samus, raised by the Chozo on Zebes, shares blood with the Mawkin: Raven Beak was present at her adoption and gave her some of his DNA. Once she had wiped out the Metroids of SR388, the Metroid DNA in her body became what he wanted from her on ZDR. She learned this history from Quiet Robe, the last of the Thoha, in Ferenia. The Thoha ended when Quiet Robe died helping her; the Mawkin ended with Raven Beak, who died trying to use her Metroid DNA. By the time ZDR exploded, both tribes were gone.
 
 
 <sub>Sources: https://en.wikipedia.org/wiki/Metroid:_Samus_Returns · https://en.wikipedia.org/wiki/Chozo · https://en.wikipedia.org/wiki/List_of_Metroid_characters · https://www.nintendo.com/jp/switch/ayl8a/report/vol7/index.html · https://www.metroidwiki.org/wiki/Raven_Beak · https://www.metroidwiki.org/wiki/Quiet_Robe</sub>
@@ -4455,11 +4508,11 @@ Aboard the airship Itorash, Raven Beak revealed he had been posing as ADAM and h
 
 Bounty hunters in Samus Aran's galaxy are space-faring mercenaries, paid for captures and for firepower alike. Per the original manual, when the Space Pirates became a threat the Federation Bureau and the Federation Police called together warriors known for their great courage, the space hunters, who received large rewards when they captured pirates; it named Samus the greatest of all the space hunters. The Galactic Federation and the Space Pirates are among the hunters' most profitable employers.
 
-After leaving Federation service Samus worked freelance, most often for the Federation itself. It hired her to destroy Mother Brain and the Metroids on Zebes, to investigate the Alimbic message and secure its promised power for the Federation or keep it from others, to find the missing G.F.S. Tyr at Aether, to join the G.F.S. Olympus during the Phazon crisis, to scout the Space Pirates of the Bermuda System, to eradicate the Metroids of SR388, to stop the Pirates at Tanamaar, to protect Biologic Space Labs researchers on SR388, and to investigate the lost E.M.M.I. on ZDR. Several missions began on her own initiative: the Frigate Orpheon distress call, her pursuit of Ridley from Ceres to Zebes, and the Bottle Ship's Baby's Cry. Space Pirate records call her simply "the Hunter"; Gandrayda called her "Sammy".
+After leaving Federation service Samus worked freelance, most often for the Federation itself, which has hired her for missions from the first Zebes campaign to ZDR (see Federation contracts and bounty hunters). Several missions began on her own initiative: the Frigate Orpheon distress call, her pursuit of Ridley from Ceres to Zebes, and the Bottle Ship's Baby's Cry. Space Pirate records call her simply "the Hunter"; Gandrayda called her "Sammy".
 
 Other hunters she has met:
 - Rundas, Ghor and Gandrayda: hired with her by Fleet Admiral Castor Dane to purge a Space Pirate virus from the Federation's Aurora Units. All three were corrupted by Phazon, turned to command Space Pirate forces and destroyed by Samus. Rundas was an ice-shaping Phrygisian; Ghor a cyborg veteran of the war to liberate Wotan VII; Gandrayda a shape-shifter.
-- Sylux: from Cylosis, flying the Delano 7. Once a Galactic Federation field captain, he disobeyed an order to hold position and wait for Samus, chased a Space Pirate superweapon, and was the only survivor of his platoon; Samus destroyed the weapon easily. Blaming her and the Federation, he deserted, shadowed her ship after the Phazon crisis, and led the Pirates at Tanamaar and on Viewros.
+- Sylux: from Cylosis, flying the Delano 7. Once a Galactic Federation field captain, he disobeyed an order to hold position and wait for Samus, chased a Space Pirate superweapon, and was the only survivor of his platoon; Samus destroyed the weapon easily. Blaming her and the Federation, he deserted, shadowed her ship after the Phazon crisis, led the Pirates at Tanamaar and fought her again on Viewros.
 - Weavel, a Space Pirate warrior rebuilt as a cyborg after Samus nearly killed him; Kanden, an Enoema soldier who escaped the laboratory that made him; Trace, a Kriken; Noxus, a Vhozon who enforces his own justice; Spire, thought to be the last of the Diamonts. All raced her for the Alimbic message in the Tetra Galaxy.
 
 
@@ -4491,11 +4544,11 @@ Much of the transport on the worlds Samus explores was built by the Chozo, Lumin
 
 Navigation Rooms are the communication chambers of the Biologic Space Labs research station orbiting SR388; most stand at the entrances to its six sectors. Standing at the center, Samus uplinked to her gunship's onboard computer, which relayed the Galactic Federation's orders. Checking in was mandatory before she could proceed, and the computer controlled the rooms' devices and could seal her inside if she refused to cooperate. The rooms also hold sector maps she could download, and her gunship provides the same uplink. Samus named the computer Adam, after her former commanding officer. When she resolved to destroy the station rather than let the Federation capture the SA-X and the X for study, the computer at first opposed her, then revealed itself as the mind of Adam Malkovich and backed her plan, ending his orders with his old sign-off, "Any objections, Lady?"
 
-Data Rooms on the same station let the Federation upload equipment data to her Power Suit, restoring systems removed during the surgery that saved her life. The X fought back: the computer warned that they had destroyed every Data Room she had already used, the SA-X blocked the Sector 2 room and forced her to Sector 3 for the Super Missile data, and the Mega Core-X absorbed the Varia Suit data for itself.
+Data Rooms on the same station let the Federation upload equipment data to her Fusion Suit, restoring systems removed during the surgery that saved her life. The X fought back: the computer warned that they had destroyed every Data Room she had already used, the SA-X blocked the Sector 2 room and forced her to Sector 3 for the Super Missile data, and the Mega Core-X absorbed the Varia Suit data for itself.
 
 Aboard the Bottle Ship, Navigation Booths served as rest points where Samus recorded her status and restored her energy. They also linked her and the platoon to Adam Malkovich, who directed them from the Control Room and authorized her weapons as needed.
 
-On ZDR, Network Stations are communication rooms scattered through the Chozo facilities. ADAM briefed Samus before she landed, but after she fell to Raven Beak on the surface, the voice guiding her at the Network Stations was Raven Beak masquerading as ADAM to push her toward awakening her Metroid DNA, a deception exposed on Itorash. The real ADAM spoke again only from her gunship, warning her that her awakened Metroid powers would drain it.
+On ZDR, Network Stations are communication rooms scattered through the Chozo facilities. ADAM briefed Samus before she landed, but for much of the mission the voice answering her at the Network Stations was Raven Beak masquerading as ADAM, a deception he revealed on Itorash (see ADAM on ZDR and Raven Beak's impersonation). The real ADAM spoke again only from her gunship, warning her that her awakened Metroid powers would drain it.
 
 
 <sub>Sources: https://www.metroidwiki.org/wiki/Navigation_Room · https://www.metroidwiki.org/wiki/Navigation_Booth · https://www.metroidwiki.org/wiki/Data_Room · https://www.metroidwiki.org/wiki/Metroid_Fusion · https://www.metroidwiki.org/wiki/Adam_Malkovich · https://www.metroidwiki.org/wiki/Bottle_Ship</sub>
@@ -4503,7 +4556,7 @@ On ZDR, Network Stations are communication rooms scattered through the Chozo fac
 
 ### Technology: Planets and places of the galaxy (index)
 
-*Keys:* FS-176, Bilium, Oormine II, Twin Tabula, Tetra Galaxy, Bermuda System, Phrygis, Bes III, Vho, Cylosis, Mondreus, Wotan VII
+*Keys:* FS-176, Bilium, Oormine II, Twin Tabula, Tetra Galaxy, Federation Solar System, Phrygis, Bes III, Vho, Cylosis, Mondreus, Wotan VII
 
 
 A reference to the worlds, systems and stations of Samus Aran's galaxy.
@@ -4529,13 +4582,13 @@ Only K-2L and Zebes were ever Samus's home; Ridley's raid ended the first, and t
 
 ### Technology: Samus's Gunship
 
-*Keys:* gunship, gunships, Samus's ship, Samus' ship, Hunter-class, Command Visor, Landing Site, Landing Sites, Ship Missile, Ship Missiles, Ship Grapple, Landing Beacon
+*Keys:* gunship, gunships, Samus's ship, Samus' ship, Hunter-class, Command Visor, Landing Site, Landing Sites, Ship Missile, Ship Missiles, Ship Grapple, Landing Beacon, Aliehs III, Aliehs
 
 
-Samus Aran travels, rests and resupplies aboard a single-pilot gunship; per the official Metroid Prime website it is the only space-faring vessel ever registered under her name. Every ship she has flown is Hunter-class: heavily armed craft built as movable bases for one-person operations, with mobile energy-recharge systems, ammunition microfactories and an onboard computer that stores her mission data. She lands at Landing Sites and records her mission logs aboard. Most of her ships restore her suit's energy and ammunition when she boards, though the one she flew to the Bottle Ship could not.
+Samus Aran travels, rests and resupplies aboard a single-pilot gunship; per the official Metroid Prime website it is the only space-faring vessel ever registered under her name. Her gunships from the Tallon IV mission on are generally of the Hunter class: heavily armed craft built as movable bases for one-person operations, with mobile energy-recharge systems, ammunition microfactories and an onboard computer that stores her mission data. She lands at Landing Sites and records her mission logs aboard. Most of her ships restore her suit's energy and ammunition when she boards, though the one she flew to the Bottle Ship could not.
 
 Her ships:
-- A red ship that carried her to Zebes against Mother Brain. Space Pirate fighters shot it down as she left, stranding her in her Zero Suit until she escaped in a stolen Pirate craft.
+- A red ship that carried her to Zebes against Mother Brain. Space Pirate fighters shot it down as she left, stranding her in her Zero Suit beside the Space Pirate Mother Ship; she eventually left Zebes in a stolen Pirate craft.
 - The first Hunter-class gunship, her ship on Tallon IV and in the Alimbic Cluster. Per the official website it weighs 136 tons and mounts twin Power Beam turrets and a retractable rear Plasma Beam cannon.
 - The classic ship. Aether's atmosphere damaged it on landing and it repaired itself at the Temple Grounds; after the Phazon crisis it carried her to SR388, out of Zebes before the planet exploded, and to the Bottle Ship.
 - The Phazon-crisis ship, built to her own design at the Federation shipyard of Aliehs III, with a Chozo biotech computer of some artificial intelligence, self-repair, a hyperdrive, a Biohazard Scanner for Phazon and an advanced medical bay. It answers her Command Visor, which stayed offline until Rundas rescued her from Space Pirate ATCs on Norion; through it she called the ship to Landing Beacons, fired Ship Missiles against Maldium, and used the Ship Grapple to gather the parts of the Theronian Bomb that broke the Leviathan's shield on Elysia. It flew her from Norion to Bryyo, Elysia, the Pirate Homeworld and Phaaze, and Sylux's Delano 7 later tailed it.
@@ -4575,12 +4628,12 @@ A reference to the sapient peoples of Samus Aran's galaxy; each line points to t
 - Luminoth: winged starfarers who settled Aether, now thriving under their last Sentinel, U-Mos.
 - Ing: shapeshifting possessors born on Dark Aether after a Leviathan strike, ruled by the Emperor Ing; now extinct.
 - Reptilicus: six-limbed reptilians of Bryyo, apparently descended from the Primals faction of the ancient Bryyonians; Phazon has stripped most of their reason.
-- Elysians: robotic sentients built by the Chozo to study Phaaze, dwelling in SkyTown.
+- Elysians: robotic sentients the Chozo built on Elysia as keepers of SkyTown and charged with researching Phaaze.
 - Alimbics: mentally gifted colonizers of the Tetra Galaxy who sealed Gorea in the Oubliette and vanished.
-- Lamorn: extinct psychic people of Viewros whose last priest, Chatoyant Vooloon, left recordings. The green energy they drew from Viewros's crystals to ripen a memory fruit made the wildlife aggressive and turned them into grievers.
+- Lamorn: extinct psychic people of Viewros whose last priest, Chatoyant Vooloon, left recordings. The Green Energy they hoped would nurture Viewros made its wildlife aggressive and turned them into the Grievers.
 - Hunter peoples: the Kriken, a vicious, feared race whose empire is expanded by exiles such as Trace; the Vhozon, proud, reclusive ice-adapted people of Vho, known only through Noxus; the Diamonts, an ancient silicon-based race of Mondreus, of whom Spire is thought to be the last; the Enoema, Kanden's kind, though he himself was created in a laboratory; the Phrygisians, ice-shaping natives of Phrygis, a moon of Bes III, known to Samus only through Rundas.
 - Metroids, Chozo-engineered predators of SR388, and the X Parasites they were made to hunt. See Metroids and X Parasites.
-- Unclassified: Sylux, a former Federation field captain whose species is never stated; Ghor (cyborg); Gandrayda (shape-shifter); Weavel (Space Pirate cyborg).
+- Unclassified: Sylux, a former Federation field captain, most likely human though early records list his species as unknown; Ghor (cyborg); Gandrayda (shape-shifter); Weavel (Space Pirate cyborg).
 
 Samus herself is human by birth, Chozo by blood, and since the BSL incident carries Metroid DNA as well.
 
@@ -4591,9 +4644,49 @@ Samus herself is human by birth, Chozo by blood, and since the BSL incident carr
 ## Creatures
 
 
+### Creatures: Arachnus
+
+*Keys:* Arachnus, Arachnuses, Marukara
+
+
+Arachnus (Marukara in Japanese records) is an armadillo-like native of SR388, rarely encountered among the planet's creatures. Per the manuals, it rolls its body up like an armadillo and rushes its prey.
+
+During the Metroid extermination mission Samus found one in the Chozo ruins of Area 2, curled into an orb in the hands of a Chozo Statue so that it passed for an Item Sphere. The Spring Ball the statue had guarded was in the creature's keeping. When Samus shot the orb, Arachnus burst out (in the retelling, smashing the statue) and attacked.
+
+The two accounts of the fight differ:
+- In the original account it rammed her curled in its ball, stopping now and then to spit a fireball, and evaded every weapon but Bombs, which she had to lay squarely in its path (Metroid II: Return of Samus).
+- In the retelling it swiped its claws to send bursts of energy along the floor, spat fireballs in threes, hopped across the chamber in ball form, leapt and slammed down with a shockwave, and charged in a rolling ram. Missiles to its body and exposed face hurt it most, and Bombs dropped in its path just before a ram stunned it (Metroid: Samus Returns).
+
+When it died Samus claimed the Spring Ball, a Chozo item she had to take from a living creature rather than from a statue's hands.
+
+The X later copied Arachnus aboard the BSL station (see Arachnus-X).
+
+
+<sub>Sources: https://www.metroidwiki.org/wiki/Arachnus · https://www.metroidwiki.org/wiki/Spring_Ball · https://omegametroid.com/metroid-samus-returns-walkthrough/bosses · https://omegametroid.com/metroid-ii-return-of-samus-walkthrough/arachnus/</sub>
+
+
+### Creatures: Deorem, the Acid Worm, Kiru Giru and Imago
+
+*Keys:* Deorem, Charge Beam Beast, Acid Worm, Acid Worms, Mua, Kiru Giru, Kiru Girus, Ensnared Kiru Giru, Imago, Imago Larva, Imago Cocoon
+
+
+Besides Kraid and Ridley, lesser creatures of Zebes barred Samus's way during her first mission there (Metroid: Zero Mission).
+
+Deorem: a huge worm with spikes along its whole length and insect-like pincers around its eye. It burrows through Brinstar's rock, the ground trembling with its digging, and waits in the ceiling until prey comes close, then dives down and walls off the passage ahead and behind with sections of its own body. It struck with dives and pincers and, once wounded, shook loose a volley of spikes. Only its eye could be hurt, only while open, and only by Missiles; Samus met it soon after obtaining hers. Its death left the Charge Beam behind; if the fight dragged on it burrowed away, and she had to finish it elsewhere.
+
+Acid Worm (also recorded as Mua): a large worm-like creature living in an acid-flooded chamber of Kraid's lair. It showed no sign of serving the Space Pirates, but attacked anything entering its domain. As Samus crossed above the pit on handholds, it lunged up to strike her, seized her to drag her into the acid, spat projectiles when she was out of reach, and raised the acid itself. A missed lunge could lodge it in the rock, exposed, and the weak spot behind its jaw yields to any weapon. When it died, the acid drained from the chamber.
+
+Kiru Giru: slug-like larvae of Norfair that charge at intruders. A thick shell covers the orange bulbs on their undersides, the only place they can be hurt; the Wave Beam's fire passes through rock and shell alike to reach them. Norfair's Tangle Vines attack the larvae and other creatures. One Kiru Giru hung trapped in their grip, flinging slow projectiles in eight directions; Samus froze a Ripper, stood on it and shot the vines apart. The creature fell and smashed a hole through the floor, plugging it with its body; when Samus came back the creature was gone, and the hole led on toward Ridley's lair.
+
+Imago: the flying adult form. Below that hole, in Imago's Hideout between Norfair and Ridley's lair, an Imago waited. It attacked mainly by crashing its whole body into Samus and, as it weakened, fired stingers at her; the stinger-bearing rear of its body was its weak point. Its defeat gave her the Super Missiles she needed to blast her way out of its chamber.
+
+
+<sub>Sources: https://www.metroidwiki.org/wiki/Deorem · https://www.metroidwiki.org/wiki/Mua · https://www.metroidwiki.org/wiki/Kiru_Giru · https://www.metroidwiki.org/wiki/Tangle_Vine · https://www.metroidwiki.org/wiki/Wave_Beam · https://www.metroidwiki.org/wiki/Super_Missile</sub>
+
+
 ### Creatures: Fauna of Aether and Dark Aether
 
-*Keys:* Aether wildlife, Aether creatures, Dark Aether wildlife, Dark Aether creatures, Alpha Splinter, Dark Splinter, Sandigger, Sandiggers, Grenchler, Grenchlers, Blogg, Bloggs, Alpha Blogg, Krocuss, Ingclaw, Ingclaws, Nightbarb, Nightbarbs, Lumite, Lumites, Mechlops, Kralee
+*Keys:* Aether wildlife, Aether creatures, Dark Aether wildlife, Dark Aether creatures, Alpha Splinter, Dark Splinter, Sandigger, Sandiggers, Grenchler, Grenchlers, Blogg, Bloggs, Alpha Blogg, Krocuss, Ingclaw, Ingclaws, Nightbarb, Nightbarbs, Lumite, Lumites, Mechlops, Kralee, Rezbit, Rezbits
 
 
 Aether, the world the nomadic Luminoth settled and made their home, and its dark twin were catalogued by Samus during the Aether incident (Metroid Prime 2: Echoes).
@@ -4620,7 +4713,7 @@ Dark Aether:
 
 ### Creatures: Fauna of Bryyo
 
-*Keys:* Bryyo wildlife, Bryyo creatures, Bryyonian wildlife, Reptilicus Hunter, Reptilicus Hunters, Alpha Hopper, Gragnol, Gragnols, Fargul Hatcher, Fargul Wasps, Warp Hound, Warp Hounds, Korba, Gel Puffer, Gel Puffers, Gel Ray, Gel Rays, Scorchbug, Shelbug, Bryyonian Shriekbat
+*Keys:* Bryyo wildlife, Bryyo creatures, Bryyonian wildlife, Reptilicus Hunter, Reptilicus Hunters, Alpha Hopper, Gragnol, Gragnols, Fargul Hatcher, Fargul Wasps, Warp Hound, Warp Hounds, Korba, Gel Puffer, Gel Puffers, Gel Ray, Gel Rays, Scorchbug, Shelbug, Bryyonian Shriekbat, Bryyo Cliffside, Grand Court, Thorn Jungle
 
 
 Bryyo's surviving life is savage and Phazon-touched, catalogued by Samus during the Phazon crisis (Metroid Prime 3: Corruption) while she hunted the planet's Leviathan Seed.
@@ -4646,8 +4739,8 @@ The Korakk Beast, Mogenar, the Bryyonians and the corrupted hunter Rundas are re
 *Keys:* Zoomer, Zoomers, Geemer, Geemers, Skree, Skrees, Metaree, Metarees, Reo, Reos, Sidehopper, Sidehoppers, Side Hopper, Ripper II, Zebbo, Zebbos, Geega, Geegas, Beetom, Beetoms, Cacatac, Cacatacs, Zeela, Zeelas, Kago, Kagos, Fireflea, Firefleas, Samus Eater, Samus Eaters, Yapping Maw, Yapping Maws, Brinstar fauna, Crateria fauna, Zebes wildlife
 
 
-Crateria is the storm-lashed surface of Zebes, pelted by meteors and acid rain; Brinstar is the humid cavern jungle beneath it, thick with carnivorous plants and home to more than sixty percent of the planet's life. Samus Aran grew up on Zebes among the Chozo. Per the manga, when Kreatz spotted a Skree hanging overhead she warned that the planet "has predators found nowhere else in the galaxy"; it then ripped through a Space Pirate travelling with them. She fought through both regions on her first Zebes mission (Metroid: Zero Mission) and again while hunting the stolen baby Metroid (Super Metroid).
-- Zoomer and Geemer: small spiked crawlers that circle floors, walls and ceilings on fixed paths; per the manual they excrete a sticky liquid from their feet. Yellow Zoomers are the feeblest; red ones and the larger Geemer are far tougher. "Zoomer" began as a mistranslation of the Japanese name later rendered Geemer.
+Crateria is the storm-lashed surface of Zebes, pelted by meteors and acid rain; Brinstar is the humid cavern jungle beneath it, thick with carnivorous plants and home to more than sixty percent of the planet's life. Samus Aran grew up on Zebes among the Chozo. Per the manga, when her Federation Police comrade Kreatz spotted a Skree hanging overhead, Samus warned that the planet "has predators found nowhere else in the galaxy"; it then dove and ripped through a Space Pirate who had surprised them. She fought through both regions on her first Zebes mission (Metroid: Zero Mission) and again while hunting the stolen baby Metroid (Super Metroid).
+- Zoomer and Geemer: small spiked crawlers that circle floors, walls and ceilings on fixed paths; per the manual they excrete a sticky liquid from their feet. Yellow Zoomers are the feeblest; red ones and the larger Geemer are far tougher.
 - Ripper: armor-shelled fliers (brainless, per the manual) drifting in straight lines. Beams and missiles bounce off; the Screw Attack or Speed Booster destroys one, and the Ice Beam freezes them into footholds. The jet-propelled Ripper II is faster.
 - Skree: bat-like ambushers that hang from ceilings, drop on anything passing beneath, bore into the ground and burst into shrapnel. The armored Metaree is a tougher relative.
 - Reo: clawed, fly-like divers swooping from the upper walls; per the manual, red ones outclass yellow.
@@ -4691,7 +4784,7 @@ The Pirate Homeworld, lashed by acid rain that eats through armor, is native gro
 *Keys:* Mochtroid, Mochtroids, Evir, Evirs, Owtch, Owtches, Puyo, Puyos, Powamp, Powamps, Zoa, Zoas, Tatori, Tatoris, Oum, Oums, Choot, Choots, Sciser, Scisers, Skultera, Skulteras, Covern, Coverns, Koben, Maridia fauna, Wrecked Ship creatures
 
 
-Maridia is the flooded quarter of Zebes bordering Brinstar and Crateria: underwater tunnels, sandy caverns and quicksand, home to Draygon, Botwoon and a submerged Space Pirate research facility. Samus Aran reached it only after taking the Gravity Suit from the Wrecked Ship, breaking open a tunnel in the middle of Brinstar with a Power Bomb, and came away with the Space Jump, Plasma Beam and Spring Ball while hunting the stolen baby Metroid (Super Metroid). The Wrecked Ship is a crashed vessel on Crateria's surface, left powerless by Phantoon.
+Maridia is the flooded quarter of Zebes bordering Brinstar and Crateria: underwater tunnels, sandy caverns and quicksand, home to Draygon, Botwoon and a submerged Space Pirate research facility. Samus Aran first broke into it through a tunnel in the middle of Brinstar with a Power Bomb, but could explore it only after taking the Gravity Suit from the Wrecked Ship, and came away with the Space Jump, Plasma Beam and Spring Ball while hunting the stolen baby Metroid (Super Metroid). The Wrecked Ship is a crashed vessel on Crateria's surface, left powerless by Phantoon.
 Maridia:
 - Mochtroid: per the manual, "the Space Pirates' first attempt at Metroid clones"; frail things that drain energy but cannot latch on. They were Samus's first evidence that the Pirates were cloning Metroids.
 - Evir: hard-shelled drifters that ride the sand currents, firing projectiles even while buried; a swarm attended Draygon and carried its corpse away.
@@ -4785,7 +4878,7 @@ Chozo machines: Wallfire (bird-shaped wall sentries spitting fireballs), Autoad 
 
 ### Creatures: Fauna of Tallon IV
 
-*Keys:* Tallon IV wildlife, Tallon IV creatures, Tallon IV fauna, Sheegoth, Sheegoths, Baby Sheegoth, Magmoor, Triclops, Flickerbat, Flickerbats, Jelzap, Jelzaps, Blastcap, Blastcaps, Tangle Weed, War Wasp, War Wasps, Shriekbat, Shriekbats, Lumigek
+*Keys:* Tallon IV wildlife, Tallon IV creatures, Tallon IV fauna, Sheegoth, Sheegoths, Baby Sheegoth, Magmoor, Triclops, Flickerbat, Flickerbats, Jelzap, Jelzaps, Blastcap, Blastcaps, Tangle Weed, War Wasp, War Wasps, Shriekbat, Shriekbats, Lumigek, Plated Beetle, Plated Beetles
 
 
 Tallon IV's wildlife is known chiefly through the Logbook scans Samus made during the Tallon IV incident (Metroid Prime), when Phazon from the Leviathan impact was already warping the planet's ecosystem.
@@ -4844,13 +4937,9 @@ Alimbic Turrets, Cretaphids and Slenches are Alimbic defense machinery guarding 
 *Secondary (AND ANY):* creature, creatures, wildlife, fauna, beetle, beetles, animals, monsters
 
 
-The Bermuda System holds three planets, Excelcion, Bion and Talvania, each of which housed a Space Pirate cloaking generator shielding the battleship Doomseye during the Bermuda System incident (Metroid Prime: Federation Force). Its wildlife is thinly recorded. The Federation Force's missions there ranged from icy regions to desert, and apart from Space Pirates and Metroids the only creature named in published accounts is the Goliath Beetle, which the Force fought in addition to the Pirates. Nothing more of its biology is recorded.
+The Bermuda System holds three planets, Excelcion, Bion and Talvania, each of which housed a Space Pirate cloaking generator shielding the battleship Doomseye during the Bermuda System incident (Metroid Prime: Federation Force). Its wildlife is thinly recorded. The Federation Force's missions there ranged from icy regions to desert, and besides Space Pirates and Metroids the Force fought Goliath Beetles, of whose biology nothing more is recorded. Excelcion's native Ice Titans and the other life of the three worlds are described under Bermuda System (Excelcion, Bion, Talvania).
 
-Metroids, the jellyfish-like energy parasites, were in Space Pirate hands in the system. A Metroid egg the Force stole from the Pirates ended up in a Galactic Federation facility, where a figure strongly resembling Sylux broke in and projected a beam onto it, hatching it rapidly into a larva.
-
-On Bion the Force learned that the Pirates had acquired an ancient technology that swelled them to gargantuan size. Samus herself was enlarged to gigantic size and forced to fight the Force; their victory restored her normal size, and she later rescued them as the Federation Fleet destroyed the Doomseye.
-
-No other native animals of Bermuda are recorded; the Doomseye and the Federation Force are covered separately.
+Metroids, the jellyfish-like energy parasites, were in Space Pirate hands in the system, and the Force stole a Metroid egg from them. On Bion the Force learned that the Pirates had acquired an ancient technology for enlarging living things. The campaign itself, the Pirates' capture and enlargement of Samus, and the egg's later fate are covered under Bermuda System incident and The Metroid egg and Sylux's break-in.
 
 
 <sub>Sources: https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force · https://www.metroidwiki.org/wiki/Metroid_Prime:_Federation_Force · https://www.metroidwiki.org/wiki/Category:Metroid_Prime:_Federation_Force</sub>
@@ -4861,7 +4950,7 @@ No other native animals of Bermuda are recorded; the Doomseye and the Federation
 *Keys:* Kyratian, Kyratians, Himella, Himellas, Ghalmanian, Ghalmanians, Griptian, Griptians, Mighty Griptian, Dragotix, Groganch, Fumbleye, Fumbleyes, Joulion, Joulions, Volfon, Volfons, Gigafraug, Gigafraugs, Rhedogian, Rhedogians, Desbrachian, Desbrachians, Brug, Brugs, Brug Mass, Emperor Brug, Cyclaw, Cyclaws, Bottle Ship creatures, Bottle Ship fauna
 
 
-The Bottle Ship was a Galactic Federation vessel built, against Federation protocol, to cultivate bioweapons across its sectors: the jungle Sector 1 (Biosphere), the frigid Sector 2 (Cryosphere), the volcanic Sector 3 (Pyrosphere), the Main Sector and the Bioweapon Research Center. Many of its specimens were clones of Zebes species, so when Samus Aran investigated alongside Adam Malkovich's 07th Platoon (Metroid: Other M) she met species she knew from that destroyed planet. A Cryosphere Gigafraug corpse bearing signs of Metroid predation warned her that Metroids were loose aboard.
+The Bottle Ship was a former colonist vessel that the Galactic Federation refitted, against Federation protocol, to cultivate bioweapons across its sectors: the jungle Sector 1 (Biosphere), the frigid Sector 2 (Cryosphere), the volcanic Sector 3 (Pyrosphere), the Main Sector and the Bioweapon Research Center. Many of its specimens were clones of Zebes species, so when Samus Aran investigated alongside Adam Malkovich's 07th Platoon (Metroid: Other M) she met species she knew from that destroyed planet. A Cryosphere Gigafraug corpse bearing signs of Metroid predation, seemingly impossible since Metroids cannot survive the cold, was her first hint that Metroids were loose aboard.
 Zebes clones:
 - Reo, Geemer and Skree: Reos burst from biomass nests and grip Samus; cloned Skrees do not self-destruct and dive repeatedly. The Cyclaw is a seemingly mechanically enhanced Skree.
 - Zero: Kihunter larvae that leap at intruders and, left undisturbed, pupate into cocoons from which adult Kihunters emerge.
@@ -4964,3 +5053,35 @@ See also: Chozo Soldiers, Robot Chozo Soldiers, E.M.M.I., Corpius, Drogyga, Escu
 
 
 <sub>Sources: https://www.nintendo.com/au/news-and-articles/metroid-dread-report-vol-8-surveying-planet-zdr · https://www.metroidwiki.org/wiki/ZDR · https://www.metroidwiki.org/wiki/Metroid_Dread · https://samurai-gamers.com/metroid-dread/enemies-3/ · https://miketendo64.com/2021/09/23/guide-metroid-dread-ememies-and-areas/</sub>
+
+
+### Creatures: Goyagma and Vorash
+
+*Keys:* Goyagma, Goyagmas, Vorash, Vorashes
+
+
+Two great monsters of Sector 3 (Pyrosphere) of the Bottle Ship confronted Samus there during the Bottle Ship incident (Metroid: Other M).
+
+Vorash: a huge beast that lurks in the Pyrosphere's lava. Within minutes of Samus's arrival in the sector it tried to eat her, breaking a bridge, and it chased her as she leapt across the rock platforms after the creature she was tracking. It kept surfacing to swallow her, and at some point swallowed a Grapple Point instead. It finally attacked in earnest by launching itself at her as she grappled into a lava-filled chamber. It breached like a whale to rain fireballs around her and, as it weakened, spat fire with only its head above the lava and charged at her. A charged Ice Beam shot to its raised head made it roar and bared the Grapple Point lodged in its throat; Samus latched on with the Grapple Beam, hauled it out onto the rock, and hit its weak point with Missiles and the Ice Beam while it lay beached. Its soft underside was also open whenever it leapt. After the last blow it rose upright, roared and sank for good, and the lava in the chamber dropped far enough for her to go on.
+
+Goyagma: a massive monster that seems able to command lava to a degree. It rose against Samus just as Adam Malkovich authorized the Varia Feature. It seized her, and she broke free with a charged shot. She froze the glowing spots on its neck with the Ice Beam and shattered them with Missiles. It set its arms ablaze and slammed them down to send eruptions chasing her. When its hand glowed she froze it with a charged Ice Beam shot, ran up the frozen arm and Overblasted its head at point-blank range. It then sank and rose again to rain glowing fireballs and hurl larger ones, and she repeated the freeze and the Overblast. At the last it tried to snatch her with its other hand; she evaded, charged in midair, fired into the center of its head, and Goyagma exploded.
+
+Samus had crossed the Pyrosphere's superheated zones without the Varia, keeping her agreement to use nothing Adam had not authorized (see Varia Suit; Why Samus loses her abilities).
+
+
+<sub>Sources: https://www.metroidwiki.org/wiki/Vorash · https://www.metroidwiki.org/wiki/Goyagma · https://www.metroidwiki.org/wiki/Pyrosphere · https://www.metroidwiki.org/wiki/Varia_Suit · https://www.metroidwiki.org/wiki/Overblast · https://www.metroidwiki.org/wiki/Metroid:_Other_M</sub>
+
+
+### Creatures: Incinerator Drone and Hive Mecha
+
+*Keys:* Incinerator Drone, Incinerator Drones, Hive Mecha, Hive Mechas, Burn Dome, Hive Totem
+
+
+Two Chozo machines were still carrying out their duties in the Chozo Ruins of Tallon IV when Samus arrived, long after the Chozo who built them had withdrawn from the physical world (Metroid Prime). Both worked alongside War Wasps, both treated Samus as an intruder, and both fell to her as she rebuilt her arsenal.
+
+Hive Mecha: a Chozo security unit in the Hive Totem, a chamber whose central island, carved with Chozo runes, stands in toxic water. Per Samus's Logbook scan, Hive Mechas are second-generation combat drones built to interface closely with organic creatures: they train, shelter and work with hive-dwelling predators, and being unarmed they rely on their hive beasts to handle threats. This one guarded the Missile Launcher. When Samus started across the bridge, the water rose to trap her on the island and the Mecha loosed swarms of Ram War Wasps from its access ports. A design flaw leaves its shielding weak around those ports, and only her Power Beam could breach it. Once all three ports were destroyed it shut down, the bridge returned, and the Missile Launcher was hers.
+
+Incinerator Drone: a Chozo high-temperature waste-disposal unit stationed in the Burn Dome, beneath a large War Wasp hive full of Barbed War Wasps. Its scan noted minimal combat programming, intense heat blasts that make up for its lack of battle prowess, and a high risk of malfunction if its internal power core is damaged. Sensing Samus as a threat to the Dome, it seared the hive with a jet of flame to drive the wasps against her, then swept the room with two independent flamethrower tanks. Whenever its power core surfaced Samus shot it, and each hit sent more wasps to its aid. Its final blast burned the hive as it died, and she recovered the Morph Ball Bomb from its wreck.
+
+
+<sub>Sources: https://www.metroidwiki.org/wiki/Hive_Mecha · https://www.metroidwiki.org/wiki/Hive_Totem · https://www.metroidwiki.org/wiki/Incinerator_Drone · https://www.metroidwiki.org/wiki/Burn_Dome · https://www.metroidwiki.org/wiki/Metroid_Prime · https://www.nintendolife.com/guides/metroid-prime-remastered-chozo-ruins-walkthrough</sub>

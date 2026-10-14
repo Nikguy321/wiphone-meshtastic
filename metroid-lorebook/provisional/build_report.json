@@ -1,7 +1,7 @@
 {
-  "entries": 257,
+  "entries": 264,
   "constant": 2,
-  "files": 30,
+  "files": 32,
   "final_domains": [
     "abilities",
     "adam-other-m",
@@ -14,6 +14,8 @@
     "federation",
     "federation-force",
     "fusion",
+    "gap2",
+    "gap3",
     "hunters",
     "manga",
     "metroids",
@@ -35,8 +37,8 @@
     "zebes"
   ],
   "draft_fallback_domains": [],
-  "total_words": 99963,
-  "approx_tokens": 134950,
+  "total_words": 101445,
+  "approx_tokens": 136950,
   "per_category": {
     "Universe": 6,
     "Samus": 15,
@@ -52,7 +54,7 @@
     "Prime": 9,
     "Prime Hunters": 11,
     "Prime 2": 10,
-    "Prime 3": 10,
+    "Prime 3": 13,
     "Dark Samus": 6,
     "Phazon": 7,
     "Federation Force": 6,
@@ -63,58 +65,28 @@
     "Fusion": 8,
     "Dread": 12,
     "Technology": 7,
-    "Creatures": 15
+    "Creatures": 19
   },
   "key_collisions_gt2": {
-    "pyonchi": [
-      "Samus: Samus Aran – early life on K-2L",
-      "Chozo: Old Bird",
-      "Manga: The K-2L raid (manga account)"
-    ],
-    "federation police": [
-      "Samus: Samus Aran – Galactic Federation service and the bounty hunter years",
-      "Galactic Federation: Federation Police and military command",
-      "Manga: Samus's Federation Police years (manga)"
-    ],
-    "ship grapple": [
-      "Equipment: Grapple Beam",
-      "Equipment: Thermal, X-Ray, Dark, Echo and Command Visors",
-      "Technology: Samus's Gunship"
-    ],
-    "hyper beam": [
-      "Equipment: Metroid Suit (Dread)",
-      "Equipment: Wide, Diffusion and Hyper Beams",
-      "Super Metroid: Mother Brain's final battle and the baby's sacrifice"
-    ],
-    "ship missile": [
-      "Equipment: Missiles and Super Missiles",
-      "Equipment: Thermal, X-Ray, Dark, Echo and Command Visors",
-      "Technology: Samus's Gunship"
-    ],
-    "ship missiles": [
-      "Equipment: Missiles and Super Missiles",
-      "Equipment: Thermal, X-Ray, Dark, Echo and Command Visors",
-      "Technology: Samus's Gunship"
-    ],
-    "old bird": [
-      "Chozo: Old Bird",
-      "Manga: Samus's Chozo upbringing and the birth of Mother Brain (manga account)",
-      "Manga: The K-2L raid (manga account)"
-    ],
-    "bermuda system": [
-      "Federation Force: Bermuda System (Excelcion, Bion, Talvania)",
-      "Technology: Planets and places of the galaxy (index)",
-      "Creatures: Fauna of the Bermuda System"
+    "adam": [
+      "Other M: Adam Malkovich",
+      "Other M: The Adam AI (BSL computer)",
+      "Dread: ADAM on ZDR and Raven Beak's impersonation"
     ]
   },
-  "warnings": [
-    "KEY 'hatchling' removed from 'Samus: Attitudes toward the Federation, Chozo, Pirates and Metroids' (forbidden bare word)",
-    "KEY 'relationships' removed from 'Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux' (forbidden bare word)"
-  ],
+  "warnings": [],
   "longest": [
     [
       598,
       "Prime 2: The Aether incident (Metroid Prime 2: Echoes events)"
+    ],
+    [
+      573,
+      "Universe: Timeline of Samus's missions"
+    ],
+    [
+      566,
+      "Equipment: Power Suit (Samus's Chozo armor)"
     ],
     [
       564,
@@ -126,15 +98,7 @@
     ],
     [
       550,
-      "Universe: Timeline of Samus's missions"
-    ],
-    [
-      550,
       "Metroids: Metroid breeding and cloning programs"
-    ],
-    [
-      550,
-      "Equipment: Power Suit (Samus's Chozo armor)"
     ],
     [
       549,
@@ -147,6 +111,10 @@
   ],
   "shortest": [
     [
+      153,
+      "Creatures: Fauna of the Bermuda System"
+    ],
+    [
       177,
       "Other M: Chairman Keaton"
     ],
@@ -155,12 +123,12 @@
       "Zebes: The destruction of Zebes"
     ],
     [
-      198,
-      "Creatures: Fauna of the Bermuda System"
+      229,
+      "Federation Force: General Alex Miles"
     ],
     [
       229,
-      "Federation Force: General Alex Miles"
+      "Prime 3: Defense Drone (Elysian guardian of the Boost Ball)"
     ],
     [
       229,
@@ -171,12 +139,8 @@
       "Galactic Federation: Daiban and Federation Headquarters"
     ],
     [
-      248,
-      "Universe: Metroid universe primer"
-    ],
-    [
-      255,
-      "Federation Force: The Metroid egg and Sylux's break-in"
+      242,
+      "Creatures: Arachnus"
     ]
   ]
 }
