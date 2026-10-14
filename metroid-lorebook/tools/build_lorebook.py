@@ -40,6 +40,7 @@ RESTRICTED = {
     "chozo": r"^Chozo: (The )?Chozo \(species", "federation": r"^Galactic Federation: Galactic Federation \(overview", "galactic federation": r"^Galactic Federation: Galactic Federation \(overview",
     "space pirate": r"^Space Pirates: Space Pirates \(overview", "space pirates": r"^Space Pirates: Space Pirates \(overview",
     "ridley": r"^Ridley: Ridley \(overview",
+    "adam": r"^(Other M: Adam Malkovich|Other M: The Adam AI|Dread: ADAM on ZDR)",
 }
 ALLOWED_CONSTANT = [r"primer", r"portraying samus"]
 
