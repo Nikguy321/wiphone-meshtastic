@@ -1,0 +1,281 @@
+{
+ "run": "wf_9122c4e6-699",
+ "label": "revise:samus-bio",
+ "result": {
+  "file_path": "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/samus-bio.json",
+  "entries": [
+   {
+    "comment": "Samus: Samus Aran – core profile",
+    "keys": [
+     "Samus",
+     "Samus Aran",
+     "Aran",
+     "Hunter",
+     "the Hunter",
+     "Protector of the Galaxy",
+     "who is Samus",
+     "Samus's backstory",
+     "Samus' backstory",
+     "Samus's past",
+     "Samus' past"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "Samus Aran is a human woman, born on the Earth colony K-2L to Rodney Aran and Virginia Aran and raised from the age of three by the Chozo on the planet Zebes. She is the galaxy's foremost bounty hunter, the figure the Space Pirates' own records call \"the Hunter,\" and a consummate professional who has completed many missions believed to be impossible (per Nintendo's official profile).\n\nOrigins. When Samus was three, Space Pirates under Ridley raided K-2L; her mother died shielding her from Ridley and her father died igniting the colony's stolen afloraltite to destroy the raiders' ship (per the manga). She was the colony's only survivor. The Chozo elders Old Bird and Gray Voice found her and brought her to Zebes, a world too harsh for a frail human child, so the Chozo gave her a transplant of their own DNA to let her live there, and later equipped her with the Power Suit, Chozo-built armor made for her alone. She trained under Old Bird and Gray Voice into her teens and left Zebes resolved to become the Protector of the Galaxy.\n\nService and career. She enlisted with the Galactic Federation (the Galactic Federation Army in Nintendo's official profile; the Federation Police in the manga) and served under Adam Malkovich, whom she still regards as a father figure. A disagreement with Adam ended her enlistment, and she became a freelance bounty hunter whom the Federation hires for missions its own forces cannot complete. Her first contract, destroying Mother Brain on Zebes, began a career that took her to Tallon IV, the Alimbic Cluster, Aether, Norion and Phaaze, SR388, Zebes again, the Bottle Ship (where Adam died), Tanamaar and Viewros, the BSL research station and the planet ZDR (see the Timeline of Samus's missions).\n\nPhysiology. Samus is human with Chozo and Metroid DNA. An X Parasite infection contracted on SR388 nearly killed her; the Federation saved her with a Metroid vaccine cultured from the cells of the baby Metroid she had once spared, making her immune to the X at the cost of a Metroid's weakness to cold. On ZDR she learned that her Chozo DNA came from two tribes, the Thoha and the Mawkin, and that the Mawkin donor was their leader Raven Beak, who wanted her Metroid DNA awakened. It awakened: she briefly became a living Metroid until an X bearing Quiet Robe's form let itself be absorbed and restored her. She is, in effect, the last Metroid.\n\nAppearance. Tall and powerfully athletic, with long blonde hair she usually wears in a ponytail out of armor. Official figures give her height as about 190 cm (6 ft 3 in) and her weight as 90 kg (198 lb); her age is not recorded. To most of the galaxy, the face under her helmet is unknown.\n\nRelationships. Her parents are dead. Old Bird and Gray Voice, the Chozo who raised her, were the nearest thing she had to fathers; Adam Malkovich, whose preserved mind later served as her Gunship's computer, is the closest thing to family she has left. Ridley, the Space Pirate who destroyed her family, is her lifelong enemy. The baby Metroid that saved her life on Zebes, and whose cells later cured her, is a debt she feels she owes twice over.",
+    "constant": false,
+    "order": 150,
+    "category": "Samus",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Samus_Aran",
+     "https://nintendo.com/au/news-and-articles/metroid-dread-report-vol-5-the-powers-of-samus-aran",
+     "https://en.wikipedia.org/wiki/Samus_Aran",
+     "https://en.wikipedia.org/wiki/Metroid_Dread",
+     "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+     "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+     "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+     "https://www.metroidwiki.org/wiki/Quiet_Robe",
+     "https://www.metroidwiki.org/wiki/Raven_Beak",
+     "https://www.metroidwiki.org/wiki/Gray_Voice"
+    ],
+    "notes": "Hub entry; carries the only 'Samus'/'Aran'/'Hunter' keys. 'Consummate professional ... missions believed to be impossible' confirmed verbatim in Nintendo's Metroid Dread Report Vol. 5 (also the source for 'Galactic Federation Army' and 'the face under her helmet remains shrouded in mystery'). Prime 4: Beyond (Tanamaar, Viewros) placed between Other M and Fusion per Wikipedia. Height/weight sourcing discussed in the appearance entry. Eye color omitted here (no primary source found)."
+   },
+   {
+    "comment": "Samus: Samus Aran – early life on K-2L",
+    "keys": [
+     "Pyonchi",
+     "Rabbilis",
+     "K-2L raid",
+     "raid on K-2L",
+     "childhood on K-2L",
+     "Samus's childhood",
+     "Samus' childhood",
+     "your childhood",
+     "Samus as a child",
+     "young Samus"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "Samus Aran spent the first three years of her life on K-2L, an Earth colony where her father, Rodney Aran, led the mining of afloraltite for the Galactic Federation and her mother, Virginia Aran, kept the household (per the manga).\n\nHer early childhood was carefree. At three she chased a small rabbit-like creature, a Rabbilis, that had stolen her sack and carried it up a tree; the Chozo elder Old Bird, who had landed on K-2L to request afloraltite, suggested she befriend the animal. She named him Pyonchi, and he stayed with her for years afterward. The Chozo needed the mineral as an energy source for their work on the Metroids; Rodney refused to surrender the Federation's supply, and the Chozo ship left empty-handed.\n\nSpace Pirates led by Ridley had followed the Chozo ship. Landing on K-2L, they noticed the afloraltite, killed the colonists and loaded the mineral onto their cargo ship, and Ridley ordered every human on the colony destroyed. When Ridley turned on Samus, Virginia placed herself in his path and was killed. Rodney boarded the cargo ship with only a welding laser and ignited the stolen afloraltite; the explosion destroyed the ship and the raiders around the colony, and killed him. Only Samus and Ridley survived the blast.\n\nOld Bird and Gray Voice returned to the ruined colony and found the child alone among the dead. They took her and Pyonchi to Zebes, the planet their Chozo called home, to raise her as their own (see Samus Aran – raised by the Chozo on Zebes).\n\nWhat Samus carries from K-2L: the memory of her mother dying to protect her, her father's sacrifice, and the face of Ridley, which makes every later encounter with him personal. She was orphaned at an age when she could barely understand it, and the Chozo, not humans, shaped the person she became. Pyonchi stayed with the Chozo when she left Zebes, and after she left the Federation she placed him in the care of Chairman Keaton (per the manga).",
+    "constant": false,
+    "order": 100,
+    "category": "Samus",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Samus_Aran",
+     "https://www.metroidwiki.org/wiki/K-2L",
+     "https://www.metroidwiki.org/wiki/Afloraltite",
+     "https://www.metroidwiki.org/wiki/Pyonchi",
+     "https://www.metroidwiki.org/wiki/Rodney_Aran",
+     "https://www.metroidwiki.org/wiki/Virginia_Aran",
+     "https://www.metroidwiki.org/wiki/Old_Bird"
+    ],
+    "notes": "Manga-only material throughout. Only Old Bird is named as the K-2L visitor (Metroid Wiki Samus Aran page); the Afloraltite page also puts Gray Voice there, and the Old Bird page claims Rodney provided the afloraltite, contradicting the Samus and Afloraltite pages (majority reading followed). Pyonchi page names Keaton (and once, apparently in error, 'Chairman Kreatz') as his later keeper. Pyonchi/Rabbilis keys overlap the Other M: Chairman Keaton entry. Generic keys (childhood, orphan, as a child, growing up, her parents) dropped to avoid misfires."
+   },
+   {
+    "comment": "Samus: Samus Aran – raised by the Chozo on Zebes",
+    "keys": [
+     "raised by the Chozo",
+     "adopted by the Chozo",
+     "raised on Zebes",
+     "grew up on Zebes",
+     "childhood on Zebes",
+     "Chozo upbringing",
+     "Chozo blood",
+     "DNA transplant",
+     "Chozo training",
+     "trained by the Chozo",
+     "Iono Feria",
+     "Badger Clover"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "After the destruction of K-2L, the Chozo elders Old Bird and Gray Voice brought the three-year-old Samus Aran and her pet Pyonchi to Zebes, the planet their Chozo called home, to raise her. Gray Voice at first objected to bringing a human child there, and Mother Brain, the Chozo's own creation, judged her too frail for the planet and did not expect her to last more than a few days (per the manga).\n\nThe Chozo's answer was to integrate their own DNA into hers so that she could survive Zebes's harsh environment. The transplant hardened her against hostile environments and gave her strength, reflexes and endurance beyond a normal human's. Gray Voice was among the donors, giving them a bond like that of father and daughter; she once heard his thoughts (per the manga). Raven Beak, the Mawkin leader who would one day try to kill her, was also present at her adoption and gave her some of his DNA; she learned this only on ZDR (see Samus Aran – Metroid DNA, Chozo DNA and what she has become).\n\nThe Chozo then equipped her with the Power Suit, armor built on Chozo battle-suit technology and made for her alone; per the manga, Mother Brain adapted the design and later claimed to Samus, \"I gave birth to you!\" Old Bird and Gray Voice trained her through her teenage years. Gray Voice was the harder teacher, telling her that if she meant to protect others, \"second or third place will never do\"; Old Bird was the gentler father figure.\n\nAt fourteen (per the manga), Samus picked flowers that proved to be poisonous Badger Clover, carried to Zebes by the Iono Feria, flying creatures she had been feeding. Gray Voice ordered the flowers and the creatures burned. Samus objected to the needless bloodshed, and when the Iono Feria seized weapons to defend themselves, she shot the weapons from their grasp and calmed them. Old Bird then told her she was ready to leave Zebes, and she resolved to become the Protector of the Galaxy.\n\nSamus left to join the Galactic Federation; Pyonchi stayed behind with the Chozo. When she returned years later as a bounty hunter, Mother Brain had turned against her makers, the Space Pirates held the planet, and the civilization that raised her was broken (see Mother Brain). The Chozo were the only family she knew after K-2L.",
+    "constant": false,
+    "order": 100,
+    "category": "Samus",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Samus_Aran",
+     "https://www.metroidwiki.org/wiki/Mother_Brain",
+     "https://www.metroidwiki.org/wiki/Gray_Voice",
+     "https://www.metroidwiki.org/wiki/Old_Bird",
+     "https://www.metroidwiki.org/wiki/Raven_Beak",
+     "https://www.metroidwiki.org/wiki/Pyonchi",
+     "https://www.metroidwiki.org/wiki/Chozo",
+     "https://nintendo.com/au/news-and-articles/metroid-dread-report-vol-5-the-powers-of-samus-aran",
+     "https://en.wikipedia.org/wiki/Samus_Aran"
+    ],
+    "notes": "Iono Feria incident from Metroid Wiki's Samus Aran page: Samus shot the weapons away from the Iono Feria (not from the Chozo, as the fact-check report's suggested wording had it). '14 years old' is a manga caption beside that scene. Gray Voice's objection quoted on the Gray Voice page (manga Vol 1 Ch 2). Raven Beak present at adoption per the Raven Beak page. 'Chozo homeworld' replaced: Metroid Wiki treats Zebes as one Chozo habitat. 'Chozo DNA' key moved to the Metroid DNA entry; generic adoption/foster/upbringing keys dropped. Old Bird/Gray Voice personalities and Mother Brain's betrayal left to the chozo, zebes and manga domains."
+   },
+   {
+    "comment": "Samus: Samus Aran – Galactic Federation service and the bounty hunter years",
+    "keys": [
+     "Federation Police",
+     "Federation Army",
+     "Jigrad",
+     "Kreatz",
+     "Mauk",
+     "Damara",
+     "Chief Hardy",
+     "military days",
+     "Federation service",
+     "bounty hunter",
+     "bounty hunters",
+     "bounty hunting"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "After leaving Zebes in her teens, Samus Aran enlisted in and was trained by the Galactic Federation Army (per Nintendo's official profile; the manga calls her service the Federation Police). Per the manga she served alongside the cadets Kreatz and Mauk; on a reconnaissance mission to the planet Jigrad she disobeyed orders to rescue a girl named Damara from Space Pirates, and Chief Hardy reprimanded all three. Adam Malkovich later became her commanding officer, and by the time of the Bottle Ship he led the Federation's 07th Platoon.\n\nAdam ended his orders to her with \"Any objections, Lady?\", and she answered with a thumbs-down, a ritual that expressed their mutual trust. During her service she witnessed the death of Adam's younger brother, Ian Malkovich, on a mission. She left the Federation after a disagreement with Adam, a break she still felt years later aboard the Bottle Ship, where she met him again and where he died (Metroid: Other M). Anthony Higgs, a friend from her military days who still calls her \"Princess\", served in Adam's platoon there.\n\nAs a freelance bounty hunter she works mostly, though not exclusively, for the Federation, which hires her for missions its own forces cannot complete. When the Federation's assault on the Space Pirates' base on Zebes failed, the Federation Police sent her alone to destroy Mother Brain and the Metroids there (Metroid: Zero Mission); later contracts sent her to exterminate the Metroids on SR388, investigate the BSL research station and search ZDR for surviving X Parasites. The Space Pirates' own records call her the Hunter, speaking of \"the Hunter's might\" and ordering their troops to \"slay the wretched Hunter.\"\n\nHer independence has limits. For the BSL mission the Federation issued her a new Gunship on the condition that she obey its onboard computer, which she later learned held Adam's mind, and she defied the Federation's attempt to preserve the X and the Metroids there. She remains outside its chain of command, trusted for her results and at odds with the Federation whenever its secret programs cross her principles.",
+    "constant": false,
+    "order": 100,
+    "category": "Samus",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Samus_Aran",
+     "https://nintendo.com/au/news-and-articles/metroid-dread-report-vol-5-the-powers-of-samus-aran",
+     "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission",
+     "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+     "https://www.metroidwiki.org/wiki/Anthony_Higgs",
+     "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+     "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+     "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+     "https://www.metroidwiki.org/wiki/Pirate_Data",
+     "https://www.metroidwiki.org/wiki/Galactic_Federation"
+    ],
+    "notes": "Branch name: Nintendo's Dread Report Vol. 5 says 'enlisted in and trained by the Galactic Federation Army' (most recent official wording, used as primary); the manga says Federation Police, and Zero Mission's story text also uses 'Federation Police' for the body that sent her to Zebes; Metroid Wiki's Galactic Federation page says Marines (not used). Gunship condition corrected: obeying the computer was the Federation's condition (Fusion: 'a condition of my taking the ship'). 'Not sarcasm' gloss on 'Lady' removed as unsourced. Pyonchi/Keaton aside moved to the early-life entry. Adam, Anthony, Ian and the Bottle Ship detailed in adam-other-m."
+   },
+   {
+    "comment": "Samus: Samus Aran – appearance, physique and physiology",
+    "keys": [
+     "Zero Suit",
+     "Zero Suit Samus",
+     "out of her suit",
+     "without her suit",
+     "without her helmet",
+     "under her helmet",
+     "Samus's appearance",
+     "blonde hair",
+     "blond hair",
+     "ponytail",
+     "how tall",
+     "190 cm"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "Out of armor, Samus Aran is a tall, powerfully built woman with long blonde hair, usually tied back in a ponytail, and eyes usually described as blue. Her build is athletic rather than slight; the Chozo DNA transplanted into her as a child gave her strength, reflexes and endurance beyond human norms and a tolerance for hostile environments. Across the galaxy, the face under her helmet remains a mystery (per Nintendo's official profile).\n\nShe stands about 190 cm (6 ft 3 in) and weighs about 90 kg (198 lb) by official figures, which do not agree on whether the Power Suit is included; an official Japanese guide gives her measurements as 106-60-90 cm. Her age is not recorded; per the manga she was three when K-2L fell and fourteen when Old Bird judged her ready to leave Zebes.\n\nSamus is human by birth, augmented twice. The Chozo transplant altered her physiology so that she could survive Zebes, and the Power Suit the Chozo built for her bonded to her so completely that its organic components fused with her body. When she lay unconscious after the X infection, surgeons could not remove the infected parts without cutting much of the suit away, which is why she woke in the stripped-down Fusion Suit. The Metroid vaccine that followed rewrote her cells again: the X cannot infect her, she absorbs them by touch, and she inherited a Metroid's weakness to cold, so extreme cold and freezing weapons now injure her where once they did not. On ZDR her Metroid nature surfaced as an energy-draining touch until the X in Quiet Robe's form that she absorbed there neutralized it (see Samus Aran – Metroid DNA, Chozo DNA and what she has become). While suited, her right arm is fully integrated with the Arm Cannon.",
+    "constant": false,
+    "order": 100,
+    "category": "Samus",
+    "sources": [
+     "https://en.wikipedia.org/wiki/Samus_Aran",
+     "https://timeextension.com/news/2023/04/random-so-how-tall-is-metroids-samus-aran",
+     "https://www.metroidwiki.org/wiki/Samus_Aran",
+     "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+     "https://www.metroidwiki.org/wiki/Fusion_Suit",
+     "https://en.wikipedia.org/wiki/Metroid_Dread",
+     "https://nintendo.com/au/news-and-articles/metroid-dread-report-vol-5-the-powers-of-samus-aran"
+    ],
+    "notes": "Height/weight: Wikipedia cites the Super Metroid Nintendo Player's Guide (6'3\", 198 lb, without suit) and Nintendo of Japan's official Metroid II (Return of Samus) site (190 cm, 90 kg under a suited diagram); Time Extension cites a Nintendo Power image showing 6'3\" with and without the suit; Other M draws her shorter. Measurements 106-60-90 cm: official Japanese Super Metroid guidebook quoting co-director Hiroyuki Kimura (via Wikipedia). Hair: Metroid Wiki says she is usually blonde; non-blonde depictions are limited to the original Metroid (red/brown, green as 'Justin Bailey'), colorized Metroid II, the Nintendo Power comic (lavender) and Zebes Invasion Order (black); she is blonde from Super Metroid's ending onward (the draft's 'since Zero Mission' was wrong; depiction history kept out of content as meta). Eye color: only fan wikis/Giant Bomb found (officially blue, sometimes green, green-tinged in Other M); softened to 'usually described as blue'. Suit details left to the suits domain; 'Zero Suit' keys may overlap a suits entry."
+   },
+   {
+    "comment": "Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become",
+    "keys": [
+     "Metroid DNA",
+     "Chozo DNA",
+     "Thoha DNA",
+     "Mawkin DNA",
+     "Thoha genes",
+     "Mawkin genes",
+     "Samus's DNA",
+     "Samus' DNA",
+     "your DNA",
+     "Metroid Suit",
+     "becoming a Metroid",
+     "Metroid powers"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "Samus Aran's body carries the DNA of three species: human by birth, Chozo by the transplant given to her at three on Zebes, and Metroid by the vaccine that saved her life after SR388.\n\nChozo DNA. The Chozo integrated their DNA into hers so that a frail human child could survive Zebes (see Samus Aran – raised by the Chozo on Zebes). On ZDR she learned that it came from two tribes: the Thoha, the scientist tribe that created the Metroids and could control them, and the Mawkin, the warrior tribe. The voice she believed was Adam told her of the mixture, and Raven Beak, leader of the Mawkin, revealed that the Mawkin DNA was his own; he had been present at her adoption. Gray Voice was also a donor (per the manga).\n\nMetroid DNA. On SR388, while guarding BSL researchers, Samus killed a Hornoad hosting an X Parasite; the X infected her and nearly killed her. When surgery could not remove the X from her nervous system, the Federation injected her with a vaccine cultured from cells of the baby Metroid she had spared on SR388. It made her immune to the X, which she absorbs by touch to restore her energy, and left her with a Metroid's weakness to cold, so freezing weapons harm her (Metroid Fusion). She feels she owes the hatchling her life twice over.\n\nThe awakening. Raven Beak reprogrammed the E.M.M.I. on ZDR to extract her Metroid DNA for an army of clones, and spared her after their first fight so that her Metroid powers would awaken. As the last E.M.M.I. began extracting her DNA, she drained it with her bare hand and learned she was slowly becoming a Metroid. On his floating fortress Itorash her Metroid nature surged: her suit took a spined, glowing, Metroid-like form, she destroyed the X that had taken Raven Beak, the same X that had worn Kraid's corpse, with the Hyper Beam, and she drained Itorash until it crashed into ZDR (Metroid Dread). Warned by Adam that she would drain her Gunship, she was saved when an X in the form of Quiet Robe, the last Thoha, let itself be absorbed; her suit returned to normal and she escaped as ZDR exploded.\n\nSamus is, in effect, the last Metroid: immune to the X, vulnerable to cold, and carrying a power that has surfaced once and may again.",
+    "constant": false,
+    "order": 100,
+    "category": "Samus",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+     "https://www.metroidwiki.org/wiki/Fusion_Suit",
+     "https://www.metroidwiki.org/wiki/Samus_Aran",
+     "https://en.wikipedia.org/wiki/Metroid_Dread",
+     "https://www.metroidwiki.org/wiki/Metroid_Dread",
+     "https://www.metroidwiki.org/wiki/Quiet_Robe",
+     "https://www.metroidwiki.org/wiki/Raven_Beak",
+     "https://www.metroidwiki.org/wiki/Gray_Voice",
+     "https://www.metroidwiki.org/wiki/E.M.M.I.",
+     "https://www.svg.com/629936/the-ending-of-metroid-dread-explained/",
+     "https://screenrant.com/metroid-dread-ending-reveal-samus-true-origins-dna/",
+     "https://nintendo.com/au/news-and-articles/metroid-dread-report-vol-5-the-powers-of-samus-aran"
+    ],
+    "notes": "Removed as unverified: Raven Beak 'addressed her as his daughter' (Screen Rant says the game never calls her his daughter); the briefing's 'Thoha genes slowed the transformation / Mawkin prowess' wording and its Itorash location (SVG reports only the Thoha+Mawkin mix and 'completely Metroid'). 'Metroid Suit' kept only as a key, not asserted as a canonical name. Kraid-X link per Wikipedia's Dread plot; E.M.M.I. extracting her DNA per Metroid Wiki's E.M.M.I. page. Dark Samus aside dropped (dark-samus domain). Keys deliberately avoid 'last Metroid', 'Metroid vaccine', 'X immunity' and 'weakness to cold', which are carried by the metroids and x-parasite domains' entries."
+   },
+   {
+    "comment": "Samus: Rodney Aran and Virginia Aran",
+    "keys": [
+     "Rodney Aran",
+     "Virginia Aran",
+     "Chief Aran",
+     "Rodney and Virginia",
+     "Samus's father",
+     "Samus's mother",
+     "Samus' father",
+     "Samus' mother",
+     "Samus's parents",
+     "Samus' parents",
+     "your parents"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "Rodney Aran and Virginia Aran were Samus Aran's parents, human colonists of K-2L who both died in the Space Pirate raid on the colony when Samus was three (per the manga).\n\nRodney Aran, known as Chief Aran, led the K-2L colony's mining of afloraltite, the mineral that served as the ignition module of space-faring vessels, and oversaw its supply to the Galactic Federation. He was strict but affectionate with his family and devoted to his duty; his declared creed was that he wanted to see the Milky Way thrive and was prepared to make a sacrifice or two for it. When the Chozo elder Old Bird came asking for the colony's afloraltite, he refused to hand over the Federation's supply, and the Chozo left without it. When Ridley's Space Pirates followed the Chozo, found the mineral and loaded it onto their cargo ship, Rodney slipped aboard armed with nothing but a welding laser meant for repairs. Two Pirates cornered him; unable to fight them off, he ignited the afloraltite. The explosion destroyed the ship and the raiders around the colony and killed him. His last words were for his daughter: \"I love you... Samus!!\"\n\nVirginia Aran was Rodney's wife, a caring, home-centered woman who brought him his lunch at the mine. When the raid came and Ridley moved to kill Samus, Virginia put herself in his way, and Ridley killed her.\n\nSamus was the colony's only survivor. Old Bird and Gray Voice, returning to K-2L after the attack, found her and took her to Zebes; the Chozo became her family, and she has had no human parents since. The raid is the root of her enmity with Ridley: facing him again as a young woman triggered a paralyzing panic attack, and he beat her (per the manga), and the sight of him alive once more aboard the Bottle Ship froze her for a moment before she could fight.",
+    "constant": false,
+    "order": 100,
+    "category": "Samus",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/Rodney_Aran",
+     "https://www.metroidwiki.org/wiki/Virginia_Aran",
+     "https://www.metroidwiki.org/wiki/Afloraltite",
+     "https://www.metroidwiki.org/wiki/K-2L",
+     "https://www.metroidwiki.org/wiki/Samus_Aran",
+     "https://www.metroidwiki.org/wiki/Old_Bird",
+     "https://www.metroidwiki.org/wiki/Ridley"
+    ],
+    "notes": "Manga-only characters. 'Federation caravans' removed (unsourced). Only Old Bird named on the K-2L visit; Metroid Wiki's Old Bird page contradicts the Samus/Afloraltite pages on whether Rodney handed over the afloraltite (majority reading followed). Manga panic attack and defeat per Metroid Wiki's Ridley page. Bottle Ship freeze from Metroid: Other M. Interpretive line linking the loss to Damara and the baby Metroid dropped as unsupported. Bare 'Rodney', 'Virginia', 'her father', 'her mother' keys dropped (misfire risk)."
+   },
+   {
+    "comment": "Samus: K-2L (Samus's home colony)",
+    "keys": [
+     "K-2L",
+     "K2L",
+     "K-2-L",
+     "Afloraltite",
+     "home colony",
+     "Earth colony",
+     "birthplace",
+     "where Samus was born",
+     "where she was born",
+     "where you were born"
+    ],
+    "secondary_keys": [],
+    "selective_logic": "AND_ANY",
+    "content": "K-2L is the planet on which Samus Aran was born and spent her first three years (per the manga). The Galactic Federation settled a colony of humans from Earth there to mine afloraltite, a rare mineral used as the ignition module in all space-faring vessels of the era, and Samus's father Rodney Aran led the mining operation for the Federation.\n\nThe colony was a Federation mining settlement. Beyond it lay dense forest with mountains in the distance, terrain much like Earth's own inland regions, and the planet has at least one moon. The small rabbit-like Rabbilis, one of which became Samus's pet Pyonchi, lived nearby. Whether other settlements existed on K-2L is not recorded.\n\nThe colony's end came when the Chozo elder Old Bird landed to request afloraltite as an energy source for the Chozo's work on the Metroids. Rodney refused to give up the Federation's supply. Space Pirates under Ridley had followed the Chozo ship, landed, and noticed the afloraltite. They killed the colonists and loaded the mineral onto a cargo ship, and Ridley ordered every human on the colony destroyed. Samus's mother Virginia died shielding her from Ridley; Rodney ignited the stolen afloraltite aboard the cargo ship, and the blast destroyed the ship and the raiders near the colony along with him. Samus was the only survivor. Old Bird and Gray Voice returned, found her and took her to Zebes.\n\nWhat became of the colony afterward is not recorded, and Samus has never gone back. It is the place where she lost her human family and the reason the Chozo raised her; for Samus it is a memory rather than a home, and Zebes is the world she grew up on (see Samus Aran – early life on K-2L and Rodney Aran and Virginia Aran).",
+    "constant": false,
+    "order": 100,
+    "category": "Samus",
+    "sources": [
+     "https://www.metroidwiki.org/wiki/K-2L",
+     "https://www.metroidwiki.org/wiki/Afloraltite",
+     "https://www.metroidwiki.org/wiki/Rodney_Aran",
+     "https://www.metroidwiki.org/wiki/Pyonchi",
+     "https://www.metroidwiki.org/wiki/Old_Bird",
+     "https://www.metroidwiki.org/wiki/Samus_Aran"
+    ],
+    "notes": "Manga-only location. Removed as unsourced: 'technologically advanced', 'humans were the only settled population', Pirates 'searched the planet', 'caravans', 'research too dangerous to explain'. Metroid Wiki's K-2L page lists its status as unknown; the entry says so rather than asserting destruction. The wiki's inference that afloraltite was superseded by Fuel Gel is omitted as speculation. Keys 'homeworld'/'home planet'/'mining colony' dropped (would fire on Zebes, the Pirate Homeworld and general talk)."
+   }
+  ],
+  "changelog": "Core profile: KEPT 'consummate professional who has completed many missions believed to be impossible' (the report called it unverified, but it appears verbatim in Nintendo's Metroid Dread Report Vol. 5) and labelled it 'per Nintendo's official profile'. Added Tanamaar and Viewros (Prime 4: Beyond, set between Other M and Fusion per Wikipedia) to the mission list. Branch now reads Galactic Federation Army (official Dread material) with Federation Police as the manga wording. 'Adoptive fathers' became 'nearest thing she had to fathers'. Added the line that her face is unknown to most of the galaxy. Dropped 'blue-eyed'. The Thoha/Mawkin reveal is no longer credited to Raven Beak alone. Trimmed to 545 words.\nEarly life: Only Old Bird is now named as the K-2L visitor. 'Research they could not safely explain' became 'energy source for their work on the Metroids'. The out-of-universe 'manga supplies her official backstory' sentence became '(per the manga)'. Changed 'searched the planet' to 'noticed the afloraltite'. Removed generic keys (childhood, orphan, as a child, growing up, her parents, three years old) and added 'raid on K-2L', 'Samus's childhood', 'your childhood', 'young Samus'.\nZebes: Added the Iono Feria/Badger Clover turning point after checking it on Metroid Wiki. Samus shot the weapons away from the Iono Feria, not from the Chozo as the report's correction said. Added that Raven Beak was present at her adoption (Raven Beak page). Added Gray Voice's 'second or third place will never do' line. Replaced 'Chozo homeworld'. Removed 'only returned as a bounty hunter' because the Pyonchi page suggests an earlier return. Removed the 'Chozo DNA' key and the generic adoption/foster/upbringing keys; added Iono Feria, Badger Clover and other Zebes phrases. Trimmed to 397 words.\nFederation: Fixed the reversed Gunship condition: obeying the computer was the Federation's condition. Dropped 'not sarcasm'. Branch is now the official Galactic Federation Army, with Police as the manga name. Added Zero Mission's Federation Police sending her alone after the failed assault. Added that Anthony Higgs calls her 'Princess'. Moved the Pyonchi aside out. Cut the 'contractor with a conscience' editorializing. Keys: dropped enlisted/freelance/mercenary/former CO/military career; added Kreatz, Mauk, Damara, bounty hunters, bounty hunting, military days, Federation service.\nAppearance: Removed the wrong 'blonde since Zero Mission' and the whole paragraph of in-content sourcing and meta wording (Player's Guide, Nintendo Power, the Japanese site, Kimura, 'drawn', 'retelling', Other M height and green eyes). Replaced it with one in-universe sentence on height, weight and measurements, with sourcing moved to notes. Softened eye color to 'usually described as blue' (only fan sources found). Added the line about her face being unknown. Changed 'since ZDR' to 'surfaced on ZDR until neutralized'. Keys: dropped appearance/height/weight/athletic/muscular/blue eyes; added Zero Suit, Zero Suit Samus, out of/without her suit, without/under her helmet, blonde/blond hair. Now 300 words.\nMetroid DNA: Removed 'addressed her as his daughter'. Removed the unverified 'Thoha genes slowed / Mawkin prowess' briefing wording and its Itorash location. Stopped presenting 'Metroid Suit' as a canonical name. Added that the last E.M.M.I. was extracting her DNA and that the X that took Raven Beak was the one that had worn Kraid's corpse (Wikipedia plot). Dropped the Dark Samus aside and the Ice Beam detail. Cut from 594 to 398 words. Keys: removed bare 'vaccine'. Kept Chozo DNA here only. Avoided keys that the metroids and x-parasite domains already carry; added Thoha/Mawkin genes, Samus's DNA, your DNA, Metroid Suit.\nParents: 'Federation caravans' became 'supply to the Galactic Federation'. Only Old Bird is named on the visit. Added 'Chief Aran'. The manga Ridley encounter now says panic attack and defeat. Removed the interpretive Damara/baby Metroid sentence and the unsourced 'first thing she remembers of Ridley'. Keys: dropped bare Rodney/Virginia/her father/her mother; added Chief Aran, Rodney and Virginia, your parents.\nK-2L: Removed 'technologically advanced', 'humans were the only settled population', 'searched the planet', 'caravans' and 'research too dangerous to explain'. Rewrote the out-of-universe 'known only from the manga / never shown again' lines in-universe. Keys: dropped homeworld, home planet and mining colony; added 'where you were born'.\nAll 8 entries are now 297-398 words (core 545). All keys pass the forbidden-key and comma rules. Titles are unique, there are no duplicate keys within the domain, and the JSON validated.",
+  "unresolved": "1) Metroid Wiki contradicts itself on several points:\n- On whether Rodney gave the afloraltite to Old Bird (Old Bird page) or refused (Samus Aran and Afloraltite pages). The entries follow the majority.\n- On whether Gray Voice was on the first K-2L visit. Gray Voice's manga quote on Zebes ('What do you plan to do by bringing a human child here') suggests he was not, yet the entries keep 'Old Bird and Gray Voice found her', as the Samus and Old Bird pages state.\n- On who took Pyonchi: the Pyonchi page names both 'Chairman Kreatz' and Keaton. The entries use Keaton.\n2) Exact wording and location of the fake-ADAM Thoha/Mawkin briefing could not be confirmed, because the Itorash and Hanubia wiki pages are 404 and Wikipedia credits the tribal backstory to Quiet Robe. The entries say only that the voice she took for Adam told her of the mixture. Whether Raven Beak or the briefing first named him as the Mawkin donor is also only loosely sourced: secondary coverage, plus Metroid Wiki's statement that he gave her DNA.\n3) Eye color: no Nintendo or Metroid Wiki source was found. Fan wikis say 'officially blue' and green-tinged in Other M, so the content softens it to 'usually described as blue'.\n4) 'Galactic Federation Army' vs 'Federation Police' vs 'Marines': the Dread Report's Army wording is used as primary and Marines is not used.\n5) Prime 4: Beyond's placement between Other M and Fusion comes from Wikipedia. The Metroid Wiki infobox was unreadable.\n6) Not re-verified this pass, kept from drafts that the fact-check did not flag: 'Only Samus and Ridley survived the blast', Mother Brain's 'I gave birth to you!', Pirate Data quotes, 'twice over' debt to the hatchling, right arm integrated with the Arm Cannon.\n7) Some keys overlap other domains: Pyonchi/Rabbilis with Other M: Chairman Keaton, Federation Police with an SR388 entry, Zero Suit possibly with a suits entry, and Metroid DNA/becoming a Metroid/Metroid powers with Metroids: Samus as the last Metroid."
+ }
+}

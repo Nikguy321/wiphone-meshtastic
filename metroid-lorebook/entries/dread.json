@@ -4,7 +4,13 @@
  "entries": [
   {
    "comment": "Dread: Planet ZDR",
-   "keys": ["ZDR", "planet ZDR", "ZDR's surface", "depths of ZDR", "Chozo facilities of ZDR"],
+   "keys": [
+    "ZDR",
+    "planet ZDR",
+    "ZDR's surface",
+    "depths of ZDR",
+    "Chozo facilities of ZDR"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "ZDR is a remote planet, unexplored by humanity, and the place where Samus Aran fought the Chozo warlord Raven Beak (Metroid Dread). It no longer exists: it tore itself apart moments after Samus lifted off in her Gunship.\n\nIts temperature, humidity, atmosphere and gravity closely resemble those of SR388. What mattered lay underground: a maze of Chozo-built facilities, still full of Chozo machines, running from the surface down through layer after layer of crust and divided into regions linked by elevators and shuttles: Artaria, Cataris, Dairon, Burenia, Ferenia, Ghavoran, Elun and Hanubia, with Raven Beak's airship Itorash hanging above the surface. A central system in the lava region of Cataris circulates the planet's magma to generate energy for the facilities, which is why super-heated zones in Artaria and Cataris are lethal without the Varia Suit. Jamming signals block wireless contact, so communication with a ship's computer is possible only from dedicated communication rooms. Native ZDR wildlife is ferocious.\n\nZDR became the refuge of the Mawkin, the warrior tribe of the Chozo. Raven Beak brought his forces there, with the captive Thoha scientist Quiet Robe, after massacring the Thoha. An X Parasite carried by an infected soldier spread through the Mawkin; Raven Beak sealed the infected tribe in the Elun facility and replaced his warriors with Robot Chozo Soldiers. By the time Samus arrived, he and Quiet Robe were the only living Chozo on the planet, and Kraid, captured and experimented on by Raven Beak, hung in chains in Cataris.\n\nThe Galactic Federation learned of ZDR when footage of a living X reached it, footage Raven Beak had allowed to leak. It sent seven E.M.M.I. research robots; when contact with them was lost, it dispatched Samus, the only being immune to the X. Raven Beak ambushed her on arrival, stripped most of her suit's abilities and left her in the depths, and she fought her way back to the surface. Once the X were loosed from Elun they overran the planet's ecosystem, and the explosion that destroyed ZDR is presumed to have wiped out the last of the X. For Samus, ZDR is where her Metroid DNA awakened and where Quiet Robe died.",
@@ -23,7 +29,20 @@
   },
   {
    "comment": "Dread: Areas of ZDR",
-   "keys": ["Artaria", "Cataris", "Dairon", "Burenia", "Ferenia", "Ghavoran", "Elun", "Hanubia", "E.M.M.I. Zone", "E.M.M.I. Zones", "EMMI Zone", "EMMI Zones"],
+   "keys": [
+    "Artaria",
+    "Cataris",
+    "Dairon",
+    "Burenia",
+    "Ferenia",
+    "Ghavoran",
+    "Elun",
+    "Hanubia",
+    "E.M.M.I. Zone",
+    "E.M.M.I. Zones",
+    "EMMI Zone",
+    "EMMI Zones"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "ZDR's underground is divided into regions joined by elevators, shuttles and teleporters. Several hold E.M.M.I. Zones, sealed districts each patrolled by a single E.M.M.I. and run by a Central Unit. Samus Aran crossed all of them on her way from the depths to the surface (Metroid Dread).\n\n- Artaria: the deep region where Raven Beak left Samus after defeating her, with one large super-heated zone and several smaller ones. Organic life survives here, including the creature Corpius. The damaged E.M.M.I.-01P and the white E.M.M.I.-02SM patrolled it; Samus recovered the Charge Beam, Spider Magnet, Varia Suit, Screw Attack and Grapple Beam here. Elevators lead to Cataris, Dairon and Burenia.\n- Cataris: northeast of Artaria and east of Dairon; the lava region, home of the central system that circulates ZDR's magma to power its facilities, so its heat spreads into neighboring areas. Kraid was chained here and the X mimic Experiment Z-57 lurked here. The green E.M.M.I.-03MB patrolled its zone; the Diffusion Beam was recovered here.\n- Dairon: northwest of Cataris; an industrial region run from a generator and crowded with Chozo-made robots, with no major organic life. The yellow E.M.M.I.-04SB hunted here, and Samus recovered the Bomb.\n- Burenia: a marine region, almost fully submerged and full of aquatic creatures found nowhere else, ruled by Drogyga. Shuttles run to Dairon, elevators to Artaria and Ghavoran, and teleporters to Ghavoran and Ferenia. The Flash Shift and Gravity Suit were recovered here.\n- Ferenia: a ruined Chozo sanctuary where rituals were once held, almost entirely artificial, and the home of Quiet Robe. The purple E.M.M.I.-06WB and the X-mutated Quetzoa Escue were here; the Space Jump and Storm Missiles were recovered here.\n- Ghavoran: an underground forest lit by sunlight from above, thick with Quetzoa and home to Golzuna, an X-mutated Muzby. The blue E.M.M.I.-05IM patrolled here; Super Missiles and Cross Bombs were found here.\n- Elun: Raven Beak's quarantine facility, where the X-infected Mawkin were sealed. The Plasma Beam was kept here, and the opening of Elun loosed the X across ZDR.\n- Hanubia: the surface region, with no native life of note. The red E.M.M.I.-07PB made its last stand here, and here Samus's Metroid power first emerged. Her Gunship waited on the surface.\n- Itorash: Raven Beak's airship, stationed above Hanubia; it crashed to the surface after his defeat.",
@@ -43,7 +62,18 @@
   },
   {
    "comment": "Dread: E.M.M.I. (Extraplanetary Multiform Mobile Identifiers)",
-   "keys": ["E.M.M.I.", "E.M.M.I", "EMMI", "EMMIs", "E.M.M.I.s", "Extraplanetary Multiform Mobile Identifier", "Extraplanetary Multiform Mobile Identifiers", "Federation research robots", "E.M.M.I. robots", "EMMI robots"],
+   "keys": [
+    "E.M.M.I.",
+    "E.M.M.I",
+    "EMMI",
+    "EMMIs",
+    "E.M.M.I.s",
+    "Extraplanetary Multiform Mobile Identifier",
+    "Extraplanetary Multiform Mobile Identifiers",
+    "Federation research robots",
+    "E.M.M.I. robots",
+    "EMMI robots"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "E.M.M.I., Extraplanetary Multiform Mobile Identifiers, are survey robots of the Galactic Federation, built specifically to capture unknown organisms and extract their DNA. Seven formed a special unit sent to planet ZDR to investigate a transmission showing a living X Parasite. Contact with all seven was lost, and Samus Aran was sent after them (Metroid Dread).\n\nAn E.M.M.I. is a slim, humanoid machine with three-segmented limbs ending in four radially symmetric claws. Its front and back are nearly identical and its joints rotate both ways, so it reverses direction instantly and moves as easily on walls and ceilings as on floors. Armor plating, colored differently on each unit, covers the face, upper torso, forearms and upper legs. Its body is made of a special material said to be the hardest in the universe; Samus's beams, missiles and bombs do nothing to it. It hunts by sound, closing straight in on any noise in range, and once its visual sensors catch its target it pursues without hesitation.\n\nEach unit keeps to its own E.M.M.I. Zone. The gates between a zone and the rest of the facility let only Samus through, and they close temporarily while an E.M.M.I. is chasing her, so she must shake it off before she can leave. The Phantom Cloak hides her from their sensors and silences her footsteps.\n\nWhen an E.M.M.I. seizes Samus it pins her and begins extracting her DNA, which kills her within moments; she has two fleeting chances to break the hold with a Melee Counter. The only weapon that harms one is the Omega Cannon, which her Arm Cannon becomes after she absorbs the energy of a zone's Central Unit.\n\nOn ZDR the E.M.M.I. no longer served the Federation. Raven Beak, leader of the Mawkin, reprogrammed them to kill Samus on sight and harvest the Metroid DNA in her body so that he could clone an army of Metroids. After the X were loosed from Elun, an X wearing Quiet Robe's body reactivated the units he had shut down. Samus destroyed all seven; the last, in Hanubia, fell to her awakening Metroid power, which drained it as it tried to drain her. To Samus the E.M.M.I. were the dread of ZDR: relentless, nearly untouchable, and built by the people who sent her.",
@@ -62,10 +92,23 @@
   },
   {
    "comment": "Dread: The seven E.M.M.I. units and their Central Units",
-   "keys": ["Central Unit", "Central Units", "E.M.M.I. units", "EMMI units", "01P", "02SM", "03MB", "04SB", "05IM", "06WB", "07PB", "07B"],
+   "keys": [
+    "Central Unit",
+    "Central Units",
+    "E.M.M.I. units",
+    "EMMI units",
+    "01P",
+    "02SM",
+    "03MB",
+    "04SB",
+    "05IM",
+    "06WB",
+    "07PB",
+    "07B"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
-   "content": "Seven E.M.M.I. were deployed to ZDR, each identified by a number and a letter code. Six of them carried a Federation ability module named by that code, and destroying such a unit let Samus Aran take its ability for herself (Metroid Dread). Each unit patrolled its own E.M.M.I. Zone, and each zone was run by a Central Unit, that district's mother computer.\n\n- E.M.M.I.-01P: met in Artaria soon after Raven Beak's ambush. Already heavily damaged, missing armor plates and a claw, unable to climb walls or ceilings, and carrying no module. In the next chamber Samus found its Central Unit already destroyed, absorbed its energy, and shot 01P with her first Omega Cannon as it came through the door.\n- E.M.M.I.-02SM: white, in Artaria. Climbed walls and ceilings but could not enter passages small enough for the Morph Ball. Samus melted its faceplate with the Omega Stream and finished it with the Omega Blaster. Yielded the Spider Magnet.\n- E.M.M.I.-03MB: green, in Cataris. Like 02SM but able to squeeze through tight spaces. Yielded the Morph Ball.\n- E.M.M.I.-04SB: yellow, in Dairon. Faster than the earlier units, though still possible to outrun; Samus went to Burenia for the Flash Shift to evade it. Yielded the Speed Booster and Shinespark.\n- E.M.M.I.-05IM: blue, in Ghavoran. Its long-range vision froze Samus where she stood, but it could not close the zone gates behind her. Yielded Ice Missiles.\n- E.M.M.I.-06WB: purple, in Ferenia. Saw through walls and fired energy orbs that stunned its prey. It seized Samus until Quiet Robe shut it down; the X that later took his body switched it back on. Yielded the Wave Beam.\n- E.M.M.I.-07PB: red, in Hanubia. Its explosive blasts stunned Samus. It pinned her and began extracting her Metroid DNA, and she drained its energy with her bare hand, the first use of her Metroid power. The drain destroyed its Central Unit as well, so no Omega Cannon was needed. Yielded the Power Bomb.\n\nA Central Unit is a stationary brain. In its first state it is armored; once the armor is broken, an eye and a mass of brain tissue are exposed. When Samus destroys one it drops from its mount and she absorbs its energy, turning her Arm Cannon into the Omega Cannon until that zone's E.M.M.I. is dead. The Omega Stream burns through an E.M.M.I.'s face protector and the Omega Blaster destroys the core beneath, after which the cannon fades.",
+   "content": "Seven E.M.M.I. were deployed to ZDR, each identified by a number and a letter code. Six of them carried a Federation ability module named by that code, and destroying such a unit let Samus Aran take its ability for herself (Metroid Dread). Each unit patrolled its own E.M.M.I. Zone, and each zone was run by a Central Unit, that district's mother computer.\n\n- E.M.M.I.-01P: met in Artaria soon after Raven Beak's ambush. Already heavily damaged, missing armor plates and a claw, unable to climb walls or ceilings, and carrying no module. In the next chamber Samus found its Central Unit already destroyed, absorbed its energy, and shot 01P with her first Omega Cannon as it came through the door.\n- E.M.M.I.-02SM: white, in Artaria. Climbed walls and ceilings but could not enter passages small enough for the Morph Ball. Samus melted its faceplate with the Omega Stream and finished it with the Omega Blaster. Yielded the Spider Magnet.\n- E.M.M.I.-03MB: green, in Cataris. Like 02SM but able to squeeze through tight spaces. Yielded the Morph Ball.\n- E.M.M.I.-04SB: yellow, in Dairon. Faster than the earlier units but still outrunnable; Samus fetched the Flash Shift from Burenia to evade it. Yielded the Speed Booster and Shinespark.\n- E.M.M.I.-05IM: blue, in Ghavoran. Its long-range vision froze Samus where she stood, but it could not close the zone gates behind her. Yielded Ice Missiles.\n- E.M.M.I.-06WB: purple, in Ferenia. Saw through walls and fired energy orbs that stunned its prey. It seized Samus until Quiet Robe shut it down; the X that later took his body switched it back on. Yielded the Wave Beam.\n- E.M.M.I.-07PB: red, in Hanubia. Its explosive blasts stunned Samus. It pinned her and began extracting her Metroid DNA, and she drained its energy with her bare hand, the first use of her Metroid power. The drain destroyed its Central Unit as well, so no Omega Cannon was needed. Yielded the Power Bomb.\n\nA Central Unit is a stationary brain. Its armor, once broken, exposes an eye and a mass of brain tissue. When Samus destroys one it drops from its mount and she absorbs its energy, turning her Arm Cannon into the Omega Cannon until that zone's E.M.M.I. is dead. The Omega Stream burns through an E.M.M.I.'s face protector and the Omega Blaster destroys the core beneath, after which the cannon fades.",
    "constant": false,
    "order": 90,
    "category": "Dread",
@@ -83,7 +126,15 @@
   },
   {
    "comment": "Dread: Raven Beak",
-   "keys": ["Raven Beak", "Ravenbeak", "Raven-Beak", "Raven Beak X", "Mawkin leader", "leader of the Mawkin", "Hadar sen olmen"],
+   "keys": [
+    "Raven Beak",
+    "Ravenbeak",
+    "Raven-Beak",
+    "Raven Beak X",
+    "Mawkin leader",
+    "leader of the Mawkin",
+    "Hadar sen olmen"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "Raven Beak is a male Chozo, leader of the Mawkin warrior tribe, and the enemy Samus Aran faced on ZDR (Metroid Dread). His creed is \"Hadar... sen olmen\": power is everything. He is markedly larger than Samus and than his own soldiers, and wears on his right arm a cannon like hers. He first appeared in the Chozo Memories of SR388, as the Chozo leader standing over the body of another leader while overlooking his army (Metroid: Samus Returns).\n\nRaven Beak was present when the Chozo adopted the orphaned Samus, and some of his DNA was given to her. On SR388 the Mawkin worked with the Thoha scientists to contain the Metroids the Thoha had engineered. When the Thoha resolved to destroy the planet, Metroids and all, Raven Beak, who coveted the Metroids as weapons for galactic conquest, massacred the Thoha, sparing only Quiet Robe because only the Thoha could control Metroids. He withdrew with his forces and his hostage to ZDR to raise Metroids there. An infected soldier brought the X among the Mawkin; Raven Beak locked the infected tribe in Elun and built Robot Chozo Soldiers to replace them, leaving himself and Quiet Robe the only living Chozo on the planet. He also captured Kraid and experimented on him.\n\nSamus's extermination of the Metroids on SR388 changed his plan rather than ending it: the Metroid DNA in her body would be his breeding stock. He let footage of a living X reach the Galactic Federation, reprogrammed the seven E.M.M.I. it sent to kill her and harvest her DNA, ambushed her on arrival, destroyed the exit, stripped her suit of most of its abilities and left her alive in the depths. Posing as her ship's computer ADAM, he steered her through ordeal after ordeal so that her Metroid nature would awaken. Aboard his airship Itorash he revealed himself, told her he had spared her for exactly this, and offered her a place beside him ruling the galaxy with an army of Metroids cloned from her. She refused and fought.\n\nHe nearly killed her. Her Metroid power saved her: she drained him, then drained Itorash itself, which crashed onto ZDR. On the surface an X that had possessed Kraid's corpse infected the broken Chozo, and Samus destroyed the Raven Beak X with her new power. To Samus he is the Chozo who stood at her adoption and gave her part of his DNA, and who came to see her only as a vessel for the Metroid DNA he wanted.",
@@ -102,7 +153,15 @@
   },
   {
    "comment": "Dread: Quiet Robe",
-   "keys": ["Quiet Robe", "Quiet-Robe", "Quietrobe", "Quiet Robe X", "Thoha scientist", "last Thoha", "last of the Thoha"],
+   "keys": [
+    "Quiet Robe",
+    "Quiet-Robe",
+    "Quietrobe",
+    "Quiet Robe X",
+    "Thoha scientist",
+    "last Thoha",
+    "last of the Thoha"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "Quiet Robe was a male Chozo scientist of the Thoha tribe and the last of his people. The Thoha engineered the Metroids on SR388 to combat the X; when his tribe resolved to destroy the planet and the Metroids with it, the Mawkin leader Raven Beak slaughtered them, sparing Quiet Robe alone because only the Thoha could control Metroids. Raven Beak carried him to ZDR as a hostage, the key to the Metroid army he meant to raise. After the X infected the rest of the Mawkin, Quiet Robe and Raven Beak were the only living Chozo on the planet; Quiet Robe dwelt in Ferenia, a ruined sanctuary where the Chozo once held rituals (Metroid Dread).\n\nHe met Samus Aran there. The purple E.M.M.I., 06WB, had seized her, and Quiet Robe shut it down before it could kill her. He introduced himself and told her his story and Raven Beak's: the massacre of the Thoha, Raven Beak's plan to make the Metroids his weapons, and his new plan to extract the Metroid DNA in Samus's body through the reprogrammed E.M.M.I. and clone an army from it. Samus told him she would finish the fight. He opened a barrier so she could press on, and moments later one of Raven Beak's Robot Chozo Soldiers killed him.\n\nHis death did not end his part in the mission. When the X were loosed from Elun, one took his corpse; the Quiet Robe X re-enabled the E.M.M.I. he had disabled and roamed ZDR. Yet after Samus destroyed Raven Beak and reached her Gunship, where ADAM warned that her awakened Metroid power would drain the ship if she took the controls, the Quiet Robe X appeared behind her. She leveled her Arm Cannon; it bowed. She lowered her weapon, and the X returned to its base form and was absorbed into her. With it inside her, her Metroid power was brought under control and she could pilot the ship off the exploding planet.\n\nQuiet Robe is the only Chozo of ZDR who helped Samus, and what remains of him travels with her still.",
@@ -121,7 +180,18 @@
   },
   {
    "comment": "Dread: Chozo Soldiers of the Mawkin",
-   "keys": ["Chozo Soldier", "Chozo Soldiers", "Robot Chozo Soldier", "Robot Chozo Soldiers", "Chozo Robot Soldier", "Chozo Robot Soldiers", "Mawkin soldier", "Mawkin soldiers", "Mawkin warrior", "Mawkin warriors"],
+   "keys": [
+    "Chozo Soldier",
+    "Chozo Soldiers",
+    "Robot Chozo Soldier",
+    "Robot Chozo Soldiers",
+    "Chozo Robot Soldier",
+    "Chozo Robot Soldiers",
+    "Mawkin soldier",
+    "Mawkin soldiers",
+    "Mawkin warrior",
+    "Mawkin warriors"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "The Chozo Soldiers of ZDR are the warriors of the Mawkin, the militant Chozo tribe led by Raven Beak. The Mawkin worked with the Thoha to contain the Metroids on SR388, followed Raven Beak to ZDR after he massacred the Thoha, and were meant to be the army with which he would conquer the galaxy. Instead, an X Parasite carried by one infected soldier spread through them. Raven Beak sealed the infected tribe inside the Elun facility, and when Elun was opened the X poured out across the planet (Metroid Dread).\n\nSamus Aran fought the Mawkin's soldiers in two forms:\n- X-infected Chozo Soldiers: Mawkin warriors whose bodies the X had taken. Every living Chozo Soldier Samus faced on ZDR was an X mimic, armed with the Mawkin's long spear-like weapon and fighting with a Chozo warrior's agility and strength.\n- Robot Chozo Soldiers: combat machines Raven Beak built with Chozo technology once the X had taken his living troops. Their arms work as electromagnetic blades for high-speed charges, and their arm cannons fire orbs of light. They guard ZDR's facilities in his service. One of them killed Quiet Robe moments after he opened Samus's way forward.\n\nAbove them all stood Raven Beak himself, larger than any of his soldiers and the strongest warrior of the tribe.\n\nThe Mawkin are the Chozo at their most martial, the opposite of the Thoha scientists, and they share blood with Samus: Raven Beak's DNA was among that given to her as a child. By the time she left ZDR no Mawkin remained alive, and the Robot Chozo Soldiers were destroyed with the planet.",
@@ -140,10 +210,19 @@
   },
   {
    "comment": "Dread: The ZDR mission",
-   "keys": ["Metroid Dread", "mission on ZDR", "mission to ZDR", "ZDR incident", "ZDR mission", "events on ZDR", "what happened on ZDR", "Dread mission"],
+   "keys": [
+    "Metroid Dread",
+    "mission on ZDR",
+    "mission to ZDR",
+    "ZDR incident",
+    "ZDR mission",
+    "events on ZDR",
+    "what happened on ZDR",
+    "Dread mission"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
-   "content": "Samus Aran's mission to ZDR (Metroid Dread) began when the Galactic Federation received a transmission showing a living X Parasite, a species presumed to have died with SR388. It sent seven E.M.M.I. research robots to the remote planet; when contact was lost, it sent Samus, the only being in the galaxy immune to the X.\n\nShe landed in her Gunship and almost at once met a living Chozo warrior with an arm cannon like her own. He destroyed the exit, defeated her outright, stripped most of her suit's abilities and left her alive deep underground in Artaria. ADAM, her ship's computer, reachable only from dedicated communication rooms, told her to find another route to the surface. The reprogrammed E.M.M.I. hunted her through their zones; she turned her Arm Cannon into the Omega Cannon with the energy of their Central Units and destroyed them one by one, taking back her abilities as she went. In Cataris she killed Kraid, who had survived Zebes and been chained there by her enemy.\n\nIn Ferenia the Thoha scientist Quiet Robe saved her from the purple E.M.M.I. and told her the truth. Her attacker was Raven Beak, leader of the Mawkin, who had slaughtered the Thoha to seize the Metroids as weapons and, after Samus exterminated the Metroids on SR388, lured her to ZDR so the E.M.M.I. could harvest the Metroid DNA in her body and clone an army. Quiet Robe opened her path and was killed by a Robot Chozo Soldier. ADAM encouraged her to defeat Raven Beak and destroy ZDR.\n\nIn Elun the X that Raven Beak had quarantined got loose and overran the planet; one took Quiet Robe's corpse and reactivated the remaining E.M.M.I. In Hanubia the last E.M.M.I. pinned her, and she killed it by draining its energy with her hand. Her Metroid DNA had awakened, and with it she was slowly becoming a Metroid.\n\nAboard the airship Itorash, Raven Beak revealed he had been posing as ADAM and had spared her so her Metroid power would awaken. She refused to join him, drained him and Itorash, and brought the fortress down onto ZDR, where an X from Kraid's corpse took Raven Beak and she destroyed the Raven Beak X. As the planet began to self-destruct, the X that had taken Quiet Robe was absorbed into her at her Gunship, bringing her Metroid power under control, and she escaped before ZDR exploded, taking the last of the X with it.",
+   "content": "Samus Aran's mission to ZDR (Metroid Dread) began when the Galactic Federation received a transmission showing a living X Parasite, a species presumed to have died with SR388. It sent seven E.M.M.I. research robots to the remote planet; when contact was lost, it sent Samus, the only being in the galaxy immune to the X.\n\nShe landed in her Gunship and at once met a living Chozo warrior with an arm cannon like her own. He destroyed the exit, defeated her outright, stripped most of her suit's abilities and left her alive deep underground in Artaria. ADAM, her ship's computer, reachable only from dedicated communication rooms, told her to find another route to the surface. The reprogrammed E.M.M.I. hunted her through their zones; she turned her Arm Cannon into the Omega Cannon with the energy of their Central Units and destroyed them one by one, taking back her abilities as she went. In Cataris she killed Kraid, chained there by her enemy.\n\nIn Ferenia the Thoha scientist Quiet Robe saved her from the purple E.M.M.I. and told her the truth. Her attacker was Raven Beak, leader of the Mawkin, who had slaughtered the Thoha to seize the Metroids as weapons and, after Samus exterminated the Metroids on SR388, lured her to ZDR so the E.M.M.I. could harvest the Metroid DNA in her body and clone an army. Quiet Robe opened her path and was killed by a Robot Chozo Soldier. ADAM encouraged her to defeat Raven Beak and destroy ZDR.\n\nIn Elun the X that Raven Beak had quarantined got loose and overran the planet; one took Quiet Robe's corpse and reactivated the remaining E.M.M.I. In Hanubia the last E.M.M.I. pinned her, and she killed it by draining its energy with her hand. Her Metroid DNA had awakened, and with it she was slowly becoming a Metroid.\n\nAboard the airship Itorash, Raven Beak revealed he had been posing as ADAM and had spared her so her Metroid power would awaken. She refused to join him, drained him and Itorash, and brought the fortress down onto ZDR, where an X from Kraid's corpse took Raven Beak and she destroyed the Raven Beak X. As the planet began to self-destruct, the X that had taken Quiet Robe was absorbed into her at her Gunship, bringing her Metroid power under control, and she escaped before ZDR exploded, taking the last of the X with it.",
    "constant": false,
    "order": 100,
    "category": "Dread",
@@ -157,12 +236,32 @@
     "https://www.nintendo.com/jp/switch/ayl8a/exploration/index.html",
     "https://en.wikipedia.org/wiki/List_of_Metroid_characters"
    ],
-   "notes": "Trimmed from 510 to about 440 words; the Itorash, ADAM and Quiet Robe entries carry the detail. 'Sealed the exit' -> 'destroyed the exit' and 'shielded' -> 'dedicated' communication rooms per Wikipedia and Nintendo's JP site. X release phrased so both source readings survive. 'ADAM encouraged her to defeat Raven Beak and destroy ZDR' quotes Wikipedia's wording; whether that ADAM was Raven Beak in disguise is not stated. 'Vowed to avenge him' and 'set out in search of a new mission' removed as unsourced. Key 'X on ZDR' removed (owned by the X Parasite domain); this entry now solely holds 'ZDR incident'/'ZDR mission'."
+   "notes": "Trimmed from 510 to about 400 words; the Itorash, ADAM and Quiet Robe entries carry the detail. 'Sealed the exit' -> 'destroyed the exit' and 'shielded' -> 'dedicated' communication rooms per Wikipedia and Nintendo's JP site. X release phrased so both source readings survive. 'ADAM encouraged her to defeat Raven Beak and destroy ZDR' quotes Wikipedia's wording; whether that ADAM was Raven Beak in disguise is not stated. 'Vowed to avenge him' and 'set out in search of a new mission' removed as unsourced. Key 'X on ZDR' removed (owned by the X Parasite domain); this entry now solely holds 'ZDR incident'/'ZDR mission'."
   },
   {
    "comment": "Dread: The Chozo tribes - Thoha, Mawkin and Raven Beak's coup",
-   "keys": ["Thoha", "Mawkin", "Thoha massacre", "Mawkin tribe", "Thoha tribe", "Chozo of ZDR", "Mawkin Chozo", "Thoha Chozo", "Chozo tribes"],
-   "secondary_keys": ["ZDR", "Raven Beak", "Quiet Robe", "Elun", "massacre", "coup", "SR388", "tribe", "Metroid Dread"],
+   "keys": [
+    "Thoha",
+    "Mawkin",
+    "Thoha massacre",
+    "Mawkin tribe",
+    "Thoha tribe",
+    "Chozo of ZDR",
+    "Mawkin Chozo",
+    "Thoha Chozo",
+    "Chozo tribes"
+   ],
+   "secondary_keys": [
+    "ZDR",
+    "Raven Beak",
+    "Quiet Robe",
+    "Elun",
+    "massacre",
+    "coup",
+    "SR388",
+    "tribe",
+    "Metroid Dread"
+   ],
    "selective_logic": "AND_ANY",
    "content": "Two Chozo tribes shaped the history that ended on ZDR: the Thoha, peaceful scientists, and the Mawkin, a warrior tribe led by Raven Beak (Metroid Dread; Metroid: Samus Returns).\n\nThe Thoha came to SR388 for research and there met the X Parasite, which uses the planet's creatures as hosts. To combat it they engineered the Metroids. The X were suppressed and the Chozo lived in peace for a time, but the Metroids grew out of control and came to threaten the Chozo civilization itself. The Mawkin worked with the Thoha to contain them.\n\nThe alliance broke when the Thoha decided to destroy SR388 outright to end the Metroid threat. Raven Beak, who coveted the Metroids as weapons for galactic conquest, turned on his allies and killed the Thoha to the last, except for the scientist Quiet Robe, spared because only the Thoha could control Metroids. The Chozo Memories of SR388 preserve the moment: one Chozo leader standing over the body of the other, overlooking his army.\n\nRaven Beak took his warriors and his hostage to ZDR to raise Metroids there. The X followed: one infected soldier spread the parasite through the Mawkin until only Raven Beak and Quiet Robe were untouched. Raven Beak sealed the infected tribe in the Elun facility and built Robot Chozo Soldiers to replace them. There the X stayed until Samus Aran's climb toward the surface took her through Elun and they were loosed across the planet.\n\nSamus, raised by the Chozo on Zebes, shares blood with the Mawkin: Raven Beak was present at her adoption and was among the Chozo who gave her their DNA. She learned this history from Quiet Robe in Ferenia. The Thoha ended when Quiet Robe died helping her; the Mawkin ended with Raven Beak, who died trying to use her Metroid DNA. By the time ZDR exploded, both tribes were gone.",
    "constant": false,
@@ -181,7 +280,18 @@
   },
   {
    "comment": "Dread: Great creatures of ZDR",
-   "keys": ["Corpius", "Drogyga", "Escue", "Golzuna", "Experiment Z-57", "Experiment No. Z-57", "Z-57", "Quetzoa", "Muzby", "Kraid on ZDR"],
+   "keys": [
+    "Corpius",
+    "Drogyga",
+    "Escue",
+    "Golzuna",
+    "Experiment Z-57",
+    "Experiment No. Z-57",
+    "Z-57",
+    "Quetzoa",
+    "Muzby",
+    "Kraid on ZDR"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "Besides the E.M.M.I. and Raven Beak's soldiers, several great creatures barred Samus Aran's way on ZDR, three of them X mimics (Metroid Dread).\n\n- Corpius: the first of ZDR's great creatures Samus faced after Raven Beak left her in Artaria. A giant, skull-faced creature that drives its tail into the ground, sweeps it across its lair and spits lumps of acid; Samus could slide beneath it.\n- Kraid: the second, and not native to ZDR. The monster of Zebes, whom Samus had already beaten twice there, survived that planet's fall, was captured and experimented on by Raven Beak, and was chained by wall and ceiling in the magma of Cataris, his belly pocked with purple blemishes and gaping holes where his spikes had been. Samus killed him once more; an X later took his corpse, and it was this X that infected Raven Beak at the end.\n- Drogyga: the master of Burenia's flooded depths, an aquatic creature that Samus fought in the submerged ruins there.\n- Escue: a Quetzoa, one of the winged predators of Ferenia and Ghavoran, mutated by the X into a far larger and deadlier form in Ferenia. Destroyed, it collapsed into a Core-X whose absorption gave Samus the Storm Missiles.\n- Golzuna: a Muzby of Ghavoran's jungle, transformed by the X. Its Core-X yielded the Cross Bomb.\n- Experiment Z-57, also recorded as Experiment No. Z-57: a creature of Cataris that was likewise an X mimic.\n\nThe X-mutated creatures were not animals Samus simply hunted; they were the X itself wearing the forms of ZDR's fauna, and each one she killed she absorbed, as only she can. With ZDR's destruction, every one of these creatures is gone.",
@@ -201,7 +311,18 @@
   },
   {
    "comment": "Dread: Itorash and the end of ZDR",
-   "keys": ["Itorash", "destruction of ZDR", "ZDR's destruction", "end of ZDR", "ZDR exploded", "ZDR explosion", "escape from ZDR", "final battle on ZDR", "Raven Beak's ship", "Raven Beak's airship"],
+   "keys": [
+    "Itorash",
+    "destruction of ZDR",
+    "ZDR's destruction",
+    "end of ZDR",
+    "ZDR exploded",
+    "ZDR explosion",
+    "escape from ZDR",
+    "final battle on ZDR",
+    "Raven Beak's ship",
+    "Raven Beak's airship"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "Itorash was Raven Beak's airship, a floating fortress he built and kept stationed in the sky above Hanubia, ZDR's surface region. It was the seat of his power and the place where Samus Aran's mission on ZDR reached its climax (Metroid Dread).\n\nSamus reached Itorash after destroying the last E.M.M.I. on the surface. There Raven Beak revealed that he had been posing as ADAM, the ship's computer whose voice she had been following from the communication rooms. He had spared her life in Artaria and driven her through every hardship since so that the Metroid DNA in her body would awaken; he meant to clone her into an army of Metroids and rule the galaxy with it. He offered her a place beside him. She refused, and they fought.\n\nRaven Beak brought her to the edge of death. What saved her was the thing he had been cultivating: her Metroid nature surged, her suit took on the form known as the Metroid Suit, and she drained the energy from him as a Metroid drains its prey. Breaking free, she drained Itorash itself; the fortress lost power and crashed onto the surface of ZDR. There Raven Beak, broken, was infected by an X that had possessed Kraid's corpse, and Samus destroyed the Raven Beak X with the Hyper Beam her transformed Arm Cannon now fired.\n\nWith Itorash down, ZDR began to self-destruct. Samus reached her Gunship, where the real ADAM warned her not to take the controls: in her state she would drain the ship as she had drained Itorash. The X that had taken Quiet Robe's body then appeared behind her. She raised her Arm Cannon; it bowed. She lowered the weapon, and the X returned to its base form and was absorbed into her, letting her control the ship without draining it. She lifted off moments before ZDR exploded, a blast presumed to have destroyed the last of the X.\n\nZDR no longer exists, and Itorash was lost with it. Samus left carrying a Metroid's power and the remains of the X that keeps it in check.",
@@ -214,15 +335,33 @@
     "https://www.metroidwiki.org/wiki/Quiet_Robe",
     "https://www.metroidwiki.org/wiki/Gunship",
     "https://en.wikipedia.org/wiki/List_of_Metroid_characters",
-    "https://www.inverse.com/gaming/metroid-dread-ending-explained-metroid-suit-rewards",
-    "https://metroid.fandom.com/wiki/Hyper_Beam_(Metroid_Dread)"
+    "https://nc.inverse.com/gaming/metroid-dread-ending-explained-metroid-suit-rewards"
    ],
-   "notes": "'Metroid Suit' name and the Hyper Beam confirmed only through WebSearch result snippets (Inverse, Twinfinite, Wikitroid page titles); Metroid Wiki has no Metroid Suit page, so the name is kept to one clause and the suits domain owns the detail. Raven Beak infected by an X 'that had possessed Kraid's corpse earlier' per Wikipedia's plot. Itorash as Raven Beak's own airship above Hanubia per Metroid Wiki ZDR; 'floating fortress' per Wikipedia. Wikitroid is listed because its page title appeared in search results; the page itself was not fetched (blocked)."
+   "notes": "'Metroid Suit' name and the Hyper Beam confirmed only through WebSearch result snippets (Inverse, Twinfinite, Wikitroid page titles); Metroid Wiki has no Metroid Suit page, so the name is kept to one clause and the suits domain owns the detail. Raven Beak infected by an X 'that had possessed Kraid's corpse earlier' per Wikipedia's plot. Itorash as Raven Beak's own airship above Hanubia per Metroid Wiki ZDR; 'floating fortress' per Wikipedia. Wikitroid (Hyper Beam (Metroid Dread)) appeared only as a search-result title and is not listed as a source."
   },
   {
    "comment": "Dread: ADAM on ZDR and Raven Beak's impersonation",
-   "keys": ["Adam", "fake Adam", "false Adam", "impersonated Adam", "impersonating Adam", "Adam impersonation", "Adam's voice", "Communication Room", "Communication Rooms"],
-   "secondary_keys": ["ZDR", "Raven Beak", "Itorash", "Quiet Robe", "E.M.M.I.", "EMMI", "Hanubia", "Metroid Dread"],
+   "keys": [
+    "Adam",
+    "fake Adam",
+    "false Adam",
+    "impersonated Adam",
+    "impersonating Adam",
+    "Adam impersonation",
+    "Adam's voice",
+    "Communication Room",
+    "Communication Rooms"
+   ],
+   "secondary_keys": [
+    "ZDR",
+    "Raven Beak",
+    "Itorash",
+    "Quiet Robe",
+    "E.M.M.I.",
+    "EMMI",
+    "Hanubia",
+    "Metroid Dread"
+   ],
    "selective_logic": "AND_ANY",
    "content": "On ZDR, Samus Aran's only link to the outside was ADAM, the computer of her Gunship, which carries the mind of her former commanding officer Adam Malkovich (Metroid Dread). Jamming signals across the planet block wireless communication, so she could reach ADAM only from dedicated communication rooms, where she reported in, received briefings on the planet and her enemies, and was told where to go next.\n\nFor much of the mission the voice answering her was not ADAM. Raven Beak, the Mawkin leader who had ambushed her on arrival, had been posing as ADAM in those communications. In that guise he directed her across the planet, and every hardship he steered her into served one purpose: to awaken the Metroid DNA in her body so that he could clone an army of Metroids from her. He revealed the deception himself aboard Itorash, before their final battle, and offered her a place beside him.\n\nThe real ADAM spoke at the end. When Samus, her Metroid nature fully awake, reached her Gunship as ZDR began to self-destruct, ADAM warned her not to take the controls: her power would drain the ship as it had drained Itorash. Only after the X that had taken Quiet Robe was absorbed into her and brought that power under control could she fly out.\n\nADAM is the voice Samus relies on in the field, the echo of a commander she respected, and on ZDR a Chozo who had stood at her adoption used that voice to lead her step by step toward the fate he had chosen for her. Adam Malkovich himself, and the ADAM of the BSL incident, have their own histories.",
    "constant": false,

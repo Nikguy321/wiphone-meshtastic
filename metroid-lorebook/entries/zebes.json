@@ -1,0 +1,249 @@
+{
+ "domain": "zebes",
+ "category": "Zebes",
+ "entries": [
+  {
+   "comment": "Zebes: Zebes (planet overview)",
+   "keys": [
+    "Zebes",
+    "Planet Zebes",
+    "Zebeth",
+    "FS-176"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Zebes is a planet of the FS-176 system, which it shares with Tallon IV, Oormine II, Twin Tabula and Bilium; two moons orbit it. Scan records classify it as a Class XIX world, inhospitable to most bioforms, with a mass near 4.8 trillion teratons and a crust rich in Urithic Ore, a mineral well suited to underground construction. Its surface, Crateria, is a mostly lifeless expanse beaten by acid rain, meteor falls and lightning; nearly everything that lives on Zebes lives below it, in the humid cavern-jungles of Brinstar, the magma depths of Norfair, the flooded caverns of Maridia and the metal fortress of Tourian. Chozodia, the ruined city of the Chozo, lies beside Crateria near the surface.\n\nZebes was a Chozo world, and the Chozo raised Samus Aran there. Per the manga, the Chozo created the artificial intelligence Mother Brain to oversee the planet, and after Space Pirates destroyed the human colony K-2L, the Chozo elders Old Bird and Gray Voice took the orphaned Samus, then three years old, to Zebes. Also per the manga, Mother Brain predicted that her frail body could not withstand life there, so the Chozo integrated their DNA with hers and equipped her with the Power Suit; she trained on Zebes through her teenage years until Old Bird told her she was ready to leave and head out on her own.\n\nThe Space Pirates later took Zebes and Mother Brain assumed command of them; per the manga, the Chozo fled and Gray Voice was fatally wounded by Ridley while trying to bring her offline. The Pirates made the planet a fortress: Tourian as headquarters and Metroid laboratory, Kraid in the depths of Brinstar, Ridley in lower Norfair. After they brought a captured Metroid there to multiply as a weapon and repelled the Federation Police, the Galactic Federation sent Samus to destroy Mother Brain (Metroid: Zero Mission). She did, and destroyed the Space Pirate Mother Ship in Chozodia as well. Pirate logs record that Zebes had fallen, but the research frigates Orpheon, Siriacus and Vol Paragom retreated from orbit with live Metroids; Samus later answered the Orpheon's distress signal above Tallon IV.\n\nThe Pirates returned, rebuilt Tourian deeper, and Ridley carried the baby Metroid stolen from Ceres Space Colony there. When Samus destroyed the revived Mother Brain, the entire planet exploded and nothing was left (Super Metroid). Lifeforms taken from Zebes survived aboard research stations such as the Bottle Ship and the BSL station, and Kraid was later found alive in Cataris on ZDR.\n\nZebes was the only home Samus had after K-2L. She knows its caverns from childhood, fought two campaigns through them, and saw the planet die.",
+   "constant": false,
+   "order": 100,
+   "category": "Zebes",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Zebes",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Old_Bird",
+    "https://www.metroidwiki.org/wiki/Gray_Voice",
+    "https://www.metroidwiki.org/wiki/Mother_Brain",
+    "https://www.metroidwiki.org/wiki/Pirate_Data",
+    "https://www.metroidwiki.org/wiki/Orpheon",
+    "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission",
+    "https://www.metroidwiki.org/wiki/Super_Metroid",
+    "https://www.metroidwiki.org/wiki/ZDR"
+   ],
+   "notes": "Mass, class and Urithic Ore come from scan data quoted on Metroid Wiki's Zebes page. Removed the uncited 'nightmare version of Zebes' Bottle Ship comparison (not found on the Samus Aran, Bottle Ship or Other M pages, nor by search). Added Samus's age (three, per the manga), the Fall of Zebes/Orpheon bridge to Tallon IV, and Cataris. Chozo creation of Mother Brain and the K-2L/training details are labelled per the manga. Metroid Wiki's pages disagree on whether the original Tourian lay under Crateria or below Brinstar, so no location is given here."
+  },
+  {
+   "comment": "Zebes: Regions of Zebes (Crateria, Brinstar, Norfair, Maridia)",
+   "keys": [
+    "Crateria",
+    "Brinstar",
+    "Norfair",
+    "Maridia",
+    "Kraid's Lair",
+    "Ridley's Lair",
+    "Kraid's Hideout",
+    "Ridley's Hideout",
+    "regions of Zebes",
+    "Zebes caverns"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Zebes is layered, its regions linked by elevators and long vertical shafts; the deeper one goes, the hotter and stranger it becomes.\n\n- Crateria is the outermost surface, barraged by meteors and acid rain and struck by lightning; sparse caverns offer the only refuge and lead down toward the core. Samus landed her gunship here on both of her Zebes missions. Chozo relics survive among its rocks (on her return a Torizo guarded them), and Chozodia borders it. The Wrecked Ship, the hulk of a vessel that crashed long ago, splits Crateria in two; when Samus returned its power was dead and Phantoon haunted it. The ruins of the old Tourian lie in Crateria's lowest reaches.\n- Brinstar lies just beneath the surface: a tropical, humid cavern-jungle holding over 60 percent of the planet's lifeforms, many of them carnivorous plants. Its lower section has red soil and borders Norfair. Kraid's lair occupies Brinstar's deepest points beyond a red door, a tall grey chamber opening onto long purple corridors pooled with acid. Etecoons and a Dachora live in Brinstar.\n- Norfair lies deep beneath Brinstar: volcanic caverns of magma lakes, superheated chambers and boiling acid streams, its walls covered in purple bubble-like formations. Its heat demands the Varia Suit. Deeper still stand ancient Chozo constructs, abandoned until the Pirates built among them; Ridley's lair lies in these lower sections. When the Pirates rebuilt, they gave it a gate shaped like Ridley's head and flooded it with acidic lava that burns even through the Gravity Suit, and after Samus's first mission Norfair filled far more heavily with lava.\n- Maridia is a large, mostly submerged region of sand walls and quicksand floors, home to fish and crustaceans. Partly artificial, it served as Draygon's base. The first way in open to Samus was a tunnel in the middle of Brinstar that she broke open with a Power Bomb, and its flooded shafts cannot be climbed without the Gravity Suit.\n- Tourian is the Pirates' metal headquarters and Mother Brain's seat. The first was reached by a tall shaft from Brinstar; the rebuilt one lies deeper, entered by an elevator in western Crateria.\n\nSamus grew up on Zebes; on her first mission she worked down from Brinstar through Kraid's lair and Norfair before Tourian opened to her; on her return she crossed every region, including Maridia and the Wrecked Ship, which she had never entered before.",
+   "constant": false,
+   "order": 100,
+   "category": "Zebes",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Zebes",
+    "https://www.metroidwiki.org/wiki/Crateria",
+    "https://www.metroidwiki.org/wiki/Brinstar",
+    "https://www.metroidwiki.org/wiki/Norfair",
+    "https://www.metroidwiki.org/wiki/Maridia",
+    "https://www.metroidwiki.org/wiki/Kraid_(area)",
+    "https://www.metroidwiki.org/wiki/Ridley_(area)",
+    "https://www.metroidwiki.org/wiki/Wrecked_Ship",
+    "https://www.metroidwiki.org/wiki/Torizo",
+    "https://www.metroidwiki.org/wiki/Tourian"
+   ],
+   "notes": "Fixed: Torizo moved to Samus's return (no Torizo on the first mission); Wrecked Ship no longer called the first entrance to Maridia (Maridia page's Brinstar tunnel kept); first Tourian described as reached by a shaft from Brinstar and its ruins placed in lowest Crateria, per the Tourian page. Trimmed the Covern clause. 'Red Brinstar', 'Green Brinstar', 'Upper/Lower Norfair' are not listed because the bare region keys already match them under whole-word matching. 'Wrecked Ship' dropped as a key (misfires on any wrecked ship; the super-metroid domain owns it)."
+  },
+  {
+   "comment": "Zebes: Tourian",
+   "keys": [
+    "Tourian",
+    "Old Tourian",
+    "New Tourian",
+    "Zebetite",
+    "Zebetites",
+    "Rinka",
+    "Rinkas",
+    "Golden Statue",
+    "escape shaft"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Tourian is the Space Pirate headquarters on Zebes and the seat of Mother Brain. Unlike the planet's natural caverns it is built, a complex of metal and synthetic materials housing the Pirates' Metroid laboratories, and it held most of the Metroids on the planet. Its long metal corridors have doors that must be forced with Missiles. Launchers spit a constant stream of Rinkas, ring-shaped fireballs that burn on contact; turrets cover the approaches; and before Mother Brain's chamber stand five Zebetite barriers, tubes of shielded, conduit-like material connected to Mother Brain. Zebetite shatters under Missiles but regrows; per the manga it is produced by the same molecule transference that generates Zebes's planetary shield. Mother Brain's tank stands above a pit of lava crossed by three platforms.\n\nThe first Tourian was reached by a tall shaft in Brinstar, its way barred until Kraid and Ridley were both dead. When Samus entered on her first mission she found the corridors littered with dead Space Pirates; the Metroids had apparently turned on their keepers. She froze each Metroid with the Ice Beam and shattered it with Missiles, broke the Zebetites and destroyed Mother Brain. That armed a time bomb, and Samus fled up a long escape shaft to the surface before the base blew (Metroid: Zero Mission).\n\nThe Pirates rebuilt Tourian deeper, entered by an elevator in western Crateria sealed by the Golden Statue: four statues of Kraid, Phantoon, Draygon and Ridley, each losing its eye and turning grey as its original fell, until the whole statue sank to open the way. The ruins of the old Tourian survived in Crateria's lowest depths, still occupied by Pirates, with Mother Brain's destroyed holding tank in plain view. The new Tourian kept the metal corridors, Metroids and Rinkas, but beyond them lay a zone of lifeless, decaying creatures, and there the grown baby Metroid seized Samus, nearly killed her, then spared her. Mother Brain's revival, the baby's death and the second detonation followed (Super Metroid); when the countdown began, Samus used the Hyper Beam to break through a wall into the original escape shaft and climb to her ship.\n\nSamus has walked out of Tourian alive twice, each time with the base exploding behind her.",
+   "constant": false,
+   "order": 100,
+   "category": "Zebes",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Tourian",
+    "https://www.metroidwiki.org/wiki/Zebetite",
+    "https://www.metroidwiki.org/wiki/Rinka",
+    "https://www.metroidwiki.org/wiki/Golden_Statue",
+    "https://www.metroidwiki.org/wiki/Mother_Brain",
+    "https://www.metroidwiki.org/wiki/Super_Metroid"
+   ],
+   "notes": "Fixed: the statue sealing new Tourian is the Golden Statue of Kraid, Phantoon, Draygon and Ridley, not a Chozo statue. Softened the Metroids killing the Pirates to 'apparently' (Tourian page: 'implying'). Zebetites described as tubes, not pillars. Removed the manual parenthetical about Rinkas. Added Mother Brain's destroyed tank in old Tourian. 'Drained by the baby' softened to the Tourian page's 'devoid of life, in decay'. Zebetite keys now live only here; 'time bomb' and 'Pirate headquarters' dropped as generic. No countdown lengths are stated."
+  },
+  {
+   "comment": "Zebes: Mother Brain",
+   "keys": [
+    "Mother Brain",
+    "Mother-Brain",
+    "MotherBrain",
+    "Mother Brains"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Mother Brain is the artificial intelligence that ruled Zebes, first for the Chozo and then for the Space Pirates. Physically she is a vast brain with a single eye, kept in a tank in the deepest chamber of Tourian behind Zebetite barriers; she is gender-neutral but presents a female persona. Per the manga, the Chozo created her to oversee Zebes and to bring the species of the galaxy into harmony (\"And so, I was born\"). She delivered regular reports to the Chozo on the Metroids' progress against the X on SR388, made the Power Suit to support the Chozo's martial strength and on that basis told Samus \"I gave birth to you!\", and predicted that the frail human child could not survive life on Zebes (all per the manga).\n\nWhen the Space Pirates came to Zebes, she concluded that her purpose had backfired and resolved to bring order to the universe by whatever means were necessary, assuming control of the Pirates, whom she judged genetically predisposed to obey a powerful leader. Per the manga, the Chozo elder Gray Voice, whose DNA had given Samus her Chozo genes, sided with her and the Pirates as a ruse; he donned a Chozo Power Suit and attacked her, but Ridley struck him a fatal blow before he could bring her offline, and his last attack, launched skyward, let the fleeing Chozo escape.\n\nIn the Pirate fortress she directed Kraid, Ridley and every defense of the planet. The Galactic Federation described her as the mechanical life-form that controlled the fortress and its defenses, and sent Samus to destroy her. Shielded by turrets, Rinkas and five Zebetite barriers, she could close her eye to become momentarily invulnerable and fire a large purple blast from it. Samus broke through and destroyed her, triggering a time bomb that wrecked Tourian (Metroid: Zero Mission).\n\nThe Pirates revived her. On Samus's return she rose from her shattered tank on a towering mechanical body and struck Samus with a Hyper Beam that drained her energy and left her paralyzed. The baby Metroid absorbed Mother Brain's energy and gave it to Samus, then died shielding her; its death left Samus wielding the Hyper Beam, and with it she destroyed Mother Brain for good before Zebes itself exploded (Super Metroid). Years later Federation scientists built MB, an android running an AI derived from Mother Brain's thought processes, to regenerate and control cloned Space Pirate special forces and raise cloned Metroids aboard the Bottle Ship; MB developed Mother Brain's consciousness and turned violent.\n\nMother Brain knew Samus from childhood, and Samus has destroyed her twice.",
+   "constant": false,
+   "order": 110,
+   "category": "Zebes",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Mother_Brain",
+    "https://www.metroidwiki.org/wiki/Gray_Voice",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/MB",
+    "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission",
+    "https://www.metroidwiki.org/wiki/Super_Metroid"
+   ],
+   "notes": "Fixed: Mother Brain delivered (not received) the SR388 reports (Metroid Wiki, manga). Added Gray Voice's DNA link to Samus and his skyward final attack covering the fleeing Chozo (Gray Voice page, Vol 2 Ch 12). Chozo creation labelled per the manga. MB purpose tightened per the MB page. 'Mechanical life-form' is the Federation's description in the Zero Mission premise on Metroid Wiki. The manga 'given birth' line is rendered on Metroid Wiki as 'marital strength', read here as 'martial'. Zebetite keys moved to the Tourian entry; 'MB' not used as a key (ambiguous, other-m domain)."
+  },
+  {
+   "comment": "Zebes: Kraid",
+   "keys": [
+    "Kraid",
+    "Kraids",
+    "Mini Kraid",
+    "Mini-Kraid",
+    "Mini Kraids",
+    "Fake Kraid"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Kraid is an enormous reptilian creature who served the Space Pirates on Zebes as one of Mother Brain's two chief lieutenants, alongside Ridley. He laired in the depths of Brinstar beyond a red door, in a tall grey chamber hung with curved ceiling spikes that opened onto long purple corridors pooled with acid; the rebuilt lair lay in Brinstar's lower reaches, east of the elevator to Norfair, mechanical, bolted and panelled, its walls turning green near his den. Per the manuals he is \"the largest enemy in all of the mazes beneath the surface of Planet Zebes\" and \"the giant lizard of Brinstar\".\n\nHe is so huge that his body fills a chamber from floor to ceiling. He spits rocks from his mouth, fires spikes from his belly and flings claws from his fingertips; the belly spikes jut far enough to stand on. Per one manual, no beam, Missile or Bomb has any effect on his body, and on Zebes Samus brought him down by firing Missiles, Super Missiles or charged shots into his open mouth. In the rebuilt lair a smaller, weaker look-alike called Mini Kraid guarded the approach two rooms before him.\n\nSamus defeated Kraid on her first mission to open the way to Tourian and claimed the Speed Booster from his lair; per the manga, she beat him with the help of the Morph Ball Bombs that Adam Malkovich supplied. She defeated him again in the rebuilt base on her return and claimed the Varia Suit. Kraid nonetheless outlived Zebes: during the ZDR mission Samus found him in Cataris, chained to the wall and ceiling, his belly spikes gone and replaced by purple blemishes and gaping holes, and killed him (Metroid Dread). How he came to ZDR is not recorded. An X parasite later possessed his corpse, and that X went on to infect Raven Beak.\n\nKraid is an old enemy who keeps coming back; Samus has beaten him three times.",
+   "constant": false,
+   "order": 100,
+   "category": "Zebes",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Kraid",
+    "https://www.metroidwiki.org/wiki/Kraid_(area)",
+    "https://www.metroidwiki.org/wiki/Mini_Kraid",
+    "https://www.metroidwiki.org/wiki/Brinstar",
+    "https://www.metroidwiki.org/wiki/ZDR",
+    "https://en.wikipedia.org/wiki/Metroid_Dread"
+   ],
+   "notes": "Fixed: rebuilt lair is inside Brinstar, east of the Norfair elevator. Manual quotes now attributed generically ('per the manuals'); the NES manual's 'head of the Mini-Boss hideout' line was dropped (it misquoted and uses meta language). Mini Kraid limited to the rebuilt lair (Mini Kraid page: not on the first mission as retold). Added Cataris (ZDR page). The original account has his whole body vulnerable; the mouth-only weakness follows the retelling and the later mission. The Kraid-X/Raven Beak link rests on Wikipedia's Dread plot summary only. Dropped generic keys 'giant lizard' and 'saurian'."
+  },
+  {
+   "comment": "Zebes: Samus's first Zebes mission (Zero Mission)",
+   "keys": [
+    "Zero Mission",
+    "Zero-Mission",
+    "first Zebes mission",
+    "first mission to Zebes",
+    "first mission on Zebes",
+    "first trip to Zebes",
+    "fall of Zebes",
+    "Zebes has fallen",
+    "20X5"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "In the year 20X5 of the Cosmic Calendar, Space Pirates attacked a Galactic Federation deep-space research vessel returning from SR388, seized the Metroid it carried and took it to their fortress on Zebes. The Federation feared the Pirates would multiply the creature with beta rays and loose Metroids as biological weapons. It located the base and attacked, but the Pirates drove the Federation Police back. As a last resort the Federation sent a lone space hunter, Samus Aran, to exterminate the Metroids and destroy Mother Brain, the mechanical life-form that controlled the fortress and its defenses.\n\nSamus landed on Crateria and descended into Brinstar, the caverns of the world where the Chozo had raised her. Chozo Statues among the ruins yielded the relics she needed, among them the Morph Ball, Missiles, Bombs, the Power Grip and the Ice Beam, and in Crateria, Kraid's lair and Ridley's lair she found three devices her suit could not identify, the Unknown Items. She defeated Kraid; while she fought through Norfair the Space Pirate Mother Ship landed in Chozodia; in lower Norfair she killed Ridley. With both lieutenants dead the barrier to Tourian lifted. Inside, the Pirates' own Metroids had apparently killed their keepers. She froze them with the Ice Beam, shattered them with Missiles, broke the Zebetites, destroyed Mother Brain and outran the time bomb up the escape shaft to her ship.\n\nPirate fighters ambushed the gunship as it left Zebes and brought it down beside the Mother Ship. \"The timing of my escape couldn't have been worse,\" Samus later recalled. Without her Power Suit, wearing only the Zero Suit and armed with the Paralyzer, an auto-charging pistol that could stun but not kill, she slipped through the Mother Ship into Chozodia, where a Chozo trial, the Ruins Test, granted her the Legendary Power Suit. It restored everything she had lost and revealed the Unknown Items as the Plasma Beam, Space Jump and Gravity Suit. She fought back through the Mother Ship, destroyed Mecha Ridley at its summit, and escaped in a small Pirate craft as the self-destruct tore the vessel apart (Metroid: Zero Mission).\n\nThe Pirates' own logs read \"Zebes has fallen\": all ground personnel were presumed dead, killed by the Hunter or in the destruction of the base, but the research frigates Orpheon, Siriacus and Vol Paragom retreated from orbit with live Metroids, and Pirate Security Command issued an all-points alert on the Hunter. Per the manga, Adam Malkovich supported Samus during this mission. The Pirates later rebuilt on Zebes, and Samus returned for the baby Metroid (Super Metroid).\n\nSamus walked the caverns of her childhood as the enemy of the planet's new masters, and left Zebes in armor made by the Chozo.",
+   "constant": false,
+   "order": 100,
+   "category": "Zebes",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission",
+    "https://en.wikipedia.org/wiki/Metroid:_Zero_Mission",
+    "https://www.metroidwiki.org/wiki/Metroid_(game)",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Pirate_Data",
+    "https://www.metroidwiki.org/wiki/Orpheon",
+    "https://www.metroidwiki.org/wiki/Unknown_Item",
+    "https://www.metroidwiki.org/wiki/Space_Pirate_Mother_Ship",
+    "https://www.metroidwiki.org/wiki/Ruins_Test",
+    "https://www.metroidwiki.org/wiki/Tourian",
+    "https://www.metroidwiki.org/wiki/Kraid"
+   ],
+   "notes": "Zero Mission is treated as the definitive account of the original mission. Verified the quote 'The timing of my escape couldn't have been worse' on Metroid Wiki's Samus Aran page. Replaced unverified 'emergency order' with the sourced 'as a last resort'. Added Unknown Item locations (Unknown Item page, via the fact-check) and the Fall of Zebes Pirate Data bridge to the Orpheon. Chozodia/Ruins Test/Mecha Ridley detail condensed (the Chozodia entry carries it). Escape craft: Metroid Wiki says 'Space Pirate escape pod', rendered as 'small Pirate craft'. Generic keys 'first mission', 'original mission', 'Zebes mission', 'space hunter' and 'Metroid extermination' dropped; 'fall of Zebes' moved here because the Pirate log of that name refers to this mission, not the planet's destruction."
+  },
+  {
+   "comment": "Zebes: Chozodia, the Ruins Test and the Space Pirate Mother Ship",
+   "keys": [
+    "Chozodia",
+    "Pirate Mother Ship",
+    "Pirate Mothership",
+    "Ruins Test",
+    "Legendary Power Suit",
+    "Fully Powered Suit",
+    "Unknown Item",
+    "Unknown Items",
+    "Mecha Ridley",
+    "Mecha-Ridley",
+    "Paralyzer",
+    "Chozo city"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Chozodia is a region of Zebes bordering Crateria near the surface: the ruins of a Chozo city, left empty after the Chozo fled the planet (per the manga). When Samus came there on her first mission nearly every living thing she met was a Space Pirate, because the Space Pirate Mother Ship had landed in the ruins.\n\nThe Mother Ship was the vessel Ridley used. It set down in Chozodia while Samus was fighting through Norfair, shortly before she entered Ridley's lair, and it was still there when Pirate fighters shot down her gunship as she left the planet. She crash-landed beside it without her Power Suit and infiltrated it in the Zero Suit, carrying the Paralyzer, an auto-charging pistol that stuns Pirates but cannot kill them.\n\nFrom the ship she passed into the ruins and found the Ruins Test, a test handed down by the Chozo: a mirror-like guardian holding an image of Samus, which hurt her if she fired on it while it lay dormant, glowed only briefly to expose itself, and once struck tore free of the wall to hurl lightning. Each true hit set a Chozo symbol into one of four slots on the wall; with the fourth the guardian returned to the wall and showed Samus herself in full armor. Claiming that image gave her the Legendary Power Suit, a more advanced Chozo armor with the broad pauldrons of her later Varia Suit. It restored all her lost abilities and could integrate technology the old suit could only register as unknown: the Plasma Beam, the Space Jump and the Gravity Suit. Chozodia also yielded Power Bombs.\n\nArmored again, Samus went back into the Mother Ship and climbed to its summit, where Mecha Ridley waited, a robotic image Ridley had made of himself to demonstrate his power, still half finished. Its defeat lit its eyes red and started the ship's self-destruct; Samus took a small Pirate craft and escaped as the Mother Ship exploded (Metroid: Zero Mission).\n\nSamus kept the Legendary Power Suit after Zebes. It was lost only when its X-infected parts were surgically removed after her infection on SR388, shortly before the BSL incident, and the Fusion Suit took its place (Metroid Fusion). In Chozodia, the empty city of the people who raised her, the Chozo's own test judged her worthy of their legendary armor.",
+   "constant": false,
+   "order": 100,
+   "category": "Zebes",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Chozodia",
+    "https://www.metroidwiki.org/wiki/Space_Pirate_Mother_Ship",
+    "https://www.metroidwiki.org/wiki/Ruins_Test",
+    "https://www.metroidwiki.org/wiki/Legendary_Power_Suit",
+    "https://www.metroidwiki.org/wiki/Unknown_Item",
+    "https://www.metroidwiki.org/wiki/Mecha_Ridley",
+    "https://www.metroidwiki.org/wiki/Zero_Suit",
+    "https://www.metroidwiki.org/wiki/Fusion_Suit",
+    "https://www.metroidwiki.org/wiki/Gray_Voice",
+    "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission"
+   ],
+   "notes": "Fixed: the suit was lost after the SR388 X infection, before the BSL mission, not at its start. Replaced the unverified 'kept it through every later mission' with the Legendary Power Suit page's wording (kept after Zebes, lost in Fusion's prologue). Chozo abandonment labelled per the manga; Mother Ship described as 'the vessel Ridley used'. Pauldron line follows the Legendary Power Suit page ('based on the later Varia Suit designs'). Bare 'Mother Ship'/'Mothership' keys dropped as misfire-prone; 'Pirate Mother Ship' still matches 'Space Pirate Mother Ship'. 'Chozo Ruins' deliberately not a key (Tallon IV region). Title changed from 'Chozo Ruins' to 'Ruins Test' for the same reason."
+  },
+  {
+   "comment": "Zebes: The destruction of Zebes",
+   "keys": [
+    "destruction of Zebes",
+    "Zebes's destruction",
+    "Zebes destroyed",
+    "Zebes was destroyed",
+    "destroyed Zebes",
+    "Zebes exploded",
+    "Zebes explosion",
+    "Zebes blew up",
+    "blew up Zebes",
+    "Zebes is gone",
+    "end of Zebes",
+    "Zebes no longer exists"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Zebes was destroyed at the end of Samus's second mission there. After her first mission the Space Pirates resurfaced on the planet and completely rebuilt Tourian, deeper than before, and Ridley carried the baby Metroid he had stolen from Ceres Space Colony down into it. Samus followed, defeated Kraid, Phantoon, Draygon and Ridley, and in the new Tourian destroyed the revived Mother Brain with the Hyper Beam after the baby gave its life for her (Super Metroid).\n\nMother Brain's death started a self-destruct countdown. Samus broke through a wall into the old escape shaft and raced through Tourian and Crateria to her gunship, freeing on her way the three Etecoons and the Dachora she had met in Brinstar. As her ship climbed away the entire planet exploded, and nothing of Zebes was left.\n\nThe Chozo were long gone by then. Some of the planet's creatures outlived it as specimens aboard research stations such as the Bottle Ship and the BSL station, and Kraid was later found alive, chained in Cataris on ZDR.\n\nThe world Samus grew up on died with Mother Brain, in the same battle in which she lost the baby Metroid.",
+   "constant": false,
+   "order": 100,
+   "category": "Zebes",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Super_Metroid",
+    "https://en.wikipedia.org/wiki/Super_Metroid",
+    "https://www.metroidwiki.org/wiki/Zebes",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Tourian",
+    "https://www.metroidwiki.org/wiki/ZDR"
+   ],
+   "notes": "Kept short by design; the super-metroid domain owns the final battle. Removed the unverified 'nightmare version of Zebes' Bottle Ship line. The Etecoon/Dachora rescue is optional in the source material; it is stated as what Samus did as a conscious canon choice. Added Cataris. 'fall of Zebes' moved to the first-mission entry (the Pirate log of that name refers to the Pirates' defeat, not the planet's destruction). Added phrasing keys ('Zebes was destroyed', 'Zebes is gone', 'blew up Zebes')."
+  }
+ ]
+}
