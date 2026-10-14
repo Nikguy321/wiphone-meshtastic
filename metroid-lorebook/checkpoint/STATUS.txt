@@ -17,6 +17,7 @@ gap2: draft, verify, revise
 gap3: draft, verify
 gap4: draft
 hunters: draft, verify
+late-chozo: 
 manga: draft, verify, revise
 metroids: draft, verify, revise
 metroids-x-late: 
@@ -35,6 +36,7 @@ suits: draft, verify, revise
 super-metroid: draft, verify, revise
 tech: draft, verify, revise
 timeline: draft, verify, revise
+timeline-prime: 
 weapons: draft, verify, revise
 what-when: 
 who-where: 

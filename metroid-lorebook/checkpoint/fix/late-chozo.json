@@ -1,0 +1,54 @@
+{
+ "run": "wf_8a5b5e72-c2d",
+ "label": "fix:late-chozo",
+ "result": {
+  "results": [
+   {
+    "issue": "1) B.O.X. wrecking the PYR Data Room (fusion 'Sectors of the BSL station' and x-parasite 'X-mimicked creatures of the BSL, part 1')",
+    "decision": "already_ok",
+    "entry": "Fusion: Sectors of the BSL station; X Parasite: X-mimicked creatures of the BSL, part 1",
+    "before": "...ambushed by the security robot B.O.X., which wrecked the Data Room and fled. / It first ambushed Samus with fire bombs in PYR after destroying the Data Room and fled...",
+    "after": "Content unchanged in both. Notes now record the verification, and the Security_Robot_B.O.X. URL was added to the x-parasite entry's sources.",
+    "source_url": "https://www.metroidwiki.org/wiki/Security_Robot_B.O.X."
+   },
+   {
+    "issue": "2) 'The ship could only be started manually' (fusion 'The destruction of the BSL and SR388')",
+    "decision": "already_ok",
+    "entry": "Fusion: The destruction of the BSL and SR388",
+    "before": "The ship could only be started manually, yet it had moved.",
+    "after": "Content unchanged. The Retropixel transcript was added to sources, and a note records that Samus's ending monologue says 'This ship can only be started manually' (also confirmed in the Metroid Database ending transcript).",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "issue": "3) Duplicate tribal history between dread 'The Chozo tribes - Thoha, Mawkin and Raven Beak's coup' and chozo 'Chozo tribes – Thoha and Mawkin'",
+    "decision": "fixed",
+    "entry": "Dread: The Chozo tribes - Thoha, Mawkin and Raven Beak's coup; Chozo: Chozo tribes – Thoha and Mawkin",
+    "before": "Dread entry (1791 chars) retold the SR388 history: 'The Thoha came to SR388 for research and there met the X Parasite, which uses the planet's creatures as hosts. To combat it they engineered the Metroids. The X were suppressed and the Chozo lived in peace for a time, but the Metroids grew out of control...' plus the Chozo Memories image. Chozo entry: 'They colonized SR388, met the X Parasites there and genetically engineered the Metroids...'; 'When the Metroids grew beyond control, the two tribes banded together...'; 'Quiet Robe disabled an E.M.M.I. ...'",
+    "after": "Dread entry (1673 chars) now holds only events that bear on ZDR: the coup and massacre, the move to ZDR, the Elun quarantine and the X's release, Quiet Robe as last Thoha in Ferenia, and Raven Beak's DNA in Samus and why he wanted her Metroid DNA on ZDR. It points to the other entry with 'Their earlier history on SR388 is told under Chozo tribes – Thoha and Mawkin.' Sourced facts moved into the chozo entry: '...met the X Parasites there, which use the planet's creatures as hosts...'; 'With the X suppressed the Chozo lived in peace for a time, but the Metroids grew beyond control and came to threaten the Chozo civilization itself...'; 'In Ferenia, Quiet Robe disabled an E.M.M.I. ...'. Dropped the unsourced 'came to SR388 for research'. The DNA wording was narrowed to 'gave her some of his DNA'.",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns"
+   },
+   {
+    "issue": "4) Raven Beak's motive for going to ZDR (chozo tribes vs dread Raven Beak / Planet ZDR)",
+    "decision": "fixed",
+    "entry": "Chozo: Chozo tribes – Thoha and Mawkin; Dread: Raven Beak; Dread: The Chozo tribes - Thoha, Mawkin and Raven Beak's coup",
+    "before": "Chozo: 'took him to the planet ZDR, intending to return to SR388 once the Metroids had wiped out the X.' Dread Raven Beak: 'He withdrew with his forces and his hostage to ZDR to raise Metroids there.' Dread tribes: 'took his warriors and his hostage to ZDR to raise Metroids there.'",
+    "after": "Both sourced motives are now given in all three entries. Chozo: 'took him to the planet ZDR, where he planned to house Metroids, intending to return to SR388 once the Metroids had wiped out the X.' Dread Raven Beak and dread tribes: '...to ZDR, which he planned to use to house Metroids, meaning to return to SR388 once the Metroids had wiped out the X.' Planet ZDR gives no motive, so it does not conflict and was left unchanged. Sources: Wikipedia's Dread plot ('He planned to use ZDR to house Metroids') and Metroid Wiki Raven Beak ('intending to come back to SR388 later when the Metroids had completely wiped out the X Parasites').",
+    "source_url": "https://www.metroidwiki.org/wiki/Raven_Beak"
+   },
+   {
+    "issue": "5) Incomplete recovery lists in dread 'Areas of ZDR' (Artaria Phantom Cloak; Dairon Speed Booster and Wide Beam)",
+    "decision": "fixed",
+    "entry": "Dread: Areas of ZDR",
+    "before": "Organic life survives here, including the creature Corpius. ... The yellow E.M.M.I.-04SB hunted here, and Samus recovered the Bomb.",
+    "after": "Organic life survives here, including the creature Corpius, whose defeat yielded the Phantom Cloak. ... The yellow E.M.M.I.-04SB hunted here and yielded the Speed Booster; Samus also recovered the Wide Beam and the Bomb. (2468 to 2557 chars.) Speed Booster sources: Metroid Wiki ZDR and Speed Booster pages. Phantom Cloak sources: Wikitroid Phantom Cloak ('rewarded after Samus defeats Corpius') and Artaria pages, because Metroid Wiki has no Phantom Cloak or Corpius page. Wide Beam sources: Wikitroid Dairon and Wide Beam pages (Chozo Statue in Dairon), because Metroid Wiki's Wide Beam page gives no Dread location. Source URLs and a note were added.",
+    "source_url": "https://www.metroidwiki.org/wiki/Speed_Booster"
+   }
+  ],
+  "files_edited": [
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/fusion.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/x-parasite.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/dread.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/chozo.json"
+  ]
+ }
+}

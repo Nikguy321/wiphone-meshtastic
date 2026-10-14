@@ -163,9 +163,10 @@
     "https://www.metroidwiki.org/wiki/Human_Core-X",
     "https://www.metroidwiki.org/wiki/X_Parasite",
     "https://www.metroidwiki.org/wiki/Metroid_Fusion",
-    "https://metroid.retropixel.net/games/metroid4/transcript.php"
+    "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "https://www.metroidwiki.org/wiki/Security_Robot_B.O.X."
    ],
-   "notes": "Split from the single creatures entry to stay under 400 words. Fake Chozo Statue added per its Metroid Wiki page (Hard Core-X, SRX, stabilizer mission, red-eye weak point, Charge Beam). B.O.X. now uninfected at the PYR ambush ('rogue Security Robot') and X-claimed by the NOC fight, per the B.O.X. page. Key 'B.O.X' (no trailing period) whole-word matches both 'B.O.X' and 'B.O.X.' in SillyTavern. Rewards per Metroid Wiki boss pages. Consistency pass: 'In the order she met them' removed: the Human Core-X and the NOC B.O.X. fight came after the Mega Core-X (part 2), per the Fusion incident entry's sequence."
+   "notes": "Split from the single creatures entry to stay under 400 words. Fake Chozo Statue added per its Metroid Wiki page (Hard Core-X, SRX, stabilizer mission, red-eye weak point, Charge Beam). B.O.X. now uninfected at the PYR ambush ('rogue Security Robot') and X-claimed by the NOC fight, per the B.O.X. page. Key 'B.O.X' (no trailing period) whole-word matches both 'B.O.X' and 'B.O.X.' in SillyTavern. Rewards per Metroid Wiki boss pages. Consistency pass: 'In the order she met them' removed: the Human Core-X and the NOC B.O.X. fight came after the Mega Core-X (part 2), per the Fusion incident entry's sequence. B.O.X. destroying PYR's Data Room before attacking re-verified on Metroid Wiki's Security Robot B.O.X. page ('After it destroyed PYR's Data Room, it attacks Samus'); kept."
   },
   {
    "comment": "X Parasite: X-mimicked creatures of the BSL, part 2",

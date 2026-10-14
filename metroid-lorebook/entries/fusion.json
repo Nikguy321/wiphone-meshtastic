@@ -111,7 +111,7 @@
     "https://www.metroidwiki.org/wiki/Security_Robot_B.O.X.",
     "https://www.metroidwiki.org/wiki/Restricted_Zone"
    ],
-   "notes": "Added per fact-check: Bomb data in TRO, the NOC vent sighting of the SA-X, five atmospheric stabilizers. Made selective (AND_ANY) because 'Sector 1'-'Sector 3' collide with the Bottle Ship's sectors and SRX/TRO/AQA/NOC are real-world acronyms; secondaries are BSL/X context words. 'ARC' omitted as a key (common English word). Slightly over 400 words because it covers six sub-areas."
+   "notes": "Added per fact-check: Bomb data in TRO, the NOC vent sighting of the SA-X, five atmospheric stabilizers. Made selective (AND_ANY) because 'Sector 1'-'Sector 3' collide with the Bottle Ship's sectors and SRX/TRO/AQA/NOC are real-world acronyms; secondaries are BSL/X context words. 'ARC' omitted as a key (common English word). Slightly over 400 words because it covers six sub-areas. B.O.X. wrecking PYR's Data Room re-verified: Metroid Wiki's Security Robot B.O.X. page says 'After it destroyed PYR's Data Room, it attacks Samus' and that it 'flees before she can completely destroy it' (the Data Room page's general line that the X destroy Data Rooms does not contradict it); kept."
   },
   {
    "comment": "Fusion: Main Deck of the BSL station",
@@ -239,9 +239,10 @@
     "https://www.metroidwiki.org/wiki/Phaaze",
     "https://www.metroidwiki.org/wiki/Dark_Aether",
     "https://metroiddatabase.com/endings-metroid-fusion/",
-    "https://en.wikipedia.org/wiki/Metroid_Fusion"
+    "https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "https://metroid.retropixel.net/games/metroid4/transcript.php"
    ],
-   "notes": "Fixed per fact-check: 'second world she had known erased' replaced (Zebes, Dark Aether and Phaaze preceded SR388); unverified 'station alone was not enough' reasoning removed; final order's closing re-checked on Metroid Wiki's Fusion references ('Samus, this is your last mission' ... 'Move quickly, and stay alive. That's an order! Any objections, Lady?') and kept; gunship now returns with the animals aboard rather than 'on its own'; tribunals line and Adam's reply quoted from the Metroid Database ending transcript. Removed the claim that the animals were the same individuals rescued from Zebes (Metroid Wiki says only 'presumably') and the unverified 'Federation party already on its way'. Keys: dropped 'collision course', 'orbit path', 'station's destruction', 'ending monologue'."
+   "notes": "Fixed per fact-check: 'second world she had known erased' replaced (Zebes, Dark Aether and Phaaze preceded SR388); unverified 'station alone was not enough' reasoning removed; final order's closing re-checked on Metroid Wiki's Fusion references ('Samus, this is your last mission' ... 'Move quickly, and stay alive. That's an order! Any objections, Lady?') and kept; gunship now returns with the animals aboard rather than 'on its own'; tribunals line and Adam's reply quoted from the Metroid Database ending transcript. Removed the claim that the animals were the same individuals rescued from Zebes (Metroid Wiki says only 'presumably') and the unverified 'Federation party already on its way'. Keys: dropped 'collision course', 'orbit path', 'station's destruction', 'ending monologue'. 'The ship could only be started manually' re-verified: Samus's ending monologue reads 'This ship can only be started manually' in both the Retropixel transcript and the Metroid Database ending transcript; kept."
   },
   {
    "comment": "Fusion: Samus's defiance of the Federation at the BSL",
