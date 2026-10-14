@@ -1,194 +1,195 @@
 {
-  "domain": "federation-force",
-  "category": "Federation Force",
-  "entries": [
-    {
-      "comment": "Federation Force: The Bermuda System incident",
-      "keys": [
-        "Bermuda System incident",
-        "Bermuda incident",
-        "Bermuda campaign",
-        "giant Samus",
-        "enlarged Samus",
-        "brainwashed Samus",
-        "mind-controlled Samus"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "The Bermuda System incident was a Galactic Federation campaign against the Space Pirates, fought after the Phazon crisis and the destruction of Phaaze (Metroid Prime 3: Corruption); it opened in Cosmic Year 20X6, per the official Japanese website. With Phazon eradicated and the weakened Pirates still at large, the Federation approved Operation Golem, a top-secret program of piloted Mechs modeled on Samus Aran's Power Suit, and formed an elite Marine unit, the Federation Force, to pilot them under General Alex Miles. Operating from the flagship G.F.S. Aegis, the Force was sent to the Bermuda System's three planets, Excelcion, Bion and Talvania, officially to rebuild abandoned Federation facilities and carry out archaeological surveys.\n\nThe Force found the Pirates entrenched on all three worlds: salvaging a weapon from old Federation facilities on Excelcion, digging through Bion's ancient ruins, and reawakening Talvania's dormant industry to build ballistic missiles aimed at the Aegis. The Federation hired Samus to gather intelligence. Working alone from her gunship, she destroyed all but one of the Pirate missile bases, and on Bion her ship's missile barrage brought down a giant creature that a Force squad could not. On Bion the Force learned the Pirates had acquired technology that enlarges living things; their enlarging beam also drives its targets berserk. In one operation, designated Infestation, the Force stole a Metroid egg from the Pirates. Samus then reported that the Pirates were building an enormous warship, the Doomseye, and the Federation lost contact with her.\n\nThe Force destroyed the cloaking generators hiding the Doomseye, one on each planet. The exposed warship annihilated most of the Federation fleet and sealed itself behind a shield, so the Force boarded it. Inside they found Samus a captive: brainwashed, enlarged to gigantic size and set against them. She fought in Morph Ball form with Bombs, Boost Ball, Spider Ball and Power Bombs. The Marines defeated her, restoring her normal size, and she was buried under falling debris. Pressing on, they confronted the Master Brain, the entity controlling the ship; Samus, who had survived, returned to assist, and the Master Brain was destroyed. In the chaos the Marines were sucked out into open space before the surviving fleet destroyed the Doomseye, and Samus recovered them and thanked them for what they had done.\n\nThe incident is one of the few times Samus was captured, mind-controlled and turned against Federation soldiers, and she owed her release to Marines in Mechs built on her own suit's design. The Metroid egg the Force had taken was later hatched by Sylux.",
-      "constant": false,
-      "order": 100,
-      "category": "Federation Force",
-      "sources": [
-        "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
-        "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond",
-        "https://www.nintendolife.com/guides/metroid-prime-4-beyond-who-is-sylux",
-        "https://www.nintendo.co.jp/3ds/bcaj/index.html",
-        "https://www.nintendo.co.jp/3ds/bcaj/mission/index.html",
-        "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9",
-        "https://metroid.fandom.com/wiki/Metroid_Prime:_Federation_Force",
-        "https://shinesparkers.net/games/metroid-prime-federation-force/",
-        "http://www.nintendoworldreport.com/review/43215/metroid-prime-federation-force-review"
-      ],
-      "notes": "Final-battle order corrected per English Wikipedia ('the Force is sucked into the vacuum of space before the Fleet destroys the Doomseye, where they are saved by Samus'). Master Brain added per Nintendo Life's series recap ('controlled by an entity known as Master Brain'; Samus 'buried under rubble'; 'Samus returns to assist') and corroborated by a WebSearch snippet of Wikitroid (Master Brain destroyed after giant Samus; she is buried by falling debris). Sources disagree on what drops the shield (Wikipedia: Samus's defeat; Wikitroid snippet: the Master Brain powers it), so causation is omitted. Infestation operation per Nintendo Life Sylux guide; egg 'stolen from the Space Pirates' per Wikipedia. Berserk effect of the enlarging beam per JP Wikipedia (Hugenate Beam; English name unverified, left unnamed). Goliath left unnamed (English spelling unverified). Primary keys no longer overlap with the unit entry; bare 'Bermuda' and 'Project Golem' dropped. Placement after Corruption per Wikipedia/Nintendo Life/NWR; Metroid Wiki's 'between Metroid II and Super Metroid' not used."
-    },
-    {
-      "comment": "Federation Force: The Federation Force and their Mechs",
-      "keys": [
-        "Federation Force",
-        "Operation Golem",
-        "Golem Mech",
-        "Mech suit",
-        "Mech suits",
-        "Mechsuit",
-        "Mechsuits",
-        "G.F.S. Aegis",
-        "GFS Aegis",
-        "Blast Ball",
-        "Lone Wolf MOD",
-        "AI Combat Drones"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "The Federation Force is an elite unit of Galactic Federation Marines raised under Operation Golem, the Federation's top-secret program to secure an edge over the Space Pirates after the Phazon crisis. Its specially trained pilots deploy in squads of up to four under General Alex Miles, operating from the flagship G.F.S. Aegis. Its first campaign was the Bermuda System incident, where an assignment to rebuild Federation facilities and survey ruins turned into open war that ended aboard the Pirate warship Doomseye.\n\nThe Mech is the Force's prototype battle armor, designed after Samus Aran's Power Suit: a piloted suit about 4.3 meters tall and weighing 3.2 tonnes, with a walking speed of 27.2 km/h, which the pilot enters through the back of the torso (per the official Japanese website). Only Federation Force members are cleared to pilot one. Standard systems are an arm cannon that fires beam and charged shots, target lock-on, a sidestep dodge, and a jump with a short hover.\n\nBefore each sortie a pilot fits supplementary equipment within a weight limit:\n- homing Missiles and area-blast Super Missiles\n- incendiary and freezing shots; frozen targets cannot move or fire and take double damage\n- a slowing beam, and a scanning shot that exposes weak points\n- the Shock Shot, which shorts out mechanical defenses\n- Repair Capsules that restore a Mech's energy, and shield generators that raise a protective dome\n- decoys and mines\n\nPerformance chips called MODs tune the machine further. The Lone Wolf MOD, barred from squad deployment, doubles beam damage and halves damage taken for a pilot operating alone, who may also bring up to three AI Combat Drones, small autonomous flying units. Squad pilots divide duties among attackers, assisters, healers and all-rounders. Blast Ball is a three-on-three sport played in Mechs, in which teams drive a giant ball into the opposing goal with beam fire.\n\nSamus did not pilot a Mech during the Bermuda campaign; she worked alongside the Force as a hired bounty hunter in her own gunship. The machines are still bound up with her: their design descends from her Power Suit, and Force pilots in Mechs defeated her when the Pirates brainwashed and enlarged her aboard the Doomseye, before she recovered them from open space.",
-      "constant": false,
-      "order": 100,
-      "category": "Federation Force",
-      "sources": [
-        "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
-        "https://www.nintendo.co.jp/3ds/bcaj/index.html",
-        "https://www.nintendo.co.jp/3ds/bcaj/mech/index.html",
-        "https://www.nintendo.co.jp/3ds/bcaj/multiplay/index.html",
-        "https://www.nintendolife.com/news/2016/08/guide_meching_sweet_chaos_in_metroid_prime_federation_force",
-        "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond",
-        "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9",
-        "https://www.nintendolife.com/reviews/3ds/metroid_prime_federation_force",
-        "https://shinesparkers.net/games/metroid-prime-federation-force/"
-      ],
-      "notes": "Removed unattested 'Project Golem' (content and keys) and 'sensor bombs' (now 'decoys and mines' per Nintendo Life mech guide). Added Shock Shot, freeze effect, Lone Wolf squad ban and AI Combat Drones per Nintendo Life guide. Speed corrected to 27.2 km/h (official JP mech page). Invented role labels replaced with the official JP site's Attacker/Assister/Healer/All-Rounder. 'Samus never piloted a Mech' narrowed to the Bermuda campaign (Prime 4 features similar Federation Mechsuits). 'Recruits train in Blast Ball' and 'newly graduated' dropped as unverified. Bare 'Mech'/'Mechs' keys dropped as generic."
-    },
-    {
-      "comment": "Federation Force: General Alex Miles",
-      "keys": [
-        "Miles",
-        "Alex Miles",
-        "General Miles",
-        "General Alex Miles",
-        "Commander Alex"
-      ],
-      "secondary_keys": [
-        "Alex",
-        "General",
-        "Federation Force",
-        "Aegis",
-        "Bermuda",
-        "Operation Golem",
-        "Doomseye",
-        "Excelcion"
-      ],
-      "selective_logic": "AND_ANY",
-      "content": "General Alex Miles is the Galactic Federation officer who commands the Federation Force and directs Operation Golem, the Federation's secret program of piloted Mechs. He is also addressed simply as Commander Alex. His uniform follows the same design as the one worn by Adam Malkovich, Samus Aran's former commanding officer, topped by a helmet reserved for commanders.\n\nDuring the Bermuda System incident (Metroid Prime: Federation Force) Miles ran the campaign from the flagship G.F.S. Aegis in orbit above Excelcion, issuing the orders and briefings for the Force's operations on Excelcion, Bion and Talvania. Under his command the assignment began as base reconstruction and archaeological survey and became open war once Space Pirates were found entrenched in the system. His pilots destroyed the cloaking generators hiding the Pirate warship Doomseye, boarded it, defeated the brainwashed and enlarged Samus, and confronted the Master Brain that controlled the ship, with Samus returning to assist them. The surviving fleet then destroyed the Doomseye.\n\nSamus took part in the operation as a bounty hunter working under a Federation contract to gather intelligence, not as one of Miles's Marines. She went silent after reporting the Doomseye's construction, was captured by the Pirates and turned against his troops, and after the battle she recovered his Marines from open space and thanked them for what they had done. See also Federation Force, Bermuda System incident and Doomseye.",
-      "constant": false,
-      "order": 100,
-      "category": "Federation Force",
-      "sources": [
-        "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
-        "https://www.nintendo.co.jp/3ds/bcaj/index.html",
-        "https://www.nintendo.co.jp/3ds/bcaj/multiplay/index.html",
-        "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9",
-        "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond"
-      ],
-      "notes": "Full name 'General Alex Miles' per English Wikipedia; 'Commander Alex' (アレックス司令官) per the official JP site and JP Wikipedia. Uniform of the same design as Adam's in Other M plus a commander-only helmet per JP Wikipedia. Master Brain added per Nintendo Life recap. Removed the unsupported claim about Samus's reporting line. Selective entry because 'Miles' is a common word; every multi-word key contains a secondary word, so it self-satisfies."
-    },
-    {
-      "comment": "Federation Force: Bermuda System (Excelcion, Bion, Talvania)",
-      "keys": [
-        "Bermuda System",
-        "Bermuda star system",
-        "Bermuda planets",
-        "Excelcion",
-        "Bion",
-        "Talvania",
-        "Ice Titan",
-        "Ice Titans"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "The Bermuda System is a remote star system, a former Galactic Federation territory of three major planets: Excelcion, Bion and Talvania. The Federation once worked the system and then withdrew; after the Phazon crisis it sent the Federation Force back to restore its bases and survey the ruins, and the Force found the Space Pirates had moved in. During the Bermuda System incident each planet held one of the cloaking generators hiding the Pirate warship Doomseye.\n\nExcelcion is a frozen wasteland rich in natural resources, once mined by the Federation. About twenty years before the incident a giant meteorite impact plunged it into deep cold, and a living nest in the old base that spawned hostile hoppers without end forced the Federation out. Its installations include a biological research institute and an underground lake where a survey team was attacked by aquatic creatures the Pirates had enlarged and brought under control with their beam. Native Ice Titans, huge quadrupeds placid until provoked, were captured by the Force for ecological study. The flagship G.F.S. Aegis held orbit above it.\n\nBion is a scorching desert world with volcanic lava regions. It was home to an ancient civilization, long extinct and never named, whose people worshipped spherical objects called Orbs and are said to have developed technology for enlarging living things. Their ruins are guarded by golem-like sentinels that curl into spheres and teleport, and by a three-cored artificial life form in a lava shell that causes tremors underground. Here the Force learned that the Pirates had acquired enlarging technology, and a giant creature that a Force squad could not stop fell to a missile barrage from Samus Aran's gunship.\n\nTalvania is a gas-shrouded world of abandoned industry, once home to a highly advanced machine civilization thought to have left for another planet several centuries ago. Its power plant and ancient automated defenses still run. The Pirates reactivated its dormant facilities, built a missile factory, launched ballistic missiles at the Aegis, and guarded a transfer device behind an automated defense system.\n\nSamus knows all three worlds from her intelligence work during the incident, when she destroyed all but one of the Pirate missile bases alone before the Pirates captured her.",
-      "constant": false,
-      "order": 100,
-      "category": "Federation Force",
-      "sources": [
-        "https://www.nintendo.co.jp/3ds/bcaj/mission/index.html",
-        "https://www.nintendo.co.jp/3ds/bcaj/index.html",
-        "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9",
-        "https://www.nintendolife.com/reviews/3ds/metroid_prime_federation_force",
-        "https://www.nintendolife.com/news/2016/08/guide_meching_sweet_chaos_in_metroid_prime_federation_force",
-        "http://www.nintendoworldreport.com/review/43215/metroid-prime-federation-force-review",
-        "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
-      ],
-      "notes": "'Captured for study' confirmed by JP Wikipedia (Ice Beasts captured for ecological research). Hopper Nest forcing the Federation's withdrawal added per JP Wikipedia. 'Stone golems' changed to golem-like guardians that roll into spheres and teleport (Colossan, JP Wikipedia); Shiranon's three cores, lava shell and underground tremors per JP Wikipedia. 'Toxic gas' changed to 'gas-shrouded'; 'layered' defense dropped. 'All but one' missile base per verifier. Bare 'Bermuda' key dropped. English names Sokeen, Goliath, Colossan, Shiranon, Hopper Nest, Mainframe remain unverified and unnamed. Purpose clause for the Bion civilization's enlarging technology dropped as unverified."
-    },
-    {
-      "comment": "Federation Force: The Doomseye",
-      "keys": [
-        "Doomseye",
-        "Doom's Eye",
-        "Doomseye warship",
-        "Master Brain",
-        "cloaking generator",
-        "cloaking generators"
-      ],
-      "secondary_keys": [],
-      "selective_logic": "AND_ANY",
-      "content": "The Doomseye was an enormous Space Pirate warship built in secret in the Bermuda System after the Phazon crisis and controlled by an entity called the Master Brain. It was discovered by Samus Aran, whom the Galactic Federation had hired to gather intelligence on the Pirates; her report that they were building a huge battleship was her last before the Federation lost contact with her. The ship lay hidden by cloaking technology powered by three generators, one each on Excelcion, Bion and Talvania. The Federation Force destroyed all three, which revealed the Doomseye in orbit, but the warship struck back at once, wiping out most of the Federation fleet, and enclosed itself in an impenetrable shield.\n\nWith the fleet crippled, the Force boarded the Doomseye in their Mechs. Inside they found the Pirates' captive, Samus, brainwashed, grown to giant size by the Pirates' enlarging beam and set against them. The Marines defeated her, which returned her to normal size, and she was buried under falling debris. Pressing deeper, they confronted the Master Brain; Samus, who had survived, returned to assist, and the Master Brain was destroyed. In the chaos the Marines were sucked out into open space before the surviving Federation ships destroyed the Doomseye, and Samus recovered them.\n\nThe Doomseye is where the Pirates held, mind-controlled and weaponized Samus (Metroid Prime: Federation Force). She owed her release to the Federation Force, and the Marines in turn owed their lives to her return. See also Bermuda System incident, General Alex Miles and Federation Force.",
-      "constant": false,
-      "order": 100,
-      "category": "Federation Force",
-      "sources": [
-        "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
-        "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond",
-        "https://metroid.fandom.com/wiki/Metroid_Prime:_Federation_Force",
-        "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9",
-        "https://www.nintendo.co.jp/3ds/bcaj/mission/index.html"
-      ],
-      "notes": "Corrected the final-battle order (Marines sucked into space before the fleet destroyed the ship; Wikipedia) and the claim that the Marines alone won the decisive fight: the Master Brain controlled the ship and Samus returned to assist (Nintendo Life recap; Wikitroid seen only as a WebSearch snippet, describing it as a Mother Brain-like organism, so content only notes the name parallel). Shield causation omitted because sources differ. Generic keys 'Pirate warship'/'Pirate battleship' dropped; 'Doom Eye' dropped as unattested. Nintendo Life's 2017 comedic 'moon-sized Doomseye' log deliberately not used."
-    },
-    {
-      "comment": "Federation Force: The Metroid egg and Sylux's break-in",
-      "keys": [
-        "Metroid egg",
-        "Metroid eggs",
-        "stolen egg",
-        "stasis tube",
-        "Metroid larva",
-        "hatchling"
-      ],
-      "secondary_keys": [
-        "Sylux",
-        "Federation Force",
-        "Bermuda",
-        "Doomseye",
-        "research station",
-        "Delano 7",
-        "Tanamaar",
-        "Infestation"
-      ],
-      "selective_logic": "AND_ANY",
-      "content": "During the Bermuda System incident the Federation Force stole a Metroid egg from the Space Pirates in an operation designated Infestation. The egg was afterward held in a stasis tube at a Federation research station. Once the incident was over, an armored intruder broke into the station, hacked the stasis tube with an arm-mounted device and fired a beam into the egg, which hatched at once into a Metroid larva. The intruder was never clearly seen, but a shoulder spike glimpsed as he stood over the hatchling marked him as Sylux, the hunter whose ship, the Delano 7, had been seen tailing Samus Aran's gunship after the Phazon crisis.\n\nNeither Samus nor the Force was present for the break-in. Sylux, who hates Samus and the Galactic Federation, later surfaced leading Space Pirates who wielded Metroids able to take over a host, in an attack on a Federation facility on Tanamaar; that clash ended with Samus carried to the planet Viewros (Metroid Prime 4: Beyond).\n\nFor Samus, the galaxy's foremost Metroid exterminator, the break-in matters on two counts. It put a living Metroid, the species she has spent her career destroying, into the hands of Sylux, her rival since the Alimbic Cluster. And the egg came out of the same campaign in which the Pirates had captured her and turned her against the Federation Force. See also Sylux, Federation Force and Bermuda System incident.",
-      "constant": false,
-      "order": 100,
-      "category": "Federation Force",
-      "sources": [
-        "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
-        "https://www.nintendolife.com/guides/metroid-prime-4-beyond-who-is-sylux",
-        "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond",
-        "https://www.metroidwiki.org/wiki/Sylux",
-        "https://www.metroidwiki.org/wiki/Delano_7",
-        "https://en.wikipedia.org/wiki/List_of_Metroid_characters",
-        "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
-      ],
-      "notes": "Egg stolen from the Pirates (Wikipedia) during 'M-17: Infestation' (Nintendo Life Sylux guide). Break-in details: Metroid Wiki Sylux page (arm-mounted device hacks the stasis tube; shoulder spike; 'research station') and Wikipedia (fires a beam; egg hatches into a larva). The source ending is conditional on the egg being stolen; it is presented as what happened, as Nintendo Life's recap does. Prime 4 link stated as sequence only (Wikipedia: Sylux leads Pirates using Metroids that can take over a host against a Federation facility on Tanamaar, then the artifact sends everything to Viewros); no claim that these Metroids came from this egg, which is speculation. Meta keys 'post-credits'/'secret ending'/'epilogue' removed; comment retitled to drop meta 'epilogue'."
-    }
-  ]
+ "domain": "federation-force",
+ "category": "Federation Force",
+ "entries": [
+  {
+   "comment": "Federation Force: The Bermuda System incident",
+   "keys": [
+    "Bermuda System incident",
+    "Bermuda incident",
+    "Bermuda campaign",
+    "giant Samus",
+    "enlarged Samus",
+    "brainwashed Samus",
+    "mind-controlled Samus"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Bermuda System incident was a Galactic Federation campaign against the Space Pirates, fought after the Phazon crisis and the destruction of Phaaze (Metroid Prime 3: Corruption); it opened in Cosmic Year 20X6, per the official Japanese website. With Phazon eradicated and the weakened Pirates still at large, the Federation approved Operation Golem, a top-secret program of piloted Mechs modeled on Samus Aran's Power Suit, and formed an elite Marine unit, the Federation Force, to pilot them under General Alex Miles. Operating from the flagship G.F.S. Aegis, the Force was sent to the Bermuda System's three planets, Excelcion, Bion and Talvania, officially to rebuild abandoned Federation facilities and carry out archaeological surveys.\n\nThe Force found the Pirates entrenched on all three worlds: salvaging a weapon from old Federation facilities on Excelcion, digging through Bion's ancient ruins, and reawakening Talvania's dormant industry to build ballistic missiles aimed at the Aegis. The Federation hired Samus to gather intelligence. Working alone from her gunship, she destroyed all but one of the Pirate missile bases, and on Bion her ship's missile barrage brought down a giant creature that a Force squad could not. On Bion the Force learned the Pirates had acquired technology that enlarges living things; their enlarging beam also drives its targets berserk. In one operation, designated Infestation, the Force stole a Metroid egg from the Pirates. Samus then reported that the Pirates were building an enormous warship, the Doomseye, and the Federation lost contact with her.\n\nThe Force destroyed the cloaking generators hiding the Doomseye, one on each planet, and boarded the warship after it crippled the fleet and shielded itself. Inside they defeated and freed the brainwashed, enlarged Samus, destroyed the Master Brain controlling the ship with her help, and were recovered by her from open space after the surviving fleet destroyed the Doomseye (see The Doomseye).\n\nThe incident is one of the few times Samus was captured, mind-controlled and turned against Federation soldiers, and she owed her release to Marines in Mechs built on her own suit's design. The Metroid egg the Force had taken was later hatched by Sylux.",
+   "constant": false,
+   "order": 100,
+   "category": "Federation Force",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+    "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond",
+    "https://www.nintendolife.com/guides/metroid-prime-4-beyond-who-is-sylux",
+    "https://www.nintendo.co.jp/3ds/bcaj/index.html",
+    "https://www.nintendo.co.jp/3ds/bcaj/mission/index.html",
+    "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9",
+    "https://metroid.fandom.com/wiki/Metroid_Prime:_Federation_Force",
+    "https://shinesparkers.net/games/metroid-prime-federation-force/",
+    "http://www.nintendoworldreport.com/review/43215/metroid-prime-federation-force-review"
+   ],
+   "notes": "Final-battle order corrected per English Wikipedia ('the Force is sucked into the vacuum of space before the Fleet destroys the Doomseye, where they are saved by Samus'). Master Brain added per Nintendo Life's series recap ('controlled by an entity known as Master Brain'; Samus 'buried under rubble'; 'Samus returns to assist') and corroborated by a WebSearch snippet of Wikitroid (Master Brain destroyed after giant Samus; she is buried by falling debris). Sources disagree on what drops the shield (Wikipedia: Samus's defeat; Wikitroid snippet: the Master Brain powers it), so causation is omitted. Infestation operation per Nintendo Life Sylux guide; egg 'stolen from the Space Pirates' per Wikipedia. Berserk effect of the enlarging beam per JP Wikipedia (Hugenate Beam; English name unverified, left unnamed). Goliath left unnamed (English spelling unverified). Primary keys no longer overlap with the unit entry; bare 'Bermuda' and 'Project Golem' dropped. Placement after Corruption per Wikipedia/Nintendo Life/NWR; Metroid Wiki's 'between Metroid II and Super Metroid' not used. Consistency pass: the Doomseye battle, told almost word for word here and in 'The Doomseye', now lives in that entry; this paragraph is a two-sentence summary with a pointer. The Morph Ball detail moved to 'The Doomseye'."
+  },
+  {
+   "comment": "Federation Force: The Federation Force and their Mechs",
+   "keys": [
+    "Federation Force",
+    "Operation Golem",
+    "Golem Mech",
+    "Mech suit",
+    "Mech suits",
+    "Mechsuit",
+    "Mechsuits",
+    "G.F.S. Aegis",
+    "GFS Aegis",
+    "Blast Ball",
+    "Lone Wolf MOD",
+    "AI Combat Drones"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Federation Force is an elite unit of Galactic Federation Marines raised under Operation Golem, the Federation's top-secret program to secure an edge over the Space Pirates after the Phazon crisis. Its specially trained pilots deploy in squads of up to four under General Alex Miles, operating from the flagship G.F.S. Aegis. Its first campaign was the Bermuda System incident, where an assignment to rebuild Federation facilities and survey ruins turned into open war that ended aboard the Pirate warship Doomseye.\n\nThe Mech is the Force's prototype battle armor, designed after Samus Aran's Power Suit: a piloted suit about 4.3 meters tall and weighing 3.2 tonnes, with a walking speed of 27.2 km/h, which the pilot enters through the back of the torso (per the official Japanese website). Only Federation Force members are cleared to pilot one. Standard systems are an arm cannon that fires beam and charged shots, target lock-on, a sidestep dodge, and a jump with a short hover.\n\nBefore each sortie a pilot fits supplementary equipment within a weight limit:\n- homing Missiles and area-blast Super Missiles\n- incendiary and freezing shots; frozen targets cannot move or fire and take double damage\n- a slowing beam, and a scanning shot that exposes weak points\n- the Shock Shot, which shorts out mechanical defenses\n- Repair Capsules that restore a Mech's energy, and shield generators that raise a protective dome\n- decoys and mines\n\nPerformance chips called MODs tune the machine further. The Lone Wolf MOD, barred from squad deployment, doubles beam damage and halves damage taken for a pilot operating alone, who may also bring up to three AI Combat Drones, small autonomous flying units. Squad pilots divide duties among attackers, assisters, healers and all-rounders. Blast Ball is a three-on-three sport played in Mechs, in which teams drive a giant ball into the opposing goal with beam fire.\n\nSamus did not pilot a Mech during the Bermuda campaign; she worked alongside the Force as a hired bounty hunter in her own gunship. The machines are still bound up with her: their design descends from her Power Suit, and Force pilots in Mechs defeated her when the Pirates brainwashed and enlarged her aboard the Doomseye, before she recovered them from open space.",
+   "constant": false,
+   "order": 100,
+   "category": "Federation Force",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+    "https://www.nintendo.co.jp/3ds/bcaj/index.html",
+    "https://www.nintendo.co.jp/3ds/bcaj/mech/index.html",
+    "https://www.nintendo.co.jp/3ds/bcaj/multiplay/index.html",
+    "https://www.nintendolife.com/news/2016/08/guide_meching_sweet_chaos_in_metroid_prime_federation_force",
+    "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond",
+    "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9",
+    "https://www.nintendolife.com/reviews/3ds/metroid_prime_federation_force",
+    "https://shinesparkers.net/games/metroid-prime-federation-force/"
+   ],
+   "notes": "Removed unattested 'Project Golem' (content and keys) and 'sensor bombs' (now 'decoys and mines' per Nintendo Life mech guide). Added Shock Shot, freeze effect, Lone Wolf squad ban and AI Combat Drones per Nintendo Life guide. Speed corrected to 27.2 km/h (official JP mech page). Invented role labels replaced with the official JP site's Attacker/Assister/Healer/All-Rounder. 'Samus never piloted a Mech' narrowed to the Bermuda campaign (Prime 4 features similar Federation Mechsuits). 'Recruits train in Blast Ball' and 'newly graduated' dropped as unverified. Bare 'Mech'/'Mechs' keys dropped as generic."
+  },
+  {
+   "comment": "Federation Force: General Alex Miles",
+   "keys": [
+    "Miles",
+    "Alex Miles",
+    "General Miles",
+    "General Alex Miles",
+    "Commander Alex"
+   ],
+   "secondary_keys": [
+    "Alex",
+    "General",
+    "Federation Force",
+    "Aegis",
+    "Bermuda",
+    "Operation Golem",
+    "Doomseye",
+    "Excelcion"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "General Alex Miles is the Galactic Federation officer who commands the Federation Force and directs Operation Golem, the Federation's secret program of piloted Mechs. He is also addressed simply as Commander Alex. His uniform follows the same design as the one worn by Adam Malkovich, Samus Aran's former commanding officer, topped by a helmet reserved for commanders.\n\nDuring the Bermuda System incident (Metroid Prime: Federation Force) Miles ran the campaign from the flagship G.F.S. Aegis in orbit above Excelcion, issuing the orders and briefings for the Force's operations on Excelcion, Bion and Talvania. Under his command the assignment began as base reconstruction and archaeological survey and became open war once Space Pirates were found entrenched in the system. His pilots destroyed the cloaking generators hiding the Pirate warship Doomseye, boarded it, defeated the brainwashed and enlarged Samus, and confronted the Master Brain that controlled the ship, with Samus returning to assist them. The surviving fleet then destroyed the Doomseye.\n\nSamus took part in the operation as a bounty hunter working under a Federation contract to gather intelligence, not as one of Miles's Marines. She went silent after reporting the Doomseye's construction, was captured by the Pirates and turned against his troops, and after the battle she recovered his Marines from open space and thanked them for what they had done. See also Federation Force, Bermuda System incident and Doomseye.",
+   "constant": false,
+   "order": 100,
+   "category": "Federation Force",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+    "https://www.nintendo.co.jp/3ds/bcaj/index.html",
+    "https://www.nintendo.co.jp/3ds/bcaj/multiplay/index.html",
+    "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9",
+    "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond"
+   ],
+   "notes": "Full name 'General Alex Miles' per English Wikipedia; 'Commander Alex' (アレックス司令官) per the official JP site and JP Wikipedia. Uniform of the same design as Adam's in Other M plus a commander-only helmet per JP Wikipedia. Master Brain added per Nintendo Life recap. Removed the unsupported claim about Samus's reporting line. Selective entry because 'Miles' is a common word; every multi-word key contains a secondary word, so it self-satisfies."
+  },
+  {
+   "comment": "Federation Force: Bermuda System (Excelcion, Bion, Talvania)",
+   "keys": [
+    "Bermuda System",
+    "Bermuda star system",
+    "Bermuda planets",
+    "Excelcion",
+    "Bion",
+    "Talvania",
+    "Ice Titan",
+    "Ice Titans"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Bermuda System is a remote star system, a former Galactic Federation territory of three major planets: Excelcion, Bion and Talvania. The Federation once worked the system and then withdrew; after the Phazon crisis it sent the Federation Force back to restore its bases and survey the ruins, and the Force found the Space Pirates had moved in. During the Bermuda System incident each planet held one of the cloaking generators hiding the Pirate warship Doomseye.\n\nExcelcion is a frozen wasteland rich in natural resources, once mined by the Federation. About twenty years before the incident a giant meteorite impact plunged it into deep cold, and a living nest in the old base that spawned hostile hoppers without end forced the Federation out. Its installations include a biological research institute and an underground lake where a survey team was attacked by aquatic creatures the Pirates had enlarged and brought under control with their beam. Native Ice Titans, huge quadrupeds placid until provoked, were captured by the Force for ecological study. The flagship G.F.S. Aegis held orbit above it.\n\nBion is a scorching desert world with volcanic lava regions. It was home to an ancient civilization, long extinct and never named, whose people worshipped spherical objects called Orbs and are said to have developed technology for enlarging living things. Their ruins are guarded by golem-like sentinels that curl into spheres and teleport, and by a three-cored artificial life form in a lava shell that causes tremors underground. Here the Force learned that the Pirates had acquired enlarging technology, and a giant creature that a Force squad could not stop fell to a missile barrage from Samus Aran's gunship.\n\nTalvania is a gas-shrouded world of abandoned industry, once home to a highly advanced machine civilization thought to have left for another planet several centuries ago. Its power plant and ancient automated defenses still run. The Pirates reactivated its dormant facilities, built a missile factory, launched ballistic missiles at the Aegis, and guarded a transfer device behind an automated defense system.\n\nSamus knows all three worlds from her intelligence work during the incident, when she destroyed all but one of the Pirate missile bases alone before the Pirates captured her.",
+   "constant": false,
+   "order": 100,
+   "category": "Federation Force",
+   "sources": [
+    "https://www.nintendo.co.jp/3ds/bcaj/mission/index.html",
+    "https://www.nintendo.co.jp/3ds/bcaj/index.html",
+    "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9",
+    "https://www.nintendolife.com/reviews/3ds/metroid_prime_federation_force",
+    "https://www.nintendolife.com/news/2016/08/guide_meching_sweet_chaos_in_metroid_prime_federation_force",
+    "http://www.nintendoworldreport.com/review/43215/metroid-prime-federation-force-review",
+    "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+   ],
+   "notes": "'Captured for study' confirmed by JP Wikipedia (Ice Beasts captured for ecological research). Hopper Nest forcing the Federation's withdrawal added per JP Wikipedia. 'Stone golems' changed to golem-like guardians that roll into spheres and teleport (Colossan, JP Wikipedia); Shiranon's three cores, lava shell and underground tremors per JP Wikipedia. 'Toxic gas' changed to 'gas-shrouded'; 'layered' defense dropped. 'All but one' missile base per verifier. Bare 'Bermuda' key dropped. English names Sokeen, Goliath, Colossan, Shiranon, Hopper Nest, Mainframe remain unverified and unnamed. Purpose clause for the Bion civilization's enlarging technology dropped as unverified."
+  },
+  {
+   "comment": "Federation Force: The Doomseye",
+   "keys": [
+    "Doomseye",
+    "Doom's Eye",
+    "Doomseye warship",
+    "Master Brain",
+    "cloaking generator",
+    "cloaking generators"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Doomseye was an enormous Space Pirate warship built in secret in the Bermuda System after the Phazon crisis and controlled by an entity called the Master Brain. It was discovered by Samus Aran, whom the Galactic Federation had hired to gather intelligence on the Pirates; her report that they were building a huge battleship was her last before the Federation lost contact with her. The ship lay hidden by cloaking technology powered by three generators, one each on Excelcion, Bion and Talvania. The Federation Force destroyed all three, which revealed the Doomseye in orbit, but the warship struck back at once, wiping out most of the Federation fleet, and enclosed itself in an impenetrable shield.\n\nWith the fleet crippled, the Force boarded the Doomseye in their Mechs. Inside they found the Pirates' captive, Samus, brainwashed, grown to giant size by the Pirates' enlarging beam and set against them. She fought in Morph Ball form with Bombs, Boost Ball, Spider Ball and Power Bombs. The Marines defeated her, which returned her to normal size, and she was buried under falling debris. Pressing deeper, they confronted the Master Brain; Samus, who had survived, returned to assist, and the Master Brain was destroyed. In the chaos the Marines were sucked out into open space before the surviving Federation ships destroyed the Doomseye, and Samus recovered them.\n\nThe Doomseye is where the Pirates held, mind-controlled and weaponized Samus (Metroid Prime: Federation Force). She owed her release to the Federation Force, and the Marines in turn owed their lives to her return. See also Bermuda System incident, General Alex Miles and Federation Force.",
+   "constant": false,
+   "order": 100,
+   "category": "Federation Force",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+    "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond",
+    "https://metroid.fandom.com/wiki/Metroid_Prime:_Federation_Force",
+    "https://ja.wikipedia.org/wiki/%E3%83%A1%E3%83%88%E3%83%AD%E3%82%A4%E3%83%89%E3%83%97%E3%83%A9%E3%82%A4%E3%83%A0_%E3%83%95%E3%82%A7%E3%83%87%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%95%E3%82%A9%E3%83%BC%E3%82%B9",
+    "https://www.nintendo.co.jp/3ds/bcaj/mission/index.html"
+   ],
+   "notes": "Corrected the final-battle order (Marines sucked into space before the fleet destroyed the ship; Wikipedia) and the claim that the Marines alone won the decisive fight: the Master Brain controlled the ship and Samus returned to assist (Nintendo Life recap; Wikitroid seen only as a WebSearch snippet, describing it as a Mother Brain-like organism, so content only notes the name parallel). Shield causation omitted because sources differ. Generic keys 'Pirate warship'/'Pirate battleship' dropped; 'Doom Eye' dropped as unattested. Nintendo Life's 2017 comedic 'moon-sized Doomseye' log deliberately not used. Consistency pass: Morph Ball sentence moved here from the Bermuda System incident entry, which now points to this one for the battle."
+  },
+  {
+   "comment": "Federation Force: The Metroid egg and Sylux's break-in",
+   "keys": [
+    "Metroid egg",
+    "Metroid eggs",
+    "stolen egg",
+    "stasis tube",
+    "Metroid larva",
+    "Sylux hatched"
+   ],
+   "secondary_keys": [
+    "Sylux",
+    "Federation Force",
+    "Bermuda",
+    "Doomseye",
+    "research station",
+    "Delano 7",
+    "Tanamaar",
+    "Infestation"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "During the Bermuda System incident the Federation Force stole a Metroid egg from the Space Pirates in an operation designated Infestation. The egg was afterward held in a stasis tube at a Federation research station. Once the incident was over, an armored intruder broke into the station, hacked the stasis tube with an arm-mounted device and fired a beam into the egg, which hatched at once into a Metroid larva. The intruder was never clearly seen, but a shoulder spike glimpsed as he stood over the hatchling marked him as Sylux, the hunter whose ship, the Delano 7, had been seen tailing Samus Aran's gunship after the Phazon crisis.\n\nNeither Samus nor the Force was present for the break-in, which Nintendo's official account dates to Cosmic Year 20X6. Per that account, Sylux, who hates Samus and the Galactic Federation, exploited the hatchling's imprinting to breed a strain of Metroids able to merge with and control a host; leading Space Pirates under their control, he later attacked a Federation facility on Tanamaar, a clash that ended with Samus carried to the planet Viewros (Metroid Prime 4: Beyond).\n\nFor Samus, the galaxy's foremost Metroid exterminator, the break-in matters on two counts. It put a living Metroid, the species she has spent her career destroying, into the hands of Sylux, her rival since the Alimbic Cluster. And the egg came out of the same campaign in which the Pirates had captured her and turned her against the Federation Force. See also Sylux, Federation Force and Bermuda System incident.",
+   "constant": false,
+   "order": 100,
+   "category": "Federation Force",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+    "https://www.nintendolife.com/guides/metroid-prime-4-beyond-who-is-sylux",
+    "https://www.nintendolife.com/guides/metroid-prime-the-story-so-far-everything-you-need-to-know-before-metroid-prime-4-beyond",
+    "https://www.metroidwiki.org/wiki/Sylux",
+    "https://www.metroidwiki.org/wiki/Delano_7",
+    "https://en.wikipedia.org/wiki/List_of_Metroid_characters",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+    "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+   ],
+   "notes": "Egg stolen from the Pirates (Wikipedia) during 'M-17: Infestation' (Nintendo Life Sylux guide). Break-in details: Metroid Wiki Sylux page (arm-mounted device hacks the stasis tube; shoulder spike; 'research station') and Wikipedia (fires a beam; egg hatches into a larva). The source ending is conditional on the egg being stolen; it is presented as what happened, as Nintendo Life's recap does. Prime 4 link: Nintendo's World Databook prologue and the Nintendo Today text (quoted by Nintendo World Report) state that Sylux took the hatchlings from Federation-stored Metroid eggs in Cosmic Year 20X6, exploiting their imprinting, and cultured them into the host-controlling strain; added in the consistency pass so this entry agrees with the prime4 and metroids domains. Meta keys 'post-credits'/'secret ending'/'epilogue' removed; comment retitled to drop meta 'epilogue'. Consistency pass: key 'hatchling' (also on the baby Metroid and samus-rp entries) replaced with 'Sylux hatched'."
+  }
+ ]
 }

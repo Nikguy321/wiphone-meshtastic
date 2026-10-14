@@ -226,7 +226,7 @@ YOU MAY EDIT these files: ${c.edit.map(s => `${ENTRIES}/${s}.json`).join(', ')}
 READ-ONLY REFERENCE files (do not edit; report problems you find in them under cross_cluster_issues): ${c.ref.map(s => `${ENTRIES}/${s}.json`).join(', ') || '(none)'}
 Index of the whole lorebook: ${INDEX}
 
-Read every entry in your editable files completely, plus the reference files. Then:
+${c.known ? 'KNOWN ISSUES reported by editors of other clusters (verify each against sources; fix it in your editable files if it is right, and say in notes what you decided):\n' + c.known + '\n\n' : ''}Read every entry in your editable files completely, plus the reference files. Then:
 1. CONTRADICTIONS: find statements that disagree between entries (names, who did what, order of events, numbers, ages, fates, relationships, which game something happened in). Decide which is right from sources (fetch Metroid Wiki / Wikipedia) and correct the wrong one(s) in your editable files. If the wrong statement is in a read-only file, report it with the correction and source.
 2. DUPLICATION: where two editable entries spend many words on the same material, trim the secondary one to a one-sentence pointer by name, so each subject has one home. Keep every entry self-contained enough to make sense alone.
 3. KEYS: across your editable files, the same primary key should not sit on more than 2 entries unless each one is truly about that subject; remove or replace stray copies with more specific keys. Apply the key rules below (bare "Samus"/"Hunter" only on the core Samus profile; bare "Metroid(s)", "Chozo", "Federation"/"Galactic Federation", "Space Pirate(s)", "Ridley" only on their main overview entries; no forbidden bare generic words unless the entry has secondary keys).

@@ -4,7 +4,15 @@
  "entries": [
   {
    "comment": "Ridley: Ridley (overview and relationship with Samus)",
-   "keys": ["Ridley", "space dragon", "Geoform 187", "geoform-187", "Cunning God of Death", "Samus's nemesis", "Samus' nemesis", "Ridley's Lair"],
+   "keys": [
+    "Ridley",
+    "space dragon",
+    "Geoform 187",
+    "geoform-187",
+    "Cunning God of Death",
+    "Samus's nemesis",
+    "Samus' nemesis"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "Ridley is the leader of the Space Pirates' military and Samus Aran's lifelong nemesis. He is a huge dragon-like creature with leathery wings, taloned limbs, a long bladed tail and a toothed beak that spits plasma and fire. Per the original manual he is the original life form of the planet Zebes and is controlled by Mother Brain; on Zebes he served her alongside Kraid. Space Pirate records designate him geoform 187, code-named Ridley, and official Nintendo material calls him the Cunning God of Death. He is vicious, surprisingly intelligent, proud and deliberately cruel; the Pirate researchers who rebuilt him expected him to relish security work. He communicates in shrieks; per the manga he speaks and taunts his victims.\n\nRidley led the Space Pirate raid on the human colony K-2L, seeking its Afloraltite fuel, when Samus was three. Per the manga, the child approached him trustingly (\"A-are you... Mr. Ridley...?\") and told him he was not scary; he answered, \"Mhmm, you're so cute. I'm sorry miss, but... That's impossible!! Because... You're about to die!\" and struck at her. Her mother Virginia Aran died pushing her out of the way. Her father Rodney Aran then set off the stolen Afloraltite, destroying the Pirate ship and himself; Ridley survived, gravely wounded. Samus was the colony's only survivor and was taken in by the Chozo. Per the manga, Ridley later dealt a fatal blow to the Chozo Gray Voice, whose DNA had been used to give Samus her Chozo genes, as Gray Voice moved to take Mother Brain offline during the Pirate takeover of Zebes.\n\nDuring her first mission to Zebes, Samus destroyed Ridley in his lair and wrecked Mecha Ridley, a robot built in his likeness, aboard the Space Pirate Mother Ship. Per the manga, the sight of him triggered a trauma-induced panic attack and he beat her down, gloating about K-2L: he claimed he had healed his wounds by eating the colonists' bodies and taunted that her mother had been among them.\n\nRidley kept returning. The Pirates rebuilt him as Meta Ridley, whom Samus brought down on Tallon IV and again on Norion; Phazon regenerated him as Omega Ridley, whom she destroyed on the Pirate Homeworld. As the half-mechanical Proteus Ridley he ambushed her on SR388 and was subdued; at Ceres Space Colony he stole the Metroid hatchling and escaped her; and in Norfair, on her return to Zebes, she killed the original Ridley for good. Afterward only his cells and his corpse remained to be exploited: a Federation clone grown on the Bottle Ship, and Neo-Ridley, the X Parasite's copy of that clone's frozen husk aboard the BSL station. Samus had believed him dead since Norfair; seeing him alive again in the Bottle Ship's Pyrosphere paralyzed her with shock until Anthony Higgs intervened.",
@@ -25,11 +33,24 @@
     "https://www.metroidwiki.org/wiki/Pyrosphere",
     "https://www.metroidwiki.org/wiki/Anthony_Higgs"
    ],
-   "notes": "Main overview; the only entry carrying the bare key 'Ridley'. The manga line 'That's impossible!! Because... You're about to die!' is Ridley's reply to three-year-old Samus at K-2L (Metroid Wiki Ridley page, Vol 1 Ch 1 p24), not Samus's line. The corpse-eating taunt is not on Metroid Wiki; it is attested by WebSearch snippets quoting Wikitroid's manga and Virginia Aran pages and kept only as Ridley's claim, labeled per the manga. Gray Voice per Metroid Wiki (manga Vol 2 Ch 12). Dropped 'the dragon' and 'Pirate commander' keys (Pirate Commander is a Corruption enemy class)."
+   "notes": "Main overview; the only entry carrying the bare key 'Ridley'. The manga line 'That's impossible!! Because... You're about to die!' is Ridley's reply to three-year-old Samus at K-2L (Metroid Wiki Ridley page, Vol 1 Ch 1 p24), not Samus's line. The corpse-eating taunt is not on Metroid Wiki; it is attested by WebSearch snippets quoting Wikitroid's manga and Virginia Aran pages and kept only as Ridley's claim, labeled per the manga. Gray Voice per Metroid Wiki (manga Vol 2 Ch 12). Dropped 'the dragon' and 'Pirate commander' keys (Pirate Commander is a Corruption enemy class). Consistency pass: key 'Ridley's Lair' removed (it sat on three entries; the bare 'Ridley' key already matches it, and the location belongs to the zebes and super-metroid entries)."
   },
   {
    "comment": "Ridley: Ridley's history across every encounter",
-   "keys": ["Ridley's history", "Ridley's return", "Ridley returns", "Ridley returned", "Ridley comes back", "Ridley is back", "Ridley keeps coming back", "Ridley survived", "Ridley revived", "Ridley's resurrection", "Ridley's death", "Ridley's deaths"],
+   "keys": [
+    "Ridley's history",
+    "Ridley's return",
+    "Ridley returns",
+    "Ridley returned",
+    "Ridley comes back",
+    "Ridley is back",
+    "Ridley keeps coming back",
+    "Ridley survived",
+    "Ridley revived",
+    "Ridley's resurrection",
+    "Ridley's death",
+    "Ridley's deaths"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "Ridley's history with Samus Aran, in the order the events happened:\n\n- K-2L: Ridley led the Space Pirate raid on Samus's home colony when she was three; her parents Rodney and Virginia Aran died in it. Per the manga, Rodney's detonation of the stolen Afloraltite gravely wounded Ridley, who survived.\n- Zebes, Pirate takeover (per the manga): Ridley struck down the Chozo Gray Voice as he moved to take Mother Brain offline.\n- Zebes, first mission: Ridley arrived aboard the Space Pirate Mother Ship during Samus's hunt for Mother Brain and flew down to his lair, where Samus destroyed him. She later wrecked his unfinished robotic likeness, Mecha Ridley, inside the Mother Ship.\n- Orpheon and Tallon IV: the Pirates rebuilt him with cybernetics and metagenetic enhancements as Meta Ridley. He fled the failing frigate Orpheon for Tallon IV, and Samus brought him down at the Artifact Temple, where laser beams from the temple's statues struck him and he fell into the Impact Crater.\n- Norion and the Pirate Homeworld: revived again with Phazite armor, he struck during the Pirate assault on Norion and was beaten by Samus in free fall down a generator shaft. He next appeared on the Pirate Homeworld, regenerated by Phazon as Omega Ridley and guarding the Leviathan's core, where Samus destroyed him.\n- SR388: as the half-mechanical Proteus Ridley he ambushed Samus and the newborn Metroid hatchling on the surface and seized the baby; it drained his energy into Samus and she subdued him.\n- Ceres Space Colony: wholly organic again, he raided the colony, whose scientists were found dead, took the hatchling, fought Samus briefly and fled, triggering the station's self-destruct (per the manual, he personally headed the mission).\n- Norfair, return to Zebes: Samus killed him in his lair before descending to Tourian. This was the final death of the original Ridley.\n- The Bottle Ship: a clone the Galactic Federation grew by accident from cell material taken from Samus's Power Suit matured from Little Birdie through the Mystery Creature into an adult Ridley, nearly killed Anthony Higgs, fought Samus in the Geothermal Power Plant and retreated wounded. It was later found dead, a dried husk apparently drained by the Queen Metroid.\n- The BSL station: that husk, shipped there frozen as a Bottle Ship specimen, was copied by the X as Neo-Ridley; Samus destroyed it and absorbed its Core-X.\n\nRidley did not appear during the ZDR mission (Metroid Dread) or the Viewros mission (Metroid Prime 4: Beyond). He survived first through Space Pirate reconstruction, then through Phazon regeneration, and in the end only through cloning; Samus has had to put him down again and again, in one form or another.",
@@ -52,7 +73,18 @@
   },
   {
    "comment": "Ridley: Meta Ridley and Omega Ridley",
-   "keys": ["Meta Ridley", "Meta-Ridley", "Omega Ridley", "Omega-Ridley", "cybernetic Ridley", "cyborg Ridley", "mechanized Ridley", "Ridley at Norion", "Ridley on Tallon IV", "Phazon Ridley"],
+   "keys": [
+    "Meta Ridley",
+    "Meta-Ridley",
+    "Omega Ridley",
+    "Omega-Ridley",
+    "cybernetic Ridley",
+    "cyborg Ridley",
+    "mechanized Ridley",
+    "Ridley at Norion",
+    "Ridley on Tallon IV",
+    "Phazon Ridley"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "Meta Ridley is the cybernetic rebuild of Ridley that the Space Pirates created aboard the research frigate Orpheon after Samus Aran destroyed him on Zebes. Per their own records, which Samus later recovered in Phendrana Drifts, Command ordered a number of metagenetic improvements for geoform 187, code-named Ridley; the metamorphosis was painful but successful, early tests showed a drastic increase in strength, mobility and offensive capability, and cybernetic modules and armor plating were added. The researchers expected him to become the mainstay of their security force, \"a job he will certainly relish.\" Samus's scans recorded a Multi-Missile System, a Kinetic Breath Weapon, an Ultrathermal Flamestrike Projector and a Meson Bomb Launcher; his resilient hide had thinner plating only at the chest.\n\nWhen the Orpheon's mutated Parasite Queens broke loose, Samus boarded the frigate and briefly met Meta Ridley before he escaped the dying ship for Tallon IV (Metroid Prime). She later saw his shadow pass over Phendrana Drifts toward the Phazon Mines. After she gathered the twelve Chozo Artifacts he attacked her at the Artifact Temple, destroying the Chozo totems from the air; once his wings disintegrated he fought her on the ground until laser beams from the temple's statues struck him and he fell into the Impact Crater.\n\nThe Pirates revived him again, now with Phazite armor (Metroid Prime 3: Corruption). During the Pirate assault on the Galactic Federation base on Norion he was first seen attacking a platoon of Federation Marines, then harried Samus through the base's cramped passages. At Generator C he forced them both through the floor into an extremely long shaft; she beat him as they fell, before they hit bottom, and Rundas saved her. In this form only his mouth, where he fires his plasma weaponry, was unprotected.\n\nHe next appeared on the Pirate Homeworld, revived and regenerated through Phazon exposure as Omega Ridley, guarding the core of the Leviathan Seed there. Phazon had made him far deadlier, but a recent wound to his chest had not fully healed; after stunning him Samus tore it open with the Grapple Lasso, destroyed him and went on to destroy the Leviathan's core. Samus faced him on Tallon IV, Norion and the Pirate Homeworld, each time in a body the Pirates or Phazon had rebuilt.",
@@ -72,7 +104,16 @@
   },
   {
    "comment": "Ridley: Proteus Ridley",
-   "keys": ["Proteus Ridley", "Proteus-Ridley", "Ridley on SR388", "Ridley at SR388", "half-mechanical Ridley", "Ridley's mechanical claw", "Ridley's mechanical arm", "Ridley and the hatchling"],
+   "keys": [
+    "Proteus Ridley",
+    "Proteus-Ridley",
+    "Ridley on SR388",
+    "Ridley at SR388",
+    "half-mechanical Ridley",
+    "Ridley's mechanical claw",
+    "Ridley's mechanical arm",
+    "Ridley and the hatchling"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "Proteus Ridley is the half-mechanical form Ridley wore when he ambushed Samus Aran on SR388 (Metroid: Samus Returns). He still carried cybernetic parts from the Space Pirates' Meta Ridley rebuild, most visibly a mechanical arm ending in a claw, on a body that was otherwise organic.\n\nAfter Samus exterminated the planet's Metroids and killed the Queen Metroid, the last egg hatched in front of her and the Metroid hatchling imprinted on her as its mother. Unwilling to kill it, she carried the baby toward the surface, where Ridley ambushed them and seized the hatchling. Samus shot away one of his wings and sent him into a crash landing, but he recovered, smashed her into the ground and fired shots into her head. The baby intervened, sucking the energy out of Ridley and pouring it into Samus, reviving her; she then subdued him and left him on the surface. She departed SR388 with the hatchling and delivered it to the scientists of Ceres Space Colony.\n\nAfterward a Hornoad gnawed on one of Ridley's discarded mechanical limbs, until an X Parasite appeared and turned it into a Hornoad-X. By the time Ridley struck Ceres to steal the hatchling, he appeared wholly organic again.\n\nFor Samus, SR388 was the first time Ridley tried to take the baby from her; at Ceres Space Colony he succeeded, setting in motion her return to Zebes.",
@@ -90,10 +131,23 @@
   },
   {
    "comment": "Ridley: Bottle Ship Ridley clone (Little Birdie)",
-   "keys": ["Little Birdie", "Little Birdy", "Mystery Creature", "Ridley clone", "Ridley clones", "Ridley's clone", "clone of Ridley", "Ridley on the Bottle Ship", "Ridley's life cycle", "baby Ridley", "juvenile Ridley", "young Ridley"],
+   "keys": [
+    "Little Birdie",
+    "Little Birdy",
+    "Mystery Creature",
+    "Ridley clone",
+    "Ridley clones",
+    "Ridley's clone",
+    "clone of Ridley",
+    "Ridley on the Bottle Ship",
+    "Ridley's life cycle",
+    "baby Ridley",
+    "juvenile Ridley",
+    "young Ridley"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
-   "content": "The Ridley of the Bottle Ship was a clone, grown by accident. The Galactic Federation's secret bioweapon program aboard the Bottle Ship propagated Metroids from cellular material taken from Samus Aran's Power Suit, and Ridley was created the same way; at first no one realized the creature was Ridley. Samus learned this near the end of the Bottle Ship incident (Metroid Other M), from MB, then posing as Madeline Bergman, in the Bioweapon Research Center.\n\nThe clone passed through three forms, the earliest of Ridley's life cycle Samus had ever seen:\n- Little Birdie: a small white creature that Samus first encountered in Sector 1 (Biosphere). It soon proved carnivorous and aggressive. Samus later found its shed skin beside a trail of green blood leading to the torn-apart body of Lyle Smithsonian of the 07th Platoon.\n- Mystery Creature: a purple, carnivorous lizard with a razor-sharp tail, still carrying a few white feathers. It ambushed Samus in the Biosphere Test Area and pinned her until a blast from Anthony Higgs's Plasma Gun knocked it off her and it fled. When it slipped into Sector 3, Adam Malkovich ordered, \"Samus. Follow it!\", and she pursued it into the Pyrosphere.\n- Adult Ridley: in the Pyrosphere Samus found the creature's cast-off shell, and in the Geothermal Power Plant the full-grown Ridley emerged. Samus, who had killed him in Norfair, froze in shock; Anthony fired on Ridley to protect her, and Ridley's tail swept him off the platform into the lava. Ridley seized Samus and raked her along the wall before she fought back and drove him off badly hurt.\n\nSamus never fought the clone again. It was later killed, apparently by the Queen Metroid the Federation had bred as a control specimen, and Samus found only its dried, drained husk. Anthony survived by freezing a Lava Golem and climbing to safety. The husk was later shipped frozen to the BSL station, where the X copied it as Neo-Ridley.",
+   "content": "The Ridley of the Bottle Ship was a clone, grown by accident. The Galactic Federation's secret bioweapon program aboard the Bottle Ship propagated Metroids from cellular material taken from Samus Aran's Power Suit, and Ridley was created the same way; at first no one realized the creature was Ridley. Samus learned this near the end of the Bottle Ship incident (Metroid: Other M), from MB, then posing as Madeline Bergman, in the Bioweapon Research Center.\n\nThe clone passed through three forms, the earliest of Ridley's life cycle Samus had ever seen:\n- Little Birdie: a small white creature that Samus first encountered in Sector 1 (Biosphere). It soon proved carnivorous and aggressive. Samus later found its shed skin beside a trail of green blood leading to the torn-apart body of Lyle Smithsonian of the 07th Platoon.\n- Mystery Creature: a purple, carnivorous lizard with a razor-sharp tail, still carrying a few white feathers. It ambushed Samus in the Biosphere Test Area and pinned her until a blast from Anthony Higgs's Plasma Gun knocked it off her and it fled. When it slipped into Sector 3, Adam Malkovich ordered, \"Samus. Follow it!\", and she pursued it into the Pyrosphere.\n- Adult Ridley: in the Pyrosphere Samus found the creature's cast-off shell, and in the Geothermal Power Plant the full-grown Ridley emerged. Samus, who had killed him in Norfair, froze in shock; Anthony fired on Ridley to protect her, and Ridley's tail swept him off the platform into the lava. Ridley seized Samus and raked her along the wall before she fought back and drove him off badly hurt.\n\nSamus never fought the clone again. It was later killed, apparently by the Queen Metroid the Federation had bred as a control specimen, and Samus found only its dried, drained husk. Anthony survived by freezing a Lava Golem and climbing to safety. The husk was later shipped frozen to the BSL station, where the X copied it as Neo-Ridley.",
    "constant": false,
    "order": 100,
    "category": "Ridley",
@@ -113,7 +167,19 @@
   },
   {
    "comment": "Ridley: Neo-Ridley (Ridley-X)",
-   "keys": ["Neo-Ridley", "Neo Ridley", "Ridley-X", "Ridley X", "X-Ridley", "Ridley's corpse", "Ridley's frozen body", "frozen Ridley", "Ridley's husk", "Sub-Zero Containment", "Ridley on the BSL"],
+   "keys": [
+    "Neo-Ridley",
+    "Neo Ridley",
+    "Ridley-X",
+    "Ridley X",
+    "X-Ridley",
+    "Ridley's corpse",
+    "Ridley's frozen body",
+    "frozen Ridley",
+    "Ridley's husk",
+    "Sub-Zero Containment",
+    "Ridley on the BSL"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
    "content": "Neo-Ridley, also called Ridley-X, is the X Parasite's copy of Ridley aboard the Biologic Space Laboratories research station (Metroid Fusion). The body it copied was the dried husk of the Bottle Ship's Ridley clone, which the Federation shipped to the BSL as the second specimen taken from that vessel, alongside Nightmare. The husk was kept frozen in Sub-Zero Containment, a small sub-freezing cell on the Main Deck whose only purpose was to hold it.\n\nDuring the X outbreak, when the Main Deck's main elevator stalled with Samus Aran aboard, she broke out through the shaft and crossed Sub-Zero Containment, where the cold itself hurt her, since she had not yet regained the Varia Suit's protection. The frozen Ridley's eyes glowed as she approached, and a Core-X emerged from the body and left the room. In Sector 1 (SRX) she came upon a lifeless Ridley carcass again; it stirred, and an X-made Ridley in full flesh attacked her, driven by the parasite rather than by any Pirate command.\n\nNeo-Ridley fought as Ridley always had: ramming her, seizing her in its claws to crush her, stabbing with its tail and spitting homing fire from its mouth. Its tail shrugged off everything she fired, and bombs and uncharged beam fire did nothing; only her charged Plasma Beam and her heavier missiles hurt it. When it died it collapsed into a hardened Core-X; Samus cracked the shell and absorbed it, regaining the Screw Attack the X had been carrying.\n\nSamus had killed the original Ridley in Norfair and found his clone's husk on the Bottle Ship; on the BSL she had to destroy his shape once more, this time with an X Parasite inside it.",
@@ -131,10 +197,18 @@
   },
   {
    "comment": "Ridley: Mecha Ridley",
-   "keys": ["Mecha Ridley", "Mecha-Ridley", "Ridley Robot", "robot Ridley", "robotic Ridley", "Ridley's robot", "Ridley mech"],
+   "keys": [
+    "Mecha Ridley",
+    "Mecha-Ridley",
+    "Ridley Robot",
+    "robot Ridley",
+    "robotic Ridley",
+    "Ridley's robot",
+    "Ridley mech"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
-   "content": "Mecha Ridley, also called the Ridley Robot, is a war machine built in Ridley's image inside the Space Pirate Mother Ship on Zebes. Per director Yoshio Sakamoto, Ridley had the likeness made as a display of his own power. It was unfinished when Samus Aran found it, roughly halfway through construction: its walking and flying units had not yet been installed, and once complete it would have grown far more massive.\n\nSamus reached it at the end of her first Zebes mission (Metroid Zero Mission). After she destroyed Mother Brain, Space Pirate fighters shot down her Gunship as she left; she crash-landed near the Mother Ship with her Power Suit wrecked, slipped inside in her Zero Suit, recovered a full Chozo Power Suit in Chozodia, and fought her way through the ship to the chamber where the robot waited. Mecha Ridley attacked with a spray of rockets, energy beams from its eyes, fireballs and sweeping claw blows. Its only weak point was a glowing core behind a thin casing on its chest, which it shielded with its leading claw and neck; only missile fire could crack it, and only in the instant the robot lifted its neck to bring its claw down.\n\nWhen the machine failed, its eyes glowed red and the Mother Ship's self-destruct began. Samus fled through the collapsing vessel and escaped in a small Space Pirate craft moments before the ship was destroyed, breaking the Pirates' hold on Zebes for the time being. It was the same Mother Ship that had landed in Chozodia to bring Ridley to Zebes earlier in the mission. The living Ridley, already destroyed by Samus in his lair, would later be rebuilt by the Pirates as the cybernetic Meta Ridley.",
+   "content": "Mecha Ridley, also called the Ridley Robot, is a war machine built in Ridley's image inside the Space Pirate Mother Ship on Zebes. Per director Yoshio Sakamoto, Ridley had the likeness made as a display of his own power. It was unfinished when Samus Aran found it, roughly halfway through construction: its walking and flying units had not yet been installed, and once complete it would have grown far more massive.\n\nSamus reached it at the end of her first Zebes mission (Metroid: Zero Mission). After she destroyed Mother Brain, Space Pirate fighters shot down her Gunship as she left; she crash-landed near the Mother Ship with her Power Suit wrecked, slipped inside in her Zero Suit, recovered a full Chozo Power Suit in Chozodia, and fought her way through the ship to the chamber where the robot waited. Mecha Ridley attacked with a spray of rockets, energy beams from its eyes, fireballs and sweeping claw blows. Its only weak point was a glowing core behind a thin casing on its chest, which it shielded with its leading claw and neck; only missile fire could crack it, and only in the instant the robot lifted its neck to bring its claw down.\n\nWhen the machine failed, its eyes glowed red and the Mother Ship's self-destruct began. Samus fled through the collapsing vessel and escaped in a small Space Pirate craft moments before the ship was destroyed, breaking the Pirates' hold on Zebes for the time being. It was the same Mother Ship that had landed in Chozodia to bring Ridley to Zebes earlier in the mission. The living Ridley, already destroyed by Samus in his lair, would later be rebuilt by the Pirates as the cybernetic Meta Ridley.",
    "constant": false,
    "order": 100,
    "category": "Ridley",
@@ -149,10 +223,23 @@
   },
   {
    "comment": "Ridley: Ridley's appearance, abilities and intelligence",
-   "keys": ["Ridley's tail", "Ridley's wings", "Ridley's claws", "Ridley's beak", "Ridley's fire", "plasma breath", "Ridley's shriek", "Ridley's scream", "Ridley's roar", "Ridley's size", "Ridley's appearance", "how big is Ridley"],
+   "keys": [
+    "Ridley's tail",
+    "Ridley's wings",
+    "Ridley's claws",
+    "Ridley's beak",
+    "Ridley's fire",
+    "plasma breath",
+    "Ridley's shriek",
+    "Ridley's scream",
+    "Ridley's roar",
+    "Ridley's size",
+    "Ridley's appearance",
+    "how big is Ridley"
+   ],
    "secondary_keys": [],
    "selective_logic": "AND_ANY",
-   "content": "Ridley's natural form is that of a winged dragon: a long neck, a toothed beak, taloned hands and feet, broad leathery wings and a whip-like tail ending in a blade. He towers over Samus Aran. His hide is purple in most of her encounters, though on Zebes during her first mission he was brown, his color shifting as he took damage. His rebuilt forms (Meta Ridley, Omega Ridley, Proteus Ridley) added armor plating and mechanical parts. His cry is a piercing, animal shriek.\n\nAbilities Samus has faced:\n- Flight: he swoops, hovers and dives on his prey.\n- Fire: he breathes plasma and spits fireballs, some of which arc or curve after a target. As Meta Ridley he also carried a Multi-Missile System, a Kinetic Breath Weapon, an Ultrathermal Flamestrike Projector and a Meson Bomb Launcher.\n- Tail: he whips, stabs and drives it down on a target; the X copy of him on the BSL had a tail none of Samus's weapons could damage.\n- Grappling: he seizes Samus in his claws and drags or rakes her along walls, as the Bottle Ship clone did in the Geothermal Power Plant.\n- Melee: claw swipes, lunges and ramming with his full weight.\n- Resilience: he has survived wounds that should have killed him; per the manga he claimed to have healed his K-2L injuries by eating the colonists' bodies, and the Space Pirates and Phazon have revived and rebuilt him repeatedly.\n\nHe is not a mindless beast. Ridley leads the Pirate military, led the raid on K-2L and, per the manual, personally headed the Ceres Space Colony mission and stole the Metroid hatchling. Per the manga he speaks, mocks a child before striking at her, and uses her parents' deaths to break her composure years later. Samus knows him as a sadist who enjoys her fear. She has learned to strike at his chest and mouth: Meta Ridley's chest plating was thinner than the rest of his hide, and as Meta and Omega Ridley his mouth was vulnerable while he fired from it.",
+   "content": "Ridley's natural form is that of a winged dragon: a long neck, a toothed beak, taloned hands and feet, broad leathery wings and a whip-like tail ending in a blade. He towers over Samus Aran. His hide is purple in most of her encounters, though on Zebes during her first mission he was brown, his color shifting as he took damage. His rebuilt forms (Meta Ridley, Omega Ridley, Proteus Ridley) added armor plating and mechanical parts. His cry is a piercing, animal shriek.\n\nAbilities Samus has faced:\n- Flight: he swoops, hovers and dives on his prey.\n- Fire: he breathes plasma and spits fireballs, some of which arc or curve after a target. As Meta Ridley he also carried built-in missile, breath, flame and bomb weapons (see Meta Ridley and Omega Ridley).\n- Tail: he whips, stabs and drives it down on a target; the X copy of him on the BSL had a tail none of Samus's weapons could damage.\n- Grappling: he seizes Samus in his claws and drags or rakes her along walls, as the Bottle Ship clone did in the Geothermal Power Plant.\n- Melee: claw swipes, lunges and ramming with his full weight.\n- Resilience: he has survived wounds that should have killed him; per the manga he claimed to have healed his K-2L injuries by eating the colonists' bodies, and the Space Pirates and Phazon have revived and rebuilt him repeatedly.\n\nHe is not a mindless beast. Ridley leads the Pirate military, led the raid on K-2L and, per the manual, personally headed the Ceres Space Colony mission and stole the Metroid hatchling. Per the manga he speaks, mocks a child before striking at her, and uses her parents' deaths to break her composure years later. Samus knows him as a sadist who enjoys her fear. She has learned to strike at his chest and mouth: Meta Ridley's chest plating was thinner than the rest of his hide, and as Meta and Omega Ridley his mouth was vulnerable while he fired from it.",
    "constant": false,
    "order": 100,
    "category": "Ridley",
@@ -164,7 +251,7 @@
     "https://www.metroidwiki.org/wiki/Pyrosphere",
     "https://www.metroidwiki.org/wiki/Samus_Aran"
    ],
-   "notes": "Removed 'slit eyes' and the clone's flight timing (unsourced). Color follows the most recent retelling of the first Zebes mission (brown, shifting with damage); the original account had him blue. The BSL tail detail is attributed to the X copy. The corpse-eating detail is framed as Ridley's own claim, per the manga. Size stated qualitatively because no official measurement was found."
+   "notes": "Removed 'slit eyes' and the clone's flight timing (unsourced). Color follows the most recent retelling of the first Zebes mission (brown, shifting with damage); the original account had him blue. The BSL tail detail is attributed to the X copy. The corpse-eating detail is framed as Ridley's own claim, per the manga. Size stated qualitatively because no official measurement was found. Consistency pass: Meta Ridley weapon list (verbatim in 'Meta Ridley and Omega Ridley') shortened to a pointer."
   }
  ]
 }
