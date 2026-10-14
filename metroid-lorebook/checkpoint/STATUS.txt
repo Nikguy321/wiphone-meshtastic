@@ -12,6 +12,7 @@ factions-recent-prime:
 federation: draft, verify, revise
 federation-force: draft, verify, revise
 fusion: draft, verify, revise
+gap2: draft
 hunters: draft, verify
 manga: draft, verify, revise
 metroids: draft, verify, revise
