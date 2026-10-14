@@ -1,0 +1,208 @@
+{
+ "run": "wf_75a38b55-7ed",
+ "label": "verify:gap3",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Creatures: Arachnus",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "keys",
+      "claim": "keys: \"armadillo creature\", \"armadillo-like creature\"",
+      "problem": "These keys are generic and collide with existing entries. Fauna of the Bottle Ship already calls the Griptian and Mighty Griptian \"armadillo-like beasts\", and bestiary-prime calls the Keratos \"an armadillo-like giant\". A chat about either creature would pull in Arachnus.",
+      "correction": "Drop both generic armadillo keys, or move them to secondary_keys gated on SR388 / Spring Ball / Area 2. Keep Arachnus, Arachnuses and Marukara."
+     },
+     {
+      "severity": "nit",
+      "claim": "Arachnus, also called Marukara",
+      "problem": "Metroid Wiki gives Marukara only as the Japanese name: \"In the later Japanese version of Fusion (and likely II as well), this creature is known as the 'Marukara'\". The wording presents it as an in-universe English alias.",
+      "correction": "\"Arachnus (Marukara in Japanese records)\". Keep it as a key.",
+      "source_url": "https://www.metroidwiki.org/wiki/Arachnus"
+     },
+     {
+      "severity": "nit",
+      "claim": "When Samus shot the orb, Arachnus burst out, smashing the statue, and attacked.",
+      "problem": "Only the retelling shows the statue being destroyed. The Metroid II walkthrough and Metroid Wiki say only that Samus shot the orb and Arachnus popped out. Using the retelling here is allowed under the prefer-the-recent rule, but the merged narrative reads as if both tellings agree.",
+      "correction": "Acceptable as written if the merge is intentional. Otherwise: \"Arachnus burst out (in the retelling, smashing the statue) and attacked.\"",
+      "source_url": "https://omegametroid.com/metroid-ii-return-of-samus-walkthrough/arachnus/"
+     },
+     {
+      "severity": "nit",
+      "claim": "one of the few Chozo gifts on SR388 she had to take from a living creature rather than from a statue's hands",
+      "problem": "Arachnus is the only living creature that held a Chozo item: the only one in Metroid II, and in the retelling the other non-statue holder is the Diggernaut, a machine. \"One of the few\" is vague, and \"gift\" is interpretive.",
+      "correction": "\"the only Chozo item on SR388 she had to take from a living creature rather than from a statue's hands\" (in the retelling the Diggernaut, a machine, also held items)."
+     },
+     {
+      "severity": "nit",
+      "claim": "seen far less often than most of the planet's creatures",
+      "problem": "Metroid Wiki supports it (\"Arachnus appear much less often than most other creatures on SR388\"), but the wiki is describing how often it appears in the game: only one is ever met. That is fine as a rarity claim, but it is the only one in the entry with no manual behind it.",
+      "correction": "Optionally: \"rarely encountered\".",
+      "source_url": "https://www.metroidwiki.org/wiki/Arachnus"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Deorem, the Acid Worm, Kiru Giru and Imago",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Samus met it soon after recovering hers.",
+      "problem": "\"Recovering\" implies she had lost her Missiles. On the first Zebes mission Samus arrives with a basic kit and gets Missiles for the first time in Brinstar. Metroid Wiki says Deorem is \"first met just after Samus gets Missiles\". The existing 'Why Samus loses her abilities' entry also lists no loss at the start of this mission.",
+      "correction": "\"Samus met it soon after obtaining her Missiles.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Deorem"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the trapped creature had matured into an Imago",
+      "problem": "Metroid Wiki does not say the ensnared Kiru Giru became the Imago. The Kiru Giru and Tangle Vine pages say only that the fallen creature blocked the hole, and that when Samus came back it was gone and the hole led to Imago's Hideout. The transformation comes from an unofficial walkthrough (\"Kiru Giru didn't die... it evolved!\"). Wikitroid snippets describe Imago as a creature that attacked Samus \"for destroying its eggs\", which fits uneasily with a larva that metamorphosed minutes earlier.",
+      "correction": "Hedge it: \"Below that hole, in Imago's Hideout between Norfair and Ridley's lair, waited the adult form, the Imago\". Or keep the transformation but attribute it to nothing stronger than appearance (\"seemingly the same creature, now grown\").",
+      "source_url": "https://www.metroidwiki.org/wiki/Tangle_Vine"
+     },
+     {
+      "severity": "error",
+      "claim": "the creature fell and smashed a hole through the floor, opening the way toward Ridley's lair",
+      "problem": "Metroid Wiki says the fallen Kiru Giru plugged the hole. \"Right after the battle ... the Kiru Giru blocks the way\", and only \"on a later return, the Kiru Giru is gone and Samus can enter the hole\". The way did not open at once.",
+      "correction": "\"the creature fell and smashed a hole through the floor, plugging it with its body; when Samus came back the creature was gone and the hole led on toward Ridley's lair.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Kiru_Giru"
+     },
+     {
+      "severity": "unverified",
+      "claim": "It had nothing to do with the Space Pirates",
+      "problem": "Metroid Wiki hedges this: Mua \"doesn't appear to be affiliated\" with the Pirates. The draft turns that into a definite claim.",
+      "correction": "\"It showed no sign of serving the Space Pirates, but attacked anything entering its domain.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Mua"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Tangle Vines attack the larvae.",
+      "problem": "The source hedges this too: \"The Tangle Vines appear to be attacking the Larval Kiru Girus.\"",
+      "correction": "\"Tangle Vines seem to prey on the larvae.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Tangle_Vine"
+     },
+     {
+      "severity": "unverified",
+      "claim": "It attacked mainly by crashing its whole body into Samus and, as it weakened, fired thorns from its stinger, which was also its weak point.",
+      "problem": "The only source is the Omega Metroid fan walkthrough, which contradicts itself (\"crashing into you is literally the only attack Imago knows\", then thorns as it takes damage). Metroid Wiki has no Imago page. The stinger weak point and the ramming are reasonably safe; the order of attacks is shaky.",
+      "correction": "Keep \"crashed its whole body into Samus and fired thorns from its stinger, which was its weak point\" and drop \"as it weakened\", unless a better source is found.",
+      "source_url": "https://omegametroid.com/metroid-zero-mission-walkthrough/ridleys-lair/"
+     },
+     {
+      "severity": "nit",
+      "claim": "Killed quickly, it left the Charge Beam behind. A drawn-out fight sent it burrowing away, and she had to face it again elsewhere.",
+      "problem": "This can be read as saying the Charge Beam comes only from a quick kill. Metroid Wiki's Charge Beam page says only that Deorem \"drops the Charge Beam upon its defeat\", wherever the defeat happens.",
+      "correction": "\"Its death left the Charge Beam behind; if the fight dragged on it burrowed away, and she had to finish it elsewhere.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Charge_Beam"
+     },
+     {
+      "severity": "nit",
+      "claim": "Unable to get past one, Samus went around it to the Wave Beam",
+      "problem": "This nearly repeats the existing Equipment: Wave Beam and Spazer sentence (\"a Kiru Giru larva she could not get past forced her to find a way around it to reach the beam\"). It is not a full duplicate, since the shell and bulbs detail is new and supported by Metroid Wiki's Wave Beam page (\"normally hidden behind a thick shell, permeable to the Wave Beam\").",
+      "correction": "Optionally shorten to \"Only the Wave Beam's fire, which passes through rock and shell alike, reaches those bulbs from safety.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Wave_Beam"
+     },
+     {
+      "severity": "keys",
+      "claim": "\"Charge Beam Beast\"",
+      "problem": "No official source was found. The name appears in Wikitroid text (\"Samus gets the Charge Beam after killing the Charge Beam Beast\") and fan sites. It is harmless as a search key and correctly kept out of the content.",
+      "correction": "Keep as a key only; no change needed."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Goyagma and Vorash",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "noncanon",
+      "claim": "That Samus endured the Pyrosphere's heat unprotected rather than activate the Varia without Adam's word remains one of the most debated choices of her career (see Varia Suit; Why Samus loses her abilities).",
+      "problem": "This is fan reception (the real-world Other M controversy) presented as an in-universe fact. No canon source has anyone in-universe debating the choice. It also slants the roleplay toward a meta opinion. The existing 'Why Samus loses her abilities' entry presents the choice neutrally as the condition of joining the 07th Platoon.",
+      "correction": "Drop it, or replace it with an in-universe line: \"She had crossed the Pyrosphere's heat without it, keeping her pledge to use nothing Adam had not authorized (see Varia Suit; Why Samus loses her abilities).\""
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"Pyrosphere boss\", \"Pyrosphere bosses\", \"Pyrosphere monster\", \"Pyrosphere monsters\"",
+      "problem": "Ridley is also fought in the Pyrosphere (the existing Bottle Ship entry: \"the Geothermal Power Plant where Ridley revealed himself\"), and the Fauna of the Bottle Ship entry lists other Pyrosphere monsters (Magdollites, Dessgeega, Super Zebesians). \"Pyrosphere boss\" pointing only to Goyagma and Vorash can misdirect.",
+      "correction": "Drop \"Pyrosphere boss/bosses\", or keep only \"Pyrosphere monster(s)\" as a secondary key."
+     },
+     {
+      "severity": "nit",
+      "claim": "Goyagma: a massive monster that can command lava to a degree.",
+      "problem": "Metroid Wiki hedges this: it \"appears to be able to control lava to some degree.\"",
+      "correction": "\"a massive monster that seems able to command lava to a degree.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Goyagma"
+     },
+     {
+      "severity": "nit",
+      "claim": "It set its arms ablaze ... sank and rose again to rain glowing fireballs, and hurled larger ones. Whenever its hand glowed she froze it ...",
+      "problem": "The order is slightly compressed. Per Metroid Wiki, the burning-arm eruptions and the first hand freeze and Overblast came before it sank. The sink, the fireball rain and the large fireballs came in the second phase, after which the freeze and Overblast repeated. No factual error.",
+      "correction": "Optional: no change needed for roleplay.",
+      "source_url": "https://www.metroidwiki.org/wiki/Goyagma"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Incinerator Drone and Hive Mecha",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "keys",
+      "claim": "keys: \"Chozo drone\", \"Chozo drones\"",
+      "problem": "These are generic. The Fauna of SR388 entry lists other Chozo machines described as drones (Gunzoo \"armored security drones\", Shirk \"spiked circling drones\"), so the keys would pull this Tallon IV entry into SR388 chats.",
+      "correction": "Drop them, or use \"Chozo security drone\" plus a secondary key such as Tallon IV or Chozo Ruins."
+     },
+     {
+      "severity": "nit",
+      "claim": "only her Power Beam could breach it, whatever stronger weapons she carried",
+      "problem": "The source is Metroid Wiki trivia about sequence breaks (\"Even if Samus has obtained more powerful weaponry\"). In the normal course of the mission she has nothing stronger at this point, so the clause is gameplay meta.",
+      "correction": "\"and only her Power Beam could breach it.\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Hive_Mecha"
+     },
+     {
+      "severity": "style",
+      "claim": "both treated Samus in her Chozo armor as an intruder",
+      "problem": "The irony is an embellishment no source states. The sources say only that the Incinerator Drone sensed her as \"a threat to the Dome\" and that the Hive Mecha activated when she approached the Missile Launcher.",
+      "correction": "\"both treated Samus as an intruder\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Incinerator_Drone"
+     },
+     {
+      "severity": "nit",
+      "claim": "Release caveat omitted (Hive Mecha only in original NTSC)",
+      "problem": "Verified that omitting it is correct. The Nintendo Life Metroid Prime Remastered walkthrough has the Hive Mecha fight in the Hive Totem (\"Once you've beaten the Hive Mecha, the Missile Launcher will show up just ahead\"), and no source found supports regional or later-release removal. Recorded here so no one adds the caveat back.",
+      "correction": "Keep the omission.",
+      "source_url": "https://www.nintendolife.com/guides/metroid-prime-remastered-chozo-ruins-walkthrough"
+     }
+    ]
+   }
+  ],
+  "overall": "I checked all four entries: none needs a rewrite, but each needs fixes before it ships, and none duplicates an existing entry. The four reports above list every issue with a correction.\n\n**Main fixes:**\n- **Goyagma and Vorash:** the last sentence calls Samus's Varia choice \"one of the most debated choices of her career\". That is the real-world fan controversy over Other M, not canon. Replace it with a neutral in-universe line or drop it.\n- **Deorem, Acid Worm, Kiru Giru and Imago (Zero Mission):** this entry has the most problems.\n  - It says Samus met Deorem \"soon after recovering\" her Missiles. She had never had them on this mission; it should say \"obtaining\".\n  - It says the vine-trapped Kiru Giru's fall \"opened the way\" to Ridley's lair. Metroid Wiki says the creature plugged the hole and was gone only when Samus came back later.\n  - Only a fan walkthrough says the trapped Kiru Giru grew into the Imago. Metroid Wiki does not say so, and Wikitroid snippets have Imago attacking Samus over her destroying its eggs.\n  - Two wiki hedges were turned into flat facts: the Acid Worm having nothing to do with the Space Pirates, and Tangle Vines attacking the larvae.\n  - The Imago's attack order comes only from that fan walkthrough.\n- **Keys:** several keys are too generic and would trigger in the wrong chats.\n  - \"armadillo creature\" (Arachnus) also matches the Griptian and Keratos, which existing entries call armadillo-like.\n  - \"Pyrosphere boss\" (Goyagma and Vorash) also fits Ridley, who is fought in the Pyrosphere.\n  - \"Chozo drone\" (Hive Mecha) also matches the drone-type Chozo machines on SR388.\n\n**What checked out:**\n- **Arachnus:** accurate apart from small nits. The Area 2 placement fits both tellings, the Metroid II and Samus Returns fight details match their sources, and the manual lines are correct.\n- **Incinerator Drone and Hive Mecha:** the Logbook scan paraphrases and the battle details match Metroid Wiki. Leaving out the claim that the Hive Mecha is only in the original NTSC release is correct: a Metroid Prime Remastered walkthrough includes the fight.\n- **Existing lorebook:** I found no contradictions. That covers the Varia Suit timing with Goyagma, the Chozo Statue that Arachnus smashed, the Bomb, Charge Beam, Wave Beam and Super Missile acquisitions, and Arachnus-X.\n\nMetroid Wiki's raw page text is blocked by Cloudflare, so everything was read through page fetches. The breezewiki mirror of Wikitroid was blocked as well.",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Arachnus",
+   "https://www.metroidwiki.org/wiki/Spring_Ball",
+   "https://omegametroid.com/metroid-samus-returns-walkthrough/bosses",
+   "https://omegametroid.com/metroid-ii-return-of-samus-walkthrough/arachnus/",
+   "https://www.metroidwiki.org/wiki/Deorem",
+   "https://www.metroidwiki.org/wiki/Mua",
+   "https://www.metroidwiki.org/wiki/Kiru_Giru",
+   "https://www.metroidwiki.org/wiki/Tangle_Vine",
+   "https://www.metroidwiki.org/wiki/Wave_Beam",
+   "https://www.metroidwiki.org/wiki/Super_Missile",
+   "https://www.metroidwiki.org/wiki/Charge_Beam",
+   "https://www.metroidwiki.org/wiki/Ridley_(area)",
+   "https://www.metroidwiki.org/wiki/Category:Metroid:_Zero_Mission_Bosses",
+   "https://omegametroid.com/metroid-zero-mission-walkthrough/ridleys-lair/",
+   "https://kb.speeddemosarchive.com/Metroid:_Zero_Mission/Boss_Strategies",
+   "https://www.metroidwiki.org/wiki/Vorash",
+   "https://www.metroidwiki.org/wiki/Goyagma",
+   "https://www.metroidwiki.org/wiki/Pyrosphere",
+   "https://www.metroidwiki.org/wiki/Hive_Mecha",
+   "https://www.metroidwiki.org/wiki/Hive_Totem",
+   "https://www.metroidwiki.org/wiki/Incinerator_Drone",
+   "https://www.nintendolife.com/guides/metroid-prime-remastered-chozo-ruins-walkthrough",
+   "WebSearch snippets (Wikitroid Imago, Long Beam 'Charge Beam Beast', Prime version differences)",
+   "/home/user/wiphone-meshtastic/metroid-lorebook/build/index.txt",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/*.json (suits, timeline, bestiary-2d, bestiary-prime, prime1, zebes, chozo, sr388, weapons, abilities, x-parasite, fusion, adam-other-m)"
+  ]
+ }
+}
