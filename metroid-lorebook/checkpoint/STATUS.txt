@@ -24,7 +24,7 @@ sr388: draft, verify, revise
 suits: draft, verify
 super-metroid: draft, verify, revise
 tech: draft, verify
-timeline: draft, verify
+timeline: draft, verify, revise
 weapons: draft, verify
 x-parasite: draft, verify
 zebes: draft, verify, revise

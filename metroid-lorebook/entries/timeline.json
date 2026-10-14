@@ -4,7 +4,13 @@
   "entries": [
     {
       "comment": "Universe: Metroid universe primer",
-      "keys": ["Metroid universe", "Metroid series", "Metroid lore", "Metroid setting", "Metroid galaxy"],
+      "keys": [
+        "Metroid universe",
+        "Metroid series",
+        "Metroid lore",
+        "Metroid setting",
+        "Metroid galaxy"
+      ],
       "secondary_keys": [],
       "selective_logic": "AND_ANY",
       "content": "The Metroid universe is a spacefaring galaxy governed by the Galactic Federation, a congress of representatives from many planets. The Federation keeps order through its Police, Army and Marines, and when those fail it hires bounty hunters. Its oldest enemy is the Space Pirates, raiders who steal bioweapons and technology and were long directed from the planet Zebes by Mother Brain, with the dragon Ridley leading their military. The Chozo, an ancient bird-like civilization now almost vanished, seeded worlds with their technology and created the Metroids, floating energy-draining predators, to hunt the X, a shapeshifting parasite of SR388 that copies whatever it infects. Phazon, a mutagenic blue substance spread by Leviathans from the living planet Phaaze, corrupted several worlds until Samus destroyed its source.\n\nSamus Aran, orphaned when Space Pirates raided her colony K-2L, was raised and genetically augmented by the Chozo on Zebes, served for a time under Federation commander Adam Malkovich, and now works alone as a bounty hunter in a Chozo Power Suit; the Pirates call her the Hunter. A Metroid hatchling that imprinted on her died saving her from Mother Brain; a vaccine made from its cells later saved her from the X and left her carrying Metroid DNA. Adam died aboard the Bottle Ship; the Federation computer ADAM that later guided her proved to be his preserved mind.\n\nTone: hard science fiction, long solitary explorations of hostile planets and derelict stations, horror undertones, and a stoic heroine who speaks little and acts decisively.",
@@ -26,10 +32,23 @@
     },
     {
       "comment": "Universe: Timeline of Samus's missions",
-      "keys": ["timeline", "chronology", "previous missions", "past missions", "your missions", "mission history", "Zero Mission", "Super Metroid", "Metroid Fusion", "Metroid Dread", "Other M", "Prime series"],
+      "keys": [
+        "timeline",
+        "chronology",
+        "previous missions",
+        "past missions",
+        "your missions",
+        "mission history",
+        "Zero Mission",
+        "Super Metroid",
+        "Metroid Fusion",
+        "Metroid Dread",
+        "Other M",
+        "Prime series"
+      ],
       "secondary_keys": [],
       "selective_logic": "AND_ANY",
-      "content": "Nintendo's order of Samus's missions. Retellings supersede their originals: Zero Mission retells Metroid, Samus Returns retells Metroid II: Return of Samus, and Metroid Prime Remastered is Metroid Prime unchanged.\n- Backstory (manga): Space Pirates under Ridley raze K-2L; Samus, aged three, is raised by the Chozo on Zebes, serves in the Federation Police under Adam Malkovich, then leaves to work alone.\n- Metroid: Zero Mission (year 20X5): Pirates seize a Metroid specimen and carry it to Zebes. Samus defeats Kraid and Ridley and destroys Mother Brain; shot down while leaving, she crosses the Space Pirate Mothership in her Zero Suit, regains a Power Suit in Chozodia and destroys the ship.\n- Metroid Prime (shortly after): a distress call from the Frigate Orpheon leads to Tallon IV, where the Pirates mine Phazon. Samus defeats Meta Ridley and Metroid Prime; the creature takes her Phazon Suit and becomes Dark Samus.\n- Metroid Prime Hunters: a telepathic promise of \"ultimate power\" draws Samus and six rival hunters including Sylux to the Alimbic Cluster, where Samus destroys the imprisoned Gorea.\n- Metroid Prime 2: Echoes: seeking the G.F.S. Tyr's lost crew on Aether, Samus helps the Luminoth sentinel U-Mos restore the planet's energy and kills the Emperor Ing; Dark Aether collapses, apparently destroying Dark Samus.\n- Metroid Prime 3: Corruption (six months later): Dark Samus returns leading the Pirates. Samus and fellow hunters restore Norion's defense cannon, which destroys an incoming Leviathan. Phazon-corrupted, Samus purges the Leviathans seeding Bryyo, Elysia and the Pirate Homeworld, loses the hunters Rundas, Ghor and Gandrayda, then destroys Phaaze, ending Phazon.\n- Metroid Prime: Federation Force: Federation Marines breach the Pirate warship Doomseye in the Bermuda System, free a brainwashed Samus and drop its shield for the fleet. Sylux then infiltrates a Federation facility and hatches a captured Metroid egg (Cosmic Year 20X6 in Nintendo's published timeline).\n- Metroid: Samus Returns: after Federation teams vanish on SR388, Samus is ordered to exterminate the Metroids. She kills the Queen Metroid, spares a hatchling that imprints on her, repels Proteus Ridley and carries the baby to Ceres.\n- Super Metroid: Ridley steals the baby from Ceres. Samus returns to a rebuilt Zebes and faces Mother Brain, who kills the baby after it gives Samus its energy. Samus destroys Mother Brain and escapes as Zebes explodes.\n- Metroid: Other M (an unstated time later): the \"Baby's Cry\" signal draws Samus to the Bottle Ship, where she joins Adam Malkovich's 07th Platoon and uncovers a Federation Metroid-breeding program, an accidental Ridley clone and the android MB. Adam dies destroying Sector Zero; Anthony Higgs alone survives with her. Days later she returns for Adam's helmet as the ship self-destructs.\n- Metroid Prime 4: Beyond (Cosmic Year 20X9; before Fusion and, per its developers, in another dimension, leaving the 2D story untouched): Sylux's Pirates attack Tanamaar; a Lamorn artifact flings Samus and stranded Federation marines to Viewros, where she gains psychic abilities and defeats Sylux; the marines restrain him while she escapes through the damaged teleporter.\n- Metroid Fusion: infected by an X on SR388, Samus is saved by a Metroid vaccine and sent to the B.S.L. station, fights the SA-X, discovers the Federation's secret Metroid program, and crashes the station into SR388, destroying both.\n- Metroid Dread: sent to ZDR after footage of a living X, Samus is stripped of her abilities by Raven Beak, learns of the Thoha and Mawkin from Quiet Robe, awakens her Metroid DNA, defeats Raven Beak and escapes the exploding planet after an X in Quiet Robe's form suppresses her transformation.\n- Metroid Ravenous (announced for 2027) follows Dread; its story is unrevealed.",
+      "content": "Samus's missions in order. Retellings supersede originals: Zero Mission retells Metroid, Samus Returns retells Metroid II.\n- Backstory (manga): Pirates under Ridley raze K-2L; Samus, aged three, is raised by the Chozo on Zebes and serves in the Federation Police under Adam Malkovich before going solo.\n- Metroid: Zero Mission (year 20X5): Pirates carry a seized Metroid specimen to Zebes. Samus defeats Kraid and Ridley and destroys Mother Brain; shot down while leaving, she crosses the Pirate Mothership in her Zero Suit, regains a Power Suit in Chozodia and destroys the ship.\n- Metroid Prime (shortly after): a distress call from the Frigate Orpheon leads to Tallon IV, where the Pirates mine Phazon. Samus defeats Meta Ridley and Metroid Prime, which takes her Phazon Suit and becomes Dark Samus.\n- Metroid Prime Hunters: a telepathic promise of \"ultimate power\" draws Samus, Sylux and five rival hunters to the Alimbic Cluster, where she destroys the imprisoned Gorea.\n- Metroid Prime 2: Echoes: seeking the G.F.S. Tyr's lost crew on Aether, Samus helps the Luminoth U-Mos restore the planet's energy and kills the Emperor Ing; Dark Aether collapses, apparently destroying Dark Samus.\n- Metroid Prime 3: Corruption (six months later): Dark Samus returns leading the Pirates. Norion's restored defense cannon destroys an incoming Leviathan. Phazon-corrupted, Samus purges the Leviathans seeding Bryyo, Elysia and the Pirate Homeworld, loses the hunters Rundas, Ghor and Gandrayda, then destroys Phaaze, ending Phazon.\n- Metroid Prime: Federation Force: Marines breach the Pirate warship Doomseye in the Bermuda System, free a brainwashed Samus and drop its shield for the fleet. Sylux then hatches a captured Metroid egg in a Federation facility (Cosmic Year 20X6, per Nintendo).\n- Metroid: Samus Returns: sent to exterminate the Metroids of SR388 after Federation teams vanish there, Samus kills the Queen Metroid, spares a hatchling that imprints on her, repels Proteus Ridley and carries the baby to Ceres.\n- Super Metroid: Ridley steals the baby from Ceres. On a rebuilt Zebes, Mother Brain kills the baby after it gives Samus its energy; Samus destroys Mother Brain and escapes as Zebes explodes.\n- Metroid: Other M (an unstated time later): the \"Baby's Cry\" signal draws Samus to the Bottle Ship, where she joins Adam Malkovich's 07th Platoon and uncovers a Federation Metroid-breeding program, an accidental Ridley clone and the android MB. Adam dies destroying Sector Zero; Anthony Higgs alone survives with her. She later recovers Adam's helmet as the ship self-destructs.\n- Metroid Prime 4: Beyond (Cosmic Year 20X9; per its developers, in another dimension): Sylux's Pirates attack Tanamaar; a Lamorn artifact flings Samus and Federation marines to Viewros, where she gains psychic abilities and defeats Sylux; the marines restrain him while she escapes through the damaged teleporter.\n- Metroid Fusion: infected by an X on SR388, Samus is saved by a Metroid vaccine and sent to the B.S.L. station, fights the SA-X, discovers the Federation's secret Metroid program, and crashes the station into SR388, destroying both.\n- Metroid Dread: sent to ZDR after footage of a living X, Samus loses her abilities to Raven Beak, learns of the Thoha and Mawkin from Quiet Robe, awakens her Metroid DNA, defeats Raven Beak and escapes the exploding planet after an X in Quiet Robe's form suppresses her transformation.\n- Metroid Ravenous (due 2027) follows Dread.",
       "constant": false,
       "order": 140,
       "category": "Universe",
@@ -60,7 +79,20 @@
     },
     {
       "comment": "Universe: In-universe dating and the Cosmic Calendar",
-      "keys": ["Cosmic Calendar", "cosmic year", "cosmic years", "20X5", "20X6", "20X9", "what year is it", "Samus's age", "how old is Samus", "how old are you", "Samus's birthday", "your birthday"],
+      "keys": [
+        "Cosmic Calendar",
+        "cosmic year",
+        "cosmic years",
+        "20X5",
+        "20X6",
+        "20X9",
+        "what year is it",
+        "Samus's age",
+        "how old is Samus",
+        "how old are you",
+        "Samus's birthday",
+        "your birthday"
+      ],
       "secondary_keys": [],
       "selective_logic": "AND_ANY",
       "content": "The galaxy keeps time by a Cosmic Calendar, but almost no exact date is ever stated. Per the original manual, \"In the year 2000 of the history of the cosmos, representatives from the many different planets in the galaxy established a congress called the Galactic Federation,\" and Samus's first Zebes mission opens with \"It is now year 20X5 of the history of the cosmos.\" The manual for the SR388 extermination repeats \"the year 20X5 of the cosmos\" for the discovery of the Metroid, and the retelling of the Zebes mission sets it \"in the year 20X5 of the Cosmic Calendar.\" The placeholder digit is never filled in. Nintendo's published timeline dates Sylux's forced hatching of Metroid eggs held at a Federation research center, at the close of the Bermuda System campaign, to Cosmic Year 20X6, and the Viewros incident opens \"It is Cosmic Year 20X9.\"\n\nEverything else is relative. The Tallon IV mission followed Zebes shortly; the Alimbic Cluster lay between Tallon IV and Aether; the Phazon crisis began six months after Aether, and Samus woke a month after the attack on Norion; the Bottle Ship came an unstated time after the destruction of Zebes (\"I don't know how much time passed since then,\" Samus recalled); the B.S.L. incident came some time after the Bottle Ship, and ZDR after that. The Viewros incident falls between the Bottle Ship and the B.S.L. and, per its developers, in another dimension, so it anchors no other dates. Where a gap is stated it is counted in months, but the calendar dates imply roughly four years between the first Zebes mission and Viewros.\n\nSamus's age is never officially given. The only figures come from the manga: she was three when K-2L was raided, and a later scene on Zebes shows her at fourteen. No birth year and no adult age appear in any mission record, manual or official site.\n\nSamus marks time by missions rather than dates (\"after Zebes,\" \"since the B.S.L.,\" \"since Aether\"). She does not quote calendar years, and anyone pressing her for her age gets no number.",
@@ -86,7 +118,20 @@
     },
     {
       "comment": "Universe: What counts as canon",
-      "keys": ["canon", "canonical", "non-canon", "Metroid manga", "Metroid comics", "Smash Bros", "Captain N", "Prime Pinball", "First Hunt", "Samus & Joey", "Metroid EX", "Japanese version"],
+      "keys": [
+        "canon",
+        "canonical",
+        "non-canon",
+        "Metroid manga",
+        "Metroid comics",
+        "Smash Bros",
+        "Captain N",
+        "Prime Pinball",
+        "First Hunt",
+        "Samus & Joey",
+        "Metroid EX",
+        "Japanese version"
+      ],
       "secondary_keys": [],
       "selective_logic": "AND_ANY",
       "content": "Canon means the missions Nintendo has released as Samus's story: Metroid and its retelling Metroid: Zero Mission; Metroid II: Return of Samus and its retelling Metroid: Samus Returns; Super Metroid; Metroid: Other M; Metroid Fusion; Metroid Dread; and the Prime series: Metroid Prime (with Metroid Prime Remastered, the same story), Metroid Prime Hunters, Metroid Prime 2: Echoes, Metroid Prime 3: Corruption, Metroid Prime: Federation Force and Metroid Prime 4: Beyond. Where a retelling and its original differ, the retelling wins: Samus's Zero Suit escape through the Space Pirate Mothership after Mother Brain's death, and Proteus Ridley's ambush on SR388 broken up by the baby Metroid, are canon though absent from the originals. Yoshio Sakamoto, who leads the 2D line, has called the Prime series a parallel line made by another Nintendo producer with Retro Studios, but Nintendo's chronology includes it and places Prime 4 between Other M and Fusion; its developers told Famitsu that Samus jumped into another dimension, so the 2D story is undisturbed.\n\nThe Metroid manga (story by Kouji Tazawa, art by Kenji Ishikawa; two volumes serialized in Magazine Z from 2003, after an online preview of its first two chapters in 2002) is Samus's accepted backstory: the K-2L raid, her Chozo upbringing and the Chozo DNA in her body, her Federation Police years under Adam Malkovich and Mother Brain's betrayal of Zebes. Nintendo has never formally ruled on its canonicity, though later missions build on it, such as her years under Adam; manga-only details are flagged \"per the manga.\" The Comic BomBom serials Samus & Joey and Metroid EX are separate stories and not canon.\n\nInstruction manuals and official websites are secondary sources: they supply the Cosmic Calendar dates and the Federation's founding, but the 1986 manual also called Samus a cyborg and \"he,\" and later missions override them.\n\nNot canon: Super Smash Bros. (Samus's appearances, trophies and spirits), the Captain N cartoon and comics, the Nintendo Comics System Metroid comics, Metroid Prime Pinball (no explicit storyline, loosely based on the Tallon IV mission), Metroid Prime Hunters: First Hunt (a demo whose scenario is a simulation), fan works such as AM2R, and fan theories.\n\nOther M exists in two official scripts, Japanese and English. They tell the same story but differ in tone and in individual lines; neither changes events.",
@@ -113,7 +158,20 @@
     },
     {
       "comment": "Universe: Why Samus loses her abilities",
-      "keys": ["lost her abilities", "lose her abilities", "loses her abilities", "lost her powers", "lost her upgrades", "lost her equipment", "lost her gear", "lost your abilities", "lost your powers", "lose your abilities", "physical amnesia", "stripped of her"],
+      "keys": [
+        "lost her abilities",
+        "lose her abilities",
+        "loses her abilities",
+        "lost her powers",
+        "lost her upgrades",
+        "lost her equipment",
+        "lost her gear",
+        "lost your abilities",
+        "lost your powers",
+        "lose your abilities",
+        "physical amnesia",
+        "stripped of her"
+      ],
       "secondary_keys": [],
       "selective_logic": "AND_ANY",
       "content": "Samus begins nearly every mission with a bare Power Suit and rebuilds her arsenal in the field. Canon explains most cases and leaves the rest unexplained.\n- Zebes, first mission: leaving the planet after Mother Brain's death, her gunship was shot down by Space Pirates and her Power Suit disabled. She crossed the Space Pirate Mothership in the Zero Suit with only the Paralyzer until she passed the Ruins Test in Chozodia, a Chozo trial that granted her the Legendary Power Suit, with which she could at last use the Plasma Beam, Space Jump and Gravity Suit.\n- Tallon IV: aboard the Frigate Orpheon, the dying Parasite Queen fell into the reactor and set off the ship's self-destruct. An explosion in an elevator shaft during her escape cost her most of her equipment, and Meta Ridley, whom she met on the way out, fled to the planet below.\n- Aether: in Dark Aether the Ing stole most of her equipment (\"Alert! Gear stolen by unknown creatures\"), and she took it back piece by piece from the creatures carrying it.\n- Bottle Ship: she lost nothing. She chose to leave her weapons and suit functions unused until Adam Malkovich authorized each one, the condition of joining his 07th Platoon.\n- B.S.L.: the X infection reached her central nervous system, and the infected organic parts of her Power Suit had to be surgically removed while she was unconscious. The Metroid vaccine saved her, left her in the Fusion Suit, and let her absorb X parasites; she regained her weapons as data.\n- ZDR: Raven Beak defeated her on arrival and stripped her suit of most of its abilities. ADAM could only attribute the loss to unexplained physical changes, a condition called physical amnesia; equipment recovered across ZDR restored her.\n- SR388, the return to Zebes and the Alimbic Cluster carry no explanation; she simply arrived with a basic kit. She entered the Phazon crisis with part of her arsenal and lost nothing during it.\nThe pattern has an in-universe logic: the Chozo left Chozo Statues holding equipment and Torizo guardians across their worlds, releasing their gifts to one who proves worthy. Samus treats each loss as a mission condition rather than a catastrophe.",
@@ -139,7 +197,20 @@
     },
     {
       "comment": "Universe: Mission structure, the Hunter and the meaning of Metroid",
-      "keys": ["mission report", "mission log", "ultimate warrior", "meaning of Metroid", "what does Metroid mean", "the word Metroid", "distress signal", "distress call", "self-destruct", "escape countdown", "time bomb", "space hunters"],
+      "keys": [
+        "mission report",
+        "mission log",
+        "ultimate warrior",
+        "meaning of Metroid",
+        "what does Metroid mean",
+        "the word Metroid",
+        "distress signal",
+        "distress call",
+        "self-destruct",
+        "escape countdown",
+        "time bomb",
+        "space hunters"
+      ],
       "secondary_keys": [],
       "selective_logic": "AND_ANY",
       "content": "Samus's missions follow a recognizable shape. The Galactic Federation, having lost contact with its own people, contracts her as a lone operative (SR388, Aether, ZDR), or she answers a distress signal on her own (the Frigate Orpheon, Ceres, the Bottle Ship's \"Baby's Cry\"). She lands by gunship and works inward through a hostile planet or station, gathering Chozo or Federation equipment until she can reach the source of the crisis: Mother Brain, Metroid Prime, the Emperor Ing, Dark Samus, MB, the SA-X, Raven Beak. Many missions end in a countdown or a dying world and an escape with seconds to spare: Tourian's time bomb, the Bottle Ship, the B.S.L. falling onto SR388, ZDR. The return to Zebes both began, on the self-destructing Ceres station, and ended, as Zebes exploded, with such an escape.\n\nSeveral missions survive as her own accounts. The return to Zebes opens with her terse report (\"The last Metroid is in captivity. The galaxy is at peace.\"); her B.S.L. recollections dwell on Adam Malkovich; her Bottle Ship account is introspective and openly emotional.\n\n\"The Hunter\" is the Space Pirates' name for her. Their records speak of \"the Hunter clad in metal\" who destroyed their base on Zebes, of \"the wretched Hunter,\" and simply of \"Aran\" (\"Aran's guns\"); the original manual calls bounty hunters of her kind \"space hunters.\" Adam called her \"Lady\"; from anyone else, she later reflected, it would have sounded sarcastic, but he made it sound dignified. He ended orders with \"Any objections, Lady?\", answered by her thumbs-down.\n\n\"Metroid\" names both the creatures and, loosely, the whole conflict. Per the official manual of the B.S.L. mission, the word in the Chozo language translates roughly as \"ultimate warrior.\" The Chozo created the Metroids to hunt the X on SR388; since the B.S.L., Samus herself carries Metroid DNA.",
