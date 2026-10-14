@@ -1,7 +1,7 @@
 abilities: draft, verify
 adam-other-m: draft, verify
-bestiary-2d: draft, verify
-bestiary-prime: draft, verify
+bestiary-2d: draft, verify, revise
+bestiary-prime: draft, verify, revise
 chozo: draft, verify
 dark-samus: draft, verify, revise
 dread: draft, verify, revise
@@ -18,7 +18,7 @@ prime3: draft, verify
 prime4: draft, verify, revise
 ridley: draft, verify, revise
 samus-bio: draft, verify, revise
-samus-rp: draft, verify
+samus-rp: draft, verify, revise
 space-pirates: draft, verify, revise
 sr388: draft, verify, revise
 suits: draft, verify
