@@ -11,7 +11,7 @@ federation-force: draft, verify
 fusion: draft, verify
 hunters: draft, verify
 manga: draft
-metroids: draft, verify
+metroids: draft, verify, revise
 phazon: draft, verify
 prime1: draft, verify
 prime3: draft, verify
