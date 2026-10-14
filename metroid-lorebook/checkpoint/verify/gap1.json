@@ -1,0 +1,159 @@
+{
+ "run": "wf_b10b2047-f3b",
+ "label": "verify:gap1",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Equipment: Psychic Lasso, Psychic Grapple, Psychic Boots and the psychic Morph Ball upgrades (Viewros)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "She took it from a Psychic Container in the Tracking Operations room of the Ice Belt's bio-labs",
+      "problem": "The room and the container check out (VGC, rogue.site, Omega Metroid shot expansion #8). Calling it the bio-labs is shaky. Omega Metroid has a separate 'Bio-labs Access' room that Samus opens with the Lasso after she gets it (Missile Expansion #17). One search-snippet guide says Tracking Operations is reached through the Bio-Labs. The lorebook's Viewros entry calls the Ice Belt a Lamorn research facility.",
+      "correction": "She took it from a Psychic Container in the Tracking Operations room of the Ice Belt's Lamorn research facility.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/missile-expansions/"
+     },
+     {
+      "severity": "nit",
+      "claim": "Atop the Chrono Tower she used it to rip away the tentacles shielding Sylux.",
+      "problem": "Close, but the mechanics are slightly off. A protective bubble shields Sylux, and three tentacles with nodes grow out of it. She damages each tentacle, pulls it off with the Psychic Lasso, and once every tentacle is gone the barrier drops and he can be shot. Nintendo Life confirms the Lasso pulls the tentacles off.",
+      "correction": "Atop the Chrono Tower she used it to tear away the tentacles growing from the barrier around Sylux; with every tentacle gone, the barrier fell.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/boss-guide/"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: Psychic Grapple Point, Psychic Grapple Points, Psychic Boost Rail",
+      "problem": "With whole-word matching, the key 'Psychic Grapple' already fires on 'Psychic Grapple Point(s)', so those two keys waste slots. Meanwhile the plural 'Psychic Boost Rails' is missing, and the singular 'Psychic Boost Rail' will not match it.",
+      "correction": "Drop 'Psychic Grapple Point' and 'Psychic Grapple Points'. Add 'Psychic Boost Rails' and one of 'Psychic Container' / 'Tether Node' / 'Grapple Node'."
+     },
+     {
+      "severity": "style",
+      "claim": "powered by the psychic crystal",
+      "problem": "Every existing Prime 4 and abilities entry writes 'Psychic Crystal' as a proper noun.",
+      "correction": "powered by the Psychic Crystal"
+     },
+     {
+      "severity": "missing",
+      "claim": "Psychic Boost Ball section",
+      "problem": "An optional detail that ties into the existing Sylux entry. That entry says Lockjaw rammed Samus and tore an Energy Tank from her. In the final battle, striking Sylux with the Boost Ball frees the stolen tank and stuns him.",
+      "correction": "Optionally add: in the last battle, a Boost Ball strike knocked loose the Energy Tank Sylux's Lockjaw had torn from her.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/boss-guide/"
+     },
+     {
+      "severity": "nit",
+      "claim": "CONSISTENCY FLAGS (Grapple Beam entry Viewros line; outdated notes on Boost/Spider Ball and Psychic abilities entries)",
+      "problem": "Both flags are confirmed. weapons.json 'Equipment: Grapple Beam' ends with 'On Viewros her lock-on also helps her connect the Grapple Beam to swing between platforms'. On Viewros the swing tool is the Psychic Grapple, which latches onto Grapple Points, Psychic Grapple Points and Grapple Nodes (in-game Technology logbook). The notes on the abilities.json Boost/Spider Ball and Psychic abilities entries still say the psychic items are unconfirmed. VGC, Nintendo Life, rogue.site and the logbook now confirm all of them.",
+      "correction": "Merge pass: change the Grapple Beam line to 'On Viewros she swung with the Psychic Grapple instead (see Psychic Lasso, Psychic Grapple...)' and update the two notes.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-technology/"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Fire, Ice and Thunder Shots and the Psychic Bombs (Viewros)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "from the man whose \"Teammates?\" she had answered with a nod",
+      "problem": "No source shows Samus nodding. The fact-check notes on the existing entry 'Prime 4: Myles MacKenzie and the stranded Federation squad' say 'Removed unsourced ... Samus nodded', and a targeted search found nothing either. The nod survives only in the samus-rp relationships entry, which conflicts with that fact-check. This draft should not spread it further.",
+      "correction": "...from the man who had asked her, \"What do you say? Teammates?\" (see Myles MacKenzie and the stranded Federation squad). Also flag the samus-rp 'answered his \"Teammates?\" with a nod' clause for the merge pass."
+     },
+     {
+      "severity": "nit",
+      "claim": "a Super Fire Shot a long barrage that leaves enemies ablaze",
+      "problem": "The source says the burning lasts a long time, not the barrage. Omega Metroid: 'a barrage of piercing fire shots that'll set any enemies ablaze for a long time'.",
+      "correction": "a Super Fire Shot a barrage of piercing rounds that leaves enemies burning for a long time",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/shrine-guide/"
+     },
+     {
+      "severity": "style",
+      "claim": "Missiles and beam paragraph (Super Missiles; Altar of Legacy Psychic Beam/Control Beam rewards)",
+      "problem": "The title promises only the elemental shots and Psychic Bombs, but this paragraph covers material other entries own. The Altar rewards repeat the suits entry 'Vi-O-La Suit and Legacy Suit', which already says 'earlier rewards there strengthened her Psychic Beam and Control Beam'. Super Missiles belong to 'Equipment: Missiles and Super Missiles', which has no Viewros acquisition. The facts themselves are correct: Blast Mining, Koornicite and enhanced gate locks per Omega; Altar at 25% for a more powerful Psychic Beam and 50% for a faster Control Shot per Omega, with 'faster and more damage' per Gamereactor.",
+      "correction": "Either retitle (e.g. '...Psychic Bombs and Super Missiles (Viewros)') and cut the Altar sentence to a pointer to the Legacy Suit entry, or move the Viewros Super Missile clause into the Missiles entry during the merge.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/green-energy-crystal-locations/"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Thunder Chip she pried from a damaged power cell in the Volt Forge Power Core, where a Psy-bot decoy of Sylux ambushed her",
+      "problem": "This is accurate: Omega Metroid says the second 'Sylux' in the Power Core 'turns out he was a robot again'. For the merge only: rogue.site says she lassoes the cell's cover off and grabbing the chip starts the fight. That fight needs wall Grapple Points, so it takes place late, after the Psychic Grapple and Lasso. VGC's ordering (chip pulled after the fight, listed before the Lasso) is the outlier. No text change is needed as long as no order is claimed.",
+      "source_url": "https://www.rogue.site/guides/metroid-prime-4-beyond-walkthrough-pt-5-thunder-chip-and-shrines/"
+     },
+     {
+      "severity": "missing",
+      "claim": "Psychic Power Bomb section",
+      "problem": "Optional detail that links to the Altar/Green Energy material already here: in Sol Valley, Psychic Power Bombs blast large Green ore deposits for big Green Energy yields, and each deposit drops a Power Bomb refill.",
+      "correction": "Optionally add: in Sol Valley its blasts cracked open Green ore deposits for large yields of Green Energy.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/green-energy-crystal-locations/"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Equipment: Other M combat techniques: Sense Move, Overblast, Lethal Strike, Concentration and Accel Charge",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Kyratians of the Cryosphere are recorded as capable of it too.",
+      "problem": "The only support is a bare 'Users: Samus Aran, Kyratian' line in the Metroid Wiki Overblast infobox. The article body never describes a Kyratian performing an Overblast, the Kyratian link is a red link (no page), and the drafter's own notes say the detail is unconfirmed. As written it invites roleplay of Kyratians leaping onto Samus and firing, which nothing documents.",
+      "correction": "Delete the sentence.",
+      "source_url": "https://www.metroidwiki.org/wiki/Overblast"
+     },
+     {
+      "severity": "nit",
+      "claim": "throwing the target back or flattening it",
+      "problem": "Metroid Wiki says 'the foe is pushed back or to the ground'. 'Flattening' overstates it.",
+      "correction": "knocking the target back or to the ground",
+      "source_url": "https://www.metroidwiki.org/wiki/Overblast"
+     },
+     {
+      "severity": "nit",
+      "claim": "Three E-Recovery Tanks found aboard let her begin concentrating sooner",
+      "problem": "'Sooner' reads like a shorter wait. Per Metroid Wiki and the manual, each tank raises the energy threshold below which Concentration restores Energy, and adds one more Energy Tank's worth of recovery. The count of three is correct (Metroid Wiki; the ludo.guide checklist lists three).",
+      "correction": "Three E-Recovery Tanks found aboard let her draw Energy from Concentration before her reserves fell as low, and recover one more Energy Tank's worth each.",
+      "source_url": "https://www.metroidwiki.org/wiki/E-Recovery_Tank"
+     },
+     {
+      "severity": "nit",
+      "claim": "See Melee Counter and Omega Cannon",
+      "problem": "That entry (weapons.json) covers only SR388 and ZDR techniques and never mentions Other M, so a reader may assume Samus used the Melee Counter aboard the Bottle Ship. The build index also still lists it as two entries ('Equipment: Melee Counter' and 'Equipment: Omega Cannon (Dread)'), so check the cross-reference title against the final build.",
+      "correction": "Compare the Melee Counter (her later close-quarters technique on SR388 and ZDR); see Charge Beam and Charge Combos and The Bottle Ship incident."
+     }
+    ]
+   }
+  ],
+  "overall": "Batch gap1 is mostly accurate and does not duplicate any existing entry. Every Prime 4 name and acquisition point held up against the in-game Technology logbook transcripts (Omega Metroid), VGC, Nintendo Life, rogue.site, Inverse and the Omega boss, shrine and expansion guides. Checks that passed: Lasso in Tracking Operations from a Psychic Container; Grapple from Phenoros; Boots from Xelios; Boost Ball from Keratos; Spider Ball in the Ice Belt's Ancient Temple via two motes in a statue; six Sol Valley shrines and their shot effects; Psychic Bomb from Carvex; the glove throw at the decoy's feet; Psychic Power Bomb from the Omega Griever, with the tongue bait confirmed by search snippets; Super Missiles in Blast Mining; the Power Core Sylux being a robot; heat weaknesses and Web Crawler silk. The Other M techniques match Metroid Wiki: six Accel Charges and three E-Recovery Tanks are correct, and the scientist quote is verbatim. Required fixes: (1) drop the unsourced 'answered with a nod' in the shots entry, which a previous fact-check already removed from the Myles entry, and flag the same clause in samus-rp; (2) drop the Kyratian Overblast claim, which rests only on an infobox line. Lesser fixes: the 'bio-labs' wording; tentacles vs. barrier against Sylux; Super Fire Shot wording; Overblast 'flattening'; E-Recovery 'sooner'; the scope of the shots entry title and the Altar overlap with the Legacy Suit entry; keys (redundant Psychic Grapple Point(s), missing 'Psychic Boost Rails'). The drafter's two consistency flags are confirmed: the Grapple Beam entry's Viewros line, and the outdated notes on the Boost/Spider Ball and Psychic abilities entries.",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Sense_Move",
+   "https://www.metroidwiki.org/wiki/Overblast",
+   "https://www.metroidwiki.org/wiki/Lethal_Strike",
+   "https://www.metroidwiki.org/wiki/Concentration",
+   "https://www.metroidwiki.org/wiki/Accel_Charge",
+   "https://www.metroidwiki.org/wiki/E-Recovery_Tank",
+   "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+   "https://www.ludo.guide/guide/metroid-other-m/e-recovery-tanks-id04",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-technology/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/boss-guide/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/shrine-guide/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/missile-expansions/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/shot-expansions/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/psychic-power-bomb-expansions/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/green-energy-crystal-locations/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/",
+   "https://www.videogameschronicle.com/guide/metroid-prime-4-walkthrough-where-to-go-all-upgrades-and-collectibles-step-by-step-guide/",
+   "https://www.nintendolife.com/guides/metroid-prime-4-beyond-power-suit-upgrade-locations",
+   "https://nintendolife.com/guides/metroid-prime-4-beyond-how-to-beat-the-final-boss",
+   "https://www.rogue.site/guides/metroid-prime-4-beyond-walkthrough-pt-3-ice-belt/",
+   "https://www.rogue.site/guides/metroid-prime-4-beyond-walkthrough-pt-5-thunder-chip-and-shrines/",
+   "https://www.inverse.com/gaming/metroid-prime-4-fire-shot-upgrades-guide",
+   "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-what-are-the-green-energy-crystals-for-and-how-to-upgrade-the-psychic-beam-1642693/",
+   "https://www.thegamer.com/metroid-prime-4-beyond-omega-griever-boss-great-mine-power-bomb-guide/ (search snippet)",
+   "https://game8.co/games/Metroid-Prime-4-Beyond/archives/569576 (search snippet)",
+   "https://game8.co/games/Metroid-Prime-4-Beyond/archives/569328 (search snippet)",
+   "https://gamefaqs.gamespot.com/switch/211389-metroid-prime-4-beyond/faqs/82310/chapter-8-full-amperage-volt-forge-ice-belt (search snippet)",
+   "https://vulkk.com/2025/12/11/metroid-prime-4-how-to-get-the-psychic-spider-ball/ (search snippet)",
+   "/home/user/wiphone-meshtastic/metroid-lorebook/build/index.txt",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/*.json (prime4, abilities, weapons, suits, bestiary-prime, bestiary-2d, adam-other-m, samus-rp)"
+  ]
+ }
+}

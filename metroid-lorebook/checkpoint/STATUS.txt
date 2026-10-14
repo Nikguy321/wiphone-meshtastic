@@ -12,7 +12,7 @@ factions-recent-prime:
 federation: draft, verify, revise
 federation-force: draft, verify, revise
 fusion: draft, verify, revise
-gap1: draft
+gap1: draft, verify
 gap2: draft, verify, revise
 gap3: draft, verify, revise
 gap4: draft
