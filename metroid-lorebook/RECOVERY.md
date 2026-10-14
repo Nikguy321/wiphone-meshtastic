@@ -5,6 +5,10 @@ so nothing finished is lost if the session or usage limit cuts out.
 
 ## What is where
 
+- `provisional/Metroid Canon Lorebook (provisional).json` — an importable SillyTavern lorebook built from the finished
+  domains plus UNVERIFIED first drafts for the rest. Usable right now; replaced by the final build when research completes.
+  Rebuild it any time: `FALLBACK_DRAFTS=checkpoint/draft python3 tools/build_lorebook.py entries provisional "Metroid Canon Lorebook (provisional)"`
+
 - `entries/<domain>.json` — FINAL entries for a lore domain (drafted, fact-checked, revised). These are what get assembled.
 - `checkpoint/draft/<domain>.json` — first drafts (researched from Metroid Wiki, Wikipedia, web search).
 - `checkpoint/verify/<domain>.json` — the adversarial fact-check report for that draft.

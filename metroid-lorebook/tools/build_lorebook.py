@@ -26,17 +26,18 @@ LOGIC = {"AND_ANY": 0, "NOT_ALL": 1, "NOT_ANY": 2, "AND_ALL": 3}
 
 FORBIDDEN_BARE = {w.lower() for w in """
 Prime Beyond Echoes Hunters Force Mother Dark Light Queen Baby Suit Beam Ball Missile Missiles Station Ship Dread Fusion
+friend friends relationship relationships rival rivals backstory past childhood family parents
 Corruption Return Returns Zero Hunter Pirate Pirates Lady Princess Parasite Parasites Energy Power Ice Wave Charge Scan Space Jump
 Counter Shift Memory Memories Archive Archives Soldier Soldiers Robot Robots Egg Eggs Nest Lab Research Colony Seed Seeds Worm Ghost Ghosts
-Brain Bird Voice Trace Spire Deleter Nightmare Adam Anthony Ian Mission Planet Visor Tank Tanks Bomb Bombs Gravity Varia
+Brain Bird Voice Trace Spire Deleter Nightmare Adam Anthony Ian Mission Planet Visor Tank Tanks Bomb Bombs Gravity
 Other Super Metroid II Prime 2 Prime 3 Prime 4 Hatchling Commander Core Area Areas Sector Sectors Clone Clones Crisis Incident Tribe Tribes
-Phase Flash Boost Spider Spring Slide Wall Speed Hi-Jump Storm Diffusion Wide Long Plasma Spazer Nova Grapple Melee
+Phase Flash Boost Spider Spring Slide Wall Speed Storm Diffusion Wide Long Plasma Nova Grapple Melee
 """.split()}
 # bare keys allowed only on a specific entry (matched by comment regex, case-insensitive)
 RESTRICTED = {
-    "samus": r"core profile", "samus aran": r"core profile", "aran": r"core profile", "the hunter": r"core profile",
+    "samus": r"core profile", "samus aran": r"core profile", "aran": r"core profile", "the hunter": r"core profile", "hunter": r"core profile",
     "metroid": r"^Metroids: .*overview", "metroids": r"^Metroids: .*overview",
-    "chozo": r"^Chozo: Chozo \(species", "federation": r"^Galactic Federation: Galactic Federation \(overview", "galactic federation": r"^Galactic Federation: Galactic Federation \(overview",
+    "chozo": r"^Chozo: (The )?Chozo \(species", "federation": r"^Galactic Federation: Galactic Federation \(overview", "galactic federation": r"^Galactic Federation: Galactic Federation \(overview",
     "space pirate": r"^Space Pirates: Space Pirates \(overview", "space pirates": r"^Space Pirates: Space Pirates \(overview",
     "ridley": r"^Ridley: Ridley \(overview",
 }
@@ -53,16 +54,37 @@ def norm_keys(keys):
 
 entries, warnings, sources = [], [], {}
 files = sorted(glob.glob(os.path.join(ENTRIES_DIR, "*.json")))
+done_domains = set()
 for f in files:
     try:
         data = json.load(open(f, encoding="utf-8"))
     except Exception as e:
         warnings.append(f"UNREADABLE {os.path.basename(f)}: {e}"); continue
     dom = data.get("domain") or os.path.splitext(os.path.basename(f))[0]
+    done_domains.add(dom)
     cat = data.get("category") or ""
     for e in data.get("entries", []):
         e = dict(e); e["_domain"] = dom; e["_cat"] = e.get("category") or cat
         entries.append(e)
+
+# Optional fallback: unverified first drafts for domains that have no final file yet.
+DRAFT_DIR = os.environ.get("FALLBACK_DRAFTS")
+fallback_domains = []
+if DRAFT_DIR:
+    for f in sorted(glob.glob(os.path.join(DRAFT_DIR, "*.json"))):
+        dom = os.path.splitext(os.path.basename(f))[0]
+        if dom in done_domains: continue
+        try:
+            res = json.load(open(f, encoding="utf-8")).get("result") or {}
+        except Exception as e:
+            warnings.append(f"UNREADABLE draft {dom}: {e}"); continue
+        ents = res.get("entries") or []
+        if not ents: continue
+        fallback_domains.append(dom)
+        for e in ents:
+            e = dict(e); e["_domain"] = dom
+            e["_cat"] = e.get("category") or (str(e.get("comment", "")).split(":")[0].strip())
+            entries.append(e)
 
 # --- normalize & policy ---
 seen_titles = {}
@@ -83,7 +105,7 @@ for e in entries:
         if kl in RESTRICTED:
             if re.search(RESTRICTED[kl], title, re.I): kept.append(k)
             else: warnings.append(f"KEY '{k}' removed from {title!r} (restricted to another entry)")
-        elif kl in FORBIDDEN_BARE:
+        elif kl in FORBIDDEN_BARE and not (sec and str(e.get("selective_logic") or "AND_ANY").upper() in ("AND_ANY", "AND_ALL")):
             warnings.append(f"KEY '{k}' removed from {title!r} (forbidden bare word)")
         else:
             kept.append(k)
@@ -104,7 +126,7 @@ for e in entries:
     if words < 60: warnings.append(f"SHORT ({words} words) {title!r}")
     order = e.get("order") if isinstance(e.get("order"), int) else 100
     if constant: order = max(order, 200)
-    logic = LOGIC.get(str(e.get("selective_logic", "AND_ANY")).upper(), 0)
+    logic = LOGIC.get(str(e.get("selective_logic") or "AND_ANY").upper(), 0)
     final.append({
         "title": title, "keys": keys, "sec": sec, "logic": logic, "content": content, "constant": constant,
         "order": order, "cat": e["_cat"], "domain": e["_domain"], "words": words,
@@ -157,6 +179,7 @@ collisions = {k: v for k, v in keyuse.items() if len(v) > 2}
 total_words = sum(x["words"] for x in final)
 report = {
     "entries": len(final), "constant": sum(1 for x in final if x["constant"]), "files": len(files),
+    "final_domains": sorted(done_domains), "draft_fallback_domains": fallback_domains,
     "total_words": total_words, "approx_tokens": int(total_words * 1.35),
     "per_category": dict(collections.Counter(x["cat"] for x in final)),
     "key_collisions_gt2": collisions, "warnings": warnings,
