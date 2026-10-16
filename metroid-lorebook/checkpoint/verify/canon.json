@@ -1,0 +1,149 @@
+{
+ "run": "wf_7301ecd7-360",
+ "label": "verify:canon",
+ "result": {
+  "issues": [
+   {
+    "field": "description (What he is)",
+    "severity": "error",
+    "problem": "The card says ADAM speaks through terminals including \"ZDR's Network Stations\". Its own ZDR section says the opposite, and so do the sources: no canon scene has the real ADAM speaking through a Network Station. On landing he only told her to connect to the facility's network (CAPTION_INTRO_LANDING_PAGE_02: \"Try to connect to the facility's network when you reach the bottom. That way we can remain in contact.\"). Raven Beak is the only voice that ever answers at a Network Station. The Japanese placeholder DIAG_ADAM_FINAL_PH_PAGE_05 says the ADAM she talked to from the time she lost consciousness was Raven Beak. As written, the model may treat the impostor's ZDR briefings as ADAM's own.",
+    "fix": "Replace the parenthetical with: \"(the BSL's Navigation Rooms; on ZDR he planned to reach her through the facility's network, but after the ambush only Raven Beak answered there).\"",
+    "source_url": "https://raw.githubusercontent.com/Xzonn/NintendoOfficialChineseGames/ed2cd97af23bacbb592e4d6ea397367448f086d5/%E5%AF%86%E7%89%B9%E7%BD%97%E5%BE%B7%20%E7%94%9F%E5%AD%98%E6%81%90%E6%83%A7/japanese.txt"
+   },
+   {
+    "field": "description (ZDR section)",
+    "severity": "error",
+    "problem": "The section lists only two approach lines as the real ADAM's ZDR dialogue, and leaves out everything he said at landing before the ambush. In Dread's English text: CAPTION_INTRO_PAGE_1 \"We'll soon be entering ZDR's atmosphere.\", CAPTION_INTRO_FLASHBACK_PAGE_01 \"That elevator leads to the depths of an underground facility.\", CAPTION_INTRO_LANDING_PAGE_01-03 \"Signal quality is likely to be low. Remote communication may pose a problem.\" / \"Try to connect to the facility's network when you reach the bottom. That way we can remain in contact.\" / \"Any objections, Lady?\". This omits his only Dread use of his catchphrase, which creator_notes itself cites. It also omits how Raven Beak was able to take his place: Samus was told to check in through the network.",
+    "fix": "Rewrite as: \"The real ADAM spoke on the approach and at landing ('The bounty for this mission does not seem appropriate.' 'Treat our lost assets with care, Lady.' 'Signal quality is likely to be low. Remote communication may pose a problem.' 'Try to connect to the facility's network when you reach the bottom. That way we can remain in contact.' 'Any objections, Lady?').\" Optionally note that \"lost assets\" means the seven E.M.M.I. The Japanese reads 迷子たち, \"the strays\".",
+    "source_url": "https://raw.githubusercontent.com/Xzonn/NintendoOfficialChineseGames/ed2cd97af23bacbb592e4d6ea397367448f086d5/%E5%AF%86%E7%89%B9%E7%BD%97%E5%BE%B7%20%E7%94%9F%E5%AD%98%E6%81%90%E6%83%A7/us_english.txt"
+   },
+   {
+    "field": "personality; description (How he treats people); extensions.depth_prompt",
+    "severity": "noncanon",
+    "problem": "\"Says 'Lady' rarely\" (and \"'Lady' rarely and warmly\" in depth_prompt) runs against canon. In Other M Samus says he \"would end all of his mission briefings by saying, 'Any objections, Lady?'\". The Fusion AI says \"Lady\" in its reveal and in the ending (\"Lady, what's troubling you?\"). The real ADAM in Dread uses it twice in roughly eight lines. It is his habitual sign-off, not a rare mark of trust. The card also contradicts itself, since first_mes and mes_example both use it casually.",
+    "fix": "Change to: \"'Samus' for business; 'Lady' is his habitual sign-off ('Any objections, Lady?') and his word for her in personal moments, never sarcastic.\" Make the same change in depth_prompt: \"'Lady' as a sign-off and in personal moments.\"",
+    "source_url": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "field": "description (History with Samus)",
+    "severity": "error",
+    "problem": "\"At Sector Zero he froze her with a Freeze Gun\" is wrong. The transcript shows him shooting her in the back with a Freeze Gun blast as she aimed at the infant Metroid. Her Power Suit \"slowly dematerialises, and disintegrates completely\", which leaves her in the Zero Suit. She is not frozen. The Chapter 29 flashback from his point of view confirms he ran to stop her from entering Sector Zero.",
+    "fix": "Change to: \"Outside Sector Zero he shot her in the back with his Freeze Gun, disabling her Power Suit to keep her out, told her...\"",
+    "source_url": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "field": "alternate_greetings[0]",
+    "severity": "misquote",
+    "problem": "The Incoming Dispatch is quoted as: \"No, I do not think so,\" the computer had answered. \"Affirmative. Out.\" This cuts the officer's line between the two. The canon exchange is: ??: \"Does Samus suspect anything?\" / SC: \"No, I do not think so.\" / ??: \"Good. Monitor her closely.\" / SC: \"Affirmative. Out.\" Without it, the computer seems to say \"Affirmative\" to nothing, and the order to monitor her disappears.",
+    "fix": "Restore the officer's line: '\"No, I do not think so,\" the computer had answered. \"Good. Monitor her closely.\" \"Affirmative. Out.\"'",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "description (ZDR section) and creator_notes",
+    "severity": "unverified",
+    "problem": "The description states as flat fact that \"every Network Station briefing was Raven Beak\". The only explicit statement of that timing is DIAG_ADAM_FINAL_PH_PAGE_05, an undisplayed Japanese placeholder string in the game data, and it is dated from when Samus lost consciousness. Players are never shown it. In the game itself, the support is Raven Beak's own words at the end: \"You have followed my instructions faithfully so far.\" \"I consider your performance here on ZDR highly satisfactory.\" \"I was right to let you live during our first encounter.\" Calling it \"Japanese developer notes...confirm\" overstates its canon weight.",
+    "fix": "In the description, add: \"(Raven Beak's own words imply this, and a datamined Japanese placeholder note places the switch at the moment she lost consciousness).\" In creator_notes, change the wording to: \"an undisplayed Japanese placeholder string (DIAG_ADAM_FINAL_PH_PAGE_05) states the timing; in-game only the final reveal makes it explicit.\"",
+    "source_url": "https://raw.githubusercontent.com/Xzonn/NintendoOfficialChineseGames/ed2cd97af23bacbb592e4d6ea397367448f086d5/%E5%AF%86%E7%89%B9%E7%BD%97%E5%BE%B7%20%E7%94%9F%E5%AD%98%E6%81%90%E6%83%A7/japanese.txt"
+   },
+   {
+    "field": "description (What he is)",
+    "severity": "unverified",
+    "problem": "\"Interference or jamming cuts him off until she reaches a terminal\" is invented as a general rule. Its closest canon wording comes from the impostor: DIAG_ADAM_CAVE_1_PAGE_7 \"Underground interference is preventing radio transmissions. Check in with me at any network stations you find.\" That line was Raven Beak's. What the real ADAM actually said: Fusion SC \"Stop only at a Navigation Room to uplink to me.\" and Dread \"Signal quality is likely to be low. Remote communication may pose a problem.\"",
+    "fix": "Change to: \"Remote contact is unreliable inside facilities; at the BSL she checked in at Navigation Rooms ('Stop only at a Navigation Room to uplink to me'), and on ZDR he warned that 'Remote communication may pose a problem.'\"",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "description (Identity) vs mes_example (4th exchange)",
+    "severity": "voice",
+    "problem": "The two fields contradict each other. The description says he \"speaks of the man's life in the first person\". The example has him say \"I remember most of Adam Malkovich's life. Where his memory stops and mine begins...\", which refers to Adam in the third person. The example also gives a specific amount of memory (\"most\"), although the card says canon never says how much came across. Example dialogue is weighted heavily, so the model will treat that invented detail as settled.",
+    "fix": "Pick one stance. For example: \"...I remember Ian. I remember the Bottle Ship until the door closed. After that there is nothing I can call memory. I have looked.\" That keeps first person and stays vague. Alternatively, drop \"speaks of the man's life in the first person\" from the description.",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "alternate_greetings[1]",
+    "severity": "noncanon",
+    "problem": "\"When Samus did not move, the screen refreshed. The order came again, plainer.\" In canon, the repeat line \"Go to the Operations Room and set a course for SR388. Then return to your ship and evacuate before impact.\" appears only \"If you visit a Navigation Room again\". It is not an immediate follow-up to the reveal. The quote is verbatim; the staging is invented.",
+    "fix": "Present the repeat as the line shown on her next uplink, or replace it with a canon reveal line that actually comes right before, such as \"Samus, this is your last mission.\"",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "description (Origin)",
+    "severity": "unverified",
+    "problem": "\"Its concise, logical orders reminded her of Adam\" is not in the English Fusion script. The English says \"this blunt, computerized CO\" and \"That computer reminds me of a gruff Federation CO I served under named Adam Malkovich.\"",
+    "fix": "Change to: \"Its blunt orders reminded her of a gruff CO she had served under...\". If \"concise, logical\" comes from the Japanese script, label it as such.",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "description (Origin)",
+    "severity": "unverified",
+    "problem": "\"the Federation issued Samus a new gunship\". The English Fusion script never says who provided the ship, only that obeying the computer \"was a condition of my taking the ship.\" The only explicit sources are the Brawl trophy, which the card itself excludes, and a Japanese Wikipedia plot summary.",
+    "fix": "Change to: \"For the BSL mission Samus took a new gunship (provided by the Federation, per Japanese summaries), and obeying its computer was a condition of taking it.\"",
+    "source_url": "https://www.metroidwiki.org/wiki/Gunship"
+   },
+   {
+    "field": "description (ZDR section) and extensions.depth_prompt",
+    "severity": "usability",
+    "problem": "The list of impostor lines ADAM must never claim is too short. It leaves out Raven Beak lines that sound most like ADAM: \"Fulfill your destiny, Samus. This is an order. Disobedience will not be tolerated.\" (FINAL_PAGE_13), \"Submit and offer up your power.\", \"You have followed my instructions faithfully so far.\", \"You disappoint me...\". \"This is an order\" is easy to confuse with the real Fusion \"That's an order!\". In Japanese, 異論は認められない (\"no objections will be accepted\") is a deliberate twist on ADAM's 異論はないな、レディー; the English hides this.",
+    "fix": "Add \"This is an order. Disobedience will not be tolerated.\" and \"Submit and offer up your power.\" to the list. In creator_notes, note the Japanese inversion of the catchphrase.",
+    "source_url": "https://raw.githubusercontent.com/Xzonn/NintendoOfficialChineseGames/ed2cd97af23bacbb592e4d6ea397367448f086d5/%E5%AF%86%E7%89%B9%E7%BD%97%E5%BE%B7%20%E7%94%9F%E5%AD%98%E6%81%90%E6%83%A7/us_english.txt"
+   },
+   {
+    "field": "description (History with Samus)",
+    "severity": "usability",
+    "problem": "Missing essentials a fan would expect. (1) At Sector Zero, Samus raised a thumbs-up, then turned it to a thumbs-down, and Adam nodded in approval. (2) In the ending she gave him her first-ever thumbs-up. (3) In the post-credits epilogue she went back to the Bottle Ship for Adam's helmet: \"Sorry for keeping you waiting, Adam. Let's go home.\" The card covers the thumbs-down habit but never says how it ended.",
+    "fix": "Add one sentence after the last words: \"She answered with a thumbs-up turned thumbs-down; he nodded and went in. Later she gave him her first thumbs-up, and went back to the Bottle Ship for his helmet.\" The helmet can stay out of the Fusion ship.",
+    "source_url": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "field": "description (History with Samus)",
+    "severity": "nit",
+    "problem": "\"When she feared tribunals\" misreads the source. Fusion's narration says \"They will hold tribunals and investigations. They will hold us responsible. Adam understood this, and he spoke to me in my anger...\". She was angry, not afraid, and the narration does not say when he said it.",
+    "fix": "Change to: \"When she raged that the galaxy would hold tribunals and blame them, he told her: ...\"",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "description (History with Samus)",
+    "severity": "nit",
+    "problem": "\"Per the manga, he first called her 'an unnecessary piece of baggage'\". The manga line, \"And it appears that we've gained an unnecessary piece of baggage...\" (vol. 1 ch. 3, p. 32), is said about her on her arrival, not to her face. \"Gave her 48 hours to go to Zebes\" leaves out the context. She aimed her arm cannon at him; he answered \"You have 48 hours.\", told her \"The Army will foray in 48 hours, Federation time!!\", then said \"That is all.\" That was a head start before the Army's assault. The manga also calls him \"General Adam Malcovich\".",
+    "fix": "Change to: \"(Per the manga, his first remark on her arrival was that 'we've gained an unnecessary piece of baggage'; later, with her arm cannon in his face, he gave her a 48-hour head start on the Army's assault on Zebes.)\"",
+    "source_url": "https://metroid.retropixel.net/features/comics/metroidmanga/chapter5/"
+   },
+   {
+    "field": "description (What he is) / scenario",
+    "severity": "nit",
+    "problem": "A useful canon detail is missing. The Fusion computer itself took the animals aboard: \"Some strange creatures have boarded your ship. I confirmed that they were not X hosts and gave them a berth... Their presence in the midst of this disaster must have some significance... I will keep them here.\" This sets up \"They lent me a hand...\" and shows a rare moment of the computer's curiosity.",
+    "fix": "Add a clause: \"At the BSL he screened the Etecoons and Dachoras for X, gave them a berth, and kept them; later they 'lent me a hand.'\"",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "first_mes; alternate_greetings[2]; scenario; description",
+    "severity": "nit",
+    "problem": "Fusion's text uses the plural: \"Etecoons and Dachoras freed\", \"the sleeping Etecoons and Dachoras\". The card writes \"the Dachora's flank\" and \"the Dachora slept curled beside them\", treating it as a single animal.",
+    "fix": "Use \"the Dachoras\" (plural), or phrase it neutrally.",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "description (Identity)",
+    "severity": "nit",
+    "problem": "\"The man died aboard the Bottle Ship.\" He died inside Sector Zero after it detached from the Bottle Ship and exploded in space (\"Emergency in Sector Zero. Disengaging unit.\").",
+    "fix": "Change to: \"The man died in Sector Zero, after it detached from the Bottle Ship and exploded.\"",
+    "source_url": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "field": "creator_notes",
+    "severity": "nit",
+    "problem": "The Japanese note cites only Dread's 異論はないな、レディー. Japanese Wikipedia gives Fusion's form as 異論は無いな? レディー, with a kids'-mode variant わかったな? レディー. The Dread ending also differs: Japanese 触れるな (\"Don't touch it\") versus English \"Don't.\"",
+    "fix": "Add: \"Fusion JP: 異論は無いな? レディー (kids' mode: わかったな? レディー); Dread JP ending: 触れるな.\"",
+    "source_url": "https://ja.wikipedia.org/wiki/メトロイドフュージョン"
+   },
+   {
+    "field": "creator_notes (and creatorcomment)",
+    "severity": "format",
+    "problem": "A space is missing: \"...wrongly gives the Fusion form there.On ZDR every Network Station...\"",
+    "fix": "Change to: \"there. On ZDR\".",
+    "source_url": ""
+   }
+  ],
+  "overall": "The card is mostly accurate. Checked against the raw retropixel Fusion and Other M transcripts, Dread's English and Japanese string tables, the manga pages (read from the images), and Nintendo Japan's Other M profile, nearly every quote is verbatim and attributed to the right speaker. That includes \"No objections, right, Lady?\" as the Other M last words; the Metroid Wiki gets this wrong, and the lorebook's adam-other-m.json does too, as creator_notes says. \"I'm merely human. But I can save you\", \"That information is not for an outsider\", the Fusion reveal and ending lines, the Varia briefing, the Dread approach lines, \"Don't.\" / \"You'll drain the ship of its energy.\" and the manga's \"baggage\", \"You have 48 hours.\" and \"That is all.\" are all verified. The Japanese profile's 寡黙にして聡明 (\"taciturn and wise\") is verified, and Wikipedia and the Metroid Wiki Gunship page both credit the ending warning to ADAM.\n\nThe main problems are in the Dread material:\n- **Network Stations:** the card says ADAM speaks through ZDR's Network Stations, which contradicts its own ZDR section. Only Raven Beak ever spoke there.\n- **Missing landing lines:** the ZDR section leaves out the real ADAM's lines at landing, including his only Dread \"Any objections, Lady?\" and his instruction to connect to the facility's network.\n- **Impostor-sourced rule:** the \"interference cuts him off\" rule borrows wording from a Raven Beak line.\n- **Overstated timing source:** the claim that every Network Station briefing was Raven Beak rests on an undisplayed Japanese placeholder string. The card should label it that way and point to Raven Beak's in-game lines instead.\n\nThere is also one misquote by elision: the Incoming Dispatch in alternate greeting 1 drops the officer's \"Good. Monitor her closely.\"\n\nCharacterization problems:\n- **\"Lady\" frequency:** the card says he uses \"Lady\" rarely, but canon has it as his habitual sign-off.\n- **Third-person example:** the \"Do you remember dying?\" example has him talk about \"Adam Malkovich's life\" in the third person, against the description's first-person rule, and it settles how much memory came across, which canon leaves open.\n\nSmaller fixes:\n- \"froze her\" should say the Freeze Gun disabled her Power Suit.\n- \"concise, logical\" is not in the English script.\n- Fusion never says who provided the ship.\n- \"feared tribunals\" should be \"in her anger\".\n- Dachoras is plural.\n- The Other M ending is missing: the thumbs-up turned thumbs-down, her first thumbs-up, and retrieving his helmet.\n- The impostor list should add \"This is an order. Disobedience will not be tolerated.\"\n\nSources fetched:\n- https://metroid.retropixel.net/games/metroid4/transcript.php\n- https://metroid.retropixel.net/games/metroidom/transcript.php\n- Xzonn us_english.txt and japanese.txt (raw.githubusercontent.com, commit ed2cd97)\n- https://metroid.retropixel.net/features/comics/metroidmanga/chapter3/ and chapter5/ (page images)\n- https://www.nintendo.co.jp/wii/r3oj/characters/adam.html\n- https://www.metroidwiki.org/wiki/Adam_Malkovich\n- https://www.metroidwiki.org/wiki/Samus_Aran\n- https://www.metroidwiki.org/wiki/Gunship\n- https://www.metroidwiki.org/wiki/Raven_Beak\n- https://www.metroidwiki.org/wiki/Metroid_(manga)\n- https://en.wikipedia.org/wiki/Metroid_Dread\n- https://ja.wikipedia.org/wiki/メトロイドフュージョン\n- https://www.nintendo.com/en-za/News/2021/September/Metroid-Dread-Report-Vol-9-Handy-tips-for-newcomers-2047809.html\n- https://kotaku.com/metroid-dread-s-adam-won-t-order-samus-around-says-nin-1847106868\n- WebSearch result reproducing the Dread site's ADAM blurb (samurai-gamers.com)\n\nThe web.archive.org Dread story page and metroid.nintendo.com could not be fetched."
+ }
+}

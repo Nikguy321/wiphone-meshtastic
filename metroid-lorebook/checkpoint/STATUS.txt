@@ -4,6 +4,7 @@ adam-other-m: draft, verify
 bestiary-2d: draft, verify, revise
 bestiary-prime: draft, verify, revise
 bestiary-tech: 
+canon: verify
 card: 
 chozo: draft, verify, revise
 dark-samus: draft, verify, revise
@@ -41,6 +42,7 @@ super-metroid: draft, verify, revise
 tech: draft, verify, revise
 timeline: draft, verify, revise
 timeline-prime: 
+voice: verify
 weapons: draft, verify, revise
 what-when: 
 who-where: 

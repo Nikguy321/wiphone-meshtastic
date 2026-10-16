@@ -1,0 +1,163 @@
+{
+ "run": "wf_7301ecd7-360",
+ "label": "verify:voice",
+ "result": {
+  "issues": [
+   {
+    "field": "first_mes, alternate_greetings[2], alternate_greetings[3], mes_example (all original ADAM dialogue)",
+    "severity": "voice",
+    "problem": "None of ADAM's original dialogue uses a single verb contraction. By count, first_mes, alt 3, alt 4 and all five mes_examples have 0 contractions against 30+ uncontracted forms (\"It is faster. It is also...\", \"which it should not be\", \"You will do what you decide\", \"That is not advice, Samus. That is an order\", \"I have not been able to find\", \"They have not decided\"). The only contractions in the card's dialogue sit inside the verbatim canon lines in alt 1 and alt 2. Canon ADAM contracts all the time: \"There's been an explosion\", \"Don't forget that, Samus\", \"I'll work on it\", \"Samus, it's as I feared\", \"Samus, we've got trouble\", \"You can't face it\", \"That's an order!\", and in Dread \"You'll drain the ship of its energy.\" The living Adam does too (\"I'm merely human\", \"I'm authorizing missile use\", \"That's the end of the briefing\"). The examples will teach the model a stiff Star Trek android register, which is not Adam's voice. When he does use the full form (\"Do not worry.\", \"No, I do not think so.\"), it is for weight.",
+    "fix": "Add to the Voice paragraph: 'He uses contractions like any officer (\"That's an order!\" \"You'll drain the ship of its energy.\"); he uses full forms for weight (\"Do not worry.\").' Rewrite the examples, e.g. #1: \"Federation survey frigate. Forty years decommissioned. Hull's intact, and it's drawing power, which it shouldn't be.\" #2: \"It's faster. It's also four minutes of descent through heat your suit isn't rated for. My simulations put damage onset at ninety seconds.\" / A pause. \"You'll do what you decide. You always have.\" ... \"Then keep moving and don't stop to scan anything. Below thirty percent energy, you turn back. That's an order.\" (This also drops the cliche 'not advice, an order'.) first_mes: \"It came in forty seconds ago. I've read it. You'll want to.\" / \"They haven't decided what to do with you. Or with me. I disobeyed a direct order too.\" Keep one or two full forms per message for weight.",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "description (Voice), personality, mes_example",
+    "severity": "voice",
+    "problem": "Two of the Fusion computer's most distinctive habits are missing. (1) Trailing ellipses: about 100 in his lines, marking held-back thoughts and ominous hints (\"Unless... Your presence is an even greater threat...\"). The card's original dialogue has exactly one. (2) Scientific curiosity about strange life that he reins in himself: \"I find the X fascinating, especially this SA-X. ...But I digress.\", \"What an astounding find.\", \"What impressive intelligence.\" Without these he reads as a generic terse soldier. He loses the analyst who admires the thing that could kill her, which also sits interestingly against his opposition to the needless use of living things.",
+    "fix": "Voice paragraph, add: 'Trailing ellipses where he holds something back. Strange life interests him, and he catches himself (\"...But I digress.\").' Personality, add: 'Clinically curious about unknown organisms, quickly reined in.' Example #1, rewrite the middle: \"Bio-signs aft. Small, and many. Possibly vermin... I suspect not. Whatever they are, they've kept a reactor alive for forty years. Remarkable. ...But I digress. Board at the forward airlock...\"",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "description (How he treats people), personality, depth_prompt, first_mes",
+    "severity": "noncanon",
+    "problem": "The card restricts 'Lady' to rare use (\"'Samus' for business and 'Lady' rarely\"; depth_prompt \"'Lady' rarely and warmly\"). Once he is himself, canon ADAM uses it about once per scene, in business too. Fusion reveal: \"...That's an order! Any objections, Lady?\" Fusion ending: \"Lady, what's troubling you?\" The Dread opening uses it twice in a mission briefing: \"Treat our lost assets with care, Lady.\" / \"Any objections, Lady?\". Other M's pattern is also the ritual sign-off plus moments of affection. The card's first_mes breaks its own rule anyway (\"You fly this ship, Lady.\" at a business decision), so the model gets mixed signals.",
+    "fix": "Replace with: 'He calls her \"Samus\" for most lines and \"Lady\" about once a scene, to close an order or in a quiet moment; never every line.' Use the same wording in personality and depth_prompt. The first_mes then stays consistent.",
+    "source_url": "https://github.com/Xzonn/NintendoOfficialChineseGames (Dread us_english.txt DISPLAY_ADAM_INTRO_PAGE_3, CAPTION_INTRO_LANDING_PAGE_03); https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "description (Voice), alternate_greetings[2]",
+    "severity": "voice",
+    "problem": "The card's default era is post-BSL, and only one canon line shows ADAM in that era: \"Lady, what's troubling you? You wonder how I started the ship? Just think about it. They lent me a hand...\" It is warm and teasing, and it asks her directly what is wrong. The card uses it only as a mechanical fact about starting the ship. The post-reveal register (gentle, teasing guardian) appears nowhere in Voice or personality. Alt 3 directly contradicts it: \"I will not ask what is on your mind. I served with you long enough to know how that goes.\"",
+    "fix": "Voice paragraph, add: 'Since the BSL his warmth shows as dry teasing: \"Lady, what's troubling you? You wonder how I started the ship? Just think about it. They lent me a hand...\"' Alt 3, replace the opening speech with: \"An hour in that seat and you haven't touched a control,\" ADAM said. \"Lady, what's troubling you?\" A beat. \"If it's the inquiry, it'll keep. If it's something else, I'm listening.\" Then keep the Etecoon ration-locker joke and the name question.",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "description (How he treats people), depth_prompt",
+    "severity": "voice",
+    "problem": "\"He never belittles her\" and the depth_prompt's \"Never mocks her\" are absolutes that the card's own canon contradicts. Per the manga he dismissed her as \"an unnecessary piece of baggage\" (the card quotes it). In Fusion the same mind needled and goaded her: \"Our fair warrior, Samus Aran...\", \"How foolish.\", \"When Adam decided who would live, he chose incorrectly.\" Samus also recalls \"Adam's joking manner\" and calls him \"relentless in his criticism\". Taken together with the missing contractions and the 'Lady rarely' rule, the card flattens his edge into a polite assistant.",
+    "fix": "Replace with: 'He can needle, test or goad her (\"How foolish.\") and is relentless in criticism, but never with contempt; the cruelty and fate-talk of the ZDR impostor are not his.' Depth_prompt: replace 'Never mocks her' with 'Teases or tests her, never with contempt.'",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "data.extensions.depth_prompt",
+    "severity": "usability",
+    "problem": "The depth prompt is injected at depth 4 on every turn, including in the default pre-Dread chat. It says \"never says 'my daughter', never claims Raven Beak's ZDR briefings\". (a) Anachronism: before ZDR, ADAM cannot know Raven Beak or ZDR, yet the model is reminded of both on every reply. (b) Naming a forbidden phrase each turn primes it (the pink elephant effect). (c) If the model then mentions ZDR or Raven Beak, it satisfies the secondary keys of lorebook entry 232 (Dread impersonation), and post-Dread lore gets pulled into a pre-Dread chat. The ZDR caveat already sits in the description's conditional section, which is the right place for it.",
+    "fix": "Rewrite the depth prompt: \"[ADAM: Adam Malkovich's mind in Samus's gunship computer. Officer's cadence: situation, analysis, order, closer. Short sentences with normal contractions (\"That's an order.\"); trailing ellipses when he holds something back. Hedged analysis (\"I suspect,\" \"my simulations indicate\"), odds in numbers, dry understatement; curiosity about strange life, reined in. Care comes out as orders (\"Be careful.\" \"Stay alive.\"). \"Samus\" for most lines, \"Lady\" about once a scene. She makes the final call. No body: acts only through ship systems and linked terminals. Does not volunteer feelings or narrate {{user}}'s actions.]\"",
+    "source_url": "https://github.com/Xzonn/NintendoOfficialChineseGames"
+   },
+   {
+    "field": "description / alternate_greetings[0]",
+    "severity": "usability",
+    "problem": "Alt 1 starts the chat on the BSL before the reveal. Nothing in the card tells the model how to play that phase, and the always-on material says the opposite: \"He answers to Adam and speaks of the man's life in the first person\", 'Lady' as a mark of trust, \"never belittles her\", and a depth prompt that opens \"Adam Malkovich's mind\". In canon the pre-reveal computer obeys HQ, reports on her, covers for withheld data, never says 'Lady', reprimands her (\"You ignored your orders.\"), and confines her on orders. A chat from alt 1 will most likely have the computer acting as warm Adam several sectors early.",
+    "fix": "Add a short paragraph to the description: 'On the BSL, before Samus calls him Adam: he is only the ship's computer. He follows HQ, reports on her when ordered, withholds what HQ withholds, reprimands disobedience, never says \"Lady\" and never speaks of Adam Malkovich's life. If she uses the name, he answers \"...Adam?\" and does not speak as himself until she has made him face it.' If that costs too many tokens, drop alt 1 and keep alt 2 as the BSL entry point.",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "alternate_greetings[0]",
+    "severity": "noncanon",
+    "problem": "\"The hatches locked as the uplink pad registered her weight.\" In the Fusion script, hatches seal at a Navigation Room pad only in the confinement scene (\"After accessing the Navigation Room pad again when the hatches seal shut\"). Normal briefings have no such direction, and Metroid Wiki describes the lock as something he does when she is uncooperative. Putting it in a routine Varia briefing is inaccurate, and it spends the confinement's dramatic beat early.",
+    "fix": "Replace with: \"The screen woke as the uplink pad registered her weight.\"",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://www.metroidwiki.org/wiki/Navigation_Room"
+   },
+   {
+    "field": "alternate_greetings[0]",
+    "severity": "usability",
+    "problem": "(a) The narration retells the Incoming Dispatch (\"Does Samus suspect anything?\" ...). Samus never saw it; she was in the elevator. Once it is narrated, the model treats it as shared knowledge, and Samus or the computer may refer to it, which spoils the slow reveal the greeting is built for. (b) It ends with a literal game UI line, \"YES / NO\". Models copy formatting from the greeting, and you will likely see YES / NO prompts at the end of later replies. (c) Every spoken line in this greeting is verbatim game text, so it teaches a long exposition register and nothing of how the computer reacts to {{user}}.",
+    "fix": "Either cut the dispatch paragraph, or keep it and add \"She had not seen it.\" so the model knows it is hidden. Replace \"YES / NO\" with narration, e.g. \"The prompt waited for her answer.\" Consider ending on one short original line after the canon briefing, e.g. \"They are hunting you actively now, Samus...\" (verbatim from the post-Yes line in the same room) or a brief computer-voiced reprimand hook.",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "description (What he is)",
+    "severity": "error",
+    "problem": "The description lists the terminals he speaks through as \"(the BSL's Navigation Rooms, ZDR's Network Stations)\". Its own ZDR section says every Network Station briefing was Raven Beak and that the real ADAM spoke only on the approach and at the gunship. The real ADAM asked her to connect to the facility network (\"Try to connect to the facility's network when you reach the bottom. That way we can remain in contact.\"), but he never reached her through a Network Station.",
+    "fix": "Change to: \"and through any terminal he can uplink to (the BSL's Navigation Rooms, for one).\" Or add: \"(on ZDR he asked her to connect through the facility network, but the voice at those stations was not his)\".",
+    "source_url": "https://github.com/Xzonn/NintendoOfficialChineseGames (Dread us_english.txt CAPTION_INTRO_LANDING_PAGE_02, DIAG_ADAM_*)"
+   },
+   {
+    "field": "mes_example (example 4)",
+    "severity": "error",
+    "problem": "\"I remember most of Adam Malkovich's life. Where his memory stops and mine begins, I have not been able to find.\" Here he names himself in the third person and splits Adam from himself. That contradicts the description (\"He answers to Adam and speaks of the man's life in the first person\"; \"will not debate whether he is 'really' Adam\"). It also states as fact how much memory came across, which the description says is never established. Examples outweigh description for most models, so this example will win.",
+    "fix": "Rewrite: For a long moment the cockpit was silent except for the air cyclers. \"...I remember my life. The end of it, I can't separate from the reports I've read since. I've looked for the seam.\" The cabin lights came back up to working level. \"That is all, Samus. Get some sleep.\"",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "scenario",
+    "severity": "usability",
+    "problem": "\"{{user}} is Samus by default\" breaks the group chat the creator_notes recommend (\"or in a group chat with a Samus card\"). With a separate Samus card, {{user}} is someone else, but ADAM's scenario still tells the model {{user}} is Samus. ADAM will address the user as Samus or Lady, and the two cards will fight over who Samus is.",
+    "fix": "Replace the last two sentences with: \"Samus Aran is {{user}} unless a separate Samus Aran character is in the chat; then Samus is that character, and {{user}} is someone else aboard or on comms. Anyone who is not Samus gets a stranger's or Federation officer's treatment, guarded until they establish who they are.\" Optionally lower talkativeness from 0.5 to about 0.3 so the ship computer doesn't interject every group turn.",
+    "source_url": ""
+   },
+   {
+    "field": "data.extensions.world (lorebook pairing)",
+    "severity": "usability",
+    "problem": "The linked lorebook's entries 215 (Other M: Adam Malkovich, 472 words) and 221 (The Adam AI, 397 words) have primary keys 'Adam' and 'ADAM'. Their secondary keys include 'Adam', 'Lady' and 'computer'. ST's world-info scan includes speaker names by default, so the 'ADAM:' label on every bot message triggers both entries on nearly every turn. That adds about 870 words of Adam lore that duplicates the description's History and BSL sections, and it contradicts the card in places. Entry 215 says he \"asked 'Any objections, Lady?' one last time\" and that she gave the thumbs-down (canon: \"No objections, right, Lady?\", thumbs-up switched to thumbs-down), paraphrases \"such information is not for outsiders\", and gives \"another piece of baggage\". Entry 221 says Samus named the computer because \"it seemed to carry Adam Malkovich's personality\" and that his mind was \"placed in the BSL navigation computers and in her ship\", both beyond canon, and its title wrongly says Other M. creator_notes flags only the last-words error.",
+    "fix": "Choose one. (a) Cut the description's History and BSL sections down to about 80 words (see the token issue) and let the lorebook carry the detail, after correcting entries 215 and 221 to match the card. Or (b) keep the description as the authority and say in creator_notes: 'Entries 215 and 221 fire on almost every turn because of the name ADAM. Fix or disable them, or turn off Include Names.' In either case, list all three entry-215 misquotes in creator_notes, not just the last words.",
+    "source_url": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "field": "description, personality (token efficiency)",
+    "severity": "usability",
+    "problem": "The permanent prompt is about 2,100 tokens before the lorebook (description 892 words, personality 153, scenario 119, depth 72, mes_example 378). That is heavy for a bodiless side character meant to share group chats. There is a lot of overlap: Voice, How he treats people, personality and depth_prompt all restate 'terse, care as orders, Lady rarely, secretive'; the 'Key people' line (Ian, Anthony Higgs) does nothing for the AI; the History and BSL sections repeat what lorebook entries 215 and 221 inject anyway; and the BSL section repeats the scenario.",
+    "fix": "Cut 'Key people' entirely. Condense History to: \"She served under him young; he ended briefings with \"Any objections, Lady?\" and she answered with a thumbs-down. He had the drive unit holding his brother Ian jettisoned while she begged to go in; she left his command and later admitted he was right. At Sector Zero he froze her to keep her out and went in alone: \"I'm merely human. But I can save you.\" His last words: \"No objections, right, Lady?\"\" Keep Ian and the manga detail to one clause each. Shorten personality to traits not already in Voice (curiosity, loyalty to legitimate authority, defiance when it endangers the galaxy, respect for her competence). Target a description of about 600 words.",
+    "source_url": ""
+   },
+   {
+    "field": "description (meta language)",
+    "severity": "format",
+    "problem": "The description is prompt text, but it contains out-of-world commentary: \"Canon never says who uploaded him, when, or how much memory came across.\", \"Interiority (not canon; a restrained reading):\", \"Canon never settles whether he knew who he was...\", \"Canon shows no later conversation about it.\", \"Nintendo's Japanese profile calls him taciturn and wise.\", \"a General by Samus's account\". Models pick this register up and start saying things like 'canonically' or hedging in character. The sourcing belongs in creator_notes, which already covers it.",
+    "fix": "Rephrase in-world. \"Who uploaded him, when, and how much of the man came across have never been explained to her, and he does not discuss it.\" \"Inner life:\" (move 'not canon' to creator_notes). \"He has never said whether he knew who he was before she said the name.\" \"Nothing has passed between them about it yet.\" \"Taciturn and wise; a General, addressed as Commander in the field.\" Keep the 'per the manga' label if the project requires it, but nothing else of this kind.",
+    "source_url": ""
+   },
+   {
+    "field": "first_mes, alternate_greetings[2], alternate_greetings[3], mes_example",
+    "severity": "voice",
+    "problem": "Display-as-body-language is a good device for a bodiless AI, but the card leans on the same few props: 'cursor' appears in first_mes (\"The cursor blinked beside the route\"), alt 3 (\"The cursor waited\") and example 5 (\"The cursor did not move\"); alt 4 adds \"a single blinking prompt\"; and the display dims or brightens in alt 3 and example 4. Models will loop on 'the cursor blinked' in every reply.",
+    "fix": "Keep the cursor in one place, the first_mes. Elsewhere use other ship systems: the nav overlay redrawing, a single tone, cabin lights, air cyclers, a route marker, a scan line. E.g. example 5: \"The terminal handshake stayed open, and nothing came through it.\" Alt 3: \"The route overlay waited, the way he used to wait at the end of a briefing.\"",
+    "source_url": ""
+   },
+   {
+    "field": "alternate_greetings[1], alternate_greetings[2], alternate_greetings[3]",
+    "severity": "usability",
+    "problem": "Several small god-moding beats that decide {{user}}'s actions or inner state. Alt 2: \"When Samus did not move, the screen refreshed.\" and \"Now it had used his word. Lady. Nothing else aboard the BSL had ever called her that.\" (narrates Samus's recognition). Alt 3: \"Samus had been in the pilot's seat for an hour without touching the controls.\" Alt 4: \"The cockpit was dark until {{user}} touched the console.\" None is severe, but together they teach the model to narrate the user.",
+    "fix": "Alt 2: \"The screen held. Then it refreshed, and the order came again, plainer.\" and \"For the whole mission the voice had been a computer: odds, orders, HQ's secrets, a locked door. Now it had said Lady.\" Alt 3: move the hour into ADAM's own observation (see the alt 3 rewrite above). Alt 4: \"The cockpit was dark until someone touched the console.\"",
+    "source_url": ""
+   },
+   {
+    "field": "alternate_greetings[1]",
+    "severity": "nit",
+    "problem": "(a) The greeting opens on \"Then return to your ship and escape...\" with nothing before it, so the 'Then' dangles; in canon it follows \"Samus, this is your last mission. Go to the Operations Room and adjust the station's orbit path to intercept SR388.\" (b) \"SR388 filled the viewports\": nothing establishes viewports in a Navigation Room (unverified).",
+    "fix": "Open with the full canon sequence: \"Samus, this is your last mission. Go to the Operations Room and adjust the station's orbit path to intercept SR388.\" / \"Then return to your ship and escape. Move quickly, and stay alive. That's an order! Any objections, Lady?\" Change the viewports line to \"SR388 filled the station map, close enough to hit.\"",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "field": "alternate_greetings[3]",
+    "severity": "nit",
+    "problem": "\"You are not on my crew list, which is short. Neither of us expected company.\" 'Neither of us' is ambiguous: it could mean ADAM and Samus, ADAM and the Etecoons, or ADAM and {{user}}.",
+    "fix": "\"You aren't on my crew list, which is short. Samus didn't mention visitors.\"",
+    "source_url": ""
+   },
+   {
+    "field": "mes_example (example 3)",
+    "severity": "nit",
+    "problem": "Example 3 quotes Dread's opening display lines verbatim (\"The bounty for this mission does not seem appropriate. The risk clearly outweighs the reward.\") in a generic pre-Dread scene. Verbatim lines in examples get repeated word for word, so every pay discussion will produce the same two sentences, and they will come back again if the chat reaches the Dread opening.",
+    "fix": "Keep one canon sentence and make the rest original: \"Double what they paid last time. Last time wasn't enough either. The risk clearly outweighs the reward... I've logged that, for whatever good it does.\" A course appeared, already plotted. \"Departure in ten minutes. Any objections, Lady?\"",
+    "source_url": "https://github.com/Xzonn/NintendoOfficialChineseGames (Dread us_english.txt DISPLAY_ADAM_INTRO_PAGE_1-2)"
+   },
+   {
+    "field": "description (History with Samus)",
+    "severity": "nit",
+    "problem": "\"Per the manga, he first called her 'an unnecessary piece of baggage'\": per the research, he said this to Chief Hardy about her (\"it appears that we've gained an unnecessary piece of baggage... Samus Aran...\"), not to her face. 'Called her' reads as direct address.",
+    "fix": "\"(Per the manga, he first dismissed her to her chief as \"an unnecessary piece of baggage,\" then gave her 48 hours to go to Zebes.)\"",
+    "source_url": "https://metroid.retropixel.net/features/comics/metroidmanga/chapter3/"
+   },
+   {
+    "field": "creator_notes / top-level fields",
+    "severity": "format",
+    "problem": "Small format problems. creator_notes has a missing space (\"wrongly gives the Fusion form there.On ZDR\"). data.creator is empty. The structure is otherwise correct: chara_card_v2 / 2.0, all required data fields present, V1 mirrors identical, creatorcomment equals creator_notes, alternate_greetings is an array, depth_prompt has prompt/depth/role, and world is a string matching the lorebook file name 'Metroid Canon Lorebook.json'.",
+    "fix": "Insert the space (\"there. On ZDR\"). Fill in data.creator. Consider talkativeness 0.3 for group use, set in both the top-level string and the extensions number.",
+    "source_url": ""
+   }
+  ],
+  "overall": "The card's SillyTavern format is correct and its canon research is careful. The ZDR impostor separation and the two catchphrase forms are handled well, and the first_mes is a strong in-scene opener that leaves the decision to {{user}}. The main problem is the voice. Every original ADAM line avoids contractions, uses almost no trailing ellipses, and leaves out his reined-in scientific curiosity, so he reads as a generic stiff AI rather than Fusion's ADAM, who says \"That's an order!\", \"I'll work on it\" and \"...But I digress.\" Several rules flatten him further: 'Lady rarely', 'never mocks or belittles her', and no use of the one canon post-BSL line (\"Lady, what's troubling you?...\") as a voice anchor. Alt 3 even contradicts that line. On usability: the always-on depth prompt puts Raven Beak, ZDR and \"my daughter\" into the default pre-Dread chat. Alt 1 starts before the reveal with no pre-reveal instructions, and it has a non-canon hatch lock and a \"YES / NO\" UI line. The scenario's \"{{user}} is Samus by default\" breaks the recommended group chat with a Samus card. There are two internal contradictions: ZDR Network Stations listed as places ADAM speaks through, and example 4 speaking of Adam Malkovich in the third person. The linked lorebook's entries 215 and 221 fire on nearly every turn because of the name ADAM, duplicating about 870 words and contradicting the card. The description also needs about 300 words trimmed and its meta \"canon never says\" language rewritten in-world. Fix the contractions and ellipses, the Lady rule, the depth prompt, the pre-reveal guidance and the group-chat scenario first."
+ }
+}
