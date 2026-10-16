@@ -12,6 +12,7 @@ factions-recent-prime:
 federation: draft, verify, revise
 federation-force: draft, verify, revise
 fusion: draft, verify, revise
+fusion-ai: 
 gap1: draft, verify, revise
 gap2: draft, verify, revise
 gap3: draft, verify, revise
