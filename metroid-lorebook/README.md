@@ -6,6 +6,7 @@ A SillyTavern World Info ("lorebook") covering the canon lore of the Metroid ser
 **Files**
 
 - `Metroid Canon Lorebook.json` — the importable lorebook (270 entries, ~140k tokens of lore in total; only matching entries are inserted per message).
+- `characters/ADAM.json` — a SillyTavern character card for ADAM, the AI carrying Adam Malkovich's mind (see below).
 - `Metroid Canon Lorebook (readable).md` — the same entries as readable text, with trigger keys and the sources each entry was checked against.
 - `build/build_report.json` — build statistics and key-collision report.
 
@@ -82,6 +83,19 @@ Two entries are **constant** (always inserted, about 850 tokens together): a ~25
 - Entries are written in-universe (no "the player"/"boss" language). Game titles appear only as chronology tags.
 - `order` is higher for core entries (constants 200, Samus profile 150, timeline 140, major entities 110) so they win when the
   budget is tight; bestiary/index entries are 90.
+
+## Character card: ADAM
+
+`characters/ADAM.json` is a SillyTavern character card (V2) for ADAM, the gunship computer that carries the mind of
+Samus's former commanding officer, Adam Malkovich. Import it from the character panel (Import Character, choose the JSON).
+
+- **Default setting:** shortly after the BSL incident (Metroid Fusion), aboard Samus's gunship. {{user}} is Samus, or a
+  separate Samus card in a group chat. One alternate greeting starts on the BSL before the reveal; another works when
+  {{user}} is not Samus.
+- **Canon basis:** dialogue and facts checked against the Fusion and Other M scripts, Dread's game text and the manga.
+  Lines Raven Beak spoke while impersonating ADAM on ZDR are listed so ADAM never claims them.
+- **Lorebook link:** the card points at "Metroid Canon Lorebook", so it uses this lorebook automatically once imported under that name.
+- **Group chats:** lower talkativeness to about 0.3 if ADAM interjects too often.
 
 ## Things you may want to change
 

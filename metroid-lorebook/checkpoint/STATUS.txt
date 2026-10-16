@@ -5,7 +5,7 @@ bestiary-2d: draft, verify, revise
 bestiary-prime: draft, verify, revise
 bestiary-tech: 
 canon: verify
-card: 
+card: revise
 chozo: draft, verify, revise
 dark-samus: draft, verify, revise
 dread: draft, verify, revise
