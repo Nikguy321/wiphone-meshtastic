@@ -7,6 +7,7 @@ bestiary-tech:
 chozo: draft, verify, revise
 dark-samus: draft, verify, revise
 dread: draft, verify, revise
+dread-adam: 
 echoes: draft, verify
 factions-recent-prime: 
 federation: draft, verify, revise

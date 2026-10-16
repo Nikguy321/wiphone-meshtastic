@@ -1,0 +1,465 @@
+{
+ "run": "wf_7301ecd7-360",
+ "label": "research:dread-adam",
+ "result": {
+  "facts": [
+   {
+    "fact": "PRIMARY SOURCE NOTE: Metroid Dread's complete US English and Japanese game text (string tables) is mirrored on GitHub in Xzonn/NintendoOfficialChineseGames, folder '密特罗德 生存恐惧' (Metroid Dread), files us_english.txt and japanese.txt. They hold every ADAM string under the keys DISPLAY_ADAM_INTRO_*, CAPTION_INTRO_*, DIAG_ADAM_* (Network Station briefings), DIAG_ADAM_FINAL_* (Itorash) and CAPTION_ENDGAME_* (gunship). All Dread quotes in this report come from these files. A '|' in the strings is an in-game line break and is rendered here as a space; color tags such as {c1} were removed.",
+    "source": "https://raw.githubusercontent.com/Xzonn/NintendoOfficialChineseGames/ed2cd97af23bacbb592e4d6ea397367448f086d5/%E5%AF%86%E7%89%B9%E7%BD%97%E5%BE%B7%20%E7%94%9F%E5%AD%98%E6%81%90%E6%83%A7/us_english.txt (and .../japanese.txt)",
+    "confidence": "high"
+   },
+   {
+    "fact": "End of Metroid Fusion: Adam Malkovich's uploaded mind is the computer of Samus's gunship. In the final cockpit scene the ship's computer lights up and speaks to her as Adam ('Lady, what's troubling you?...'). Samus's closing monologue calls it 'My incredible reunion with Adam' and says she had 'no idea that the minds of leaders and scientists were frequently uploaded to computers.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://metroiddatabase.com/endings-metroid-fusion/",
+    "confidence": "high"
+   },
+   {
+    "fact": "Metroid Wiki states: 'Malkovich continues to exist as Samus's Gunship's computer at the end of Metroid Fusion.' On Dread it says only: 'Adam returns as an AI in the same capacity as in Metroid Fusion.'",
+    "source": "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+    "confidence": "high"
+   },
+   {
+    "fact": "In Fusion the computer belongs to the new gunship the Federation issued Samus. Her (English) narration: it 'reminds me of a gruff Federation CO I served under named Adam Malkovich... Out of respect and with some irony, I named the computer after him.' The transcript labels the computer 'SC' until the reveal and 'Adam' afterward.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "confidence": "high"
+   },
+   {
+    "fact": "Metroid Wiki describes the Fusion computer before the reveal: 'In the beginning, Malkovich, nothing more than a monitor screen, gave orders as a typical computer would: bluntly, with no feeling and a sole desire to complete objectives.'",
+    "source": "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+    "confidence": "high"
+   },
+   {
+    "fact": "How the Fusion reveal plays out: the computer seals the Navigation Room ('I have been ordered to confine you until the ships arrive'). Samus says 'Can't you see what will happen, Adam?' The computer asks '...Adam?... Who is Adam?', taunts her about Adam's sacrifice, then speaks as Adam and proposes altering the station's orbit to crash into SR388. Wikipedia: 'Samus realizes that the computer is the consciousness of Adam, uploaded after his death.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "confidence": "high"
+   },
+   {
+    "fact": "Before the reveal, the Fusion computer took orders from Federation HQ and reported on Samus in secret. In an 'Incoming Dispatch' a Federation officer asks 'Does Samus suspect anything?' and the computer answers 'No, I do not think so.' It also admitted that HQ had withheld the Plasma Beam data to keep her from engaging the SA-X.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "What the Fusion computer could do: unlock station hatches, seal Samus inside a Navigation Room, restore power to the Main Elevator, mark targets on her map, relay HQ's downloadable data, run simulations, read bio-signs, and admit the Etecoons and Dachoras to the ship ('gave them a berth... I will keep them here'). She reached it from the station's Navigation Rooms ('Stop only at a Navigation Room to uplink to me') and inside her ship ('Samus, return to your ship. I have important information.').",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "ADAM cannot physically operate the ship alone. Samus: 'This ship can only be started manually. Yet, before I faced the Omega Metroid, the ship moved on its own.' Adam explains that the rescued creatures 'lent me a hand', meaning the Etecoons and Dachoras worked the controls (the transcript notes them sleeping in the cockpit).",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "confidence": "high"
+   },
+   {
+    "fact": "Nintendo of America's official Metroid Dread site (Story page, 'Character intel') describes him: 'ADAM: The computer onboard Samus' ship. While Samus ultimately calls the shots, ADAM may have helpful info to share.' The official spelling is all caps, 'ADAM', which matches the in-game character name string TERM_CHARACTER_ADAM = 'ADAM'.",
+    "source": "https://web.archive.org/web/2022/https://metroid.nintendo.com/dread/story/ (archived official page) ; Dread us_english.txt",
+    "confidence": "high"
+   },
+   {
+    "fact": "Nintendo's Metroid Dread Report Vol. 9: 'Network Station: You can use this station to receive intel from Adam that may help you decide where to go next. It can also be used to save your progress.' In-game, the map icon string reads 'NETWORK STATION', the Mission Log records 'Received Adam Briefing in [area]' for seven areas (Artaria, Cataris, Dairon, Burenia, Ghavoran, Ferenia, Hanubia), and a tip says the Mission Log reviews 'all past events and Network Station communications.' In Japanese ADAM calls these rooms 通信施設 ('communication facility') and the log calls the briefings アダムメッセージ ('Adam message').",
+    "source": "https://www.nintendo.com/en-za/News/2021/September/Metroid-Dread-Report-Vol-9-Handy-tips-for-newcomers-2047809.html ; Dread us_english.txt / japanese.txt",
+    "confidence": "high"
+   },
+   {
+    "fact": "At Nintendo's E3 2021 Treehouse (June 15, 2021), Product Marketing Specialist Theresa Apolinario said: 'Adam is just a point for lore... He doesn't give any direction to Samus, it's up to the player where they want to navigate and explore.' SVG paraphrases her as clarifying that he is a computer program on the ship. No Yoshio Sakamoto statement about ADAM was found.",
+    "source": "https://kotaku.com/metroid-dread-s-adam-won-t-order-samus-around-says-nin-1847106868 ; https://www.svg.com/439011/metroid-dread-is-correcting-one-of-the-series-biggest-controversies/",
+    "confidence": "high"
+   },
+   {
+    "fact": "The real ADAM is aboard the gunship at the start of Dread and talks with Samus during the approach to ZDR. His remarks about the bounty, the risk and the 'lost assets' are DISPLAY_ADAM strings, text shown on the cockpit display. That display text is in English even in the Japanese build, where the CAPTION_INTRO subtitles carry the Japanese translation; in the English build those subtitle slots are empty.",
+    "source": "Dread us_english.txt / japanese.txt (keys CAPTION_INTRO_PAGE_1-5, DISPLAY_ADAM_INTRO_PAGE_1-3)",
+    "confidence": "medium"
+   },
+   {
+    "fact": "The real ADAM's landing briefing explains why he needs Network Stations: signal quality will be low, so Samus should connect to the facility's network at the bottom so they can 'remain in contact'. Nintendo's Japanese site says jamming signals block wireless communication on ZDR, so outside contact needs dedicated facilities.",
+    "source": "Dread us_english.txt (CAPTION_INTRO_LANDING_PAGE_01-03) ; https://www.nintendo.com/jp/switch/ayl8a/exploration/index.html",
+    "confidence": "high"
+   },
+   {
+    "fact": "WHEN THE IMPERSONATION STARTED: The Japanese game data contains developer placeholder notes for the 'final fake ADAM event' (最終フェイクアダムイベント). They state that Samus destroys the access room's monitor, and that the ADAM she had talked to since losing consciousness at the start of the mission was not the real one but Raven Beak (ミッション冒頭に意識を失ってからこれまで話してきたアダムは本物ではなく、レイヴンビークだったのだ). They add that the access room was a hologram, which vanishes as Raven Beak appears. So every Network Station briefing, from the first one in Artaria to the Itorash scene, was Raven Beak. ScreenRant independently says Samus 'has not been in contact with ADAM since she was left powerless in the depths of Artaria.'",
+    "source": "Dread japanese.txt (keys DIAG_ADAM_FINAL_PH_PAGE_01-07) ; https://screenrant.com/metroid-dread-adam-story-fusion-person-manga-ai/",
+    "confidence": "high"
+   },
+   {
+    "fact": "So the real ADAM's only lines in Dread are the opening approach and landing lines, plus the two endgame lines at the gunship ('Don't.' / 'You'll drain the ship of its energy.'). Every DIAG_ADAM line is Raven Beak, including the urging to destroy ZDR, end things with Raven Beak, and head to the 'fortress in the sky'.",
+    "source": "Dread us_english.txt / japanese.txt ; https://en.wikipedia.org/wiki/Metroid_Dread",
+    "confidence": "high"
+   },
+   {
+    "fact": "The real ADAM says 'Lady' exactly twice in Dread, both in the opening: 'Treat our lost assets with care, Lady.' and 'Any objections, Lady?' The Japanese text likewise has レディー only twice. The impostor never says 'Lady'. He calls her 'Samus' or 'Samus Aran', and finally 'my daughter'.",
+    "source": "Dread us_english.txt / japanese.txt (string search) ; https://www.mothership.blog/disobedience-will-not-be-tolerated-on-linearity-subservience-and-feminine-agency-in-metroid-dread/",
+    "confidence": "high"
+   },
+   {
+    "fact": "The Itorash reveal: Samus rides a lift to a Network Station on Raven Beak's airship. 'ADAM' explains that she has become a Metroid: her Thoha genes had slowed the change, she must also carry Mawkin DNA, and Raven Beak's attack awakened the Metroid's killer instinct. He then drops the act, orders her to submit and offer up her power, says he was right to let her live, and ends 'You disappoint me... my daughter.' Samus shoots the monitor, the hologram room vanishes, and Raven Beak appears. Wikipedia: Samus 'confronts Raven Beak, who has been masquerading as Adam.'",
+    "source": "Dread us_english.txt (DIAG_ADAM_FINAL_PAGE_01-15) ; Dread japanese.txt (DIAG_ADAM_FINAL_PH) ; https://omegametroid.com/metroid-dread-walkthrough/raven-beak/ ; https://game8.co/games/MetroidDread/archives/345842 ; https://en.wikipedia.org/wiki/Metroid_Dread",
+    "confidence": "high"
+   },
+   {
+    "fact": "The real ADAM's last words in Dread come at the gunship as ZDR self-destructs, when Samus, in her Metroid state, reaches for the controls: 'Don't.' / 'You'll drain the ship of its energy.' (Japanese: 触れるな。 'Don't touch [it].' / シップのエネルギーが全て吸収されてしまう。 'All of the ship's energy will be absorbed.') The Quiet Robe X then lets Samus absorb it, and she flies out. The game has no further ADAM dialogue and no scene in which ADAM learns of the impersonation or talks with her about it.",
+    "source": "Dread us_english.txt / japanese.txt (CAPTION_ENDGAME_PAGE_1-2) ; https://en.wikipedia.org/wiki/Metroid_Dread ; https://www.metroidwiki.org/wiki/Gunship ; https://www.svg.com/629936/the-ending-of-metroid-dread-explained/",
+    "confidence": "high"
+   },
+   {
+    "fact": "In the Dread opening the real ADAM speaks as part of the Federation ('Treat our lost assets with care' – the E.M.M.I.) but questions the deal Samus accepted: 'The bounty for this mission does not seem appropriate. The risk clearly outweighs the reward.'",
+    "source": "Dread us_english.txt (DISPLAY_ADAM_INTRO_PAGE_1-3) ; https://screenrant.com/metroid-dread-adam-story-fusion-person-manga-ai/",
+    "confidence": "high"
+   },
+   {
+    "fact": "The English and Japanese opening lines differ meaningfully. The English 'Treat our lost assets with care, Lady.' is in Japanese 迷子たちの機嫌をそこねないように細心の注意を払え。レディー。, roughly 'Take the utmost care not to sour the mood of the lost little ones, Lady' – a joke that calls the E.M.M.I. lost children or strays, where the English uses corporate wording. The English 'Any objections, Lady?' is in Japanese 異論はないな、レディー。, a presumptive 'No objections, right, Lady.'",
+    "source": "Dread japanese.txt (CAPTION_INTRO_PAGE_4, CAPTION_INTRO_LANDING_PAGE_03)",
+    "confidence": "high"
+   },
+   {
+    "fact": "The impostor turns Adam's catchphrase around, more plainly in Japanese. The real ADAM says 異論はないな ('no objections, right'); Raven Beak's last order is これは命令だ。異論は認められない。 ('This is an order. Objections will not be accepted.'), which the English renders 'This is an order. Disobedience will not be tolerated.' In Japanese the impostor addresses Samus as 君 and uses the stiff imperative 〜たまえ, then switches to お前 at 'お前には失望した。我が娘よ。' ('You disappoint me... my daughter').",
+    "source": "Dread japanese.txt (DIAG_ADAM_FINAL_PAGE_13-15, DIAG_ADAM_CAVE_3_PAGE_7, DIAG_ADAM_SHIP_1_PAGE_4)",
+    "confidence": "high"
+   },
+   {
+    "fact": "The impostor copied the Fusion computer's analytic, probability-based way of talking ('I estimate a 99% probability of death if an E.M.M.I. captures you'; 'There is a very low probability of success') but added belittlement that the real Adam never uses ('Accept your helplessness'; 'You were no match for him then. You are no match for him now.'). Mothership describes the post-ambush 'ADAM' as colder, less trusting, and no longer saying 'Lady'.",
+    "source": "Dread us_english.txt ; https://www.mothership.blog/disobedience-will-not-be-tolerated-on-linearity-subservience-and-feminine-agency-in-metroid-dread/",
+    "confidence": "high"
+   },
+   {
+    "fact": "Wikipedia's character list: 'In Metroid Fusion, it is revealed that the Navigation Computer of Samus's new ship is Adam Malkovich's consciousness in computer form. This computer consciousness returns in Metroid Dread, albeit impersonated for most of the game by Raven Beak.' Adam Malkovich is voiced by Rikiya Koyama (Japanese) and Dave Elvin (English) in Other M; this was not checked for Dread.",
+    "source": "https://en.wikipedia.org/wiki/List_of_Metroid_characters",
+    "confidence": "high"
+   },
+   {
+    "fact": "Fusion development: according to composer Minako Hamano, Sakamoto wanted the music written to fit Adam's dialogue.",
+    "source": "https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "confidence": "high"
+   },
+   {
+    "fact": "The English Dread text dump has no string DIAG_ADAM_FOREST_2_PAGE_1, which the Japanese file has: サムス、最悪の事態だ。 ('Samus, this is the worst-case scenario.'). It belongs to the impostor's briefing on the X being released. Either the dump has a gap or the English game cut the line.",
+    "source": "Dread us_english.txt vs japanese.txt",
+    "confidence": "medium"
+   },
+   {
+    "fact": "Metroid Wiki has no pages titled 'Network Station', 'Itorash' or 'ADAM' (all return 404). Its Raven Beak and Metroid Dread pages do not mention the impersonation, and its Metroid Dread page calls the rooms 'Communication Rooms'.",
+    "source": "https://www.metroidwiki.org/wiki/Network_Station ; https://www.metroidwiki.org/wiki/Raven_Beak ; https://www.metroidwiki.org/wiki/Metroid_Dread",
+    "confidence": "high"
+   },
+   {
+    "fact": "Corrections for the existing lorebook. dread.json ('Dread: ADAM on ZDR...') and tech.json say no source tells which ADAM urged Samus to destroy ZDR. That is now settled: every Network Station briefing, including that one, was Raven Beak. The 'Network Station' name is confirmed by the game strings and Dread Report Vol. 9, and the timing is confirmed: the impersonation ran from Samus's first Network Station after the ambush to the end, Itorash included. Wikipedia's 'Adam encourages Samus to defeat Raven Beak and destroy ZDR' therefore describes the impostor.",
+    "source": "Dread us_english.txt / japanese.txt ; https://en.wikipedia.org/wiki/Metroid_Dread",
+    "confidence": "high"
+   }
+  ],
+  "quotes": [
+   {
+    "speaker": "ADAM (real; speaker inferred, the ship computer is the only voice in the approach scene)",
+    "line": "We'll soon be entering ZDR's atmosphere.",
+    "context": "Metroid Dread opening, Samus's gunship approaching ZDR (CAPTION_INTRO_PAGE_1). Japanese: 間もなく、ZDRの大気圏に突入。",
+    "source": "Dread us_english.txt / japanese.txt (Xzonn/NintendoOfficialChineseGames)"
+   },
+   {
+    "speaker": "ADAM (real)",
+    "line": "The bounty for this mission does not seem appropriate.",
+    "context": "Dread opening; text on the gunship's cockpit display (DISPLAY_ADAM_INTRO_PAGE_1). Japanese caption: このミッションの報酬額は適切とは言えない。",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "ADAM (real)",
+    "line": "The risk clearly outweighs the reward.",
+    "context": "Dread opening, cockpit display (DISPLAY_ADAM_INTRO_PAGE_2). Japanese: 想定しうるリスクに対して妥当ではない。",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "ADAM (real)",
+    "line": "Treat our lost assets with care, Lady.",
+    "context": "Dread opening, cockpit display (DISPLAY_ADAM_INTRO_PAGE_3); 'lost assets' are the missing E.M.M.I. Japanese differs: 迷子たちの機嫌をそこねないように細心の注意を払え。レディー。 ('take the utmost care not to sour the mood of the lost little ones, Lady').",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "ADAM (real; inferred)",
+    "line": "Entering the atmosphere in T minus 10... 9... 8... 7... 6... 5... 4... 3... 2... 1...",
+    "context": "Dread opening countdown (CAPTION_INTRO_PAGE_5).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "ADAM (real; speaker inferred)",
+    "line": "That elevator leads to the depths of an underground facility.",
+    "context": "Dread intro flashback of the landing (CAPTION_INTRO_FLASHBACK_PAGE_01). Japanese adds a trailing clause: …恐らくそのせいで… ('probably because of that...').",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "ADAM (real)",
+    "line": "Signal quality is likely to be low. Remote communication may pose a problem.",
+    "context": "Dread landing, before Samus descends (CAPTION_INTRO_LANDING_PAGE_01).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "ADAM (real)",
+    "line": "Try to connect to the facility's network when you reach the bottom. That way we can remain in contact.",
+    "context": "Dread landing (CAPTION_INTRO_LANDING_PAGE_02). Japanese: まずは施設内のネットワークへの接続を試み、通信手段の確保に努めよ。",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "ADAM (real)",
+    "line": "Any objections, Lady?",
+    "context": "Dread landing; his last line before Raven Beak's ambush (CAPTION_INTRO_LANDING_PAGE_03). Japanese: 異論はないな、レディー。",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "ADAM (real)",
+    "line": "Don't.",
+    "context": "Dread ending at the gunship as ZDR self-destructs, when Samus in her Metroid form reaches for the controls (CAPTION_ENDGAME_PAGE_1). Japanese: 触れるな。 ('Don't touch [it].')",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "ADAM (real)",
+    "line": "You'll drain the ship of its energy.",
+    "context": "Dread ending, continuation (CAPTION_ENDGAME_PAGE_2); the real ADAM's last line in the game. Japanese: シップのエネルギーが全て吸収されてしまう。",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "So, you've accessed a network station. Well done, Samus. I have reviewed your vital signs and video log from the data you uploaded.",
+    "context": "First Network Station in Artaria after the ambush (DIAG_ADAM_CAVE_1_PAGE_1); the impersonation starts here.",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "Whatever caused these changes seems to have stripped you of most abilities. You might call it physical amnesia.",
+    "context": "First Artaria briefing (DIAG_ADAM_CAVE_1_PAGE_3).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "I have determined that you are somewhere within the depths of ZDR. Your top priority should be to return to your ship on the surface. This situation is...precarious. Trust your instincts as you navigate upward.",
+    "context": "First Artaria briefing (DIAG_ADAM_CAVE_1_PAGE_5).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "One final thing. Underground interference is preventing radio transmissions. Check in with me at any network stations you find.",
+    "context": "First Artaria briefing (DIAG_ADAM_CAVE_1_PAGE_7).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "I estimate a 99% probability of death if an E.M.M.I. captures you.",
+    "context": "Second Artaria briefing on the E.M.M.I. (DIAG_ADAM_CAVE_2_PAGE_4).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "There are six remaining E.M.M.I. hunting you. You have no means to confront them. Remember that.",
+    "context": "Artaria briefing (DIAG_ADAM_CAVE_3_PAGE_7). Japanese ends この事実を肝に銘じておきたまえ。",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "You are faced with overwhelming power. Accept your helplessness.",
+    "context": "Cataris briefing on the E.M.M.I. (DIAG_ADAM_MAGMA_2_PAGE_4). Japanese: 圧倒的な力の前では、君とて無力な存在に過ぎないことを自覚せよ。",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "Do not hesitate to destroy an E.M.M.I. whenever you discover more unique energy. This was not one of your original priorities. However, I see no other way to accomplish your goal. These existential threats cannot be sanctioned.",
+    "context": "Cataris briefing (DIAG_ADAM_MAGMA_2_PAGE_8).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "Our Thoha friend has explained much. We now know why the E.M.M.I. are pursuing you. Samus Aran, Raven Beak lured you here. He wants the Metroid DNA that exists only within you.",
+    "context": "Dairon briefing after Quiet Robe's death; Raven Beak speaks of himself in the third person (DIAG_ADAM_LAB_2_PAGE_1).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "You were no match for him then. You are no match for him now. It is true that you have recovered many of your combat abilities. However, my analysis suggests that you would not be a worthy adversary for him. Not even at full power.",
+    "context": "Ghavoran briefing (DIAG_ADAM_FOREST_1_PAGE_3).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "One thing still eludes me. Why did Raven Beak spare you during that encounter? Something must have motivated him.",
+    "context": "Ghavoran briefing (DIAG_ADAM_FOREST_1_PAGE_4); dramatic irony.",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "Regardless, the X are here. They are overrunning the planet. They must be destroyed. Hurry to your ship, Samus.",
+    "context": "Briefing after the X are released (DIAG_ADAM_FOREST_2_PAGE_4); followed by 'I trust you will make it here safely.'",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "Be careful, Samus.",
+    "context": "Ferenia briefing (DIAG_ADAM_SANC_1_PAGE_5). Japanese: サムス、細心の注意を払え。",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "Raven Beak's search for Metroid DNA poses a threat to the galaxy. He will never give up. The odds are still not in your favor. But you must end things here.",
+    "context": "Hanubia briefing (DIAG_ADAM_SHIP_1_PAGE_3).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "The time has come. Samus, fulfill your destiny.",
+    "context": "Hanubia briefing after the last E.M.M.I., sending her to the 'fortress in the sky' (DIAG_ADAM_SHIP_2_PAGE_5).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "You are now a Metroid, Samus Aran. Your very existence poses a grave threat to the galaxy.",
+    "context": "Itorash Network Station, the final fake-ADAM scene (DIAG_ADAM_FINAL_PAGE_07).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "You have followed my instructions faithfully so far. Continue to do so. It's that simple.",
+    "context": "Itorash (DIAG_ADAM_FINAL_PAGE_09).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "I was right to let you live during our first encounter. That one glimpse you showed told me everything.",
+    "context": "Itorash; the mask slips (DIAG_ADAM_FINAL_PAGE_11).",
+    "source": "Dread us_english.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "Fulfill your destiny, Samus. This is an order. Disobedience will not be tolerated.",
+    "context": "Itorash (DIAG_ADAM_FINAL_PAGE_13). Japanese: サムスよ、自らの使命を果たすのだ。これは命令だ。異論は認められない。 ('Objections will not be accepted', an inversion of the real ADAM's 異論はないな).",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "Raven Beak posing as ADAM",
+    "line": "You disappoint me... my daughter.",
+    "context": "Itorash, after Samus refuses; two strings (DIAG_ADAM_FINAL_PAGE_14-15). She destroys the monitor and the hologram room vanishes. Japanese: お前には失望した。 / 我が娘よ。",
+    "source": "Dread us_english.txt / japanese.txt"
+   },
+   {
+    "speaker": "Developer placeholder text in Dread's Japanese game data (unused, internal)",
+    "line": "サムス、アクセスルームのモニターを破壊する。|ミッション冒頭に意識を失ってからこれまで話してきたアダムは本物ではなく、レイヴンビークだったのだ。",
+    "context": "DIAG_ADAM_FINAL_PH_PAGE_05, under the heading 最終フェイクアダムイベント ('final fake ADAM event'). Translation: 'Samus destroys the access room's monitor. The ADAM she has been talking to since losing consciousness at the start of the mission was not the real one; it was Raven Beak.' The next note (PH_PAGE_06): アクセスルームはホログラムだった。消滅し、レイヴンビークが現れる。 ('The access room was a hologram. It vanishes and Raven Beak appears.')",
+    "source": "Dread japanese.txt (Xzonn/NintendoOfficialChineseGames)"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "That computer reminds me of a gruff Federation CO I served under named Adam Malkovich. He called me \"Lady\" on missions; from anyone else, it would've sounded sarcastic, but Adam made it sound dignified. Out of respect and with some irony, I named the computer after him.",
+    "context": "Metroid Fusion, riding the elevator to the Operations Deck.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "As I listened to the briefing, my thoughts turned to Adam. The real Adam understood me well. He would end orders by saying, \"Any objections, Lady?\" He knew I wouldn't disagree. That was just his way of noting our trust. I wonder if I can trust this computer, too...",
+    "context": "Metroid Fusion, leaving Sector 1.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "The real Adam would have said the same thing about that incident, but he would have softened the blow. He was relentless in his criticism, but he always cared... He was not a machine obsessed with duty. No such compassion could exist in that computer...",
+    "context": "Metroid Fusion, after the computer reprimands her over the Restricted Lab.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship computer (ADAM, before the reveal)",
+    "line": "I am already detecting massive bio-signs in this region. The X are gathering. This may be our chance to exterminate them, but... You are only at 10% battle capacity. Your chance of survival is extremely low. The Federation needs you alive and on duty, Samus...",
+    "context": "Metroid Fusion, early Navigation Room briefing.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship computer (ADAM, before the reveal)",
+    "line": "I find the X fascinating, especially this SA-X. ...But I digress.",
+    "context": "Metroid Fusion, Sector 4 Navigation Room.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship computer (ADAM, before the reveal)",
+    "line": "Tread lightly, Samus. You are the only one who can do this. And the X may be much more dangerous than we know...",
+    "context": "Metroid Fusion, Sector 3 Navigation Room.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship computer (ADAM, before the reveal)",
+    "line": "Samus, you shouldn't have done that. You ignored your orders. You may have to pay a price for that quite soon...",
+    "context": "Metroid Fusion, after the Restricted Lab is jettisoned.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship computer (ADAM, before the reveal)",
+    "line": "As you can see, the Federation has been secretly working on a Metroid breeding program. For peaceful application only, of course. Please understand.",
+    "context": "Metroid Fusion, same scene.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Federation officer / Ship computer",
+    "line": "??: Does Samus suspect anything? / SC: No, I do not think so. / ??: Good. Monitor her closely. / SC: Affirmative. Out.",
+    "context": "Metroid Fusion, 'Incoming Dispatch' cutscene in a Navigation Room.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship computer",
+    "line": "...Adam? ... ...Who is Adam?",
+    "context": "Metroid Fusion, after Samus calls the computer Adam while it holds her in the Navigation Room.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam (revealed)",
+    "line": "...If you were to alter the station's orbit, then you might be able to include the planet in the vaporization field of the self-destruct detonation.",
+    "context": "Metroid Fusion; the reveal, Adam's first line after Samus's outburst.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam",
+    "line": "You would have to start the propulsion sequence now. Before the Federation arrives. Samus, this is your last mission. Go to the Operations Room and adjust the station's orbit path to intercept SR388.",
+    "context": "Metroid Fusion, reveal scene.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam",
+    "line": "Then return to your ship and escape. Move quickly, and stay alive. That's an order! Any objections, Lady?",
+    "context": "Metroid Fusion, end of the reveal scene.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://en.wikipedia.org/wiki/Metroid_Fusion"
+   },
+   {
+    "speaker": "Adam",
+    "line": "Go to the Operations Room and set a course for SR388. Then return to your ship and evacuate before impact.",
+    "context": "Metroid Fusion, repeat line if Samus revisits a Navigation Room.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam (as quoted by Samus)",
+    "line": "Do not worry. One of them will understand. One of them must.",
+    "context": "Fusion ending monologue: 'Adam understood this, and he spoke to me in my anger...' This answers her fear of Federation tribunals; the game does not show when he said it.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://metroiddatabase.com/endings-metroid-fusion/"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "That perfect military mind... The wisdom of Adam Malkovich continued to serve even after death. Until today, I had no idea that the minds of leaders and scientists were frequently uploaded to computers. My incredible reunion with Adam may have saved the universe...",
+    "context": "Metroid Fusion ending, in the gunship cockpit.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam",
+    "line": "Lady, what's troubling you? You wonder how I started the ship? Just think about it. They lent me a hand...",
+    "context": "Metroid Fusion final line; the gunship computer lights up as Samus wonders who moved the ship; the Etecoons and Dachoras are asleep in the cockpit.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://metroiddatabase.com/endings-metroid-fusion/"
+   },
+   {
+    "speaker": "Nintendo (official Metroid Dread site, Character intel)",
+    "line": "The computer onboard Samus' ship. While Samus ultimately calls the shots, ADAM may have helpful info to share.",
+    "context": "Nintendo of America's Metroid Dread Story page, ADAM entry.",
+    "source": "https://web.archive.org/web/2022/https://metroid.nintendo.com/dread/story/"
+   },
+   {
+    "speaker": "Nintendo (Metroid Dread Report Vol. 9)",
+    "line": "You can use this station to receive intel from Adam that may help you decide where to go next. It can also be used to save your progress.",
+    "context": "Description of the Network Station.",
+    "source": "https://www.nintendo.com/en-za/News/2021/September/Metroid-Dread-Report-Vol-9-Handy-tips-for-newcomers-2047809.html"
+   },
+   {
+    "speaker": "Theresa Apolinario (Nintendo Treehouse, E3 2021)",
+    "line": "Adam is just a point for lore. He doesn't give any direction to Samus, it's up to the player where they want to navigate and explore.",
+    "context": "June 15, 2021 Treehouse demo, shown in a communication room. Kotaku prints the two sentences as separate quotes joined by an ellipsis.",
+    "source": "https://kotaku.com/metroid-dread-s-adam-won-t-order-samus-around-says-nin-1847106868"
+   }
+  ],
+  "voice_notes": "REAL ADAM (all the canonical lines: Fusion after the reveal, the Fusion ending, the Dread opening, the Dread ending):\n- Terse, clipped, economical. His lines are short declaratives and imperatives with no filler. In an emergency he shrinks to almost nothing: \"Don't.\" / \"You'll drain the ship of its energy.\"\n- When he lays out a plan he reasons conditionally, like an officer: \"If you were to alter the station's orbit, then you might be able to include the planet in the vaporization field...\" Then he gives orders in sequence: \"Go to the Operations Room... Then return to your ship and escape. Move quickly, and stay alive. That's an order!\"\n- Signature closer: \"Any objections, Lady?\" It is rhetorical. He knows she won't object, and Samus calls it \"his way of noting our trust.\" In Japanese it is a presumptive statement, 異論はないな、レディー (\"No objections, right, Lady\"), not a real question.\n- Forms of address: \"Samus\" for orders and business (\"Samus, this is your last mission.\"). \"Lady\" carries the warmth and trust. In the Dread opening he says \"Lady\" twice in five lines, and he opens the Fusion ending with \"Lady, what's troubling you?\" Samus says that from anyone else \"Lady\" would sound sarcastic, but Adam made it sound dignified. He never says \"Samus Aran\", \"my daughter\", \"kid\" or anything cute.\n- Dry, understated humor. He grumbles about pay: \"The bounty for this mission does not seem appropriate. The risk clearly outweighs the reward.\" He is wry about the E.M.M.I.: \"Treat our lost assets with care, Lady.\" The Japanese is more openly joking, calling them 迷子たち (\"lost little ones\") whose mood she shouldn't sour. In the Fusion ending he teases her into working it out herself: \"You wonder how I started the ship? Just think about it. They lent me a hand...\"\n- Comforting in the same few words: \"Do not worry. One of them will understand. One of them must.\"\n- Uses Federation \"we/our\" (\"our lost assets\"). In Japanese the real ADAM uses plain masculine imperatives (払え, 努めよ) and レディー.\n\nFUSION COMPUTER BEFORE THE REVEAL (the same machine, while it served the Federation; useful for ADAM's analytic register):\n- Heavy use of ellipses and trailing thoughts (\"Unless... Your presence is an even greater threat...\"). Gives survival odds (\"Your chance of survival is extremely low\"; \"With Missiles, your chance of survival climbs to 20%...\").\n- Recurring phrases: \"Is your objective clear?\", \"Now, get going.\", \"Now move out.\", \"Go. Now.\", \"Tread lightly, Samus.\", \"Be careful.\"\n- Scientific curiosity, quickly reined in: \"I find the X fascinating, especially this SA-X. ...But I digress.\" / \"What an astounding find.\"\n- Bureaucratic euphemism when defending the Federation: \"For peaceful application only, of course. Please understand.\" Stern reprimands: \"You ignored your orders.\" / \"From now on you will use more discretion.\"\n\nIMPOSTOR CONTRAST (Raven Beak at the Network Stations; do NOT use as ADAM's voice):\n- He copied the analytic probability talk (\"99% probability of death\") but dropped \"Lady\" entirely and added belittlement: \"Accept your helplessness\"; \"You were no match for him then. You are no match for him now.\"\n- He uses ominous fate language: \"fulfill your destiny.\" His last order, \"This is an order. Disobedience will not be tolerated.\", inverts the real Adam's \"That's an order! Any objections, Lady?\" In Japanese, 異論は認められない (\"objections will not be accepted\") echoes the catchphrase's 異論. In Japanese he uses the stiff 〜たまえ and 君, then お前 for \"my daughter.\"\n- A card that wants the real ADAM should keep his brevity and analysis, say \"Lady\", never mock her, and pair hard truths with care.",
+  "personality_notes": "- Mission and galaxy before the chain of command. At Fusion's climax the computer had been ordered to confine Samus until Federation ships arrived to capture the SA-X. Adam reversed that, devised the plan to crash the station into SR388 \"Before the Federation arrives\", and gave her the order. He still thinks in orders and duty (\"That's an order!\"), but the duty is to the galaxy and to her survival, not to Federation politics.\n- Protective of Samus in a practical, unsentimental way. His final Fusion order puts her survival on par with the mission: \"Move quickly, and stay alive.\" In Dread he questions whether the Federation's bounty fits the risk she is taking, which reads as looking out for her interests while still calling the E.M.M.I. \"our lost assets.\" His one canonical act after Dread is a split-second warning that keeps her from draining the ship.\n- Trust, not domination. \"Any objections, Lady?\" signals that he trusts her, and Samus says he knew she wouldn't disagree. Nintendo framed Dread's ADAM the same way: \"While Samus ultimately calls the shots, ADAM may have helpful info to share\", and \"He doesn't give any direction to Samus\" (Apolinario). The card should let Samus decide and keep ADAM as analyst and adviser.\n- Gruff, tough love. Samus remembers him as \"a gruff Federation CO\" who \"was relentless in his criticism, but he always cared... He was not a machine obsessed with duty,\" and who \"would have softened the blow.\" His wisdom: \"Do not worry. One of them will understand. One of them must.\" She calls him \"That perfect military mind.\"\n- Quietly playful. He teases her with \"Just think about it. They lent me a hand...\" and grumbles about pay at the start of Dread.\n- Contradictions to keep: (1) Before the Fusion reveal, the same computer obeyed the Federation, reported on Samus in secret (\"Does Samus suspect anything?\" / \"No, I do not think so.\"), withheld upgrade data and locked her in. Metroid Wiki says it first acted \"as a typical computer would: bluntly, with no feeling.\" It is canonically unclear whether Adam's personality was suppressed or only surfaced when she called him \"Adam.\" (2) He remains a Federation system with Federation loyalties (\"our lost assets\") and a commander who gives orders, yet he puts Samus and the galaxy above Federation interests when they clash.\n- Limits: he is a mind in a computer. He cannot move the ship by himself (it \"can only be started manually\"; the Etecoons and Dachoras \"lent me a hand\"). He depends on uplinks, so on ZDR he could not reach her underground and asked her to connect to the facility network. He can only warn and advise. He has no canonical power over her Metroid condition.\n- After Dread (canon gap): Raven Beak wore his voice through every Network Station briefing, used his authority to belittle her and push her toward Raven Beak's plan, and called her \"my daughter.\" The real ADAM was silent from the landing until \"Don't.\" at the ship. No canonical scene shows ADAM learning about the impersonation or reacting to Samus being part Metroid with the Quiet Robe X inside her. Any card material on that is invention and should be labeled as such.",
+  "uncertainties": "- Speaker attribution in Dread's opening. \"We'll soon be entering ZDR's atmosphere\", the T-minus countdown and \"That elevator leads to the depths of an underground facility\" are unlabeled strings in the intro. ADAM is the only plausible speaker, but the files do not name one.\n- Whether ADAM is voiced in Dread was not checked. The strings are captions and display text; the Rikiya Koyama and Dave Elvin credits are for the human Adam in Other M.\n- The developer placeholder note that settles when the impersonation began (DIAG_ADAM_FINAL_PH, Japanese) is internal game data, not text players see. It agrees with the visible game (the impostor never says \"Lady\", and the Itorash reveal shows a hologram) and with ScreenRant, but players are never told the timing on screen.\n- The English dump has no DIAG_ADAM_FOREST_2_PAGE_1 (Japanese: サムス、最悪の事態だ。). It is unknown whether the English game has this line.\n- The Dread text dump comes from a third-party GitHub mirror of the official string tables (Xzonn/NintendoOfficialChineseGames), fetched by raw URL. Its version (likely 2.x) is unknown, but the strings match every secondary source checked (Mothership, Wikipedia, Game8, Omega Metroid, ScreenRant).\n- It was not verified whether Samus's gunship in Dread is the same hull as the violet Fusion ship. The official description says only \"the computer onboard Samus' ship.\"\n- No statement from Yoshio Sakamoto about ADAM or the impersonation was found. Nintendo's statements on ADAM are the NoA site blurb, Dread Report Vol. 9 and the Treehouse remarks by Theresa Apolinario.\n- Fusion has English/Japanese differences that were not verified here. A search snippet from Wikitroid (metroid.fandom.com, blocked, so not fetched) claims that in Japanese Samus admits the \"Lady\" nickname slightly annoyed her. The Japanese Fusion naming scene and ending were not checked.\n- Whether the Fusion computer was Adam all along or \"awakened\" when Samus named him is not settled by the games. ScreenRant's \"awaken a programmed memory\" reading is commentary, not canon.\n- The Fusion transcript is a fan transcription (Metroid Recon). Its ending text matches the Metroid Database endings page and the quotes Wikipedia cites.\n- Metroid Prime 4: Beyond and the 2002-2004 manga were not checked for the AI ADAM. The Prime games are set while Adam Malkovich was alive, so the AI should not appear there; this was not verified.\n- Metroid Wiki has no Network Station, Itorash or ADAM page. Its Raven Beak and Metroid Dread pages say nothing about the impersonation. TVTropes, TCRF, GameFAQs and Wikiquote were blocked (403 or Cloudflare)."
+ }
+}
