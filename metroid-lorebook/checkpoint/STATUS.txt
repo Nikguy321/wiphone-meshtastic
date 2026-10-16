@@ -4,6 +4,7 @@ adam-other-m: draft, verify
 bestiary-2d: draft, verify, revise
 bestiary-prime: draft, verify, revise
 bestiary-tech: 
+card: 
 chozo: draft, verify, revise
 dark-samus: draft, verify, revise
 dread: draft, verify, revise
