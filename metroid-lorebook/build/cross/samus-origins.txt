@@ -1,0 +1,40 @@
+CLUSTER samus-origins
+EDITED ['samus-bio.json', 'samus-rp.json', 'manga.json', 'chozo.json', 'timeline.json']
+FIXES 25
+
+CROSS-CLUSTER ISSUES:
+1) ridley.json, 'Ridley: Ridley (overview and relationship with Samus)', third paragraph: the manga panic attack sits under 'During her first mission to Zebes...'. Per the manga, it happened during the Space Pirate takeover of Zebes while Samus served in the Federation Police (manga Vol 2 Ch 8; see the manga entries 'Samus's confrontation with Ridley and her trauma' and 'Mother Brain's betrayal of Zebes'). In the manga's account of her later bounty-hunter mission she held and brought him down with a single Missile. Suggested wording: 'Per the manga, when she met him again during the Pirate takeover of Zebes, while she served in the Federation Police, the sight of him triggered a panic attack and he beat her down.' Sources: https://www.metroidwiki.org/wiki/Ridley and the manga entries' citations.
+2) ridley.json, overview and 'Ridley's appearance, abilities and intelligence': the claim that Ridley said he healed by eating the K-2L colonists, and 'taunted that her mother had been among them', is not on Metroid Wiki's Ridley or Psychosis pages. The manga editor left it out as unverifiable. Only Wikitroid search snippets support it, and they say he could have eaten her mother, not that she was among them. Soften it to that or drop it.
+3) ridley.json overview: 'Ridley led the Space Pirate raid on ... K-2L, seeking its Afloraltite fuel'. Metroid Wiki's Ridley page backs this ('in pursuit of ... Afloraltite'), but its Samus Aran and Afloraltite pages, and the manga and samus-bio entries, say the Pirates followed the Chozo ship and only found the afloraltite after landing. Minor; suggest 'followed a Chozo ship there and seized its Afloraltite'.
+4) dread.json 'Dread: The Chozo tribes - Thoha, Mawkin and Raven Beak's coup' nearly duplicates chozo.json 'Chozo: Chozo tribes – Thoha and Mawkin' (SR388 history, massacre, ZDR quarantine, DNA). Both fire on Thoha/Mawkin in ZDR talk. Consider trimming the dread entry to a ZDR-specific summary with a pointer by name, or tell the chozo cluster which one should be the home.
+5) The motive differs between entries, though it is not strictly a contradiction. Chozo tribes says Raven Beak took Quiet Robe to ZDR 'intending to return to SR388 once the Metroids had wiped out the X' (Metroid Wiki Raven Beak page, verbatim). Dread: Raven Beak / Planet ZDR say he went to ZDR 'to raise Metroids there'. The dread editor should confirm, or give both.
+6) build/index.txt still lists a stale federation draft, 'Galactic Federation: Federation Police and Army', with keys Federation Police, Jigrad, Kreatz, Mauk and Chief Hardy. The current federation.json entry is 'Federation Police and military command' and has none of the manga names. Regenerate the index.
+7) Low priority: zebes.json 'Zebes: Samus's first Zebes mission (Zero Mission)' has the key 'fall of Zebes', which also sits on manga 'Mother Brain's betrayal of Zebes' (the actual fall of Zebes to the Pirates). The zebes entry already has 'Zebes has fallen' for the Pirate logs and could drop 'fall of Zebes'.
+Verified as consistent, no action needed: the dread, fusion, metroids and zebes entries agree with the corrected Itorash order, the BSL defiance, Sector Zero, the baby Metroid and the Gray Voice details. The Fusion lines 'Samus, this is your last mission' and 'They lent me a hand' are confirmed by the retropixel transcript.
+
+NOTES:
+Known issues:
+(1) Confirmed and fixed. Omega Metroid's walkthrough and Wikipedia's Dread plot give the order: she drains Raven Beak, then Itorash, which crashes onto ZDR. The X from Kraid's corpse then takes Raven Beak, and her Hyper Beam destroys that Raven Beak X, which sets off the self-destruct.
+(2) Confirmed and fixed with the suggested wording. The Fusion transcript has the Restricted Laboratory jettisoned first ('no fewer than 10 SA-X'). Only after Neo-Ridley does the computer reveal 'Capturing the SA-X, of course' and the withheld Plasma Beam.
+(3) Done: 'hatchling' removed from samus-rp attitudes.
+(4) 'Federation Police' stays on federation 'Federation Police and military command' and manga 'Samus's Federation Police years'. Both are truly about it. It was removed from the samus-bio service entry. 'Federation Army' and the manga names (Jigrad, Kreatz, Mauk, Damara, Chief Hardy) went with it, since manga 3 and 4 hold them. Samus-specific service keys replace them.
+
+Main new contradiction: who ordered the Badger Clover and Iono Feria burned. Metroid Wiki's Samus Aran and Iono Feria pages say Gray Voice in their prose, but both cite the line as Old Bird's: 'Clean up crew, immediately divide into pairs and burn everything!!' (Vol 1 Ch 2 Pg 21). Gray Voice only identified the clover. I followed the cited quote, which also matches the manga upbringing entry. samus-bio, Old Bird and Gray Voice are aligned to it.
+
+Homes for duplicated material, each other entry now a one-sentence pointer:
+- K-2L raid narrative: manga 'The K-2L raid (manga account)' (samus-bio early life and K-2L entries point to it). Rodney and Virginia keep their own entry.
+- Badger Clover incident: manga 'Samus's Chozo upbringing ...'. Old Bird keeps a trimmed, Old Bird-centred version.
+- Thumbs-down ritual: samus-rp mannerisms.
+- Adam: samus-rp emotional history.
+
+Other keys: 'Old Bird' (on 3 entries) dropped from manga K-2L raid. 'Pyonchi' (on 3) dropped from Chozo: Old Bird. Every primary key in my files now sits on at most 2 entries. Bare restricted keys appear only on the core Samus profile and the Chozo overview.
+
+Style: no 'player', 'boss', 'level', 'cutscene', 'unlock' or 'upgrade' language, markdown emphasis or in-content citations remained. Dash lists were kept as house style used across the lorebook.
+
+Choices that rest on source judgment:
+- Manga serialization set to 2002-2004, following MyAnimeList's Nov 2002 to Mar 2004 run. English Wikipedia's Nov 2003 to May 2004 cannot hold 16 monthly chapters and a 2003 first volume.
+- Adam in the manga: Japanese Wikipedia says he was a Federation Army commander she met during her Police years under Hardy, not her Police superior.
+- 'Metroid Ravenous (due 2027)' in the timeline checked and confirmed real (announced in the Sept 2026 Nintendo Direct).
+- The Chozo reproduction claim (chozo history and technology entries) is kept. Metroid Wiki's Chozo page states it as manga material.
+
+Backups of the pre-edit files are in the scratchpad as <domain>.bak.json. The edit scripts are xc_samus_cluster_edit.py and xc_samus_cluster_edit2.py. All five files validate with json.load.

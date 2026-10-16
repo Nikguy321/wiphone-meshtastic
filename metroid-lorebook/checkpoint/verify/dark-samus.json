@@ -1,0 +1,289 @@
+{
+ "run": "wf_7ead2614-160",
+ "label": "verify:dark-samus",
+ "result": {
+  "overall": "Six entries checked against 32 fetched pages (Metroid Wiki primary, Wikipedia for chronology). WebSearch was unavailable this turn (shared budget exhausted), so no fandom-snippet cross-checks were possible; the Metroid Prime 4: Beyond page was fetched directly and mentions neither Dark Samus nor Phazon, so the \"exterminated with no sign of survival\" framing stands. The drafts are largely sound: every Pirate Data / Pirate Log / Logbook quotation checked out verbatim, the 'six months' interval is also on Metroid Wiki's Samus Aran page (not only Wikipedia), the Gunship-not-recognizing-Samus detail is confirmed, and Norion's page explicitly states it is the only recorded Leviathan stopped before impact. Hard errors found: (1) the Sanctuary Fortress Dark Pirate Trooper scene has the motive inverted (the Troopers were trying to force Samus to detour; Dark Samus simply obliterated them); (2) Phaaze's location came from Aurora Unit 217's triangulation, not from the Valhalla, which yielded the wormhole codes and 313's last log; (3) only Gandrayda vowed to bring Samus's helmet, not 'her commanders'. Canon-scope problem: the Origin entry keeps the 'Pirates captured/studied it, lost control, it assimilated security units' weapons' narrative that Metroid Wiki says comes from NTSC-only Pirate Data cut from PAL/Trilogy and 'no longer considered canon', while dropping only the 'Z-d' label from the same entries. Unverified flavour that should be softened: 'months of creeping corruption', Dark Samus's 'last gesture' before dissolving, the fleet 'losing contact' with Samus, the Aurora virus making Units 'generate Phazon', a 'brief skirmish' in Hive Chamber B, and the 'Metroid absorbed the Leviathan core' origin (unsourced on the wiki, 'it is assumed' on the Leviathan page). Keys need work: primary/secondary overlap defeats AND_ANY in entries 2 and 5 (e.g. 'Phaaze' or 'Metroid Prime' alone fires them), 'Metroid Prime' as a primary key hits the game title, and broad secondaries ('Phazon', 'Space Pirates', 'corruption') make the sub-entries fire on most Prime-series chat; the SA-X shares 'doppelganger / evil Samus / Samus's double' aliases. Four sub-entries run 468-504 words against a 400-word guide.",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Dark_Samus",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)",
+   "https://www.metroidwiki.org/wiki/Phazon_Suit",
+   "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Pirate_Log",
+   "https://www.metroidwiki.org/wiki/Colossus",
+   "https://www.metroidwiki.org/wiki/G.F.S._Valhalla",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit_313",
+   "https://www.metroidwiki.org/wiki/Phaaze",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes",
+   "https://www.metroidwiki.org/wiki/Dark_Samus_1",
+   "https://www.metroidwiki.org/wiki/Dark_Samus_2",
+   "https://www.metroidwiki.org/wiki/Dark_Samus_3",
+   "https://www.metroidwiki.org/wiki/Dark_Samus_4",
+   "https://www.metroidwiki.org/wiki/Ghor",
+   "https://www.metroidwiki.org/wiki/Gandrayda",
+   "https://www.metroidwiki.org/wiki/Rundas",
+   "https://www.metroidwiki.org/wiki/Leviathan",
+   "https://www.metroidwiki.org/wiki/Chozo_Lore",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Sanctum_(Phaaze)",
+   "https://www.metroidwiki.org/wiki/Norion",
+   "https://www.metroidwiki.org/wiki/Castor_Dane",
+   "https://www.metroidwiki.org/wiki/Hive_Chamber_B",
+   "https://www.metroidwiki.org/wiki/Dark_Pirate_Trooper",
+   "https://www.metroidwiki.org/wiki/Aurora_Unit_242",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Aerie"
+  ],
+  "reports": [
+   {
+    "entry_comment": "Dark Samus: Dark Samus (overview)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Samus herself endured months of creeping corruption.",
+      "problem": "No source gives the length of the Corruption mission. Metroid Wiki's Samus Aran page gives only two markers: Norion is 'about six months after' Aether and Samus wakes 'one month later'; the hunters woke 'several weeks earlier'. 'Months' of corruption is invented.",
+      "correction": "Samus herself woke a month later with Phazon in her body and grew steadily more corrupted over the mission that followed.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "unverified",
+      "claim": "a last gesture toward Samus before she dissolved",
+      "problem": "Neither the Dark Samus page ('After her defeat, Dark Samus merges with Aurora Unit 313') nor the Sanctum (Phaaze) page describes any gesture; the wiki records only that she merges with the Unit.",
+      "correction": "Drop 'a last gesture toward Samus' or soften to 'and her dissolution into Aurora Unit 313 on Phaaze'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Sanctum_(Phaaze)"
+     },
+     {
+      "severity": "nit",
+      "claim": "The other three hunters succumbed to corruption and died by Samus's hand",
+      "problem": "Per the wiki, Samus defeated each, but Rundas was impaled by his own ice, Ghor died when Dark Samus absorbed his Phazon and his remains decayed, and Gandrayda was 'assimilated by Dark Samus'. 'By Samus's hand' overstates her direct agency for Ghor and Gandrayda.",
+      "correction": "The other three hunters succumbed to corruption; Samus defeated each in battle and Dark Samus consumed what was left of them.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ghor"
+     },
+     {
+      "severity": "nit",
+      "claim": "fought her four times",
+      "problem": "Metroid Wiki lists the Echoes battles as Dark Samus 1, Dark Samus 2, and 'Dark Samus 3 and 4' treated as one encounter as Dark Aether collapses; four is a count of Logbook forms, not fights.",
+      "correction": "fought her three times (the last battle in two phases) after an opening sighting in the Federation base",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus_3"
+     },
+     {
+      "severity": "nit",
+      "claim": "Samus fired her own expelled Phazon back into her",
+      "problem": "Pronoun ambiguity: 'her own' reads as Samus's Phazon; the Dark Samus 4 scan says Samus collects the Phazon that Dark Samus expels.",
+      "correction": "Samus caught the Phazon Dark Samus expelled in her Charge Beam and fired it back",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus_4"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: doppelganger, doppelgänger, dark copy, dark twin, evil Samus, dark version of Samus, Samus's double",
+      "problem": "These generic aliases describe the SA-X (Fusion) at least as often as Dark Samus; in a Samus-centred roleplay they will pull the Dark Samus overview into SA-X scenes. 'Phazon clone' and 'Dark Hunter' are safe.",
+      "correction": "Keep 'Dark Samus', 'Dark-Samus', 'Dark Hunter', 'Phazon clone'; move 'doppelganger', 'evil Samus', 'Samus's double', 'dark copy', 'dark twin' to secondary keys gated by 'Phazon' or 'Aether', or drop them.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dark Samus: Origin from Metroid Prime",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "noncanon",
+      "claim": "The Space Pirates later found and studied it, then lost control of it: it consumed raw Phazon, absorbed the weapons of the security units it killed and made them parts of its body.",
+      "problem": "This narrative comes from the NTSC-only Pirate Data entries 'Metroid Prime' (discovery, containment, study) and 'Prime Breach' (containment breach; weapons 'from fallen security units'). Metroid Wiki states these first three entries 'were not included in the PAL/Trilogy version, and are no longer considered canon', and the creature page calls the capture-and-observation account 'retconned'. The drafter dropped 'Z-d' for exactly this reason but kept the rest of the same entries.",
+      "correction": "Either drop the capture/containment-breach story, or label it 'per the original NTSC Pirate Data' in one clause; keep only what the game itself shows (it fed on Phazon, its exoskeleton bristled with Pirate weaponry, it could turn invisible and spawn Metroids).",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The creature called Metroid Prime had begun as a Metroid that absorbed the Phazon-rich core of the Leviathan buried in the crater.",
+      "problem": "Metroid Wiki's creature page says only 'Somehow, this Metroid absorbed the core and became it' with no citation, and its Leviathan page says 'there is no Leviathan within the core' on Tallon IV and that 'it is assumed' Metroid Prime took on the role of the planet's Phazon source. No Logbook states this; it is wiki background, not canon fact.",
+      "correction": "Soften to: 'a Metroid mutated by the Phazon of the Leviathan that struck Tallon IV, which came to serve as the source of the planet's Phazon'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Leviathan"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: Metroid Prime, Phazon Suit, Impact Crater; secondary_keys: Metroid Prime, Phazon Suit, Impact Crater, Tallon IV",
+      "problem": "'Metroid Prime' as a primary key matches the game title in almost any Prime-series chat (the forbidden list bars bare 'Prime' for this reason). Worse, the same terms appear in both lists, so with AND_ANY a single mention of 'Metroid Prime' or 'Phazon Suit' satisfies both sides and fires the Dark Samus origin entry during ordinary Prime 1 discussion (Omega Pirate, Phazon Suit, etc.).",
+      "correction": "Primary keys: 'Dark Samus origin', 'Dark Samus's origin', 'where Dark Samus came from', 'origin', 'origins', 'born', 'reborn', 'rebirth'. Secondary keys: 'Dark Samus', 'Dark Hunter', 'Phazon clone', 'Impact Crater', 'Tallon IV'. Remove 'Metroid Prime' and 'Phazon Suit' from the primary list and avoid any overlap between the two lists.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "nit",
+      "claim": "That suit let her enter Hypermode",
+      "problem": "Metroid Wiki's Phazon Suit page spells the Prime 1 state 'Hyper-Mode'; 'Hypermode' is the Corruption term.",
+      "correction": "'Hyper-mode' (Prime 1) or 'a Phazon-charged state the Federation would later call Hypermode'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phazon_Suit"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dark Samus: Aether and the Dark Hunter",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "killing three Dark Pirate Troopers to force a detour",
+      "problem": "The motive is inverted. Metroid Wiki's Dark Samus page: Samus 'finds Dark Samus obliterating three Dark Pirate Troopers' who were 'attempting to force her [Samus] to take a detour to access the Phazon'. The detour was the Troopers' plan; Dark Samus killed them. The Dark Pirate Trooper page likewise says Samus merely 'witnesses Dark Samus killing a small group of them' in Sanctuary Fortress.",
+      "correction": "and in Sanctuary Fortress obliterating three Dark Pirate Troopers who had been trying to force Samus onto a detour",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "unverified",
+      "claim": "After a brief skirmish Dark Samus fled through a portal into Dark Aether",
+      "problem": "The Hive Chamber B page describes the first appearance as Samus seeing 'a strange figure' go through a portal; it does not describe any exchange of fire, and the Dark Samus page says only that Samus follows her through the portal.",
+      "correction": "Dark Samus slipped through a portal into Dark Aether; Samus followed",
+      "source_url": "https://www.metroidwiki.org/wiki/Hive_Chamber_B"
+     },
+     {
+      "severity": "nit",
+      "claim": "They fought four times",
+      "problem": "The entry then names only three clashes (Main Reactor, Aerie, Sky Temple Gateway); Metroid Wiki treats 'Dark Samus 3 and 4' as one encounter with a second phase. Four counts Logbook forms, not fights.",
+      "correction": "They fought three times, the last battle ending in a second, pure-Phazon phase",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus_3"
+     },
+     {
+      "severity": "keys",
+      "claim": "secondary_keys: Phazon, disintegrated; keys: Luminoth, Warrior Ing, Main Reactor, Aerie",
+      "problem": "'Phazon' appears in nearly every Prime-series conversation, so 'Aether'/'Luminoth'/'Warrior Ing' + 'Phazon' fires this Dark Samus entry on any Echoes chat about the Luminoth or the Ing even when Dark Samus is absent. 'Main Reactor' and 'Aerie' are also generic room names shared with other games.",
+      "correction": "Restrict secondary keys to Dark Samus aliases ('Dark Samus', 'Dark Hunter', 'dark twin', 'Phazon clone') and drop 'Phazon' and 'disintegrated'; consider dropping 'Luminoth' and 'Warrior Ing' as primaries since those subjects should have their own entries.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "style",
+      "claim": "Entry length 468 words",
+      "problem": "Above the 400-word guide for a sub-entry; the Pirate-log paragraph duplicates the overview.",
+      "correction": "Trim the first paragraph to two sentences (Pirates mistook her for Samus, named her the Dark Hunter, proposed Phazon-for-Samus's-head) to land near 400.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Log"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dark Samus: The return – Colossus, Phaaze and the Norion attack",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "A Phazon virus loosed into the Federation's Aurora Unit network made infected Units generate Phazon",
+      "problem": "Metroid Wiki's Corruption page describes a 'Phazon-Corrupting virus' that 'renders the Units unusable', with Dane saying 'We believe the virus is of Space Pirate origin'; nothing says infected Units generate Phazon, and no source attributes the virus to Dark Samus (the wiki only speculates the Pirates planted it after boarding the Valhalla). Placing it in her return arc implies authorship.",
+      "correction": "Around the same time a Phazon-based virus, which the Federation believed to be of Space Pirate origin, began corrupting and disabling Aurora Units; that is why Fleet Admiral Castor Dane summoned Samus, Rundas, Ghor and Gandrayda to the G.F.S. Olympus to deliver a vaccine.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "nit",
+      "claim": "Samus restored the generators of the planetary defense cannon while Rundas pulled her out of Meta Ridley's grip",
+      "problem": "Rundas restored one of the three generators himself (Generator B per the Corruption page; the Rundas page says he worked on Generator C), and he saved Samus from the fall after she defeated Meta Ridley rather than from Ridley's grip.",
+      "correction": "Samus and Rundas restored the generators of the planetary defense cannon, and Rundas caught Samus after her fall with Meta Ridley.",
+      "source_url": "https://www.metroidwiki.org/wiki/Rundas"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: Colossus, Valhalla, Leviathan, Leviathans, Pirate Homeworld, disciples, resurrected, resurrection; secondary_keys: Phazon, Space Pirates, corrupted",
+      "problem": "'Space Pirates', 'Phazon' and 'corrupted' are present in most Prime-series chat, so generic primaries ('Colossus', 'Valhalla', 'disciples', 'resurrected') and shared subjects ('Leviathan', 'Pirate Homeworld') fire this Dark Samus entry whenever Pirates are mentioned; 'Space Pirates' is on the restricted list for non-Pirate entries even as a gate.",
+      "correction": "Secondary keys: 'Dark Samus', 'Dark Hunter', 'Aurora Unit 313', 'the great one', 'Phazon clone'. Drop 'Space Pirates', 'Phazon', 'corrupted'. Move 'Leviathan(s)' and 'Pirate Homeworld' to their own entries, or keep them only as secondaries here.",
+      "source_url": "https://www.metroidwiki.org/wiki/Colossus"
+     },
+     {
+      "severity": "style",
+      "claim": "Entry length 492 words",
+      "problem": "Well over the 400-word guide; the drafter's own note suggests splitting the Norion paragraph.",
+      "correction": "Split the final Norion paragraph into its own entry keyed on 'Norion'/'Olympus', or cut the virus/vaccine sentence and the Pirate quotation.",
+      "source_url": "https://www.metroidwiki.org/wiki/Norion"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dark Samus: The Phazon crisis and her end",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "From the derelict Valhalla, restored with salvaged Energy Cells, Samus recovered Aurora Unit 313's last testament, the location of Phaaze and the codes that let a captured Leviathan open a wormhole",
+      "problem": "Metroid Wiki's Phaaze page: 'Aurora Unit 217 located Phaaze by triangulating the Leviathan trajectories'; the Valhalla held the wormhole access codes and 313's final log (which warns of Phaaze), not Phaaze's location.",
+      "correction": "After Aurora Unit 217 located Phaaze by triangulating the Leviathans' paths, Samus restored the derelict Valhalla with salvaged Energy Cells and recovered Aurora Unit 313's last testament and the codes that let the captured Leviathan open a wormhole for the Federation fleet.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phaaze"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Beaten, she made one last gesture toward Samus and dissolved into Phazon gas",
+      "problem": "Neither the Dark Samus page nor the Sanctum (Phaaze) page records any gesture; both say only that after her defeat she merges with Aurora Unit 313.",
+      "correction": "Beaten, she dissolved into Phazon and poured herself into Aurora Unit 313.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The fleet had lost contact with Samus and Fleet Admiral Dane was grieving a friend when her Gunship swept past the Olympus.",
+      "problem": "The Corruption page supports Dane 'grieving the loss of his great friend' while the fleet celebrates, and an unknown gunship appearing that turns out to be Samus, but says nothing about lost contact, and the Castor Dane page has no ending detail at all.",
+      "correction": "While the fleet celebrated, Fleet Admiral Dane was grieving a friend; then an unidentified Gunship swept past the Olympus and proved to be Samus.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "nit",
+      "claim": "Samus was forced to kill each in turn: Rundas died by his own ice, Ghor's armor exploded, and Gandrayda, cycling helplessly through borrowed shapes, was assimilated. After each fell, Dark Samus appeared and drank the dead hunter's Phazon.",
+      "problem": "The specifics are right (Rundas page: impaled by his own ice; Ghor page: armor 'explodes' as he tries to convert it to a gunship, then Dark Samus absorbs his Phazon; Gandrayda page: shapeshifts uncontrollably, then 'assimilated by Dark Samus'), but 'forced to kill each' plus 'the dead hunter's Phazon' slightly misorders Ghor and Gandrayda, who died when Dark Samus absorbed them after Samus beat them.",
+      "correction": "Samus defeated each in turn: Rundas was impaled by his own ice; Ghor's armor exploded and Dark Samus drank his Phazon; Gandrayda, cycling helplessly through borrowed shapes, was assimilated by Dark Samus outright.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gandrayda"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: Phaaze, Aurora Unit 313, Rundas, Ghor, Gandrayda, final battle, purge, purged; secondary_keys: Phazon, corruption, Phaaze, Aurora Unit 313",
+      "problem": "'Phaaze' and 'Aurora Unit 313' sit in both lists, so with AND_ANY either word alone fires the entry, defeating the selective gate. 'Rundas'/'Ghor'/'Gandrayda' as primaries drag this Dark Samus entry into any chat about those hunters (which nearly always mentions Phazon or corruption). 'corruption' is the game title (forbidden bare) and 'final battle' is generic across all games.",
+      "correction": "Primary keys: 'Phaaze', 'Aurora Unit 313', 'AU 313', 'Sanctum', 'PED Suit', 'Hypermode', 'final battle', 'purged'. Secondary keys: 'Dark Samus', 'Dark Hunter', 'Phazon clone', 'Phazon'. Remove the hunters' names (give them their own entries) and all overlap between lists.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "missing",
+      "claim": "Samus's own corruption shown physically",
+      "problem": "The entry tracks Samus's corruption numerically but omits the visible sign a roleplay would use: as corruption rose her suit and visor turned Phazon-blue (the Corruption page notes a Phazon-blue visor after Bryyo), and the other three hunters woke several weeks before her and were sent out while she still slept.",
+      "correction": "Add one sentence: 'As the corruption climbed, Samus's suit and visor took on Phazon's blue glow; the other three hunters, who had woken weeks before her, were already in the field.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "style",
+      "claim": "Entry length 481 words",
+      "problem": "Above the 400-word guide.",
+      "correction": "Cut the Valhalla sentence to its essentials and drop the 'She was a step from becoming the thing she hunted' line, which the Powers entry repeats.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Dark Samus: Powers, nature and what Samus knows",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "her commanders swore to bring Samus's helmet",
+      "problem": "Only Gandrayda made that vow: 'Gandrayda has vowed to present Aran's bloody helmet to Dark Samus as tribute' (Mistress Gandrayda log). Nothing records Rundas or Ghor swearing it.",
+      "correction": "and her last field commander, Gandrayda, swore to present Samus's helmet to her as tribute.",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Data"
+     },
+     {
+      "severity": "nit",
+      "claim": "She can be hurt by Phazon she herself has expelled, by a Phazon-fused Arm Cannon and by Hypermode.",
+      "problem": "'Phazon-fused Arm Cannon' is the Metroid Prime core-essence Logbook text from Prime 1, not any Dark Samus scan; and the phrasing implies she is otherwise immune, whereas in Echoes forms 1-3 ordinary beams and missiles damage her (Dark Samus 1 and 2 pages). Only her pure-Phazon form is Phazon-only.",
+      "correction": "Ordinary weapons can wound her, but in her pure-Phazon form only Phazon can: the energy she herself expels on Aether, Hypermode on Phaaze.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus_4"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: regenerate, clones, invisible; secondary_keys: doppelganger, evil Samus, her double",
+      "problem": "Missing obvious forms: 'regeneration', 'regenerates', 'clone', 'teleport', 'teleportation', 'shapeshift' are absent. The SA-X aliases ('doppelganger', 'evil Samus', 'her double') as gates will also let 'powers' + 'evil Samus' fire this entry in SA-X scenes.",
+      "correction": "Add 'regeneration', 'regenerates', 'clone', 'teleport', 'teleportation', 'weaknesses' to primaries; trim secondaries to 'Dark Samus', 'Dark-Samus', 'Dark Hunter', 'Phazon clone', 'dark twin'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "style",
+      "claim": "Entry length 504 words",
+      "problem": "The longest sub-entry, well over the 400-word guide; the 'nature' and 'what Samus knows' paragraphs largely repeat the overview's closing paragraph (laugh, Logbook ratings, three comrades, Gunship, purge).",
+      "correction": "Cut the final two paragraphs to about half, keeping only the hunger/vengeance/cunning progression and the 'no record states what she feels' line.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     }
+    ]
+   }
+  ]
+ }
+}

@@ -1,0 +1,148 @@
+{
+  "entries": 270,
+  "constant": 2,
+  "files": 34,
+  "final_domains": [
+    "abilities",
+    "adam-other-m",
+    "bestiary-2d",
+    "bestiary-prime",
+    "chozo",
+    "dark-samus",
+    "dread",
+    "echoes",
+    "federation",
+    "federation-force",
+    "fusion",
+    "gap1",
+    "gap2",
+    "gap3",
+    "gap4",
+    "hunters",
+    "manga",
+    "metroids",
+    "phazon",
+    "prime1",
+    "prime3",
+    "prime4",
+    "ridley",
+    "samus-bio",
+    "samus-rp",
+    "space-pirates",
+    "sr388",
+    "suits",
+    "super-metroid",
+    "tech",
+    "timeline",
+    "weapons",
+    "x-parasite",
+    "zebes"
+  ],
+  "draft_fallback_domains": [],
+  "total_words": 103690,
+  "approx_tokens": 139981,
+  "per_category": {
+    "Universe": 6,
+    "Samus": 18,
+    "Equipment": 35,
+    "Chozo": 10,
+    "Metroids": 10,
+    "X Parasite": 8,
+    "Space Pirates": 10,
+    "Ridley": 8,
+    "Galactic Federation": 9,
+    "Manga": 7,
+    "Zebes": 8,
+    "Prime": 9,
+    "Prime Hunters": 11,
+    "Prime 2": 10,
+    "Prime 3": 13,
+    "Dark Samus": 6,
+    "Phazon": 7,
+    "Federation Force": 6,
+    "Prime 4": 10,
+    "SR388": 6,
+    "Super Metroid": 8,
+    "Other M": 9,
+    "Fusion": 8,
+    "Dread": 12,
+    "Technology": 7,
+    "Creatures": 19
+  },
+  "key_collisions_gt2": {
+    "adam": [
+      "Other M: Adam Malkovich",
+      "Other M: The Adam AI (BSL computer)",
+      "Dread: ADAM on ZDR and Raven Beak's impersonation"
+    ]
+  },
+  "warnings": [],
+  "longest": [
+    [
+      598,
+      "Prime 2: The Aether incident (Metroid Prime 2: Echoes events)"
+    ],
+    [
+      573,
+      "Universe: Timeline of Samus's missions"
+    ],
+    [
+      566,
+      "Equipment: Power Suit (Samus's Chozo armor)"
+    ],
+    [
+      564,
+      "Metroids: Metroids (species overview)"
+    ],
+    [
+      552,
+      "Other M: The Bottle Ship incident"
+    ],
+    [
+      550,
+      "Metroids: Metroid breeding and cloning programs"
+    ],
+    [
+      549,
+      "Fusion: The BSL incident (Metroid Fusion events)"
+    ],
+    [
+      547,
+      "Prime 4: The Viewros incident (Metroid Prime 4: Beyond events)"
+    ]
+  ],
+  "shortest": [
+    [
+      153,
+      "Creatures: Fauna of the Bermuda System"
+    ],
+    [
+      177,
+      "Other M: Chairman Keaton"
+    ],
+    [
+      193,
+      "Zebes: The destruction of Zebes"
+    ],
+    [
+      229,
+      "Federation Force: General Alex Miles"
+    ],
+    [
+      229,
+      "Prime 3: Defense Drone (Elysian guardian of the Boost Ball)"
+    ],
+    [
+      229,
+      "Ridley: Proteus Ridley"
+    ],
+    [
+      238,
+      "Galactic Federation: Daiban and Federation Headquarters"
+    ],
+    [
+      242,
+      "Creatures: Arachnus"
+    ]
+  ]
+}

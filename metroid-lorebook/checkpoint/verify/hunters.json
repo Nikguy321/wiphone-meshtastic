@@ -1,0 +1,384 @@
+{
+ "run": "wf_7ead2614-160",
+ "label": "verify:hunters",
+ "result": {
+  "overall": "Checked all 11 entries against Metroid Wiki (MPH, Alimbic Lore, Gorea, Alimbic, Octolith, Seal Sphere, Oubliette, Omega Cannon, Alimbic Cannon, Infinity Void, Alimbic Cluster, Tetra Galaxy, Celestial Archives, Alinos, Arcterra, VDO, Cretaphid, Slench, Trocra, Sic Transit, Affinity Weapon, Diamont, Kriken, Vhozon, Alimbic Datashade, all six hunters and their alt-forms/weapons, Sylux), Wikipedia's MPH article and the Omega Metroid walkthrough (about 45 fetches). WebSearch was unavailable this turn (budget exhausted), so nothing could be cross-checked against search snippets; Echo Hall's Metroid Wiki page returned 404 (Echo Hall on Alinos is instead confirmed by the Alimbic History 01 scan location). The drafts are mostly solid and well-sourced. Confirmed errors: the Tetra Border Wars date ('two thousand years before Samus's arrival' is wrong; the sarcophagus says two thousand years before it was inscribed, long before the Alimbic War, which itself was thousands of years before Samus) and the Gorea shoulder-vulnerability rule (shoulders are hit with the opposing affinity weapon of the form Gorea is currently in, not the weapon it is using). Recurring unverified claims: 'thousands died' in the Alimbic War (lore says only 'the death toll rose'); the Alimbics' Omega Cannon failing during the war (no scan mentions an Omega Cannon; this is Metroid Wiki editorial text on the Gorea page); 'as the containment decayed'. One non-canon leak: Weavel 'left for dead' is Smash Bros. trophy wording. Key hygiene: 'Ultimate Power', 'High Ground', 'Colored Panels' are generic phrases; the Spire and Trace secondary lists include 'rock', 'lava', 'hunter', 'sniper' which make 'Spire'/'Trace' fire on ordinary prose ('the hunter left no trace', 'rock spire'). The Alimbic Cannon/Infinity Void 'rift' wording in entry 5 is supported by the Alimbic Cannon 01 scan ('a dimensional rift known as the Infinity Void') and is not an error.",
+  "reports": [
+   {
+    "entry_comment": "Prime Hunters: The Alimbic Cluster incident",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "keys",
+      "problem": "'Ultimate Power' is a generic two-word phrase that will fire on any roleplay mention of ultimate power; 'Alimbic Cluster incident' and 'Mission File 79109' are fine but 'Tetra Galaxy' overlaps with nothing else and is acceptable.",
+      "correction": "Drop 'Ultimate Power' or require it as a secondary key alongside 'Alimbic'. Consider adding 'Rogue Contract' (Metroid Wiki's name for the Federation contract)."
+     },
+     {
+      "severity": "nit",
+      "claim": "Mission File 79109, per the manual",
+      "problem": "Metroid Wiki credits the 'MISSION FILE 79109' text, the Rogue Contract objectives and 'Disposition of rival interests is presumed hostile' to the game's Introduction, not the instruction booklet.",
+      "correction": "'(Mission File 79109, per the game's opening briefing)' or simply '(Mission File 79109)'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Alimbic_Cluster"
+     },
+     {
+      "severity": "nit",
+      "claim": "The message had almost certainly come from Gorea itself.",
+      "problem": "Metroid Wiki only says Gorea 'likely' sent the false message; 'almost certainly' slightly overstates.",
+      "correction": "'The message had most likely come from Gorea itself.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters"
+     },
+     {
+      "severity": "missing",
+      "problem": "The entry never says that Samus acquired and used all six rival affinity weapons (Volt Driver, Battlehammer, Magmaul, Judicator, Shock Coil, Imperialist) during the incident, which is the reason she could fulfil the Prophecy and is a roleplay-relevant fact about her arsenal at the time.",
+      "correction": "Add one sentence: during the incident Samus collected the six hunters' affinity weapons (Volt Driver, Battlehammer, Magmaul, Judicator, Shock Coil, Imperialist) from the ruins, which later let her complete the Alimbic Prophecy.",
+      "source_url": "https://www.metroidwiki.org/wiki/Affinity_Weapon"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime Hunters: The Alimbics",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "About two thousand years before Samus's arrival, General Almiiak led them to victory in the Tetra Border Wars",
+      "problem": "The Battle Sarcophagus scan says Almiiak won the Tetra Border Wars 'two thousand years ago' relative to when the tomb inscription was written, i.e. two thousand years before the Alimbic War era; the Alimbics' extinction was itself thousands to tens of thousands of years before Samus (Gorea page). Dating it to two thousand years before Samus is wrong.",
+      "correction": "'General Almiiak led them to victory in the Tetra Border Wars some two thousand years before the Alimbic War (per his tomb inscription); he later formed the Alimbic Order of Elders.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Alimbic_Lore"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The Alimbic War lasted three standard galactic months; thousands died",
+      "problem": "No Datashade gives a casualty figure; the scans say 'As the death toll rose, we crafted a plan' and 'Death swept across our worlds'. 'Thousands' is invented.",
+      "correction": "'The Alimbic War lasted three standard galactic months; the death toll climbed, every weapon was turned back on its makers...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Alimbic_Lore"
+     },
+     {
+      "severity": "nit",
+      "claim": "leaving its last messages on dying Alinos",
+      "problem": "History 01 (Alinos, Echo Hall) reads 'These are our last recorded messages. We depart from this place of death.' No scan calls Alinos a 'dying' world, and the last messages are spread over all four sites.",
+      "correction": "'leaving their last recorded messages, including one on Alinos calling it a place of death'",
+      "source_url": "https://www.metroidwiki.org/wiki/Alimbic_Lore"
+     },
+     {
+      "severity": "nit",
+      "claim": "afterward founded the Alimbic Order of Elders, an eight-member council",
+      "problem": "Supported by the Battle Sarcophagus ('He later formed the Alimbic Order of elders'), but Alimbic War 09 says 'Eight of our elders gathered to create the Alimbic Order to prevent Gorea from destroying our civilization', so the in-game record is internally inconsistent about when the Order was founded.",
+      "correction": "Optionally add a clause: 'though another record says the eight Elders formed the Order during the war against Gorea'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Alimbic_Lore"
+     },
+     {
+      "severity": "keys",
+      "problem": "Bare 'Alimbic' substring-matches 'Alimbic Cluster', 'Alimbic Cannon', 'Alimbic War', etc., so this entry will fire together with almost every other entry in the domain and inflate the token budget.",
+      "correction": "Acceptable for the species overview, but consider lowering its order or removing 'Alimbic' in favour of 'Alimbics', 'Alimbic race', 'Alimbic people', 'Alimbic civilization'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime Hunters: Gorea",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "its shoulders were its weak points, each vulnerable only to a particular weapon it was then using",
+      "problem": "Metroid Wiki states the shoulders are damaged by the opposing affinity weapon of the form Gorea is currently in (Magmaul against the Judicator form, Shock Coil against the Imperialist form, Imperialist against the Shock Coil form), not by the weapon Gorea is using. Gorea cycles through forms after each round of attacks until the shoulders are destroyed.",
+      "correction": "'its shoulders were its weak points, each vulnerable only to the weapon opposed to the one Gorea was then wielding (for instance the Magmaul while it used the Judicator), and it cycled through the hunters' weapons until both arms were destroyed.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Gorea"
+     },
+     {
+      "severity": "unverified",
+      "claim": "even their Omega Cannon could not destroy it",
+      "problem": "No in-game Datashade mentions an Omega Cannon; the scans say 'No weapon could defeat Gorea' and 'Gorea was immune to even our most sophisticated weaponry'. The Omega Cannon claim is Metroid Wiki editorial text on the Gorea page and is contradicted by the game itself, where the Omega Cannon does destroy Gorea.",
+      "correction": "Remove the Omega Cannon clause: 'During the three-month Alimbic War every weapon the Alimbics used against it was turned back on them, and nothing they had could destroy it.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Alimbic_Lore"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Thousands died before the Alimbic Order of Elders chose containment",
+      "problem": "No scan gives a number; the lore says only that the death toll rose.",
+      "correction": "'As the death toll rose, the Alimbic Order of Elders chose containment'",
+      "source_url": "https://www.metroidwiki.org/wiki/Alimbic_Lore"
+     },
+     {
+      "severity": "unverified",
+      "claim": "As the containment decayed, Gorea's psychic power reached across dimensions",
+      "problem": "Neither Metroid Wiki's Gorea page nor any scan says the seal was decaying; the wiki says only that Gorea telepathically reached the modern universe with a false promise.",
+      "correction": "'From its prison, Gorea's psychic power reached across dimensions as a repeating telepathic lure...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Gorea"
+     },
+     {
+      "severity": "nit",
+      "claim": "Like a Metroid it drains life energy from prey and grows stronger; like an X Parasite it replicates its victims' cellular structure and absorbs their technology.",
+      "problem": "These comparisons are Metroid Wiki's own analysis, not anything in the game; the underlying facts (drains life energy, mimics cellular structure, turns weapons back) are canon.",
+      "correction": "Keep the facts, drop the 'like a Metroid / like an X Parasite' framing or label it as a comparison.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gorea"
+     },
+     {
+      "severity": "nit",
+      "claim": "She did so knowing from the Alimbics' records that the \"Ultimate Power\" was a trap",
+      "problem": "The records warn 'Do not seek this thing unless you have the means to destroy it'; Metroid Wiki says Samus read the Alimbics' final wish and continued. That the power was a 'trap' is inference.",
+      "correction": "'She did so despite the Alimbics' final wish that no one seek Gorea without the means to destroy it.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Alimbic_Lore"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime Hunters: Alimbic Cluster locations",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "keys",
+      "problem": "'High Ground' is an everyday phrase ('take the high ground') and will misfire; 'Weapons Complex' is also fairly generic.",
+      "correction": "Remove 'High Ground' (or make it 'Alinos High Ground'); keep 'Weapons Complex' only if paired with a secondary key such as 'Alimbic' or 'Vesper'."
+     },
+     {
+      "severity": "nit",
+      "claim": "Noxus confronted Samus beyond Sic Transit",
+      "problem": "Metroid Wiki's Sic Transit page says Trace and Noxus are first encountered in Sic Transit itself, on Arcterra; the walkthrough also places the Noxus fight inside Sic Transit with Trace sniping from a high perch at the back of the same room.",
+      "correction": "'Noxus confronted Samus in Sic Transit, and Trace sniped at her from a perch at the back of the same chamber.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Sic_Transit"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Alimbics' last messages call it a dying world",
+      "problem": "The Alinos Echo Hall scan says 'We depart from this place of death'; no scan uses 'dying world'.",
+      "correction": "'one of the Alimbics' last messages, left here, calls it a place of death'",
+      "source_url": "https://www.metroidwiki.org/wiki/Alimbic_Lore"
+     },
+     {
+      "severity": "nit",
+      "claim": "Spire was also met here",
+      "problem": "Not on Metroid Wiki; the Omega Metroid walkthrough's Spire paragraph mentions the High Ground, which is on Alinos, so the placement is consistent but rests on a walkthrough only.",
+      "correction": "Keep, or specify 'Spire was met on the High Ground' with the walkthrough as the source.",
+      "source_url": "https://omegametroid.com/?p=14836"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime Hunters: Octoliths and the Alimbic Cannon",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "three tentacle-like synapses that power its energy blasters",
+      "problem": "Metroid Wiki says the three synapses anchor the Slench to the wall or ceiling and are its vulnerable points; it does not say they power the blasters.",
+      "correction": "'anchored to a wall or ceiling by three tentacle-like synapses; a forcefield shields its body until the synapses are damaged...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Slench"
+     },
+     {
+      "severity": "nit",
+      "claim": "protected by cybernetic security",
+      "problem": "The Stronghold Void scan quoted on Metroid Wiki mentions only 'extraordinary means' and a Portal controlled by a trio of Artifacts; the guardians are described in the separate Octolith Safeguard scan.",
+      "correction": "'reached through a Stronghold Portal controlled by three Alimbic Artifacts and watched over by Alimbic guardians'",
+      "source_url": "https://www.metroidwiki.org/wiki/Alimbic_Lore"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Alimbic Artifacts' fires only on the plural; 'Alimbic Artifact' (singular) is missing.",
+      "correction": "Add 'Alimbic Artifact'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime Hunters: The Oubliette, the Seal Sphere and the Alimbic Omega Cannon",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "The Alimbic Omega Cannon is the most powerful weapon the Alimbics ever built. Their records admit it could not destroy Gorea during the war",
+      "problem": "No Datashade mentions the Omega Cannon at all; the Oubliette scans say 'No weapon could defeat Gorea'. The idea that the Omega Cannon was tried during the war comes from Metroid Wiki editorial text, and the game shows the Omega Cannon destroying Gorea's final form, so the claim contradicts canon outcome.",
+      "correction": "'The Alimbic Omega Cannon was left by the Alimbics in the Oubliette, apparently as a last resort should the seal fail; the Alimbics' records never mention it, saying only that no weapon of theirs could defeat Gorea.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Omega_Cannon"
+     },
+     {
+      "severity": "nit",
+      "claim": "and it perished with the Oubliette",
+      "problem": "Metroid Wiki says only that the Oubliette explodes and the Seal Sphere is 'presumably destroyed'; the cannon's fate is inference.",
+      "correction": "'and presumably perished with the Oubliette'",
+      "source_url": "https://www.metroidwiki.org/wiki/Oubliette"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Colored Panels' is a generic phrase and 'Omega Cannon' will also trigger on Metroid Dread discussion (overlapping the weapons domain's entry).",
+      "correction": "Drop 'Colored Panels'; keep 'Alimbic Omega Cannon' and consider making 'Omega Cannon' require a secondary key such as 'Gorea' or 'Oubliette'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime Hunters: Weavel",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "noncanon",
+      "claim": "In an earlier battle with Samus Aran he was left for dead.",
+      "problem": "'Left for dead' is the Super Smash Bros. Brawl trophy wording. The official site says he was 'critically wounded during an altercation between the Space Pirates and Samus Aran' and the manual says 'Badly injured in a past battle with Samus Aran'.",
+      "correction": "'He was critically wounded in a past clash between the Space Pirates and Samus Aran.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Weavel"
+     },
+     {
+      "severity": "missing",
+      "problem": "Weavel's own use of the Battlehammer differs from Samus's: in his hands the explosions are noticeably larger (manual: it 'explodes, causing additional damage').",
+      "correction": "Add: 'In Weavel's hands its explosions are markedly larger than when anyone else fires it.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Battlehammer"
+     },
+     {
+      "severity": "nit",
+      "claim": "she knows him as a Pirate weapon that refused to stay dead",
+      "problem": "Characterisation invented for flavour; no source says Samus believed him dead. Harmless but not canon.",
+      "correction": "'she knows him as a Pirate she once critically wounded.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Weavel"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime Hunters: Kanden",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "ambushing her in the Celestial Archives",
+      "problem": "Metroid Wiki's Kanden page gives no location; support comes only from the walkthrough ('our first boss fight, but our first Hunter encounter') plus the Celestial Archives being the first area. Consistent, but the drafter's note wrongly attributes this to Metroid Wiki.",
+      "correction": "Keep the claim; fix the note's attribution to the walkthrough.",
+      "source_url": "https://omegametroid.com/?p=14836"
+     },
+     {
+      "severity": "nit",
+      "claim": "Kanden is an Enoema",
+      "problem": "Species name comes only from the Metroid Wiki infobox (the Enoema page is 404); the manual calls him simply a lab experiment created to be 'the ultimate soldier, immortal and relentless'.",
+      "correction": "Acceptable; optionally add the manual's 'immortal and relentless' phrasing.",
+      "source_url": "https://www.metroidwiki.org/wiki/Kanden"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime Hunters: Spire",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "whose bodies are hardened rock",
+      "problem": "'Hardened rock' is Metroid Wiki article prose; the official site says bodies 'composed of organic rock'.",
+      "correction": "'whose bodies are organic rock containing molten ferrous compounds...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Spire"
+     },
+     {
+      "severity": "keys",
+      "problem": "Secondary keys 'rock', 'lava' and 'hunter' make the primary 'Spire' fire on ordinary prose such as 'the rock spire' or 'the hunter climbed the spire'.",
+      "correction": "Remove 'rock', 'lava' and bare 'hunter' from secondary_keys; keep 'bounty hunter', 'Diamont(s)', 'Magmaul', 'Dialanche', 'Mondreus', 'Alimbic'."
+     },
+     {
+      "severity": "nit",
+      "claim": "Samus met and defeated Spire on Alinos",
+      "problem": "Supported only by the walkthrough (its Spire paragraph references the High Ground on Alinos); not on Metroid Wiki.",
+      "correction": "Keep; the walkthrough is the source.",
+      "source_url": "https://omegametroid.com/?p=14836"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime Hunters: Noxus",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "in Noxus's hands a charged shot can freeze an opponent in place",
+      "problem": "The 'freeze an opponent in its tracks' line is the Judicator's general logbook text; Metroid Wiki's Judicator page describes Noxus's version as 'a short range ice wall that freezes anything in its path'.",
+      "correction": "'in Noxus's hands it throws up a short-range wall of ice that freezes anything in its path'",
+      "source_url": "https://www.metroidwiki.org/wiki/Judicator"
+     },
+     {
+      "severity": "nit",
+      "claim": "Noxus confronted Samus on Arcterra, beyond Sic Transit",
+      "problem": "Sic Transit page: Trace and Noxus are first encountered in Sic Transit itself.",
+      "correction": "'Noxus confronted Samus in Sic Transit on Arcterra'",
+      "source_url": "https://www.metroidwiki.org/wiki/Sic_Transit"
+     },
+     {
+      "severity": "nit",
+      "claim": "The Vhozon are a proud, reclusive race",
+      "problem": "Matches the manual; Metroid Wiki's own wording is 'proud and elitist'. Not a conflict worth a clause.",
+      "correction": "None required.",
+      "source_url": "https://www.metroidwiki.org/wiki/Noxus"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime Hunters: Trace",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "he wants supremacy for the Krikens and honor and heroic status for himself",
+      "problem": "The manual says his every thought is bent toward 'bringing supremacy to the Krikens and honor to himself'; neither the manual nor the official site text on Metroid Wiki mentions 'heroic status' or 'hero'.",
+      "correction": "'he wants supremacy for the Krikens and honor for himself'",
+      "source_url": "https://www.metroidwiki.org/wiki/Trace"
+     },
+     {
+      "severity": "nit",
+      "claim": "a three-legged Kriken military biotech war machine produced by metamorphic technology",
+      "problem": "The logbook says the biotechnology lets Trace 'biomorph' into the war machine; 'metamorphic technology' appears in no source.",
+      "correction": "'a three-legged war machine into which Kriken military biotechnology lets him biomorph'",
+      "source_url": "https://www.metroidwiki.org/wiki/Triskelion"
+     },
+     {
+      "severity": "keys",
+      "problem": "Secondary keys 'hunter', 'sniper' and 'exile' let the primary 'Trace' fire on common prose ('the hunter left no trace', 'the sniper left a trace'); 'Imperialist' as a primary with 'exile' or 'hunter' can misfire in political roleplay.",
+      "correction": "Remove bare 'hunter' and 'sniper' from secondary_keys; keep 'bounty hunter', 'Kriken(s)', 'Imperialist', 'Triskelion', 'Alimbic', 'exile'."
+     },
+     {
+      "severity": "nit",
+      "claim": "Trace perched on high ground on Arcterra and sniped at Samus",
+      "problem": "Consistent with Sic Transit page (first encountered there) and the walkthrough (high perch at the back of Sic Transit); naming the room would be more precise.",
+      "correction": "'Trace perched at the back of Sic Transit on Arcterra and sniped at Samus'",
+      "source_url": "https://www.metroidwiki.org/wiki/Sic_Transit"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters",
+   "https://www.metroidwiki.org/wiki/Alimbic_Lore",
+   "https://www.metroidwiki.org/wiki/Gorea",
+   "https://www.metroidwiki.org/wiki/Alimbic",
+   "https://www.metroidwiki.org/wiki/Octolith",
+   "https://www.metroidwiki.org/wiki/Weavel",
+   "https://www.metroidwiki.org/wiki/Kanden",
+   "https://www.metroidwiki.org/wiki/Spire",
+   "https://www.metroidwiki.org/wiki/Noxus",
+   "https://www.metroidwiki.org/wiki/Trace",
+   "https://www.metroidwiki.org/wiki/Seal_Sphere",
+   "https://www.metroidwiki.org/wiki/Oubliette",
+   "https://www.metroidwiki.org/wiki/Omega_Cannon",
+   "https://www.metroidwiki.org/wiki/Alimbic_Cannon",
+   "https://www.metroidwiki.org/wiki/Affinity_Weapon",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_Hunters",
+   "https://www.metroidwiki.org/wiki/Celestial_Archives",
+   "https://www.metroidwiki.org/wiki/Alinos",
+   "https://www.metroidwiki.org/wiki/Arcterra",
+   "https://www.metroidwiki.org/wiki/Vesper_Defense_Outpost",
+   "https://www.metroidwiki.org/wiki/Cretaphid",
+   "https://www.metroidwiki.org/wiki/Slench",
+   "https://www.metroidwiki.org/wiki/Sylux",
+   "https://www.metroidwiki.org/wiki/Alimbic_Cluster",
+   "https://www.metroidwiki.org/wiki/Diamont",
+   "https://www.metroidwiki.org/wiki/Kriken",
+   "https://www.metroidwiki.org/wiki/Vhozon",
+   "https://www.metroidwiki.org/wiki/Alimbic_Datashade",
+   "https://omegametroid.com/?p=14836",
+   "https://www.metroidwiki.org/wiki/Infinity_Void",
+   "https://www.metroidwiki.org/wiki/Trocra",
+   "https://www.metroidwiki.org/wiki/Halfturret",
+   "https://www.metroidwiki.org/wiki/Dialanche",
+   "https://www.metroidwiki.org/wiki/Stinglarva",
+   "https://www.metroidwiki.org/wiki/Vhoscythe",
+   "https://www.metroidwiki.org/wiki/Triskelion",
+   "https://www.metroidwiki.org/wiki/Battlehammer",
+   "https://www.metroidwiki.org/wiki/Judicator",
+   "https://www.metroidwiki.org/wiki/Imperialist",
+   "https://www.metroidwiki.org/wiki/Fire_Spawn",
+   "https://www.metroidwiki.org/wiki/Tetra_Galaxy",
+   "https://www.metroidwiki.org/wiki/Sic_Transit",
+   "https://www.metroidwiki.org/wiki/Echo_Hall (404)"
+  ]
+ }
+}

@@ -1,0 +1,379 @@
+{
+ "run": "wf_819a7ec7-9c3",
+ "label": "verify:bestiary-prime",
+ "result": {
+  "overall": "Checked all seven entries against Metroid Wiki creature, Logbook, category and room pages, Wikipedia (Federation Force, Prime 4) and the Omega Metroid Prime 4 Logbook guides (~55 fetches). WebSearch was unavailable (the shared per-turn search budget was already consumed before this review), so corroboration for Federation Force and Prime 4: Beyond rests on Wikipedia, Metroid Wiki stubs and the Omega Metroid guide. The drafts are largely faithful to the Logbooks; the substantive problems are: (1) Aether entry calls Aether the Luminoth homeworld (they were nomads who settled it) and files Lightbringers under Sanctuary Fortress/Light Aether when they are Dark Agon Wastes creatures; (2) Alimbic entry misstates the Electro Voldrum weakness and asserts the Alimbics 'seeded' animals; (3) Bryyo entry's 'Reptilicus chosen to become hunters' origin and 'fragile pack-hunting Hoppers' are unsupported; (4) Viewros entry attributes the wildlife's aggression to 'psychic energy' where Wikipedia says the Lamorn's Green Energy, credits Flight Drones/Mecha Rats to the Lamorn (built by Volt Forge's factory AI), and omits the Metroid-fusion backstory of Keratos; (5) Phaaze entry omits Jelsacs, Phazon Hoppers and Metroid Hoppers that Metroid Wiki room pages attest despite the drafter's 404 note. Several generic keys (Glider, Puffer, Hopper, Darkling, Lightbringer, Shrieker, Snow Wolf, Winged Lizard, G.F.S. Valhalla) risk misfiring. Tallon IV, Elysia/Pirate Homeworld and Phaaze entries have no factual errors; Federation Force has one minor unverified descriptor.",
+  "reports": [
+   {
+    "entry_comment": "Creatures: Fauna of Tallon IV",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "problem": "Triclops description says it hauls the Morph Ball 'to a storage pit'; Metroid Wiki says Samus is carried to 'an area designated for rock removal or food storage' and expelled there. 'Pit' is an embellishment (the first scan location happens to be Pit Tunnel).",
+      "claim": "mistake Samus's Morph Ball for rock and haul it to a storage pit",
+      "correction": "mistake Samus's Morph Ball for rock or food and carry it off to where they dump rock or store food",
+      "source_url": "https://www.metroidwiki.org/wiki/Triclops"
+     },
+     {
+      "severity": "nit",
+      "problem": "Flickerbats are described as 'visible only to the X-Ray Visor'. The Logbook says X-ray imaging is the only reliable way to track them; the wiki notes they pass in and out of the visible spectrum and are briefly visible unaided.",
+      "claim": "Flickerbats are optically camouflaged scavengers visible only to the X-Ray Visor",
+      "correction": "Flickerbats are optically camouflaged scavengers that flicker in and out of sight and can be tracked reliably only with the X-Ray Visor",
+      "source_url": "https://www.metroidwiki.org/wiki/Flickerbat"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Glider'/'Gliders' and 'Puffer'/'Puffers' are ordinary English words (hang glider, puffer jacket, pufferfish) likely to fire this 500-word entry in unrelated chat. Consider dropping them or gating them behind secondary keys (Tallon, Phendrana, Magmoor, Metroid).",
+      "claim": "keys: Glider, Gliders, Puffer, Puffers"
+     },
+     {
+      "severity": "style",
+      "problem": "Entry is ~507 words, above the 400-word limit; acceptable only if this bestiary is treated as a core subject (limit 550). Trimming the Chozo Ruins 'complete the ruins' list or the Phendrana filler sentence would bring it under 450.",
+      "claim": "~470 words (drafter's note); actual count is 507"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of Aether and Dark Aether",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "problem": "Aether is called the 'homeworld of the Luminoth'. Metroid Wiki: 'The Luminoth were not originally from Aether, but lived as nomads traveling across the universe' until X-Qar found Aether and they settled it.",
+      "claim": "Aether, homeworld of the Luminoth, and its dark twin",
+      "correction": "Aether, the adopted home of the Luminoth (nomads who settled it), and its dark twin",
+      "source_url": "https://www.metroidwiki.org/wiki/Luminoth"
+     },
+     {
+      "severity": "error",
+      "problem": "Lightbringers are listed under 'Sanctuary Fortress: Luminoth mechanoids' in the Light Aether section. They are bio-engineered organic creatures found on Dark Aether (Dark Agon Wastes, Duelling Range), created for the war with the Ing, and they vanish once the Light of Aether is restored to the Agon Energy Controller.",
+      "claim": "Sanctuary Fortress: ... Lightbringers are Luminoth-made crystalline creatures that radiate life-giving energy.",
+      "correction": "Move to the Dark Aether section: Lightbringers, crystalline foragers the Luminoth bio-engineered for the war, patrol the Dark Agon Wastes radiating a field of life-giving energy and can be charged like Light Crystals; only matter/antimatter weapons destroy them.",
+      "source_url": "https://www.metroidwiki.org/wiki/Lightbringer"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Logbook classifies Nightbarbs as 'small airborne darklings' native to Dark Aether, yet the entry defines Darklings only as possessed light-world creatures and lists Nightbarbs separately, which misleads on what a darkling is.",
+      "claim": "Darklings are light-world creatures possessed by Ing ... Nightbarbs are small black-and-violet three-winged fliers",
+      "correction": "Note that the Logbook also classes Dark Aether natives such as Nightbarbs as darklings.",
+      "source_url": "https://www.metroidwiki.org/wiki/Nightbarb"
+     },
+     {
+      "severity": "nit",
+      "problem": "Krocuss sentence is garbled: 'their shells open only when their gills are exposed'. Wiki: the shell cannot be penetrated by most weapons; the Krocuss can be damaged only when its back-side gills are exposed; Power Bombs destroy it outright.",
+      "claim": "their shells open only when their gills are exposed",
+      "correction": "their shells shrug off most weapons and they can be hurt only when the gills on their backs are exposed",
+      "source_url": "https://www.metroidwiki.org/wiki/Krocuss"
+     },
+     {
+      "severity": "nit",
+      "problem": "'They resemble Tallon IV's Baby Sheegoths' is a wiki Description-section observation, not Logbook text. Harmless, but it is editor commentary rather than canon.",
+      "claim": "They resemble Tallon IV's Baby Sheegoths.",
+      "source_url": "https://www.metroidwiki.org/wiki/Grenchler"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Darkling'/'Darklings', 'Lightbringer'/'Lightbringers' and 'Shrieker'/'Shriekers' are common fantasy/English words that will fire in non-Metroid chat (and 'Darkling' will also trigger on any Echoes boss discussion owned by the echoes domain).",
+      "claim": "keys: Darkling, Darklings, Lightbringer, Lightbringers, Shrieker, Shriekers"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of the Alimbic Cluster",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "problem": "'Electro, Ice and Magma Voldrums each favor one element and fear its opposite' is wrong for the Electro Voldrum: the Logbook says it has a weaker hull vulnerable to rapid-fire weapons, not an opposing element. Only Ice (vulnerable to high heat) and Magma (vulnerable to subzero weapons) fit the pattern.",
+      "claim": "Electro, Ice and Magma Voldrums each favor one element and fear its opposite",
+      "correction": "Ice Voldrums fire freezing shots but their cryocoolers fail under high heat; Magma Voldrums run hot and are weak to subzero weapons; the Electro Voldrum's thinner hull falls to rapid fire.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters_Logbook"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'worlds the vanished Alimbics had seeded with sentry machines as well as animals' implies the Alimbics seeded the animal life. No Logbook or wiki text says the Alimbics introduced animals; Quadtroids are 'genetically engineered' with no builder named, and other species (Blastcaps, Shriekbats, Zoomers) arrived from Tallon IV/Zebes.",
+      "claim": "on worlds the vanished Alimbics had seeded with sentry machines as well as animals",
+      "correction": "on worlds the vanished Alimbics had left guarded by sentry machines alongside native and immigrant animals",
+      "source_url": "https://www.metroidwiki.org/wiki/Quadtroid"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'Samus's Logbook from the cluster is the only record of several of these species' is unsupported filler; nothing on Metroid Wiki says so.",
+      "claim": "Samus's Logbook from the cluster is the only record of several of these species.",
+      "correction": "Delete the sentence.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters_Logbook"
+     },
+     {
+      "severity": "nit",
+      "problem": "Psycho Bit v3.0 is also found at the Vesper Defense Outpost and v4.0 also on Arcterra; the entry pins each to one location. Also 'short-range teleportation' is the Logbook's 'low-level teleportation device'.",
+      "claim": "v3.0 on Alinos spits superheated magma; v4.0 at the Vesper Defense Outpost freezes prey",
+      "correction": "v3.0 (Alinos, Vesper Defense Outpost) spits superheated magma; v4.0 (Vesper Defense Outpost, Arcterra) freezes prey with supercooled plasma",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters_Logbook"
+     },
+     {
+      "severity": "nit",
+      "problem": "Guardians are described in the Logbook as automatons built to guard the Alimbic Order, now programmed to serve in its absence, carrying three small fusion generators in their crania; 'androids that hunt in packs' loses the Alimbic-guard purpose.",
+      "claim": "Guardians are androids that hunt in packs",
+      "correction": "Guardians are Alimbic automatons built to guard the Order and still serving in its absence, travelling in packs",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters_Logbook"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of Bryyo",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "'Reptilicus chosen to become stronger, more resilient hunters' asserts a selection process. Metroid Wiki and the Logbook describe Reptilicus Hunters only as Reptilicus corrupted by Phazon, stronger than ordinary Reptilicus with fewer attacks; no 'chosen' origin is given.",
+      "claim": "Reptilicus Hunters: Reptilicus chosen to become stronger, more resilient hunters.",
+      "correction": "Reptilicus Hunters: Phazon-corrupted Reptilicus, stronger and tougher than the common kind.",
+      "source_url": "https://www.metroidwiki.org/wiki/Reptilicus_Hunter"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'Hoppers: fragile, venom-spitting pack hunters' — the Corruption Logbook (Bryyo section) says Hoppers attack with talons after short hops and fire venom bursts at range; 'fragile' and 'pack hunters' could not be verified (Metroid Wiki's Hopper and Alpha Hopper pages are 404).",
+      "claim": "Hoppers: fragile, venom-spitting pack hunters",
+      "correction": "Hoppers: hopping talon-fighters that spit venom at range",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption_Logbook"
+     },
+     {
+      "severity": "nit",
+      "problem": "'Gel Rays leap from gel pools to feed' — the Logbook calls Gel Rays nonaggressive gliders through Fuel Gel pools that must be scanned on each leap; feeding is not stated.",
+      "claim": "Gel Rays leap from gel pools to feed",
+      "correction": "Gel Rays are harmless gliders that leap from the Fuel Gel pools",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption_Logbook"
+     },
+     {
+      "severity": "nit",
+      "problem": "Shelbugs are described as soft-bodied wall-clingers that fire spines (South Jungle Hall), not creatures that 'bristle with spines'.",
+      "claim": "Shelbugs of the Thorn Jungle bristle with spines",
+      "correction": "soft-bodied Shelbugs cling to the Thorn Jungle's walls and fire spines",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption_Logbook"
+     },
+     {
+      "severity": "missing",
+      "problem": "Warp Hounds consume Fuel Gel to live and their short-range teleport disrupts electronic targeting; Fargul Hatchers occur only in the Hall of the Golems. Both are Logbook details useful for scene-setting.",
+      "claim": "Warp Hounds: teleporting hounds the Reptilicus tamed for war and hunting",
+      "correction": "Add: they live on Fuel Gel and their short teleports foil lock-on targeting; the Reptilicus use them chiefly as guards.",
+      "source_url": "https://www.metroidwiki.org/wiki/Reptilicus"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Hopper'/'Hoppers' are generic English words (hopper bin, grasshopper) likely to misfire; gate behind a secondary key or rely on 'Alpha Hopper'.",
+      "claim": "keys: Hopper, Hoppers"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of Elysia and the Pirate Homeworld",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "missing",
+      "problem": "Metroid Wiki states Steamlords and Tinbots are themselves Elysians (the Chozo-built mechanoid inhabitants of SkyTown), Steamlords having been corrupted by the Phazon of Dark Samus's Leviathan. The entry's 'Chozo built SkyTown's drones and left the Elysians to keep them' reads as if the Elysians are a separate caretaker race, which a Samus/Elysia roleplay would get wrong.",
+      "claim": "The Chozo built SkyTown's drones and left the Elysians to keep them",
+      "correction": "SkyTown's Steamlords, Steambots and Tinbots are Elysians, the mechanoids the Chozo built to run the city; Phazon corruption from the Leviathan turned them hostile.",
+      "source_url": "https://www.metroidwiki.org/wiki/Steamlord"
+     },
+     {
+      "severity": "nit",
+      "problem": "'Tinbots, light-metal drones' — the wiki describes Tinbots as Elysians converted for security duty rather than drones.",
+      "claim": "Tinbots, light-metal drones converted to security patrols",
+      "correction": "Tinbots, lightweight Elysians converted to security patrols",
+      "source_url": "https://www.metroidwiki.org/wiki/Tinbot"
+     },
+     {
+      "severity": "nit",
+      "problem": "'Phazon Metroids bred in the Pirate Xenoresearch laboratories' — the labs hold Phazon Metroids in stasis for study; 'bred' is not attested.",
+      "claim": "Phazon Metroids bred in the Pirate Xenoresearch laboratories",
+      "correction": "Phazon Metroids held in the Pirates' Xenoresearch laboratories"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of Phaaze and the G.F.S. Valhalla",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "missing",
+      "problem": "Phaaze's Genesis Chamber is also home to Jelsacs and Phazon Metroids, and the Drop Shaft holds Phazon Hoppers and Metroid Hoppers alongside the Tangle Weed. The drafter dropped Jelsac and Phazon Hopper because their own pages are 404, but Metroid Wiki's Genesis Chamber and Tangle Weed pages attest them.",
+      "claim": "Phaaze fauna list (Phaz-Ings, Phazon Grubs, Liquid Phazon, Tangle Weed, Phazon Shriekbats, Phazon Nightbarbs)",
+      "correction": "Add: Phazon Hoppers and Metroid Hoppers share the Drop Shaft with the Tangle Weed; Jelsacs and Phazon Metroids pour from tunnels into the Genesis Chamber where the Leviathan Infant grows.",
+      "source_url": "https://www.metroidwiki.org/wiki/Genesis_Chamber"
+     },
+     {
+      "severity": "nit",
+      "problem": "Life-cycle wording is inverted: 'Phazon Grubs ... their young spawn in numbers from Liquid Phazon'. Grubs are the young form; Liquid Phazon is the adult that spawns them.",
+      "claim": "Drawn to bioenergy, they lunge, and their young spawn in numbers from Liquid Phazon.",
+      "correction": "Drawn to bioenergy, they lunge; they are the larval form of Liquid Phazon, which spawns them in numbers.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phazon_Grub"
+     },
+     {
+      "severity": "nit",
+      "problem": "'the husks of the Metroid Prime creature found beside it' asserts identity; Metroid Wiki says the Genesis Chamber husks are of a creature 'almost identical' to Metroid Prime and that their origin is unknown.",
+      "claim": "the husks of the Metroid Prime creature found beside it",
+      "correction": "the husks of creatures almost identical to Metroid Prime lining the same chamber, origin unknown",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)"
+     },
+     {
+      "severity": "keys",
+      "problem": "'G.F.S. Valhalla' and 'GFS Valhalla' will fire this fauna entry every time the ship (presumably owned by the prime3 domain) is mentioned, doubling with that entry. Prefer 'Valhalla creatures'/'Valhalla wildlife' or secondary-key gating.",
+      "claim": "keys: G.F.S. Valhalla, GFS Valhalla"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of the Bermuda System",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "'Goliath Beetles, giant insects the Force fought alongside the Pirates' — Wikipedia only names Goliath Beetles as original enemies; it gives no description ('giant insects'). The phrase 'alongside the Pirates' also reads as if the beetles fought on the Pirates' side.",
+      "claim": "the Goliath Beetles, giant insects the Force fought alongside the Pirates",
+      "correction": "the Goliath Beetles, beetle-like enemies the Force fought in addition to the Pirates",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+     },
+     {
+      "severity": "nit",
+      "problem": "Post-credits detail is thin: the Sylux-like figure infiltrates a Federation facility and projects a beam onto the egg, which hatches into a larva; 'reached it' understates this.",
+      "claim": "a Metroid egg carried off by the Force later hatched into a larva when a figure resembling Sylux reached it",
+      "correction": "a Metroid egg carried off by the Force later hatched into a larva when a figure resembling Sylux broke into the Federation facility and bathed it in a beam",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+     },
+     {
+      "severity": "style",
+      "problem": "More than half the entry is Doomseye/Samus plot rather than fauna; fine given the thin record, but the Samus-enlarged and Doomseye sentences duplicate what the federation-force domain's Bermuda entry will say when both fire on the planet names.",
+      "claim": "On Bion the Force learned ... Samus herself, captured and brainwashed, was grown to giant size ..."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Creatures: Fauna of Viewros",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "problem": "The cause of the wildlife's aggression is given as the Lamorn nurturing the planet with 'psychic energy'. Wikipedia's plot summary says the Lamorn used Green Energy, a life energy found in crystals across Viewros, to nurture the world, and that this made the wildlife aggressive and turned the Lamorn into Grievers. The Logbook separately ties individual monsters (Carvex, Keratos) to Metroid fusion. Psychic energy is Samus's Lamorn-granted ability, not the cause.",
+      "claim": "has wildlife that turned aggressive when the Lamorn tried to nurture the planet with psychic energy",
+      "correction": "has wildlife that turned aggressive when the Lamorn tried to nurture the planet with Green Energy, the life energy of its crystals, the same force that made Grievers of the Lamorn",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "error",
+      "problem": "Flight Drones and Mecha Rats are attributed to the Lamorn. The machines Logbook says Flight Drones were built by Volt Forge's factory Administration AI (Xelios) and Mecha Rats are assumed to be its work too; only Psy-bot Soldiers were made to serve the Lamorn and later converted against Grievers.",
+      "claim": "The Lamorn's Psy-bots, Flight Drones and Mecha Rats are machines, not fauna.",
+      "correction": "Psy-bots (Lamorn-built, later turned against the Grievers) and Volt Forge's factory-made Flight Drones and Mecha Rats are machines, not fauna.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-machines/"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Keratos was a highly intelligent being that could communicate with Lamorn priests until Metroid fusion exposed its abdominal core and irreversibly altered its body and mind; this Metroid-fusion mechanic (also behind Carvex and Aberax) is the game's central plot device and the entry omits it entirely.",
+      "claim": "the Keratos is a unique giant shelled mutant that spits icy boulders",
+      "correction": "the Keratos is a one-of-a-kind armored giant that spits icy boulders; once intelligent enough to speak with Lamorn priests, a fused Metroid exposed its core and warped it",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "nit",
+      "problem": "'Dartwings glide blind toward sounds' — the Logbook says they have poor vision and rely mainly on hearing; not blind. 'Winged Lizards glide harmlessly' — the Logbook says they are not especially aggressive and rarely attack unprovoked. 'the Phenoros ... eats Green Energy' — it ingests lava to extract Green Energy. 'Crystal Crawlers ... climb with their fangs' is not in the entry text; the Logbook says they anchor swings with their shell crystals.",
+      "claim": "Dartwings glide blind toward sounds ... Winged Lizards glide harmlessly in the shade ... the Phenoros is a massive mineral lava-dweller that eats Green Energy ... Crystal Crawlers eat Deborah crystals and climb with their fangs",
+      "correction": "Dartwings, nearly sightless, dive at sounds; Winged Lizards keep to the shade and seldom attack unprovoked; the Phenoros swims through and swallows lava to extract Green Energy; Crystal Crawlers eat Deborah crystals and their shell crystals anchor Samus's Psychic Energy swings",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'the Viewros incident' is not an attested name; no source uses it (the drafter's own convention). Also 'Lamorn world' is fine but Wikipedia calls the Lamorn extinct, the survivors having become Grievers.",
+      "claim": "Samus was stranded on during the Viewros incident",
+      "correction": "Samus was stranded on after the Tanamaar artifact's shockwave",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Snow Wolf'/'Snow Wolves' and 'Winged Lizard'/'Winged Lizards' are generic phrases likely to fire in unrelated fantasy chat; 'Shren'/'Shrens' is fine. Consider gating these behind a Viewros/Metroid secondary key.",
+      "claim": "keys: Snow Wolf, Snow Wolves, Winged Lizard, Winged Lizards"
+     },
+     {
+      "severity": "style",
+      "problem": "Entry is ~492 words, over the 400 limit; acceptable only as a core subject. The six Griever variants (Jungle, Sand, Frostburn, Maul, Maul Brute, Omega) are deferred, which is fine, but note that the single-source (Omega Metroid guide) basis for most species should be flagged in notes for later re-verification once Metroid Wiki covers Viewros.",
+      "claim": "~480 words as the biggest subject"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Logbook",
+   "https://www.metroidwiki.org/wiki/Sheegoth",
+   "https://www.metroidwiki.org/wiki/Magmoor",
+   "https://www.metroidwiki.org/wiki/Jelzap",
+   "https://www.metroidwiki.org/wiki/Shriekbat",
+   "https://www.metroidwiki.org/wiki/Glider",
+   "https://www.metroidwiki.org/wiki/Triclops",
+   "https://www.metroidwiki.org/wiki/Blastcap",
+   "https://www.metroidwiki.org/wiki/Geemer",
+   "https://www.metroidwiki.org/wiki/Flickerbat",
+   "https://www.metroidwiki.org/wiki/War_Wasp",
+   "https://www.metroidwiki.org/wiki/Lumigek",
+   "https://www.metroidwiki.org/wiki/Oculus",
+   "https://www.metroidwiki.org/wiki/Plated_Puffer",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes_Logbook",
+   "https://www.metroidwiki.org/wiki/Splinter",
+   "https://www.metroidwiki.org/wiki/Sandigger",
+   "https://www.metroidwiki.org/wiki/Blogg",
+   "https://www.metroidwiki.org/wiki/Grenchler",
+   "https://www.metroidwiki.org/wiki/Krocuss",
+   "https://www.metroidwiki.org/wiki/Lumite",
+   "https://www.metroidwiki.org/wiki/Ingclaw",
+   "https://www.metroidwiki.org/wiki/Mechlops",
+   "https://www.metroidwiki.org/wiki/Nightbarb",
+   "https://www.metroidwiki.org/wiki/Lightbringer",
+   "https://www.metroidwiki.org/wiki/Luminoth",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters_Logbook",
+   "https://www.metroidwiki.org/wiki/Quadtroid",
+   "https://www.metroidwiki.org/wiki/Psycho_Bit",
+   "https://www.metroidwiki.org/wiki/Petrasyl",
+   "https://www.metroidwiki.org/wiki/Greater_Ithrak",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption_Logbook",
+   "https://www.metroidwiki.org/wiki/Reptilicus_Hunter",
+   "https://www.metroidwiki.org/wiki/Reptilicus",
+   "https://www.metroidwiki.org/wiki/Korba",
+   "https://www.metroidwiki.org/wiki/Atomic",
+   "https://www.metroidwiki.org/wiki/Phaazoid",
+   "https://www.metroidwiki.org/wiki/Gragnol",
+   "https://www.metroidwiki.org/wiki/Gel_Puffer",
+   "https://www.metroidwiki.org/wiki/Snatcher",
+   "https://www.metroidwiki.org/wiki/Hopper (404)",
+   "https://www.metroidwiki.org/wiki/Alpha_Hopper (404)",
+   "https://www.metroidwiki.org/wiki/Shelbug (404)",
+   "https://www.metroidwiki.org/wiki/Steamlord",
+   "https://www.metroidwiki.org/wiki/Steambot",
+   "https://www.metroidwiki.org/wiki/Tinbot",
+   "https://www.metroidwiki.org/wiki/Aeromine",
+   "https://www.metroidwiki.org/wiki/Elysian_Shriekbat",
+   "https://www.metroidwiki.org/wiki/Puffer_Mine",
+   "https://www.metroidwiki.org/wiki/Phazon_Harvester_Drone",
+   "https://www.metroidwiki.org/wiki/Puffer",
+   "https://www.metroidwiki.org/wiki/Phaaze",
+   "https://www.metroidwiki.org/wiki/Phaz-Ing",
+   "https://www.metroidwiki.org/wiki/Phazon_Grub",
+   "https://www.metroidwiki.org/wiki/Liquid_Phazon",
+   "https://www.metroidwiki.org/wiki/Tangle_Weed",
+   "https://www.metroidwiki.org/wiki/Category:G.F.S._Valhalla_Life_Forms",
+   "https://www.metroidwiki.org/wiki/Leviathan",
+   "https://www.metroidwiki.org/wiki/Leviathan_Infant (404)",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)",
+   "https://www.metroidwiki.org/wiki/Genesis_Chamber",
+   "https://www.metroidwiki.org/wiki/Jelsac (404)",
+   "https://www.metroidwiki.org/wiki/Phazon_Hopper (404)",
+   "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Carvex",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/missable-scans/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-machines/",
+   "https://metroiddatabase.com/game/metroid-prime-4-beyond/"
+  ]
+ }
+}

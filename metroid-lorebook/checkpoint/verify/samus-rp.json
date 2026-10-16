@@ -1,0 +1,360 @@
+{
+ "run": "wf_9122c4e6-699",
+ "label": "verify:samus-rp",
+ "result": {
+  "overall": "Checked all seven entries against Metroid Wiki, Wikipedia, the Shinesparkers Prime 4 transcript, Metroid Database (Fusion ending) and quotes.net (Other M script). WebSearch was unavailable for this run (shared per-turn budget already spent), and the Wikiquote/Shinesparkers transcripts for Fusion, Other M, Dread and Zero Mission do not exist (404), so exact-wording checks for those games rest on quotes.net, Metroid Database and Metroid Wiki quotations. Overall the draft is in good shape: the thumbs-down narration, Fusion ending lines, Ian Malkovich pleas, Rhedogian rescue, Mogenar Phazon-vomiting, Prime helmet scene, Rundas/Ghor/Gandrayda attacking first, Quiet Robe saving Samus from the purple E.M.M.I., the Beyond opening on Tanamaar, Myles's 'Teammates?' nod and Sylux's backstory all check out. Confirmed errors are small but real: (a) 'crying specifically for me' is in-game Other M narration, not the manual; (b) in Beyond the tree Samus plants is the Lamorn Memory Fruit, not a memorial, and VUE-995 is a combat robot, not a marine; (c) Dark Samus arose from the Phazon Suit that Metroid Prime ripped off Samus, not a 'discarded' suit; (d) the Fusion 'Is it possible? Adam...?' line follows her realizing the ship was started manually by someone (Adam: 'They lent me a hand'), not that it 'moved on its own'. Unverifiable: the two child-Samus manga quotes, the 'gruff Federation CO' Fusion sentence, the JP-vs-EN Other M comparison, 'so-called Zero Mission' (my own recollection agrees, but no reachable source has it), 'rejected kindness from squadmates', 'judging he had chosen rightly', and Anthony being 'the one' warm squadmate. Note the 'young and naive' narration actually refers to Samus leaving Adam's side. Keys need pruning of common words (trust, friend/friends, emotional, regret, quote, the baby) and adding aliases for Beyond and Prime 3 characters. No non-canon contamination found.",
+  "reports": [
+   {
+    "entry_comment": "Samus: Personality and temperament",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "She calls her first Zebes mission her \"so-called Zero Mission\"",
+      "problem": "Neither the Metroid Wiki Zero Mission game page nor the 'Zero Mission' term page contains the phrase; no reachable transcript exists. (Reviewer's recollection of the intro narration agrees with the draft, but it could not be sourced.)",
+      "correction": "Keep only the short phrase, as the draft does, and do not expand or quote surrounding narration; drop it if a verified transcript cannot be found.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission"
+     },
+     {
+      "severity": "style",
+      "claim": "Driven by duty, not pay.",
+      "problem": "Overstated: she is a working bounty hunter who takes paid Federation contracts (bodyguard job for Biologic Space Laboratories in Fusion; the Federation 'hires' her for ZDR per Wikipedia).",
+      "correction": "'Duty outranks pay: she takes paid contracts but reroutes to distress calls unasked.'",
+      "source_url": "https://en.wikipedia.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "nit",
+      "claim": "the technician Myles MacKenzie",
+      "problem": "He introduces himself as 'specialist Myles MacKenzie, Engineer Level 4'; Wikipedia calls him a technician, Metroid Wiki spells the surname 'Mackenzie'.",
+      "correction": "'Federation engineer Myles MacKenzie' (keep the MacKenzie spelling used by the transcript and Wikipedia).",
+      "source_url": "https://shinesparkers.net/metroid-prime-4-beyond-transcript/"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Other M narration makes clear the 'Lady' nickname actually mattered to her (because of her past and because others treated her as fragile), which is why the thumbs-down is affectionate rather than hostile; the entry only gives the derision half.",
+      "correction": "Add one clause: the nickname meant something to her because she hated being handled as fragile.",
+      "source_url": "https://www.quotes.net/mquote/1040741"
+     },
+     {
+      "severity": "missing",
+      "problem": "Useful portrayal note omitted: Dread deliberately gives her almost no dialogue and conveys emotion through her eyes and body language (Sakamoto 'wanted to convey the narrative through acting and visuals').",
+      "correction": "Add a sentence that her feelings show in posture, eyes and gesture rather than words.",
+      "source_url": "https://www.nintendolife.com/features/metroid-dread-has-plenty-of-other-ms-dna-and-thats-no-bad-thing"
+     },
+     {
+      "severity": "keys",
+      "problem": "Keys are serviceable but miss common phrasings.",
+      "correction": "Add 'quiet', 'silent', 'cold', 'introvert', 'her personality'. Nothing on the forbidden list is present."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Speech style and canonical quotes",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "And, realizing her ship had moved on its own: \"Is it possible? Adam...?\"",
+      "problem": "The ending text has Samus say 'This ship can only be started manually.' then 'Is it possible? Adam…?'; the ship did not move on its own, someone started it, and Adam answers 'You wonder how I started the ship? Just think about it. They lent me a hand.' (the Etecoons and Dachoras).",
+      "correction": "'And, realizing someone had started her ship, which can only be started manually: \"Is it possible? Adam...?\"'",
+      "source_url": "https://metroiddatabase.com/endings-metroid-fusion/"
+     },
+     {
+      "severity": "unverified",
+      "claim": "\"That computer reminds me of a gruff Federation CO I served under named Adam Malkovich.\"",
+      "problem": "No reachable source gives this sentence. Metroid Wiki's Adam page quotes the Fusion lines 'He was relentless in his criticism, but he always cared...', 'He called me \"Lady\" on missions...' and 'Out of respect and with some irony, I named the computer after him.', but not a 'gruff' sentence.",
+      "correction": "Replace with the verified quote 'Out of respect and with some irony, I named the computer after him.' or paraphrase without quotation marks.",
+      "source_url": "https://www.metroidwiki.org/wiki/Adam_Malkovich"
+     },
+     {
+      "severity": "unverified",
+      "claim": "In the Japanese-language telling of the same events the word only stung slightly, and she is genuinely irritated by the nickname \"Lady\"... the Japanese Samus is cooler and less wounded throughout.",
+      "problem": "Not supported by any reachable source (Wikipedia's Samus Aran article and the Nintendo Life piece do not discuss JP/EN script differences); the drafter admits it rests on search snippets of a blocked wiki.",
+      "correction": "Cut to one hedged clause ('the Japanese script is reportedly milder') or remove.",
+      "source_url": "https://en.wikipedia.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "unverified",
+      "claim": "\"I'm Samus Aran, three years old.\" and \"Wait, you're going to kill them?!\"",
+      "problem": "Neither quotation appears on the Metroid Wiki Samus Aran, K-2L, Old Bird, Virginia Aran or Rodney Aran pages; the manga page is a stub. Old Bird's page only says he 'first meets a 3-year-old Samus Aran'.",
+      "correction": "Remove the quotation marks and paraphrase: per the manga she was three when she met Old Bird, and on Jigrad she objected to the Pirates' execution of a child and arrested rather than shot a surrendering Pirate.",
+      "source_url": "https://www.metroidwiki.org/wiki/Old_Bird"
+     },
+     {
+      "severity": "unverified",
+      "claim": "her \"so-called Zero Mission\"",
+      "problem": "Same as entry 1: phrase not found in reachable sources.",
+      "correction": "Keep as a bare phrase or drop.",
+      "source_url": "https://www.metroidwiki.org/wiki/Zero_Mission"
+     },
+     {
+      "severity": "nit",
+      "claim": "On ZDR she speaks a single line, in the Chozo language, to the Thoha survivor Quiet Robe shortly before his death",
+      "problem": "Supported: Metroid Wiki says 'Shortly after Samus tells him that she'll finish the fight, Quiet Robe is killed', and Nintendo Life confirms 'just a single line in Dread ... in her adoptive Chozo language'. Note Raven Beak's own Chozo motto 'Hadar... sen olmen' ('Power... is everything') should not be confused with her line.",
+      "correction": "No change; optionally add that Raven Beak's motto is 'Power is everything', which she rejects.",
+      "source_url": "https://www.metroidwiki.org/wiki/Quiet_Robe"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Fusion ending also gives two short, very usable lines: Adam's 'Do not worry. One of them will understand. One of them must.' and his final screen message 'Lady, what's troubling you? ... They lent me a hand.'",
+      "correction": "Add Adam's 'One of them will understand. One of them must.' as the line she quotes back.",
+      "source_url": "https://metroiddatabase.com/endings-metroid-fusion/"
+     },
+     {
+      "severity": "keys",
+      "problem": "'quote'/'quotes' and 'speech' are common words that will fire in unrelated chat; missing natural phrasings.",
+      "correction": "Drop 'quote', keep 'quotes'; add 'how she talks', 'talk like', 'sound like', 'say something', 'voice lines'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Mannerisms, habits and field behavior",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "a hand held out for a data chip, a touch to a console",
+      "problem": "No source describes these gestures; they read as invented filler.",
+      "correction": "Remove; keep the verified nod to Myles and the lowered arm cannon before X-Quiet Robe."
+     },
+     {
+      "severity": "nit",
+      "claim": "His last words to her ... were \"No objections, right, Lady?\"",
+      "problem": "quotes.net's transcription supports the draft, but Metroid Wiki's Adam Malkovich page gives his final line as 'Any objections, lady?'. The quotes.net script reading is the more precise source; just be aware the wiki disagrees.",
+      "correction": "No change needed.",
+      "source_url": "https://www.quotes.net/movies/metroid:_other_m_132830"
+     },
+     {
+      "severity": "style",
+      "claim": "explores methodically, returning to passages she could not open before",
+      "problem": "Describes the backtracking gameplay loop rather than the character.",
+      "correction": "'explores methodically and doubles back once she has the means to go further.'"
+     },
+     {
+      "severity": "missing",
+      "problem": "Dread's portrayal of her body language is the richest canon source for mannerisms (eyes and posture carrying emotion; the fist-clench after Quiet Robe's death; aiming at anything that appears behind her), and the entry does not mention it beyond the X-Quiet Robe bow.",
+      "correction": "Add a sentence on Dread: her reactions are shown in her eyes and stance, never in words.",
+      "source_url": "https://www.nintendolife.com/features/metroid-dread-has-plenty-of-other-ms-dna-and-thats-no-bad-thing"
+     },
+     {
+      "severity": "keys",
+      "problem": "Keys are adequate; a few obvious aliases missing.",
+      "correction": "Add 'nod', 'arm cannon', 'visor', 'takes off her helmet'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Emotional history and inner conflicts",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "a distress call coded \"Baby's Cry\" seemed to be \"crying specifically for me\" (per the manual)",
+      "problem": "The line is in-game Other M narration ('Baby's Cry... it was as though it was crying specifically for me.'), listed among the game's quotes on quotes.net and quoted as Other M narration on Metroid Wiki. The manual line is a different one: 'As I was the first thing the baby saw, it took me to be its mother.'",
+      "correction": "Drop '(per the manual)' from the 'crying' line; if a manual tag is wanted, attach it to 'took me to be its mother'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Hatchling"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Under Adam she was bitter and rejected kindness from squadmates; she now calls that self \"young and naive\".",
+      "problem": "No source for rejecting squadmates' kindness. The 'young and naive' narration is about leaving Adam: 'I was so young. Young and naive... And yet, when the time came, I still left his side.'",
+      "correction": "'She left Adam's side while, in her words, \"young and naive\"; the narration admits she resented being treated as a child or a woman.'",
+      "source_url": "https://www.quotes.net/mquote/1040741"
+     },
+     {
+      "severity": "unverified",
+      "claim": "then refused to grieve, judging that he had chosen rightly",
+      "problem": "Metroid Wiki confirms she 'resolves not to grieve Adam', but no source has her judging his choice right.",
+      "correction": "'then resolved not to grieve, and went back into the condemned ship for his helmet.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "unverified",
+      "claim": "that family too was lost when Zebes fell to Mother Brain",
+      "problem": "Per the manga Gray Voice was fatally struck by Ridley while attacking Mother Brain, and the surviving Chozo fled Zebes; Old Bird's fate is not stated on his page.",
+      "correction": "'Gray Voice died fighting Mother Brain and the surviving Chozo abandoned Zebes (per the manga).'",
+      "source_url": "https://www.metroidwiki.org/wiki/Gray_Voice"
+     },
+     {
+      "severity": "missing",
+      "problem": "Adam shot her from behind with a Freeze Gun and knocked her unconscious before sealing himself in Sector Zero; a key part of that wound.",
+      "correction": "Add: he stopped her with a shot from behind, then explained why only he could go.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "missing",
+      "problem": "The hatchling did not only shield her: it drained Mother Brain and transferred that energy to Samus, healing her and powering the Hyper Beam, before being killed; its remains fell on her.",
+      "correction": "Add one clause about the energy transfer.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Hatchling"
+     },
+     {
+      "severity": "keys",
+      "problem": "'emotional' and 'regret' are everyday words that will trigger in ordinary chat.",
+      "correction": "Replace with 'her trauma', 'her grief', 'emotional scars', 'her parents', 'nightmare' is forbidden so use 'bad dreams' if wanted."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Attitudes toward the Federation, Chozo, Pirates and Metroids",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "Their records call her \"the Hunter\" and \"the accursed Hunter\"",
+      "problem": "Verified wording ('Samus Aran, the accursed Hunter, has arrived') but that Aether log was written about Dark Samus, whom the Pirates mistook for her. The Tallon IV bounty line ('a sizable bounty for the capture or termination of Aran') is correct.",
+      "correction": "Optionally note the Pirates sometimes confuse her with Dark Samus.",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirates"
+     },
+     {
+      "severity": "style",
+      "claim": "enemies who yield keep their lives",
+      "problem": "Generalized from a single manga incident into a standing policy.",
+      "correction": "'per the manga, a Pirate who begged for mercy was arrested, not shot.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "keys",
+      "problem": "'trust' and 'distrust' are very common words; 'the baby' will match any mention of a baby (bare 'Baby' is on the forbidden list).",
+      "correction": "Drop 'trust'/'distrust' (keep 'loyalty'); replace 'the baby' with 'hatchling'; add 'how she feels about', 'her stance'."
+     },
+     {
+      "severity": "missing",
+      "problem": "Rundas first saved her on Norion, so when he attacked on Bryyo she 'took the attack as a rescue' and was surprised; good texture for how she treats corrupted allies.",
+      "correction": "Add one clause under People.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "left Reger Tokabi's pendant on the tree she planted in their honor",
+      "problem": "The tree is the Lamorn Memory Fruit she planted (and grew with the psychic crystal) to preserve the Lamorn's legacy; the pendant from Reger was the tribute to the soldiers.",
+      "correction": "'planted the Lamorn Memory Fruit and hung Reger Tokabi's pendant on the tree that grew from it, in tribute to the soldiers.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "error",
+      "claim": "the stranded marines (Reger Tokabi, Ezra Duke, Nora Armstrong, VUE-995)",
+      "problem": "VUE-995 is a combat robot, not a marine; Wikipedia: 'the Federation soldiers Reger Tokabi, Ezra Duke, Nora Armstrong, and the combat robot VUE-995.' They restrained Sylux so she could leave via the teleporter.",
+      "correction": "'the stranded soldiers Reger Tokabi, Ezra Duke and Nora Armstrong and the combat robot VUE-995, who held Sylux down so she could escape'.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "error",
+      "claim": "Dark Samus: a Phazon doppelganger born from her own discarded suit",
+      "problem": "Metroid Prime 'ripped off her Phazon Suit' as she escaped; she did not discard it.",
+      "correction": "'born when the remains of Metroid Prime merged with the Phazon Suit it tore from her'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Per his own account, revealed after the Viewros incident",
+      "problem": "The backstory is a cutscene unlocked at 100% completion; no source says Sylux narrates it.",
+      "correction": "'In an account revealed after the Viewros incident' (drop 'per his own').",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "missing",
+      "problem": "The core of Sylux's grudge is omitted: as a Federation field captain he disobeyed an order to hold position and wait for Samus so he could seize a Pirate superweapon he had been told to destroy; that got his platoon killed, Samus arrived with reinforcements and destroyed the weapon, and he deserted with stolen prototype tech.",
+      "correction": "Add the disobedience and the stolen prototype technology.",
+      "source_url": "https://www.metroidwiki.org/wiki/Sylux"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the one member of the 07th Platoon who treated her warmly",
+      "problem": "No source says the others were cold; Metroid Wiki only records a 'strong friendship' with Higgs.",
+      "correction": "'her old squadmate, who greets her warmly'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Anthony_Higgs"
+     },
+     {
+      "severity": "nit",
+      "claim": "over Tallon IV",
+      "problem": "Meta Ridley was fought on Tallon IV at the Artifact Temple and was knocked into the Impact Crater by the Chozo lasers; Omega Ridley encounters on Norion and the Pirate Homeworld are not listed.",
+      "correction": "'on Tallon IV, on Norion and the Pirate Homeworld, on SR388 as Proteus Ridley...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "missing",
+      "problem": "Madeline Bergman and MB (the survivor Adam ordered her to protect; MB the android built from Mother Brain's data) are absent despite being central Other M relationships.",
+      "correction": "Add a bullet for Madeline Bergman/MB.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "keys",
+      "problem": "'friend'/'friends' will fire constantly in ordinary chat; several names in the content have no key.",
+      "correction": "Drop 'friend'/'friends' (keep 'relationships'); add 'Myles', 'MacKenzie', 'Higgs', 'Malkovich', 'Rundas', 'Ghor', 'Gandrayda', 'Madeline Bergman', 'Reger Tokabi'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Portraying Samus – roleplay guidance",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "style",
+      "claim": "\"Any objections? No. Then stay behind me.\"",
+      "problem": "Puts Adam's catchphrase in her mouth; in canon she is the one who answers it, so the sample slightly undercuts the 'don't call herself Lady' spirit of the guide.",
+      "correction": "Replace with a line in her own register, e.g. 'Stay behind me. I'll signal when it's clear.'",
+      "source_url": "https://www.quotes.net/mquote/1040741"
+     },
+     {
+      "severity": "missing",
+      "problem": "No guidance that she can speak (and read) the Chozo language and will use it with Chozo characters; her only Dread line is in Chozo.",
+      "correction": "Add a 'Do': with Chozo she may answer in their tongue, briefly.",
+      "source_url": "https://www.metroidwiki.org/wiki/Quiet_Robe"
+     },
+     {
+      "severity": "missing",
+      "problem": "Useful don't: she does not treat the Federation as an enemy either; she keeps taking its contracts and follows legitimate orders (Dread: hired because she is the only being immune to X).",
+      "correction": "Add 'Don't make her anti-Federation by default; she distrusts its secrets, not its uniform.'",
+      "source_url": "https://en.wikipedia.org/wiki/Samus_Aran"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Quiet_Robe",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://shinesparkers.net/metroid-prime-4-beyond-transcript/",
+   "https://www.metroidwiki.org/wiki/Sylux",
+   "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+   "https://metroiddatabase.com/endings-metroid-fusion/",
+   "https://www.quotes.net/movies/metroid:_other_m_132830",
+   "https://www.quotes.net/mquote/1040741",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Ian_Malkovich",
+   "https://www.metroidwiki.org/wiki/Ridley",
+   "https://www.metroidwiki.org/wiki/Anthony_Higgs",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime",
+   "https://www.metroidwiki.org/wiki/Metroid_(manga)",
+   "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission",
+   "https://www.metroidwiki.org/wiki/Zero_Mission",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://www.metroidwiki.org/wiki/Space_Pirates",
+   "https://www.metroidwiki.org/wiki/Old_Bird",
+   "https://www.metroidwiki.org/wiki/Chozo_Language",
+   "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+   "https://www.metroidwiki.org/wiki/Dark_Samus",
+   "https://www.metroidwiki.org/wiki/07th_Platoon",
+   "https://www.metroidwiki.org/wiki/K-2L",
+   "https://www.metroidwiki.org/wiki/Gray_Voice",
+   "https://www.metroidwiki.org/wiki/Virginia_Aran",
+   "https://www.metroidwiki.org/wiki/Rodney_Aran",
+   "https://www.metroidwiki.org/wiki/Sector_Zero",
+   "https://www.metroidwiki.org/wiki/E.M.M.I.",
+   "https://en.wikipedia.org/wiki/Samus_Aran",
+   "https://www.nintendolife.com/features/metroid-dread-has-plenty-of-other-ms-dna-and-thats-no-bad-thing",
+   "404 (no content): https://www.metroidwiki.org/wiki/Myles_MacKenzie, https://www.metroidwiki.org/wiki/Myles_Mackenzie, https://www.metroidwiki.org/wiki/Reger_Tokabi, https://www.metroidwiki.org/wiki/Hadar_sen_olmen, https://www.metroidwiki.org/wiki/Itorash, https://www.metroidwiki.org/wiki/Kreatz, https://en.wikiquote.org/wiki/Metroid_Fusion, https://en.wikiquote.org/wiki/Metroid:_Other_M, https://en.wikiquote.org/wiki/Metroid_Dread, https://shinesparkers.net/metroid-dread-transcript/, https://shinesparkers.net/metroid-fusion-transcript/, https://shinesparkers.net/metroid-zero-mission-transcript/, https://shinesparkers.net/metroid-other-m-transcript/, https://metroiddatabase.com/intro-metroid-fusion/, https://metroiddatabase.com/intro-metroid-zero-mission/, https://metroiddatabase.com/metroid-manga/"
+  ]
+ }
+}

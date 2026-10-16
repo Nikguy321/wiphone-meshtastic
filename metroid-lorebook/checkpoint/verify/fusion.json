@@ -1,0 +1,411 @@
+{
+ "run": "wf_223f2f6f-0a5",
+ "label": "verify:fusion",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Fusion: The BSL incident (Metroid Fusion events)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Her task: find survivors, salvage the research, and keep the X out of the six habitat sectors",
+      "problem": "The X were already inside the sectors when Samus arrived; Metroid Wiki states her mission was to purge the X from the station's six breeding sectors, not to keep them out.",
+      "correction": "Her task: find survivors, salvage the research, and purge the X from the station's six habitat sectors (SRX, TRO, PYR, AQA, ARC, NOC).",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "error",
+      "claim": "...and Neo-Ridley ... in SRX. The computer then admitted the Metroid program, the existence of at least ten SA-X, and the Federation's intent to capture the SA-X alive",
+      "problem": "Chronology is compressed wrongly. Per the Metroid Wiki story summary the computer revealed the Metroid breeding program and the 'at least ten SA-X' immediately after the Restricted Laboratory was ejected, BEFORE the Neo-Ridley fight; only the admission that the Federation had withheld upgrades (the Plasma Beam) to keep her from the SA-X, and the Adam revelation, came after Neo-Ridley.",
+      "correction": "After the lab was jettisoned the computer admitted the Metroid program and that at least ten SA-X were aboard; Samus then fought Neo-Ridley in SRX; only then did it admit the Federation's intent to capture the SA-X and that it had withheld ability data (the Plasma Beam) for that reason.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "error",
+      "claim": "survived an Omega Metroid in the Docking Bay when a second SA-X intervened",
+      "problem": "Metroid Wiki says 'The SA-X returns, reassumes her form, and attacks the Omega Metroid' - i.e. the same SA-X that fled as a Core-X from the Operations Room fight. The draft's own Omega Metroid entry says the same thing, so the incident entry contradicts both the source and its sibling entry.",
+      "correction": "...when the SA-X she had reduced to a Core-X returned, restored to her form, and attacked the Omega Metroid.",
+      "source_url": "https://www.metroidwiki.org/wiki/SA-X"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Samus expected the Federation to hold her responsible and did not regret it.",
+      "problem": "The ending transcript (Metroid Database) has Samus say 'They will hold tribunals and investigations. They will hold us responsible' and reflect that her reunion with Adam may have saved the universe; nothing in it states that she felt no regret. 'Did not regret it' is an inference.",
+      "correction": "Samus expected tribunals and investigations to follow; Adam told her one of them would understand.",
+      "source_url": "https://metroiddatabase.com/endings-metroid-fusion/"
+     },
+     {
+      "severity": "missing",
+      "claim": "a vaccine cultured from preserved Metroid cells",
+      "problem": "Both Wikipedia and Metroid Wiki's reference note identify the source: the vaccine was made from a cell culture of the infant Metroid (the baby from SR388). This is a central roleplay fact (it is why Samus carries Metroid DNA) and the drafter's own gap note (3) is now resolved.",
+      "correction": "a vaccine cultured from cells of the infant Metroid she had once carried from SR388",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "missing",
+      "claim": "the ship drifted into an asteroid belt and ejected her in an escape pod",
+      "problem": "Metroid Wiki says the gunship crashed in the asteroid belt; the entry omits the crash.",
+      "correction": "the ship drifted into an asteroid belt and crashed, ejecting her in an escape pod",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"survey team\", \"escort mission\", \"escape pod\", \"Hornoad\"",
+      "problem": "'survey team', 'escort mission' and 'escape pod' are generic sci-fi phrases that will inject this 547-word entry into unrelated chat; 'Hornoad' will pull it into any SR388 creature discussion that has nothing to do with the BSL incident.",
+      "correction": "Drop 'survey team', 'escort mission' and 'escape pod' (or move them to secondary keys gated by 'SR388'/'BSL'/'Fusion'); consider removing 'Hornoad'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Fusion: Biologic Space Laboratories research station (BSL)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Its stock included recent SR388 samples such as Hornoads, Zebesian Space Pirates, Kihunters and Zeros",
+      "problem": "Zebesians, Kihunters and Zeros are not SR388 samples. Metroid Wiki describes the station as gathering organisms from both Zebes and SR388; Kihunters are 'insect-like Space Pirates from another galaxy' who rebuilt Zebes, Zeros are found in Zebes' Brinstar (origin unknown), and Zebesians are Zebes' Pirates. Only the Hornoad is an SR388 sample.",
+      "correction": "Its stock included SR388 samples such as Hornoads, Zebes species such as Zebesian Space Pirates, Kihunters and Zeros, ...",
+      "source_url": "https://www.metroidwiki.org/wiki/Kihunter"
+     },
+     {
+      "severity": "error",
+      "claim": "graded security hatches that only the computer could release",
+      "problem": "Samus herself deactivates the lock levels at the station's Security Rooms: the Sector 3 page says 'Samus must deactivate the Level 2 Doors' and the Sector 4 page says 'After Samus unlocked the Security Level 1 doors'. The computer authorizes each level; it does not release them itself.",
+      "correction": "graded security hatches (Levels 1-4) that Samus unlocked at Security Rooms as the computer authorized each level.",
+      "source_url": "https://www.metroidwiki.org/wiki/Sector_3_(PYR)"
+     },
+     {
+      "severity": "error",
+      "claim": "A self-destruct system guarded against reactor overheating.",
+      "problem": "The self-destruct threat was tied to the Main Boiler in Sector 3 (PYR), whose cooling unit an X deactivated; Samus had to reach the Main Boiler Control Room 'before the excess heat triggers the station's self-destruct mechanism'. The reactor's problem was Nettori's roots cutting power, not overheating.",
+      "correction": "A self-destruct mechanism would fire if the Main Boiler in Sector 3 overheated.",
+      "source_url": "https://www.metroidwiki.org/wiki/Sector_3_(PYR)"
+     },
+     {
+      "severity": "unverified",
+      "claim": "She left it with no regret",
+      "problem": "The ending transcript contains no statement about regret; Samus anticipates tribunals and investigations and reflects on Adam's wisdom. Inference presented as fact.",
+      "correction": "She expected to be held responsible for its loss; its records survive only in her own account.",
+      "source_url": "https://metroiddatabase.com/endings-metroid-fusion/"
+     },
+     {
+      "severity": "nit",
+      "claim": "the bio-mechanical gravity weapon Nightmare (which the Federation admitted was built for military applications)",
+      "problem": "Metroid Wiki's Nightmare page conflicts on its maker (Biologic Space Labs researchers vs. a Federation group in secret); the only firm statement is Adam's 'a bio-mechanical organism designed for military applications'.",
+      "correction": "the bio-mechanical gravity weapon Nightmare (described by the computer as 'designed for military applications')",
+      "source_url": "https://www.metroidwiki.org/wiki/Nightmare"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"research station\", \"Biologic\"",
+      "problem": "'research station' fires on any sci-fi station; 'Biologic' matches the common medical term (biologic drugs/therapy) in ordinary chat.",
+      "correction": "Drop 'research station' or gate it with a secondary key; replace bare 'Biologic' with 'Biologic Space Labs'/'B.S.L. station' variants."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Fusion: Sectors of the BSL station",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "missing",
+      "claim": "Sector 2 (TRO) ... Samus fought Zazabi here (Hi-Jump Boots)",
+      "problem": "The TRO page says Samus first visited the sector to download the Bomb data, and only afterwards fought Zazabi; the Bombs are the sector's other listed upgrade and the entry omits them.",
+      "correction": "Samus downloaded the Bomb data here, then fought Zazabi (Hi-Jump Boots)...",
+      "source_url": "https://www.metroidwiki.org/wiki/Sector_2_(TRO)"
+     },
+     {
+      "severity": "missing",
+      "claim": "Sector 6 (NOC) ... She later destroyed the X-infested B.O.X. here",
+      "problem": "The SA-X page lists an SA-X encounter in NOC (Samus hiding as a Morph Ball in a vent while it used a Power Bomb to break a barrier) between the TRO sighting and the ARC meeting; the entry records the ARC meeting but not this one.",
+      "correction": "Add: on her first NOC visit Samus, hidden in a vent as a Morph Ball, watched the SA-X break a barrier with a Power Bomb.",
+      "source_url": "https://www.metroidwiki.org/wiki/SA-X"
+     },
+     {
+      "severity": "missing",
+      "claim": "The X seized its atmospheric stabilizers",
+      "problem": "Metroid Wiki gives the number: five atmospheric stabilizers.",
+      "correction": "The X seized its five atmospheric stabilizers",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"Sector 1\" ... \"Sector 6\", \"NOC\", \"TRO\", \"AQA\"",
+      "problem": "'Sector 1'-'Sector 6' are generic in any sci-fi or military setting; 'NOC' (network operations center), 'TRO' (restraining order) and 'AQA' (UK exam board) are real-world acronyms. Acceptable in a pure Metroid roleplay but will misfire in mixed chat.",
+      "correction": "Consider gating the numbered-sector keys with secondary keys such as 'BSL', 'B.S.L.', 'station', 'Fusion'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Fusion: Main Deck of the BSL station",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Her first X-mimic aboard, an Arachnus, met her here (Morph Ball)",
+      "problem": "The entry itself says the lone Hornoad in the Quarantine Bay was 'her first X since her infection'; that Hornoad revealed an X on death and was the first X-infected specimen aboard. Arachnus-X was the first boss and first Core-X, not the first X-mimic.",
+      "correction": "Her first boss aboard, an X-mimicked Arachnus, met her here (Morph Ball)",
+      "source_url": "https://www.metroidwiki.org/wiki/Quarantine_Bay"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Restricted Zone: mapped with the Main Deck but reached only from Sector 6",
+      "problem": "Metroid Wiki's Restricted Zone page lists both Sector 1 (SRX) and Sector 6 (NOC) as neighboring areas and says the zone's large lock opens from one side with the Wave Beam; no fetched page supports 'only from Sector 6'.",
+      "correction": "Restricted Zone: mapped with the Main Deck but not connected to it; entered from Sector 6 (NOC) through a lock Samus opened with the Wave Beam.",
+      "source_url": "https://www.metroidwiki.org/wiki/Restricted_Zone"
+     },
+     {
+      "severity": "nit",
+      "claim": "A Core-X rose from it as Samus passed through on her way out",
+      "problem": "The Sub-Zero Containment page says the Core-X emerged from Ridley's body when the Main Deck elevator stalled and Samus broke out of the shaft through the containment room, late in the mission; 'on her way out' misdescribes the moment.",
+      "correction": "A Core-X rose from it when Samus, forced out of a stalled Main Elevator, broke through the containment room",
+      "source_url": "https://www.metroidwiki.org/wiki/Sub-Zero_Containment"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"Main Deck\", \"Docking Bay\", \"Docking Bays\", \"Navigation Room\", \"Data Room\", \"Reactor Core\", \"Operations Room\"",
+      "problem": "All are generic starship/station terms that will fire in any non-Metroid sci-fi roleplay; the drafter accepts 'Main Deck' but the whole key list has the same problem.",
+      "correction": "Gate the generic room names with secondary keys ('BSL', 'B.S.L.', 'Fusion', 'SR388', 'SA-X') or keep only the Fusion-specific ones (Quarantine Bay, Habitation Deck, Sub-Zero Containment, Reactor Silo, Operations Deck)."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Fusion: The Restricted Laboratory and the secret Metroid program",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "noncanon",
+      "claim": "The Metroids did not attack her; she carried their DNA from the vaccine that had saved her life.",
+      "problem": "Metroid Wiki only suggests this 'may be because' of the Metroid DNA; it is wiki speculation presented in the entry as the established cause.",
+      "correction": "The Metroids did not attack her, perhaps because of the Metroid DNA she carried from the vaccine.",
+      "source_url": "https://www.metroidwiki.org/wiki/Restricted_Laboratory"
+     },
+     {
+      "severity": "unverified",
+      "claim": "by the computer's account the research was finished",
+      "problem": "Nothing on the Restricted Laboratory or Metroid Fusion pages says the research was finished; the computer's account is that the research uncovered techniques for rapid growth.",
+      "correction": "Delete 'the research was finished'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Restricted_Laboratory"
+     },
+     {
+      "severity": "unverified",
+      "claim": "reachable only through a passage from Sector 6 (NOC)",
+      "problem": "The Restricted Zone page lists Sector 1 (SRX) and Sector 6 (NOC) as its neighbors and says its lock opens from one side with the Wave Beam; 'only' is not supported.",
+      "correction": "entered from Sector 6 (NOC) through a one-way lock Samus opened with the Wave Beam",
+      "source_url": "https://www.metroidwiki.org/wiki/Restricted_Zone"
+     },
+     {
+      "severity": "missing",
+      "claim": "it had found ways to force rapid growth",
+      "problem": "The computer's recording specifically says the rapid-growth techniques could turn a larval Metroid into an Omega in a matter of days - the game's implicit explanation for the Omega Metroid in the Docking Bay, and worth stating here.",
+      "correction": "it had found ways to force rapid growth, by its account enough to turn a larva into an Omega Metroid in days",
+      "source_url": "https://www.metroidwiki.org/wiki/Restricted_Laboratory"
+     },
+     {
+      "severity": "missing",
+      "claim": "a high-security facility in the Restricted Zone",
+      "problem": "The Restricted Zone page notes every hatch inside is a Level 4 lock (the station's highest) and the zone held no enemies; a useful concrete detail for scene-setting.",
+      "correction": "Add: every hatch inside was a Level 4 lock, the station's highest.",
+      "source_url": "https://www.metroidwiki.org/wiki/Restricted_Zone"
+     },
+     {
+      "severity": "nit",
+      "claim": "\"secretly working on a Metroid breeding program\"",
+      "problem": "Only 'For peaceful application only, of course' and 'The X has smelled out its natural enemy' (full line: '...and one of the SA-X is on its way here') were confirmed verbatim on Metroid Wiki; the 'secretly working on' wording was not found in the fetched text.",
+      "correction": "Remove the quotation marks around 'secretly working on a Metroid breeding program' or verify against a transcript.",
+      "source_url": "https://www.metroidwiki.org/wiki/B.S.L_Research_Station"
+     },
+     {
+      "severity": "nit",
+      "claim": "The program raised its stock in SRX",
+      "problem": "The computer's recording says Sector 1 (SRX), as a replica of SR388, was ideal for raising several Metroid types; the entry states it as accomplished fact.",
+      "correction": "SRX, the station's replica of SR388, was by the computer's account ideal for raising them",
+      "source_url": "https://www.metroidwiki.org/wiki/Restricted_Laboratory"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"secret lab\", \"secret laboratory\", \"breeding program\", \"Restricted Zone\"",
+      "problem": "Generic phrases that will fire in any conspiracy or sci-fi chat unrelated to Metroid.",
+      "correction": "Drop 'secret lab'/'secret laboratory'/'breeding program' or gate them with secondary keys ('Metroid', 'BSL', 'Fusion')."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Fusion: Omega Metroid of the BSL",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "missing",
+      "claim": "How it came to be there was never explained",
+      "problem": "True that no source explains it outright, but the computer's recording states the Federation's rapid-growth techniques could turn a larval Metroid into an Omega in days; the entry should cite that line as the in-game hint rather than imply nothing points to an answer.",
+      "correction": "How it came to be there was never stated outright; the only hint is the computer's account that the Federation's rapid-growth techniques could turn a larval Metroid into an Omega in days.",
+      "source_url": "https://www.metroidwiki.org/wiki/Restricted_Laboratory"
+     },
+     {
+      "severity": "missing",
+      "claim": "Samus had killed Omega Metroids before, on SR388 itself",
+      "problem": "Metroid Wiki gives the number: four Omega Metroids, fought shortly before the Queen.",
+      "correction": "Samus had killed four Omega Metroids before, on SR388 itself shortly before the Queen Metroid",
+      "source_url": "https://www.metroidwiki.org/wiki/Omega_Metroid"
+     },
+     {
+      "severity": "nit",
+      "claim": "her gunship in the Docking Bay beneath the Main Deck",
+      "problem": "The Docking Bays are a section of the Main Deck; no source places them beneath it.",
+      "correction": "her gunship in the Main Deck's Docking Bays",
+      "source_url": "https://www.metroidwiki.org/wiki/Docking_Bays"
+     },
+     {
+      "severity": "style",
+      "claim": "the one weapon Metroids fear ... This one came closer to killing her than any",
+      "problem": "Editorializing not in any source; the Omega Metroid page says only that it was invulnerable to all her current weapons, that the Ice Beam is its weakness, and that it brought her energy to a critical level.",
+      "correction": "Replace with the sourced facts: nothing she carried could harm it and the Ice Beam, its weakness, was the ability she still lacked."
+     },
+     {
+      "severity": "keys",
+      "claim": "primary \"Omega\" with secondary keys \"escape\", \"station\", \"Adam\"",
+      "problem": "Bare 'Omega' gated by generic words like 'station' or 'escape' will fire on phrases such as 'Omega station' in any sci-fi chat; 'Adam' is also a common name.",
+      "correction": "Drop bare 'Omega' or trim the secondary list to Metroid-specific terms (BSL, B.S.L., SA-X, SR388, Fusion, Docking Bay)."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Fusion: The destruction of the BSL and SR388",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "For Samus this was the second world she had known erased (see The destruction of Zebes), and the first she had chosen to erase herself.",
+      "problem": "In the timeline Fusion follows the Prime series. Dark Aether collapsed as a result of Samus's involvement at the end of Echoes (Metroid Wiki: her involvement led to 'the collapse of the entire dimension'), and Phaaze was 'wiped off the galaxy' after she defeated Aurora Unit 313 and Dark Samus in Corruption. SR388 is at least the fourth world destroyed in her wake, and the 'first she had chosen' framing is editorial.",
+      "correction": "Delete the sentence, or say: after Zebes, Dark Aether and Phaaze, SR388 was another world destroyed in Samus's wake, and the first she deliberately set on its course.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phaaze"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the station alone was not enough, because X still lived on SR388, where she had been infected",
+      "problem": "The fetched pages give only that Adam proposed redirecting the station's orbit into SR388 (Metroid Wiki) and that this 'would vaporize the X population' (Wikipedia); the explicit 'station alone was not enough' reasoning was not confirmed against a transcript (web search budget was exhausted).",
+      "correction": "Its orbit would be altered so that it fell onto SR388, destroying the station, the planet and the X on both.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "unverified",
+      "claim": "He called it her last mission and closed with his old question, \"Any objections, Lady?\"",
+      "problem": "Metroid Wiki's Fusion page gives the final order's closing as 'move quickly, and stay alive'; the Adam page says only that the computer habitually ends orders with 'Any objections, Lady?'. That the final plan ended with it was not confirmed.",
+      "correction": "He called it her last mission and told her to move quickly and stay alive.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "nit",
+      "claim": "She expected investigations and blame for defying the Federation",
+      "problem": "The transcript's words are 'They will hold tribunals and investigations. They will hold us responsible' - unnamed 'they', and 'us' (Samus and Adam). Accurate in spirit; 'tribunals' is worth keeping.",
+      "correction": "She expected tribunals and investigations, and that she and Adam would be held responsible",
+      "source_url": "https://metroiddatabase.com/endings-metroid-fusion/"
+     },
+     {
+      "severity": "style",
+      "claim": "The gunship returned on its own, she boarded",
+      "problem": "Contradicts the next paragraph, which correctly says the Etecoons and Dachora moved it ('They lent me a hand').",
+      "correction": "The gunship returned, moved by the Etecoons and Dachora, she boarded..."
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"collision course\", \"orbit path\"",
+      "problem": "Generic phrases that fire in any space or naval roleplay.",
+      "correction": "Drop or gate them with secondary keys ('SR388', 'BSL', 'station')."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Fusion: Samus's defiance of the Federation at the BSL",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "until she addressed it, without thinking, as Adam",
+      "problem": "Wikipedia confirms the lockdown and that the computer relented when she called it 'Adam' and spoke of his death saving her; the 'without thinking'/accidental framing comes only from unverified fan-wiki search snippets per the drafter's own note.",
+      "correction": "until she addressed it as Adam",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "missing",
+      "claim": "had deliberately withheld some of her ability data",
+      "problem": "Metroid Wiki names the withheld data: the Plasma Beam (which Samus obtained only from Nettori's Core-X).",
+      "correction": "had deliberately withheld ability data, the Plasma Beam among it",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "missing",
+      "claim": "Adam told her not to worry, that one of the Federation's people would understand",
+      "problem": "The exact line is short and quotable and strongly characterizes Adam: 'Do not worry. One of them will understand. One of them must.'",
+      "correction": "Adam told her: 'Do not worry. One of them will understand. One of them must.'",
+      "source_url": "https://metroiddatabase.com/endings-metroid-fusion/"
+     },
+     {
+      "severity": "nit",
+      "claim": "The break came after the Restricted Laboratory was jettisoned. Her ship computer admitted that the Federation had secretly bred Metroids ... that at least ten SA-X now roamed it, and that the Federation had taken an interest in the X",
+      "problem": "The breeding-program and ten-SA-X admission followed the lab's ejection; the capture-plan/withheld-data admission and the Navigation Room lockdown came only after the Neo-Ridley fight in SRX. The compression hides the Neo-Ridley fight between them.",
+      "correction": "After the lab was jettisoned the computer admitted the breeding program and the ten SA-X; after she destroyed Neo-Ridley it admitted the Federation's interest in the X...",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "nit",
+      "claim": "destroying Federation property and a planet to do it",
+      "problem": "The station belonged to Biologic Space Labs, an organization hired by the Federation, not to the Federation itself.",
+      "correction": "destroying a Federation contractor's station and a planet to do it",
+      "source_url": "https://www.metroidwiki.org/wiki/B.S.L_Research_Station"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: \"any objections\", \"insubordination\", \"disobeyed orders\", \"disobey orders\", \"Federation orders\", \"Federation's orders\"",
+      "problem": "'any objections' is an everyday phrase and will fire constantly; 'insubordination' and 'disobey(ed) orders' are generic military words; 'Federation orders' fires in Star Trek and other settings.",
+      "correction": "Keep 'any objections, Lady' as the key (or make 'any objections' secondary to 'Lady'/'Adam'); gate the military words with Metroid-specific secondary keys."
+     }
+    ]
+   }
+  ],
+  "overall": "Verified against ~37 Metroid Wiki, Wikipedia and Metroid Database fetches (the turn's WebSearch budget was already exhausted, so no searches could be run and in-game script lines could only be checked where a wiki or the Metroid Database transcript quoted them). The drafts are broadly faithful to Metroid Wiki, but the incident entry carries three real errors (mission stated as 'keep the X out' rather than purge them; the breeding-program/ten-SA-X revelation misplaced after Neo-Ridley; 'a second SA-X' at the Omega fight, contradicting both the wiki and the draft's own Omega entry). The station entry mislabels Zebes species (Zebesians, Kihunters, Zeros) as SR388 samples, says the computer alone released security hatches (Samus deactivates lock levels at Security Rooms), and ties the self-destruct to the reactor instead of the Sector 3 Main Boiler. The Main Deck entry calls Arachnus her first X-mimic although its own Quarantine Bay bullet names the Hornoad. The destruction entry's 'second world she had known erased' ignores Dark Aether and Phaaze. The Restricted Lab entry presents wiki speculation (Metroids spared her because of her DNA) as fact and asserts an unsourced 'research was finished'. 'No regret' appears in two entries without support in the ending transcript. Drafter gap (3) is resolved: the vaccine's cell source is the infant Metroid per Wikipedia and Metroid Wiki's reference note. Drafter gap (8) is partly resolved: Wikipedia confirms the Navigation Room lockdown and that Samus calling the computer 'Adam' made it relent, but not the 'accidental' framing. Several key lists use generic phrases ('any objections', 'escape pod', 'collision course', numbered sectors, generic room names) that will misfire outside Metroid-specific chat. Word counts are within limits (Sectors 418, all others under 400 or within the 550 core allowance).",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/B.S.L_Research_Station",
+   "https://www.metroidwiki.org/wiki/SA-X",
+   "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+   "https://www.metroidwiki.org/wiki/Omega_Metroid",
+   "https://www.metroidwiki.org/wiki/Operations_Deck",
+   "https://www.metroidwiki.org/wiki/Main_Deck",
+   "https://www.metroidwiki.org/wiki/Quarantine_Bay",
+   "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+   "https://www.metroidwiki.org/wiki/Ridley-X",
+   "https://www.metroidwiki.org/wiki/Sub-Zero_Containment",
+   "https://www.metroidwiki.org/wiki/Sector_6_(NOC)",
+   "https://www.metroidwiki.org/wiki/Sector_1_(SRX)",
+   "https://www.metroidwiki.org/wiki/Sector_3_(PYR)",
+   "https://www.metroidwiki.org/wiki/Security_Robot_B.O.X.",
+   "https://www.metroidwiki.org/wiki/Etecoon",
+   "https://www.metroidwiki.org/wiki/Dachora",
+   "https://en.wikipedia.org/wiki/Metroid_Fusion",
+   "https://metroiddatabase.com/endings-metroid-fusion/",
+   "https://www.metroidwiki.org/wiki/Blue_X",
+   "https://www.metroidwiki.org/wiki/Nettori",
+   "https://www.metroidwiki.org/wiki/Zazabi",
+   "https://www.metroidwiki.org/wiki/Serris",
+   "https://www.metroidwiki.org/wiki/Nightmare",
+   "https://www.metroidwiki.org/wiki/Phaaze",
+   "https://www.metroidwiki.org/wiki/Sector_5_(ARC)",
+   "https://www.metroidwiki.org/wiki/Sector_4_(AQA)",
+   "https://www.metroidwiki.org/wiki/Sector_2_(TRO)",
+   "https://www.metroidwiki.org/wiki/Navigation_Room",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Yakuza",
+   "https://www.metroidwiki.org/wiki/Arachnus",
+   "https://www.metroidwiki.org/wiki/Zebesian",
+   "https://www.metroidwiki.org/wiki/Restricted_Zone",
+   "https://www.metroidwiki.org/wiki/Habitation_Deck",
+   "https://www.metroidwiki.org/wiki/Docking_Bays",
+   "https://www.metroidwiki.org/wiki/Hatch",
+   "https://www.metroidwiki.org/wiki/Kihunter",
+   "https://www.metroidwiki.org/wiki/Zero",
+   "https://www.metroidwiki.org/wiki/Dark_Aether"
+  ]
+ }
+}

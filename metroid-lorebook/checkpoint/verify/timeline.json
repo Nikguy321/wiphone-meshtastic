@@ -1,0 +1,355 @@
+{
+ "run": "wf_819a7ec7-9c3",
+ "label": "verify:timeline",
+ "result": {
+  "overall": "Checked all six entries against ~35 fetches (Metroid Wiki primary; Wikipedia, Nintendo Wire, NWR, Game Rant, Nintendo Life, Metroid Database manuals, hakutaku, multiplayer.it secondary). WebSearch was unavailable (budget exhausted), Wikitroid is blocked, and TV Tropes, StrategyWiki and Legends of Localization returned 403/404, so a few claims could only be checked against the wikis. Verified: NES/Metroid II/Zero Mission manual dating quotes; Prime 4 'It is Cosmic Year 20X9' (Metroid Wiki); Ravenous announced 9 Sept 2026 for 28 Jan 2027, MercurySteam, after Dread; Prime 3 six months after Echoes and one-month coma; Hunters between Prime and Echoes with six named rivals; Echoes 'Alert! Gear stolen by unknown creatures'; Fusion booklet 'ultimate warrior'; Pirate Data 'Hunter clad in metal'/'wretched Hunter'; manga ages 3 and 14 and Nintendo never confirming manga canon; Sakamoto's 'linea parallela' remark; Pinball 'no explicit storyline'; First Hunt demo/simulation; Other M weapon-restriction premise; Fusion CNS infection and surgery; Prime 4 placement between Other M and Fusion (Wikipedia, citing Nintendo) and 'another dimension' (Famitsu, attributed to Retro's developers by Nintendo Wire). Real errors found: Corruption's Norion Leviathan was destroyed, not an impact; Prime 4 ends with the marines restraining Sylux while Samus escapes, not Sylux escaping; the dating entry's 'months at most' contradicts its own 20X5/20X6/20X9 dates; the mission-structure entry's 'facts, not feelings' is contradicted by Samus's emotional Other M narration; Ceres is an opening, not an ending. Unverified and should be softened: 'Navy'; Other M 'immediately after'; Federation Force 20X6 as an in-game date (only Nintendo Today app via NWR); manga 2002-2004 serialization (Wikipedia/hakutaku say Magazine Z from Nov 2003, Metroid Wiki says 2002); 'Zero Mission's prologue uses its imagery'; the whole Other M JP/EN paragraph (fan comparison only, now unreachable); 'physical amnesia' (Wikitroid snippet only); the Orpheon explosion cause (Metroid Wiki contradicts itself: Prime page blames Ridley, Frigate Orpheon page blames the reactor self-destruct). No non-canon contamination found; non-canon media are only named as non-canon.",
+  "reports": [
+   {
+    "entry_comment": "Universe: Metroid universe primer",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "The Federation keeps order through its Police, Army and Navy",
+      "problem": "Metroid Wiki's Galactic Federation page names the Galactic Federation Police and the Galactic Federation Marine Corps; 'Army' appears only via Other M (Adam's PAL trophy: 'Galactic Federation Army'); no 'Navy' was found on Metroid Wiki (the Galactic_Federation_Army page does not even exist).",
+      "correction": "'The Federation keeps order through its Police, Army and Marines, and when those fail it hires bounty hunters.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Galactic_Federation"
+     },
+     {
+      "severity": "keys",
+      "problem": "'the galaxy' is a bare generic phrase that will fire on any sentence mentioning the galaxy; harmless only because the entry is constant, but it should not be listed as a trigger.",
+      "correction": "Drop 'the galaxy'; keep 'Metroid universe', 'Metroid series', 'Metroid lore', 'Metroid setting' (keys are nominal on a constant entry)."
+     },
+     {
+      "severity": "missing",
+      "problem": "Nothing about the baby Metroid that imprinted on Samus, gave its life for her against Mother Brain, and whose DNA now lives in her (the Fusion vaccine). For a Samus-centred roleplay this is the single most character-defining event and her current biological state.",
+      "correction": "Add one clause: 'A Metroid hatchling that imprinted on her died saving her on Zebes; a vaccine made from its cells later saved her from the X and left her carrying Metroid DNA.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Super_Metroid"
+     },
+     {
+      "severity": "missing",
+      "problem": "Adam Malkovich (her former commanding officer, dead after the Bottle Ship) and the ADAM ship computer modelled on him are omitted, though he is the one recurring personal relationship in her story (Other M, Fusion, Dread).",
+      "correction": "Add: 'Her former commanding officer Adam Malkovich died on the Bottle Ship; the Federation ship computer ADAM that later directs her is modelled on him.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Adam_Malkovich"
+     },
+     {
+      "severity": "nit",
+      "claim": "with the dragon Ridley as their field commander",
+      "problem": "Metroid Wiki calls Ridley 'the leader of the Space Pirates' military' acting under Mother Brain's authority; 'field commander' is a paraphrase, not a sourced title.",
+      "correction": "'with the dragon Ridley leading their military'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Universe: Timeline of Samus's missions",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Dark Samus returns leading the Pirates and strikes Norion, Bryyo, Elysia and the Pirate Homeworld with Leviathans",
+      "problem": "The Leviathan aimed at Norion never struck: Samus and the hunters powered the planetary defense cannon and 'ignites the System, destroying the Leviathan'; a trooper later reports 'Norion is now safe'. Only Bryyo, Elysia and the Pirate Homeworld were seeded.",
+      "correction": "'Dark Samus returns leading the Pirates and launches Leviathans at Norion, Bryyo, Elysia and the Pirate Homeworld; Norion's is shot down, the other three planets are seeded.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "error",
+      "claim": "where she gains psychic abilities and defeats Sylux, who escapes",
+      "problem": "Per Wikipedia's plot summary, after Samus defeats Sylux in an alternate dimension he recovers and damages the Master Teleporter; the Federation soldiers 'hold him down long enough for Samus to escape through it.' It is Samus who escapes Viewros; Sylux's final fate is not stated.",
+      "correction": "'where she gains psychic abilities and defeats Sylux; the marines pin him while she escapes Viewros through the damaged Lamorn teleporter, his fate unknown.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Metroid: Other M (immediately after)",
+      "problem": "Metroid Wiki gives no fixed gap and quotes Samus's own intro: 'I don't know how much time passed since then.' Wikipedia says only 'after Super Metroid'. 'Immediately' is not supported.",
+      "correction": "'Metroid: Other M (an unstated time after Zebes)'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Metroid Prime: Federation Force (Cosmic Year 20X6)",
+      "problem": "Neither Wikipedia nor Metroid Wiki gives any in-universe date for Federation Force; the 20X6 figure comes only from NWR's background list and the Nintendo Today app timeline it quotes ('Cosmic Year 20X6 - Metroid eggs secretly stored in a certain research center'). Metroid Wiki also places the game 'between Metroid II and Super Metroid', against Wikipedia's 'after Metroid Prime 3: Corruption'.",
+      "correction": "Keep the after-Corruption placement but attribute the date: '(dated Cosmic Year 20X6 in Nintendo's published timeline)'. Alternatively drop the year.",
+      "source_url": "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+     },
+     {
+      "severity": "nit",
+      "claim": "Federation Marines destroy the Pirate warship Doomseye",
+      "problem": "Wikipedia: the Force drops the Doomseye's shield 'so the fleet can counterattack'; the fleet, not the marines, finishes the ship.",
+      "correction": "'Federation Marines breach the Pirate warship Doomseye in the Bermuda System, free a brainwashed Samus and drop its shield for the fleet'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+     },
+     {
+      "severity": "nit",
+      "claim": "exposes the Federation's secret Metroid program",
+      "problem": "She discovers it through the restricted lab and the computer's admission; no source says it was exposed publicly.",
+      "correction": "'discovers the Federation's secret Metroid program'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "nit",
+      "claim": "uncovers a Federation Metroid and Ridley cloning program",
+      "problem": "Metroid Wiki: Ridley 'was created the same way, but by accident' from cells on Samus's suit; it was not a Ridley cloning program.",
+      "correction": "'uncovers a Federation Metroid-breeding program (which also accidentally cloned Ridley) and the android MB'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "nit",
+      "problem": "Spelling versus Metroid Wiki: 'GFS Tyr' is written 'G.F.S. Tyr'; the Zero Mission 'Space Pirate Mother Ship' is 'Mothership'; 'BSL' is 'B.S.L.'",
+      "correction": "Use 'G.F.S. Tyr', 'Mothership', 'B.S.L.' (or keep consistently across all entries).",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes"
+     },
+     {
+      "severity": "missing",
+      "problem": "Other M bullet omits that Anthony Higgs, her old friend, survives as the only other 07th Platoon survivor and that Samus later returns to the Bottle Ship to recover Adam's helmet; both matter for a Samus-centred RP (one living friend; her mourning).",
+      "correction": "Append: 'Anthony Higgs alone survives with her; days later she returns for Adam's helmet as the ship self-destructs.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Universe: In-universe dating and the Cosmic Calendar",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "the gaps between missions are counted in months at most where they are counted at all",
+      "problem": "Self-contradictory with the entry's own dates: Zebes is 20X5, the Bermuda campaign 20X6 and Viewros 20X9, so the dated span alone covers roughly four calendar years (NWR's own reckoning puts about three years between Federation Force and Prime 4).",
+      "correction": "'Where a gap is stated it is months (six months to the Phazon crisis, one month in a coma), but the calendar dates imply that Zebes to Viewros spans about four years.'",
+      "source_url": "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the Bermuda System campaign of the Federation Force opens in Cosmic Year 20X6",
+      "problem": "No source shows the date in the game; Wikipedia and Metroid Wiki give no in-universe date. It appears only in NWR's list and the Nintendo Today app timeline it quotes.",
+      "correction": "'Nintendo's published timeline dates the Bermuda System campaign to Cosmic Year 20X6, and the Viewros incident opens \"It is Cosmic Year 20X9.\"'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Bottle Ship followed the destruction of Zebes so closely that Samus herself did not know how much time had passed",
+      "problem": "Non sequitur: her line 'I don't know how much time passed since then' states an unknown gap, not a short one.",
+      "correction": "'the Bottle Ship came an unstated time after Zebes (\"I don't know how much time passed\")'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "nit",
+      "claim": "fourteen when training on Zebes",
+      "problem": "Metroid Wiki's only support is an image caption 'Samus Aran at 14 years old'; it does not tie the age to training.",
+      "correction": "'fourteen in a later manga scene on Zebes'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "style",
+      "problem": "Out-of-universe framing inside content: 'For roleplay, Samus marks time...' and 'Nintendo set the Viewros incident...'. Guidance should read as a statement about Samus, not an instruction about roleplay or a publisher.",
+      "correction": "'Samus marks time by missions rather than dates...' and 'The Viewros incident is placed after Super Metroid and before the BSL, in another dimension, so it fixes no other dates.'"
+     },
+     {
+      "severity": "keys",
+      "problem": "'calendar', 'birthday' and 'how old' are bare generic terms that will fire on ordinary chat (any calendar, anyone's birthday or age).",
+      "correction": "Replace with 'Cosmic Calendar', 'cosmic year', 'cosmic years', '20X', 'Samus's age', 'how old is Samus', 'Samus's birthday', 'year 20X5'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Universe: What counts as canon",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "The Japanese original presents Samus as more assertive toward Adam: she disliked his nickname \"Lady\" as a veiled slight, and he asks rather than authorizes her to use missiles against the Brug Mass; the English localization reverses the first and softens the second.",
+      "problem": "The only cited source (TV Tropes) is a fan comparison and is now unreachable (HTTP 403); Legends of Localization has no Other M article; Metroid Wiki's Other M, Adam Malkovich and Samus pages and Wikipedia's Other M page contain no Japanese/English script comparison. The specific 'Lady' and Brug Mass claims cannot be supported.",
+      "correction": "Reduce to: 'Other M exists in two official scripts; the Japanese original and the English localization differ in tone in places, the plot is identical, and the Japanese script is the original.' Drop the specific examples unless an official or primary transcript is cited.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The Metroid manga (Magazine Z, 2002 to 2004...)",
+      "problem": "Sources disagree: Wikipedia says it ran in Monthly Magazine Z 'starting in November 2003' (16 chapters, two volumes); hakutaku also cites the November 2003 issue; Metroid Wiki says the manga was 'released in 2002' with a two-chapter online 'e-manga' in 2002. '2002 to 2004' is not supported as a serialization span.",
+      "correction": "'The Metroid manga (two volumes in Magazine Z, early 2000s, previewed online in 2002; story by Kouji Tazawa, art by Kenji Ishikawa)'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Zero Mission's prologue uses its imagery",
+      "problem": "Metroid Wiki's Zero Mission page makes no mention of the manga or its art; the manga-style scenes of Samus's Chozo upbringing appear in mid-game/ending story scenes, not in the prologue.",
+      "correction": "'Zero Mission's story scenes depict her Chozo upbringing in matching style'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission"
+     },
+     {
+      "severity": "nit",
+      "claim": "Nintendo's chronology includes it and placed Prime 4 after Super Metroid and before Fusion, in another dimension",
+      "problem": "Nintendo Wire attributes the 'after Super Metroid and before Metroid Fusion ... another dimension' statement to Retro Studios' development team in Famitsu, not to Nintendo; Nintendo's own answer (per Wikipedia, citing TheGamer) narrows the placement to between Other M and Fusion.",
+      "correction": "'...and Nintendo's chronology places Prime 4 between Other M and Fusion; its Retro Studios developers told Famitsu it occurs in another dimension so that it does not disturb the 2D story.'",
+      "source_url": "https://nintendowire.com/news/2025/12/30/nintendo-reveals-where-metroid-prime-4-beyond-takes-place-in-the-metroid-timeline/"
+     },
+     {
+      "severity": "keys",
+      "problem": "'comics' and 'manga' are generic words that will fire whenever any comic or manga is mentioned in chat.",
+      "correction": "Use 'Metroid manga', 'Metroid comics', 'Samus & Joey', 'Metroid EX', 'is it canon', 'canon?'; keep 'canon', 'canonical', 'non-canon', 'Smash Bros', 'Captain N', 'Prime Pinball', 'First Hunt', 'Japanese version'."
+     },
+     {
+      "severity": "missing",
+      "problem": "'Where a retelling and its original differ, the retelling wins' is stated without the two cases that actually matter: Zero Mission adds the post-Mother Brain Mothership/Zero Suit episode absent from Metroid, and Samus Returns adds Proteus Ridley's ambush and the baby's intervention absent from Metroid II ('almost the same story as Metroid II with a few exceptions').",
+      "correction": "Add one sentence naming those two additions as canon.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Universe: Why Samus loses her abilities",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "aboard the Frigate Orpheon, Ridley's escape set off an explosion that reduced her suit to basic functionality",
+      "problem": "Metroid Wiki contradicts itself: the Metroid Prime page says 'Ridley causes an explosion that greatly damages Samus's Power Suit', but the Frigate Orpheon page says the dying Parasite Queen 'falls into the ship's reactor and triggers a self-destruct sequence' and that 'Samus loses most of her upgrades during her escape from an explosion in an elevator shaft', with Meta Ridley merely appearing during her escape. Ridley as cause is not reliable.",
+      "correction": "'aboard the Frigate Orpheon, an explosion during the self-destruct triggered by the Parasite Queen's death reduced her suit to basic functionality; Meta Ridley fled past her to Tallon IV.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Frigate_Orpheon"
+     },
+     {
+      "severity": "unverified",
+      "claim": "ADAM could not account for her blackout and judged that whatever caused the changes in her had stripped her of most abilities, a state he termed physical amnesia",
+      "problem": "Neither Metroid Wiki (Metroid Dread, Raven Beak, Adam Malkovich pages) nor Wikipedia's Dread plot mentions 'physical amnesia' or ADAM's explanation; Wikipedia says only that Raven Beak 'defeats her in combat, and strips her suit of most of its abilities'. The wording rests on a Wikitroid search snippet the drafter could not open.",
+      "correction": "Keep 'physical amnesia' only if the game transcript can be cited; otherwise: 'Raven Beak defeated her on arrival and stripped her suit of most of its abilities; ADAM could not explain the loss, and equipment recovered across ZDR restored them.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "nit",
+      "claim": "Raven Beak defeated and strangled her on arrival",
+      "problem": "Sources say he 'destroys the exit, defeats her in combat, and strips her suit'; no fetched source mentions strangling.",
+      "correction": "'Raven Beak defeated her on arrival'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "nit",
+      "claim": "Her Power Suit needed repairs ... a Chozo trial that granted her a new suit",
+      "problem": "Metroid Wiki says her 'Power Suit disabled' and names the reward the 'Legendary Power Suit'.",
+      "correction": "'Her Power Suit was disabled ... a Chozo trial that granted her the Legendary Power Suit carrying the Plasma Beam, Space Jump and Gravity Suit.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ruins_Test"
+     },
+     {
+      "severity": "keys",
+      "problem": "'powerless' is a bare generic adjective likely to fire on unrelated chat; obvious aliases are missing.",
+      "correction": "Drop 'powerless'; add 'lost her equipment', 'lose her equipment', 'lost her suit', 'without her suit', 'lost her gear', 'Zero Suit'."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Phazon crisis is lumped under 'no explanation', but Metroid Wiki notes that in Corruption 'the player progresses through the entire game without any weapons and items being lost'; she simply had not re-acquired everything, which supports the entry's in-universe logic.",
+      "correction": "'...the Phazon crisis offer no explanation; she arrives with a partial kit and, in the Phazon crisis, loses nothing at all.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Universe: Mission structure, the Hunter and the meaning of Metroid",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Several missions survive as her own reports ... She reports facts, not feelings.",
+      "problem": "The Bottle Ship mission is narrated by Samus in first person and is openly emotional: 'It was as though it was crying specifically for me...' and, after Adam's death, 'In that moment, I swore not to grieve his death'; Wikipedia notes Adam's sacrifice 'drives Samus to tears'. 'Facts, not feelings' is contradicted by canon.",
+      "correction": "'Her Zebes and BSL reports are terse and factual; her Bottle Ship account is unusually introspective and emotional.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "error",
+      "claim": "Most missions end with a countdown, a self-destruct or a dying world and an escape by gunship with seconds to spare: Tourian's time bomb, Ceres, Zebes itself...",
+      "problem": "Ceres's self-destruct is the opening of the return to Zebes, not an ending: Metroid Wiki places it at 'the game's opening' ('Ridley triggers the station's self destruct sequence and flees').",
+      "correction": "Remove Ceres from the list of endings, or write 'the return to Zebes both opens (Ceres) and ends (Zebes) with a self-destruct escape'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ceres_Space_Colony"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the Federation adopted the name for the specimen seized from its research ship",
+      "problem": "No fetched source says who coined 'Metroid' for the SR388 specimen; the Metroid II manual says only 'an unknown life-form was discovered on planet SR388'.",
+      "correction": "'the Federation's researchers used the name for the specimen seized from their ship' or drop the clause.",
+      "source_url": "https://metroiddatabase.com/old_site/m2/manual.php"
+     },
+     {
+      "severity": "keys",
+      "problem": "'countdown' is a bare generic word (any countdown in chat fires it).",
+      "correction": "Replace with 'escape countdown', 'self-destruct countdown', 'time bomb'; keep 'self-destruct', 'distress signal', 'distress call', 'mission report', 'mission log', 'space hunters'."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Pirates also refer to her simply as 'Aran' ('Aran's guns', 'Aran's bloody helmet') and as 'the accursed Hunter'; useful for Pirate dialogue.",
+      "correction": "Add: 'Their records also call her \"Aran\" and \"the accursed Hunter.\"'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "missing",
+      "problem": "Adam's 'Lady' is given without its signature exchange: 'Any objections, Lady?' answered by Samus's thumbs-down, the one ritual between them and a ready roleplay beat.",
+      "correction": "'Adam Malkovich called her \"Lady\"; his \"Any objections, Lady?\" was answered with her thumbs-down.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Adam_Malkovich"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://nintendowire.com/news/2025/12/30/nintendo-reveals-where-metroid-prime-4-beyond-takes-place-in-the-metroid-timeline/",
+   "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://metroiddatabase.com/old_site/m1/manual.php",
+   "https://metroiddatabase.com/old_site/m2/manual.php",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Metroid_(manga)",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis",
+   "https://www.metroidwiki.org/wiki/Metroid_Ravenous",
+   "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes",
+   "https://www.metroidwiki.org/wiki/Metroid_(species)",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Timeline",
+   "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://en.wikipedia.org/wiki/Metroid",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+   "https://multiplayer.it/articoli/80863-metroid-other-m-la-parola-a-yoshio-sakamoto.html",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters",
+   "https://www.metroidwiki.org/wiki/Ruins_Test",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation",
+   "https://hakutaku.us/2018/06/16/metroid-manga-universe/",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Pinball",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters:_First_Hunt",
+   "https://gamerant.com/metroid-prime-4-beyond-timeline-placement-chronology/",
+   "https://www.metroidwiki.org/wiki/Super_Metroid",
+   "https://www.metroidwiki.org/wiki/Metroid_II:_Return_of_Samus",
+   "https://www.metroidwiki.org/wiki/Space_Pirates",
+   "https://www.metroidwiki.org/wiki/Sylux",
+   "https://www.metroidwiki.org/wiki/Chozo",
+   "https://www.metroidwiki.org/wiki/Phazon",
+   "https://www.nintendolife.com/news/2026/09/metroid-ravenous-announced-for-switch-2-release-date-confirmed",
+   "https://www.metroidwiki.org/wiki/Mother_Brain",
+   "https://www.metroidwiki.org/wiki/Ridley",
+   "https://www.metroidwiki.org/wiki/K-2L",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Remastered",
+   "https://www.metroidwiki.org/wiki/Quiet_Robe",
+   "https://www.metroidwiki.org/wiki/Ceres_Space_Colony",
+   "https://www.metroidwiki.org/wiki/Frigate_Orpheon",
+   "https://en.wikipedia.org/wiki/Super_Metroid",
+   "https://en.wikipedia.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Lamorn",
+   "https://legendsoflocalization.com/?s=other+m",
+   "FAILED (403): https://tvtropes.org/pmwiki/pmwiki.php/VideoGame/MetroidOtherM",
+   "FAILED (403): https://strategywiki.org/wiki/Super_Metroid",
+   "FAILED (404): https://www.metroidwiki.org/wiki/Metroid_EX",
+   "FAILED (404): https://www.metroidwiki.org/wiki/ADAM",
+   "FAILED (404): https://www.metroidwiki.org/wiki/Physical_amnesia",
+   "FAILED (404): https://www.metroidwiki.org/wiki/Galactic_Federation_Army",
+   "FAILED (404): https://www.metroidwiki.org/wiki/Doomseye",
+   "FAILED (404): https://www.metroidwiki.org/wiki/Viewros",
+   "FAILED (404): https://legendsoflocalization.com/qa-how-does-metroid-other-ms-japanese-script-compare-to-the-english-script/",
+   "NOT RUN: WebSearch (per-turn budget exhausted before this agent ran)"
+  ]
+ }
+}

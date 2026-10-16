@@ -1,0 +1,10 @@
+{
+ "run": "wf_b10b2047-f3b",
+ "label": "revise:gap2",
+ "result": {
+  "file_path": "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/gap2.json",
+  "entry_count": 3,
+  "changelog": "Berserkers (355 words): the Knight weakness line now follows the full logbook (no damage until its armor is gone; only its own Phazon projectiles break the armor), replacing the vague \"Phazon-based attacks hurt Knights\". \"Orbs\" changed to \"Phazon projectiles\". Added the Ship Missile alternative (Knight page). Kept Nova Beam plus X-Ray Visor, verified on the Lord and Nova Beam pages. Softened the Project Helix sentence and dropped Omega Pirate. Quoted the verified Knight logbook phrases directly. Dropped the bare keys Berserker and Berserkers. Added Nova_Beam and Project_Helix sources. Korakk (318 words): removed \"guards its rider with its life\". Merged the redundant \"lone / only one\" phrasing into the verified Aerotrooper opening. Confirmed Commando Pirate Phazite armor (logbook) and added it as a source. Removed the Space_Pirate_Data source. Dropped the bare keys Hussar and Hussars. Defense Drone (229 words): cut the \"Pirates never reached the room\" speculation but kept the wiki's plain statement of fact that the Drone showed no corruption. Cut the duplicate \"three great guardians\" line. Fixed the antenna wording (downed antennae return at full health). Added the verified ornate cage and \"left the Boost Ball behind\" details. Added the Elysian source. All three pass JSON validation, have no banned words and use one title tag each.",
+  "unresolved": "The generic-ish keys \"Defense Drone(s)\" and \"Ballista Storage\" were kept as drafted, with no secondary keys. The Defense Drone's \"no sign of Phazon corruption\" line rests only on the Metroid Wiki article's own statement, not on a logbook. The Nova Beam plus X-Ray method is described as a late-crisis capability without pinning it to specific encounters."
+ }
+}

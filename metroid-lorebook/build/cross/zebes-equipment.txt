@@ -1,0 +1,40 @@
+CLUSTER zebes-equipment
+EDITED ['zebes.json', 'super-metroid.json', 'suits.json', 'weapons.json', 'abilities.json']
+FIXES 35
+
+CROSS-CLUSTER ISSUES:
+No outright errors found in the read-only files (samus-bio, metroids, dread, fusion, prime4). My equipment entries now agree with all of them. Minor items:
+
+(1) dread 'Dread: Areas of ZDR' lists the recoveries per area, but the lists are incomplete. Artaria leaves out the Phantom Cloak, which Corpius held there. Dairon lists only the Bomb, though E.M.M.I.-04SB yielded the Speed Booster there and the Wide Beam was also found there. These are omissions, not contradictions.
+
+(2) fusion 'The destruction of the BSL and SR388' says 'The ship could only be started manually'. The super-metroid Dachora entry had dropped that claim as unverified. Its source should be checked.
+
+(3) samus-bio 'appearance, physique and physiology' keys 'Zero Suit', 'Zero Suit Samus' and 'without her suit', and so does suits 'Zero Suit and Paralyzer'. That is two entries, which the rules allow. If one home is preferred, the suits entry is the natural owner.
+
+(4) The samus-bio Metroid DNA entry already has the corrected order (drain Itorash, crash, then the Raven Beak X), as revised at 11:18. No action needed.
+
+(5) A Metroid Wiki inconsistency, not in the lorebook: its Gravity Suit page puts the Zero Mission Gravity Suit 'from a Chozo Statue located in Chozodia', but its Ridley's Lair page lists the Gravity Suit as the Unknown Item there. Other editors should follow the Ridley's Lair page.
+
+NOTES:
+KNOWN ISSUE 1: equipment entries restating story events. I accepted this and applied it: every suit, beam and ability item now has at most one sentence of acquisition history, a compact list of where it was recovered on each mission. Where an entry retold events at length, it now gives a one-sentence pointer to the event entry by name. The longest retellings were the Metroid Suit's Dread ending, the Hyper Beam's Tourian and Dread scenes, the Fusion Suit's origin, the Zero Suit and Power Suit crash and Ruins Test, and the Vi-O-La Suit's Tanamaar story. Mission-specific behavior (how an item worked differently on a given mission) is equipment information, so it stays.
+
+I checked every acquisition claim against the dread, fusion, zebes and super-metroid entries. Two disagreed and are fixed:
+- Varia Suit on ZDR: Cataris changed to Artaria.
+- Gravity Suit on the first Zebes mission: Chozodia changed to Ridley's lair.
+Smaller fixes: the Zero Mission Speed Booster now sits in Kraid's lair after Kraid's defeat; the Morph Ball pedestal versus 'Chozo Statues'; the Diggernaut and Space Jump wording; 'Ridley-X' renamed Neo-Ridley.
+
+I also kept Raven Beak's impersonation of ADAM, which the dread and suits entries all share. Wikipedia supports it: 'who has been masquerading as Adam'.
+
+KNOWN ISSUE 2: Prime 4 abilities against the prime4 domain. Names now match (Psychic Crystal, Vi-O-La, Chosen One, Memory Fruit, Chrono Tower, Psychic Motes). Three contradictions are fixed:
+- The Vi-O-La was found at Volt Forge, not Fury Green.
+- The Legacy Suit is white and was given up at the planting, with the armor reverting to the Varia. This replaces 'silver-and-black' and 'not recorded'. Gamereactor alone says 'silver and black'; Nintendo Life, a developer interview and the prime4 entries say white.
+- 'Her established systems travelled with her' contradicted prime4's account that she woke stripped of most capabilities.
+The prime4 domain does not mention Psychic Visor, Psychic Glove or Control Beam, but nothing contradicts them; Gamereactor's guide lists all three with locations.
+
+KEYS: No primary key in my files now sits on more than two entries. Before this pass, Hyper Beam, Ship Grapple, Ship Missile and Ship Missiles each did. I also removed stray copies whose home is elsewhere: Control Beam, Freeze Gun(s), E.M.M.I. Zone(s), Golden Statue on Tourian, and Ruins Test on Power Suit. Generic keys removed: 'Zebes mission', 'extreme cold', 'energy drain', 'draining energy'. None of my files has a forbidden bare key. All entries have 3 to 12 keys, constant=false, and order 90, 100 or 110. Titles are unchanged and no entries were deleted.
+
+STYLE: no 'player', 'boss', 'level', 'cutscene', 'unlock' or 'upgrade' remained. I removed two gameplay-derived clauses: the Fusion sequence-break remark, and the Other M game-over Zero Suit clause. Plain '- ' lists and game-title tags in parentheses are kept because the whole lorebook uses them, the read-only files included.
+
+Each changed entry has a 'Consistency pass:' note appended, and new source URLs were added to its sources. Total words in my five files went from 18,168 to 17,442.
+
+URLs used: https://en.wikipedia.org/wiki/Metroid_Dread, https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond, https://www.metroidwiki.org/wiki/Varia_Suit, https://www.metroidwiki.org/wiki/Artaria, https://www.metroidwiki.org/wiki/ZDR, https://www.metroidwiki.org/wiki/Unknown_Item, https://www.metroidwiki.org/wiki/Gravity_Suit, https://www.metroidwiki.org/wiki/Ridley%27s_Lair, https://www.metroidwiki.org/wiki/Speed_Booster, https://www.metroidwiki.org/wiki/Power_Suit, https://www.metroidwiki.org/wiki/Mother_Brain, https://www.metroidwiki.org/wiki/Charge_Beam, https://www.metroidwiki.org/wiki/Morph_Ball, https://www.metroidwiki.org/wiki/Vi-O-La_Suit, https://www.metroidwiki.org/wiki/Vi-O-La, https://www.gamereactor.eu/metroid-prime-4-beyond-guide-to-all-of-samus-arans-upgrades-and-suits-1645383/, https://www.gamereactor.eu/metroid-prime-4-beyond-guide-what-are-the-green-energy-crystals-for-and-how-to-upgrade-the-psychic-beam-1642693/. Seen through WebSearch results: https://www.nintendolife.com/guides/metroid-dread-varia-suit-location-how-to-enter-hot-areas, https://www.nintendolife.com/guides/metroid-prime-4-beyond-volt-forge-guide, https://vulkk.com/2025/12/07/metroid-prime-4-how-to-get-the-vi-o-la-bike/, https://www.gameshedge.com/metroid-prime-4-beyond-motorcycle-guide/, https://www.nintendolife.com/guides/metroid-prime-4-beyond-secret-ending-and-how-to-get-it, https://www.videogameschronicle.com/guide/metroid-prime-4-secret-ending-guide/, https://www.nintendolife.com/news/2025/11/nintendo-quietly-reveals-a-new-suit-for-metroid-prime-4-beyond.

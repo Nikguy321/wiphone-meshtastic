@@ -1,0 +1,580 @@
+{
+ "run": "wf_7301ecd7-360",
+ "label": "research:fusion-ai",
+ "result": {
+  "facts": [
+   {
+    "fact": "Metroid Fusion opening: the Federation gives Samus a new gunship, and its onboard computer oversees her BSL mission. Obeying it was a condition of taking the ship. Samus calls it a \"blunt, computerized CO\" and says this is the second time she has had to take orders, which reminds her of \"my other CO...\"",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Samus names the computer Adam \"Out of respect and with some irony\" because it reminds her of Adam Malkovich, \"a gruff Federation CO\" who called her \"Lady\" on missions. She thinks about this in the elevator to the Operations Deck, before her first Data Room.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "The English Fusion manual (p.19, 'About Adam') says: \"The concise and logical instruction Samus receives from her ship's computer reminds her of her former Galactic Federation commanding officer, Adam Malkovich. As a result, she has christened the computer Adam.\" It also says the computer \"takes the conditions of the research station as well as Samus's physical shape into consideration when formulating Samus's next move.\"",
+    "source": "http://www.metroiddatabase.com/wp-content/uploads/Metroid-Fusion/mf_manual.pdf",
+    "confidence": "high"
+   },
+   {
+    "fact": "The Japanese Fusion manual (p.18, 「アダム」について) says Samus calls the computer Adam because its 合理的で的確な指示 ('rational and precise instructions') call to mind 連邦軍司令官、アダム・マルコビッチ ('Federation Army commander Adam Malkovich'), whom she worked with on past missions. The same page says the Navigation Room terminal always gives 最良の指示 ('the best instructions') after weighing the situation and Samus's condition.",
+    "source": "http://www.metroiddatabase.com/wp-content/uploads/Metroid-Fusion/MetroidFusion_instructionmanualJP.pdf",
+    "confidence": "high"
+   },
+   {
+    "fact": "Navigation Rooms are where Samus uplinks to the ship's computer. Checking in is required before she can progress, most of the rooms stand at sector entrances, and her gunship gives the same interface. The computer appears to control the rooms' devices and can lock Samus in when she is uncooperative.",
+    "source": "https://www.metroidwiki.org/wiki/Navigation_Room",
+    "confidence": "high"
+   },
+   {
+    "fact": "Briefing format: almost every briefing ends with the prompt \"Is your objective clear? Yes No\". After 'Yes' comes a short imperative closer, such as \"Now, get moving.\", \"Now move out.\", \"Go. Now.\", \"You know what to do. Go to it.\" or \"To Sector 6, quickly.\"",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Early on the computer frames Samus's condition in numbers: \"You are only at 10% battle capacity. Your chance of survival is extremely low.\", then \"With Missiles, your chance of survival climbs to 20%...\", and later \"Super Missile data is ready. Your firepower will triple.\"",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "The computer acts on the station itself. It says it released the Level 0 hatch locks, restored power to the Main Elevator, and works on the elevator outage. It names the SA-X itself (\"I have named it the SA-X\"). Japanese Wikipedia says Adam derives the name from 'Samus Aran X'.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://ja.wikipedia.org/wiki/メトロイドフュージョン",
+    "confidence": "high"
+   },
+   {
+    "fact": "The computer cannot fly the gunship. Samus's ending narration says \"This ship can only be started manually\", and Japanese Wikipedia also says the computer cannot operate the ship carrying it.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://ja.wikipedia.org/wiki/メトロイドフュージョン",
+    "confidence": "high"
+   },
+   {
+    "fact": "'Incoming Dispatch' scene: after the Sector 3 B.O.X. briefing, while Samus rides the elevator to the Main Deck, the Navigation Room screen shows the silhouette of a Federation officer. The officer asks the computer \"Does Samus suspect anything?\" and the computer answers \"No, I do not think so.\" and \"Affirmative. Out.\" This is the first sign it is reporting on her and hiding something.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Things the computer says it withholds or limits. It tells Samus that Security Rooms are not marked on the map \"per safety protocols\" and that \"we\" should avoid opening sensitive areas. It scolds her for bypassing Level 4 security to get the Diffusion Missiles, calling the data \"A procedural error, I'm sure...\" with \"no word from HQ.\" It later admits HQ \"had already sent it\" and had tried to withhold it.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Plasma Beam: in the Sector 6 debrief the computer says \"my simulations indicate that a penetrating weapon like the Plasma Beam might work. Developing modification data will take HQ some time, though.\" After Neo-Ridley it admits \"The Plasma Beam modification was ready some time ago, but they withheld it to keep you from engaging the SA-X.\" The earlier statement was therefore at best misleading.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "After Samus escapes the jettisoned Restricted Lab, the computer reprimands her (\"You ignored your orders\"). It then reveals the Federation's secret Metroid breeding program (\"For peaceful application only, of course.\"), including rapid-growth research able to produce an Omega \"in days\". It reports at least 10 SA-X aboard and orders her to leave and report to HQ.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "After Ridley X (Neo-Ridley), the computer tells Samus to leave the rest to the Federation, which wants to capture the SA-X because it believes the X have \"endless potential applications\". It says HQ stopped sending support data because they knew she would try to destroy the SA-X. It ends with \"Bravo, Samus.\"",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Samus resolves to destroy the X with the station's self-destruct, dying with it if she has to. When she uses the Navigation Room pad again the hatches seal, and the computer says \"I have been ordered to confine you until the ships arrive.\"",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "The reveal in the English script: Samus calls the computer 'Adam'. It asks \"...Who is Adam?\", questions her about him, calls her choice \"How foolish\", argues that a high-orbit detonation would not guarantee the X's extinction, and says \"When Adam decided who would live, he chose incorrectly.\" The transcript's speaker label then switches from 'SC' to 'Adam' as he proposes changing the orbit, closing with \"Any objections, Lady?\" He never says \"I am Adam\" outright. The identification is implicit and is confirmed by Samus's ending narration.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Ending narration: \"The wisdom of Adam Malkovich continued to serve even after death. Until today, I had no idea that the minds of leaders and scientists were frequently uploaded to computers.\" Samus says Adam taught her that \"the human soul will ever reach for the truth\". The English script never says who uploaded him or when.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://metroiddatabase.com/endings-metroid-fusion/",
+    "confidence": "high"
+   },
+   {
+    "fact": "Samus quotes Adam's reply when she expected tribunals and blame, \"Do not worry. One of them will understand. One of them must.\", as words he said \"to me in my anger\". The moment he said them is not shown on screen.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Etecoons and Dachoras: earlier, before the reveal, the computer recalled Samus to the ship to report that the creatures had boarded. It checked that they were not X hosts, \"gave them a berth\" and kept them aboard. In the ending Adam credits them with starting the ship: \"They lent me a hand...\"",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Hidden Easter-egg scene: it requires releasing the Level 4 (red) locks and then making an extreme Shinespark sequence back to a Navigation Room before collecting the Diffusion Missiles. In it, ADAM compliments Samus's Shinespark trick, an unnamed 'Mysterious Man' wants to tell her \"our plan\", ADAM says that is \"not advisable\", and ADAM ends with a fourth-wall joke about how many players will see the message. Sources disagree on location: OmegaMetroid places it in Sector 4, while Metroid Recon describes getting back to Sector 5 and the nearest Navigation Room.",
+    "source": "https://omegametroid.com/metroid-fusion-walkthrough/hidden-scene/ ; https://metroid.retropixel.net/games/metroid4/secrets.php",
+    "confidence": "medium"
+   },
+   {
+    "fact": "Developer intent: composer Minako Hamano says director Yoshio Sakamoto asked her to score the music to Adam's lines (「アダムのセリフにあわせて音をつけてほしい」). Navigation Room music changes with Adam's dialogue, switching between tense and suspicious (怪しい) tracks as scenes change. System director Takehiko Hosokawa says the story was made linear, with Navigation Room guidance, to widen the audience.",
+    "source": "https://web.archive.org/web/20150721232322/http://www.nintendo.co.jp/nom/0303/32/index.html",
+    "confidence": "high"
+   },
+   {
+    "fact": "The Japanese release has two text modes: 'Adult' (with kanji) and 'Child' (hiragana, with terms explained). The Child mode wording sometimes differs from the Adult mode.",
+    "source": "https://metroiddatabase.com/nintendo-dream-developer-interview-2/ ; https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "confidence": "high"
+   },
+   {
+    "fact": "Japanese catchphrase: in Japanese, Adam's sign-off is 「異論は無いな? レディー」 (roughly 'No objections, right? Lady.'). In Child mode it is 「わかったな? レディー」 ('Understood? Lady.'). Japanese Wikipedia says the computer uses it only once, at the turning point.",
+    "source": "https://ja.wikipedia.org/wiki/メトロイドフュージョン",
+    "confidence": "medium"
+   },
+   {
+    "fact": "Japanese register: a screenshot in the Japanese manual shows the first Navigation Room line as 「特別保管庫は、この先だ。保管庫で生体反応が確認された。注意せよ。」 That is plain masculine だ-form plus the military command form せよ ('Take caution'). The English equivalent is \"The Quarantine Bay is ahead. Bio-signs are confirmed. Be careful.\"",
+    "source": "http://www.metroiddatabase.com/wp-content/uploads/Metroid-Fusion/MetroidFusion_instructionmanualJP.pdf",
+    "confidence": "high"
+   },
+   {
+    "fact": "Japanese Wikipedia describes the computer differently from the English ending. It says the Federation, impressed by Adam Malkovich's analytical and judgment abilities, built the computer with his thinking as the model for its thought circuits (思考回路のモデル). It also describes the computer's tone as 平坦な口調 ('flat tone') with excellent analysis and judgment. The English ending instead says minds were 'uploaded'. I have not checked this against the Japanese game text.",
+    "source": "https://ja.wikipedia.org/wiki/メトロイドフュージョン",
+    "confidence": "low"
+   },
+   {
+    "fact": "Japanese Wikipedia gives the principle behind Adam's sacrifice as 「行くべき者が行き、残るべき者が残る」 ('those who should go, go; those who should stay, stay'). The English line is \"some must live and some must die\", which is harsher.",
+    "source": "https://ja.wikipedia.org/wiki/メトロイドフュージョン",
+    "confidence": "medium"
+   },
+   {
+    "fact": "Fusion (2002) leaves Adam's sacrifice unspecified (\"He made that sacrifice once.\"). Metroid: Other M (2010) later depicted it: Adam entered Sector Zero alone and detached it. English Wikipedia's footnote ties the Fusion line to Other M.",
+    "source": "https://en.wikipedia.org/wiki/Metroid_Fusion ; https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Other M background on the human Adam: Samus calls him \"A general in the Galactic Federation Army. Not only a trusted confidant but also my former superior officer.\" She says he \"was normally cool and not one to joke around\" but ended every briefing with \"Any objections, Lady?\". Her thumbs-down was \"a sign of derision at being called a lady, and a signal of my complete understanding of the mission orders.\" She admits she saw him as a father figure.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Other M: Samus says Adam was \"a strong opponent of bioweapons\" and \"against the use of living things for unnecessary reasons, period.\" Adam says he wrote the Metroid program report at HQ's request and argued that it \"shouldn't be attempted\", but that \"a small group within the Federation co-opted my report.\" This contrasts with the Fusion AI first passing on the Federation's bioweapon aims, then breaking with them.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Lorebook correction: in Other M's English script, Adam's last words to Samus at Sector Zero are \"No objections, right, Lady?\", not \"Any objections, Lady?\". She raises a thumbs-up, then changes it to a thumbs-down. adam-other-m.json ('Other M: Adam Malkovich') says he asked \"Any objections, Lady?\" one last time. Fusion's English sign-off is \"Any objections, Lady?\".",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php ; /home/user/wiphone-meshtastic/metroid-lorebook/entries/adam-other-m.json",
+    "confidence": "high"
+   },
+   {
+    "fact": "Lorebook correction: fusion.json ('Samus's defiance...') says \"The computer confirmed it was him, his mind preserved by the Federation\", and adam-other-m.json says \"The computer relented.\" In the script the computer never explicitly confirms. It first insults her choice (\"How foolish.\", \"he chose incorrectly\") and then switches to Adam's voice and catchphrase. Samus only says \"He made that sacrifice once\"; it is the computer who says \"Your Adam gave his life so that you might keep yours\". The ending says minds of leaders and scientists are 'frequently uploaded' without naming the Federation as the agent.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php ; /home/user/wiphone-meshtastic/metroid-lorebook/entries/fusion.json",
+    "confidence": "high"
+   },
+   {
+    "fact": "Metroid Wiki's 'Adam Malkovich' page: Samus at first assumes the computer is an AI, and its identity as Adam is revealed only near the end. He becomes the gunship's computer afterward and returns in the same role in Metroid Dread. The wiki says he is blunt and businesslike at first and gradually shows concern ('be careful', 'proceed with caution').",
+    "source": "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+    "confidence": "medium"
+   },
+   {
+    "fact": "After the reveal, revisiting a Navigation Room gives a single repeat order from 'Adam': \"Go to the Operations Room and set a course for SR388. Then return to your ship and evacuate before impact.\"",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   }
+  ],
+  "quotes": [
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "We'll soon be arriving at the B.S.L research station. I must prepare for docking.",
+    "context": "Prologue; first words, in the cockpit of the new gunship.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "Following the commands of this blunt, computerized CO is something I have to bear, as it was a condition of my taking the ship. For someone who dislikes taking orders, this is the second time I've found myself having to do so. It makes me recall my other CO...",
+    "context": "Prologue, on approach to the BSL.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "There's been an explosion in the Quarantine Bay. The bay currently stores capsules containing recent samples from SR388 as well as parts of your suit infected by the X parasites. The cause of the explosion is as yet unclear. Investigate. The Quarantine Bay is here. Move quickly and quietly... You are still unable to use most of your latent abilities. Don't forget that, Samus. Stop at the Navigation Room on the way. Uplink from there.",
+    "context": "First briefing after docking, followed by 'Is your objective clear?' and then 'Now, go to the Quarantine Bay.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "The Quarantine Bay is ahead. Bio-signs are confirmed. Be careful.",
+    "context": "First Navigation Room. The same line appears in an English manual screenshot.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "This is unfortunate news... The specimens brought back by the field team were infected by X parasites. The X can mimic its prey; any specimen could have hosted it. Before the explosion, a security sensor scanned one...",
+    "context": "Debrief after the Quarantine Bay.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "The gelatinous X parasites invade and rapidly reproduce, killing the host creature. They also absorb DNA and use it to mimic the host. You were almost killed by an X infection. Only the Metroid vaccine saved your life. It seems Metroids were the main predators of the X. That's why the vaccine worked so quickly and so well. But it has also changed your cellular makeup. You will never be infected by X again... In fact, you can now absorb any free-floating X parasites without a host by merely touching them. This will allow you to replenish health and restore weapons. You may also restore latent abilities this way, so pursue free X parasites whenever you possibly can. This station is home to many species...some violent ones. We must keep the X out of the breeding environments at all costs. This is vital, Samus.",
+    "context": "Same debrief: explains the X.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "I am already detecting massive bio-signs in this region. The X are gathering. This may be our chance to exterminate them, but... You are only at 10% battle capacity. Your chance of survival is extremely low. The Federation needs you alive and on duty, Samus...",
+    "context": "Same debrief. After 'Yes': 'Now, get going. I have released the lock on Level 0 hatches. Look for the blinking hatches.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "I have received news from HQ. They can support you with downloadable weapons data. Once you have this data, you'll be able to use Missiles. This will help against some enemies your beam can't hurt. Head to the Data Room for the download. The Data Room is here.",
+    "context": "Main Deck, Missile data briefing. After 'Yes': 'With Missiles, your chance of survival climbs to 20%...'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "That computer reminds me of a gruff Federation CO I served under named Adam Malkovich. He called me \"Lady\" on missions; from anyone else, it would've sounded sarcastic, but Adam made it sound dignified. Out of respect and with some irony, I named the computer after him.",
+    "context": "Elevator to the Operations Deck.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "Electrical interference has knocked out the elevators on the Main Deck. This may be related to the X. I'll work on it. As for you... Try to find another way to the target. It's located here.",
+    "context": "Main Deck power failure. It continues: 'I'm reading huge bio-signs, so I hope your Missiles work... To reload Missiles you can use a Recharge Room or absorb a special type of X parasite. You'll see them. Try it out.' After 'Yes': 'Missiles are your only hope. Don't hesitate to use them. Now, find a way to the target.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "Samus, it's as I feared. The breeding environments have been invaded by X parasites. Sector 1 (SRX) shows several abnormalities on bio-sensors. Sector 1 is a simulation of the SR388 ecosystem. To get there, take the Main Elevator to the access shaft and use Elevator 1.",
+    "context": "After Arachnus X. After 'Yes': 'Use the Navigation Room just inside for further briefing. I'm not sure, but I think that whoever allowed the X into the environment may also be linked to the earlier explosion...'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "The Main Elevator leading to the access shaft has been severely damaged. It will be totally unusable for some time, unfortunately. Some unknown agent is at work. Something very powerful... certainly not human. I'll report when I know more. Now, listen closely. The X in Sector 1 have invaded the atmospheric stabilizers. They must want to alter the environment to their needs. They are already reproducing. Clear all 5 atmospheric stabilizers to stop them.",
+    "context": "Sector 1 Navigation Room. After 'Yes': 'Now, get moving.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "Atmospheric stabilizers online. But many X have already made it to other sectors, it seems. In particular... Sector 2 (TRO), the tropical habitat, shows abnormalities. I suspect the X entered this sector with the help of our unseen saboteur. He or it may be in TRO now. Samus, get over there. We need to put an end to this.",
+    "context": "Sector 1 debrief. After 'Yes': 'Start moving. I'll brief you at the TRO Navigation Room.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "As I listened to the briefing, my thoughts turned to Adam. The real Adam understood me well. He would end orders by saying, \"Any objections, Lady?\" He knew I wouldn't disagree. That was just his way of noting our trust. I wonder if I can trust this computer, too...",
+    "context": "Elevator leaving Sector 1.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "I have learned the identity of our mystery saboteur... Samus, it's an X mimicking you.",
+    "context": "Sector 2 Navigation Room; start of the SA-X reveal.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "I have named it the SA-X. I believe the SA-X came from the capsule containing your infected suit parts. It used a Power Bomb to escape the Quarantine Bay. That explosion breached the capsules containing all the X that started this disaster. But the SA-X is definitely our biggest worry right now. The SA-X is mimicking you at full power. You can't face it. If you see the SA-X, just run. Don't think about fighting... You are still very vulnerable to cold, an unexpected side-effect of the Metroid vaccine. Like Metroids, you can be frozen by an Ice Beam. Of course, the SA-X is armed with the Ice Beam. Stay away. If you see it, just run. HQ says they have Bomb data ready in the Data Room. Bombs will help you find a way out if the SA-X traps you. The Data Room is here, but... it's sealed by a Level 1 hatch. You'll have to find the Security Room and release the Level 1 locks. But per safety protocols, it's not marked on the map. You'll have to find it on your own somehow, Samus. So, first find the Security Room and unlock Level 1 hatches, then go to the Data Room and get that Bomb data.",
+    "context": "Sector 2 SA-X briefing. After 'Yes': 'Keep an eye out for the SA-X.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "Samus, we've got trouble. Releasing the security lock may have been a bad idea. The SA-X has invaded the water environment in Sector 4 (AQA) with several thousand X. With the blue hatches active, the SA-X slipped in easily. The creatures and systems in Sector 4 are already showing multiple irregularities. I'm currently investigating. I'll brief you in the Navigation Room when you arrive.",
+    "context": "After the first SA-X encounter. After 'Yes': 'Now, head for Sector 4.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "This sector has taken more damage than expected... I knew the X were powerful and destructive, but still... This seems to be purposeful. We certainly can't rule out the possibility that the SA-X has a high degree of intelligence. I find the X fascinating, especially this SA-X. ...But I digress. This sector is home to a very large creature the researchers called Serris. It is capable of moving and attacking at ultra-high speed. The more senseless and widespread destruction here may be attributable to Serris. No doubt the SA-X released it, but I can't be sure why yet. Serris has returned often to the breeding tank here. Its natural behavior must be to go back to it periodically. It's a valuable specimen, but you have been authorized to terminate it. If you don't, it may invade other sectors.",
+    "context": "Sector 4 Navigation Room. After 'Yes': 'While you're moving, be careful. Some broken power nodes have electrified the water... but we can't cut the power. Doing so would affect the whole station adversely. If you touch the water, you'll be electrocuted. Conserve energy as you go.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "So Serris had been infected by the X, too... Well, as a result, you recovered another ability. At this rate, you may be able to face the SA-X yet... But that's still a ways off. HQ has more support data. This time it's Missile upgrade data. You desperately need this, but the Data Room here is sealed with a Level 4 lock, the highest security level. Let's avoid opening sensitive areas unless it's necessary. Also, the route to the Data Room in Sector 2 is blocked by still more SA-X activity. I note a deliberate activity pattern, as if it is blocking your recovery intentionally. Samus, it looks like your best option for this download is in Sector 3 (PYR). You will find the PYR Data Room on your map after using a Navigation Room there.",
+    "context": "Sector 4 debrief. After 'Yes' (unlabelled in the transcript): 'Now, head for Sector 3 (PYR).'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "Thankfully, the X have not invaded this area yet... The Data Room here is sealed by another security hatch. In order to download, you must find the Security Room here and activate Level 2 hatches. This may allow the SA-X and X parasites into the area... But we are left with no choice. Your recovery is our main goal. The Data Room is here. As I explained, Security Rooms can't be shown on the map. Be careful, Samus. You will see very violent organisms here. And avoid the ultra-heated areas: your suit can't take such high temperatures yet, but we're working on it. Level 2 hatches are green. Release the lock and proceed to the Data Room for download. Super Missile data is ready. Your firepower will triple.",
+    "context": "Sector 3 Navigation Room. After 'Yes': 'First, activate green hatches. Then go to the Data Room. There are no ultra-heated areas on this route, so turn back if you enter one.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "I see that you encountered a rogue Security Robot. You may destroy it if you meet it again. Your safety is vital. But as to your brief... Level 2 security locks are released, so Sectors 5 and 6 are open. That means those sectors have likely been infiltrated by X. They are much harder to stop than we initially suspected... Sector 5 (ARC) is sub-zero. You're still susceptible to cold from the vaccine side-effects, so you'll take damage if you even set foot inside there. Avoid Sector 5 for now, but in the meantime, HQ is working on data to adjust your suit for extreme temperatures. Once we have the transmission, you can download it, but... The X have destroyed all the Data Rooms you have used so far. I no longer doubt their capacity for critical thought. You'll have to use the Data Room in the night habitat, Sector 6 (NOC). Go to Sector 6 and access a Navigation Room there.",
+    "context": "After B.O.X. in Sector 3.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "Tread lightly, Samus. You are the only one who can do this. And the X may be much more dangerous than we know...",
+    "context": "Closer after 'Yes' on the B.O.X. debrief, just before the secret dispatch scene.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Unidentified Federation officer (??) and SC",
+    "line": "??: Does Samus suspect anything? / SC: No, I do not think so. / ??: Good. Monitor her closely. / SC: Affirmative. Out.",
+    "context": "'Incoming Dispatch' cutscene while Samus rides up to the Main Deck. The officer appears only as a silhouette.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "The Varia Suit data is here from HQ, ready to download. Get moving to a Data Room. But there's a problem... X from the sub-zero sector ARC are in Sector 6 (NOC), and they... They've been changed by the cold. If you absorb one, you'll be frozen from within. This seems like a deliberate tactic. Once you download the Varia Suit modification, you'll be out of danger. Just be extremely careful until then. The NOC Data Room is here. Remember, avoid the blue X. Use your beam to stun them in order to get by.",
+    "context": "Sector 6 Navigation Room. After 'Yes': 'Be careful. They are hunting you actively now, Samus... And this area is very dark. Proceed with extreme caution.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "How did that X download the Varia Suit data? This doesn't seem to make any sense at all, unless the X... Unless the X have the ability to process data organically... At any rate, you have the Varia Suit data. Now you will be protected from extreme temperatures. More importantly, the SA-X will no longer be able to freeze you, so you can escape easier. But you're still too weak. That thing is too much for you. You currently have no way of damaging it. But my simulations indicate that a penetrating weapon like the Plasma Beam might work. Developing modification data will take HQ some time, though. There's also a chance that you may be able to restore your Plasma Beam by absorbing a large Core-X, as you did with the Charge Beam function. As for restoring Ice Beam functionality, I doubt it... Your current cellular makeup would reject that addition. Therefore, HQ has developed an Ice Missile upgrade. This will add a freezing effect to your Missiles. It will help. Go to Sector 5 (ARC) for the download.",
+    "context": "After the Varia Suit is recovered. The Plasma Beam remark is later shown to be a cover. After 'Yes': 'Now, get moving.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "You need to download data for the Ice Missile upgrade, but... As you might expect, the Data Room here is secured. Level 3 security hatches are yellow. Release the security lock and download the data as usual. And experiment with those new Missiles. They will be helpful...",
+    "context": "Sector 5 Navigation Room. After 'Yes': 'You know what to do. Go to it.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "Emergency in Sector 3 (PYR). The area could melt down soon. It seems the Main Boiler's cooling unit is malfunctioning. This could easily destroy the entire research station, as it would likely trigger the auto-destruct explosives. We have about 6 minutes. Hurry to Sector 3 and access the Control Room to the side of the Main Boiler room. Most of the systems in PYR are down because of this... Again, we know who to blame. The SA-X must have hacked into the system control file. What impressive intelligence.",
+    "context": "Boiler emergency. After 'Yes': 'There's little time. Hurry to the Control Room in Sector 3.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "The X mimicked a crew member... It all makes sense now. The X can absorb the memories and knowledge of their prey. What an astounding find. HQ was very impressed. But don't you find it strange? This could have destroyed the station with the X in it, not to mention to SA-X. Unusual for a self-preserving species like the X. Unless... Your presence is an even greater threat, a threat to the existence of X elsewhere... This is only a hypothesis... Perhaps... Their survival instinct is in conflict with their newly-borrowed intelligence... Don't let your guard down yet. The X are still a threat. Samus, I see bio-signs on the Habitation Deck. Survivors? The infected crewman you saw had survived until recently. Maybe there's a chance... The signs emanate from here.",
+    "context": "After the boiler. ('not to mention to SA-X' is the transcript's wording.) After 'Yes': 'I have just restored power to the Main Elevator. Use it to return and look for any survivors.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "So the survivors were not human... Most unfortunate. We can now confirm the deaths of all crew members. I imagined this was the case, but I had hoped it wasn't so. I believe the X only infected the humans for knowledge... That form is too weak for battle. I am sure the others were merely food for the X... Samus, I think they are evolving, growing stronger. Some are now appearing that resist your current weapons. HQ anticipated this and sent Power Bomb data as soon as the hardware team finished it.",
+    "context": "After the Etecoons and Dachoras are freed. After 'Yes': 'Download it immediately. Our choice of Data Rooms is limited to this one in Sector 5 (ARC). Go. Now.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "You've been to this Data Room before, but I'll show you its position again.",
+    "context": "Sector 5 Navigation Room. After 'Yes': 'Now move out.' Afterwards: 'Samus, return to your ship. I have important information.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "The main silo of the Reactor Core has gone offline. That's why all elevators and station systems are down. Elevators and hatches won't work. This doesn't bode well... If you can get to this point, you may be able to start the auxiliary power system. Then we can figure out why the main silo went offline...",
+    "context": "Aboard the gunship.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "By the way, I asked you to return here to tell you... Some strange creatures have boarded your ship. I confirmed that they were not X hosts and gave them a berth. Do you know anything about these strange creatures? Were they the source of the healthy bio-signs earlier? Very well, then. Their presence in the midst of this disaster must have some significance... I will keep them here.",
+    "context": "Same gunship scene, after 'Yes'. The Etecoons and Dachoras are aboard. Samus's answers are implied, not shown.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "Save Rooms and Recharge Rooms are now back online, but with only auxiliary power, no elevators or hatches will work. Without the main silo online, we're still stuck. I believe the source of the problem is the vegetation you saw earlier choking the Reactor Core components.",
+    "context": "After auxiliary power. After 'Yes': 'We'll have to find the source of those roots to proceed.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "What? You've restored Plasma Beam functionality? ...Most unexpected. Even so, continue to avoid the SA-X. It, too, may be stronger. And you still lack a few abilities crucial to survival... Wait.. Wait a second... More trouble. Hold on. ..................................................... ... I've isolated the cause. There's been an explosion in the ARC Data Room... Samus, go to Sector 5.",
+    "context": "After Nettori and the Plasma Beam. His surprise matters because HQ was withholding the Plasma data. After 'Yes': 'The damage is staggering. Find out what's causing it.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "It's gotten worse. The damage seems to have been caused by a creature kept here by the researchers, who named it... the Nightmare. Apparently, it was a bio-mechanical organism designed for military applications... It possesses uncommon power and can manipulate gravity. We must assume that it's become an X-host. We have no choice. You must find it and defeat it. I can't confirm the location.",
+    "context": "Sector 5 Navigation Room. After 'Yes': 'This thing is out of control. Hurry before it destroys the entire station...'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "You upgraded your missiles? That's unusual... There was no word from HQ. A procedural error, I'm sure... Even so, I did not approve of bypassing security Level 4. From now on you will use more discretion. In any case, Samus, do you remember the Security Robot you faced earlier? I believe the X have infected it. That is to say, they have claimed the organic components that form its neural network. It has entered Sector 6 (NOC). I don't know what it's planning, but let's not wait to find out. Samus, you know what to do.",
+    "context": "After the Diffusion Missiles. A reprimand and a cover story that is contradicted later. After 'Yes': 'To Sector 6, quickly.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "The Security Robot seems to have gotten much stronger. This worries me. Be careful. But we have another problem. Once you're done, leave NOC immediately. The SA-X is tracking you.",
+    "context": "Sector 6, before B.O.X. After 'Yes': 'Don't stay longer than you must. Understood?'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "Samus, you shouldn't have done that. You ignored your orders. You may have to pay a price for that quite soon...",
+    "context": "First Navigation Room after the Restricted Lab is jettisoned. Samus answers only with silence ('......').",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "As you can see, the Federation has been secretly working on a Metroid breeding program. For peaceful application only, of course. Please understand. But perhaps you already knew of this program's existence? Certainly, you must have had doubts when you saw Sector 1. SRX, a faithful replica of the SR388 ecosystem... Ideal for raising Alpha, Gamma, Zeta, and even Omega Metroids. This research even uncovered techniques for rapid growth. Imagine...creating an Omega from a larval Metroid in days... But that research is finished. The X has smelled out its natural enemy, and one of the SA-X is on its way here...",
+    "context": "The Restricted Lab confession.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus / Ship's computer (SC)",
+    "line": "Samus: ONE? ...Are you saying there is more than one SA-X? / SC: Don't be so surprised, Samus. you know that the X reproduce by asexual division. Because of this mechanism, there are now no fewer than 10 SA-X aboard the station.",
+    "context": "Same conversation. The lowercase 'you' is as in the transcript.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "Samus, you must go. Get out. If you stay too long, the SA-X will destroy you. Stop only at a Navigation Room to uplink to me. I don't know how HQ is going to take this, but you need to report to them immediately...",
+    "context": "Same conversation. After 'Yes': 'Now get going.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "The real Adam would have said the same thing about that incident, but he would have softened the blow. He was relentless in his criticism, but he always cared... He was not a machine obsessed with duty. No such compassion could exist in that computer...",
+    "context": "Elevator to Sector 1 after the Restricted Lab. Her lowest opinion of the computer.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC) / Samus",
+    "line": "SC: Samus, we're done here. Leave the rest to the Federation... We should be preparing to evacuate the station... / Samus: Are you joking?! Do they know how dangerous the X are? ...How quickly they reproduce? / SC: The Federation has taken an interest in the X and SA-X. They believe this life-form had endless potential applications. / Samus: This is ridiculous! The X are heartless abominations! What potential could they have? / SC: It is not necessary that you understand such matters. The Federation is coming now. You should just leave quietly... / Samus: This is madness! They won't stand a chance here! This station will devour them! What could be worth the risk!? / SC: Capturing the SA-X, of course.",
+    "context": "Navigation Room after Ridley X / Neo-Ridley.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC) / Samus",
+    "line": "Samus: ...Are you serious? Do they really think they can succeed? / SC: It will certainly be difficult. They don't expect your help. They knew you would try to destroy the SA-X... That's why they stopped sending you support data... The Plasma Beam modification was ready some time ago, but they withheld it to keep you from engaging the SA-X. Yet somehow you restored that function on your own... They also tried to withhold the Diffusion Missile upgrade because they didn't want you to grow too powerful. But they had already sent it, and you tracked it down... Bravo, Samus. / Samus: They must cancel this mission! Open a channel to HQ! I won't let this happen! / SC: They are already on their way. / Samus: Fools...",
+    "context": "Same conversation. He admits the withheld data.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "The X must not leave here. I must destroy them all before the Federation arrives. This station has a self-destruct mechanism. I must use it to destroy the X here and on the planet. I must send them to oblivion. Them, the station, and myself, if I have to.",
+    "context": "Her resolve after that conversation, which sets up the confinement.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus / Ship's computer (SC)",
+    "line": "Samus: Open the hatch! / SC: I have been ordered to confine you until the ships arrive. / Samus: Don't let them do this. Can't you see what will happen, Adam? / SC: ...Adam? / Samus: ......... / SC: ...Who is Adam? / Samus: ...A friend of mine. / SC: And what would this...friend advise you to do now? / Samus: He would know that the only way to end this is to start the self-destruct cycle. He'd know how important it is...",
+    "context": "The hatches seal when Samus uses the Navigation Room pad. Start of the confrontation.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC) / Samus",
+    "line": "SC: Did this \"Adam\" care for you? Would he sit in a safe Command Room and order you to die? / Samus: He would understand that some must live and some must die... He knew what it meant. He made that sacrifice once. / SC: So, he chose life for you? Our fair warrior, Samus Aran... Your Adam gave his life so that you might keep yours... For the sake of the universe... / Samus: ......... / SC: How foolish. / Samus: How dare you! How could you hope to understand, machine?",
+    "context": "Confrontation, continued.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (SC)",
+    "line": "You know that detonating this station in high orbit would not guarantee the complete extinction of the X parasites, even though the station would be utterly destroyed... You would only succeed in removing the one obstacle to the galaxy's ruin...yourself. You would ignore this simple fact and choose death. When Adam decided who would live, he chose incorrectly.",
+    "context": "His last line under the 'SC' label. Samus answers '...!'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam",
+    "line": "...If you were to alter the station's orbit, then you might be able to include the planet in the vaporization field of the self-destruct detonation.",
+    "context": "The transcript's label switches from SC to Adam here. Samus answers '...?'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam",
+    "line": "You would have to start the propulsion sequence now. Before the Federation arrives. Samus, this is your last mission. Go to the Operations Room and adjust the station's orbit path to intercept SR388.",
+    "context": "Same scene. Close-up of Samus's eyes widening.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam",
+    "line": "Then return to your ship and escape. Move quickly, and stay alive. That's an order! Any objections, Lady?",
+    "context": "Same scene; the reveal line. It is the only exclamation mark in all of the computer's/Adam's Fusion dialogue and the first time he calls her 'Lady'.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam",
+    "line": "Go to the Operations Room and set a course for SR388. Then return to your ship and evacuate before impact.",
+    "context": "Repeat line if Samus visits a Navigation Room again after the reveal.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "That perfect military mind... The wisdom of Adam Malkovich continued to serve even after death. Until today, I had no idea that the minds of leaders and scientists were frequently uploaded to computers. My incredible reunion with Adam may have saved the universe...",
+    "context": "Ending, in the cockpit after SR388 is destroyed.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "But how will the beings of the universe view our resolve? I doubt they will understand what we did... the danger we barely averted. They will hold tribunals and investigations. They will hold us responsible. Adam understood this, and he spoke to me in my anger...",
+    "context": "Ending narration; leads into Adam's quoted words.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam (as quoted by Samus)",
+    "line": "Do not worry. One of them will understand. One of them must.",
+    "context": "Quoted in the ending narration. Samus: 'I've reflected upon his words, and I see the wisdom in them... the human soul will ever reach for the truth... This is what Adam taught me.'",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration)",
+    "line": "Just one detail still bothers me. This ship can only be started manually. Yet, before I faced the Omega Metroid, the ship moved on its own, guided by someone's hands. Is it possible? Adam...?",
+    "context": "Ending narration.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam",
+    "line": "Lady, what's troubling you? You wonder how I started the ship? Just think about it. They lent me a hand...",
+    "context": "Final line of the game; the camera pans to the sleeping Etecoons and Dachoras.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "ADAM / Mysterious Man",
+    "line": "ADAM: Samus, I'm impressed that you were able to make it back. That trick with the Shinespark was truly… ingenious. / MYSTERIOUS MAN: That's our Samus Aran! Truly magnificent! As a reward, let's fill her in on our plan. Hmm, computer? / ADAM: That is… not advisable. / MYSTERIOUS MAN: Bah… / ADAM: No more joking. Samus, get back on task. Is your objective clear? I wonder how many players will see this message…?",
+    "context": "Hidden Easter-egg Navigation Room scene: after the Level 4 unlock and before the Diffusion Missiles, reached by a hard Shinespark route. Only one source transcribes it.",
+    "source": "https://omegametroid.com/metroid-fusion-walkthrough/hidden-scene/"
+   },
+   {
+    "speaker": "English manual (p.19, 'About Adam')",
+    "line": "The concise and logical instruction Samus receives from her ship's computer reminds her of her former Galactic Federation commanding officer, Adam Malkovich. As a result, she has christened the computer Adam.",
+    "context": "Official manual, Navigation Rooms page.",
+    "source": "http://www.metroiddatabase.com/wp-content/uploads/Metroid-Fusion/mf_manual.pdf"
+   },
+   {
+    "speaker": "Ship's computer (Japanese manual screenshot)",
+    "line": "特別保管庫は、この先だ。保管庫で生体反応が確認された。注意せよ。",
+    "context": "Japanese counterpart of 'The Quarantine Bay is ahead. Bio-signs are confirmed. Be careful.' Literally: 'The special storage is ahead. Bio-signs have been confirmed in the storage. Take caution.' It uses blunt masculine command forms (だ / せよ).",
+    "source": "http://www.metroiddatabase.com/wp-content/uploads/Metroid-Fusion/MetroidFusion_instructionmanualJP.pdf"
+   },
+   {
+    "speaker": "Adam (Japanese script, per Japanese Wikipedia)",
+    "line": "異論は無いな? レディー",
+    "context": "Japanese form of 'Any objections, Lady?' (literally 'No objections, right? Lady.'). Child text mode reads 「わかったな? レディー」 ('Understood? Lady.').",
+    "source": "https://ja.wikipedia.org/wiki/メトロイドフュージョン"
+   },
+   {
+    "speaker": "Minako Hamano (composer, staff interview)",
+    "line": "坂本から「アダムのセリフにあわせて音をつけてほしい」と言われまして、ナビゲーションルームでのアダムのセリフにあわせてＢＧＭが変わるようにしてみました。",
+    "context": "Nintendo Online Magazine staff interview, March 2003. Translation: Sakamoto asked her to 'put sound to Adam's lines', so the Navigation Room music changes with Adam's dialogue, tense or suspicious depending on the scene.",
+    "source": "https://web.archive.org/web/20150721232322/http://www.nintendo.co.jp/nom/0303/32/index.html"
+   },
+   {
+    "speaker": "Samus (narration, Metroid: Other M)",
+    "line": "Me, I was known for giving the thumbs-down during briefing. I had my reasons, though... Commander Adam Malkovich was normally cool and not one to joke around, but he would end all of his mission briefings by saying, \"Any objections, Lady?\"",
+    "context": "Other M flashback; background on the human Adam's catchphrase.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration, Metroid: Other M)",
+    "line": "And I knew more than anyone that every word from Adam was deliberate. My thumbs-down was a twofold response—a sign of derision at being called a lady, and a signal of my complete understanding of the mission orders.",
+    "context": "Other M flashback.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich (Metroid: Other M)",
+    "line": "Samus. I wish I could battle Ridley, but I can't. Unlike you, I'm no galactic savior. I'm merely human. But I can save you.",
+    "context": "Outside Sector Zero, after he freezes Samus to keep her from going in.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich (Metroid: Other M)",
+    "line": "No objections, right, Lady?",
+    "context": "His last words to Samus as Sector Zero's airlock closes. She raises a thumbs-up, then changes it to a thumbs-down.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus (narration, Metroid: Other M)",
+    "line": "I didn't need to press Adam about it any further. I knew his mind. Not only was he a strong opponent of bioweapons, he was against the use of living things for unnecessary reasons, period.",
+    "context": "Other M, after the bioweapon research is found.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   }
+  ],
+  "voice_notes": "BEFORE THE REVEAL (labelled 'SC' in the transcript): a clipped military-briefing voice. By rough count, his ~85 lines (all in the transcript above) average about 8 words per sentence: short declaratives and bare imperatives (\"Investigate.\" \"Go. Now.\" \"Get out.\" \"Now move out.\"), mixed with longer runs of technical explanation. His one exclamation mark comes at the very end, \"That's an order!\" He never shouts before that.\n\nBriefing structure (consistent):\n1. Situation report.\n2. Analysis or hypothesis.\n3. The order, with the map target (\"The Data Room is here.\").\n4. \"Is your objective clear?\"\n5. A terse closer: \"Now, get moving.\" / \"You know what to do. Go to it.\" / \"Don't stay longer than you must. Understood?\"\n\nForms of address:\n- \"Samus\" about 26 times, often at the start or end of a line (\"Samus, it's as I feared.\" \"This is vital, Samus.\" \"Tread lightly, Samus.\").\n- Never \"Lady\" until the reveal; \"Lady\" appears only twice in Fusion, both from 'Adam': \"Any objections, Lady?\" and \"Lady, what's troubling you?\"\n- Once a mock-formal \"Our fair warrior, Samus Aran...\" used to needle her.\n- He talks about \"HQ\" and \"the Federation\" in the third person. He uses \"we/our\" for the mission (\"We must keep the X out...\", \"our unseen saboteur\", \"Your recovery is our main goal\", \"we know who to blame\") and \"I\" for his own actions (\"I'll work on it.\", \"I have named it the SA-X.\", \"I have released the lock...\").\n\nVerbal habits:\n- Heavy trailing ellipses, about 100 in his lines. They mark pauses, things he holds back, ominous hints, and searching for words (\"Unless... Your presence is an even greater threat...\").\n- Hedged analytic language: \"I suspect\", \"I believe\", \"It seems\", \"my simulations indicate\", \"We certainly can't rule out the possibility\", \"This is only a hypothesis... Perhaps...\".\n- Clinical vocabulary: bio-signs, battle capacity, chance of survival, terminate, valuable specimen, X-host, procedural error, asexual division.\n- Survival odds as numbers early on (10% battle capacity; 20% with Missiles; \"Your firepower will triple.\").\n- Understatement for bad news: \"This is unfortunate news...\", \"This doesn't bode well...\", \"Most unfortunate.\", \"Most unexpected.\", \"The damage is staggering.\"\n- Admiration slips out about the enemy: \"What impressive intelligence.\" \"What an astounding find.\" \"I find the X fascinating, especially this SA-X. ...But I digress.\"\n- He catches himself and returns to business: \"...But I digress.\", \"In any case, Samus...\", \"At any rate...\", \"No more joking. Samus, get back on task.\" (hidden scene).\n- Repeated short warnings: \"Be careful.\", \"Tread lightly.\", \"Proceed with extreme caution.\", \"Don't let your guard down yet.\", \"If you see it, just run.\"\n- One flustered beat: \"Wait.. Wait a second... More trouble. Hold on. ......\"\n\nHumor: bone-dry and sardonic, never jokey. \"For peaceful application only, of course. Please understand.\" \"A procedural error, I'm sure...\" \"Capturing the SA-X, of course.\" \"Bravo, Samus.\" \"Don't be so surprised, Samus.\" The hidden scene adds a fourth-wall wink (\"I wonder how many players will see this message…?\"). As Adam, the humor turns warm and teasing: \"You wonder how I started the ship? Just think about it. They lent me a hand...\"\n\nAFTER THE REVEAL ('Adam'): the same economy, now with purpose and warmth. Conditional tactical phrasing (\"If you were to alter the station's orbit, then you might be able to...\"), then a run of direct orders ending in the catchphrase: \"Samus, this is your last mission.\" / \"Move quickly, and stay alive. That's an order! Any objections, Lady?\" His consolation is just as terse: \"Do not worry. One of them will understand. One of them must.\" He answers questions with short rhetorical prompts (\"Lady, what's troubling you?\").\n\nJAPANESE: the computer speaks in brusque masculine plain and command forms. The first line in the manual screenshot ends with 「〜だ」 and 「注意せよ」. The catchphrase is 「異論は無いな? レディー」 (Child mode: 「わかったな? レディー」). Japanese Wikipedia calls his tone 平坦な口調 ('flat tone').\n\nThe real Adam's habits (Other M) that the AI echoes: \"normally cool and not one to joke around\"; every word \"deliberate\"; ends briefings with \"Any objections, Lady?\"; says \"Lady\" to acknowledge her past rather than to mock her; plain, sober self-description (\"I'm merely human.\").",
+  "personality_notes": "CORE: a commander's mind carried in a machine. Mission first, Samus's survival a close second, and loyal to Federation orders until those orders threaten the galaxy and her life. His job is to keep her alive and pointed at the objective. Lines like \"The Federation needs you alive and on duty, Samus...\", \"Your safety is vital.\", \"Your recovery is our main goal.\" and \"You are the only one who can do this.\" show care, though always phrased as duty.\n\nTEMPERAMENT: calm, analytical and unflappable. He forms hypotheses about X behavior, revises them as evidence comes in (\"I no longer doubt their capacity for critical thought.\"), and gives HQ credit for its work. He is openly curious, even admiring, about the X and the SA-X, which Samus would find chilling. He can be warm in small ways: \"I had hoped it wasn't so\" about the dead crew, \"This worries me\", and checking and sheltering the Etecoons and Dachoras (\"Their presence in the midst of this disaster must have some significance... I will keep them here.\").\n\nHOW HE TREATS SAMUS:\n- Brusque and directive. He gates her movements, reprimands her for disobeying (\"You ignored your orders. You may have to pay a price for that quite soon...\" and \"From now on you will use more discretion.\").\n- He manages what she knows. He keeps secrets on Federation orders: he reports on her to an unseen officer (\"Does Samus suspect anything?\" / \"No, I do not think so.\"), covers for withheld data (\"A procedural error, I'm sure...\", \"Developing modification data will take HQ some time\"), and confines her when ordered.\n- When he comes clean, he does it with irony rather than apology (\"For peaceful application only, of course. Please understand.\").\n- He respects her competence even while working against her: \"Bravo, Samus.\" and, in the hidden scene, \"truly… ingenious\".\n- When she defies him he doesn't plead. He questions her (\"And what would this...friend advise you to do now?\"), provokes her (\"How foolish.\"), and argues with cold logic: her plan wouldn't guarantee the X's extinction and would remove \"the one obstacle to the galaxy's ruin...yourself\". Then he gives her a better plan that lets her live.\n- His harshest line, \"When Adam decided who would live, he chose incorrectly\", works in context as a test or goad. In effect: if you throw your life away, my sacrifice was wasted. That is an interpretation; the script doesn't explain it.\n\nHOW HE CHANGES OVER THE MISSION:\n1. Blunt CO: odds, warnings, orders.\n2. Scientific fascination with the X, hints of grief.\n3. Secret Federation reporting, cover stories, reprimands.\n4. Admission of the Metroid program and the SA-X capture plan, delivered with sardonic distance.\n5. Confinement under orders.\n6. Turned by Samus naming 'Adam': sides with her against the Federation, gives the collision plan, uses \"Lady\" for the first time.\n7. After the mission: a gentle, teasing guardian (\"Lady, what's troubling you?\") who reassures her about the coming blame (\"One of them will understand. One of them must.\").\n\nSamus's view of him also moves: \"blunt, computerized CO\" named \"with some irony\" → \"I wonder if I can trust this computer, too...\" → \"No such compassion could exist in that computer...\" → \"My incredible reunion with Adam may have saved the universe...\"\n\nCONTRADICTIONS AND TENSIONS:\n- He obeys and conceals for the Federation, yet in the end he defies it. The human Adam (Other M) was \"a strong opponent of bioweapons\" and argued in his report that the Metroid program \"shouldn't be attempted\".\n- He admires the X as specimens while helping destroy them.\n- He is cold to Samus's face while protecting her life above everything.\n- Whether he hid his identity on purpose, was constrained, or only 'woke' when she said his name is never stated (\"...Who is Adam?\" can be read either way).\n- He knowingly turns the 'sacrifice' theme around. The real Adam gave his life so she could live (Other M: \"I'm merely human. But I can save you.\"). The AI refuses to let her waste that gift.\n\nIn the Federation (Other M) he was \"a general in the Galactic Federation Army\" who led as \"Commander\", someone Samus calls her \"best friend\" and \"the closest thing to a father I had\". He meant \"Lady\" to acknowledge her past, and her thumbs-down meant both derision and full agreement.",
+  "uncertainties": "1. Japanese script: no full Japanese Fusion transcript was reachable. TCRF's regional-differences page (tcrf.net) and Nico Nico Pedia both returned 403, and quotes.net was blocked. Japanese material comes from the official Japanese manual and Japanese Wikipedia.\n- Japanese Wikipedia says the computer's thought circuits were MODELED on Adam's thinking by the Federation, which differs from the English ending's 'minds... uploaded'. I could not confirm this against the Japanese ending text; treat it as low confidence.\n- The Japanese catchphrase 「異論は無いな? レディー」 and Child-mode 「わかったな? レディー」, and the paraphrase 「行くべき者が行き、残るべき者が残る」 ('those who should go, go; those who should stay, stay'), are medium confidence, from Wikipedia only.\n\n2. Hidden Easter-egg scene: only one source has the dialogue (OmegaMetroid). Its location is inconsistent: OmegaMetroid implies the Sector 4 Navigation Room; Metroid Recon says to get back to Sector 5 and use the nearest Navigation Room. The 'Mysterious Man' is unnamed; whether he is the 'Incoming Dispatch' officer is not stated. The Japanese wording of this scene is unknown.\n\n3. The English script never has the computer state 'I am Adam'. The identification rests on the speaker label switch, the catchphrase, and Samus's ending narration. Who uploaded Adam, when, and whether it happened before or after his death is never stated in Fusion. 'Continued to serve even after death' implies after, or at least that the mind outlived him. The Federation is not named as the agent.\n\n4. Whether the computer knew it was Adam all along, or how much of Adam it held before the confrontation, is ambiguous. \"...Who is Adam?\" can be read as feigned or genuine. Metroid Wiki's line that he 'refuses to let her continue for her own safety until he reveals his identity' is wiki interpretation.\n\n5. Fusion (2002) predates Other M (2010). The 'sacrifice' in Fusion was originally unspecified; Other M's Sector Zero scene is now its canonical depiction. Other M's Ian drive-unit incident has Adam ordering from a command position, which is relevant to the AI's taunt \"Would he sit in a safe Command Room and order you to die?\" Linking the two is my inference.\n\n6. \"Do not worry. One of them will understand. One of them must.\" is quoted inside Samus's ending narration. When Adam said it is not shown.\n\n7. Excluded as non-canon: Smash Bros. for Wii U trophy text (PAL version says he 'would crack jokes from time to time' and was 'a man of few words'), which Metroid Wiki cites. Metroid Dread's ADAM lines were out of scope and not verified. A search snippet attributes 'Treat our lost assets with care, Lady.' to ADAM in Dread via Wikitroid, which was not fetched (blocked). Raven Beak impersonates ADAM for much of Dread, so any Dread line needs checking for who actually speaks it.\n\n8. Transcript quirks kept verbatim: 'not to mention to SA-X', 'you know that the X reproduce' (lowercase), 'Wait.. Wait a second...'. The line 'Now, head for Sector 3 (PYR).' has no speaker label in the transcript but is clearly the computer.\n\n9. Fetch notes: Metroid Wiki pages were read only through WebFetch summaries (Cloudflare blocked raw access), so the facts taken from them are paraphrases, not verbatim. The Fusion transcript, Other M transcript, endings page, staff interview and manuals were read in full as raw text or images.\n\nURLs used:\n- https://metroid.retropixel.net/games/metroid4/transcript.php\n- https://metroid.retropixel.net/games/metroid4/secrets.php\n- https://metroid.retropixel.net/games/metroid4/endings.php\n- https://metroid.retropixel.net/games/metroidom/transcript.php\n- https://www.metroidwiki.org/wiki/Adam_Malkovich\n- https://www.metroidwiki.org/wiki/Navigation_Room\n- https://www.metroidwiki.org/wiki/Metroid_Fusion\n- https://metroiddatabase.com/game/metroid-fusion/\n- https://metroiddatabase.com/endings-metroid-fusion/\n- https://metroiddatabase.com/nintendo-dream-developer-interview-2/\n- http://www.metroiddatabase.com/wp-content/uploads/Metroid-Fusion/mf_manual.pdf\n- http://www.metroiddatabase.com/wp-content/uploads/Metroid-Fusion/MetroidFusion_instructionmanualJP.pdf\n- https://web.archive.org/web/20150721232322/http://www.nintendo.co.jp/nom/0303/32/index.html\n- https://omegametroid.com/metroid-fusion-walkthrough/hidden-scene/\n- https://omegametroid.com/metroid-fusion-walkthrough/sector-4-diffusion/\n- https://ja.wikipedia.org/wiki/メトロイドフュージョン\n- https://en.wikipedia.org/wiki/Metroid_Fusion\n\nFailed: tcrf.net/Metroid_Fusion/Regional_Differences (403), dic.nicovideo.jp (403), www.quotes.net Other M (403)."
+ }
+}

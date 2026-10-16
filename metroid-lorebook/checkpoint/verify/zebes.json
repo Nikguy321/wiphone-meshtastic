@@ -1,0 +1,349 @@
+{
+ "run": "wf_79cba15a-9c3",
+ "label": "verify:zebes",
+ "result": {
+  "overall": "Fact-check of 7 drafted entries (8 reports: the task lists 8 JSON objects; all reviewed in order). Research used 41 WebFetch calls against Metroid Wiki and Wikipedia; WebSearch was unavailable this run (per-turn search budget already exhausted), and the Fall_of_Zebes wiki page is a 404 (text recovered from the Orpheon and Pirate_Data pages). No non-canon contamination found; the manga material is correctly labelled. Core numbers (FS-176 neighbours, two moons, Class XIX, 4.8 trillion teratons, Urithic Ore, 60 percent of lifeforms in Brinstar, five Zebetites, three Unknown Items) all check out. Six factual errors were found, none fundamental: Torizo wrongly placed on the first visit; the \"golden Chozo statue\" sealing new Tourian is actually a statue of Kraid/Phantoon/Draygon/Ridley; Mother Brain delivered (not received) the SR388 reports; Kraid's rebuilt lair is inside Brinstar east of the Norfair elevator, not \"east of Brinstar\"; the Fusion Suit replaced the Power Suit after the SR388 infection, before the BSL mission; and the Regions entry contradicts itself about Maridia's first entrance. Four claims could not be verified anywhere: the \"nightmare version\" Bottle Ship line (only on the uncited Zebes wiki page; absent from the Other M, Bottle Ship and Samus Aran pages), the quoted line \"the timing of my escape couldn't have been worse\", the phrase \"emergency order\", and \"kept the Legendary Power Suit through every later mission\". Kraid's ZDR area is verifiable as Cataris via the ZDR wiki page. The Kraid-X/Raven Beak claim is supported by Wikipedia's Dread plot but by no Metroid Wiki page. Key hygiene: Zebetite keys duplicated across two entries; generic keys \"first mission\", \"original mission\", \"giant lizard\", \"saurian\", bare \"Mother Ship\"/\"Mothership\" likely to misfire. Zero Mission entry runs 526 words.",
+  "reports": [
+   {
+    "entry_comment": "Zebes: Zebes (planet overview)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "the Bottle Ship, which Samus compared to a nightmare version of the planet",
+      "problem": "The line appears only on Metroid Wiki's Zebes page, where it carries no citation. It is absent from the Bottle Ship page, the Metroid: Other M page (whose only 'Nightmare' is the boss) and the Samus Aran page. No Other M script line could be located.",
+      "correction": "Remove the comparison, or reduce to 'Lifeforms taken from Zebes survived aboard research stations such as the Bottle Ship and the BSL station.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Bottle_Ship"
+     },
+     {
+      "severity": "missing",
+      "problem": "The first fall of Zebes is directly tied to Metroid Prime in the same FS-176 system: Pirate Data 'Fall of Zebes' records that the research frigates Orpheon, Siriacus and Vol Paragom were in orbit at zero hour and retreated with their Metroid cargo, and Samus later intercepted the Orpheon. The entry names Tallon IV as a neighbour but never makes this link.",
+      "source_url": "https://www.metroidwiki.org/wiki/Orpheon"
+     },
+     {
+      "severity": "missing",
+      "problem": "Samus was three years old when Old Bird and Gray Voice first met her on K-2L and took her to Zebes after the raid (per the manga); the entry gives no age.",
+      "source_url": "https://www.metroidwiki.org/wiki/Old_Bird"
+     },
+     {
+      "severity": "nit",
+      "claim": "The surface, Crateria, is a lifeless shell",
+      "problem": "Metroid Wiki says only that areas exposed to acid rain are 'mostly lifeless' and that sparse caverns offer refuge; 'lifeless shell' overstates it.",
+      "correction": "'a mostly lifeless surface' or 'a near-lifeless shell'",
+      "source_url": "https://www.metroidwiki.org/wiki/Zebes"
+     },
+     {
+      "severity": "nit",
+      "claim": "Tourian ... the metal fortress / the first Tourian lay below Brinstar (regions entry)",
+      "problem": "Metroid Wiki's own pages conflict: the Zebes page says Tourian was 'originally situated just under Crateria', while the Tourian page describes reaching it by a tall shaft in Brinstar. Not an error, but be aware the sources disagree.",
+      "source_url": "https://www.metroidwiki.org/wiki/Zebes"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Zebes: Regions of Zebes (Crateria, Brinstar, Norfair, Maridia)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Chozo relics survive among its rocks (a Torizo guarded them on her first visit)",
+      "problem": "Metroid Wiki's Torizo page lists Torizo only in Super Metroid; the Bomb Torizo in Crateria is fought on Samus's return, not on the Zero Mission visit. Zero Mission has no Torizo.",
+      "correction": "'(on her return a Torizo guarded the Bombs there)' or move the Torizo to the Super Metroid sentence.",
+      "source_url": "https://www.metroidwiki.org/wiki/Torizo"
+     },
+     {
+      "severity": "error",
+      "claim": "the Wrecked Ship ... served as the first way into Maridia; and later: Maridia's first entrance was a tunnel in the middle of Brinstar that had to be broken open with a Power Bomb",
+      "problem": "The entry contradicts itself. The Crateria page calls the Wrecked Ship the 'initial entrance to Maridia', but the Maridia page says the first access point, 'the only one available at the time', is the Brinstar tunnel opened with a Power Bomb after the Gravity Suit is taken from the Wrecked Ship. Both cannot be 'first'.",
+      "correction": "Keep the Maridia page version (Brinstar tunnel, Power Bomb, after the Gravity Suit) and rephrase the Wrecked Ship clause to 'split Crateria in two, and beyond it another path led down into Maridia' or drop 'first'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Maridia"
+     },
+     {
+      "severity": "keys",
+      "problem": "No aliases for the sub-areas commonly named in chat: 'Red Brinstar', 'Green Brinstar', 'Upper Norfair', 'Kraid's Lair' is present but 'Ridley's Lair' spelled as in-game ('Ridley's Hideout') is also present; consider adding 'Red Brinstar', 'Green Brinstar', 'Upper Norfair', 'Pink Brinstar'.",
+      "correction": "Add 'Red Brinstar', 'Green Brinstar', 'Upper Norfair'."
+     },
+     {
+      "severity": "style",
+      "problem": "Entry uses a markdown bullet list and runs 429 words, slightly over the 400-word guideline for a non-core entry.",
+      "correction": "Convert bullets to short paragraphs and trim 30-40 words (e.g. the Covern/Phantoon clause, which super-metroid owns)."
+     },
+     {
+      "severity": "nit",
+      "claim": "Kraid's lair occupies Brinstar's deepest points beyond a red door",
+      "problem": "Supported, but the Kraid (area) page attaches the 'red door' note to no specific game; fine as written.",
+      "source_url": "https://www.metroidwiki.org/wiki/Kraid_(area)"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Zebes: Tourian",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "entered by an elevator in western Crateria that a golden Chozo statue sealed until Kraid, Phantoon, Draygon and Ridley had fallen",
+      "problem": "The Golden Statue is not a Chozo statue: it is made of four statues of the Space Pirate leaders Kraid, Phantoon, Draygon and Ridley, each of which loses its eye and turns gray when its boss dies, after which the whole statue sinks to reveal the entrance.",
+      "correction": "'that a golden statue of Kraid, Phantoon, Draygon and Ridley sealed until each of the four had fallen'",
+      "source_url": "https://www.metroidwiki.org/wiki/Golden_Statue"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Metroids had turned on their keepers",
+      "problem": "Metroid Wiki says the dead Pirates in Zero Mission's Tourian 'imply' the Metroids killed them; the entry states it as fact.",
+      "correction": "'the Metroids had apparently turned on their keepers'",
+      "source_url": "https://www.metroidwiki.org/wiki/Tourian"
+     },
+     {
+      "severity": "nit",
+      "claim": "pillars of shielded, conduit-like material",
+      "problem": "The Zebetite page describes tubes/cylinders of shielded conduit-like material, not pillars; 'conduit-like material' is verbatim, 'pillars' is not.",
+      "correction": "'tubes' or 'barriers'",
+      "source_url": "https://www.metroidwiki.org/wiki/Zebetite"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Zebetite'/'Zebetites' are also keys on the Mother Brain entry, so one mention fires both entries. 'time bomb' is a generic phrase that can misfire in ordinary chat.",
+      "correction": "Keep Zebetite keys on this entry only; drop 'time bomb' or make it secondary."
+     },
+     {
+      "severity": "style",
+      "claim": "(the original manual says only that these fireball creatures \"suddenly appear in the last scene\")",
+      "problem": "Parenthetical source commentary inside content reads as a citation rather than lore.",
+      "correction": "Cut it, or fold into prose: 'per the original manual they are fireball creatures that appear in great numbers but are not very strong.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Rinka"
+     },
+     {
+      "severity": "missing",
+      "problem": "In the old Tourian on Samus's return, Mother Brain's destroyed holding tank is still visible amid the disrepair, a vivid detail for a return visit.",
+      "source_url": "https://www.metroidwiki.org/wiki/Tourian"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Zebes: Mother Brain",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "received reports on the Chozo's Metroid work on SR388",
+      "problem": "Reversed. Per the manga as quoted on Metroid Wiki, Mother Brain 'regularly gave the Chozo reports concerning the progress of the X extermination on SR388' (Old Bird: 'Please give the SR-388 report as usual, Mother Brain').",
+      "correction": "'delivered the Chozo regular reports on the Metroids' progress against the X on SR388'",
+      "source_url": "https://www.metroidwiki.org/wiki/Mother_Brain"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Zebetite'/'Zebetites' duplicated with the Tourian entry; 'Mother Brain's eye' is harmless but unlikely ever to be typed.",
+      "correction": "Remove the Zebetite keys here (Tourian owns the barrier) and consider 'Mother Brain's tank' instead of 'Mother Brain's eye'."
+     },
+     {
+      "severity": "missing",
+      "problem": "Per the manga, Gray Voice's DNA was the Chozo sample used when Samus was given Chozo genes (Vol 2 Ch 12 Pg 4), which is why his death at Mother Brain's side matters so much to her; and his final attack was fired skyward to cover the fleeing Chozo ships (Vol 2 Ch 12 Pg 16).",
+      "source_url": "https://www.metroidwiki.org/wiki/Gray_Voice"
+     },
+     {
+      "severity": "nit",
+      "claim": "MB ... to command Pirate forces",
+      "problem": "The MB page says she was created 'to regenerate and control Space Pirate special forces' (cloned bioweapons), and given human form so the first Metroid hatchling would accept her as its mother. 'Command Pirate forces' is close but slightly loose.",
+      "correction": "'to control the Federation's cloned Space Pirate special forces'",
+      "source_url": "https://www.metroidwiki.org/wiki/MB"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Zebes: Kraid",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "the Pirates' rebuilt lair lay east of Brinstar beside the elevator to Norfair",
+      "problem": "The Super Metroid Kraid area 'lies in Brinstar, east of the elevator to Norfair'. It is inside Brinstar, not east of it.",
+      "correction": "'the rebuilt lair lay in Brinstar's lower reaches, east of the elevator to Norfair'",
+      "source_url": "https://www.metroidwiki.org/wiki/Kraid_(area)"
+     },
+     {
+      "severity": "nit",
+      "claim": "The original manual calls him the head of the Pirates' hideout, the manual for Samus's first mission \"the largest enemy...\"",
+      "problem": "The NES manual actually reads 'This is the head of the Mini-Boss hideout', and 'the manual for Samus's first mission' is ambiguous since both the NES and Zero Mission manuals describe that mission; the 'largest enemy' quote is from the Zero Mission manual.",
+      "correction": "'The original manual calls him the head of the Mini-Boss hideout, the Zero Mission manual \"the largest enemy in all of the mazes beneath the surface of Planet Zebes\", and the Super Metroid manual \"the giant lizard of Brinstar\".'",
+      "source_url": "https://www.metroidwiki.org/wiki/Kraid"
+     },
+     {
+      "severity": "nit",
+      "claim": "A smaller, weaker look-alike called Mini Kraid guards the approach a few rooms before him",
+      "problem": "Metroid Wiki's Mini Kraid page says it appears in Metroid (as Fake Kraid, and can be bypassed) and Super Metroid, but not in Zero Mission; the sentence reads as if it applies to every encounter.",
+      "correction": "'On her return a smaller, weaker look-alike...' or add 'in the rebuilt lair'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Mini_Kraid"
+     },
+     {
+      "severity": "missing",
+      "problem": "Kraid's area on ZDR is verifiable: Metroid Wiki's ZDR page places him in Cataris ('The main instance of organic life here is Kraid'). The drafter's 'deep within that planet' can be replaced.",
+      "source_url": "https://www.metroidwiki.org/wiki/ZDR"
+     },
+     {
+      "severity": "nit",
+      "claim": "An X parasite later possessed his corpse, and that X was the one that finally infected Raven Beak",
+      "problem": "Supported only by Wikipedia's Dread plot summary ('Raven Beak is infected by an X that had possessed Kraid's corpse earlier'); no Metroid Wiki page (Kraid, Metroid Dread, Raven Beak, ZDR) mentions it. Acceptable but single-sourced; consider 'per the game's ending' wording or a softer 'the X that later took Raven Beak is shown emerging from Kraid's remains'.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "keys",
+      "problem": "'giant lizard' and 'saurian' are generic words likely to fire on unrelated chat (any lizard, any dinosaur talk).",
+      "correction": "Drop 'giant lizard' and 'saurian', or move them to secondary_keys gated on 'Zebes'/'Brinstar'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Zebes: Samus's first Zebes mission (Zero Mission)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Samus later recalled that \"the timing of my escape couldn't have been worse\"",
+      "problem": "The quoted line could not be found on Metroid Wiki's Zero Mission, Zero Suit or Paralyzer pages, nor on Wikipedia's Zero Mission article; search was unavailable to check the in-game script.",
+      "correction": "Remove the quotation marks and paraphrase ('her escape could not have been worse timed'), or verify against the in-game narration before shipping.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission"
+     },
+     {
+      "severity": "unverified",
+      "claim": "under an emergency order to exterminate every Metroid on Zebes",
+      "problem": "'emergency order' appears on neither Metroid Wiki's Metroid (game) page nor its Zero Mission page; the pages say only that the Federation sent 'a lone space hunter' as a last resort.",
+      "correction": "'sent a lone space hunter, Samus Aran, as a last resort to exterminate every Metroid on Zebes and destroy Mother Brain'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(game)"
+     },
+     {
+      "severity": "missing",
+      "problem": "The 'Zebes has fallen' log continues: 'All ground personnel are presumed dead, either killed by the Hunter clad in metal...' and records that the research frigates Orpheon, Siriacus and Vol Paragom escaped orbit at zero hour with their Metroids alive and 'no signs of pursuit from the Hunter'. This is the bridge from this mission to Metroid Prime and worth one sentence.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     },
+     {
+      "severity": "missing",
+      "problem": "The three Unknown Items were found in Crateria, Kraid's area and Ridley's area (Unknown Item page); the entry says only 'throughout the ruins'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Unknown_Item"
+     },
+     {
+      "severity": "keys",
+      "problem": "'first mission', 'original mission' and 'Zebes mission' are generic enough to fire on ordinary roleplay ('my first mission under Adam', 'the original mission plan').",
+      "correction": "Keep 'first Zebes mission' and 'Zero Mission'; move 'first mission', 'original mission' to secondary_keys gated on 'Zebes' or 'Mother Brain'."
+     },
+     {
+      "severity": "style",
+      "problem": "526 words, above the 400-word guideline (and near the 550 ceiling even if treated as core). The Ruins Test/Mecha Ridley paragraphs duplicate the Chozodia entry.",
+      "correction": "Trim the Chozodia/Ruins Test/Mecha Ridley material to two sentences, since the Chozodia entry carries the detail."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Zebes: Chozodia, the Chozo Ruins and the Space Pirate Mother Ship",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "until the Fusion Suit replaced it at the start of the BSL incident (Metroid Fusion)",
+      "problem": "The suit was lost before the BSL mission: after Samus was infected by X on SR388, the infected parts of her Power Suit were surgically removed and she was given the Metroid vaccine, producing the Fusion Suit; only then was she sent to the BSL station. Metroid Wiki places the loss in Fusion's prologue.",
+      "correction": "'until it was lost in the prologue of Metroid Fusion, when X-infected parts of the suit were surgically removed after her infection on SR388 and the Fusion Suit took its place'",
+      "source_url": "https://www.metroidwiki.org/wiki/Fusion_Suit"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Samus kept the Legendary Power Suit through every later mission",
+      "problem": "The Legendary Power Suit page (itself flagged as lacking citations) says only that she keeps the suit after the Mother Ship and loses it in Fusion's prologue; it does not say she wears it in any later game, and the Prime games show further suit variants.",
+      "correction": "'Samus kept the suit after Zebes; it was lost only in the prologue of Metroid Fusion.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Legendary_Power_Suit"
+     },
+     {
+      "severity": "nit",
+      "claim": "left empty when the Chozo abandoned the planet to Mother Brain and the Space Pirates",
+      "problem": "The Chozodia page says nothing about why the city is empty; the only account is the manga, where the Chozo were expelled after the Pirate attack. Needs a 'per the manga' label or softer wording.",
+      "correction": "'left empty after the Chozo were driven from Zebes (per the manga)'",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozodia"
+     },
+     {
+      "severity": "nit",
+      "claim": "The Mother Ship was Ridley's vessel.",
+      "problem": "Metroid Wiki says the ship was 'used by Ridley', not that he owned it.",
+      "correction": "'The Mother Ship was the vessel Ridley used.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Mother_Ship"
+     },
+     {
+      "severity": "keys",
+      "problem": "Bare 'Mother Ship', 'Mothership' and 'Mother-Ship' will fire on any mothership mention in roleplay (other Pirate vessels, Federation ships, generic sci-fi talk).",
+      "correction": "Keep 'Space Pirate Mother Ship', 'Pirate Mother Ship', add 'Pirate Mothership'; move the bare forms to secondary_keys gated on 'Zebes', 'Chozodia' or 'Zero Mission'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Zebes: The destruction of Zebes",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "the Bottle Ship, which Samus compared to a nightmare version of Zebes",
+      "problem": "Same as the Zebes entry: the line exists only on Metroid Wiki's Zebes page without citation and is absent from the Bottle Ship, Other M and Samus Aran pages.",
+      "correction": "Drop the comparison.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "nit",
+      "claim": "stopping to free the three Etecoons and the Dachora she had met in Brinstar",
+      "problem": "Supported by Metroid Wiki's Super Metroid page, which however notes the rescue is optional during the countdown; stating it as what Samus did is a reasonable canon choice but should be a conscious one.",
+      "source_url": "https://www.metroidwiki.org/wiki/Super_Metroid"
+     },
+     {
+      "severity": "keys",
+      "problem": "Common phrasings such as 'Zebes was destroyed', 'Zebes is gone' and 'Zebes blew up' (present) are only partly covered; 'Zebes destroyed' does not substring-match 'Zebes was destroyed'.",
+      "correction": "Add 'Zebes was destroyed', 'Zebes is gone', 'Zebes no longer exists'."
+     },
+     {
+      "severity": "missing",
+      "problem": "Kraid's survival is placed on ZDR; the ZDR page lets you say Cataris specifically.",
+      "source_url": "https://www.metroidwiki.org/wiki/ZDR"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Zebes",
+   "https://www.metroidwiki.org/wiki/Mother_Brain",
+   "https://www.metroidwiki.org/wiki/Kraid",
+   "https://www.metroidwiki.org/wiki/Tourian",
+   "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission",
+   "https://www.metroidwiki.org/wiki/Chozodia",
+   "https://www.metroidwiki.org/wiki/Space_Pirate_Mother_Ship",
+   "https://www.metroidwiki.org/wiki/Ruins_Test",
+   "https://www.metroidwiki.org/wiki/Crateria",
+   "https://www.metroidwiki.org/wiki/Brinstar",
+   "https://www.metroidwiki.org/wiki/Norfair",
+   "https://www.metroidwiki.org/wiki/Maridia",
+   "https://www.metroidwiki.org/wiki/Kraid_(area)",
+   "https://www.metroidwiki.org/wiki/Ridley_(area)",
+   "https://www.metroidwiki.org/wiki/Wrecked_Ship",
+   "https://www.metroidwiki.org/wiki/Gray_Voice",
+   "https://www.metroidwiki.org/wiki/Old_Bird",
+   "https://www.metroidwiki.org/wiki/Mini_Kraid",
+   "https://www.metroidwiki.org/wiki/Rinka",
+   "https://www.metroidwiki.org/wiki/Zebetite",
+   "https://www.metroidwiki.org/wiki/Torizo",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Super_Metroid",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Legendary_Power_Suit",
+   "https://www.metroidwiki.org/wiki/Mecha_Ridley",
+   "https://www.metroidwiki.org/wiki/MB",
+   "https://www.metroidwiki.org/wiki/Fusion_Suit",
+   "https://www.metroidwiki.org/wiki/Metroid_(game)",
+   "https://en.wikipedia.org/wiki/Metroid:_Zero_Mission",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Unknown_Item",
+   "https://www.metroidwiki.org/wiki/Zero_Suit",
+   "https://www.metroidwiki.org/wiki/Paralyzer",
+   "https://www.metroidwiki.org/wiki/Orpheon",
+   "https://www.metroidwiki.org/wiki/Pirate_Data",
+   "https://www.metroidwiki.org/wiki/ZDR",
+   "https://www.metroidwiki.org/wiki/Bottle_Ship",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Golden_Statue"
+  ]
+ }
+}

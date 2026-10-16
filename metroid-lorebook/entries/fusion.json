@@ -1,0 +1,290 @@
+{
+ "domain": "fusion",
+ "category": "Fusion",
+ "entries": [
+  {
+   "comment": "Fusion: The BSL incident (Metroid Fusion events)",
+   "keys": [
+    "BSL incident",
+    "B.S.L. incident",
+    "BSL mission",
+    "B.S.L. mission",
+    "Fusion incident",
+    "Metroid Fusion",
+    "SR388 survey",
+    "SR388 escort mission"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The BSL incident was Samus Aran's mission aboard the Biologic Space Laboratories research station orbiting SR388, which ended with her dropping the station onto the planet (Metroid Fusion).\n\nWith SR388's Metroids exterminated, the Galactic Federation assigned Samus to escort a Biologic survey team studying the planet. There she killed a Hornoad; it dissolved into a formless X Parasite, which entered her and infested her central nervous system. She lost consciousness while piloting her gunship; an escape pod ejected her before the ship crashed into an asteroid belt. Surgeons cut away infected portions of her Power Suit but could not reach the X in her nerves. A vaccine made from cells of the baby Metroid she had once taken from SR388 saved her, leaving her with Metroid DNA, able to absorb X, vulnerable to cold, and clad in the Fusion Suit.\n\nThen an explosion struck the station's Quarantine Bay, where the SR388 samples and her infected suit parts were stored. The Federation sent her back in a new gunship whose onboard computer issued her orders; she privately named it Adam after her late commander Adam Malkovich. She was to find and exterminate the X aboard, which had already copied crew and specimens across the station and its six habitat sectors (SRX, TRO, PYR, AQA, ARC, NOC).\n\nRegaining abilities from Data Rooms and from the Core-X of copies she destroyed, Samus faced: an X-mimicked Arachnus on the Main Deck; X in the five atmospheric stabilizers of Sector 1 (SRX); Zazabi in Sector 2 (TRO), where she first saw the SA-X, an X in her own form, and was ordered to avoid it; Serris in Sector 4 (AQA); B.O.X. in Sector 3 (PYR), which fled; a Mega Core-X that stole the Varia Suit data in Sector 6 (NOC); a six-minute race to PYR's sabotaged Main Boiler, where an X in a crew member's shape proved X absorb their victims' knowledge; Yakuza in the Reactor Silo; Nettori, whose vines had cut the station's power, in TRO; Nightmare, a gravity weapon turned X host, in ARC; and the X-infested B.O.X. in NOC. Hunted by the SA-X, she reached the Restricted Laboratory, where an SA-X attacked the Federation's secret Metroids and the laboratory was jettisoned.\n\nThe computer then admitted the Metroid breeding program and that, since X reproduce asexually, no fewer than ten SA-X were aboard, and ordered her to leave. On her way a Core-X rose from Ridley's frozen carcass in Sub-Zero Containment and attacked her in SRX as Neo-Ridley; she destroyed it. Only then did the computer admit that the Federation meant to capture the SA-X and had withheld her Plasma Beam data to keep her from engaging it. Samus refused to stand down; the computer revealed itself as Adam and sided with her. She reduced an SA-X to a fleeing Core-X on the Operations Deck, set the station's orbit to intercept SR388, and in the Docking Bay survived an Omega Metroid when that SA-X returned in her form and attacked it; absorbing its Core-X restored her Ice Beam. Her gunship, flown by the Etecoons and Dachora she had freed from the Habitation Deck, carried her clear before the station struck SR388, destroying the planet and the X on both. Samus expected tribunals and investigations; Adam told her one of them would understand.",
+   "constant": false,
+   "order": 100,
+   "category": "Fusion",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/B.S.L_Research_Station",
+    "https://www.metroidwiki.org/wiki/SA-X",
+    "https://www.metroidwiki.org/wiki/Quarantine_Bay",
+    "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+    "https://www.metroidwiki.org/wiki/Sub-Zero_Containment",
+    "https://www.metroidwiki.org/wiki/Ridley-X",
+    "https://www.metroidwiki.org/wiki/Etecoon",
+    "https://metroiddatabase.com/endings-metroid-fusion/"
+   ],
+   "notes": "Fixed per fact-check: mission is to exterminate the X (not keep them out); ten-SA-X/breeding admission placed before Neo-Ridley, capture plan and withheld Plasma Beam after; Omega fight uses the same SA-X; ship crashed after the pod ejected; vaccine source named (baby Metroid, per Wikipedia and Metroid Wiki 'Metroid Hatchling'); unsupported 'did not regret' removed. Dropped generic keys (survey team, escort mission, escape pod, Hornoad) and 'X outbreak' (owned by the X Parasite domain's outbreak entry). Boiler saboteur kept as 'the X' because Metroid Wiki pages disagree (X vs SA-X)."
+  },
+  {
+   "comment": "Fusion: Biologic Space Laboratories research station (BSL)",
+   "keys": [
+    "BSL",
+    "B.S.L.",
+    "B.S.L",
+    "Biologic Space Laboratories",
+    "Biologic Space Laboratory",
+    "Biologic Space Labs",
+    "BSL station",
+    "B.S.L. station",
+    "BSL research station"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Biologic Space Laboratories research station (the BSL, or B.S.L. station) was an orbital facility above the planet SR388, run by Biologic Space Laboratories, a biological research and development organization hired by the Galactic Federation. It gathered organisms from other worlds, chiefly SR388 and Zebes, bred them in reproduced habitats and studied their practical applications, largely military. Its stock included SR388 samples such as Hornoads; creatures known from Zebes such as Zebesian Space Pirates, Kihunters and Zeros; the bio-mechanical organism Nightmare, which manipulates gravity and which the ship computer called \"designed for military applications\"; Ridley's frozen carcass in Sub-Zero Containment; Etecoons and a Dachora on the Habitation Deck; and, in secret, Metroids in the Restricted Laboratory. A security robot, B.O.X., patrolled it.\n\nThe Main Deck is the hub, linked by elevator to six sealed habitat sectors: Sector 1 (SRX, a replica of SR388), Sector 2 (TRO, tropical), Sector 3 (PYR, volcanic), Sector 4 (AQA, aquatic), Sector 5 (ARC, arctic) and Sector 6 (NOC, dark, for nocturnal species). The Main Deck holds the Docking Bays, the Quarantine Bay, the Habitation Deck, Sub-Zero Containment, the Reactor Silo around the Reactor Core, and the Operations Deck at the station's highest point, whose Operations Room can alter its orbit. The Restricted Zone, entered from Sector 6, housed the Restricted Laboratory. Spread throughout are Navigation Rooms, where the ship computer briefed Samus; Data Rooms, through which the Federation transmitted ability data recovered from her surgically removed Power Suit parts; Recharge Rooms; and graded security locks, which Samus released grade by grade at Security Rooms as the computer authorized them. A self-destruct mechanism would fire if the Main Boiler in Sector 3 overheated.\n\nDuring the BSL incident (Metroid Fusion) an explosion in the Quarantine Bay set off the station's distress beacon, and Samus was sent in to find and exterminate the X. The only living survivors she found were Etecoons and a Dachora; the X had copied crew and specimens, Nettori's vines had cut the station's power, and Nightmare and B.O.X. had become X hosts. After uncovering the Metroid program and the Federation's plan to capture the SA-X, Samus adjusted the station's orbit from the Operations Room so that it fell onto SR388, destroying both. She expected to be held responsible for its loss.",
+   "constant": false,
+   "order": 100,
+   "category": "Fusion",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/B.S.L_Research_Station",
+    "https://www.metroidwiki.org/wiki/Main_Deck",
+    "https://www.metroidwiki.org/wiki/Operations_Deck",
+    "https://www.metroidwiki.org/wiki/Nightmare",
+    "https://www.metroidwiki.org/wiki/Kihunter",
+    "https://www.metroidwiki.org/wiki/Security_Robot_B.O.X.",
+    "https://www.metroidwiki.org/wiki/Sub-Zero_Containment",
+    "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+    "https://www.metroidwiki.org/wiki/Sector_3_(PYR)",
+    "https://www.metroidwiki.org/wiki/Etecoon"
+   ],
+   "notes": "Fixed per fact-check: Zebes creatures no longer called SR388 samples; Samus releases security locks at Security Rooms (not the computer alone); self-destruct tied to the Sector 3 Main Boiler; Nightmare described by the computer's quoted line; 'no regret' replaced with the sourced expectation of blame. Keys: dropped 'research station' and bare 'Biologic'. 'Only living survivors' follows the Etecoon page (search for survivors found only animals). Metroid Wiki's page is titled 'B.S.L Research Station'."
+  },
+  {
+   "comment": "Fusion: Sectors of the BSL station",
+   "keys": [
+    "SRX",
+    "TRO",
+    "PYR",
+    "AQA",
+    "NOC",
+    "Sector 1",
+    "Sector 2",
+    "Sector 3",
+    "Sector 4",
+    "Sector 5",
+    "Sector 6",
+    "BSL sectors"
+   ],
+   "secondary_keys": [
+    "BSL",
+    "B.S.L.",
+    "SA-X",
+    "X Parasite",
+    "X Parasites",
+    "Core-X",
+    "Biologic",
+    "Fusion Suit"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "The Biologic Space Laboratories research station held six sealed habitat sectors around its Main Deck, each reproducing an environment for breeding collected organisms. During the BSL incident (Metroid Fusion) Samus crossed them out of order; abilities she regained at each are noted in parentheses. Blue X, mutated by cold, drift between ARC and NOC; until she regained the Varia Suit, the vaccine's cold vulnerability kept her out of frigid areas.\n\n- Sector 1 (SRX) reproduces SR388 (per the manual): rocky ground, lava and acid pools. X seized its five atmospheric stabilizers, which Samus cleared first (Charge Beam). Late in the mission Neo-Ridley, risen from Ridley's carcass in Sub-Zero Containment, attacked her here (Screw Attack).\n- Sector 2 (TRO) is a humid tropical habitat of plant life, Zeros and Kihunters. Samus downloaded Bomb data here, then fought Zazabi (Hi-Jump Boots) and first saw the SA-X, which opened a hatch with its Ice Beam. Nettori, an X-grown plant wrapped around a Chozo Statue, spread vines through the station and cut its power; Samus returned, chased by the SA-X, to destroy it (Plasma Beam).\n- Sector 3 (PYR) is superheated volcanic terrain. Samus downloaded Super Missile data here and was ambushed by the security robot B.O.X., which wrecked the Data Room and fled. Later the X shut down the cooling unit, and she had six minutes to reach the Main Boiler Control Room before the heat set off the station's self-destruct; an X in a crew member's shape met her there (Wide Beam).\n- Sector 4 (AQA) is an aquatic habitat where X damage severed wiring and electrified much of the water. Samus destroyed the X-mimicked Serris (Speed Booster) and later, with the Gravity Suit, recovered Diffusion Missile data.\n- Sector 5 (ARC) is an arctic habitat where the gravity weapon Nightmare was kept; its shadow passed over Samus on her first visit (Ice Missiles). She returned for Power Bomb data, briefly meeting the SA-X, and finally destroyed the X-infested Nightmare (Gravity Suit).\n- Sector 6 (NOC) is a dark cave habitat for nocturnal creatures. Hidden in a vent as a Morph Ball, Samus watched the SA-X break a barrier with a Power Bomb. A Mega Core-X stole the Varia Suit data, which she reclaimed by destroying it. She later destroyed the X-infested B.O.X. here (Wave Beam). From NOC a lock that opens from one side leads into the Restricted Zone and the Restricted Laboratory.",
+   "constant": false,
+   "order": 100,
+   "category": "Fusion",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Sector_1_(SRX)",
+    "https://www.metroidwiki.org/wiki/Sector_2_(TRO)",
+    "https://www.metroidwiki.org/wiki/Sector_3_(PYR)",
+    "https://www.metroidwiki.org/wiki/Sector_4_(AQA)",
+    "https://www.metroidwiki.org/wiki/Sector_5_(ARC)",
+    "https://www.metroidwiki.org/wiki/Sector_6_(NOC)",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/SA-X",
+    "https://www.metroidwiki.org/wiki/Nettori",
+    "https://www.metroidwiki.org/wiki/Security_Robot_B.O.X.",
+    "https://www.metroidwiki.org/wiki/Restricted_Zone"
+   ],
+   "notes": "Added per fact-check: Bomb data in TRO, the NOC vent sighting of the SA-X, five atmospheric stabilizers. Made selective (AND_ANY) because 'Sector 1'-'Sector 3' collide with the Bottle Ship's sectors and SRX/TRO/AQA/NOC are real-world acronyms; secondaries are BSL/X context words. 'ARC' omitted as a key (common English word). Slightly over 400 words because it covers six sub-areas. B.O.X. wrecking PYR's Data Room re-verified: Metroid Wiki's Security Robot B.O.X. page says 'After it destroyed PYR's Data Room, it attacks Samus' and that it 'flees before she can completely destroy it' (the Data Room page's general line that the X destroy Data Rooms does not contradict it); kept."
+  },
+  {
+   "comment": "Fusion: Main Deck of the BSL station",
+   "keys": [
+    "Quarantine Bay",
+    "Habitation Deck",
+    "Sub-Zero Containment",
+    "Subzero Containment",
+    "Reactor Silo",
+    "Operations Deck",
+    "BSL Main Deck",
+    "B.S.L. Main Deck",
+    "Main Deck of the BSL",
+    "BSL Docking Bay"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Main Deck is the hub of the Biologic Space Laboratories research station: the first area Samus entered during the BSL incident and the only one linked by elevator to all six habitat sectors (Metroid Fusion). Per the manual it holds elevator access and storage rather than a reproduced habitat.\n\n- Docking Bays: where Samus's gunship berthed. At the end of the mission the ship was gone when she arrived; an Omega Metroid attacked her there, and the ship came back, flown by the Etecoons and Dachora.\n- Quarantine Bay: where Biologic researchers sealed collected samples in capsules, including SR388 specimens and the X-infected parts cut from Samus's Power Suit. The first SA-X formed from those parts and broke out with a Power Bomb, breaching the capsules and freeing the other X; this was the explosion reported to the Federation. Samus found the bay in ruins, holding only a lone Hornoad, her first X since her infection.\n- Operations Deck: the station's highest point, holding a Data Room, where Samus regained her Missiles, and the Operations Room, from which the station's orbit can be adjusted. Samus fought an SA-X at its sealed hatch before setting the collision course with SR388.\n- Habitation Deck: hidden behind layers of locks; here Samus found Etecoons and a Dachora, uninfected, hiding from the X. She released them and they made their own way to the Docking Bays.\n- Sub-Zero Containment: a small frozen cell holding the carcass of Ridley. Late in the mission the main elevator stalled with Samus aboard; as she broke out through this room, a Core-X rose from the carcass and later attacked her in Sector 1 as Neo-Ridley.\n- Reactor Silo: the uncharted space around the Reactor Core and the auxiliary power station. Nettori's vines from Sector 2 grew into it and Kihunters nested there; an X-mimicked Yakuza attacked Samus here, and absorbing it gave her the Space Jump.\n- Restricted Zone: mapped with the Main Deck but not connected to it. Samus entered it from Sector 6 (NOC) through a lock that opens from one side, triggering it with the Wave Beam. It housed the Restricted Laboratory.\n\nNavigation Rooms, where the ship computer briefed Samus, and Recharge Rooms are spread through the deck. The first Core-X she faced aboard, an X-mimicked Arachnus, met her on the Main Deck; absorbing it restored her Morph Ball.",
+   "constant": false,
+   "order": 100,
+   "category": "Fusion",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Main_Deck",
+    "https://www.metroidwiki.org/wiki/Quarantine_Bay",
+    "https://www.metroidwiki.org/wiki/Operations_Deck",
+    "https://www.metroidwiki.org/wiki/Sub-Zero_Containment",
+    "https://www.metroidwiki.org/wiki/Restricted_Zone",
+    "https://www.metroidwiki.org/wiki/Docking_Bays",
+    "https://www.metroidwiki.org/wiki/Habitation_Deck",
+    "https://www.metroidwiki.org/wiki/Etecoon",
+    "https://www.metroidwiki.org/wiki/Arachnus",
+    "https://www.metroidwiki.org/wiki/SA-X"
+   ],
+   "notes": "Fixed per fact-check: Arachnus is the first Core-X, not the first X-mimic (the Quarantine Bay Hornoad was); Restricted Zone access corrected (not connected to the Main Deck, entered from NOC through a one-sided lock); Sub-Zero Containment Core-X tied to the stalled elevator. Keys: generic room names (Main Deck, Docking Bay, Navigation Room, Data Room, Reactor Core, Operations Room) dropped in favour of BSL-specific names; 'Quarantine Bay' also keys the X Parasite domain's outbreak entry, which is intended."
+  },
+  {
+   "comment": "Fusion: The Restricted Laboratory and the secret Metroid program",
+   "keys": [
+    "Restricted Laboratory",
+    "Restricted Lab",
+    "Restricted Labs",
+    "peaceful application",
+    "peaceful applications",
+    "BSL Metroids",
+    "BSL Metroid program",
+    "Restricted Zone"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Restricted Laboratory was a high-security facility in the Restricted Zone of the Biologic Space Laboratories research station. The zone is mapped with the Main Deck but entered from Sector 6 (NOC) through a lock that opens from one side, and every hatch inside carried the station's highest security grade. There, in secret and under Galactic Federation authority, Metroids were bred and studied, a species believed extinct since Samus exterminated it on SR388. The laboratory held larval Metroids and Alpha, Gamma and Zeta forms.\n\nThe ship computer laid the program out: \"the Federation has been secretly working on a Metroid breeding program. For peaceful application only, of course.\" It called SRX, the station's replica of SR388, ideal for raising Alpha, Gamma, Zeta and even Omega Metroids, and said the research had uncovered techniques for rapid growth, enough to create an Omega from a larval Metroid in days, before declaring \"that research is finished.\" The X, it said, had \"smelled out its natural enemy.\"\n\nSamus entered near the end of the BSL incident (Metroid Fusion), hunted by the SA-X after destroying the X-infested B.O.X. in NOC. The Metroids left her alone. An SA-X broke in and attacked them; they swarmed and destroyed it, and the fighting set off fires that triggered the laboratory's safeguard, a sixty-second countdown to detachment. Samus escaped before the section was jettisoned and exploded, taking the Metroids with it.\n\nThe computer then admitted that, because X reproduce asexually, no fewer than ten SA-X were aboard, and ordered her to leave the station. This was the second concealed Metroid program Samus had uncovered, after the Bottle Ship incident. The discovery, together with the Federation's plan to capture the SA-X, drove her to defy its orders and destroy the station. A full-grown Omega Metroid later met her in the Docking Bay (see Omega Metroid of the BSL).",
+   "constant": false,
+   "order": 100,
+   "category": "Fusion",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+    "https://www.metroidwiki.org/wiki/Restricted_Zone",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/SA-X",
+    "https://www.metroidwiki.org/wiki/Sector_6_(NOC)"
+   ],
+   "notes": "Fixed per fact-check: removed the wiki's speculative reason the Metroids spared Samus (states only that they did not attack her); Restricted Zone access corrected; added Omega-in-days and highest-grade locks. 'That research is finished' and the 'secretly working on a Metroid breeding program' line were re-checked and are quoted verbatim on Metroid Wiki's Restricted Laboratory page, so both were kept as quotes. SA-X death by fire follows the SA-X page. Keys: dropped 'secret lab', 'secret laboratory', 'breeding program', and 'Metroid breeding'/'Metroid breeding program' (owned by the Metroids domain's breeding entry); 'Restricted Zone' kept as the area's proper name."
+  },
+  {
+   "comment": "Fusion: Omega Metroid of the BSL",
+   "keys": [
+    "Omega Metroid",
+    "Omega Metroids",
+    "Omega form"
+   ],
+   "secondary_keys": [
+    "BSL",
+    "B.S.L.",
+    "SA-X",
+    "Core-X",
+    "Docking Bay",
+    "Fusion Suit",
+    "X Parasite",
+    "X Parasites"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "An Omega Metroid, the mature armored form of the species, was the last creature Samus faced during the BSL incident (Metroid Fusion). After she set the Biologic Space Laboratories research station on a collision course with SR388 from the Operations Room, she had three minutes to reach her gunship in the Main Deck's Docking Bays. The ship was gone. Waiting instead was the Omega Metroid, a full-grown Metroid on a station whose Metroids were supposed to have died when the Restricted Laboratory was jettisoned. How it came to be there was never stated outright; the only hint is the ship computer's earlier account that the Federation's program had uncovered rapid-growth techniques able to create an Omega from a larval Metroid in days, and that SRX was ideal for raising Omegas.\n\nThe Omega Metroid was invulnerable to every weapon Samus carried, and its weakness, the Ice Beam, was the one ability she had not regained; its attack left her near death. Then the SA-X she had just reduced to a fleeing Core-X on the Operations Deck returned, restored to her form, and attacked the Omega Metroid with its Ice Beam. The Omega Metroid tore the copy down to its Core-X, and Samus absorbed it, regaining the Ice Beam. With it she destroyed the Omega Metroid; her gunship returned, flown by the Etecoons and Dachora she had freed, and she escaped moments before the station struck SR388.\n\nSamus had killed four Omega Metroids before, on SR388 shortly before the Queen Metroid, during her extermination mission. At the BSL, the X copy that had hunted her across the station was what saved her.",
+   "constant": false,
+   "order": 100,
+   "category": "Fusion",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Omega_Metroid",
+    "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+    "https://www.metroidwiki.org/wiki/SA-X",
+    "https://www.metroidwiki.org/wiki/Docking_Bays",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://en.wikipedia.org/wiki/Metroid_Fusion"
+   ],
+   "notes": "Selective entry: fires only with BSL/X context, so the Metroids domain's general Omega Metroid entry handles the species. Fixed per fact-check: Docking Bays placed in the Main Deck; added the rapid-growth hint and the four SR388 Omegas; removed editorializing ('the one weapon Metroids fear', 'closer to killing her than any'). Dropped bare 'Omega' and the generic secondaries (station, escape, Adam, SR388, Fusion, Ice Beam)."
+  },
+  {
+   "comment": "Fusion: The destruction of the BSL and SR388",
+   "keys": [
+    "destruction of SR388",
+    "destroyed SR388",
+    "destroy SR388",
+    "destroying SR388",
+    "crashed into SR388",
+    "crash into SR388",
+    "SR388's destruction",
+    "SR388 destroyed",
+    "intercept SR388",
+    "destruction of the BSL",
+    "BSL's destruction",
+    "tribunals and investigations"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Biologic Space Laboratories research station and the planet SR388 were destroyed together at the end of the BSL incident, by Samus Aran's choice (Metroid Fusion). Once the Federation's intent to capture the SA-X was known, Samus insisted the X be destroyed before the Federation arrived, even if she died with the station. Her ship computer, which had just revealed itself to be Adam Malkovich, agreed and gave her the plan: alter the station's orbit so that it fell onto SR388, destroying the station, the planet and the X on both. \"Samus, this is your last mission,\" he said, and closed: \"Move quickly, and stay alive. That's an order! Any objections, Lady?\"\n\nSamus climbed to the Operations Deck. At the sealed hatch of the Operations Room an SA-X attacked her, matching her weapon for weapon; she wore it down with the Wave Beam until it swelled into a monstrous form and then collapsed into a bare Core-X that fled. Inside, she started the station's propulsion and adjusted its orbit path to intercept SR388. Three minutes remained. In the Docking Bay her gunship was missing and an Omega Metroid nearly killed her, until the same SA-X returned and attacked it and she absorbed the copy's Core-X to regain the Ice Beam (see Omega Metroid of the BSL). The gunship returned, she boarded, and it pulled clear seconds before the station struck SR388. The impact destroyed the planet, the station and the X on both.\n\nThe ship could only be started manually, yet it had moved. Aboard were the Etecoons and Dachora she had freed from the Habitation Deck, species she had first met on Zebes; when she wondered whether Adam was responsible, he answered only, \"They lent me a hand.\" The Dachora was later seen with hatched young.\n\nIn her closing reflection Samus judged that her reunion with Adam may have saved the universe, a danger others, limited by their own experience, might never grasp. \"They will hold tribunals and investigations. They will hold us responsible,\" she said. Adam replied: \"Do not worry. One of them will understand. One of them must.\"\n\nFor Samus, SR388 joined Zebes, Dark Aether and Phaaze among the worlds destroyed in her wake, and it was the first she deliberately set on that course.",
+   "constant": false,
+   "order": 100,
+   "category": "Fusion",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Operations_Deck",
+    "https://www.metroidwiki.org/wiki/SR388",
+    "https://www.metroidwiki.org/wiki/SA-X",
+    "https://www.metroidwiki.org/wiki/Dachora",
+    "https://www.metroidwiki.org/wiki/Etecoon",
+    "https://www.metroidwiki.org/wiki/Phaaze",
+    "https://www.metroidwiki.org/wiki/Dark_Aether",
+    "https://metroiddatabase.com/endings-metroid-fusion/",
+    "https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   ],
+   "notes": "Fixed per fact-check: 'second world she had known erased' replaced (Zebes, Dark Aether and Phaaze preceded SR388); unverified 'station alone was not enough' reasoning removed; final order's closing re-checked on Metroid Wiki's Fusion references ('Samus, this is your last mission' ... 'Move quickly, and stay alive. That's an order! Any objections, Lady?') and kept; gunship now returns with the animals aboard rather than 'on its own'; tribunals line and Adam's reply quoted from the Metroid Database ending transcript. Removed the claim that the animals were the same individuals rescued from Zebes (Metroid Wiki says only 'presumably') and the unverified 'Federation party already on its way'. Keys: dropped 'collision course', 'orbit path', 'station's destruction', 'ending monologue'. 'The ship could only be started manually' re-verified: Samus's ending monologue reads 'This ship can only be started manually' in both the Retropixel transcript and the Metroid Database ending transcript; kept."
+  },
+  {
+   "comment": "Fusion: Samus's defiance of the Federation at the BSL",
+   "keys": [
+    "defied the Federation",
+    "defy the Federation",
+    "defying the Federation",
+    "disobeyed orders",
+    "disobey orders",
+    "disobeying orders",
+    "Federation orders",
+    "Federation's orders",
+    "capture the SA-X",
+    "capture the X",
+    "withheld data",
+    "insubordination"
+   ],
+   "secondary_keys": [
+    "BSL",
+    "B.S.L.",
+    "SA-X",
+    "X Parasite",
+    "X Parasites",
+    "SR388",
+    "Adam",
+    "Biologic"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "During the BSL incident Samus Aran openly defied the Galactic Federation, destroying a Federation contractor's research station and a planet to do it (Metroid Fusion).\n\nThe truth came out in two parts. After the Restricted Laboratory was jettisoned, her ship computer admitted that the Federation had secretly bred Metroids aboard the Biologic Space Laboratories research station and that no fewer than ten SA-X were loose, and ordered her to leave. After she destroyed Neo-Ridley in SRX, it admitted the rest: the Federation had taken an interest in the X and meant to capture the SA-X for military purposes, and it had withheld her Plasma Beam data to keep her from engaging the SA-X, knowing she would try to destroy it. She was to leave the rest of the investigation to the Federation; the computer locked the Navigation Room's hatches to hold her.\n\nSamus refused. She wanted the X destroyed before the Federation arrived and argued that the station had to be destroyed with the X inside, even if she died with it. The computer would not yield, for her own safety, until she addressed it as Adam and spoke of the real Adam Malkovich, the commander who had died saving her life. The computer confirmed it was him, his mind preserved by the Federation. He agreed the X were too dangerous and gave her the plan to drop the station onto SR388, ending his orders with his old \"Any objections, Lady?\" (see The Adam AI).\n\nShe carried it out and escaped before the Federation arrived, expecting to be held responsible (see The destruction of the BSL and SR388). Her standing survived: the Federation later sent her to ZDR when evidence surfaced that the X lived there, after its own seven E.M.M.I. had gone silent (Metroid Dread).\n\nSamus had served in the Federation Army under Adam before going independent, and at the Bottle Ship she had already found Metroids bred in secret. At the BSL she found the Federation itself behind such a program, and put the galaxy's safety ahead of its orders.",
+   "constant": false,
+   "order": 100,
+   "category": "Fusion",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://en.wikipedia.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+    "https://www.metroidwiki.org/wiki/Operations_Deck",
+    "https://www.metroidwiki.org/wiki/B.S.L_Research_Station",
+    "https://metroiddatabase.com/endings-metroid-fusion/",
+    "https://en.wikipedia.org/wiki/Metroid_Dread"
+   ],
+   "notes": "Fixed per fact-check: chronology split (breeding program and ten SA-X after the laboratory; capture plan, withheld Plasma Beam and lockdown after Neo-Ridley, per Metroid Wiki's Fusion story order and footnote 'The Plasma Beam modification was ready some time ago, but they withheld it to keep you from engaging the SA-X'); 'without thinking' removed; station called a Federation contractor's; Adam's reply quoted. Samus's argument reduced to what Wikipedia and Metroid Wiki's Adam page support. Made selective so the generic military phrases fire only with BSL/X/Adam context; 'any objections' dropped (owned by the Adam Malkovich entry). Consistency pass: Tribunals line and Adam's reply trimmed to a pointer; The destruction of the BSL and SR388 quotes them."
+  }
+ ]
+}

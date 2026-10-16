@@ -1,0 +1,63 @@
+{
+ "run": "wf_8a5b5e72-c2d",
+ "label": "fix:timeline-prime",
+ "result": {
+  "results": [
+   {
+    "issue": "1) timeline Prime 4 line says 'Federation marines' were flung to Viewros and that 'the marines' restrained Sylux",
+    "decision": "fixed",
+    "entry": "timeline: Universe: Timeline of Samus's missions",
+    "before": "a Lamorn artifact flings Samus and Federation marines to Viewros, where she gains psychic abilities and defeats Sylux; the marines restrain him while she escapes through the damaged teleporter.",
+    "after": "a Lamorn artifact flings Samus, Sylux and five Federation personnel to Viewros, where she gains psychic abilities and defeats Sylux; her five companions restrain him while she escapes through the damaged teleporter.",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   },
+   {
+    "issue": "2) timeline ZDR bullet credits the 'physical amnesia' explanation to ADAM, but Raven Beak was posing as ADAM",
+    "decision": "fixed",
+    "entry": "timeline: Universe: Why Samus loses her abilities",
+    "before": "ADAM could only attribute the loss to unexplained physical changes, a condition called physical amnesia;",
+    "after": "The voice she took for ADAM could only attribute the loss to unexplained physical changes, a condition called physical amnesia;",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+   },
+   {
+    "issue": "3) dark-samus states the Valhalla crew's jettisoning as fact, but it is the Pirates' claim in the 'Taking Valhalla' log",
+    "decision": "fixed",
+    "entry": "dark-samus: Dark Samus: The return – Colossus, Phaaze and the Norion attack",
+    "before": "The Colossus crippled the G.F.S. Valhalla, a Federation battleship \"crewed with green recruits on a training mission\"; raiders extracted Aurora Unit 313 and jettisoned the crew into space, and the Unit's last log ended \"...Darkness coming.\"",
+    "after": "Per Pirate records, the Colossus crippled the G.F.S. Valhalla, a Federation battleship \"crewed with green recruits on a training mission,\" and its raiders extracted Aurora Unit 313 and jettisoned the crew into space, though Samus later found Marines' bodies aboard the wreck; the Unit's last log ended \"...Darkness coming.\"",
+    "source_url": "https://www.metroidwiki.org/wiki/G.F.S._Valhalla"
+   },
+   {
+    "issue": "4) phazon PED entry credits the Hunter and Fission Metroid strains to Pirate experiments; Metroid Wiki and the sibling entry credit Phazon exposure",
+    "decision": "fixed",
+    "entry": "phazon: Phazon: Pirate Phazon operations and the Federation's PED program",
+    "before": "The miners went mad. Experiments followed on Metroids, which yielded the Phazon-mutated Hunter and Fission strains, on Project Titan",
+    "after": "The miners went mad. Phazon exposure on Tallon IV also mutated Metroids into the Hunter and Fission strains. Experiments followed on Metroids, on Project Titan",
+    "source_url": "https://www.metroidwiki.org/wiki/Hunter_Metroid"
+   },
+   {
+    "issue": "5) Claim that Aurora Unit 217 found Phaaze by triangulating Leviathan trajectories rests on an uncited Metroid Wiki line (no in-game source found; the AU 217 page says only 'apparently discovered Phaaze')",
+    "decision": "fixed",
+    "entry": "prime3: The Phazon crisis; Elysia and SkyTown; The assault on Phaaze and the end of Phazon (GFS Olympus and the Valhalla already said only 'located Phaaze'; dark-samus 'Dark Samus (overview)' content has no triangulation claim, and its 'She found Phaaze' refers to Dark Samus's own trip in the Pirate logs, so it was left unchanged)",
+    "before": "[The Phazon crisis] 217 then located Phaaze by triangulating the trajectories of the Leviathan attacks. | [Elysia and SkyTown] Restored, 217 located Phaaze by triangulating the trajectories of the Leviathan attacks and guided Samus through the rest of the crisis. | [Assault on Phaaze] Aurora Unit 217 had located Phaaze by triangulating the trajectories of the Leviathan attacks, and the Federation learned...",
+    "after": "[The Phazon crisis] 217 then located Phaaze. | [Elysia and SkyTown] Restored, 217 located Phaaze and guided Samus through the rest of the crisis. | [Assault on Phaaze] Aurora Unit 217 had located Phaaze, and the Federation learned...",
+    "source_url": "https://www.metroidwiki.org/wiki/Aurora_Unit_217"
+   },
+   {
+    "issue": "6) space-pirates says the Colossus's 'Phazon-powered weapons' overpowered the Valhalla while phazon/prime3 say 'Phazon-powered starships and superior numbers'. Both texts exist: Space Pirate Data 'Taking Valhalla' and Federation Data 'The Valhalla Incident'. Each account is now attributed in space-pirates and phazon; prime3 already attributed both",
+    "decision": "fixed",
+    "entry": "space-pirates: Space Pirates: Ships and the Frigate Orpheon; phazon: Phazon: Pirate Phazon operations and the Federation's PED program",
+    "before": "[space-pirates] Improved under her, its \"Phazon-powered weapons\" rendered the G.F.S. Valhalla helpless; the Pirates seized Aurora Unit 313 and, by their own account, jettisoned the crew into space. | [phazon] Phazon-powered Pirate starships and superior numbers overwhelmed the G.F.S. Valhalla, and the Pirates carried off its Aurora Unit 313.",
+    "after": "[space-pirates] Improved under her, it rendered the G.F.S. Valhalla helpless with its \"Phazon-powered weapons,\" per Pirate records, though the Federation believed a fleet of Phazon-powered starships with superior numbers had ambushed the ship; the Pirates seized Aurora Unit 313 and, by their own account, jettisoned the crew into space. | [phazon] The Federation believed Phazon-powered Pirate starships in superior numbers had overwhelmed the G.F.S. Valhalla, while Pirate records credit the Phazon-powered weapons of the Colossus; either way the Pirates carried off its Aurora Unit 313.",
+    "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Data ; https://www.metroidwiki.org/wiki/Galactic_Federation_Data"
+   }
+  ],
+  "files_edited": [
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/timeline.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/dark-samus.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/phazon.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/space-pirates.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/prime3.json"
+  ]
+ }
+}

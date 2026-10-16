@@ -1,0 +1,121 @@
+{
+ "domain": "gap1",
+ "category": "Equipment",
+ "entries": [
+  {
+   "comment": "Equipment: Psychic Lasso, Psychic Grapple, Psychic Boots and the psychic Morph Ball upgrades (Viewros)",
+   "keys": [
+    "Psychic Lasso",
+    "Psychic Grapple",
+    "Psychic Boots",
+    "Psychic Boost Ball",
+    "Psychic Spider Ball",
+    "Psychic Platform",
+    "Psychic Platforms",
+    "Psychic Ball Track",
+    "Psychic Ball Tracks",
+    "Psychic Boost Rail",
+    "Psychic Boost Rails",
+    "Psychic Container"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "On Viewros (Metroid Prime 4: Beyond) Samus rebuilt her mobility with psychic counterparts of older tools, powered by the Psychic Crystal. Most act on Lamorn structures of compressed Psychic Energy that lie dormant until her Psychic Visor materializes them.\n\n- Psychic Lasso: a rope of psychic energy that seizes a marked object and hauls it toward her, tearing off locks and hatches and dragging away debris, much as the Grapple Lasso did during the Phazon crisis. She took it from a Psychic Container in the Ice Belt's Tracking Operations room; such containers hold what Lamorn priests prepared for their prophesied Chosen One and open only to telekinesis. Atop the Chrono Tower she used it to tear away the tentacles growing from the barrier around Sylux; with every tentacle gone, the barrier fell.\n- Psychic Grapple: her swing line, won in Flare Pool after Phenoros died. It latches onto Grapple Points the Lamorn built for Maintenance Tanks, onto Psychic Grapple Points once materialized, and onto Grapple Nodes, where she can reel in and hang on a sheer wall. Swinging carries her across wide gaps.\n- Psychic Boots: recovered after Xelios fell at Volt Forge, they restored the mid-air second jump her suit had lost on her arrival, like her old Space Jump Boots, and let her stand on Psychic Platforms, condensed Psychic Energy that her visor materializes in linked groups and that bears no one without the boots.\n- Psychic Boost Ball: dropped by Keratos in the Ice Belt. It keeps the Boost Ball's charged burst and adds Psychic Boost Rails, curving tracks along natural flows of Psychic Energy that, once materialized and entered at a boost, speed her to their end. In her last battle with Sylux, a Boost Ball strike freed an Energy Tank his Lockjaw had torn from her and stunned him.\n- Psychic Spider Ball: hidden in the Ice Belt's Ancient Temple, revealed when she set Psychic Motes into a Lamorn statue's base. A film of Psychic Energy binds the ball to Psychic Ball Tracks the Lamorn priests left across walls and ceilings, and it magnetizes to the Lamorn Magnetic Tracks built for Maintenance Tanks. With the Psychic Grapple fixed to a Tether Node, she can pull the line taut and slingshot herself.\n\nSee Psychic abilities (Viewros), The Lamorn, Sylux, Grapple Beam, Boost Ball, Spider Ball and Spider Magnet, and Hi-Jump Boots, Space Jump and Wall Jump.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.videogameschronicle.com/guide/metroid-prime-4-walkthrough-where-to-go-all-upgrades-and-collectibles-step-by-step-guide/",
+    "https://www.nintendolife.com/guides/metroid-prime-4-beyond-power-suit-upgrade-locations",
+    "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-technology/",
+    "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/missile-expansions/",
+    "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/boss-guide/",
+    "https://www.rogue.site/guides/metroid-prime-4-beyond-walkthrough-pt-3-ice-belt/",
+    "https://www.rogue.site/guides/metroid-prime-4-beyond-walkthrough-pt-5-thunder-chip-and-shrines/",
+    "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-to-all-of-samus-arans-upgrades-and-suits-1645383/",
+    "https://vulkk.com/2025/12/07/metroid-prime-4-how-to-get-the-psychic-lasso/",
+    "https://vulkk.com/2025/12/14/metroid-prime-4-sylux-final-boss-guide/",
+    "https://nintendolife.com/guides/metroid-prime-4-beyond-how-to-beat-the-final-boss",
+    "https://www.gamesradar.com/games/metroid/metroid-prime-4-beyond-psychic-boots-double-jump/",
+    "https://game8.co/games/Metroid-Prime-4-Beyond/archives/569483",
+    "https://www.gamespot.com/gallery/metroid-prime-4-beyond-abilities-upgrades/2900-7313/"
+   ],
+   "notes": "Every name and acquisition point was checked against two or more independent sources: VGC, Nintendo Life, rogue.site, Gamereactor, GamesRadar, VULKK, game8/GameSpot snippets and the in-game Technology logbook transcripts on Omega Metroid. Finalize pass: 'bio-labs' replaced with 'the Ice Belt's Tracking Operations room', because Omega lists Bio-labs Access as a separate room the Lasso opens. The Sylux line was corrected to tentacles growing from his protective bubble, pulled off with the Lasso, after which he can be shot (Omega boss guide, verbatim; Nintendo Life final-boss guide). Added the final-battle Boost Ball detail, which matches the Omega boss guide word for word ('he'll steal an energy tank ... whack him with Boost Ball. This will free the Energy Tank, and stun Sylux for several seconds') and the existing Prime 4: Sylux entry's Lockjaw line. Dropped 'Swinging builds momentum' and the Crystal Crawler anchor detail for length. Capitalized Psychic Crystal. Keys: dropped 'Psychic Grapple Point(s)', which 'Psychic Grapple' already matches under whole-word matching; added 'Psychic Boost Rails' and 'Psychic Container'. Still omitted: Gamereactor's claim that the Psychic Glove makes the platforms (VGC and Omega say the visor does), 'given by the Lamornians', and the password-glyph detail. Metroid Wiki has no pages for these items. CONSISTENCY FLAGS for the merge pass, both confirmed by the fact-check: (1) the 'Equipment: Grapple Beam' line 'On Viewros her lock-on also helps her connect the Grapple Beam' should name the Psychic Grapple; (2) the notes on 'Equipment: Boost Ball, Spider Ball and Spider Magnet' and 'Equipment: Psychic abilities (Viewros)' saying the psychic balls were unconfirmed are out of date."
+  },
+  {
+   "comment": "Equipment: Fire, Ice and Thunder Shots, Psychic Bombs and Super Missiles (Viewros)",
+   "keys": [
+    "Fire Shot",
+    "Ice Shot",
+    "Thunder Shot",
+    "Fire Chip",
+    "Ice Chip",
+    "Thunder Chip",
+    "Psychic Bomb",
+    "Psychic Bombs",
+    "Psychic Power Bomb",
+    "Psychic Power Bombs",
+    "elemental shots",
+    "Shot Ammo"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Samus's striking power on Viewros (Metroid Prime 4: Beyond) came from three hands: the Lamorn, the creatures she killed, and the engineer Myles MacKenzie.\n\nElemental shots. Myles turned three chips she salvaged from Lamorn machinery into Arm Cannon shots at his Base Camp in Fury Green. They spend Shot Ammo.\n- Fire Shot, from the Fire Chip she knocked off a scrapyard crane's plasma cutter in Flare Pool: sets targets burning, clears webs, foliage and flammable metal, melts ice and lights torches. Even gun-proof Web Crawler silk burns instantly.\n- Ice Shot, from the Ice Chip in a cryopod she dropped from the Ice Belt's Loading Crane: freezes enemies in place, turns water jets and drains to ice and breaks cold locks.\n- Thunder Shot, from the Thunder Chip she pried from a damaged power cell in the Volt Forge Power Core, where a Psy-bot decoy of Sylux ambushed her: energizes generators, conduits and launchers and blows open thunder locks.\nThe six Lamorn shrines of Sol Valley strengthened each. A charged Fire Shot looses three piercing rounds, a Super Fire Shot a piercing barrage that leaves enemies burning long after; the charged Ice Shot throws four bouncing balls of ice, the Super Ice Shot a wide, ricocheting flurry; the charged Thunder Shot hurls a bolt of lightning, the Super Thunder Shot a sustained arc shocking all near its target.\n\nPsychic Bombs. Carvex's death in Fury Green gave her the Psychic Bomb, the Morph Ball explosive of Viewros. It still bomb-jumps her and triggers Bomb Slots, and the Psychic Glove can seize a live one and hurl it at a distant slot or an enemy's feet. The Psychic Power Bomb, taken from the Omega Griever of the Great Mines, which dangled it on its tongue as bait, destroys Denzium Federation crates, crystal walls and cracked Lamorn statues and powers enhanced Bomb Slots. In the Sol Valley desert its blasts broke open large clumps of Green ore, rich in the Green Energy she banked at the Altar of Legacy (see Vi-O-La Suit and Legacy Suit).\n\nSuper Missiles. Recovered in the Great Mines' Blast Mining chamber, they shatter blue Koornicite Ore and reinforced gate locks; their blasts draw the sound-hunting Maul Grievers.\n\nThe elemental shots joined Lamorn hardware to Federation engineering, the work of the man who had asked her, \"What do you say? Teammates?\" (see Myles MacKenzie and the stranded Federation squad).",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.videogameschronicle.com/guide/metroid-prime-4-walkthrough-where-to-go-all-upgrades-and-collectibles-step-by-step-guide/",
+    "https://www.nintendolife.com/guides/metroid-prime-4-beyond-power-suit-upgrade-locations",
+    "https://nintendolife.com/guides/metroid-prime-4-beyond-all-shrine-locations-in-sol-valley",
+    "https://www.inverse.com/gaming/metroid-prime-4-fire-shot-upgrades-guide",
+    "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/shrine-guide/",
+    "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/missile-expansions/",
+    "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/shot-expansions/",
+    "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/psychic-power-bomb-expansions/",
+    "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/green-energy-crystal-locations/",
+    "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/boss-guide/",
+    "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/",
+    "https://www.rogue.site/guides/metroid-prime-4-beyond-walkthrough-pt-3-ice-belt/",
+    "https://www.rogue.site/guides/metroid-prime-4-beyond-walkthrough-pt-5-thunder-chip-and-shrines/",
+    "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-what-are-the-green-energy-crystals-for-and-how-to-upgrade-the-psychic-beam-1642693/",
+    "https://www.gamereactor.eu/metroid-prime-4-beyond-guide-to-all-of-samus-arans-upgrades-and-suits-1645383/",
+    "https://game8.co/games/Metroid-Prime-4-Beyond/archives/569322",
+    "https://game8.co/games/Metroid-Prime-4-Beyond/archives/569485",
+    "https://www.thegamer.com/metroid-prime-4-beyond-carvex-boss-vines-plant-weak-points-fury-green-guide/"
+   ],
+   "notes": "Two or more independent sources back each name: VGC, Inverse, rogue.site, Nintendo Life, Gamereactor, game8, TheGamer and Omega Metroid's shrine, boss, expansion and logbook guides. Finalize pass: removed the unsourced claim that Samus answered 'Teammates?' with a nod (an earlier fact-check stripped it from the Myles entry) and replaced it with Myles's quoted line, 'What do you say? Teammates?', as the Prime 4: Myles entry gives it. Corrected the Super Fire Shot: Omega says the burning lasts long ('set any enemies ablaze for a long time'), not the barrage. Retitled the entry to cover Super Missiles. Cut the Altar of Legacy sentence to a pointer at the Legacy Suit entry, attached to the Green ore line (Omega: 25% gives a more powerful Psychic Beam, 50% a faster Control Shot). Added the Sol Valley Green ore detail, verbatim from Omega's Green Energy guide ('Power Bomb large clumps of Green ore located throughout the desert for higher yields of Green Energy'). The Power Core Sylux being a robot is confirmed by Omega, and no order of events is claimed for the Thunder Chip; rogue.site puts the chip-grab before that fight, VGC after it. No shrine is mapped to a shot variant, because the mapping depends on the order the shrines are completed. Omitted as single-source: Varmis killed by a Power Bomb inside it, the Psychic Power Bomb's 3-round capacity, Psychic Bombs thrown to break the decoy Sylux's tornado, and Keratos's ice wall melted by the Fire Shot. Shot Ammo costs omitted. Heat weaknesses of Snow Wolves and Frostburn Grievers cut for length. MERGE FLAGS: (1) the samus-rp clause 'answered his \"Teammates?\" with a nod' is unsourced and conflicts with the Myles fact-check, so remove it; (2) 'Equipment: Missiles and Super Missiles' has no Viewros acquisition and could add 'on Viewros, in the Great Mines' Blast Mining chamber'. No 'Super Missile' key was added here, to avoid colliding with that entry and because all 12 key slots are used."
+  },
+  {
+   "comment": "Equipment: Other M combat techniques: Sense Move, Overblast, Lethal Strike, Concentration and Accel Charge",
+   "keys": [
+    "Sense Move",
+    "Sensemove",
+    "Overblast",
+    "Overblasts",
+    "Lethal Strike",
+    "Lethal Strikes",
+    "Accel Charge",
+    "Accel Charges",
+    "E-Recovery Tank",
+    "E-Recovery Tanks"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Aboard the Bottle Ship (Metroid: Other M) Samus fought in a fast, acrobatic close-quarters style built on five techniques.\n\nSense Move (Sensemove). An instant before an attack lands she hops or flips forward, backward or sideways, and the blow meets empty air. If she triggers it while charging, her beam reaches full charge almost at once, so every dodge becomes a counterattack. A Galactic Federation scientist taught it to her after her last mission on Zebes (Super Metroid); in the training exercise she first used it to dodge laser fire from a holographic Zebesian (\"OK, looking good. Let's check your reaction time. Here come some beams—dodge 'em.\"). It was no luxury: the Brug Mass could not be hurt until she had dodged it.\n\nOverblast. She leaps onto an enemy, usually one already knocked down, lands on its head or another vulnerable spot and, as her beam charges by itself, fires point-blank before springing clear, knocking the target back or to the ground. If she hesitates, the creature throws her off. One Overblast kills a Sidehopper outright, it works against larger foes such as Goyagma, and she can chain it from creature to creature without touching the ground.\n\nLethal Strike. When a large enemy such as a Zebesian is down, she closes in, builds a full charge and drives it into the creature's vulnerable spot, usually killing it.\n\nConcentration. Standing still and uninterrupted, she focuses until her Missiles are fully restocked; in an emergency, with her energy low enough, it also restores part of her Energy, more slowly. Three E-Recovery Tanks found aboard let her draw Energy from Concentration before her reserves fell as low, and recover one more Energy Tank's worth each.\n\nAccel Charge. Six small, yellow, glowing capsules hidden aboard each quickened her charge, for both the Charge Beam, which also loads her Super Missiles, and her Power Bombs; with all six it filled in under a second.\n\nIn a fight she reads the tell, slips the attack at the last instant with her cannon already charging, vaults onto a staggered enemy to fire into its head, and ends a downed foe with one charged strike; between clashes she stands still to concentrate and restock. Compare the Melee Counter she used on SR388 and ZDR (see Melee Counter and Omega Cannon); see also Charge Beam and Charge Combos, and The Bottle Ship incident.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Sense_Move",
+    "https://www.metroidwiki.org/wiki/Overblast",
+    "https://www.metroidwiki.org/wiki/Lethal_Strike",
+    "https://www.metroidwiki.org/wiki/Concentration",
+    "https://www.metroidwiki.org/wiki/Accel_Charge",
+    "https://www.metroidwiki.org/wiki/E-Recovery_Tank",
+    "https://en.wikipedia.org/wiki/Metroid:_Other_M"
+   ],
+   "notes": "Metroid Wiki spells it 'Sensemove (also written Sense Move)', and Wikipedia writes 'Sense Move'. The training story, the scientist's quote (verbatim) and the Brug Mass detail come from Metroid Wiki's Sense Move page. Overblast mechanics are from Metroid Wiki; Wikipedia confirms the point-blank charged shot. Finalize pass: deleted the Kyratian Overblast sentence. A recheck of the Metroid Wiki Overblast page found 'Kyratian' only in the infobox Users list, with no description in the body and no Kyratian page. Changed 'throwing the target back or flattening it' to match Metroid Wiki ('the foe is pushed back or to the ground'). Reworded the E-Recovery Tank line: each tank raises the energy threshold below which Concentration restores Energy and adds one Energy Tank's worth (Metroid Wiki; manual). Three tanks and six Accel Charges are confirmed. Replaced the bare 'See Melee Counter' with a 'Compare' pointer, so the Melee Counter (an SR388/ZDR technique, never used in Other M) is not read as a Bottle Ship ability. The wording avoids 'later' because the SR388 mission precedes Other M. Bare 'Concentration' is not a key because it is a common English word. Locations omitted. The entry does not repeat the Melee Counter, Charge Beam basics, Adam's authorization system or the incident narrative. MERGE CHECK: the build index lists 'Equipment: Melee Counter' and 'Equipment: Omega Cannon (Dread)' separately, while weapons.json has 'Equipment: Melee Counter and Omega Cannon'. The parenthetical cross-reference uses the weapons.json title, so confirm it against the final build."
+  }
+ ]
+}

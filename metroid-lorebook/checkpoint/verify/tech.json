@@ -1,0 +1,493 @@
+{
+ "run": "wf_1c223e4c-a6e",
+ "label": "verify:tech",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Technology: Samus's Gunship",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "per the official Metroid Prime website it is the only space-faring vessel ever registered to a bounty hunter",
+      "problem": "This misreads the website. It says the ship 'is the only space-faring vessel ever registered under the bounty hunter's name'. 'The bounty hunter' means Samus. The site makes no claim that no other hunter has a registered ship, and Rundas's Phrygisian-class gunship contradicts that reading anyway.",
+      "correction": "Per the official website, it is the only space-faring vessel ever registered under Samus's name.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gunship"
+     },
+     {
+      "severity": "error",
+      "claim": "Second ship: a yellow-orange craft ... It landed her on SR388 ... / Hunter-class gunships: ... the ships of the Tallon IV, Alimbic Cluster, Aether and Phazon-crisis eras",
+      "problem": "The ship sequence is wrong. In story order the red Zero Mission ship is followed by the Prime-era ship (Tallon IV, Alimbic Cluster), which the logbook calls the first Hunter-class gunship. Next comes the classic ship. It is the ship that landed on Aether and was damaged there, and later the one used on SR388, Zebes and the Bottle Ship. The draft calls the classic ship 'second' and puts the Aether landing and self-repair under a separate 'Hunter-class' bullet, so readers will think these are different ships. All of Samus's gunships are Hunter-class.",
+      "correction": "Order: (1) red ship, destroyed on Zebes; (2) Prime-era ship, the first Hunter-class gunship (Tallon IV, Alimbic Cluster); (3) classic ship (Aether, where it repaired itself; SR388; Zebes; Bottle Ship); (4) the ship she designed for the Phazon crisis; (5) the violet BSL/ZDR ship. Every one is Hunter-class.",
+      "source_url": "https://www.metroidwiki.org/wiki/Spacecraft_Classifications"
+     },
+     {
+      "severity": "error",
+      "claim": "Samus's is the Command Visor, linked to her Arm Cannon, which Rundas activated for her during the Norion defense",
+      "problem": "Rundas did not activate the visor. The source only says the visor stayed offline until Rundas saved Samus from Space Pirate ATCs during the attack on Norion.",
+      "correction": "The Command Visor stayed offline until Rundas rescued her from Space Pirate ATCs on Norion.",
+      "source_url": "https://www.metroidwiki.org/wiki/Command_Visor"
+     },
+     {
+      "severity": "error",
+      "claim": "all logged as Hunter-class, the first of that class",
+      "problem": "Only the Prime-era ship is called the first Hunter-class gunship. As written, the sentence calls every one of the four ships the first of the class.",
+      "correction": "The Tallon IV-era ship was the first Hunter-class gunship.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gunship"
+     },
+     {
+      "severity": "error",
+      "claim": "inside, energy and weapons replenish automatically",
+      "problem": "This is stated as always true, but in the Bottle Ship incident the gunship cannot restore energy or weapons.",
+      "correction": "Make the restoring function era-specific, or add that the Bottle Ship-era ship did not do it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gunship"
+     },
+     {
+      "severity": "unverified",
+      "claim": "It carried her between ... the Pirate Homeworld; to reach Phaaze she commandeered a Leviathan Battleship instead",
+      "problem": "Samus did take control of a Leviathan through a Pirate Homeworld transporter so the Federation could open a wormhole. But 'instead' suggests the gunship never reached Phaaze. Metroid Wiki lists Phaaze among the gunship's destinations, and in the ending she flies off in it.",
+      "correction": "Drop 'instead'. Say she seized a Leviathan so the Federation fleet could open a wormhole to Phaaze.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Homeworld"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The Galactic Federation issued every hired hunter a ship-command device for remote piloting and landing",
+      "problem": "Neither the Command Visor page nor the Gunship pages say the Federation gave every hunter such a device. The Command Visor page is a stub and does not say where the visor came from.",
+      "correction": "Remove this, or keep only that Samus calls and directs her ship through the Command Visor.",
+      "source_url": "https://www.metroidwiki.org/wiki/Command_Visor"
+     },
+     {
+      "severity": "unverified",
+      "claim": "used the Ship Grapple Beam to haul the Theronian Bomb components and the Spire Dock at SkyTown",
+      "problem": "The Ship Grapple did collect the Theronian Bomb's parts: a central spike and two rings. Those parts went into the Spire, which became the bomb. No source mentions hauling a 'Spire Dock'.",
+      "correction": "She used the Ship Grapple to gather the parts of the Theronian Bomb that destroyed the Elysian Leviathan's shield.",
+      "source_url": "https://www.metroidwiki.org/wiki/Theronian_Bomb"
+     },
+     {
+      "severity": "unverified",
+      "claim": "an autopilot",
+      "problem": "The Gunship and Samus Aran's Gunship pages both list the Corruption ship's features without an autopilot. The drafter says the term came from the Corruption page, but I could not find it there either.",
+      "correction": "Remove 'an autopilot' unless a primary source confirms it."
+     },
+     {
+      "severity": "unverified",
+      "claim": "her own log records \"Hunter-class gunship registered to Samus Aran\"",
+      "problem": "This quotation does not appear on the Spacecraft Classifications or Gunship pages. The Echoes logbook line that Metroid Wiki does quote is 'Your Hunter-class gunship is one of a kind, its distinct hull lines marking it to friend and foe alike.'",
+      "correction": "Use the verified logbook line, or paraphrase without quotation marks.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gunship"
+     },
+     {
+      "severity": "nit",
+      "claim": "built at the Federation shipyard of Aliehs III / fitted at a Federation base on Bryyo",
+      "problem": "The source names are 'Federated Shipyards' at Aliehs III and the 'Federation Landing Site' on Bryyo, where Ship Missiles are obtained.",
+      "correction": "Federated Shipyards of Aliehs III; Ship Missiles fitted at the Federation Landing Site on Bryyo.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ship_Missile"
+     },
+     {
+      "severity": "style",
+      "problem": "At about 687 words the entry is far over the 400-word limit. Each era has its own long bullet, and later bullets repeat material from the ZDR, Fusion and Corruption plots, the bounty-hunter entry (ship-command devices) and the Navigation entry (Adam reveal). Cut it to the ship lineage and core functions."
+     },
+     {
+      "severity": "style",
+      "claim": "Standing on the hatch lets her log her status, board, or both",
+      "problem": "This is the save mechanic thinly disguised as story text, and it adds nothing for roleplay.",
+      "correction": "Remove it, or replace it with in-world wording such as 'she records her mission logs aboard'."
+     },
+     {
+      "severity": "keys",
+      "claim": "her ship, starship, spaceship, gunships",
+      "problem": "'her ship', 'starship' and 'spaceship' are generic and will match any conversation about any vessel, including Federation ships, Rundas's or Sylux's ship, and Leviathans. Drop them. Add 'Hunter-class ship', 'Command Visor' and 'Samus's gunship' (lowercase variant)."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Technology: Save, Recharge and Map Stations",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "noncanon",
+      "claim": "The station's builders may have installed so many as a precaution, since its specimens were securely held.",
+      "problem": "This is Metroid Wiki speculation ('It is likely that they were placed merely as a precaution'), and the reasoning is garbled. The wiki's actual point is that researchers would rarely need to fire weapons, which has nothing to do with how securely the specimens were held.",
+      "correction": "Delete the sentence.",
+      "source_url": "https://www.metroidwiki.org/wiki/Recharge_Room"
+     },
+     {
+      "severity": "error",
+      "claim": "Wherever her gunship lands it performs the same service.",
+      "problem": "The Bottle Ship-era gunship cannot restore energy or weapons. It saves and nothing more.",
+      "correction": "Her gunship usually performs the same service, though not during the Bottle Ship incident.",
+      "source_url": "https://www.metroidwiki.org/wiki/Gunship"
+     },
+     {
+      "severity": "error",
+      "claim": "during the Phazon crisis a Map Station was frequently the only way to locate a Landing Site",
+      "problem": "This overstates the source. Metroid Wiki says the maps are 'often required to locate Landing Sites'. It never calls them the only way.",
+      "correction": "During the Phazon crisis, Map Station data was often needed to find Landing Sites.",
+      "source_url": "https://www.metroidwiki.org/wiki/Map_Station"
+     },
+     {
+      "severity": "unverified",
+      "claim": "On ZDR the Chozo facilities offer ... total-recharge stations",
+      "problem": "The drafter says the term comes from the game. Metroid Wiki's ZDR and Metroid Dread pages do not mention any recharge-station names. The claim is plausible but not sourced.",
+      "correction": "Keep it only if a primary source confirms 'Total Recharge Station'. Otherwise say 'recharge stations'."
+     },
+     {
+      "severity": "style",
+      "claim": "Samus relies on these stations so routinely that her log records where she first found each kind",
+      "problem": "This is meta. It comes from the logbook UI's 'First Location' field, not from anything in the story.",
+      "correction": "Remove it."
+     },
+     {
+      "severity": "style",
+      "claim": "logs her mission status",
+      "problem": "'Logging mission status' is the save mechanic barely reworded. It is acceptable once, but a short in-world line explaining what recording means for Samus would read better."
+     },
+     {
+      "severity": "keys",
+      "claim": "Missile Station, Ammo Station, Big Energy Ball",
+      "problem": "Add 'Missile Stations', 'Ammo Stations', 'Recharge Rooms' (only the singular is keyed), 'Missile Battery', 'Total Recharge Station' if confirmed, and 'Navigation Booth' (Other M's name for a save point, which this entry discusses). 'Big Energy Ball' alone is too obscure to be useful."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Technology: Navigation Rooms, Data Rooms and Network Stations",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "On ZDR the same computer, now called ADAM, spoke with Samus through Network Stations ... briefing her on the E.M.M.I. and the planet's hazards",
+      "problem": "This is wrong in a way that matters for roleplay. After Samus first meets Raven Beak, the 'ADAM' briefing her at Network Stations is Raven Beak impersonating ADAM to push her toward awakening her Metroid DNA. The real ADAM speaks in the opening and at the gunship at the end. Leaving the Dread twist to another entry is fine, but this entry should not state that ADAM gave those briefings.",
+      "correction": "Say that ADAM briefed her at first, but that after her first encounter with Raven Beak the voice at the Network Stations was Raven Beak in disguise. The real ADAM speaks again only at her gunship.",
+      "source_url": "https://www.looper.com/629936/the-ending-of-metroid-dread-explained/"
+     },
+     {
+      "severity": "error",
+      "claim": "Her gunship projects the same interface, called a Navigation Booth.",
+      "problem": "'Navigation Booth' is Other M's name for a save point aboard the Bottle Ship, and this entry's own later paragraph uses it that way. The Navigation Room page says only that using her gunship 'will also create the same interface as a Navigation Booth', a sentence that itself confuses the terms. The gunship's interface is not called a Navigation Booth.",
+      "correction": "Her gunship provides the same uplink to the computer.",
+      "source_url": "https://www.metroidwiki.org/wiki/Navigation_Booth"
+     },
+     {
+      "severity": "error",
+      "claim": "on the BSL station she defied the computer's orders over the Metroid program, and only afterwards learned whose mind she had been arguing with",
+      "problem": "The reveal came during the argument, not afterwards. The computer opposed her decision to blow up the station, then revealed itself as Adam ('Any objections, Lady?') and helped her carry out the plan. The argument was about the Federation's plans for the station and the SA-X, not only the Metroid program.",
+      "correction": "She defied the computer when she decided to destroy the station, and in that exchange it revealed itself as Adam and backed her plan.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "noncanon",
+      "claim": "were probably built so BSL researchers could control each sector",
+      "problem": "This is the wiki's own guess ('probably'). It is not from the games.",
+      "correction": "Delete it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Navigation_Room"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Adam Malkovich ... monitored her and authorized her equipment from the ship's command center",
+      "problem": "The Bottle Ship page gives Adam no fixed post. The Control Room is described only as the place the platoon receives orders from.",
+      "correction": "Drop 'from the ship's command center'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Bottle_Ship"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Once Samus became a threat, the X destroyed every Data Room they could reach",
+      "problem": "Metroid Wiki says the X 'begin destroying any of the Data Rooms they can get at', but gives no in-game citation. 'Every' goes further than the wiki does.",
+      "correction": "Soften to 'the X began destroying Data Rooms', or cite a source.",
+      "source_url": "https://www.metroidwiki.org/wiki/Data_Room"
+     },
+     {
+      "severity": "keys",
+      "claim": "ship computer, ship's computer, uplink, Communication Room",
+      "problem": "'uplink' and 'ship computer' are generic and will fire in any sci-fi conversation. Replace them with 'Navigation Room', 'Data Room', 'Network Station' and 'ADAM computer'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Technology: Elevators, transports and teleportals",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "when the Reactor Core went offline every elevator and door hatch on the station failed until auxiliary power was restored",
+      "problem": "Restoring auxiliary power did not solve the outage. Metroid Wiki says 'Activating auxiliary power doesn't rectify her situation', and Samus then had to clear the roots clogging the Reactor Core.",
+      "correction": "When the Reactor Core shut down, the station's elevators and hatches failed. Auxiliary power was not enough, and full power returned only after Samus cleared the roots choking the core.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Every portal vanished when the Emperor Ing died and Dark Aether collapsed.",
+      "problem": "The Portal page states this without a citation. Its History section reads as the wiki's own interpretation.",
+      "correction": "Say that Dark Aether collapsed when the Emperor Ing died, and drop the claim about portals unless a source confirms it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Portal"
+     },
+     {
+      "severity": "unverified",
+      "claim": "which Samus activates by scanning their control holograms",
+      "problem": "The source pages do not mention this. It is a gameplay detail.",
+      "correction": "Remove it."
+     },
+     {
+      "severity": "nit",
+      "claim": "The Luminoth built three Portal Generators, one per region",
+      "problem": "Metroid Wiki lists 'Portal Generation System' as the Luminoth technology. The Portal page's body says three generators, but its own table lists four Luminoth-made portals.",
+      "correction": "Call them Luminoth portal generators and state the count cautiously.",
+      "source_url": "https://www.metroidwiki.org/wiki/Luminoth_Technology"
+     },
+     {
+      "severity": "nit",
+      "claim": "Lamorn teleporters: an artifact unearthed by a Federation facility on Tanamaar",
+      "problem": "Wikipedia calls the Tanamaar find only 'an artifact'. That it was Lamorn-made is an inference. The facility, the UTO Research Center, is in the Desolan System.",
+      "correction": "Say 'an ancient artifact' unless its Lamorn origin is confirmed.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "nit",
+      "claim": "much of it still works centuries later",
+      "problem": "Only about five decades separate the Leviathan impact from the Aether crisis, so the Luminoth systems are not centuries old.",
+      "correction": "'long after its builders fell silent'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Aether"
+     },
+     {
+      "severity": "style",
+      "problem": "At about 432 words the entry is slightly over the limit."
+     },
+     {
+      "severity": "keys",
+      "claim": "elevator, elevators, teleporter, teleporters, shuttle, transport capsule(s)",
+      "problem": "'elevator', 'elevators', 'teleporter' and 'shuttle' are everyday words and will fire constantly. 'transport capsule' is keyed although the drafter's notes say the content leaves it out. Use specific keys instead: 'Master Teleporter', 'Light Portal', 'Dark Portal', 'teleportal', 'Portal Generator', 'Luminoth Elevator', 'Chozo elevator'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Technology: Bounty hunting in the Metroid galaxy",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "space-faring mercenaries hired for their firepower rather than for collecting fugitives",
+      "problem": "The original manual contradicts this. In it, the space hunters recruited by the Federation Bureau and Police 'received large rewards when they captured pirates', which is bounty hunting in the literal sense.",
+      "correction": "Per the manual, space hunters were paid large rewards for capturing or destroying pirates; they are mercenaries hired for firepower as well.",
+      "source_url": "https://metroiddatabase.com/old_site/m1/manual.php"
+     },
+     {
+      "severity": "error",
+      "claim": "The Bottle Ship was the exception: she answered the Baby's Cry on her own initiative, no longer under orders.",
+      "problem": "It was not the only exception. Samus answered the Frigate Orpheon distress signal on her own and followed Ridley to Tallon IV without a Federation contract. She also responded to Ceres on her own and returned to Zebes after Ridley.",
+      "correction": "Several of her missions began on her own initiative, including the Orpheon distress call, Ceres and Zebes, and the Bottle Ship's Baby's Cry.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime"
+     },
+     {
+      "severity": "error",
+      "claim": "hired with her by Fleet Admiral Castor Dane to carry vaccines to the Aurora Units",
+      "problem": "There were no vaccines. Dane hired the hunters to clear a Space Pirate computer virus from the Aurora Unit network.",
+      "correction": "to purge a Space Pirate virus from the Federation's Aurora Units.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+     },
+     {
+      "severity": "error",
+      "claim": "posted her to protect Biologic Space Labs researchers on SR388, and dispatched her to Tanamaar",
+      "problem": "The list is otherwise in story order, but Tanamaar (Prime 4) takes place between the Bottle Ship incident and the BSL mission, so it should come first. The list also omits the Federation's ZDR mission.",
+      "correction": "... dispatched her to Tanamaar, posted her to protect BSL researchers on SR388, and sent her to ZDR to investigate the lost E.M.M.I.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "error",
+      "claim": "Weavel, a former Space Pirate rebuilt as a cyborg",
+      "problem": "The sources conflict, but the manual says Weavel 'is part of a Space Pirate special unit', and the Hunters page calls him a Space Pirate. Only the official website's 'once a powerful Space Pirate General' suggests a past rank. The species index entry calls him a 'Space Pirate cyborg', which contradicts this line.",
+      "correction": "Weavel, a Space Pirate warrior rebuilt as a cyborg after Samus nearly killed him.",
+      "source_url": "https://www.metroidwiki.org/wiki/Weavel"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Old Bird urged her to become the true Protector of the Galaxy (per the manga)",
+      "problem": "Neither the Old Bird nor the Gray Voice page on Metroid Wiki mentions it. Fan summaries attribute the 'protector of the galaxy' theme to Gray Voice, not Old Bird.",
+      "correction": "Remove it, or rewrite as 'per the manga, the Chozo raised her to be a protector of the galaxy'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Old_Bird"
+     },
+     {
+      "severity": "unverified",
+      "claim": "per the manga Adam Malkovich considered them extravagantly expensive",
+      "problem": "Metroid Wiki tags this claim citation-needed. Its source in the manga is not confirmed.",
+      "correction": "Remove it unless a manga page is confirmed.",
+      "source_url": "https://www.metroidwiki.org/wiki/Bounty_Hunter"
+     },
+     {
+      "severity": "missing",
+      "claim": "Sylux: species unknown ...",
+      "problem": "The entry leaves out Sylux's Prime 4 backstory. He was a Federation field captain who disobeyed orders to hold position and was the only survivor of his platoon. Samus then destroyed the Pirate superweapon he was after, and he blames her and the Federation. This is the root of his hatred and the most recent canon.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "nit",
+      "claim": "Spire, last of the Diamonts",
+      "problem": "Sources only say he is thought to be the last, and the species index entry hedges this correctly.",
+      "correction": "thought to be the last of the Diamonts."
+     },
+     {
+      "severity": "style",
+      "problem": "At about 457 words the entry is over the limit. The ship-command-device sentence repeats the gunship entry and can go."
+     },
+     {
+      "severity": "keys",
+      "claim": "bounty, bounties, freelance, mercenary, mercenaries, hired gun",
+      "problem": "'bounty', 'freelance' and 'mercenary' are common words that will fire in unrelated chat, for example a reward or a freelance job. Keep the multi-word forms ('bounty hunter', 'space hunter') and drop or gate the single words."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Technology: Species of the galaxy (index)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "the green energy of their memory fruit turned them into grievers",
+      "problem": "The cause is garbled. The Lamorn were growing a memory fruit that needed green energy drawn from crystals across Viewros. That green energy, meant to nurture the planet, made the wildlife aggressive and turned the Lamorn into grievers. The fruit did not produce it.",
+      "correction": "the green energy they drew from Viewros's crystals to ripen a memory fruit turned them into grievers.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Humans: presumed to come from Earth, now a Federation member world and seat of its headquarters",
+      "problem": "Metroid Wiki's Earth page has no sources and is flagged as lacking references. No game or manual confirmed found places the Federation's headquarters on Earth.",
+      "correction": "Remove 'seat of its headquarters', or keep only 'Earth is a Federation member world'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Earth"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Unclassified: Sylux (species unknown)",
+      "problem": "Prime 4 shows Sylux as a former Galactic Federation field captain, and Metroid Wiki's infobox now lists him as Human. His species is still not stated outright, but 'unknown' is outdated without that context.",
+      "correction": "Sylux, a former Federation officer whose species is never stated (likely human).",
+      "source_url": "https://www.metroidwiki.org/wiki/Sylux"
+     },
+     {
+      "severity": "nit",
+      "claim": "Reptilicus (Bryyonians): ... descended from the Primals",
+      "problem": "Metroid Wiki presents the Reptilicus as one Bryyonian life form that 'appear to be descended' from the Primals. Labeling them 'Bryyonians' merges them with the ancient civilization, and the descent is stated more firmly than the source does.",
+      "correction": "Reptilicus: six-limbed reptilians of Bryyo, apparently descended from the Primals faction of the ancient Bryyonians.",
+      "source_url": "https://www.metroidwiki.org/wiki/Reptilicus"
+     },
+     {
+      "severity": "style",
+      "problem": "At about 442 words, with 16 bullets, the entry is over the limit."
+     },
+     {
+      "severity": "keys",
+      "claim": "species, races, alien race, aliens, sapient, sentient, civilizations",
+      "problem": "These generic words will fire in a great deal of unrelated chat. Remove them or move them to secondary keys under AND logic. Add plurals and aliases: 'Diamonts', 'Phrygisians', 'Lamorn', 'grievers', 'Bryyonians'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Technology: Planets and places of the galaxy (index)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "K-2L: Federation human mining colony extracting afloraltite, led by Rodney Aran and destroyed by Ridley ... only K-2L and Zebes ... both are gone",
+      "problem": "Metroid Wiki says Ridley attacked the colony and lists K-2L's status as 'Unknown (not mentioned to be destroyed)'. The colonists were massacred, with Samus the only survivor, but nothing says the world was destroyed. All K-2L details are manga-only and need the 'per the manga' label.",
+      "correction": "K-2L (per the manga): an Earth/Federation mining colony led by Rodney Aran, extracting afloraltite; its colonists were wiped out in Ridley's raid.",
+      "source_url": "https://www.metroidwiki.org/wiki/K-2L"
+     },
+     {
+      "severity": "noncanon",
+      "claim": "Cylosis, arid home of Sylux",
+      "problem": "'Arid' is wiki speculation. The page says that if the planet shown in the Hunters intro really is Cylosis, 'it appears arid'.",
+      "correction": "Cylosis, Sylux's listed place of origin.",
+      "source_url": "https://www.metroidwiki.org/wiki/Cylosis"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Earth: Federation member planet and seat of its headquarters.",
+      "problem": "This comes from an unsourced Metroid Wiki page. No game or manual confirmed found places the headquarters on Earth.",
+      "correction": "Earth: Federation member planet.",
+      "source_url": "https://www.metroidwiki.org/wiki/Earth"
+     },
+     {
+      "severity": "nit",
+      "claim": "ZDR: Chozo world of Raven Beak",
+      "problem": "No source says ZDR is Raven Beak's homeworld. He is the Mawkin leader who used ZDR as his base: he built Itorash there, quarantined X-infected Mawkin in Elun, and planned to bring Metroids to the planet.",
+      "correction": "ZDR: Chozo-built world where Raven Beak's Mawkin based themselves.",
+      "source_url": "https://www.metroidwiki.org/wiki/ZDR"
+     },
+     {
+      "severity": "nit",
+      "claim": "Phrygis, ice-mining moon of the unexplored Bes III",
+      "problem": "Sources say only that 'little is known' about Bes III. They do not call it unexplored.",
+      "correction": "of the little-known Bes III.",
+      "source_url": "https://www.metroidwiki.org/wiki/Bes_III"
+     },
+     {
+      "severity": "style",
+      "problem": "At about 489 words, with 13 bullets, this is the longest index entry and over the limit. Each item needs only its one-line pointer."
+     },
+     {
+      "severity": "keys",
+      "claim": "planets, planet, star system",
+      "problem": "'planet' and 'planets' will match nearly any space-themed message. Remove them. Add the named places the entry describes that have no key: 'Bilium', 'Oormine II', 'Twin Tabula', 'Bes III', 'Vho', 'Tanamaar', 'Viewros', 'Desolan System', 'Excelcion', 'Bion', 'Talvania', 'Alinos', 'Arcterra', 'Kalandor Region'."
+     }
+    ]
+   }
+  ],
+  "overall": "All seven entries need fixes; none is fabricated wholesale. The most serious factual errors: (1) the gunship entry gets the ship order wrong (the classic ship is the Aether ship, and the Prime-era ship came before it), misreads the official website's registration line, and wrongly says Rundas activated the Command Visor; (2) the Navigation entry says ADAM gave the Dread Network Station briefings, when after Samus's first encounter with Raven Beak they came from Raven Beak impersonating ADAM, and it calls the gunship interface a 'Navigation Booth' (Other M's save point); (3) the bounty entry has the Corruption hunters carrying 'vaccines' (it was a virus purge), calls the Bottle Ship her only self-initiated mission (Orpheon and Ceres were too), contradicts the manual's reward-for-capture definition, misplaces Tanamaar in the chronology, omits Dread and Sylux's Prime 4 backstory, and calls Weavel a 'former' Pirate; (4) the elevator entry says auxiliary power fixed the BSL outage, which the source contradicts; (5) the species index misstates how the Lamorn became grievers. Several claims repeat Metroid Wiki speculation as fact: the Recharge Room 'precaution' line, the Navigation Room purpose, Cylosis 'arid', and Earth as Federation headquarters (an unsourced page). Keys are the most widespread problem: 'her ship', 'starship', 'elevator', 'teleporter', 'shuttle', 'bounty', 'freelance', 'species', 'aliens', 'planet', 'uplink' and others will misfire. Five of seven entries run over 400 words, and the gunship entry, at about 687, needs a rewrite-level trim. Verified and fine: the official-site specs (136 t, 9.144 m, twin Power Beam turrets, rear Plasma cannon); the Missile Battery and Big Energy Ball; BSL researchers recovering the escape pod; the obedience condition on the Fusion ship; the Super Missile download moving to Sector 3; the Bottle Ship Main Elevator skipping Sector Zero; the ZDR elevators, shuttles and teleportal; Gandrayda's 'Sammy'; the Hunters briefing; Aether as a rogue planet; Aurora Unit 486; Bryyo as the largest Fuel Gel source; the FS-176 planet order; the Prime 4 keys and Master Teleporter; and the Desolan System (confirmed only through fan-wiki search results).",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Gunship",
+   "https://www.metroidwiki.org/wiki/Samus_Aran%27s_Gunship",
+   "https://www.metroidwiki.org/wiki/Command_Visor",
+   "https://www.metroidwiki.org/wiki/Ship_Missile",
+   "https://www.metroidwiki.org/wiki/Ship_Grapple_Beam",
+   "https://www.metroidwiki.org/wiki/Theronian_Bomb",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption",
+   "https://www.metroidwiki.org/wiki/Save_Station",
+   "https://www.metroidwiki.org/wiki/Recharge_Room",
+   "https://www.metroidwiki.org/wiki/Data_Room",
+   "https://www.metroidwiki.org/wiki/Navigation_Booth",
+   "https://www.metroidwiki.org/wiki/Navigation_Room",
+   "https://www.metroidwiki.org/wiki/Bounty_Hunter",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Kanden",
+   "https://www.metroidwiki.org/wiki/Gandrayda",
+   "https://www.metroidwiki.org/wiki/Sylux",
+   "https://www.metroidwiki.org/wiki/Wotan_VII",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Lamorn",
+   "https://www.metroidwiki.org/wiki/FS-176",
+   "https://www.metroidwiki.org/wiki/K-2L",
+   "https://www.metroidwiki.org/wiki/Earth",
+   "https://www.metroidwiki.org/wiki/Kalandor_Region",
+   "https://www.metroidwiki.org/wiki/Federation_Solar_System",
+   "https://www.metroidwiki.org/wiki/ZDR",
+   "https://www.metroidwiki.org/wiki/Aether",
+   "https://www.metroidwiki.org/wiki/Portal",
+   "https://www.metroidwiki.org/wiki/Elysian",
+   "https://www.metroidwiki.org/wiki/Zebesian",
+   "https://www.metroidwiki.org/wiki/Reptilicus",
+   "https://www.metroidwiki.org/wiki/Ammo_Station",
+   "https://www.metroidwiki.org/wiki/Missile_Station",
+   "https://www.metroidwiki.org/wiki/Map_Station",
+   "https://www.metroidwiki.org/wiki/Spacecraft_Classifications",
+   "https://www.metroidwiki.org/wiki/Kriken",
+   "https://www.metroidwiki.org/wiki/Weavel",
+   "https://www.metroidwiki.org/wiki/Delano_7",
+   "https://www.metroidwiki.org/wiki/Luminoth_Technology",
+   "https://www.metroidwiki.org/wiki/Gray_Voice",
+   "https://www.metroidwiki.org/wiki/Old_Bird",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters",
+   "https://en.wikipedia.org/wiki/Metroid_Prime:_Federation_Force",
+   "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Pirate_Homeworld",
+   "https://www.metroidwiki.org/wiki/Bottle_Ship",
+   "https://www.metroidwiki.org/wiki/Cylosis",
+   "https://www.metroidwiki.org/wiki/Luminoth",
+   "https://www.metroidwiki.org/wiki/Ing",
+   "https://www.metroidwiki.org/wiki/Vhozon",
+   "https://www.metroidwiki.org/wiki/Bes_III",
+   "https://www.metroidwiki.org/wiki/Tetra_Galaxy",
+   "https://en.wikipedia.org/wiki/Metroid_Prime",
+   "https://metroiddatabase.com/old_site/m1/manual.php",
+   "https://www.looper.com/629936/the-ending-of-metroid-dread-explained/",
+   "https://nintendolife.com/guides/metroid-prime-4-beyond-who-is-sylux",
+   "https://game8.co/games/Metroid-Prime-4-Beyond/archives/567583"
+  ]
+ }
+}

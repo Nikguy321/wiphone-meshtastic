@@ -1,0 +1,358 @@
+{
+ "domain": "weapons",
+ "category": "Equipment",
+ "entries": [
+  {
+   "comment": "Equipment: Arm Cannon and Power Beam",
+   "keys": [
+    "Arm Cannon",
+    "Arm Cannons",
+    "arm-cannon",
+    "Power Beam",
+    "Normal Beam",
+    "Long Beam",
+    "beam cannon",
+    "her cannon",
+    "beam stacking"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Arm Cannon is the weapon the Chozo built to work in concert with Samus Aran's Power Suit: a barrel that encloses her right forearm and serves as the mount for nearly everything she fires. Its basic built-in weapon is the Power Beam (also called the Normal Beam), a rapid-fire bolt of energy with modest force per shot and the fastest rate of fire of any beam she carries. Every other weapon is layered onto it: beam enhancements, the Charge Beam, the Missile Launcher and, on most of her suits, the Grapple Beam. She selects a beam by changing the position of her hand inside the cannon.\n\nThe cannon is also her data port. She downloads map data from Map Stations and receives new ability data through it; during the Aether incident she coupled it with the Luminoth Energy Transfer Module to carry planetary energy back to the Energy Controllers, and during the Phazon crisis it carried the Command Visor link that directed her Gunship.\n\nBeams combine in two ways. Some suits stack them, merging each beam's properties into a single shot; others hold them as interchangeable modes fired one at a time. On Tallon IV, in the Alimbic Cluster and on Aether she fired one beam at a time, the Charge Beam excepted; by the Phazon crisis her beams fully merged again, and the Power Beam kept its rate of fire even when fused with the Plasma and Nova Beams. Most beams consume no ammunition; the Luminoth Dark, Light and Annihilator Beams are the exception.\n\nThe Long Beam is the one extension that merged permanently into the Power Beam. On her first Zebes mission the Power Beam's shots dissipated after a short distance; the Long Beam, taken from a Chozo Statue in Brinstar, let them cross an entire chamber and added half again their force. It has never again been separate equipment; its reach has been standard ever since.\n\nOn Viewros psychic powers extended what the cannon could do, among them the Control Beam (see Psychic abilities).\n\nSamus has carried the cannon since the Chozo armed her on Zebes. It is the constant of her career: even when every other system has been stripped from her, as on the BSL station and on ZDR, she begins with the Power Beam in hand, and with it alone she has forced her way through sealed hatches, machines, Space Pirates and, with the right enhancements, Metroids.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Arm_Cannon",
+    "https://www.metroidwiki.org/wiki/Power_Beam",
+    "https://www.metroidwiki.org/wiki/Long_Beam",
+    "https://www.metroidwiki.org/wiki/Upgrade",
+    "https://www.nintendo.com/us/whatsnew/available-now-explore-and-battle-across-an-unknown-planet-in-metroid-prime-4-beyond/",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   ],
+   "notes": "Long Beam folded in here since it merged into the Power Beam; its force bonus follows the retelling of the first Zebes mission (the original account gave no power increase). 'Long Wave Beam' manual claim removed as unverified. Control Beam is stated only as one of the ancient psychic abilities Samus was granted on Viewros (Nintendo); the Chrono Tower crystal link was dropped as inference. Consistency pass: Control Beam paragraph cut to a pointer and its key left to the abilities domain's Psychic abilities entry, which owns it."
+  },
+  {
+   "comment": "Equipment: Charge Beam and Charge Combos",
+   "keys": [
+    "Charge Beam",
+    "Charge Beams",
+    "charged shot",
+    "charged shots",
+    "charge shot",
+    "Charge Attack",
+    "Charge Combo",
+    "Charge Combos",
+    "Wavebuster",
+    "Ice Spreader",
+    "Darkburst"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Charge Beam is a Chozo enhancement that lets Samus hold beam energy inside the Arm Cannon and release it as a single, far stronger blast. If she Spin Jumps at full charge she performs the Charge Attack, a spinning strike resembling the Screw Attack that can harm only foes no tougher than the charged shot itself. On Tallon IV, on Aether and through the Phazon crisis, charging also exerted a tractor pull that drew loose energy and ammunition toward her.\n\nCharging alters every beam it is paired with. A charged Wave Beam paralyzes with electricity, a charged Plasma Beam engulfs its target in flames, a charged Ice Beam freezes, and the Luminoth beams produce the Lightblast, the Entangler and the Disruptor. The Hyper Beam of Tourian and the Phazon Beam cannot be charged. On ZDR charged fire breaks the seals on Charge Beam Doors. On her return to Zebes, charging with Power Bombs selected unleashed a special attack keyed to whichever beam she had equipped.\n\nShe recovered it from the creature Deorem in Brinstar on her first Zebes mission, from a Chozo Statue in Brinstar's red swamps on her return, in the Watery Hall of the Chozo Ruins on Tallon IV, from a Hard Core-X mimicking a Chozo Statue in Sector 1 (SRX) of the BSL station, and from a Chozo Statue in Artaria on ZDR; aboard the Bottle Ship she kept it and used it without waiting for Adam Malkovich's authorization. The BSL version was changed: uncharged shots became wide bursts that struck as two, and a released charge threw a slash of energy that hit hardest at point-blank range.\n\nOn Tallon IV and Aether she also fired Charge Combos: a fully charged beam loosed with Missiles (and, for Luminoth beams, beam ammunition) into a weapon neither could manage alone.\n- Super Missile (Power Beam): about five times a Missile's force.\n- Wavebuster (Wave Beam): a sustained arc that locks onto and paralyzes a target, jumping to the next when one dies.\n- Ice Spreader (Ice Beam): ice spreads from the impact to freeze several foes.\n- Flamethrower (Plasma Beam): a continuous stream of fire.\n- Darkburst (Dark Beam): a void that drags nearby enemies into another dimension.\n- Sunburst (Light Beam): a slow sphere of light that burns Dark Aether creatures.\n- Sonic Boom (Annihilator Beam): a near-instant wave of force that tears a rift in space.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Charge_Beam",
+    "https://www.metroidwiki.org/wiki/Charge_Combo",
+    "https://www.metroidwiki.org/wiki/Paralyzer",
+    "https://www.metroidwiki.org/wiki/Spazer_Beam",
+    "https://www.metroidwiki.org/wiki/Wave_Beam_(Metroid_Prime)",
+    "https://www.metroidwiki.org/wiki/Dark_Beam",
+    "https://www.metroidwiki.org/wiki/Light_Beam",
+    "https://www.metroidwiki.org/wiki/Annihilator_Beam"
+   ],
+   "notes": "Paralyzer removed from the unchargeable list (it charges; see the suits domain). The Fusion energy slash is confirmed by Metroid Wiki's Charge Beam page and kept. Combo Missile/ammo costs and locations trimmed for length; Super Missile locations live in the Missiles entry. Bare keys Flamethrower, Sunburst and Sonic Boom dropped to avoid misfires. The unused 'Phazon Combo' (data only) omitted as non-canon. Consistency pass: Acquisition history condensed to one sentence (Sector 1 per the Charge Beam page infobox and the fusion sectors entry)."
+  },
+  {
+   "comment": "Equipment: Ice Beam",
+   "keys": [
+    "Ice Beam",
+    "Ice Beams",
+    "Ice-Beam",
+    "freeze beam",
+    "freezing beam"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Ice Beam is a Chozo enhancement for the Arm Cannon that fires frigid energy. A target that absorbs enough of it freezes solid; frozen enemies can be shattered with a Missile or used as footholds to reach otherwise unreachable heights. Because Metroids are acutely sensitive to cold, the Ice Beam is their classic counter: a frozen Metroid cracked open by Missiles is one of the few ways to kill one, and on her first Zebes mission Samus could not have cleared the Metroids of Tourian without it.\n\nThe Chozo left it in several places: in Norfair on both her Zebes missions, twice in the ruins of SR388 (the second at the entrance to the deepest region, where juvenile Metroids could only be hurt while frozen) and in the Antechamber of the Chozo Ruins on Tallon IV; aboard the Bottle Ship Adam Malkovich authorized it in Sector 3 (Pyrosphere). The Tallon IV version fired slow shots, froze foes on a charged hit and fed the Ice Spreader. On the Bottle Ship freezing was often partial, locking a Dessgeega's legs or a Zebesian's claws, and frozen bodies dropped under gravity rather than hanging in place. On Aether and during the Phazon crisis she carried no Ice Beam at all, relying on the Luminoth Dark Beam and on Ice Missiles instead.\n\nThe BSL incident gave the weapon a personal edge. The Metroid vaccine that saved her life also gave her the Metroids' weakness to cold, so she could not use an Ice Beam and the Galactic Federation issued Ice Missiles in its place, while the SA-X, wearing her stolen suit, turned the Ice Beam against her again and again, freezing her solid. Only after she absorbed the Core-X the SA-X left behind when it attacked the Omega Metroid could she wield it without harm, and she used it at once to kill the Omega Metroid in the station's docking bay (see Omega Metroid of the BSL).\n\nPer the manga, she fired the Ice, Wave and Plasma Beams once together at Ridley. The Federation's 07th Platoon carried Freeze Guns as their equivalent aboard the Bottle Ship.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Ice_Beam",
+    "https://www.metroidwiki.org/wiki/Ice_Missile",
+    "https://www.metroidwiki.org/wiki/Missile"
+   ],
+   "notes": "Fact-check flagged the manga Ice/Wave/Plasma shot as unsupported, but Metroid Wiki's Ice Beam page states 'Samus shoots the Ice Beam, Wave Beam, and Plasma Beam once against Ridley'; kept here (only) with 'per the manga'. The SR388 second Ice Beam and juvenile-Metroid detail are confirmed by the same page (original Metroid II account). First-mission location follows the retelling (Norfair only, Power Grip). Generic keys 'frozen solid', 'frozen enemies', 'freeze ray' dropped. Consistency pass: Acquisition history condensed to one sentence; BSL paragraph tightened with a pointer to the fusion domain's Omega Metroid entry; 'Freeze Gun(s)' keys left to the other-m domain's 07th Platoon entry, which owns them."
+  },
+  {
+   "comment": "Equipment: Wave Beam and Spazer",
+   "keys": [
+    "Wave Beam",
+    "Wave Beams",
+    "Spazer",
+    "Spazer Beam",
+    "Spazer Laser Beam",
+    "Spazer Shield",
+    "Wave Trooper",
+    "Wave Troopers"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Wave Beam is a Chozo weapon made of energy waves that pass through solid matter and strike whatever lies behind, with a wider area of effect than the Power Beam. She found it in Norfair on both her Zebes missions, in the ruins of SR388, in the Chapel of the Elders in Phendrana Drifts on Tallon IV, in Sector 6 (NOC) of the BSL station and from E.M.M.I.-06WB in Ferenia on ZDR; aboard the Bottle Ship Adam Malkovich authorized it in Sector 2 (Cryosphere) while Super Zebesians armed with Wave Beams had her trapped in a glass cage, firing through it, which made them easy targets. On her return to Zebes, paired with the Plasma Beam, it split that beam into two shots; on the Bottle Ship it crossed glass but not the ship's thick walls.\n\nThe Tallon IV version was different in kind: the only weapon of hers that fires electricity, as oscillating pulses that home on a locked target, paralyze on a charged hit, re-energize dead Power Conduits and open Purple Doors; its charged form fed the Wavebuster. The Space Pirates reverse-engineered it for their Wave Troopers, inferior copies vulnerable to the original, and the creature Metroid Prime absorbed the same power.\n\nThe Spazer Beam (originally the Spazer Laser Beam) splits each shot into three parallel beams. On SR388 the other two beams continued if one struck; on Zebes, where it waited in Brinstar during her return, the whole shot stopped on contact. There it could not be used together with the Plasma Beam, and with a Power Bomb it produced a Spazer Shield.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Wave_Beam",
+    "https://www.metroidwiki.org/wiki/Wave_Beam_(Metroid_Prime)",
+    "https://www.metroidwiki.org/wiki/Spazer_Beam",
+    "https://www.metroidwiki.org/wiki/E.M.M.I."
+   ],
+   "notes": "Split from the former Wave/Spazer/Plasma entry; the Plasma Beam now shares an entry with the Nova Beam. Kiru Giru line rewritten to the wiki's wording (she had to navigate around the larva). 'Federation-made' dropped. Fusion location (Sector 6, NOC) is from the wiki infobox only. The editorial claim that the Spazer's role passed to later beams was removed; the extermination-mission retelling's Spazer is listed by the wiki without detail, so only the SR388 behavior from the original account is described. Consistency pass: Acquisition history (including the Tallon IV Chapel of the Elders) condensed to one sentence; Kiru Giru and Grapple Beam access details dropped as route detail."
+  },
+  {
+   "comment": "Equipment: Plasma and Nova Beams",
+   "keys": [
+    "Plasma Beam",
+    "Plasma Beams",
+    "Plasma Trooper",
+    "Plasma Troopers",
+    "Plasma Shield",
+    "Nova Beam",
+    "Nova Beams"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Plasma Beam is the strongest Chozo beam: a blast that pierces any number of targets, and on SR388 even solid walls. She found it in Crateria on her first Zebes mission, unusable and unidentified until the Legendary Power Suit, in the hands of a Chozo Statue beyond Draygon in Maridia on her return, from the X creature Nettori in Sector 2 (TRO) of the BSL station and in Elun on ZDR; aboard the Bottle Ship she carried it from the start but first used it against the fully mature Ridley clone in the Pyrosphere. On her return to Zebes, paired with a Power Bomb, it produced a Plasma Shield.\n\nThe Tallon IV version fires superheated plasma that melts ice and frigidite, ignites foes, reduces most enemies to ash on a charged hit and opens Red Doors; its charged form fed the Flamethrower, and Pirate Plasma Troopers carried a weaker copy. During the Phazon crisis the hunter Ghor wielded a faster, longer-ranged Plasma Beam; Samus took it after defeating him in SkyTown's Main Docking Bay and used its heat to repair Aurora Unit 217 and other damaged circuitry, the beam doubling as an arc welder. Gandrayda, mimicking Ghor, and Dark Samus wielded it as well.\n\nThe Nova Beam was a tool of the Space Pirates' Phazon mining. On the Pirate Homeworld it sat inside a mining mechanism that pulled Phazon from rock, its high frequency reaching Phazon that Phazite plating otherwise shielded; Samus took it after destroying the mechanism. Stronger than the Plasma Beam, it keeps the Power Beam's rate of fire and the Plasma Beam's welding heat, and used with the X-Ray Visor it passes through Phazite to strike internal organs. With it she felled Metroid Hatchers, Phazon Metroids, Omega Ridley and the Infant Leviathan through their critical points.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Plasma_Beam",
+    "https://www.metroidwiki.org/wiki/Plasma_Beam_(Metroid_Prime)",
+    "https://www.metroidwiki.org/wiki/Nova_Beam",
+    "https://www.metroidwiki.org/wiki/Spazer_Beam",
+    "https://www.metroidwiki.org/wiki/ZDR"
+   ],
+   "notes": "Split out of the Wave/Spazer/Plasma entry and joined with the Nova Beam (moved from the Luminoth/Phazon entry). 'Nova Beam is Space Pirate work' softened to the wiki's wording (a tool of their Phazon mining; builder unstated). Plasma Shield per the Spazer Beam page. How the Plasma Beam is recovered on Elun is not documented, so only the location is given. The manga Ice/Wave/Plasma shot is carried in the Ice Beam entry only. Consistency pass: Acquisition history condensed to one sentence; Nettori's 'resembling a Chozo Statue' dropped (the fusion domain describes it as a plant wrapped around a Chozo Statue)."
+  },
+  {
+   "comment": "Equipment: Wide, Diffusion and Hyper Beams",
+   "keys": [
+    "Wide Beam",
+    "Wide Beams",
+    "Diffusion Beam",
+    "Diffusion Beams",
+    "FG-1000",
+    "Hyper Beam",
+    "Hyper Beams",
+    "rainbow beam"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Wide Beam fires three beams at once across a swath roughly Samus's own height; it adds no force to each shot but makes a target far easier to hit. She took it on the BSL station from a Human Core-X, an X that had mimicked a recently dead crewman and fired it at her in Sector 3 (PYR), and found it again in Dairon on ZDR. It stacks with the Charge Beam and Plasma Beam.\n\nThe Diffusion Beam is a charge enhancement. A fully charged shot scatters at the point of impact into a burst that strikes every enemy close enough, and the effect carries into every beam she acquires afterward. She took it on her own aboard the Bottle Ship, in the Main Sector, after destroying three machines armed with the FG-1000 beam, and found it again in Cataris on ZDR, where its charged shots reach through walls to a degree.\n\nThe Hyper Beam was never Chozo work: it came to Samus in Tourian on her return to Zebes, from the remains of the baby Metroid that had poured Mother Brain's stolen energy into her before Mother Brain killed it (see Mother Brain's final battle and the baby's sacrifice). The rainbow-colored beam destroyed any enemy in a single shot, could not be charged, and was the only thing that could kill Mother Brain. The hatchling's gift died with Zebes. The Phazon-fuelled Hyper Beam of her PED Suit during the Phazon crisis is a separate weapon (see Phazon Beam).\n\nThe name returned on ZDR, where her fully awakened Metroid genes turned her armor into the Metroid Suit during her final battle with Raven Beak and gave her a second Hyper Beam, a huge laser that destroyed anything and killed enemies in one shot (see Metroid Suit).\n\nAfter the BSL incident she reflected that she owed the hatchling her life twice over: once in Tourian, and once for the Metroid vaccine made from its cells that cured her of the X.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Wide_Beam",
+    "https://www.metroidwiki.org/wiki/Diffusion_Beam",
+    "https://www.metroidwiki.org/wiki/Hyper_Beam_(Mother_Brain)",
+    "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+    "https://www.metroidwiki.org/wiki/Upgrade",
+    "https://www.metroidwiki.org/wiki/Charge_Beam",
+    "https://en.wikipedia.org/wiki/Metroid_Dread"
+   ],
+   "notes": "Added the Dread-ending Hyper Beam documented on Metroid Wiki's Upgrade page (the drafter had missed it); the Itorash crash, Raven Beak X and Quiet Robe X details follow Wikipedia's Dread plot. Metroid Suit is cross-referenced to the suits domain. Unverified Dread 'Wide Beam Blocks' claim and the Wide Beam width comparison trimmed; '(Super Metroid)' citation removed. Mother Brain's attack is called 'her beam' rather than a Hyper Beam to avoid confusing it with the weapon Samus received. Key 'scatter shot' dropped. Consistency pass: Removed 'one of only two pieces of equipment she took on her own' for the Diffusion Beam: it contradicted the abilities entries (she switched on the Space Jump and Screw Attack herself, used the Charge Beam unasked and fired a Power Bomb unauthorized). Hyper Beam origin and the Dread ending cut to one sentence each with pointers to the super-metroid final-battle and suits Metroid Suit entries; Wide Beam acquisition condensed."
+  },
+  {
+   "comment": "Equipment: Dark, Light, Annihilator and Phazon Beams",
+   "keys": [
+    "Dark Beam",
+    "Dark Beams",
+    "Light Beam",
+    "Light Beams",
+    "Annihilator Beam",
+    "Entangler",
+    "Lightblast",
+    "Dark Ammo",
+    "Light Ammo",
+    "Luminoth beams",
+    "Phazon Beam",
+    "Phazon Hyper Beam"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Luminoth of Aether built beams to fight the Ing. Having identified the Ing's attacks as dark energy, they first built the Dark Beam; their Lore records the error: \"the Dark Beam was not of great effect on the Ing.\" The Light Beam that followed worked, and I-Sha wrote that all the Ing fear its power. The Annihilator Beam, an advanced design uniting both energies, belonged to the Luminoth champion A-Kul; when the champion fell the Ing took it, and O-Lir's record laments that \"the strongest weapon of our champion is in the hands of the enemy.\" Samus recovered all three during the Aether incident: the Dark Beam from the Space Pirates' base in Agon Wastes after her first defeat of Dark Samus, the Light Beam in Dark Agon Wastes, and the Annihilator from the wreck of Quadraxis in the Ing Hive. Their charged forms fed the Darkburst, Sunburst and Sonic Boom combos.\n- Dark Beam: slow bolts of dark matter that hinder a target and, with repeated hits, encase it; the charged Entangler wraps targets in shadow tendrils at once. It harms Light Aether creatures heavily, opens portals into Dark Aether, extinguishes Light Crystals and opens purple hatches. One Dark Ammo per shot, five for the Entangler.\n- Light Beam: ignites and keeps burning what it touches, with extra damage to dark creatures; the charged Lightblast homes hard enough to knock Dark Samus out of her Boost Ball. It opens portals back to Aether, energizes Light Crystals and opens white hatches. One Light Ammo per shot, five for the Lightblast.\n- Annihilator Beam: homing shots that need no lock, one Light and one Dark Ammo apiece; the charged Disruptor (five of each) does not home but stuns, and is the only weapon that destroys Lightbringers. With the Echo Visor its sonic component operates sonic devices, and it supercharges Light Crystals into Super Crystals that lure Ing to their deaths.\n\nPhazon gave Samus beams of its own. In the Impact Crater on Tallon IV, the creature Metroid Prime expelled pools of pure Phazon; standing in one, her Phazon Suit entered a hyper state and the Arm Cannon poured out the Phazon Beam, the only thing that could hurt it. During the Phazon crisis, corrupted by Dark Samus and fitted with the Federation's PED Suit, she could enter Hypermode at will and turn the Power Beam into a Phazon Hyper Beam, a continuous stream when charged, paid for from her own Phazon reserve. All of it ended when Phaaze died and Phazon ceased to exist.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Dark_Beam",
+    "https://www.metroidwiki.org/wiki/Light_Beam",
+    "https://www.metroidwiki.org/wiki/Annihilator_Beam",
+    "https://www.metroidwiki.org/wiki/Phazon_Beam",
+    "https://www.metroidwiki.org/wiki/Hyper_Beam_(Phazon)",
+    "https://www.metroidwiki.org/wiki/Charge_Combo"
+   ],
+   "notes": "Nova Beam moved to the Plasma entry. Lightblast 'shotgun spread' replaced with the wiki's description; the Disruptor/Lightbringer fact restored (supported by the Annihilator page). Metroid Wiki places the Light Beam in Dark Agon Wastes; followed the wiki. Bare 'Annihilator' and 'Disruptor' keys dropped as generic. Hyper Missile, Hyper Ball and Hyper Grapple are covered in their own entries and in the suits/phazon domains."
+  },
+  {
+   "comment": "Equipment: Missiles and Super Missiles",
+   "keys": [
+    "Missile Launcher",
+    "Missile Tank",
+    "Missile Tanks",
+    "Missile Expansion",
+    "Missile Expansions",
+    "Super Missile",
+    "Super Missiles",
+    "missile ammo",
+    "her missiles"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Missiles are long-range concussive warheads, the one weapon Samus has carried on every mission. They require the Missile Launcher, an Arm Cannon attachment engaged by rotating her arm inside the housing, and each shot spends one unit of Missile Ammo. She normally begins able to hold five, and each Missile Expansion (Missile Tank) she recovers typically adds five more (one at a time aboard the Bottle Ship, ten in the Alimbic Cluster).\n\nTheir job is to break what beams cannot: Red Doors and red hatch locks, rock, Radion and Brinstone, the shielding on armored creatures. A frozen target struck by a Missile shatters, which is why ice and Missiles together are a Metroid's bane. On the BSL station the tough casing of a Core-X had to be ruptured by Missile fire. On Tallon IV, Aether and the worlds of the Phazon crisis a locked-on Missile homed on its target, and in the Alimbic Cluster hers were the only homing Missiles in the field. On Viewros they are highly accurate, target-tracking projectiles. Aboard the Bottle Ship a Missile was a lock-on weapon, and a fully charged volley spent five to loose a Super Missile. Adam Malkovich once remarked that with Missiles her chance of survival \"climbs to 20%\".\n\nSuper Missiles are the bulkier successor: roughly five times the force, with a shockwave that shakes a chamber and knocks wall-clinging creatures loose. They open green hatches and clear dense material such as Cordite. She recovered them from the creature Imago on her first Zebes mission, from a cache in Brinstar on her return, on SR388 during the extermination mission, from a Sector 3 (PYR) Data Room on the BSL station, where she used them at once on the Security Robot B.O.X., and in Ghavoran on ZDR; on Tallon IV and Aether they existed as a Charge Combo of the Power Beam, found in the Phendrana Drifts Observatory and in Torvus Temple. On the BSL station they replaced her ordinary missile fire, each costing a single unit, and later took on the Ice Missiles' freezing.\n\nHer Gunship has ordnance of its own. During the Phazon crisis the Galactic Federation furnished Ship Missiles at its landing site on Bryyo; targeted through the Command Visor, the ship made bombing runs against Maldium walls and other targets she could not reach, drawing on its own Ship Missile Ammo.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Missile",
+    "https://www.metroidwiki.org/wiki/Missile_Expansion",
+    "https://www.metroidwiki.org/wiki/Super_Missile",
+    "https://www.metroidwiki.org/wiki/Ship_Missile",
+    "https://www.metroidwiki.org/wiki/Charge_Combo",
+    "https://www.nintendo.com/us/whatsnew/available-now-explore-and-battle-across-an-unknown-planet-in-metroid-prime-4-beyond/"
+   ],
+   "notes": "Expansion wording now carries the Missile Expansion page's exceptions; the '255 in most suits' ceiling dropped as an overgeneralization. 'Green-tipped' removed (unsourced). Adam's '20%' line is quoted on the Missile page without stated context, so no mission is attributed. Keys 'Red Door', 'red hatch' and bare 'Missiles' dropped to avoid misfires ('Missile' is a forbidden bare key). Ship Grapple is covered in the Grapple Beam entry. Consistency pass: Super Missile acquisition history condensed to one sentence."
+  },
+  {
+   "comment": "Equipment: Ice, Diffusion, Seeker, Storm and Hyper Missiles",
+   "keys": [
+    "Ice Missile",
+    "Ice Missiles",
+    "Diffusion Missile",
+    "Diffusion Missiles",
+    "Seeker Missile",
+    "Seeker Missiles",
+    "Seeker Launcher",
+    "Storm Missile",
+    "Storm Missiles",
+    "Hyper Missile",
+    "Hyper Missiles",
+    "Multi-Lock"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Ice Missiles freeze what they hit while delivering a Missile's blast, and Metroids are especially vulnerable to them. She received them from the Galactic Federation in a Sector 5 (ARC) Data Room on the BSL station, because the Metroid vaccine had left her unable to use an Ice Beam, took them from Rundas after defeating him in the Temple of Bryyo during the Phazon crisis, and claimed them from E.M.M.I.-05IM in Ghavoran on ZDR. On the BSL station frozen foes served her as stepping stones, and the Super Missiles she already carried took on the same freezing; during the Phazon crisis they froze enemies and flowing Fuel Gel, broke White Blast Shields and set up frozen targets to be shattered by a charged beam.\n\nThe Diffusion Missile, downloaded on the BSL in Sector 4 (AQA) shortly after she destroyed Nightmare, is a charged Missile: held in the launcher and released, it bursts and damages every enemy within its radius, and fired with Ice Missiles it freezes every freezable creature in sight. Each shot costs one Missile.\n\nThe Seeker Missile locks onto up to five targets at once, or five times onto one, and fires a Missile at each. It breaks Multi-Lock Blast Shields and overwhelms regenerating weak points such as those of Mekenobites and the adult Chykka, though Pirate Commandos can evade it. Its Luminoth form, the Seeker Launcher, was once the weapon of the champion A-Kul; Samus claimed it from its sacred vault in the Hall of Honored Dead on Aether, as A-Voq's message urged, recovered the weapon again in the Xenoresearch Labs of SkyTown during the Phazon crisis, and took the Seeker Missile Launcher on her own, without Adam Malkovich's authorization, in Sector 1 (Biosphere) of the Bottle Ship. There a fully charged volley loosed a Super Missile at the main target while the extra Missiles found targets by themselves.\n\nThe Storm Missile is the ZDR answer to the same need: absorbed from the Core-X left by Escue in Ferenia, it locks onto as many as five enemies and fires three Missiles at each in quick succession.\n\nThe Hyper Missile was a child of Phazon: taken from Helios in the core of Elysia's Leviathan and usable only in Hypermode, it hit like ten ordinary Missiles while consuming half her Phazon reserve. It was her answer to Omega Ridley and Aurora Unit 313.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Ice_Missile",
+    "https://www.metroidwiki.org/wiki/Super_Missile",
+    "https://www.metroidwiki.org/wiki/Diffusion_Missile",
+    "https://www.metroidwiki.org/wiki/Seeker_Missile",
+    "https://www.metroidwiki.org/wiki/Hyper_Missile",
+    "https://www.metroidwiki.org/wiki/Upgrade",
+    "https://www.metroidwiki.org/wiki/ZDR",
+    "https://www.metroidwiki.org/wiki/E.M.M.I."
+   ],
+   "notes": "Super Missile freezing chronology corrected (Ice Missile data enhanced existing Super Missiles). Diffusion Missile location and 'shortly after defeating Nightmare' confirmed on its wiki page. A-Voq line rendered as paraphrase. Hyper Missile homing/area claims and Storm Missile boxes/electric-enemy claims removed as unverified. Storm Missile has no dedicated wiki article; details from the Upgrade and ZDR pages. Consistency pass: Ice Missile and Seeker Missile acquisitions each gathered into one sentence."
+  },
+  {
+   "comment": "Equipment: Bombs, Power Bombs and Cross Bombs",
+   "keys": [
+    "Morph Ball Bomb",
+    "Morph Ball Bombs",
+    "Bomb Jump",
+    "Power Bomb",
+    "Power Bombs",
+    "Power Bomb Tank",
+    "Power Bomb Tanks",
+    "Cross Bomb",
+    "Cross Bombs",
+    "Crystal Flash",
+    "Bomb Block",
+    "Bomb Blocks"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Morph Ball Bomb is a small time-fused explosive Samus lays while in Morph Ball form. Her supply is unlimited, though most suits allow only three in play at once. A blast beneath her Morph Ball throws her about twice the ball's height, the Bomb Jump. Bombs break Bomb Blocks, Sandstone and Talloric Alloy, trigger the Bomb Slots that drive Chozo machinery, and helped her bring down Flaahgra and Quadraxis; on SR388 she let the Queen Metroid swallow her Morph Ball and set them off inside its stomach. With the Charge Beam she can drop five at once.\n\nShe took them from a Chozo Statue in Brinstar on her first Zebes mission, in Crateria on her return, where a Torizo rose to contest them, from a Chozo Statue in the ancient ruins of SR388, in the Chozo Ruins of Tallon IV by destroying the Incinerator Drone, from the Bomb Guardian, the Ing-possessed Alpha Sandigger of Agon Temple, on Aether, as data downloaded anew in Sector 2 (TRO) of the BSL station, and in Dairon on ZDR; aboard the Bottle Ship she was not authorized to use them until the Brug Mass was dead.\n\nThe Power Bomb is the most destructive explosive she carries: a superheated blast that fills an entire chamber and incinerates organic matter outright. It kills Metroids, destroys Bendezium and Denzium and opens yellow hatches. Its supply is limited and expanded by Power Bomb Tanks; on ZDR she began with two and could hold fifteen. On her first Zebes mission the Space Pirates had stolen the device, broken the Chozo Statue meant to hold it and hidden it in Chozodia's ruins, where she found it; she recovered it again on her return to Zebes, in the Phazon Mines of Tallon IV, from the Power Bomb Guardian beneath Torvus Bog on Aether, from the wreck of the Diggernaut on SR388, from a BSL Data Room the Federation sent her to so she could better face the SA-X, which carried Power Bombs of its own, and from E.M.M.I.-07PB in Hanubia on ZDR. On her return to Zebes it also fueled the Crystal Flash. Aboard the Bottle Ship Adam Malkovich refused to authorize them, warning that their heat wave could vaporize humans instantly; she first used one against the Queen Metroid without being told she could.\n\nThe Cross Bomb is the third explosive of her Morph Ball, gained on ZDR from the Core-X left by Golzuna in Ghavoran.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Bomb",
+    "https://www.metroidwiki.org/wiki/Power_Bomb",
+    "https://www.metroidwiki.org/wiki/ZDR",
+    "https://www.metroidwiki.org/wiki/E.M.M.I.",
+    "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+    "https://www.metroidwiki.org/wiki/Charge_Beam"
+   ],
+   "notes": "Fixed: Bombs were in Brinstar on the first mission only, Crateria (with the Torizo) on the return; Power Bombs were first obtained on the first mission (Chozodia), not on the return. Area for the return-mission Power Bombs omitted (wiki infobox says Crateria, unconfirmed). Adam's vaporization warning and the Fusion SA-X rationale are both confirmed on the Power Bomb page and kept. Echoes Power Bomb Guardian placed 'beneath Torvus Bog' per the page body (its infobox says Undertemple of Dark Torvus Bog). Cross Bomb mechanics unverifiable, so only its origin is stated. Bare 'Bombs' key dropped. Consistency pass: Bomb and Power Bomb acquisition histories each condensed to one sentence."
+  },
+  {
+   "comment": "Equipment: Grapple Beam",
+   "keys": [
+    "Grapple Beam",
+    "Grapple Beams",
+    "Grapple Lasso",
+    "Grapple Swing",
+    "Grapple Voltage",
+    "Hyper Grapple",
+    "Ship Grapple Beam",
+    "Grapple Point",
+    "Grapple Points",
+    "Grapple Block",
+    "Grapple Blocks"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Grapple Beam is a tether of energy that latches onto Grapple Points, Grapple Blocks and other magnetic anchors and lets Samus swing across gaps she could never jump. On most of her suits it fires from the Arm Cannon; on the suits she wore on Tallon IV, Aether and through the Phazon crisis it was an attachment on her left arm. Besides swinging, it can hold her still in midair, grab small creatures and pull open hatches.\n\nShe recovered it in Norfair after killing Crocomire on her return to Zebes, from Storage Depot B in the Phazon Mines of Tallon IV, from the Grapple Guardian in Dark Torvus Bog on Aether and in Artaria on ZDR; aboard the Bottle Ship Adam Malkovich authorized it in Sector 3 (Pyrosphere) when she spotted a Grapple Point above a Rhedogian holding Anthony Higgs over lava, and she swung in to knock him free. On Zebes it carried her to the Wave Beam and made short work of Draygon; the Tallon IV version fired slowly but could hook the magnetic undersides of Gliders; on ZDR, with the Spider Magnet, it let her attach to distant magnetic surfaces.\n\nDuring the Phazon crisis the beam grew into a family of tools, each a glowing emitter on her left glove:\n- Grapple Lasso (yellow), found in the first room of Norion: hurled at shimmering objects to tear away blast shields, strip armor and shields from Shield Pirate Troopers and Gragnol Adults, and wrench at Rundas, Omega Ridley and Aurora Unit 313.\n- Grapple Swing (blue), earned on Bryyo while fending off Reptilicus: the classic swing, from which she can fire or hold fast, as on SkyTown's zipline.\n- Ship Grapple Beam (gray): the Gunship's counterpart, directed through the Command Visor to carry heavy objects, among them the bomb that broke the shield of Elysia's Leviathan.\n- Grapple Voltage (purple), dropped by Gandrayda on the Pirate Homeworld: a conduit that draws energy out of a target into Samus, refilling her, or forces her energy into it at a cost to herself; either way it can kill, and it powers up or shuts down machinery.\n- Hyper Grapple (Phazon-colored), taken after Omega Ridley in the Pirate Homeworld's Leviathan: Grapple Voltage running on Phazon, needed to reach the portal to Phaaze, where she used it to vent excess Phazon into her enemies and keep her own corruption in check.\n\nOn Viewros she gained a psychic counterpart, the Psychic Grapple (see Psychic Lasso, Psychic Grapple, Psychic Boots and the psychic Morph Ball upgrades (Viewros)).",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Grapple_Beam",
+    "https://www.metroidwiki.org/wiki/Grapple_Lasso",
+    "https://www.metroidwiki.org/wiki/Grapple_Voltage",
+    "https://www.metroidwiki.org/wiki/Hyper_Grapple",
+    "https://www.metroidwiki.org/wiki/Upgrade",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   ],
+   "notes": "Fixed: Hyper Grapple came from the Pirate Homeworld's Leviathan (Omega Ridley), not Bryyo's. Grapple Guardian placed in Dark Torvus Bog per the wiki infobox (page text is inconsistent). 'Phaz-Ings' and Grapple Voltage speed claims removed as unverified. Spider Magnet combination added from the Upgrade page. The Elysia bomb is left unnamed (the Prime 3 domain covers it). Keys 'grapple' and 'grappling' dropped as generic. Consistency pass: Acquisition history condensed to one sentence."
+  },
+  {
+   "comment": "Equipment: Melee Counter and Omega Cannon",
+   "keys": [
+    "Melee Counter",
+    "Melee Counters",
+    "Free Aim",
+    "Omega Cannon",
+    "Omega Blaster",
+    "Omega Stream",
+    "Central Unit",
+    "Central Units"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Melee Counter is a close-quarters technique Samus brought to her extermination mission on SR388: a hard swing of the Arm Cannon timed against a creature's lunge. Many creatures of SR388 and ZDR betray a physical attack an instant before it lands; if she strikes then, the blow is turned aside and the attacker is left stunned and open, and against a stunned Metroid her next shot comes out fully charged. On the same mission she gained full freedom of aim, able to fire in any direction rather than at the fixed angles of earlier suits.\n\nOn ZDR the counter became a matter of survival. An E.M.M.I. that seizes her moves to stab her through the chest; she has two narrow chances to counter and break free, and failure kills her instantly. She escaped the crippled E.M.M.I.-01P this way at the outset, countering and sliding between its legs. The Chozo Soldiers of the Mawkin, and Raven Beak himself, make attacks she can counter in the same way.\n\nHer ordinary weapons could not scratch an E.M.M.I. Her answer was the Omega Cannon, a temporary transformation of the Arm Cannon fueled by a mysterious energy she absorbs from a Central Unit, the armored organism that presides over each E.M.M.I. Zone. When a Central Unit falls its energy passes into her, and the weapon stays live until that zone's E.M.M.I. is destroyed. She first drew it from an already-fallen Central Unit in Artaria, and E.M.M.I.-01P, following her through the next door, was the first machine she destroyed with it.\n\nIt fires two ways. The Omega Stream is a barrage of small projectiles, like a rotary gun, that melts the faceplate shielding an E.M.M.I.'s head and slows the machine while the stream stays on its face. The Omega Blaster is a charged shot, slower to build than a normal charge, that can destroy an E.M.M.I.'s cores, which nothing else can harm, and break certain otherwise indestructible doors; a Blaster shot anywhere but the exposed cores is wasted, so she strips the faceplate with the stream before planting the blast. Most E.M.M.I. she destroys yield one of the abilities Raven Beak stripped from her. The last, E.M.M.I.-07PB, she did not need it for: her Metroid DNA had awakened, and she drained the machine's energy, killing it and its Central Unit. The weapon is unrelated to the Alimbic Omega Cannon she fired at Gorea.",
+   "constant": false,
+   "order": 100,
+   "category": "Equipment",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns",
+    "https://en.wikipedia.org/wiki/Metroid_Dread",
+    "https://www.metroidwiki.org/wiki/E.M.M.I.",
+    "https://www.metroidwiki.org/wiki/Omega_Cannon_(Metroid_Dread)",
+    "https://www.metroidwiki.org/wiki/Central_Unit",
+    "https://www.metroidwiki.org/wiki/Metroid_Dread",
+    "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns"
+   ],
+   "notes": "Merged the former Melee Counter and Omega Cannon entries (both are Samus's answers to the E.M.M.I.) to keep the domain at 12 entries after splitting Plasma from Wave. Removed unverified 'Finish Counter' knockback and Spider Magnet countering; 'needle' replaced with the wiki's 'stab through the chest'; two counter chances per Wikipedia. Added E.M.M.I.-01P as the first unit destroyed by the cannon (Metroid Wiki E.M.M.I. page); the first Central Unit is no longer assigned to 01P. Wikipedia calls the temporary weapon the 'Omega Blaster'; Metroid Wiki's convention (Omega Cannon with Omega Stream and Omega Blaster modes) is followed. Generic keys (melee, parry, counterattack) dropped. The Alimbic Omega Cannon belongs to the hunters domain and is cross-referenced only."
+  }
+ ]
+}

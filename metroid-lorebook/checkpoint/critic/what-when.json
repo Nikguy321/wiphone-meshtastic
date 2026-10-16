@@ -1,0 +1,257 @@
+{
+ "run": "wf_5697afbd-4f3",
+ "label": "critic:what-when",
+ "result": {
+  "gaps": [
+   {
+    "title": "Prime 4: Beyond arsenal (Psychic Visor, Psychic Glove, Psychic Bomb, Fire/Ice/Thunder Shot, Psychic Lasso, Psychic Boost/Spider Ball, Psychic Grapple, Psychic Boots, Psychic Power Bomb)",
+    "category": "item/technology",
+    "priority": "high",
+    "why": "Every other game's equipment has its own entry, but Samus's newest kit has none. A roleplay set after Viewros will name these tools, and right now nothing fires on them. The abilities draft's 'Psychic abilities and the Vi-O-La' describes the powers only in general terms; its notes say the individual names 'could not be verified'. The weapons draft left out Psychic Bomb, Psychic Power Bomb and Psychic Boost Ball as unverifiable. The only named Prime 4 item that is keyed is Control Beam, on the Arm Cannon entry.",
+    "evidence": "grep across entries and drafts: Psychic Glove, Psychic Bomb, Fire Shot, Ice Shot, Thunder Shot, Psychic Grapple, Psychic Boots and Psychic Power Bomb have 0 keys and 0 content explanations. Psychic Visor appears once, in passing, in the Legacy Suit entry. VGC walkthrough (https://www.videogameschronicle.com/guide/metroid-prime-4-walkthrough-where-to-go-all-upgrades-and-collectibles-step-by-step-guide/), per item: Psychic Visor moves Psychic Motes, traces patterns, spawns Psychic Platforms and heals downed allies. Psychic Glove is in Fury Green. Control Beam guides shots. Psychic Bomb comes from Carvex. Myles gives the Fire, Ice and Thunder Shots in exchange for the Fire, Ice and Thunder Chips. Psychic Lasso is in Ice Belt. Psychic Boost Ball comes from Keratos. Psychic Spider Ball is in the Ice Belt Ancient Temple. Psychic Grapple comes from Phenoros. Psychic Boots come from Xelios and give a second mid-air jump. Super Missile is in the Great Mines. Psychic Power Bomb comes from the Omega Griever. Charged and Super Shots come from the Sol Valley shrines. Psychic Beam Upgrade is bought with Green Energy at the Altar of Legacy. Nintendo Life's list matches by region (https://www.nintendolife.com/guides/metroid-prime-4-beyond-power-suit-upgrade-locations). Both are third-party guides; Metroid Wiki's Prime 4 page is a stub (https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond).",
+    "suggested_keys": [
+     "Psychic Visor",
+     "Psychic Glove",
+     "Psychic Bomb",
+     "Psychic Power Bomb",
+     "Psychic Boost Ball",
+     "Psychic Spider Ball",
+     "Psychic Lasso",
+     "Psychic Grapple",
+     "Psychic Boots",
+     "Fire Shot",
+     "Ice Shot",
+     "Thunder Shot",
+     "Super Fire Shot",
+     "Charged Ice Shot",
+     "Psychic Platform"
+    ]
+   },
+   {
+    "title": "Other M combat techniques (Sense Move, Concentration, Lethal Strike, Overblast, Accel Charge, E-Recovery Tanks) and the post-Super Metroid training",
+    "category": "item/technology",
+    "priority": "medium",
+    "why": "These are Samus's signature fighting moves on the Bottle Ship, and Sense Move has its own backstory. Per Metroid Wiki, a Galactic Federation scientist taught it to her after Super Metroid, and she first used it to dodge a holographic Zebesian in a training exercise. That fills in a gap in her personal history. The only close-combat entry, Melee Counter, covers just Samus Returns and Dread, and the weapons draft notes say Lethal Strike was 'not verifiable' and left out.",
+    "evidence": "grep: Sense Move, Overblast, Accel Charge and E-Recovery have 0 hits; Lethal Strike appears only in draft notes; Concentration has no relevant hits. Metroid Wiki https://www.metroidwiki.org/wiki/Sense_Move covers the dodge in four directions, the near-instant charge, the scientist teaching it after Super Metroid, the holographic Zebesian drill and its use against the Brug Mass. https://www.metroidwiki.org/wiki/Concentration: standing still refills Missiles and some Energy in emergencies, and E-Recovery Tanks improve it. https://www.metroidwiki.org/wiki/Lethal_Strike: a charged finishing blow on a downed large enemy. https://www.metroidwiki.org/wiki/Overblast: she leaps onto an enemy and fires a charged shot at point-blank range; Kyratians use it too, and it works against Goyagma. https://www.metroidwiki.org/wiki/Accel_Charge: six expansions that speed up the beam and Power Bomb charge.",
+    "suggested_keys": [
+     "Sense Move",
+     "SenseMove",
+     "Concentration",
+     "Lethal Strike",
+     "Overblast",
+     "Accel Charge",
+     "E-Recovery Tank",
+     "dodge",
+     "dodging",
+     "finishing move"
+    ]
+   },
+   {
+    "title": "Zero Mission minor bosses: Deorem (Charge Beam worm), Acid Worm (Mua), Kiru Giru larva and Imago",
+    "category": "creature/boss",
+    "priority": "medium",
+    "why": "Zero Mission is Samus's foundational mission, and Kraid, Ridley, Mother Brain, Mecha Ridley and the Ruins Test all have entries. Its other guardians have none, even though existing content leans on them. The Missiles entry says 'the creature Imago yielded them', and the Wave Beam entry says 'a Kiru Giru larva barred the way to it'. Neither name is keyed or explained.",
+    "evidence": "grep: Deorem, Mua, Acid Worm and Charge Beam Beast have 0 hits; Imago has 1 passing hit (weapons Missiles entry) and Kiru Giru 1 (weapons Wave Beam entry), neither keyed. Metroid Wiki https://www.metroidwiki.org/wiki/Category:Metroid:_Zero_Mission_Bosses lists Deorem, Kraid, Mecha Ridley, Mini Kraid, Mother Brain, Mua, Ridley and Ruins Test. https://www.metroidwiki.org/wiki/Deorem: a spiked Brinstar worm that ambushes from the ceiling; only its open eye is vulnerable, to Missiles; it gives the Charge Beam if beaten quickly, otherwise it flees and must be fought again. https://www.metroidwiki.org/wiki/Mua: a worm in the acid room of Kraid's area that attacks while Samus crosses on the power handholds; the acid drains once it dies. WebSearch summary and https://omegametroid.com/metroid-zero-mission-walkthrough/ridleys-lair/: Imago is the adult form of the ensnared Kiru Giru larva, has a stinger weak point and is linked to Super Missiles. Sources differ on the larva's location.",
+    "suggested_keys": [
+     "Deorem",
+     "Charge Beam Beast",
+     "Acid Worm",
+     "Mua",
+     "Imago",
+     "Kiru Giru",
+     "Imago Larva",
+     "Imago Cocoon"
+    ]
+   },
+   {
+    "title": "Berserker Lord and Berserker Knights (Phazon crisis Pirate bioweapons)",
+    "category": "creature/boss",
+    "priority": "medium",
+    "why": "A Berserker Lord is the boss that kept Samus from launching to Norion aboard the G.F.S. Olympus, and she met another in SkyTown. The prime3 entries mention Berserkers 9 times without ever explaining what they are, and nothing keys them. They are the Corruption-era successor to the Project Helix line, which already has a full entry for the Elite and Omega Pirates.",
+    "evidence": "grep: 'Berserker' has 0 keys; content hits in prime3 Norion, GFS Olympus, Ghor and Gandrayda only name it. Metroid Wiki https://www.metroidwiki.org/wiki/Berserker_Lord: a Berserker Knight heavily exposed to Phazon, continuing Project Helix as the Omega Pirate's equivalent. Logbook: 'a desperate measure, designed to exploit Phazon as much as possible'. Fought in G.F.S. Olympus Docking Bay 5 and in the SkyTown Turbine Chamber. Only its shoulders take normal damage, and its Phazite head plating breaks only to its own projectiles. Knights that survive the highest level of corruption are promoted to Lord. Category listing: https://www.metroidwiki.org/wiki/Category:Metroid_Prime_3:_Corruption_Bosses.",
+    "suggested_keys": [
+     "Berserker Lord",
+     "Berserker Lords",
+     "Berserker Knight",
+     "Berserker Knights",
+     "Berserker",
+     "Berserkers"
+    ]
+   },
+   {
+    "title": "Samus's reputation and public image (how troopers, Pirates, hunters and the Federation see her)",
+    "category": "lore concept",
+    "priority": "medium",
+    "why": "In a long roleplay, NPCs keep reacting to who Samus is, but nothing fires on words like 'reputation', 'famous' or 'legend'. The 'legend' keys all belong to the Legendary Power Suit. What exists is scattered. 'Bounty hunting' says she is 'the most famous hunter of her time'. 'The Pirates and Samus' covers the Pirate side. The Prime 4 squad entry notes Nora Armstrong idolizes her, and Other M covers the platoon's coolness and Anthony's friendliness. No single entry pulls this together.",
+    "evidence": "grep: 'reputation' has 1 content hit (a Charge Beam quote) and 0 keys; 'famous' has 2 content hits and 0 keys; 'idoliz' appears once (prime4). Metroid Wiki https://www.metroidwiki.org/wiki/Samus_Aran: 'a bounty hunter of prestige fame'. Pirate records: 'The Hunter's might is great' and 'The march of the Hunter continues, much to our dismay'. Gandrayda vowed to bring 'Aran's bloody helmet' to Dark Samus. Anthony was 'the only person who treats her amicably' on the Bottle Ship. A Pirate leader at Jigrad scoffed 'She's alone!!'.",
+    "suggested_keys": [
+     "reputation",
+     "your reputation",
+     "her reputation",
+     "famous",
+     "fame",
+     "legendary hunter",
+     "living legend",
+     "heard of you",
+     "heard about you",
+     "hero",
+     "idolize",
+     "the Samus Aran"
+    ]
+   },
+   {
+    "title": "Arachnus (SR388 native and Metroid II / Samus Returns boss)",
+    "category": "creature/boss",
+    "priority": "low",
+    "why": "The only Arachnus keys are 'Arachnus-X' and 'Arachnus X', on the Fusion X-mimic entry, so plain 'Arachnus' never fires. The bestiary-2d SR388 and BSL entries both end 'See also: Arachnus', but no such entry exists. The original creature is described only in fragments: 'curled in an orb' in the Chozo labs entry, and 'the Spring Ball she won from Arachnus'.",
+    "evidence": "Coverage: x-parasite 'X-mimicked creatures of the BSL, part 1' keys Arachnus-X/Arachnus X only; sr388 entries mention it in content. Metroid Wiki https://www.metroidwiki.org/wiki/Arachnus: an armadillo-like SR388 native that appears rarely. In Metroid II it disguises itself as an Item Sphere on a Chozo Statue, is beaten with Bombs and yields the Spring Ball. It is weak to Missiles in Fusion and Samus Returns, attacks with fireballs and ramming, and is called 'Marukara' in Japanese. The Fusion X copy is more aggressive and returned the Morph Ball.",
+    "suggested_keys": [
+     "Arachnus",
+     "Arachnuses",
+     "Marukara",
+     "armadillo creature"
+    ]
+   },
+   {
+    "title": "Korakk Beast and Pirate Hussars (Bryyo cavalry)",
+    "category": "creature/boss",
+    "priority": "low",
+    "why": "bestiary-prime 'Fauna of Bryyo' says 'The Korakk Beast, Mogenar, the Bryyonians and the corrupted hunter Rundas are recorded separately', but no entry covers the Korakk Beast. It is a Corruption boss with a mounted Pirate Hussar rider.",
+    "evidence": "grep: Korakk has 0 keys and 2 content hits (both the 'recorded separately' line); Hussar has 0 hits. Metroid Wiki https://www.metroidwiki.org/wiki/Korakk_Beast: a Space Pirate cavalry animal fought in the Jousting Field of Bryyo Thorn Jungle, carrying a Pirate Hussar. It stays passive until the rider dies, then goes berserk. Hussars bond with their mounts, and Korakks 'guard the Hussars with their lives'. It has Phazite armor, a sensitive tail and tongue, and vents Phazon. Defeating it opens the way to the Leviathan Shield Generator.",
+    "suggested_keys": [
+     "Korakk Beast",
+     "Korakk",
+     "Korakks",
+     "Pirate Hussar",
+     "Hussar",
+     "Hussars",
+     "Jousting Field"
+    ]
+   },
+   {
+    "title": "Defense Drone (Elysian guardian of the Boost Ball)",
+    "category": "creature/boss",
+    "priority": "low",
+    "why": "prime3 'Elysia and SkyTown' calls it 'one of Elysia's three great guardians' alongside Ghor and Helios, but gives no other details and no key. It is a Corruption boss listed on Metroid Wiki.",
+    "evidence": "grep: Defense Drone has 0 keys and 1 passing content hit. Metroid Wiki https://www.metroidwiki.org/wiki/Defense_Drone: a Chozo-built Elysian machine in SkyTown's Ballista Storage that guards the Boost Ball. Samus shoots down its three antennae, then uses the Grapple Lasso to open its head and expose the core. It shows no Phazon corruption, which suggests the Pirates never entered that room. Its logbook says it secures key SkyTown areas.",
+    "suggested_keys": [
+     "Defense Drone",
+     "Elysian Defense Drone",
+     "Ballista Storage"
+    ]
+   },
+   {
+    "title": "Chozo Ruins guardian drones: Hive Mecha and Incinerator Drone (plus the unkeyed Plated Beetle)",
+    "category": "creature/boss",
+    "priority": "low",
+    "why": "Both are Chozo-built machines that guard Samus's Missile Launcher and Morph Ball Bombs on Tallon IV. The Incinerator Drone gets one passing mention in the Bombs entry and the Hive Mecha none. The Plated Beetle mini-boss is described in the Tallon fauna content but is not keyed.",
+    "evidence": "grep: Hive Mecha has 0 hits. Incinerator has 1 content hit (weapons Bombs entry: 'won them back in the Chozo Ruins by destroying the Incinerator Drone'). Plated Beetle has 0 keys and 1 content hit (bestiary-prime Tallon IV). Metroid Wiki https://www.metroidwiki.org/wiki/Hive_Mecha: a second-generation Chozo security drone that works with Ram War Wasps, fought in the Hive Totem; it guards the Missile Launcher and only the Power Beam hurts it. https://www.metroidwiki.org/wiki/Incinerator_Drone: a Chozo high-temperature waste-disposal drone in the Burn Dome; it agitates a Barbed War Wasp hive and leaves the Morph Ball Bomb behind. https://www.metroidwiki.org/wiki/Category:Metroid_Prime_Bosses and https://www.metroidwiki.org/wiki/Category:Mini-boss list both.",
+    "suggested_keys": [
+     "Hive Mecha",
+     "Incinerator Drone",
+     "Burn Dome",
+     "Hive Totem",
+     "Plated Beetle",
+     "Plated Beetles"
+    ]
+   },
+   {
+    "title": "Echoes mini-bosses: Caretaker Class Drone and Dark Missile Trooper",
+    "category": "creature/boss",
+    "priority": "low",
+    "why": "Two Aether guardians with no coverage at all. The Caretaker is a rogue Luminoth machine in Sanctuary Fortress. Other Echoes bosses (Amorbis, Chykka, Quadraxis, the Ing Guardians) are all covered.",
+    "evidence": "grep: Caretaker and Dark Missile Trooper have 0 hits. Metroid Wiki https://www.metroidwiki.org/wiki/Caretaker_Class_Drone: a rogue Luminoth maintenance drone in Sanctuary Fortress's Main Research that guards an experimental energy chamber of magnetic rails. Its electrified arms try to knock Samus off the Spider Ball tracks, and its sensor units are hit with the Boost Ball. https://www.metroidwiki.org/wiki/Category:Mini-boss lists both it and the Dark Missile Trooper.",
+    "suggested_keys": [
+     "Caretaker Class Drone",
+     "Caretaker Drone",
+     "Dark Missile Trooper"
+    ]
+   },
+   {
+    "title": "Other M bosses Goyagma and Vorash",
+    "category": "creature/boss",
+    "priority": "low",
+    "why": "Both are Pyrosphere bosses tied to story beats: Goyagma attacks the moment Adam authorizes the Varia Suit, and Vorash stalks Samus across the lava. They appear only as names in 'See also' lists and in the Varia Suit entry, with no keys.",
+    "evidence": "grep: Goyagma has 0 keys and 3 passing content hits (bestiary-2d 'See also', suits Varia). Vorash has 0 keys and passing hits in the Bottle Ship entries. Metroid Wiki https://www.metroidwiki.org/wiki/Goyagma: a lava-controlling monster fought in Sector 3 right after Adam authorizes the Varia. It grabs Samus, who breaks free with a charged shot; she then freezes its arm with the Ice Beam and Overblasts its head. https://www.metroidwiki.org/wiki/Vorash: a lava fish that repeatedly tries to swallow Samus and has swallowed a Grapple Point. A charged Ice Beam exposes that point, she drags Vorash ashore with the Grapple, and the lava level drops after it dies. https://www.metroidwiki.org/wiki/Category:Metroid:_Other_M_Bosses.",
+    "suggested_keys": [
+     "Goyagma",
+     "Vorash",
+     "Pyrosphere boss"
+    ]
+   },
+   {
+    "title": "Minor mobility upgrades: Power Grip, Spin Boost and Ballspark",
+    "category": "item/technology",
+    "priority": "low",
+    "why": "The Power Grip (ledge grab) is named in the Zero Mission, Fusion Suit and Ice Beam entries but never explained or keyed; Metroid Wiki's Upgrade page also lists it under Corruption and Dread. The abilities draft says it left out Dread's Spin Boost, a mid-air second jump, as unverifiable. Ballspark, from Zero Mission, has no coverage.",
+    "evidence": "grep: Power Grip has 0 keys and 4 passing content hits; Spin Boost appears only in draft notes; Ballspark has 0 hits. Metroid Wiki https://www.metroidwiki.org/wiki/Power_Grip: Zero Mission, found in Crateria; it 'gives Samus the strength to grab onto and hang from ledges'. https://www.metroidwiki.org/wiki/Upgrade lists Ballspark (Zero Mission) and Power Grip (Zero Mission, Corruption, Dread). Spin Boost: https://www.nintendolife.com/guides/metroid-dread-spin-boost-location and the WebSearch summary give a second jump during a spin jump, from a Chozo statue in central Ghavoran, later superseded by the Space Jump.",
+    "suggested_keys": [
+     "Power Grip",
+     "ledge grab",
+     "grab ledges",
+     "Spin Boost",
+     "Ballspark",
+     "Ball Spark"
+    ]
+   },
+   {
+    "title": "Exotic materials (Cordite, Bendezium, Denzium, Talloric Alloy, Brinstone, Urithic Ore)",
+    "category": "lore concept",
+    "priority": "low",
+    "why": "The weapons entries say Super Missiles clear 'Cordite' and Power Bombs destroy 'Bendezium and Denzium'. The zebes entry names Urithic Ore, and Talloric and Brinstone each turn up once. None is explained or keyed, so a question like 'what is Cordite?' gets nothing.",
+    "evidence": "grep: Cordite, Bendezium, Denzium, Talloric and Brinstone each have 1 content hit (weapons Missiles and Bombs entries and similar) and 0 keys.",
+    "suggested_keys": [
+     "Cordite",
+     "Bendezium",
+     "Denzium",
+     "Talloric Alloy",
+     "Brinstone",
+     "Urithic Ore"
+    ]
+   },
+   {
+    "title": "Other M weapon authorization",
+    "category": "lore concept",
+    "priority": "low",
+    "why": "keys-only: add the key 'authorization' (also 'authorized', 'Adam's authorization', 'authorize') to the entry 'Universe: Why Samus loses her abilities'. That entry already explains how Samus left her weapons unused until Adam authorized each one as the condition of joining the 07th Platoon. The word appears in about 31 places across adam-other-m, suits, weapons and samus-rp, but no entry keys it.",
+    "evidence": "grep 'authoriz': 0 keys, about 31 content hits; the timeline entry 'Why Samus loses her abilities' explains it.",
+    "suggested_keys": [
+     "authorization",
+     "authorized",
+     "authorize",
+     "Adam's authorization",
+     "weapon authorization"
+    ]
+   },
+   {
+    "title": "Luminoth Translator Modules",
+    "category": "item/technology",
+    "priority": "low",
+    "why": "keys-only: add the keys 'Translator Module' and 'Translator' to the entry 'Prime 2: U-Mos' (or 'Prime 2: The Luminoth'). Those entries already explain that U-Mos and the Temple Sentinels updated Samus's Translator Module to read colored Luminoth holograms.",
+    "evidence": "grep: Translator has 0 keys and 6 content hits (echoes: Aether incident, The Luminoth, U-Mos, Energy Controllers).",
+    "suggested_keys": [
+     "Translator Module",
+     "Translator",
+     "Violet Translator",
+     "Amber Translator",
+     "Emerald Translator",
+     "Cobalt Translator"
+    ]
+   },
+   {
+    "title": "Reger Tokabi's pendant and the memorial tree on Viewros",
+    "category": "personal history",
+    "priority": "low",
+    "why": "keys-only: add the keys 'pendant', 'Reger's pendant' and 'memorial tree' to the entry 'Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux' (samus-rp), or to the Prime 4 MacKenzie squad entry. samus-rp already describes Samus hanging Reger's pendant on the tree grown from the Memory Fruit in tribute to the squad who held Sylux off. It is a personal memento likely to come up in roleplay.",
+    "evidence": "grep: pendant has 0 keys and 2 content hits (samus-rp). Wikipedia (https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond): 'In tribute to the soldiers, she hangs Reger's pendant on it.'",
+    "suggested_keys": [
+     "pendant",
+     "Reger's pendant",
+     "Tokabi's pendant",
+     "memorial tree",
+     "psychic tree"
+    ]
+   }
+  ]
+ }
+}

@@ -1,0 +1,356 @@
+{
+ "run": "wf_9122c4e6-699",
+ "label": "verify:samus-bio",
+ "result": {
+  "overall": "Method: ~45 direct fetches (WebSearch budget was exhausted after the first round, so all verification is by WebFetch). Metroid Wiki pages that returned 404 and could not be used: Keaton, Chairman_Keaton, Kreatz, Damara, Itorash, Hanubia, Endings; thegamer.com and gamerant.com ending explainers 404'd except gamerant's older URL; metroid-database.com now redirects to an unrelated hijacked domain and must not be cited.\n\nBig picture: the drafts are largely sound on the manga backstory, the Fusion vaccine chain, and the Dread DNA reveal. The genuine errors are few: (1) the Fusion gunship 'condition' has its agency reversed (the Federation imposed obedience to the computer as the condition of giving her the ship; Samus did not set the condition); (2) 'blonde since Zero Mission' is wrong (Super Metroid's 1994 ending and Prime's 2002 ending already show her blonde; Metroid Wiki's trivia lists non-blonde depictions only from the original Metroid, colorized Metroid II, the Nintendo Power comic and Zebes Invasion Order). Several specifics could not be supported by any fetched source and should be softened or cut: the 'consummate professional / missions believed impossible' line (absent from Metroid Wiki, Wikipedia, and the Prime/Echoes/Hunters pages), Raven Beak 'addressed her as his daughter' (Screen Rant explicitly says he never calls her daughter; SVG calls it only a nod to 'I am your father'; Game Rant calls it an 'impersonal, biological relationship'), the Itorash location and the 'Thoha genes slowed the transformation / Mawkin prowess' wording of the final briefing (SVG reports only 'completely Metroid' and the Thoha+Mawkin mix; the terminal Samus destroys after the reveal is on ZDR before she ascends), eye color (no fetched source), and a handful of K-2L embellishments ('could not safely explain', 'technologically advanced', 'humans were the only settled population', 'searched the planet', 'caravans').\n\nSource conflicts to be aware of: Metroid Wiki's Old Bird page says Old Bird 'leaves with the afloraltite that Rodney Aran provides', while its Samus Aran and Afloraltite pages say Rodney refused and the Chozo left empty-handed; the drafts follow the two-page majority, which is reasonable, but the orchestrator should know the wiki contradicts itself. Likewise the Samus page names only Old Bird during the K-2L visit while the Afloraltite page names both Old Bird and Gray Voice. Metroid Wiki's Samus page states Nintendo has never directly confirmed the manga's canon status; the task's scope treats it as canonical backstory, so no change needed, but 'supplies her official backstory' is slightly stronger than the wiki supports.\n\nFederation branch: Nintendo's official Metroid Dread Report Vol. 5 says she was 'enlisted in and trained by the Galactic Federation Army'; that is an official, recent source (not Smash trophy text) and under the task's 'prefer the most recent official version' rule the entries should present Army as the official name and Police as the manga/Zero Mission wording (Zero Mission's story text also says 'the Federation Police decided to send a lone space hunter', so Police is not manga-only).\n\nCanon-scope notes for the orchestrator: Metroid Prime 4: Beyond (Dec 4, 2025) is set between Other M and Fusion and takes Samus to Tanamaar and Viewros; the core profile's mission list omits it. Wikipedia and Metroid Wiki both now list a further game, Metroid Ravenous (Switch 2, scheduled Jan 28, 2027, sequel to Dread, Samus siphons energy from enemies); it is unreleased and outside the stated canon list, so nothing in the drafts needs to change, but 'carrying a power that has surfaced once and may again' happens to be consistent with it.\n\nStyle: the Metroid DNA entry is 594 words (over the 550 cap for even a core subject) and the appearance entry is 429 words with a whole paragraph of out-of-universe sourcing (Player's Guide, Nintendo Power, Japanese website, guidebook, co-director's name) and meta language ('drawn', 'retelling', 'the Bottle Ship account drew her') that belongs in notes, not roleplay-facing content.\n\nKeys: the main misfire risks are 'homeworld'/'home planet' on the K-2L entry (Zebes is called 'the Chozo homeworld' in the sibling entry, and Corruption's Pirate Homeworld will trigger it), 'Virginia' bare on the parents entry, and generic words like 'as a child', 'growing up', 'her parents', 'weight', 'height', 'vaccine', 'enlisted', 'freelance' that will fire on the user's own talk; 'Chozo DNA' is a primary key on two entries.",
+  "reports": [
+   {
+    "entry_comment": "Samus: Samus Aran – core profile",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "'known as a consummate professional who has completed many missions believed to be impossible' could not be found on Metroid Wiki's Samus Aran page, Wikipedia's Samus Aran article, or Metroid Wiki's Metroid Prime, Echoes or Hunters pages (checked for 'impossible', 'professional', 'consummate'). It reads like manual or trophy blurb of unknown origin.",
+      "claim": "known as a consummate professional who has completed many missions believed to be impossible",
+      "correction": "Cut the clause, or replace with sourced wording such as 'often hired by the Galactic Federation and known to the Space Pirates as the Hunter'. Only restore 'missions believed impossible' if the orchestrator can cite the specific manual.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "missing",
+      "problem": "The mission list skips Metroid Prime 4: Beyond, which is canon and set between Other M and Fusion: the Federation sends Samus to the facility on Tanamaar, Sylux's damage to a Lamorn artifact teleports everyone to the planet Viewros, and she gains psychic abilities from a crystal there.",
+      "correction": "Insert 'Tanamaar and Viewros' between 'the Bottle Ship (where Adam died)' and 'the BSL research station' in the career sentence.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "nit",
+      "problem": "'(the Federation Police, per the manga)' presents Police as the only name. Nintendo's official Metroid Dread Report Vol. 5 says she was 'enlisted in and trained by the Galactic Federation Army', and Zero Mission's story text also uses 'Federation Police' for the body that sent her to Zebes, so Police is not manga-only and Army is the most recent official wording.",
+      "claim": "She enlisted with the Galactic Federation (the Federation Police, per the manga)",
+      "correction": "She enlisted with the Galactic Federation (the Galactic Federation Army in official Dread material; the Federation Police in the manga)",
+      "source_url": "https://nintendo.com/au/news-and-articles/metroid-dread-report-vol-5-the-powers-of-samus-aran"
+     },
+     {
+      "severity": "nit",
+      "problem": "'Old Bird and Gray Voice were her adoptive fathers' overstates the sources: Metroid Wiki calls Old Bird her 'father figure' and describes Gray Voice's bond as 'similar to a father and daughter' arising from his DNA donation, not formal adoption.",
+      "claim": "Old Bird and Gray Voice were her adoptive fathers",
+      "correction": "Old Bird and Gray Voice, the Chozo who raised her, were the nearest thing she had to fathers",
+      "source_url": "https://www.metroidwiki.org/wiki/Gray_Voice"
+     },
+     {
+      "severity": "missing",
+      "problem": "Dread Report Vol. 5 adds a roleplay-useful official line: 'The face under her helmet remains shrouded in mystery across the galaxy.' Nothing in the profile conveys that her unarmored face is essentially unknown to the public.",
+      "correction": "Add one clause to Appearance: 'to most of the galaxy, the face under her helmet is unknown.'",
+      "source_url": "https://nintendo.com/au/news-and-articles/metroid-dread-report-vol-5-the-powers-of-samus-aran"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Samus Aran – early life on K-2L",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "'the Chozo elder Old Bird, visiting the colony with Gray Voice' and 'the two Chozo left without it': Metroid Wiki's Samus Aran page names only Old Bird during the K-2L visit and quotes Gray Voice objecting on Zebes to Old Bird bringing a human child, which suggests he was not on the visit; only the Afloraltite page puts both on K-2L.",
+      "claim": "Old Bird, visiting the colony with Gray Voice",
+      "correction": "Name only Old Bird as the visitor ('the Chozo elder Old Bird, who had landed to request afloraltite'); keep 'Old Bird and Gray Voice returned ... and found' for the aftermath, which the Samus and Old Bird pages both state.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'research into the Metroids that they could not safely explain' is an embellishment. The Afloraltite page says the Chozo's real aim was to further their development of Metroids and quotes 'We don't have nearly enough energy without the Afloraltite'; no page says they withheld the reason for safety.",
+      "claim": "which they needed for research into the Metroids that they could not safely explain",
+      "correction": "which they needed as an energy source for their work on the Metroids (per the manga)",
+      "source_url": "https://www.metroidwiki.org/wiki/Afloraltite"
+     },
+     {
+      "severity": "nit",
+      "problem": "Metroid Wiki contradicts itself on the request: its Old Bird page says Old Bird 'leaves with the afloraltite that Rodney Aran provides', while its Samus Aran and Afloraltite pages say Rodney refused and the Chozo left empty-handed. The entry follows the two-page majority, which is defensible, but the orchestrator should be aware.",
+      "source_url": "https://www.metroidwiki.org/wiki/Old_Bird"
+     },
+     {
+      "severity": "keys",
+      "problem": "'as a child', 'growing up', 'her parents', 'childhood', 'early life', 'orphan', 'orphaned', 'only survivor' are generic and will fire whenever the user talks about their own childhood or family, or about any other character's parents. 'K-2L raid' duplicates the K-2L entry's reach.",
+      "correction": "Keep 'Pyonchi', 'Rabbilis', 'K-2L raid', 'three years old'; move the generic terms to secondary_keys with selective_logic AND_ANY and a primary of 'Samus'/'your' style phrasing, or at minimum drop 'as a child', 'growing up', 'her parents', 'orphan'."
+     },
+     {
+      "severity": "style",
+      "problem": "'The account of these years comes from the manga, which supplies her official backstory' is out-of-universe narration inside roleplay content; Metroid Wiki also notes Nintendo has never directly confirmed the manga's canon status, so 'official' is slightly stronger than the source.",
+      "correction": "Reduce to a parenthetical '(per the manga)' on the first manga-only claim and drop the sentence.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Samus Aran – raised by the Chozo on Zebes",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "problem": "'Zebes, the Chozo homeworld' (twice across entries): Metroid Wiki describes Zebes as Old Bird and Gray Voice's 'home planet' and lists it as one Chozo habitat, not the species' homeworld.",
+      "claim": "Zebes, the Chozo homeworld",
+      "correction": "Zebes, the home of Old Bird and Gray Voice's Chozo",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo"
+     },
+     {
+      "severity": "missing",
+      "problem": "Metroid Wiki's Raven Beak page states he 'was present when the Chozo adopted Samus and gave her some of his DNA'; the entry mentions him only as the later-revealed Mawkin donor and never that he was on hand at her adoption, which matters for how Samus might reinterpret her childhood.",
+      "correction": "Add: 'Raven Beak, the Mawkin leader who would one day try to kill her, was present at her adoption and was the Mawkin donor.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Raven_Beak"
+     },
+     {
+      "severity": "missing",
+      "problem": "The manga incident that made Old Bird declare her ready is omitted: Samus showed Gray Voice poisonous flowers (Badger Clover), Gray Voice ordered the Iono Feria burned, Samus shot the weapons away from the creatures, and Old Bird then told her she was ready to leave Zebes; the '14 years old' caption sits beside this scene.",
+      "correction": "One sentence: 'The turning point came when she defied Gray Voice's order to burn the Iono Feria, shooting the weapons from the Chozo's hands to spare the creatures; Old Bird told her she was ready (per the manga).'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Chozo DNA' is also a primary key on the Metroid DNA entry, so both entries fire on it; 'adopted', 'adoption', 'adoptive', 'foster', 'upbringing' are generic enough to fire on the user's own family talk.",
+      "correction": "Keep 'Chozo DNA' only on the Metroid DNA entry; add 'Old Bird', 'Gray Voice' here if those names are not carried by chozo-domain entries, otherwise rely on 'raised by the Chozo', 'grew up on Zebes', 'Chozo training'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Samus Aran – Galactic Federation service and the bounty hunter years",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "problem": "The gunship condition is inverted. In Fusion, obeying the onboard computer was the Federation's condition for giving her the ship, not a condition Samus set: Metroid Wiki quotes her, following 'the commands of this blunt, computerized CO' was 'a condition of my taking the ship'.",
+      "claim": "At the BSL station she accepted a new Gunship only on the condition that its onboard computer, later revealed to hold Adam's mind, could issue her orders",
+      "correction": "The Federation issued her a new Gunship on the condition that she obey its onboard computer, which she later learned held Adam's mind.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'she took \"Lady\" as a mark of respect, not sarcasm': Metroid Wiki's Adam page says only that the 'Any objections, Lady?' ritual showed mutual trust (Fusion) and that she answered with a thumbs-down (Other M); no fetched source mentions sarcasm.",
+      "claim": "she took \"Lady\" as a mark of respect, not sarcasm",
+      "correction": "Drop 'not sarcasm' unless the Fusion/Other M monologue can be quoted; keep 'a ritual that expressed their mutual trust'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Adam_Malkovich"
+     },
+     {
+      "severity": "nit",
+      "problem": "'Later accounts call her former branch the Federation Army' is vague and the drafter's notes attribute Army to Smash trophy text (non-canon). The official source is Nintendo's Metroid Dread Report Vol. 5: 'enlisted in and trained by the Galactic Federation Army'. Metroid Wiki's Galactic Federation page separately says she was affiliated with the 'Galactic Federation Marines'.",
+      "claim": "Later accounts call her former branch the Federation Army",
+      "correction": "Nintendo's official Dread material calls her former branch the Galactic Federation Army",
+      "source_url": "https://nintendo.com/au/news-and-articles/metroid-dread-report-vol-5-the-powers-of-samus-aran"
+     },
+     {
+      "severity": "missing",
+      "problem": "Anthony Higgs calls Samus 'Princess' throughout Other M, a detail a roleplay would want when he comes up; the entry introduces him without it.",
+      "correction": "'Anthony Higgs, a friend from her military days who still calls her \"Princess\", served in that same platoon.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Anthony_Higgs"
+     },
+     {
+      "severity": "missing",
+      "problem": "Zero Mission's own story text says 'the Federation Police decided to send a lone space hunter' to Zebes after the Federation assault failed; this is the game-canon basis for both the 'Federation Police' name and her first hire, and would strengthen the Police/Army sentence.",
+      "correction": "Add: 'the Federation Police also hired her for her first Zebes mission after the Federation's own assault on the planet failed.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission"
+     },
+     {
+      "severity": "keys",
+      "problem": "'enlisted', 'freelance', 'mercenary', 'military career', 'former CO' are generic; missing obvious triggers 'Kreatz', 'Mauk', 'Damara', 'Galactic Federation Police', 'Federation Marines'.",
+      "correction": "Add 'Kreatz', 'Mauk', 'Damara', 'Galactic Federation Police', 'Federation Marines'; drop 'enlisted', 'freelance', 'mercenary'."
+     },
+     {
+      "severity": "style",
+      "problem": "At 401 words with a game title in parentheses ('(Metroid: Other M)') and a 'See'-style dependency on an adam-other-m entry, the piece is at the upper limit; acceptable but trim the last paragraph's editorializing ('a contractor with a conscience')."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Samus Aran – appearance, physique and physiology",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "problem": "'blonde hair and blue eyes have been her settled look since the retelling of her first Zebes mission (Metroid: Zero Mission)' is wrong by a decade: Super Metroid's 1994 ending and Metroid Prime's 2002 ending already show her blonde. Metroid Wiki's trivia lists non-blonde hair only for the original Metroid (redhead/brunette, green as Justin Bailey), a colorized Metroid II, the Nintendo Power comic (lavender) and Zebes Invasion Order (black), and says she is 'usually portrayed with blonde hair'.",
+      "claim": "blonde hair and blue eyes have been her settled look since the retelling of her first Zebes mission (Metroid: Zero Mission)",
+      "correction": "Her hair varied in the earliest depictions (red, brown, even green in the original game), but she has been blonde since her second Zebes mission (Super Metroid), and every later depiction keeps it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "unverified",
+      "problem": "Eye color: neither Metroid Wiki's Samus Aran page, Wikipedia, nor the Zero Suit page mentions eye color at all; 'her eyes were drawn with a greener cast in the Bottle Ship account' has no support in any fetched source (the drafter concedes both rest on fan wikis/Giant Bomb).",
+      "claim": "blue eyes ... her eyes were drawn with a greener cast in the Bottle Ship account",
+      "correction": "Keep 'blue eyes' only if the orchestrator accepts official art as the basis; delete the Other M green-eyes clause."
+     },
+     {
+      "severity": "style",
+      "problem": "The entire 'Official figures' paragraph is citations inside content: it names the Nintendo Player's Guide, a Nintendo Power feature, Nintendo of Japan's website, a Japanese guidebook and co-director Hiroyuki Kimura, and uses meta language ('drawn', 'retelling', 'the Bottle Ship account drew her noticeably shorter'). None of this is usable in a roleplay reply; it belongs in notes. The entry is also 429 words against a 400 target.",
+      "correction": "Replace the paragraph with one in-universe sentence: 'Official figures put her at about 190 cm (6 ft 3 in) and 90 kg (198 lb); whether that is in or out of the suit is never settled, and her measurements are given as 106-60-90 cm.' Move the source discussion to notes."
+     },
+     {
+      "severity": "nit",
+      "problem": "'Nintendo of Japan's official site for her SR388 mission' is ambiguous in-universe (she has two SR388 missions: Metroid II/Samus Returns and Fusion's prologue). Wikipedia cites the official Return of Samus (Metroid II) site.",
+      "correction": "If the sourcing paragraph survives at all, say 'for Metroid II'.",
+      "source_url": "https://en.wikipedia.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "missing",
+      "problem": "Dread Report Vol. 5's line that 'the face under her helmet remains shrouded in mystery across the galaxy' is the single most roleplay-relevant appearance fact (NPCs generally do not know what she looks like) and is absent.",
+      "correction": "Add a sentence to the opening paragraph.",
+      "source_url": "https://nintendo.com/au/news-and-articles/metroid-dread-report-vol-5-the-powers-of-samus-aran"
+     },
+     {
+      "severity": "keys",
+      "problem": "'weight', 'height', 'appearance', 'athletic', 'muscular' are bare generic words that will fire on the user's own descriptions or on any other character; 'Zero Suit' and 'Zero Suit Samus' are missing as obvious aliases for her out-of-armor look.",
+      "correction": "Add 'Zero Suit', 'Zero Suit Samus', 'out of her suit', 'without her suit', 'her face'; drop or demote 'weight', 'athletic', 'muscular'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "'Raven Beak ... addressed her as his daughter': no fetched source supports a literal 'daughter' line. Screen Rant says the game 'never calls Samus his daughter'; SVG describes the speech only as a nod to 'Samus, I am your father'; Game Rant calls it a 'however impersonal, biological relationship'; Metroid Wiki's Raven Beak page says only that he 'gave Samus some of his DNA'.",
+      "claim": "and addressed her as his daughter",
+      "correction": "Soften to: 'and claimed, through that DNA, a father's bond with her' or simply 'revealed that the Mawkin DNA was his own'.",
+      "source_url": "https://screenrant.com/metroid-dread-ending-reveal-samus-true-origins-dna/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'In the final briefing on Itorash, the voice she believed was Adam told her that her Thoha genes had slowed her Metroid transformation and that her physical prowess pointed to Mawkin blood': SVG reports the briefing only as ADAM saying she has become 'completely Metroid' and that her Chozo DNA was a Thoha/Mawkin mix; no fetched source gives the 'slowed'/'prowess' wording. The location is also doubtful: Game Rant says Samus destroyed the communication terminal on ZDR after realising Raven Beak had been speaking as ADAM, i.e. before ascending to Itorash; Metroid Wiki's Itorash and Hanubia pages are 404 so this could not be settled.",
+      "claim": "In the final briefing on Itorash, the voice she believed was Adam told her that her Thoha genes had slowed her Metroid transformation and that her physical prowess pointed to Mawkin blood",
+      "correction": "In the last briefing before she ascended to Itorash, the voice posing as Adam told her that her Chozo DNA was a mixture of Thoha and Mawkin; she then shot the terminal, having realised who was really speaking.",
+      "source_url": "https://www.svg.com/629936/the-ending-of-metroid-dread-explained/"
+     },
+     {
+      "severity": "style",
+      "problem": "At 594 words the entry exceeds even the 550-word ceiling for core subjects and this is a sub-entry (target 120-400). It also names two game titles in parentheses and retells the Dread finale beat by beat.",
+      "correction": "Cut 'The awakening' to four sentences (spared to awaken her powers; drained the last E.M.M.I. by hand; Metroid form on Itorash, Hyper Beam, Itorash drained; Quiet Robe X absorbed, suit restored) and drop the Dark Samus aside, which belongs to the dark-samus domain."
+     },
+     {
+      "severity": "nit",
+      "problem": "'(the Metroid Suit)' as a proper name is taken from secondary coverage; Metroid Wiki has no Metroid_Suit page (404) and SVG only describes 'natural-looking spikes and glowing patches ... evocative of a Metroid'.",
+      "claim": "(the Metroid Suit)",
+      "correction": "Describe it ('a spined, glowing, Metroid-like form') without presenting 'Metroid Suit' as a canonical name, or label it 'called the Metroid Suit in official promotion' only if sourced."
+     },
+     {
+      "severity": "missing",
+      "problem": "The X that took Raven Beak was the same X that had earlier possessed Kraid's corpse (Wikipedia plot); and E.M.M.I.-07PB was in the act of extracting her Metroid DNA when she drained it (Metroid Wiki E.M.M.I. page: 'was about to extract Samus' Metroid DNA'). Both sharpen the 'why' of the awakening scene.",
+      "correction": "'...as the last E.M.M.I. began to extract her Metroid DNA, she drained it dry with her hand' and 'the X that took Raven Beak, the same one that had worn Kraid's corpse'.",
+      "source_url": "https://www.metroidwiki.org/wiki/E.M.M.I."
+     },
+     {
+      "severity": "keys",
+      "problem": "'vaccine' bare will fire on any real-world vaccine talk; 'Chozo DNA' duplicates the Zebes entry; missing aliases 'last Metroid', 'Metroid Suit', 'energy drain', 'X parasite immunity', 'immune to X'.",
+      "correction": "Replace 'vaccine' with 'Metroid vaccine' only; add 'last Metroid', 'the last Metroid', 'energy drain', 'immune to X', 'X parasite immunity'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: Rodney Aran and Virginia Aran",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "'saw to its supply to Galactic Federation caravans': no fetched page (Rodney Aran, K-2L, Afloraltite) mentions caravans; they say only that the colonists mined afloraltite for the Federation and that Rodney led them ('Chief Aran').",
+      "claim": "and saw to its supply to Galactic Federation caravans",
+      "correction": "and oversaw its supply to the Galactic Federation",
+      "source_url": "https://www.metroidwiki.org/wiki/K-2L"
+     },
+     {
+      "severity": "nit",
+      "problem": "'When the Chozo elders Old Bird and Gray Voice came asking': Metroid Wiki's Samus page names only Old Bird on the K-2L visit (see early-life entry), and its Old Bird page says Rodney actually provided the afloraltite; the Samus and Afloraltite pages say he refused. The entry picks the majority reading but the orchestrator should know of the conflict.",
+      "source_url": "https://www.metroidwiki.org/wiki/Old_Bird"
+     },
+     {
+      "severity": "nit",
+      "problem": "'facing him again as a young woman triggered a paralyzing flashback': Metroid Wiki's Ridley page describes it as 'a trauma-induced panic attack, which causes her to be defeated by him', i.e. she lost that fight; worth one more clause for roleplay.",
+      "correction": "'...triggered a paralysing panic attack and she was beaten (per the manga)'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ridley"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Virginia' bare will fire on the US state and on any other Virginia; 'her father', 'her mother' will fire on the user's own or any other character's parents. 'Rodney' is marginal.",
+      "correction": "Drop 'Virginia' and 'Rodney' as bare keys (keep the full names); move 'her father'/'her mother' to secondary keys or drop."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Samus: K-2L (Samus's home colony)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "'The colony itself was technologically advanced', 'Humans were the only settled population' and 'searched the planet to learn why the Chozo had come' have no support on Metroid Wiki's K-2L or Afloraltite pages. K-2L says only that the region shown is the Federation mining colony with forest and distant mountains, terrain like Earth's inland regions, at least one moon, and that other colonies may have existed; Afloraltite says Ridley 'landed on K-2L, noticed the Afloraltite' and began killing and stealing.",
+      "claim": "The colony itself was technologically advanced ... Humans were the only settled population ... searched the planet to learn why the Chozo had come",
+      "correction": "Delete 'technologically advanced' and 'Humans were the only settled population'; replace the Pirate sentence with 'Space Pirates under Ridley had followed the Chozo ship, landed, and noticed the afloraltite.'",
+      "source_url": "https://www.metroidwiki.org/wiki/K-2L"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'supplied Federation caravans' (same unsupported detail as the parents entry).",
+      "claim": "led the mining operation that supplied Federation caravans",
+      "correction": "led the mining operation for the Federation",
+      "source_url": "https://www.metroidwiki.org/wiki/Afloraltite"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'research too dangerous to explain' (same embellishment as the early-life entry); the Afloraltite page says the Chozo needed it for energy for their Metroid work.",
+      "claim": "to request afloraltite for research into the Metroids, research too dangerous to explain",
+      "correction": "to request afloraltite as an energy source for their work on the Metroids",
+      "source_url": "https://www.metroidwiki.org/wiki/Afloraltite"
+     },
+     {
+      "severity": "keys",
+      "problem": "'homeworld' and 'home planet' will misfire badly: the sibling Zebes entry itself says 'Zebes, the Chozo homeworld', Corruption has the Pirate Homeworld, and users ask about any character's home planet. 'Earth colony', 'mining colony', 'birthplace', 'where she was born' are safer but still generic.",
+      "correction": "Remove 'homeworld' and 'home planet'; keep 'K-2L', 'K2L', 'K-2-L', 'Afloraltite', 'birthplace', 'where Samus was born', 'where she was born', 'Samus's home', 'home colony'."
+     },
+     {
+      "severity": "style",
+      "problem": "'The world is known only from the manga ... it appears nowhere else' and 'K-2L is never shown again. Nothing in the canon records...' are out-of-universe statements inside roleplay content.",
+      "correction": "Rephrase in-universe: 'What became of the colony afterward is not recorded, and Samus has never gone back.'"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/K-2L",
+   "https://www.metroidwiki.org/wiki/Rodney_Aran",
+   "https://www.metroidwiki.org/wiki/Virginia_Aran",
+   "https://www.metroidwiki.org/wiki/Pyonchi",
+   "https://www.metroidwiki.org/wiki/Old_Bird",
+   "https://www.metroidwiki.org/wiki/Gray_Voice",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://www.metroidwiki.org/wiki/Quiet_Robe",
+   "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+   "https://www.metroidwiki.org/wiki/Afloraltite",
+   "https://www.metroidwiki.org/wiki/Mother_Brain",
+   "https://www.metroidwiki.org/wiki/Fusion_Suit",
+   "https://www.metroidwiki.org/wiki/Metroid_(manga)",
+   "https://www.metroidwiki.org/wiki/Ridley",
+   "https://www.metroidwiki.org/wiki/Galactic_Federation",
+   "https://www.metroidwiki.org/wiki/Ian_Malkovich",
+   "https://www.metroidwiki.org/wiki/Dark_Samus",
+   "https://www.metroidwiki.org/wiki/Chozo",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Metroid:_Zero_Mission",
+   "https://www.metroidwiki.org/wiki/E.M.M.I.",
+   "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+   "https://www.metroidwiki.org/wiki/Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Zero_Suit",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters",
+   "https://www.metroidwiki.org/wiki/Anthony_Higgs",
+   "https://www.metroidwiki.org/wiki/Super_Metroid",
+   "https://en.wikipedia.org/wiki/Samus_Aran",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://en.wikipedia.org/wiki/Metroid_(manga)",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://en.wikipedia.org/wiki/Metroid_Ravenous",
+   "https://nintendo.com/au/news-and-articles/metroid-dread-report-vol-5-the-powers-of-samus-aran",
+   "https://timeextension.com/news/2023/04/random-so-how-tall-is-metroids-samus-aran",
+   "https://www.svg.com/629936/the-ending-of-metroid-dread-explained/",
+   "https://screenrant.com/metroid-dread-ending-reveal-samus-true-origins-dna/",
+   "https://gamerant.com/metroid-dread-ending-explained/"
+  ]
+ }
+}

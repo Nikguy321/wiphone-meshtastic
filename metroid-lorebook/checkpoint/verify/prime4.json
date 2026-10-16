@@ -1,0 +1,506 @@
+{
+ "run": "wf_819a7ec7-9c3",
+ "label": "verify:prime4",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Prime 4: The Viewros incident (Metroid Prime 4: Beyond events)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "problem": "'Aberax' is treated as the personal name of one officer. The in-game Biology logbook uses it as a class designation in the plural: 'Even among the diverse ranks of the Space Pirate Army, Aberax are considered especially large' and 'Aberax are unusually large, often used in command roles'.",
+      "claim": "a Metroid fused with Aberax, a giant Space Pirate officer",
+      "correction": "a Metroid fused with an Aberax, one of the giant command-rank Space Pirates",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "error",
+      "problem": "The in-game logbook gives Armstrong's rank as Private ('Private Nora Armstrong is a soldier in the Galactic Federation'); 'Private First Class' comes only from Nintendo's website as translated by Nintendo Life / Omega Metroid. Prefer the in-game text or drop the rank here.",
+      "claim": "Private First Class Nora Armstrong",
+      "correction": "Private Nora Armstrong (in-game logbook; Nintendo's website calls her Private First Class)",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "The name 'Psy-bot Mimic' was not found in the Machines or Biology logbook transcriptions, the Shinesparkers transcript, or any of the guides fetched (Nintendo Life, Omega Metroid, TheGamer all call them robots/decoys). Tanabe says Sylux 'used the psybots to attack Samus'. Soften unless the name can be sourced to in-game text.",
+      "claim": "sent Psy-bot Mimics in his likeness against Samus",
+      "correction": "sent Psy-bot decoys built in his likeness against Samus",
+      "source_url": "https://omegametroid.com/feature-metroid-prime-series-producer-kensuke-tanabe-speaks-to-japanese-magazine-nintendo-dream-confirms-retirement-successor-metroid-prime-4-story-inspiration-more/"
+     },
+     {
+      "severity": "nit",
+      "problem": "The Master Teleporter was built to carry the Lamorn legacy to a new world, not to send anyone 'home'; the entry itself later says her destination is an unnamed barren world. 'Home' is an assumption.",
+      "claim": "The Master Teleporter at the Pinnacle could send her home",
+      "correction": "The Master Teleporter at the Pinnacle could carry her off Viewros",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'Transformed by the tower's energies' is hedged but the only sources are Shinesparkers (Green Energy) and Tanabe (healing pod sync). Tanabe additionally states the Key Guardians' mental strength overpowered Sylux's Metroid control so that 'both became beings filled with only murderous hostility'. Acceptable as written, but consider citing the pod/sync rather than 'tower's energies'.",
+      "claim": "Sylux, transformed by the tower's energies",
+      "correction": "Sylux, changed by his long synchronization with the tower's healing pod",
+      "source_url": "https://omegametroid.com/feature-metroid-prime-series-producer-kensuke-tanabe-speaks-to-japanese-magazine-nintendo-dream-confirms-retirement-successor-metroid-prime-4-story-inspiration-more/"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Chosen One' is a stock phrase in most fantasy/sci-fi roleplay and will fire this 550-word entry in unrelated chat. Consider 'Lamorn Chosen One' or dropping it.",
+      "claim": "\"Chosen One\"",
+      "correction": "\"Lamorn Chosen One\"",
+      "source_url": ""
+     },
+     {
+      "severity": "missing",
+      "problem": "The in-game Sylux logbook dates his theft of the Metroid to 'the Cosmic Year 20X5' (Nintendo Today app text says 20X6), giving the raids a four-year lead-up; worth one clause in the opening paragraph.",
+      "claim": "",
+      "correction": "Add: Sylux had stolen a Metroid from a Federation base in Cosmic Year 20X5 (per the in-game logbook) and spent the intervening years cloning it.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 4: Sylux",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "Could not verify that the Shock Coil is 'banned' or the 'high-density neutrinos' wording. Metroid Wiki's Shock Coil page says only 'an experimental weapon created by the Galactic Federation and stolen by Sylux' with 'a thin, blue beam of electricity' that lets Sylux 'steal energy from his opponents to restore his own health'. The Affinity Weapon and Hunters pages carry no logbook text either.",
+      "claim": "Shock Coil: banned technology that fires charged blasts of high-density neutrinos",
+      "correction": "Shock Coil: a stolen Federation experimental weapon that fires a continuous beam of blue electricity",
+      "source_url": "https://www.metroidwiki.org/wiki/Shock_Coil"
+     },
+     {
+      "severity": "unverified",
+      "problem": "The black hole in the void phase is attested (Omega Metroid boss guide: Sylux can 'create and charge a black hole'), but no source ties it to the Lockjaw form; guides describe Lockjaw there only as the Energy Tank-stealing ram.",
+      "claim": "where his Lockjaw could even summon a black hole",
+      "correction": "where he could even conjure a black hole",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/boss-guide/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'Carried into' implies someone carried him. Tanabe says Sylux 'was transferred into the Chrono Tower' and 'sneaked into a healing pod that was there'. The in-game logbook also notes he was 'basically unconscious' during recovery, but nothing says he was carried.",
+      "claim": "Gravely injured, he was carried into the Chrono Tower",
+      "correction": "Gravely injured, he made his way into the Chrono Tower and slipped into a Lamorn healing pod",
+      "source_url": "https://omegametroid.com/feature-metroid-prime-series-producer-kensuke-tanabe-speaks-to-japanese-magazine-nintendo-dream-confirms-retirement-successor-metroid-prime-4-story-inspiration-more/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "The name 'Psy-bot Mimic' was not found in any logbook transcription or guide fetched; sources say 'robots' / 'decoys'. See incident entry.",
+      "claim": "Psy-bot Mimics, machines indistinguishable from him until destroyed",
+      "correction": "Psy-bot decoys, machines indistinguishable from him until destroyed",
+      "source_url": "https://www.nintendolife.com/guides/metroid-prime-4-beyond-who-is-sylux"
+     },
+     {
+      "severity": "nit",
+      "problem": "Metroid Wiki lists species as human but notes the Hunters intro gives 'Species: Unknown'; Nintendo Life says 'very likely human'. 'Human' as a flat fact is an inference from the Federation-trooper flashback.",
+      "claim": "Sylux is a human bounty hunter",
+      "correction": "Sylux is a bounty hunter, almost certainly human (the Hunters records list his species as unknown)",
+      "source_url": "https://www.metroidwiki.org/wiki/Sylux"
+     },
+     {
+      "severity": "style",
+      "problem": "Entry is 585 words, above the 550-word ceiling for core subjects. The Hunters equipment bullets duplicate what a Hunters-domain entry should carry and can be trimmed.",
+      "claim": "",
+      "correction": "Cut to 550 or fewer words, e.g. shorten the Equipment and Career bullets.",
+      "source_url": ""
+     },
+     {
+      "severity": "missing",
+      "problem": "The in-game Sylux logbook says he 'successfully stole a Metroid from a Galactic Federation base' in Cosmic Year 20X5 and that he runs covert operations including spying on Samus. Both are roleplay-relevant and absent.",
+      "claim": "",
+      "correction": "Add: per the in-game logbook he stole the Metroid in Cosmic Year 20X5 and has since run covert operations that include spying on Samus.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "missing",
+      "problem": "Tanabe states that when Sylux tried to control the Key Guardians with his Metroids, 'the Key Guardian's mental strength was stronger than Sylux's' and both 'became beings filled with only murderous hostility' - this explains his transformed state and is absent.",
+      "claim": "",
+      "correction": "Add one clause: the Guardians' minds proved stronger than his, and the backlash left both him and them filled with murderous hostility (per Tanabe).",
+      "source_url": "https://omegametroid.com/feature-metroid-prime-series-producer-kensuke-tanabe-speaks-to-japanese-magazine-nintendo-dream-confirms-retirement-successor-metroid-prime-4-story-inspiration-more/"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 4: Viewros",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "problem": "'Hub from which the other regions branch' is map-design language. Minor, but 'the desert at the planet's heart that every other region borders' reads more in-universe.",
+      "claim": "the hub from which the other regions branch",
+      "correction": "the desert at the planet's heart that the other regions all border",
+      "source_url": ""
+     },
+     {
+      "severity": "missing",
+      "problem": "Sol Valley is also patrolled by the Aeronaut and Marauder, anti-Sand-Griever mechanoids the surviving Lamorn built after the Great Tragedy but 'detested' deploying because they hated attacking Grievers (Machines logbook). A strong Lamorn-character detail that no entry carries.",
+      "claim": "",
+      "correction": "Add to Sol Valley: anti-Griever war machines (Aeronaut, Marauder) built by the last Lamorn but never willingly deployed, since the Lamorn detested attacking their own transformed kin.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-machines/"
+     },
+     {
+      "severity": "missing",
+      "problem": "Keratos, like Carvex, was highly intelligent and 'could communicate its will to Lamorn priests' (Biology logbook); the Ice Belt bullet treats it as a mere beast.",
+      "claim": "",
+      "correction": "Add: Keratos, once an intelligent creature that spoke its will to the priests.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 4: The Lamorn",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "problem": "The twelve searchers left via the Master Teleporter, carrying small return teleporters; they did not depart 'through' return teleporters. Shinesparkers: 'Twelve used the Master Teleporter to search other worlds'; Tanabe: they 'were transported to various planets across the multiverse with a small return teleporter'.",
+      "claim": "Twelve departed through small return teleporters to other worlds",
+      "correction": "Twelve left through the Master Teleporter, each carrying a small return teleporter, to search other worlds",
+      "source_url": "https://shinesparkers.net/features/the-lamorn/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "No fetched source describes the Lamorn as robed, aquatic-featured or mouthless. Metroid Wiki's Lamorn page is a stub with no physical description, and the Shinesparkers feature gives none.",
+      "claim": "Robed, with aquatic features and no visible mouth, they communicated telepathically",
+      "correction": "They communicated telepathically (drop the physical description or source it to in-game imagery)",
+      "source_url": "https://www.metroidwiki.org/wiki/Lamorn"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'Every Lamorn could manipulate psychic energy' and 'a rare few were born with a circular crystal' are not supported. Shinesparkers says higher-ranking Lamorn had a forehead crystal and the rest could receive artificial ones; the logbook priest entries say only that Thesarh communicated without speaking.",
+      "claim": "while every Lamorn could manipulate psychic energy, the priests mastered it ... a rare few were born with a circular crystal in the forehead",
+      "correction": "some Lamorn were born with a forehead crystal that granted psychic and telepathic power, and the Lamorn learned to make artificial crystals for the rest; the priesthood were the masters of these powers",
+      "source_url": "https://shinesparkers.net/features/the-lamorn/"
+     },
+     {
+      "severity": "nit",
+      "problem": "Tanabe's wording is 'Chatoya and the 12 Lamorn were transported to various planets'; Shinesparkers and the Sacred Shrine logbook ('prepared by the last priest Chatoya') support Chatoya staying. Keep as is, but be aware the interview is ambiguous.",
+      "claim": "Chatoyant Vooloon, called Chatoya, stayed behind",
+      "correction": "(no change required)",
+      "source_url": "https://omegametroid.com/feature-metroid-prime-series-producer-kensuke-tanabe-speaks-to-japanese-magazine-nintendo-dream-confirms-retirement-successor-metroid-prime-4-story-inspiration-more/"
+     },
+     {
+      "severity": "missing",
+      "problem": "Tanabe: because each searcher died on their world, 'there are still 11 teleporters in existence' scattered across the multiverse - a key sequel hook.",
+      "claim": "",
+      "correction": "Add: eleven other Lamorn return teleporters still lie on other worlds (per Tanabe).",
+      "source_url": "https://omegametroid.com/feature-metroid-prime-series-producer-kensuke-tanabe-speaks-to-japanese-magazine-nintendo-dream-confirms-retirement-successor-metroid-prime-4-story-inspiration-more/"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Machines logbook says the surviving Lamorn 'detested using aggressive attacks on Grievers' and so never deployed the Aeronaut/Marauder war machines - the clearest statement of their character after the Tragedy.",
+      "claim": "",
+      "correction": "Add: even hunted, the survivors could not bring themselves to turn weapons on the Grievers, who had been their own people.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-machines/"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Sacred Shrines that lead to the keys were 'single-use teleporters prepared by the last priest Chatoya' (Technology logbook); the entry credits only Lekhash and Vahkuun.",
+      "claim": "",
+      "correction": "Add: Chatoya herself prepared the Sacred Shrines, single-use teleporters that lead to each key.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-technology/"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 4: Tanamaar and the Desolan System",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "'Rocky, barren planet with at least one moon' comes from a Wikitroid search snippet only. Metroid Wiki's Planet Tanamaar page gives no terrain or moon, and no fetched source confirms it.",
+      "claim": "Tanamaar is a rocky, barren planet with at least one moon",
+      "correction": "Tanamaar is a planet in the Desolan System",
+      "source_url": "https://www.metroidwiki.org/wiki/Planet_Tanamaar"
+     },
+     {
+      "severity": "nit",
+      "problem": "Same Aberax issue as the incident entry: the logbook treats 'Aberax' as a class of large command Pirates, not a personal name.",
+      "claim": "Samus destroyed Aberax, a Space Pirate officer fused with a Metroid",
+      "correction": "Samus destroyed an Aberax, a giant command-rank Space Pirate fused with a Metroid",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'Pirate breach charges tore through the gates and wounded Pirates and troopers lay in the corridors' was not found in the Shinesparkers transcript or any guide fetched; it reads as scene-dressing.",
+      "claim": "while Pirate breach charges tore through the gates and wounded Pirates and troopers lay in the corridors",
+      "correction": "while Pirates fought the garrison through the facility",
+      "source_url": "https://shinesparkers.net/metroid-prime-4-beyond-transcript/"
+     },
+     {
+      "severity": "keys",
+      "problem": "'UTO' as a bare three-letter key will fire on unrelated tokens (e.g. 'auto', 'Pluto' depending on matcher settings); the 'UTO Research Center' key already covers the real use.",
+      "claim": "\"UTO\"",
+      "correction": "remove bare \"UTO\" or keep only \"UTO Research Center\"",
+      "source_url": ""
+     },
+     {
+      "severity": "missing",
+      "problem": "The transcript identifies Betsy as a 'Galactic Federation Heavyweight-Class Golem: MK-99 bipedal, manned war mech', linking it to the Project Golem mechs of Federation Force.",
+      "claim": "",
+      "correction": "Add: Betsy is a Golem-class MK-99 heavyweight war mech.",
+      "source_url": "https://shinesparkers.net/metroid-prime-4-beyond-transcript/"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 4: Myles MacKenzie and the stranded Federation marines",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "problem": "The in-game Biology logbook says Tokabi 'is never without his arrowhead-shaped talisman'. 'Tiger-shaped' comes from Nintendo Life's translation of Nintendo's Japanese site; the in-game text should win.",
+      "claim": "He always carries a tiger-shaped talisman",
+      "correction": "He always carries an arrowhead-shaped talisman (Nintendo's website translation calls it tiger-shaped)",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "error",
+      "problem": "In-game logbook: 'Private Nora Armstrong is a soldier in the Galactic Federation'. 'Private First Class' is from Nintendo's website only.",
+      "claim": "Private First Class Nora Armstrong",
+      "correction": "Private Nora Armstrong (Nintendo's website lists her as Private First Class)",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "missing",
+      "problem": "Tokabi's rank is omitted; the logbook opens 'Corporal Reger Tokabi is a sniper in the Galactic Federation'.",
+      "claim": "",
+      "correction": "Corporal Reger Tokabi",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "missing",
+      "problem": "Duke's logbook adds that his stubbornness caused him 'to be passed up for promotion and assigned to lead a single squad at the UTO Research Center' and that he favors his weapon's grenade-launcher attachment.",
+      "claim": "",
+      "correction": "Add: passed over for promotion and given a single squad at the UTO center; partial to the grenade-launcher attachment on his rifle.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'It was Duke who confirmed the final push on the tower' and 'Samus nodded' were not found in any fetched source (GameSpot/Yahoo, ludo.guide, VGC, transcript).",
+      "claim": "at Base Camp it was Duke who confirmed the final push on the tower",
+      "correction": "remove, or replace with a sourced Duke moment",
+      "source_url": "https://tech.yahoo.com/gaming/articles/metroid-prime-4-beyonds-ending-181400714.html"
+     },
+     {
+      "severity": "nit",
+      "problem": "'Admired Samus since they met' implies a prior meeting; the logbook says she 'strongly admires Samus Aran as a role model for her famously unshakable demeanor'. 'Which he had once worked on' overstates MacKenzie's line 'A MK-99 mech? I'd recognize that frame anywhere!'; he knows the model, not necessarily that machine.",
+      "claim": "She has admired Samus since they met ... which he had once worked on",
+      "correction": "She idolizes Samus for her unshakable demeanor ... a model he knew well",
+      "source_url": "https://shinesparkers.net/metroid-prime-4-beyond-transcript/"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Myles', 'Armstrong', 'Betsy' and 'Base Camp' are common names/phrases that will fire in ordinary chat (Neil Armstrong, any Betsy, any camp). Also add the Metroid Wiki spelling 'Mackenzie' as an alias.",
+      "claim": "\"Myles\", \"Armstrong\", \"Betsy\", \"Base Camp\"",
+      "correction": "drop bare \"Myles\", \"Armstrong\", \"Betsy\", \"Base Camp\"; add \"Mackenzie\", \"Myles Mackenzie\", \"Betsy mech\"",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "nit",
+      "problem": "Metroid Wiki spells the engineer 'Myles Mackenzie'; the in-game transcript uses 'MacKenzie'. Keep MacKenzie but note the alias (covered by the keys fix).",
+      "claim": "Myles MacKenzie",
+      "correction": "Myles MacKenzie (Metroid Wiki: Mackenzie)",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 4: The Chrono Tower and the Master Teleporter",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "'Sanctum of the Guardians' does not appear in the ludo.guide finale (which lists Vestibule, Guardian Chamber, Statuary Hall, Nexus of Hope, Lower Chamber, Pinnacle), the Nintendo Life Chrono Tower guide, or TheGamer. The hologram-of-the-Guardians room is unsupported.",
+      "claim": "and the Sanctum of the Guardians, where holograms record the Guardians of the keys",
+      "correction": "and a Lower Chamber whose dome opens at a hologram's scan (drop 'Sanctum of the Guardians' and its key)",
+      "source_url": "https://www.ludo.guide/guide/metroid-prime-4-beyond/finale-a-battle-of-wills-chrono-tower"
+     },
+     {
+      "severity": "unverified",
+      "problem": "The Machines logbook says Psy-bot Soldiers are 'most often moved via shuttle or launched through the air by Chrono Tower'; nothing says 'in pods'. The pods at the Pinnacle are sleeping/healing pods (Japanese site, Tanabe).",
+      "claim": "are launched from it in pods",
+      "correction": "are launched through the air from it",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-machines/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'Answers only to one with psychic abilities who holds all five keys' is a fan-wiki statement. GameSpot says only that, once damaged, the teleporter 'works only if Samus operates it'.",
+      "claim": "The teleporter answers only to one with psychic abilities who holds all five keys",
+      "correction": "It is sealed until all five keys are set (Lekhash's sealing mechanism)",
+      "source_url": "https://tech.yahoo.com/gaming/articles/metroid-prime-4-beyonds-ending-181400714.html"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'Psy-bot Mimics' name unsupported (see incident entry).",
+      "claim": "dispatch Psy-bot Mimics against her",
+      "correction": "dispatch Psy-bot decoys in his likeness against her",
+      "source_url": "https://www.nintendolife.com/guides/metroid-prime-4-beyond-who-is-sylux"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Technology logbook says the Sacred Shrines are 'single-use teleporters prepared by the last priest Chatoya', linked to each Key Guardian, which summon them only for the Chosen One and appear on their own if the Guardian dies. This is the actual key-retrieval mechanism and belongs here.",
+      "claim": "",
+      "correction": "Add: Chatoya prepared the Sacred Shrines as single-use teleporters to the keys' dimension, bound to each Guardian and appearing when the Guardian dies or recognizes the Chosen One.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-technology/"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 4: Grievers and the Guardians of the Keys",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "problem": "Gravinax could not be verified anywhere reachable: no Metroid Wiki page exists (404), the Biology logbook's Omega Griever entry mentions no prior guardian, no key, and no 'not an assigned guardian' note, and no guide names it. The 'eight-limbed, four-horned' description rests on a Wikitroid snippet alone.",
+      "claim": "It killed Gravinax, the eight-limbed, four-horned Guardian of the mines' Master Teleporter Key, and took its place and its key",
+      "correction": "It holds the Great Mines' key in place of the Lamorn's intended Guardian (name and description unverified; omit until sourced)",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'Only worsened the mutation' is Shinesparkers' summary. The in-game Ice Belt logs say Green Energy dosing 'shows no clear benefit', the gene-disabling approach 'briefly worked, but the subjects reverted', and the Frostburn Grievers were merely bleached by cryo fluid. The Lamorn entry says 'every attempt failed', which is the supported version.",
+      "claim": "the attempts to cure them in the Ice Belt laboratories only worsened the mutation",
+      "correction": "every attempt to cure them in the Ice Belt laboratories failed",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-lamorn-legacy/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'Sanctum of the Guardians' is unsupported (see Chrono Tower entry).",
+      "claim": "the Sanctum of the Guardians in the Chrono Tower preserves holographic records of them",
+      "correction": "remove the sentence",
+      "source_url": "https://www.ludo.guide/guide/metroid-prime-4-beyond/finale-a-battle-of-wills-chrono-tower"
+     },
+     {
+      "severity": "missing",
+      "problem": "Omega Griever's Green-Energy-keratinized hide, immune to weapons except at unkeratinized spots (Biology logbook), is its defining trait and is absent.",
+      "claim": "",
+      "correction": "Add: Green Energy keratinized much of its hide into weapon-proof armor.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "keys",
+      "problem": "No keys for the named varieties (Jungle Griever, Sand Griever, Frostburn Griever, Snow Wolf, Behemoth), so those terms will not pull the entry.",
+      "claim": "",
+      "correction": "add \"Sand Griever\", \"Jungle Griever\", \"Frostburn Griever\", \"Snow Wolf\", \"Behemoth\" (Behemoth is moderately generic; consider \"Behemoth of Flare Pool\")",
+      "source_url": ""
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 4: Vi-O-La and Sol Valley",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "problem": "The Technology logbook states 'Extracting energy from Green Energy Crystals can only be done using the device on the altar at the Temple of Memory'; the crystals are 'fragile and can be broken by impact or gunfire'. The bike gathers crystals; it does not extract the energy.",
+      "claim": "it also draws Green Energy out of the Green Energy Crystals strewn across the desert",
+      "correction": "it is also how Samus gathered the Green Energy Crystals strewn across the desert, whose energy is extracted only at the altar of the Temple of Memory",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-technology/"
+     },
+     {
+      "severity": "error",
+      "problem": "The drafter admits this is inferred. VGC places the Vi-O-La Suit at the bike's console inside Volt Forge, and Nintendo's Japanese site shows the first ride on a Volt Forge test track; Sol Valley was not her first ride.",
+      "claim": "it was on its sands that she first rode the Vi-O-La",
+      "correction": "she first rode the Vi-O-La on a Volt Forge test track before taking it onto the sands",
+      "source_url": "https://www.videogameschronicle.com/guide/metroid-prime-4-walkthrough-where-to-go-all-upgrades-and-collectibles-step-by-step-guide/"
+     },
+     {
+      "severity": "nit",
+      "problem": "Nintendo Wire says Samus can 'lock on to multiple targets (up to five) and boomerang an orb at them'; it does not say the orb returns. Minor.",
+      "claim": "launches energy orbs at up to five locked targets that return like boomerangs",
+      "correction": "hurls an energy orb boomerang-fashion at up to five locked targets",
+      "source_url": "https://nintendowire.com/news/2025/10/06/nintendo-shares-details-on-samus-vi-o-la-bike-in-metroid-prime-4-beyond/"
+     },
+     {
+      "severity": "keys",
+      "problem": "'motorcycle' and 'hover bike' are generic words that will trigger this entry in any chat about vehicles.",
+      "claim": "\"motorcycle\", \"hover bike\"",
+      "correction": "drop both; keep \"Vi-O-La\", \"Lamorn bike\", \"Lamorn vehicle\"",
+      "source_url": ""
+     },
+     {
+      "severity": "missing",
+      "problem": "The logbook says IC mode 'activates automatically based on a surface sensor' and that further transformations were planned but never finished - a nice in-universe detail.",
+      "claim": "",
+      "correction": "Add: IC mode engages on its own when the surface sensor detects heat; the Lamorn planned further transformations they never completed.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-technology/"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 4: Aberax and Sylux's Metroids",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "problem": "The in-game logbook treats 'Aberax' as a class: 'Even among the diverse ranks of the Space Pirate Army, Aberax are considered especially large' and 'Aberax are unusually large, often used in command roles, and have beetle-like exoskeletons'. The entry presents it as one individual's name.",
+      "claim": "Aberax was the first such host Samus Aran met: a huge beetle-like Space Pirate of command rank",
+      "correction": "An Aberax, one of the huge beetle-like Space Pirates used in command roles, was the first such host Samus Aran met",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     },
+     {
+      "severity": "unverified",
+      "problem": "'A fused host betrays itself by green-glowing growths' is stated as fact; the only basis is Omega Metroid's speculation that Phenoros's green weak points 'suggest it may be possessed'. The logbook describes exposed membranes/cores, not glowing growths.",
+      "claim": "a fused host betrays itself by green-glowing growths",
+      "correction": "fusion leaves a host with exposed, vulnerable tissue",
+      "source_url": "https://omegametroid.com/new-metroid-prime-4-beyond-details-revealed-on-the-games-japanese-website-spoiler-warning/"
+     },
+     {
+      "severity": "nit",
+      "problem": "The logbook says fusion gave the Aberax 'a mind-controlling effect'; 'stripped it of free will' is a fair paraphrase but 'it dropped into the hangar' is not sourced (Metroid Wiki: the Metroid 'flies down and fuses with Aberax' after Pirates and the Aberax arrive).",
+      "claim": "It dropped into the hangar of the UTO Research Center",
+      "correction": "It stormed the hangar of the UTO Research Center",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "missing",
+      "problem": "The in-game Sylux logbook dates the Metroid theft to Cosmic Year 20X5 (the Nintendo Today app text says 20X6); the entry gives no date.",
+      "claim": "",
+      "correction": "Add: stolen in Cosmic Year 20X5 per the in-game logbook.",
+      "source_url": "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/"
+     }
+    ]
+   }
+  ],
+  "overall": "Checked all ten entries against Metroid Wiki (Prime 4 main article, Sylux, Lamorn, Planet Tanamaar, Delano 7, Aberax, Vi-O-La, Shock Coil, Lockjaw, Affinity Weapon, Metroid Prime Hunters), Wikipedia (Prime 4, Sylux), the Shinesparkers transcript and Lamorn feature, Omega Metroid's Biology/Machines/Technology/Lamorn Legacy logbook transcriptions (read in two halves each), the Tanabe Nintendo Dream interview, the Japanese-site summary, Nintendo World Report, Nintendo Life (meet-the-team, Who Is Sylux, Chrono Tower, secret ending, final boss), GameSpot via Yahoo, VGC (walkthrough, secret ending), rogue.site, ludo.guide, TheGamer, Nintendo Wire and NoobFeed. Metroid Wiki pages for Omega_Griever, Gravinax, Psy-bot and Betsy returned 404. The per-turn WebSearch budget was already exhausted when my first search batch ran, so every verification is from direct fetches; Gravinax, 'Sanctum of the Guardians', the name 'Psy-bot Mimic', the Lockjaw/black-hole link and the Shock Coil 'banned/neutrinos' wording remain unverified rather than disproven.\n\nHard contradictions found: (1) the in-game logbook calls Tokabi's talisman arrowhead-shaped, not tiger-shaped, and ranks Armstrong as Private (Nintendo's website says PFC) and Tokabi as Corporal (omitted); (2) 'Aberax' is a class of large command Pirates in the logbook, not an individual's name; (3) Green Energy is extracted only at the Temple of Memory altar, not by the Vi-O-La; (4) the twelve Lamorn searchers left via the Master Teleporter carrying small return teleporters, not 'through' return teleporters; (5) Samus's first ride on the Vi-O-La was at Volt Forge, not Sol Valley. The core narrative (20X9, Desolan System, UTO center, artifact, Viewros, Chrono Tower, Chatoyant Vooloon, five keys, Guardians Carvex/Xelios/Keratos/Phenoros plus Omega Griever, Green Energy/Great Tragedy/Grievers, thirteen survivors, Sylux's healing pod and mind link, the void fight, the damaged teleporter, the soldiers holding Sylux, Memory Fruit, tree, Tokabi's tag, Legacy Suit reverting to Varia) is confirmed by two or more sources. VGC states the secret ending is 'virtually identical' to the normal one apart from Samus removing her helmet, so the Legacy-to-Varia reversion is not 100%-only. MK-99 and 'Engineer Level 4' are confirmed by the transcript ('Galactic Federation Heavyweight-Class Golem: MK-99'). Note for the drafter: the in-game Sylux logbook dates the Metroid theft to Cosmic Year 20X5 while the Nintendo Today text says 20X6.",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://www.metroidwiki.org/wiki/Sylux",
+   "https://www.metroidwiki.org/wiki/Lamorn",
+   "https://www.metroidwiki.org/wiki/Planet_Tanamaar",
+   "https://www.metroidwiki.org/wiki/Delano_7",
+   "https://www.metroidwiki.org/wiki/Aberax",
+   "https://www.metroidwiki.org/wiki/Vi-O-La",
+   "https://www.metroidwiki.org/wiki/Shock_Coil",
+   "https://www.metroidwiki.org/wiki/Lockjaw",
+   "https://www.metroidwiki.org/wiki/Affinity_Weapon",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Hunters",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://en.wikipedia.org/wiki/Sylux",
+   "https://shinesparkers.net/metroid-prime-4-beyond-transcript/",
+   "https://shinesparkers.net/features/the-lamorn/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-biology/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-lamorn-legacy/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-technology/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/logbook-guide-machines/",
+   "https://omegametroid.com/metroid-prime-4-beyond-walkthrough/boss-guide/",
+   "https://omegametroid.com/new-metroid-prime-4-beyond-details-revealed-on-the-games-japanese-website-spoiler-warning/",
+   "https://omegametroid.com/feature-metroid-prime-series-producer-kensuke-tanabe-speaks-to-japanese-magazine-nintendo-dream-confirms-retirement-successor-metroid-prime-4-story-inspiration-more/",
+   "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis",
+   "https://www.nintendolife.com/news/2025/11/metroid-prime-4-beyond-meet-the-team",
+   "https://www.nintendolife.com/guides/metroid-prime-4-beyond-who-is-sylux",
+   "https://www.nintendolife.com/guides/metroid-prime-4-beyond-chrono-tower-guide",
+   "https://www.nintendolife.com/guides/metroid-prime-4-beyond-secret-ending-and-how-to-get-it",
+   "https://www.nintendolife.com/guides/metroid-prime-4-beyond-how-to-beat-the-final-boss",
+   "https://tech.yahoo.com/gaming/articles/metroid-prime-4-beyonds-ending-181400714.html",
+   "https://www.videogameschronicle.com/guide/metroid-prime-4-walkthrough-where-to-go-all-upgrades-and-collectibles-step-by-step-guide/",
+   "https://www.videogameschronicle.com/guide/metroid-prime-4-secret-ending-guide/",
+   "https://www.rogue.site/guides/metroid-prime-4-beyond-walkthrough-pt-1-chrono-tower-fury-green/",
+   "https://www.ludo.guide/guide/metroid-prime-4-beyond/finale-a-battle-of-wills-chrono-tower",
+   "https://www.thegamer.com/metroid-prime-4-beyond-sylux-final-boss-chrono-tower-guide/",
+   "https://nintendowire.com/news/2025/10/06/nintendo-shares-details-on-samus-vi-o-la-bike-in-metroid-prime-4-beyond/",
+   "https://www.noobfeed.com/news/metroid-prime-4-beyonds-ending-sparks-new-mysteries"
+  ]
+ }
+}

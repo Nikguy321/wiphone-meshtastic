@@ -1,0 +1,428 @@
+{
+ "run": "wf_7ead2614-160",
+ "label": "verify:echoes",
+ "result": {
+  "overall": "Checked all ten entries against 62 Metroid Wiki / Wikipedia pages (WebSearch was unavailable this turn: the shared search budget was exhausted, so every check is a direct page fetch). The drafts are largely solid: release data, Sentinel lineage, the ten-key/nine-key account, the roster of twenty-two, the Pirate-log phrases (\"accursed Hunter\", \"shadowlings\"), A-Kul's gear, the Light-of-Aether composition and the Sentinel farewells all verify. The real problems cluster in three places. (1) Opening chronology (entries 1 and 8): the Marine corpses rise as Dark Troopers in the Splinter hive's Command Chamber before Samus ever sees Dark Samus or enters Dark Aether; the GFMC Compound and Exeter's terminal report come after she is thrown back to Aether, and no Dark Troopers rise in the compound at all. (2) Luminoth hero deaths (entry 3): B-Stz \"died of old age in the temple he helped defend\", not at Ing hands, and nothing says the Ing killed K-Tch. (3) Wiki hedges hardened into fact: O-Lir designing Quadraxis (\"probably\"), O-Lir slain by his own machines (\"most likely\" in the scan), the compound built from ship parts (\"possibly\"), Luminoth monogamy (\"appear to\"). Smaller items: Translator colors omit Violet, the Bomb Guardian's weak spots are head and tail, Dark Aether is not \"arid\" (Dark Torvus is largely water), \"Growler-class turrets\" and \"lost whole patrols\" have no wiki support, and \"the Luminoth's own Screw Attack\" is unsupported. Entries 4 (U-Mos) and 6 (Energy Controllers) pass clean. No Smash/comic/fan-game contamination found anywhere; the only noncanon risk is wiki speculation.",
+  "reports": [
+   {
+    "entry_comment": "Prime 2: The Aether incident (Metroid Prime 2: Echoes events)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "At the Marines' makeshift GFMC Compound she found every trooper dead and read Captain A.C. Exeter's unfinished final report; then the corpses rose as Dark Troopers... Samus pursued... Dark Samus, through a portal into Dark Aether.",
+      "problem": "Order of events is reversed. Both the Metroid Wiki plot and Wikipedia have Samus first find the dead Marines in the Splinter hive, where they rise as Dark Troopers (the Command Chamber: 'the Marine corpses... become possessed by Ing and become... Dark Troopers', eleven on the first visit); she then meets Dark Samus, follows her into Dark Aether, loses her gear, and only afterwards reaches the GFMC Compound, where she finds 'the remaining troopers dead and a report from Captain A. Exeter'. The Dark Samus page likewise places the first meeting 'inside an abandoned Galactic Federation base' in the hive, not the compound. The compound's corpses stay down (the room lists Dark Splinters and Pirate Troopers, no Dark Troopers).",
+      "correction": "In the Splinter hive beneath the Temple Grounds she found Marines dead among the Splinters; the corpses rose as Dark Troopers, animated by an unknown parasitic biomass. She glimpsed Dark Samus and pursued her through a portal... [ambush] ...Thrown back to Aether, she reached the Marines' makeshift GFMC Compound, found the rest of the crew dead and read Exeter's unfinished final report.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes"
+     },
+     {
+      "severity": "missing",
+      "problem": "U-Mos's role as gatekeeper is absent: he updates Samus's Translator Module (Violet holograms) and map, and each Temple Sentinel's hologram (I-Sha, A-Voq, O-Lir) later unlocks Amber, Emerald and Cobalt holograms; this is what paces her access to Agon, Torvus and Sanctuary.",
+      "source_url": "https://www.metroidwiki.org/wiki/Translator_Module"
+     },
+     {
+      "severity": "missing",
+      "problem": "Dark Samus's first actual battle is in the Pirates' Phazon-processing room (Main Reactor) of the Agon facility; the second begins in the Aerie Access elevator of Sanctuary Fortress. The entry says 'in its halls' and 'Aerie' only; fine for roleplay but worth one clause since both are frequently referenced.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "nit",
+      "claim": "Dark Troopers, animated by an unknown parasitic biomass",
+      "problem": "Scan wording is 'an unknown biomass with parasitic tendencies'; acceptable paraphrase, noting only for precision.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Trooper"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 2: Aether and Dark Aether",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Dark Aether is a twisted, poisonous mirror of Aether: dim, arid, rich in Phazon",
+      "problem": "'Arid' is contradicted by Dark Torvus Bog, whose 'surface... has large amounts of highly damaging water' (Venomous Pond, Poisoned Bog, Polluted Mire); the entry itself goes on to say its surface waters are venomous.",
+      "correction": "Drop 'arid': 'dim, poisonous, rich in Phazon'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Torvus_Bog"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Aether's energy supply is now stable",
+      "problem": "The Prime 3 logbook cited by the Aether page says only that Aether 'is slowly recovering from a cataclysmic event' and the Luminoth are 'mending Aether back to its former self'; no source calls the energy supply stable.",
+      "correction": "Aether is slowly recovering, the Luminoth are mending their world...",
+      "source_url": "https://www.metroidwiki.org/wiki/Aether"
+     },
+     {
+      "severity": "nit",
+      "claim": "much of it is Dark Vapor exhaled as waste by Ingclaws",
+      "problem": "Dark Vapor is an Ingclaw waste product found around Ingclaws; the Dark Aether page does not say it makes up 'much' of the atmosphere, which is toxic in its own right.",
+      "correction": "Its air kills any being not native to it, and Ingclaws thicken it further with Dark Vapor waste.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Aether"
+     },
+     {
+      "severity": "keys",
+      "problem": "'rogue planet' is a generic astronomy phrase that will fire in any sci-fi chat; 'Light Aether' is a fan term not used in-game (harmless but unnecessary). Consider adding 'Dasha' as an alias here or on the incident entry only once.",
+      "correction": "Remove 'rogue planet'; keep 'Aether', 'Dark Aether', 'Transdimensional Flux', 'Safe Zone(s)', 'Light Crystal(s)', 'Light Beacon(s)', 'Dark Vapor'."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Space Pirates found a 'strange artifact' near the anomaly and their science team dubbed it the 'Dark Beam'; it powers their portal only 'for a limited time'. The entry says 'Dark Beam artifact' but a Samus-centred RP would want that it was a found object, not Pirate tech, and that Dark Samus was simultaneously raiding their Phazon.",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Logs"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 2: The Luminoth",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "With the captured Module the Ing drained Agon, Torvus and Sanctuary, killing the Sentinels I-Sha, A-Voq and O-Lir and heroes such as the child acolyte D-Chr, the farmer K-Tch, B-Stz who slew an Ing war chief, and C-Pul the Ingslayer.",
+      "problem": "B-Stz was not killed by the Ing. His statue scan: 'He died of old age in the temple he helped defend.' K-Tch's statue says only that he 'was a farmer until Agon was devastated' and became 'a great hero'; no source says the Ing killed him. D-Chr ('lost in battle on Dark Aether') and C-Pul (died in the Battle of the Hive) are correctly listed as war dead.",
+      "correction": "...killing the Sentinels I-Sha, A-Voq and O-Lir and heroes such as the child acolyte D-Chr and C-Pul the Ingslayer, who felled over 700 Ing before dying in the Battle of the Hive. Other heroes of the war include the farmer-turned-warrior K-Tch and B-Stz, who slew the Ing Horde's war chief in the Fourth Battle of Torvus and later died of old age in the temple he had defended.",
+      "source_url": "https://www.metroidwiki.org/wiki/B-Stz"
+     },
+     {
+      "severity": "error",
+      "claim": "They write in a three-dimensional holographic script keyed by color (amber, emerald, cobalt)",
+      "problem": "Four colors gate the holograms, not three: Violet (U-Mos), Amber (I-Sha), Emerald (A-Voq) and Cobalt (O-Lir). Omitting Violet drops the one U-Mos himself unlocks.",
+      "correction": "keyed by color (violet, amber, emerald, cobalt) that Samus could read only after U-Mos and then each Temple Sentinel updated her Translator Module",
+      "source_url": "https://www.metroidwiki.org/wiki/Translator_Module"
+     },
+     {
+      "severity": "unverified",
+      "claim": "They marry monogamously and count families as houses",
+      "problem": "Metroid Wiki presents monogamy as an inference ('appear to practice monogamous marriage, shown by the Keybearers J-Stl and B-Stl') and says of houses that the lore 'does not divulge exactly which relatives make up the house'. No in-game text states monogamy.",
+      "correction": "Families are reckoned as houses (the Keybearers J-Stl and B-Stl share a house name), and they honor their dead...",
+      "source_url": "https://www.metroidwiki.org/wiki/Luminoth"
+     },
+     {
+      "severity": "nit",
+      "claim": "Samus's own logbook rates their technology as the equal of the Chozo's",
+      "problem": "U-Mos's scan compares energy-manipulation abilities 'on par with that of the Chozo', not technology; the technology comparison is the wiki's own summary on the Aether page. Minor, but 'logbook' misattributes it.",
+      "correction": "Samus's logbook rates their command of energy as the equal of the Chozo's, and their works bear it out: ...",
+      "source_url": "https://www.metroidwiki.org/wiki/U-Mos"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Sentinel lineage omits two statue facts a roleplay would use: Q-Cis was 'the first Sentinel born on Aether' and guarded it for three centicycles; J-Gnk, the fourth, 'died in battle defending the Great Temple' when the Ing came, which is how U-Mos inherited the post. An elderly Luminoth and a child lie dead beneath the X-Qar and V-Mos statues, the source for 'the elderly and children took up arms'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Hall_of_Honored_Dead"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 2: U-Mos",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "preparing for a final assault",
+      "problem": "The 'Twilight' lore says 'U-Mos prepared for the last, terrible assault', i.e. braced for the Ing's expected final attack on the Great Temple, not planning one of his own; the phrasing could be read either way.",
+      "correction": "bracing for the Ing's last, terrible assault and praying for deliverance",
+      "source_url": "https://www.metroidwiki.org/wiki/U-Mos"
+     },
+     {
+      "severity": "missing",
+      "problem": "U-Mos's most quotable stakes line is absent: 'Should one world gain control of this energy, the other will perish.' Also his practical role: he updates Samus's Translator Module to read Violet holograms and supplies map data ('Many lands are now open to you').",
+      "source_url": "https://www.metroidwiki.org/wiki/U-Mos"
+     },
+     {
+      "severity": "missing",
+      "problem": "Logbook detail: 'Dating scans suggest an age of 2.15 centicycles', and his predecessor J-Gnk died in battle defending the Great Temple, which is when U-Mos became Sentinel.",
+      "source_url": "https://www.metroidwiki.org/wiki/Hall_of_Honored_Dead"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 2: The Ing and the Emperor Ing",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "which become Darklings: stronger, tougher, shielded from Dark Aether's air and able to fire transdimensional energy",
+      "problem": "The Darkling and Ing pages say possessed creatures 'gain increased strength and resilience' and some gain new abilities; neither says Darklings are shielded from Dark Aether's atmosphere, and transdimensional beams are attributed to the Ing themselves, not to all Darklings.",
+      "correction": "which become Darklings: stronger, tougher, and in some cases gifted with new attacks",
+      "source_url": "https://www.metroidwiki.org/wiki/Darkling"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The Space Pirates, who called them shadowlings, lost whole patrols to them.",
+      "problem": "The Echoes Pirate logs record 'several raids by a strange type of shadowy creature', 'considerable damage', a base 'hit... numerous times' and attrition of 'troops and resources'; no log mentions losing patrols.",
+      "correction": "The Space Pirates, who called them shadowlings, suffered raid after raid and steady attrition at their hands.",
+      "source_url": "https://www.metroidwiki.org/wiki/Space_Pirate_Logs"
+     },
+     {
+      "severity": "nit",
+      "claim": "a Luminoth Light Beam or an energized Light Crystal kills them outright",
+      "problem": "An energized (Light Beam-charged) crystal is 'lethal to Ing that step within the Crystal's light'; the Light Beam itself is a weakness that does heavy damage, not an outright kill.",
+      "correction": "the Luminoth Light Beam burns them, and a crystal energized by it kills any Ing that steps into its light",
+      "source_url": "https://www.metroidwiki.org/wiki/Light_Crystal"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Ing' is a three-letter key; it is safe only if SillyTavern's whole-word matching stays on, otherwise it fires on every '-ing' word. Consider keeping it but adding the safer multiword aliases.",
+      "correction": "Keep 'Ing' only with whole-word matching; add 'the Ing', 'Ing Larva', 'Ingstorm', 'Ing Hive' (if not owned elsewhere) and 'Mutated Emperor Ing'."
+     },
+     {
+      "severity": "style",
+      "problem": "Hyphen bullet list inside content ('Castes and Darklings:' followed by '- ' lines) is markdown-style formatting; the brief disallows markdown structure in entries.",
+      "correction": "Fold the castes into prose sentences."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Keybearer G-Sch's testament is the in-game source for Ing cannibalism ('they feed on their dead'); and the Ing's method of opening portals is explicitly unknown ('How they open the dimensional portal is unknown'), a useful limit for roleplay.",
+      "source_url": "https://www.metroidwiki.org/wiki/Ing"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 2: Energy Controllers and the Light of Aether",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "The Luminoth Energy Control System fed a planet-wide weather grid",
+      "problem": "No page uses the name 'Luminoth Energy Control System'; the Energy Controller page says the controllers power 'a weather control system' and 'a teleportation system' (scan: 'Light-based teleportation system online').",
+      "correction": "The Energy Controllers fed a planet-wide weather control system and a light-based teleportation network",
+      "source_url": "https://www.metroidwiki.org/wiki/Energy_Controller"
+     },
+     {
+      "severity": "nit",
+      "claim": "Each Dark Temple was sealed by three Dark Temple Keys",
+      "problem": "Correct count; the in-game names are Dark Agon Key, Dark Torvus Key and Ing Hive Key (I-Sha: 'The temple door is held fast by three locks'). Generic 'Dark Temple Keys' is acceptable but the real names could be added as keys.",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Temple_Key"
+     },
+     {
+      "severity": "missing",
+      "problem": "U-Mos's own statement of the stakes belongs here verbatim: 'Should one world gain control of this energy, the other will perish.' It is the canonical backing for 'Whichever world holds all the energy survives'.",
+      "source_url": "https://www.metroidwiki.org/wiki/U-Mos"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 2: Regions of Aether (Temple Grounds, Agon Wastes, Torvus Bog, Sanctuary Fortress)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Its reflection, the Sky Temple Grounds, is four broken, Phazon-soaked sections where Samus first met Dark Samus and lost her equipment",
+      "problem": "Samus first met Dark Samus on Aether: 'Samus first meets Dark Samus inside an abandoned Galactic Federation base set up by the GFMC Task Force Herakles on Aether', then followed her through the portal. The Sky Temple Grounds is where she lost her equipment, not where she first met Dark Samus.",
+      "correction": "...four broken, Phazon-soaked sections where Samus, having followed Dark Samus through a portal from the Marines' hive base, lost her equipment",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "unverified",
+      "claim": "the GFMC Compound the Marines of the G.F.S. Tyr built from pieces of their ship",
+      "problem": "The GFS Tyr logbook says the crew 'possibly' dismantled parts of the ship for 'makeshift defense systems'; the GFMC Compound page does not say what it was built from.",
+      "correction": "the GFMC Compound the Marines of the G.F.S. Tyr raised around their downed ship",
+      "source_url": "https://www.metroidwiki.org/wiki/GFS_Tyr"
+     },
+     {
+      "severity": "nit",
+      "claim": "O-Lir died to his own creations",
+      "problem": "The scan itself hedges: damaged by Luminoth weapons 'most likely those used by rogue Luminoth combat drones'; the wiki calls it 'presumably'. State it as the scan does.",
+      "correction": "O-Lir apparently died to his own corrupted creations ('It took more than the Ing to defeat this warrior')",
+      "source_url": "https://www.metroidwiki.org/wiki/O-Lir"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Great Temple, which was built between the three domains as a monument of peace",
+      "problem": "Lore wording: 'a place of peace and a monument to our accomplishments'.",
+      "correction": "built between the three domains as a place of peace and a monument to Luminoth achievement",
+      "source_url": "https://www.metroidwiki.org/wiki/Great_Temple"
+     },
+     {
+      "severity": "nit",
+      "claim": "The Dark Agon Wastes beyond the portals are Ing hunting grounds and Phazon fields",
+      "problem": "The page confirms large Phazon deposits, Inglets, Warrior Ing and Darklings; 'hunting grounds' is embellishment (Hunter Ing patrol all Dark Aether regions). Also 'Dark Samus cut the entrance bridge behind her' happened after Samus obtained the Spider Ball while heading back to Torvus, not on arrival.",
+      "correction": "The Dark Agon Wastes beyond the portals are Phazon-laced Ing territory... Pirate Commandos ambushed Samus on her arrival; later Dark Samus destroyed the entrance bridge to trap her and fought her in the Aerie.",
+      "source_url": "https://www.metroidwiki.org/wiki/Sanctuary_Fortress"
+     },
+     {
+      "severity": "missing",
+      "problem": "Sanctuary's hero C-Pul 'the Ingslayer' ('defeated over 700 Ing in combat', died in the Battle of the Hive) is the region's most quotable statue and is absent here though named in the Luminoth entry; E-Btr's and C-Pul's statues both stand in the Fortress.",
+      "source_url": "https://www.metroidwiki.org/wiki/Sanctuary_Fortress"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 2: GFS Tyr and Bravo Squad",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "She found only bodies: Exeter dead beside his terminal just after recording that report, the rest strewn through the compound, and every one of them rising again as a Dark Trooper",
+      "problem": "The Dark Troopers rise in the Splinter hive's Command Chamber ('A total of eleven Dark Troopers will appear on Samus's first visit'), before Samus reaches the compound; the GFMC Compound page lists Dark Splinters, Pirate Troopers and War Wasps as its enemies and says the corpses there carry 'intact Trooper Logs'. Not every one of the twenty-two rose, and none rose in the compound. 'Just after recording' is also an inference; the page says only that his body and the terminal are both in the compound.",
+      "correction": "She found only bodies. Eleven of the Marines, lying in the Splinter hive's command chamber, rose as Dark Troopers, clumsy Ing-driven corpses whose armor and weapons still worked; the rest, Exeter among them, lay dead in the compound near the terminal that held his final report, their logs intact.",
+      "source_url": "https://www.metroidwiki.org/wiki/Command_Chamber"
+     },
+     {
+      "severity": "unverified",
+      "claim": "They cannibalized the Tyr for barriers and Growler-class turrets",
+      "problem": "No wiki page (GFS Tyr, GFMC Compound, Task Force Herakles) mentions turrets of any class; the compound's only emplacement is a Kinetic Orb Cannon, and the Tyr page says the crew 'possibly' dismantled parts of the ship for makeshift defenses. Could not search further (search budget exhausted); recommend removal.",
+      "correction": "They scavenged the Tyr for makeshift defenses and raised the GFMC Compound beside a Splinter hive.",
+      "source_url": "https://www.metroidwiki.org/wiki/GFMC_Compound"
+     },
+     {
+      "severity": "nit",
+      "claim": "PFC E. Denys, the last alive, set out alone for the alien temple.",
+      "problem": "Denys's log says he is heading for an 'alien building', not a temple.",
+      "correction": "set out alone for the alien building nearby",
+      "source_url": "https://www.metroidwiki.org/wiki/Trooper_Logs"
+     },
+     {
+      "severity": "nit",
+      "claim": "\"Each unit was doing fine, no problems... until they appeared.\"",
+      "problem": "Wiki transcription is 'Each unit was doing fine, no problems... ...until they appeared.' (double ellipsis); trivial.",
+      "source_url": "https://www.metroidwiki.org/wiki/Captain_A._Exeter"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Tyr' and 'Herakles' will fire in any Norse/Greek mythology conversation. Low risk in a Metroid-only card, but worth noting; 'Exeter' can also hit the English city.",
+      "correction": "Keep 'G.F.S. Tyr', 'GFS Tyr', 'Captain Exeter', 'Task Force Herakles'; drop bare 'Tyr' and 'Herakles' if the card is used in mixed chats."
+     },
+     {
+      "severity": "missing",
+      "problem": "The job is 'Mission File 02543', which fixes the eight-day figure ('8 days ago, contact with Galatic Federation trooper squad Bravo was lost'); and the frigate's fate: 'The enemy frigate was crippled, and it crashed on the planet Aether', after which the Tyr 'followed the Pirates'. The entry's 'followed it down' slightly implies a controlled pursuit rather than a crash.",
+      "source_url": "https://www.metroidwiki.org/wiki/Captain_A._Exeter"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 2: Amorbis, Chykka and Quadraxis",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "noncanon",
+      "claim": "most likely designed by Sentinel O-Lir",
+      "problem": "This is Metroid Wiki speculation ('probably'); O-Lir's hologram says only 'I built a number of mechanical sentinels to join me in battle' and never names Quadraxis. Hedged wiki guesswork should not ship as lore.",
+      "correction": "a Luminoth war machine of Sanctuary's making, whose unfinished twin still lies in parts in the Sanctuary Temple",
+      "source_url": "https://www.metroidwiki.org/wiki/Quadraxis"
+     },
+     {
+      "severity": "nit",
+      "claim": "her scans found no trace of Ing possession in the body, only dark-energy mutation",
+      "problem": "The post-mortem scan reads 'No evidence of symbiotic corpse possession. Resurrection does not appear likely.' Nothing about dark-energy mutation; the larva scan says it has 'both a dark and light nature'.",
+      "correction": "her scans found no trace of Ing possession in the body and no likelihood of resurrection",
+      "source_url": "https://www.metroidwiki.org/wiki/Chykka"
+     },
+     {
+      "severity": "nit",
+      "claim": "she found the link with the Echo Visor, cut it, stunned the head and climbed its hull to bomb two weak points",
+      "problem": "Compressed: the Echo Visor targets the body's antenna to drop the head's shield, then three sonic receivers on the head must be destroyed (each releasing a Dark Quad) before the head can be stunned with the Light Beam or Super Missiles and climbed by Spider Ball track. Not wrong, just lossy.",
+      "source_url": "https://www.metroidwiki.org/wiki/Quadraxis"
+     },
+     {
+      "severity": "style",
+      "problem": "'Quadraxis is the largest foe Samus ever faced in her Phazon-era missions, and Amorbis ranks among the largest alongside Kraid and the Omega Pirate' is cross-game trivia (wiki: 'may be among the largest bosses') dressed as lore; the entry also runs 447 words for a non-core subject.",
+      "correction": "Cut the size-ranking sentence or reduce it to 'Quadraxis towered over anything else Samus met on Aether'."
+     },
+     {
+      "severity": "missing",
+      "problem": "Amorbis-nullified Light Crystals cannot be recharged by Samus (unlike other nullified crystals), the one detail that makes the Dark Agon Temple fight distinctive.",
+      "source_url": "https://www.metroidwiki.org/wiki/Light_Crystal"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime 2: The Ing Guardians and Samus's stolen equipment",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Its second head dropped and sprayed bombs; its tail was its weak point.",
+      "problem": "Bomb Guardian scan: 'Its head and tail are the only vulnerable spots on its body.' The tail is stunned first, then the head becomes vulnerable; if the head is not damaged enough it fires a large volley of bombs.",
+      "correction": "Its mutated second head dropped and sprayed bombs; head and tail were its only vulnerable spots.",
+      "source_url": "https://www.metroidwiki.org/wiki/Bomb_Guardian"
+     },
+     {
+      "severity": "unverified",
+      "claim": "plus the Luminoth's own Dark Beam, Light Beam, Annihilator Beam, Dark Suit, Light Suit, Dark Visor, Echo Visor and Screw Attack",
+      "problem": "The Screw Attack page gives no origin for the Echoes version; it is found in the Luminoth Vault but nothing attributes its design to the Luminoth, and in every other game it is Chozo technology. Listing it as 'the Luminoth's own' is unsupported.",
+      "correction": "...Dark Visor and Echo Visor, and a Screw Attack recovered from a Luminoth vault.",
+      "source_url": "https://www.metroidwiki.org/wiki/Screw_Attack"
+     },
+     {
+      "severity": "nit",
+      "claim": "lurking invisible in the Judgment Pit",
+      "problem": "The Jump Guardian 'stays hidden until Samus enters the safe zone'; 'invisible' overstates it (Flying Ing Caches are the ones with a stealth field).",
+      "correction": "lying hidden in the Judgment Pit",
+      "source_url": "https://www.metroidwiki.org/wiki/Jump_Guardian"
+     },
+     {
+      "severity": "style",
+      "problem": "Hyphen bullet list for the six Guardians is markdown-style structure; fold into prose."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Power Bomb Guardian was 'all but invulnerable' and was crushed when the ceiling fell after Samus bombed four wall Bomb Slots; the Grapple Guardian's weak spots were 'back shell and eye' and wounding its eye enraged it. Both now verified on their own pages, so the note 'their own wiki pages were not fetched' can be retired.",
+      "source_url": "https://www.metroidwiki.org/wiki/Power_Bomb_Guardian"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_2:_Echoes",
+   "https://www.metroidwiki.org/wiki/Aether",
+   "https://www.metroidwiki.org/wiki/Dark_Aether",
+   "https://www.metroidwiki.org/wiki/Luminoth",
+   "https://www.metroidwiki.org/wiki/Luminoth_Lore",
+   "https://www.metroidwiki.org/wiki/U-Mos",
+   "https://www.metroidwiki.org/wiki/Ing",
+   "https://www.metroidwiki.org/wiki/Emperor_Ing",
+   "https://www.metroidwiki.org/wiki/Energy_Controller",
+   "https://www.metroidwiki.org/wiki/Light_of_Aether",
+   "https://www.metroidwiki.org/wiki/Energy_Transfer_Module",
+   "https://www.metroidwiki.org/wiki/Sky_Temple_Key",
+   "https://www.metroidwiki.org/wiki/Dark_Temple_Key",
+   "https://www.metroidwiki.org/wiki/Flying_Ing_Cache",
+   "https://www.metroidwiki.org/wiki/GFS_Tyr",
+   "https://www.metroidwiki.org/wiki/GFMC_Task_Force_Herakles",
+   "https://www.metroidwiki.org/wiki/GFMC_Compound",
+   "https://www.metroidwiki.org/wiki/Trooper_Logs",
+   "https://www.metroidwiki.org/wiki/Captain_A._Exeter",
+   "https://www.metroidwiki.org/wiki/Dark_Trooper",
+   "https://www.metroidwiki.org/wiki/Command_Chamber",
+   "https://www.metroidwiki.org/wiki/Hive_Chamber_A",
+   "https://www.metroidwiki.org/wiki/Space_Pirate_Logs",
+   "https://www.metroidwiki.org/wiki/Dark_Samus",
+   "https://www.metroidwiki.org/wiki/Amorbis",
+   "https://www.metroidwiki.org/wiki/Chykka",
+   "https://www.metroidwiki.org/wiki/Quadraxis",
+   "https://www.metroidwiki.org/wiki/Hall_of_Honored_Dead",
+   "https://www.metroidwiki.org/wiki/A-Kul",
+   "https://www.metroidwiki.org/wiki/X-Qar",
+   "https://www.metroidwiki.org/wiki/Keybearer",
+   "https://www.metroidwiki.org/wiki/Ing-Luminoth_War",
+   "https://www.metroidwiki.org/wiki/I-Sha",
+   "https://www.metroidwiki.org/wiki/A-Voq",
+   "https://www.metroidwiki.org/wiki/O-Lir",
+   "https://www.metroidwiki.org/wiki/D-Chr",
+   "https://www.metroidwiki.org/wiki/K-Tch",
+   "https://www.metroidwiki.org/wiki/B-Stz",
+   "https://www.metroidwiki.org/wiki/Translator_Module",
+   "https://www.metroidwiki.org/wiki/Screw_Attack",
+   "https://www.metroidwiki.org/wiki/Light_Crystal",
+   "https://www.metroidwiki.org/wiki/Light_Beacon",
+   "https://www.metroidwiki.org/wiki/Warrior_Ing",
+   "https://www.metroidwiki.org/wiki/Hunter_Ing",
+   "https://www.metroidwiki.org/wiki/Inglet",
+   "https://www.metroidwiki.org/wiki/Darkling",
+   "https://www.metroidwiki.org/wiki/Ing_Hive",
+   "https://www.metroidwiki.org/wiki/Sanctuary_Fortress",
+   "https://www.metroidwiki.org/wiki/Sky_Temple_Grounds",
+   "https://www.metroidwiki.org/wiki/Sky_Temple",
+   "https://www.metroidwiki.org/wiki/Great_Temple",
+   "https://www.metroidwiki.org/wiki/Torvus_Bog",
+   "https://www.metroidwiki.org/wiki/Dark_Torvus_Bog",
+   "https://www.metroidwiki.org/wiki/Dark_Agon_Wastes",
+   "https://www.metroidwiki.org/wiki/Alpha_Splinter",
+   "https://www.metroidwiki.org/wiki/Bomb_Guardian",
+   "https://www.metroidwiki.org/wiki/Jump_Guardian",
+   "https://www.metroidwiki.org/wiki/Boost_Guardian",
+   "https://www.metroidwiki.org/wiki/Spider_Guardian",
+   "https://www.metroidwiki.org/wiki/Grapple_Guardian",
+   "https://www.metroidwiki.org/wiki/Power_Bomb_Guardian"
+  ]
+ }
+}

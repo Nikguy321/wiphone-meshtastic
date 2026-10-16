@@ -1,0 +1,297 @@
+{
+ "run": "wf_223f2f6f-0a5",
+ "label": "verify:prime1",
+ "result": {
+  "overall": "Checked all nine entries against 23 Metroid Wiki page fetches plus Wikipedia (WebSearch budget was already exhausted for this turn, so no searches were possible; Wikitroid not attempted). The drafts are mostly sound: numbers (5.1 trillion teratons, 44% yield, 86% Orange Phazon, 100% fourth-infusion extinction, 2 deca-cycles, twelve totems/ghosts), the artifact locations, the Chozo Lore quotations, the three frigates, the region fauna/flora lists and the boss mechanics all check out. The substantive problems cluster in two places: (1) Impact Crater geography is wrong in both the Metroid Prime and Impact Crater entries (the exoskeleton fight is in the Phazon Infusion Chamber, the core fight in the Metroid Prime Lair reached via Subchambers One-Five; the Phazon Core is a separate Fission Metroid cavern, and Crater Tunnel B lies beyond it, not before it); (2) the Metroid Prime entry attributes the retconned NTSC-only Pirate Data lines ('genetically similar to a Metroid', 'limitless Phazon infusion', 'no Phazon degeneration') to Samus's own scans, which say none of that. Smaller fixes: the 25-year decay projection is Samus's Logbook estimate per Metroid Wiki's Tallon IV page, not a Pirate reckoning, and it is not a competing account against the Federation's 50-years-since-impact figure; the Chozo Lore 'alien weapon / fragment of a shattered world' paraphrase overstates the 'Great Poison' text ('crafted by alien hands' or 'a roving chunk of a planet'); 'the Pirates built no more' Omega Pirates and 'Dark Samus never again bore the name Metroid Prime' are unsupported. Keys: 'harmonization', bare 'Artifacts' and 'Cipher' are generic-word misfire risks; the Artifact entry lacks aliases for nine of the twelve artifact names. Several entries run 450-520 words (over the 400 target but under the 550 core cap). No non-canon contamination found; the Smash trophy text was correctly kept out.",
+  "reports": [
+   {
+    "entry_comment": "Prime: The Tallon IV incident (Metroid Prime events)",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "She escaped the collapsing crater, removed her helmet aboard her Gunship and watched the Artifact Temple fall.",
+      "problem": "Metroid Wiki describes Samus standing on top of her Gunship when she removes her helmet, then entering it and leaving.",
+      "correction": "...removed her helmet standing atop her Gunship and watched the Artifact Temple fall.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime"
+     },
+     {
+      "severity": "nit",
+      "claim": "later Galactic Federation records call it recovered",
+      "problem": "The 'recovered' line is from the Corruption Logbook's Tallon IV planet entry; the separate Galactic Federation Data entry says only that Samus eliminated the threat 'though not without cost' and that survivors fled to an unknown location. Harmless gloss but slightly misattributed.",
+      "correction": "later records (Metroid Prime 3: Corruption Logbook) describe the planet as having recovered from the impact",
+      "source_url": "https://www.metroidwiki.org/wiki/Tallon_IV"
+     },
+     {
+      "severity": "missing",
+      "problem": "Meta Ridley was revived and rebuilt aboard the Orpheon itself after Samus's Zebes mission; worth a clause since the entry introduces him there.",
+      "source_url": "https://www.metroidwiki.org/wiki/Meta_Ridley"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Tallon IV Metroids the Pirates experimented on were the Orpheon's own cargo brought from Zebes (Pirate Data 'Fall of Zebes'), which explains why Metroids are on the planet at all.",
+      "source_url": "https://www.metroidwiki.org/wiki/Glacier_One"
+     },
+     {
+      "severity": "style",
+      "problem": "521 words; within the 550 core-subject cap but the longest entry in the set."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime: Tallon IV",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Accounts of the timing differ: the Pirates reckoned the planet had about twenty-five years before all life died, while Federation records placed the impact roughly fifty years before Samus came.",
+      "problem": "Metroid Wiki's Tallon IV page attributes the 25-year projection to Samus's own Logbook entry for Tallon IV ('At current rate of decay, Tallon IV will be a barren Class XIII wasteland in approximately 25 years'), not to a Pirate estimate. The two figures also measure different things (years until the planet dies vs. years since impact), so they are not competing accounts of the timing.",
+      "correction": "Samus's scans projected that at the current rate of decay the planet would be a barren Class XIII wasteland in about twenty-five years; Federation data later placed the impact fifty years before her arrival.",
+      "source_url": "https://www.metroidwiki.org/wiki/Tallon_IV"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Space Pirates charted it at heading mark 40.08.02",
+      "problem": "Pirate Data 'Contact' gives heading mark 40.08.02 as the land mass on the planet where their scouts landed (the center of the energy spike), not the planet's position.",
+      "correction": "their scouts landed at the center of the energy spike, a land mass at heading mark 40.08.02",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     },
+     {
+      "severity": "keys",
+      "problem": "Bare 'Tallon' is a substring of 'Tallon Overworld', 'Tallon Metroid', 'Tallon Crab' and 'Tallon IV incident', so this entry will fire alongside the Regions, bestiary and incident entries on nearly every Prime-related message. Acceptable if intended; otherwise drop it and rely on 'Tallon IV'/'Tallon 4'.",
+      "correction": "Consider removing bare 'Tallon'."
+     },
+     {
+      "severity": "missing",
+      "problem": "Federation Data (Corruption) states the few Chozo survivors abandoned the planet and fled to an unknown location; the Corruption Logbook also calls the atmosphere oxygen-rich and hospitable. Useful for a roleplay set after the incident.",
+      "source_url": "https://www.metroidwiki.org/wiki/Tallon_IV"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime: Regions of Tallon IV",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "Troopers carried beams reverse-engineered from Chozo weapons",
+      "problem": "Metroid Wiki's Phazon Mines page does say 'reverse-engineering Chozo beam weapons', but the in-game Pirate Data ('Hunter Weapons') says the Science Team was reverse-engineering Samus's arsenal. Either phrasing is defensible; 'from Samus's own arsenal' is closer to the primary text.",
+      "correction": "Troopers carried beams reverse-engineered from Samus's own Chozo-made arsenal",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     },
+     {
+      "severity": "style",
+      "problem": "461 words for a non-core subject; trim the fauna lists (bestiary-prime owns them per the notes) to get under 400."
+     },
+     {
+      "severity": "missing",
+      "problem": "Phendrana Drifts is divided into the Shorelines, Glacier One and the Underground Lake area, and it is where Samus recovered the Gravity Suit, which the Orpheon entry depends on.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phendrana_Drifts"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime: Frigate Orpheon and the Parasite Queen",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "in the Reactor Core met the last Queen",
+      "problem": "Metroid Wiki's Parasite Queen page counts four specimens aboard the Orpheon: the Reactor Core Queen, one dead in the Emergency Evacuation Area, one dead in Biohazard Containment, and one hibernating in Biotech Research Area 1 that breaks containment during Samus's escape and dies in the ensuing explosion. 'Last' is loose; 'the surviving Queen loose in the ship' is safer.",
+      "correction": "met the Queen still loose aboard, in the Reactor Core",
+      "source_url": "https://www.metroidwiki.org/wiki/Parasite_Queen"
+     },
+     {
+      "severity": "missing",
+      "problem": "Meta Ridley was revived and rebuilt with cybernetic upgrades aboard the Orpheon itself, which is why he is there when Samus boards.",
+      "source_url": "https://www.metroidwiki.org/wiki/Meta_Ridley"
+     },
+     {
+      "severity": "missing",
+      "problem": "A hibernating Queen in Biotech Research Area 1 breaks out during the escape sequence and is killed in the explosion; a roleplay retracing the escape would want it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Parasite_Queen"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime: The Chozo of Tallon IV and the Chozo Lore prophecy",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "debated its nature, an alien weapon or the fragment of a shattered world",
+      "problem": "The PAL 'Great Poison' entry speculates the meteor was 'crafted by alien hands' or 'a roving chunk of a planet'. Neither 'weapon' nor 'shattered world' appears; 'weapon' adds intent the text does not state.",
+      "correction": "debated whether the meteor had been crafted by alien hands or was a roving chunk of a planet",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Lore"
+     },
+     {
+      "severity": "nit",
+      "claim": "The rest withdrew beyond the illusion of the physical world, promising to keep watch (\"Exodus\").",
+      "problem": "'Exodus' is an NTSC-only entry, while the entry's notes say the PAL/Trilogy text is primary; the PAL equivalent is 'Shapeless' (the Chozo will waits unseen until the Entrusted One arrives). Also the NTSC text says 'withdrawing beyond the illusion', not 'of the physical world'.",
+      "correction": "The rest withdrew beyond the illusion, their will waiting unseen until the Entrusted One came (\"Exodus\"; \"Shapeless\").",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Lore"
+     },
+     {
+      "severity": "keys",
+      "problem": "'harmonization' is a generic English word (regulatory harmonization, musical harmonization) and will misfire in ordinary chat; 'the Turned' is also a plausible substring in prose.",
+      "correction": "Drop 'harmonization' or make it 'harmonization with the infinite'; consider 'Chozo Ghosts' is owned elsewhere so 'the Turned' can stay only if whole-word matching is on."
+     },
+     {
+      "severity": "style",
+      "problem": "472 words for a non-core subject."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime: Chozo Artifacts and the Artifact Temple",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "keys",
+      "problem": "Bare 'Artifacts' and 'Cipher' are generic words (the drafter flagged this). 'Artifacts' in particular will fire on any Luminoth/Bryyo/generic artifact mention, and 'Cipher' on any code talk.",
+      "correction": "Replace bare 'Artifacts' with 'Chozo Artifacts'/'twelve Artifacts' (already present) and drop bare 'Cipher' or make it 'the Cipher'."
+     },
+     {
+      "severity": "keys",
+      "problem": "Only three of the twelve artifact names are keys (Truth, Newborn, Chozo); 'Artifact of Wild/World/Lifegiver/Strength/Nature/Sun/Elder/Spirit/Warrior' will not trigger because 'Chozo Artifact' and 'Artifacts' do not match 'Artifact of X'.",
+      "correction": "Add the remaining nine 'Artifact of ...' names, or a single regex key."
+     },
+     {
+      "severity": "nit",
+      "claim": "Elder: the Control Tower atop the Pirate base in Phendrana Drifts.",
+      "problem": "The Control Tower is a room of Glacier One; the totem clue is 'collapse the tower'. 'Atop the Pirate base' is an embellishment.",
+      "correction": "Elder: the Control Tower of the Pirate base in Phendrana Drifts, brought down to reveal it.",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Artifact"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime: Flaahgra, Thardus and the Omega Pirate",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "simulations gave such subjects less than two deca-cycles to live, so the Pirates built no more",
+      "problem": "The 2 deca-cycle life expectancy is in the Omega Pirate scan, and Metroid Wiki notes Samus encounters only one, but no source says the Pirates decided to build no more because of it. The causal clause is invented.",
+      "correction": "simulations gave such subjects no more than two deca-cycles to live; it was the only one Samus ever met.",
+      "source_url": "https://www.metroidwiki.org/wiki/Omega_Pirate"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Pirates tried to tame Thardus and intended it to patrol the Phazon Mines before it turned violent.",
+      "source_url": "https://www.metroidwiki.org/wiki/Thardus"
+     },
+     {
+      "severity": "missing",
+      "problem": "Earlier Project Helix attempts failed, with Elite Pirates dying young or suffering psychotic breakdowns, before the Vertigo strain succeeded; the Omega Pirate's 'overdependence on Phazon' was the Pirates' stated concern.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     },
+     {
+      "severity": "style",
+      "problem": "451 words (drafter acknowledged)."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime: Metroid Prime (the creature)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Samus's own scans agreed on the essentials: a highly evolved life-form genetically like a Metroid, with unlimited Phazon absorption and no Phazon degeneration, armor plating, mechanical outgrowths projecting defense screens, and Pirate weaponry built into its body.",
+      "problem": "Per Metroid Wiki, 'genetically similar to a Metroid', 'limitless capacity for Phazon infusion' and 'no Phazon-based degeneration' appear only in the NTSC-only Pirate Data entry 'Metroid Prime', which the same entry just called superseded and which Metroid Wiki treats as no longer canon. Samus's Logbook Exo scan says only 'highly evolved, Phazon-producing life form' with a genetic flaw in its screens and a vulnerable head; the Core scan says it is invulnerable to all weapons but a Phazon-fused Arm Cannon.",
+      "correction": "Samus's own scans called it a highly evolved, Phazon-producing life-form whose armor and defense screens carried a genetic flaw that left it briefly open to specific weapons, with its head the only truly vulnerable point; the 'genetically Metroid, limitless Phazon infusion, no degeneration' description belongs to the superseded Pirate records.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)"
+     },
+     {
+      "severity": "error",
+      "claim": "In its armored exoskeleton it fought Samus in the Phazon Core and down through the Metroid Prime Lair.",
+      "problem": "The exoskeleton battle takes place in the Phazon Infusion Chamber, after which Metroid Prime digs down through Subchambers One to Five; the core essence is fought in the Metroid Prime Lair at the bottom. The Phazon Core is a separate Orange Phazon cavern inhabited by Fission Metroids with no boss.",
+      "correction": "In its armored exoskeleton it fought Samus in the Phazon Infusion Chamber, then burrowed down through the five Subchambers to the Metroid Prime Lair, where its core essence made its stand.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phazon_Infusion_Chamber"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Dark Samus, who never again bore the name Metroid Prime",
+      "problem": "Metroid Wiki's Dark Samus page only says she is 'known in the future Prime games as Dark Samus'; no source was found asserting the name was never used again. Universal negative, unsupported.",
+      "correction": "Dark Samus, the name under which the being was known from then on",
+      "source_url": "https://www.metroidwiki.org/wiki/Dark_Samus"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Metroid Prime' will also match the game titles Metroid Prime 2/3/4 and 'Metroid Prime Trilogy' whenever they are typed; unavoidable for the creature's name, but worth knowing that this entry fires on any title mention."
+     },
+     {
+      "severity": "missing",
+      "problem": "Dark Samus retained Samus's abilities with greater power and went on to spread Phazon into Federation space; a one-clause pointer helps the Echoes/Corruption hand-off.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)"
+     },
+     {
+      "severity": "style",
+      "problem": "480 words; acceptable if treated as a core subject, otherwise trim the superseded-Pirate-Data paragraph."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Prime: Impact Crater",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "then through Crater Tunnels A and B past a Crater Missile Station into the Phazon Core, a cavern of glowing Phazon growths where she first fought Metroid Prime's exoskeleton. Beyond lay the Phazon Infusion Chamber and the Metroid Prime Lair with its five Subchambers, down which the broken creature fell and where she destroyed its core essence.",
+      "problem": "Room order and fight locations are wrong. The Phazon Core connects to Crater Tunnel A, the Crater Missile Station and Crater Tunnel B, and holds only Fission Metroids; Crater Tunnel B leads from it to the Phazon Infusion Chamber, where the exoskeleton battle happens; Subchambers One to Five are separate rooms between the Infusion Chamber and the Metroid Prime Lair, where the core essence is fought.",
+      "correction": "then through Crater Tunnel A into the Phazon Core, a cavern floored with Orange Phazon where Fission Metroids spawned (the Crater Missile Station branched off it), on through Crater Tunnel B to the Phazon Infusion Chamber, where Metroid Prime hung from the ceiling and fought her in its exoskeleton, and finally down the five Subchambers to the Metroid Prime Lair, where she destroyed its core essence.",
+      "source_url": "https://www.metroidwiki.org/wiki/Phazon_Core"
+     },
+     {
+      "severity": "nit",
+      "claim": "Their Phazon yields rose by forty-four percent the closer they dug to it",
+      "problem": "Pirate Data 'Mining Status' says mining near the crater raised daily yields 44%; it does not describe a gradient with proximity.",
+      "correction": "Mining near the crater raised their daily Phazon yields by forty-four percent, and the miners went mad.",
+      "source_url": "https://www.metroidwiki.org/wiki/Pirate_Data"
+     },
+     {
+      "severity": "missing",
+      "problem": "Orange Phazon in the crater damages Samus even through the Phazon Suit, which is the practical reason the crater is lethal to stand in.",
+      "source_url": "https://www.metroidwiki.org/wiki/Tallon_IV"
+     },
+     {
+      "severity": "missing",
+      "problem": "The Metroid Prime Lair is the only place on Tallon IV where Samus could enter Hyper-mode and fire the Phazon Beam; the Lair also contains Prime's discarded exoskeleton lying in a mass of Phazon.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Prime_Lair"
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Metroid_Prime",
+   "https://www.metroidwiki.org/wiki/Tallon_IV",
+   "https://www.metroidwiki.org/wiki/Frigate_Orpheon",
+   "https://www.metroidwiki.org/wiki/Parasite_Queen",
+   "https://www.metroidwiki.org/wiki/Chozo_Lore",
+   "https://www.metroidwiki.org/wiki/Chozo_Artifact",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)",
+   "https://www.metroidwiki.org/wiki/Impact_Crater",
+   "https://www.metroidwiki.org/wiki/Pirate_Data",
+   "https://www.metroidwiki.org/wiki/Artifact_Temple",
+   "https://www.metroidwiki.org/wiki/Omega_Pirate",
+   "https://www.metroidwiki.org/wiki/Thardus",
+   "https://www.metroidwiki.org/wiki/Flaahgra",
+   "https://www.metroidwiki.org/wiki/Phazon_Infusion_Chamber",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_Lair",
+   "https://www.metroidwiki.org/wiki/Phazon_Core",
+   "https://www.metroidwiki.org/wiki/Chozo_Ruins",
+   "https://www.metroidwiki.org/wiki/Tallon_Overworld",
+   "https://www.metroidwiki.org/wiki/Magmoor_Caverns",
+   "https://www.metroidwiki.org/wiki/Phendrana_Drifts",
+   "https://www.metroidwiki.org/wiki/Phazon_Mines",
+   "https://www.metroidwiki.org/wiki/Dark_Samus",
+   "https://www.metroidwiki.org/wiki/Chozo_Ghost",
+   "https://www.metroidwiki.org/wiki/Meta_Ridley",
+   "https://www.metroidwiki.org/wiki/Observatory",
+   "https://www.metroidwiki.org/wiki/Leviathan",
+   "https://www.metroidwiki.org/wiki/Glacier_One",
+   "https://en.wikipedia.org/wiki/Metroid_Prime"
+  ]
+ }
+}

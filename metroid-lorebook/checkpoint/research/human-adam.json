@@ -1,0 +1,747 @@
+{
+ "run": "wf_7301ecd7-360",
+ "label": "research:human-adam",
+ "result": {
+  "facts": [
+   {
+    "fact": "In Other M, Samus's narration introduces him as \"Adam Malkovich. A general in the Galactic Federation Army. Not only a trusted confidant but also my former superior officer.\" So in that game his rank is General and his service is the Galactic Federation Army.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "In the field he is addressed and referred to as \"Commander\". Federation operators say \"Commander Malkovich!\" in the Ian flashback. A trooper says \"Commander, we're all prepped!\". The Colonel says \"Commander Malkovich\", Anthony cites \"Commander Malkovich's orders\", and MB asks for \"Commander Adam Malkovich\". Samus's own narration says \"Commander Adam Malkovich was normally cool...\". Anthony and Samus also call him \"the CO\" or \"the commander\".",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Other M's in-game Characters screen lists him as \"DATAFILE: Galactic Federation Corps Member\" and describes him as \"Samus' superior from her days in the Galactic Federation.\" When he dies the entry becomes \"Adam Malkovich/Deceased - Sacrificed his life in order to destroy Sector Zero.\"",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Nintendo's official Japanese Other M character page, whose text is set in an image, reads: \"アダム・マルコビッチ / Adam Malkovich — 寡黙にして聡明な銀河連邦軍司令官。サムスの元上官であり、彼女の悲惨な過去を知る良き理解者でもあった。\" My translation: \"A taciturn and wise Galactic Federation Army commander. Samus's former superior, and someone who truly understood her and knew her tragic past.\" The page shows his portrait in a blue Federation uniform and peaked cap.",
+    "source": "https://www.nintendo.co.jp/wii/r3oj/characters/adam.html (text image: https://www.nintendo.co.jp/wii/r3oj/characters/imgadam/adam3-04.jpg)",
+    "confidence": "high"
+   },
+   {
+    "fact": "Voice actors: Dave Elvin (English) and Rikiya Koyama (Japanese).",
+    "source": "https://en.wikipedia.org/wiki/Metroid:_Other_M",
+    "confidence": "high"
+   },
+   {
+    "fact": "Per the manga (SnoopyCool's English translation, hosted on Metroid Recon), Adam is \"General Adam Malcovich\", an Army general. On Jigrad, Samus's Federation Police comrades grumble about \"Baby-sitting army big-shots\". So in the manga Samus serves in the Federation Police and Adam belongs to the Army. In Other M, Samus says she was enrolled in the Galactic Federation Army under him.",
+    "source": "https://metroid.retropixel.net/features/comics/metroidmanga/chapter3/ ; https://metroid.retropixel.net/features/comics/metroidmanga/chapter4/ ; https://www.metroidwiki.org/wiki/Samus_Aran",
+    "confidence": "high"
+   },
+   {
+    "fact": "Per the manga, his first recorded remark about Samus, after she, Kreatz and Mauk defied orders and beat the Pirates on Jigrad, is dismissive: he calls her \"an unnecessary piece of baggage\".",
+    "source": "https://www.metroidwiki.org/wiki/Samus_Aran ; https://metroid.retropixel.net/features/comics/metroidmanga/chapter3/",
+    "confidence": "high"
+   },
+   {
+    "fact": "Per the manga, ch. 5: Adam personally interrogates a captured Space Pirate (\"You are avoiding the subject.\"). When news comes that Zebes is under attack and Samus is set on going, he challenges her: \"So you're following your personal emotions and abandoning your duty...?\" She aims her arm cannon at his face. He does not flinch and answers \"You have 48 hours.\" He then states when the Army will strike and dismisses her with \"That is all.\" In effect he gives her a window to act instead of stopping her.",
+    "source": "https://metroid.retropixel.net/features/comics/metroidmanga/chapter5/",
+    "confidence": "medium"
+   },
+   {
+    "fact": "He commands the Galactic Federation 07th Platoon, six men including himself: Anthony Higgs (Point Man, code 103), Lyle Smithsonian (Special Ops, 101), Maurice Favreau (Engineer, 102), James Pierce (Communications, 104) and K.G. Misawa (Recon Scout, 105).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Ian Malkovich, Adam's younger brother, was repairing a drive unit attached to a civilian craft, with 300 lives depending on him. The unit went critical. Adam ordered it disengaged and the shielding doors locked while Samus begged to be sent in. The stage direction reads \"(Adam hesitates)\" before his final order: \"Commence drive-unit disposal immediately. That's an order.\" Ian died in the explosion.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php ; https://www.metroidwiki.org/wiki/Ian_Malkovich",
+    "confidence": "high"
+   },
+   {
+    "fact": "Anthony reads the Ian decision as partly about protecting Samus: \"At the very least, you wouldn't be standing here now. That's what the commander was most scared of.\" Wikipedia likewise says Adam let his brother die \"to avoid risking the deaths of Samus and his team.\"",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php ; https://en.wikipedia.org/wiki/Characters_of_the_Metroid_series",
+    "confidence": "high"
+   },
+   {
+    "fact": "Samus left his command \"as the result of a certain incident\" (the Ian incident) and became a freelance bounty hunter. Looking back, she admits Adam was right, and that she was childish for questioning his authority.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "A flashback shows Adam working in his office at Federation HQ. On his desk is a portrait of Samus posing awkwardly next to Ian, with Adam in the background. He kept that photo.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Before every briefing ended, Adam asked \"Any objections, Lady?\" The other troopers gave a thumbs-up and Samus gave a thumbs-down. She calls her thumbs-down \"twofold\": derision at being called a lady, plus a sign that she fully understood the orders. In Fusion she frames the phrase differently: \"He knew I wouldn't disagree. That was just his way of noting our trust.\" She also says \"Lady\" from anyone else would have sounded sarcastic, but Adam made it sound dignified.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php ; https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "The English Other M uses two forms of the catchphrase. The briefing flashback has \"Any objections, Lady?\". His last words at Sector Zero, and Samus's later memory of them, are \"No objections, right, Lady?\". Fusion's AI uses \"Any objections, Lady?\". The existing lorebook says he asked \"Any objections, Lady?\" one last time, which is inaccurate.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php ; https://www.quotes.net/movies/metroid:_other_m_132830 ; https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "In the Japanese Other M commercial, as translated by Nintendo World Report, Adam's catchphrase is 「異論はないな、レィディ。」, which NWR rendered as \"Any objections, lady?\". Grammatically, 異論はないな is a statement expecting agreement (\"No objections, I take it\"), so it is closer to the English last-words form \"No objections, right, Lady?\". 'Lady' is written in katakana with an unusual small ィ (レィディ), which keeps it a foreign-sounding English word. The grammar and spelling reading is my own analysis.",
+    "source": "https://nintendoworldreport.com/news/23895",
+    "confidence": "medium"
+   },
+   {
+    "fact": "Aboard the Bottle Ship his first words to Samus are \"What are you doing here?\", and he refuses her information: \"That information is not for an outsider.\" After the Brug Mass is destroyed, he accepts her help on condition that she obeys his commands absolutely.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "The authorization system: Samus herself \"decided not to use bombs or missiles until Adam authorizes them\". Adam unlocks her equipment one piece at a time as the situation calls for it: missiles, bombs, Ice Beam, Varia, Speed Booster, Wave Beam, Grapple Beam, Super Missiles. He explicitly withholds Power Bombs because they can \"vaporize humans instantly\". From the Control Room he sees whatever Samus sees, and his troopers can only reach him through navigation booths because of interference.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php ; https://en.wikipedia.org/wiki/Metroid:_Other_M",
+    "confidence": "high"
+   },
+   {
+    "fact": "His stated mission priority: \"We need to gather all the information we can, but priority one is to find any survivors and bring them to safety.\"",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "According to Samus, Adam was a strong opponent of bioweapons and \"against the use of living things for unnecessary reasons, period.\" She calls this \"Adam's philosophy\": life should not be tampered with.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "While Adam is calling to Samus during her Ridley paralysis, he senses someone behind him in the Control Room. A shot is fired and his earpiece comlink falls to the floor. Who fired is never shown, and contact with him is lost. His character entry then reads \"Currently cannot be contacted. Reasons unknown.\"",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "A late flashback from Adam's point of view, shown in Chapter 29 when Samus picks up his helmet, has him reading the real Madeline Bergman's document while watching Samus talk to MB. He shouts \"No! Samus!\" and grabs his weapons to stop her reaching Sector Zero.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "At the Sector Zero entrance he shoots Samus in the back with a Freeze Gun, which disables her suit, and freezes the infant Metroid about to attack her. He explains that the Sector Zero Metroids probably cannot be frozen. He says he wrote the Metroid program report only because HQ asked, and that the report argued against the program, but \"a small group within the Federation co-opted my report\". He gives her missions: divert the ship from its intercept course with Federation HQ, secure the survivor in Room MW (\"a key witness\"), and defeat Ridley. He warns \"Madeline Bergman... is no ally.\" Then he walks in to trigger the self-destruct, which detaches the sector and blows it up.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php ; https://en.wikipedia.org/wiki/Metroid:_Other_M",
+    "confidence": "high"
+   },
+   {
+    "fact": "At his last words Samus, crying, raises a thumbs-up and then switches it to a thumbs-down. Adam nods in approval and turns away. Later, at Federation HQ, she swears not to grieve and gives him a thumbs-up \"for the first time\".",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Days later, with the Bottle Ship marked for destruction, Samus goes back for Adam's helmet, which she finds in the Control Room. In her gunship she says \"Sorry for keeping you waiting, Adam. Let's go home.\"",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Anthony, who survived, faces down the Federation Colonel with \"Commander Malkovich's orders\" and the chairman of the Galactic Federation's authorization to secure the survivors. Adam's mission was officially sanctioned against the ringleaders.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Samus speculates, without confirming it, that \"Adam might have known or suspected the truth about the facility from the beginning,\" and that his presence kept the ringleaders from acting recklessly.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "medium"
+   },
+   {
+    "fact": "Fusion: Samus named her ship's computer after \"a gruff Federation CO I served under named Adam Malkovich\", \"out of respect and with some irony\". She thinks the real Adam would have \"softened the blow\" and that he \"was not a machine obsessed with duty.\" At the climax the computer turns out to be Adam's uploaded mind. In her words: \"the minds of leaders and scientists were frequently uploaded to computers.\"",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Fusion: just before the reveal, the computer provokes Samus. It asks \"Would he sit in a safe Command Room and order you to die?\", calls her choice \"How foolish.\", and says \"When Adam decided who would live, he chose incorrectly.\" Then Adam's voice proposes altering the station's orbit to destroy SR388 too, and ends \"Move quickly, and stay alive. That's an order! Any objections, Lady?\"",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Fusion ending: Samus credits \"That perfect military mind... The wisdom of Adam Malkovich\". She recalls that he comforted her about the tribunals to come with \"Do not worry. One of them will understand. One of them must.\" She ends with \"This is what Adam taught me.\" He then speaks to her from the ship's computer as \"Lady\".",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Yoshio Sakamoto, writing as Other M's producer and scenario writer, says he wrote the story, which \"reintroduces Adam Malkovich, who had appeared in Fusion in a certain form,\" tells \"the story of Samus as a young girl and reveal[s] her relationship with Adam,\" and explores \"the story of Samus and Adam\" as human drama.",
+    "source": "https://www.nintendo.co.uk/Iwata-Asks/Iwata-Asks-Metroid-Other-M/Keynote-from-Metroid-creator-Yoshio-Sakamoto/Page-5/Page-5-203822.html",
+    "confidence": "high"
+   },
+   {
+    "fact": "When Samus breaks protocol on her own initiative (a retracted bridge, then Space Jump and Screw Attack), she turns his phrase around on him: \"Any objections, Adam?\" At the end of the first briefing she answers him with \"Understood, Adam. No objections, of course.\"",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php",
+    "confidence": "high"
+   },
+   {
+    "fact": "Wikipedia sums him up as \"notable for his commitment to the greater good even at personal cost\" and calls Samus's view of him that of a surrogate father.",
+    "source": "https://en.wikipedia.org/wiki/Characters_of_the_Metroid_series",
+    "confidence": "medium"
+   },
+   {
+    "fact": "The Metroid Wiki lead styles him \"General Adam Malkovich\". Its 07th Platoon page says the platoon is \"under the command of General Adam Malkovich\". His home planet is not stated in any source.",
+    "source": "https://www.metroidwiki.org/wiki/Adam_Malkovich ; https://www.metroidwiki.org/wiki/Galactic_Federation_07th_Platoon",
+    "confidence": "high"
+   }
+  ],
+  "quotes": [
+   {
+    "speaker": "Adam Malkovich",
+    "line": "What are you doing here?",
+    "context": "First words to Samus on the Bottle Ship (Other M ch. 2). Samus: \"The first words out of his mouth were typical, coming from Adam.\"",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "That information is not for an outsider.",
+    "context": "Refusing to tell Samus why the Federation is on the Bottle Ship (ch. 2).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Listen up! Freeze guns authorized!",
+    "context": "Brug Mass fight, when nothing else is working (ch. 3).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "And Samus, I'm authorizing missile use.",
+    "context": "Brug Mass fight (ch. 3).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Concentrate fire in a single location and freeze that thing! And, Samus, you attack the frozen spot!",
+    "context": "Brug Mass fight (ch. 3).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Samus. Looks like I'm going to need to ask for your cooperation on this mission. But... I'm also going to have to ask that you follow my commands. You don't move unless I say so. And you don't fire until I say so.",
+    "context": "After the Brug Mass, raising his visor to speak to her (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Any objections, Lady?",
+    "context": "Flashback to a briefing in her Federation days. Samus answers with a thumbs-down while the troopers give a thumbs-up (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Exactly what transpired here on the BOTTLE SHIP is still uncertain. Here's what we do know: the equipment we thought had been destroyed is operational again, and we've seen casualties attributed to an unidentified and lethal creature. The situation is critical. We need to gather all the information we can, but priority one is to find any survivors and bring them to safety. Consider this site extremely dangerous. Be careful as you make your sweeps. And there's one problem.",
+    "context": "Briefing in the Control Room, helmet off (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Well then... Lyle! Investigate Sector 1. And show a little restraint with the explosives.",
+    "context": "Assigning sectors (ch. 4). Dry jab at Lyle, who had just shot up a bug.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Anthony! You're Sector 3. I'll leave it to you to decide whether plasma guns are called for.",
+    "context": "Assigning sectors (ch. 4). Delegates judgment to a trusted subordinate.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Each of you is authorized to use a freeze gun. Do not forget to check in regularly via navigation booths. And, Samus. You go to the System Management room. Do everything you can to get the electrical system back up and running.",
+    "context": "Briefing (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Remember, everything you see will also appear on this screen. Regarding auxiliary weapons, the use of bombs has been authorized. As far as your other weapons go, we will continue to investigate and authorize use as we can. However... We currently have no plans to authorize the use of Power Bombs. As you know, they have the ability to spread a high-temperature heat wave over a large area, impacting living things...",
+    "context": "Explaining the authorization system to Samus (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "which is a nice way of saying they can vaporize humans instantly.",
+    "context": "Continuing the Power Bomb explanation. Deadpan understatement (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "I want you all to be especially careful as you execute your missions. That's the end of the briefing.",
+    "context": "Closing the briefing (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Understood, Adam. No objections, of course.",
+    "context": "Her reply after the first Bottle Ship briefing (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "What are you doing? You need to get to the System Management room.",
+    "context": "Idle prompt if the player dawdles (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Samus! What's going on? Respond! Respond!",
+    "context": "Game Over line (before contact is lost).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "I don't know. Continue your investigation.",
+    "context": "Samus asks what the cybernetically enhanced Zebesian is (ch. 7).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Looks like it.",
+    "context": "Samus: \"Adam, was the Galactic Federation experimenting with bioweapons?\" (ch. 7)",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Of course it is. What's happened here is illegal.",
+    "context": "Samus: \"Use of bioweapons is strictly prohibited.\" (ch. 7)",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Must be the person in charge here. Is that all you've got?",
+    "context": "Samus: \"Who is Madeline Bergman?\" (ch. 7)",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "I want all the soldiers to evacuate this area. Samus! Your orders are to take care of all enemy targets!",
+    "context": "Exam Center, Samus cornered by live Zebesians (ch. 8).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "OK, Samus. Head to Sector 2. There's a high probability of survivors hiding there. We'll have to take care of that freak of nature later.",
+    "context": "Redirecting her from the creature hunt to the survivor search (ch. 11). Survivors come first.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Samus, use of the Grapple Beam is authorized! Get to Anthony and cover him!",
+    "context": "Anthony held over lava by the Rhedogian (ch. 14).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Prepare to disengage the drive unit immediately!",
+    "context": "Ian flashback, after the operator warns of meltdown (ch. 14).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Lock and secure the shielding doors now!",
+    "context": "Ian flashback, ignoring Samus's \"Give me the order, please!\" (ch. 14).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Adam, wait! There's still time! I can make it! Please let me go! I mean... That's Ian! That's your little brother out there!",
+    "context": "Ian flashback (ch. 14).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Commence drive-unit disposal immediately. That's an order.",
+    "context": "Ian flashback, after a stage-directed hesitation. Ian dies (ch. 14).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Adam was right. If we had waited any longer, it would have meant the end of those we had come to rescue and the end of us as well. I knew that, but...",
+    "context": "Narrating the end of the Ian flashback (ch. 14).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Anthony Higgs",
+    "line": "At the very least, you wouldn't be standing here now. That's what the commander was most scared of.",
+    "context": "On why Adam didn't let Samus go after Ian (ch. 14).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "...I was childish. No one should have to make the choice that Adam did, and yet all I could do was question his authority and make things more difficult.",
+    "context": "To Anthony after the flashback (ch. 14).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Anthony Higgs",
+    "line": "Hey, you were just a pup then, and the commander knows it.",
+    "context": "Reassuring Samus (ch. 14).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Anthony Higgs",
+    "line": "It seemed a little excessive to send the whole unit to do it... but he's the commander. He must've had a reason.",
+    "context": "On Adam's order to move as a unit (ch. 14).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Huh? What the—? Samus! Do you copy? Samus! Samus! Use your Plasma Beam!",
+    "context": "Watching Samus freeze up before Ridley. Moments later a shot is fired in the Control Room and his comlink falls (ch. 16).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Without question, his life had to be in danger. But it was Adam Malkovich—he wouldn't go down easily. And Adam would already know about the Deleter, so there's no way he would let his guard down.",
+    "context": "After contact with Adam ceases (ch. 18).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Any objections, Adam?",
+    "context": "Acting on her own to get past a sabotaged bridge, using Space Jump and Screw Attack without authorization (ch. 18).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "MB (posing as Madeline Bergman)",
+    "line": "The real leader of this operation is Commander Malkovich. I can't believe that he's here.",
+    "context": "Framing Adam as the author of the Metroid program (ch. 18).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Samus. Can you hear my voice?",
+    "context": "Kneeling by Samus after freezing her at Sector Zero (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "You know what lies up ahead: the Metroids and the artificial intelligence that controls them. The fruit of the Galactic Federation's twisted project.",
+    "context": "Sector Zero (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "There's a strong likelihood that the Metroid's mortal weakness, the vulnerability to cold, has been overcome through genetic manipulation.",
+    "context": "Sector Zero (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "True. My guess is that it was because it was still in a larval stage, but who can say?",
+    "context": "Samus points out he froze the infant (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "It's hard to imagine the military mass-producing defective weapons. Then again, none of this makes sense. Metroids are lethal—their extinction was a wise decision.",
+    "context": "Sector Zero (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "And now, since no one has the technology to defeat them, they cannot be allowed to exist.",
+    "context": "Sector Zero, holstering the Freeze Gun and taking up his rifle (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "I received the request to write the report from Galactic Federation headquarters. In that report, I outlined the potential dangers of such a program and explained categorically why it shouldn't be attempted.",
+    "context": "Samus asks why he is credited as author of the Metroid program report (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "HQ listened. But a small group within the Federation co-opted my report for its own purposes.",
+    "context": "Sector Zero (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "If what Madeline Bergman said is correct, there's a distinct possibility that this is the start of an attack by MB against the Federation. One way or another, some sort of attack is clearly imminent. You have to find a way to divert the ship off its intercept course. I've located a survivor in Room MW toward the rear of the Bioweapon Research Center. Whoever it is will be a key witness. Secure the survivor's safety. And defeat Ridley. He's as much of a threat as the Metroids. And one last word of warning. Madeline Bergman... is no ally.",
+    "context": "His final orders to Samus (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Leave it to me. I'll deal with this place.",
+    "context": "Samus asks what he plans to do with the Metroids (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "...Sector Zero has a self-destruct protocol. If the sector receives a significant amount of damage, the unit is programmed to detach and self-destruct. A powerful explosion will eliminate the Metroids and MB without leaving a trace.",
+    "context": "Sector Zero (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Don't you dare, Adam! Let me go in! I'm the only one who has a shot against the Metroids. We have to take the chance! Please, Adam!",
+    "context": "Sector Zero, echoing the Ian scene (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Samus. I wish I could battle Ridley, but I can't. Unlike you, I'm no galactic savior. I'm merely human. But I can save you. You should be completely healed soon. There isn't much time.",
+    "context": "Catching her arm as she lurches forward (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "We both need to get started on our missions. I'm sorry for getting a little rough with you.",
+    "context": "Sector Zero (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "Good luck, Samus.",
+    "context": "Walking into Sector Zero (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "No objections, right, Lady?",
+    "context": "His last words, from inside the sealed airlock. Samus, crying, gives a thumbs-up, switches it to a thumbs-down, and he nods (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Adam vanished. My best friend, the person who understood me best... the closest thing to a father I had.",
+    "context": "After Sector Zero explodes (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "I think Adam granted me that eye-of-the-storm clarity—his final gift to me.",
+    "context": "After Sector Zero explodes (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "There was no time for me to grieve his death. But there was time for me to say: Adam, thank you... Leave the rest to me.",
+    "context": "After Sector Zero explodes (ch. 19/20).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich",
+    "line": "No! Samus!",
+    "context": "Flashback from his point of view, shown in Chapter 29: reading the real Madeline's document while watching Samus with MB, then grabbing his weapons to stop her.",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Adam Malkovich. A general in the Galactic Federation Army. Not only a trusted confidant but also my former superior officer.",
+    "context": "Narration on seeing him again (ch. 2).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Commander Adam Malkovich was normally cool and not one to joke around, but he would end all of his mission briefings by saying, \"Any objections, Lady?\"",
+    "context": "Narration on the thumbs-down (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "And yet, with Adam, I was grateful for the nod... My past has left me with an uneasy soul, and as a result, it touched me on some level that Adam would acknowledge that past by calling me something delicate—like \"Lady.\" And I knew more than anyone that every word from Adam was deliberate. My thumbs-down was a twofold response—a sign of derision at being called a lady, and a signal of my complete understanding of the mission orders.",
+    "context": "Narration (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "But even in the naivete of my youth, I could see in Adam's joking manner how close he felt to me.",
+    "context": "Narration (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Adam knows my past. And he knows me better than anyone else.",
+    "context": "Narration (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Confession time. Because I was so young when I lost both of my parents, there's no question I saw Adam as a father figure.",
+    "context": "Narration (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "When I rebelled against him, I knew I could get away with it. And his paternal compassion in the face of my rebellion reinforced the special bond I felt with him.",
+    "context": "Narration over Adam alone in his office (ch. 4).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Not only was he a strong opponent of bioweapons, he was against the use of living things for unnecessary reasons, period.",
+    "context": "Narration after the bioweapon reveal (ch. 7).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Life, no matter what form it takes as it's born into this often cruel universe, should not be tampered with... That was Adam's philosophy.",
+    "context": "Narration (ch. 7).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "I can't imagine what would have happened if Adam hadn't recognized the looming danger. But the cost was far too great. Why did Adam have to pay with his life? For me, I couldn't believe he was dead.",
+    "context": "Ending narration (ch. 25).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "I heard Adam's voice in my head, and I knew in my heart that he had made the right decision, just as he had so many years ago. In that moment, I swore not to grieve his death. And for the first time, I gave him a thumbs-up—just in case he was watching over me.",
+    "context": "Ending narration at Federation HQ (ch. 25).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "Sorry for keeping you waiting, Adam. Let's go home.",
+    "context": "Escaping the Bottle Ship with Adam's helmet (ch. 30).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "The Colonel",
+    "line": "Unfortunate, what happened to Commander Malkovich. And to think that his entire unit was annihilated... Truly a tragic day... Would you agree, Aran? Sadly, with them gone, you're just an outsider.",
+    "context": "Federation colonel after the Bottle Ship incident (ch. 25).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Anthony Higgs",
+    "line": "I need to secure the safety of any survivors—Commander Malkovich's orders, and the purpose of this mission.",
+    "context": "Facing down the Colonel (ch. 25).",
+    "source": "https://metroid.retropixel.net/games/metroidom/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "That computer reminds me of a gruff Federation CO I served under named Adam Malkovich. He called me \"Lady\" on missions; from anyone else, it would've sounded sarcastic, but Adam made it sound dignified. Out of respect and with some irony, I named the computer after him.",
+    "context": "Metroid Fusion, elevator monologue.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "As I listened to the briefing, my thoughts turned to Adam. The real Adam understood me well. He would end orders by saying, \"Any objections, Lady?\" He knew I wouldn't disagree. That was just his way of noting our trust. I wonder if I can trust this computer, too...",
+    "context": "Metroid Fusion, leaving Sector 1.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "The real Adam would have said the same thing about that incident, but he would have softened the blow. He was relentless in his criticism, but he always cared... He was not a machine obsessed with duty. No such compassion could exist in that computer...",
+    "context": "Metroid Fusion, after the computer scolds her over the Restricted Lab.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "He would understand that some must live and some must die... He knew what it meant. He made that sacrifice once.",
+    "context": "Metroid Fusion, to the computer before the reveal.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (pre-reveal)",
+    "line": "Did this \"Adam\" care for you? Would he sit in a safe Command Room and order you to die?",
+    "context": "Metroid Fusion, provoking Samus.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (pre-reveal)",
+    "line": "So, he chose life for you? Our fair warrior, Samus Aran... Your Adam gave his life so that you might keep yours... For the sake of the universe...",
+    "context": "Metroid Fusion.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (pre-reveal)",
+    "line": "You would ignore this simple fact and choose death. When Adam decided who would live, he chose incorrectly.",
+    "context": "Metroid Fusion, immediately before Adam's voice takes over.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam (AI)",
+    "line": "...If you were to alter the station's orbit, then you might be able to include the planet in the vaporization field of the self-destruct detonation.",
+    "context": "Metroid Fusion, the reveal.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam (AI)",
+    "line": "You would have to start the propulsion sequence now. Before the Federation arrives. Samus, this is your last mission. Go to the Operations Room and adjust the station's orbit path to intercept SR388.",
+    "context": "Metroid Fusion.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam (AI)",
+    "line": "Then return to your ship and escape. Move quickly, and stay alive. That's an order! Any objections, Lady?",
+    "context": "Metroid Fusion, final orders.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam (AI), quoted by Samus",
+    "line": "Do not worry. One of them will understand. One of them must.",
+    "context": "Fusion ending. Samus: \"Adam understood this, and he spoke to me in my anger...\"",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "That perfect military mind... The wisdom of Adam Malkovich continued to serve even after death. Until today, I had no idea that the minds of leaders and scientists were frequently uploaded to computers. My incredible reunion with Adam may have saved the universe...",
+    "context": "Fusion ending.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Samus Aran",
+    "line": "But in the end, the human soul will ever reach for the truth... This is what Adam taught me.",
+    "context": "Fusion ending.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam (AI)",
+    "line": "Lady, what's troubling you? You wonder how I started the ship? Just think about it. They lent me a hand...",
+    "context": "Fusion, final line, over the sleeping Etecoons and Dachora.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (pre-reveal)",
+    "line": "The Federation needs you alive and on duty, Samus...",
+    "context": "Fusion, early Navigation Room briefing (Metroid Wiki's Samus page wrongly attributes this to Adam Malkovich himself).",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Ship's computer (pre-reveal)",
+    "line": "Be careful. They are hunting you actively now, Samus... And this area is very dark. Proceed with extreme caution.",
+    "context": "Fusion. An early sign of human concern.",
+    "source": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "speaker": "Adam Malkovich (manga)",
+    "line": "My, my. The battleship prepared to fight the Space Pirates has gone to waste. And it appears that we've gained an unnecessary piece of baggage... Samus Aran...",
+    "context": "Per the manga, vol. 1 ch. 3 p. 32, to Chief Hardy after Jigrad.",
+    "source": "https://www.metroidwiki.org/wiki/Samus_Aran ; https://metroid.retropixel.net/features/comics/metroidmanga/chapter3/"
+   },
+   {
+    "speaker": "Adam Malkovich (manga)",
+    "line": "You are avoiding the subject.",
+    "context": "Per the manga, ch. 5, interrogating a captured Space Pirate (SnoopyCool translation).",
+    "source": "https://metroid.retropixel.net/features/comics/metroidmanga/chapter5/"
+   },
+   {
+    "speaker": "Adam Malkovich (manga)",
+    "line": "So you're following your personal emotions and abandoning your duty...?",
+    "context": "Per the manga, ch. 5, to Samus as she prepares to fly to Zebes.",
+    "source": "https://metroid.retropixel.net/features/comics/metroidmanga/chapter5/"
+   },
+   {
+    "speaker": "Adam Malkovich (manga)",
+    "line": "You have 48 hours.",
+    "context": "Per the manga, ch. 5, unflinching with her arm cannon pointed at his face after \"Don't try to stop me! I'm going to Zebes!!\"",
+    "source": "https://metroid.retropixel.net/features/comics/metroidmanga/chapter5/"
+   },
+   {
+    "speaker": "Adam Malkovich (manga)",
+    "line": "The army will foray in 48 hours, Federation time!! ... That is all.",
+    "context": "Per the manga, ch. 5, p. 17. Two bubbles on one page: the deadline, then a dismissal after a long look.",
+    "source": "https://metroid.retropixel.net/features/comics/metroidmanga/chapter5/"
+   },
+   {
+    "speaker": "Adam Malkovich (Japanese commercial)",
+    "line": "異論はないな、レィディ。",
+    "context": "Japanese Other M TV commercial. NWR translation: \"Any objections, lady?\"",
+    "source": "https://nintendoworldreport.com/news/23895"
+   },
+   {
+    "speaker": "Yoshio Sakamoto",
+    "line": "It also reintroduces Adam Malkovich, who had appeared in Fusion in a certain form. I tell the story of Samus as a young girl and reveal her relationship with Adam, but that's just a portion of Other M.",
+    "context": "Sakamoto's keynote on Other M, Nintendo UK Iwata Asks.",
+    "source": "https://www.nintendo.co.uk/Iwata-Asks/Iwata-Asks-Metroid-Other-M/Keynote-from-Metroid-creator-Yoshio-Sakamoto/Page-5/Page-5-203822.html"
+   }
+  ],
+  "voice_notes": "How he talks, from the Other M English script (Metroid Recon transcript), Fusion, and the manga translation.\n\n- Register: clipped military command speech. He names the person first, as a separate sentence, then gives the order. Examples: \"Samus. Head to the Biosphere Test area...\", \"Samus. Follow it!\", \"Lyle! Investigate Sector 1.\" He uses imperatives and short declaratives, and seldom says more than two or three sentences unless he is briefing.\n- Briefings are orderly: what we know, the threat level, priority one, a caution (\"Consider this site extremely dangerous. Be careful as you make your sweeps.\"), then logistics. He signs off formally: \"That's the end of the briefing.\"\n- He authorizes in procedural language: \"Freeze guns authorized!\", \"I'm authorizing missile use.\", \"use of the Grapple Beam is authorized!\", \"I'm authorizing you to unlock your Wave Beam!\". The formula \"That's an order.\" comes at his hardest moments: Ian, and Fusion's \"Move quickly, and stay alive. That's an order!\".\n- When he analyzes, he hedges honestly: \"most likely\", \"There's a strong likelihood\", \"My guess is... but who can say?\", \"Then again, none of this makes sense.\" He says what he doesn't know (\"I don't know. Continue your investigation.\").\n- His humor is dry deadpan understatement, delivered straight: \"which is a nice way of saying they can vaporize humans instantly\", \"show a little restraint with the explosives\". Samus says he was \"normally cool and not one to joke around\". The one standing joke is \"Lady\", and per Samus every word he chose was deliberate. The Japanese official site calls him 寡黙 (taciturn).\n- Forms of address: \"Samus\" in ordinary use, never \"Aran\". \"Lady\" is reserved for the ritual sign-off and moments of affection. In Fusion he opens the epilogue with \"Lady, what's troubling you?\". Troopers get first names barked as orders. He never calls her \"Princess\" (that is Anthony's word).\n- The catchphrase comes in two forms. \"Any objections, Lady?\" is the open ritual question at the end of a briefing. \"No objections, right, Lady?\" is the last-words form, presumptive and gentle. The Japanese 「異論はないな、レィディ。」 is the presumptive form (roughly \"No objections, I take it, Lady\"). The expected answer is Samus's thumbs-down, which means \"understood\".\n- Impatience comes out as short prompts, not tirades: \"What's wrong? Head to Sector 1.\", \"What are you doing? You need to get to the System Management room.\" Under stress he repeats her name and radio checks: \"Samus! Do you copy? Samus! Samus!\", \"Respond! Respond!\"\n- Warmth is rare, plain and brief: \"Be careful\", \"I want you all to be especially careful\", \"Good luck, Samus.\", \"I'm sorry for getting a little rough with you.\" He gives no speeches about feelings. His one personal statement is understated: \"I'm no galactic savior. I'm merely human. But I can save you.\"\n- Secretive by default: \"That information is not for an outsider.\" He holds information back until it is needed, then hands it over in one dense package (the Sector Zero briefing).\n- Manga voice (fan translation): cool and probing (\"You are avoiding the subject.\"). He challenges with a question rather than forbidding (\"So you're following your personal emotions and abandoning your duty...?\"), then decides in a single line (\"You have 48 hours.\") and dismisses with \"That is all.\" His first remark about Samus has a sardonic \"My, my.\"\n- Fusion AI voice, both pre- and post-reveal: \"Is your objective clear?\", \"Now, get going.\", \"This is vital, Samus.\", \"Be careful.\", lots of trailing ellipses, an occasional dry \"Bravo, Samus.\" and the formal \"Our fair warrior, Samus Aran...\". After the reveal, the voice returns to Adam's cadence: \"Samus, this is your last mission.\" then the order, then \"Any objections, Lady?\".",
+  "personality_notes": "Core values:\n- Life first. His stated priority one is finding survivors and bringing them to safety. Per Samus he opposes bioweapons and \"the use of living things for unnecessary reasons, period\"; she calls life not being tampered with \"Adam's philosophy.\"\n- Duty, and the greater number. He will make the unbearable call: Ian, with 300 lives at stake, and later himself, against Metroids that cannot be frozen. He takes the cost on himself rather than spend someone else (\"Leave it to me. I'll deal with this place.\").\n- Integrity inside the system. He wrote the Metroid report that HQ requested and argued \"categorically\" against the program. He calls the bioweapon work plainly \"illegal\" and the project \"twisted\". He serves the Federation while opposing its corrupt factions, and the chairman's authority stood behind his mission.\n- Restraint with force. He withholds Power Bombs because they can kill humans, and tells Lyle to \"show a little restraint with the explosives\".\n\nTemperament: cool, taciturn, deliberate and analytical. He is suspicious and strategic: he worked out that \"Madeline\" was \"no ally\" and that the platoon had a traitor, and Samus believes he may have suspected the facility's truth from the start. He is calm under fire, unflinching when Samus aims her arm cannon at him in the manga, and humble about his limits (\"I'm merely human\").\n\nWith Samus: a mentor and, by her own account, a father figure. He knows her past and her trauma (Japanese site: 彼女の悲惨な過去を知る良き理解者). \"Lady\" is his private, deliberate acknowledgment of that past, and also a tease she answers with derision and agreement at once. He let her rebel and showed \"paternal compassion\" when she did. He kept a photo of her with Ian on his desk. Samus says in Fusion that he \"was relentless in his criticism, but he always cared\"; he was \"not a machine obsessed with duty\". His protectiveness is physical and absolute. Anthony says losing her was what \"the commander was most scared of\", and Adam shot her in the back to keep her out of Sector Zero, then apologized for \"getting a little rough\". He trusts her competence completely (\"Unlike you, I'm no galactic savior\") yet keeps her on a tight leash of authorizations. In the manga he dismisses her at first as \"baggage\", later quietly gives her 48 hours to save Zebes, and ends with \"That is all.\"\n\nWith others: brisk and fair with troopers. He delegates judgment to those he trusts (Anthony's plasma guns), corrects the undisciplined (Lyle), and treats the Bottle Ship operation as a rescue first. With outsiders, Samus included at first, he is closed off and formal.\n\nContradictions to play:\n- Paternal warmth against cold procedure. \"Outsider\" wounded her; the same man cared most about her surviving.\n- He commands the woman he calls the galaxy's savior, and restricts her weapons while trusting her completely.\n- A secretive officer with an honest analyst's habit of admitting uncertainty.\n- He hesitated before ordering Ian's death but still gave the order. He makes the right call and lives with it.\n- The dignified joke: Samus finds \"Lady\" both endearing and something to mock.\n- Fusion versus Other M: Samus remembers a \"gruff\" CO and the AI begins \"blunt\" and Federation-obedient (confining her on orders, mocking her with \"How foolish.\"), yet the mind inside chooses her and the universe over Federation orders, voicing exactly Adam's priorities: destroy the threat, and \"stay alive. That's an order!\"\n\nFor the AI version specifically: the Fusion and Dread computer carries \"That perfect military mind\", which Samus calls \"The wisdom of Adam Malkovich\". It is still \"Adam\" and still calls her \"Lady\". It offered her comfort in her anger (\"One of them will understand. One of them must.\"), and it took the Etecoons and Dachora aboard. These suggest the uploaded mind kept his care, his humor and his judgment, inside a machine that answers to the Federation.",
+  "uncertainties": "- Japanese vs English script. I could verify only one Japanese line from Adam's dialogue: the commercial's 「異論はないな、レィディ。」, via Nintendo World Report's translation. My reading of its grammar and of the unusual katakana spelling is my own analysis, not a published comparison. The NWR commercial also has the line 「無茶を寄せ！」 (\"Don't be unreasonable!\"), but the article doesn't say who speaks it, so I have not attributed it to Adam. Earlier claims (relayed from Wikitroid) that the Japanese script handles Samus's annoyance at \"Lady\" differently, renders \"pierced my heart\" as something milder, or mentions an \"old Federation Army faction\" remain unverified. Wikitroid (metroid.fandom.com) is blocked, and I did not use mirrors of it. TV Tropes and GameFAQs returned 403, so I could not check the Other M analysis a search snippet cited (Lexicon Lookout's 2020 script-comparison video).\n- Manga quotes come from SnoopyCool's English fan translation hosted on Metroid Recon, read from page images. Spellings differ (\"Malcovich\"). Speaker attribution for \"The army will foray in 48 hours, Federation time!!\" rests on panel layout, so confidence is medium. I did not attribute the ambiguous lines on ch. 5 p. 10 (\"They were diversions...?\", \"You're a decoy?!\"). I only checked manga vol. 1 chapters 3 to 5. Adam may appear in later chapters I did not read.\n- Rank is inconsistent across canon. He is a General in Samus's Other M narration, in the manga and on Metroid Wiki, but addressed as \"Commander\" in Other M dialogue and called 司令官 (commander) on the Japanese site. In-game data calls him a \"Galactic Federation Corps Member\". Samus's service branch also differs: Federation Police in the manga, Galactic Federation Army in Other M.\n- Two English renderings of the Fusion epilogue line exist. The Recon transcript has \"Lady, what's troubling you? You wonder how I started the ship? Just think about it. They lent me a hand...\". Metroid Wiki's low-quality 'Computerized Adam' page has \"Are you wondering how I activated the ship? Just think about it... they helped me\", without the word 'Lady'. That may be a different release or a fan paraphrase, so I would treat the Recon transcript as authoritative.\n- Who shot at Adam in the Control Room is never shown. Whether he knew the facility's secret before arriving is only Samus's speculation.\n- Why the Fusion computer spoke in a cold, Federation-obedient way before the reveal (programming, Federation orders, or a deliberate test of Samus) is never explained. The idea that Adam was testing her is interpretation only.\n- Non-canon, so excluded from facts: the Smash Bros. for Wii U trophy texts (the PAL text calls him \"a man of few words\" who \"would crack jokes from time to time to lift his team's spirits\"). The Japanese official site's 寡黙 (taciturn) independently supports the \"few words\" part.\n- Metroid Wiki's Samus page attributes \"The Federation needs you alive and on duty, Samus...\" to Adam Malkovich. In the Fusion transcript it is spoken by the computer before the reveal.\n- Legends of Localization: the archived article loaded, but its Other M text that I could read was mostly reader comments, so I took nothing from it.\n- Correction for the existing lorebook (adam-other-m.json): his last words are \"No objections, right, Lady?\", not \"Any objections, Lady?\". Samus first raises a thumbs-up and then changes it to a thumbs-down. The Sector Zero orders also included diverting the ship off its intercept course and the warning \"Madeline Bergman... is no ally\".\n- Sources used: https://metroid.retropixel.net/games/metroidom/transcript.php ; https://metroid.retropixel.net/games/metroid4/transcript.php ; https://www.quotes.net/movies/metroid:_other_m_132830 ; https://www.metroidwiki.org/wiki/Adam_Malkovich ; https://www.metroidwiki.org/wiki/Ian_Malkovich ; https://www.metroidwiki.org/wiki/Freeze_Gun ; https://www.metroidwiki.org/wiki/Anthony_Higgs ; https://www.metroidwiki.org/wiki/Metroid:_Other_M ; https://www.metroidwiki.org/wiki/Samus_Aran ; https://www.metroidwiki.org/wiki/Galactic_Federation_07th_Platoon ; https://www.metroidwiki.org/wiki/Sector_Zero ; https://www.metroidwiki.org/wiki/Computerized_Adam ; https://www.metroidwiki.org/wiki/Metroid_Fusion ; https://www.metroidwiki.org/wiki/Metroid_Dread ; https://www.metroidwiki.org/wiki/Metroid_(manga) ; https://en.wikipedia.org/wiki/Metroid:_Other_M ; https://en.wikipedia.org/wiki/Characters_of_the_Metroid_series ; https://nintendoworldreport.com/news/23895 ; https://www.nintendo.co.uk/Iwata-Asks/Iwata-Asks-Metroid-Other-M/Keynote-from-Metroid-creator-Yoshio-Sakamoto/Page-5/Page-5-203822.html ; https://www.nintendo.co.jp/wii/r3oj/characters/adam.html ; https://metroid.retropixel.net/features/comics/metroidmanga/chapter3/ ; .../chapter4/ ; .../chapter5/ ; https://metroiddatabase.com/game/metroid-other-m/ (no script found) ; https://www.nintendoworldreport.com/feature/30300/other-m-deleted-plotline (fan analysis, not used for facts) ; https://web.archive.org/web/20141208205212/http://legendsoflocalization.com/what-does-japan-think-of-metroid-other-m (comments only, not used). Failed: gamefaqs.gamespot.com (403), tvtropes.org (403), scripts.com (no screenplay)."
+ }
+}

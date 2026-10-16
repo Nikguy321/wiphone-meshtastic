@@ -1,0 +1,309 @@
+{
+ "run": "wf_5697afbd-4f3",
+ "label": "critic:who-where",
+ "result": {
+  "gaps": [
+   {
+    "title": "Arachnus (SR388 native, Metroid II / Samus Returns boss)",
+    "category": "characters/creatures (boss)",
+    "why": "No entry covers the original Arachnus. The only keys are 'Arachnus-X'/'Arachnus X' (Fusion mimic), so a bare 'Arachnus' triggers nothing. 'Creatures: Fauna of SR388' ends with 'See also: Arachnus', which points to an entry that doesn't exist. It is the optional non-Metroid boss Samus fights on SR388: it poses as an Item Sphere on a Chozo Statue in Area 2 and drops the Spring Ball, and it is the creature the X later copy on the BSL.",
+    "priority": "medium",
+    "evidence": "https://www.metroidwiki.org/wiki/Arachnus (M2: armadillo-like, rolls into a ball, only bombs hurt it, Spring Ball; Fusion version is an X mimic that returns the Morph Ball); https://www.metroidwiki.org/wiki/Category:Metroid:_Samus_Returns_Bosses; WebSearch snippets (omegametroid.com/metroid-samus-returns-walkthrough/bosses): Samus Returns Area 2, fake Item Sphere, optional, Spring Ball. Lorebook: mentioned in SR388 overview, Chozo laboratories of SR388 and Fauna of SR388 content, with no 'Arachnus' key.",
+    "suggested_keys": [
+     "Arachnus",
+     "Arachnus's room",
+     "armadillo creature",
+     "Marukara"
+    ]
+   },
+   {
+    "title": "Berserker Lord and Berserker Knight (Phazon-mutated Pirate heavies, Prime 3)",
+    "category": "factions/species (Space Pirate unit, boss)",
+    "why": "Mentioned in 4+ entries (Norion, GFS Olympus, Ghor, Gandrayda) but never keyed or explained. A Berserker Lord is the first boss of Corruption (Olympus Docking Bay 5, delaying Samus's drop to Norion) and returns in SkyTown. Knights appear on Norion, Bryyo and the Pirate Homeworld, and Gandrayda copies one. Nothing says what they are: Project Helix-style Phazon conversions in Phazite plating, a 'desperate measure' per the logbook.",
+    "priority": "medium",
+    "evidence": "https://www.metroidwiki.org/wiki/Berserker_Lord (Olympus Docking Bay 5, SkyTown Turbine Chamber; Phazite plating, shoulders vulnerable; successor to Project Helix); https://www.metroidwiki.org/wiki/Berserker_Knight (Bryyo Thorn Jungle, Pirate Command; 'nearly mindless, driven by battle lust'); https://www.metroidwiki.org/wiki/Category:Metroid_Prime_3:_Corruption_Bosses. Lorebook: grep shows 0 key hits and 9 content hits.",
+    "suggested_keys": [
+     "Berserker Lord",
+     "Berserker Lords",
+     "Berserker Knight",
+     "Berserker Knights",
+     "Berserker"
+    ]
+   },
+   {
+    "title": "Goyagma and Vorash (Other M Pyrosphere bosses)",
+    "category": "characters/creatures (boss)",
+    "why": "'Creatures: Fauna of the Bottle Ship' says Vorash and Goyagma are 'covered separately', but neither has an entry or a key. Goyagma is the fight in which Adam finally authorizes the Varia Suit after Samus has crossed the Pyrosphere without it, one of the most discussed moments in Other M. Vorash is the lava whale that keeps trying to swallow her and is pulled out by the Grapple Point it swallowed.",
+    "priority": "medium",
+    "evidence": "https://www.metroidwiki.org/wiki/Goyagma (Sector 3 Pyrosphere; fight begins right after Adam authorizes the Varia Suit; lava control; weak to Ice Beam/Missiles); https://www.metroidwiki.org/wiki/Vorash (Sector 3 lava monster, swallowed Grapple Point, Grapple Beam pulls it ashore); https://www.metroidwiki.org/wiki/Category:Metroid:_Other_M_Bosses. Lorebook: Goyagma appears in 4 content hits (Varia Suit entry, Fauna of the Bottle Ship) and Vorash in 7, with no keys.",
+    "suggested_keys": [
+     "Goyagma",
+     "Vorash",
+     "Pyrosphere boss",
+     "lava monster"
+    ]
+   },
+   {
+    "title": "Humans and Earth",
+    "category": "species/planets",
+    "why": "Samus is human, and a roleplay may well ask 'are you human?' or about Earth, but no entry covers humanity as a species or Earth as a planet. The only related key is 'Earth colony' (on K-2L), so the bare words 'Earth', 'human' or 'humans' trigger nothing. Content touches it only in passing: K-2L was an Earth colony, and humans predominate on Federation worlds such as Norion. Metroid Wiki says Earth is a Federation member and (per Other M) the site of a Federation headquarters. That claim needs checking against the Daiban/HQ entry before it is written in.",
+    "priority": "medium",
+    "evidence": "https://www.metroidwiki.org/wiki/Earth (stub: Federation member planet, humans dominant, K-2L was an Earth colony, Other M appearance); https://www.metroidwiki.org/wiki/Category:Planets lists Earth. Lorebook: 'Earth' has 33 content hits and appears in keys only as 'Earth colony'; 'human' has 71 content hits and appears in keys only as 'Human Core-X'.",
+    "suggested_keys": [
+     "Earth",
+     "human",
+     "humans",
+     "humanity",
+     "humankind",
+     "Earthling"
+    ]
+   },
+   {
+    "title": "Korakk Beast and Pirate Hussars (Bryyo, Prime 3)",
+    "category": "species/characters (boss)",
+    "why": "'Creatures: Fauna of Bryyo' says the Korakk Beast is 'recorded separately', but no such entry exists and nothing explains Pirate Hussar cavalry. Samus fights the Korakk Beast with its Hussar rider in Bryyo Thorn Jungle's Jousting Field to reach the Leviathan shield generators.",
+    "priority": "low",
+    "evidence": "https://www.metroidwiki.org/wiki/Korakk_Beast (Jousting Field, Bryyo Thorn Jungle; Pirate Hussar rider; Phazite armor; Pirates prize them as cavalry mounts; grants access to the Leviathan Shield Generator). Lorebook: 'Korakk' has 2 content hits and 0 keys; 'Hussar' has 0 hits.",
+    "suggested_keys": [
+     "Korakk Beast",
+     "Korakk",
+     "Pirate Hussar",
+     "Hussar",
+     "Jousting Field"
+    ]
+   },
+   {
+    "title": "Elysian Defense Drone (SkyTown, Prime 3)",
+    "category": "characters (Chozo-built machine, boss)",
+    "why": "Named in 'Prime 3: Elysia and SkyTown' as one of Elysia's three great guardians, and in the Boost Ball entry, but it has no key or description. It is an uncorrupted Chozo/Elysian security machine guarding the Boost Ball in Ballista Storage.",
+    "priority": "low",
+    "evidence": "https://www.metroidwiki.org/wiki/Defense_Drone (Elysian machine built by the Chozo, 'secure key areas within SkyTown', guards the Boost Ball, shows no Phazon corruption). Lorebook: 2 content hits, 0 keys.",
+    "suggested_keys": [
+     "Defense Drone",
+     "Elysian Defense Drone",
+     "Ballista Storage"
+    ]
+   },
+   {
+    "title": "Hive Mecha and Incinerator Drone (Chozo drones of the Chozo Ruins, Prime 1)",
+    "category": "characters (Chozo-built machines, bosses)",
+    "why": "These two Chozo-built drones are Prime 1 bosses. The Incinerator Drone appears only in passing in the Bombs entry (Burn Dome, Morph Ball Bombs), with no key. The Hive Mecha (Hive Totem, Missile Launcher, works with War Wasps) is not mentioned anywhere. Neither is explained.",
+    "priority": "low",
+    "evidence": "https://www.metroidwiki.org/wiki/Incinerator_Drone (Chozo waste-disposal drone, Burn Dome, rewards Morph Ball Bomb); https://www.metroidwiki.org/wiki/Hive_Mecha (Hive Totem, Chozo security unit working with Ram War Wasps, rewards Missile Launcher; which releases include it is unverified); https://www.metroidwiki.org/wiki/Category:Metroid_Prime_Bosses. Lorebook: 'Incinerator' has 1 content hit and 'Hive Mecha' has 0.",
+    "suggested_keys": [
+     "Hive Mecha",
+     "Incinerator Drone",
+     "Burn Dome",
+     "Hive Totem"
+    ]
+   },
+   {
+    "title": "Zero Mission minor bosses: Deorem, Acid Worm (Mua) and Imago",
+    "category": "characters/creatures (boss)",
+    "why": "The Charge Beam and Missiles entries name Deorem and Imago as the sources of the Charge Beam and Super Missiles on the first Zebes mission, but neither name is keyed or explained. The Acid Worm of Kraid's domain (titled 'Mua' on Metroid Wiki) is absent.",
+    "priority": "low",
+    "evidence": "https://www.metroidwiki.org/wiki/Deorem (Brinstar worm, drops Charge Beam, flees if the fight drags); https://www.metroidwiki.org/wiki/Mua (acid worm in Kraid's area; defeating it drains the acid); https://www.metroidwiki.org/wiki/Category:Metroid:_Zero_Mission_Bosses. Lorebook: Deorem and Imago have 1 content hit each and 0 keys; Acid Worm/Mua have 0 hits.",
+    "suggested_keys": [
+     "Deorem",
+     "Charge Beam Beast",
+     "Acid Worm",
+     "Mua",
+     "Imago",
+     "Imago Cocoon"
+    ]
+   },
+   {
+    "title": "Echoes mini-bosses: Caretaker Class Drone and Dark Missile Trooper",
+    "category": "characters (boss)",
+    "why": "Neither is mentioned. The Caretaker Class Drone is a rogue Luminoth maintenance mechanoid guarding an experimental energy chamber in Sanctuary Fortress's Main Research. The Dark Missile Trooper is an Ing-possessed dead Federation Missile Trooper in the Temple Grounds, tied to Squad Bravo's fate.",
+    "priority": "low",
+    "evidence": "https://www.metroidwiki.org/wiki/Caretaker_Class_Drone; https://www.metroidwiki.org/wiki/Dark_Missile_Trooper ('killed by the native lifeforms on Aether', resurrected by the Ing, rewards a Missile Expansion); https://www.metroidwiki.org/wiki/Category:Metroid_Prime_2:_Echoes_Bosses. Lorebook: 0 hits for either. The 'Dark Trooper' key on the GFS Tyr entry does not match 'Dark Missile Trooper'.",
+    "suggested_keys": [
+     "Caretaker Class Drone",
+     "Caretaker Drone",
+     "Dark Missile Trooper",
+     "Missile Trooper"
+    ]
+   },
+   {
+    "title": "Alimbic Guardians (Prime Hunters androids)",
+    "category": "species/factions (Alimbic constructs)",
+    "why": "These intelligent Alimbic-built androids, made to guard the Alimbic Order, are the most common enemy at every Alimbic Cluster site, yet no entry mentions them.",
+    "priority": "low",
+    "evidence": "https://www.metroidwiki.org/wiki/Guardian ('specifically designed to guard the Alimbic Order', now autonomous; found on Celestial Archives, Alinos, Arcterra and the VDO; some carry Affinity Weapons). Lorebook: 0 hits for 'Alimbic Guardian'.",
+    "suggested_keys": [
+     "Alimbic Guardian",
+     "Alimbic Guardians",
+     "Guardian android",
+     "Guardian androids"
+    ]
+   },
+   {
+    "title": "Luminoth Temple Sentinels I-Sha, A-Voq and O-Lir",
+    "category": "characters",
+    "why": "keys-only: add keys I-Sha, A-Voq, O-Lir, Temple Sentinel and Sentinels to entry 'Prime 2: The Luminoth' (also explained in 'Prime 2: Energy Controllers and the Light of Aether'). Their holograms guided Samus at each Energy Controller, but their names appear in content only (7-9 hits each, 0 keys).",
+    "priority": "low",
+    "evidence": "https://www.metroidwiki.org/wiki/I-Sha (last Sentinel of the Agon Temple; hologram explains Dark Aether and updates the Translator; corpse found in the Agon Energy Controller); https://www.metroidwiki.org/wiki/Characters_in_Metroid_Prime_2:_Echoes (lists U-Mos, I-Sha, A-Voq, O-Lir).",
+    "suggested_keys": [
+     "I-Sha",
+     "A-Voq",
+     "O-Lir",
+     "Temple Sentinel",
+     "Sentinels"
+    ]
+   },
+   {
+    "title": "Luminoth heroes and Keybearers (C-Pul, D-Chr, B-Stz, K-Tch, J-Stl, B-Stl, S-Dly, G-Sch, S-Jrs, C-Rch, D-Isl, M-Dhe, J-Fme)",
+    "category": "characters",
+    "why": "keys-only: add keys C-Pul, D-Chr, B-Stz, K-Tch, Ingslayer and the nine named Keybearers to entry 'Prime 2: The Luminoth'. The content names and explains them, but only A-Kul, X-Qar, E-Btr, U-Mos, V-Mos and J-Gnk are keyed.",
+    "priority": "low",
+    "evidence": "Lorebook: 'Prime 2: The Luminoth' content lists the Keybearers and the heroes (C-Pul the Ingslayer, the child acolyte D-Chr, the farmer K-Tch, B-Stz) with 0 key hits. https://www.metroidwiki.org/wiki/Category:Characters lists B-Stz, C-Pul, D-Chr and K-Tch as character pages.",
+    "suggested_keys": [
+     "C-Pul",
+     "D-Chr",
+     "B-Stz",
+     "K-Tch",
+     "Ingslayer",
+     "J-Stl",
+     "B-Stl",
+     "S-Dly",
+     "G-Sch",
+     "S-Jrs",
+     "C-Rch",
+     "D-Isl",
+     "M-Dhe",
+     "J-Fme"
+    ]
+   },
+   {
+    "title": "Ylla and N'kren (enlightened races of Luminoth and Bryyonian lore)",
+    "category": "species",
+    "why": "keys-only: add keys Ylla and N'kren to entries 'Prime 2: The Luminoth' and 'Prime 3: Bryyo and the Reptilicus'. Both lore texts name the Ylla as Chozo-peer spacefaring races (5 content hits, 0 keys).",
+    "priority": "low",
+    "evidence": "Lorebook content: 'after meeting other enlightened races such as the N'kren, the Ylla and the Chozo' (Prime 2: The Luminoth); 'met the Chozo, the Luminoth and the Ylla' (Prime 3: Bryyo).",
+    "suggested_keys": [
+     "Ylla",
+     "N'kren"
+    ]
+   },
+   {
+    "title": "FS-176 sister planets: Bilium, Oormine II and Twin Tabula",
+    "category": "planets",
+    "why": "keys-only: add keys Bilium, Oormine II, Twin Tabula and Spiral Sector to entries 'Zebes: Zebes (planet overview)' and 'Prime: Tallon IV'. Both name them as Zebes's and Tallon IV's system neighbors, and Metroid Wiki lists all three as planets.",
+    "priority": "low",
+    "evidence": "https://www.metroidwiki.org/wiki/Category:Planets (Bilium, Oormine II, Twin Tabula). Lorebook: 5 content hits, 0 keys.",
+    "suggested_keys": [
+     "Bilium",
+     "Oormine II",
+     "Twin Tabula",
+     "Spiral Sector"
+    ]
+   },
+   {
+    "title": "Aliehs III (Federation shipyard that built Samus's gunships)",
+    "category": "planets/stations",
+    "why": "keys-only: add key Aliehs III to entry 'Technology: Samus's Gunship', where it is named as the shipyard of her second ship and her Phazon-crisis ship (2 content hits, 0 keys).",
+    "priority": "low",
+    "evidence": "Lorebook: 'Technology: Samus's Gunship' content says the ship was 'built to her own design at the Federation shipyard of Aliehs III'.",
+    "suggested_keys": [
+     "Aliehs III",
+     "Aliehs",
+     "Federation shipyard",
+     "shipyard"
+    ]
+   },
+   {
+    "title": "Regions of Bryyo (Bryyo Cliffside, Bryyo Fire, Bryyo Ice, Thorn Jungle)",
+    "category": "regions",
+    "why": "keys-only: add keys Bryyo Cliffside, Bryyo Fire, Bryyo Ice, Bryyo Thorn Jungle, Thorn Jungle, Temple of Bryyo and Grand Court to entry 'Prime 3: Bryyo and the Reptilicus'. Other planets have their regions keyed; Bryyo's appear in content only.",
+    "priority": "low",
+    "evidence": "Lorebook: 'Prime 3: Bryyo and the Reptilicus' content ('Its scorched half, Bryyo Fire, holds the Temple of Bryyo... its frozen half is Bryyo Ice') and Fauna of Bryyo (Bryyo Cliffside's Grand Court, Thorn Jungle); 0 key hits. https://www.metroidwiki.org/wiki/Korakk_Beast and https://www.metroidwiki.org/wiki/Berserker_Knight both place encounters in Bryyo Thorn Jungle.",
+    "suggested_keys": [
+     "Bryyo Cliffside",
+     "Bryyo Fire",
+     "Bryyo Ice",
+     "Bryyo Thorn Jungle",
+     "Thorn Jungle",
+     "Temple of Bryyo"
+    ]
+   },
+   {
+    "title": "Eastern SkyTown and the Swarmbots (Elysia)",
+    "category": "regions/species",
+    "why": "keys-only: add keys Eastern SkyTown, SkyTown East and Swarmbot(s) to entry 'Prime 3: Elysia and SkyTown'. The Pirate-held eastern district and Helios's Swarmbots appear in content in 4-6 entries with no key.",
+    "priority": "low",
+    "evidence": "Lorebook: Elysia and SkyTown content ('Space Pirates seized the eastern district'; Helios 'led a swarm of Phazon-energized Swarmbots'); Gandrayda entry (she takes Swarmbot form). 0 key hits.",
+    "suggested_keys": [
+     "Eastern SkyTown",
+     "SkyTown East",
+     "Swarmbot",
+     "Swarmbots"
+    ]
+   },
+   {
+    "title": "Gaflar region and Tivus (Valhalla's loss)",
+    "category": "regions",
+    "why": "keys-only: add keys Gaflar, Gaflar region and Tivus to entries 'Prime 3: GFS Olympus and the Federation fleet at Norion' and 'Galactic Federation: Federation Navy and notable ships'. Both say where the Valhalla took on crew and where its wreck drifted, but neither name is keyed.",
+    "priority": "low",
+    "evidence": "Lorebook: 'Gaflar' has 4 content hits and 'Tivus' 2, with 0 keys ('Newly crewed with green recruits at Tivus'; 'Samus found the drifting wreck in the Gaflar region').",
+    "suggested_keys": [
+     "Gaflar",
+     "Gaflar region",
+     "Tivus"
+    ]
+   },
+   {
+    "title": "Squad Bravo's named troopers (B. Reevs, F. Triplette, L. Brouda, E. Denys, I. Crany)",
+    "category": "characters",
+    "why": "keys-only: add keys Reevs, Triplette, Brouda, Denys and Crany to entry 'Prime 2: GFS Tyr and Bravo Squad'. Their logs are quoted there, but only Exeter and Angseth are keyed.",
+    "priority": "low",
+    "evidence": "Lorebook: 'Prime 2: GFS Tyr and Bravo Squad' content (science specialist B. Reevs, gunner F. Triplette, PFC L. Brouda, PFC E. Denys, PFC I. Crany); 0 key hits for each.",
+    "suggested_keys": [
+     "Reevs",
+     "Triplette",
+     "Brouda",
+     "Denys",
+     "Crany",
+     "Bravo troopers"
+    ]
+   },
+   {
+    "title": "Quads and Ingsmashers (Luminoth war mechanoids of Sanctuary Fortress)",
+    "category": "species/factions (Luminoth constructs)",
+    "why": "keys-only: add keys Quad, Quads, Ingsmasher, Ingsmashers and Rezbit to entry 'Prime 2: Regions of Aether' (or 'Prime 2: The Luminoth'). They are named in 7+ content passages as Luminoth-built defenders corrupted by the Ing, with no key.",
+    "priority": "low",
+    "evidence": "Lorebook: 'Quads' has 11 content hits and 'Ingsmasher' 7, with 0 keys ('the mechanoids of Sanctuary Fortress such as the Quads, Ingsmashers and Quadraxis').",
+    "suggested_keys": [
+     "Quad",
+     "Quads",
+     "Ingsmasher",
+     "Ingsmashers",
+     "Rezbit",
+     "Rezbits"
+    ]
+   },
+   {
+    "title": "Bryyus the First (Bryyonian Liberator)",
+    "category": "characters",
+    "why": "keys-only: add key Bryyus to entry 'Prime 3: Bryyo and the Reptilicus', whose content names him as the celebrated Liberator of Bryyo's golden age.",
+    "priority": "low",
+    "evidence": "Lorebook: 'Bryyonian lore records a golden age that celebrated Bryyus the First, the Liberator' (1 content hit, 0 keys).",
+    "suggested_keys": [
+     "Bryyus",
+     "Bryyus the First",
+     "the Liberator"
+    ]
+   },
+   {
+    "title": "Federation Solar System (home of the Kalandor Region)",
+    "category": "regions",
+    "why": "keys-only: add key Federation Solar System to entry 'Technology: Planets and places of the galaxy (index)' and 'Prime 3: Norion'. Content places Norion, Bryyo and Elysia there, but the term is not keyed.",
+    "priority": "low",
+    "evidence": "Lorebook: 3 content hits ('Kalandor Region, in the Federation Solar System'), 0 keys.",
+    "suggested_keys": [
+     "Federation Solar System"
+    ]
+   }
+  ]
+ }
+}

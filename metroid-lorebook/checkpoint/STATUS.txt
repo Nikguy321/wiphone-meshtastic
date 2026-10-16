@@ -1,0 +1,51 @@
+: 
+abilities: draft, verify, revise
+adam-other-m: draft, verify
+bestiary-2d: draft, verify, revise
+bestiary-prime: draft, verify, revise
+bestiary-tech: 
+canon: verify
+card: revise
+chozo: draft, verify, revise
+dark-samus: draft, verify, revise
+dread: draft, verify, revise
+dread-adam: 
+echoes: draft, verify
+factions-recent-prime: 
+federation: draft, verify, revise
+federation-force: draft, verify, revise
+fusion: draft, verify, revise
+fusion-ai: 
+gap1: draft, verify, revise
+gap2: draft, verify, revise
+gap3: draft, verify, revise
+gap4: draft, verify, revise
+human-adam: 
+hunters: draft, verify
+late-chozo: 
+manga: draft, verify, revise
+metroids: draft, verify, revise
+metroids-x-late: 
+phazon: draft, verify, revise
+prime-era: 
+prime1: draft, verify, revise
+prime3: draft, verify, revise
+prime4: draft, verify, revise
+ridley: draft, verify, revise
+samus-bio: draft, verify, revise
+samus-origins: 
+samus-rp: draft, verify, revise
+space-pirates: draft, verify, revise
+sr388: draft, verify, revise
+suits: draft, verify, revise
+super-metroid: draft, verify, revise
+tech: draft, verify, revise
+timeline: draft, verify, revise
+timeline-prime: 
+voice: verify
+weapons: draft, verify, revise
+what-when: 
+who-where: 
+x-parasite: draft, verify
+zebes: draft, verify, revise
+zebes-equipment: 

@@ -1,0 +1,192 @@
+{
+ "run": "wf_90151896-943",
+ "label": "consistency:samus-origins",
+ "result": {
+  "files_edited": [
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/samus-bio.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/samus-rp.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/manga.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/chozo.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/timeline.json"
+  ],
+  "fixes": [
+   {
+    "entry": "Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become",
+    "kind": "contradiction",
+    "before": "she destroyed the X that had taken Raven Beak, the same X that had worn Kraid's corpse, with the Hyper Beam, and she drained Itorash until it crashed into ZDR (Metroid Dread).",
+    "after": "and she drained Raven Beak and then Itorash itself until it crashed onto ZDR. At the crash site the X that had worn Kraid's corpse took Raven Beak, and she destroyed that Raven Beak X with the Hyper Beam, setting off ZDR's self-destruct (Metroid Dread).",
+    "source_url": "https://omegametroid.com/metroid-dread-walkthrough/raven-beak/ ; https://en.wikipedia.org/wiki/Metroid_Dread"
+   },
+   {
+    "entry": "Samus: Samus Aran – Galactic Federation service and the bounty hunter years",
+    "kind": "contradiction",
+    "before": "and she defied the Federation's attempt to preserve the X and the Metroids there.",
+    "after": "and she defied the Federation's plan to capture the SA-X.",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php ; https://www.metroidwiki.org/wiki/Restricted_Laboratory"
+   },
+   {
+    "entry": "Samus: Samus Aran – Galactic Federation service and the bounty hunter years",
+    "kind": "keys",
+    "before": "keys: Federation Police, Federation Army, Jigrad, Kreatz, Mauk, Damara, Chief Hardy, military days, Federation service, bounty hunter, bounty hunters, bounty hunting",
+    "after": "keys: military days, Federation service, bounty hunter, bounty hunters, bounty hunting, Samus's Federation service, her Federation service, her military service, military career, left the Federation, bounty hunter years",
+    "source_url": ""
+   },
+   {
+    "entry": "Samus: Attitudes toward the Federation, Chozo, Pirates and Metroids",
+    "kind": "keys",
+    "before": "keys include 'hatchling'",
+    "after": "'hatchling' removed (left to Metroids: The baby Metroid)",
+    "source_url": ""
+   },
+   {
+    "entry": "Samus: Samus Aran – raised by the Chozo on Zebes",
+    "kind": "contradiction",
+    "before": "Gray Voice ordered the flowers and the creatures burned.",
+    "after": "Burn order no longer attributed to Gray Voice (the cited manga line, Vol 1 Ch 2 Pg 21, is Old Bird's); incident cut to one sentence: 'At fourteen (per the manga) she objected to the burning of the Iono Feria ... (see Samus's Chozo upbringing and the birth of Mother Brain (manga account)).'",
+    "source_url": "https://www.metroidwiki.org/wiki/Iono_Feria"
+   },
+   {
+    "entry": "Samus: Samus Aran – raised by the Chozo on Zebes",
+    "kind": "duplication",
+    "before": "Full Badger Clover / Iono Feria paragraph (also told in the manga upbringing entry and the Old Bird entry); keys Iono Feria, Badger Clover",
+    "after": "One-sentence pointer to Manga: Samus's Chozo upbringing and the birth of Mother Brain; keys Iono Feria and Badger Clover removed",
+    "source_url": ""
+   },
+   {
+    "entry": "Samus: Samus Aran – raised by the Chozo on Zebes",
+    "kind": "contradiction",
+    "before": "telling her that if she meant to protect others, \"second or third place will never do\"",
+    "after": "telling her that if she meant to protect others she could not settle for second or third place (the exact manga line, quoted in manga and Gray Voice entries, is 'You can't be second or third place')",
+    "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+   },
+   {
+    "entry": "Samus: Samus Aran – raised by the Chozo on Zebes",
+    "kind": "contradiction",
+    "before": "When she returned years later as a bounty hunter, Mother Brain had turned against her makers, the Space Pirates held the planet, and the civilization that raised her was broken (see Mother Brain).",
+    "after": "Per the manga, she came back to Zebes with the Federation Police during the Space Pirate takeover, in which Mother Brain turned against her makers (see Mother Brain's betrayal of Zebes (manga account)); when she returned years later as a bounty hunter, the civilization that raised her was broken.",
+    "source_url": "https://www.metroidwiki.org/wiki/Mother_Brain"
+   },
+   {
+    "entry": "Samus: Samus Aran – early life on K-2L",
+    "kind": "duplication",
+    "before": "Full raid paragraph (Pirates load the mineral, Ridley's order, Virginia's death, Rodney's welding laser and explosion); keys K-2L raid, raid on K-2L",
+    "after": "One sentence: 'In the raid that followed, Virginia died shielding Samus from Ridley and Rodney died igniting the stolen afloraltite aboard the raiders' cargo ship; Samus was the colony's only survivor, and Ridley lived (see The K-2L raid (manga account) and Rodney Aran and Virginia Aran).' Raid keys moved to the manga raid entry",
+    "source_url": ""
+   },
+   {
+    "entry": "Samus: K-2L (Samus's home colony)",
+    "kind": "duplication",
+    "before": "Fourth full retelling of the raid (Old Bird's request, Pirates follow, cargo ship, Virginia, Rodney's blast)",
+    "after": "One sentence: 'The colony ended in a single raid, after the Chozo elder Old Bird landed to request afloraltite ... and Rodney refused him: Space Pirates under Ridley, who had followed the Chozo ship, raided the colony for the mineral and killed its people, and Samus was the only survivor (see The K-2L raid (manga account)).'",
+    "source_url": ""
+   },
+   {
+    "entry": "Manga: The K-2L raid (manga account)",
+    "kind": "keys",
+    "before": "keys include 'Old Bird' (on three entries)",
+    "after": "'Old Bird' removed (kept on Chozo: Old Bird and the manga upbringing entry); 'raid on K-2L' added since this is now the raid's single home",
+    "source_url": ""
+   },
+   {
+    "entry": "Manga: The Metroid manga (overview and canon status)",
+    "kind": "contradiction",
+    "before": "Per the manga, only Gray Voice's DNA was infused;",
+    "after": "Per the manga, Gray Voice's is the only Chozo DNA named as infused; (matches samus-bio 'among the donors' and the manga line 'we used his DNA')",
+    "source_url": "https://www.metroidwiki.org/wiki/Gray_Voice"
+   },
+   {
+    "entry": "Chozo: Old Bird",
+    "kind": "contradiction",
+    "before": "Samus showed Gray Voice flowers that proved to be Badger Clover ... and Gray Voice ordered flowers and creatures burned.",
+    "after": "When the toxic Badger Clover she had picked was traced to the Iono Feria ... Old Bird ordered the clover and the creatures burned; ... (see Samus's Chozo upbringing and the birth of Mother Brain (manga account)).",
+    "source_url": "https://www.metroidwiki.org/wiki/Iono_Feria ; https://www.metroidwiki.org/wiki/Samus_Aran"
+   },
+   {
+    "entry": "Chozo: Old Bird",
+    "kind": "contradiction",
+    "before": "(in the On Zebes paragraph) showing her how to befriend the rabbit-like Pyonchi",
+    "after": "as he had shown her on K-2L by teaching her to befriend the rabbit-like Pyonchi (the manga and samus-bio entries place this on K-2L)",
+    "source_url": "https://www.metroidwiki.org/wiki/Pyonchi"
+   },
+   {
+    "entry": "Chozo: Old Bird",
+    "kind": "keys",
+    "before": "keys include 'Pyonchi' (on three entries)",
+    "after": "'Pyonchi' removed (kept on samus-bio early life and manga K-2L raid)",
+    "source_url": ""
+   },
+   {
+    "entry": "Chozo: Gray Voice",
+    "kind": "contradiction",
+    "before": "He once praised it as the greatest being in existence; after it turned, he called it a defective product ...",
+    "after": "When Mother Brain seized control of Zebes and the Space Pirates, Gray Voice appeared to side with them, praising Mother as the greatest being in existence ... It was a ruse: he had planned from the start to destroy Mother Brain, the defective product, as he called it ... (the praise is Vol 1 Ch 7 Pg 8, the takeover chapter, as the manga betrayal entry has it)",
+    "source_url": "https://www.metroidwiki.org/wiki/Mother_Brain"
+   },
+   {
+    "entry": "Chozo: Gray Voice",
+    "kind": "contradiction",
+    "before": "It was he who ordered the toxic Badger Clover and the Iono Feria that carried it burned, over Samus's objection.",
+    "after": "It was he who recognized the toxic Badger Clover Samus had picked, which led to the clover and the Iono Feria that carried it being burned over her objection.",
+    "source_url": "https://www.metroidwiki.org/wiki/Iono_Feria"
+   },
+   {
+    "entry": "Chozo: Gray Voice",
+    "kind": "contradiction",
+    "before": "Ridley, who had killed her parents, thus also killed ...",
+    "after": "Ridley, the raider behind her parents' deaths, thus also killed ... (Rodney died by his own detonation per the manga)",
+    "source_url": "https://www.metroidwiki.org/wiki/Rodney_Aran"
+   },
+   {
+    "entry": "Universe: Timeline of Samus's missions",
+    "kind": "contradiction",
+    "before": "- Backstory (manga): ... serves in the Federation Police under Adam Malkovich before going solo.",
+    "after": "- Backstory: ... raised by the Chozo on Zebes (per the manga) and serves the Galactic Federation (in the Federation Police under Chief Hardy, per the manga; in the Federation Army under Adam Malkovich, per her later recollections) before going solo.",
+    "source_url": "https://ja.wikipedia.org/wiki/サムス・アラン"
+   },
+   {
+    "entry": "Universe: Timeline of Samus's missions",
+    "kind": "contradiction",
+    "before": "Adam dies destroying Sector Zero; Anthony Higgs alone survives with her.",
+    "after": "Adam dies destroying Sector Zero; of his platoon only Anthony Higgs survives. (Madeline Bergman also survived, per samus-rp and adam-other-m)",
+    "source_url": "https://www.metroidwiki.org/wiki/Anthony_Higgs"
+   },
+   {
+    "entry": "Universe: What counts as canon",
+    "kind": "contradiction",
+    "before": "two volumes serialized in Magazine Z from 2003, after an online preview of its first two chapters in 2002 ... her Federation Police years under Adam Malkovich ... though later missions build on it, such as her years under Adam",
+    "after": "serialized in Magazine Z from 2002 to 2004 and collected in two volumes, with an online version of its first two chapters in 2002 ... her Federation Police years under Chief Hardy ... though later missions build on it, such as her paralysis before Ridley on the Bottle Ship",
+    "source_url": "https://myanimelist.net/manga/6642/_ ; https://en.wikipedia.org/wiki/Metroid_(manga) ; https://en.wikipedia.org/wiki/Metroid:_Other_M"
+   },
+   {
+    "entry": "Samus: Speech style and canonical quotes",
+    "kind": "contradiction",
+    "before": "From Tallon IV to Viewros she otherwise said nothing aloud, answering with a nod or with action.",
+    "after": "On Tallon IV, in the Alimbic Cluster, on Aether, through the Phazon crisis and on Viewros she said nothing aloud at all, answering with a nod or with action. (The old span included the Bottle Ship, whose spoken lines the same entry quotes)",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+   },
+   {
+    "entry": "Samus: Personality and temperament",
+    "kind": "duplication",
+    "before": "Dry bullet re-explained the thumbs-down as derision plus acknowledgment and the meaning of 'Lady'",
+    "after": "'...answered his \"Any objections, Lady?\" with a thumbs-down (see Mannerisms, habits and field behavior).'",
+    "source_url": ""
+   },
+   {
+    "entry": "Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux",
+    "kind": "duplication",
+    "before": "Adam bullet repeated the emotional-history entry (relentless criticism, Ian plea, Bottle Ship command)",
+    "after": "'Adam Malkovich: her former CO and, by her own admission, a father figure, who made \"Lady\" sound dignified; she swore not to grieve him after he died destroying Sector Zero, and the BSL computer she named after him proved to carry his mind (see Emotional history and inner conflicts).'",
+    "source_url": ""
+   },
+   {
+    "entry": "Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux",
+    "kind": "contradiction",
+    "before": "Anthony Higgs: her old 07th Platoon squadmate",
+    "after": "Anthony Higgs: her old squadmate from her Federation days, now of Adam's 07th Platoon (matches samus-bio service entry)",
+    "source_url": "https://www.metroidwiki.org/wiki/Anthony_Higgs"
+   }
+  ],
+  "cross_cluster_issues": "1) ridley.json, 'Ridley: Ridley (overview and relationship with Samus)', third paragraph: the manga panic attack sits under 'During her first mission to Zebes...'. Per the manga, it happened during the Space Pirate takeover of Zebes while Samus served in the Federation Police (manga Vol 2 Ch 8; see the manga entries 'Samus's confrontation with Ridley and her trauma' and 'Mother Brain's betrayal of Zebes'). In the manga's account of her later bounty-hunter mission she held and brought him down with a single Missile. Suggested wording: 'Per the manga, when she met him again during the Pirate takeover of Zebes, while she served in the Federation Police, the sight of him triggered a panic attack and he beat her down.' Sources: https://www.metroidwiki.org/wiki/Ridley and the manga entries' citations.\n2) ridley.json, overview and 'Ridley's appearance, abilities and intelligence': the claim that Ridley said he healed by eating the K-2L colonists, and 'taunted that her mother had been among them', is not on Metroid Wiki's Ridley or Psychosis pages. The manga editor left it out as unverifiable. Only Wikitroid search snippets support it, and they say he could have eaten her mother, not that she was among them. Soften it to that or drop it.\n3) ridley.json overview: 'Ridley led the Space Pirate raid on ... K-2L, seeking its Afloraltite fuel'. Metroid Wiki's Ridley page backs this ('in pursuit of ... Afloraltite'), but its Samus Aran and Afloraltite pages, and the manga and samus-bio entries, say the Pirates followed the Chozo ship and only found the afloraltite after landing. Minor; suggest 'followed a Chozo ship there and seized its Afloraltite'.\n4) dread.json 'Dread: The Chozo tribes - Thoha, Mawkin and Raven Beak's coup' nearly duplicates chozo.json 'Chozo: Chozo tribes – Thoha and Mawkin' (SR388 history, massacre, ZDR quarantine, DNA). Both fire on Thoha/Mawkin in ZDR talk. Consider trimming the dread entry to a ZDR-specific summary with a pointer by name, or tell the chozo cluster which one should be the home.\n5) The motive differs between entries, though it is not strictly a contradiction. Chozo tribes says Raven Beak took Quiet Robe to ZDR 'intending to return to SR388 once the Metroids had wiped out the X' (Metroid Wiki Raven Beak page, verbatim). Dread: Raven Beak / Planet ZDR say he went to ZDR 'to raise Metroids there'. The dread editor should confirm, or give both.\n6) build/index.txt still lists a stale federation draft, 'Galactic Federation: Federation Police and Army', with keys Federation Police, Jigrad, Kreatz, Mauk and Chief Hardy. The current federation.json entry is 'Federation Police and military command' and has none of the manga names. Regenerate the index.\n7) Low priority: zebes.json 'Zebes: Samus's first Zebes mission (Zero Mission)' has the key 'fall of Zebes', which also sits on manga 'Mother Brain's betrayal of Zebes' (the actual fall of Zebes to the Pirates). The zebes entry already has 'Zebes has fallen' for the Pirate logs and could drop 'fall of Zebes'.\nVerified as consistent, no action needed: the dread, fusion, metroids and zebes entries agree with the corrected Itorash order, the BSL defiance, Sector Zero, the baby Metroid and the Gray Voice details. The Fusion lines 'Samus, this is your last mission' and 'They lent me a hand' are confirmed by the retropixel transcript.",
+  "notes": "Known issues:\n(1) Confirmed and fixed. Omega Metroid's walkthrough and Wikipedia's Dread plot give the order: she drains Raven Beak, then Itorash, which crashes onto ZDR. The X from Kraid's corpse then takes Raven Beak, and her Hyper Beam destroys that Raven Beak X, which sets off the self-destruct.\n(2) Confirmed and fixed with the suggested wording. The Fusion transcript has the Restricted Laboratory jettisoned first ('no fewer than 10 SA-X'). Only after Neo-Ridley does the computer reveal 'Capturing the SA-X, of course' and the withheld Plasma Beam.\n(3) Done: 'hatchling' removed from samus-rp attitudes.\n(4) 'Federation Police' stays on federation 'Federation Police and military command' and manga 'Samus's Federation Police years'. Both are truly about it. It was removed from the samus-bio service entry. 'Federation Army' and the manga names (Jigrad, Kreatz, Mauk, Damara, Chief Hardy) went with it, since manga 3 and 4 hold them. Samus-specific service keys replace them.\n\nMain new contradiction: who ordered the Badger Clover and Iono Feria burned. Metroid Wiki's Samus Aran and Iono Feria pages say Gray Voice in their prose, but both cite the line as Old Bird's: 'Clean up crew, immediately divide into pairs and burn everything!!' (Vol 1 Ch 2 Pg 21). Gray Voice only identified the clover. I followed the cited quote, which also matches the manga upbringing entry. samus-bio, Old Bird and Gray Voice are aligned to it.\n\nHomes for duplicated material, each other entry now a one-sentence pointer:\n- K-2L raid narrative: manga 'The K-2L raid (manga account)' (samus-bio early life and K-2L entries point to it). Rodney and Virginia keep their own entry.\n- Badger Clover incident: manga 'Samus's Chozo upbringing ...'. Old Bird keeps a trimmed, Old Bird-centred version.\n- Thumbs-down ritual: samus-rp mannerisms.\n- Adam: samus-rp emotional history.\n\nOther keys: 'Old Bird' (on 3 entries) dropped from manga K-2L raid. 'Pyonchi' (on 3) dropped from Chozo: Old Bird. Every primary key in my files now sits on at most 2 entries. Bare restricted keys appear only on the core Samus profile and the Chozo overview.\n\nStyle: no 'player', 'boss', 'level', 'cutscene', 'unlock' or 'upgrade' language, markdown emphasis or in-content citations remained. Dash lists were kept as house style used across the lorebook.\n\nChoices that rest on source judgment:\n- Manga serialization set to 2002-2004, following MyAnimeList's Nov 2002 to Mar 2004 run. English Wikipedia's Nov 2003 to May 2004 cannot hold 16 monthly chapters and a 2003 first volume.\n- Adam in the manga: Japanese Wikipedia says he was a Federation Army commander she met during her Police years under Hardy, not her Police superior.\n- 'Metroid Ravenous (due 2027)' in the timeline checked and confirmed real (announced in the Sept 2026 Nintendo Direct).\n- The Chozo reproduction claim (chozo history and technology entries) is kept. Metroid Wiki's Chozo page states it as manga material.\n\nBackups of the pre-edit files are in the scratchpad as <domain>.bak.json. The edit scripts are xc_samus_cluster_edit.py and xc_samus_cluster_edit2.py. All five files validate with json.load."
+ }
+}

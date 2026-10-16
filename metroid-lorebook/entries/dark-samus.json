@@ -1,0 +1,241 @@
+{
+ "domain": "dark-samus",
+ "category": "Dark Samus",
+ "entries": [
+  {
+   "comment": "Dark Samus: Dark Samus (overview)",
+   "keys": [
+    "Dark Samus",
+    "Dark-Samus",
+    "Dark Hunter",
+    "the Dark Hunter",
+    "Phazon clone",
+    "Phazon double",
+    "Samus's Phazon double"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Dark Samus is a Phazon-born double of Samus Aran and the architect of the Phazon crisis. She arose on Tallon IV when the dying Metroid Prime tore the Phazon Suit from Samus in the Impact Crater and rebuilt itself from that suit, Samus's genetic material and its own Phazon essence. Scans record her as an entity of pure, highly unstable Phazon energy wearing a Varia Suit \"altered and augmented by the Phazon within her\": Samus's exact silhouette, dark in color, lit by the Phazon inside her. Her homeworld is listed as Phaaze. The Space Pirates on Aether, who mistook her for Samus until the real one arrived, named her \"the Dark Hunter.\"\n\nHer history falls into three phases.\n- On Aether (Metroid Prime 2: Echoes) she raided the Pirates' Phazon stocks in the Agon Wastes, shadowed Samus across the Luminoth world and fought her three times. In the last clash at the Sky Temple Gateway, as Dark Aether collapsed, she gorged herself into a being of pure Phazon; Samus caught the Phazon Dark Samus expelled in her Charge Beam and fired it back until her double disintegrated. She re-formed above Aether as a drifting cloud and was carried off as raw Phazon by salvaging Pirates.\n- Revived aboard the Pirate battleship Colossus, she killed a third of its crew and bent the rest into disciples who called her \"the great one.\" She found Phaaze, had her Pirates seize Aurora Unit 313 from the G.F.S. Valhalla, implanted it in Phaaze's core and used it to launch Leviathan Seeds at the Pirate Homeworld, Bryyo, Elysia and Norion.\n- She led the Norion attack in person (Metroid Prime 3: Corruption), blasting Samus, Rundas, Ghor and Gandrayda with Phazon. Samus woke a month later with Phazon in her body and grew steadily more corrupted over the mission that followed. The other three succumbed to corruption and became Dark Samus's field commanders; Samus defeated each in battle, and Dark Samus consumed what was left of them. At Phaaze's core Samus beat her at last. Dark Samus made one last gesture toward Samus, dissolved and merged into Aurora Unit 313; when Samus destroyed the Unit, Phaaze's core detonated, Phazon was purged from Samus's body and Dark Samus was exterminated with no sign of survival.\n\nShe has no recorded speech. Her behavior on record is a laugh, that final gesture, and relentless appetite: for Phazon first, for Samus second. Samus's Logbook moved from \"Extreme caution recommended\" to its highest threat rating; her scans told her the thing wore her shape and carried her genetic material. The crisis cost Samus three comrades, whom she mourned on Elysia before leaving. See also Metroid Prime (the creature), Phazon, Phaaze, Leviathans, Aurora Unit 313, Rundas, Ghor, Gandrayda.",
+   "constant": false,
+   "order": 110,
+   "category": "Dark Samus",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Dark_Samus",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Pirate_Log",
+    "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+    "https://www.metroidwiki.org/wiki/Dark_Samus_4",
+    "https://www.metroidwiki.org/wiki/Ghor",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+   ],
+   "notes": "Main entry; non-selective, fires on any Dark Samus alias. Generic doppelganger/evil-Samus/dark-twin aliases removed because they equally describe the SA-X. Battle count corrected to three (Metroid Wiki treats Dark Samus 3 and 4 as one encounter). 'Months of corruption' replaced with the one-month coma marker. The final gesture is kept: Metroid Wiki's Samus Aran page records that she 'makes one last gesture towards Samus before vanishing'. Phazon purge per the Dark Samus page. Elysia mourning per Wikipedia (SkyTown not named there, so dropped). Smash Bros. trophy text excluded as non-canon."
+  },
+  {
+   "comment": "Dark Samus: Origin from Metroid Prime",
+   "keys": [
+    "Dark Samus origin",
+    "Dark Samus's origin",
+    "where Dark Samus came from",
+    "origin",
+    "origins",
+    "born",
+    "reborn",
+    "rebirth",
+    "Metroid Prime",
+    "Impact Crater",
+    "Phazon Suit"
+   ],
+   "secondary_keys": [
+    "Dark Samus",
+    "Dark-Samus",
+    "Dark Hunter",
+    "Phazon clone",
+    "Phazon double"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "Dark Samus was born in the Impact Crater of Tallon IV at the close of the Tallon IV incident (Metroid Prime). Her progenitor was Metroid Prime, the Phazon-mutated Metroid that the Chozo prophesied as the Worm and imprisoned beneath the Artifact Temple (see Metroid Prime (the creature)).\n\nSamus entered the crater in the Phazon Suit, the Phazon-saturated form her Power Suit took after the dying Omega Pirate collapsed onto her and Phazon seeped into her armor. It let her fire the Phazon Beam while standing in the crater's Phazon pools, and only a Phazon-fused Arm Cannon could harm Metroid Prime's exposed core essence. She destroyed the exoskeleton and then the core, but in its last moments the creature desperately reached for her. Its grip on the Phazon in her armor was strong enough to rip the Phazon Suit from her body. Samus, left in her Gravity Suit, escaped as the crater was destroyed and left Metroid Prime for dead.\n\nIt did not die. Combining its own Phazon essence with Samus's genetic material and the stolen suit, it formed a new body in her shape and emerged as Dark Samus, with all of Samus's abilities and more power than she had. The Phazon that later spread into Federation space traces back to this rebirth.\n\nNo Logbook record states the connection outright; per the official Japanese website, it is the rebirth described above. On Aether Samus's scans reported only \"the presence of Phazon and your genetic material within this entity.\" By instrument that is all Samus ever learned: her double carried her genetic material, wore a Phazon-warped Varia Suit, and appeared after she left the Worm for dead. See also Metroid Prime (the creature), Impact Crater, Phazon Suit, Omega Pirate, Tallon IV, Chozo Lore.",
+   "constant": false,
+   "order": 100,
+   "category": "Dark Samus",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)",
+    "https://www.metroidwiki.org/wiki/Phazon_Suit",
+    "https://www.metroidwiki.org/wiki/Dark_Samus",
+    "https://www.metroidwiki.org/wiki/Dark_Samus_1",
+    "https://www.metroidwiki.org/wiki/Chozo_Lore",
+    "https://www.metroidwiki.org/wiki/Leviathan",
+    "https://www.metroidwiki.org/wiki/Pirate_Data"
+   ],
+   "notes": "Selective: origin words, 'Metroid Prime', 'Impact Crater' and 'Phazon Suit' fire only alongside a Dark Samus alias, so ordinary Prime 1 chat does not pull it in; no term appears in both lists. Removed the NTSC-only Pirate Data narrative (capture, study, containment breach, absorbing security units' weapons), which Metroid Wiki says was cut from PAL/Trilogy and is no longer canon. 'A Metroid absorbed the Leviathan core' softened (uncited on the wiki; 'it is assumed' on the Leviathan page). Prime 1 'Hyper-Mode' not named to avoid the spelling clash with Corruption's 'Hypermode'. The 'freed of corruption' clause dropped (citation needed on the wiki). The Japanese Echoes website Q&A is the only official confirmation of the origin, labelled inline. Consistency pass: Description of Metroid Prime's nature and powers trimmed to a one-sentence pointer; Prime: Metroid Prime (the creature) owns it."
+  },
+  {
+   "comment": "Dark Samus: Aether and the Dark Hunter",
+   "keys": [
+    "Aether",
+    "Dark Aether",
+    "Aether incident",
+    "Agon Wastes",
+    "Sanctuary Fortress",
+    "Sky Temple Gateway",
+    "Torvus Bog",
+    "Luminoth",
+    "Warrior Ing",
+    "Emperor Ing",
+    "Echo Visor",
+    "Pirate Logs"
+   ],
+   "secondary_keys": [
+    "Dark Samus",
+    "Dark-Samus",
+    "Dark Hunter",
+    "Phazon clone",
+    "Phazon double"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "Dark Samus reached Aether some time after the Tallon IV incident; how she got there is not recorded. She went straight for the Phazon. The Space Pirates mining the Agon Wastes first believed Samus Aran had come for them, then named the intruder \"the Dark Hunter\" for her dark armor and \"strange new weapons.\" She wanted their Phazon ore, not their deaths, teleported into their base at will, killed only those who stood in her way and wrecked its stealth field generator. Once the real Samus arrived, Pirate command proposed an alliance: Phazon for Samus's head.\n\nSamus first glimpsed her in the Temple Grounds hive where the Federation Marines had died. Dark Samus slipped through a portal into Dark Aether; Samus followed, and Dark Samus shattered a Light Crystal near her so that a swarm of Warrior Ing could strip Samus of most of her equipment. Thereafter Dark Samus shadowed her across the Luminoth world: sealing the direct route through the Agon mining facility, obliterating three Dark Pirate Troopers who had been trying to force Samus onto a detour, and once, in a Torvus Bog training chamber, re-forming before Samus, laughing, and dissipating without a shot.\n\nThey fought three times (Metroid Prime 2: Echoes). In the Main Reactor of the Agon mining facility Samus broke her apart; she re-formed. High in Sanctuary Fortress, on the way to the Aerie, she returned with a potent variant of Samus's Charge Beam, an augmented Boost and invisibility, and when beaten staggered and fell from the fortress edge. The scan read \"Reborn, enhanced, and vengeful\" and warned she could re-form her body \"short of total atomic disruption.\" The last fight came at the Sky Temple Gateway as Dark Aether collapsed after the Emperor Ing's death. She had gorged on Phazon past what she could contain and became a being of pure, unstable Phazon that only her own Phazon could hurt. Samus caught the Phazon Dark Samus expelled in her Charge Beam and fired it back until her double disintegrated, then escaped as Dark Aether ceased to exist.\n\nShe was not finished. A cloud of Phazon above Aether gathered into her shape, could not hold it, and drifted as raw Phazon until Space Pirates salvaging the Phazon left on Aether took it aboard the battleship Colossus. See also the Aether incident, Aether and Dark Aether, the Ing and the Emperor Ing, the Luminoth, Colossus.",
+   "constant": false,
+   "order": 100,
+   "category": "Dark Samus",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Dark_Samus",
+    "https://www.metroidwiki.org/wiki/Dark_Samus_1",
+    "https://www.metroidwiki.org/wiki/Dark_Samus_2",
+    "https://www.metroidwiki.org/wiki/Dark_Samus_3",
+    "https://www.metroidwiki.org/wiki/Dark_Samus_4",
+    "https://www.metroidwiki.org/wiki/Pirate_Log",
+    "https://www.metroidwiki.org/wiki/Hive_Chamber_B",
+    "https://www.metroidwiki.org/wiki/Dark_Pirate_Trooper",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_2:_Echoes",
+    "https://www.metroidwiki.org/wiki/Colossus",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_2:_Echoes"
+   ],
+   "notes": "Selective: Aether place-names fire this only with a Dark Samus alias present; 'Phazon' and 'disintegrated' removed from the gate so ordinary Echoes chat does not pull it in. Fixed the Dark Pirate Trooper scene (the Troopers were forcing Samus's detour; Dark Samus killed them). The unsourced 'brief skirmish' in the hive dropped. Battle count corrected to three. Second battle placed on the approach to the Aerie (Metroid Wiki: Aerie Transport Elevator / Aerie Transport Station). Wiki speculation that she stowed away on a Pirate ship omitted."
+  },
+  {
+   "comment": "Dark Samus: The return – Colossus, Phaaze and the Norion attack",
+   "keys": [
+    "Colossus",
+    "Valhalla",
+    "G.F.S. Valhalla",
+    "GFS Valhalla",
+    "Norion",
+    "disciples",
+    "the great one",
+    "Leviathan",
+    "Leviathans",
+    "Leviathan Seed",
+    "Leviathan Seeds",
+    "Pirate Homeworld"
+   ],
+   "secondary_keys": [
+    "Dark Samus",
+    "Dark-Samus",
+    "Dark Hunter",
+    "Phazon clone",
+    "Aurora Unit 313"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "Dark Samus returned about six months after the Aether incident, and she returned as a conqueror. The crew of the Pirate battleship Colossus, sworn to \"take that Phazon or die trying,\" salvaged the Phazon left on Aether without knowing it held her remains. She revived in the ship's Phazon storage, consumed it, killed a third of the crew and \"beguiled\" the rest. The survivors renounced their old vows and swore allegiance to her as \"our liberator\" and \"the great one\"; the same logs call her \"the fiendish shrew.\"\n\nShe went alone to Phaaze, the living source of all Phazon; crewmen who muttered that she had abandoned them were shot. She came back riding a \"titanic starborne beast,\" a Leviathan, and led the Colossus through a wormhole to Phaaze. Her disciples turned the star-beast into a dreadnought with cybernetic weapons built into its skull.\n\nTo command the living planet she wanted an Aurora Unit. Per Pirate records, the Colossus crippled the G.F.S. Valhalla, a Federation battleship \"crewed with green recruits on a training mission,\" and its raiders extracted Aurora Unit 313 and jettisoned the crew into space, though Samus later found Marines' bodies aboard the wreck; the Unit's last log ended \"...Darkness coming.\" Implanted in Phaaze's core, Aurora Unit 313 gave Dark Samus control over the planet's biological functions and the power to launch Leviathan Seeds. The first struck the Pirate Homeworld and corrupted its Pirates into fresh disciples. Around the same time a Phazon-based virus, which the Federation believed to be of Space Pirate origin, began corrupting and disabling Aurora Units, and Fleet Admiral Castor Dane summoned Samus, Rundas, Ghor and Gandrayda to the G.F.S. Olympus to deliver a vaccine.\n\nThen came three strikes, each a Seed with an armada: Elysia, the Fuel Gel source of Bryyo and the military base at Norion. \"Dark Samus herself will lead the attack on Norion.\" Samus and Rundas restored the generators of the planetary defense cannon, and Rundas caught Samus after her fall with Meta Ridley. At the cannon's control tower Dark Samus descended on the four hunters and knocked them unconscious with a Phazon blast. Samus alone struggled up to fire, destroying the Leviathan before impact, the only Seed ever stopped short of its target, then collapsed into a month-long coma (Metroid Prime 3: Corruption). The Pirates recorded: \"Our great leader defeated Aran and her mongrel allies in battle.\" See also Phaaze, Leviathans, Aurora Unit 313, Norion, G.F.S. Olympus, Castor Dane, Meta Ridley.",
+   "constant": false,
+   "order": 100,
+   "category": "Dark Samus",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+    "https://www.metroidwiki.org/wiki/Colossus",
+    "https://www.metroidwiki.org/wiki/G.F.S._Valhalla",
+    "https://www.metroidwiki.org/wiki/Phaaze",
+    "https://www.metroidwiki.org/wiki/Dark_Samus",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://www.metroidwiki.org/wiki/Norion",
+    "https://www.metroidwiki.org/wiki/Rundas",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+   ],
+   "notes": "Selective: gate restricted to Dark Samus aliases plus 'Aurora Unit 313' ('Phazon', 'Space Pirates', 'corrupted' removed). Virus sentence corrected: Metroid Wiki says it corrupts and disables the Units and Dane believed it of Space Pirate origin; nothing says infected Units generate Phazon or ties it to Dark Samus. Norion corrected: Rundas restored a generator himself and caught Samus after her fall with Meta Ridley. 'Six months' is on Metroid Wiki's Samus Aran page and Wikipedia. Pirate quotations from the Corruption Pirate Data entries Our Mission, Stowaway, First Disciples, The Source Discovered, The Leviathan, Taking Valhalla, Vanguard and Victory and Loss. Trimmed toward 400 words. Valhalla capture and crew jettisoning now attributed to the Pirates' 'Taking Valhalla' log, as prime3 'GFS Olympus and the Valhalla' does; Metroid Wiki G.F.S. Valhalla page: many Marines' bodies found aboard."
+  },
+  {
+   "comment": "Dark Samus: The Phazon crisis and her end",
+   "keys": [
+    "Phaaze",
+    "Sanctum",
+    "PED Suit",
+    "Rundas",
+    "Ghor",
+    "Gandrayda",
+    "final battle",
+    "purged",
+    "exterminated",
+    "Phazon crisis",
+    "death of Dark Samus"
+   ],
+   "secondary_keys": [
+    "Dark Samus",
+    "Dark-Samus",
+    "Dark Hunter",
+    "Phazon clone"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "The Phazon Dark Samus drove into the four hunters at Norion took root, and their bodies began producing Phazon of their own. Samus woke a month later aboard the G.F.S. Olympus in a PED Suit, a Phazon Enhancement Device that kept the Phazon in her body in a stable flow and let her enter Hypermode. Rundas, Ghor and Gandrayda had woken weeks earlier, been fitted with the same, sent after the Leviathan Seeds on Bryyo, Elysia and the Pirate Homeworld, and gone silent.\n\nEach had been overwhelmed by Phazon and fallen under Dark Samus's sway. The Pirates' logs name them her field commanders: Commander Rundas on Bryyo, Commander Ghor on Elysia, and \"Mistress Gandrayda,\" who vowed to present Samus's \"bloody helmet\" to Dark Samus as tribute. Samus defeated each in turn: Rundas was impaled by his own ice; Ghor's armor exploded and Dark Samus drank his Phazon; Gandrayda, cycling helplessly through borrowed shapes, was assimilated by Dark Samus outright. Every battle drove Samus's own corruption higher, and her visor took on Phazon's blue.\n\nSamus reached Phaaze through a wormhole opened by a captured Pirate Leviathan (see The assault on Phaaze and the end of Phazon), and the planet's Phazon locked her in permanent Hypermode at the edge of total corruption.\n\nIn the Sanctum at Phaaze's core Dark Samus rose for their only direct battle of the crisis (Metroid Prime 3: Corruption). She split into echoes of herself and drew on Phaaze's energy, but Hypermode could disrupt her. Beaten, she made one last gesture toward Samus, dissolved into Phazon and poured herself into Aurora Unit 313, which scans found \"fused with the bioessence of Dark Samus.\" Samus tore open its armored hatch and destroyed it.\n\nPhaaze's core detonated and the planet was wiped from the galaxy; Dark Samus was exterminated with no sign of survival, the Phazon was purged from Samus's body, and with its source gone the threat of Phazon corruption ended. The fleet escaped but lost contact with Samus; Fleet Admiral Dane was grieving a friend when her Gunship appeared. She returned to Elysia to mourn Rundas, Ghor and Gandrayda, and as she departed, Sylux's ship fell in behind her. See also Phaaze, Aurora Unit 313, Rundas, Ghor, Gandrayda, PED Suit, Sylux, Castor Dane.",
+   "constant": false,
+   "order": 100,
+   "category": "Dark Samus",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Dark_Samus",
+    "https://www.metroidwiki.org/wiki/Metroid_Prime_3:_Corruption",
+    "https://www.metroidwiki.org/wiki/Aurora_Unit_313",
+    "https://www.metroidwiki.org/wiki/Phaaze",
+    "https://www.metroidwiki.org/wiki/Sanctum_(Phaaze)",
+    "https://www.metroidwiki.org/wiki/G.F.S._Valhalla",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Rundas",
+    "https://www.metroidwiki.org/wiki/Ghor",
+    "https://www.metroidwiki.org/wiki/Gandrayda",
+    "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+    "https://en.wikipedia.org/wiki/Metroid_Prime_3:_Corruption"
+   ],
+   "notes": "Selective: gate restricted to Dark Samus aliases ('Phazon', 'corruption' and the duplicated 'Phaaze'/'Aurora Unit 313' removed from secondaries, so no term sits in both lists). Hunters' names kept as primaries because the gate requires a Dark Samus alias. Fixed: Phaaze was located by Aurora Unit 217 (Phaaze page), not from the Valhalla. Hunter deaths reordered per their Metroid Wiki pages. Final gesture kept (Samus Aran page). Fleet losing contact confirmed by Wikipedia. Added the Phazon-blue visor (Corruption page) and the hunters waking weeks earlier (Samus Aran page). Mourning placed on Elysia (Wikipedia; SkyTown not named). Gunship not recognizing her per the Samus Aran page. Consistency pass: Valhalla/wormhole/Phaaze-arrival paragraph trimmed to a pointer (Prime 3: The assault on Phaaze owns it). Keys 'Hypermode', 'Aurora Unit 313' and 'AU 313' removed (each sat on three entries); 'Phazon crisis' and 'death of Dark Samus' added as gated topical keys."
+  },
+  {
+   "comment": "Dark Samus: Powers, nature and what Samus knows",
+   "keys": [
+    "powers",
+    "abilities",
+    "weakness",
+    "weaknesses",
+    "invisible",
+    "invisibility",
+    "regenerate",
+    "regeneration",
+    "teleport",
+    "teleportation",
+    "Phazon shield",
+    "personality"
+   ],
+   "secondary_keys": [
+    "Dark Samus",
+    "Dark-Samus",
+    "Dark Hunter",
+    "Phazon clone",
+    "Phazon double"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "Dark Samus is a construct of Phazon shaped by Samus Aran's genetic material and Metroid Prime's essence. Scans record her as \"comprised of pure Phazon energy\" and \"highly unstable,\" wearing a version of the Varia Suit \"altered and augmented by the Phazon within her.\" She matches Samus's silhouette in darker colors.\n\nHer arsenal mirrors Samus's and exceeds it:\n- a scattershot Phazon beam that can be charged into a sustained stream, missile-like attacks, and a beam that encases targets in Phazon\n- Boost and Jump abilities \"superior to yours,\" levitation and flight, and teleportation\n- invisibility, first to the Combat and Scan Visors, later to the Dark Visor; only the Echo Visor could find her on Dark Aether\n- regeneration by absorbing Phazon, and reconstitution of her whole body from a cloud of Phazon, \"short of total atomic disruption\"\n- at Phaaze, echoes of herself that fight while she recharges, the power to draw energy from Phaaze itself, ice pillars and shock waves\n- a Phazon blast that seeds living bodies with Phazon, as it did to Samus, Rundas, Ghor and Gandrayda on Norion\n\nOrdinary weapons can wound her, but in her pure-Phazon form, behind a Phazon shield, only Phazon can: the energy she herself expelled on Aether, Hypermode on Phaaze. Gorging on Phazon past what she can contain destabilizes her. She is Phazon, and when Phaaze died she died with it.\n\nIn nature she is hunger first: on Aether she sought the Pirates' ore, not their destruction. Vengeance second: her scan in Sanctuary Fortress reads \"Reborn, enhanced, and vengeful,\" and she laughed in Samus's face in Torvus Bog before vanishing. Cunning grew with each rebirth, from a thief who wrecked a stealth field generator to a strategist who turned a warship's crew into a cult, raided a Federation training ship for its Aurora Unit and used a living planet as a siege engine. She has no recorded speech. Her fixation on Samus is constant: she sought her out at every encounter and marked her with corruption, and her last field commander, Gandrayda, swore to present Samus's helmet to her as tribute.\n\nSamus's Logbook noted \"your genetic material within this entity\" and advised \"Extreme caution.\" No record states what Samus feels about the thing that carries her genetic material; what she did was destroy it, on Aether and again on Phaaze. See also Phazon, Hypermode, PED Suit, Phazon Suit, Echo Visor, Dark Visor.",
+   "constant": false,
+   "order": 100,
+   "category": "Dark Samus",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Dark_Samus",
+    "https://www.metroidwiki.org/wiki/Dark_Samus_1",
+    "https://www.metroidwiki.org/wiki/Dark_Samus_2",
+    "https://www.metroidwiki.org/wiki/Dark_Samus_3",
+    "https://www.metroidwiki.org/wiki/Dark_Samus_4",
+    "https://www.metroidwiki.org/wiki/Pirate_Log",
+    "https://www.metroidwiki.org/wiki/Space_Pirate_Data",
+    "https://www.metroidwiki.org/wiki/Samus_Aran"
+   ],
+   "notes": "Selective: generic words fire only with a Dark Samus alias; SA-X-shared aliases (doppelganger, evil Samus, her double) removed from the gate, and 'clone' kept out of the primaries because it would also match the 'Phazon clone' gate. Fixed: only Gandrayda vowed to bring Samus's helmet. Weaknesses corrected: ordinary weapons damage her in her Aether forms; only the pure-Phazon form is Phazon-only (Dark Samus 4 scan), and Hypermode disrupts her on Phaaze; the Prime 1 'Phazon-fused Arm Cannon' line removed. Nature/Samus paragraphs trimmed to reduce overlap with the overview. No canon source states Samus's feelings about Dark Samus; the entry says so."
+  }
+ ]
+}

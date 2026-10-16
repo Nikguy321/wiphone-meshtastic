@@ -1,0 +1,401 @@
+{
+ "run": "wf_79cba15a-9c3",
+ "label": "verify:metroids",
+ "result": {
+  "overall": "Checked all eight entries against 30+ Metroid Wiki, Wikipedia, NWR and Inverse fetches (WebSearch budget was exhausted for this turn, so no search-engine passes; Wikitroid not attempted; Metroid Wiki Viewros/Tanamaar pages 404; Metroid Database manual page redirected to spam). The drafts are mostly well-sourced and nearly every quoted line checked out (ultimate warrior, inheritor of the Metroids' powers, Like Metroids you can be frozen, breeding program/For peaceful application only, SRX replica/Omega from a larval Metroid in days, nucleonic absorption cells, 10 degrees centigrade, small force of disciplined Metroids, Fission/Hatcher/Hopping logbook facts, Nintendo Today's officer-class Space Pirates passage, Proteus Ridley drain, Queen killed the Ridley clone, Power Bomb in the Queen's stomach, cells from Samus's Power Suit, Federation Force egg). Real errors found: (1) 'Baby's Cry' was NOT named for the hatchling; Metroid Wiki's Other M page says it is a generic code name for an SOS with the urgency of a crying baby. (2) Species overview says that after ZDR Samus 'carries' the Metroid energy-draining power; Wikipedia's Dread plot says absorbing the Quiet Robe X 'neutralizes her Metroid abilities' (Inverse: 'stabilizes'), so at minimum this is contested and should be reworded. (3) 'Every Metroid since has been grown from preserved cells' / Sylux's strain listed among cell-recreation programs: Nintendo Today says Sylux forcibly hatched Metroid EGGS stored by the Federation. (4) Nova Beam-through-core is listed as 'the same vulnerability' as cold; it is a separate weakness. (5) Metroid Handling Protocols are a Tallon IV (Prime) scan, and only one handler death is recorded (Echoes termination report), not 'several'. Unverified: '24 hours' beta-ray detail; Metroid II manual line 'even larger and more powerful adversary'; Omega 'highly resistant to cold' (stub only, and the Omega page lists Ice Beam as a weakness); 'the Pirate Aberax'; Other M 'mortal weakness' quote; post-Dread 'cold remains her weakness'/'halted but not undone'; Samus Returns-era fight and count differences. Key hygiene: generic 'life cycle', 'molt', 'life energy', 'energy drain', 'breeding program'; baby entry's secondary keys 'mother', 'hatched', 'sacrifice' let bare 'the baby' fire in ordinary chat; 'last Metroid' is a primary key on two entries; Prime-era entry lacks plural/alias keys for Miniroid, Hopping Metroids, Dark Tallon Metroids, Infant Tallon Metroid. Style: Prime-era (~480 words), cloning (~445) and last-Metroid (~435) entries run a little long; several entries present Missile counts as lore, which reads as gameplay stats.",
+  "reports": [
+   {
+    "entry_comment": "Metroids: Metroids (species overview)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "after ZDR she carries its energy-draining power (see Samus as the last Metroid)",
+      "problem": "Wikipedia's Metroid Dread plot says the X mimicking Quiet Robe merges into Samus 'which neutralizes her Metroid abilities' so she can fly the ship; Metroid Wiki's Quiet Robe page says the absorption 'lets her control the ship without draining its energy'. Inverse says it 'stabilizes' the DNA. No source says she still wields the drain after ZDR.",
+      "correction": "Replace with: 'On ZDR her Metroid DNA awoke into an energy-draining power, which was suppressed again when she absorbed an X carrying Thoha DNA; she still carries Metroid DNA.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "error",
+      "claim": "Federation and Pirate factions alike then tried to recreate Metroids from preserved cells: ... and in the host-controlling strain Sylux used on Tanamaar and Viewros",
+      "problem": "Nintendo Today (quoted by NWR) says 'Metroid eggs secretly stored in a certain research center of the Galactic Federation were forcibly hatched' by Sylux, who 'then cultured and multiplied the Metroids'. Sylux's strain came from stored eggs, not preserved cells.",
+      "correction": "Say Sylux hatched Metroid eggs the Federation had secretly stored, then cultured and multiplied them; keep 'preserved cells' only for the Bottle Ship, BSL and Raven Beak's DNA plan.",
+      "source_url": "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Per the original manual, Metroids multiply when exposed to beta rays for 24 hours.",
+      "problem": "Metroid Wiki's species page quotes only the Zero Mission manual ('replicate Metroids in vast numbers by exposing them to beta rays'); the Metroid (game) page and Wikipedia's Metroid article mention beta rays but not '24 hours'. The 24-hour figure may well be in the NES booklet but could not be confirmed from any reachable source.",
+      "correction": "Soften to 'Per the original manual, Metroids multiply when exposed to beta rays' unless the NES booklet text can be checked.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(species)"
+     },
+     {
+      "severity": "nit",
+      "claim": "Pirates also carried Metroids to Tallon IV and Aether, where Phazon produced the Tallon, Hunter and Fission strains",
+      "problem": "Metroid Wiki's Tallon Metroid page treats the Tallon Metroid as the Zebes stock brought to Glacier One (smaller/weaker than regular Metroids); Phazon infusion then produced mutations (Hunter, Fission). Phazon did not 'produce' the Tallon strain.",
+      "correction": "'...where the Tallon Metroid strain was bred and Phazon produced the Hunter and Fission mutations...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Tallon_Metroid"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Samus has killed more Metroids than anyone",
+      "problem": "Editorial superlative; no source states it. Harmless for roleplay but not canon.",
+      "correction": "Optionally soften to 'Samus has killed Metroids by the dozen'."
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Species page notes the Phazon-mutated Metroid lines were wiped out with Phaaze at the end of the Phazon crisis; useful for the 'extinct' thread.",
+      "correction": "Add one clause: 'the Phazon-mutated strains died with Phaaze.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(species)"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Metroids: Metroid biology and weaknesses",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Ice Missiles, the Dark Beam against Dark Tallon Metroids, and the Nova Beam fired through a Phazon Metroid's core exploit the same vulnerability.",
+      "problem": "Metroid Wiki's Phazon Metroid page lists cold (Ice Missiles immobilise) and the Nova Beam core shot (with X-Ray Visor) as separate weaknesses; the Nova Beam is not a cold attack.",
+      "correction": "'Ice Missiles and the charged Dark Beam (against Dark Tallon Metroids) exploit the same cold weakness; a Phazon Metroid can instead be killed by a Nova Beam shot through its core.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Phazon_Metroid"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Omega Metroids are highly resistant to cold",
+      "problem": "Only the Metroid Egg stub says Omegas are 'very resistant to their strongest weakness, cold'. The Omega Metroid page's infobox lists Ice Beam as a weakness, and the Fusion Omega was killed by repeated Ice Beam shots. Conflicting and stub-only.",
+      "correction": "Soften to 'the Omegas of SR388 were immune to everything but Missiles; the BSL Omega fell to the Ice Beam'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Omega_Metroid"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Per the original manual, Metroids in suspended animation reactivate and multiply when exposed to beta rays for 24 hours",
+      "problem": "'Suspended animation' and beta rays are on Metroid Wiki's Metroid (game) page, but 'reactivate' and '24 hours' could not be confirmed from any reachable source.",
+      "correction": "'Per the original manual, the Metroid was found in suspended animation on SR388 and can be multiplied by exposure to beta rays.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(game)"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: life energy, energy drain, energy-draining",
+      "problem": "Bare generic phrases that fire in any fantasy/sci-fi chat (vampires, mana, etc.).",
+      "correction": "Drop them or make them secondary keys gated on 'Metroid'."
+     },
+     {
+      "severity": "style",
+      "claim": "a frozen larva of the Zebes stock took five Missiles, a Tallon Metroid only one",
+      "problem": "Missile hit-counts are gameplay stats presented as lore.",
+      "correction": "'a frozen larva takes several Missiles; the weaker Tallon strain shatters at one'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Metroids: Metroid life cycle (Alpha, Gamma, Zeta, Omega, Queen)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "The manual for Samus's first SR388 mission describes each mutation producing \"an even larger and more powerful adversary\"",
+      "problem": "The phrase is not on Metroid Wiki's species, Metroid II, Alpha, Gamma, Zeta or Omega pages (only 'absolutely huge; its power, incredible!' is quoted there). Attempted Metroid Database manual page redirected to an unrelated site.",
+      "correction": "Remove the quotation marks or drop the line unless the Metroid II booklet can be checked.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_II:_Return_of_Samus"
+     },
+     {
+      "severity": "unverified",
+      "claim": "she destroyed sixteen Gamma, three Zeta and four Omega Metroids on her way down to the Queen (Metroid II)",
+      "problem": "The counts match Metroid Wiki's Metroid II pages, but Samus Returns (the most recent official retelling, which the canon rule prefers) has 50 Metroids versus 39 and the per-form counts were not findable. Specific numbers risk contradicting the retelling.",
+      "correction": "Either drop the numbers or label them 'in the original account of the mission'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: life cycle, molt, molting, molted",
+      "problem": "Bare generic biology words that will fire on any nature or product 'life cycle' discussion.",
+      "correction": "Keep 'Metroid life cycle'; make 'molt/molting' secondary keys gated on 'Metroid'."
+     },
+     {
+      "severity": "style",
+      "claim": "about ten were needed to kill one / roughly twenty / falls to a handful of Missiles",
+      "problem": "Gameplay hit-counts rendered as lore.",
+      "correction": "'takes far more Missiles than an Alpha' style phrasing."
+     },
+     {
+      "severity": "nit",
+      "claim": "Alpha Metroid: rips its way out of the larval membrane and takes a winged, arthropod-like shape",
+      "problem": "Metroid Wiki says the Alpha 'rips its way out of its Juvenile Metroid stage' and lists only ramming (species page adds dive-bombing); 'winged' is a description from artwork, not from the page.",
+      "correction": "Fine to keep, but note it is descriptive, not sourced."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Metroids: Metroid variants of the Prime era (Tallon, Hunter, Fission, Phazon Metroids, Hatcher)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "On Aether ... Pirate Metroid Handling Protocols forbade keeping them as pets after failed domestication killed several handlers",
+      "problem": "Metroid Wiki's Tallon Metroid page attributes 'Metroids are not pets. Metroids are not for target practice.' to Metroid Prime scan data (Tallon IV), and the handler death is a single Echoes termination report: 'Metroid unit refused commands and terminated one of its handlers before it was subdued.' Not 'several', and the Protocols are not an Aether rule written afterward.",
+      "correction": "'Pirate Metroid Handling Protocols on Tallon IV insisted Metroids were not pets or target practice; on Aether one Metroid refused commands and killed a handler before it was subdued.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Tallon_Metroid"
+     },
+     {
+      "severity": "nit",
+      "claim": "a Pirate theft report blamed Dark Samus for missing Metroids",
+      "problem": "The theft report only says three Metroids were stolen; a later security report muses 'Perhaps she is behind the Metroid theft' about 'the Dark Hunter'.",
+      "correction": "'a later security report suspected the Dark Hunter (Dark Samus) of the theft of three Metroids'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Tallon_Metroid"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Fission Metroids also appear on the bottom level of the Phazon Mines (PAL/Trilogy) after the Omega Pirate; and Metroid Prime itself can spawn Hunter and Fission Metroids in its core form.",
+      "correction": "Add: 'Metroid Prime could spawn Hunter and Fission Metroids to defend itself.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Hunter_Metroid"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys lack: Miniroid, Miniroids, Hopping Metroids, Dark Tallon Metroids, Infant Tallon Metroid(s)",
+      "problem": "The entry covers all of these but only some have keys; plurals missing.",
+      "correction": "Add the missing aliases/plurals."
+     },
+     {
+      "severity": "style",
+      "claim": "entry length (~480 words)",
+      "problem": "Above the 400-word guide for a non-core entry.",
+      "correction": "Trim the Tallon Metroid bullet (the Protocols/theft detail could move to a Pirate entry)."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Metroids: The baby Metroid (the hatchling)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "the \"Baby's Cry\" distress signal that drew her to the Bottle Ship was named for it",
+      "problem": "Metroid Wiki's Other M page: Baby's Cry 'is the code name for a distress signal, meaning a common SOS with the urgency of a crying baby', nicknamed that because its purpose is to attract attention. It is a generic Federation code name, not a reference to the hatchling; Samus merely felt it was 'crying specifically for her'.",
+      "correction": "'...and the \"Baby's Cry\" distress signal (a code name for an urgent SOS) that drew her to the Bottle Ship felt to her as though it cried for her alone.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "keys",
+      "claim": "secondary_keys: mother, hatched, sacrifice, imprinted with primary 'the baby', 'hatchling'",
+      "problem": "With AND_ANY, ordinary chat containing 'the baby' plus 'mother' or 'hatched' will trigger this entry.",
+      "correction": "Restrict secondaries to Metroid, Metroids, SR388, Ceres, Zebes, Mother Brain, Hyper Beam, Ridley; drop mother/hatched/sacrifice/imprinted."
+     },
+     {
+      "severity": "keys",
+      "claim": "primary key 'last Metroid' / 'infant Metroid'",
+      "problem": "'last Metroid' is also a primary key on the 'Samus as the last Metroid' entry (both fire); 'infant Metroid' also matches 'Infant Tallon Metroid' discussions.",
+      "correction": "Keep 'last Metroid' on one entry only; drop 'infant Metroid' or make it 'infant Metroid from SR388'."
+     },
+     {
+      "severity": "nit",
+      "claim": "it fled",
+      "problem": "Metroid Wiki adds it fled 'possibly warning her not to go further' — speculation, correctly omitted. No change needed; noting only that the drafted sequence (drains, recognises, flees) matches the page.",
+      "correction": ""
+     }
+    ]
+   },
+   {
+    "entry_comment": "Metroids: Metroid Queen",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "She pounded the Queen's face with Missiles, stunned her with a Missile fired into her open mouth, then rolled into the Queen's gullet in Morph Ball and detonated Bombs inside her.",
+      "problem": "This is the Metroid II method per Metroid Wiki; the Samus Returns retelling (the most recent official version) is not described on the Queen or Samus Returns pages, and its fight is believed to differ (Power Bomb inside the mouth). Presenting the Metroid II method as the definitive SR388 account is risky.",
+      "correction": "Hedge: 'Missiles to the face and into her open mouth stunned her, and Samus finished her from inside in Morph Ball.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Queen"
+     },
+     {
+      "severity": "unverified",
+      "claim": "A Queen is roughly twice the size of an Omega",
+      "problem": "Only the Metroid Egg stub says 'twice as large as the Omega Metroid'; not on the Queen page.",
+      "correction": "Keep with 'roughly' or drop.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_Egg"
+     },
+     {
+      "severity": "nit",
+      "claim": "a fully developed larva hatches from the egg and, on SR388, goes on to become an Alpha Metroid",
+      "problem": "The stub says a larva hatches, and a *fully developed* larva stops floating and becomes an Alpha; the sentence conflates the two.",
+      "correction": "'a larva hatches from the egg and, on SR388, grows until it molts into an Alpha Metroid'."
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Federation Force: the Metroid egg Sylux later hatched was recovered by Federation Marines from a secret Space Pirate facility, which is why the Federation had it.",
+      "correction": "Add one clause on the egg's Pirate origin.",
+      "source_url": "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Metroids: Omega Metroid",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "highly resistant to cold",
+      "problem": "Stub-only (Metroid Egg page). The Omega Metroid page lists Ice Beam among its weaknesses, and the entry itself has the Fusion Omega dying to the Ice Beam, which reads as a contradiction.",
+      "correction": "'immune to Samus's beams on SR388, yet the BSL Omega fell to the Ice Beam'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Omega_Metroid"
+     },
+     {
+      "severity": "style",
+      "claim": "Samus needed some thirty Missiles to the chest or back to bring one down",
+      "problem": "Gameplay hit-count as lore (matches the wiki's 'thirty Missiles').",
+      "correction": "'dozens of Missiles to the chest or back'."
+     },
+     {
+      "severity": "nit",
+      "claim": "It is a towering bipedal reptilian with massive claws",
+      "problem": "Drawn from artwork, as the notes admit; not contradicted, just unsourced prose.",
+      "correction": "No change required."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Metroids: Metroid breeding and cloning programs",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "fused with the Pirate Aberax",
+      "problem": "Metroid Wiki's Aberax page is a stub that does not say what Aberax is; the Prime 4 page says only 'A Metroid fuses with Aberax, which empowers and controls it'; Wikipedia's article does not mention Aberax.",
+      "correction": "'fused with the boss creature Aberax' or simply 'fused with Aberax'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Aberax"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Genetic manipulation reportedly overcame \"the Metroid's mortal weakness, the vulnerability to cold\"",
+      "problem": "Metroid Wiki's Other M and Adam Malkovich pages paraphrase only ('their usual weakness to cold may have been removed through genetic manipulation'); the quoted phrase could not be found.",
+      "correction": "Unquote: 'Genetic manipulation had apparently removed the Metroids' usual weakness to cold'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Other_M"
+     },
+     {
+      "severity": "nit",
+      "claim": "the Federation built MB, an android carrying Mother Brain's thought patterns, to control the Metroids",
+      "problem": "Per Metroid Wiki's MB page, MB was first developed from Mother Brain's intellectual data to control the Space Pirate special forces; she was given a human-like body so the first hatchling would imprint on her as mother, a relationship 'not based on dominance or control'.",
+      "correction": "'...built MB, an AI from Mother Brain's data that led the ship's bioweapon forces, and gave her a human form so the first hatchling would imprint on her as its mother.'",
+      "source_url": "https://www.metroidwiki.org/wiki/MB"
+     },
+     {
+      "severity": "nit",
+      "claim": "He died with his planet.",
+      "problem": "Raven Beak was taken by an X parasite and the X-form destroyed by Samus before ZDR exploded; he did not die in the planet's destruction.",
+      "correction": "'He was consumed by an X, and Samus destroyed what it made of him.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "Other M: in Sector Zero Samus hesitated over an infant Metroid, was shot in the back with a Freeze Gun, and Adam went in alone; also, on Viewros Sylux infused Metroids into the guardians of the master teleporter key (Wikipedia).",
+      "correction": "Add both; the Sector Zero moment is a key roleplay beat.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond"
+     },
+     {
+      "severity": "keys",
+      "claim": "key: breeding program",
+      "problem": "Generic; fires on any animal/plant breeding chat.",
+      "correction": "Use 'Metroid breeding program' instead."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Metroids: Samus as the last Metroid",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Every Metroid since has been grown from preserved cells, and every such colony has been destroyed.",
+      "problem": "Nintendo Today: Sylux 'forcibly hatched' Metroid eggs secretly stored by the Federation and 'cultured and multiplied' them; Wikipedia's Prime 4 plot does not state the Metroids' fate. Neither half of the sentence holds for Sylux's strain.",
+      "correction": "'Every Metroid since has come from preserved cells or secretly stored eggs; the Bottle Ship and BSL colonies were destroyed, and the fate of Sylux's strain is unrecorded.'",
+      "source_url": "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Samus's transformation was halted but not undone ... cold remains her weakness, and no other Metroid is known to survive.",
+      "problem": "Wikipedia says the absorbed X 'neutralizes her Metroid abilities'; Inverse says it 'stabilizes the Metroid DNA'. No source addresses her cold weakness after ZDR or says the change was 'not undone'.",
+      "correction": "'Her Metroid powers were suppressed by the Thoha DNA in the X she absorbed; she still carries Metroid DNA.' Drop the cold clause.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "noncanon",
+      "claim": "by the Chozo meaning of the name, she became the last \"ultimate warrior\"",
+      "problem": "The 'last ultimate warrior' framing is Metroid Wiki's own article text, not from the Fusion manual (which only gives the translation and the 'inheritor of the Metroids' powers' line).",
+      "correction": "Delete the clause or mark it as Samus's own reflection.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(species)"
+     },
+     {
+      "severity": "missing",
+      "claim": "",
+      "problem": "The Phazon-mutated Metroid lines died with Phaaze (Prime 3), which belongs in the 'Status' tally of surviving Metroids.",
+      "correction": "Add 'the Phazon strains died with Phaaze'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(species)"
+     },
+     {
+      "severity": "keys",
+      "claim": "keys: last Metroid, the last Metroid",
+      "problem": "Duplicated as primary keys on the baby Metroid entry, so both entries fire together.",
+      "correction": "Keep them here and remove from the baby entry (or vice versa)."
+     },
+     {
+      "severity": "style",
+      "claim": "entry length (~435 words) and 'Samus Aran – Metroid DNA, Chozo DNA and what she has become' cited twice",
+      "problem": "Slightly long; the same cross-reference appears twice.",
+      "correction": "Cite the cross-reference once."
+     }
+    ]
+   }
+  ],
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Metroid_(species)",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://www.metroidwiki.org/wiki/Quiet_Robe",
+   "https://www.metroidwiki.org/wiki/Baby_Metroid",
+   "https://www.metroidwiki.org/wiki/Metroid_Queen",
+   "https://www.metroidwiki.org/wiki/Omega_Metroid",
+   "https://www.metroidwiki.org/wiki/Alpha_Metroid",
+   "https://www.metroidwiki.org/wiki/Gamma_Metroid",
+   "https://www.metroidwiki.org/wiki/Zeta_Metroid",
+   "https://www.metroidwiki.org/wiki/Tallon_Metroid",
+   "https://www.metroidwiki.org/wiki/Metroid_Egg",
+   "https://www.metroidwiki.org/wiki/Hunter_Metroid",
+   "https://www.metroidwiki.org/wiki/Fission_Metroid",
+   "https://www.metroidwiki.org/wiki/Dark_Tallon_Metroid",
+   "https://www.metroidwiki.org/wiki/Phazon_Metroid",
+   "https://www.metroidwiki.org/wiki/Miniroid",
+   "https://www.metroidwiki.org/wiki/Hopping_Metroid",
+   "https://www.metroidwiki.org/wiki/Metroid_Hatcher",
+   "https://www.metroidwiki.org/wiki/Infant_Tallon_Metroid",
+   "https://www.metroidwiki.org/wiki/Mochtroid",
+   "https://www.metroidwiki.org/wiki/Sector_Zero",
+   "https://www.metroidwiki.org/wiki/Restricted_Laboratory",
+   "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+   "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+   "https://www.metroidwiki.org/wiki/Metroid_Dread",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns",
+   "https://www.metroidwiki.org/wiki/Proteus_Ridley",
+   "https://www.metroidwiki.org/wiki/Sylux",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_4:_Beyond",
+   "http://www.nintendoworldreport.com/feature/73864/metroid-prime-4-beyonds-timeline-placement-analysis",
+   "https://www.metroidwiki.org/wiki/Metroid_Vaccine",
+   "https://www.metroidwiki.org/wiki/Metroid_II:_Return_of_Samus",
+   "https://www.metroidwiki.org/wiki/Metroid_(game)",
+   "https://www.metroidwiki.org/wiki/Aberax",
+   "https://www.metroidwiki.org/wiki/MB",
+   "https://www.metroidwiki.org/wiki/Metroid_Prime_(creature)",
+   "https://www.metroidwiki.org/wiki/Adam_Malkovich",
+   "https://www.inverse.com/gaming/metroid-dread-ending-explained-metroid-suit-rewards",
+   "https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond",
+   "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns",
+   "https://en.wikipedia.org/wiki/Metroid_(video_game)",
+   "https://www.metroidwiki.org/wiki/Viewros (404)",
+   "https://www.metroidwiki.org/wiki/Tanamaar (404)",
+   "https://www.metroid-database.com/metroid-ii-return-of-samus/manual/ (redirected off-site, not used)"
+  ]
+ }
+}

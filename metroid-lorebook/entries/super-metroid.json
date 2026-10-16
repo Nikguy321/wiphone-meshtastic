@@ -1,0 +1,259 @@
+{
+ "domain": "super-metroid",
+ "category": "Super Metroid",
+ "entries": [
+  {
+   "comment": "Super Metroid: Ceres Space Colony and the theft of the baby",
+   "keys": [
+    "Ceres",
+    "Ceres Space Colony",
+    "Ceres Station",
+    "Ceres colony",
+    "Ceres research station",
+    "Galactic Research Station",
+    "stole the baby",
+    "stolen hatchling",
+    "theft of the baby"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Ceres Space Colony housed the Galactic Research Station, a Galactic Federation science facility. After exterminating the Metroids of SR388, Samus Aran kept the one hatchling that had imprinted on her instead of destroying it as her directives required, and delivered it to Ceres so that Federation scientists could study its energy-producing qualities. In her own later account she reasoned that studying the baby might produce some peaceful applications, and because she was the first thing the baby saw, it took her to be its mother (Metroid: Other M). The Ceres researchers concluded that the energy-producing capabilities of the Metroids could be harnessed for the good of galactic civilization.\n\nShortly after Samus departed, Ridley led a Space Pirate assault on the colony; per the manual, Ridley headed the mission to the Space Colony and stole the Metroid Hatchling. He slaughtered the scientists, but not before they sent out a distress signal. Samus turned back and reached Ceres to find every researcher dead and the hatchling's containment unit gone. She found Ridley still clutching the capsule. After a brief fight he broke off, triggered the station's self-destruct and fled into space with the last Metroid, leaving her no choice but to retreat. Samus escaped moments before Ceres blew apart, then tracked Ridley to Zebes, where the Space Pirates had reestablished much of their subterranean network (the return to Zebes; Super Metroid).\n\nThe theft at Ceres set in motion everything that followed: the hunt through Zebes, Mother Brain's final battle in Tourian, the baby's death and the planet's destruction. From the moment she left the burning station, retrieving the hatchling was her mission. During the BSL incident she reflected that she owed the Metroid hatchling her life twice over; the empty containment unit on Ceres is where that story began.",
+   "constant": false,
+   "order": 100,
+   "category": "Super Metroid",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Ceres_Space_Colony",
+    "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+    "https://www.metroidwiki.org/wiki/Ridley",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://www.metroidwiki.org/wiki/Super_Metroid",
+    "https://www.metroidwiki.org/wiki/Zebes"
+   ],
+   "notes": "Final pass: 'rebuilt' changed to 'reestablished' (Zebes page); 'unable to bring him down' replaced with the wiki's neutral framing (brief fight, Ridley triggers self-destruct and flees, Samus forced to retreat); generic key 'space colony' replaced with 'Ceres research station'; unsourced 'taken on without orders' and 'in her own telling' removed. Manual line on Ridley heading the Ceres mission is from the Super Metroid instruction booklet as quoted on Metroid Wiki's Ridley page. Other M lines are from the Other M narration/booklet as quoted on Metroid Wiki. Key overlap: the metroids domain's baby Metroid entry also keys 'Ceres'."
+  },
+  {
+   "comment": "Super Metroid: The return to Zebes (mission overview)",
+   "keys": [
+    "return to Zebes",
+    "returned to Zebes",
+    "back to Zebes",
+    "Super Metroid",
+    "Metroid 3",
+    "Golden Statue",
+    "Golden Statues",
+    "four guardians",
+    "second Zebes mission",
+    "rebuilt Tourian",
+    "New Tourian"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Samus Aran's second mission to Zebes, undertaken in pursuit of Ridley after he stole the Metroid hatchling from Ceres Space Colony, ended with the planet's destruction (Super Metroid). She found that the Space Pirates had reestablished much of their subterranean network and rebuilt Tourian deeper inside the planet, its new entrance an elevator in western Crateria. That shaft was sealed by the Golden Statue, a statue of four high-ranking members of the Space Pirate force on Zebes: Kraid, Phantoon, Draygon and Ridley. Each figure lost its eye and turned gray when its living counterpart died, and once all four were dead the statue sank and opened the way.\n\nHer route through the planet:\n- Crateria: the rain-swept surface where she landed. The old Tourian lay in disrepair, Mother Brain's shattered holding tank still visible and Pirates lurking inside. A Torizo, an animated Chozo Statue, attacked her after she reclaimed her Bombs.\n- Brinstar: the jungle caverns. She destroyed Spore Spawn, learned the Wall Jump from the Etecoons and the Shinespark from the Dachora, and killed Kraid, now far larger than before, in the deepest part of the region, gaining the Varia Suit.\n- The Wrecked Ship: a crashed vessel whose power Phantoon had drained. Phantoon's death restored the ship and gave Samus access to the Gravity Suit.\n- Maridia: flooded caverns holding Mochtroids, the Pirates' first crude Metroid clones, the serpent Botwoon and the armored Draygon, beyond which she found the Space Jump.\n- Norfair: volcanic depths flooded with far more lava than on her first visit. She killed Crocomire, fought through Ridley's Hideout in Lower Norfair past the Golden Torizo to the Screw Attack, and killed Ridley. The hatchling's casing lay there broken in two, the baby gone.\n- Tourian: she destroyed the Metroids the Pirates had cloned, survived an attack by the hatchling itself, now grown giant, and faced Mother Brain, who rose in a new mechanical body. The baby died shielding her; its remains gave her the Hyper Beam, with which she destroyed Mother Brain.\n\nA countdown then began, and Samus escaped in her Gunship, freeing the Dachora and Etecoons on the way, as Zebes exploded behind her (see The destruction of Zebes). She had come to retrieve the hatchling; she left with the Pirates' base on Zebes destroyed and the baby dead.",
+   "constant": false,
+   "order": 100,
+   "category": "Super Metroid",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Super_Metroid",
+    "https://www.metroidwiki.org/wiki/Tourian",
+    "https://www.metroidwiki.org/wiki/Golden_Statue",
+    "https://www.metroidwiki.org/wiki/Zebes",
+    "https://www.metroidwiki.org/wiki/Crateria",
+    "https://www.metroidwiki.org/wiki/Brinstar",
+    "https://www.metroidwiki.org/wiki/Norfair",
+    "https://www.metroidwiki.org/wiki/Maridia",
+    "https://www.metroidwiki.org/wiki/Kraid",
+    "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+    "https://www.metroidwiki.org/wiki/Etecoon",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://en.wikipedia.org/wiki/Super_Metroid"
+   ],
+   "notes": "Final pass: 'monument' changed to 'statue' and 'Pirate force' to 'high-ranking members of the Space Pirate force on Zebes' (Golden Statue page); 'bred' changed to 'cloned' (Metroid Hatchling page: the hatchling was the genetic basis of the Pirates' Metroid cloning; Wikipedia says 'reproduced'); animal rescue phrased as 'took the time to free' since Fusion implies it happened; unsourced 'on her own initiative' and 'set out to finish the Pirates' replaced with sourced framing; 'acid-rained' softened to 'rain-swept'. Added key 'New Tourian' (term used on the Metroid Hatchling page). Kraid, Ridley and Mother Brain get one line each (their own entries live in other domains). Consistency pass: escape paragraph cut to one sentence (told in 'Mother Brain's final battle and the baby's sacrifice' and 'The destruction of Zebes'); generic key 'Zebes mission' removed because it also matches talk of the first mission."
+  },
+  {
+   "comment": "Super Metroid: Phantoon and the Wrecked Ship",
+   "keys": [
+    "Phantoon",
+    "Phantoons",
+    "Wrecked Ship",
+    "Covern",
+    "Coverns",
+    "Work Robot",
+    "Work Robots"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Wrecked Ship is the hulk of a spacecraft that crashed on Zebes at some point in the past, lodged in the surface region of Crateria, which it splits into two halves; its far side also leads down into Maridia. Nothing in the official record identifies who built it or when it fell. Its crew did not survive. Per the manual, Coverns are the souls of shipwrecked creatures turned into evil spirits that wrap themselves around intruders. They manifest as ethereal skulls that flicker in and out of the physical realm and slowly materialize on top of an intruder, posing little danger unless the intruder holds still, and they haunt the ship only while its power is out.\n\nWhen Samus Aran entered the ship during her return to Zebes (Super Metroid), its lights, systems and Work Robots were dead. The cause was Phantoon, a ghostly entity that feeds on electrical energy without any connection to wires or equipment and had drained the entire vessel. Phantoon resembles a squid with a single eye set inside a gaping mouth, wreathed in blue fire; it can turn invisible and intangible, rams its prey, and spits phantom eyes, eyeballs trailing blue flame. Per the manual, the ghost of the ship taps into the vicious brainwaves of Mother Brain, and it is one of the four high-ranking members of the Space Pirate force depicted on the Golden Statue that sealed Tourian. It could be hurt only in the moments its eye opened. Samus's Missiles and Super Missiles finished it, though Super Missile hits drove it into a fury in which it vanished and hurled crescent waves of phantom eyes at great speed.\n\nPhantoon's death restored power to the ship. The Coverns vanished, dormant creatures called Atomics stirred, several compartments flooded, and the Gravity Suit became reachable just outside the wreck, giving Samus free movement underwater and through lava and opening the way into Maridia and Ridley's Hideout. Samus had never met Phantoon before this mission. She met it once more on the Bottle Ship, grown vastly larger: it smashed a tentacle against the reinforced glass of the Control Bridge and summoned its Rage Hands against her, and she destroyed it a second time.",
+   "constant": false,
+   "order": 100,
+   "category": "Super Metroid",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Phantoon",
+    "https://www.metroidwiki.org/wiki/Wrecked_Ship",
+    "https://www.metroidwiki.org/wiki/Covern",
+    "https://www.metroidwiki.org/wiki/Gravity_Suit",
+    "https://www.metroidwiki.org/wiki/Crateria",
+    "https://www.metroidwiki.org/wiki/Golden_Statue",
+    "https://www.metroidwiki.org/wiki/Atomic"
+   ],
+   "notes": "Final pass: Covern behaviour reworded to the Covern page (materialize on the intruder's position, slow, dangerous only if one holds still); the 'only while the power is out' clause is no longer attributed to the manual (it is Player's Guide wording, and it is shown when the Coverns vanish after Phantoon dies); enraged attack corrected to crescent waves of phantom eyes (Phantoon page); 'Pirate leaders honored' changed to 'high-ranking members ... depicted' (Golden Statue page); Bottle Ship encounter checked against the Phantoon page (same creature, grown exponentially, Control Bridge glass, Rage Hands). Generic keys (ghost ship, derelict ship, crashed ship, haunted ship) dropped; singular 'Work Robot' added. Wrecked Ship origin left unstated: the Work Robot page's Chozo-design claim traces to a fan bestiary, not an official source."
+  },
+  {
+   "comment": "Super Metroid: Draygon and Maridia",
+   "keys": [
+    "Draygon",
+    "Draygons",
+    "Maridia",
+    "Evir",
+    "Evirs",
+    "Mochtroid",
+    "Mochtroids"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Maridia is the semi-aquatic region of Zebes, a maze of flooded caverns with walls of packed sand and floors of quicksand. During the return to Zebes (Super Metroid) Samus Aran first entered it through a Power Bomb tunnel in the middle of Brinstar, and the far side of the Wrecked Ship also leads down into it, but she could not climb its drowned shafts until she wore the Gravity Suit. Within Maridia she found the Space Jump, the Plasma Beam and the Spring Ball. The region also held Mochtroids, which per the manual were the Space Pirates' first attempt at Metroid clones: they drain energy like true Metroids but cannot latch on, and their frail bodies are easily destroyed.\n\nMaridia's native Evirs are aquatic creatures with hard outer shells and weak chests that drift along the sand currents and keep firing projectiles even after sinking into the sand. Draygon, the dominant creature of the region, is a crustacean-like giant of the same armored build. Per the manual, Draygon has an armor-like hard shell which gives it a lot of defensive strength; its underbelly is the one soft target. It seizes prey and holds it. Evirs swarm its chamber before it appears and bear its corpse away afterward. Draygon was one of the four high-ranking members of the Space Pirate force depicted on the Golden Statue that barred Tourian, alongside Kraid, Phantoon and Ridley.\n\nOn the way to Draygon's lair Samus had to kill the serpent Botwoon, which blocked the passage. She then killed Draygon in its chamber, whose walls were lined with damaged Pirate turrets. Missiles and Super Missiles to the belly would do, but she could also let the creature grab her, fire the Grapple Beam into a broken turret, and let the current pour through Draygon's body until it died within seconds. Beyond the chamber lay the Space Jump.\n\nDuring the BSL incident (Metroid Fusion) the X Parasites mimicked Evirs in Sector 4 (AQA); these copies were orange and fired projectiles that rotated around them.",
+   "constant": false,
+   "order": 100,
+   "category": "Super Metroid",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Draygon",
+    "https://www.metroidwiki.org/wiki/Maridia",
+    "https://www.metroidwiki.org/wiki/Evir",
+    "https://www.metroidwiki.org/wiki/Mochtroid",
+    "https://www.metroidwiki.org/wiki/Golden_Statue",
+    "https://www.metroidwiki.org/wiki/Crateria",
+    "https://www.metroidwiki.org/wiki/Super_Metroid"
+   ],
+   "notes": "Final pass: removed the Brinstar-epidemic origin of Maridia (citation-needed wiki speculation); removed the 'Draygon is a mature Evir' idea (the Evir page calls it a theory), keeping only the observable Evir swarm and corpse-bearing; 'ruler' changed to 'dominant creature' and 'Pirate leaders' to 'high-ranking members ... depicted'; second Maridia entrance via the Wrecked Ship added (Crateria page); Fusion X-mimicked Evirs added (Evir page); duplicate Space Jump mention trimmed; generic keys 'flooded caverns' and 'underwater caverns' dropped. The Draygon page refers to Draygon as female; the entry keeps 'it'. Key overlap: the metroids domain's breeding/cloning entry also keys 'Mochtroid'."
+  },
+  {
+   "comment": "Super Metroid: Crocomire, Golden Torizo and the guardians of Norfair",
+   "keys": [
+    "Crocomire",
+    "Crocomires",
+    "Golden Torizo",
+    "Gold Torizo",
+    "Lower Norfair",
+    "Upper Norfair",
+    "Ridley's Hideout",
+    "Ridley's Lair",
+    "Ridleys Hideout",
+    "Norfair guardians"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Norfair is the volcanic underworld of Zebes: magma lakes, acidic streams and caverns that had flooded with far more lava by the time Samus Aran returned to the planet than on her first visit (Super Metroid). Only the Varia Suit let her endure its heat, and only the Gravity Suit let her wade through most of its lava. Its upper reaches held the Ice Beam, Wave Beam and Grapple Beam; its lower half, Ridley's Hideout or Lower Norfair, held the Screw Attack and the path to Ridley.\n\nCrocomire lives in a passage of Norfair with a pool of lava at one end and a wall of spikes at the other. It is a large creature with a crocodile-like head bearing several eyes on a roughly humanoid body with long arms and heavy legs. Its hide shrugs off every weapon, but its mouth is vulnerable while open, and each hit drives it backward, farther for stronger weapons. It roars before charging to shove its prey onto the spikes, and a shot into the roaring mouth stops the charge. Samus drove it back step by step until the floor crumbled beneath it and it fell into the lava. Crocomire cried out as its flesh melted away; its skeleton then burrowed beneath the spike wall, burst through on the far side, roared once more and collapsed, and its bones remain there.\n\nDeeper, in Lower Norfair, Samus met the Golden Torizo, an animated Chozo Statue of the same kind as the Torizo that had attacked her in Crateria after she took the Bombs, but stronger, quicker and able to sidestep missiles. It catches Super Missiles and hurls them back, spits orbs that burst where they land, and fires shockwaves from its arm. Samus reached its hall by crossing a spike pit on the Grapple Beam and resting in Morph Ball form on another Chozo Statue, which crumbled a wall; the Golden Torizo then descended from the ceiling to bar her way to the Screw Attack. Charged shots were the surest way to bring it down.\n\nRidley himself waited in the depths of the region, one of the four high-ranking members of the Space Pirate force whose deaths opened Tourian. Samus killed him there and found the hatchling's casing broken in two, the baby nowhere to be seen.",
+   "constant": false,
+   "order": 100,
+   "category": "Super Metroid",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Crocomire",
+    "https://www.metroidwiki.org/wiki/Torizo",
+    "https://www.metroidwiki.org/wiki/Norfair",
+    "https://www.metroidwiki.org/wiki/Chozo_Statue",
+    "https://www.metroidwiki.org/wiki/Ridley",
+    "https://www.metroidwiki.org/wiki/Golden_Statue",
+    "https://www.metroidwiki.org/wiki/Metroid_Hatchling"
+   ],
+   "notes": "Final pass: bare keys 'Torizo', 'Torizos' and 'Bomb Torizo' removed so the chozo domain's Torizo entry owns them; 'into the hands of another Chozo Statue' changed to 'on another Chozo Statue' and 'item balls' to 'orbs' (Torizo page); 'the fourth leader' changed to 'one of the four high-ranking members of the Space Pirate force' (Golden Statue page; the order is not fixed); gameish 'acid first appears there' and the unsourced 'obstacles, nothing more' line removed. Metroid Wiki has no Golden_Torizo page; details are from the Torizo page. Wiki inconsistency for maintainers: the Screw Attack page says it is obtained after Ridley, while the Torizo page (and the actual layout) put it behind the Golden Torizo; the entry follows the Torizo page."
+  },
+  {
+   "comment": "Super Metroid: Spore Spawn and Botwoon",
+   "keys": [
+    "Spore Spawn",
+    "Spore Spawns",
+    "Botwoon",
+    "Botwoons",
+    "spore plant",
+    "Brinstar plant",
+    "Maridia serpent"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "Spore Spawn is an aggressive plant that the Space Pirates genetically engineered and set in Brinstar, in a towering chamber where it hangs anchored to the back wall by thorny vines. Unlike most of the plant life of Zebes it is highly mobile, able to zoom across its chamber. It is sheathed in a hard shell; per the manual, its weak point is its core, which is protected by the plant's hard shell. It attacks with its thorns and by scattering spores that damage anything they touch. The core opens only briefly after the plant comes to rest, and nothing an attacker does can force it open. As it is wounded it flushes redder and moves faster. Samus Aran killed it during the return to Zebes (Super Metroid) with Power Beam shots and Missiles into the exposed core; its dried husk still hung in the chamber afterward, firm enough to stand on, and beyond it she found her first Super Missiles.\n\nBotwoon is a large aquatic serpent of Maridia. It moves through holes bored in the cavern walls, which let it cross its chamber in moments, and it hunts by body contact, though it can also spit projectiles and spikes from its mouth. Only its head is vulnerable. Samus met it on the way to Draygon's lair: it burst from a hole, pursued her through the flooded chamber, withdrew when struck in the head, and surfaced again to spit spikes. Each hit reddened its pale underside until it matched the color of its upper body, and then the serpent burst apart. Its death brought down the wall at the far end of the chamber and opened the way toward Draygon.\n\nSamus had never encountered either creature before this mission; both stood between her and Tourian while she hunted for the stolen hatchling.",
+   "constant": false,
+   "order": 90,
+   "category": "Super Metroid",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Spore_Spawn",
+    "https://www.metroidwiki.org/wiki/Botwoon",
+    "https://www.metroidwiki.org/wiki/Brinstar",
+    "https://www.metroidwiki.org/wiki/Maridia"
+   ],
+   "notes": "Final pass: 'swinging across the chamber on its vines' changed to 'able to zoom across its chamber', 'burn on contact' to 'damage anything they touch' (Spore Spawn page); 'darkened' changed to 'reddened' (Botwoon page); invented 'no personal weight' line replaced with the factual note that both first met Samus on this mission; generic keys 'giant plant', 'sea serpent' and 'aquatic serpent' dropped. 'Genetically engineered by Space Pirates' is Metroid Wiki's statement; the wiki's guesses about its purpose and a Cacatac origin are omitted as speculation. No manual text found for Botwoon."
+  },
+  {
+   "comment": "Super Metroid: Mother Brain's final battle and the baby's sacrifice",
+   "keys": [
+    "Mother Brain",
+    "Hyper Beam",
+    "giant Metroid",
+    "grown hatchling",
+    "baby's sacrifice",
+    "baby's death",
+    "death of the baby",
+    "Mother Brain's body",
+    "Mother Brain's final battle"
+   ],
+   "secondary_keys": [
+    "hatchling",
+    "baby",
+    "sacrifice",
+    "Hyper Beam",
+    "Ceres",
+    "bipedal",
+    "Super Metroid",
+    "Zebes exploded"
+   ],
+   "selective_logic": "AND_ANY",
+   "content": "The rebuilt Tourian lay deep beneath Crateria, behind the Golden Statue that sank only after Kraid, Phantoon, Draygon and Ridley were dead. Inside, the Space Pirates had produced new Metroids, and Samus Aran killed every one on her way in (the return to Zebes; Super Metroid). Past them the corridors gave way to a decayed cavern strewn with the dried husks of creatures, and there a giant Metroid fell on her. It was the hatchling from Ceres, grown enormous. It drained her almost to death before it stopped, apparently recognizing her, and fled.\n\nMother Brain waited behind Zebetite barriers, Rinkas and turrets. Samus shattered her tank and battered the brain until she seemed dead. Then she rose on a large mechanical bipedal body and unleashed a beam that stripped away nearly all of Samus's energy and left her paralyzed. In her own words, Mother's overwhelming power brought her to the brink of death (Metroid: Other M).\n\nBefore the killing blow, the hatchling returned. It latched onto Mother Brain and drained her, then settled over Samus and poured that energy into her; as Samus later put it, the baby protected her from Mother Brain's attack and gave her power. Mother Brain recovered, and as the baby tried once more to shield Samus, beams from Mother Brain's mouth tore it apart above her head. Its remains fell over her, and with them came the Hyper Beam, a devastating beam that destroys anything it strikes in a single shot and can even breach walls. Samus rose and destroyed Mother Brain with it. With the hatchling's death the Metroid species, as far as anyone then knew, was extinct.\n\nA self-destruct countdown began. Samus blasted through a wall into the escape shaft of the old Tourian with the Hyper Beam, ran up through Crateria, freed the Dachora and Etecoons on the way, reached her Gunship and lifted off as Zebes exploded. Afterward she asked herself why she was still alive, and said the baby's gift had begun to restore vigor to her spirit's light, which was close to going out.\n\nShe woke in a Galactic Federation facility, where a quarantine officer directed her to a training room to test her abilities, and she relived the battle in dreams. Soon afterward a distress call code-named Baby's Cry drew her to the Bottle Ship. The species had not died with the baby: the Federation was propagating Metroids there from cellular material taken from her Power Suit, reproduced, as Madeline Bergman put it, from a piece of cell structure the Federation salvaged. Later, during the BSL incident, DNA samples the Federation had saved from the hatchling became the vaccine that saved her from the X, and Samus reflected that she owed the Metroid hatchling her life twice over. She refers to it simply as the baby.",
+   "constant": false,
+   "order": 100,
+   "category": "Super Metroid",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Super_Metroid",
+    "https://www.metroidwiki.org/wiki/Tourian",
+    "https://www.metroidwiki.org/wiki/Mother_Brain",
+    "https://www.metroidwiki.org/wiki/Metroid_Hatchling",
+    "https://www.metroidwiki.org/wiki/Hyper_Beam_(Mother_Brain)",
+    "https://www.metroidwiki.org/wiki/Metroid:_Other_M",
+    "https://www.metroidwiki.org/wiki/Baby%27s_Cry",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://www.metroidwiki.org/wiki/Zebes",
+    "https://www.metroidwiki.org/wiki/Samus_Aran",
+    "https://en.wikipedia.org/wiki/Super_Metroid"
+   ],
+   "notes": "Selective entry: 'Mother Brain' and 'Hyper Beam' are primary keys gated by specific secondaries so the general Mother Brain entries elsewhere carry ordinary mentions; 'Hyper Beam' sits in both lists so it fires on its own. Final pass: secondary list tightened from 15 generic words to 8 specific ones; primary 'new body' and 'lost the baby' dropped; 'Years later' changed to 'Later' (no source quantifies the gap to Fusion); 'before she reported her mission' dropped (Other M page says only that her abilities were tested); 'her first thought was' replaced with the manual narration wording ('Why am I still alive...'; 'spirit's light, which was close to going out'); the developer-sourced naming note (Sakamoto on 'the baby') is no longer presented as Samus's motive; added the hatchling-DNA vaccine to explain 'twice over' (Metroid Hatchling page) and the Other M revelation that Bottle Ship Metroids were propagated from cellular material taken from her Power Suit (Other M page); 'single unit of energy' generalized; 'energy and ammunition' narrowed to energy; unverified 'never completed the growth cycle' clause removed. Key overlap: the metroids domain's baby Metroid entry also keys Ceres, Hyper Beam and Mother Brain. Consistency pass: Mother Brain's pronoun made consistent within the entry ('her', as in the rest of this entry and the zebes Mother Brain entry)."
+  },
+  {
+   "comment": "Super Metroid: Dachora and Etecoons",
+   "keys": [
+    "Dachora",
+    "Dachoras",
+    "Etecoon",
+    "Etecoons",
+    "Habitation Deck",
+    "animals of Zebes",
+    "saved the animals",
+    "rescued the animals",
+    "ostrich creature"
+   ],
+   "secondary_keys": [],
+   "selective_logic": "AND_ANY",
+   "content": "The Etecoons are three small creatures native to Zebes that Samus Aran met in a deep cavern of lower Brinstar during the return to Zebes (Super Metroid). They look less intelligent than they are. By bounding between the walls they showed her the Wall Jump, the technique that let her climb out of the pit where she found them. The Dachora is a creature somewhat resembling an ostrich that can run at incredible speeds; elsewhere in Brinstar it showed Samus the Shinespark, the stored charge of the Speed Booster released as a burst of flight.\n\nWhen Tourian's self-destruct countdown began, Samus did not go straight to her Gunship. She detoured into the Crateria chamber where she had fought the Torizo and freed the three Etecoons and the Dachora; as Zebes blew apart, they could be seen leaving the planet in the distance.\n\nLater, during the BSL incident (Metroid Fusion), Adam Malkovich reported bio-signs on the Habitation Deck of the station's Main Deck, and there Samus found uninfected Etecoons and a Dachora. \"Etecoons and Dachoras. I've met these intelligent beings before,\" she noted; they seemed to recognize her as well, and she recalled that in the past they had helped her unleash abilities she did not know she had. They may be the same animals she saved from Zebes. She released them, they made their way to the Docking Bays, and Adam confirmed they were not X hosts and gave them a berth; they took refuge in her Gunship. The Dachora had hatched its egg and had several young with it. Before Samus faced the Omega Metroid, her ship moved on its own, guided by someone's hands; since neither she nor Adam had started it, the animals were the only ones who could have moved it out of harm's way. They are among the few beings Samus has gone out of her way to save.",
+   "constant": false,
+   "order": 100,
+   "category": "Super Metroid",
+   "sources": [
+    "https://www.metroidwiki.org/wiki/Dachora",
+    "https://www.metroidwiki.org/wiki/Etecoon",
+    "https://www.metroidwiki.org/wiki/Shinespark",
+    "https://www.metroidwiki.org/wiki/Wall_Jump",
+    "https://www.metroidwiki.org/wiki/Super_Metroid",
+    "https://www.metroidwiki.org/wiki/Metroid_Fusion",
+    "https://en.wikipedia.org/wiki/Super_Metroid"
+   ],
+   "notes": "Final pass: error fixed, the animals were seen leaving the planet 'in the distance' (Wikipedia, Super Metroid), not beside her ship; 'Years later' changed to 'Later'; 'presumably the same' softened to 'may be the same' (Etecoon page) and 'she has done it twice' dropped; added Samus's Fusion lines ('Etecoons and Dachoras. I've met these intelligent beings before'; 'They seemed to recognize me, as well') and Adam's bio-signs report (Etecoon page); unverified 'can only be started manually', 'brought it back after the fight' and 'fate unknown' replaced with the Etecoon page's account (ship moved on its own; only the animals could have moved it); added key 'Habitation Deck'; dropped 'ostrich-like' and 'save the animals'; dropped the Player's Guide 'friendly' line (low value, guide-only). Freeing the animals is optional in the original, but Fusion's survivors imply it happened. Key overlap: the fusion domain's Main Deck entry also keys 'Habitation Deck'."
+  }
+ ]
+}

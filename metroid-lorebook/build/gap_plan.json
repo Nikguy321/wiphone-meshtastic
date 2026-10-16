@@ -1,0 +1,191 @@
+{
+ "batches": [
+  {
+   "id": "gap1",
+   "category": "Equipment",
+   "entries": [
+    {
+     "title": "Psychic Lasso, Psychic Grapple, Psychic Boots and the psychic Morph Ball upgrades (Viewros)",
+     "scope": "Cover the traversal tools Samus gained on Viewros (Metroid Prime 4: Beyond) other than the Psychic Visor and Glove: the Psychic Lasso (Ice Belt), the Psychic Grapple (from Phenoros), the Psychic Boots (from Xelios; they give a second mid-air jump), the Psychic Boost Ball (from Keratos), the Psychic Spider Ball (Ice Belt Ancient Temple), and the Psychic Platforms her visor reveals. For each, say what it does in-world, where she earned it, and how it extends an older ability (Grapple, Boost Ball, Spider Ball, Space Jump). VERIFICATION IS REQUIRED. The final abilities domain (entries/abilities.json notes) rejected these names when they were sourced only from TheGamer and Gamereactor. Confirm each name and acquisition point in at least two independent sources: the critic cites the VGC walkthrough and the Nintendo Life upgrade guide; also try the Metroid Wiki or Wikitroid item pages. Omit anything you cannot confirm and record it in the notes. Do NOT repeat: the psychic crystal, Psychic Visor, Psychic Glove, Control Beam, Psychic Beam, Psychic Motes and Vi-O-La (Equipment: Psychic abilities (Viewros)). Do not repeat generic Boost Ball, Spider Ball, Grapple Beam or Space Jump mechanics, which have their own Equipment entries. Mention Phenoros, Keratos and Xelios in one clause each at most; they are covered in Creatures: Fauna of Viewros and Prime 4: Grievers and the Guardians of the Keys.",
+     "suggested_keys": [
+      "Psychic Lasso",
+      "Psychic Grapple",
+      "Psychic Boots",
+      "Psychic Boost Ball",
+      "Psychic Spider Ball",
+      "Psychic Platform",
+      "Psychic Platforms"
+     ]
+    },
+    {
+     "title": "Fire, Ice and Thunder Shots and the Psychic Bombs (Viewros)",
+     "scope": "Cover Samus's new offensive upgrades on Viewros (Metroid Prime 4: Beyond): the Fire, Ice and Thunder Shots that Myles MacKenzie made for her from the Fire, Ice and Thunder Chips; the charged and Super variants unlocked at the Sol Valley shrines; the Psychic Bomb (from Carvex); the Psychic Power Bomb (from the Omega Griever); the Super Missile in the Great Mines; and the Psychic Beam upgrades bought with Green Energy at the Altar of Legacy. Give each one's tactical role: what it breaks or what weakness it exploits. Apply the same verification rule as the traversal entry: two independent sources per name, and omit what cannot be confirmed (the abilities fact-checker rejected the Psychic Bomb when it had only one source). Do NOT repeat: Myles's biography and base camp (Prime 4: Myles MacKenzie and the stranded Federation squad); Green Energy, the Altar of Legacy and the Legacy Suit (Equipment: Vi-O-La Suit and Legacy Suit (Viewros)); Psychic Beam and Control Beam basics (Equipment: Psychic abilities (Viewros)); generic Missile, Super Missile, Bomb and Power Bomb mechanics (Equipment: Missiles and Super Missiles; Equipment: Bombs, Power Bombs and Cross Bombs); the grievers themselves (Prime 4: Grievers and the Guardians of the Keys).",
+     "suggested_keys": [
+      "Fire Shot",
+      "Ice Shot",
+      "Thunder Shot",
+      "Super Fire Shot",
+      "Charged Ice Shot",
+      "Fire Chip",
+      "Ice Chip",
+      "Thunder Chip",
+      "Psychic Bomb",
+      "Psychic Bombs",
+      "Psychic Power Bomb",
+      "elemental shots"
+     ]
+    },
+    {
+     "title": "Other M combat techniques: Sense Move, Overblast, Lethal Strike, Concentration and Accel Charge",
+     "scope": "Cover the acrobatic close-quarters fighting style Samus used aboard the Bottle Ship (Metroid: Other M). Sense Move: a last-instant dodge in four directions followed by a near-instant charge. Per Metroid Wiki, a Galactic Federation scientist taught it to her after Super Metroid, and she first used it to dodge a holographic Zebesian in a training exercise; this is personal-history detail worth keeping. Overblast: she leaps onto an enemy and fires a point-blank charged shot; Kyratians can do it too. Lethal Strike: a charged finishing blow on a downed large enemy. Concentration: standing still to refill Missiles and, in emergencies, some Energy, improved by E-Recovery Tanks. Accel Charge: six expansions that speed up beam and Power Bomb charging. Close with a line on how this style informs portraying her in a fight. Do NOT repeat: the SR388/ZDR Melee Counter (Equipment: Melee Counter; final title Equipment: Melee Counter and Omega Cannon); Charge Beam basics (Equipment: Charge Beam and Charge Combos); Adam's authorization system (Universe: Why Samus loses her abilities); the incident narrative (Other M: The Bottle Ship incident). Mention Goyagma and the Brug Mass only as one-clause examples.",
+     "suggested_keys": [
+      "Sense Move",
+      "SenseMove",
+      "Overblast",
+      "Lethal Strike",
+      "Accel Charge",
+      "E-Recovery Tank",
+      "E-Recovery Tanks"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gap2",
+   "category": "Prime 3",
+   "entries": [
+    {
+     "title": "Berserker Lords and Berserker Knights",
+     "scope": "Explain what Berserkers are: Phazon-saturated Space Pirate heavy units of the Phazon crisis (Metroid Prime 3: Corruption). A Knight that survives the highest level of corruption is promoted to Lord. The logbook calls them 'a desperate measure, designed to exploit Phazon as much as possible'. Describe their Phazite plating, which only reflected projectiles break, their vulnerable shoulders, and the Knights' near-mindless battle lust. Encounters: the Berserker Lord in G.F.S. Olympus Docking Bay 5 that delayed Samus's drop to Norion; a second Lord in SkyTown's Turbine Chamber; Knights on Norion (Ghor destroyed one at Generator C), in Bryyo Thorn Jungle and on the Pirate Homeworld; and Gandrayda's Phazon-charged copy of one. Do NOT repeat: Project Helix, Elite Pirates and the Omega Pirate (Space Pirates: Elite Pirates and the Omega Pirate; link in one clause only); Militia, Commandos and Commanders (Space Pirates: Pirate military of the Phazon crisis); the Norion and Olympus narrative (Prime 3: Norion; Prime 3: GFS Olympus and the Federation fleet at Norion); what Phazite is (Phazon entries).",
+     "suggested_keys": [
+      "Berserker Lord",
+      "Berserker Lords",
+      "Berserker Knight",
+      "Berserker Knights",
+      "Berserker",
+      "Berserkers"
+     ]
+    },
+    {
+     "title": "Korakk Beast and the Pirate Hussars",
+     "scope": "Cover the Korakk, a beast the Space Pirates prize as a cavalry mount, and the Pirate Hussars, mounted riders who bond with their Korakks (Korakks 'guard the Hussars with their lives'). Then cover the boss fight in the Jousting Field of Bryyo Thorn Jungle (Metroid Prime 3: Corruption): the beast stays passive until its rider dies and then goes berserk. Note its Phazite armor, its sensitive tail and tongue, and its Phazon venting. Defeating it opened the way to the Leviathan Shield Generator. This fills the 'recorded separately' promise in Creatures: Fauna of Bryyo. Do NOT repeat: Bryyo's history and the Leviathan Seed story (Prime 3: Bryyo and the Reptilicus); other Bryyo fauna (Creatures: Fauna of Bryyo); general Pirate troop types (Space Pirates: Pirate military of the Phazon crisis).",
+     "suggested_keys": [
+      "Korakk Beast",
+      "Korakk",
+      "Korakks",
+      "Pirate Hussar",
+      "Pirate Hussars",
+      "Hussar",
+      "Hussars",
+      "Jousting Field"
+     ]
+    },
+    {
+     "title": "Defense Drone (Elysian guardian of the Boost Ball)",
+     "scope": "Short entry of about 200-250 words. The Defense Drone is a Chozo-built Elysian security machine whose logbook says it secures key areas of SkyTown (Metroid Prime 3: Corruption). It guarded the Boost Ball in Ballista Storage and showed no Phazon corruption, which suggests the Pirates never reached that room. In the fight, Samus shot down its three antennae, then used the Grapple Lasso to open its head and expose the core. Prime 3: Elysia and SkyTown names it one of Elysia's three great guardians. Do NOT repeat: the SkyTown and Elysians overview (Prime 3: Elysia and SkyTown; Prime 3: Elysians); the Helios and Ghor fights; Boost Ball mechanics, including the one line saying she recovered it after destroying the drone (Equipment: Boost Ball, Spider Ball and Spider Magnet).",
+     "suggested_keys": [
+      "Defense Drone",
+      "Elysian Defense Drone",
+      "Ballista Storage"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gap3",
+   "category": "Creatures",
+   "entries": [
+    {
+     "title": "Arachnus (the SR388 native)",
+     "scope": "Cover the original Arachnus (Japanese name Marukara), a rarely seen, armadillo-like SR388 native. In Metroid II and Metroid: Samus Returns it lies curled in an orb atop an Area 2 Chozo Statue, posing as an Item Sphere after taking the Spring Ball. In Metroid II only Bombs hurt it. In Samus Returns it attacks with rolling charges, ramming and fireballs, and is weak to Missiles; sources call it optional there, so verify. Defeating it gives Samus the Spring Ball. End with a single line noting that the X later copied it on the BSL. This entry fixes the dangling 'See also: Arachnus' in Creatures: Fauna of SR388 and Creatures: Fauna of the BSL station. Do NOT repeat: Arachnus-X on the BSL Main Deck and the Morph Ball it returned (X Parasite: X-mimicked creatures of the BSL, part 1); Chozo Statue and Item Sphere mechanics, including its line on Arachnus (Chozo: Chozo Statues, Item Spheres and Torizo); the Area 2 description (SR388: Areas of SR388); Spring Ball mechanics (Equipment: Morph Ball and Spring Ball).",
+     "suggested_keys": [
+      "Arachnus",
+      "Arachnuses",
+      "Marukara",
+      "armadillo creature"
+     ]
+    },
+    {
+     "title": "Deorem, the Acid Worm, Kiru Giru and Imago (lesser guardians of the first Zebes mission)",
+     "scope": "Cover the lesser guardians of Metroid: Zero Mission. Deorem: a spiked Brinstar worm that ambushes from the ceiling. Only its open eye is vulnerable, to Missiles. It gives the Charge Beam if beaten quickly; otherwise it flees and must be fought again. The Acid Worm (titled 'Mua' on Metroid Wiki): it attacks from the acid pit of Kraid's area while Samus crosses on handholds, and the acid drains once it dies. The Kiru Giru larva: the creature she had to get around on the way to the Wave Beam. Imago: its adult form, with a stinger weak point, tied to the Super Missiles. Sources disagree on where the larva is, so use the Metroid Wiki pages rather than walkthrough summaries and leave out unconfirmed locations. Do NOT repeat: Kraid and Mini Kraid (Zebes: Kraid); Ridley, Mecha Ridley, Mother Brain and the Ruins Test (their own entries); the mission narrative (Zebes: Samus's first Zebes mission (Zero Mission)); Charge Beam, Wave Beam and Super Missile mechanics or the acquisition lines already in those Equipment entries.",
+     "suggested_keys": [
+      "Deorem",
+      "Charge Beam Beast",
+      "Acid Worm",
+      "Mua",
+      "Kiru Giru",
+      "Imago",
+      "Imago Larva",
+      "Imago Cocoon"
+     ]
+    },
+    {
+     "title": "Goyagma and Vorash (Pyrosphere bosses of the Bottle Ship)",
+     "scope": "Vorash: a lava-dwelling monster of Sector 3 (Pyrosphere) that kept trying to swallow Samus. It had swallowed a Grapple Point; a charged Ice Beam shot exposes it, she drags Vorash ashore with the Grapple Beam, and the lava level drops after it dies. Goyagma: a lava-controlling monster of Sector 3, fought right as Adam authorized the Varia Suit, after Samus had crossed the Pyrosphere without it. It grabs her and she breaks free with a charged shot; she then freezes its arm with the Ice Beam and Overblasts its head. Note neutrally that the Varia timing is one of Other M's most discussed moments. Do NOT repeat: the authorization reasoning (Universe: Why Samus loses her abilities; Equipment: Varia Suit); the Pyrosphere description (Other M: The Bottle Ship); the incident narrative (Other M: The Bottle Ship incident); other Bottle Ship fauna (Creatures: Fauna of the Bottle Ship); Overblast mechanics (new Other M combat techniques entry).",
+     "suggested_keys": [
+      "Goyagma",
+      "Vorash",
+      "Pyrosphere boss",
+      "Pyrosphere bosses"
+     ]
+    },
+    {
+     "title": "Incinerator Drone and Hive Mecha (Chozo drones of the Chozo Ruins)",
+     "scope": "Incinerator Drone: a Chozo high-temperature waste-disposal drone in the Burn Dome of Tallon IV's Chozo Ruins (Metroid Prime). It rouses a Barbed War Wasp hive, and destroying it gave Samus the Morph Ball Bomb. Hive Mecha: a second-generation Chozo security drone in the Hive Totem that works with Ram War Wasps, guards the Missile Launcher and is harmed only by the Power Beam. Add a release caveat: per sources it appears only in some releases (the original NTSC version) and not in later ones. Verify this; if you cannot, say only that it is absent from some versions. Frame both as Chozo machinery still running long after the Chozo withdrew. Do NOT repeat: the Chozo Ruins description (Prime: Regions of Tallon IV); War Wasps (Creatures: Fauna of Tallon IV); Bomb and Missile mechanics (Equipment entries); Chozo technology in general (Chozo: Chozo technology and legacy); Flaahgra (Prime: Flaahgra, Thardus and the Omega Pirate). Do not cover the Plated Beetle; it is already in Fauna of Tallon IV, and its key is handled as a KEYS line.",
+     "suggested_keys": [
+      "Incinerator Drone",
+      "Hive Mecha",
+      "Burn Dome",
+      "Hive Totem"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gap4",
+   "category": "Samus",
+   "entries": [
+    {
+     "title": "Samus's reputation: how troopers, Pirates, hunters and the Federation see her",
+     "scope": "A synthesis entry to guide NPC reactions to Samus. (a) Galactic Federation leadership: it trusts her with contracts it cannot handle itself (Dane, Aurora Units), yet programs she exposed regard her warily (Fusion defiance, in one clause). (b) Marines and troopers: awe and admiration, e.g. Nora Armstrong idolizes her 'famously unshakable demeanor'. The 07th Platoon received her coolly; only Anthony was friendly. (c) Space Pirates: they fear 'the Hunter' as a priority target. Give one sentence, with a pointer, since the Pirate records live elsewhere. (d) Fellow bounty hunters: a mix of respect and rivalry. Rundas, Ghor and Gandrayda worked beside her. Gandrayda vowed to bring 'Aran's bloody helmet' to Dark Samus; verify the quote. The Prime Hunters were rivals, and Sylux hates her. (e) Prophecy titles from the Chozo, Luminoth and Lamorn ('Chosen One'): one sentence. (f) The wider galaxy: she is 'the most famous hunter of her time', and strangers react with legend and rumor, which contrasts with her taciturn reality. Quote canon lines with attribution. Do NOT repeat: her own personality (Samus: Personality and temperament); her views of other people (Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux); Pirate logs (Space Pirates: The Pirates and Samus (the Hunter)); bounty-hunting mechanics (Technology: Bounty hunting in the Metroid galaxy; Galactic Federation: Bounty hunters and the Federation); hunter biographies. KEYS: use only multi-word phrases (e.g. 'your reputation', 'her reputation', 'heard of you', 'living legend', 'legendary hunter'); never bare 'reputation', 'famous', 'fame' or 'hero'.",
+     "suggested_keys": [
+      "your reputation",
+      "her reputation",
+      "legendary hunter",
+      "living legend",
+      "heard of you",
+      "heard about you",
+      "the Samus Aran"
+     ]
+    },
+    {
+     "title": "Humans and Earth",
+     "scope": "Short entry of about 250-300 words. Humanity is the species Samus was born into and the backbone of the Galactic Federation's military, research and colonies (the Marines, Adam Malkovich, Anthony Higgs, Madeline Bergman, Myles MacKenzie). Earth is humanity's homeworld: its mythology names Federation ships (Olympus, Valhalla, Tyr), and per the manga Samus's birthplace, K-2L, was an Earth colony. Samus is human by birth, but her Chozo and Metroid DNA set her apart; give that one sentence and point to the DNA entry. Answer 'are you human?' only at that level. Source from the Metroid Wiki Earth and Human pages. An earlier fact-check removed 'Earth hosts the Federation HQ' as unsourced, so make no claim about where the HQ is beyond what Galactic Federation: Daiban and Federation Headquarters says. Do NOT repeat: K-2L details (Samus: K-2L (Samus's home colony)); DNA details (Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become); Federation structure (Galactic Federation (overview)); the Humans bullet in Technology: Species of the galaxy (index). Do not use bare 'human' as a key: it would fire on nearly every message. KEYS: make this entry selective. Primary keys may include 'Earth', 'humans', 'humanity', 'human race', 'Earthling', but put 3-8 Metroid-context words in secondary_keys (e.g. 'Federation', 'colony', 'Chozo', 'K-2L', 'species', 'galaxy') with selective_logic AND_ANY, so ordinary chat about people or the planet does not fire it.",
+     "suggested_keys": [
+      "Earth",
+      "humans",
+      "humanity",
+      "humankind",
+      "human race",
+      "Earthling",
+      "are you human"
+     ]
+    },
+    {
+     "title": "Exotic materials: Cordite, Bendezium, Denzium, Talloric Alloy, Brinstone, Radion and Urithic Ore",
+     "scope": "Short glossary entry of about 250-300 words on the dense or exotic substances that Samus's weapons are rated against: which weapon breaks which (Cordite: Super Missiles; Bendezium: Power Bombs, Prime era; Denzium: Power Bombs, Aether; Talloric Alloy: Bombs; Brinstone and Radion: Missiles), where she met each, and what the scan data says about its composition or origin, per the Metroid Wiki pages. Also cover Urithic Ore, the Zebes crust mineral suited to underground construction. Gives in-character answers to 'what is Cordite?'. Do NOT repeat: Phazite (Phazon entries); afloraltite (Samus: K-2L (Samus's home colony)); Fuel Gel (Federation and Norion entries); weapon mechanics beyond one clause each (Equipment: Missiles and Super Missiles; Equipment: Bombs, Power Bombs and Cross Bombs); the Zebes planet description (Zebes: Zebes (planet overview)).",
+     "suggested_keys": [
+      "Cordite",
+      "Bendezium",
+      "Denzium",
+      "Talloric Alloy",
+      "Brinstone",
+      "Radion",
+      "Urithic Ore"
+     ]
+    }
+   ]
+  }
+ ],
+ "dropped": "MERGED DUPLICATES: the two critics overlapped on Arachnus, Berserker Lord/Knights, Goyagma/Vorash, Korakk Beast/Hussars, Defense Drone, Hive Mecha/Incinerator Drone, the Zero Mission minor bosses (Kiru Giru added from critic 2) and the Echoes mini-bosses. Each pair became one entry or one decision.\nSPLIT: the Prime 4 arsenal became two entries (traversal upgrades; elemental Shots and bombs). Psychic Visor, Psychic Glove, Control Beam and Psychic Beam were removed from scope because the newly finalized entries/abilities.json 'Equipment: Psychic abilities (Viewros)' already explains and keys them. Its notes record that a fact-checker rejected the other Prime 4 names when they came from TheGamer and Gamereactor alone, so both new entries carry a two-source verification rule.\nDROPPED, ALREADY COVERED: Spin Boost (keyed and explained in final 'Equipment: Flash Shift, Phantom Cloak, Slide and Spin Boost (Dread-era movement)'). Bilium, Oormine II and Twin Tabula (already keys on final 'Technology: Planets and places of the galaxy (index)'). Plated Beetle as a new topic (explained in Fauna of Tallon IV and keyed in the draft; see KEYS). Alimbic Guardians as a new entry (explained in 'Creatures: Fauna of the Alimbic Cluster'; see KEYS). Sanctuary Fortress mechanoids: Rezbits, Mechlops and others are already described in 'Creatures: Fauna of Aether and Dark Aether' (see KEYS).\nDROPPED, TOO TRIVIAL FOR ROLEPLAY: Power Grip and Ballspark. The ledge-grab upgrade is mentioned only in passing; Ballspark has thin, uncertain sourcing; Spin Boost is already covered. Caretaker Class Drone: a single Echoes mini-boss with no story weight, and Sanctuary mechanoids are already covered as a group. Dark Missile Trooper as an entry: Dark Troopers are already explained in 'Prime 2: GFS Tyr and Bravo Squad' (see KEYS).\nNOTE ON TITLES: the index uses draft titles. Where the final file in metroid-lorebook/entries differs, the KEYS line notes it.\nKEYS: Prime 2: The Luminoth += I-Sha, A-Voq, O-Lir, Temple Sentinel, Temple Sentinels\nKEYS: Prime 2: Energy Controllers and the Light of Aether += I-Sha, A-Voq, O-Lir\nKEYS: Prime 2: The Luminoth += C-Pul, Ingslayer, D-Chr, B-Stz, K-Tch, J-Stl, B-Stl, S-Dly, G-Sch, S-Jrs, C-Rch, D-Isl, M-Dhe, J-Fme\nKEYS: Prime 2: The Luminoth += Ylla, N'kren\nKEYS: Prime 3: Bryyo and the Reptilicus += Ylla, Bryyus, Bryyus the First, Bryyo Fire, Bryyo Ice, Bryyo Thorn Jungle, Thorn Jungle, Temple of Bryyo\nKEYS: Creatures: Fauna of Bryyo += Bryyo Cliffside, Grand Court, Thorn Jungle\nKEYS: Technology: Samus's Gunship += Aliehs III, Aliehs\nKEYS: Prime 3: Elysia and SkyTown += Eastern SkyTown, SkyTown East, Swarmbot, Swarmbots\nKEYS: Prime 3: GFS Olympus and the Federation fleet at Norion (final file title: Prime 3: GFS Olympus and the Valhalla) += Gaflar, Gaflar region, Tivus\nKEYS: Prime 2: GFS Tyr and Bravo Squad += Reevs, Triplette, Brouda, Denys, Crany, Dark Missile Trooper\nKEYS: Prime 2: Regions of Aether (Temple Grounds, Agon Wastes, Torvus Bog, Sanctuary Fortress) += Quads, Luminoth Quad, Ingsmasher, Ingsmashers\nKEYS: Creatures: Fauna of Aether and Dark Aether += Rezbit, Rezbits\nKEYS: Technology: Planets and places of the galaxy (index) += Federation Solar System\nKEYS: Prime: Tallon IV += Spiral Sector (keyed in the draft, missing from final entries/prime1.json)\nKEYS: Creatures: Fauna of Tallon IV += Plated Beetle, Plated Beetles (keyed in the draft, missing from final entries/bestiary-prime.json)\nKEYS: Creatures: Fauna of the Alimbic Cluster += Alimbic Guardian, Alimbic Guardians, Guardian android, Guardian androids\nKEYS: Universe: Why Samus loses her abilities += authorization, authorize, Adam's authorization, weapon authorization\nKEYS: Prime 2: U-Mos += Translator Module, Translator Modules, Translator, Violet Translator, Amber Translator, Emerald Translator, Cobalt Translator\nKEYS: Samus: How she regards Adam, Anthony, Ridley, Dark Samus and Sylux += pendant, Reger's pendant, Tokabi's pendant, memorial tree"
+}

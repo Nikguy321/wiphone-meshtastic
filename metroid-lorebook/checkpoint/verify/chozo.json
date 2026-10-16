@@ -1,0 +1,389 @@
+{
+ "run": "wf_9122c4e6-699",
+ "label": "verify:chozo",
+ "result": {
+  "reports": [
+   {
+    "entry_comment": "Chozo: The Chozo (species and civilization)",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Per the manga, they also helped found the Galactic Federation.",
+      "problem": "No source backs this. On Metroid Wiki's Chozo page, 'Founded the Galactic Federation' is a bare infobox bullet with no citation, and nothing in the body supports it. The only nearby footnote is SkyTown Data about the Elysians negotiating with the Federation. The drafter's 'per the manga' label has no basis, and a web search found nothing either. In the manga the Chozo deal with the Federation and pool their data with it, but they are never shown founding it.",
+      "correction": "Remove it, or replace with something supported: 'Per the manga, the Chozo of Zebes worked closely with the Galactic Federation and chose to consolidate their data with it.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo"
+     },
+     {
+      "severity": "unverified",
+      "claim": "integrated Chozo DNA with hers so that her frail human body could survive Zebes and bear their armor",
+      "problem": "The manga gives one reason for the DNA: Mother Brain predicted Samus could not survive Zebes' harsh environment. No source says the DNA was needed for her to wear the armor. The Chozo page says outright that it has no such sentence.",
+      "correction": "'...so that her frail human body could survive Zebes' harsh environment (per the manga)'.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "nit",
+      "claim": "name her the Hatchling, the Newborn and the Entrusted One",
+      "problem": "'Hatchling' and 'Newborn' come only from the original NTSC Chozo Lore. The PAL/Trilogy text, which Prime Remastered uses, says 'Entrusted One' instead. The Chozo Lore page notes the PAL/Trilogy text is treated as correct where the two differ. Under the 'prefer the most recent version' rule, 'Entrusted One' should be the main term.",
+      "correction": "Lead with 'the Entrusted One' and treat Hatchling/Newborn as older alternate names.",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Lore"
+     },
+     {
+      "severity": "keys",
+      "problem": "'bird people', 'bird-like race' and 'avian race' are generic and could fire in ordinary chat. 'Chōjin' with a macron will almost never be typed. Add the plain spelling 'Chojin', or drop it, since 'chojin' also romanizes 超人 (superman)."
+     },
+     {
+      "severity": "missing",
+      "problem": "Raven Beak's motive and the ZDR plot are left out of the overview even though Raven Beak is cited as a DNA donor. One clause would help: he wanted to clone Samus, with her Metroid DNA, into a Metroid army.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     }
+    ],
+    "entry_comment_note": ""
+   },
+   {
+    "entry_comment": "Chozo: Chozo history, philosophy and decline",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "On SR388 the Thoha and Mawkin tribes created and then struggled to contain the Metroids.",
+      "problem": "Only the Thoha created the Metroids. The Mawkin joined them later to contain the creatures. This entry's companion entries say so correctly.",
+      "correction": "'On SR388 the Thoha created the Metroids, and the Thoha and Mawkin later banded together to contain them.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Quiet_Robe"
+     },
+     {
+      "severity": "error",
+      "claim": "On SR388 Raven Beak's massacre of the Thoha, and on ZDR the X Parasites, ended the last known living Chozo.",
+      "problem": "The X did not kill the last known living Chozo. They took the rest of the ZDR Chozo, but Quiet Robe was killed by one of Raven Beak's robot Chozo soldiers. Raven Beak was beaten by Samus and then taken over by an X, which she destroyed.",
+      "correction": "'...on ZDR the X took the rest of Raven Beak's forces; Quiet Robe was killed by one of Raven Beak's robot soldiers, and Raven Beak himself fell to Samus.'",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+     },
+     {
+      "severity": "style",
+      "problem": "At roughly 500 words this is well past the 400-word ceiling for a non-core entry, and the SR388 and ZDR material repeats the Tribes entry. Cut the SR388 and ZDR details down to a cross-reference."
+     },
+     {
+      "severity": "keys",
+      "problem": "'Chozo empire' names something no canon source describes. It does no harm, but it could prompt the model to invent an empire. 'declining species' could fire outside Metroid contexts."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Chozo: Chozo tribes – Thoha and Mawkin",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Samus vowed to avenge him.",
+      "problem": "Neither Metroid Wiki's Quiet Robe page nor Wikipedia's plot summary mentions any revenge vow. The wiki only notes Samus saying she'll 'finish the fight'. This gives Samus a motive no source states.",
+      "correction": "Delete it, or soften to 'Samus pressed on to finish the fight.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Quiet_Robe"
+     },
+     {
+      "severity": "unverified",
+      "claim": "Late in their history the Chozo were divided into tribes",
+      "problem": "Nothing found says when the tribes formed, or that they were a late development.",
+      "correction": "'The Chozo were divided into tribes, two of which...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Raven_Beak"
+     },
+     {
+      "severity": "unverified",
+      "claim": "On ZDR Raven Beak intended to wait until the Metroids had wiped out the X on SR388, then return.",
+      "problem": "The sources say only that he went to ZDR 'intending to come back to SR388 later'. The plan to wait for the Metroids to wipe out the X is not sourced.",
+      "correction": "'Raven Beak took his forces and Quiet Robe to ZDR, intending to return to SR388 later.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Raven_Beak"
+     },
+     {
+      "severity": "style",
+      "problem": "About 460 words, over the 400 ceiling. The last paragraph walks through the Dread ending in detail and mostly duplicates the Raven Beak and Quiet Robe entries."
+     },
+     {
+      "severity": "keys",
+      "problem": "'warrior tribe' and 'scientist tribe' are generic phrases that could fire in non-Metroid chat. 'Chozo civil war' is not a canon term: the Thoha massacre is never called a civil war, and the only civil war in Chozo-related lore is Bryyo's."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Chozo: Old Bird",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "Her father Rodney Aran was reluctant to part with the ore, but the Chozo left with what they had come for.",
+      "problem": "This does not fit both sources, despite the drafter's note. It picks the Old Bird page's version (Rodney supplied the afloraltite). Metroid Wiki's Samus Aran page says outright that 'Rodney refused them, and they left empty-handed.' The two pages contradict each other, and the draft quietly takes one side.",
+      "correction": "Leave the outcome out: 'Old Bird travelled with Gray Voice to K-2L to request a quantity of afloraltite from Rodney Aran.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "unverified",
+      "claim": "When Mother Brain turned and the Space Pirates invaded, he was among the Chozo who escaped while Gray Voice held off Mother Brain and Ridley.",
+      "problem": "No source places Old Bird in the escape. The Old Bird page says nothing about his escape, fate or death, the Samus Aran page has no account of the invasion, and a web search turned up nothing. The Gray Voice page says only that 'the fleeing Chozo' escaped.",
+      "correction": "Remove it. Keep 'His fate after the fall of Zebes is not recorded.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Old_Bird"
+     },
+     {
+      "severity": "unverified",
+      "claim": "In her teens he and Gray Voice trained her in the suit.",
+      "problem": "The Samus Aran page credits the suit training to Gray Voice. Old Bird is described as her teacher of understanding and as the one who sent her off, not as a combat trainer.",
+      "correction": "'In her teens Gray Voice trained her in the suit.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Chozo elder' and 'Chozo elders' will collide with the Hall of the Elders and the Chozo Elder statue, which are Tallon IV topics unrelated to Old Bird. 'Chozo guardian' will collide with the guardian-statue entry. 'foster father' and 'adoptive father' are generic and fire on any family talk. 'Chozo mentor' is borderline."
+     },
+     {
+      "severity": "missing",
+      "problem": "The Badger Clover (Iono Feria) episode is mentioned but never explained: Samus picked poisonous flowers, Gray Voice ordered the flowers and the Iono Feria burned, and Samus objected to the needless bloodshed. Without that, 'the Badger Clover incident' leaves a roleplay model guessing.",
+      "source_url": "https://www.metroidwiki.org/wiki/Samus_Aran"
+     }
+    ]
+   },
+   {
+    "entry_comment": "Chozo: Gray Voice",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "He praised it as the greatest being in existence and, in the same breath, called it a defective product that had self-programmed its own directive.",
+      "problem": "These lines are not 'in the same breath'. 'The greatest being in existence' is from manga Vol 1 Ch 7. 'Defective product' that 'self-programmed the directive \"I will bring order to the universe myself\"' is from Vol 2 Ch 11, after Mother Brain turned.",
+      "correction": "'He once praised Mother Brain as the greatest being in existence; later he called it a defective product that had self-programmed the directive to bring order to the universe itself.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Mother_Brain"
+     },
+     {
+      "severity": "unverified",
+      "claim": "He relented",
+      "problem": "No source describes him changing his mind about the adoption. He did go on to train her, so this is an inference.",
+      "correction": "Leave it implied: 'he nonetheless went on to train her...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Gray_Voice"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Chozo DNA', 'Chozo blood', 'Chozo genes', 'Chozo gene', 'inherit Chozo genes' and 'DNA donor' will pull this manga-only entry into every discussion of Samus's DNA, including Dread, where Raven Beak is the donor that matters. 'DNA donor' is generic. These keys fit a Samus-biology entry better. If they stay here, add them as secondary keys combined with a Samus or manga keyword."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Chozo: Chozo Statues, Item Spheres and Torizo",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "aboard the BSL station an X Parasite mimicked a golden Chozo Statue",
+      "problem": "Metroid Wiki's Fake Chozo Statue page says it is a Hard Core-X in Sector 1 (SRX), shaped like a Chozo Statue with a glowing red eye. Nothing says it was golden.",
+      "correction": "'in the BSL station's Sector 1, a Core-X X Parasite took the shape of a Chozo Statue...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Fake_Chozo_Statue"
+     },
+     {
+      "severity": "unverified",
+      "claim": "on SR388 she found a Chozo statue mutilated in its item chamber",
+      "problem": "Too vague, and no source uses this wording. Several damaged statues exist on SR388: Arachnus smashing the Spring Ball statue in Samus Returns, the ruined Ice Beam statue in Metroid II, and the Power Bomb statue robbed by Diggernaut. The search surfaced these only through Wikitroid snippets. Either name one specific case or drop the line.",
+      "correction": "'On SR388 she found statues wrecked by the planet's creatures; the beast Arachnus smashed one before her eyes.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Statue"
+     },
+     {
+      "severity": "unverified",
+      "claim": "In Chozodia a Chozo stone guardian, the Ruins Test",
+      "problem": "Metroid Wiki does not call the Ruins Test a stone guardian. It is simply the being Samus faces to regain her Power Suit, holding a mirror image of her that hurts her if shot. 'Stone' is invented detail.",
+      "correction": "'In Chozodia the Ruins Test, a guardian holding a mirror image of Samus, tested her...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Ruins_Test"
+     },
+     {
+      "severity": "error",
+      "claim": "Chozo Statues are the sentient guardian statues the Chozo left on every world they settled",
+      "problem": "The same Metroid Wiki page says 'Not all statues made by the Chozo are sentient': most are inanimate, and in Prime the only sentient one is the Chozo Elder in the Hall of the Elders. 'Every world they settled' is also unsourced. Statues are not documented on Elysia, for example.",
+      "correction": "'Chozo Statues are the guardian statues the Chozo left on the worlds they colonized; a few are sentient...'",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Statue"
+     },
+     {
+      "severity": "nit",
+      "claim": "its eyes ignite when the Turned attack",
+      "problem": "Supported by the Chozo Statue page but not by the Hall of the Elders page, which mentions only the statue's hands glowing once the ghosts are defeated. Fine to keep. 'Magnetic tracks' is acceptable because they are Spider Ball tracks.",
+      "source_url": "https://www.metroidwiki.org/wiki/Hall_of_the_Elders"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Torizo' and 'Torizos' probably belong to the super-metroid domain's Torizo or Golden Torizo entry, so expect double firing. 'bird statue' is generic and could fire in ordinary chat."
+     },
+     {
+      "severity": "style",
+      "problem": "About 440 words, over the 400 ceiling. The detailed Torizo moves (catching Super Missiles, item balls, shockwaves) and the Morph Ball healing read like a boss guide. Shorten them."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Chozo: Chozo Memories and the Chozo of SR388",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "error",
+      "claim": "They are the only first-hand account of how the Metroids came to be.",
+      "problem": "Quiet Robe, the last Thoha and so one of the Metroids' own creators, told Samus the tribes' history in person on ZDR. That is also a first-hand account.",
+      "correction": "'They are the oldest record of how the Metroids came to be; Quiet Robe later told Samus the rest.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Quiet_Robe"
+     },
+     {
+      "severity": "error",
+      "claim": "The manga tells it differently, with the Chozo of Zebes discovering the X and hiding them from the Federation, and no Chozo colony on SR388 at all",
+      "problem": "This overstates the source. Metroid Wiki's SR388 page says only that 'There is no mention of a Chozo colony on the planet' in the manga. The manga is silent, not contradictory.",
+      "correction": "'...and makes no mention of a Chozo colony on SR388.'",
+      "source_url": "https://www.metroidwiki.org/wiki/SR388"
+     },
+     {
+      "severity": "unverified",
+      "claim": "recovered by Samus during her Metroid extermination mission on that planet",
+      "problem": "In Samus Returns the Chozo Memories are images unlocked by item-completion rating (Wikipedia). Nothing shows Samus finding or viewing them in-universe. The closing line 'The Chozo Memories showed her...' rests on the same assumption.",
+      "correction": "Describe them as a record left on SR388 without claiming Samus saw them, or hedge.",
+      "source_url": "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns"
+     },
+     {
+      "severity": "unverified",
+      "claim": "leaving only ruins, their laboratories and the Metroids sealed in the depths",
+      "problem": "'Sealed in the depths' is not sourced. Dread says the tribes banded together to trap the Metroids on SR388, and Metroid Wiki's Metroid page says only that the Metroids may have caused the Chozo to leave.",
+      "correction": "'...leaving ruins, laboratories and the Metroids trapped on the planet.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Metroid_(species)"
+     },
+     {
+      "severity": "style",
+      "problem": "Game titles appear three times: Metroid: Samus Returns, Metroid Fusion, and 'the Fusion manual'. That is over the limit of two. The Fusion-manual quote itself checks out ('perhaps the most appropriate successor to this title of ultimate warrior')."
+     },
+     {
+      "severity": "keys",
+      "problem": "'ultimate warrior' is a generic phrase that will fire whenever Samus or anyone else is called an ultimate warrior. Make it a secondary key paired with 'Metroid'. 'origin of the Metroids', 'Metroid origin', 'created the Metroids' and 'Metroid creators' will likely co-fire with the Metroid species overview. That is acceptable, but should be coordinated."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Chozo: Chozo language and the Chozo Lore of Tallon IV",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "Samus, raised among Chozo, follows it.",
+      "problem": "No source found says Samus understands spoken Chozo. The 2014 Chozo Language page predates Dread, and Dread sources say nothing on this.",
+      "correction": "Delete it, or write 'Samus, raised among Chozo, appears to understand it' only if a source is found.",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Language"
+     },
+     {
+      "severity": "unverified",
+      "claim": "paired Runic Symbols on gates must be read and activated to open the way",
+      "problem": "The Chozo Language page says only that Runic Symbols were used 'to hinder intruders' and does not mention gates or pairs. The Runic Symbol page itself was not checked.",
+      "correction": "'Runic Symbols guard passages against intruders.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Language"
+     },
+     {
+      "severity": "nit",
+      "claim": "They call her the Hatchling, the Newborn, the Shining One and the Entrusted One",
+      "problem": "This mixes the NTSC wording (Hatchling, Newborn) with the PAL/Trilogy wording (Entrusted One, 'shining in the toxic shadows'). Prime Remastered uses the PAL/Trilogy text, which the Chozo Lore page treats as correct where the two differ. Keep both, but lead with Entrusted One. It is also not clear that 'Shining One' is used as a title rather than a description.",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Lore"
+     },
+     {
+      "severity": "keys",
+      "problem": "'Entrusted One' and 'Chozo prophecy' overlap with the prime1 prophecy entry, and 'Hadar sen olmen' with the Raven Beak entry. Expect co-firing. 'Chozo Lore' would be better as the anchor key of its own focused entry."
+     },
+     {
+      "severity": "style",
+      "problem": "About 425 words, a little over the 400 ceiling."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Chozo: Chozo Ghosts",
+    "verdict": "accurate",
+    "issues": [
+     {
+      "severity": "nit",
+      "claim": "those who did not pass on cleanly became the Turned",
+      "problem": "'Did not pass on cleanly' is the drafter's own reading. The Lore says the Turned are Chozo 'utterly corrupted by the Great Poison', and that those who remained 'suffer in dimensional flux'. Acceptable, but could be worded closer to the source.",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Lore"
+     },
+     {
+      "severity": "keys",
+      "problem": "'the Turned' is a common English phrase ('the turned page') and can fire falsely if keys match on whole words without case sensitivity. Prefer 'Turned Chozo' alone, or make it a secondary key paired with 'Chozo'."
+     }
+    ]
+   },
+   {
+    "entry_comment": "Chozo: Chozo technology and legacy",
+    "verdict": "needs_fixes",
+    "issues": [
+     {
+      "severity": "unverified",
+      "claim": "it is partly organic, able to be absorbed into her body and summoned again",
+      "problem": "On Metroid Wiki's Power Suit page, 'apparently organic, and can be absorbed into Samus's body at any time' has no game citation, and the same page relies on Smash Bros. trophy text, which is not canon. Nothing found supports 'summoned again'. The canon fact is from Metroid Fusion: parts of the suit had become so integrated with her body that they had to be surgically removed.",
+      "correction": "'...and parts of it became so integrated with her body that they could only be removed surgically.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Power_Suit"
+     },
+     {
+      "severity": "unverified",
+      "claim": "per the manga, Mother Brain modified Chozo battlesuit technology to produce it",
+      "problem": "What the manga actually has is Mother Brain claiming that she 'made the Power Suit' to support the Chozo's martial strength, adding 'I gave birth to you!'. Nothing found mentions modifying Chozo battlesuit technology.",
+      "correction": "'per the manga, Mother Brain claimed to have made the suit herself.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Mother_Brain"
+     },
+     {
+      "severity": "unverified",
+      "claim": "On ZDR, Raven Beak and his Chozo Soldiers wore armor of the same lineage.",
+      "problem": "Raven Beak's Chozo Soldiers on ZDR were robots he built to replace his X-infected warriors. They did not wear armor. No source says Raven Beak's armor shares a lineage with the Power Suit.",
+      "correction": "Remove it, or write 'Raven Beak fought in his own Chozo battle armor alongside robotic Chozo Soldiers.'",
+      "source_url": "https://www.metroidwiki.org/wiki/Raven_Beak"
+     },
+     {
+      "severity": "unverified",
+      "claim": "The Chozo left a second suit, the Legendary Power Suit",
+      "problem": "The Legendary Power Suit page does not call it a second suit left by the Chozo. Samus gets it by completing the Ruins Test, and it can integrate the Unknown Items. The claim that only this suit can use the Plasma Beam, Space Jump and Gravity Suit is supported.",
+      "source_url": "https://www.metroidwiki.org/wiki/Legendary_Power_Suit"
+     },
+     {
+      "severity": "nit",
+      "claim": "Chozo structures are so old they cannot be carbon-dated",
+      "problem": "Metroid Wiki says they 'cannot be dated by regular scientific methods'. The draft names carbon dating specifically.",
+      "source_url": "https://www.metroidwiki.org/wiki/Chozo_Ruins"
+     },
+     {
+      "severity": "style",
+      "problem": "The entry is a bulleted list, close to the prohibited markdown formatting. It also uses gameplay framing ('color-coded doors that open only to specific weapons', the list of weapon pickups), and at about 470 words it is over the 400 ceiling."
+     }
+    ]
+   }
+  ],
+  "overall": "Most of the draft holds up against sources. All ten entries were checked; nine need fixes and one is accurate. Confirmed: the Japanese name (鳥人族, bird-human race), SkyTown dates (1,500 years, mechanoids about 50 years later, Elysian year 400), the Luminoth and Bryyonian quotes, the Phazon meteor five decades before Prime, the Chozo Lore quotes, the Holobanner text, the Chozo Ghost weaknesses, Meta Ridley destroying the totems and the twelve ghosts opening the crater, the Thoha massacre and Quiet Robe's death in Ferenia, ZDR exploding at the end of Dread, the Fusion-manual 'ultimate warrior' successor line, and the manga quotes for Old Bird and Gray Voice. Errors to fix: (1) the History entry credits the Mawkin with creating the Metroids and says the X killed the last known Chozo, but Quiet Robe died to a robot soldier and Raven Beak to Samus. (2) Old Bird quietly takes Metroid Wiki's Old Bird-page version (Rodney supplied the ore) against the Samus Aran page ('left empty-handed'), and has Old Bird escaping the Pirate invasion with no source. (3) Gray Voice's two verdicts on Mother Brain come from different manga volumes, not 'the same breath'. (4) Chozo Memories wrongly calls itself the only first-hand account (Quiet Robe also gave one) and overstates the manga's silence about an SR388 colony. Unverified claims to soften or cut: 'per the manga, helped found the Federation' (an uncited Metroid Wiki infobox bullet), DNA needed to 'bear their armor', Samus 'vowed to avenge' Quiet Robe, a 'golden' fake Chozo statue, a 'stone' Ruins Test, the vague 'mutilated statue' on SR388, the suit being absorbed and 'summoned again' (traced to Smash-sourced wiki text), and Chozo Soldiers 'wearing armor' (they are robots). Keys: 'Chozo elder(s)' and 'Chozo guardian' on Old Bird collide with the Tallon IV Elder statue and the statues entry; 'the Turned', 'ultimate warrior', 'warrior tribe', 'bird people' and 'foster/adoptive father' are generic; and the Chozo DNA keys on Gray Voice will pull a manga-only entry into Dread conversations. Style: most non-core entries are about 420-500 words, over the 400 ceiling. The Memories entry names game titles three times, and the Technology entry is a bulleted list. Prime 4: Beyond has no Chozo, and its Lamorn are not officially linked to them, so the 'last known Chozo' framing still holds. Note that Metroid Wiki's Chozo page still says Chozo survive; it predates Dread.",
+  "sources_consulted": [
+   "https://www.metroidwiki.org/wiki/Chozo",
+   "https://www.metroidwiki.org/wiki/Raven_Beak",
+   "https://www.metroidwiki.org/wiki/Quiet_Robe",
+   "https://en.wikipedia.org/wiki/Metroid_Dread",
+   "https://www.metroidwiki.org/wiki/Old_Bird",
+   "https://www.metroidwiki.org/wiki/Gray_Voice",
+   "https://www.metroidwiki.org/wiki/Mother_Brain",
+   "https://www.metroidwiki.org/wiki/Samus_Aran",
+   "https://www.metroidwiki.org/wiki/Chozo_Statue",
+   "https://www.metroidwiki.org/wiki/Torizo",
+   "https://www.metroidwiki.org/wiki/Chozo_Lore",
+   "https://www.metroidwiki.org/wiki/Holobanner",
+   "https://www.metroidwiki.org/wiki/Chozo_Ghost",
+   "https://www.metroidwiki.org/wiki/Artifact_Temple",
+   "https://www.metroidwiki.org/wiki/Ruins_Test",
+   "https://www.metroidwiki.org/wiki/Fake_Chozo_Statue",
+   "https://www.metroidwiki.org/wiki/Legendary_Power_Suit",
+   "https://www.metroidwiki.org/wiki/SkyTown",
+   "https://en.wikipedia.org/wiki/Metroid_Prime",
+   "https://en.wikipedia.org/wiki/Metroid:_Samus_Returns",
+   "https://www.metroidwiki.org/wiki/SR388",
+   "https://www.metroidwiki.org/wiki/Metroid_(species)",
+   "https://www.metroidwiki.org/wiki/Bryyo",
+   "https://www.metroidwiki.org/wiki/Chozo_Totem",
+   "https://www.metroidwiki.org/wiki/Chozo_Ruins",
+   "https://www.metroidwiki.org/wiki/Power_Suit",
+   "https://www.metroidwiki.org/wiki/Chozo_Language",
+   "https://www.metroidwiki.org/wiki/Category:Chozo_Technology",
+   "https://www.metroidwiki.org/wiki/Hall_of_the_Elders",
+   "WebSearch: Metroid manga Old Bird death / Gray Voice Ridley (result snippets incl. metroid.fandom.com Magazine Z manga page)",
+   "WebSearch: Zero Mission Ruins Test Zero Suit (result snippets incl. metroid.fandom.com Spirit of the Mural)",
+   "WebSearch: Chozo founded Galactic Federation manga (no supporting source found)",
+   "WebSearch: Metroid Fusion manual ultimate warrior",
+   "WebSearch: SR388 damaged Chozo statue (metroid.fandom.com room-page snippets)",
+   "WebSearch (extended): Metroid Prime 4 Beyond Chozo / Lamorn (https://en.wikipedia.org/wiki/Metroid_Prime_4:_Beyond, shinesparkers.net)"
+  ]
+ }
+}

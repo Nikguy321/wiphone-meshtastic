@@ -1,0 +1,235 @@
+{
+ "run": "wf_dbf43550-546",
+ "label": "consistency:metroids-x-late",
+ "result": {
+  "files_edited": [
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/metroids.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/x-parasite.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/sr388.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/fusion.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/dread.json",
+   "/tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/entries/adam-other-m.json"
+  ],
+  "fixes": [
+   {
+    "entry": "Dread: Itorash and the end of ZDR",
+    "kind": "contradiction",
+    "before": "With Itorash down, ZDR began to self-destruct.",
+    "after": "The destruction of the Raven Beak X set off ZDR's self-destruct.",
+    "source_url": "https://omegametroid.com/metroid-dread-walkthrough/raven-beak/"
+   },
+   {
+    "entry": "X Parasite: SA-X",
+    "kind": "contradiction",
+    "before": "the laboratory was jettisoned and exploded with the SA-X inside. Adam then revealed that the Galactic Federation believed the SA-X had \"endless potential applications\" and meant to capture it, and ordered Samus to leave. She refused.",
+    "after": "the laboratory was jettisoned and exploded with the SA-X inside. Adam then ordered Samus to leave the station. After she destroyed Neo-Ridley, he revealed that the Galactic Federation believed the SA-X had \"endless potential applications\" and meant to capture it. She refused.",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "entry": "X Parasite: SA-X",
+    "kind": "contradiction",
+    "before": "the Galactic Federation had been withholding her lost abilities to keep her from attacking it. / before she could reach the Control Room",
+    "after": "the Galactic Federation had withheld her Plasma Beam data to keep her from engaging it. / before she could reach the Operations Room",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "entry": "Other M: The Adam AI (BSL computer)",
+    "kind": "contradiction",
+    "before": "ordered Samus to leave the station to Federation forces, who meant to capture the SA-X for military use; on Federation orders it had already withheld support data and the finished Plasma Beam modification ... the Etecoons and Dachoras ... for most of the mission; see Raven Beak.",
+    "after": "ordered Samus to leave the station. After she destroyed Neo-Ridley, it revealed that Federation forces were coming to capture the SA-X for military use, and that on Federation orders it had withheld support data and the finished Plasma Beam modification ... the Etecoons and the Dachora ... for much of the mission; see ADAM on ZDR and Raven Beak's impersonation.",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "entry": "X Parasite: The X outbreak aboard the BSL station",
+    "kind": "contradiction",
+    "before": "Adam admitted that no fewer than ten SA-X now existed and that the Federation meant to capture them.",
+    "after": "Adam admitted that no fewer than ten SA-X now existed. When he later revealed that the Federation meant to capture the SA-X, ...",
+    "source_url": "https://metroid.retropixel.net/games/metroid4/transcript.php"
+   },
+   {
+    "entry": "X Parasite: The X outbreak aboard the BSL station",
+    "kind": "duplication",
+    "before": "Full retelling of Samus's infection (escape pod, asteroid belt, Federation HQ surgery) and of the ending (Adam reveal, orbit plan, Operations Deck SA-X, Omega Metroid, Etecoons moving the Gunship); 482 words.",
+    "after": "Infection and ending each cut to one or two sentences with pointers to Samus and the X, The BSL incident and The destruction of the BSL and SR388; X-specific middle paragraph kept; 379 words.",
+    "source_url": ""
+   },
+   {
+    "entry": "Metroids: Metroids (species overview)",
+    "kind": "contradiction",
+    "before": "The Thoha tribe of the Chozo, working with Mother Brain, created them to hunt the X Parasite ...",
+    "after": "The Thoha tribe of the Chozo created them to hunt the X Parasite ...; per the manga, the Chozo elder Old Bird devised the means with Mother Brain.",
+    "source_url": "https://www.metroidwiki.org/wiki/Metroid_(species)"
+   },
+   {
+    "entry": "Metroids: Metroids (species overview)",
+    "kind": "contradiction",
+    "before": "Later programs recreated Metroids: from preserved cells aboard the Bottle Ship and in the BSL station's Restricted Laboratory, from Samus's own DNA on ZDR under Raven Beak, and from secretly stored eggs ...",
+    "after": "Later programs recreated Metroids from preserved cells aboard the Bottle Ship and in the BSL station's Restricted Laboratory, and from secretly stored eggs ...; Raven Beak's plan to clone them from Samus's own DNA on ZDR died with him",
+    "source_url": "https://en.wikipedia.org/wiki/Metroid_Dread"
+   },
+   {
+    "entry": "Metroids: Metroid breeding and cloning programs",
+    "kind": "contradiction",
+    "before": "In Sector Zero Samus found an infant Metroid and was about to kill it when Adam shot her in the back with a Freeze Gun; he went deeper alone, ...",
+    "after": "At the entrance of Sector Zero Adam stopped Samus with a Freeze Gun shot to the back, froze an infant Metroid about to attack her, and went in alone; ... (see Adam Malkovich).",
+    "source_url": "https://www.metroidwiki.org/wiki/Freeze_Gun"
+   },
+   {
+    "entry": "Metroids: Metroid life cycle (Alpha, Gamma, Zeta, Omega, Queen)",
+    "kind": "contradiction",
+    "before": "the later retelling of the mission counts fifty Metroids in all (Metroid: Samus Returns).",
+    "after": "the later retelling of the mission counts fifty in all, forty including the Queen plus ten newly hatched larvae in the nest (Metroid: Samus Returns).",
+    "source_url": "https://www.metroidwiki.org/wiki/Metroid:_Samus_Returns"
+   },
+   {
+    "entry": "Dread: Great creatures of ZDR",
+    "kind": "contradiction",
+    "before": "Experiment Z-57 ...: a creature of Cataris that was likewise an X mimic.",
+    "after": "Experiment Z-57 ...: a creature Samus had passed under study in Dairon; it escaped and, likewise an X mimic, attacked the central system in Cataris that heats the planet.",
+    "source_url": "https://omegametroid.com/metroid-dread-walkthrough/frozen-planet/"
+   },
+   {
+    "entry": "Dread: Areas of ZDR",
+    "kind": "contradiction",
+    "before": "Kraid was chained here and the X mimic Experiment Z-57 lurked here.",
+    "after": "Kraid was chained here, and the X mimic Experiment Z-57, escaped from Dairon, attacked the central system here.",
+    "source_url": "https://omegametroid.com/metroid-dread-walkthrough/frozen-planet/"
+   },
+   {
+    "entry": "X Parasite: X-mimicked creatures of the BSL, part 1",
+    "kind": "contradiction",
+    "before": "The earlier hosts, in the order she met them:",
+    "after": "The earlier hosts:",
+    "source_url": "https://www.metroidwiki.org/wiki/Metroid_Fusion"
+   },
+   {
+    "entry": "Metroids: Samus as the last Metroid",
+    "kind": "contradiction",
+    "before": "Every Metroid since has come from preserved cells or from eggs ...: the Phazon strains died with Phaaze, ...",
+    "after": "Every Metroid since has come from preserved cells or from eggs ...; the Phazon strains had already died with Phaaze, ...",
+    "source_url": "https://www.metroidwiki.org/wiki/Phaaze"
+   },
+   {
+    "entry": "Metroids: Samus as the last Metroid",
+    "kind": "duplication",
+    "before": "Long vaccine paragraph and long ZDR paragraph (E.M.M.I. drain, Itorash crash, Raven Beak X, Adam's warning, Quiet Robe X), repeating Samus and the X, Itorash and the end of ZDR, Dread: Quiet Robe and samus-bio's Metroid DNA entry; 437 words.",
+    "after": "Each paragraph compressed to a short summary with pointers (Samus and the X; Fusion Suit; Itorash and the end of ZDR; Metroid Suit); 362 words.",
+    "source_url": ""
+   },
+   {
+    "entry": "Metroids: Omega Metroid",
+    "kind": "duplication",
+    "before": "Five-sentence BSL Omega account ending 'The full account belongs under Omega Metroid of the BSL.'",
+    "after": "The BSL Omega. At the end of the BSL incident an Omega Metroid waiting in the station's docking bay nearly killed Samus until an SA-X intervened and she regained the Ice Beam from its Core-X to destroy the Omega (Metroid Fusion; see Omega Metroid of the BSL).",
+    "source_url": ""
+   },
+   {
+    "entry": "SR388: The Federation's lost expeditions to SR388 and the extermination order",
+    "kind": "duplication",
+    "before": "Ridley later raided Ceres and stole it, and the grown hatchling died on Zebes saving Samus's life; the Federation had preserved a cell culture from it, which became the vaccine ... (see Metroid policy and secret programs; Restricted Laboratory).",
+    "after": "... (see The baby Metroid). The Federation later reproduced SR388's environment ... (see Metroid policy and secret programs; The Restricted Laboratory and the secret Metroid program).",
+    "source_url": ""
+   },
+   {
+    "entry": "Fusion: Samus's defiance of the Federation at the BSL",
+    "kind": "duplication",
+    "before": "She expected tribunals and investigations, and that she and Adam would be held responsible; Adam answered, \"Do not worry. One of them will understand. One of them must.\"",
+    "after": "She carried it out and escaped before the Federation arrived, expecting to be held responsible (see The destruction of the BSL and SR388).",
+    "source_url": ""
+   },
+   {
+    "entry": "Other M: Chairman Keaton",
+    "kind": "duplication",
+    "before": "Pyonchi is a Rabbilis, a rabbit-like creature whose home planet is K-2L, whom Samus befriended at three years old: he had stolen her sack ... companion for many years.",
+    "after": "she left her pet Pyonchi, the rabbit-like Rabbilis she had befriended on K-2L at three, in his care (see Samus Aran – early life on K-2L).",
+    "source_url": ""
+   },
+   {
+    "entry": "Other M: Chairman Keaton",
+    "kind": "keys",
+    "before": "keys include 'Pyonchi', 'Rabbilis' (also on samus-bio early life and manga K-2L raid: 3 entries)",
+    "after": "removed from primary keys; still present as secondary keys",
+    "source_url": ""
+   },
+   {
+    "entry": "Metroids: Samus as the last Metroid",
+    "kind": "keys",
+    "before": "keys include 'Metroid powers', 'becoming a Metroid' (also samus-bio Metroid DNA + suits Metroid Suit) and 'Metroid vaccine' (also x-parasite Samus and the X + suits Fusion Suit)",
+    "after": "those three keys removed; 9 keys remain",
+    "source_url": ""
+   },
+   {
+    "entry": "Metroids: Metroid breeding and cloning programs",
+    "kind": "keys",
+    "before": "keys include 'Mochtroid', 'Mochtroids' (also on super-metroid Draygon and Maridia + bestiary-2d Maridia fauna)",
+    "after": "removed",
+    "source_url": ""
+   },
+   {
+    "entry": "Metroids: Metroids (species overview)",
+    "kind": "keys",
+    "before": "keys include 'ultimate warrior' (also on timeline 'meaning of Metroid' entry + chozo Chozo Memories entry)",
+    "after": "removed",
+    "source_url": ""
+   },
+   {
+    "entry": "Metroids: The baby Metroid (the hatchling)",
+    "kind": "keys",
+    "before": "keys include \"Baby's Cry\" (also Other M: The Bottle Ship incident + samus-rp emotional history; the signal is not about the hatchling)",
+    "after": "removed",
+    "source_url": ""
+   },
+   {
+    "entry": "X Parasite: The X on ZDR",
+    "kind": "keys",
+    "before": "keys include 'Quiet Robe X', 'Quiet Robe-X' (also Dread: Quiet Robe + suits Metroid Suit)",
+    "after": "removed; Dread: Quiet Robe keeps them",
+    "source_url": ""
+   },
+   {
+    "entry": "X Parasite: The X outbreak aboard the BSL station",
+    "kind": "keys",
+    "before": "keys include 'Hornoad', 'Hornoads' (stray; bestiary-2d Fauna of SR388 owns them)",
+    "after": "removed",
+    "source_url": ""
+   },
+   {
+    "entry": "SR388: The Federation's lost expeditions to SR388 and the extermination order",
+    "kind": "keys",
+    "before": "keys include 'Federation Police' (also on samus-bio service, federation Federation Police, manga Federation Police years: 4 entries)",
+    "after": "removed",
+    "source_url": ""
+   },
+   {
+    "entry": "Other M: The Bottle Ship",
+    "kind": "style",
+    "before": "Navigation Booths let Samus record her progress and restore her energy.",
+    "after": "Navigation Booths let Samus restore her energy.",
+    "source_url": ""
+   },
+   {
+    "entry": "X Parasite: X biology, mimicry and Core-X",
+    "kind": "style",
+    "before": "(see Fake Chozo Statue)",
+    "after": "(see X-mimicked creatures of the BSL, part 1)",
+    "source_url": ""
+   },
+   {
+    "entry": "X Parasite: X-mimicked creatures of the BSL, part 2",
+    "kind": "style",
+    "before": "(see Nightmare, Bottle Ship)",
+    "after": "(see Nightmare (origin and the Bottle Ship))",
+    "source_url": ""
+   },
+   {
+    "entry": "Other M: Nightmare (origin and the Bottle Ship)",
+    "kind": "style",
+    "before": "see Nightmare-X and the X-mimicked creatures of the BSL for that encounter.",
+    "after": "see X-mimicked creatures of the BSL, part 2 for that encounter.",
+    "source_url": ""
+   }
+  ],
+  "cross_cluster_issues": "1) samus-bio, 'Samus: Samus Aran – Metroid DNA, Chozo DNA and what she has become' (The awakening paragraph) has the events in the wrong order. It says that on Itorash she destroyed the X that had taken Raven Beak with the Hyper Beam 'and she drained Itorash until it crashed into ZDR'. In fact she drained Raven Beak and Itorash first. The ship crashed, and only then did an X (the one that had worn Kraid's corpse) take Raven Beak at the crash site. She destroyed that Raven Beak X there, and its destruction set off ZDR's self-destruct. Suggested wording: '...she drained Raven Beak and then Itorash itself until it crashed onto ZDR, where she destroyed the X that had taken Raven Beak, the same X that had worn Kraid's corpse, with the Hyper Beam.' Sources: https://omegametroid.com/metroid-dread-walkthrough/raven-beak/ (crash, then 'you'll see an X parasite infect Raven Beak'; destroying it 'will also trigger a self destruct sequence') and https://en.wikipedia.org/wiki/Metroid_Dread. The dread and x-parasite entries now agree with this order.\n2) samus-bio, 'Samus: Samus Aran – Galactic Federation service and the bounty hunter years' says she 'defied the Federation's attempt to preserve the X and the Metroids there'. The Restricted Laboratory Metroids had already been jettisoned and destroyed before she defied anyone. What she defied was the plan to capture the SA-X ('Capturing the SA-X, of course.'). Suggested wording: 'defied the Federation's plan to capture the SA-X'. Source: https://metroid.retropixel.net/games/metroid4/transcript.php ; https://www.metroidwiki.org/wiki/Restricted_Laboratory\n3) Key 'hatchling' still sits on three entries: Metroids: The baby Metroid (kept, it is the subject), samus-rp 'Attitudes toward the Federation, Chozo, Pirates and Metroids', and federation-force 'The Metroid egg and Sylux's break-in'. Suggest removing it from samus-rp and using something more specific on federation-force (e.g. 'Sylux's hatchlings').\n4) Key 'Federation Police' is still on three entries outside my files after I removed it from sr388: samus-bio service entry, federation 'Federation Police and military command', and manga 'Samus's Federation Police years'. Each is about the subject, but the samus-rp and federation owners may want to confirm.\n5) samus-bio reference (no change needed): its Thoha-plus-Mawkin DNA statements are supported (SVG/Looper Dread ending explainer; Wikipedia character list), even though the dread tribes entry's notes call the Thoha donation unsourced. The dread entry's content only leaves the Thoha out, so nothing contradicts.",
+  "notes": "Backups of the six editable files before this pass are in /tmp/claude-0/-home-user-wiphone-meshtastic/e73f209f-7803-522a-b473-d77076ab0347/scratchpad/backup_consistency/. All six files were re-validated with json.load. No entries were deleted and no titles changed; every edited entry got a 'Consistency pass:' note and any newly used source URL.\n\nChecked and left alone:\n- Raven Beak's plan. 'Return to SR388 once the Metroids had eliminated the X' (sr388, per Metroid Wiki's Raven Beak page) and 'house/raise Metroids on ZDR' (dread; a Wikitroid snippet via search) can both be true, so neither was changed.\n- Who released the X from Elun. Sources disagree: Metroid Wiki's Quiet Robe page and Wikipedia's plot say Samus; Wikipedia's character list says Raven Beak. The x-parasite entry keeps 'Adam concluded Raven Beak released them' as an attributed line, and the dread entries stay neutral.\n- Phaaze. Metroid Wiki and Wikipedia describe its destruction as a consequence, not a goal, so the Fusion line 'the first [world] she deliberately set on that course' stands.\n- Original Metroid II counts. The 16 Gamma and 4 Omega figures check out on Metroid Wiki.\n- Gunship 'moved on its own'. The transcript supports this ('the ship moved on its own, guided by someone's hands').\n- B.O.X. order. Super Missile download first, then the Data Room wrecked, per Metroid Wiki's B.O.X. page; consistent across entries.\n\nRemaining shared keys:\n- After this pass, no primary key in the editable files sits on more than two entries except 'hatchling', which stays on The baby Metroid because that is its subject.\n- Two-entry overlaps were left in place because both entries cover the subject: Quarantine Bay, Omega Metroid, Restricted Laboratory, Sector Zero, Elun, Raven Beak X, Metroid DNA, and the Phazon-strain names.\n- Bare 'Adam'/'ADAM', 'Anthony', 'Princess' and 'Nightmare' all sit on entries that require a secondary key, which the key rules allow.\n\nNot acted on:\n- The Adam Malkovich entry's phrase 'styled General in Federation records' gives an unverified source for the rank. Metroid Wiki says only 'General' in its lead.\n- Item reward numbers in the X biology entry ('ten units of energy', etc.) are gameplay-flavoured, but none of the banned words appear, so they were kept."
+ }
+}
